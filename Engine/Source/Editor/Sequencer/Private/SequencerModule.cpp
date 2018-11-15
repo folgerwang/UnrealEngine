@@ -139,9 +139,44 @@ public:
 		PropertyAnimators.Remove(Key);
 	}
 
-	virtual bool CanAnimateProperty(FAnimatedPropertyKey Key) override
+	virtual bool CanAnimateProperty(UProperty* Property) override
 	{
-		return PropertyAnimators.Contains(Key);
+		if (PropertyAnimators.Contains(FAnimatedPropertyKey::FromProperty(Property)))
+		{
+			return true;
+		}
+
+		UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(Property);
+
+		// Check each level of the property hierarchy
+		UClass* PropertyType = Property->GetClass();
+		while (PropertyType && PropertyType != UProperty::StaticClass())
+		{
+			FAnimatedPropertyKey Key = FAnimatedPropertyKey::FromPropertyTypeName(PropertyType->GetFName());
+
+			// For object properties, check each parent type of the object (ie, so a track that animates UBaseClass ptrs can be used with a UDerivedClass property)
+			UClass* ClassType = (ObjectProperty && ObjectProperty->PropertyClass) ? ObjectProperty->PropertyClass->GetSuperClass() : nullptr;
+			while (ClassType)
+			{
+				Key.ObjectTypeName = ClassType->GetFName();
+				if (PropertyAnimators.Contains(Key))
+				{
+					return true;
+				}
+				ClassType = ClassType->GetSuperClass();
+			}
+
+			Key.ObjectTypeName = NAME_None;
+			if (PropertyAnimators.Contains(Key))
+			{
+				return true;
+			}
+
+			// Look at the property's super class
+			PropertyType = PropertyType->GetSuperClass();
+		}
+
+		return false;
 	}
 
 	virtual TSharedPtr<FExtensibilityManager> GetObjectBindingContextMenuExtensibilityManager() const override { return ObjectBindingContextMenuExtensibilityManager; }

@@ -46,7 +46,7 @@ public:
 	void OnEndReached();
 
 	/** Called by the delegate whenever the player item status changes. */
-	void OnStatusNotification(AVPlayerItemStatus Status);
+	void OnStatusNotification();
 
 public:
 

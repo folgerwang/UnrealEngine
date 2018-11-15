@@ -233,36 +233,36 @@ void FSceneViewport::UpdateModifierKeys( const FPointerEvent& InMouseEvent )
 	KeyStateMap.Add(EKeys::RightCommand, InMouseEvent.IsRightCommandDown());
 }
 
-void FSceneViewport::ApplyModifierKeys( const FModifierKeysState& InKeysState )
+void FSceneViewport::ApplyModifierKeys(const FModifierKeysState& InKeysState)
 {
-	if( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue )
+	if (ViewportClient && GetSizeXY() != FIntPoint::ZeroValue)
 	{
 		// Switch to the viewport clients world before processing input
-		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
+		FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-		if ( InKeysState.IsLeftAltDown() )
+		if (InKeysState.IsLeftAltDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftAlt, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftAlt, IE_Pressed));
 		}
-		if ( InKeysState.IsRightAltDown() )
+		if (InKeysState.IsRightAltDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightAlt, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightAlt, IE_Pressed));
 		}
-		if ( InKeysState.IsLeftControlDown() )
+		if (InKeysState.IsLeftControlDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftControl, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftControl, IE_Pressed));
 		}
-		if ( InKeysState.IsRightControlDown() )
+		if (InKeysState.IsRightControlDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightControl, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightControl, IE_Pressed));
 		}
-		if ( InKeysState.IsLeftShiftDown() )
+		if (InKeysState.IsLeftShiftDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftShift, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftShift, IE_Pressed));
 		}
-		if ( InKeysState.IsRightShiftDown() )
+		if (InKeysState.IsRightShiftDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightShift, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightShift, IE_Pressed));
 		}
 	}
 }
@@ -460,7 +460,7 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 			ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown ||
 			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringRightMouseDown && InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton);
 
-		// Process primary input if we aren't currently a game viewport, we already have capture, or we are permanent capture that dosn't consume the mouse down.
+		// Process primary input if we aren't currently a game viewport, we already have capture, or we are permanent capture that doesn't consume the mouse down.
 		const bool bProcessInputPrimary = !IsCurrentlyGameViewport() || HasMouseCapture() || (ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
 
 		const bool bAnyMenuWasVisible = FSlateApplication::Get().AnyMenusVisible();
@@ -468,7 +468,7 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 		// Process the mouse event
 		if (bTemporaryCapture || bProcessInputPrimary)
 		{
-			if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Pressed))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Pressed, 1.0f, InMouseEvent.IsTouchEvent())))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}
@@ -563,7 +563,7 @@ FReply FSceneViewport::OnMouseButtonUp( const FGeometry& InGeometry, const FPoin
 	
 	if( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue )
 	{
-		if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Released))
+		if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Released, 1.0f, InMouseEvent.IsTouchEvent())))
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -683,8 +683,8 @@ FReply FSceneViewport::OnMouseWheel( const FGeometry& InGeometry, const FPointer
 		FKey const ViewportClientKey = InMouseEvent.GetWheelDelta() < 0 ? EKeys::MouseScrollDown : EKeys::MouseScrollUp;
 
 		// Pressed and released should be sent
-		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Pressed);
-		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Released);
+		ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Pressed, 1.0f, InMouseEvent.IsTouchEvent()));
+		ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Released, 1.0f, InMouseEvent.IsTouchEvent()));
 		ViewportClient->InputAxis(this, InMouseEvent.GetUserIndex(), EKeys::MouseWheelAxis, InMouseEvent.GetWheelDelta(), FApp::GetDeltaTime());
 	}
 	return CurrentReplyState;
@@ -710,7 +710,7 @@ FReply FSceneViewport::OnMouseButtonDoubleClick( const FGeometry& InGeometry, co
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_DoubleClick))
+		if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_DoubleClick, 1.0f, InMouseEvent.IsTouchEvent())))
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -959,7 +959,7 @@ FReply FSceneViewport::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& 
 			// Switch to the viewport clients world before processing input
 			FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-			if (!ViewportClient->InputKey(this, InKeyEvent.GetUserIndex(), Key, InKeyEvent.IsRepeat() ? IE_Repeat : IE_Pressed, 1.0f, Key.IsGamepadKey()))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InKeyEvent.GetUserIndex(), Key, InKeyEvent.IsRepeat() ? IE_Repeat : IE_Pressed, 1.0f, false)))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}
@@ -987,7 +987,7 @@ FReply FSceneViewport::OnKeyUp( const FGeometry& InGeometry, const FKeyEvent& In
 			// Switch to the viewport clients world before processing input
 			FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-			if (!ViewportClient->InputKey(this, InKeyEvent.GetUserIndex(), Key, IE_Released, 1.0f, Key.IsGamepadKey()))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InKeyEvent.GetUserIndex(), Key, IE_Released, 1.0f, false)))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}

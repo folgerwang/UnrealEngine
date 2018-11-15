@@ -146,7 +146,7 @@ static void ConformNativeComponents(UBlueprint* Blueprint)
 //////////////////////////////////////////////////////////////////////////
 // FBPVariableDescription
 
-int32 FBPVariableDescription::FindMetaDataEntryIndexForKey(const FName& Key) const
+int32 FBPVariableDescription::FindMetaDataEntryIndexForKey(const FName Key) const
 {
 	for(int32 i=0; i<MetaDataArray.Num(); i++)
 	{
@@ -158,33 +158,33 @@ int32 FBPVariableDescription::FindMetaDataEntryIndexForKey(const FName& Key) con
 	return INDEX_NONE;
 }
 
-bool FBPVariableDescription::HasMetaData(const FName& Key) const
+bool FBPVariableDescription::HasMetaData(const FName Key) const
 {
 	return FindMetaDataEntryIndexForKey(Key) != INDEX_NONE;
 }
 
 /** Gets a metadata value on the variable; asserts if the value isn't present.  Check for validiy using FindMetaDataEntryIndexForKey. */
-FString FBPVariableDescription::GetMetaData(const FName& Key) const
+const FString& FBPVariableDescription::GetMetaData(const FName Key) const
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	check(EntryIndex != INDEX_NONE);
 	return MetaDataArray[EntryIndex].DataValue;
 }
 
-void FBPVariableDescription::SetMetaData(const FName& Key, const FString& Value)
+void FBPVariableDescription::SetMetaData(const FName Key, FString Value)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)
 	{
-		MetaDataArray[EntryIndex].DataValue = Value;
+		MetaDataArray[EntryIndex].DataValue = MoveTemp(Value);
 	}
 	else
 	{
-		MetaDataArray.Add( FBPVariableMetaDataEntry(Key, Value) );
+		MetaDataArray.Emplace( FBPVariableMetaDataEntry(Key, MoveTemp(Value)) );
 	}
 }
 
-void FBPVariableDescription::RemoveMetaData(const FName& Key)
+void FBPVariableDescription::RemoveMetaData(const FName Key)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)
@@ -1330,10 +1330,35 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 			}
 		}
 
-		// Only cook component data if the setting is enabled and this is an Actor-based Blueprint class.
-		if (GetDefault<UCookerSettings>()->bCookBlueprintComponentTemplateData)
+		auto ShouldCookBlueprintComponentTemplateData = [](UBlueprintGeneratedClass* InBPGClass) -> bool
 		{
-			if (UBlueprintGeneratedClass* BPGClass = CastChecked<UBlueprintGeneratedClass>(*GeneratedClass))
+			// Check to see if we should cook component data for the given class type.
+			bool bResult = false;
+			switch (GetDefault<UCookerSettings>()->BlueprintComponentDataCookingMethod)
+			{
+			case EBlueprintComponentDataCookingMethod::EnabledBlueprintsOnly:
+				if (AActor* CDO = Cast<AActor>(InBPGClass->GetDefaultObject(false)))
+				{
+					bResult = CDO->ShouldCookOptimizedBPComponentData();
+				}
+				break;
+
+			case EBlueprintComponentDataCookingMethod::AllBlueprints:
+				bResult = true;
+				break;
+
+			case EBlueprintComponentDataCookingMethod::Disabled:
+			default:
+				break;
+			}
+
+			return bResult;
+		};
+
+		// Only cook component data if the setting is enabled and this is an Actor-based Blueprint class.
+		if (UBlueprintGeneratedClass* BPGClass = CastChecked<UBlueprintGeneratedClass>(*GeneratedClass))
+		{
+			if (ShouldCookBlueprintComponentTemplateData(BPGClass))
 			{
 				// Cook all overridden SCS component node templates inherited from the parent class hierarchy.
 				if (UInheritableComponentHandler* TargetInheritableComponentHandler = BPGClass->GetInheritableComponentHandler())
@@ -1377,6 +1402,9 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 						++NumCookedComponents;
 					}
 				}
+
+				// Flag that the BP class has cooked data to support fast path component instancing.
+				BPGClass->bHasCookedComponentInstancingData = true;
 			}
 		}
 
@@ -1728,12 +1756,12 @@ bool UBlueprint::ChangeOwnerOfTemplates()
 			{
 				if(Template->GetOuter() == this)
 				{
-					const FString OldTemplateName = Template->GetName();
-					ensure(!OldTemplateName.EndsWith(TEXT("_Template")));
+					const FName OldTemplateName = Template->GetFName();
+					ensure(!OldTemplateName.ToString().EndsWith(UTimelineTemplate::TemplatePostfix));
 					const bool bRenamed = Template->Rename(*UTimelineTemplate::TimelineVariableNameToTemplateName(Template->GetFName()), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
 					ensure(bRenamed);
 					bIsStillStale |= !bRenamed;
-					ensure(OldTemplateName == UTimelineTemplate::TimelineTemplateNameToVariableName(Template->GetFName()));
+					ensure(OldTemplateName == Template->GetVariableName());
 					bMigratedOwner = true;
 				}
 				Template->GetAllCurves(Curves);

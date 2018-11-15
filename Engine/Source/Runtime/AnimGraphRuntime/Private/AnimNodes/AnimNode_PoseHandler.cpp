@@ -68,7 +68,7 @@ void FAnimNode_PoseHandler::RebuildPoseList(const FBoneContainer& InBoneContaine
 
 void FAnimNode_PoseHandler::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	// update pose asset if it's not valid
 	if (CurrentPoseAsset.IsValid() == false || CurrentPoseAsset.Get() != PoseAsset)

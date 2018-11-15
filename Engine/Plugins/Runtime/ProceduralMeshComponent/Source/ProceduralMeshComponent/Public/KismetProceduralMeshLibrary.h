@@ -53,6 +53,31 @@ class PROCEDURALMESHCOMPONENT_API UKismetProceduralMeshLibrary : public UBluepri
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
 	static void CreateGridMeshTriangles(int32 NumX, int32 NumY, bool bWinding, TArray<int32>& Triangles);
 
+	/**
+	*	Generate a vertex buffer, index buffer and UVs for a tessellated grid mesh.
+	*	@param	NumX			Number of vertices in X direction (must be >= 2)
+	*	@param	NumY			Number of vertices in y direction (must be >= 2)
+	*	@out	Triangles		Output index buffer
+	*	@out	Vertices		Output vertex buffer
+	*	@out	UVs				Out UVs
+	*	@param	GridSpacing		Size of each quad in world units
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
+		static void CreateGridMeshWelded(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, float GridSpacing = 16.0f);
+
+	/**
+	*	Generate a vertex buffer, index buffer and UVs for a grid mesh where each quad is split, with standard 0-1 UVs on UV0 and point sampled texel center UVs for UV1.
+	*	@param	NumX			Number of vertices in X direction (must be >= 2)
+	*	@param	NumY			Number of vertices in y direction (must be >= 2)
+	*	@out	Triangles		Output index buffer
+	*	@out	Vertices		Output vertex buffer
+	*	@out	UVs				Out UVs
+	*	@out	UV1s			Out UV1s
+	*	@param	GridSpacing		Size of each quad in world units
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
+		static void CreateGridMeshSplit(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, TArray<FVector2D>& UV1s, float GridSpacing = 16.0f);
+
 	/** Grab geometry data from a StaticMesh asset. */
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
 	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FProcMeshTangent>& Tangents);

@@ -31,7 +31,7 @@ FNetworkProfiler GNetworkProfiler;
 /** Magic value, determining that file is a network profiler file.				*/
 #define NETWORK_PROFILER_MAGIC						0x1DBF348C
 /** Version of memory profiler. Incremented on serialization changes.			*/
-#define NETWORK_PROFILER_VERSION					10
+#define NETWORK_PROFILER_VERSION					11
 
 static const FString UnknownName("UnknownName");
 
@@ -416,8 +416,8 @@ void FNetworkProfiler::TrackSendBunch( FOutBunch* OutBunch, uint16 NumBits, UNet
 		(*FileWriter) << Type;
 		uint16 ChannelIndex = OutBunch->ChIndex;
 		(*FileWriter) << ChannelIndex;
-		uint8 ChannelType = OutBunch->ChType;
-		(*FileWriter) << ChannelType;
+		uint32 NameTableIndex = GetNameTableIndex(OutBunch->ChName.ToString());
+		(*FileWriter).SerializeIntPacked(NameTableIndex);
 		(*FileWriter) << NumBits;
 	}
 }
@@ -427,7 +427,7 @@ void FNetworkProfiler::PushSendBunch( UNetConnection* Connection, FOutBunch* Out
 	if ( bIsTrackingEnabled )
 	{
 		SCOPE_LOCK_REF(CriticalSection);
-		OutgoingBunches.FindOrAdd(Connection).Emplace(OutBunch->ChIndex, OutBunch->ChType, NumHeaderBits, NumPayloadBits);
+		OutgoingBunches.FindOrAdd(Connection).Emplace(OutBunch->ChIndex, GetNameTableIndex(OutBunch->ChName.ToString()), NumHeaderBits, NumPayloadBits);
 	}
 }
 
@@ -453,13 +453,12 @@ void FNetworkProfiler::FlushOutgoingBunches( UNetConnection* Connection )
 
 		if ( OutgoingBunches.Contains( Connection ) )
 		{
-			
 			for ( FSendBunchInfo& BunchInfo : OutgoingBunches[Connection] )
 			{
 				uint8 Type = NPTYPE_SendBunch;
 				(*FileWriter) << Type;
 				(*FileWriter) << BunchInfo.ChannelIndex;
-				(*FileWriter) << BunchInfo.ChannelType;
+				(*FileWriter).SerializeIntPacked(BunchInfo.ChannelTypeNameIndex);
 				(*FileWriter) << BunchInfo.NumHeaderBits;
 				(*FileWriter) << BunchInfo.NumPayloadBits;
 			}

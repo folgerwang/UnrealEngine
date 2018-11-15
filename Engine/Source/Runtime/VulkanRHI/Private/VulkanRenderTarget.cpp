@@ -514,7 +514,7 @@ void FVulkanCommandListContext::RHISetRenderTargets(uint32 NumSimultaneousRender
 // Find out whether we can re-use current renderpass instead of starting new one
 static bool IsCompatibleRenderPass(FVulkanRenderPass* CurrentRenderPass, FVulkanRenderPass* NewRenderPass)
 {
-	if (CurrentRenderPass == nullptr)
+	if (CurrentRenderPass == nullptr || NewRenderPass == nullptr)
 	{
 		return false;
 	}

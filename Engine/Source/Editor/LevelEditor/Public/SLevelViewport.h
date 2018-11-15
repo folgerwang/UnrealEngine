@@ -372,7 +372,7 @@ public:
 	 */
 	void OnClearBookmark( int32 BookmarkIndex );
 
-	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearBookmark)")
+	UE_DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearBookmark)")
 	void OnClearBookMark( int32 BookmarkIndex );
 
 	/**
@@ -380,7 +380,7 @@ public:
 	 */
 	void OnClearAllBookmarks();
 
-	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearAllBookmarks)")
+	UE_DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearAllBookmarks)")
 	void OnClearAllBookMarks();
 
 	/**

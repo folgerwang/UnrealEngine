@@ -232,5 +232,6 @@ TSharedRef<IPropertyTypeCustomization> FPerPlatformPropertyCustomization<PerPlat
 
 template class FPerPlatformPropertyCustomization<FPerPlatformInt>;
 template class FPerPlatformPropertyCustomization<FPerPlatformFloat>;
+template class FPerPlatformPropertyCustomization<FPerPlatformBool>;
 
 #undef LOCTEXT_NAMESPACE

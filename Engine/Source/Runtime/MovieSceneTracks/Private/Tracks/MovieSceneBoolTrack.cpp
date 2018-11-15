@@ -5,6 +5,11 @@
 #include "Sections/MovieSceneBoolSection.h"
 #include "Evaluation/MovieScenePropertyTemplates.h"
 
+bool UMovieSceneBoolTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneBoolTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);

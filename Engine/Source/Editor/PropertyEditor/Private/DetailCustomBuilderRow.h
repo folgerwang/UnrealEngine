@@ -17,12 +17,14 @@ class FDetailCustomBuilderRow : public TSharedFromThis<FDetailCustomBuilderRow>
 public:
 	FDetailCustomBuilderRow( TSharedRef<IDetailCustomNodeBuilder> CustomBuilder );
 
+
 	void Tick( float DeltaTime );
 	bool RequiresTick() const;
 	bool HasColumns() const;
 	bool ShowOnlyChildren() const;
 	void OnItemNodeInitialized( TSharedRef<FDetailItemNode> InTreeNode, TSharedRef<FDetailCategoryImpl> InParentCategory, const TAttribute<bool>& InIsParentEnabled );
 	FName GetCustomBuilderName() const;
+	TSharedPtr<IPropertyHandle> GetPropertyHandle() const;
 	void OnGenerateChildren( FDetailNodeList& OutChildren );
 	bool IsInitiallyCollapsed() const;
 	FDetailWidgetRow GetWidgetRow();

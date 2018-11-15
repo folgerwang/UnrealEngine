@@ -14,4 +14,11 @@ class UWidgetGraphSchema : public UEdGraphSchema_K2
 
 public:
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const override;
+
+private:
+	void ConvertAnimationEventNodes(UEdGraph* Graph) const;
+
+	void ConvertAddAnimationDelegate(UEdGraph* Graph) const;
+	void ConvertRemoveAnimationDelegate(UEdGraph* Graph) const;
+	void ConvertClearAnimationDelegate(UEdGraph* Graph) const;
 };

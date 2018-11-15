@@ -13,6 +13,11 @@ UMovieSceneVectorTrack::UMovieSceneVectorTrack( const FObjectInitializer& Object
 }
 
 
+bool UMovieSceneVectorTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneVectorSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneVectorTrack::CreateNewSection()
 {
 	UMovieSceneVectorSection* NewSection = NewObject<UMovieSceneVectorSection>(this, NAME_None, RF_Transactional);

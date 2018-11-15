@@ -85,6 +85,25 @@ static bool DomainLessThan(const FString& DomainA, const FString& DomainB)
 	}
 }
 
+bool FSslCertificateManager::IsDomainPinned(const FString& Domain)
+{
+	bool bWasDomainFound = false;
+
+	const TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>* PinnedKeys = nullptr;
+	for (const TPair<FString, TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>>& PinnedKeyPair : PinnedPublicKeys)
+	{
+		const FString& PinnedDomain = PinnedKeyPair.Key;
+		if ((PinnedDomain[0] == TEXT('.') && Domain.EndsWith(PinnedDomain))
+			|| Domain == PinnedDomain)
+		{
+			bWasDomainFound = true;
+			break;
+		}
+	}
+
+	return bWasDomainFound;
+}
+
 void FSslCertificateManager::SetPinnedPublicKeys(const FString& Domain, const FString& PinnedKeyDigests)
 {
 	if (Domain.Len() == 0)

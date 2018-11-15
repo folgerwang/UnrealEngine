@@ -1133,7 +1133,7 @@ void FAnimationViewportClient::DrawBonesFromTransforms(TArray<FTransform>& Trans
 			BoneColours[BoneIndex] = (ParentIndex >= 0) ? BoneColour : RootBoneColour;
 		}
 
-		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours);
+		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius);
 	}
 }
 
@@ -1167,7 +1167,7 @@ void FAnimationViewportClient::DrawBonesFromCompactPose(const FCompactHeapPose& 
 
 		if (MeshComponent && MeshComponent->SkeletalMesh)
 		{
-			DrawBones(MeshComponent->GetDrawBoneIndices(), MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, 1.0f, true);
+			DrawBones(MeshComponent->GetDrawBoneIndices(), MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius, 1.0f, true);
 		}
 
 	}
@@ -1261,11 +1261,11 @@ void FAnimationViewportClient::DrawMeshBones(UDebugSkelMeshComponent * MeshCompo
 			}
 		}
 
-		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours);
+		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius);
 	}
 }
 
-void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
+void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float BoundRadius, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
 {
 	TArray<int32> SelectedBones = InSelectedBones;
 	if(InSelectedBones.Num() > 0 && GetBoneDrawMode() == EBoneDrawMode::SelectedAndParents)
@@ -1282,6 +1282,8 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 		}
 	}
 
+	// we may not want to axis to be too big, so clamp at 1 % of bound
+	const float MaxDrawRadius = BoundRadius * 0.01f;
 	// we could cache parent bones as we calculate, but right now I'm not worried about perf issue of this
 	for ( int32 Index=0; Index<RequiredBones.Num(); ++Index )
 	{
@@ -1308,10 +1310,11 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 			}
 
 			const float BoneLength = (End - Start).Size();
-			const float AxisLength = FMath::Max(BoneLength * 0.1f, 1.f);
+			// clamp by bound, we don't want too long or big
+			const float Radius = FMath::Clamp(BoneLength * 0.05f, 0.1f, MaxDrawRadius);
 			//Render Sphere for bone end point and a cone between it and its parent.
 			PDI->SetHitProxy(new HPersonaBoneProxy(RefSkeleton.GetBoneName(BoneIndex)));
-			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground, AxisLength);
+			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground, Radius);
 			PDI->SetHitProxy(NULL);
 
 			// draw gizmo
@@ -1320,7 +1323,7 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 				)
 			{
 				// we want to say 10 % of bone length is good
-				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground, 0.f , AxisLength);
+				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground, 0.f , Radius);
 			}
 		}
 	}
@@ -1387,7 +1390,7 @@ void FAnimationViewportClient::DrawMeshSubsetBones(const UDebugSkelMeshComponent
 			}
 		}
 
-		DrawBones(RequiredBones, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, 0.3f);
+		DrawBones(RequiredBones, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius, 0.3f);
 	}
 }
 

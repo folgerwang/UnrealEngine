@@ -677,7 +677,7 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 	// Peek for the SavePackage command and generate thumbnails for the package if we need to
 	// NOTE: The actual package saving happens in the UEditorEngine::Exec_Obj, but we do the 
 	//		 thumbnail generation here in UnrealEd
-	if( FParse::Command(&Str,TEXT("OBJ")) )
+	if( FParse::Command(&Str,TEXT("OBJ")) && !IsRunningCommandlet() )
 	{
 		Pkg = GeneratePackageThumbnailsIfRequired( Str, Ar, ThumbNamesToUnload );
 	}

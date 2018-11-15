@@ -238,7 +238,7 @@ bool FSlateTextBlockLayout::IsStyleUpToDate(const FTextBlockStyle& NewStyle) con
 {
 	const FTextBlockStyle& CurrentStyle = TextLayout->GetDefaultTextStyle();
 
-	return (CurrentStyle.Font == NewStyle.Font)
+	return (CurrentStyle.Font.IsIdenticalTo(NewStyle.Font)) 
 		&& (CurrentStyle.ColorAndOpacity == NewStyle.ColorAndOpacity)
 		&& (CurrentStyle.ShadowOffset == NewStyle.ShadowOffset)
 		&& (CurrentStyle.ShadowColorAndOpacity == NewStyle.ShadowColorAndOpacity)

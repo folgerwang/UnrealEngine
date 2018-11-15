@@ -937,7 +937,7 @@ void FOnlineIdentitySpec::Define()
 						{
 							OnlineIdentity->RevokeAuthToken(*UserIdToCheck, FOnRevokeAuthTokenCompleteDelegate::CreateLambda([this, TestDone, SubsystemType](const FUniqueNetId& RevokeAuthTokenUserId, const FOnlineError& RevokeAuthTokenError)
 							{
-								TestEqual("Verify that RevokeAuthTokenError.bSucceeded returns as: True", RevokeAuthTokenError.bSucceeded, true);
+								TestEqual("Verify that RevokeAuthTokenError.bSucceeded returns as: True", RevokeAuthTokenError.WasSuccessful(), true);
 								TestDone.Execute();
 							}));
 						}
@@ -958,7 +958,7 @@ void FOnlineIdentitySpec::Define()
 						{
 							OnlineIdentity->RevokeAuthToken(*InvalidUserIdToCheck, FOnRevokeAuthTokenCompleteDelegate::CreateLambda([this, SubsystemType, TestDone](const FUniqueNetId& RevokeAuthTokenUserId, const FOnlineError& RevokeAuthTokenError)
 							{
-								TestEqual("Verify that RevokeAuthTokenError.bSucceeded returns as: False", RevokeAuthTokenError.bSucceeded, false);
+								TestEqual("Verify that RevokeAuthTokenError.bSucceeded returns as: False", RevokeAuthTokenError.WasSuccessful(), false);
 								TestDone.Execute();
 							}));
 						}

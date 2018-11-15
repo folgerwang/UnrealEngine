@@ -67,7 +67,6 @@ public:
 	EJson Type;
 
 	static bool CompareEqual(const FJsonValue& Lhs, const FJsonValue& Rhs);
-	bool operator==(const FJsonValue& Rhs) const { return CompareEqual(*this, Rhs); }
 
 protected:
 
@@ -81,6 +80,16 @@ protected:
 
 	void ErrorMessage(const FString& InType) const;
 };
+
+inline bool operator==(const FJsonValue& Lhs, const FJsonValue& Rhs)
+{
+	return FJsonValue::CompareEqual(Lhs, Rhs);
+}
+
+inline bool operator!=(const FJsonValue& Lhs, const FJsonValue& Rhs)
+{
+	return !FJsonValue::CompareEqual(Lhs, Rhs);
+}
 
 
 /** A Json String Value. */

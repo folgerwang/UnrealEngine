@@ -491,7 +491,7 @@ public:
 	 * @param Filename	Filename, with or without path information, to check.
 	 * @param OutError	If an error occurs, this is the reason why
 	 */
-	DEPRECATED(4.18, "Call FFileHelper::IsFilenameValidForSaving instead")
+	UE_DEPRECATED(4.18, "Call FFileHelper::IsFilenameValidForSaving instead")
 	UNREALED_API static bool IsFilenameValidForSaving(const FString& Filename, FText& OutError);
 
 	/** Loads a simple example map */

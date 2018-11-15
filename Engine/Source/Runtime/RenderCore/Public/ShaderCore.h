@@ -128,6 +128,11 @@ struct FShaderTarget
 	{
 		return (EShaderFrequency)Frequency;
 	}
+
+	friend inline uint32 GetTypeHash(FShaderTarget Target)
+	{
+		return ((Target.Frequency << SP_NumBits) | Target.Platform);
+	}
 };
 
 enum ECompilerFlags

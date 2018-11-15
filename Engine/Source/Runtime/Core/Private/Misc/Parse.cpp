@@ -369,7 +369,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 		}
 		else if (*++Buffer == TCHAR('\\')) // escaped backslash "\\"
 		{
-			Value += TEXT("\\");
+			Value += TCHAR('\\');
 			++Buffer;
 		}
 		else if (*Buffer == TCHAR('"')) // escaped double quote "\""
@@ -407,7 +407,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 
 			Value += (TCHAR)FCString::Strtoi(*OctSequence, nullptr, 8);
 		}
-		else if (*Buffer == TCHAR('x')) // hex sequence (\xBEEF)
+		else if (*Buffer == TCHAR('x') && FChar::IsHexDigit(*(Buffer + 1))) // hex sequence (\xBEEF)
 		{
 			++Buffer;
 
@@ -419,7 +419,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 
 			Value += (TCHAR)FCString::Strtoi(*HexSequence, nullptr, 16);
 		}
-		else if (*Buffer == TCHAR('u')) // UTF-16 sequence (\u1234)
+		else if (*Buffer == TCHAR('u') && FChar::IsHexDigit(*(Buffer + 1))) // UTF-16 sequence (\u1234)
 		{
 			++Buffer;
 
@@ -437,7 +437,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 				Value += MoveTemp(UnicodeString);
 			}
 		}
-		else if (*Buffer == TCHAR('U')) // UTF-32 sequence (\U12345678)
+		else if (*Buffer == TCHAR('U') && FChar::IsHexDigit(*(Buffer + 1))) // UTF-32 sequence (\U12345678)
 		{
 			++Buffer;
 
@@ -457,7 +457,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 		}
 		else // unhandled escape sequence
 		{
-			Value += TEXT("\\");
+			Value += TCHAR('\\');
 			Value += *Buffer++;
 		}
 	}

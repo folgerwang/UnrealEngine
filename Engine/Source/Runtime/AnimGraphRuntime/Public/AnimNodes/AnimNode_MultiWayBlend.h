@@ -22,14 +22,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	TArray<float> DesiredAlphas;
 
+private:
+	TArray<float> CachedAlphas;
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
+	FInputScaleBias AlphaScaleBias;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bAdditiveNode;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bNormalizeAlpha;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
-	FInputScaleBias AlphaScaleBias;
 
 public:
 	FAnimNode_MultiWayBlend()
@@ -80,7 +84,5 @@ private:
 
 	// process new weights and then return out
 	void UpdateCachedAlphas();
-
-	TArray<float> CachedAlphas;
 };
 

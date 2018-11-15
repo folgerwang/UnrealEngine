@@ -822,7 +822,6 @@ RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform)
 static ERHIFeatureLevel::Type GRHIMobilePreviewFeatureLevel = ERHIFeatureLevel::Num;
 RHI_API void RHISetMobilePreviewFeatureLevel(ERHIFeatureLevel::Type MobilePreviewFeatureLevel)
 {
-	check(MobilePreviewFeatureLevel == ERHIFeatureLevel::ES2 || MobilePreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
 	check(GRHIMobilePreviewFeatureLevel == ERHIFeatureLevel::Num);
 	check(!GIsEditor);
 	GRHIMobilePreviewFeatureLevel = MobilePreviewFeatureLevel;

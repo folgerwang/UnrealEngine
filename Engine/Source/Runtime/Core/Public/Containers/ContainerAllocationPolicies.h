@@ -55,14 +55,25 @@ FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAlloca
 
 FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
+#if !defined(AGGRESSIVE_MEMORY_SAVING)
+	#error "AGGRESSIVE_MEMORY_SAVING must be defined"
+#endif
+#if AGGRESSIVE_MEMORY_SAVING
+	const SIZE_T FirstGrow = 1;
+	const SIZE_T ConstantGrow = 0;
+#else
+	const SIZE_T FirstGrow = 4;
+	const SIZE_T ConstantGrow = 16;
+#endif
+
 	int32 Retval;
 	checkSlow(NumElements > NumAllocatedElements && NumElements > 0);
 
-	SIZE_T Grow = 4; // this is the amount for the first alloc
+	SIZE_T Grow = FirstGrow; // this is the amount for the first alloc
 	if (NumAllocatedElements || SIZE_T(NumElements) > Grow)
 	{
 		// Allocate slack for the array proportional to its size.
-		Grow = SIZE_T(NumElements) + 3 * SIZE_T(NumElements) / 8 + 16;
+		Grow = SIZE_T(NumElements) + 3 * SIZE_T(NumElements) / 8 + ConstantGrow;
 	}
 	if (bAllowQuantize)
 	{

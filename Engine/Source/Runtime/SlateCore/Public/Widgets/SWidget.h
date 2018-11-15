@@ -217,7 +217,7 @@ class IToolTip;
  * 
  * SLATE_ATTRIBUTE(ECheckBoxState, IsChecked)
  *
- * DEPRECATED(4.xx, "Please use IsChecked(TAttribute<ECheckBoxState>)")
+ * UE_DEPRECATED(4.xx, "Please use IsChecked(TAttribute<ECheckBoxState>)")
  * FArguments& IsChecked(bool InIsChecked)
  * {
  * 		_IsChecked = InIsChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -347,7 +347,7 @@ public:
 	virtual void OnFocusLost(const FFocusEvent& InFocusEvent);
 
 	/** Called whenever a focus path is changing on all the widgets within the old and new focus paths */
-	DEPRECATED(4.13, "Please use the newer version of OnFocusChanging that takes a FocusEvent")
+	UE_DEPRECATED(4.13, "Please use the newer version of OnFocusChanging that takes a FocusEvent")
 	virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath);
 
 	/** Called whenever a focus path is changing on all the widgets within the old and new focus paths */
@@ -684,7 +684,7 @@ public:
 	//
 
 	/** DEPRECATED version of SlatePrepass that assumes no scaling beyond AppScale*/
-	//DEPRECATED(4.20, "SlatePrepass requires a layout scale to be accurate.")
+	//UE_DEPRECATED(4.20, "SlatePrepass requires a layout scale to be accurate.")
 	void SlatePrepass();
 
 	/**
@@ -800,7 +800,7 @@ public:
 	}
 
 	/** What is the Child's scale relative to this widget. */
-	DEPRECATED(4.15, "This version is no longer used, please use the new version which also provides the incoming prepass scale, in case that has bearing on the relative layout scale.")
+	UE_DEPRECATED(4.15, "This version is no longer used, please use the new version which also provides the incoming prepass scale, in case that has bearing on the relative layout scale.")
 	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const { return 1.0f; }
 
 	/** What is the Child's scale relative to this widget. */
@@ -885,7 +885,7 @@ public:
 
 protected:
 	/** Called when this widget had captured the mouse, but that capture has been revoked for some reason. */
-	DEPRECATED(4.20, "Please use OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
+	UE_DEPRECATED(4.20, "Please use OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
 	void OnMouseCaptureLost() { }
 
 public:
@@ -1467,7 +1467,7 @@ private:
 
 protected:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	DEPRECATED(4.21, "Setting bCanTick on a widget directly is deprecated and will not function.  Call SetCanTick instead")
+	UE_DEPRECATED(4.21, "Setting bCanTick on a widget directly is deprecated and will not function.  Call SetCanTick instead")
 	uint8 bCanTick : 1;
 #endif
 

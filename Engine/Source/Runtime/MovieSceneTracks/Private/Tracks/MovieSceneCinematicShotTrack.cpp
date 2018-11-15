@@ -55,6 +55,11 @@ void UMovieSceneCinematicShotTrack::AddSection(UMovieSceneSection& Section)
 	}
 }
 
+bool UMovieSceneCinematicShotTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCinematicShotSection::StaticClass();
+}
+
 
 UMovieSceneSection* UMovieSceneCinematicShotTrack::CreateNewSection()
 {

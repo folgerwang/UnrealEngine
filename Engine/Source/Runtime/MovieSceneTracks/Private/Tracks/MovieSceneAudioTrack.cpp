@@ -36,6 +36,10 @@ bool UMovieSceneAudioTrack::SupportsMultipleRows() const
 	return true;
 }
 
+bool UMovieSceneAudioTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneAudioSection::StaticClass();
+}
 
 void UMovieSceneAudioTrack::RemoveAllAnimationData()
 {

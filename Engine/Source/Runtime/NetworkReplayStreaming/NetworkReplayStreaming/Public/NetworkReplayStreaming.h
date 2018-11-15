@@ -227,11 +227,29 @@ static FORCEINLINE FStartStreamingCallback UpgradeStartStreamingDelegate(const F
 /** End StartStreaming Types */
 
 /** Start Goto Types */
+
+//! Information about a checkpoint that was loaded as a result of a Goto Request.
+struct FReplayCheckpointInfo
+{
+	//! Indicates an invalid checkpoint, or a bad request.
+	static constexpr uint32 INVALID_CHECKPOINT = -2;
+
+	//! Indicates that no checkpoint was loaded as a part of the request.
+	//! This can happen if the requested time was before any available checkpoints.
+	static constexpr uint32 NO_CHECKPOINT = -1;
+
+	uint32 CheckpointStartTime = INVALID_CHECKPOINT;
+	uint32 CheckpointIndex = INVALID_CHECKPOINT;
+};
+
 struct FGotoResult : public FStreamingResultBase
 {
 	//! Amount of extra time that the stream may need to be fast forwarded in order to reach
 	//! the exact time specified (relative to the latest checkpoint before the specified time).
 	int64 ExtraTimeMS = -1;
+
+	//! Info about the checkpoint that was loaded as a result of the request.
+	FReplayCheckpointInfo CheckpointInfo;
 };
 
 DECLARE_DELEGATE_OneParam(FGotoCallback, const FGotoResult&);
@@ -441,8 +459,6 @@ class INetworkReplayStreamer
 public:
 	virtual ~INetworkReplayStreamer() {}
 
-	DEPRECATED(4.20, "Please use the version of StartStreaming that accepts a FStartStreamingCallback delegate.")
-	virtual void StartStreaming(const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FOnStreamReadyDelegate& Delegate) { StartStreaming(CustomName, FriendlyName, UserNames, bRecord, ReplayVersion, UpgradeStartStreamingDelegate(Delegate)); }
 	virtual void StartStreaming(const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FStartStreamingCallback& Delegate) = 0;
 	virtual void StartStreaming(const FString& CustomName, const FString& FriendlyName, const TArray< int32 >& UserIndices, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FStartStreamingCallback& Delegate) = 0;
 
@@ -452,12 +468,8 @@ public:
 	virtual FArchive* GetCheckpointArchive() = 0;
 	virtual void FlushCheckpoint(const uint32 TimeInMS) = 0;
 
-	DEPRECATED(4.20, "Please use the version of GotoCheckpointIndex that accepts a FGotoCallback delegate.")
-	virtual void GotoCheckpointIndex(const int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate) { GotoCheckpointIndex(CheckpointIndex, UpgradeGotoDelegate(Delegate)); }
 	virtual void GotoCheckpointIndex(const int32 CheckpointIndex, const FGotoCallback& Delegate) = 0;
 
-	DEPRECATED(4.20, "Please use the version of GotoCheckpointIndex that accepts a FGotoCallback delegate.")
-	virtual void GotoTimeInMS(const uint32 TimeInMS, const FOnCheckpointReadyDelegate& Delegate) { GotoTimeInMS(TimeInMS, UpgradeGotoDelegate(Delegate)); }
 	virtual void GotoTimeInMS(const uint32 TimeInMS, const FGotoCallback& Delegate) = 0;
 
 	virtual void UpdateTotalDemoTime(uint32 TimeInMS) = 0;
@@ -469,31 +481,18 @@ public:
 	virtual void AddEvent(const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data) = 0;
 	virtual void AddOrUpdateEvent(const FString& Name, const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data) = 0;
 
-	DEPRECATED(4.20, "Please use the version of EnumerateEvents that accepts a FEnumerateEventsCallback delegate.")
-	virtual void EnumerateEvents(const FString& Group, const FEnumerateEventsCompleteDelegate& Delegate) { EnumerateEvents(Group, UpgradeEnumerateEventsDelegate(Delegate)); }
 	virtual void EnumerateEvents(const FString& Group, const FEnumerateEventsCallback& Delegate) = 0;
 
-	DEPRECATED(4.20, "Please use the version of EnumerateEvents that accepts a FEnumerateEventsCallback delegate.")
-	virtual void EnumerateEvents(const FString& ReplayName, const FString& Group, const FEnumerateEventsCompleteDelegate& Delegate) { EnumerateEvents(ReplayName, Group, UpgradeEnumerateEventsDelegate(Delegate)); }
 	virtual void EnumerateEvents(const FString& ReplayName, const FString& Group, const FEnumerateEventsCallback& Delegate) = 0;
 	virtual void EnumerateEvents( const FString& ReplayName, const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate ) = 0;
 
-	DEPRECATED(4.20, "Please use the version of RequestEventData that accepts a FRequestEventDataCallback delegate.")
-	virtual void RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& Delegate) { RequestEventData(EventID, UpgradeRequestEventDelegate(Delegate)); }
 	virtual void RequestEventData(const FString& EventID, const FRequestEventDataCallback& Delegate) = 0;
 	virtual void RequestEventData(const FString& ReplayName, const FString& EventID, const FRequestEventDataCallback& Delegate) = 0;
 	virtual void RequestEventData(const FString& ReplayName, const FString& EventId, const int32 UserIndex, const FRequestEventDataCallback& Delegate) = 0;
 
-	DEPRECATED(4.20, "Please use the version of SearchEvents that accepts a FSearchEventsCallback delegate.")
-	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) { SearchEvents(EventGroup, UpgradeSearchEventsDelegate(Delegate)); }
 	virtual void SearchEvents(const FString& EventGroup, const FSearchEventsCallback& Delegate) = 0;
 	virtual void RefreshHeader() = 0;
 
-	DEPRECATED(4.20, "Please use the version of DownloadHeader that accepts a FDownloadHeaderCallback delegate.")
-	virtual void DownloadHeader() { DownloadHeader(FDownloadHeaderCallback()); }
-
-	DEPRECATED(4.20, "Please use the version of DownloadHeader that accepts a FDownloadHeaderCallback delegate.")
-	virtual void DownloadHeader(const FOnDownloadHeaderComplete& Delegate) { DownloadHeader(UpgradeDownloadHeaderDelegate(Delegate)); }
 	virtual void DownloadHeader(const FDownloadHeaderCallback& Delegate) = 0;
 
 	/**
@@ -502,8 +501,6 @@ public:
 	 * @param ReplayName Name of the replay to keep.
 	 * @param bKeep Whether or not we actually want to keep this replay.
 	 */
-	DEPRECATED(4.20, "Please use the version of KeepReplay that accepts a FKeepReplayCallback delegate.")
-	virtual void KeepReplay(const FString& ReplayName, const bool bKeep) { KeepReplay(ReplayName, bKeep, FKeepReplayCallback()); }
 	virtual void KeepReplay(const FString& ReplayName, const bool bKeep, const FKeepReplayCallback& Delegate) = 0;
 	virtual void KeepReplay(const FString& ReplayName, const bool bKeep, const int32 UserIndex, const FKeepReplayCallback& Delegate) = 0;
 
@@ -537,8 +534,6 @@ public:
 	 * @param StreamName The name of the stream to delete
 	 * @param Delegate A delegate that will be executed if bound when the delete operation completes
 	 */
-	DEPRECATED(4.20, "Please use the version of DeleteFinishedStream that accepts a FDeleteFinishedStreamCallback delegate.")
-	virtual void DeleteFinishedStream(const FString& StreamName, const FOnDeleteFinishedStreamComplete& Delegate) { DeleteFinishedStream(StreamName, UpgradeDeleteFinishedStreamDelegate(Delegate)); }
 	virtual void DeleteFinishedStream(const FString& StreamName, const FDeleteFinishedStreamCallback& Delegate) = 0;
 	virtual void DeleteFinishedStream( const FString& StreamName, const int32 UserIndex, const FDeleteFinishedStreamCallback& Delegate ) = 0;
 
@@ -547,16 +542,12 @@ public:
 	 *
 	 * @param Delegate A delegate that will be executed if bound when the list of streams is available
 	 */
-	DEPRECATED(4.20, "Please use the version of EnumerateStreams that accepts a FEnumerateStreamsCallback delegate.")
-	virtual void EnumerateStreams(const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate) { EnumerateStreams(ReplayVersion, UserString, MetaString, UpgradeEnumerateStreamsDelegate(Delegate)); }
 	virtual void EnumerateStreams(const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FEnumerateStreamsCallback& Delegate) = 0;
 
 	/**
 	* Retrieves the streams that are available for viewing. May execute asynchronously.
 	* Allows the caller to pass in a custom list of query parameters
 	*/
-	DEPRECATED(4.20, "Please use the version of EnumerateStreams that accepts a FEnumerateStreamsCallback delegate.")
-	virtual void EnumerateStreams(const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const TArray<FString>& ExtraParms, const FOnEnumerateStreamsComplete& Delegate) { EnumerateStreams(ReplayVersion, UserString, MetaString, ExtraParms, UpgradeEnumerateStreamsDelegate(Delegate)); }
 	virtual void EnumerateStreams(const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const TArray<FString>& ExtraParms, const FEnumerateStreamsCallback& Delegate) = 0;
 	virtual void EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const int32 UserIndex, const FString& MetaString, const TArray< FString >& ExtraParms, const FEnumerateStreamsCallback& Delegate ) = 0;
 
@@ -565,8 +556,6 @@ public:
 	 *
 	 * @param Delegate A delegate that will be executed if bound when the list of streams is available
 	 */
-	DEPRECATED(4.20, "Please use the version of EnumerateRecentStreams that accepts a FEnumerateStreamsCallback delegate.")
-	virtual void EnumerateRecentStreams(const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FOnEnumerateStreamsComplete& Delegate) { EnumerateRecentStreams(ReplayVersion, RecentViewer, UpgradeEnumerateStreamsDelegate(Delegate)); }
 	virtual void EnumerateRecentStreams(const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FEnumerateStreamsCallback& Delegate) = 0;
 	virtual void EnumerateRecentStreams( const FNetworkReplayVersion& ReplayVersion, const int32 UserIndex, const FEnumerateStreamsCallback& Delegate ) = 0;
 

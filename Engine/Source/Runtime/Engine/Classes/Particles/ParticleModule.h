@@ -274,10 +274,10 @@ class ENGINE_API UParticleModule : public UObject
 	 */
 	virtual uint32	RequiredBytesPerInstance();
 
-	DEPRECATED(4.11, "RequiredBytes now takes a UParticleModuleTypeDataBase*, not per-instance information.")
+	UE_DEPRECATED(4.11, "RequiredBytes now takes a UParticleModuleTypeDataBase*, not per-instance information.")
 	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner);
 
-	DEPRECATED(4.11, "RequiredBytesPerInstance no longer takes per-instance information.")
+	UE_DEPRECATED(4.11, "RequiredBytesPerInstance no longer takes per-instance information.")
 	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner);
 
 	/**

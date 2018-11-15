@@ -35,7 +35,7 @@ UTextureRenderTarget2D::UTextureRenderTarget2D(const FObjectInitializer& ObjectI
 FTextureResource* UTextureRenderTarget2D::CreateResource()
 {
 	UWorld* World = GetWorld();
-	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 	if (FeatureLevel <= ERHIFeatureLevel::ES2)
 	{
 		EPixelFormat Format = GetFormat();

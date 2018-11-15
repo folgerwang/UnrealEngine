@@ -100,13 +100,6 @@ void FSlateElementBatcher::AddElementsInternal(const TArray<FSlateDrawElement>& 
 {
 	checkSlow(DrawLayer);
 
-	FName Elements_Boxes(TEXT("Boxes"));
-	FName Elements_Borders(TEXT("Borders"));
-	FName Elements_Text(TEXT("Text"));
-	FName Elements_ShapedText(TEXT("ShapedText"));
-	FName Elements_Lines(TEXT("Lines"));
-	FName Elements_CachedBuffer(TEXT("CachedBuffer"));
-
 	for ( int32 DrawElementIndex = 0; DrawElementIndex < DrawElements.Num(); ++DrawElementIndex )
 	{
 		const FSlateDrawElement& DrawElement = DrawElements[DrawElementIndex];
@@ -759,7 +752,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 					InvTextureSizeY = 1.0f / FontAtlasTexture->GetHeight();
 				}
 
-				const bool bIsWhitespace = !Entry.Valid || FText::IsWhitespace(CurrentChar);
+				const bool bIsWhitespace = !Entry.Valid || FChar::IsWhitespace(CurrentChar);
 
 				if( !bIsWhitespace && PreviousCharEntry.Valid )
 				{

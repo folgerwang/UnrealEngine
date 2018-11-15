@@ -152,6 +152,7 @@ FPluginManager::FPluginManager()
 	: bHaveConfiguredEnabledPlugins(false)
 	, bHaveAllRequiredPlugins(false)
 {
+	SCOPED_BOOT_TIMING("DiscoverAllPlugins");
 	DiscoverAllPlugins();
 }
 
@@ -417,7 +418,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 {
 	if(!bHaveConfiguredEnabledPlugins)
 	{
-		double StartTime = FPlatformTime::Seconds();
+		SCOPED_BOOT_TIMING("FPluginManager::ConfigureEnabledPlugins");
 
 		// Don't need to run this again
 		bHaveConfiguredEnabledPlugins = true;
@@ -643,7 +644,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 		}
-		UE_CLOG(!IS_PROGRAM, LogStreaming, Display, TEXT("Took %6.3fs to configure plugins."), FPlatformTime::Seconds() - StartTime);
 	}
 	return bHaveAllRequiredPlugins;
 }

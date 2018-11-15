@@ -1672,7 +1672,7 @@ void FParticleEmitterInstance::ResetParticleParameters(float DeltaTime)
 	check(HighestLODLevel);
 
 	// Store off any orbit offset values
-	TArray<int32> OrbitOffsets;
+	TArray<int32, TInlineAllocator<8>> OrbitOffsets;
 	int32 OrbitCount = LODLevel->OrbitModules.Num();
 	for (int32 OrbitIndex = 0; OrbitIndex < OrbitCount; OrbitIndex++)
 	{
@@ -1767,10 +1767,10 @@ void FParticleEmitterInstance::UpdateOrbitData(float DeltaTime)
 		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
 		check(HighestLODLevel);
 
-		TArray<FVector> Offsets;
+		TArray<FVector, TInlineAllocator<8>> Offsets;
 		Offsets.AddZeroed(ModuleCount + 1);
 
-		TArray<int32> ModuleOffsets;
+		TArray<int32, TInlineAllocator<8>> ModuleOffsets;
 		ModuleOffsets.AddZeroed(ModuleCount + 1);
 		for (int32 ModOffIndex = 0; ModOffIndex < ModuleCount; ModOffIndex++)
 		{

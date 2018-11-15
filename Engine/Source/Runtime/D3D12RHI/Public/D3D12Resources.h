@@ -586,7 +586,7 @@ private:
 
 struct FD3D12LockedResource : public FD3D12DeviceChild
 {
-	FD3D12LockedResource(FD3D12Device* Device) 
+	FD3D12LockedResource(FD3D12Device* Device)
 		: FD3D12DeviceChild(Device)
 		, ResourceLocation(Device)
 		, LockedOffset(0)

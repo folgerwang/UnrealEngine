@@ -211,7 +211,7 @@ void FStaticMeshLODResources::Serialize(FArchive& Ar, UObject* Owner, int32 Inde
 
 #if WITH_EDITOR
 	const bool bWantToStripTessellation = Ar.IsCooking() && ((GForceStripMeshAdjacencyDataDuringCooking != 0) || !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation));
-	const bool bWantToStripLOD = Ar.IsCooking() && (CVarStripMinLodDataDuringCooking.GetValueOnAnyThread() != 0) && OwnerStaticMesh && OwnerStaticMesh->MinLOD.GetValueForPlatformGroup(Ar.CookingTarget()->GetPlatformInfo().PlatformGroupName) > Index;
+	const bool bWantToStripLOD = Ar.IsCooking() && (CVarStripMinLodDataDuringCooking.GetValueOnAnyThread() != 0) && OwnerStaticMesh && OwnerStaticMesh->MinLOD.GetValueForPlatformIdentifiers(Ar.CookingTarget()->GetPlatformInfo().PlatformGroupName, Ar.CookingTarget()->GetPlatformInfo().VanillaPlatformName) > Index;
 
 	ClassDataStripFlags |=	(bWantToStripTessellation ? AdjacencyDataStripFlag : 0)	|
 							(bWantToStripLOD ? MinLodDataStripFlag : 0);
@@ -1324,13 +1324,12 @@ void UStaticMesh::PostDuplicate(bool bDuplicateForPIE)
 	}
 }
 
-/*------------------------------------------------------------------------------
-	FStaticMeshRenderData
-------------------------------------------------------------------------------*/
-
-FArchive& operator<<(FArchive& Ar, FMeshReductionSettings& ReductionSettings)
+static void SerializeReductionSettingsForDDC(FArchive& Ar, FMeshReductionSettings& ReductionSettings)
 {
+	// Note: this serializer is only used to build the mesh DDC key, no versioning is required
+	Ar << ReductionSettings.TerminationCriterion;
 	Ar << ReductionSettings.PercentTriangles;
+	Ar << ReductionSettings.PercentVertices;
 	Ar << ReductionSettings.MaxDeviation;
 	Ar << ReductionSettings.PixelError;
 	Ar << ReductionSettings.WeldingThreshold;
@@ -1338,13 +1337,12 @@ FArchive& operator<<(FArchive& Ar, FMeshReductionSettings& ReductionSettings)
 	Ar << ReductionSettings.SilhouetteImportance;
 	Ar << ReductionSettings.TextureImportance;
 	Ar << ReductionSettings.ShadingImportance;
-	Ar << ReductionSettings.bRecalculateNormals;
-	return Ar;
+	FArchive_Serialize_BitfieldBool(Ar, ReductionSettings.bRecalculateNormals);
 }
 
-FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
+static void SerializeBuildSettingsForDDC(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 {
-	// Note: this serializer is currently only used to build the mesh DDC key, no versioning is required
+	// Note: this serializer is only used to build the mesh DDC key, no versioning is required
 	FArchive_Serialize_BitfieldBool(Ar, BuildSettings.bRecomputeNormals);
 	FArchive_Serialize_BitfieldBool(Ar, BuildSettings.bRecomputeTangents);
 	FArchive_Serialize_BitfieldBool(Ar, BuildSettings.bUseMikkTSpace);
@@ -1375,15 +1373,13 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 
 	FString ReplacementMeshName = BuildSettings.DistanceFieldReplacementMesh->GetPathName();
 	Ar << ReplacementMeshName;
-
-	return Ar;
 }
 
 // If static mesh derived data needs to be rebuilt (new format, serialization
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("3713973CA1B84F41BA1EB2E56FCE9211")
+#define STATICMESH_DERIVEDDATA_VER TEXT("7CF67E1C6DAD4EBE98D83C06C2FBC2CC")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -1463,13 +1459,14 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 		// identical binary results.
 		TempBytes.Reset();
 		FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
-		Ar << SrcModel.BuildSettings;
+		SerializeBuildSettingsForDDC(Ar, SrcModel.BuildSettings);
 
 		ANSICHAR Flag[2] = { (SrcModel.BuildSettings.bUseFullPrecisionUVs || !GVertexElementTypeSupport.IsSupported(VET_Half2)) ? '1' : '0', '\0' };
 		Ar.Serialize(Flag, 1);
 
 		FMeshReductionSettings FinalReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
-		Ar << FinalReductionSettings;
+		SerializeReductionSettingsForDDC(Ar, FinalReductionSettings);
+
 
 		// Now convert the raw bytes to a string.
 		const uint8* SettingsAsBytes = TempBytes.GetData();
@@ -1799,7 +1796,8 @@ void UStaticMesh::InitResources()
 
 	if (RenderData)
 	{
-		RenderData->InitResources(GetWorld() ? GetWorld()->FeatureLevel : ERHIFeatureLevel::Num, this);
+		UWorld* World = GetWorld();
+		RenderData->InitResources(World ? World->FeatureLevel.GetValue() : ERHIFeatureLevel::Num, this);
 	}
 
 	if (OccluderData)

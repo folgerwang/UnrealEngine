@@ -10,6 +10,7 @@
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Animation/AnimStateMachineTypes.h"
 #include "Animation/AnimClassInterface.h"
+#include "Animation/AnimNodeBase.h"
 
 #include "AnimBlueprintGeneratedClass.generated.h"
 
@@ -204,6 +205,10 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass,
 	UPROPERTY()
 	TArray<FName> SyncGroupNames;
 
+	// The default handler for graph-exposed inputs
+	UPROPERTY()
+	TArray<FExposedValueHandler> EvaluateGraphExposedInputs;
+
 public:
 
 	virtual const TArray<FBakedAnimationStateMachine>& GetBakedStateMachines() const override { return BakedStateMachines; }
@@ -223,6 +228,8 @@ public:
 	virtual const TArray<int32>& GetOrderedSavedPoseNodeIndices() const override { return OrderedSavedPoseIndices; }
 
 	virtual int32 GetSyncGroupIndex(FName SyncGroupName) const override { return SyncGroupNames.IndexOfByKey(SyncGroupName); }
+
+	virtual const TArray<FExposedValueHandler>& GetExposedValueHandlers() const { return EvaluateGraphExposedInputs; }
 
 public:
 #if WITH_EDITORONLY_DATA

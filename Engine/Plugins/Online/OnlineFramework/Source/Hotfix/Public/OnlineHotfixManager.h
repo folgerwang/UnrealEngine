@@ -233,6 +233,14 @@ protected:
 	 */
 	virtual bool ApplyHotfixProcessing(const FCloudFileHeader& FileHeader);
 	/**
+	* Called prior to reading the file data.
+	*
+	* @param FileData - byte data of the hotfix file
+	*
+	* @return whether the file was successfully preprocessed
+	*/
+	virtual bool PreProcessDownloadedFileData(TArray<uint8>& FileData) const { return true;	}
+	/**
 	 * Override this to change the default INI file handling (merge delta INI changes into the config cache)
 	 *
 	 * @param FileName - the name of the INI being merged into the config cache

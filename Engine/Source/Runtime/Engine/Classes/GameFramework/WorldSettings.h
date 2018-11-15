@@ -117,6 +117,34 @@ struct FLightmassWorldInfoSettings
 	UPROPERTY(EditAnywhere, Category=LightmassVolumeLighting)
 	TEnumAsByte<enum EVolumeLightingMethod> VolumeLightingMethod;
 
+	/** If true, AmbientOcclusion will be enabled. */
+	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
+	uint8 bUseAmbientOcclusion:1;
+
+	/** 
+	 * Whether to generate textures storing the AO computed by Lightmass.
+	 * These can be accessed through the PrecomputedAOMask material node, 
+	 * Which is useful for blending between material layers on environment assets.
+	 * Be sure to set DirectIlluminationOcclusionFraction and IndirectIlluminationOcclusionFraction to 0 if you only want the PrecomputedAOMask!
+	 */
+	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
+	uint8 bGenerateAmbientOcclusionMaterialMask:1;
+
+	/** If true, override normal direct and indirect lighting with just the exported diffuse term. */
+	UPROPERTY(EditAnywhere, Category=LightmassDebug, AdvancedDisplay)
+	uint8 bVisualizeMaterialDiffuse:1;
+
+	/** If true, override normal direct and indirect lighting with just the AO term. */
+	UPROPERTY(EditAnywhere, Category=LightmassDebug, AdvancedDisplay)
+	uint8 bVisualizeAmbientOcclusion:1;
+
+	/** 
+	 * Whether to compress lightmap textures.  Disabling lightmap texture compression will reduce artifacts but increase memory and disk size by 4x.
+	 * Use caution when disabling this.
+	 */
+	UPROPERTY(EditAnywhere, Category=LightmassGeneral, AdvancedDisplay)
+	uint8 bCompressLightmaps:1;
+
 	/** 
 	 * Size of an Volumetric Lightmap voxel at the highest density (used around geometry), in world space units. 
 	 * This setting has a large impact on build times and memory, use with caution.  
@@ -147,19 +175,6 @@ struct FLightmassWorldInfoSettings
 	UPROPERTY(EditAnywhere, Category=LightmassVolumeLighting, AdvancedDisplay, meta=(UIMin = "0.1", UIMax = "100.0"))
 	float VolumeLightSamplePlacementScale;
 
-	/** If true, AmbientOcclusion will be enabled. */
-	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
-	uint32 bUseAmbientOcclusion:1;
-
-	/** 
-	 * Whether to generate textures storing the AO computed by Lightmass.
-	 * These can be accessed through the PrecomputedAOMask material node, 
-	 * Which is useful for blending between material layers on environment assets.
-	 * Be sure to set DirectIlluminationOcclusionFraction and IndirectIlluminationOcclusionFraction to 0 if you only want the PrecomputedAOMask!
-	 */
-	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
-	uint32 bGenerateAmbientOcclusionMaterialMask:1;
-
 	/** How much of the AO to apply to direct lighting. */
 	UPROPERTY(EditAnywhere, Category=LightmassOcclusion, meta=(UIMin = "0", UIMax = "1"))
 	float DirectIlluminationOcclusionFraction;
@@ -180,21 +195,6 @@ struct FLightmassWorldInfoSettings
 	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
 	float MaxOcclusionDistance;
 
-	/** If true, override normal direct and indirect lighting with just the exported diffuse term. */
-	UPROPERTY(EditAnywhere, Category=LightmassDebug, AdvancedDisplay)
-	uint32 bVisualizeMaterialDiffuse:1;
-
-	/** If true, override normal direct and indirect lighting with just the AO term. */
-	UPROPERTY(EditAnywhere, Category=LightmassDebug, AdvancedDisplay)
-	uint32 bVisualizeAmbientOcclusion:1;
-
-	/** 
-	 * Whether to compress lightmap textures.  Disabling lightmap texture compression will reduce artifacts but increase memory and disk size by 4x.
-	 * Use caution when disabling this.
-	 */
-	UPROPERTY(EditAnywhere, Category=LightmassGeneral, AdvancedDisplay)
-	uint32 bCompressLightmaps:1;
-
 	FLightmassWorldInfoSettings()
 		: StaticLightingLevelScale(1)
 		, NumIndirectLightingBounces(3)
@@ -206,20 +206,20 @@ struct FLightmassWorldInfoSettings
 		, EmissiveBoost(1.0f)
 		, DiffuseBoost(1.0f)
 		, VolumeLightingMethod(VLM_VolumetricLightmap)
+		, bUseAmbientOcclusion(false)
+		, bGenerateAmbientOcclusionMaterialMask(false)
+		, bVisualizeMaterialDiffuse(false)
+		, bVisualizeAmbientOcclusion(false)
+		, bCompressLightmaps(true)
 		, VolumetricLightmapDetailCellSize(200)
 		, VolumetricLightmapMaximumBrickMemoryMb(30)
 		, VolumetricLightmapSphericalHarmonicSmoothing(.02f)
 		, VolumeLightSamplePlacementScale(1)
-		, bUseAmbientOcclusion(false)
-		, bGenerateAmbientOcclusionMaterialMask(false)
 		, DirectIlluminationOcclusionFraction(0.5f)
 		, IndirectIlluminationOcclusionFraction(1.0f)
 		, OcclusionExponent(1.0f)
 		, FullyOccludedSamplesFraction(1.0f)
 		, MaxOcclusionDistance(200.0f)
-		, bVisualizeMaterialDiffuse(false)
-		, bVisualizeAmbientOcclusion(false)
-		, bCompressLightmaps(true)
 	{
 	}
 };
@@ -261,16 +261,10 @@ struct ENGINE_API FNetViewer
 	FNetViewer(UNetConnection* InConnection, float DeltaSeconds);
 };
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
 USTRUCT()
 struct ENGINE_API FHierarchicalSimplification
 {
 	GENERATED_USTRUCT_BODY()
-
-	/** Draw Distance for this LOD actor to display. */
-	DEPRECATED(4.11, "LOD transition is now based on screen size rather than drawing distance, see TransitionScreenSize")
-	float DrawDistance;
 
 	/** The screen radius an mesh object should reach before swapping to the LOD actor, once one of parent displays, it won't draw any of children. */
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, meta = (UIMin = "0.00001", ClampMin = "0.000001", UIMax = "1.0", ClampMax = "1.0"))
@@ -280,7 +274,7 @@ struct ENGINE_API FHierarchicalSimplification
 	float OverrideDrawDistance;
 
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta = (InlineEditConditionToggle))
-	bool bUseOverrideDrawDistance;
+	uint8 bUseOverrideDrawDistance:1;
 
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
 	uint8 bAllowSpecificExclusion : 1;
@@ -291,7 +285,15 @@ struct ENGINE_API FHierarchicalSimplification
 	* If you merge material, it will reduce drawcalls.
 	*/
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere)
-	bool bSimplifyMesh;
+	uint8 bSimplifyMesh:1;
+
+	/** Min number of actors to build LODActor */
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay, meta = (editcondition = "!bReusePreviousLevelClusters", DisplayAfter="MinNumberOfActorsToBuild"))
+	uint8 bOnlyGenerateClustersForVolumes:1;
+
+	/** Will reuse the clusters generated for the previous (lower) HLOD level */
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay, meta=(DisplayAfter="bOnlyGenerateClustersForVolumes"))
+	uint8 bReusePreviousLevelClusters:1;
 
 	/** Simplification Setting if bSimplifyMesh is true */
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
@@ -313,46 +315,24 @@ struct ENGINE_API FHierarchicalSimplification
 	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1", editcondition = "!bReusePreviousLevelClusters"))
 	int32 MinNumberOfActorsToBuild;	
 
-	/** Min number of actors to build LODActor */
-	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay, meta = (editcondition = "!bReusePreviousLevelClusters"))
-	bool bOnlyGenerateClustersForVolumes;
-
-	/** Will reuse the clusters generated for the previous (lower) HLOD level */
-	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay)
-	bool bReusePreviousLevelClusters;
-
 	FHierarchicalSimplification()
 		: TransitionScreenSize(0.315f)
 		, OverrideDrawDistance(10000)
 		, bUseOverrideDrawDistance(false)
 		, bAllowSpecificExclusion(false)
 		, bSimplifyMesh(false)
+		, bOnlyGenerateClustersForVolumes(false)
+		, bReusePreviousLevelClusters(false)
 		, DesiredBoundRadius(2000)
 		, DesiredFillingPercentage(50)
 		, MinNumberOfActorsToBuild(2)
-		, bOnlyGenerateClustersForVolumes(false)
-		, bReusePreviousLevelClusters(false)
 	{
 		MergeSetting.bMergeMaterials = true;
 		MergeSetting.bGenerateLightMapUV = true;
 		ProxySetting.MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
 		ProxySetting.bCreateCollision = false;
 	}
-
-private:
-
-	// This function exists to force the compiler generated operators to be instantiated while the deprecation warning
-	// pragmas are disabled so no warnings are thrown when used elsewhere and the compiler is forced to generate them
-	void DummyFunction() const
-	{
-		FHierarchicalSimplification ASP1, ASP2;
-		ASP1 = ASP2;
-
-		FHierarchicalSimplification ASP3(ASP2);
-	}
 };
-
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 UCLASS(Blueprintable)
 class ENGINE_API UHierarchicalLODSetup : public UObject
@@ -418,11 +398,40 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
 
+	/** PRECOMPUTED VISIBILITY SETTINGS **/
+
+	/** 
+	 * World space size of precomputed visibility cells in x and y.
+	 * Smaller sizes produce more effective occlusion culling at the cost of increased runtime memory usage and lighting build times.
+	 */
+	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay, meta=(DisplayAfter="bPlaceCellsOnlyAlongCameraTracks"))
+	int32 VisibilityCellSize;
+
+	/** 
+	 * Determines how aggressive precomputed visibility should be.
+	 * More aggressive settings cull more objects but also cause more visibility errors like popping.
+	 */
+	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay, meta=(DisplayAfter="bPlaceCellsOnlyAlongCameraTracks"))
+	TEnumAsByte<enum EVisibilityAggressiveness> VisibilityAggressiveness;
+
+	/** 
+	 * Whether to place visibility cells inside Precomputed Visibility Volumes and along camera tracks in this level. 
+	 * Precomputing visibility reduces rendering thread time at the cost of some runtime memory and somewhat increased lighting build times.
+	 */
+	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility)
+	uint8 bPrecomputeVisibility:1;
+
+	/** 
+	 * Whether to place visibility cells only along camera tracks or only above shadow casting surfaces.
+	 */
+	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay)
+	uint8 bPlaceCellsOnlyAlongCameraTracks:1;
+
 	/** DEFAULT BASIC PHYSICS SETTINGS **/
 
 	/** If true, enables CheckStillInWorld checks */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay)
-	uint32 bEnableWorldBoundsChecks:1;
+	uint8 bEnableWorldBoundsChecks:1;
 
 protected:
 	/** if set to false navigation system will not get created (and all 
@@ -430,38 +439,65 @@ protected:
 	 *	This flag is now deprecated. Use NavigationSystemConfig property to 
 	 *	determine navigation system's properties or existence */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay, meta=(DisplayName = "DEPRECATED_bEnableNavigationSystem"))
-	uint32 bEnableNavigationSystem:1;
+	uint8 bEnableNavigationSystem:1;
 
 public:
 	/** if set to false AI system will not get created. Use it to disable all AI-related activity on a map */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=AI, AdvancedDisplay)
-	uint32 bEnableAISystem:1;
+	uint8 bEnableAISystem:1;
 
 	/** 
 	 * Enables tools for composing a tiled world. 
 	 * Level has to be saved and all sub-levels removed before enabling this option.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World)
-	uint32 bEnableWorldComposition:1;
+	uint8 bEnableWorldComposition:1;
 
 	/**
 	 * Enables client-side streaming volumes instead of server-side.
 	 * Expected usage scenario: server has all streaming levels always loaded, clients independently stream levels in/out based on streaming volumes.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = World)
-	uint32 bUseClientSideLevelStreamingVolumes:1;
+	uint8 bUseClientSideLevelStreamingVolumes:1;
 
 	/** World origin will shift to a camera position when camera goes far away from current origin */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay, meta=(editcondition = "bEnableWorldComposition"))
-	uint32 bEnableWorldOriginRebasing:1;
+	uint8 bEnableWorldOriginRebasing:1;
 		
 	/** if set to true, when we call GetGravityZ we assume WorldGravityZ has already been initialized and skip the lookup of DefaultGravityZ and GlobalGravityZ */
 	UPROPERTY(transient)
-	uint32 bWorldGravitySet:1;
+	uint8 bWorldGravitySet:1;
 
 	/** If set to true we will use GlobalGravityZ instead of project setting DefaultGravityZ */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(DisplayName = "Override World Gravity"), Category = Physics)
-	uint32 bGlobalGravitySet:1;
+	uint8 bGlobalGravitySet:1;
+
+	/** 
+	 * Causes the BSP build to generate as few sections as possible.
+	 * This is useful when you need to reduce draw calls but can reduce texture streaming efficiency and effective lightmap resolution.
+	 * Note - changes require a rebuild to propagate.  Also, be sure to select all surfaces and make sure they all have the same flags to minimize section count.
+	 */
+	UPROPERTY(EditAnywhere, Category=World, AdvancedDisplay)
+	uint8 bMinimizeBSPSections:1;
+
+	/** 
+	 * Whether to force lightmaps and other precomputed lighting to not be created even when the engine thinks they are needed.
+	 * This is useful for improving iteration in levels with fully dynamic lighting and shadowing.
+	 * Note that any lighting and shadowing interactions that are usually precomputed will be lost if this is enabled.
+	 */
+	UPROPERTY(EditAnywhere, Category=Lightmass, AdvancedDisplay)
+	uint8 bForceNoPrecomputedLighting:1;
+
+	/** when this flag is set, more time is allocated to background loading (replicated) */
+	UPROPERTY(replicated)
+	uint8 bHighPriorityLoading:1;
+
+	/** copy of bHighPriorityLoading that is not replicated, for clientside-only loading operations */
+	UPROPERTY()
+	uint8 bHighPriorityLoadingLocal:1;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	uint8 bOverrideDefaultBroadphaseSettings:1;
 
 protected:
 	/** Holds parameters for NavigationSystem's creation. Set to Null will result
@@ -475,6 +511,11 @@ protected:
 	UNavigationSystemConfig* NavigationSystemConfigOverride;
 
 public:
+
+	/** scale of 1uu to 1m in real world measurements, for HMD and other physically tracked devices (e.g. 1uu = 1cm would be 100.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=VR)
+	float WorldToMeters;
+
 	// any actor falling below this level gets destroyed
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, meta=(editcondition = "bEnableWorldBoundsChecks"))
 	float KillZ;
@@ -521,14 +562,6 @@ public:
 	UPROPERTY(EditAnywhere, Category=Lightmass, AdvancedDisplay)
 	int32 PackedLightAndShadowMapTextureSize;
 
-	/** 
-	 * Causes the BSP build to generate as few sections as possible.
-	 * This is useful when you need to reduce draw calls but can reduce texture streaming efficiency and effective lightmap resolution.
-	 * Note - changes require a rebuild to propagate.  Also, be sure to select all surfaces and make sure they all have the same flags to minimize section count.
-	 */
-	UPROPERTY(EditAnywhere, Category=World, AdvancedDisplay)
-	uint32 bMinimizeBSPSections:1;
-
 	/** Default color scale for the level */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay)
 	FVector DefaultColorScale;
@@ -548,50 +581,14 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Rendering, meta=(UIMin = "0", UIMax = "1"))
 	float DynamicIndirectShadowsSelfShadowingIntensity;
 
-	/************************************/
-	
-	/** PRECOMPUTED VISIBILITY SETTINGS **/
-	/** 
-	 * Whether to place visibility cells inside Precomputed Visibility Volumes and along camera tracks in this level. 
-	 * Precomputing visibility reduces rendering thread time at the cost of some runtime memory and somewhat increased lighting build times.
-	 */
-	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility)
-	uint32 bPrecomputeVisibility:1;
-
-	/** 
-	 * Whether to place visibility cells only along camera tracks or only above shadow casting surfaces.
-	 */
-	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay)
-	uint32 bPlaceCellsOnlyAlongCameraTracks:1;
-
-	/** 
-	 * World space size of precomputed visibility cells in x and y.
-	 * Smaller sizes produce more effective occlusion culling at the cost of increased runtime memory usage and lighting build times.
-	 */
-	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay)
-	int32 VisibilityCellSize;
-
-	/** 
-	 * Determines how aggressive precomputed visibility should be.
-	 * More aggressive settings cull more objects but also cause more visibility errors like popping.
-	 */
-	UPROPERTY(EditAnywhere, Category=PrecomputedVisibility, AdvancedDisplay)
-	TEnumAsByte<enum EVisibilityAggressiveness> VisibilityAggressiveness;
-
+#if WITH_EDITORONLY_DATA
 	/************************************/
 	
 	/** LIGHTMASS RELATED SETTINGS **/
 	
-	/** 
-	 * Whether to force lightmaps and other precomputed lighting to not be created even when the engine thinks they are needed.
-	 * This is useful for improving iteration in levels with fully dynamic lighting and shadowing.
-	 * Note that any lighting and shadowing interactions that are usually precomputed will be lost if this is enabled.
-	 */
-	UPROPERTY(EditAnywhere, Category=Lightmass, AdvancedDisplay)
-	uint32 bForceNoPrecomputedLighting:1;
-
 	UPROPERTY(EditAnywhere, Category=Lightmass)
 	struct FLightmassWorldInfoSettings LightmassSettings;
+#endif
 
 	/************************************/
 	/** AUDIO SETTINGS **/
@@ -602,6 +599,10 @@ public:
 	/** Default interior settings used by audio volumes.												*/
 	UPROPERTY(EditAnywhere, config, Category=Audio)
 	FInteriorSettings DefaultAmbientZoneSettings;
+
+	/** Distance from the player after which content will be rendered in mono if monoscopic far field rendering is activated */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=VR)
+	float MonoCullingDistance;
 
 	/** Default Base SoundMix.																			*/
 	UPROPERTY(EditAnywhere, Category=Audio)
@@ -632,25 +633,15 @@ public:
 	/** if set to true, all eligible actors in this level will be added to a single cluster representing the entire level (used for small sublevels)*/
 	UPROPERTY(EditAnywhere, config, Category = LODSystem, AdvancedDisplay)
 	uint32 bGenerateSingleClusterForLevel : 1;
-#endif
-	/************************************/
-	/** DEFAULT SETTINGS **/
-
-	/** scale of 1uu to 1m in real world measurements, for HMD and other physically tracked devices (e.g. 1uu = 1cm would be 100.0) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=VR)
-	float WorldToMeters;
-
-	/** Distance from the player after which content will be rendered in mono if monoscopic far field rendering is activated */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=VR)
-	float MonoCullingDistance;
 
 	/************************************/
 	/** EDITOR ONLY SETTINGS **/
-	
+
 	/** Level Bookmarks: 10 should be MAX_BOOKMARK_NUMBER @fixmeconst */
-	DEPRECATED(4.21, "This member will be removed. Please use the Bookmark accessor functions instead.")
+	UE_DEPRECATED(4.21, "This member will be removed. Please use the Bookmark accessor functions instead.")
 	UPROPERTY()
 	class UBookMark* BookMarks[10];
+#endif
 
 	/************************************/
 
@@ -686,17 +677,12 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxUndilatedFrameTime;
 
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings BroadphaseSettings;
+
 	// If paused, FName of person pausing the game.
 	UPROPERTY(transient, replicated)
 	class APlayerState* Pauser;
-
-	/** when this flag is set, more time is allocated to background loading (replicated) */
-	UPROPERTY(replicated)
-	uint32 bHighPriorityLoading:1;
-
-	/** copy of bHighPriorityLoading that is not replicated, for clientside-only loading operations */
-	UPROPERTY()
-	uint32 bHighPriorityLoadingLocal:1;
 
 	/** valid only during replication - information about the player(s) being replicated to
 	 * (there could be more than one in the case of a splitscreen client)
@@ -704,16 +690,10 @@ public:
 	UPROPERTY()
 	TArray<struct FNetViewer> ReplicationViewers;
 
-	UPROPERTY(config, EditAnywhere, Category = Broadphase)
-	bool bOverrideDefaultBroadphaseSettings;
-
-	UPROPERTY(config, EditAnywhere, Category = Broadphase)
-	FBroadphaseSettings BroadphaseSettings;
-
 	// ************************************
 
 	/** Maximum number of bookmarks	*/
-	DEPRECATED(4.21, "Please use GetMaxNumberOfBookmarks or NumMappedBookmarks instead.")
+	UE_DEPRECATED(4.21, "Please use GetMaxNumberOfBookmarks or NumMappedBookmarks instead.")
 	static const int32 MAX_BOOKMARK_NUMBER = 10;
 
 	protected:

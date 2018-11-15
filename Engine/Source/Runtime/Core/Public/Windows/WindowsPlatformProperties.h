@@ -68,6 +68,11 @@ struct FWindowsPlatformProperties
 		return !HAS_EDITOR_DATA;
 	}
 
+	static FORCEINLINE bool HasSecurePackageFormat()
+	{
+		return IS_DEDICATED_SERVER;
+	}
+
 	static FORCEINLINE bool SupportsAudioStreaming()
 	{
 		return !IsServerOnly();

@@ -217,7 +217,7 @@ TSharedRef<SWidget> SPropertyEditorClass::GenerateClassPicker()
 	ClassFilter->bAllowAbstract = bAllowAbstract;
 	Options.bIsBlueprintBaseOnly = bIsBlueprintBaseOnly;
 	Options.bIsPlaceableOnly = bAllowOnlyPlaceable;
-	Options.bShowDisplayNames = bShowDisplayNames;
+	Options.NameTypeToDisplay = (bShowDisplayNames ? EClassViewerNameTypeToDisplay::DisplayName : EClassViewerNameTypeToDisplay::ClassName);
 	Options.DisplayMode = bShowTree ? EClassViewerDisplayMode::TreeView : EClassViewerDisplayMode::ListView;
 	Options.bAllowViewOptions = bShowViewOptions;
 

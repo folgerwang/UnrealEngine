@@ -119,6 +119,19 @@ void SKeyEditInterface::OnFinishedChangingProperties(const FPropertyChangedEvent
 
 		((FMovieSceneKeyStruct*)KeyStruct->GetStructMemory())->PropagateChanges(ChangeEvent);
 	}
+	else if (KeyStruct->GetStruct()->IsChildOf(FGeneratedMovieSceneKeyStruct::StaticStruct()))
+	{
+		if (UMovieSceneSection* Section = WeakSection.Get())
+		{
+			Section->Modify();
+		}
+
+		FGeneratedMovieSceneKeyStruct* GeneratedStruct = reinterpret_cast<FGeneratedMovieSceneKeyStruct*>(KeyStruct->GetStructMemory());
+		if (GeneratedStruct->OnPropertyChangedEvent)
+		{
+			GeneratedStruct->OnPropertyChangedEvent(ChangeEvent);
+		}
+	}
 
 	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
 	if (Sequencer.IsValid())

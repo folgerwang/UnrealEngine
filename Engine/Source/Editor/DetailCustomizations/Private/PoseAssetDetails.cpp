@@ -285,8 +285,8 @@ bool FPoseAssetDetails::ShouldFilterAsset(const FAssetData& AssetData)
 	if (TargetSkeleton.IsValid())
 	{
 		FString SkeletonString = FAssetData(TargetSkeleton.Get()).GetExportTextName();
-		const FString* Value = AssetData.TagsAndValues.Find(TEXT("Skeleton"));
-		return (!Value || SkeletonString != *Value);
+		FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag("Skeleton");
+		return (!Result.IsSet() || SkeletonString != Result.GetValue());
 	}
 
 	return true;

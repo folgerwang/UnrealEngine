@@ -29,6 +29,9 @@
 /** Time spent in media player facade closing media. */
 DECLARE_CYCLE_STAT(TEXT("MediaAssets MediaTextureResource Render"), STAT_MediaAssets_MediaTextureResourceRender, STATGROUP_Media);
 
+/** Sample time of texture last rendered. */
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaAssets MediaTextureResource Sample"), STAT_MediaUtils_TextureSampleTime, STATGROUP_Media);
+
 
 
 /* Local helpers
@@ -250,6 +253,8 @@ void FMediaTextureResource::Render(const FRenderParams& Params)
 
 			Rotation = Sample->GetScaleRotation();
 			Offset = Sample->GetOffset();
+
+			SET_FLOAT_STAT(STAT_MediaUtils_TextureSampleTime, Sample->GetTime().GetTotalMilliseconds());
 		}
 #if MEDIATEXTURERESOURCE_TRACE_RENDER
 		else if (Sample.IsValid())

@@ -16,6 +16,11 @@ UMovieScene2DTransformTrack::UMovieScene2DTransformTrack(const FObjectInitialize
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieScene2DTransformTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene2DTransformSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieScene2DTransformTrack::CreateNewSection()
 {
 	return NewObject<UMovieScene2DTransformSection>(this, NAME_None, RF_Transactional);

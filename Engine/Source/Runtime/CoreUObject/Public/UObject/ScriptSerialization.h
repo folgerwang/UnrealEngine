@@ -11,28 +11,24 @@
 	int32 iCode=0;
 	FArchive Ar;
 	TArray<uint8> Script;
-	EExprToken Expr=(EExprToken)0;
+	EExprToken Expr = (EExprToken)0;
 #endif
 
 #ifndef XFER
-	#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-		#define XFER(T) {Ar << *(T*)&Script[iCode]; iCode += sizeof(T); }
-	#else
-		#define XFER(T) \
+#define XFER(T) \
 			{ \
-			T Temp; \
-			if (!Ar.IsLoading()) \
-			{ \
-				FMemory::Memcpy( &Temp, &Script[iCode], sizeof(T) ); \
-			} \
-			Ar << Temp; \
-			if (!Ar.IsSaving()) \
-			{ \
-				FMemory::Memcpy( &Script[iCode], &Temp, sizeof(T) ); \
-			} \
-			iCode += sizeof(T); \
+				T Temp; \
+				if (!Ar.IsLoading()) \
+				{ \
+					Temp =  FPlatformMemory::ReadUnaligned<T>(&Script[iCode]); \
+				} \
+				Ar << Temp; \
+				if (!Ar.IsSaving()) \
+				{ \
+					FPlatformMemory::WriteUnaligned<T>(&Script[iCode], Temp); \
+				} \
+				iCode += sizeof(T); \
 			}
-	#endif
 #endif
 
 //FScriptName
@@ -521,12 +517,7 @@
 		case EX_SwitchValue:
 		{
 			XFER(uint16); // number of cases, without default one
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-			const uint16 NumCases = *(uint16*)(&Script[iCode - sizeof(uint16)]);
-#else
-			uint16 NumCases;
-			FMemory::Memcpy( &NumCases, &Script[iCode - sizeof(uint16)], sizeof(uint16) );	
-#endif
+			const uint16 NumCases = FPlatformMemory::ReadUnaligned<uint16>(&Script[iCode - sizeof(uint16)]);
 			XFER(CodeSkipSizeType); // Code offset, go to it, when done.
 			SerializeExpr(iCode, Ar);	//index term
 

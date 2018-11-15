@@ -525,6 +525,15 @@ void SDetailsViewBase::OnShowOnlyModifiedClicked()
 	UpdateFilteredDetails();
 }
 
+void SDetailsViewBase::OnCustomFilterClicked()
+{
+	if (CustomFilterDelegate.IsBound())
+	{
+		CustomFilterDelegate.Execute();
+		bCustomFilterActive = !bCustomFilterActive;
+	}
+}
+
 void SDetailsViewBase::OnShowAllAdvancedClicked()
 {
 	CurrentFilter.bShowAllAdvanced = !CurrentFilter.bShowAllAdvanced;
@@ -598,7 +607,6 @@ void SDetailsViewBase::SetHostTabManager(TSharedPtr<FTabManager> InTabManager)
 {
 	DetailsViewArgs.HostTabManager = InTabManager;
 }
-
 
 /** 
  * Hides or shows properties based on the passed in filter text

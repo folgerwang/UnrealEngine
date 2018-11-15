@@ -188,6 +188,14 @@ static FAutoConsoleVariableRef CVarNeverOcclusionTestDistance(
 	ECVF_RenderThreadSafe | ECVF_Scalability
 );
 
+static int32 GForceSceneHasDecals = 0;
+static FAutoConsoleVariableRef CVarForceSceneHasDecals(
+	TEXT("r.ForceSceneHasDecals"),
+	GForceSceneHasDecals,
+	TEXT("Whether to always assume that scene has decals, so we don't switch depth state conditionally. This can significantly reduce total number of PSOs at a minor GPU cost."),
+	ECVF_RenderThreadSafe
+);
+
 /** Distance fade cvars */
 static int32 GDisableLODFade = false;
 static FAutoConsoleVariableRef CVarDisableLODFade( TEXT("r.DisableLODFade"), GDisableLODFade, TEXT("Disable fading for distance culling"), ECVF_RenderThreadSafe );
@@ -3090,7 +3098,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 
 		// TODO: right now decals visibility computed right before rendering them, ideally it should be done in InitViews and this flag should be replaced with list of visible decals  
 	    // Currently used to disable stencil operations in forward base pass when scene has no any decals
-		View.bSceneHasDecals = (Scene->Decals.Num() > 0);
+		View.bSceneHasDecals = (Scene->Decals.Num() > 0) || (GForceSceneHasDecals != 0);
 	}
 
 	if (Views.Num() > 1 && Views[0].IsInstancedStereoPass())

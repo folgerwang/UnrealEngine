@@ -13,15 +13,58 @@
 
 #include <sys/syscall.h>
 #include <pthread.h>
+#include <dlfcn.h>
 
 #include "Android/AndroidJavaEnv.h"
 
 #include "Misc/CoreDelegates.h"
 
+// RTLD_NOLOAD not defined for all platforms before NDK15
+#if !PLATFORM_LUMIN
+#if PLATFORM_ANDROID_NDK_VERSION < 150000
+	// not defined for NDK platform before 21
+	#if PLATFORM_USED_NDK_VERSION_INTEGER < 21
+		#define RTLD_NOLOAD   0x00004
+	#endif
+#endif
+#endif
+
 #if !PLATFORM_LUMIN
 int64 FAndroidAffinity::GameThreadMask = FPlatformAffinity::GetNoAffinityMask();
 int64 FAndroidAffinity::RenderingThreadMask = FPlatformAffinity::GetNoAffinityMask();
 #endif
+
+void* FAndroidPlatformProcess::GetDllHandle(const TCHAR* Filename)
+{
+	check(Filename);
+
+	// Check if dylib is already loaded
+	void* Handle = dlopen(TCHAR_TO_ANSI(Filename), RTLD_NOLOAD | RTLD_LAZY | RTLD_LOCAL);
+	
+	if (!Handle)
+	{
+		// Not loaded yet, so try to open it
+		Handle = dlopen(TCHAR_TO_ANSI(Filename), RTLD_LAZY | RTLD_LOCAL);
+	}
+	if (!Handle)
+	{
+		UE_LOG(LogAndroid, Warning, TEXT("dlopen failed: %s"), ANSI_TO_TCHAR(dlerror()));
+	}
+	return Handle;
+}
+
+void FAndroidPlatformProcess::FreeDllHandle(void* DllHandle)
+{
+	check(DllHandle);
+	dlclose(DllHandle);
+}
+
+void* FAndroidPlatformProcess::GetDllExport(void* DllHandle, const TCHAR* ProcName)
+{
+	check(DllHandle);
+	check(ProcName);
+	return dlsym(DllHandle, TCHAR_TO_ANSI(ProcName));
+}
 
 const TCHAR* FAndroidPlatformProcess::ComputerName()
 {

@@ -443,7 +443,7 @@ public:
 
 	virtual ~FOnlineSession() = default;
 
-	/** @return the session id for a given session */
+	/** @return the session id for the session as a string */
 	FString GetSessionIdStr() const
 	{
 		if (SessionInfo.IsValid() && SessionInfo->IsValid())

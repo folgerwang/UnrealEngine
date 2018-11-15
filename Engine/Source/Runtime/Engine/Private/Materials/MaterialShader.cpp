@@ -2263,7 +2263,7 @@ struct FCompareMeshShaderMaps
 
 void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bool bLoadedByCookedMaterial)
 {
-	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	LLM_SCOPE(ELLMTag::Shaders);
 	// Note: This is saved to the DDC, not into packages (except when cooked)
 	// Backwards compatibility therefore will not work based on the version of Ar
 	// Instead, just bump MATERIALSHADERMAP_DERIVEDDATA_VER

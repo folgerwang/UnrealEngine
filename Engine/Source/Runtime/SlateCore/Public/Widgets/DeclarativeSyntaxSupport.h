@@ -333,7 +333,7 @@ template<typename WidgetType> struct TSlateBaseNamedArgs;
 		\
 		WidgetArgsType& ArgName( const TWeakObjectPtr< const class USlateWidgetStyleAsset >& InSlateStyleAsset ) \
 		{ \
-			_##ArgName = InSlateStyleAsset->GetStyleChecked< ArgType >(); \
+			_##ArgName = InSlateStyleAsset.Get()->GetStyleChecked< ArgType >(); \
 			return this->Me(); \
 		}\
 		\
@@ -352,7 +352,7 @@ template<typename WidgetType> struct TSlateBaseNamedArgs;
 		\
 		WidgetArgsType& ArgName( const TWeakObjectPtr< const class ISlateStyle >& InSlateStyle, const FName& StyleName, const ANSICHAR* Specifier = nullptr ) \
 		{ \
-			_##ArgName = &InSlateStyle->GetWidgetStyle< ArgType >( StyleName, Specifier ); \
+			_##ArgName = &InSlateStyle.Get()->GetWidgetStyle< ArgType >( StyleName, Specifier ); \
 			return this->Me(); \
 		} \
 		\

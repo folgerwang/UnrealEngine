@@ -26,7 +26,7 @@ template <> struct TLiteral<WIDECHAR>
 	static const WIDECHAR* Select(const ANSICHAR*, const WIDECHAR* wide) { return wide; }
 };
 
-#define LITERAL(CharType, StringLiteral) TLiteral<CharType>::Select(StringLiteral, L##StringLiteral)
+#define LITERAL(CharType, StringLiteral) TLiteral<CharType>::Select(StringLiteral, TEXT(StringLiteral))
 
 /**
  * TChar

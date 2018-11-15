@@ -6,10 +6,12 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
 #include "Engine/AssetManager.h"
 #include "PropertyHandle.h"
 #include "PropertyCustomizationHelpers.h"
 #include "Editor.h"
+#include "AssetThumbnail.h"
 
 #define LOCTEXT_NAMESPACE "PrimaryAssetIdCustomization"
 
@@ -52,6 +54,10 @@ void FPrimaryAssetIdCustomization::CustomizeHeader(TSharedRef<class IPropertyHan
 	// Can the field be cleared
 	const bool bAllowClear = !(StructPropertyHandle->GetMetaDataProperty()->PropertyFlags & CPF_NoClear);
 
+	int32 ThumbnailSize = 64;
+	AssetThumbnail = MakeShareable( new FAssetThumbnail( FAssetData(), ThumbnailSize, ThumbnailSize, StructCustomizationUtils.GetThumbnailPool() ) );
+	UpdateThumbnail();
+
 	HeaderRow
 	.NameContent()
 	[
@@ -62,8 +68,21 @@ void FPrimaryAssetIdCustomization::CustomizeHeader(TSharedRef<class IPropertyHan
 	.MaxDesiredWidth(0.0f)
 	[
 		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0, 0, 4, 0)
+		[
+			SNew(SBox)
+			.WidthOverride(ThumbnailSize)
+			.HeightOverride(ThumbnailSize)
+			[
+				AssetThumbnail->MakeThumbnailWidget()
+			]
+		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
 		[
 			IAssetManagerEditorModule::MakePrimaryAssetIdSelector(
 				FOnGetPrimaryAssetDisplayText::CreateSP(this, &FPrimaryAssetIdCustomization::GetDisplayText),
@@ -72,16 +91,19 @@ void FPrimaryAssetIdCustomization::CustomizeHeader(TSharedRef<class IPropertyHan
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			PropertyCustomizationHelpers::MakeUseSelectedButton(FSimpleDelegate::CreateSP(this, &FPrimaryAssetIdCustomization::OnUseSelected))
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			PropertyCustomizationHelpers::MakeBrowseButton(FSimpleDelegate::CreateSP(this, &FPrimaryAssetIdCustomization::OnBrowseTo))
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			PropertyCustomizationHelpers::MakeClearButton(FSimpleDelegate::CreateSP(this, &FPrimaryAssetIdCustomization::OnClear))
 		]
@@ -94,6 +116,8 @@ void FPrimaryAssetIdCustomization::OnIdSelected(FPrimaryAssetId AssetId)
 	{
 		StructPropertyHandle->SetValueFromFormattedString(AssetId.ToString());
 	}
+
+	UpdateThumbnail();
 }
 
 FText FPrimaryAssetIdCustomization::GetDisplayText() const
@@ -124,6 +148,20 @@ FPrimaryAssetId FPrimaryAssetIdCustomization::GetCurrentPrimaryAssetId() const
 	}
 
 	return FPrimaryAssetId(StringReference);
+}
+
+void FPrimaryAssetIdCustomization::UpdateThumbnail()
+{
+	check(AssetThumbnail.IsValid());
+
+	FAssetData AssetData;
+	FPrimaryAssetId PrimaryAssetId = GetCurrentPrimaryAssetId();
+	if (PrimaryAssetId.IsValid())
+	{
+		UAssetManager::Get().GetPrimaryAssetData(PrimaryAssetId, AssetData);
+	}
+
+	AssetThumbnail->SetAsset(AssetData);
 }
 
 void FPrimaryAssetIdCustomization::OnBrowseTo()

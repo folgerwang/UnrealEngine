@@ -1060,7 +1060,8 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 
 			// Grab an event from the pool and fire off a task to trigger it.
 			FEvent* Event = FPlatformProcess::GetSynchEventFromPool();
-			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread);
+			check(GIsThreadedRendering);
+			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread, ENamedThreads::SetTaskPriority(ENamedThreads::ActualRenderingThread, ENamedThreads::HighTaskPriority));
 
 			// Check rendering thread health needs to be called from time to
 			// time in order to pump messages, otherwise the RHI may block
@@ -1110,7 +1111,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				bRenderThreadEnsured |= FDebug::IsEnsuring();
 
 #if !WITH_EDITOR
-#if !PLATFORM_IOS // @todo MetalMRT: Timeout isn't long enough...
+#if !PLATFORM_IOS && !PLATFORM_MAC // @todo MetalMRT: Timeout isn't long enough...
 				// editor threads can block for quite a while... 
 				if (!bDone && !bRenderThreadEnsured && !FPlatformMisc::IsDebuggerPresent())
 				{

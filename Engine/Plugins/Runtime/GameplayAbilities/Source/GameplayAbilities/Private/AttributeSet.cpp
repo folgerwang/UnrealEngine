@@ -444,6 +444,11 @@ float FScalableFloat::GetValueAtLevel(float Level, const FString* ContextString)
 	return Value;
 }
 
+float FScalableFloat::GetValue(const FString* ContextString /*= nullptr*/) const
+{
+	return GetValueAtLevel(0, ContextString);
+}
+
 void FScalableFloat::SetValue(float NewValue)
 {
 	Value = NewValue;

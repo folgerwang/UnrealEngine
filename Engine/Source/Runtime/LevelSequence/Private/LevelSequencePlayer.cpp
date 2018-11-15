@@ -256,13 +256,18 @@ TArray<UObject*> ULevelSequencePlayer::GetEventContexts() const
 		GetEventContexts(*World, EventContexts);
 	}
 
-	for (UObject* Object : AdditionalEventReceivers)
+	ALevelSequenceActor* OwningActor = GetTypedOuter<ALevelSequenceActor>();
+	if (OwningActor)
 	{
-		if (Object)
+		for (AActor* Actor : OwningActor->AdditionalEventReceivers)
 		{
-			EventContexts.Add(Object);
+			if (Actor)
+			{
+				EventContexts.Add(Actor);
+			}
 		}
 	}
+
 	return EventContexts;
 }
 

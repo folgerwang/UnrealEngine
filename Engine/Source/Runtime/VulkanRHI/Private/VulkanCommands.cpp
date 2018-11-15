@@ -528,9 +528,9 @@ inline void /*FVulkanCommandListContext::*/SetShaderUniformBufferResources(FVulk
 			const VkDescriptorType DescriptorType = DescriptorTypes[GlobalInfos[ResourceInfo.GlobalIndex].TypeIndex];
 			ensure(DescriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || DescriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 			FTextureRHIParamRef TexRef = (FTextureRHIParamRef)(ResourceArray[ResourceInfo.SourceUBResourceIndex].GetReference());
-			const FVulkanTextureBase* BaseTexture = FVulkanTextureBase::Cast(TexRef);
-			if (BaseTexture)
+			if (TexRef)
 			{
+				const FVulkanTextureBase* BaseTexture = FVulkanTextureBase::Cast(TexRef);
 				VkImageLayout Layout = Context->GetLayoutForDescriptor(BaseTexture->Surface);
 				State->SetTextureForUBResource(GlobalRemappingInfo[ResourceInfo.GlobalIndex].NewDescriptorSet, GlobalRemappingInfo[ResourceInfo.GlobalIndex].NewBindingIndex, BaseTexture, Layout);
 				TexRef->SetLastRenderTime(CurrentTime);

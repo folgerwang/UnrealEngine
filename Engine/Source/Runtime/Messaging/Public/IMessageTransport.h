@@ -61,5 +61,5 @@ protected:
 
 
 /** Type definition for shared references to instances of ITransportMessages. */
-DEPRECATED(4.16, "IMessageTransportRef is deprecated. Please use 'TSharedRef<IMessageTransport, ESPMode::ThreadSafe>' instead!")
+UE_DEPRECATED(4.16, "IMessageTransportRef is deprecated. Please use 'TSharedRef<IMessageTransport, ESPMode::ThreadSafe>' instead!")
 typedef TSharedRef<IMessageTransport, ESPMode::ThreadSafe> IMessageTransportRef;

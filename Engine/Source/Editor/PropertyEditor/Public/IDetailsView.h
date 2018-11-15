@@ -94,6 +94,8 @@ struct FDetailsViewArgs
 	uint32 bShowKeyablePropertiesOption : 1;
 	/** True if you want to show the 'Show Only Animated Properties'. Only valid in conjunction with bShowOptions */
 	uint32 bShowAnimatedPropertiesOption: 1;
+	/** True if you want to show a custom filter. */
+	uint32 bShowCustomFilterOption : 1;
 	/** The default column width */
 	float ColumnWidth;
 
@@ -334,4 +336,9 @@ public:
 
 	/** Force refresh */
 	virtual void ForceRefresh() = 0;
+	
+	/** Allows other systems to add a custom filter in the details panel */
+	virtual void SetCustomFilterDelegate(FSimpleDelegate InDelegate) = 0;
+
+	virtual void SetCustomFilterLabel(FText InText) = 0;
 };

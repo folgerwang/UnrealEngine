@@ -836,7 +836,7 @@ inline uint32 GetVertexCountForPrimitiveCount(uint32 NumPrimitives, uint32 Primi
  * @param VertexData A reference to memory preallocate in RHIBeginDrawPrimitiveUP
  * @param VertexDataStride Size of each vertex
  */
-DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride)
 {
 	check(NumPrimitives > 0);
@@ -867,7 +867,7 @@ inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, u
  * @param VertexData The memory preallocate in RHIBeginDrawIndexedPrimitiveUP
  * @param VertexDataStride The size of one vertex
  */
-DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawIndexedPrimitiveUP(
 	FRHICommandList& RHICmdList,
 	uint32 PrimitiveType,

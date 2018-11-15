@@ -118,7 +118,7 @@ public:
 
 private:
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> Times;
 
 	UPROPERTY()
@@ -127,7 +127,7 @@ private:
 	UPROPERTY()
 	bool bHasDefaultValue;
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<bool> Values;
 
 	FMovieSceneKeyHandleMap KeyHandles;

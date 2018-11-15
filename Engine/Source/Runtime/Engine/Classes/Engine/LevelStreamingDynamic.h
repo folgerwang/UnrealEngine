@@ -66,5 +66,5 @@ private:
 
 };
 
-DEPRECATED(4.21, "ULevelStreamingKismet has been renamed to ULevelStreamingDynamic")
+UE_DEPRECATED(4.21, "ULevelStreamingKismet has been renamed to ULevelStreamingDynamic")
 typedef ULevelStreamingDynamic ULevelStreamingKismet;

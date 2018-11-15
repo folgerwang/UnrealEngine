@@ -37,7 +37,7 @@ public:
 
 	// The time at which to evaluate the associated sequence
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float ExplicitTime;
+	float ExplicitTime;
 
 	/** This only works if bTeleportToExplicitTime is false OR this node is set to use SyncGroup */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
@@ -49,16 +49,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	bool bTeleportToExplicitTime;
 
-	// The start up position, it only applies when ReinitializationBehavior == StartPosition. Only used when bTeleportToExplicitTime is false.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable float StartPosition;
-
 	/** What to do when SequenceEvaluator is reinitialized */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta=(DisplayAfter="StartPosition"))
 	TEnumAsByte<ESequenceEvalReinit::Type> ReinitializationBehavior;
 
-	UPROPERTY(Transient)
 	bool bReinitialized;
+
+	// The start up position, it only applies when ReinitializationBehavior == StartPosition. Only used when bTeleportToExplicitTime is false.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
+	float StartPosition;
 
 public:
 	FAnimNode_SequenceEvaluator()
@@ -66,9 +65,9 @@ public:
 		, ExplicitTime(0.0f)
 		, bShouldLoop(false)
 		, bTeleportToExplicitTime(true)
-		, StartPosition(0.f)
 		, ReinitializationBehavior(ESequenceEvalReinit::ExplicitTime)
 		, bReinitialized(false)
+		, StartPosition(0.f)
 	{
 	}
 

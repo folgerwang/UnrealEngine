@@ -185,7 +185,7 @@ void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 
 void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId, const FOnlineError& Error)
 {
-	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Login UI closed by local user %d. Logged-in user = %s.  Error = %s"), LocalUserId, *LoggedInUserId->ToString(), Error.ToLogString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Login UI closed by local user %d. Logged-in user = %s. Error = %s"), LocalUserId, *LoggedInUserId->ToString(), *Error.ToLogString());
 }
 
 void FTestExternalUIInterface::OnProfileUIClosed()

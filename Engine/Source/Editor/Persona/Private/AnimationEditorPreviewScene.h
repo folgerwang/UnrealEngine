@@ -24,7 +24,7 @@ public:
 	virtual TSharedRef<class IPersonaToolkit> GetPersonaToolkit() const override { return PersonaToolkit.Pin().ToSharedRef(); }
 	virtual void SetPreviewAnimationAsset(UAnimationAsset* AnimAsset, bool bEnablePreview = true) override;
 	virtual UAnimationAsset* GetPreviewAnimationAsset() const override;
-	virtual void SetPreviewMesh(USkeletalMesh* NewPreviewMesh) override;
+	virtual void SetPreviewMesh(USkeletalMesh* NewPreviewMesh, bool bAllowOverrideBaseMesh = true) override;
 	virtual USkeletalMesh* GetPreviewMesh() const override;
 	virtual bool AttachObjectToPreviewComponent(UObject* Object, FName AttachTo) override;
 	virtual void RemoveAttachedObjectFromPreviewComponent(UObject* Object, FName AttachedTo) override;
@@ -33,7 +33,7 @@ public:
 	virtual UDebugSkelMeshComponent* GetPreviewMeshComponent() const override { return SkeletalMeshComponent; }
 	virtual void SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) override;
 	virtual void SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes) override;
-	virtual void RefreshAdditionalMeshes() override;
+	virtual void RefreshAdditionalMeshes(bool bAllowOverrideBaseMesh) override;
 	virtual void ShowReferencePose(bool bShowRefPose, bool bResetBoneTransforms = false) override;
 	virtual bool IsShowReferencePoseEnabled() const override;
 	virtual void SetSelectedBone(const FName& BoneName) override;
@@ -292,6 +292,11 @@ public:
 	/** Override for preview component selection to inform the editor we consider it selected */
 	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 
+	virtual void SetAllowAdditionalMeshes(bool bAllow) 
+	{
+		bAllowAdditionalMeshes = bAllow;
+	}
+
 private:
 	/** Set preview mesh internal use only. The mesh should be verified by now. */
 	void SetPreviewMeshInternal(USkeletalMesh* NewPreviewMesh);
@@ -414,4 +419,7 @@ private:
 
 	/** Selection recursion guard */
 	bool bSelecting;
+
+	/** Allow additional meshes to be attached */
+	bool bAllowAdditionalMeshes;
 };

@@ -73,6 +73,7 @@ public:
 	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override;
 	virtual bool ClientHasInitializedLevelFor( const AActor* TestActor ) const override;
 	virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
+	virtual FString RemoteAddressToString() override { return TEXT("Demo"); }
 
 public:
 
@@ -94,7 +95,10 @@ public:
 protected:
 	virtual void DestroyIgnoredActor(AActor* Actor) override;
 
+	UE_DEPRECATED(4.21, "Deprecated in favor of QueueNetStartupActorForRewind that does not check dormancy")
 	void QueueInitialDormantStartupActorForRewind(AActor* Actor);
+
+	void QueueNetStartupActorForRewind(AActor* Actor);
 
 private:
 	void TrackSendForProfiler(const void* Data, int32 NumBytes);

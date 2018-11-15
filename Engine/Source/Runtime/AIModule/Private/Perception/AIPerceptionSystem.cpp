@@ -9,6 +9,7 @@
 #include "Perception/AISenseConfig.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "VisualLogger/VisualLogger.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "Perception/AISenseEvent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Perception System"),STAT_AI_PerceptionSys,STATGROUP_AI);
@@ -88,11 +89,6 @@ FAISenseID UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseCl
 	return SenseID;
 }
 
-UWorld* UAIPerceptionSystem::GetWorld() const
-{
-	return Cast<UWorld>(GetOuter());
-}
-
 TStatId UAIPerceptionSystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UAIPerceptionSystem, STATGROUP_Tickables);
@@ -157,6 +153,8 @@ void UAIPerceptionSystem::Tick(float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_PerceptionSys);
 	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AIPerception);
+
 
 	// if no new stimuli
 	// and it's not time to remove stimuli from "know events"

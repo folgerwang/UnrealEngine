@@ -424,7 +424,10 @@ void FSlateRHIRenderer::UpdateFullscreenState(const TSharedRef<SWindow> Window, 
 void FSlateRHIRenderer::SetSystemResolution(uint32 Width, uint32 Height)
 {
 	FSystemResolution::RequestResolutionChange(Width, Height, FPlatformProperties::HasFixedResolution() ? EWindowMode::Fullscreen : GSystemResolution.WindowMode);
-	IConsoleManager::Get().CallAllConsoleVariableSinks();
+	if (FPlatformProperties::HasFixedResolution())
+	{
+		IConsoleManager::Get().CallAllConsoleVariableSinks();
+	}
 }
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
@@ -1544,6 +1547,9 @@ TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRHIRenderer::Cache
 		RenderDataHandle,
 		ResourceVersion
 	};
+
+	RenderDataHandle->BeginUsing();
+
 	ENQUEUE_RENDER_COMMAND(CacheElementBatches)(
 		[CacheElementBatchesContext](FRHICommandListImmediate& RHICmdList)
 	{
@@ -1555,6 +1561,8 @@ TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRHIRenderer::Cache
 		CacheElementBatchesContext.RenderPolicy->UpdateVertexAndIndexBuffers(RHICmdList, BatchData, CacheElementBatchesContext.RenderDataHandle);
 
 		RootBatchMap.UpdateResourceVersion(CacheElementBatchesContext.ResourceVersion);
+
+		CacheElementBatchesContext.RenderDataHandle->EndUsing();
 	}
 	);
 

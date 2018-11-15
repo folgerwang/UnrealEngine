@@ -657,7 +657,7 @@
 
 
 #ifndef DEPRECATED_FORGAME
-	#define DEPRECATED_FORGAME(...)
+	#define DEPRECATED_FORGAME(...) DEPRECATED_MACRO(4.22, "The DEPRECATED_FORGAME macro has been deprecated in favor of UE_DEPRECATED_FORGAME().")
 #endif
 
 // This is a temporary macro, will be removed when TSubobjectPtr can be safely removed

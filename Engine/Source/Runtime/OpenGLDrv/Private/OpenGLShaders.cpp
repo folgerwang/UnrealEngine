@@ -4484,7 +4484,7 @@ void FOpenGLProgramBinaryCache::Initialize()
 	// Remove entire ProgramBinaryCache folder if -ClearOpenGLBinaryProgramCache is specified on command line
 	if (FParse::Param(FCommandLine::Get(), TEXT("ClearOpenGLBinaryProgramCache")))
 	{
-		UE_LOG(LogRHI, Log, TEXT("Deleting binary program cache folder: %s"), *CacheFolderPath);
+		UE_LOG(LogRHI, Log, TEXT("ClearOpenGLBinaryProgramCache specified, deleting binary program cache folder: %s"), *CacheFolderPath);
 		FPlatformFileManager::Get().GetPlatformFile().DeleteDirectoryRecursively(*CacheFolderPath);
 	}
 
@@ -4623,26 +4623,28 @@ void FOpenGLProgramBinaryCache::ScanProgramCacheFile(const FGuid& ShaderPipeline
 
 		if (bBinaryFileIsValid)
 		{
+			bool bFoundEndRecord = false;
 			int32 ProgramIndex = 0;
 			while (!Ar.AtEnd())
 			{
-				FGLProgramBinaryFileCacheEntry* NewEntry = new FGLProgramBinaryFileCacheEntry();
+				check(bFoundEndRecord == false); // There should be no additional data after the eof record.
 
-				FOpenGLProgramKey& ProgramKey = NewEntry->FileInfo.ShaderHasheSet;
-				Ar << ProgramKey;
-				NewEntry->ProgramIndex = ProgramIndex++;
+				FOpenGLProgramKey ProgramKey;
 				uint32 ProgramBinarySize = 0;
+				Ar << ProgramKey;
 				Ar << ProgramBinarySize;
-
-				uint32 ProgramBinaryOffset = Ar.Tell();
-				NewEntry->FileInfo.ProgramSize = ProgramBinarySize;
-				NewEntry->FileInfo.ProgramOffset = ProgramBinaryOffset;
 
 				if (ProgramBinarySize > 0)
 				{
-					ProgramEntryContainer.Emplace(TUniquePtr<FGLProgramBinaryFileCacheEntry>(NewEntry));
+					FGLProgramBinaryFileCacheEntry* NewEntry = new FGLProgramBinaryFileCacheEntry();
+					NewEntry->FileInfo.ShaderHasheSet = ProgramKey;
+					NewEntry->ProgramIndex = ProgramIndex++;
 
-					//UE_LOG(LogRHI, Log, TEXT("OnShaderScanProgramCacheFile : Adding program (idx %d), offset %d, size %d"), NewEntry->ProgramIndex , ProgramBinaryOffset, ProgramBinarySize);
+					uint32 ProgramBinaryOffset = Ar.Tell();
+					NewEntry->FileInfo.ProgramSize = ProgramBinarySize;
+					NewEntry->FileInfo.ProgramOffset = ProgramBinaryOffset;
+
+					ProgramEntryContainer.Emplace(TUniquePtr<FGLProgramBinaryFileCacheEntry>(NewEntry));
 
 					// check to see if any of the shaders are already loaded and so we should serialize the binary
 					bool bAllShadersLoaded = true;
@@ -4668,25 +4670,40 @@ void FOpenGLProgramBinaryCache::ScanProgramCacheFile(const FGuid& ShaderPipeline
 				}
 				else
 				{
-					UE_LOG(LogRHI, Warning, TEXT("FOpenGLProgramBinaryCache::ScanProgramCacheFile : encountered 0 sized program during binary program cache scan"));
-					delete NewEntry;
-					ProgramIndex--;
+					if (ProgramKey == FOpenGLProgramKey())
+					{
+						bFoundEndRecord = true;
+					}
+					else
+					{
+						// Note: This should not happen with new code. We can no longer write out records with 0 program size. see AppendProgramBinaryFile.
+						UE_LOG(LogRHI, Warning, TEXT("FOpenGLProgramBinaryCache::ScanProgramCacheFile : encountered 0 sized program during binary program cache scan"));
+					}
 				}
-
 			}
-			UE_LOG(LogRHI, Log, TEXT("Program Binary cache: Found %d cached programs"), ProgramIndex);
 
+			if (!bFoundEndRecord)
+			{
+				// failed to find sentinel record, this file was not finalized.
+				bBinaryFileIsValid = false;
+				UE_LOG(LogRHI, Warning, TEXT("ScanProgramCacheFile - incomplete binary cache file encountered. Rebuilding binary program cache."));
+			}
+
+			UE_LOG(LogRHI, Log, TEXT("Program Binary cache: Found %d cached programs, end record found: %d"), ProgramIndex, (uint32)bFoundEndRecord);
 			FileReader->Close();
 			delete FileReader;
 
-			// Rename the file back after a succesful scan.
-			PlatformFile.MoveFile(*ProgramCacheFilename, *ProgramCacheFilenameTemp);
+			if(bBinaryFileIsValid)
+			{
+				// Rename the file back after a successful scan.
+				PlatformFile.MoveFile(*ProgramCacheFilename, *ProgramCacheFilenameTemp);
+			}
 		}
 		else
 		{
 			UE_LOG(LogRHI, Log, TEXT("OnShaderScanProgramCacheFile : binary file version invalid"));
-		FileReader->Close();
-		delete FileReader;
+			FileReader->Close();
+			delete FileReader;
 		}
 
 		if (bBinaryFileIsValid)
@@ -4780,9 +4797,19 @@ bool FOpenGLProgramBinaryCache::OpenWriteHandle(bool bTruncate)
 void FOpenGLProgramBinaryCache::CloseWriteHandle()
 {
 	check(BinaryCacheWriteFileHandle != nullptr);
+
+	AppendProgramBinaryFileEofEntry(*BinaryCacheWriteFileHandle);
+	bool bArchiveFailed = BinaryCacheWriteFileHandle->IsError() || BinaryCacheWriteFileHandle->IsCriticalError();
+
 	BinaryCacheWriteFileHandle->Close();
 	delete BinaryCacheWriteFileHandle;
 	BinaryCacheWriteFileHandle = nullptr;
+
+	if (bArchiveFailed)
+	{
+		RHIGetPanicDelegate().ExecuteIfBound(FName("FailedBinaryProgramArchiveWrite"));
+		UE_LOG(LogRHI, Fatal, TEXT("CloseWriteHandle - FArchive error bit set, failed to write binary cache."));
+	}
 
 	// rename the temp filename back to the final filename
 	FString ProgramCacheFilename = GetProgramBinaryCacheFilePath();
@@ -4898,6 +4925,15 @@ bool FOpenGLProgramBinaryCache::AppendProgramBinaryFile(FArchive& Ar, const FOpe
 		// Panic!
 	}
 	return (ProgramBinarySizeOUT > 0);
+}
+
+void FOpenGLProgramBinaryCache::AppendProgramBinaryFileEofEntry(FArchive& Ar)
+{
+	// write out an all zero record that signifies eof.
+	FOpenGLProgramKey SerializedProgramKey;
+	Ar << SerializedProgramKey;
+	uint32 ProgramBinarySize = 0;
+	Ar << ProgramBinarySize;
 }
 
 void FOpenGLProgramBinaryCache::Shutdown()

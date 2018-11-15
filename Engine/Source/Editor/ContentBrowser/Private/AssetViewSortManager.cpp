@@ -109,9 +109,13 @@ public:
 protected:
 	FORCEINLINE virtual bool Compare(const TSharedPtr<FAssetViewItem>& A, const TSharedPtr<FAssetViewItem>& B) const override
 	{
-		const FName& ValueA = StaticCastSharedPtr<FAssetViewAsset>(A)->Data.AssetName;
-		const FName& ValueB = StaticCastSharedPtr<FAssetViewAsset>(B)->Data.AssetName;
-		const int32 Result = ValueA.Compare(ValueB);
+		int32 Result = FCStringWide::Strcmp(StaticCastSharedPtr<FAssetViewAsset>(A)->FirstFewAssetNameCharacters, StaticCastSharedPtr<FAssetViewAsset>(B)->FirstFewAssetNameCharacters);
+		if (Result == 0)
+		{
+			const FName& ValueA = StaticCastSharedPtr<FAssetViewAsset>(A)->Data.AssetName;
+			const FName& ValueB = StaticCastSharedPtr<FAssetViewAsset>(B)->Data.AssetName;
+			Result = ValueA.Compare(ValueB);
+		}
 		if (Result < 0)
 		{
 			return bAscending;

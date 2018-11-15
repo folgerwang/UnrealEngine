@@ -30,11 +30,6 @@ class ENGINE_API ALODActor : public AActor
 
 	friend class UHLODProxy;
 
-	// Disable compiler-generated deprecation warnings by implementing our own destructor
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	~ALODActor() {}
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 private:
 	// disable display of this component
 	UPROPERTY(Category=LODActor, VisibleAnywhere)
@@ -53,23 +48,15 @@ private:
 	float LODDrawDistance;
 
 public:
-	UPROPERTY(Category=LODActor, VisibleAnywhere)
-	TArray<AActor*> SubActors;
-	
 	/** The hierarchy level of this actor; the first tier of HLOD is level 1, the second tier is level 2 and so on. */
 	UPROPERTY(Category=LODActor, VisibleAnywhere)
 	int32 LODLevel;
 
-	DEPRECATED(4.20, "This member is no longer used")
-	TArray<UObject*> SubObjects;
-
+	UPROPERTY(Category=LODActor, VisibleAnywhere)
+	TArray<AActor*> SubActors;
+	
 	UPROPERTY()
 	uint8 CachedNumHLODLevels;
-
-#if WITH_EDITORONLY_DATA
-	DEPRECATED(4.20, "This member is no longer used")
-	TArray<UObject*> PreviousSubObjects;
-#endif // WITH_EDITORONLY_DATA
 
 	//~ Begin AActor Interface
 #if WITH_EDITOR
@@ -127,12 +114,7 @@ public:
 	*/
 	const bool RemoveSubActor(AActor* InActor);
 
-	DEPRECATED(4.20, "Please use IsBuilt() instead")
-	const bool IsDirty() const { return IsBuilt(); }
 
-	DEPRECATED(4.20, "Please use ForceUnbuilt() instead")
-	void SetIsDirty(const bool bNewState) { if(!bNewState) { ForceUnbuilt(); } }
-	
 	/**
 	 * Determines whether or not this LODActor has valid SubActors and can be built
 	 * @return true if the subactor(s) contain at least two static mesh components
@@ -168,9 +150,6 @@ public:
 
 	/** Cleans the SubActor array (removes all NULL entries) */
 	void CleanSubActorArray();
-
-	DEPRECATED(4.20, "This function is no longer used")
-	void CleanSubObjectsArray() {}
 
 	/** Recalculates the drawing distance according to a fixed FOV of 90 and the transition screen size*/
 	void RecalculateDrawingDistance(const float TransitionScreenSize);

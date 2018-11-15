@@ -877,6 +877,7 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	FSkeletalMeshModel& DestructibleMeshResource = *DestructibleMesh.GetImportedModel();
 	check(DestructibleMeshResource.LODModels.Num() == 0);
 	DestructibleMeshResource.LODModels.Empty();
+	DestructibleMeshResource.EmptyOriginalReductionSourceMeshData();
 	new(DestructibleMeshResource.LODModels)FSkeletalMeshLODModel();
 
 	DestructibleMesh.ResetLODInfo();

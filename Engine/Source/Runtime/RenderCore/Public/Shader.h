@@ -497,7 +497,10 @@ public:
 
 	friend inline uint32 GetTypeHash( const FShaderId& Id )
 	{
-		return FCrc::MemCrc_DEPRECATED((const void*)&Id.MaterialShaderMapHash, sizeof(Id.MaterialShaderMapHash));
+		return
+			HashCombine(
+				HashCombine(*(uint32*)&Id.MaterialShaderMapHash, GetTypeHash(Id.Target)),
+				HashCombine(GetTypeHash(Id.VertexFactoryType), uint32(Id.PermutationId)));
 	}
 
 	friend bool operator==(const FShaderId& X, const FShaderId& Y)

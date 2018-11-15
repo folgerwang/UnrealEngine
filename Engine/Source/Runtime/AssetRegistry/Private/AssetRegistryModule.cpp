@@ -29,7 +29,8 @@ void FAssetRegistryModule::ShutdownModule()
 
 IAssetRegistry& FAssetRegistryModule::Get() const
 {
-	check(AssetRegistry.IsValid());
-	return *AssetRegistry;
+	UAssetRegistryImpl* AssetRegistryPtr = AssetRegistry.Get();
+	check(AssetRegistryPtr);
+	return *AssetRegistryPtr;
 }
 

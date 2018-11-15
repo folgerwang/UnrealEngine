@@ -326,6 +326,11 @@
 	#define ALLOW_HITCH_DETECTION 0
 #endif
 
+// Adjust a few things with the slack policy and MallocBinned2 to minimize memory usage (at some performance cost)
+#ifndef AGGRESSIVE_MEMORY_SAVING
+	#define AGGRESSIVE_MEMORY_SAVING 0
+#endif
+
 #define USE_HITCH_DETECTION (ALLOW_HITCH_DETECTION && !WITH_EDITORONLY_DATA && !IS_PROGRAM && !UE_BUILD_DEBUG)
 
 // Controls whether shipping builds create backups of the most recent log file.

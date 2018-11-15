@@ -13,7 +13,9 @@ void FTextJustifyCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> Prop
 	const FMargin OuterPadding(2);
 	const FMargin ContentPadding(2);
 
+	
 	HeaderRow
+	.IsEnabled(TAttribute<bool>(PropertyHandle, &IPropertyHandle::IsEditable))
 	.NameContent()
 	[
 		PropertyHandle->CreatePropertyNameWidget()

@@ -38,6 +38,7 @@
 #include "Misc/TextFilterExpressionEvaluator.h"
 #include "Debugging/SlateDebugging.h"
 #include "VisualTreeCapture.h"
+#include "SWidgetEventLog.h"
 
 #if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 #include "DesktopPlatformModule.h"
@@ -111,6 +112,7 @@ namespace WidgetReflectorTabID
 	static const FName SlateStats = "WidgetReflector.SlateStatsTab";
 	static const FName SnapshotWidgetPicker = "WidgetReflector.SnapshotWidgetPickerTab";
 	static const FName WidgetDetails = "WidgetReflector.WidgetDetailsTab";
+	static const FName WidgetEvents = "WidgetReflector.WidgetEventsTab";
 }
 
 
@@ -145,6 +147,8 @@ private:
 #if WITH_EDITOR
 	TSharedRef<SDockTab> SpawnWidgetDetails(const FSpawnTabArgs& Args);
 #endif
+
+	TSharedRef<SDockTab> SpawnWidgetEvents(const FSpawnTabArgs& Args);
 
 	void OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab);
 
@@ -472,13 +476,14 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 				->SetSizeCoefficient(0.7f)
 				->AddTab(WidgetReflectorTabID::WidgetHierarchy, ETabState::OpenedTab)
 			)
-			->Split
-			(
-				FTabManager::NewStack()
-				->SetHideTabWell(true)
-				->SetSizeCoefficient(0.3f)
-				->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
-			)
+			//->Split
+			//(
+			//	FTabManager::NewStack()
+			//	->SetHideTabWell(true)
+			//	->SetSizeCoefficient(0.3f)
+			//	->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
+			//	->AddTab(WidgetReflectorTabID::WidgetEvents, ETabState::OpenedTab)
+			//)
 		)
 #if WITH_EDITOR
 		->Split
@@ -517,6 +522,9 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 			.SetDisplayName(LOCTEXT("WidgetDetailsTab", "Widget Details"));
 	}
 #endif
+
+	RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetEvents, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetEvents))
+		.SetDisplayName(LOCTEXT("WidgetEventsTab", "Widget Events"));
 
 	this->ChildSlot
 	[
@@ -941,6 +949,18 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetDetails(const FSpawnTabArgs& A
 
 #endif
 
+TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetEvents(const FSpawnTabArgs& Args)
+{
+	auto OnTabClosed = [this](TSharedRef<SDockTab>)
+	{
+	};
+
+	return SNew(SDockTab)
+		.Label(LOCTEXT("WidgetEventsTab", "Widget Events"))
+		[
+			SNew(SWidgetEventLog)
+		];
+}
 
 void SWidgetReflector::OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab)
 {

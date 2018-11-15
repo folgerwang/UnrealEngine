@@ -172,9 +172,10 @@ void FBlutilityMenuExtensions::GetBlutilityClasses(TArray<FAssetData>& OutAssets
 	// Check each asset to see if it matches our type
 	for (const FAssetData& Asset : AssetList)
 	{
-		if (const FString* GeneratedClassPathPtr = Asset.TagsAndValues.Find(FBlueprintTags::GeneratedClassPath))
+		FAssetDataTagMapSharedView::FFindTagResult Result = Asset.TagsAndValues.FindTag(FBlueprintTags::GeneratedClassPath);
+		if (Result.IsSet())
 		{
-			const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPathPtr);
+			const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(Result.GetValue());
 			const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
 
 			if (DerivedNames.Contains(*ClassName))

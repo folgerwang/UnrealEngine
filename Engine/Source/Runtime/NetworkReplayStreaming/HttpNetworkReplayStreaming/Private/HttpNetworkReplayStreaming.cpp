@@ -776,6 +776,8 @@ bool FQueuedGotoFakeCheckpoint::PreProcess( FHttpNetworkReplayStreamer* Streamer
 		FGotoResult Result;
 		Result.Result = EStreamingOperationResult::Success;
 		Result.ExtraTimeMS = Streamer->LastGotoTimeInMS;
+		Result.CheckpointInfo.CheckpointIndex = FReplayCheckpointInfo::NO_CHECKPOINT;
+		Result.CheckpointInfo.CheckpointStartTime = FReplayCheckpointInfo::NO_CHECKPOINT;
 
 		GotoCheckpointDelegate.Execute( Result );
 		GotoCheckpointDelegate = FGotoCallback();
@@ -2145,7 +2147,8 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 		StreamTimeRangeEnd		= 0;
 
 		// Set the next chunk to be right after this checkpoint (which was stored in the metadata)
-		StreamChunkIndex = FCString::Atoi( *CheckpointList.ReplayEvents[ DownloadCheckpointIndex ].Metadata );
+		const FReplayEventListItem& Checkpoint = CheckpointList.ReplayEvents[DownloadCheckpointIndex];
+		StreamChunkIndex = FCString::Atoi( *Checkpoint.Metadata );
 
 		LastChunkTime = 0;		// Force the next chunk to start downloading immediately
 
@@ -2154,24 +2157,27 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 		{
 			UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. Clamped to checkpoint: %i" ), LastGotoTimeInMS );
 
-			StreamTimeRangeStart	= CheckpointList.ReplayEvents[DownloadCheckpointIndex].Time1;
-			StreamTimeRangeEnd		= CheckpointList.ReplayEvents[DownloadCheckpointIndex].Time1;
+			StreamTimeRangeStart	= Checkpoint.Time1;
+			StreamTimeRangeEnd		= Checkpoint.Time1;
 			LastGotoTimeInMS		= -1;
 		}
 
 		if ( LastGotoTimeInMS >= 0 )
 		{
 			// If we are fine scrubbing, make sure to wait on the part of the stream that is needed to do this in one frame
-			SetHighPriorityTimeRange( CheckpointList.ReplayEvents[ DownloadCheckpointIndex ].Time1, LastGotoTimeInMS );
+			SetHighPriorityTimeRange( Checkpoint.Time1, LastGotoTimeInMS );
 			
 			// Subtract off checkpoint time so we pass in the leftover to the engine to fast forward through for the fine scrubbing part
-			LastGotoTimeInMS -= CheckpointList.ReplayEvents[ DownloadCheckpointIndex ].Time1;
+			LastGotoTimeInMS -= Checkpoint.Time1;
 		}
 
 		// Notify game code of success
 		FGotoResult Result;
 		Result.Result = EStreamingOperationResult::Success;
 		Result.ExtraTimeMS = LastGotoTimeInMS;
+		Result.CheckpointInfo.CheckpointIndex = DownloadCheckpointIndex;
+		Result.CheckpointInfo.CheckpointStartTime = Checkpoint.Time1;
+
 		GotoCheckpointDelegate.ExecuteIfBound(Result);
 
 		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. SUCCESS. StreamChunkIndex: %i" ), StreamChunkIndex );

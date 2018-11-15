@@ -16,25 +16,31 @@ template<class DelegateType, class DynamicDelegateType>
 struct TInputUnifiedDelegate
 {
 	TInputUnifiedDelegate() {};
-	TInputUnifiedDelegate(DelegateType const& D) : FuncDelegate(D) {};
-	TInputUnifiedDelegate(DynamicDelegateType const& D) : FuncDynDelegate(D) {};
+	TInputUnifiedDelegate(DelegateType D) : FuncDelegate(MakeShared<DelegateType>(MoveTemp(D))) {};
+	TInputUnifiedDelegate(DynamicDelegateType D) : FuncDynDelegate(MakeShared<DynamicDelegateType>(MoveTemp(D))) {};
 
 	/** Returns if either the native or dynamic delegate is bound */
 	inline bool IsBound() const
 	{
-		return ( FuncDelegate.IsBound() || FuncDynDelegate.IsBound() );
+		return ((FuncDelegate.IsValid() && FuncDelegate->IsBound()) || (FuncDynDelegate.IsValid() && FuncDynDelegate->IsBound()));
 	}
 
 	/** Returns if either the native or dynamic delegate is bound to an object */
 	inline bool IsBoundToObject(void const* Object) const
 	{
-		if (FuncDelegate.IsBound())
+		if (FuncDelegate.IsValid())
 		{
-			return FuncDelegate.IsBoundToObject(Object);
+			if (FuncDelegate->IsBound())
+			{
+				return FuncDelegate->IsBoundToObject(Object);
+			}
 		}
-		else if (FuncDynDelegate.IsBound())
+		else if (FuncDynDelegate.IsValid())
 		{
-			return FuncDynDelegate.IsBoundToObject(Object);
+			if (FuncDynDelegate->IsBound())
+			{
+				return FuncDynDelegate->IsBoundToObject(Object);
+			}
 		}
 
 		return false;
@@ -44,49 +50,60 @@ struct TInputUnifiedDelegate
 	template< class UserClass >
 	inline void BindDelegate(UserClass* Object, typename DelegateType::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func)
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegate.BindUObject(Object, Func);
+		FuncDynDelegate.Reset();;
+		FuncDelegate = MakeShared<DelegateType>(DelegateType::CreateUObject(Object, Func));
 	}
 
 	/** Binds a dynamic delegate and unbinds any bound native delegate */
 	inline void BindDelegate(UObject* Object, const FName FuncName)
 	{
-		FuncDelegate.Unbind();
-		FuncDynDelegate.BindUFunction(Object, FuncName);
+		FuncDelegate.Reset();
+		FuncDynDelegate = MakeShared<DynamicDelegateType>();
+		FuncDynDelegate->BindUFunction(Object, FuncName);
 	}
 
 	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
 	DelegateType& GetDelegateForManualSet()
 	{
-		FuncDynDelegate.Unbind();
-		return FuncDelegate;
+		FuncDynDelegate.Reset();
+		FuncDelegate = MakeShared<DelegateType>();
+		return *FuncDelegate;
 	}
 
 	/** Unbinds any bound delegates */
 	inline void Unbind()
 	{
-		FuncDelegate.Unbind();
-		FuncDynDelegate.Unbind();
+		FuncDelegate.Reset();
+		FuncDynDelegate.Reset();
 	}
 
 	/** Returns a const reference to the Function Delegate. */
 	inline const DelegateType& GetDelegate() const
 	{
-		return FuncDelegate;
+		return (FuncDelegate.IsValid() ? *FuncDelegate : UnboundDelegate);
 	}
 
 	/** Returns a const reference to the Dynamic Function Delegate. */
 	inline const DynamicDelegateType& GetDynamicDelegate() const
 	{
-		return FuncDynDelegate;
+		return (FuncDynDelegate.IsValid() ? *FuncDynDelegate : UnboundDynamicDelegate);
 	}
 
 protected:
 	/** Holds the delegate to call. */
-	DelegateType FuncDelegate;
+	TSharedPtr<DelegateType> FuncDelegate;
 	/** Holds the dynamic delegate to call. */
-	DynamicDelegateType FuncDynDelegate;
+	TSharedPtr<DynamicDelegateType> FuncDynDelegate;
+
+	static const DelegateType UnboundDelegate;
+	static const DynamicDelegateType UnboundDynamicDelegate;
 };
+
+template<class DelegateType, class DynamicDelegateType>
+const DelegateType TInputUnifiedDelegate<DelegateType, DynamicDelegateType>::UnboundDelegate;
+
+template<class DelegateType, class DynamicDelegateType>
+const DynamicDelegateType TInputUnifiedDelegate<DelegateType, DynamicDelegateType>::UnboundDynamicDelegate;
 
 
 /** Base class for the different binding types. */
@@ -112,9 +129,9 @@ DECLARE_DYNAMIC_DELEGATE_OneParam( FInputActionHandlerDynamicSignature, FKey, Ke
 struct FInputActionUnifiedDelegate
 {
 	FInputActionUnifiedDelegate() : BoundDelegateType(EBoundDelegate::Unbound) {};
-	FInputActionUnifiedDelegate(FInputActionHandlerSignature const& D) : FuncDelegate(D), BoundDelegateType(EBoundDelegate::Delegate) {};
-	FInputActionUnifiedDelegate(FInputActionHandlerWithKeySignature const& D) : FuncDelegateWithKey(D), BoundDelegateType(EBoundDelegate::DelegateWithKey) {};
-	FInputActionUnifiedDelegate(FInputActionHandlerDynamicSignature const& D) : FuncDynDelegate(D), BoundDelegateType(EBoundDelegate::DynamicDelegate) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerSignature D) : FuncDelegate(MakeShared<FInputActionHandlerSignature>(MoveTemp(D))), BoundDelegateType(EBoundDelegate::Delegate) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerWithKeySignature D) : FuncDelegateWithKey(MakeShared<FInputActionHandlerWithKeySignature>(MoveTemp(D))), BoundDelegateType(EBoundDelegate::DelegateWithKey) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerDynamicSignature D) : FuncDynDelegate(MakeShared<FInputActionHandlerDynamicSignature>(MoveTemp(D))), BoundDelegateType(EBoundDelegate::DynamicDelegate) {};
 
 	/** Returns if either the native or dynamic delegate is bound */
 	inline bool IsBound() const
@@ -122,13 +139,13 @@ struct FInputActionUnifiedDelegate
 		switch (BoundDelegateType)
 		{
 		case EBoundDelegate::Delegate:
-			return FuncDelegate.IsBound();
+			return FuncDelegate->IsBound();
 
 		case EBoundDelegate::DelegateWithKey:
-			return FuncDelegateWithKey.IsBound();
+			return FuncDelegateWithKey->IsBound();
 
 		case EBoundDelegate::DynamicDelegate:
-			return FuncDynDelegate.IsBound();
+			return FuncDynDelegate->IsBound();
 		}
 
 		return false;
@@ -140,13 +157,13 @@ struct FInputActionUnifiedDelegate
 		switch (BoundDelegateType)
 		{
 		case EBoundDelegate::Delegate:
-			return (FuncDelegate.IsBound() && FuncDelegate.IsBoundToObject(Object));
+			return (FuncDelegate->IsBound() && FuncDelegate->IsBoundToObject(Object));
 
 		case EBoundDelegate::DelegateWithKey:
-			return (FuncDelegateWithKey.IsBound() && FuncDelegateWithKey.IsBoundToObject(Object));
+			return (FuncDelegateWithKey->IsBound() && FuncDelegateWithKey->IsBoundToObject(Object));
 
 		case EBoundDelegate::DynamicDelegate:
-			return (FuncDynDelegate.IsBound() && FuncDynDelegate.IsBoundToObject(Object));
+			return (FuncDynDelegate->IsBound() && FuncDynDelegate->IsBoundToObject(Object));
 		}
 
 		return false;
@@ -158,7 +175,7 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::Delegate;
-		FuncDelegate.BindUObject(Object, Func);
+		FuncDelegate = MakeShared<FInputActionHandlerSignature>(FInputActionHandlerSignature::CreateUObject(Object, Func));
 	}
 
 	template< class UserClass >
@@ -166,7 +183,7 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::DelegateWithKey;
-		FuncDelegateWithKey.BindUObject(Object, Func);
+		FuncDelegateWithKey = MakeShared<FInputActionHandlerWithKeySignature>(FInputActionHandlerWithKeySignature::CreateUObject(Object, Func));
 	}
 
 	template< class DelegateType, class UserClass, typename... VarTypes >
@@ -174,7 +191,7 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::Delegate;
-		FuncDelegate.BindUObject(Object, Func, Vars...);
+		FuncDelegate = MakeShared<FInputActionHandlerSignature>(FInputActionHandlerSignature::CreateUObject(Object, Func, Vars...));
 	}
 
 	/** Binds a dynamic delegate and unbinds any bound native delegate */
@@ -182,7 +199,8 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::DynamicDelegate;
-		FuncDynDelegate.BindUFunction(Object, FuncName);
+		FuncDynDelegate = MakeShared<FInputActionHandlerDynamicSignature>();
+		FuncDynDelegate->BindUFunction(Object, FuncName);
 	}
 
 	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
@@ -190,7 +208,8 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::Delegate;
-		return FuncDelegate;
+		FuncDelegate = MakeShared<FInputActionHandlerSignature>();
+		return *FuncDelegate;
 	}
 
 	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
@@ -198,7 +217,8 @@ struct FInputActionUnifiedDelegate
 	{
 		Unbind();
 		BoundDelegateType = EBoundDelegate::DelegateWithKey;
-		return FuncDelegateWithKey;
+		FuncDelegateWithKey = MakeShared<FInputActionHandlerWithKeySignature>();
+		return *FuncDelegateWithKey;
 	}
 
 	/** Unbinds any bound delegates */
@@ -207,15 +227,15 @@ struct FInputActionUnifiedDelegate
 		switch(BoundDelegateType)
 		{
 		case EBoundDelegate::Delegate:
-			FuncDelegate.Unbind();
+			FuncDelegate->Unbind();
 			break;
 
 		case EBoundDelegate::DelegateWithKey:
-			FuncDelegateWithKey.Unbind();
+			FuncDelegateWithKey->Unbind();
 			break;
 
 		case EBoundDelegate::DynamicDelegate:
-			FuncDynDelegate.Unbind();
+			FuncDynDelegate->Unbind();
 			break;
 		}
 		BoundDelegateType = EBoundDelegate::Unbound;
@@ -227,34 +247,34 @@ struct FInputActionUnifiedDelegate
 		switch(BoundDelegateType)
 		{
 		case EBoundDelegate::Delegate:
-			if (FuncDelegate.IsBound())
+			if (FuncDelegate->IsBound())
 			{
-				FuncDelegate.Execute();
+				FuncDelegate->Execute();
 			}
 			break;
 
 		case EBoundDelegate::DelegateWithKey:
-			if (FuncDelegateWithKey.IsBound())
+			if (FuncDelegateWithKey->IsBound())
 			{
-				FuncDelegateWithKey.Execute(Key);
+				FuncDelegateWithKey->Execute(Key);
 			}
 			break;
 
 		case EBoundDelegate::DynamicDelegate:
-			if (FuncDynDelegate.IsBound())
+			if (FuncDynDelegate->IsBound())
 			{
-				FuncDynDelegate.Execute(Key);
+				FuncDynDelegate->Execute(Key);
 			}
 			break;
 		}
 	}
 private:
 	/** Holds the delegate to call. */
-	FInputActionHandlerSignature FuncDelegate;
+	TSharedPtr<FInputActionHandlerSignature> FuncDelegate;
 	/** Holds the delegate that wants to know the key to call. */
-	FInputActionHandlerWithKeySignature FuncDelegateWithKey;
+	TSharedPtr<FInputActionHandlerWithKeySignature> FuncDelegateWithKey;
 	/** Holds the dynamic delegate to call. */
-	FInputActionHandlerDynamicSignature FuncDynDelegate;
+	TSharedPtr<FInputActionHandlerDynamicSignature> FuncDynDelegate;
 
 	enum class EBoundDelegate : uint8
 	{
@@ -345,13 +365,19 @@ struct FInputTouchUnifiedDelegate : public TInputUnifiedDelegate<FInputTouchHand
 	/** Execute function for the touch unified delegate. */
 	inline void Execute(const ETouchIndex::Type FingerIndex, const FVector Location) const
 	{
-		if (FuncDelegate.IsBound())
+		if (FuncDelegate.IsValid())
 		{
-			FuncDelegate.Execute(FingerIndex, Location);
+			if (FuncDelegate->IsBound())
+			{
+				FuncDelegate->Execute(FingerIndex, Location);
+			}
 		}
-		else if (FuncDynDelegate.IsBound())
+		else if (FuncDynDelegate.IsValid())
 		{
-			FuncDynDelegate.Execute(FingerIndex, Location);
+			if (FuncDynDelegate->IsBound())
+			{
+				FuncDynDelegate->Execute(FingerIndex, Location);
+			}
 		}
 	}
 };
@@ -392,13 +418,19 @@ struct FInputAxisUnifiedDelegate : public TInputUnifiedDelegate<FInputAxisHandle
 	/** Execute function for the axis unified delegate. */
 	inline void Execute(const float AxisValue) const
 	{
-		if (FuncDelegate.IsBound())
+		if (FuncDelegate.IsValid())
 		{
-			FuncDelegate.Execute(AxisValue);
+			if (FuncDelegate->IsBound())
+			{
+				FuncDelegate->Execute(AxisValue);
+			}
 		}
-		else if (FuncDynDelegate.IsBound())
+		else if (FuncDynDelegate.IsValid())
 		{
-			FuncDynDelegate.Execute(AxisValue);
+			if (FuncDynDelegate->IsBound())
+			{
+				FuncDynDelegate->Execute(AxisValue);
+			}
 		}
 	}
 };
@@ -484,13 +516,19 @@ struct FInputVectorAxisUnifiedDelegate : public TInputUnifiedDelegate<FInputVect
 	/** Execute function for the axis unified delegate. */
 	inline void Execute(const FVector AxisValue) const
 	{
-		if (FuncDelegate.IsBound())
+		if (FuncDelegate.IsValid())
 		{
-			FuncDelegate.Execute(AxisValue);
+			if (FuncDelegate->IsBound())
+			{
+				FuncDelegate->Execute(AxisValue);
+			}
 		}
-		else if (FuncDynDelegate.IsBound())
+		else if (FuncDynDelegate.IsValid())
 		{
-			FuncDynDelegate.Execute(AxisValue);
+			if (FuncDynDelegate->IsBound())
+			{
+				FuncDynDelegate->Execute(AxisValue);
+			}
 		}
 	}
 };
@@ -541,13 +579,19 @@ struct FInputGestureUnifiedDelegate : public TInputUnifiedDelegate<FInputGesture
 	/** Execute function for the gesture unified delegate. */
 	inline void Execute(const float Value) const
 	{
-		if (FuncDelegate.IsBound())
+		if (FuncDelegate.IsValid())
 		{
-			FuncDelegate.Execute(Value);
+			if (FuncDelegate->IsBound())
+			{
+				FuncDelegate->Execute(Value);
+			}
 		}
-		else if (FuncDynDelegate.IsBound())
+		else if (FuncDynDelegate.IsValid())
 		{
-			FuncDynDelegate.Execute(Value);
+			if (FuncDynDelegate->IsBound())
+			{
+				FuncDynDelegate->Execute(Value);
+			}
 		}
 	}
 };
@@ -709,14 +753,14 @@ public:
 	 * @return The last binding in the list.
 	 * @see ClearActionBindings, GetActionBinding, GetNumActionBindings, RemoveActionBinding
 	 */
-	FInputActionBinding& AddActionBinding( const FInputActionBinding& Binding );
+	FInputActionBinding& AddActionBinding( FInputActionBinding Binding );
 
 	/**
 	 * Removes all action bindings.
 	 *
 	 * @see AddActionBinding, GetActionBinding, GetNumActionBindings, RemoveActionBinding
 	 */
-	void ClearActionBindings( );
+	void ClearActionBindings();
 
 	/**
 	 * Gets the action binding with the specified index.
@@ -754,7 +798,7 @@ public:
 	{
 		FInputActionBinding AB( ActionName, KeyEvent );
 		AB.ActionDelegate.BindDelegate(Object, Func);
-		return AddActionBinding(AB);
+		return AddActionBinding(MoveTemp(AB));
 	}
 
 	/**
@@ -766,7 +810,7 @@ public:
 	{
 		FInputActionBinding AB( ActionName, KeyEvent );
 		AB.ActionDelegate.BindDelegate(Object, Func);
-		return AddActionBinding(AB);
+		return AddActionBinding(MoveTemp(AB));
 	}
 
 	/**
@@ -778,7 +822,7 @@ public:
 	{
 		FInputActionBinding AB( ActionName, KeyEvent );
 		AB.ActionDelegate.BindDelegate<DelegateType>(Object, Func, Vars...);
-		return AddActionBinding(AB);
+		return AddActionBinding(MoveTemp(AB));
 	}
 
 	/**
@@ -790,7 +834,7 @@ public:
 	{
 		FInputAxisBinding AB( AxisName );
 		AB.AxisDelegate.BindDelegate(Object, Func);
-		AxisBindings.Add(AB);
+		AxisBindings.Emplace(MoveTemp(AB));
 		return AxisBindings.Last();
 	}
 
@@ -802,7 +846,7 @@ public:
 	FInputAxisBinding& BindAxis( const FName AxisName )
 	{
 		FInputAxisBinding AB( AxisName );
-		AxisBindings.Add(AB);
+		AxisBindings.Emplace(MoveTemp(AB));
 		return AxisBindings.Last();
 	}
 
@@ -815,7 +859,7 @@ public:
 	{
 		FInputAxisKeyBinding AB(AxisKey);
 		AB.AxisDelegate.BindDelegate(Object, Func);
-		AxisKeyBindings.Add(AB);
+		AxisKeyBindings.Emplace(MoveTemp(AB));
 		return AxisKeyBindings.Last();
 	}
 
@@ -827,7 +871,7 @@ public:
 	FInputAxisKeyBinding& BindAxisKey( const FKey AxisKey )
 	{
 		FInputAxisKeyBinding AB(AxisKey);
-		AxisKeyBindings.Add(AB);
+		AxisKeyBindings.Emplace(MoveTemp(AB));
 		return AxisKeyBindings.Last();
 	}
 
@@ -840,7 +884,7 @@ public:
 	{
 		FInputVectorAxisBinding AB(AxisKey);
 		AB.AxisDelegate.BindDelegate(Object, Func);
-		VectorAxisBindings.Add(AB);
+		VectorAxisBindings.Emplace(MoveTemp(AB));
 		return VectorAxisBindings.Last();
 	}
 
@@ -852,7 +896,7 @@ public:
 	FInputVectorAxisBinding& BindVectorAxis( const FKey AxisKey )
 	{
 		FInputVectorAxisBinding AB(AxisKey);
-		VectorAxisBindings.Add(AB);
+		VectorAxisBindings.Emplace(MoveTemp(AB));
 		return VectorAxisBindings.Last();
 	}
 
@@ -865,7 +909,7 @@ public:
 	{
 		FInputKeyBinding KB(Chord, KeyEvent);
 		KB.KeyDelegate.BindDelegate(Object, Func);
-		KeyBindings.Add(KB);
+		KeyBindings.Emplace(MoveTemp(KB));
 		return KeyBindings.Last();
 	}
 
@@ -888,7 +932,7 @@ public:
 	{
 		FInputTouchBinding TB(KeyEvent);
 		TB.TouchDelegate.BindDelegate(Object, Func);
-		TouchBindings.Add(TB);
+		TouchBindings.Emplace(MoveTemp(TB));
 		return TouchBindings.Last();
 	}
 
@@ -901,7 +945,7 @@ public:
 	{
 		FInputGestureBinding GB(GestureKey);
 		GB.GestureDelegate.BindDelegate(Object, Func);
-		GestureBindings.Add(GB);
+		GestureBindings.Emplace(MoveTemp(GB));
 		return GestureBindings.Last();
 	}
 

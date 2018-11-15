@@ -65,7 +65,7 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 
 	// Create the FCanvas which does the actual rendering.
 	const UWorld* WorldPtr = World.Get();
-	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	FTextureRenderTarget2DResource* TextureRenderTarget = (FTextureRenderTarget2DResource*) GameThread_GetRenderTargetResource();
 

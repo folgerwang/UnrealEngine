@@ -63,6 +63,90 @@ void UKismetProceduralMeshLibrary::CreateGridMeshTriangles(int32 NumX, int32 Num
 	}
 }
 
+void UKismetProceduralMeshLibrary::CreateGridMeshWelded(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, float GridSpacing)
+{
+	Triangles.Empty();
+	Vertices.Empty();
+	UVs.Empty();
+
+	if (NumX >= 2 && NumY >= 2)
+	{
+		FVector2D Extent = FVector2D((NumX - 1)* GridSpacing, (NumY - 1) * GridSpacing) / 2;
+
+		for (int i = 0; i < NumY; i++)
+		{
+			for (int j = 0; j < NumX; j++)
+			{
+				Vertices.Add(FVector((float)j * GridSpacing - Extent.X, (float)i * GridSpacing - Extent.Y, 0));
+				UVs.Add(FVector2D((float)j / ((float)NumX - 1), (float)i / ((float)NumY - 1)));
+			}
+		}
+
+		for (int i = 0; i < NumY - 1; i++)
+		{
+			for (int j = 0; j < NumX - 1; j++)
+			{
+				int idx = j + (i * NumY);
+				Triangles.Add(idx);
+				Triangles.Add(idx + NumX);
+				Triangles.Add(idx + 1);
+
+				Triangles.Add(idx + 1);
+				Triangles.Add(idx + NumX);
+				Triangles.Add(idx + NumX + 1);
+			}
+		}
+	}
+}
+
+void UKismetProceduralMeshLibrary::CreateGridMeshSplit(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, TArray<FVector2D>& UV1s, float GridSpacing)
+{
+	Triangles.Empty();
+	Vertices.Empty();
+	UVs.Empty();
+	UV1s.Empty();
+
+	if (NumX >= 2 && NumY >= 2)
+	{
+
+		FVector2D Extent = FVector2D(NumX * GridSpacing, NumY * GridSpacing) / 2;
+
+		for (int i = 0; i < NumY - 1; i++)
+		{
+			for (int j = 0; j < NumX - 1; j++)
+			{
+				int idx = j + (i * (NumX - 1));
+				Triangles.Add(idx * 4 + 3);
+				Triangles.Add(idx * 4 + 1);
+				Triangles.Add(idx * 4);
+
+				Triangles.Add(idx * 4 + 3);
+				Triangles.Add(idx * 4 + 2);
+				Triangles.Add(idx * 4 + 1);
+
+				float Z = FMath::Fmod(idx, 5) * GridSpacing;
+				FVector CornerVert = FVector((float)j * GridSpacing - Extent.X, (float)i * GridSpacing - Extent.Y, Z);
+				Vertices.Add(CornerVert);
+				Vertices.Add(CornerVert + FVector(GridSpacing, 0, 0));
+				Vertices.Add(CornerVert + FVector(GridSpacing, GridSpacing, 0));
+				Vertices.Add(CornerVert + FVector(0, GridSpacing, 0));
+
+				FVector2D UVCorner = FVector2D((float)j / ((float)NumX - 1), (float)i / ((float)NumY - 1));
+				UVs.Add(FVector2D(0, 0));
+				UVs.Add(FVector2D(1, 0));
+				UVs.Add(FVector2D(1, 1));
+				UVs.Add(FVector2D(0, 1));
+
+				FVector2D QuadCenter = FVector2D(((float)j + 0.5) / ((float)NumX), ((float)i + 0.5) / ((float)NumY));
+				UV1s.Add(QuadCenter);
+				UV1s.Add(QuadCenter);
+				UV1s.Add(QuadCenter);
+				UV1s.Add(QuadCenter);
+			}
+		}
+	}
+}
+
 
 void UKismetProceduralMeshLibrary::GenerateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FProcMeshTangent>& Tangents)
 {

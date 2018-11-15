@@ -1182,24 +1182,51 @@ enum class ELocalizedTextSourceCategory : uint8
 USTRUCT(noexport, BlueprintType)
 struct FPolyglotTextData
 {
+	/**
+	 * The category of this polyglot data.
+	 * @note This affects when and how the data is loaded into the text localization manager.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	ELocalizedTextSourceCategory Category;
 
+	/**
+	 * The native culture of this polyglot data.
+	 * @note This may be empty, and if empty, will be inferred from the native culture of the text category.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString NativeCulture;
 
+	/**
+	 * The namespace of the text created from this polyglot data.
+	 * @note This may be empty.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString Namespace;
 
+	/**
+	 * The key of the text created from this polyglot data.
+	 * @note This must not be empty.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString Key;
 
+	/**
+	 * The native string for this polyglot data.
+	 * @note This must not be empty (it should be the same as the originally authored text you are trying to replace).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString NativeString;
 
+	/**
+	 * Mapping between a culture code and its localized string.
+	 * @note The native culture may also have a translation in this map.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	TMap<FString, FString> LocalizedStrings;
 
+	/**
+	 * Transient cached text instance from registering this polyglot data with the text localization manager.
+	 */
 	UPROPERTY(Transient)
 	FText CachedText;
 };

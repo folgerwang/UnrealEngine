@@ -31,10 +31,19 @@
 
 #define DEFAULT_GMallocBinned2PerThreadCaches 1
 #define DEFAULT_GMallocBinned2LockFreeCaches 0
-#define DEFAULT_GMallocBinned2BundleSize BINNED2_LARGE_ALLOC
 #define DEFAULT_GMallocBinned2BundleCount 64
 #define DEFAULT_GMallocBinned2AllocExtra 32
 #define BINNED2_MAX_GMallocBinned2MaxBundlesBeforeRecycle 8
+
+#if !defined(AGGRESSIVE_MEMORY_SAVING)
+	#error "AGGRESSIVE_MEMORY_SAVING must be defined"
+#endif
+#if AGGRESSIVE_MEMORY_SAVING
+	#define DEFAULT_GMallocBinned2BundleSize 8192
+#else
+	#define DEFAULT_GMallocBinned2BundleSize BINNED2_LARGE_ALLOC
+#endif
+
 
 #define BINNED2_ALLOW_RUNTIME_TWEAKING 0
 #if BINNED2_ALLOW_RUNTIME_TWEAKING

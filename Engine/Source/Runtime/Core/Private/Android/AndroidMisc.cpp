@@ -84,7 +84,7 @@ extern FString GFontPathBase;
 
 void FAndroidMisc::RequestExit( bool Force )
 {
-	UE_LOG(LogWindows, Log, TEXT("FAndroidMisc::RequestExit(%i)"), Force);
+	UE_LOG(LogAndroid, Log, TEXT("FAndroidMisc::RequestExit(%i)"), Force);
 	if (Force)
 	{
 #if USE_ANDROID_JNI

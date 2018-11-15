@@ -1954,6 +1954,166 @@ void FD3D12DynamicRHI::EndUpdateTexture3D_RenderThread(class FRHICommandListImme
 	EndUpdateTexture3D_Internal(UpdateData);
 }
 
+class FD3D12RHICmdEndMultiUpdateTexture3D : public FRHICommand<FD3D12RHICmdEndMultiUpdateTexture3D>
+{
+public:
+	FD3D12RHICmdEndMultiUpdateTexture3D(TArray<FUpdateTexture3DData>& UpdateDataArray) :
+		MipIdx(UpdateDataArray[0].MipIndex),
+		DstTexture(UpdateDataArray[0].Texture)
+	{
+		const int32 NumUpdates = UpdateDataArray.Num();
+		UpdateInfos.Empty(NumUpdates);
+		UpdateInfos.AddZeroed(NumUpdates);
+
+		for (int32 Idx = 0; Idx < UpdateInfos.Num(); ++Idx)
+		{
+			FUpdateInfo& UpdateInfo = UpdateInfos[Idx];
+			FUpdateTexture3DData& UpdateData = UpdateDataArray[Idx];
+
+			UpdateInfo.DstStartX = UpdateData.UpdateRegion.DestX;
+			UpdateInfo.DstStartY = UpdateData.UpdateRegion.DestY;
+			UpdateInfo.DstStartZ = UpdateData.UpdateRegion.DestZ;
+
+			D3D12_SUBRESOURCE_FOOTPRINT& SubresourceFootprint = UpdateInfo.PlacedSubresourceFootprint.Footprint;
+			SubresourceFootprint.Depth = UpdateData.UpdateRegion.Depth;
+			SubresourceFootprint.Height = UpdateData.UpdateRegion.Height;
+			SubresourceFootprint.Width = UpdateData.UpdateRegion.Width;
+			SubresourceFootprint.Format = static_cast<DXGI_FORMAT>(GPixelFormats[DstTexture->GetFormat()].PlatformFormat);
+			SubresourceFootprint.RowPitch = UpdateData.RowPitch;
+			check(SubresourceFootprint.RowPitch % FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0);
+
+			FD3D12UpdateTexture3DData* UpdateDataD3D12 =
+				reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateData.PlatformData[0]);
+
+			UpdateInfo.SrcResourceLocation = UpdateDataD3D12->UploadHeapResourceLocation;
+			UpdateInfo.PlacedSubresourceFootprint.Offset = UpdateInfo.SrcResourceLocation->GetOffsetFromBaseOfResource();
+		}
+	}
+
+	virtual ~FD3D12RHICmdEndMultiUpdateTexture3D()
+	{
+		for (int32 Idx = 0; Idx < UpdateInfos.Num(); ++Idx)
+		{
+			const FUpdateInfo& UpdateInfo = UpdateInfos[Idx];
+			if (UpdateInfo.SrcResourceLocation)
+			{
+				delete UpdateInfo.SrcResourceLocation;
+			}
+		}
+		UpdateInfos.Empty();
+	}
+
+	void Execute(FRHICommandListBase& RHICmdList)
+	{
+		FD3D12Texture3D* NativeTexture = FD3D12DynamicRHI::ResourceCast(DstTexture.GetReference());
+
+		for (FD3D12Texture3D* TextureLink = NativeTexture;
+			TextureLink;
+			TextureLink = static_cast<FD3D12Texture3D*>(TextureLink->GetNextObject()))
+		{
+			FD3D12Device* Device = TextureLink->GetParentDevice();
+			FD3D12CommandListHandle& NativeCmdList = Device->GetDefaultCommandContext().CommandListHandle;
+
+			CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(TextureLink->GetResource()->GetResource(), MipIdx);
+
+			FScopeResourceBarrier ScopeResourceBarrierDest(
+				NativeCmdList,
+				TextureLink->GetResource(),
+				TextureLink->GetResource()->GetDefaultResourceState(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				DestCopyLocation.SubresourceIndex);
+
+			NativeCmdList.FlushResourceBarriers();
+			Device->GetDefaultCommandContext().numCopies += UpdateInfos.Num();
+
+			for (int32 Idx = 0; Idx < UpdateInfos.Num(); ++Idx)
+			{
+				const FUpdateInfo& UpdateInfo = UpdateInfos[Idx];
+				FD3D12Resource* UploadBuffer = UpdateInfo.SrcResourceLocation->GetResource();
+				CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(UploadBuffer->GetResource(), UpdateInfo.PlacedSubresourceFootprint);
+#if USE_PIX
+				PIXBeginEvent(NativeCmdList.GraphicsCommandList(), PIX_COLOR(255, 255, 255), TEXT("EndMultiUpdateTexture3D"));
+#endif
+				NativeCmdList->CopyTextureRegion(
+					&DestCopyLocation,
+					UpdateInfo.DstStartX,
+					UpdateInfo.DstStartY,
+					UpdateInfo.DstStartZ,
+					&SourceCopyLocation,
+					nullptr);
+
+				NativeCmdList.UpdateResidency(TextureLink->GetResource());
+
+				DEBUG_EXECUTE_COMMAND_CONTEXT(Device->GetDefaultCommandContext());
+#if USE_PIX
+				PIXEndEvent(NativeCmdList.GraphicsCommandList());
+#endif
+			}
+		}
+	}
+
+private:
+	struct FUpdateInfo
+	{
+		uint32 DstStartX;
+		uint32 DstStartY;
+		uint32 DstStartZ;
+		FD3D12ResourceLocation* SrcResourceLocation;
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT PlacedSubresourceFootprint;
+	};
+
+	uint32 MipIdx;
+	FTexture3DRHIRef DstTexture;
+	TArray<FUpdateInfo> UpdateInfos;
+};
+
+// Single pair of transition barriers instead of one pair for each update
+void FD3D12DynamicRHI::EndMultiUpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, TArray<FUpdateTexture3DData>& UpdateDataArray)
+{
+	check(IsInRenderingThread());
+	check(UpdateDataArray.Num() > 0);
+	check(GFrameNumberRenderThread == UpdateDataArray[0].FrameNumber);
+#if DO_CHECK
+	for (FUpdateTexture3DData& UpdateData : UpdateDataArray)
+	{
+		check(UpdateData.FrameNumber == UpdateDataArray[0].FrameNumber);
+		check(UpdateData.MipIndex == UpdateDataArray[0].MipIndex);
+		check(UpdateData.Texture == UpdateDataArray[0].Texture);
+		FD3D12UpdateTexture3DData* UpdateDataD3D12 =
+			reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateData.PlatformData[0]);
+		check(!!UpdateDataD3D12->UploadHeapResourceLocation);
+		check(UpdateDataD3D12->bComputeShaderCopy ==
+			reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateDataArray[0].PlatformData[0])->bComputeShaderCopy);
+	}
+#endif
+
+	bool bComputeShaderCopy = reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateDataArray[0].PlatformData[0])->bComputeShaderCopy;
+
+	if (bComputeShaderCopy)
+	{
+		// TODO: implement proper EndMultiUpdate for the compute shader path
+		for (int32 Idx = 0; Idx < UpdateDataArray.Num(); ++Idx)
+		{
+			FUpdateTexture3DData& UpdateData = UpdateDataArray[Idx];
+			FD3D12UpdateTexture3DData* UpdateDataD3D12 =
+				reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateData.PlatformData[0]);
+			EndUpdateTexture3D_ComputeShader(UpdateData, UpdateDataD3D12);
+		}
+	}
+	else
+	{
+		if (RHICmdList.Bypass())
+		{
+			FD3D12RHICmdEndMultiUpdateTexture3D RHICmd(UpdateDataArray);
+			RHICmd.Execute(RHICmdList);
+		}
+		else
+		{
+			new (RHICmdList.AllocCommand<FD3D12RHICmdEndMultiUpdateTexture3D>()) FD3D12RHICmdEndMultiUpdateTexture3D(UpdateDataArray);
+		}
+	}
+}
+
 void FD3D12DynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI, uint32 MipIndex, const FUpdateTextureRegion3D& InUpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 {
 	check(IsInRenderingThread());

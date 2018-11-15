@@ -47,7 +47,7 @@ private:
 
 TSharedRef<FSlateFontServices> CreateOpenGLFontServices()
 {
-	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateOpenGLFontAtlasFactory)));
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateOpenGLFontAtlasFactory), ESlateTextureAtlasThreadId::Game));
 
 	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
 }

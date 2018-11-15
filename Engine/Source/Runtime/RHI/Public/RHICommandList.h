@@ -1929,7 +1929,7 @@ public:
 		ALLOC_COMMAND(FRHICommandEndUpdateMultiFrameUAV)(UAV);
 	}
 
-	DEPRECATED(4.20, "BuildLocalGraphicsPipelineState is deprecated. Use PipelineStateCache::GetAndOrCreateGraphicsPipelineState() instead.")
+	UE_DEPRECATED(4.20, "BuildLocalGraphicsPipelineState is deprecated. Use PipelineStateCache::GetAndOrCreateGraphicsPipelineState() instead.")
 	FORCEINLINE_DEBUGGABLE FLocalGraphicsPipelineState BuildLocalGraphicsPipelineState(
 		const FGraphicsPipelineStateInitializer& Initializer
 		)
@@ -1948,7 +1948,7 @@ public:
 		return Result;
 	}
 
-	DEPRECATED(4.20, "SetLocalGraphicsPipelineState is deprecated. Use SetGraphicsPipelineState() instead.")
+	UE_DEPRECATED(4.20, "SetLocalGraphicsPipelineState is deprecated. Use SetGraphicsPipelineState() instead.")
 	FORCEINLINE_DEBUGGABLE void SetLocalGraphicsPipelineState(FLocalGraphicsPipelineState LocalGraphicsPipelineState)
 	{
 		//check(IsOutsideRenderPass());
@@ -2335,7 +2335,7 @@ public:
 		ALLOC_COMMAND(FRHICommandBindClearMRTValues)(bClearColor, bClearDepth, bClearStencil);
 	}	
 
-	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+	UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void BeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 	{
 		//check(IsOutsideRenderPass());
@@ -2355,7 +2355,7 @@ public:
 		DrawUPData.OutVertexData = OutVertexData;
 	}
 
-	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+	UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void EndDrawPrimitiveUP()
 	{
 		//check(IsOutsideRenderPass());
@@ -2371,7 +2371,7 @@ public:
 		DrawUPData.NumVertices = 0;
 	}
 
-	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+	UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void BeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 	{
 		//check(IsOutsideRenderPass());
@@ -2396,7 +2396,7 @@ public:
 
 	}
 
-	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+	UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void EndDrawIndexedPrimitiveUP()
 	{
 		//check(IsOutsideRenderPass());
@@ -2565,7 +2565,7 @@ public:
 		ALLOC_COMMAND(FRHICommandCopyToResolveTarget)(SourceTextureRHI, DestTextureRHI, ResolveParams);
 	}
 
-	DEPRECATED(4.20, "This signature of CopyToResolveTarget is deprecated. Please use the new one instead.")
+	UE_DEPRECATED(4.20, "This signature of CopyToResolveTarget is deprecated. Please use the new one instead.")
 	FORCEINLINE_DEBUGGABLE void CopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
 	{
 		CopyToResolveTarget(SourceTextureRHI, DestTextureRHI, ResolveParams);
@@ -3709,6 +3709,12 @@ public:
 		LLM_SCOPE(ELLMTag::Textures);
 		GDynamicRHI->EndUpdateTexture3D_RenderThread(*this, UpdateData);
 	}
+
+	FORCEINLINE void EndMultiUpdateTexture3D(TArray<FUpdateTexture3DData>& UpdateDataArray)
+	{
+		LLM_SCOPE(ELLMTag::Textures);
+		GDynamicRHI->EndMultiUpdateTexture3D_RenderThread(*this, UpdateDataArray);
+	}
 	
 	FORCEINLINE void UpdateTexture3D(FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 	{
@@ -4498,6 +4504,11 @@ FORCEINLINE FUpdateTexture3DData RHIBeginUpdateTexture3D(FTexture3DRHIParamRef T
 FORCEINLINE void RHIEndUpdateTexture3D(FUpdateTexture3DData& UpdateData)
 {
 	FRHICommandListExecutor::GetImmediateCommandList().EndUpdateTexture3D(UpdateData);
+}
+
+FORCEINLINE void RHIEndMultiUpdateTexture3D(TArray<FUpdateTexture3DData>& UpdateDataArray)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().EndMultiUpdateTexture3D(UpdateDataArray);
 }
 
 FORCEINLINE void RHIUpdateTexture3D(FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)

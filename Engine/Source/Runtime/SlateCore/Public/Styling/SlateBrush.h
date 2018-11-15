@@ -157,6 +157,7 @@ public:
 public:
 
 	FVector2D GetImageSize() const { return ImageSize; }
+	void SetImageSize(FVector2D InImageSize) { ImageSize = InImageSize; }
 
 	const FMargin& GetMargin() const { return Margin; }
 

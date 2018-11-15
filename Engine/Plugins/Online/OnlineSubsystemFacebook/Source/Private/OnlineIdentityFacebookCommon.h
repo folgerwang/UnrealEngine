@@ -73,9 +73,6 @@ public:
 	{
 	}
 
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
-
 PACKAGE_SCOPE:
 
 	/**

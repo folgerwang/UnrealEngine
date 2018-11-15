@@ -61,6 +61,12 @@ void UMovieSceneMediaTrack::AddSection(UMovieSceneSection& Section)
 }
 
 
+bool UMovieSceneMediaTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneMediaSection::StaticClass();
+}
+
+
 UMovieSceneSection* UMovieSceneMediaTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneMediaSection>(this, NAME_None, RF_Transactional);

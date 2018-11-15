@@ -42,6 +42,9 @@ public:
 	/** note that it results in losing all area cost setup. Call it before setting anything else */
 	void SetIsVirtual(bool bIsVirtual);
 
+	/** Instruct filter whether it can reopen nodes already on closed list */
+	void SetShouldIgnoreClosedNodes(const bool bIgnoreClosed);
+
 	//----------------------------------------------------------------------//
 	// @note you might also want to override following functions from dtQueryFilter	
 	// virtual bool passVirtualFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const;

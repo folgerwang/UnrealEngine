@@ -561,12 +561,7 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 					{
 						WaveRequest.RequiredIndices.AddUnique(SourceChunk);
 						WaveRequest.RequiredIndices.AddUnique((SourceChunk + 1) % Wave->RunningPlatformData->NumChunks);
-						if (!WaveData->LoadedChunkIndices.Contains(SourceChunk)
-							|| SoundBuffer->GetCurrentChunkOffset() > Wave->RunningPlatformData->Chunks[SourceChunk].DataSize / 2)
-						{
-							// currently not loaded or already read over half, request is high priority
-							WaveRequest.bPrioritiseRequest = true;
-						}
+						WaveRequest.bPrioritiseRequest = true;
 					}
 					else
 					{

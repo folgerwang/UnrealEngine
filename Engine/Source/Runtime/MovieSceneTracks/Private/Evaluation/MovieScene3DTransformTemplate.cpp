@@ -10,6 +10,7 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Evaluation/Blending/BlendableTokenStack.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
+#include "IMovieScenePlaybackClient.h"
 #include "Tracks/IMovieSceneTransformOrigin.h"
 
 DECLARE_CYCLE_STAT(TEXT("Transform Track Evaluate"), MovieSceneEval_TransformTrack_Evaluate, STATGROUP_MovieSceneEval);
@@ -108,8 +109,10 @@ struct FComponentTransformPersistentData : IPersistentEvaluationData
 void FMovieSceneComponentTransformSectionTemplate::Initialize(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
 {
 	// If the global instance data implements a transform origin interface, use its transform as an origin for this transform
-	const UObject* InstanceData = Player.GetInstanceData();
-	const IMovieSceneTransformOrigin* RawInterface = Cast<IMovieSceneTransformOrigin>(InstanceData);
+	IMovieScenePlaybackClient*        PlaybackClient = Player.GetPlaybackClient();
+	UObject*                          InstanceData   = PlaybackClient ? PlaybackClient->GetInstanceData() : nullptr;
+	const IMovieSceneTransformOrigin* RawInterface   = Cast<IMovieSceneTransformOrigin>(InstanceData);
+
 	const bool bHasInterface = RawInterface || (InstanceData && InstanceData->GetClass()->ImplementsInterface(UMovieSceneTransformOrigin::StaticClass()));
 
 	if (bHasInterface && TemplateData.BlendType == EMovieSceneBlendType::Absolute)

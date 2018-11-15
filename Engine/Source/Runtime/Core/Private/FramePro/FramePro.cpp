@@ -4046,6 +4046,8 @@ namespace FramePro
 // START EPIC
 #if FRAMEPRO_PLATFORM_ANDROID
 	#include <sys/syscall.h>
+#elif FRAMEPRO_PLATFORM_MAC
+	#include <cpuid.h>
 #endif
 
 	FRAMEPRO_FORCE_INLINE int GetCore()
@@ -4064,6 +4066,10 @@ namespace FramePro
 		return (!err) ? (int)cpu : 0;
 	#elif FRAMEPRO_PLATFORM_IOS
 		return 0; // TODO
+	#elif FRAMEPRO_PLATFORM_MAC
+		int cpu_info[4];
+		__cpuid(1, cpu_info[0], cpu_info[1], cpu_info[2], cpu_info[3]);
+		return (cpu_info[1] >> 24) & 0xff;
 	#elif FRAMEPRO_UE4_BASED_PLATFORM
 		return FPlatformProcess::GetCurrentCoreNumber();
 	#else
@@ -5826,7 +5832,7 @@ namespace FramePro
 #elif FRAMEPRO_PLATFORM_XBOX360
 		return Platform::XBox360;
 // START EPIC
-#elif FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_IOS || FRAMEPRO_PLATFORM_SWITCH
+#elif FRAMEPRO_PLATFORM_ANDROID || FRAMEPRO_PLATFORM_UNIX || FRAMEPRO_PLATFORM_IOS || FRAMEPRO_PLATFORM_SWITCH || FRAMEPRO_PLATFORM_MAC
 // END EPIC
 		return Platform::Unix;
 #else

@@ -2253,6 +2253,14 @@ void FDynamicRHI::EndUpdateTexture3D_RenderThread(class FRHICommandListImmediate
 	UpdateData.Data = nullptr;
 }
 
+void FDynamicRHI::EndMultiUpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, TArray<FUpdateTexture3DData>& UpdateDataArray)
+{
+	for (int32 Idx = 0; Idx < UpdateDataArray.Num(); ++Idx)
+	{
+		GDynamicRHI->EndUpdateTexture3D_RenderThread(RHICmdList, UpdateDataArray[Idx]);
+	}
+}
+
 void FDynamicRHI::UpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 {
 	CSV_SCOPED_TIMING_STAT(RHITStalls, UpdateTexture3D_RenderThread);

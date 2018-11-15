@@ -2,7 +2,7 @@
 
 #include "CookerSettings.h"
 #include "UObject/UnrealType.h"
-
+#include "EngineLogs.h"
 
 UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -13,6 +13,7 @@ UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	, bIgnoreIniSettingsOutOfDateForIteration(false)
 	, bIgnoreScriptPackagesOutOfDateForIteration(false)
 	, bCompileBlueprintsInDevelopmentMode(true)
+	, BlueprintComponentDataCookingMethod(EBlueprintComponentDataCookingMethod::EnabledBlueprintsOnly)
 	, bCookBlueprintComponentTemplateData(false)
 {
 	SectionName = TEXT("Cooker");
@@ -26,6 +27,12 @@ void UCookerSettings::PostInitProperties()
 	Super::PostInitProperties();
 	UObject::UpdateClassesExcludedFromDedicatedServer(ClassesExcludedOnDedicatedServer, ModulesExcludedOnDedicatedServer);
 	UObject::UpdateClassesExcludedFromDedicatedClient(ClassesExcludedOnDedicatedClient, ModulesExcludedOnDedicatedClient);
+
+	// In the 'false' case, we previously deferred to the 'EnabledBlueprintsOnly' method, which is the current default, so we don't need to handle it here.
+	if (bCookBlueprintComponentTemplateData)
+	{
+		BlueprintComponentDataCookingMethod = EBlueprintComponentDataCookingMethod::AllBlueprints;
+	}
 }
 
 void UCookerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -35,6 +42,9 @@ void UCookerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 
 	static FName NAME_ModulesExcludedOnDedicatedServer(TEXT("ModulesExcludedOnDedicatedServer"));
 	static FName NAME_ModulesExcludedOnDedicatedClient(TEXT("ModulesExcludedOnDedicatedClient"));
+
+	static FName NAME_bCookBlueprintComponentTemplateData = GET_MEMBER_NAME_CHECKED(UCookerSettings, bCookBlueprintComponentTemplateData);
+	static FName NAME_BlueprintComponentDataCookingMethod = GET_MEMBER_NAME_CHECKED(UCookerSettings, BlueprintComponentDataCookingMethod);
 
 	if(PropertyChangedEvent.Property)
 	{
@@ -47,6 +57,21 @@ void UCookerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 			|| PropertyChangedEvent.Property->GetFName() == NAME_ModulesExcludedOnDedicatedClient)
 		{
 			UObject::UpdateClassesExcludedFromDedicatedClient(ClassesExcludedOnDedicatedClient, ModulesExcludedOnDedicatedClient);
+		}
+		else if (bCookBlueprintComponentTemplateData
+			&& PropertyChangedEvent.Property->GetFName() == NAME_BlueprintComponentDataCookingMethod)
+		{
+			UE_LOG(LogBlueprint, Warning, TEXT("\'%s\' has been deprecated in favor of \'%s\', please remove \'%s\' from %s"),
+				*NAME_bCookBlueprintComponentTemplateData.ToString(),
+				*NAME_BlueprintComponentDataCookingMethod.ToString(),
+				*NAME_bCookBlueprintComponentTemplateData.ToString(),
+				*GetDefaultConfigFilename());
+
+			if (const UBoolProperty* OldProperty = FindFieldChecked<UBoolProperty>(GetClass(), NAME_bCookBlueprintComponentTemplateData))
+			{
+				OldProperty->SetPropertyValue_InContainer(this, false);
+				UpdateSinglePropertyInConfigFile(OldProperty, GetDefaultConfigFilename());
+			}
 		}
 	}
 }

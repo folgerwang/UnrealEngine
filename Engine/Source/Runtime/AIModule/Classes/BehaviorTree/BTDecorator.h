@@ -125,7 +125,7 @@ protected:
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	DEPRECATED(4.12, "This function is deprecated, please use InitializeParentLink instead.")
+	UE_DEPRECATED(4.12, "This function is deprecated, please use InitializeParentLink instead.")
 	void InitializeDecorator(uint8 InChildIndex);
 };
 

@@ -392,6 +392,11 @@ public:
 		OnRebuildChildren.ExecuteIfBound();
 	}
 
+	virtual TSharedPtr<IPropertyHandle> GetPropertyHandle() const
+	{
+		return BaseProperty;
+	}
+
 protected:
 
 	virtual void SetOnRebuildChildren( FSimpleDelegate InOnRebuildChildren  ) override { OnRebuildChildren = InOnRebuildChildren; } 

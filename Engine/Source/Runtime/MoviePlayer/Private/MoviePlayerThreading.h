@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "HAL/ThreadSafeCounter.h"
-#include "SpinLock.h"
 
 class FRunnable;
 class FMoviePlayerWidgetRenderer;
@@ -38,13 +37,11 @@ public:
 	/** The main loop to be run from the Slate thread */
 	void SlateThreadRunMainLoop();
 
-public:
-	/**
-	 * This spin lock blocks the game thread until the Slate thread main loop has finished spinning
-	 */
-	FSpinLock MainLoop;
-
 private:
+
+	/** Used as a spin lock when we're running the primary loading loop, so that we can shutdown safely. */
+	TAtomic<bool> bMainLoopRunning;
+
 	/**
 	 * This counter handles running the main loop of the slate thread
 	 */

@@ -24,7 +24,7 @@ void UListView::ReleaseSlateResources(bool bReleaseChildren)
 	MyListView.Reset();
 }
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 void UListView::OnRefreshDesignerItems()
 {
 	RefreshDesignerItems<UObject*>(ListItems, [this] () {return NewObject<UListViewDesignerPreviewItem>(this); });

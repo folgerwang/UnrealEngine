@@ -56,6 +56,37 @@ FORCEINLINE const TCHAR* LexToString(EWindowMode::Type WindowMode)
 	}
 }
 
+enum class EWindowDrawAttentionRequestType
+{
+	/**
+	 * Indicates that the attention-drawing behavior continues until the
+	 * application or window is activated.
+	 */
+	UntilActivated,
+
+	/**
+	 * Indicates that the attention-drawing behavior, if any, should stop.
+	 */
+	Stop,
+};
+
+/**
+ * Parameters for drawing attention to a window or application. Some
+ * parameters may only be used on certain platforms.
+ */
+struct FWindowDrawAttentionParameters
+{
+	FWindowDrawAttentionParameters() = default;
+
+	explicit FWindowDrawAttentionParameters(
+		EWindowDrawAttentionRequestType InRequestType
+	)
+		: RequestType(InRequestType)
+	{
+	}
+
+	EWindowDrawAttentionRequestType RequestType = EWindowDrawAttentionRequestType::UntilActivated;
+};
 
 class APPLICATIONCORE_API FGenericWindow
 {
@@ -186,6 +217,16 @@ public:
 
 	/** call with a true argument if this window need to do its custom size management in response to DPI variations */
 	virtual void SetManualManageDPIChanges(const bool bAutoHandle);
+
+	/**
+	 * Attempts to draw the user's attention to this window in whatever way is
+	 * appropriate for the platform if this window is not the current active
+	 * window.
+	 *
+	 * @param Parameters The parameters for drawing attention. Depending on
+	 *        the platform, not all parameters may be supported.
+	 */
+	virtual void DrawAttention(const FWindowDrawAttentionParameters& Parameters);
 	
 protected:
 

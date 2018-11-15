@@ -20,6 +20,11 @@ UMovieSceneEulerTransformTrack::UMovieSceneEulerTransformTrack(const FObjectInit
 	EvalOptions.bEvaluateNearestSection_DEPRECATED = EvalOptions.bCanEvaluateNearestSection = true;
 }
 
+bool UMovieSceneEulerTransformTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DTransformSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneEulerTransformTrack::CreateNewSection()
 {
 	return NewObject<UMovieScene3DTransformSection>(this, NAME_None, RF_Transactional);

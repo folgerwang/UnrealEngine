@@ -43,6 +43,9 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	/** Underlying socket communication */
 	FSocket* Socket;
 
+	/** If pausing socket receives, the time at which this should end */
+	float PauseReceiveEnd;
+
 	//~ Begin UNetDriver Interface.
 	virtual bool IsAvailable() const override;
 	virtual bool InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FURL& URL, bool bReuseAddressAndPort, FString& Error) override;
@@ -58,6 +61,16 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 		return Socket != NULL;
 	}
 	//~ End UNetDriver Interface
+
+	/**
+	 * Processes packets not associated with a NetConnection, performing any handshaking and NetConnection creation or remapping, as necessary.
+	 *
+	 * @param Address			The address the packet came from
+	 * @param Data				The packet data (may be modified)
+	 * @param CountBytesRef		The packet size (may be modified)
+	 * @return					If a new NetConnection is created, returns the net connection
+	 */
+	UNetConnection* ProcessConnectionlessPacket(const TSharedRef<FInternetAddr>& Address, uint8* Data, int32& CountBytesRef);
 
 	//~ Begin UIpNetDriver Interface.
 	virtual FSocket * CreateSocket();
@@ -76,10 +89,22 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
 	//~ End FExec Interface
 
+
+	/** Exec command handlers */
+
+	bool HandleSocketsCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+	bool HandlePauseReceiveCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+
+#if !UE_BUILD_SHIPPING
 	/**
-	 * Exec command handlers
-	 */
-	bool HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
+	* Tests a scenario where a connected client suddenly starts sending traffic on a different port (can happen
+	* due to a rare router bug.
+	*
+	* @param NumConnections - number of connections to test sending traffic on a different port.
+	*/
+	void TestSuddenPortChange(uint32 NumConnections);
+#endif
+
 
 	/** @return TCPIP connection to server */
 	class UIpConnection* GetServerConnection();

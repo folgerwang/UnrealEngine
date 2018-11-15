@@ -387,7 +387,7 @@ void ALODActor::PauseDitherTransition()
 
 void ALODActor::StartDitherTransition()
 {
-	PrimaryActorTick.SetTickFunctionEnable(true);
+	PrimaryActorTick.SetTickFunctionEnable(bNeedsDrawDistanceReset);
 }
 
 void ALODActor::UpdateRegistrationToMatchMaximumLODLevel()

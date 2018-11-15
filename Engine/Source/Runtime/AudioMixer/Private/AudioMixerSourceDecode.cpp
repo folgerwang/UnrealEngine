@@ -42,12 +42,16 @@ public:
 
 	void DoWork()
 	{
-		LLM_SCOPE(ELLMTag::AudioMixer);
-
 		switch (TaskType)
 		{
 			case EAudioTaskType::Procedural:
 			{
+				// Make sure we've been flagged as active
+				if (!ProceduralTaskData.ProceduralSoundWave->IsGenerating())
+				{
+					return;
+				}
+
 				// If we're not a float format, we need to convert the format to float
 				const EAudioMixerStreamDataFormat::Type FormatType = ProceduralTaskData.ProceduralSoundWave->GetGeneratedPCMDataFormat();
 				if (FormatType != EAudioMixerStreamDataFormat::Float)
@@ -96,17 +100,13 @@ public:
 				TArray<uint8> DecodeBuffer;
 				DecodeBuffer.AddUninitialized(ByteSize);
 
-				// skip the first buffer if we've already decoded them
+				// skip the first buffers if we've already decoded them during Precache:
 				if (DecodeTaskData.bSkipFirstBuffer)
 				{
-#if PLATFORM_ANDROID
-					// Only skip one buffer on Android
-					DecodeTaskData.MixerBuffer->ReadCompressedData(DecodeBuffer.GetData(), DecodeTaskData.NumFramesToDecode, DecodeTaskData.bLoopingMode);
-#else // #if PLATFORM_ANDROID
-					// If we're using cached data we need to skip the first two reads from the data
-					DecodeTaskData.MixerBuffer->ReadCompressedData(DecodeBuffer.GetData(), DecodeTaskData.NumFramesToDecode, DecodeTaskData.bLoopingMode);
-					DecodeTaskData.MixerBuffer->ReadCompressedData(DecodeBuffer.GetData(), DecodeTaskData.NumFramesToDecode, DecodeTaskData.bLoopingMode);
-#endif // #else // #if PLATFORM_ANDROID
+					for (int32 NumberOfBuffersToSkip = 0; NumberOfBuffersToSkip < PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS; NumberOfBuffersToSkip++)
+					{
+						DecodeTaskData.MixerBuffer->ReadCompressedData(DecodeBuffer.GetData(), DecodeTaskData.NumFramesToDecode, DecodeTaskData.bLoopingMode);
+					}
 				}
 
 				DecodeResult.bLooped = DecodeTaskData.MixerBuffer->ReadCompressedData(DecodeBuffer.GetData(), DecodeTaskData.NumFramesToDecode, DecodeTaskData.bLoopingMode);

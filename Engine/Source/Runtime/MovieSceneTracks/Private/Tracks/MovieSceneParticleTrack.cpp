@@ -62,6 +62,11 @@ void UMovieSceneParticleTrack::AddNewSection( FFrameNumber SectionTime )
 	}
 }
 
+bool UMovieSceneParticleTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneParticleSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneParticleTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneParticleSection>(this, NAME_None, RF_Transactional);

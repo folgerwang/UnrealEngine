@@ -6,7 +6,7 @@
 
 class FOutputDevice*	FIOSPlatformOutputDevices::GetLog()
 {
-    static FOutputDeviceFile Singleton(nullptr, true);
+    static FOutputDeviceFile Singleton(nullptr, false);
     return &Singleton;
 }
 

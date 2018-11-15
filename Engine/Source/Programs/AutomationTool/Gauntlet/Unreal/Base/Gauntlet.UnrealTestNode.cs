@@ -76,7 +76,7 @@ namespace Gauntlet
 
 		private int NumPasses;
 
-		static private DateTime SessionStartTime = DateTime.MinValue;
+		static protected DateTime SessionStartTime = DateTime.MinValue;
 
 		/// <summary>
 		/// Our test result. May be set directly, or by overriding GetUnrealTestResult()
@@ -495,6 +495,8 @@ namespace Gauntlet
 		/// <returns></returns>
 		public override void StopTest(bool WasCancelled)
 		{
+			base.StopTest(WasCancelled);
+
 			// Shutdown the instance so we can access all files, but do not null it or shutdown the UnrealApp because we still need
 			// access to these objects and their resources! Final cleanup is done in CleanupTest()
 			TestInstance.Shutdown();
@@ -840,6 +842,7 @@ namespace Gauntlet
 		{
 			int ExitCode = 0;
 
+			// Let the test try and diagnose things as best it can
 			var ProblemArtifact = GetArtifactsWithFailures().FirstOrDefault();
 
 			if (ProblemArtifact != null)
@@ -848,7 +851,13 @@ namespace Gauntlet
 
 				ExitCode = GetExitCodeAndReason(ProblemArtifact, out ExitReason);
 				Log.Info("{0} exited with {1}. ({2})", ProblemArtifact.SessionRole, ExitCode, ExitReason);
-			}				
+			}
+
+			// If it didn't find an error, overrule it as a failure if the test was cancelled
+			if (ExitCode == 0 && WasCancelled)
+			{
+				return TestResult.Failed;
+			}
 
 			return ExitCode == 0 ? TestResult.Passed : TestResult.Failed;
 		}
@@ -859,22 +868,33 @@ namespace Gauntlet
 		/// <returns></returns>
 		public override string GetTestSummary()
 		{
-			
+
 			int AbnormalExits = 0;
 			int FatalErrors = 0;
 			int Ensures = 0;
 			int Errors = 0;
 			int Warnings = 0;
 
-			StringBuilder SB = new StringBuilder();
-			
-			// Sort our artifacts so any missing processes are first
-			var ProblemArtifacts = GetArtifactsWithFailures();
+			// Handle case where there aren't any session artifacts, for example with device starvation
+			if (SessionArtifacts == null)
+			{
+				return "NoSummary";
+			}
 
-			var AllArtifacts = ProblemArtifacts.Union(SessionArtifacts);
+			StringBuilder SB = new StringBuilder();
+
+			// Get any artifacts with failures
+			var FailureArtifacts = GetArtifactsWithFailures();
+
+			// Any with warnings (ensures)
+			var WarningArtifacts = SessionArtifacts.Where(A => A.LogSummary.Ensures.Count() > 0);
+
+			// combine artifacts into order as Failures, Warnings, Other
+			var AllArtifacts = FailureArtifacts.Union(WarningArtifacts);
+			AllArtifacts = AllArtifacts.Union(SessionArtifacts);
 
 			// create a quicck summary of total failures, ensures, errors, etc
-			foreach( var Artifact in AllArtifacts)
+			foreach ( var Artifact in AllArtifacts)
 			{
 				string Summary = "NoSummary";
 				int ExitCode = GetRoleSummary(Artifact, out Summary);
@@ -898,14 +918,16 @@ namespace Gauntlet
 
 			MarkdownBuilder MB = new MarkdownBuilder();
 
+			string WarningStatement = HasWarnings ? " With Warnings" : "";
+
 			// Create a summary
-			MB.H2(string.Format("{0} {1}", Name, GetTestResult()));
+			MB.H2(string.Format("{0} {1}{2}", Name, GetTestResult(), WarningStatement));
 
 			if (GetTestResult() != TestResult.Passed)
 			{
-				if (ProblemArtifacts.Count() > 0)
+				if (FailureArtifacts.Count() > 0)
 				{
-					foreach (var FailedArtifact in ProblemArtifacts)
+					foreach (var FailedArtifact in FailureArtifacts)
 					{
 						string FirstProcessCause = "";
 						int FirstExitCode = GetExitCodeAndReason(FailedArtifact, out FirstProcessCause);

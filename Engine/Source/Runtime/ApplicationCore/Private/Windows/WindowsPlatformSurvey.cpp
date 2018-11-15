@@ -13,6 +13,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "CoreGlobals.h"
+#include "GenericPlatform/GenericApplication.h"
 
 #define USING_WINSAT_API	1
 #define USING_POWRPROF		1
@@ -45,353 +46,32 @@ typedef struct _PROCESSOR_POWER_INFORMATION {
 } PROCESSOR_POWER_INFORMATION, *PPROCESSOR_POWER_INFORMATION;
 #endif
 
-namespace WindowsPlatformSurveDefs
-{
-	static const double SurveyTimeoutSeconds = 300.0;
-	static const float WaitSleepSeconds = 2.0;
-}
-
-bool FWindowsPlatformSurvey::bSurveyPending = false;
-bool FWindowsPlatformSurvey::bSurveyComplete = false;
-bool FWindowsPlatformSurvey::bSurveyFailed = false;
-double FWindowsPlatformSurvey::SurveyStartTimeSeconds = 0.0;
-FHardwareSurveyResults FWindowsPlatformSurvey::Results;
-
 void GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& OutResults);
 void WriteFStringToResults(TCHAR* OutBuffer, const FString& InString);
 
 bool FWindowsPlatformSurvey::GetSurveyResults( FHardwareSurveyResults& OutResults, bool bWait )
 {
-	// Early out failed state
-	if (bSurveyFailed)
-	{
-		return false;
-	}
-
-	if (!bSurveyComplete)
-	{
-		// Tick survey process
-		double StartWaitTime = FPlatformTime::Seconds();
-		do 
-		{
-			if (!bSurveyPending)
-			{
-				// start survey
-				BeginSurveyHardware();
-			}
-			else
-			{
-				// tick pending survey
-				TickSurveyHardware(Results);
-			}
-
-			if (bWait && bSurveyPending)
-			{
-				FPlatformProcess::Sleep(WindowsPlatformSurveDefs::WaitSleepSeconds);
-			}
-
-		} while (bWait && bSurveyPending);
-	}
-
-	if (bSurveyComplete)
-	{
-		OutResults = Results;
-	}
-	return bSurveyComplete;
-}
-
-void FWindowsPlatformSurvey::BeginSurveyHardware()
-{
-	if (bSurveyPending)
-	{
-		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::BeginSurveyHardware() survey already in-progress") );
-		bSurveyFailed = true;
-		return;
-	}
-
-	// Get dxdiag filepath
-
-	TCHAR System32Path[MAX_PATH];
-	// get the System32 directory
-	if (S_OK != SHGetFolderPath(NULL, CSIDL_SYSTEM, NULL, SHGFP_TYPE_CURRENT, System32Path))
-	{
-		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::BeginSurveyHardware() failed to get system folder CSIDL_SYSTEM from SHGetFolderPath") );
-		bSurveyFailed = true;
-		return;
-	}
-
-	FString DxDiagFilepath = FString(System32Path) + TEXT("/dxdiag.exe");
-	if (0 >= IFileManager::Get().FileSize(*DxDiagFilepath))
-	{
-		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::BeginSurveyHardware() file not found %s"), *DxDiagFilepath );
-		bSurveyFailed = true;
-		return;
-	}
-
-	// Generate a temp output filepath
-	FString OutputFilepath = GetDxDiagOutputFilepath();
-
-	// Make sure the directory exists before we run dxdiag.  It won't create a directory for us (it will instead just silently do nothing.)
-	IFileManager::Get().MakeDirectory(*FPaths::GetPath(OutputFilepath), true);
-
-	// Delete existing output file
-	IFileManager::Get().Delete(*OutputFilepath);
-
-	// Convert paths passed to CreateProc() to Windows format
-	FPaths::MakePlatformFilename(DxDiagFilepath);
-	FPaths::MakePlatformFilename(OutputFilepath);
-
-	// Optional arguments for more consistent operation
-	// /whql:off	- Do not allow dxdiag to check for WHQL digital signatures
-	// /dontskip	- Don't bypass any diagnostics due to previous crashes in DxDiag
-	// /64bit		- Launch 64-bit dxdiag
-	FString OptionalArgs = TEXT("/dontskip /whql:off");
-
-	// Run dxdiag as a external process, outputting to a text file
-	FString ProcessArgs = FString::Printf(TEXT("%s /t %s"), *OptionalArgs, *OutputFilepath);
-	if (!FPlatformProcess::CreateProc(*DxDiagFilepath, *ProcessArgs, true, false, false, NULL, 0, NULL, NULL ).IsValid())
-	{
-		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::BeginSurveyHardware() couldn't start up the dxdiag process"));
-		bSurveyFailed = true;
-		return;
-	}
-
-	SurveyStartTimeSeconds = FPlatformTime::Seconds();
-	bSurveyPending = true;
-}
-
-void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults )
-{
-	if (!bSurveyPending)
-	{
-		bSurveyFailed = true;
-		return;
-	}
-
-	if (WindowsPlatformSurveDefs::SurveyTimeoutSeconds < FPlatformTime::Seconds() - SurveyStartTimeSeconds)
-	{
-		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::EndSurveyHardware() survey timed out") );
-		bSurveyPending = false;
-		bSurveyFailed = true;
-		return;
-	}
-
-	FString OutputFilepath = GetDxDiagOutputFilepath();
-
-	// First attempt to open the text file then if it's there read the contents into a buffer
-	// Wait for the file to appear from the process started in BeginSurveyHardware()
-	if (0 >= IFileManager::Get().FileSize(*OutputFilepath))
-	{
-		// output file not yet created or missing
-		return;
-	}
-
-	// Failure to read the file when present could be because it is still being written by dxdiag
-	TArray<FString> DxdiagLines;
-	if( !FFileHelper::LoadANSITextFileToStrings( *OutputFilepath, &IFileManager::Get(), DxdiagLines ) )
-	{
-		// output file not yet complete/unlocked
-		return;
-	}
-
 	// Check that we're running on Vista or newer (version 6.0+).
 	bool bIsVistaOrNewer = FWindowsPlatformMisc::VerifyWindowsVersion(6, 0);
 
 	FMemory::Memset(&OutResults, 0, sizeof(FHardwareSurveyResults));
-
-	bSurveyPending = false;
-
 	WriteFStringToResults(OutResults.Platform, TEXT("Windows"));
-
-	// Parse the dxdiag output and fill the results structure
-
+	
 	// Get memory
-	OutResults.MemoryMB = -1;
-	FString MemoryString;
-	if (GetLineFollowing(TEXT("Available OS Memory: "), DxdiagLines, MemoryString))
-	{
-		int32 MBIdx = MemoryString.Find(TEXT("MB RAM"));
-		if (1 <= MBIdx)
-		{
-			MemoryString = MemoryString.Left(MBIdx);
-			if (MemoryString.IsNumeric())
-			{
-				TTypeFromString<uint32>::FromString(OutResults.MemoryMB, *MemoryString);
-			}
-		}
-		else
-		{
-			OutResults.ErrorCount++;
-			WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: can't find \"MB RAM\" in line beginning \"Available OS Memory:\""));
-			WriteFStringToResults(OutResults.LastSurveyErrorDetail, MemoryString);
-		}
-	}
-	else
-	{
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: can't find line beginning \"Available OS Memory:\""));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-	}
+	FPlatformMemoryStats PlatformMemoryStats = FPlatformMemory::GetStats();
+	OutResults.MemoryMB = PlatformMemoryStats.TotalPhysicalGB * 1024;
 
-	if (-1 == OutResults.MemoryMB)
-	{
-		UE_LOG(LogWindows, Warning, TEXT("FWindowsPlatformSurvey::TickSurveyHardware() failed to parse available memory from dxdiag report") );
-	}
+	// Identify Display Devices
+	FDisplayMetrics DisplayMetrics;
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
-	// Get DX version
-	FString DirectXVerString;
-	if (GetLineFollowing(TEXT("DirectX Version: "), DxdiagLines, DirectXVerString))
-	{
-		WriteFStringToResults(OutResults.MultimediaAPI, DirectXVerString);
-	}
-	else
-	{
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: can't find line beginning \"DirectX Version:\""));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-	}	
+	OutResults.DisplayCount = FMath::Min(DisplayMetrics.MonitorInfo.Num(), FHardwareSurveyResults::MaxDisplayCount);
 
-	// Get processor string
-	FString ProcessorString;
-	if (GetLineFollowing(TEXT("Processor: "), DxdiagLines, ProcessorString))
+	for (uint32 DisplayIndex = 0; DisplayIndex < OutResults.DisplayCount; ++DisplayIndex)
 	{
-		WriteFStringToResults(OutResults.CPUNameString, ProcessorString);
-	}
-	else
-	{
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: can't find line beginning \"Processor:\""));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-	}	
-
-	// Identify "Display Devices" section
-	OutResults.DisplayCount = 0;
-	TArray<FString> DisplaySectionLines;
-	if (GetNamedSection(TEXT("Display Devices"), DxdiagLines, DisplaySectionLines))
-	{
-		for (; OutResults.DisplayCount < FHardwareSurveyResults::MaxDisplayCount; OutResults.DisplayCount++)
-		{
-			FHardwareDisplay& Display = OutResults.Displays[OutResults.DisplayCount];
-
-			// Get the card name
-			WriteFStringToResults(Display.GPUCardName, TEXT(""));
-			FString GPUCardString;
-			if (GetLineFollowing(TEXT("Card name: "), DisplaySectionLines, GPUCardString, OutResults.DisplayCount))
-			{
-				WriteFStringToResults(Display.GPUCardName, GPUCardString);
-			}
-			else
-			{
-				// no more displays
-				break;
-			}
-
-			// Get the display mode
-			Display.CurrentModeWidth = -1;
-			Display.CurrentModeHeight = -1;
-			FString DispMode;
-			if (GetLineFollowing(TEXT("Current Mode: "), DisplaySectionLines, DispMode, OutResults.DisplayCount))
-			{
-				// split DispMode which should be formatted thus "<width> x <height> (details)"
-				FString WidthString;
-				FString HeightString;
-				if (DispMode.Split(TEXT(" x "), &WidthString, &HeightString))
-				{
-					int32 EndIdx;
-					if (HeightString.FindChar(TCHAR(' '), EndIdx))
-					{
-						TTypeFromString<uint32>::FromString(Display.CurrentModeWidth, *WidthString);
-						TTypeFromString<uint32>::FromString(Display.CurrentModeHeight, *HeightString.Left(EndIdx));
-					}
-					else
-					{
-						OutResults.ErrorCount++;
-						WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find trailing space char in line beginning \"Current Mode:\" for display %d"), OutResults.DisplayCount));
-						WriteFStringToResults(OutResults.LastSurveyErrorDetail, DispMode);
-					}
-				}
-				else
-				{
-					OutResults.ErrorCount++;
-					WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find \" x \" in line beginning \"Current Mode:\" for display %d"), OutResults.DisplayCount));
-					WriteFStringToResults(OutResults.LastSurveyErrorDetail, DispMode);
-				}
-			}
-			else
-			{
-				OutResults.ErrorCount++;
-				WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find line beginning \"Current Mode:\" for display %d"), OutResults.DisplayCount));
-				WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-			}
-
-			// Get GPU memory
-			Display.GPUDedicatedMemoryMB = -1;
-			FString GPUMemoryString;
-			if (GetLineFollowing(TEXT("Dedicated Memory: "), DisplaySectionLines, GPUMemoryString, OutResults.DisplayCount))
-			{
-				int32 MBIdx = GPUMemoryString.Find(TEXT(" MB"));
-				if (1 <= MBIdx)
-				{
-					GPUMemoryString = GPUMemoryString.Left(MBIdx);
-					if (GPUMemoryString.IsNumeric())
-					{
-						TTypeFromString<uint32>::FromString(Display.GPUDedicatedMemoryMB, *GPUMemoryString);
-					}
-					else
-					{
-						OutResults.ErrorCount++;
-						WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't parse integer in line beginning \"Dedicated Memory:\" for display %d"), OutResults.DisplayCount));
-						WriteFStringToResults(OutResults.LastSurveyErrorDetail, GPUMemoryString);
-					}
-				}
-				else
-				{
-					OutResults.ErrorCount++;
-					WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find \" MB\" in line beginning \"Dedicated Memory:\" for display %d"), OutResults.DisplayCount));
-					WriteFStringToResults(OutResults.LastSurveyErrorDetail, GPUMemoryString);
-				}
-			}
-			else
-			{
-				OutResults.ErrorCount++;
-				WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find line beginning \"Dedicated Memory:\" for display %d"), OutResults.DisplayCount));
-				WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-			}
-
-			// Get the card driver version
-			WriteFStringToResults(Display.GPUDriverVersion, TEXT(""));
-			FString GPUDriverString;
-			if (GetLineFollowing(TEXT("Driver Version: "), DisplaySectionLines, GPUDriverString, OutResults.DisplayCount))
-			{
-				WriteFStringToResults(Display.GPUDriverVersion, GPUDriverString);
-			}
-			else
-			{
-				OutResults.ErrorCount++;
-				WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: can't find line beginning \"Driver Version:\" for display %d"), OutResults.DisplayCount));
-				WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-			}
-		}
-	}
-	else
-	{
-		UE_LOG(LogWindows, Warning, TEXT("FWindowsPlatformSurvey::TickSurveyHardware() failed to get UE4 root-folder drive size from Win32") );
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: can't find section beginning \"Display Devices\""));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-	}
-
-	if (OutResults.DisplayCount == 0)
-	{
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, TEXT("Dxdiag: display count zero"));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-	}
-	else if (OutResults.DisplayCount > 3)
-	{
-		OutResults.ErrorCount++;
-		WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Dxdiag: display count %d"), OutResults.DisplayCount));
-		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
+		FMonitorInfo& Info = DisplayMetrics.MonitorInfo[DisplayIndex];
+		OutResults.Displays[DisplayIndex].CurrentModeHeight = Info.NativeHeight;
+		OutResults.Displays[DisplayIndex].CurrentModeWidth = Info.NativeWidth;
 	}
 
 	// Get system info
@@ -410,7 +90,9 @@ void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResu
 
 	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark, true, 5.f);
 
-	ISynthBenchmark::Get().GetRHIDisplay(OutResults.RHIAdpater);
+	FString RHIName;
+	ISynthBenchmark::Get().GetRHIInfo(OutResults.RHIAdapter, RHIName);
+	WriteFStringToResults(OutResults.RenderingAPI, RHIName);
 
 	// Get CPU speed
 	if (OutResults.CPUCount > 0)
@@ -457,6 +139,16 @@ void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResu
 	{
 		OutResults.ErrorCount++;
 		WriteFStringToResults(OutResults.LastSurveyError, TEXT("FWindowsPlatformSurvey::TickSurveyHardware() failed to get processor brand from FWindowsPlatformMisc::GetCPUVendor()"));
+		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
+	}
+
+	// Get CPU name
+	FString CPUName = FWindowsPlatformMisc::GetCPUBrand();
+	WriteFStringToResults(OutResults.CPUNameString, CPUName);
+	if (CPUName.Len() == 0)
+	{
+		OutResults.ErrorCount++;
+		WriteFStringToResults(OutResults.LastSurveyError, TEXT("FWindowsPlatformSurvey::TickSurveyHardware() failed to get processor name from FWindowsPlatformMisc::GetCPUBrand()"));
 		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
 	}
 
@@ -649,13 +341,7 @@ void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResu
 	// Get remote desktop session status
 	OutResults.bIsRemoteSession = GetSystemMetrics(SM_REMOTESESSION) != 0;
 
-	bSurveyComplete = true;
-}
-
-FString FWindowsPlatformSurvey::GetDxDiagOutputFilepath()
-{
-	FString RelativePath = FPaths::Combine(*FPaths::ProjectSavedDir(), TEXT( "HardwareSurvey" ), TEXT("dxdiag.txt"));
-	return FPaths::ConvertRelativePathToFull(RelativePath);
+	return true;
 }
 
 bool FWindowsPlatformSurvey::GetSubComponentIndex( IProvideWinSATResultsInfo* WinSATResults, FHardwareSurveyResults& OutSurveyResults, int32 SubComponent, float& OutSubComponentIndex ) 

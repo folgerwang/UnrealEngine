@@ -8,6 +8,10 @@
 #include "OnlineJsonSerializer.h"
 #include "OnlineError.h"
 
+#define PURCHASE_REDEMPTION_CODE_USED "errors.com.epicgames.coderedemption.code_used"
+#define PURCHASE_REDEMPTION_CODE_NOT_FOUND "errors.com.epicgames.coderedemption.code_not_found"
+#define PURCHASE_REDEMPTION_NOT_ELIGIBLE "errors.com.epicgames.ecommerce.fulfillment.code.criteria.reject"
+
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePurchase, Log, All);
 
 #define UE_LOG_ONLINE_PURCHASE(Verbosity, Format, ...) \

@@ -119,7 +119,7 @@ public:
 	virtual class FViewport* GetViewport() = 0;
 	virtual void ResizeFrame(uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode) = 0;
 
-	DEPRECATED(4.13, "The version of FViewportFrame::ResizeFrame that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
+	UE_DEPRECATED(4.13, "The version of FViewportFrame::ResizeFrame that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
 	void ResizeFrame(uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, int32, int32)
 	{
 		ResizeFrame(NewSizeX, NewSizeY, NewWindowMode);
@@ -709,6 +709,47 @@ extern ENGINE_API bool IsAltDown(FViewport* Viewport);
 extern ENGINE_API bool GetViewportScreenShot(FViewport* Viewport, TArray<FColor>& Bitmap, const FIntRect& ViewRect = FIntRect());
 extern ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask, bool& OutDumpBufferVisualizationTargets, bool& OutCaptureHDR, FString& OutFilenameOverride);
 
+struct FInputKeyEventArgs
+{
+public:
+	FInputKeyEventArgs(FViewport* InViewport, int32 InControllerId, FKey InKey, EInputEvent InEvent)
+		: Viewport(InViewport)
+		, ControllerId(InControllerId)
+		, Key(InKey)
+		, Event(InEvent)
+		, AmountDepressed(1.0f)
+		, bIsTouchEvent(false)
+	{
+	}
+
+	FInputKeyEventArgs(FViewport* InViewport, int32 InControllerId, FKey InKey, EInputEvent InEvent, float InAmountDepressed, bool bInIsTouchEvent)
+		: Viewport(InViewport)
+		, ControllerId(InControllerId)
+		, Key(InKey)
+		, Event(InEvent)
+		, AmountDepressed(InAmountDepressed)
+		, bIsTouchEvent(bInIsTouchEvent)
+	{
+	}
+
+	bool IsGamepad() const { return Key.IsGamepadKey(); }
+
+public:
+
+	// The viewport which the key event is from.
+	FViewport* Viewport;
+	// The controller which the key event is from.
+	int32 ControllerId;
+	// The type of event which occurred.
+	FKey Key;
+	// The type of event which occurred.
+	EInputEvent Event;
+	// For analog keys, the depression percent.
+	float AmountDepressed;
+	// input came from a touch surface.This may be a faked mouse button from touch.
+	bool bIsTouchEvent;
+};
+
 /**
  * An abstract interface to a viewport's client.
  * The viewport's client processes input received by the viewport, and draws the viewport.
@@ -744,14 +785,15 @@ public:
 	/**
 	 * Check a key event received by the viewport.
 	 * If the viewport client uses the event, it should return true to consume it.
-	 * @param	Viewport - The viewport which the key event is from.
-	 * @param	ControllerId - The controller which the key event is from.
-	 * @param	Key - The name of the key which an event occured for.
-	 * @param	Event - The type of event which occured.
-	 * @param	AmountDepressed - For analog keys, the depression percent.
-	 * @param	bGamepad - input came from gamepad (ie xbox controller)
+	 * @param	EventArgs - The Input event args.
 	 * @return	True to consume the key event, false to pass it on.
 	 */
+	virtual bool InputKey(const FInputKeyEventArgs& EventArgs)
+	{
+		return InputKey(EventArgs.Viewport, EventArgs.ControllerId, EventArgs.Key, EventArgs.Event, EventArgs.AmountDepressed, EventArgs.Key.IsGamepadKey());
+	}
+
+	//UE_DEPRECATED(4.21, "Use the new InputKey(const FInputKeyEventArgs& EventArgs) function.")
 	virtual bool InputKey(FViewport* Viewport,int32 ControllerId,FKey Key,EInputEvent Event,float AmountDepressed = 1.f,bool bGamepad=false) { return false; }
 
 	/**
@@ -793,7 +835,7 @@ public:
 	 */
 	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) { return false; }
 
-	DEPRECATED(4.20, "InputTouch now takes a Force")
+	UE_DEPRECATED(4.20, "InputTouch now takes a Force")
 	bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex) { return InputTouch(Viewport, ControllerId, Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex); }
 
 	/**

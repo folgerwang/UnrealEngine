@@ -44,6 +44,8 @@ namespace NetworkProfiler
 		/** Mapping from RPC name to summary */
 		public Dictionary<int,TypeSummary> RPCNameToSummary = new Dictionary<int,TypeSummary>();
 
+		public StreamHeader Header;
+
 		/**
 		 * Returns the name associated with the passed in index.
 		 * 
@@ -160,6 +162,25 @@ namespace NetworkProfiler
 			else
 			{
 				Summaries.Add( NameIndex, new TypeSummary( SizeBits, TimeInMS ) );
+			}
+		}
+
+		public UInt32 GetVersion()
+		{
+			return Header.Version;
+		}
+
+		public string GetChannelTypeName(int ChannelTypeIndex)
+		{
+			UInt32 Version = GetVersion();
+
+			if (Version < 11)
+			{
+				return Enum.GetName(typeof(EChannelTypes), ChannelTypeIndex);
+			}
+			else
+			{
+				return GetName(ChannelTypeIndex);
 			}
 		}
 	}

@@ -51,20 +51,13 @@ class FIOSCommandLineHelper
 			}
 		}
 
-		static void InitCommandArgs(FString AdditionalCommandArgs)
+		static bool TryReadCommandLineFile(const FString& CommandLineFilePath)
 		{
-			// initialize the commandline
-			FCommandLine::Set(TEXT(""));
-
-			FString CommandLineFilePath = FString([[NSBundle mainBundle] bundlePath]) + TEXT("/ue4commandline.txt");
-
-			// read in the command line text file (coming from UnrealFrontend) if it exists
 			FILE* CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
-			if(CommandLineFile)
+			if (CommandLineFile)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Found ue4commandline.txt file") LINE_TERMINATOR);
-
-				char CommandLine[CMD_LINE_MAX] = {0};
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Checking for command line in %s... FOUND!") LINE_TERMINATOR, *CommandLineFilePath);
+				char CommandLine[CMD_LINE_MAX] = { 0 };
 				char* DataExists = fgets(CommandLine, ARRAY_COUNT(CommandLine) - 1, CommandLineFile);
 				if (DataExists)
 				{
@@ -76,10 +69,31 @@ class FIOSCommandLineHelper
 
 					FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
 				}
+				fclose(CommandLineFile);
+				return true;
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("No ue4commandline.txt [%s] found") LINE_TERMINATOR, *CommandLineFilePath);
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Checking for command line in %s... NOT FOUND!") LINE_TERMINATOR, *CommandLineFilePath);
+				return false;
+			}
+		}
+
+		static void InitCommandArgs(FString AdditionalCommandArgs)
+		{
+			// initialize the commandline
+			FCommandLine::Set(TEXT(""));
+
+			// command line text file included in the bundle
+			FString BundleCommandLineFilePath = FString([[NSBundle mainBundle] bundlePath]) + TEXT("/ue4commandline.txt");
+
+#if !UE_BUILD_SHIPPING
+			// command line text file pushed to the documents folder
+			FString DocumentsCommandLineFilePath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/ue4commandline.txt");
+			if (!TryReadCommandLineFile(DocumentsCommandLineFilePath))
+#endif
+			{
+				TryReadCommandLineFile(BundleCommandLineFilePath);
 			}
 
 			if (!AdditionalCommandArgs.IsEmpty() && !FChar::IsWhitespace(AdditionalCommandArgs[0]))
