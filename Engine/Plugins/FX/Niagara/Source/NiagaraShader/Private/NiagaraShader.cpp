@@ -20,6 +20,7 @@
 
 #include "NiagaraDataInterfaceBase.h"
 #include "UObject/UObjectGlobals.h"
+#include "NiagaraShaderModule.h"
 
 IMPLEMENT_SHADER_TYPE(,FNiagaraShader, TEXT("/Engine/Private/NiagaraEmitterInstanceShader.usf"),TEXT("SimulateMain"), SF_Compute)
 
@@ -1335,17 +1336,15 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
-	DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ParameterInfo.DIClassName, true));
-	if (DIClass == nullptr)
+	INiagaraShaderModule* Module = INiagaraShaderModule::Get();
+	check(Module != nullptr);
+	
+	// Getting the base here in hopes that in the future we would just reference it directly rather than going through
+	// the class intermediary.
+	UNiagaraDataInterfaceBase* Base = Module->RequestDefaultDataInterface(ParameterInfo.DIClassName);
+	if (Base)
 	{
-		FCoreRedirectObjectName OldObjName;
-		OldObjName.ObjectName = *ParameterInfo.DIClassName;
-		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
-		if (NewObjName.IsValid())
-		{
-			DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewObjName.ObjectName.ToString(), true));
-		}
-
+		DIClass = Base->GetClass();
 	}
 	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
 }

@@ -245,7 +245,7 @@ NiagaraSimulationShader.usf:
 		return InputFloat[RegisterIdx*ComponentBufferSizeRead + InstanceIdx];
 	}
 
-	float InputDataInt(int DataSetIndex, int RegisterIdx, int InstanceIdx)
+	int InputDataInt(int DataSetIndex, int RegisterIdx, int InstanceIdx)
 	{
 		return InputInt[RegisterIdx*ComponentBufferSizeRead + InstanceIdx];
 	}
