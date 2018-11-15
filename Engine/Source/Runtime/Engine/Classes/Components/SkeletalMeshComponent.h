@@ -1797,6 +1797,7 @@ public:
 
 public:
 	bool IsAnimBlueprintInstanced() const;
+	void ClearAnimScriptInstance();
 
 protected:
 	bool NeedToSpawnAnimScriptInstance() const;
@@ -1830,7 +1831,6 @@ private:
 
 	bool DoAnyPhysicsBodiesHaveWeight() const;
 
-	void ClearAnimScriptInstance();
 	virtual void RefreshMorphTargets() override;
 
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
