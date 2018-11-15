@@ -258,7 +258,7 @@ struct FLinearColor
 		return NewCopy;
 	}
 
-	DEPRECATED(4.22, "FGetHSV doesn't perform a valid HSV conversion, use MakeFromHSV8 instead")
+	UE_DEPRECATED(4.22, "FGetHSV doesn't perform a valid HSV conversion, use MakeFromHSV8 instead")
 	static CORE_API FLinearColor FGetHSV(uint8 H,uint8 S,uint8 V);
 
 	/**
