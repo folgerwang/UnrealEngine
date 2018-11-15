@@ -148,11 +148,11 @@ public:
 	FBoxSphereBounds Bounds;
 
 	/** Location of the component relative to its parent */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_Transform, Category = Transform)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_RelativeLocation, Category = Transform)
 	FVector RelativeLocation;
 
 	/** Rotation of the component relative to its parent */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_Transform, Category=Transform)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_RelativeRotation, Category=Transform)
 	FRotator RelativeRotation;
 
 	/**
@@ -252,6 +252,8 @@ private:
 
 	uint8 bNetUpdateTransform : 1;
 	uint8 bNetUpdateAttachment : 1;
+	uint8 bNetHasReceivedRelativeLocation : 1;
+	uint8 bNetHasReceivedRelativeRotation : 1;
 
 	// DEPRECATED
 	UPROPERTY()
@@ -319,6 +321,12 @@ public:
 private:
 	UFUNCTION()
 	void OnRep_Transform();
+
+	UFUNCTION()
+	void OnRep_RelativeLocation();
+
+	UFUNCTION()
+	void OnRep_RelativeRotation();
 
 	UFUNCTION()
 	void OnRep_AttachParent();

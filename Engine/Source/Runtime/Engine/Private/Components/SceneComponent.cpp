@@ -75,6 +75,9 @@ USceneComponent::USceneComponent(const FObjectInitializer& ObjectInitializer /*=
 	// default behavior is visible
 	bVisible = true;
 	bAutoActivate = false;
+
+	bNetHasReceivedRelativeLocation = false;
+	bNetHasReceivedRelativeRotation = false;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -3119,6 +3122,18 @@ void USceneComponent::OnRep_Transform()
 	bNetUpdateTransform = true;
 }
 
+void USceneComponent::OnRep_RelativeLocation()
+{
+	bNetHasReceivedRelativeLocation = true;
+	OnRep_Transform();
+}
+
+void USceneComponent::OnRep_RelativeRotation()
+{
+	bNetHasReceivedRelativeRotation = true;
+	OnRep_Transform();
+}
+
 void USceneComponent::OnRep_AttachParent()
 {
 	bNetUpdateAttachment = true;
@@ -3211,6 +3226,19 @@ void USceneComponent::PostRepNotifies()
 	{
 		Exchange(NetOldAttachParent, AttachParent);
 		Exchange(NetOldAttachSocketName, AttachSocketName);
+		
+		// Note: This is a local fix for JIRA UE-43355. If we receive bNetUpdateAttachment without having received a updated transform, assume that we intend to snap and that the relative location/rotation should defaulted
+		if (!bNetHasReceivedRelativeLocation)
+		{
+			RelativeLocation = FVector::ZeroVector;
+			bNetHasReceivedRelativeLocation = true;
+		}
+		if (!bNetHasReceivedRelativeRotation)
+		{
+			RelativeRotation = FRotator::ZeroRotator;
+			bNetHasReceivedRelativeRotation = true;
+		}
+
 		AttachToComponent(NetOldAttachParent, FAttachmentTransformRules::KeepRelativeTransform, NetOldAttachSocketName);
 		bNetUpdateAttachment = false;
 	}
