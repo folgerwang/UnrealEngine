@@ -134,37 +134,43 @@ namespace MobileReflectionEnvironmentCapture
 
 				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 				{
-					SetRenderTarget(RHICmdList, EffectiveRT.TargetableTexture, MipIndex, CubeFace, NULL, true);
-					FGraphicsPipelineStateInitializer GraphicsPSOInit;
-					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-					GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+					FRHIRenderPassInfo RPInfo(EffectiveRT.TargetableTexture, ERenderTargetActions::Load_Store);
+					RPInfo.ColorRenderTargets[0].ArraySlice = CubeFace;
+					RPInfo.ColorRenderTargets[0].MipIndex = MipIndex;
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("AverageBrightness"));
+					{
+						FGraphicsPipelineStateInitializer GraphicsPSOInit;
+						RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+						GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-					const FIntRect ViewRect(0, 0, MipSize, MipSize);
-					RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
+						const FIntRect ViewRect(0, 0, MipSize, MipSize);
+						RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
 
-					TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-					TShaderMapRef<FMobileDownsamplePS> PixelShader(ShaderMap);
+						TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+						TShaderMapRef<FMobileDownsamplePS> PixelShader(ShaderMap);
 
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-					PixelShader->SetParameters(RHICmdList, CubeFace, SourceMipIndex, EffectiveSource);
+						PixelShader->SetParameters(RHICmdList, CubeFace, SourceMipIndex, EffectiveSource);
 
-					DrawRectangle(
-						RHICmdList,
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						FIntPoint(ViewRect.Width(), ViewRect.Height()),
-						FIntPoint(MipSize, MipSize),
-						*VertexShader);
-
+						DrawRectangle(
+							RHICmdList,
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							FIntPoint(ViewRect.Width(), ViewRect.Height()),
+							FIntPoint(MipSize, MipSize),
+							*VertexShader);
+					}
+					RHICmdList.EndRenderPass();
 					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}
@@ -209,45 +215,54 @@ namespace MobileReflectionEnvironmentCapture
 		const int32 EffectiveTopMipSize = CubmapSize;
 		const int32 NumMips = FMath::CeilLogTwo(EffectiveTopMipSize) + 1;
 		const bool bUseHQFiltering = CVarMobileUseHighQualitySkyCaptureFiltering.GetValueOnRenderThread() == 1;
-		FSceneRenderTargetItem& EffectiveColorRT = FSceneRenderTargets::Get(RHICmdList).ReflectionColorScratchCubemap[0]->GetRenderTargetItem();
-		// Premultiply alpha in-place using alpha blending
-		for (uint32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 		{
-			SetRenderTarget(RHICmdList, EffectiveColorRT.TargetableTexture, 0, CubeFace, NULL, true);
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_Zero, BF_DestAlpha, BO_Add, BF_Zero, BF_One>::GetRHI();
+			FSceneRenderTargetItem& EffectiveColorRT = FSceneRenderTargets::Get(RHICmdList).ReflectionColorScratchCubemap[0]->GetRenderTargetItem();
+			// Premultiply alpha in-place using alpha blending
+			for (uint32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
+			{
+				FRHIRenderPassInfo RPInfo(EffectiveColorRT.TargetableTexture, ERenderTargetActions::Load_Store);
+				RPInfo.ColorRenderTargets[0].ArraySlice = CubeFace;
+				RPInfo.ColorRenderTargets[0].MipIndex = 0;
 
-			const FIntPoint SourceDimensions(CubmapSize, CubmapSize);
-			const FIntRect ViewRect(0, 0, EffectiveTopMipSize, EffectiveTopMipSize);
-			RHICmdList.SetViewport(0, 0, 0.0f, EffectiveTopMipSize, EffectiveTopMipSize, 1.0f);
+				TransitionRenderPassTargets(RHICmdList, RPInfo);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("FilterReflectionEnvironment"));
+				{
+					FGraphicsPipelineStateInitializer GraphicsPSOInit;
+					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+					GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_Zero, BF_DestAlpha, BO_Add, BF_Zero, BF_One>::GetRHI();
 
-			TShaderMapRef<FScreenVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
-			TShaderMapRef<FOneColorPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
+					const FIntPoint SourceDimensions(CubmapSize, CubmapSize);
+					const FIntRect ViewRect(0, 0, EffectiveTopMipSize, EffectiveTopMipSize);
+					RHICmdList.SetViewport(0, 0, 0.0f, EffectiveTopMipSize, EffectiveTopMipSize, 1.0f);
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+					TShaderMapRef<FScreenVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
+					TShaderMapRef<FOneColorPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
 
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-			FLinearColor UnusedColors[1] = { FLinearColor::Black };
-			PixelShader->SetColors(RHICmdList, UnusedColors, ARRAY_COUNT(UnusedColors));
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-			DrawRectangle(
-				RHICmdList,
-				ViewRect.Min.X, ViewRect.Min.Y,
-				ViewRect.Width(), ViewRect.Height(),
-				0, 0,
-				SourceDimensions.X, SourceDimensions.Y,
-				FIntPoint(ViewRect.Width(), ViewRect.Height()),
-				SourceDimensions,
-				*VertexShader);
+					FLinearColor UnusedColors[1] = { FLinearColor::Black };
+					PixelShader->SetColors(RHICmdList, UnusedColors, ARRAY_COUNT(UnusedColors));
 
-			RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
+					DrawRectangle(
+						RHICmdList,
+						ViewRect.Min.X, ViewRect.Min.Y,
+						ViewRect.Width(), ViewRect.Height(),
+						0, 0,
+						SourceDimensions.X, SourceDimensions.Y,
+						FIntPoint(ViewRect.Width(), ViewRect.Height()),
+						SourceDimensions,
+						*VertexShader);
+				}
+				RHICmdList.EndRenderPass();
+				RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
+			} // end for
 		}
 
 		int32 DiffuseConvolutionSourceMip = INDEX_NONE;
@@ -271,39 +286,46 @@ namespace MobileReflectionEnvironmentCapture
 
 				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 				{
-					SetRenderTarget(RHICmdList, EffectiveRT.TargetableTexture, MipIndex, CubeFace, NULL, true);
+					FRHIRenderPassInfo RPInfo(EffectiveRT.TargetableTexture, ERenderTargetActions::Load_Store);
+					RPInfo.ColorRenderTargets[0].ArraySlice = CubeFace;
+					RPInfo.ColorRenderTargets[0].MipIndex = MipIndex;
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
 
-					FGraphicsPipelineStateInitializer GraphicsPSOInit;
-					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-					GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("DownsampleCubemap"));
+					{
 
-					const FIntRect ViewRect(0, 0, MipSize, MipSize);
-					RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
+						FGraphicsPipelineStateInitializer GraphicsPSOInit;
+						RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+						GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-					TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-					TShaderMapRef<FMobileDownsamplePS> PixelShader(ShaderMap);
+						const FIntRect ViewRect(0, 0, MipSize, MipSize);
+						RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
 
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+						TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+						TShaderMapRef<FMobileDownsamplePS> PixelShader(ShaderMap);
 
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-					PixelShader->SetParameters(RHICmdList, CubeFace, SourceMipIndex, EffectiveSource);
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-					DrawRectangle(
-						RHICmdList,
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						FIntPoint(ViewRect.Width(), ViewRect.Height()),
-						FIntPoint(MipSize, MipSize),
-						*VertexShader);
+						PixelShader->SetParameters(RHICmdList, CubeFace, SourceMipIndex, EffectiveSource);
 
+						DrawRectangle(
+							RHICmdList,
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							FIntPoint(ViewRect.Width(), ViewRect.Height()),
+							FIntPoint(MipSize, MipSize),
+							*VertexShader);
+					}
+					RHICmdList.EndRenderPass();
 					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 
@@ -354,59 +376,65 @@ namespace MobileReflectionEnvironmentCapture
 
 				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 				{
-					SetRenderTarget(RHICmdList, EffectiveRT.TargetableTexture, MipIndex, CubeFace, NULL, true);
+					FRHIRenderPassInfo RPInfo(EffectiveRT.TargetableTexture, ERenderTargetActions::Load_Store);
+					RPInfo.ColorRenderTargets[0].ArraySlice = CubeFace;
+					RPInfo.ColorRenderTargets[0].MipIndex = MipIndex;
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
 
-					FGraphicsPipelineStateInitializer GraphicsPSOInit;
-					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-					GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-
-					const FIntRect ViewRect(0, 0, MipSize, MipSize);
-					RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
-
-					TShaderMapRef<FScreenVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
-
-					FCubeFilterPS* HQFilterPixelShader = *TShaderMapRef< TCubeFilterPS<0> >(ShaderMap);
-					check(HQFilterPixelShader);
-					TShaderMapRef<FMobileDownsamplePS> BilinFilterPixelShader(ShaderMap);
-					FPixelShaderRHIParamRef PixelShaderRHI = bUseHQFiltering ? HQFilterPixelShader->GetPixelShader() : BilinFilterPixelShader->GetPixelShader();
-
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShaderRHI;
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-					if(bUseHQFiltering)
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("FilterCubeMip"));
 					{
-						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->CubeFace, CubeFace);
-						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->MipIndex, MipIndex);
-						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->NumMips, NumMips);
-						SetTextureParameter(
+						FGraphicsPipelineStateInitializer GraphicsPSOInit;
+						RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+						GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+						const FIntRect ViewRect(0, 0, MipSize, MipSize);
+						RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
+
+						TShaderMapRef<FScreenVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
+
+						FCubeFilterPS* HQFilterPixelShader = *TShaderMapRef< TCubeFilterPS<0> >(ShaderMap);
+						check(HQFilterPixelShader);
+						TShaderMapRef<FMobileDownsamplePS> BilinFilterPixelShader(ShaderMap);
+						FPixelShaderRHIParamRef PixelShaderRHI = bUseHQFiltering ? HQFilterPixelShader->GetPixelShader() : BilinFilterPixelShader->GetPixelShader();
+
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShaderRHI;
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+						if (bUseHQFiltering)
+						{
+							SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->CubeFace, CubeFace);
+							SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->MipIndex, MipIndex);
+							SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->NumMips, NumMips);
+							SetTextureParameter(
+								RHICmdList,
+								PixelShaderRHI,
+								HQFilterPixelShader->SourceTexture,
+								HQFilterPixelShader->SourceTextureSampler,
+								TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
+								EffectiveSource.ShaderResourceTexture);
+						}
+						else
+						{
+							BilinFilterPixelShader->SetParameters(RHICmdList, CubeFace, MipIndex, EffectiveSource);
+						}
+
+						DrawRectangle(
 							RHICmdList,
-							PixelShaderRHI,
-							HQFilterPixelShader->SourceTexture,
-							HQFilterPixelShader->SourceTextureSampler,
-							TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
-							EffectiveSource.ShaderResourceTexture);
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							ViewRect.Min.X, ViewRect.Min.Y,
+							ViewRect.Width(), ViewRect.Height(),
+							FIntPoint(ViewRect.Width(), ViewRect.Height()),
+							FIntPoint(MipSize, MipSize),
+							*VertexShader);
 					}
-					else
-					{
-						BilinFilterPixelShader->SetParameters(RHICmdList, CubeFace, MipIndex, EffectiveSource);
-					}
-
-					DrawRectangle(
-						RHICmdList,
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						ViewRect.Min.X, ViewRect.Min.Y,
-						ViewRect.Width(), ViewRect.Height(),
-						FIntPoint(ViewRect.Width(), ViewRect.Height()),
-						FIntPoint(MipSize, MipSize),
-						*VertexShader);
-
+					RHICmdList.EndRenderPass();
 					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}

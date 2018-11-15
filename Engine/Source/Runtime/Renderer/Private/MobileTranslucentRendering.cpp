@@ -323,7 +323,7 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 		for (int32 ViewIndex = 0; ViewIndex < PassViews.Num(); ViewIndex++)
 		{
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
-			
+
 			const FViewInfo& View = *PassViews[ViewIndex];
 			if (!View.ShouldRenderView())
 			{
@@ -339,14 +339,22 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 			{
 				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				// Use begin rendering scene color with FExclusiveDepthStencil::DepthRead_StencilRead to avoid starting a new render pass on vulkan.
-				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
+				// #todo-renderpasses we'll need to clean this up once we verify VK won't trash the stencil buffer if we make it DontStore
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 			}
 			else
 			{
 				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				FTextureRHIParamRef SceneColor = GetMultiViewSceneColor(SceneContext);
 				const FTextureRHIParamRef SceneDepth = (View.bIsMobileMultiViewEnabled) ? SceneContext.MobileMultiViewSceneDepthZ->GetRenderTargetItem().TargetableTexture : static_cast<FTextureRHIRef>(SceneContext.GetSceneDepthTexture());
-				SetRenderTarget(RHICmdList, SceneColor, SceneDepth, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
+
+				// #todo-renderpasses we'll need to clean this up once we verify VK won't trash the stencil buffer if we make it DontStore
+				FRHIRenderPassInfo RPInfo(SceneColor, ERenderTargetActions::Load_Store);
+				RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
+				RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneDepth;
+				RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
+
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderMobileTranslucency"));
 			}
 
 			// Mobile multi-view is not side by side stereo
@@ -359,12 +367,23 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 			// Draw only translucent prims that don't read from scene color
 			FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(TranslucencyPass);
 			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
-			
+
 			View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::Translucent);
-			
+
 			// Editor and debug rendering
 			DrawViewElements<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext, SDPG_World, false);
 			DrawViewElements<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext, SDPG_Foreground, false);
+
+			// #todo-renderpasses clean this up. Ending the renderpass is correct here but do we want to look nicer and call FinishRenderingSceneColor, etc?
+			if (bRenderToSceneColor)
+			{
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
+			}
+			else
+			{
+				RHICmdList.EndRenderPass();
+			}
 		}
 	}
 }
@@ -677,7 +696,11 @@ private:
 
 bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
+	// Function MUST be self-contained wrt RenderPasses
+	check(RHICmdList.IsOutsideRenderPass());
+
 	bool bDirty = false;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 	if (ShouldRenderTranslucency(ETranslucencyPass::TPT_AllTranslucency))
 	{
@@ -687,16 +710,16 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 		{
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, *this);
+				SceneContext.BeginRenderingTranslucency(RHICmdList, View, *this);
 			}
 			else
 			{
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorExistingDepth);
 				// Mobile multi-view is not side by side stereo
 				const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
 				RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
 			}
 
-			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			FMobileSceneTextureUniformParameters PassParameters;
 			SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, true, PassParameters);
 			TUniformBufferRef<FMobileSceneTextureUniformParameters> PassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(PassParameters, UniformBuffer_SingleFrame);
@@ -710,7 +733,22 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 				SCOPED_DRAW_EVENT(RHICmdList, InverseOpacity);
 				bDirty |= RenderInverseOpacityDynamic(RHICmdList, View, DrawRenderState);
 			}
+
+			if (!bGammaSpace)
+			{
+				SceneContext.FinishRenderingTranslucency(RHICmdList);
+			}
+			else
+			{
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
+			}
 		}
+	}
+	else
+	{
+		// This is to preserve the previous behavior.
+		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorExistingDepth);
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 	return bDirty;
 }
