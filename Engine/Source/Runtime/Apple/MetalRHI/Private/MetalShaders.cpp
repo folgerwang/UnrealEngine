@@ -674,6 +674,11 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 				}
 			}
+			if (SideTableBinding > 0)
+			{
+				ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = PipelineBuffers[SideTableBinding];
+				PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+			}
 		}
 		
 		mtlpp::ComputePipelineState Kernel;

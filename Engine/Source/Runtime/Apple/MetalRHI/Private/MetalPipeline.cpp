@@ -392,6 +392,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		{
 			ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> VertexPipelineBuffers = RenderPipelineDesc.GetVertexBuffers();
 			FMetalShaderBindings& VertexBindings = DomainShader ? DomainShader->Bindings : VertexShader->Bindings;
+			int8 VertexSideTable = DomainShader ? DomainShader->SideTableBinding : VertexShader->SideTableBinding;
 			{
 				uint32 ImmutableBuffers = VertexBindings.ConstantBuffers | VertexBindings.ArgumentBuffers;
 				while(ImmutableBuffers)
@@ -404,6 +405,11 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = VertexPipelineBuffers[Index];
 						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 					}
+				}
+				if (VertexSideTable > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = VertexPipelineBuffers[VertexSideTable];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 				}
 			}
 			
@@ -421,6 +427,11 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = FragmentPipelineBuffers[Index];
 						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 					}
+				}
+				if (PixelShader->SideTableBinding > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = FragmentPipelineBuffers[PixelShader->SideTableBinding];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 				}
 			}
 		}
@@ -579,6 +590,11 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = PipelineBuffers[Index];
 						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 					}
+				}
+				if (VertexShader->SideTableBinding > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = PipelineBuffers[VertexShader->SideTableBinding];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
 				}
 			}
 			
