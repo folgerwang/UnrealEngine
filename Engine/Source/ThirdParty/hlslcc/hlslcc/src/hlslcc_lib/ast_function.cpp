@@ -2430,9 +2430,19 @@ struct _mesa_glsl_parse_state *state)
 			texop->type = glsl_type::get_instance(sampler->type->inner_type->base_type, is_shadow && !gather ? 1 : 4, 1);
 			result = texop;
 
-			// Make sure this type gets automatically converted, if HLSL's inner type was something else (for example Texture2DMS<float>).
-			struct YYLTYPE location = expr->get_location();
-			apply_type_conversion(sampler->type->inner_type, result, instructions, state, true, &location);
+			if (gather)
+			{
+				// Gather4 instructions always return 4-component vectors
+				const glsl_type* GatherType = glsl_type::get_instance(sampler->type->inner_type->base_type, 4, 1);
+				struct YYLTYPE location = expr->get_location();
+				apply_type_conversion(GatherType, result, instructions, state, true, &location);
+			}
+			else
+			{
+				// Make sure this type gets automatically converted, if HLSL's inner type was something else (for example Texture2DMS<float>).
+				struct YYLTYPE location = expr->get_location();
+				apply_type_conversion(sampler->type->inner_type, result, instructions, state, true, &location);
+			}
 		}
 
 		if (texop->op != ir_txf && texop->op != ir_txs)
