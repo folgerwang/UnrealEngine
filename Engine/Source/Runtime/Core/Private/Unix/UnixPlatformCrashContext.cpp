@@ -287,7 +287,7 @@ void FUnixCrashContext::CaptureStackTrace()
 		// We use __builtin_return_address to save an address location to where our signal handler is called from
 		// We still need to ignore the first frame from pthreads which calls our signal handler, that is why we set it to one
 		// This may need to change something other then glibc is used
-		int32 IgnoreCount = 1;
+		int32 IgnoreCount = 0;
 		CapturePortableCallStack(IgnoreCount, this);
 
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)

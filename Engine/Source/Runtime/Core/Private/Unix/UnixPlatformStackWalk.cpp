@@ -462,6 +462,7 @@ namespace
 			{
 				if (FirstCrashHandlerFrame == reinterpret_cast<uint64*>(BackTrace[i]))
 				{
+					i++;
 					uint64* OverwriteBackTrace = BackTrace;
 
 					for (int j = i; j < Size; j++)
