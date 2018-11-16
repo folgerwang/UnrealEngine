@@ -15,7 +15,8 @@
 	"IsBetaVersion": true,
 	"Installed": false,
 	"SupportedTargetPlatforms": [
-		"Android"
+		"Android",
+		"Lumin"
 	],
 	"Modules": [
 		{
