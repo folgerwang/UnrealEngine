@@ -2660,7 +2660,7 @@ namespace ObjectTools
 		}
 
 		// If the target package already exists, check for name clashes and find a unique name
-		if ( InOutInfo.bOkToAll || bUniqueDefaultName )
+		if ( bUniqueDefaultName )
 		{
 			UPackage* NewPackage = FindPackage(NULL, *PackageName);
 
@@ -2735,7 +2735,7 @@ namespace ObjectTools
 			}
 		}
 
-		if( !InOutInfo.bOkToAll )
+		if( !InOutInfo.bOkToAll && InOutInfo.bPromptForRenameOnConflict )
 		{
 			// Present the user with a rename dialog for each asset.
 			FDlgMoveAsset MoveDialog(/*bIsLegacyOrMapPackage*/ false, PackageName, GroupName, ObjectName, DialogTitle);

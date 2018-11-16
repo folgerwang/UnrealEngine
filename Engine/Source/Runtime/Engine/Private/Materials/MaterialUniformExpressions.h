@@ -64,14 +64,18 @@ class FMaterialUniformExpressionVectorParameter: public FMaterialUniformExpressi
 	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionVectorParameter);
 public:
 
-	FMaterialUniformExpressionVectorParameter() :
-		bUseOverriddenDefault(false)
+	FMaterialUniformExpressionVectorParameter()
+#if WITH_EDITOR
+		: bUseOverriddenDefault(false)
+#endif
 	{}
 
-	FMaterialUniformExpressionVectorParameter(const FMaterialParameterInfo& InParameterInfo,const FLinearColor& InDefaultValue):
-		ParameterInfo(InParameterInfo),
-		DefaultValue(InDefaultValue),
-		bUseOverriddenDefault(false)
+	FMaterialUniformExpressionVectorParameter(const FMaterialParameterInfo& InParameterInfo,const FLinearColor& InDefaultValue)
+		: ParameterInfo(InParameterInfo)
+		, DefaultValue(InDefaultValue)
+#if WITH_EDITOR
+		, bUseOverriddenDefault(false)
+#endif
 	{}
 
 	// FMaterialUniformExpression interface.
@@ -106,7 +110,11 @@ public:
 
 	void GetDefaultValue(FLinearColor& OutValue) const
 	{
+#if WITH_EDITOR
 		OutValue = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+#else
+		OutValue = DefaultValue;
+#endif
 	}
 
 	// faster than GetNumberValue(), good for run-time use
@@ -132,17 +140,21 @@ public:
 		return ParameterInfo == OtherParameter->ParameterInfo && DefaultValue == OtherParameter->DefaultValue;
 	}
 
+#if WITH_EDITOR
 	void SetTransientOverrideDefaultValue(const FLinearColor& InOverrideDefaultValue, bool bInUseOverriddenDefault)
 	{
 		bUseOverriddenDefault = bInUseOverriddenDefault;
 		OverriddenDefaultValue = InOverrideDefaultValue;
 	}
+#endif
 
 private:
 	FMaterialParameterInfo ParameterInfo;
 	FLinearColor DefaultValue;
+#if WITH_EDITOR
 	bool bUseOverriddenDefault;
 	FLinearColor OverriddenDefaultValue;
+#endif
 };
 
 /**
@@ -152,14 +164,18 @@ class FMaterialUniformExpressionScalarParameter: public FMaterialUniformExpressi
 	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionScalarParameter);
 public:
 
-	FMaterialUniformExpressionScalarParameter() :
-		bUseOverriddenDefault(false)
+	FMaterialUniformExpressionScalarParameter()
+#if WITH_EDITOR
+		: bUseOverriddenDefault(false)
+#endif
 	{}
 
-	FMaterialUniformExpressionScalarParameter(const FMaterialParameterInfo& InParameterInfo,float InDefaultValue):
-		ParameterInfo(InParameterInfo),
-		DefaultValue(InDefaultValue),
-		bUseOverriddenDefault(false)
+	FMaterialUniformExpressionScalarParameter(const FMaterialParameterInfo& InParameterInfo,float InDefaultValue)
+		: ParameterInfo(InParameterInfo)
+		, DefaultValue(InDefaultValue)
+#if WITH_EDITOR
+		, bUseOverriddenDefault(false)
+#endif
 	{}
 
 	// FMaterialUniformExpression interface.
@@ -196,7 +212,11 @@ public:
 
 	void GetDefaultValue(float& OutValue) const
 	{
+#if WITH_EDITOR
 		OutValue = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+#else
+		OutValue = DefaultValue;
+#endif
 	}
 	
 	// faster than GetNumberValue(), good for run-time use
@@ -224,17 +244,21 @@ public:
 		return ParameterInfo == OtherParameter->ParameterInfo && DefaultValue == OtherParameter->DefaultValue;
 	}
 
+#if WITH_EDITOR
 	void SetTransientOverrideDefaultValue(float InOverrideDefaultValue, bool bInUseOverriddenDefault)
 	{
 		bUseOverriddenDefault = bInUseOverriddenDefault;
 		OverriddenDefaultValue = InOverrideDefaultValue;
 	}
+#endif
 
 private:
 	FMaterialParameterInfo ParameterInfo;
 	float DefaultValue;
+#if WITH_EDITOR
 	bool bUseOverriddenDefault;
 	float OverriddenDefaultValue;
+#endif
 };
 
 /** @return The texture that was associated with the given index when the given material had its uniform expressions/HLSL code generated. */

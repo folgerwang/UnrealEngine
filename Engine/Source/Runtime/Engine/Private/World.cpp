@@ -169,11 +169,11 @@ FActorSpawnParameters::FActorSpawnParameters()
 
 FLevelCollection::FLevelCollection()
 	: CollectionType(ELevelCollectionType::DynamicSourceLevels)
+	, bIsVisible(true)
 	, GameState(nullptr)
 	, NetDriver(nullptr)
 	, DemoNetDriver(nullptr)
 	, PersistentLevel(nullptr)
-	, bIsVisible(true)
 {
 }
 
@@ -191,12 +191,12 @@ FLevelCollection::~FLevelCollection()
 
 FLevelCollection::FLevelCollection(FLevelCollection&& Other)
 	: CollectionType(Other.CollectionType)
+	, bIsVisible(Other.bIsVisible)
 	, GameState(Other.GameState)
 	, NetDriver(Other.NetDriver)
 	, DemoNetDriver(Other.DemoNetDriver)
 	, PersistentLevel(Other.PersistentLevel)
 	, Levels(MoveTemp(Other.Levels))
-	, bIsVisible(Other.bIsVisible)
 {
 	for (ULevel* Level : Levels)
 	{
@@ -318,6 +318,7 @@ FWorldDelegates::FOnLevelChanged FWorldDelegates::LevelRemovedFromWorld;
 FWorldDelegates::FLevelOffsetEvent FWorldDelegates::PostApplyLevelOffset;
 FWorldDelegates::FWorldGetAssetTags FWorldDelegates::GetAssetTags;
 FWorldDelegates::FOnWorldTickStart FWorldDelegates::OnWorldTickStart;
+FWorldDelegates::FOnWorldPreActorTick FWorldDelegates::OnWorldPreActorTick;
 FWorldDelegates::FOnWorldPostActorTick FWorldDelegates::OnWorldPostActorTick;
 #if WITH_EDITOR
 FWorldDelegates::FRefreshLevelScriptActionsEvent FWorldDelegates::RefreshLevelScriptActions;
@@ -327,17 +328,17 @@ UWorld::FOnWorldInitializedActors FWorldDelegates::OnWorldInitializedActors;
 
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 : UObject(ObjectInitializer)
+, FeatureLevel(GMaxRHIFeatureLevel)
+, bIsBuilt(false)
+, bShouldTick(true)
 , ActiveLevelCollectionIndex(INDEX_NONE)
+, AudioDeviceHandle(INDEX_NONE)
 #if WITH_EDITOR
 , HierarchicalLODBuilder(new FHierarchicalLODBuilder(this))
 #endif
-,	FeatureLevel(GMaxRHIFeatureLevel)
-,	bShouldTick(true)
 , URL(FURL(NULL))
 ,	FXSystem(NULL)
 ,	TickTaskLevel(FTickTaskManagerInterface::Get().AllocateTickTaskLevel())
-,   bIsBuilt(false)
-,   AudioDeviceHandle(INDEX_NONE)
 ,	FlushLevelStreamingType(EFlushLevelStreamingType::None)
 ,	NextTravelType(TRAVEL_Relative)
 {
@@ -408,7 +409,9 @@ void UWorld::Serialize( FArchive& Ar )
 	if( !Ar.IsLoading() && !Ar.IsSaving() )
 	{
 		Ar << Levels;
+#if WITH_EDITORONLY_DATA
 		Ar << CurrentLevel;
+#endif
 		Ar << URL;
 
 		Ar << NetDriver;
@@ -680,11 +683,13 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			PersistentLevel->OwningWorld = this;
 		}
 
+#if WITH_EDITORONLY_DATA
 		// Update the current level as well
 		if ( !CurrentLevel )
 		{
 			CurrentLevel = PersistentLevel;
 		}
+#endif
 
 		UPackage* MyPackage = GetOutermost();
 
@@ -900,8 +905,12 @@ void UWorld::PostLoad()
 	}
 
 	Super::PostLoad();
+#if WITH_EDITORONLY_DATA
 	CurrentLevel = PersistentLevel;
+#endif
+#if WITH_EDITOR
 	RepairWorldSettings();
+#endif
 
 	for (auto It = StreamingLevels.CreateIterator(); It; ++It)
 	{
@@ -1265,7 +1274,9 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	PersistentLevel->OwningWorld = this;
 	PersistentLevel->bIsVisible = true;
 
+#if WITH_EDITOR
 	RepairWorldSettings();
+#endif
 
 	// initialize DefaultPhysicsVolume for the world
 	// Spawned on demand by this function.
@@ -1297,7 +1308,9 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	}
 
 	URL					= PersistentLevel->URL;
+#if WITH_EDITORONLY_DATA
 	CurrentLevel		= PersistentLevel;
+#endif
 
 	bAllowAudioPlayback = IVS.bAllowAudioPlayback;
 #if WITH_EDITOR
@@ -1457,8 +1470,10 @@ void UWorld::InitializeNewWorld(const InitializationValues IVS)
 		PersistentLevel->Model->ClearFlags( RF_Transactional );
 	}
 
+#if WITH_EDITORONLY_DATA
 	// Need to associate current level so SpawnActor doesn't complain.
 	CurrentLevel = PersistentLevel;
+#endif
 
 	// Create the WorldInfo actor.
 	FActorSpawnParameters SpawnInfo;
@@ -1683,6 +1698,9 @@ void UWorld::UpdateWorldComponents(bool bRerunConstructionScripts, bool bCurrent
 
 	if ( bCurrentLevelOnly )
 	{
+#if !WITH_EDITORONLY_DATA
+		ULevel* CurrentLevel = PersistentLevel;
+#endif
 		check( CurrentLevel );
 		CurrentLevel->UpdateLevelComponents(bRerunConstructionScripts);
 	}
@@ -1854,6 +1872,9 @@ void UWorld::InvalidateModelSurface(bool bCurrentLevelOnly)
 {
 	if ( bCurrentLevelOnly )
 	{
+#if !WITH_EDITORONLY_DATA
+		ULevel* CurrentLevel = PersistentLevel;
+#endif
 		check( bCurrentLevelOnly );
 		CurrentLevel->InvalidateModelSurface();
 	}
@@ -2068,10 +2089,16 @@ private:
 
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 
+static TAutoConsoleVariable<int32> CVarStripSubLevelClasses(
+	TEXT("level.StripSubLevelClasses"),
+	0,
+	TEXT("0 - The classes specified in Game Maps Settings in sublevels will not be stripped in game worlds. ")
+	TEXT("1 - The classes specified in Game Maps Settings found in sublevels will be marked pending kill when the level is added to a game world. "));
+
 void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool bConsiderTimeLimit )
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime);
-	CSV_SCOPED_TIMING_STAT(Basic, AddToWorldTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AddToWorld);
 
 	check(Level);
 	check(!Level->IsPendingKill());
@@ -2087,7 +2114,8 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 
 	bool bExecuteNextStep = CurrentLevelPendingVisibility == Level || CurrentLevelPendingVisibility == NULL;
 	bool bPerformedLastStep	= false;
-	
+	const bool bIsGameWorld = IsGameWorld();
+
 	// Don't make this level visible if it's currently being made invisible
 	if( bExecuteNextStep && CurrentLevelPendingVisibility == NULL && CurrentLevelPendingInvisibility != Level )
 	{
@@ -2095,6 +2123,61 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 		
 		// Mark level as being the one in process of being made visible.
 		CurrentLevelPendingVisibility = Level;
+
+		if (bIsGameWorld && CVarStripSubLevelClasses.GetValueOnGameThread() != 0)
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_StripSubLevelClasses);
+
+			const TArray<FSubLevelStrippingInfo>& ClassPathsToStrip = GetDefault<UGameMapsSettings>()->SubLevelClassesToStrip;
+			if (ClassPathsToStrip.Num() > 0)
+			{
+				TArray<UClass*> ExactClassesToStrip;
+				TArray<UClass*> IsChildOfClassesToStrip; // not reserving as this is expected to be the infrequent usage
+				ExactClassesToStrip.Reserve(ClassPathsToStrip.Num());
+				for (const FSubLevelStrippingInfo& StrippingInfo : ClassPathsToStrip)
+				{
+					if (UClass* ClassToStrip = StrippingInfo.ClassToStrip.ResolveClass())
+					{
+						if (StrippingInfo.StripMode == ESubLevelStripMode::ExactClass)
+						{
+							ExactClassesToStrip.Add(ClassToStrip);
+						}
+						else //if (StrippingInfo.StripMode == ESubLevelStripMode::IsChildOf)
+						{
+							IsChildOfClassesToStrip.Add(ClassToStrip);
+						}
+					}
+				}
+				if (ExactClassesToStrip.Num() > 0 || IsChildOfClassesToStrip.Num() > 0)
+				{
+					for (AActor*& Actor : Level->Actors)
+					{
+						if (Actor)
+						{
+							if (ExactClassesToStrip.Contains(Actor->GetClass()))
+							{
+								UE_LOG(LogStreaming, Verbose, TEXT("Stripped sub level actor '%s'"), *Actor->GetFullName());
+								Actor->MarkPendingKill(); // We do not need to go through DestroyActor lifecycle as these objects haven't been initialized yet
+								Actor = nullptr;
+							}
+							else
+							{
+								for (UClass* StripClass : IsChildOfClassesToStrip)
+								{
+									if (Actor->GetClass()->IsChildOf(StripClass))
+									{
+										UE_LOG(LogStreaming, Verbose, TEXT("Stripped sub level actor '%s'"), *Actor->GetFullName());
+										Actor->MarkPendingKill(); // We do not need to go through DestroyActor lifecycle as these objects haven't been initialized yet
+										Actor = nullptr;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		// Add to the UWorld's array of levels, which causes it to be rendered et al.
 		Levels.AddUnique( Level );
@@ -2114,7 +2197,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 	}
 
 	// Don't consider the time limit if the match hasn't started as we need to ensure that the levels are fully loaded
-	bConsiderTimeLimit &= bMatchStarted && IsGameWorld();
+	bConsiderTimeLimit &= bMatchStarted && bIsGameWorld;
 	double TimeLimit = GLevelStreamingActorsUpdateTimeLimit;
 
 	if (bConsiderTimeLimit)
@@ -2351,8 +2434,8 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 void UWorld::RemoveFromWorld( ULevel* Level, bool bAllowIncrementalRemoval )
 {
 	SCOPE_CYCLE_COUNTER(STAT_RemoveFromWorldTime);
-	CSV_SCOPED_TIMING_STAT(Basic, RemoveFromWorldTime);
-	
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RemoveFromWorld);
+
 	FScopeCycleCounterUObject Context(Level);
 	check(Level);
 	check(!Level->IsPendingKill());
@@ -2875,7 +2958,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 void UWorld::UpdateLevelStreaming()
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateLevelStreamingTime);
-	CSV_SCOPED_TIMING_STAT(Basic, UpdateLevelStreaming);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(UpdateLevelStreaming);
 
 	// do nothing if level streaming is frozen
 	if (bIsLevelStreamingFrozen)
@@ -3346,6 +3429,7 @@ bool UWorld::HandleDemoSpeedCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld*
 
 bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if( FParse::Command( &Cmd, TEXT("TRACETAG") ) )
 	{
 		return HandleTraceTagCommand( Cmd, Ar );
@@ -3355,7 +3439,9 @@ bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 		bDebugDrawAllTraceTags = !bDebugDrawAllTraceTags;
 		return true;
 	}
-	else if( FParse::Command( &Cmd, TEXT("FLUSHPERSISTENTDEBUGLINES") ) )
+	else
+#endif
+		if( FParse::Command( &Cmd, TEXT("FLUSHPERSISTENTDEBUGLINES") ) )
 	{		
 		return HandleFlushPersistentDebugLinesCommand( Cmd, Ar );
 	}
@@ -3399,9 +3485,11 @@ bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 
 bool UWorld::HandleTraceTagCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FString TagStr;
 	FParse::Token(Cmd, TagStr, 0);
 	DebugDrawTraceTag = FName(*TagStr);
+#endif
 	return true;
 }
 
@@ -3900,6 +3988,11 @@ FConstPlayerControllerIterator UWorld::GetPlayerControllerIterator() const
 	return PlayerControllerList.CreateConstIterator();
 }
 
+int32 UWorld::GetNumPlayerControllers() const
+{
+	return PlayerControllerList.Num();
+}
+
 APlayerController* UWorld::GetFirstPlayerController() const
 {
 	APlayerController* PlayerController = NULL;
@@ -4143,7 +4236,11 @@ ALevelScriptActor* UWorld::GetLevelScriptActor( ULevel* OwnerLevel ) const
 {
 	if( OwnerLevel == NULL )
 	{
+#if WITH_EDITORONLY_DATA
 		OwnerLevel = CurrentLevel;
+#else
+		OwnerLevel = PersistentLevel;
+#endif
 	}
 	check(OwnerLevel);
 	return OwnerLevel->GetLevelScriptActor();
@@ -4184,6 +4281,9 @@ AWorldSettings* UWorld::GetWorldSettings( const bool bCheckStreamingPersistent, 
 
 UModel* UWorld::GetModel() const
 {
+#if !WITH_EDITORONLY_DATA
+	ULevel* CurrentLevel = PersistentLevel;
+#endif
 	check(CurrentLevel);
 	return CurrentLevel->Model;
 }
@@ -4312,53 +4412,42 @@ bool UWorld::NotifyAcceptingChannel( UChannel* Channel )
 	if( Driver->ServerConnection )
 	{
 		// We are a client and the server has just opened up a new channel.
-		//UE_LOG(LogWorld, Log,  "NotifyAcceptingChannel %i/%i client %s", Channel->ChIndex, Channel->ChType, *GetName() );
-		if( Channel->ChType==CHTYPE_Actor )
+		if (Driver->ChannelDefinitionMap[Channel->ChName].bServerOpen)
 		{
-			// Actor channel.
-			//UE_LOG(LogWorld, Log,  "Client accepting actor channel" );
-			return 1;
-		}
-		else if (Channel->ChType == CHTYPE_Voice)
-		{
-			// Accept server requests to open a voice channel, allowing for custom voip implementations
-			// which utilize multiple server controlled voice channels.
-			//UE_LOG(LogNet, Log,  "Client accepting voice channel" );
-			return 1;
+			//UE_LOG(LogWorld, Log, TEXT("NotifyAcceptingChannel %i/%s client %s"), Channel->ChIndex, *Channel->ChType.ToString(), *GetFullName() );
+			return true;
 		}
 		else
 		{
 			// Unwanted channel type.
-			UE_LOG(LogNet, Log, TEXT("Client refusing unwanted channel of type %i"), (uint8)Channel->ChType );
-			return 0;
+			UE_LOG(LogNet, Log, TEXT("Client refusing unwanted channel of type %s"), *Channel->ChName.ToString() );
+			return false;
 		}
 	}
 	else
 	{
 		// We are the server.
-		if( Channel->ChIndex==0 && Channel->ChType==CHTYPE_Control )
+		if (Driver->ChannelDefinitionMap[Channel->ChName].bClientOpen)
 		{
 			// The client has opened initial channel.
-			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel Control %i server %s: Accepted"), Channel->ChIndex, *GetFullName() );
-			return 1;
-		}
-		else if( Channel->ChType==CHTYPE_File )
-		{
-			// The client is going to request a file.
-			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel File %i server %s: Accepted"), Channel->ChIndex, *GetFullName() );
-			return 1;
+			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %s %i server %s: Accepted"), *Channel->ChName.ToString(), Channel->ChIndex, *GetFullName() );
+			return true;
 		}
 		else
 		{
 			// Client can't open any other kinds of channels.
-			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %i %i server %s: Refused"), (uint8)Channel->ChType, Channel->ChIndex, *GetFullName() );
-			return 0;
+			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %s %i server %s: Refused"), *Channel->ChName.ToString(), Channel->ChIndex, *GetFullName() );
+			return false;
 		}
 	}
 }
 
 void UWorld::WelcomePlayer(UNetConnection* Connection)
 {
+#if !WITH_EDITORONLY_DATA
+	ULevel* CurrentLevel = PersistentLevel;
+#endif
+
 	check(CurrentLevel);
 	Connection->SendPackageMap();
 
@@ -4758,7 +4847,11 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					{
 						// create a child network connection using the existing connection for its parent
 						check(Connection->GetUChildConnection() == NULL);
+#if WITH_EDITORONLY_DATA
 						check(CurrentLevel);
+#else
+						ULevel* CurrentLevel = PersistentLevel;
+#endif
 
 						UChildConnection* ChildConn = NetDriver->CreateChild(Connection);
 						ChildConn->PlayerId = SplitRequestUniqueIdRepl;
@@ -6429,6 +6522,7 @@ void UWorld::SetNavigationSystem(UNavigationSystemBase* InNavigationSystem)
 	NavigationSystem = InNavigationSystem;
 }
 
+#if WITH_EDITORONLY_DATA
 /** Set the CurrentLevel for this world. **/
 bool UWorld::SetCurrentLevel( class ULevel* InLevel )
 {
@@ -6440,11 +6534,16 @@ bool UWorld::SetCurrentLevel( class ULevel* InLevel )
 	}
 	return bChanged;
 }
+#endif
 
 /** Get the CurrentLevel for this world. **/
 ULevel* UWorld::GetCurrentLevel() const
 {
+#if WITH_EDITORONLY_DATA
 	return CurrentLevel;
+#else
+	return PersistentLevel;
+#endif
 }
 
 ENetMode UWorld::InternalGetNetMode() const
@@ -6778,10 +6877,12 @@ void UWorld::SetActiveLevelCollection(int32 LevelCollectionIndex)
 	}
 
 	PersistentLevel = ActiveLevelCollection->GetPersistentLevel();
+#if WITH_EDITORONLY_DATA
 	if (IsGameWorld())
 	{
 		SetCurrentLevel(ActiveLevelCollection->GetPersistentLevel());
 	}
+#endif
 	GameState = ActiveLevelCollection->GetGameState();
 	NetDriver = ActiveLevelCollection->GetNetDriver();
 	DemoNetDriver = ActiveLevelCollection->GetDemoNetDriver();

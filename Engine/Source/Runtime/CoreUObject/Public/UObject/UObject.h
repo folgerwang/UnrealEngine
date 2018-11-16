@@ -4,7 +4,7 @@
 
 #include "UObject/Object.h"
 
-DEPRECATED(4.14, "Including UObject.h has been deprecated. Please include Object.h instead.")
+UE_DEPRECATED(4.14, "Including UObject.h has been deprecated. Please include Object.h instead.")
 inline void UObjectHeaderDeprecatedWarning()
 {
 }

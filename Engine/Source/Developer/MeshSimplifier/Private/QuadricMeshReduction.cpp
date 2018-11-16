@@ -175,7 +175,13 @@ class FQuadricSimplifierMeshReduction : public IMeshReduction
 public:
 	virtual const FString& GetVersionString() const override
 	{
-		static FString Version = TEXT("1.0");
+		// Correct layout selection depends on the name "QuadricMeshReduction_{foo}"
+		// e.g.
+		// TArray<FString> SplitVersionString;
+		// VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+		// bool bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+
+		static FString Version = TEXT("QuadricMeshReduction_V1.0");
 		return Version;
 	}
 
@@ -390,8 +396,13 @@ public:
 		MeshSimp->SetAttributeWeights(AttributeWeights);
 		//MeshSimp->SetBoundaryLocked();
 		MeshSimp->InitCosts();
+
 		//We need a minimum of 2 triangles, to see the object on both side. If we use one, we will end up with zero triangle when we will remove a shared edge
-		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(2, int32(NumTris * ReductionSettings.PercentTriangles)));
+		int32 AbsoluteMinTris = 2;
+		int32 TargetNumTriangles = (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices) ? FMath::Max(AbsoluteMinTris, FMath::CeilToInt(NumTris * ReductionSettings.PercentTriangles)) : AbsoluteMinTris;
+		int32 TargetNumVertices = (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles) ? FMath::CeilToInt(NumVerts * ReductionSettings.PercentVertices) : 0;
+		
+		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, TargetNumTriangles, TargetNumVertices);
 
 		NumVerts = MeshSimp->GetNumVerts();
 		NumTris = MeshSimp->GetNumTris();

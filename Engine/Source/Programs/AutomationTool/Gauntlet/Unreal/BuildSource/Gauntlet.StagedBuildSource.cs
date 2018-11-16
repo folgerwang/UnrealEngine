@@ -190,12 +190,11 @@ namespace Gauntlet
 				DirsToRecurse = DiscoveredDirs;
 			}
 
-			// every directory that contains a valid build should have at least two things, an Engine folder and a ProjectName folder
+			// every directory that contains a valid build should have at least a ProjectName folder
 			AllDirs = AllDirs.Where(D =>
 			{
 				var SubDirs = D.GetDirectories();
-				return SubDirs.Any(SD => SD.Name.Equals("Engine", StringComparison.OrdinalIgnoreCase)) &&
-						SubDirs.Any(SD => SD.Name.Equals(InProjectName, StringComparison.OrdinalIgnoreCase));
+				return SubDirs.Any(SD => SD.Name.Equals(InProjectName, StringComparison.OrdinalIgnoreCase));
 
 			}).ToList();
 

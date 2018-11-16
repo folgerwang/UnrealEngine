@@ -225,7 +225,7 @@ public:
 	 * @param OutBMP				Output array of rendered samples 
 	 * @return						Whether operation was successful
 	 */	
-	DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
 	static bool ExportMaterialProperty(UWorld* InWorld, UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, UTextureRenderTarget2D* InRenderTarget, TArray<FColor>& OutBMP);
 
 	/**
@@ -237,7 +237,7 @@ public:
 	* @param OutSize			Output size of the rendered samples
 	* @return					Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterialProperty(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, TArray<FColor>& OutBMP, FIntPoint& OutSize );
 
 	/**
@@ -249,7 +249,7 @@ public:
 	* @param OutBMP				Output array of rendered samples	
 	* @return					Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterialProperty(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, FIntPoint InSize, TArray<FColor>& OutBMP );
 
 	/**
@@ -261,7 +261,7 @@ public:
 	 * @param OutBMP				Output array of rendered samples 
 	 * @return						Whether operation was successful
 	 */
-	DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
 	static bool ExportMaterialProperty(UWorld* InWorld, UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, FIntPoint& OutSize, TArray<FColor>& OutBMP);
 
 	/**
@@ -272,7 +272,7 @@ public:
 	 * @param OutFlattenMaterial	Output flattened material
 	 * @return						Whether operation was successful
 	 */
-	DEPRECATED(4.11, "Please use ExportMaterial function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterial function with new signature")
 	static bool ExportMaterial(UWorld* InWorld, UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial);
 	
 	/**
@@ -282,10 +282,10 @@ public:
 	* @param OutFlattenMaterial		Output flattened material
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterial(UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
-	DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterials(TArray<FMaterialMergeData*>& MergeData, TArray<FFlattenMaterial*>& OutFlattenMaterials);
 
 	/**
@@ -479,7 +479,7 @@ private:
 	* @param OutFlattenMaterial		Output flattened material
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterial(struct FMaterialMergeData& InMaterialData, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
 	/**
@@ -494,7 +494,7 @@ private:
 	* @param OutSamples				Array of FColor samples containing the rendered out texture pixel data
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint InTargetSize, FIntPoint& OutSampleSize, TArray<FColor>& OutSamples);
 
 	/**

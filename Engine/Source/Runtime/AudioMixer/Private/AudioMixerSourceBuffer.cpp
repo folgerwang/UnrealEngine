@@ -186,6 +186,8 @@ namespace Audio
 
 	void FMixerSourceBuffer::SubmitInitialRealtimeBuffers()
 	{
+		static_assert(PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS <= 2 && PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS >= 0, "Unsupported number of precache buffers.");
+
 		CurrentBuffer = 0;
 
 		bPlayedCachedBuffer = false;
@@ -193,25 +195,49 @@ namespace Audio
 		{
 			bPlayedCachedBuffer = true;
 
-			// Format convert the first cached buffers
 			const uint32 NumSamples = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
 			const uint32 BufferSize = MONO_PCM_BUFFER_SIZE * MixerBuffer->NumChannels;
 
-			int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
-			int16* CachedBufferPtr1 = (int16*)(SoundWave->CachedRealtimeFirstBuffer + BufferSize);
-			float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
-			float* AudioData1 = SourceVoiceBuffers[1]->AudioData.GetData();
-			for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+			// Format convert the first cached buffers
+#if (PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS == 2)
 			{
-				AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
-				AudioData1[Sample] = CachedBufferPtr1[Sample] / 32768.0f;
+				int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
+				int16* CachedBufferPtr1 = (int16*)(SoundWave->CachedRealtimeFirstBuffer + BufferSize);
+				float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
+				float* AudioData1 = SourceVoiceBuffers[1]->AudioData.GetData();
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
+				}
+
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData1[Sample] = CachedBufferPtr1[Sample] / 32768.0f;
+				}
+
+				// Submit the already decoded and cached audio buffers
+				SubmitBuffer(SourceVoiceBuffers[0]);
+				SubmitBuffer(SourceVoiceBuffers[1]);
+
+				CurrentBuffer = 2;
 			}
+#elif (PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS == 1)
+			{
+				int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
 
-			// Submit the already decoded and cached audio buffers
-			SubmitBuffer(SourceVoiceBuffers[0]);
-			SubmitBuffer(SourceVoiceBuffers[1]);
+				float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
+				}
 
-			CurrentBuffer = 2;
+				// Submit the already decoded and cached audio buffers
+				SubmitBuffer(SourceVoiceBuffers[0]);
+
+				CurrentBuffer = 1;
+			}
+#endif
+			
 		}
 		else if (SoundWave && !SoundWave->bIsBus)
 		{
@@ -404,6 +430,7 @@ namespace Audio
 				SoundWave->SetGenerating(true);
 				SoundWave->OnBeginGenerate();
 			}
+
 		}
 	}
 
@@ -422,7 +449,6 @@ namespace Audio
 			}
 
 			SoundWave = nullptr;
-			bInitialized = false;
 		}
 
 		if (MixerBuffer)
@@ -432,6 +458,7 @@ namespace Audio
 			{
 				delete MixerBuffer;
 			}
+
 			MixerBuffer = nullptr;
 		}
 	}

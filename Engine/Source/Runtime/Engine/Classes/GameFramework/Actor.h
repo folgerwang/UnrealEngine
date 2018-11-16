@@ -155,7 +155,7 @@ public:
 	 * If true, this actor is no longer replicated to new clients, and is "torn off" (becomes a ROLE_Authority) on clients to which it was being replicated.
 	 * @see TornOff()
 	 */
-	DEPRECATED(4.20, "Use GetTearOff() or TearOff() functions. This property will become private.")
+	UE_DEPRECATED(4.20, "Use GetTearOff() or TearOff() functions. This property will become private.")
 	UPROPERTY(Replicated)
 	uint8 bTearOff:1; 
 
@@ -192,7 +192,7 @@ public:
 	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
 	 * Note, this Actor must not be destroyed by gamecode, and RollbackViaDeletion may not be used. 
 	 */
-	UPROPERTY()
+	UPROPERTY(Category=Replication, EditDefaultsOnly)
 	uint8 bReplayRewindable:1;
 
 	/**
@@ -630,6 +630,10 @@ protected:
 	/** Whether this actor should be listed in the scene outliner. */
 	UPROPERTY()
 	uint8 bListedInSceneOutliner:1;
+	
+	/** Whether to cook additional data to speed up spawn events at runtime for any Blueprint classes based on this Actor. This option may slightly increase memory usage in a cooked build. */
+	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category=Cooking, meta=(DisplayName="Generate Optimized Blueprint Component Data"))
+	uint8 bOptimizeBPComponentData:1;
 
 private:
 	/** Whether this actor is temporarily hidden within the editor; used for show/hide/etc functionality w/o dirtying the actor. */
@@ -1139,7 +1143,7 @@ public:
 	class UActorComponent* AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext);
 
 	/** DEPRECATED - Use Component::DestroyComponent */
-	DEPRECATED(4.17, "Use Component.DestroyComponent instead")
+	UE_DEPRECATED(4.17, "Use Component.DestroyComponent instead")
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use Component.DestroyComponent instead", BlueprintProtected = "true", DisplayName = "DestroyComponent", ScriptName = "DestroyComponent"))
 	void K2_DestroyComponent(UActorComponent* Component);
 
@@ -1147,7 +1151,7 @@ public:
 	 * Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
 	 * @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
 	 */
-	DEPRECATED(4.17, "Use AttachToComponent instead.")
+	UE_DEPRECATED(4.17, "Use AttachToComponent instead.")
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToComponent (Deprecated)", ScriptNoExport, AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
 	void K2_AttachRootComponentTo(USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
 
@@ -1173,7 +1177,7 @@ public:
 	 *  Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
 	 *   @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
 	 */
-	DEPRECATED(4.17, "Use AttachToActor instead.")
+	UE_DEPRECATED(4.17, "Use AttachToActor instead.")
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToActor (Deprecated)", ScriptNoExport, AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
 	void K2_AttachRootComponentToActor(AActor* InParentActor, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
 
@@ -1201,7 +1205,7 @@ public:
 	 * Snap the RootComponent of this Actor to the supplied Actor's root component, optionally at a named socket. It is not valid to call this on components that are not Registered. 
 	 * If InSocketName == NAME_None, it will attach to origin of the InParentActor. 
 	 */
-	DEPRECATED(4.17, "Use AttachRootComponentTo with EAttachLocation::SnapToTarget option instead")
+	UE_DEPRECATED(4.17, "Use AttachRootComponentTo with EAttachLocation::SnapToTarget option instead")
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use AttachRootComponentTo with EAttachLocation::SnapToTarget option instead", DisplayName = "SnapActorTo", ScriptNoExport), Category="Utilities|Transformation")
 	void SnapRootComponentTo(AActor* InParentActor, FName InSocketName);
 
@@ -1209,7 +1213,7 @@ public:
 	 * Detaches the RootComponent of this Actor from any SceneComponent it is currently attached to. 
 	 * @param bMaintainWorldTransform	If true, update the relative location/rotation of this component to keep its world position the same
 	 */
-	DEPRECATED(4.17, "Use DetachFromActor instead")
+	UE_DEPRECATED(4.17, "Use DetachFromActor instead")
 	UFUNCTION(BlueprintCallable, meta=(DisplayName = "DetachActorFromActor (Deprecated)", ScriptNoExport), Category="Utilities|Transformation")
 	void DetachRootComponentFromParent(bool bMaintainWorldPosition = true);
 
@@ -1244,11 +1248,16 @@ public:
 	// Misc Blueprint support
 
 	/** 
-	 * Get CustomTimeDilation - this can be used for input control or speed control for slomo.
+	 * Get ActorTimeDilation - this can be used for input control or speed control for slomo.
 	 * We don't want to scale input globally because input can be used for UI, which do not care for TimeDilation.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities|Time")
 	float GetActorTimeDilation() const;
+
+	/**
+	 * More efficient version that takes the Actor's current world.
+	 */
+	float GetActorTimeDilation(const UWorld& ActorWorld) const;
 
 	/** Make this actor tick after PrerequisiteActor. This only applies to this actor's tick function; dependencies for owned components must be set up separately if desired. */
 	UFUNCTION(BlueprintCallable, Category="Utilities", meta=(Keywords = "dependency"))
@@ -1275,7 +1284,7 @@ public:
 	void SetTickableWhenPaused(bool bTickableWhenPaused);
 
 	/** Allocate a MID for a given parent material. */
-	DEPRECATED(4.17, "Use PrimitiveComponent.CreateAndSetMaterialInstanceDynamic instead.")
+	UE_DEPRECATED(4.17, "Use PrimitiveComponent.CreateAndSetMaterialInstanceDynamic instead.")
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage="Use PrimitiveComponent.CreateAndSetMaterialInstanceDynamic instead.", BlueprintProtected = "true"), Category="Rendering|Material")
 	class UMaterialInstanceDynamic* MakeMIDForMaterial(class UMaterialInterface* Parent);
 
@@ -1839,6 +1848,13 @@ public:
 
 	/** Returns a custom brush icon name to use in place of the automatic class icon where actors are represented via 2d icons in the editor (e.g scene outliner and menus) */
 	virtual FName GetCustomIconName() const { return NAME_None; }
+
+	/** Returns whether or not to cook optimized Blueprint component data for this actor */
+	FORCEINLINE bool ShouldCookOptimizedBPComponentData() const
+	{
+		return bOptimizeBPComponentData;
+	}
+
 #endif		// WITH_EDITOR
 
 	/**
@@ -1898,7 +1914,11 @@ public:
 	void ExchangeNetRoles(bool bRemoteOwner);
 
 	/** The replay system calls this to hack the Role and RemoteRole while recording replays on a client. Only call this if you know what you're doing! */
-	void SwapRolesForReplay();
+	UE_DEPRECATED(4.22, "Renamed to SwapRoles")
+	void SwapRolesForReplay() { SwapRoles(); }
+
+	/** Calls this to swap the Role and RemoteRole.  Only call this if you know what you're doing! */
+	void SwapRoles();
 
 	/**
 	 * When called, will call the virtual call chain to register all of the tick functions for both the actor and optionally all components
@@ -2627,12 +2647,6 @@ public:
 	const FNetworkObjectInfo* FindNetworkObjectInfo() const
 	{
 		return const_cast<AActor*>(this)->FindNetworkObjectInfo();
-	}
-
-	DEPRECATED(4.19, "This method is deprecated. Please use FindNetworkObjectInfo instead.")
-	FNetworkObjectInfo* GetNetworkObjectInfo() const
-	{
-		return const_cast<AActor*>(this)->FindOrAddNetworkObjectInfo();
 	}
 
 	/** Force actor to be updated to clients/demo net drivers */

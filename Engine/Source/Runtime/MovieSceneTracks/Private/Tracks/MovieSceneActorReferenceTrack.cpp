@@ -9,6 +9,10 @@ UMovieSceneActorReferenceTrack::UMovieSceneActorReferenceTrack( const FObjectIni
 	: Super( ObjectInitializer )
 { }
 
+bool UMovieSceneActorReferenceTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneActorReferenceSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneActorReferenceTrack::CreateNewSection()
 {

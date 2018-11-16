@@ -17,6 +17,11 @@ UMovieSceneSlomoTrack::UMovieSceneSlomoTrack(const FObjectInitializer& Init)
 	EvalOptions.bCanEvaluateNearestSection = true;
 }
 
+bool UMovieSceneSlomoTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSlomoSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneSlomoTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneSlomoSection>(this, NAME_None, RF_Transactional);

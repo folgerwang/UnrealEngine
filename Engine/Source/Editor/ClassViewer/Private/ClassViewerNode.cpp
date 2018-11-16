@@ -8,15 +8,15 @@
 #include "ClassViewerFilter.h"
 #include "PropertyHandle.h"
 
-FClassViewerNode::FClassViewerNode( const FString& InClassName, const FString& InClassDisplayName )
+FClassViewerNode::FClassViewerNode(const FString& InClassName, const FString& InClassDisplayName)
 {
 	ClassName = MakeShareable(new FString(InClassName));
 	ClassDisplayName = MakeShareable(new FString(InClassDisplayName));
 	bPassesFilter = false;
 	bIsBPNormalType = false;
 
-	Class = NULL;
-	Blueprint = NULL;
+	Class = nullptr;
+	Blueprint = nullptr;
 }
 
 FClassViewerNode::FClassViewerNode( const FClassViewerNode& InCopyObject)
@@ -54,7 +54,7 @@ void FClassViewerNode::AddUniqueChild(TSharedPtr<FClassViewerNode> NewChild)
 {
 	check(NewChild.IsValid());
 	const UClass* NewChildClass = NewChild->Class.Get();
-	if(NULL != NewChildClass)
+	if (nullptr != NewChildClass)
 	{
 		for(int ChildIndex = 0; ChildIndex < ChildrenList.Num(); ++ChildIndex)
 		{
@@ -85,6 +85,38 @@ void FClassViewerNode::AddUniqueChild(TSharedPtr<FClassViewerNode> NewChild)
 bool FClassViewerNode::IsRestricted() const
 {
 	return PropertyHandle.IsValid() && PropertyHandle->IsRestricted(*ClassName);
+}
+
+TSharedPtr<FString> FClassViewerNode::GetClassName(EClassViewerNameTypeToDisplay NameType) const
+{
+	switch (NameType)
+	{
+	case EClassViewerNameTypeToDisplay::ClassName:
+		return ClassName;
+		break;
+	case EClassViewerNameTypeToDisplay::DisplayName:
+		return ClassDisplayName;
+		break;
+	case EClassViewerNameTypeToDisplay::Dynamic:
+		FString CombinedName;
+		FString SanitizedName = FName::NameToDisplayString(*ClassName.Get(), false);
+		if (ClassDisplayName.IsValid() && !ClassDisplayName->IsEmpty() && !ClassDisplayName->Equals(SanitizedName) && !ClassDisplayName->Equals(*ClassName.Get()))
+		{
+			TArray<FStringFormatArg> Args;
+			Args.Add(*ClassName.Get());
+			Args.Add(*ClassDisplayName.Get());
+			CombinedName = FString::Format(TEXT("{0} ({1})"), Args);
+		}
+		else
+		{
+			CombinedName = *ClassName.Get();
+		}
+		return MakeShareable(new FString(CombinedName));
+		break;
+	}
+
+	ensureMsgf(false, TEXT("FClassViewerNode::GetClassName called with invalid name type."));
+	return ClassName;
 }
 
 bool FClassViewerNode::IsClassPlaceable() const

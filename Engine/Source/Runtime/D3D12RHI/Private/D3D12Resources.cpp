@@ -366,6 +366,7 @@ FD3D12ResourceLocation::FD3D12ResourceLocation(FD3D12Device* Parent)
 	, OffsetFromBaseOfResource(0)
 	, Size(0)
 	, bTransient(false)
+	, AllocatorType(AT_Unknown)
 {
 	FMemory::Memzero(AllocatorData);
 }
@@ -402,6 +403,7 @@ void FD3D12ResourceLocation::InternalClear()
 	FMemory::Memzero(AllocatorData);
 
 	Allocator = nullptr;
+	AllocatorType = AT_Unknown;
 }
 
 void FD3D12ResourceLocation::TransferOwnership(FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source)
@@ -465,7 +467,17 @@ void FD3D12ResourceLocation::ReleaseResource()
 	case ResourceLocationType::eSubAllocation:
 	{
 		check(Allocator != nullptr);
-		Allocator->Deallocate(*this);
+		if (AllocatorType == AT_SegList)
+		{
+			SegListAllocator->Deallocate(
+				GetResource(),
+				GetSegListAllocatorPrivateData().Offset,
+				GetSize());
+		}
+		else
+		{
+			Allocator->Deallocate(*this);
+		}
 		break;
 	}
 	case ResourceLocationType::eNodeReference:

@@ -257,14 +257,18 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 									for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData->LinkedBones.Num(); ++LinkedBoneIndex)
 									{
 										const FBoneReference& BoneReference = CurveMetaData->LinkedBones[LinkedBoneIndex];
-										// this linked bone alkways use skeleton index
-										ensure(BoneReference.bUseSkeletonIndex);
-										// we want to make sure all the joints are removed from RequiredBones before removing this UID
-										if (GetCompactPoseIndexFromSkeletonIndex(BoneReference.BoneIndex) != INDEX_NONE)
+										// when you enter first time, sometimes it does not have all info yet
+										if (BoneReference.BoneName != NAME_None)
 										{
-											// still has some joint that matters, do not remove
-											bBeingUsed = true;
-											break;
+											// this linked bone alkways use skeleton index
+											ensure(BoneReference.bUseSkeletonIndex);
+											// we want to make sure all the joints are removed from RequiredBones before removing this UID
+											if (GetCompactPoseIndexFromSkeletonIndex(BoneReference.BoneIndex) != INDEX_NONE)
+											{
+												// still has some joint that matters, do not remove
+												bBeingUsed = true;
+												break;
+											}
 										}
 									}
 								}

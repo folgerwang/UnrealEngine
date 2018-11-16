@@ -27,6 +27,9 @@ struct PACKETHANDLER_API FDDoSPacketCounters
 	/** Counter for NetConnection packets received, since the last per second quota period began */
 	int32 NetConnPacketCounter;
 
+	/** Counter for recently-disconnected NetConnection packets received, since the last per second quota period beegan */
+	int32 DisconnPacketCounter;
+
 	/** Counter for bad non-NetConnection packets received, since the last per second quota period began */
 	int32 BadPacketCounter;
 
@@ -43,6 +46,7 @@ struct PACKETHANDLER_API FDDoSPacketCounters
 	FDDoSPacketCounters()
 		: NonConnPacketCounter(0)
 		, NetConnPacketCounter(0)
+		, DisconnPacketCounter(0)
 		, BadPacketCounter(0)
 		, ErrorPacketCounter(0)
 		, DroppedPacketCounter(0)
@@ -59,6 +63,9 @@ struct PACKETHANDLER_API FDDoSState
 {
 	/** The number of packets/sec before the next stage of DDoS detection is triggered */
 	int32 EscalateQuotaPacketsPerSec;
+
+	/** The number of recently disconnected NetConnection packets/sec, before the next stage of DDoS detection is triggered. */
+	int32 EscalateQuotaDisconnPacketsPerSec;
 
 	/** The number of bad (failed to process correctly) packets/sec, before the next stage of DDoS detection is triggered */
 	int32 EscalateQuotaBadPacketsPerSec;
@@ -81,6 +88,7 @@ struct PACKETHANDLER_API FDDoSState
 
 	FDDoSState()
 		: EscalateQuotaPacketsPerSec(-1)
+		, EscalateQuotaDisconnPacketsPerSec(-1)
 		, EscalateQuotaBadPacketsPerSec(-1)
 		, EscalateTimeQuotaMSPerFrame(-1)
 		, PacketLimitPerFrame(-1)
@@ -100,10 +108,11 @@ struct PACKETHANDLER_API FDDoSState
 	bool HasHitQuota(FDDoSPacketCounters& InCounter, int32 TimePassedMS) const
 	{
 		const bool bAtQuota = EscalateQuotaPacketsPerSec > 0 && InCounter.NonConnPacketCounter >= EscalateQuotaPacketsPerSec;
+		const bool bAtDisconnQuota = EscalateQuotaDisconnPacketsPerSec > 0 && InCounter.DisconnPacketCounter >= EscalateQuotaDisconnPacketsPerSec;
 		const bool bAtBadQuota = EscalateQuotaBadPacketsPerSec > 0 && InCounter.BadPacketCounter >= EscalateQuotaBadPacketsPerSec;
 		const bool bAtTimeQuota = EscalateTimeQuotaMSPerFrame > 0 && TimePassedMS > EscalateTimeQuotaMSPerFrame;
 
-		return bAtQuota || bAtBadQuota || bAtTimeQuota;
+		return bAtQuota || bAtDisconnQuota || bAtBadQuota || bAtTimeQuota;
 	}
 };
 
@@ -123,13 +132,14 @@ struct PACKETHANDLER_API FDDoSStateConfig : public FDDoSState
 
 	void ApplyState(FDDoSState& Target)
 	{
-		Target.EscalateQuotaPacketsPerSec		= EscalateQuotaPacketsPerSec;
-		Target.EscalateQuotaBadPacketsPerSec	= EscalateQuotaBadPacketsPerSec;
-		Target.EscalateTimeQuotaMSPerFrame		= EscalateTimeQuotaMSPerFrame;
-		Target.PacketLimitPerFrame				= PacketLimitPerFrame;
-		Target.PacketTimeLimitMSPerFrame		= PacketTimeLimitMSPerFrame;
-		Target.NetConnPacketTimeLimitMSPerFrame	= NetConnPacketTimeLimitMSPerFrame;
-		Target.CooloffTime						= CooloffTime;
+		Target.EscalateQuotaPacketsPerSec			= EscalateQuotaPacketsPerSec;
+		Target.EscalateQuotaDisconnPacketsPerSec	= EscalateQuotaDisconnPacketsPerSec;
+		Target.EscalateQuotaBadPacketsPerSec		= EscalateQuotaBadPacketsPerSec;
+		Target.EscalateTimeQuotaMSPerFrame			= EscalateTimeQuotaMSPerFrame;
+		Target.PacketLimitPerFrame					= PacketLimitPerFrame;
+		Target.PacketTimeLimitMSPerFrame			= PacketTimeLimitMSPerFrame;
+		Target.NetConnPacketTimeLimitMSPerFrame		= NetConnPacketTimeLimitMSPerFrame;
+		Target.CooloffTime							= CooloffTime;
 	}
 
 	/**
@@ -139,10 +149,10 @@ struct PACKETHANDLER_API FDDoSStateConfig : public FDDoSState
 	void ApplyAdjustedState(FDDoSState& Target, float FrameAdjustment)
 	{
 		// Exclude escalation triggers from this
-		//Target.EscalateTimeQuotaMSPerFrame		= EscalateTimeQuotaMSPerFrame * FrameAdjustment;
-		Target.PacketLimitPerFrame				= PacketLimitPerFrame * FrameAdjustment;
-		Target.PacketTimeLimitMSPerFrame		= PacketTimeLimitMSPerFrame * FrameAdjustment;
-		Target.NetConnPacketTimeLimitMSPerFrame	= NetConnPacketTimeLimitMSPerFrame * FrameAdjustment;
+		//Target.EscalateTimeQuotaMSPerFrame		= (EscalateTimeQuotaMSPerFrame == -1 ? -1 : EscalateTimeQuotaMSPerFrame * FrameAdjustment);
+		Target.PacketLimitPerFrame				= (PacketLimitPerFrame == -1 ? -1 : PacketLimitPerFrame * FrameAdjustment);
+		Target.PacketTimeLimitMSPerFrame		= (PacketTimeLimitMSPerFrame == -1 ? -1 : PacketTimeLimitMSPerFrame * FrameAdjustment);
+		Target.NetConnPacketTimeLimitMSPerFrame	= (NetConnPacketTimeLimitMSPerFrame == -1 ? -1 : NetConnPacketTimeLimitMSPerFrame * FrameAdjustment);
 	}
 };
 
@@ -197,7 +207,7 @@ public:
 	void CondCheckNonConnQuotasAndLimits()
 	{
 		// Limit checks to once every 128 packets
-		if ((NonConnPacketCounter & 0x7F) == 0)
+		if (((NonConnPacketCounter + DisconnPacketCounter) & 0x7F) == 0)
 		{
 			bHitFrameNonConnLimit = CheckNonConnQuotasAndLimits();
 		}
@@ -236,6 +246,8 @@ public:
 	int32 GetNonConnPacketCounter() const	{ return NonConnPacketCounter; }
 	void IncNetConnPacketCounter()			{ ++NetConnPacketCounter; }
 	int32 GetNetConnPacketCounter() const	{ return NetConnPacketCounter; }
+	void IncDisconnPacketCounter()			{ ++ DisconnPacketCounter; }
+	int32 GetDisconnPacketCounter() const	{ return DisconnPacketCounter; }
 	void IncBadPacketCounter()				{ ++BadPacketCounter; }
 	int32 GetBadPacketCounter() const		{ return BadPacketCounter; }
 	void IncErrorPacketCounter()			{ ++ErrorPacketCounter; }

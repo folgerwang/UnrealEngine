@@ -79,7 +79,6 @@ struct ENGINE_API FInputScaleBiasClamp
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bInterpResult;
 
-	UPROPERTY(Transient)
 	mutable bool bInitialized;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bMapRange"))
@@ -106,7 +105,6 @@ struct ENGINE_API FInputScaleBiasClamp
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bInterpResult"))
 	float InterpSpeedDecreasing;
 
-	UPROPERTY(Transient)
 	mutable float InterpolatedResult;
 
 public:

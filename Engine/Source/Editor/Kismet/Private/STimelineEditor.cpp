@@ -42,19 +42,19 @@ namespace TimelineEditorHelpers
 	{
 		if(InTrack->TrackType == FTimelineEdTrack::TT_Event)
 		{
-			return InTimeline->EventTracks[InTrack->TrackIndex].TrackName;
+			return InTimeline->EventTracks[InTrack->TrackIndex].GetTrackName();
 		}
 		else if(InTrack->TrackType == FTimelineEdTrack::TT_FloatInterp)
 		{
-			return InTimeline->FloatTracks[InTrack->TrackIndex].TrackName;
+			return InTimeline->FloatTracks[InTrack->TrackIndex].GetTrackName();
 		}
 		else if(InTrack->TrackType == FTimelineEdTrack::TT_VectorInterp)
 		{
-			return InTimeline->VectorTracks[InTrack->TrackIndex].TrackName;
+			return InTimeline->VectorTracks[InTrack->TrackIndex].GetTrackName();
 		}
 		else if(InTrack->TrackType == FTimelineEdTrack::TT_LinearColorInterp)
 		{
-			return InTimeline->LinearColorTracks[InTrack->TrackIndex].TrackName;
+			return InTimeline->LinearColorTracks[InTrack->TrackIndex].GetTrackName();
 		}
 		return NAME_None;
 	}
@@ -155,7 +155,7 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 				[
 					// Name of track
 					SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
-					.Text(FText::FromName(TrackBase->TrackName))
+					.Text(FText::FromName(TrackBase->GetTrackName()))
 					.ToolTipText(LOCTEXT("TrackNameTooltip", "Enter track name"))
 					.OnVerifyTextChanged(TimelineRef, &STimelineEditor::OnVerifyTrackNameCommit, TrackBase, this)
 					.OnTextCommitted(TimelineRef, &STimelineEditor::OnTrackNameCommitted, TrackBase, this)
@@ -1052,7 +1052,7 @@ FText STimelineEditor::GetTimelineName() const
 {
 	if(TimelineObj != NULL)
 	{
-		return FText::FromString(UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineObj->GetFName()));
+		return FText::FromString(TimelineObj->GetVariableName().ToString());
 	}
 	else
 	{
@@ -1134,7 +1134,7 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 			if(Type == FTimelineEdTrack::TT_Event)
 			{
 				FTTEventTrack NewTrack;
-				NewTrack.TrackName = TrackName;
+				NewTrack.SetTrackName(TrackName, TimelineObj);
 				NewTrack.CurveKeys = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public); // Needs to be marked public so that it can be referenced from timeline instances in the level
 				NewTrack.CurveKeys->bIsEventCurve = true;
 				TimelineObj->EventTracks.Add(NewTrack);
@@ -1142,10 +1142,10 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 			else if(Type == FTimelineEdTrack::TT_FloatInterp)
 			{
 				FTTFloatTrack NewTrack;
-				NewTrack.TrackName = TrackName;
+				NewTrack.SetTrackName(TrackName, TimelineObj);
 				// @hack for using existing curve assets.  need something better!
 				NewTrack.CurveFloat = FindObject<UCurveFloat>(ANY_PACKAGE, *TrackName.ToString() );
-				if (NewTrack.CurveFloat == NULL)
+				if (NewTrack.CurveFloat == nullptr)
 				{
 					NewTrack.CurveFloat = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
 				}
@@ -1154,14 +1154,14 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 			else if(Type == FTimelineEdTrack::TT_VectorInterp)
 			{
 				FTTVectorTrack NewTrack;
-				NewTrack.TrackName = TrackName;
+				NewTrack.SetTrackName(TrackName, TimelineObj);
 				NewTrack.CurveVector = NewObject<UCurveVector>(OwnerClass, NAME_None, RF_Public);
 				TimelineObj->VectorTracks.Add(NewTrack);
 			}
 			else if(Type == FTimelineEdTrack::TT_LinearColorInterp)
 			{
 				FTTLinearColorTrack NewTrack;
-				NewTrack.TrackName = TrackName;
+				NewTrack.SetTrackName(TrackName, TimelineObj);
 				NewTrack.CurveLinearColor = NewObject<UCurveLinearColor>(OwnerClass, NAME_None, RF_Public);
 				TimelineObj->LinearColorTracks.Add(NewTrack);
 			}
@@ -1308,7 +1308,7 @@ void STimelineEditor::OnTimelineChanged()
 		{
 			TSharedRef<FTimelineEdTrack> Track = FTimelineEdTrack::Make(FTimelineEdTrack::TT_Event, i);
 
-			if(TimelineObj->EventTracks[i].TrackName == NewTrackPendingRename)
+			if(TimelineObj->EventTracks[i].GetTrackName() == NewTrackPendingRename)
 			{
 				NewlyCreatedTrack = Track;
 			}
@@ -1319,7 +1319,7 @@ void STimelineEditor::OnTimelineChanged()
 		{
 			TSharedRef<FTimelineEdTrack> Track = FTimelineEdTrack::Make(FTimelineEdTrack::TT_FloatInterp, i);
 			
-			if(TimelineObj->FloatTracks[i].TrackName == NewTrackPendingRename)
+			if(TimelineObj->FloatTracks[i].GetTrackName() == NewTrackPendingRename)
 			{
 				NewlyCreatedTrack = Track;
 			}
@@ -1330,7 +1330,7 @@ void STimelineEditor::OnTimelineChanged()
 		{
 			TSharedRef<FTimelineEdTrack> Track = FTimelineEdTrack::Make(FTimelineEdTrack::TT_VectorInterp, i);
 			
-			if(TimelineObj->VectorTracks[i].TrackName == NewTrackPendingRename)
+			if(TimelineObj->VectorTracks[i].GetTrackName() == NewTrackPendingRename)
 			{
 				NewlyCreatedTrack = Track;
 			}
@@ -1341,7 +1341,7 @@ void STimelineEditor::OnTimelineChanged()
 		{
 			TSharedRef<FTimelineEdTrack> Track = FTimelineEdTrack::Make(FTimelineEdTrack::TT_LinearColorInterp, i);
 			
-			if(TimelineObj->LinearColorTracks[i].TrackName == NewTrackPendingRename)
+			if(TimelineObj->LinearColorTracks[i].GetTrackName() == NewTrackPendingRename)
 			{
 				NewlyCreatedTrack = Track;
 			}
@@ -1522,7 +1522,7 @@ bool STimelineEditor::OnVerifyTrackNameCommit(const FText& TrackName, FText& Out
 		OutErrorMessage = LOCTEXT( "NameMissing_Error", "You must provide a name." );
 		bValid = false;
 	}
-	else if(TrackBase->TrackName != RequestedName && 
+	else if(TrackBase->GetTrackName() != RequestedName && 
 		false == TimelineObj->IsNewTrackNameValid(RequestedName))
 	{
 		FFormatNamedArguments Args;
@@ -1576,7 +1576,7 @@ void STimelineEditor::OnTrackNameCommitted( const FText& StringName, ETextCommit
 			{
 				UEdGraphPin* Pin = TimelineNode->Pins[PinIdx];
 			
-				if (Pin->PinName == TrackBase->TrackName)
+				if (Pin->PinName == TrackBase->GetTrackName())
 				{
 					Pin->Modify();
 					Pin->PinName = RequestedName;
@@ -1584,7 +1584,7 @@ void STimelineEditor::OnTrackNameCommitted( const FText& StringName, ETextCommit
 				}
 			}
 
-			TrackBase->TrackName = RequestedName;
+			TrackBase->SetTrackName(RequestedName, TimelineObj);
 
 			Kismet2->RefreshEditors();
 			OnTimelineChanged();
@@ -1630,7 +1630,7 @@ FReply STimelineEditor::CreateNewTrackFromAsset()
 		TimelineNode->Modify();
 		TimelineObj->Modify();
 
-		FString TrackName = SelectedObj->GetName();
+		const FName TrackName = SelectedObj->GetFName();
 
 		if(SelectedObj->IsA( UCurveFloat::StaticClass() ) )
 		{
@@ -1638,7 +1638,7 @@ FReply STimelineEditor::CreateNewTrackFromAsset()
 			if( FloatCurveObj->bIsEventCurve )
 			{
 				FTTEventTrack NewEventTrack;
-				NewEventTrack.TrackName = FName( *TrackName );
+				NewEventTrack.SetTrackName(TrackName, TimelineObj);
 				NewEventTrack.CurveKeys = CastChecked<UCurveFloat>(SelectedObj);
 				NewEventTrack.bIsExternalCurve = true;
 
@@ -1647,7 +1647,7 @@ FReply STimelineEditor::CreateNewTrackFromAsset()
 			else
 			{
 				FTTFloatTrack NewFloatTrack;
-				NewFloatTrack.TrackName = FName( *TrackName );
+				NewFloatTrack.SetTrackName(TrackName, TimelineObj);
 				NewFloatTrack.CurveFloat = CastChecked<UCurveFloat>(SelectedObj);
 				NewFloatTrack.bIsExternalCurve = true;
 
@@ -1657,7 +1657,7 @@ FReply STimelineEditor::CreateNewTrackFromAsset()
 		else if(SelectedObj->IsA( UCurveVector::StaticClass() ))
 		{
 			FTTVectorTrack NewTrack;
-			NewTrack.TrackName = FName( *TrackName );
+			NewTrack.SetTrackName(TrackName, TimelineObj);
 			NewTrack.CurveVector = CastChecked<UCurveVector>(SelectedObj);
 			NewTrack.bIsExternalCurve = true;
 			TimelineObj->VectorTracks.Add(NewTrack);
@@ -1665,7 +1665,7 @@ FReply STimelineEditor::CreateNewTrackFromAsset()
 		else if(SelectedObj->IsA( UCurveLinearColor::StaticClass() ))
 		{
 			FTTLinearColorTrack NewTrack;
-			NewTrack.TrackName = FName( *TrackName );
+			NewTrack.SetTrackName(TrackName, TimelineObj);
 			NewTrack.CurveLinearColor = CastChecked<UCurveLinearColor>(SelectedObj);
 			NewTrack.bIsExternalCurve = true;
 			TimelineObj->LinearColorTracks.Add(NewTrack);

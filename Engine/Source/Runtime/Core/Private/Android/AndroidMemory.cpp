@@ -259,6 +259,7 @@ const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 		MemoryConstants.PageSize = sysconf(_SC_PAGESIZE);
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, MemoryConstants.PageSize);
+		MemoryConstants.BinnedAllocationGranularity = MemoryConstants.PageSize;
 		MemoryConstants.OsAllocationGranularity = MemoryConstants.PageSize;
 #if PLATFORM_32BITS
 		MemoryConstants.AddressLimit = DECLARE_UINT64(4) * 1024 * 1024 * 1024;

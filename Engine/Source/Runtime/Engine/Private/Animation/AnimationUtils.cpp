@@ -229,7 +229,7 @@ void FAnimationUtils::ComputeCompressionError(const UAnimSequence* AnimSeq, cons
 	ErrorStats.MaxErrorTime = 0.0f;
 	int32 MaxErrorTrack = -1;
 
-	if (AnimSeq->NumFrames > 0)
+	if (AnimSeq->GetCompressedNumberOfFrames() > 0)
 	{
 		const bool bCanUseCompressedData = (AnimSeq->CompressedByteStream.Num() > 0);
 		if (!bCanUseCompressedData)
@@ -281,12 +281,12 @@ void FAnimationUtils::ComputeCompressionError(const UAnimSequence* AnimSeq, cons
 
 		const FTransform EndEffectorDummyBoneSocket(FQuat::Identity, FVector(END_EFFECTOR_DUMMY_BONE_LENGTH_SOCKET));
 		const FTransform EndEffectorDummyBone(FQuat::Identity, FVector(END_EFFECTOR_DUMMY_BONE_LENGTH));
-		const FAnimKeyHelper Helper(AnimSeq->SequenceLength, AnimSeq->NumFrames);
+		const FAnimKeyHelper Helper(AnimSeq->SequenceLength, AnimSeq->GetCompressedNumberOfFrames());
 		const float KeyLength = Helper.TimePerKey() + SMALL_NUMBER;
 
 		FAnimSequenceDecompressionContext DecompContext(AnimSeq);
 
-		for (int32 FrameIndex = 0; FrameIndex<AnimSeq->NumFrames; FrameIndex++)
+		for (int32 FrameIndex = 0; FrameIndex<AnimSeq->GetCompressedNumberOfFrames(); FrameIndex++)
 		{
 			const float Time = (float)FrameIndex * KeyLength;
 			DecompContext.Seek(Time);
@@ -1176,7 +1176,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 		TotalSizeBefore += OriginalSize;
 
 		// Estimate total uncompressed
-		TotalUncompressed += ((sizeof(FVector) + sizeof(FQuat) + sizeof(FVector)) * NumRawDataTracks * AnimSeq->NumFrames);
+		TotalUncompressed += ((sizeof(FVector) + sizeof(FQuat) + sizeof(FVector)) * NumRawDataTracks * AnimSeq->GetRawNumberOfFrames());
 
 		// start with the current technique, or the default if none exists.
 		// this will serve as our fallback if no better technique can be found
@@ -1253,7 +1253,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 						UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 						PerTrackCompressor->bUseAdaptiveError = true;
 
-						if (AnimSeq->NumFrames > 1)
+						if (AnimSeq->GetRawNumberOfFrames() > 1)
 						{
 							PerTrackCompressor->bActuallyFilterLinearKeys = true;
 							PerTrackCompressor->bRetarget = true;
@@ -1292,7 +1292,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 						PerTrackCompressor->bUseAdaptiveError = true;
 
 						// Try the decimation algorithms
-						if (AnimSeq->NumFrames >= PerTrackCompressor->MinKeysForResampling)
+						if (AnimSeq->GetRawNumberOfFrames() >= PerTrackCompressor->MinKeysForResampling)
 						{
 							PerTrackCompressor->bActuallyFilterLinearKeys = false;
 							PerTrackCompressor->bRetarget = false;
@@ -1305,7 +1305,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 						}
 					}
 
-					if (AnimSeq->NumFrames > 1)
+					if (AnimSeq->GetRawNumberOfFrames() > 1)
 					{
 						UAnimCompress_RemoveLinearKeys* LinearKeyRemover = NewObject<UAnimCompress_RemoveLinearKeys>();
 						{
@@ -1348,9 +1348,9 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					*GetAnimationKeyFormatString(static_cast<AnimationKeyFormat>(OriginalKeyEncodingFormat)),
 					*FAnimationUtils::GetAnimationCompressionFormatString(static_cast<AnimationCompressionFormat>(OriginalRotationFormat)),
 					*FAnimationUtils::GetAnimationCompressionFormatString(static_cast<AnimationCompressionFormat>(OriginalTranslationFormat)),
-					AnimSeq->NumFrames,
+					AnimSeq->GetCompressedNumberOfFrames(),
 					AnimSeq->SequenceLength,
-					(AnimSeq->NumFrames > 1) ? (AnimSeq->NumFrames - 1) / AnimSeq->SequenceLength : DEFAULT_SAMPLERATE);
+					(AnimSeq->GetCompressedNumberOfFrames() > 1) ? (AnimSeq->GetCompressedNumberOfFrames()-1) / AnimSeq->SequenceLength : DEFAULT_SAMPLERATE);
 
 				if (bFirstRecompressUsingCurrentOrDefault)
 				{
@@ -1383,7 +1383,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					else
 					{
 						// First, start by finding most downsampling factor.
-						if( AnimSeq->NumFrames >= PerTrackCompressor->MinKeysForResampling )
+						if( AnimSeq->GetRawNumberOfFrames() >= PerTrackCompressor->MinKeysForResampling )
 						{
 							PerTrackCompressor->bResampleAnimation = true;
 				
@@ -1422,7 +1422,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 						}
 						
 						// Now do Linear Key Removal
-						if( AnimSeq->NumFrames > 1 )
+						if (AnimSeq->GetRawNumberOfFrames() > 1)
 						{
 							PerTrackCompressor->bActuallyFilterLinearKeys = true;
 							PerTrackCompressor->bRetarget = true;
@@ -1531,7 +1531,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				// this compressor has a minimum number of frames requirement. So no need to go there if we don't meet that...
 				{
 					UAnimCompress_RemoveEverySecondKey* RemoveEveryOtherKeyCompressor = NewObject<UAnimCompress_RemoveEverySecondKey>();
-					if( AnimSeq->NumFrames > RemoveEveryOtherKeyCompressor->MinKeys )
+					if( AnimSeq->GetRawNumberOfFrames() > RemoveEveryOtherKeyCompressor->MinKeys )
 					{
 						RemoveEveryOtherKeyCompressor->bStartAtSecondKey = false;
 						{
@@ -1582,8 +1582,8 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					}
 				}
 
-				// construct the proposed compressor
-				if( AnimSeq->NumFrames > 1 )
+				// construct the proposed compressor		
+				if( AnimSeq->GetRawNumberOfFrames() > 1 )
 				{
 					UAnimCompress_RemoveLinearKeys* LinearKeyRemover = NewObject<UAnimCompress_RemoveLinearKeys>();
 					{
@@ -1645,7 +1645,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 					PerTrackCompressor->bUseAdaptiveError = true;
 
-					if ( AnimSeq->NumFrames > 1 )
+					if ( AnimSeq->GetRawNumberOfFrames() > 1 )
 					{
 						PerTrackCompressor->bActuallyFilterLinearKeys = true;
 						PerTrackCompressor->bRetarget = true;
@@ -1678,7 +1678,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					PerTrackCompressor->bUseAdaptiveError = true;
 
 					// Try the decimation algorithms
-					if (AnimSeq->NumFrames >= PerTrackCompressor->MinKeysForResampling)
+					if (AnimSeq->GetRawNumberOfFrames() >= PerTrackCompressor->MinKeysForResampling)
 					{
 						PerTrackCompressor->bActuallyFilterLinearKeys = false;
 						PerTrackCompressor->bRetarget = false;
@@ -1723,7 +1723,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 
 				{
 					// Try the decimation algorithms
-					if (AnimSeq->NumFrames >= 3)
+					if (AnimSeq->GetRawNumberOfFrames() >= 3)
 					{
 						UAnimCompress_PerTrackCompression* NewPerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 
@@ -2071,7 +2071,7 @@ void FAnimationUtils::CalculateTrackHeights(UAnimSequence* AnimSeq, const TArray
  */
 bool FAnimationUtils::HasUniformKeySpacing(UAnimSequence* AnimSeq, const TArray<float>& Times)
 {
-	if ((Times.Num() <= 2) || (Times.Num() == AnimSeq->NumFrames))
+	if ((Times.Num() <= 2) || (Times.Num() == AnimSeq->GetRawNumberOfFrames()))
 	{
 		return true;
 	}
@@ -2102,7 +2102,7 @@ void FAnimationUtils::TallyErrorsFromPerturbation(
 	const FVector& ScaleNudge,
 	TArray<FAnimPerturbationError>& InducedErrors)
 {
-	const float TimeStep = (float)AnimSeq->SequenceLength / (float)AnimSeq->NumFrames;
+	const float TimeStep = (float)AnimSeq->SequenceLength / (float)AnimSeq->GetRawNumberOfFrames();
 	const int32 NumBones = BoneData.Num();
 
 

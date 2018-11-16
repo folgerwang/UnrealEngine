@@ -11,19 +11,20 @@
     "CanContainContent": true,
     "IsBetaVersion": false,
     "EnabledByDefault": false,
+	"SupportedTargetPlatforms": [
+		"Android"
+	],
     "Modules" :
     [
         {
             "Name" : "GoogleARCoreBase",
-            "Type" : "Runtime",
-            "WhitelistPlatforms": [ "Win64", "Mac", "Android", "Linux" ]
+            "Type" : "Runtime"
         },
         {
             "Name": "GoogleARCoreRendering",
             "Type": "Runtime",
-            "LoadingPhase" : "PostConfigInit",
-            "WhitelistPlatforms": [ "Win64", "Mac", "Android", "Linux" ]
-        },
+            "LoadingPhase" : "PostConfigInit"
+        }
     ],
     "Plugins": [
         {

@@ -43,7 +43,7 @@ public:
 
 public:
 
-	DEPRECATED(4.22, "Deprecated, please use AddChildToWrapBox() instead")
+	UE_DEPRECATED(4.22, "Deprecated, please use AddChildToWrapBox() instead")
 	UWrapBoxSlot* AddChildWrapBox(UWidget* Content);
 
 	UFUNCTION(BlueprintCallable, Category="Panel")

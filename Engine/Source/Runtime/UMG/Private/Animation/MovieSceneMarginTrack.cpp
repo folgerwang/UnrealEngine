@@ -12,6 +12,11 @@ UMovieSceneMarginTrack::UMovieSceneMarginTrack(const FObjectInitializer& Init)
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneMarginTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneMarginSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneMarginTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneMarginSection>(this, NAME_None, RF_Transactional);

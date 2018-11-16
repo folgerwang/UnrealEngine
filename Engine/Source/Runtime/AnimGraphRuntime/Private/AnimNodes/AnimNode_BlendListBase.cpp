@@ -73,7 +73,7 @@ void FAnimNode_BlendListBase::CacheBones_AnyThread(const FAnimationCacheBonesCon
 
 void FAnimNode_BlendListBase::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	const int NumPoses = BlendPose.Num();
 	checkSlow((BlendTime.Num() == NumPoses) && (BlendWeights.Num() == NumPoses));

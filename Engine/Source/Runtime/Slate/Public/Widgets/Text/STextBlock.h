@@ -61,6 +61,7 @@ public:
 		, _TextShapingMethod()
 		, _TextFlowDirection()
 		, _LineBreakPolicy()
+		, _SimpleTextMode(false)
 		{
 			_Clipping = EWidgetClipping::OnDemand;
 		}
@@ -123,6 +124,13 @@ public:
 
 		/** The iterator to use to detect appropriate soft-wrapping points for lines (or null to use the default) */
 		SLATE_ARGUMENT( TSharedPtr<IBreakIterator>, LineBreakPolicy )
+
+		/**
+		 * If this is enabled, text shaping, wrapping, justification are disabled in favor of much faster text layout and measurement.
+		 * This feature is suitable for numbers and text that changes often and impact performance.
+		 * Enabling this setting may cause certain languages (such as Right to left languages) to not display properly.
+		 */
+		SLATE_ARGUMENT( bool, SimpleTextMode )
 
 		/** Called when this text is double clicked */
 		SLATE_EVENT( FOnClicked, OnDoubleClicked )
@@ -248,6 +256,9 @@ private:
 	/** Gets the current highlight shape */
 	const FSlateBrush* GetHighlightShape() const;
 
+	/** Call to invalidate this text block */
+	void InvalidateText(EInvalidateWidget InvalidateReason);
+
 private:
 	/** The text displayed in this text block */
 	TAttribute< FText > BoundText;
@@ -300,4 +311,8 @@ private:
 
 	/** The delegate to execute when this text is double clicked */
 	FOnClicked OnDoubleClicked;
+
+	/** If this is enabled, text shaping, wrapping, justification are disabled in favor of much faster text layout and measurement. */
+	mutable TOptional<FVector2D> CachedSimpleDesiredSize;
+	bool bSimpleTextMode;
 };

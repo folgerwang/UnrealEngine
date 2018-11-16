@@ -29,7 +29,6 @@
 #include "HAL/PlatformProcess.h"
 #endif // WITH_EDITOR
 
-
 DEFINE_LOG_CATEGORY(LogAssetRegistry);
 
 /** Returns the appropriate ChunkProgressReportingType for the given Asset enum */
@@ -296,6 +295,17 @@ void UAssetRegistryImpl::InitializeSerializationOptions(FAssetRegistrySerializat
 	else
 	{
 		PlatformEngineIni.GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsBlacklist"), FilterlistItems);
+	}
+
+	{
+		// this only needs to be done once, and only on builds using USE_COMPACT_ASSET_REGISTRY
+		TArray<FString> AsFName;
+		PlatformEngineIni.GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsAsFName"), AsFName);
+		TArray<FString> AsPathName;
+		PlatformEngineIni.GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsAsPathName"), AsPathName);
+		TArray<FString> AsLocText;
+		PlatformEngineIni.GetArray(TEXT("AssetRegistry"), TEXT("CookedTagsAsLocText"), AsLocText);
+		FAssetRegistryState::IngestIniSettingsForCompact(AsFName, AsPathName, AsLocText);
 	}
 
 	// Takes on the pattern "(Class=SomeClass,Tag=SomeTag)"
@@ -610,7 +620,6 @@ bool UAssetRegistryImpl::GetAssets(const FARFilter& InFilter, TArray<FAssetData>
 				}
 
 				// Package name
-				const FName ObjectPath = FName(*Obj->GetPathName());
 				const FName PackageName = InMemoryPackage->GetFName();
 
 				PackagesToSkip.Add(PackageName);
@@ -621,9 +630,13 @@ bool UAssetRegistryImpl::GetAssets(const FARFilter& InFilter, TArray<FAssetData>
 				}
 
 				// Object Path
-				if (NumFilterObjectPaths && !FilterObjectPaths.Contains(ObjectPath))
+				if (NumFilterObjectPaths)
 				{
-					return;
+					const FName ObjectPath = FName(*Obj->GetPathName());
+					if (!FilterObjectPaths.Contains(ObjectPath))
+					{
+						return;
+					}
 				}
 
 				// Package path
@@ -851,6 +864,11 @@ FName UAssetRegistryImpl::GetRedirectedObjectPath(const FName ObjectPath) const
 	return FName(*RedirectedPath);
 }
 
+void UAssetRegistryImpl::StripAssetRegistryKeyForObject(FName ObjectPath, FName Key)
+{
+	return State.StripAssetRegistryKeyForObject(ObjectPath, Key);
+}
+
 bool UAssetRegistryImpl::GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const
 {
 	// Start with the cached inheritance map
@@ -1072,9 +1090,178 @@ void UAssetRegistryImpl::RunAssetsThroughFilter(TArray<FAssetData>& AssetDataLis
 				bool bPassesTags = false;
 				for (auto FilterTagIt = Filter.TagsAndValues.CreateConstIterator(); FilterTagIt; ++FilterTagIt)
 				{
-					const FString* Value = AssetData.TagsAndValues.Find(FilterTagIt.Key());
+					bool bAccept;
+					if (!FilterTagIt.Value().IsSet())
+					{
+						// this probably doesn't make sense, but I am preserving the original logic
+						bAccept = AssetData.TagsAndValues.ContainsKeyValue(FilterTagIt.Key(), FString());
+					}
+					else
+					{
+						bAccept = AssetData.TagsAndValues.ContainsKeyValue(FilterTagIt.Key(), FilterTagIt.Value().GetValue());
+					}
 
-					if (Value != nullptr && (*Value) == FilterTagIt.Value())
+					if (bAccept)
+					{
+						bPassesTags = true;
+						break;
+					}
+				}
+
+				if (!bPassesTags)
+				{
+					AssetDataList.RemoveAt(AssetDataIdx);
+					continue;
+				}
+			}
+		}
+	}
+}
+
+
+void UAssetRegistryImpl::UseFilterToExcludeAssets(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const
+{
+	if (!Filter.IsEmpty())
+	{
+		TSet<FName> RequestedClassNames;
+		if (Filter.bRecursiveClasses && Filter.ClassNames.Num() > 0)
+		{
+			// First assemble a full list of requested classes from the ClassTree
+			// GetSubClasses includes the base classes
+			GetSubClasses(Filter.ClassNames, Filter.RecursiveClassesExclusionSet, RequestedClassNames);
+		}
+
+		for (int32 AssetDataIdx = AssetDataList.Num() - 1; AssetDataIdx >= 0; --AssetDataIdx)
+		{
+			const FAssetData& AssetData = AssetDataList[AssetDataIdx];
+
+			// Package Names
+			if (Filter.PackageNames.Num() > 0)
+			{
+				bool bPassesPackageNames = false;
+				for (int32 NameIdx = 0; NameIdx < Filter.PackageNames.Num(); ++NameIdx)
+				{
+					if (Filter.PackageNames[NameIdx] == AssetData.PackageName)
+					{
+						bPassesPackageNames = true;
+						break;
+					}
+				}
+
+				if (bPassesPackageNames)
+				{
+					AssetDataList.RemoveAt(AssetDataIdx);
+					continue;
+				}
+			}
+
+			// Package Paths
+			if (Filter.PackagePaths.Num() > 0)
+			{
+				bool bPassesPackagePaths = false;
+				if (Filter.bRecursivePaths)
+				{
+					FString AssetPackagePath = AssetData.PackagePath.ToString();
+					for (int32 PathIdx = 0; PathIdx < Filter.PackagePaths.Num(); ++PathIdx)
+					{
+						const FString Path = Filter.PackagePaths[PathIdx].ToString();
+						if (AssetPackagePath.StartsWith(Path))
+						{
+							// Only match the exact path or a path that starts with the target path followed by a slash
+							if (Path.Len() == 1 || Path.Len() == AssetPackagePath.Len() || AssetPackagePath.Mid(Path.Len(), 1) == TEXT("/"))
+							{
+								bPassesPackagePaths = true;
+								break;
+							}
+						}
+					}
+				}
+				else
+				{
+					// Non-recursive. Just request data for each requested path.
+					for (int32 PathIdx = 0; PathIdx < Filter.PackagePaths.Num(); ++PathIdx)
+					{
+						if (Filter.PackagePaths[PathIdx] == AssetData.PackagePath)
+						{
+							bPassesPackagePaths = true;
+							break;
+						}
+					}
+				}
+
+				if (bPassesPackagePaths)
+				{
+					AssetDataList.RemoveAt(AssetDataIdx);
+					continue;
+				}
+			}
+
+			// ObjectPaths
+			if (Filter.ObjectPaths.Num() > 0)
+			{
+				bool bPassesObjectPaths = Filter.ObjectPaths.Contains(AssetData.ObjectPath);
+
+				if (bPassesObjectPaths)
+				{
+					AssetDataList.RemoveAt(AssetDataIdx);
+					continue;
+				}
+			}
+
+			// Classes
+			if (Filter.ClassNames.Num() > 0)
+			{
+				bool bPassesClasses = false;
+				if (Filter.bRecursiveClasses)
+				{
+					// Now check against each discovered class
+					for (FName ClassName : RequestedClassNames)
+					{
+						if (ClassName == AssetData.AssetClass)
+						{
+							bPassesClasses = true;
+							break;
+						}
+					}
+				}
+				else
+				{
+					// Non-recursive. Just request data for each requested classes.
+					for (int32 ClassIdx = 0; ClassIdx < Filter.ClassNames.Num(); ++ClassIdx)
+					{
+						if (Filter.ClassNames[ClassIdx] == AssetData.AssetClass)
+						{
+							bPassesClasses = true;
+							break;
+						}
+					}
+				}
+
+				if (bPassesClasses)
+				{
+					AssetDataList.RemoveAt(AssetDataIdx);
+					continue;
+				}
+			}
+
+			// Tags and values
+			if (Filter.TagsAndValues.Num() > 0)
+			{
+				bool bPassesTags = false;
+				for (auto FilterTagIt = Filter.TagsAndValues.CreateConstIterator(); FilterTagIt; ++FilterTagIt)
+				{
+					bool bAccept;
+					if (!FilterTagIt.Value().IsSet())
+					{
+						// this probably doesn't make sense, but I am preserving the original logic
+						bAccept = AssetData.TagsAndValues.ContainsKeyValue(FilterTagIt.Key(), FString());
+					}
+					else
+					{
+						bAccept = AssetData.TagsAndValues.ContainsKeyValue(FilterTagIt.Key(), FilterTagIt.Value().GetValue());
+					}
+
+					if (bAccept)
 					{
 						bPassesTags = true;
 						break;
@@ -1542,29 +1729,37 @@ void UAssetRegistryImpl::Tick(float DeltaTime)
 void UAssetRegistryImpl::Serialize(FArchive& Ar)
 {
 	State.Serialize(Ar, SerializationOptions);
+	CachePathsFromState(State);
+}
 
-	if (Ar.IsLoading())
+/** Append the assets from the incoming state into our own */
+void UAssetRegistryImpl::AppendState(const FAssetRegistryState& InState)
+{
+	State.InitializeFromExisting(InState, SerializationOptions, FAssetRegistryState::EInitializationMode::Append);
+	CachePathsFromState(InState);
+}
+
+void UAssetRegistryImpl::CachePathsFromState(const FAssetRegistryState& InState)
+{
+	// Add paths to cache
+	for (const TPair<FName, FAssetData*>& AssetDataPair : InState.CachedAssetsByObjectPath)
 	{
-		// Add paths to cache
-		for (const TPair<FName, FAssetData*>& AssetDataPair : State.CachedAssetsByObjectPath)
+		const FAssetData* AssetData = AssetDataPair.Value;
+
+		if (AssetData != nullptr)
 		{
-			const FAssetData* AssetData = AssetDataPair.Value;
+			AddAssetPath(AssetData->PackagePath);
 
-			if (AssetData != nullptr)
+			// Populate the class map if adding blueprint
+			if (ClassGeneratorNames.Contains(AssetData->AssetClass))
 			{
-				AddAssetPath(AssetData->PackagePath);
-
-				// Populate the class map if adding blueprint
-				if (ClassGeneratorNames.Contains(AssetData->AssetClass))
+				const FString GeneratedClass = AssetData->GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
+				const FString ParentClass = AssetData->GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
+				if (!GeneratedClass.IsEmpty() && !ParentClass.IsEmpty())
 				{
-					const FString GeneratedClass = AssetData->GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
-					const FString ParentClass = AssetData->GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
-					if (!GeneratedClass.IsEmpty() && !ParentClass.IsEmpty())
-					{
-						const FName GeneratedClassFName = *ExportTextPathToObjectName(GeneratedClass);
-						const FName ParentClassFName = *ExportTextPathToObjectName(ParentClass);
-						CachedInheritanceMap.Add(GeneratedClassFName, ParentClassFName);
-					}
+					const FName GeneratedClassFName = *ExportTextPathToObjectName(GeneratedClass);
+					const FName ParentClassFName = *ExportTextPathToObjectName(ParentClass);
+					CachedInheritanceMap.Add(GeneratedClassFName, ParentClassFName);
 				}
 			}
 		}
@@ -1643,12 +1838,17 @@ void UAssetRegistryImpl::InitializeTemporaryAssetRegistryState(FAssetRegistrySta
 {
 	const TMap<FName, FAssetData*>& DataToUse = OverrideData.Num() > 0 ? OverrideData : State.CachedAssetsByObjectPath;
 
-	OutState.InitializeFromExisting(DataToUse, State.CachedDependsNodes, State.CachedPackageData, Options, bRefreshExisting);
+	OutState.InitializeFromExisting(DataToUse, State.CachedDependsNodes, State.CachedPackageData, Options, bRefreshExisting ? FAssetRegistryState::EInitializationMode::OnlyUpdateExisting : FAssetRegistryState::EInitializationMode::Rebuild);
 }
 
 const FAssetRegistryState* UAssetRegistryImpl::GetAssetRegistryState() const
 {
 	return &State;
+}
+
+const TSet<FName>& UAssetRegistryImpl::GetCachedEmptyPackages() const
+{
+	return CachedEmptyPackages;
 }
 
 void UAssetRegistryImpl::ScanPathsAndFilesSynchronous(const TArray<FString>& InPaths, const TArray<FString>& InSpecificFiles, bool bForceRescan, EAssetDataCacheMode AssetDataCacheMode)

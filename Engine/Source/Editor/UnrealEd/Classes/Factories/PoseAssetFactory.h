@@ -20,16 +20,24 @@ class UPoseAssetFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	class USkeleton* TargetSkeleton;
-	
-	/** The preview mesh to use with this pose asset */
-	UPROPERTY()
-	class USkeletalMesh* PreviewSkeletalMesh;
+	// The following Properties are BlueprintReadWrite to expose to Python / Blutilities
 
 	/* Used when creating a composite from an AnimSequence, becomes the only AnimSequence contained */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "PoseAssetFactory")
 	class UAnimSequence* SourceAnimation;
+
+	/** Optional. If specified the poses will be named according to this array.
+	If you don't specify, or you don't specify enough names for all poses, then default names will be generated.*/
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "PoseAssetFactory")
+	TArray<FString> PoseNames;
+
+	// Only used for AnimationEditorUtils::ExecuteNewAnimAsset template. Do not use directly.
+
+	UPROPERTY()
+	class USkeleton* TargetSkeleton;
+
+	UPROPERTY()
+	class USkeletalMesh* PreviewSkeletalMesh;
 
 	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
@@ -38,8 +46,5 @@ class UPoseAssetFactory : public UFactory
 
 private:
 	void OnWindowUserActionDelegate(bool bCreate, UAnimSequence* InSequence, const TArray<FString>& InPoseNames);
-
-private:
-	TArray<FString> PoseNames;
 };
 

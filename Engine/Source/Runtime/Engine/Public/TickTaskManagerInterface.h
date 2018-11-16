@@ -57,7 +57,10 @@ public:
 	virtual void EndFrame() = 0;
 
 	/** Dumps all registered tick functions to output device. */
-	virtual void DumpAllTickFunctions(FOutputDevice& Ar, UWorld* InWorld, bool bEnabled, bool bDisabled) = 0;
+	virtual void DumpAllTickFunctions(FOutputDevice& Ar, UWorld* InWorld, bool bEnabled, bool bDisabled, bool bGrouped) = 0;
+
+	/** Returns a map of enabled ticks, grouped by 'diagnostic context' string, along with count of enabled ticks */
+	virtual void GetEnabledTickFunctionCounts(UWorld* InWorld, TSortedMap<FName, int32>& TickContextToCountMap, int32& EnabledCount, bool bDetailed) = 0;
 
 	/**
 	 * Singleton to retrieve the GLOBAL tick task manager

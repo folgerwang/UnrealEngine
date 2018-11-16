@@ -79,9 +79,6 @@ public:
 
 	FOnlineIdentityGoogleCommon(FOnlineSubsystemGoogle* InSubsystem);
 
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
-
 	/**
 	 * Destructor
 	 */

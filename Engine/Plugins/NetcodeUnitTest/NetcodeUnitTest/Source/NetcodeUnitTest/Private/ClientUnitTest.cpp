@@ -694,7 +694,7 @@ bool UClientUnitTest::SendNUTControl(ENUTControlCommand CommandType, FString Com
 {
 	bool bSuccess = false;
 
-	FOutBunch* ControlChanBunch = MinClient->CreateChannelBunch(CHTYPE_Control, 0);
+	FOutBunch* ControlChanBunch = MinClient->CreateChannelBunchByName(NAME_Control, 0);
 
 	if (ControlChanBunch != nullptr)
 	{

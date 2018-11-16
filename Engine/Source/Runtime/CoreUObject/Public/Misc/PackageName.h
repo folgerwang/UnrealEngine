@@ -444,10 +444,10 @@ public:
 	 */
 	static bool FixPackageNameCase(FString& LongPackageName, const FString& Extension);
 
-	DEPRECATED(4.17, "Deprecated. Call TryConvertLongPackageNameToFilename instead, which also works on nested paths")
+	UE_DEPRECATED(4.17, "Deprecated. Call TryConvertLongPackageNameToFilename instead, which also works on nested paths")
 	static bool ConvertRootPathToContentPath(const FString& RootPath, FString& OutContentPath);
 
-	DEPRECATED(4.17, "Deprecated. Call TryConvertFilenameToLongPackageName instead")
+	UE_DEPRECATED(4.17, "Deprecated. Call TryConvertFilenameToLongPackageName instead")
 	static FString PackageFromPath(const TCHAR* InPathName);
 
 private:

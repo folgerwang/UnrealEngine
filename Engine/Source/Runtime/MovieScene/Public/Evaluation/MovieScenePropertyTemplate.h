@@ -42,7 +42,7 @@ namespace PropertyTemplate
 
 	/** The value of the object as it existed before this frame's evaluation */
 	template<typename PropertyValueType> struct
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
+	UE_DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
 	TCachedValue
 	{
 		TWeakObjectPtr<UObject> WeakObject;
@@ -54,7 +54,7 @@ namespace PropertyTemplate
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	template<typename PropertyValueType> struct 
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
+	UE_DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
 	TCachedSectionData : FSectionData
 	{
 		/** Setup the data for the current frame */
@@ -166,7 +166,7 @@ namespace PropertyTemplate
 
 
 template<typename PropertyValueType> struct
-DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
+UE_DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
 TCachedPropertyTrackExecutionToken : IMovieSceneExecutionToken
 {
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
@@ -292,7 +292,7 @@ struct FMovieScenePropertySectionData
 	}
 
 	template<typename T>
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
+	UE_DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
 	void SetupCachedTrack(FPersistentEvaluationData& PersistentData) const
 	{
 		typedef PropertyTemplate::TCachedSectionData<T> FSectionData;
@@ -300,7 +300,7 @@ struct FMovieScenePropertySectionData
 	}
 
 	template<typename T>
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
+	UE_DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
 	void SetupCachedFrame(const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
 	{
 		typedef PropertyTemplate::TCachedSectionData<T> FSectionData;

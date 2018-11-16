@@ -54,7 +54,7 @@ void FSlateLoadingSynchronizationMechanism::Initialize()
 	ResetSlateDrawPassEnqueued();
 	SetSlateMainLoopRunning();
 
-	MainLoop.Lock();
+	bMainLoopRunning = true;
 
 	FString ThreadName = TEXT("SlateLoadingThread");
 	ThreadName.AppendInt(LoadingThreadInstanceCounter.Increment());
@@ -71,7 +71,7 @@ void FSlateLoadingSynchronizationMechanism::DestroySlateThread()
 	{
 		IsRunningSlateMainLoop.Reset();
 
-		while (MainLoop.IsLocked())
+		while (bMainLoopRunning)
 		{
 			FPlatformApplicationMisc::PumpMessages(false);
 
@@ -154,7 +154,7 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 		FPlatformProcess::Sleep(0.1f);
 	}
 	
-	MainLoop.Unlock();
+	bMainLoopRunning = false;
 }
 
 

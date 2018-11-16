@@ -224,6 +224,8 @@ protected:
 	*/
 	uint32	ZeroBuffer(uint8* Destination, uint32 BufferSize);
 
+	/** bool set before ParseHeader. Whether we are streaming a file or not. */
+	bool bIsStreaming;
 	/** Ptr to the current streamed chunk. */
 	const uint8* SrcBufferData;
 	/** Size of the current streamed chunk. */

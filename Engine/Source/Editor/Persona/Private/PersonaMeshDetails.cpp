@@ -100,6 +100,23 @@ static bool IsAutoMeshReductionAvailable()
 	return bAutoMeshReductionAvailable;
 }
 
+enum EButtonFlags
+{
+	/** No special property exporting flags */
+	BF_None = 0x00000000,
+
+	/** Show generate/apply button */
+	BF_Generate = 0x00000001,
+
+	/** Show reimport button */
+	BF_Reimport = 0x00000002,
+
+	/** Show reimportnewfile button */
+	BF_ReimportNewFile = 0x00000004,
+
+	/** Show remove button */
+	BF_Remove = 0x00000008
+};
 
 // Container widget for LOD buttons
 class SSkeletalLODActions : public SCompoundWidget
@@ -108,9 +125,11 @@ public:
 	SLATE_BEGIN_ARGS(SSkeletalLODActions)
 		: _LODIndex(INDEX_NONE)
 		, _PersonaToolkit(nullptr)
+		, _ButtonFlags(0)
 	{}
 	SLATE_ARGUMENT(int32, LODIndex)
 	SLATE_ARGUMENT(TWeakPtr<IPersonaToolkit>, PersonaToolkit)
+	SLATE_ARGUMENT(uint32, ButtonFlags)
 	SLATE_EVENT(FOnClicked, OnApplyLODChangeClicked)
 	SLATE_EVENT(FOnClicked, OnRemoveLODClicked)
 	SLATE_EVENT(FOnClicked, OnReimportClicked)
@@ -183,6 +202,7 @@ private:
 	// Incoming arg data
 	int32 LODIndex;
 	TWeakPtr<IPersonaToolkit> PersonaToolkit;
+	uint32 ButtonFlags;
 	FOnClicked OnApplyLODChangeClicked;
 	FOnClicked OnRemoveLODClicked;
 	FOnClicked OnReimportClicked;
@@ -196,6 +216,7 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 {
 	LODIndex = InArgs._LODIndex;
 	PersonaToolkit = InArgs._PersonaToolkit;
+	ButtonFlags = InArgs._ButtonFlags;
 	OnApplyLODChangeClicked = InArgs._OnApplyLODChangeClicked;
 	OnRemoveLODClicked = InArgs._OnRemoveLODClicked;
 	OnReimportClicked = InArgs._OnReimportClicked;
@@ -213,7 +234,7 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 			]
 		];
 
-	if (OnApplyLODChangeClicked.IsBound())
+	if (OnApplyLODChangeClicked.IsBound() && (ButtonFlags & EButtonFlags::BF_Generate))
 	{
 		WrapBox->AddSlot()
 		.Padding(FMargin(0, 0, 2, 4))
@@ -234,7 +255,7 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 		];
 	}
 
-	if (OnRemoveLODClicked.IsBound())
+	if (OnRemoveLODClicked.IsBound() && (ButtonFlags & EButtonFlags::BF_Remove))
 	{
 		WrapBox->AddSlot()
 		.Padding(FMargin(0, 0, 2, 4))
@@ -255,7 +276,7 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 		];
 	}
 
-	if (OnReimportClicked.IsBound())
+	if (OnReimportClicked.IsBound() && (ButtonFlags & EButtonFlags::BF_Reimport))
 	{
 		WrapBox->AddSlot()
 		.Padding(FMargin(0, 0, 2, 4))
@@ -278,7 +299,7 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 		];
 	}
 
-	if (OnReimportNewFileClicked.IsBound())
+	if (OnReimportNewFileClicked.IsBound() && (ButtonFlags & EButtonFlags::BF_ReimportNewFile))
 	{
 		WrapBox->AddSlot()
 		.Padding(FMargin(0, 0, 2, 4))
@@ -901,8 +922,18 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				LODHysteresisRow.IsEnabled(EnabledAttrib);
 				DetailLayout.HideProperty(LODHysteresisHandle);
 
-				const TArray<FName> HiddenProperties = { GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ReductionSettings), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BakePose), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BonesToRemove),
-					GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ScreenSize), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, LODHysteresis) };
+				TSharedPtr<IPropertyHandle> BonesToPrioritizeHandle = LODInfoChild->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BonesToPrioritize));
+				IDetailPropertyRow& BonesToPrioritizeRow = LODInfoGroup.AddPropertyRow(BonesToPrioritizeHandle->AsShared());
+				BonesToPrioritizeRow.IsEnabled(EnabledAttrib);
+				DetailLayout.HideProperty(BonesToPrioritizeHandle);
+
+				TSharedPtr<IPropertyHandle> WeightToPriortizeHandle = LODInfoChild->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, WeightOfPrioritization));
+				IDetailPropertyRow& WeightToPriortizeRow = LODInfoGroup.AddPropertyRow(WeightToPriortizeHandle->AsShared());
+				WeightToPriortizeRow.IsEnabled(EnabledAttrib);
+				DetailLayout.HideProperty(WeightToPriortizeHandle);
+
+				const TArray<FName> HiddenProperties = { GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ReductionSettings), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BakePose), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BakePoseOverride), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BonesToRemove),
+					GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BonesToPrioritize), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, WeightOfPrioritization), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ScreenSize), GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, LODHysteresis) };
 				for (uint32 ChildIndex = 0; ChildIndex < NumInfoChildren; ++ChildIndex)
 				{
 					TSharedRef<IPropertyHandle> LODInfoChildHandle = LODInfoChild->GetChildHandle(ChildIndex).ToSharedRef();
@@ -915,6 +946,7 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				TSharedPtr<IPropertyHandle> BakePoseHandle = ChildHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BakePose));
 				DetailLayout.HideProperty(BakePoseHandle);
 				LODInfoGroup.AddWidgetRow()
+				.IsEnabled(EnabledAttrib)
 				.NameContent()
 				[
 					SNew(STextBlock)
@@ -925,6 +957,24 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				[
 					SNew(SObjectPropertyEntryBox)
 					.PropertyHandle(BakePoseHandle)
+					.AllowedClass(UAnimSequence::StaticClass())
+					.OnShouldFilterAsset(this, &FPersonaMeshDetails::FilterOutBakePose, SkelMesh->Skeleton)
+				];
+
+				TSharedPtr<IPropertyHandle> BakePoseOverrideHandle = LODInfoChild->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, BakePoseOverride));
+				DetailLayout.HideProperty(BakePoseOverrideHandle);
+				LODInfoGroup.AddWidgetRow()
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(LOCTEXT("BakePoseOverrideTitle", "Bake Pose Override"))
+					.ToolTipText(LOCTEXT("BakePoseOverrideToolTip", "This is to override BakePose, the source BakePose could be disabled if LOD Setting is used." ))
+				]
+				.ValueContent()
+				[
+					SNew(SObjectPropertyEntryBox)
+					.PropertyHandle(BakePoseOverrideHandle)
 					.AllowedClass(UAnimSequence::StaticClass())
 					.OnShouldFilterAsset(this, &FPersonaMeshDetails::FilterOutBakePose, SkelMesh->Skeleton)
 				];
@@ -958,44 +1008,43 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 
 				ButtonRow.Visibility(TAttribute<EVisibility>::Create([SkelMesh, LODIndex]() -> EVisibility { return (SkelMesh->GetLODInfo(LODIndex)->BonesToRemove.Num() > 0) ? EVisibility::Visible : EVisibility::Collapsed;  }));
 
+				
+				//Avoid offering re-generate if the LOD is reduce on himself and do not have the original data, the user in this case has to re-import the asset to generate the data 
+				bool LodCannotRegenerate = (SkelMesh->GetLODInfo(LODIndex) != nullptr
+					&& LODIndex == SkelMesh->GetLODInfo(LODIndex)->ReductionSettings.BaseLOD
+					&& SkelMesh->GetLODInfo(LODIndex)->bHasBeenSimplified
+					&& (!SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(LODIndex) || SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[LODIndex]->IsEmpty()));
+
+				bool bShowGenerateButtons = IsAutoMeshReductionAvailable() && !LodCannotRegenerate;
+				//LOD 0 never show Reimport and remove buttons
+				bool bShowReimportButtons = LODIndex != 0;
+				bool bShowRemoveButtons = LODIndex != 0;
+
 				// Add reduction settings
-				if (LODIndex > 0)
+				if (bShowGenerateButtons)
 				{
-					if (IsAutoMeshReductionAvailable())
-					{
-					
-						TSharedPtr<IPropertyHandle> ReductionHandle = LODInfoChild->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ReductionSettings));
-						check(ReductionHandle->IsValidHandle());
-						IDetailPropertyRow& ReductionHandleRow = LODInfoGroup.AddPropertyRow(ReductionHandle->AsShared());
-						ReductionHandleRow.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPersonaMeshDetails::IsLODInfoEditingEnabled, LODIndex)));
-						
-						LODCategory.AddCustomRow(LOCTEXT("RemoveLODRow", "Remove LOD"))
-							.ValueContent()
-							.HAlign(HAlign_Fill)
-							[
-								SNew(SSkeletalLODActions)
-								.LODIndex(LODIndex)
-								.PersonaToolkit(GetPersonaToolkit())
-								.OnApplyLODChangeClicked(this, &FPersonaMeshDetails::RegenerateLOD, LODIndex)
-								.OnRemoveLODClicked(this, &FPersonaMeshDetails::RemoveOneLOD, LODIndex)
-								.OnReimportClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::Reimport, LODIndex)
-								.OnReimportNewFileClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::ReimportWithNewFile, LODIndex)
-							];						
-					}
-					else
-					{
-						LODCategory.AddCustomRow(LOCTEXT("RemoveLODRow", "Remove LOD"))
-							.ValueContent()
-							.HAlign(HAlign_Fill)
-							[
-								SNew(SSkeletalLODActions)
-								.LODIndex(LODIndex)
-								.PersonaToolkit(GetPersonaToolkit())
-								.OnRemoveLODClicked(this, &FPersonaMeshDetails::RemoveOneLOD, LODIndex)
-								.OnReimportClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::Reimport, LODIndex)
-								.OnReimportNewFileClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::ReimportWithNewFile, LODIndex)
-							];
-					}
+					TSharedPtr<IPropertyHandle> ReductionHandle = LODInfoChild->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODInfo, ReductionSettings));
+					check(ReductionHandle->IsValidHandle());
+					IDetailPropertyRow& ReductionHandleRow = LODInfoGroup.AddPropertyRow(ReductionHandle->AsShared());
+					ReductionHandleRow.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPersonaMeshDetails::IsLODInfoEditingEnabled, LODIndex)));
+				}
+
+				uint32 ButtonFlag = (bShowGenerateButtons ? EButtonFlags::BF_Generate : 0) | (bShowReimportButtons ? EButtonFlags::BF_Reimport | EButtonFlags::BF_ReimportNewFile : 0) | (bShowRemoveButtons ? EButtonFlags::BF_Remove : 0);
+				if (ButtonFlag > 0)
+				{
+					LODCategory.AddCustomRow(LOCTEXT("RemoveLODRow", "Remove LOD"))
+						.ValueContent()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SSkeletalLODActions)
+							.LODIndex(LODIndex)
+							.PersonaToolkit(GetPersonaToolkit())
+							.ButtonFlags(ButtonFlag)
+							.OnApplyLODChangeClicked(this, &FPersonaMeshDetails::RegenerateLOD, LODIndex)
+							.OnRemoveLODClicked(this, &FPersonaMeshDetails::RemoveOneLOD, LODIndex)
+							.OnReimportClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::Reimport, LODIndex)
+							.OnReimportNewFileClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::ReimportWithNewFile, LODIndex)
+						];
 				}
 			}
 
@@ -1373,30 +1422,97 @@ FReply FPersonaMeshDetails::OnApplyChanges()
 	return FReply::Handled();
 }
 
+void FPersonaMeshDetails::RegenerateOneLOD(int32 LODIndex)
+{
+	USkeletalMesh* SkelMesh = GetPersonaToolkit()->GetMesh();
+	check(SkelMesh);
+
+	if (SkelMesh->IsValidLODIndex(LODIndex))
+	{
+		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
+		if (LODIndex == CurrentLODInfo.ReductionSettings.BaseLOD
+			&& CurrentLODInfo.bHasBeenSimplified
+			&& !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+			&& SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(LODIndex)
+			&& !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[LODIndex]->IsEmpty())
+		{
+			//Restore the base LOD data
+			CurrentLODInfo.bHasBeenSimplified = false;
+			FLODUtilities::RestoreSkeletalMeshLODImportedData(SkelMesh, LODIndex, true);
+			return;
+		}
+
+		FSkeletalMeshUpdateContext UpdateContext;
+		UpdateContext.SkeletalMesh = SkelMesh;
+		UpdateContext.AssociatedComponents.Push(GetPersonaToolkit()->GetPreviewMeshComponent());
+
+		FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIndex);
+	}
+	return;
+}
+
+//Regenerate dependent LODs if we re-import LOD X any LOD Z using X has source must be regenerated
+//Also just generate already simplified mesh
+void FPersonaMeshDetails::RegenerateDependentLODs(int32 LODIndex)
+{
+	USkeletalMesh* SkelMesh = GetPersonaToolkit()->GetMesh();
+	check(SkelMesh);
+
+	IMeshReductionModule& ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionModule>("MeshReductionInterface");
+	IMeshReduction* MeshReduction = ReductionModule.GetSkeletalMeshReductionInterface();
+	if (MeshReduction && MeshReduction->IsSupported())
+	{
+		TArray<bool> DependentLODs;
+		DependentLODs.AddZeroed(SkelMesh->GetLODNum());
+		DependentLODs[LODIndex] = true;
+		for (int32 CurrentLODIndex = LODIndex + 1; CurrentLODIndex < DependentLODs.Num(); ++CurrentLODIndex)
+		{
+			FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(CurrentLODIndex));
+			FSkeletalMeshOptimizationSettings& Settings = CurrentLODInfo.ReductionSettings;
+			if (CurrentLODInfo.bHasBeenSimplified && DependentLODs[Settings.BaseLOD])
+			{
+				DependentLODs[CurrentLODIndex] = true;
+				//Regenerate this LOD
+				RegenerateOneLOD(CurrentLODIndex);
+			}
+		}
+	}
+}
+
 FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 {
 	USkeletalMesh* SkelMesh = GetPersonaToolkit()->GetMesh();
 	check(SkelMesh);
 
-	FSkeletalMeshUpdateContext UpdateContext;
-	UpdateContext.SkeletalMesh = SkelMesh;
-	UpdateContext.AssociatedComponents.Push(GetPersonaToolkit()->GetPreviewMeshComponent());
-
 	if (SkelMesh->IsValidLODIndex(LODIndex))
 	{
-		if (SkelMesh->GetLODInfo(LODIndex)->bHasBeenSimplified == false)
+		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
+		if (CurrentLODInfo.bHasBeenSimplified == false && (LODIndex > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
 		{
-			const FText Text = FText::Format(LOCTEXT("Warning_SimplygonApplyingToImportedMesh", "LOD {0} has been imported. Are you sure you'd like to apply mesh reduction? This will destroy imported LOD."), FText::AsNumber(LODIndex));
-			EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
-			if (Ret == EAppReturnType::No)
+			if (LODIndex > 0)
 			{
-				return FReply::Handled();
+				const FText Text = FText::Format(LOCTEXT("Warning_SimplygonApplyingToImportedMesh", "LOD {0} has been imported. Are you sure you'd like to apply mesh reduction? This will destroy imported LOD."), FText::AsNumber(LODIndex));
+				EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
+				if (Ret == EAppReturnType::No)
+				{
+					return FReply::Handled();
+				}
+			}
+			else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+			{
+				//Ask user a special permission when the base LOD can be reduce 
+				const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
+				EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
+				if (Ret == EAppReturnType::No)
+				{
+					return FReply::Handled();
+				}
 			}
 		}
-
-		FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIndex);
 	}
 
+	RegenerateOneLOD(LODIndex);
+	RegenerateDependentLODs(LODIndex);
 	return FReply::Handled();
 }
 
@@ -1485,17 +1601,42 @@ void FPersonaMeshDetails::ApplyChanges()
 
 	// see if there is 
 	bool bRegenerateEvenIfImported = false;
+	bool bGenerateBaseLOD = false;
 	int32 CurrentNumLODs = SkelMesh->GetLODNum();
 	if (CurrentNumLODs == LODCount)
 	{
 		bool bImportedLODs = false;
 		// check if anything is imported and ask if users wants to still regenerate it
-		for (int32 LODIdx = 1; LODIdx < LODCount; LODIdx++)
+		for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
 		{
 			FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIdx));
-			if (CurrentLODInfo.bHasBeenSimplified == false)
+			if (CurrentLODInfo.bHasBeenSimplified == false && (LODIdx > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
 			{
-				bImportedLODs = true;
+				if (LODIdx > 0)
+				{
+					bImportedLODs = true;
+				}
+				else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+				{
+					//Ask user a special permission when the base LOD can be reduce 
+					const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
+					EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
+					if (Ret == EAppReturnType::Yes)
+					{
+						bGenerateBaseLOD = true;
+					}
+					
+				}
+			}
+			else if(LODIdx == CurrentLODInfo.ReductionSettings.BaseLOD
+				    && CurrentLODInfo.bHasBeenSimplified
+				    && !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+				    && SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(0)
+				    && !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[0]->IsEmpty())
+			{
+				//Restore the base LOD data
+				CurrentLODInfo.bHasBeenSimplified = false;
+				FLODUtilities::RestoreSkeletalMeshLODImportedData(SkelMesh, LODIdx, true);
 			}
 		}
 
@@ -1511,7 +1652,7 @@ void FPersonaMeshDetails::ApplyChanges()
 		}
 	}
 
-	FLODUtilities::RegenerateLOD(SkelMesh, LODCount, bRegenerateEvenIfImported);
+	FLODUtilities::RegenerateLOD(SkelMesh, LODCount, bRegenerateEvenIfImported, bGenerateBaseLOD);
 
 	MeshDetailLayout->ForceRefreshDetails();
 }
@@ -1735,6 +1876,9 @@ FReply FPersonaMeshDetails::OnReimportLodClicked(IDetailLayoutBuilder* DetailLay
 			// Copy old source file back, as this one failed
 			SkelMesh->GetLODInfo(InLODIndex)->SourceImportFilename = SourceFilenameBackup;
 		}
+
+		//Regenerate dependent LODs
+		RegenerateDependentLODs(InLODIndex);
 
 		if(DetailLayout)
 		{

@@ -465,6 +465,7 @@ void FThreadHeartBeat::ResumeHeartBeat()
 
 	// Resume the frame-present based detection at the same time.
 	PresentHeartBeat.SuspendedCount--;
+	PresentHeartBeat.LastHeartBeatTime = Clock.Seconds();
 #endif
 }
 
@@ -779,12 +780,18 @@ void FGameThreadHitchHeartBeat::FrameStart(bool bSkipThisFrame)
 void FGameThreadHitchHeartBeat::SuspendHeartBeat()
 {
 #if USE_HITCH_DETECTION
+	if (!IsInGameThread())
+		return;
+
 	FPlatformAtomics::InterlockedIncrement(&SuspendedCount);
 #endif
 }
 void FGameThreadHitchHeartBeat::ResumeHeartBeat()
 {
 #if USE_HITCH_DETECTION
+	if (!IsInGameThread())
+		return;
+
 	check(SuspendedCount > 0);
 	if (FPlatformAtomics::InterlockedDecrement(&SuspendedCount) == 0)
 	{

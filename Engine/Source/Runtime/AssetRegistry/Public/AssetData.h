@@ -173,6 +173,12 @@ public:
 		return FPackageName::GetLongPackageAssetName(PackageName.ToString()) == AssetName.ToString();
 	}
 
+	void Shrink()
+	{
+		ChunkIDs.Shrink();
+		TagsAndValues.Shrink();
+	}
+
 	/** Returns the full name for the asset in the form: Class ObjectPath */
 	FString GetFullName() const
 	{
@@ -249,7 +255,7 @@ public:
 		return FSoftObjectPath(ObjectPath.ToString());
 	}
 
-	DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
+	UE_DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
 	FSoftObjectPath ToStringReference() const
 	{
 		return ToSoftObjectPath();
@@ -268,6 +274,37 @@ public:
 		}
 
 		return FPrimaryAssetId();
+	}
+
+	/** Returns the asset UObject if it is loaded or loads the asset if it is unloaded then returns the result */
+	UObject* FastGetAsset(bool bLoad=false) const
+	{
+		if ( !IsValid() )
+		{
+			// Do not try to find the object if the objectpath is not set
+			return NULL;
+		}
+
+		UPackage* FoundPackage = FindObjectFast<UPackage>(nullptr, PackageName);
+		if (FoundPackage == NULL)
+		{
+			if (bLoad)
+			{
+				return LoadObject<UObject>(NULL, *ObjectPath.ToString());
+			}
+			else
+			{
+				return NULL;
+			}
+		}
+
+		UObject* Asset = FindObjectFast<UObject>(FoundPackage, AssetName);
+		if (Asset == NULL && bLoad)
+		{
+			return LoadObject<UObject>(NULL, *ObjectPath.ToString());
+		}
+
+		return Asset;
 	}
 
 	/** Returns the asset UObject if it is loaded or loads the asset if it is unloaded then returns the result */
@@ -335,7 +372,7 @@ public:
 
 		for (const auto& TagValue: TagsAndValues)
 		{
-			UE_LOG(LogAssetData, Log, TEXT("            %s : %s"), *TagValue.Key.ToString(), *TagValue.Value);
+			UE_LOG(LogAssetData, Log, TEXT("            %s : %s"), *TagValue.Key.ToString(), *FString(TagValue.Value));
 		}
 
 		UE_LOG(LogAssetData, Log, TEXT("        ChunkIDs: %d"), ChunkIDs.Num());
@@ -396,13 +433,15 @@ public:
 private:
 	bool GetTagValueStringImpl(const FName InTagName, FString& OutTagValue) const
 	{
-		if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+		const FAssetDataTagMapSharedView::FFindTagResult FoundValue = TagsAndValues.FindTag(InTagName);
+		if (FoundValue.IsSet())
 		{
+			const FString& FoundString(FoundValue.GetValue());
 			bool bIsHandled = false;
-			if (FTextStringHelper::IsComplexText(**FoundValue))
+			if (FTextStringHelper::IsComplexText(*FoundString))
 			{
 				FText TmpText;
-				if (FTextStringHelper::ReadFromString(**FoundValue, TmpText))
+				if (FTextStringHelper::ReadFromString(*FoundString, TmpText))
 				{
 					bIsHandled = true;
 					OutTagValue = TmpText.ToString();
@@ -411,7 +450,7 @@ private:
 
 			if (!bIsHandled)
 			{
-				OutTagValue = *FoundValue;
+				OutTagValue = FoundString;
 			}
 
 			return true;
@@ -419,14 +458,15 @@ private:
 
 		return false;
 	}
-
 	bool GetTagValueTextImpl(const FName InTagName, FText& OutTagValue) const
 	{
-		if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+		const FAssetDataTagMapSharedView::FFindTagResult FoundValue = TagsAndValues.FindTag(InTagName);
+		if (FoundValue.IsSet())
 		{
-			if (!FTextStringHelper::ReadFromString(**FoundValue, OutTagValue))
+			const FString& FoundString(FoundValue.GetValue());
+			if (!FTextStringHelper::ReadFromString(*FoundString, OutTagValue))
 			{
-				OutTagValue = FText::FromString(*FoundValue);
+				OutTagValue = FText::FromString(FoundString);
 			}
 			return true;
 		}
@@ -463,10 +503,11 @@ struct TStructOpsTypeTraits<FAssetData> : public TStructOpsTypeTraitsBase2<FAsse
 template <typename ValueType>
 inline bool FAssetData::GetTagValue(const FName InTagName, ValueType& OutTagValue) const
 {
-	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+	const FAssetDataTagMapSharedView::FFindTagResult FoundValue = TagsAndValues.FindTag(InTagName);
+	if (FoundValue.IsSet())
 	{
 		FMemory::Memzero(&OutTagValue, sizeof(ValueType));
-		LexFromString(OutTagValue, **FoundValue);
+		LexFromString(OutTagValue, *FoundValue.GetValue());
 		return true;
 	}
 	return false;
@@ -495,9 +536,10 @@ inline ValueType FAssetData::GetTagValueRef(const FName InTagName) const
 {
 	ValueType TmpValue;
 	FMemory::Memzero(&TmpValue, sizeof(ValueType));
-	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
+	const FAssetDataTagMapSharedView::FFindTagResult FoundValue = TagsAndValues.FindTag(InTagName);
+	if (FoundValue.IsSet())
 	{
-		LexFromString(TmpValue, **FoundValue);
+		LexFromString(TmpValue, *FoundValue.GetValue());
 	}
 	return TmpValue;
 }

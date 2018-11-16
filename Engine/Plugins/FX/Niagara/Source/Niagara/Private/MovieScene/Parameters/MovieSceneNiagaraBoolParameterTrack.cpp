@@ -6,6 +6,11 @@
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Templates/Casts.h"
 
+bool UMovieSceneNiagaraBoolParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraBoolParameterTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);

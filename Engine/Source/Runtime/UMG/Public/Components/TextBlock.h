@@ -142,9 +142,6 @@ public:
 	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "bAutoWrapText is deprecated. Please use AutoWrapText instead."))
 	bool bAutoWrapText_DEPRECATED;
 
-	///** Called when this text is double clicked */
-	//SLATE_EVENT(FOnClicked, OnDoubleClicked)
-
 	/** 
 	 * Gets the widget text
 	 * @return The widget text
@@ -172,6 +169,7 @@ public:
 	//~ Begin UWidget Interface
 	virtual const FText GetPaletteCategory() override;
 	virtual void OnCreationFromPalette() override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	//~ End UWidget Interface
 
 	virtual FString GetLabelMetadata() const override;
@@ -180,6 +178,14 @@ public:
 #endif
 
 protected:
+	/**
+	 * If this is enabled, text shaping, wrapping, justification are disabled in favor of much faster text layout and measurement.
+	 * This feature is only suitable for "simple" text (ie, text containing only numbers or basic ASCII) as it disables the complex text rendering support required for certain languages (such as Arabic and Thai).
+	 * It is significantly faster for text that can take advantage of it (particularly if that text changes frequently), but shouldn't be used for localized user-facing text.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Performance, AdvancedDisplay, meta=(AllowPrivateAccess, DesignerRebuild))
+	bool bSimpleTextMode;
+
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	//~ End UObject Interface

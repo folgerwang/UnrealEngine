@@ -12,6 +12,7 @@
 #include "DetailGroup.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Editor.h"
+#include "PropertyHandleImpl.h"
 
 
 void SConstrainedBox::Construct(const FArguments& InArgs)
@@ -216,6 +217,28 @@ FReply SDetailSingleItemRow::OnArrayDrop(const FDragDropEvent& DragDropEvent)
 		}
 	}
 	return FReply::Handled();
+}
+
+TSharedPtr<FPropertyNode> SDetailSingleItemRow::GetCopyPastePropertyNode() const
+{
+	TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
+	if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
+	{
+		PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
+	}
+
+	// See if a custom builder has an associated node
+	if (!PropertyNode.IsValid() && Customization->HasCustomBuilder())
+	{
+		TSharedPtr<IPropertyHandle> PropertyHandle = Customization->CustomBuilderRow->GetPropertyHandle();
+
+		if (PropertyHandle.IsValid())
+		{
+			PropertyNode = StaticCastSharedPtr<FPropertyHandleBase>(PropertyHandle)->GetPropertyNode();
+		}
+	}
+
+	return PropertyNode;
 }
 
 const FSlateBrush* SDetailSingleItemRow::GetFavoriteButtonBrush() const
@@ -475,12 +498,7 @@ bool SDetailSingleItemRow::OnContextMenuOpening(FMenuBuilder& MenuBuilder)
 	}
 	else
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
-		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
-		{
-			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
-		}
-
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		static const FName DisableCopyPasteMetaDataName("DisableCopyPaste");
 		if (PropertyNode.IsValid() && !PropertyNode->ParentOrSelfHasMetaData(DisableCopyPasteMetaDataName))
 		{
@@ -538,11 +556,7 @@ void SDetailSingleItemRow::OnCopyProperty()
 {
 	if (OwnerTreeNode.IsValid())
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
-		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
-		{
-			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
-		}
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		if (PropertyNode.IsValid())
 		{
 			TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(PropertyNode.ToSharedRef(), OwnerTreeNode.Pin()->GetDetailsView()->GetNotifyHook(), OwnerTreeNode.Pin()->GetDetailsView()->GetPropertyUtilities());
@@ -563,7 +577,7 @@ void SDetailSingleItemRow::OnPasteProperty()
 
 	if (!ClipboardContent.IsEmpty() && OwnerTreeNode.IsValid())
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
 		{
 			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();

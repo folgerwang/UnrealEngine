@@ -24,7 +24,6 @@
 #include "Application/ThrottleManager.h"
 #include "Widgets/IToolTip.h"
 #include "Layout/WidgetPath.h"
-#include "Logging/IEventLogger.h"
 #include "Framework/Application/MenuStack.h"
 #include "Framework/SlateDelegates.h"
 
@@ -1063,7 +1062,7 @@ public:
 	 * @param  bIsSynthetic  True when the even is synthesized by slate.
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessMouseMoveEvent( FPointerEvent& MouseEvent, bool bIsSynthetic = false );
+	bool ProcessMouseMoveEvent( const FPointerEvent& MouseEvent, bool bIsSynthetic = false );
 
 	/**
 	 * Called by the native application in response to a mouse button press. Routs the event to Slate Widgets.
@@ -1073,7 +1072,7 @@ public:
 	 * @param  InMouseEvent    Mouse event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessMouseButtonDownEvent(const TSharedPtr< FGenericWindow >& PlatformWindow, FPointerEvent& InMouseEvent);
+	bool ProcessMouseButtonDownEvent(const TSharedPtr< FGenericWindow >& PlatformWindow, const FPointerEvent& InMouseEvent);
 
 	/**
 	 * Called by the native application in response to a mouse button release. Routs the event to Slate Widgets.
@@ -1081,7 +1080,7 @@ public:
 	 * @param  InMouseEvent  Mouse event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent );
+	bool ProcessMouseButtonUpEvent( const FPointerEvent& MouseEvent );
 
 	/**
 	 * Called by the native application in response to a mouse release. Routs the event to Slate Widgets.
@@ -1089,7 +1088,7 @@ public:
 	 * @param  InMouseEvent  Mouse event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessMouseButtonDoubleClickEvent( const TSharedPtr< FGenericWindow >& PlatformWindow, FPointerEvent& InMouseEvent );
+	bool ProcessMouseButtonDoubleClickEvent( const TSharedPtr< FGenericWindow >& PlatformWindow, const FPointerEvent& InMouseEvent );
 	
 	/**
 	 * Called by the native application in response to a mouse wheel spin or a touch gesture. Routs the event to Slate Widgets.
@@ -1098,7 +1097,7 @@ public:
 	 * @param  InGestureEvent  Optional gesture event details
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessMouseWheelOrGestureEvent( FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent );
+	bool ProcessMouseWheelOrGestureEvent( const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent );
 
 	/**
 	 * Called when a character is entered
@@ -1106,7 +1105,7 @@ public:
 	 * @param  InCharacterEvent  Character event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessKeyCharEvent( FCharacterEvent& InCharacterEvent );
+	bool ProcessKeyCharEvent( const FCharacterEvent& InCharacterEvent );
 
 	/**
 	 * Called when a key is pressed
@@ -1114,7 +1113,7 @@ public:
 	 * @param  InKeyEvent  Keyb event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessKeyDownEvent( FKeyEvent& InKeyEvent );
+	bool ProcessKeyDownEvent( const FKeyEvent& InKeyEvent );
 
 	/**
 	 * Called when a key is released
@@ -1122,7 +1121,7 @@ public:
 	 * @param  InKeyEvent  Key event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessKeyUpEvent( FKeyEvent& InKeyEvent );
+	bool ProcessKeyUpEvent( const FKeyEvent& InKeyEvent );
 	
 	/**
 	 * Called when a analog input values change
@@ -1130,7 +1129,7 @@ public:
 	 * @param  InAnalogInputEvent Analog input event
 	 * @return  Was this event handled by the Slate application?
 	 */
-	bool ProcessAnalogInputEvent(FAnalogInputEvent& InAnalogInputEvent);
+	bool ProcessAnalogInputEvent(const FAnalogInputEvent& InAnalogInputEvent);
 
 	/**
 	 * Called when a drag from an external (non-slate) source enters a window
@@ -1139,35 +1138,35 @@ public:
 	 * @param DragDropEvent  Describes the mouse state (position, pressed buttons, etc) and associated payload
 	 * @return true if the drag enter was handled and can be processed by some widget in this window; false otherwise
 	 */
-	bool ProcessDragEnterEvent( TSharedRef<SWindow> WindowEntered, FDragDropEvent& DragDropEvent );
+	bool ProcessDragEnterEvent( TSharedRef<SWindow> WindowEntered, const FDragDropEvent& DragDropEvent );
 
 	/**
 	 * Called when a touchpad touch is started (finger down) when polling game device state
 	 * 
 	 * @param ControllerEvent	The touch event generated
 	 */
-	void ProcessTouchStartedEvent( const TSharedPtr< FGenericWindow >& PlatformWindow, FPointerEvent& InTouchEvent );
+	void ProcessTouchStartedEvent( const TSharedPtr< FGenericWindow >& PlatformWindow, const FPointerEvent& InTouchEvent );
 
 	/**
 	 * Called when a touchpad touch is moved  (finger moved) when polling game device state
 	 * 
 	 * @param ControllerEvent	The touch event generated
 	 */
-	void ProcessTouchMovedEvent( FPointerEvent& InTouchEvent );
+	void ProcessTouchMovedEvent( const FPointerEvent& InTouchEvent );
 
 	/**
 	 * Called when a touchpad touch is ended (finger lifted) when polling game device state
 	 * 
 	 * @param ControllerEvent	The touch event generated
 	 */
-	void ProcessTouchEndedEvent( FPointerEvent& InTouchEvent );
+	void ProcessTouchEndedEvent( const FPointerEvent& InTouchEvent );
 
 	/**
 	 * Called when motion is detected (controller or device) when polling game device state
 	 * 
 	 * @param MotionEvent		The motion event generated
 	 */
-	void ProcessMotionDetectedEvent( FMotionEvent& InMotionEvent );
+	void ProcessMotionDetectedEvent( const FMotionEvent& InMotionEvent );
 
 	/**
 	 * Called by the native application in response to an activation or deactivation. 
@@ -1203,7 +1202,7 @@ public:
 	 * Sets the navigation config factory.  If you need to control navigation config dynamically, you
 	 * should subclass FNavigationConfig to be dynamically adjustable to your needs.
 	*/
-	DEPRECATED(4.20, "Returning to a simpler method of registering navigation configs.\nSetNavigationConfig, is what you should use now.  Note: You'll need to store per user state information yourself if you have any, like we do for repeats with the analog stick in FNavigationConfig::UserNavigationState,\nrather than Slate creating a new Navigation Config per user.")
+	UE_DEPRECATED(4.20, "Returning to a simpler method of registering navigation configs.\nSetNavigationConfig, is what you should use now.  Note: You'll need to store per user state information yourself if you have any, like we do for repeats with the analog stick in FNavigationConfig::UserNavigationState,\nrather than Slate creating a new Navigation Config per user.")
 	void SetNavigationConfigFactory(TFunction<TSharedRef<FNavigationConfig>()> InNavigationConfigFactory) { }
 
 public:
@@ -1274,15 +1273,6 @@ public:
 	/** Gets all visible slate windows ordered from back to front based on child hierarchies */
 	void GetAllVisibleWindowsOrdered(TArray< TSharedRef<SWindow> >& OutWindows);
 	
-	/** Tell the slate application to log a string to it's ui log */
-	void OnLogSlateEvent(enum EEventLog::Type Event, const FString& AdditionalContent = FString());
-
-	/** Tell the slate application to log a FText to it's ui log */
-	void OnLogSlateEvent(enum EEventLog::Type Event, const FText& AdditionalContent );
-
-	/** Sets the slate event logger */
-	void SetSlateUILogger(TSharedPtr<class IEventLogger> InEventLogger = TSharedPtr<class IEventLogger>());
-
 	/** @return true if mouse events are being turned into touch events, and touch UI should be forced on */
 	bool IsFakingTouchEvents() const;
 
@@ -1491,7 +1481,7 @@ public:
 	 * 
 	 * @return The reply returned by the widget that handled the event
 	 */
-	FReply RoutePointerDownEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent);
+	FReply RoutePointerDownEvent(const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& PointerEvent);
 
 	/**
 	 * Directly routes a pointer up event to the widgets in the specified widget path
@@ -1501,7 +1491,7 @@ public:
 	 *
 	 * @return The reply from the event
 	 */
-	FReply RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent);
+	FReply RoutePointerUpEvent(const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& PointerEvent);
 
 	/**
 	 * Directly routes a pointer move event to the widgets in the specified widget path
@@ -1510,7 +1500,7 @@ public:
 	 * @param PointerEvent		The event data that is is routed to the widget path
 	 * @param bIsSynthetic		Whether or not the move event is synthetic.  Synthetic pointer moves used simulate an event without the pointer actually moving 
 	 */
-	bool RoutePointerMoveEvent( const FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent, bool bIsSynthetic );
+	bool RoutePointerMoveEvent( const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& PointerEvent, bool bIsSynthetic );
 
 	/**
 	 * Directly routes a pointer double click event to the widgets in the specified widget path
@@ -1518,7 +1508,7 @@ public:
 	 * @param WidgetsUnderPointer	The path of widgets the event is routed to.
 	 * @param PointerEvent		The event data that is is routed to the widget path
 	 */
-	FReply RoutePointerDoubleClickEvent( FWidgetPath& WidgetsUnderPointer, FPointerEvent& PointerEvent );
+	FReply RoutePointerDoubleClickEvent( const FWidgetPath& WidgetsUnderPointer, const FPointerEvent& PointerEvent );
 
 	/**
 	 * Directly routes a pointer mouse wheel or gesture event to the widgets in the specified widget path.
@@ -1633,6 +1623,8 @@ private:
 	bool ExecuteNavigation(const FWidgetPath& NavigationSource, TSharedPtr<SWidget> DestinationWidget, const uint32 UserIndex, bool bAlwaysHandleNavigationAttempt);
 
 private:
+
+	void ResetDragDropState();
 
 	bool SetUserFocus(FSlateUser* User, const FWidgetPath& InFocusPath, const EFocusCause InCause);
 
@@ -1982,9 +1974,6 @@ private:
 
 	/** Delegate for accessing assets, to pass to any widget inspectors. */
 	FAccessAsset AssetAccessDelegate;
-
-	/** System for logging all relevant slate events to a log file */
-	TSharedPtr<class IEventLogger> EventLogger;
 
 	/** Allows us to track the number of non-slate modal windows active. */
 	int32 NumExternalModalWindowsActive;

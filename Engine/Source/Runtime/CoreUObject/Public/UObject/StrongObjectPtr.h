@@ -13,75 +13,99 @@ template <typename ObjectType>
 class TStrongObjectPtr
 {
 public:
-	TStrongObjectPtr()
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr()
 		: ReferenceCollector(MakeUnique<FInternalReferenceCollector>(nullptr))
 	{
 		static_assert(TPointerIsConvertibleFromTo<ObjectType, const volatile UObject>::Value, "TStrongObjectPtr can only be constructed with UObject types");
 	}
 
-	explicit TStrongObjectPtr(ObjectType* InObject)
+	FORCEINLINE_DEBUGGABLE explicit TStrongObjectPtr(ObjectType* InObject)
 		: ReferenceCollector(MakeUnique<FInternalReferenceCollector>(InObject))
 	{
 		static_assert(TPointerIsConvertibleFromTo<ObjectType, const volatile UObject>::Value, "TStrongObjectPtr can only be constructed with UObject types");
 	}
 
-	TStrongObjectPtr(const TStrongObjectPtr& InOther)
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr(const TStrongObjectPtr& InOther)
 		: ReferenceCollector(MakeUnique<FInternalReferenceCollector>(InOther.Get()))
 	{
 	}
 
 	template <typename OtherObjectType>
-	TStrongObjectPtr(const TStrongObjectPtr<OtherObjectType>& InOther)
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr(const TStrongObjectPtr<OtherObjectType>& InOther)
 		: ReferenceCollector(MakeUnique<FInternalReferenceCollector>(InOther.Get()))
 	{
 	}
 
-	FORCEINLINE TStrongObjectPtr& operator=(const TStrongObjectPtr& InOther)
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr& operator=(const TStrongObjectPtr& InOther)
 	{
 		ReferenceCollector->Set(InOther.Get());
 		return *this;
 	}
 
 	template <typename OtherObjectType>
-	FORCEINLINE TStrongObjectPtr& operator=(const TStrongObjectPtr<OtherObjectType>& InOther)
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr& operator=(const TStrongObjectPtr<OtherObjectType>& InOther)
 	{
 		ReferenceCollector->Set(InOther.Get());
 		return *this;
 	}
 
-	FORCEINLINE ObjectType& operator*() const
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr(TStrongObjectPtr&& InOther)
+	{
+		ReferenceCollector = MoveTemp(InOther.ReferenceCollector);
+	}
+
+	template <typename OtherObjectType>
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr(TStrongObjectPtr<OtherObjectType>&& InOther)
+	{
+		ReferenceCollector = MoveTemp(InOther.ReferenceCollector);
+	}
+
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr& operator=(TStrongObjectPtr&& InOther)
+	{
+		ReferenceCollector = MoveTemp(InOther.ReferenceCollector);
+		return *this;
+	}
+
+	template <typename OtherObjectType>
+	FORCEINLINE_DEBUGGABLE TStrongObjectPtr<OtherObjectType>& operator=(TStrongObjectPtr<OtherObjectType>&& InOther)
+	{
+		ReferenceCollector = MoveTemp(InOther.ReferenceCollector);
+		return *this;
+	}
+
+	FORCEINLINE_DEBUGGABLE ObjectType& operator*() const
 	{
 		check(IsValid());
 		return *Get();
 	}
 
-	FORCEINLINE ObjectType* operator->() const
+	FORCEINLINE_DEBUGGABLE ObjectType* operator->() const
 	{
 		check(IsValid());
 		return Get();
 	}
 
-	FORCEINLINE bool IsValid() const
+	FORCEINLINE_DEBUGGABLE bool IsValid() const
 	{
 		return Get() != nullptr;
 	}
 
-	FORCEINLINE explicit operator bool() const
+	FORCEINLINE_DEBUGGABLE explicit operator bool() const
 	{
 		return Get() != nullptr;
 	}
 
-	FORCEINLINE ObjectType* Get() const
+	FORCEINLINE_DEBUGGABLE ObjectType* Get() const
 	{
 		return ReferenceCollector->Get();
 	}
 
-	FORCEINLINE void Reset(ObjectType* InNewObject = nullptr)
+	FORCEINLINE_DEBUGGABLE void Reset(ObjectType* InNewObject = nullptr)
 	{
 		ReferenceCollector->Set(InNewObject);
 	}
 
-	FORCEINLINE friend uint32 GetTypeHash(const TStrongObjectPtr& InStrongObjectPtr)
+	FORCEINLINE_DEBUGGABLE friend uint32 GetTypeHash(const TStrongObjectPtr& InStrongObjectPtr)
 	{
 		return GetTypeHash(InStrongObjectPtr.Get());
 	}
@@ -93,10 +117,12 @@ private:
 		FInternalReferenceCollector(ObjectType* InObject)
 			: Object(InObject)
 		{
+			check(IsInGameThread());
 		}
 
 		virtual ~FInternalReferenceCollector()
 		{
+			check(IsInGameThread());
 		}
 
 		FORCEINLINE ObjectType* Get() const

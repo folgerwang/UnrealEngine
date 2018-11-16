@@ -65,6 +65,7 @@ public:
 	/** Registers this instance with the static array of tickable objects. */
 	FTickableEditorObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		check(!GetPendingTickableObjects().Contains(this));
 		check(!GetTickableObjects().Contains(this));
 		GetPendingTickableObjects().Add(this);
@@ -73,6 +74,7 @@ public:
 	/** Removes this instance from the static array of tickable objects. */
 	virtual ~FTickableEditorObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		if (bCollectionIntact && GetPendingTickableObjects().Remove(this) == 0)
 		{
 			RemoveTickableObject(GetTickableObjects(), this, bIsTickingObjects);

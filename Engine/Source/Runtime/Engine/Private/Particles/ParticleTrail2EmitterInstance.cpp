@@ -1185,6 +1185,12 @@ void FParticleRibbonEmitterInstance::GetParticleLifetimeAndSize(int32 InTrailIdx
 	OutSize = CurrentSizes[InTrailIdx];
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+// Critical section used to display a message when particles are killed before max allowed count is reachen.
+// For instance, when (HighLODLevel->PeakActiveParticles > TrailTypeData->MaxParticleInTrailCount)
+static FCriticalSection GMaxParticleInTrailCountWarningCS;
+#endif
+
 float FParticleRibbonEmitterInstance::Spawn(float DeltaTime)
 {
 	bool bProcessSpawnRate = Spawn_Source(DeltaTime);
@@ -1434,13 +1440,17 @@ float FParticleRibbonEmitterInstance::Spawn(float DeltaTime)
 				{
 					if (Component && Component->GetWorld())
 					{
-						FString ErrorMessage = 
-							FString::Printf(TEXT("Ribbon with too many particles: %5d vs. %5d, %s"), 
-								ActiveParticles, LocalMaxParticleInTrailCount,
-								Component->Template ? *Component->Template->GetName() : TEXT("No template"));
-						FColor ErrorColor(255,0,0);
-						GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 5.0f, ErrorColor,ErrorMessage);
-						UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
+						const FString TemplateName = Component->Template ? *Component->Template->GetName() : TEXT("No template");
+						GMaxParticleInTrailCountWarningCS.Lock();
+						static TMap<FString, int32> TemplateMaxCountWarnings;
+						int32& MaxCount = TemplateMaxCountWarnings.FindOrAdd(TemplateName);
+						GMaxParticleInTrailCountWarningCS.Unlock();
+						if (MaxCount < ActiveParticles)
+						{
+							MaxCount = ActiveParticles;
+							FString ErrorMessage = FString::Printf(TEXT("Ribbon with too many particles: %5d vs. %5d, %s"), ActiveParticles, LocalMaxParticleInTrailCount, *TemplateName);
+							UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
+						}
 					}
 				}
 #endif	//#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1924,8 +1934,6 @@ bool FParticleRibbonEmitterInstance::Spawn_Source(float DeltaTime)
 								FString::Printf(TEXT("Ribbon with too many particles: %5d vs. %5d, %s"), 
 								ActiveParticles, LocalMaxParticleInTrailCount,
 								Component ? Component->Template ? *(Component->Template->GetName()) : TEXT("No template") : TEXT("No component"));
-							FColor ErrorColor(255,0,0);
-							GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 5.0f, ErrorColor,ErrorMessage);
 							UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
 						}
 					}
@@ -2782,8 +2790,6 @@ bool FParticleRibbonEmitterInstance::FillReplayData(FDynamicEmitterReplayDataBas
 						FString::Printf(TEXT("RIBBON: GetDynamicData -- TriangleCount == %d (APC = %4d) for PSys %s"),
 							TriangleCount, ActiveParticles, 
 							Component->Template ? *Component->Template->GetName() : TEXT("No Template"));
-					FColor ErrorColor(255,0,0);
-					GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 5.0f, ErrorColor,ErrorMessage);
 					UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
 				}
 #endif	//#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -4137,8 +4143,6 @@ bool FParticleAnimTrailEmitterInstance::FillReplayData( FDynamicEmitterReplayDat
 					FString::Printf(TEXT("ANIMTRAIL: GetDynamicData -- TriangleCount == 0 (APC = %4d) for PSys %s"),
 					ActiveParticles, 
 					Component->Template ? *Component->Template->GetName() : TEXT("No Template"));
-				FColor ErrorColor(255,0,0);
-				GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 5.0f, ErrorColor,ErrorMessage);
 				UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
 			}
 

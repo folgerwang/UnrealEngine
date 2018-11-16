@@ -1681,7 +1681,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 			TotalNumKeys = FMath::Max( TotalNumKeys, NumKeysForTrack );
 		}
 
-		DestSeq->NumFrames = TotalNumKeys;
+		DestSeq->SetRawNumberOfFrame(TotalNumKeys);
 
 		DestSeq->MarkRawDataAsModified();
 

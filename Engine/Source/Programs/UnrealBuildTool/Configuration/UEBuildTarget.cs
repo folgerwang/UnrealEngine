@@ -462,6 +462,11 @@ namespace UnrealBuildTool
 				RulesObject.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");
 			}
 
+			if (RulesObject.bDisableUnverifiedCertificates)
+			{
+				RulesObject.GlobalDefinitions.Add("DISABLE_UNVERIFIED_CERTIFICATE_LOADING=1");
+			}
+
 			// Allow the platform to finalize the settings
 			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			Platform.ValidateTarget(RulesObject);
@@ -3622,6 +3627,9 @@ namespace UnrealBuildTool
             {
                 GlobalCompileEnvironment.Definitions.Add("ENABLE_PGO_PROFILE=0");
             }
+
+			// Toggle to enable vorbis for audio streaming where available
+			GlobalCompileEnvironment.Definitions.Add("USE_VORBIS_FOR_STREAMING=1");
 
 			// Add the 'Engine/Source' path as a global include path for all modules
 			GlobalCompileEnvironment.IncludePaths.UserIncludePaths.Add(UnrealBuildTool.EngineSourceDirectory);

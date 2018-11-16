@@ -41,17 +41,24 @@ UUserWidget* UWidgetBlueprintLibrary::Create(UObject* WorldContextObject, TSubcl
 		return nullptr;
 	}
 
-	UUserWidget* UserWidget = nullptr;
+	if(GIsEditor)
+	{
+		if (UUserWidget* OwningWidget = Cast<UUserWidget>(WorldContextObject))
+		{
+			return CreateWidget(OwningWidget, WidgetType);
+		}
+	}
+
 	if (OwningPlayer)
 	{
-		UserWidget = CreateWidget(OwningPlayer, WidgetType);
+		return CreateWidget(OwningPlayer, WidgetType);
 	}
 	else if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 	{
-		UserWidget = CreateWidget(World, WidgetType);
+		return CreateWidget(World, WidgetType);
 	}
 
-	return UserWidget;
+	return nullptr;
 }
 
 UDragDropOperation* UWidgetBlueprintLibrary::CreateDragDropOperation(TSubclassOf<UDragDropOperation> Operation)

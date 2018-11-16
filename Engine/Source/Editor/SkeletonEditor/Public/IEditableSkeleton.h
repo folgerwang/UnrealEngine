@@ -41,6 +41,9 @@ public:
 	/** Set the blend profile scale for the specified bone */
 	virtual void SetBlendProfileScale(const FName& InBlendProfileName, const FName& InBoneName, float InNewScale, bool bInRecurse) = 0;
 
+	/** Creates a new socket on the skeleton */
+	virtual USkeletalMeshSocket* AddSocket(const FName& InBoneName) = 0;
+
 	/** Handle drag-drop socket duplication */
 	virtual class USkeletalMeshSocket* DuplicateSocket(const struct FSelectedSocketInfo& SocketInfoToDuplicate, const FName& NewParentBoneName, USkeletalMesh* InSkeletalMesh) = 0;
 

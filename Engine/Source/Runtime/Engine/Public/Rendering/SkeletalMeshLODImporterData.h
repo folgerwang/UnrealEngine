@@ -11,6 +11,9 @@
 #include "Serialization/BulkData.h"
 #include "Components.h"
 #include "GenericOctree.h"
+#include "Animation/MorphTarget.h"
+
+class FSkeletalMeshLODModel;
 
 namespace SkeletalMeshImportData
 {
@@ -347,13 +350,43 @@ public:
 };
 
 /**
+* Bulk data storage for raw ImportModel.
+*/
+struct FReductionBaseSkeletalMeshBulkData
+{
+	/** Internally store bulk data as bytes. */
+	FByteBulkData BulkData;
+
+public:
+	/** Default constructor. */
+	ENGINE_API FReductionBaseSkeletalMeshBulkData();
+
+	ENGINE_API static void Serialize(FArchive& Ar, TArray<FReductionBaseSkeletalMeshBulkData*>& ReductionBaseSkeletalMeshDatas, UObject* Owner);
+	/** Serialization. */
+	ENGINE_API void Serialize(class FArchive& Ar, class UObject* Owner);
+
+	/** Store a new raw mesh in the bulk data. */
+	ENGINE_API void SaveReductionData(FSkeletalMeshLODModel& BaseLODModel, TMap<FString, TArray<FMorphTargetDelta>>& BaseLODMorphTargetData);
+
+	/** Load the raw mesh from bulk data. */
+	ENGINE_API void LoadReductionData(FSkeletalMeshLODModel& BaseLODModel, TMap<FString, TArray<FMorphTargetDelta>>& BaseLODMorphTargetData);
+
+	ENGINE_API FByteBulkData& GetBulkData() { return BulkData; }
+
+	/** Empty the bulk data. */
+	ENGINE_API void EmptyBulkData() { BulkData.RemoveBulkData(); }
+
+	/** Returns true if no bulk data is available for this mesh. */
+	FORCEINLINE bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
+};
+
+/**
 * Bulk data storage for raw meshes.
 */
 class FRawSkeletalMeshBulkData
 {
 	/** Internally store bulk data as bytes. */
 	FByteBulkData BulkData;
-	/** GUID associated with the data stored herein. */
 	FGuid Guid;
 	/** If true, the GUID is actually a hash of the contents. */
 	bool bGuidIsHash;
@@ -378,6 +411,9 @@ public:
 	ENGINE_API void UseHashAsGuid(class UObject* Owner);
 
 	ENGINE_API FByteBulkData& GetBulkData();
+	
+	/** Empty the bulk data. */
+	ENGINE_API void EmptyBulkData() { BulkData.RemoveBulkData(); }
 
 	/** Returns true if no bulk data is available for this mesh. */
 	FORCEINLINE bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
@@ -468,6 +504,23 @@ struct FWedgeInfoOctreeSemantics
 };
 typedef TOctree<FWedgeInfo, FWedgeInfoOctreeSemantics> TWedgeInfoPosOctree;
 
+class FOctreeQueryHelper
+{
+public:
+	FOctreeQueryHelper(const TWedgeInfoPosOctree *InWedgePosOctree)
+		: WedgePosOctree(InWedgePosOctree)
+	{}
+	/*
+	* Find the nearest wedge indexes to SearchPosition.
+	*
+	* SearchPosition: The reference vertex position use to search the wedges
+	* OutNearestWedges: The nearest wedge indexes to SearchPosition
+	*/
+	ENGINE_API void FindNearestWedgeIndexes(const FVector& SearchPosition, TArray<FWedgeInfo>& OutNearestWedges);
+private:
+	const TWedgeInfoPosOctree *WedgePosOctree;
+};
+
 struct FWedgePosition
 {
 	FWedgePosition()
@@ -484,6 +537,11 @@ struct FWedgePosition
 		}
 	}
 
+	const TWedgeInfoPosOctree *GetOctree() const
+	{
+		return WedgePosOctree;
+	}
+
 	/*
 	 * Find all wedges index that match exactly the vertex position. OutResult will be empty if there is no match
 	 * 
@@ -494,14 +552,6 @@ struct FWedgePosition
 	 * ComparisonThreshold: The threshold use to exactly match the Position. Not use when bExactMatch is false
 	 */
 	void FindMatchingPositionWegdeIndexes(const FVector &Position, float ComparisonThreshold, TArray<int32>& OutResults);
-
-	/*
-	* Find the nearest wedge indexes to SearchPosition.
-	*
-	* SearchPosition: The reference vertex position use to search the wedges
-	* OutNearestWedges: The nearest wedge indexes to SearchPosition
-	*/
-	void FindNearestWedgeIndexes(const FVector& SearchPosition, TArray<FWedgeInfo>& OutNearestWedges);
 
 	// Fill the data:
 	// Create the SortedPosition use to find exact match (position)

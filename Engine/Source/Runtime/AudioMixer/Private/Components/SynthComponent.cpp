@@ -70,7 +70,7 @@ int32 USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
 		int16* OutAudioBuffer = (int16*)OutAudio.GetData();
 		for (int32 i = 0; i < NumSamples; ++i)
 		{
-			OutAudioBuffer[i] = (int16)(32767.0f * FloatBufferDataPtr[i]);
+			OutAudioBuffer[i] = (int16)(32767.0f * FMath::Clamp(FloatBufferDataPtr[i], -1.0f, 1.0f));
 		}
 		return NumSamplesGenerated;
 	}
@@ -239,7 +239,15 @@ void USynthComponent::CreateAudioComponent()
 #endif
 		if (AudioComponent->GetAttachParent() == nullptr && !AudioComponent->IsAttachedTo(this))
 		{
-			AudioComponent->SetupAttachment(this);
+			if (GetOwner() == nullptr || GetOwner()->GetWorld() == nullptr)
+			{
+				AudioComponent->SetupAttachment(this);
+			}
+			else
+			{
+				AudioComponent->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+				AudioComponent->RegisterComponent();
+			}
 		}
 
 		AudioComponent->OnAudioSingleEnvelopeValueNative.AddUObject(this, &USynthComponent::OnAudioComponentEnvelopeValue);
@@ -275,6 +283,11 @@ void USynthComponent::OnUnregister()
 	// Make sure the audio component is destroyed during unregister
 	if (AudioComponent)
 	{
+		if (Owner && Owner->GetWorld())
+		{
+			AudioComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			AudioComponent->UnregisterComponent();
+		}
 		AudioComponent->DestroyComponent();
 		AudioComponent = nullptr;
 	}

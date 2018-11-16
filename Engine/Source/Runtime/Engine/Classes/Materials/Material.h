@@ -986,8 +986,8 @@ public:
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
 	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, const FGuid& AttributeID ) override;
 	ENGINE_API virtual bool ShouldForcePlanePreview() override;
-#endif // WITH_EDITOR
 	ENGINE_API virtual void ForceRecompileForRendering() override;
+#endif // WITH_EDITOR
 	//~ End UMaterialInterface Interface.
 
 	//~ Begin UObject Interface
@@ -1128,7 +1128,7 @@ public:
 	* @return	Returns a array of parameter names used in this material for the specified expression type.
 	*/
 	template<typename ExpressionType>
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	void GetAllParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds, const TArray<FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const
 	{
 		OutParameterNames.Empty();
@@ -1223,17 +1223,17 @@ public:
 		}
 	}
 	
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllScalarParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllScalarParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllScalarParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllVectorParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllVectorParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllVectorParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllTextureParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllTextureParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllTextureParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllFontParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllFontParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllFontParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticSwitchParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticSwitchParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllStaticSwitchParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticComponentMaskParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticComponentMaskParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllStaticComponentMaskParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
 
 	ENGINE_API virtual void GetAllScalarParameterInfo(TArray<FMaterialParameterInfo>& OutParameterInfo, TArray<FGuid>& OutParameterIds) const override;
@@ -1564,9 +1564,6 @@ public:
 	/** Returns an array of the guids of parameter collections used in this material. */
 	void AppendReferencedParameterCollectionIdsTo(TArray<FGuid>& OutIds) const;
 
-	/** Returns an array of the guids of shared input collections used in this material. */
-	void AppendReferencedSharedInputCollectionIdsTo(TArray<FGuid>& OutIds) const;
-
 	/* Helper functions for text output of properties. */
 	static const TCHAR* GetMaterialShadingModelString(EMaterialShadingModel InMaterialShadingModel);
 	static EMaterialShadingModel GetMaterialShadingModelFromString(const TCHAR* InMaterialShadingModelStr);
@@ -1664,10 +1661,12 @@ public:
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
 	bool HasEmissiveColorConnected() const { return EmissiveColor.IsConnected(); }
 
+#if WITH_EDITOR
 	static void NotifyCompilationFinished(UMaterialInterface* Material);
 
 	DECLARE_EVENT_OneParam( UMaterial, FMaterialCompilationFinished, UMaterialInterface* );
 	ENGINE_API static FMaterialCompilationFinished& OnMaterialCompilationFinished();
+#endif // WITH_EDITOR
 
 	// For all materials, UMaterial::CacheResourceShadersForRendering
 	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering();
@@ -1697,7 +1696,9 @@ public:
 #endif //WITH_EDITORONLY_DATA
 
 private:
+#if WITH_EDITOR
 	static FMaterialCompilationFinished MaterialCompilationFinishedEvent;
+#endif // WITH_EDITOR
 
 	friend class FLightmassMaterialProxy;
 	/** Class that knows how to update Materials */

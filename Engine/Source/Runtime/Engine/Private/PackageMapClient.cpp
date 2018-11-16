@@ -678,8 +678,8 @@ void UPackageMapClient::InternalWriteObject( FArchive & Ar, FNetworkGUID NetGUID
 		else
 		{
 			// If we don't have an object, expect an already filled out path name
-			check( ObjectOuter != NULL );
-			check( !ObjectPathName.IsEmpty() );
+			checkf( ObjectOuter != NULL, TEXT("ObjectOuter is null. NetGuid: %s. Object: %s. ObjectPathName: %s"), *NetGUID.ToString(), *GetPathNameSafe(Object), *ObjectPathName );
+			checkf( !ObjectPathName.IsEmpty(), TEXT("ObjectPathName is empty. NetGuid: %s. Object: %s"), *NetGUID.ToString(), *GetPathNameSafe(Object));
 		}
 
 		const bool bIsPackage = ( NetGUID.IsStatic() && Object != NULL && Object->GetOuter() == NULL );
@@ -1245,10 +1245,10 @@ void UPackageMapClient::AddNetFieldExportGroup( const FString& PathName, TShared
 	NewNetFieldExportGroup->PathNameIndex = ++GuidCache->UniqueNetFieldExportGroupPathIndex;
 
 	check( !GuidCache->NetFieldExportGroupPathToIndex.Contains( NewNetFieldExportGroup->PathName ) );
-	check( !GuidCache->NetFieldExportGroupIndexToPath.Contains( NewNetFieldExportGroup->PathNameIndex ) );
+	check( !GuidCache->NetFieldExportGroupIndexToGroup.Contains( NewNetFieldExportGroup->PathNameIndex ) );
 
-	GuidCache->NetFieldExportGroupPathToIndex.Add( NewNetFieldExportGroup->PathName, NewNetFieldExportGroup->PathNameIndex );
-	GuidCache->NetFieldExportGroupIndexToPath.Add( NewNetFieldExportGroup->PathNameIndex, NewNetFieldExportGroup->PathName );
+	GuidCache->NetFieldExportGroupPathToIndex.Add(NewNetFieldExportGroup->PathName, NewNetFieldExportGroup->PathNameIndex);
+	GuidCache->NetFieldExportGroupIndexToGroup.Add(NewNetFieldExportGroup->PathNameIndex, NewNetFieldExportGroup.Get() );
 	GuidCache->NetFieldExportGroupMap.Add( NewNetFieldExportGroup->PathName, NewNetFieldExportGroup );
 }
 
@@ -1296,9 +1296,9 @@ void UPackageMapClient::SerializeNetFieldExportGroupMap( FArchive& Ar, bool bCle
 	else
 	{
 		// Clear all of our mappings, since we're starting over
-		GuidCache->NetFieldExportGroupMap.Empty();
-		GuidCache->NetFieldExportGroupPathToIndex.Empty();
-		GuidCache->NetFieldExportGroupIndexToPath.Empty();
+		GuidCache->NetFieldExportGroupMap.Reset();
+		GuidCache->NetFieldExportGroupPathToIndex.Reset();
+		GuidCache->NetFieldExportGroupIndexToGroup.Reset();
 
 		// Read the number of export groups
 		uint32 NumNetFieldExportGroups = 0;
@@ -1316,128 +1316,12 @@ void UPackageMapClient::SerializeNetFieldExportGroupMap( FArchive& Ar, bool bCle
 
 			// Assign index to path name
 			GuidCache->NetFieldExportGroupPathToIndex.Add( NetFieldExportGroup->PathName, NetFieldExportGroup->PathNameIndex );
-			GuidCache->NetFieldExportGroupIndexToPath.Add( NetFieldExportGroup->PathNameIndex, NetFieldExportGroup->PathName );
+			GuidCache->NetFieldExportGroupIndexToGroup.Add( NetFieldExportGroup->PathNameIndex, NetFieldExportGroup.Get() );
 
 			// Add the export group to the map
 			GuidCache->NetFieldExportGroupMap.Add( NetFieldExportGroup->PathName, NetFieldExportGroup );
 		}
 	}
-}
-
-void UPackageMapClient::AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunches )
-{
-	if ( NetFieldExports.Num() == 0 )
-	{
-		return;	// Nothing to do
-	}
-
-
-	check(Connection->InternalAck);
-
-	FOutBunch* ExportBunch = nullptr;
-	TSet< uint32 > ExportedPathInThisBunchAlready;
-
-	uint32 CurrentNetFieldExportCount = 0;
-
-	// Go through each layout, and try to export to single bunch, using a new bunch each time we fragment (go past max bunch size)
-	for ( const uint64 FieldExport : NetFieldExports )
-	{
-		// Parse the path name index and cmd index out of the uint64
-		uint32 PathNameIndex		= FieldExport >> 32;
-		uint32 NetFieldExportHandle	= FieldExport & ( ( (uint64)1 << 32 ) - 1 );
-
-		check( PathNameIndex != 0 );
-
-		FString PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked( PathNameIndex );
-		TSharedPtr< FNetFieldExportGroup > NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindChecked( PathName );
-
-		for ( int32 NumTries = 0; NumTries < 2; NumTries++ )
-		{
-			if ( ExportBunch == nullptr )
-			{
-				ExportBunch = new FOutBunch( this, Connection->GetMaxSingleBunchSizeBits() );
-				ExportBunch->SetAllowResize( false );
-				ExportBunch->SetAllowOverflow(true);
-				ExportBunch->bHasPackageMapExports = true;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				ExportBunch->DebugString = TEXT( "NetFieldExports" );
-#endif
-
-				ExportBunch->WriteBit( 1 );		// To signify this is a rep layout export
-
-				// Write stub net field export amount, we'll replace it with the final number when this bunch fills up (or we're done)
-				uint32 FakeNetFieldExportCount = 0;
-				*ExportBunch << FakeNetFieldExportCount;
-			}
-
-			// Save our spot so we can undo if we don't have enough room
-			FBitWriterMark LastExportMark;
-			LastExportMark.Init( *ExportBunch );
-
-			// Write path index
-			ExportBunch->SerializeIntPacked( PathNameIndex );
-
-			// Export the path if we need to
-			if ( !OverrideAckState->NetFieldExportGroupPathAcked.Contains( PathNameIndex ) && !ExportedPathInThisBunchAlready.Contains( PathNameIndex ) )
-			{
-				ExportBunch->WriteBit( 1 );
-				*ExportBunch << PathName;
-
-				int32 MaxExports = NetFieldExportGroup->NetFieldExports.Num();
-				*ExportBunch << MaxExports;
-			}
-			else
-			{
-				ExportBunch->WriteBit( 0 );
-			}
-
-			check( NetFieldExportHandle == NetFieldExportGroup->NetFieldExports[NetFieldExportHandle].Handle );
-
-			*ExportBunch << NetFieldExportGroup->NetFieldExports[NetFieldExportHandle];
-
-			if ( !ExportBunch->IsError() )
-			{
-				// We had enough room, continue on to the next one
-				ExportBunch->NetFieldExports.Add( FieldExport );		// Add this cmd to this bunch so we know to handle it during NotifyBunchCommit
-				ExportedPathInThisBunchAlready.Add( PathNameIndex );
-				CurrentNetFieldExportCount++;
-				break;
-			}
-
-			//
-			// If we get here, we overflowed, wrap up the currently pending bunch, and start a new one
-			//
-
-			if ( CurrentNetFieldExportCount == 0 || NumTries == 1 )
-			{
-				// This means we couldn't serialize a single compatible rep layout cmd into a single bunch. This should never happen unless a single cmd takes way too much space
-				UE_LOG( LogNetPackageMap, Fatal, TEXT( "AppendExportBunches: Failed to serialize NetFieldExportGroup into single bunch: %s, %i" ), *NetFieldExportGroup->PathName, NetFieldExportHandle );
-				return;
-			}
-
-			LastExportMark.Pop( *ExportBunch );
-
-			PatchHeaderCount( *ExportBunch, true, CurrentNetFieldExportCount );
-
-			OutgoingBunches.Add( ExportBunch );
-
-			// Reset bunch
-			ExportBunch					= nullptr;
-			CurrentNetFieldExportCount	= 0;
-
-			ExportedPathInThisBunchAlready.Empty();
-		}
-	}
-
-	// Wrap up the last bunch if needed
-	if ( CurrentNetFieldExportCount > 0 )
-	{
-		PatchHeaderCount( *ExportBunch, true, CurrentNetFieldExportCount );
-		OutgoingBunches.Add( ExportBunch );
-	}
-
-	NetFieldExports.Empty();
 }
 
 void UPackageMapClient::AppendExportData(FArchive& Archive)
@@ -1450,6 +1334,8 @@ void UPackageMapClient::AppendExportData(FArchive& Archive)
 
 void UPackageMapClient::ReceiveExportData(FArchive& Archive)
 {
+	check(Connection->InternalAck);
+
 	ReceiveNetFieldExports(Archive);
 	ReceiveNetExportGUIDs(Archive);
 }
@@ -1466,7 +1352,8 @@ void UPackageMapClient::AppendNetFieldExports(FArchive& Archive)
 		return;
 	}
 
-	TSet< uint32 > ExportedPathInThisBunchAlready;
+	TArray< uint32, TInlineAllocator<64> > ExportedPathInThisBunchAlready;
+	ExportedPathInThisBunchAlready.Reserve(NetFieldCount);
 
 	for (const uint64 FieldExport : NetFieldExports)
 	{
@@ -1476,8 +1363,9 @@ void UPackageMapClient::AppendNetFieldExports(FArchive& Archive)
 
 		check(PathNameIndex != 0);
 
-		FString PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked(PathNameIndex);
-		TSharedPtr< FNetFieldExportGroup > NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindChecked(PathName);
+		FNetFieldExportGroup* NetFieldExportGroup = GuidCache->NetFieldExportGroupIndexToGroup.FindChecked(PathNameIndex);
+		const FString& PathName = NetFieldExportGroup->PathName;
+
 		check(NetFieldExportHandle == NetFieldExportGroup->NetFieldExports[NetFieldExportHandle].Handle);
 
 		// Export the path if we need to
@@ -1490,13 +1378,16 @@ void UPackageMapClient::AppendNetFieldExports(FArchive& Archive)
 		{
 			uint32 NumExports = NetFieldExportGroup->NetFieldExports.Num();
 
-			Archive << PathName;
+			Archive << const_cast<FString&>(PathName);
 			Archive.SerializeIntPacked(NumExports);
 
 			ExportedPathInThisBunchAlready.Add(PathNameIndex);
 		}
 
 		Archive << NetFieldExportGroup->NetFieldExports[NetFieldExportHandle];
+
+		OverrideAckState->NetFieldExportGroupPathAcked.Add( PathNameIndex );
+		OverrideAckState->NetFieldExportAcked.Add( FieldExport );
 	}
 
 	NetFieldExports.Empty();
@@ -1504,6 +1395,8 @@ void UPackageMapClient::AppendNetFieldExports(FArchive& Archive)
 
 void UPackageMapClient::ReceiveNetFieldExports(FArchive& Archive)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("ReceiveNetFieldExports time"), STAT_ReceiveNetFieldExportsTime, STATGROUP_Net);
+
 	check(Connection->InternalAck);
 
 	// Read number of net field exports
@@ -1517,8 +1410,8 @@ void UPackageMapClient::ReceiveNetFieldExports(FArchive& Archive)
 
 		Archive.SerializeIntPacked(PathNameIndex);
 		Archive.SerializeIntPacked(WasExported);
-
-		TSharedPtr<FNetFieldExportGroup> NetFieldExportGroup;
+		
+		FNetFieldExportGroup* NetFieldExportGroup = nullptr;
 		if (!!WasExported)
 		{
 			FString PathName;
@@ -1528,23 +1421,26 @@ void UPackageMapClient::ReceiveNetFieldExports(FArchive& Archive)
 			Archive.SerializeIntPacked(NumExports);
 
 			GEngine->NetworkRemapPath(Connection->Driver, PathName, true);
-			GuidCache->NetFieldExportGroupIndexToPath.Add(PathNameIndex, PathName);
-			GuidCache->NetFieldExportGroupPathToIndex.Add(PathName, PathNameIndex);
 
-			NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef(PathName);
-			if (!NetFieldExportGroup.IsValid())
+			NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef(PathName).Get();
+			if (!NetFieldExportGroup)
 			{
-				NetFieldExportGroup = TSharedPtr<FNetFieldExportGroup>(new FNetFieldExportGroup());
+				TSharedPtr<FNetFieldExportGroup> NewNetFieldExportGroup(new FNetFieldExportGroup());
+				NetFieldExportGroup = NewNetFieldExportGroup.Get();
+
 				NetFieldExportGroup->PathName = PathName;
 				NetFieldExportGroup->PathNameIndex = PathNameIndex;
 				NetFieldExportGroup->NetFieldExports.SetNum(NumExports);
-				GuidCache->NetFieldExportGroupMap.Add(PathName, NetFieldExportGroup);
+
+				GuidCache->NetFieldExportGroupMap.Add(PathName, NewNetFieldExportGroup);
 			}
+
+			GuidCache->NetFieldExportGroupPathToIndex.Add(PathName, PathNameIndex);
+			GuidCache->NetFieldExportGroupIndexToGroup.Add(PathNameIndex, NetFieldExportGroup);
 		}
 		else
 		{
-			const FString& PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked(PathNameIndex);
-			NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef(PathName);
+			NetFieldExportGroup = GuidCache->NetFieldExportGroupIndexToGroup.FindChecked(PathNameIndex);
 		}
 
 		TArray<FNetFieldExport>& Exports = NetFieldExportGroup->NetFieldExports;
@@ -1576,119 +1472,44 @@ void UPackageMapClient::AppendNetExportGUIDs(FArchive& Archive)
 		Archive << GUIDData;
 	}
 
-	ExportGUIDArchives.Empty();
+	ExportGUIDArchives.Empty()	;
 }
 
 void UPackageMapClient::ReceiveNetExportGUIDs(FArchive& Archive)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("ReceiveNetExportGUIDs time"), STAT_ReceiveNetExportGUIDsTime, STATGROUP_Net);
+
 	check(Connection->InternalAck);
 	TGuardValue<bool> IsExportingGuard(GuidCache->IsExportingNetGUIDBunch, true);
 
 	uint32 NumGUIDs = 0;
 	Archive.SerializeIntPacked(NumGUIDs);
 
-	for (uint32 i = 0; i < NumGUIDs; i++)
+	if (bIgnoreReceivedExportGUIDs)
 	{
-		TArray<uint8> GUIDData;
-		Archive << GUIDData;
+		// Array Serialization works by first serializing an int32 count, and then serializing
+		// each member in the array.
+		// For arrays whose elements are only 1 byte, the array memory will just be dumped into the archive.
+		// Note, this is hacky and depends on the above (which are simple implementation details),
+		// but those details are likely not to change anytime soon, given how fundamental they are.
 
-		FMemoryReader Reader(GUIDData);
-		UObject* Object = nullptr;
-		InternalLoadObject(Reader, Object, 0);
-	}
-}
-
-void UPackageMapClient::ReceiveNetFieldExports( FInBunch &InBunch )
-{
-	// WARNING: If this code path is enabled for use beyond replay, it will need a security audit/rewrite
-	if (Connection->InternalAck)
-	{
-		// Read number of net field exports
-		uint32 NumLayoutCmdExports = 0;
-		InBunch << NumLayoutCmdExports;
-
-		for ( int32 i = 0; i < ( int32 )NumLayoutCmdExports; i++ )
+		int32 Count = 0;
+		for (uint32 i = 0; i < NumGUIDs; i++)
 		{
-			// Read the index that represents the name in the NetFieldExportGroupIndexToPath map
-			uint32 PathNameIndex;
-			InBunch.SerializeIntPacked( PathNameIndex );
-
-			if (InBunch.IsError())
-			{
-				break;
-			}
-
-
-			int32 MaxExports = 0;
-
-			// See if the path name was exported (we'll expect it if we haven't seen this index before)
-			if (InBunch.ReadBit() == 1)
-			{
-				FString PathName;
-
-				InBunch << PathName;
-				InBunch << MaxExports;
-
-				if (InBunch.IsError())
-				{
-					break;
-				}
-
-
-				GEngine->NetworkRemapPath(Connection->Driver, PathName, true);
-
-				GuidCache->NetFieldExportGroupPathToIndex.Add( PathName, PathNameIndex );
-				GuidCache->NetFieldExportGroupIndexToPath.Add( PathNameIndex, PathName );
-			}
-
-			// At this point, we expect to be able to find the entry in NetFieldExportGroupIndexToPath
-			const FString PathName = GuidCache->NetFieldExportGroupIndexToPath.FindChecked( PathNameIndex );
-
-			TSharedPtr< FNetFieldExportGroup > NetFieldExportGroup = GuidCache->NetFieldExportGroupMap.FindRef( PathName );
-
-			if ( !NetFieldExportGroup.IsValid() )
-			{
-				NetFieldExportGroup = TSharedPtr< FNetFieldExportGroup >( new FNetFieldExportGroup() );
-				NetFieldExportGroup->PathName = PathName;
-				NetFieldExportGroup->PathNameIndex = PathNameIndex;
-
-				NetFieldExportGroup->NetFieldExports.SetNum( MaxExports );
-
-				GuidCache->NetFieldExportGroupMap.Add( NetFieldExportGroup->PathName, NetFieldExportGroup );
-			}
-
-			FNetFieldExport NetFieldExport;
-
-			// Read the cmd
-			InBunch << NetFieldExport;
-
-			if (InBunch.IsError())
-			{
-				break;
-			}
-
-
-			TArray<FNetFieldExport>& NetFieldExportsRef = NetFieldExportGroup->NetFieldExports;
-
-			if ((int32)NetFieldExport.Handle < NetFieldExportsRef.Num())
-			{
-				// Assign it to the correct slot (NetFieldExport.Handle is just the index into the array)
-				NetFieldExportGroup->NetFieldExports[NetFieldExport.Handle] = NetFieldExport;
-			}
-			else
-			{
-				UE_LOG(LogNetPackageMap, Error, TEXT("ReceiveNetFieldExports: Invalid NetFieldExport Handle '%i', Max '%i'."),
-						NetFieldExport.Handle, NetFieldExportsRef.Num());
-
-				InBunch.SetError();
-			}
+			Archive << Count;
+			Archive.Seek(Count + Archive.Tell());
 		}
 	}
 	else
 	{
-		UE_LOG(LogNetPackageMap, Error, TEXT("ReceiveNetFieldExports: Entered Replay-only codepath, when Replay is not enabled."));
-
-		InBunch.SetError();
+		TArray<uint8> GUIDData;
+		for (uint32 i = 0; i < NumGUIDs; i++)
+		{
+			Archive << GUIDData;
+			FMemoryReader Reader(GUIDData);
+			UObject* Object = nullptr;
+			InternalLoadObject(Reader, Object, 0);
+		}
 	}
 }
 
@@ -1766,8 +1587,8 @@ void UPackageMapClient::NotifyBunchCommit( const int32 OutPacketId, const FOutBu
 	// For this to work with normal connections, we'll need to do real ack logic here
 	for ( int32 i = 0; i < OutBunch->NetFieldExports.Num(); i++ )
 	{
-		OverrideAckState->NetFieldExportGroupPathAcked.Add( OutBunch->NetFieldExports[i] >> 32, true );
-		OverrideAckState->NetFieldExportAcked.Add( OutBunch->NetFieldExports[i], true );
+		OverrideAckState->NetFieldExportGroupPathAcked.Add( OutBunch->NetFieldExports[i] >> 32 );
+		OverrideAckState->NetFieldExportAcked.Add( OutBunch->NetFieldExports[i] );
 	}
 
 	const TArray< FNetworkGUID >& ExportNetGUIDs = OutBunch->ExportNetGUIDs;
@@ -3214,6 +3035,16 @@ bool FNetGUIDCache::ShouldAsyncLoad() const
 		case EAsyncLoadMode::ForceEnable:	return true;
 		default: ensureMsgf( false, TEXT( "Invalid AsyncLoadMode: %i" ), (int32)AsyncLoadMode ); return false;
 	}
+}
+
+void FNetGUIDCache::ResetCacheForDemo()
+{
+	ObjectLookup.Reset();
+	NetGUIDLookup.Reset();
+
+	NetFieldExportGroupMap.Reset();
+	NetFieldExportGroupIndexToGroup.Reset();
+	NetFieldExportGroupPathToIndex.Reset();
 }
 
 //------------------------------------------------------

@@ -457,6 +457,13 @@ public:
 	void AssignActor(FMenuBuilder& MenuBuilder, FGuid ObjectBinding);
 	FGuid DoAssignActor(AActor*const* InActors, int32 NumActors, FGuid ObjectBinding);
 
+	/** Called when a user executes the assign selected to track menu item */
+	void AddActorsToBinding(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void ReplaceBindingWithActors(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void RemoveActorsFromBinding(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void RemoveAllBindings(FGuid ObjectBinding);
+	void RemoveInvalidBindings(FGuid ObjectBinding);
+
 	/** Called when a user executes the delete node menu item */
 	void DeleteNode(TSharedRef<FSequencerDisplayNode> NodeToBeDeleted);
 	void DeleteSelectedNodes();
@@ -464,13 +471,18 @@ public:
 	/** Called when a user executes the copy track menu item */
 	void CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNode>>& ObjectNodes);
 	void CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& TrackNodes);
-	void ExportTracksToText(TArray<UMovieSceneTrack*> TrackToExport, /*out*/ FString& ExportedText);
+	void ExportObjectsToText(TArray<UObject*> ObjectsToExport, /*out*/ FString& ExportedText);
 
 	/** Called when a user executes the paste track menu item */
 	bool CanPaste(const FString& TextToImport);
-	void PasteCopiedTracks();
-	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneTrack*>& ImportedTrack);
-	void ImportObjectsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
+	void DoPaste();
+	bool PasteTracks(const FString& TextToImport);
+	bool PasteSections(const FString& TextToImport);
+	bool PasteObjectBindings(const FString& TextToImport);
+	
+	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneTrack*>& ImportedTracks);
+	void ImportSectionsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneSection*>& ImportedSections);
+	void ImportObjectBindingsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
 
 	/** Called when a user executes the active node menu item */
 	void ToggleNodeActive();
@@ -536,6 +548,12 @@ public:
 
 	/** Copy the selected keys to the clipboard, then delete them as part of an undoable transaction */
 	void CutSelectedKeys();
+
+	/** Copy the selected sections to the clipboard */
+	void CopySelectedSections();
+
+	/** Copy the selected sections to the clipboard, then delete them as part of an undoable transaction */
+	void CutSelectedSections();
 
 	/** Get the in-memory clipboard stack */
 	const TArray<TSharedPtr<FMovieSceneClipboard>>& GetClipboardStack() const;

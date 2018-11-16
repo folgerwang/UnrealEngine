@@ -213,6 +213,7 @@ bool FLocalPlayerContext::IsFromLocalPlayer(const AActor* ActorToTest) const
 
 ULocalPlayer::ULocalPlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, SubsystemCollection(this)
 	, SlateOperations( FReply::Unhandled() )
 {
 	PendingLevelPlayerControllerClass = APlayerController::StaticClass();
@@ -245,6 +246,8 @@ void ULocalPlayer::PlayerAdded(UGameViewportClient* InViewportClient, int32 InCo
 {
 	ViewportClient		= InViewportClient;
 	ControllerId		= InControllerID;
+
+	SubsystemCollection.Initialize();
 }
 
 void ULocalPlayer::InitOnlineSession()
@@ -254,6 +257,7 @@ void ULocalPlayer::InitOnlineSession()
 
 void ULocalPlayer::PlayerRemoved()
 {
+	SubsystemCollection.Deinitialize();
 }
 
 bool ULocalPlayer::SpawnPlayActor(const FString& URL,FString& OutError, UWorld* InWorld)
@@ -1543,7 +1547,7 @@ void ULocalPlayer::SetControllerId( int32 NewControllerId )
 	{
 		UE_LOG(LogPlayerManagement, Log, TEXT("%s changing ControllerId from %i to %i"), *GetFName().ToString(), ControllerId, NewControllerId);
 
-		int32 CurrentControllerId = ControllerId;
+		const int32 CurrentControllerId = ControllerId;
 
 		// set this player's ControllerId to -1 so that if we need to swap controllerIds with another player we don't
 		// re-enter the function for this player.
@@ -1552,6 +1556,8 @@ void ULocalPlayer::SetControllerId( int32 NewControllerId )
 		// see if another player is already using this ControllerId; if so, swap controllerIds with them
 		GEngine->SwapControllerId(this, CurrentControllerId, NewControllerId);
 		ControllerId = NewControllerId;
+
+		OnControllerIdChanged().Broadcast(NewControllerId, CurrentControllerId);
 	}
 }
 

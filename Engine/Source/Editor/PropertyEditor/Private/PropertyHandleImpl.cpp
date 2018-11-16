@@ -2281,6 +2281,11 @@ bool FPropertyHandleBase::IsEditConst() const
 	return Implementation->IsEditConst();
 }
 
+bool FPropertyHandleBase::IsEditable() const
+{
+	return !IsEditConst();
+}
+
 FPropertyAccess::Result FPropertyHandleBase::GetValueAsFormattedString( FString& OutValue, EPropertyPortFlags PortFlags ) const
 {
 	return Implementation->GetValueAsString(OutValue, PortFlags);

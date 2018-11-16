@@ -24,7 +24,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Fonts",
 				"Runtime/SlateCore/Private/Input",
 				"Runtime/SlateCore/Private/Layout",
-				"Runtime/SlateCore/Private/Logging",
 				"Runtime/SlateCore/Private/Rendering",
 				"Runtime/SlateCore/Private/Sound",
 				"Runtime/SlateCore/Private/Styling",

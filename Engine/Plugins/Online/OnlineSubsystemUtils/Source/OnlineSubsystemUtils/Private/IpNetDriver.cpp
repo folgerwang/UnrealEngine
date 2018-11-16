@@ -76,6 +76,7 @@ TAutoConsoleVariable<int32> CVarNetIpNetDriverReceiveThreadPollTimeMS(
 
 UIpNetDriver::UIpNetDriver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, PauseReceiveEnd(0.f)
 	, ServerDesiredSocketReceiveBufferBytes(0x20000)
 	, ServerDesiredSocketSendBufferBytes(0x20000)
 	, ClientDesiredSocketReceiveBufferBytes(0x8000)
@@ -207,8 +208,7 @@ bool UIpNetDriver::InitConnect( FNetworkNotify* InNotify, const FURL& ConnectURL
 	ServerConnection->InitLocalConnection( this, Socket, ConnectURL, USOCK_Pending);
 	UE_LOG(LogNet, Log, TEXT("Game client on port %i, rate %i"), ConnectURL.Port, ServerConnection->CurrentNetSpeed );
 
-	// Create channel zero.
-	GetServerConnection()->CreateChannel( CHTYPE_Control, 1, 0 );
+	CreateInitialClientChannels();
 
 	return true;
 }
@@ -238,6 +238,15 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 	Super::TickDispatch( DeltaTime );
 
+#if !UE_BUILD_SHIPPING
+	PauseReceiveEnd = (PauseReceiveEnd != 0.f && PauseReceiveEnd - (float)FPlatformTime::Seconds() > 0.f) ? PauseReceiveEnd : 0.f;
+
+	if (PauseReceiveEnd != 0.f)
+	{
+		return;
+	}
+#endif
+
 	// Set the context on the world for this driver's level collection.
 	const int32 FoundCollectionIndex = World ? World->GetLevelCollections().IndexOfByPredicate([this](const FLevelCollection& Collection)
 	{
@@ -252,14 +261,16 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 	const double StartReceiveTime = FPlatformTime::Seconds();
 	double AlarmTime = StartReceiveTime + GIpNetDriverMaxDesiredTimeSliceBeforeAlarmSecs;
+	const bool bSlowFrameChecks = OnNetworkProcessingCausingSlowFrame.IsBound();
 
 	// Process all incoming packets.
 	uint8 Data[MAX_PACKET_SIZE];
-	uint8* DataRef = Data;
 	TSharedRef<FInternetAddr> FromAddr = SocketSubsystem->CreateInternetAddr();
 
 	for (; Socket != nullptr;)
 	{
+		// @todo: Remove the slow frame checks, eventually - potential DDoS and Switch platform constraint
+		if (bSlowFrameChecks)
 		{
 			const double CurrentTime = FPlatformTime::Seconds();
 			if (CurrentTime > AlarmTime)
@@ -313,7 +324,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			bOk = Socket->RecvFrom(Data, sizeof(Data), BytesRead, *FromAddr);
 		}
 
-		UIpConnection* Connection = nullptr;
+		UNetConnection* Connection = nullptr;
 		UIpConnection* const MyServerConnection = GetServerConnection();
 
 		if (bOk)
@@ -325,7 +336,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 				continue;
 			}
 
-			FPacketAudit::NotifyLowLevelReceive(DataRef, BytesRead);
+			FPacketAudit::NotifyLowLevelReceive(Data, BytesRead);
 		}
 		else
 		{
@@ -422,15 +433,28 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			}
 		}
 
+		bool bRecentlyDisconnectedClient = false;
+
 		if (Connection == nullptr)
 		{
 			UNetConnection** Result = MappedClientConnections.Find(FromAddr);
 
-			Connection = (Result != nullptr ? Cast<UIpConnection>(*Result) : nullptr);
+			if (Result != nullptr)
+			{
+				UNetConnection* ConnVal = *Result;
 
-			check(Connection == nullptr || Connection->RemoteAddr->CompareEndpoints(*FromAddr));
+				if (ConnVal != nullptr)
+				{
+					Connection = ConnVal;
+				}
+				else
+				{
+					bRecentlyDisconnectedClient = true;
+				}
+			}
+
+			check(Connection == nullptr || CastChecked<UIpConnection>(Connection)->RemoteAddr->CompareEndpoints(*FromAddr));
 		}
-
 
 		if( bOk == false )
 		{
@@ -461,7 +485,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			}
 			else
 			{
-				DDoS.IncNonConnPacketCounter();
+				bRecentlyDisconnectedClient ? DDoS.IncDisconnPacketCounter() : DDoS.IncNonConnPacketCounter();
 
 				if (LogPortUnreach && !DDoS.CheckLogRestrictions())
 				{
@@ -475,7 +499,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			bool bIgnorePacket = false;
 
 			// If we didn't find a client connection, maybe create a new one.
-			if( !Connection )
+			if (Connection == nullptr)
 			{
 				if (DDoS.IsDDoSDetectionEnabled())
 				{
@@ -486,7 +510,9 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 						continue;
 					}
 
-					DDoS.IncNonConnPacketCounter();
+
+					bRecentlyDisconnectedClient ? DDoS.IncDisconnPacketCounter() : DDoS.IncNonConnPacketCounter();
+
 					DDoS.CondCheckNonConnQuotasAndLimits();
 				}
 
@@ -495,97 +521,20 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 				if (bAcceptingConnection)
 				{
-					UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("NotifyAcceptingConnection accepted from: %s"),
-							*FromAddr->ToString(true));
+					UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("NotifyAcceptingConnection accepted from: %s"), *FromAddr->ToString(true));
 
-					bool bPassedChallenge = false;
-					TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect;
+					Connection = ProcessConnectionlessPacket(FromAddr, Data, BytesRead);
 
-					bIgnorePacket = true;
-
-					if (ConnectionlessHandler.IsValid() && StatelessConnectComponent.IsValid())
-					{
-						StatelessConnect = StatelessConnectComponent.Pin();
-						FString IncomingAddress = FromAddr->ToString(true);
-
-						const ProcessedPacket UnProcessedPacket =
-												ConnectionlessHandler->IncomingConnectionless(IncomingAddress, DataRef, BytesRead);
-
-						bPassedChallenge = !UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(IncomingAddress);
-
-						if (bPassedChallenge)
-						{
-							BytesRead = FMath::DivideAndRoundUp(UnProcessedPacket.CountBits, 8);
-
-							if (BytesRead > 0)
-							{
-								DataRef = UnProcessedPacket.Data;
-								bIgnorePacket = false;
-							}
-						}
-					}
-#if !UE_BUILD_SHIPPING
-					else if (FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
-					{
-						UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log,
-									TEXT("Accepting connection without handshake, due to '-NoPacketHandler'."))
-
-						bIgnorePacket = false;
-						bPassedChallenge = true;
-					}
-#endif
-					else
-					{
-						UE_LOG(LogNet, Log,
-								TEXT("Invalid ConnectionlessHandler (%i) or StatelessConnectComponent (%i); can't accept connections."),
-								(int32)(ConnectionlessHandler.IsValid()), (int32)(StatelessConnectComponent.IsValid()));
-					}
-
-					if (bPassedChallenge)
-					{
-						SCOPE_CYCLE_COUNTER(Stat_IpNetDriverAddNewConnection);
-
-						UE_LOG(LogNet, Log, TEXT("Server accepting post-challenge connection from: %s"), *FromAddr->ToString(true));
-
-						Connection = NewObject<UIpConnection>(GetTransientPackage(), NetConnectionClass);
-						check(Connection);
-
-#if STATELESSCONNECT_HAS_RANDOM_SEQUENCE
-						// Set the initial packet sequence from the handshake data
-						if (StatelessConnect.IsValid())
-						{
-							int32 ServerSequence = 0;
-							int32 ClientSequence = 0;
-
-							StatelessConnect->GetChallengeSequence(ServerSequence, ClientSequence);
-
-							Connection->InitSequence(ClientSequence, ServerSequence);
-						}
-#endif
-
-						Connection->InitRemoteConnection( this, Socket, World ? World->URL : FURL(), *FromAddr, USOCK_Open);
-
-						if (Connection->Handler.IsValid())
-						{
-							Connection->Handler->BeginHandshaking();
-						}
-
-						Notify->NotifyAcceptedConnection( Connection );
-						AddClientConnection(Connection);
-					}
-					else
-					{
-						UE_LOG( LogNet, VeryVerbose, TEXT( "Server failed post-challenge connection from: %s" ), *FromAddr->ToString( true ) );
-					}
+					bIgnorePacket = BytesRead == 0;
 				}
 				else
 				{
-					UE_LOG( LogNet, VeryVerbose, TEXT( "NotifyAcceptingConnection denied from: %s" ), *FromAddr->ToString( true ) );
+					UE_LOG(LogNet, VeryVerbose, TEXT("NotifyAcceptingConnection denied from: %s"), *FromAddr->ToString(true));
 				}
 			}
 
 			// Send the packet to the connection for processing.
-			if (Connection && !bIgnorePacket)
+			if (Connection != nullptr && !bIgnorePacket)
 			{
 				if (DDoS.IsDDoSDetectionEnabled())
 				{
@@ -593,7 +542,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 					DDoS.CondCheckNetConnLimits();
 				}
 
-				Connection->ReceivedRawPacket( DataRef, BytesRead );
+				Connection->ReceivedRawPacket(Data, BytesRead);
 			}
 		}
 	}
@@ -606,6 +555,151 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 	{
 		UE_LOG( LogNet, Warning, TEXT( "UIpNetDriver::TickDispatch: Took too long to receive packets. Time: %2.2f %s" ), DeltaReceiveTime, *GetName() );
 	}
+}
+
+UNetConnection* UIpNetDriver::ProcessConnectionlessPacket(const TSharedRef<FInternetAddr>& Address, uint8* Data, int32& CountBytesRef)
+{
+	UNetConnection* ReturnVal = nullptr;
+	TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect;
+	FString IncomingAddress = Address->ToString(true);
+	bool bPassedChallenge = false;
+	bool bRestartedHandshake = false;
+	bool bIgnorePacket = true;
+
+	if (ConnectionlessHandler.IsValid() && StatelessConnectComponent.IsValid())
+	{
+		StatelessConnect = StatelessConnectComponent.Pin();
+
+		const ProcessedPacket UnProcessedPacket = ConnectionlessHandler->IncomingConnectionless(IncomingAddress, Data, CountBytesRef);
+
+		if (!UnProcessedPacket.bError)
+		{
+			bPassedChallenge = StatelessConnect->HasPassedChallenge(IncomingAddress, bRestartedHandshake);
+
+			if (bPassedChallenge)
+			{
+				if (bRestartedHandshake)
+				{
+					UE_LOG(LogNet, Log, TEXT("Finding connection to update to new address: %s"), *IncomingAddress);
+
+					TSharedPtr<StatelessConnectHandlerComponent> CurComp;
+					UIpConnection* FoundConn = nullptr;
+
+					for (UNetConnection* const CurConn : ClientConnections)
+					{
+						CurComp = CurConn != nullptr ? CurConn->StatelessConnectComponent.Pin() : nullptr;
+
+						if (CurComp.IsValid() && StatelessConnect->DoesRestartedHandshakeMatch(*CurComp))
+						{
+							FoundConn = Cast<UIpConnection>(CurConn);
+							break;
+						}
+					}
+
+					if (FoundConn != nullptr)
+					{
+						UNetConnection* RemovedConn = nullptr;
+						TSharedRef<FInternetAddr> RemoteAddrRef = FoundConn->RemoteAddr.ToSharedRef();
+
+						verify(MappedClientConnections.RemoveAndCopyValue(RemoteAddrRef, RemovedConn) && RemovedConn == FoundConn);
+
+
+						// @todo: There needs to be a proper/standardized copy API for this. Also in IpConnection.cpp
+						bool bIsValid = false;
+
+						RemoteAddrRef->SetIp(*Address->ToString(false), bIsValid);
+						RemoteAddrRef->SetPort(Address->GetPort());
+
+
+						MappedClientConnections.Add(RemoteAddrRef, FoundConn);
+
+						ReturnVal = FoundConn;
+
+						UE_LOG(LogNet, Log, TEXT("Updated IP address for connection %s to: %s"), *FoundConn->Describe(), *IncomingAddress);
+					}
+					else
+					{
+						UE_LOG(LogNet, Log, TEXT("Failed to find an existing connection with a matching cookie. Restarted Handshake failed."));
+					}
+				}
+
+				CountBytesRef = FMath::DivideAndRoundUp(UnProcessedPacket.CountBits, 8);
+
+				if (CountBytesRef > 0)
+				{
+					FMemory::Memcpy(Data, UnProcessedPacket.Data, CountBytesRef);
+
+					bIgnorePacket = false;
+				}
+			}
+		}
+	}
+#if !UE_BUILD_SHIPPING
+	else if (FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
+	{
+		UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("Accepting connection without handshake, due to '-NoPacketHandler'."))
+
+		bIgnorePacket = false;
+		bPassedChallenge = true;
+	}
+#endif
+	else
+	{
+		UE_LOG(LogNet, Log, TEXT("Invalid ConnectionlessHandler (%i) or StatelessConnectComponent (%i); can't accept connections."),
+				(int32)(ConnectionlessHandler.IsValid()), (int32)(StatelessConnectComponent.IsValid()));
+	}
+
+	if (bPassedChallenge)
+	{
+		if (!bRestartedHandshake)
+		{
+			SCOPE_CYCLE_COUNTER(Stat_IpNetDriverAddNewConnection);
+
+			UE_LOG(LogNet, Log, TEXT("Server accepting post-challenge connection from: %s"), *IncomingAddress);
+
+			ReturnVal = NewObject<UIpConnection>(GetTransientPackage(), NetConnectionClass);
+			check(ReturnVal != nullptr);
+
+#if STATELESSCONNECT_HAS_RANDOM_SEQUENCE
+			// Set the initial packet sequence from the handshake data
+			if (StatelessConnect.IsValid())
+			{
+				int32 ServerSequence = 0;
+				int32 ClientSequence = 0;
+
+				StatelessConnect->GetChallengeSequence(ServerSequence, ClientSequence);
+
+				ReturnVal->InitSequence(ClientSequence, ServerSequence);
+			}
+#endif
+
+			ReturnVal->InitRemoteConnection(this, Socket, World ? World->URL : FURL(), *Address, USOCK_Open);
+
+			if (ReturnVal->Handler.IsValid())
+			{
+				ReturnVal->Handler->BeginHandshaking();
+			}
+
+			Notify->NotifyAcceptedConnection(ReturnVal);
+			AddClientConnection(ReturnVal);
+		}
+
+		if (StatelessConnect.IsValid())
+		{
+			StatelessConnect->ResetChallengeData();
+		}
+	}
+	else
+	{
+		UE_LOG(LogNet, VeryVerbose, TEXT( "Server failed post-challenge connection from: %s" ), *IncomingAddress);
+	}
+
+	if (bIgnorePacket)
+	{
+		CountBytesRef = 0;
+	}
+
+	return ReturnVal;
 }
 
 void UIpNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits, FOutPacketTraits& Traits)
@@ -722,12 +816,67 @@ bool UIpNetDriver::HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UW
 	return UNetDriver::Exec( InWorld, TEXT("SOCKETS"),Ar);
 }
 
+bool UIpNetDriver::HandlePauseReceiveCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	FString PauseTimeStr;
+	uint32 PauseTime;
+
+	if (FParse::Token(Cmd, PauseTimeStr, false) && (PauseTime = FCString::Atoi(*PauseTimeStr)) > 0)
+	{
+		Ar.Logf(TEXT("Pausing Socket Receives for '%i' seconds."), PauseTime);
+
+		PauseReceiveEnd = FPlatformTime::Seconds() + (double)PauseTime;
+	}
+	else
+	{
+		Ar.Logf(TEXT("Must specify a pause time, in seconds."));
+	}
+
+	return true;
+}
+
+#if !UE_BUILD_SHIPPING
+void UIpNetDriver::TestSuddenPortChange(uint32 NumConnections)
+{
+	if (ConnectionlessHandler.IsValid() && StatelessConnectComponent.IsValid())
+	{
+		TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect = StatelessConnectComponent.Pin();
+
+		for (int32 i = 0; i < ClientConnections.Num() && NumConnections-- > 0; i++)
+		{
+			// Reset the connection's port to pretend that we used to be sending traffic on an old connection. This is
+			// done because once the test is complete, we need to be back onto the port we started with. This
+			// fakes what happens in live with clients randomly sending traffic on a new port.
+			UIpConnection* const TestConnection = (UIpConnection*)ClientConnections[i];
+			TSharedRef<FInternetAddr> RemoteAddrRef = TestConnection->RemoteAddr.ToSharedRef();
+
+			MappedClientConnections.Remove(RemoteAddrRef);
+
+			TestConnection->RemoteAddr->SetPort(i + 9876);
+
+			MappedClientConnections.Add(RemoteAddrRef, TestConnection);
+
+			// We need to set AllowPlayerPortUnreach to true because the net driver will try sending traffic
+			// to the IP/Port we just set which is invalid. On Windows, this causes an error to be returned in
+			// RecvFrom (WSAECONNRESET). When AllowPlayerPortUnreach is true, these errors are ignored.
+			AllowPlayerPortUnreach = true;
+			UE_LOG(LogNet, Log, TEXT("TestSuddenPortChange - Changed this connection: %s."), *TestConnection->Describe());
+		}
+	}
+}
+#endif
+
 bool UIpNetDriver::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	if (FParse::Command(&Cmd,TEXT("SOCKETS")))
 	{
 		return HandleSocketsCommand( Cmd, Ar, InWorld );
 	}
+	else if (FParse::Command(&Cmd, TEXT("PauseReceive")))
+	{
+		return HandlePauseReceiveCommand(Cmd, Ar, InWorld);
+	}
+
 	return UNetDriver::Exec( InWorld, Cmd,Ar);
 }
 

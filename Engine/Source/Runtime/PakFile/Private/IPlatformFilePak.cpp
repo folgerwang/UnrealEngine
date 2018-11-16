@@ -99,7 +99,11 @@ private:
 	FCriticalSection SyncObject;
 };
 
-static FEncryptionKeyCache GRegisteredEncryptionKeys;
+FEncryptionKeyCache& GetRegisteredEncryptionKeys()
+{
+	static FEncryptionKeyCache Instance;
+	return Instance;
+}
 
 #if !UE_BUILD_SHIPPING
 static void TestRegisterEncryptionKey(const TArray<FString>& Args)
@@ -148,6 +152,16 @@ FFilenameSecurityDelegate& FPakPlatformFile::GetFilenameSecurityDelegate()
 	return Delegate;
 }
 
+FPakChunkSignatureCheckFailedHandler& FPakPlatformFile::GetPakChunkSignatureCheckFailedHandler()
+{
+	static FPakChunkSignatureCheckFailedHandler Delegate;
+	return Delegate;
+}
+FPakMasterSignatureTableCheckFailureHandler& FPakPlatformFile::GetPakMasterSignatureTableCheckFailureHandler()
+{
+	static FPakMasterSignatureTableCheckFailureHandler Delegate;
+	return Delegate;
+}
 
 #define USE_PAK_PRECACHE (!IS_PROGRAM && !WITH_EDITOR) // you can turn this off to use the async IO stuff without the precache
 
@@ -161,7 +175,7 @@ void FPakPlatformFile::GetPakEncryptionKey(FAES::FAESKey& OutKey, const FGuid& I
 
 	if (InEncryptionKeyGuid.IsValid())
 	{
-		verify(GRegisteredEncryptionKeys.GetKey(InEncryptionKeyGuid, OutKey));
+		verify(GetRegisteredEncryptionKeys().GetKey(InEncryptionKeyGuid, OutKey));
 	}
 	else
 	{
@@ -2562,6 +2576,7 @@ struct FCachedAsyncBlock
 	uint8* Processed; // decompressed, deencrypted and signature checked
 	FGraphEventRef CPUWorkGraphEvent;
 	int32 RawSize;
+	int32 DecompressionRawSize;
 	int32 ProcessedSize;
 	int32 RefCount;
 	int32 BlockIndex;
@@ -2573,6 +2588,7 @@ struct FCachedAsyncBlock
 		, Raw(nullptr)
 		, Processed(nullptr)
 		, RawSize(0)
+		, DecompressionRawSize(0)
 		, ProcessedSize(0)
 		, RefCount(0)
 		, BlockIndex(-1)
@@ -2805,7 +2821,8 @@ public:
 				}
 				else
 				{
-					DecryptData(Memory, Align(OriginalSize, FAES::AESBlockSize), EncryptionKeyGuid);
+					check(IsAligned(OriginalSize, FAES::AESBlockSize));
+					DecryptData(Memory, OriginalSize, EncryptionKeyGuid);
 				}
 			}
 		}
@@ -3131,11 +3148,8 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 					UE_LOG(LogPakFile, Warning, TEXT("Master signature table has changed since initialization!"));
 				}
 
-				ensure(bChunkHashesMatch);
-
-#if PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL
-				FPlatformMisc::RequestExit(true);
-#endif
+				FPakChunkSignatureCheckFailedData FailedData(PakData->Name.ToString(), HashCache[SignedChunkIndex % MaxHashesToCache], ThisHash, SignatureIndex);
+				FPakPlatformFile::GetPakChunkSignatureCheckFailedHandler().Broadcast(FailedData);
 			}
 		}
 
@@ -3296,6 +3310,7 @@ public:
 		Block.bInFlight = true;
 		check(!Block.RawRequest && !Block.Processed && !Block.Raw && !Block.CPUWorkGraphEvent.GetReference() && !Block.ProcessedSize && !Block.RawSize && !Block.bCPUWorkIsComplete);
 		Block.RawSize = FileEntry.CompressionBlocks[BlockIndex].CompressedEnd - FileEntry.CompressionBlocks[BlockIndex].CompressedStart;
+		Block.DecompressionRawSize = Block.RawSize;
 		if (FileEntry.IsEncrypted())
 		{
 			Block.RawSize = Align(Block.RawSize, FAES::AESBlockSize);
@@ -3354,15 +3369,25 @@ public:
 			if (FileEntry.IsEncrypted())
 			{
 				INC_DWORD_STAT(STAT_PakCache_CompressedDecrypts);
-				DecryptData(Block.Raw, Align(Block.RawSize, FAES::AESBlockSize), EncryptionKeyGuid);
+				check(IsAligned(Block.RawSize, FAES::AESBlockSize));
+				DecryptData(Block.Raw, Block.RawSize, EncryptionKeyGuid);
 			}
 
 			check(Block.ProcessedSize > 0);
 			INC_MEMORY_STAT_BY(STAT_AsyncFileMemory, Block.ProcessedSize);
 			Output = (uint8*)FMemory::Malloc(Block.ProcessedSize);
-			if( !FCompression::UncompressMemory((ECompressionFlags)FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()) )
+			if (FileEntry.IsEncrypted())
 			{
-				UE_LOG( LogPakFile, Fatal, TEXT("Pak Decompression failed. PakFile: %s. EntryOffset: %lld, EntrySize: %lld, CompressionMethod:%x Output:%p  ProcessedSize:%d  Buf:%p  RawSize:%d "), *PakFile.ToString(), FileEntry.Offset, FileEntry.Size, FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize );
+				check(Align(Block.DecompressionRawSize, FAES::AESBlockSize) == Block.RawSize);
+			}
+			else
+			{
+				check(Block.DecompressionRawSize == Block.RawSize);
+			}
+
+			if( !FCompression::UncompressMemory((ECompressionFlags)FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.DecompressionRawSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()) )
+			{
+				UE_LOG( LogPakFile, Fatal, TEXT("Pak Decompression failed. PakFile: %s. EntryOffset: %lld, EntrySize: %lld, CompressionMethod:%x Output:%p  ProcessedSize:%d  Buf:%p  RawSize:%d Block.DecompressionRawSize:%d"), *PakFile.ToString(), FileEntry.Offset, FileEntry.Size, FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize, Block.DecompressionRawSize);
 			}
 			FMemory::Free(Block.Raw);
 			Block.Raw = nullptr;
@@ -4057,7 +4082,7 @@ void FPakFile::Initialize(FArchive* Reader)
 		UE_CLOG(!((Info.IndexOffset + Info.IndexSize) >= 0 && (Info.IndexOffset + Info.IndexSize) <= CachedTotalSize), LogPakFile, Fatal, TEXT("Index end offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset + Info.IndexSize);
 
 		// If we aren't using a dynamic encryption key, process the pak file using the embedded key
-		if (!Info.EncryptionKeyGuid.IsValid() || GRegisteredEncryptionKeys.HasKey(Info.EncryptionKeyGuid))
+		if (!Info.EncryptionKeyGuid.IsValid() || GetRegisteredEncryptionKeys().HasKey(Info.EncryptionKeyGuid))
 		{
 			LoadIndex(Reader);
 
@@ -4938,6 +4963,7 @@ bool FPakPlatformFile::ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) 
 
 bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 {
+	SCOPED_BOOT_TIMING("FPakPlatformFile::Initialize");
 	// Inner is required.
 	check(Inner != NULL);
 	LowerLevel = Inner;
@@ -5088,7 +5114,7 @@ bool FPakPlatformFile::Mount(const TCHAR* InPakFilename, uint32 PakOrder, const 
 			{
 				UE_LOG(LogPakFile, Log, TEXT("Deferring mount of pak \"%s\" until encryption key '%s' becomes available"), InPakFilename, *Pak->GetInfo().EncryptionKeyGuid.ToString());
 
-				check(!GRegisteredEncryptionKeys.HasKey(Pak->GetInfo().EncryptionKeyGuid));
+				check(!GetRegisteredEncryptionKeys().HasKey(Pak->GetInfo().EncryptionKeyGuid));
 				FPakListDeferredEntry& Entry = PendingEncryptedPakFiles[PendingEncryptedPakFiles.Add(FPakListDeferredEntry())];
 				Entry.Filename = InPakFilename;
 				Entry.Path = InPath;
@@ -5303,9 +5329,10 @@ bool FPakPlatformFile::HandleUnmountPakDelegate(const FString& PakFilePath)
 
 void FPakPlatformFile::RegisterEncryptionKey(const FGuid& InGuid, const FAES::FAESKey& InKey)
 {
-	GRegisteredEncryptionKeys.AddKey(InGuid, InKey);
+	GetRegisteredEncryptionKeys().AddKey(InGuid, InKey);
 
 	int32 NumMounted = 0;
+	TSet<int32> ChunksToNotify;
 
 	for (const FPakListDeferredEntry& Entry : PendingEncryptedPakFiles)
 	{
@@ -5319,11 +5346,7 @@ void FPakPlatformFile::RegisterEncryptionKey(const FGuid& InGuid, const FAES::FA
 				int32 ChunkID = ParseChunkIDFromFilename(Entry.Filename);
 				if (ChunkID != INDEX_NONE)
 				{
-					IPlatformChunkInstall * ChunkInstall = FPlatformMisc::GetPlatformChunkInstall();
-					if (ChunkInstall)
-					{
-						ChunkInstall->ExternalNotifyChunkAvailable(ChunkID);
-					}
+					ChunksToNotify.Add(ChunkID);
 				}
 			}
 			else
@@ -5335,6 +5358,15 @@ void FPakPlatformFile::RegisterEncryptionKey(const FGuid& InGuid, const FAES::FA
 
 	if (NumMounted > 0)
 	{
+		IPlatformChunkInstall * ChunkInstall = FPlatformMisc::GetPlatformChunkInstall();
+		if (ChunkInstall)
+		{
+			for (int32 ChunkID : ChunksToNotify)
+			{
+				ChunkInstall->ExternalNotifyChunkAvailable(ChunkID);
+			}
+		}
+
 		PendingEncryptedPakFiles.RemoveAll([InGuid](const FPakListDeferredEntry& Entry) { return Entry.EncryptionKeyGuid == InGuid; });
 	}
 

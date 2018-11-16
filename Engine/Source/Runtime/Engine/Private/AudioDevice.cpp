@@ -57,6 +57,37 @@ FAutoConsoleVariableRef CVarDisableStoppingVoices(
 	TEXT("0: Not Disabled, 1: Disabled"),
 	ECVF_Default);
 
+static int32 ForceRealtimeDecompressionCvar = 0;
+FAutoConsoleVariableRef CVarForceRealtimeDecompression(
+	TEXT("au.ForceRealtimeDecompression"),
+	ForceRealtimeDecompressionCvar,
+	TEXT("When set to 1, this deliberately ensures that all audio assets are decompressed as they play, rather than fully on load.\n")
+	TEXT("0: Allow full decompression on load, 1: force realtime decompression."),
+	ECVF_Default);
+
+static float DecompressionThresholdCvar = 0.0f;
+FAutoConsoleVariableRef CVarDecompressionThreshold(
+	TEXT("au.DecompressionThreshold"),
+	DecompressionThresholdCvar,
+	TEXT("If non-zero, overrides the decompression threshold set in either the sound group or the platform's runtime settings.\n")
+	TEXT("Value: Maximum duration we should fully decompress, in seconds."),
+	ECVF_Default);
+
+static int32 RealtimeDecompressZeroDurationSoundsCvar = 0;
+FAutoConsoleVariableRef CVarForceRealtimeDecompressOnZeroDuration(
+	TEXT("au.RealtimeDecompressZeroDurationSounds"),
+	RealtimeDecompressZeroDurationSoundsCvar,
+	TEXT("When set to 1, we will fallback to realtime decoding any sound waves with an invalid duration..\n")
+	TEXT("0: Fully decompress sounds with a duration of 0, 1: realtime decompress sounds with a duration of 0."),
+	ECVF_Default);
+
+static int32 WaitForSoundWaveToLoadCvar = 1;
+FAutoConsoleVariableRef CVarWaitForSoundWaveToLoad(
+	TEXT("au.WaitForSoundWaveToLoad"),
+	WaitForSoundWaveToLoadCvar,
+	TEXT("When set to 1, we will refuse to play any sound unless the USoundWave has been loaded.\n")
+	TEXT("0: Attempt to play back, 1: Wait for load."),
+	ECVF_Default);
 
 /*-----------------------------------------------------------------------------
 FDynamicParameter implementation.
@@ -216,6 +247,11 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 
 	// If this is true, skip the initial startup precache so we can do it later in the flow
 	GConfig->GetBool(TEXT("Audio"), TEXT("DeferStartupPrecache"), bDeferStartupPrecache, GEngineIni);
+
+	// Hack: Make sure that Android defers startup sounds.
+#if PLATFORM_ANDROID
+	bDeferStartupPrecache = true;
+#endif
 
 	// Get an optional engine ini setting for platform headroom. 
 	float Headroom = 0.0f; // in dB
@@ -3272,7 +3308,8 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 		
 		// Make sure we've finished precaching the wave instance's wave data before trying to create a source for it
 		ESoundWavePrecacheState PrecacheState = WaveInstance->WaveData->GetPrecacheState();
-		if (PrecacheState == ESoundWavePrecacheState::InProgress)
+		const bool bIsSoundWaveStillLoading = WaveInstance->WaveData->HasAnyFlags(RF_NeedLoad);
+		if (PrecacheState == ESoundWavePrecacheState::InProgress || (WaitForSoundWaveToLoadCvar && bIsSoundWaveStillLoading))
 		{
 			continue;
 		}
@@ -4139,6 +4176,56 @@ bool FAudioDevice::LocationIsAudible(const FVector& Location, const FTransform& 
 	return (ListenerTranslation - Location).SizeSquared() < MaxDistanceSquared;
 }
 
+float FAudioDevice::GetDistanceToNearestListener(const FVector& Location) const
+{
+	const bool bInAudioThread = IsInAudioThread();
+	const bool bInGameThread = IsInGameThread();
+
+	check(bInAudioThread || bInGameThread);
+
+	float NearestDistSquared = FLT_MAX;
+	if (bInAudioThread)
+	{
+		for (const FListener& Listener : Listeners)
+		{
+			float DistSquared = GetSquaredDistanceToListener(Location, Listener.Transform);
+			if (DistSquared < NearestDistSquared)
+			{
+				NearestDistSquared = DistSquared;
+			}
+		}
+	}
+	else // bInGameThread
+	{
+		for (const FTransform& ListenerTransform : ListenerTransforms)
+		{
+			float DistSquared = GetSquaredDistanceToListener(Location, ListenerTransform);
+			if (DistSquared < NearestDistSquared)
+			{
+				NearestDistSquared = DistSquared;
+			}
+		}
+	}
+
+	return FMath::Sqrt(NearestDistSquared);
+}
+
+float FAudioDevice::GetSquaredDistanceToListener(const FVector& Location, const FTransform& ListenerTransform) const
+{	
+	FVector ListenerTranslation;
+	if (bUseListenerAttenuationOverride)
+	{
+		ListenerTranslation = ListenerAttenuationOverride;
+	}
+	else
+	{
+		ListenerTranslation = ListenerTransform.GetTranslation();
+	}
+
+	return (ListenerTranslation - Location).SizeSquared();
+}
+
+
 void FAudioDevice::GetMaxDistanceAndFocusFactor(USoundBase* Sound, const UWorld* World, const FVector& Location, const FSoundAttenuationSettings* AttenuationSettingsToApply, float& OutMaxDistance, float& OutFocusFactor)
 {
 	check(IsInGameThread());
@@ -4722,6 +4809,7 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 		// Make sure any in-flight audio rendering commands get executed.
 		FlushAudioRenderingCommands();
 	}
+
 }
 
 /**
@@ -4810,8 +4898,21 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 	{
 		const FSoundGroup& SoundGroup = GetDefault<USoundGroups>()->GetSoundGroup(SoundWave->SoundGroup);
 
-		// Check to see if there is an override for the compression duration on this platform in the project settings:
-		float CompressedDurationThreshold = FPlatformCompressionUtilities::GetCompressionDurationForCurrentPlatform();
+		if (SoundWave->Duration <= 0.0f)
+		{
+			UE_LOG(LogAudio, Warning, TEXT("Sound Wave reported a duration of zero. This will likely result in incorrect decoding."));
+		}
+
+		
+		// Check to see if the compression duration threshold is overridden via CVar:
+		float CompressedDurationThreshold = DecompressionThresholdCvar;
+		// If not, check to see if there is an override for the compression duration on this platform in the project settings:
+		if (CompressedDurationThreshold <= 0.0f)
+		{
+			CompressedDurationThreshold = FPlatformCompressionUtilities::GetCompressionDurationForCurrentPlatform();
+		}
+
+		// If there is neither a CVar override nor a runtime setting override, use the decompression threshold from the sound group directly:
 		if (CompressedDurationThreshold < 0.0f)
 		{
 			CompressedDurationThreshold = SoundGroup.DecompressedDuration;
@@ -4823,7 +4924,11 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 			SoundWave->DecompressionType = DTYPE_Streaming;
 			SoundWave->bCanProcessAsync = false;
 		}
-		else if (!bForceFullDecompression && SupportsRealtimeDecompression() &&  ((bDisableAudioCaching || DisablePCMAudioCaching()) || (!SoundGroup.bAlwaysDecompressOnLoad && SoundWave->Duration > CompressedDurationThreshold)))
+		else if (!bForceFullDecompression &&
+				  SupportsRealtimeDecompression() &&
+				  ((bDisableAudioCaching || DisablePCMAudioCaching()) ||
+				  (!SoundGroup.bAlwaysDecompressOnLoad &&
+				  (ForceRealtimeDecompressionCvar || SoundWave->Duration > CompressedDurationThreshold || (RealtimeDecompressZeroDurationSoundsCvar && SoundWave->Duration <= 0.0f)))))
 		{
 			// Store as compressed data and decompress in realtime
 			SoundWave->DecompressionType = DTYPE_RealTime;

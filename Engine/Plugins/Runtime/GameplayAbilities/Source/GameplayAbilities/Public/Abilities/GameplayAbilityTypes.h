@@ -172,46 +172,6 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	virtual void ClearActorInfo();
 };
 
-
-/** Used as a key for storing internal ability data */
-USTRUCT()
-struct FGameplayAbilitySpecHandleAndPredictionKey
-{
-	GENERATED_USTRUCT_BODY()
-
-	FGameplayAbilitySpecHandleAndPredictionKey()
-		: PredictionKeyAtCreation(0)
-	{}
-
-	FGameplayAbilitySpecHandleAndPredictionKey(const FGameplayAbilitySpecHandle& HandleRef, const FPredictionKey& PredictionKeyAtCreationRef)
-		: AbilityHandle(HandleRef), PredictionKeyAtCreation(PredictionKeyAtCreationRef.Current)
-	{}
-
-	bool operator==(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
-	{
-		return AbilityHandle == Other.AbilityHandle && PredictionKeyAtCreation == Other.PredictionKeyAtCreation;
-	}
-
-	bool operator!=(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
-	{
-		return AbilityHandle != Other.AbilityHandle || PredictionKeyAtCreation != Other.PredictionKeyAtCreation;
-	}
-
-	friend uint32 GetTypeHash(const FGameplayAbilitySpecHandleAndPredictionKey& Handle)
-	{
-		return GetTypeHash(Handle.AbilityHandle) ^ Handle.PredictionKeyAtCreation;
-	}
-
-private:
-
-	UPROPERTY()
-	FGameplayAbilitySpecHandle AbilityHandle;
-
-	UPROPERTY()
-	int32 PredictionKeyAtCreation;
-};
-
-
 /** Data about montages that is replicated to simulated clients */
 USTRUCT()
 struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
@@ -526,4 +486,123 @@ private:
 
 	UAbilitySystemComponent* ASC;
 	FGameplayAbilitySpecHandle AbilityHandle;
+};
+
+
+/** Used as a key for storing internal ability data */
+USTRUCT()
+struct GAMEPLAYABILITIES_API FGameplayAbilitySpecHandleAndPredictionKey
+{
+	GENERATED_USTRUCT_BODY()
+
+	FGameplayAbilitySpecHandleAndPredictionKey()
+		: PredictionKeyAtCreation(0)
+	{}
+
+	FGameplayAbilitySpecHandleAndPredictionKey(const FGameplayAbilitySpecHandle& HandleRef, const FPredictionKey& PredictionKeyAtCreationRef)
+		: AbilityHandle(HandleRef), PredictionKeyAtCreation(PredictionKeyAtCreationRef.Current)
+	{}
+
+	bool operator==(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
+	{
+		return AbilityHandle == Other.AbilityHandle && PredictionKeyAtCreation == Other.PredictionKeyAtCreation;
+	}
+
+	bool operator!=(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
+	{
+		return AbilityHandle != Other.AbilityHandle || PredictionKeyAtCreation != Other.PredictionKeyAtCreation;
+	}
+
+	friend uint32 GetTypeHash(const FGameplayAbilitySpecHandleAndPredictionKey& Handle)
+	{
+		return GetTypeHash(Handle.AbilityHandle) ^ Handle.PredictionKeyAtCreation;
+	}
+
+	UPROPERTY()
+	FGameplayAbilitySpecHandle AbilityHandle;
+
+	UPROPERTY()
+	int32 PredictionKeyAtCreation;
+};
+
+/** Struct defining the cached data for a specific gameplay ability. This data is generally synchronized client->server in a network game. */
+struct GAMEPLAYABILITIES_API FAbilityReplicatedDataCache
+{
+	/** What elements this activation is targeting */
+	FGameplayAbilityTargetDataHandle TargetData;
+
+	/** What tag to pass through when doing an application */
+	FGameplayTag ApplicationTag;
+
+	/** True if we've been positively confirmed our targeting, false if we don't know */
+	bool bTargetConfirmed;
+
+	/** True if we've been positively cancelled our targeting, false if we don't know */
+	bool bTargetCancelled;
+
+	/** Delegate to call whenever this is modified */
+	FAbilityTargetDataSetDelegate TargetSetDelegate;
+
+	/** Delegate to call whenever this is confirmed (without target data) */
+	FSimpleMulticastDelegate TargetCancelledDelegate;
+
+	/** Generic events that contain no payload data */
+	FAbilityReplicatedData	GenericEvents[EAbilityGenericReplicatedEvent::MAX];
+
+	/** Prediction Key when this data was set */
+	FPredictionKey PredictionKey;
+
+	FAbilityReplicatedDataCache() : bTargetConfirmed(false), bTargetCancelled(false) {}
+	virtual ~FAbilityReplicatedDataCache() { }
+
+	/** Resets any cached data, leaves delegates up */
+	void Reset()
+	{
+		bTargetConfirmed = bTargetCancelled = false;
+		TargetData = FGameplayAbilityTargetDataHandle();
+		ApplicationTag = FGameplayTag();
+		PredictionKey = FPredictionKey();
+		for (int32 i=0; i < (int32) EAbilityGenericReplicatedEvent::MAX; ++i)
+		{
+			GenericEvents[i].bTriggered = false;
+			GenericEvents[i].VectorPayload = FVector::ZeroVector;
+		}
+	}
+
+	/** Resets cached data and clears delegates. */
+	void ResetAll()
+	{
+		Reset();
+		TargetSetDelegate.Clear();
+		TargetCancelledDelegate.Clear();
+		for (int32 i=0; i < (int32) EAbilityGenericReplicatedEvent::MAX; ++i)
+		{
+			GenericEvents[i].Delegate.Clear();
+		}
+	}
+};
+
+
+/** 
+ *	Associative container of GameplayAbilitySpecs + PredictionKeys --> FAbilityReplicatedDataCache. Basically, it holds replicated data on the ability system component that abilities access in their scripting.
+ *	This was refactored from a normal TMap. This mainly servers to:
+ *		1. Return shared ptrs to the cached data so that callsites are not vulnerable to the underlying map shifting around (E.g invoking a replicated event ends the ability or activates a new one and causes memory to move, invalidating the pointer).
+ *		2. Data is cleared on ability end via ::Remove.
+ *		3. The FAbilityReplicatedDataCache instances are recycled rather than allocated each time via ::FreeData.
+ * 
+ **/
+struct FGameplayAbilityReplicatedDataContainer
+{
+	GAMEPLAYABILITIES_API TSharedPtr<FAbilityReplicatedDataCache> Find(const FGameplayAbilitySpecHandleAndPredictionKey& Key) const;
+	GAMEPLAYABILITIES_API TSharedRef<FAbilityReplicatedDataCache> FindOrAdd(const FGameplayAbilitySpecHandleAndPredictionKey& Key);
+
+	void Remove(const FGameplayAbilitySpecHandleAndPredictionKey& Key);
+	void PrintDebug();
+
+private:
+
+	typedef TPair<FGameplayAbilitySpecHandleAndPredictionKey, TSharedRef<FAbilityReplicatedDataCache>> FKeyDataPair;
+
+	TArray<FKeyDataPair> InUseData;
+	TArray<TSharedRef<FAbilityReplicatedDataCache>> FreeData;
 };

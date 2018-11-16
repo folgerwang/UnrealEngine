@@ -462,7 +462,7 @@ enum class ECopyType : uint8
 	// Just copy the memory
 	MemCopy,
 
-	// Read and write properties using bool property helpers, as source/dest could be bitfirld or boolean
+	// Read and write properties using bool property helpers, as source/dest could be bitfield or boolean
 	BoolProperty,
 	
 	// Use struct copy operation, as this needs to correctly handle CPP struct ops
@@ -479,28 +479,32 @@ struct FExposedValueCopyRecord
 	GENERATED_USTRUCT_BODY()
 
 	FExposedValueCopyRecord()
-		: SourceProperty_DEPRECATED(nullptr)
-		, SourcePropertyName(NAME_None)
+		:
+#if WITH_EDITORONLY_DATA
+		  SourceProperty_DEPRECATED(nullptr), 
+#endif
+		  SourcePropertyName(NAME_None)
 		, SourceSubPropertyName(NAME_None)
 		, SourceArrayIndex(0)
-		, DestProperty(nullptr)
-		, DestArrayIndex(0)
-		, Size(0)
 		, bInstanceIsTarget(false)
 		, PostCopyOperation(EPostCopyOperation::None)
 		, CopyType(ECopyType::MemCopy)
+		, DestProperty(nullptr)
+		, DestArrayIndex(0)
+		, Size(0)
 		, CachedSourceProperty(nullptr)
 		, CachedSourceStructSubProperty(nullptr)
-		, CachedSourceContainer(nullptr)
-		, CachedDestContainer(nullptr)
-		, Source(nullptr)
-		, Dest(nullptr)
 	{}
 
+	void* GetDestAddr(FAnimInstanceProxy* Proxy, const UProperty* NodeProperty) const;
+	const void* GetSourceAddr(FAnimInstanceProxy* Proxy) const;
+
+#if WITH_EDITORONLY_DATA
 	void PostSerialize(const FArchive& Ar);
 
 	UPROPERTY()
 	UProperty* SourceProperty_DEPRECATED;
+#endif
 
 	UPROPERTY()
 	FName SourcePropertyName;
@@ -510,15 +514,6 @@ struct FExposedValueCopyRecord
 
 	UPROPERTY()
 	int32 SourceArrayIndex;
-
-	UPROPERTY()
-	UProperty* DestProperty;
-
-	UPROPERTY()
-	int32 DestArrayIndex;
-
-	UPROPERTY()
-	int32 Size;
 
 	// Whether or not the anim instance object is the target for the copy instead of a node.
 	UPROPERTY()
@@ -530,26 +525,24 @@ struct FExposedValueCopyRecord
 	UPROPERTY(Transient)
 	ECopyType CopyType;
 
+	UPROPERTY()
+	UProperty* DestProperty;
+
+	UPROPERTY()
+	int32 DestArrayIndex;
+
+	UPROPERTY()
+	int32 Size;
+
 	// cached source property
 	UPROPERTY()
 	UProperty* CachedSourceProperty;
 
 	UPROPERTY()
 	UProperty* CachedSourceStructSubProperty;
-
-	// cached source container for use with boolean operations
-	void* CachedSourceContainer;
-
-	// cached dest container for use with boolean operations
-	void* CachedDestContainer;
-
-	// Cached source copy ptr
-	void* Source;
-
-	// Cached dest copy ptr
-	void* Dest;
 };
 
+#if WITH_EDITORONLY_DATA
 template<>
 struct TStructOpsTypeTraits< FExposedValueCopyRecord > : public TStructOpsTypeTraitsBase2< FExposedValueCopyRecord >
 {
@@ -558,6 +551,7 @@ struct TStructOpsTypeTraits< FExposedValueCopyRecord > : public TStructOpsTypeTr
 		WithPostSerialize = true,
 	};
 };
+#endif
 
 // An exposed value updater
 USTRUCT()
@@ -568,6 +562,7 @@ struct ENGINE_API FExposedValueHandler
 	FExposedValueHandler()
 		: BoundFunction(NAME_None)
 		, Function(nullptr)
+		, ValueHandlerNodeProperty(nullptr)
 		, bInitialized(false)
 	{
 	}
@@ -584,11 +579,20 @@ struct ENGINE_API FExposedValueHandler
 	UPROPERTY()
 	UFunction* Function;
 
+	// Node property that this value handler is associated with, when the node
+	// is instantiated from this property the node's ExposedValueHandler will 
+	// point back to this FExposedValueHandler:
+	UPROPERTY()
+	UStructProperty* ValueHandlerNodeProperty;
+
 	// Prevent multiple initialization
 	bool bInitialized;
 
+	// Helper function to bind an array of handlers:
+	static void Initialize(TArray<FExposedValueHandler>& Handlers, UObject* ClassDefaultObject );
+
 	// Bind copy records and cache UFunction if necessary
-	void Initialize(FAnimNode_Base* AnimNode, UObject* AnimInstanceObject);
+	void Initialize(UObject* AnimInstanceObject, int32 NodeOffset);
 
 	// Execute the function and copy records
 	void Execute(const FAnimationBaseContext& Context) const;
@@ -605,10 +609,6 @@ USTRUCT()
 struct ENGINE_API FAnimNode_Base
 {
 	GENERATED_USTRUCT_BODY()
-
-	// The default handler for graph-exposed inputs
-	UPROPERTY(meta=(BlueprintCompilerGeneratedDefaults))
-	FExposedValueHandler EvaluateGraphExposedInputs;
 
 	/** 
 	 * Called when the node first runs. If the node is inside a state machine or cached pose branch then this can be called multiple times. 
@@ -699,29 +699,43 @@ struct ENGINE_API FAnimNode_Base
 	virtual ~FAnimNode_Base() {}
 
 	/** Deprecated functions */
-	DEPRECATED(4.17, "Please use Initialize_AnyThread instead")
+	UE_DEPRECATED(4.17, "Please use Initialize_AnyThread instead")
 	virtual void Initialize(const FAnimationInitializeContext& Context);
-	DEPRECATED(4.17, "Please use CacheBones_AnyThread instead")
+	UE_DEPRECATED(4.17, "Please use CacheBones_AnyThread instead")
 	virtual void CacheBones(const FAnimationCacheBonesContext& Context) {}
-	DEPRECATED(4.17, "Please use Update_AnyThread instead")
+	UE_DEPRECATED(4.17, "Please use Update_AnyThread instead")
 	virtual void Update(const FAnimationUpdateContext& Context) {}
-	DEPRECATED(4.17, "Please use Evaluate_AnyThread instead")
+	UE_DEPRECATED(4.17, "Please use Evaluate_AnyThread instead")
 	virtual void Evaluate(FPoseContext& Output) { check(false); }
-	DEPRECATED(4.17, "Please use EvaluateComponentSpace_AnyThread instead")
+	UE_DEPRECATED(4.17, "Please use EvaluateComponentSpace_AnyThread instead")
 	virtual void EvaluateComponentSpace(FComponentSpacePoseContext& Output) { check(false); }
-	DEPRECATED(4.20, "Please use ResetDynamics with an ETeleportPhysics flag instead")
+	UE_DEPRECATED(4.20, "Please use ResetDynamics with an ETeleportPhysics flag instead")
 	virtual void ResetDynamics() {}
+
+	// The default handler for graph-exposed inputs:
+	const FExposedValueHandler& GetEvaluateGraphExposedInputs();
+
+	// Initialization function for the default handler for graph-exposed inputs, used only by instancing code:
+	void SetExposedValueHandler(const FExposedValueHandler* Handler) 
+	{ 
+		ExposedValueHandler = Handler; 
+	}
+
 protected:
 	/** return true if enabled, otherwise, return false. This is utility function that can be used per node level */
 	bool IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy);
 	virtual int32 GetLODThreshold() const { return INDEX_NONE; }
 
 	/** Deprecated function */
-	DEPRECATED(4.17, "Please use OnInitializeAnimInstance instead")
+	UE_DEPRECATED(4.17, "Please use OnInitializeAnimInstance instead")
 	virtual void RootInitialize(const FAnimInstanceProxy* InProxy) {}
 
 	/** Called once, from game thread as the parent anim instance is created */
 	virtual void OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance);
 
 	friend struct FAnimInstanceProxy;
+
+private:		
+	// Reference to the exposed value handler used by this node. Allocated on the class, rather than per instance:
+	const FExposedValueHandler* ExposedValueHandler = nullptr;
 };

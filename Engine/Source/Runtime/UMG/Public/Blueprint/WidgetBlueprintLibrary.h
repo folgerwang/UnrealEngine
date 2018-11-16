@@ -42,7 +42,7 @@ public:
 	static UDragDropOperation* CreateDragDropOperation(TSubclassOf<UDragDropOperation> OperationClass);
 	
 	/** Setup an input mode that allows only the UI to respond to user input. */
-	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_UIOnlyEx instead")
+	UE_DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_UIOnlyEx instead")
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode UI Only instead"), DisplayName = "Set Input Mode UI Only (Deprecated)")
 	static void SetInputMode_UIOnly(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false);
 
@@ -51,7 +51,7 @@ public:
 	static void SetInputMode_UIOnlyEx(APlayerController* PlayerController, UWidget* InWidgetToFocus = nullptr, EMouseLockMode InMouseLockMode = EMouseLockMode::DoNotLock);
 
 	/** Setup an input mode that allows only the UI to respond to user input, and if the UI doesn't handle it player input / player controller gets a chance. */
-	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_GameAndUIEx instead")
+	UE_DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_GameAndUIEx instead")
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode Game And UI instead"), DisplayName = "Set Input Mode Game And UI (Deprecated)")
 	static void SetInputMode_GameAndUI(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false, bool bHideCursorDuringCapture = true);
 

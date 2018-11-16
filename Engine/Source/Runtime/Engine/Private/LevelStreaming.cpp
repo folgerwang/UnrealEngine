@@ -762,6 +762,8 @@ void ULevelStreaming::SetLoadedLevel(ULevel* Level)
 
 	if (LoadedLevel)
 	{
+		LoadedLevel->OwningWorld = World;
+
 		// Remove the loaded level from its current collection, if any.
 		if (LoadedLevel->GetCachedLevelCollection())
 		{

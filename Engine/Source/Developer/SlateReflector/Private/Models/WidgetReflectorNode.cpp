@@ -621,7 +621,7 @@ FText FWidgetReflectorNodeUtils::GetWidgetClippingText(const TSharedPtr<SWidget>
 
 FText FWidgetReflectorNodeUtils::GetWidgetReadableLocation(const TSharedPtr<SWidget>& InWidget)
 {
-	return (InWidget.IsValid()) ? FText::FromString(FReflectionMetaData::GetWidgetDebugInfo(InWidget.Get())) : FText::GetEmpty();
+	return FText::FromString(FReflectionMetaData::GetWidgetDebugInfo(InWidget.Get()));
 }
 
 FString FWidgetReflectorNodeUtils::GetWidgetFile(const TSharedPtr<SWidget>& InWidget)

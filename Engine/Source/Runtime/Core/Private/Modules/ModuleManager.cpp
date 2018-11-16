@@ -434,7 +434,10 @@ IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModu
 		if (ModuleInfo->Module.IsValid())
 		{
 			// Startup the module
-			ModuleInfo->Module->StartupModule();
+			{
+				FScopedBootTiming BootScope("LoadModuleWithFailureReason:StartupModule  - ", InModuleName);
+				ModuleInfo->Module->StartupModule();
+			}
 			// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
 			ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
 

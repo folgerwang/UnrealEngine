@@ -728,12 +728,13 @@ public:
 
 	void SetNavigationOctreeLock(bool bLock) { bNavOctreeLock = bLock; }
 
+	/** checks if auto-rebuilding navigation data is enabled. Defaults to bNavigationAutoUpdateEnabled
+	*	value, but can be overridden per nav sys instance */
+	virtual bool GetIsAutoUpdateEnabled() const { return bNavigationAutoUpdateEnabled; }
+
 #if WITH_EDITOR
 	/** allow editor to toggle whether seamless navigation building is enabled */
 	static void SetNavigationAutoUpdateEnabled(bool bNewEnable, UNavigationSystemBase* InNavigationSystem);
-
-	/** check whether seamless navigation building is enabled*/
-	FORCEINLINE static bool GetIsNavigationAutoUpdateEnabled() { return bNavigationAutoUpdateEnabled; }
 
 	FORCEINLINE bool IsNavigationRegisterLocked() const { return NavUpdateLockFlags != 0; }
 	FORCEINLINE bool IsNavigationUnregisterLocked() const { return NavUpdateLockFlags && !(NavUpdateLockFlags & ENavigationLockReason::AllowUnregister); }
@@ -974,28 +975,30 @@ public:
 	// DEPRECATED
 	//----------------------------------------------------------------------//
 public:
-	DEPRECATED(4.16, "This version of ProjectPointToNavigation is deprecated. Please use the new version")
+	UE_DEPRECATED(4.16, "This version of ProjectPointToNavigation is deprecated. Please use the new version")
 	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContextObject", DisplayName = "ProjectPointToNavigation_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "This version of ProjectPointToNavigation is deprecated. Please use the new version"))
 	static FVector ProjectPointToNavigation(UObject* WorldContextObject, const FVector& Point, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL, const FVector QueryExtent = FVector::ZeroVector);
-	DEPRECATED(4.16, "This version of GetRandomReachablePointInRadius is deprecated. Please use the new version")
+	UE_DEPRECATED(4.16, "This version of GetRandomReachablePointInRadius is deprecated. Please use the new version")
 	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContextObject", DisplayName = "GetRandomReachablePointInRadius_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "This version of GetRandomReachablePointInRadius is deprecated. Please use the new version"))
 	static FVector GetRandomReachablePointInRadius(UObject* WorldContextObject, const FVector& Origin, float Radius, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL);
-	DEPRECATED(4.16, "This version of GetRandomPointInNavigableRadius is deprecated. Please use the new version")
+	UE_DEPRECATED(4.16, "This version of GetRandomPointInNavigableRadius is deprecated. Please use the new version")
 	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContextObject", DisplayName = "GetRandomPointInNavigableRadius_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "This version of GetRandomPointInNavigableRadius is deprecated. Please use the new version"))
 	static FVector GetRandomPointInNavigableRadius(UObject* WorldContextObject, const FVector& Origin, float Radius, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL);
-	DEPRECATED(4.20, "SimpleMoveToActor is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToActor instead")
+	UE_DEPRECATED(4.20, "SimpleMoveToActor is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToActor instead")
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToActor_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToActor is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToActor instead"))
 	static void SimpleMoveToActor(AController* Controller, const AActor* Goal);
-	DEPRECATED(4.20, "SimpleMoveToLocation is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToLocation instead")
+	UE_DEPRECATED(4.20, "SimpleMoveToLocation is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToLocation instead")
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToLocation_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToLocation is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToLocation instead"))
 	static void SimpleMoveToLocation(AController* Controller, const FVector& Goal);
-	DEPRECATED(4.20, "UNavigationSystem::GetDefaultWalkableArea is deprecated. Use FNavigationSystem::GetDefaultWalkableArea instead")
+	UE_DEPRECATED(4.20, "UNavigationSystem::GetDefaultWalkableArea is deprecated. Use FNavigationSystem::GetDefaultWalkableArea instead")
 	static TSubclassOf<UNavAreaBase> GetDefaultWalkableArea() { return FNavigationSystem::GetDefaultWalkableArea(); }
-	DEPRECATED(4.20, "UNavigationSystem::GetDefaultObstacleArea is deprecated. Use FNavigationSystem::GetDefaultObstacleArea instead")
+	UE_DEPRECATED(4.20, "UNavigationSystem::GetDefaultObstacleArea is deprecated. Use FNavigationSystem::GetDefaultObstacleArea instead")
 	static TSubclassOf<UNavAreaBase> GetDefaultObstacleArea() { return FNavigationSystem::GetDefaultObstacleArea(); }
 };
 
-
+//----------------------------------------------------------------------//
+// UNavigationSystemModuleConfig 
+//----------------------------------------------------------------------//
 UCLASS()
 class NAVIGATIONSYSTEM_API UNavigationSystemModuleConfig : public UNavigationSystemConfig
 {

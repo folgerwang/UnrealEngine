@@ -37,6 +37,8 @@ void SBackgroundBlur::Construct(const FArguments& InArgs)
 	[
 		InArgs._Content.Widget
 	];
+
+	SetCanTick(false);
 }
 
 void SBackgroundBlur::SetContent(const TSharedRef<SWidget>& InContent)
@@ -46,41 +48,65 @@ void SBackgroundBlur::SetContent(const TSharedRef<SWidget>& InContent)
 
 void SBackgroundBlur::SetApplyAlphaToBlur(bool bInApplyAlphaToBlur)
 {
-	bApplyAlphaToBlur = bInApplyAlphaToBlur;
-	Invalidate(EInvalidateWidget::Layout);
+	if(bApplyAlphaToBlur != bInApplyAlphaToBlur)
+	{
+		bApplyAlphaToBlur = bInApplyAlphaToBlur;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SBackgroundBlur::SetBlurRadius(const TAttribute<TOptional<int32>>& InBlurRadius)
 {
-	BlurRadius = InBlurRadius;
-	Invalidate(EInvalidateWidget::Layout);
+	if(!BlurRadius.IdenticalTo(InBlurRadius))
+	{
+		BlurRadius = InBlurRadius;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SBackgroundBlur::SetBlurStrength(const TAttribute<float>& InStrength)
 {
-	BlurStrength = InStrength;
-	Invalidate(EInvalidateWidget::Layout);
+	if(!BlurStrength.IdenticalTo(InStrength))
+	{
+		BlurStrength = InStrength;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SBackgroundBlur::SetLowQualityBackgroundBrush(const FSlateBrush* InBrush)
 {
-	LowQualityFallbackBrush = InBrush;
-	Invalidate(EInvalidateWidget::Layout);
+	if(LowQualityFallbackBrush != InBrush)
+	{
+		LowQualityFallbackBrush = InBrush;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SBackgroundBlur::SetHAlign(EHorizontalAlignment HAlign)
 {
-	ChildSlot.HAlignment = HAlign;
+	if (ChildSlot.HAlignment != HAlign)
+	{
+		ChildSlot.HAlignment = HAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SBackgroundBlur::SetVAlign(EVerticalAlignment VAlign)
 {
-	ChildSlot.VAlignment = VAlign;
+	if (ChildSlot.VAlignment != VAlign)
+	{
+		ChildSlot.VAlignment = VAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SBackgroundBlur::SetPadding(const TAttribute<FMargin>& InPadding)
 {
-	ChildSlot.SlotPadding = InPadding;
+	if (!ChildSlot.SlotPadding.IdenticalTo(InPadding))
+	{
+		ChildSlot.SlotPadding = InPadding;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 bool SBackgroundBlur::IsUsingLowQualityFallbackBrush() const

@@ -39,6 +39,8 @@ namespace Audio
 		virtual FAudioPlatformSettings GetPlatformSettings() const override;
 		virtual void SuspendContext() override;
 		virtual void ResumeContext() override;
+		virtual bool SupportsRealtimeDecompression() const override;
+
 		//~ End IAudioMixerPlatformInterface
 		
 	private:

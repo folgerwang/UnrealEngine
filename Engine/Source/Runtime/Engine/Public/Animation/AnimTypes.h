@@ -193,13 +193,13 @@ public:
 		SkipFrames = InMasterCounter.SkipFrames;
 	}
 
-	DEPRECATED(4.19, "Use the specific IsSynchronized_* functions to determing sync state")
+	UE_DEPRECATED(4.19, "Use the specific IsSynchronized_* functions to determing sync state")
 	bool IsSynchronizedWith(const FGraphTraversalCounter& InMasterCounter) const
 	{
 		return IsSynchronized_Counter(InMasterCounter);
 	}
 
-	DEPRECATED(4.19, "Use the specific WasSynchronizedLast* functions to determine sync state")
+	UE_DEPRECATED(4.19, "Use the specific WasSynchronizedLast* functions to determine sync state")
 	bool WasSynchronizedInTheLastFrame(const FGraphTraversalCounter& InMasterCounter) const
 	{
 		return WasSynchronizedCounter(InMasterCounter);

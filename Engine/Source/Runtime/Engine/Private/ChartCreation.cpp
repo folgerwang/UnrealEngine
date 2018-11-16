@@ -650,6 +650,7 @@ void FPerformanceTrackingChart::Reset(const FDateTime& InStartTime)
 	StartBatteryLevel = -1;
 	StopBatteryLevel = -1;
 	DeviceProfileName = UDeviceProfileManager::GetActiveProfileName();
+	bIsChartingPaused = false;
 }
 
 
@@ -697,12 +698,23 @@ void FPerformanceTrackingChart::StartCharting()
 	StartTemperatureLevel = FPlatformMisc::GetDeviceTemperatureLevel();
 	StartBatteryLevel = FPlatformMisc::GetBatteryLevel();
 	DeviceProfileName = UDeviceProfileManager::GetActiveProfileName();
+	bIsChartingPaused = false;
 }
 
 void FPerformanceTrackingChart::StopCharting()
 {
 	StopTemperatureLevel = FPlatformMisc::GetDeviceTemperatureLevel();
 	StopBatteryLevel = FPlatformMisc::GetBatteryLevel();
+}
+
+void FPerformanceTrackingChart::PauseCharting()
+{
+	bIsChartingPaused = true;
+}
+
+void FPerformanceTrackingChart::ResumeCharting()
+{
+	bIsChartingPaused = false;
 }
 
 void FPerformanceTrackingChart::OnDeviceProfileManagerUpdated()
@@ -721,7 +733,7 @@ void FPerformanceTrackingChart::ProcessFrame(const FFrameData& FrameData)
 	AccumulatedChartTime += FrameData.TrueDeltaSeconds;
 
 	// if we aren't binning this frame (it took too long) then don't update anything but the relevant disregard stats.
-	if (FrameData.bBinThisFrame)
+	if (FrameData.bBinThisFrame && !bIsChartingPaused)
 	{
 		// Handle the frame time histogram
 		FrametimeHistogram.AddMeasurement(FrameData.DeltaSeconds);
@@ -1193,19 +1205,10 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 
 	// determine which pipeline time is the greatest (between game thread, render thread, and GPU)
 	const float EpsilonCycles = 0.250f;
-	uint32 MaxThreadTimeValue = FMath::Max3<uint32>( LocalRenderThreadTime, GGameThreadTime, LocalGPUFrameTime );
+	uint32 MaxThreadTimeValue = FMath::Max(TArray<uint32> {LocalRenderThreadTime, GGameThreadTime, LocalGPUFrameTime, LocalRHIThreadTime});
 	const float FrameTime = FPlatformTime::ToSeconds(MaxThreadTimeValue);
 
 	const float EngineTargetMS = FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS();
-
-	// Try to estimate a GPU time even if the current platform does not support GPU timing
-	uint32 PossibleGPUTime = LocalGPUFrameTime;
-	if (PossibleGPUTime == 0)
-	{
-		// if we are over
-		PossibleGPUTime = static_cast<uint32>(FMath::Max( FrameTime, DeltaSeconds ) / FPlatformTime::GetSecondsPerCycle() );
-		MaxThreadTimeValue = FMath::Max3<uint32>( GGameThreadTime, LocalRenderThreadTime, PossibleGPUTime );
-	}
 
 	FrameData.IdleSeconds = FApp::GetIdleTime();
 	FrameData.GameThreadTimeSeconds = FPlatformTime::ToSeconds(GGameThreadTime);
@@ -1230,31 +1233,23 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 		const float TargetThreadTimeSeconds = EngineTargetMS * MSToSeconds;
 		if (DeltaSeconds > TargetThreadTimeSeconds)
 		{
-			// If GPU time is inferred we can only determine GPU > threshold if we are GPU bound.
-			bool bAreWeGPUBoundIfInferred = true;
-
 			if (FrameData.GameThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bGameThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			if (FrameData.RenderThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bRenderThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			if (FrameData.RHIThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bRHIThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			// Consider this frame GPU bound if we have an actual measurement which is over the limit,
-			if (((LocalGPUFrameTime != 0) && (FrameData.GPUTimeSeconds >= TargetThreadTimeSeconds)) ||
-				// Or if we don't have a measurement but neither of the other threads were the slowest
-				((LocalGPUFrameTime == 0) && bAreWeGPUBoundIfInferred && (PossibleGPUTime == MaxThreadTimeValue)))
+			if (FrameData.GPUTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bGPUBound = true;
 			}
@@ -1302,7 +1297,7 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 						// Bound by RHI thread
 						FrameData.HitchStatus = EFrameHitchType::RHIThread;
 					}
-					else if (PossibleGPUTime == MaxThreadTimeValue)
+					else if (LocalGPUFrameTime >= (MaxThreadTimeValue - EpsilonCycles))
 					{
 						// Bound by GPU
 						FrameData.HitchStatus = EFrameHitchType::GPU;
@@ -1463,7 +1458,7 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 			FString OutputDirectory = FPerformanceTrackingSystem::CreateOutputDirectory(CaptureStartTime);
 			const FString PlatformName = FPlatformProperties::PlatformName();
 			FString CsvProfileFilename = TEXT("CsvProfile-") + CaptureStartTime.ToString() + TEXT("-") + PlatformName + TEXT(".csv");
-			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename, FString(), false);
+			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename, false);
 		}
 	}
 #endif

@@ -720,7 +720,8 @@ void ULandscapeComponent::GetLightAndShadowMapMemoryUsage( int32& LightMapMemory
 	int32 Width, Height;
 	GetLightMapResolution(Width, Height);
 
-	const auto FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
+	UWorld* World = GetWorld();
+	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	if(AllowHighQualityLightmaps(FeatureLevel))
 	{

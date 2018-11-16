@@ -11,6 +11,7 @@
 #include "UObject/UObjectIterator.h"
 #include "EngineUtils.h"
 #include "Logging/MessageLog.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "NavAreas/NavArea.h"
 #include "NavigationOctree.h"
 #include "VisualLogger/VisualLogger.h"
@@ -83,6 +84,7 @@ DEFINE_STAT(STAT_Navigation_AdjustingNavLinks);
 DEFINE_STAT(STAT_Navigation_AddingActorsToNavOctree);
 DEFINE_STAT(STAT_Navigation_RecastTick);
 DEFINE_STAT(STAT_Navigation_RecastPathfinding);
+DEFINE_STAT(STAT_Navigation_RecastTestPath);
 DEFINE_STAT(STAT_Navigation_RecastBuildCompressedLayers);
 DEFINE_STAT(STAT_Navigation_RecastBuildNavigation);
 DEFINE_STAT(STAT_Navigation_UpdateNavOctree);
@@ -97,8 +99,6 @@ DEFINE_STAT(STAT_Navigation_OffsetFromCorners);
 DEFINE_STAT(STAT_Navigation_PathVisibilityOptimisation);
 DEFINE_STAT(STAT_Navigation_ObservedPathsCount);
 DEFINE_STAT(STAT_Navigation_RecastMemory);
-
-CSV_DEFINE_CATEGORY(NAV_SYSTEM, true);
 
 //----------------------------------------------------------------------//
 // consts
@@ -776,6 +776,8 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		else
 		{
 			const bool bIsBuildLocked = IsNavigationBuildingLocked();
+			const bool bAllowRebuild = !bIsBuildLocked && GetIsAutoUpdateEnabled();
+
 			if (GetDefaultNavDataInstance(FNavigationSystem::DontCreate) != NULL)
 			{
 				// trigger navmesh update
@@ -788,7 +790,7 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 
 						if (Result == RegistrationSuccessful)
 						{
-							if (!bIsBuildLocked && bNavigationAutoUpdateEnabled)
+							if (bAllowRebuild)
 							{
 								NavData->RebuildAll();
 							}
@@ -831,13 +833,12 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		}
 	}
 
+#if	WITH_EDITOR
 	if (Mode == FNavigationSystemRunMode::EditorMode)
 	{
-#if	WITH_EDITOR
 		// make sure this static get applied to this instance
 		bNavigationAutoUpdateEnabled = !bNavigationAutoUpdateEnabled; 
 		SetNavigationAutoUpdateEnabled(!bNavigationAutoUpdateEnabled, this);
-#endif		
 		
 		// update navigation invokers
 		if (bGenerateNavigationOnlyAroundNavigationInvokers)
@@ -852,12 +853,13 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		}
 
 		// update navdata after loading world
-		if (bNavigationAutoUpdateEnabled)
+		if (GetIsAutoUpdateEnabled())
 		{
 			const bool bIsLoadTime = true;
 			RebuildAll(bIsLoadTime);
 		}
 	}
+#endif
 
 	if (!bCanAccumulateDirtyAreas)
 	{
@@ -993,7 +995,6 @@ void UNavigationSystemV1::Tick(float DeltaSeconds)
 	if (!bAsyncBuildPaused)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
-		CSV_SCOPED_TIMING_STAT(NAV_SYSTEM, Navigation_TickAsyncBuild);
 
 		for (ANavigationData* NavData : NavDataSet)
 		{
@@ -1040,10 +1041,11 @@ void UNavigationSystemV1::SetNavigationAutoUpdateEnabled(bool bNewEnable, UNavig
 		UNavigationSystemV1* NavSystem = Cast<UNavigationSystemV1>(InNavigationSystemBase);
 		if (NavSystem)
 		{
-			NavSystem->bCanAccumulateDirtyAreas = bNavigationAutoUpdateEnabled 
+			const bool bCurrentIsEnabled = NavSystem->GetIsAutoUpdateEnabled();
+			NavSystem->bCanAccumulateDirtyAreas = bCurrentIsEnabled
 				|| (NavSystem->OperationMode != FNavigationSystemRunMode::EditorMode && NavSystem->OperationMode != FNavigationSystemRunMode::InvalidMode);
 
-			if (bNavigationAutoUpdateEnabled)
+			if (bCurrentIsEnabled)
 			{
 				const bool bSkipRebuildsInEditor = false;
 				NavSystem->RemoveNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor, bSkipRebuildsInEditor);
@@ -1743,7 +1745,10 @@ void UNavigationSystemV1::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 			{
 				NavData->ConditionalConstructGenerator();
 				ARecastNavMesh* RecastNavMesh = Cast<ARecastNavMesh>(NavData);
-				if (RecastNavMesh) RecastNavMesh->RequestDrawingUpdate();
+				if (RecastNavMesh)
+				{
+					RecastNavMesh->RequestDrawingUpdate();
+				}
 			}
 		}
 	}
@@ -4341,7 +4346,7 @@ void UNavigationSystemV1::GetOnScreenMessages(TMultiMap<FCoreDelegates::EOnScree
 {
 	// check navmesh
 #if WITH_EDITOR
-	const bool bIsNavigationAutoUpdateEnabled = UNavigationSystemV1::GetIsNavigationAutoUpdateEnabled();
+	const bool bIsNavigationAutoUpdateEnabled = GetIsAutoUpdateEnabled();
 #else
 	const bool bIsNavigationAutoUpdateEnabled = true;
 #endif

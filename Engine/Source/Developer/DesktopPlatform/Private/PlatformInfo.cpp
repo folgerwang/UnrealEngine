@@ -11,6 +11,7 @@
 namespace PlatformInfo
 {
 	TArray<FName> AllPlatformGroupNames;
+	TArray<FName> AllVanillaPlatformNames;
 
 namespace
 {
@@ -35,6 +36,11 @@ FPlatformInfo BuildPlatformInfo(const FName& InPlatformInfoName, const FName& In
 		{
 			PlatformInfo.VanillaPlatformName = InPlatformInfoName;
 		}
+	}
+
+	if (PlatformInfo.VanillaPlatformName != NAME_None)
+	{
+		PlatformInfo::AllVanillaPlatformNames.AddUnique(PlatformInfo.VanillaPlatformName);
 	}
 
 	PlatformInfo.DisplayName = InDisplayName;
@@ -341,6 +347,11 @@ EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName)
 const TArray<FName>& GetAllPlatformGroupNames()
 {
 	return PlatformInfo::AllPlatformGroupNames;
+}
+
+const TArray<FName>& GetAllVanillaPlatformNames()
+{
+	return PlatformInfo::AllVanillaPlatformNames;
 }
 
 } // namespace PlatformInfo

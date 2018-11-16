@@ -5,6 +5,8 @@
 #include "Fonts/SlateFontInfo.h"
 #include "Textures/TextureAtlas.h"
 
+
+
 struct SLATECORE_API FSlateFontKey
 {
 public:
@@ -15,8 +17,7 @@ public:
 		, KeyHash( 0 )
 	{
 		KeyHash = HashCombine(KeyHash, GetTypeHash(FontInfo));
-		KeyHash = HashCombine(KeyHash, GetTypeHash(OutlineSettings.OutlineSize));
-		KeyHash = HashCombine(KeyHash, GetTypeHash(OutlineSettings.bSeparateFillAlpha));
+		KeyHash = HashCombine(KeyHash, GetTypeHash(OutlineSettings));
 		KeyHash = HashCombine(KeyHash, GetTypeHash(Scale));
 	}
 
@@ -35,17 +36,11 @@ public:
 		return OutlineSettings;
 	}
 
-	FORCEINLINE bool operator==(const FSlateFontKey& Other ) const
+	inline bool IsIdenticalToForCaching(const FSlateFontKey& Other) const
 	{
-		return FontInfo == Other.FontInfo 
-			&& OutlineSettings.OutlineSize == Other.OutlineSettings.OutlineSize 
-			&& OutlineSettings.bSeparateFillAlpha == Other.OutlineSettings.bSeparateFillAlpha 
+		return FontInfo.IsIdentialToForCaching(Other.FontInfo)
+			&& OutlineSettings.IsIdenticalToForCaching(Other.OutlineSettings)
 			&& Scale == Other.Scale;
-	}
-
-	FORCEINLINE bool operator!=(const FSlateFontKey& Other ) const
-	{
-		return !(*this == Other);
 	}
 
 	friend inline uint32 GetTypeHash( const FSlateFontKey& Key )
@@ -59,6 +54,34 @@ private:
 	float Scale;
 	uint32 KeyHash;
 };
+
+
+template<typename ValueType>
+struct FSlateFontKeyFuncs : BaseKeyFuncs<TPair<FSlateFontKey, ValueType>, FSlateFontKey, false>
+{
+	typedef BaseKeyFuncs <
+		TPair<FSlateFontKey, ValueType>,
+		FSlateFontKey
+	> Super;
+	typedef typename Super::ElementInitType ElementInitType;
+	typedef typename Super::KeyInitType     KeyInitType;
+
+	FORCEINLINE static const FSlateFontKey& GetSetKey(ElementInitType Element)
+	{
+		return Element.Key;
+	}
+
+	FORCEINLINE static bool Matches(const FSlateFontKey& A, const FSlateFontKey& B)
+	{
+		return A.IsIdenticalToForCaching(B);
+	}
+
+	FORCEINLINE static uint32 GetKeyHash(const FSlateFontKey& Identifier)
+	{
+		return GetTypeHash(Identifier);
+	}
+};
+
 
 /** Measurement details for a specific character */
 struct FCharacterMeasureInfo

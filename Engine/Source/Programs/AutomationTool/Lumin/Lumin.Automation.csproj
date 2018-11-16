@@ -11,6 +11,7 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectGuid>{17779110-5CAB-43A0-9DFB-4DF67DF29B42}</ProjectGuid>
+    <WarningsNotAsErrors>612,618</WarningsNotAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

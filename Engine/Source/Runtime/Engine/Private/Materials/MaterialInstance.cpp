@@ -1048,7 +1048,7 @@ void UMaterialInstance::LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent)
 {
 	auto World = GetWorld();
 	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	Ar.Logf(TEXT("%sMaterialInstance: %s"), FCString::Tab(Indent), *GetName());
 
@@ -2327,10 +2327,12 @@ void UMaterialInstance::AppendReferencedTextures(TArray<UTexture*>& InOutTexture
 	}
 }
 
+#if WITH_EDITOR
 void UMaterialInstance::ForceRecompileForRendering()
 {
 	CacheResourceShadersForRendering();
 }
+#endif // WITH_EDITOR
 
 void UMaterialInstance::InitStaticPermutation()
 {
@@ -2615,11 +2617,13 @@ void UMaterialInstance::CacheShadersForResources(EShaderPlatform ShaderPlatform,
 				*LegacyShaderPlatformToShaderFormat(ShaderPlatform).ToString()
 				);
 
+#if WITH_EDITOR
 			const TArray<FString>& CompileErrors = CurrentResource->GetCompileErrors();
 			for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
 			{
 				UE_LOG(LogMaterial, Log, TEXT("	%s"), *CompileErrors[ErrorIndex]);
 			}
+#endif // WITH_EDITOR
 		}
 	}
 }
@@ -2999,6 +3003,7 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 
 	if (Ar.UE4Ver() >= VER_UE4_MATERIAL_INSTANCE_BASE_PROPERTY_OVERRIDES )
 	{
+#if WITH_EDITORONLY_DATA
 		if( Ar.UE4Ver() < VER_UE4_FIX_MATERIAL_PROPERTY_OVERRIDE_SERIALIZE )
 		{
 			// awful old native serialize of FMaterialInstanceBasePropertyOverrides UStruct
@@ -3007,25 +3012,22 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 			Ar << bHasPropertyOverrides;
 			if( bHasPropertyOverrides )
 			{
-				Ar << BasePropertyOverrides.bOverride_OpacityMaskClipValue << BasePropertyOverrides.OpacityMaskClipValue;
+				FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.bOverride_OpacityMaskClipValue);
+				Ar << BasePropertyOverrides.OpacityMaskClipValue;
 
 				if( Ar.UE4Ver() >= VER_UE4_MATERIAL_INSTANCE_BASE_PROPERTY_OVERRIDES_PHASE_2 )
 				{
-					Ar	<< BasePropertyOverrides.bOverride_BlendMode << BasePropertyOverrides.BlendMode
-						<< BasePropertyOverrides.bOverride_ShadingModel << BasePropertyOverrides.ShadingModel
-						<< BasePropertyOverrides.bOverride_TwoSided;
-
-					bool bTwoSided;
-					Ar << bTwoSided;
-					BasePropertyOverrides.TwoSided = bTwoSided;
+					FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.bOverride_BlendMode);
+					Ar << BasePropertyOverrides.BlendMode;
+					FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.bOverride_ShadingModel);
+					Ar << BasePropertyOverrides.ShadingModel;
+					FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.bOverride_TwoSided);
+					FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.TwoSided);
 
 					if( Ar.UE4Ver() >= VER_UE4_MATERIAL_INSTANCE_BASE_PROPERTY_OVERRIDES_DITHERED_LOD_TRANSITION )
 					{
-						Ar	<< BasePropertyOverrides.bOverride_DitheredLODTransition;
-
-						bool bDitheredLODTransition;
-						Ar << bDitheredLODTransition;
-						BasePropertyOverrides.DitheredLODTransition = bDitheredLODTransition;
+						FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.bOverride_DitheredLODTransition);
+						FArchive_Serialize_BitfieldBool(Ar, BasePropertyOverrides.DitheredLODTransition);
 					}
 					// unrelated but closest change to bug
 					if( Ar.UE4Ver() < VER_UE4_STATIC_SHADOW_DEPTH_MAPS )
@@ -3040,6 +3042,7 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 				}
 			}
 		}
+#endif
 	}
 #if WITH_EDITOR
 	if (Ar.IsSaving() && Ar.IsCooking() && Ar.IsPersistent() && !Ar.IsObjectReferenceCollector() && FShaderCodeLibrary::NeedsShaderStableKeys())

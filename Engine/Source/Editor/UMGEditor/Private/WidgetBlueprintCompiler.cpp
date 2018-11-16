@@ -374,7 +374,7 @@ void FWidgetBlueprintCompilerContext::CreateClassVariablesFromBlueprint()
 
 			AnimationProperty->SetMetaData(TEXT("Category"), TEXT("Animations"));
 
-			AnimationProperty->SetPropertyFlags(CPF_Instanced);
+			AnimationProperty->SetPropertyFlags(CPF_Transient);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintVisible);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintReadOnly);
 			AnimationProperty->SetPropertyFlags(CPF_RepSkip);
@@ -574,10 +574,6 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 		{
 			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *( Animation->GetName() + TEXT("_INST") ));
 			//ClonedAnimation->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
-			//if (ClonedAnimation->MovieScene)
-			//{
-			//	ClonedAnimation->MovieScene->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
-			//}
 
 			BPGClass->Animations.Add(ClonedAnimation);
 		}
@@ -678,6 +674,11 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 				}
 			}
 		}
+	}
+
+	if (bIsSkeletonOnly || WidgetBP->SkeletonGeneratedClass != Class)
+	{
+		bool bCanCallPreConstruct = true;
 
 		// Check that all BindWidget properties are present and of the appropriate type
 		for (TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>(ParentClass))
@@ -686,8 +687,8 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 
 			if (FWidgetBlueprintEditorUtils::IsBindWidgetProperty(WidgetProperty, bIsOptional))
 			{
-				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetNotBound", "An optional widget binding @@ of type @@ is available.");
-				const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding @@ of type @@ was not found.");
+				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetNotBound", "An optional widget binding \"{0}\" of type @@ is available.");
+				const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding \"{0}\" of type @@ was not found.");
 				const FText IncorrectWidgetTypeError = LOCTEXT("IncorrectWidgetTypes", "The widget @@ is of type @@, but the bind widget property is of type @@.");
 
 				UWidget* const* Widget = WidgetToMemberVariableMap.FindKey(WidgetProperty);
@@ -695,15 +696,17 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 				{
 					if (bIsOptional)
 					{
-						MessageLog.Note(*OptionalBindingAvailableNote.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Note(*FText::Format(OptionalBindingAvailableNote, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
 					}
 					else if (Blueprint->bIsNewlyCreated)
 					{
-						MessageLog.Warning(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Warning(*FText::Format(RequiredWidgetNotBoundError, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 					else
 					{
-						MessageLog.Error(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Error(*FText::Format(RequiredWidgetNotBoundError, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 				}
 				else if (!(*Widget)->IsA(WidgetProperty->PropertyClass))
@@ -711,13 +714,20 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 					if (Blueprint->bIsNewlyCreated)
 					{
 						MessageLog.Warning(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 					else
 					{
 						MessageLog.Error(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 				}
 			}
+		}
+
+		if (UWidgetBlueprintGeneratedClass* BPGC = Cast<UWidgetBlueprintGeneratedClass>(WidgetBP->GeneratedClass))
+		{
+			BPGC->bCanCallPreConstruct = bCanCallPreConstruct;
 		}
 
 		// Check that all BindWidgetAnim properties are present
@@ -784,10 +794,13 @@ void FWidgetBlueprintCompilerContext::PostCompile()
 			WidgetTemplate->TemplateInit();
 
 			int32 TotalWidgets = 0;
-			WidgetTemplate->WidgetTree->ForEachWidgetAndDescendants([&TotalWidgets](UWidget* Widget) {
+			int32 TotalWidgetSize = WidgetTemplate->GetClass()->GetStructureSize();
+			WidgetTemplate->WidgetTree->ForEachWidgetAndDescendants([&TotalWidgets, &TotalWidgetSize](UWidget* Widget) {
 				TotalWidgets++;
+				TotalWidgetSize += Widget->GetClass()->GetStructureSize();
 			});
 			WidgetBP->InclusiveWidgets = TotalWidgets;
+			WidgetBP->EstimatedTemplateSize = WidgetClass->bAllowDynamicCreation ? TotalWidgetSize : 0;
 
 			// Determine if we can generate a template for this widget to speed up CreateWidget time.
 			TArray<FText> PostCompileErrors;
@@ -803,6 +816,10 @@ void FWidgetBlueprintCompilerContext::PostCompile()
 					MessageLog.Error(*Error.ToString());
 				}
 			}
+		}
+		else
+		{
+			WidgetBP->EstimatedTemplateSize = 0;
 		}
 	}
 }

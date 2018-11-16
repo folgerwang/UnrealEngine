@@ -23,6 +23,14 @@ class USoundNodeDoppler : public USoundNode
 	UPROPERTY(EditAnywhere, Category=Doppler )
 	float DopplerIntensity;
 
+	/** Whether or not to do a smooth interp to our doppler */
+	UPROPERTY(EditAnywhere, Category=Doppler)
+	bool bUseSmoothing;
+
+	/** Speed at which to interp pitch scale */
+	UPROPERTY(EditAnywhere, Category = Doppler, meta = (EditCondition = "bUseSmoothing"))
+	float SmoothingInterpSpeed;
+
 
 public:
 	//~ Begin USoundNode Interface. 
@@ -31,7 +39,7 @@ public:
 
 protected:
 	// @todo document
-	float GetDopplerPitchMultiplier(FListener const& InListener, const FVector Location, const FVector Velocity) const;
+	float GetDopplerPitchMultiplier(float& CurrentPitchScale, bool bSmooth, FListener const& InListener, const FVector Location, const FVector Velocity, float DeltaTime);
 };
 
 

@@ -89,11 +89,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Accessors for fields on the inner TargetRules instance
 		/// </summary>
-
-        #region Read-only accessor properties
-        #if !__MonoCS__
-        #pragma warning disable CS1591
-        #endif
+		#region Read-only accessor properties 
+		#if !__MonoCS__
+		#pragma warning disable CS1591
+		#endif
 
 		public bool bPreservePSYM
 		{
@@ -115,10 +114,10 @@ namespace UnrealBuildTool
 			get { return Inner.bEnableUndefinedBehaviorSanitizer; }
 		}
 
-        #if !__MonoCS__
-        #pragma warning restore CS1591
-        #endif
-        #endregion
+		#if !__MonoCS__
+		#pragma warning restore CS1591
+		#endif
+		#endregion
 	}
 
 	class LinuxPlatform : UEBuildPlatform
@@ -485,6 +484,12 @@ namespace UnrealBuildTool
 				Log.TraceWarning("LTO (LTCG) for modular builds is not supported, disabling it");
 				CompileEnvironment.bAllowLTCG = false;
 				LinkEnvironment.bAllowLTCG = false;
+			}
+
+			// for now only hide by default monolithic builds.
+			if (Target.LinkType == TargetLinkType.Monolithic)
+			{
+				CompileEnvironment.bHideSymbolsByDefault = true;
 			}
 
 			// link with Linux libraries.

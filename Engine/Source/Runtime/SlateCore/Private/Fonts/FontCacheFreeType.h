@@ -196,6 +196,17 @@ public:
 	}
 
 	/**
+	 * Gets the memory size of the loaded font or 0 if the font is streamed
+	 */
+	FORCEINLINE uint32 GetAllocatedMemorySize() const
+	{
+#if WITH_FREETYPE
+		return Memory.IsValid() ? Memory->GetData().GetAllocatedSize() : 0;
+#else
+		return 0;
+#endif
+	}
+	/**
 	 * Get the available sub-face data from the given font.
 	 * Typically there will only be one face unless this is a TTC/OTC font.
 	 * The index of the returned entry can be passed as InFaceIndex to the FFreeTypeFace constructor.

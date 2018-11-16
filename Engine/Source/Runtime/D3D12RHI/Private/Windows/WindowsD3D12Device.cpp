@@ -658,6 +658,11 @@ void FD3D12DynamicRHI::Init()
 	// Indicate that the RHI needs to use the engine's deferred deletion queue.
 	GRHINeedsExtraDeletionLatency = true;
 
+	// There is no need to defer deletion of streaming textures
+	// - Suballocated ones are defer-deleted by their allocators
+	// - Standalones are added to the deferred deletion queue of its parent FD3D12Adapter
+	GRHIForceNoDeletionLatencyForStreamingTextures = !!PLATFORM_WINDOWS;
+
 	// Set the RHI initialized flag.
 	GIsRHIInitialized = true;
 }

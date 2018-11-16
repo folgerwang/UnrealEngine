@@ -2277,11 +2277,16 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 	
 	GetSkeletalMeshComponentSource(Owner, InstancePayload);
 
-	// Early out if source component is still invalid 
-	if (!InstancePayload->SourceComponent.IsValid())
+	if (!InstancePayload->MeshIsValid())
 	{
+		SPAWN_INIT
+		{
+			Particle.RelativeTime = 1.1f;
+		}
+
 		return;
 	}
+
 	USkeletalMeshComponent* SourceComponent = InstancePayload->SourceComponent.Get();
 	FSkeletalMeshRenderData* SkelMeshRenderData = SourceComponent ? SourceComponent->GetSkeletalMeshRenderData() : NULL;
 	if (SkelMeshRenderData == NULL)
@@ -2289,21 +2294,21 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 		return;
 	}
 
-	FSkeletalMeshLODRenderData& LODData = SkelMeshRenderData->LODRenderData[0];
+	FSkeletalMeshLODRenderData& LODData = SkelMeshRenderData->LODRenderData[InstancePayload->MeshMinLOD];
 
 	// Determine the bone/socket to spawn at
 	int32 SourceIndex = -1;
 	int32 ActiveBoneIndex = -1;
 	if (SourceType == VERTSURFACESOURCE_Vert)
 	{
-		int32 SourceLocationsCount(SkelMeshRenderData->LODRenderData[0].GetNumVertices());
+		int32 SourceLocationsCount(LODData.GetNumVertices());
 
 		SourceIndex = FMath::TruncToInt(FMath::SRand() * ((float)SourceLocationsCount) - 1);
 		InstancePayload->VertIndex = SourceIndex;
 
 		if(SourceIndex != -1)
 		{
-			if(!VertInfluencedByActiveBone(Owner, SourceComponent, SourceIndex, &ActiveBoneIndex))
+			if(!VertInfluencedByActiveBone(Owner, InstancePayload, SourceComponent, SourceIndex, &ActiveBoneIndex))
 			{
 				SPAWN_INIT
 				{
@@ -2334,9 +2339,9 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 
 			int32 BoneIndex1, BoneIndex2, BoneIndex3;
 			BoneIndex1 = BoneIndex2 = BoneIndex3 = INDEX_NONE;
-			if(!VertInfluencedByActiveBone(Owner, SourceComponent, VertIndex[0], &BoneIndex1) &&
-			   !VertInfluencedByActiveBone(Owner, SourceComponent, VertIndex[1], &BoneIndex2) && 
-			   !VertInfluencedByActiveBone(Owner, SourceComponent, VertIndex[2], &BoneIndex3))
+			if(!VertInfluencedByActiveBone(Owner, InstancePayload, SourceComponent, VertIndex[0], &BoneIndex1) &&
+			   !VertInfluencedByActiveBone(Owner, InstancePayload, SourceComponent, VertIndex[1], &BoneIndex2) &&
+			   !VertInfluencedByActiveBone(Owner, InstancePayload, SourceComponent, VertIndex[2], &BoneIndex3))
 			{
 				SPAWN_INIT
 				{
@@ -2361,7 +2366,7 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 	FQuat SourceRotation;
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
 	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
-	if (GetParticleLocation(Owner, SourceComponent, SourceIndex, SourceLocation, SourceRotation, true) == true)
+	if (GetParticleLocation(Owner, InstancePayload, SourceComponent, SourceIndex, SourceLocation, SourceRotation, true) == true)
 	{
 		SPAWN_INIT
 		{
@@ -2485,7 +2490,7 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 
 	GetSkeletalMeshComponentSource(Owner, InstancePayload);
 
-	if (!InstancePayload->SourceComponent.IsValid())
+	if (!InstancePayload->MeshIsValid())
 	{
 		return;
 	}
@@ -2529,7 +2534,7 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 	BEGIN_UPDATE_LOOP;
 	{
 		FModuleLocationVertSurfaceParticlePayload* ParticlePayload = (FModuleLocationVertSurfaceParticlePayload*)((uint8*)&Particle + Offset);
-		if (GetParticleLocation(Owner, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
+		if (GetParticleLocation(Owner, InstancePayload, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
 		{
 			Particle.Location = SourceLocation;
 			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
@@ -2565,7 +2570,7 @@ void UParticleModuleLocationSkelVertSurface::FinalUpdate(FParticleEmitterInstanc
 
 	FModuleLocationVertSurfaceInstancePayload* InstancePayload = 
 		(FModuleLocationVertSurfaceInstancePayload*)(Owner->GetModuleInstanceData(this));
-	if (!InstancePayload->SourceComponent.IsValid())
+	if (!InstancePayload->MeshIsValid())
 	{
 		return;
 	}
@@ -2774,24 +2779,70 @@ void UParticleModuleLocationSkelVertSurface::GetSkeletalMeshComponentSource(FPar
 			//@todo. Warn about this...
 		}
 
-		InstancePayload->SourceComponent = NewSkelMeshComp;
+		bool bMeshIsValid = false;
+		int32 MinLOD = INDEX_NONE;
+		if (NewSkelMeshComp && NewSkelMeshComp->GetScene() && NewSkelMeshComp->SkeletalMesh)
+		{
+			ERHIFeatureLevel::Type FeatureLevel = NewSkelMeshComp->GetScene()->GetFeatureLevel();
+			MinLOD = NewSkelMeshComp->SkeletalMesh->MinLod.GetValueForFeatureLevel(FeatureLevel);
+			FSkeletalMeshRenderData* SkelMeshResource = NewSkelMeshComp->GetSkeletalMeshRenderData();
+			FSkinWeightVertexBuffer* SkinWeightBuffer = NewSkelMeshComp->GetSkinWeightBuffer(MinLOD);
+			FSkeletalMeshLODRenderData& LODData = SkelMeshResource->LODRenderData[MinLOD];
+			bool LODDataNumVerticesCorrect = LODData.GetNumVertices() > 0;
+			bool LODDataPositonNumVerticesCorrect = LODData.StaticVertexBuffers.PositionVertexBuffer.GetNumVertices() > 0;
+			bool bSkinWeightBuffer = SkinWeightBuffer != nullptr;
+			bool SkinWeightBufferNumVerticesCorrect = bSkinWeightBuffer && (SkinWeightBuffer->GetNumVertices() > 0 && SkinWeightBuffer->GetNeedsCPUAccess());
+			bool bIndexBufferValid = LODData.MultiSizeIndexContainer.IsIndexBufferValid();
+			bool bIndexBufferFound = bIndexBufferValid && (LODData.MultiSizeIndexContainer.GetIndexBuffer() != nullptr);
+			bool bIndexBufferNumCorrect = bIndexBufferFound && (LODData.MultiSizeIndexContainer.GetIndexBuffer()->Num() > 0);
+
+			bMeshIsValid = LODDataNumVerticesCorrect &&
+				LODDataPositonNumVerticesCorrect &&
+				bSkinWeightBuffer &&
+				SkinWeightBufferNumVerticesCorrect &&
+				bIndexBufferValid &&
+				bIndexBufferFound &&
+				bIndexBufferNumCorrect;
+		}
+
+
+		if (bMeshIsValid)
+		{
+			InstancePayload->MeshMinLOD = MinLOD;
+			InstancePayload->SourceComponent = NewSkelMeshComp;
+		}
+		else
+		{
+			UE_LOG(LogParticles, Warning, TEXT("----------------------------------------------------------------------"));
+			UE_LOG(LogParticles, Warning, TEXT("Attempting to use Cascade SkelVertSurface module on mesh without valid data."));
+			UE_LOG(LogParticles, Warning, TEXT("Likely due to CPU side buffers being stripped with r.FreeSkeletalMeshBuffers=1."));
+			UE_LOG(LogParticles, Warning, TEXT("This emitter should probably be culled for this platform using detail mode."));
+			UE_LOG(LogParticles, Warning, TEXT("Mesh: %s"), NewSkelMeshComp ? *NewSkelMeshComp->SkeletalMesh->GetFullName() : TEXT("NULL"));
+			UE_LOG(LogParticles, Warning, TEXT("Comp: %s"), *Owner->Component->GetFullName());
+			UE_LOG(LogParticles, Warning, TEXT("System: %s"), *Owner->Component->Template->GetFullName());
+			UE_LOG(LogParticles, Warning, TEXT("----------------------------------------------------------------------"));
+
+			Owner->Component->DeactivaateNextTick();
+			return;
+		}
 
 		UpdateBoneIndicesList(Owner);
 	}
 }
 
 
-bool UParticleModuleLocationSkelVertSurface::GetParticleLocation(FParticleEmitterInstance* Owner, 
+bool UParticleModuleLocationSkelVertSurface::GetParticleLocation(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstPayload,
 	USkeletalMeshComponent* InSkelMeshComponent, int32 InPrimaryVertexIndex, 
 	FVector& OutPosition, FQuat& OutRotation, bool bSpawning /* = false*/)
 {
 	check(InSkelMeshComponent);
+	checkSlow(InstPayload && InstPayload->MeshIsValid());
 	FSkeletalMeshRenderData* SkelMeshResource = InSkelMeshComponent->GetSkeletalMeshRenderData();
 
 	if (SkelMeshResource)
 	{
-		FSkeletalMeshLODRenderData& LODData = SkelMeshResource->LODRenderData[0];
-		FSkinWeightVertexBuffer& SkinWeightBuffer = *InSkelMeshComponent->GetSkinWeightBuffer(0);
+		FSkeletalMeshLODRenderData& LODData = SkelMeshResource->LODRenderData[InstPayload->MeshMinLOD];
+		FSkinWeightVertexBuffer& SkinWeightBuffer = *InSkelMeshComponent->GetSkinWeightBuffer(InstPayload->MeshMinLOD);
 		if (SourceType == VERTSURFACESOURCE_Vert)
 		{
 			if ((uint32)InPrimaryVertexIndex >= LODData.GetNumVertices())
@@ -2875,12 +2926,13 @@ bool UParticleModuleLocationSkelVertSurface::GetParticleLocation(FParticleEmitte
 }
 
 
-bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBone(FParticleEmitterInstance* Owner, USkeletalMeshComponent* InSkelMeshComponent, int32 InVertexIndex, int32* OutBoneIndex)
+bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBone(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstPayload, USkeletalMeshComponent* InSkelMeshComponent, int32 InVertexIndex, int32* OutBoneIndex)
 {
 	FSkeletalMeshRenderData* SkelMeshResource = InSkelMeshComponent->GetSkeletalMeshRenderData();
 	if (SkelMeshResource)
 	{
-		FSkeletalMeshLODRenderData& LODData = SkelMeshResource->LODRenderData[0];
+		check(InstPayload && InstPayload->MeshIsValid());
+		FSkeletalMeshLODRenderData& LODData = SkelMeshResource->LODRenderData[InstPayload->MeshMinLOD];
 
 		FModuleLocationVertSurfaceInstancePayload* InstancePayload = 
 			(FModuleLocationVertSurfaceInstancePayload*)(Owner->GetModuleInstanceData(this));

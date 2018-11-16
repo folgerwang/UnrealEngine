@@ -22,6 +22,11 @@ void UMovieSceneImagePlateTrack::AddSection(UMovieSceneSection& Section)
 	Sections.AddUnique(&Section);
 }
 
+bool UMovieSceneImagePlateTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneImagePlateSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneImagePlateTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneImagePlateSection>(this, NAME_None, RF_Transactional);

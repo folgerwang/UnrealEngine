@@ -93,7 +93,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 			*ErrorStr);
 
 		bHasLoginOutstanding = false;
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, GetEmptyUniqueId(), ErrorStr);
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 		return false;
 	}
 	return true;
@@ -114,7 +114,7 @@ void FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FString& AccessTok
 		}
 		else
 		{
-			InCompletionDelegate.ExecuteIfBound(LocalUserNumFromRequest, bWasSuccessful, GetEmptyUniqueId(), ErrorStr);
+			InCompletionDelegate.ExecuteIfBound(LocalUserNumFromRequest, bWasSuccessful, *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 		}
 	});
 
@@ -158,9 +158,9 @@ void FOnlineIdentityFacebook::OnAccessTokenLoginComplete(int32 LocalUserNum, boo
 
 void FOnlineIdentityFacebook::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	const FString& ErrorStr = Error.ErrorCode;
+	const FString& ErrorStr = Error.GetErrorCode();
 	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
-	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : GetEmptyUniqueId(), ErrorStr);
+	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 }
 
 void FOnlineIdentityFacebook::RequestElevatedPermissions(int32 LocalUserNum, const TArray<FSharingPermission>& AddlPermissions, const FOnLoginCompleteDelegate& InCompletionDelegate)
@@ -232,7 +232,7 @@ void FOnlineIdentityFacebook::RequestElevatedPermissions(int32 LocalUserNum, con
 	{
 		UE_LOG_ONLINE_IDENTITY(Error, TEXT("RequestElevatedPermissions() failed: %s"), *ErrorStr);
 		bHasLoginOutstanding = false;
-		InCompletionDelegate.ExecuteIfBound(LocalUserNum, false, GetEmptyUniqueId(), ErrorStr);
+		InCompletionDelegate.ExecuteIfBound(LocalUserNum, false, *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 	}
 }
 
@@ -249,7 +249,7 @@ void FOnlineIdentityFacebook::OnExternalUIElevatedPermissionsComplete(TSharedPtr
 
 	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("RequestElevatedPermissions() %s"), bWasSuccessful ? TEXT("success") : TEXT("failed"));
 	TSharedPtr<const FUniqueNetId> ExistingUserId = GetUniquePlayerId(ControllerIndex);
-	InCompletionDelegate.ExecuteIfBound(ControllerIndex, bWasSuccessful, ExistingUserId.IsValid() ? *ExistingUserId : GetEmptyUniqueId(), ErrorStr);
+	InCompletionDelegate.ExecuteIfBound(ControllerIndex, bWasSuccessful, ExistingUserId.IsValid() ? *ExistingUserId : *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 }
 
 bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)

@@ -78,6 +78,7 @@ public:
 	virtual void SetBoneTranslationRetargetingMode(FName InBoneName, EBoneTranslationRetargetingMode::Type NewRetargetingMode) override;
 	virtual EBoneTranslationRetargetingMode::Type GetBoneTranslationRetargetingMode(FName InBoneName) const override;
 	virtual void RefreshBoneTree() override;
+	virtual USkeletalMeshSocket* AddSocket(const FName& InBoneName) override;
 
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;

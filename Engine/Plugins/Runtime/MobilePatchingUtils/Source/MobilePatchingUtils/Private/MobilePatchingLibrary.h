@@ -65,7 +65,7 @@ public:
 	float GetDownloadSpeed();
 
 	/** DEPRECATED. GetDownloadStatusText has been deprecated. It will no longer be supported in the future */
-	DEPRECATED(4.21, "GetDownloadStatusText has been deprecated.  It will no longer be supported in the future.")
+	UE_DEPRECATED(4.21, "GetDownloadStatusText has been deprecated.  It will no longer be supported in the future.")
 	UFUNCTION(BlueprintPure, Category="Mobile Patching|Progress")
 	FText GetDownloadStatusText();
 	

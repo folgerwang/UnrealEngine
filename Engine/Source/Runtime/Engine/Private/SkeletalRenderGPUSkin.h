@@ -60,7 +60,7 @@ public:
 		int32 InLODIndex,
 		const TArray<FActiveMorphTarget>& InActiveMorphTargets,
 		const TArray<float>& InMorphTargetWeights, 
-		bool bUpdatePreviousBoneTransform
+		EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode
 		);
 
 	/** ref pose to local space transforms */
@@ -266,7 +266,7 @@ public:
 	//~ Begin FSkeletalMeshObject Interface
 	virtual void InitResources(USkinnedMeshComponent* InMeshComponent) override;
 	virtual void ReleaseResources() override;
-	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, bool bUpdatePreviousBoneTransform) override;
+	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode) override;
 	void UpdateDynamicData_RenderThread(FGPUSkinCache* GPUSkinCache, FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, FSceneInterface* Scene, uint32 FrameNumberToPrepare, uint32 RevisionNumber);
 	virtual void PreGDMECallback(FGPUSkinCache* GPUSkinCache, uint32 FrameNumber) override;
 	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex,int32 ChunkIdx) const override;

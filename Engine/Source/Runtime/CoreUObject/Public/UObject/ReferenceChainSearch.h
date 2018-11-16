@@ -6,6 +6,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Class.h"
 #include "UObject/GarbageCollection.h"
+#include "HAL/ThreadHeartBeat.h"
 
 /** Search mode flags */
 enum class EReferenceChainSearchMode
@@ -32,6 +33,11 @@ ENUM_CLASS_FLAGS(EReferenceChainSearchMode);
 
 class FReferenceChainSearch
 {
+	// Reference chain searching is a very slow operation.
+	// Suspend the hang and hitch detectors for the lifetime of this instance.
+	FSlowHeartBeatScope SuspendHeartBeat;
+	FDisableHitchDetectorScope SuspendGameThreadHitch;
+
 public:
 
 	/** Type of reference */

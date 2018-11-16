@@ -7513,7 +7513,7 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 							for (TPair<FName, FName>& RedirectedPath : RedirectedPaths)
 							{
 								GRedirectCollector.AddAssetPathRedirection(RedirectedPath.Key, RedirectedPath.Value);
-								PackagesToLoad.Add(RedirectedPath.Value.ToString());
+								PackagesToLoad.Add(FPackageName::ObjectPathToPackageName(RedirectedPath.Value.ToString()));
 							}
 						}
 						else
@@ -7711,6 +7711,14 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 						const bool bSucceededSavePackage = (SaveResult == ESavePackageResult::Success || SaveResult == ESavePackageResult::GenerateStub || SaveResult == ESavePackageResult::ReplaceCompletely);
 						if (bSucceededSavePackage)
 						{
+							FAssetRegistryGenerator* Generator = RegistryGenerators.FindRef(FName(*Target->PlatformName()));
+							if (Generator)
+							{
+								FAssetPackageData* PackageData = Generator->GetAssetPackageData(Package->GetFName());
+								PackageData->DiskSize = SaveResult.TotalFileSize;
+								PackageData->CookedHash = SaveResult.CookedHash;
+							}
+
 							FPlatformAtomics::InterlockedIncrement(&ParallelSavedPackages);
 						}
 

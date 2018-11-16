@@ -13,6 +13,72 @@
 
 DEFINE_LOG_CATEGORY(LogDiffAssets);
 
+void UDiffAssetRegistriesCommandlet::PopulateChangelistMap(const FString &Branch, const FString &CL, bool bEnginePackages)
+{
+	FString FilePattern = FString::Printf(TEXT("%s%s@*.p4cache"), *FPaths::DiffDir(), *Branch);
+	FString FileName = FString::Printf(TEXT("%s%s@%s.p4cache"), *FPaths::DiffDir(), *Branch, *CL);
+
+	TArray<FString> CacheFiles;
+
+	IFileManager::Get().FindFiles( CacheFiles, *FilePattern, true, false );
+
+	// search through the list of cache files for the newest one we can use
+	int32 CLNum;
+	LexTryParseString<int32>(CLNum, *CL);
+
+	int32 BestCLNum = 0;
+	FString BestCache;
+
+	for (TArray<FString>::TConstIterator It(CacheFiles); It; ++It)
+	{
+		FString TestCL;
+		FPaths::GetBaseFilename(*It).Split(TEXT("@"), nullptr, &TestCL);
+		int32 TestCLNum;
+		LexTryParseString<int32>(TestCLNum, *TestCL);
+
+		if (TestCLNum <= CLNum && TestCLNum > BestCLNum)
+		{
+			BestCLNum = TestCLNum;
+			BestCache = *It;
+		}
+	}
+
+	FArchive* CacheFile = nullptr;
+
+	// read in the baseline from the newest one
+	if (BestCLNum > 0)
+	{
+		CacheFile = IFileManager::Get().CreateFileReader(*(FPaths::DiffDir() / BestCache));
+		*CacheFile << AssetPathToChangelist;
+		delete CacheFile;
+	}
+
+	FString CLRange = CL;
+
+	// grab the newer file lists, or all of them if we had no best one, and merge them in
+	if (BestCLNum < CLNum)
+	{
+		if (BestCLNum > 0)
+			CLRange = FString::Printf(TEXT("%d,%d"), BestCLNum, CLNum);
+
+		// skip the game packages if we're doing engine packages only
+		if (!bEnginePackages)
+		{
+			FillChangelists(Branch, CLRange, TEXT("/FortniteGame/Content/"), TEXT("/Game/"));
+		}
+		FillChangelists(Branch, CLRange, TEXT("/Engine/Content/"), TEXT("/Engine/"));			
+	}
+
+	// save out the new table
+	if (BestCLNum != CLNum)
+	{
+		CacheFile = IFileManager::Get().CreateFileWriter(*FileName);
+		*CacheFile << AssetPathToChangelist;
+
+		delete CacheFile;
+	}
+}
+
 int32 UDiffAssetRegistriesCommandlet::Main(const FString& FullCommandLine)
 {
 	UE_LOG(LogDiffAssets, Display, TEXT("--------------------------------------------------------------------------------------------"));
@@ -91,13 +157,7 @@ int32 UDiffAssetRegistriesCommandlet::Main(const FString& FullCommandLine)
 
 	FString Branch;
 	FString CL;
-	{
-		FString Spec;
-		if (FParse::Value(*FullCommandLine, TEXT("Branch="), Spec))
-		{
-			Spec.Split(TEXT("@"), &Branch, &CL);
-		}
-	}
+	FString Spec;
 
 	FParse::Value(*FullCommandLine, TEXT("platform="), TargetPlatform);
 
@@ -143,6 +203,25 @@ int32 UDiffAssetRegistriesCommandlet::Main(const FString& FullCommandLine)
 		}
 	}
 
+	bMatchChangelists = false;
+	if (FParse::Value(*FullCommandLine, TEXT("Branch="), Spec))
+	{
+		FString NewBranch, NewCL;
+		
+		bMatchChangelists = true;
+		
+		Spec.Split(TEXT("@"), &NewBranch, &NewCL);
+		
+		bMatchChangelists = true;
+		
+		PopulateChangelistMap(NewBranch, NewCL, bEnginePackages);
+	}
+	else if (Switches.Contains(TEXT("CHANGELISTS")))
+	{
+		bMatchChangelists = true;
+		PopulateChangelistMap(Branch, CL, bEnginePackages);
+	}
+
 	if (OldPath.IsEmpty())
 	{
 		UE_LOG(LogDiffAssets, Error, TEXT("No old path specified \"-oldpath=<>\", use full path to asset registry or build version."));
@@ -153,21 +232,6 @@ int32 UDiffAssetRegistriesCommandlet::Main(const FString& FullCommandLine)
 		UE_LOG(LogDiffAssets, Error, TEXT("No new path specified \"-newpath=<>\", use full path to asset registry or build version."));
 		return -1;
 	}
-
-	bMatchChangelists = false;
-	if (!Branch.IsEmpty() && !CL.IsEmpty())
-	{
-		bMatchChangelists = true;
-
-
-		// skip the game packages if we're doing engine packages only
-		if (!bEnginePackages)
-		{
-			FillChangelists(Branch, CL, TEXT("/FortniteGame/Content/"), TEXT("/Game/"));
-		}
-		FillChangelists(Branch, CL, TEXT("/Engine/Content/"), TEXT("/Engine/"));
-	}
-
 
 	FPaths::NormalizeFilename(NewPath);
 	FPaths::NormalizeFilename(OldPath);
@@ -208,7 +272,7 @@ void UDiffAssetRegistriesCommandlet::FillChangelists(FString Branch, FString CL,
 {
 	TArray<FString> Results;
 	int32 ReturnCode = 0;
-	if (LaunchP4(TEXT("files ") + FString(TEXT("//Fortnite/")) + Branch + BasePath + TEXT("...@") + CL, Results, ReturnCode))
+	if (LaunchP4(TEXT("files ") + FString(TEXT("//Fortnite/")) + Branch + BasePath + TEXT("....uasset@") + CL, Results, ReturnCode))
 	{
 		if (ReturnCode == 0)
 		{
@@ -218,31 +282,68 @@ void UDiffAssetRegistriesCommandlet::FillChangelists(FString Branch, FString CL,
 				FString ExtraInfoAfterPound;
 				if (Result.Split(TEXT("#"), &DepotPathName, &ExtraInfoAfterPound))
 				{
-					if (DepotPathName.EndsWith(TEXT(".uasset")) || DepotPathName.EndsWith(TEXT(".umap")))
+					FString PostContentPath;
+					if (DepotPathName.Split(BasePath, nullptr, &PostContentPath))
 					{
-						FString PostContentPath;
-						if (DepotPathName.Split(BasePath, nullptr, &PostContentPath))
+						if (!PostContentPath.IsEmpty() && !PostContentPath.StartsWith(TEXT("Cinematics")) && !PostContentPath.StartsWith(TEXT("Developers")) && !PostContentPath.StartsWith(TEXT("Maps/Test_Maps")))
 						{
-							if (!PostContentPath.IsEmpty() && !PostContentPath.StartsWith(TEXT("Cinematics")) && !PostContentPath.StartsWith(TEXT("Developers")) && !PostContentPath.StartsWith(TEXT("Maps/Test_Maps")))
+							const FString PostContentPathWithoutExtension = FPaths::GetBaseFilename(PostContentPath, false);
+							const FString FullPackageName = AssetPath + PostContentPathWithoutExtension;
+							
+							TArray<FString> Chunks;
+							
+							ExtraInfoAfterPound.ParseIntoArray(Chunks, TEXT(" "), true);
+							
+							int32 Changelist;
+							
+							LexTryParseString<int32>(Changelist, *Chunks[4]);
+							if (Changelist)
 							{
-								const FString PostContentPathWithoutExtension = FPaths::GetBaseFilename(PostContentPath, false);
-								const FString FullPackageName = AssetPath + PostContentPathWithoutExtension;
-								
-								TArray<FString> Chunks;
+								int32& Entry = AssetPathToChangelist.FindOrAdd(*FullPackageName);
 
-								ExtraInfoAfterPound.ParseIntoArray(Chunks, TEXT(" "), true);
-
-								int32 Changelist;
-
-								LexTryParseString<int32>(Changelist, *Chunks[4]);
-								if (Changelist)
-								{
-									AssetPathToChangelist.FindOrAdd(FName(*FullPackageName)) = Changelist;
-								}
+								if (Changelist > Entry)
+									Entry = Changelist;
 							}
 						}
 					}
-					// ignore non-assets
+				}
+			}
+		}
+	}
+	if (LaunchP4(TEXT("files ") + FString(TEXT("//Fortnite/")) + Branch + BasePath + TEXT("....umap@") + CL, Results, ReturnCode))
+	{
+		if (ReturnCode == 0)
+		{
+			for (const FString& Result : Results)
+			{
+				FString DepotPathName;
+				FString ExtraInfoAfterPound;
+				if (Result.Split(TEXT("#"), &DepotPathName, &ExtraInfoAfterPound))
+				{
+					FString PostContentPath;
+					if (DepotPathName.Split(BasePath, nullptr, &PostContentPath))
+					{
+						if (!PostContentPath.IsEmpty() && !PostContentPath.StartsWith(TEXT("Cinematics")) && !PostContentPath.StartsWith(TEXT("Developers")) && !PostContentPath.StartsWith(TEXT("Maps/Test_Maps")))
+						{
+							const FString PostContentPathWithoutExtension = FPaths::GetBaseFilename(PostContentPath, false);
+							const FString FullPackageName = AssetPath + PostContentPathWithoutExtension;
+							
+							TArray<FString> Chunks;
+							
+							ExtraInfoAfterPound.ParseIntoArray(Chunks, TEXT(" "), true);
+							
+							int32 Changelist;
+							
+							LexTryParseString<int32>(Changelist, *Chunks[4]);
+							if (Changelist)
+							{
+								int32& Entry = AssetPathToChangelist.FindOrAdd(*FullPackageName);
+
+								if (Changelist > Entry)
+									Entry = Changelist;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -448,8 +549,11 @@ void UDiffAssetRegistriesCommandlet::RecordAdd(FName InAssetPath, const FAssetPa
 
 	FName ClassName = GetClassName(NewState, InAssetPath);
 
+	int changelist = AssetPathToChangelist.FindOrAdd(*InAssetPath.ToString());
+
 	ChangeInfoByAsset.FindOrAdd(InAssetPath) = AssetChange;
 	ChangeSummaryByClass.FindOrAdd(ClassName) += AssetChange;
+	ChangeSummaryByChangelist.FindOrAdd(changelist) += AssetChange;
 	ChangeSummary += AssetChange;
 }
 
@@ -465,8 +569,11 @@ void UDiffAssetRegistriesCommandlet::RecordEdit(FName InAssetPath, const FAssetP
 
 	FName ClassName = GetClassName(NewState, InAssetPath);
 
+	int changelist = AssetPathToChangelist.FindOrAdd(*InAssetPath.ToString());
+
 	ChangeInfoByAsset.FindOrAdd(InAssetPath) = AssetChange;
 	ChangeSummaryByClass.FindOrAdd(ClassName) += AssetChange;
+	ChangeSummaryByChangelist.FindOrAdd(changelist) += AssetChange;
 	ChangeSummary += AssetChange;
 }
 
@@ -506,7 +613,52 @@ void UDiffAssetRegistriesCommandlet::RecordNoChange(FName InAssetPath, const FAs
 	ChangeSummary += AssetChange;
 }
 
-void UDiffAssetRegistriesCommandlet::LogChangedFiles()
+void UDiffAssetRegistriesCommandlet::SummarizeDeterminism()
+{
+	TArray<FName> AssetPaths;
+	ChangeInfoByAsset.GetKeys(AssetPaths);
+
+	for (const FName AssetPath : AssetPaths)
+	{
+		const FChangeInfo& ChangeInfo = ChangeInfoByAsset[AssetPath];
+
+		char classification;
+
+		// classify the asset change by the flags
+		int32 flags = AssetPathFlags.FindOrAdd(AssetPath);
+		{
+			bool hash = (flags & EAssetFlags::HashChange) != 0;
+			bool guid = (flags & EAssetFlags::GuidChange) != 0;
+			bool dephash = (flags & EAssetFlags::DepHashChange) != 0;
+			bool depguid = (flags & EAssetFlags::DepGuidChange) != 0;
+
+			if (!hash)
+				classification = 'x'; // shouldn't see this in here, no binary change
+			else 
+			{
+				if (guid)
+					classification = 'e'; // explicit edit
+				else if (dephash & depguid)
+					classification = 'd'; // dependency edit
+				else if (dephash & !depguid)
+					classification = 'n'; // nondeterministic dependency
+				else
+					classification = 'c'; // nondeterministic
+			}
+		}
+
+		if (classification == 'c')
+		{
+			NondeterministicSummary += ChangeInfo;
+		}
+		else if (classification == 'n')
+		{
+			IndirectNondeterministicSummary += ChangeInfo;
+		}
+	}
+}
+
+void UDiffAssetRegistriesCommandlet::LogChangedFiles(FArchive *CSVFile, FString const &OldPath, FString const &NewPath)
 {
 	if (!bIsVerbose && !bSaveCSV)
 	{
@@ -564,11 +716,8 @@ void UDiffAssetRegistriesCommandlet::LogChangedFiles()
 		});
 	}
 
-	FArchive* CSVFile = nullptr;
-
-	if (bSaveCSV)
+	if (CSVFile)
 	{
-		CSVFile = IFileManager::Get().CreateFileWriter(*CSVFilename);
 		CSVFile->Logf(TEXT("Modification,Name,Class,NewSize,OldSize,Changelist"));
 
 		UE_LOG(LogDiffAssets, Display, TEXT("Saving CSV results to %s"), *CSVFilename);
@@ -578,7 +727,7 @@ void UDiffAssetRegistriesCommandlet::LogChangedFiles()
 	{
 		const FChangeInfo& ChangeInfo = ChangeInfoByAsset[AssetPath];
 
-		int Changelist = bMatchChangelists ? AssetPathToChangelist.FindOrAdd(AssetPath) : 0;
+		int Changelist = bMatchChangelists ? AssetPathToChangelist.FindOrAdd(*AssetPath.ToString()) : 0;
 		
 		FName ClassName;
 
@@ -678,8 +827,6 @@ void UDiffAssetRegistriesCommandlet::LogChangedFiles()
 			}
 		}
 	}
-
-	delete CSVFile;
 }
 
 void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath, const FString& NewPath, bool bUseSourceGuid, bool bEnginePackagesOnly)
@@ -944,7 +1091,18 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 		}
 	}
 
-	LogChangedFiles();
+	FArchive *CSVFile = nullptr;
+
+	if (bSaveCSV)
+	{
+		CSVFile = IFileManager::Get().CreateFileWriter(*CSVFilename);
+		CSVFile->Logf(TEXT("old,%s"), *OldPath);
+		CSVFile->Logf(TEXT("new,%s"), *NewPath);
+		CSVFile->Logf(TEXT(""));
+	}
+
+	SummarizeDeterminism();
+	LogChangedFiles(CSVFile, OldPath, NewPath);
 
 	// start summary
 	UE_LOG(LogDiffAssets, Display, TEXT("Summary:"));
@@ -976,6 +1134,13 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 		});
 	}
 	
+	if (CSVFile)
+	{
+		CSVFile->Logf(TEXT(""));
+		CSVFile->Logf(TEXT("Class Summary"));
+		CSVFile->Logf(TEXT("Name,Percentage,TotalSize,Adds,AddedSize,Changes,ChangesSize,Deletes,DeletedSize,Unchanged,UnchangedSize"));
+	}
+
 	for (FName ClassName : ClassNames)
 	{
 		const FChangeInfo& Changes = ChangeSummaryByClass[ClassName];
@@ -988,6 +1153,18 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 		if (Changes.GetTotalChangeCount() < MinChangeCount || Changes.GetTotalChangeSize() < (MinChangeSizeMB*1024*1024))
 		{
 			continue;
+		}
+
+		if (CSVFile)
+		{
+			CSVFile->Logf(TEXT("%s,%0.02f,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld"),
+						  *ClassName.ToString(),
+						  Changes.GetChangePercentage() * 100.0,
+						  Changes.GetTotalChangeSize(),
+						  Changes.Adds, Changes.AddedBytes,
+						  Changes.Changes, Changes.ChangedBytes,
+						  Changes.Deletes, Changes.DeletedBytes,
+						  Changes.Unchanged, Changes.UnchangedBytes);
 		}
 
 		// log summary & change
@@ -1077,6 +1254,24 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 	UE_LOG(LogDiffAssets, Display, TEXT("%d total packages added,    %8.3f MB"), ChangeSummary.Adds, ChangeSummary.AddedBytes * InvToMB);
 	UE_LOG(LogDiffAssets, Display, TEXT("%d total packages modified, %8.3f MB"), ChangeSummary.Changes, ChangeSummary.ChangedBytes * InvToMB);
 	UE_LOG(LogDiffAssets, Display, TEXT("%d total packages removed,  %8.3f MB"), ChangeSummary.Deletes, ChangeSummary.DeletedBytes * InvToMB);
+
+	UE_LOG(LogDiffAssets, Display, TEXT("Nondeterministic summary:"));
+	UE_LOG(LogDiffAssets, Display, TEXT("direct   %d total packages modified, %8.3f MB"), NondeterministicSummary.Changes, NondeterministicSummary.ChangedBytes * InvToMB);
+	UE_LOG(LogDiffAssets, Display, TEXT("indirect %d total packages modified, %8.3f MB"), IndirectNondeterministicSummary.Changes, IndirectNondeterministicSummary.ChangedBytes * InvToMB);
+
+	if (CSVFile)
+	{
+		CSVFile->Logf(TEXT(""));
+		CSVFile->Logf(TEXT("Summary"));
+		CSVFile->Logf(TEXT("total,%d"), newtotal);
+		CSVFile->Logf(TEXT("unchanged,%lld,%lld"), ChangeSummary.Unchanged, ChangeSummary.UnchangedBytes);
+		CSVFile->Logf(TEXT("added,%lld,%lld"), ChangeSummary.Adds, ChangeSummary.AddedBytes);
+		CSVFile->Logf(TEXT("modified,%lld,%lld"), ChangeSummary.Changes, ChangeSummary.ChangedBytes);
+		CSVFile->Logf(TEXT("removed,%lld,%lld"), ChangeSummary.Deletes, ChangeSummary.DeletedBytes);
+		CSVFile->Logf(TEXT("direct non-deterministic,%lld,%lld"), NondeterministicSummary.Changes, NondeterministicSummary.ChangedBytes);
+		CSVFile->Logf(TEXT("indirect non-deterministic,%lld,%lld"), IndirectNondeterministicSummary.Changes, IndirectNondeterministicSummary.ChangedBytes);
+		delete CSVFile;
+	}
 }
 
 bool UDiffAssetRegistriesCommandlet::LaunchP4(const FString& Args, TArray<FString>& Output, int32& OutReturnCode) const

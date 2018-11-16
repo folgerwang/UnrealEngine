@@ -87,6 +87,10 @@ bool UMovieSceneSkeletalAnimationTrack::SupportsMultipleRows() const
 	return true;
 }
 
+bool UMovieSceneSkeletalAnimationTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSkeletalAnimationSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::CreateNewSection()
 {

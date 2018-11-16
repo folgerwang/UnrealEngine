@@ -23,7 +23,7 @@
     },
     {
       "Name" : "LiveLinkEditor",
-      "Type" : "Editor",
+      "Type" : "Developer",
       "LoadingPhase" : "PreDefault"
     }
   ]

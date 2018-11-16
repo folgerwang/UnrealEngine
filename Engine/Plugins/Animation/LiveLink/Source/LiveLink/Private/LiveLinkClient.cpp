@@ -219,7 +219,10 @@ void FLiveLinkSubject::CopyFrameData(const FLiveLinkFrame& InFrame, FLiveLinkSub
 void FLiveLinkSubject::CopyFrameDataBlended(const FLiveLinkFrame& PreFrame, const FLiveLinkFrame& PostFrame, float BlendWeight, FLiveLinkSubjectFrame& OutFrame)
 {
 	Blend(PreFrame.Transforms, PostFrame.Transforms, OutFrame.Transforms, BlendWeight);
-	Blend(PreFrame.Curves, PostFrame.Curves, OutFrame.Curves, BlendWeight);
+	if (PreFrame.Curves.Num() == PostFrame.Curves.Num())
+	{	
+		Blend(PreFrame.Curves, PostFrame.Curves, OutFrame.Curves, BlendWeight);
+	}
 }
 
 void FLiveLinkSubject::ResetFrame(FLiveLinkSubjectFrame& OutFrame) const

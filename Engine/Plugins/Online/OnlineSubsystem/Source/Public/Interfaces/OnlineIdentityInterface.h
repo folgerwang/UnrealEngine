@@ -6,8 +6,9 @@
 #include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
+#include "OnlineIdentityErrors.h"
 
-struct FOnlineError;
+
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineIdentity, Log, All);
 
@@ -378,10 +379,10 @@ public:
 	/**
 	 * Revoke the user's registered auth token.
 	 *
-	 * @param UserId the unique net of the associated user
+	 * @param LocalUserId the unique net of the associated user
 	 * @param Delegate delegate to execute when the async task completes
 	 */
-	virtual void RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate) = 0;
+	virtual void RevokeAuthToken(const FUniqueNetId& LocalUserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate) = 0;
 
 	/**
 	 * Delegate executed when we get a user privilege result.
@@ -395,11 +396,11 @@ public:
 	/**
 	 * Gets the status of a user's privilege.
 	 *
-	 * @param UserId the unique id of the user to query
+	 * @param LocalUserId the unique id of the user to query
 	 * @param Privilege the privilege you want to know about
 	 * @param Delegate delegate to execute when the async task completes
 	 */
-	virtual void GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) = 0;
+	virtual void GetUserPrivilege(const FUniqueNetId& LocalUserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) = 0;
 
 	/**
 	 * Temporary hack to get a corresponding FUniqueNetId from a PlatformUserId

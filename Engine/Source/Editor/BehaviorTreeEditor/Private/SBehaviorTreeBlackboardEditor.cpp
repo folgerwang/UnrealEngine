@@ -204,7 +204,7 @@ TSharedRef<SWidget> SBehaviorTreeBlackboardEditor::HandleCreateNewEntryMenu() co
 {
 	FClassViewerInitializationOptions Options;
 	Options.bShowUnloadedBlueprints = true;
-	Options.bShowDisplayNames = true;
+	Options.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	Options.ClassFilter = MakeShareable( new FBlackboardEntryClassFilter );
 
 	FOnClassPicked OnPicked( FOnClassPicked::CreateRaw( this, &SBehaviorTreeBlackboardEditor::HandleKeyClassPicked ) );

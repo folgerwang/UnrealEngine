@@ -9,5 +9,5 @@
 #ifdef XMPP_PACKAGE
 #define PACKAGE_SCOPE public
 #else
-#define PACKAGE_SCOPE protected
+#define PACKAGE_SCOPE private
 #endif

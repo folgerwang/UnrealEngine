@@ -342,6 +342,7 @@ void APartyBeaconHost::NewPlayerAdded(const FPlayerReservation& NewPlayer)
 			{
 				UE_LOG(LogPartyBeacon, Verbose, TEXT("Beacon adding pending player %s"), *NewPlayer.UniqueId.ToDebugString());
 				State->PlayersPendingJoin.Add(NewPlayer.UniqueId.GetUniqueNetId());
+				OnNewPlayerAdded().ExecuteIfBound(NewPlayer);
 			}
 		}
 		else

@@ -184,7 +184,7 @@ public:
 	}
 
 	bool ReduceLODModel(
-		FSkeletalMeshLODModel * SrcModel,
+		const FSkeletalMeshLODModel * SrcModel,
 		FSkeletalMeshLODModel *& OutModel,
 		const FBoxSphereBounds & Bounds, 
 		float &MaxDeviation, 
@@ -343,7 +343,7 @@ public:
 		}
 
 		// get settings
-		const FSkeletalMeshOptimizationSettings& Settings = SkeletalMesh->GetLODInfo(LODIndex)->ReductionSettings;
+		FSkeletalMeshOptimizationSettings& Settings = SkeletalMesh->GetLODInfo(LODIndex)->ReductionSettings;
 		
 		// select which mesh we're reducing from
 		// use BaseLOD
@@ -366,6 +366,17 @@ public:
 			}
 		}
 
+		//Reducing Base LOD, we need to use the temporary data so it can be iterative
+		if (BaseLOD == LODIndex && SkelResource->OriginalReductionSourceMeshData.IsValidIndex(BaseLOD) && !SkelResource->OriginalReductionSourceMeshData[BaseLOD]->IsEmpty())
+		{
+			TMap<FString, TArray<FMorphTargetDelta>> TempLODMorphTargetData;
+			SkelResource->OriginalReductionSourceMeshData[BaseLOD]->LoadReductionData(*SrcModel, TempLODMorphTargetData);
+		}
+		else
+		{
+			check(BaseLOD < LODIndex);
+		}
+
 		// now try bone reduction process if it's setup
 		TMap<FBoneIndexType, FBoneIndexType> BonesToRemove;
 
@@ -383,7 +394,7 @@ public:
 		TArray<FMatrix> RelativeToRefPoseMatrices;
 		RelativeToRefPoseMatrices.AddUninitialized(NumBones);
 		// if it has bake pose, gets ref to local matrices using bake pose
-		if (const UAnimSequence* BakePoseAnim = SkeletalMesh->GetLODInfo(LODIndex)->BakePose)
+		if (const UAnimSequence* BakePoseAnim = SkeletalMesh->GetBakePose(LODIndex))
 		{
 			TArray<FTransform> BonePoses;
 			UAnimationBlueprintLibrary::GetBonePosesForFrame(BakePoseAnim, BoneNames, 0, true, BonePoses, SkeletalMesh);
@@ -470,7 +481,7 @@ public:
 				{
 					SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap = SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap;
 					// Something went wrong during the reduce step during regenerate 					
-					check(SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap.Num() == TotalSectionCount);
+					check(SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap.Num() == TotalSectionCount || SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap.Num() == 0);
 				}
 			}
 
@@ -1778,6 +1789,10 @@ private:
 		const uint32 SectionCount = (uint32)LODModel.Sections.Num();
 		auto SkipSection = [&LODModel, LODIndex](int32 SectionIndex)
 		{
+			if (LODModel.Sections[SectionIndex].bDisabled)
+			{
+				return true;
+			}
 			int32 MaxLODIndex = LODModel.Sections[SectionIndex].GenerateUpToLodIndex;
 			return (MaxLODIndex != -1 && MaxLODIndex < LODIndex);
 		};

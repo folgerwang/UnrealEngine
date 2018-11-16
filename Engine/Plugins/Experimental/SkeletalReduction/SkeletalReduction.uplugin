@@ -1,0 +1,26 @@
+{
+  "FileVersion" : 3,
+  "Version" : 1,
+  "VersionName" : "0.1",
+  "FriendlyName" : "Skeletal Mesh Simplifier (Experimental)",
+  "Description" : "A plugin to generate LOD for deforming meshes.",
+  "Category" : "Editor",
+  "CreatedBy" : "Epic Games, Inc.",
+  "CreatedByURL" : "http://epicgames.com",
+  "DocsURL" : "",
+  "MarketplaceURL" : "",
+  "SupportURL" : "",
+  "EnabledByDefault" : true,
+  "CanContainContent" : false,
+  "IsBetaVersion" : true,
+  "Installed" : false,
+  "Modules" :
+	[
+		{
+			"Name" : "SkeletalMeshReduction",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default",
+			 "WhitelistPlatforms": [ "Win64" ]
+		}
+	]
+}

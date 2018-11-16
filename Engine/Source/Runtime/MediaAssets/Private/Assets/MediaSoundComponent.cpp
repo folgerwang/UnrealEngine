@@ -29,7 +29,8 @@ FAutoConsoleVariableRef CVarSyncAudioAfterDropouts(
 	TEXT("0: Not Enabled, 1: Enabled"),
 	ECVF_Default);
 
-DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponent, STATGROUP_Media);
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponentSync, STATGROUP_Media);
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent SampleTime"), STAT_MediaUtils_MediaSoundComponentSampleTime, STATGROUP_Media);
 
 /* Static initialization
  *****************************************************************************/
@@ -52,6 +53,7 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, Resampler(new FMediaAudioResampler)
 	, FrameSyncOffset(0)
 	, bSyncAudioAfterDropouts(false)
+	, LastPlaySampleTime(FTimespan::MinValue())
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
@@ -120,7 +122,8 @@ void UMediaSoundComponent::SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer)
 
 void UMediaSoundComponent::UpdatePlayer()
 {
-	if (!CurrentPlayer.IsValid())
+	UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get();
+	if (CurrentPlayerPtr == nullptr)
 	{
 		CachedRate = 0.0f;
 		CachedTime = FTimespan::Zero();
@@ -133,7 +136,7 @@ void UMediaSoundComponent::UpdatePlayer()
 	}
 
 	// create a new sample queue if the player changed
-	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = CurrentPlayer->GetPlayerFacade();
+	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = CurrentPlayerPtr->GetPlayerFacade();
 
 	if (PlayerFacade != CurrentPlayerFacade)
 	{
@@ -151,6 +154,8 @@ void UMediaSoundComponent::UpdatePlayer()
 	// caching play rate and time for audio thread (eventual consistency is sufficient)
 	CachedRate = PlayerFacade->GetRate();
 	CachedTime = PlayerFacade->GetTime();
+
+	PlayerFacade->SetLastAudioRenderedSampleTime(LastPlaySampleTime.Load());
 }
 
 
@@ -353,7 +358,7 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 				if (JumpFrame != MAX_uint32)
 				{
-					UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( JUMP ) SyncOffset was: %d"), SyncOffset);
+					UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( JUMP ) SyncOffset was: %d, OutTime: %s"), SyncOffset, *OutTime.ToString());
 					int32 JumpFramesRequested = FramesRequested - JumpFrame;
 					int32 JumpFramesWritten = FramesWritten - JumpFrame;
 					SyncOffset = JumpFramesRequested - JumpFramesWritten;
@@ -404,9 +409,10 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			}
 		}
 
-#if STATS
-		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponent, (Time - OutTime).GetTotalMilliseconds());
-#endif
+		LastPlaySampleTime = OutTime;
+
+		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSync, FMath::Abs((Time - OutTime).GetTotalMilliseconds()));
+		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSampleTime, OutTime.GetTotalMilliseconds());
 	}
 	else
 	{
@@ -417,6 +423,8 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			FScopeLock Lock(&CriticalSection);
 			FrameSyncOffset = 0;
 		}
+
+		LastPlaySampleTime = FTimespan::MinValue();
 	}
 	return NumSamples;
 }

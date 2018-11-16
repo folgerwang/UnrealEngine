@@ -13,22 +13,24 @@ namespace Audio
 		, DecompressionState(nullptr)
 		, BufferType(InBufferType)
 		, SampleRate(InWave->GetSampleRateForCurrentPlatform())
+		, NumFrames(0)
 		, BitsPerSample(16) // TODO: support more bits, currently hard-coded to 16
 		, Data(nullptr)
 		, DataSize(0)
 		, bIsRealTimeSourceReady(false)
 		, bIsDynamicResource(false)
 	{
+		// Set the base-class NumChannels to wave's NumChannels
+		NumChannels = InWave->NumChannels;
+
 		if (InWave->DecompressionType == EDecompressionType::DTYPE_Native || InWave->DecompressionType == EDecompressionType::DTYPE_Preview)
 		{
 			check(!InWave->RawPCMData || InWave->RawPCMDataSize);
 			Data = InWave->RawPCMData;
 			DataSize = InWave->RawPCMDataSize;
+			NumFrames = DataSize / (sizeof(int16) * NumChannels);
  			InWave->RawPCMData = nullptr;
 		}
-
-		// Set the base-class NumChannels to wave's NumChannels
-		NumChannels = InWave->NumChannels;
 	}
 
 	FMixerBuffer::~FMixerBuffer()
@@ -140,7 +142,15 @@ namespace Audio
 			UE_LOG(LogAudioMixer, Warning, TEXT("Attempting to read compressed info without a compression state instance for resource '%s'"), *ResourceName);
 			return false;
 		}
-		return DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, nullptr);
+
+		FSoundQualityInfo QualityInfo;
+
+		if (DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, &QualityInfo))
+		{
+			NumFrames = QualityInfo.SampleDataSize / (QualityInfo.NumChannels * sizeof(int16));
+			return true;
+		}
+		return false;
 	}
 
 	bool FMixerBuffer::ReadCompressedData(uint8* Destination, bool bLooping)
@@ -148,7 +158,7 @@ namespace Audio
 		return ReadCompressedData(Destination, MONO_PCM_BUFFER_SAMPLES, bLooping);
 	}
 
-	bool FMixerBuffer::ReadCompressedData(uint8* Destination, int32 NumFrames, bool bLooping)
+	bool FMixerBuffer::ReadCompressedData(uint8* Destination, int32 InNumFrames, bool bLooping)
 	{
 		if (!DecompressionState)
 		{
@@ -156,7 +166,7 @@ namespace Audio
 			return false;
 		}
 
-		const int32 kPCMBufferSize = NumChannels * NumFrames * sizeof(int16);
+		const int32 kPCMBufferSize = NumChannels * InNumFrames * sizeof(int16);
 
 		if (BufferType == EBufferType::Streaming)
 		{
@@ -186,7 +196,6 @@ namespace Audio
 
 		FAudioDeviceManager* AudioDeviceManager = FAudioDevice::GetAudioDeviceManager();
 
-		FMixerDevice* Mixer = (FMixerDevice*)InAudioDevice;
 		FMixerBuffer* Buffer = nullptr;
 
 		EDecompressionType DecompressionType = InWave->DecompressionType;
@@ -226,7 +235,7 @@ namespace Audio
 					}
 
 					// Create a new preview buffer
-					Buffer = FMixerBuffer::CreatePreviewBuffer(Mixer, InWave);
+					Buffer = FMixerBuffer::CreatePreviewBuffer(InAudioDevice, InWave);
 
 					// Track the new created buffer
 					AudioDeviceManager->TrackResource(InWave, Buffer);
@@ -237,14 +246,14 @@ namespace Audio
 			case DTYPE_Procedural:
 			{
 				// Always create a new buffer for procedural or bus buffers
-				Buffer = FMixerBuffer::CreateProceduralBuffer(Mixer, InWave);
+				Buffer = FMixerBuffer::CreateProceduralBuffer(InAudioDevice, InWave);
 			}
 			break;
 
 			case DTYPE_RealTime:
 			{
 				// Always create a new buffer for real-time buffers
-				Buffer = FMixerBuffer::CreateRealTimeBuffer(Mixer, InWave);
+				Buffer = FMixerBuffer::CreateRealTimeBuffer(InAudioDevice, InWave);
 			}
 			break;
 
@@ -257,7 +266,7 @@ namespace Audio
 
 				if (Buffer == nullptr)
 				{
-					Buffer = FMixerBuffer::CreateNativeBuffer(Mixer, InWave);
+					Buffer = FMixerBuffer::CreateNativeBuffer(InAudioDevice, InWave);
 
 					// Track the resource with the audio device manager
 					AudioDeviceManager->TrackResource(InWave, Buffer);
@@ -268,7 +277,7 @@ namespace Audio
 
 			case DTYPE_Streaming:
 			{
-				Buffer = FMixerBuffer::CreateStreamingBuffer(Mixer, InWave);
+				Buffer = FMixerBuffer::CreateStreamingBuffer(InAudioDevice, InWave);
 			}
 			break;
 
@@ -283,18 +292,18 @@ namespace Audio
 		return Buffer;
 	}
 
-	FMixerBuffer* FMixerBuffer::CreatePreviewBuffer(FMixerDevice* InMixer, USoundWave* InWave)
+	FMixerBuffer* FMixerBuffer::CreatePreviewBuffer(FAudioDevice* AudioDevice, USoundWave* InWave)
 	{
 		// Create a new buffer
-		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCMPreview);
+		FMixerBuffer* Buffer = new FMixerBuffer(AudioDevice, InWave, EBufferType::PCMPreview);
 
 		Buffer->bIsDynamicResource = InWave->bDynamicResource;
 		return Buffer;
 	}
 
-	FMixerBuffer* FMixerBuffer::CreateProceduralBuffer(FMixerDevice* InMixer, USoundWave* InWave)
+	FMixerBuffer* FMixerBuffer::CreateProceduralBuffer(FAudioDevice* AudioDevice, USoundWave* InWave)
 	{
-		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCMRealTime);
+		FMixerBuffer* Buffer = new FMixerBuffer(AudioDevice, InWave, EBufferType::PCMRealTime);
 
 		// No tracking of this resource needed
 		Buffer->ResourceID = 0;
@@ -303,21 +312,21 @@ namespace Audio
 		return Buffer;
 	}
 
-	FMixerBuffer* FMixerBuffer::CreateNativeBuffer(FMixerDevice* InMixer, USoundWave* InWave)
+	FMixerBuffer* FMixerBuffer::CreateNativeBuffer(FAudioDevice* AudioDevice, USoundWave* InWave)
 	{
 		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
-		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCM);
+		FMixerBuffer* Buffer = new FMixerBuffer(AudioDevice, InWave, EBufferType::PCM);
 		return Buffer;
 	}
 
-	FMixerBuffer* FMixerBuffer::CreateStreamingBuffer(FMixerDevice* InMixer, USoundWave* InWave)
+	FMixerBuffer* FMixerBuffer::CreateStreamingBuffer(FAudioDevice* AudioDevice, USoundWave* InWave)
 	{
-		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::Streaming);
+		FMixerBuffer* Buffer = new FMixerBuffer(AudioDevice, InWave, EBufferType::Streaming);
 		
 		FSoundQualityInfo QualityInfo = { 0 };
 
-		Buffer->DecompressionState = InMixer->CreateCompressedAudioInfo(InWave);
+		Buffer->DecompressionState = AudioDevice->CreateCompressedAudioInfo(InWave);
 
 		// Get the header information of our compressed format
 		if (Buffer->DecompressionState->StreamCompressedInfo(InWave, &QualityInfo))
@@ -325,8 +334,14 @@ namespace Audio
 			// Refresh the wave data
 			InWave->SetSampleRate(QualityInfo.SampleRate);
 			InWave->NumChannels = QualityInfo.NumChannels;
-			InWave->RawPCMDataSize = QualityInfo.SampleDataSize;
-			InWave->Duration = QualityInfo.Duration;
+			if (QualityInfo.SampleDataSize != 0)
+			{
+				InWave->RawPCMDataSize = QualityInfo.SampleDataSize;
+			}
+			if (QualityInfo.Duration != 0.0f)
+			{
+				InWave->Duration = QualityInfo.Duration;
+			}
 		}
 		else
 		{
@@ -339,21 +354,21 @@ namespace Audio
 		return Buffer;
 	}
 
-	FMixerBuffer* FMixerBuffer::CreateRealTimeBuffer(FMixerDevice* InMixer, USoundWave* InWave)
+	FMixerBuffer* FMixerBuffer::CreateRealTimeBuffer(FAudioDevice* AudioDevice, USoundWave* InWave)
 	{
-		check(InMixer);
+		check(AudioDevice);
 		check(InWave);
 		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		// Create a new buffer for real-time sounds
-		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCMRealTime);
+		FMixerBuffer* Buffer = new FMixerBuffer(AudioDevice, InWave, EBufferType::PCMRealTime);
 
 		if (InWave->ResourceData == nullptr)
 		{
-			InWave->InitAudioResource(InMixer->GetRuntimeFormat(InWave));
+			InWave->InitAudioResource(AudioDevice->GetRuntimeFormat(InWave));
 		}
 
-		Buffer->DecompressionState = InMixer->CreateCompressedAudioInfo(InWave);
+		Buffer->DecompressionState = AudioDevice->CreateCompressedAudioInfo(InWave);
 
 		if (Buffer->DecompressionState)
 		{

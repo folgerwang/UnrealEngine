@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SCommonEditorViewportToolbarBase.h"
 #include "Widgets/SBoxPanel.h"
@@ -152,7 +152,7 @@ TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateViewModeOptionsMen
 	TSharedRef<SEditorViewport> ViewportRef = GetInfoProvider().GetViewportWidget();
 	FEditorViewportClient& ViewClient = GetViewportClient();
 	const UWorld* World = ViewClient.GetWorld();
-	return BuildViewModeOptionsMenu(ViewportRef->GetCommandList(), ViewClient.GetViewMode(), World ? World->FeatureLevel : GMaxRHIFeatureLevel, ViewClient.GetViewModeParamNameMap());
+	return BuildViewModeOptionsMenu(ViewportRef->GetCommandList(), ViewClient.GetViewMode(), World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel, ViewClient.GetViewModeParamNameMap());
 }
 
 

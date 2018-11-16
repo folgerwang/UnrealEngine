@@ -402,7 +402,7 @@ TArray<TSharedPtr<IPropertyHandle>> FDetailCategoryImpl::AddAllExternalStructure
 			{
 				FDetailLayoutCustomization NewCustomization;
 				NewCustomization.PropertyRow = MakeShared<FDetailPropertyRow>(PropertyNode, AsShared(), RootPropertyNode);
-				AddCustomLayout(NewCustomization, bForAdvanced);
+				AddDefaultLayout(NewCustomization, bForAdvanced, NAME_None);
 
 				Handles.Add(DetailLayoutBuilderRef.GetPropertyHandle(PropertyNode));
 			}

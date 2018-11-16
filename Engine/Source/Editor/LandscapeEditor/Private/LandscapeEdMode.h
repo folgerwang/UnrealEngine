@@ -501,7 +501,7 @@ public:
 	{
 		return GetEditingState() == ELandscapeEditingState::Enabled;
 	}
-
+	
 private:
 	TArray<TSharedRef<FLandscapeTargetListInfo>> LandscapeTargetList;
 	TArray<FLandscapeListInfo> LandscapeList;

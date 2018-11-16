@@ -1169,8 +1169,8 @@ namespace UnrealBuildTool
 			// Deletes ay existing file on the building machine. Also, waits 30 seconds, if needed, for the input file to be created in an attempt to work around
 			// a problem where dsymutil would exit with an error saying the input file did not exist.
 			// Note that the source and dest are switched from a copy command
-			GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{2}\"; for i in {{1..30}}; do if [ -f \"{1}\" ] ; then break; else echo\"Waiting for {1} before generating dSYM file.\"; sleep 1; fi; done; \"{0}\"dsymutil -f \"{1}\" -o \"{2}\"'",
-				Settings.ToolchainDir,
+			GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{2}\"; for i in {{1..30}}; do if [ -f \"{1}\" ] ; then break; else echo\"Waiting for {1} before generating dSYM file.\"; sleep 1; fi; done; \"{0}\" -f \"{1}\" -o \"{2}\"'",
+                GetDsymutilPath(),
 				MachOBinary.AbsolutePath,
 				OutputFile.AbsolutePath);
 			if (LinkEnvironment.bIsCrossReferenced)

@@ -424,7 +424,10 @@ void FSlateRHIRenderer::UpdateFullscreenState(const TSharedRef<SWindow> Window, 
 void FSlateRHIRenderer::SetSystemResolution(uint32 Width, uint32 Height)
 {
 	FSystemResolution::RequestResolutionChange(Width, Height, FPlatformProperties::HasFixedResolution() ? EWindowMode::Fullscreen : GSystemResolution.WindowMode);
-	IConsoleManager::Get().CallAllConsoleVariableSinks();
+	if (FPlatformProperties::HasFixedResolution())
+	{
+		IConsoleManager::Get().CallAllConsoleVariableSinks();
+	}
 }
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
@@ -961,19 +964,22 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 	SET_CYCLE_COUNTER(STAT_RenderingIdleTime, RenderThreadIdle);
 	GRenderThreadTime = (ThreadTime > RenderThreadIdle) ? (ThreadTime - RenderThreadIdle) : ThreadTime;
-
-	RHICmdList.EnqueueLambda([](FRHICommandListImmediate&)
+	
+	if (IsRunningRHIInSeparateThread())
 	{
-		// Restart the RHI thread timer, so we don't count time spent in Present twice when this command list finishes.
-		int32 ThisCycles = FPlatformTime::Cycles();
-		GWorkingRHIThreadTime += (ThisCycles - GWorkingRHIThreadStartCycles);
-		GWorkingRHIThreadStartCycles = ThisCycles;
+		RHICmdList.EnqueueLambda([](FRHICommandListImmediate&)
+		{
+			// Restart the RHI thread timer, so we don't count time spent in Present twice when this command list finishes.
+			int32 ThisCycles = FPlatformTime::Cycles();
+			GWorkingRHIThreadTime += (ThisCycles - GWorkingRHIThreadStartCycles);
+			GWorkingRHIThreadStartCycles = ThisCycles;
 
-		uint32 NewVal = GWorkingRHIThreadTime - GWorkingRHIThreadStallTime;
-		FPlatformAtomics::AtomicStore((int32*)&GRHIThreadTime, (int32)NewVal);
-		GWorkingRHIThreadTime = 0;
-		GWorkingRHIThreadStallTime = 0;
-	});
+			uint32 NewVal = GWorkingRHIThreadTime - GWorkingRHIThreadStallTime;
+			FPlatformAtomics::AtomicStore((int32*)&GRHIThreadTime, (int32)NewVal);
+			GWorkingRHIThreadTime = 0;
+			GWorkingRHIThreadStallTime = 0;
+		});
+	}
 
 	// Any window that draws should be reporting referenced UObjects for the duration of the frame.
 	check(WindowElementList.ShouldReportUObjectReferences());
@@ -1535,6 +1541,9 @@ TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRHIRenderer::Cache
 		RenderDataHandle,
 		ResourceVersion
 	};
+
+	RenderDataHandle->BeginUsing();
+
 	ENQUEUE_RENDER_COMMAND(CacheElementBatches)(
 		[CacheElementBatchesContext](FRHICommandListImmediate& RHICmdList)
 	{
@@ -1546,6 +1555,8 @@ TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRHIRenderer::Cache
 		CacheElementBatchesContext.RenderPolicy->UpdateVertexAndIndexBuffers(RHICmdList, BatchData, CacheElementBatchesContext.RenderDataHandle);
 
 		RootBatchMap.UpdateResourceVersion(CacheElementBatchesContext.ResourceVersion);
+
+		CacheElementBatchesContext.RenderDataHandle->EndUsing();
 	}
 	);
 

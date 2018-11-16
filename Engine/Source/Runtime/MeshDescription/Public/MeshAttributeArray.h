@@ -431,13 +431,13 @@ public:
 	using ElementIDType = U;
 
 	/** Return the TMeshAttributeArray corresponding to the given attribute index */
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	FORCEINLINE const TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index ) const
 	{
 		return static_cast<const TMeshAttributeArray<AttributeType, ElementIDType>&>( this->ArrayForIndices[ Index ] );
 	}
 
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	FORCEINLINE TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index )
 	{
 		return static_cast<TMeshAttributeArray<AttributeType, ElementIDType>&>( this->ArrayForIndices[ Index ] );
@@ -820,14 +820,14 @@ public:
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use untemplated UnregisterAttribute() instead" )
+	UE_DEPRECATED( 4.20, "Please use untemplated UnregisterAttribute() instead" )
 	void UnregisterAttribute( const FName AttributeName )
 	{
 		return UnregisterAttribute( AttributeName );
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use untemplated HasAttribute() instead" )
+	UE_DEPRECATED( 4.20, "Please use untemplated HasAttribute() instead" )
 	bool HasAttribute( const FName AttributeName )
 	{
 		return HasAttribute( AttributeName );
@@ -1079,21 +1079,21 @@ public:
 	 * The prototype should be Func( const FName AttributeName, auto& AttributeIndicesArray );
 	 */
 	template <typename FuncType>
-	DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type TMeshAttributesRef instead." )
+	UE_DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type TMeshAttributesRef instead." )
 	void ForEachAttributeIndicesArray( const FuncType& Func )
 	{
 		check( false );
 	}
 
 	template <typename FuncType>
-	DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type const TMeshAttributesRef instead." )
+	UE_DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type const TMeshAttributesRef instead." )
 	void ForEachAttributeIndicesArray( const FuncType& Func ) const
 	{
 		check( false );
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 )
 	{
 		FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
@@ -1102,7 +1102,7 @@ public:
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	const TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 ) const
 	{
 		const FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
@@ -1111,7 +1111,7 @@ public:
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName )
 	{
 		FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
@@ -1120,7 +1120,7 @@ public:
 	}
 
 	template <typename AttributeType>
-	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	UE_DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
 	const TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName ) const
 	{
 		const FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();

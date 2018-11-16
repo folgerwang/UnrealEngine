@@ -27,6 +27,7 @@ ALevelScriptActor::ALevelScriptActor(const FObjectInitializer& ObjectInitializer
 	SetRemoteRoleForBackwardsCompat(ROLE_SimulatedProxy);
 	bReplicates = true;
 	bAlwaysRelevant = true;
+	bReplayRewindable = true;
 }
 
 #if WITH_EDITOR

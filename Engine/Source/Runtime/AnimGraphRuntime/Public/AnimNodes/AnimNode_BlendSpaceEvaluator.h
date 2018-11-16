@@ -18,7 +18,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BlendSpaceEvaluator : public FAnimNode_Ble
 public:
 	/** Normalized time between [0,1]. The actual length of a blendspace is dynamic based on the coordinate, so it is exposed as a normalized value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float NormalizedTime;
+	float NormalizedTime;
 
 public:	
 	FAnimNode_BlendSpaceEvaluator();

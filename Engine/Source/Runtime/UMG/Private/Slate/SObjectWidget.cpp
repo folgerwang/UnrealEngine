@@ -28,7 +28,6 @@ void SObjectWidget::Construct(const FArguments& InArgs, UUserWidget* InWidgetObj
 #endif
 		WidgetObject->UpdateCanTick();
 	}
-
 }
 
 SObjectWidget::~SObjectWidget(void)
@@ -38,7 +37,11 @@ SObjectWidget::~SObjectWidget(void)
 	// in a running game.
 	if (!GCompilingBlueprint)
 	{
-		ensureMsgf(!IsGarbageCollecting(), TEXT("SObjectWidget for '%s' destroyed while collecting garbage.  This can lead to multiple GCs being required to cleanup the object.  Possible causes might be,\n1) ReleaseSlateResources not being implemented for the owner of this pointer.\n2) You may just be holding onto some slate pointers on an actor that don't get reset until the actor is Garbage Collected.  You should avoid doing this, and instead reset those references when the actor is Destroyed."), *DebugName);
+		// This is only a concern during a running game - design-time instances can be destroyed from GC quite often when recompiling
+		if (!WidgetObject || !WidgetObject->IsDesignTime())
+		{
+			ensureMsgf(!IsGarbageCollecting(), TEXT("SObjectWidget for '%s' destroyed while collecting garbage.  This can lead to multiple GCs being required to cleanup the object.  Possible causes might be,\n1) ReleaseSlateResources not being implemented for the owner of this pointer.\n2) You may just be holding onto some slate pointers on an actor that don't get reset until the actor is Garbage Collected.  You should avoid doing this, and instead reset those references when the actor is Destroyed."), *DebugName);
+		}
 	}
 #endif
 
@@ -119,7 +122,7 @@ int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGe
 
 	int32 MaxLayer = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 
-	if ( CanRouteEvent() )
+	if ( CanRoutePaint() )
 	{
 		return WidgetObject->NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, MaxLayer, InWidgetStyle, bParentEnabled);
 	}
@@ -135,6 +138,19 @@ bool SObjectWidget::ComputeVolatility() const
 	}
 
 	return SCompoundWidget::ComputeVolatility();
+}
+
+FVector2D SObjectWidget::ComputeDesiredSize(float LayoutScaleMultiplier) const
+{
+	const FVector2D BaseDesiredSize = SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
+
+	if (WidgetObject)
+	{
+		const FVector2D MinimumDesiredSize = WidgetObject->GetMinimumDesiredSize();
+		return FVector2D::Max(BaseDesiredSize, MinimumDesiredSize);
+	}
+
+	return BaseDesiredSize;
 }
 
 bool SObjectWidget::IsInteractable() const

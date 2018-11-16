@@ -8,23 +8,25 @@
 // FAnimNode_SpringBone
 
 FAnimNode_SpringBone::FAnimNode_SpringBone()
-	: bLimitDisplacement(false)
-	, MaxDisplacement(0.0f)
+	: MaxDisplacement(0.0f)
 	, SpringStiffness(50.0f)
 	, SpringDamping(4.0f)
 	, ErrorResetThresh(256.0f)
+	, BoneLocation(FVector::ZeroVector)
+	, BoneVelocity(FVector::ZeroVector)
+	, OwnerVelocity(FVector::ZeroVector)
+	, RemainingTime(0.f)
+#if WITH_EDITORONLY_DATA
 	, bNoZSpring_DEPRECATED(false)
+#endif
+	, bLimitDisplacement(false)
 	, bTranslateX(true)
 	, bTranslateY(true)
 	, bTranslateZ(true)
 	, bRotateX(false)
 	, bRotateY(false)
 	, bRotateZ(false)
-	, RemainingTime(0.f)
 	, bHadValidStrength(false)
-	, BoneLocation(FVector::ZeroVector)
-	, BoneVelocity(FVector::ZeroVector)
-	, OwnerVelocity(FVector::ZeroVector)
 {
 }
 
@@ -103,81 +105,88 @@ void FAnimNode_SpringBone::EvaluateSkeletalControl_AnyThread(FComponentSpacePose
 		BoneLocation = TargetPos;
 		BoneVelocity = FVector::ZeroVector;
 	}
-		
-	while (RemainingTime > FixedTimeStep)
+
+	if(!FMath::IsNearlyZero(FixedTimeStep, KINDA_SMALL_NUMBER))
 	{
-		// Update location of our base by how much our base moved this frame.
-		FVector const BaseTranslation = (OwnerVelocity * FixedTimeStep);
-		BoneLocation += BaseTranslation;
-
-		// Reinit values if outside reset threshold
-		if (((TargetPos - BoneLocation).SizeSquared() > (ErrorResetThresh*ErrorResetThresh)))
+		while (RemainingTime > FixedTimeStep)
 		{
-			BoneLocation = TargetPos;
-			BoneVelocity = FVector::ZeroVector;
-		}
+			// Update location of our base by how much our base moved this frame.
+			FVector const BaseTranslation = (OwnerVelocity * FixedTimeStep);
+			BoneLocation += BaseTranslation;
 
-		// Calculate error vector.
-		FVector const Error = (TargetPos - BoneLocation);
-		FVector const DampingForce = SpringDamping * BoneVelocity;
-		FVector const SpringForce = SpringStiffness * Error;
-
-		// Calculate force based on error and vel
-		FVector const Acceleration = SpringForce - DampingForce;
-
-		// Integrate velocity
-		// Make sure damping with variable frame rate actually dampens velocity. Otherwise Spring will go nuts.
-		float const CutOffDampingValue = 1.f/FixedTimeStep;
-		if (SpringDamping > CutOffDampingValue)
-		{
-			float const SafetyScale = CutOffDampingValue / SpringDamping;
-			BoneVelocity += SafetyScale * (Acceleration * FixedTimeStep);
-		}
-		else
-		{
-			BoneVelocity += (Acceleration * FixedTimeStep);
-		}
-
-		// Clamp velocity to something sane (|dX/dt| <= ErrorResetThresh)
-		float const BoneVelocityMagnitude = BoneVelocity.Size();
-		if (BoneVelocityMagnitude * FixedTimeStep > ErrorResetThresh)
-		{
-			BoneVelocity *= (ErrorResetThresh / (BoneVelocityMagnitude * FixedTimeStep));
-		}
-
-		// Integrate position
-		FVector const OldBoneLocation = BoneLocation;
-		FVector const DeltaMove = (BoneVelocity * FixedTimeStep);
-		BoneLocation += DeltaMove;
-
-		// Filter out spring translation based on our filter properties
-		CopyToVectorByFlags(BoneLocation, TargetPos, !bTranslateX, !bTranslateY, !bTranslateZ);
-
-
-		// If desired, limit error
-		if (bLimitDisplacement)
-		{
-			FVector CurrentDisp = BoneLocation - TargetPos;
-			// Too far away - project back onto sphere around target.
-			if (CurrentDisp.SizeSquared() > FMath::Square(MaxDisplacement))
+			// Reinit values if outside reset threshold
+			if (((TargetPos - BoneLocation).SizeSquared() > (ErrorResetThresh*ErrorResetThresh)))
 			{
-				FVector DispDir = CurrentDisp.GetSafeNormal();
-				BoneLocation = TargetPos + (MaxDisplacement * DispDir);
+				BoneLocation = TargetPos;
+				BoneVelocity = FVector::ZeroVector;
 			}
+
+			// Calculate error vector.
+			FVector const Error = (TargetPos - BoneLocation);
+			FVector const DampingForce = SpringDamping * BoneVelocity;
+			FVector const SpringForce = SpringStiffness * Error;
+
+			// Calculate force based on error and vel
+			FVector const Acceleration = SpringForce - DampingForce;
+
+			// Integrate velocity
+			// Make sure damping with variable frame rate actually dampens velocity. Otherwise Spring will go nuts.
+			float const CutOffDampingValue = 1.f / FixedTimeStep;
+			if (SpringDamping > CutOffDampingValue)
+			{
+				float const SafetyScale = CutOffDampingValue / SpringDamping;
+				BoneVelocity += SafetyScale * (Acceleration * FixedTimeStep);
+			}
+			else
+			{
+				BoneVelocity += (Acceleration * FixedTimeStep);
+			}
+
+			// Clamp velocity to something sane (|dX/dt| <= ErrorResetThresh)
+			float const BoneVelocityMagnitude = BoneVelocity.Size();
+			if (BoneVelocityMagnitude * FixedTimeStep > ErrorResetThresh)
+			{
+				BoneVelocity *= (ErrorResetThresh / (BoneVelocityMagnitude * FixedTimeStep));
+			}
+
+			// Integrate position
+			FVector const OldBoneLocation = BoneLocation;
+			FVector const DeltaMove = (BoneVelocity * FixedTimeStep);
+			BoneLocation += DeltaMove;
+
+			// Filter out spring translation based on our filter properties
+			CopyToVectorByFlags(BoneLocation, TargetPos, !bTranslateX, !bTranslateY, !bTranslateZ);
+
+
+			// If desired, limit error
+			if (bLimitDisplacement)
+			{
+				FVector CurrentDisp = BoneLocation - TargetPos;
+				// Too far away - project back onto sphere around target.
+				if (CurrentDisp.SizeSquared() > FMath::Square(MaxDisplacement))
+				{
+					FVector DispDir = CurrentDisp.GetSafeNormal();
+					BoneLocation = TargetPos + (MaxDisplacement * DispDir);
+				}
+			}
+
+			// Update velocity to reflect post processing done to bone location.
+			BoneVelocity = (BoneLocation - OldBoneLocation) / FixedTimeStep;
+
+			check(!BoneLocation.ContainsNaN());
+			check(!BoneVelocity.ContainsNaN());
+
+			RemainingTime -= FixedTimeStep;
 		}
-
-		// Update velocity to reflect post processing done to bone location.
-		BoneVelocity = (BoneLocation - OldBoneLocation) / FixedTimeStep;
-
-		check( !BoneLocation.ContainsNaN() );
-		check( !BoneVelocity.ContainsNaN() );
-
-		RemainingTime -= FixedTimeStep;
+		LocalBoneTransform = Output.AnimInstanceProxy->GetComponentTransform().InverseTransformPosition(BoneLocation);
 	}
-
+	else
+	{
+		BoneLocation = Output.AnimInstanceProxy->GetComponentTransform().TransformPosition(LocalBoneTransform);
+	}
 	// Now convert back into component space and output - rotation is unchanged.
 	FTransform OutBoneTM = SpaceBase;
-	OutBoneTM.SetLocation(Output.AnimInstanceProxy->GetComponentTransform().InverseTransformPosition(BoneLocation));
+	OutBoneTM.SetLocation(LocalBoneTransform);
 
 	const bool bUseRotation = bRotateX || bRotateY || bRotateZ;
 	if (bUseRotation)

@@ -50,6 +50,7 @@ public:
 	FChatRoomConfig()
 		: bRejoinOnDisconnect(false)
 		, bPasswordRequired(false)
+		, bAnnounceMembers(true)
 	{}
 
 	/** Should this room be rejoined on disconnection */
@@ -58,10 +59,15 @@ public:
 	bool bPasswordRequired;
 	/** Password to join the room (owner only) */
 	FString Password;
+	/**
+	 * Should we announce members joining and leaving?
+	 * This may incur a performance cost if members need to be validated.
+	 */
+	bool bAnnounceMembers;
 
 	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("bPassReqd: %d Pass: %s"), bPasswordRequired, *Password);
+		return FString::Printf(TEXT("bRejoin: %d bPassReqd: %d Pass: %s bAnnounceMembers: %d"), bRejoinOnDisconnect, bPasswordRequired, *Password, bAnnounceMembers);
 	}
 
 private:

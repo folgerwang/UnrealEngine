@@ -33,7 +33,7 @@ void FAnimNode_ApplyAdditive::Update_AnyThread(const FAnimationUpdateContext& Co
 	{
 		// @note: If you derive from this class, and if you have input that you rely on for base
 		// this is not going to work	
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 
 		switch (AlphaInputType)
 		{
@@ -81,6 +81,7 @@ void FAnimNode_ApplyAdditive::Evaluate_AnyThread(FPoseContext& Output)
 FAnimNode_ApplyAdditive::FAnimNode_ApplyAdditive()
 	: Alpha(1.0f)
 	, LODThreshold(INDEX_NONE)
+	, AlphaCurveName(NAME_None)
 	, ActualAlpha(0.f)
 	, AlphaInputType(EAnimAlphaInputType::Float)
 	, bAlphaBoolEnabled(true)
