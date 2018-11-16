@@ -388,7 +388,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		mtlpp::RenderPipelineDescriptor RenderPipelineDesc;
 		mtlpp::ComputePipelineDescriptor ComputePipelineDesc(nil);
 		
-		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesPipelineBufferMutability))
 		{
 			ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> VertexPipelineBuffers = RenderPipelineDesc.GetVertexBuffers();
 			FMetalShaderBindings& VertexBindings = DomainShader ? DomainShader->Bindings : VertexShader->Bindings;
@@ -575,7 +575,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 			ComputePipelineDesc = mtlpp::ComputePipelineDescriptor();
             check(ComputePipelineDesc);
 			
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesGPUCommandBufferTimes))
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesPipelineBufferMutability))
 			{
 				ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> PipelineBuffers = ComputePipelineDesc.GetBuffers();
 				

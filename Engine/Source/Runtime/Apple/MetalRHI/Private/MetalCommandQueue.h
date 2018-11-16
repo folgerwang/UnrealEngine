@@ -101,6 +101,8 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesParallelRenderEncoders = 1llu << 40llu,
 	/** Supports indirect argument buffers */
 	EMetalFeaturesIABs = 1llu << 41llu,
+	/** Supports specifying the mutability of buffers bound to PSOs */
+	EMetalFeaturesPipelineBufferMutability = 1llu << 42llu,
 };
 
 /**
