@@ -32,6 +32,90 @@ class CORE_API FTextLocalizationManager
 	friend CORE_API void InitGameTextLocalization();
 
 private:
+
+	class FTextIdString
+	{
+	public:
+		FTextIdString(const FString& Str = FString())
+			: IndexIntoTable(FState::GetState().FindOrAdd(Str))
+		{
+		}
+		FORCEINLINE const FString& ToString() const
+		{
+			return FState::GetState().Get(IndexIntoTable);
+		}
+		friend FORCEINLINE uint32 GetTypeHash(const FTextIdString& A)
+		{
+			return A.IndexIntoTable;
+		}
+		friend FORCEINLINE bool operator==(const FTextIdString& A, const FTextIdString& B)
+		{
+			return A.IndexIntoTable == B.IndexIntoTable;
+		}
+		friend FORCEINLINE bool operator!=(const FTextIdString& A, const FTextIdString& B)
+		{
+			return A.IndexIntoTable != B.IndexIntoTable;
+		}
+		static void CompactDataStructures()
+		{
+			FState::GetState().Shrink();
+		}
+
+	private:
+		class FState
+		{
+		public:
+			FORCEINLINE uint32 FindOrAdd(const FString& Str)
+			{
+				if (uint32* IndexIntoTablePtr = StringToIndex.Find(*Str))
+				{
+					return *IndexIntoTablePtr;
+				}
+
+				uint32 OutIndexIntoTable = IndexToString.Add(Str);
+				StringToIndex.Add(*IndexToString.Last(), OutIndexIntoTable);
+				return OutIndexIntoTable;
+			}
+
+			FORCEINLINE const FString& Get(uint32 InIndexIntoTable)
+			{
+				return IndexToString[InIndexIntoTable];
+			}
+
+			FORCEINLINE void Shrink()
+			{
+				StringToIndex.Shrink();
+				IndexToString.Shrink();
+			}
+
+			static FState& GetState();
+
+		private:
+			struct FTextIdStringKeyMapFuncs : BaseKeyFuncs<uint32, const TCHAR*, /*bInAllowDuplicateKeys*/false>
+			{
+				static FORCEINLINE const TCHAR* GetSetKey(const TPair<const TCHAR*, uint32>& Element)
+				{
+					return Element.Key;
+				}
+				static FORCEINLINE bool Matches(const TCHAR* A, const TCHAR* B)
+				{
+					return FCString::Strcmp(A, B) == 0;
+				}
+				static FORCEINLINE uint32 GetKeyHash(const TCHAR* Key)
+				{
+					// We use MemCrc32 rather than StrCrc32 as MemCrc32 is faster since we don't need to worry about 
+					// hash differences between ANSI and WIDE strings (as we only deal with TCHAR strings).
+					return FCrc::MemCrc32(Key, FCString::Strlen(Key) * sizeof(TCHAR));
+				}
+			};
+
+			TMap<const TCHAR*, uint32, FDefaultSetAllocator, FTextIdStringKeyMapFuncs> StringToIndex;
+			TArray<FString> IndexToString;
+		};
+
+		uint32 IndexIntoTable;
+	};
+
 	/** Utility class for managing the currently loaded or registered text localizations. */
 	class FDisplayStringLookupTable
 	{
@@ -39,25 +123,29 @@ private:
 		/** Data struct for tracking a display string. */
 		struct FDisplayStringEntry
 		{
-			bool bIsLocalized;
-			FTextLocalizationResourceId LocResID;
-			uint32 SourceStringHash;
 			FTextDisplayStringRef DisplayString;
+#if WITH_EDITORONLY_DATA
+			FTextLocalizationResourceId LocResID;
+#endif
 #if ENABLE_LOC_TESTING
 			FString NativeStringBackup;
 #endif
+			uint32 SourceStringHash;
+			bool bIsLocalized;
 
 			FDisplayStringEntry(const bool InIsLocalized, const FTextLocalizationResourceId& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
-				: bIsLocalized(InIsLocalized)
+				: DisplayString(InDisplayString)
+#if WITH_EDITORONLY_DATA
 				, LocResID(InLocResID)
+#endif
 				, SourceStringHash(InSourceStringHash)
-				, DisplayString(InDisplayString)
+				, bIsLocalized(InIsLocalized)
 			{
 			}
 		};
 
-		typedef TMap<FString, FDisplayStringEntry, FDefaultSetAllocator, FLocKeyMapFuncs<FDisplayStringEntry>> FKeysTable;
-		typedef TMap<FString, FKeysTable, FDefaultSetAllocator, FLocKeyMapFuncs<FKeysTable>> FNamespacesTable;
+		typedef TMap<FTextIdString, FDisplayStringEntry> FKeysTable;
+		typedef TMap<FTextIdString, FKeysTable> FNamespacesTable;
 
 		FNamespacesTable NamespacesTable;
 
@@ -66,13 +154,16 @@ private:
 		void Find(const FString& InNamespace, FKeysTable*& OutKeysTableForNamespace, const FString& InKey, FDisplayStringEntry*& OutDisplayStringEntry);
 		/** Finds the keys table for the specified namespace and the display string entry for the specified namespace and key combination. If not found, the out parameters are set to null. */
 		void Find(const FString& InNamespace, const FKeysTable*& OutKeysTableForNamespace, const FString& InKey, const FDisplayStringEntry*& OutDisplayStringEntry) const;
+
+		void DumpMemoryInfo();
+		void CompactDataStructures();
 	};
 
 	/** Simple data structure containing the name of the namespace and key associated with a display string, for use in looking up namespace and key from a display string. */
 	struct FNamespaceKeyEntry
 	{
-		FString Namespace;
-		FString Key;
+		FTextIdString Namespace;
+		FTextIdString Key;
 
 		FNamespaceKeyEntry(const FString& InNamespace, const FString& InKey)
 			: Namespace(InNamespace)
@@ -103,6 +194,9 @@ public:
 
 	/** Singleton accessor */
 	static FTextLocalizationManager& Get();
+
+	void DumpMemoryInfo();
+	void CompactDataStructures();
 
 	/**
 	 * Given a localization category, get the native culture for the category (if known).
@@ -137,9 +231,10 @@ public:
 	*/
 	FTextDisplayStringRef GetDisplayString(const FString& Namespace, const FString& Key, const FString* const SourceString);
 
+#if WITH_EDITORONLY_DATA
 	/** If an entry exists for the specified namespace and key, returns true and provides the localization resource identifier from which it was loaded. Otherwise, returns false. */
 	bool GetLocResID(const FString& Namespace, const FString& Key, FString& OutLocResId);
-
+#endif
 	/**	Finds the namespace and key associated with the specified display string.
 	 *	Returns true if found and sets the out parameters. Otherwise, returns false.
 	 */

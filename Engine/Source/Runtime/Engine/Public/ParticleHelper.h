@@ -926,47 +926,6 @@ struct FModuleLocationBoneSocketParticlePayload
 	int32 SourceIndex;
 };
 
-/** ModuleLocationVertSurface instance payload */
-struct FModuleLocationVertSurfaceInstancePayload
-{
-	/** The skeletal mesh component used as the source of the sockets */
-	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
-	/** Actor that owns the skel mesh component we're using. */
-	TWeakObjectPtr<AActor> CachedActor;
-	/** The index of the vertice this particle system spawns from */
-	int32 VertIndex;
-	/** The number of valid bone indices that which can be used for . */
-	int32 NumValidAssociatedBoneIndices;
-	/** Bone indices for the associated bone names. */
-	TPreallocatedArrayProxy<int32> ValidAssociatedBoneIndices;
-	/** The position of each bone from the previous tick. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> PrevFrameBonePositions;
-	/** The velocity of each bone. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> BoneVelocities;
-
-	/** Initialize array proxies and map to memory that has been allocated in the emitter's instance data buffer */
-	void InitArrayProxies(int32 FixedArraySize)
-	{
-		// Calculate offsets into instance data buffer for the arrays and initialize the buffer proxies. The allocation 
-		// size for these arrays is calculated in RequiredBytesPerInstance.
-		const uint32 StructSize =  sizeof(FModuleLocationVertSurfaceInstancePayload);
-		ValidAssociatedBoneIndices = TPreallocatedArrayProxy<int32>((uint8*)this + StructSize, FixedArraySize);
-
-		uint32 StructOffset = StructSize + (FixedArraySize*sizeof(int32));
-		PrevFrameBonePositions = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize );
-
-		StructOffset = StructSize + (FixedArraySize*sizeof(int32)) + (FixedArraySize*sizeof(FVector));
-		BoneVelocities = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize );
-	}
-};
-
-/** ModuleLocationVertSurface per-particle payload - only used if updating each frame */
-struct FModuleLocationVertSurfaceParticlePayload
-{
-	/** The index of the socket this particle is 'attached' to */
-	int32 SourceIndex;
-};
-
 /**
  *	Chain-able Orbit module instance payload
  */

@@ -153,6 +153,9 @@ private:
 	/** Creates all internal widgets for the tabs to point at */
 	void CreateInternalWidgets();
 
+	/** Delegate for overriding Show Modified to Show Overridden instead */
+	void FilterOverriddenProperties();
+
 	/** Updates the 3D and UI preview viewport visibility based on material domain */
 	void UpdatePreviewViewportsVisibility();
 

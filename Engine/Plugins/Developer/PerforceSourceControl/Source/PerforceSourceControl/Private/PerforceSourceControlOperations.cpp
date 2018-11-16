@@ -341,6 +341,8 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 			// Batch reopen into multiple commands, to avoid command line limits
 			const int32 BatchedCount = 100;
 			InCommand.bCommandSuccessful = true;
+			TArray<FString> ReopenedFiles;
+			ReopenedFiles.Reserve(InCommand.Files.Num());
 			for (int32 StartingIndex = 0; StartingIndex < InCommand.Files.Num() && InCommand.bCommandSuccessful; StartingIndex += BatchedCount)
 			{
 				FP4RecordSet Records;
@@ -351,12 +353,20 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 				ReopenParams.Insert(FString::Printf(TEXT("%d"), ChangeList), 1);
 				int32 NextIndex = FMath::Min(StartingIndex + BatchedCount, InCommand.Files.Num());
 
+				int32 FileParamsStartIdx = ReopenParams.Num();
 				for (int32 FileIndex = StartingIndex; FileIndex < NextIndex; FileIndex++)
 				{
 					ReopenParams.Add(InCommand.Files[FileIndex]);
 				}
 
 				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				if (InCommand.bCommandSuccessful)
+				{
+					for (int32 ParamIdx = FileParamsStartIdx; ParamIdx < ReopenParams.Num(); ++ParamIdx)
+					{
+						ReopenedFiles.Add(ReopenParams[ParamIdx]);
+					}
+				}
 			}
 
 			if (InCommand.bCommandSuccessful)
@@ -397,6 +407,43 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 					{
 						OutResults.Add(*Iter, EPerforceState::ReadOnly);
 					}
+				}
+			}
+
+			// If the submit failed, clean up the changelist created above
+			if (!InCommand.bCommandSuccessful)
+			{
+				// Reopen the assets to the default changelist to remove them from the changelist we created above
+				if (ReopenedFiles.Num() > 0)
+				{
+					bool bReopenSuccessful = true;
+					for (int32 StartingIndex = 0; StartingIndex < ReopenedFiles.Num() && bReopenSuccessful; StartingIndex += BatchedCount)
+					{
+						FP4RecordSet Records;
+						TArray< FString > ReopenParams;
+
+						//Add changelist information to params
+						ReopenParams.Insert(TEXT("-c"), 0);
+						ReopenParams.Insert(TEXT("default"), 1);
+						int32 NextIndex = FMath::Min(StartingIndex + BatchedCount, ReopenedFiles.Num());
+
+						int32 FileParamsStartIdx = ReopenParams.Num();
+						for (int32 FileIndex = StartingIndex; FileIndex < NextIndex; FileIndex++)
+						{
+							ReopenParams.Add(ReopenedFiles[FileIndex]);
+						}
+
+						bReopenSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+					}
+				}
+
+				// Delete the changelist we created above
+				{
+					FP4RecordSet Records;
+					TArray<FString> ChangeParams;
+					ChangeParams.Add(TEXT("-d"));
+					ChangeParams.Add(FString::Printf(TEXT("%d"), ChangeList));
+					Connection.RunCommand(TEXT("change"), ChangeParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 				}
 			}
 		}

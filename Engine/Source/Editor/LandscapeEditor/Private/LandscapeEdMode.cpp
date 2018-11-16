@@ -51,6 +51,7 @@
 #include "LandscapeEditorCommands.h"
 #include "Framework/Commands/InputBindingManager.h"
 #include "MouseDeltaTracker.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -249,7 +250,6 @@ FEdModeLandscape::FEdModeLandscape()
 	CommandList->MapAction(LandscapeActions.IncreaseBrushStrength, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushStrength, true), FCanExecuteAction(), FIsActionChecked());
 	CommandList->MapAction(LandscapeActions.DecreaseBrushStrength, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushStrength, false), FCanExecuteAction(), FIsActionChecked());
 }
-
 
 /** Destructor */
 FEdModeLandscape::~FEdModeLandscape()
@@ -516,7 +516,6 @@ void FEdModeLandscape::Enter()
 	}
 }
 
-
 /** FEdMode: Called when the mode is exited */
 void FEdModeLandscape::Exit()
 {
@@ -720,7 +719,7 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
 		{
 			// Don't end the current tool if we are just modifying it
-			if (!IsAdjustingBrush(Viewport))
+			if (!IsAdjustingBrush(Viewport) && CurrentTool->IsToolActive())
 			{
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
@@ -771,21 +770,56 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 
 
 /** FEdMode: Called when the mouse is moved over the viewport */
-bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 MouseX, int32 MouseY)
+bool FEdModeLandscape::MouseMove(FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 MouseX, int32 MouseY)
 {
 	// due to mouse capture this should only ever be called on the active viewport
 	// if it ever gets called on another viewport the mouse has been released without us picking it up
 	if (ToolActiveViewport && ensure(CurrentTool) && !bIsPaintingInVR)
 	{
+		int32 MouseXDelta = MouseX - InViewportClient->GetCachedMouseX();
+		int32 MouseYDelta = MouseY - InViewportClient->GetCachedMouseY();
+
+		if (FMath::Abs(MouseXDelta) > 0 || FMath::Abs(MouseYDelta) > 0)
+		{
+			const bool bSizeChange = FMath::Abs(MouseXDelta) > FMath::Abs(MouseYDelta) ?
+				MouseXDelta > 0 : 
+				MouseYDelta < 0; // The way y position is stored here is inverted relative to expected mouse movement to change brush size
+			// Are we altering something about the brush?
+			FInputChord CompareChord;
+			FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushSize"), EMultipleKeyBindingIndex::Primary, CompareChord);
+			if (InViewport->KeyState(CompareChord.Key))
+			{
+				ChangeBrushSize(bSizeChange);
+				return true;
+			}
+
+			FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushStrength"), EMultipleKeyBindingIndex::Primary, CompareChord);
+			if (InViewport->KeyState(CompareChord.Key))
+			{
+				ChangeBrushStrength(bSizeChange);
+				return true;
+			}
+
+			FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushFalloff"), EMultipleKeyBindingIndex::Primary, CompareChord);
+			if (InViewport->KeyState(CompareChord.Key))
+			{
+				ChangeBrushFalloff(bSizeChange);
+				return true;
+			}
+		}
+
 		// Require Ctrl or not as per user preference
 		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
 
-		if (ToolActiveViewport != Viewport ||
-			!Viewport->KeyState(EKeys::LeftMouseButton) ||
-			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
+		if (ToolActiveViewport != InViewport ||
+			!InViewport->KeyState(EKeys::LeftMouseButton) ||
+			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(InViewport)))
 		{
-			CurrentTool->EndTool(ViewportClient);
-			Viewport->CaptureMouse(false);
+			if (CurrentTool->IsToolActive())
+			{
+				CurrentTool->EndTool(InViewportClient);
+			}
+			InViewport->CaptureMouse(false);
 			ToolActiveViewport = nullptr;
 		}
 	}
@@ -800,8 +834,8 @@ bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewpor
 	{
 		if (CurrentTool)
 		{
-			Result = CurrentTool->MouseMove(ViewportClient, Viewport, MouseX, MouseY);
-			ViewportClient->Invalidate(false, false);
+			Result = CurrentTool->MouseMove(InViewportClient, InViewport, MouseX, MouseY);
+			InViewportClient->Invalidate(false, false);
 		}
 	}
 	return Result;
@@ -1388,7 +1422,7 @@ void FEdModeLandscape::ChangeBrushSize(bool bIncrease)
 	else
 	{
 		float Radius = UISettings->BrushRadius;
-		const float SliderMin = 0.0f;
+		const float SliderMin = 10.0f;
 		const float SliderMax = 8192.0f;
 		float Diff = 0.05f; //6.0f / SliderMax;
 		if (!bIncrease)
@@ -1479,6 +1513,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 
 	if(IsAdjustingBrush(Viewport))
 	{
+		ToolActiveViewport = Viewport;
 		return false; // false to let FEditorViewportClient.InputKey start mouse tracking and enable InputDelta() so we can use it
 	}
 
@@ -1623,7 +1658,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 		if (Key == EKeys::LeftMouseButton ||
 			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && (Key == EKeys::LeftControl || Key == EKeys::RightControl)))
 		{
-			if (Event == IE_Released && CurrentTool && ToolActiveViewport)
+			if (Event == IE_Released && CurrentTool && CurrentTool->IsToolActive() && ToolActiveViewport)
 			{
 				//Set the cursor position to that of the slate cursor so it wont snap back
 				Viewport->SetPreCaptureMousePosFromSlateCursor();
@@ -1637,7 +1672,7 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 		// Prev tool
 		if (Event == IE_Pressed && Key == EKeys::Comma)
 		{
-			if (CurrentTool && ToolActiveViewport)
+			if (CurrentTool && CurrentTool->IsToolActive() && ToolActiveViewport)
 			{
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
@@ -1678,38 +1713,6 @@ bool FEdModeLandscape::InputDelta(FEditorViewportClient* InViewportClient, FView
 	if (!IsEditingEnabled())
 	{
 		return false;
-	}
-
-	// Are we altering something about the brush?
-	FInputChord CompareChord;
-	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushSize"), EMultipleKeyBindingIndex::Primary, CompareChord);
-	if (InViewport->KeyState(CompareChord.Key))
-	{
-		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
-			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
-			InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
-		ChangeBrushSize(bSizeChange);
-		return true;
-	}
-
-	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushStrength"), EMultipleKeyBindingIndex::Primary, CompareChord);
-	if (InViewport->KeyState(CompareChord.Key))
-	{
-		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
-			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
-		InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
-		ChangeBrushStrength(bSizeChange);
-		return true;
-	}
-
-	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushFalloff"), EMultipleKeyBindingIndex::Primary, CompareChord);
-	if (InViewport->KeyState(CompareChord.Key))
-	{
-		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
-			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
-		InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
-		ChangeBrushFalloff(bSizeChange);
-		return true;
 	}
 
 	if (NewLandscapePreviewMode != ENewLandscapePreviewMode::None)
@@ -2966,7 +2969,7 @@ bool FEdModeLandscape::IsSelectionAllowed(AActor* InActor, bool bInSelection) co
 		return true;
 	}
 
-	return false;
+	return true;
 }
 
 /** FEdMode: Called when the currently selected actor has changed */

@@ -207,7 +207,7 @@ public:
 		/** Should this window be focused immediately after it is shown? */
 		SLATE_ARGUMENT( bool, FocusWhenFirstShown )
 
-		DEPRECATED(4.16, "ActivateWhenFirstShown(bool) is deprecated. Please use ActivationPolicy(EWindowActivationPolicy) instead")
+		UE_DEPRECATED(4.16, "ActivateWhenFirstShown(bool) is deprecated. Please use ActivationPolicy(EWindowActivationPolicy) instead")
 		FArguments& ActivateWhenFirstShown(bool bActivateWhenFirstShown)
 		{
 			// Previously ActivateWhenFirstShown was being used as always activating, so we use Always here to ensure same behavior.
@@ -426,6 +426,15 @@ public:
 	/** Flashed the window, used for drawing attention to modal dialogs */
 	void FlashWindow();
 
+	/**
+	 * Attempts to draw the user's attention to this window in whatever way is
+	 * appropriate for the platform if this window is not the current active
+	 *
+	 * @param Parameters The parameters for bouncing. Depending on the
+	 *        platform, not all parameters may be supported.
+	 */
+	void DrawAttention(const FWindowDrawAttentionParameters& Parameters);
+
 	/** 
 	 * Bring the window to the front 
 	 *
@@ -642,7 +651,7 @@ public:
 		WidgetToFocusOnActivate = InWidget;
 	}
 
-	DEPRECATED(4.16, "ActivateWhenFirstShown() is deprecated. Please use ActivationPolicy() instead.")
+	UE_DEPRECATED(4.16, "ActivateWhenFirstShown() is deprecated. Please use ActivationPolicy() instead.")
 	bool ActivateWhenFirstShown() const
 	{
 		return ActivationPolicy() != EWindowActivationPolicy::Never;

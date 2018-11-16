@@ -218,6 +218,12 @@ void FBitReader::AppendTo( TArray<uint8> &DestBuffer )
 	DestBuffer.Append(Buffer);
 }
 
+void FBitReader::CountMemory(FArchive& Ar) const
+{
+	Buffer.CountBytes(Ar);
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+}
+
 void FBitReader::SetOverflowed(int32 LengthBits)
 {
 	UE_LOG(LogNetSerialization, Error, TEXT("FBitReader::SetOverflowed() called! (ReadLen: %i, Remaining: %i, Max: %i)"),

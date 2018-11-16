@@ -6,6 +6,7 @@
 #include "Misc/CoreStats.h"
 #include "Engine/SkeletalMesh.h"
 #include "Serialization/MemoryWriter.h"
+#include "EngineUtils.h"
 
 FSkeletalMeshModel::FSkeletalMeshModel()
 	: bGuidIsHash(false)	
@@ -15,6 +16,12 @@ FSkeletalMeshModel::FSkeletalMeshModel()
 void FSkeletalMeshModel::Serialize(FArchive& Ar, USkeletalMesh* Owner)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FSkeletalMeshModel::Serialize"), STAT_SkeletalMeshModel_Serialize, STATGROUP_LoadTime);
+	bool bIsEditorDataStripped = false;
+	if (Ar.IsSaving() || Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::AllowSkeletalMeshToReduceTheBaseLOD)
+	{
+		FStripDataFlags StripFlags(Ar);
+		bIsEditorDataStripped = StripFlags.IsEditorDataStripped();
+	}
 
 	LODModels.Serialize(Ar, Owner);
 
@@ -29,6 +36,14 @@ void FSkeletalMeshModel::Serialize(FArchive& Ar, USkeletalMesh* Owner)
 	{
 		Ar << SkeletalMeshModelGUID;
 		Ar << bGuidIsHash;
+	}
+
+	if (!bIsEditorDataStripped)
+	{
+		if (Ar.IsSaving() || (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::AllowSkeletalMeshToReduceTheBaseLOD))
+		{
+			FReductionBaseSkeletalMeshBulkData::Serialize(Ar, OriginalReductionSourceMeshData, Owner);
+		}
 	}
 }
 
@@ -82,6 +97,16 @@ void FSkeletalMeshModel::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSi
 		const FSkeletalMeshLODModel& Model = LODModels[LODIndex];
 		Model.GetResourceSizeEx(CumulativeResourceSize);
 	}
+}
+
+void FSkeletalMeshModel::EmptyOriginalReductionSourceMeshData()
+{
+	for (FReductionBaseSkeletalMeshBulkData* ReductionData : OriginalReductionSourceMeshData)
+	{
+		ReductionData->EmptyBulkData();
+		delete ReductionData;
+	}
+	OriginalReductionSourceMeshData.Empty();
 }
 
 #endif // WITH_EDITOR

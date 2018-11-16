@@ -225,6 +225,11 @@ public:
 	/** Flush this cache */
 	void FlushCache();
 
+	/**
+	 * Gets the allocated font data for a font data asset
+	 */
+	uint32 GetFontDataAssetResidentMemory(const UObject* FontDataAsset) const;
+
 private:
 	/** Get the cached composite font data for the given composite font */
 	const FCachedCompositeFontData* GetCachedCompositeFont(const FCompositeFont* const InCompositeFont);

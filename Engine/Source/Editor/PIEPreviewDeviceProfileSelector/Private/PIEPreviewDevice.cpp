@@ -257,6 +257,7 @@ ERHIFeatureLevel::Type FPIEPreviewDevice::GetPreviewDeviceFeatureLevel() const
 			return bDeviceSupportsES31 && bProjectBuiltForES31 ? ERHIFeatureLevel::ES3_1 : ERHIFeatureLevel::ES2;
 		}
 		case EPIEPreviewDeviceType::IOS:
+		case EPIEPreviewDeviceType::TVOS:
 		{
 			bool bProjectBuiltForMetal = false, bProjectBuiltForMRTMetal = false;
 			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bProjectBuiltForMetal, GEngineIni);
@@ -274,6 +275,24 @@ ERHIFeatureLevel::Type FPIEPreviewDevice::GetPreviewDeviceFeatureLevel() const
 			check(bProjectBuiltForMetal && bDeviceSupportsMetal);
 
 			return ERHIFeatureLevel::ES3_1;
+		}
+		case EPIEPreviewDeviceType::Switch:
+		{
+			// taken from FNVNDynamicRHI::FNVNDynamicRHI()
+			// use a local ini file, so that Windows can read settings that are in SwitchEngine.ini files...
+			FConfigFile SwitchSettings;
+			FConfigCacheIni::LoadLocalIniFile(SwitchSettings, TEXT("Engine"), true, TEXT("Switch"));
+			bool bUseMobileRenderer = false;
+			SwitchSettings.GetBool(TEXT("/Script/SwitchRuntimeSettings.SwitchRuntimeSettings"), TEXT("bUseMobileForwardRenderer"), bUseMobileRenderer);
+
+			if (bUseMobileRenderer)
+			{
+				return ERHIFeatureLevel::ES3_1;
+			}
+			else
+			{
+				return ERHIFeatureLevel::SM5;
+			}
 		}
 	}
 
@@ -368,6 +387,23 @@ void FPIEPreviewDevice::ApplyRHIOverrides() const
 		}
 		break;
 
+		case EPIEPreviewDeviceType::Switch:
+		{
+			// use a local ini file, so that Windows can read settings that are in SwitchEngine.ini files...
+			FConfigFile SwitchSettings;
+			FConfigCacheIni::LoadLocalIniFile(SwitchSettings, TEXT("Engine"), true, TEXT("Switch"));
+			bool bForwardShading = false;
+			SwitchSettings.GetBool(TEXT("/Script/SwitchRuntimeSettings.SwitchRuntimeSettings"), TEXT("bUseForwardShading"), bForwardShading);
+
+			// apply r.ForwardShading based on Switch bUseForwardShading setting
+			IConsoleVariable* CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
+			if (CVarForwardShading)
+			{
+				CVarForwardShading->Set(bForwardShading ? 1 : 0);
+			}
+		}
+		break;
+
 		default:
 		break;
 	}
@@ -427,6 +463,23 @@ FString FPIEPreviewDevice::GetProfile() const
 		{
 			FPIEIOSDeviceProperties& IOSProperties = DeviceSpecs->IOSProperties;
 			Profile = IOSProperties.DeviceModel;
+			break;
+		}
+		case EPIEPreviewDeviceType::Switch:
+		{
+			// load switch renderer configuration
+			FConfigFile SwitchSettings;
+			FConfigCacheIni::LoadLocalIniFile(SwitchSettings, TEXT("Engine"), true, TEXT("Switch"));
+			bool bUseMobileRenderer = false;
+			SwitchSettings.GetBool(TEXT("/Script/SwitchRuntimeSettings.SwitchRuntimeSettings"), TEXT("bUseMobileForwardRenderer"), bUseMobileRenderer);
+			bool bForwardShading = false;
+			SwitchSettings.GetBool(TEXT("/Script/SwitchRuntimeSettings.SwitchRuntimeSettings"), TEXT("bUseForwardShading"), bForwardShading);
+	
+			// taken from FSwitchApplication::UpdateActiveDeviceProfile()
+			Profile = DeviceSpecs->SwitchProperties.Docked ?
+				((bUseMobileRenderer || bForwardShading) ? TEXT("Switch_Console_Forward") : TEXT("Switch_Console_Deferred")) :
+				((bUseMobileRenderer || bForwardShading) ? TEXT("Switch_Handheld_Forward") : TEXT("Switch_Handheld_Deferred"));
+		
 			break;
 		}
 	}

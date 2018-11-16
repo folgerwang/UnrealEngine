@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using AutomationTool;
+using AutomationTool.DeviceReservation;
 using UnrealBuildTool;
 using System.Threading;
 using System.Text;
@@ -496,8 +497,9 @@ namespace Gauntlet
 				return;
 			}
 
-			// @todo Notify service of problem (reboot device, notify email, etc)
-			// also, pass problem devices to service when asking for reservation, so don't get that device back
+			// report device has a problem to the pool
+			DevicePool.Instance.ReportDeviceError(Device, "MarkProblemDevice");
+
 			ProblemDevices.Add(new ProblemDevice(Device.Name, Device.Platform));
 		}
 

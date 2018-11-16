@@ -54,11 +54,9 @@ FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader, const TCHAR* Filename)
 	OriginalSignatureFileHash = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
 	FDecryptedSignature DecryptedMasterSignature;
 	FEncryption::DecryptSignature(MasterSignature, DecryptedMasterSignature, DecryptionKey);
-	if (!ensure(DecryptedMasterSignature.Data == OriginalSignatureFileHash))
+	if (DecryptedMasterSignature.Data != OriginalSignatureFileHash)
 	{
-#if PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL
-		FPlatformMisc::RequestExit(true);
-#endif
+		FPakPlatformFile::GetPakMasterSignatureTableCheckFailureHandler().Broadcast(Filename);
 	}
 
 	const bool bEnableMultithreading = FPlatformProcess::SupportsMultithreading();
@@ -293,9 +291,8 @@ bool FChunkCacheWorker::CheckSignature(const FChunkRequest& ChunkInfo)
 			
 		ensure(bChunkHashesMatch);
 
-#if PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL
-		FPlatformMisc::RequestExit(true);
-#endif
+		const FPakChunkSignatureCheckFailedData Data(Reader->GetArchiveName(), ChunkHashes[ChunkInfo.Index], ChunkHash, ChunkInfo.Index);
+		FPakPlatformFile::GetPakChunkSignatureCheckFailedHandler().Broadcast(Data);
 	}
 	
 	return bChunkHashesMatch;

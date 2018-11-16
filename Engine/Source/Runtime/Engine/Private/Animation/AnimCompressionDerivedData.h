@@ -30,8 +30,11 @@ private:
 	// Whether to do compression work on original animation or duplicate it first.
 	bool bDoCompressionInPlace;
 
+	// Whether we should frame strip (remove every other frame from even frames animations)
+	bool bPerformStripping;
+
 public:
-	FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace);
+	FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace, bool bInTryFrameStripping);
 	virtual ~FDerivedDataAnimationCompression();
 
 	virtual const TCHAR* GetPluginName() const override
@@ -44,7 +47,7 @@ public:
 		// This is a version string that mimics the old versioning scheme. If you
 		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
 		// return it here. Ex.
-		return TEXT("EFEE430B29384DD38AD512590E2C4821");
+		return TEXT("EFCFC622A8794B758D53CDE253471CBD");
 	}
 
 	virtual FString GetPluginSpecificCacheKeySuffix() const override;

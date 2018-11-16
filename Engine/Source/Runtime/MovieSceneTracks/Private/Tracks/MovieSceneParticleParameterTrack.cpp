@@ -19,6 +19,11 @@ FMovieSceneEvalTemplatePtr UMovieSceneParticleParameterTrack::CreateTemplateForS
 	return FMovieSceneParticleParameterSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
 }
 
+bool UMovieSceneParticleParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneParameterSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneParticleParameterTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneParameterSection>(this, NAME_None, RF_Transactional);

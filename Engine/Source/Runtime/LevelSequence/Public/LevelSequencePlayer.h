@@ -22,7 +22,7 @@ class FLevelSequenceSpawnRegister;
 class FViewportClient;
 class UCameraComponent;
 
-struct DEPRECATED(4.15, "Please use FMovieSceneSequencePlaybackSettings.") FLevelSequencePlaybackSettings
+struct UE_DEPRECATED(4.15, "Please use FMovieSceneSequencePlaybackSettings.") FLevelSequencePlaybackSettings
 	: public FMovieSceneSequencePlaybackSettings
 {};
 
@@ -139,7 +139,7 @@ public:
 	 * Access the level sequence this player is playing
 	 * @return the level sequence currently assigned to this player
 	 */
-	DEPRECATED(4.15, "Please use GetSequence instead.")
+	UE_DEPRECATED(4.15, "Please use GetSequence instead.")
 	ULevelSequence* GetLevelSequence() const { return Cast<ULevelSequence>(Sequence); }
 
 	// IMovieScenePlayer interface
@@ -161,13 +161,6 @@ public:
 
 	/** Populate the specified array with any given event contexts for the specified world */
 	static void GetEventContexts(UWorld& InWorld, TArray<UObject*>& OutContexts);
-
-	/**
-	 * Set an array of additional actors that will receive events triggerd from this sequence player
-	 *
-	 * @param AdditionalReceivers An array of actors to receive events
-	 */
-	void SetEventReceivers(TArray<UObject*>&& AdditionalReceivers) { AdditionalEventReceivers = MoveTemp(AdditionalReceivers); }
 
 	/** Take a snapshot of the current state of this player */
 	void TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSnapshot) const;
@@ -198,10 +191,6 @@ protected:
 	TOptional<int32> SnapshotOffsetTime;
 
 	TWeakObjectPtr<UCameraComponent> CachedCameraComponent;
-
-	/** Array of additional event receivers */
-	UPROPERTY(transient)
-	TArray<UObject*> AdditionalEventReceivers;
 
 	/** Set of actors that have been added as tick prerequisites to the parent actor */
 	TSet<FObjectKey> PrerequisiteActors;

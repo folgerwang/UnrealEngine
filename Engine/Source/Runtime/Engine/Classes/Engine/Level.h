@@ -472,15 +472,6 @@ public:
 	/** Fence used to track when the rendering thread has finished referencing this ULevel's resources. */
 	FRenderCommandFence							RemoveFromSceneFence;
 
-	/** 
-	 * Whether the level is a lighting scenario.  Lighting is built separately for each lighting scenario level with all other scenario levels hidden. 
-	 * Only one lighting scenario level should be visible at a time for correct rendering, and lightmaps from that level will be used on the rest of the world.
-	 * Note: When a lighting scenario level is present, lightmaps for all streaming levels are placed in the scenario's _BuildData package.  
-	 *		This means that lightmaps for those streaming levels will not be streamed with them.
-	 */
-	UPROPERTY()
-	bool bIsLightingScenario;
-
 	/** Identifies map build data specific to this level, eg lighting volume samples. */
 	UPROPERTY()
 	FGuid LevelBuildDataId;
@@ -495,6 +486,15 @@ public:
 	/** Level offset at time when lighting was built */
 	UPROPERTY()
 	FIntVector LightBuildLevelOffset;
+
+	/** 
+	 * Whether the level is a lighting scenario.  Lighting is built separately for each lighting scenario level with all other scenario levels hidden. 
+	 * Only one lighting scenario level should be visible at a time for correct rendering, and lightmaps from that level will be used on the rest of the world.
+	 * Note: When a lighting scenario level is present, lightmaps for all streaming levels are placed in the scenario's _BuildData package.  
+	 *		This means that lightmaps for those streaming levels will not be streamed with them.
+	 */
+	UPROPERTY()
+	uint8 bIsLightingScenario:1;
 
 	/** Whether components are currently registered or not. */
 	uint8										bAreComponentsCurrentlyRegistered:1;
@@ -565,7 +565,7 @@ public:
 
 
 	/** Whether the level is currently pending being made visible.							*/
-	DEPRECATED(4.15, "Use HasVisibilityChangeRequestPending")
+	UE_DEPRECATED(4.15, "Use HasVisibilityChangeRequestPending")
 	bool HasVisibilityRequestPending() const;
 
 	/** Whether the level is currently pending being made invisible or visible.				*/

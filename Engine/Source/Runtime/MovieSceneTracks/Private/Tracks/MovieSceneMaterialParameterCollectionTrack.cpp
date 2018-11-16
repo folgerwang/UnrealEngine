@@ -14,6 +14,11 @@ UMovieSceneMaterialParameterCollectionTrack::UMovieSceneMaterialParameterCollect
 #endif
 }
 
+bool UMovieSceneMaterialParameterCollectionTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneParameterSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneMaterialParameterCollectionTrack::CreateNewSection()
 {
 	UMovieSceneSection* NewSection = NewObject<UMovieSceneParameterSection>(this, NAME_None, RF_Transactional);

@@ -207,6 +207,12 @@ void FBitWriter::SetOverflowed(int32 LengthBits)
 	ArIsError = 1;
 }
 
+void FBitWriter::CountMemory(FArchive& Ar) const
+{
+	Buffer.CountBytes(Ar);
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+}
+
 /**
  * This function is bit compatible with FArchive::SerializeIntPacked. It is more efficient
  * as only a few bytes are written and the base version is best suited for writing many bytes.

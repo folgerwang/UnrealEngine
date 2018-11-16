@@ -3,6 +3,7 @@
 
 #include "Sound/SoundNodeDoppler.h"
 #include "ActiveSound.h"
+#include "Kismet/KismetMathLibrary.h"
 
 /*-----------------------------------------------------------------------------
          USoundNodeDoppler implementation.
@@ -11,17 +12,36 @@ USoundNodeDoppler::USoundNodeDoppler(const FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 {
 	DopplerIntensity = 1.0f;
+	bUseSmoothing = false;
+	SmoothingInterpSpeed = 5.0f;
 }
 
 void USoundNodeDoppler::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
-	FSoundParseParameters UpdatedParams = ParseParams;
-	UpdatedParams.Pitch *= GetDopplerPitchMultiplier(AudioDevice->GetListeners()[0], ParseParams.Transform.GetTranslation(), ParseParams.Velocity);
+	RETRIEVE_SOUNDNODE_PAYLOAD(sizeof(float));
+	DECLARE_SOUNDNODE_ELEMENT(float, CurrentPitchScale);
 
-	Super::ParseNodes( AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances );
+	FSoundParseParameters UpdatedParams = ParseParams;
+
+	// Default the parse to using the setting for smoothing
+	if (*RequiresInitialization)
+	{
+		*RequiresInitialization = 0;
+
+		// First time, do no smoothing, but initialize the current pitch scale value to the first value returned from this function
+		CurrentPitchScale = GetDopplerPitchMultiplier(CurrentPitchScale, false, AudioDevice->GetListeners()[0], ParseParams.Transform.GetTranslation(), ParseParams.Velocity, AudioDevice->GetDeviceDeltaTime());
+		UpdatedParams.Pitch *= CurrentPitchScale;
+	}
+	else
+	{
+		// Subsequent calls to this will do smoothing from the first initial value
+		UpdatedParams.Pitch *= GetDopplerPitchMultiplier(CurrentPitchScale, bUseSmoothing, AudioDevice->GetListeners()[0], ParseParams.Transform.GetTranslation(), ParseParams.Velocity, AudioDevice->GetDeviceDeltaTime());
+	}
+
+	Super::ParseNodes(AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances);
 }
 
-float USoundNodeDoppler::GetDopplerPitchMultiplier(FListener const& InListener, const FVector Location, const FVector Velocity) const
+float USoundNodeDoppler::GetDopplerPitchMultiplier(float& CurrentPitchScale, bool bSmooth, FListener const& InListener, const FVector Location, const FVector Velocity, float DeltaTime)
 {
 	static const float SpeedOfSoundInAirAtSeaLevel = 33000.f;		// cm/sec
 
@@ -40,5 +60,14 @@ float USoundNodeDoppler::GetDopplerPitchMultiplier(FListener const& InListener, 
 
 	//UE_LOG(LogAudio, Log, TEXT("Applying doppler pitchscale %f, raw scale %f, deltaspeed was %f"), FinalPitchScale, PitchScale, ListenerVelMagAwayFromSource - SourceVelMagTorwardListener);
 
-	return FinalPitchScale;
+	if (bSmooth)
+	{
+		CurrentPitchScale = UKismetMathLibrary::FInterpTo(CurrentPitchScale, FinalPitchScale, DeltaTime, SmoothingInterpSpeed);
+
+		return CurrentPitchScale;
+	}
+	else
+	{
+		return FinalPitchScale;
+	}
 }

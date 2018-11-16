@@ -123,7 +123,7 @@ bool UOculusNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connect
 	ovr_Net_Connect(OculusAddr.GetID());
 
 	// Create the control channel so we can send the Hello message
-	ServerConnection->CreateChannel(CHTYPE_Control, true, INDEX_NONE);
+	CreateInitialClientChannels();
 
 	return true;
 }
@@ -205,7 +205,8 @@ void UOculusNetDriver::TickDispatch(float DeltaTime)
 			const ProcessedPacket UnProcessedPacket =
 				ConnectionlessHandler->IncomingConnectionless(IncomingAddress, Data, PacketSize);
 
-			bPassedChallenge = !UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(IncomingAddress);
+			bool bRestartedHandshake = false;
+			bPassedChallenge = !UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(IncomingAddress, bRestartedHandshake);
 
 			if (bPassedChallenge)
 			{

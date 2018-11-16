@@ -226,7 +226,6 @@ void FHittestGrid::ClearGridForNewFrame(const FSlateRect& HittestArea)
 	GridOrigin = HittestArea.GetTopLeft();
 	const FVector2D GridSize = HittestArea.GetSize();
 	NumCells = FIntPoint(FMath::CeilToInt(GridSize.X / CellSize.X), FMath::CeilToInt(GridSize.Y / CellSize.Y));
-	NumCells += NumCellsExcess;
 	WidgetsCachedThisFrame.Reset();
 
 	const int32 NewTotalCells = NumCells.X * NumCells.Y;
@@ -397,16 +396,16 @@ TSharedPtr<SWidget> FHittestGrid::FindFocusableWidget(FSlateRect WidgetRect, con
 
 		for (StrideCellPoint[StrideAxis] = StrideAxisMin; StrideCellPoint[StrideAxis] <= StrideAxisMax; ++StrideCellPoint[StrideAxis])
 		{
-			const FHittestGrid::FCell& Cell = FHittestGrid::CellAt(StrideCellPoint.X, StrideCellPoint.Y);
+			FHittestGrid::FCell& Cell = FHittestGrid::CellAt(StrideCellPoint.X, StrideCellPoint.Y);
 			const TArray<int32>& IndexesInCell = Cell.CachedWidgetIndexes;
 
 			for (int32 i = IndexesInCell.Num() - 1; i >= 0; --i)
 			{
-				const int32 CurrentIndex = IndexesInCell[i];
+				int32 CurrentIndex = IndexesInCell[i];
 				check(CurrentIndex < WidgetsCachedThisFrame.Num());
 
 				const FCachedWidget& TestCandidate = WidgetsCachedThisFrame[CurrentIndex];
-				const FSlateRect TestCandidateRect = TestCandidate.CachedGeometry.GetRenderBoundingRect().OffsetBy(-GridOrigin);
+				FSlateRect TestCandidateRect = TestCandidate.CachedGeometry.GetRenderBoundingRect().OffsetBy(-GridOrigin);
 
 				if (CompareFunc(DestSideFunc(TestCandidateRect), CurrentSourceSide) && FSlateRect::DoRectanglesIntersect(SweptRect, TestCandidateRect))
 				{

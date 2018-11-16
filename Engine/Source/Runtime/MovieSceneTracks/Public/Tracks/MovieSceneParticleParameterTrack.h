@@ -22,6 +22,7 @@ public:
 	// UMovieSceneTrack interface
 
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual void RemoveAllAnimationData() override;
 	virtual bool HasSection(const UMovieSceneSection& Section) const override;

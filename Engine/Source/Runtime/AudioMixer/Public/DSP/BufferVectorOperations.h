@@ -34,6 +34,10 @@ namespace Audio
 	void SumBuffers(const AlignedFloatBuffer& InFloatBuffer1, const AlignedFloatBuffer& InFloatBuffer2, AlignedFloatBuffer& OutputBuffer);
 	void SumBuffers(const float* InFloatBuffer1, const float* InFloatBuffer2, float* OutputBuffer, int32 NumSamples);
 
+	// Multiply the second buffer in place by the first buffer.
+	void MultiplyBuffersInPlace(const AlignedFloatBuffer& InFloatBuffer, AlignedFloatBuffer& BufferToMultiply);
+	void MultiplyBuffersInPlace(const float* InFloatBuffer, float* BufferToMultiply, int32 NumSamples);
+
 	// Takes an audio buffer and returns the magnitude across that buffer.
 	float GetMagnitude(const AlignedFloatBuffer& Buffer);
 	float GetMagnitude(const float* Buffer, int32 NumSamples);

@@ -781,6 +781,7 @@ DEFINE_STAT(STAT_D3D12WaitForFenceTime);
 DEFINE_STAT(STAT_D3D12UsedVideoMemory);
 DEFINE_STAT(STAT_D3D12AvailableVideoMemory);
 DEFINE_STAT(STAT_D3D12TotalVideoMemory);
+DEFINE_STAT(STAT_D3D12TextureAllocatorWastage);
 
 DEFINE_STAT(STAT_ViewHeapChanged);
 DEFINE_STAT(STAT_SamplerHeapChanged);

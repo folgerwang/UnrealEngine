@@ -57,14 +57,15 @@ namespace NetworkProfiler
 		public int SendBunchSizeBits = 0;
 		/** Total size of bunch headers sent. */
 		public int SendBunchHeaderSizeBits = 0;
+		
 		/** Call count per channel type. */
-		public int[] SendBunchCountPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		public Dictionary<int, int> SendBunchCountPerChannel = new Dictionary<int,int>();
 		/** Size per channel type */
-		public int[] SendBunchSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		public Dictionary<int, int> SendBunchSizeBitsPerChannel = new Dictionary<int,int>();
 		/** Size of bunch headers per channel type */
-		public int[] SendBunchHeaderSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		public Dictionary<int, int> SendBunchHeaderSizeBitsPerChannel = new Dictionary<int,int>();
 		/** Size of bunch payloads per channel type */
-		public int[] SendBunchPayloadSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		public Dictionary<int, int> SendBunchPayloadSizeBitsPerChannel = new Dictionary<int,int>();
 
 		// Low level socket
 
@@ -285,10 +286,24 @@ namespace NetworkProfiler
 					SendBunchCount++;
 					SendBunchSizeBits += TokenSendBunch.GetNumTotalBits();
 					SendBunchHeaderSizeBits += TokenSendBunch.NumHeaderBits;
-					SendBunchCountPerChannel[TokenSendBunch.ChannelType]++;
-					SendBunchSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.GetNumTotalBits();
-					SendBunchHeaderSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.NumHeaderBits;
-					SendBunchPayloadSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.NumPayloadBits;
+
+					int ChannelTypeIndex = TokenSendBunch.GetChannelTypeIndex();
+
+					if (SendBunchCountPerChannel.ContainsKey(ChannelTypeIndex))
+					{
+						SendBunchCountPerChannel[ChannelTypeIndex]++;
+						SendBunchSizeBitsPerChannel[ChannelTypeIndex] += TokenSendBunch.GetNumTotalBits();
+						SendBunchHeaderSizeBitsPerChannel[ChannelTypeIndex] += TokenSendBunch.NumHeaderBits;
+						SendBunchPayloadSizeBitsPerChannel[ChannelTypeIndex] += TokenSendBunch.NumPayloadBits;
+					}
+					else
+					{
+						SendBunchCountPerChannel.Add(ChannelTypeIndex, 1);
+						SendBunchSizeBitsPerChannel.Add(ChannelTypeIndex, TokenSendBunch.GetNumTotalBits());
+						SendBunchHeaderSizeBitsPerChannel.Add(ChannelTypeIndex, TokenSendBunch.NumHeaderBits);
+						SendBunchPayloadSizeBitsPerChannel.Add(ChannelTypeIndex, TokenSendBunch.NumPayloadBits);
+					}
+
 					break;
 				case ETokenTypes.SendRPC:
 					var TokenSendRPC = (TokenSendRPC) Token;
@@ -426,18 +441,22 @@ namespace NetworkProfiler
 				AddNode( Parent.Nodes, 2, "SocketSend Size    :" + ConvertToSizeString( UnrealSocketSize * OneOverDeltaTime, bPerSecond ) );
 
 				Child = AddNode( Parent.Nodes, 3, "SendBunchCount     :" + ConvertToCountString( SendBunchCount * OneOverDeltaTime, bPerSecond ) );
+				Child.Nodes.Clear();
 
-				AddNode( Child.Nodes, 0, "Control  :" + ConvertToCountString( SendBunchCountPerChannel[( int )EChannelTypes.Control] * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 1, "Actor    :" + ConvertToCountString( SendBunchCountPerChannel[( int )EChannelTypes.Actor] * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 2, "File     :" + ConvertToCountString( SendBunchCountPerChannel[( int )EChannelTypes.File] * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 3, "Voice    :" + ConvertToCountString( SendBunchCountPerChannel[( int )EChannelTypes.Voice] * OneOverDeltaTime, bPerSecond ) );
+				int ChildIndex = 0;
+				foreach(KeyValuePair<int, int> Pair in SendBunchCountPerChannel)
+				{
+					AddNode(Child.Nodes, ChildIndex++, NetworkStream.GetChannelTypeName(Pair.Key).PadRight(16) + ":" + ConvertToCountString(Pair.Value * OneOverDeltaTime, bPerSecond));					
+				}
 
 				Child = AddNode( Parent.Nodes, 4, "SendBunchSize      :" + ConvertToSizeString( SendBunchSizeBits / 8.0f * OneOverDeltaTime, bPerSecond ) );
+				Child.Nodes.Clear();
 
-				AddNode( Child.Nodes, 0, "Control  :" + ConvertToSizeString( SendBunchSizeBitsPerChannel[( int )EChannelTypes.Control] / 8.0f * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 1, "Actor    :" + ConvertToSizeString( SendBunchSizeBitsPerChannel[( int )EChannelTypes.Actor] / 8.0f * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 2, "File     :" + ConvertToSizeString( SendBunchSizeBitsPerChannel[( int )EChannelTypes.File] / 8.0f * OneOverDeltaTime, bPerSecond ) );
-				AddNode( Child.Nodes, 3, "Voice    :" + ConvertToSizeString( SendBunchSizeBitsPerChannel[( int )EChannelTypes.Voice] / 8.0f * OneOverDeltaTime, bPerSecond ) );
+				ChildIndex = 0;
+				foreach(KeyValuePair<int, int> Pair in SendBunchSizeBitsPerChannel)			
+				{	
+					AddNode(Child.Nodes, ChildIndex++, NetworkStream.GetChannelTypeName(Pair.Key).PadRight(16) + ":" + ConvertToCountString(Pair.Value  / 8.0f * OneOverDeltaTime, bPerSecond));
+				}
 
 				AddNode( Parent.Nodes, 5, "Actor Count        :" + ConvertToCountString( ActorCount * OneOverDeltaTime, bPerSecond ) );
 				AddNode( Parent.Nodes, 6, "Replicated Actors  :" + ConvertToCountString( ReplicatedActorCount * OneOverDeltaTime, bPerSecond ) );

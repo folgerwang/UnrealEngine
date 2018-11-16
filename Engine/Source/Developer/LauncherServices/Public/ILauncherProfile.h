@@ -201,6 +201,8 @@ namespace ELauncherProfileValidationErrors
 
 		/** Device is unauthorized or is locked */
 		LaunchDeviceIsUnauthorized,
+
+		Count
 	};
 }
 

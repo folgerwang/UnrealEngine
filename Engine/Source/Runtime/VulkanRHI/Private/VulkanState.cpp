@@ -71,9 +71,7 @@ inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode,
 	{
 		case AM_Wrap:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;			break;
 		case AM_Clamp:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;		break;
-		case AM_Mirror:		OutAddressMode = bSupportsMirrorClampToEdge
-												? VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
-												: VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;		break;
+		case AM_Mirror:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;	break;
 		case AM_Border:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;	break;
 		default:
 			break;

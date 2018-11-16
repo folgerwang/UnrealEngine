@@ -16,6 +16,12 @@ static FAutoConsoleVariable CVarMeshReductionModule(
 	TEXT("Name of what mesh reduction module to choose. If blank it chooses any that exist.\n"),
 	ECVF_ReadOnly);
 
+static FAutoConsoleVariable CVarSkeletalMeshReductionModule(
+	TEXT("r.SkeletalMeshReductionModule"),
+	TEXT("SkeletalMeshReduction"),
+	TEXT("Name of what skeletal mesh reduction module to choose. If blank it chooses any that exist.\n"),
+	ECVF_ReadOnly);
+
 static FAutoConsoleVariable CVarProxyLODMeshReductionModule(
 	TEXT("r.ProxyLODMeshReductionModule"),
 	TEXT("QuadricMeshProxyLODReduction"),
@@ -35,14 +41,23 @@ FMeshReductionManagerModule::FMeshReductionManagerModule()
 
 void FMeshReductionManagerModule::StartupModule()
 {
-	checkf(StaticMeshReduction == nullptr, TEXT("Reduction instance should be null during startup"));
-	checkf(SkeletalMeshReduction == nullptr, TEXT("Reduction instance should be null during startup"));
-	checkf(MeshMerging == nullptr, TEXT("Reduction instance should be null during startup"));
+	checkf(StaticMeshReduction   == nullptr, TEXT("Static Reduction instance should be null during startup"));
+	checkf(SkeletalMeshReduction == nullptr, TEXT("Skeletal Reduction instance should be null during startup"));
+	checkf(MeshMerging           == nullptr, TEXT("Mesh Merging instance should be null during startup"));
 
 	// This module could be launched very early by static meshes loading before the settings class that stores this value has had a chance to load.  Have to read from the config file early in the startup process
 	FString MeshReductionModuleName;
 	GConfig->GetString(TEXT("/Script/Engine.MeshSimplificationSettings"), TEXT("r.MeshReductionModule"), MeshReductionModuleName, GEngineIni);
 	CVarMeshReductionModule->Set(*MeshReductionModuleName);
+
+	FString SkeletalMeshReductionModuleName;
+	GConfig->GetString(TEXT("/Script/Engine.SkeletalMeshSimplificationSettings"), TEXT("r.SkeletalMeshReductionModule"), SkeletalMeshReductionModuleName, GEngineIni);
+	// If nothing was specified, default to simplygon
+	if (SkeletalMeshReductionModuleName.IsEmpty())
+	{
+		SkeletalMeshReductionModuleName = FString("SimplygonMeshReduction");
+	}
+	CVarSkeletalMeshReductionModule->Set(*SkeletalMeshReductionModuleName);
 
 	FString HLODMeshReductionModuleName;
 	GConfig->GetString(TEXT("/Script/Engine.ProxyLODMeshSimplificationSettings"), TEXT("r.ProxyLODMeshReductionModule"), HLODMeshReductionModuleName, GEngineIni);
@@ -68,34 +83,44 @@ void FMeshReductionManagerModule::StartupModule()
 	
 	TArray<IMeshReductionModule*> MeshReductionModules = IModularFeatures::Get().GetModularFeatureImplementations<IMeshReductionModule>(IMeshReductionModule::GetModularFeatureName());
 	
-	const FString UserDefinedMeshReductionModuleName     = CVarMeshReductionModule->GetString();
-	const FString UserDefinedProxyLODReductionModuleName = CVarProxyLODMeshReductionModule->GetString();
+	const FString RequestedMeshReductionModuleName         = CVarMeshReductionModule->GetString();
+	const FString RequestedSkeletalMeshReductionModuleName = CVarSkeletalMeshReductionModule->GetString();
+	const FString RequestedProxyLODReductionModuleName     = CVarProxyLODMeshReductionModule->GetString();
+
+	// actual module names that will be used.
+	FString StaticMeshModuleName;
+	FString SkeletalMeshModuleName;
+	FString MeshMergingModuleName;
+	FString DistributedMeshMergingModuleName;
+
 	for (IMeshReductionModule* Module : MeshReductionModules)
 	{
 		// Is this a requested module?
 		const FString ModuleName = Module->GetName();
-		const bool bIsUserDefinedMeshReductionModule     = ModuleName.Equals(UserDefinedMeshReductionModuleName);
-		const bool bIsUserDefinedProxyLODReductionModule = ModuleName.Equals(UserDefinedProxyLODReductionModuleName);
+		const bool bIsRequestedMeshReductionModule         = ModuleName.Equals(RequestedMeshReductionModuleName);
+		const bool bIsRequestedSkeletalMeshReductionModule = ModuleName.Equals(RequestedSkeletalMeshReductionModuleName);
+		const bool bIsRequestedProxyLODReductionModule     = ModuleName.Equals(RequestedProxyLODReductionModuleName);
+	
 
 		// Look for MeshReduction interface
 		IMeshReduction* StaticMeshReductionInterface = Module->GetStaticMeshReductionInterface();
 		if (StaticMeshReductionInterface)
 		{
-			if (bIsUserDefinedMeshReductionModule || StaticMeshReduction == nullptr)
+			if ( bIsRequestedMeshReductionModule || StaticMeshReduction == nullptr )
 			{
-				StaticMeshReduction = StaticMeshReductionInterface;
-				UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic static mesh reduction"), *ModuleName);
+				StaticMeshReduction  = StaticMeshReductionInterface;
+				StaticMeshModuleName = ModuleName;
 			}
 		}
 
-		// Look for MeshReduction interface
+		// Look for Skeletal MeshReduction interface
 		IMeshReduction* SkeletalMeshReductionInterface = Module->GetSkeletalMeshReductionInterface();
 		if (SkeletalMeshReductionInterface)
 		{
-			if (bIsUserDefinedMeshReductionModule || SkeletalMeshReduction == nullptr)
+			if ( bIsRequestedSkeletalMeshReductionModule || SkeletalMeshReduction == nullptr )
 			{
-				SkeletalMeshReduction = SkeletalMeshReductionInterface;
-				UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic skeletal mesh reduction"), *ModuleName);
+				SkeletalMeshReduction  = SkeletalMeshReductionInterface;
+				SkeletalMeshModuleName = ModuleName;
 			}
 		}
 
@@ -103,21 +128,21 @@ void FMeshReductionManagerModule::StartupModule()
 		IMeshMerging* MeshMergingInterface = Module->GetMeshMergingInterface();
 		if (MeshMergingInterface)
 		{
-			if (bIsUserDefinedProxyLODReductionModule || MeshMerging == nullptr)
+			if ( bIsRequestedProxyLODReductionModule || MeshMerging == nullptr )
 			{
-				MeshMerging = MeshMergingInterface;
-				UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic mesh merging"), *ModuleName);
+				MeshMerging           = MeshMergingInterface;
+				MeshMergingModuleName = ModuleName;
 			}
 		}
 
-		// Look for MeshMerging interface
+		// Look for Distributed MeshMerging interface
 		IMeshMerging* DistributedMeshMergingInterface = Module->GetDistributedMeshMergingInterface();
 		if (DistributedMeshMergingInterface)
 		{
-			if (bIsUserDefinedMeshReductionModule || DistributedMeshMerging == nullptr)
+			if ( bIsRequestedMeshReductionModule || DistributedMeshMerging == nullptr )
 			{
-				DistributedMeshMerging = DistributedMeshMergingInterface;
-				UE_LOG(LogMeshReduction, Log, TEXT("Using %s for distributed automatic mesh merging"), *ModuleName);
+				DistributedMeshMerging           = DistributedMeshMergingInterface;
+				DistributedMeshMergingModuleName = ModuleName;
 			}
 		}
 	}
@@ -126,20 +151,37 @@ void FMeshReductionManagerModule::StartupModule()
 	{
 		UE_LOG(LogMeshReduction, Log, TEXT("No automatic static mesh reduction module available"));
 	}
-	
+	else
+	{
+		UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic static mesh reduction"), *StaticMeshModuleName);
+	}
+
 	if (!SkeletalMeshReduction)
 	{
 		UE_LOG(LogMeshReduction, Log, TEXT("No automatic skeletal mesh reduction module available"));
+	}
+	else
+	{
+		UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic skeletal mesh reduction"), *SkeletalMeshReductionModuleName);
 	}
 
 	if (!MeshMerging)
 	{
 		UE_LOG(LogMeshReduction, Log, TEXT("No automatic mesh merging module available"));
 	}
+	else
+	{
+		UE_LOG(LogMeshReduction, Log, TEXT("Using %s for automatic mesh merging"), *MeshMergingModuleName);
+	}
+
 
 	if (!DistributedMeshMerging)
 	{
 		UE_LOG(LogMeshReduction, Log, TEXT("No distributed automatic mesh merging module available"));
+	}
+	else
+	{
+		UE_LOG(LogMeshReduction, Log, TEXT("Using %s for distributed automatic mesh merging"), *DistributedMeshMergingModuleName);
 	}
 }
 

@@ -627,7 +627,7 @@ void SerializeInlineShaderMaps(
 	TArray<FMaterialResource>& OutLoadedResources,
 	uint32* OutOffsetToFirstResource)
 {
-	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	LLM_SCOPE(ELLMTag::Shaders);
 	SCOPED_LOADTIMER(SerializeInlineShaderMaps);
 
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
@@ -701,7 +701,7 @@ void SerializeInlineShaderMaps(
 
 void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMaterialResource>& LoadedResources, FMaterialResource* (&OutMaterialResourcesLoaded)[EMaterialQualityLevel::Num][ERHIFeatureLevel::Num])
 {
-	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	LLM_SCOPE(ELLMTag::Shaders);
 	check(IsInGameThread());
 
 	UMaterial* OwnerMaterial = Cast<UMaterial>(Owner);
@@ -1074,7 +1074,7 @@ void UMaterial::LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const
 {
 	auto World = GetWorld();
 	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	Ar.Logf(TEXT("%sMaterial: %s"), FCString::Tab(Indent), *GetName());
 
@@ -2914,7 +2914,11 @@ FMaterialRenderProxy* UMaterial::GetRenderProxy(bool Selected,bool Hovered) cons
 
 UPhysicalMaterial* UMaterial::GetPhysicalMaterial() const
 {
-	return (PhysMaterial != NULL) ? PhysMaterial : GEngine->DefaultPhysMaterial;
+	if (GEngine)
+	{
+		return (PhysMaterial != nullptr) ? PhysMaterial : GEngine->DefaultPhysMaterial;
+	}
+	return nullptr;
 }
 
 /** Helper functions for text output of properties... */
@@ -3180,12 +3184,14 @@ void UMaterial::CacheShadersForResources(EShaderPlatform ShaderPlatform, const T
 			UE_ASSET_LOG(LogMaterial, Warning, this, TEXT("Failed to compile Material for platform %s, Default Material will be used in game."), 
 				*LegacyShaderPlatformToShaderFormat(ShaderPlatform).ToString());
 
+#if WITH_EDITOR
 			const TArray<FString>& CompileErrors = CurrentResource->GetCompileErrors();
 			for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
 			{
 				// Always log material errors in an unsuppressed category
 				UE_LOG(LogMaterial, Log, TEXT("	%s"), *CompileErrors[ErrorIndex]);
 			}
+#endif
 		}
 	}
 }
@@ -3440,10 +3446,12 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 	else
 	{
+#if WITH_EDITOR
 		FMaterialResource* LegacyResource = AllocateResource();
 		LegacyResource->LegacySerialize(Ar);
 		StateId = LegacyResource->GetLegacyId();
 		delete LegacyResource;
+#endif
 	}
 
 #if WITH_EDITOR
@@ -4849,10 +4857,12 @@ void UMaterial::UpdateMaterialShaders(TArray<FShaderType*>& ShaderTypesToFlush, 
 		// it leaves scope.
 	}
 
+#if WITH_EDITOR
 	// Update any FMaterials not belonging to a UMaterialInterface, for example FExpressionPreviews
 	// If we did not do this, the editor would crash the next time it tried to render one of those previews
 	// And didn't find a shader that had been flushed for the preview's shader map.
 	FMaterial::UpdateEditorLoadedMaterialResources(ShaderPlatform);
+#endif
 }
 
 void UMaterial::BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData)
@@ -4902,8 +4912,10 @@ void UMaterial::BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TUniqueP
 		}
 	}
 
+#if WITH_EDITOR
 	// Process FMaterialShaderMap's referenced by the editor
 	FMaterial::BackupEditorLoadedMaterialShadersToMemory(ShaderMapToSerializedShaderData);
+#endif
 }
 
 void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData)
@@ -4961,8 +4973,10 @@ void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*,
 		}
 	}
 
+#if WITH_EDITOR
 	// Process FMaterialShaderMap's referenced by the editor
 	FMaterial::RestoreEditorLoadedMaterialShadersFromMemory(ShaderMapToSerializedShaderData);
+#endif // WITH_EDITOR
 }
 
 void UMaterial::CompileMaterialsForRemoteRecompile(
@@ -5645,7 +5659,6 @@ bool UMaterial::ShouldForcePlanePreview()
 	// UI and particle sprite material thumbnails always get a 2D plane centered at the camera which is a better representation of the what the material will look like
 	return Super::ShouldForcePlanePreview() || IsUIMaterial() || (bUsedWithParticleSprites && !MaterialThumbnailInfo->bUserModifiedShape);
 }
-#endif // WITH_EDITOR
 
 void UMaterial::NotifyCompilationFinished(UMaterialInterface* Material)
 {
@@ -5662,6 +5675,7 @@ UMaterial::FMaterialCompilationFinished& UMaterial::OnMaterialCompilationFinishe
 {
 	return MaterialCompilationFinishedEvent;
 }
+#endif // WITH_EDITOR
 
 void UMaterial::AllMaterialsCacheResourceShadersForRendering()
 {

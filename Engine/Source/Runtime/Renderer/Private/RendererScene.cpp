@@ -1083,6 +1083,11 @@ FPrimitiveSceneInfo* FScene::GetPrimitiveSceneInfo(int32 PrimitiveIndex)
 	return NULL;
 }
 
+bool FScene::GetPreviousLocalToWorld(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const
+{
+	return MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneInfo, OutPreviousLocalToWorld);
+}
+
 void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RemoveScenePrimitiveTime);

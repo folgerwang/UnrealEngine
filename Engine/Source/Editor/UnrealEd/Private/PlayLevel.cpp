@@ -278,23 +278,6 @@ void UEditorEngine::EndPlayMap()
 	}
 	CleanupGameViewport();
 
-	// find objects like Textures in the playworld levels that won't get garbage collected as they are marked RF_Standalone
-	for( FObjectIterator It; It; ++It )
-	{
-		UObject* Object = *It;
-
-		if (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
-		{
-			if (Object->HasAnyFlags(RF_Standalone))
-			{
-				// Clear RF_Standalone flag from objects in the levels used for PIE so they get cleaned up.
-				Object->ClearFlags(RF_Standalone);
-			}
-			// Close any asset editors that are currently editing this object
-			FAssetEditorManager::Get().CloseAllEditorsForAsset(Object);
-		}
-	}
-
 	// Clean up each world individually
 	TArray<FName> OnlineIdentifiers;
 	TArray<UWorld*> WorldsBeingCleanedUp;
@@ -398,6 +381,23 @@ void UEditorEngine::EndPlayMap()
 					UE_LOG(LogBlueprintUserMessages, Log, TEXT("Late EndPlayMap Detection: Level '%s' has LevelScriptBlueprint '%s'"), *Level->GetPathName(), *LevelScriptBlueprint->GetPathName());
 				}
 			}
+		}
+	}
+
+	// find objects like Textures in the playworld levels that won't get garbage collected as they are marked RF_Standalone
+	for (FObjectIterator It; It; ++It)
+	{
+		UObject* Object = *It;
+
+		if (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
+		{
+			if (Object->HasAnyFlags(RF_Standalone))
+			{
+				// Clear RF_Standalone flag from objects in the levels used for PIE so they get cleaned up.
+				Object->ClearFlags(RF_Standalone);
+			}
+			// Close any asset editors that are currently editing this object
+			FAssetEditorManager::Get().CloseAllEditorsForAsset(Object);
 		}
 	}
 

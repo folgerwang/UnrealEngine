@@ -9,6 +9,7 @@
 #include "Logging/LogMacros.h"
 #include "Misc/EngineVersion.h"
 
+#include "Interfaces/OnlineChatInterface.h"
 #include "Interfaces/OnlinePartyInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
@@ -57,6 +58,22 @@ ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_AsyncTasks);
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Session_Interface);
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Voice_Interface);
 #endif
+
+namespace OnlineIdentity
+{
+	namespace Errors
+	{
+		// Params
+		const FString AuthLoginParam = TEXT("auth_login");
+		const FString AuthTypeParam = TEXT("auth_type");
+		const FString AuthPasswordParam = TEXT("auth_password");
+
+		// Results
+		const FString NoUserId = TEXT("no_user_id");
+		const FString NoAuthToken = TEXT("no_auth_token");
+		const FString NoAuthType = TEXT("no_auth_type");
+	}
+}
 
 /** Workaround, please avoid using this */
 TSharedPtr<const FUniqueNetId> GetFirstSignedInUser(IOnlineIdentityPtr IdentityInt)

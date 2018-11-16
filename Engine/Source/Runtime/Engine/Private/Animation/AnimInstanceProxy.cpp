@@ -174,12 +174,6 @@ void FAnimInstanceProxy::InitializeRootNode()
 		{
 			AnimNode->OnInitializeAnimInstance(this, CastChecked<UAnimInstance>(GetAnimInstanceObject()));
 
-			// Force our functions to be re-evaluated - this reinitialization may have been a 
-			// consequence of our class being recompiled and functions will be invalid in that
-			// case.
-			AnimNode->EvaluateGraphExposedInputs.bInitialized = false;
-			AnimNode->EvaluateGraphExposedInputs.Initialize(AnimNode, AnimInstanceObject);
-
 			if (AnimNode->HasPreUpdate())
 			{
 				GameThreadPreUpdateNodes.Add(AnimNode);

@@ -214,6 +214,9 @@ protected:
 	/** The compiled filter created from the current filter text (compiled from FilterText) */
 	TOptional<ExpressionParser::CompileResultType> CompiledFilter;
 
+	/** If there is only one token that is basic string it will be stored here to avoid recompile per item compared. */
+	TOptional<TextFilterExpressionParser::FTextToken> CompiledFilterSingleBasicStringTextToken;
+
 	/** Mapping of function names to their callbacks */
 	TMap<FString, FTokenFunctionHandler> TokenFunctionHandlers;
 

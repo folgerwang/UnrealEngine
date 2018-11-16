@@ -2,6 +2,7 @@
 
 #include "OnlineEngineInterfaceImpl.h"
 #include "OnlineSubsystem.h"
+#include "Interfaces/OnlineChatInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemUtils.h"
 #include "Misc/ConfigCacheIni.h"

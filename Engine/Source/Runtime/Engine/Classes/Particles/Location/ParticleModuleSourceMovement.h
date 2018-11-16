@@ -32,10 +32,7 @@ class ENGINE_API UParticleModuleSourceMovement : public UParticleModuleLocationB
 
 	//Begin UParticleModule Interface
 	virtual void FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	virtual bool CanTickInAnyThread() override
-	{
-		return false;
-	}
+	virtual bool CanTickInAnyThread() override;
 	//End UParticleModule Interface
 
 	/** Initializes the default values for this property */

@@ -16,6 +16,10 @@
 #include "SceneTypes.h"
 #include "Engine/Player.h"
 #include "GameFramework/OnlineReplStructs.h"
+
+#include "Subsystems/LocalPlayerSubsystem.h"
+#include "Subsystems/SubsystemCollection.h"
+
 #include "LocalPlayer.generated.h"
 
 
@@ -163,7 +167,7 @@ class ENGINE_API ULocalPlayer : public UPlayer
 public:
 
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
-	ULocalPlayer(FVTableHelper& Helper) : Super(Helper), SlateOperations(FReply::Unhandled()) {}
+	ULocalPlayer(FVTableHelper& Helper) : Super(Helper), SubsystemCollection(this), SlateOperations(FReply::Unhandled()) {}
 
 	/** The FUniqueNetId which this player is associated with. */
 	FUniqueNetIdRepl CachedUniqueNetId;
@@ -193,6 +197,9 @@ public:
 	UPROPERTY(VisibleAnywhere, transient, Category=LocalPlayer)
 	uint32 bSentSplitJoin:1;
 
+	DECLARE_EVENT_TwoParams(ULocalPlayer, FOnControllerIdChanged, int32 /*NewId*/, int32 /*OldId*/);
+	FOnControllerIdChanged& OnControllerIdChanged() const { return OnControllerIdChangedEvent; }
+
 private:
 	FSceneViewStateReference ViewState;
 	TArray<FSceneViewStateReference> StereoViewStates;
@@ -200,7 +207,11 @@ private:
 
 	/** The controller ID which this player accepts input from. */
 	UPROPERTY()
-	int32 ControllerId;
+	int32 ControllerId = INVALID_CONTROLLERID;
+
+	mutable FOnControllerIdChanged OnControllerIdChangedEvent;
+
+	FSubsystemCollection<ULocalPlayerSubsystem> SubsystemCollection;
 
 public:
 	// UObject interface
@@ -266,6 +277,47 @@ public:
 	 */
 	UGameInstance* GetGameInstance() const;
 
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	ULocalPlayerSubsystem* GetSubsystemBase(TSubclassOf<ULocalPlayerSubsystem> SubsystemClass) const
+	{
+		return SubsystemCollection.GetSubsystem<ULocalPlayerSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetSubsystem() const
+	{
+		return SubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get a Subsystem of specified type from the provided LocalPlayer
+	 * returns nullptr if the Subsystem cannot be found or the LocalPlayer is null
+	 */
+	template <typename TSubsystemClass>
+	static FORCEINLINE TSubsystemClass* GetSubsystem(const ULocalPlayer* LocalPlayer)
+	{
+		if (LocalPlayer)
+		{
+			return LocalPlayer->GetSubsystem<TSubsystemClass>();
+		}
+		return nullptr;
+	}
+
+	/**
+	 * Get all Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 *
+	 * Do not hold onto this Array reference unless you are sure the lifetime is less than that of ULocalPlayer
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetSubsystemArray() const
+	{
+		return SubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
 
 	/**
 	* Calculate the view init settings for drawing from this view actor

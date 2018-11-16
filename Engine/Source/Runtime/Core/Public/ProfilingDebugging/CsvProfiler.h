@@ -11,20 +11,31 @@
 #include "Containers/Queue.h"
 #include "UObject/NameTypes.h"
 #include "Templates/UniquePtr.h"
+#include "Async/Future.h"
+#include "Async/TaskGraphInterfaces.h"
+
+// Whether to allow the CSV profiler in shipping builds.
+// Enable in a .Target.cs file if required.
+#ifndef CSV_PROFILER_ENABLE_IN_SHIPPING
+#define CSV_PROFILER_ENABLE_IN_SHIPPING 0
+#endif
+
+// Enables command line switches and unit tests of the CSV profiler.
+// The default disables these features in a shipping build, but a .Target.cs file can override this.
+#ifndef CSV_PROFILER_ALLOW_DEBUG_FEATURES
+#define CSV_PROFILER_ALLOW_DEBUG_FEATURES (!UE_BUILD_SHIPPING)
+#endif
 
 #if WITH_SERVER_CODE
   #define CSV_PROFILER (WITH_ENGINE && 1)
 #else
-  #define CSV_PROFILER (WITH_ENGINE && !UE_BUILD_SHIPPING)
-
-  #if CSV_PROFILER && !ALLOW_DEBUG_FILES
-	#undef CSV_PROFILER
-	#define CSV_PROFILER 0
-  #endif
-
+  #define CSV_PROFILER (WITH_ENGINE && (!UE_BUILD_SHIPPING || CSV_PROFILER_ENABLE_IN_SHIPPING))
 #endif
 
 #if CSV_PROFILER
+
+#define CSV_TIMING_STATS_EMIT_NAMED_EVENTS 0
+#define CSV_EXCLUSIVE_TIMING_STATS_EMIT_NAMED_EVENTS 0
 
 // Helpers
 #define CSV_CATEGORY_INDEX(CategoryName)						(_GCsvCategory_##CategoryName.Index)
@@ -35,6 +46,7 @@
 #define CSV_SCOPED_TIMING_STAT(Category,StatName)				FScopedCsvStat _ScopedCsvStat_ ## StatName (#StatName, CSV_CATEGORY_INDEX(Category));
 #define CSV_SCOPED_TIMING_STAT_GLOBAL(StatName)					FScopedCsvStat _ScopedCsvStat_ ## StatName (#StatName, CSV_CATEGORY_INDEX_GLOBAL);
 #define CSV_SCOPED_TIMING_STAT_EXCLUSIVE(StatName)				FScopedCsvStatExclusive _ScopedCsvStatExclusive_ ## StatName (#StatName);
+#define CSV_SCOPED_TIMING_STAT_EXCLUSIVE_CONDITIONAL(StatName,Condition) FScopedCsvStatExclusiveConditional _ScopedCsvStatExclusive_ ## StatName (#StatName,Condition);
 
 #define CSV_CUSTOM_STAT(Category,StatName,Value,Op)				FCsvProfiler::RecordCustomStat(#StatName, CSV_CATEGORY_INDEX(Category), Value, Op)
 #define CSV_CUSTOM_STAT_GLOBAL(StatName,Value,Op) 				FCsvProfiler::RecordCustomStat(#StatName, CSV_CATEGORY_INDEX_GLOBAL, Value, Op)
@@ -56,6 +68,9 @@
 #define CSV_EVENT(Category, Format, ...) 						FCsvProfiler::RecordEventf( CSV_CATEGORY_INDEX(Category), Format, ##__VA_ARGS__ )
 #define CSV_EVENT_GLOBAL(Format, ...) 							FCsvProfiler::RecordEventf( CSV_CATEGORY_INDEX_GLOBAL, Format, ##__VA_ARGS__ )
 
+// Metadata
+#define CSV_METADATA(Key,Value)									FCsvProfiler::SetMetadata( Key, Value )
+
 #else
   #define CSV_CATEGORY_INDEX(CategoryName)						
   #define CSV_CATEGORY_INDEX_GLOBAL								
@@ -63,6 +78,7 @@
   #define CSV_SCOPED_TIMING_STAT(Category,StatName)				
   #define CSV_SCOPED_TIMING_STAT_GLOBAL(StatName)					
   #define CSV_SCOPED_TIMING_STAT_EXCLUSIVE(StatName)
+  #define CSV_SCOPED_TIMING_STAT_EXCLUSIVE_CONDITIONAL(StatName,Condition)
   #define CSV_CUSTOM_STAT(Category,StatName,Value,Op)				
   #define CSV_CUSTOM_STAT_GLOBAL(StatName,Value,Op) 				
   #define CSV_DEFINE_STAT(Category,StatName)						
@@ -74,7 +90,8 @@
   #define CSV_DEFINE_CATEGORY_MODULE(Module_API,CategoryName,bDefaultValue)	
   #define CSV_DECLARE_CATEGORY_MODULE_EXTERN(Module_API,CategoryName)			
   #define CSV_EVENT(Category, Format, ...) 						
-  #define CSV_EVENT_GLOBAL(Format, ...) 							
+  #define CSV_EVENT_GLOBAL(Format, ...)
+  #define CSV_METADATA(Key,Value)
 #endif
 
 
@@ -101,7 +118,7 @@ enum class ECsvCommandType : uint8
 
 struct FCsvCategory;
 
-#define CSV_STAT_NAME_PREFIX TEXT("__CSVSTAT__")
+#define CSV_STAT_NAME_PREFIX TEXT("")
 
 struct FCsvDeclaredStat
 {
@@ -118,14 +135,20 @@ struct FCsvCaptureCommand
 		, Value(-1)
 	{}
 
-	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue = -1, const FString& InDestinationFolder = FString(), const FString& InFilename = FString(), const FString& InCustomMetadata = FString(), bool InbWriteCompletionFile = false)
+	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue, const FString& InDestinationFolder, const FString& InFilename, bool InbWriteCompletionFile)
 		: CommandType(InCommandType)
 		, FrameRequested(InFrameRequested)
 		, Value(InValue)
 		, DestinationFolder(InDestinationFolder)
 		, Filename(InFilename)
-		, CustomMetadata(InCustomMetadata)
 		, bWriteCompletionFile(InbWriteCompletionFile)
+	{}
+
+	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, TPromise<FString>* InCompletion, TSharedFuture<FString> InFuture)
+		: CommandType(InCommandType)
+		, FrameRequested(InFrameRequested)
+		, Completion(MoveTemp(InCompletion))
+		, Future(InFuture)
 	{}
 
 	ECsvCommandType CommandType;
@@ -133,8 +156,9 @@ struct FCsvCaptureCommand
 	uint32 Value;
 	FString DestinationFolder;
 	FString Filename;
-	FString CustomMetadata;
 	bool bWriteCompletionFile;
+	TPromise<FString>* Completion;
+	TSharedFuture<FString> Future;
 };
 
 /**
@@ -170,6 +194,8 @@ public:
 	CORE_API static void RecordEvent(int32 CategoryIndex, const FString& EventText);
 	CORE_API static void RecordEventAtTimestamp(int32 CategoryIndex, const FString& EventText, uint64 Cycles64);
 
+	CORE_API static void SetMetadata(const TCHAR* Key, const TCHAR* Value);
+
 	template <typename FmtType, typename... Types>
 	FORCEINLINE static void RecordEventf(int32 CategoryIndex, const FmtType& Fmt, Types... Args)
 	{
@@ -181,6 +207,7 @@ public:
 	/** Singleton interface */
 	CORE_API bool IsCapturing();
 	CORE_API bool IsCapturing_Renderthread();
+	CORE_API bool IsWritingFile();
 
 	CORE_API int32 GetCaptureFrameNumber();
 
@@ -190,14 +217,18 @@ public:
 	CORE_API void BeginFrame();
 	CORE_API void EndFrame();
 
-	/** Begin/End Capture */
+	/** Begin Capture */
 	CORE_API void BeginCapture( int InNumFramesToCapture = -1,
 		const FString& InDestinationFolder = FString(),
 		const FString& InFilename = FString(),
-		const FString& InCustomMetadata = FString(),
 		bool bInWriteCompletionFile = false);
 
-	CORE_API void EndCapture();
+	/**
+	 * End Capture
+	 * EventToSignal is optional. If provided, the CSV profiler will signal the event when the async file write is complete.
+	 * The returned TFuture can be waited on to retrieve the filename of the csv file that was written to disk.
+	 */
+	CORE_API TSharedFuture<FString> EndCapture(FGraphEventRef EventToSignal = nullptr);
 
 	/** Final cleanup */
 	void Release();
@@ -232,13 +263,17 @@ private:
 	uint32 CaptureEndFrameCount;
 
 	FString OutputFilename;
-	FString CustomMetadata;
 	TQueue<FCsvCaptureCommand> CommandQueue;
 	FCsvProfilerProcessingThread* ProcessingThread;
+
+	FEvent* FileWriteBlockingEvent;
 
 	FString DeviceProfileName;
 
 	FThreadSafeCounter IsShuttingDown;
+
+	TMap<FString, FString> MetadataMap;
+	FCriticalSection MetadataCS;
 };
 
 class FScopedCsvStat
@@ -249,10 +284,16 @@ public:
 		, CategoryIndex(InCategoryIndex)
 	{
 		FCsvProfiler::BeginStat(StatName, CategoryIndex);
+#if CSV_TIMING_STATS_EMIT_NAMED_EVENTS
+		FPlatformMisc::BeginNamedEvent(FColor(255, 128, 255), StatName);
+#endif
 	}
 
 	~FScopedCsvStat()
 	{
+#if CSV_TIMING_STATS_EMIT_NAMED_EVENTS
+		FPlatformMisc::EndNamedEvent();
+#endif
 		FCsvProfiler::EndStat(StatName, CategoryIndex);
 	}
 	const char * StatName;
@@ -266,13 +307,49 @@ public:
 		: StatName(InStatName)
 	{
 		FCsvProfiler::BeginExclusiveStat(StatName);
+#if CSV_EXCLUSIVE_TIMING_STATS_EMIT_NAMED_EVENTS
+		FPlatformMisc::BeginNamedEvent(FColor(255, 128, 128), StatName);
+#endif
 	}
 
 	~FScopedCsvStatExclusive()
 	{
+#if CSV_EXCLUSIVE_TIMING_STATS_EMIT_NAMED_EVENTS
+		FPlatformMisc::EndNamedEvent();
+#endif
 		FCsvProfiler::EndExclusiveStat(StatName);
 	}
 	const char * StatName;
+};
+
+class FScopedCsvStatExclusiveConditional
+{
+public:
+	FScopedCsvStatExclusiveConditional(const char * InStatName, bool bInCondition)
+		: StatName(InStatName)
+		, bCondition(bInCondition)
+	{
+		if (bCondition)
+		{
+			FCsvProfiler::BeginExclusiveStat(StatName);
+#if CSV_EXCLUSIVE_TIMING_STATS_EMIT_NAMED_EVENTS
+			FPlatformMisc::BeginNamedEvent(FColor(255,128,128),StatName);
+#endif
+		}
+	}
+
+	~FScopedCsvStatExclusiveConditional()
+	{
+		if (bCondition)
+		{
+#if CSV_EXCLUSIVE_TIMING_STATS_EMIT_NAMED_EVENTS
+			FPlatformMisc::EndNamedEvent();
+#endif
+			FCsvProfiler::EndExclusiveStat(StatName);
+		}
+	}
+	const char * StatName;
+	bool bCondition;
 };
 
 

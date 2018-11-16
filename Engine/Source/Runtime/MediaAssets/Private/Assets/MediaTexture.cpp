@@ -39,9 +39,9 @@ public:
 
 	virtual void TickRender(FTimespan DeltaTime, FTimespan Timecode) override
 	{
-		if (Owner.IsValid())
+		if (UMediaTexture* OwnerPtr = Owner.Get())
 		{
-			Owner->TickResource(Timecode);
+			OwnerPtr->TickResource(Timecode);
 		}
 	}
 
@@ -300,9 +300,9 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 	// set up render parameters
 	FMediaTextureResource::FRenderParams RenderParams;
 
-	if (CurrentPlayer.IsValid())
+	if (UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get())
 	{
-		const bool PlayerActive = CurrentPlayer->IsPaused() || CurrentPlayer->IsPlaying() || CurrentPlayer->IsPreparing();
+		const bool PlayerActive = CurrentPlayerPtr->IsPaused() || CurrentPlayerPtr->IsPlaying() || CurrentPlayerPtr->IsPreparing();
 
 		if (PlayerActive)
 		{
@@ -313,8 +313,8 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 			return; // retain last frame
 		}
 
-		RenderParams.Rate = CurrentPlayer->GetRate();
-		RenderParams.Time = CurrentPlayer->GetTime();
+		RenderParams.Rate = CurrentPlayerPtr->GetRate();
+		RenderParams.Time = CurrentPlayerPtr->GetTime();
 	}
 	else if (!AutoClear && (CurrentGuid == PreviousGuid))
 	{
@@ -339,14 +339,14 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 
 void UMediaTexture::UpdateQueue()
 {
-	if (CurrentPlayer.IsValid())
+	if (UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get())
 	{
-		const FGuid PlayerGuid = CurrentPlayer->GetGuid();
+		const FGuid PlayerGuid = CurrentPlayerPtr->GetGuid();
 
 		if (CurrentGuid != PlayerGuid)
 		{
 			SampleQueue = MakeShared<FMediaTextureSampleQueue, ESPMode::ThreadSafe>();
-			CurrentPlayer->GetPlayerFacade()->AddVideoSampleSink(SampleQueue.ToSharedRef());
+			CurrentPlayerPtr->GetPlayerFacade()->AddVideoSampleSink(SampleQueue.ToSharedRef());
 			CurrentGuid = PlayerGuid;
 		}
 	}

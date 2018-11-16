@@ -688,7 +688,7 @@ public:
 	 * @param  bWeldSimulatedBodies Whether to weld together simulated physics bodies.
 	 * @return True if attachment is successful (or already attached to requested parent/socket), false if attachment is rejected and there is no change in AttachParent.
 	 */
-	DEPRECATED(4.12, "This function is deprecated, please use AttachToComponent instead.")
+	UE_DEPRECATED(4.12, "This function is deprecated, please use AttachToComponent instead.")
 	bool AttachTo(USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = false);
 
 	/**
@@ -699,7 +699,7 @@ public:
 	 * @param  bWeldSimulatedBodies Whether to weld together simulated physics bodies.
 	 * @return True if attachment is successful (or already attached to requested parent/socket), false if attachment is rejected and there is no change in AttachParent.
 	*/
-	DEPRECATED(4.17, "This function is deprecated, please use AttachToComponent instead.")
+	UE_DEPRECATED(4.17, "This function is deprecated, please use AttachToComponent instead.")
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Transformation", meta = (DisplayName = "AttachTo (Deprecated)", AttachType = "KeepRelativeOffset"))
 	bool K2_AttachTo(USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
 
@@ -727,7 +727,7 @@ public:
 	bool K2_AttachToComponent(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule, bool bWeldSimulatedBodies);
 
 	/** Zeroes out the relative transform of the component, and calls AttachTo(). Useful for attaching directly to a scene component or socket location  */
-	DEPRECATED(4.17, "Use AttachToComponent instead.")
+	UE_DEPRECATED(4.17, "Use AttachToComponent instead.")
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use AttachToComponent instead."), Category="Utilities|Transformation")
 	bool SnapTo(USceneComponent* InParent, FName InSocketName = NAME_None);
 
@@ -736,7 +736,7 @@ public:
 	 * @param bMaintainWorldPosition	If true, update the relative location of the component to keep its world position the same
 	 * @param bCallModify				If true, call Modify() on the component and the current attach parent component
 	 */
-	DEPRECATED(4.12, "This function is deprecated, please use DetachFromComponent instead.")
+	UE_DEPRECATED(4.12, "This function is deprecated, please use DetachFromComponent instead.")
 	UFUNCTION(BlueprintCallable, Category="Utilities|Transformation", meta = (DisplayName = "DetachFromParent (Deprecated)"))
 	virtual void DetachFromParent(bool bMaintainWorldPosition = false, bool bCallModify = true);
 

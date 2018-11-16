@@ -381,6 +381,7 @@ public:
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
 	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override { }
+	virtual void ResetLightColor(int32 ControllerId) override { }
 
 protected:
 
@@ -455,6 +456,8 @@ private:
 	bool bForceActivateByMouse;
 
 	bool bForceNoGamepads;
+
+	bool bConsumeAltSpace;
 
 	TArray<FDeferredWindowsMessage> DeferredMessages;
 

@@ -4,6 +4,8 @@
 #include "Slate/SObjectTableRow.h"
 #include "Blueprint/UserWidget.h"
 
+#include "Components/ListViewBase.h"
+
 TMap<TWeakObjectPtr<const UUserWidget>, TWeakPtr<const IObjectTableRow>> IObjectTableRow::ObjectRowsByUserWidget;
 
 UNativeUserListEntry::UNativeUserListEntry(const FObjectInitializer& Initializer)
@@ -70,6 +72,16 @@ bool IUserListEntry::IsListItemExpanded() const
 		return SlateRow->IsItemExpanded();
 	}
 	return false;
+}
+
+UListViewBase* IUserListEntry::GetOwningListView() const
+{
+	TSharedPtr<const IObjectTableRow> SlateRow = IObjectTableRow::ObjectRowFromUserWidget(CastChecked<const UUserWidget>(this, ECastCheckedType::NullAllowed));
+	if (SlateRow.IsValid())
+	{
+		return SlateRow->GetOwningListView();
+	}
+	return nullptr;
 }
 
 void IUserListEntry::NativeOnEntryReleased()

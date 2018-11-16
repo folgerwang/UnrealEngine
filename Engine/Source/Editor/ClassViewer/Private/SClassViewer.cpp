@@ -2470,7 +2470,7 @@ TSharedRef< ITableRow > SClassViewer::OnGenerateRowForClassViewer( TSharedPtr<FC
 	// If the item was accepted by the filter, leave it bright, otherwise dim it.
 	float AlphaValue = Item->bPassesFilter? 1.0f : 0.5f;
 	TSharedRef< SClassItem > ReturnRow = SNew(SClassItem, OwnerTable)
-		.ClassName(Item->GetClassName(InitOptions.bShowDisplayNames))
+		.ClassName(Item->GetClassName(InitOptions.NameTypeToDisplay))
 		.bIsPlaceable(Item->IsClassPlaceable())
 		.HighlightText(SearchBox->GetText())
 		.TextColor(Item->IsClassPlaceable()? FLinearColor(0.2f, 0.4f, 0.6f, AlphaValue) : FLinearColor(1.0f, 1.0f, 1.0f, AlphaValue))

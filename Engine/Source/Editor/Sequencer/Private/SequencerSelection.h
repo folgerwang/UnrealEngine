@@ -127,7 +127,6 @@ public:
 	/** Updates the selection once per frame.  This is required for deferred selection broadcasts. */
 	void Tick();
 
-private:
 	/** When true, selection change notifications should be broadcasted. */
 	bool IsBroadcasting();
 	

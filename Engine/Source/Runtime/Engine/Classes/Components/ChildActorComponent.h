@@ -103,7 +103,7 @@ public:
 	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData, const ECacheApplyPhase CacheApplyPhase);
 
 	/** Create the child actor */
-	void CreateChildActor();
+	virtual void CreateChildActor();
 
 	AActor* GetChildActor() const { return ChildActor; }
 	AActor* GetChildActorTemplate() const { return ChildActorTemplate; }

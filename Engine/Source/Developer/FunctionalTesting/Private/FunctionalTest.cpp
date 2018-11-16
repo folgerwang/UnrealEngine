@@ -332,10 +332,15 @@ void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString
 	}
 
 	const FText ResultText = FTestResultTypeEnum->GetDisplayNameTextByValue( (int64)TestResult );
-	const FString OutMessage = FString::Printf(TEXT("%s %s: \"%s\"")
+
+	//Output map and test name along with results
+	UWorld* World = GetWorld();
+	FString WorldName = (World ? UWorld::RemovePIEPrefix(World->GetMapName()) : "");
+	const FString OutMessage = FString::Printf(TEXT("%s %s %s: \"%s\"")
+		, *WorldName
 		, *GetName()
 		, *ResultText.ToString()
-		, Message.IsEmpty() == false ? *Message : TEXT("Test finished") );
+		, Message.IsEmpty() == false ? *Message : TEXT("Test finished"));
 
 	AutoDestroyActors.Reset();
 		

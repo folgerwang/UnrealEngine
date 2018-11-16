@@ -68,17 +68,35 @@ public:
 		}
 	}
 
-	bool HasMember(const FXmppUserJid& UserJid) const
+	/**
+	 * Check if a member is in the chat room based on their room JID
+	 *
+	 * @param RoomMemberJid the member's JID in the room
+	 * @return true if the member is in the chat room
+	 */
+	bool HasMember(const FXmppUserJid& RoomMemberJid) const
+	{
+		FXmppChatMemberPtr FoundMember = GetMember(RoomMemberJid);
+		return FoundMember.IsValid();
+	}
+
+	/**
+	 * Get a member in the chat room based on their room JID
+	 *
+	 * @param RoomMemberJid the member's JID in the room
+	 * @return pointer to the member, if found in the room
+	 */
+	FXmppChatMemberPtr GetMember(const FXmppUserJid& RoomMemberJid) const
 	{
 		for (const FXmppChatMemberRef& Member : Members)
 		{
-			if (Member->MemberJid == UserJid)
+			if (Member->RoomMemberJid == RoomMemberJid)
 			{
-				return true;
+				return Member;
 			}
 		}
 
-		return false;
+		return FXmppChatMemberPtr();
 	}
 
 	FXmppRoomId& GetRoomId() { return Info.Id; }

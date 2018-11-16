@@ -24,6 +24,7 @@
 
 #include "CoreGlobals.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/MessageDialog.h"
 #include "AudioCompressionSettingsUtils.h"
 
 // Macro to check result code for XAudio2 failure, get the string version, log, and goto a cleanup
@@ -159,6 +160,7 @@ namespace Audio
 		if (XAudio2Dll == nullptr)
 		{
 			UE_LOG(LogInit, Warning, TEXT("Failed to load XAudio2 dll"));
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("Audio", "XAudio2Missing", "XAudio2.7 is not installed. Make sure you have XAudio 2.7 installed. XAudio 2.7 is available in the DirectX End-User Runtime (June 2010)."));
 			return false;
 		}
 #endif // #if PLATFORM_64BITS
@@ -171,7 +173,12 @@ namespace Audio
 		Flags |= XAUDIO2_DO_NOT_USE_SHAPE;
 #endif
 
-		XAUDIO2_RETURN_ON_FAIL(XAudio2Create(&XAudio2System, Flags, (XAUDIO2_PROCESSOR)FPlatformAffinity::GetAudioThreadMask()));
+		if (FAILED(XAudio2Create(&XAudio2System, Flags, (XAUDIO2_PROCESSOR)FPlatformAffinity::GetAudioThreadMask())))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("Audio", "XAudio2Error", "Failed to initialize audio. This may be an issue with your installation of XAudio 2.7. XAudio2 is available in the DirectX End-User Runtime (June 2010)."));
+			return false;
+		}
+		
 
 #if WITH_XMA2
 		//Initialize our XMA2 decoder context
@@ -758,10 +765,16 @@ namespace Audio
 
 	FName FMixerPlatformXAudio2::GetRuntimeFormat(USoundWave* InSoundWave)
 	{
+		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
+
 		if (InSoundWave->IsStreaming())
 		{
-			static FName NAME_OPUS(TEXT("OPUS"));
+#if USE_VORBIS_FOR_STREAMING
+			return NAME_OGG;
+#else
 			return NAME_OPUS;
+#endif
 		}
 
 #if WITH_XMA2
@@ -772,7 +785,6 @@ namespace Audio
 		}
 #endif //#if WITH_XMA2
 
-		static FName NAME_OGG(TEXT("OGG"));
 		return NAME_OGG;
 	}
 
@@ -787,7 +799,11 @@ namespace Audio
 
 		if (InSoundWave->IsStreaming())
 		{
+#if USE_VORBIS_FOR_STREAMING
+			return new FVorbisAudioInfo();
+#else
 			return new FOpusAudioInfo();
+#endif
 		}
 
 		static const FName NAME_OGG(TEXT("OGG"));

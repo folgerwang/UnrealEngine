@@ -218,7 +218,8 @@ protected:
 protected:
 	/**List of actions that will be unconditionally removed at the begin of next tick */
 	typedef TPair<int32, class FPendingLatentAction*> FUuidAndAction;
-	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<TArray<FUuidAndAction>>> FActionsForObject;
+	typedef TPair<TWeakObjectPtr<UObject>, TSharedPtr<TArray<FUuidAndAction>>> FWeakObjectAndActions;
+	typedef TArray<FWeakObjectAndActions> FActionsForObject;
 	FActionsForObject ActionsToRemoveMap;
 
 	/** Delegate called when a latent action is added or removed */

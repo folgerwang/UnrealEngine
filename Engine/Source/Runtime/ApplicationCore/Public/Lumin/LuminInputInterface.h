@@ -34,6 +34,7 @@ public:
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
 	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values);
 	virtual void SetLightColor(int32 ControllerId, struct FColor Color) override {};
+	virtual void ResetLightColor(int32 ControllerId) override {};
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice>& InputDevice);
 	virtual bool IsGamepadAttached() const;

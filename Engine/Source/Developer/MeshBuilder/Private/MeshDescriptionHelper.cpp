@@ -141,12 +141,15 @@ void FMeshDescriptionHelper::ReduceLOD(const FMeshDescription& BaseMesh, FMeshDe
 {
 	IMeshReductionManagerModule& MeshReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	IMeshReduction* MeshReduction = MeshReductionModule.GetStaticMeshReductionInterface();
-	// Reduce this LOD mesh according to its reduction settings.
 
-	if (!MeshReduction || (ReductionSettings.PercentTriangles >= 1.0f && ReductionSettings.MaxDeviation <= 0.0f))
+	
+	if (!MeshReduction)
 	{
+		// no reduction possible
+		OutMaxDeviation = 0.f;
 		return;
 	}
+
 	OutMaxDeviation = ReductionSettings.MaxDeviation;
 	MeshReduction->ReduceMeshDescription(DestMesh, OutMaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
 }

@@ -24,7 +24,7 @@ class ENGINE_API IPreviewCollectionInterface
 	GENERATED_IINTERFACE_BODY()
 
 	/** Returns nodes that needs for them to map */
-	DEPRECATED(4.21, "This interface no longer used. Use GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP).")
+	UE_DEPRECATED(4.21, "This interface no longer used. Use GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP).")
 	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList) const;
 
 	/** If you want this to set base mesh also, please use this interface. If this returns nullptr, it will just use whatever set up right now */

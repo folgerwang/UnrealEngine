@@ -117,7 +117,7 @@ public:
 	 * @param BrowserFrameRate The framerate of the browser in FPS
 	 * @return New Web Browser Window Interface (may be null if not supported)
 	 */
-	DEPRECATED(4.11, "Please use the new overload that takes a settings struct.")
+	UE_DEPRECATED(4.11, "Please use the new overload that takes a settings struct.")
 	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(
 		void* OSWindowHandle,
 		FString InitialURL,
@@ -141,7 +141,7 @@ public:
 	 * @param CookieName The name of the cookie to delete. If left unspecified, all cookies will be removed.
 	 * @param Completed A callback function that will be invoked asynchronously on the game thread when the deletion is complete passing in the number of deleted objects.
 	 */
-	DEPRECATED(4.11, "Please use the CookieManager instead via GetCookieManager().")
+	UE_DEPRECATED(4.11, "Please use the CookieManager instead via GetCookieManager().")
 	virtual void DeleteBrowserCookies(FString URL = TEXT(""), FString CookieName = TEXT(""), TFunction<void(int)> Completed = nullptr) = 0;
 
 	virtual TSharedPtr<class IWebBrowserCookieManager> GetCookieManager() const = 0;

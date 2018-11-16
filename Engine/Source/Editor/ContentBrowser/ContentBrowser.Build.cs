@@ -39,6 +39,7 @@ public class ContentBrowser : ModuleRules
 				"Projects",
 				"AddContentDialog",
 				"DesktopPlatform",
+				"AssetRegistry"
 			}
 		);
 
@@ -46,7 +47,6 @@ public class ContentBrowser : ModuleRules
 			new string[] {
 				"PropertyEditor",
 				"PackagesDialog",
-				"AssetRegistry",
 				"AssetTools",
 				"CollectionManager",
 				"GameProjectGeneration",

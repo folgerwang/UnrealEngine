@@ -171,6 +171,9 @@ public:
 		Num = ( Num + 7 ) & ( ~0x07 );
 	}
 
+	/** Counts the in-memory bytes used by this object */
+	virtual void CountMemory(FArchive& Ar) const;
+
 private:
 	TArray<uint8> Buffer;
 	int64   Num;

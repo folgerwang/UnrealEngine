@@ -40,7 +40,7 @@ enum class EFocusCause : uint8
 	WindowActivate,
 };
 
-DEPRECATED(4.18, "EKeyboardFocusCause is deprecated and was renamed to EFocusCause. Please use that type instead.")
+UE_DEPRECATED(4.18, "EKeyboardFocusCause is deprecated and was renamed to EFocusCause. Please use that type instead.")
 typedef EFocusCause EKeyboardFocusCause;
 
 /**
@@ -725,7 +725,7 @@ public:
 	{ }
 
 	/** A constructor for touch events */
-	DEPRECATED(4.20, "FPointerEvent constructor now takes a Force parameter")
+	UE_DEPRECATED(4.20, "FPointerEvent constructor now takes a Force parameter")
 	FPointerEvent(
 		uint32 InUserIndex,
 		uint32 InPointerIndex,

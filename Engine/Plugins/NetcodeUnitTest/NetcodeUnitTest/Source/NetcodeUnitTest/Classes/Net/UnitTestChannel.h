@@ -20,7 +20,7 @@ class UUnitTestChannel : public UChannel
 {
 	GENERATED_UCLASS_BODY()	
 
-	virtual void Init(UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally) override;
+	virtual void Init(UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags) override;
 
 	virtual void ReceivedBunch(FInBunch& Bunch) override;
 

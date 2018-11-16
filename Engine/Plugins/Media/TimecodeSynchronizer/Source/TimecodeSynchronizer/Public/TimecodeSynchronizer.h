@@ -266,10 +266,10 @@ public:
 	/** Stops the synchronization process. Does nothing if we're not synchronized, or attempting to synchronize. */
 	void StopSynchronization();
 
-	DEPRECATED(4.21, "Please use GetSynchronizedSources.")
+	UE_DEPRECATED(4.21, "Please use GetSynchronizedSources.")
 	const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& GetTimecodedSources() const { return GetSynchronizedSources(); }
 
-	DEPRECATED(4.21, "Please use GetNonSynchronizedSources.")
+	UE_DEPRECATED(4.21, "Please use GetNonSynchronizedSources.")
 	const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& GetSynchronizationSources() const { return GetNonSynchronizedSources(); }
 
 	/** Returns the list of sources that are used to perform synchronization. */

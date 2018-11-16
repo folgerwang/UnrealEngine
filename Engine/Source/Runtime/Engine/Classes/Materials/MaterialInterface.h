@@ -225,6 +225,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category=Lightmass)
 	struct FLightmassMaterialInterfaceSettings LightmassSettings;
 
+private:
+	/** Feature levels to force to compile. */
+	uint32 FeatureLevelsToForceCompile;
+
+protected:
 #if WITH_EDITORONLY_DATA
 	/** Because of redirector, the texture names need to be resorted at each load in case they changed. */
 	UPROPERTY(transient)
@@ -273,9 +278,6 @@ private:
 #endif // WITH_EDITORONLY_DATA
 
 private:
-	/** Feature levels to force to compile. */
-	uint32 FeatureLevelsToForceCompile;
-
 	/** Feature level bitfield to compile for all materials */
 	static uint32 FeatureLevelsForAllMaterials;
 public:
@@ -375,7 +377,7 @@ public:
 	/**
 	 * DEPRECATED: Returns default value of the given parameter
 	 */
-	DEPRECATED(4.19, "This function is deprecated. Use GetScalarParameterDefaultValue instead.")
+	UE_DEPRECATED(4.19, "This function is deprecated. Use GetScalarParameterDefaultValue instead.")
 	virtual float GetScalarParameterDefault(const FMaterialParameterInfo& ParameterInfo, ERHIFeatureLevel::Type FeatureLevel)
 	{
 		float Value;
@@ -731,8 +733,10 @@ public:
 	 */
 	virtual void RecacheUniformExpressions() const {}
 
+#if WITH_EDITOR
 	/** Clears the shader cache and recompiles the shader for rendering. */
 	ENGINE_API virtual void ForceRecompileForRendering() {}
+#endif // WITH_EDITOR
 
 	/**
 	 * Asserts if any default material does not exist.

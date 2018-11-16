@@ -20,7 +20,7 @@ extern ANIMGRAPHRUNTIME_API TAutoConsoleVariable<int32> CVarRigidBodyLODThreshol
 
 /** Determines in what space the simulation should run */
 UENUM()
-enum class ESimulationSpace
+enum class ESimulationSpace : uint8
 {
 	/** Simulate in component space. Moving the entire skeletal mesh will have no affect on velocities */
 	ComponentSpace,
@@ -59,12 +59,19 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	virtual int32 GetLODThreshold() const override;
 	// End of FAnimNode_SkeletalControlBase interface
 
+public:
 	/** Physics asset to use. If empty use the skeletal mesh's default physics asset */
 	UPROPERTY(EditAnywhere, Category = Settings)
 	UPhysicsAsset* OverridePhysicsAsset;
 
+private:
+	FTransform PreviousCompWorldSpaceTM;
+	FTransform CurrentTransform;
+	FTransform PreviousTransform;
+
+public:
 	/** Override gravity*/
-	UPROPERTY(EditAnywhere, Category = Settings, meta = (editcondition = "bOverrideWorldGravity"))
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinHiddenByDefault, editcondition = "bOverrideWorldGravity"))
 	FVector OverrideWorldGravity;
 
 	/** Applies a uniform external force in world space. This allows for easily faking inertia of movement while still simulating in component space for example */
@@ -72,34 +79,16 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	FVector ExternalForce;
 
 	/** When using non-world-space sim, this controls how much of the components world-space acceleration is passed on to the local-space simulation. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinHiddenByDefault))
 	FVector ComponentLinearAccScale;
 
 	/** When using non-world-space sim, this applies a 'drag' to the bodies in the local space simulation, based on the components world-space velocity. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinHiddenByDefault))
 	FVector ComponentLinearVelScale;
 
 	/** When using non-world-space sim, this is an overall clamp on acceleration derived from ComponentLinearAccScale and ComponentLinearVelScale, to ensure it is not too large. */
 	UPROPERTY(EditAnywhere, Category = Settings)
 	FVector	ComponentAppliedLinearAccClamp;
-
-	/** The channel we use to find static geometry to collide with */
-	UPROPERTY(EditAnywhere, Category = Settings, meta = (editcondition = "bEnableWorldGeometry"))
-	TEnumAsByte<ECollisionChannel> OverlapChannel;
-
-	UPROPERTY(EditAnywhere, Category = Settings, meta=(InlineEditConditionToggle))
-	bool bEnableWorldGeometry;
-
-	/** What space to simulate the bodies in. This affects how velocities are generated */
-	UPROPERTY(EditAnywhere, Category = Settings)
-	ESimulationSpace SimulationSpace;
-
-	/** Matters if SimulationSpace is BaseBone */
-	UPROPERTY(EditAnywhere, Category = Settings)
-	FBoneReference BaseBoneRef;
-
-	UPROPERTY(EditAnywhere, Category = Settings, meta = (InlineEditConditionToggle))
-	bool bOverrideWorldGravity;
 
 	/**
 	 * Scale of cached bounds (vs. actual bounds).
@@ -109,12 +98,34 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (ClampMin="1.0", ClampMax="2.0"))
 	float CachedBoundsScale;
 
+	/** Matters if SimulationSpace is BaseBone */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FBoneReference BaseBoneRef;
+
+	/** The channel we use to find static geometry to collide with */
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (editcondition = "bEnableWorldGeometry"))
+	TEnumAsByte<ECollisionChannel> OverlapChannel;
+
+	/** What space to simulate the bodies in. This affects how velocities are generated */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	ESimulationSpace SimulationSpace;
+
+private:
+	ETeleportType ResetSimulatedTeleportType;
+
+public:
+	UPROPERTY(EditAnywhere, Category = Settings, meta=(InlineEditConditionToggle))
+	uint8 bEnableWorldGeometry : 1;
+
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (InlineEditConditionToggle))
+	uint8 bOverrideWorldGravity : 1;
+
 	/** 
 		When simulation starts, transfer previous bone velocities (from animation)
 		to make transition into simulation seamless.
 	*/
 	UPROPERTY(EditAnywhere, Category = Settings, meta=(PinHiddenByDefault))
-	bool bTransferBoneVelocities;
+	uint8 bTransferBoneVelocities : 1;
 
 	/**
 		When simulation starts, freeze incoming pose.
@@ -122,13 +133,21 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 		It prevents non simulated bones from animating.
 	*/
 	UPROPERTY(EditAnywhere, Category = Settings)
-	bool bFreezeIncomingPoseOnStart;
+	uint8 bFreezeIncomingPoseOnStart : 1;
 
+private:
+	uint8 bSimulationStarted : 1;
+	uint8 bCheckForBodyTransformInit : 1;
+
+public:
 	void PostSerialize(const FArchive& Ar);
+
 private:
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	bool bComponentSpaceSimulation_DEPRECATED;	//use SimulationSpace
+#endif
 
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
@@ -142,6 +161,8 @@ private:
 
 private:
 
+	float AccumulatedDeltaTime;
+
 	/** This should only be used for removing the delegate during termination. Do NOT use this for any per frame work */
 	TWeakObjectPtr<USkeletalMeshComponent> SkelMeshCompWeakPtr;
 
@@ -153,22 +174,25 @@ private:
 			: CompactPoseBoneIndex(INDEX_NONE)
 		{}
 
+		TArray<FCompactPoseBoneIndex> BoneIndicesToParentBody;
 		FCompactPoseBoneIndex CompactPoseBoneIndex;
 		int32 BodyIndex;
 		int32 ParentBodyIndex;
-		TArray<FCompactPoseBoneIndex> BoneIndicesToParentBody;
 	};
 
 	struct FBodyAnimData
 	{
 		FBodyAnimData()
-			: bIsSimulated(false)
+			: TransferedBoneAngularVelocity(ForceInit)
+			, TransferedBoneLinearVelocity(ForceInitToZero)
+			, bIsSimulated(false)
 			, bBodyTransformInitialized(false)
 		{}
 
+		FQuat TransferedBoneAngularVelocity;
+		FVector TransferedBoneLinearVelocity;
 		bool bIsSimulated;
 		bool bBodyTransformInitialized;
-		FTransform TransferedBoneVelocity;
 	};
 
 	TArray<FOutputBoneData> OutputBoneData;
@@ -182,12 +206,11 @@ private:
 	TSet<UPrimitiveComponent*> ComponentsInSim;
 
 	FVector WorldSpaceGravity;
-	float AccumulatedDeltaTime;
-	float TotalMass;
-
-	FTransform PreviousCompWorldSpaceTM;
 
 	FSphere Bounds;
+
+	float TotalMass;
+
 	FSphere CachedBounds;
 
 	FCollisionQueryParams QueryParams;
@@ -206,15 +229,10 @@ private:
 	FCSPose<FCompactHeapPose> CapturedFrozenPose;
 	FBlendedHeapCurve CapturedFrozenCurves;
 
-	FTransform CurrentTransform;
-	FTransform PreviousTransform;
 	FVector PreviousComponentLinearVelocity;
-
-	ETeleportType ResetSimulatedTeleportType;
-	bool bSimulationStarted;
-	bool bCheckForBodyTransformInit;
 };
 
+#if WITH_EDITORONLY_DATA
 template<>
 struct TStructOpsTypeTraits<FAnimNode_RigidBody> : public TStructOpsTypeTraitsBase2<FAnimNode_RigidBody>
 {
@@ -223,3 +241,4 @@ struct TStructOpsTypeTraits<FAnimNode_RigidBody> : public TStructOpsTypeTraitsBa
 		WithPostSerialize = true
 	};
 };
+#endif

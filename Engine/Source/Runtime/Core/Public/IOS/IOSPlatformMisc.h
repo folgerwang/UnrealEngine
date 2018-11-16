@@ -42,7 +42,7 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static bool HasActiveWiFiConnection();
 	static const TCHAR* GamePersistentDownloadDir();
 
-	DEPRECATED(4.21, "Use GetDeviceVolume, it is now callable on all platforms.")
+	UE_DEPRECATED(4.21, "Use GetDeviceVolume, it is now callable on all platforms.")
 	static int GetAudioVolume();
 
 	static bool AreHeadphonesPluggedIn();
@@ -62,7 +62,7 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static bool IsRegisteredForRemoteNotifications();
 	static void UnregisterForRemoteNotifications();
 	// Check if notifications are allowed if min iOS version is < 10
-	DEPRECATED(4.21, "IsAllowedRemoteNotifications is deprecated. Use FIOSLocalNotificationService::CheckAllowedNotifications instead.")
+	UE_DEPRECATED(4.21, "IsAllowedRemoteNotifications is deprecated. Use FIOSLocalNotificationService::CheckAllowedNotifications instead.")
 	static bool IsAllowedRemoteNotifications();
 	
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
@@ -82,7 +82,7 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static int GetDefaultStackSize();
 	static void HandleLowMemoryWarning();
 	static bool IsPackagedForDistribution();
-	DEPRECATED(4.14, "GetUniqueDeviceId is deprecated. Use GetDeviceId instead.")
+	UE_DEPRECATED(4.14, "GetUniqueDeviceId is deprecated. Use GetDeviceId instead.")
 	static FString GetUniqueDeviceId();
 	/**
 	 * Implemented using UIDevice::identifierForVendor,
@@ -200,15 +200,6 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static void SetGracefulTerminationHandler();
 	static void SetCrashHandler(void(*CrashHandler)(const FGenericCrashContext& Context));
 
-#if STATS || ENABLE_STATNAMEDEVENTS
-	static void BeginNamedEventFrame();
-	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
-	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
-	static void EndNamedEvent();
-	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit);
-	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit);
-#endif
-	
 	static bool SupportsDeviceCheckToken()
 	{
 		return true;

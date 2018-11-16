@@ -645,17 +645,34 @@ public:
 	bool IsConstructed() const;
 
 	/**
+	 * Gets the game instance associated with this UI.
+	 * @return a pointer to the owning game instance
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
+	UGameInstance* GetGameInstance() const;
+
+	/**
+	 * Gets the game instance associated with this UI.
+	 * @return a pointer to the owning game instance
+	 */
+	template <class TGameInstance = UGameInstance>
+	TGameInstance* GetGameInstance() const
+	{
+		return Cast<TGameInstance>(GetGameInstance());
+	}
+
+	/**
 	 * Gets the player controller associated with this UI.
 	 * @return The player controller that owns the UI.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
 	virtual APlayerController* GetOwningPlayer() const;
 
 	/**
 	 * Gets the local player associated with this UI.
 	 * @return The owning local player.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
 	virtual ULocalPlayer* GetOwningLocalPlayer() const;
 
 	/**
@@ -738,14 +755,20 @@ public:
 	virtual void FinishDestroy() override;
 	// End UObject
 
-#if WITH_EDITOR
 	FORCEINLINE bool CanSafelyRouteEvent()
 	{
-		return !(IsDesignTime() || GIntraFrameDebuggingGameThread || IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad);
+		return !IsDesignTime() && CanSafelyRouteCall();
 	}
-#else
-	FORCEINLINE bool CanSafelyRouteEvent() { return !(IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad); }
-#endif
+
+	FORCEINLINE bool CanSafelyRoutePaint()
+	{
+		return CanSafelyRouteCall();
+	}
+
+protected:
+	FORCEINLINE bool CanSafelyRouteCall() { return !(GIntraFrameDebuggingGameThread || IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad); }
+
+public:
 
 #if WITH_EDITOR
 
@@ -771,7 +794,7 @@ public:
 	virtual void OnCreationFromPalette() { }
 
 	/** Gets the editor icon */
-	DEPRECATED(4.12, "GetEditorIcon is deprecated. Please define widget icons in your style set in the form ClassIcon.MyWidget, and register your style through FClassIconFinder::(Un)RegisterIconSource")
+	UE_DEPRECATED(4.12, "GetEditorIcon is deprecated. Please define widget icons in your style set in the form ClassIcon.MyWidget, and register your style through FClassIconFinder::(Un)RegisterIconSource")
 	virtual const FSlateBrush* GetEditorIcon();
 
 	/** Allows general fixups and connections only used at editor time. */
@@ -816,6 +839,8 @@ protected:
 	virtual void OnBindingChanged(const FName& Property);
 
 protected:
+	UObject* GetSourceAssetOrClass() const;
+
 	/** Function implemented by all subclasses of UWidget is called when the underlying SWidget needs to be constructed. */
 	virtual TSharedRef<SWidget> RebuildWidget();
 
@@ -824,11 +849,11 @@ protected:
 	
 #if WITH_EDITOR
 	/** Utility method for building a design time wrapper widget. */
-	DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
+	UE_DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
 	TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget) { return CreateDesignerOutline(WrapWidget); }
 #else
 	/** Just returns the incoming widget in non-editor builds. */
-	DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
+	UE_DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
 	FORCEINLINE TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget) { return WrapWidget; }
 #endif
 

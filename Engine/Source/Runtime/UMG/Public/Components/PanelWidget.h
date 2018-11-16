@@ -101,7 +101,7 @@ public:
 
 	/** Remove all child widgets from the panel widget. */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
-	void ClearChildren();
+	virtual void ClearChildren();
 
 	/** The slots in the widget holding the child widgets of this panel. */
 	const TArray<UPanelSlot*>& GetSlots() const;

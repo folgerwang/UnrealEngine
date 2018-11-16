@@ -77,10 +77,57 @@ float UWidgetAnimation::GetStartTime() const
 	return MovieScene->GetPlaybackRange().GetLowerBoundValue() / MovieScene->GetTickResolution();
 }
 
-
 float UWidgetAnimation::GetEndTime() const
 {
 	return MovieScene->GetPlaybackRange().GetUpperBoundValue() / MovieScene->GetTickResolution();
+}
+
+void UWidgetAnimation::BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (Widget)
+	{
+		Widget->BindToAnimationStarted(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (Widget)
+	{
+		Widget->UnbindFromAnimationStarted(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindAllFromAnimationStarted(UUserWidget* Widget)
+{
+	if (Widget)
+	{
+		Widget->UnbindAllFromAnimationStarted(this);
+	}
+}
+
+void UWidgetAnimation::BindToAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (Widget)
+	{
+		Widget->BindToAnimationFinished(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (Widget)
+	{
+		Widget->UnbindFromAnimationFinished(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindAllFromAnimationFinished(UUserWidget* Widget)
+{
+	if (Widget)
+	{
+		Widget->UnbindAllFromAnimationFinished(this);
+	}
 }
 
 

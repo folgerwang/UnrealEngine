@@ -33,15 +33,14 @@ void FSkeletalMeshLODSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Lay
 			if (LODChildHandle->GetIndexInArray() == 0)
 			{
 				static const TArray<FName> HiddenProperties = { GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODGroupSettings, BoneFilterActionOption),
-					GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODGroupSettings, BoneList),
-					GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODGroupSettings, ReductionSettings) };
+					GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODGroupSettings, BoneList) };
 				for (int32 HiddenPropIndex = 0; HiddenPropIndex < HiddenProperties.Num(); ++HiddenPropIndex)
 				{
 					TSharedPtr<IPropertyHandle> ChildHandle = LODChildHandle->GetChildHandle(HiddenProperties[HiddenPropIndex]);
 					LayoutBuilder.HideProperty(ChildHandle);
 				}
 			}
-			else if(!bAutoMeshReductionAvailable)
+			if(!bAutoMeshReductionAvailable)
 			{
 				static const TArray<FName> HiddenProperties = { GET_MEMBER_NAME_CHECKED(FSkeletalMeshLODGroupSettings, ReductionSettings) };
 				for (int32 HiddenPropIndex = 0; HiddenPropIndex < HiddenProperties.Num(); ++HiddenPropIndex)

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProceduralFoliageBroadphase.h"
+#include "FoliageType_InstancedStaticMesh.h"
 
 FProceduralFoliageBroadphase::FProceduralFoliageBroadphase(float TileSize, float MinimumQuadTreeSize)
 	: QuadTree(FBox2D(FVector2D(-TileSize * 2.f, -TileSize * 2.f), FVector2D(TileSize * 2.f, TileSize * 2.f)), MinimumQuadTreeSize)
@@ -28,10 +29,16 @@ FBox2D GetMaxAABB(FProceduralFoliageInstance* Instance)
 	return AABB;
 }
 
+bool FProceduralFoliageBroadphase::TestAgainstAABB(FProceduralFoliageInstance* Instance)
+{
+	const FBox2D MaxAABB = GetMaxAABB(Instance);
+	return MaxAABB.Intersect(QuadTree.GetTreeBox());
+}
+
 void FProceduralFoliageBroadphase::Insert(FProceduralFoliageInstance* Instance)
 {
 	const FBox2D MaxAABB = GetMaxAABB(Instance);
-	QuadTree.Insert(Instance, MaxAABB);
+	QuadTree.Insert(Instance, MaxAABB, Instance->Type ? *Instance->Type->GetName() : nullptr);
 }
 
 bool CircleOverlap(const FVector& ALocation, float ARadius, const FVector& BLocation, float BRadius)

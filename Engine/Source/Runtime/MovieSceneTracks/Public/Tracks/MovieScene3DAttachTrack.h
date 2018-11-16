@@ -21,6 +21,7 @@ public:
 	// UMovieScene3DConstraintTrack interface
 
 	virtual void AddConstraint( FFrameNumber Time, int32 Duration, const FName SocketName, const FName ComponentName, const FMovieSceneObjectBindingID& ConstraintBindingID ) override;
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual class UMovieSceneSection* CreateNewSection() override;
 
 public:

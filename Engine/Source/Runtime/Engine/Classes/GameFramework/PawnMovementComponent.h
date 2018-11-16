@@ -101,7 +101,7 @@ public:
 	// DEPRECATED FUNCTIONS
 
 	/** (Deprecated) Return the input vector in world space. */
-	DEPRECATED(4.5, "GetInputVector() has been deprecated, use either GetPendingInputVector() or GetLastInputVector().")
+	UE_DEPRECATED(4.5, "GetInputVector() has been deprecated, use either GetPendingInputVector() or GetLastInputVector().")
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|PawnMovement", meta=(DeprecatedFunction, DisplayName="GetInputVector", ScriptName="GetInputVector", DeprecationMessage="GetInputVector has been deprecated, use either GetPendingInputVector or GetLastInputVector"))
 	FVector K2_GetInputVector() const;
 };

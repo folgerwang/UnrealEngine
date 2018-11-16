@@ -850,22 +850,34 @@ void TStaticMeshDrawList<DrawingPolicyType>::SortFrontToBack(FVector ViewPositio
 	// Cache policy link bounds
 	for (typename TDrawingPolicySet::TIterator DrawingPolicyIt(DrawingPolicySet); DrawingPolicyIt; ++DrawingPolicyIt)
 	{
-		FBoxSphereBounds AccumulatedBounds(ForceInit);
-
 		FDrawingPolicyLink& DrawingPolicyLink = *DrawingPolicyIt;
 
 		const int32 NumElements = DrawingPolicyLink.Elements.Num();
-		if (NumElements)
+
+		// Compute an aggregate bounding box
+		FVector Min(FLT_MAX), Max(-FLT_MAX);
+		for ( int32 ElementIndex = 0; ElementIndex < NumElements; ++ElementIndex )
 		{
-			AccumulatedBounds = DrawingPolicyLink.Elements[0].Bounds;
-
-		    for (int32 ElementIndex = 1; ElementIndex < NumElements; ElementIndex++)
-		    {
-			    AccumulatedBounds = AccumulatedBounds + DrawingPolicyLink.Elements[ElementIndex].Bounds;
-		    }
+			auto const &Bounds = DrawingPolicyLink.Elements[ElementIndex].Bounds;
+			Min.X = FMath::Min(Min.X, Bounds.Origin.X - FMath::Abs(Bounds.BoxExtent.X));
+			Min.Y = FMath::Min(Min.Y, Bounds.Origin.Y - FMath::Abs(Bounds.BoxExtent.Y));
+			Min.Z = FMath::Min(Min.Z, Bounds.Origin.Z - FMath::Abs(Bounds.BoxExtent.Z));
+			Max.X = FMath::Max(Max.X, Bounds.Origin.X + FMath::Abs(Bounds.BoxExtent.X));
+			Max.Y = FMath::Max(Max.Y, Bounds.Origin.Y + FMath::Abs(Bounds.BoxExtent.Y));
+			Max.Z = FMath::Max(Max.Z, Bounds.Origin.Z + FMath::Abs(Bounds.BoxExtent.Z));
 		}
+		FVector const SphereCenter = 0.5f * (Min + Max);
 
-		DrawingPolicyIt->CachedBoundingSphere = AccumulatedBounds.GetSphere();
+		// Compute the final sphere radius
+		float MaxChildRadius = 0.0f;
+		for ( int32 ElementIndex = 0; ElementIndex < NumElements; ++ElementIndex )
+		{
+			auto const &Bounds = DrawingPolicyLink.Elements[ElementIndex].Bounds;
+			MaxChildRadius = FMath::Max(MaxChildRadius, (SphereCenter - Bounds.Origin).Size() + Bounds.SphereRadius);
+		}
+		float const SphereRadius = FMath::Min(0.5f * (Max - Min).Size(), MaxChildRadius);
+
+		DrawingPolicyIt->CachedBoundingSphere = NumElements ? FSphere(SphereCenter, SphereRadius) : FSphere(ForceInit);
 	}
 
 	OrderedDrawingPolicies.Sort(TCompareStaticMeshDrawList<DrawingPolicyType>(&DrawingPolicySet, ViewPosition));

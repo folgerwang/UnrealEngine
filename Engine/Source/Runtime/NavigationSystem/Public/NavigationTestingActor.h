@@ -40,7 +40,7 @@ namespace ENavCostDisplay
 	};
 }
 
-UCLASS(hidecategories=(Object, Actor, Input, Rendering), showcategories=("Input|MouseInput", "Input|TouchInput"), Blueprintable)
+UCLASS(hidecategories=(Object, Actor, Input, Rendering, Replication, LOD, Cooking), showcategories=("Input|MouseInput", "Input|TouchInput"), Blueprintable)
 class NAVIGATIONSYSTEM_API ANavigationTestingActor : public AActor, public INavAgentInterface, public INavPathObserverInterface
 {
 	GENERATED_UCLASS_BODY()
@@ -81,6 +81,13 @@ public:
 
 	UPROPERTY(EditAnywhere, Category=Pathfinding)
 	uint32 bSearchStart : 1;
+
+	/** Instead of regular pathfinding from source to target location do
+	 *	a 'backwards' search that searches from the source, but as if the allowed
+	 *	movement direction was coming from the target. Meaningful only for paths
+	 *	containing one-direction nav links. */
+	UPROPERTY(EditAnywhere, Category = Pathfinding)
+	uint32 bBacktracking : 1;
 
 	UPROPERTY(EditAnywhere, Category=Pathfinding)
 	uint32 bUseHierarchicalPathfinding : 1;

@@ -96,12 +96,12 @@ private:
 
 	const FSlateBrush* GetFavoriteButtonBrush() const;
 	FReply OnFavoriteToggle();
-	void AllowShowFavorite();
 
 	void OnArrayDragEnter(const FDragDropEvent& DragDropEvent);
 	void OnArrayDragLeave(const FDragDropEvent& DragDropEvent);
 	FReply OnArrayDrop(const FDragDropEvent& DragDropEvent);
 
+	TSharedPtr<FPropertyNode> GetCopyPastePropertyNode() const;
 private:
 	TWeakPtr<IDetailKeyframeHandler> KeyframeHandler;
 	/** Customization for this widget */

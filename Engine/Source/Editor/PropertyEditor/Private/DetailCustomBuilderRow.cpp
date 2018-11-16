@@ -52,6 +52,11 @@ FName FDetailCustomBuilderRow::GetCustomBuilderName() const
 	return CustomNodeBuilder->GetName();
 }
 
+TSharedPtr<IPropertyHandle> FDetailCustomBuilderRow::GetPropertyHandle() const
+{
+	return CustomNodeBuilder->GetPropertyHandle();
+}
+
 void FDetailCustomBuilderRow::OnGenerateChildren( FDetailNodeList& OutChildren )
 {
 	ChildrenBuilder = MakeShareable( new FCustomChildrenBuilder( ParentCategory.Pin().ToSharedRef() ) );

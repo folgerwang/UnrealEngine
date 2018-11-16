@@ -18,6 +18,7 @@ public:
 	virtual bool HasCertificatesAvailable() const override;
 
 	virtual void ClearAllPinnedPublicKeys() override;
+	virtual bool IsDomainPinned(const FString& Domain) override;
 	virtual void SetPinnedPublicKeys(const FString& Domain, const FString& PinnedKeyDigests) override;
 	virtual bool VerifySslCertificates(X509_STORE_CTX* Context, const FString& Domain) const override;
 

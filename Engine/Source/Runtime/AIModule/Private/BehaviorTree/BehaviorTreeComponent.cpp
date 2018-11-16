@@ -23,7 +23,6 @@ int32 UBehaviorTreeComponent::ActiveDebuggerCounter = 0;
 #endif
 
 // Code for timing BT Search
-CSV_DEFINE_CATEGORY(BT_COMPONENT, true);
 static TAutoConsoleVariable<int32> CVarBTRecordFrameSearchTimes(TEXT("BehaviorTree.RecordFrameSearchTimes"), 0, TEXT("Record Search Times Per Frame For Perf Stats"));
 #if !UE_BUILD_SHIPPING
 bool UBehaviorTreeComponent::bAddedEndFrameCallback = false;
@@ -790,7 +789,7 @@ void UBehaviorTreeComponent::RequestExecution(UBTCompositeNode* RequestedOn, int
 	SCOPE_CYCLE_COUNTER(STAT_AI_BehaviorTree_SearchTime);
 #if !UE_BUILD_SHIPPING // Disable in shipping builds
 	// Code for timing BT Search
-	CSV_SCOPED_TIMING_STAT(BT_COMPONENT, AI_BehaviorTree_SearchTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(BehaviorTreeSearch);
 
 	FScopedSwitchedCountedDurationTimer ScopedSwitchedCountedDurationTimer(FrameSearchTime, NumSearchTimeCalls, CVarBTRecordFrameSearchTimes.GetValueOnGameThread() != 0);
 #endif
@@ -1182,7 +1181,7 @@ void UBehaviorTreeComponent::TickComponent(float DeltaTime, enum ELevelTick Tick
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
 	SCOPE_CYCLE_COUNTER(STAT_AI_BehaviorTree_Tick);
-	CSV_SCOPED_TIMING_STAT(BT_COMPONENT, AI_BehaviorTree_TickTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(BehaviorTreeTick);
 
 	check(this != nullptr && this->IsPendingKill() == false);
 
@@ -1299,7 +1298,7 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 
 #if !UE_BUILD_SHIPPING
 		// Code for timing BT Search
-		CSV_SCOPED_TIMING_STAT(BT_COMPONENT, AI_BehaviorTree_SearchTime);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(BehaviorTreeSearch);
 
 		FScopedSwitchedCountedDurationTimer ScopedSwitchedCountedDurationTimer(FrameSearchTime, NumSearchTimeCalls, CVarBTRecordFrameSearchTimes.GetValueOnGameThread() != 0);
 #endif

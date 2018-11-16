@@ -298,6 +298,7 @@ bool FTextFilterExpressionEvaluator::SetFilterText(const FText& InFilterText)
 
 	FilterType = ETextFilterExpressionType::Invalid;
 	FilterText = InFilterText;
+	CompiledFilterSingleBasicStringTextToken.Reset();
 
 	if (FilterText.IsEmptyOrWhitespace())
 	{
@@ -429,6 +430,16 @@ bool FTextFilterExpressionEvaluator::SetFilterText(const FText& InFilterText)
 				// Evaluate the compiled filter with a dummy context - this will let us know whether it's syntactically valid
 				FDummyTextFilterExpressionContext DummyContext;
 				EvaluateCompiledExpression(CompiledFilter.GetValue(), DummyContext, &FilterErrorText);
+
+				// If the search string contains no special tokens, optimize by avoiding need to evaluate expression for each item iterated during search
+				if (CompiledFilter->GetValue().Num() == 1 && CompiledFilter->GetValue()[0].Type == FCompiledToken::Operand)
+				{
+					FExpressionResult ExpressionResult = MakeValue(CompiledFilter->GetValue()[0].Node.Copy());
+					if (const FTextToken* TextResult = ExpressionResult.GetValue().Cast<FTextToken>())
+					{
+						CompiledFilterSingleBasicStringTextToken = *TextResult;
+					}
+				}
 			}
 			else
 			{
@@ -551,6 +562,12 @@ bool FTextFilterExpressionEvaluator::EvaluateCompiledExpression(const Expression
 
 	if (InCompiledResult.IsValid())
 	{
+		// Optimize by avoiding expression recompile when context has no effect on the compiled result
+		if (CompiledFilterSingleBasicStringTextToken.IsSet())
+		{
+			return CompiledFilterSingleBasicStringTextToken->EvaluateAsBasicStringExpression(&InContext);
+		}
+
 		auto EvalResult = ExpressionParser::Evaluate(InCompiledResult.GetValue(), JumpTable, &InContext);
 		if (EvalResult.IsValid())
 		{

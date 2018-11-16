@@ -17,8 +17,11 @@ public:
 
 	TQuadTree(const FBox2D& InBox, float InMinimumQuadSize = 100.f);
 
-	/** Inserts an object of type ElementType with an associated 2D box of size Box (log n)*/
-	void Insert(const ElementType& Element, const FBox2D& Box);
+	/** Gets the TreeBox so systems can test insertions before trying to do so with invalid regions */
+	const FBox2D& GetTreeBox() { return TreeBox; }
+
+	/** Inserts an object of type ElementType with an associated 2D box of size Box (log n). Pass in a DebugContext so when an issue occurs the log can report what requested this insert. */
+	void Insert(const ElementType& Element, const FBox2D& Box, const TCHAR* DebugContext = nullptr);
 
 	/** Given a 2D box, returns an array of elements within the box. There will not be any duplicates in the list. */
 	void GetElements(const FBox2D& Box, TArray<ElementType>& ElementsOut) const;
@@ -82,7 +85,7 @@ private:
 	void GetElementsRecursive(const FBox2D& Box, TArray<ElementType>& OutElementSet) const;
 
 	/** Internal recursive implementation of @see Insert */
-	void InsertElementRecursive(const ElementType& Element, const FBox2D& Box);
+	void InsertElementRecursive(const ElementType& Element, const FBox2D& Box, const TCHAR* DebugContext);
 
 private:
 	
@@ -228,19 +231,19 @@ void TQuadTree<ElementType, NodeCapacity>::Split()
 }
 
 template <typename ElementType, int32 NodeCapacity>
-void TQuadTree<ElementType, NodeCapacity>::Insert(const ElementType& Element, const FBox2D& Box)
+void TQuadTree<ElementType, NodeCapacity>::Insert(const ElementType& Element, const FBox2D& Box, const TCHAR* DebugContext)
 {
 	if (!Box.Intersect(TreeBox))
 	{
 		// Elements shouldn't be added outside the bounds of the top-level quad
-		UE_LOG(LogQuadTree, Warning, TEXT("Adding element (%s) that is outside the bounds of the quadtree root (%s). Consider resizing."), *Box.ToString(), *TreeBox.ToString());
+		UE_LOG(LogQuadTree, Warning, TEXT("[%s] Adding element (%s) that is outside the bounds of the quadtree root (%s). Consider resizing."), DebugContext ? DebugContext : TEXT("Unknown Source"), *Box.ToString(), *TreeBox.ToString());
 	}
 
-	InsertElementRecursive(Element, Box);
+	InsertElementRecursive(Element, Box, DebugContext);
 }
 
 template <typename ElementType, int32 NodeCapacity>
-void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementType& Element, const FBox2D& Box)
+void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementType& Element, const FBox2D& Box, const TCHAR* DebugContext)
 {
 	TreeType* Quads[4];
 	const int32 NumQuads = GetQuads(Box, Quads);
@@ -258,14 +261,14 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 
 			if (!bCanSplitTree)
 			{
-				UE_LOG(LogQuadTree, Verbose, TEXT("Minimum size %f reached for quadtree at %s. Filling beyond capacity %d to %d"), MinimumQuadSize, *Position.ToString(), NodeCapacity, Nodes.Num());
+				UE_LOG(LogQuadTree, Verbose, TEXT("[%s] Minimum size %f reached for quadtree at %s. Filling beyond capacity %d to %d"), DebugContext ? DebugContext : TEXT("Unknown Source"), MinimumQuadSize, *Position.ToString(), NodeCapacity, Nodes.Num());
 			}
 		}
 		else
 		{
 			// This quad is at capacity, so split and try again
 			Split();
-			InsertElementRecursive(Element, Box);
+			InsertElementRecursive(Element, Box, DebugContext);
 		}
 	}
 	else if (NumQuads == 1)
@@ -273,7 +276,7 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 		check(bInternal);
 
 		// Fully contained in a single subtree, so insert it there
-		Quads[0]->InsertElementRecursive(Element, Box);
+		Quads[0]->InsertElementRecursive(Element, Box, DebugContext);
 	}
 	else
 	{

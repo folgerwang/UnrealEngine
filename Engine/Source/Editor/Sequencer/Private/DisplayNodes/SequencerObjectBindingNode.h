@@ -88,6 +88,7 @@ protected:
 
 	void AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder);
 	void AddSpawnLevelMenu(FMenuBuilder& MenuBuilder);
+	void AddAssignActorMenu(FMenuBuilder& MenuBuilder);
 
 	/** Get class for object binding */
 	const UClass* GetClassForObjectBinding() const;

@@ -714,11 +714,19 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 		if (OnlineTitleFile->GetFileContents(FileHeader.DLName, FileData))
 		{
 			UE_LOG(LogHotfixManager, Verbose, TEXT("Applying hotfix %s"), *FileHeader.FileName);
-			// Convert to a FString
-			FileData.Add(0);
-			FString HotfixStr;
-			FFileHelper::BufferToString(HotfixStr, FileData.GetData(), FileData.Num());
-			bSuccess = HotfixIniFile(FileHeader.FileName, HotfixStr);
+
+			if (PreProcessDownloadedFileData(FileData))
+			{
+				// Convert to a FString
+				FileData.Add(0);
+				FString HotfixStr;
+				FFileHelper::BufferToString(HotfixStr, FileData.GetData(), FileData.Num());
+				bSuccess = HotfixIniFile(FileHeader.FileName, HotfixStr);
+			}
+			else
+			{
+				UE_LOG(LogHotfixManager, Warning, TEXT("Failed to process contents of %s"), *FileHeader.FileName);
+			}
 		}
 		else
 		{
@@ -919,10 +927,6 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 							Classes.Add(BPGeneratedClass);
 							BackupFile.ClassesReloaded.AddUnique(BPGeneratedClass->GetPathName());
 						}
-					}
-					else
-					{
-						UE_LOG(LogHotfixManager, Warning, TEXT("Neither ScriptHeader nor GameHeader were found in %s and was not a per object config, some settings will be lost."), *FileName);
 					}
 				}
 				// Handle the per object config case by finding the object for reload
@@ -1626,26 +1630,36 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 				// Edit the row with the new value.
 				const float KeyTime = FCString::Atof(*ColumnName);
 				FKeyHandle Key = CurveTableRow->FindKey(KeyTime);
-				if (CurveTableRow->IsKeyHandleValid(Key))
+
+				bool bWasExistingKey = CurveTableRow->IsKeyHandleValid(Key);
+
+				if (NewValue.IsNumeric())
 				{
-					if (NewValue.IsNumeric())
+					const float OldPropertyValue = CurveTableRow->GetKeyValue(Key);
+					const float NewPropertyValue = FCString::Atof(*NewValue);
+					Key = CurveTableRow->UpdateOrAddKey(KeyTime, NewPropertyValue);
+					if (CurveTableRow->IsKeyHandleValid(Key))
 					{
-						const float OldPropertyValue = CurveTableRow->GetKeyValue(Key);
-						const float NewPropertyValue = FCString::Atof(*NewValue);
-						CurveTableRow->SetKeyValue(Key, NewPropertyValue);
 						bWasCurveTableChanged = true;
 
-						UE_LOG(LogHotfixManager, Verbose, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+						if (bWasExistingKey)
+						{
+							UE_LOG(LogHotfixManager, Verbose, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+						}
+						else
+						{
+							UE_LOG(LogHotfixManager, Verbose, TEXT("Curve table %s row %s added column %s with value %.2f."), *AssetPath, *RowName, *ColumnName, NewPropertyValue);
+						}
 					}
 					else
 					{
-						const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+						const FString Problem(FString::Printf(TEXT("Unable to update Curve table %s row %s column %s with value %.2f."), *AssetPath, *RowName, *ColumnName, NewPropertyValue));
 						ProblemStrings.Add(Problem);
 					}
 				}
 				else
 				{
-					const FString Problem(FString::Printf(TEXT("The column name %s isn't a valid key into the curve table."), *ColumnName));
+					const FString Problem(FString::Printf(TEXT("The new value %s at key %f is not a number when it should be."), *NewValue, KeyTime));
 					ProblemStrings.Add(Problem);
 				}
 			}

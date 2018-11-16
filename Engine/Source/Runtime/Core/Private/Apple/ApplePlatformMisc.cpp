@@ -12,6 +12,7 @@
 #include "Misc/Guid.h"
 #include "Apple/ApplePlatformDebugEvents.h"
 #include "Apple/ApplePlatformCrashContext.h"
+#include "FramePro/FrameProProfiler.h"
 
 void FApplePlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 {
@@ -282,18 +283,6 @@ TArray<uint8> FApplePlatformMisc::GetSystemFontBytes()
 	return FontBytes;
 }
 
-TArray<FString> FApplePlatformMisc::GetPreferredLanguages()
-{
-	TArray<FString> Results;
-
-	NSArray* Languages = [NSLocale preferredLanguages];
-	for (NSString* Language in Languages)
-	{
-		Results.Add(FString(Language));
-	}
-	return Results;
-}
-
 FString FApplePlatformMisc::GetLocalCurrencyCode()
 {
 	return FString([[NSLocale currentLocale] objectForKey:NSLocaleCurrencyCode]);
@@ -323,19 +312,50 @@ bool FApplePlatformMisc::IsOSAtLeastVersion(const uint32 MacOSVersion[3], const 
 	return true;
 }
 
-#if APPLE_PROFILING_ENABLED
-void FApplePlatformMisc::BeginNamedEvent(const struct FColor& Color,const TCHAR* Text)
+#if STATS || ENABLE_STATNAMEDEVENTS || APPLE_PROFILING_ENABLED
+
+void FApplePlatformMisc::BeginNamedEventFrame()
 {
-	FApplePlatformDebugEvents::BeginNamedEvent(Color, Text);
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
 }
 
-void FApplePlatformMisc::BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text)
+void FApplePlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#elif APPLE_PROFILING_ENABLED
 	FApplePlatformDebugEvents::BeginNamedEvent(Color, Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FApplePlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#elif APPLE_PROFILING_ENABLED
+	FApplePlatformDebugEvents::BeginNamedEvent(Color, Text);
+#endif // FRAMEPRO_ENABLED
 }
 
 void FApplePlatformMisc::EndNamedEvent()
 {
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#elif APPLE_PROFILING_ENABLED
 	FApplePlatformDebugEvents::EndNamedEvent();
+#endif // FRAMEPRO_ENABLED
 }
-#endif
+
+void FApplePlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+
+void FApplePlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+}
+
+#endif // STATS || ENABLE_STATNAMEDEVENTS || APPLE_PROFILING_ENABLED

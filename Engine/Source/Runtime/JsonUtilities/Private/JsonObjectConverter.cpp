@@ -43,7 +43,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 		// export enums as strings
 		UEnum* EnumDef = EnumProperty->GetEnum();
 		FString StringValue = EnumDef->GetNameStringByValue(EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(Value));
-		return MakeShareable(new FJsonValueString(StringValue));
+		return MakeShared<FJsonValueString>(StringValue);
 	}
 	else if (UNumericProperty *NumericProperty = Cast<UNumericProperty>(Property))
 	{
@@ -53,17 +53,17 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 		{
 			// export enums as strings
 			FString StringValue = EnumDef->GetNameStringByValue(NumericProperty->GetSignedIntPropertyValue(Value));
-			return MakeShareable(new FJsonValueString(StringValue));
+			return MakeShared<FJsonValueString>(StringValue);
 		}
 
 		// We want to export numbers as numbers
 		if (NumericProperty->IsFloatingPoint())
 		{
-			return MakeShareable(new FJsonValueNumber(NumericProperty->GetFloatingPointPropertyValue(Value)));
+			return MakeShared<FJsonValueNumber>(NumericProperty->GetFloatingPointPropertyValue(Value));
 		}
 		else if (NumericProperty->IsInteger())
 		{
-			return MakeShareable(new FJsonValueNumber(NumericProperty->GetSignedIntPropertyValue(Value)));
+			return MakeShared<FJsonValueNumber>(NumericProperty->GetSignedIntPropertyValue(Value));
 		}
 
 		// fall through to default
@@ -71,15 +71,15 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 	else if (UBoolProperty *BoolProperty = Cast<UBoolProperty>(Property))
 	{
 		// Export bools as bools
-		return MakeShareable(new FJsonValueBoolean(BoolProperty->GetPropertyValue(Value)));
+		return MakeShared<FJsonValueBoolean>(BoolProperty->GetPropertyValue(Value));
 	}
 	else if (UStrProperty *StringProperty = Cast<UStrProperty>(Property))
 	{
-		return MakeShareable(new FJsonValueString(StringProperty->GetPropertyValue(Value)));
+		return MakeShared<FJsonValueString>(StringProperty->GetPropertyValue(Value));
 	}
 	else if (UTextProperty *TextProperty = Cast<UTextProperty>(Property))
 	{
-		return MakeShareable(new FJsonValueString(TextProperty->GetPropertyValue(Value).ToString()));
+		return MakeShared<FJsonValueString>(TextProperty->GetPropertyValue(Value).ToString());
 	}
 	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
 	{
@@ -94,7 +94,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 				Out.Push(Elem);
 			}
 		}
-		return MakeShareable(new FJsonValueArray(Out));
+		return MakeShared<FJsonValueArray>(Out);
 	}
 	else if ( USetProperty* SetProperty = Cast<USetProperty>(Property) )
 	{
@@ -114,11 +114,11 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 				--n;
 			}
 		}
-		return MakeShareable(new FJsonValueArray(Out));
+		return MakeShared<FJsonValueArray>(Out);
 	}
 	else if ( UMapProperty* MapProperty = Cast<UMapProperty>(Property) )
 	{
-		TSharedRef<FJsonObject> Out = MakeShareable(new FJsonObject());
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 
 		FScriptMapHelper Helper(MapProperty, Value);
 		for ( int32 i=0, n = Helper.Num(); n; ++i )
@@ -129,8 +129,8 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 				TSharedPtr<FJsonValue> ValueElement = FJsonObjectConverter::UPropertyToJsonValue(MapProperty->ValueProp, Helper.GetValuePtr(i), CheckFlags & ( ~CPF_ParmFlags ), SkipFlags, ExportCb);
 				if ( KeyElement.IsValid() && ValueElement.IsValid() )
 				{
-					FString KeyString = KeyElement->AsString();
-					if (KeyString.IsEmpty())
+					FString KeyString;
+					if (!KeyElement->TryGetString(KeyString))
 					{
 						MapProperty->KeyProp->ExportTextItem(KeyString, Helper.GetKeyPtr(i), nullptr, nullptr, 0);
 						if (KeyString.IsEmpty())
@@ -147,7 +147,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 			}
 		}
 
-		return MakeShareable(new FJsonValueObject(Out));
+		return MakeShared<FJsonValueObject>(Out);
 	}
 	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
 	{
@@ -157,13 +157,13 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 		{
 			FString OutValueStr;
 			TheCppStructOps->ExportTextItem(OutValueStr, Value, nullptr, nullptr, PPF_None, nullptr);
-			return MakeShareable(new FJsonValueString(OutValueStr));
+			return MakeShared<FJsonValueString>(OutValueStr);
 		}
 
-		TSharedRef<FJsonObject> Out = MakeShareable(new FJsonObject());
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 		if (FJsonObjectConverter::UStructToJsonObject(StructProperty->Struct, Value, Out, CheckFlags & (~CPF_ParmFlags), SkipFlags, ExportCb))
 		{
-			return MakeShareable(new FJsonValueObject(Out));
+			return MakeShared<FJsonValueObject>(Out);
 		}
 		// fall through to default
 	}
@@ -172,7 +172,7 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 		// Default to export as string for everything else
 		FString StringValue;
 		Property->ExportTextItem(StringValue, Value, NULL, NULL, PPF_None);
-		return MakeShareable(new FJsonValueString(StringValue));
+		return MakeShared<FJsonValueString>(StringValue);
 	}
 
 	// invalid
@@ -186,7 +186,7 @@ TSharedPtr<FJsonValue> FJsonObjectConverter::ObjectJsonCallback(UProperty* Prope
 	{
 		if (!ObjectProperty->HasAnyFlags(RF_Transient)) // We are taking Transient to mean we don't want to serialize to Json either (could make a new flag if nessasary)
 		{
-			TSharedRef<FJsonObject> Out = MakeShareable(new FJsonObject());
+			TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 
 			CustomExportCallback CustomCB;
 			CustomCB.BindStatic(FJsonObjectConverter::ObjectJsonCallback);
@@ -195,7 +195,7 @@ TSharedPtr<FJsonValue> FJsonObjectConverter::ObjectJsonCallback(UProperty* Prope
 
 			if (FJsonObjectConverter::UStructToJsonObject(ObjectProperty->PropertyClass, (*PtrToValuePtr), Out, 0, 0, &CustomCB))
 			{
-				return MakeShareable(new FJsonValueObject(Out));
+				return MakeShared<FJsonValueObject>(Out);
 			}
 		}
 	}
@@ -216,7 +216,7 @@ TSharedPtr<FJsonValue> FJsonObjectConverter::UPropertyToJsonValue(UProperty* Pro
 	{
 		Array.Add(ConvertScalarUPropertyToJsonValue(Property, (char*)Value + Index * Property->ElementSize, CheckFlags, SkipFlags, ExportCb));
 	}
-	return MakeShareable(new FJsonValueArray(Array));
+	return MakeShared<FJsonValueArray>(Array);
 }
 
 bool FJsonObjectConverter::UStructToJsonObject(const UStruct* StructDefinition, const void* Struct, TSharedRef<FJsonObject> OutJsonObject, int64 CheckFlags, int64 SkipFlags, const CustomExportCallback* ExportCb)
@@ -288,7 +288,7 @@ bool UStructToJsonObjectStringInternal(const TSharedRef<FJsonObject>& JsonObject
 
 bool FJsonObjectConverter::UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent, const CustomExportCallback* ExportCb, bool bPrettyPrint)
 {
-	TSharedRef<FJsonObject> JsonObject = MakeShareable( new FJsonObject() );
+	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
 	if (UStructToJsonObject(StructDefinition, Struct, JsonObject, CheckFlags, SkipFlags, ExportCb))
 	{
 		bool bSuccess = false;
@@ -462,7 +462,7 @@ namespace
 					{
 						int32 NewIndex = Helper.AddDefaultValue_Invalid_NeedsRehash();
 
-						TSharedPtr<FJsonValueString> TempKeyValue = MakeShareable(new FJsonValueString(Entry.Key));
+						TSharedPtr<FJsonValueString> TempKeyValue = MakeShared<FJsonValueString>(Entry.Key);
 
 						const bool bKeySuccess = JsonValueToUPropertyWithContainer(TempKeyValue, MapProperty->KeyProp, Helper.GetKeyPtr(NewIndex), ContainerStruct, Container, CheckFlags & (~CPF_ParmFlags), SkipFlags);
 						const bool bValueSuccess = JsonValueToUPropertyWithContainer(Entry.Value, MapProperty->ValueProp, Helper.GetValuePtr(NewIndex), ContainerStruct, Container, CheckFlags & (~CPF_ParmFlags), SkipFlags);
@@ -738,7 +738,7 @@ namespace
 		{
 			// Just copy it into the object
 			FJsonObjectWrapper* ProxyObject = (FJsonObjectWrapper *)OutStruct;
-			ProxyObject->JsonObject = MakeShareable(new FJsonObject());
+			ProxyObject->JsonObject = MakeShared<FJsonObject>();
 			ProxyObject->JsonObject->Values = JsonAttributes;
 			return true;
 		}

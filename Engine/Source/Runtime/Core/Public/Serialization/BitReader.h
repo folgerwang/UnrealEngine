@@ -203,6 +203,9 @@ public:
 	void AppendDataFromChecked( uint8* Src, uint32 NumBits );
 	void AppendTo( TArray<uint8> &Buffer );
 
+	/** Counts the in-memory bytes used by this object */
+	virtual void CountMemory(FArchive& Ar) const;
+
 protected:
 
 	TArray<uint8> Buffer;

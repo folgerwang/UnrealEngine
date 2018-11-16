@@ -105,7 +105,7 @@ public:
 	 *
 	 * @return	true if the set of loaded packages was changed
 	 */
-	DEPRECATED(4.21, "ReloadPackages taking bInteractive is deprecated. Use the version taking EReloadPackagesInteractionMode instead.")
+	UE_DEPRECATED(4.21, "ReloadPackages taking bInteractive is deprecated. Use the version taking EReloadPackagesInteractionMode instead.")
 	static bool ReloadPackages( const TArray<UPackage*>& PackagesToReload, FText& OutErrorMessage, const bool bInteractive = true );
 
 	/**
@@ -183,6 +183,6 @@ private:
 	static FDelegateHandle ReachabilityCallbackHandle;
 };
 
-DEPRECATED(4.21, "PackageTools namespace has been deprecated. Please use UPackageTools instead.") 
+UE_DEPRECATED(4.21, "PackageTools namespace has been deprecated. Please use UPackageTools instead.") 
 typedef UPackageTools PackageTools;
 

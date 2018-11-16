@@ -1007,7 +1007,7 @@ public:
 	* Sets the constraint mode of the component.
 	* @param ConstraintMode	The type of constraint to use.
 	*/
-	DEPRECATED(4.8, "This function is deprecated. Please use SetConstraintMode instead.")
+	UE_DEPRECATED(4.8, "This function is deprecated. Please use SetConstraintMode instead.")
 	UFUNCTION(BlueprintCallable, meta = (DeprecatedFunction, DeprecationMessage = "Use SetConstraintMode instead", Keywords = "set locked axis constraint physics"), Category = Physics)
 	virtual void SetLockedAxis(EDOFMode::Type LockedAxis);
 
@@ -1035,7 +1035,7 @@ public:
 	*	@param	BoneName	If a SkeletalMeshComponent, name of body to apply angular impulse to. 'None' indicates root body.
 	*	@param	bVelChange	If true, the Strength is taken as a change in angular velocity instead of an impulse (ie. mass will have no effect).
 	*/
-	DEPRECATED(4.18, "Use AddAngularImpulseInRadians instead.")
+	UE_DEPRECATED(4.18, "Use AddAngularImpulseInRadians instead.")
 	UFUNCTION(BlueprintCallable, Category = "Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use AddAngularImpulseInRadians instead"))
 	virtual void AddAngularImpulse(FVector Impulse, FName BoneName = NAME_None, bool bVelChange = false)
 	{
@@ -1138,7 +1138,7 @@ public:
 	 *	@param BoneName		If a SkeletalMeshComponent, name of body to apply torque to. 'None' indicates root body.
 	 *  @param bAccelChange If true, Torque is taken as a change in angular acceleration instead of a physical torque (i.e. mass will have no effect).
 	 */
-	DEPRECATED(4.18, "Use AddTorqueInRadians instead.")
+	UE_DEPRECATED(4.18, "Use AddTorqueInRadians instead.")
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use AddTorqueInRadians instead"))
 	void AddTorque(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false)
 	{
@@ -1209,7 +1209,7 @@ public:
 	 *	@param bAddToCurrent	If true, NewAngVel is added to the existing angular velocity of the body.
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to modify angular velocity of. 'None' indicates root body.
 	 */
-	DEPRECATED(4.18, "Use SetPhysicsAngularVelocityInDegrees instead.")
+	UE_DEPRECATED(4.18, "Use SetPhysicsAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use SetPhysicsAngularVelocityInDegrees instead"))
 	void SetPhysicsAngularVelocity(FVector NewAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None)
 	{
@@ -1248,7 +1248,7 @@ public:
 	*	@param bAddToCurrent	If true, NewMaxAngVel is added to the existing maximum angular velocity of the body.
 	*	@param BoneName			If a SkeletalMeshComponent, name of body to modify maximum angular velocity of. 'None' indicates root body.
 	*/
-	DEPRECATED(4.18, "Use SetPhysicsMaxAngularVelocityInDegrees instead.")
+	UE_DEPRECATED(4.18, "Use SetPhysicsMaxAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category = "Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use SetPhysicsMaxAngularVelocityInDegrees instead"))
 	void SetPhysicsMaxAngularVelocity(float NewMaxAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None)
 	{
@@ -1282,7 +1282,7 @@ public:
 	 *	Get the angular velocity of a single body, in degrees per second. 
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to get velocity of. 'None' indicates root body.
 	 */
-	DEPRECATED(4.18, "Use GetPhysicsAngularVelocityInDegrees instead.")
+	UE_DEPRECATED(4.18, "Use GetPhysicsAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use GetPhysicsAngularVelocityInDegrees instead"))	
 	FVector GetPhysicsAngularVelocity(FName BoneName = NAME_None) const
 	{
@@ -1611,15 +1611,15 @@ public:
 	struct FPrimitiveComponentPostPhysicsTickFunction PostPhysicsComponentTick;
 
 	/** Controls if we get a post physics tick or not. If set during ticking, will take effect next frame **/
-	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
+	UE_DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	void SetPostPhysicsComponentTickEnabled(bool bEnable);
 
 	/** Returns whether we have the post physics tick enabled **/
-	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
+	UE_DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	bool IsPostPhysicsComponentTickEnabled() const;
 
 	/** Tick function called after physics (sync scene) has finished simulation */
-	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
+	UE_DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	virtual void PostPhysicsTick(FPrimitiveComponentPostPhysicsTickFunction &ThisTickFunction) {}
 
 	/** Return the BodySetup to use for this PrimitiveComponent (single body case) */
@@ -1981,7 +1981,7 @@ public:
 	 *	@param NewAngVel		New angular velocity to apply to physics, in degrees per second.
 	 *	@param bAddToCurrent	If true, NewAngVel is added to the existing angular velocity of all bodies.
 	 */
-	DEPRECATED(4.8, "Use SetAllPhysicsAngularVelocityInDegrees instead.")
+	UE_DEPRECATED(4.8, "Use SetAllPhysicsAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (UnsafeDuringActorConstruction = "true", DeprecatedFunction, DeprecationMessage="Use SetAllPhysicsAngularVelocityInDegrees instead"))
 	virtual void SetAllPhysicsAngularVelocity(const FVector& NewAngVel, bool bAddToCurrent = false)
 	{

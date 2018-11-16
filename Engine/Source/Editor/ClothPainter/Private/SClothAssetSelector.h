@@ -8,6 +8,7 @@
 #include "Widgets/Input/SComboBox.h"
 #include "EditorUndoClient.h"
 
+struct FAssetData;
 class USkeletalMesh;
 class UClothingAsset;
 struct FClothParameterMask_PhysMesh;
@@ -60,6 +61,12 @@ public:
 protected:
 
 	FReply OnImportApexFileClicked();
+
+	/* Copies clothing setup from source SkelMesh */
+	void OnCopyClothingAssetSelected(const FAssetData& AssetData);
+
+	// Generate a drop-down for choosing the source skeletal mesh for copying cloth assets
+	TSharedRef<SWidget> OnGenerateSkeletalMeshPickerForClothCopy();
 
 	EVisibility GetAssetHeaderButtonTextVisibility() const;
 	EVisibility GetMaskHeaderButtonTextVisibility() const;

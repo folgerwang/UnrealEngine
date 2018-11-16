@@ -21,6 +21,8 @@ class FD3D12RasterizerState : public FRHIRasterizerState
 {
 public:
 	D3D12_RASTERIZER_DESC Desc;
+
+	virtual bool GetInitializer(struct FRasterizerStateInitializerRHI& Init) final override;
 };
 
 class FD3D12DepthStencilState : public FRHIDepthStencilState
@@ -31,6 +33,8 @@ public:
 
 	/* Describes the read/write state of the separate depth and stencil components of the DSV. */
 	FExclusiveDepthStencil AccessType;
+
+	virtual bool GetInitializer(struct FDepthStencilStateInitializerRHI& Init) final override;
 };
 
 class FD3D12BlendState : public FRHIBlendState
@@ -38,5 +42,7 @@ class FD3D12BlendState : public FRHIBlendState
 public:
 
 	D3D12_BLEND_DESC Desc;
+
+	virtual bool GetInitializer(class FBlendStateInitializerRHI& Init) final override;
 };
 

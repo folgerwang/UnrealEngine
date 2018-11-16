@@ -22,7 +22,8 @@ public class SlateReflector : ModuleRules
 				"EditorStyle",
 				"Json",
 				"AssetRegistry",
-			}
+                "MessageLog"
+            }
 		);
 
 		PrivateIncludePathModuleNames.AddRange(

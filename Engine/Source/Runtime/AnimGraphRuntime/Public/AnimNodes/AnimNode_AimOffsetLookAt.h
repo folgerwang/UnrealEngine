@@ -15,7 +15,13 @@
 USTRUCT(BlueprintInternalUseOnly)
 struct ANIMGRAPHRUNTIME_API FAnimNode_AimOffsetLookAt : public FAnimNode_BlendSpacePlayer
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
+
+	/** Cached local transform of the source socket */
+	FTransform SocketLocalTransform;
+
+	/** Cached local transform of the pivot socket  */
+	FTransform PivotSocketLocalTransform;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Links)
 	FPoseLink BasePose;
@@ -29,15 +35,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AimOffsetLookAt : public FAnimNode_BlendSp
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
-
-	UPROPERTY(Transient)
-	bool bIsLODEnabled;
-
-	/** Location, in world space to look at */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LookAt, meta = (PinShownByDefault))
-	FVector LookAtLocation;
-
 	/** Socket to treat as the look at source */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LookAt, meta = (PinHiddenByDefault))
 	FName SourceSocketName;
@@ -45,6 +42,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AimOffsetLookAt : public FAnimNode_BlendSp
 	/** Socket to treat as the look at pivot (optional). This will overwrite the translation of the source socket transform to better match the lookat direction */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LookAt, meta = (PinHiddenByDefault))
 	FName PivotSocketName;
+
+	/** Location, in world space to look at */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LookAt, meta = (PinShownByDefault))
+	FVector LookAtLocation;
 
 	/** Axis in the socket transform to consider the 'forward' or look at axis */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LookAt, meta = (PinHiddenByDefault))
@@ -55,20 +56,13 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AimOffsetLookAt : public FAnimNode_BlendSp
 	float Alpha;
 
 	/** Cached reference to the source socket's bone */
-	UPROPERTY()
 	FBoneReference SocketBoneReference;
 
-	/** Cached local transform of the source socket */
-	UPROPERTY()
-	FTransform SocketLocalTransform;
-
 	/** Cached reference to the pivot socket's bone */
-	UPROPERTY()
 	FBoneReference PivotSocketBoneReference;
 
-	/** Cached local transform of the pivot socket  */
-	UPROPERTY()
-	FTransform PivotSocketLocalTransform;
+	/** Cached flag to indicate whether LOD threshold is enabled */
+	bool bIsLODEnabled;
 
 public:
 	FAnimNode_AimOffsetLookAt();
@@ -80,6 +74,7 @@ public:
 	virtual void UpdateAssetPlayer(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 
 	void UpdateFromLookAtTarget(FPoseContext& LocalPoseContext);

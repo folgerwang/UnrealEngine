@@ -2075,7 +2075,8 @@ void UStaticMeshComponent::GetTextureLightAndShadowMapMemoryUsage(int32 InWidth,
 	const float MIP_FACTOR = 1.33f;
 	OutShadowMapMemoryUsage = FMath::TruncToInt(MIP_FACTOR * InWidth * InHeight); // G8
 
-	auto FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
+	UWorld* World = GetWorld();
+	ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	if (AllowHighQualityLightmaps(FeatureLevel))
 	{

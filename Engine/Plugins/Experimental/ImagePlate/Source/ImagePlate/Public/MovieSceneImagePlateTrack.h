@@ -23,6 +23,7 @@ public:
 public:
 
 	virtual void AddSection(UMovieSceneSection& Section) override;
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;

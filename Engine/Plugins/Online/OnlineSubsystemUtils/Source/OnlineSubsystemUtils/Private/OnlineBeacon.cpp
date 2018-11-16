@@ -13,12 +13,13 @@ AOnlineBeacon::AOnlineBeacon(const FObjectInitializer& ObjectInitializer) :
 	BeaconState(EBeaconState::DenyRequests)
 {
 	NetDriverName = FName(TEXT("BeaconDriver"));
+	NetDriverDefinitionName = NAME_BeaconNetDriver;
 	bRelevantForNetworkReplays = false;
 }
 
 bool AOnlineBeacon::InitBase()
 {
-	NetDriver = GEngine->CreateNetDriver(GetWorld(), NAME_BeaconNetDriver);
+	NetDriver = GEngine->CreateNetDriver(GetWorld(), NetDriverDefinitionName);
 	if (NetDriver != nullptr)
 	{
 		HandleNetworkFailureDelegateHandle = GEngine->OnNetworkFailure().AddUObject(this, &AOnlineBeacon::HandleNetworkFailure);
@@ -141,41 +142,33 @@ bool AOnlineBeacon::NotifyAcceptingChannel(UChannel* Channel)
 	if (Driver->ServerConnection)
 	{
 		// We are a client and the server has just opened up a new channel.
-		UE_LOG(LogNet, Log,  TEXT("NotifyAcceptingChannel %i/%i client %s"), Channel->ChIndex, (int32)Channel->ChType, *GetName());
-		if (Channel->ChType == CHTYPE_Actor)
+		UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %i/%s client %s"), Channel->ChIndex, *Channel->ChName.ToString(), *GetName());
+		if (Driver->ChannelDefinitionMap[Channel->ChName].bServerOpen)
 		{
-			// Actor channel.
-			UE_LOG(LogNet, Log,  TEXT("Client accepting actor channel"));
-			return 1;
-		}
-		else if (Channel->ChType == CHTYPE_Voice)
-		{
-			// Accept server requests to open a voice channel, allowing for custom voip implementations
-			// which utilize multiple server controlled voice channels.
-			UE_LOG(LogNet, Log,  TEXT("Client accepting voice channel"));
-			return 1;
+			UE_LOG(LogNet, Log, TEXT("Client accepting %s channel"), *Channel->ChName.ToString());
+			return true;
 		}
 		else
 		{
 			// Unwanted channel type.
-			UE_LOG(LogNet, Log, TEXT("Client refusing unwanted channel of type %i"), (uint8)Channel->ChType);
-			return 0;
+			UE_LOG(LogNet, Log, TEXT("Client refusing unwanted channel of type %s"), *Channel->ChName.ToString());
+			return false;
 		}
 	}
 	else
 	{
 		// We are the server.
-		if (Channel->ChIndex == 0 && Channel->ChType == CHTYPE_Control)
+		if (Driver->ChannelDefinitionMap[Channel->ChName].bClientOpen)
 		{
 			// The client has opened initial channel.
 			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel Control %i server %s: Accepted"), Channel->ChIndex, *GetFullName());
-			return 1;
+			return true;
 		}
 		else
 		{
 			// Client can't open any other kinds of channels.
-			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %i %i server %s: Refused"), (uint8)Channel->ChType, Channel->ChIndex, *GetFullName());
-			return 0;
+			UE_LOG(LogNet, Log, TEXT("NotifyAcceptingChannel %s %i server %s: Refused"), *Channel->ChName.ToString(), Channel->ChIndex, *GetFullName());
+			return false;
 		}
 	}
 }

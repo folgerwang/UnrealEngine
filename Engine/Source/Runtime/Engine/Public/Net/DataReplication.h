@@ -20,6 +20,7 @@ class FRepLayout;
 class FRepState;
 class UNetConnection;
 class UNetDriver;
+class AActor;
 
 bool FORCEINLINE IsCustomDeltaProperty( const UProperty* Property )
 {
@@ -92,22 +93,8 @@ private:
 class ENGINE_API FObjectReplicator
 {
 public:
-	FObjectReplicator() : 
-		ObjectClass(nullptr),
-		ObjectPtr(nullptr),
-		bLastUpdateEmpty( false ), 
-		bOpenAckCalled( false ),
-		bForceUpdateUnmapped( false ),
-		Connection(nullptr),
-		OwningChannel(nullptr),
-		RepState(nullptr),
-		RemoteFunctions(nullptr)
-	{ }
-
-	~FObjectReplicator() 
-	{
-		CleanUp();
-	}
+	FObjectReplicator();
+	~FObjectReplicator();
 
 	UClass *										ObjectClass;
 	FNetworkGUID									ObjectNetGUID;
@@ -133,7 +120,7 @@ public:
 	TMap< UProperty*, TArray<uint8> >				RepNotifyMetaData;
 
 	TSharedPtr< FRepLayout >						RepLayout;
-	TSharedPtr< FRepState > 						RepState;
+	TUniquePtr< FRepState > 						RepState;
 
 	TSet< FNetworkGUID >							ReferencedGuids;
 	int32											TrackedGuidMemoryBytes;
@@ -247,4 +234,14 @@ public:
 		FNetFieldExportGroup*	NetFieldExportGroup,
 		FNetBitWriter&			Bunch,
 		FNetBitWriter&			Payload ) const;
+};
+
+class FScopedActorRoleSwap : public FNoncopyable
+{
+public:
+	FScopedActorRoleSwap(AActor* InActor);
+	~FScopedActorRoleSwap();
+
+private:
+	AActor* Actor;
 };

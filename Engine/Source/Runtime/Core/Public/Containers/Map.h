@@ -282,7 +282,7 @@ public:
 	 * @param Ar The archive to use.
 	 * @see GetAllocatedSize
 	 */
-	FORCEINLINE void CountBytes(FArchive& Ar)
+	FORCEINLINE void CountBytes(FArchive& Ar) const
 	{
 		Pairs.CountBytes(Ar);
 	}

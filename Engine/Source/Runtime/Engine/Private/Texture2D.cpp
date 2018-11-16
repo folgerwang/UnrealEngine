@@ -1624,6 +1624,11 @@ void FTexture2DResource::UpdateTexture(FTexture2DRHIRef& InTextureRHI, int32 InN
 			INC_DWORD_STAT_FNAME_BY( LODGroupStatName, TextureSize );
 		}
 
+		if (GRHIForceNoDeletionLatencyForStreamingTextures)
+		{
+			TextureRHI->DoNoDeferDelete();
+		}
+
 		TextureRHI		= InTextureRHI;
 		Texture2DRHI	= InTextureRHI;
 		CurrentFirstMip = InNewFirstMip;

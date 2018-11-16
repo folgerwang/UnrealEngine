@@ -432,6 +432,7 @@ public:
 	virtual TSharedRef<SWidget> CreatePropertyNameWidget( const FText& NameOverride = FText::GetEmpty(), const FText& ToolTipOverride = FText::GetEmpty(), bool bDisplayResetToDefault = false, bool bDisplayText = true, bool bDisplayThumbnail = true ) const override;
 	virtual TSharedRef<SWidget> CreatePropertyValueWidget( bool bDisplayDefaultPropertyButtons = true ) const override;
 	virtual bool IsEditConst() const override;
+	virtual bool IsEditable() const override;
 	virtual void SetOnPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
@@ -656,12 +657,7 @@ public:
 	virtual TSharedPtr<IPropertyHandleArray> AsArray() override;
 	virtual TSharedRef<IPropertyHandle> GetElement( int32 Index ) const override;
 	virtual FPropertyAccess::Result MoveElementTo(int32 OriginalIndex, int32 NewIndex) override;
-
-private:
-	/**
-	 * @return Whether or not the array can be modified
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };
 
 class FPropertyHandleText : public FPropertyHandleBase
@@ -692,11 +688,7 @@ public:
 	virtual bool HasDocumentation() override { return true; }
 	virtual FString GetDocumentationLink() override { return FString("Engine/UI/LevelEditor/Details/Properties/Set/"); }
 	virtual FString GetDocumentationExcerptName() override { return FString("Sets"); }
-private:
-	/**
-	 * @return Whether or not the set is editable
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };
 
 class FPropertyHandleMap : public FPropertyHandleBase, public IPropertyHandleMap
@@ -716,9 +708,5 @@ public:
 	virtual bool HasDocumentation() override { return true; }
 	virtual FString GetDocumentationLink() override { return FString("Engine/UI/LevelEditor/Details/Properties/Map/"); }
 	virtual FString GetDocumentationExcerptName() override { return FString("Maps"); }
-private:
-	/**
-	 * @return Whether or not the map is editable
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };

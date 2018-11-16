@@ -97,7 +97,7 @@ bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry,
 	return bIsValidDrag;
 }
 
-void DragDropHandler::HandleDropOnAssetFolder(const TSharedRef<SWidget>& ParentWidget, const TArray<FAssetData>& AssetList, const TArray<FString>& AssetPaths, const FString& TargetPath, const FText& TargetDisplayName, FExecuteCopyOrMove CopyActionHandler, FExecuteCopyOrMove MoveActionHandler)
+void DragDropHandler::HandleDropOnAssetFolder(const TSharedRef<SWidget>& ParentWidget, const TArray<FAssetData>& AssetList, const TArray<FString>& AssetPaths, const FString& TargetPath, const FText& TargetDisplayName, FExecuteCopyOrMove CopyActionHandler, FExecuteCopyOrMove MoveActionHandler, FExecuteCopyOrMove AdvancedCopyActionHandler)
 {
 	// Remove any classes from the asset list
 	TArray<FAssetData> FinalAssetList = AssetList;
@@ -130,6 +130,12 @@ void DragDropHandler::HandleDropOnAssetFolder(const TSharedRef<SWidget>& ParentW
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda([=]() { MoveActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
 			);
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("DragDropAdvancedCopy", "Advanced Copy Here"),
+			LOCTEXT("DragDropMoveTooltip", "Copy the dragged items and any specified dependencies to this folder, afterwards fixing up any dependencies on copied files to the new files."),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateLambda([=]() { AdvancedCopyActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
+		);
 	}
 	MenuBuilder.EndSection();
 

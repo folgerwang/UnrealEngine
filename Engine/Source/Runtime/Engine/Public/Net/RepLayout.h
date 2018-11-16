@@ -246,6 +246,11 @@ public:
 		Resend(false)
 	{}
 
+	void CountBytes(FArchive& Ar) const
+	{
+		Changed.CountBytes(Ar);
+	}
+
 	/** Range of the Packets that this changelist was last sent with. Used to track acknowledgments. */
 	FPacketIdRange OutPacketIdRange;
 
@@ -343,8 +348,17 @@ public:
 		
 	~FGuidReferences();
 
+	void CountBytes(FArchive& Ar) const
+	{
+		UnmappedGUIDs.CountBytes(Ar);
+		MappedDynamicGUIDs.CountBytes(Ar);
+		Buffer.CountBytes(Ar);
+	}
+
+
 	/** GUIDs for objects that haven't been loaded / created yet. */
 	TSet<FNetworkGUID> UnmappedGUIDs;
+
 
 	/** GUIDs for dynamically spawned objects that have already been created. */
 	TSet<FNetworkGUID> MappedDynamicGUIDs;
@@ -376,6 +390,8 @@ public:
 	{}
 
 	~FRepState();
+
+	void CountBytes(FArchive& Ar) const;
 
 	/** Latest state of all property data. Used on Clients, or on Servers if Shadow State is disabled. */
 	FRepStateStaticBuffer StaticBuffer;
@@ -467,6 +483,7 @@ enum class ERepLayoutCmdType : uint8
 	PropertyVectorQ			= 18,
 	PropertyString			= 19,
 	PropertyUInt64			= 20,
+	PropertyNativeBool		= 21,
 };
 
 /** Various flags that describe how a Top Level Property should be handled. */
@@ -963,7 +980,7 @@ public:
 		const TArray<uint16>&	Dirty2,
 		TArray<uint16>&			MergedDirty) const;
 
-	DEPRECATED(4.20, "Use the DiffProperties overload with the EDiffPropertiesFlags parameter")
+	UE_DEPRECATED(4.20, "Use the DiffProperties overload with the EDiffPropertiesFlags parameter")
 	bool DiffProperties(TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync) const;
 
 	/**
