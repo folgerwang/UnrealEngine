@@ -2221,12 +2221,6 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 		}
 	}
 
-	if (Input.ShaderFormat != NAME_SF_METAL_SM5)
-	{
-		// Disable instanced stereo on everything but Metal SM5 for 10.13+
-		StripInstancedStereo(PreprocessedShader);
-	}
-
 	char* MetalShaderSource = NULL;
 	char* ErrorLog = NULL;
 
