@@ -2092,8 +2092,21 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	}
 
 	{
+		bool bForwardShading = false;
 		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(Platform).ToString());
-		if (TargetPlatform && TargetPlatform->UsesForwardShading())
+		if (TargetPlatform)
+		{
+			// if there is a specific target platform that matches our shader platform, use that to drive forward shading
+			bForwardShading = TargetPlatform->UsesForwardShading();
+		}
+		else
+		{
+			// shader platform doesn't match a specific target platform, use cvar setting for forward shading
+			static IConsoleVariable* CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
+			bForwardShading = CVarForwardShading ? (CVarForwardShading->GetInt() != 0) : false;
+		}
+
+		if (bForwardShading)
 		{
 			KeyString += TEXT("_FS");
 		}
