@@ -89,6 +89,7 @@
 #include "EditorLevelUtils.h"
 #include "ActorGroupingUtils.h"
 #include "LevelUtils.h"
+#include "ISceneOutliner.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LevelEditorActions, Log, All);
 
@@ -1426,6 +1427,19 @@ bool FLevelEditorActionCallbacks::Duplicate_CanExecute()
 		}
 	}
 
+	if (!bCanCopy)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCopy = SceneOutlinerPtr->Copy_CanExecute();
+			}
+		}
+	}
+
 	return bCanCopy;
 }
 
@@ -1466,6 +1480,19 @@ bool FLevelEditorActionCallbacks::Delete_CanExecute()
 		}
 	}
 
+	if (!bCanDelete)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanDelete = SceneOutlinerPtr->Delete_CanExecute();
+			}
+		}
+	}
+
 	return bCanDelete;
 }
 
@@ -1476,12 +1503,20 @@ void FLevelEditorActionCallbacks::Rename_Execute()
 	{
 		GEditor->BroadcastLevelComponentRequestRename(Component);
 	}
+	else if (AActor* Actor = Cast<AActor>(*GEditor->GetSelectedActorIterator()))
+	{
+		GEditor->BroadcastLevelActorRequestRename(Actor);
+	}
 	else
 	{
-		AActor* Actor = Cast<AActor>(*GEditor->GetSelectedActorIterator());
-		if (Actor)
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
 		{
-			GEditor->BroadcastLevelActorRequestRename(Actor);
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				SceneOutlinerPtr->Rename_Execute();
+			}
 		}
 	}
 }
@@ -1500,6 +1535,19 @@ bool FLevelEditorActionCallbacks::Rename_CanExecute()
 	else
 	{
 		bCanRename = GEditor->GetSelectedActorCount() == 1;
+	}
+
+	if (!bCanRename)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanRename = SceneOutlinerPtr->Rename_CanExecute();
+			}
+		}
 	}
 
 	return bCanRename;
@@ -1544,6 +1592,19 @@ bool FLevelEditorActionCallbacks::Cut_CanExecute()
 		}
 	}
 
+	if (!bCanCut)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCut = SceneOutlinerPtr->Cut_CanExecute();
+			}
+		}
+	}
+
 	return bCanCut;
 }
 
@@ -1584,6 +1645,19 @@ bool FLevelEditorActionCallbacks::Copy_CanExecute()
 		}
 	}
 
+	if (!bCanCopy)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCopy = SceneOutlinerPtr->Copy_CanExecute();
+			}
+		}
+	}
+
 	return bCanCopy;
 }
 
@@ -1619,6 +1693,19 @@ bool FLevelEditorActionCallbacks::Paste_CanExecute()
 		if (World)
 		{
 			bCanPaste = GUnrealEd->CanPasteSelectedActorsFromClipboard(World);
+		}
+	}
+
+	if (!bCanPaste)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanPaste = SceneOutlinerPtr->Paste_CanExecute();
+			}
 		}
 	}
 

@@ -663,11 +663,8 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 			InitOptions.DefaultMenuExtender->AddMenuExtension(
 				"MainSection", EExtensionHook::Before, GetLevelEditorActions(),
 				FMenuExtensionDelegate::CreateStatic([](FMenuBuilder& MenuBuilder, TWeakPtr<SLevelEditor> InWeakLevelEditor){
-					// Only extend the menu if we have actors selected
-					if (GEditor->GetSelectedActorCount() > 0)
-					{
-						FLevelEditorContextMenu::FillMenu(MenuBuilder, InWeakLevelEditor, LevelEditorMenuContext::NonViewport, TSharedPtr<FExtender>());
-					}
+					// Extend the menu even if no actors selected, as Edit menu should always exist for scene outliner
+					FLevelEditorContextMenu::FillMenu(MenuBuilder, InWeakLevelEditor, LevelEditorMenuContext::SceneOutliner, TSharedPtr<FExtender>());
 				}, WeakLevelEditor)
 			);
 		}
@@ -675,7 +672,12 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 
 		FText Label = NSLOCTEXT( "LevelEditor", "SceneOutlinerTabTitle", "World Outliner" );
 
-		FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::Get().LoadModuleChecked<FSceneOutlinerModule>( "SceneOutliner" );
+		FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::Get().LoadModuleChecked<FSceneOutlinerModule>("SceneOutliner");
+		TSharedRef<ISceneOutliner> SceneOutlinerRef = SceneOutlinerModule.CreateSceneOutliner(
+			InitOptions,
+			FOnActorPicked() /* Not used for outliner when in browsing mode */);
+		SceneOutlinerPtr = SceneOutlinerRef;
+
 		return SNew( SDockTab )
 			.Icon( FEditorStyle::GetBrush( "LevelEditor.Tabs.Outliner" ) )
 			.Label( Label )
@@ -686,9 +688,7 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 				.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
 				.AddMetaData<FTutorialMetaData>(FTutorialMetaData(TEXT("SceneOutliner"), TEXT("LevelEditorSceneOutliner")))
 				[
-					SceneOutlinerModule.CreateSceneOutliner(
-						InitOptions,
-						FOnActorPicked() /* Not used for outliner when in browsing mode */ )
+					SceneOutlinerRef
 				]
 			];
 	}

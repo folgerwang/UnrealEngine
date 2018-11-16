@@ -92,6 +92,26 @@ struct UNREALED_API FEditorDelegates
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAddLevelToWorld, ULevel*);
 	/** delegate type for when a texture is fit to surface  */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFitTextureToSurface, UWorld*);
+	/** delegate type for before edit cut actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditCutActorsBegin);
+	/** delegate type for after edit cut actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditCutActorsEnd);
+	/** delegate type for before edit copy actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditCopyActorsBegin);
+	/** delegate type for after edit copy actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditCopyActorsEnd);
+	/** delegate type for before edit paste actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditPasteActorsBegin);
+	/** delegate type for after edit paste actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnEditPasteActorsEnd);
+	/** delegate type for before edit duplicate actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnDuplicateActorsBegin);
+	/** delegate type for after edit duplicate actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnDuplicateActorsEnd);	
+	/** delegate type for before delete actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnDeleteActorsBegin);
+	/** delegate type for after delete actors is handled */
+	DECLARE_MULTICAST_DELEGATE(FOnDeleteActorsEnd);
 
 	/** Called when the CurrentLevel is switched to a new level.  Note that this event won't be fired for temporary
 		changes to the current level, such as when copying/pasting actors. */
@@ -205,6 +225,26 @@ struct UNREALED_API FEditorDelegates
 	static FSimpleMulticastDelegate OnActionAxisMappingsChanged;
 	/** Called from FEditorUtils::AddLevelToWorld after the level is added successfully to the world. */
 	static FOnAddLevelToWorld OnAddLevelToWorld;
+	/** Sent before edit cut is handled */
+	static FOnEditCutActorsBegin OnEditCutActorsBegin;
+	/** Sent after edit cut is handled */
+	static FOnEditCutActorsEnd OnEditCutActorsEnd;
+	/** Sent before edit copy is handled */
+	static FOnEditCopyActorsBegin OnEditCopyActorsBegin;
+	/** Sent after edit copy is handled */
+	static FOnEditCopyActorsEnd OnEditCopyActorsEnd;
+	/** Sent before edit paste is handled */
+	static FOnEditPasteActorsBegin OnEditPasteActorsBegin;
+	/** Sent after edit paste is handled */
+	static FOnEditPasteActorsEnd OnEditPasteActorsEnd;
+	/** Sent before duplicate is handled */
+	static FOnDuplicateActorsBegin OnDuplicateActorsBegin;
+	/** Sent after duplicate is handled */
+	static FOnDuplicateActorsEnd OnDuplicateActorsEnd;
+	/** Sent when delete begin called */
+	static FOnDeleteActorsBegin OnDeleteActorsBegin;
+	/** Sent when delete end called */
+	static FOnDeleteActorsEnd OnDeleteActorsEnd;
 };
 
 /**

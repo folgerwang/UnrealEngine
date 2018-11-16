@@ -124,6 +124,17 @@ FEditorDelegates::FOnAssetsDeleted						FEditorDelegates::OnAssetsDeleted;
 FEditorDelegates::FOnAssetDragStarted					FEditorDelegates::OnAssetDragStarted;
 FSimpleMulticastDelegate								FEditorDelegates::OnActionAxisMappingsChanged;
 FEditorDelegates::FOnAddLevelToWorld					FEditorDelegates::OnAddLevelToWorld;
+FEditorDelegates::FOnEditCutActorsBegin					FEditorDelegates::OnEditCutActorsBegin;
+FEditorDelegates::FOnEditCutActorsEnd					FEditorDelegates::OnEditCutActorsEnd;
+FEditorDelegates::FOnEditCopyActorsBegin				FEditorDelegates::OnEditCopyActorsBegin;
+FEditorDelegates::FOnEditCopyActorsEnd					FEditorDelegates::OnEditCopyActorsEnd;
+FEditorDelegates::FOnEditPasteActorsBegin				FEditorDelegates::OnEditPasteActorsBegin;
+FEditorDelegates::FOnEditPasteActorsEnd					FEditorDelegates::OnEditPasteActorsEnd;
+FEditorDelegates::FOnDuplicateActorsBegin				FEditorDelegates::OnDuplicateActorsBegin;
+FEditorDelegates::FOnDuplicateActorsEnd					FEditorDelegates::OnDuplicateActorsEnd;
+FEditorDelegates::FOnDeleteActorsBegin					FEditorDelegates::OnDeleteActorsBegin;
+FEditorDelegates::FOnDeleteActorsEnd					FEditorDelegates::OnDeleteActorsEnd;
+
 
 /*-----------------------------------------------------------------------------
 	Globals.

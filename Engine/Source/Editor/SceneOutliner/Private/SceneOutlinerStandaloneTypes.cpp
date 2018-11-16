@@ -26,12 +26,10 @@ namespace SceneOutliner
 
 	FName MoveFolderTo(FName InPath, FName NewParent, UWorld& World)
 	{
-		FName NewPath = GetFolderLeafName(InPath);
+		FName LeafName = GetFolderLeafName(InPath);
 
-		if (!NewParent.IsNone())
-		{
-			NewPath = FName(*(NewParent.ToString() / NewPath.ToString()));
-		}
+		// Get unique name
+		FName NewPath = FActorFolders::Get().GetFolderName(World, NewParent, LeafName);
 
 		if (FActorFolders::Get().RenameFolderInWorld(World, InPath, NewPath))
 		{

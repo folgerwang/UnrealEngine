@@ -128,6 +128,10 @@ public:
 	
 	/** Attaches a sequencer asset editor used to animate objects in the level to this level editor */
 	void AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> NewSequencerAssetEditor );
+
+	/** Returns current scene outliner associated with level editor's scene outliner tab, if it exists */
+	TSharedPtr<ISceneOutliner> GetSceneOutliner() { return SceneOutlinerPtr.Pin();  }
+
 private:
 	
 	TSharedRef<SDockTab> SpawnLevelEditorTab(const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload);
@@ -242,4 +246,7 @@ private:
 
 	/** Weak pointer to the level editor's Sequencer widget */
 	TWeakPtr<SWidget> SequencerWidgetPtr;
+
+	/** Weak pointer to the level editor's scene outliner */
+	TWeakPtr<ISceneOutliner> SceneOutlinerPtr;
 };

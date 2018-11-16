@@ -15,19 +15,14 @@ public class SceneOutliner : ModuleRules
 			new string[] {
 				"Core", 
 				"CoreUObject",
-				"Engine", 
-				"InputCore",
+				"Engine",
+                "ApplicationCore",
+                "InputCore",
 				"Slate", 
 				"SlateCore",
 				"EditorStyle",
 				"UnrealEd",
-			}
-		);
-
-		PrivateIncludePathModuleNames.AddRange(
-			new string[] {
-				"LevelEditor"
-			}
+            }
 		);
 	}
 }

@@ -81,13 +81,16 @@ namespace SceneOutliner
 		/** Called to drop the specified objects on this item. Only called if ValidateDrop() allows. */
 		virtual void OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget) override;
 
-		/** Delete this folder */
-		void Delete();
+		/** Delete this folder, children will be reparented to provided new parent path */
+		void Delete(FName InNewParentPath);
 
 	private:
 
 		/** Create a new folder as a child of this one */
 		void CreateSubFolder(TWeakPtr<SSceneOutliner> WeakOutliner);
+
+		/** Duplicate folder hierarchy */
+		void DuplicateHierarchy(TWeakPtr<SSceneOutliner> WeakOutliner);
 	};
 
 }		// namespace SceneOutliner

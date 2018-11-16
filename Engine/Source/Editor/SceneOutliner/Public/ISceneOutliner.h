@@ -36,4 +36,22 @@ public:
 
 	/** Sets the cached icon for this class name */
 	virtual void CacheIconForClass(FName InClassName, const FSlateBrush* InSlateBrush) = 0;
+
+	/** Returns true if edit delete can be executed */
+	virtual bool Delete_CanExecute() = 0;
+
+	/** Returns true if edit rename can be executed */
+	virtual bool Rename_CanExecute() = 0;
+
+	/** Executes rename. */
+	virtual void Rename_Execute() = 0;
+
+	/** Returns true if edit cut can be executed */
+	virtual bool Cut_CanExecute() = 0;
+
+	/** Returns true if edit copy can be executed */
+	virtual bool Copy_CanExecute() = 0;
+
+	/** Returns true if edit paste can be executed */
+	virtual bool Paste_CanExecute() = 0;
 };

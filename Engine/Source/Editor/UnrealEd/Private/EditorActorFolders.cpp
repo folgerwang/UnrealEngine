@@ -301,14 +301,36 @@ FName FActorFolders::GetDefaultFolderNameForSelection(UWorld& InWorld)
 	return GetDefaultFolderName(InWorld, CommonParentFolder);
 }
 
-FName FActorFolders::GetDefaultFolderName(UWorld& InWorld, FName ParentPath)
+FName FActorFolders::GetFolderName(UWorld& InWorld, FName ParentPath, FName InLeafName)
 {
 	// This is potentially very slow but necessary to find a unique name
 	const auto& ExistingFolders = GetFolderPropertiesForWorld(InWorld);
 
-	// Create a valid base name for this folder
+	// Trim any numeric suffix
+	uint32 SuffixLen = 0;
+	for (; InLeafName.ToString().Right(SuffixLen + 1).IsNumeric(); SuffixLen++) {}
+
 	uint32 Suffix = 1;
-	FText LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "NewFolder{0}"), FText::AsNumber(Suffix++));
+	FString LeafNameRoot;
+	bool bHasSuffix = true;
+	if (SuffixLen > 0)
+	{
+		LeafNameRoot = InLeafName.ToString().LeftChop(SuffixLen);
+		FString LeafSuffix = InLeafName.ToString().RightChop(InLeafName.ToString().Len() - SuffixLen);
+		Suffix = LeafSuffix.IsNumeric() ? FCString::Atoi(*LeafSuffix) : 1;
+	}
+	else
+	{
+		LeafNameRoot = InLeafName.ToString();
+		bHasSuffix = false;
+	}
+
+	// Create a valid base name for this folder
+	FNumberFormattingOptions NumberFormat;
+	NumberFormat.SetUseGrouping(false);
+	NumberFormat.SetMinimumIntegralDigits(SuffixLen);
+
+	FText LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), bHasSuffix ? FText::AsNumber(Suffix++, &NumberFormat) : FText::GetEmpty());
 
 	FString ParentFolderPath = ParentPath.IsNone() ? TEXT("") : ParentPath.ToString();
 	if (!ParentFolderPath.IsEmpty())
@@ -319,7 +341,39 @@ FName FActorFolders::GetDefaultFolderName(UWorld& InWorld, FName ParentPath)
 	FName FolderName(*(ParentFolderPath + LeafName.ToString()));
 	while (ExistingFolders.Contains(FolderName))
 	{
-		LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "NewFolder{0}"), FText::AsNumber(Suffix++));
+		LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), FText::AsNumber(Suffix++, &NumberFormat));
+		FolderName = FName(*(ParentFolderPath + LeafName.ToString()));
+		if (Suffix == 0)
+		{
+			// We've wrapped around a 32bit unsigned int - something must be seriously wrong!
+			return FName();
+		}
+	}
+
+	return FolderName;
+}
+
+FName FActorFolders::GetDefaultFolderName(UWorld& InWorld, FName ParentPath)
+{
+	// This is potentially very slow but necessary to find a unique name
+	const auto& ExistingFolders = GetFolderPropertiesForWorld(InWorld);
+
+	// Create a valid base name for this folder
+	FNumberFormattingOptions NumberFormat;
+	NumberFormat.SetUseGrouping(false);
+	uint32 Suffix = 1;
+	FText LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "NewFolder{0}"), FText::AsNumber(Suffix++, &NumberFormat));
+
+	FString ParentFolderPath = ParentPath.IsNone() ? TEXT("") : ParentPath.ToString();
+	if (!ParentFolderPath.IsEmpty())
+	{
+		ParentFolderPath += "/";
+	}
+
+	FName FolderName(*(ParentFolderPath + LeafName.ToString()));
+	while (ExistingFolders.Contains(FolderName))
+	{
+		LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "NewFolder{0}"), FText::AsNumber(Suffix++, &NumberFormat));
 		FolderName = FName(*(ParentFolderPath + LeafName.ToString()));
 		if (Suffix == 0)
 		{

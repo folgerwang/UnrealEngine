@@ -239,7 +239,7 @@ bool FFolderTreeItem::CanInteract() const
 	return Flags.bInteractive;
 }
 
-void FFolderTreeItem::Delete()
+void FFolderTreeItem::Delete(FName InNewParentPath)
 {
 	if (!SharedData->RepresentingWorld)
 	{
@@ -270,7 +270,7 @@ void FFolderTreeItem::Delete()
 
 	const FScopedTransaction Transaction( LOCTEXT("DeleteFolderTransaction", "Delete Folder") );
 
-	FResetActorFolders ResetFolders(GetParentPath(Path));
+	FResetActorFolders ResetFolders(InNewParentPath);
 	for (auto& Child : GetChildren())
 	{
 		Child.Pin()->Visit(ResetFolders);
@@ -295,6 +295,17 @@ void FFolderTreeItem::CreateSubFolder(TWeakPtr<SSceneOutliner> WeakOutliner)
 	}
 }
 
+void FFolderTreeItem::DuplicateHierarchy(TWeakPtr<SSceneOutliner> WeakOutliner)
+{
+	TSharedPtr<SSceneOutliner> Outliner = WeakOutliner.Pin();
+
+	if (Outliner.IsValid() && SharedData->RepresentingWorld)
+	{
+		const FScopedTransaction Transaction(LOCTEXT("UndoAction_DuplicateHierarchy", "Duplicate Folder Hierarchy"));
+		Outliner->DuplicateFoldersHierarchy();
+	}
+}
+
 void FFolderTreeItem::OnExpansionChanged()
 {
 	if (!SharedData->RepresentingWorld)
@@ -316,8 +327,7 @@ void FFolderTreeItem::GenerateContextMenu(FMenuBuilder& MenuBuilder, SSceneOutli
 	const FSlateIcon NewFolderIcon(FEditorStyle::GetStyleSetName(), "SceneOutliner.NewFolderIcon");
 	
 	MenuBuilder.AddMenuEntry(LOCTEXT("CreateSubFolder", "Create Sub Folder"), FText(), NewFolderIcon, FUIAction(FExecuteAction::CreateSP(this, &FFolderTreeItem::CreateSubFolder, TWeakPtr<SSceneOutliner>(SharedOutliner))));
-	MenuBuilder.AddMenuEntry(LOCTEXT("RenameFolder", "Rename"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(&Outliner, &SSceneOutliner::InitiateRename, AsShared())));
-	MenuBuilder.AddMenuEntry(LOCTEXT("DeleteFolder", "Delete"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &FFolderTreeItem::Delete)));
+	MenuBuilder.AddMenuEntry(LOCTEXT("DuplicateFolderHierarchy", "Duplicate Hierarchy"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(&Outliner, &SSceneOutliner::DuplicateFoldersHierarchy)));
 }
 
 void FFolderTreeItem::PopulateDragDropPayload(FDragDropPayload& Payload) const
