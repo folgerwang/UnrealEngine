@@ -15,6 +15,9 @@
 
 extern CORE_API bool GIsGPUCrashed;
 
+FCriticalSection	GLayoutLock;
+
+
 static FString		EventDeepString(TEXT("EventTooDeep"));
 static const uint32	EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
 
