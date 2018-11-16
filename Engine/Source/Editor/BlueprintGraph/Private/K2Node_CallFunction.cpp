@@ -1808,7 +1808,8 @@ void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsL
 	
 	// Ensure that editor module BP exposed UFunctions can only be called in blueprints for which the base class is also part of an editor module
 	// Also check for functions wrapped in WITH_EDITOR 
-	if ((IsEditorOnlyObject(Function) || Function->HasAnyFunctionFlags(FUNC_EditorOnly)))
+	if (Function && Blueprint &&
+		(IsEditorOnlyObject(Function) || Function->HasAnyFunctionFlags(FUNC_EditorOnly)))
 	{	
 		const UClass* BlueprintClass = Blueprint->ParentClass;
 		bool bIsEditorOnlyBlueprintBaseClass = !BlueprintClass || IsEditorOnlyObject(BlueprintClass);
@@ -1816,6 +1817,7 @@ void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsL
 		{
 			FString const FunctName = Function->GetName();
 			FText const WarningFormat = LOCTEXT("EditorFunctionFmt", "Cannot use the editor function \"{0}\" in this runtime Blueprint. Only for use in Editor Utility Blueprints and Blutilities.");
+			MessageLog.Error(*FText::Format(WarningFormat, FText::FromString(FunctName)).ToString(), this);
 		}
 	}
 
