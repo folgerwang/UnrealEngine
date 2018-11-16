@@ -38,7 +38,7 @@ public:
 	 * @param InSocketType The type of socket being created
 	 * @param InSocketDescription The debug description of the socket
 	 */
-	DEPRECATED(4.22, "Please migrate to the constructor that specifies protocol stack")
+	UE_DEPRECATED(4.22, "Please migrate to the constructor that specifies protocol stack")
 	inline FSocket(ESocketType InSocketType, const FString& InSocketDescription) :
 		SocketType(InSocketType),
 		SocketDescription(InSocketDescription),

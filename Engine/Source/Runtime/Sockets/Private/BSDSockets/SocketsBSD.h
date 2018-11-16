@@ -50,7 +50,7 @@ public:
 	 * @param InSocketType the type of socket that was created.
 	 * @param InSocketDescription the debug description of the socket.
 	 */
-	DEPRECATED(4.22, "Use the socket constructor that specifies protocol stack for better compatibility and debugging")
+	UE_DEPRECATED(4.22, "Use the socket constructor that specifies protocol stack for better compatibility and debugging")
 	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem)
 		: FSocket(InSocketType, InSocketDescription, ESocketProtocolFamily::None)
 		, Socket(InSocket)

@@ -48,7 +48,7 @@ public:
 	 * @param InSocketDescription the debug description of the socket
 	 * @param InSubsystem the subsystem that created this socket
 	 */
-	DEPRECATED(4.22, "Use the socket constructor with protocol specification.")
+	UE_DEPRECATED(4.22, "Use the socket constructor with protocol specification.")
 	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem)
 		: FSocket(InSocketType, InSocketDescription, ESocketProtocolFamily::IPv6)
 		, Socket(InSocket)
