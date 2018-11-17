@@ -665,6 +665,7 @@ void UGameEngine::OnViewportResized(FViewport* Viewport, uint32 Unused)
 		{
 			GSystemResolution.ResX = ViewportSize.X;
 			GSystemResolution.ResY = ViewportSize.Y;
+			FSystemResolution::RequestResolutionChange(GSystemResolution.ResX, GSystemResolution.ResY, EWindowMode::Windowed);
 
 			UGameUserSettings* Settings = GetGameUserSettings();
 			Settings->SetScreenResolution(ViewportSize);
