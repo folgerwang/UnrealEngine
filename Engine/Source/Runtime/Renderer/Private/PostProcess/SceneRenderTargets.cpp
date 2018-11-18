@@ -1622,9 +1622,9 @@ void FSceneRenderTargets::BeginRenderingSeparateTranslucency(FRHICommandList& RH
 	}
 }
 
-void FSceneRenderTargets::FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View)
+void FSceneRenderTargets::ResolveSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View)
 {
-	SCOPED_DRAW_EVENT(RHICmdList, FinishSeparateTranslucency);
+	SCOPED_DRAW_EVENT(RHICmdList, ResolveSeparateTranslucency);
 
 	check(RHICmdList.IsOutsideRenderPass());
 

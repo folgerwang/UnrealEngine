@@ -992,7 +992,8 @@ void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo&
 
 	if (bUseSeparateTranslucency)
 	{
-		SceneContext.FinishRenderingSeparateTranslucency(RHICmdList, View);
+		RHICmdList.EndRenderPass();
+		SceneContext.ResolveSeparateTranslucency(RHICmdList, View);
 	}
 	else
 	{
