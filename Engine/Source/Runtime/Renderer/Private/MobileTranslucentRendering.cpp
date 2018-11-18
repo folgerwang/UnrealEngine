@@ -736,6 +736,7 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 
 			if (!bGammaSpace)
 			{
+				RHICmdList.EndRenderPass();
 				SceneContext.FinishRenderingTranslucency(RHICmdList);
 			}
 			else
