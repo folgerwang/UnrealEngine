@@ -350,6 +350,11 @@ namespace UnrealGameSync
 
 		public static bool TryPrintFileUsingCache(PerforceConnection Perforce, string DepotPath, string CacheFolder, string Digest, out List<string> Lines, TextWriter Log)
 		{
+			if(Digest == null)
+			{
+				return Perforce.Print(DepotPath, out Lines, Log);
+			}
+
 			string CacheFile = Path.Combine(CacheFolder, Digest);
 			if(File.Exists(CacheFile))
 			{
