@@ -133,10 +133,12 @@ void FRCPassPostProcessPassThrough::Process(FRenderingCompositePassContext& Cont
 			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 
-		// Draw custom data (like legends) for derived types
-		DrawCustom(Context);
 	}
 	Context.RHICmdList.EndRenderPass();
+
+	// Draw custom data (like legends) for derived types
+	DrawCustom(Context);
+	
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
