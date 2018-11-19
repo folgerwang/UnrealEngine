@@ -97,6 +97,7 @@ namespace UnrealGameSync
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.Name = "DiagnosticsWindow";
 			this.ShowInTaskbar = false;
+			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Diagnostics";
 			this.ResumeLayout(false);
 			this.PerformLayout();
