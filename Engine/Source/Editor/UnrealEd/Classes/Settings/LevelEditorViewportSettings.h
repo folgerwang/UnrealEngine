@@ -270,6 +270,10 @@ class UNREALED_API ULevelEditorViewportSettings
 	UPROPERTY(EditAnywhere, config, Category=Controls)
 	bool bInvertMiddleMousePan;
 
+	/** Whether or not to invert the direction of right mouse dolly on the Y axis in orbit mode */
+	UPROPERTY(EditAnywhere, config, Category = Controls)
+	bool bInvertRightMouseDollyYAxis;
+
 	/** Whether to use mouse position as direct widget position. */
 	UPROPERTY(EditAnywhere, config, Category=Controls, AdvancedDisplay)
 	uint32 bUseAbsoluteTranslation:1;

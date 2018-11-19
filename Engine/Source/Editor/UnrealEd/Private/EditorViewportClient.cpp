@@ -2246,7 +2246,7 @@ void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVect
 	}
 	else if ( IsOrbitPanMode( InViewport ) )
 	{
-		bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
+		const bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
 
 		const float CameraSpeed = GetCameraSpeed();
 		Drag *= CameraSpeed;
@@ -2269,12 +2269,14 @@ void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVect
 	}
 	else if ( IsOrbitZoomMode( InViewport ) )
 	{
+		const bool bInvertY = GetDefault<ULevelEditorViewportSettings>()->bInvertRightMouseDollyYAxis;
+
 		FMatrix OrbitMatrix = ViewTransform.ComputeOrbitMatrix().InverseFast();
 
 		const float CameraSpeed = GetCameraSpeed();
 		Drag *= CameraSpeed;
 
-		FVector DeltaLocation = FVector(0, Drag.X+ -Drag.Y, 0);
+		FVector DeltaLocation = bInvertY ? FVector(0, Drag.X + Drag.Y, 0) : FVector(0, Drag.X+ -Drag.Y, 0);
 
 		FVector LookAt = ViewTransform.GetLookAt();
 
