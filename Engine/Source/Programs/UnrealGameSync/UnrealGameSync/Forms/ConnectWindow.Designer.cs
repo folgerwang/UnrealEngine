@@ -44,7 +44,7 @@
 			this.UserNameLabel.Location = new System.Drawing.Point(17, 79);
 			this.UserNameLabel.Name = "UserNameLabel";
 			this.UserNameLabel.Size = new System.Drawing.Size(66, 15);
-			this.UserNameLabel.TabIndex = 6;
+			this.UserNameLabel.TabIndex = 3;
 			this.UserNameLabel.Text = "User name:";
 			// 
 			// UserNameTextBox
@@ -54,7 +54,7 @@
 			this.UserNameTextBox.Location = new System.Drawing.Point(104, 76);
 			this.UserNameTextBox.Name = "UserNameTextBox";
 			this.UserNameTextBox.Size = new System.Drawing.Size(475, 23);
-			this.UserNameTextBox.TabIndex = 5;
+			this.UserNameTextBox.TabIndex = 4;
 			// 
 			// UseDefaultConnectionSettings
 			// 
@@ -62,7 +62,7 @@
 			this.UseDefaultConnectionSettings.Location = new System.Drawing.Point(20, 16);
 			this.UseDefaultConnectionSettings.Name = "UseDefaultConnectionSettings";
 			this.UseDefaultConnectionSettings.Size = new System.Drawing.Size(192, 19);
-			this.UseDefaultConnectionSettings.TabIndex = 4;
+			this.UseDefaultConnectionSettings.TabIndex = 0;
 			this.UseDefaultConnectionSettings.Text = "Use default connection settings";
 			this.UseDefaultConnectionSettings.UseVisualStyleBackColor = true;
 			this.UseDefaultConnectionSettings.CheckedChanged += new System.EventHandler(this.UseCustomSettings_CheckedChanged);
@@ -74,7 +74,7 @@
 			this.ServerAndPortTextBox.Location = new System.Drawing.Point(104, 47);
 			this.ServerAndPortTextBox.Name = "ServerAndPortTextBox";
 			this.ServerAndPortTextBox.Size = new System.Drawing.Size(475, 23);
-			this.ServerAndPortTextBox.TabIndex = 3;
+			this.ServerAndPortTextBox.TabIndex = 2;
 			// 
 			// ServerAndPortLabel
 			// 
@@ -91,7 +91,7 @@
 			this.OkBtn.Location = new System.Drawing.Point(375, 114);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(99, 27);
-			this.OkBtn.TabIndex = 2;
+			this.OkBtn.TabIndex = 5;
 			this.OkBtn.Text = "Ok";
 			this.OkBtn.UseVisualStyleBackColor = true;
 			this.OkBtn.Click += new System.EventHandler(this.OkBtn_Click);
@@ -103,7 +103,7 @@
 			this.CancelBtn.Location = new System.Drawing.Point(480, 114);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(99, 27);
-			this.CancelBtn.TabIndex = 3;
+			this.CancelBtn.TabIndex = 6;
 			this.CancelBtn.Text = "Cancel";
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			this.CancelBtn.Click += new System.EventHandler(this.CancelBtn_Click);
