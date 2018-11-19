@@ -332,8 +332,8 @@ bool SRetargetManager::ShouldFilterAsset(const FAssetData& InAssetData)
 		EditableSkeletonPtr.IsValid())
 	{
 		FString SkeletonString = FAssetData(&EditableSkeletonPtr.Pin()->GetSkeleton()).GetExportTextName();
-		const FString* Value = InAssetData.TagsAndValues.Find(TEXT("Skeleton"));
-		return (!Value || SkeletonString != *Value);
+		FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag("Skeleton");
+		return (!Result.IsSet() || SkeletonString != Result.GetValue());
 	}
 
 	return false;

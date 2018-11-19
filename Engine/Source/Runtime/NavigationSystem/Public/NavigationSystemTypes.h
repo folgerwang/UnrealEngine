@@ -168,9 +168,9 @@ namespace NavigationHelper
 	NAVIGATIONSYSTEM_API bool IsBodyNavigationRelevant(const UBodySetup& IN BodySetup);
 
 	// deprecated functions	
-	DEPRECATED_FORGAME(4.17, "This function is now deprecated, please use override with OwnerData argument.")
+	UE_DEPRECATED_FORGAME(4.17, "This function is now deprecated, please use override with OwnerData argument.")
 	NAVIGATIONSYSTEM_API void DefaultNavLinkProcessorImpl(FCompositeNavModifier* OUT CompositeModifier, const AActor* Actor, const TArray<FNavigationLink>& IN NavLinks);
 
-	DEPRECATED_FORGAME(4.17, "This function is now deprecated, please use override with OwnerData argument.")
+	UE_DEPRECATED_FORGAME(4.17, "This function is now deprecated, please use override with OwnerData argument.")
 	NAVIGATIONSYSTEM_API void DefaultNavLinkSegmentProcessorImpl(FCompositeNavModifier* OUT CompositeModifier, const AActor* Actor, const TArray<FNavigationSegmentLink>& IN NavLinks);
 }

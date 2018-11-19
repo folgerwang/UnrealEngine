@@ -162,7 +162,7 @@ public:
 	 */
 	ULevelStreaming* GetAssociatedStreamingLevel();
 
-	DEPRECATED(4.20, "Call GetAssociatedStreamingLevel instead")
+	UE_DEPRECATED(4.20, "Call GetAssociatedStreamingLevel instead")
 	ULevelStreaming* GetAssosiatedStreamingLevel() { return GetAssociatedStreamingLevel(); }
 
 	/**  */

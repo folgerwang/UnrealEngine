@@ -14,6 +14,11 @@ UMovieSceneComposurePostMoveSettingsTrack::UMovieSceneComposurePostMoveSettingsT
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneComposurePostMoveSettingsTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneComposurePostMoveSettingsSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneComposurePostMoveSettingsTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneComposurePostMoveSettingsSection>(this, NAME_None, RF_Transactional);

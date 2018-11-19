@@ -238,7 +238,7 @@ void FSkeletalMeshObjectGPUSkin::ReleaseMorphResources()
 	bMorphResourcesInitialized = false;
 }
 
-void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, bool bUpdatePreviousBoneTransform)
+void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode)
 {
 	// make sure morph data has been initialized for each LOD
 	if(InMeshComponent && !bMorphResourcesInitialized && ActiveMorphTargets.Num() > 0 )
@@ -250,7 +250,7 @@ void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 	// create the new dynamic data for use by the rendering thread
 	// this data is only deleted when another update is sent
 	FDynamicSkelMeshObjectDataGPUSkin* NewDynamicData = FDynamicSkelMeshObjectDataGPUSkin::AllocDynamicSkelMeshObjectDataGPUSkin();		
-	NewDynamicData->InitDynamicSkelMeshObjectDataGPUSkin(InMeshComponent,SkeletalMeshRenderData,LODIndex,ActiveMorphTargets, MorphTargetWeights, bUpdatePreviousBoneTransform);
+	NewDynamicData->InitDynamicSkelMeshObjectDataGPUSkin(InMeshComponent,SkeletalMeshRenderData,LODIndex,ActiveMorphTargets, MorphTargetWeights, PreviousBoneTransformUpdateMode);
 
 	// We prepare the next frame but still have the value from the last one
 	uint32 FrameNumberToPrepare = GFrameNumber + 1;
@@ -357,6 +357,7 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 
 	if (LOD.MorphVertexBuffer.bNeedsInitialClear && !(bMorph && bMorphNeedsUpdate))
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FSkeletalMeshObjectGPUSkin_ProcessUpdatedDynamicData_ClearMorphBuffer);
 		if (IsValidRef(LOD.MorphVertexBuffer.GetUAV()))
 		{
 			ClearUAV(RHICmdList, LOD.MorphVertexBuffer.GetUAV(), LOD.MorphVertexBuffer.GetUAVSize(), 0);
@@ -372,6 +373,7 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 		// only update if the morph data changed and there are weighted morph targets
 		if(bMorphNeedsUpdate)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FSkeletalMeshObjectGPUSkin_ProcessUpdatedDynamicData_UpdateMorphBuffer);
 			if (GUseGPUMorphTargets && RHISupportsComputeShaders(GMaxRHIShaderPlatform))
 			{
 				// update the morph data for the lod (before SkinCache)
@@ -1556,7 +1558,7 @@ void FDynamicSkelMeshObjectDataGPUSkin::InitDynamicSkelMeshObjectDataGPUSkin(
 	int32 InLODIndex,
 	const TArray<FActiveMorphTarget>& InActiveMorphTargets,
 	const TArray<float>& InMorphTargetWeights, 
-	bool bUpdatePreviousBoneTransform
+	EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode
 	)
 {
 	LODIndex = InLODIndex;
@@ -1573,15 +1575,20 @@ void FDynamicSkelMeshObjectDataGPUSkin::InitDynamicSkelMeshObjectDataGPUSkin(
 
 	// update ReferenceToLocal
 	UpdateRefToLocalMatrices( ReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices );
-	if (bUpdatePreviousBoneTransform)
+	switch(PreviousBoneTransformUpdateMode)
 	{
-		UpdatePreviousRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
-	}
-	else
-	{
+	case EPreviousBoneTransformUpdateMode::None:
 		// otherwise, clear it, it will use previous buffer
 		PreviousReferenceToLocal.Reset();
+		break;
+	case EPreviousBoneTransformUpdateMode::UpdatePrevious:
+		UpdatePreviousRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
+		break;
+	case EPreviousBoneTransformUpdateMode::DuplicateCurrentToPrevious:
+		UpdateRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
+		break;
 	}
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	check(!MeshComponentSpaceTransforms.Num());
 	// append instead of equals to avoid alloc

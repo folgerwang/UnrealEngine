@@ -6,11 +6,12 @@
 #include "EngineUtils.h"
 #if WITH_EDITOR
 #include "ObjectEditorUtils.h"
-#endif
+#endif // WITH_EDITOR
 #include "NavMesh/NavTestRenderingComponent.h"
 #include "NavigationInvokerComponent.h"
 #include "NavMesh/RecastNavMesh.h"
 #include "Components/CapsuleComponent.h"
+#include "NavigationData.h"
 
 void FNavTestTickHelper::Tick(float DeltaTime)
 {
@@ -38,6 +39,7 @@ ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& Objec
 #endif // WITH_RECAST
 #endif // WITH_EDITORONLY_DATA
 
+	bIsEditorOnlyActor = true;
 	NavAgentProps.AgentRadius = 34.f;
 	NavAgentProps.AgentHeight = 144.f;
 	ShowStepIndex = -1;
@@ -394,11 +396,31 @@ void ANavigationTestingActor::SearchPathTo(ANavigationTestingActor* Goal)
 	}
 
 	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	check(NavSys);
+	if (NavSys == nullptr)
+	{
+		return;
+	}
+	ANavigationData* NavData = Cast<ANavigationData>(NavSys->GetNavDataForActor(*this));
+	if (NavData == nullptr)
+	{
+		return;
+	}
 
 	const double StartTime = FPlatformTime::Seconds();
 
 	FPathFindingQuery Query = BuildPathFindingQuery(Goal);
+
+	if (bBacktracking)
+	{
+		FSharedConstNavQueryFilter NavQueryFilter = Query.QueryFilter
+			? Query.QueryFilter
+			: NavData->GetDefaultQueryFilter();
+
+		FSharedNavQueryFilter NavigationFilterCopy = NavQueryFilter->GetCopy();
+		NavigationFilterCopy->SetBacktrackingEnabled(true);
+		Query.QueryFilter = NavigationFilterCopy;
+	}
+
 	EPathFindingMode::Type Mode = bUseHierarchicalPathfinding ? EPathFindingMode::Hierarchical : EPathFindingMode::Regular;
 	FPathFindingResult Result = NavSys->FindPathSync(NavAgentProps, Query, Mode);
 

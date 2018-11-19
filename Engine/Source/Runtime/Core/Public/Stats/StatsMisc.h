@@ -145,10 +145,11 @@ typedef TKeyValuePair<double, uint32> FTotalTimeAndCount;
 /**
  *	Utility class to log time passed in seconds, adding cumulative stats to passed in variable. 
  */
-struct FScopeLogTime
+struct FConditionalScopeLogTime
 {
 	enum EScopeLogTimeUnits
 	{
+		ScopeLog_DontLog,
 		ScopeLog_Milliseconds,
 		ScopeLog_Seconds
 	};
@@ -160,11 +161,11 @@ struct FScopeLogTime
 	 * @param InGlobal - Pointer to the variable that holds the cumulative stats
 	 *
 	 */
-	CORE_API FScopeLogTime( const WIDECHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds );
-	CORE_API FScopeLogTime( const ANSICHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds );
+	CORE_API FConditionalScopeLogTime( bool bCondition, const WIDECHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds );
+	CORE_API FConditionalScopeLogTime( bool bCondition, const ANSICHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds );
 
 	/** Destructor. */
-	CORE_API ~FScopeLogTime();
+	CORE_API ~FConditionalScopeLogTime();
 
 protected:
 	double GetDisplayScopedTime(double InScopedTime) const;
@@ -177,14 +178,42 @@ protected:
 	EScopeLogTimeUnits Units;
 };
 
+/**
+ *	Utility class to log time passed in seconds, adding cumulative stats to passed in variable. 
+ */
+struct FScopeLogTime : public FConditionalScopeLogTime
+{
+	CORE_API FScopeLogTime(const WIDECHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds)
+		: FConditionalScopeLogTime(true, InName, InCumulative, InUnits)
+	{
+	}
+
+	CORE_API FScopeLogTime(const ANSICHAR* InName, FTotalTimeAndCount* InCumulative = nullptr, EScopeLogTimeUnits InUnits = ScopeLog_Milliseconds)
+		: FConditionalScopeLogTime(true, InName, InCumulative, InUnits)
+	{
+	}
+};
+
 #define SCOPE_LOG_TIME(Name,CumulativePtr) \
-	FScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Name,CumulativePtr);
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(true, Name, CumulativePtr);
 
 #define SCOPE_LOG_TIME_IN_SECONDS(Name,CumulativePtr) \
-	FScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Name, CumulativePtr, FScopeLogTime::ScopeLog_Seconds);
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(true, Name, CumulativePtr, FScopeLogTime::ScopeLog_Seconds);
 
 #define SCOPE_LOG_TIME_FUNC() \
-	FScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(__FUNCTION__);
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(true, __FUNCTION__);
 
 #define SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(CumulativePtr) \
-	FScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(__FUNCTION__,CumulativePtr);
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(true, __FUNCTION__,CumulativePtr);
+
+#define CONDITIONAL_SCOPE_LOG_TIME(Condition, Name,CumulativePtr) \
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Condition, Name, CumulativePtr);
+
+#define CONDITIONAL_SCOPE_LOG_TIME_IN_SECONDS(Condition, Name,CumulativePtr) \
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Condition, Name, CumulativePtr, FScopeLogTime::ScopeLog_Seconds);
+
+#define CONDITIONAL_SCOPE_LOG_TIME_FUNC(Condition) \
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Condition, __FUNCTION__);
+
+#define CONDITIONAL_SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(Condition, CumulativePtr) \
+	FConditionalScopeLogTime PREPROCESSOR_JOIN(ScopeLogTime,__LINE__)(Condition, __FUNCTION__,CumulativePtr);

@@ -554,6 +554,9 @@ private:
 	/** Sets the view type and updates lists accordingly */
 	void SetCurrentViewType(EAssetViewType::Type NewType);
 
+	/** Sets the view type and forcibly dismisses all currently open context menus */
+	void SetCurrentViewTypeFromMenu(EAssetViewType::Type NewType);
+
 	/** Clears the reference to the current view and creates a new one, based on CurrentViewType */
 	void CreateCurrentView();
 
@@ -719,6 +722,9 @@ private:
 
 	/** Delegate to respond to drop of assets or asset paths onto a folder */
 	void ExecuteDropMove(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
+
+	/** Delegate to respond to drop of assets or asset paths onto a folder */
+	void ExecuteDropAdvancedCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
 
 	/** Creates a new asset from deferred data */
 	void DeferredCreateNewAsset();

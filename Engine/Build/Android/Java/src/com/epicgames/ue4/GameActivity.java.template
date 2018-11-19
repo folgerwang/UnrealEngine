@@ -870,7 +870,11 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 
 		InputStream result = null;
-		if (assetsVersion >= internalVersion && assetsVersion >= externalVersion)
+		if (CommandLineFlags.containsKey("noconfigrulesdownload"))
+		{
+			result = getConfigRulesDecompressed(configBytesAssets);
+		}
+		else if (assetsVersion >= internalVersion && assetsVersion >= externalVersion)
 		{
 			result = getConfigRulesDecompressed(configBytesAssets);
 		}
@@ -2033,9 +2037,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 					if (Build.VERSION.SDK_INT >= 23)
 					{
 						Map<String, String> memstats = memoryInfo[0].getMemoryStats();
-						if (memstats.containsKey("summary.total-pss") && memstats.containsKey("summary.total-swap") && memstats.containsKey("summary.system"))
+						if (memstats.containsKey("summary.total-pss"))
 						{
-							ProcessMemory = Integer.parseInt(memstats.get("summary.total-pss")) + Integer.parseInt(memstats.get("summary.total-swap")) - Integer.parseInt(memstats.get("summary.system"));
+							ProcessMemory = Integer.parseInt(memstats.get("summary.total-pss"));
 						}
 					}
 				}

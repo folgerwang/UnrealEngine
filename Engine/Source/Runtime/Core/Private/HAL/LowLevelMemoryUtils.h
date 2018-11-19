@@ -61,7 +61,7 @@ public:
 
 	T RemoveLast()
 	{
-		check(Count > 0);
+		LLMCheck(Count > 0);
 		--Count;
 		T Last = Array[Count];
 
@@ -70,19 +70,19 @@ public:
 
 	T& operator[](uint32 Index)
 	{
-		check(Index >= 0 && Index < Count);
+		LLMCheck(Index >= 0 && Index < Count);
 		return Array[Index];
 	}
 
 	const T& operator[](uint32 Index) const
 	{
-		check(Index >= 0 && Index < Count);
+		LLMCheck(Index >= 0 && Index < Count);
 		return Array[Index];
 	}
 
 	T& GetLast()
 	{
-		check(Count > 0);
+		LLMCheck(Count > 0);
 		return Array[Count - 1];
 	}
 
@@ -310,7 +310,7 @@ public:
 	// If this set already contains the value does nothing.
 	void Add(const TKey& Key, const TValue1& Value1, const TValue2& Value2)
 	{
-		check(Map);
+		LLMCheck(Map);
 
 		uint32 KeyHash = Key.GetHashCode();
 
@@ -370,7 +370,7 @@ public:
 		uint32 MapIndex = GetMapIndex(Key, KeyHash);
 
 		uint32 KeyIndex = Map[MapIndex];
-		check(KeyIndex != InvalidIndex);
+		LLMCheck(KeyIndex != InvalidIndex);
 
 		Values RetValues;
 		RetValues.Value1 = Values1[KeyIndex];
@@ -383,12 +383,12 @@ public:
 	{
 		uint32 KeyHash = Key.GetHashCode();
 
-		check(Map);
+		LLMCheck(Map);
 
 		FScopeLock Lock(&CriticalSection);
 
 		uint32 MapIndex = GetMapIndex(Key, KeyHash);
-		if (!ensure(IsItemInUse(MapIndex)))
+		if (!LLMEnsure(IsItemInUse(MapIndex)))
 		{
 			return Values();
 		}

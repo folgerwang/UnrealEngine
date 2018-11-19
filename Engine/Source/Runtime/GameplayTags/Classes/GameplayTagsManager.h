@@ -555,7 +555,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 
 #endif //WITH_EDITOR
 
-	DEPRECATED(4.15, "Call MatchesTag on FGameplayTag instead")
+	UE_DEPRECATED(4.15, "Call MatchesTag on FGameplayTag instead")
 	FORCEINLINE_DEBUGGABLE bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UGameplayTagsManager_GameplayTagsMatch);

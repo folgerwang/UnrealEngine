@@ -24,48 +24,47 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	EAnimAlphaInputType AlphaInputType;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault, DisplayName = "bEnabled", DisplayAfter="AlphaScaleBias"))
+	uint8 bAlphaBoolEnabled:1;
+
+protected:
+	uint8 bAIsRelevant:1;
+
+	uint8 bBIsRelevant:1;
+
+	/** This reinitializes child pose when re-activated. For example, when active child changes */
+	UPROPERTY(EditAnywhere, Category = Option)
+	uint8 bResetChildOnActivation:1;
+
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
 	FInputScaleBias AlphaScaleBias;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault, DisplayName = "bEnabled"))
-	mutable bool bAlphaBoolEnabled;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (DisplayName = "Blend Settings"))
 	FInputAlphaBoolBlend AlphaBoolBlend;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
-	mutable FName AlphaCurveName;
+	FName AlphaCurveName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FInputScaleBiasClamp AlphaScaleBiasClamp;
 
 protected:
-	UPROPERTY(Transient)
-	mutable float InternalBlendAlpha;
-
-	UPROPERTY(Transient)
-	mutable bool bAIsRelevant;
-
-	UPROPERTY(Transient)
-	mutable bool bBIsRelevant;
-
-	/** This reinitializes child pose when re-activated. For example, when active child changes */
-	UPROPERTY(EditAnywhere, Category = Option)
-	bool bResetChildOnActivation;
+	float InternalBlendAlpha;
 
 public:
 	FAnimNode_TwoWayBlend()
 		: AlphaInputType(EAnimAlphaInputType::Float)
-		, Alpha(0.0f)
 		, bAlphaBoolEnabled(true)
-		, AlphaCurveName(NAME_None)
-		, InternalBlendAlpha(0.0f)
 		, bAIsRelevant(false)
 		, bBIsRelevant(false)
 		, bResetChildOnActivation(false)
+		, Alpha(0.0f)
+		, AlphaCurveName(NAME_None)
+		, InternalBlendAlpha(0.0f)
 	{
 	}
 

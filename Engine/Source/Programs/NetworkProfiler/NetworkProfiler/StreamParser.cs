@@ -68,7 +68,7 @@ namespace NetworkProfiler
 			// Serialize the header. This will also return an endian-appropriate binary reader to
 			// be used for reading the data. 
 			BinaryReader BinaryStream = null; 
-			var Header = StreamHeader.ReadHeader( ParserStream, out BinaryStream );
+			NetworkStream.Header = StreamHeader.ReadHeader( ParserStream, out BinaryStream );
 
 			// Scratch variables used for building stream. Required as we emit information in reverse
 			// order needed for parsing.

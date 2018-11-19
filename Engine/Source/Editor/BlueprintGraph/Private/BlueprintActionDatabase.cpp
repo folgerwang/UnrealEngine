@@ -1331,7 +1331,7 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 	}
 	AssetActionList.Empty();
 
-	if (!ensure(IsObjectValidForDatabase(AssetObject)))
+	if (!IsObjectValidForDatabase(AssetObject))
 	{
 		return;
 	}

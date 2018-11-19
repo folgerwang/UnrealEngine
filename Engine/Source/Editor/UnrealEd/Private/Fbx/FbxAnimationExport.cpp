@@ -41,7 +41,7 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 		return;	
 	}
 
-	const float FrameRate = FMath::TruncToFloat(((AnimSeq->NumFrames - 1) / AnimSeq->SequenceLength) + 0.5f);
+	const float FrameRate = FMath::TruncToFloat(((AnimSeq->GetRawNumberOfFrames() - 1) / AnimSeq->SequenceLength) + 0.5f);
 
 	// set time correctly
 	FbxTime ExportedStartTime, ExportedStopTime;
@@ -88,7 +88,7 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 		float AnimTime					= AnimStartOffset;
 		float AnimEndTime				= (AnimSeq->SequenceLength - AnimEndOffset);
 		// Subtracts 1 because NumFrames includes an initial pose for 0.0 second
-		double TimePerKey				= (AnimSeq->SequenceLength / (AnimSeq->NumFrames-1));
+		double TimePerKey				= (AnimSeq->SequenceLength / (AnimSeq->GetRawNumberOfFrames()-1));
 		const float AnimTimeIncrement	= TimePerKey * AnimPlayRate;
 		uint32 AnimFrameIndex = 0;
 

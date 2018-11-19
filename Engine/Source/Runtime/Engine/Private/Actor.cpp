@@ -107,6 +107,7 @@ void AActor::InitializeDefaults()
 	SpriteScale = 1.0f;
 	bEnableAutoLODGeneration = true;	
 	InputConsumeOption_DEPRECATED = ICO_ConsumeBoundKeys;
+	bOptimizeBPComponentData = false;
 #endif // WITH_EDITORONLY_DATA
 	NetCullDistanceSquared = 225000000.0f;
 	NetDriverName = NAME_GameNetDriver;
@@ -142,6 +143,20 @@ void FActorTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, 
 FString FActorTickFunction::DiagnosticMessage()
 {
 	return Target->GetFullName() + TEXT("[TickActor]");
+}
+
+FName FActorTickFunction::DiagnosticContext(bool bDetailed)
+{
+	if (bDetailed)
+	{
+		// Format is "ActorNativeClass/ActorClass"
+		FString ContextString = FString::Printf(TEXT("%s/%s"), *GetParentNativeClass(Target->GetClass())->GetName(), *Target->GetClass()->GetName());
+		return FName(*ContextString);
+	}
+	else
+	{
+		return GetParentNativeClass(Target->GetClass())->GetFName();
+	}
 }
 
 bool AActor::CheckDefaultSubobjectsInternal() const
@@ -1502,7 +1517,7 @@ float AActor::GetLastRenderTime() const
 	return CachedLastRenderTime;
 }
 
-void AActor::SetOwner( AActor *NewOwner )
+void AActor::SetOwner(AActor* NewOwner)
 {
 	if (Owner != NewOwner && !IsPendingKill())
 	{
@@ -1513,7 +1528,7 @@ void AActor::SetOwner( AActor *NewOwner )
 		}
 
 		// Sets this actor's parent to the specified actor.
-		if( Owner != nullptr )
+		if (Owner != nullptr)
 		{
 			// remove from old owner's Children array
 			verifySlow(Owner->Children.Remove(this) == 1);
@@ -1521,7 +1536,7 @@ void AActor::SetOwner( AActor *NewOwner )
 
 		Owner = NewOwner;
 
-		if( Owner != nullptr )
+		if (Owner != nullptr)
 		{
 			// add to new owner's Children array
 			checkSlow(!Owner->Children.Contains(this));
@@ -1529,7 +1544,10 @@ void AActor::SetOwner( AActor *NewOwner )
 		}
 
 		// mark all components for which Owner is relevant for visibility to be updated
-		MarkOwnerRelevantComponentsDirty(this);
+		if (bHasFinishedSpawning)
+		{
+			MarkOwnerRelevantComponentsDirty(this);
+		}
 	}
 }
 
@@ -2844,6 +2862,12 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	check(Role == ROLE_Authority);
 	ExchangeNetRoles(bRemoteOwned);
 
+	// Set owner.
+	SetOwner(InOwner);
+
+	// Set instigator
+	Instigator = InInstigator;
+
 	// Set the actor's world transform if it has a native rootcomponent.
 	USceneComponent* const SceneRootComponent = FixupNativeActorComponents(this);
 	if (SceneRootComponent != nullptr)
@@ -2902,12 +2926,6 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	{
 		RegisterAllComponents();
 	}
-
-	// Set owner.
-	SetOwner(InOwner);
-
-	// Set instigator
-	Instigator = InInstigator;
 
 #if WITH_EDITOR
 	// When placing actors in the editor, init any random streams 
@@ -3209,7 +3227,7 @@ void AActor::ExchangeNetRoles(bool bRemoteOwned)
 	}
 }
 
-void AActor::SwapRolesForReplay()
+void AActor::SwapRoles()
 {
 	Swap(Role, RemoteRole);
 }
@@ -3990,14 +4008,22 @@ int32 AActor::GetFunctionCallspace( UFunction* Function, void* Parameters, FFram
 
 bool AActor::CallRemoteFunction( UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack )
 {
-	UNetDriver* NetDriver = GetNetDriver();
-	if (NetDriver)
+	bool bProcessed = false;
+
+	FWorldContext* const Context = GEngine->GetWorldContextFromWorld(GetWorld());
+	if (Context != nullptr)
 	{
-		NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, nullptr);
-		return true;
+		for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
+		{
+			if (Driver.NetDriver != nullptr && Driver.NetDriver->ShouldReplicateFunction(this, Function))
+			{
+				Driver.NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, nullptr);
+				bProcessed = true;
+			}
+		}
 	}
 
-	return false;
+	return bProcessed;
 }
 
 void AActor::DispatchPhysicsCollisionHit(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData)
@@ -4525,7 +4551,13 @@ float AActor::GetActorTimeDilation() const
 	// get actor custom time dilation
 	// if you do slomo, that changes WorldSettings->TimeDilation
 	// So multiply to get final TimeDilation
-	return CustomTimeDilation*GetWorldSettings()->GetEffectiveTimeDilation();
+	return CustomTimeDilation * GetWorldSettings()->GetEffectiveTimeDilation();
+}
+
+float AActor::GetActorTimeDilation(const UWorld& ActorWorld) const
+{
+	checkSlow(&ActorWorld == GetWorld());
+	return CustomTimeDilation * ActorWorld.GetWorldSettings()->GetEffectiveTimeDilation();
 }
 
 UMaterialInstanceDynamic* AActor::MakeMIDForMaterial(class UMaterialInterface* Parent)

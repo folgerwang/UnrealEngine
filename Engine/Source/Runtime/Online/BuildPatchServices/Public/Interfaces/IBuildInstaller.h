@@ -354,10 +354,10 @@ public:
 	 */
 	virtual EBuildPatchInstallError GetErrorType() const = 0;
 
-	DEPRECATED(4.21, "GetPercentageText has been deprecated.  It will no longer be supported in the future.")
+	UE_DEPRECATED(4.21, "GetPercentageText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetPercentageText() const = 0;
 
-	DEPRECATED(4.21, "GetDownloadSpeedText has been deprecated.  It will no longer be supported in the future.")
+	UE_DEPRECATED(4.21, "GetDownloadSpeedText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetDownloadSpeedText() const = 0;
 
 	/**
@@ -366,7 +366,7 @@ public:
 	 */
 	virtual double GetDownloadSpeed() const = 0;
 
-	DEPRECATED(4.21, "GetInitialDownloadSize has been deprecated.  Please use GetTotalDownloadRequired instead.")
+	UE_DEPRECATED(4.21, "GetInitialDownloadSize has been deprecated.  Please use GetTotalDownloadRequired instead.")
 	virtual int64 GetInitialDownloadSize() const { return GetTotalDownloadRequired(); }
 
 	/**
@@ -387,7 +387,7 @@ public:
 	 */
 	virtual BuildPatchServices::EBuildPatchState GetState() const = 0;
 
-	DEPRECATED(4.21, "GetStatusText has been deprecated.  It will no longer be supported in the future.")
+	UE_DEPRECATED(4.21, "GetStatusText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetStatusText() const = 0;
 
 	/**

@@ -132,7 +132,7 @@ public:
 	 *  can cause this constructor to be invoked instead the the other which was likely the programmers intention. 
 	 *  This constructor will eventually be deprecated to avoid this potentially ambiguous case.
 	 */ 
-	DEPRECATED(4.11, "FCollisionQueryParams, to avoid ambiguity, please use other constructor and explicitly provide an FName parameter (not just a string literal) as the first parameter")
+	UE_DEPRECATED(4.11, "FCollisionQueryParams, to avoid ambiguity, please use other constructor and explicitly provide an FName parameter (not just a string literal) as the first parameter")
 	FCollisionQueryParams(bool bInTraceComplex)
 	{
 		bTraceComplex = bInTraceComplex;

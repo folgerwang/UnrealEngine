@@ -120,7 +120,7 @@ public:
 	 */
 	static FString ProjectDir();
 
-	DEPRECATED(4.18, "FPaths::GameDir() has been superseded by FPaths::ProjectDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameDir() has been superseded by FPaths::ProjectDir().")
 	static FORCEINLINE FString GameDir() { return ProjectDir(); }
 
 	/**
@@ -130,7 +130,7 @@ public:
 	*/
 	static FString ProjectUserDir();
 
-	DEPRECATED(4.18, "FPaths::GameUserDir() has been superseded by FPaths::ProjectUserDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameUserDir() has been superseded by FPaths::ProjectUserDir().")
 	static FORCEINLINE FString GameUserDir() { return ProjectUserDir(); }
 
 	/**
@@ -140,7 +140,7 @@ public:
 	 */
 	static FString ProjectContentDir();
 
-	DEPRECATED(4.18, "FPaths::GameContentDir() has been superseded by FPaths::ProjectContentDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameContentDir() has been superseded by FPaths::ProjectContentDir().")
 	static FORCEINLINE FString GameContentDir() { return ProjectContentDir(); }
 
 	/**
@@ -150,7 +150,7 @@ public:
 	*/
 	static FString ProjectConfigDir();
 
-	DEPRECATED(4.18, "FPaths::GameConfigDir() has been superseded by FPaths::ProjectConfigDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameConfigDir() has been superseded by FPaths::ProjectConfigDir().")
 	static FORCEINLINE FString GameConfigDir() { return ProjectConfigDir(); }
 
 	/**
@@ -160,7 +160,7 @@ public:
 	 */
 	static FString ProjectSavedDir();
 
-	DEPRECATED(4.18, "FPaths::GameSavedDir() has been superseded by FPaths::ProjectSavedDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameSavedDir() has been superseded by FPaths::ProjectSavedDir().")
 	static FORCEINLINE FString GameSavedDir() { return ProjectSavedDir(); }
 
 	/**
@@ -172,7 +172,7 @@ public:
 
 	static FString ShaderWorkingDir();
 
-	DEPRECATED(4.18, "FPaths::GameIntermediateDir() has been superseded by FPaths::ProjectIntermediateDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameIntermediateDir() has been superseded by FPaths::ProjectIntermediateDir().")
 	static FORCEINLINE FString GameIntermediateDir() { return ProjectIntermediateDir(); }
 
 	/**
@@ -182,7 +182,7 @@ public:
 	 */
 	static FString ProjectPluginsDir();
 
-	DEPRECATED(4.18, "FPaths::GamePluginsDir() has been superseded by FPaths::ProjectPluginsDir().")
+	UE_DEPRECATED(4.18, "FPaths::GamePluginsDir() has been superseded by FPaths::ProjectPluginsDir().")
 	static FORCEINLINE FString GamePluginsDir() { return ProjectPluginsDir(); }
 
 	/**
@@ -202,7 +202,7 @@ public:
 	*/
 	static FString ProjectPersistentDownloadDir();
 
-	DEPRECATED(4.18, "FPaths::GamePersistentDownloadDir() has been superseded by FPaths::ProjectPersistentDownloadDir().")
+	UE_DEPRECATED(4.18, "FPaths::GamePersistentDownloadDir() has been superseded by FPaths::ProjectPersistentDownloadDir().")
 	static FORCEINLINE FString GamePersistentDownloadDir() { return ProjectPersistentDownloadDir(); }
 
 	/**
@@ -264,7 +264,7 @@ public:
 	 */
 	static FString ProjectLogDir();
 
-	DEPRECATED(4.18, "FPaths::GameLogDir() has been superseded by FPaths::ProjectLogDir().")
+	UE_DEPRECATED(4.18, "FPaths::GameLogDir() has been superseded by FPaths::ProjectLogDir().")
 	static FORCEINLINE FString GameLogDir() { return ProjectLogDir(); }
 
 	/**

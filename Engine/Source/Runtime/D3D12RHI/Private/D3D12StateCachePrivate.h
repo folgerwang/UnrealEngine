@@ -278,7 +278,7 @@ protected:
 		struct
 		{
 			// Cache
-			FD3D12GraphicsPipelineState* CurrentPipelineStateObject;
+			TRefCountPtr<FD3D12GraphicsPipelineState> CurrentPipelineStateObject;
 
 			// Note: Current root signature is part of the bound shader state, which is part of the PSO
 			bool bNeedSetRootSignature;
@@ -326,7 +326,7 @@ protected:
 		struct
 		{
 			// Cache
-			FD3D12ComputePipelineState* CurrentPipelineStateObject;
+			TRefCountPtr<FD3D12ComputePipelineState> CurrentPipelineStateObject;
 
 			// Note: Current root signature is part of the bound compute shader, which is part of the PSO
 			bool bNeedSetRootSignature;

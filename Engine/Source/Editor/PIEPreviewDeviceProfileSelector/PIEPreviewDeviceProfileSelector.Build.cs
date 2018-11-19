@@ -13,15 +13,15 @@ namespace UnrealBuildTool.Rules
 				{
 					"Core",
 				    "CoreUObject",
+                    "Json",
                 }
-				);
+                );
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
                     "PIEPreviewDeviceSpecification",
                     "RHI",
-					"Json",
 					"JsonUtilities",
 					"MaterialShaderQualitySettings",
 					"Slate",

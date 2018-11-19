@@ -40,6 +40,7 @@
 #include "GameFramework/MovementComponent.h"
 
 #include "Misc/TimeGuard.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #define LOCTEXT_NAMESPACE "LevelActor"
 
@@ -299,11 +300,15 @@ AActor* UWorld::SpawnActor( UClass* Class, FVector const* Location, FRotator con
 AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, const FActorSpawnParameters& SpawnParameters )
 {
 	SCOPE_CYCLE_COUNTER(STAT_SpawnActorTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ActorSpawning);
 	SCOPE_TIME_GUARD_NAMED_MS(TEXT("SpawnActor Of Type"), Class->GetFName(), 2);
-	
 
+#if WITH_EDITORONLY_DATA
 	check( CurrentLevel ); 	
 	check(GIsEditor || (CurrentLevel == PersistentLevel));
+#else
+	ULevel* CurrentLevel = PersistentLevel;
+#endif
 
 	// Make sure this class is spawnable.
 	if( !Class )
@@ -526,6 +531,7 @@ bool UWorld::EditorDestroyActor( AActor* ThisActor, bool bShouldModifyLevel )
 bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModifyLevel )
 {
 	SCOPE_CYCLE_COUNTER(STAT_DestroyActor);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ActorDestroying);
 
 	check(ThisActor);
 	check(ThisActor->IsValidLowLevel());
@@ -1440,6 +1446,7 @@ FAudioDevice* UWorld::GetAudioDevice()
  */
 void UWorld::SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects, int32 InNumUnbuiltReflectionCaptures)
 {
+#if !UE_BUILD_SHIPPING
 	static const TConsoleVariableData<int32>* AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
 
@@ -1463,6 +1470,7 @@ void UWorld::SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects, 
 			LastTimeUnbuiltLightingWasEncountered = FApp::GetCurrentTime();
 		}
 	}
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

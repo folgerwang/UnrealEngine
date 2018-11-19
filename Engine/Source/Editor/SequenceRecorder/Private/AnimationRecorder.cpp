@@ -219,7 +219,7 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 
 	LastFrame = 0;
 	AnimationObject->SequenceLength = 0.f;
-	AnimationObject->NumFrames = 0;
+	AnimationObject->SetRawNumberOfFrame(0);
 
 	RecordedCurves.Reset();
 	UIDToArrayIndexLUT = nullptr;
@@ -282,7 +282,7 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 	if (AnimationObject)
 	{
 		int32 NumFrames = LastFrame  + 1;
-		AnimationObject->NumFrames = NumFrames;
+		AnimationObject->SetRawNumberOfFrame(NumFrames);
 
 		// can't use TimePassed. That is just total time that has been passed, not necessarily match with frame count
 		AnimationObject->SequenceLength = (NumFrames>1) ? (NumFrames-1) * IntervalTime : MINIMUM_ANIMATION_LENGTH;
@@ -393,7 +393,7 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 		{
 			const FText NotificationText = FText::Format(LOCTEXT("RecordAnimation", "'{0}' has been successfully recorded [{1} frames : {2} sec(s) @ {3} Hz]"),
 				FText::FromString(AnimationObject->GetName()),
-				FText::AsNumber(AnimationObject->NumFrames),
+				FText::AsNumber(AnimationObject->GetRawNumberOfFrames()),
 				FText::AsNumber(AnimationObject->SequenceLength),
 				FText::AsNumber(1.f / IntervalTime)
 				);

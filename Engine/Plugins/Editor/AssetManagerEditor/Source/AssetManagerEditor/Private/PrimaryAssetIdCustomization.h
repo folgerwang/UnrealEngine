@@ -29,12 +29,16 @@ private:
 	void OnUseSelected();
 	FText GetDisplayText() const;
 	FPrimaryAssetId GetCurrentPrimaryAssetId() const;
+	void UpdateThumbnail();
 
 	/** Handle to the struct property being customized */
 	TSharedPtr<IPropertyHandle> StructPropertyHandle;
 
 	/** Specified type */
 	TArray<FPrimaryAssetType> AllowedTypes;
+
+	/** Thumbnail resource */
+	TSharedPtr<class FAssetThumbnail> AssetThumbnail;
 };
 
 /** Graph pin version of UI */

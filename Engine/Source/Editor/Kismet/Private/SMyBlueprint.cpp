@@ -1685,7 +1685,7 @@ void SMyBlueprint::ExecuteAction(TSharedPtr<FEdGraphSchemaAction> InAction)
 				for (int32 i=0; i<BlueprintObj->Timelines.Num(); i++)
 				{
 					// Convert the Timeline's name to a variable name before comparing it to the variable
-					if (FName(*UTimelineTemplate::TimelineTemplateNameToVariableName(BlueprintObj->Timelines[i]->GetFName())) == VarAction->GetVariableName())
+					if (BlueprintObj->Timelines[i]->GetVariableName() == VarAction->GetVariableName())
 					{
 						BlueprintEditorPtr.Pin()->OpenDocument(BlueprintObj->Timelines[i], OpenMode);
 					}

@@ -646,6 +646,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		FSkeletalMeshModel* ImportedModel = SkeletalMesh->GetImportedModel();
 		check(ImportedModel->LODModels.Num() == 0);
 		ImportedModel->LODModels.Empty();
+		ImportedModel->EmptyOriginalReductionSourceMeshData();
 		new(ImportedModel->LODModels)FSkeletalMeshLODModel();
 		SkeletalMesh->ResetLODInfo();
 		SkeletalMesh->AddLODInfo();

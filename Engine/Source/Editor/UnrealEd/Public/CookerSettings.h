@@ -32,6 +32,19 @@ enum class ECookProgressDisplayMode : int32
 	Max UMETA(Hidden),
 };
 
+UENUM()
+enum class EBlueprintComponentDataCookingMethod
+{
+	/** Do not generate optimized component data. No additional memory will be used. */
+	Disabled,
+
+	/** Generate optimized component data for all Blueprint types. This option will require the most additional memory. */
+	AllBlueprints,
+
+	/** Generate optimized component data only for Blueprint types that have explicitly enabled this feature in the class settings. */
+	EnabledBlueprintsOnly,
+};
+
 /**
  * Various cooker settings.
  */
@@ -75,10 +88,10 @@ public:
 	/** Whether or not to compile Blueprints in development mode when cooking. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay)
 	bool bCompileBlueprintsInDevelopmentMode;
-	
-	/** Whether or not to cook Blueprint Component data for faster instancing at runtime. This assumes that the Component templates do not get modified at runtime. */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Cook Blueprint Component data for faster instancing at runtime"))
-	bool bCookBlueprintComponentTemplateData;
+
+	/** Generate optimized component data to speed up Blueprint construction at runtime. This option can increase the overall Blueprint memory usage in a cooked build. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Generate optimized Blueprint component data"))
+	EBlueprintComponentDataCookingMethod BlueprintComponentDataCookingMethod;
 
 	/** List of class names to exclude when cooking for dedicated server */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Classes excluded when cooking for dedicated server"))
@@ -107,4 +120,9 @@ public:
 	/** Quality of 0 means smallest (12x12 block size), 4 means best (4x4 block size) */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "ASTC Compression Quality vs Size (0-4, 0 is smallest)"))
 	int32 DefaultASTCQualityBySize;
+
+private:
+	/** Deprecated. Use BlueprintComponentDataCookingMethod instead. */
+	UPROPERTY(GlobalConfig)
+	bool bCookBlueprintComponentTemplateData;
 };

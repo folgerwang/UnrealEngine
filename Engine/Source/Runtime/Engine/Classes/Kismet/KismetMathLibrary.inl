@@ -1047,6 +1047,12 @@ FTransform UKismetMathLibrary::ComposeTransforms(const FTransform& A, const FTra
 }
 
 KISMET_MATH_INLINE
+FTransform UKismetMathLibrary::MakeRelativeTransform(const FTransform& A, const FTransform& RelativeTo)
+{
+	return A.GetRelativeTransform(RelativeTo);
+}
+
+KISMET_MATH_INLINE
 FTransform UKismetMathLibrary::ConvertTransformToRelative(const FTransform& Transform, const FTransform& ParentTransform)
 {
 	return ParentTransform.GetRelativeTransform(Transform);

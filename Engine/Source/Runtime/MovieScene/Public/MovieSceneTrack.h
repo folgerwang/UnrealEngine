@@ -52,12 +52,12 @@ struct FMovieSceneTrackCompilerArgs
 
 	struct FMovieSceneSequenceTemplateStore {};
 
-	DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
+	UE_DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
 	FMovieSceneSequenceTemplateStore SubSequenceStore;
 
 	struct FMovieSceneTrackCompilationParams { 	bool bForEditorPreview, bDuringBlueprintCompile; };
 
-	DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
+	UE_DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
 	FMovieSceneTrackCompilationParams Params;
 };
 
@@ -154,10 +154,10 @@ public:
 	 */
 	MOVIESCENE_API virtual FMovieSceneTrackSegmentBlenderPtr GetTrackSegmentBlender() const;
 
-	DEPRECATED(4.19, "Please override GetRowSegmentBlender() instead.")
+	UE_DEPRECATED(4.19, "Please override GetRowSegmentBlender() instead.")
 	MOVIESCENE_API virtual FMovieSceneDeprecatedCompilerRulesPtr GetRowCompilerRules() const;
 
-	DEPRECATED(4.19, "Please override GetTrackSegmentBlender() instead.")
+	UE_DEPRECATED(4.19, "Please override GetTrackSegmentBlender() instead.")
 	MOVIESCENE_API virtual FMovieSceneDeprecatedCompilerRulesPtr GetTrackCompilerRules() const;
 
 	/**
@@ -256,6 +256,14 @@ public:
 
 public:
 
+	/*
+	 * Does this track support this section class type?
+
+	 * @param ClassType The movie scene section class type
+	 * @return Whether this track supports this section class type
+	 */
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const PURE_VIRTUAL(UMovieSceneTrack::SupportsType, return false;);
+
 	/**
 	 * Add a section to this track.
 	 *
@@ -282,7 +290,7 @@ public:
 	 * 
 	 * @return The range of time boundaries.
 	 */
-	DEPRECATED(4.20, "This function is no longer used.")
+	UE_DEPRECATED(4.20, "This function is no longer used.")
 	virtual TRange<FFrameNumber> GetSectionBoundaries() const PURE_VIRTUAL(UMovieSceneTrack::GetSectionBoundaries, return TRange<FFrameNumber>::Empty(););
 
 	/**

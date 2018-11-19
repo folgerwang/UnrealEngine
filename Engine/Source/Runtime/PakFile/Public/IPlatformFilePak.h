@@ -21,12 +21,8 @@ DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total pak file read time"), STAT_Pak
 
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num open pak file handles"), STAT_PakFile_NumOpenHandles, STATGROUP_PakFile, PAKFILE_API);
 
-/** Delegate for allowing a game to restrict the accessing of non-pak files */
-DECLARE_DELEGATE_RetVal_OneParam(bool, FFilenameSecurityDelegate, const TCHAR* /*InFilename*/);
-
 #define PAKHASH_USE_CRC	1
 #define PAK_TRACKER 0
-#define PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL 0
 
 #if PAKHASH_USE_CRC
 typedef uint32 TPakChunkHash;
@@ -35,6 +31,27 @@ typedef FSHAHash TPakChunkHash;
 #endif
 
 PAKFILE_API TPakChunkHash ComputePakChunkHash(const void* InData, int64 InDataSizeInBytes);
+
+struct FPakChunkSignatureCheckFailedData
+{
+	FPakChunkSignatureCheckFailedData(const FString& InPakFilename, const TPakChunkHash& InExpectedHash, const TPakChunkHash& InReceivedHash, int32 InChunkIndex)
+		: PakFilename(InPakFilename)
+		, ChunkIndex(InChunkIndex)
+		, ExpectedHash(InExpectedHash)
+		, ReceivedHash(InReceivedHash)
+	{
+	}
+	FString PakFilename;
+	int32 ChunkIndex;
+	TPakChunkHash ExpectedHash;
+	TPakChunkHash ReceivedHash;
+
+	FPakChunkSignatureCheckFailedData() : ChunkIndex(0) {}
+};
+/** Delegate for allowing a game to restrict the accessing of non-pak files */
+DECLARE_DELEGATE_RetVal_OneParam(bool, FFilenameSecurityDelegate, const TCHAR* /*InFilename*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FPakChunkSignatureCheckFailedHandler, const FPakChunkSignatureCheckFailedData&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FPakMasterSignatureTableCheckFailureHandler, const FString&);
 
 /**
  * Struct which holds pak file info (version, index offset, hash value).
@@ -2250,6 +2267,13 @@ public:
 
 	// Access static delegate for loose file security
 	static FFilenameSecurityDelegate& GetFilenameSecurityDelegate();
+
+	// Access static delegate for handling a pak signature check failure
+	static FPakChunkSignatureCheckFailedHandler& GetPakChunkSignatureCheckFailedHandler();
+
+	// Access static delegate for handling a pak signature check failure
+	static FPakMasterSignatureTableCheckFailureHandler& GetPakMasterSignatureTableCheckFailureHandler();
+
 
 	void UnloadPakEntryFilenames(TArray<FString>* DirectoryRootsToKeep = nullptr);
 	void ShrinkPakEntriesMemoryUsage();

@@ -46,6 +46,11 @@ public:
 	virtual bool IsEditConst() const = 0;
 
 	/**
+	* @return The opposite of IsEditConst
+	*/
+	virtual bool IsEditable() const = 0;
+
+	/**
 	 * Gets the class of the property being edited
 	 */
 	virtual const UClass* GetPropertyClass() const = 0;

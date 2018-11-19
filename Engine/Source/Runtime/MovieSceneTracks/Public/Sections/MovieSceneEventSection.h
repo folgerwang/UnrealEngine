@@ -186,11 +186,11 @@ public:
 
 private:
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> Times;
 
 	/** Array of values that correspond to each key time */
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<FEventPayload> KeyValues;
 
 	FMovieSceneKeyHandleMap KeyHandles;

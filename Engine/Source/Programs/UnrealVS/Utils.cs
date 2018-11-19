@@ -11,6 +11,7 @@ using VSLangProj;
 using System.IO;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
+using System.Xml;
 
 namespace UnrealVS
 {
@@ -38,7 +39,7 @@ namespace UnrealVS
 		public static IVsHierarchy ProjectToHierarchyObject( Project Project )
 		{
 			IVsHierarchy HierarchyObject;
-			UnrealVSPackage.Instance.SolutionManager.GetProjectOfUniqueName( Project.FullName, out HierarchyObject );
+			UnrealVSPackage.Instance.SolutionManager.GetProjectOfUniqueName(Project.FullName, out HierarchyObject);
 			return HierarchyObject;
 		}
 
@@ -52,7 +53,7 @@ namespace UnrealVS
 		{
 			// Get the actual Project object from the IVsHierarchy object that was supplied
 			object ProjectObject;
-			HierarchyObject.GetProperty(VSConstants.VSITEMID_ROOT, (int) __VSHPROPID.VSHPROPID_ExtObject, out ProjectObject);
+			HierarchyObject.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_ExtObject, out ProjectObject);
 			return (Project)ProjectObject;
 		}
 
@@ -61,7 +62,7 @@ namespace UnrealVS
 		/// </summary>
 		/// <param name="HierarchyObject">IVsHierarchy object</param>
 		/// <returns>Visual Studio project object</returns>
-		public static IVsCfgProvider2 HierarchyObjectToCfgProvider(IVsHierarchy HierarchyObject)
+		public static IVsCfgProvider2 HierarchyObjectToCfgProvider( IVsHierarchy HierarchyObject )
 		{
 			// Get the actual Project object from the IVsHierarchy object that was supplied
 			object BrowseObject;
@@ -81,7 +82,7 @@ namespace UnrealVS
 			return CfgProvider;
 		}
 
-		private static IVsCfgProvider2 GetCfgProviderFromObject(object SomeObject)
+		private static IVsCfgProvider2 GetCfgProviderFromObject( object SomeObject )
 		{
 			IVsCfgProvider2 CfgProvider2 = null;
 
@@ -110,20 +111,20 @@ namespace UnrealVS
 		/// <param name="Project">Project to search for the property</param>
 		/// <param name="PropertyName">Name of the property</param>
 		/// <returns>Property object or null if not found</returns>
-		public static Property GetProjectProperty(Project Project, string PropertyName)
+		public static Property GetProjectProperty( Project Project, string PropertyName )
 		{
 			var Properties = Project.Properties;
-            if (Properties != null)
-            {
-                foreach (var RawProperty in Properties)
-                {
-                    var Property = (Property)RawProperty;
-                    if (Property.Name.Equals(PropertyName, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        return Property;
-                    }
-                }
-            }
+			if (Properties != null)
+			{
+				foreach (var RawProperty in Properties)
+				{
+					var Property = (Property)RawProperty;
+					if (Property.Name.Equals(PropertyName, StringComparison.InvariantCultureIgnoreCase))
+					{
+						return Property;
+					}
+				}
+			}
 
 			// Not found
 			return null;
@@ -134,7 +135,7 @@ namespace UnrealVS
 		/// </summary>
 		/// <param name="Property">The property object to set</param>
 		/// <param name="PropertyValue">Value to set for this property</param>
-		public static void SetPropertyValue(Property Property, object PropertyValue)
+		public static void SetPropertyValue( Property Property, object PropertyValue )
 		{
 			Property.Value = PropertyValue;
 
@@ -160,7 +161,7 @@ namespace UnrealVS
 		/// <summary>
 		/// Converts a UIHierarchy into an easy to use tree of helper class UITreeItem.
 		/// </summary>
-		public static UITreeItem GetUIHierarchyTree(UIHierarchy Hierarchy)
+		public static UITreeItem GetUIHierarchyTree( UIHierarchy Hierarchy )
 		{
 			return new UITreeItem
 			{
@@ -172,7 +173,7 @@ namespace UnrealVS
 		/// <summary>
 		/// Called by the public GetUIHierarchyTree() function above.
 		/// </summary>
-		private static UITreeItem GetUIHierarchyTree(UIHierarchyItem HierarchyItem)
+		private static UITreeItem GetUIHierarchyTree( UIHierarchyItem HierarchyItem )
 		{
 			return new UITreeItem
 			{
@@ -187,7 +188,7 @@ namespace UnrealVS
 		/// <typeparam name="T">The type of object to find in the tree. Extracts everything that "Is a" T.</typeparam>
 		/// <param name="RootItem">The root of the UIHierarchy to search (converted to UITreeItem via GetUIHierarchyTree())</param>
 		/// <returns>An enumerable of objects of type T found beneath the root item.</returns>
-		public static IEnumerable<T> GetUITreeItemObjectsByType<T>(UITreeItem RootItem) where T : class
+		public static IEnumerable<T> GetUITreeItemObjectsByType<T>( UITreeItem RootItem ) where T : class
 		{
 			List<T> Results = new List<T>();
 
@@ -203,7 +204,7 @@ namespace UnrealVS
 			return Results;
 		}
 
-		public static IEnumerable<UIHierarchyItem> GetUITreeItemsByObjectType<T>(UITreeItem RootItem) where T : class
+		public static IEnumerable<UIHierarchyItem> GetUITreeItemsByObjectType<T>( UITreeItem RootItem ) where T : class
 		{
 			List<UIHierarchyItem> Results = new List<UIHierarchyItem>();
 
@@ -223,7 +224,7 @@ namespace UnrealVS
 		/// Helper to check the file ext of a binary against known library file exts.
 		/// FileExt should include the dot e.g. ".dll"
 		/// </summary>
-		public static bool IsLibraryFileExtension(string FileExt)
+		public static bool IsLibraryFileExtension( string FileExt )
 		{
 			if (FileExt.Equals(".dll", StringComparison.InvariantCultureIgnoreCase)) return true;
 			if (FileExt.Equals(".lib", StringComparison.InvariantCultureIgnoreCase)) return true;
@@ -238,7 +239,7 @@ namespace UnrealVS
 		/// <summary>
 		/// Helper to check the properties of a project and determine whether it can be built in VS.
 		/// </summary>
-		public static bool IsProjectBuildable(Project Project)
+		public static bool IsProjectBuildable( Project Project )
 		{
 			return Project.Kind == GuidList.VCSharpProjectKindGuidString || Project.Kind == GuidList.VCProjectKindGuidString;
 		}
@@ -274,12 +275,12 @@ namespace UnrealVS
 			}
 		}
 
-		public static void ExecuteProjectBuild(Project Project,
+		public static void ExecuteProjectBuild( Project Project,
 												string SolutionConfig,
 												string SolutionPlatform,
 												BatchBuilderToolControl.BuildJob.BuildJobType BuildType,
 												Action ExecutingDelegate,
-												Action FailedToStartDelegate)
+												Action FailedToStartDelegate )
 		{
 			IVsHierarchy ProjHierarchy = Utils.ProjectToHierarchyObject(Project);
 
@@ -365,6 +366,57 @@ namespace UnrealVS
 					}
 				}
 			}
+		}
+
+
+		private static bool LoadConfigFromUBT( Project SelectedProject )
+		{
+			string ProjectPath = Path.GetDirectoryName(SelectedProject.FullName);
+			string ConfigFileName = Path.Combine(ProjectPath, "UnrealVS.xml");
+
+			// only try to load the xml configuration once
+			if (CachedUBTConfigFileName != ConfigFileName)
+			{
+				CachedUBTConfigFileName = ConfigFileName;
+				CachedUBTConfigXml = null;
+
+				try
+				{
+					XmlDocument ConfigXml = new XmlDocument();
+					ConfigXml.Load(ConfigFileName);
+
+					CachedUBTConfigXml = ConfigXml.SelectSingleNode("UnrealVS");
+
+				}
+				catch (Exception)
+				{
+				}
+			}
+
+			return (CachedUBTConfigXml != null);
+		}
+
+
+		public static List<string> GetExtraDebuggerCommandArguments( string PlatformName, Project SelectedProject )
+		{
+			List<string> Result = new List<string>();
+
+			if (LoadConfigFromUBT(SelectedProject))
+			{
+				XmlNode PlatformNode = CachedUBTConfigXml.SelectSingleNode(PlatformName);
+				if (PlatformNode != null)
+				{
+					foreach (XmlNode ChildNode in PlatformNode.ChildNodes)
+					{
+						if (string.Equals(ChildNode.Name, "DebuggerName", StringComparison.CurrentCultureIgnoreCase))
+						{
+							Result.Add(ChildNode.InnerText);
+						}
+					}
+				}
+			}
+
+			return Result;
 		}
 
 		public static bool IsGameProject(Project Project)
@@ -640,5 +692,8 @@ namespace UnrealVS
 		private static string CachedUProjectRootFolder = string.Empty;
 		private static IEnumerable<string> CachedUProjectPaths = new string[0];
 		private static IDictionary<string, string> CachedUProjects = null;
+
+		private static string CachedUBTConfigFileName = string.Empty;
+		private static XmlNode CachedUBTConfigXml = null;
 	}
 }

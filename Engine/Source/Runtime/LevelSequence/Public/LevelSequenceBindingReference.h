@@ -103,6 +103,23 @@ struct FLevelSequenceBindingReferences
 	void RemoveBinding(const FGuid& ObjectId);
 
 	/**
+	 * Remove specific object references
+	 *
+	 * @param ObjectId	The ID to remove
+	 * @param InObjects The objects to remove
+	 * @param InContext A context in which InObject resides (either a UWorld, or an AActor)
+	 */
+	void RemoveObjects(const FGuid& ObjectId, const TArray<UObject*>& InObjects, UObject *InContext);
+
+	/**
+	 * Remove specific object references that do not resolve
+	 *
+	 * @param ObjectId	The ID to remove
+	 * @param InContext A context in which InObject resides (either a UWorld, or an AActor)
+	 */
+	void RemoveInvalidObjects(const FGuid& ObjectId, UObject *InContext);
+
+	/**
 	 * Add a binding for the specified ID
 	 *
 	 * @param ObjectId	The ID to associate the object with

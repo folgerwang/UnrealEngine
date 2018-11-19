@@ -76,7 +76,8 @@ void FLocalFileStreamFArchive::Serialize(void* V, int64 Length)
 	{
 		if ((Pos + Length) > Buffer.Num())
 		{
-			ArIsError = true;
+			UE_LOG(LogLocalFileReplay, Error, TEXT("FLocalFileStreamFArchive::Serialize: Attempted to serialize past end of archive: Position = %i, Size=%i, Requested = %lli"), Pos, Buffer.Num(), Length);
+			SetError();
 			return;
 		}
 
@@ -92,7 +93,7 @@ void FLocalFileStreamFArchive::Serialize(void* V, int64 Length)
 
 		if (SpaceNeeded > 0)
 		{
-			Buffer.AddZeroed(SpaceNeeded);
+			Buffer.AddUninitialized(SpaceNeeded);
 		}
 
 		FMemory::Memcpy(Buffer.GetData() + Pos, V, Length);
@@ -1724,6 +1725,8 @@ void FLocalFileNetworkReplayStreamer::GotoCheckpointIndex(const int32 Checkpoint
 				FGotoResult Result;
 				Result.ExtraTimeMS = LastGotoTimeInMS;
 				Result.Result = EStreamingOperationResult::Success;
+				Result.CheckpointInfo.CheckpointIndex = FReplayCheckpointInfo::NO_CHECKPOINT;
+				Result.CheckpointInfo.CheckpointStartTime = FReplayCheckpointInfo::NO_CHECKPOINT;
 
 				Delegate.ExecuteIfBound( Result );
 
@@ -1820,11 +1823,12 @@ void FLocalFileNetworkReplayStreamer::GotoCheckpointIndex(const int32 Checkpoint
 			CheckpointAr.Buffer = MoveTemp(RequestData.DataBuffer);
 			CheckpointAr.Pos = 0;
 
-			int32 DataChunkIndex = FCString::Atoi(*CurrentReplayInfo.Checkpoints[CheckpointIndex].Metadata);
+			const FLocalFileEventInfo& Checkpoint = CurrentReplayInfo.Checkpoints[CheckpointIndex];
+			int32 DataChunkIndex = FCString::Atoi(*Checkpoint.Metadata);
 
 			if (CurrentReplayInfo.DataChunks.IsValidIndex(DataChunkIndex))
 			{
-				bool bIsDataAvailableForTimeRange = IsDataAvailableForTimeRange(CurrentReplayInfo.Checkpoints[CheckpointIndex].Time1, LastGotoTimeInMS);
+				bool bIsDataAvailableForTimeRange = IsDataAvailableForTimeRange(Checkpoint.Time1, LastGotoTimeInMS);
 
 				if (!bIsDataAvailableForTimeRange)
 				{
@@ -1859,22 +1863,24 @@ void FLocalFileNetworkReplayStreamer::GotoCheckpointIndex(const int32 Checkpoint
 				UE_LOG( LogLocalFileReplay, Warning, TEXT("FLocalFileNetworkReplayStreamer::GotoCheckpointIndex. Clamped to checkpoint: %i"), LastGotoTimeInMS );
 
 				// If we want to fast forward past the end of a stream, clamp to the checkpoint
-				StreamTimeRange = TInterval<uint32>(CurrentReplayInfo.Checkpoints[CheckpointIndex].Time1, CurrentReplayInfo.Checkpoints[CheckpointIndex].Time1);
+				StreamTimeRange = TInterval<uint32>(Checkpoint.Time1, Checkpoint.Time1);
 				LastGotoTimeInMS = -1;
 			}
 
 			if ( LastGotoTimeInMS >= 0 )
 			{
 				// If we are fine scrubbing, make sure to wait on the part of the stream that is needed to do this in one frame
-				SetHighPriorityTimeRange(CurrentReplayInfo.Checkpoints[CheckpointIndex].Time1, LastGotoTimeInMS);
+				SetHighPriorityTimeRange(Checkpoint.Time1, LastGotoTimeInMS);
 
 				// Subtract off starting time so we pass in the leftover to the engine to fast forward through for the fine scrubbing part
-				LastGotoTimeInMS -= CurrentReplayInfo.Checkpoints[CheckpointIndex].Time1;
+				LastGotoTimeInMS -= Checkpoint.Time1;
 			}
 
 			// Notify game code of success
 			RequestData.DelegateResult.Result = EStreamingOperationResult::Success;
 			RequestData.DelegateResult.ExtraTimeMS = LastGotoTimeInMS;
+			RequestData.DelegateResult.CheckpointInfo.CheckpointIndex = CheckpointIndex;
+			RequestData.DelegateResult.CheckpointInfo.CheckpointStartTime = Checkpoint.Time1;
 
 			Delegate.ExecuteIfBound(RequestData.DelegateResult);
 

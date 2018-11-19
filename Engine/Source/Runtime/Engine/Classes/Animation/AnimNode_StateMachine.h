@@ -33,12 +33,6 @@ struct FAnimationActiveTransitionEntry
 	// Duration of this cross-fade (may be shorter than the nominal duration specified by the state machine if the target state had non-zero weight at the start)
 	float CrossfadeDuration;
 
-	// Type of blend to use
-	EAlphaBlendOption BlendOption;
-
-	// Is this transition active?
-	bool bActive;
-
 	// Cached Pose for this transition
 	TArray<FTransform> InputPose;
 
@@ -57,8 +51,6 @@ struct FAnimationActiveTransitionEntry
 
 	int32 InterruptNotify;
 	
-	TEnumAsByte<ETransitionLogicType::Type> LogicType;
-
 	TArray<FAnimNode_TransitionPoseEvaluator*> PoseEvaluators;
 
 	// Blend data used for per-bone animation evaluation
@@ -66,9 +58,22 @@ struct FAnimationActiveTransitionEntry
 
 	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
 
+protected:
+	// Blend object to handle alpha interpolation
+	FAlphaBlend Blend;
+
+public:
 	// Blend profile to use for this transition. Specifying this will make the transition evaluate per-bone
 	UPROPERTY()
 	UBlendProfile* BlendProfile;
+
+	// Type of blend to use
+	EAlphaBlendOption BlendOption;
+
+	TEnumAsByte<ETransitionLogicType::Type> LogicType;
+
+	// Is this transition active?
+	bool bActive;
 
 public:
 	FAnimationActiveTransitionEntry();
@@ -86,9 +91,6 @@ public:
 protected:
 	float CalculateInverseAlpha(EAlphaBlendOption BlendMode, float InFraction) const;
 	float CalculateAlpha(float InFraction) const;
-
-	// Blend object to handle alpha interpolation
-	FAlphaBlend Blend;
 };
 
 USTRUCT()
@@ -138,6 +140,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = Settings)
 	bool bReinitializeOnBecomingRelevant;
 
+private:
+	// true if it is the first update.
+	bool bFirstUpdate;
+
 public:
 
 	int32 GetCurrentState() const
@@ -155,19 +161,17 @@ public:
 	bool IsTransitionActive(int32 TransIndex) const;
 
 protected:
-	// The state machine description this is an instance of
-	const FBakedAnimationStateMachine* PRIVATE_MachineDescription;
-
 	// The current state within the state machine
-	UPROPERTY()
 	int32 CurrentState;
 
 	// Elapsed time since entering the current state
-	UPROPERTY()
 	float ElapsedTime;
 
 	// Current Transition Index being evaluated
 	int32 EvaluatingTransitionIndex;
+
+	// The state machine description this is an instance of
+	const FBakedAnimationStateMachine* PRIVATE_MachineDescription;
 
 	// The set of active transitions, if there are any
 	TArray<FAnimationActiveTransitionEntry> ActiveTransitionArray;
@@ -185,9 +189,6 @@ protected:
 	TArray<FOnGraphStateChanged> OnGraphStatesExited;
 
 private:
-	// true if it is the first update.
-	bool bFirstUpdate;
-
 	TArray<FPoseContext*> StateCachedPoses;
 
 	FGraphTraversalCounter UpdateCounter;
@@ -200,10 +201,10 @@ public:
 		, MaxTransitionsPerFrame(3)
 		, bSkipFirstUpdateTransition(true)
 		, bReinitializeOnBecomingRelevant(true)
-		, PRIVATE_MachineDescription(NULL)
+		, bFirstUpdate(true)
 		, CurrentState(INDEX_NONE)
 		, ElapsedTime(0.0f)
-		, bFirstUpdate(true)
+		, PRIVATE_MachineDescription(NULL)
 	{
 	}
 

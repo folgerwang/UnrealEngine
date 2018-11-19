@@ -24,6 +24,20 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DrawDebugHelpers.h"
 
+
+namespace FGameplayDebuggerCategoryTweakables
+{
+	int32 bDrawOverheadIcons = 1;
+}
+
+namespace
+{
+	FAutoConsoleVariableRef CVars_GameplayDebuggerCategory_AI[] = {
+		FAutoConsoleVariableRef(TEXT("ai.debug.DrawOverheadIcons"), FGameplayDebuggerCategoryTweakables::bDrawOverheadIcons, TEXT("Should default AI overhead icons be drawn"), ECVF_Default)
+	};
+}
+
+
 FGameplayDebuggerCategory_AI::FGameplayDebuggerCategory_AI()
 {
 	bShowOnlyWithDebugActor = false;
@@ -289,7 +303,11 @@ void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGamepla
 	const bool bReducedMode = IsSimulateInEditor();
 	bShowCategoryName = !bReducedMode || DataPack.bHasController;
 
-	DrawPawnIcons(MyWorld, SelectedActor, OwnerPC->GetPawn(), CanvasContext);
+	if (FGameplayDebuggerCategoryTweakables::bDrawOverheadIcons)
+	{
+		DrawPawnIcons(MyWorld, SelectedActor, OwnerPC->GetPawn(), CanvasContext);
+	}
+	
 	if (SelectedActor)
 	{
 		DrawOverheadInfo(*SelectedActor, CanvasContext);

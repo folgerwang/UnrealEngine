@@ -25,7 +25,7 @@ public:
 	/** Sets the constraint id for this section */
 	virtual void SetConstraintId(const FGuid& InId);
 
-	DEPRECATED(4.18, "Constraint guid no longer supported, Use GetConstraintBindingID.")
+	UE_DEPRECATED(4.18, "Constraint guid no longer supported, Use GetConstraintBindingID.")
 	virtual FGuid GetConstraintId() const;
 
 	/** Gets the constraint binding for this Constraint section */

@@ -586,11 +586,14 @@ void UCrowdFollowingComponent::OnLanded()
 	// don't check overshot in the same frame, AI may require turning back after landing
 	bCanCheckMovingTooFar = false;
 
-	UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
-	if (IsCrowdSimulationEnabled() && CrowdManager)
+	if (IsCrowdSimulationEnabled())
 	{
-		const ICrowdAgentInterface* IAgent = Cast<ICrowdAgentInterface>(this);
-		CrowdManager->UpdateAgentState(IAgent);
+		UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
+		if (CrowdManager)
+		{
+			const ICrowdAgentInterface* IAgent = Cast<ICrowdAgentInterface>(this);
+			CrowdManager->UpdateAgentState(IAgent);
+		}
 	}
 }
 
@@ -1010,10 +1013,8 @@ void UCrowdFollowingComponent::FollowPathSegment(float DeltaTime)
 	if (!IsCrowdSimulationEnabled())
 	{
 		Super::FollowPathSegment(DeltaTime);
-		return;
 	}
-
-	if (bUpdateDirectMoveVelocity)
+	else if (bUpdateDirectMoveVelocity)
 	{
 		const FVector CurrentTargetPt = DestinationActor.IsValid() ? DestinationActor->GetActorLocation() : GetCurrentTargetLocation();
 		const FVector AgentLoc = GetCrowdAgentLocation();

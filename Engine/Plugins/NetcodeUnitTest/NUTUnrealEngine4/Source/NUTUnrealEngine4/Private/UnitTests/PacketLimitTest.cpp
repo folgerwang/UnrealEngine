@@ -178,7 +178,7 @@ void UUnitTestNetConnection::ValidateSendBuffer()
 				IpConn->FlushNet();
 
 
-				FOutBunch* TestBunch = MinClient->CreateChannelBunch(CHTYPE_Control, 0);
+				FOutBunch* TestBunch = MinClient->CreateChannelBunchByName(NAME_Control, 0);
 
 				if (TestBunch != nullptr)
 				{

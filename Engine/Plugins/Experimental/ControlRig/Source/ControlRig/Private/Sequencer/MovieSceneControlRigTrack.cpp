@@ -38,6 +38,11 @@ void UMovieSceneControlRigTrack::AddNewControlRig(FFrameNumber KeyTime, UControl
 	AddSection(*NewSection);
 }
 
+bool UMovieSceneControlRigTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneControlRigSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneControlRigTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneControlRigSection>(this, NAME_None, RF_Transactional);

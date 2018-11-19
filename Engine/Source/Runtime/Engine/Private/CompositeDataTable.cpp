@@ -109,7 +109,8 @@ void UCompositeDataTable::UpdateCachedRowMap()
 		if (bParentsHaveDifferentRowStruct)
 		{
 			// warn in editor
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("ParentsIncludesOtherRowStructError", "Parent tables must have the same row struct as this table. Please fix your data. See log for details."));
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("ParentsIncludesOtherRowStructError", "Composite table '{0}' must have the same row struct as it's parent tables. See output log for list of invalid rows."),
+				FText::FromString(GetName())));
 		}
 	}
 #if WITH_EDITOR

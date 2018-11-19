@@ -279,3 +279,92 @@ FScopedTargetListLock::~FScopedTargetListLock()
 {
 	GameplayAbility.DecrementListLock();
 }
+
+
+// ----------------------------------------------------
+
+
+TSharedPtr<FAbilityReplicatedDataCache> FGameplayAbilityReplicatedDataContainer::Find(const FGameplayAbilitySpecHandleAndPredictionKey& Key) const
+{
+	for (const FKeyDataPair& Pair : InUseData)
+	{
+		if (Pair.Key == Key)
+		{
+			return Pair.Value;
+		}
+	}
+
+	return TSharedPtr<FAbilityReplicatedDataCache>();
+}
+
+TSharedRef<FAbilityReplicatedDataCache> FGameplayAbilityReplicatedDataContainer::FindOrAdd(const FGameplayAbilitySpecHandleAndPredictionKey& Key)
+{
+	// Search for existing
+	for (const FKeyDataPair& Pair : InUseData)
+	{
+		if (Pair.Key == Key)
+		{
+			return Pair.Value;
+		}
+	}
+
+	// Add New
+	TSharedPtr<FAbilityReplicatedDataCache> SharedPtr;
+	
+	// Look for one to reuse in FreeData.
+	for (int32 i=FreeData.Num()-1; i>=0; --i)
+	{
+		TSharedRef<FAbilityReplicatedDataCache>& FreeRef = FreeData[i];
+		if (FreeRef.IsUnique()) // Only reuse if we are the only one hanging on
+		{
+			SharedPtr = FreeRef;
+
+			// Reset it first (don't do this during remove or you will clear invocation lists of delegates that are being invoked!)
+			SharedPtr->ResetAll();
+
+			FreeData.RemoveAtSwap(i, 1, false);
+			break;
+		}
+	}
+
+	// Just allocate one if none available in the free list
+	if (SharedPtr.IsValid() == false)
+	{
+		SharedPtr = TSharedPtr<FAbilityReplicatedDataCache>(new FAbilityReplicatedDataCache());
+	}
+
+
+	TSharedRef<FAbilityReplicatedDataCache> SharedRef = SharedPtr.ToSharedRef();
+	InUseData.Emplace(Key, SharedRef);
+	return SharedRef;
+}
+
+void FGameplayAbilityReplicatedDataContainer::Remove(const FGameplayAbilitySpecHandleAndPredictionKey& Key)
+{
+	for (int32 i=InUseData.Num()-1; i >= 0; --i)
+	{
+		if (Key == InUseData[i].Key)
+		{
+			TSharedRef<FAbilityReplicatedDataCache>& RemovedElement = InUseData[i].Value;
+
+			// Add it to the free list
+			FreeData.Add(RemovedElement);
+
+			InUseData.RemoveAtSwap(i, 1, false);
+			break;
+		}
+	}
+}
+
+void FGameplayAbilityReplicatedDataContainer::PrintDebug()
+{
+	ABILITY_LOG(Warning, TEXT("============================="));
+	for (auto& Pair : InUseData)
+	{
+		ABILITY_LOG(Warning, TEXT("  %s. %d"), *Pair.Key.AbilityHandle.ToString(), Pair.Key.PredictionKeyAtCreation);
+	}
+
+	ABILITY_LOG(Warning, TEXT("In Use Size: %d Free Size: %d"), InUseData.Num(), FreeData.Num());
+	ABILITY_LOG(Warning, TEXT("============================="));
+}
+

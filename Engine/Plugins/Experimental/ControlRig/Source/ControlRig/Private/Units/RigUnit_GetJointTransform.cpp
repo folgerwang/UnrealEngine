@@ -15,28 +15,15 @@ void FRigUnit_GetJointTransform::Execute(const FRigUnitContext& InContext)
 			FTransform GlobalTransform;
 			switch (Type)
 			{
-			case ETransformGetterType::Initial_Local:
-				{
-					FTransform CurrentTransform = Hierarchy->GetInitialTransform(Index);
-					const int32 ParentIndex = Hierarchy->GetParentIndex(Index);
-					FTransform ParentTransform = (ParentIndex != INDEX_NONE)? Hierarchy->GetInitialTransform(ParentIndex) : FTransform::Identity;
-					Output = CurrentTransform.GetRelativeTransform(ParentTransform);
-					break;
-				}
-			case ETransformGetterType::Current_Local:
-				{
-					Output = Hierarchy->GetLocalTransform(Index);
-					break;
-				}
 			case ETransformGetterType::Current:
 				{
-					Output = Hierarchy->GetGlobalTransform(Index);
+					Output = Hierarchy->GetGlobalTransform(Index).GetRelativeTransform(GetBaseTransform(Index, Hierarchy, false));
 					break;
 				}
 			case ETransformGetterType::Initial:
 			default:
 				{
-					Output = Hierarchy->GetInitialTransform(Index);
+					Output = Hierarchy->GetInitialTransform(Index).GetRelativeTransform(GetBaseTransform(Index, Hierarchy, true));
 					break;
 				}
 			}
@@ -49,4 +36,19 @@ void FRigUnit_GetJointTransform::Execute(const FRigUnitContext& InContext)
 			UnitLogHelpers::PrintMissingHierarchy(RigUnitName);
 		}
 	}
+}
+
+FTransform FRigUnit_GetJointTransform::GetBaseTransform(int32 JointIndex, const FRigHierarchy* CurrentHierarchy, bool bUseInitial) const
+{
+	if (bUseInitial)
+	{
+		return UtilityHelpers::GetBaseTransformByMode(TransformSpace, [CurrentHierarchy](const FName& JointName) { return CurrentHierarchy->GetInitialTransform(JointName); },
+			CurrentHierarchy->Joints[JointIndex].ParentName, BaseJoint, BaseTransform);
+	}
+	else
+	{
+		return UtilityHelpers::GetBaseTransformByMode(TransformSpace, [CurrentHierarchy](const FName& JointName) { return CurrentHierarchy->GetGlobalTransform(JointName); },
+			CurrentHierarchy->Joints[JointIndex].ParentName, BaseJoint, BaseTransform);
+	}
+
 }

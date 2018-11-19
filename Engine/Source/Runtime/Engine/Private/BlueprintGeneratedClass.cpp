@@ -28,12 +28,21 @@
 #endif //WITH_EDITOR
 
 DEFINE_STAT(STAT_PersistentUberGraphFrameMemory);
+DEFINE_STAT(STAT_BPCompInstancingFastPathMemory);
 
 int32 GBlueprintClusteringEnabled = 0;
 static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 	TEXT("gc.BlueprintClusteringEnabled"),
 	GBlueprintClusteringEnabled,
 	TEXT("Whether to allow Blueprint classes to create GC clusters."),
+	ECVF_Default
+);
+
+int32 GBlueprintComponentInstancingFastPathDisabled = 0;
+static FAutoConsoleVariableRef CVarBlueprintComponentInstancingFastPathDisabled(
+	TEXT("bp.ComponentInstancingFastPathDisabled"),
+	GBlueprintComponentInstancingFastPathDisabled,
+	TEXT("Disable the Blueprint component instancing fast path."),
 	ECVF_Default
 );
 
@@ -45,6 +54,7 @@ UBlueprintGeneratedClass::UBlueprintGeneratedClass(const FObjectInitializer& Obj
 {
 	NumReplicatedProperties = 0;
 	bHasNativizedParent = false;
+	bHasCookedComponentInstancingData = false;
 	bCustomPropertyListForPostConstructionInitialized = false;
 }
 
@@ -306,8 +316,9 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 		// @TODO - Potentially make this serializable (or cooked data) to eliminate the slight load time cost we'll incur below to generate this list in a cooked build. For now, it's not serialized since the raw UProperty references cannot be saved out.
 		UpdateCustomPropertyListForPostConstruction();
 
-		// Generate "fast path" instancing data for inherited SCS node templates.
-		if (InheritableComponentHandler)
+		// Generate "fast path" instancing data for inherited SCS node templates. This data may also be used to support inherited SCS component default value overrides
+		// in a nativized, cooked build, in which this Blueprint class inherits from a nativized Blueprint parent. See CheckAndApplyComponentTemplateOverrides() below.
+		if (InheritableComponentHandler && (bHasCookedComponentInstancingData || bHasNativizedParent))
 		{
 			for (auto RecordIt = InheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
 			{
@@ -318,29 +329,35 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 			}
 		}
 
-		// Generate "fast path" instancing data for SCS node templates owned by this Blueprint class.
-		if (SimpleConstructionScript)
+		if (bHasCookedComponentInstancingData)
 		{
-			const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
-			for (USCS_Node* SCSNode : AllSCSNodes)
+			// Generate "fast path" instancing data for SCS node templates owned by this Blueprint class.
+			if (SimpleConstructionScript)
 			{
-				if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
+				const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
+				for (USCS_Node* SCSNode : AllSCSNodes)
 				{
-					SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
+					if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
+					{
+						SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
+					}
 				}
 			}
-		}
 
-		// Generate "fast path" instancing data for UCS/AddComponent node templates.
-		if (CookedComponentInstancingData.Num() > 0)
-		{
-			for (UActorComponent* ComponentTemplate : ComponentTemplates)
+			// Generate "fast path" instancing data for UCS/AddComponent node templates.
+			if (CookedComponentInstancingData.Num() > 0)
 			{
-				if (ComponentTemplate)
+				for (UActorComponent* ComponentTemplate : ComponentTemplates)
 				{
-					if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+					if (ComponentTemplate)
 					{
-						ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
+						if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+						{
+							if (ComponentInstancingData->bIsValid)
+							{
+								ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
+							}
+						}
 					}
 				}
 			}
@@ -974,7 +991,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		return;
 	}
 
-	FName NewName(*UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName()));
+	FName NewName = TimelineTemplate->GetVariableName();
 	UTimelineComponent* NewTimeline = NewObject<UTimelineComponent>(Actor, NewName);
 	NewTimeline->CreationMethod = EComponentCreationMethod::UserConstructionScript; // Indicate it comes from a blueprint so it gets cleared when we rerun construction scripts
 	Actor->BlueprintCreatedComponents.Add(NewTimeline); // Add to array so it gets saved
@@ -988,7 +1005,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 
 	// Find property with the same name as the template and assign the new Timeline to it
 	UClass* ActorClass = Actor->GetClass();
-	UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(ActorClass, *UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName()));
+	UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(ActorClass, TimelineTemplate->GetVariableName());
 	if (Prop)
 	{
 		Prop->SetObjectPropertyValue_InContainer(Actor, NewTimeline);
@@ -999,11 +1016,11 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 	for (int32 TrackIdx = 0; TrackIdx < TimelineTemplate->EventTracks.Num(); TrackIdx++)
 	{
 		const FTTEventTrack* EventTrackTemplate = &TimelineTemplate->EventTracks[TrackIdx];
-		if (EventTrackTemplate->CurveKeys != NULL)
+		if (EventTrackTemplate->CurveKeys != nullptr)
 		{
 			// Create delegate for all keys in this track
 			FScriptDelegate EventDelegate;
-			EventDelegate.BindUFunction(Actor, TimelineTemplate->GetEventTrackFunctionName(TrackIdx));
+			EventDelegate.BindUFunction(Actor, EventTrackTemplate->GetFunctionName());
 
 			// Create an entry in Events for each key of this track
 			for (auto It(EventTrackTemplate->CurveKeys->FloatCurve.GetKeyIterator()); It; ++It)
@@ -1019,7 +1036,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTFloatTrack* FloatTrackTemplate = &TimelineTemplate->FloatTracks[TrackIdx];
 		if (FloatTrackTemplate->CurveFloat != NULL)
 		{
-			NewTimeline->AddInterpFloat(FloatTrackTemplate->CurveFloat, FOnTimelineFloat(), TimelineTemplate->GetTrackPropertyName(FloatTrackTemplate->TrackName), FloatTrackTemplate->TrackName);
+			NewTimeline->AddInterpFloat(FloatTrackTemplate->CurveFloat, FOnTimelineFloat(), FloatTrackTemplate->GetPropertyName(), FloatTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1029,7 +1046,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTVectorTrack* VectorTrackTemplate = &TimelineTemplate->VectorTracks[TrackIdx];
 		if (VectorTrackTemplate->CurveVector != NULL)
 		{
-			NewTimeline->AddInterpVector(VectorTrackTemplate->CurveVector, FOnTimelineVector(), TimelineTemplate->GetTrackPropertyName(VectorTrackTemplate->TrackName), VectorTrackTemplate->TrackName);
+			NewTimeline->AddInterpVector(VectorTrackTemplate->CurveVector, FOnTimelineVector(), VectorTrackTemplate->GetPropertyName(), VectorTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1039,7 +1056,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTLinearColorTrack* LinearColorTrackTemplate = &TimelineTemplate->LinearColorTracks[TrackIdx];
 		if (LinearColorTrackTemplate->CurveLinearColor != NULL)
 		{
-			NewTimeline->AddInterpLinearColor(LinearColorTrackTemplate->CurveLinearColor, FOnTimelineLinearColor(), TimelineTemplate->GetTrackPropertyName(LinearColorTrackTemplate->TrackName), LinearColorTrackTemplate->TrackName);
+			NewTimeline->AddInterpLinearColor(LinearColorTrackTemplate->CurveLinearColor, FOnTimelineLinearColor(), LinearColorTrackTemplate->GetPropertyName(), LinearColorTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1113,6 +1130,11 @@ void UBlueprintGeneratedClass::CreateComponentsForActor(const UClass* ThisClass,
 			}
 		}
 	}
+}
+
+bool UBlueprintGeneratedClass::UseFastPathComponentInstancing()
+{
+	return bHasCookedComponentInstancingData && FPlatformProperties::RequiresCookedData() && !GBlueprintComponentInstancingFastPathDisabled;
 }
 
 void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* InClassDefaultObject)
@@ -1587,6 +1609,12 @@ void UBlueprintGeneratedClass::GetLifetimeBlueprintReplicationList(TArray<FLifet
 	}
 }
 
+FBlueprintCookedComponentInstancingData::~FBlueprintCookedComponentInstancingData()
+{
+	DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
+	DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyListForSerialization.GetAllocatedSize());
+}
+
 void FBlueprintCookedComponentInstancingData::BuildCachedPropertyList(FCustomPropertyListNode** CurrentNode, const UStruct* CurrentScope, int32* CurrentSourceIdx) const
 {
 	int32 LocalSourceIdx = 0;
@@ -1672,6 +1700,8 @@ const FCustomPropertyListNode* FBlueprintCookedComponentInstancingData::GetCache
 
 		// Kick off construction of the cached property list.
 		BuildCachedPropertyList(&PropertyListRootNode, ComponentTemplateClass);
+
+		INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyListForSerialization.GetAllocatedSize());
 	}
 	else if (CachedPropertyListForSerialization.Num() > 0)
 	{
@@ -1720,9 +1750,19 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyDataFromTemplat
 			// This will also load the cached property list, if necessary.
 			const FCustomPropertyListNode* PropertyList = GetCachedPropertyList();
 
+			// Make sure we don't have any previously-built data.
+			if (!ensure(CachedPropertyData.Num() == 0))
+			{
+				DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
+
+				CachedPropertyData.Empty();
+			}
+
 			// Write template data out to the "fast path" buffer. All dependencies will be loaded at this point.
 			FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyData, PropertyList);
 			SourceTemplate->Serialize(InstanceDataWriter);
+
+			INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
 		}
 		else
 		{

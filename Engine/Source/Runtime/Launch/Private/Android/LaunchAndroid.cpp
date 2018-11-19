@@ -308,6 +308,8 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 //Main function called from the android entry point
 int32 AndroidMain(struct android_app* state)
 {
+	BootTimingPoint("AndroidMain");
+
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entered AndroidMain()\n"));
 
 	// Force the first call to GetJavaEnv() to happen on the game thread, allowing subsequent calls to occur on any thread
@@ -378,10 +380,13 @@ int32 AndroidMain(struct android_app* state)
 	}
 
 	// wait for java activity onCreate to finish
-	while (!GResumeMainInit)
 	{
-		FPlatformProcess::Sleep(0.01f);
-		FPlatformMisc::MemoryBarrier();
+		SCOPED_BOOT_TIMING("Wait for GResumeMainInit");
+		while (!GResumeMainInit)
+		{
+			FPlatformProcess::Sleep(0.01f);
+			FPlatformMisc::MemoryBarrier();
+		}
 	}
 
 	// read the command line file
@@ -401,10 +406,13 @@ int32 AndroidMain(struct android_app* state)
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
 	//wait for re-creating the native window, if previously destroyed by onStop()
-	while (FAndroidWindow::GetHardwareWindow() == nullptr)
 	{
-		FPlatformProcess::Sleep(0.01f);
-		FPlatformMisc::MemoryBarrier();
+		SCOPED_BOOT_TIMING("Wait for FAndroidWindow::GetHardwareWindow()");
+		while (FAndroidWindow::GetHardwareWindow() == nullptr)
+		{
+			FPlatformProcess::Sleep(0.01f);
+			FPlatformMisc::MemoryBarrier();
+		}
 	}
 
 	// initialize the engine
@@ -417,20 +425,26 @@ int32 AndroidMain(struct android_app* state)
 	}
 
 	// initialize HMDs
-	InitHMDs();
+	{
+		SCOPED_BOOT_TIMING("InitHMDs");
+		InitHMDs();
+	}
 
 	UE_LOG(LogAndroid, Display, TEXT("Passed PreInit()"));
 
 	GLog->SetCurrentThreadAsMasterThread();
 
-	GEngineLoop.Init();
+	FAppEventManager::GetInstance()->SetEmptyQueueHandlerEvent(FPlatformProcess::GetSynchEventFromPool(false));
+
+	{
+		SCOPED_BOOT_TIMING("GEngineLoop.Init()");
+		GEngineLoop.Init();
+	}
 	bDidCompleteEngineInit = true;
 
 	UE_LOG(LogAndroid, Log, TEXT("Passed GEngineLoop.Init()"));
 
 	AndroidThunkCpp_DismissSplashScreen();
-
-	FAppEventManager::GetInstance()->SetEmptyQueueHandlerEvent(FPlatformProcess::GetSynchEventFromPool(false));
 
 #if !UE_BUILD_SHIPPING
 	if (FParse::Param(FCommandLine::Get(), TEXT("Messaging")))
@@ -445,6 +459,8 @@ int32 AndroidMain(struct android_app* state)
 	}
 #endif
 
+	BootTimingPoint("Tick loop starting");
+	DumpBootTiming();
 	// tick until done
 	while (!GIsRequestingExit)
 	{
@@ -657,6 +673,7 @@ struct android_app* GNativeAndroidApp = NULL;
 
 void android_main(struct android_app* state)
 {
+	BootTimingPoint("android_main");
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering native app glue main function"));
 	
 	GNativeAndroidApp = state;

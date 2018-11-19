@@ -91,24 +91,24 @@ void UK2Node_Timeline::AllocateDefaultPins()
 
 		for (const FTTFloatTrack& FloatTrack : Timeline->FloatTracks)
 		{
-			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Float, FloatTrack.TrackName);			
+			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Float, FloatTrack.GetTrackName());			
 		}
 
 		UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
 		for (const FTTVectorTrack& VectorTrack : Timeline->VectorTracks)
 		{
-			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, VectorStruct, VectorTrack.TrackName);			
+			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, VectorStruct, VectorTrack.GetTrackName());			
 		}
 
 		UScriptStruct* LinearColorStruct = TBaseStructure<FLinearColor>::Get();
 		for (const FTTLinearColorTrack& LinearColorTrack : Timeline->LinearColorTracks)
 		{
-			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, LinearColorStruct, LinearColorTrack.TrackName);			
+			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, LinearColorStruct, LinearColorTrack.GetTrackName());			
 		}
 
 		for (const FTTEventTrack& EventTrack : Timeline->EventTracks)
 		{
-			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, EventTrack.TrackName);
+			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, EventTrack.GetTrackName());
 		}
 
 		// cache play status
@@ -428,7 +428,7 @@ void FindExactTimelineDifference(struct FDiffResults& Results, FDiffSingleResult
 	{
 		if(!(Tracks1[i] == Tracks2[i]))
 		{
-			FName TrackName = Tracks2[i].TrackName;
+			FName TrackName = Tracks2[i].GetTrackName();
 			FText NodeName = Result.Node1->GetNodeTitle(ENodeTitleType::ListView);
 
 			FFormatNamedArguments Args;
@@ -577,22 +577,19 @@ void UK2Node_Timeline::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGr
 	{
 		ExpandForPin(GetDirectionPin(), Timeline->GetDirectionPropertyName(), CompilerContext, SourceGraph);
 
-		for(int32 i=0; i<Timeline->FloatTracks.Num(); i++)
+		for (const FTTFloatTrack& FloatTrack : Timeline->FloatTracks)
 		{
-			const FName TrackName = Timeline->FloatTracks[i].TrackName;
-			ExpandForPin(FindPin(TrackName), Timeline->GetTrackPropertyName(TrackName), CompilerContext, SourceGraph);
+			ExpandForPin(FindPin(FloatTrack.GetTrackName()), FloatTrack.GetPropertyName(), CompilerContext, SourceGraph);
 		}
 
-		for(int32 i=0; i<Timeline->VectorTracks.Num(); i++)
+		for (const FTTVectorTrack& VectorTrack : Timeline->VectorTracks)
 		{
-			const FName TrackName = Timeline->VectorTracks[i].TrackName;
-			ExpandForPin(FindPin(TrackName), Timeline->GetTrackPropertyName(TrackName), CompilerContext, SourceGraph);
+			ExpandForPin(FindPin(VectorTrack.GetTrackName()), VectorTrack.GetPropertyName(), CompilerContext, SourceGraph);
 		}
 
-		for(int32 i=0; i<Timeline->LinearColorTracks.Num(); i++)
+		for (const FTTLinearColorTrack& LinearColorTrack : Timeline->LinearColorTracks)
 		{
-			const FName TrackName = Timeline->LinearColorTracks[i].TrackName;
-			ExpandForPin(FindPin(TrackName), Timeline->GetTrackPropertyName(TrackName), CompilerContext, SourceGraph);
+			ExpandForPin(FindPin(LinearColorTrack.GetTrackName()), LinearColorTrack.GetPropertyName(), CompilerContext, SourceGraph);
 		}
 	}
 }

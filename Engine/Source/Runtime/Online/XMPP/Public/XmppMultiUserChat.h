@@ -145,22 +145,40 @@ public:
 
 	explicit FXmppChatMember(const FXmppMucPresence& MemberPresence)
 		: Nickname(MemberPresence.GetNickName())
-		, MemberJid(MemberPresence.UserJid)
+		, RoomMemberJid(MemberPresence.UserJid)
+		, UserJid(MemberPresence.MemberJid)
 		, UserPresence(MemberPresence)
 		, Affiliation(EXmppChatMemberAffiliation::ToType(MemberPresence.Affiliation))
 		, Role(EXmppChatMemberRole::ToType(MemberPresence.Role))
 	{
 	}
 
+	/** Nickname of the user */
 	FString Nickname;
-	FXmppUserJid MemberJid;
+	/**
+	 * JID of the member for the chat room
+	 * Use this to identify the user in the chat room (such as iterating the chat room's members)
+	 * ex: RoomId@MucDomain/MemberMucResource
+	 */
+	FXmppUserJid RoomMemberJid;
+	/**
+	 * JID of the member outside of the chat room, if the room is non-anonymous. May be blank.
+	 * Use this to identify the user outside of the chat room (such as private messages)
+	 * ex: AccountId@Domain/Resource
+	 * @see https://xmpp.org/extensions/xep-0045.html#enter-nonanon
+	 */
+	FXmppUserJid UserJid;
+	/** Presence of the member */
 	FXmppUserPresence UserPresence;
+	/** Affiliation of the member in the chat room */
 	EXmppChatMemberAffiliation::Type Affiliation;
+	/** Role of the member in the chat room */
 	EXmppChatMemberRole::Type Role;
 
+	/** @return string representation of this object suitable for logging */
 	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("%s [%s] Role: %d"), *Nickname, *MemberJid.ToDebugString(), (int32)Affiliation);
+		return FString::Printf(TEXT("Nick=[%s] RoomMemberJid=[%s] UserJid=[%s] Affiliation=%d Role=%d"), *Nickname, *RoomMemberJid.ToDebugString(), *UserJid.ToDebugString(), static_cast<int32>(Affiliation), static_cast<int32>(Role));
 	}
 };
 
@@ -319,19 +337,25 @@ public:
 	/** @return exit room delegate */
 	virtual FOnXmppRoomExitComplete& OnExitRoom() = 0;
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberJoin, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*UserJid*/);
+	/**
+	 * Delegate when a member joins a room
+	 * @param Connection the XMPP connection
+	 * @param RoomId the ID of the room that a member joined
+	 * @param RoomMemberJid the JID the member that joined, used to lookup the member inside of the room
+	 */
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberJoin, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*RoomMemberJid*/);
 	/** @return room member joined room delegate */
 	virtual FOnXmppRoomMemberJoin& OnRoomMemberJoin() = 0;
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberExit, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*UserJid*/);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberExit, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*RoomMemberJid*/);
 	/** @return room member exited room delegate */
 	virtual FOnXmppRoomMemberExit& OnRoomMemberExit() = 0;
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberChanged, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*UserJid*/);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnXmppRoomMemberChanged, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*RoomMemberJid*/);
 	/** @return room member changed delegate */
 	virtual FOnXmppRoomMemberChanged& OnRoomMemberChanged() = 0;
 
-	DECLARE_MULTICAST_DELEGATE_FourParams(FOnXmppRoomChatReceived, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*UserJid*/, const TSharedRef<FXmppChatMessage>& /*ChatMsg*/);
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnXmppRoomChatReceived, const TSharedRef<IXmppConnection>& /*Connection*/, const FXmppRoomId& /*RoomId*/, const FXmppUserJid& /*RoomMemberJid*/, const TSharedRef<FXmppChatMessage>& /*ChatMsg*/);
 	/** @return chat room message received delegate */
 	virtual FOnXmppRoomChatReceived& OnRoomChatReceived() = 0;
 };

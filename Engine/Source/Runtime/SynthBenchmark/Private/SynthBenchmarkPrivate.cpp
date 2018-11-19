@@ -21,7 +21,9 @@ class FSynthBenchmark : public ISynthBenchmark
 	
 	/** ISynthBenchmark implementation */
 	virtual void Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, float WorkScale) const override;
+
 	virtual void GetRHIDisplay(FGPUAdpater& Out) const override;
+	virtual void GetRHIInfo(FGPUAdpater& Out, FString& RHIName) const override;
 };
 
 IMPLEMENT_MODULE( FSynthBenchmark, SynthBenchmark )
@@ -251,4 +253,18 @@ void FSynthBenchmark::GetRHIDisplay(FGPUAdpater& Out) const
 	WriteFStringToResults(Out.AdapterInternalDriverVersion, GRHIAdapterInternalDriverVersion);
 	WriteFStringToResults(Out.AdapterUserDriverVersion, GRHIAdapterUserDriverVersion);
 	WriteFStringToResults(Out.AdapterDriverDate, GRHIAdapterDriverDate);
+}
+
+void FSynthBenchmark::GetRHIInfo(FGPUAdpater& Out, FString& RHIName) const
+{
+	GetRHIDisplay(Out);
+
+	if (GDynamicRHI)
+	{
+		FTextureMemoryStats TextureMemStats;
+		RHIGetTextureMemoryStats(TextureMemStats);
+		WriteFStringToResults(Out.AdapterDedicatedMemoryMB, FString::FromInt(TextureMemStats.DedicatedVideoMemory / (1024*1024)));
+
+		RHIName = GDynamicRHI->GetName();
+	}
 }

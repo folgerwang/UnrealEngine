@@ -1835,7 +1835,7 @@ void FEasingContextMenu::EasingTypeMenu(FMenuBuilder& MenuBuilder)
 	FClassViewerModule& ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
 
 	FClassViewerInitializationOptions InitOptions;
-	InitOptions.bShowDisplayNames = true;
+	InitOptions.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	InitOptions.ClassFilter = MakeShared<FFilter>();
 
 	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed

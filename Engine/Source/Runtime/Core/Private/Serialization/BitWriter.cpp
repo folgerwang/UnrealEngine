@@ -27,7 +27,7 @@ FBitWriter::FBitWriter( int64 InMaxBits, bool InAllowResize /*=false*/ )
 {
 	Buffer.AddUninitialized( (InMaxBits+7)>>3 );
 
-	AllowResize = InAllowResize;
+	bAllowResize = InAllowResize;
 	FMemory::Memzero(Buffer.GetData(), Buffer.Num());
 	this->SetIsSaving(true);
 	this->SetIsPersistent(true);
@@ -42,7 +42,7 @@ FBitWriter::FBitWriter( int64 InMaxBits, bool InAllowResize /*=false*/ )
 FBitWriter::FBitWriter(void)
 	: Num(0)
 	, Max(0)
-	, AllowResize(false)
+	, bAllowResize(false)
 	, bAllowOverflow(false)
 {
 	this->SetIsSaving(true);
@@ -205,6 +205,59 @@ void FBitWriter::SetOverflowed(int32 LengthBits)
 	}
 
 	ArIsError = 1;
+}
+
+void FBitWriter::CountMemory(FArchive& Ar) const
+{
+	Buffer.CountBytes(Ar);
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+}
+
+/**
+ * This function is bit compatible with FArchive::SerializeIntPacked. It is more efficient
+ * as only a few bytes are written and the base version is best suited for writing many bytes.
+ * This version can be made more efficient and take less bits when we can break backward compatibility.
+ * The last byte will only need 4 bits so we're currently wasting 4 bits. Another way to pack
+ * could be to store 2 bits first in order to indicate how many bytes are needed. That
+ * would eliminate all shifting and masking to reconstruct the bytes. The downside is that
+ * values less than 2^14 will waste 1-2 bits compared to the below algorithm.
+ */
+void FBitWriter::SerializeIntPacked(uint32& InValue)
+{
+	uint32 Value = InValue;
+	uint32 BytesAsWords[5];
+	uint32 ByteCount = 0;
+	for (unsigned It = 0; (It == 0) | (Value != 0); ++It, Value = Value >> 7U)
+	{
+		const uint32 NextByteIndicator = (Value & ~0x7FU) != 0;
+		const uint32 ByteAsWord = ((Value & 0x7FU) << 1U) | NextByteIndicator;
+		BytesAsWords[ByteCount++] = ByteAsWord;
+	}
+
+	const int64 LengthBits = ByteCount * 8;
+	if (!AllowAppend(LengthBits))
+	{
+		SetOverflowed(LengthBits);
+		return;
+	}
+
+	const uint32 BitCountUsedInByte = Num & 7;
+	const uint32 BitCountLeftInByte = 8 - (Num & 7);
+	const uint8 DestMaskByte0 = uint8((1U << BitCountUsedInByte) - 1U);
+	const uint8 DestMaskByte1 = 0xFFU ^ DestMaskByte0;
+	const bool bStraddlesTwoBytes = (BitCountUsedInByte != 0);
+	uint8* Dest = Buffer.GetData() + (Num >> 3U);
+
+	Num += LengthBits;
+	for (uint32 ByteIt = 0; ByteIt != ByteCount; ++ByteIt)
+	{
+		const uint32 ByteAsWord = BytesAsWords[ByteIt];
+
+		*Dest = (*Dest & DestMaskByte0) | uint8(ByteAsWord << BitCountUsedInByte);
+		++Dest;
+		if (bStraddlesTwoBytes)
+			*Dest = (*Dest & DestMaskByte1) | uint8(ByteAsWord >> BitCountLeftInByte);
+	}
 }
 
 /*-----------------------------------------------------------------------------

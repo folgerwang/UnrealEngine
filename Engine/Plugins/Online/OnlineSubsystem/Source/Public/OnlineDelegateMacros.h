@@ -17,6 +17,10 @@ public: \
 	{ \
 		DelegateName##Delegates.Remove(Handle); \
 		Handle.Reset(); \
+	} \
+	virtual void Clear##DelegateName##Delegates(void* Object) \
+	{ \
+		DelegateName##Delegates.RemoveAll(Object); \
 	}
 
 #define DEFINE_ONLINE_DELEGATE(DelegateName) \
@@ -95,6 +99,13 @@ public: \
 		{ \
 			DelegateName##Delegates[LocalUserNum].Remove(Handle); \
 			Handle.Reset(); \
+		} \
+	} \
+	virtual void Clear##DelegateName##Delegates(int32 LocalUserNum, void* Object) \
+	{ \
+		if (LocalUserNum >= 0 && LocalUserNum < MaxPlayers) \
+		{ \
+			DelegateName##Delegates[LocalUserNum].RemoveAll(Object); \
 		} \
 	}
 

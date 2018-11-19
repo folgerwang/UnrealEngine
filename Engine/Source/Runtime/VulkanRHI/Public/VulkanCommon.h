@@ -14,7 +14,7 @@
 
 // This defines controls shader generation (so will cause a format rebuild)
 // be careful wrt cooker/target platform not matching define-wise!!!
-#define VULKAN_ENABLE_SHADER_DEBUG_NAMES		1
+#define VULKAN_ENABLE_SHADER_DEBUG_NAMES		0
 
 namespace ShaderStage
 {

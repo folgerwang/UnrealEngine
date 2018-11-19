@@ -278,7 +278,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdFacebook::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);
@@ -312,7 +312,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdFacebook::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);

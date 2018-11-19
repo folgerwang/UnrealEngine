@@ -22,21 +22,24 @@ class FSkeletalMeshLODModel;
 
 struct ExistingMeshLodSectionData
 {
-	ExistingMeshLodSectionData(FName InImportedMaterialSlotName, bool InbCastShadow, bool InbRecomputeTangents, int32 InGenerateUpTo)
+	ExistingMeshLodSectionData(FName InImportedMaterialSlotName, bool InbCastShadow, bool InbRecomputeTangents, int32 InGenerateUpTo, bool InbDisabled)
 	: ImportedMaterialSlotName(InImportedMaterialSlotName)
 	, bCastShadow(InbCastShadow)
 	, bRecomputeTangents(InbRecomputeTangents)
 	, GenerateUpTo(InGenerateUpTo)
+	, bDisabled(InbDisabled)
 	{}
 	FName ImportedMaterialSlotName;
 	bool bCastShadow;
 	bool bRecomputeTangents;
 	int32 GenerateUpTo;
+	bool bDisabled;
 };
 
 struct ExistingSkelMeshData
 {
 	TArray<USkeletalMeshSocket*>			ExistingSockets;
+	TArray<FReductionBaseSkeletalMeshBulkData*> ExistingOriginalReductionSourceMeshData;
 	TIndirectArray<FSkeletalMeshLODModel>	ExistingLODModels;
 	TArray<FSkeletalMeshLODInfo>			ExistingLODInfo;
 	FReferenceSkeleton						ExistingRefSkeleton;

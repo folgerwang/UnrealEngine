@@ -52,6 +52,11 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraShakeTrack::GetAllSections()
 	return CameraShakeSections;
 }
 
+bool UMovieSceneCameraShakeTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCameraShakeSection::StaticClass();
+}
+
 
 UMovieSceneSection* UMovieSceneCameraShakeTrack::CreateNewSection()
 {

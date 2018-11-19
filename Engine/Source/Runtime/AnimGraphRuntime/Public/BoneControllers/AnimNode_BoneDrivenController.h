@@ -51,10 +51,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	UPROPERTY(EditAnywhere, Category="Source (driver)")
 	FBoneReference SourceBone;
 
-	// Transform component to use as input
-	UPROPERTY(EditAnywhere, Category="Source (driver)")
-	TEnumAsByte<EComponentType::Type> SourceComponent;
-
 	/** Curve used to map from the source attribute to the driven attributes if present (otherwise the Multiplier will be used) */
 	UPROPERTY(EditAnywhere, Category=Mapping)
 	UCurveFloat* DrivingCurve;
@@ -62,10 +58,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	// Multiplier to apply to the input value (Note: Ignored when a curve is used)
 	UPROPERTY(EditAnywhere, Category=Mapping)
 	float Multiplier;
-
-	// Whether or not to clamp the driver value and remap it before scaling it
-	UPROPERTY(EditAnywhere, Category=Mapping, meta=(DisplayName="Remap Source"))
-	bool bUseRange;
 
 	// Minimum limit of the input value (mapped to RemappedMin, only used when limiting the source range)
 	// If this is rotation, the unit is radian
@@ -87,10 +79,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	UPROPERTY(EditAnywhere, Category = Mapping, meta = (EditCondition = bUseRange, DisplayName="Mapped Range Max"))
 	float RemappedMax;
 
-	// Type of destination to drive, currently either bone or morph target
-	UPROPERTY(EditAnywhere, Category = "Destination (driven)")
-	EDrivenDestinationMode DestinationMode;
-
 	/** Name of Morph Target to drive using the source attribute */
 	UPROPERTY(EditAnywhere, Category = "Destination (driven)")
 	FName ParameterName;
@@ -99,50 +87,64 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	UPROPERTY(EditAnywhere, Category="Destination (driven)")
 	FBoneReference TargetBone;
 
+#if WITH_EDITORONLY_DATA
 private:
 	UPROPERTY()
 	TEnumAsByte<EComponentType::Type> TargetComponent_DEPRECATED;
+#endif
 
 public:
-	// Affect the X component of translation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="X"))
-	uint32 bAffectTargetTranslationX : 1;
-
-	// Affect the Y component of translation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Y"))
-	uint32 bAffectTargetTranslationY : 1;
-
-	// Affect the Z component of translation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
-	uint32 bAffectTargetTranslationZ : 1;
-
-	// Affect the X component of rotation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="X"))
-	uint32 bAffectTargetRotationX : 1;
-
-	// Affect the Y component of rotation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Y"))
-	uint32 bAffectTargetRotationY : 1;
-
-	// Affect the Z component of rotation on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
-	uint32 bAffectTargetRotationZ : 1;
-
-	// Affect the X component of scale on the target bone
-	UPROPERTY(EditAnywhere, Category = "Destination (driven)", meta=(DisplayName="X"))
-	uint32 bAffectTargetScaleX : 1;
-
-	// Affect the Y component of scale on the target bone
-	UPROPERTY(EditAnywhere, Category = "Destination (driven)", meta=(DisplayName="Y"))
-	uint32 bAffectTargetScaleY : 1;
-
-	// Affect the Z component of scale on the target bone
-	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
-	uint32 bAffectTargetScaleZ : 1;
+	// Type of destination to drive, currently either bone or morph target
+	UPROPERTY(EditAnywhere, Category = "Destination (driven)")
+	EDrivenDestinationMode DestinationMode;
 
 	// The type of modification to make to the destination component(s)
 	UPROPERTY(EditAnywhere, Category="Destination (driven)")
 	EDrivenBoneModificationMode ModificationMode;
+
+	// Transform component to use as input
+	UPROPERTY(EditAnywhere, Category="Source (driver)")
+	TEnumAsByte<EComponentType::Type> SourceComponent;
+
+	// Whether or not to clamp the driver value and remap it before scaling it
+	UPROPERTY(EditAnywhere, Category=Mapping, meta=(DisplayName="Remap Source"))
+	uint8 bUseRange : 1;
+
+	// Affect the X component of translation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="X"))
+	uint8 bAffectTargetTranslationX : 1;
+
+	// Affect the Y component of translation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Y"))
+	uint8 bAffectTargetTranslationY : 1;
+
+	// Affect the Z component of translation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
+	uint8 bAffectTargetTranslationZ : 1;
+
+	// Affect the X component of rotation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="X"))
+	uint8 bAffectTargetRotationX : 1;
+
+	// Affect the Y component of rotation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Y"))
+	uint8 bAffectTargetRotationY : 1;
+
+	// Affect the Z component of rotation on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
+	uint8 bAffectTargetRotationZ : 1;
+
+	// Affect the X component of scale on the target bone
+	UPROPERTY(EditAnywhere, Category = "Destination (driven)", meta=(DisplayName="X"))
+	uint8 bAffectTargetScaleX : 1;
+
+	// Affect the Y component of scale on the target bone
+	UPROPERTY(EditAnywhere, Category = "Destination (driven)", meta=(DisplayName="Y"))
+	uint8 bAffectTargetScaleY : 1;
+
+	// Affect the Z component of scale on the target bone
+	UPROPERTY(EditAnywhere, Category="Destination (driven)", meta=(DisplayName="Z"))
+	uint8 bAffectTargetScaleZ : 1;
 
 public:
 	FAnimNode_BoneDrivenController();
@@ -157,8 +159,11 @@ public:
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
+#if WITH_EDITORONLY_DATA
 	// Upgrade a node from the output enum to the output bits (change made in FAnimationCustomVersion::BoneDrivenControllerMatchingMaya)
 	void ConvertTargetComponentToBits();
+#endif
+
 protected:
 	
 	// FAnimNode_SkeletalControlBase protected interface

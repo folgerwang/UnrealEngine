@@ -48,12 +48,12 @@ class ENGINE_API APlayerState : public AInfo
 	float Score;
 
 	/** Player name, or blank if none. */
-	DEPRECATED(4.19, "This property is now deprecated, please use GetPlayerName and SetPlayerName/SetPlayerNameInternal functions instead.")
+	UE_DEPRECATED(4.19, "This property is now deprecated, please use GetPlayerName and SetPlayerName/SetPlayerNameInternal functions instead.")
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	FString PlayerName;
 
 	/** Previous player name.  Saved on client-side to detect player name changes. */
-	DEPRECATED(4.19, "This property is now deprecated, please use GetOldPlayerName() function instead.")
+	UE_DEPRECATED(4.19, "This property is now deprecated, please use GetOldPlayerName() function instead.")
 	FString OldName;
 
 	/** Unique net id number. Actual value varies based on current online subsystem, use it only as a guaranteed unique number per player. */

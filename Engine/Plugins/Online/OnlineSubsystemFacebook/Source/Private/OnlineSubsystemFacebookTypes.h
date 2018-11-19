@@ -69,6 +69,12 @@ public:
 		return sizeof(uint64);
 	}
 
+	/** global static instance of invalid (zero) id */
+	static const TSharedRef<const FUniqueNetId>& EmptyId()
+	{
+		static const TSharedRef<const FUniqueNetId> EmptyId(MakeShared<FUniqueNetIdFacebook>());
+		return EmptyId;
+	}
 
 	virtual bool IsValid() const override
 	{

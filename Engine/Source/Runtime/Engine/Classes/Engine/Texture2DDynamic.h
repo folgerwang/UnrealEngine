@@ -70,10 +70,10 @@ public:
 	 */
 	ENGINE_API void Init(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat = PF_B8G8R8A8, bool InIsResolveTarget = false);
 
-	DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
+	UE_DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
 	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat);
 
-	DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
+	UE_DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
 	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat, bool InIsResolveTarget);
 
 	/** Creates and initializes a new Texture2DDynamic with the requested settings */

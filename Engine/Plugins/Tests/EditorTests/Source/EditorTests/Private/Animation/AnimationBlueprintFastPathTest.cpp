@@ -64,11 +64,11 @@ bool FCheckFastPathLatentCommand::Update()
 						{
 							if (Payload.bCheckEnabled)
 							{
-								if (AnimNode->EvaluateGraphExposedInputs.BoundFunction != NAME_None)
+								if (AnimNode->GetEvaluateGraphExposedInputs().BoundFunction != NAME_None)
 								{
-									UE_LOG(LogAnimBlueprintFastPathTests, Error, TEXT("Found blueprint VM call (%s) in fast-path Anim Blueprint (%s)"), *AnimNode->EvaluateGraphExposedInputs.BoundFunction.ToString(), *AnimBlueprint->GetName());
+									UE_LOG(LogAnimBlueprintFastPathTests, Error, TEXT("Found blueprint VM call (%s) in fast-path Anim Blueprint (%s)"), *AnimNode->GetEvaluateGraphExposedInputs().BoundFunction.ToString(), *AnimBlueprint->GetName());
 								}
-								for (FExposedValueCopyRecord& CopyRecord : AnimNode->EvaluateGraphExposedInputs.CopyRecords)
+								for (const FExposedValueCopyRecord& CopyRecord : AnimNode->GetEvaluateGraphExposedInputs().CopyRecords)
 								{
 									if (CopyRecord.SourcePropertyName == NAME_None)
 									{
@@ -104,11 +104,11 @@ bool FCheckFastPathLatentCommand::Update()
 							}
 							else
 							{
-								if (AnimNode->EvaluateGraphExposedInputs.BoundFunction == NAME_None)
+								if (AnimNode->GetEvaluateGraphExposedInputs().BoundFunction == NAME_None)
 								{
 									UE_LOG(LogAnimBlueprintFastPathTests, Error, TEXT("No function bound for node evaluation (%s)"), *AnimBlueprint->GetName());
 								}
-								if (AnimNode->EvaluateGraphExposedInputs.CopyRecords.Num() > 0)
+								if (AnimNode->GetEvaluateGraphExposedInputs().CopyRecords.Num() > 0)
 								{
 									UE_LOG(LogAnimBlueprintFastPathTests, Error, TEXT("Found copy records in non-fast-path node evaluator (%s)"), *AnimBlueprint->GetName());
 								}

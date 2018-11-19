@@ -50,6 +50,7 @@ FAnimationEditorPreviewScene::FAnimationEditorPreviewScene(const ConstructionVal
 	, bEnableMeshHitProxies(false)
 	, LastTickTime(0.0)
 	, bSelecting(false)
+	, bAllowAdditionalMeshes(true)
 {
 	if (GEditor)
 	{
@@ -127,7 +128,7 @@ void FAnimationEditorPreviewScene::SetPreviewMeshComponent(UDebugSkelMeshCompone
 	}
 }
 
-void FAnimationEditorPreviewScene::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
+void FAnimationEditorPreviewScene::SetPreviewMesh(USkeletalMesh* NewPreviewMesh, bool bAllowOverrideBaseMesh)
 {
 	if (NewPreviewMesh != nullptr && GetEditableSkeleton().IsValid() && !GetEditableSkeleton()->GetSkeleton().IsCompatibleMesh(NewPreviewMesh))
 	{
@@ -162,7 +163,8 @@ void FAnimationEditorPreviewScene::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
 
 	// changing the main skeletal mesh may mean re-applying the additional meshes
 	// as the mesh on the main component may have been substituted by one of the additional meshes
-	RefreshAdditionalMeshes();
+	// we just set main mesh, do not replace
+	RefreshAdditionalMeshes(bAllowOverrideBaseMesh);
 }
 
 USkeletalMesh* FAnimationEditorPreviewScene::GetPreviewMesh() const
@@ -230,10 +232,6 @@ void FAnimationEditorPreviewScene::SetPreviewMeshInternal(USkeletalMesh* NewPrev
 	if (NewPreviewMesh != nullptr)
 	{
 		AddComponent(SkeletalMeshComponent, FTransform::Identity);
-		for (auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
-		{
-			AddComponent((*Iter), FTransform::Identity, true);
-		}
 
 		// Set up the mesh for transactions
 		NewPreviewMesh->SetFlags(RF_Transactional);
@@ -241,12 +239,6 @@ void FAnimationEditorPreviewScene::SetPreviewMeshInternal(USkeletalMesh* NewPrev
 		AddPreviewAttachedObjects();
 
 		SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-	}
-
-	for (auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
-	{
-		(*Iter)->SetMasterPoseComponent(SkeletalMeshComponent);
-		(*Iter)->UpdateMasterBoneMap();
 	}
 
 	// Setting the skeletal mesh to in the PreviewScene can change AnimScriptInstance so we must re register it
@@ -294,10 +286,10 @@ void FAnimationEditorPreviewScene::SetAdditionalMeshes(class UDataAsset* InAddit
 		GetEditableSkeleton()->SetAdditionalPreviewSkeletalMeshes(InAdditionalMeshes);
 	}
 
-	RefreshAdditionalMeshes();
+	RefreshAdditionalMeshes(true);
 }
 
-void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
+void FAnimationEditorPreviewScene::RefreshAdditionalMeshes(bool bAllowOverrideBaseMesh)
 {
 	// remove all components
 	for (USkeletalMeshComponent* Component : AdditionalMeshes)
@@ -328,36 +320,43 @@ void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
 		const IPreviewCollectionInterface* PreviewCollection = Cast<IPreviewCollectionInterface>(PreviewSceneAdditionalMeshes);
 		if (PreviewCollection)
 		{
-			USkeletalMesh* BaseMesh = PreviewCollection->GetPreviewBaseMesh();
-			if (BaseMesh)
+			if (bAllowOverrideBaseMesh)
 			{
-				SetPreviewMeshInternal(BaseMesh);
+				USkeletalMesh* BaseMesh = PreviewCollection->GetPreviewBaseMesh();
+				if (BaseMesh)
+				{
+					SetPreviewMeshInternal(BaseMesh);
+				}
 			}
 
-			TArray<USkeletalMesh*> ValidMeshes;
-			TArray<TSubclassOf<UAnimInstance>> AnimInstances;
-			PreviewCollection->GetPreviewSkeletalMeshes(ValidMeshes, AnimInstances);
-			const int32 NumMeshes = ValidMeshes.Num();
-			for (int32 MeshIndex = 0; MeshIndex < NumMeshes; ++MeshIndex)
+			if (bAllowAdditionalMeshes)
 			{
-				USkeletalMesh* SkeletalMesh = ValidMeshes[MeshIndex];
-				if (SkeletalMesh)
+				TArray<USkeletalMesh*> ValidMeshes;
+				TArray<TSubclassOf<UAnimInstance>> AnimInstances;
+				PreviewCollection->GetPreviewSkeletalMeshes(ValidMeshes, AnimInstances);
+				const int32 NumMeshes = ValidMeshes.Num();
+				for (int32 MeshIndex = 0; MeshIndex < NumMeshes; ++MeshIndex)
 				{
-					USkeletalMeshComponent* NewComp = NewObject<USkeletalMeshComponent>(Actor);
-					NewComp->RegisterComponent();
-					NewComp->SetSkeletalMesh(SkeletalMesh);
-					AddComponent(NewComp, FTransform::Identity, true);
-
-					if (bUseCustomAnimBP && AnimInstances.IsValidIndex(MeshIndex) && AnimInstances[MeshIndex] != nullptr)
+					USkeletalMesh* SkeletalMesh = ValidMeshes[MeshIndex];
+					if (SkeletalMesh)
 					{
-						NewComp->SetAnimInstanceClass(AnimInstances[MeshIndex]);
-					}
-					else
-					{
-						UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimPreviewAttacheInstance>(NewComp);
-					}
+						USkeletalMeshComponent* NewComp = NewObject<USkeletalMeshComponent>(Actor);
+						NewComp->RegisterComponent();
+						NewComp->SetSkeletalMesh(SkeletalMesh);
+						NewComp->bUseAttachParentBound = true;
+						AddComponent(NewComp, FTransform::Identity, true);
 
-					AdditionalMeshes.Add(NewComp);
+						if (bUseCustomAnimBP && AnimInstances.IsValidIndex(MeshIndex) && AnimInstances[MeshIndex] != nullptr)
+						{
+							NewComp->SetAnimInstanceClass(AnimInstances[MeshIndex]);
+						}
+						else
+						{
+							UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimPreviewAttacheInstance>(NewComp);
+						}
+
+						AdditionalMeshes.Add(NewComp);
+					}
 				}
 			}
 		}

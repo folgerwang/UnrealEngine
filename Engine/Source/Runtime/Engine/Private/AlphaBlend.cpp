@@ -4,21 +4,21 @@
 #include "Curves/CurveFloat.h"
 
 FAlphaBlend::FAlphaBlend(float NewBlendTime) 
-	: BlendOption(EAlphaBlendOption::Linear)
-	, CustomCurve(nullptr)
+	: CustomCurve(nullptr)
 	, BlendTime(NewBlendTime)
 	, BeginValue(0.0f)
 	, DesiredValue(1.0f)
+	, BlendOption(EAlphaBlendOption::Linear)
 {
 	Reset();
 }
 
 FAlphaBlend::FAlphaBlend(const FAlphaBlend& Other, float NewBlendTime)
-	: BlendOption(Other.BlendOption)
-	, CustomCurve(Other.CustomCurve)
+	: CustomCurve(Other.CustomCurve)
 	, BlendTime(NewBlendTime)
 	, BeginValue(Other.BeginValue)
 	, DesiredValue(Other.DesiredValue)
+	, BlendOption(Other.BlendOption)
 {
 	Reset();
 }

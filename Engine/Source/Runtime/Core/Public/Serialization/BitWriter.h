@@ -33,7 +33,7 @@ public:
     FBitWriter(FBitWriter&&) = default;
     FBitWriter& operator=(FBitWriter&&) = default;
 
-	void SerializeBits( void* Src, int64 LengthBits );
+	virtual void SerializeBits( void* Src, int64 LengthBits ) override;
 
 	virtual void SerializeBitsWithOffset( void* Src, int32 SourceBit, int64 LengthBits ) override;
 
@@ -43,7 +43,9 @@ public:
 	 * @param Value		The value to serialize, must be < Max
 	 * @param Max		The maximum allowed value - good to aim for power-of-two
 	 */
-	void SerializeInt(uint32& Value, uint32 Max);
+	virtual void SerializeInt(uint32& Value, uint32 Max) override;
+
+	virtual void SerializeIntPacked(uint32& Value) override;
 
 	/**
 	 * Serializes the specified Value, but does not bounds check against ValueMax;
@@ -55,7 +57,7 @@ public:
 	void WriteIntWrapped(uint32 Value, uint32 ValueMax);
 
 	void WriteBit( uint8 In );
-	void Serialize( void* Src, int64 LengthBytes );
+	virtual void Serialize( void* Src, int64 LengthBytes ) override;
 
 	/**
 	 * Returns a pointer to our internal buffer.
@@ -133,7 +135,7 @@ public:
 	{
 		if (Num+LengthBits > Max)
 		{
-			if (AllowResize)
+			if (bAllowResize)
 			{
 				// Resize our buffer. The common case for resizing bitwriters is hitting the max and continuing to add a lot of small segments of data
 				// Though we could just allow the TArray buffer to handle the slack and resizing, we would still constantly hit the FBitWriter's max
@@ -156,7 +158,7 @@ public:
 
 	FORCEINLINE void SetAllowResize(bool NewResize)
 	{
-		AllowResize = NewResize;
+		bAllowResize = NewResize;
 	}
 
 	/**
@@ -169,12 +171,14 @@ public:
 		Num = ( Num + 7 ) & ( ~0x07 );
 	}
 
-private:
+	/** Counts the in-memory bytes used by this object */
+	virtual void CountMemory(FArchive& Ar) const;
 
+private:
 	TArray<uint8> Buffer;
 	int64   Num;
 	int64   Max;
-	bool	AllowResize;
+	bool	bAllowResize;
 
 	/** Whether or not overflowing is allowed (overflows silently) */
 	bool bAllowOverflow;

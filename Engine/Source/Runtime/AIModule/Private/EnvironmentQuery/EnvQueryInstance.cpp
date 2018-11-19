@@ -607,8 +607,14 @@ void FEnvQueryInstance::FItemIterator::StoreTestResult()
 		}
 		else if (CachedScoreOp == EEnvTestScoreOperator::AverageScore && !bForced)
 		{
-			eqs_ensure(NumPassedForItem != 0);
-			ItemScore /= NumPassedForItem;
+			if (NumPassedForItem != 0)
+			{
+				ItemScore /= NumPassedForItem;
+			}
+			else
+			{
+				ItemScore = 0;
+			}
 		}
 
 		Instance.ItemDetails[CurrentItem].TestResults[Instance.CurrentTest] = ItemScore;

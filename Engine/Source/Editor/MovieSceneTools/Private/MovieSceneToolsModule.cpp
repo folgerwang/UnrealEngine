@@ -37,6 +37,8 @@
 #include "TrackEditors/CameraAnimTrackEditor.h"
 #include "TrackEditors/CameraShakeTrackEditor.h"
 #include "TrackEditors/MaterialParameterCollectionTrackEditor.h"
+#include "TrackEditors/ObjectPropertyTrackEditor.h"
+#include "TrackEditors/PrimitiveMaterialTrackEditor.h"
 
 #include "MovieSceneBuiltInEasingFunctionCustomization.h"
 #include "MovieSceneObjectBindingIDCustomization.h"
@@ -51,6 +53,7 @@
 #include "ISequencerChannelInterface.h"
 #include "SequencerChannelInterface.h"
 #include "Channels/BuiltInChannelEditors.h"
+#include "Channels/MovieSceneObjectPathChannel.h"
 #include "Channels/MovieSceneEventChannel.h"
 #include "Sections/MovieSceneEventSection.h"
 
@@ -93,6 +96,7 @@ public:
 		VisibilityPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FVisibilityPropertyTrackEditor>();
 		ActorReferencePropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FActorReferencePropertyTrackEditor>();
 		StringPropertyTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FStringPropertyTrackEditor>();
+		ObjectTrackCreateEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FObjectPropertyTrackEditor>();
 
 		// register specialty track editors
 		AnimationTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor( FOnCreateTrackEditor::CreateStatic( &FSkeletalAnimationTrackEditor::CreateTrackEditor ) );
@@ -114,6 +118,7 @@ public:
 		CameraAnimTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FCameraAnimTrackEditor::CreateTrackEditor));
 		CameraShakeTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FCameraShakeTrackEditor::CreateTrackEditor));
 		MPCTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FMaterialParameterCollectionTrackEditor::CreateTrackEditor));
+		PrimitiveMaterialCreateEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FPrimitiveMaterialTrackEditor::CreateTrackEditor));
 
 		RegisterClipboardConversions();
 
@@ -132,7 +137,7 @@ public:
 		SequencerModule.RegisterChannelInterface<FMovieSceneParticleChannel>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneActorReferenceData>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneEventSectionData>();
-
+		SequencerModule.RegisterChannelInterface<FMovieSceneObjectPathChannel>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneEventChannel>();
 	}
 
@@ -183,6 +188,8 @@ public:
 		SequencerModule.UnRegisterTrackEditor( CameraAnimTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( CameraShakeTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor( MPCTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor( ObjectTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor( PrimitiveMaterialCreateEditorHandle );
 
 		if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
 		{	
@@ -262,6 +269,8 @@ private:
 	FDelegateHandle CameraAnimTrackCreateEditorHandle;
 	FDelegateHandle CameraShakeTrackCreateEditorHandle;
 	FDelegateHandle MPCTrackCreateEditorHandle;
+	FDelegateHandle ObjectTrackCreateEditorHandle;
+	FDelegateHandle PrimitiveMaterialCreateEditorHandle;
 };
 
 

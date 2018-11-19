@@ -323,6 +323,9 @@ extern RHI_API float GProjectionSignY;
 /** Does this RHI need to wait for deletion of resources due to ref counting. */
 extern RHI_API bool GRHINeedsExtraDeletionLatency;
 
+/** Allow opt-out default RHI resource deletion latency for streaming textures */
+extern RHI_API bool GRHIForceNoDeletionLatencyForStreamingTextures;
+
 /** The maximum size allowed for a computeshader dispatch. */
 extern RHI_API TRHIGlobal<int32> GMaxComputeDispatchDimension;
 

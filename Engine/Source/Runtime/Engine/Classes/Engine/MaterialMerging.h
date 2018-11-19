@@ -33,62 +33,68 @@ struct FMaterialProxySettings
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta =(ClampMin = "1", UIMin = "1"))
 	FIntPoint TextureSize;
 
+	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere, meta=(DisplayAfter="TextureSizingType"))
+	float GutterSpace;
+
+	// Metallic constant
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bMetallicMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bMetallicMap"))
+	float MetallicConstant;
+
+	// Roughness constant
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bRoughnessMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bRoughnessMap"))
+	float RoughnessConstant;
+
+	// Specular constant
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bSpecularMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bSpecularMap"))
+	float SpecularConstant;
+
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bOpacityMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bOpacityMap"))
+	float OpacityConstant;
+
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bOpacityMaskMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bOpacityMaskMap"))
+	float OpacityMaskConstant;
+
+	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (DisplayAfter="bAmbientOcclusionMap", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bAmbientOcclusionMap"))
+	float AmbientOcclusionConstant;
+
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
 	TEnumAsByte<ETextureSizingType> TextureSizingType;
 
-	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere)
-	float GutterSpace;
+	UPROPERTY()
+	TEnumAsByte<EMaterialMergeType> MaterialMergeType;
+
+	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere, meta=(DisplayAfter="AmbientOcclusionTextureSize"))
+	TEnumAsByte<EBlendMode> BlendMode;
 
 	// Whether to generate normal map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bNormalMap;
+	uint8 bNormalMap:1;
 
 	// Whether to generate metallic map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bMetallicMap;
-
-	// Metallic constant
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bMetallicMap"))
-	float MetallicConstant;
+	uint8 bMetallicMap:1;
 
 	// Whether to generate roughness map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bRoughnessMap;
-
-	// Roughness constant
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bRoughnessMap"))
-	float RoughnessConstant;
+	uint8 bRoughnessMap:1;
 
 	// Whether to generate specular map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bSpecularMap;
-
-	// Specular constant
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bSpecularMap"))
-	float SpecularConstant;
+	uint8 bSpecularMap:1;
 
 	// Whether to generate emissive map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bEmissiveMap;
+	uint8 bEmissiveMap:1;
 
 	// Whether to generate opacity map
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bOpacityMap;
-
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bOpacityMap"))
-	float OpacityConstant;
+	uint8 bOpacityMap:1;
 
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bOpacityMaskMap;
-
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bOpacityMaskMap"))
-	float OpacityMaskConstant;
+	uint8 bOpacityMaskMap:1;
 
 	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere)
-	bool bAmbientOcclusionMap;
-
-	UPROPERTY(Category = Material, BlueprintReadWrite, EditAnywhere, meta = (ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1", editcondition = "!bAmbientOcclusionMap"))
-	float AmbientOcclusionConstant;
+	uint8 bAmbientOcclusionMap:1;
 
 	// Override diffuse map size
 	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere, meta = (ClampMin = "1", UIMin = "1"))
@@ -125,30 +131,26 @@ struct FMaterialProxySettings
 	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere, meta = (ClampMin = "1", UIMin = "1"))
 	FIntPoint AmbientOcclusionTextureSize;
 
-	UPROPERTY()
-	TEnumAsByte<EMaterialMergeType> MaterialMergeType;
-
-	UPROPERTY(Category = Material, BlueprintReadWrite, AdvancedDisplay, EditAnywhere)
-	TEnumAsByte<EBlendMode> BlendMode;
-
 	FMaterialProxySettings()
 		: TextureSize(1024, 1024)
-		, TextureSizingType(TextureSizingType_UseSingleTextureSize)
 		, GutterSpace(4.0f)
+		, MetallicConstant(0.0f)
+		, RoughnessConstant(0.5f)
+		, SpecularConstant(0.5f)
+		, OpacityConstant(1.0f)
+		, OpacityMaskConstant(1.0f)
+		, AmbientOcclusionConstant(1.0f)
+		, TextureSizingType(TextureSizingType_UseSingleTextureSize)
+		, MaterialMergeType(EMaterialMergeType::MaterialMergeType_Default)
+		, BlendMode(BLEND_Opaque)
 		, bNormalMap(true)
 		, bMetallicMap(false)
-		, MetallicConstant(0.0f)
 		, bRoughnessMap(false)
-		, RoughnessConstant(0.5f)
 		, bSpecularMap(false)
-		, SpecularConstant(0.5f)
 		, bEmissiveMap(false)
 		, bOpacityMap(false)
-		, OpacityConstant(1.0f)
 		, bOpacityMaskMap(false)
-		, OpacityMaskConstant(1.0f)
 		, bAmbientOcclusionMap(false)
-		, AmbientOcclusionConstant(1.0f)
 		, DiffuseTextureSize(1024, 1024)
 		, NormalTextureSize(1024, 1024)
 		, MetallicTextureSize(1024, 1024)
@@ -158,8 +160,6 @@ struct FMaterialProxySettings
 		, OpacityTextureSize(1024, 1024)
 		, OpacityMaskTextureSize(1024, 1024)
 		, AmbientOcclusionTextureSize(1024, 1024)
-		, MaterialMergeType( EMaterialMergeType::MaterialMergeType_Default )
-		, BlendMode(BLEND_Opaque)
 	{
 	}
 

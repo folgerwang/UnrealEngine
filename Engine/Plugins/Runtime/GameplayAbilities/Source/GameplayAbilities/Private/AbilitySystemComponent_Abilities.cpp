@@ -98,7 +98,7 @@ void UAbilitySystemComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 void UAbilitySystemComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {	
 	SCOPE_CYCLE_COUNTER(STAT_TickAbilityTasks);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AbilityTasks);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AbilityTasks);
 
 	if (IsOwnerActorAuthoritative())
 	{
@@ -734,6 +734,11 @@ void UAbilitySystemComponent::NotifyAbilityEnded(FGameplayAbilitySpecHandle Hand
 	}
 }
 
+void UAbilitySystemComponent::ClearAbilityReplicatedDataCache(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActivationInfo& ActivationInfo)
+{
+	AbilityTargetDataMap.Remove( FGameplayAbilitySpecHandleAndPredictionKey(Handle, ActivationInfo.GetActivationPredictionKey()) );
+}
+
 void UAbilitySystemComponent::CancelAbility(UGameplayAbility* Ability)
 {
 	ABILITYLIST_SCOPE_LOCK();
@@ -1236,9 +1241,13 @@ bool UAbilitySystemComponent::InternalTryActivateAbility(FGameplayAbilitySpecHan
 	}
 
 	// make sure we do not incur a roll over if we go over the uint8 max, this will need to be updated if the var size changes
-	if (ensureMsgf(Spec->ActiveCount < UINT8_MAX, TEXT("TryActivateAbility %s called when the Spec->ActiveCount (%d) >= UINT8_MAX"), *Ability->GetName(), (int32)Spec->ActiveCount))
+	if (LIKELY(Spec->ActiveCount < UINT8_MAX))
 	{
 		Spec->ActiveCount++;
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("TryActivateAbility %s called when the Spec->ActiveCount (%d) >= UINT8_MAX"), *Ability->GetName(), (int32)Spec->ActiveCount)
 	}
 
 	// Setup a fresh ActivationInfo for this AbilitySpec.
@@ -1416,6 +1425,8 @@ void UAbilitySystemComponent::InternalServerTryActiveAbility(FGameplayAbilitySpe
 	}
 #endif
 
+	ABILITYLIST_SCOPE_LOCK();
+
 	FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle);
 	if (!Spec)
 	{
@@ -1451,8 +1462,9 @@ void UAbilitySystemComponent::InternalServerTryActiveAbility(FGameplayAbilitySpe
 		ABILITY_LOG(Display, TEXT("InternalServerTryActiveAbility. Rejecting ClientActivation of %s. InternalTryActivateAbility failed: %s"), *GetNameSafe(Spec->Ability), *InternalTryActivateAbilityFailureTags.ToStringSimple() );
 		ClientActivateAbilityFailed(Handle, PredictionKey.Current);
 		Spec->InputPressed = false;
+
+		MarkAbilitySpecDirty(*Spec);
 	}
-	MarkAbilitySpecDirty(*Spec);
 #endif
 }
 
@@ -2862,8 +2874,8 @@ UGameplayAbility* UAbilitySystemComponent::GetAnimatingAbility()
 
 void UAbilitySystemComponent::ConfirmAbilityTargetData(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, const FGameplayAbilityTargetDataHandle& TargetData, const FGameplayTag& ApplicationTag)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		CachedData->TargetSetDelegate.Broadcast(TargetData, ApplicationTag);
 	}
@@ -2871,8 +2883,8 @@ void UAbilitySystemComponent::ConfirmAbilityTargetData(FGameplayAbilitySpecHandl
 
 void UAbilitySystemComponent::CancelAbilityTargetData(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		CachedData->Reset();
 		CachedData->TargetCancelledDelegate.Broadcast();
@@ -2881,8 +2893,8 @@ void UAbilitySystemComponent::CancelAbilityTargetData(FGameplayAbilitySpecHandle
 
 void UAbilitySystemComponent::ConsumeAllReplicatedData(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		CachedData->Reset();
 	}
@@ -2890,8 +2902,8 @@ void UAbilitySystemComponent::ConsumeAllReplicatedData(FGameplayAbilitySpecHandl
 
 void UAbilitySystemComponent::ConsumeClientReplicatedTargetData(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		CachedData->TargetData.Clear();
 		CachedData->bTargetConfirmed = false;
@@ -2901,8 +2913,8 @@ void UAbilitySystemComponent::ConsumeClientReplicatedTargetData(FGameplayAbility
 
 void UAbilitySystemComponent::ConsumeGenericReplicatedEvent(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		CachedData->GenericEvents[EventType].bTriggered = false;
 	}
@@ -2912,8 +2924,8 @@ FAbilityReplicatedData UAbilitySystemComponent::GetReplicatedDataOfGenericReplic
 {
 	FAbilityReplicatedData ReturnData;
 
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		ReturnData.bTriggered = CachedData->GenericEvents[EventType].bTriggered;
 		ReturnData.VectorPayload = CachedData->GenericEvents[EventType].VectorPayload;
@@ -2938,13 +2950,14 @@ void UAbilitySystemComponent::ServerSetReplicatedEventWithPayload_Implementation
 
 bool UAbilitySystemComponent::InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, FPredictionKey CurrentPredictionKey)
 {
-	FAbilityReplicatedDataCache& ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	ReplicatedData.GenericEvents[(uint8)EventType].bTriggered = true;
-	ReplicatedData.PredictionKey = CurrentPredictionKey;
+	TSharedRef<FAbilityReplicatedDataCache> ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
 
-	if (ReplicatedData.GenericEvents[EventType].Delegate.IsBound())
+	ReplicatedData->GenericEvents[(uint8)EventType].bTriggered = true;
+	ReplicatedData->PredictionKey = CurrentPredictionKey;
+
+	if (ReplicatedData->GenericEvents[EventType].Delegate.IsBound())
 	{
-		ReplicatedData.GenericEvents[EventType].Delegate.Broadcast();
+		ReplicatedData->GenericEvents[EventType].Delegate.Broadcast();
 		return true;
 	}
 	else
@@ -2955,14 +2968,14 @@ bool UAbilitySystemComponent::InvokeReplicatedEvent(EAbilityGenericReplicatedEve
 
 bool UAbilitySystemComponent::InvokeReplicatedEventWithPayload(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, FPredictionKey CurrentPredictionKey, FVector_NetQuantize100 VectorPayload)
 {
-	FAbilityReplicatedDataCache& ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	ReplicatedData.GenericEvents[(uint8)EventType].bTriggered = true;
-	ReplicatedData.GenericEvents[(uint8)EventType].VectorPayload = VectorPayload;
-	ReplicatedData.PredictionKey = CurrentPredictionKey;
+	TSharedRef<FAbilityReplicatedDataCache> ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	ReplicatedData->GenericEvents[(uint8)EventType].bTriggered = true;
+	ReplicatedData->GenericEvents[(uint8)EventType].VectorPayload = VectorPayload;
+	ReplicatedData->PredictionKey = CurrentPredictionKey;
 
-	if (ReplicatedData.GenericEvents[EventType].Delegate.IsBound())
+	if (ReplicatedData->GenericEvents[EventType].Delegate.IsBound())
 	{
-		ReplicatedData.GenericEvents[EventType].Delegate.Broadcast();
+		ReplicatedData->GenericEvents[EventType].Delegate.Broadcast();
 		return true;
 	}
 	else
@@ -2999,9 +3012,9 @@ void UAbilitySystemComponent::ServerSetReplicatedTargetData_Implementation(FGame
 	FScopedPredictionWindow ScopedPrediction(this, CurrentPredictionKey);
 
 	// Always adds to cache to store the new data
-	FAbilityReplicatedDataCache& ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	TSharedRef<FAbilityReplicatedDataCache> ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
 
-	if (ReplicatedData.TargetData.Num() > 0)
+	if (ReplicatedData->TargetData.Num() > 0)
 	{
 		FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilityHandle);
 		if (Spec && Spec->Ability)
@@ -3011,20 +3024,13 @@ void UAbilitySystemComponent::ServerSetReplicatedTargetData_Implementation(FGame
 		}
 	}
 
-	ReplicatedData.TargetData = ReplicatedTargetDataHandle;
-	ReplicatedData.ApplicationTag = ApplicationTag;
-	ReplicatedData.bTargetConfirmed = true;
-	ReplicatedData.bTargetCancelled = false;
-	ReplicatedData.PredictionKey = CurrentPredictionKey;
+	ReplicatedData->TargetData = ReplicatedTargetDataHandle;
+	ReplicatedData->ApplicationTag = ApplicationTag;
+	ReplicatedData->bTargetConfirmed = true;
+	ReplicatedData->bTargetCancelled = false;
+	ReplicatedData->PredictionKey = CurrentPredictionKey;
 
-	
-	{
-		// Make a local copy of the delegate since while broadcasting it we may call back into ASC code and modify this->AbilityTargetDataMap, causing internal memory shifting which would break the delegate out from underneath us.
-		// (Note ReplicatedTargetDataHandle is safe because its owned by the net driver. ReplicatedData.ApplicationTag is safe because it is passed by value).
-		// MoveTemp would be nicer but we wouldn't be able to cleanly handle the case of a new delegate being registered while broadcasting: we would need a way to merge the move temp'd invocation list back in.
-		FAbilityTargetDataSetDelegate LocalTargetSetDelegate = ReplicatedData.TargetSetDelegate;
-		LocalTargetSetDelegate.Broadcast(ReplicatedTargetDataHandle, ReplicatedData.ApplicationTag);
-	}
+	ReplicatedData->TargetSetDelegate.Broadcast(ReplicatedTargetDataHandle, ReplicatedData->ApplicationTag);
 }
 
 bool UAbilitySystemComponent::ServerSetReplicatedTargetData_Validate(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, const FGameplayAbilityTargetDataHandle& ReplicatedTargetDataHandle, FGameplayTag ApplicationTag, FPredictionKey CurrentPredictionKey)
@@ -3037,12 +3043,12 @@ void UAbilitySystemComponent::ServerSetReplicatedTargetDataCancelled_Implementat
 	FScopedPredictionWindow ScopedPrediction(this, CurrentPredictionKey);
 
 	// Always adds to cache to store the new data
-	FAbilityReplicatedDataCache& ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	TSharedRef<FAbilityReplicatedDataCache> ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
 
-	ReplicatedData.Reset();
-	ReplicatedData.bTargetCancelled = true;
-	ReplicatedData.PredictionKey = CurrentPredictionKey;
-	ReplicatedData.TargetCancelledDelegate.Broadcast();
+	ReplicatedData->Reset();
+	ReplicatedData->bTargetCancelled = true;
+	ReplicatedData->PredictionKey = CurrentPredictionKey;
+	ReplicatedData->TargetCancelledDelegate.Broadcast();
 }
 
 bool UAbilitySystemComponent::ServerSetReplicatedTargetDataCancelled_Validate(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, FPredictionKey CurrentPredictionKey)
@@ -3052,8 +3058,8 @@ bool UAbilitySystemComponent::ServerSetReplicatedTargetDataCancelled_Validate(FG
 
 void UAbilitySystemComponent::CallAllReplicatedDelegatesIfSet(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		FScopedPredictionWindow ScopedWindow(this, CachedData->PredictionKey, false);
 		if (CachedData->bTargetConfirmed)
@@ -3078,8 +3084,8 @@ void UAbilitySystemComponent::CallAllReplicatedDelegatesIfSet(FGameplayAbilitySp
 bool UAbilitySystemComponent::CallReplicatedTargetDataDelegatesIfSet(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
 	bool CalledDelegate = false;
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid())
 	{
 		// Use prediction key that was sent to us
 		FScopedPredictionWindow ScopedWindow(this, CachedData->PredictionKey, false);
@@ -3101,8 +3107,8 @@ bool UAbilitySystemComponent::CallReplicatedTargetDataDelegatesIfSet(FGameplayAb
 
 bool UAbilitySystemComponent::CallReplicatedEventDelegateIfSet(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	FAbilityReplicatedDataCache* CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData && CachedData->GenericEvents[EventType].bTriggered)
+	TSharedPtr<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.Find(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData.IsValid() && CachedData->GenericEvents[EventType].bTriggered)
 	{
 		FScopedPredictionWindow ScopedWindow(this, CachedData->PredictionKey, false);
 
@@ -3115,10 +3121,10 @@ bool UAbilitySystemComponent::CallReplicatedEventDelegateIfSet(EAbilityGenericRe
 
 bool UAbilitySystemComponent::CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, FSimpleMulticastDelegate::FDelegate Delegate)
 {
-	FAbilityReplicatedDataCache& CachedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
-	if (CachedData.GenericEvents[EventType].bTriggered)
+	TSharedRef<FAbilityReplicatedDataCache> CachedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+	if (CachedData->GenericEvents[EventType].bTriggered)
 	{
-		FScopedPredictionWindow ScopedWindow(this, CachedData.PredictionKey, false);
+		FScopedPredictionWindow ScopedWindow(this, CachedData->PredictionKey, false);
 
 		// Already triggered, fire off delegate
 		Delegate.Execute();
@@ -3126,23 +3132,23 @@ bool UAbilitySystemComponent::CallOrAddReplicatedDelegate(EAbilityGenericReplica
 	}
 	
 	// Not triggered yet, so just add the delegate
-	CachedData.GenericEvents[EventType].Delegate.Add(Delegate);
+	CachedData->GenericEvents[EventType].Delegate.Add(Delegate);
 	return false;
 }
 
 FAbilityTargetDataSetDelegate& UAbilitySystemComponent::AbilityTargetDataSetDelegate(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey)).TargetSetDelegate;
+	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey))->TargetSetDelegate;
 }
 
 FSimpleMulticastDelegate& UAbilitySystemComponent::AbilityTargetDataCancelledDelegate(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey)).TargetCancelledDelegate;
+	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey))->TargetCancelledDelegate;
 }
 
 FSimpleMulticastDelegate& UAbilitySystemComponent::AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::Type EventType, FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey)
 {
-	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey)).GenericEvents[EventType].Delegate;
+	return AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey))->GenericEvents[EventType].Delegate;
 }
 
 int32 AbilitySystemLogServerRPCBatching = 0;

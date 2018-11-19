@@ -82,7 +82,7 @@ public:
 			virtual bool AssetContainsBlueprint(const FAssetData& InAssetData) const
 			{
 				// Only have a blueprint if it contains the BlueprintPathWithinPackage tag
-				return InAssetData.TagsAndValues.Find(FBlueprintTags::BlueprintPathWithinPackage) != nullptr;
+				return InAssetData.TagsAndValues.Contains(FBlueprintTags::BlueprintPathWithinPackage);
 			}
 
 			virtual bool SupportsNativization(const UObject* InAsset, const UBlueprint* InBlueprint, FText* OutReason) const

@@ -380,7 +380,7 @@ public:
 	 */
 	static void ConvertCSTransformToBoneSpace(const FTransform& ComponentTransform, FCSPose<FCompactPose>& MeshBases, FTransform& InOutCSBoneTM, FCompactPoseBoneIndex BoneIndex, EBoneControlSpace Space);
 
-	DEPRECATED(4.16, "Please use the ConvertCSTransformToBoneSpace with a transform as the first argument")
+	UE_DEPRECATED(4.16, "Please use the ConvertCSTransformToBoneSpace with a transform as the first argument")
 	static void ConvertCSTransformToBoneSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, FTransform& InOutCSBoneTM, FCompactPoseBoneIndex BoneIndex, EBoneControlSpace Space);
 
 	/** 
@@ -393,7 +393,7 @@ public:
 	 */
 	static void ConvertBoneSpaceTransformToCS(const FTransform& ComponentTransform, FCSPose<FCompactPose>& MeshBases, FTransform& InOutBoneSpaceTM, FCompactPoseBoneIndex BoneIndex, EBoneControlSpace Space);
 
-	DEPRECATED(4.16, "Please use the ConvertBoneSpaceTransformToCS with a transform as the first argument")
+	UE_DEPRECATED(4.16, "Please use the ConvertBoneSpaceTransformToCS with a transform as the first argument")
 	static void ConvertBoneSpaceTransformToCS(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, FTransform& InOutBoneSpaceTM, FCompactPoseBoneIndex BoneIndex, EBoneControlSpace Space);
 
 	// FA2Pose/FA2CSPose Interfaces for template functions

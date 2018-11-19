@@ -32,11 +32,24 @@ struct FDebugResolution
 	FLinearColor Color;
 };
 
+/** Controls the level of support you want to have for widget property binding. */
 UENUM()
 enum class EPropertyBindingPermissionLevel : uint8
 {
+	/** Freely allow the use of property binding. */
 	Allow,
+	/**
+	 * Prevent any new property binding, will still allow you to edit widgets with property binding, but
+	 * the buttons will be missing on all existing widgets that don't have bindings.
+	 */
+	Prevent,
+	/**
+	 * Prevent any new property binding, and warn when compiling any existing bindings.
+	 */
 	PreventAndWarn,
+	/**
+	* Prevent any new property binding, and error when compiling any existing bindings.
+	*/
 	PreventAndError
 };
 
@@ -92,6 +105,7 @@ public:
 };
 
 
+/**  */
 USTRUCT()
 struct FDirectoryWidgetCompilerOptions
 {
@@ -99,13 +113,15 @@ struct FDirectoryWidgetCompilerOptions
 
 public:
 
-	/**  */
+	/** The directory to limit the rules effects to. */
 	UPROPERTY(EditAnywhere, Category = Compiler, meta = (ContentDir))
 	FDirectoryPath Directory;
 
+	/** These widgets are ignored, and they will use the next most applicable directory to determine their rules. */
 	UPROPERTY(EditAnywhere, Category = Compiler)
 	TArray<TSoftObjectPtr<UWidgetBlueprint>> IgnoredWidgets;
 
+	/** The directory specific compiler options for these widgets. */
 	UPROPERTY(EditAnywhere, Category = Compiler)
 	FWidgetCompilerOptions Options;
 };

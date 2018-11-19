@@ -22,7 +22,6 @@ struct ENGINE_API FAnimNode_SaveCachedPose : public FAnimNode_Base
 	UPROPERTY()
 	FName CachePoseName;
 
-	UPROPERTY(Transient)
 	float GlobalWeight;
 
 protected:

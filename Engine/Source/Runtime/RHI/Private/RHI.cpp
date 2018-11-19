@@ -476,6 +476,7 @@ bool GSupportsWideMRT = true;
 float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
 bool GRHINeedsExtraDeletionLatency = false;
+bool GRHIForceNoDeletionLatencyForStreamingTextures = false;
 TRHIGlobal<int32> GMaxComputeDispatchDimension((1 << 16) - 1);
 bool GRHILazyShaderCodeLoading = false;
 bool GRHISupportsLazyShaderCodeLoading = false;
@@ -821,7 +822,6 @@ RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform)
 static ERHIFeatureLevel::Type GRHIMobilePreviewFeatureLevel = ERHIFeatureLevel::Num;
 RHI_API void RHISetMobilePreviewFeatureLevel(ERHIFeatureLevel::Type MobilePreviewFeatureLevel)
 {
-	check(MobilePreviewFeatureLevel == ERHIFeatureLevel::ES2 || MobilePreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
 	check(GRHIMobilePreviewFeatureLevel == ERHIFeatureLevel::Num);
 	check(!GIsEditor);
 	GRHIMobilePreviewFeatureLevel = MobilePreviewFeatureLevel;
