@@ -191,6 +191,9 @@ namespace UnrealGameSync
 				{
 					MessageBox.Show(ErrorMessage);
 				}
+
+				WorkspaceName = null;
+				return false;
 			}
 
 			NewWorkspaceWindow Window = new NewWorkspaceWindow(ServerAndPort, UserName, ForceStreamName, FindSettings.CurrentStream, FindSettings.Info, FindSettings.Clients, Log);
