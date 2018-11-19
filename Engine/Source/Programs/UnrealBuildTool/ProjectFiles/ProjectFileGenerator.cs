@@ -953,7 +953,7 @@ namespace UnrealBuildTool
 				}
 
 				// write out any additional debug information for the solution (such as UnrealVS configuration)
-				WriteDebugSolutionFiles(IntermediateProjectFilesPath);
+				WriteDebugSolutionFiles(PlatformProjectGenerators, IntermediateProjectFilesPath);
 
 				// Generate IntelliSense data if we need to.  This involves having UBT simulate the action compilation of
 				// the targets so that we can extra the compiler defines, include paths, etc.
@@ -2525,8 +2525,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Writes any additional solution-wide debug files (e.g. UnrealVS hints)
 		/// </summary>
+		/// <param name="PlatformProjectGenerators">The platform project generators</param>
 		/// <param name="IntermediateProjectFilesPath">Intermediate project files folder</param>
-		protected virtual void WriteDebugSolutionFiles( DirectoryReference IntermediateProjectFilesPath )
+		protected virtual void WriteDebugSolutionFiles( PlatformProjectGeneratorCollection PlatformProjectGenerators, DirectoryReference IntermediateProjectFilesPath )
 		{
 		}
 
