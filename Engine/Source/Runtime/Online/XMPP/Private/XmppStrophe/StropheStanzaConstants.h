@@ -57,6 +57,7 @@ const TCHAR* const SA_AFFILIATION = TEXT("affiliation");
 const TCHAR* const SA_MAXSTANZAS = TEXT("maxstanzas");
 const TCHAR* const SA_VAR = TEXT("var");
 const TCHAR* const SA_CODE = TEXT("code");
+const TCHAR* const SA_JID = TEXT("jid");
 
 // SNS means Stanza NameSpace
 

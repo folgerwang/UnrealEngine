@@ -400,7 +400,7 @@ void AEFPerTrackCompressionCodec::ByteSwapOneTrack(UAnimSequence& Seq, TArchive&
 			// Make sure the key->frame table is 4 byte aligned
 			PreservePadding(TrackData, MemoryStream);
 
-			const int32 FrameTableEntrySize = (Seq.NumFrames <= 0xFF) ? sizeof(uint8) : sizeof(uint16);
+			const int32 FrameTableEntrySize = (Seq.GetCompressedNumberOfFrames() <= 0xFF) ? sizeof(uint8) : sizeof(uint16);
 			for (int32 i = 0; i < NumKeys; ++i)
 			{
 				AC_UnalignedSwap(MemoryStream, TrackData, FrameTableEntrySize);

@@ -11,11 +11,6 @@ namespace Slate
 	static FAutoConsoleVariable OverrideScissorRect( TEXT( "Slate.OverrideScissorRect" ), 1, TEXT( "Whether to allow Slate to apply a scissor clip to UI elements to prevent certain artifacts.  You might need to disable this if you are drawing UI over a mirror backbuffer while in VR." ) );
 }
 
-SScissorRectBox::SScissorRectBox()
-	: ChildSlot(this)
-{
-}
-
 void SScissorRectBox::Construct(const FArguments& InArgs)
 {
 	SetCanTick(false);

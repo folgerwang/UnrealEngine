@@ -680,7 +680,10 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 					ArraySerializer.CachedNumItemsToConsiderForWriting = CalcNumItemsForConsideration();
 				}
 
-				ensureMsgf((OldMap->Num() == ArraySerializer.CachedNumItemsToConsiderForWriting), TEXT("OldMap size (%d) does not match item count (%d)"), OldMap->Num(), ArraySerializer.CachedNumItemsToConsiderForWriting);
+				if (UNLIKELY(OldMap->Num() != ArraySerializer.CachedNumItemsToConsiderForWriting))
+				{
+					UE_LOG(LogNetFastTArray, Warning, TEXT("OldMap size (%d) does not match item count (%d)"), OldMap->Num(), ArraySerializer.CachedNumItemsToConsiderForWriting);
+				}
 			}
 
 			if (Parms.OldState)

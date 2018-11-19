@@ -62,7 +62,7 @@ namespace UnrealBuildTool
 		/// Whether to compile with ASan enabled
 		/// </summary>
 		LinuxToolChainOptions Options;
-		
+
 		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK, bool InPreservePSYM = false, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
 			: this(CppPlatform.Linux, InArchitecture, InSDK, InPreservePSYM, InOptions)
 		{
@@ -568,6 +568,12 @@ namespace UnrealBuildTool
 			Result += " -fno-math-errno";               // do not assume that math ops have side effects
 
 			Result += GetRTTIFlag(CompileEnvironment);	// flag for run-time type info
+
+			if (CompileEnvironment.bHideSymbolsByDefault)
+			{
+				Result += " -fvisibility=hidden";
+				Result += " -fvisibility-inlines-hidden";
+			}
 
 			if (String.IsNullOrEmpty(ClangPath))
 			{

@@ -12,6 +12,11 @@
 #include "Compilation/MovieSceneCompilerRules.h"
 
 
+bool UMovieSceneNiagaraSystemTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneNiagaraSystemSpawnSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraSystemTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneNiagaraSystemSpawnSection>(this, NAME_None, RF_Transactional);

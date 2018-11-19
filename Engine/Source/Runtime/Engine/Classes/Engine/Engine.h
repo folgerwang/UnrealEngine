@@ -637,7 +637,7 @@ class ENGINE_API UEngine
 {
 	GENERATED_UCLASS_BODY()
 
-	DEPRECATED(4.17, "UEngine::OnPostEngineInit is deprecated, bind to FCoreDelegates::OnPostEngineInit instead, which will also be called for commandlets")
+	UE_DEPRECATED(4.17, "UEngine::OnPostEngineInit is deprecated, bind to FCoreDelegates::OnPostEngineInit instead, which will also be called for commandlets")
 	static FSimpleMulticastDelegate OnPostEngineInit;
 
 private:
@@ -2476,7 +2476,7 @@ public:
 	/** 
 	 * This function is deprecated
 	 */
-	DEPRECATED(4.17, "GetWorldFromContextObject(Object) and GetWorldFromContextObject(Object, boolean) are replaced by GetWorldFromContextObject(Object, Enum) or GetWorldFromContextObjectChecked(Object)")
+	UE_DEPRECATED(4.17, "GetWorldFromContextObject(Object) and GetWorldFromContextObject(Object, boolean) are replaced by GetWorldFromContextObject(Object, Enum) or GetWorldFromContextObjectChecked(Object)")
 	UWorld* GetWorldFromContextObject(const UObject* Object, bool bChecked = true) const
 	{
 		// Note: The behavior in 4.16 and before was similar to Assert if bChecked was true, but almost no callers actually wanted to pass in bChecked=true
@@ -2861,7 +2861,7 @@ public:
 #if WITH_SERVER_CODE
 	virtual bool HandleServerTravelCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 
-	DEPRECATED(4.14, "Say Command moved to GameMode as an exec function")
+	UE_DEPRECATED(4.14, "Say Command moved to GameMode as an exec function")
 	virtual bool HandleSayCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 #endif
 

@@ -5571,16 +5571,9 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 		}
 	}
 	//------------------------------------------------------------------------------------
-	// LEVEL
-	//
-	if( FParse::Command(&Str,TEXT("LEVEL")) )
-	{
-		return CommandIsDeprecated( *CommandTemp, Ar );
-	}
-	//------------------------------------------------------------------------------------
 	// PARTICLE: Particle system-related commands
 	//
-	else if (FParse::Command(&Str,TEXT("PARTICLE")))
+	if (FParse::Command(&Str,TEXT("PARTICLE")))
 	{
 		if( Exec_Particle(Str, Ar) )
 		{

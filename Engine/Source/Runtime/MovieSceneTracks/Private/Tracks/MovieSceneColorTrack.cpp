@@ -11,6 +11,10 @@ UMovieSceneColorTrack::UMovieSceneColorTrack( const FObjectInitializer& ObjectIn
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneColorTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneColorSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneColorTrack::CreateNewSection()
 {

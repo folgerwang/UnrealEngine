@@ -167,6 +167,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(DisplayName="SetIsReadOnly (Editable Text)"))
 	void SetIsReadOnly(UPARAM(DisplayName="ReadyOnly") bool InbIsReadyOnly);
 
+	void SetClearKeyboardFocusOnCommit(bool bInClearKeyboardFocusOnCommit);
+
 public:
 	
 	//~ Begin UWidget Interface

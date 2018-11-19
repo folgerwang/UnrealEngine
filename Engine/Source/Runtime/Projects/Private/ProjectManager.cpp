@@ -458,6 +458,7 @@ IProjectManager& IProjectManager::Get()
 	static FProjectManager* ProjectManager = NULL;
 	if( ProjectManager == NULL )
 	{
+		SCOPED_BOOT_TIMING("new FProjectManager");
 		ProjectManager = new FProjectManager();
 	}
 	return *ProjectManager;

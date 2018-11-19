@@ -250,8 +250,8 @@ FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* Abilit
 	{
 		Owner = AbilitySystemComponent;
 		check(Owner.IsValid());
-		RestoreKey = Owner->ScopedPredictionKey;
-		Owner->ScopedPredictionKey = InPredictionKey;
+		RestoreKey = AbilitySystemComponent->ScopedPredictionKey;
+		AbilitySystemComponent->ScopedPredictionKey = InPredictionKey;
 		ClearScopedPredictionKey = true;
 		SetReplicatedPredictionKey = InSetReplicatedPredictionKey;
 	}
@@ -266,7 +266,7 @@ FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* InAbil
 	SetReplicatedPredictionKey = false;
 	Owner = InAbilitySystemComponent;
 
-	if (!ensure(Owner.IsValid()) || Owner->IsNetSimulating() == false)
+	if (!ensure(Owner.IsValid()) || InAbilitySystemComponent->IsNetSimulating() == false)
 	{
 		return;
 	}
@@ -284,7 +284,7 @@ FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* InAbil
 
 FScopedPredictionWindow::~FScopedPredictionWindow()
 {
-	if (Owner.IsValid())
+	if (UAbilitySystemComponent* OwnerPtr = Owner.Get())
 	{
 		if (SetReplicatedPredictionKey)
 		{
@@ -292,15 +292,15 @@ FScopedPredictionWindow::~FScopedPredictionWindow()
 			// If we werent given a new prediction key for this scope from the client, then setting the
 			// replicated prediction key back to 0 could cause OnReps to be missed on the client during high PL.
 			// (for example, predict w/ key 100 -> prediction key replication dropped -> predict w/ invalid key -> next rep of prediction key is 0).
-			if (Owner->ScopedPredictionKey.IsValidKey())
+			if (OwnerPtr->ScopedPredictionKey.IsValidKey())
 			{
-				Owner->ReplicatedPredictionKeyMap.ReplicatePredictionKey(Owner->ScopedPredictionKey);
-				Owner->bIsNetDirty = true;
+				OwnerPtr->ReplicatedPredictionKeyMap.ReplicatePredictionKey(OwnerPtr->ScopedPredictionKey);
+				OwnerPtr->bIsNetDirty = true;
 			}
 		}
 		if (ClearScopedPredictionKey)
 		{
-			Owner->ScopedPredictionKey = RestoreKey;
+			OwnerPtr->ScopedPredictionKey = RestoreKey;
 		}
 	}
 }

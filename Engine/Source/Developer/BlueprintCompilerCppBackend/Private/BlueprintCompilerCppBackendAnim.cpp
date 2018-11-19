@@ -104,4 +104,8 @@ void FBackendHelperAnim::AddAllAnimNodesInitializationFunction(FEmitterLocalCont
 void FBackendHelperAnim::AddAllAnimNodesInitializationFunctionCall(FEmitterLocalContext& Context)
 {
 	Context.Body.AddLine(TEXT("__InitAllAnimNodes();"));
+	
+	// anim nodes constructed, finish anim node initialization:
+	FString Class = FEmitHelper::GetCppName(Context.GetCurrentlyGeneratedClass());
+	Context.Body.AddLine(FString::Printf(TEXT("CastChecked<UAnimClassData>(CastChecked<UDynamicClass>(%s::StaticClass())->%s)->InitGraphExposedInputs(this);"), *Class, GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, AnimClassImplementation)));
 }

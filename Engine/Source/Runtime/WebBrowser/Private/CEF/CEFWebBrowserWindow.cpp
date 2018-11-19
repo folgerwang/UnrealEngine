@@ -1463,19 +1463,12 @@ void FCEFWebBrowserWindow::CloseBrowser(bool bForce)
 	if (IsValid())
 	{
 		CefRefPtr<CefBrowserHost> Host = InternalCefBrowser->GetHost();
-		if (CefCurrentlyOn(TID_UI))
+		// In case this is called from inside a CEF event handler, use CEF's task mechanism to
+		// postpone the actual closing of the window until it is safe.
+		CefPostTask(TID_UI, new FCEFBrowserClosureTask(nullptr, [=]()
 		{
 			Host->CloseBrowser(bForce);
-		}
-		else
-		{
-			// In case this is called from inside a CEF event handler, use CEF's task mechanism to
-			// postpone the actual closing of the window until it is safe.
-			CefPostTask(TID_UI, new FCEFBrowserClosureTask(nullptr, [=]()
-			{
-				Host->CloseBrowser(bForce);
-			}));
-		}
+		}));
 	}
 }
 

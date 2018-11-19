@@ -14,6 +14,11 @@ UMovieSceneMaterialTrack::UMovieSceneMaterialTrack(const FObjectInitializer& Obj
 }
 
 
+bool UMovieSceneMaterialTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneParameterSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneMaterialTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneParameterSection>(this, NAME_None, RF_Transactional);

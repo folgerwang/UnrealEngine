@@ -707,7 +707,7 @@ public:
 	 * @param [out]		HiddenPins		Set of pins that should be hidden
 	 * @param [out]		OutInternalPins	Subset of hidden pins that are marked for internal use only rather than marked as hidden (optional)
 	 */
-	DEPRECATED(4.19, "Use version that passes sets by name")
+	UE_DEPRECATED(4.19, "Use version that passes sets by name")
 	static void GetHiddenPinsForFunction(UEdGraph const* Graph, UFunction const* Function, TSet<FString>& HiddenPins, TSet<FString>* OutInternalPins = nullptr);
 
 	static void GetHiddenPinsForFunction(UEdGraph const* Graph, UFunction const* Function, TSet<FName>& HiddenPins, TSet<FName>* OutInternalPins = nullptr);
@@ -1163,7 +1163,7 @@ public:
 	static void PostEditChangeBlueprintActors(UBlueprint* Blueprint, bool bComponentEditChange = false);
 
 	/** Checks if the property can be modified in given blueprint */
-	DEPRECATED(4.17, "Use IsPropertyWritableInBlueprint instead.")
+	UE_DEPRECATED(4.17, "Use IsPropertyWritableInBlueprint instead.")
 	static bool IsPropertyReadOnlyInCurrentBlueprint(const UBlueprint* Blueprint, const UProperty* Property);
 
 	/** Enumeration of whether a property is writable or if not, why. */
@@ -1600,7 +1600,7 @@ public:
 	 */
 	static bool ImplementsGetWorld(const UBlueprint* BP);
 
-	DEPRECATED(4.20, "Use ImplementsGetWorld")
+	UE_DEPRECATED(4.20, "Use ImplementsGetWorld")
 	static bool ImplentsGetWorld(const UBlueprint* BP) { return ImplementsGetWorld(BP); }
 };
 

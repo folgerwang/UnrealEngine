@@ -48,11 +48,13 @@ public:
 	virtual bool GetReferencers(FName PackageName, TArray<FName>& OutReferencers, EAssetRegistryDependencyType::Type InReferenceType = EAssetRegistryDependencyType::Packages) const override;
 	virtual const FAssetPackageData* GetAssetPackageData(FName PackageName) const override;
 	virtual FName GetRedirectedObjectPath(const FName ObjectPath) const override;
+	virtual void StripAssetRegistryKeyForObject(FName ObjectPath, FName Key) override;
 	virtual bool GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const override;
 	virtual void GetDerivedClassNames(const TArray<FName>& ClassNames, const TSet<FName>& ExcludedClassNames, TSet<FName>& OutDerivedClassNames) const override;
 	virtual void GetAllCachedPaths(TArray<FString>& OutPathList) const override;
 	virtual void GetSubPaths(const FString& InBasePath, TArray<FString>& OutPathList, bool bInRecurse) const override;
 	virtual void RunAssetsThroughFilter (TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const override;
+	virtual void UseFilterToExcludeAssets(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const override;
 	virtual void ExpandRecursiveFilter(const FARFilter& InFilter, FARFilter& ExpandedFilter) const override;
 	virtual EAssetAvailability::Type GetAssetAvailability(const FAssetData& AssetData) const override;	
 	virtual float GetAssetAvailabilityProgress(const FAssetData& AssetData, EAssetAvailabilityProgressReportingType::Type ReportType) const override;
@@ -66,10 +68,12 @@ public:
 	virtual void PrioritizeSearchPath(const FString& PathToPrioritize) override;
 	virtual void ScanModifiedAssetFiles(const TArray<FString>& InFilePaths) override;
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void AppendState(const FAssetRegistryState& InState) override;
 	virtual uint32 GetAllocatedSize(bool bLogDetailed = false) const override;
 	virtual void LoadPackageRegistryData(FArchive& Ar, TArray<FAssetData*>& Data) const override;
 	virtual void InitializeTemporaryAssetRegistryState(FAssetRegistryState& OutState, const FAssetRegistrySerializationOptions& Options, bool bRefreshExisting = false, const TMap<FName, FAssetData*>& OverrideData = TMap<FName, FAssetData*>()) const override;
 	virtual const FAssetRegistryState* GetAssetRegistryState() const override;
+	virtual const TSet<FName>& GetCachedEmptyPackages() const override;
 	virtual void InitializeSerializationOptions(FAssetRegistrySerializationOptions& Options, const FString& PlatformIniName = FString()) const override;
 
 	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, TArray<FName>* InMaps = nullptr) override;
@@ -115,7 +119,7 @@ public:
 
 	virtual void Tick (float DeltaTime) override;
 
-	DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
+	UE_DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
 	static bool IsUsingWorldAssets() { return true; }
 
 protected:
@@ -223,6 +227,9 @@ private:
 	void CollectCodeGeneratorClasses();
 
 	bool ResolveRedirect(const FString& InPackageName, FString& OutPackageName);
+
+	/** Internal helper which processes a given state and adds its contents to the current registry */
+	void CachePathsFromState(const FAssetRegistryState& InState);
 
 private:
 	

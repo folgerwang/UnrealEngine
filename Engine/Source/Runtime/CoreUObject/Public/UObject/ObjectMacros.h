@@ -32,22 +32,21 @@ typedef	uint64 ScriptPointerType;
 /** Set this to 0 to disable UObject thread safety features */
 #define THREADSAFE_UOBJECTS 1
 
-// Enumeration of different methods of determining class relationships.
-#define UCLASS_ISA_OUTERWALK  1 // walks the class chain                                         - original IsA behavior
-#define UCLASS_ISA_INDEXTREE  2 // uses position in an index-based tree                          - thread-unsafe if one thread does a parental test while the tree is changing, e.g. by async loading a class
-#define UCLASS_ISA_CLASSARRAY 3 // stores an array of parents per class and uses this to compare - faster than 1, slower but comparable with 2, and thread-safe
+// Enumeration of different methods of determining ustruct relationships.
+#define USTRUCT_ISCHILDOF_OUTERWALK  1 // walks the super struct chain                                     - original IsA behavior
+#define USTRUCT_ISCHILDOF_STRUCTARRAY 2 // stores an array of parents per struct and uses this to compare - faster than 1 and thread-safe but can have issues with BP reinstancing and hot reload
 
-// UCLASS_FAST_ISA_IMPL sets which implementation of IsA to use.
-#if UE_EDITOR
+// USTRUCT_FAST_ISCHILDOF_IMPL sets which implementation of IsChildOf to use.
+#if UE_EDITOR || HACK_HEADER_GENERATOR
 	// On editor, we use the outerwalk implementation because BP reinstancing and hot reload
-	// mess up the class array
-	#define UCLASS_FAST_ISA_IMPL UCLASS_ISA_OUTERWALK
+	// mess up the struct array
+	#define USTRUCT_FAST_ISCHILDOF_IMPL USTRUCT_ISCHILDOF_OUTERWALK
 #else
-	#define UCLASS_FAST_ISA_IMPL UCLASS_ISA_CLASSARRAY
+	#define USTRUCT_FAST_ISCHILDOF_IMPL USTRUCT_ISCHILDOF_STRUCTARRAY
 #endif
 
-// UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK, if set, does a checked comparison of the current implementation against the outer walk - used for testing.
-#define UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK 0
+// USTRUCT_FAST_ISCHILDOF_COMPARE_WITH_OUTERWALK, if set, does a checked comparison of the current implementation against the outer walk - used for testing.
+#define USTRUCT_FAST_ISCHILDOF_COMPARE_WITH_OUTERWALK 0
 
 /*-----------------------------------------------------------------------------
 	Core enumerations.

@@ -18,10 +18,13 @@ const int32 MAX_BUNCH_SIZE = 1024 * 1024;
 FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 :	FNetBitReader	(InConnection->PackageMap, Src, CountBits)
 ,	PacketId	( 0 )
-,	Next ( NULL )
+,	Next ( nullptr )
 ,	Connection ( InConnection )
 ,	ChIndex ( 0 )
-,	ChType ( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+,	ChType( CHTYPE_None )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName ( NAME_None )
 ,	ChSequence ( 0 )
 ,	bOpen ( 0 )
 ,	bClose ( 0 )
@@ -53,7 +56,10 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	Next =	InBunch.Next;
 	Connection = InBunch.Connection;
 	ChIndex = InBunch.ChIndex;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	ChType = InBunch.ChType;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	ChName = InBunch.ChName;
 	ChSequence = InBunch.ChSequence;
 	bOpen =	InBunch.bOpen;
 	bClose = InBunch.bClose;
@@ -83,6 +89,16 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	Pos = 0;
 }
 
+void FInBunch::CountMemory(FArchive& Ar) const
+{
+	for (const FInBunch* Current = this; Current; Current = Current->Next)
+	{
+		Current->FNetBitReader::CountMemory(Ar);
+		const SIZE_T MemberSize = sizeof(*this) - sizeof(FNetBitReader);
+		Ar.CountBytes(MemberSize, MemberSize);
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	FOutBunch implementation.
 -----------------------------------------------------------------------------*/
@@ -96,11 +112,14 @@ FOutBunch::FOutBunch()
 {}
 FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 :	FNetBitWriter	( InChannel->Connection->PackageMap, InChannel->Connection->GetMaxSingleBunchSizeBits())
-,	Next		( NULL )
+,	Next		( nullptr )
 ,	Channel		( InChannel )
 ,	Time		( 0 )
 ,	ChIndex		( InChannel->ChIndex )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	ChType		( InChannel->ChType )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName		( InChannel->ChName )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
 ,	ReceivedAck	( 0 )
@@ -130,11 +149,14 @@ FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 }
 FOutBunch::FOutBunch( UPackageMap *InPackageMap, int64 MaxBits )
 :	FNetBitWriter	( InPackageMap, MaxBits )
-,	Next		( NULL )
-,	Channel		( NULL )
+,	Next		( nullptr )
+,	Channel		( nullptr )
 ,	Time		( 0 )
-,	ChIndex     ( 0 )
-,	ChType      ( 0 )
+,	ChIndex		( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+,	ChType		( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName		( NAME_None )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
 ,	ReceivedAck	( 0 )
@@ -151,11 +173,20 @@ FOutBunch::FOutBunch( UPackageMap *InPackageMap, int64 MaxBits )
 {
 }
 
+void FOutBunch::CountMemory(FArchive& Ar) const
+{
+	for (const FOutBunch* Current = this; Current; Current = Current->Next)
+	{
+		Current->FNetBitWriter::CountMemory(Ar);
+		const SIZE_T MemberSize = sizeof(*this) - sizeof(FNetBitWriter);
+		Ar.CountBytes(MemberSize, MemberSize);
+	}
+}
 
 FControlChannelOutBunch::FControlChannelOutBunch(UChannel* InChannel, bool bClose)
 	: FOutBunch(InChannel, bClose)
 {
-	checkSlow(Cast<UControlChannel>(InChannel) != NULL);
+	checkSlow(Cast<UControlChannel>(InChannel) != nullptr);
 	// control channel bunches contain critical handshaking/synchronization and should always be reliable
 	bReliable = true;
 }

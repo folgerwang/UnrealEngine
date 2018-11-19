@@ -6,6 +6,7 @@ using System.Net;
 using System;
 using UnrealBuildTool;
 using AutomationTool;
+using System.Net.NetworkInformation;
 
 namespace EpicGame
 {
@@ -111,31 +112,72 @@ namespace EpicGame
 					// this is important when running tests in parallel to avoid matchmaking collisions
 					McpString += string.Format(" -port={0}", ServerPort);
 					McpString += string.Format(" -beaconport={0}", BeaconPort);
+
+					AppConfig.CommandLine += " -net.forcecompatible";
+				}
+
+				// Default to the first address with a valid prefix
+				var LocalAddress = Dns.GetHostEntry(Dns.GetHostName()).AddressList
+					.Where(o => o.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+						&& o.GetAddressBytes()[0] != 169)
+					.FirstOrDefault();
+
+				var ActiveInterfaces = NetworkInterface.GetAllNetworkInterfaces()
+					.Where(I => I.OperationalStatus == OperationalStatus.Up);
+
+				bool MultipleInterfaces = ActiveInterfaces.Count() > 1;
+				
+				if (MultipleInterfaces)
+				{
+					// Now, lots of Epic PCs have virtual adapters etc, so see if there's one that's on our network and if so use that IP
+					var PreferredInterface = ActiveInterfaces
+						.Where(I => I.GetIPProperties().DnsSuffix.Equals("epicgames.net", StringComparison.OrdinalIgnoreCase))
+						.SelectMany(I => I.GetIPProperties().UnicastAddresses)
+						.Where(A => A.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+						.FirstOrDefault();
+
+					if (PreferredInterface != null)
+					{
+						LocalAddress = PreferredInterface.Address;
+					}					
+				}
+
+				if (LocalAddress == null)
+				{
+					throw new AutomationException("Could not find local IP address");
+				}
+
+				string RequestedServerIP = Globals.Params.ParseValue("serverip", "");
+				string RequestedClientIP = Globals.Params.ParseValue("clientip", "");
+				string ServerIP = string.IsNullOrEmpty(RequestedServerIP) ? LocalAddress.ToString() : RequestedServerIP;
+				string ClientIP = string.IsNullOrEmpty(RequestedClientIP) ? LocalAddress.ToString() : RequestedClientIP;
+				
+
+				// Do we need to add the -multihome argument to bind to specific IP?
+				if (AppConfig.ProcessType.IsServer() && (MultipleInterfaces || !string.IsNullOrEmpty(RequestedServerIP)))
+				{ 		
+					AppConfig.CommandLine += string.Format(" -multihome={0}", ServerIP);
+				}
+
+				// client too, but only desktop platforms
+				if (AppConfig.ProcessType.IsClient() && (MultipleInterfaces || !string.IsNullOrEmpty(RequestedClientIP)))
+				{
+					if (AppConfig.Platform == UnrealTargetPlatform.Win64 || AppConfig.Platform == UnrealTargetPlatform.Mac)
+					{
+						AppConfig.CommandLine += string.Format(" -multihome={0}", ClientIP);
+					}
 				}
 
 				if (NoMCP)
 				{
-
 					McpString += " -nomcp -notimeouts";
 
 					// if this is a client, and there is a server role, find our PC's IP address and tell it to connect to us
 					if (AppConfig.ProcessType.IsClient() &&
 							(RequiredRoles.ContainsKey(UnrealTargetRole.Server) || RequiredRoles.ContainsKey(UnrealTargetRole.EditorServer)))
-					{
-						// find all valid IP addresses but throw away anything with an invalid range
-						var LocalAddress = Dns.GetHostEntry(Dns.GetHostName()).AddressList
-							.Where(o => o.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
-								&& o.GetAddressBytes()[0] != 169)
-							.FirstOrDefault();
-
-						if (LocalAddress == null)
-						{
-							throw new AutomationException("Could not find local IP address");
-						}
-						string LocalIP = Globals.Params.ParseValue("serverip", LocalAddress.ToString());
-						McpString += string.Format(" -ExecCmds=\"open {0}:{1}\"", LocalIP, ServerPort);
-					}
-					
+					{						
+						McpString += string.Format(" -ExecCmds=\"open {0}:{1}\"", ServerIP, ServerPort);
+					}					
 				}
 				else
 				{
@@ -174,7 +216,6 @@ namespace EpicGame
 				}
 			}
 		}
-
 		
 	}
 	

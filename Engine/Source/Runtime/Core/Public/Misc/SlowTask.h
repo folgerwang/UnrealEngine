@@ -69,6 +69,11 @@ private:
 public:
 
 	/**
+	 * True if a slow task should be created. False if a slow task should not be created because another was created recently.
+	 */
+	static bool ShouldCreateThrottledSlowTask();
+
+	/**
 	 * Construct this scope from an amount of work to do, and a message to display
 	 * @param		InAmountOfWork			Arbitrary number of work units to perform (can be a percentage or number of steps).
 	 *										0 indicates that no progress frames are to be entered in this scope (automatically enters a frame encompassing the entire scope)

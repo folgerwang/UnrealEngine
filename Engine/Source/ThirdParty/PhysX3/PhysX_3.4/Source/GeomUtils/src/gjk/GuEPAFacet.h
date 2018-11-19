@@ -124,7 +124,7 @@ namespace Gu
 		void getClosestPoint(const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, Ps::aos::Vec3V& closestA, Ps::aos::Vec3V& closestB);
 		
 		//performs a flood fill over the boundary of the current polytope. 
-		void silhouette(const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager);
+		bool silhouette(const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager);
 		
 
 		//m_planeDist is positive
@@ -134,7 +134,7 @@ namespace Gu
 		}
 	 
 		//store all the boundary facets for the new polytope in the edgeBuffer and free indices when an old facet isn't part of the boundary anymore
-		PX_FORCE_INLINE void silhouette(const PxU32 index, const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, 
+		PX_FORCE_INLINE bool silhouette(const PxU32 index, const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer,
 			EPAFacetManager& manager);
 
 		Ps::aos::Vec3V m_planeNormal;																										//16
@@ -208,10 +208,14 @@ namespace Gu
 		Edge* Insert(Facet* PX_RESTRICT  facet, const PxU32 index)
 		{
 			PX_ASSERT(m_Size < MaxEdges);
-			Edge* pEdge = &m_pEdges[m_Size++];
-			pEdge->m_facet=facet;
-			pEdge->m_index=index;
-			return pEdge;
+			if (m_Size < MaxEdges)
+			{
+				Edge* pEdge = &m_pEdges[m_Size++];
+				pEdge->m_facet = facet;
+				pEdge->m_index = index;
+				return pEdge;
+			}
+			return nullptr;
 		}
 
 		Edge* Get(const PxU32 index)

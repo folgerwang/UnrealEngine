@@ -455,7 +455,7 @@ public:
 	uint32 bEnableLODLocking:1;
 
 	/** If true, actors can be grouped and grouping rules will be maintained. When deactivated, any currently existing groups will still be preserved.*/
-	DEPRECATED(4.17, "bGroupingActive has been deprecated.  Use UActorGroupingUtils::IsGroupingActive instead")
+	UE_DEPRECATED(4.17, "bGroupingActive has been deprecated.  Use UActorGroupingUtils::IsGroupingActive instead")
 	uint32 bGroupingActive:1;
 
 	UPROPERTY(config)
@@ -753,11 +753,11 @@ public:
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
 	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
-	DEPRECATED(4.20, "This function is no longer used.")
+	UE_DEPRECATED(4.20, "This function is no longer used.")
 	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
 
 	/** Called by internal engine systems after a HLOD Actor is marked dirty */
-	DEPRECATED(4.20, "This function is no longer used.")
+	UE_DEPRECATED(4.20, "This function is no longer used.")
 	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
@@ -1933,7 +1933,7 @@ public:
 	 *
 	 * @param	InLevel		The destination level.
 	 */
-	DEPRECATED(4.17, "MoveSelectedActorsToLevel has been deprecated.  Use UEditorLevelUtils::MoveSelectedActorsToLevel instead")
+	UE_DEPRECATED(4.17, "MoveSelectedActorsToLevel has been deprecated.  Use UEditorLevelUtils::MoveSelectedActorsToLevel instead")
 	void MoveSelectedActorsToLevel( ULevel* InLevel );
 
 	/**
@@ -2950,7 +2950,7 @@ protected:
 	void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
 
 public:
-	DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
+	UE_DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
 	static bool IsUsingWorldAssets() { return true; }
 
 private:

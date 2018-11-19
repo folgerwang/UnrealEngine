@@ -165,6 +165,11 @@ class FRepChangedHistory
 public:
 	FRepChangedHistory() : Resend( false ) {}
 
+	void CountBytes(FArchive& Ar) const
+	{
+		Changed.CountBytes(Ar);
+	}
+
 	FPacketIdRange		OutPacketIdRange;
 	TArray< uint16 >	Changed;
 	bool				Resend;
@@ -186,6 +191,13 @@ public:
 	FGuidReferences( FGuidReferencesMap* InArray, const int32 InParentIndex, const int32 InCmdIndex ) : NumBufferBits( 0 ), Array( InArray ), ParentIndex( InParentIndex ), CmdIndex( InCmdIndex ) {}
 
 	~FGuidReferences();
+
+	void CountBytes(FArchive& Ar) const
+	{
+		UnmappedGUIDs.CountBytes(Ar);
+		MappedDynamicGUIDs.CountBytes(Ar);
+		Buffer.CountBytes(Ar);
+	}
 
 	TSet< FNetworkGUID >		UnmappedGUIDs;
 	TSet< FNetworkGUID >		MappedDynamicGUIDs;
@@ -241,6 +253,8 @@ public:
 	{ }
 
 	~FRepState();
+
+	void CountBytes(FArchive& Ar) const;
 
 	FRepStateStaticBuffer			StaticBuffer;
 
@@ -299,6 +313,7 @@ enum class ERepLayoutCmdType : uint8
 	PropertyVectorQ			= 18,
 	PropertyString			= 19,
 	PropertyUInt64			= 20,
+	PropertyNativeBool		= 21,
 };
 
 enum class ERepParentFlags : uint32
@@ -520,7 +535,7 @@ public:
 
 	void MergeChangeList( const uint8* RESTRICT Data, const TArray< uint16 >& Dirty1, const TArray< uint16 >& Dirty2, TArray< uint16 >& MergedDirty ) const;
 
-	DEPRECATED(4.20, "Use the DiffProperties overload with the EDiffPropertiesFlags parameter")
+	UE_DEPRECATED(4.20, "Use the DiffProperties overload with the EDiffPropertiesFlags parameter")
 	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const;
 
 	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const EDiffPropertiesFlags Flags ) const;

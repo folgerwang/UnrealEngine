@@ -1464,26 +1464,33 @@ void FFindInBlueprintSearchManager::OnAssetAdded(const FAssetData& InAssetData)
 	else if (Handler->AssetContainsBlueprint(InAssetData))
 	{
 		// Check first for versioned FiB data (latest codepath)
-		if(const FString* FiBVersionedSearchData = InAssetData.TagsAndValues.Find(FBlueprintTags::FindInBlueprintsData))
+		FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag(FBlueprintTags::FindInBlueprintsData);
+		if(Result.IsSet())
 		{
-			if (FiBVersionedSearchData->Len() == 0)
+			const FString& FiBVersionedSearchData = Result.GetValue();
+			if (FiBVersionedSearchData.Len() == 0)
 			{
 				UncachedAssets.Add(InAssetData.ObjectPath);
 			}
 			else
 			{
-				ExtractUnloadedFiBData(InAssetData, *FiBVersionedSearchData, true);
+				ExtractUnloadedFiBData(InAssetData, FiBVersionedSearchData, true);
 			}
 		}
-		// Check for legacy (unversioned) FiB data
-		else if(const FString* FiBSearchData = InAssetData.TagsAndValues.Find("FiB"))
-		{
-			ExtractUnloadedFiBData(InAssetData, *FiBSearchData, false);
-		}
-		// The asset has no FiB data, keep track of it so we can inform the user
 		else
 		{
-			UncachedAssets.Add(InAssetData.ObjectPath);
+			// Check for legacy (unversioned) FiB data
+			FAssetDataTagMapSharedView::FFindTagResult ResultLegacy = InAssetData.TagsAndValues.FindTag("FiB");
+			if (ResultLegacy.IsSet())
+			{
+				ExtractUnloadedFiBData(InAssetData, ResultLegacy.GetValue(), false);
+			}
+			// The asset has no FiB data, keep track of it so we can inform the user
+			else
+			{
+				UncachedAssets.Add(InAssetData.ObjectPath);
+			}
+
 		}
 	}
 }
@@ -1971,9 +1978,10 @@ void FFindInBlueprintSearchManager::CleanCache()
 				FAssetData AssetData = AssetRegistryModule->Get().GetAssetByObjectPath(SearchArray[SearchValuePair.Value].AssetPath);
 				if(AssetData.IsValid())
 				{
-					if(const FString* FiBSearchData = AssetData.TagsAndValues.Find("FiB"))
+					FAssetDataTagMapSharedView::FFindTagResult ResultLegacy = AssetData.TagsAndValues.FindTag("FiB");
+					if (ResultLegacy.IsSet())
 					{
-						SearchArray[SearchValuePair.Value].Value = *FiBSearchData;
+						SearchArray[SearchValuePair.Value].Value = ResultLegacy.GetValue();
 					}
 					// Build the new map/array
 					NewSearchMap.Add(SearchValuePair.Key, NewSearchArray.Add(SearchArray[SearchValuePair.Value]) );

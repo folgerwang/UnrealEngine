@@ -1444,4 +1444,6 @@ void FThreadStats::WaitForStats()
 	}
 }
 
+bool FStatPacket::bDumpStatPacket = false;
+
 #endif

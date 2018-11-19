@@ -81,7 +81,7 @@ protected:
 public:
 
 	/** Grab the specified component */
-	DEPRECATED(4.14, "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation")
+	UE_DEPRECATED(4.14, "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation")
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle", meta = (DeprecatedFunction, DeprecationMessage = "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation"))
 	virtual void GrabComponent(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, bool bConstrainRotation);
 

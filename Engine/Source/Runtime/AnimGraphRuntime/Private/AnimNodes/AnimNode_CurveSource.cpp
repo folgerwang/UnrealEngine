@@ -98,5 +98,5 @@ void FAnimNode_CurveSource::Evaluate_AnyThread(FPoseContext& Output)
 void FAnimNode_CurveSource::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	// Evaluate any BP logic plugged into this node
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 }

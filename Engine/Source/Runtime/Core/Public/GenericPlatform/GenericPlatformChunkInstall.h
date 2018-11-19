@@ -169,10 +169,10 @@ public:
 	 */
 	virtual void RemoveChunkInstallDelegate( FDelegateHandle Delegate ) = 0;
 
-	DEPRECATED(4.18, "Call AddChunkInstallDelegate instead, which is now bound for all chunk ids")
+	UE_DEPRECATED(4.18, "Call AddChunkInstallDelegate instead, which is now bound for all chunk ids")
 	virtual FDelegateHandle SetChunkInstallDelgate( uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate ) = 0;
 
-	DEPRECATED(4.18, "Call RemoveChunkInstallDelegate instead")
+	UE_DEPRECATED(4.18, "Call RemoveChunkInstallDelegate instead")
 	virtual void RemoveChunkInstallDelgate( uint32 ChunkID, FDelegateHandle Delegate ) = 0;
 
 	/**

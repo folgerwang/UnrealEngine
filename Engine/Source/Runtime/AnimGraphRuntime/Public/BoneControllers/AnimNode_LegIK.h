@@ -55,21 +55,21 @@ public:
 	float MinRotationAngleRadians;
 
 private:
-	bool bInitialized;
+	FAnimInstanceProxy* MyAnimInstanceProxy;
 	float MaximumReach;
 	int32 NumLinks;
-	bool bEnableRotationLimit;
-	FAnimInstanceProxy* MyAnimInstanceProxy;
 	FVector HingeRotationAxis;
+	bool bEnableRotationLimit;
+	bool bInitialized;
 
 public:
 	FIKChain()
-		: bInitialized(false)
+		: MyAnimInstanceProxy(nullptr)
 		, MaximumReach(0.f)
 		, NumLinks(INDEX_NONE)
-		, bEnableRotationLimit(false)
-		, MyAnimInstanceProxy(nullptr)
 		, HingeRotationAxis(FVector::ZeroVector)
+		, bEnableRotationLimit(false)
+		, bInitialized(false)
 	{}
 
 	void InitializeFromLegData(FAnimLegIKData& InLegData, FAnimInstanceProxy* InAnimInstanceProxy);
@@ -108,6 +108,11 @@ struct FAnimLegIKDefinition
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	int32 NumBonesInLimb;
 
+	/** Only used if bEnableRotationLimit is enabled. Prevents the leg from folding onto itself,
+	* and forces at least this angle between Parent and Child bone. */
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	float MinRotationAngle;
+
 	/** Forward Axis for Foot bone. */
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	TEnumAsByte<EAxis::Type> FootBoneForwardAxis;
@@ -120,21 +125,16 @@ struct FAnimLegIKDefinition
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bEnableRotationLimit;
 
-	/** Only used if bEnableRotationLimit is enabled. Prevents the leg from folding onto itself,
-	* and forces at least this angle between Parent and Child bone. */
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	float MinRotationAngle;
-
 	/** Enable Knee Twist correction, by comparing Foot FK with Foot IK orientation. */
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bEnableKneeTwistCorrection;
 
 	FAnimLegIKDefinition()
 		: NumBonesInLimb(2)
+		, MinRotationAngle(15.f)
 		, FootBoneForwardAxis(EAxis::Y)
 		, HingeRotationAxis(EAxis::None)
 		, bEnableRotationLimit(false)
-		, MinRotationAngle(15.f)
 		, bEnableKneeTwistCorrection(true)
 	{}
 };
@@ -146,11 +146,9 @@ struct FAnimLegIKData
 	GENERATED_USTRUCT_BODY()
 
 public:
-	FCompactPoseBoneIndex IKFootBoneIndex;
 	FTransform IKFootTransform;
-
 	FAnimLegIKDefinition* LegDefPtr;
-
+	FCompactPoseBoneIndex IKFootBoneIndex;
 	int32 NumBones;
 	TArray<FCompactPoseBoneIndex> FKLegBoneIndices;
 	TArray<FTransform> FKLegBoneTransforms;
@@ -161,9 +159,9 @@ public:
 	void InitializeTransforms(FAnimInstanceProxy* MyAnimInstanceProxy, FCSPose<FCompactPose>& MeshBases);
 
 	FAnimLegIKData()
-		: IKFootBoneIndex(INDEX_NONE)
-		, IKFootTransform(FTransform::Identity)
+		: IKFootTransform(FTransform::Identity)
 		, LegDefPtr(nullptr)
+		, IKFootBoneIndex(INDEX_NONE)
 		, NumBones(INDEX_NONE)
 	{}
 };
@@ -186,7 +184,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LegIK : public FAnimNode_SkeletalControlBa
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	TArray<FAnimLegIKDefinition> LegsDefinition;
 
-	UPROPERTY(Transient)
 	TArray<FAnimLegIKData> LegsData;
 
 	FAnimInstanceProxy* MyAnimInstanceProxy;

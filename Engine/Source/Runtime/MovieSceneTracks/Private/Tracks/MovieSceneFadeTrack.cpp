@@ -17,6 +17,11 @@ UMovieSceneFadeTrack::UMovieSceneFadeTrack(const FObjectInitializer& Init)
 	EvalOptions.bEvaluateNearestSection_DEPRECATED = EvalOptions.bCanEvaluateNearestSection = true;
 }
 
+bool UMovieSceneFadeTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneFadeSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneFadeTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneFadeSection>(this, NAME_None, RF_Transactional);

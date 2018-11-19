@@ -103,7 +103,10 @@ class ENGINE_API UActorChannel
 		, bBlockChannelFailure(false)
 #endif
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		ChType = CHTYPE_Actor;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		ChName = NAME_Actor;
 		bClearRecentActorRefs = true;
 		bHoldQueuedExportBunchesAndGUIDs = false;
 	}
@@ -112,7 +115,7 @@ public:
 
 	// UChannel interface.
 
-	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally ) override;
+	virtual void Init( UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags ) override;
 	virtual void SetClosingFlag() override;
 	virtual void ReceivedBunch( FInBunch& Bunch ) override;
 	virtual void Tick() override;

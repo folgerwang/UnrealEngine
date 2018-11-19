@@ -261,7 +261,7 @@ namespace EFeaturePrivilegeLevel
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** The state of an async task (read friends, read content, write cloud file, etc) request */
 namespace EOnlineAsyncTaskState
@@ -302,7 +302,7 @@ namespace EOnlineAsyncTaskState
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** The possible friend states for a friend entry */
 namespace EOnlineFriendState
@@ -343,7 +343,7 @@ namespace EOnlineFriendState
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** Leaderboard entry sort types */
 namespace ELeaderboardSort
@@ -378,7 +378,7 @@ namespace ELeaderboardSort
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** Leaderboard display format */
 namespace ELeaderboardFormat
@@ -413,7 +413,7 @@ namespace ELeaderboardFormat
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** How to upload leaderboard score updates */
 namespace ELeaderboardUpdateMethod
@@ -442,7 +442,7 @@ namespace ELeaderboardUpdateMethod
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** Enum indicating the state the LAN beacon is in */
 namespace ELanBeaconState
@@ -478,7 +478,7 @@ namespace ELanBeaconState
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** Enum indicating the current state of the online session (in progress, ended, etc.) */
 namespace EOnlineSessionState
@@ -544,7 +544,7 @@ namespace EOnlineSessionState
 		}
 		return TEXT("");
 	}
-};
+}
 
 /** The types of advertisement of settings to use */
 namespace EOnlineDataAdvertisementType
@@ -907,7 +907,14 @@ public:
 
 	virtual FString ToDebugString() const override
 	{
-		return OSS_UNIQUEID_REDACT(*this, UniqueNetIdStr);
+		if (IsValid())
+		{
+			return OSS_UNIQUEID_REDACT(*this, UniqueNetIdStr);
+		}
+		else
+		{
+			return TEXT("INVALID");
+		}
 	}
 
 	/** Needed for TMap::GetTypeHash() */
@@ -944,10 +951,10 @@ public: \
 	{ \
 		return ::GetTypeHash(A.UniqueNetIdStr); \
 	} \
-	static const TSharedRef<const SUBCLASSNAME>& GetInvalidId() \
+	static const TSharedRef<const SUBCLASSNAME>& EmptyId() \
 	{ \
-		static const TSharedRef<const SUBCLASSNAME> InvalidId = MakeShared<const SUBCLASSNAME>(FString()); \
-		return InvalidId; \
+		static const TSharedRef<const SUBCLASSNAME> EmptyId = MakeShared<const SUBCLASSNAME>(FString()); \
+		return EmptyId; \
 		\
 	} \
 };

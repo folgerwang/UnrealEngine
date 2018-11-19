@@ -315,7 +315,7 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 				if (StrongThis.IsValid())
 				{
 					// No user id for app store
-					StrongThis->TriggerOnUnexpectedPurchaseReceiptDelegates(FOnlineIdentityIOS::GetEmptyUniqueId());
+					StrongThis->TriggerOnUnexpectedPurchaseReceiptDelegates(*FUniqueNetIdIOS::EmptyId());
 				}
 			});
 		}

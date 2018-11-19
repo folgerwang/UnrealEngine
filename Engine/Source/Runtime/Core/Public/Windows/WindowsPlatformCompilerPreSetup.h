@@ -23,7 +23,7 @@
 	#endif // THIRD_PARTY_INCLUDES_END
 #else
 	#ifndef DISABLE_DEPRECATION
-		#define DEPRECATED(VERSION, MESSAGE) __declspec(deprecated(MESSAGE " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile."))
+		#define DEPRECATED(VERSION, MESSAGE) DEPRECATED_MACRO(4.22, "The DEPRECATED macro has been deprecated in favor of UE_DEPRECATED().") __declspec(deprecated(MESSAGE " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile."))
 
 		#define PRAGMA_DISABLE_DEPRECATION_WARNINGS \
 			__pragma (warning(push)) \

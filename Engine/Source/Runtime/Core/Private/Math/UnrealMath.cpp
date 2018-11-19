@@ -398,7 +398,8 @@ FQuat FRotator::Quaternion() const
 
 #if PLATFORM_ENABLE_VECTORINTRINSICS
 	const VectorRegister Angles = MakeVectorRegister(Pitch, Yaw, Roll, 0.0f);
-	const VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD_HALF);
+	const VectorRegister AnglesNoWinding = VectorMod(Angles, GlobalVectorConstants::Float360);
+	const VectorRegister HalfAngles = VectorMultiply(AnglesNoWinding, GlobalVectorConstants::DEG_TO_RAD_HALF);
 
 	VectorRegister SinAngles, CosAngles;
 	VectorSinCos(&SinAngles, &CosAngles, &HalfAngles);
@@ -428,13 +429,17 @@ FQuat FRotator::Quaternion() const
 	VectorStoreAligned(Result, &RotationQuat);
 #else
 	const float DEG_TO_RAD = PI/(180.f);
-	const float DIVIDE_BY_2 = DEG_TO_RAD/2.f;
+	const float RADS_DIVIDED_BY_2 = DEG_TO_RAD/2.f;
 	float SP, SY, SR;
 	float CP, CY, CR;
 
-	FMath::SinCos(&SP, &CP, Pitch*DIVIDE_BY_2);
-	FMath::SinCos(&SY, &CY, Yaw*DIVIDE_BY_2);
-	FMath::SinCos(&SR, &CR, Roll*DIVIDE_BY_2);
+	const float PitchNoWinding = FMath::Fmod(Pitch, 360.0f);
+	const float YawNoWinding = FMath::Fmod(Yaw, 360.0f);
+	const float RollNoWinding = FMath::Fmod(Roll, 360.0f);
+
+	FMath::SinCos(&SP, &CP, PitchNoWinding * RADS_DIVIDED_BY_2);
+	FMath::SinCos(&SY, &CY, YawNoWinding * RADS_DIVIDED_BY_2);
+	FMath::SinCos(&SR, &CR, RollNoWinding * RADS_DIVIDED_BY_2);
 
 	FQuat RotationQuat;
 	RotationQuat.X =  CR*SP*SY - SR*CP*CY;
@@ -445,7 +450,11 @@ FQuat FRotator::Quaternion() const
 
 #if ENABLE_NAN_DIAGNOSTIC || DO_CHECK
 	// Very large inputs can cause NaN's. Want to catch this here
-	ensureMsgf(!RotationQuat.ContainsNaN(), TEXT("Invalid input to FRotator::Quaternion - generated NaN output: %s"), *RotationQuat.ToString());
+	if (RotationQuat.ContainsNaN())
+	{
+		logOrEnsureNanError(TEXT("Invalid input %s to FRotator::Quaternion - generated NaN output: %s"), *ToString(), *RotationQuat.ToString());
+		RotationQuat = FQuat::Identity;
+	}
 #endif
 
 	return RotationQuat;

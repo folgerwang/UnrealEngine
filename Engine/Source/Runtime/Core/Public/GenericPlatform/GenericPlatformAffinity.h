@@ -82,6 +82,11 @@ public:
 		return 0xFFFFFFFFFFFFFFFF;
 	}
 
+	static const CORE_API uint64 GetTaskGraphHighPriorityTaskMask()
+	{
+		return 0xFFFFFFFFFFFFFFFF;
+	}
+
 	static const CORE_API uint64 GetAsyncLoadingThreadMask()
 	{
 		return 0xFFFFFFFFFFFFFFFF;

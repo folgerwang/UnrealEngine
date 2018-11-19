@@ -308,6 +308,7 @@ void AWorldSettings::Serialize( FArchive& Ar )
 	}
 #endif
 
+#if WITH_EDITORONLY_DATA
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if (Ar.IsLoading())
 	{
@@ -320,6 +321,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		}
 	}
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 }
 
 void AWorldSettings::AddAssetUserData(UAssetUserData* InUserData)

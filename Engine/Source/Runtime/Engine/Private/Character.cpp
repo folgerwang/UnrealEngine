@@ -512,7 +512,8 @@ namespace MovementBaseUtility
 				// @TODO: We need to find a more efficient way of finding all ticking components in an actor.
 				for (UActorComponent* Component : NewBaseOwner->GetComponents())
 				{
-					if (Component && Component->PrimaryComponentTick.bCanEverTick)
+					// Dont allow a based component (e.g. a particle system) to push us into a different tick group
+					if (Component && Component->PrimaryComponentTick.bCanEverTick && Component->PrimaryComponentTick.TickGroup <= BasedObjectTick.TickGroup)
 					{
 						BasedObjectTick.AddPrerequisite(Component, Component->PrimaryComponentTick);
 					}
@@ -1532,8 +1533,9 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 
 		ReplayLastTransformUpdateTimeStamp = World->GetTimeSeconds();
 	}
-	
-	FBitWriter Writer(0, true);
+
+	const uint32 ReserveBits = 1024;
+	FBitWriter Writer(ReserveBits, true);
 	Writer << ReplaySample;
 
 	ChangedPropertyTracker.SetExternalData(Writer.GetData(), Writer.GetNumBits());
@@ -1560,6 +1562,11 @@ bool ACharacter::IsPlayingRootMotion() const
 		return Mesh->IsPlayingRootMotion();
 	}
 	return false;
+}
+
+bool ACharacter::HasAnyRootMotion() const
+{
+	return CharacterMovement ? CharacterMovement->HasRootMotionSources() : false;
 }
 
 bool ACharacter::IsPlayingNetworkedRootMotionMontage() const

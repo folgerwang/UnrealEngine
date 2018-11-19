@@ -68,6 +68,14 @@ FArchive& operator<<(FArchive& Ar, FReferencePose & P)
 		}
 		else
 		{
+			// Scope the soft pointer serialization so we can tag it as editor only
+			FName PackageName;
+			FName PropertyName;
+			ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+			ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
+			FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+			ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+			FSoftObjectPathSerializationScope SerializationScope(PackageName, PropertyName, ESoftObjectPathCollectType::EditorOnlyCollect, SerializeType);
 			Ar << P.SourceReferenceMesh;
 		}
 	}

@@ -14,12 +14,6 @@ struct ENGINE_API FAnimNode_AssetPlayerBase : public FAnimNode_Base
 {
 	GENERATED_BODY();
 
-	/** If true, "Relevant anim" nodes that look for the highest weighted animation in a state will ignore
-	 *  this node
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Relevancy, meta=(PinHiddenByDefault))
-	bool bIgnoreForRelevancyTest;
-
 	FAnimNode_AssetPlayerBase();
 
 	/** Get the last encountered blend weight for this node */
@@ -57,6 +51,12 @@ struct ENGINE_API FAnimNode_AssetPlayerBase : public FAnimNode_Base
 	UPROPERTY()
 	TEnumAsByte<EAnimGroupRole::Type> GroupRole;
 
+	/** If true, "Relevant anim" nodes that look for the highest weighted animation in a state will ignore
+	 *  this node
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Relevancy, meta=(PinHiddenByDefault))
+	bool bIgnoreForRelevancyTest;
+
 	// Create a tick record for this node
 	void CreateTickRecordForNode(const FAnimationUpdateContext& Context, UAnimSequenceBase* Sequence, bool bLooping, float PlayRate);
 
@@ -66,6 +66,9 @@ struct ENGINE_API FAnimNode_AssetPlayerBase : public FAnimNode_Base
 	virtual float GetCurrentAssetTimePlayRateAdjusted() { return GetCurrentAssetTime(); }
 
 protected:
+
+	/** Track whether we have been full weight previously. Reset when we reach 0 weight*/
+	bool bHasBeenFullWeight;
 
 	/** Last encountered blendweight for this node */
 	UPROPERTY(BlueprintReadWrite, Transient, Category=DoNotEdit)
@@ -77,7 +80,4 @@ protected:
 
 	/** Store data about current marker position when using marker based syncing*/
 	FMarkerTickRecord MarkerTickRecord;
-
-	/** Track whether we have been full weight previously. Reset when we reach 0 weight*/
-	bool bHasBeenFullWeight;
 };

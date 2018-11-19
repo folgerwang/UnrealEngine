@@ -820,12 +820,12 @@ namespace EWorldType
 		Inactive
 	};
 
-	DEPRECATED(4.14, "EWorldType::Preview is deprecated. Please use either EWorldType::EditorPreview or EWorldType::GamePreview")
+	UE_DEPRECATED(4.14, "EWorldType::Preview is deprecated. Please use either EWorldType::EditorPreview or EWorldType::GamePreview")
 	const EWorldType::Type Preview = EWorldType::EditorPreview;
 }
 
 
-enum class EFlushLevelStreamingType
+enum class EFlushLevelStreamingType : uint8
 {
 	None,			
 	Full,			// Allow multiple load requests
@@ -3992,7 +3992,7 @@ enum class EMeshBufferAccess: uint8
 };
 
 /** Indicates the type of a level collection, used in FLevelCollection. */
-enum class ELevelCollectionType
+enum class ELevelCollectionType : uint8
 {
 	/**
 	 * The dynamic levels that are used for normal gameplay and the source for any duplicated collections.

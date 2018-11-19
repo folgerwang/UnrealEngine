@@ -22,6 +22,11 @@ void UMovieSceneEventTrack::AddSection(UMovieSceneSection& Section)
 }
 
 
+bool UMovieSceneEventTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneEventSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneEventTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneEventTriggerSection>(this, NAME_None, RF_Transactional);

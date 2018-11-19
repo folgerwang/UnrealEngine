@@ -23,6 +23,16 @@ namespace EMeshFeatureImportance
 	};
 }
 
+
+/** Enum specifying the reduction type to use when simplifying static meshes with the engines internal tool */
+UENUM()
+enum class EStaticMeshReductionTerimationCriterion : uint8
+{
+	Triangles,
+	Vertices,
+	Any
+};
+
 /** Settings used to reduce a mesh. */
 USTRUCT(Blueprintable)
 struct FMeshReductionSettings
@@ -32,6 +42,10 @@ struct FMeshReductionSettings
 	/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
 	float PercentTriangles;
+
+	/** Percentage of vertices to keep. 1.0 = no reduction, 0.0 = no vertices. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
+	float PercentVertices;
 
 	/** The maximum distance in object space by which the reduced mesh may deviate from the original mesh. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
@@ -49,6 +63,9 @@ struct FMeshReductionSettings
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
 	float HardAngleThreshold;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
+	int32 BaseLODModel;
+
 	/** Higher values minimize change to border edges. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
 	TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
@@ -62,22 +79,23 @@ struct FMeshReductionSettings
 	TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	bool bRecalculateNormals;
+	uint8 bRecalculateNormals:1;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	int32 BaseLODModel;
+	uint8 bGenerateUniqueLightmapUVs:1;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	bool bGenerateUniqueLightmapUVs;
+	uint8 bKeepSymmetry:1;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	bool bKeepSymmetry;
+	uint8 bVisibilityAided:1;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	bool bVisibilityAided;
+	uint8 bCullOccluded:1;
 
+	/** The method to use when optimizing static mesh LODs */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
-	bool bCullOccluded;
+	EStaticMeshReductionTerimationCriterion TerminationCriterion;
 
 	/** Higher values generates fewer samples*/
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ReductionSettings)
@@ -90,19 +108,21 @@ struct FMeshReductionSettings
 	/** Default settings. */
 	FMeshReductionSettings()
 		: PercentTriangles(1.0f)
+		, PercentVertices(1.0f)
 		, MaxDeviation(0.0f)
 		, PixelError(8.0f)
 		, WeldingThreshold(0.0f)
 		, HardAngleThreshold(80.0f)
+		, BaseLODModel(0)
 		, SilhouetteImportance(EMeshFeatureImportance::Normal)
 		, TextureImportance(EMeshFeatureImportance::Normal)
 		, ShadingImportance(EMeshFeatureImportance::Normal)
 		, bRecalculateNormals(false)
-		, BaseLODModel(0)
 		, bGenerateUniqueLightmapUVs(false)
 		, bKeepSymmetry(false)
 		, bVisibilityAided(false)
 		, bCullOccluded(false)
+		, TerminationCriterion(EStaticMeshReductionTerimationCriterion::Triangles)
 		, VisibilityAggressiveness(EMeshFeatureImportance::Lowest)
 		, VertexColorImportance(EMeshFeatureImportance::Off)
 	{
@@ -110,19 +130,21 @@ struct FMeshReductionSettings
 
 	FMeshReductionSettings(const FMeshReductionSettings& Other)
 		: PercentTriangles(Other.PercentTriangles)
+		, PercentVertices(Other.PercentVertices)
 		, MaxDeviation(Other.MaxDeviation)
 		, PixelError(Other.PixelError)
 		, WeldingThreshold(Other.WeldingThreshold)
 		, HardAngleThreshold(Other.HardAngleThreshold)
+		, BaseLODModel(Other.BaseLODModel)
 		, SilhouetteImportance(Other.SilhouetteImportance)
 		, TextureImportance(Other.TextureImportance)
 		, ShadingImportance(Other.ShadingImportance)
 		, bRecalculateNormals(Other.bRecalculateNormals)
-		, BaseLODModel(Other.BaseLODModel)
 		, bGenerateUniqueLightmapUVs(Other.bGenerateUniqueLightmapUVs)
 		, bKeepSymmetry(Other.bKeepSymmetry)
 		, bVisibilityAided(Other.bVisibilityAided)
 		, bCullOccluded(Other.bCullOccluded)
+		, TerminationCriterion(Other.TerminationCriterion)
 		, VisibilityAggressiveness(Other.VisibilityAggressiveness)
 		, VertexColorImportance(Other.VertexColorImportance)
 	{
@@ -131,7 +153,10 @@ struct FMeshReductionSettings
 	/** Equality operator. */
 	bool operator==(const FMeshReductionSettings& Other) const
 	{
-		return PercentTriangles == Other.PercentTriangles
+		return
+			TerminationCriterion == Other.TerminationCriterion
+			&& PercentVertices == Other.PercentVertices
+			&& PercentTriangles == Other.PercentTriangles
 			&& MaxDeviation == Other.MaxDeviation
 			&& PixelError == Other.PixelError
 			&& WeldingThreshold == Other.WeldingThreshold
@@ -187,10 +212,6 @@ struct FMeshProxySettings
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (ClampMin = "1", ClampMax = "1200", UIMin = "1", UIMax = "1200"))
 	int32 ScreenSize;
 
-	/** If true, Spatial Sampling Distance will not be automatically computed based on geometry and you must set it directly */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category = ProxySettings, meta = (InlineEditConditionToggle))
-	uint8 bOverrideVoxelSize : 1;
-
 	/** Override when converting multiple meshes for proxy LOD merging. Warning, large geometry with small sampling has very high memory costs*/
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category = ProxySettings, meta = (EditCondition = "bOverrideVoxelSize", ClampMin = "0.1", DisplayName = "Overide Spatial Sampling Distance"))
 	float VoxelSize;
@@ -199,27 +220,27 @@ struct FMeshProxySettings
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
 	FMaterialProxySettings MaterialSettings;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	int32 TextureWidth_DEPRECATED;
-
 	UPROPERTY()
 	int32 TextureHeight_DEPRECATED;
 
 	UPROPERTY()
-	bool bExportNormalMap_DEPRECATED;
+	uint8 bExportNormalMap_DEPRECATED:1;
 
 	UPROPERTY()
-	bool bExportMetallicMap_DEPRECATED;
+	uint8 bExportMetallicMap_DEPRECATED:1;
 
 	UPROPERTY()
-	bool bExportRoughnessMap_DEPRECATED;
+	uint8 bExportRoughnessMap_DEPRECATED:1;
 
 	UPROPERTY()
-	bool bExportSpecularMap_DEPRECATED;
+	uint8 bExportSpecularMap_DEPRECATED:1;
 
-	/** Determines whether or not the correct LOD models should be calculated given the source meshes and transition size */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bCalculateCorrectLODModel;
+	UPROPERTY()
+	uint8 bBakeVertexData_DEPRECATED:1;
+#endif
 
 	/** Distance at which meshes should be merged together, this can close gaps like doors and windows in distant geometry */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
@@ -229,98 +250,105 @@ struct FMeshProxySettings
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Unresolved Geometry Color"))
 	FColor UnresolvedGeometryColor;
 
-	/** Enable an override for material transfer distance */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = MaxRayCastDist, meta = (InlineEditConditionToggle))
-	bool bOverrideTransferDistance;
-
 	/** Override search distance used when discovering texture values for simplified geometry. Useful when non-zero Merge Distance setting generates new geometry in concave corners.*/
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bOverrideTransferDistance", DisplayName = "Transfer Distance Override", ClampMin = 0))
 	float MaxRayCastDist;
-
-	/** Enable the use of hard angle based vertex splitting */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = HardAngleThreshold, meta = (InlineEditConditionToggle))
-	bool bUseHardAngleThreshold;
 
 	/** Angle at which a hard edge is introduced between faces */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bUseHardAngleThreshold", DisplayName = "Hard Edge Angle", ClampMin = 0, ClampMax = 180))
 	float HardAngleThreshold;
 
+	/** Lightmap resolution */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (ClampMin = 32, ClampMax = 4096, EditCondition = "!bComputeLightMapResolution", DisplayAfter="NormalCalculationMethod"))
+	int32 LightMapResolution;
+
 	/** Controls the method used to calculate the normal for the simplified geometry */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Normal Calculation Method"))
 	TEnumAsByte<EProxyNormalComputationMethod::Type> NormalCalculationMethod;
 
-	/** Lightmap resolution */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta = (ClampMin = 32, ClampMax = 4096, EditCondition = "!bComputeLightMapResolution"))
-	int32 LightMapResolution;
+	/** Level of detail of the landscape that should be used for the culling */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = LandscapeCulling, meta = (EditCondition="bUseLandscapeCulling", DisplayAfter="bUseLandscapeCulling"))
+	TEnumAsByte<ELandscapeCullingPrecision::Type> LandscapeCullingPrecision;
+
+	/** Determines whether or not the correct LOD models should be calculated given the source meshes and transition size */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings, meta=(DisplayAfter="ScreenSize"))
+	uint8 bCalculateCorrectLODModel:1;
+
+	/** If true, Spatial Sampling Distance will not be automatically computed based on geometry and you must set it directly */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category = ProxySettings, meta = (InlineEditConditionToggle))
+	uint8 bOverrideVoxelSize : 1;
+
+	/** Enable an override for material transfer distance */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = MaxRayCastDist, meta = (InlineEditConditionToggle))
+	uint8 bOverrideTransferDistance:1;
+
+	/** Enable the use of hard angle based vertex splitting */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = HardAngleThreshold, meta = (InlineEditConditionToggle))
+	uint8 bUseHardAngleThreshold:1;
 
 	/** If ticked will compute the lightmap resolution by summing the dimensions for each mesh included for merging */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bComputeLightMapResolution;
+	uint8 bComputeLightMapResolution:1;
 
 	/** Whether Simplygon should recalculate normals, otherwise the normals channel will be sampled from the original mesh */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bRecalculateNormals;
-
-	UPROPERTY()
-	bool bBakeVertexData_DEPRECATED;
+	uint8 bRecalculateNormals:1;
 
 	/** Whether or not to use available landscape geometry to cull away invisible triangles */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = LandscapeCulling)
-	bool bUseLandscapeCulling;
-
-	/** Level of detail of the landscape that should be used for the culling */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = LandscapeCulling, meta = (EditCondition="bUseLandscapeCulling"))
-	TEnumAsByte<ELandscapeCullingPrecision::Type> LandscapeCullingPrecision;
+	uint8 bUseLandscapeCulling:1;
 
 	/** Whether to allow adjacency buffers for tessellation in the merged mesh */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bAllowAdjacency;
+	uint8 bAllowAdjacency:1;
 
 	/** Whether to allow distance field to be computed for this mesh. Disable this to save memory if the merged mesh will only be rendered in the distance. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bAllowDistanceField;
+	uint8 bAllowDistanceField:1;
 
 	/** Whether to attempt to re-use the source mesh's lightmap UVs when baking the material or always generate a new set. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bReuseMeshLightmapUVs;
+	uint8 bReuseMeshLightmapUVs:1;
 
 	/** Whether to generate collision for the merged mesh */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bCreateCollision;
+	uint8 bCreateCollision:1;
 
 	/** Whether to allow vertex colors saved in the merged mesh */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bAllowVertexColors;
+	uint8 bAllowVertexColors:1;
 
 	/** Whether to generate lightmap uvs for the merged mesh */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = ProxySettings)
-	bool bGenerateLightmapUVs;
+	uint8 bGenerateLightmapUVs:1;
 
 	/** Default settings. */
 	FMeshProxySettings()
 		: ScreenSize(300)
-		, bOverrideVoxelSize(false)
 		, VoxelSize(3.f)
+#if WITH_EDITORONLY_DATA
 		, TextureWidth_DEPRECATED(512)
 		, TextureHeight_DEPRECATED(512)
 		, bExportNormalMap_DEPRECATED(true)
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)
 		, bExportSpecularMap_DEPRECATED(false)
-		, bCalculateCorrectLODModel(false)
+		, bBakeVertexData_DEPRECATED(false)
+#endif
 		, MergeDistance(0)
 		, UnresolvedGeometryColor(FColor::Black)
-		, bOverrideTransferDistance(false)
 		, MaxRayCastDist(20)
-		, bUseHardAngleThreshold(false)
 		, HardAngleThreshold(130.f)
-		, NormalCalculationMethod(EProxyNormalComputationMethod::AngleWeighted)
 		, LightMapResolution(256)
+		, NormalCalculationMethod(EProxyNormalComputationMethod::AngleWeighted)
+		, LandscapeCullingPrecision(ELandscapeCullingPrecision::Medium)
+		, bCalculateCorrectLODModel(false)
+		, bOverrideVoxelSize(false)
+		, bOverrideTransferDistance(false)
+		, bUseHardAngleThreshold(false)
 		, bComputeLightMapResolution(false)
 		, bRecalculateNormals(true)
-		, bBakeVertexData_DEPRECATED(false)
 		, bUseLandscapeCulling(false)
-		, LandscapeCullingPrecision(ELandscapeCullingPrecision::Medium)
 		, bAllowAdjacency(false)
 		, bAllowDistanceField(false)
 		, bReuseMeshLightmapUVs(true)
@@ -354,8 +382,10 @@ struct FMeshProxySettings
 		return !(*this == Other);
 	}
 
+#if WITH_EDITORONLY_DATA
 	/** Handles deprecated properties */
 	void PostLoadDeprecated();
+#endif
 };
 
 
@@ -395,114 +425,115 @@ struct FMeshMergingSettings
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** Target lightmap resolution */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = MeshSettings, meta=(ClampMax = 4096, EditCondition = "!bComputedLightMapResolution", DisplayAfter="bGenerateLightMapUV"))
+	int32 TargetLightMapResolution;
+
+	/** Whether to output the specified UV channels into the merged mesh (only if the source meshes contain valid UVs for the specified channel) */
+	UPROPERTY(EditAnywhere, Category = MeshSettings, meta=(DisplayAfter="bBakeVertexDataToMesh"))
+	EUVOutput OutputUVs[8];	// Should be MAX_MESH_TEXTURE_COORDS but as this is an engine module we cant include RawMesh
+
+	/** Material simplification */
+	UPROPERTY(EditAnywhere, Category = MaterialSettings, BlueprintReadWrite, meta = (EditCondition = "bMergeMaterials", DisplayAfter="bMergeMaterials"))
+	FMaterialProxySettings MaterialSettings;
+
+	/** The gutter (in texels) to add to each sub-chart for our baked-out material for the top mip level */
+	UPROPERTY(EditAnywhere, Category = MaterialSettings, meta=(DisplayAfter="MaterialSettings"))
+	int32 GutterSize;
+
+	// A given LOD level to export from the source meshes
+	UPROPERTY(EditAnywhere, Category = MeshSettings, BlueprintReadWrite, meta = (DisplayAfter="LODSelectionType", ClampMin = "0", ClampMax = "7", UIMin = "0", UIMax = "7", EnumCondition = 1))
+	int32 SpecificLOD;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings, meta = (DisplayAfter="bBakeVertexDataToMesh"))
+	EMeshLODSelectionType LODSelectionType;
+
 	/** Whether to generate lightmap UVs for a merged mesh*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = MeshSettings)
-	bool bGenerateLightMapUV;
-
-	/** Target lightmap resolution */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = MeshSettings, meta=(ClampMax = 4096, EditCondition = "!bComputedLightMapResolution"))
-	int32 TargetLightMapResolution;
+	uint8 bGenerateLightMapUV:1;
 
 	/** Whether or not the lightmap resolution should be computed by summing the lightmap resolutions for the input Mesh Components */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = MeshSettings)
-	bool bComputedLightMapResolution;
-
-	/** Whether we should import vertex colors into merged mesh */
-	UPROPERTY()
-	bool bImportVertexColors_DEPRECATED;
+	uint8 bComputedLightMapResolution:1;
 
 	/** Whether merged mesh should have pivot at world origin, or at first merged component otherwise */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
-	bool bPivotPointAtZero;
+	uint8 bPivotPointAtZero:1;
 
 	/** Whether to merge physics data (collision primitives)*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
-	bool bMergePhysicsData;
+	uint8 bMergePhysicsData:1;
 
 	/** Whether to merge source materials into one flat material, ONLY available when merging a single LOD level, see LODSelectionType */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialSettings)
-	bool bMergeMaterials;
-
-	/** Material simplification */
-	UPROPERTY(EditAnywhere, Category = MaterialSettings, BlueprintReadWrite, meta = (EditCondition = "bMergeMaterials"))
-	FMaterialProxySettings MaterialSettings;
+	uint8 bMergeMaterials:1;
 
 	/** Whether or not vertex data such as vertex colours should be baked into the resulting mesh */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
-	bool bBakeVertexDataToMesh;
+	uint8 bBakeVertexDataToMesh:1;
 
 	/** Whether or not vertex data such as vertex colours should be used when baking out materials */
 	UPROPERTY(EditAnywhere, Category = MaterialSettings, BlueprintReadWrite, meta = (EditCondition = "bMergeMaterials"))
-	bool bUseVertexDataForBakingMaterial;
+	uint8 bUseVertexDataForBakingMaterial:1;
 
 	// Whether or not to calculate varying output texture sizes according to their importance in the final atlas texture
 	UPROPERTY(Category = MaterialSettings, EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bMergeMaterials"))
-	bool bUseTextureBinning;
+	uint8 bUseTextureBinning:1;
 
 	/** Whether to attempt to re-use the source mesh's lightmap UVs when baking the material or always generate a new set. */
 	UPROPERTY(EditAnywhere, Category = MaterialSettings)
-	bool bReuseMeshLightmapUVs;
+	uint8 bReuseMeshLightmapUVs:1;
 
 	/** Whether to attempt to merge materials that are deemed equivalent. This can cause artifacts in the merged mesh if world position/actor position etc. is used to determine output color. */
 	UPROPERTY(EditAnywhere, Category = MaterialSettings)
-	bool bMergeEquivalentMaterials;
-
-	/** Whether to output the specified UV channels into the merged mesh (only if the source meshes contain valid UVs for the specified channel) */
-	UPROPERTY(EditAnywhere, Category = MeshSettings)
-	EUVOutput OutputUVs[8];	// Should be MAX_MESH_TEXTURE_COORDS but as this is an engine module we cant include RawMesh
-
-	/** The gutter (in texels) to add to each sub-chart for our baked-out material for the top mip level */
-	UPROPERTY(EditAnywhere, Category = MaterialSettings)
-	int32 GutterSize;
-
-	UPROPERTY()
-	bool bCalculateCorrectLODModel_DEPRECATED;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
-	EMeshLODSelectionType LODSelectionType;
-
-	UPROPERTY()
-	int32 ExportSpecificLOD_DEPRECATED;
-
-	// A given LOD level to export from the source meshes
-	UPROPERTY(EditAnywhere, Category = MeshSettings, BlueprintReadWrite, meta = (ClampMin = "0", ClampMax = "7", UIMin = "0", UIMax = "7", EnumCondition = 1))
-	int32 SpecificLOD;
+	uint8 bMergeEquivalentMaterials:1;
 
 	/** Whether or not to use available landscape geometry to cull away invisible triangles */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LandscapeCulling)
-	bool bUseLandscapeCulling;
+	uint8 bUseLandscapeCulling:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
-	bool bIncludeImposters;
+	uint8 bIncludeImposters:1;
 
 	/** Whether to allow distance field to be computed for this mesh. Disable this to save memory if the merged mesh will only be rendered in the distance. */
 	UPROPERTY(EditAnywhere, Category = MeshSettings)
-	bool bAllowDistanceField;
+	uint8 bAllowDistanceField:1;
 
+#if WITH_EDITORONLY_DATA
+	/** Whether we should import vertex colors into merged mesh */
+	UPROPERTY()
+	uint8 bImportVertexColors_DEPRECATED:1;
+	UPROPERTY()
+	uint8 bCalculateCorrectLODModel_DEPRECATED;
 	/** Whether to export normal maps for material merging */
 	UPROPERTY()
-	bool bExportNormalMap_DEPRECATED;
+	uint8 bExportNormalMap_DEPRECATED:1;
 	/** Whether to export metallic maps for material merging */
 	UPROPERTY()
-	bool bExportMetallicMap_DEPRECATED;
+	uint8 bExportMetallicMap_DEPRECATED:1;
 	/** Whether to export roughness maps for material merging */
 	UPROPERTY()
-	bool bExportRoughnessMap_DEPRECATED;
+	uint8 bExportRoughnessMap_DEPRECATED:1;
 	/** Whether to export specular maps for material merging */
 	UPROPERTY()
-	bool bExportSpecularMap_DEPRECATED;
+	uint8 bExportSpecularMap_DEPRECATED:1;
 	/** Merged material texture atlas resolution */
 	UPROPERTY()
 	int32 MergedMaterialAtlasResolution_DEPRECATED;
+	UPROPERTY()
+	int32 ExportSpecificLOD_DEPRECATED;
+#endif
 
 	EMeshMergeType MergeType;
 
 	/** Default settings. */
 	FMeshMergingSettings()
-		: bGenerateLightMapUV(true)
-		, TargetLightMapResolution(256)
+		: TargetLightMapResolution(256)
+		, GutterSize(2)
+		, SpecificLOD(0)
+		, LODSelectionType(EMeshLODSelectionType::CalculateLOD)
+		, bGenerateLightMapUV(true)
 		, bComputedLightMapResolution(false)
-		, bImportVertexColors_DEPRECATED(false)
 		, bPivotPointAtZero(false)
 		, bMergePhysicsData(false)
 		, bMergeMaterials(false)
@@ -511,19 +542,19 @@ struct FMeshMergingSettings
 		, bUseTextureBinning(false)
 		, bReuseMeshLightmapUVs(true)
 		, bMergeEquivalentMaterials(true)
-		, GutterSize(2)
-		, bCalculateCorrectLODModel_DEPRECATED(false)
-		, LODSelectionType(EMeshLODSelectionType::CalculateLOD)
-		, ExportSpecificLOD_DEPRECATED(0)
-		, SpecificLOD(0)
 		, bUseLandscapeCulling(false)
 		, bIncludeImposters(true)
 		, bAllowDistanceField(false)
+#if WITH_EDITORONLY_DATA
+		, bImportVertexColors_DEPRECATED(false)
+		, bCalculateCorrectLODModel_DEPRECATED(false)
 		, bExportNormalMap_DEPRECATED(true)
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)
 		, bExportSpecularMap_DEPRECATED(false)
 		, MergedMaterialAtlasResolution_DEPRECATED(1024)
+		, ExportSpecificLOD_DEPRECATED(0)
+#endif
 		, MergeType(EMeshMergeType::MeshMergeType_Default)
 	{
 		for(EUVOutput& OutputUV : OutputUVs)
@@ -532,8 +563,10 @@ struct FMeshMergingSettings
 		}
 	}
 
+#if WITH_EDITORONLY_DATA
 	/** Handles deprecated properties */
 	void PostLoadDeprecated();
+#endif
 };
 
 /** Struct to store per section info used to populate data after (multiple) meshes are merged together */
@@ -564,7 +597,7 @@ struct FSectionInfo
 
 /** How to replace instanced */
 UENUM()
-enum class EMeshInstancingReplacementMethod
+enum class EMeshInstancingReplacementMethod : uint8
 {
 	/** Destructive workflow: remove the original actors when replacing with instanced static meshes */
 	RemoveOriginalActors,

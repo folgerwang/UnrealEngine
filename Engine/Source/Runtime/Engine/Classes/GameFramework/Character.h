@@ -894,9 +894,13 @@ public:
 	/** Get FAnimMontageInstance playing RootMotion */
 	FAnimMontageInstance * GetRootMotionAnimMontageInstance() const;
 
-	/** True if we are playing Root Motion right now */
-	UFUNCTION(BlueprintCallable, Category=Animation)
+	/** True if we are playing Anim root motion right now */
+	UFUNCTION(BlueprintCallable, Category=Animation, meta=(DisplayName="IsPlayingAnimRootMotion"))
 	bool IsPlayingRootMotion() const;
+
+	/** True if we are playing root motion from any source right now (anim root motion, root motion source) */
+	UFUNCTION(BlueprintCallable, Category=Animation)
+	bool HasAnyRootMotion() const;
 
 	/**
 	 * True if we are playing Root Motion right now, through a Montage with RootMotionMode == ERootMotionMode::RootMotionFromMontagesOnly.

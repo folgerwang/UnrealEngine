@@ -26,7 +26,7 @@ private:
 public:
 
 	/** Initialization constructor. */
-	DEPRECATED(4.15, "TScopedPointer has been deprecated and should be replaced with TUniquePtr.")
+	UE_DEPRECATED(4.15, "TScopedPointer has been deprecated and should be replaced with TUniquePtr.")
 	explicit TScopedPointer(ReferencedType* InReference = nullptr)
 		: Reference(InReference)
 	{ }
@@ -175,7 +175,7 @@ private:
 public:
 
 	/** Initialization constructor. */
-	DEPRECATED(4.15, "TAutoPtr has been deprecated and should be replaced with TUniquePtr.")
+	UE_DEPRECATED(4.15, "TAutoPtr has been deprecated and should be replaced with TUniquePtr.")
 	explicit TAutoPtr(ReferencedType* InReference = nullptr)
 		:	Reference(InReference)
 	{}

@@ -44,22 +44,20 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ScaleChainLength : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
 	FBoneReference ChainEndBone;
 
-	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
-	EScaleChainInitialLength ChainInitialLength;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ScaleChainLength, meta = (PinShownByDefault))
 	FVector TargetLocation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
-	UPROPERTY(Transient)
 	float ActualAlpha;
 
 	UPROPERTY(EditAnywhere, Category = Settings)
 	FInputScaleBias AlphaScaleBias;
 
-	UPROPERTY(Transient)
+	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
+	EScaleChainInitialLength ChainInitialLength;
+
 	bool bBoneIndicesCached;
 
 	TArray<FCompactPoseBoneIndex> ChainBoneIndices;

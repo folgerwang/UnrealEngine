@@ -421,7 +421,6 @@ void FVulkanCommandListContext::RHISetGraphicsPipelineState(FGraphicsPipelineSta
 	FVulkanPipelineStateCacheManager* PipelineStateCache = Device->GetPipelineStateCache();
 	PipelineStateCache->PipelineLRU.Touch(Pipeline);
 #endif
-	check(Pipeline);
 
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 	if (PendingGfxState->SetGfxPipeline(Pipeline) || !CmdBuffer->bHasPipeline)

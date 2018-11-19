@@ -14,6 +14,7 @@ enum class EPIEPreviewDeviceType : uint8
 	Android,
 	IOS,
 	TVOS,
+	Switch,
 	MAX,
 };
 
@@ -121,6 +122,17 @@ public:
 };
 
 USTRUCT()
+struct FPIESwitchDeviceProperties
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	bool Docked;
+};
+
+
+USTRUCT()
 struct FPIEPreviewDeviceBezelViewportRect
 {
 public:
@@ -175,4 +187,7 @@ struct FPIEPreviewDeviceSpecifications
 
 	UPROPERTY()
 	FPIEIOSDeviceProperties IOSProperties;
+
+	UPROPERTY()
+	FPIESwitchDeviceProperties SwitchProperties;
 };

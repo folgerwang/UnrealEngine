@@ -285,7 +285,7 @@ namespace UnrealBuildTool
 			SetLuminPluginData(MLSDKArches, CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename)));
 
 			//gather all of the xml
-			UPL.Init(MLSDKArches, true, RelativeEnginePath, UE4BuildPath, RelativeProjectPath, ConfigurationString);
+			UPL.Init(MLSDKArches, true, RelativeEnginePath, UE4BuildPath, RelativeProjectPath, ConfigurationString, BuildVersion.ReadDefault());
 		}
 
 		public string StageFiles()

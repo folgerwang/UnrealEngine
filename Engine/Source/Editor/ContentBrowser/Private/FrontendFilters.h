@@ -93,6 +93,7 @@ public:
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_CheckedOut", "Checked Out"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_CheckedOutTooltip", "Show only assets that you have checked out or pending for add."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
@@ -104,6 +105,11 @@ private:
 
 	/** Callback when source control operation has completed */
 	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
+
+	/** Names of files that are currently checked out (no path or extension) */
+	TSet<FName> OpenFilenames;
+
+	bool bSourceControlEnabled;
 };
 
 /** A filter that displays only modified assets */
@@ -118,6 +124,7 @@ public:
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Modified", "Modified"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_ModifiedTooltip", "Show only assets that have been modified and not yet saved."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
@@ -128,6 +135,9 @@ private:
 	void OnPackageDirtyStateUpdated(UPackage* Package);
 
 	bool bIsCurrentlyActive;
+
+	/** Names of packages in memory that are dirty */
+	TSet<FName> DirtyPackageNames;
 };
 
 /** A filter that displays blueprints that have replicated properties */
@@ -205,6 +215,7 @@ public:
 
 private:
 	FString BaseDeveloperPath;
+	TArray<ANSICHAR> BaseDeveloperPathAnsi;
 	FString UserDeveloperPath;
 	bool bIsOnlyOneDeveloperPathSelected;
 	bool bShowOtherDeveloperAssets;
@@ -316,12 +327,17 @@ public:
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Recent", "Recently Opened"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_RecentTooltip", "Show only recently opened assets."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
 
 	void ResetFilter(FName InName);
+
 private:
+	void RefreshRecentPackagePaths();
+
+	TSet<FName> RecentPackagePaths;
 	bool bIsCurrentlyActive;
 };
 

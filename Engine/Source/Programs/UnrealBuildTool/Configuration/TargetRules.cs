@@ -934,6 +934,11 @@ namespace UnrealBuildTool
 		public string ToolChainName = null;
 
 		/// <summary>
+		/// Whether to allow engine configuration to determine if we can load unverified certificates.
+		/// </summary>
+		public bool bDisableUnverifiedCertificates = false;
+
+		/// <summary>
 		/// Whether to load generated ini files in cooked build, (GameUserSettings.ini loaded either way)
 		/// </summary>
 		public bool bAllowGeneratedIniWhenCooked = true;

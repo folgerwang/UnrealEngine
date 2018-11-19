@@ -266,6 +266,9 @@ private:
 	/** Handler for the user selecting to copy assets or asset paths to the specified folder */
 	void ExecuteTreeDropCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
 
+	/** Handler for the user selecting to copy assets or asset paths - and dependencies - to the specified folder */
+	void ExecuteTreeDropAdvancedCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
+
 	/** Notification for when the Asset Registry has completed it's initial search */
 	void OnAssetRegistrySearchCompleted();
 

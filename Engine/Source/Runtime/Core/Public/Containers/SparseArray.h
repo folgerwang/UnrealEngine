@@ -295,7 +295,15 @@ public:
 				FirstFreeIndex = FreeIndex;
 				++NumFreeIndices;
 			}
-			AllocationFlags.Add(false, ElementsToAdd);
+
+			if (ElementsToAdd == ExpectedNumElements)
+			{
+				AllocationFlags.Init(false, ElementsToAdd);
+			}
+			else
+			{
+				AllocationFlags.Add(false, ElementsToAdd);
+			}
 		}
 	}
 
@@ -303,11 +311,7 @@ public:
 	void Shrink()
 	{
 		// Determine the highest allocated index in the data array.
-		int32 MaxAllocatedIndex = INDEX_NONE;
-		for(TConstSetBitIterator<typename Allocator::BitArrayAllocator> AllocatedIndexIt(AllocationFlags);AllocatedIndexIt;++AllocatedIndexIt)
-		{
-			MaxAllocatedIndex = FMath::Max(MaxAllocatedIndex,AllocatedIndexIt.GetIndex());
-		}
+		int32 MaxAllocatedIndex = AllocationFlags.FindLast(true);
 
 		const int32 FirstIndexToRemove = MaxAllocatedIndex + 1;
 		if(FirstIndexToRemove < Data.Num())
@@ -456,10 +460,15 @@ public:
 	}
 
 	/** Tracks the container's memory use through an archive. */
-	void CountBytes(FArchive& Ar)
+	void CountBytes(FArchive& Ar) const
 	{
 		Data.CountBytes(Ar);
 		AllocationFlags.CountBytes(Ar);
+	}
+
+	bool IsCompact() const
+	{
+		return NumFreeIndices == 0;
 	}
 
 	/** Serializer. */
@@ -674,7 +683,17 @@ public:
 		//checkSlow(AllocationFlags[Index]); // Disabled to improve loading times -BZ
 		return *(ElementType*)&GetData(Index).ElementData;
 	}
-
+	int32 PointerToIndex(const ElementType* Ptr) const
+	{
+		checkSlow(Data.Num());
+		int32 Index = Ptr - &GetData(0);
+		checkSlow(Index >= 0 && Index < Data.Num() && Index < AllocationFlags.Num() && AllocationFlags[Index]);
+		return Index;
+	}
+	bool IsValidIndex(int32 Index) const
+	{
+		return AllocationFlags.IsValidIndex(Index) && AllocationFlags[Index];
+	}
 	bool IsAllocated(int32 Index) const { return AllocationFlags[Index]; }
 	int32 GetMaxIndex() const { return Data.Num(); }
 	int32 Num() const { return Data.Num() - NumFreeIndices; }

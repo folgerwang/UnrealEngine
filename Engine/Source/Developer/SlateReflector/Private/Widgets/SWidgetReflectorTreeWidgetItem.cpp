@@ -20,6 +20,26 @@ FName SReflectorTreeWidgetItem::NAME_Clipping(TEXT("Clipping"));
 FName SReflectorTreeWidgetItem::NAME_ForegroundColor(TEXT("ForegroundColor"));
 FName SReflectorTreeWidgetItem::NAME_Address(TEXT("Address"));
 
+void SReflectorTreeWidgetItem::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+{
+	this->WidgetInfo = InArgs._WidgetInfoToVisualize;
+	this->OnAccessSourceCode = InArgs._SourceCodeAccessor;
+	this->OnAccessAsset = InArgs._AssetAccessor;
+	this->SetPadding(0);
+
+	check(WidgetInfo.IsValid());
+	CachedWidgetType = WidgetInfo->GetWidgetType();
+	CachedWidgetVisibility = WidgetInfo->GetWidgetVisibilityText();
+	CachedWidgetClipping = WidgetInfo->GetWidgetClippingText();
+	bCachedWidgetFocusable = WidgetInfo->GetWidgetFocusable();
+	CachedReadableLocation = WidgetInfo->GetWidgetReadableLocation();
+	CachedWidgetFile = WidgetInfo->GetWidgetFile();
+	CachedWidgetLineNumber = WidgetInfo->GetWidgetLineNumber();
+	CachedAssetData = WidgetInfo->GetWidgetAssetData();
+
+	SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::Construct(SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::FArguments().Padding(0), InOwnerTableView);
+}
+
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FName& ColumnName)
 {
@@ -146,18 +166,17 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SReflectorTreeWidgetItem::HandleHyperlinkNavigate()
 {
-	FAssetData AssetData = WidgetInfo->GetWidgetAssetData();
-	if ( AssetData.IsValid() )
+	if (CachedAssetData.IsValid())
 	{
-		if ( OnAccessAsset.IsBound() )
+		if (OnAccessAsset.IsBound())
 		{
-			AssetData.GetPackage();
-			OnAccessAsset.Execute(AssetData.GetAsset());
+			CachedAssetData.GetPackage();
+			OnAccessAsset.Execute(CachedAssetData.GetAsset());
 			return;
 		}
 	}
 
-	if ( OnAccessSourceCode.IsBound() )
+	if (OnAccessSourceCode.IsBound())
 	{
 		OnAccessSourceCode.Execute(GetWidgetFile(), GetWidgetLineNumber(), 0);
 	}

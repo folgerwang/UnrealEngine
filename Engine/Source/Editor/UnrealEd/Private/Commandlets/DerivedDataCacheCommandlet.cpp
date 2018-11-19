@@ -99,7 +99,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 		FString MapList;
 		if(FParse::Value(*Params, TEXT("Map="), MapList))
 		{
-			for(int StartIdx = 0; StartIdx < MapList.Len(); StartIdx++)
+			for(int StartIdx = 0; StartIdx < MapList.Len();)
 			{
 				int EndIdx = StartIdx;
 				while(EndIdx < MapList.Len() && MapList[EndIdx] != '+')

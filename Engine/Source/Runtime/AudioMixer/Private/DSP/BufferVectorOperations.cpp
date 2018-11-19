@@ -216,6 +216,27 @@ namespace Audio
 #endif
 	}
 
+	void MultiplyBuffersInPlace(const AlignedFloatBuffer& InFloatBuffer, AlignedFloatBuffer& BufferToMultiply)
+	{
+		MultiplyBuffersInPlace(InFloatBuffer.GetData(), BufferToMultiply.GetData(), BufferToMultiply.Num());
+	}
+
+	void MultiplyBuffersInPlace(const float* InFloatBuffer, float* BufferToMultiply, int32 NumSamples)
+	{
+		checkf(IsAligned<const float*>(InFloatBuffer, 4), TEXT("Memory must be aligned to use vector operations."));
+		checkf(IsAligned<const float*>(BufferToMultiply, 4), TEXT("Memory must be aligned to use vector operations."));
+		checkf(NumSamples % 4 == 0, TEXT("Please use a buffer size that is a multiple of 4."));
+
+		for (int32 i = 0; i < NumSamples; i += 4)
+		{
+			VectorRegister Input1 = VectorLoadAligned(&InFloatBuffer[i]);
+			VectorRegister Output = VectorLoadAligned(&BufferToMultiply[i]);
+
+			Output = VectorMultiply(Input1, Output);
+			VectorStoreAligned(Output, &BufferToMultiply[i]);
+		}
+	}
+
 	float GetMagnitude(const AlignedFloatBuffer& Buffer)
 	{
 		return GetMagnitude(Buffer.GetData(), Buffer.Num());

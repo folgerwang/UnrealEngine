@@ -174,7 +174,7 @@ int64 FAssetRegistryGenerator::GetMaxChunkSizePerPlatform(const ITargetPlatform*
 	return -1;
 }
 
-bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize)
+bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize, FSandboxPlatformFile* InSandboxFile)
 {
 	const FString Platform = TargetPlatform->PlatformName();
 
@@ -253,6 +253,17 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 				if (Guid.IsValid())
 				{
 					PakChunkOptions += TEXT(" encryptionkeyguid=") + Guid.ToString();
+
+					// If this chunk has a seperate unique asset registry, add it to first subchunk's manifest here
+					if (SubChunkIndex == 0)
+					{
+						FName RegistryName = UAssetManager::Get().GetUniqueAssetRegistryName(Index);
+						if (RegistryName != NAME_None)
+						{
+							FString AssetRegistryFilename = FString::Printf(TEXT("%s%sAssetRegistry%s.bin"), *InSandboxFile->GetSandboxDirectory(), *InSandboxFile->GetGameSandboxDirectoryName(), *RegistryName.ToString());
+							ChunkFilenames.Add(AssetRegistryFilename);
+						}
+					}
 				}
 			}
 
@@ -406,6 +417,67 @@ bool FAssetRegistryGenerator::LoadPreviousAssetRegistry(const FString& Filename)
 	return false;
 }
 
+void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetState)
+{
+	if (bUseAssetManager)
+	{
+		UAssetManager& AssetManager = UAssetManager::Get();
+
+		TMap<int32, FGuid> GuidCache;
+		TEncryptedAssetSet EncryptedAssetSet;
+		TSet<FName> ReleasedAssets;
+		AssetManager.GetEncryptedAssetSet(EncryptedAssetSet, ReleasedAssets);
+
+		for (TEncryptedAssetSet::ElementType EncryptedAssetSetElement : EncryptedAssetSet)
+		{
+			FName SetName = EncryptedAssetSetElement.Key;
+			TSet<FPrimaryAssetId>& EncryptedPrimaryAssets = EncryptedAssetSetElement.Value;
+
+			for (FPrimaryAssetId EncryptedPrimaryAsset : EncryptedPrimaryAssets)
+			{
+				FAssetData PrimaryAssetData;
+				if (AssetManager.GetPrimaryAssetData(EncryptedPrimaryAsset, PrimaryAssetData))
+				{
+					FName EncryptedPrimaryAssetPackageName = PrimaryAssetData.PackageName;
+					FAssetData* AssetData = const_cast<FAssetData*>(TargetState.GetAssetByObjectPath(PrimaryAssetData.ObjectPath));
+
+					if (AssetData)
+					{
+						FString GuidString;
+
+						if (AssetData->ChunkIDs.Num() > 1)
+						{
+							UE_LOG(LogAssetRegistryGenerator, Error, TEXT("Encrypted primary asset '%s' exists in two chunks. Only secondary assets should be shared between chunks."));
+						}
+						else if (AssetData->ChunkIDs.Num() == 1)
+						{
+							int32 ChunkID = AssetData->ChunkIDs[0];
+							FGuid Guid;
+
+							if (GuidCache.Contains(ChunkID))
+							{
+								Guid = GuidCache[ChunkID];
+							}
+							else
+							{
+								Guid = GuidCache.Add(ChunkID, AssetManager.GetChunkEncryptionKeyGuid(ChunkID));
+							}
+
+							if (Guid.IsValid())
+							{
+								FAssetDataTagMap TagsAndValues = AssetData->TagsAndValues.GetMap();
+								TagsAndValues.Add(UAssetManager::GetEncryptionKeyAssetTagName(), Guid.ToString());
+								FAssetData NewAssetData = FAssetData(AssetData->PackageName, AssetData->PackagePath, AssetData->AssetName, AssetData->AssetClass, TagsAndValues, AssetData->ChunkIDs, AssetData->PackageFlags);
+								TargetState.UpdateAssetData(AssetData, NewAssetData);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 bool FAssetRegistryGenerator::SaveManifests(FSandboxPlatformFile* InSandboxFile, int64 InExtraFlavorChunkSize)
 {
 	// Always do package dependency work, is required to modify asset registry
@@ -413,7 +485,7 @@ bool FAssetRegistryGenerator::SaveManifests(FSandboxPlatformFile* InSandboxFile,
 
 	if (bGenerateChunks)
 	{	
-		if (!GenerateStreamingInstallManifest(InExtraFlavorChunkSize))
+		if (!GenerateStreamingInstallManifest(InExtraFlavorChunkSize, InSandboxFile))
 		{
 			return false;
 		}
@@ -819,19 +891,73 @@ bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool
 
 	if (SaveOptions.bSerializeAssetRegistry)
 	{
-		// Prune out the development only packages
-		State.PruneAssetData(CookedPackages, TSet<FName>(), SaveOptions);
+		TMap<int32, FString> ChunkBucketNames;
+		TMap<int32, TSet<int32>> ChunkBuckets;
+		const int32 GenericChunkBucket = -1;
+		ChunkBucketNames.Add(GenericChunkBucket, FString());
 
-		// Create runtime registry data
-		FArrayWriter SerializedAssetRegistry;
-		SerializedAssetRegistry.SetFilterEditorOnly(true);
+		// Pass over all chunks and build a mapping of chunk index to asset registry name. All chunks that don't have a unique registry are assigned to the "generic bucket"
+		// which will be written to the master asset registry in chunk 0
+		for (int32 ChunkID = 0; ChunkID < FinalChunkManifests.Num(); ++ChunkID)
+		{
+			FChunkPackageSet* Manifest = FinalChunkManifests[ChunkID];
+			if (Manifest == nullptr)
+			{
+				continue;
+			}
 
-		State.Serialize(SerializedAssetRegistry, SaveOptions);
+			bool bAddToGenericBucket = true;
 
-		// Save the generated registry
-		FString PlatformSandboxPath = SandboxPath.Replace(TEXT("[Platform]"), *TargetPlatform->PlatformName());
-		FFileHelper::SaveArrayToFile(SerializedAssetRegistry, *PlatformSandboxPath);
-		UE_LOG(LogAssetRegistryGenerator, Display, TEXT("Generated asset registry num assets %d, size is %5.2fkb"), ObjectToDataMap.Num(), (float)SerializedAssetRegistry.Num() / 1024.f);
+			if (bUseAssetManager)
+			{
+				FName RegistryName = UAssetManager::Get().GetUniqueAssetRegistryName(ChunkID);
+				if (RegistryName != NAME_None)
+				{
+					ChunkBuckets.FindOrAdd(ChunkID).Add(ChunkID);
+					ChunkBucketNames.FindOrAdd(ChunkID) = RegistryName.ToString();
+					bAddToGenericBucket = false;
+				}
+			}
+
+			if (bAddToGenericBucket)
+			{
+				ChunkBuckets.FindOrAdd(GenericChunkBucket).Add(ChunkID);
+			}
+		}
+
+		FString SandboxPathWithoutExtension = FPaths::ChangeExtension(SandboxPath, TEXT(""));
+		FString SandboxPathExtension = FPaths::GetExtension(SandboxPath);
+
+		for (TMap<int32, TSet<int32>>::ElementType& ChunkBucketElement : ChunkBuckets)
+		{
+			// Prune out the development only packages, and any assets that belong in a different chunk asset registry
+			FAssetRegistryState NewState;
+			NewState.InitializeFromExisting(State, SaveOptions);
+			NewState.PruneAssetData(CookedPackages, TSet<FName>(), ChunkBucketElement.Value, SaveOptions);
+			InjectEncryptionData(NewState);
+
+			// Create runtime registry data
+			FArrayWriter SerializedAssetRegistry;
+			SerializedAssetRegistry.SetFilterEditorOnly(true);
+
+			NewState.Serialize(SerializedAssetRegistry, SaveOptions);
+
+			// Save the generated registry
+			FString PlatformSandboxPath = SandboxPathWithoutExtension.Replace(TEXT("[Platform]"), *TargetPlatform->PlatformName());
+			PlatformSandboxPath += ChunkBucketNames[ChunkBucketElement.Key] + TEXT(".") + SandboxPathExtension;
+
+			FFileHelper::SaveArrayToFile(SerializedAssetRegistry, *PlatformSandboxPath);
+
+			FString FilenameForLog;
+			if (ChunkBucketElement.Key != GenericChunkBucket)
+			{
+				check(ChunkBucketElement.Key < FinalChunkManifests.Num());
+				FChunkPackageSet* ChunkPackageSet = FinalChunkManifests[ChunkBucketElement.Key];
+				check(ChunkPackageSet);
+				FilenameForLog = FString::Printf(TEXT("[chunkbucket %i] "), ChunkBucketElement.Key);
+			}
+			UE_LOG(LogAssetRegistryGenerator, Display, TEXT("Generated asset registry %snum assets %d, size is %5.2fkb"), *FilenameForLog, NewState.GetNumAssets(), (float)SerializedAssetRegistry.Num() / 1024.f);
+		}
 	}
 
 	UE_LOG(LogAssetRegistryGenerator, Display, TEXT("Done saving asset registry."));

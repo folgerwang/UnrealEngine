@@ -25,6 +25,14 @@ enum class ETransformSpaceMode : uint8
 };
 
 UENUM()
+enum class ETransformGetterType : uint8
+{
+	Initial,
+	Current,
+	Max UMETA(Hidden),
+};
+
+UENUM()
 enum class EControlRigOpCode : uint8
 {
 	Done,

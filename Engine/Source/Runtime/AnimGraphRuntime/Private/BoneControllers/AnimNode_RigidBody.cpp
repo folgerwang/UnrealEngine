@@ -34,7 +34,9 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 	CachedBoundsScale = 1.2f;
 	SimulationSpace = ESimulationSpace::ComponentSpace;
 	ExternalForce = FVector::ZeroVector;
+#if WITH_EDITORONLY_DATA
 	bComponentSpaceSimulation_DEPRECATED = true;
+#endif
 	OverrideWorldGravity = FVector::ZeroVector;
 	TotalMass = 0.f;
 	CachedBounds.W = 0;
@@ -275,17 +277,17 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 							// Linear Velocity
 							if(DeltaSeconds > 0.0f)
 							{
-								BodyData.TransferedBoneVelocity.SetTranslation((NextSSTM.GetLocation() - PrevSSTM.GetLocation()) / DeltaSeconds);
+								BodyData.TransferedBoneLinearVelocity = ((NextSSTM.GetLocation() - PrevSSTM.GetLocation()) / DeltaSeconds);
 							}
 							else
 							{
-								BodyData.TransferedBoneVelocity.SetTranslation(FVector::ZeroVector);
+								BodyData.TransferedBoneLinearVelocity = (FVector::ZeroVector);
 							}
 
 							// Angular Velocity
 							const FQuat DeltaRotation = (NextSSTM.GetRotation().Inverse() * PrevSSTM.GetRotation());
 							const float RotationAngle = DeltaRotation.GetAngle() / DeltaSeconds;
-							BodyData.TransferedBoneVelocity.SetRotation(FQuat(DeltaRotation.GetRotationAxis(), RotationAngle)); 
+							BodyData.TransferedBoneAngularVelocity = (FQuat(DeltaRotation.GetRotationAxis(), RotationAngle)); 
 						}
 					}
 				}
@@ -354,9 +356,9 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 					if (BodyData.bIsSimulated)
 					{
 						ImmediatePhysics::FActorHandle* Body = Bodies[BodyIndex];
-						Body->SetLinearVelocity(BodyData.TransferedBoneVelocity.GetTranslation());
+						Body->SetLinearVelocity(BodyData.TransferedBoneLinearVelocity);
 
-						const FQuat AngularVelocity = BodyData.TransferedBoneVelocity.GetRotation();
+						const FQuat AngularVelocity = BodyData.TransferedBoneAngularVelocity;
 						Body->SetAngularVelocity(AngularVelocity.GetRotationAxis() * AngularVelocity.GetAngle());
 					}
 				}
@@ -996,6 +998,7 @@ void FAnimNode_RigidBody::OnInitializeAnimInstance(const FAnimInstanceProxy* InP
 	InitPhysics(InAnimInstance);
 }
 
+#if WITH_EDITORONLY_DATA
 void FAnimNode_RigidBody::PostSerialize(const FArchive& Ar)
 {
 	if(bComponentSpaceSimulation_DEPRECATED == false)
@@ -1005,5 +1008,6 @@ void FAnimNode_RigidBody::PostSerialize(const FArchive& Ar)
 		bComponentSpaceSimulation_DEPRECATED = true;
 	}
 }
+#endif
 
 #undef LOCTEXT_NAMESPACE

@@ -6,6 +6,7 @@
 
 #include "UObject/CoreNet.h"
 #include "UObject/UnrealType.h"
+#include "Misc/NetworkVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCoreNet, Log, All);
 
@@ -263,9 +264,24 @@ bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
 		{
 			// replicated by hardcoded index
 			uint32 NameIndex;
-			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
-			InName = EName(NameIndex);
-			// hardcoded names never have a Number
+			if (Ar.EngineNetVer() < HISTORY_CHANNEL_NAMES)
+			{
+				Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
+			}
+			else
+			{
+				Ar.SerializeIntPacked(NameIndex);
+			}
+
+			if (NameIndex < NAME_MaxHardcodedNameIndex)
+			{
+				InName = EName(NameIndex);
+				// hardcoded names never have a Number
+			}
+			else
+			{
+				Ar.SetError();
+			}
 		}
 		else
 		{
@@ -285,7 +301,7 @@ bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
 			// send by hardcoded index
 			checkSlow(InName.GetNumber() <= 0); // hardcoded names should never have a Number
 			uint32 NameIndex = uint32(InName.GetComparisonIndex());
-			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
+			Ar.SerializeIntPacked(NameIndex);
 		}
 		else
 		{
@@ -384,6 +400,13 @@ FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 }
 
+void FNetBitWriter::CountMemory(FArchive& Ar) const
+{
+	FBitWriter::CountMemory(Ar);
+	const SIZE_T MemberSize = sizeof(*this) - sizeof(FBitWriter);
+	Ar.CountBytes(MemberSize, MemberSize);
+}
+
 // ----------------------------------------------------------------
 //	FNetBitReader
 // ----------------------------------------------------------------
@@ -431,6 +454,13 @@ FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 {
 	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 	return *this;
+}
+
+void FNetBitReader::CountMemory(FArchive& Ar) const
+{
+	FBitReader::CountMemory(Ar);
+	const SIZE_T MemberSize = sizeof(*this) - sizeof(FBitReader);
+	Ar.CountBytes(MemberSize, MemberSize);
 }
 
 static const TCHAR* GLastRPCFailedReason = NULL;

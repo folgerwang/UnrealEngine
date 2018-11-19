@@ -454,8 +454,12 @@ public:
 	static void ExportAggregatedGeometry(const FKAggregateGeom& AggGeom, TNavStatArray<FVector>& OutConvexVertexBuffer, TNavStatArray<int32>& OutConvexIndexBuffer, TNavStatArray<int32>& OutShapeBuffer, const FTransform& LocalToWorld = FTransform::Identity);
 
 protected:
-	// Performs initial setup of member variables so that generator is ready to do its thing from this point on
-	void Init();
+	// Performs initial setup of member variables so that generator is ready to
+	// do its thing from this point on. Called just after construction by ARecastNavMesh
+	virtual void Init();
+
+	// Used to configure Config. Override to influence build properties
+	virtual void ConfigureBuildProperties(FRecastBuildConfig& OutConfig);
 
 	// Updates cached list of navigation bounds
 	void UpdateNavigationBounds();
@@ -504,16 +508,22 @@ protected:
 
 	virtual TSharedRef<FRecastTileGenerator> CreateTileGenerator(const FIntPoint& Coord, const TArray<FBox>& DirtyAreas);
 
+	void SetBBoxGrowth(const FVector& InBBox) { BBoxGrowth = InBBox; }
+
 	//----------------------------------------------------------------------//
 	// debug
 	//----------------------------------------------------------------------//
 	virtual uint32 LogMemUsed() const override;
 
-private:
+protected:
 	friend ARecastNavMesh;
 
 	/** Parameters defining navmesh tiles */
 	FRecastBuildConfig Config;
+
+	/** Used to grow generic element bounds to match this generator's properties
+	 *	(most notably Config.borderSize) */
+	FVector BBoxGrowth;
 	
 	int32 NumActiveTiles;
 	/** the limit to number of asynchronous tile generators running at one time */

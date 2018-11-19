@@ -419,7 +419,7 @@ public:
 	/** Set the linear drive's strength parameters */
 	void SetLinearDriveParams(float InPositionStrength, float InVelocityStrength, float InForceLimit);
 
-	DEPRECATED(4.15, "Please call SetOrientationDriveTwistAndSwing. Note the order of bools is reversed (Make sure to pass Twist and then Swing)")
+	UE_DEPRECATED(4.15, "Please call SetOrientationDriveTwistAndSwing. Note the order of bools is reversed (Make sure to pass Twist and then Swing)")
 	void SetAngularPositionDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive)
 	{
 		SetOrientationDriveTwistAndSwing(bInEnableTwistDrive, bInEnableSwingDrive);
@@ -440,7 +440,7 @@ public:
 	/** Set the angular drive's orientation target*/
 	void SetAngularOrientationTarget(const FQuat& InPosTarget);
 
-	DEPRECATED(4.15, "Please call SetAngularVelocityDriveTwistAndSwing. Note the order of bools is reversed (Make sure to pass Twist and then Swing)")
+	UE_DEPRECATED(4.15, "Please call SetAngularVelocityDriveTwistAndSwing. Note the order of bools is reversed (Make sure to pass Twist and then Swing)")
 	void SetAngularVelocityDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive)
 	{
 		SetAngularVelocityDriveTwistAndSwing(bInEnableTwistDrive, bInEnableSwingDrive);

@@ -85,8 +85,8 @@ namespace EOnlinePresenceState
 	static FText OnlineText =  NSLOCTEXT("OnlinePresence", "Online", "Online");
 	static FText OfflineText =  NSLOCTEXT("OnlinePresence", "Offline", "Offline");
 	static FText AwayText =  NSLOCTEXT("OnlinePresence", "Away", "Away");
-	static FText ExtendedAwayText =  NSLOCTEXT("OnlinePresence", "ExtendedAway", "ExtendedAway");
-	static FText DoNotDisturbText =  NSLOCTEXT("OnlinePresence", "DoNotDisturb", "DoNotDisturb");
+	static FText ExtendedAwayText =  NSLOCTEXT("OnlinePresence", "ExtendedAway", "Extended Away");
+	static FText DoNotDisturbText =  NSLOCTEXT("OnlinePresence", "DoNotDisturb", "Do Not Disturb");
 	static FText ChatText =  NSLOCTEXT("OnlinePresence", "Chat", "Chat");
 	/** 
 	 * @return the loc text version of the enum passed in 

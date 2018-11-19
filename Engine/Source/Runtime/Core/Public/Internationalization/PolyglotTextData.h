@@ -160,7 +160,7 @@ private:
 
 	/**
 	 * The native string for this polyglot data.
-	 * @note This must not be empty.
+	 * @note This must not be empty (it should be the same as the originally authored text you are trying to replace).
 	 */
 	FString NativeString;
 

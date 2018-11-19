@@ -74,6 +74,29 @@ float FGenericPlatformMath::Atan2(float Y, float X)
 	return t3;
 }
 
+/*FORCENOINLINE*/ float FGenericPlatformMath::Fmod(float X, float Y)
+{
+	if (fabsf(Y) <= 1.e-8f)
+	{
+		FmodReportError(X, Y);
+		return 0.f;
+	}
+	const float Div = (X / Y);
+	// All floats where abs(f) >= 2^23 (8388608) are whole numbers so do not need truncation, and avoid overflow in TruncToFloat as they get even larger.
+	const float Quotient = fabsf(Div) < 8388608.f ? TruncToFloat(Div) : Div;
+	float IntPortion = Y * Quotient;
+
+	// Rounding and imprecision could cause IntPortion to exceed X and cause the result to be outside the expected range.
+	// For example Fmod(55.8, 9.3) would result in a very small negative value!
+	if (fabsf(IntPortion) > fabsf(X))
+	{
+		IntPortion = X;
+	}
+
+	const float Result = X - IntPortion;
+	return Result;
+}
+
 void FGenericPlatformMath::FmodReportError(float X, float Y)
 {
 	if (Y == 0)

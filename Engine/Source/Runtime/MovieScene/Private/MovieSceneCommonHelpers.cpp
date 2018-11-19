@@ -513,3 +513,51 @@ template<> void FTrackInstancePropertyBindings::SetCurrentValue<bool>(UObject& O
 		Object.ProcessEvent(NotifyFunction, nullptr);
 	}
 }
+
+
+template<> void FTrackInstancePropertyBindings::CallFunction<UObject*>(UObject& InRuntimeObject, UObject* PropertyValue)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
+	{
+		// ProcessEvent should really be taking const void*
+		InRuntimeObject.ProcessEvent(SetterFunction, (void*)&PropertyValue);
+	}
+	else if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		ObjectProperty->SetObjectPropertyValue(ValuePtr, PropertyValue);
+	}
+
+	if (UFunction* NotifyFunction = PropAndFunction.NotifyFunction.Get())
+	{
+		InRuntimeObject.ProcessEvent(NotifyFunction, nullptr);
+	}
+}
+
+template<> UObject* FTrackInstancePropertyBindings::GetCurrentValue<UObject*>(const UObject& InRuntimeObject)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		const uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		return ObjectProperty->GetObjectPropertyValue(ValuePtr);
+	}
+
+	return nullptr;
+}
+
+template<> void FTrackInstancePropertyBindings::SetCurrentValue<UObject*>(UObject& InRuntimeObject, UObject* InValue)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		ObjectProperty->SetObjectPropertyValue(ValuePtr, InValue);
+	}
+
+	if (UFunction* NotifyFunction = PropAndFunction.NotifyFunction.Get())
+	{
+		InRuntimeObject.ProcessEvent(NotifyFunction, nullptr);
+	}
+}

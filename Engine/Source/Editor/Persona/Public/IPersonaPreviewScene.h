@@ -84,7 +84,7 @@ public:
 	virtual void SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes) = 0;
 
 	/** Refreshes the additional meshes displayed in this preview scene */
-	virtual void RefreshAdditionalMeshes() = 0;
+	virtual void RefreshAdditionalMeshes(bool bAllowOverrideBaseMesh) = 0;
 
 	/** Set the animation asset to preview **/
 	virtual void SetPreviewAnimationAsset(UAnimationAsset* AnimAsset, bool bEnablePreview = true) = 0;
@@ -93,7 +93,7 @@ public:
 	virtual UAnimationAsset* GetPreviewAnimationAsset() const = 0;
 
 	/** Set the preview mesh for this scene (does not set the preview mesh on the skeleton/asset) */
-	virtual void SetPreviewMesh(USkeletalMesh* NewPreviewMesh) = 0;
+	virtual void SetPreviewMesh(USkeletalMesh* NewPreviewMesh, bool bAllowOverrideBaseMesh = true) = 0;
 
 	/** Get the preview mesh for this scene (does go via skeleton/asset) */
 	virtual USkeletalMesh* GetPreviewMesh() const = 0;

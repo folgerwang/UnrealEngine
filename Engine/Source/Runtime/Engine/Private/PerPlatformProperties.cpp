@@ -19,7 +19,8 @@ ENGINE_API FArchive& operator<<(FArchive& Ar, TPerPlatformProperty<StructType, V
 		bCooked = true;
 		Ar << bCooked;
 		// Save out platform override if it exists and Default otherwise
-		ValueType Value = Property.GetValueForPlatformGroup(Ar.CookingTarget()->GetPlatformInfo().PlatformGroupName);
+		const PlatformInfo::FPlatformInfo& PlatformInfo = Ar.CookingTarget()->GetPlatformInfo();
+		ValueType Value = Property.GetValueForPlatformIdentifiers(PlatformInfo.PlatformGroupName, PlatformInfo.VanillaPlatformName);
 		Ar << Value;
 	}
 	else
@@ -52,7 +53,7 @@ ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<
 		bCooked = true;
 		Record << NAMED_FIELD(bCooked);
 		// Save out platform override if it exists and Default otherwise
-		ValueType Value = Property.GetValueForPlatformGroup(UnderlyingArchive.CookingTarget()->GetPlatformInfo().PlatformGroupName);
+		ValueType Value = Property.GetValueForPlatformIdentifiers(UnderlyingArchive.CookingTarget()->GetPlatformInfo().PlatformGroupName);
 		Record << NAMED_FIELD(Value);
 	}
 	else
@@ -72,5 +73,7 @@ ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<
 
 template ENGINE_API FArchive& operator<<(FArchive&, TPerPlatformProperty<FPerPlatformInt, int32, NAME_IntProperty>&);
 template ENGINE_API FArchive& operator<<(FArchive&, TPerPlatformProperty<FPerPlatformFloat, float, NAME_FloatProperty>&);
+template ENGINE_API FArchive& operator<<(FArchive&, TPerPlatformProperty<FPerPlatformBool, bool, NAME_BoolProperty>&);
 template ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<FPerPlatformInt, int32, NAME_IntProperty>&);
 template ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<FPerPlatformFloat, float, NAME_FloatProperty>&);
+template ENGINE_API void operator<<(FStructuredArchive::FSlot Slot, TPerPlatformProperty<FPerPlatformBool, bool, NAME_BoolProperty>&);

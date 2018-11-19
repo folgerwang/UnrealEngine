@@ -342,7 +342,7 @@ public:
 	 */
 	SLATECORE_API static void MakeDebugQuad( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeDebugQuad(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect)
 	{
 		MakeDebugQuad(ElementList, InLayer, PaintGeometry);
@@ -378,7 +378,7 @@ public:
 		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None,
 		const FLinearColor& InTint = FLinearColor::White );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeBox(
 			FSlateWindowElementList& ElementList,
 			uint32 InLayer,
@@ -391,7 +391,7 @@ public:
 		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
 	}
 
-	DEPRECATED(4.20, "Storing and passing in a FSlateResourceHandle to MakeBox is no longer necessary.")
+	UE_DEPRECATED(4.20, "Storing and passing in a FSlateResourceHandle to MakeBox is no longer necessary.")
 	SLATECORE_API static void MakeBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -401,7 +401,7 @@ public:
 		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, 
 		const FLinearColor& InTint = FLinearColor::White );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -415,7 +415,7 @@ public:
 		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
 	}
 	
-	//DEPRECATED(4.17, "Use Render Transforms instead.")
+	//UE_DEPRECATED(4.17, "Use Render Transforms instead.")
 	SLATECORE_API static void MakeRotatedBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -450,19 +450,19 @@ public:
 		MakeText(ElementList, InLayer, PaintGeometry, InText.ToString(), InFontInfo, InDrawEffects, InTint);
 	}
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const int32 StartIndex, const int32 EndIndex, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeText(ElementList, InLayer, PaintGeometry, InText, StartIndex, EndIndex, InFontInfo, InDrawEffects, InTint);
 	}
 	
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeText(ElementList, InLayer, PaintGeometry, InText, InFontInfo, InDrawEffects, InTint);
 	}
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeText(ElementList, InLayer, PaintGeometry, InText, InFontInfo, InDrawEffects, InTint);
@@ -481,7 +481,7 @@ public:
 	 */
 	SLATECORE_API static void MakeShapedText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, ESlateDrawEffect InDrawEffects, const FLinearColor& BaseTint, const FLinearColor& OutlineTint);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeShapedText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects, const FLinearColor& BaseTint, const FLinearColor& OutlineTint)
 	{
 		MakeShapedText(ElementList, InLayer, PaintGeometry, InShapedGlyphSequence, InDrawEffects, BaseTint, OutlineTint);
@@ -500,7 +500,7 @@ public:
 	 */
 	SLATECORE_API static void MakeGradient( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeGradient(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None)
 	{
 		MakeGradient(ElementList, InLayer, PaintGeometry, InGradientStops, InGradientType, InDrawEffects);
@@ -538,7 +538,7 @@ public:
 	 */
 	SLATECORE_API static void MakeCubicBezierSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeSpline(ElementList, InLayer, PaintGeometry, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
@@ -547,7 +547,7 @@ public:
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
 	SLATECORE_API static void MakeDrawSpaceSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeDrawSpaceSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeDrawSpaceSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
@@ -555,10 +555,10 @@ public:
 
 	
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
-	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	UE_DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	SLATECORE_API static void MakeDrawSpaceGradientSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
 
-	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	UE_DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None);
 
 	/**
@@ -577,7 +577,7 @@ public:
 	SLATECORE_API static void MakeLines( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f );
 	SLATECORE_API static void MakeLines( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, const TArray<FLinearColor>& PointColors, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeLines(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, const FSlateRect InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f)
 	{
 		MakeLines(ElementList, InLayer, PaintGeometry, Points, InDrawEffects, InTint, bAntialias, Thickness);
@@ -597,7 +597,7 @@ public:
 	 */
 	SLATECORE_API static void MakeViewport( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeViewport(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
 	{
 		MakeViewport(ElementList, InLayer, PaintGeometry, Viewport, InDrawEffects, InTint);
@@ -621,7 +621,7 @@ public:
 
 	SLATECORE_API static void MakePostProcessPass(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector4& Params, int32 DownsampleAmount);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
+	UE_DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakePostProcessPass(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect, const FVector4& Params, int32 DownsampleAmount)
 	{
 		MakePostProcessPass(ElementList, InLayer, PaintGeometry, Params, DownsampleAmount);
@@ -849,11 +849,6 @@ public:
 		return BatchKey == Other.BatchKey && ShaderResource == Other.ShaderResource;
 	}
 
-	friend uint32 GetTypeHash( const FSlateElementBatch& ElementBatch )
-	{
-		return PointerHash(ElementBatch.ShaderResource, GetTypeHash(ElementBatch.BatchKey));
-	}
-
 	const FSlateShaderResource* GetShaderResource() const { return ShaderResource; }
 	const FShaderParams& GetShaderParams() const { return BatchKey.ShaderParams; }
 	ESlateBatchDrawFlag GetDrawFlags() const { return BatchKey.DrawFlags; }
@@ -970,25 +965,6 @@ private:
 				&& InstanceOffset == Other.InstanceOffset
 				&& InstanceData == Other.InstanceData
 				&& SceneIndex == Other.SceneIndex;
-		}
-
-		/** Compute an efficient hash for this type for use in hash containers. */
-		friend uint32 GetTypeHash( const FBatchKey& InBatchKey )
-		{
-			// NOTE: Assumes these enum types are 8 bits.
-			uint32 RunningHash = (uint32)InBatchKey.DrawFlags << 24 | (uint32)InBatchKey.ShaderType << 16 | (uint32)InBatchKey.DrawPrimitiveType << 8 | (uint32)InBatchKey.DrawEffects << 0;
-			RunningHash = InBatchKey.CustomDrawer.IsValid() ? PointerHash(InBatchKey.CustomDrawer.Pin().Get(), RunningHash) : RunningHash;
-			RunningHash = InBatchKey.CachedRenderHandle.IsValid() ? PointerHash(InBatchKey.CachedRenderHandle.Get(), RunningHash) : RunningHash;
-			RunningHash = HashCombine(GetTypeHash(InBatchKey.ShaderParams.PixelParams), RunningHash);
-			RunningHash = HashCombine(InBatchKey.ClippingIndex, RunningHash);
-			const bool bHasInstances = InBatchKey.InstanceCount > 0;
-			RunningHash = bHasInstances ? HashCombine(InBatchKey.InstanceCount, RunningHash) : RunningHash;
-			RunningHash = bHasInstances ? HashCombine(InBatchKey.InstanceOffset, RunningHash) : RunningHash;
-			RunningHash = InBatchKey.InstanceData ? HashCombine( PointerHash(InBatchKey.InstanceData), RunningHash ) : RunningHash;
-			RunningHash = HashCombine(InBatchKey.SceneIndex, RunningHash);
-
-			return RunningHash;
-			//return FCrc::MemCrc32(&InBatchKey.ShaderParams, sizeof(FShaderParams)) ^ ((InBatchKey.ShaderType << 16) | (InBatchKey.DrawFlags+InBatchKey.ShaderType+InBatchKey.DrawPrimitiveType+InBatchKey.DrawEffects));
 		}
 	};
 
@@ -1486,7 +1462,7 @@ public:
 	SLATECORE_API ~FSlateWindowElementList();
 
 	/** @return Get the window that we will be painting */
-	DEPRECATED(4.21, "FSlateWindowElementList::GetWindow is not thread safe but window element lists are accessed on multiple threads.  Please call GetPaintWindow instead")
+	UE_DEPRECATED(4.21, "FSlateWindowElementList::GetWindow is not thread safe but window element lists are accessed on multiple threads.  Please call GetPaintWindow instead")
 	FORCEINLINE TSharedPtr<SWindow> GetWindow() const
 	{
 		// check that we are in game thread or are in slate/movie loading thread

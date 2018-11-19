@@ -61,7 +61,7 @@ void FControlRigEditorObjectBinding::AddSpawnControlRigMenuExtensions(FMenuBuild
 
 	FClassViewerInitializationOptions Options;
 	Options.bShowUnloadedBlueprints = true;
-	Options.bShowDisplayNames = true;
+	Options.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 
 	TSharedPtr<FControlRigClassFilter> ClassFilter = MakeShareable(new FControlRigClassFilter);
 	Options.ClassFilter = ClassFilter;

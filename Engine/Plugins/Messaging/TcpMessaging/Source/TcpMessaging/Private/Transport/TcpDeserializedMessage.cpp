@@ -20,9 +20,9 @@ FTcpDeserializedMessage::~FTcpDeserializedMessage()
 {
 	if (MessageData != nullptr)
 	{
-		if (TypeInfo.IsValid())
+		if (UScriptStruct* TypeInfoPtr = TypeInfo.Get())
 		{
-			TypeInfo->DestroyStruct(MessageData);
+			TypeInfoPtr->DestroyStruct(MessageData);
 		}
 
 		FMemory::Free(MessageData);
@@ -42,19 +42,23 @@ bool FTcpDeserializedMessage::Deserialize(const TSharedPtr<FArrayReader, ESPMode
 	// can sanity check their values. @see FTcpSerializeMessageTask::DoTask()
 	MessageReader.ArMaxSerializeSize = NAME_SIZE;
 
+	UScriptStruct* TypeInfoPtr = nullptr;
+
 	// message type info
 	{
 		FName MessageType;
 		MessageReader << MessageType;
 
 		// @todo gmp: cache message types for faster lookup
-		TypeInfo = FindObjectSafe<UScriptStruct>(ANY_PACKAGE, *MessageType.ToString());
+		TypeInfoPtr = FindObjectSafe<UScriptStruct>(ANY_PACKAGE, *MessageType.ToString());
 
+		TypeInfo = TypeInfoPtr;
 		if (!TypeInfo.IsValid(false, true))
 		{
 			return false;
 		}
 	}
+	check(TypeInfoPtr);
 
 	// sender address
 	{
@@ -118,13 +122,13 @@ bool FTcpDeserializedMessage::Deserialize(const TSharedPtr<FArrayReader, ESPMode
 	}
 
 	// create message body
-	MessageData = FMemory::Malloc(TypeInfo->GetStructureSize());
-	TypeInfo->InitializeStruct(MessageData);
+	MessageData = FMemory::Malloc(TypeInfoPtr->GetStructureSize());
+	TypeInfoPtr->InitializeStruct(MessageData);
 
 	// deserialize message body
 	FJsonStructDeserializerBackend Backend(MessageReader);
 
-	return FStructDeserializer::Deserialize(MessageData, *TypeInfo, Backend);
+	return FStructDeserializer::Deserialize(MessageData, *TypeInfoPtr, Backend);
 }
 
 

@@ -35,6 +35,8 @@ THIRD_PARTY_INCLUDES_END
 #undef GetFileAttributes
 #undef ReportEvent
 #undef GetClassName
+#undef GetClassInfo
+#undef IMediaEventSink
 
 // Undefine all the atomics. AllowWindowsPlatformAtomics/HideWindowsPlatformAtomics temporarily defining these macros.
 #if !PLATFORM_XBOXONE

@@ -78,6 +78,16 @@ public:
 	~FAssetRegistryState();
 
 	/**
+	 * Enum controlling how we initialize this state
+	 */
+	enum class EInitializationMode
+	{
+		Rebuild,
+		OnlyUpdateExisting,
+		Append
+	};
+
+	/**
 	 * Does the given path contain assets?
 	 * @note This function doesn't recurse into sub-paths.
 	 */
@@ -203,11 +213,22 @@ public:
 		return reinterpret_cast<const TMap<FName, const FAssetPackageData*>&>(CachedPackageData);
 	}
 
+	/** Get the set of primary assets contained in this state */
+	void GetPrimaryAssetsIds(TSet<FPrimaryAssetId>& OutPrimaryAssets) const;
+
 	/** Returns non-editable pointer to the asset package data */
 	const FAssetPackageData* GetAssetPackageData(FName PackageName) const;
 
 	/** Finds an existing package data, or creates a new one to modify */
 	FAssetPackageData* CreateOrGetAssetPackageData(FName PackageName);
+
+	/**
+	 * Removes a key from the key value pairs for an object
+	 *
+	 * @param ObjectPath the path of the object to be trimmed
+	 * @param Key the key to remove
+	 */
+	void StripAssetRegistryKeyForObject(FName ObjectPath, FName Key);
 
 	/** Removes existing package data */
 	bool RemovePackageData(FName PackageName);
@@ -225,28 +246,33 @@ public:
 	void Reset();
 
 	/** Initializes cache from existing set of asset data and depends nodes */
-	void InitializeFromExisting(const TMap<FName, FAssetData*>& AssetDataMap, const TMap<FAssetIdentifier, FDependsNode*>& DependsNodeMap, const TMap<FName, FAssetPackageData*>& AssetPackageDataMap, const FAssetRegistrySerializationOptions& Options, bool bRefreshExisting = false);
-	void InitializeFromExisting(const FAssetRegistryState& Existing, const FAssetRegistrySerializationOptions& Options, bool bRefreshExisting = false)
+	void InitializeFromExisting(const TMap<FName, FAssetData*>& AssetDataMap, const TMap<FAssetIdentifier, FDependsNode*>& DependsNodeMap, const TMap<FName, FAssetPackageData*>& AssetPackageDataMap, const FAssetRegistrySerializationOptions& Options, EInitializationMode InitializationMode = EInitializationMode::Rebuild);
+	void InitializeFromExisting(const FAssetRegistryState& Existing, const FAssetRegistrySerializationOptions& Options, EInitializationMode InitializationMode = EInitializationMode::Rebuild)
 	{
-		InitializeFromExisting(Existing.CachedAssetsByObjectPath, Existing.CachedDependsNodes, Existing.CachedPackageData, Options, bRefreshExisting);
+		InitializeFromExisting(Existing.CachedAssetsByObjectPath, Existing.CachedDependsNodes, Existing.CachedPackageData, Options, InitializationMode);
 	}
 
 	/** 
 	 * Prunes an asset cache, this removes asset data, nodes, and package data that isn't needed. 
 	 * @param RequiredPackages If set, only these packages will be maintained. If empty it will keep all unless filtered by other parameters
 	 * @param RemovePackages These packages will be removed from the current set
+	 * @param ChunksToKeep The list of chunks that are allowed to remain. Any assets in other chunks are pruned. If empty, all assets are kept regardless of chunk
 	 * @param Options Serialization options to read filter info from
 	 */
+	void PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, const TSet<int32> ChunksToKeep, const FAssetRegistrySerializationOptions& Options);
 	void PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, const FAssetRegistrySerializationOptions& Options);
 
 	/** Serialize the registry to/from a file, skipping editor only data */
-	bool Serialize(FArchive& Ar, FAssetRegistrySerializationOptions& Options);
+	bool Serialize(FArchive& Ar, const FAssetRegistrySerializationOptions& Options);
 
 	/** Returns memory size of entire registry, optionally logging sizes */
 	uint32 GetAllocatedSize(bool bLogDetailed = false) const;
 
 	/** Checks a filter to make sure there are no illegal entries */
 	static bool IsFilterValid(const FARFilter& Filter, bool bAllowRecursion);
+
+	/** Returns the number of assets in this state */
+	int32 GetNumAssets() const { return NumAssets; }
 
 private:
 	/** Find the first non-redirector dependency node starting from InDependency. */
@@ -260,6 +286,12 @@ private:
 
 	/** Removes the depends node and updates the dependencies to no longer contain it as as a referencer. */
 	bool RemoveDependsNode(const FAssetIdentifier& Identifier);
+
+	/** Shrink all contained data structures. */
+	void Shrink();
+
+	/** Set up the data structures for USE_COMPACT_ASSET_REGISTRY, doesn't really belong here */
+	static void IngestIniSettingsForCompact(TArray<FString>& AsFName, TArray<FString>& AsPathName, TArray<FString>& AsLocText);
 
 	/** The map of ObjectPath names to asset data for assets saved to disk */
 	TMap<FName, FAssetData*> CachedAssetsByObjectPath;

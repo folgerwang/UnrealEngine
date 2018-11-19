@@ -119,7 +119,7 @@ public:
 		EvaluateSwept(Operand, Context, PersistentData, ExecutionTokens);
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
-	DEPRECATED(4.21, "Please override void EvaluateSwept(const FMovieSceneEvaluationOperand&, const FMovieSceneContext&, const TRange<FFrameNumber>&, const FPersistentEvaluationData&, FMovieSceneExecutionTokens&) instead.")
+	UE_DEPRECATED(4.21, "Please override void EvaluateSwept(const FMovieSceneEvaluationOperand&, const FMovieSceneContext&, const TRange<FFrameNumber>&, const FPersistentEvaluationData&, FMovieSceneExecutionTokens&) instead.")
 	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 	{
 		ensureMsgf(false, TEXT("FMovieSceneEvalTemplate::EvaluateSwept has not been implemented. Verify that this template's evaluation track has correct evaluation method (usually set in UMovieSceneTrack::PostCompile), or implement this function."));

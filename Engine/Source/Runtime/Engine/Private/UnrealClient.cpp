@@ -1510,7 +1510,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 				}
 
 				UWorld* ViewportWorld = ViewportClient->GetWorld();
-				FCanvas Canvas(this, nullptr, ViewportWorld, ViewportWorld ? ViewportWorld->FeatureLevel : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->ShouldDPIScaleSceneCanvas() ? ViewportClient->GetDPIScale() : 1.0f);
+				FCanvas Canvas(this, nullptr, ViewportWorld, ViewportWorld ? ViewportWorld->FeatureLevel.GetValue() : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->ShouldDPIScaleSceneCanvas() ? ViewportClient->GetDPIScale() : 1.0f);
 				Canvas.SetRenderTargetRect(FIntRect(0, 0, SizeX, SizeY));
 				{
 					// Make sure the Canvas is not rendered upside down
@@ -1614,8 +1614,8 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 		});
 
 		// Let the viewport client draw its hit proxies.
-		auto World = ViewportClient->GetWorld();
-		FCanvas Canvas(&HitProxyMap, &HitProxyMap, World, World ? World->FeatureLevel : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->ShouldDPIScaleSceneCanvas() ? ViewportClient->GetDPIScale() : 1.0f);
+		UWorld* World = ViewportClient->GetWorld();
+		FCanvas Canvas(&HitProxyMap, &HitProxyMap, World, World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->ShouldDPIScaleSceneCanvas() ? ViewportClient->GetDPIScale() : 1.0f);
 		{
 			ViewportClient->Draw(this, &Canvas);
 		}
@@ -2241,7 +2241,7 @@ FDummyViewport::FDummyViewport(FViewportClient* InViewportClient)
 	, DebugCanvas(NULL)
 {
 	UWorld* CurWorld = (InViewportClient != NULL ? InViewportClient->GetWorld() : NULL);
-	DebugCanvas = new FCanvas(this, NULL, CurWorld, (CurWorld != NULL ? CurWorld->FeatureLevel : GMaxRHIFeatureLevel));
+	DebugCanvas = new FCanvas(this, NULL, CurWorld, (CurWorld != NULL ? CurWorld->FeatureLevel.GetValue() : GMaxRHIFeatureLevel));
 		
 	DebugCanvas->SetAllowedModes(0);
 }

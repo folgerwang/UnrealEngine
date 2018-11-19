@@ -819,6 +819,28 @@ namespace UnrealBuildTool
 			return bSuccess;
 		}
 
+		protected override void WriteDebugSolutionFiles( DirectoryReference IntermediateProjectFilesPath )
+		{
+			//build and collect UnrealVS configuration
+			StringBuilder UnrealVSContent = new StringBuilder();
+			foreach (UnrealTargetPlatform SupportedPlatform in SupportedPlatforms)
+			{
+				UEPlatformProjectGenerator ProjGenerator = UEPlatformProjectGenerator.GetPlatformProjectGenerator(SupportedPlatform, true);
+				if (ProjGenerator != null)
+				{
+					ProjGenerator.GetUnrealVSConfigurationEntries(UnrealVSContent);
+				}
+			}
+			if (UnrealVSContent.Length > 0 )
+			{
+				UnrealVSContent.Insert(0, "<UnrealVS>" + ProjectFileGenerator.NewLine);
+				UnrealVSContent.Append("</UnrealVS>" + ProjectFileGenerator.NewLine );
+
+				string ConfigFilePath = FileReference.Combine(IntermediateProjectFilesPath, "UnrealVS.xml").FullName;
+				bool bSuccess = ProjectFileGenerator.WriteFileIfChanged(ConfigFilePath, UnrealVSContent.ToString());
+			}
+		}
+
 		static void BuildSolutionExplorerState_VS2017(MasterProjectFolder Folder, string Suffix, VCSolutionExplorerState ExplorerState, ProjectFile DefaultProject)
 		{
 			foreach(ProjectFile Project in Folder.ChildProjects)

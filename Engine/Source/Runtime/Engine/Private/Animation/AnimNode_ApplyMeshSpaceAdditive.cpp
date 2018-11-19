@@ -29,7 +29,7 @@ void FAnimNode_ApplyMeshSpaceAdditive::Update_AnyThread(const FAnimationUpdateCo
 	{
 		// @note: If you derive this class, and if you have input that you rely on for base
 		// this is not going to work	
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 		ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
 		if (FAnimWeight::IsRelevant(ActualAlpha))
 		{

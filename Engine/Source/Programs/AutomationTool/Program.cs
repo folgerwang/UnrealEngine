@@ -59,7 +59,9 @@ namespace AutomationTool
 				Environment.CurrentDirectory = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetOriginalLocation()), "..", "..", ".."));
 
 				// Ensure we can resolve any external assemblies as necessary.
-				AssemblyUtils.InstallAssemblyResolver(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()));
+				string PathToBinariesDotNET = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation());
+				AssemblyUtils.InstallAssemblyResolver(PathToBinariesDotNET);
+				AssemblyUtils.InstallRecursiveAssemblyResolver(PathToBinariesDotNET);
 
 				// Initialize the host platform layer
 				HostPlatform.Initialize();

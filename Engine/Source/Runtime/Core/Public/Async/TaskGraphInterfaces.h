@@ -209,6 +209,15 @@ namespace ENamedThreads
 
 }
 
+extern CORE_API int32 GEnablePowerSavingThreadPriorityReductionCVar;
+
+enum class EPowerSavingEligibility : uint8
+{
+	Unknown,
+	Eligible,			// When set high priority tasks are eligible for downgrade to normal priority when power saving is required.
+	NotEligible			// When set high priority tasks will not be downgraded when power saving is required.
+};
+
 class CORE_API FAutoConsoleTaskPriority
 {
 	FAutoConsoleCommand Command;
@@ -216,14 +225,16 @@ class CORE_API FAutoConsoleTaskPriority
 	ENamedThreads::Type ThreadPriority;
 	ENamedThreads::Type TaskPriority;
 	ENamedThreads::Type TaskPriorityIfForcedToNormalThreadPriority;
+	EPowerSavingEligibility PowerSavingEligibility;
 	void CommandExecute(const TArray<FString>& Args);
 public:
-	FAutoConsoleTaskPriority(const TCHAR* Name, const TCHAR* Help, ENamedThreads::Type DefaultThreadPriority, ENamedThreads::Type DefaultTaskPriority, ENamedThreads::Type DefaultTaskPriorityIfForcedToNormalThreadPriority = ENamedThreads::UnusedAnchor)
+	FAutoConsoleTaskPriority(const TCHAR* Name, const TCHAR* Help, ENamedThreads::Type DefaultThreadPriority, ENamedThreads::Type DefaultTaskPriority, ENamedThreads::Type DefaultTaskPriorityIfForcedToNormalThreadPriority = ENamedThreads::UnusedAnchor, EPowerSavingEligibility DefaultPowerSavingEligibility = EPowerSavingEligibility::Eligible)
 		: Command(Name, Help, FConsoleCommandWithArgsDelegate::CreateRaw(this, &FAutoConsoleTaskPriority::CommandExecute))
 		, CommandName(Name)
 		, ThreadPriority(DefaultThreadPriority)
 		, TaskPriority(DefaultTaskPriority)
 		, TaskPriorityIfForcedToNormalThreadPriority(DefaultTaskPriorityIfForcedToNormalThreadPriority)
+		, PowerSavingEligibility(DefaultPowerSavingEligibility)
 	{
 		// if you are asking for a hi or background thread priority, you must provide a separate task priority to use if those threads are not available.
 		check(TaskPriorityIfForcedToNormalThreadPriority != ENamedThreads::UnusedAnchor || ThreadPriority == ENamedThreads::NormalThreadPriority);
@@ -231,8 +242,10 @@ public:
 
 	FORCEINLINE ENamedThreads::Type Get(ENamedThreads::Type Thread = ENamedThreads::AnyThread)
 	{
-		// if we don't have the high priority thread that was asked for, then use a normal thread priority with the backup task priority
-		if (ThreadPriority == ENamedThreads::HighThreadPriority && !ENamedThreads::bHasHighPriorityThreads)
+		// if we don't have the high priority thread that was asked for, or we are downgrading thread priority due to power saving
+		// then use a normal thread priority with the backup task priority
+		if (ThreadPriority == ENamedThreads::HighThreadPriority &&
+			((GEnablePowerSavingThreadPriorityReductionCVar && PowerSavingEligibility == EPowerSavingEligibility::Eligible) || !ENamedThreads::bHasHighPriorityThreads))
 		{
 			return ENamedThreads::SetTaskPriority(Thread, TaskPriorityIfForcedToNormalThreadPriority);
 		}
@@ -352,7 +365,7 @@ public:
 	 *	@param	Tasks - tasks to wait for
 	 *	@param	CurrentThreadIfKnown - This thread, if known
 	**/
-	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)=0;
+	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread, ENamedThreads::Type TriggerThread = ENamedThreads::AnyHiPriThreadHiPriTask)=0;
 
 	/** 
 	 *	Requests that a named thread, which must be this thread, run until a task is complete
@@ -372,11 +385,11 @@ public:
 	 *	@param	Task - task to wait for
 	 *	@param	CurrentThreadIfKnown - This thread, if known
 	**/
-	void TriggerEventWhenTaskCompletes(FEvent* InEvent, const FGraphEventRef& Task, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	void TriggerEventWhenTaskCompletes(FEvent* InEvent, const FGraphEventRef& Task, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread, ENamedThreads::Type TriggerThread = ENamedThreads::AnyHiPriThreadHiPriTask)
 	{
 		FGraphEventArray Prerequistes;
 		Prerequistes.Add(Task);
-		TriggerEventWhenTasksComplete(InEvent, Prerequistes, CurrentThreadIfKnown);
+		TriggerEventWhenTasksComplete(InEvent, Prerequistes, CurrentThreadIfKnown, TriggerThread);
 	}
 
 	/**
@@ -1107,8 +1120,9 @@ public:
 	 *	Constructor
 	 *	@param InScopedEvent; Scoped event to fire
 	**/
-	FTriggerEventGraphTask(FEvent* InEvent)
+	FTriggerEventGraphTask(FEvent* InEvent, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyHiPriThreadHiPriTask)
 		: Event(InEvent) 
+		, DesiredThread(InDesiredThread)
 	{
 		check(Event);
 	}
@@ -1120,7 +1134,7 @@ public:
 
 	ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyHiPriThreadHiPriTask;
+		return DesiredThread;
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
@@ -1131,6 +1145,8 @@ public:
 	}
 private:
 	FEvent* Event;
+	/** Thread to run on, can be ENamedThreads::AnyThread **/
+	ENamedThreads::Type DesiredThread;
 };
 
 /** Task class for simple delegate based tasks. This is less efficient than a custom task, doesn't provide the task arguments, doesn't allow specification of the current thread, etc. **/

@@ -246,7 +246,7 @@ protected:
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("OS.Version"), SurveyResults.OSVersion));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("OS.Bits"), FString::Printf(TEXT("%d-bit"), SurveyResults.OSBits)));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("OS.Language"), SurveyResults.OSLanguage));
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("RenderingAPI"), SurveyResults.MultimediaAPI));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("RenderingAPI"), SurveyResults.RenderingAPI));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("CPU.Count"), FString::Printf(TEXT("%d"), SurveyResults.CPUCount)));
 			FString DisplayResolution = FString::Printf(TEXT("%dx%d"), SurveyResults.Displays[0].CurrentModeWidth, SurveyResults.Displays[0].CurrentModeHeight);
 			FString ViewResolution = FString::Printf(TEXT("%dx%d"), SurveyResults.Displays[0].CurrentModeWidth, SurveyResults.Displays[0].CurrentModeHeight);
@@ -254,7 +254,7 @@ protected:
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("ViewResolution"), ViewResolution));
 
 #if PLATFORM_ANDROID
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPUModel"), SurveyResults.Displays[0].GPUCardName));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPUModel"), SurveyResults.RHIAdapter.AdapterName));
 #endif
 
 			Analytics->RecordEvent(*FString::Printf(TEXT("%sHardwareStats"), FPlatformProperties::IniPlatformName()), HardwareStatsAttribs);
@@ -273,9 +273,10 @@ protected:
 			FString MainGPUDriverVer(TEXT("UnknownVersion"));
 			if (SurveyResults.DisplayCount > 0)
 			{
-				MainGPUName = &SurveyResults.Displays[0].GPUCardName[0];
-				MainGPUVRAMMB = SurveyResults.Displays[0].GPUDedicatedMemoryMB;
-				MainGPUDriverVer = &SurveyResults.Displays[0].GPUDriverVersion[0];
+				MainGPUName = SurveyResults.RHIAdapter.AdapterName;
+				FString strAdapterDedicatedMemoryMB(SurveyResults.RHIAdapter.AdapterDedicatedMemoryMB);
+				MainGPUVRAMMB = FCString::Atof(*strAdapterDedicatedMemoryMB);
+				MainGPUDriverVer = SurveyResults.RHIAdapter.AdapterUserDriverVersion;
 			}
 
 			uint32 LargestDisplayHeight = 0;
@@ -329,10 +330,10 @@ protected:
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.Name"), MainGPUName));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.VRAM"), BucketedVRAM));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.DriverVersion"), MainGPUDriverVer));
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterName"), SurveyResults.RHIAdpater.AdapterName));
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterInternalDriverVersion"), SurveyResults.RHIAdpater.AdapterInternalDriverVersion));
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterUserDriverVersion"), SurveyResults.RHIAdpater.AdapterUserDriverVersion));
-			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterDriverDate"), SurveyResults.RHIAdpater.AdapterDriverDate));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterName"), SurveyResults.RHIAdapter.AdapterName));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterInternalDriverVersion"), SurveyResults.RHIAdapter.AdapterInternalDriverVersion));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterUserDriverVersion"), SurveyResults.RHIAdapter.AdapterUserDriverVersion));
+			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("GPU.RHIAdapterDriverDate"), SurveyResults.RHIAdapter.AdapterDriverDate));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("RAM"), BucketedRAM));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("RAM.WEI"), FString::Printf(TEXT("%.1f"), SurveyResults.RAMPerformanceIndex)));
 			HardwareStatsAttribs.Add(FAnalyticsEventAttribute(TEXT("NumberOfMonitors"), FString::Printf(TEXT("%d"), SurveyResults.DisplayCount)));

@@ -528,6 +528,15 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// When overridden to return true, allows the AgeStoreTask to delete individual files in a single symbol folder,
+		/// rather than requiring all files in a symbol folder to be out of date before deleting the entire directory.
+		/// </summary>
+		public virtual bool SymbolServerDeleteIndividualFiles
+		{
+			get { return false; }
+		}
+
+		/// <summary>
 		/// If true, indicates the platform's symbol server directory must be locked for
 		/// exclusive access before any operation is performed on it. Platforms may override
 		/// this to disable if their tools support concurrent access to the symbol server directory.

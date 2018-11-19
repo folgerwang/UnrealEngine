@@ -483,7 +483,7 @@ struct FMath : public FPlatformMath
 		return Delta;
 	}
 
-	DEPRECATED(4.12, "Please use FindDeltaAngleRadians(float A1, float A2) instead of FindDeltaAngle(float A1, float A2).")
+	UE_DEPRECATED(4.12, "Please use FindDeltaAngleRadians(float A1, float A2) instead of FindDeltaAngle(float A1, float A2).")
 	static float FindDeltaAngle(float A1, float A2)
 	{
 		return FindDeltaAngleRadians(A1, A2);

@@ -12,6 +12,7 @@ public:
 	FProceduralFoliageBroadphase(float TileSize = 0.f, float MinimumQuadTreeSize = 100.f);
 	FProceduralFoliageBroadphase(const FProceduralFoliageBroadphase& OtherBroadphase);
 
+	bool TestAgainstAABB(FProceduralFoliageInstance* Instance);
 	void Insert(FProceduralFoliageInstance* Instance);
 	bool GetOverlaps(FProceduralFoliageInstance* Instance, TArray<FProceduralFoliageOverlap>& Overlaps) const;
 	void GetInstancesInBox(const FBox2D& Box, TArray<FProceduralFoliageInstance*>& Instances) const;

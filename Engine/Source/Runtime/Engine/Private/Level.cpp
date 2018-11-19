@@ -474,14 +474,15 @@ void ULevel::SortActorList()
 	NewActors.Reserve(Actors.Num());
 	NewNetActors.Reserve(Actors.Num());
 
-	check(WorldSettings);
-
-	// The WorldSettings tries to stay at index 0
-	NewActors.Add(WorldSettings);
-
-	if (OwningWorld != nullptr)
+	if (WorldSettings)
 	{
-		OwningWorld->AddNetworkActor(WorldSettings);
+		// The WorldSettings tries to stay at index 0
+		NewActors.Add(WorldSettings);
+
+		if (OwningWorld != nullptr)
+		{
+			OwningWorld->AddNetworkActor(WorldSettings);
+		}
 	}
 
 	// Add non-net actors to the NewActors immediately, cache off the net actors to Append after

@@ -26,20 +26,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Fabrik : public FAnimNode_SkeletalControlB
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EndEffector, meta = (PinShownByDefault))
 	FTransform EffectorTransform;
 
-	/** Reference frame of Effector Transform. */
-	UPROPERTY(EditAnywhere, Category = EndEffector)
-	TEnumAsByte<enum EBoneControlSpace> EffectorTransformSpace;
-
-	/** If EffectorTransformSpace is a bone, this is the bone to use. **/
-	UPROPERTY()
-	FBoneReference EffectorTransformBone_DEPRECATED;
-
 	/** If EffectorTransformSpace is a bone, this is the bone to use. **/
 	UPROPERTY(EditAnywhere, Category = EndEffector)
 	FBoneSocketTarget EffectorTarget;
-
-	UPROPERTY(EditAnywhere, Category = EndEffector)
-	TEnumAsByte<enum EBoneRotationSource> EffectorRotationSource;
 
 	/** Name of tip bone */
 	UPROPERTY(EditAnywhere, Category = Solver)
@@ -57,9 +46,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Fabrik : public FAnimNode_SkeletalControlB
 	UPROPERTY(EditAnywhere, Category = Solver)
 	int32 MaxIterations;
 
+	/** Reference frame of Effector Transform. */
+	UPROPERTY(EditAnywhere, Category = EndEffector)
+	TEnumAsByte<enum EBoneControlSpace> EffectorTransformSpace;
+
+	UPROPERTY(EditAnywhere, Category = EndEffector)
+	TEnumAsByte<enum EBoneRotationSource> EffectorRotationSource;
+
+#if WITH_EDITORONLY_DATA
 	/** Toggle drawing of axes to debug joint rotation*/
 	UPROPERTY(EditAnywhere, Category = Solver)
 	bool bEnableDebugDraw;
+
+	/** If EffectorTransformSpace is a bone, this is the bone to use. **/
+	UPROPERTY()
+	FBoneReference EffectorTransformBone_DEPRECATED;
+#endif
 
 public:
 	FAnimNode_Fabrik();
@@ -84,7 +86,7 @@ private:
 	// Convenience function to get current (pre-translation iteration) component space location of bone by bone index
 	FVector GetCurrentLocation(FCSPose<FCompactPose>& MeshBases, const FCompactPoseBoneIndex& BoneIndex);
 	static FTransform GetTargetTransform(const FTransform& InComponentTransform, FCSPose<FCompactPose>& MeshBases, FBoneSocketTarget& InTarget, EBoneControlSpace Space, const FTransform& InOffset);
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	// Cached CS location when in editor for debug drawing
 	FTransform CachedEffectorCSTransform;
 #endif

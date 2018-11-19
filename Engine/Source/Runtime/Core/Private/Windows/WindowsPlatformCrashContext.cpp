@@ -252,7 +252,7 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 				CurrentDllDirectory = (TCHAR*) FMemory::Malloc(BufferSize);
 				if (CurrentDllDirectory)
 				{
-					FMemory::Memset(CurrentDllDirectory, BufferSize, 0);
+					FMemory::Memset(CurrentDllDirectory, 0, BufferSize);
 					GetDllDirectory(BufferSize, CurrentDllDirectory);
 					SetDllDirectory(nullptr);
 				}
@@ -313,6 +313,27 @@ int32 ReportEnsureUsingCrashReportClient(HANDLE Thread, EXCEPTION_POINTERS* Exce
 }
 #endif
 
+void NewReportEnsure_Inner( const TCHAR* ErrorMessage )
+{
+	// Three additional frames are skipped inside FWindowsPlatformStackWalk::GetStack() and FPlatformStackWalk::GetStack()
+	const int NumStackFramesToIgnore = 2;
+
+#if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
+	__try
+#endif
+	{
+		FPlatformMisc::RaiseException(1);
+	}
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
+	__except(ReportEnsureUsingCrashReportClient(GetCurrentThread(), GetExceptionInformation(), NumStackFramesToIgnore, ErrorMessage, IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode))
+	CA_SUPPRESS(6322)
+	{
+	}
+#endif
+#endif	// WINVER
+}
+
 void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
 {
 	const bool bIsEnsure = true;
@@ -330,9 +351,9 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
  */
 FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
-	if (ReportCrashCallCount > 0)
+	if (ReportCrashCallCount > 0 || FDebug::HasAsserted())
 	{
-		// Don't report ensures after we've crashed. They simply may be a result of the crash as
+		// Don't report ensures after we've crashed/asserted, they simply may be a result of the crash as
 		// the engine is already in a bad state.
 		return;
 	}
@@ -346,35 +367,15 @@ FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFrame
 		return;
 	}
 
-	// Stop checking heartbeat for this thread. Ensure can take a lot of time
-	// Thread heartbeat will be resumed the next time this thread calls FThreadHeartBeat::Get().HeartBeat();
-	// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
-	// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
-	FThreadHeartBeat::Get().KillHeartBeat();
-	if (IsInGameThread())
-	{
-		FGameThreadHitchHeartBeat::Get().FrameStart(true);
-	}
+	// Stop checking heartbeat for this thread (and stop the gamethread hitch detector if we're the game thread).
+	// Ensure can take a lot of time (when stackwalking), so we don't want hitches/hangs firing.
+	// These are no-ops on threads that didn't already have a heartbeat etc.
+	FSlowHeartBeatScope SuspendHeartBeat;
+	FDisableHitchDetectorScope SuspendGameThreadHitch;
 
 	bReentranceGuard = true;
-	
-	// Ignore this function and the RaiseException() call below.
-	NumStackFramesToIgnore += 2;
 
-#if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
-#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
-	__try
-#endif
-	{
-		FPlatformMisc::RaiseException( 1 );
-	}
-#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
-	__except(ReportEnsureUsingCrashReportClient(GetCurrentThread(), GetExceptionInformation(), NumStackFramesToIgnore, ErrorMessage, IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode))
-	CA_SUPPRESS(6322)
-	{
-	}
-#endif
-#endif	// WINVER
+	NewReportEnsure_Inner(ErrorMessage);
 
 	bReentranceGuard = false;
 	EnsureLock.Unlock();

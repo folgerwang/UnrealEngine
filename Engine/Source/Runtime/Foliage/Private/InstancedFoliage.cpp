@@ -1836,6 +1836,9 @@ void AInstancedFoliageActor::DeleteInstancesForProceduralFoliageComponent(const 
 			MeshInfo.RemoveInstances(this, InstancesToRemove, InRebuildTree);
 		}
 	}
+
+	// Clean up dead cross-level references
+	FFoliageInstanceBaseCache::CompactInstanceBaseCache(this);
 }
 
 bool AInstancedFoliageActor::ContainsInstancesFromProceduralFoliageComponent(const UProceduralFoliageComponent* ProceduralFoliageComponent)

@@ -82,7 +82,7 @@ FString FSkeletalMeshComponentClothTickFunction::DiagnosticMessage()
 void FSkeletalMeshComponentEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentEndPhysicsTickFunction_ExecuteTick);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Animation);
 
 	FActorComponentTickFunction::ExecuteTickHelper(Target, /*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime)
 	{

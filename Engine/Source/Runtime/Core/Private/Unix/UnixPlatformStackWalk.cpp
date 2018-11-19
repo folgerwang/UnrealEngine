@@ -13,14 +13,80 @@
 #include "Unix/UnixPlatformCrashContext.h"
 #include "HAL/ExceptionHandling.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/PlatformTime.h"
 
 #include <link.h>
 
 // Init'ed in UnixPlatformMemory. Once this is tested more we can remove this fallback flag
 extern bool CORE_API GFullCrashCallstack;
 
+// Init'ed in UnixPlatformMemory.
+extern bool CORE_API GTimeEnsures;
+
 namespace
 {
+	// If we want to load into memory the modules symbol file, it will be allocated to this pointer
+	uint8_t* GModuleSymbolFileMemory = nullptr;
+}
+
+void CORE_API UnixPlatformStackWalk_PreloadModuleSymbolFile()
+{
+	if (GModuleSymbolFileMemory == nullptr)
+	{
+		FString ModuleSymbolPath = FUnixPlatformProcess::GetApplicationName(getpid()) + ".sym";
+		int SymbolFileFD = open(TCHAR_TO_UTF8(*ModuleSymbolPath), O_RDONLY);
+
+		if (SymbolFileFD == -1)
+		{
+			int ErrNo = errno;
+			UE_LOG(LogHAL, Warning, TEXT("UnixPlatformStackWalk_UnloadPreloadedModuleSymbol: open() failed on path %s errno=%d (%s)"),
+				*ModuleSymbolPath,
+				ErrNo,
+				UTF8_TO_TCHAR(strerror(ErrNo)));
+		}
+		else
+		{
+			lseek(SymbolFileFD, 0, SEEK_END);
+			size_t FileSize = lseek(SymbolFileFD, 0, SEEK_CUR);
+			lseek(SymbolFileFD, 0, SEEK_SET);
+
+			GModuleSymbolFileMemory = (uint8_t*)FMemory::Malloc(FileSize);
+
+			ssize_t BytesRead = read(SymbolFileFD, GModuleSymbolFileMemory, FileSize);
+
+			close(SymbolFileFD);
+
+			// Did not read expected amount of bytes
+			if (BytesRead != FileSize)
+			{
+				FMemory::Free(GModuleSymbolFileMemory);
+
+				if (BytesRead == -1)
+				{
+					int ErrNo = errno;
+					UE_LOG(LogHAL, Warning, TEXT("UnixPlatformStackWalk_UnloadPreloadedModuleSymbol: read() failed, errno=%d (%s)"),
+						ErrNo,
+						UTF8_TO_TCHAR(strerror(ErrNo)));
+				}
+			}
+		}
+	}
+}
+
+void CORE_API UnixPlatformStackWalk_UnloadPreloadedModuleSymbol()
+{
+	if (GModuleSymbolFileMemory)
+	{
+		FMemory::Free(GModuleSymbolFileMemory);
+		GModuleSymbolFileMemory = nullptr;
+	}
+}
+
+namespace
+{
+	// Only used for testing ensure timing
+	bool GHandlingEnsure = false;
+
 	// These structures are copied from Engine/Source/Programs/BreakpadSymbolEncoder/BreakpadSymbolEncoder.h
 	// DO NOT CHANGE THE SIZE OF THESES STRUCTURES (Unless the BreakpadSymbolEncoder.h structures have changed)
 #pragma pack(push, 1)
@@ -38,21 +104,41 @@ namespace
 	};
 #pragma pack(pop)
 
-	class RecordReader
+	struct RecordReader
+	{
+		virtual ~RecordReader() = default;
+		virtual bool IsValid() const = 0;
+		virtual void Read(void* Buffer, uint32_t Size, uint32_t Offset) const = 0;
+	};
+
+	class MemoryReader : public RecordReader
 	{
 	public:
-		explicit RecordReader(const char* Path)
-			: SymbolFileFD(open(Path, O_RDONLY)),
-			  StartOffset(sizeof(RecordsHeader))
+		void Init(const uint8_t* InRecordMemory)
 		{
-			if (SymbolFileFD != -1)
-			{
-				// TODO check for EINTR
-				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
-			}
+			RecordMemory = InRecordMemory;
 		}
 
-		~RecordReader()
+		bool IsValid() const override
+		{
+			return RecordMemory != nullptr;
+		}
+
+		void Read(void* Buffer, uint32_t Size, uint32_t Offset) const override
+		{
+			memcpy(Buffer, RecordMemory + Offset, Size);
+		}
+
+	private:
+		const uint8_t* RecordMemory = nullptr;
+	};
+
+	class FDReader : public RecordReader
+	{
+	public:
+		FDReader() = default;
+
+		~FDReader()
 		{
 			if (SymbolFileFD != -1)
 			{
@@ -60,9 +146,46 @@ namespace
 			}
 		}
 
+		void Init(const char* Path)
+		{
+			SymbolFileFD = open(Path, O_RDONLY);
+		}
+
+		bool IsValid() const override
+		{
+			return SymbolFileFD != -1;
+		}
+
+		void Read(void* Buffer, uint32_t Size, uint32_t Offset) const override
+		{
+			lseek(SymbolFileFD, Offset, SEEK_SET);
+			read(SymbolFileFD, Buffer, Size);
+		}
+
+		// We own the FD, dont allow copying
+		FDReader(const FDReader& Reader) = delete;
+		FDReader& operator=(const FDReader& Reader) = delete;
+
+	private:
+		int SymbolFileFD = -1;
+	};
+
+	class SymbolFileReader
+	{
+	public:
+		explicit SymbolFileReader(const RecordReader& InReader)
+			: Reader(InReader)
+			, StartOffset(sizeof(RecordsHeader))
+		{
+			if (Reader.IsValid())
+			{
+				Reader.Read(&RecordCount, sizeof(RecordCount), 0);
+			}
+		}
+
 		bool IsValid() const
 		{
-			return SymbolFileFD != -1 && RecordCount > 0;
+			return Reader.IsValid() && RecordCount > 0;
 		}
 
 		uint32_t GetRecordCount() const
@@ -79,9 +202,8 @@ namespace
 			}
 
 			Record Out;
-
-			lseek(SymbolFileFD, StartOffset + Index * sizeof(Record), SEEK_SET);
-			read(SymbolFileFD, static_cast<void*>(&Out), sizeof(Record));
+			uint32_t RecordOffset = StartOffset + Index * sizeof(Record);
+			Reader.Read(&Out, sizeof(Record), RecordOffset);
 
 			return Out;
 		}
@@ -94,8 +216,8 @@ namespace
 				return;
 			}
 
-			lseek(SymbolFileFD, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
-			read(SymbolFileFD, Buffer, MaxSize);
+			uint32_t StartOfStrings = StartOffset + RecordCount * sizeof(Record);
+			Reader.Read(Buffer, MaxSize, StartOfStrings + Offset);
 
 			// Read the max chunk we can read, then find the next '\n' and replace that with '\0'
 			for (int i = 0; i < MaxSize; i++)
@@ -112,7 +234,7 @@ namespace
 		}
 
 	private:
-		int SymbolFileFD;
+		const RecordReader& Reader;
 
 		// For now can only be up to 4GB
 		uint32_t StartOffset = 0;
@@ -121,19 +243,34 @@ namespace
 
 	bool PopulateProgramCounterSymbolInfoFromSymbolFile(uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo)
 	{
+		bool CheckingEnsureTime = GTimeEnsures && GHandlingEnsure;
+		double StartTime = CheckingEnsureTime ? FPlatformTime::Seconds() : 0.0;
+
+		double DladdrEndTime = StartTime;
+		double RecordReaderEndTime = StartTime;
+		double SearchEndTime = StartTime;
+
+		bool RecordFound = false;
+
 		Dl_info info;
-		if (dladdr(reinterpret_cast<void*>(ProgramCounter), &info) != 0)
+		bool bDladdrRet = 0;
+
+		bDladdrRet = dladdr(reinterpret_cast<void*>(ProgramCounter), &info);
+		DladdrEndTime = CheckingEnsureTime ? FPlatformTime::Seconds() : 0.0;
+
+		if (bDladdrRet != 0)
 		{
 			out_SymbolInfo.ProgramCounter = ProgramCounter;
 
-			if (UNLIKELY(info.dli_fname == nullptr))
+			if (UNLIKELY(info.dli_fname == nullptr) ||
+				UNLIKELY(info.dli_fbase == nullptr))
 			{
-				// If we cannot find the Module name lets return early
-				return false;
-			}
-			else if (UNLIKELY(info.dli_fbase == nullptr))
-			{
-				// If we cannot find the module base lets return early
+				if (CheckingEnsureTime)
+				{
+					UE_LOG(LogCore, Log, TEXT("0x%016llx Dladdr: %lfms"), (DladdrEndTime - StartTime) * 1000);
+				}
+
+				// If we cannot find the module name or the module base return early
 				return false;
 			}
 
@@ -171,18 +308,37 @@ namespace
 			// We cant assume if we are relative we have not chdir to a different working dir.
 			if (FPaths::IsRelative(info.dli_fname))
 			{
-				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_ANSI(FPlatformProcess::BaseDir()));
-				FCStringAnsi::Strcat(ModuleSymbolPath, TCHAR_TO_ANSI(*FPaths::GetBaseFilename(out_SymbolInfo.ModuleName)));
+				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_UTF8(FPlatformProcess::BaseDir()));
+				FCStringAnsi::Strcat(ModuleSymbolPath, TCHAR_TO_UTF8(*FPaths::GetBaseFilename(out_SymbolInfo.ModuleName)));
 				FCStringAnsi::Strcat(ModuleSymbolPath, ".sym");
 			}
 			else
 			{
-				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_ANSI(*FPaths::GetBaseFilename(info.dli_fname, false)));
+				FCStringAnsi::Strcpy(ModuleSymbolPath, TCHAR_TO_UTF8(*FPaths::GetBaseFilename(info.dli_fname, false)));
 				FCStringAnsi::Strcat(ModuleSymbolPath, ".sym");
 			}
 
-			// TODO We should look at only opening the file once per entire callstack (but it depends on the module names)
-			RecordReader Reader(ModuleSymbolPath);
+			RecordReader* RecordReader;
+			FDReader ModuleFDReader;
+			MemoryReader ModuleMemoryReader;
+
+			// If we have preloaded our modules symbol file and the program counter we are trying to symbolicate is our main
+			// module we can use this preloaded reader
+			if (GModuleSymbolFileMemory && !FCStringAnsi::Strcmp(SOName, TCHAR_TO_UTF8(FPlatformProcess::ExecutableName())))
+			{
+				ModuleMemoryReader.Init(GModuleSymbolFileMemory);
+				RecordReader = &ModuleMemoryReader;
+			}
+			else
+			{
+				// TODO We should look at only opening the file once per entire callstack (but it depends on the module names)
+				ModuleFDReader.Init(ModuleSymbolPath);
+				RecordReader = &ModuleFDReader;
+			}
+
+			SymbolFileReader Reader(*RecordReader);
+
+			RecordReaderEndTime = CheckingEnsureTime ? FPlatformTime::Seconds() : 0.0;
 
 			if (Reader.IsValid())
 			{
@@ -238,10 +394,11 @@ namespace
 						// If we dont have a file name we have to assume its just a public symbol and use the old way to demangle the backtrace info
 						if (out_SymbolInfo.Filename[0] == '\0')
 						{
-							return false;
+							break;
 						}
 
-						return true;
+						RecordFound = true;
+						break;
 					}
 					else if (AddressToFind > Current.Address)
 					{
@@ -254,7 +411,7 @@ namespace
 				}
 			}
 			// We only care if we fail to find our own *.sym file
-			else if (!FCStringAnsi::Strcmp(SOName, TCHAR_TO_ANSI(FPlatformProcess::ExecutableName())))
+			else if (!FCStringAnsi::Strcmp(SOName, TCHAR_TO_UTF8(FPlatformProcess::ExecutableName())))
 			{
 				static bool bReported = false;
 				if (!bReported)
@@ -271,7 +428,18 @@ namespace
 			}
 		}
 
-		return false;
+		SearchEndTime = CheckingEnsureTime ? FPlatformTime::Seconds() : 0.0;
+
+		if (CheckingEnsureTime)
+		{
+			UE_LOG(LogCore, Log, TEXT("0x%016llx Dladdr: %lfms Open: %lfms Search: %lfms"),
+					ProgramCounter,
+					(DladdrEndTime - StartTime) * 1000.0,
+					(RecordReaderEndTime - DladdrEndTime) * 1000.0,
+					(SearchEndTime - RecordReaderEndTime) * 1000.0);
+		}
+
+		return RecordFound;
 	}
 }
 
@@ -420,6 +588,8 @@ void FUnixPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString, SI
 void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, int32 IgnoreCount, uint32 Flags, void* Context)
 {
 	const bool bHandlingEnsure = (Flags & EStackWalkFlags::FlagsUsedWhenHandlingEnsure) == EStackWalkFlags::FlagsUsedWhenHandlingEnsure;
+	GHandlingEnsure = bHandlingEnsure;
+
 	if (Context == nullptr)
 	{
 		FUnixCrashContext CrashContext(bHandlingEnsure);
@@ -450,6 +620,8 @@ void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, S
 		FLocalGuardHelper Guard(reinterpret_cast<FUnixCrashContext*>(Context), bHandlingEnsure);
 		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 	}
+
+	GHandlingEnsure = false;
 }
 
 namespace
