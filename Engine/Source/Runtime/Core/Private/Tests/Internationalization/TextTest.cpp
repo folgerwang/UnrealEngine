@@ -1193,11 +1193,11 @@ bool FICUSanitizationTest::RunTest(const FString& Parameters)
 		
 		// Invalid codes
 		TestCultureCodeCanonization(TEXT("%%%"), TEXT("en-US-POSIX"));
-		TestCultureCodeCanonization(TEXT("en____US_POSIX"), TEXT("en----US-POSIX"));
+		TestCultureCodeCanonization(TEXT("en____US_POSIX"), TEXT("en-US-POSIX"));
 		TestCultureCodeCanonization(TEXT("en_POSIX"), TEXT("en--POSIX"));
 		TestCultureCodeCanonization(TEXT("en__POSIX"), TEXT("en--POSIX"));
-		TestCultureCodeCanonization(TEXT("en_US@wooble=USD"), TEXT("en-US@wooble=USD"));
-		TestCultureCodeCanonization(TEXT("fred_wooble_bob_wibble"), TEXT("fred--WOOBLE-BOB-WIBBLE"));
+		TestCultureCodeCanonization(TEXT("en_US@wooble=USD"), TEXT("en-US"));
+		TestCultureCodeCanonization(TEXT("fred_wooble_bob_wibble"), TEXT("en-US-POSIX"));
 	}
 
 	return true;

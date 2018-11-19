@@ -48,6 +48,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/UniquePtr.h"
 #include "AnimationRuntime.h"
+#include "Animation/AnimSequence.h"
 #include "UObject/NiagaraObjectVersion.h"
 
 #if WITH_EDITOR
@@ -1555,6 +1556,24 @@ void USkeletalMesh::PostLoad()
 #if WITH_EDITORONLY_DATA
 	if (LODSettings != nullptr)
 	{
+		//before we copy
+		if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::AddBakePoseOverrideForSkeletalMeshReductionSetting)
+		{
+			// if LODsetting doesn't have BakePose, but this does, we'll have to copy that to BakePoseOverride
+			const int32 NumSettings = FMath::Min(LODSettings->GetNumberOfSettings(), GetLODNum());
+			for (int32 Index = 0; Index < NumSettings; ++Index)
+			{
+				const FSkeletalMeshLODGroupSettings& GroupSetting = LODSettings->GetSettingsForLODLevel(Index);
+				// if lod setting doesn't have bake pose, but this lod does, that means this bakepose has to move to BakePoseOverride
+				// since we want to match what GroupSetting has
+				if (GroupSetting.BakePose == nullptr && LODInfo[Index].BakePose)
+				{
+					// in this case,
+					LODInfo[Index].BakePoseOverride = LODInfo[Index].BakePose;
+					LODInfo[Index].BakePose = nullptr;
+				}
+			}
+		}
 		LODSettings->SetLODSettingsToMesh(this);
 	}
 #endif // WITH_EDITORONLY_DATA
@@ -2803,6 +2822,26 @@ class UNodeMappingContainer* USkeletalMesh::GetNodeMappingContainer(class UBluep
 	return nullptr;
 }
 
+const UAnimSequence* USkeletalMesh::GetBakePose(int32 LODIndex) const
+{
+	const FSkeletalMeshLODInfo* LOD = GetLODInfo(LODIndex);
+	if (LOD)
+	{
+		if (LOD->BakePoseOverride && Skeleton == LOD->BakePoseOverride->GetSkeleton())
+		{
+			return LOD->BakePoseOverride;
+		}
+
+		// we make sure bake pose uses same skeleton
+		if (LOD->BakePose && Skeleton == LOD->BakePose->GetSkeleton())
+		{
+			return LOD->BakePose;
+		}
+	}
+
+	return nullptr;
+}
+
 const USkeletalMeshLODSettings* USkeletalMesh::GetDefaultLODSetting() const
 { 
 #if WITH_EDITORONLY_DATA
@@ -2834,7 +2873,9 @@ FSkeletalMeshLODInfo& USkeletalMesh::AddLODInfo()
 			NewLODInfo.ScreenSize.Default = LODInfo[LastIndex].ScreenSize.Default * 0.5f;
 			NewLODInfo.LODHysteresis = LODInfo[LastIndex].LODHysteresis;
 			NewLODInfo.BakePose = LODInfo[LastIndex].BakePose;
+			NewLODInfo.BakePoseOverride = LODInfo[LastIndex].BakePoseOverride;
 			NewLODInfo.BonesToRemove = LODInfo[LastIndex].BonesToRemove;
+			NewLODInfo.BonesToPrioritize = LODInfo[LastIndex].BonesToPrioritize;
 			// now find reduction setting
 			for (int32 SubLOD = LastIndex; SubLOD >= 0; --SubLOD)
 			{
@@ -3589,14 +3630,17 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 			if (EngineShowFlags.MassProperties && DebugMassData.Num() > 0)
 			{
 				FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
-				const TArray<FTransform>& ComponentSpaceTransforms = *MeshObject->GetComponentSpaceTransforms();
-
-				for (const FDebugMassData& DebugMass : DebugMassData)
+				if (MeshObject->GetComponentSpaceTransforms())
 				{
-					if(ComponentSpaceTransforms.IsValidIndex(DebugMass.BoneIndex))
-					{			
-						const FTransform BoneToWorld = ComponentSpaceTransforms[DebugMass.BoneIndex] * FTransform(GetLocalToWorld());
-						DebugMass.DrawDebugMass(PDI, BoneToWorld);
+					const TArray<FTransform>& ComponentSpaceTransforms = *MeshObject->GetComponentSpaceTransforms();
+
+					for (const FDebugMassData& DebugMass : DebugMassData)
+					{
+						if (ComponentSpaceTransforms.IsValidIndex(DebugMass.BoneIndex))
+						{
+							const FTransform BoneToWorld = ComponentSpaceTransforms[DebugMass.BoneIndex] * FTransform(GetLocalToWorld());
+							DebugMass.DrawDebugMass(PDI, BoneToWorld);
+						}
 					}
 				}
 			}

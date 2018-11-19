@@ -211,6 +211,52 @@ void FLevelSequenceBindingReferences::RemoveBinding(const FGuid& ObjectId)
 	AnimSequenceInstances.Remove(ObjectId);
 }
 
+void FLevelSequenceBindingReferences::RemoveObjects(const FGuid& ObjectId, const TArray<UObject*>& InObjects, UObject* InContext)
+{
+	FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId);
+	if (!ReferenceArray)
+	{
+		return;
+	}
+
+	for (int32 ReferenceIndex = 0; ReferenceIndex < ReferenceArray->References.Num(); )
+	{
+		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext);
+
+		if (InObjects.Contains(ResolvedObject))
+		{
+			ReferenceArray->References.RemoveAt(ReferenceIndex);
+		}
+		else
+		{
+			++ReferenceIndex;
+		}
+	}
+}
+
+void FLevelSequenceBindingReferences::RemoveInvalidObjects(const FGuid& ObjectId, UObject* InContext)
+{
+	FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId);
+	if (!ReferenceArray)
+	{
+		return;
+	}
+
+	for (int32 ReferenceIndex = 0; ReferenceIndex < ReferenceArray->References.Num(); )
+	{
+		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext);
+
+		if (!ResolvedObject || ResolvedObject->IsPendingKill())
+		{
+			ReferenceArray->References.RemoveAt(ReferenceIndex);
+		}
+		else
+		{
+			++ReferenceIndex;
+		}
+	}
+}
+
 void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObject* InContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
 	const FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId);

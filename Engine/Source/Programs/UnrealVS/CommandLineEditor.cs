@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Diagnostics;
@@ -288,15 +288,25 @@ namespace UnrealVS
 							string ProjectConfigurationName = String.Format("{0}|{1}", SelectedConfiguration.ConfigurationName, ProjectPlatformName);
 							if (String.Equals(ProjectKind, "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", StringComparison.InvariantCultureIgnoreCase))
 							{
+								List<string> ExtraFields = Utils.GetExtraDebuggerCommandArguments(ProjectPlatformName, SelectedStartupProject);
+
 								if (FullCommandLine.Length == 0)
 								{
 									PropertyStorage.RemoveProperty("LocalDebuggerCommandArguments", ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE);
 									PropertyStorage.RemoveProperty("RemoteDebuggerCommandArguments", ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE);
+									foreach( string ExtraField in ExtraFields )
+									{
+										PropertyStorage.RemoveProperty(ExtraField, ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE);
+									}
 								}
 								else
 								{
 									PropertyStorage.SetPropertyValue("LocalDebuggerCommandArguments", ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE, FullCommandLine);
 									PropertyStorage.SetPropertyValue("RemoteDebuggerCommandArguments", ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE, FullCommandLine);
+									foreach (string ExtraField in ExtraFields)
+									{
+										PropertyStorage.SetPropertyValue(ExtraField, ProjectConfigurationName, (uint)_PersistStorageType.PST_USER_FILE, FullCommandLine);
+									}
 								}
 							}
 							else

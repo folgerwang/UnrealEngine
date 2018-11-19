@@ -227,6 +227,9 @@ private:
 	 */
 	bool bSyncAudioAfterDropouts;
 
+	/* Time of last sample played. */
+	TAtomic<FTimespan> LastPlaySampleTime;
+
 private:
 
 	static USoundClass* DefaultMediaSoundClassObject;

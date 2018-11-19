@@ -64,6 +64,12 @@ ENGINE_API bool AutomationOpenMap(const FString& MapName);
 DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FWaitLatentCommand, float, Duration);
 
 /**
+ * Write a string to editor automation tests log
+ */
+DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FEditorAutomationLogCommand, FString, LogText);
+
+
+/**
  * Take a screenshot of the active window
  */
 DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FTakeActiveEditorScreenshotCommand, FString, ScreenshotName);

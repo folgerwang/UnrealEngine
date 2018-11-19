@@ -808,7 +808,7 @@ public:
 	const FBranchingPointMarker* FindFirstBranchingPointMarker(float StartTrackPos, float EndTrackPos) const;
 	
 	/** Filter out notifies from array that are marked as 'BranchingPoints' */
-	DEPRECATED(4.19, "Use the GetAnimNotifiesFromTrackPositions that takes FAnimNotifyEventReferences instead")
+	UE_DEPRECATED(4.19, "Use the GetAnimNotifiesFromTrackPositions that takes FAnimNotifyEventReferences instead")
 	void FilterOutNotifyBranchingPoints(TArray<const FAnimNotifyEvent*>& InAnimNotifies);
 
 	/** Filter out notifies from array that are marked as 'BranchingPoints' */

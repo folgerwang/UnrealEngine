@@ -72,6 +72,11 @@ const TArray<UMovieSceneSection*>& UMovieSceneGeometryCacheTrack::GetAllSections
 }
 
 
+bool UMovieSceneGeometryCacheTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneGeometryCacheSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneGeometryCacheTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneGeometryCacheSection>(this, NAME_None, RF_Transactional);

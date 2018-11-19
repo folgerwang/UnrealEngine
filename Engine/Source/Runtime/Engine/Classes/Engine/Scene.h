@@ -959,7 +959,7 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldScale:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMaxBokehSize:1;
 
@@ -969,25 +969,25 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldFarBlurSize:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMethod:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_MobileHQGaussian:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldBokehShape:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldOcclusion:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldColorThreshold:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldSizeThreshold:1;
 
@@ -1036,7 +1036,7 @@ struct FPostProcessSettings
     TEnumAsByte<enum EAutoExposureMethod> AutoExposureMethod;
 
 	/** DEPRECATED: BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. Deferred shading renderer will only support CircleDOF. */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
 	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
 
@@ -1516,7 +1516,7 @@ struct FPostProcessSettings
 	float DepthOfFieldScale;
 
 	/** DEPRECATED: BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(UIMin = "0.0", UIMax = "32.0", editcondition = "bOverride_DepthOfFieldMaxBokehSize", DisplayName = "Max Bokeh Size"))
 	float DepthOfFieldMaxBokehSize;
 
@@ -1533,17 +1533,17 @@ struct FPostProcessSettings
 	float DepthOfFieldOcclusion;
 
 	/** DEPRECATED: Defines the shape of the Bokeh when object get out of focus, cannot be blended */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldBokehShape", DisplayName = "Shape"))
 	class UTexture* DepthOfFieldBokehShape;
 
 	/** DEPRECATED: Color threshold to do full quality DOF (BokehDOF only) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "10.0", editcondition = "bOverride_DepthOfFieldColorThreshold", DisplayName = "Color Threshold"))
 	float DepthOfFieldColorThreshold;
 
 	/** DEPRECATED: Size threshold to do full quality DOF (BokehDOF only) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldSizeThreshold", DisplayName = "Size Threshold"))
 	float DepthOfFieldSizeThreshold;
 	

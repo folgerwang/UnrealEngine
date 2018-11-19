@@ -222,7 +222,7 @@ struct FGenericPlatformAtomics
 	/**
 	 * Atomic read of 64 bit value with an implicit memory barrier.
 	 */
-	DEPRECATED(4.19, "AtomicRead64 has been deprecated, please use AtomicRead's overload instead")
+	UE_DEPRECATED(4.19, "AtomicRead64 has been deprecated, please use AtomicRead's overload instead")
 	static FORCEINLINE int64 AtomicRead64(volatile const int64* Src)
 	{
 		return AtomicRead(Src);

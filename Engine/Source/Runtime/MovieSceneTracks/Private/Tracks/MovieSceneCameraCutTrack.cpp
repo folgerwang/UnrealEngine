@@ -76,6 +76,10 @@ void UMovieSceneCameraCutTrack::AddSection(UMovieSceneSection& Section)
 	}
 }
 
+bool UMovieSceneCameraCutTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCameraCutSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneCameraCutTrack::CreateNewSection()
 {

@@ -28,6 +28,13 @@ public:
 	/* Queues a packet for resending */
 	void QueuePacketForResending(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits);
 
+	UE_DEPRECATED(4.21, "Use the PacketTraits version for sending packets with additional flags and options")
+	FORCEINLINE void QueueHandlerPacketForResending(HandlerComponent* InComponent, uint8* Packet, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		QueueHandlerPacketForResending(InComponent, Packet, CountBits, EmptyTraits);
+	}
+
 	/**
 	 * Queues a packet sent through SendHandlerPacket, for resending
 	 *

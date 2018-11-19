@@ -640,7 +640,7 @@ FPhysXCookingDataReader::FPhysXCookingDataReader( FByteBulkData& InBulkData, FBo
 
 PxConvexMesh* FPhysXCookingDataReader::ReadConvexMesh( FBufferReader& Ar, uint8* InBulkDataPtr, int32 InBulkDataSize )
 {
-	LLM_SCOPE(ELLMTag::PhysXConvexMesh);
+	LLM_SCOPE(ELLMTag::PhysX);
 
 	PxConvexMesh* CookedMesh = NULL;
 	uint8 IsMeshCooked = false;
@@ -657,7 +657,7 @@ PxConvexMesh* FPhysXCookingDataReader::ReadConvexMesh( FBufferReader& Ar, uint8*
 
 PxTriangleMesh* FPhysXCookingDataReader::ReadTriMesh( FBufferReader& Ar, uint8* InBulkDataPtr, int32 InBulkDataSize )
 {
-	LLM_SCOPE(ELLMTag::PhysXTriMesh);
+	LLM_SCOPE(ELLMTag::PhysX);
 
 	FPhysXInputStream Buffer( InBulkDataPtr + Ar.Tell(), InBulkDataSize - Ar.Tell() );
 	PxTriangleMesh* CookedMesh = GPhysXSDK->createTriangleMesh(Buffer);

@@ -14,9 +14,9 @@ FAnimNode_BlendSpacePlayer::FAnimNode_BlendSpacePlayer()
 	, Z(0.0f)
 	, PlayRate(1.0f)
 	, bLoop(true)
+	, bResetPlayTimeWhenBlendSpaceChanges(true)
 	, StartPosition(0.f)
 	, BlendSpace(nullptr)
-	, bResetPlayTimeWhenBlendSpaceChanges(true)
 	, PreviousBlendSpace(nullptr)
 {
 }
@@ -57,7 +57,7 @@ void FAnimNode_BlendSpacePlayer::Initialize_AnyThread(const FAnimationInitialize
 {
 	FAnimNode_AssetPlayerBase::Initialize_AnyThread(Context);
 
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	Reinitialize();
 
@@ -70,7 +70,7 @@ void FAnimNode_BlendSpacePlayer::CacheBones_AnyThread(const FAnimationCacheBones
 
 void FAnimNode_BlendSpacePlayer::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	UpdateInternal(Context);
 }

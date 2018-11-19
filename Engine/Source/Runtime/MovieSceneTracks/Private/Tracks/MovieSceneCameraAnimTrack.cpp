@@ -44,6 +44,10 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraAnimTrack::GetAllSections() 
 	return CameraAnimSections;
 }
 
+bool UMovieSceneCameraAnimTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCameraAnimSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneCameraAnimTrack::CreateNewSection()
 {

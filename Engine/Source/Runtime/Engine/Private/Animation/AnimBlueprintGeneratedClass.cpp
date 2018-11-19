@@ -337,7 +337,8 @@ void UAnimBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 void UAnimBlueprintGeneratedClass::PostLoadDefaultObject(UObject* Object)
 {
 	Super::PostLoadDefaultObject(Object);
-	CastChecked<UAnimInstance>(Object)->PreInitializeRootNode();
+
+	FExposedValueHandler::Initialize(EvaluateGraphExposedInputs, Object);
 }
 
 #if WITH_EDITORONLY_DATA

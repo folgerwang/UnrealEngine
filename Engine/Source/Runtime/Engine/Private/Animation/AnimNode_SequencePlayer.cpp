@@ -31,7 +31,7 @@ void FAnimNode_SequencePlayer::Initialize_AnyThread(const FAnimationInitializeCo
 {
 	FAnimNode_AssetPlayerBase::Initialize_AnyThread(Context);
 
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	InternalTimeAccumulator = StartPosition;
 	PlayRateScaleBiasClamp.Reinitialize();
 
@@ -53,7 +53,7 @@ void FAnimNode_SequencePlayer::CacheBones_AnyThread(const FAnimationCacheBonesCo
 
 void FAnimNode_SequencePlayer::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if ((Sequence != nullptr) && (Context.AnimInstanceProxy->IsSkeletonCompatible(Sequence->GetSkeleton())))
 	{

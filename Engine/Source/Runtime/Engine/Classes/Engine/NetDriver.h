@@ -93,6 +93,24 @@ struct ENGINE_API FPacketSimulationSettings
 	int32	PktLoss;
 
 	/**
+	* Sets the maximum size of packets in bytes that will be dropped
+	* according to the PktLoss setting. Default is INT_MAX.
+	*
+	* Works with all other settings.
+	*/
+	UPROPERTY(EditAnywhere, Category = "Simulation Settings")
+	int32	PktLossMaxSize;
+
+	/**
+	* Sets the minimum size of packets in bytes that will be dropped
+	* according to the PktLoss setting. Default is 0.
+	*
+	* Works with all other settings.
+	*/
+	UPROPERTY(EditAnywhere, Category = "Simulation Settings")
+	int32	PktLossMinSize;
+
+	/**
 	 * When set, will cause calls to FlushNet to change ordering of packets at random.
 	 * Value is treated as a bool (i.e. 0 = False, anything else = True).
 	 * This works by randomly selecting packets to be delayed until a subsequent call to FlushNet.
@@ -135,6 +153,8 @@ struct ENGINE_API FPacketSimulationSettings
 	/** Ctor. Zeroes the settings */
 	FPacketSimulationSettings() : 
 		PktLoss(0),
+		PktLossMaxSize(INT_MAX/8),
+		PktLossMinSize(0),
 		PktOrder(0),
 		PktDup(0),
 		PktLag(0),
@@ -208,6 +228,71 @@ struct FActorDestructionInfo
 	FString			PathName;
 
 	FName			StreamingLevelName;
+};
+
+/** Used to specify properties of a channel type */
+USTRUCT()
+struct ENGINE_API FChannelDefinition
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName ChannelName;			// Channel type identifier
+
+	UPROPERTY()
+	FName ClassName;			// UClass name used to create the UChannel
+
+	UPROPERTY()
+	UClass* ChannelClass;		// UClass used to create the UChannel
+
+	UPROPERTY()
+	int32 StaticChannelIndex;	// Channel always uses this index, INDEX_NONE if dynamically chosen
+
+	UPROPERTY()
+	bool bTickOnCreate;			// Whether to immediately begin ticking the channel after creation
+
+	UPROPERTY()
+	bool bServerOpen;			// Channel opened by the server
+
+	UPROPERTY()
+	bool bClientOpen;			// Channel opened by the client
+
+	UPROPERTY()
+	bool bInitialServer;		// Channel created on server when connection is established
+
+	UPROPERTY()
+	bool bInitialClient;		// Channel created on client before connecting
+
+	FChannelDefinition() : 
+		ChannelName(NAME_None),
+		ClassName(NAME_None),
+		ChannelClass(nullptr),
+		StaticChannelIndex(INDEX_NONE),
+		bTickOnCreate(false),
+		bServerOpen(false),
+		bClientOpen(false),
+		bInitialServer(false),
+		bInitialClient(false)
+	{
+	}
+};
+
+/**
+ * Information about disconnected client NetConnection's
+ */
+struct FDisconnectedClient
+{
+	/** The address of the client */
+	TSharedRef<FInternetAddr>	Address;
+
+	/** The time at which the client disconnected  */
+	double						DisconnectTime;
+
+	FDisconnectedClient(TSharedRef<FInternetAddr>& InAddress, double InDisconnectTime)
+		: Address(InAddress)
+		, DisconnectTime(InDisconnectTime)
+	{
+	}
 };
 
 
@@ -299,8 +384,18 @@ public:
 	UPROPERTY()
 	TArray<UNetConnection*> ClientConnections;
 
-	/** Map of IP's to NetConnection's - for fast lookup, particularly under DDoS - only valid IP's mapped (e.g. excludes DemoNetConnection) */
+	/**
+	 * Map of IP's to NetConnection's - for fast lookup, particularly under DDoS.
+	 * Only valid IP's mapped (e.g. excludes DemoNetConnection). Recently disconnected clients remain mapped as nullptr connections.
+	 */
 	FConnectionMap MappedClientConnections;
+
+	/** Tracks recently disconnected client IP's, and the disconnect time - so they can be cleaned from MappedClientConnections */
+	TArray<FDisconnectedClient> RecentlyDisconnectedClients;
+
+	/** The amount of time, in seconds, that recently disconnected clients should be tracked */
+	UPROPERTY(Config)
+	int32 RecentlyDisconnectedTrackingTime;
 
 
 	/** Serverside PacketHandler for managing connectionless packets */
@@ -347,13 +442,32 @@ public:
 	FName NetDriverName;
 
 	/** The UChannel classes that should be used under this net driver */
+	UE_DEPRECATED(4.22, "Use ChannelDefinitions instead")
 	UClass* ChannelClasses[CHTYPE_MAX];
-	
+
+	/** Used to specify available channel types and their associated UClass */
+	UPROPERTY(Config)
+	TArray<FChannelDefinition> ChannelDefinitions;
+
+	/** Used for faster lookup of channel definitions by name. */
+	UPROPERTY()
+	TMap<FName, FChannelDefinition> ChannelDefinitionMap;
+
 	/** @return true if the specified channel type exists. */
-	FORCEINLINE bool IsKnownChannelType(int32 Type)
+	UE_DEPRECATED(4.22, "Use IsKnownChannelName")
+	bool IsKnownChannelType(int32 Type);
+
+	/** @return true if the specified channel definition exists. */
+	FORCEINLINE bool IsKnownChannelName(const FName& ChName)
 	{
-		return Type >= 0 && Type < CHTYPE_MAX && ChannelClasses[Type] != nullptr;
+		return ChannelDefinitionMap.Contains(ChName);
 	}
+
+	/** Creates a channel of each type that is set as bInitialClient. */
+	ENGINE_API void CreateInitialClientChannels();
+
+	/** Creates a channel of each type that is set as bIniitalServer for the given connection. */
+	ENGINE_API void CreateInitialServerChannels(UNetConnection* ClientConnection);
 
 private:
 
@@ -364,7 +478,11 @@ private:
 public:
 
 	/** Creates a new channel of the specified type. If the type is pooled, it will return a pre-created channel */
+	UE_DEPRECATED(4.22, "Use GetOrCreateChannelByName")
 	UChannel* GetOrCreateChannel(EChannelType ChType);
+
+	/** Creates a new channel of the specified type name. If the type is pooled, it will return a pre-created channel */
+	UChannel* GetOrCreateChannelByName(const FName& ChName);
 
 	/** If the channel's type is pooled, this will add the channel to the pool. Otherwise, nothing will happen. */
 	void ReleaseToChannelPool(UChannel* Channel);
@@ -455,6 +573,11 @@ public:
 	double						StatUpdateTime;
 	/** Interval between gathering stats */
 	float						StatPeriod;
+	/** Total RPCs called since the net driver's creation  */
+	uint32						TotalRPCsCalled;
+	/** Total acks sent since the net driver's creation  */
+	uint32						OutTotalAcks;
+
 	/** Collect net stats even if not FThreadStats::IsCollectingData(). */
 	bool bCollectNetStats;
 	/** Time of last netdriver cleanup pass */
@@ -570,6 +693,7 @@ public:
 
 	//~ Begin UObject Interface.
 	ENGINE_API virtual void PostInitProperties() override;
+	ENGINE_API virtual void PostReloadConfig(UProperty* PropertyToLoad) override;
 	ENGINE_API virtual void FinishDestroy() override;
 	ENGINE_API virtual void Serialize( FArchive& Ar ) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
@@ -725,6 +849,13 @@ public:
 
 	/** PostTick actions */
 	ENGINE_API virtual void PostTickFlush();
+
+	UE_DEPRECATED(4.21, "Please use the LowLevelSend that requires packet traits for analytics and packet modifiers.")
+	ENGINE_API virtual void LowLevelSend(FString Address, void* Data, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		LowLevelSend(Address, Data, CountBits, EmptyTraits);
+	}
 
 	/**
 	 * Sends a 'connectionless' (not associated with a UNetConection) packet, to the specified address.
@@ -914,20 +1045,6 @@ public:
 		return const_cast<UNetDriver*>(this)->FindNetworkObjectInfo(InActor);
 	}
 
-	DEPRECATED(4.19, "GetNetworkObjectInfo is deprecated. Use FindNetworkObjectInfo instead.")
-	ENGINE_API FNetworkObjectInfo* GetNetworkObjectInfo(const AActor* InActor)
-	{
-		// Use FindOrAdd to preserve old behavior.
-		return FindOrAddNetworkObjectInfo(InActor);
-	}
-
-	DEPRECATED(4.19, "GetNetworkObjectInfo is deprecated. Use FindNetworkObjectInfo instead.")
-	ENGINE_API const FNetworkObjectInfo* GetNetworkObjectInfo(const AActor* InActor) const
-	{
-		// Use FindOrAdd to preserve old behavior.
-		return const_cast<UNetDriver*>(this)->FindOrAddNetworkObjectInfo(InActor);
-	}
-
 	/**
 	 * Returns whether adaptive net frequency is enabled. If enabled, update frequency is allowed to ramp down to MinNetUpdateFrequency for an actor when no replicated properties have changed.
 	 * This is currently controlled by the CVar "net.UseAdaptiveNetUpdateFrequency".
@@ -970,6 +1087,21 @@ public:
 	/** Called after processing RPC to track time spent */
 	void NotifyRPCProcessed(UFunction* Function, UNetConnection* Connection, double ElapsedTimeSeconds);
 
+	/** Returns true if this network driver will handle the remote function call for the given actor. */
+	ENGINE_API virtual bool ShouldReplicateFunction(AActor* Actor, UFunction* Function) const;
+
+	/** Returns true if this network driver will forward a received remote function call to other active net drivers. */
+	ENGINE_API virtual bool ShouldForwardFunction(AActor* Actor, UFunction* Function, void* Parms) const;
+
+	/** Returns true if this network driver will replicate the given actor. */
+	ENGINE_API virtual bool ShouldReplicateActor(AActor* Actor) const;
+
+	/** Returns true if this network driver should execute this remote call locally. */
+	ENGINE_API virtual bool ShouldCallRemoteFunction(UObject* Object, UFunction* Function, const FReplicationFlags& RepFlags) const;
+
+	/** Called when an actor channel is remotely opened for an actor. */
+	ENGINE_API virtual void NotifyActorChannelOpen(UActorChannel* Channel, AActor* Actor) {}
+
 protected:
 
 	/** Register all TickDispatch, TickFlush, PostTickFlush to tick in World */
@@ -977,8 +1109,12 @@ protected:
 	/** Unregister all TickDispatch, TickFlush, PostTickFlush to tick in World */
 	ENGINE_API void UnregisterTickEvents(class UWorld* InWorld);
 
+	UE_DEPRECATED(4.22, "Use InternalCreateChannelByName")
 	/** Subclasses may override this to customize channel creation. Called by GetOrCreateChannel if the pool is exhausted and a new channel must be allocated. */
 	ENGINE_API virtual UChannel* InternalCreateChannel(EChannelType ChType);
+
+	/** Subclasses may override this to customize channel creation. Called by GetOrCreateChannel if the pool is exhausted and a new channel must be allocated. */
+	ENGINE_API virtual UChannel* InternalCreateChannelByName(const FName& ChName);
 
 #if WITH_SERVER_CODE
 	/**
@@ -1007,6 +1143,8 @@ private:
 
 
 	void FlushActorDormancyInternal(AActor *Actor);
+
+	void LoadChannelDefinitions();
 
 	UPROPERTY(transient)
 	UReplicationDriver* ReplicationDriver;

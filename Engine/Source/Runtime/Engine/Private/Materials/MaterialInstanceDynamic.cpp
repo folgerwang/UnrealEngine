@@ -331,44 +331,66 @@ void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface*
 				// Scalars
 				for (FScalarParameterValue& Parameter : AsInstance->ScalarParameterValues)
 				{
+					// If the parameter already exists, override it
+					bool bExisting = false;
 					for (FScalarParameterValue& ExistingParameter : ScalarParameterValues)
 					{
 						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
 						{
 							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							bExisting = true;
 							break;
 						}
+					}
+
+					// Instance has introduced a new parameter via static param set
+					if (!bExisting)
+					{
+						ScalarParameterValues.Add(Parameter);
 					}
 				}
 
 				// Vectors
 				for (FVectorParameterValue& Parameter : AsInstance->VectorParameterValues)
 				{
-					FVectorParameterValue* ParameterValue = nullptr;
-
+					// If the parameter already exists, override it
+					bool bExisting = false;
 					for (FVectorParameterValue& ExistingParameter : VectorParameterValues)
 					{
 						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
 						{
 							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							bExisting = true;
 							break;
 						}
 					}
 
+					// Instance has introduced a new parameter via static param set
+					if (!bExisting)
+					{
+						VectorParameterValues.Add(Parameter);
+					}
 				}
 
 				// Textures
 				for (FTextureParameterValue& Parameter : AsInstance->TextureParameterValues)
 				{
-					FTextureParameterValue* ParameterValue = nullptr;
-
+					// If the parameter already exists, override it
+					bool bExisting = false;
 					for (FTextureParameterValue& ExistingParameter : TextureParameterValues)
 					{
 						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
 						{
 							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							bExisting = true;
 							break;
 						}
+					}
+
+					// Instance has introduced a new parameter via static param set
+					if (!bExisting)
+					{
+						TextureParameterValues.Add(Parameter);
 					}
 				}
 			}

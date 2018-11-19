@@ -187,7 +187,7 @@ public:
 	 */
 	static UNREALED_API void GetWorlds(UWorld* InWorld, TArray<UWorld*>& OutWorlds, bool bIncludeInWorld, bool bOnlyEditorVisible = false);
 
-	DEPRECATED(4.17, "The CreateNewLevel method to create streaming levels has been deprecated. Use CreateNewStreamingLevelForWorld instead")
+	UE_DEPRECATED(4.17, "The CreateNewLevel method to create streaming levels has been deprecated. Use CreateNewStreamingLevelForWorld instead")
 	static UNREALED_API ULevel* CreateNewLevel(UWorld* InWorld, bool bMoveSelectedActorsIntoNewLevel, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FString& DefaultFilename = TEXT(""));
 
 
@@ -198,7 +198,7 @@ public:
 	 * @param	DestLevelStreaming	The level streaming object associated with the destination level
 	 * @param	OutNumMovedActors	The number of actors that were successfully moved to the new level
 	 */
-	DEPRECATED(4.17, "The MovesActorsToLevel method has been deprecated. Use MoveActorsToLevel instead")
+	UE_DEPRECATED(4.17, "The MovesActorsToLevel method has been deprecated. Use MoveActorsToLevel instead")
 	static void MovesActorsToLevel(TArray< AActor* >& ActorsToMove, ULevelStreaming* DestLevelStreaming, int32& OutNumMovedActors);
 
 private:

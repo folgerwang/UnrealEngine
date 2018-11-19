@@ -19,7 +19,6 @@ void FScopedTransaction::Construct (const TCHAR* TransactionContext, const FText
 {
 	if( bShouldActuallyTransact && GEditor && GEditor->Trans && ensure(!GIsTransacting))
 	{
-		FSlateApplication::Get().OnLogSlateEvent(EEventLog::BeginTransaction, SessionName );
 		Index = GEditor->BeginTransaction( TransactionContext, SessionName, PrimaryObject );
 		check( IsOutstanding() );
 	}
@@ -33,7 +32,6 @@ FScopedTransaction::~FScopedTransaction()
 {
 	if ( IsOutstanding() )
 	{
-		FSlateApplication::Get().OnLogSlateEvent(EEventLog::EndTransaction);
 		GEditor->EndTransaction();
 	}
 }

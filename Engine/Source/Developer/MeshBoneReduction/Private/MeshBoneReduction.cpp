@@ -269,7 +269,7 @@ public:
 		}
 				
 		TArray<FMatrix> MultipliedBonePoses;
-		const UAnimSequence* BakePose = SkeletalMesh->GetLODInfo(LODIndex)->BakePose;
+		const UAnimSequence* BakePose = SkeletalMesh->GetBakePose(LODIndex);
 		if (BakePose)
 		{
 			// Retrieve posed bone transforms
@@ -371,6 +371,11 @@ public:
 		{
 			NewModel = new FSkeletalMeshLODModel();
 			LODModels[DesiredLOD] = NewModel;
+			if (SkeletalMeshResource->OriginalReductionSourceMeshData.IsValidIndex(DesiredLOD))
+			{
+				SkeletalMeshResource->OriginalReductionSourceMeshData[DesiredLOD]->EmptyBulkData();
+				SkeletalMeshResource->OriginalReductionSourceMeshData.RemoveAt(DesiredLOD);
+			}
 
 			// Bulk data arrays need to be locked before a copy can be made.
 			SrcModel->RawPointIndices.Lock(LOCK_READ_ONLY);
@@ -381,7 +386,7 @@ public:
 
 			TArray<FBoneIndexType> BoneIndices;
 			TArray<FMatrix> RemovedBoneMatrices;
-			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->GetLODInfo(DesiredLOD)->BakePose != nullptr);
+			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->GetBakePose(DesiredLOD) != nullptr);
 			if (bBakePoseToRemovedInfluences)
 			{
 				for (const FBoneReference& BoneReference : SkeletalMesh->GetLODInfo(DesiredLOD)->BonesToRemove)

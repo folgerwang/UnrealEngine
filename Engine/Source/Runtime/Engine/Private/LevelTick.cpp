@@ -18,6 +18,7 @@
 #include "UObject/GarbageCollection.h"
 #include "EngineStats.h"
 #include "EngineGlobals.h"
+#include "EngineUtils.h"
 #include "Engine/EngineTypes.h"
 #include "RHI.h"
 #include "RenderingThread.h"
@@ -65,6 +66,10 @@
 #endif
 
 CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+
+CSV_DEFINE_CATEGORY_MODULE(ENGINE_API, Ticks, true);
+CSV_DEFINE_CATEGORY_MODULE(ENGINE_API, ActorCount, true);
+
 
 // this will log out all of the objects that were ticked in the FDetailedTickStats struct so you can isolate what is expensive
 #define LOG_DETAILED_DUMPSTATS 0
@@ -946,7 +951,7 @@ void EndSendEndOfFrameUpdatesDrawEvent(TDrawEvent<FRHICommandList>* DrawEvent)
 void UWorld::SendAllEndOfFrameUpdates()
 {
 	SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate);
-	CSV_SCOPED_TIMING_STAT(Basic, PostTickComponentUpdate);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(PostTickComponentMisc);
 
 	if (!HasEndOfFrameUpdates())
 	{
@@ -957,7 +962,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 	TDrawEvent<FRHICommandList>* DrawEvent = BeginSendEndOfFrameUpdatesDrawEvent();
 
 	// update all dirty components. 
-	TGuardValue<bool> GuardIsFlushedGlobal( bPostTickComponentUpdate, true ); 
+	FGuardValue_Bitfield(bPostTickComponentUpdate, true); 
 
 	static TArray<TWeakObjectPtr<UActorComponent>> LocalComponentsThatNeedEndOfFrameUpdate; 
 	{
@@ -1179,6 +1184,62 @@ public:
 extern bool GCollisionAnalyzerIsRecording;
 #endif // ENABLE_COLLISION_ANALYZER
 
+
+#if CSV_PROFILER
+static TAutoConsoleVariable<int32> CVarRecordTickCountsToCSV(
+	TEXT("csv.RecordTickCounts"),
+	1,
+	TEXT("Record tick counts by context when performing CSV capture"));
+
+static TAutoConsoleVariable<int32> CVarDetailedTickContextForCSV(
+	TEXT("csv.DetailedTickContext"),
+	0,
+	TEXT("Gives more detailed info for Tick counts in CSV"));
+
+static TAutoConsoleVariable<int32> CVarRecordActorCountsToCSV(
+	TEXT("csv.RecordActorCounts"),
+	0,
+	TEXT("Record actor counts by class when performing CSV capture"));
+
+/** Add additional stats to CSV profile for tick and actor counts */
+static void RecordWorldCountsToCSV(UWorld* World)
+{
+	if(FCsvProfiler::Get()->IsCapturing())
+	{
+		if (CVarRecordTickCountsToCSV.GetValueOnGameThread())
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RecordTickCountsToCSV);
+			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RecordTickCountsToCSV);
+
+			bool bDetailed = (CVarDetailedTickContextForCSV.GetValueOnGameThread() != 0);
+
+			TSortedMap<FName, int32> TickContextToCountMap;
+			int32 EnabledCount;
+			FTickTaskManagerInterface::Get().GetEnabledTickFunctionCounts(World, TickContextToCountMap, EnabledCount, bDetailed);
+
+			for (auto It = TickContextToCountMap.CreateConstIterator(); It; ++It)
+			{
+				FCsvProfiler::Get()->RecordCustomStat(It->Key, CSV_CATEGORY_INDEX(Ticks), It->Value, ECsvCustomStatOp::Accumulate); // use accumulate in case we have more than one world ticking
+			}
+		}
+
+		if (CVarRecordActorCountsToCSV.GetValueOnGameThread())
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RecordActorCountsToCSV);
+			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RecordActorCountsToCSV);
+
+			for (TActorIterator<AActor> It(World); It; ++It)
+			{
+				const AActor* Actor = *It;
+				const FString StatString = FString::Printf(TEXT("%s%s/%s"), CSV_STAT_NAME_PREFIX, *GetParentNativeClass(Actor->GetClass())->GetName(), *Actor->GetClass()->GetName());
+
+				FCsvProfiler::Get()->RecordCustomStat(FName(*StatString), CSV_CATEGORY_INDEX(ActorCount), 1, ECsvCustomStatOp::Accumulate);
+			}
+		}
+	}
+}
+#endif // CSV_PROFILER
+
 DECLARE_CYCLE_STAT(TEXT("TG_PrePhysics"), STAT_TG_PrePhysics, STATGROUP_TickGroups);
 DECLARE_CYCLE_STAT(TEXT("TG_StartPhysics"), STAT_TG_StartPhysics, STATGROUP_TickGroups);
 DECLARE_CYCLE_STAT(TEXT("Start TG_DuringPhysics"), STAT_TG_DuringPhysics, STATGROUP_TickGroups);
@@ -1222,6 +1283,7 @@ void EndTickDrawEvent(TDrawEvent<FRHICommandList>* TickDrawEvent)
 void FTickableGameObject::TickObjects(UWorld* World, const int32 InTickType, const bool bIsPaused, const float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TickableGameObjectsTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Tickables);
 
 	TArray<FTickableGameObject*>& PendingTickableObjects = GetPendingTickableObjects();
 	TArray<FTickableObjectEntry>& TickableObjects = GetTickableObjects();
@@ -1286,9 +1348,8 @@ void FTickableGameObject::TickObjects(UWorld* World, const int32 InTickType, con
 void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 {
 	SCOPE_TIME_GUARD(TEXT("UWorld::Tick"));
-
 	SCOPED_NAMED_EVENT(UWorld_Tick, FColor::Orange);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(WorldTickMisc);
 
 	if (GIntraFrameDebuggingGameThread)
 	{
@@ -1340,8 +1401,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	bool bIsPaused = IsPaused();
 
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetWorldTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetWorldTickTime);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(NetworkIncoming);
 		SCOPE_TIME_GUARD(TEXT("UWorld::Tick - NetTick"));
 		LLM_SCOPE(ELLMTag::Networking);
 		// Update the net code and fetch all incoming packets.
@@ -1409,6 +1470,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	if (NavigationSystem != nullptr)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_NavWorldTickTime);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(NavigationBuild);
+
 		NavigationSystem->Tick(DeltaSeconds);
 	}
 
@@ -1424,9 +1487,16 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	
 	if (bDoingActorTicks)
 	{
-		// Reset Async Trace before Tick starts 
-		SCOPE_CYCLE_COUNTER(STAT_ResetAsyncTraceTickTime);
-		ResetAsyncTrace();
+		{
+			// Reset Async Trace before Tick starts 
+			SCOPE_CYCLE_COUNTER(STAT_ResetAsyncTraceTickTime);
+			ResetAsyncTrace();
+		}
+		{
+			// Run pre-actor tick delegates that want clamped/dilated time
+			SCOPE_CYCLE_COUNTER(STAT_TickTime);
+			FWorldDelegates::OnWorldPreActorTick.Broadcast(this, TickType, DeltaSeconds);
+		}
 	}
 
 	for (int32 i = 0; i < LevelCollections.Num(); ++i)
@@ -1528,6 +1598,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 			// Update cameras and streaming volumes
 			{
 				SCOPE_CYCLE_COUNTER(STAT_UpdateCameraTime);
+				CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Camera);
 				// Update cameras last. This needs to be done before NetUpdates, and after all actors have been ticked.
 				for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 				{
@@ -1606,14 +1677,12 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	// Update net and flush networking.
     // Tick all net drivers
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetBroadcastTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetBroadcastTickTime);
 		BroadcastTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 	
      // PostTick all net drivers
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetBroadcastPostTickTime);
 		BroadcastPostTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 
@@ -1629,13 +1698,15 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		SCOPE_TIME_GUARD_MS(TEXT("UWorld::Tick - FX"), 5);
 		FXSystem->Tick(DeltaSeconds);
 	}
-	
+
+#if WITH_EDITOR
 	// Finish up.
 	if(bDebugFrameStepExecution)
 	{
 		bDebugPauseExecution = true;
 		bDebugFrameStepExecution = false;
 	}
+#endif
 
 
 	bInTick = false;
@@ -1653,6 +1724,10 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 #if LOG_DETAILED_PATHFINDING_STATS
 	GDetailedPathFindingStats.DumpStats();
 #endif
+
+#if !UE_BUILD_SHIPPING && CSV_PROFILER
+	RecordWorldCountsToCSV(this);
+#endif // CSV_PROFILER
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

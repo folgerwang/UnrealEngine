@@ -52,9 +52,6 @@ public:
 	virtual FString GetAuthType() const override;
 	//~ End IOnlineIdentity Interface
 
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
-
 public:
 
 	/**

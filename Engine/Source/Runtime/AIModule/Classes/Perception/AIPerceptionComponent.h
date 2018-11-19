@@ -293,7 +293,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetKnownPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	
-	DEPRECATED(4.13, "GetPerceivedActors is deprecated. Use GetCurrentlyPerceivedActors or GetKnownPerceivedActors")
+	UE_DEPRECATED(4.13, "GetPerceivedActors is deprecated. Use GetCurrentlyPerceivedActors or GetKnownPerceivedActors")
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	
@@ -316,7 +316,7 @@ public:
 	FActorPerceptionUpdatedDelegate OnTargetPerceptionUpdated;
 
 protected:
-	DEPRECATED(4.11, "Function has been renamed and made public. Please use UpdatePerceptionWhitelist instead")
+	UE_DEPRECATED(4.11, "Function has been renamed and made public. Please use UpdatePerceptionWhitelist instead")
 	void UpdatePerceptionFilter(FAISenseID Channel, bool bNewValue);
 
 	FActorPerceptionContainer& GetPerceptualData() { return PerceptualData; }

@@ -18,7 +18,8 @@ extern const int32 MAX_BUNCH_SIZE;
 //
 // A bunch of data to send.
 //
-class FOutBunch : public FNetBitWriter
+PRAGMA_DISABLE_DEPRECATION_WARNINGS //UE_DEPRECATED(4.22, "ChType deprecated in favor of ChName.")
+class ENGINE_API FOutBunch : public FNetBitWriter
 {
 public:
 	// Variables.
@@ -26,7 +27,9 @@ public:
 	UChannel *				Channel;
 	double					Time;
 	int32					ChIndex;
+	UE_DEPRECATED(4.22, "ChType deprecated in favor of ChName.")
 	int32					ChType;
+	FName					ChName;
 	int32					ChSequence;
 	int32					PacketId;
 	uint8					ReceivedAck:1;
@@ -66,10 +69,9 @@ public:
 #endif
 
 	// Functions.
-	ENGINE_API FOutBunch();
-	ENGINE_API FOutBunch( class UChannel* InChannel, bool bClose );
-	ENGINE_API FOutBunch( UPackageMap * PackageMap, int64 InMaxBits = 1024 );
-
+	FOutBunch();
+	FOutBunch( class UChannel* InChannel, bool bClose );
+	FOutBunch( UPackageMap * PackageMap, int64 InMaxBits = 1024 );
 
 	FString	ToString()
 	{
@@ -93,12 +95,14 @@ public:
 #endif
 		return Str;
 	}
+
+	virtual void CountMemory(FArchive& Ar) const override;
 };
 
 //
 // A bunch of data received from a channel.
 //
-class FInBunch : public FNetBitReader
+class ENGINE_API FInBunch : public FNetBitReader
 {
 public:
 	// Variables.
@@ -106,7 +110,9 @@ public:
 	FInBunch *			Next;
 	UNetConnection *	Connection;
 	int32				ChIndex;
+	UE_DEPRECATED(4.22, "ChType deprecated in favor of ChName.")
 	int32				ChType;
+	FName				ChName;
 	int32				ChSequence;
 	uint8				bOpen:1;
 	uint8				bClose:1;
@@ -145,9 +151,12 @@ public:
 	}
  
 	// Functions.
-	ENGINE_API FInBunch( UNetConnection* InConnection, uint8* Src=NULL, int64 CountBits=0 );
-	ENGINE_API FInBunch( FInBunch &InBunch, bool CopyBuffer );
+	FInBunch( UNetConnection* InConnection, uint8* Src=NULL, int64 CountBits=0 );
+	FInBunch( FInBunch &InBunch, bool CopyBuffer );
+
+	virtual void CountMemory(FArchive& Ar) const override;
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS //UE_DEPRECATED(4.22, "ChType deprecated in favor of ChName.")
 
 /** out bunch for the control channel (special restrictions) */
 struct FControlChannelOutBunch : public FOutBunch

@@ -330,6 +330,24 @@ public:
 	FORCEINLINE static float CrossProduct(const FVector2D& A, const FVector2D& B);
 
 	/**
+	 * Returns a vector with the maximum component for each dimension from the pair of vectors.
+	 *
+	 * @param A The first vector.
+	 * @param B The second vector.
+	 * @return The max vector.
+	 */
+	FORCEINLINE static FVector2D Max(const FVector2D& A, const FVector2D& B);
+
+	/**
+	 * Returns a vector with the minimum component for each dimension from the pair of vectors.
+	 *
+	 * @param A The first vector.
+	 * @param B The second vector.
+	 * @return The min vector.
+	 */
+	FORCEINLINE static FVector2D Min(const FVector2D& A, const FVector2D& B);
+
+	/**
 	 * Checks for equality with error-tolerant comparison.
 	 *
 	 * @param V The vector to compare.
@@ -673,6 +691,15 @@ FORCEINLINE float FVector2D::CrossProduct(const FVector2D& A, const FVector2D& B
 	return A ^ B;
 }
 
+FORCEINLINE FVector2D FVector2D::Max(const FVector2D& A, const FVector2D& B)
+{
+	return FVector2D(FMath::Max(A.X, B.X), FMath::Max(A.Y, B.Y));
+}
+
+FORCEINLINE FVector2D FVector2D::Min(const FVector2D& A, const FVector2D& B)
+{
+	return FVector2D(FMath::Min(A.X, B.X), FMath::Min(A.Y, B.Y));
+}
 
 FORCEINLINE bool FVector2D::operator==(const FVector2D& V) const
 {

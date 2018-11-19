@@ -10,6 +10,10 @@ UMovieSceneIntegerTrack::UMovieSceneIntegerTrack( const FObjectInitializer& Obje
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneIntegerTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneIntegerSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneIntegerTrack::CreateNewSection()
 {

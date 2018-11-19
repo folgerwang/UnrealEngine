@@ -424,6 +424,21 @@ void FCompositeFontCache::FlushCache()
 	FontFaceMap.Empty();
 }
 
+uint32 FCompositeFontCache::GetFontDataAssetResidentMemory(const UObject* FontDataAsset) const
+{
+	int32 TotalAllocatedSize = 0;
+	for (const TPair<FFontData, TSharedPtr<FFreeTypeFace>>& FaceAndMemoryData : FontFaceMap)
+	{
+		const FFontData& ExistingFontData = FaceAndMemoryData.Key;
+		if (ExistingFontData.GetFontFaceAsset() == FontDataAsset)
+		{
+			TotalAllocatedSize += FaceAndMemoryData.Value->GetAllocatedMemorySize();
+		}
+	}
+
+	return TotalAllocatedSize;
+}
+
 const FCachedCompositeFontData* FCompositeFontCache::GetCachedCompositeFont(const FCompositeFont* const InCompositeFont)
 {
 	if (!InCompositeFont)

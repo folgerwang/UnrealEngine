@@ -32,7 +32,9 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "ProfilingDebugging/CsvProfiler.h"
-
+#include "HAL/PlatformApplicationMisc.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "DeviceProfiles/DeviceProfile.h"
 #define USE_SLERP 0
 #define LOCTEXT_NAMESPACE "AnimSequence"
 
@@ -41,6 +43,105 @@ CSV_DEFINE_CATEGORY(Animation, true);
 DECLARE_CYCLE_STAT(TEXT("AnimSeq GetBonePose"), STAT_AnimSeq_GetBonePose, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("Build Anim Track Pairs"), STAT_BuildAnimTrackPairs, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("Extract Pose From Anim Data"), STAT_ExtractPoseFromAnimData, STATGROUP_Anim);
+
+int32 GPerformFrameStripping = 0;
+
+static const TCHAR* StripFrameCVarName = TEXT("a.StripFramesOnCompression");
+
+static FAutoConsoleVariableRef CVarMaximumAllowedHLODLevel(
+	StripFrameCVarName,
+	GPerformFrameStripping,
+	TEXT("1 = Strip every other frame on animations that have an even number of frames. 0 = off"));
+
+void OnCVarsChanged()
+{
+	static bool bCompressionFrameStrip = (GPerformFrameStripping == 1);
+	static TArray<UAnimSequence*> SequenceCache;
+	static FString OutputMessage;
+
+	const bool bCurrentFrameStrip = (GPerformFrameStripping == 1);
+	if (bCompressionFrameStrip != bCurrentFrameStrip)
+	{
+		bCompressionFrameStrip = bCurrentFrameStrip;
+
+		SequenceCache.Reset();
+
+		for (TObjectIterator<UAnimSequence> It; It; ++It)
+		{
+			SequenceCache.Add(*It);
+		}
+
+		TArray< TPair<int32, UAnimSequence*> > Sizes;
+		
+		// Rebake/compress the animations
+		for (UAnimSequence* Seq : SequenceCache)
+		{
+			Seq->RequestSyncAnimRecompression();
+
+			if (!bCurrentFrameStrip || Seq->GetCompressedNumberOfFrames() != Seq->GetRawNumberOfFrames())
+			{
+				Sizes.Emplace(Seq->GetApproxCompressedSize(), Seq);
+			}
+		}
+
+		Sizes.Sort([](const TPair<int32, UAnimSequence*>& A, const TPair<int32, UAnimSequence*>& B)
+		{
+			return A.Key > B.Key;
+		});
+
+		OutputMessage.Reset();
+
+		int32 TotalSize = 0;
+		int32 NumAnimations = 0;
+		for (const TPair<int32, UAnimSequence*>& Pair : Sizes)
+		{
+			OutputMessage += FString::Printf(TEXT("%s - %.1fK\n"), *Pair.Value->GetPathName(), (float)Pair.Key / 1000.f);
+			TotalSize += Pair.Key;
+			NumAnimations++;
+		}
+		FPlatformApplicationMisc::ClipboardCopy(*OutputMessage);
+	}
+}
+
+FAutoConsoleVariableSink AnimationCVarSink(FConsoleCommandDelegate::CreateStatic(&OnCVarsChanged));
+
+/////////////////////////////////////////////////////
+// FRequestAnimCompressionParams
+FRequestAnimCompressionParams::FRequestAnimCompressionParams(bool bInAsyncCompression, bool bInAllowAlternateCompressor, bool bInOutput)
+	: bAsyncCompression(bInAsyncCompression)
+	, CompressContext(MakeShared<FAnimCompressContext>(bInAllowAlternateCompressor, bInOutput))
+{
+	InitFrameStrippingFromCVar();
+}
+
+FRequestAnimCompressionParams::FRequestAnimCompressionParams(bool bInAsyncCompression, TSharedPtr<FAnimCompressContext> InCompressContext)
+	: bAsyncCompression(bInAsyncCompression)
+	, CompressContext(InCompressContext)
+{
+	InitFrameStrippingFromCVar();
+}
+
+void FRequestAnimCompressionParams::InitFrameStrippingFromCVar()
+{
+	bPerformFrameStripping = (GPerformFrameStripping == 1);
+}
+
+void FRequestAnimCompressionParams::InitFrameStrippingFromPlatform(const class ITargetPlatform* TargetPlatform)
+{
+#if WITH_EDITOR
+	bPerformFrameStripping = false;
+
+	if (UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(TargetPlatform->IniPlatformName()))
+	{
+		// if we don't prune, we assume all detail modes
+		int32 CVarPlatformFrameStrippingValue = 0;
+		if (DeviceProfile->GetConsolidatedCVarValue(StripFrameCVarName, CVarPlatformFrameStrippingValue))
+		{
+			bPerformFrameStripping = CVarPlatformFrameStrippingValue == 1;
+		}
+	}
+#endif
+}
 
 /////////////////////////////////////////////////////
 // FRawAnimSequenceTrackNativeDeprecated
@@ -388,9 +489,19 @@ void UAnimSequence::PreSave(const class ITargetPlatform* TargetPlatform)
 
 	if (DoesNeedRecompress())
 	{
-		RequestSyncAnimRecompression();
+		RequestSyncAnimRecompression(); // Update Normal data
+
 		ensureAlwaysMsgf(!bUseRawDataOnly,  TEXT("Animation : %s failed to compress"), *GetName());
 	}
+
+	if (TargetPlatform)
+	{
+		// Update compressed data for platform
+		FRequestAnimCompressionParams Params(false, false, false);
+		Params.InitFrameStrippingFromPlatform(TargetPlatform);
+		RequestAnimCompression(Params);
+	}
+
 #endif
 
 	Super::PreSave(TargetPlatform);
@@ -2294,13 +2405,7 @@ void UAnimSequence::FlipRotationWForNonRoot(USkeletalMesh * SkelMesh)
 }
 #endif 
 
-void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, bool bAllowAlternateCompressor, bool bOutput)
-{
-	TSharedPtr<FAnimCompressContext> CompressContext = MakeShareable(new FAnimCompressContext(bAllowAlternateCompressor, bOutput));
-	RequestAnimCompression(bAsyncCompression, CompressContext);
-}
-
-void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FAnimCompressContext> CompressContext)
+void UAnimSequence::RequestAnimCompression(FRequestAnimCompressionParams Params)
 {
 	AddAnimLoadingDebugEntry(TEXT("RequestAnimCompression"));
 
@@ -2327,7 +2432,7 @@ void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FA
 		RawDataGuid = GenerateGuidFromRawData();
 	}
 
-	bAsyncCompression = false; //Just get sync working first
+	Params.bAsyncCompression = false; //Just get sync working first
 	bUseRawDataOnly = true;
 
 	TGuardValue<bool> CompressGuard(bCompressionInProgress, true);
@@ -2338,13 +2443,13 @@ void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FA
 	VerifyCurveNames<FFloatCurve>(*CurrentSkeleton, USkeleton::AnimCurveMappingName, RawCurveData.FloatCurves);
 	VerifyTrackMap(CurrentSkeleton);
 
-	if (bAsyncCompression)
+	if (Params.bAsyncCompression)
 	{
 	}
 	else
 	{
 		TArray<uint8> OutData;
-		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, CompressContext, bDoCompressionInPlace);
+		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, Params.CompressContext, bDoCompressionInPlace, Params.bPerformFrameStripping);
 		// For debugging DDC/Compression issues		
 		const bool bSkipDDC = false;
 		if (bSkipDDC || (CompressCommandletVersion == INDEX_NONE))
@@ -2421,6 +2526,7 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 	Ar << CompressedCurveData;
 
 	Ar << CompressedRawDataSize;
+	Ar << CompressedNumFrames;
 
 	if (Ar.IsLoading())
 	{
@@ -2604,7 +2710,7 @@ public:
 
 	FByFramePoseEvalContext(const UAnimSequence* InAnimToEval)
 		: AnimToEval(InAnimToEval)
-		, IntervalTime(InAnimToEval->SequenceLength / ((float)InAnimToEval->NumFrames - 1))
+		, IntervalTime(InAnimToEval->SequenceLength / ((float)InAnimToEval->GetRawNumberOfFrames() - 1))
 	{
 		// Initialize RequiredBones for pose evaluation
 		RequiredBones.SetUseRAWData(true);
@@ -2704,6 +2810,30 @@ bool IsRawTrackValidForRemoval(const FRawAnimSequenceTrack& Track)
 	return	IsKeyArrayValidForRemoval(Track.PosKeys) &&
 			IsKeyArrayValidForRemoval(Track.RotKeys) &&
 			IsKeyArrayValidForRemoval(Track.ScaleKeys);
+}
+
+void UAnimSequence::TestEvalauteAnimation() const
+{
+	FMemMark Mark(FMemStack::Get());
+	FByFramePoseEvalContext EvalContext(this);
+	EvalContext.RequiredBones.SetUseRAWData(false);
+
+	FCompactPose Pose;
+	Pose.SetBoneContainer(&EvalContext.RequiredBones);
+
+	FAnimExtractContext ExtractContext;
+
+	for (int Frame = 0; Frame < NumFrames; ++Frame)
+	{
+		// Initialise curve data from Skeleton
+		FBlendedCurve Curve;
+		Curve.InitFrom(EvalContext.RequiredBones);
+
+		//Grab pose for this frame
+		const float CurrentFrameTime = Frame * EvalContext.IntervalTime;
+		ExtractContext.CurrentTime = CurrentFrameTime;
+		GetAnimationPose(Pose, Curve, ExtractContext);
+	}
 }
 
 void UAnimSequence::BakeOutAdditiveIntoRawData()
@@ -5702,7 +5832,7 @@ void GatherAnimSequenceStats(FOutputDevice& Ar)
 
 		Ar.Logf(TEXT(" %60s, %3i, %3i,%3i,%3i, %3i,%3i,%3i, %10i,%10i,%10i, %s, %d"),
 			*Seq->GetName(),
-			Seq->NumFrames,
+			Seq->GetRawNumberOfFrames(),
 			NumTransTracks, NumRotTracks, NumScaleTracks,
 			NumTransTracksWithOneKey, NumRotTracksWithOneKey, NumScaleTracksWithOneKey,
 			TotalNumTransKeys, TotalNumRotKeys, TotalNumScaleKeys,

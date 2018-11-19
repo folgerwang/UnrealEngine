@@ -55,13 +55,16 @@ void UDebugDrawService::Unregister(FDelegateHandle HandleToRemove)
 	}	
 }
 
-void UDebugDrawService::Draw(const FEngineShowFlags Flags, FViewport* Viewport, FSceneView* View, FCanvas* Canvas)
+void UDebugDrawService::Draw(const FEngineShowFlags Flags, FViewport* Viewport, FSceneView* View, FCanvas* Canvas, UCanvas* CanvasObject)
 {
-	UCanvas* CanvasObject = FindObject<UCanvas>(GetTransientPackage(),TEXT("DebugCanvasObject"));
-	if (CanvasObject == NULL)
+	if (CanvasObject == nullptr)
 	{
-		CanvasObject = NewObject<UCanvas>(GetTransientPackage(), TEXT("DebugCanvasObject"));
-		CanvasObject->AddToRoot();
+		CanvasObject = FindObject<UCanvas>(GetTransientPackage(), TEXT("DebugCanvasObject"));
+		if (CanvasObject == nullptr)
+		{
+			CanvasObject = NewObject<UCanvas>(GetTransientPackage(), TEXT("DebugCanvasObject"));
+			CanvasObject->AddToRoot();
+		}
 	}
 
 	if (!Canvas || !(Canvas->IsStereoRendering() && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice()))

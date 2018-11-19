@@ -46,8 +46,6 @@
 
 static const int32 ArbitraryMaxVoxelTileSize = 1024;
 
-CSV_DEFINE_CATEGORY(NAV_MESH, true);
-
 FNavMeshTileData::FNavData::~FNavData()
 {
 #if WITH_RECAST
@@ -356,6 +354,8 @@ void ARecastNavMesh::PostLoad()
 	Super::PostLoad();
 	// @TODO tilesize validation. This is temporary and should get removed by 4.9
 	TileSizeUU = FMath::Clamp(TileSizeUU, CellSize, ArbitraryMaxVoxelTileSize * CellSize);
+
+	RecreateDefaultFilter();
 	UpdatePolyRefBitsPreview();
 }
 
@@ -403,7 +403,7 @@ void ARecastNavMesh::PostInitProperties()
 
 	TileSizeUU = FMath::Clamp(TileSizeUU, CellSize, ArbitraryMaxVoxelTileSize * CellSize);
 
-	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+	if (HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad) == false)
 	{
 		RecreateDefaultFilter();
 	}
@@ -1574,6 +1574,7 @@ void ARecastNavMesh::DrawDebugPathCorridor(NavNodeRef const* PathPolys, int32 Nu
 {
 #if ENABLE_DRAW_DEBUG
 	static const FColor PathLineColor(255, 128, 0);
+	UWorld* World = GetWorld();
 
 	// draw poly outlines
 	TArray<FVector> PolyVerts;
@@ -1583,9 +1584,9 @@ void ARecastNavMesh::DrawDebugPathCorridor(NavNodeRef const* PathPolys, int32 Nu
 		{
 			for (int32 VertIdx=0; VertIdx < PolyVerts.Num()-1; ++VertIdx)
 			{
-				DrawDebugLine(GetWorld(), PolyVerts[VertIdx], PolyVerts[VertIdx+1], PathLineColor, bPersistent);
+				DrawDebugLine(World, PolyVerts[VertIdx], PolyVerts[VertIdx+1], PathLineColor, bPersistent);
 			}
-			DrawDebugLine(GetWorld(), PolyVerts[PolyVerts.Num()-1], PolyVerts[0], PathLineColor, bPersistent);
+			DrawDebugLine(World, PolyVerts[PolyVerts.Num()-1], PolyVerts[0], PathLineColor, bPersistent);
 		}
 	}
 
@@ -1601,8 +1602,8 @@ void ARecastNavMesh::DrawDebugPathCorridor(NavNodeRef const* PathPolys, int32 Nu
 				PolyCenter = NextPolyCenter;
 				if ( GetPolyCenter(PathPolys[PolyIdx+1], NextPolyCenter) )
 				{
-					DrawDebugLine(GetWorld(), PolyCenter, NextPolyCenter, PathLineColor, bPersistent);
-					DrawDebugBox(GetWorld(), PolyCenter, FVector(5.f), PathLineColor, bPersistent);
+					DrawDebugLine(World, PolyCenter, NextPolyCenter, PathLineColor, bPersistent);
+					DrawDebugBox(World, PolyCenter, FVector(5.f), PathLineColor, bPersistent);
 				}
 			}
 		}
@@ -1929,7 +1930,7 @@ bool ARecastNavMesh::AdjustLocationWithFilter(const FVector& StartLoc, FVector& 
 FPathFindingResult ARecastNavMesh::FindPath(const FNavAgentProperties& AgentProperties, const FPathFindingQuery& Query)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Navigation_RecastPathfinding);
-	CSV_SCOPED_TIMING_STAT(NAV_MESH, Navigation_RecastPathfinding);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Pathfinding);
 
 	const ANavigationData* Self = Query.NavData.Get();
 	check(Cast<const ARecastNavMesh>(Self));
@@ -1986,6 +1987,9 @@ FPathFindingResult ARecastNavMesh::FindPath(const FNavAgentProperties& AgentProp
 
 bool ARecastNavMesh::TestPath(const FNavAgentProperties& AgentProperties, const FPathFindingQuery& Query, int32* NumVisitedNodes)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Navigation_RecastTestPath);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Pathfinding);
+
 	const ANavigationData* Self = Query.NavData.Get();
 	check(Cast<const ARecastNavMesh>(Self));
 
@@ -2201,12 +2205,14 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	static const FName NAME_Display = FName(TEXT("Display"));
 	static const FName NAME_RuntimeGeneration = FName(TEXT("RuntimeGeneration"));
 	static const FName NAME_TileNumberHardLimit = GET_MEMBER_NAME_CHECKED(ARecastNavMesh, TileNumberHardLimit);
+	static const FName NAME_Query = FName(TEXT("Query"));
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	if (PropertyChangedEvent.Property != NULL)
 	{
-		if (FObjectEditorUtils::GetCategoryFName(PropertyChangedEvent.Property) == NAME_Generation)
+		const FName CategoryName = FObjectEditorUtils::GetCategoryFName(PropertyChangedEvent.Property);
+		if (CategoryName == NAME_Generation)
 		{
 			FName PropName = PropertyChangedEvent.Property->GetFName();
 			
@@ -2233,14 +2239,15 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				UpdatePolyRefBitsPreview();
 			}
 
-			if (!HasAnyFlags(RF_ClassDefaultObject) 
-				&& UNavigationSystemV1::GetIsNavigationAutoUpdateEnabled()
+			UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+			if (!HasAnyFlags(RF_ClassDefaultObject)
+				&& NavSys->GetIsAutoUpdateEnabled()
 				&& PropName != GET_MEMBER_NAME_CHECKED(ARecastNavMesh, MaxSimultaneousTileGenerationJobsCount))
 			{
 				RebuildAll();
 			}
 		}
-		else if (FObjectEditorUtils::GetCategoryFName(PropertyChangedEvent.Property) == NAME_Display)
+		else if (CategoryName == NAME_Display)
 		{
 			RequestDrawingUpdate();
 		}
@@ -2255,6 +2262,10 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				GConfig->SetString(TEXT("/Script/NavigationSystem.RecastNavMesh"), *NAME_RuntimeGeneration.ToString(), TEXT("Static"), *EngineIniFilename);
 				GConfig->Flush(false);
 			}
+		}
+		else if (CategoryName == NAME_Query)
+		{
+			RecreateDefaultFilter();
 		}
 	}
 }
@@ -2285,6 +2296,11 @@ bool ARecastNavMesh::SupportsStreaming() const
 	return (RuntimeGeneration != ERuntimeGenerationType::Dynamic);
 }
 
+FRecastNavMeshGenerator* ARecastNavMesh::CreateGeneratorInstance()
+{
+	return new FRecastNavMeshGenerator(*this);
+}
+
 void ARecastNavMesh::ConditionalConstructGenerator()
 {	
 	if (NavDataGenerator.IsValid())
@@ -2298,7 +2314,12 @@ void ARecastNavMesh::ConditionalConstructGenerator()
 	const bool bRequiresGenerator = SupportsRuntimeGeneration() || !World->IsGameWorld();
 	if (bRequiresGenerator)
 	{
-		NavDataGenerator = MakeShareable(new FRecastNavMeshGenerator(*this));
+		FRecastNavMeshGenerator* Generator = CreateGeneratorInstance();
+		if (Generator)
+		{
+			NavDataGenerator = MakeShareable(Generator);
+			Generator->Init();
+		}
 
 		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 		if (NavSys)

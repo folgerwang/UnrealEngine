@@ -28,6 +28,12 @@ public class SkeletonEditor : ModuleRules
             }
 		);
 
+        PublicIncludePathModuleNames.AddRange(
+            new string[] {
+                "Persona",
+            }
+        );
+
         PrivateIncludePathModuleNames.AddRange(
             new string[] {
                 "PropertyEditor",

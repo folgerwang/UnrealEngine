@@ -12,6 +12,7 @@
 class IObjectTableRow : public ITableRow
 {
 public:
+	virtual UListViewBase* GetOwningListView() const = 0;
 	virtual UUserWidget* GetUserWidget() const = 0;
 
 	UMG_API static TSharedPtr<const IObjectTableRow> ObjectRowFromUserWidget(const UUserWidget* RowUserWidget)
@@ -31,6 +32,8 @@ protected:
 };
 
 DECLARE_DELEGATE_OneParam(FOnRowHovered, UUserWidget&);
+
+class UListViewBase;
 
 /** 
  * It's an SObjectWidget! It's an ITableRow! It does it all!
@@ -53,7 +56,7 @@ public:
 	SLATE_END_ARGS()
 
 public:
-	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, UUserWidget& InWidgetObject)
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, UUserWidget& InWidgetObject, UListViewBase* InOwnerListView = nullptr)
 	{
 		TSharedPtr<SWidget> ContentWidget;
 
@@ -61,6 +64,7 @@ public:
 		{
 			ObjectRowsByUserWidget.Add(&InWidgetObject, SharedThis(this));
 
+			OwnerListView = InOwnerListView;
 			OwnerTablePtr = StaticCastSharedRef<SListView<ItemType>>(InOwnerTableView);
 
 			OnHovered = InArgs._OnHovered;
@@ -79,8 +83,6 @@ public:
 			[
 				ContentWidget.ToSharedRef()
 			], &InWidgetObject);
-
-		SetCanTick(true);
 	}
 
 	virtual ~SObjectTableRow()
@@ -92,6 +94,15 @@ public:
 	virtual UUserWidget* GetUserWidget() const
 	{
 		return WidgetObject;
+	}
+
+	virtual UListViewBase* GetOwningListView() const
+	{
+		if (OwnerListView.IsValid())
+		{
+			return OwnerListView.Get();
+		}
+		return nullptr;
 	}
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
@@ -437,6 +448,7 @@ protected:
 	FOnRowHovered OnHovered;
 	FOnRowHovered OnUnhovered;
 
+	TWeakObjectPtr<UListViewBase> OwnerListView;
 	TWeakPtr<ITypedTableView<ItemType>> OwnerTablePtr;
 
 private:

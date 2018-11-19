@@ -6,6 +6,7 @@
 
 class FDetailWidgetRow;
 class IDetailChildrenBuilder;
+class IPropertyHandle;
 
 /**
  * A custom node that can be given to a details panel category to customize widgets
@@ -56,4 +57,9 @@ public:
 	 * @return The name of this custom builder.  This is used as an identifier to save expansion state if needed
 	 */
 	virtual FName GetName() const = 0;
+
+	/**
+	 * @return The property associated with this builder (if any).
+	 */
+	virtual TSharedPtr<IPropertyHandle> GetPropertyHandle() const { return nullptr; }
 };

@@ -446,7 +446,7 @@ public:
 	bool CanPaste();
 
 	/** Handle Track Paste */
-	void PasteTracks();
+	void DoPaste();
 
 	/** Open the paste menu */
 	bool OpenPasteMenu();

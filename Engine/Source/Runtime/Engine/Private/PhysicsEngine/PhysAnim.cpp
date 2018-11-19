@@ -105,9 +105,9 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Animation);
 		SCOPED_NAMED_EVENT(FParallelBlendPhysicsCompletionTask_DoTask, FColor::Yellow);
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
 
 		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
 		{
@@ -310,10 +310,9 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 
 bool USkeletalMeshComponent::ShouldBlendPhysicsBones() const
 {
-	const bool bHasPhysicsBodies = Bodies.Num() > 0;
-	const bool bCollisionEnabledHasPhysics = CollisionEnabledHasPhysics(GetCollisionEnabled());
-	const bool bBlendPhysicsOrWeights = DoAnyPhysicsBodiesHaveWeight() || bBlendPhysics;
-	return bHasPhysicsBodies && bCollisionEnabledHasPhysics && bBlendPhysicsOrWeights;
+	return	(Bodies.Num() > 0) &&
+			(CollisionEnabledHasPhysics(GetCollisionEnabled())) &&
+			(bBlendPhysics || DoAnyPhysicsBodiesHaveWeight());
 }
 
 bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
@@ -409,13 +408,24 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 		UpdateOverlaps();
 	}
 
-	// Cached local bounds are now out of date
-	InvalidateCachedBounds();
+	// update bounds
+	if(bSkipBoundsUpdateWhenInterpolating)
+	{
+		if(AnimEvaluationContext.bDoEvaluation)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateBounds);
+			// Cached local bounds are now out of date
+			InvalidateCachedBounds();
 
+			UpdateBounds();
+		}
+	}
+	else
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateBounds);
+		// Cached local bounds are now out of date
+		InvalidateCachedBounds();
 
-		// update bounds
 		UpdateBounds();
 	}
 
@@ -682,7 +692,7 @@ void USkeletalMeshComponent::UpdateRBJointMotors()
 
 			// If we found this bone, and a visible bone that is not the root, and its joint is motorised in some way..
 			if( (BoneIndex != INDEX_NONE) && (BoneIndex != 0) &&
-				(BoneVisibilityStates[BoneIndex] == BVS_Visible) &&
+				(GetBoneVisibilityStates()[BoneIndex] == BVS_Visible) &&
 				(CI->IsAngularOrientationDriveEnabled()) )
 			{
 				check(BoneIndex < BoneSpaceTransforms.Num());

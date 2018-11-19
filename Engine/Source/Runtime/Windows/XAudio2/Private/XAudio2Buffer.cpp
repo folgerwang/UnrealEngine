@@ -489,8 +489,14 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 		// Refresh the wave data
 		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
-		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
-		Wave->Duration = QualityInfo.Duration;
+		if (QualityInfo.SampleDataSize != 0)
+		{
+			Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
+		}
+		if (QualityInfo.Duration != 0.0f)
+		{
+			Wave->Duration = QualityInfo.Duration;
+		}
 
 		Buffer->InitWaveFormatEx(WAVE_FORMAT_PCM, Wave, false);
 

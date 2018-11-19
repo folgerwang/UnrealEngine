@@ -27,6 +27,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = UserListEntry)
 	virtual bool IsListItemExpanded() const = 0;
 
+	/** @return The list view that contains this entry. */
+	UFUNCTION(BlueprintCallable, Category = UserListEntry)
+	virtual UListViewBase* GetOwningListView() const = 0;
+
 	/** 
 	 * Advanced native-only option for specific rows to preclude themselves from any kind of selection. 
 	 * Intended primarily for category separators and the like.
@@ -52,6 +56,8 @@ public:
 	
 	virtual bool IsListItemSelected() const override final;
 	virtual bool IsListItemExpanded() const override final;
+
+	virtual UListViewBase* GetOwningListView() const override final;
 
 protected:
 	/** These follow the same pattern as the NativeOn[X] methods in UUserWidget - super calls are expected in order to route the event to BP. */

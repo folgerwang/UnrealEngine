@@ -789,13 +789,10 @@ void USoundWave::FreeResources()
 	bDecompressedFromOgg = false;
 
 	USoundWave* SoundWave = this;
-	FAudioThread::RunCommandOnGameThread([SoundWave]()
+	if (SoundWave->ResourceState == ESoundWaveResourceState::Freeing)
 	{
-		if (SoundWave->ResourceState == ESoundWaveResourceState::Freeing)
-		{
-			SoundWave->ResourceState = ESoundWaveResourceState::Freed;
-		}
-	}, TStatId());
+		SoundWave->ResourceState = ESoundWaveResourceState::Freed;
+	}
 }
 
 bool USoundWave::CleanupDecompressor(bool bForceWait)

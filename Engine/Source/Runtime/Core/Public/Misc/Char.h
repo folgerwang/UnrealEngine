@@ -26,7 +26,7 @@ template <> struct TLiteral<WIDECHAR>
 	static const WIDECHAR* Select(const ANSICHAR*, const WIDECHAR* wide) { return wide; }
 };
 
-#define LITERAL(CharType, StringLiteral) TLiteral<CharType>::Select(StringLiteral, L##StringLiteral)
+#define LITERAL(CharType, StringLiteral) TLiteral<CharType>::Select(StringLiteral, TEXT(StringLiteral))
 
 /**
  * TChar
@@ -137,7 +137,7 @@ typedef TChar<ANSICHAR> FCharAnsi;
 
 template <> inline TChar<WIDECHAR>::CharType TChar<WIDECHAR>::ToUpper(CharType Char)
 {
-#if PLATFORM_SWITCH && !PLATFORM_TCHAR_IS_4_BYTES
+#if !PLATFORM_TCHAR_IS_4_BYTES
 	// for 2 byte wide chars use ansi toupper() if it is not an actual wide char (value less than 128)
 	// towupper() is slow on some platforms.
 	if (Char < 128)

@@ -43,14 +43,12 @@ apply plugin: 'com.google.gms.google-services'
 		</if>
 	</buildGradleAdditions>
 
-	<!-- optional files or directories to copy or delete from Intermediate/Android/APK before ndk-build -->
-	<prebuildCopies>
+	<gradleCopies>
 		<if condition="bEnabled">
 			<true>
 				<!-- Will need to revisit this if/when other plug-ins need to modify google-services.json -->
-				<copyFile src="$S(PluginDir)/Resources/google-services.json" dst="$S(BuildDir)/gradle/app/google-services.json" force="false"/>
-
+				<copyFile src="$S(BuildDir)/google-services.json" dst="$S(BuildDir)/gradle/app/google-services.json" force="false"/>
 			</true>
 		</if>
-	</prebuildCopies>
+	</gradleCopies>
 </root>

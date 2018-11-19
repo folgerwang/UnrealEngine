@@ -168,7 +168,7 @@ public:
  *
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Framework/Camera/
  */
-UCLASS(notplaceable, transient, BlueprintType, Blueprintable)
+UCLASS(notplaceable, transient, BlueprintType, Blueprintable, Config=Engine)
 class ENGINE_API APlayerCameraManager : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -235,12 +235,12 @@ public:
 	float ColorScaleInterpStartTime;
 
 	/** Cached camera properties. */
-	DEPRECATED(4.19, "This property is now deprecated, please use GetCameraCachePOV and SetCameraCachePOV functions instead.")
+	UE_DEPRECATED(4.19, "This property is now deprecated, please use GetCameraCachePOV and SetCameraCachePOV functions instead.")
 	UPROPERTY(transient)
 	struct FCameraCacheEntry CameraCache;
 
 	/** Cached camera properties, one frame old. */
-	DEPRECATED(4.19, "This property is now deprecated, please use GetLastFrameCameraCachePOV and SetLastFrameCameraCachePOV functions instead.")
+	UE_DEPRECATED(4.19, "This property is now deprecated, please use GetLastFrameCameraCachePOV and SetLastFrameCameraCachePOV functions instead.")
 	UPROPERTY(transient)
 	struct FCameraCacheEntry LastFrameCameraCache;
 
@@ -554,6 +554,18 @@ protected:
 	 */
 	static float CalcRadialShakeScale(class APlayerCameraManager* Cam, FVector Epicenter, float InnerRadius, float OuterRadius, float Falloff);
 
+private:
+	/**
+	 * Used to tell how long in seconds its been since ServerUpdateCamera was called
+	 */
+	float TimeSinceLastServerUpdateCamera;
+
+	/**
+	 * Timeout in seconds used to determine when to force a call to ServerUpdateCamera
+	 */
+	UPROPERTY(Config)
+	float ServerUpdateCameraTimeout;
+
 public:
 
 	/**
@@ -861,7 +873,7 @@ protected:
 	 */
 	void ReleaseCameraAnimInst(class UCameraAnimInst* Inst);
 
-protected:
+public:
 	/** 
 	 * Limit the player's view pitch. 
 	 * @param ViewRotation - ViewRotation to modify. Both input and output.
@@ -886,6 +898,7 @@ protected:
 	 */
 	virtual void LimitViewYaw(FRotator& ViewRotation, float InViewYawMin, float InViewYawMax);
 
+protected:
 	/**
 	 * Does the actual work to UpdateViewTarget. This is called from UpdateViewTarget under normal 
 	 * circumstances (target is not a camera actor and no debug cameras are active)

@@ -116,6 +116,10 @@ ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag)
 FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& LocaleName)
 	: ICULocale( TCHAR_TO_ANSI( *LocaleName ) )
 {
+	if (ICULocale.isBogus())
+	{
+		ICULocale = icu::Locale();
+	}
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
 		ICUCardinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_CARDINAL, ICUStatus);
@@ -154,24 +158,12 @@ int FCulture::FICUCultureImplementation::GetLCID() const
 
 FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Name)
 {
-#define USE_ICU_CANONIZATION (0)
-
-#if USE_ICU_CANONIZATION
-
-	const FString SanitizedName = ICUUtilities::SanitizeCultureCode(Name);
-
-	static const int32 CanonicalNameBufferSize = 64;
-	char CanonicalNameBuffer[CanonicalNameBufferSize];
-
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	uloc_canonicalize(TCHAR_TO_ANSI(*SanitizedName), CanonicalNameBuffer, CanonicalNameBufferSize-1, &ICUStatus);
-	CanonicalNameBuffer[CanonicalNameBufferSize-1] = 0;
-
-	FString CanonicalNameString = CanonicalNameBuffer;
-	CanonicalNameString.ReplaceInline(TEXT("_"), TEXT("-"));
-	return CanonicalNameString;
-
-#else	// USE_ICU_CANONIZATION
+	auto IsLanguageCode = [](const FString& InCode)
+	{
+		// Language codes must be 2 or 3 letters, or out special "LEET" language
+		static const FString LeetLanguageCode = TEXT("LEET");
+		return InCode.Len() == 2 || InCode.Len() == 3 || InCode == LeetLanguageCode;
+	};
 
 	auto IsScriptCode = [](const FString& InCode)
 	{
@@ -215,8 +207,27 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 
 	auto ConditionKeywordArgKey = [](FString& InOutKey)
 	{
+		static const FString ValidKeywords[] = {
+			TEXT("calendar"),
+			TEXT("collation"),
+			TEXT("currency"),
+			TEXT("numbers"),
+		};
+
 		// Keyword argument keys are lowercase
 		InOutKey.ToLowerInline();
+
+		// Only certain argument keys are accepted
+		for (const FString& ValidKeyword : ValidKeywords)
+		{
+			if (InOutKey.Equals(ValidKeyword, ESearchCase::CaseSensitive))
+			{
+				return;
+			}
+		}
+
+		// Invalid key - clear it
+		InOutKey.Reset();
 	};
 
 	enum class ENameTagType : uint8
@@ -335,7 +346,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 
 					// What kind of tag is this?
 					ENameTagType NameTagType = ENameTagType::Variant;
-					if (ParsedNameTags.Num() == 0)
+					if (ParsedNameTags.Num() == 0 && IsLanguageCode(NameTagStr))
 					{
 						// todo: map 3 letter language codes into 2 letter language codes like ICU would?
 						NameTagType = ENameTagType::Language;
@@ -346,7 +357,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 						NameTagType = ENameTagType::Script;
 						ConditionScriptCode(NameTagStr);
 					}
-					else if (ParsedNameTags.Num() <= 2 && (ParsedNameTags.Last().Type == ENameTagType::Language || ParsedNameTags.Last().Type == ENameTagType::Script) && IsRegionCode(NameTagStr))
+					else if (ParsedNameTags.Num() > 0 && ParsedNameTags.Num() <= 2 && (ParsedNameTags.Last().Type == ENameTagType::Language || ParsedNameTags.Last().Type == ENameTagType::Script) && IsRegionCode(NameTagStr))
 					{
 						// todo: map 3 letter region codes into 2 letter region codes like ICU would?
 						NameTagType = ENameTagType::Region;
@@ -363,7 +374,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 						check(VariantTagData->KeywordArgKey && VariantTagData->KeywordArgValue);
 						ParsedKeywords.Add(VariantTagData->KeywordArgKey, VariantTagData->KeywordArgValue);
 					}
-					else
+					else if (NameTagStr.Len() > 0)
 					{
 						ParsedNameTags.Add({ MoveTemp(NameTagStr), NameTagType });
 					}
@@ -390,7 +401,10 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 				{
 					// Single values are treated as variants
 					ConditionVariant(NameKeywordArg);
-					ParsedNameTags.Add({ MoveTemp(NameKeywordArg), ENameTagType::Variant });
+					if (NameKeywordArg.Len() > 0)
+					{
+						ParsedNameTags.Add({ MoveTemp(NameKeywordArg), ENameTagType::Variant });
+					}
 				}
 				else
 				{
@@ -398,7 +412,13 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 					FString NameKeywordArgKey = NameKeywordArg.Left(KeyValueSplitIndex);
 					ConditionKeywordArgKey(NameKeywordArgKey);
 					FString NameKeywordArgValue = NameKeywordArg.Mid(KeyValueSplitIndex + 1);
-					ParsedKeywords.Add(MoveTemp(NameKeywordArgKey), MoveTemp(NameKeywordArgValue));
+					if (NameKeywordArgKey.Len() > 0 && NameKeywordArgValue.Len() > 0)
+					{
+						if (!ParsedKeywords.Contains(NameKeywordArgKey))
+						{
+							ParsedKeywords.Add(MoveTemp(NameKeywordArgKey), MoveTemp(NameKeywordArgValue));
+						}
+					}
 				}
 			}
 		}
@@ -408,39 +428,43 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 	FString CanonicalName;
 	{
 		// Assemble the name tags first
-		for (int32 NameTagIndex = 0; NameTagIndex < ParsedNameTags.Num(); ++NameTagIndex)
+		// These *must* start with a language tag
+		if (ParsedNameTags.Num() > 0 && ParsedNameTags[0].Type == ENameTagType::Language)
 		{
-			const FNameTag& NameTag = ParsedNameTags[NameTagIndex];
-
-			switch (NameTag.Type)
+			for (int32 NameTagIndex = 0; NameTagIndex < ParsedNameTags.Num(); ++NameTagIndex)
 			{
-			case ENameTagType::Language:
-				CanonicalName = NameTag.Str;
-				break;
+				const FNameTag& NameTag = ParsedNameTags[NameTagIndex];
 
-			case ENameTagType::Script:
-			case ENameTagType::Region:
-				CanonicalName += TEXT('-');
-				CanonicalName += NameTag.Str;
-				break;
-
-			case ENameTagType::Variant:
-				// If the previous tag was a language, we need to add an extra hyphen for non-empty variants since ICU would produce a double hyphen in this case
-				if (ParsedNameTags.IsValidIndex(NameTagIndex - 1) && ParsedNameTags[NameTagIndex - 1].Type == ENameTagType::Language && !NameTag.Str.IsEmpty())
+				switch (NameTag.Type)
 				{
-					CanonicalName += TEXT('-');
-				}
-				CanonicalName += TEXT('-');
-				CanonicalName += NameTag.Str;
-				break;
+				case ENameTagType::Language:
+					CanonicalName = NameTag.Str;
+					break;
 
-			default:
-				break;
+				case ENameTagType::Script:
+				case ENameTagType::Region:
+					CanonicalName += TEXT('-');
+					CanonicalName += NameTag.Str;
+					break;
+
+				case ENameTagType::Variant:
+					// If the previous tag was a language, we need to add an extra hyphen for non-empty variants since ICU would produce a double hyphen in this case
+					if (ParsedNameTags.IsValidIndex(NameTagIndex - 1) && ParsedNameTags[NameTagIndex - 1].Type == ENameTagType::Language && !NameTag.Str.IsEmpty())
+					{
+						CanonicalName += TEXT('-');
+					}
+					CanonicalName += TEXT('-');
+					CanonicalName += NameTag.Str;
+					break;
+
+				default:
+					break;
+				}
 			}
 		}
 
 		// Now add the keywords
-		if (ParsedKeywords.Num() > 0)
+		if (CanonicalName.Len() > 0 && ParsedKeywords.Num() > 0)
 		{
 			TCHAR NextToken = TEXT('@');
 			for (const auto& ParsedKeywordPair : ParsedKeywords)
@@ -453,12 +477,14 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 				CanonicalName += ParsedKeywordPair.Value;
 			}
 		}
+
+		// If we canonicalized to an empty string, just fallback to en-US-POSIX
+		if (CanonicalName.IsEmpty())
+		{
+			CanonicalName = TEXT("en-US-POSIX");
+		}
 	}
 	return CanonicalName;
-
-#endif	// USE_ICU_CANONIZATION
-
-#undef USE_ICU_CANONIZATION
 }
 
 FString FCulture::FICUCultureImplementation::GetName() const

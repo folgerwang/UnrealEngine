@@ -59,11 +59,13 @@ struct FReverbSettings
 
 	/* Whether to apply the reverb settings below. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReverbSettings )
-	uint32 bApplyReverb:1;
+	bool bApplyReverb;
 
+#if WITH_EDITORONLY_DATA
 	/** The reverb preset to employ. */
 	UPROPERTY()
 	TEnumAsByte<enum ReverbPreset> ReverbType_DEPRECATED;
+#endif
 
 	/** The reverb asset to employ. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReverbSettings)
@@ -84,7 +86,9 @@ struct FReverbSettings
 
 	FReverbSettings()
 		: bApplyReverb(true)
+#if WITH_EDITORONLY_DATA
 		, ReverbType_DEPRECATED(REVERB_Default)
+#endif
 		, ReverbEffect(nullptr)
 		, ReverbPluginEffect(nullptr)
 		, Volume(0.5f)
@@ -95,9 +99,12 @@ struct FReverbSettings
 	bool operator==(const FReverbSettings& Other) const;
 	bool operator!=(const FReverbSettings& Other) const { return !(*this == Other); }
 
+#if WITH_EDITORONLY_DATA
 	void PostSerialize(const FArchive& Ar);
+#endif
 };
 
+#if WITH_EDITORONLY_DATA
 template<>
 struct TStructOpsTypeTraits<FReverbSettings> : public TStructOpsTypeTraitsBase2<FReverbSettings>
 {
@@ -106,6 +113,7 @@ struct TStructOpsTypeTraits<FReverbSettings> : public TStructOpsTypeTraitsBase2<
 		WithPostSerialize = true,
 	};
 };
+#endif
 
 /** Struct encapsulating settings for interior areas. */
 USTRUCT(BlueprintType)
@@ -115,7 +123,7 @@ struct FInteriorSettings
 
 	// Whether these interior settings are the default values for the world
 	UPROPERTY()
-	uint32 bIsWorldSettings:1;
+	bool bIsWorldSettings;
 
 	// The desired volume of sounds outside the volume when the player is inside the volume
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InteriorSettings)
@@ -154,9 +162,12 @@ struct FInteriorSettings
 	bool operator==(const FInteriorSettings& Other) const;
 	bool operator!=(const FInteriorSettings& Other) const;
 
+#if WITH_EDITORONLY_DATA
 	void PostSerialize(const FArchive& Ar);
+#endif
 };
 
+#if WITH_EDITORONLY_DATA
 template<>
 struct TStructOpsTypeTraits<FInteriorSettings> : public TStructOpsTypeTraitsBase2<FInteriorSettings>
 {
@@ -165,6 +176,7 @@ struct TStructOpsTypeTraits<FInteriorSettings> : public TStructOpsTypeTraitsBase
 		WithPostSerialize = true,
 	};
 };
+#endif
 
 struct FAudioVolumeProxy
 {

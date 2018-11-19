@@ -33,7 +33,7 @@ public:
 	FBox() { }
 
 	/** Creates and initializes a new box with zero extent and marks it as invalid. */
-	DEPRECATED(4.16, "Use ForceInit constructor instead.")
+	UE_DEPRECATED(4.16, "Use ForceInit constructor instead.")
 	FBox( int32 )
 	{
 		Init();

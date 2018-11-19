@@ -49,8 +49,9 @@ void FTcpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 		}
 
 		// serialize message body
+		UScriptStruct* MessageTypeInfoPtr = MessageContext->GetMessageTypeInfo().Get();
 		FJsonStructSerializerBackend Backend(Archive);
-		FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
+		FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageTypeInfoPtr, Backend);
 
 		// enqueue to recipients
 		for (auto& Connection : RecipientConnections)

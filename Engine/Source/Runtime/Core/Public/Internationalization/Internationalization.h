@@ -180,7 +180,7 @@ public:
 	 * @note This function was deprecated as it only provides cultures that use localization resources.
 	 *		 FTextLocalizationManager::GetLocalizedCultureNames provides a more complete list when using alternate sources, and FInternationalization::GetAvailableCultures can be used to build a culture array from that list.
 	 */
-	DEPRECATED(4.20, "FInternationalization::GetCulturesWithAvailableLocalization is deprecated in favor of calling FTextLocalizationManager::GetLocalizedCultureNames, potentially followed by FInternationalization::GetAvailableCultures")
+	UE_DEPRECATED(4.20, "FInternationalization::GetCulturesWithAvailableLocalization is deprecated in favor of calling FTextLocalizationManager::GetLocalizedCultureNames, potentially followed by FInternationalization::GetAvailableCultures")
 	CORE_API void GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray<FCultureRef>& OutAvailableCultures, const bool bIncludeDerivedCultures);
 
 	/** Given some culture names, populate a list of cultures that are available to be used. If bIncludeDerivedCultures, include cultures that are derived from those we passed. */

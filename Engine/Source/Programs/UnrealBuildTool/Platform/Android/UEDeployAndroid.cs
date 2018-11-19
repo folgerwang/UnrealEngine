@@ -3215,7 +3215,7 @@ namespace UnrealBuildTool
 					NDKArches.Add(NDKArch);
 				}
 			}
-			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath, ProjectDirectory, Configuration);
+			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath, ProjectDirectory, Configuration, BuildVersion.ReadDefault());
 
 			IEnumerable<Tuple<string, string, string>> BuildList = null;
 
@@ -3331,6 +3331,10 @@ namespace UnrealBuildTool
 			CopyFileDirectory(UE4BuildFilesPath, UE4BuildPath, Replacements);
 			CopyFileDirectory(UE4BuildFilesPath + "/NotForLicensees", UE4BuildPath, Replacements);
 			CopyFileDirectory(UE4BuildFilesPath + "/NoRedist", UE4BuildPath, Replacements);
+			if (!bGradleEnabled)
+			{
+				CopyFileDirectory(Path.Combine(EngineDirectory, "Build", "Android", "Legacy"), UE4BuildPath, Replacements);
+			}
 			CopyFileDirectory(GameBuildFilesPath, UE4BuildPath, Replacements);
 			CopyFileDirectory(GameBuildFilesPath + "/NotForLicensees", UE4BuildPath, Replacements);
 			CopyFileDirectory(GameBuildFilesPath + "/NoRedist", UE4BuildPath, Replacements);

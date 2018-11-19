@@ -24,10 +24,10 @@ public:
 
 	FORCEINLINE bool operator==(const FCachedShapedTextKey& Other) const
 	{
-		return TextRange == Other.TextRange 
+		return TextRange == Other.TextRange
 			&& Scale == Other.Scale
 			&& TextContext == Other.TextContext
-			&& FontInfo == Other.FontInfo;
+			&& FontInfo.IsIdentialToForCaching(Other.FontInfo);
 	}
 
 	FORCEINLINE bool operator!=(const FCachedShapedTextKey& Other) const

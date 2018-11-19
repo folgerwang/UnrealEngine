@@ -33,7 +33,12 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static void PlatformTearDown();
 	static void PlatformHandleSplashScreen(bool ShowSplashScreen);
 
-	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return ANDROID_MAX_PATH;
+	}
+
+	UE_DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 
 	static FString GetEnvironmentVariable(const TCHAR* VariableName);
@@ -212,7 +217,7 @@ public:
 		}
 	}
 
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
+	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
 	FORCEINLINE static void DebugBreak()
 	{
 		DebugBreakInternal();
@@ -220,7 +225,7 @@ public:
 #endif
 
 	/** Break into debugger. Returning false allows this function to be used in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
+	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
 	FORCEINLINE static bool DebugBreakReturningFalse()
 	{
 #if !UE_BUILD_SHIPPING
@@ -230,7 +235,7 @@ public:
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
+	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
 	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING

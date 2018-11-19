@@ -361,7 +361,7 @@ public:
 
 	const AActor* GetGoalActor() const
 	{
-		return GoalActor.Get();
+		return bObservingGoalActor ? GoalActor.Get() : nullptr;
 	}
 	const INavAgentInterface* GetGoalActorAsNavAgent() const
 	{

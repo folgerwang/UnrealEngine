@@ -3252,8 +3252,16 @@ void FConfigCacheIni::InitializeConfigSystem()
 	FConfigCacheIni::LoadGlobalIniFile(GLightmassIni, TEXT("Lightmass"));
 #endif
 
+	// check for scalability platform override.
+	const TCHAR* ScalabilityPlatformOverride = nullptr;
+#if !UE_BUILD_SHIPPING && WITH_EDITOR
+	FString ScalabilityPlatformOverrideCommandLine;
+	FParse::Value(FCommandLine::Get(), TEXT("ScalabilityIniPlatformOverride="), ScalabilityPlatformOverrideCommandLine);
+	ScalabilityPlatformOverride = ScalabilityPlatformOverrideCommandLine.Len() ? *ScalabilityPlatformOverrideCommandLine : nullptr;
+#endif
+
 	// Load scalability settings.
-	FConfigCacheIni::LoadGlobalIniFile(GScalabilityIni, TEXT("Scalability"));
+	FConfigCacheIni::LoadGlobalIniFile(GScalabilityIni, TEXT("Scalability"), ScalabilityPlatformOverride);
 	// Load driver blacklist
 	FConfigCacheIni::LoadGlobalIniFile(GHardwareIni, TEXT("Hardware"));
 	

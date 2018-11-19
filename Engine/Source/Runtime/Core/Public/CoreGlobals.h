@@ -54,6 +54,22 @@ CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogTemp, Log, All);
 
 CORE_API FOutputDeviceRedirector* GetGlobalLogSingleton();
 
+CORE_API void BootTimingPoint(const ANSICHAR *Message);
+
+CORE_API void DumpBootTiming();
+
+struct CORE_API FScopedBootTiming
+{
+	FString Message;
+	double StartTime;
+	FScopedBootTiming(const ANSICHAR *InMessage);
+	FScopedBootTiming(const ANSICHAR *InMessage, FName Suffix);
+	~FScopedBootTiming();
+};
+
+
+#define SCOPED_BOOT_TIMING(x) FScopedBootTiming ANONYMOUS_VARIABLE(BootTiming_)(x);
+
 #define GLog GetGlobalLogSingleton()
 extern CORE_API FConfigCacheIni* GConfig;
 extern CORE_API ITransaction* GUndo;

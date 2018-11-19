@@ -14,7 +14,7 @@ void FAnimNode_SubInput::CacheBones_AnyThread(const FAnimationCacheBonesContext&
 
 void FAnimNode_SubInput::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 }
 
 void FAnimNode_SubInput::Evaluate_AnyThread(FPoseContext& Output)

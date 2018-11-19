@@ -711,7 +711,7 @@ public:
 	 * @param	USoundConcurrency	The sound's sound concurrency settings to use. Will use the USoundBase's USoundConcurrency if not specified.
 	 * @return	The created audio component if the function successfully created one or a nullptr if not successful. Note: if audio is disabled or if there were no hardware audio devices available, this will return nullptr.
 	 */
-	DEPRECATED(4.14, "Use CreateComponent that passes a parameters block instead")
+	UE_DEPRECATED(4.14, "Use CreateComponent that passes a parameters block instead")
 	static UAudioComponent* CreateComponent(USoundBase* Sound, UWorld* World, AActor* Actor = nullptr, bool bPlay = true, bool bStopWhenOwnerDestroyed = false, const FVector* Location = nullptr, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr);
 
 	static UAudioComponent* CreateComponent(USoundBase* Sound, const FCreateComponentParams& Params = FCreateComponentParams());
@@ -861,6 +861,13 @@ public:
 	* Checks to see if a coordinate is within a distance of the given listener
 	*/
 	bool LocationIsAudible(const FVector& Location, const FTransform& ListenerTransform, const float MaxDistance) const;
+
+	/**
+	* Returns the distance to the nearest listener from the given location
+	*/
+	float GetDistanceToNearestListener(const FVector& Location) const;
+
+	float GetSquaredDistanceToListener(const FVector& Location, const FTransform& ListenerTransform) const;
 
 	/**
 	 * Sets the Sound Mix that should be active by default
@@ -1492,7 +1499,7 @@ public:
 	float GetPlatformAudioHeadroom() const { check(IsInAudioThread()); return PlatformAudioHeadroom; }
 	void SetPlatformAudioHeadroom(float PlatformHeadRoom);
 
-	DEPRECATED(4.13, "Direct access of SoundClasses is no longer allowed. Instead you should use the SoundMixClassOverride system")
+	UE_DEPRECATED(4.13, "Direct access of SoundClasses is no longer allowed. Instead you should use the SoundMixClassOverride system")
 	const TMap<USoundClass*, FSoundClassProperties>& GetSoundClassPropertyMap() const
 	{
 		check(IsInAudioThread());

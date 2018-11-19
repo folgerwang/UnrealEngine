@@ -259,6 +259,12 @@ public class DeploymentContext //: ProjectParams
 	public HashSet<StagedFileReference> BlacklistConfigFiles = new HashSet<StagedFileReference>();
 
 	/// <summary>
+	/// List of localization targets that are not included in staged build. By default, all project Content/Localization targets are automatically staged.
+	/// This list is read from the +BlacklistLocalizationTargets=... array in the [Staging] section of *Game.ini files.
+	/// </summary>
+	public List<string> BlacklistLocalizationTargets = new List<string>();
+
+	/// <summary>
 	///  Directory to archive all of the files in: d:\archivedir\WindowsNoEditor
 	/// </summary>
 	public DirectoryReference ArchiveDirectory;
@@ -455,6 +461,15 @@ public class DeploymentContext //: ProjectParams
 			foreach(string WhitelistDirectory in WhitelistDirectoriesList)
 			{
 				WhitelistDirectories.Add(new StagedDirectoryReference(WhitelistDirectory));
+			}
+		}
+
+		List<string> BlacklistLocTargetsList;
+		if (GameConfig.GetArray("Staging", "BlacklistLocalizationTargets", out BlacklistLocTargetsList))
+		{
+			foreach (string BlacklistLocTarget in BlacklistLocTargetsList)
+			{
+				BlacklistLocalizationTargets.Add(BlacklistLocTarget);
 			}
 		}
 

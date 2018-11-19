@@ -114,7 +114,7 @@ struct FEdGraphPinType
 	EPinContainerType ContainerType;
 
 private:
-	/** DEPRECATED(4.17) Whether or not this pin represents an array of values */
+	/** UE_DEPRECATED(4.17) Whether or not this pin represents an array of values */
 	UPROPERTY()
 	uint8 bIsArray_DEPRECATED:1;
 
@@ -147,7 +147,7 @@ public:
 	{
 	}
 
-	//DEPRECATED(4.19, "Remove this helper when removing deprecation as it will no longer be needed")
+	//UE_DEPRECATED(4.19, "Remove this helper when removing deprecation as it will no longer be needed")
 	struct FNameParameterHelper
 	{
 		FNameParameterHelper(const FName InNameParameter) : NameParameter(InNameParameter) { }
@@ -160,7 +160,7 @@ public:
 		FName NameParameter;
 	};
 
-	DEPRECATED(4.17, "Use version that supplies PinCategory and SubCategory as FName, and takes PinContainerType instead of separate booleans for array, set, and map")
+	UE_DEPRECATED(4.17, "Use version that supplies PinCategory and SubCategory as FName, and takes PinContainerType instead of separate booleans for array, set, and map")
 	FEdGraphPinType(const FNameParameterHelper InPinCategory, const FNameParameterHelper InPinSubCategory, UObject* InPinSubCategoryObject, bool bInIsArray, bool bInIsReference, bool bInIsSet, bool bInIsMap, const FEdGraphTerminalType& InValueTerminalType )
 		: PinCategory(*InPinCategory)
 		, PinSubCategory(*InPinSubCategory)
@@ -174,7 +174,7 @@ public:
 	{
 	}
 
-	DEPRECATED(4.19, "Use version that supplies SubCategory as FName")
+	UE_DEPRECATED(4.19, "Use version that supplies SubCategory as FName")
 	FEdGraphPinType(FName InPinCategory, const FString& InPinSubCategory, UObject* InPinSubCategoryObject, EPinContainerType InPinContainerType, bool bInIsReference, const FEdGraphTerminalType& InValueTerminalType)
 		: PinCategory(InPinCategory)
 		, PinSubCategory(*InPinSubCategory)
@@ -188,7 +188,7 @@ public:
 	{
 	}
 
-	//DEPRECATED(4.19, "Remove this constructor when removing FString version, exists only to resolve ambiguity between FName/FString constructors when TCHAR* supplied")
+	//UE_DEPRECATED(4.19, "Remove this constructor when removing FString version, exists only to resolve ambiguity between FName/FString constructors when TCHAR* supplied")
 	FEdGraphPinType(FName InPinCategory, const TCHAR* InPinSubCategory, UObject* InPinSubCategoryObject, EPinContainerType InPinContainerType, bool bInIsReference, const FEdGraphTerminalType& InValueTerminalType)
 		: PinCategory(InPinCategory)
 		, PinSubCategory(InPinSubCategory)

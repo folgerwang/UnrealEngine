@@ -234,9 +234,8 @@ private:
 	FMeasureCache* FindOrAddMeasureCache( const FSlateFontInfo& InFontInfo, const float InFontScale ) const;
 
 private:
-
 	/** Mapping Font keys to cached data */
-	mutable TMap< FSlateFontKey, TSharedPtr< FSlateFontMeasureCache > > FontToMeasureCache;
+	mutable TMap<FSlateFontKey, TSharedPtr<FSlateFontMeasureCache>, FDefaultSetAllocator, FSlateFontKeyFuncs<TSharedPtr<FSlateFontMeasureCache>>> FontToMeasureCache;
 
 	TSharedRef<class FSlateFontCache> FontCache;
 };

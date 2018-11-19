@@ -129,18 +129,21 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 		// allow external systems to add components or otherwise manipulate the scene
 		FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>(TEXT("Persona"));
 		PersonaModule.OnPreviewSceneCreated().Broadcast(PreviewScene.ToSharedRef());
-
+		
+		// if not mesh editor, we allow it to override mesh
+		const bool bAllowOverrideMesh = GetContext() != USkeletalMesh::StaticClass()->GetFName();
 		// Force validation of preview attached assets (catch case of never doing it if we dont have a valid preview mesh)
 		PreviewScene->ValidatePreviewAttachedAssets(nullptr);
-		PreviewScene->RefreshAdditionalMeshes();
+		PreviewScene->RefreshAdditionalMeshes(false);
+		PreviewScene->SetAllowAdditionalMeshes(bAllowOverrideMesh);
 
 		bool bSetMesh = false;
-
 		// Set the mesh
 		if (Mesh)
 		{
-			PreviewScene->SetPreviewMesh(Mesh);
+			PreviewScene->SetPreviewMesh(Mesh, bAllowOverrideMesh);
 			bSetMesh = true;
+			
 		}
 
 		if (!bSetMesh && Skeleton.IsValid())
@@ -316,8 +319,9 @@ void FPersonaToolkit::SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool b
 			FAssetEditorManager::Get().OpenEditorForAsset(AssetToReopen);
 			return;
 		}
-		
-		GetPreviewScene()->SetPreviewMesh(InSkeletalMesh);
+
+		// if it's here, it allows to replace 
+		GetPreviewScene()->SetPreviewMesh(InSkeletalMesh, false);
 	}
 }
 

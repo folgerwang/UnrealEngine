@@ -31,6 +31,7 @@ TSharedRef<SDockTab> FGlobalBlutilityDialog::SpawnTab_DetailsPanel( const FSpawn
 {
 	const TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
 		//@TODO: Add an icon .Icon( FEditorStyle::GetBrush("SoundClassEditor.Tabs.Properties") )
+		.OnCanCloseTab_Lambda([](){ return false; })
 		.Label( LOCTEXT("GlobalBlutilityDetailsTitle", "Blutility Details") )
 		[
 			DetailsView.ToSharedRef()

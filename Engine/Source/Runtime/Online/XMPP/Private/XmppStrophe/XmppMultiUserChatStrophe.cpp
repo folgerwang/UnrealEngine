@@ -114,6 +114,7 @@ bool FXmppMultiUserChatStrophe::HandlePresenceStanza(const FStropheStanza& Incom
 		TOptional<const FStropheStanza> UserItemStanza = UserStanza->GetChild(Strophe::SN_ITEM);
 		if (UserItemStanza.IsSet())
 		{
+			Presence.MemberJid = FXmppStrophe::JidFromString(UserItemStanza->GetAttribute(Strophe::SA_JID));
 			Presence.Role = UserItemStanza->GetAttribute(Strophe::SA_ROLE);
 			Presence.Affiliation = UserItemStanza->GetAttribute(Strophe::SA_AFFILIATION);
 		}
@@ -727,15 +728,8 @@ FXmppChatMemberPtr FXmppMultiUserChatStrophe::GetMember(const FXmppRoomId& RoomI
 	FXmppRoomStrophe* RoomPtr = Chatrooms.Find(RoomId);
 	if (RoomPtr != nullptr)
 	{
-		FXmppChatMemberRef* FoundMemberPtr = RoomPtr->Members.FindByPredicate([&MemberJid](const FXmppChatMemberRef& Member)
-		{
-			return Member->MemberJid == MemberJid;
-		});
-
-		if (FoundMemberPtr != nullptr)
-		{
-			return *FoundMemberPtr;
-		}
+		FXmppChatMemberPtr FoundMember = RoomPtr->GetMember(MemberJid);
+		return FoundMember;
 	}
 
 	return nullptr;
@@ -1274,7 +1268,7 @@ void FXmppMultiUserChatStrophe::HandleRoomMemberChanged(FXmppRoomStrophe& Room, 
 
 	for (FXmppChatMemberRef& Member : Room.Members)
 	{
-		if (Member->MemberJid == MemberPresence.UserJid)
+		if (Member->RoomMemberJid == MemberPresence.UserJid)
 		{
 			// We don't need to update Nickname as it's part of the User's JID
 			Member->UserPresence = MemberPresence;
@@ -1295,7 +1289,7 @@ void FXmppMultiUserChatStrophe::HandleRoomMemberLeft(FXmppRoomStrophe& Room, FXm
 	for (int32 Index = 0; Index < RoomMemberCount; ++Index)
 	{
 		const FXmppChatMemberRef& Member = Room.Members[Index];
-		if (Member->MemberJid == MemberPresence.UserJid)
+		if (Member->RoomMemberJid == MemberPresence.UserJid)
 		{
 			Room.Members.RemoveAt(Index);
 			break;

@@ -569,6 +569,8 @@ void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce/* = false
 		CVarEffectsQuality.AsVariable()->Set(ClampedLevels.EffectsQuality, ECVF_SetByScalability);
 		CVarFoliageQuality.AsVariable()->Set(ClampedLevels.FoliageQuality, ECVF_SetByScalability);
 	}
+
+	OnScalabilitySettingsChanged.Broadcast(ClampedLevels);
 }
 
 FQualityLevels GetQualityLevels()

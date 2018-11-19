@@ -372,6 +372,7 @@ void RenderOutlineRows(FT_Library Library, FT_Outline* Outline, FRasterizerSpanL
 
 bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_FreetypeRenderGlyph);
 	FT_Face Face = InFaceGlyphData.FaceAndMemory->GetFace();
 
 	// Get the lot for the glyph.  This contains measurement info

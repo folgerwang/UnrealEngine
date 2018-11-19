@@ -48,12 +48,40 @@ public:
 		return nullptr;
 	}
 	
+	template <typename WidgetT = UUserWidget>
+	void Reset(TFunctionRef<void(WidgetT&)> ResetEntryFunc, bool bDeleteWidgets = false)
+	{
+		for (UUserWidget* EntryWidget : EntryWidgetPool.GetActiveWidgets())
+		{
+			if (WidgetT* TypedEntry = Cast<WidgetT>(EntryWidget))
+			{
+				ResetEntryFunc(*TypedEntry);
+			}
+		}
+
+		Reset(bDeleteWidgets);
+	}
+
 	/** Clear out the box entries, optionally deleting the underlying Slate widgets entirely as well. */
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	void Reset(bool bDeleteWidgets = false);
 
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	const TArray<UUserWidget*>& GetAllEntries() const;
+
+	template <typename EntryWidgetT = UUserWidget>
+	TArray<EntryWidgetT*> GetTypedEntries() const
+	{
+		TArray<EntryWidgetT*> TypedEntries;
+		for (UUserWidget* Entry : GetAllEntries())
+		{
+			if (EntryWidgetT* TypedEntry = Cast<EntryWidgetT>(Entry))
+			{
+				TypedEntries.Add(TypedEntry);
+			}
+		}
+		return TypedEntries;
+	}
 
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	int32 GetNumEntries() const;

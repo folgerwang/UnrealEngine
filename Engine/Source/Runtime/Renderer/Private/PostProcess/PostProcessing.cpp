@@ -2670,7 +2670,16 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 			TonemapperPass = PostProcessTonemap;
 
 			PostProcessTonemap->SetInput(ePId_Input0, Context.FinalOutput);
-			PostProcessTonemap->SetInput(ePId_Input1, BloomOutput);
+			if (!BloomOutput.IsValid())
+			{
+				FRenderingCompositePass* NoBloom = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackAlphaOneDummy));
+				FRenderingCompositeOutputRef NoBloomRef(NoBloom);
+				PostProcessTonemap->SetInput(ePId_Input1, NoBloomRef);
+			}
+			else
+			{
+				PostProcessTonemap->SetInput(ePId_Input1, BloomOutput);
+			}
 			PostProcessTonemap->SetInput(ePId_Input2, DofOutput);
 
 			Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessTonemap);

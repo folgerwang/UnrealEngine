@@ -254,7 +254,6 @@ private:
 	FNoncopyable& operator=(const FNoncopyable&);
 };
 
-
 /** 
  * exception-safe guard around saving/restoring a value.
  * Commonly used to make sure a value is restored 
@@ -291,6 +290,30 @@ private:
 	AssignedType OldValue;
 };
 
+template <typename FuncType>
+struct TGuardValue_Bitfield_Cleanup : public FNoncopyable
+{
+	explicit TGuardValue_Bitfield_Cleanup(FuncType&& InFunc)
+		: Func(MoveTemp(InFunc))
+	{
+	}
+
+	~TGuardValue_Bitfield_Cleanup()
+	{
+		Func();
+	}
+
+private:
+	FuncType Func;
+};
+
+/** 
+ * Macro variant on TGuardValue<bool> that can deal with bitfields which cannot be passed by reference in to TGuardValue
+ */
+#define FGuardValue_Bitfield(ReferenceValue, NewValue) \
+	const bool TempBitfield##__LINE__ = ReferenceValue; \
+	ReferenceValue = NewValue; \
+	const TGuardValue_Bitfield_Cleanup<TFunction<void()>> TempBitfieldCleanup##__LINE__([&](){ ReferenceValue = TempBitfield##__LINE__; });
 
 /** 
  * Commonly used to make sure a value is incremented, and then decremented anyway the function can terminate.

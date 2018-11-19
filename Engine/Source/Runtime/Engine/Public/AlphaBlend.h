@@ -52,16 +52,12 @@ struct ENGINE_API FAlphaBlend
 	GENERATED_BODY()
 private:
 	/** 
-	 * Please note that changing below two variables would get applied in the NEXT UPDATE. 
+	 * Please note that changing this variable would get applied in the NEXT UPDATE. 
 	 * This does not change the Alpha and BlendedValue right away and it is intentional
 	 */
 
-	/** Type of blending used (Linear, Cubic, etc.) */
-	UPROPERTY(EditAnywhere, Category = "Blend")
-	EAlphaBlendOption BlendOption;
-
 	/** If you're using Custom BlendOption, you can specify curve */
-	UPROPERTY(EditAnywhere, Category = "Blend")
+	UPROPERTY(EditAnywhere, Category = "Blend", meta=(DisplayAfter="BlendOption"))
 	UCurveFloat* CustomCurve;
 
 public:
@@ -186,6 +182,15 @@ private:
 
 	/** Converts internal lerped alpha into the output alpha type */
 	float AlphaToBlendOption();
+
+	/** 
+	* Please note that changing this variable would get applied in the NEXT UPDATE. 
+	* This does not change the Alpha and BlendedValue right away and it is intentional
+	*/
+
+	/** Type of blending used (Linear, Cubic, etc.) */
+	UPROPERTY(EditAnywhere, Category = "Blend")
+	EAlphaBlendOption BlendOption;
 
 	/** internal flag to reset the alpha value */
 	bool bNeedsToResetAlpha;

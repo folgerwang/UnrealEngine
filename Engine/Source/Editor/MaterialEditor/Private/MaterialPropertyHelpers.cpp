@@ -101,7 +101,14 @@ EVisibility FMaterialPropertyHelpers::ShouldShowExpression(UDEditorParameterValu
 
 	ShowHiddenDelegate.ExecuteIfBound(bShowHidden);
 
-	return (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))? EVisibility::Visible: EVisibility::Collapsed;
+	const bool bShouldShowExpression = (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo));
+
+	if (MaterialEditorInstance->bShowOnlyOverrides)
+	{
+		return (IsOverriddenExpression(Parameter) && bShouldShowExpression) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	return bShouldShowExpression ? EVisibility::Visible: EVisibility::Collapsed;
 }
 
 void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction)
@@ -109,9 +116,7 @@ void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetDa
 	const FScopedTransaction Transaction(LOCTEXT("SetLayerorBlendAsset", "Set Layer or Blend Asset"));
 	InHandle->NotifyPreChange();
 	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
-	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
-	FString CompareString;
-	if (MaterialFunctionUsage || InAssetData.AssetName == NAME_None)
+	if (InAssetData.TagsAndValues.Contains(FilterTag) || InAssetData.AssetName == NAME_None)
 	{
 		switch (MaterialType)
 		{
@@ -152,21 +157,22 @@ bool FMaterialPropertyHelpers::FilterLayerAssets(const struct FAssetData& InAsse
 	bool ShouldAssetBeFilteredOut = false;
 	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
 	const FName BaseTag = FName(TEXT("Base"));
-	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
+	FAssetDataTagMapSharedView::FFindTagResult MaterialFunctionUsage = InAssetData.TagsAndValues.FindTag(FilterTag);
+
 	FName BaseClassName;
 	FName InstanceClassName;
 
 	FString CompareString;
-	if (MaterialFunctionUsage)
+	if (MaterialFunctionUsage.IsSet())
 	{
-		FString* Base = const_cast<FString*>(InAssetData.TagsAndValues.Find(BaseTag));
+		FAssetDataTagMapSharedView::FFindTagResult Base = InAssetData.TagsAndValues.FindTag(BaseTag);
 
 		FString BaseString;
 		FString DiscardString;
 		FString CleanString;
-		if (Base != nullptr)
+		if (Base.IsSet())
 		{
-			BaseString = *Base;
+			BaseString = Base.GetValue();
 			BaseString.Split(".", &DiscardString, &CleanString);
 			CleanString.Split("'", &CleanString, &DiscardString);
 		}
@@ -216,7 +222,7 @@ bool FMaterialPropertyHelpers::FilterLayerAssets(const struct FAssetData& InAsse
 		break;
 		}
 
-		if (*MaterialFunctionUsage != CompareString)
+		if (MaterialFunctionUsage.GetValue() != CompareString)
 		{
 
 			ShouldAssetBeFilteredOut = true;

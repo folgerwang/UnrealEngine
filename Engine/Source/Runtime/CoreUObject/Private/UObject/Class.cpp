@@ -520,6 +520,9 @@ UStruct::UStruct(UStruct* InSuperStruct, SIZE_T ParamsSize, SIZE_T Alignment)
 	, DestructorLink(NULL)
 	, PostConstructLink(NULL)
 {
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	this->ReinitializeBaseChainArray();
+#endif
 }
 
 UStruct::UStruct(const FObjectInitializer& ObjectInitializer, UStruct* InSuperStruct, SIZE_T ParamsSize, SIZE_T Alignment )
@@ -533,6 +536,9 @@ UStruct::UStruct(const FObjectInitializer& ObjectInitializer, UStruct* InSuperSt
 ,	DestructorLink	( NULL )
 , PostConstructLink( NULL )
 {
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	this->ReinitializeBaseChainArray();
+#endif
 }
 
 /**
@@ -1253,7 +1259,29 @@ void UStruct::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 
-	SerializeSuperStruct(Ar);
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	UStruct* SuperStructBefore = GetSuperStruct();
+#endif
+
+	Ar << SuperStruct;
+
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	if (Ar.IsLoading())
+	{
+		this->ReinitializeBaseChainArray();
+	}
+	// Handle that fact that FArchive takes UObject*s by reference, and archives can just blat
+	// over our SuperStruct with impunity.
+	else if (SuperStructBefore)
+	{
+		UStruct* SuperStructAfter = GetSuperStruct();
+		if (SuperStructBefore != SuperStructAfter)
+		{
+			this->ReinitializeBaseChainArray();
+		}
+	}
+#endif
+
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::RemoveUField_Next)
 	{
@@ -1448,11 +1476,9 @@ void UStruct::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
 void UStruct::SetSuperStruct(UStruct* NewSuperStruct)
 {
 	SuperStruct = NewSuperStruct;
-}
-
-void UStruct::SerializeSuperStruct(FArchive& Ar)
-{
-	Ar << SuperStruct;
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	this->ReinitializeBaseChainArray();
+#endif
 }
 
 #if WITH_EDITOR || HACK_HEADER_GENERATOR
@@ -1516,15 +1542,10 @@ const UStruct* UStruct::HasMetaDataHierarchical(const FName& Key) const
 	 * 
 	 * @param  ScriptPtr    Reference to the point in the bytecode buffer, where a UObject* has been stored (for us to check).
 	 */
-	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
+	static void HandlePlaceholderScriptRef(void* ScriptPtr)
 	{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
-#else
-		ScriptPointerType  Temp; 
-		FMemory::Memcpy(&Temp, &ScriptPtr, sizeof(ScriptPointerType));
+		ScriptPointerType  Temp = FPlatformMemory::ReadUnaligned<ScriptPointerType>(ScriptPtr);
 		UObject*& ExprPtrRef = (UObject*&)Temp;
-#endif
 		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef))
 		{
 			PlaceholderObj->AddReferencingScriptExpr((UClass**)(&ExprPtrRef));
@@ -1540,8 +1561,7 @@ const UStruct* UStruct::HasMetaDataHierarchical(const FName& Key) const
 		if (!Ar.IsSaving()) \
 		{ \
 			int32 const ExprIndex = iCode - sizeof(ScriptPointerType); \
-			ScriptPointerType& ScriptPtr = (ScriptPointerType&)Script[ExprIndex]; \
-			HandlePlaceholderScriptRef(ScriptPtr); \
+			HandlePlaceholderScriptRef(&Script[ExprIndex]); \
 		} \
 	}
 #endif // #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1598,6 +1618,39 @@ void UStruct::TagSubobjects(EObjectFlags NewFlags)
 		}
 	}
 }
+
+/**
+* @return	true if this object is of the specified type.
+*/
+#if USTRUCT_FAST_ISCHILDOF_COMPARE_WITH_OUTERWALK || USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_OUTERWALK
+bool UStruct::IsChildOf( const UStruct* SomeBase ) const
+{
+	if (SomeBase == nullptr)
+	{
+		return false;
+	}
+
+	bool bOldResult = false;
+	for ( const UStruct* TempStruct=this; TempStruct; TempStruct=TempStruct->GetSuperStruct() )
+	{
+		if ( TempStruct == SomeBase )
+		{
+			bOldResult = true;
+			break;
+		}
+	}
+
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	const bool bNewResult = IsChildOfUsingStructArray(*SomeBase);
+#endif
+
+#if USTRUCT_FAST_ISCHILDOF_COMPARE_WITH_OUTERWALK
+	ensureMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
+#endif
+
+	return bOldResult;
+}
+#endif
 
 /*-----------------------------------------------------------------------------
 	UScriptStruct.
@@ -3432,260 +3485,40 @@ bool UClass::IsSafeToSerializeToStructuredArchives(UClass* InClass)
 	return true;
 }
 
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
 
-	struct FClassParentPair
-	{
-		UClass* Class;
-		UClass* Parent;
-
-		FClassParentPair(UClass* InClass, UClass* InParent)
-			: Class (InClass)
-			, Parent(InParent)
-		{
-		}
-
-		friend bool operator==(const FClassParentPair& Lhs, const UClass* Rhs) { return Lhs.Class == Rhs; }
-		friend bool operator!=(const FClassParentPair& Lhs, const UClass* Rhs) { return Lhs.Class != Rhs; }
-		friend bool operator==(const UClass* Lhs, const FClassParentPair& Rhs) { return Lhs == Rhs.Class; }
-		friend bool operator!=(const UClass* Lhs, const FClassParentPair& Rhs) { return Lhs != Rhs.Class; }
-	};
-
-	/**
-	 * Tree for fast IsA implementation.
-	 *
-	 * Structure is:
-	 * - every class is located at index Class->ClassTreeIndex.
-	 * - the Class->ClassTreeNumChildren classes immediately following each class are the children of the class.
-	 */
-	class FFastIndexingClassTree
-	{
-		friend class UClass;
-		friend class FFastIndexingClassTreeRegistrar;
-
-		static void Register(UClass* NewClass);
-		static void Unregister(UClass* NewClass);
-
-		struct StateType
-		{
-			TArray<FClassParentPair> Classes;
-			TSet<UClass*>            Orphans;
-			FCriticalSection ClassesCriticalSection;
-		};
-
-		static StateType& GetState()
-		{
-			static StateType State;
-			return State;
-		}
-
-	public:
-		static void Validate();
-	};
-
-	void FFastIndexingClassTree::Register(UClass* Class)
-	{
-		StateType& State = GetState();
-		FScopeLock Lock(&State.ClassesCriticalSection);
-
-		// Ensure that the class is not already registered or orphaned
-		check(!State.Classes.Contains(Class) && !State.Orphans.Contains(Class));
-
-		UClass* ParentClass = Class->GetSuperClass();
-
-		// If the parent has previously been orphaned, flag the child as orphaned
-		if (State.Orphans.Contains(ParentClass))
-		{
-			State.Orphans.Add(Class);
-			return;
-		}
-
-		int32 NewIndex;
-		if (ParentClass)
-		{
-			// Can happen if a child is registered *after* the parent
-			if (!State.Classes.Contains(ParentClass))
-			{
-				State.Orphans.Add(Class);
-				return;
-			}
-
-			NewIndex = ParentClass->ClassTreeIndex + ParentClass->ClassTreeNumChildren + 1;
-		}
-		else
-		{
-			NewIndex = State.Classes.Num();
-		}
-
-		// Increment indices of following classes
-		for (auto Index = NewIndex, LastIndex = State.Classes.Num(); Index != LastIndex; ++Index)
-		{
-			++State.Classes[Index].Class->ClassTreeIndex;
-		}
-
-		// Update children count of all parents
-		for (auto* Parent = ParentClass; Parent; Parent = Parent->GetSuperClass())
-		{
-			++Parent->ClassTreeNumChildren;
-		}
-
-		// Add class
-		Class->ClassTreeIndex       = NewIndex;
-		Class->ClassTreeNumChildren = 0;
-		State.Classes.Insert(FClassParentPair(Class, ParentClass), NewIndex);
-
-		// Re-register any children orphaned by a previous Unregister call
-		TArray<UClass*> OrphansToReregister;
-		for (auto It = State.Orphans.CreateIterator(); It; ++It)
-		{
-			UClass* Orphan = *It;
-			if (Orphan->GetSuperClass() == Class)
-			{
-				OrphansToReregister.Add(Orphan);
-				It.RemoveCurrent();
-			}
-		}
-
-		State.Orphans.Compact();
-
-		for (UClass* Orphan : OrphansToReregister)
-		{
-			Register(Orphan);
-		}
-
-		#if DO_CLASS_TREE_VALIDATION
-			Validate();
-		#endif
-	}
-
-	void FFastIndexingClassTree::Unregister(UClass* Class)
-	{
-		StateType& State = GetState();
-		FScopeLock Lock(&State.ClassesCriticalSection);
-
-		// Remove class if it was already orphaned
-		if (State.Orphans.Remove(Class))
-		{
-			State.Orphans.Compact();
-			return;
-		}
-
-		UClass* ParentClass = State.Classes[Class->ClassTreeIndex].Parent;
-
-		// Ensure that the class and any parent are registered and in the expected location
-		check(                State.Classes[Class      ->ClassTreeIndex].Class == Class);
-		check(!ParentClass || State.Classes[ParentClass->ClassTreeIndex].Class == ParentClass);
-
-		// Remove it and mark its children as orphaned
-		int32 ClassIndex       = Class->ClassTreeIndex;
-		int32 ClassNumChildren = Class->ClassTreeNumChildren;
-		int32 NumRemoved       = ClassNumChildren + 1;
-
-		// Mark any children as orphaned
-		for (int32 Index = ClassIndex + 1, EndIndex = ClassIndex + NumRemoved; Index != EndIndex; ++Index)
-		{
-			State.Orphans.Add(State.Classes[Index].Class);
-		}
-
-		// Decrement indices of following classes
-		for (int32 Index = ClassIndex + NumRemoved, IndexEnd = State.Classes.Num(); Index != IndexEnd; ++Index)
-		{
-			State.Classes[Index].Class->ClassTreeIndex -= NumRemoved;
-		}
-
-		// Update children count of all parents
-		for (auto* Parent = ParentClass; Parent; Parent = Parent->GetSuperClass())
-		{
-			Parent->ClassTreeNumChildren -= NumRemoved;
-		}
-
-		State.Classes.RemoveAt(ClassIndex, NumRemoved, false);
-
-		#if DO_CLASS_TREE_VALIDATION
-			Validate();
-		#endif
-	}
-
-	void FFastIndexingClassTree::Validate()
-	{
-		StateType& State = GetState();
-		FScopeLock Lock(&State.ClassesCriticalSection);
-
-		for (const FClassParentPair& Pair : State.Classes)
-		{
-			int32 Index = Pair.Class->ClassTreeIndex;
-
-			// Check that the class is not orphaned
-			check(!State.Orphans.Contains(Pair.Class));
-
-			// Check that the class is where it thinks it is
-			check(State.Classes[Index] == Pair.Class);
-
-			if (Pair.Parent)
-			{
-				int32 ParentIndex = Pair.Parent->ClassTreeIndex;
-
-				// Check that the parent is registered and not orphaned
-				check( State.Classes.Contains(Pair.Parent));
-				check(!State.Orphans.Contains(Pair.Parent));
-
-				// Check that class 'is' its parent
-				check(Index - Pair.Parent->ClassTreeIndex <= Pair.Parent->ClassTreeNumChildren);
-			}
-		}
-	}
-
-	FFastIndexingClassTreeRegistrar::FFastIndexingClassTreeRegistrar()
-	{
-		ClassTreeIndex = -1;
-		FFastIndexingClassTree::Register((UClass*)this);
-	}
-
-	FFastIndexingClassTreeRegistrar::FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&)
-	{
-		ClassTreeIndex = -1;
-		FFastIndexingClassTree::Register((UClass*)this);
-	}
-
-	FFastIndexingClassTreeRegistrar::~FFastIndexingClassTreeRegistrar()
-	{
-		FFastIndexingClassTree::Unregister((UClass*)this);
-	}
-
-#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-
-	FClassBaseChain::FClassBaseChain()
-		: ClassBaseChainArray(nullptr)
-		, NumClassBasesInChainMinusOne(-1)
+	FStructBaseChain::FStructBaseChain()
+		: StructBaseChainArray(nullptr)
+		, NumStructBasesInChainMinusOne(-1)
 	{
 	}
 
-	FClassBaseChain::~FClassBaseChain()
+	FStructBaseChain::~FStructBaseChain()
 	{
-		delete [] ClassBaseChainArray;
+		delete [] StructBaseChainArray;
 	}
 
-	void FClassBaseChain::ReinitializeBaseChainArray()
+	void FStructBaseChain::ReinitializeBaseChainArray()
 	{
-		delete [] ClassBaseChainArray;
+		delete [] StructBaseChainArray;
 
 		int32 Depth = 0;
-		for (UClass* Ptr = static_cast<UClass*>(this); Ptr; Ptr = Ptr->GetSuperClass())
+		for (UStruct* Ptr = static_cast<UStruct*>(this); Ptr; Ptr = Ptr->GetSuperStruct())
 		{
 			++Depth;
 		}
 
-		FClassBaseChain** Bases = new FClassBaseChain*[Depth];
+		FStructBaseChain** Bases = new FStructBaseChain*[Depth];
 		{
-			FClassBaseChain** Base = Bases + Depth;
-			for (UClass* Ptr = static_cast<UClass*>(this); Ptr; Ptr = Ptr->GetSuperClass())
+			FStructBaseChain** Base = Bases + Depth;
+			for (UStruct* Ptr = static_cast<UStruct*>(this); Ptr; Ptr = Ptr->GetSuperStruct())
 			{
 				*--Base = Ptr;
 			}
 		}
 
-		ClassBaseChainArray = Bases;
-		NumClassBasesInChainMinusOne = Depth - 1;
+		StructBaseChainArray = Bases;
+		NumStructBasesInChainMinusOne = Depth - 1;
 	}
 
 #endif
@@ -3693,40 +3526,9 @@ bool UClass::IsSafeToSerializeToStructuredArchives(UClass* InClass)
 void UClass::SetSuperStruct(UStruct* NewSuperStruct)
 {
 	UnhashObject(this);
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	FFastIndexingClassTree::Unregister(this);
-#endif
 	ClearFunctionMapsCaches();
 	Super::SetSuperStruct(NewSuperStruct);
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	FFastIndexingClassTree::Register(this);
-#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-	this->ReinitializeBaseChainArray();
-#endif
 	HashObject(this);
-}
-
-void UClass::SerializeSuperStruct(FArchive& Ar)
-{
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	bool bIsLoading = Ar.IsLoading();
-	if (bIsLoading)
-	{
-		FFastIndexingClassTree::Unregister(this);
-	}
-#endif
-	Super::SerializeSuperStruct(Ar);
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	if (bIsLoading)
-	{
-		FFastIndexingClassTree::Register(this);
-	}
-#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-	if (Ar.IsLoading())
-	{
-		this->ReinitializeBaseChainArray();
-	}
-#endif
 }
 
 void UClass::Serialize( FArchive& Ar )
@@ -3737,27 +3539,7 @@ void UClass::Serialize( FArchive& Ar )
 		UnhashObject(this);
 	}
 
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-	UClass* SuperClassBefore = GetSuperClass();
-#endif
 	Super::Serialize( Ar );
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-	// Handle that fact that FArchive takes UObject*s by reference, and archives can just blat
-	// over our SuperStruct with impunity.
-	if (SuperClassBefore)
-	{
-		UClass* SuperClassAfter = GetSuperClass();
-		if (SuperClassBefore != SuperClassAfter)
-		{
-			#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-				FFastIndexingClassTree::Unregister(this);
-				FFastIndexingClassTree::Register(this);
-			#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-				this->ReinitializeBaseChainArray();
-			#endif
-		}
-	}
-#endif
 
 	if ( Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences() )
 	{
@@ -5121,151 +4903,157 @@ static UScriptStruct* StaticGetBaseStructureInternal(FName Name)
 
 UScriptStruct* TBaseStructure<FRotator>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Rotator"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Rotator"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FQuat>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Quat"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Quat"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FTransform>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Transform"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Transform"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FLinearColor>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("LinearColor"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("LinearColor"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FColor>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Color"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Color"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FPlane>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Plane"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Plane"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FVector>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FVector2D>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector2D"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector2D"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FVector4>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector4"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector4"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FRandomStream>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("RandomStream"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("RandomStream"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FGuid>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Guid"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Guid"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FBox2D>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Box2D"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Box2D"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FFallbackStruct>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FallbackStruct"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("FallbackStruct"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FFloatRangeBound>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRangeBound"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRangeBound"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FFloatRange>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRange"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatRange"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FInt32RangeBound>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32RangeBound"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32RangeBound"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FInt32Range>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Range"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Range"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FFloatInterval>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatInterval"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("FloatInterval"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FInt32Interval>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Interval"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("Int32Interval"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FSoftObjectPath>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("SoftObjectPath"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("SoftObjectPath"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FSoftClassPath>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("SoftClassPath"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("SoftClassPath"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FPrimaryAssetType>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("PrimaryAssetType"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("PrimaryAssetType"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FPrimaryAssetId>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("PrimaryAssetId"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("PrimaryAssetId"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FPolyglotTextData>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("PolyglotTextData"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("PolyglotTextData"));
 	return ScriptStruct;
 }
 
 UScriptStruct* TBaseStructure<FDateTime>::Get()
 {
-	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("DateTime"));
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("DateTime"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FFrameNumber>::Get()
+{
+	static UScriptStruct* ScriptStruct = StaticGetBaseStructureInternal(TEXT("FrameNumber"));
 	return ScriptStruct;
 }
 

@@ -104,7 +104,7 @@ public:
 	 * Refresh poses. Tells the system to update the poses for its tracked devices.
 	 * May be called both from the game and the render thread.
 	 */
-	DEPRECATED(4.19, "This functionality is no longer supported.")
+	UE_DEPRECATED(4.19, "This functionality is no longer supported.")
 	virtual void RefreshPoses() {}
 
 	/** 

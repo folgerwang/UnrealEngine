@@ -17,7 +17,7 @@ struct FMovieSceneEvaluationGroupParameters
 		: EvaluationPriority(InPriority)
 	{}
 
-	DEPRECATED(4.17, "Please remove bInRequiresImmediateFlush parameter")
+	UE_DEPRECATED(4.17, "Please remove bInRequiresImmediateFlush parameter")
 	FMovieSceneEvaluationGroupParameters(uint16 InPriority, bool bInRequiresImmediateFlush)
 		: EvaluationPriority(InPriority)
 	{}

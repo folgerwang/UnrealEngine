@@ -337,7 +337,7 @@ struct FFindGroupsResult
 	FPagedQuery Paging;
 	FString ErrorContent;
 
-	inline bool DidSucceed() const { return (HttpStatus / 100) == 2; }
+	inline bool DidSucceed() const { return EHttpResponseCodes::IsOk(HttpStatus); }
 
 	FFindGroupsResult()
 		: HttpStatus(0)

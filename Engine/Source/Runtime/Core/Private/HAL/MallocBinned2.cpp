@@ -1223,16 +1223,13 @@ void FMallocBinned2::DumpAllocatorStats(class FOutputDevice& Ar)
 	int64 TotalAllocatedSmallPoolMemory = GetTotalAllocatedSmallPoolMemory();
 
 	Ar.Logf(TEXT("FMallocBinned2 Mem report"));
-	Ar.Logf(TEXT("Small Pool"));
-	Ar.Logf(TEXT("Requested Allocations: %fmb  (including block size padding)"), ((double)TotalAllocatedSmallPoolMemory) / (1024.0f * 1024.0f) );
-	Ar.Logf(TEXT("OS Allocated: %fmb"), ((double)TotalAllocatedSmallPoolMemory) / (1024.0f * 1024.0f));
-	Ar.Logf(TEXT("Large Pool"));
-	Ar.Logf(TEXT("Requested Allocations: %fmb"), ((double)AllocatedLargePoolMemory) / (1024.0f * 1024.0f));
-	Ar.Logf(TEXT("OS Allocated: %fmb"), ((double)AllocatedLargePoolMemoryWAlignment) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Small Pool Allocations: %fmb  (including block size padding)"), ((double)TotalAllocatedSmallPoolMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Small Pool OS Allocated: %fmb"), ((double)AllocatedOSSmallPoolMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Large Pool Requested Allocations: %fmb"), ((double)AllocatedLargePoolMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Large Pool OS Allocated: %fmb"), ((double)AllocatedLargePoolMemoryWAlignment) / (1024.0f * 1024.0f));
 
 	uint64 OSPageAllocatorCachedFreeSize = CachedOSPageAllocator.GetCachedFreeTotal();
-	Ar.Logf(TEXT("OS Page Allocator"));
-	Ar.Logf(TEXT("Cached free pages: %fmb"), ((double)OSPageAllocatorCachedFreeSize) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Cached free OS pages: %fmb"), ((double)OSPageAllocatorCachedFreeSize) / (1024.0f * 1024.0f));
 #else
 	Ar.Logf(TEXT("Allocator Stats for binned2 are not in this build set BINNED2_ALLOCATOR_STATS 1 in MallocBinned2.cpp"));
 #endif

@@ -12,6 +12,7 @@
 #include "AssetTypeCategories.h"
 #include "IAssetTypeActions.h"
 #include "AutomatedAssetImportData.h"
+#include "ARFilter.h"
 #include "IAssetTools.generated.h"
 
 
@@ -20,6 +21,7 @@ class IAssetTypeActions;
 class IClassTypeActions;
 class UFactory;
 class UAssetImportTask;
+class UAdvancedCopyCustomization;
 
 USTRUCT(BlueprintType)
 struct FAssetRenameData
@@ -87,6 +89,56 @@ struct FAdvancedAssetCategory
 	}
 };
 
+USTRUCT()
+struct FAdvancedCopyParams
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bShouldForceSave;
+	bool bCopyOverAllDestinationOverlaps;
+	bool bGenerateUniqueNames;
+	bool bShouldSuppressUI;
+	bool bShouldCheckForDependencies;
+
+	const TArray<FName>& GetSelectedPackageNames() const
+	{
+		return SelectedPackageNames;
+	}
+
+	const FString& GetDropLocationForAdvancedCopy() const
+	{
+		return DropLocationForAdvancedCopy;
+	}
+
+	const TArray<UAdvancedCopyCustomization*>& GetCustomizationsToUse() const
+	{
+		return CustomizationsToUse;
+	}
+
+	void AddCustomization(UAdvancedCopyCustomization* InCustomization)
+	{
+		CustomizationsToUse.Add(InCustomization);
+	}
+
+	FAdvancedCopyParams(TArray<FName> InSelectedPackageNames, FString InDropLocationForAdvancedCopy)
+		: bShouldForceSave(false)
+		, bCopyOverAllDestinationOverlaps(true)
+		, bGenerateUniqueNames(false)
+		, bShouldSuppressUI(false)
+		, bShouldCheckForDependencies(true)
+		, SelectedPackageNames(InSelectedPackageNames)
+		, DropLocationForAdvancedCopy(InDropLocationForAdvancedCopy)
+	{
+	}
+
+	FAdvancedCopyParams() {}
+
+private:
+	TArray<FName> SelectedPackageNames;
+	TArray<UAdvancedCopyCustomization*> CustomizationsToUse;
+	FString DropLocationForAdvancedCopy;
+
+};
 
 UINTERFACE(MinimalApi, BlueprintType, meta = (CannotImplementInterfaceInBlueprint))
 class UAssetTools : public UInterface
@@ -168,7 +220,7 @@ public:
 	virtual UObject* CreateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
 
 	/** Opens an asset picker dialog and creates an asset with the chosen path */
-	DEPRECATED(4.17, "This version of CreateAsset has been deprecated.  Use CreateAssetWithDialog instead")
+	UE_DEPRECATED(4.17, "This version of CreateAsset has been deprecated.  Use CreateAssetWithDialog instead")
 	virtual UObject* CreateAsset(UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
 
 	/** Opens an asset picker dialog and creates an asset with the path chosen in the dialog */
@@ -197,7 +249,7 @@ public:
 	/** Event issued at the end of the rename process */
 	virtual FAssetPostRenameEvent& OnAssetPostRename() = 0;
 
-	DEPRECATED(4.17, "This version of ImportAssets has been deprecated.  Use ImportAssetsWithDialog instead")
+	UE_DEPRECATED(4.17, "This version of ImportAssets has been deprecated.  Use ImportAssetsWithDialog instead")
 	virtual TArray<UObject*> ImportAssets(const FString& DestinationPath) = 0;
 
 	/**
@@ -308,11 +360,35 @@ public:
 	/* Migrate packages to another game content folder */
 	virtual void MigratePackages(const TArray<FName>& PackageNamesToMigrate) const = 0;
 
+	/* Copy packages and dependencies to another folder */
+	virtual void BeginAdvancedCopyPackages(const TArray<FName>& PackageNamesToCopy, const FString& TargetPath) const = 0;
+
 	/** Fix up references to the specified redirectors */
 	virtual void FixupReferencers(const TArray<UObjectRedirector*>& Objects) const = 0;
 
 	/** Expands any folders found in the files list, and returns a flattened list of destination paths and files.  Mirrors directory structure. */
 	virtual void ExpandDirectories(const TArray<FString>& Files, const FString& DestinationPath, TArray<TPair<FString, FString>>& FilesAndDestinations) const = 0;
+
+	/** Copies files after the final set of maps of sources and destinations was confirmed */
+	virtual bool AdvancedCopyPackages(const FAdvancedCopyParams& CopyParams, const TArray<TMap<FString, FString>> PackagesAndDestinations) const = 0;
+
+	/** Copies files after the flattened map of sources and destinations was confirmed */
+	virtual bool AdvancedCopyPackages(const TMap<FString, FString>& SourceAndDestPackages, const bool bForceAutosave = false, const bool bCopyOverAllDestinationOverlaps = true) const = 0;
+
+	/* Given a set of packages to copy, generate the map of those packages to destination filenames */
+	virtual void GenerateAdvancedCopyDestinations(FAdvancedCopyParams& InParams, const TArray<FName>& InPackageNamesToCopy, const UAdvancedCopyCustomization* CopyCustomization, TMap<FString, FString>& OutPackagesAndDestinations) const = 0;
+
+	/* Flattens the maps for each selected package into one complete map to pass to the final copy function while checking for collisions */
+	virtual bool FlattenAdvancedCopyDestinations(const TArray<TMap<FString, FString>> PackagesAndDestinations, TMap<FString, FString>& FlattenedPackagesAndDestinations) const = 0;
+
+	/* Validate the destinations for advanced copy once the map has been flattened */
+	virtual bool ValidateFlattenedAdvancedCopyDestinations(const TMap<FString, FString>& FlattenedPackagesAndDestinations) const = 0;
+
+	/* Find all the dependencies that also need to be copied in the advanced copy, mapping them to the file that depends on them and excluding any that don't pass the ARFilter stored on CopyParams */
+	virtual void GetAllAdvancedCopySources(FName SelectedPackage, FAdvancedCopyParams& CopyParams, TArray<FName>& OutPackageNamesToCopy, TMap<FName, FName>& DependencyMap) const = 0;
+
+	/* Given a complete set of copy parameters, which includes the selected package set, start the advanced copy process */
+	virtual void InitAdvancedCopyFromCopyParams(FAdvancedCopyParams CopyParams) const = 0;
 
 	/** Opens editor for assets */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")

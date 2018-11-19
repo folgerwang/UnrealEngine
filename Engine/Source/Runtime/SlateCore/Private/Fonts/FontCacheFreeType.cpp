@@ -84,6 +84,7 @@ void ApplySizeAndScale(FT_Face InFace, const int32 InFontSize, const float InFon
 
 FT_Error LoadGlyph(FT_Face InFace, const uint32 InGlyphIndex, const int32 InLoadFlags, const int32 InFontSize, const float InFontScale)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FreetypeLoadGlyph);
 	ApplySizeAndScale(InFace, InFontSize, InFontScale);
 	return FT_Load_Glyph(InFace, InGlyphIndex, InLoadFlags);
 }

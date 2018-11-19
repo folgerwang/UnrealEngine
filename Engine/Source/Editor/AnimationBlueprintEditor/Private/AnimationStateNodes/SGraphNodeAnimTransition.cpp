@@ -269,6 +269,21 @@ FLinearColor SGraphNodeAnimTransition::StaticGetTransitionColor(UAnimStateTransi
 	UAnimBlueprintGeneratedClass* Class = AnimBlueprint->GetAnimBlueprintGeneratedClass();
 	UEdGraph* StateMachineGraph = TransNode->GetGraph();
 
+	//@TODO: WIP fast path / slow path coloring
+	if (AnimBlueprint->bWarnAboutBlueprintUsage || ((ActiveObject != nullptr) && (ActiveObject->PCV_ShouldNotifyAboutNodesNotUsingFastPath() || ActiveObject->PCV_ShouldWarnAboutNodesNotUsingFastPath())))
+	{
+		if (UAnimationTransitionGraph* TransGraph = Cast<UAnimationTransitionGraph>(TransNode->GetBoundGraph()))
+		{
+			if (UAnimGraphNode_TransitionResult* ResultNode = TransGraph->GetResultNode())
+			{
+				if (ResultNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint)
+				{
+					BaseColor = FLinearColor(0.4f, 0.4f, 1.0f);
+				}
+			}
+		}
+	}
+
 	if ((ActiveObject != NULL) && (Class != NULL))
 	{
 		if (FStateMachineDebugData* DebugInfo = Class->GetAnimBlueprintDebugData().StateMachineDebugData.Find(StateMachineGraph))

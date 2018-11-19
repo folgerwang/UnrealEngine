@@ -9,16 +9,19 @@
 // FAnimNode_BoneDrivenController
 
 FAnimNode_BoneDrivenController::FAnimNode_BoneDrivenController()
-	: SourceComponent(EComponentType::None)
-	, DrivingCurve(nullptr)
+	: DrivingCurve(nullptr)
 	, Multiplier(1.0f)
-	, bUseRange(false)
 	, RangeMin(-1.0f)
 	, RangeMax(1.0f)
 	, RemappedMin(0.0f)
 	, RemappedMax(1.0f)
-	, DestinationMode(EDrivenDestinationMode::Bone)
+#if WITH_EDITORONLY_DATA
 	, TargetComponent_DEPRECATED(EComponentType::None)
+#endif
+	, DestinationMode(EDrivenDestinationMode::Bone)
+	, ModificationMode(EDrivenBoneModificationMode::AddToInput)
+	, SourceComponent(EComponentType::None)
+	, bUseRange(false)
 	, bAffectTargetTranslationX(false)
 	, bAffectTargetTranslationY(false)
 	, bAffectTargetTranslationZ(false)
@@ -28,7 +31,6 @@ FAnimNode_BoneDrivenController::FAnimNode_BoneDrivenController()
 	, bAffectTargetScaleX(false)
 	, bAffectTargetScaleY(false)
 	, bAffectTargetScaleZ(false)
-	, ModificationMode(EDrivenBoneModificationMode::AddToInput)	
 {
 }
 
@@ -248,6 +250,8 @@ bool FAnimNode_BoneDrivenController::IsValidToEvaluate(const USkeleton* Skeleton
 	return SourceBone.IsValidToEvaluate(RequiredBones) && ( TargetBone.IsValidToEvaluate(RequiredBones) || DestinationMode != EDrivenDestinationMode::Bone );
 }
 
+#if WITH_EDITORONLY_DATA
+
 void FAnimNode_BoneDrivenController::ConvertTargetComponentToBits()
 {
 	switch (TargetComponent_DEPRECATED)
@@ -277,6 +281,8 @@ void FAnimNode_BoneDrivenController::ConvertTargetComponentToBits()
 		break;
 	}
 }
+
+#endif
 
 void FAnimNode_BoneDrivenController::InitializeBoneReferences(const FBoneContainer& RequiredBones)
 {

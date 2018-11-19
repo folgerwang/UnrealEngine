@@ -2,6 +2,74 @@
 
 #include "Misc/TextFilterUtils.h"
 
+namespace TextFilterInternal
+{
+	template <typename CharType>
+	bool CompareStrings(const CharType* Str, int32 Length, const CharType* Find, int32 FindLength, const ETextFilterTextComparisonMode InTextComparisonMode, ESearchCase::Type SearchCase = ESearchCase::CaseSensitive)
+	{
+		if (SearchCase == ESearchCase::CaseSensitive)
+		{
+			switch(InTextComparisonMode)
+			{
+			case ETextFilterTextComparisonMode::Exact:
+				return TCString<CharType>::Strcmp(Str, Find) == 0;
+			case ETextFilterTextComparisonMode::Partial:
+				return TCString<CharType>::Strstr(Str, Find) != nullptr;
+			case ETextFilterTextComparisonMode::StartsWith:
+				if (FindLength < 0)
+				{
+					FindLength = TCString<CharType>::Strlen(Find);
+				}
+				return FindLength > 0 && TCString<CharType>::Strncmp(Str, Find, FindLength) == 0;
+			case ETextFilterTextComparisonMode::EndsWith:
+				if (Length < 0)
+				{
+					Length = TCString<CharType>::Strlen(Str);
+				}
+				if (FindLength < 0)
+				{
+					FindLength = TCString<CharType>::Strlen(Find);
+				}
+				return Length > 0 && Length >= FindLength
+					&& TCString<CharType>::Strncmp(Str + (Length - FindLength), Find, FindLength) == 0;
+			default:
+				break;
+			}
+		}
+		else
+		{
+			switch(InTextComparisonMode)
+			{
+			case ETextFilterTextComparisonMode::Exact:
+				return TCString<CharType>::Stricmp(Str, Find) == 0;
+			case ETextFilterTextComparisonMode::Partial:
+				return TCString<CharType>::Stristr(Str, Find) != nullptr;
+			case ETextFilterTextComparisonMode::StartsWith:
+				if (FindLength < 0)
+				{
+					FindLength = TCString<CharType>::Strlen(Find);
+				}
+				return FindLength > 0 && TCString<CharType>::Strnicmp(Str, Find, FindLength) == 0;
+			case ETextFilterTextComparisonMode::EndsWith:
+				if (Length < 0)
+				{
+					Length = TCString<CharType>::Strlen(Str);
+				}
+				if (FindLength < 0)
+				{
+					FindLength = TCString<CharType>::Strlen(Find);
+				}
+				return Length > 0 && Length >= FindLength
+					&& TCString<CharType>::Strnicmp(Str + (Length - FindLength), Find, FindLength) == 0;
+			default:
+				break;
+			}
+		}
+
+		return false;
+	}
+} // namespace TextFilterInternal
+
 /** ToUpper implementation that's optimized for ASCII characters */
 namespace FastToUpper
 {
@@ -153,40 +221,47 @@ namespace FastToUpper
 } // namespace FastToUpper
 
 FTextFilterString::FTextFilterString()
-	: InternalString()
+	: InternalString(),
+	InternalStringAnsi()
 {
 }
 
 FTextFilterString::FTextFilterString(const FTextFilterString& Other)
-	: InternalString(Other.InternalString)
+	: InternalString(Other.InternalString),
+	InternalStringAnsi(Other.InternalStringAnsi)
 {
 }
 
 FTextFilterString::FTextFilterString(FTextFilterString&& Other)
-	: InternalString(MoveTemp(Other.InternalString))
+	: InternalString(MoveTemp(Other.InternalString)),
+	InternalStringAnsi(MoveTemp(Other.InternalStringAnsi))
 {
 }
 
 FTextFilterString::FTextFilterString(const FString& InString)
-	: InternalString(InString)
+	: InternalString(InString),
+	InternalStringAnsi()
 {
 	UppercaseInternalString();
 }
 
 FTextFilterString::FTextFilterString(FString&& InString)
-	: InternalString(MoveTemp(InString))
+	: InternalString(MoveTemp(InString)),
+	InternalStringAnsi()
 {
 	UppercaseInternalString();
 }
 
 FTextFilterString::FTextFilterString(const TCHAR* InString)
-	: InternalString(InString)
+	: InternalString(InString),
+	InternalStringAnsi()
 {
 	UppercaseInternalString();
 }
 
 FTextFilterString::FTextFilterString(const FName& InName)
-	: InternalString()
+	: InternalString(),
+	InternalStringAnsi()
 {
 	InName.AppendString(InternalString);
 	UppercaseInternalString();
@@ -195,30 +270,39 @@ FTextFilterString::FTextFilterString(const FName& InName)
 FTextFilterString& FTextFilterString::operator=(const FTextFilterString& Other)
 {
 	InternalString = Other.InternalString;
+	InternalStringAnsi = Other.InternalStringAnsi;
 	return *this;
 }
 
 FTextFilterString& FTextFilterString::operator=(FTextFilterString&& Other)
 {
 	InternalString = MoveTemp(Other.InternalString);
+	InternalStringAnsi = MoveTemp(Other.InternalStringAnsi);
 	return *this;
 }
 
 bool FTextFilterString::CompareText(const FTextFilterString& InOther, const ETextFilterTextComparisonMode InTextComparisonMode) const
 {
-	switch(InTextComparisonMode)
+	return TextFilterInternal::CompareStrings<TCHAR>(*InternalString, InternalString.Len(), *InOther.InternalString, InOther.InternalString.Len(), InTextComparisonMode);
+}
+
+bool FTextFilterString::CompareFString(const FString& InOtherUpper, const ETextFilterTextComparisonMode InTextComparisonMode) const
+{
+	return TextFilterInternal::CompareStrings<TCHAR>(*InOtherUpper, InOtherUpper.Len(), *InternalString, InternalString.Len(), InTextComparisonMode);
+}
+
+bool FTextFilterString::CompareName(const FName& InOther, const ETextFilterTextComparisonMode InTextComparisonMode) const
+{
+	TextFilterUtils::FNameBufferWithNumber OtherNameBuffer(InOther);
+	if (OtherNameBuffer.IsWide())
 	{
-	case ETextFilterTextComparisonMode::Exact:
-		return FCString::Strcmp(*InternalString, *InOther.InternalString) == 0;
-	case ETextFilterTextComparisonMode::Partial:
-		return FCString::Strstr(*InternalString, *InOther.InternalString) != nullptr;
-	case ETextFilterTextComparisonMode::StartsWith:
-		return InOther.InternalString.Len() > 0 && FCString::Strncmp(*InternalString, *InOther.InternalString, InOther.InternalString.Len()) == 0;
-	case ETextFilterTextComparisonMode::EndsWith:
-		return InOther.InternalString.Len() > 0 && InternalString.Len() >= InOther.InternalString.Len() 
-			&& FCString::Strncmp((*InternalString) + (InternalString.Len() - InOther.InternalString.Len()), *InOther.InternalString, InOther.InternalString.Len()) == 0;
-	default:
-		break;
+		FCString::Strupr(OtherNameBuffer.GetWideNamePtr(), OtherNameBuffer.GetMaxBufferLength());
+		return TextFilterInternal::CompareStrings<TCHAR>(OtherNameBuffer.GetWideNamePtr(), -1, *InternalString, InternalString.Len(), InTextComparisonMode);
+	}
+	else if (InternalStringAnsi.Num() > 1)
+	{
+		FCStringAnsi::Strupr(OtherNameBuffer.GetAnsiNamePtr(), OtherNameBuffer.GetMaxBufferLength());
+		return TextFilterInternal::CompareStrings<ANSICHAR>(OtherNameBuffer.GetAnsiNamePtr(), -1, InternalStringAnsi.GetData(), InternalStringAnsi.Num() - 1, InTextComparisonMode);
 	}
 
 	return false;
@@ -262,6 +346,44 @@ void FTextFilterString::UppercaseInternalString()
 	for (TCHAR* CharPtr = const_cast<TCHAR*>(*InternalString); *CharPtr; ++CharPtr)
 	{
 		*CharPtr = FastToUpper::ToUpper(*CharPtr);
+	}
+
+	TextFilterUtils::TryConvertWideToAnsi(InternalString, InternalStringAnsi);
+}
+
+bool TextFilterUtils::TryConvertWideToAnsi(const FString& SourceWideString, TArray<ANSICHAR>& DestAnsiString)
+{
+	DestAnsiString.Reset();
+
+	if (FCString::IsPureAnsi(*SourceWideString))
+	{
+		if (SourceWideString.Len() > 0)
+		{
+			DestAnsiString.AddUninitialized(SourceWideString.Len() + 1);
+			FPlatformString::Convert(DestAnsiString.GetData(), DestAnsiString.Num(), *SourceWideString, SourceWideString.Len() + 1);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+int32 TextFilterUtils::NameStrincmp(const FName& Name, const FString& WideOther, const TArray<ANSICHAR>& AnsiOther, int32 Length)
+{
+	TextFilterUtils::FNameBufferWithNumber NameBuffer(Name);
+	if (NameBuffer.IsWide())
+	{
+		return FCStringWide::Strnicmp(NameBuffer.GetWideNamePtr(), *WideOther, Length);
+	}
+	else if (AnsiOther.Num() > 1)
+	{
+		return FCStringAnsi::Strnicmp(NameBuffer.GetAnsiNamePtr(), AnsiOther.GetData(), Length);
+	}
+	else
+	{
+		// We know they are not equal (FName contains only ansi while other contains wide)
+		return -1;
 	}
 }
 

@@ -102,8 +102,18 @@ public:
 		: FXmppUserPresence()
 	{}
 
+	/** Role of the member in the room */
 	FString Role;
+	/** Affiliation of the member in the room */
 	FString Affiliation;
+	/**
+	 * JID of the member outside of the chat room, if the room is non-anonymous. May be blank.
+	 * Different from UserJid, where UserJid is the identifier of this member inside of the chat room.
+	 * Use this to identify the user outside of the chat room (such as private messages)
+	 * ex: AccountId@Domain/Resource
+	 * @see https://xmpp.org/extensions/xep-0045.html#enter-nonanon
+	 */
+	FXmppUserJid MemberJid;
 
 	const FString& GetRoomId() const { return UserJid.Id; }
 	const FString& GetNickName() const { return UserJid.Resource; }

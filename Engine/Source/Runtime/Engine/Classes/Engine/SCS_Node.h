@@ -68,10 +68,6 @@ class USCS_Node : public UObject
 	FGuid VariableGuid;
 
 #if WITH_EDITORONLY_DATA
-	/** (DEPRECATED) */
-	UPROPERTY()
-	bool bIsFalseRoot_DEPRECATED;
-
 	/** (DEPRECATED) Indicates if this is a native component or not */
 	UPROPERTY()
 	bool bIsNative_DEPRECATED;
@@ -171,16 +167,16 @@ class USCS_Node : public UObject
 #endif
 
 	/** Set a metadata value on the SCS_Node */
-	ENGINE_API void SetMetaData(const FName& Key, const FString& Value);
+	ENGINE_API void SetMetaData(FName Key, FString Value);
 
 	/** Gets a metadata value on the SCS_Node; asserts if the value isn't present.  Check for validiy using FindMetaDataEntryIndexForKey. */
-	ENGINE_API FString GetMetaData(const FName& Key);
+	ENGINE_API const FString& GetMetaData(FName Key) const;
 
 	/** Clear metadata value on the SCS_Node */
-	ENGINE_API void RemoveMetaData(const FName& Key);
+	ENGINE_API void RemoveMetaData(FName Key);
 
 	/** Find the index in the array of a SCS_Node entry */
-	ENGINE_API int32 FindMetaDataEntryIndexForKey(const FName& Key);
+	ENGINE_API int32 FindMetaDataEntryIndexForKey(FName Key) const;
 
 #if WITH_EDITOR
 	/** Sets parent component attributes based on the given SCS node */

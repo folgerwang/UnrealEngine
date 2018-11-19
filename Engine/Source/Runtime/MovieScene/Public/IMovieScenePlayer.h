@@ -16,7 +16,7 @@
 
 class UMovieSceneSequence;
 class FViewportClient;
-class IMovieSceneBindingOverridesInterface;
+class IMovieScenePlaybackClient;
 struct FMovieSceneRootEvaluationTemplateInstance;
 class FMovieSceneSequenceInstance;
 
@@ -109,11 +109,11 @@ public:
 	MOVIESCENE_API virtual void ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& Sequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
 
 	/**
-	 * Access the binding overrides interface for this player.
+	 * Access the client in charge of playback
 	 *
-	 * @return A pointer to the binding overrides interface, or nullptr if one is not available
+	 * @return A pointer to the playback client, or nullptr if one is not available
 	 */
-	virtual const IMovieSceneBindingOverridesInterface* GetBindingOverrides() const { return nullptr; }
+	virtual IMovieScenePlaybackClient* GetPlaybackClient() { return nullptr; }
 
 	/**
 	 * Obtain an object responsible for managing movie scene spawnables

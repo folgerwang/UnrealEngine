@@ -101,6 +101,13 @@ public:
 	{
 		return GetTypeHash((uint64)A.ID);
 	}
+
+	/** global static instance of invalid (zero) id */
+	static const TSharedRef<const FUniqueNetId>& EmptyId()
+	{
+		static const TSharedRef<const FUniqueNetId> EmptyId(MakeShared<FUniqueNetIdOculus>());
+		return EmptyId;
+	}
 };
 
 /**

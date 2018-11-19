@@ -472,13 +472,14 @@ FString UAnimGraphNode_SubInstance::GetCurrentInstanceBlueprintPath() const
 
 bool UAnimGraphNode_SubInstance::OnShouldFilterInstanceBlueprint(const FAssetData& AssetData) const
 {
-	if(const FString* SkeletonName = AssetData.TagsAndValues.Find(TEXT("TargetSkeleton")))
+	FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag("TargetSkeleton");
+	if (Result.IsSet())
 	{
-		if(UAnimBlueprint* CurrentBlueprint = Cast<UAnimBlueprint>(GetBlueprint()))
+		if (UAnimBlueprint* CurrentBlueprint = Cast<UAnimBlueprint>(GetBlueprint()))
 		{
 			FString TargetSkeletonName = FString::Printf(TEXT("%s'%s'"), *CurrentBlueprint->TargetSkeleton->GetClass()->GetName(), *CurrentBlueprint->TargetSkeleton->GetPathName());
 
-			return *SkeletonName != TargetSkeletonName;
+			return Result.GetValue() != TargetSkeletonName;
 		}
 	}
 

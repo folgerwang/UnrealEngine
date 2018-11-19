@@ -391,17 +391,18 @@ struct FBoneReference
 	FName BoneName;
 
 	/** Cached bone index for run time - right now bone index of skeleton **/
-	int32 BoneIndex;
+	int32 BoneIndex:31;
 
 	/** Change this to Bitfield if we have more than one bool 
 	 * This specifies whether or not this indices is mesh or skeleton
 	 */
-	bool bUseSkeletonIndex;
+	uint32 bUseSkeletonIndex:1;
 
 	FCompactPoseBoneIndex CachedCompactPoseIndex;
 
 	FBoneReference()
-		: BoneIndex(INDEX_NONE)
+		: BoneName(NAME_None)
+		, BoneIndex(INDEX_NONE)
 		, bUseSkeletonIndex(false)
 		, CachedCompactPoseIndex(INDEX_NONE)
 	{
@@ -428,7 +429,7 @@ struct FBoneReference
 	ENGINE_API bool Initialize(const USkeleton* Skeleton);
 
 	/** Deprecated functions */
-	DEPRECATED(4.17, "Please use IsValidToEvaluate instead")
+	UE_DEPRECATED(4.17, "Please use IsValidToEvaluate instead")
 	ENGINE_API bool IsValid(const FBoneContainer& RequiredBones) const;
 	
 	/** return true if it has valid set up */

@@ -848,6 +848,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	PrimaryActorTick.TickGroup = TG_DuringPhysics;
 	bAllowTickBeforeBeginPlay = true;
 
 	bReplicates = false;
@@ -1051,6 +1052,14 @@ void ULandscapeComponent::GetGeneratedTexturesAndMaterialInstances(TArray<UObjec
 			}
 		}
 	}
+
+	for (UMaterialInstanceConstant* MaterialInstance : MobileCombinationMaterialInstances)
+	{
+		for (ULandscapeMaterialInstanceConstant* CurrentMIC = Cast<ULandscapeMaterialInstanceConstant>(MaterialInstance); CurrentMIC; CurrentMIC = Cast<ULandscapeMaterialInstanceConstant>(CurrentMIC->Parent))
+		{
+			OutTexturesAndMaterials.Add(CurrentMIC);
+		}
+	}	
 }
 #endif
 
@@ -2664,6 +2673,7 @@ bool ALandscapeProxy::ShouldTickIfViewportsOnly() const
 
 void ALandscapeProxy::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Landscape);
 #if WITH_EDITOR
 	// editor-only
 	UWorld* World = GetWorld();

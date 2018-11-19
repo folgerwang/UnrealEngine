@@ -6,6 +6,8 @@
 #include "Components/BillboardComponent.h"
 #include "LevelSequenceBurnIn.h"
 #include "DefaultLevelSequenceInstanceData.h"
+#include "Engine/ActorChannel.h"
+#include "Net/UnrealNetwork.h"
 
 #if WITH_EDITOR
 	#include "PropertyCustomizationHelpers.h"
@@ -48,53 +50,54 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 	BurnInOptions = Init.CreateDefaultSubobject<ULevelSequenceBurnInOptions>(this, "BurnInOptions");
 	DefaultInstanceData = Init.CreateDefaultSubobject<UDefaultLevelSequenceInstanceData>(this, "InstanceData");
 
+	// SequencePlayer must be a default sub object for it to be replicated correctly
+	SequencePlayer = Init.CreateDefaultSubobject<ULevelSequencePlayer>(this, "AnimationPlayer");
+	SequencePlayer->SetPlaybackClient(this);
+
 	bOverrideInstanceData = false;
 
 	PrimaryActorTick.bCanEverTick = true;
 	bAutoPlay = false;
 }
 
-void ALevelSequenceActor::PostInitializeComponents()
+bool ALevelSequenceActor::RetrieveBindingOverrides(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
-	Super::PostInitializeComponents();
-	if (!SequencePlayer)
-	{
-		InitializePlayer();
-	}
+	return BindingOverrides->LocateBoundObjects(InBindingId, InSequenceID, OutObjects);
+}
+
+UObject* ALevelSequenceActor::GetInstanceData() const
+{
+	return bOverrideInstanceData ? DefaultInstanceData : nullptr;
+}
+
+bool ALevelSequenceActor::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+
+	bWroteSomething |= Channel->ReplicateSubobject(SequencePlayer, *Bunch, *RepFlags);
+
+	return bWroteSomething;
+}
+
+void ALevelSequenceActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALevelSequenceActor, SequencePlayer);
 }
 
 void ALevelSequenceActor::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!SequencePlayer)
+
+	InitializePlayer();
+	RefreshBurnIn();
+
+	if (bAutoPlay)
 	{
-		InitializePlayer();
-	}
-	if (SequencePlayer)
-	{
-		SequencePlayer->BeginPlay();
+		SequencePlayer->Play();
 	}
 }
-
-
-#if WITH_EDITOR
-
-bool ALevelSequenceActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
-{
-	ULevelSequence* LevelSequenceAsset = GetSequence(true);
-
-	if (LevelSequenceAsset)
-	{
-		Objects.Add(LevelSequenceAsset);
-	}
-
-	Super::GetReferencedContentObjects(Objects);
-
-	return true;
-}
-
-#endif //WITH_EDITOR
-
 
 void ALevelSequenceActor::Tick(float DeltaSeconds)
 {
@@ -110,6 +113,21 @@ void ALevelSequenceActor::PostLoad()
 {
 	Super::PostLoad();
 
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// We intentionally do not attempt to load any asset in PostLoad other than by way of LoadPackageAsync
+	// since under some circumstances it is possible for the sequence to only be partially loaded.
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	if (LevelSequence.IsValid() && GetWorld()->IsGameWorld())
+	{
+		// If we're async loading and we don't have the sequence asset loaded, schedule a load for it
+		ULevelSequence* LevelSequenceAsset = GetSequence();
+		if (!LevelSequenceAsset && IsAsyncLoading())
+		{
+			LoadPackageAsync(LevelSequence.GetLongPackageName(), FLoadPackageAsyncDelegate::CreateUObject(this, &ALevelSequenceActor::OnSequenceLoaded));
+		}
+	}
+
 #if WITH_EDITORONLY_DATA
 	// Fix sprite component so that it's attached to the root component. In the past, the sprite component was the root component.
 	UBillboardComponent* SpriteComponent = FindComponentByClass<UBillboardComponent>();
@@ -119,6 +137,101 @@ void ALevelSequenceActor::PostLoad()
 	}
 #endif
 }
+
+ULevelSequence* ALevelSequenceActor::GetSequence() const
+{
+	return Cast<ULevelSequence>(LevelSequence.ResolveObject());
+}
+
+ULevelSequence* ALevelSequenceActor::LoadSequence() const
+{
+	return Cast<ULevelSequence>(LevelSequence.TryLoad());
+}
+
+void ALevelSequenceActor::SetSequence(ULevelSequence* InSequence)
+{
+	if (!SequencePlayer->IsPlaying())
+	{
+		LevelSequence = InSequence;
+
+		// cbb: should ideally null out the template and player when no sequence is assigned, but that's currently not possible
+		if (InSequence)
+		{
+			SequencePlayer->Initialize(InSequence, GetWorld(), PlaybackSettings);
+		}
+	}
+}
+
+void ALevelSequenceActor::InitializePlayer()
+{
+	if (LevelSequence.IsValid() && GetWorld()->IsGameWorld())
+	{
+		// Attempt to reslove the asset without loading it
+		ULevelSequence* LevelSequenceAsset = GetSequence();
+		if (LevelSequenceAsset)
+		{
+			// Level sequence is already loaded. Initialize the player if it's not already initialized with this sequence
+			if (LevelSequenceAsset != SequencePlayer->GetSequence())
+			{
+				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+			}
+		}
+		else if (!IsAsyncLoading())
+		{
+			LevelSequenceAsset = LoadSequence();
+			if (LevelSequenceAsset != SequencePlayer->GetSequence())
+			{
+				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+			}
+		}
+		else
+		{
+			LoadPackageAsync(LevelSequence.GetLongPackageName(), FLoadPackageAsyncDelegate::CreateUObject(this, &ALevelSequenceActor::OnSequenceLoaded));
+		}
+	}
+}
+
+void ALevelSequenceActor::OnSequenceLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)
+	{
+		ULevelSequence* LevelSequenceAsset = GetSequence();
+		if (SequencePlayer->GetSequence() != LevelSequenceAsset)
+		{
+			SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+		}
+	}
+}
+
+void ALevelSequenceActor::RefreshBurnIn()
+{
+	if (BurnInInstance)
+	{
+		BurnInInstance->RemoveFromViewport();
+		BurnInInstance = nullptr;
+	}
+	
+	if (BurnInOptions && BurnInOptions->bUseBurnIn)
+	{
+		// Create the burn-in if necessary
+		UClass* Class = BurnInOptions->BurnInClass.TryLoadClass<ULevelSequenceBurnIn>();
+		if (Class)
+		{
+			BurnInInstance = CreateWidget<ULevelSequenceBurnIn>(GetWorld(), Class);
+			if (BurnInInstance)
+			{
+				// Ensure we have a valid settings object if possible
+				BurnInOptions->ResetSettings();
+
+				BurnInInstance->SetSettings(BurnInOptions->Settings);
+				BurnInInstance->TakeSnapshotsFrom(*this);
+				BurnInInstance->AddToViewport();
+			}
+		}
+	}
+}
+
+
 
 #if WITH_EDITOR
 
@@ -153,127 +266,23 @@ void ALevelSequenceActor::UpdateObjectFromProxy(FStructOnScope& Proxy, IProperty
 	ObjectPropertyHandle.SetValue(BoundActor);
 }
 
+bool ALevelSequenceActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
+{
+	ULevelSequence* LevelSequenceAsset = LoadSequence();
+
+	if (LevelSequenceAsset)
+	{
+		Objects.Add(LevelSequenceAsset);
+	}
+
+	Super::GetReferencedContentObjects(Objects);
+
+	return true;
+}
+
 #endif
 
 
-void ALevelSequenceActor::OnSequenceLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, bool bInitializePlayer)
-{
-	if (Result == EAsyncLoadingResult::Succeeded)
-	{
-		if (bInitializePlayer)
-		{
-			InitializePlayer();
-		}
-	}
-}
-
-ULevelSequence* ALevelSequenceActor::GetSequence(bool bLoad, bool bInitializePlayer) const
-{
-	if (LevelSequence.IsValid())
-	{
-		ULevelSequence* Sequence = Cast<ULevelSequence>(LevelSequence.ResolveObject());
-		if (Sequence)
-		{
-			return Sequence;
-		}
-
-		if (bLoad)
-		{
-			if (IsAsyncLoading())
-			{
-				LoadPackageAsync(LevelSequence.GetLongPackageName(), FLoadPackageAsyncDelegate::CreateUObject(this, &ALevelSequenceActor::OnSequenceLoaded, bInitializePlayer));
-				return nullptr;
-			}
-			else
-			{
-				return Cast<ULevelSequence>(LevelSequence.TryLoad());
-			}
-		}
-	}
-
-	return nullptr;
-}
-
-
-void ALevelSequenceActor::SetSequence(ULevelSequence* InSequence)
-{
-	if (!SequencePlayer || !SequencePlayer->IsPlaying())
-	{
-		LevelSequence = InSequence;
-		InitializePlayer();
-	}
-}
-
-void ALevelSequenceActor::SetEventReceivers(TArray<AActor*> InAdditionalReceivers)
-{
-	AdditionalEventReceivers = InAdditionalReceivers;
-	if (SequencePlayer)
-	{
-		SequencePlayer->SetEventReceivers(TArray<UObject*>(AdditionalEventReceivers));
-	}
-}
-
-void ALevelSequenceActor::InitializePlayer()
-{
-	ULevelSequence* LevelSequenceAsset = GetSequence(true, true);
-
-	UWorld* World = GetWorld();
-
-	if (World && World->IsGameWorld() && (LevelSequenceAsset != nullptr))
-	{
-		FMovieSceneSequencePlaybackSettings PlaybackSettingsCopy = PlaybackSettings;
-
-		PlaybackSettingsCopy.BindingOverrides = BindingOverrides;
-		if (bOverrideInstanceData)
-		{
-			PlaybackSettingsCopy.InstanceData = DefaultInstanceData;
-		}
-
-		SequencePlayer = NewObject<ULevelSequencePlayer>(this, "AnimationPlayer");
-		SequencePlayer->Initialize(LevelSequenceAsset, World, PlaybackSettingsCopy);
-		SequencePlayer->SetEventReceivers(TArray<UObject*>(AdditionalEventReceivers));
-
-		RefreshBurnIn();
-
-		if (bAutoPlay)
-		{
-			SequencePlayer->Play();
-		}
-	}
-}
-
-void ALevelSequenceActor::RefreshBurnIn()
-{
- 	if (!SequencePlayer)
-	{
-		return;
-	}
-
-	if (BurnInInstance)
-	{
-		BurnInInstance->RemoveFromViewport();
-		BurnInInstance = nullptr;
-	}
-	
-	if (BurnInOptions && BurnInOptions->bUseBurnIn)
-	{
-		// Create the burn-in if necessary
-		UClass* Class = BurnInOptions->BurnInClass.TryLoadClass<ULevelSequenceBurnIn>();
-		if (Class)
-		{
-			BurnInInstance = CreateWidget<ULevelSequenceBurnIn>(GetWorld(), Class);
-			if (BurnInInstance)
-			{
-				// Ensure we have a valid settings object if possible
-				BurnInOptions->ResetSettings();
-
-				BurnInInstance->SetSettings(BurnInOptions->Settings);
-				BurnInInstance->TakeSnapshotsFrom(*this);
-				BurnInInstance->AddToViewport();
-			}
-		}
-	}
-}
 
 ULevelSequenceBurnInOptions::ULevelSequenceBurnInOptions(const FObjectInitializer& Init)
 	: Super(Init)

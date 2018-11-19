@@ -82,7 +82,7 @@ namespace NetworkProfiler
 					SerializedToken = new TokenSocketSendTo( BinaryStream );
 					break;
 				case ETokenTypes.SendBunch:
-					SerializedToken = new TokenSendBunch( BinaryStream );
+					SerializedToken = new TokenSendBunch( BinaryStream, InNetworkStream.GetVersion() );
 					break;
 				case ETokenTypes.SendRPC:
 					SerializedToken = new TokenSendRPC( BinaryStream );
@@ -253,19 +253,43 @@ namespace NetworkProfiler
 		/** Channel index. */
 		public UInt16 ChannelIndex;
 		/** Channel type. */
-		public byte ChannelType;
+		protected byte ChannelType;
+		/** Channel type name index. */
+		protected int ChannelTypeNameIndex;
 		/** Number of header bits serialized/sent. */
 		public UInt16 NumHeaderBits;
 		/** Number of non-header bits serialized/sent. */
 		public UInt16 NumPayloadBits;
 
 		/** Constructor, serializing members from passed in stream. */
-		public TokenSendBunch(BinaryReader BinaryStream)
+		public TokenSendBunch(BinaryReader BinaryStream, UInt32 Version)
 		{
 			ChannelIndex = BinaryStream.ReadUInt16();
-			ChannelType = BinaryStream.ReadByte();
+			if (Version < 11)
+			{
+				ChannelType = BinaryStream.ReadByte();
+				ChannelTypeNameIndex = -1;
+			}
+			else
+			{
+				ChannelType = 0;
+				ChannelTypeNameIndex = TokenHelper.LoadPackedInt( BinaryStream );
+			}
+
 			NumHeaderBits = BinaryStream.ReadUInt16();
 			NumPayloadBits = BinaryStream.ReadUInt16();
+		}
+
+		public int GetChannelTypeIndex()
+		{
+			if (ChannelTypeNameIndex != -1)
+			{
+				return ChannelTypeNameIndex;
+			}
+			else
+			{
+				return ChannelType;
+			}
 		}
 
 		/**
@@ -280,7 +304,7 @@ namespace NetworkProfiler
 		{
 			TreeNode Child = TokenHelper.AddNode( Tree, "Send Bunch" );
 
-			Child = Child.Nodes.Add( "Channel Type  : " + ChannelType );
+			Child = Child.Nodes.Add( "Channel Type  : " + StreamParser.NetworkStream.GetChannelTypeName( GetChannelTypeIndex() ) );
 			Child.Nodes.Add( "Channel Index    : " + ChannelIndex );
 			Child.Nodes.Add( "NumTotalBits     : " + GetNumTotalBits() );
 			Child.Nodes.Add( "   NumHeaderBits : " + NumHeaderBits );

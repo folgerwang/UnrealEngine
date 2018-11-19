@@ -1072,6 +1072,14 @@ void SWindow::FlashWindow()
 	}
 }
 
+void SWindow::DrawAttention(const FWindowDrawAttentionParameters& Parameters)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->DrawAttention(Parameters);
+	}
+}
+
 void SWindow::BringToFront( bool bForce )
 {
 	if (NativeWindow.IsValid())

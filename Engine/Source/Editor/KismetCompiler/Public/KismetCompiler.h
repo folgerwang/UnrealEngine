@@ -147,6 +147,9 @@ public:
 	/** Compile the functions of the blueprint - must be done after compiling the class layout: */
 	void CompileFunctions(EInternalCompilerFlags InternalFlags);
 
+	/** Called after the CDO has been generated, allows assignment of cached/derived data: */
+	void PostCDOCompiled();
+
 	/** Compile a blueprint into a class and a set of functions */
 	void Compile();
 
@@ -241,16 +244,16 @@ public:
 		FName NameParameter;
 	};
 
-	DEPRECATED(4.17, "Use version that takes Category and SubCategory as FName, and PinContainerType instead of separate booleans for array, set, and map")
+	UE_DEPRECATED(4.17, "Use version that takes Category and SubCategory as FName, and PinContainerType instead of separate booleans for array, set, and map")
 	UK2Node_TemporaryVariable* SpawnInternalVariable(UEdGraphNode* SourceNode, const FString& Category, const FString& SubCategory, UObject* SubcategoryObject, bool bIsArray, bool bIsSet = false, bool bIsMap = false, const FEdGraphTerminalType& ValueTerminalType = FEdGraphTerminalType());
 
-	DEPRECATED(4.18, "Use version that takes Category and SubCategory as FName")
+	UE_DEPRECATED(4.18, "Use version that takes Category and SubCategory as FName")
 	UK2Node_TemporaryVariable* SpawnInternalVariable(UEdGraphNode* SourceNode, const FNameParameterHelper Category, const FString& SubCategory, UObject* SubcategoryObject = nullptr, EPinContainerType PinContainerType = EPinContainerType::None, const FEdGraphTerminalType& ValueTerminalType = FEdGraphTerminalType())
 	{
 		return SpawnInternalVariable(SourceNode, *Category, FName(*SubCategory), SubcategoryObject, PinContainerType, ValueTerminalType);
 	}
 
-	//DEPRECATED(4.18, "Remove when removing versions that take subcategory as FString. Required to avoid ambiguity")
+	//UE_DEPRECATED(4.18, "Remove when removing versions that take subcategory as FString. Required to avoid ambiguity")
 	UK2Node_TemporaryVariable* SpawnInternalVariable(UEdGraphNode* SourceNode, const FNameParameterHelper Category, const TCHAR* SubCategory, UObject* SubcategoryObject = nullptr, EPinContainerType PinContainerType = EPinContainerType::None, const FEdGraphTerminalType& ValueTerminalType = FEdGraphTerminalType())
 	{
 		return SpawnInternalVariable(SourceNode, *Category, FName(SubCategory), SubcategoryObject, PinContainerType, ValueTerminalType);
@@ -280,6 +283,7 @@ protected:
 	virtual void PostCreateSchema();
 	virtual void SpawnNewClass(const FString& NewClassName);
 	virtual void OnNewClassSet(UBlueprintGeneratedClass* ClassToUse) {}
+	virtual void OnPostCDOCompiled() {}
 
 	/**
 	 * Backwards Compatability:  Ensures that the passed in TargetClass is of the proper type (e.g. BlueprintGeneratedClass, AnimBlueprintGeneratedClass), and NULLs the reference if it is not 

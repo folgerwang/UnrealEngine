@@ -154,6 +154,9 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 	Status = EPathFollowingStatus::Idle;
 
 	CurrentMoveInput = FVector::ZeroVector;
+#if !UE_BUILD_SHIPPING
+	DEBUG_bMovingDirectlyToGoal = false;
+#endif // !UE_BUILD_SHIPPING
 }
 
 void UPathFollowingComponent::LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor)
@@ -882,6 +885,10 @@ int32 UPathFollowingComponent::DetermineCurrentTargetPathPoint(int32 StartIndex)
 
 void UPathFollowingComponent::UpdatePathSegment()
 {
+#if !UE_BUILD_SHIPPING
+	DEBUG_bMovingDirectlyToGoal = false;
+#endif // !UE_BUILD_SHIPPING
+
 	if ((Path.IsValid() == false) || (MovementComp == nullptr))
 	{
 		UE_CVLOG(Path.IsValid() == false, this, LogPathFollowing, Log, TEXT("Aborting move due to not having a valid path object"));
@@ -960,6 +967,10 @@ void UPathFollowingComponent::UpdatePathSegment()
 			}
 
 			UpdateMoveFocus();
+
+#if !UE_BUILD_SHIPPING
+			DEBUG_bMovingDirectlyToGoal = true;
+#endif // !UE_BUILD_SHIPPING
 		}
 		// check if current move segment is finished
 		else if (HasReachedCurrentTarget(CurrentLocation))

@@ -68,6 +68,13 @@ struct NAVMESH_API dtQueryFilterData
 	unsigned short m_excludeFlags;		///< Flags for polygons that should not be visted. (Used by default implementation.)
 
 	bool m_isBacktracking;
+	//@UE4 BEGIN
+	/// whether to ignore neighbour nodes that have already been visited.
+	/// FALSE by default but you might want to set it to true if using heuristic
+	/// scale much larger than 1 or experiencing cycles in our paths for any other
+	/// reason
+	bool m_shouldIgnoreClosedNodes;
+	//@UE4 END
 
 	dtQueryFilterData();
 	
@@ -231,6 +238,13 @@ public:
 	/// Retrieves information whether this filter is set up for backtracking
 	///  @returns is backtracking
 	inline bool getIsBacktracking() const { return data.m_isBacktracking; }
+
+	/// Instruct filter whether it can reopen nodes already on closed list
+	inline void setShouldIgnoreClosedNodes(const bool shouldIgnore) { data.m_shouldIgnoreClosedNodes = shouldIgnore; }
+
+	/// Retrieves information whether this filter allows reopening closed nodes
+	///  @returns should consider reopening nodes already on closed list
+	inline bool getShouldIgnoreClosedNodes() const { return data.m_shouldIgnoreClosedNodes; }
 //@UE4 END
 
 	/// Returns the include flags for the filter.

@@ -39,7 +39,7 @@ void FAnimNode_BlendBoneByChannel::CacheBones_AnyThread(const FAnimationCacheBon
 void FAnimNode_BlendBoneByChannel::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimNode_BlendBoneByChannel_Update);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	InternalBlendAlpha = AlphaScaleBias.ApplyTo(Alpha);
 	bBIsRelevant = FAnimWeight::IsRelevant(InternalBlendAlpha) && (ValidBoneEntries.Num() > 0);

@@ -111,7 +111,7 @@ namespace IOSDisplayConstants
 		if (VSyncCVar && VSyncCVar->GetValueOnRenderThread() > 0)
 		{
 			uint32 NewFrameInterval = VSyncIntervalCVar ? VSyncIntervalCVar->GetValueOnRenderThread() : FIOSPlatformRHIFramePacer::FrameInterval;
-			NewFrameInterval = (NewFrameInterval < FIOSPlatformRHIFramePacer::MinFrameInterval) ? FIOSPlatformRHIFramePacer::MinFrameInterval : NewFrameInterval;
+//			NewFrameInterval = (NewFrameInterval < FIOSPlatformRHIFramePacer::MinFrameInterval) ? FIOSPlatformRHIFramePacer::MinFrameInterval : NewFrameInterval;
 
 			// If changed, update the display link
 			if (NewFrameInterval != FIOSPlatformRHIFramePacer::FrameInterval)

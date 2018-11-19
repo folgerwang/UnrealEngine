@@ -82,8 +82,7 @@ void FSlateInstancedVertexDeclaration::InitRHI()
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, MaterialTexCoords), VET_Float2, 1, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Position), VET_Float2, 2, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Color), VET_Color, 3, Stride));
-	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, PixelSize), VET_UShort2, 4, Stride));
-	Elements.Add(FVertexElement(1, 0, VET_Float4, 5, sizeof(FVector4), true));
+	Elements.Add(FVertexElement(1, 0, VET_Float4, 4, sizeof(FVector4), true));
 	
 	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
 }

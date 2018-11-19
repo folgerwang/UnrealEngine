@@ -7,11 +7,12 @@
 // FAnimNode_PoseSnapshot
 
 FAnimNode_PoseSnapshot::FAnimNode_PoseSnapshot()
+	: SnapshotName(NAME_None)
+	, Mode(ESnapshotSourceMode::NamedSnapshot)
+	, MappedSourceMeshName(NAME_None)
+	, MappedTargetMeshName(NAME_None)
+	, TargetBoneNameMesh(NAME_None)
 {
-	Mode = ESnapshotSourceMode::NamedSnapshot;
-	MappedSourceMeshName = NAME_None;
-	MappedTargetMeshName = NAME_None;
-	TargetBoneNameMesh = NAME_None;
 }
 
 void FAnimNode_PoseSnapshot::PreUpdate(const UAnimInstance* InAnimInstance)
@@ -48,7 +49,7 @@ void FAnimNode_PoseSnapshot::PreUpdate(const UAnimInstance* InAnimInstance)
 void FAnimNode_PoseSnapshot::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	// Evaluate any BP logic plugged into this node
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 }
 
 void FAnimNode_PoseSnapshot::Evaluate_AnyThread(FPoseContext& Output)

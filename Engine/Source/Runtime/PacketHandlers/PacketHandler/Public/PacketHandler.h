@@ -26,7 +26,9 @@ class FNetAnalyticsAggregator;
  */
 
 // Delegate for allowing access to LowLevelSend, without a dependency upon Engine
-DECLARE_DELEGATE_ThreeParams(FPacketHandlerLowLevelSend, void* /* Data */, int32 /* CountBits */, FOutPacketTraits& /* Traits */);
+DECLARE_DELEGATE_ThreeParams(FPacketHandlerLowLevelSendTraits, void* /* Data */, int32 /* CountBits */, FOutPacketTraits& /* Traits */);
+
+DECLARE_DELEGATE_ThreeParams(FPacketHandlerLowLevelSend, void* /* Data */, int32 /* CountBytes */, int32 /* CountBits */);
 
 /**
  * Callback for notifying higher-level code that handshaking has completed, and that packets are now ready to send without buffering
@@ -149,6 +151,21 @@ private:
 	}
 
 public:
+	UE_DEPRECATED(4.21, "Please use the new constructor that adds support for analytics and better precision")
+	BufferedPacket(uint8* InCopyData, uint32 InCountBits, float InResendTime=0.f, uint32 InId=0)
+		: CountBits(InCountBits)
+		, Traits()
+		, ResendTime(double(InResendTime))
+		, Id(InId)
+		, Address()
+		, FromComponent(nullptr)
+	{
+		check(InCopyData != nullptr);
+
+		Data = new uint8[FMath::DivideAndRoundUp(InCountBits, 8u)];
+		FMemory::Memcpy(Data, InCopyData, FMath::DivideAndRoundUp(InCountBits, 8u));
+	}
+
 	BufferedPacket(uint8* InCopyData, uint32 InCountBits, FOutPacketTraits& InTraits, double InResendTime=0.0, uint32 InId=0)
 		: CountBits(InCountBits)
 		, Traits(InTraits)
@@ -161,6 +178,23 @@ public:
 
 		Data = new uint8[FMath::DivideAndRoundUp(InCountBits, 8u)];
 		FMemory::Memcpy(Data, InCopyData, FMath::DivideAndRoundUp(InCountBits, 8u));
+	}
+
+	UE_DEPRECATED(4.21, "Please use the new constructor that adds support for analytics")
+	BufferedPacket(const FString& InAddress, uint8* InCopyData, uint32 InCountBits, double InResendTime=0.0, uint32 InId=0)
+		: CountBits(InCountBits)
+		, Traits()
+		, ResendTime(InResendTime)
+		, Id(InId)
+		, Address()
+		, FromComponent(nullptr)
+	{
+		check(InCopyData != nullptr);
+
+		Data = new uint8[FMath::DivideAndRoundUp(InCountBits, 8u)];
+		FMemory::Memcpy(Data, InCopyData, FMath::DivideAndRoundUp(InCountBits, 8u));
+
+		Address = InAddress;
 	}
 
 	BufferedPacket(const FString& InAddress, uint8* InCopyData, uint32 InCountBits, FOutPacketTraits& InTraits, double InResendTime=0.0, uint32 InId=0)
@@ -203,12 +237,18 @@ public:
 	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false,
 					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr);
 
+	UE_DEPRECATED(4.21, "Use the traits based delegate instead for compatibility with other systems.")
+	void InitializeDelegates(FPacketHandlerLowLevelSend InLowLevelSendDel)
+	{
+		LowLevelSendDel_Deprecated = InLowLevelSendDel;
+	}
+
 	/**
 	 * Used for external initialization of delegates
 	 *
 	 * @param InLowLevelSendDel		The delegate the PacketHandler should use for triggering packet sends
 	 */
-	void InitializeDelegates(FPacketHandlerLowLevelSend InLowLevelSendDel)
+	void InitializeDelegates(FPacketHandlerLowLevelSendTraits InLowLevelSendDel)
 	{
 		LowLevelSendDel = InLowLevelSendDel;
 	}
@@ -298,6 +338,13 @@ public:
 		return Incoming_Internal(Packet, CountBytes, false, EmptyString);
 	}
 
+	UE_DEPRECATED(4.21, "Please move to the functional flow that includes support for PacketTraits.")
+	FORCEINLINE const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		return Outgoing(Packet, CountBits, EmptyTraits);
+	}
+
 	/**
 	 * Processes outgoing packets at the PacketHandler level, after all UNetConnection processing.
 	 *
@@ -328,6 +375,13 @@ public:
 	FORCEINLINE const ProcessedPacket IncomingConnectionless(const FString& Address, uint8* Packet, int32 CountBytes)
 	{
 		return Incoming_Internal(Packet, CountBytes, true, Address);
+	}
+
+	UE_DEPRECATED(4.21, "Please use the member that supports PacketTraits for alllowing additional flags on sends.")
+	FORCEINLINE const ProcessedPacket OutgoingConnectionless(const FString& Address, uint8* Packet, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		return OutgoingConnectionless(Address, Packet, CountBits, EmptyTraits);
 	}
 
 	/**
@@ -376,6 +430,14 @@ protected:
 	const ProcessedPacket Outgoing_Internal(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits, bool bConnectionless, const FString& Address );
 
 public:
+
+	UE_DEPRECATED(4.21, "Please use the packet traits when sending to handle modifications of packets and analytics.")
+	void SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer)
+	{
+		FOutPacketTraits EmptyTraits;
+		SendHandlerPacket(InComponent, Writer, EmptyTraits);
+	}
+
 	/**
 	 * Send a packet originating from a HandlerComponent - will process through the HandlerComponents chain,
 	 * starting after the triggering component.
@@ -526,7 +588,10 @@ private:
 	FDDoSDetection* DDoS;
 
 	/** Delegate used for triggering PacketHandler/HandlerComponent-sourced sends */
-	FPacketHandlerLowLevelSend LowLevelSendDel;
+	FPacketHandlerLowLevelSendTraits LowLevelSendDel;
+
+	/** Delegate used for triggering PacketHandler/HandlerComponent-sourced sends (DEPRECATED) */
+	FPacketHandlerLowLevelSend LowLevelSendDel_Deprecated;
 
 	/** Delegate used for notifying that handshaking has completed */
 	FPacketHandlerHandshakeComplete HandshakeCompleteDel;
@@ -646,6 +711,13 @@ public:
 	 */
 	virtual void Incoming(FBitReader& Packet) = 0;
 
+	UE_DEPRECATED(4.21, "Use the other Outgoing function as it allows for packet modifiers and traits.")
+	virtual void Outgoing(FBitWriter& Packet)
+	{
+		FOutPacketTraits EmptyTraits;
+		Outgoing(Packet, EmptyTraits);
+	}
+
 	/**
 	 * Handles any outgoing packets
 	 *
@@ -661,6 +733,13 @@ public:
 	 * @param Packet	The packet to be handled
 	 */
 	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) = 0;
+
+	UE_DEPRECATED(4.21, "Use the method that allows traits on the packet.")
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet)
+	{
+		FOutPacketTraits EmptyTraits;
+		OutgoingConnectionless(Address, Packet, EmptyTraits);
+	}
 
 	/**
 	 * Handles any outgoing packets not associated with a UNetConnection
@@ -720,6 +799,11 @@ public:
 
 	/** Returns the name of this component. */
 	FName GetName() const { return Name; }
+
+	UE_DEPRECATED(4.21, "The Analytics Provider is now handled in the main PacketHandler class.")
+	virtual void SetAnalyticsProvider(TSharedPtr<class IAnalyticsProvider> Provider)
+	{
+	}
 
 	/**
 	 * Notification that the analytics provider has been updated
