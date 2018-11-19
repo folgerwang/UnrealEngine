@@ -5,6 +5,8 @@
 #include "Misc/App.h"
 
 
+DEFINE_LOG_CATEGORY_STATIC(LogAISub, Log, All);
+
 UAISubsystem::UAISubsystem(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -12,6 +14,8 @@ UAISubsystem::UAISubsystem(const FObjectInitializer& ObjectInitializer)
 	{
 		AISystem = Cast<UAISystem>(GetOuter());
 		ensure(AISystem);
+		UE_CLOG(AISystem == nullptr, LogAISub, Error, TEXT("%s is an invalid outer for UAISubsystem instance %s")
+			, *GetName(), *GetNameSafe(GetOuter()));
 	}
 }
 
