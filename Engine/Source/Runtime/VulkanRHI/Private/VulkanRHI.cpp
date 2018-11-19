@@ -131,6 +131,13 @@ FVulkanCommandListContext::FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, F
 
 FVulkanCommandListContext::~FVulkanCommandListContext()
 {
+	if (FVulkanPlatform::SupportsTimestampRenderQueries())
+	{
+		FrameTiming->Release();
+		delete FrameTiming;
+		FrameTiming = nullptr;
+	}
+
 	check(CommandBufferManager != nullptr);
 	delete CommandBufferManager;
 	CommandBufferManager = nullptr;

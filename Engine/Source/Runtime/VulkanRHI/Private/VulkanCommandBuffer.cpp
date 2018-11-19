@@ -105,6 +105,8 @@ FVulkanCmdBuffer::~FVulkanCmdBuffer()
 	if (Timing)
 	{
 		Timing->Release();
+		delete Timing;
+		Timing = nullptr;
 	}
 }
 
