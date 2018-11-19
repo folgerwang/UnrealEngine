@@ -19,7 +19,7 @@ class STextBlock;
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
-class DEPRECATED(4.21, "SEditableLabel is deprecated, please use SInlineEditableTextBlock instead") SLATE_API SEditableLabel
+class UE_DEPRECATED(4.21, "SEditableLabel is deprecated, please use SInlineEditableTextBlock instead") SLATE_API SEditableLabel
 	: public SCompoundWidget
 {
 public:
