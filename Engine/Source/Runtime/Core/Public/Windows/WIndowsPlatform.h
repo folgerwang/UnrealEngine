@@ -141,7 +141,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 // Prefetch
-#define PLATFORM_CACHE_LINE_SIZE	128
+#define PLATFORM_CACHE_LINE_SIZE	64
 
 // DLL export and import definitions
 #define DLLEXPORT __declspec(dllexport)

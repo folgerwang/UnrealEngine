@@ -609,7 +609,7 @@
 
 // Prefetch
 #ifndef PLATFORM_CACHE_LINE_SIZE
-	#define PLATFORM_CACHE_LINE_SIZE	128
+	#define PLATFORM_CACHE_LINE_SIZE	64
 #endif
 
 // Compile-time warnings and errors. Use these as "#pragma COMPILER_WARNING("XYZ")". GCC does not expand macro parameters to _Pragma, so we can't wrap the #pragma part.
