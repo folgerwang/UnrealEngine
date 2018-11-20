@@ -912,22 +912,18 @@ void UPrimitiveComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 	if (bCullDistanceInvalidated)
 	{
-		// Make sure cached cull distance is up-to-date.
-		if (LDMaxDrawDistance > 0)
+		// Allow cull distance volume chance to override
+		if (bAllowCullDistanceVolume)
 		{
-			NewCachedMaxDrawDistance = FMath::Min(LDMaxDrawDistance, CachedMaxDrawDistance);
-		}
-		// Directly use LD cull distance if cull distance volumes are disabled.
-		if (!bAllowCullDistanceVolume)
-		{
-			NewCachedMaxDrawDistance = LDMaxDrawDistance;
-		}
-		else if (UWorld* World = GetWorld())
-		{
-			World->UpdateCullDistanceVolumes(nullptr, this);
-		}
+			if (UWorld* World = GetWorld())
+			{
+				World->UpdateCullDistanceVolumes(nullptr, this);
+			}
 
-		// Reattach to propagate cull distance change.
+			// Update using the minimum of cull volume and custom
+			NewCachedMaxDrawDistance = FMath::Min(CachedMaxDrawDistance, NewCachedMaxDrawDistance);
+		}
+	
 		SetCachedMaxDrawDistance(NewCachedMaxDrawDistance);
 	}
 
