@@ -570,6 +570,7 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 	RHIEnableDepthBoundsTest(GraphicsPipelineState->PipelineStateInitializer.bDepthBounds);
 
 	StateCache.SetGraphicsPipelineState(GraphicsPipelineState);
+	StateCache.SetStencilRef(0);
 }
 
 void FD3D12CommandContext::RHISetComputePipelineState(FRHIComputePipelineState* ComputeState)
