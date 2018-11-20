@@ -1865,6 +1865,12 @@ namespace UnrealBuildTool
 			}
 			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
+			// Remove any installed build products that don't exist. They may be part of an optional install.
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				BuildProducts.RemoveAll(x => UnrealBuildTool.IsFileInstalled(x.Key) && !FileReference.Exists(x.Key));
+			}
+
 			// Make sure all the checked headers were valid
 			List<string> InvalidIncludeDirectiveMessages = Modules.Values.OfType<UEBuildModuleCPP>().Where(x => x.InvalidIncludeDirectiveMessages != null).SelectMany(x => x.InvalidIncludeDirectiveMessages).ToList();
 			if (InvalidIncludeDirectiveMessages.Count > 0)
