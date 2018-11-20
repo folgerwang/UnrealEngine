@@ -76,6 +76,12 @@ using std::vector;
 // A Specification holds information gathered from a declaration DIE that
 // we may need if we find a DW_AT_specification link pointing to it.
 struct DwarfCUToModule::Specification {
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  uint64_t offset;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
   // The qualified name that can be found by demangling DW_AT_MIPS_linkage_name.
   string qualified_name;
 
@@ -315,6 +321,8 @@ class DwarfCUToModule::GenericDIEHandler: public dwarf2reader::DIEHandler {
   DIEContext *parent_context_;
   uint64 offset_;
 
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
   // Place the name in the global set of strings. Even though this looks
   // like a copy, all the major string implementations use reference
   // counting internally, so the effect is to have all the data structures
@@ -322,6 +330,8 @@ class DwarfCUToModule::GenericDIEHandler: public dwarf2reader::DIEHandler {
   // FIXME: Should this return something like a string_ref to avoid the
   // assumption about how strings are implemented?
   string AddStringToPool(const string &str);
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   // If this DIE has a DW_AT_declaration attribute, this is its value.
   // It is false on DIEs with no DW_AT_declaration attribute.
@@ -371,6 +381,9 @@ void DwarfCUToModule::GenericDIEHandler::ProcessAttributeReference(
       // seen all the DIE's attributes.
       SpecificationByOffset *specifications =
           &file_context->file_private_->specifications;
+
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
       SpecificationByOffset::iterator spec = specifications->find(data);
       if (spec != specifications->end()) {
         specification_ = &spec->second;
@@ -382,17 +395,51 @@ void DwarfCUToModule::GenericDIEHandler::ProcessAttributeReference(
         // things.
         cu_context_->reporter->UnknownSpecification(offset_, data);
       }
+#else
+      size_t Start = 0;
+      size_t End = specifications->size();
+      size_t LastMiddle = 1;
+      size_t Middle = 0;
+
+      // Specifications are added in lexicographical so we can binary search on this vector
+      while (End - Start > 0 && LastMiddle != Middle)
+      {
+        LastMiddle = Middle;
+        Middle = (Start + End) / 2;
+
+        uint64_t CurrentOffset = (*specifications)[Middle].offset;
+
+        if (data > CurrentOffset)
+        {
+          Start = Middle;
+        }
+        else if (data < CurrentOffset)
+        {
+          End = Middle;
+        }
+        else
+        {
+          specification_ = &(*specifications)[Middle];
+          break;
+        }
+      }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
       break;
     }
     default: break;
   }
 }
 
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
 string DwarfCUToModule::GenericDIEHandler::AddStringToPool(const string &str) {
   pair<unordered_set<string>::iterator, bool> result =
     cu_context_->file_context->file_private_->common_strings.insert(str);
   return *result.first;
 }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 void DwarfCUToModule::GenericDIEHandler::ProcessAttributeString(
     enum DwarfAttribute attr,
@@ -400,7 +447,13 @@ void DwarfCUToModule::GenericDIEHandler::ProcessAttributeString(
     const string &data) {
   switch (attr) {
     case dwarf2reader::DW_AT_name:
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
       name_attribute_ = AddStringToPool(data);
+#else
+      name_attribute_ = data;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
       break;
     case dwarf2reader::DW_AT_MIPS_linkage_name:
     case dwarf2reader::DW_AT_linkage_name: {
@@ -409,7 +462,13 @@ void DwarfCUToModule::GenericDIEHandler::ProcessAttributeString(
           cu_context_->language->DemangleName(data, &demangled);
       switch (result) {
         case Language::kDemangleSuccess:
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
           demangled_name_ = AddStringToPool(demangled);
+#else
+          demangled_name_ = std::move(demangled);
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
           break;
 
         case Language::kDemangleFailure:
@@ -473,6 +532,9 @@ string DwarfCUToModule::GenericDIEHandler::ComputeQualifiedName() {
   // specification table.
   if ((declaration_ && qualified_name) ||
       (unqualified_name && enclosing_name)) {
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+/* EG END */
     Specification spec;
     if (qualified_name) {
       spec.qualified_name = *qualified_name;
@@ -481,6 +543,13 @@ string DwarfCUToModule::GenericDIEHandler::ComputeQualifiedName() {
       spec.unqualified_name = *unqualified_name;
     }
     cu_context_->file_context->file_private_->specifications[offset_] = spec;
+#else
+    if (qualified_name) {
+      cu_context_->file_context->file_private_->specifications.emplace_back(Specification{offset_, *qualified_name, {}, {}});
+    } else {
+      cu_context_->file_context->file_private_->specifications.emplace_back(Specification{offset_, {}, *enclosing_name, *unqualified_name});
+    }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
   }
 
   return return_value;
