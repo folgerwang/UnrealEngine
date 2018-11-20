@@ -983,6 +983,16 @@ public:
 	/** Checks to see if an input property should be active, based on the state of the material */
 	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const override;
 
+#if WITH_EDITOR
+	/** 
+	* Like IsPropertyActive(), but should be used in context of editor.
+	* For example, there is an optimization that transforms masked materials into opaque materials in certain situations.  If this optimization is active,
+	* the opacity mask input will no longer be active normally (since blend mode will be reported as opaque),
+	* but we still want to be able to connect this input from within the material editor.
+	*/
+	ENGINE_API bool IsPropertyActiveInEditor(EMaterialProperty InProperty) const;
+#endif
+
 	/** Like IsPropertyActive(), but considers any state overriden by DerivedMaterial */
 	ENGINE_API bool IsPropertyActiveInDerived(EMaterialProperty InProperty, const UMaterialInterface* DerivedMaterial) const;
 
