@@ -265,8 +265,8 @@ private:
 
 	void RenderLightShaftBloom(FRHICommandListImmediate& RHICmdList);
 
-	/** Reuses an existing translucent shadow map if possible or re-renders one if necessary. */
-	const FProjectedShadowInfo* PrepareTranslucentShadowMap(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPass::Type TranslucenyPassType);
+	/** Returns an existing translucent shadow map for a given primitive. */
+	const FProjectedShadowInfo* GetTranslucentShadowMap(FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPass::Type TranslucenyPassType);
 
 	bool ShouldRenderVelocities() const;
 
