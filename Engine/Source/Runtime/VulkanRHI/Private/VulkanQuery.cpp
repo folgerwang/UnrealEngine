@@ -678,12 +678,12 @@ void FVulkanCommandListContext::ReadAndCalculateGPUFrameTime()
 {
 	check(IsImmediate());
 
-	if (FrameTiming)
+	if (FVulkanPlatform::SupportsTimestampRenderQueries() && FrameTiming)
 	{
 		const uint64 Delta = FrameTiming->GetTiming(false);
+		const double SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
 		const double Frequency = double(FVulkanGPUTiming::GetTimingFrequency());
-		const double Cycles = FPlatformTime::GetSecondsPerCycle();
-		GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / Cycles);
+		GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / SecondsPerCycle);
 	}
 	else
 	{
@@ -701,12 +701,16 @@ FRenderQueryRHIRef FVulkanDynamicRHI::RHICreateRenderQuery(ERenderQueryType Quer
 	}
 	else if (QueryType == RQT_AbsoluteTime)
 	{
+/*
 		FVulkanTimingQuery* Query = new FVulkanTimingQuery();
 		return Query;
+*/
 	}
-
-	// Dummy!
-	ensure(0);
+	else
+	{
+		// Dummy!
+		ensureMsgf(0, TEXT("Unknown QueryType %d"), QueryType);
+	}
 	FVulkanRenderQuery* Query = new FVulkanRenderQuery(QueryType);
 	return Query;
 }
@@ -742,11 +746,13 @@ bool FVulkanDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 	}
 	else if (BaseQuery->QueryType == RQT_AbsoluteTime)
 	{
+/*
 		FVulkanTimingQuery* Query = static_cast<FVulkanTimingQuery*>(BaseQuery);
 		uint64 TimingResult;
 		bool QueryResult = Query->GetResult(TimingResult, false);
 		OutNumPixels = TimingResult / 1000; //RHIGetRenderQueryResult assumes microseconds where vk provided ns
 		return QueryResult;
+*/
 	}
 	/*
 	FScopeLock ScopeLock(&GOcclusionQueryCS);
@@ -792,20 +798,6 @@ void FVulkanCommandListContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef Quer
 	{
 		ensureMsgf(0, TEXT("Timing queries should NOT call RHIBeginRenderQuery()!"));
 	}
-	/*
-	FScopeLock ScopeLock(&GOcclusionQueryCS);
-	if (Query->QueryType == RQT_Occlusion)
-	{
-	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-	const int32 QueryIndex = CurrentOcclusionQueryPool->AllocateQuery();
-	Query->Reset(CurrentOcclusionQueryPool, QueryIndex);
-	Query->Begin(CmdBuffer);
-	}
-	else
-	{
-	check(0);
-	}
-	*/
 }
 
 void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
@@ -827,6 +819,7 @@ void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryR
 	}
 	else if (BaseQuery->QueryType == RQT_AbsoluteTime)
 	{
+/*
 		FVulkanTimingQuery* Query = static_cast<FVulkanTimingQuery*>(BaseQuery);
 		FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 		Query->Pool = Query->IsPooledAtHighLevel ? Query->Pool : CmdBuffer->PrepareTimestampQueryPool();
@@ -837,6 +830,7 @@ void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryR
 #if VULKAN_QUERY_CALLSTACK
 		FPlatformStackWalk::CaptureStackBackTrace(Query->StackFrames, 16);
 #endif
+*/
 	}
 }
 

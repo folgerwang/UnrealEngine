@@ -48,10 +48,6 @@ FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBuffer
 	, Timing(nullptr)
 	, LastValidTiming(0)
 {
-	if (FVulkanPlatform::SupportsTimestampRenderQueries())
-	{
-		TimestampQueryPool = new FVulkanTimestampQueryPool(InDevice, NUM_TIMESTAMP_QUERIES_PER_POOL);
-	}
 
 	{
 		FScopeLock ScopeLock(CommandBufferPool->GetCS());
@@ -109,6 +105,8 @@ FVulkanCmdBuffer::~FVulkanCmdBuffer()
 	if (Timing)
 	{
 		Timing->Release();
+		delete Timing;
+		Timing = nullptr;
 	}
 }
 
