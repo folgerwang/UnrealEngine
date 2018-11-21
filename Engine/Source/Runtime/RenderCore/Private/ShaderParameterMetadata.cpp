@@ -6,6 +6,7 @@
 
 #include "ShaderParameterMetadata.h"
 #include "RenderCore.h"
+#include "ShaderCore.h"
 
 
 static TLinkedList<FShaderParametersMetadata*>* GUniformStructList = nullptr;
@@ -146,11 +147,6 @@ void FShaderParametersMetadata::InitializeLayout()
 				{
 					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Shader parameter struct reference can only be done in shader parameter structs."), *CppName);
 				}
-
-				if (ChildStruct->GetUseCase() != FShaderParametersMetadata::EUseCase::GlobalShaderParameterStruct)
-				{
-					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Shader parameter struct can only reference global ones, but %s is not."), *CppName, ChildStruct->GetStructTypeName());
-				}
 			}
 
 			if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
@@ -160,7 +156,7 @@ void FShaderParametersMetadata::InitializeLayout()
 
 			if (UseCase == EUseCase::ShaderParameterStruct &&
 				(BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT) &&
-				ChildStruct->GetUseCase() != EUseCase::ShaderParameterStruct)
+				ChildStruct->GetUseCase() != EUseCase::ShaderParameterStruct && 0)
 			{
 				UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: shader parameter structs can only nests or include shader parameter struct, but %s is not."), *CppName, ChildStruct->GetStructTypeName());
 			}

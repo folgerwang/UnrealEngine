@@ -32,7 +32,19 @@
 	ShaderClass(const ShaderMetaType::CompiledShaderInitializerType& Initializer) \
 		: ShaderParentClass(Initializer) \
 	{ \
-		this->Bindings.Bind(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata()); \
+		this->Bindings.BindForLegacyShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata()); \
+	} \
+	\
+	ShaderClass() \
+	{ } \
+
+#define SHADER_USE_ROOT_PARAMETER_STRUCT(ShaderClass, ShaderParentClass) \
+	static inline const FShaderParametersMetadata* GetRootParametersMetadata() { return FParameters::FTypeInfo::GetStructMetadata(); } \
+	\
+	ShaderClass(const ShaderMetaType::CompiledShaderInitializerType& Initializer) \
+		: ShaderParentClass(Initializer) \
+	{ \
+		this->Bindings.BindForRootShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata()); \
 	} \
 	\
 	ShaderClass() \
@@ -86,6 +98,9 @@ inline void UnsetShaderUAVs(TRHICmdList& RHICmdList, const TShaderClass* Shader,
 {
 	// TODO(RDG): Once all shader sets their parameter through this, can refactor RHI so all UAVs of a shader get unset through a single RHI function call.
 	const FShaderParameterBindings& Bindings = Shader->Bindings;
+
+	checkf(Bindings.RootParameterBufferIndex == FShaderParameterBindings::kInvalidBufferIndex, TEXT("Can't use UnsetShaderUAVs() for root parameter buffer index."));
+
 	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphUAVs)
 	{
 		RHICmdList.SetUAVParameter(ShadeRHI, ParameterBinding.BaseIndex, nullptr);
@@ -102,6 +117,8 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 
 	const typename TShaderClass::FParameters* ParametersPtr = &Parameters;
 	const uint8* Base = reinterpret_cast<const uint8*>(ParametersPtr);
+
+	checkf(Bindings.RootParameterBufferIndex == FShaderParameterBindings::kInvalidBufferIndex, TEXT("Can't use SetShaderParameters() for root parameter buffer index."));
 
 	// Parameters
 	for (const FShaderParameterBindings::FParameter& ParameterBinding : Bindings.Parameters)

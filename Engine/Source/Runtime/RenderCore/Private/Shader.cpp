@@ -144,7 +144,8 @@ FShaderType::FShaderType(
 	uint32 InFrequency,
 	int32 InTotalPermutationCount,
 	ConstructSerializedType InConstructSerializedRef,
-	GetStreamOutElementsType InGetStreamOutElementsRef
+	GetStreamOutElementsType InGetStreamOutElementsRef,
+	const FShaderParametersMetadata* InRootParametersMetadata
 	):
 	ShaderTypeForDynamicCast(InShaderTypeForDynamicCast),
 	Name(InName),
@@ -155,6 +156,7 @@ FShaderType::FShaderType(
 	TotalPermutationCount(InTotalPermutationCount),
 	ConstructSerializedRef(InConstructSerializedRef),
 	GetStreamOutElementsRef(InGetStreamOutElementsRef),
+	RootParametersMetadata(InRootParametersMetadata),
 	GlobalListLink(this)
 {
 	bCachedUniformBufferStructDeclarations = false;

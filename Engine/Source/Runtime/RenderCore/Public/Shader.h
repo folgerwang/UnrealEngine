@@ -31,6 +31,7 @@ class FShaderPipelineType;
 class FShaderType;
 class FVertexFactoryParameterRef;
 class FVertexFactoryType;
+class FShaderParametersMetadata;
 
 
 /** Define a shader permutation uniquely according to its type, and permutation id.*/
@@ -585,6 +586,8 @@ class FMaterial;
 class RENDERCORE_API FShaderParameterBindings
 {
 public:
+	static constexpr uint16 kInvalidBufferIndex = 0xFFFF;
+
 	struct FParameter
 	{
 		uint16 BufferIndex;
@@ -633,6 +636,9 @@ public:
 	TArray<FResourceParameter> GraphUAVs;
 	TArray<FParameterStructReference> ParameterReferences;
 
+	// Buffer index of FShaderParametersMetadata::kRootUniformBufferBindingName
+	uint16 RootParameterBufferIndex;
+
 	friend FArchive& operator<<(FArchive& Ar, FShaderParameterBindings& ParametersBindingData)
 	{
 		Ar << ParametersBindingData.Parameters;
@@ -643,10 +649,12 @@ public:
 		Ar << ParametersBindingData.GraphSRVs;
 		Ar << ParametersBindingData.GraphUAVs;
 		Ar << ParametersBindingData.ParameterReferences;
+		Ar << ParametersBindingData.RootParameterBufferIndex;
 		return Ar;
 	}
 
-	void Bind(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData);
+	void BindForLegacyShaderParameters(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData);
+	void BindForRootShaderParameters(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData);
 }; // FShaderParameterBindings
 
 
@@ -894,6 +902,12 @@ public:
 	void DumpDebugInfo();
 	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, const struct FStableShaderKeyAndValue& SaveKeyVal);
 
+	/** Returns the meta data for the root shader parameter struct. */
+	static inline const FShaderParametersMetadata* GetRootParametersMetadata()
+	{
+		return nullptr;
+	}
+
 protected:
 
 	/** Indexed the same as UniformBufferParameters.  Packed densely for coherent traversal. */
@@ -996,7 +1010,8 @@ public:
 		uint32 InFrequency,
 		int32 TotalPermutationCount,
 		ConstructSerializedType InConstructSerializedRef,
-		GetStreamOutElementsType InGetStreamOutElementsRef);
+		GetStreamOutElementsType InGetStreamOutElementsRef,
+		const FShaderParametersMetadata* InRootParametersMetadata);
 
 	virtual ~FShaderType();
 
@@ -1096,6 +1111,12 @@ public:
 		return ReferencedUniformBufferStructsCache;
 	}
 
+	/** Returns the meta data for the root shader parameter struct. */
+	inline const FShaderParametersMetadata* GetRootParametersMetadata() const
+	{
+		return RootParametersMetadata;
+	}
+
 	/** Adds include statements for uniform buffers that this shader type references, and builds a prefix for the shader file with the include statements. */
 	void AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment& OutEnvironment, FString& OutSourceFilePrefix, EShaderPlatform Platform);
 
@@ -1143,6 +1164,7 @@ private:
 
 	ConstructSerializedType ConstructSerializedRef;
 	GetStreamOutElementsType GetStreamOutElementsRef;
+	const FShaderParametersMetadata* const RootParametersMetadata;
 
 	/** A map from shader ID to shader.  A shader will be removed from it when deleted, so this doesn't need to use a TRefCountPtr. */
 	TMap<FShaderId,FShader*> ShaderIdMap;

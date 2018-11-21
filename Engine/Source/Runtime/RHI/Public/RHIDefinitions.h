@@ -1124,6 +1124,22 @@ inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
 		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
 }
 
+inline bool IsUniformBufferResourceTypeIgnoreByRHI(EUniformBufferBaseType BaseType)
+{
+	return BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
+}
+
+inline bool IsUniformBufferResourceIndirectionType(EUniformBufferBaseType BaseType)
+{
+	return
+		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
+		BaseType == UBMT_GRAPH_TRACKED_SRV ||
+		BaseType == UBMT_GRAPH_TRACKED_UAV ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV;
+}
+
 inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bIncludePrefix = true)
 {
 	const TCHAR* String = TEXT("SF_NumFrequencies");

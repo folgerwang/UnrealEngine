@@ -419,6 +419,21 @@ struct TShaderParameterTypeInfo<FIntVector>
 };
 
 template<>
+struct TShaderParameterTypeInfo<FIntVector4>
+{
+	static constexpr EUniformBufferBaseType BaseType = UBMT_INT32;
+	static constexpr int32 NumRows = 1;
+	static constexpr int32 NumColumns = 4;
+	static constexpr int32 NumElements = 0;
+	static constexpr int32 Alignment = 16;
+	static constexpr bool bIsStoredInConstantBuffer = true;
+
+	using TAlignedType = TAlignedTypedef<FIntVector4, Alignment>::Type;
+
+	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
+};
+
+template<>
 struct TShaderParameterTypeInfo<FIntRect>
 {
 	static constexpr EUniformBufferBaseType BaseType = UBMT_INT32;

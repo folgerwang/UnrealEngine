@@ -22,6 +22,9 @@ struct FShaderParameterStructBindingContext
 	// C++ name of the render target binding slot.
 	FString RenderTargetBindingSlotCppName;
 
+	// Whether this is for legacy shader parameter settings, or root shader parameter structures/
+	bool bUseRootShaderParameters;
+
 
 	void Bind(
 		const FShaderParametersMetadata& StructMetaData,
@@ -71,6 +74,11 @@ struct FShaderParameterStructBindingContext
 			{
 				// The member name of a globally referenced struct is the not name on the struct.
 				ShaderBindingName = Member.GetStructMetadata()->GetShaderVariableName();
+			}
+			else if (bUseRootShaderParameters && (BaseType == UBMT_INT32 || BaseType == UBMT_UINT32 || BaseType == UBMT_FLOAT32))
+			{
+				// Constants are stored in the root shader parameter cbuffer when bUseRootShaderParameters == true.
+				continue;
 			}
 
 			if (ShaderGlobalScopeBindings.Contains(ShaderBindingName))
@@ -149,21 +157,66 @@ struct FShaderParameterStructBindingContext
 	}
 }; // struct FShaderParameterStructBindingContext
 
-void FShaderParameterBindings::Bind(const FShaderParameterMap& ParametersMap, const FShaderParametersMetadata& StructMetaData)
+void FShaderParameterBindings::BindForLegacyShaderParameters(const FShaderParameterMap& ParametersMap, const FShaderParametersMetadata& StructMetaData)
 {
 	checkf(StructMetaData.GetSize() < (1 << (sizeof(uint16) * 8)), TEXT("Shader parameter structure can only have a size < 65536 bytes."));
 
 	FShaderParameterStructBindingContext BindingContext;
 	BindingContext.Bindings = this;
 	BindingContext.ParametersMap = &ParametersMap;
+	BindingContext.bUseRootShaderParameters = false;
 	BindingContext.Bind(
 		StructMetaData,
 		/* MemberPrefix = */ TEXT(""),
 		/* ByteOffset = */ 0);
 
+	RootParameterBufferIndex = kInvalidBufferIndex;
+
 	TArray<FString> AllParameterNames;
 	ParametersMap.GetAllParameterNames(AllParameterNames);
 	if (0 && BindingContext.ShaderGlobalScopeBindings.Num() != AllParameterNames.Num()) // TODO: enable that once we can.
+	{
+		UE_LOG(LogShaders, Error, TEXT("%i shader parameters have not been bound:"), AllParameterNames.Num() - BindingContext.ShaderGlobalScopeBindings.Num());
+		for (const FString& GlobalParameterName : AllParameterNames)
+		{
+			if (!BindingContext.ShaderGlobalScopeBindings.Contains(GlobalParameterName))
+			{
+				UE_LOG(LogShaders, Error, TEXT("  %s"), *GlobalParameterName);
+			}
+		}
+
+		// TODO: would be great to have the shader name for the error message.
+		UE_LOG(LogShaders, Fatal, TEXT("Some shader parameters have not been bound."));
+	}
+}
+
+void FShaderParameterBindings::BindForRootShaderParameters(const FShaderParameterMap& ParametersMap, const FShaderParametersMetadata& StructMetaData)
+{
+	checkf(StructMetaData.GetSize() < (1 << (sizeof(uint16) * 8)), TEXT("Shader parameter structure can only have a size < 65536 bytes."));
+
+	FShaderParameterStructBindingContext BindingContext;
+	BindingContext.Bindings = this;
+	BindingContext.ParametersMap = &ParametersMap;
+	BindingContext.bUseRootShaderParameters = true;
+	BindingContext.Bind(
+		StructMetaData,
+		/* MemberPrefix = */ TEXT(""),
+		/* ByteOffset = */ 0);
+
+	// Binds the uniform buffer that contains the root shader parameters.
+	{
+		const TCHAR* ShaderBindingName = FShaderParametersMetadata::kRootUniformBufferBindingName;
+		uint16 BufferIndex, BaseIndex, BoundSize;
+		if (ParametersMap.FindParameterAllocation(ShaderBindingName, BufferIndex, BaseIndex, BoundSize))
+		{
+			BindingContext.ShaderGlobalScopeBindings.Add(ShaderBindingName, ShaderBindingName);
+			RootParameterBufferIndex = BufferIndex;
+		}
+	}
+
+	TArray<FString> AllParameterNames;
+	ParametersMap.GetAllParameterNames(AllParameterNames);
+	if (BindingContext.ShaderGlobalScopeBindings.Num() != AllParameterNames.Num())
 	{
 		UE_LOG(LogShaders, Error, TEXT("%i shader parameters have not been bound:"), AllParameterNames.Num() - BindingContext.ShaderGlobalScopeBindings.Num());
 		for (const FString& GlobalParameterName : AllParameterNames)

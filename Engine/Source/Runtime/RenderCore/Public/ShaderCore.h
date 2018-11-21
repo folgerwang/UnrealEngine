@@ -526,6 +526,27 @@ struct FShaderCompilerInput
 	FShaderCompilerEnvironment Environment;
 	TRefCountPtr<FShaderCompilerEnvironment> SharedEnvironment;
 
+
+	struct FRootParameterBinding
+	{
+		/** Name of the constant buffer stored parameter. */
+		FString Name;
+
+		/** The offset of the parameter in the root shader parameter struct. */
+		uint16 ByteOffset;
+
+
+		friend FArchive& operator<<(FArchive& Ar, FRootParameterBinding& RootParameterBinding)
+		{
+			Ar << RootParameterBinding.Name;
+			Ar << RootParameterBinding.ByteOffset;
+			return Ar;
+		}
+	};
+
+	TArray<FRootParameterBinding> RootParameterBindings;
+
+
 	// Additional compilation settings that can be filled by FMaterial::SetupExtaCompilationSettings
 	// FMaterial::SetupExtaCompilationSettings is usually called by each (*)MaterialShaderType::BeginCompileShader() function
 	FExtraShaderCompilerSettings ExtraSettings;
@@ -644,6 +665,7 @@ struct FShaderCompilerInput
 		Ar << Input.DebugGroupName;
 		Ar << Input.Environment;
 		Ar << Input.ExtraSettings;
+		Ar << Input.RootParameterBindings;
 
 		// Note: skipping Input.SharedEnvironment, which is handled by FShaderCompileUtilities::DoWriteTasks in order to maintain sharing
 

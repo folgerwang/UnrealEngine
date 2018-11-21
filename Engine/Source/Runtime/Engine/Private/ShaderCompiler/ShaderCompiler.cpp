@@ -46,6 +46,7 @@
 #include "SceneInterface.h"
 #include "ShaderCodeLibrary.h"
 #include "MeshMaterialShaderType.h"
+#include "ShaderParameterMetadata.h"
 
 #define LOCTEXT_NAMESPACE "ShaderCompiler"
 
@@ -80,7 +81,7 @@ FString GetMaterialShaderMapDDCKey()
 }
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 9;
+const int32 ShaderCompileWorkerInputVersion = 10;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 5;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -2735,6 +2736,51 @@ void ValidateShaderFilePath(const FString& VirtualShaderFilePath, const FString&
 		*VirtualShaderFilePath);
 }
 
+static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, const FShaderParametersMetadata& ParametersMetadata, uint16 ByteOffset)
+{
+	for (const FShaderParametersMetadata::FMember& Member : ParametersMetadata.GetMembers())
+	{
+		EUniformBufferBaseType BaseType = Member.GetBaseType();
+		uint16 MemberOffset = ByteOffset + uint16(Member.GetOffset());
+
+		if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
+		{
+			PullRootShaderParametersLayout(CompileInput, *Member.GetStructMetadata(), MemberOffset);
+		}
+		else if (
+			BaseType == UBMT_BOOL ||
+			BaseType == UBMT_INT32 ||
+			BaseType == UBMT_UINT32 ||
+			BaseType == UBMT_FLOAT32)
+		{
+			FShaderCompilerInput::FRootParameterBinding RootParameterBinding;
+			RootParameterBinding.Name = Member.GetName();
+			RootParameterBinding.ByteOffset = MemberOffset;
+			CompileInput.RootParameterBindings.Add(RootParameterBinding);
+		}
+		continue;
+
+		if (BaseType == UBMT_REFERENCED_STRUCT)
+		{
+			// Referenced structured are manually passed to the RHI.
+		}
+		else if (BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS)
+		{
+			// RHI don't need to care about render target bindings slot anyway.
+		}
+		else if (
+			BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
+			BaseType == UBMT_GRAPH_TRACKED_UAV)
+		{
+			// UAV are ignored on purpose because not supported in uniform buffers.
+		}
+		else
+		{
+			check(0);
+		}
+	}
+}
+
 TSharedPtr<FString> GCachedGeneratedInstancedStereoCode = MakeShareable(new FString());
 
 /** Enqueues a shader compile job with GShaderCompilingManager. */
@@ -2765,6 +2811,11 @@ void GlobalBeginCompileShader(
 	Input.DumpDebugInfoRootPath = GShaderCompilingManager->GetAbsoluteShaderDebugInfoDirectory() / Input.ShaderFormat.ToString();
 	// asset material name or "Global"
 	Input.DebugGroupName = DebugGroupName;
+
+	if (ShaderType->GetRootParametersMetadata())
+	{
+		PullRootShaderParametersLayout(Input, *ShaderType->GetRootParametersMetadata(), /* ByteOffset = */ 0);
+	}
 
 	// Verify FShaderCompilerInput's file paths are consistent. 
 	#if DO_CHECK

@@ -49,6 +49,9 @@ public:
 		/** Shader parameter struct generated from assets, such as material parameter collection or Niagara. */
 		DataDrivenShaderParameterStruct,
 	};
+
+	/** Shader binding name of the uniform buffer that contains the root shader parameters. */
+	static constexpr const TCHAR* kRootUniformBufferBindingName = TEXT("_RootShaderParameters");
 	
 	/** A member of a shader parameter structure. */
 	class FMember

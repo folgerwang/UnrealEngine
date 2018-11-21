@@ -18,11 +18,20 @@ class FRDGBufferSRV;
 class FRDGBufferUAV;
 
 struct FPooledRDGBuffer;
-
+struct FRaytracingShaderBindingsWriter;
 
 /** Generic graph resource. */
 class RENDERCORE_API FRDGResource
 {
+private:
+	// RHI resource once allocated.
+	union
+	{
+		mutable FRHIResource* Resource;
+		mutable FShaderResourceViewRHIParamRef SRV;
+		mutable FUnorderedAccessViewRHIParamRef UAV;
+	} CachedRHI;
+
 public:
 	// Name of the resource for debugging purpose.
 	const TCHAR* const Name = nullptr;
@@ -38,14 +47,6 @@ public:
 	void operator = (const FRDGResource&) = delete;
 
 private:
-	// RHI resource once allocated.
-	union
-	{
-		mutable FRHIResource* Resource;
-		mutable FShaderResourceViewRHIParamRef SRV;
-		mutable FUnorderedAccessViewRHIParamRef UAV;
-	} CachedRHI;
-
 	/** Number of references in passes and deferred queries. */
 	mutable int32 ReferenceCount = 0;
 
