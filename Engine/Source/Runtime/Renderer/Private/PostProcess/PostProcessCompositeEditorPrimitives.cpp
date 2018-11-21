@@ -325,7 +325,7 @@ static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const F
 		}
 	}
 
-	View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked);
+	View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_World);
 
 	// Draw the base pass for the view's batched mesh elements.
 	//DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState, Context, SDPG_World, false);
@@ -349,6 +349,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 	if (bIgnoreExistingDepth)
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_Always>::GetRHI());
+		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
 		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
 			typename TBasePass::ContextType(), SDPG_Foreground, false);
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
@@ -357,6 +358,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 	// Draw a second time the foreground primitive with depth test to have proper depth test between foreground primitives.
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
+		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
 		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
 			typename TBasePass::ContextType(), SDPG_Foreground, false);
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);

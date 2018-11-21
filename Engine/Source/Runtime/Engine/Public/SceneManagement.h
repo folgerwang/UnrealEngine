@@ -1678,10 +1678,21 @@ public:
 		return 0;
 	}
 
-	void DrawBatchedElements(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter) const;
+	void DrawBatchedElements(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter, ESceneDepthPriorityGroup DPG) const;
+
+	bool HasPrimitives(ESceneDepthPriorityGroup DPG) const
+	{
+		if (DPG == SDPG_World)
+		{
+			return BatchedElements.HasPrimsToDraw();
+		}
+
+		return TopBatchedElements.HasPrimsToDraw();
+	}
 
 	/** The batched simple elements. */
 	FBatchedElements BatchedElements;
+	FBatchedElements TopBatchedElements;
 
 private:
 

@@ -1285,12 +1285,58 @@ void FDeferredShadingSceneRenderer::RenderBasePassViewParallel(FViewInfo& View, 
 	RenderBasePassDynamicDataParallel(ParallelSet);
 }
 
-void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState, bool& bOutDirty) 
+bool HasEditorPrimitivesForDPG(const FViewInfo& View, ESceneDepthPriorityGroup DepthPriorityGroup)
+{
+	bool bHasPrimitives = View.SimpleElementCollector.HasPrimitives(DepthPriorityGroup);
+
+	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
+	{
+		const TIndirectArray<FMeshBatch>& ViewMeshElementList = (DepthPriorityGroup == SDPG_Foreground ? View.TopViewMeshElements : View.ViewMeshElements);
+		bHasPrimitives |= ViewMeshElementList.Num() > 0;
+
+		const FBatchedElements& BatchedViewElements = DepthPriorityGroup == SDPG_World ? View.BatchedViewElements : View.TopBatchedViewElements;
+		bHasPrimitives |= BatchedViewElements.HasPrimsToDraw();
+	}
+
+	return bHasPrimitives;
+}
+
+void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState, bool& bOutDirty)
 {
 	FDrawingPolicyRenderState DrawRenderState(InDrawRenderState);
 	SetupBasePassView(RHICmdList, View, this, DrawRenderState, BasePassDepthStencilAccess, ViewFamily.EngineShowFlags.ShaderComplexity, true);
 
-	View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked);
+	RenderEditorPrimitivesForDPG(RHICmdList, View, BasePassDepthStencilAccess, DrawRenderState, SDPG_World, bOutDirty);
+
+	if (HasEditorPrimitivesForDPG(View, SDPG_Foreground))
+	{
+		RHICmdList.EndRenderPass();
+
+		// Write foreground primitives into depth buffer without testing 
+		{
+			// Change to depth writable
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			SceneContext.BeginRenderingGBuffer(RHICmdList, ERenderTargetLoadAction::ELoad, ERenderTargetLoadAction::ELoad, FExclusiveDepthStencil::DepthWrite_StencilWrite, false);
+
+			FDrawingPolicyRenderState NoDepthTestDrawRenderState(DrawRenderState);
+			NoDepthTestDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_Always>::GetRHI());
+			NoDepthTestDrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
+			RenderEditorPrimitivesForDPG(RHICmdList, View, BasePassDepthStencilAccess, NoDepthTestDrawRenderState, SDPG_Foreground, bOutDirty);
+
+			RHICmdList.EndRenderPass();
+
+			// Restore default base pass depth access
+			SceneContext.BeginRenderingGBuffer(RHICmdList, ERenderTargetLoadAction::ELoad, ERenderTargetLoadAction::ELoad, BasePassDepthStencilAccess, false);
+		}
+
+		// Render foreground primitives with depth testing
+		RenderEditorPrimitivesForDPG(RHICmdList, View, BasePassDepthStencilAccess, DrawRenderState, SDPG_Foreground, bOutDirty);
+	}
+}
+
+void FDeferredShadingSceneRenderer::RenderEditorPrimitivesForDPG(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState, ESceneDepthPriorityGroup DepthPriorityGroup, bool& bOutDirty) 
+{
+	View.SimpleElementCollector.DrawBatchedElements(RHICmdList, InDrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, DepthPriorityGroup);
 
 	bool bDirty = false;
 	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
@@ -1298,17 +1344,12 @@ void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHIC
 		const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
 		// Draw the base pass for the view's batched mesh elements.
-		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_World, true) || bDirty;
+		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, InDrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(), DepthPriorityGroup, true) || bDirty;
+
+		const FBatchedElements& BatchedViewElements = DepthPriorityGroup == SDPG_World ? View.BatchedViewElements : View.TopBatchedViewElements;
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
-		bDirty |= View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false) || bDirty;
-
-		// Draw foreground objects last
-		bDirty |= DrawViewElements<FBasePassOpaqueDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FBasePassOpaqueDrawingPolicyFactory::ContextType(), SDPG_Foreground, true) || bDirty;
-
-		// Draw the view's batched simple elements(lines, sprites, etc).
-		bDirty |= View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false) || bDirty;
-
+		bDirty |= BatchedViewElements.Draw(RHICmdList, InDrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false) || bDirty;
 	}
 
 	if (bDirty)
