@@ -85,13 +85,13 @@ struct FShaderParameterStructBindingContext
 			{
 				UE_LOG(LogShaders, Fatal, TEXT("%s can't bind shader parameter %s, because it has already be bound by %s."), *CppName, *ShaderBindingName, **ShaderGlobalScopeBindings.Find(ShaderBindingName));
 			}
-			ShaderGlobalScopeBindings.Add(ShaderBindingName, CppName);
 
 			uint16 BufferIndex, BaseIndex, BoundSize;
 			if (!ParametersMap->FindParameterAllocation(*ShaderBindingName, BufferIndex, BaseIndex, BoundSize))
 			{
 				continue;
 			}
+			ShaderGlobalScopeBindings.Add(ShaderBindingName, CppName);
 
 			if (BaseType == UBMT_INT32 || BaseType == UBMT_UINT32 || BaseType == UBMT_FLOAT32)
 			{
