@@ -116,7 +116,7 @@ public:
 	}
 
 	/** Register a external texture to be tracked by the render graph. */
-	inline const FRDGTexture* RegisterExternalTexture(const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture, const TCHAR* Name = TEXT("External"))
+	inline FRDGTextureRef RegisterExternalTexture(const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture, const TCHAR* Name = TEXT("External"))
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
@@ -133,7 +133,7 @@ public:
 	}
 
 	/** Create graph tracked resource from a descriptor with a debug name. */
-	inline const FRDGTexture* CreateTexture(const FPooledRenderTargetDesc& Desc, const TCHAR* DebugName)
+	inline FRDGTextureRef CreateTexture(const FPooledRenderTargetDesc& Desc, const TCHAR* DebugName)
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
@@ -148,7 +148,7 @@ public:
 	}
 
 	/** Create graph tracked resource from a descriptor with a debug name. */
-	inline const FRDGBuffer* CreateBuffer(const FRDGBufferDesc& Desc, const TCHAR* DebugName)
+	inline FRDGBufferRef CreateBuffer(const FRDGBufferDesc& Desc, const TCHAR* DebugName)
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
@@ -163,7 +163,7 @@ public:
 	}
 
 	/** Create graph tracked SRV for a texture from a descriptor. */
-	inline const FRDGTextureSRV* CreateSRV(const FRDGTextureSRVDesc& Desc)
+	inline FRDGTextureSRVRef CreateSRV(const FRDGTextureSRVDesc& Desc)
 	{
 		check(Desc.Texture);
 		#if RENDER_GRAPH_DEBUGGING
@@ -181,7 +181,7 @@ public:
 	}
 
 	/** Create graph tracked SRV for a buffer from a descriptor. */
-	inline const FRDGBufferSRV* CreateSRV(const FRDGBufferSRVDesc& Desc)
+	inline FRDGBufferSRVRef CreateSRV(const FRDGBufferSRVDesc& Desc)
 	{
 		check(Desc.Buffer);
 		#if RENDER_GRAPH_DEBUGGING
@@ -216,7 +216,7 @@ public:
 	}
 
 	/** Create graph tracked UAV for a buffer from a descriptor. */
-	inline const FRDGBufferUAV* CreateUAV(const FRDGBufferUAVDesc& Desc)
+	inline FRDGBufferUAVRef CreateUAV(const FRDGBufferUAVDesc& Desc)
 	{
 		check(Desc.Buffer);
 		#if RENDER_GRAPH_DEBUGGING
@@ -276,7 +276,7 @@ public:
 	/**
 	 * Extracts an internal texture by handle.  Must be called before Execute.
 	 */
-	inline void GetInternalTexture(const FRDGTexture* Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
+	inline void GetInternalTexture(FRDGTextureRef Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
 	{
 		check(Texture);
 		check(OutTexturePtr);
@@ -297,10 +297,13 @@ public:
 	 */
 	void Execute();
 
-private:
-	/** The RHI command list to use. */
+
+public:
+	/** The RHI command list used for the render graph. */
 	FRHICommandListImmediate& RHICmdList;
 
+
+private:
 	/** Array of all pass created */
 	TArray<FRenderGraphPass*, SceneRenderingAllocator> Passes;
 

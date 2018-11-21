@@ -1109,12 +1109,12 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 	View.HZBMipmap0Size = HZBSize;
 
 	//@DW: Configure texture creation
-	FPooledRenderTargetDesc HZBDesc = FPooledRenderTargetDesc::Create2DDesc(HZBSize, PF_R16F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_NoFastClear, false, NumMips);
+	FRDGTextureDesc HZBDesc = FRDGTextureDesc::Create2DDesc(HZBSize, PF_R16F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_NoFastClear, false, NumMips);
 	HZBDesc.Flags |= GFastVRamConfig.HZB;
 
 	//@DW: Explicit creation of graph resource handles - full support for everything the RHI supports
 	//@DW: Now that we've created a resource handle, it will have to be passed around to other passes for manual wiring or put into a Blackboard structure for automatic wiring
-	const FRDGTexture* HZBTexture = GraphBuilder.CreateTexture(HZBDesc, TEXT("HZB"));
+	FRDGTextureRef HZBTexture = GraphBuilder.CreateTexture(HZBDesc, TEXT("HZB"));
 
 	{
 		FHZBBuildPassParameters* PassParameters;
@@ -1198,7 +1198,7 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 
 		//@DW: Explicit creation of SRV, full configuration of SRV supported
 		FRDGTextureSRVDesc Desc(HZBTexture, MipIndex - 1);
-		const FRDGTextureSRV* ParentMipSRV = GraphBuilder.CreateSRV(Desc);
+		FRDGTextureSRVRef ParentMipSRV = GraphBuilder.CreateSRV(Desc);
 
 		FHZBBuildPassParameters* PassParameters;
 		GraphBuilder.CreateParameters(&PassParameters);

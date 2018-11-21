@@ -7,3 +7,5 @@
 #include "RenderGraphResources.h"
 #include "RenderGraphBuilder.h"
 #include "RenderGraphUtils.h"
+#include "ShaderParameterStruct.h"
+#include "ShaderParameterMacros.h"

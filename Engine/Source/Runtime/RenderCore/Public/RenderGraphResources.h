@@ -69,6 +69,9 @@ private:
 	friend void SetShaderUAVs(TRHICmdList&, const TShaderClass*, FComputeShaderRHIParamRef, const typename TShaderClass::FParameters&);
 };
 
+/** Descriptor of a graph tracked texture. */
+using FRDGTextureDesc = FPooledRenderTargetDesc;
+
 /** Render graph tracked Texture. */
 class RENDERCORE_API FRDGTexture : public FRDGResource
 {
@@ -402,3 +405,13 @@ FRDGBufferUAVDesc FRDGBufferUAVDesc::CreateIndirectDesc(const FRDGBuffer* Buffer
 	Desc.Format = PF_R32_UINT;
 	return Desc;
 }
+
+
+/** Defines the RDG resource references for user code not forgetting the const every time. */
+using FRDGResourceRef = const FRDGResource*;
+using FRDGTextureRef = const FRDGTexture*;
+using FRDGTextureSRVRef = const FRDGTextureSRV*;
+using FRDGTextureUAVRef = const FRDGTextureUAV*;
+using FRDGBufferRef = const  FRDGBuffer*;
+using FRDGBufferSRVRef = const FRDGBufferSRV*;
+using FRDGBufferUAVRef = const FRDGBufferUAV*;
