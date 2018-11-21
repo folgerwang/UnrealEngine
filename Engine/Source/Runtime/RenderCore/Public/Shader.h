@@ -637,7 +637,7 @@ public:
 	TArray<FParameterStructReference> ParameterReferences;
 
 	// Buffer index of FShaderParametersMetadata::kRootUniformBufferBindingName
-	uint16 RootParameterBufferIndex;
+	uint16 RootParameterBufferIndex = FShaderParameterBindings::kInvalidBufferIndex;
 
 	friend FArchive& operator<<(FArchive& Ar, FShaderParameterBindings& ParametersBindingData)
 	{

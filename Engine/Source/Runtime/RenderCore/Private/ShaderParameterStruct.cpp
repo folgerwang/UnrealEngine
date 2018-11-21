@@ -212,6 +212,10 @@ void FShaderParameterBindings::BindForRootShaderParameters(const FShaderParamete
 			BindingContext.ShaderGlobalScopeBindings.Add(ShaderBindingName, ShaderBindingName);
 			RootParameterBufferIndex = BufferIndex;
 		}
+		else
+		{
+			check(RootParameterBufferIndex == FShaderParameterBindings::kInvalidBufferIndex);
+		}
 	}
 
 	TArray<FString> AllParameterNames;
