@@ -53,8 +53,17 @@ private:
 	// handlers for different type of messages received from network
 	struct FReceiveHandler
 	{
-		bool bRequiresInputDevice = false;   // Whether the InputDevice needs to be available to call the function
+		bool bRequiresInputDevice;   // Whether the InputDevice needs to be available to call the function
 		TFunction<bool()> Function;   // The function which handles the message
+		FReceiveHandler() :
+			bRequiresInputDevice(false)
+		{
+		}
+		FReceiveHandler(bool InRequiresInputDevice, TFunction<bool()> InFunction) :
+			bRequiresInputDevice(InRequiresInputDevice),
+			Function(InFunction)
+		{
+		}
 	};
 	TArray<FReceiveHandler> ReceiveHandlers;
 
