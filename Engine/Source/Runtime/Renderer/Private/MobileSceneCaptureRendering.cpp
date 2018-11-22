@@ -26,6 +26,7 @@ MobileSceneCaptureRendering.cpp - Mobile specific scene capture code.
 #include "ScreenRendering.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "DummyRenderResources.h"
 
 /**
 * Shader set for the copy of scene color to capture target, decoding mosaic or RGBE encoded HDR image as part of a
