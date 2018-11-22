@@ -781,10 +781,7 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 
 		if (bCheckForLegacyPackages)
 		{
-			TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
-			BeginLoad(LoadContext);
-			auto Linker = GetPackageLinker(nullptr, *Filename, LOAD_NoVerify, nullptr, nullptr, nullptr, LoadContext);
-			EndLoad(Linker->GetSerializeContext());
+			FLinkerLoad* Linker = LoadPackageLinker(nullptr, *Filename, LOAD_NoVerify, nullptr, nullptr, nullptr);
 			MinVersion = FMath::Min<int32>(MinVersion, Linker->Summary.GetFileVersionUE4());
 		}
 		else
