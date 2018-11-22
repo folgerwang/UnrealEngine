@@ -2,6 +2,7 @@
 
 #include "HeadMountedDisplayTypes.h"
 #include "RendererInterface.h"
+#include "DummyRenderResources.h"
 
 DEFINE_LOG_CATEGORY(LogHMD);
 DEFINE_LOG_CATEGORY(LogLoadingSplash);
