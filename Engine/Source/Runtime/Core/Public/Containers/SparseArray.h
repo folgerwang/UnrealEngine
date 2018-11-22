@@ -126,10 +126,18 @@ public:
 	}
 
 	/** Adds an element to the array. */
-	int32 Add(typename TTypeTraits<ElementType>::ConstInitType Element)
+	int32 Add(const ElementType& Element)
 	{
 		FSparseArrayAllocationInfo Allocation = AddUninitialized();
 		new(Allocation) ElementType(Element);
+		return Allocation.Index;
+	}
+
+	/** Adds an element to the array. */
+	int32 Add(ElementType&& Element)
+	{
+		FSparseArrayAllocationInfo Allocation = AddUninitialized();
+		new(Allocation) ElementType(MoveTemp(Element));
 		return Allocation.Index;
 	}
 

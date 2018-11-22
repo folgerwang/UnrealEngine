@@ -207,7 +207,7 @@ FTimerHandle FTimerManager::K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDy
 	return Result;
 }
 
-void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
+void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate&& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimer);
 
@@ -225,7 +225,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	{
 		// set up the new timer
 		FTimerData NewTimerData;
-		NewTimerData.TimerDelegate = InDelegate;
+		NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 
 		NewTimerData.Rate = InRate;
 		NewTimerData.bLoop = InbLoop;
@@ -261,7 +261,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	}
 }
 
-void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InDelegate)
+void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate&& InDelegate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimerForNextTick);
 
@@ -272,7 +272,7 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 	NewTimerData.Rate = 0.f;
 	NewTimerData.bLoop = false;
 	NewTimerData.bRequiresDelegate = true;
-	NewTimerData.TimerDelegate = InDelegate;
+	NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 	NewTimerData.ExpireTime = InternalTime;
 	NewTimerData.Status = ETimerStatus::Active;
 
