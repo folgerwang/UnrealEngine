@@ -8,6 +8,10 @@
 
 #include "RenderResource.h"
 #include "RenderGraphUtils.h"
+#include "DummyRenderResources.h"
+#include "RHI.h"
+#include "RHIStaticStates.h"
+#include "PipelineStateCache.h"
 
 
 /** All utils for pixel shaders. */
