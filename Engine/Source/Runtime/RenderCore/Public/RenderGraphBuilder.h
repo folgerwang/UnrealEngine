@@ -354,16 +354,20 @@ public:
 		}
 	}
 
-	/**
-	 * Extracts an internal texture by handle.  Must be called before Execute.
+	/** Queue a texture extraction. This will set *OutTexturePtr with the internal pooled render target at the Execute().
+	 *
+	 * Note: even when the render graph uses the immediate debugging mode (executing passes as they get added), the texture extrations
+	 * will still happen in the Execute(), to ensure there is no bug caused in code outside the render graph on whether this mode is used or not.
 	 */
-	inline void GetInternalTexture(FRDGTextureRef Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
+	inline void QueueTextureExtraction(FRDGTextureRef Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
 	{
 		check(Texture);
 		check(OutTexturePtr);
 		#if RENDER_GRAPH_DEBUGGING
 		{
-			checkf(!bHasExecuted, TEXT("Accessing render graph internal texture %s needs to happen before the builder's execution."), Texture->Name);
+			checkf(!bHasExecuted,
+				TEXT("Accessing render graph internal texture %s with QueueTextureExtraction() needs to happen before the builder's execution."),
+				Texture->Name);
 		}
 		#endif
 		FDeferredInternalTextureQuery Query;
@@ -374,7 +378,7 @@ public:
 	}
 
 	/** 
-	 * Executes the queued passes, managing setting of render targets (RHI RenderPasses) and resource transitions.
+	 * Executes the queued passes, managing setting of render targets (RHI RenderPasses), resource transitions and queued texture extraction.
 	 */
 	void Execute();
 

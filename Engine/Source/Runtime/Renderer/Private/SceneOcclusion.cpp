@@ -1252,7 +1252,7 @@ void BuildHZB(FRDGBuilder& GraphBuilder, FViewInfo& View)
 		DstSize /= 2;
 	}
 
-	GraphBuilder.GetInternalTexture(HZBTexture, &View.HZB);
+	GraphBuilder.QueueTextureExtraction(HZBTexture, &View.HZB);
 }
 
 struct FViewOcclusionQueries

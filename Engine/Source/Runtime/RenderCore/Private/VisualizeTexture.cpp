@@ -279,7 +279,7 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 	{
 		VisualizeTextureDesc = SrcDesc;
 		VisualizeTextureContent = nullptr;
-		GraphBuilder.GetInternalTexture(CopyTexture, &VisualizeTextureContent);
+		GraphBuilder.QueueTextureExtraction(CopyTexture, &VisualizeTextureContent);
 	}
 
 #if 0 // TODO(RDG): requires some kind of CPU readback pass.

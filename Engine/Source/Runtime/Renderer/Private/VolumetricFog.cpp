@@ -1161,11 +1161,11 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 					});
 			}
 
-			GraphBuilder.GetInternalTexture(IntegratedLightScattering, &View.VolumetricFogResources.IntegratedLightScattering);
+			GraphBuilder.QueueTextureExtraction(IntegratedLightScattering, &View.VolumetricFogResources.IntegratedLightScattering);
 
 			if (bUseTemporalReprojection)
 			{
-				GraphBuilder.GetInternalTexture(IntegrationData.LightScattering, &View.ViewState->LightScatteringHistory);
+				GraphBuilder.QueueTextureExtraction(IntegrationData.LightScattering, &View.ViewState->LightScatteringHistory);
 			}
 			else if (View.ViewState)
 			{
