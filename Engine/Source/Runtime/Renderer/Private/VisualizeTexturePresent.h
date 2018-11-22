@@ -4,6 +4,8 @@
 	VisualizeTexturePresent.h: Display texture visualization on screen.
 =============================================================================*/
 
+#pragma once
+
 #include "CoreMinimal.h"
 #include "RHI.h"
 
