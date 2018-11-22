@@ -1280,8 +1280,18 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 #endif
 
-		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride, LoadContext);
-		
+		{
+			FUObjectSerializeContext* InOutLoadContext = LoadContext;
+			Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride, &InOutLoadContext);
+			if (InOutLoadContext != LoadContext)
+			{
+				// The linker already existed and was associated with another context
+				LoadContext->DecrementBeginLoadCount();
+				LoadContext = InOutLoadContext;
+				LoadContext->IncrementBeginLoadCount();
+			}			
+		}
+
 		if (!Linker)
 		{
 			EndLoad(LoadContext);

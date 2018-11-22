@@ -8566,7 +8566,18 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 		LoadFlags |= LOAD_PackageForPIE;
 	}
 	UPackage* PackageToReset = nullptr;
-	FLinkerLoad* Linker = GetPackageLinker(nullptr, *PackageName.ToString(), LoadFlags, nullptr, nullptr, nullptr, LoadContext);
+	FLinkerLoad* Linker = nullptr;
+	{
+		FUObjectSerializeContext* InOutLoadContext = LoadContext;
+		Linker = GetPackageLinker(nullptr, *PackageName.ToString(), LoadFlags, nullptr, nullptr, nullptr, &InOutLoadContext);
+		if (InOutLoadContext != LoadContext)
+		{
+			// The linker already existed and was associated with another context
+			LoadContext->DecrementBeginLoadCount();
+			LoadContext = InOutLoadContext;
+			LoadContext->IncrementBeginLoadCount();
+		}
+	}
 	check(Linker);
 	if (Linker != nullptr && Linker->LinkerRoot != nullptr)
 	{

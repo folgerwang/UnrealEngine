@@ -8,7 +8,6 @@
 #include "UObject/SoftObjectPtr.h"
 #include "UObject/ObjectResource.h"
 #include "UObject/Linker.h"
-#include "Templates/RefCounting.h"
 
 class FLinkerPlaceholderBase;
 class ULinkerPlaceholderExportObject;

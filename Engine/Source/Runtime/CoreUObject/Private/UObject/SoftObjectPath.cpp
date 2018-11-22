@@ -344,13 +344,13 @@ bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag,
 	return bReturn;
 }
 
-UObject* FSoftObjectPath::TryLoad() const
+UObject* FSoftObjectPath::TryLoad(FUObjectSerializeContext* InLoadContext) const
 {
 	UObject* LoadedObject = nullptr;
 
 	if (!IsNull())
 	{
-		LoadedObject = LoadObject<UObject>(nullptr, *ToString());
+		LoadedObject = StaticLoadObject(UObject::StaticClass(), nullptr, *ToString(), nullptr, LOAD_None, nullptr, true, InLoadContext);
 
 #if WITH_EDITOR
 		// Look at core redirects if we didn't find the object

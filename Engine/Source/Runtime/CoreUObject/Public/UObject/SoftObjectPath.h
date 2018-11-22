@@ -95,10 +95,10 @@ struct COREUOBJECT_API FSoftObjectPath
 
 	/**
 	 * Attempts to load the asset, this will call LoadObject which can be very slow
-	 *
+	 * @param InLoadContext Optional load context when called from nested load callstack
 	 * @return Loaded UObject, or nullptr if the reference is null or the asset fails to load
 	 */
-	UObject* TryLoad() const;
+	UObject* TryLoad(FUObjectSerializeContext* InLoadContext = nullptr) const;
 
 	/**
 	 * Attempts to find a currently loaded object that matches this path

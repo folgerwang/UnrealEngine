@@ -139,6 +139,10 @@ public:
 	{
 		return ObjBeginLoadCount > 0;
 	}
+	int32 GetBeginLoadCount() const
+	{
+		return ObjBeginLoadCount;
+	}
 
 	int32 IncrementBeginLoadCount();
 	int32 DecrementBeginLoadCount();

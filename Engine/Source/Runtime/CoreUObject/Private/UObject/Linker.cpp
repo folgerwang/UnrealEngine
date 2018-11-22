@@ -542,9 +542,10 @@ FLinkerLoad* GetPackageLinker
 	UPackageMap*	Sandbox,
 	FGuid*			CompatibleGuid,
 	FArchive*		InReaderOverride,
-	FUObjectSerializeContext* InExistingContext
+	FUObjectSerializeContext** InOutLoadContext
 )
 {
+	FUObjectSerializeContext* InExistingContext = InOutLoadContext ? *InOutLoadContext : nullptr;
 	// See if there is already a linker for this package.
 	FLinkerLoad* Result = FLinkerLoad::FindExistingLinkerForPackage(InOuter);
 
@@ -552,6 +553,13 @@ FLinkerLoad* GetPackageLinker
 	// See if the linker is already loaded.
 	if (Result)
 	{
+		if (InExistingContext && Result->GetSerializeContext() && Result->GetSerializeContext() != InExistingContext)
+		{
+			if (!Result->GetSerializeContext()->HasStartedLoading())
+			{
+				Result->SetSerializeContext(InExistingContext);
+			}
+		}
 		return Result;
 	}
 
@@ -717,7 +725,16 @@ FLinkerLoad* GetPackageLinker
 	}
 	else if (InExistingContext)
 	{
-		Result->SetSerializeContext(InExistingContext);
+		if (Result->GetSerializeContext() && Result->GetSerializeContext()->HasStartedLoading() && InExistingContext->GetBeginLoadCount() == 1)
+		{
+			// Use the context associated with the linker because it has already started loading objects
+			*InOutLoadContext = Result->GetSerializeContext();
+		}
+		else
+		{
+			// Replace the linker context with the one passed into this function
+			Result->SetSerializeContext(InExistingContext);
+		}
 	}
 
 	if ( !Result && CreatedPackage )
@@ -743,6 +760,26 @@ FLinkerLoad* GetPackageLinker
 	}
 
 	return Result;
+}
+
+FLinkerLoad* LoadPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride)
+{
+	FLinkerLoad* Linker = nullptr;
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+	BeginLoad(LoadContext);
+	{
+		FUObjectSerializeContext* InOutLoadContext = LoadContext;
+		Linker = GetPackageLinker(InOuter, InLongPackageName, LoadFlags, Sandbox, CompatibleGuid, InReaderOverride, &InOutLoadContext);
+		if (InOutLoadContext != LoadContext)
+		{
+			// The linker already existed and was associated with another context
+			LoadContext->DecrementBeginLoadCount();
+			LoadContext = InOutLoadContext;
+			LoadContext->IncrementBeginLoadCount();
+		}
+	}
+	EndLoad(Linker ? Linker->GetSerializeContext() : LoadContext.GetReference());
+	return Linker;
 }
 
 /**
