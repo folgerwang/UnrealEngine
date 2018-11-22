@@ -498,8 +498,7 @@ void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
 	{
 		OutLocalShadowedLightScattering = GraphBuilder.CreateTexture(VolumeDesc, TEXT("LocalShadowedLightScattering"));
 
-		FRenderTargetParameters* PassParameters;
-		GraphBuilder.CreateParameters(&PassParameters);
+		FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
 		PassParameters->RenderTargets[0] = FRenderTargetBinding( OutLocalShadowedLightScattering, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::ENoAction );
 
 		GraphBuilder.AddPass(
@@ -1030,8 +1029,7 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 			IntegrationData.VBufferB_UAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegrationData.VBufferB));
 
 			{
-				FVolumetricFogMaterialSetupCS::FParameters* PassParameters;
-				GraphBuilder.CreateParameters(&PassParameters);
+				FVolumetricFogMaterialSetupCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FVolumetricFogMaterialSetupCS::FParameters>();
 				PassParameters->GlobalAlbedo			= FogInfo.VolumetricFogAlbedo;
 				PassParameters->GlobalEmissive			= FogInfo.VolumetricFogEmissive;
 				PassParameters->GlobalExtinctionScale	= FogInfo.VolumetricFogExtinctionScale;
@@ -1081,8 +1079,7 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 			IntegrationData.LightScatteringUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegrationData.LightScattering));
 
 			{
-				TVolumetricFogLightScatteringCS::FParameters* PassParameters;
-				GraphBuilder.CreateParameters(&PassParameters);
+				TVolumetricFogLightScatteringCS::FParameters* PassParameters = GraphBuilder.AllocParameters<TVolumetricFogLightScatteringCS::FParameters>();
 
 				PassParameters->VBufferA = IntegrationData.VBufferA;
 				PassParameters->VBufferB = IntegrationData.VBufferB;
@@ -1142,8 +1139,7 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 			const FRDGTextureUAV* IntegratedLightScatteringUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegratedLightScattering));
 
 			{
-				FVolumetricFogFinalIntegrationCS::FParameters* PassParameters;
-				GraphBuilder.CreateParameters(&PassParameters);
+				FVolumetricFogFinalIntegrationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FVolumetricFogFinalIntegrationCS::FParameters>();
 				PassParameters->LightScattering = IntegrationData.LightScattering;
 				PassParameters->RWIntegratedLightScattering = IntegratedLightScatteringUAV;
 

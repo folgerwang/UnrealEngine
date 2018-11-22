@@ -225,8 +225,7 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 	bool bSaturateInsteadOfFrac = (Flags & 1) != 0;
 	int32 InputValueMapping = bShadowDepth ? 2 : (bDepthTexture ? 1 : 0);
 
-	FVisualizeTexturePS::FParameters *PassParameters;
-	GraphBuilder.CreateParameters(&PassParameters);
+	FVisualizeTexturePS::FParameters* PassParameters = GraphBuilder.AllocParameters<FVisualizeTexturePS::FParameters>();
 	{
 		PassParameters->TextureExtent = FVector(SrcDesc.Extent.X, SrcDesc.Extent.Y, SrcDesc.Depth);
 

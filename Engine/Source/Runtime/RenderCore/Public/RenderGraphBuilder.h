@@ -320,16 +320,11 @@ public:
 
 	/** Allocates parameter struct specifically to survive through the life time of the render graph. */
 	template< typename ParameterStructType >
-	inline void CreateParameters(ParameterStructType** OutParameterPtr) const
+	inline ParameterStructType* AllocParameters() const
 	{
-		// Check because destructor called by the pass's destructor.
-		#if RENDER_GRAPH_DEBUGGING
-		{
-			checkf(!bHasExecuted, TEXT("Render graph allocated shader parameters %s needs to be allocated before the builder execution."), ParameterStructType::FTypeInfo::GetStructMetadata()->GetStructTypeName());
-		}
-		#endif
-		*OutParameterPtr = new(FMemStack::Get()) ParameterStructType;
-		FMemory::Memzero( *OutParameterPtr, sizeof( ParameterStructType ) );
+		ParameterStructType* OutParameterPtr = new(FMemStack::Get()) ParameterStructType;
+		FMemory::Memzero(OutParameterPtr, sizeof(ParameterStructType));
+		return OutParameterPtr;
 	}
 
 	/** 

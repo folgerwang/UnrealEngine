@@ -198,8 +198,7 @@ void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
 			const FMatrix WorldToShadowValue = FTranslationMatrix(ProjectedShadowInfo.PreShadowTranslation) * ProjectedShadowInfo.SubjectAndReceiverMatrix;
 			OutLightFunctionWorldToShadow = WorldToShadowValue;
 
-			FRenderTargetParameters* PassParameters;
-			GraphBuilder.CreateParameters(&PassParameters);
+			FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
 			PassParameters->RenderTargets[0] = FRenderTargetBinding( OutLightFunctionTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
 
 			GraphBuilder.AddPass(
