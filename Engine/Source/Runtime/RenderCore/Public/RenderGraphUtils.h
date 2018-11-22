@@ -26,7 +26,15 @@ extern RENDERCORE_API void ClearUnusedGraphResourcesImpl(const FShaderParameterB
 template<typename TShaderClass>
 inline void ClearUnusedGraphResources(const TShaderClass* Shader, typename TShaderClass::FParameters* InoutParameters)
 {
-	return ClearUnusedGraphResourcesImpl(Shader->Bindings, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), InoutParameters);
+	const FShaderParametersMetadata* ParametersMetadata = TShaderClass::FParameters::FTypeInfo::GetStructMetadata();
+
+	// Verify the shader have all the parameters it needs. This is done before the
+	// ClearUnusedGraphResourcesImpl() to not misslead user on why some resource are misseing
+	// when debugging a validation failure.
+	ValidateShaderParameters(Shader, ParametersMetadata, InoutParameters);
+
+	// Clear the resources the shader won't need.
+	return ClearUnusedGraphResourcesImpl(Shader->Bindings, ParametersMetadata, InoutParameters);
 }
 
 

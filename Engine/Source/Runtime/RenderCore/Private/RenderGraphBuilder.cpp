@@ -639,6 +639,9 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 		UnbindRenderTargets(RHICmdList);
 	}
 	
+	// The name of the pass just for debuging convenience when crashing in the Execute().
+	const TCHAR* PassName = Pass->GetName();
+
 	Pass->Execute(RHICmdList);
 
 	if( bHasRenderTargets )

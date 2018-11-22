@@ -157,7 +157,7 @@ struct FShaderParameterStructBindingContext
 	}
 }; // struct FShaderParameterStructBindingContext
 
-void FShaderParameterBindings::BindForLegacyShaderParameters(const FShaderParameterMap& ParametersMap, const FShaderParametersMetadata& StructMetaData)
+void FShaderParameterBindings::BindForLegacyShaderParameters(const FShaderParameterMap& ParametersMap, const FShaderParametersMetadata& StructMetaData, bool bShouldBindEverything)
 {
 	checkf(StructMetaData.GetSize() < (1 << (sizeof(uint16) * 8)), TEXT("Shader parameter structure can only have a size < 65536 bytes."));
 
@@ -174,7 +174,7 @@ void FShaderParameterBindings::BindForLegacyShaderParameters(const FShaderParame
 
 	TArray<FString> AllParameterNames;
 	ParametersMap.GetAllParameterNames(AllParameterNames);
-	if (0 && BindingContext.ShaderGlobalScopeBindings.Num() != AllParameterNames.Num()) // TODO: enable that once we can.
+	if (bShouldBindEverything && BindingContext.ShaderGlobalScopeBindings.Num() != AllParameterNames.Num())
 	{
 		UE_LOG(LogShaders, Error, TEXT("%i shader parameters have not been bound:"), AllParameterNames.Num() - BindingContext.ShaderGlobalScopeBindings.Num());
 		for (const FString& GlobalParameterName : AllParameterNames)
@@ -236,7 +236,7 @@ void FShaderParameterBindings::BindForRootShaderParameters(const FShaderParamete
 	}
 }
 
-void SetNullShaderParameterFatalError(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, uint16 MemberOffset)
+void EmitNullShaderParameterFatalError(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, uint16 MemberOffset)
 {
 	const FShaderParametersMetadata* MemberContainingStruct = nullptr;
 	const FShaderParametersMetadata::FMember* Member = nullptr;
@@ -250,3 +250,84 @@ void SetNullShaderParameterFatalError(const FShader* Shader, const FShaderParame
 		MemberContainingStruct->GetStructTypeName(),
 		Member->GetName());
 }
+
+#if DO_CHECK
+
+void ValidateShaderParameters(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, const void* Parameters)
+{
+	const FShaderParameterBindings& Bindings = Shader->Bindings;
+	const uint8* Base = reinterpret_cast<const uint8*>(Parameters);
+
+	// Textures
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.Textures)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FTextureRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+		if (!ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// SRVs
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.SRVs)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FShaderResourceViewRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+		if (!ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// Samplers
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.Samplers)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FSamplerStateRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+		if (!ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// Graph Textures
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphTextures)
+	{
+		auto GraphTexture = *reinterpret_cast<const FRDGTexture* const*>(Base + ParameterBinding.ByteOffset);
+		if (!GraphTexture)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// Graph SRVs
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphSRVs)
+	{
+		auto GraphSRV = *reinterpret_cast<const FRDGTextureSRV* const*>(Base + ParameterBinding.ByteOffset);
+		if (!GraphSRV)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// Graph UAVs for compute shaders	
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphUAVs)
+	{
+		auto GraphUAV = *reinterpret_cast<const FRDGTextureUAV* const*>(Base + ParameterBinding.ByteOffset);
+		if (!GraphUAV)
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+
+	// Reference structures
+	for (const FShaderParameterBindings::FParameterStructReference& ParameterBinding : Bindings.ParameterReferences)
+	{
+		const TRefCountPtr<FRHIUniformBuffer>& ShaderParameterRef = *reinterpret_cast<const TRefCountPtr<FRHIUniformBuffer>*>(Base + ParameterBinding.ByteOffset);
+
+		if (!ShaderParameterRef.IsValid())
+		{
+			EmitNullShaderParameterFatalError(Shader, ParametersMetadata, ParameterBinding.ByteOffset);
+		}
+	}
+}
+
+#endif // DO_CHECK
