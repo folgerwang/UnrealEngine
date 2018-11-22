@@ -696,13 +696,12 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 		PassParameters->RenderTargets[0] = FRenderTargetBinding( IntegrationData.VBufferA, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
 		PassParameters->RenderTargets[1] = FRenderTargetBinding( IntegrationData.VBufferB, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
 
-		GraphBuilder.AddPass(TEXT("VoxelizeVolumePrimitives"),
+		GraphBuilder.AddPass(
+			RDG_EVENT_NAME("VoxelizeVolumePrimitives"),
 			PassParameters,
 			ERenderGraphPassFlags::None,
 			[PassParameters, &View, VolumetricFogGridSize, IntegrationData, VolumetricFogDistance, GridZParams](FRHICommandListImmediate& RHICmdList)
 			{
-				SCOPED_DRAW_EVENT(RHICmdList, VoxelizeVolumePrimitives);
-
 				FViewUniformShaderParameters VoxelizeParameters = *View.CachedViewUniformShaderParameters;
 
 				// Update the parts of VoxelizeParameters which are dependent on the buffer size and view rect

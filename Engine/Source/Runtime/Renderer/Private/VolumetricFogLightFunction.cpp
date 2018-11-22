@@ -202,7 +202,8 @@ void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
 			GraphBuilder.CreateParameters(&PassParameters);
 			PassParameters->RenderTargets[0] = FRenderTargetBinding( OutLightFunctionTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
 
-			GraphBuilder.AddPass(TEXT("VolumetricFogLightFunction"),
+			GraphBuilder.AddPass(
+				RDG_EVENT_NAME("LightFunction"),
 				PassParameters,
 				ERenderGraphPassFlags::None,
 				[PassParameters, &View, MaterialProxy, LightFunctionResolution, DirectionalLightSceneInfo, WorldToShadowValue, this](FRHICommandListImmediate& RHICmdList)

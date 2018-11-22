@@ -502,12 +502,12 @@ void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
 		GraphBuilder.CreateParameters(&PassParameters);
 		PassParameters->RenderTargets[0] = FRenderTargetBinding( OutLocalShadowedLightScattering, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::ENoAction );
 
-		GraphBuilder.AddPass(TEXT("LocalShadowedLightScattering"),
+		GraphBuilder.AddPass(
+			RDG_EVENT_NAME("ShadowedLights"),
 			PassParameters,
 			ERenderGraphPassFlags::None,
 			[PassParameters, &View, this, LightsToInject, VolumetricFogGridSize, GridZParams, bUseTemporalReprojection, IntegrationData, FogInfo](FRHICommandListImmediate& RHICmdList)
 			{
-				SCOPED_DRAW_EVENT(RHICmdList, ShadowedLights);
 				for (int32 LightIndex = 0; LightIndex < LightsToInject.Num(); LightIndex++)
 				{
 					const FLightSceneInfo* LightSceneInfo = LightsToInject[LightIndex];
@@ -1048,13 +1048,13 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 				ClearUnusedGraphResources(ComputeShader, PassParameters);
 
 				//@DW - this pass only reads external textures, we don't have any graph inputs
-				GraphBuilder.AddPass(TEXT("VolumetricFogMaterialSetup"),
+				GraphBuilder.AddPass(
+					RDG_EVENT_NAME("InitializeVolumeAttributes"),
 					PassParameters,
 					ERenderGraphPassFlags::Compute,
 					[PassParameters, &View, VolumetricFogGridSize, IntegrationData, ComputeShader](FRHICommandListImmediate& RHICmdList)
 					{
 						const FIntVector NumGroups = FIntVector::DivideAndRoundUp(VolumetricFogGridSize, VolumetricFogGridInjectionGroupSize);
-						SCOPED_DRAW_EVENT(RHICmdList, InitializeVolumeAttributes);
 
 						RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
@@ -1110,20 +1110,19 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 				auto ComputeShader = View.ShaderMap->GetShader< TVolumetricFogLightScatteringCS >(PermutationVector);
 				ClearUnusedGraphResources(ComputeShader, PassParameters);
 
-				GraphBuilder.AddPass(TEXT("LightScattering"),
+				GraphBuilder.AddPass(
+					RDG_EVENT_NAME("LightScattering %dx%dx%d %s %s",
+						VolumetricFogGridSize.X,
+						VolumetricFogGridSize.Y,
+						VolumetricFogGridSize.Z,
+						bUseDistanceFieldSkyOcclusion ? TEXT("DFAO") : TEXT(""),
+						PassParameters->LightFunctionTexture ? TEXT("LF") : TEXT("")),
 					PassParameters,
 					ERenderGraphPassFlags::Compute,
 					[PassParameters, ComputeShader, &View, this, FogInfo, bUseTemporalReprojection, VolumetricFogGridSize, IntegrationData, bUseDirectionalLightShadowing, bUseDistanceFieldSkyOcclusion, LightFunctionWorldToShadow](FRHICommandListImmediate& RHICmdList)
 					{
 						UnbindRenderTargets(RHICmdList);
 						const FIntVector NumGroups = FIntVector::DivideAndRoundUp(VolumetricFogGridSize, VolumetricFogGridInjectionGroupSize);
-
-						SCOPED_DRAW_EVENTF(RHICmdList, LightScattering, TEXT("LightScattering %dx%dx%d %s %s"), 
-							VolumetricFogGridSize.X, 
-							VolumetricFogGridSize.Y, 
-							VolumetricFogGridSize.Z,
-							bUseDistanceFieldSkyOcclusion ? TEXT("DFAO") : TEXT(""),
-							PassParameters->LightFunctionTexture ? TEXT("LF") : TEXT(""));
 
 						RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
@@ -1148,13 +1147,12 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 				PassParameters->LightScattering = IntegrationData.LightScattering;
 				PassParameters->RWIntegratedLightScattering = IntegratedLightScatteringUAV;
 
-				GraphBuilder.AddPass(TEXT("FinalIntegration"),
+				GraphBuilder.AddPass(
+					RDG_EVENT_NAME("FinalIntegration"),
 					PassParameters,
 					ERenderGraphPassFlags::Compute,
 					[PassParameters, &View, VolumetricFogGridSize, IntegrationData, this](FRHICommandListImmediate& RHICmdList)
 					{
-						SCOPED_DRAW_EVENT(RHICmdList, FinalIntegration);
-
 						const FIntVector NumGroups = FIntVector::DivideAndRoundUp(VolumetricFogGridSize, VolumetricFogIntegrationGroupSize);
 
 						auto ComputeShader = View.ShaderMap->GetShader< FVolumetricFogFinalIntegrationCS >();

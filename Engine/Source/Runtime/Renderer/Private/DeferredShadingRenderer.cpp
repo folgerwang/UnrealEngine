@@ -398,7 +398,7 @@ void FDeferredShadingSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICm
 	FSceneRenderTargets::Get(RHICmdList).SetLightAttenuation(0);
 }
 
-void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View );
+void BuildHZB( FRDGBuilder& GraphBuilder, FViewInfo& View );
 
 /** 
 * Renders the view family. 
@@ -453,7 +453,12 @@ bool FDeferredShadingSceneRenderer::RenderHzb(FRHICommandListImmediate& RHICmdLi
 
 		if (bSSAO || bHZBOcclusion || bSSR)
 		{
-			BuildHZB(RHICmdList, Views[ViewIndex]);
+			FRDGBuilder GraphBuilder(RHICmdList);
+			{
+				RDG_EVENT_SCOPE(GraphBuilder, "BuildHZB(ViewId=%d)", ViewIndex);
+				BuildHZB(GraphBuilder, Views[ViewIndex]);
+			}
+			GraphBuilder.Execute();
 		}
 
 		if (bHZBOcclusion && ViewState && ViewState->HZBOcclusionTests.GetNum() != 0)

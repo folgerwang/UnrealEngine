@@ -10,6 +10,77 @@
 /** Whether render graph debugging is compiled. */
 #define RENDER_GRAPH_DEBUGGING (DO_CHECK)
 
+/** Whether render graph should support draw events or not.
+ * RENDER_GRAPH_DRAW_EVENTS == 0 means there is no string processing at all.
+ * RENDER_GRAPH_DRAW_EVENTS == 1 means const TCHAR* is only passdown.
+ * RENDER_GRAPH_DRAW_EVENTS == 2 means complex formated FString is passdown.
+ */
+#if WITH_PROFILEGPU
+	#define RENDER_GRAPH_DRAW_EVENTS 2
+#else
+	#define RENDER_GRAPH_DRAW_EVENTS 0
+#endif
+
+
+/** Opaque object to store a draw event. */
+class RENDERCORE_API FRDGEventName
+{
+public:
+	inline FRDGEventName() 
+	{ }
+
+	#if RENDER_GRAPH_DRAW_EVENTS == 2
+
+	explicit FRDGEventName(const TCHAR* EventFormat, ...);
+
+	#elif RENDER_GRAPH_DRAW_EVENTS == 1
+
+	explicit inline FRDGEventName(const TCHAR* EventFormat)
+		: EventName(EventFormat)
+	{ }
+
+	#endif
+
+	const TCHAR* GetTCHAR() const
+	{
+		#if RENDER_GRAPH_DRAW_EVENTS == 2
+			return *EventName;
+		#elif RENDER_GRAPH_DRAW_EVENTS == 1
+			return EventName;
+		#else
+			return TEXT("UnknownRDVEvent");
+		#endif
+	}
+
+private:
+	#if RENDER_GRAPH_DRAW_EVENTS == 2
+		FString EventName;
+	#elif RENDER_GRAPH_DRAW_EVENTS == 1
+		const TCHAR* EventName;
+	#endif
+};
+
+
+/** Hierarchical scope for draw events of passes. */
+class RENDERCORE_API FRDGEventScope
+{
+private:
+	// Pointer towards this one is contained in.
+	const FRDGEventScope* const ParentScope;
+
+	// Name of the event.
+	const FRDGEventName Name;
+
+
+	FRDGEventScope(const FRDGEventScope* InParentScope, FRDGEventName&& InName)
+		: ParentScope(InParentScope), Name(InName)
+	{ }
+
+
+	friend class FRDGBuilder;
+	friend class FStackRDGEventScopeRef;
+};
+
 
 /** Flags to anotate passes. */
 enum class ERenderGraphPassFlags
@@ -42,8 +113,9 @@ struct RENDERCORE_API FShaderParameterStructRef
  */
 struct RENDERCORE_API FRenderGraphPass
 {
-	FRenderGraphPass(const TCHAR* InName, FShaderParameterStructRef InParameterStruct, ERenderGraphPassFlags InPassFlags)
-		: Name(InName)
+	FRenderGraphPass(FRDGEventName&& InName, const FRDGEventScope* InParentScope, FShaderParameterStructRef InParameterStruct, ERenderGraphPassFlags InPassFlags)
+		: Name(static_cast<FRDGEventName&&>(InName))
+		, ParentScope(InParentScope)
 		, ParameterStruct(InParameterStruct)
 		, PassFlags(InPassFlags)
 	{
@@ -57,16 +129,28 @@ struct RENDERCORE_API FRenderGraphPass
 
 	virtual void Execute(FRHICommandListImmediate& RHICmdList) const = 0;
 
-	const TCHAR*			GetName() const { return Name; }
-	ERenderGraphPassFlags	GetFlags() const { return PassFlags; }
-	bool					IsCompute() const { return (PassFlags & ERenderGraphPassFlags::Compute) == ERenderGraphPassFlags::Compute; }
+	const TCHAR* GetName() const {
+		return Name.GetTCHAR();
+	}
+
+	const ERenderGraphPassFlags& GetFlags() const
+	{
+		return PassFlags;
+	}
+
+	bool IsCompute() const {
+		return (PassFlags & ERenderGraphPassFlags::Compute) == ERenderGraphPassFlags::Compute;
+	}
 	
 	FShaderParameterStructRef GetParameters() const { return ParameterStruct; }
 
 protected:
-	const TCHAR* const Name;
-	FShaderParameterStructRef ParameterStruct;
+	const FRDGEventName Name;
+	const FRDGEventScope* const ParentScope;
+	const FShaderParameterStructRef ParameterStruct;
 	const ERenderGraphPassFlags PassFlags;
+
+	friend class FRDGBuilder;
 };
 
 /** 
@@ -75,11 +159,10 @@ protected:
 template <typename ParameterStructType, typename ExecuteLambdaType>
 struct TLambdaRenderPass final : public FRenderGraphPass
 {
-	TLambdaRenderPass(const TCHAR* InName, FShaderParameterStructRef InParameterStruct, ERenderGraphPassFlags InPassFlags, ExecuteLambdaType&& InExecuteLambda)
-		: FRenderGraphPass(InName, InParameterStruct, InPassFlags)
+	TLambdaRenderPass(FRDGEventName&& InName, const FRDGEventScope* InParentScope, FShaderParameterStructRef InParameterStruct, ERenderGraphPassFlags InPassFlags, ExecuteLambdaType&& InExecuteLambda)
+		: FRenderGraphPass(static_cast<FRDGEventName&&>(InName), InParentScope, InParameterStruct, InPassFlags)
 		, ExecuteLambda(static_cast<ExecuteLambdaType&&>(InExecuteLambda))
-	{
-	}
+	{ }
 
 	~TLambdaRenderPass()
 	{
@@ -108,7 +191,10 @@ public:
 	/** A RHI cmd list is required, if using the immediate mode. */
 	FRDGBuilder(FRHICommandListImmediate& InRHICmdList)
 		: RHICmdList(InRHICmdList)
-	{ }
+	{
+		for (int32 i = 0; i < kMaxScopeCount; i++)
+			ScopesStack[i] = nullptr;
+	}
 
 	~FRDGBuilder()
 	{
@@ -251,18 +337,18 @@ public:
 	 */
 	template<typename ParameterStructType, typename ExecuteLambdaType>
 	void AddPass(
-		const TCHAR* Name, 
+		FRDGEventName&& Name, 
 		ParameterStructType* ParameterStruct,
 		ERenderGraphPassFlags Flags,
 		ExecuteLambdaType&& ExecuteLambda)
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
-			checkf(!bHasExecuted, TEXT("Render graph pass %s needs to be added before the builder execution."), Name);
+			checkf(!bHasExecuted, TEXT("Render graph pass %s needs to be added before the builder execution."), Name.GetTCHAR());
 		}
 		#endif
 		auto NewPass = new(FMemStack::Get()) TLambdaRenderPass<ParameterStructType, ExecuteLambdaType>(
-			Name,
+			static_cast<FRDGEventName&&>(Name), CurrentScope,
 			{ ParameterStruct, &ParameterStructType::FTypeInfo::GetStructMetadata()->GetLayout() },
 			Flags,
 			static_cast<ExecuteLambdaType&&>(ExecuteLambda) );
@@ -304,6 +390,8 @@ public:
 
 
 private:
+	static constexpr int32 kMaxScopeCount = 8;
+
 	/** Array of all pass created */
 	TArray<FRenderGraphPass*, SceneRenderingAllocator> Passes;
 
@@ -322,6 +410,16 @@ private:
 	};
 	TArray<FDeferredInternalTextureQuery, SceneRenderingAllocator> DeferredInternalTextureQueries;
 
+	#if RENDER_GRAPH_DRAW_EVENTS == 2
+		/** All scopes allocated that needs to be arround to call destructors. */
+		TArray<FRDGEventScope*, SceneRenderingAllocator> EventScopes;
+	#endif
+
+	/** The current event scope as creating passes. */
+	const FRDGEventScope* CurrentScope = nullptr;
+
+	/** Stacks of scopes pushed to the RHI command list. */
+	TStaticArray<const FRDGEventScope*, kMaxScopeCount> ScopesStack;
 
 	#if RENDER_GRAPH_DEBUGGING
 		/** Whether the Execute() has already been called. */
@@ -348,6 +446,7 @@ private:
 	void TransitionTexture( const FRDGTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
 	void TransitionUAV(FUnorderedAccessViewRHIParamRef UAV, const FRDGResource* UnderlyingResource, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
 
+	void PushDrawEventStack(const FRenderGraphPass* Pass);
 	void ExecutePass( const FRenderGraphPass* Pass );
 	void AllocateAndTransitionPassResources(const FRenderGraphPass* Pass, struct FRHIRenderPassInfo* OutRPInfo, bool* bOutHasRenderTargets);
 	static void WarnForUselessPassDependencies(const FRenderGraphPass* Pass);
@@ -358,4 +457,72 @@ private:
 
 	void ProcessDeferredInternalResourceQueries();
 	void DestructPasses();
+
+	friend class FStackRDGEventScopeRef;
 }; // class FRDGBuilder
+
+
+#if RENDER_GRAPH_DRAW_EVENTS
+
+/** Stack reference of render graph scope. */
+class RENDERCORE_API FStackRDGEventScopeRef
+{
+public:
+	FStackRDGEventScopeRef() = delete;
+	FStackRDGEventScopeRef(const FStackRDGEventScopeRef&) = delete;
+	FStackRDGEventScopeRef(FStackRDGEventScopeRef&&) = delete;
+	void operator = (const FStackRDGEventScopeRef&) = delete;
+
+	inline FStackRDGEventScopeRef(FRDGBuilder& InGraphBuilder, FRDGEventName&& ScopeName)
+		: GraphBuilder(InGraphBuilder)
+	{
+		checkf(!GraphBuilder.bHasExecuted, TEXT("Render graph bulider has already been executed."));
+
+		auto NewScope = new(FMemStack::Get()) FRDGEventScope(GraphBuilder.CurrentScope, Forward<FRDGEventName>(ScopeName));
+
+		#if RENDER_GRAPH_DRAW_EVENTS == 2
+		{
+			GraphBuilder.EventScopes.Add(NewScope);
+		}
+		#endif
+
+		GraphBuilder.CurrentScope = NewScope;
+	}
+
+	inline ~FStackRDGEventScopeRef()
+	{
+		check(GraphBuilder.CurrentScope != nullptr);
+		GraphBuilder.CurrentScope = GraphBuilder.CurrentScope->ParentScope;
+	}
+
+private:
+	FRDGBuilder& GraphBuilder;
+};
+
+#endif // RENDER_GRAPH_DRAW_EVENTS
+
+
+/** Macros for create render graph event names and scopes.
+ *
+ *		FRDGEventName Name = RDG_EVENT_NAME("MyPass %sx%s", ViewRect.Width(), ViewRect.Height());
+ *
+ *		RDG_EVENT_SCOPE(GraphBuilder, "MyProcessing %sx%s", ViewRect.Width(), ViewRect.Height());
+ */
+#if RENDER_GRAPH_DRAW_EVENTS == 2
+
+#define RDG_EVENT_NAME(Format, ...) FRDGEventName(TEXT(Format), ##__VA_ARGS__)
+#define RDG_EVENT_SCOPE(GraphBuilder, Format, ...) \
+	FStackRDGEventScopeRef PREPROCESSOR_JOIN(__RDG_ScopeRef_,__LINE__) ((GraphBuilder), RDG_EVENT_NAME(Format, ##__VA_ARGS__))
+
+#elif RENDER_GRAPH_DRAW_EVENTS == 1
+
+#define RDG_EVENT_NAME(Format, ...) FRDGEventName(TEXT(Format))
+#define RDG_EVENT_SCOPE(GraphBuilder, Format, ...) \
+	FStackRDGEventScopeRef PREPROCESSOR_JOIN(__RDG_ScopeRef_,__LINE__) ((GraphBuilder), RDG_EVENT_NAME(Format, ##__VA_ARGS__))
+
+#else // !RENDER_GRAPH_DRAW_EVENTS
+
+#define RDG_EVENT_NAME(Format, ...) FRDGEventName()
+#define RDG_EVENT_SCOPE(GraphBuilder, Format, ...) 
+
+#endif // !RENDER_GRAPH_DRAW_EVENTS

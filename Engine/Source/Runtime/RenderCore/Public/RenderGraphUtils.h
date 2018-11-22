@@ -69,7 +69,7 @@ struct RENDERCORE_API FComputeShaderUtils
 	template<typename TShaderClass>
 	static inline void AddPass(
 		FRDGBuilder& GraphBuilder,
-		const TCHAR* PassName,
+		FRDGEventName&& PassName,
 		const TShaderClass* ComputeShader,
 		typename TShaderClass::FParameters* Parameters,
 		FIntVector GroupCount)
@@ -77,7 +77,7 @@ struct RENDERCORE_API FComputeShaderUtils
 		ClearUnusedGraphResources(ComputeShader, Parameters);
 
 		GraphBuilder.AddPass(
-			PassName,
+			Forward<FRDGEventName>(PassName),
 			Parameters,
 			ERenderGraphPassFlags::Compute,
 			[Parameters, ComputeShader, GroupCount](FRHICommandList& RHICmdList)

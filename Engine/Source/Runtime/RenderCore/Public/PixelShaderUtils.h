@@ -52,14 +52,14 @@ struct RENDERCORE_API FPixelShaderUtils
 	static inline void AddFullscreenPass(
 		FRDGBuilder& GraphBuilder,
 		const TShaderMap<FGlobalShaderType>* GlobalShaderMap,
-		const TCHAR* PassName,
+		FRDGEventName&& PassName,
 		const TShaderClass* PixelShader,
 		typename TShaderClass::FParameters* Parameters)
 	{
 		ClearUnusedGraphResources(PixelShader, Parameters);
 
 		GraphBuilder.AddPass(
-			PassName,
+			Forward<FRDGEventName>(PassName),
 			Parameters,
 			ERenderGraphPassFlags::None,
 			[Parameters, GlobalShaderMap, PixelShader](FRHICommandList& RHICmdList)

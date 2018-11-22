@@ -1093,12 +1093,10 @@ class FHZBBuildPS : public FGlobalShader
 IMPLEMENT_GLOBAL_SHADER(FHZBBuildPS, "/Engine/Private/HZBOcclusion.usf", "HZBBuildPS", SF_Pixel);
 
 
-void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
+void BuildHZB(FRDGBuilder& GraphBuilder, FViewInfo& View)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildHZB);
 	
-	FRDGBuilder GraphBuilder(RHICmdListImmediate);
-
 	// View.ViewRect.{Width,Height}() are most likely to be < 2^24, so the float
 	// conversion won't loss any precision (assuming float have 23bits for mantissa)
 	const int32 NumMipsX = FMath::Max(FPlatformMath::CeilToInt(FMath::Log2(float(View.ViewRect.Width()))) - 1, 1);
@@ -1123,7 +1121,8 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 		PassParameters->RenderTargets[0] = FRenderTargetBinding( HZBTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
 
 		//@DW - this pass only reads external textures, we don't have any graph inputs
-		GraphBuilder.AddPass(TEXT("HZB_SetupMip0"),
+		GraphBuilder.AddPass(
+			RDG_EVENT_NAME("HZB(mip=0) %dx%d", HZBSize.X, HZBSize.Y),
 			PassParameters,
 			ERenderGraphPassFlags::None,
 			[PassParameters, &View, HZBSize](FRHICommandListImmediate& RHICmdList)
@@ -1132,9 +1131,6 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-				// Mip 0
-				SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMip 0 %dx%d"), HZBSize.X, HZBSize.Y);
 
 				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
@@ -1207,13 +1203,12 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 		PassParameters->Texture = ParentMipSRV;
 		PassParameters->TextureSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
-		GraphBuilder.AddPass(TEXT("HZB_Mip"),
+		GraphBuilder.AddPass(
+			RDG_EVENT_NAME("HZB(mip=%d) %dx%d", MipIndex, DstSize.X, DstSize.Y),
 			PassParameters,
 			ERenderGraphPassFlags::None,
 			[PassParameters, SrcSize, DstSize, &View](FRHICommandListImmediate& RHICmdList)
 			{
-				SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB MipLevel %dx%d"), DstSize.X, DstSize.Y);
-
 				FHZBBuildPS::FPermutationDomain PermutationVector;
 				PermutationVector.Set<FHZBBuildPS::FStageDim>(true);
 
@@ -1260,7 +1255,6 @@ void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 	}
 
 	GraphBuilder.GetInternalTexture(HZBTexture, &View.HZB);
-	GraphBuilder.Execute();
 }
 
 struct FViewOcclusionQueries

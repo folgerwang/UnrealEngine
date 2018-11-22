@@ -23,10 +23,31 @@ static const int32 GRenderGraphImmediateMode = 0;
 #endif
 
 
+#if RENDER_GRAPH_DRAW_EVENTS == 2
+
+FRDGEventName::FRDGEventName(const TCHAR* EventFormat, ...)
+{
+	if (GetEmitDrawEvents())
+	{
+		va_list ptr;
+		va_start(ptr, EventFormat);
+		TCHAR TempStr[256];
+		// Build the string in the temp buffer
+		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, EventFormat, ptr);
+
+		EventName = TempStr;
+	}
+}
+
+#endif
+
+
 void FRDGBuilder::Execute()
 {
 	#if RENDER_GRAPH_DEBUGGING
 	{
+		checkf(CurrentScope == nullptr, TEXT("Render graph needs to have all scopes ended to execute."));
+
 		checkf(!bHasExecuted, TEXT("Render graph execution should only happen once."));
 	}
 	#endif
@@ -39,6 +60,16 @@ void FRDGBuilder::Execute()
 		for (const FRenderGraphPass* Pass : Passes)
 		{
 			ExecutePass(Pass);
+		}
+	}
+
+	// Pops remaining scopes
+	{
+		for (int32 i = 0; i < kMaxScopeCount; i++)
+		{
+			if (!ScopesStack[i])
+				break;
+			RHICmdList.PopEvent();
 		}
 	}
 
@@ -514,6 +545,76 @@ static bool IsBoundAsReadable( const FRDGTexture* Texture, FShaderParameterStruc
 	return false;
 }
 
+void FRDGBuilder::PushDrawEventStack(const FRenderGraphPass* Pass)
+{
+	// Push the scope event.
+	{
+		// Find out how many scope events needs to be poped.
+		TStaticArray<const FRDGEventScope*, kMaxScopeCount> TraversedScopes;
+		int32 CommonScopeId = -1;
+		int32 TraversedScopeCount = 0;
+		const FRDGEventScope* PassParentScope = Pass->ParentScope;
+		while (PassParentScope)
+		{
+			TraversedScopes[TraversedScopeCount] = PassParentScope;
+
+			for (int32 i = 0; i < ScopesStack.Num(); i++)
+			{
+				if (ScopesStack[i] == PassParentScope)
+				{
+					CommonScopeId = i;
+					break;
+				}
+			}
+
+			if (CommonScopeId != -1)
+			{
+				break;
+			}
+
+			TraversedScopeCount++;
+			PassParentScope = PassParentScope->ParentScope;
+		}
+
+		// Pop no longer used scopes
+		for (int32 i = CommonScopeId + 1; CommonScopeId >= 0 && i < kMaxScopeCount; i++)
+		{
+			if (!ScopesStack[i])
+				break;
+
+			RHICmdList.PopEvent();
+			ScopesStack[i] = nullptr;
+		}
+
+		// Push new scopes
+		const FColor ScopeColor(0);
+		for (int32 i = TraversedScopeCount - 1; i >= 0; i--)
+		{
+			RHICmdList.PushEvent(TraversedScopes[i]->Name.GetTCHAR(), ScopeColor);
+			CommonScopeId++;
+			ScopesStack[CommonScopeId] = TraversedScopes[i];
+		}
+	}
+
+	// Push the pass's event with some color.
+	{
+		FColor Color(0, 0, 0);
+
+		if (Pass->IsCompute())
+		{
+			// Green for compute.
+			Color = FColor(128, 255, 128);
+		}
+		else
+		{
+			// Ref for rasterizer.
+			Color = FColor(255, 128, 128);
+		}
+
+		RHICmdList.PushEvent(Pass->GetName(), Color);
+	}
+}
+
 void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FRDGBuilder_ExecutePass);
@@ -522,6 +623,11 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 	bool bHasRenderTargets = false;
 
 	AllocateAndTransitionPassResources(Pass, &RPInfo, &bHasRenderTargets);
+
+	if (RENDER_GRAPH_DRAW_EVENTS != 0 && GetEmitDrawEvents())
+	{
+		PushDrawEventStack(Pass);
+	}
 
 	if( !Pass->IsCompute())
 	{
@@ -538,6 +644,11 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 	if( bHasRenderTargets )
 	{
 		RHICmdList.EndRenderPass();
+	}
+
+	if (RENDER_GRAPH_DRAW_EVENTS != 0 && GetEmitDrawEvents())
+	{
+		RHICmdList.PopEvent();
 	}
 
 	if (RENDER_GRAPH_DEBUGGING)
@@ -912,6 +1023,17 @@ void FRDGBuilder::ProcessDeferredInternalResourceQueries()
 
 void FRDGBuilder::DestructPasses()
 {
+	#if RENDER_GRAPH_DRAW_EVENTS == 2
+	{
+		// Event scopes are allocated on FMemStack, so need to call their destructor because have a FString within them.
+		for (FRDGEventScope* EventScope : EventScopes)
+		{
+			EventScope->~FRDGEventScope();
+		}
+		EventScopes.Empty();
+	}
+	#endif
+
 	#if RENDER_GRAPH_DEBUGGING
 	{
 		// Make sure all resource references have been released to ensure no leaks happen.
