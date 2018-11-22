@@ -284,7 +284,7 @@ public:
 	}
 
 	/** Create graph tracked UAV for a texture from a descriptor. */
-	inline const FRDGTextureUAV* CreateUAV(const FRDGTextureUAVDesc& Desc)
+	inline FRDGTextureUAVRef CreateUAV(const FRDGTextureUAVDesc& Desc)
 	{
 		check(Desc.Texture);
 		#if RENDER_GRAPH_DEBUGGING

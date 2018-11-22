@@ -20,6 +20,17 @@ class FRDGBufferUAV;
 struct FPooledRDGBuffer;
 struct FRaytracingShaderBindingsWriter;
 
+
+/** Defines the RDG resource references for user code not forgetting the const every time. */
+using FRDGResourceRef = const FRDGResource*;
+using FRDGTextureRef = const FRDGTexture*;
+using FRDGTextureSRVRef = const FRDGTextureSRV*;
+using FRDGTextureUAVRef = const FRDGTextureUAV*;
+using FRDGBufferRef = const  FRDGBuffer*;
+using FRDGBufferSRVRef = const FRDGBufferSRV*;
+using FRDGBufferUAVRef = const FRDGBufferUAV*;
+
+
 /** Generic graph resource. */
 class RENDERCORE_API FRDGResource
 {
@@ -110,12 +121,12 @@ private:
 class RENDERCORE_API FRDGTextureSRVDesc
 {
 public:
-	const FRDGTexture* Texture;
+	FRDGTextureRef Texture;
 	uint8 MipLevel = 0;
 
 	FRDGTextureSRVDesc() {}
 
-	FRDGTextureSRVDesc(const FRDGTexture* InTexture, uint8 InMipLevel) :
+	FRDGTextureSRVDesc(FRDGTextureRef InTexture, uint8 InMipLevel) :
 		Texture(InTexture),
 		MipLevel(InMipLevel)
 	{}
@@ -141,12 +152,12 @@ private:
 class RENDERCORE_API FRDGTextureUAVDesc
 {
 public:
-	const FRDGTexture* Texture;
+	FRDGTextureRef Texture;
 	uint8 MipLevel = 0;
 
 	FRDGTextureUAVDesc() {}
 
-	FRDGTextureUAVDesc(const FRDGTexture* InTexture, uint8 InMipLevel = 0) :
+	FRDGTextureUAVDesc(FRDGTextureRef InTexture, uint8 InMipLevel = 0) :
 		Texture(InTexture),
 		MipLevel(InMipLevel)
 	{}
@@ -236,7 +247,7 @@ struct RENDERCORE_API FRDGBufferDesc
 
 struct RENDERCORE_API FRDGBufferSRVDesc
 {
-	const FRDGBuffer* Buffer = nullptr;
+	FRDGBufferRef Buffer = nullptr;
 
 	/** Nymber of bytes per element (used for vertex buffer). */
 	uint32 BytesPerElement = 1;
@@ -247,7 +258,7 @@ struct RENDERCORE_API FRDGBufferSRVDesc
 
 struct RENDERCORE_API FRDGBufferUAVDesc
 {
-	const FRDGBuffer* Buffer = nullptr;
+	FRDGBufferRef Buffer = nullptr;
 
 	/** Nymber of bytes per element (used for vertex buffer). */
 	EPixelFormat Format = PF_Unknown;
@@ -257,7 +268,7 @@ struct RENDERCORE_API FRDGBufferUAVDesc
 	bool bSupportsAppendBuffer = false;
 
 	/** Create descriptor for a the UAV of a buffer meant to be use for indirect dral call parameters. */
-	static inline FRDGBufferUAVDesc CreateIndirectDesc(const FRDGBuffer* Buffer);
+	static inline FRDGBufferUAVDesc CreateIndirectDesc(FRDGBufferRef Buffer);
 };
 
 
@@ -398,7 +409,7 @@ private:
 };
 
 
-FRDGBufferUAVDesc FRDGBufferUAVDesc::CreateIndirectDesc(const FRDGBuffer* Buffer)
+FRDGBufferUAVDesc FRDGBufferUAVDesc::CreateIndirectDesc(FRDGBufferRef Buffer)
 {
 	checkf(Buffer->Desc.Usage & BUF_DrawIndirect, TEXT("Buffer %s has not been created with a BUF_DrawIndirect flag."), Buffer->Name);
 	FRDGBufferUAVDesc Desc;
@@ -406,13 +417,3 @@ FRDGBufferUAVDesc FRDGBufferUAVDesc::CreateIndirectDesc(const FRDGBuffer* Buffer
 	Desc.Format = PF_R32_UINT;
 	return Desc;
 }
-
-
-/** Defines the RDG resource references for user code not forgetting the const every time. */
-using FRDGResourceRef = const FRDGResource*;
-using FRDGTextureRef = const FRDGTexture*;
-using FRDGTextureSRVRef = const FRDGTextureSRV*;
-using FRDGTextureUAVRef = const FRDGTextureUAV*;
-using FRDGBufferRef = const  FRDGBuffer*;
-using FRDGBufferSRVRef = const FRDGBufferSRV*;
-using FRDGBufferUAVRef = const FRDGBufferUAV*;
