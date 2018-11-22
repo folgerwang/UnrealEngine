@@ -24,8 +24,8 @@ UAISubsystem::UAISubsystem(const FObjectInitializer& ObjectInitializer)
 			// not calling MarkPackageDirty on this because it might be marked as transient 
 			GetOuter()->MarkPackageDirty();
 		}		
-	}
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	}
 }
 
 UWorld* UAISubsystem::GetWorld() const
