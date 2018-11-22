@@ -302,10 +302,6 @@ void BeginInitTextLocalization()
 	// Initialize FInternationalization before we bind to OnCultureChanged, otherwise we can accidentally initialize
 	// twice since FInternationalization::Initialize sets the culture.
 	FInternationalization::Get();
-
-	// Make sure the String Table Registry is initialized as it may trigger module loads
-	FStringTableRegistry::Get();
-
 	FInternationalization::Get().OnCultureChanged().AddRaw(&(FTextLocalizationManager::Get()), &FTextLocalizationManager::OnCultureChanged);
 }
 
@@ -315,6 +311,8 @@ void InitEngineTextLocalization()
 
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("EndInitEngineTextLocalization"), STAT_EndInitTextLocalization, STATGROUP_LoadTime);
 
+	// Make sure the String Table Registry is initialized as it may trigger module loads
+	FStringTableRegistry::Get();
 	FStringTableRedirects::InitStringTableRedirects();
 
 	ELocalizationLoadFlags LocLoadFlags = ELocalizationLoadFlags::None;
