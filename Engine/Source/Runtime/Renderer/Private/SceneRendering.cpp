@@ -44,6 +44,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "SceneSoftwareOcclusion.h"
 #include "VirtualTexturing.h"
+#include "VisualizeTexturePresent.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -2527,7 +2528,7 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 				continue;
 			}
 
-			GVisualizeTexture.PresentContent(RHICmdList, View);
+			FVisualizeTexturePresent::PresentContent(RHICmdList, View);
 		}
 	}
 #endif
@@ -2700,7 +2701,7 @@ void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-	GVisualizeTexture.OnStartFrame(Views[0]);
+	FVisualizeTexturePresent::OnStartRender(Views[0]);
 	CompositionGraph_OnStartFrame();
 	SceneContext.bScreenSpaceAOIsValid = false;
 	SceneContext.bCustomDepthIsValid = false;
@@ -3230,12 +3231,6 @@ void FRendererModule::DrawRectangle(
 	::DrawRectangle( RHICmdList, X, Y, SizeX, SizeY, U, V, SizeU, SizeV, TargetSize, TextureSize, VertexShader, Flags );
 }
 
-
-TGlobalResource<FFilterVertexDeclaration>& FRendererModule::GetFilterVertexDeclaration()
-{
-	return GFilterVertexDeclaration;
-}
-
 void FRendererModule::RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher)
 {
 	PostOpaqueDispatchers.AddUnique(Dispatcher);
@@ -3517,114 +3512,114 @@ void FSceneRenderer::ResolveSceneColor(FRHICommandList& RHICmdList)
 		FRHIRenderPassInfo RPInfo(SceneContext.GetSceneColorTexture(), ERenderTargetActions::Load_Store);
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("ResolveColor"));
 		{
-			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			const FViewInfo& View = Views[ViewIndex];
+
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			RHICmdList.SetStreamSource(0, GResolveDummyVertexBuffer.VertexBufferRHI, 0);
+
+			// Resolve views individually
+			// In the case of adaptive resolution, the view family will be much larger than the views individually
+			RHICmdList.SetScissorRect(true, View.ViewRect.Min.X, View.ViewRect.Min.Y, View.ViewRect.Max.X, View.ViewRect.Max.Y);
+
+			int32 ResolveWidth = CVarWideCustomResolve.GetValueOnRenderThread();
+
+			if (CurrentNumSamples <= 1)
 			{
-				const FViewInfo& View = Views[ViewIndex];
+				ResolveWidth = 0;
+			}
 
-				FGraphicsPipelineStateInitializer GraphicsPSOInit;
-				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			if (ResolveWidth != 0)
+			{
+				ResolveFilterWide(RHICmdList, GraphicsPSOInit, SceneContext.GetCurrentFeatureLevel(), CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture, FIntPoint(0, 0), CurrentNumSamples, ResolveWidth);
+			}
+			else
+			{
+				auto ShaderMap = GetGlobalShaderMap(SceneContext.GetCurrentFeatureLevel());
+				TShaderMapRef<FHdrCustomResolveVS> VertexShader(ShaderMap);
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-				RHICmdList.SetStreamSource(0, GResolveDummyVertexBuffer.VertexBufferRHI, 0);
-
-				// Resolve views individually
-				// In the case of adaptive resolution, the view family will be much larger than the views individually
-				RHICmdList.SetScissorRect(true, View.ViewRect.Min.X, View.ViewRect.Min.Y, View.ViewRect.Max.X, View.ViewRect.Max.Y);
-
-				int32 ResolveWidth = CVarWideCustomResolve.GetValueOnRenderThread();
-
-				if (CurrentNumSamples <= 1)
+				if (FMaskTexture.IsValid())
 				{
-					ResolveWidth = 0;
-				}
-
-				if (ResolveWidth != 0)
-				{
-					ResolveFilterWide(RHICmdList, GraphicsPSOInit, SceneContext.GetCurrentFeatureLevel(), CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture, FIntPoint(0, 0), CurrentNumSamples, ResolveWidth);
-				}
-				else
-				{
-					auto ShaderMap = GetGlobalShaderMap(SceneContext.GetCurrentFeatureLevel());
-					TShaderMapRef<FHdrCustomResolveVS> VertexShader(ShaderMap);
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-					if (FMaskTexture.IsValid())
+					if (CurrentNumSamples == 2)
 					{
-						if (CurrentNumSamples == 2)
-						{
-							TShaderMapRef<FHdrCustomResolveFMask2xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						TShaderMapRef<FHdrCustomResolveFMask2xPS> PixelShader(ShaderMap);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
-						}
-						else if (CurrentNumSamples == 4)
-						{
-							TShaderMapRef<FHdrCustomResolveFMask4xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
+					}
+					else if (CurrentNumSamples == 4)
+					{
+						TShaderMapRef<FHdrCustomResolveFMask4xPS> PixelShader(ShaderMap);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
-						}
-						else if (CurrentNumSamples == 8)
-						{
-							TShaderMapRef<FHdrCustomResolveFMask8xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
+					}
+					else if (CurrentNumSamples == 8)
+					{
+						TShaderMapRef<FHdrCustomResolveFMask8xPS> PixelShader(ShaderMap);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
-						}
-						else
-						{
-							// Everything other than 2,4,8 samples is not implemented.
-							check(0);
-							break;
-						}
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture, FMaskTexture);
 					}
 					else
 					{
-						if (CurrentNumSamples == 2)
-						{
-							TShaderMapRef<FHdrCustomResolve2xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-						}
-						else if (CurrentNumSamples == 4)
-						{
-							TShaderMapRef<FHdrCustomResolve4xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-						}
-						else if (CurrentNumSamples == 8)
-						{
-							TShaderMapRef<FHdrCustomResolve8xPS> PixelShader(ShaderMap);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-						}
-						else
-						{
-							// Everything other than 2,4,8 samples is not implemented.
-							check(0);
-							break;
-						}
+						// Everything other than 2,4,8 samples is not implemented.
+						check(0);
+						break;
 					}
+				}
+				else
+				{
+				if (CurrentNumSamples == 2)
+				{
+					TShaderMapRef<FHdrCustomResolve2xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-					RHICmdList.DrawPrimitive(0, 1, 1);
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
+				}
+				else if (CurrentNumSamples == 4)
+				{
+					TShaderMapRef<FHdrCustomResolve4xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
+				}
+				else if (CurrentNumSamples == 8)
+				{
+					TShaderMapRef<FHdrCustomResolve8xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
+				}
+				else
+				{
+					// Everything other than 2,4,8 samples is not implemented.
+					check(0);
+						break;
 				}
 			}
 
-			RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+				RHICmdList.DrawPrimitive(0, 1, 1);
+			}
 		}
+
+		RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+	}
 
 		RHICmdList.EndRenderPass();
 	}

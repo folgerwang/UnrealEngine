@@ -12,6 +12,7 @@
 #include "DynamicPrimitiveDrawing.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 #if WITH_EDITOR
 

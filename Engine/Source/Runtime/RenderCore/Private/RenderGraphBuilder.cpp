@@ -4,6 +4,7 @@
 #include "RenderCore.h"
 #include "RenderTargetPool.h"
 #include "RenderGraphResourcePool.h"
+#include "VisualizeTexture.h"
 
 
 #if RENDER_GRAPH_DEBUGGING
@@ -59,6 +60,14 @@ void FRDGBuilder::DebugPass(const FRenderGraphPass* Pass)
 	if (GRenderGraphImmediateMode)
 	{
 		ExecutePass(Pass);
+	}
+
+	// If visualizing a texture, look for any output of the pass. This must be done after the
+	// GRenderGraphImmediateMode's ExecutePass() because this will actually increate a capturing
+	// pass if needed that would have to be executed right away as well.
+	if (GVisualizeTexture.bEnabled)
+	{
+		CaptureAnyInterestingPassOutput(Pass);
 	}
 }
 
@@ -129,6 +138,58 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 	{
 		checkf(!bRequiresRenderTargetSlots, TEXT("Render pass %s requires render target binging slots"), Pass->GetName());
 	}
+}
+
+void FRDGBuilder::CaptureAnyInterestingPassOutput(const FRenderGraphPass* Pass)
+{
+#if WITH_ENGINE
+	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
+	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
+	{
+		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
+		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+
+		switch (Type)
+		{
+		case UBMT_GRAPH_TRACKED_UAV:
+		{
+			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
+			if (UAV && GVisualizeTexture.ShouldCapture(UAV->Desc.Texture->Name))
+			{
+				GVisualizeTexture.CreateContentCapturePass(*this, UAV->Desc.Texture);
+			}
+		}
+		break;
+		case UBMT_RENDER_TARGET_BINDING_SLOTS:
+		{
+			FRenderTargetBindingSlots* RESTRICT RenderTargets = ParameterStruct.GetMemberPtrAtOffset<FRenderTargetBindingSlots>(Offset);
+			if (RenderTargets->DepthStencil.Texture && 
+				(RenderTargets->DepthStencil.DepthStoreAction != ERenderTargetStoreAction::ENoAction || RenderTargets->DepthStencil.StencilStoreAction != ERenderTargetStoreAction::ENoAction) &&
+				GVisualizeTexture.ShouldCapture(RenderTargets->DepthStencil.Texture->Name))
+			{
+				GVisualizeTexture.CreateContentCapturePass(*this, RenderTargets->DepthStencil.Texture);
+			}
+			for (int i = 0; i < RenderTargets->Output.Num(); i++)
+			{
+				const FRenderTargetBinding& RenderTarget = RenderTargets->Output[i];
+				if (RenderTarget.GetTexture() &&
+					RenderTarget.GetStoreAction() != ERenderTargetStoreAction::ENoAction &&
+					GVisualizeTexture.ShouldCapture(RenderTarget.GetTexture()->Name))
+				{
+					GVisualizeTexture.CreateContentCapturePass(*this, RenderTarget.GetTexture());
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+		break;
+		default:
+			break;
+		}
+	}
+#endif // WITH_ENGINE
 }
 
 void FRDGBuilder::WalkGraphDependencies()

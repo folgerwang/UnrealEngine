@@ -333,6 +333,7 @@ private:
 
 	void DebugPass(const FRenderGraphPass* Pass);
 	void ValidatePass(const FRenderGraphPass* Pass) const;
+	void CaptureAnyInterestingPassOutput(const FRenderGraphPass* Pass);
 
 	void WalkGraphDependencies();
 

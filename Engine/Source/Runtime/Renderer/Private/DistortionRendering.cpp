@@ -27,6 +27,7 @@
 #include "UnrealEngine.h"
 #include "PipelineStateCache.h"
 #include "ScenePrivate.h"
+#include "VisualizeTexture.h"
 
 DECLARE_GPU_STAT(Distortion);
 

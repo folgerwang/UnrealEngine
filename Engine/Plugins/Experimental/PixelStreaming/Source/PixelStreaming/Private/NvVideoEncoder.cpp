@@ -15,6 +15,7 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
+#include "DummyRenderResources.h"
 
 #if defined PLATFORM_WINDOWS
 // Disable macro redefinition warning for compatibility with Windows SDK 8+
@@ -443,7 +444,7 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::CopyBackBuffer(const FTexture2DRHIRef
 			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
 			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;

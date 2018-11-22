@@ -9,37 +9,35 @@
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
 #include "RenderResource.h"
-
-class FSceneView;
-class FViewInfo;
+#include "RenderGraph.h"
 
 
-// TODO(RDG): Texture visualization needs to be totally rewritten cleanly with render graph in RenderCore module.
-class FVisualizeTexture : public FRenderResource
+class RENDERCORE_API FVisualizeTexture : public FRenderResource
 {
 public:
 	FVisualizeTexture();
-	virtual void ReleaseDynamicRHI() override;
 
-	/** renders the VisualizeTextureContent to the current render target */
-	void PresentContent(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
-	/** */
-	void OnStartFrame(const FSceneView& View);
-	/** */
-	void SetObserveTarget(const FString& InObservedDebugName, uint32 InObservedDebugNameReusedGoal = 0xffffffff);
-	// @return 0 if not found
-	IPooledRenderTarget* GetObservedElement() const;
+#if WITH_ENGINE
+	virtual void ReleaseDynamicRHI() override;
+	
 	/**
 	 * calling this allows to grab the state of the texture at this point to be queried by visualizetexture e.g. "vis LightAttenuation@2"
 	 * @param PooledRenderTarget 0 is silently ignored
 	 * Warning: this may change the active render target and other state
 	 */
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	void SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget);
+#else
+	inline void SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget) {}
+#endif
 
-	// @param bExtended true: with more convenience - not needed for crashes but useful from the console
-	void DebugLog(bool bExtended);
+	/** Query some information from game thread. */
+	// TODO: refactor
+	void QueryInfo_GameThread( FQueryVisualizeTexureInfo& Out );
 
-	void QueryInfo( FQueryVisualizeTexureInfo& Out );
+	/** Sets the render  */
+	void SetRenderTargetNameToObserve(const FString& InObservedDebugName, uint32 InObservedDebugNameReusedGoal = 0xffffffff);
+#endif
 
 	// VisualizeTexture console command settings:
 	// written on game thread, read on render thread (uses FlushRenderingCommands to avoid the threading issues)
@@ -87,19 +85,14 @@ public:
 	uint32 ObservedDebugNameReusedGoal;
 
 private:
+	// Copy of the texture being visualized.
 	TRefCountPtr<IPooledRenderTarget> VisualizeTextureContent;
-	// only valid/useful if VisualizeTextureContent is set
+
+	/** Descriptor of the texture being visualized. */
 	FPooledRenderTargetDesc VisualizeTextureDesc;
+
 	TRefCountPtr<FRHIShaderResourceView> StencilSRV;
 	FTextureRHIRef StencilSRVSrc;
-
-	// The view rectangle that we are drawing to
-	FIntRect ViewRect;
-
-	// View rectange, constrained to the camera aspect ratio (if required). In game modes, the view rectangle is set to the correct aspect ratio constrained rectangle, but
-	// in the editor it is set to the full viewport window, and separate black bars are drawn to simulate the contrained area. We need to know about that so we can keep
-	// the texture visualization image inside this area
-	FIntRect AspectRatioConstrainedViewRect;
 
 	// Flag to determine whether texture visualization is enabled, currently based on the feature level we are rendering with
 	bool bEnabled;
@@ -107,37 +100,17 @@ private:
 	// Store feature level that we're currently using
 	ERHIFeatureLevel::Type FeatureLevel;
 
-	// is called by FPooledRenderTarget
+#if WITH_ENGINE
+	bool ShouldCapture(const TCHAR* DebugName);
 
-	void GenerateContent(FRHICommandListImmediate& RHICmdList, const FSceneRenderTargetItem& RenderTargetItem, const FPooledRenderTargetDesc& Desc);
+	/** Create a pass capturing a texture. */
+	void CreateContentCapturePass(FRDGBuilder& GraphBuilder, const FRDGTextureRef Texture);
+#endif
 
-	FIntRect ComputeVisualizeTextureRect(FIntPoint InputTextureSize) const;
-
-	static uint32 ComputeEventDisplayHeight();
+	friend class FRDGBuilder;
+	friend class FVisualizeTexturePresent;
 };
 
-
-struct FVisualizeTextureData 
-{
-	FVisualizeTextureData(const FSceneRenderTargetItem& InRenderTargetItem, const FPooledRenderTargetDesc& InDesc)
-		: RenderTargetItem(InRenderTargetItem), Desc(InDesc), StencilSRV(nullptr)
-	{
-	}
-
-	const FSceneRenderTargetItem& RenderTargetItem;
-	const FPooledRenderTargetDesc& Desc;
-	TRefCountPtr<FRHIShaderResourceView> StencilSRV;
-	float RGBMul;
-	float SingleChannelMul;
-	int32 SingleChannel;
-	float AMul;
-	FVector2D Tex00;
-	FVector2D Tex11;
-	bool bSaturateInsteadOfFrac;
-	int32 InputValueMapping;
-	int32 ArrayIndex;
-	int32 CustomMip;
-};
 
 /** The global render targets for easy shading. */
-extern TGlobalResource<FVisualizeTexture> GVisualizeTexture;
+extern RENDERCORE_API TGlobalResource<FVisualizeTexture> GVisualizeTexture;

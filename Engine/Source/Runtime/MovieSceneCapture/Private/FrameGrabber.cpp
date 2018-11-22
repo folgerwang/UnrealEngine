@@ -15,6 +15,7 @@
 #include "GlobalShader.h"
 #include "ScreenRendering.h"
 #include "PipelineStateCache.h"
+#include "DummyRenderResources.h"
 
 int32 GFrameGrabberFrameLatency = 0;
 static FAutoConsoleVariableRef CVarFrameGrabberFrameLatency(
@@ -167,7 +168,7 @@ void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderT
 			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
 			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;

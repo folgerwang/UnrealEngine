@@ -20,6 +20,7 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PostProcessParameters.h"
+#include "DummyRenderResources.h"
 #if SUPPORTS_ARKIT_1_0
 	#include "IOSAppDelegate.h"
 #endif
@@ -394,7 +395,7 @@ void FAppleARKitVideoOverlay::RenderVideoOverlay_RenderThread(FRHICommandListImm
 		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRH;
 		
 		const bool bIsMobileRenderer = FeatureLevel <= ERHIFeatureLevel::ES3_1;
 		FMaterialShader* VertexShader = nullptr;

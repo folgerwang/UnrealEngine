@@ -26,6 +26,7 @@
 #include "GlobalDistanceField.h"
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
+#include "VisualizeTexture.h"
 
 int32 GAOUseJitter = 1;
 FAutoConsoleVariableRef CVarAOUseJitter(

@@ -16,6 +16,7 @@
 #include "PostProcess/PostProcessSubsurface.h"
 #include "LightPropagationVolumeSettings.h"
 #include "DecalRenderingShared.h"
+#include "VisualizeTexture.h"
 
 /** The global center for all deferred lighting activities. */
 FCompositionLighting GCompositionLighting;

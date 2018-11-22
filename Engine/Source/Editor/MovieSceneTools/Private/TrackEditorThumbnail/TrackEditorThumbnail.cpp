@@ -17,6 +17,7 @@
 #include "ScreenRendering.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "PipelineStateCache.h"
+#include "DummyRenderResources.h"
 
 namespace TrackEditorThumbnailConstants
 {
@@ -155,7 +156,7 @@ void FTrackEditorThumbnail::CopyTextureIn(FTexture2DRHIRef SourceTexture)
 			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
 			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 

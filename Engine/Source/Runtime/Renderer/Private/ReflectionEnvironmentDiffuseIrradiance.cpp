@@ -16,6 +16,8 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "ScreenRendering.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
+#include "DummyRenderResources.h"
 
 extern int32 GDiffuseIrradianceCubemapSize;
 

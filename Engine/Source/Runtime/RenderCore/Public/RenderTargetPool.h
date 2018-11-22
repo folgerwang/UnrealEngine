@@ -260,9 +260,6 @@ public:
 	// @return -1 if not found
 	int32 FindIndex(IPooledRenderTarget* In) const;
 
-	// Render visualization
-	void RenderVisualizeTexture(class FDeferredShadingSceneRenderer& Scene);
-
 	void SetObserveTarget(const FString& InObservedDebugName, uint32 InObservedDebugNameReusedGoal = 0xffffffff);
 
 	// Logs out usage information.
@@ -360,6 +357,7 @@ private:
 
 	friend struct FPooledRenderTarget;
 	friend class FVisualizeTexture;
+	friend class FVisualizeTexturePresent;
 };
 
 /** The global render targets for easy shading. */

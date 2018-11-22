@@ -4,8 +4,7 @@
 	VisualizeTexture.usf: VisualizeTexture shader
 =============================================================================*/
 
-#include "Common.ush"
-#include "PostProcessCommon.ush"
+#include "../Common.ush"
 
 
 // to visualize the content of a texture to the screen, useful for debugging
@@ -33,7 +32,7 @@ SamplerState VisualizeTextureCubeArraySampler;
 // [2]: r:0=normal 1=depth, 2=shadow depth, g:unwrapcubemap, b:singlechannel(0-3), a:unused
 float4 VisualizeParam[3];
 // x, y (0 for 2D textures), z(only !=0 if 3d texture), w unused
-float4 TextureExtent;
+float3 TextureExtent;
 
 void VisualizeTexturePS(
 	FScreenVertexOutput Input,

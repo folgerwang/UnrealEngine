@@ -168,7 +168,7 @@ public:
 	FVolumetricFogMaterialSetupCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		Bindings.Bind(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
+		Bindings.BindForLegacyShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
 
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
 	} 
@@ -600,7 +600,7 @@ public:
 	TVolumetricFogLightScatteringCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		Bindings.Bind(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
+		Bindings.BindForLegacyShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
 
 		LocalShadowedLightScattering.Bind(Initializer.ParameterMap, TEXT("LocalShadowedLightScattering"));
 		LightScatteringHistory.Bind(Initializer.ParameterMap, TEXT("LightScatteringHistory"));
@@ -780,7 +780,7 @@ class FVolumetricFogFinalIntegrationCS : public FGlobalShader
 	FVolumetricFogFinalIntegrationCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		Bindings.Bind(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
+		Bindings.BindForLegacyShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata());
 
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
 	}

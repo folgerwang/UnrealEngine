@@ -16,6 +16,7 @@
 #include "PlanarReflectionSceneProxy.h"
 #include "PipelineStateCache.h"
 #include "ShaderParameterStruct.h"
+#include "VisualizeTexture.h"
 
 
 /*-----------------------------------------------------------------------------

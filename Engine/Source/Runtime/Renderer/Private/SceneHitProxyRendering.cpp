@@ -17,6 +17,7 @@
 #include "ScenePrivate.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "ClearQuad.h"
+#include "VisualizeTexture.h"
 
 /**
  * A vertex shader for rendering the depth of a mesh.

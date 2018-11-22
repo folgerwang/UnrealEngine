@@ -108,10 +108,6 @@ extern void DrawPostProcessPass(
 	EDrawRectangleFlags Flags = EDRF_Default
 	);
 
-extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
-extern TGlobalResource<FEmptyVertexDeclaration> GEmptyVertexDeclaration;
-
-
 
 
 /*-----------------------------------------------------------------------------

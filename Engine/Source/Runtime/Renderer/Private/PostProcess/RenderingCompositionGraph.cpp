@@ -17,6 +17,7 @@
 #include "IXRTrackingSystem.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
+#include "VisualizeTexture.h"
 
 #include "IImageWrapper.h"
 #include "ImageWriteQueue.h"

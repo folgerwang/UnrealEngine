@@ -40,6 +40,7 @@
 #include "ClearQuad.h"
 #include "MobileSeparateTranslucencyPass.h"
 #include "MobileDistortionPass.h"
+#include "VisualizeTexturePresent.h"
 
 
 uint32 GetShadowQuality();
@@ -235,7 +236,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
-	GVisualizeTexture.OnStartFrame(Views[0]);
+	FVisualizeTexturePresent::OnStartRender(Views[0]);
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Shadows));
 
@@ -665,41 +666,41 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 						RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DummyDepthTarget;
 						RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 						RHICmdList.BeginRenderPass(RPInfo, TEXT("ResolveDepth"));
-						{
-							FGraphicsPipelineStateInitializer GraphicsPSOInit;
-							RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-							GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-							GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-							GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+					{
+						FGraphicsPipelineStateInitializer GraphicsPSOInit;
+						RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+						GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-							// for devices that do not support framebuffer fetch we rely on undocumented behavior:
-							// Depth reading features will have the depth bound as an attachment AND as a sampler this means
-							// some driver implementations will ignore our attempts to resolve, here we draw with the depth texture to force a resolve.
-							// See UE-37809 for a description of the desired fix.
-							// The results of this draw are irrelevant.
-							TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
-							TShaderMapRef<FScreenPS> PixelShader(View.ShaderMap);
+						// for devices that do not support framebuffer fetch we rely on undocumented behavior:
+						// Depth reading features will have the depth bound as an attachment AND as a sampler this means
+						// some driver implementations will ignore our attempts to resolve, here we draw with the depth texture to force a resolve.
+						// See UE-37809 for a description of the desired fix.
+						// The results of this draw are irrelevant.
+						TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
+						TShaderMapRef<FScreenPS> PixelShader(View.ShaderMap);
 
-							GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-							GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
-							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-							GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-							ScreenVertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
-							PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SceneContext.GetSceneDepthTexture());
-							DrawRectangle(
-								RHICmdList,
-								0, 0,
-								0, 0,
-								0, 0,
-								1, 1,
-								FIntPoint(1, 1),
-								FIntPoint(1, 1),
-								*ScreenVertexShader,
-								EDRF_UseTriangleOptimization);
-						}
+						ScreenVertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
+						PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SceneContext.GetSceneDepthTexture());
+						DrawRectangle(
+							RHICmdList,
+							0, 0,
+							0, 0,
+							0, 0,
+							1, 1,
+							FIntPoint(1, 1),
+							FIntPoint(1, 1),
+							*ScreenVertexShader,
+							EDRF_UseTriangleOptimization);
+					}
 						RHICmdList.EndRenderPass();
 					} // force depth resolve
 				}
@@ -824,45 +825,45 @@ void FMobileSceneRenderer::CopyMobileMultiViewSceneColor(FRHICommandListImmediat
 	TransitionRenderPassTargets(RHICmdList, RPInfo);
 	RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyMobileMultiViewColor"));
 	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+	FGraphicsPipelineStateInitializer GraphicsPSOInit;
+	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		const auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FCopyMobileMultiViewSceneColorPS> PixelShader(ShaderMap);
-		extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
+	const auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+	TShaderMapRef<FCopyMobileMultiViewSceneColorPS> PixelShader(ShaderMap);
+	extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-		{
-			const FViewInfo& View = Views[ViewIndex];
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+	{
+		const FViewInfo& View = Views[ViewIndex];
 
-			// Multi-view color target is our input texture array
-			PixelShader->SetParameters(RHICmdList, View.ViewUniformBuffer, SceneContext.MobileMultiViewSceneColor->GetRenderTargetItem().ShaderResourceTexture);
+		// Multi-view color target is our input texture array
+		PixelShader->SetParameters(RHICmdList, View.ViewUniformBuffer, SceneContext.MobileMultiViewSceneColor->GetRenderTargetItem().ShaderResourceTexture);
 
-			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Min.X + View.ViewRect.Width(), View.ViewRect.Min.Y + View.ViewRect.Height(), 1.0f);
-			const FIntPoint TargetSize(View.ViewRect.Width(), View.ViewRect.Height());
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Min.X + View.ViewRect.Width(), View.ViewRect.Min.Y + View.ViewRect.Height(), 1.0f);
+		const FIntPoint TargetSize(View.ViewRect.Width(), View.ViewRect.Height());
 
-			DrawRectangle(
-				RHICmdList,
-				0, 0,
-				View.ViewRect.Width(), View.ViewRect.Height(),
-				0, 0,
-				View.ViewRect.Width(), View.ViewRect.Height(),
-				TargetSize,
-				TargetSize,
-				*VertexShader,
-				EDRF_UseTriangleOptimization);
-		}
+		DrawRectangle(
+			RHICmdList,
+			0, 0,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			0, 0,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			TargetSize,
+			TargetSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
 	}
 	RHICmdList.EndRenderPass();
 }

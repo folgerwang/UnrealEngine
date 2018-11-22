@@ -10,67 +10,8 @@
 #include "Engine/Engine.h"
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
-
-/**
-* Static vertex and index buffer used for 2D screen rectangles.
-*/
-class FScreenRectangleVertexBuffer : public FVertexBuffer
-{
-public:
-	/** Initialize the RHI for this rendering resource */
-	void InitRHI() override
-	{
-		TResourceArray<FFilterVertex, VERTEXBUFFER_ALIGNMENT> Vertices;
-		Vertices.SetNumUninitialized(6);
-
-		Vertices[0].Position = FVector4(1,  1,	0,	1);
-		Vertices[0].UV = FVector2D(1,	1);
-
-		Vertices[1].Position = FVector4(0,  1,	0,	1);
-		Vertices[1].UV = FVector2D(0,	1);
-
-		Vertices[2].Position = FVector4(1,	0,	0,	1);
-		Vertices[2].UV = FVector2D(1,	0);
-
-		Vertices[3].Position = FVector4(0,	0,	0,	1);
-		Vertices[3].UV = FVector2D(0,	0);
-
-		//The final two vertices are used for the triangle optimization (a single triangle spans the entire viewport )
-		Vertices[4].Position = FVector4(-1,  1,	0,	1);
-		Vertices[4].UV = FVector2D(-1,	1);
-
-		Vertices[5].Position = FVector4(1,  -1,	0,	1);
-		Vertices[5].UV = FVector2D(1, -1);
-
-		// Create vertex buffer. Fill buffer with initial data upon creation
-		FRHIResourceCreateInfo CreateInfo(&Vertices);
-		VertexBufferRHI = RHICreateVertexBuffer(Vertices.GetResourceDataSize(), BUF_Static, CreateInfo);
-	}
-};
-
-class FScreenRectangleIndexBuffer : public FIndexBuffer
-{
-public:
-	/** Initialize the RHI for this rendering resource */
-	void InitRHI() override
-	{
-		// Indices 0 - 5 are used for rendering a quad. Indices 6 - 8 are used for triangle optimization.
-		const uint16 Indices[] = { 0, 1, 2, 2, 1, 3, 0, 4, 5 };
-
-		TResourceArray<uint16, INDEXBUFFER_ALIGNMENT> IndexBuffer;
-		uint32 NumIndices = ARRAY_COUNT(Indices);
-		IndexBuffer.AddUninitialized(NumIndices);
-		FMemory::Memcpy(IndexBuffer.GetData(), Indices, NumIndices * sizeof(uint16));
-
-		// Create index buffer. Fill buffer with initial data upon creation
-		FRHIResourceCreateInfo CreateInfo(&IndexBuffer);
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), IndexBuffer.GetResourceDataSize(), BUF_Static, CreateInfo);
-	}
-};
-
-/** Global resource  */
-static TGlobalResource<FScreenRectangleVertexBuffer> GScreenRectangleVertexBuffer;
-static TGlobalResource<FScreenRectangleIndexBuffer> GScreenRectangleIndexBuffer;
+#include "PixelShaderUtils.h"
+#include "DummyRenderResources.h"
 
 void FTesselatedScreenRectangleIndexBuffer::InitRHI()
 {
@@ -121,11 +62,6 @@ uint32 FTesselatedScreenRectangleIndexBuffer::NumPrimitives() const
 /** We don't need a vertex buffer as we can compute the vertex attributes in the VS */
 static TGlobalResource<FTesselatedScreenRectangleIndexBuffer> GTesselatedScreenRectangleIndexBuffer;
 
-
-/** Vertex declaration for the 2D screen rectangle. */
-TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
-/** Vertex declaration for vertex shaders that don't require any inputs (eg. generated via vertex ID). */
-TGlobalResource<FEmptyVertexDeclaration> GEmptyVertexDeclaration;
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDrawRectangleParameters, "DrawRectangleParameters");
 
@@ -214,37 +150,13 @@ static inline void InternalDrawRectangle(
 	}
 	else
 	{
-		RHICmdList.SetStreamSource(0, GScreenRectangleVertexBuffer.VertexBufferRHI, 0);
-
 		if (Flags == EDRF_UseTriangleOptimization)
 		{
-			// A single triangle spans the entire viewport this results in a quad that fill the viewport. This can increase rasterization efficiency
-			// as we do not have a diagonal edge (through the center) for the rasterizer/span-dispatch. Although the actual benefit of this technique is dependent upon hardware.
-
-			// We offset into the index buffer when using the triangle optimization to access the correct vertices.
-			RHICmdList.DrawIndexedPrimitive(
-				GScreenRectangleIndexBuffer.IndexBufferRHI,
-				/*BaseVertexIndex=*/ 0,
-				/*MinIndex=*/ 0,
-				/*NumVertices=*/ 3,
-				/*StartIndex=*/ 6,
-				/*NumPrimitives=*/ 1,
-				/*NumInstances=*/ InstanceCount
-				);
+			FPixelShaderUtils::DrawFullscreenTriangle(RHICmdList, InstanceCount);
 		}
 		else
 		{
-			RHICmdList.SetStreamSource(0, GScreenRectangleVertexBuffer.VertexBufferRHI, 0);
-
-			RHICmdList.DrawIndexedPrimitive(
-				GScreenRectangleIndexBuffer.IndexBufferRHI,
-				/*BaseVertexIndex=*/ 0,
-				/*MinIndex=*/ 0,
-				/*NumVertices=*/ 4,
-				/*StartIndex=*/ 0,
-				/*NumPrimitives=*/ 2,
-				/*NumInstances=*/ InstanceCount
-				);
+			FPixelShaderUtils::DrawFullscreenQuad(RHICmdList, InstanceCount);
 		}
 	}
 }

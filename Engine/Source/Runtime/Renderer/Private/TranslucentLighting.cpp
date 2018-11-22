@@ -44,6 +44,7 @@
 #include "VolumeRendering.h"
 #include "VolumeLighting.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 class FMaterial;
 

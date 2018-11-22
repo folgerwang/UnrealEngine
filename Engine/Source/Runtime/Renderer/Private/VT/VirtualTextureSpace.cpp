@@ -10,7 +10,8 @@
 #include "PipelineStateCache.h"
 #include "HAL/IConsoleManager.h"
 #include "SceneUtils.h"
-#include "PostProcess/VisualizeTexture.h"
+#include "VisualizeTexture.h"
+#include "DummyRenderResources.h"
 
 static TAutoConsoleVariable<int32> CVarVTRefreshEntirePageTable(
 	TEXT("r.VT.RefreshEntirePageTable"),

@@ -13,6 +13,7 @@
 #include "ClearQuad.h"
 #include "Engine/SubsurfaceProfile.h"
 #include "ShowFlags.h"
+#include "VisualizeTexture.h"
 
 DECLARE_GPU_STAT(Lights);
 

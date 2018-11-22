@@ -491,58 +491,6 @@ struct FQueryVisualizeTexureInfo
 };
 
 
-/** The vertex data used to filter a texture. */
-struct FFilterVertex
-{
-	FVector4 Position;
-	FVector2D UV;
-};
-
-/** The filter vertex declaration resource type. */
-class FFilterVertexDeclaration : public FRenderResource
-{
-public:
-	FVertexDeclarationRHIRef VertexDeclarationRHI;
-
-	/** Destructor. */
-	virtual ~FFilterVertexDeclaration() {}
-
-	virtual void InitRHI()
-	{
-		FVertexDeclarationElementList Elements;
-		uint32 Stride = sizeof(FFilterVertex);
-		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FFilterVertex,Position),VET_Float4,0,Stride));
-		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FFilterVertex,UV),VET_Float2,1,Stride));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
-	}
-
-	virtual void ReleaseRHI()
-	{
-		VertexDeclarationRHI.SafeRelease();
-	}
-};
-
-/** The empty vertex declaration resource type. */
-class FEmptyVertexDeclaration : public FRenderResource
-{
-public:
-	FVertexDeclarationRHIRef VertexDeclarationRHI;
-
-	/** Destructor. */
-	virtual ~FEmptyVertexDeclaration() {}
-
-	virtual void InitRHI()
-	{
-		FVertexDeclarationElementList Elements;
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
-	}
-
-	virtual void ReleaseRHI()
-	{
-		VertexDeclarationRHI.SafeRelease();
-	}
-};
-
 // use r.DrawDenormalizedQuadMode to override the function call setting (quick way to see if an artifact is caused by this optimization)
 enum EDrawRectangleFlags
 {
@@ -762,9 +710,11 @@ public:
 	virtual void DrawTileMesh(FRHICommandListImmediate& RHICmdList, struct FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View, const FMeshBatch& Mesh, bool bIsHitTesting, const class FHitProxyId& HitProxyId) = 0;
 
 	/** Render thread side, use TRefCountPtr<IPooledRenderTarget>, allows to use sharing and VisualizeTexture */
+	// TODO(RDG): Kill that guy.
 	virtual void RenderTargetPoolFindFreeElement(FRHICommandListImmediate& RHICmdList, const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) = 0;
 	
 	/** Render thread side, to age the pool elements so they get released at some point */
+	// TODO(RDG): Kill that guy.
 	virtual void TickRenderTargetPool() = 0;
 
 	virtual const TSet<FSceneInterface*>& GetAllocatedScenes() = 0;
@@ -775,7 +725,6 @@ public:
 	// @param WorkScale >0, 10 for normal precision and runtime of less than a second
 	virtual void GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScale = 10.0f) = 0;
 
-	virtual void QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out) = 0;
 	virtual void ExecVisualizeTextureCmd(const FString& Cmd) = 0;
 
 	virtual void UpdateMapNeedsLightingFullyRebuiltState(UWorld* World) = 0;
@@ -810,9 +759,6 @@ public:
 		class FShader* VertexShader,
 		EDrawRectangleFlags Flags = EDRF_Default
 		) = 0;
-
-	/** @return Returns a vertex declaration that can be used with with the DrawRectangle() function */
-	virtual TGlobalResource<FFilterVertexDeclaration>& GetFilterVertexDeclaration() = 0;
 
 	/** Register/unregister a custom occlusion culling implementation */
 	virtual void RegisterCustomCullingImpl(ICustomCulling* impl) = 0;

@@ -26,6 +26,7 @@
 #include "StereoRenderTargetManager.h"
 #include "VT/VirtualTextureSystem.h"
 #include "VT/VirtualTextureFeedback.h"
+#include "VisualizeTexture.h"
 
 static TAutoConsoleVariable<int32> CVarRSMResolution(
 	TEXT("r.LPV.RSMResolution"),

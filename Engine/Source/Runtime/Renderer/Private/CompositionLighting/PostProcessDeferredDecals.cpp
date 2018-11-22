@@ -10,6 +10,7 @@
 #include "DecalRenderingShared.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 
 static TAutoConsoleVariable<int32> CVarGenerateDecalRTWriteMaskTexture(

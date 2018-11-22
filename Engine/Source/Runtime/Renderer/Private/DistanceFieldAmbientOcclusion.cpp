@@ -17,6 +17,7 @@
 #include "DistanceFieldGlobalIllumination.h"
 #include "RendererModule.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 int32 GDistanceFieldAO = 1;
 FAutoConsoleVariableRef CVarDistanceFieldAO(

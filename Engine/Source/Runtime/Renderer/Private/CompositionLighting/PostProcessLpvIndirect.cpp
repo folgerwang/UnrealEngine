@@ -23,6 +23,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "LightPropagationVolumeSettings.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLpvReadUniformBufferParameters,"LpvRead");
 typedef TUniformBufferRef<FLpvReadUniformBufferParameters> FLpvReadUniformBufferRef;

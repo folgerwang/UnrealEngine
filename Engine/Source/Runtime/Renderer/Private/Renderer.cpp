@@ -16,7 +16,7 @@
 #include "SceneView.h"
 #include "RenderTargetPool.h"
 #include "PostProcess/SceneRenderTargets.h"
-#include "PostProcess/VisualizeTexture.h"
+#include "VisualizeTexture.h"
 #include "SceneCore.h"
 #include "SceneHitProxyRendering.h"
 #include "SceneRendering.h"
@@ -26,6 +26,7 @@
 #include "RendererModule.h"
 #include "GPUBenchmark.h"
 #include "SystemSettings.h"
+#include "VisualizeTexturePresent.h"
 
 DEFINE_LOG_CATEGORY(LogRenderer);
 
@@ -173,7 +174,7 @@ void FRendererModule::DebugLogOnCrash()
 {
 	GVisualizeTexture.SortOrder = 1;
 	GVisualizeTexture.bFullList = true;
-	GVisualizeTexture.DebugLog(false);
+	FVisualizeTexturePresent::DebugLog(false);
 	
 	GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 
@@ -237,14 +238,6 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 		RendererGPUBenchmark(RHICmdList, InOut, DummyView, WorkScale);
 	});
 	FlushRenderingCommands();
-}
-
-void FRendererModule::QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out)
-{
-	check(IsInGameThread());
-	FlushRenderingCommands();
-
-	GVisualizeTexture.QueryInfo(Out);
 }
 
 static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
@@ -322,18 +315,18 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				{
 					// user specified a reuse goal
 					FString NameWithoutAt = Parameter.Left(AfterAt - *Parameter);
-					GVisualizeTexture.SetObserveTarget(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
+					GVisualizeTexture.SetRenderTargetNameToObserve(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
 				}
 				else
 				{
 					// we take the last one
-					GVisualizeTexture.SetObserveTarget(*Parameter);
+					GVisualizeTexture.SetRenderTargetNameToObserve(*Parameter);
 				}
 			}
 			else
 			{
 				// the index was used
-				GVisualizeTexture.SetObserveTarget(TEXT(""));
+				GVisualizeTexture.SetRenderTargetNameToObserve(TEXT(""));
 			}
 		}
 		// GRenderTargetPoolInputMapping mode
@@ -469,7 +462,7 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		Ar.Logf(TEXT("TextureId:"));
 		Ar.Logf(TEXT("  0        = <off>"));
 
-		GVisualizeTexture.DebugLog(true);
+		FVisualizeTexturePresent::DebugLog(true);
 	}
 	//		Ar.Logf(TEXT("VisualizeTexture %d"), GVisualizeTexture.Mode);
 }

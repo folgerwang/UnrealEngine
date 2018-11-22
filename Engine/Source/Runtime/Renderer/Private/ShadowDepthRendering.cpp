@@ -37,6 +37,7 @@
 #include "ScreenRendering.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 DECLARE_GPU_STAT_NAMED(ShadowDepths, TEXT("Shadow Depths"));
 

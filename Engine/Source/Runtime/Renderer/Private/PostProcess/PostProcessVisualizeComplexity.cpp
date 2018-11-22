@@ -111,9 +111,6 @@ void FVisualizeComplexityApplyPS::SetParameters(
 
 IMPLEMENT_SHADER_TYPE(,FVisualizeComplexityApplyPS,TEXT("/Engine/Private/ShaderComplexityApplyPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
-//reuse the generic filter vertex declaration
-extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
-
 void FRCPassPostProcessVisualizeComplexity::Process(FRenderingCompositePassContext& Context)
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessVisualizeComplexity);

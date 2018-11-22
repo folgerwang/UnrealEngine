@@ -13,6 +13,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "SceneView.h"
+#include "DummyRenderResources.h"
 
 namespace 
 {
@@ -86,7 +87,7 @@ void FDefaultStereoLayers::StereoLayerRender(FRHICommandListImmediate& RHICmdLis
 	TShaderMapRef<FStereoLayerVS> VertexShader(ShaderMap);
 	TShaderMapRef<FStereoLayerPS> PixelShader(ShaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;

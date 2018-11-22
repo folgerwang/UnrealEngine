@@ -8,6 +8,7 @@
 #include "RendererInterface.h"
 #include "StaticBoundShaderState.h"
 #include "PipelineStateCache.h"
+#include "DummyRenderResources.h"
 
 DECLARE_CYCLE_STAT(TEXT("Slate PostProcessing RT"), STAT_SlatePostProcessingRTTime, STATGROUP_Slate);
 DECLARE_CYCLE_STAT(TEXT("Slate ColorDeficiency RT"), STAT_SlateColorDeficiencyRTTime, STATGROUP_Slate);
@@ -75,7 +76,7 @@ void FSlatePostProcessor::BlurRect(FRHICommandListImmediate& RHICmdList, IRender
 	const FSlateRect& SourceRect = RectParams.SourceRect;
 	const FSlateRect& DestRect = RectParams.DestRect;
 
-	FVertexDeclarationRHIRef VertexDecl = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+	FVertexDeclarationRHIRef VertexDecl = GFilterVertexDeclaration.VertexDeclarationRHI;
 	check(IsValidRef(VertexDecl));
 	
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -226,7 +227,7 @@ void FSlatePostProcessor::ColorDeficiency(FRHICommandListImmediate& RHICmdList, 
 	const FSlateRect& SourceRect = RectParams.SourceRect;
 	const FSlateRect& DestRect = RectParams.DestRect;
 
-	FVertexDeclarationRHIRef VertexDecl = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+	FVertexDeclarationRHIRef VertexDecl = GFilterVertexDeclaration.VertexDeclarationRHI;
 	check(IsValidRef(VertexDecl));
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -337,7 +338,7 @@ void FSlatePostProcessor::DownsampleRect(FRHICommandListImmediate& RHICmdList, I
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
@@ -415,7 +416,7 @@ void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRe
 
 		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
