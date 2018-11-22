@@ -22,11 +22,6 @@ class AIMODULE_API FEQSSceneProxy final : public FDebugRenderSceneProxy
 public:
 	SIZE_T GetTypeHash() const override;
 
-	DEPRECATED(4.14, "This FEQSSceneProxy constructor version is deprecated. Please use the one taking UPrimitiveComponent&")
-	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName = TEXT("DebugAI"));
-	DEPRECATED(4.14, "This FEQSSceneProxy constructor version is deprecated. Please use the one taking UPrimitiveComponent&")
-	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName, const TArray<FSphere>& Spheres, const TArray<FText3d>& Texts);
-
 	explicit FEQSSceneProxy(const UPrimitiveComponent& InComponent, const FString& ViewFlagName = TEXT("DebugAI"), const TArray<FSphere>& Spheres = TArray<FSphere>(), const TArray<FText3d>& Texts = TArray<FText3d>());
 	
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;

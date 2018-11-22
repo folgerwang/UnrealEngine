@@ -72,7 +72,7 @@ UObject* UAnimSequenceFactory::FactoryCreateNew(UClass* Class, UObject* InParent
 
 		// @todo I think this will crash, we should support differentoptions
 		AnimSequence->SequenceLength = 0.f;
-		AnimSequence->NumFrames = 0;
+		AnimSequence->SetRawNumberOfFrame(0);
 		
 		AnimSequence->SetSkeleton( TargetSkeleton );
 		if (PreviewSkeletalMesh)

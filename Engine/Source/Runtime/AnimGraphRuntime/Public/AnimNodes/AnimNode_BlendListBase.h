@@ -27,45 +27,40 @@ public:
 	UPROPERTY(EditAnywhere, Category=BlendType)
 	EAlphaBlendOption BlendType;
 
+protected:
+	/** This reinitializes child pose when re-activated. For example, when active child changes */
+	UPROPERTY(EditAnywhere, Category = Option)
+	bool bResetChildOnActivation;
+
+	int32 LastActiveChildIndex;
+
+public:
 	UPROPERTY(EditAnywhere, Category=BlendType)
 	UCurveFloat* CustomBlendCurve;
 
 	UPROPERTY(EditAnywhere, Category=BlendType)
 	UBlendProfile* BlendProfile;
 
-	UPROPERTY()
 	TArray<struct FAlphaBlend> Blends;
 
 protected:
-	UPROPERTY()
 	TArray<float> BlendWeights;
 
-	UPROPERTY()
 	TArray<float> RemainingBlendTimes;
 
-	UPROPERTY()
-	int32 LastActiveChildIndex;
-
-	UPROPERTY()
 	TArray<FBlendSampleData> PerBoneSampleData;
 
 	//Store which poses we need to evaluate
 	TArray<int32> PosesToEvaluate;
 
-	/** This reinitializes child pose when re-activated. For example, when active child changes */
-	UPROPERTY(EditAnywhere, Category = Option)
-	bool bResetChildOnActivation;
-
 public:	
 	FAnimNode_BlendListBase()
 		: BlendType(EAlphaBlendOption::Linear)
+		, bResetChildOnActivation(false)
+		, LastActiveChildIndex(0)
 		, CustomBlendCurve(nullptr)
 		, BlendProfile(nullptr)
-		, LastActiveChildIndex(0)
-		, bResetChildOnActivation(false)
 	{
-		BlendWeights.Empty();
-		RemainingBlendTimes.Empty();
 	}
 
 	// FAnimNode_Base interface

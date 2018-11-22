@@ -2868,7 +2868,7 @@ public:
 	 *	Used by memory counting archives to accumlate the size of this array.
 	 *	@param Ar archive to accumulate sizes
 	**/
-	void CountBytes( FArchive& Ar  )
+	void CountBytes( FArchive& Ar  ) const
 	{
 		Array->CountBytes(Ar, ElementSize);
 	}	
@@ -4065,10 +4065,10 @@ public:
 	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct) override;
 	// End of UProperty interface
 
-	DEPRECATED(4.14, "Use UScriptStruct::ImportText instead")
+	UE_DEPRECATED(4.14, "Use UScriptStruct::ImportText instead")
 	static const TCHAR* ImportText_Static(UScriptStruct* InStruct, const FString& InName, const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText);
 	
-	DEPRECATED(4.14, "Use UScriptStruct::ExportText instead")
+	UE_DEPRECATED(4.14, "Use UScriptStruct::ExportText instead")
 	static void ExportTextItem_Static(class UScriptStruct* InStruct, FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope);
 
 	bool UseBinaryOrNativeSerialization(const FArchive& Ar) const;

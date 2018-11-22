@@ -5,6 +5,11 @@
 #include "Sections/MovieSceneColorSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 
+bool UMovieSceneNiagaraColorParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneColorSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraColorParameterTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneColorSection>(this, NAME_None, RF_Transactional);

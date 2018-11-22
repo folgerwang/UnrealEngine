@@ -309,6 +309,9 @@ public:
 	UPROPERTY(EditAnywhere, Category=Delay)
 	uint32 bUseDelayRange:1;
 
+	UPROPERTY(EditAnywhere, Category = Performance, meta = (ToolTip = "Whether or not to allow instances of this system to have their ticks managed."), AdvancedDisplay)
+	uint32 bAllowManagedTicking:1;
+
 	UPROPERTY(EditAnywhere, Category = Performance, meta = (ToolTip = "Auto-deactivate system if all emitters are determined to not spawn particles again, regardless of lifetime."))
 	bool bAutoDeactivate;
 
@@ -531,6 +534,8 @@ public:
 	EParticleSignificanceLevel GetHighestSignificance()const { return HighestSignificance; }
 	EParticleSignificanceLevel GetLowestSignificance()const { return LowestSignificance; }
 	bool ShouldManageSignificance()const { return bShouldManageSignificance; }
+
+	FORCEINLINE bool AllowManagedTicking()const { return bAllowManagedTicking; }
 private:
 
 	/** The highest significance of any emitter. Clamped by MaxSignificanceLevel.*/

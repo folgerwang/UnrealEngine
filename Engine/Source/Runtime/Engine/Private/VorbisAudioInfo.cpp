@@ -97,9 +97,13 @@ FVorbisAudioInfo::FVorbisAudioInfo( void )
 	, SrcBufferData(NULL)
 	, SrcBufferDataSize(0)
 	, BufferOffset(0)
+	, CurrentBufferChunkOffset(0)
 	, bPerformingOperation(false)
 	, StreamingSoundWave(NULL)
-	, StreamingChunksSize(0)
+	, CurrentStreamingChunkData(nullptr)
+	, CurrentStreamingChunkIndex(INDEX_NONE)
+	, NextStreamingChunkIndex(0)
+	, CurrentStreamingChunksSize(0)
 {
 	// Make sure we have properly allocated a VFWrapper
 	check(VFWrapper != NULL);
@@ -187,33 +191,61 @@ static long OggTellMemory( void *datasource )
 }
 
 /** Emulate read from memory functionality */
-size_t FVorbisAudioInfo::ReadStreaming( void *Ptr, uint32 Size )
+size_t FVorbisAudioInfo::ReadStreaming(void *Ptr, uint32 Size )
 {
-	size_t	BytesCopied = 0;
+	size_t NumBytesRead = 0;
 
-	while(Size > 0)
+	while (NumBytesRead < Size)
 	{
-		uint32	CurChunkSize = 0;
-
-		uint8 const* ChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, BufferOffset / StreamingChunksSize, &CurChunkSize);
-
-		check(CurChunkSize >= (BufferOffset % StreamingChunksSize));
-		size_t	BytesToCopy = FMath::Min<uint32>(CurChunkSize - (BufferOffset % StreamingChunksSize), Size);
-		check((BufferOffset % StreamingChunksSize) + BytesToCopy <= CurChunkSize);
-
-		if(ChunkData == NULL || BytesToCopy == 0)
+		if (!CurrentStreamingChunkData || CurrentStreamingChunkIndex != NextStreamingChunkIndex)
 		{
-			return BytesCopied;
+			CurrentStreamingChunkIndex = NextStreamingChunkIndex;
+			CurrentStreamingChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentStreamingChunkIndex);
+			if (CurrentStreamingChunkData)
+			{
+				check(CurrentStreamingChunkIndex < StreamingSoundWave->RunningPlatformData->Chunks.Num());
+				CurrentStreamingChunksSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentStreamingChunkIndex].AudioDataSize;
+				CurrentBufferChunkOffset = 0;
+			}
 		}
 
-		FMemory::Memcpy( Ptr, ChunkData + (BufferOffset % StreamingChunksSize), BytesToCopy );
-		BufferOffset += BytesToCopy;
-		BytesCopied += BytesToCopy;
-		Size -= BytesToCopy;
-		Ptr = (void*)((uint8*)Ptr + BytesToCopy);
+		// No chunk data -- either looping or something else happened with stream
+		if (!CurrentStreamingChunkData)
+		{
+			return NumBytesRead;
+		}
+
+		// How many bytes left in the current chunk
+		uint32 BytesLeftInCurrentChunk = CurrentStreamingChunksSize - CurrentBufferChunkOffset;
+
+		// How many more bytes we want to read
+		uint32 NumBytesLeftToRead = Size - NumBytesRead;
+
+		// The amount of audio we're going to copy is the min of the bytes left in the chunk and the bytes left we need to read.
+		size_t BytesToCopy = FMath::Min(BytesLeftInCurrentChunk, NumBytesLeftToRead);
+		if (BytesToCopy > 0)
+		{
+			void* WriteBufferLocation = (void*)((uint8*)Ptr + NumBytesRead);
+			FMemory::Memcpy(WriteBufferLocation, CurrentStreamingChunkData + CurrentBufferChunkOffset, BytesToCopy);
+
+			// Increment the BufferOffset by how many bytes we copied from the stream
+			BufferOffset += BytesToCopy;
+
+			// Increment the current buffer's offset
+			CurrentBufferChunkOffset += BytesToCopy;
+
+			// Increment the number of bytes we read this callback.
+			NumBytesRead += BytesToCopy;
+		}
+
+		// If we need to read more bytes than are left in the current chunk, we're going to need to increment the chunk index so we read the next chunk of audio
+		if (NumBytesLeftToRead >= BytesLeftInCurrentChunk)
+		{
+			NextStreamingChunkIndex++;
+		}
 	}
 
-	return BytesCopied;
+	return NumBytesRead;
 }
 
 static size_t OggReadStreaming( void *ptr, size_t size, size_t nmemb, void *datasource )
@@ -497,13 +529,7 @@ bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQuali
 	Callbacks.seek_func = NULL;	// Force streaming
 	Callbacks.tell_func = NULL;	// Force streaming
 
-	// We need to start with a valid StreamingChunksSize so just use this
-	StreamingChunksSize = MONO_PCM_BUFFER_SIZE * 2 * 2;
-
 	bool result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
-
-	// Now we can set the real StreamingChunksSize
-	StreamingChunksSize = MONO_PCM_BUFFER_SIZE * 2 * QualityInfo->NumChannels;
 
 	bPerformingOperation = false;
 
@@ -523,7 +549,7 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 #endif
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
-	bool	bLooped = false;
+	bool bLooped = false;
 
 	while( BufferSize > 0 )
 	{
@@ -531,8 +557,23 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 
 		if( BytesActuallyRead <= 0 )
 		{
+			// if we read 0 bytes or there was an error, instead of assuming we looped, lets write out zero's.
+			// this means that the chunk wasn't loaded in time
+			if (NextStreamingChunkIndex < StreamingSoundWave->RunningPlatformData->Chunks.Num())
+			{
+				// zero out the rest of the buffer
+				FMemory::Memzero(InDestination, BufferSize);
+				return false;
+			}
+
 			// We've reached the end
 			bLooped = true;
+
+			// If we're looping, then we need to make sure we wrap the stream chunks back to 0
+			if (bLooping)
+			{
+				NextStreamingChunkIndex = 0;
+			}
 
 			BufferOffset = 0;
 

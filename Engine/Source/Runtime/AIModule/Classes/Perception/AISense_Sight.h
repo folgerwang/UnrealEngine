@@ -60,7 +60,8 @@ struct FAISightTarget
 
 	FORCEINLINE FVector GetLocationSimple() const
 	{
-		return Target.IsValid() ? Target->GetActorLocation() : FVector::ZeroVector;
+		const AActor* TargetPtr = Target.Get();
+		return TargetPtr ? TargetPtr->GetActorLocation() : FVector::ZeroVector;
 	}
 
 	FORCEINLINE const AActor* GetTargetActor() const { return Target.Get(); }

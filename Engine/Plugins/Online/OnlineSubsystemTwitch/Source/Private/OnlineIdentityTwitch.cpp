@@ -130,12 +130,6 @@ FString FTwitchLoginURL::GetLoginRedirectUrl() const
 	return LoginRedirectUrl;
 }
 
-const FUniqueNetId& FOnlineIdentityTwitch::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdTwitch> EmptyUniqueId = MakeShared<const FUniqueNetIdTwitch>();
-	return *EmptyUniqueId;
-}
-
 TSharedPtr<FUserOnlineAccountTwitch> FOnlineIdentityTwitch::GetUserAccountTwitch(const FUniqueNetId& UserId) const
 {
 	TSharedPtr<FUserOnlineAccountTwitch> Result;
@@ -310,7 +304,7 @@ void FOnlineIdentityTwitch::OnValidateAuthTokenComplete(int32 LocalUserNum, cons
 	}
 
 	const bool bWasSuccessful = ErrorStr.IsEmpty();
-	InCompletionDelegate.ExecuteIfBound(LocalUserNum, bWasSuccessful, bWasSuccessful ? *User->GetUserId() : GetEmptyUniqueId(), ErrorStr);
+	InCompletionDelegate.ExecuteIfBound(LocalUserNum, bWasSuccessful, bWasSuccessful ? *User->GetUserId() : *FUniqueNetIdTwitch::EmptyId(), ErrorStr);
 }
 
 void FOnlineIdentityTwitch::ValidateAuthToken(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials, const FOnValidateAuthTokenComplete& InCompletionDelegate)
@@ -454,7 +448,7 @@ void FOnlineIdentityTwitch::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 			FOnlineIdentityTwitchPtr This(WeakThisPtr.Pin());
 			if (This.IsValid())
 			{
-				This->TriggerOnLoginCompleteDelegates(LocalUserNum, false, This->GetEmptyUniqueId(), ErrorStrCopy);
+				This->TriggerOnLoginCompleteDelegates(LocalUserNum, false, *FUniqueNetIdTwitch::EmptyId(), ErrorStrCopy);
 			}
 		});
 	}
@@ -462,9 +456,9 @@ void FOnlineIdentityTwitch::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 
 void FOnlineIdentityTwitch::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	const FString& ErrorStr = Error.ErrorCode;
+	const FString& ErrorStr = Error.GetErrorCode();
 	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
-	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : GetEmptyUniqueId(), ErrorStr);
+	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : *FUniqueNetIdTwitch::EmptyId(), ErrorStr);
 }
 
 bool FOnlineIdentityTwitch::Logout(int32 LocalUserNum)
@@ -524,7 +518,7 @@ void FOnlineIdentityTwitch::OnTwitchLogoutComplete(const FUniqueNetId& UserId)
 			if (This.IsValid())
 			{
 				This->TriggerOnLogoutCompleteDelegates(LocalUserNum, true);
-				This->TriggerOnLoginStatusChangedDelegates(LocalUserNum, ELoginStatus::LoggedIn, ELoginStatus::NotLoggedIn, GetEmptyUniqueId());
+				This->TriggerOnLoginStatusChangedDelegates(LocalUserNum, ELoginStatus::LoggedIn, ELoginStatus::NotLoggedIn, *FUniqueNetIdTwitch::EmptyId());
 			}
 		});
 	}
@@ -615,7 +609,7 @@ void FOnlineIdentityTwitch::RevokeAuthToken_HttpRequestComplete(FHttpRequestPtr 
 	}
 	else
 	{
-		UE_LOG_ONLINE_IDENTITY(Log, TEXT("User %s failed to revoke their auth token with error %s"), *UserId->ToString(), *OnlineError.ErrorCode);
+		UE_LOG_ONLINE_IDENTITY(Log, TEXT("User %s failed to revoke their auth token with error %s"), *UserId->ToString(), *OnlineError.ToLogString());
 	}
 	
 	// Log out the user

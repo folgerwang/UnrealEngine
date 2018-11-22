@@ -119,13 +119,19 @@ private:
 	virtual FName GetRuntimeFormat(USoundWave* SoundWave) override
 	{
 		static FName NAME_OPUS(TEXT("OPUS"));
+		static FName NAME_OGG(TEXT("OGG"));
+
+#if WITH_OGGVORBIS
 
 		if (SoundWave->IsStreaming())
 		{
+#if USE_VORBIS_FOR_STREAMING
+			return NAME_OGG;
+#else
 			return NAME_OPUS;
+#endif
 		}
-#if WITH_OGGVORBIS
-		static FName NAME_OGG(TEXT("OGG"));
+
 		static FName NAME_XMA(TEXT("XMA"));
 
 #if WITH_XMA2

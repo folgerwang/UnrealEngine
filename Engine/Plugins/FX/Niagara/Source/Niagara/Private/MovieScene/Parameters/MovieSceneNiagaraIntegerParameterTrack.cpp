@@ -5,6 +5,11 @@
 #include "Sections/MovieSceneIntegerSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 
+bool UMovieSceneNiagaraIntegerParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneIntegerSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraIntegerParameterTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneIntegerSection>(this, NAME_None, RF_Transactional);

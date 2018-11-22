@@ -1865,21 +1865,9 @@ EVisibility FBlueprintVarActionDetails::ExposeToCinematicsVisibility() const
 		else
 		{
 			ISequencerModule* SequencerModule = FModuleManager::Get().GetModulePtr<ISequencerModule>("Sequencer");
-			if (SequencerModule->CanAnimateProperty(FAnimatedPropertyKey::FromProperty(VariableProperty)))
+			if (SequencerModule->CanAnimateProperty(VariableProperty))
 			{
 				return EVisibility::Visible;
-			}
-			else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(VariableProperty))
-			{
-				UClass* ClassType = ObjectProperty->PropertyClass ? ObjectProperty->PropertyClass->GetSuperClass() : nullptr;
-				while (ClassType)
-				{
-					if (SequencerModule->CanAnimateProperty(FAnimatedPropertyKey::FromObjectType(ClassType)))
-					{
-						return EVisibility::Visible;
-					}
-					ClassType = ClassType->GetSuperClass();
-				}
 			}
 		}
 	}

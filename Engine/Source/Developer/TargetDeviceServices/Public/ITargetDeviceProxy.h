@@ -15,11 +15,11 @@ struct FGuid;
 
 
 /** Type definition for shared pointers to instances of ITargetDeviceProxy. */
-DEPRECATED(4.16, "ITargetDeviceProxyPtr is deprecated. Please use 'TSharedPtr<ITargetDeviceProxy>' instead!")
+UE_DEPRECATED(4.16, "ITargetDeviceProxyPtr is deprecated. Please use 'TSharedPtr<ITargetDeviceProxy>' instead!")
 typedef TSharedPtr<class ITargetDeviceProxy> ITargetDeviceProxyPtr;
 
 /** Type definition for shared references to instances of ITargetDeviceProxy. */
-DEPRECATED(4.16, "ITargetDeviceProxyRef is deprecated. Please use 'TSharedPtr<ITargetDeviceProxy>' instead!")
+UE_DEPRECATED(4.16, "ITargetDeviceProxyRef is deprecated. Please use 'TSharedPtr<ITargetDeviceProxy>' instead!")
 typedef TSharedRef<class ITargetDeviceProxy> ITargetDeviceProxyRef;
 
 

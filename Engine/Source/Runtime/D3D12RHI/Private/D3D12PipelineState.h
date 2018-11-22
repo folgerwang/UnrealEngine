@@ -4,23 +4,36 @@
 
 #pragma once
 
+// FORT-101886
+// UE4 implemented high level PSO caches on the general RHI level already
+// D3D12RHI high level PSO caches never cleanup (until shutdown) currently
+// and stale PSOs remain in the cache, which is being suspected as the cause
+// of some XboxOne crashes
+// TODO: Remove or rewrite D3D12RHI high level PSO cache
+#ifndef D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
+#define D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE 0
+#endif
 #define D3D12_USE_DERIVED_PSO PLATFORM_XBOXONE
 
 static bool GCPUSupportsSSE4;
 
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Graphics: Num high-level cache entries"), STAT_PSOGraphicsNumHighlevelCacheEntries, STATGROUP_D3D12PipelineState);
-DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Graphics: Num low-level cache entries"), STAT_PSOGraphicsNumLowlevelCacheEntries, STATGROUP_D3D12PipelineState);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: Low-level cache hit"), STAT_PSOGraphicsLowlevelCacheHit, STATGROUP_D3D12PipelineState);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: Low-level cache miss"), STAT_PSOGraphicsLowlevelCacheMiss, STATGROUP_D3D12PipelineState);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: High-level cache hit"), STAT_PSOGraphicsHighlevelCacheHit, STATGROUP_D3D12PipelineState);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: High-level cache miss"), STAT_PSOGraphicsHighlevelCacheMiss, STATGROUP_D3D12PipelineState);
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Compute: Num high-level cache entries"), STAT_PSOComputeNumHighlevelCacheEntries, STATGROUP_D3D12PipelineState);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache hit"), STAT_PSOComputeHighlevelCacheHit, STATGROUP_D3D12PipelineState);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache miss"), STAT_PSOComputeHighlevelCacheMiss, STATGROUP_D3D12PipelineState);
+#endif
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Graphics: Num low-level cache entries"), STAT_PSOGraphicsNumLowlevelCacheEntries, STATGROUP_D3D12PipelineState);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: Low-level cache hit"), STAT_PSOGraphicsLowlevelCacheHit, STATGROUP_D3D12PipelineState);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Graphics: Low-level cache miss"), STAT_PSOGraphicsLowlevelCacheMiss, STATGROUP_D3D12PipelineState);
+
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Compute: Num low-level cache entries"), STAT_PSOComputeNumLowlevelCacheEntries, STATGROUP_D3D12PipelineState);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: Low-level cache hit"), STAT_PSOComputeLowlevelCacheHit, STATGROUP_D3D12PipelineState);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: Low-level cache miss"), STAT_PSOComputeLowlevelCacheMiss, STATGROUP_D3D12PipelineState);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache hit"), STAT_PSOComputeHighlevelCacheHit, STATGROUP_D3D12PipelineState);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache miss"), STAT_PSOComputeHighlevelCacheMiss, STATGROUP_D3D12PipelineState);
 
 
 // Graphics pipeline struct that represents the latest versions of PSO subobjects currently supported by the RHI.
@@ -328,6 +341,7 @@ struct FD3D12ComputePipelineState : public FRHIComputePipelineState
 	FD3D12PipelineState* const PipelineState;
 };
 
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 struct FInitializerToGPSOMapKey
 {
 	const FGraphicsPipelineStateInitializer* Initializer;
@@ -350,6 +364,7 @@ inline uint32 GetTypeHash(const FInitializerToGPSOMapKey& Key)
 {
 	return Key.Hash;
 }
+#endif
 
 class FD3D12PipelineStateCacheBase : public FD3D12AdapterChild
 {
@@ -384,17 +399,19 @@ protected:
 
 	template <typename TDesc, typename TValue = FD3D12PipelineState*>
 	using TPipelineCache = TMap<TDesc, TValue, FDefaultSetAllocator, TStateCacheKeyFuncs<TDesc, TValue>>;
-
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	TMap<FInitializerToGPSOMapKey, FD3D12GraphicsPipelineState*> InitializerToGraphicsPipelineMap;
 	TMap<FD3D12ComputeShader*, FD3D12ComputePipelineState*> ComputeShaderToComputePipelineMap;
-
+#endif
 	TPipelineCache<FD3D12LowLevelGraphicsPipelineStateDesc> LowLevelGraphicsPipelineStateCache;
 	TPipelineCache<FD3D12ComputePipelineStateDesc> ComputePipelineStateCache;
 
 	// Thread access mutual exclusion
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	mutable FRWLock InitializerToGraphicsPipelineMapMutex;
-	mutable FRWLock LowLevelGraphicsPipelineStateCacheMutex;
 	mutable FRWLock ComputeShaderToComputePipelineMapMutex;
+#endif
+	mutable FRWLock LowLevelGraphicsPipelineStateCacheMutex;
 	mutable FRWLock ComputePipelineStateCacheMutex;
 
 	FCriticalSection DiskCachesCS;
@@ -410,25 +427,33 @@ protected:
 	typedef TFunction<void(FD3D12PipelineState**, const FD3D12LowLevelGraphicsPipelineStateDesc&)> FPostCreateGraphicCallback;
 	typedef TFunction<void(FD3D12PipelineState*, const FD3D12ComputePipelineStateDesc&)> FPostCreateComputeCallback;
 
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	virtual FD3D12GraphicsPipelineState* AddToRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12PipelineState* PipelineState);
+	FD3D12ComputePipelineState* AddToRuntimeCache(FD3D12ComputeShader* ComputeShader, FD3D12PipelineState* PipelineState);
+#endif
+
 	FD3D12PipelineState* FindInLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc);
 	FD3D12PipelineState* CreateAndAddToLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc);
 	void AddToLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc, FD3D12PipelineState** OutPipelineState, const FPostCreateGraphicCallback& PostCreateCallback);
 	virtual void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc) = 0;
-
-	FD3D12ComputePipelineState* AddToRuntimeCache(FD3D12ComputeShader* ComputeShader, FD3D12PipelineState* PipelineState);
+	
 	FD3D12PipelineState* FindInLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc);
 	FD3D12PipelineState* CreateAndAddToLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc);
 	void AddToLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc, FD3D12PipelineState** OutPipelineState, const FPostCreateComputeCallback& PostCreateCallback);
 	virtual void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc) = 0;
 
+#if !D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
+	FD3D12GraphicsPipelineState* FindInLoadedCache(const FGraphicsPipelineStateInitializer& Initializer, FD3D12BoundShaderState* BoundShaderState, FD3D12LowLevelGraphicsPipelineStateDesc& OutLowLevelDesc);
+	FD3D12GraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& Initializer, FD3D12BoundShaderState* BoundShaderState, const FD3D12LowLevelGraphicsPipelineStateDesc& LowLevelDesc);
+#endif
 public:
-
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	FD3D12GraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash);
 	FD3D12GraphicsPipelineState* FindInLoadedCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12LowLevelGraphicsPipelineStateDesc& OutLowLevelDesc);
 	FD3D12GraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, const FD3D12LowLevelGraphicsPipelineStateDesc& LowLevelDesc);
 
 	FD3D12ComputePipelineState* FindInRuntimeCache(const FD3D12ComputeShader* ComputeShader);
+#endif
 	FD3D12ComputePipelineState* FindInLoadedCache(FD3D12ComputeShader* ComputeShader, FD3D12ComputePipelineStateDesc& OutLowLevelDesc);
 	FD3D12ComputePipelineState* CreateAndAdd(FD3D12ComputeShader* ComputeShader, const FD3D12ComputePipelineStateDesc& LowLevelDesc);
 

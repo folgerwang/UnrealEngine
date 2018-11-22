@@ -25,12 +25,6 @@ void FOnlineIdentityIOS::SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdIOS
 	UniqueNetId = UniqueId;
 }
 
-const FUniqueNetId& FOnlineIdentityIOS::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdIOS> EmptyUniqueId = MakeShared<const FUniqueNetIdIOS>(FString());
-	return *EmptyUniqueId;
-}
-
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityIOS::GetUserAccount(const FUniqueNetId& UserId) const
 {
 	// not implemented
@@ -57,14 +51,14 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 	if( GetLocalGameCenterUser() && 
 		GetLocalGameCenterUser().isAuthenticated )
 	{
-        // Now logged in
+		// Now logged in
 		bStartedLogin = true;
-        
+		
 		const FString PlayerId(GetLocalGameCenterUser().playerID);
 		UniqueNetId = MakeShareable( new FUniqueNetIdIOS( PlayerId ) );
 		TriggerOnLoginCompleteDelegates(LocalUserNum, true, *UniqueNetId, TEXT(""));
-        
-        UE_LOG_ONLINE_IDENTITY(Log, TEXT("The user %s has logged into Game Center"), *PlayerId);
+		
+		UE_LOG_ONLINE_IDENTITY(Log, TEXT("The user %s has logged into Game Center"), *PlayerId);
 	}
 	else if([IOSAppDelegate GetDelegate].OSVersion >= 6.0f)
 	{
@@ -180,7 +174,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* B
 			return MakeShareable(new FUniqueNetIdIOS(StrId));
 		}
 	}
-    
+	
 	return NULL;
 }
 
@@ -195,10 +189,10 @@ FString FOnlineIdentityIOS::GetPlayerNickname(int32 LocalUserNum) const
 	{
 		NSString* PersonaName = [GetLocalGameCenterUser() alias];
 		
-        if (PersonaName != nil)
-        {
-            return FString(PersonaName);
-        }
+		if (PersonaName != nil)
+		{
+			return FString(PersonaName);
+		}
 	}
 
 	return FString();
@@ -210,10 +204,10 @@ FString FOnlineIdentityIOS::GetPlayerNickname(const FUniqueNetId& UserId) const
 	{
 		NSString* PersonaName = [GetLocalGameCenterUser() alias];
 		
-        if (PersonaName != nil)
-        {
-            return FString(PersonaName);
-        }
+		if (PersonaName != nil)
+		{
+			return FString(PersonaName);
+		}
 	}
 
 	return FString();
@@ -251,7 +245,7 @@ void FOnlineIdentityIOS::GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivi
 				NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
 				FString localAppId = FString(infoDictionary[@"CFBundleIdentifier"]);
 				FString localVersionString = FString(infoDictionary[@"CFBundleShortVersionString"]);
-			    UE_LOG_ONLINE_IDENTITY(Log, TEXT("Local: %s %s"), *localAppId, *localVersionString);
+				UE_LOG_ONLINE_IDENTITY(Log, TEXT("Local: %s %s"), *localAppId, *localVersionString);
 
 				// Get remote bundle information
 				FString remoteAppId = FString([[[ResponseDict objectForKey:@"results"] objectAtIndex:0] objectForKey:@"bundleId"]);

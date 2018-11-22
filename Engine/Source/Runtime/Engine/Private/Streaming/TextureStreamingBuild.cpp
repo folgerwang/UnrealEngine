@@ -464,6 +464,7 @@ void FStreamingTextureLevelContext::ProcessMaterial(const FBoxSphereBounds& Comp
 
 void CheckTextureStreamingBuildValidity(UWorld* InWorld)
 {
+#if !UE_BUILD_SHIPPING
 	if (!InWorld)
 	{
 		return;
@@ -532,4 +533,5 @@ void CheckTextureStreamingBuildValidity(UWorld* InWorld)
 			InWorld->NumTextureStreamingDirtyResources += Level->NumTextureStreamingDirtyResources;
 		}
 	}
+#endif // !UE_BUILD_SHIPPING
 }

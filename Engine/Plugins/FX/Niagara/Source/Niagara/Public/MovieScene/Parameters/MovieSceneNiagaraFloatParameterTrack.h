@@ -13,6 +13,7 @@ class UMovieSceneNiagaraFloatParameterTrack : public UMovieSceneNiagaraParameter
 
 public:
 	/** UMovieSceneTrack interface. */
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 };

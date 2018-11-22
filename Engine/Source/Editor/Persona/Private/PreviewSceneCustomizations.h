@@ -43,9 +43,9 @@ public:
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
 private:
-	EVisibility GetSaveButtonVisibility(TSharedRef<IPropertyHandle> AdditionalMeshesProperty) const;
+	EVisibility GetSaveButtonVisibility(TSharedRef<IPropertyHandle> InAdditionalMeshesProperty) const;
 
-	FReply OnSaveCollectionClicked(TSharedRef<IPropertyHandle> AdditionalMeshesProperty, IDetailLayoutBuilder* DetailLayoutBuilder);
+	FReply OnSaveCollectionClicked(TSharedRef<IPropertyHandle> InAdditionalMeshesProperty, IDetailLayoutBuilder* DetailLayoutBuilder);
 
 	bool HandleShouldFilterAsset(const FAssetData& InAssetData, bool bCanUseDifferentSkeleton);
 
@@ -101,6 +101,17 @@ private:
 	IDetailLayoutBuilder* MyDetailLayout;
 
 	TWeakObjectPtr<UDataAsset>	DataAssetToDisplay;
+
+	/**
+	* Called to get the visibility of the replace button
+	*/
+	bool GetReplaceVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+	/**
+	* Called when reset to base is clicked
+	*/
+	void OnResetToBaseClicked(TSharedPtr<IPropertyHandle> PropertyHandle);
+
+	TSharedPtr<IPropertyHandle> AdditionalMeshesProperty;
 };
 
 class FPreviewMeshCollectionEntryCustomization : public IPropertyTypeCustomization

@@ -138,7 +138,7 @@ void FAnimNode_LayeredBoneBlend::Update_AnyThread(const FAnimationUpdateContext&
 
 	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 
 		for (int32 ChildIndex = 0; ChildIndex < BlendPoses.Num(); ++ChildIndex)
 		{

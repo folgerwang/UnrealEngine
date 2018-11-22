@@ -951,9 +951,12 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// write out any additional debug information for the solution (such as UnrealVS configuration)
+				WriteDebugSolutionFiles(IntermediateProjectFilesPath);
+
 				// Generate IntelliSense data if we need to.  This involves having UBT simulate the action compilation of
 				// the targets so that we can extra the compiler defines, include paths, etc.
-				if(GenerateIntelliSenseData(Arguments, IntelliSenseTargetFiles))
+				if (GenerateIntelliSenseData(Arguments, IntelliSenseTargetFiles))
 				{
 					WriteProjectFiles();
 					Log.TraceVerbose( "Project generation complete ({0} generated, {1} imported)", GeneratedProjectFiles.Count, OtherProjectFiles.Count );
@@ -2515,6 +2518,15 @@ namespace UnrealBuildTool
 		/// <param name="UBTProject">The UnrealBuildTool project</param>
 		/// <returns>True if successful</returns>
 		protected abstract bool WriteMasterProjectFile( ProjectFile UBTProject );
+
+
+		/// <summary>
+		/// Writes any additional solution-wide debug files (e.g. UnrealVS hints)
+		/// </summary>
+		/// <param name="IntermediateProjectFilesPath">Intermediate project files folder</param>
+		protected virtual void WriteDebugSolutionFiles( DirectoryReference IntermediateProjectFilesPath )
+		{
+		}
 
 
 		/// <summary>

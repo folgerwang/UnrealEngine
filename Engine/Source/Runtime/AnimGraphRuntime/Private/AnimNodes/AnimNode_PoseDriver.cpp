@@ -8,17 +8,17 @@
 
 
 FAnimNode_PoseDriver::FAnimNode_PoseDriver()
+	: DriveSource(EPoseDriverSource::Rotation)
+	, DriveOutput(EPoseDriverOutput::DrivePoses)	
+	, bOnlyDriveSelectedBones(false)
 {
-	RadialScaling_DEPRECATED = 0.25f;
-	Type_DEPRECATED = EPoseDriverType::SwingOnly;
-
-	DriveSource = EPoseDriverSource::Rotation;
-	DriveOutput = EPoseDriverOutput::DrivePoses;
-
 	RBFParams.DistanceMethod = ERBFDistanceMethod::SwingAngle;
 
+#if WITH_EDITORONLY_DATA
+	RadialScaling_DEPRECATED = 0.25f;
+	Type_DEPRECATED = EPoseDriverType::SwingOnly;
 	TwistAxis_DEPRECATED = BA_X;
-	bOnlyDriveSelectedBones = false;
+#endif
 }
 
 void FAnimNode_PoseDriver::Initialize_AnyThread(const FAnimationInitializeContext& Context)

@@ -74,6 +74,17 @@ void FLargeMemoryData::ReleaseOwnership()
 	MaxBytes = 0;
 }
 
+void FLargeMemoryData::Reserve(int64 NewMax)
+{
+	if (MaxBytes < NewMax)
+	{
+		// Allocate slack proportional to the buffer size. Min 64 KB
+		MaxBytes = NewMax;
+
+		Data = (uint8*)FMemory::Realloc(Data, MaxBytes);
+	}
+}
+
 void FLargeMemoryData::GrowBuffer()
 {
 	// Allocate slack proportional to the buffer size. Min 64 KB

@@ -21,7 +21,9 @@ namespace Gauntlet
 		Invalid,
 		Passed,
 		Failed,
-		WantRetry
+		WantRetry,
+		Cancelled,
+		TimedOut,
 	};
 
 	/// <summary>

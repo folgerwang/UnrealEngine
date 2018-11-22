@@ -91,7 +91,7 @@ void FAnimNode_ModifyCurve::Update_AnyThread(const FAnimationUpdateContext& Cont
 	SourcePose.Update(Context);
 
 	// Evaluate any BP logic plugged into this node
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 }
 
 #if WITH_EDITOR

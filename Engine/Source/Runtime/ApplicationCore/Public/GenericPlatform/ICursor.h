@@ -106,6 +106,6 @@ public:
 	 */
 	virtual void SetTypeShape(EMouseCursor::Type InCursorType, void* CursorHandle) = 0;
 
-	DEPRECATED(4.16, "Use SetTypeShape instead.")
+	UE_DEPRECATED(4.16, "Use SetTypeShape instead.")
 	void SetCustomShape(void* CursorHandle) { SetTypeShape(EMouseCursor::Custom, CursorHandle); }
 };

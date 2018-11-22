@@ -337,10 +337,12 @@ namespace ObjectTools
 		FPackageGroupName PGN;
 		bool bOkToAll;
 		bool bSavePackages;
+		bool bPromptForRenameOnConflict;
 
 		FMoveDialogInfo()
 			: bOkToAll(0)
 			, bSavePackages(0)
+			, bPromptForRenameOnConflict(1)
 		{}
 	};
 
@@ -358,7 +360,7 @@ namespace ObjectTools
 	 * @param InOutInfo					The information gathered from the move dialog.
 	 * @return true if the move information was successfully extracted from the dialog.
 	 */
-	bool GetMoveDialogInfo(const FText& DialogTitle, UObject* Object, bool bUniqueDefaultName, const FString& SourcePath, const FString& DestinationPath, FMoveDialogInfo& InOutInfo);
+	UNREALED_API bool GetMoveDialogInfo(const FText& DialogTitle, UObject* Object, bool bUniqueDefaultName, const FString& SourcePath, const FString& DestinationPath, FMoveDialogInfo& InOutInfo);
 
 	/**
 	 * Internal implementation of rename objects with refs
@@ -459,7 +461,7 @@ namespace ObjectTools
 	 * @param	ExportPath						receives the value of the path the user chose for exporting.
 	 * @param	bUseProvidedExportPath			If true and out_ExportPath is specified, use the value in out_ExportPath as the export path w/o prompting for a directory when applicable
 	 */
-	DEPRECATED(4.17, "ObjectTools::ExportObjects is deprecated.  Use AssetTools::ExportObjects instead")
+	UE_DEPRECATED(4.17, "ObjectTools::ExportObjects is deprecated.  Use AssetTools::ExportObjects instead")
 	UNREALED_API void ExportObjects( const TArray<UObject*>& ObjectsToExport, bool bPromptIndividualFilenames, FString* ExportPath = NULL, bool bUseProvidedExportPath = false );
 
 

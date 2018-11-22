@@ -24,6 +24,8 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 	ECVF_Default
 );
 
+static bool GFrameProIsRecording = 0;
+
 #if PLATFORM_TCHAR_IS_CHAR16
 #define FP_TEXT_PASTE(x) L ## x
 #define WTEXT(x) FP_TEXT_PASTE(x)
@@ -372,6 +374,9 @@ FString FFrameProProfiler::StartFrameProRecording(const FString& FilenameRoot, i
 	// Enable named events as well
 	GCycleStatsShouldEmitNamedEvents = true;
 
+	// Set recording flag
+	GFrameProIsRecording = true;
+
 	return OutputFilename;
 }
 
@@ -394,6 +399,10 @@ void FFrameProProfiler::StopFrameProRecording()
 	// Disable named events
 	GCycleStatsShouldEmitNamedEvents = false;
 
+	// Clear recording flag
+	GFrameProIsRecording = false;
+
+
 	UE_LOG(LogFramePro, Log, TEXT("--- Stop Recording"));
 }
 
@@ -402,6 +411,12 @@ static FAutoConsoleCommand StopFrameProRecordCommand(
 	TEXT("Stop FramePro recording"),
 	FConsoleCommandDelegate::CreateStatic(&FFrameProProfiler::StopFrameProRecording)
 );
+
+bool FFrameProProfiler::IsFrameProRecording()
+{
+	return GFrameProIsRecording;
+}
+
 
 
 #endif // FRAMEPRO_ENABLED

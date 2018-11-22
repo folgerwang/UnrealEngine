@@ -7,6 +7,7 @@
 #include "UObject/GCObject.h"
 #include "Misc/Paths.h"
 #include "Editor/ContentBrowser/Private/ContentBrowserUtils.h"
+#include "Misc/TextFilterUtils.h"
 
 class UFactory;
 
@@ -66,13 +67,35 @@ struct FAssetViewAsset : public FAssetViewItem
 	/** Map of display text for custom columns */
 	TMap<FName, FText> CustomColumnDisplayText;
 
+	TCHAR FirstFewAssetNameCharacters[8];
+
 	explicit FAssetViewAsset(const FAssetData& AssetData)
 		: Data(AssetData)
-	{}
+	{
+		SetFirstFewAssetNameCharacters();
+	}
+
+	void SetFirstFewAssetNameCharacters()
+	{
+		TextFilterUtils::FNameBufferWithNumber NameBuffer(Data.AssetName);
+		if (NameBuffer.IsWide())
+		{
+			FCStringWide::Strncpy(FirstFewAssetNameCharacters, NameBuffer.GetWideNamePtr(), ARRAY_COUNT(FirstFewAssetNameCharacters));
+		}
+		else
+		{
+			int32 NumChars = FMath::Min<int32>(FCStringAnsi::Strlen(NameBuffer.GetAnsiNamePtr()), ARRAY_COUNT(FirstFewAssetNameCharacters) - 1);
+			FPlatformString::Convert(FirstFewAssetNameCharacters, NumChars, NameBuffer.GetAnsiNamePtr(), NumChars);
+			FirstFewAssetNameCharacters[NumChars] = 0;
+		}
+		FCStringWide::Strupr(FirstFewAssetNameCharacters);
+	}
 
 	void SetAssetData(const FAssetData& NewData)
 	{
 		Data = NewData;
+		SetFirstFewAssetNameCharacters();
+
 		OnAssetDataChanged.Broadcast();
 	}
 

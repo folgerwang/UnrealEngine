@@ -30,19 +30,19 @@ struct IMovieSceneTemplateGenerator
 
 public:
 
-	DEPRECATED(4.19, "Shared tracks are no longer supported, please emit shared Execution tokens instead (FMovieSceneExecutionTokens::AddShared")
+	UE_DEPRECATED(4.19, "Shared tracks are no longer supported, please emit shared Execution tokens instead (FMovieSceneExecutionTokens::AddShared")
 	void AddSharedTrack(FMovieSceneEvaluationTrack&& InTrackTemplate, const FMovieSceneSharedDataId& SharedId, const UMovieSceneTrack& SourceTrack){}
 
-	DEPRECATED(4.19, "Support for legacy tracks has now been removed")
+	UE_DEPRECATED(4.19, "Support for legacy tracks has now been removed")
 	void AddLegacyTrack(FMovieSceneEvaluationTrack&& InTrackTemplate, const UMovieSceneTrack& SourceTrack){}
 
-	DEPRECATED(4.19, "External segments are now handled internally")
+	UE_DEPRECATED(4.19, "External segments are now handled internally")
 	void AddExternalSegments(TRange<float> RootRange, TArrayView<const FMovieSceneEvaluationFieldSegmentPtr> SegmentPtrs, ESectionEvaluationFlags Flags){}
 
-	DEPRECATED(4.19, "Sub sequence templates are no longer generated at compile time within template generators")
+	UE_DEPRECATED(4.19, "Sub sequence templates are no longer generated at compile time within template generators")
 	FMovieSceneSequenceTransform GetSequenceTransform(FMovieSceneSequenceIDRef InSequenceID) const { return FMovieSceneSequenceTransform(); }
 
-	DEPRECATED(4.19, "Sub sequences are now handled internally")
+	UE_DEPRECATED(4.19, "Sub sequences are now handled internally")
 	void AddSubSequence(const FMovieSceneSubSequenceData& SequenceData, FMovieSceneSequenceIDRef ParentID, FMovieSceneSequenceID SequenceID) {}
 
 protected:

@@ -36,18 +36,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FName Tag;
 
-	/** This is the actual instance allocated at runtime that will run */
-	UPROPERTY(transient)
-	UAnimInstance* InstanceToRun;
-
-	/** List of properties on the calling instance to push from */
-	UPROPERTY(transient)
-	TArray<UProperty*> InstanceProperties;
-
-	/** List of properties on the sub instance to push to, built from name list when initialised */
-	UPROPERTY(transient)
-	TArray<UProperty*> SubInstanceProperties;
-
 	/** List of source properties to use, 1-1 with Dest names below, built by the compiler */
 	UPROPERTY()
 	TArray<FName> SourcePropertyNames;
@@ -55,6 +43,18 @@ public:
 	/** List of destination properties to use, 1-1 with Source names above, built by the compiler */
 	UPROPERTY()
 	TArray<FName> DestPropertyNames;
+
+	/** This is the actual instance allocated at runtime that will run */
+	UPROPERTY(Transient)
+	UAnimInstance* InstanceToRun;
+
+	/** List of properties on the calling instance to push from */
+	UPROPERTY(Transient)
+	TArray<UProperty*> InstanceProperties;
+
+	/** List of properties on the sub instance to push to, built from name list when initialised */
+	UPROPERTY(Transient)
+	TArray<UProperty*> SubInstanceProperties;
 
 	// Temporary storage for the output of the subinstance, will be copied into output pose.
 	// Declared at member level to avoid reallocating the objects

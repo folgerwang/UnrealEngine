@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ClassViewerModule.h"
 #include "UObject/WeakObjectPtr.h"
 
 class IPropertyHandle;
@@ -46,6 +47,12 @@ public:
 	{
 		return bUseDisplayName ? ClassDisplayName : ClassName;
 	}
+
+	/**
+	 * Retrieves the class name this node is associated with. This is not the literal UClass name as it is missing the _C for blueprints
+	 * @param	NameType	Whether to use the display name or class name
+	 */
+	TSharedPtr<FString> GetClassName(EClassViewerNameTypeToDisplay NameType) const;
 
 	/** Retrieves the children list. */
 	TArray<TSharedPtr<FClassViewerNode>>& GetChildrenList()

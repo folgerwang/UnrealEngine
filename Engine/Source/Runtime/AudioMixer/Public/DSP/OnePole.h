@@ -38,7 +38,7 @@ namespace Audio
 		/** Sets the filter frequency using normalized frequency (between 0.0 and 1.0f or 0.0 hz and Nyquist Frequency in Hz) */
 		FORCEINLINE void SetFrequency(const float InFrequency)
 		{
-			if (InFrequency != CutoffFrequency)
+			if (!FMath::IsNearlyEqual(InFrequency, CutoffFrequency))
 			{
 				CutoffFrequency = InFrequency;
 				B1 = FMath::Exp(-PI * CutoffFrequency);
@@ -114,7 +114,7 @@ namespace Audio
 		/** Sets the filter frequency using normalized frequency (between 0.0 and 1.0f or 0.0 hz and Nyquist Frequency in Hz) */
 		void SetFrequency(const float InFrequency)
 		{
-			if (InFrequency != CutoffFrequency)
+			if (!FMath::IsNearlyEqual(InFrequency, CutoffFrequency))
 			{
 				CutoffFrequency = InFrequency;
 				float NormalizedFreq = FMath::Clamp(0.5f * InFrequency / SampleRate, 0.0f, 1.0f);

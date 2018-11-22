@@ -34,15 +34,10 @@ struct FOodleCustomCompressor : ICustomCompressor
 		return false;
 	}
 
-	virtual bool Uncompress(void* UncompressedBuffer, int32& UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, int32 BitWindow = 0)
+	virtual bool Uncompress(void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, int32 BitWindow = 0)
 	{
 		int32 Result = (int32)OodleLZ_Decompress(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, OodleLZ_FuzzSafe_No);
-		if (Result > 0)
-		{
-			UncompressedSize = Result;
-			return true;
-		}
-		return false;
+		return Result > 0;
 	}
 
 	virtual int32 GetCompressedBufferSize(int32 UncompressedSize)

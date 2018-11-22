@@ -145,5 +145,5 @@ public:
 
 
 /** Type definition for shared pointers to instances of IImageWrapper. */
-DEPRECATED(4.16, "IImageWrapperPtr is deprecated. Please use 'TSharedPtr<IImageWrapper>' instead!")
+UE_DEPRECATED(4.16, "IImageWrapperPtr is deprecated. Please use 'TSharedPtr<IImageWrapper>' instead!")
 typedef TSharedPtr<IImageWrapper> IImageWrapperPtr;

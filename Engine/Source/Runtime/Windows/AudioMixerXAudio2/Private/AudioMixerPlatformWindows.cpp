@@ -243,7 +243,10 @@ namespace Audio
 
 	void FMixerPlatformXAudio2::UnregisterDeviceChangedListener() 
 	{
-		WindowsNotificationClient->UnRegisterDeviceDeviceChangedListener(this);
+		if (WindowsNotificationClient.IsValid())
+		{
+			WindowsNotificationClient->UnRegisterDeviceDeviceChangedListener(this);
+		}
 	}
 
 	void FMixerPlatformXAudio2::OnDefaultCaptureDeviceChanged(const EAudioDeviceRole InAudioDeviceRole, const FString& DeviceId)

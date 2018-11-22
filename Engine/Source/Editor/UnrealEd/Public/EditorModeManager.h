@@ -317,7 +317,7 @@ public:
 	 * @param					Set to true to restore the visibility of any streaming levels.
 	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
-	DEPRECATED(4.21, "Please use the version of JumpToBookmark that accepts a Shared Pointer to FBookmarkBaseJumpToSettings.")
+	UE_DEPRECATED(4.21, "Please use the version of JumpToBookmark that accepts a Shared Pointer to FBookmarkBaseJumpToSettings.")
 	void JumpToBookmark( uint32 InIndex, bool bShouldRestoreLevelVisibility, FEditorViewportClient* InViewportClient );
 
 	/**

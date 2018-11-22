@@ -93,5 +93,5 @@ public:
 };
 
 
-DEPRECATED(4.15, "IReceiveMessages has been renamed to IMessageReceiver")
+UE_DEPRECATED(4.15, "IReceiveMessages has been renamed to IMessageReceiver")
 typedef IMessageReceiver IReceiveMessages;

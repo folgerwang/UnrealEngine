@@ -122,7 +122,7 @@ public:
 	}
 
 	/** Tracks the container's memory use through an archive. */
-	FORCEINLINE void CountBytes(FArchive& Ar)
+	FORCEINLINE void CountBytes(FArchive& Ar) const
 	{
 		Pairs.CountBytes(Ar);
 	}

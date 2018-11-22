@@ -16,6 +16,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Components/TimelineComponent.h"
 #include "Engine/World.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTimeline, Log, All);
 
@@ -661,7 +662,8 @@ UTimelineComponent::UTimelineComponent(const FObjectInitializer& ObjectInitializ
 
 void UTimelineComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	SCOPE_CYCLE_COUNTER(STAT_TimelineCompTick); 
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(TimelineComponent);
+	SCOPE_CYCLE_COUNTER(STAT_TimelineCompTick);
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 

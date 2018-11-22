@@ -4,6 +4,54 @@
 #include "Animation/AnimClassInterface.h"
 #include "Animation/AnimInstanceProxy.h"
 
+void* FExposedValueCopyRecord::GetDestAddr(FAnimInstanceProxy* Proxy, const UProperty* NodeProperty) const
+{
+	UObject* Instance = Proxy->GetAnimInstanceObject();
+	if (const UArrayProperty* DestArrayProperty = Cast<UArrayProperty>(DestProperty))
+	{
+		if (!bInstanceIsTarget)
+		{
+			FScriptArrayHelper PropArrayHelper(DestArrayProperty, DestProperty->ContainerPtrToValuePtr<uint8>( NodeProperty->ContainerPtrToValuePtr<uint8>(Instance) ));
+			return PropArrayHelper.GetRawPtr(DestArrayIndex);
+		}
+		else
+		{
+			FScriptArrayHelper PropArrayHelper(DestArrayProperty, Instance);
+			return PropArrayHelper.GetRawPtr(DestArrayIndex);
+		}
+	}
+	else if(!bInstanceIsTarget)
+	{
+		return DestProperty->ContainerPtrToValuePtr<uint8>( NodeProperty->ContainerPtrToValuePtr<uint8>(Instance) );
+	}
+	else
+	{
+		return DestProperty->ContainerPtrToValuePtr<uint8>( Instance );
+	}
+}
+
+const void* FExposedValueCopyRecord::GetSourceAddr(FAnimInstanceProxy* Proxy) const
+{	
+	const UObject* Instance = Proxy->GetAnimInstanceObject();
+	if (const UArrayProperty* SourceArrayProperty = Cast<UArrayProperty>(CachedSourceProperty))
+	{
+		// the compiler should not be generating any code that calls down this path at the moment - it is untested
+		check(false);
+	}
+
+	if(CachedSourceStructSubProperty)
+	{
+		return CachedSourceStructSubProperty->ContainerPtrToValuePtr<uint8>(
+			CachedSourceProperty->ContainerPtrToValuePtr<uint8>(Instance),
+			SourceArrayIndex
+		);
+	}
+	else
+	{
+		return CachedSourceProperty->ContainerPtrToValuePtr<uint8>(Instance, SourceArrayIndex);
+	}
+}
+
 /////////////////////////////////////////////////////
 // FAnimationBaseContext
 
@@ -61,7 +109,6 @@ void FComponentSpacePoseContext::ResetToRefPose()
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FAnimNode_Base::Initialize(const FAnimationInitializeContext& Context)
 {
-	EvaluateGraphExposedInputs.Initialize(this, Context.AnimInstanceProxy->GetAnimInstanceObject());	
 }
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
@@ -182,6 +229,21 @@ void FPoseLinkBase::SetLinkNode(struct FAnimNode_Base* NewLinkNode)
 FAnimNode_Base* FPoseLinkBase::GetLinkNode()
 {
 	return LinkedNode;
+}
+
+const FExposedValueHandler& FAnimNode_Base::GetEvaluateGraphExposedInputs()
+{
+	// Inverting control (entering via the immutable data rather than the mutable data) would allow
+	// us to remove this static local. Would also allow us to remove the vtable from FAnimNode_Base.
+	static const FExposedValueHandler Default;
+	if(ExposedValueHandler)
+	{
+		return *ExposedValueHandler;
+	}
+	else
+	{
+		return Default;
+	}
 }
 
 void FPoseLinkBase::CacheBones(const FAnimationCacheBonesContext& Context) 
@@ -459,6 +521,7 @@ void FNodeDebugData::GetFlattenedDebugData(TArray<FFlattenedDebugData>& Flattene
 	}
 }
 
+#if WITH_EDITORONLY_DATA
 void FExposedValueCopyRecord::PostSerialize(const FArchive& Ar)
 {
 	// backwards compatibility: check value of deprecated source property and patch up property name
@@ -467,9 +530,22 @@ void FExposedValueCopyRecord::PostSerialize(const FArchive& Ar)
 		SourcePropertyName = SourceProperty_DEPRECATED->GetFName();
 	}
 }
+#endif
 
-void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimInstanceObject)
+void FExposedValueHandler::Initialize(TArray<FExposedValueHandler>& Handlers, UObject* ClassDefaultObject )
 {
+	for(FExposedValueHandler& Handler : Handlers)
+	{
+		FAnimNode_Base* AnimNode = Handler.ValueHandlerNodeProperty->ContainerPtrToValuePtr<FAnimNode_Base>(ClassDefaultObject);
+		check(AnimNode);
+		AnimNode->SetExposedValueHandler(&Handler);
+		Handler.Initialize(ClassDefaultObject, Handler.ValueHandlerNodeProperty->GetOffset_ForInternal());
+	}
+}
+
+void FExposedValueHandler::Initialize(UObject* AnimInstanceObject, int32 NodeOffset)
+{
+	// bInitialized may no longer be necessary, but leaving alone for now:
 	if (bInitialized)
 	{
 		return;
@@ -520,7 +596,6 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 		{
 			if (CopyRecord.SourceSubPropertyName != NAME_None)
 			{
-				void* Source = CopyRecord.CachedSourceProperty->ContainerPtrToValuePtr<uint8>(AnimInstanceObject, 0);
 				UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(CopyRecord.CachedSourceProperty);
 #if !WITH_EDITOR
 				if (CopyRecord.CachedSourceStructSubProperty == nullptr)
@@ -529,37 +604,19 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 					CopyRecord.CachedSourceStructSubProperty = SourceStructProperty->Struct->FindPropertyByName(CopyRecord.SourceSubPropertyName);
 				}
 				check(CopyRecord.CachedSourceStructSubProperty);
-				CopyRecord.Source = CopyRecord.CachedSourceStructSubProperty->ContainerPtrToValuePtr<uint8>(Source, CopyRecord.SourceArrayIndex);
 				CopyRecord.Size = CopyRecord.CachedSourceStructSubProperty->GetSize();
-				CopyRecord.CachedSourceContainer = Source;
 			}
 			else
 			{
-				CopyRecord.Source = CopyRecord.CachedSourceProperty->ContainerPtrToValuePtr<uint8>(AnimInstanceObject, CopyRecord.SourceArrayIndex);
 				CopyRecord.Size = CopyRecord.CachedSourceProperty->GetSize();
-				CopyRecord.CachedSourceContainer = AnimInstanceObject;
 			}
 		}
 
 		if (UArrayProperty* DestArrayProperty = Cast<UArrayProperty>(CopyRecord.DestProperty))
 		{
-			FScriptArrayHelper ArrayHelper(DestArrayProperty, CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimNode));
-			check(ArrayHelper.IsValidIndex(CopyRecord.DestArrayIndex));
-			CopyRecord.Dest = ArrayHelper.GetRawPtr(CopyRecord.DestArrayIndex);
-
-			if (CopyRecord.bInstanceIsTarget)
-			{
-				CopyRecord.CachedDestContainer = AnimInstanceObject;
-			}
-			else
-			{
-				CopyRecord.CachedDestContainer = AnimNode;
-			}
 		}
 		else if(CopyRecord.DestProperty != nullptr)
 		{
-			CopyRecord.Dest = CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimNode, CopyRecord.DestArrayIndex);
-
 			if (CopyRecord.bInstanceIsTarget)
 			{
 				// Re-find our dest property as it (or its class outer) may have changed
@@ -568,13 +625,6 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 					CopyRecord.DestProperty = AnimInstanceObject->GetClass()->FindPropertyByName(CopyRecord.DestProperty->GetFName());
 				}
 				check(CopyRecord.DestProperty);
-
-				CopyRecord.CachedDestContainer = AnimInstanceObject;
-				CopyRecord.Dest = CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimInstanceObject, CopyRecord.DestArrayIndex);
-			}
-			else
-			{
-				CopyRecord.CachedDestContainer = AnimNode;
 			}
 
 			if (UBoolProperty* BoolProperty = Cast<UBoolProperty>(CopyRecord.DestProperty))
@@ -610,11 +660,12 @@ void FExposedValueHandler::Execute(const FAnimationBaseContext& Context) const
 	{
 		// if any of these checks fail then it's likely that Initialize has not been called.
 		// has new anim node type been added that doesnt call the base class Initialize()?
-		checkSlow(CopyRecord.Dest != nullptr);
-		checkSlow(CopyRecord.Source != nullptr);
 		checkSlow(CopyRecord.Size != 0);
 		
 		UProperty* SourceProperty = CopyRecord.CachedSourceStructSubProperty != nullptr ? CopyRecord.CachedSourceStructSubProperty : CopyRecord.CachedSourceProperty;
+
+		void* Dest = CopyRecord.GetDestAddr(Context.AnimInstanceProxy, ValueHandlerNodeProperty);
+		const void* Src = CopyRecord.GetSourceAddr(Context.AnimInstanceProxy);;
 
 		switch(CopyRecord.PostCopyOperation)
 		{
@@ -624,21 +675,21 @@ void FExposedValueHandler::Execute(const FAnimationBaseContext& Context) const
 				{
 				default:
 				case ECopyType::MemCopy:
-					FMemory::Memcpy(CopyRecord.Dest, CopyRecord.Source, CopyRecord.Size);
+					FMemory::Memcpy(Dest, Src, CopyRecord.Size);
 					break;
 				case ECopyType::BoolProperty:
 					{
-						bool bValue = static_cast<UBoolProperty*>(SourceProperty)->GetPropertyValue_InContainer(CopyRecord.CachedSourceContainer);
-						static_cast<UBoolProperty*>(CopyRecord.DestProperty)->SetPropertyValue_InContainer(CopyRecord.CachedDestContainer, bValue, CopyRecord.DestArrayIndex);
+						bool bValue = static_cast<UBoolProperty*>(SourceProperty)->GetPropertyValue(Src);
+						static_cast<UBoolProperty*>(CopyRecord.DestProperty)->SetPropertyValue(Dest, bValue);
 					}
 					break;
 				case ECopyType::StructProperty:
-					static_cast<UStructProperty*>(CopyRecord.DestProperty)->Struct->CopyScriptStruct(CopyRecord.Dest, CopyRecord.Source);
+					static_cast<UStructProperty*>(CopyRecord.DestProperty)->Struct->CopyScriptStruct(Dest, Src);
 					break;
 				case ECopyType::ObjectProperty:
 					{
-						UObject* Value = static_cast<UObjectPropertyBase*>(SourceProperty)->GetObjectPropertyValue_InContainer(CopyRecord.CachedSourceContainer);
-						static_cast<UObjectPropertyBase*>(CopyRecord.DestProperty)->SetObjectPropertyValue_InContainer(CopyRecord.CachedDestContainer, Value, CopyRecord.DestArrayIndex);
+						UObject* Value = static_cast<UObjectPropertyBase*>(SourceProperty)->GetObjectPropertyValue(Src);
+						static_cast<UObjectPropertyBase*>(CopyRecord.DestProperty)->SetObjectPropertyValue(Dest, Value);
 					}
 					break;
 				}
@@ -648,14 +699,14 @@ void FExposedValueHandler::Execute(const FAnimationBaseContext& Context) const
 			{
 				check(SourceProperty != nullptr && CopyRecord.DestProperty != nullptr);
 
-				bool bValue = static_cast<UBoolProperty*>(SourceProperty)->GetPropertyValue_InContainer(CopyRecord.CachedSourceContainer);
+				bool bValue = static_cast<UBoolProperty*>(SourceProperty)->GetPropertyValue(Src);
 				if (CopyRecord.CopyType == ECopyType::BoolProperty)
 				{
-					static_cast<UBoolProperty*>(CopyRecord.DestProperty)->SetPropertyValue_InContainer(CopyRecord.CachedDestContainer, !bValue, CopyRecord.DestArrayIndex);
+					static_cast<UBoolProperty*>(CopyRecord.DestProperty)->SetPropertyValue(Dest, !bValue);
 				}
 				else if (UArrayProperty* DestArrayProperty = Cast<UArrayProperty>(CopyRecord.DestProperty))
 				{
-					static_cast<UBoolProperty*>(DestArrayProperty->Inner)->SetPropertyValue(CopyRecord.Dest, !bValue); // added to support arrays
+					static_cast<UBoolProperty*>(DestArrayProperty->Inner)->SetPropertyValue(Dest, !bValue); // added to support arrays
 				}
 			}
 			break;

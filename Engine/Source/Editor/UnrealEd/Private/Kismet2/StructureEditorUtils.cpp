@@ -569,13 +569,21 @@ void FStructureEditorUtils::RemoveInvalidStructureMemberVariableFromBlueprint(UB
 
 		if (ZombieMemberNames.Num())
 		{
-			EAppReturnType::Type Response = FMessageDialog::Open( 
-				EAppMsgType::OkCancel,
-				FText::Format(
-					LOCTEXT("RemoveInvalidStructureMemberVariable_Msg", "The following member variables in blueprint '{0}' have invalid type. Would you like to remove them? \n\n{1}"), 
-					FText::FromString(Blueprint->GetFullName()),
-					FText::FromString(DislpayList)
-				));
+			EAppReturnType::Type Response = EAppReturnType::Ok;
+			if (GIsEditor && !IsRunningCommandlet())
+			{
+				Response = FMessageDialog::Open(
+					EAppMsgType::OkCancel,
+					FText::Format(
+						LOCTEXT("RemoveInvalidStructureMemberVariable_Msg", "The following member variables in blueprint '{0}' have invalid type. Would you like to remove them? \n\n{1}"),
+						FText::FromString(Blueprint->GetFullName()),
+						FText::FromString(DislpayList)
+					));
+			}
+			else
+			{
+				UE_LOG(LogBlueprint, Warning, TEXT("The following member variables in blueprint '%s' have invalid type. Removing them.\n\n%s"), *Blueprint->GetFullName(), *DislpayList);
+			}
 			check((EAppReturnType::Ok == Response) || (EAppReturnType::Cancel == Response));
 
 			if (EAppReturnType::Ok == Response)

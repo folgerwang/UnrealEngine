@@ -37,21 +37,23 @@ void FAssetTypeActions_NiagaraScript::OpenAssetEditor( const TArray<UObject*>& I
 
 FText FAssetTypeActions_NiagaraScript::GetDisplayNameFromAssetData(const FAssetData& AssetData) const
 {
-	const FString* Usage = AssetData.TagsAndValues.Find("Usage");
-	if (Usage != nullptr)
+	static const FName NAME_Usage(TEXT("Usage"));
+	const FAssetDataTagMapSharedView::FFindTagResult Usage = AssetData.TagsAndValues.FindTag(NAME_Usage);
+
+	if (Usage.IsSet())
 	{
-		static const FString FunctionString = FString("Function");
-		static const FString ModuleString = FString("Module");
-		static const FString DynamicInputString = FString("DynamicInput");
-		if (*Usage == FunctionString)
+		static const FString FunctionString(TEXT("Function"));
+		static const FString ModuleString(TEXT("Module"));
+		static const FString DynamicInputString(TEXT("DynamicInput"));
+		if (Usage.GetValue() == FunctionString)
 		{
 			return FAssetTypeActions_NiagaraScriptFunctions::GetFormattedName();
 		}
-		else if (*Usage == ModuleString)
+		else if (Usage.GetValue() == ModuleString)
 		{
 			return FAssetTypeActions_NiagaraScriptModules::GetFormattedName();
 		}
-		else if (*Usage == DynamicInputString)
+		else if (Usage.GetValue() == DynamicInputString)
 		{
 			return FAssetTypeActions_NiagaraScriptDynamicInputs::GetFormattedName();
 		}

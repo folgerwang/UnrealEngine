@@ -535,7 +535,7 @@ public:
 	virtual void LocalTravel(const FString& URL);
 
 	/** Return the client to the main menu gracefully */
-	DEPRECATED(4.19, "As an FString, the ReturnReason parameter is not easily localized. Please use ClientReturnToMainMenuWithTextReason instead.")
+	UE_DEPRECATED(4.19, "As an FString, the ReturnReason parameter is not easily localized. Please use ClientReturnToMainMenuWithTextReason instead.")
 	UFUNCTION(Reliable, Client)
 	virtual void ClientReturnToMainMenu(const FString& ReturnReason);
 
@@ -1036,7 +1036,7 @@ public:
 	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag);
 
-	DEPRECATED(4.18, "Use version that specifies whether to ignore time dilation or not")
+	UE_DEPRECATED(4.18, "Use version that specifies whether to ignore time dilation or not")
 	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
 	{
 		ClientPlayForceFeedback(ForceFeedbackEffect, bLooping, false, Tag);
@@ -1126,6 +1126,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Feedback")
 	void SetControllerLightColor(FColor Color);
+	
+	/**
+	 * Resets the light color of the player's controller to default
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Feedback")
+	void ResetControllerLightColor();
 
 	/**
 	 * Travel to a different map or IP address. Calls the PreClientTravel event before doing anything.
@@ -1452,7 +1458,7 @@ public:
 	/** Handles a touch screen action */
 	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
 
-	DEPRECATED(4.20, "InputTouch now takes a Force")
+	UE_DEPRECATED(4.20, "InputTouch now takes a Force")
 	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 	{
 		return InputTouch(Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex);

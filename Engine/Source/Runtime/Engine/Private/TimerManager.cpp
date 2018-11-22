@@ -261,7 +261,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	}
 }
 
-void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InDelegate)
+FTimerHandle FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InDelegate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimerForNextTick);
 
@@ -285,6 +285,8 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 
 	FTimerHandle NewTimerHandle = AddTimer(MoveTemp(NewTimerData));
 	ActiveTimerHeap.HeapPush(NewTimerHandle, FTimerHeapOrder(Timers));
+
+	return NewTimerHandle;
 }
 
 void FTimerManager::InternalClearTimer(FTimerHandle const& InHandle)
@@ -510,7 +512,7 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("TimerManager Heap Size"),STAT_NumHeapEntries,ST
 
 void FTimerManager::Tick(float DeltaTime)
 {
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TimerManagerTick);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Tickables);
 
 #if DO_TIMEGUARD && 0
 	TArray<FTimerUnifiedDelegate> RunTimerDelegates;

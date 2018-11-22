@@ -60,7 +60,7 @@ struct FSkeletonTreeArgs
 	/** Delegate called by the tree when a socket is selected */
 	FOnSkeletonTreeSelectionChanged OnSelectionChanged;
 
-	DEPRECATED(4.17, "Please use OnSelectionChanged")
+	UE_DEPRECATED(4.17, "Please use OnSelectionChanged")
 	FOnObjectSelected OnObjectSelected;
 
 	/** Delegate that allows custom filtering text to be shown on the filter button */
@@ -156,10 +156,10 @@ public:
 	/** Get the pinned commands widget, if any, for this tree */
 	virtual TSharedPtr<IPinnedCommandList> GetPinnedCommandList() const = 0;
 
-	DEPRECATED(4.17, "Please use RegisterOnSelectionChanged")
+	UE_DEPRECATED(4.17, "Please use RegisterOnSelectionChanged")
 	virtual void RegisterOnObjectSelected(const FOnObjectSelected& Delegate) = 0;
 
-	DEPRECATED(4.17, "Please use UnregisterOnSelectionChanged")
+	UE_DEPRECATED(4.17, "Please use UnregisterOnSelectionChanged")
 	virtual void UnregisterOnObjectSelected(SWidget* Widget) = 0;
 
 };

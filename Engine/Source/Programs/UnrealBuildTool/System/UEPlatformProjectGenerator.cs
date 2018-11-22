@@ -351,5 +351,12 @@ namespace UnrealBuildTool
 		{
 			return null;
 		}
+
+		/// <summary>
+		/// Gets the text to insert into the UnrealVS configuration file
+		/// </summary>
+		public virtual void GetUnrealVSConfigurationEntries( StringBuilder UnrealVSContent )
+		{
+		}
 	}
 }

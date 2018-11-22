@@ -12,7 +12,7 @@
 #include "Engine/World.h"
 #include "Perception/AIPerceptionTypes.h"
 #include "Perception/AISense.h"
-#include "Tickable.h"
+#include "AISubsystem.h"
 #include "AIPerceptionSystem.generated.h"
 
 class UAIPerceptionComponent;
@@ -26,29 +26,18 @@ class APawn;
  *	By design checks perception between hostile teams
  */
 UCLASS(ClassGroup=AI, config=Game, defaultconfig)
-class AIMODULE_API UAIPerceptionSystem : public UObject, public FTickableGameObject
+class AIMODULE_API UAIPerceptionSystem : public UAISubsystem
 {
 	GENERATED_BODY()
 		
 public:
 
 	UAIPerceptionSystem(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-	// We need to implement GetWorld() so that any EQS-related blueprints (such as blueprint contexts) can implement
-	// GetWorld() and so provide access to blueprint nodes using hidden WorldContextObject parameters.
-	virtual UWorld* GetWorld() const override;
-
-	/** [FTickableGameObject] get world function */
-	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
-
-	/** [FTickableGameObject] tick function */
+	
+	// FTickableGameObject begin
 	virtual void Tick(float DeltaTime) override;
-
-	/** [FTickableGameObject] always tick, unless it's the default object */
-	virtual ETickableTickType GetTickableTickType() const override { return (HasAnyFlags(RF_ClassDefaultObject) ? ETickableTickType::Never : ETickableTickType::Always); }
-
-	/** [FTickableGameObject] tick stats */
 	virtual TStatId GetStatId() const override;
+	// FTickableGameObject end
 
 protected:	
 	AIPerception::FListenerMap ListenerContainer;

@@ -96,7 +96,7 @@ public:
 	}
 
 	template <typename FmtType, typename... Types>
-	DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
+	UE_DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
 	static FORCEINLINE typename TEnableIf<!TIsArrayOrRefOfType<FmtType, TCHAR>::Value, bool>::Type OptionallyLogFormattedEnsureMessageReturningFalse(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const FmtType& FormattedMsg, Types... Args)
 	{
 		// NOTE: When this deprecated function is removed, the return type of the overload above

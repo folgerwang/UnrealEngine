@@ -167,6 +167,26 @@ void UMinimalClient::Cleanup()
 
 FOutBunch* UMinimalClient::CreateChannelBunch(EChannelType ChType, int32 ChIndex/*=INDEX_NONE*/)
 {
+	FName ChName = NAME_None;
+
+	switch (ChType)
+	{
+	case CHTYPE_Control:
+		ChName = NAME_Control;
+		break;
+	case CHTYPE_Actor:
+		ChName = NAME_Actor;
+		break;
+	case CHTYPE_Voice:
+		ChName = NAME_Voice;
+		break;
+	}
+
+	return CreateChannelBunchByName(ChName, ChIndex);
+}
+
+FOutBunch* UMinimalClient::CreateChannelBunchByName(const FName& ChName, int32 ChIndex/*=INDEX_NONE*/)
+{
 	FOutBunch* ReturnVal = nullptr;
 	UChannel* ControlChan = UnitConn != nullptr ? UnitConn->Channels[0] : nullptr;
 
@@ -198,7 +218,7 @@ FOutBunch* UMinimalClient::CreateChannelBunch(EChannelType ChType, int32 ChIndex
 			ReturnVal->bDormant = false;
 			ReturnVal->Channel = nullptr;
 			ReturnVal->ChIndex = ChIndex;
-			ReturnVal->ChType = ChType;
+			ReturnVal->ChName = ChName;
 			ReturnVal->bReliable = 1;
 			ReturnVal->ChSequence = BunchSequence;
 
@@ -264,7 +284,7 @@ bool UMinimalClient::SendRawBunch(FOutBunch& Bunch, bool bAllowPartial/*=false*/
 
 			while (NumSerializedBits < BunchNumBits)
 			{
-				FOutBunch* NewBunch = CreateChannelBunch((EChannelType)Bunch.ChType, Bunch.ChIndex);
+				FOutBunch* NewBunch = CreateChannelBunchByName(Bunch.ChName, Bunch.ChIndex);
 				int32 NewNumBits = FMath::Min(BunchNumBits - NumSerializedBits, MAX_PARTIAL_BUNCH_SIZE_BITS);
 
 				NewBunch->SerializeBits(Bunch.GetData() + (NumSerializedBits >> 3), NewNumBits);
@@ -277,7 +297,7 @@ bool UMinimalClient::SendRawBunch(FOutBunch& Bunch, bool bAllowPartial/*=false*/
 				NewBunch->bDormant = Bunch.bDormant;
 				NewBunch->bIsReplicationPaused = Bunch.bIsReplicationPaused;
 				NewBunch->ChIndex = Bunch.ChIndex;
-				NewBunch->ChType = Bunch.ChType;
+				NewBunch->ChName = Bunch.ChName;
 
 				if (!NewBunch->bHasPackageMapExports)
 				{
@@ -609,8 +629,8 @@ bool UMinimalClient::ConnectMinimalClient()
 	if (UnitNetDriver != nullptr)
 	{
 		// Hack: Replace the control and actor channels, with stripped down unit test channels
-		UnitNetDriver->ChannelClasses[CHTYPE_Control] = UUnitTestChannel::StaticClass();
-		UnitNetDriver->ChannelClasses[CHTYPE_Actor] = UUnitTestActorChannel::StaticClass();
+		UnitNetDriver->ChannelDefinitionMap[NAME_Control].ChannelClass = UUnitTestChannel::StaticClass();
+		UnitNetDriver->ChannelDefinitionMap[NAME_Actor].ChannelClass = UUnitTestActorChannel::StaticClass();
 
 		// @todo #JohnB: Block voice channel?
 
@@ -806,7 +826,7 @@ void UMinimalClient::SendInitialJoin()
 	// Make sure to flush any existing packet buffers, as Fortnite connect URL's can be very large and trigger an overflow
 	UnitConn->FlushNet();
 
-	FOutBunch* ControlChanBunch = CreateChannelBunch(CHTYPE_Control, 0);
+	FOutBunch* ControlChanBunch = CreateChannelBunchByName(NAME_Control, 0);
 
 	if (ControlChanBunch != nullptr)
 	{
@@ -1071,7 +1091,7 @@ bool UMinimalClient::NotifyAcceptingChannel(UChannel* Channel)
 {
 	bool bAccepted = false;
 
-	if (Channel->ChType == CHTYPE_Actor)
+	if (Channel->ChName == NAME_Actor)
 	{
 		UUnitTestActorChannel* ActorChan = Cast<UUnitTestActorChannel>(Channel);
 

@@ -611,9 +611,9 @@ void FKismetCompilerContext::ValidateTimelineNames()
 			if( ParentBPNameValidator.IsValid() && ParentBPNameValidator->IsValid(TimelineTemplate->GetName()) != EValidatorResult::Ok )
 			{
 				// Use the viewer displayed Timeline name (without the _Template suffix) because it will be added later for appropriate checks.
-				FString TimelineName = UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName());
+				FName TimelineName = TimelineTemplate->GetVariableName();
 
-				FName NewName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, TimelineName);
+				FName NewName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, TimelineName.ToString());
 				MessageLog.Warning(
 					*FText::Format(
 						LOCTEXT("TimelineConflictWarningFmt", "Found a timeline with a conflicting name ({0}) - changed to {1}."),
@@ -621,7 +621,7 @@ void FKismetCompilerContext::ValidateTimelineNames()
 						FText::FromName(NewName)
 					).ToString()
 				);
-				FBlueprintEditorUtils::RenameTimeline(Blueprint, FName(*TimelineName), NewName);
+				FBlueprintEditorUtils::RenameTimeline(Blueprint, TimelineName, NewName);
 			}
 		}
 	}
@@ -731,8 +731,8 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 		FEdGraphPinType TimelinePinType(UEdGraphSchema_K2::PC_Object, NAME_None, UTimelineComponent::StaticClass(), EPinContainerType::None, false, FEdGraphTerminalType());
 
 		// Previously UTimelineComponent object has exactly the same name as UTimelineTemplate object (that obj was in blueprint)
-		const FString TimelineVariableName = UTimelineTemplate::TimelineTemplateNameToVariableName(Timeline->GetFName());
-		if (UProperty* TimelineProperty = CreateVariable(*TimelineVariableName, TimelinePinType))
+		const FName TimelineVariableName = Timeline->GetVariableName();
+		if (UProperty* TimelineProperty = CreateVariable(TimelineVariableName, TimelinePinType))
 		{
 			FString CategoryName;
 			if (Timeline->FindMetaDataEntryIndexForKey(TEXT("Category")) != INDEX_NONE)
@@ -755,19 +755,19 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 		FEdGraphPinType FloatPinType(UEdGraphSchema_K2::PC_Float, NAME_None, nullptr, EPinContainerType::None, false, FEdGraphTerminalType());
 		for (const FTTFloatTrack& FloatTrack : Timeline->FloatTracks)
 		{
-			CreateVariable(Timeline->GetTrackPropertyName(FloatTrack.TrackName), FloatPinType);
+			CreateVariable(FloatTrack.GetPropertyName(), FloatPinType);
 		}
 
 		FEdGraphPinType VectorPinType(UEdGraphSchema_K2::PC_Struct, NAME_None, VectorStruct, EPinContainerType::None, false, FEdGraphTerminalType());
 		for (const FTTVectorTrack& VectorTrack : Timeline->VectorTracks)
 		{
-			CreateVariable(Timeline->GetTrackPropertyName(VectorTrack.TrackName), VectorPinType);
+			CreateVariable(VectorTrack.GetPropertyName(), VectorPinType);
 		}
 
 		FEdGraphPinType LinearColorPinType(UEdGraphSchema_K2::PC_Struct, NAME_None, LinearColorStruct, EPinContainerType::None, false, FEdGraphTerminalType());
 		for (const FTTLinearColorTrack& LinearColorTrack : Timeline->LinearColorTracks)
 		{
-			CreateVariable(Timeline->GetTrackPropertyName(LinearColorTrack.TrackName), LinearColorPinType);
+			CreateVariable(LinearColorTrack.GetPropertyName(), LinearColorPinType);
 		}
 	}
 
@@ -2698,10 +2698,9 @@ void FKismetCompilerContext::ExpandTimelineNodes(UEdGraph* SourceGraph)
 		UFunction* EventSigFunc = UTimelineComponent::GetTimelineEventSignature();
 
 		// Create event nodes for any event tracks
-		for(int32 EventTrackIdx=0; EventTrackIdx<Timeline->EventTracks.Num(); EventTrackIdx++)
+		for (const FTTEventTrack& EventTrack : Timeline->EventTracks)
 		{
-			const FName EventTrackName = Timeline->EventTracks[EventTrackIdx].TrackName;
-			CreatePinEventNodeForTimelineFunction(TimelineNode, SourceGraph, Timeline->GetEventTrackFunctionName(EventTrackIdx), EventTrackName, EventSigFunc->GetFName());
+			CreatePinEventNodeForTimelineFunction(TimelineNode, SourceGraph, EventTrack.GetFunctionName(), EventTrack.GetTrackName(), EventSigFunc->GetFName());
 		}
 
 		// Generate Update Pin Event Node
@@ -4509,6 +4508,15 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 	}
 
 	PostCompile();
+}
+
+void FKismetCompilerContext::PostCDOCompiled()
+{
+	// Vanilla blueprints don't store off any CDO information at this time,
+	// but if need arises heres our entry point.
+
+	// Allow children to customize PostCDOCompile:
+	OnPostCDOCompiled();
 }
 
 void FKismetCompilerContext::Compile()

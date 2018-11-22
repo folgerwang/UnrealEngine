@@ -11,6 +11,11 @@ UMovieSceneVisibilityTrack::UMovieSceneVisibilityTrack(const FObjectInitializer&
 	: Super(ObjectInitializer)
 {}
 
+bool UMovieSceneVisibilityTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneVisibilityTrack::CreateNewSection()
 {
 	UMovieSceneBoolSection* NewBoolSection = Cast<UMovieSceneBoolSection>(Super::CreateNewSection());

@@ -39,6 +39,18 @@ namespace EClassViewerDisplayMode
 	};
 }
 
+enum class EClassViewerNameTypeToDisplay : uint8
+{
+	/** Display both the display name and class name if they're available and different. */
+	Dynamic,
+
+	/** Always use the display name */
+	DisplayName,
+
+	/** Always use the class name */
+	ClassName,
+};
+
 /**
  * Settings for the Class Viewer set by the programmer before spawning an instance of the widget.  This
  * is used to modify the class viewer's behavior in various ways, such as filtering in or out specific classes.
@@ -80,8 +92,8 @@ public:
 	/** true allows class dynamic loading on selection */
 	bool bEnableClassDynamicLoading;
 
-	/** true shows display names of classes rather than full class names */
-	bool bShowDisplayNames;
+	/** Controls what name is shown for classes */
+	EClassViewerNameTypeToDisplay NameTypeToDisplay;
 
 	/** the title string of the class viewer if required. */
 	FText ViewerTitleString;
@@ -105,7 +117,7 @@ public:
 		, bShowObjectRootClass(false)
 		, bExpandRootNodes(true)
 		, bEnableClassDynamicLoading(true)
-		, bShowDisplayNames(false)
+		, NameTypeToDisplay(EClassViewerNameTypeToDisplay::ClassName)
 		, bAllowViewOptions(true)
 	{
 	}

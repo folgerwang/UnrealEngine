@@ -100,6 +100,7 @@ void CheckPSOStringInveribility(const FPipelineCacheFileFormatPSO& Item)
 	FPipelineCacheFileFormatPSO DupItem;
 	FMemory::Memzero(DupItem.GraphicsDesc);
 	DupItem.Type = Item.Type;
+	DupItem.UsageMask = Item.UsageMask;
 	if (Item.Type == FPipelineCacheFileFormatPSO::DescriptorType::Compute)
 	{
 		DupItem.ComputeDesc.FromString(StringRep);
@@ -357,6 +358,8 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d unique shader info lines total."), StableMap.Num());
 
 	TSet<FPipelineCacheFileFormatPSO> PSOs;
+	
+	uint32 MergeCount = 0;
 
 	for (int32 Index = 0; Index < Tokens.Num() - 1; Index++)
 	{
@@ -370,8 +373,29 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 				continue;
 			}
 			UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d PSOs"), TempPSOs.Num());
-			PSOs.Append(TempPSOs);
 
+			// We need to merge otherwise we'll lose usage masks on exact same PSO but in different files
+			for(auto& TempPSO : TempPSOs)
+			{
+				auto* ExistingPSO = PSOs.Find(TempPSO);
+				if(ExistingPSO != nullptr)
+				{
+					check(*ExistingPSO == TempPSO);
+					
+					// Get More accurate stats by testing for diff - we could just merge and be done
+					if((ExistingPSO->UsageMask & TempPSO.UsageMask) != TempPSO.UsageMask)
+					{
+						ExistingPSO->UsageMask |= TempPSO.UsageMask;
+						++MergeCount;
+					}
+					// Raw data files are not bind count averaged - just ensure we have captured max value
+					ExistingPSO->BindCount = FMath::Max(ExistingPSO->BindCount, TempPSO.BindCount);
+				}
+				else
+				{
+					PSOs.Add(TempPSO);
+				}
+			}
 		}
 		else
 		{
@@ -383,7 +407,7 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 		UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("No .upipelinecache files found or they were all empty. Nothing to do."));
 		return 0;
 	}
-	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d PSOs total."), PSOs.Num());
+	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d PSOs total [Usage Mask Merged = %d]."), PSOs.Num(), MergeCount);
 
 	//self test
 	for (const FPipelineCacheFileFormatPSO& Item : PSOs)
@@ -603,7 +627,8 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 	TSet<FString> DeDup;
 
 	{
-		FString PSOLine = FString::Printf(TEXT("\"%s\""), *FPipelineCacheFileFormatPSO::GraphicsDescriptor::StateHeaderLine());
+		FString PSOLine = FString::Printf(TEXT("\"%s\""), *FPipelineCacheFileFormatPSO::CommonHeaderLine());
+		PSOLine += FString::Printf(TEXT(",\"%s\""), *FPipelineCacheFileFormatPSO::GraphicsDescriptor::StateHeaderLine());
 		for (int32 SlotIndex = 0; SlotIndex < SF_Compute; SlotIndex++) // SF_Compute here because the stablepc.csv file format does not have a compute slot
 		{
 			PSOLine += FString::Printf(TEXT(",\"shaderslot%d: %s\""), SlotIndex, *FStableShaderKeyAndValue::HeaderLine());
@@ -643,13 +668,13 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 		for (const FPermuation& Perm : Item.Permutations)
 		{
 			// because it is a CSV, and for backward compat, compute shaders will just be a zeroed graphics desc with the shader in the hull shader slot.
-			FString PSOLine;
-
+			FString PSOLine = Item.PSO->CommonToString();
+			PSOLine += TEXT(",");
 			if (Item.PSO->Type == FPipelineCacheFileFormatPSO::DescriptorType::Compute)
 			{
 				FPipelineCacheFileFormatPSO::GraphicsDescriptor Zero;
 				FMemory::Memzero(Zero);
-				PSOLine = FString::Printf(TEXT("\"%s\""), *Zero.StateToString());
+				PSOLine += FString::Printf(TEXT("\"%s\""), *Zero.StateToString());
 				for (int32 SlotIndex = 0; SlotIndex < SF_Compute; SlotIndex++)  // SF_Compute here because the stablepc.csv file format does not have a compute slot
 				{
 					check(!Item.ActivePerSlot[SlotIndex]); // none of these should be active for a compute shader
@@ -665,7 +690,7 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 			}
 			else
 			{
-				PSOLine = FString::Printf(TEXT("\"%s\""), *Item.PSO->GraphicsDesc.StateToString());
+				PSOLine += FString::Printf(TEXT("\"%s\""), *Item.PSO->GraphicsDesc.StateToString());
 				for (int32 SlotIndex = 0; SlotIndex < SF_Compute; SlotIndex++) // SF_Compute here because the stablepc.csv file format does not have a compute slot
 				{
 					if (!Item.ActivePerSlot[SlotIndex])
@@ -726,6 +751,41 @@ void ParseQuoteComma(const FString& InLine, TArray<FString>& OutParts)
 }
 
 
+void BuildDateSortedListOfFiles(const TArray<FString>& TokenList, FString const & MatchesFileExtension, TArray<FString>& Result)
+{
+	struct FDateSortableFileRef
+	{
+		FDateTime SortTime;
+		FString FileName;
+	};
+	
+	TArray<FDateSortableFileRef> DateFileList;
+	for (int32 TokenIndex = 0; TokenIndex < TokenList.Num() - 1; TokenIndex++)
+	{
+		if (TokenList[TokenIndex].EndsWith(MatchesFileExtension))
+		{
+			FDateSortableFileRef DateSortEntry;
+			DateSortEntry.SortTime = FDateTime::Now();
+			DateSortEntry.FileName = TokenList[TokenIndex];
+			
+			FFileStatData StatData = IFileManager::Get().GetStatData(*TokenList[TokenIndex]);
+			if(StatData.bIsValid && StatData.CreationTime != FDateTime::MinValue())
+			{
+				DateSortEntry.SortTime = StatData.CreationTime;
+			}
+			
+			DateFileList.Add(DateSortEntry);
+		}
+	}
+	
+	DateFileList.Sort([](const FDateSortableFileRef& A, const FDateSortableFileRef& B) {return A.SortTime > B.SortTime;});
+	
+	for(auto& FileRef : DateFileList)
+	{
+		Result.Add(FileRef.FileName);
+	}
+}
+
 int32 BuildPSOSC(const TArray<FString>& Tokens)
 {
 	TMultiMap<FStableShaderKeyAndValue, FSHAHash> StableMap;
@@ -765,38 +825,50 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d unique shader info lines total."), StableMap.Num());
 
 	TSet<FPipelineCacheFileFormatPSO> PSOs;
+	TMap<uint32,int64> PSOAvgIterations;
 	FName TargetPlatform;
+	
+	// Get the stable PC files in date order - least to most important(!?)
+	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Sorting input stablepc.csv files into chronological order for merge processing...."));
+	
+	TArray<FString> StablePiplineCacheFiles;
+	BuildDateSortedListOfFiles(Tokens, TEXT(".stablepc.csv"), StablePiplineCacheFiles);
 
+	uint32 MergeCount = 0;
 
-	for (int32 TokenIndex = 0; TokenIndex < Tokens.Num() - 1; TokenIndex++)
+	for(int32 FileIndex = 0;FileIndex < StablePiplineCacheFiles.Num();++FileIndex)
 	{
-		if (!Tokens[TokenIndex].EndsWith(TEXT(".stablepc.csv")))
-		{
-			check(Tokens[TokenIndex].EndsWith(TEXT(".scl.csv")));
-			continue;
-		}
+		FString const& FileName = StablePiplineCacheFiles[FileIndex];
 
-		UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loading %s...."), *Tokens[TokenIndex]);
+		UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loading %s...."), *FileName);
 		TArray<FString> SourceFileContents;
 
-		if (!FFileHelper::LoadFileToStringArray(SourceFileContents, *Tokens[TokenIndex]) || SourceFileContents.Num() < 2)
+		if (!FFileHelper::LoadFileToStringArray(SourceFileContents, *FileName) || SourceFileContents.Num() < 2)
 		{
-			UE_LOG(LogShaderPipelineCacheTools, Fatal, TEXT("Could not load %s"), *Tokens[TokenIndex]);
+			UE_LOG(LogShaderPipelineCacheTools, Fatal, TEXT("Could not load %s"), *FileName);
 			return 1;
 		}
 
 		UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d stable PSO lines."), SourceFileContents.Num() - 1);
 
+		TSet<FPipelineCacheFileFormatPSO> CurrentFilePSOs;
 		for (int32 Index = 1; Index < SourceFileContents.Num(); Index++)
 		{
 			TArray<FString> Parts;
 			ParseQuoteComma(SourceFileContents[Index], Parts);
-			check(Parts.Num() == 1 + SF_Compute); // SF_Compute here because the stablepc.csv file format does not have a compute slot
+			
+			if(Parts.Num() != 2 + SF_Compute) // SF_Compute here because the stablepc.csv file format does not have a compute slot
+			{
+				// Assume the rest of the file csv lines are are bad or are in an out of date format - if one is - they probably all are
+				UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("File %s is not in the correct format ignoring the rest of its contents."), *FileName);
+				break;
+			}
 
 			FPipelineCacheFileFormatPSO PSO;
 			FMemory::Memzero(PSO);
 			PSO.Type = FPipelineCacheFileFormatPSO::DescriptorType::Graphics; // we will change this to compute later if needed
-			PSO.GraphicsDesc.StateFromString(Parts[0]);
+			PSO.CommonFromString(Parts[0]);
+			PSO.GraphicsDesc.StateFromString(Parts[1]);
 
 			bool bValid = true;
 
@@ -806,13 +878,13 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 			// because it is a CSV, and for backward compat, compute shaders will just be a zeroed graphics desc with the shader in the hull shader slot.
 			for (int32 SlotIndex = 0; SlotIndex < SF_Compute; SlotIndex++) // SF_Compute here because the stablepc.csv file format does not have a compute slot
 			{
-				if (!Parts[SlotIndex + 1].Len())
+				if (!Parts[SlotIndex + 2].Len())
 				{
 					continue;
 				}
 
 				FStableShaderKeyAndValue Shader;
-				Shader.ParseFromString(Parts[SlotIndex + 1]);
+				Shader.ParseFromString(Parts[SlotIndex + 2]);
 
 				if (SlotIndex == SF_Hull)
 				{
@@ -904,16 +976,87 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 
 			if (bValid)
 			{
-				PSOs.Add(PSO);
+				// Merge duplicate PSO lines in the same file together - merge mask and Max bindcount
+				auto* ExistingPSO = CurrentFilePSOs.Find(PSO);
+				if(ExistingPSO != nullptr)
+				{
+					check(*ExistingPSO == PSO);
+					ExistingPSO->UsageMask |= PSO.UsageMask;
+					ExistingPSO->BindCount = FMath::Max(ExistingPSO->BindCount, PSO.BindCount);
+				}
+				else
+				{
+					CurrentFilePSOs.Add(PSO);
+				}
+				
+				if(!PSOAvgIterations.Contains(GetTypeHash(PSO)))
+				{
+					PSOAvgIterations.Add(GetTypeHash(PSO), 1ll);
+				}
 			}
 		}
+		
+		if(CurrentFilePSOs.Num())
+		{
+			// Now merge this file PSO set with main PSO set (this is going to be slow as we need to incrementally reprocess each existing PSO per file to get reasonable bindcount averages).
+			// Can't sum all and avg: A) Overflow and B) Later ones want to remain high so only start to get averaged from the point they are added onwards:
+			// 1) New PSO goes in with it's bindcount intact for this iteration - if it's the last file then it keeps it bindcount
+			// 2) Existing PSO from older file gets incrementally averaged with PSO bindcount from new file
+			// 3) Existing PSO from older file not in new file set gets incrementally averaged with zero - now less important
+			// 4) PSOs are incrementally averaged from the point they are seen - i.e. a PSO seen in an earler file will get averaged more times than one
+			//		seen in a later file using:  NewAvg = OldAvg + (NewValue - OldAvg) / CountFromPSOSeen
+			//
+			// Proof for incremental averaging:
+			//	DataSet = {25 65 95 128}; Standard Average = (sum(25, 65, 95, 128) / 4) = 78.25
+			//	Incremental:
+			//	=> 25
+			//	=> 25 + (65 - 25) / 2 = A 		==> 25 + (65 - 25) / 2 		= 45
+			//	=>  A + (95 -  A) / 3 = B 		==> 45 + (95 - 45) / 3 		= 61 2/3
+			//	=>  B + (128 - B) / 4 = Answer 	==> 61 2/3 + (128 - B) / 4 	= 78.25
+			
+			for( FPipelineCacheFileFormatPSO& PSO : PSOs)
+			{
+				// Already existing PSO in the next file round - increase it's average iteration
+				int64& PSOAvgIteration = PSOAvgIterations.FindChecked(GetTypeHash(PSO));
+				++PSOAvgIteration;
+				
+				// Default the bindcount
+				int64 NewBindCount = 0ll;
+				
+				// If you have the same PSO in the new file set
+				auto* NewFilePSO = CurrentFilePSOs.Find(PSO);
+				if(NewFilePSO != nullptr)
+				{
+					// Sanity check!
+					check(*NewFilePSO == PSO);
+
+					// Get More accurate stats by testing for diff - we could just merge and be done
+					if((PSO.UsageMask & NewFilePSO->UsageMask) != NewFilePSO->UsageMask)
+					{
+						PSO.UsageMask |= NewFilePSO->UsageMask;
+						++MergeCount;
+					}
+					
+					NewBindCount = NewFilePSO->BindCount;
+
+					// Remove from current file set - it's already there and we don't want any 'overwrites'
+					CurrentFilePSOs.Remove(*NewFilePSO);
+				}
+				
+				// Incrementally average this PSO bindcount - if not found in this set then avg will be pulled down
+				PSO.BindCount += (NewBindCount - PSO.BindCount) / PSOAvgIteration;
+			}
+			
+			// Just add any left over - their iterations will be 1 and not yet averaged
+			PSOs.Append(CurrentFilePSOs);
+		}
 	}
-	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Re-deduplicated into %d binary PSOs."), PSOs.Num());
+	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Re-deduplicated into %d binary PSOs [Usage Mask Merged = %d]."), PSOs.Num(), MergeCount);
 
 	if (PSOs.Num() < 1)
 	{
-		UE_LOG(LogShaderPipelineCacheTools, Error, TEXT("No PSO were created!"));
-		return 1;
+		UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("No PSOs were created!"));
+		return 0;
 	}
 
 	if (UE_LOG_ACTIVE(LogShaderPipelineCacheTools, Verbose))
@@ -984,8 +1127,8 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 
 		if (PSOs.Num() < 1)
 		{
-			UE_LOG(LogShaderPipelineCacheTools, Error, TEXT("No PSO were created!"));
-			return 1;
+			UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("No PSOs were created!"));
+			return 0;
 		}
 
 	}

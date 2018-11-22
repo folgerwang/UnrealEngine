@@ -218,6 +218,12 @@ void FBitReader::AppendTo( TArray<uint8> &DestBuffer )
 	DestBuffer.Append(Buffer);
 }
 
+void FBitReader::CountMemory(FArchive& Ar) const
+{
+	Buffer.CountBytes(Ar);
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+}
+
 void FBitReader::SetOverflowed(int32 LengthBits)
 {
 	UE_LOG(LogNetSerialization, Error, TEXT("FBitReader::SetOverflowed() called! (ReadLen: %i, Remaining: %i, Max: %i)"),
@@ -242,6 +248,48 @@ void FBitReader::SerializeBitsWithOffset( void* Dest, int32 DestBit, int64 Lengt
 		appBitsCpy((uint8*)Dest, DestBit, Buffer.GetData(), Pos, LengthBits);
 		Pos += LengthBits;
 	}
+}
+
+// This version is bit compatible with FArchive::SerializeIntPacked. See notes in FBitWriter::SerializeIntPacked for more info.
+void FBitReader::SerializeIntPacked(uint32& OutValue)
+{
+	if (IsError())
+	{
+		OutValue = 0;
+		return;
+	}
+
+	const uint8* Src = Buffer.GetData() + (Pos >> 3U);
+	const uint32 BitCountUsedInByte = Pos & 7;
+	const uint32 BitCountLeftInByte = 8 - (Pos & 7);
+	const uint8 SrcMaskByte0 = uint8((1U << BitCountLeftInByte) - 1U);
+	const uint8 SrcMaskByte1 = uint8((1U << BitCountUsedInByte) - 1U);
+	const uint32 NextSrcIndex = (BitCountUsedInByte != 0);
+
+	uint32 Value = 0;
+	for (unsigned It = 0, ShiftCount = 0; It < 5; ++It, ShiftCount += 7)
+	{
+		if (Pos + 8 > Num)
+		{
+			SetOverflowed(8);
+			break;
+		}
+
+		Pos += 8;
+
+		const uint8 Byte = ((Src[0] >> BitCountUsedInByte) & SrcMaskByte0) | ((Src[NextSrcIndex] & SrcMaskByte1) << (BitCountLeftInByte & 7));
+		const uint8 NextByteIndicator = Byte & 1;
+		const uint32 ByteAsWord = Byte >> 1U;
+		Value = (ByteAsWord << ShiftCount) | Value;
+		++Src;
+
+		if (!NextByteIndicator)
+		{
+			break;
+		}
+	}
+
+	OutValue = Value;
 }
 
 /*-----------------------------------------------------------------------------

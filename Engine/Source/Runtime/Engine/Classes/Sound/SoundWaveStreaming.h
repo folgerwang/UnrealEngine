@@ -8,4 +8,4 @@
 
 #include "Sound/SoundWaveProcedural.h"
 
-//DEPRECATED(4.9)
+//UE_DEPRECATED(4.9)

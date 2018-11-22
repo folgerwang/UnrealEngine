@@ -198,7 +198,7 @@ public:
 	/**
 	 * Check whether the specified property type can be animated by sequeuncer
 	 */
-	virtual bool CanAnimateProperty(FAnimatedPropertyKey Key) = 0;
+	virtual bool CanAnimateProperty(UProperty* Property) = 0;
 
 	/**
 	* Get the extensibility manager for menus.
@@ -304,13 +304,13 @@ public:
 
 public:
 
-	DEPRECATED(4.16, "Please use RegisterTrackEditor")
+	UE_DEPRECATED(4.16, "Please use RegisterTrackEditor")
 	FDelegateHandle RegisterTrackEditor_Handle(FOnCreateTrackEditor InOnCreateTrackEditor)
 	{
 		return RegisterTrackEditor(InOnCreateTrackEditor, TArrayView<FAnimatedPropertyKey>());
 	}
 	
-	DEPRECATED(4.16, "Please use UnRegisterTrackEditor")
+	UE_DEPRECATED(4.16, "Please use UnRegisterTrackEditor")
 	void UnRegisterTrackEditor_Handle(FDelegateHandle InHandle)
 	{
 		UnRegisterTrackEditor(InHandle);

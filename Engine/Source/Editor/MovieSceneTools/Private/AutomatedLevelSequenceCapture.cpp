@@ -205,8 +205,8 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 	if (Actor)
 	{
 		// Ensure it doesn't loop (-1 is indefinite)
-		Actor->PlaybackSettings.LoopCount = 0;
-		Actor->PlaybackSettings.TimeController = MakeShared<FMovieSceneTimeController_FrameStep>();
+		Actor->PlaybackSettings.LoopCount.Value = 0;
+		Actor->SequencePlayer->SetTimeController(MakeShared<FMovieSceneTimeController_FrameStep>());
 		Actor->PlaybackSettings.bPauseAtEnd = true;
 
 		if (BurnInOptions)
@@ -595,7 +595,7 @@ void UAutomatedLevelSequenceCapture::OnTick(float DeltaSeconds)
 			{
 				// Reset us to use the platform clock for controlling the playback rate of the sequence. The audio system
 				// uses the platform clock for timings as well.
-				Actor->PlaybackSettings.TimeController = MakeShared<FMovieSceneTimeController_PlatformClock>();
+				Actor->SequencePlayer->SetTimeController(MakeShared<FMovieSceneTimeController_PlatformClock>());
 				CaptureState = ELevelSequenceCaptureState::Setup;
 				
 				// We'll now repeat the whole process including warmups and delays. The audio capture will pause recording while we are delayed.

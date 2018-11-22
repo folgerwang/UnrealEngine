@@ -141,16 +141,16 @@ void FFunctionalTestingModule::GetMapTests(bool bEditorOnlyTests, TArray<FString
 			{
 				FString MapAssetPath = MapAsset.ObjectPath.ToString();
 
-				const FString* Tests = MapAsset.TagsAndValues.Find(TEXT("Tests"));
-				const FString* TestNames = MapAsset.TagsAndValues.Find(bEditorOnlyTests ? TEXT("TestNamesEditor") : TEXT("TestNames"));
+				FAssetDataTagMapSharedView::FFindTagResult Tests = MapAsset.TagsAndValues.FindTag(TEXT("Tests"));
+				FAssetDataTagMapSharedView::FFindTagResult TestNames = MapAsset.TagsAndValues.FindTag(bEditorOnlyTests ? TEXT("TestNamesEditor") : TEXT("TestNames"));
 
-				if (Tests && TestNames)
+				if (Tests.IsSet() && TestNames.IsSet())
 				{
-					int32 TestCount = FCString::Atoi(**Tests);
+					int32 TestCount = FCString::Atoi(*Tests.GetValue());
 					if (TestCount > 0)
 					{
 						TArray<FString> MapTests;
-						(*TestNames).ParseIntoArray(MapTests, TEXT(";"), true);
+						TestNames.GetValue().ParseIntoArray(MapTests, TEXT(";"), true);
 
 						for (const FString& MapTest : MapTests)
 						{

@@ -425,6 +425,8 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* InViewport, FCanvas* Canva
 		}
 	}
 
+	float MiscMessageY = ScaledViewportSize.Y - 75.0f;
+	float MisMessageYSep = 15;
 	//Display a warning message in the preview window if the system has no fixed bounding-box and contains a GPU emitter.
 	if(CascadePtr.Pin()->GetParticleSystem()->bUseFixedRelativeBoundingBox == false)
 	{
@@ -450,7 +452,8 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* InViewport, FCanvas* Canva
 				if(bIsAGPUEmitter)
 				{
 					const int32 XPosition = 5;
-					const int32 YPosition = ScaledViewportSize.Y - 75.0f;
+					const int32 YPosition = MiscMessageY;
+					MiscMessageY -= MisMessageYSep;
 					FString strOutput = NSLOCTEXT("Cascade", "NoFixedBounds_Warning", "WARNING: This particle system has no fixed bounding box and contains a GPU emitter.").ToString();
 					TextItem.SetColor( FLinearColor::White );
 					TextItem.Text = FText::FromString( strOutput );
@@ -468,14 +471,16 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* InViewport, FCanvas* Canva
 		FString DetailModeOutput = FString::Printf(TEXT("DETAIL MODE: %s"), (DetailMode == DM_Medium)? TEXT("MEDIUM"): TEXT("LOW"));
 		TextItem.SetColor( FLinearColor::Red );
 		TextItem.Text = FText::FromString( DetailModeOutput );
-		Canvas->DrawItem( TextItem, 5.0f, ScaledViewportSize.Y - 90.0f );
+		Canvas->DrawItem(TextItem, 5.0f, MiscMessageY);
+		MiscMessageY -= MisMessageYSep;
 	}
 
 	if (GEngine->bEnableEditorPSysRealtimeLOD)
 	{
 		TextItem.SetColor( FLinearColor(0.25f, 0.25f, 1.0f) );
 		TextItem.Text = LOCTEXT("LODPREVIEWMODEENABLED","LOD PREVIEW MODE ENABLED");
-		Canvas->DrawItem( TextItem,  5.0f, ScaledViewportSize.Y - 105.0f );
+		Canvas->DrawItem(TextItem, 5.0f, MiscMessageY);
+		MiscMessageY -= MisMessageYSep;
 	}
 
 	EParticleSignificanceLevel ReqSignificance = CascadePtr.Pin()->GetRequiredSignificance();
@@ -484,8 +489,22 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* InViewport, FCanvas* Canva
 		FString ReqSigOutput = FString::Printf(TEXT("REQUIRED SIGNIFICANCE: %s"), (ReqSignificance == EParticleSignificanceLevel::Medium) ? TEXT("MEDIUM") : ((ReqSignificance == EParticleSignificanceLevel::High) ? TEXT("HIGH") : TEXT("CRITICAL")));
 		TextItem.SetColor(FLinearColor::Red);
 		TextItem.Text = FText::FromString(ReqSigOutput);
-		Canvas->DrawItem(TextItem, 5.0f, ScaledViewportSize.Y - 120.0f);
+		Canvas->DrawItem(TextItem, 5.0f, MiscMessageY);
+		MiscMessageY -= MisMessageYSep;
 	}
+	
+	if(UParticleSystem* PSys = CascadePtr.Pin()->GetParticleSystem())
+	{
+		if (!PSys->CanTickInAnyThread())
+		{
+			//Place a warning on screen if this system cannot tick async.
+			TextItem.SetColor(FLinearColor::Red);
+			TextItem.Text = FText::FromString(TEXT("NO ASYNC TICK"));
+			Canvas->DrawItem(TextItem, 5.0f, MiscMessageY);
+			MiscMessageY -= MisMessageYSep;
+		}
+	}
+
 
 	if (bCaptureScreenShot)
 	{

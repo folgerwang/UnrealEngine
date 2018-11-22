@@ -104,14 +104,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RandomPlayer : public FAnimNode_Base
 	FAnimNode_RandomPlayer();
 
 public:
-
-	/** When shuffle mode is active we will never loop a sequence beyond MaxLoopCount
-	  * without visiting each sequence in turn (no repeats). Enabling this will ignore
-	  * ChanceToPlay for each entry
-	  */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings")
-	bool bShuffleMode;
-
 	/** List of sequences to randomly step through */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings")
 	TArray<FRandomPlayerSequenceEntry> Entries;
@@ -135,6 +127,12 @@ private:
 	// Normalized list of play chances when we aren't using shuffle mode
 	TArray<float> NormalizedPlayChances;
 
+	// Play data for the current and next sequence
+	TArray<FRandomAnimPlayData> PlayData;
+
+	// List to store transient shuffle stack in shuffle mode.
+	TArray<int32> ShuffleList;
+
 	// The currently playing entry in the entries list
 	int32 CurrentEntry;
 
@@ -142,15 +140,17 @@ private:
 	// can all have different blend in times.
 	int32 NextEntry;
 
-	// List to store transient shuffle stack in shuffle mode.
-	TArray<int32> ShuffleList;
-
 	// Index of the 'current' data set in the PlayData array
 	int32 CurrentDataIndex;
 
-	// Play data for the current and next sequence
-	TArray<FRandomAnimPlayData> PlayData;
-
 	// Random number source
 	FRandomStream RandomStream;
+
+public:
+	/** When shuffle mode is active we will never loop a sequence beyond MaxLoopCount
+	  * without visiting each sequence in turn (no repeats). Enabling this will ignore
+	  * ChanceToPlay for each entry
+	  */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings")
+	bool bShuffleMode;
 };

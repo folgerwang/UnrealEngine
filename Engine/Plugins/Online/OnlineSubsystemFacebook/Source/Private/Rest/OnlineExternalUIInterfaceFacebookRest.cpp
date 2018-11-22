@@ -120,7 +120,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::ParseRedirectResult(const FFacebookL
 					}
 
 					Result.Error.ErrorCode = *ErrorCode;
-					Result.Error.NumericErrorCode = FPlatformString::Atoi(**ErrorCode);
+					Result.NumericErrorCode = FPlatformString::Atoi(**ErrorCode);
 				}
 				else
 				{
@@ -128,7 +128,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::ParseRedirectResult(const FFacebookL
 					Result.Error.ErrorRaw = LOGIN_ERROR_UNKNOWN;
 					Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_UNKNOWN);
 					Result.Error.ErrorCode = LOGIN_ERROR_UNKNOWN;
-					Result.Error.NumericErrorCode = -1;
+					Result.NumericErrorCode = -1;
 				}
 			}
 		}
@@ -162,7 +162,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::OnLoginRedirectURL(const FString& Re
 						Result.Error.ErrorRaw = LOGIN_ERROR_AUTH_FAILURE;
 						Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_AUTH_FAILURE);
 						Result.Error.ErrorCode = LOGIN_ERROR_AUTH_FAILURE;
-						Result.Error.NumericErrorCode = -2;
+						Result.NumericErrorCode = -2;
 					}
 				}
 			}

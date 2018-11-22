@@ -331,6 +331,16 @@ void ULevelSequence::UnbindPossessableObjects(const FGuid& ObjectId)
 	ObjectReferences.Map.Remove(ObjectId);
 }
 
+void ULevelSequence::UnbindObjects(const FGuid& ObjectId, const TArray<UObject*>& InObjects, UObject* InContext)
+{
+	BindingReferences.RemoveObjects(ObjectId, InObjects, InContext);
+}
+
+void ULevelSequence::UnbindInvalidObjects(const FGuid& ObjectId, UObject* InContext)
+{
+	BindingReferences.RemoveInvalidObjects(ObjectId, InContext);
+}
+
 #if WITH_EDITOR
 
 FGuid ULevelSequence::FindOrAddBinding(UObject* InObject)

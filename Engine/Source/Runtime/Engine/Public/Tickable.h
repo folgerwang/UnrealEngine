@@ -148,6 +148,7 @@ public:
 	 */
 	FTickableGameObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		check(!GetPendingTickableObjects().Contains(this));
 		check(!GetTickableObjects().Contains(this));
 		GetPendingTickableObjects().Add(this);
@@ -158,6 +159,7 @@ public:
 	 */
 	virtual ~FTickableGameObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		if (GetPendingTickableObjects().Remove(this) == 0)
 		{
 			RemoveTickableObject(GetTickableObjects(), this, bIsTickingObjects);

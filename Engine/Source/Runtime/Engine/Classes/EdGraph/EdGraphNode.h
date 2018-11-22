@@ -374,7 +374,7 @@ public:
 	};
 
 	/** Create a new pin on this node using the supplied info, and return the new pin */
-	DEPRECATED(4.19, "Use version that supplies Pin Category, SubCategory, and Name as an FName and uses PinContainerType instead of separate booleans for array, set, and map.")
+	UE_DEPRECATED(4.19, "Use version that supplies Pin Category, SubCategory, and Name as an FName and uses PinContainerType instead of separate booleans for array, set, and map.")
 	UEdGraphPin* CreatePin(
 		EEdGraphPinDirection Dir, 
 		const FNameParameterHelper PinCategory, 
@@ -390,7 +390,7 @@ public:
 		const FEdGraphTerminalType& ValueTerminalType = FEdGraphTerminalType());
 
 	/** Create a new pin on this node using the supplied info, and return the new pin */
-	DEPRECATED(4.19, "Use version that supplies Pin Category, SubCategory, and Name as an FName and uses a parameter structure for optional paramaters.")
+	UE_DEPRECATED(4.19, "Use version that supplies Pin Category, SubCategory, and Name as an FName and uses a parameter structure for optional paramaters.")
 	UEdGraphPin* CreatePin(
 		EEdGraphPinDirection Dir,
 		const FNameParameterHelper PinCategory,
@@ -445,14 +445,14 @@ public:
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const FName PinName, int32 Index = INDEX_NONE);
 
 	/** Create a new pin on this node using the supplied pin type, and return the new pin */
-	DEPRECATED(4.19, "Use version that passes PinName as FName instead.")
+	UE_DEPRECATED(4.19, "Use version that passes PinName as FName instead.")
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const FString& PinName, int32 Index = INDEX_NONE)
 	{
 		return CreatePin(Dir, InPinType, FName(*PinName), Index);
 	}
 
 	/** Create a new pin on this node using the supplied pin type, and return the new pin */
-	//DEPRECATED(4.19, "Remove when removing FString version. Exists just to resolve ambiguity")
+	//UE_DEPRECATED(4.19, "Remove when removing FString version. Exists just to resolve ambiguity")
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const TCHAR* PinName, int32 Index = INDEX_NONE)
 	{
 		return CreatePin(Dir, InPinType, FName(PinName), Index);
@@ -511,7 +511,7 @@ public:
 	virtual bool ShouldOverridePinNames() const { return false; }
 
 	/** Whether or not struct pins belonging to this node should be allowed to be split or not. */
-	DEPRECATED(4.14, "Please call CanSplitPin and provide the specific Pin to split.")
+	UE_DEPRECATED(4.14, "Please call CanSplitPin and provide the specific Pin to split.")
 	virtual bool AllowSplitPins() const { return bAllowSplitPins_DEPRECATED; }
 
 	/** Whether or not struct pins belonging to this node should be allowed to be split or not. */
@@ -660,7 +660,7 @@ public:
 	virtual FString GetDocumentationExcerptName() const;
 
 	/** @return Icon to use in menu or on node */
-	DEPRECATED(4.13, "Please override 'virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const;' instead.")
+	UE_DEPRECATED(4.13, "Please override 'virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const;' instead.")
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const { return NAME_None; }
 
 	/** @return Icon to use in menu or on node */

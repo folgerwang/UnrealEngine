@@ -12,9 +12,11 @@
 #include "Misc/FileHelper.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/Paths.h"
+#include "Serialization/MemoryReader.h"
 #include "AssetRegistryState.h"
 #include "HAL/PlatformFilemanager.h"
 #include "IPlatformFilePak.h"
+#include "Stats/StatsMisc.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -163,6 +165,15 @@ void UAssetManager::PostInitProperties()
 		}
 
 		LoadRedirectorMaps();
+	}
+}
+
+void UAssetManager::GetCachedPrimaryAssetEncryptionKeyGuid(FPrimaryAssetId InPrimaryAssetId, FGuid& OutGuid)
+{
+	OutGuid.Invalidate();
+	if (const FGuid* Guid = PrimaryAssetEncryptionKeyCache.Find(InPrimaryAssetId))
+	{
+		OutGuid = *Guid;
 	}
 }
 
@@ -592,24 +603,44 @@ void UAssetManager::UpdateCachedAssetData(const FPrimaryAssetId& PrimaryAssetId,
 			AssetPathMap.Add(NewAssetPath.GetAssetPathName(), PrimaryAssetId);
 		}
 
+		// Cooked builds strip the asset bundle data from the registry after scanning to save on memory
+		// This means that we need to reuse any data that's already been read in
+		bool bStripBundleData = !WITH_EDITOR;
+		bool bUseExistingBundleData = false;
+
 		if (OldData)
 		{
-			CachedAssetBundles.Remove(PrimaryAssetId);
-		}
-		
-		// Mark these as editor only if our type is editor only
-		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, TypeData.Info.bIsEditorOnly ? ESoftObjectPathCollectType::EditorOnlyCollect : ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
-
-		FAssetBundleData BundleData;
-		if (BundleData.SetFromAssetData(NewAssetData))
-		{
-			for (FAssetBundleEntry& Entry : BundleData.Bundles)
+			if (bStripBundleData)
 			{
-				if (Entry.BundleScope.IsValid() && Entry.BundleScope == PrimaryAssetId)
-				{
-					TMap<FName, FAssetBundleEntry>& BundleMap = CachedAssetBundles.FindOrAdd(PrimaryAssetId);
+				bUseExistingBundleData = CachedAssetBundles.Contains(PrimaryAssetId);
+			}
+			else
+			{
+				CachedAssetBundles.Remove(PrimaryAssetId);
+			}
+		}
 
-					BundleMap.Emplace(Entry.BundleName, Entry);
+		if (!bUseExistingBundleData)
+		{
+			// Mark these as editor only if our type is editor only
+			FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, TypeData.Info.bIsEditorOnly ? ESoftObjectPathCollectType::EditorOnlyCollect : ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
+
+			FAssetBundleData BundleData;
+			if (BundleData.SetFromAssetData(NewAssetData))
+			{
+				for (FAssetBundleEntry& Entry : BundleData.Bundles)
+				{
+					if (Entry.BundleScope.IsValid() && Entry.BundleScope == PrimaryAssetId)
+					{
+						TMap<FName, FAssetBundleEntry>& BundleMap = CachedAssetBundles.FindOrAdd(PrimaryAssetId);
+
+						BundleMap.Emplace(Entry.BundleName, Entry);
+					}
+				}
+
+				if (bStripBundleData)
+				{
+					GetAssetRegistry().StripAssetRegistryKeyForObject(NewAssetData.ObjectPath, FAssetBundleData::StaticStruct()->GetFName());
 				}
 			}
 		}
@@ -991,7 +1022,7 @@ FPrimaryAssetId UAssetManager::ExtractPrimaryAssetIdFromData(const FAssetData& A
 	return FoundId;
 }
 
-bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList) const
+bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList, EAssetManagerFilter Filter) const
 {
 	const TSharedRef<FPrimaryAssetTypeData>* FoundType = AssetTypeMap.Find(PrimaryAssetType);
 
@@ -1001,7 +1032,10 @@ bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TA
 
 		for (const TPair<FName, FPrimaryAssetData>& Pair : TypeData.AssetMap)
 		{
-			PrimaryAssetIdList.Add(FPrimaryAssetId(PrimaryAssetType, Pair.Key));
+			if ((!(Filter & EAssetManagerFilter::UnloadedOnly)) || ((Pair.Value.CurrentState.BundleNames.Num() == 0) && (Pair.Value.PendingState.BundleNames.Num() == 0)))
+			{
+				PrimaryAssetIdList.Add(FPrimaryAssetId(PrimaryAssetType, Pair.Key));
+			}
 		}
 	}
 
@@ -1133,9 +1167,10 @@ TSharedPtr<FStreamableHandle> UAssetManager::ChangeBundleStateForPrimaryAssets(c
 
 			NewHandle = LoadAssetList(PathsToLoad.Array(), FStreamableDelegate(), Priority, DebugName);
 
-			if (!ensureMsgf(NewHandle.IsValid(), TEXT("Requested load of Primary Asset with no referenced assets!")))
+			if (!NewHandle.IsValid())
 			{
-				return nullptr;
+				// LoadAssetList already throws an error, no need to do it here as well
+				continue;
 			}
 
 			if (NewHandle->HasLoadCompleted())
@@ -1807,6 +1842,100 @@ void UAssetManager::OnChunkDownloaded(uint32 ChunkId, bool bSuccess)
 	}
 }
 
+bool UAssetManager::OnAssetRegistryAvailableAfterInitialization(FName InName, FAssetRegistryState& OutNewState)
+{
+#if WITH_EDITOR
+	UE_LOG(LogAssetManager, Warning, TEXT("UAssetManager::OnAssetRegistryAvailableAfterInitialization is only supported in cooked builds, but was called from the editor!"));
+	return false;
+#endif
+
+	bool bLoaded = false;
+	double RegistrationTime = 0.0;
+
+	{
+		SCOPE_SECONDS_COUNTER(RegistrationTime);
+
+		IAssetRegistry& LocalAssetRegistry = GetAssetRegistry();
+		
+		{
+			TArray<uint8> Bytes;
+			FString Filename = FPaths::ProjectDir() / (TEXT("AssetRegistry") + InName.ToString()) + TEXT(".bin");
+			if (FPaths::FileExists(*Filename) && FFileHelper::LoadFileToArray(Bytes, *Filename))
+			{
+				bLoaded = true;
+				FMemoryReader Ar(Bytes);
+
+				FAssetRegistrySerializationOptions SerializationOptions;
+				LocalAssetRegistry.InitializeSerializationOptions(SerializationOptions);
+				OutNewState.Serialize(Ar, SerializationOptions);
+			}
+		}
+
+		if (bLoaded)
+		{
+			LocalAssetRegistry.AppendState(OutNewState);
+
+			TArray<FAssetData> NewAssetData;
+			bool bRebuildReferenceList = false;
+			if (OutNewState.GetAllAssets(TSet<FName>(), NewAssetData))
+			{
+				for (const FAssetData& AssetData : NewAssetData)
+				{
+					if (!IsPathExcludedFromScan(AssetData.PackageName.ToString()))
+					{
+						FPrimaryAssetId PrimaryAssetId = AssetData.GetPrimaryAssetId();
+						if (PrimaryAssetId.IsValid())
+						{
+							FPrimaryAssetTypeInfo TypeInfo;
+							if (GetPrimaryAssetTypeInfo(PrimaryAssetId.PrimaryAssetType, TypeInfo))
+							{
+								if (ShouldScanPrimaryAssetType(TypeInfo))
+								{
+									// Make sure it's in a valid path
+									bool bFoundPath = false;
+									for (const FString& Path : TypeInfo.AssetScanPaths)
+									{
+										if (AssetData.PackagePath.ToString().Contains(Path))
+										{
+											bFoundPath = true;
+											break;
+										}
+									}
+
+									if (bFoundPath)
+									{
+										FString GuidString;
+										if (AssetData.GetTagValue(GetEncryptionKeyAssetTagName(), GuidString))
+										{
+											FGuid Guid;
+											FGuid::Parse(GuidString, Guid);
+											check(!PrimaryAssetEncryptionKeyCache.Contains(PrimaryAssetId));
+											PrimaryAssetEncryptionKeyCache.Add(PrimaryAssetId, Guid);
+											UE_LOG(LogAssetManager, Verbose, TEXT("Found encrypted primary asset '%s' using keys '%s'"), *PrimaryAssetId.PrimaryAssetName.ToString(), *GuidString);
+										}
+
+										// Check exclusion path
+										UpdateCachedAssetData(PrimaryAssetId, AssetData, false);
+										bRebuildReferenceList = true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (bRebuildReferenceList)
+			{
+				RebuildObjectReferenceList();
+			}
+		}
+	}
+
+	UE_CLOG(bLoaded, LogAssetManager, Log, TEXT("Registered new asset registry '%s' in %.4fs"), *InName.ToString(), RegistrationTime);
+	return bLoaded;
+}
+
 FPrimaryAssetData* UAssetManager::GetNameData(const FPrimaryAssetId& PrimaryAssetId, bool bCheckRedirector)
 {
 	return const_cast<FPrimaryAssetData*>(AsConst(this)->GetNameData(PrimaryAssetId));
@@ -2062,15 +2191,15 @@ bool UAssetManager::GetAssetDataForPath(const FSoftObjectPath& ObjectPath, FAsse
 	}
 
 	// Handle redirector chains
-	const FString* DestinationObjectStrPtr = AssetData.TagsAndValues.Find("DestinationObject");
-
-	while (DestinationObjectStrPtr)
+	FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag("DestinationObject");
+	while (Result.IsSet())
 	{
-		FString DestinationObjectPath = *DestinationObjectStrPtr;
+		FString DestinationObjectPath = Result.GetValue();
 		ConstructorHelpers::StripObjectClass(DestinationObjectPath);
 		AssetData = AssetRegistry.GetAssetByObjectPath(*DestinationObjectPath);
-		DestinationObjectStrPtr = AssetData.TagsAndValues.Find("DestinationObject");
+		Result = AssetData.TagsAndValues.FindTag("DestinationObject");
 	}
+
 #endif
 
 	return AssetData.IsValid();
@@ -2315,6 +2444,12 @@ void UAssetManager::DumpReferencersForPackage(const TArray< FString >& PackageNa
 	ReportLines.Add(TEXT("}"));
 
 	Manager.WriteCustomReport(FString::Printf(TEXT("ReferencersForPackage%s%s.gv"), *PackageNames[0], *FDateTime::Now().ToString()), ReportLines);
+}
+
+FName UAssetManager::GetEncryptionKeyAssetTagName()
+{
+	static const FName NAME_EncryptionKey(TEXT("EncryptionKey"));
+	return NAME_EncryptionKey;
 }
 
 bool UAssetManager::ShouldScanPrimaryAssetType(FPrimaryAssetTypeInfo& TypeInfo) const

@@ -66,6 +66,9 @@ class NAVIGATIONSYSTEM_API UNavCollision : public UNavCollisionBase
 	UPROPERTY(EditAnywhere, Category=Navigation, config)
 	uint32 bGatherConvexGeometry : 1;
 
+	UPROPERTY(EditAnywhere, Category=Navigation, config)
+	uint32 bCreateOnClient : 1;
+
 	/** if set, convex geometry will be rebuild instead of using cooked data */
 	uint32 bForceGeometryRebuild : 1;
 
@@ -76,10 +79,12 @@ class NAVIGATIONSYSTEM_API UNavCollision : public UNavCollisionBase
 	FFormatContainer CookedFormatData;
 
 	//~ Begin UObject Interface.
+	virtual void PostInitProperties() override;
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual bool NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const override;
+	virtual bool NeedsLoadForClient() const override { return bCreateOnClient; }
 	//~ End UObject Interface.
 
 	FGuid GetGuid() const;

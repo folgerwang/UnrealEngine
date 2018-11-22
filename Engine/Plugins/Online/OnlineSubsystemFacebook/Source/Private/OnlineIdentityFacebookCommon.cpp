@@ -33,12 +33,6 @@ FOnlineIdentityFacebookCommon::FOnlineIdentityFacebookCommon(FOnlineSubsystemFac
 	ProfileFields.AddUnique(TEXT(ME_FIELD_PICTURE));
 }
 
-const FUniqueNetId& FOnlineIdentityFacebookCommon::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdFacebook> EmptyUniqueId = MakeShared<const FUniqueNetIdFacebook>(FString());
-	return *EmptyUniqueId;
-}
-
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityFacebookCommon::GetUserAccount(const FUniqueNetId& UserId) const
 {
 	TSharedPtr<FUserOnlineAccount> Result;

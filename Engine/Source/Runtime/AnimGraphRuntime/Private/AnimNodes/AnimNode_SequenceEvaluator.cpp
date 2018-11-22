@@ -28,7 +28,7 @@ void FAnimNode_SequenceEvaluator::CacheBones_AnyThread(const FAnimationCacheBone
 
 void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if (Sequence)
 	{

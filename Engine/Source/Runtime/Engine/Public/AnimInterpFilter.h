@@ -134,12 +134,12 @@ public:
 	}
 #endif // WITH_EDITOR
 private:
-	TArray<FFilterData>			FilterWindow;
 	EFilterInterpolationType	InterpolationType;
 	int32						CurrentStackIndex;
 	float						TimeDuration;
 	int32						NumValidFilter;
 	float						CurrentTime;
+	TArray<FFilterData>			FilterWindow;
 
 	float GetInterpolationCoefficient (FFilterData & Data);
 	float CalculateFilteredOutput();

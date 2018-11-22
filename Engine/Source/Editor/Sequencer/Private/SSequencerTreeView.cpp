@@ -6,6 +6,7 @@
 #include "SequencerDisplayNodeDragDropOp.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
 
 static FName TrackAreaName = "TrackArea";
 
@@ -158,6 +159,7 @@ void SSequencerTreeView::Construct(const FArguments& InArgs, const TSharedRef<FS
 	bUpdatingTreeSelection = false;
 	bSequencerSelectionChangeBroadcastWasSupressed = false;
 	bPhysicalNodesNeedUpdate = false;
+	bRightMouseButtonDown = false;
 
 	// We 'leak' these delegates (they'll get cleaned up automatically when the invocation list changes)
 	// It's not safe to attempt their removal in ~SSequencerTreeView because SequencerNodeTree->GetSequencer() may not be valid
@@ -187,6 +189,16 @@ void SSequencerTreeView::Construct(const FArguments& InArgs, const TSharedRef<FS
 
 void SSequencerTreeView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
+	if (bSequencerSelectionChangeBroadcastWasSupressed && !FSlateApplication::Get().AnyMenusVisible())
+	{
+		FSequencerSelection& SequencerSelection = SequencerNodeTree->GetSequencer().GetSelection();
+		if (SequencerSelection.IsBroadcasting())
+		{
+			SequencerSelection.RequestOutlinerNodeSelectionChangedBroadcast();
+			bSequencerSelectionChangeBroadcastWasSupressed = false;
+		}
+	}
+
 	STreeView::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	
 	// These are updated in both tick and paint since both calls can cause changes to the cached rows and the data needs
@@ -465,6 +477,19 @@ void SSequencerTreeView::UpdateTrackArea()
 	}
 }
 
+void SSequencerTreeView::OnRightMouseButtonDown(const FPointerEvent& MouseEvent)
+{
+	STreeView::OnRightMouseButtonDown(MouseEvent);
+	bRightMouseButtonDown = true;
+}
+
+void SSequencerTreeView::OnRightMouseButtonUp(const FPointerEvent& MouseEvent)
+{
+	STreeView::OnRightMouseButtonUp(MouseEvent);
+	bRightMouseButtonDown = false;
+}
+
+
 void SSequencerTreeView::SynchronizeTreeSelectionWithSequencerSelection()
 {
 	if ( bUpdatingSequencerSelection == false )
@@ -540,7 +565,7 @@ void SSequencerTreeView::Private_SelectRangeFromCurrentTo( FDisplayNodeRef InRan
 
 void SSequencerTreeView::Private_SignalSelectionChanged(ESelectInfo::Type SelectInfo)
 {
-	if ( bUpdatingTreeSelection == false )
+	if ( bUpdatingTreeSelection == false && !bRightMouseButtonDown)
 	{
 		bUpdatingSequencerSelection = true;
 		{
@@ -548,10 +573,13 @@ void SSequencerTreeView::Private_SignalSelectionChanged(ESelectInfo::Type Select
 			SequencerSelection.SuspendBroadcast();
 			bool bSelectionChanged = SynchronizeSequencerSelectionWithTreeSelection();
 			SequencerSelection.ResumeBroadcast();
-			if ( bSequencerSelectionChangeBroadcastWasSupressed || bSelectionChanged )
+			if (bSequencerSelectionChangeBroadcastWasSupressed || bSelectionChanged)
 			{
-				SequencerSelection.RequestOutlinerNodeSelectionChangedBroadcast();
-				bSequencerSelectionChangeBroadcastWasSupressed = false;
+				if (SequencerSelection.IsBroadcasting())
+				{
+					SequencerSelection.RequestOutlinerNodeSelectionChangedBroadcast();
+					bSequencerSelectionChangeBroadcastWasSupressed = false;
+				}
 			}
 		}
 		bUpdatingSequencerSelection = false;

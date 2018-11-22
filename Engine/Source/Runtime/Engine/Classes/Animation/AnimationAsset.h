@@ -510,7 +510,7 @@ public:
 	float BlendWeight;
 
 	// To be made private
-	DEPRECATED(4.13, "RootMotionTransform should not be accessed directly, please use GetRootMotionTransform() to read it or one of the set/accumulate functions to modify it")
+	UE_DEPRECATED(4.13, "RootMotionTransform should not be accessed directly, please use GetRootMotionTransform() to read it or one of the set/accumulate functions to modify it")
 	UPROPERTY()
 	FTransform RootMotionTransform;
 

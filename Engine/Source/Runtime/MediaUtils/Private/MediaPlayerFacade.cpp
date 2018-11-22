@@ -12,6 +12,7 @@
 #include "IMediaPlayer.h"
 #include "IMediaPlayerFactory.h"
 #include "IMediaSamples.h"
+#include "IMediaAudioSample.h"
 #include "IMediaTextureSample.h"
 #include "IMediaTracks.h"
 #include "IMediaView.h"
@@ -50,6 +51,8 @@ DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickOutput"), STAT_MediaUt
 /** Time spent in media player facade high frequency tick. */
 DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickTickable"), STAT_MediaUtils_FacadeTickTickable, STATGROUP_Media);
 
+/** Player time on main thread during last fetch tick. */
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaPlayerFacade TickPostEngine Time"), STAT_MediaUtils_FacadeTime, STATGROUP_Media);
 
 
 /* Local helpers
@@ -72,7 +75,7 @@ FMediaPlayerFacade::FMediaPlayerFacade()
 	, BlockOnTime(FTimespan::MinValue())
 	, Cache(new FMediaSampleCache)
 	, LastRate(0.0f)
-	, NextVideoSampleTime(FTimespan::MinValue())
+	, LastAudioRenderedSampleTime(FTimespan::MinValue())
 { }
 
 
@@ -616,6 +619,25 @@ bool FMediaPlayerFacade::SupportsRate(float Rate, bool Unthinned) const
 	return Player.IsValid() && Player->GetControls().GetSupportedRates(Thinning).Contains(Rate);
 }
 
+void FMediaPlayerFacade::SetLastAudioRenderedSampleTime(FTimespan SampleTime)
+{
+	LastAudioRenderedSampleTime = SampleTime;
+}
+
+FTimespan FMediaPlayerFacade::GetLastAudioRenderedSampleTime() const
+{
+	return LastAudioRenderedSampleTime.Load();
+}
+
+FTimespan FMediaPlayerFacade::GetLastAudioSampleProcessedTime() const
+{
+	return LastAudioSampleProcessedTime.Load();
+}
+
+FTimespan FMediaPlayerFacade::GetLastVideoSampleProcessedTime() const
+{
+	return LastVideoSampleProcessedTime.Load();
+}
 
 /* FMediaPlayerFacade implementation
 *****************************************************************************/
@@ -677,6 +699,10 @@ void FMediaPlayerFacade::FlushSinks()
 	}
 
 	NextVideoSampleTime = FTimespan::MinValue();
+
+	LastAudioSampleProcessedTime = FTimespan::MinValue();
+	LastVideoSampleProcessedTime = FTimespan::MinValue();
+	LastAudioRenderedSampleTime = FTimespan::MinValue();
 }
 
 
@@ -934,7 +960,9 @@ void FMediaPlayerFacade::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 	TRange<FTimespan> TimeRange;
 
 	const FTimespan CurrentTime = GetTime();
-	
+
+	SET_FLOAT_STAT(STAT_MediaUtils_FacadeTime, CurrentTime.GetTotalMilliseconds());
+
 	if (Rate > 0.0f)
 	{
 		TimeRange = TRange<FTimespan>::AtMost(CurrentTime);
@@ -1071,7 +1099,14 @@ void FMediaPlayerFacade::ProcessAudioSamples(IMediaSamples& Samples, TRange<FTim
 
 	while (Samples.FetchAudio(TimeRange, Sample))
 	{
-		if (Sample.IsValid() && !AudioSampleSinks.Enqueue(Sample.ToSharedRef(), FMediaPlayerQueueDepths::MaxAudioSinkDepth))
+		if (!Sample.IsValid())
+		{
+			continue;
+		}
+
+		LastAudioSampleProcessedTime = Sample->GetTime();
+
+		if (!AudioSampleSinks.Enqueue(Sample.ToSharedRef(), FMediaPlayerQueueDepths::MaxAudioSinkDepth))
 		{
 			#if MEDIAPLAYERFACADE_TRACE_SINKOVERFLOWS
 				UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Audio sample sink overflow"), this);
@@ -1139,6 +1174,8 @@ void FMediaPlayerFacade::ProcessVideoSamples(IMediaSamples& Samples, TRange<FTim
 		{
 			continue;
 		}
+
+		LastVideoSampleProcessedTime = Sample->GetTime();
 
 		UE_LOG(LogMediaUtils, VeryVerbose, TEXT("PlayerFacade %p: Fetched video sample %s"), this, *Sample->GetTime().ToString(TEXT("%h:%m:%s.%t")));
 

@@ -14,6 +14,10 @@ UMovieScene3DPathTrack::UMovieScene3DPathTrack( const FObjectInitializer& Object
 	: Super( ObjectInitializer )
 { }
 
+bool UMovieScene3DPathTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DPathSection::StaticClass();
+}
 
 FMovieSceneEvalTemplatePtr UMovieScene3DPathTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {

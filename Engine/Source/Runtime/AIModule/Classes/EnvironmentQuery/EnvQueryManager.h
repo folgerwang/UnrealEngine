@@ -10,7 +10,7 @@
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
-#include "Tickable.h"
+#include "AISubsystem.h"
 #include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
 #include "EnvQueryManager.generated.h"
 
@@ -153,7 +153,7 @@ FORCEINLINE bool operator== (const FEQSDebugger::FEnvQueryInfo & Left, const FEQ
 #endif // USE_EQS_DEBUGGER
 
 UCLASS(config = Game, defaultconfig, Transient)
-class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject, public FSelfRegisteringExec
+class AIMODULE_API UEnvQueryManager : public UAISubsystem, public FSelfRegisteringExec
 {
 	GENERATED_UCLASS_BODY()
 
@@ -163,21 +163,10 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 
 	virtual void PostInitProperties() override;
 
-	// We need to implement GetWorld() so that any EQS-related blueprints (such as blueprint contexts) can implement
-	// GetWorld() and so provide access to blueprint nodes using hidden WorldContextObject parameters.
-	virtual UWorld* GetWorld() const override;
-
-	/** [FTickableGameObject] get world function */
-	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
-
-	/** [FTickableGameObject] tick function */
+	// FTickableGameObject begin
 	virtual void Tick(float DeltaTime) override;
-
-	/** [FTickableGameObject] always tick, unless it's the default object */
-	virtual ETickableTickType GetTickableTickType() const override { return (HasAnyFlags(RF_ClassDefaultObject) ? ETickableTickType::Never : ETickableTickType::Always); }
-
-	/** [FTickableGameObject] tick stats */
 	virtual TStatId GetStatId() const override;
+	// FTickableGameObject end
 
 	/** execute query */
 	int32 RunQuery(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode, FQueryFinishedSignature const& FinishDelegate);

@@ -265,41 +265,6 @@ bool UObjectBaseUtility::RootPackageHasAnyFlags( uint32 CheckFlagMask ) const
 /***********************/
 
 /**
- * @return	true if this object is of the specified type.
- */
-#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_OUTERWALK
-	bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
-	{
-		UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
-
-		UClass* ThisClass = GetClass();
-
-		bool bOldResult = false;
-		for ( UClass* TempClass=ThisClass; TempClass; TempClass=TempClass->GetSuperClass() )
-		{
-			if ( TempClass == SomeBase )
-			{
-				bOldResult = true;
-				break;
-			}
-		}
-
-	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-		bool bNewResult = ThisClass->IsAUsingFastTree(*SomeBase);
-	#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-		bool bNewResult = ThisClass->IsAUsingClassArray(*SomeBase);
-	#endif
-
-	#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK
-		ensureMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
-	#endif
-
-		return bOldResult;
-	}
-#endif
-
-
-/**
  * Finds the most-derived class which is a parent of both TestClass and this object's class.
  *
  * @param	TestClass	the class to find the common base for
@@ -417,6 +382,17 @@ bool UObjectBaseUtility::IsDefaultSubobject() const
 {
 	const bool bIsInstanced = GetOuter() && (GetOuter()->HasAnyFlags(RF_ClassDefaultObject) || ((UObject*)this)->GetArchetype() != GetClass()->GetDefaultObject(false));
 	return bIsInstanced;
+}
+
+
+UClass* GetParentNativeClass(UClass* Class)
+{
+	while (Class && !Class->IsNative())
+	{
+		Class = Class->GetSuperClass();
+	}
+
+	return Class;
 }
 
 #if STATS && USE_MALLOC_PROFILER

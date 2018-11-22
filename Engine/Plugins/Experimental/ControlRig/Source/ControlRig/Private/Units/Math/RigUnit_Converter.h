@@ -41,7 +41,7 @@ struct FRigUnit_ConvertEulerTransform : public FRigUnit
 };
 
 USTRUCT(meta = (DisplayName = "ConvertToQuaternion", Category = "Math|Convert"))
-struct FRigUnit_ConvertVectorRotation : public FRigUnit
+struct FRigUnit_ConvertRotation : public FRigUnit
 {
 	GENERATED_BODY()
 

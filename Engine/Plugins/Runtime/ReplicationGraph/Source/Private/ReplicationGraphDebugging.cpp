@@ -42,6 +42,8 @@
  *	
  *	Net.RepGraph.StarvedList <ConnectionIdx>							Prints actor starvation stats to HUD
  *	
+ *	Net.RepGraph.SetDebugActor <ClassName>								Call on client: sets server debug actor to the closest actor that matches ClassName. See RepGraphConditionalActorBreakpoint
+ *	
  */
 
 // ----------------------------------------------------------
@@ -536,6 +538,95 @@ FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetPeriodFrame(TEXT("Net.RepGraph
 	})
 );
 
+// -------------------------------------------------------------
+
+bool AReplicationGraphDebugActor::ServerSetConditionalActorBreakpoint_Validate(AActor* Actor)
+{
+	return true;
+}
+
+void AReplicationGraphDebugActor::ServerSetConditionalActorBreakpoint_Implementation(AActor* Actor)
+{
+	DebugActorConnectionPair.Actor = Actor;
+	DebugActorConnectionPair.Connection = Actor ? this->GetNetConnection() : nullptr; // clear connection if null actor was sent
+
+	UE_LOG(LogReplicationGraph, Display, TEXT("AReplicationGraphDebugActor::ServerSetConditionalActorBreakpoint set to %s/%s"), *GetPathNameSafe(Actor), DebugActorConnectionPair.Connection.IsValid() ? *DebugActorConnectionPair.Connection->Describe() : TEXT("Null") );
+}
+
+FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetDebugActorConnectionCmd(TEXT("Net.RepGraph.SetDebugActor"),TEXT("Set DebugActorConnectionPair on server, from client. Specify  "),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		UE_LOG(LogReplicationGraph, Display, TEXT("Usage: Net.RepGraph.SetDebugActor <Class>"));
+
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(World);
+		if (!PC)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("No PC found!"));
+			return;
+		}
+
+		AActor* NewDebugActor = nullptr;
+
+		if (Args.Num() <= 0)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("No class specified. Clearing debug actor!"));
+		}
+		else
+		{
+			float ClosestMatchDistSq = WORLD_MAX;
+			AActor* ClosestMatchActor = nullptr;
+			FVector CamLoc;
+			FRotator CamRot;
+			PC->GetPlayerViewPoint(CamLoc, CamRot);
+
+			for (TActorIterator<AActor> ActorIt(World); ActorIt; ++ActorIt)
+			{
+				AActor* Actor = *ActorIt;
+				UClass* Class = Actor->GetClass();
+
+				if (Actor->GetIsReplicated() == false)
+				{
+					continue;
+				}
+
+				while(Class)
+				{
+					if (Class->GetName().Contains(Args[0]))
+					{
+						break;
+					}
+					Class = Class->GetSuperClass();
+				}
+
+				if (Class)
+				{
+					float DistSq = (Actor->GetActorLocation() - CamLoc).SizeSquared2D();
+					if (DistSq < ClosestMatchDistSq)
+					{
+						ClosestMatchDistSq = DistSq;
+						ClosestMatchActor = Actor;
+					}
+				}
+			}
+
+			if (ClosestMatchActor)
+			{
+				UE_LOG(LogReplicationGraph, Display, TEXT("Best Match = %s. (Class=%s)"), *ClosestMatchActor->GetPathName(), *ClosestMatchActor->GetClass()->GetName());
+				NewDebugActor = ClosestMatchActor;
+			}
+			else
+			{
+				UE_LOG(LogReplicationGraph, Display, TEXT("Unable to find actor that matched class %s"), *Args[0]);
+			}
+		}
+
+		for (TActorIterator<AReplicationGraphDebugActor> It(World); It; ++It)
+		{
+			It->ServerSetConditionalActorBreakpoint(NewDebugActor);
+		}
+	})
+);
+
 
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -870,7 +961,7 @@ void FConnectionReplicationActorInfo::LogDebugString(FOutputDevice& Ar) const
 {
 	Ar.Logf(TEXT("  Channel: %s"), *GetNameSafe(Channel));
 	Ar.Logf(TEXT("  CullDistSq: %.2f (%.2f)"), CullDistanceSquared, FMath::Sqrt(CullDistanceSquared));
-	Ar.Logf(TEXT("  NextReplicationFrameNum: %d. ReplicationPeriodFrame: %d. LastRepFrameNum: %d. StarvedFrameNum: %d. ActorChannelCloseFrameNum: %d. IsDormantOnConnection: %d. TearOff: %d"), NextReplicationFrameNum, ReplicationPeriodFrame, LastRepFrameNum, StarvedFrameNum, ActorChannelCloseFrameNum, bDormantOnConnection, bTearOff);
+	Ar.Logf(TEXT("  NextReplicationFrameNum: %d. ReplicationPeriodFrame: %d. LastRepFrameNum: %d. ActorChannelCloseFrameNum: %d. IsDormantOnConnection: %d. TearOff: %d"), NextReplicationFrameNum, ReplicationPeriodFrame, LastRepFrameNum, ActorChannelCloseFrameNum, bDormantOnConnection, bTearOff);
 }
 
 void UReplicationGraph::LogGraph(FReplicationGraphDebugInfo& DebugInfo) const
@@ -1051,7 +1142,7 @@ void PrintPrioritizedList(FOutputDevice& Ar, UNetReplicationGraphConnection* Con
 	for (const FPrioritizedRepList::FItem& Item : PrioritizedList->Items)
 	{
 		const FConnectionReplicationActorInfo& ActorInfo = ConnectionManager->ActorInfoMap.FindOrAdd(Item.Actor);
-		const bool bWasStarved = ActorInfo.StarvedFrameNum > 0;
+		const bool bWasStarved = (ActorInfo.LastRepFrameNum + ActorInfo.ReplicationPeriodFrame) < RepFrameNum;
 		FString StarvedString = bWasStarved ? FString::Printf(TEXT(" (Starved %d) "), RepFrameNum - ActorInfo.LastRepFrameNum) : TEXT("");
 
 #if REPGRAPH_DETAILS

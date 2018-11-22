@@ -43,13 +43,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	UPROPERTY(EditAnywhere, Category=SkeletalControl) 
 	FBoneReference BoneToModify;
 
-	/** Target Bone to look at - You can use  LookAtLocation if you need offset from this point. That location will be used in their local space. **/
-	UPROPERTY()
-	FBoneReference LookAtBone_DEPRECATED;
-
-	UPROPERTY()
-	FName LookAtSocket_DEPRECATED;
-
 	/** Target socket to look at. Used if LookAtBone is empty. - You can use  LookAtLocation if you need offset from this point. That location will be used in their local space. **/
 	UPROPERTY(EditAnywhere, Category = Target)
 	FBoneSocketTarget LookAtTarget;
@@ -57,6 +50,37 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	/** Target Offset. It's in world space if LookAtBone is empty or it is based on LookAtBone or LookAtSocket in their local space*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Target, meta = (PinHiddenByDefault))
 	FVector LookAtLocation;
+
+	UPROPERTY(EditAnywhere, Category = SkeletalControl)
+	FAxis LookAt_Axis;
+
+	/** Whether or not to use Look up axis */
+	UPROPERTY(EditAnywhere, Category=SkeletalControl)
+	bool bUseLookUpAxis;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
+	TEnumAsByte<EInterpolationBlend::Type>	InterpolationType;
+
+	UPROPERTY(EditAnywhere, Category = SkeletalControl)
+	FAxis LookUp_Axis;
+
+	/** Look at Clamp value in degrees - if your look at axis is Z, only X, Y degree of clamp will be used */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
+	float LookAtClamp;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
+	float	InterpolationTime;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
+	float	InterpolationTriggerThreashold;
+
+#if WITH_EDITORONLY_DATA
+	/** Target Bone to look at - You can use  LookAtLocation if you need offset from this point. That location will be used in their local space. **/
+	UPROPERTY()
+	FBoneReference LookAtBone_DEPRECATED;
+
+	UPROPERTY()
+	FName LookAtSocket_DEPRECATED;
 
 	/** Look at axis, which axis to align to look at point */
 	UPROPERTY() 
@@ -66,13 +90,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	UPROPERTY()
 	FVector	CustomLookAtAxis_DEPRECATED;
 
-	UPROPERTY(EditAnywhere, Category = SkeletalControl)
-	FAxis LookAt_Axis;
-
-	/** Whether or not to use Look up axis */
-	UPROPERTY(EditAnywhere, Category=SkeletalControl)
-	bool bUseLookUpAxis;
-
 	/** Look up axis in local space */
 	UPROPERTY()
 	TEnumAsByte<EAxisOption::Type>	LookUpAxis_DEPRECATED;
@@ -80,22 +97,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	/** Custom look up axis in local space. Only used if LookUpAxis==EAxisOption::Custom */
 	UPROPERTY()
 	FVector	CustomLookUpAxis_DEPRECATED;
-
-	UPROPERTY(EditAnywhere, Category = SkeletalControl)
-	FAxis LookUp_Axis;
-
-	/** Look at Clamp value in degree - if you're look at axis is Z, only X, Y degree of clamp will be used*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
-	float LookAtClamp;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
-	TEnumAsByte<EInterpolationBlend::Type>	InterpolationType;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
-	float	InterpolationTime;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SkeletalControl, meta=(PinHiddenByDefault))
-	float	InterpolationTriggerThreashold;
+#endif
 
 	// in the future, it would be nice to have more options, -i.e. lag, interpolation speed
 	FAnimNode_LookAt();

@@ -783,7 +783,7 @@ float2 GetPerlinNoiseGradientTextureAt(float2 v)
 
 float3 GetPerlinNoiseGradientTextureAt(float3 v)
 {
-	const float2 ZShear = int2(17, 89);
+	const float2 ZShear = float2(17.0f, 89.0f);
 
 	float2 OffsetA = v.z * ZShear;
 	float2 TexA = (v.xy + OffsetA + 0.5f) / 128.0f;

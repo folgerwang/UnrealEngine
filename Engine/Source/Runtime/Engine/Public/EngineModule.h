@@ -16,6 +16,7 @@ public:
 
 	// IModuleInterface
 	virtual void StartupModule();
+	virtual void ShutdownModule();
 };
 
 /** Accessor that gets the renderer module and caches the result. */

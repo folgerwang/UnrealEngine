@@ -12,6 +12,7 @@ class FAndroidAffinity : public FGenericPlatformAffinity
 {
 private:
 	static uint64 GetLittleCoreMask();
+	const static uint64 AllCores = 0xFFFFFFFFFF;
 public:
 	static const CORE_API uint64 GetMainGameMask()
 	{
@@ -25,7 +26,7 @@ public:
 
 	static const CORE_API uint64 GetRHIThreadMask()
 	{
-		return FGenericPlatformAffinity::GetNoAffinityMask();
+		return AllCores;
 	}
 
 	static const CORE_API uint64 GetRTHeartBeatMask()
@@ -56,6 +57,11 @@ public:
 	static const CORE_API uint64 GetTaskGraphBackgroundTaskMask()
 	{
 		return GetLittleCoreMask();
+	}
+
+	static const CORE_API uint64 GetTaskGraphHighPriorityTaskMask()
+	{
+		return AllCores;
 	}
 
 	static const CORE_API uint64 GetAsyncLoadingThreadMask()

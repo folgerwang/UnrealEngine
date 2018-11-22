@@ -20,7 +20,7 @@ class TIMEMANAGEMENT_API UFixedFrameRateCustomTimeStep : public UEngineCustomTim
 
 protected:
 	/** The fixed FrameRate */
-	DEPRECATED(4.21, "The FixedFrameRateCustomTimeStep.FixedFrameRate is replaced by the function GetFixedFrameRate and will be removed from the codebase in a future release. Please use the function GetFixedFrameRate().")
+	UE_DEPRECATED(4.21, "The FixedFrameRateCustomTimeStep.FixedFrameRate is replaced by the function GetFixedFrameRate and will be removed from the codebase in a future release. Please use the function GetFixedFrameRate().")
 	UPROPERTY()
 	FFrameRate FixedFrameRate;
 

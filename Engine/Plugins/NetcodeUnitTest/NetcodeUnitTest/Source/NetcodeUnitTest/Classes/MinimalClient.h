@@ -339,7 +339,18 @@ public:
 	 * @param ChIndex			Specify the index of the channel to send the bunch on (otherwise, picks the next free/unused channel)
 	 * @return					Returns the created bunch, or nullptr if it couldn't be created
 	 */
+	UE_DEPRECATED(4.22, "Use CreateChannelBunchByName")
 	FOutBunch* CreateChannelBunch(EChannelType ChType, int32 ChIndex=INDEX_NONE);
+
+	/**
+	 * Creates a bunch for the specified channel, with the ability to create the channel as well
+	 * WARNING: Can return nullptr! (e.g. if the control channel is saturated)
+	 *
+	 * @param ChName			Specify the type of channel the bunch will be sent on
+	 * @param ChIndex			Specify the index of the channel to send the bunch on (otherwise, picks the next free/unused channel)
+	 * @return					Returns the created bunch, or nullptr if it couldn't be created
+	 */
+	FOutBunch* CreateChannelBunchByName(const FName& ChName, int32 ChIndex=INDEX_NONE);
 
 	/**
 	 * Discards a created bunch, without sending it - don't use this for sent packets

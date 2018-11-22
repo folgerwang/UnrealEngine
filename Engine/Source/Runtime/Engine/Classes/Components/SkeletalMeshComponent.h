@@ -47,6 +47,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAnimInitialized);
 DECLARE_MULTICAST_DELEGATE(FOnSkelMeshTeleportedMultiCast);
 typedef FOnSkelMeshTeleportedMultiCast::FDelegate FOnSkelMeshTeleported;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBoneTransformsFinalized);
+
 namespace physx
 {
 	class PxAggregate;
@@ -246,6 +248,7 @@ class ENGINE_API USkeletalMeshComponent : public USkinnedMeshComponent, public I
 	GENERATED_UCLASS_BODY()
 
 	friend class FSkinnedMeshComponentRecreateRenderStateContext;
+	friend class FParallelAnimationCompletionTask;
 	
 	/**
 	 * Animation 
@@ -262,7 +265,7 @@ public:
 	class UAnimBlueprint* AnimationBlueprint_DEPRECATED;
 #endif
 
-	DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
+	UE_DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
 	UPROPERTY(BlueprintReadOnly, Category = Animation, meta = (DeprecationMessage = "This property is deprecated. Please use AnimClass instead"))
 	class UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass;
 
@@ -412,7 +415,7 @@ private:
 	uint8 bAllowAnimCurveEvaluation : 1;
 
 	/** DEPRECATED. Use bAllowAnimCurveEvaluation instead */
-	DEPRECATED(4.18, "This property is deprecated. Please use bAllowAnimCurveEvaluatiuon instead. Note that the meaning is reversed.")	
+	UE_DEPRECATED(4.18, "This property is deprecated. Please use bAllowAnimCurveEvaluatiuon instead. Note that the meaning is reversed.")	
 	UPROPERTY()
 	uint8 bDisableAnimCurves_DEPRECATED : 1;
 
@@ -527,6 +530,18 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
     uint8 bUseContinuousCollisionDetection:1;
+
+	/** If true, propagates calls to ApplyAnimationCurvesToComponent for slave components, only needed if slave components do not tick themselves */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MasterPoseComponent)
+	uint8 bPropagateCurvesToSlaves : 1;
+
+	/** Whether to skip UpdateKinematicBonesToAnim() when interpolating. Kinematic bones are updated to the target interpolation pose only on ticks when they are evaluated. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Optimization)
+	uint8 bSkipKinematicUpdateWhenInterpolating:1;
+
+	/** Whether to skip bounds update when interpolating. Bounds are updated to the target interpolation pose only on ticks when they are evaluated. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Optimization)
+	uint8 bSkipBoundsUpdateWhenInterpolating:1;
 
 protected:
 
@@ -892,11 +907,11 @@ public:
 	}
 #endif 
 
-	DEPRECATED(4.18, "This function is deprecated. Please use SetAllowAnimCurveEvaluation instead. Note that the meaning is reversed.")
+	UE_DEPRECATED(4.18, "This function is deprecated. Please use SetAllowAnimCurveEvaluation instead. Note that the meaning is reversed.")
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
 	void SetDisableAnimCurves(bool bInDisableAnimCurves);
 
-	DEPRECATED(4.18, "This function is deprecated. Please use GetAllowedAnimCurveEvaluate instead. Note that the meaning is reversed.")
+	UE_DEPRECATED(4.18, "This function is deprecated. Please use GetAllowedAnimCurveEvaluate instead. Note that the meaning is reversed.")
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
 	bool GetDisableAnimCurves() const { return !bAllowAnimCurveEvaluation; }
 
@@ -1477,6 +1492,8 @@ public:
 	virtual void ClearRefPoseOverride() override;
 	//~ End USkinnedMeshComponent Interface
 
+	FOnBoneTransformsFinalized OnBoneTransformsFinalized;
+
 	void GetCurrentRefToLocalMatrices(TArray<FMatrix>& OutRefToLocals, int32 InLodIdx);
 
 	// Conditions used to gate when post process events happen
@@ -1849,7 +1866,7 @@ private:
 public:
 	// Parallel evaluation wrappers
 	void ParallelAnimationEvaluation();
-	void CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation);
+	virtual void CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation);
 
 
 	// Returns whether we are currently trying to run a parallel animation evaluation task

@@ -24,6 +24,7 @@ private:
 	float ConvertToPercentage(float Input) const;
 	float ConvertToDecimal(float Input) const;
 
+	TSharedPtr<IPropertyHandle> TerminationCriterionPopertyHandle;
 	TSharedPtr<IPropertyHandle> ReductionMethodPropertyHandle;
 	TSharedPtr<IPropertyHandle> NumTrianglesPercentagePropertyHandle;
 	TSharedPtr<IPropertyHandle> MaxDeviationPercentagePropertyHandle;
@@ -34,5 +35,19 @@ private:
 	float GetAccuracyPercentage() const;
 	void SetAccuracyPercentage(float Value);
 
+	// Used the the thrid-party UI.  
 	EVisibility GetVisibiltyIfCurrentReductionMethodIsNot(SkeletalMeshOptimizationType ReductionType) const;
+
+	// Used by the native tool UI.
+	EVisibility HideIfCurrentCriterionIs(SkeletalMeshTerminationCriterion TerminationCriterion) const;
+
+	/** Detect usage of thirdparty vs native tool */
+	bool UseNativeLODTool() const;
+	bool UseNativeReductionTool() const;
+
+	/**
+	Used to hide parameters that only make sense for the third party tool.
+	@return EVisibility::Visible if we are using the simplygon tool, otherwise EVisibility::Hidden
+	*/
+	EVisibility GetVisibilityForThirdPartyTool() const;
 };

@@ -2374,7 +2374,7 @@ void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsRe
 	InitOptions.bShowNoneOption = false;
 	InitOptions.bEnableClassDynamicLoading = true;
 	InitOptions.bExpandRootNodes = true;
-	InitOptions.bShowDisplayNames = true;
+	InitOptions.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	InitOptions.ClassFilter = MakeShared<FNotifyStateClassFilter>(Sequence);
 
 	FClassViewerModule& ClassViewerModule = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
@@ -4465,6 +4465,9 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 			EAnimLinkMethod::Type LinkMethod = OldEvent->GetLinkMethod();
 			EAnimLinkMethod::Type EndLinkMethod = OldEvent->EndLink.GetLinkMethod();
 
+			FColor OldColor = OldEvent->NotifyColor;
+			UAnimNotify* OldEventPayload = OldEvent->Notify;
+
 			// Delete old one before creating new one to avoid potential array re-allocation when array temporarily increases by 1 in size
 			NodeObject->Delete(Sequence);
 			FAnimNotifyEvent& NewEvent = NotifyAnimTracks[TargetTrackIndex]->CreateNewNotify(NewNotifyName, NewNotifyClass, BeginTime);
@@ -4473,6 +4476,14 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 			NewEvent.ChangeSlotIndex(SlotIndex);
 			NewEvent.SetSegmentIndex(SegmentIndex);
 			NewEvent.ChangeLinkMethod(LinkMethod);
+			NewEvent.NotifyColor = OldColor;
+
+			// Copy what we can across from the payload
+			if ((OldEventPayload != nullptr) && (NewEvent.Notify != nullptr))
+			{
+				UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyParams;
+				UEngine::CopyPropertiesForUnrelatedObjects(OldEventPayload, NewEvent.Notify, CopyParams);
+			}
 
 			// For Anim Notify States, handle the end time and link
 			if (NewEvent.NotifyStateClass != nullptr)

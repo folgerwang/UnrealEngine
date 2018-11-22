@@ -468,6 +468,10 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 			{
 				INC_DWORD_STAT_BY(STAT_SlateNumCachedElements, CachedWindowElements->GetElementCount());
 
+#if SLATE_VERBOSE_NAMED_EVENTS
+				SCOPED_NAMED_EVENT_TEXT("SInvalidationPanel::RecordHittestGeometry", FColor::Magenta);
+#endif
+
 				RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex(), MaximumLayerIdCachedAt, AbsoluteDeltaPosition);
 			}
 			else

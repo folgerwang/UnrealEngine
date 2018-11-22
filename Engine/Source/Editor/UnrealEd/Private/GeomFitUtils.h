@@ -124,6 +124,6 @@ UNREALED_API void ComputeBoundingBox(UStaticMesh* StaticMesh, FVector& Center, F
  */	
 UNREALED_API void RefreshCollisionChange(UStaticMesh& StaticMesh);
 
-DEPRECATED(4.15, "This version of RefreshCollisionChange is deprecated. Please use RefreshCollisionChange(UStaticMesh&) instead.")
+UE_DEPRECATED(4.15, "This version of RefreshCollisionChange is deprecated. Please use RefreshCollisionChange(UStaticMesh&) instead.")
 UNREALED_API void RefreshCollisionChange(const UStaticMesh* StaticMesh);
 	

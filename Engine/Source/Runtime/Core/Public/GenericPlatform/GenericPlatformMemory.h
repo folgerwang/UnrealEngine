@@ -490,6 +490,48 @@ public:
 		}
 	}
 
+#if defined(_MSC_VER)
+	// MSVC version
+	__pragma(pack(push, 1))
+		template <typename U>
+	struct TUnaligned
+	{
+		U Value;
+	};
+	__pragma(pack(pop))
+#else 
+	// assume it is either clang or something that supports the clang attributes
+	template <typename U>
+	struct __attribute__((packed)) TUnaligned
+	{
+		U Value;
+	};
+#endif
+
+	/**
+	* Loads a simple POD type from unaligned memory.
+	*
+	* @param Ptr unaligned memory of at least size sizeof(T)
+	* @return Value at Ptr
+	*/
+	template <typename T>
+	static FORCEINLINE T ReadUnaligned(const void* Ptr)
+	{
+		return reinterpret_cast<const TUnaligned<T>*>(Ptr)->Value;
+	}
+
+	/**
+	* Stores a simple POD type to unaligned memory.
+	*
+	* @param Ptr unaligned memory of at least size sizeof(T)
+	* @param Value value to write at Ptr
+	*/
+	template <typename T>
+	static FORCEINLINE void WriteUnaligned(void* Ptr, const T& InValue)
+	{
+		reinterpret_cast<TUnaligned<T>*>(Ptr)->Value = InValue;
+	}
+
 	/**
 	 * Maps a named shared memory region into process address space (creates or opens it)
 	 *

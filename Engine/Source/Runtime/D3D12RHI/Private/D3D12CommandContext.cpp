@@ -441,6 +441,19 @@ void FD3D12CommandContextBase::UpdateMemoryStats()
 	SET_MEMORY_STAT(STAT_D3D12UsedVideoMemory, LocalVideoMemoryInfo.CurrentUsage);
 	SET_MEMORY_STAT(STAT_D3D12AvailableVideoMemory, AvailableSpace);
 	SET_MEMORY_STAT(STAT_D3D12TotalVideoMemory, Budget);
+
+#if D3D12RHI_SEGREGATED_TEXTURE_ALLOC && D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+	uint64 MaxTexAllocWastage = 0;
+	for (uint32 GPUIndex : GPUMask)
+	{
+		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
+		uint64 TotalAllocated;
+		uint64 TotalUnused;
+		Device->GetTextureAllocator().GetMemoryStats(TotalAllocated, TotalUnused);
+		MaxTexAllocWastage = FMath::Max(MaxTexAllocWastage, TotalUnused);
+	}
+	SET_MEMORY_STAT(STAT_D3D12TextureAllocatorWastage, MaxTexAllocWastage);
+#endif
 #endif
 }
 

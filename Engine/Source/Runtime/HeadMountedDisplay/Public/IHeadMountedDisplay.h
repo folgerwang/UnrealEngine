@@ -105,13 +105,13 @@ public:
 	 * Called just before rendering the current frame on the render thread. Invoked before applying late update, so plugins that want to refresh poses on the
 	 * render thread prior to late update. Use this to perform any initializations prior to rendering.
 	 */
-	DEPRECATED(4.19, "Use IXRTrackingSystem::OnBeginRendering_Renderthread instead")
+	UE_DEPRECATED(4.19, "Use IXRTrackingSystem::OnBeginRendering_Renderthread instead")
 	virtual void BeginRendering_RenderThread(const FTransform& NewRelativeTransform, FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily) {}
 
 	/**
 	 * Called just before rendering the current frame on the game frame.
 	 */
-	DEPRECATED(4.19, "Use IXRTrackingSystem::OnBeginRendering_GameThread instead")
+	UE_DEPRECATED(4.19, "Use IXRTrackingSystem::OnBeginRendering_GameThread instead")
 	virtual void BeginRendering_GameThread() {}
 
 

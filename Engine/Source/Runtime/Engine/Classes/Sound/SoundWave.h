@@ -215,7 +215,7 @@ private:
 		Freed
 	};
 
-	ESoundWaveResourceState ResourceState;
+	volatile ESoundWaveResourceState ResourceState;
 
 	/** What state the precache decompressor is in. */
 	FThreadSafeCounter PrecacheState;

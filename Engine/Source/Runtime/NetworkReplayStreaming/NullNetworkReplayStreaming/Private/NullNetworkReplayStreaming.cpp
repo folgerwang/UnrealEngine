@@ -576,6 +576,8 @@ void FNullNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 CheckpointInd
 		FileAr->Seek(0);
 		Result.ExtraTimeMS = ExtraTimeInMS;
 		Result.Result = EStreamingOperationResult::Success;
+		Result.CheckpointInfo.CheckpointIndex = FReplayCheckpointInfo::NO_CHECKPOINT;
+		Result.CheckpointInfo.CheckpointStartTime = FReplayCheckpointInfo::NO_CHECKPOINT;
 	}
 	else
 	{
@@ -591,6 +593,7 @@ void FNullNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 CheckpointInd
 		{
 			Result.ExtraTimeMS = ExtraTimeInMS;
 			Result.Result = EStreamingOperationResult::Success;
+			Result.CheckpointInfo.CheckpointIndex = CheckpointIndex;
 
 			// Open and deserialize the corresponding event, this tells us where we need to seek to
 			// in the main replay file to sync up with the checkpoint we're loading.
@@ -603,6 +606,8 @@ void FNullNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 CheckpointInd
 
 				FNullCheckpointListItem Item;
 				Item.FromJson(JsonString);
+				Result.CheckpointInfo.CheckpointStartTime = Item.Time1;
+				
 
 				// Reopen, since for live replays the file is being written to and read from simultaneously
 				// and we need the reported file size to be up to date.

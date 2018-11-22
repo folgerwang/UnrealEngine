@@ -7,7 +7,8 @@
 #include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
-#include "Interfaces/OnlineChatInterface.h"
+
+typedef FString FChatRoomId;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Log, All);
 #define UE_LOG_ONLINE_PARTY(Verbosity, Format, ...) \
@@ -34,6 +35,8 @@ enum class ERejectPartyInvitationCompletionResult;
 enum class ERequestPartyInvitationCompletionResult;
 enum class ESendPartyInvitationCompletionResult;
 enum class EUpdateConfigCompletionResult;
+
+struct FAnalyticsEventAttribute;
 
 /**
  * Party member user info returned by IOnlineParty interface
@@ -737,6 +740,15 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnFillPartyJoinRequestData), con
 PARTY_DECLARE_DELEGATETYPE(OnFillPartyJoinRequestData);
 
 /**
+ * Notification when an analytics event needs to be recorded
+ * @param LocalUserId - id associated with this notification
+ * @param PartyId - id associated with the party
+ * @param PartyData - data for the game to populate
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyAnalyticsEvent), const FUniqueNetId& /*LocalUserId*/, const FString& /*EventName*/, const TArray<FAnalyticsEventAttribute>& /*Attributes*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyAnalyticsEvent);
+
+/**
  * Interface definition for the online party services 
  * Allows for forming a party and communicating with party members
  */
@@ -1177,6 +1189,7 @@ public:
 	 * OnPartyJoinRequestReceived
 	 * OnPartyQueryJoinabilityReceived
 	 * OnFillPartyJoinRequestData
+	 * OnPartyAnalyticsEvent
 	 */
 
 	/**
@@ -1321,6 +1334,15 @@ public:
 	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
 	 */
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnFillPartyJoinRequestData, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, FOnlinePartyData& /*PartyData*/);
+
+	/**
+	 * Notification when an analytics event needs to be recorded
+	 * Subscriber is expected to record the event
+	 * @param LocalUserId - id associated with this event
+	 * @param EventName - name of the event
+	 * @param Attributes - attributes for the event
+	 */
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyAnalyticsEvent, const FUniqueNetId& /*LocalUserId*/, const FString& /*EventName*/, const TArray<FAnalyticsEventAttribute>& /*Attributes*/);
 
 	/**
 	 * Dump out party state for all known parties

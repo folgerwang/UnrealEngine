@@ -15,7 +15,7 @@
 //#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
-	(PLATFORM_ANDROID && !PLATFORM_LUMIN) ? 0 : 1,
+	1,
 	TEXT("Delay acquiring the back buffer until present"),
 	ECVF_ReadOnly
 );
@@ -548,7 +548,7 @@ void FVulkanViewport::CreateSwapchain()
 			LockToVsync
 		);
 
-		check(Images.Num() == NUM_BUFFERS);
+		checkf(Images.Num() == NUM_BUFFERS, TEXT("Actual Num: %i"), Images.Num());
 
 		FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
 		ensure(CmdBuffer->IsOutsideRenderPass());

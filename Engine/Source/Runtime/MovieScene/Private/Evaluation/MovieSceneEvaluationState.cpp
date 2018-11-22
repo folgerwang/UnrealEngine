@@ -4,7 +4,7 @@
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
 #include "IMovieScenePlayer.h"
-#include "MovieSceneBindingOverridesInterface.h"
+#include "IMovieScenePlaybackClient.h"
 
 DECLARE_CYCLE_STAT(TEXT("Find Bound Objects"), MovieSceneEval_FindBoundObjects, STATGROUP_MovieSceneEval);
 
@@ -256,11 +256,11 @@ void FMovieSceneObjectCache::UpdateBindings(const FGuid& InGuid, IMovieScenePlay
 		bool bUseDefault = true;
 
 		// Allow external overrides for spawnables
-		const IMovieSceneBindingOverridesInterface* Overrides = Player.GetBindingOverrides();
-		if (Overrides)
+		const IMovieScenePlaybackClient* PlaybackClient = Player.GetPlaybackClient();
+		if (PlaybackClient)
 		{
 			TArray<UObject*, TInlineAllocator<1>> FoundObjects;
-			bUseDefault = Overrides->LocateBoundObjects(InGuid, SequenceID, FoundObjects);
+			bUseDefault = PlaybackClient->RetrieveBindingOverrides(InGuid, SequenceID, FoundObjects);
 			for (UObject* Object : FoundObjects)
 			{
 				Bindings->Objects.Add(Object);

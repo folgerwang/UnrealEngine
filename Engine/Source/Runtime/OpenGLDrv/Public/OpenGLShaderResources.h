@@ -535,6 +535,7 @@ private:
 	TMap<GLuint, FPendingShaderCode> ShadersPendingCompilation;
 
 	bool AppendProgramBinaryFile(FArchive& Ar, const FOpenGLProgramKey& ProgramKey, GLuint Program, uint32& ProgramBinaryOffsetOUT, uint32& ProgramBinarySizeOUT);
+	void AppendProgramBinaryFileEofEntry(FArchive& Ar);
 
 	void ScanProgramCacheFile(const FGuid& ShaderPipelineCacheVersionGuid = FGuid());
 

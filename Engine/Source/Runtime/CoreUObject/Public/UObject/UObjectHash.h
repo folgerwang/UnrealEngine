@@ -126,6 +126,11 @@ void HashObject(class UObjectBase* Object);
 void UnhashObject(class UObjectBase* Object);
 
 /**
+* Shrink the UObject hash tables
+*/
+COREUOBJECT_API void ShrinkUObjectHashTables();
+
+/**
  * Logs out information about the object hash for debug purposes
  *
  * @param Ar the archive to write the log data to

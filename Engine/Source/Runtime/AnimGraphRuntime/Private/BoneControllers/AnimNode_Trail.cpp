@@ -27,6 +27,7 @@ FAnimNode_Trail::FAnimNode_Trail()
 	, DebugLifeTime(0.f)
 	, TrailRelaxation_DEPRECATED(10.f)
 #endif// #if WITH_EDITORONLY_DATA
+	, MaxDeltaTime(0.f)
 	, UnwindingSize(3)
 	, RelaxationSpeedScale(1.f)
 	, StretchLimit(0)
@@ -66,7 +67,7 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 	SCOPE_CYCLE_COUNTER(STAT_Trail_Eval);
 
 	check(OutBoneTransforms.Num() == 0);
-	const float TimeStep = ThisTimstep;
+	const float TimeStep = (MaxDeltaTime > 0.f)? FMath::Clamp(ThisTimstep, 0.f, MaxDeltaTime) : ThisTimstep;
 	ThisTimstep = 0.f;
 
 	if( ChainBoneIndices.Num() <= 0 )

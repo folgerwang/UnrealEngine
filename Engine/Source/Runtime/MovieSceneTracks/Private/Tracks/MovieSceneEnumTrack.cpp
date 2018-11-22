@@ -15,6 +15,11 @@ void UMovieSceneEnumTrack::PostLoad()
 	SetEnum(Enum);
 }
 
+bool UMovieSceneEnumTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneEnumSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneEnumTrack::CreateNewSection()
 {
 	UMovieSceneEnumSection* NewEnumSection = NewObject<UMovieSceneEnumSection>(this, NAME_None, RF_Transactional);

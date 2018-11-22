@@ -4004,11 +4004,32 @@ void APlayerController::SetControllerLightColor(FColor Color)
 		return;
 	}
 
-	IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
-	if (InputInterface)
+	if (FSlateApplication::IsInitialized())
 	{
-		const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
-		InputInterface->SetLightColor(ControllerId, Color);
+		IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
+		if (InputInterface)
+		{
+			const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
+			InputInterface->SetLightColor(ControllerId, Color);
+		}
+	}
+}
+
+void APlayerController::ResetControllerLightColor()
+{
+	if (Player == nullptr)
+	{
+		return;
+	}
+
+	if (FSlateApplication::IsInitialized())
+	{
+		IInputInterface* InputInterface = FSlateApplication::Get().GetInputInterface();
+		if (InputInterface)
+		{
+			const int32 ControllerId = CastChecked<ULocalPlayer>(Player)->GetControllerId();
+			InputInterface->ResetLightColor(ControllerId);
+		}
 	}
 }
 
@@ -4396,6 +4417,7 @@ void APlayerController::TickPlayerInput(const float DeltaSeconds, const bool bGa
 
 void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FActorTickFunction& ThisTickFunction )
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(PlayerControllerTick);
 	SCOPE_CYCLE_COUNTER(STAT_PlayerControllerTick);
 	SCOPE_CYCLE_COUNTER(STAT_PC_TickActor);
 
