@@ -33,6 +33,7 @@
 		: ShaderParentClass(Initializer) \
 	{ \
 		this->Bindings.BindForLegacyShaderParameters( \
+			this, \
 			Initializer.ParameterMap, \
 			*FParameters::FTypeInfo::GetStructMetadata(), \
 			true); \
@@ -47,7 +48,7 @@
 	ShaderClass(const ShaderMetaType::CompiledShaderInitializerType& Initializer) \
 		: ShaderParentClass(Initializer) \
 	{ \
-		this->Bindings.BindForRootShaderParameters(Initializer.ParameterMap, *FParameters::FTypeInfo::GetStructMetadata()); \
+		this->Bindings.BindForRootShaderParameters(this, Initializer.ParameterMap); \
 	} \
 	\
 	ShaderClass() \

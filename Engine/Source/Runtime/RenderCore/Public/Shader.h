@@ -653,8 +653,8 @@ public:
 		return Ar;
 	}
 
-	void BindForLegacyShaderParameters(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData, bool bShouldBindEverything = false);
-	void BindForRootShaderParameters(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData);
+	void BindForLegacyShaderParameters(const FShader* Shader, const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData, bool bShouldBindEverything = false);
+	void BindForRootShaderParameters(const FShader* Shader, const FShaderParameterMap& ParameterMaps);
 }; // FShaderParameterBindings
 
 

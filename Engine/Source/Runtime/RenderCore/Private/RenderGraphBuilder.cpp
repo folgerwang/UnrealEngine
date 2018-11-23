@@ -624,7 +624,7 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 
 	AllocateAndTransitionPassResources(Pass, &RPInfo, &bHasRenderTargets);
 
-	if (RENDER_GRAPH_DRAW_EVENTS != 0 && GetEmitDrawEvents())
+	if (RENDER_GRAPH_DRAW_EVENTS && GetEmitDrawEvents())
 	{
 		PushDrawEventStack(Pass);
 	}
@@ -649,7 +649,7 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 		RHICmdList.EndRenderPass();
 	}
 
-	if (RENDER_GRAPH_DRAW_EVENTS != 0 && GetEmitDrawEvents())
+	if (RENDER_GRAPH_DRAW_EVENTS && GetEmitDrawEvents())
 	{
 		RHICmdList.PopEvent();
 	}
