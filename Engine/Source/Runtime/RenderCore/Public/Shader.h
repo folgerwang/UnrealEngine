@@ -27,6 +27,7 @@ class FGlobalShaderType;
 class FMaterialShaderType;
 class FNiagaraShaderType;
 class FMeshMaterialShaderType;
+class FShader;
 class FShaderPipelineType;
 class FShaderType;
 class FVertexFactoryParameterRef;
