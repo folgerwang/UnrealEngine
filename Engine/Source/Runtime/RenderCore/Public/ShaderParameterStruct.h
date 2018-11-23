@@ -63,7 +63,7 @@ extern RENDERCORE_API void EmitNullShaderParameterFatalError(const FShader* Shad
 extern RENDERCORE_API void ValidateShaderParameters(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, const void* Parameters);
 
 #else // !DO_CHECK
-FORCE_INLINE void ValidateShaderParameters(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, const void* Parameters)
+FORCEINLINE void ValidateShaderParameters(const FShader* Shader, const FShaderParametersMetadata* ParametersMetadata, const void* Parameters)
 { }
 
 #endif // !DO_CHECK
