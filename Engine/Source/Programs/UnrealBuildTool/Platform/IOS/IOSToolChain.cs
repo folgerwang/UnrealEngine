@@ -1495,7 +1495,7 @@ namespace UnrealBuildTool
 
             // ensure the plist, entitlements, and provision files are properly copied
             UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-            DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
+            DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target), Target.Rules.bCreateStubIPA);
 
 			// copy the executable
 			if (!File.Exists(FinalRemoteExecutablePath))
@@ -1532,7 +1532,7 @@ namespace UnrealBuildTool
 
 				// ensure the plist, entitlements, and provision files are properly copied
 				DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-				DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
+				DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target), true);
 
 				FileReference SignProjectScript = FileReference.Combine(Target.ProjectIntermediateDirectory, "SignProject.sh");
 				using(StreamWriter Writer = new StreamWriter(SignProjectScript.FullName))

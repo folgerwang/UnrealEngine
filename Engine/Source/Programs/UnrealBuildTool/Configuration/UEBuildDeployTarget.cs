@@ -51,11 +51,6 @@ namespace UnrealBuildTool
 		public readonly FileReference BuildReceiptFileName;
 
 		/// <summary>
-		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA)
-		/// </summary>
-		public readonly bool bCreateStubIPA;
-
-		/// <summary>
 		/// Construct the deployment info from a target
 		/// </summary>
 		/// <param name="Target">The target being built</param>
@@ -68,7 +63,6 @@ namespace UnrealBuildTool
 			this.Configuration = Target.Configuration;
 			this.ProjectDirectory = Target.ProjectDirectory;
 			this.BuildReceiptFileName = Target.ReceiptFileName;
-			this.bCreateStubIPA = Target.Rules.bCreateStubIPA;
 		}
 
 		/// <summary>
@@ -86,7 +80,6 @@ namespace UnrealBuildTool
 				Configuration = (UnrealTargetConfiguration)Reader.ReadInt32();
 				ProjectDirectory = Reader.ReadDirectoryReference();
 				BuildReceiptFileName = Reader.ReadFileReference();
-				bCreateStubIPA = Reader.ReadBoolean();
 			}
 		}
 
@@ -106,7 +99,6 @@ namespace UnrealBuildTool
 				Writer.Write((Int32)Configuration);
 				Writer.Write(ProjectDirectory);
 				Writer.Write(BuildReceiptFileName);
-				Writer.Write(bCreateStubIPA);
 			}
 		}
 	}

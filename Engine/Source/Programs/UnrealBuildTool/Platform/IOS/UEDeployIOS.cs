@@ -1078,6 +1078,11 @@ namespace UnrealBuildTool
 
 		public override bool PrepTargetForDeployment(UEBuildDeployTarget InTarget)
 		{
+			return PrepTargetForDeployment(InTarget, false);
+		}
+
+		public bool PrepTargetForDeployment(UEBuildDeployTarget InTarget, bool bCreateStubIPA)
+		{
 			TargetReceipt Receipt = TargetReceipt.Read(InTarget.BuildReceiptFileName);
 
 			string SubDir = GetTargetPlatformName();
@@ -1101,7 +1106,7 @@ namespace UnrealBuildTool
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && Environment.GetEnvironmentVariable("UBT_NO_POST_DEPLOY") != "true")
 			{
-				return PrepForUATPackageOrDeploy(InTarget.Configuration, InTarget.ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", false, "", false, InTarget.bCreateStubIPA, Receipt);
+				return PrepForUATPackageOrDeploy(InTarget.Configuration, InTarget.ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", false, "", false, bCreateStubIPA, Receipt);
 			}
 			else
 			{
