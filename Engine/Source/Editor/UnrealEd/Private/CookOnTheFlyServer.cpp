@@ -6246,7 +6246,9 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 			// Save shader code map
 			FString LibraryName = !IsCookingDLC() ? FApp::GetProjectName() : CookByTheBookOptions->DlcName;
 			SaveShaderCodeLibrary(LibraryName);
-            CleanShaderCodeLibraries();
+			
+			// Don't clean Saved/Shaders/<LibraryPlatform(s)>/ at the end as we might iterate next time - Next cook at startup will decide if clean on iterate flag
+            // /*CleanShaderCodeLibraries();*/
 			ProcessShaderCodeLibraries(LibraryName);
             
 			FShaderCodeLibrary::Shutdown();
