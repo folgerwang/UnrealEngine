@@ -91,11 +91,6 @@ namespace UnrealBuildTool
 		public readonly string Architecture;
 
 		/// <summary>
-		/// The directory to shadow source files in for syncing to remote compile servers
-		/// </summary>
-		public DirectoryReference LocalShadowDirectory = null;
-
-		/// <summary>
 		/// The name of the header file which is precompiled.
 		/// </summary>
 		public FileReference PrecompiledHeaderIncludeFilename = null;
@@ -336,7 +331,6 @@ namespace UnrealBuildTool
 			Platform = Other.Platform;
 			Configuration = Other.Configuration;
 			Architecture = Other.Architecture;
-			LocalShadowDirectory = Other.LocalShadowDirectory;
 			PrecompiledHeaderIncludeFilename = Other.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = Other.PrecompiledHeaderAction;
 			bUseRTTI = Other.bUseRTTI;

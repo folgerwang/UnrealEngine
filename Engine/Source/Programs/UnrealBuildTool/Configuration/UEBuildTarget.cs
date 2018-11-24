@@ -3418,9 +3418,6 @@ namespace UnrealBuildTool
                 }
             }
 
-			// By default, shadow source files for this target in the root OutputDirectory
-			GlobalCompileEnvironment.LocalShadowDirectory = LinkIntermediateDirectory;
-
 			GlobalCompileEnvironment.Definitions.Add("UNICODE");
 			GlobalCompileEnvironment.Definitions.Add("_UNICODE");
 			GlobalCompileEnvironment.Definitions.Add("__UNREAL__");
