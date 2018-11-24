@@ -137,7 +137,7 @@ namespace UnrealBuildTool
 
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
-			if (Target.bCreateStubIPA && Binary.Type != UEBuildBinaryType.StaticLibrary)
+			if (Target.IOSPlatform.bCreateStubIPA && Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
 				FileReference StubFile = FileReference.Combine(Binary.OutputFilePath.Directory, Binary.OutputFilePath.GetFileNameWithoutExtension() + ".stub");
 				BuildProducts.Add(StubFile, BuildProductType.Package);
@@ -1473,7 +1473,7 @@ namespace UnrealBuildTool
 			string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
 
 			// strip the debug info from the executable if needed
-			if (Target.Rules.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping))
+			if (Target.Rules.IOSPlatform.bStripSymbols || (Target.Configuration == UnrealTargetConfiguration.Shipping))
 			{
 				Process StripProcess = new Process();
 				StripProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
@@ -1495,7 +1495,7 @@ namespace UnrealBuildTool
 
             // ensure the plist, entitlements, and provision files are properly copied
             UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-            DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target), Target.Rules.bCreateStubIPA);
+            DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target), Target.Rules.IOSPlatform.bCreateStubIPA);
 
 			// copy the executable
 			if (!File.Exists(FinalRemoteExecutablePath))
@@ -1509,7 +1509,7 @@ namespace UnrealBuildTool
 				GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
 			}
 
-			if (Target.Rules.bCreateStubIPA)
+			if (Target.Rules.IOSPlatform.bCreateStubIPA)
 			{
 				// generate the dummy project so signing works
 				DirectoryReference XcodeWorkspaceDir;

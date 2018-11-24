@@ -18,6 +18,18 @@ namespace UnrealBuildTool
 	public class IOSTargetRules
 	{
 		/// <summary>
+		/// Whether to strip iOS symbols or not (implied by bGeneratedSYMFile).
+		/// </summary>
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		public bool bStripSymbols = false;
+
+		/// <summary>
+		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
+		/// </summary>
+		[CommandLine("-CreateStub", Value = "true")]
+		public bool bCreateStubIPA = false;
+
+		/// <summary>
 		/// Don't generate crashlytics data
 		/// </summary>
 		[CommandLine("-skipcrashlytics")]
@@ -68,6 +80,16 @@ namespace UnrealBuildTool
 #if !__MonoCS__
 #pragma warning disable CS1591
 #endif
+		public bool bStripSymbols
+		{
+			get { return Inner.bStripSymbols; }
+		}
+			
+		public bool bCreateStubIPA
+		{
+			get { return Inner.bCreateStubIPA; }
+		}
+
 		public bool bSkipCrashlytics
 		{
 			get { return Inner.bSkipCrashlytics; }

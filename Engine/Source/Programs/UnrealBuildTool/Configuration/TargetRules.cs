@@ -808,8 +808,22 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to strip iOS symbols or not (implied by bGeneratedSYMFile).
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bStripSymbolsOnIOS = false;
+		[Obsolete("bStripSymbolsOnIOS has been deprecated. Use IOSPlatform.bStripSymbols instead.")]
+		public bool bStripSymbolsOnIOS
+		{
+			get { return IOSPlatform.bStripSymbols; }
+			set { IOSPlatform.bStripSymbols = value; }
+		}
+
+		/// <summary>
+		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
+		/// </summary>
+		[Obsolete("bCreateStubIPA has been deprecated. Use IOSPlatform.bCreateStubIPA instead.")]
+		public bool bCreateStubIPA
+		{
+			get { return IOSPlatform.bCreateStubIPA; }
+			set { IOSPlatform.bCreateStubIPA = value; }
+		}
 
 		/// <summary>
 		/// If true, then enable memory profiling in the build (defines USE_MALLOC_PROFILER=1 and forces bOmitFramePointers=false).
@@ -875,12 +889,6 @@ namespace UnrealBuildTool
 		[CommandLine("-Deploy")]
 		[CommandLine("-SkipDeploy", Value = "false")]
 		public bool bDeployAfterCompile = false;
-
-		/// <summary>
-		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
-		/// </summary>
-		[CommandLine("-CreateStub", Value = "true")]
-		public bool bCreateStubIPA = false;
 
 		/// <summary>
 		/// When enabled, allows XGE to compile pre-compiled header files on remote machines.  Otherwise, PCHs are always generated locally.
@@ -1967,9 +1975,10 @@ namespace UnrealBuildTool
 			get { return Inner.bOmitFramePointers; }
 		}
 
+		[Obsolete("bStripSymbolsOnIOS has been deprecated. Use IOSPlatform.bStripSymbols instead.")]
 		public bool bStripSymbolsOnIOS
 		{
-			get { return Inner.bStripSymbolsOnIOS; }
+			get { return IOSPlatform.bStripSymbols; }
 		}
 
 		public bool bUseMallocProfiler
@@ -2022,9 +2031,10 @@ namespace UnrealBuildTool
 			get { return Inner.bDeployAfterCompile; }
 		}
 
+		[Obsolete("bCreateStubIPA has been deprecated. Use IOSPlatform.bCreateStubIPA instead.")]
 		public bool bCreateStubIPA
 		{
-			get { return Inner.bCreateStubIPA; }
+			get { return IOSPlatform.bCreateStubIPA; }
 		}
 
 		public bool bAllowRemotelyCompiledPCHs
