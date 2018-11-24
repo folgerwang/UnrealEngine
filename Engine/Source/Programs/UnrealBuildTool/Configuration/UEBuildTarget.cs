@@ -866,7 +866,7 @@ namespace UnrealBuildTool
 			TargetType = Rules.Type;
 			bPrecompile = InRules.bPrecompile;
 			ForeignPlugin = InDesc.ForeignPlugin;
-			bDeployAfterCompile = InRules.bDeployAfterCompile;
+			bDeployAfterCompile = InRules.bDeployAfterCompile && !InRules.bDisableLinking;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
 			PlatformIntermediateFolder = Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
