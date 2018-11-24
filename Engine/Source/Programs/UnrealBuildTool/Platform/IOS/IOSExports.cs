@@ -176,30 +176,5 @@ namespace UnrealBuildTool
 				}
 			}
 		}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static bool SupportsIconCatalog(DirectoryReference ProjectDirectory, TargetReceipt Receipt)
-        {
-            // get the receipt
-            if (Receipt != null)
-            {
-                IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "SDK");
-
-                if (Results.Count() > 0)
-                {
-                    if (Single.Parse(Results.ElementAt(0).Value) >= 11.0f)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
-            return false;
-        }
     }
 }
