@@ -997,7 +997,7 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			IOSProjectSettings ProjectSettings = ReadProjectSettings(Target.ProjectFile);
-			return new IOSToolChain(Target.ProjectFile, ProjectSettings);
+			return new IOSToolChain(Target, ProjectSettings);
 		}
 
 		/// <summary>

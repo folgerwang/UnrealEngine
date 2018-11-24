@@ -72,11 +72,13 @@ namespace UnrealBuildTool
 
 	class IOSToolChain : AppleToolChain
 	{
+		public readonly ReadOnlyTargetRules Target;
 		protected IOSProjectSettings ProjectSettings;
 
-		public IOSToolChain(FileReference InProjectFile, IOSProjectSettings InProjectSettings)
-			: this(CppPlatform.IOS, InProjectFile, InProjectSettings, () => new IOSToolChainSettings())
+		public IOSToolChain(ReadOnlyTargetRules Target, IOSProjectSettings InProjectSettings)
+			: this(CppPlatform.IOS, (Target == null)? null : Target.ProjectFile, InProjectSettings, () => new IOSToolChainSettings())
 		{
+			this.Target = Target;
 		}
 
 		protected IOSToolChain(CppPlatform TargetPlatform, FileReference InProjectFile, IOSProjectSettings InProjectSettings, Func<IOSToolChainSettings> InCreateSettings)
@@ -1324,6 +1326,24 @@ namespace UnrealBuildTool
                 }
             }
 
+			// strip the debug info from the executable if needed. creates a dummy output file for the action graph to track that it's out of date.
+			if (Target.IOSPlatform.bStripSymbols || (Target.Configuration == UnrealTargetConfiguration.Shipping))
+			{
+				FileItem StripCompleteFile = FileItem.GetItemByFileReference(FileReference.Combine(BinaryLinkEnvironment.IntermediateDirectory, Executable.Location.GetFileName() + ".stripped"));
+
+				Action StripAction = ActionGraph.Add(ActionType.CreateAppBundle);
+				StripAction.WorkingDirectory = GetMacDevSrcRoot();
+				StripAction.CommandPath = "sh";
+				StripAction.CommandArguments = String.Format("-c '\"{0}strip\" \"{1}\" && touch \"{2}\"'", Settings.Value.ToolchainDir, Executable.Location, StripCompleteFile);
+				StripAction.PrerequisiteItems.Add(Executable);
+				StripAction.PrerequisiteItems.AddRange(OutputFiles);
+				StripAction.ProducedItems.Add(StripCompleteFile);
+				StripAction.StatusDescription = String.Format("Stripping symbols from {0}", Executable.AbsolutePath);
+				StripAction.bCanExecuteRemotely = false;
+
+				OutputFiles.Add(StripCompleteFile);
+			}
+
 			if(ShouldCompileAssetCatalog())
 			{
 				// generate the asset catalog
@@ -1473,27 +1493,6 @@ namespace UnrealBuildTool
 
 			string RemoteShadowDirectoryMac = Path.GetDirectoryName(Target.OutputPath.FullName);
 			string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
-
-			// strip the debug info from the executable if needed
-			if (Target.Rules.IOSPlatform.bStripSymbols || (Target.Configuration == UnrealTargetConfiguration.Shipping))
-			{
-				Process StripProcess = new Process();
-				StripProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
-				StripProcess.StartInfo.FileName = new IOSToolChainSettings().ToolchainDir + "strip";
-				StripProcess.StartInfo.Arguments = "\"" + Target.OutputPath + "\"";
-
-				ProcessOutput Output = new ProcessOutput();
-				StripProcess.OutputDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
-				StripProcess.ErrorDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
-
-				Output.OutputReceivedDataEventHandlerEncounteredError = false;
-				Output.OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-				Utils.RunLocalProcess(StripProcess);
-				if (Output.OutputReceivedDataEventHandlerEncounteredError)
-				{
-					throw new Exception(Output.OutputReceivedDataEventHandlerEncounteredErrorMessage);
-				}
-			}
 
             // ensure the plist, entitlements, and provision files are properly copied
             UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
