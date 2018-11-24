@@ -130,9 +130,9 @@ namespace UnrealBuildTool
 			return new TVOSToolChain(Target.ProjectFile, ProjectSettings);
 		}
 
-		public override void Deploy(UEBuildDeployTarget Target)
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployTVOS().PrepTargetForDeployment(Target);
+			new UEDeployTVOS().PrepTargetForDeployment(Receipt);
 		}
 	}
 

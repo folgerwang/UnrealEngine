@@ -1376,11 +1376,11 @@ namespace UnrealBuildTool
 							{
 								foreach (UEBuildTarget Target in Targets)
 								{
-									if (Target.DeployTargetFile != null && Target.OnlyModules.Count == 0)
+									if (Target.bDeployAfterCompile && Target.OnlyModules.Count == 0)
 									{
 										Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", Target.TargetName, Target.Platform, Target.Configuration);
-										UEBuildDeployTarget DeployTarget = new UEBuildDeployTarget(Target.DeployTargetFile);
-										UEBuildPlatform.GetBuildPlatform(Target.Platform).Deploy(DeployTarget);
+										TargetReceipt Receipt = TargetReceipt.Read(Target.ReceiptFileName);
+										UEBuildPlatform.GetBuildPlatform(Target.Platform).Deploy(Receipt);
 									}
 								}
 							}

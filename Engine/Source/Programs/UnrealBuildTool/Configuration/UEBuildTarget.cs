@@ -762,9 +762,9 @@ namespace UnrealBuildTool
 		FileReference[] PostBuildStepScripts;
 
 		/// <summary>
-		/// File containing information needed to deploy this target
+		/// Whether to deploy this target after compilation
 		/// </summary>
-		public FileReference DeployTargetFile;
+		public bool bDeployAfterCompile;
 
 		/// <summary>
 		/// Directories which are scanned for source files. The UBT makefile uses this to check for files being added/removed.
@@ -813,7 +813,7 @@ namespace UnrealBuildTool
 			TargetRulesFile = (FileReference)Info.GetValue("tc", typeof(FileReference));
 			PreBuildStepScripts = (FileReference[])Info.GetValue("pr", typeof(FileReference[]));
 			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
-			DeployTargetFile = (FileReference)Info.GetValue("dt", typeof(FileReference));
+			bDeployAfterCompile = Info.GetBoolean("dt");
 			bHasProjectScriptPlugin = Info.GetBoolean("sp");
 			SourceDirectories = (HashSet<DirectoryReference>)Info.GetValue("sd", typeof(HashSet<DirectoryReference>));
 		}
@@ -842,7 +842,7 @@ namespace UnrealBuildTool
 			Info.AddValue("tc", TargetRulesFile);
 			Info.AddValue("pr", PreBuildStepScripts);
 			Info.AddValue("po", PostBuildStepScripts);
-			Info.AddValue("dt", DeployTargetFile);
+			Info.AddValue("dt", bDeployAfterCompile);
 			Info.AddValue("sp", bHasProjectScriptPlugin);
 			Info.AddValue("sd", SourceDirectories);
 		}
@@ -866,6 +866,7 @@ namespace UnrealBuildTool
 			TargetType = Rules.Type;
 			bPrecompile = InRules.bPrecompile;
 			ForeignPlugin = InDesc.ForeignPlugin;
+			bDeployAfterCompile = InRules.bDeployAfterCompile;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
 			PlatformIntermediateFolder = Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
@@ -1313,9 +1314,9 @@ namespace UnrealBuildTool
 					Manifest.AddBuildProduct(ReceiptFileName.FullName);
 				}
 
-				if (DeployTargetFile != null)
+				if (bDeployAfterCompile)
 				{
-					Manifest.DeployTargetFiles.Add(DeployTargetFile.FullName);
+					Manifest.DeployTargetFiles.Add(ReceiptFileName.FullName);
 				}
 			}
 
@@ -1741,14 +1742,6 @@ namespace UnrealBuildTool
 
 			// On Mac and Linux we have actions that should be executed after all the binaries are created
 			TargetToolChain.SetupBundleDependencies(Binaries, TargetName);
-
-			// Write out the deployment context, if necessary
-			if(Rules.bDeployAfterCompile && !Rules.bDisableLinking)
-			{
-				UEBuildDeployTarget DeployTarget = new UEBuildDeployTarget(this);
-				DeployTargetFile = FileReference.Combine(ProjectIntermediateDirectory, "Deploy.dat");
-				DeployTarget.Write(DeployTargetFile);
-			}
 
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{

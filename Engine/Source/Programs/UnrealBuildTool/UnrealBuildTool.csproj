@@ -148,7 +148,6 @@
     <Compile Include="Configuration\ModuleRules.cs" />
     <Compile Include="Configuration\PlatformTargetRules.cs" />
     <Compile Include="Configuration\TargetDescriptor.cs" />
-    <Compile Include="Configuration\UEBuildDeployTarget.cs" />
     <Compile Include="Configuration\UEBuildModuleExternal.cs" />
     <Compile Include="Configuration\UEBuildPlatformFactory.cs" />
     <Compile Include="Configuration\UEBuildPlatformSDK.cs" />

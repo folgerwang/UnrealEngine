@@ -255,10 +255,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployLumin(Target.ProjectFile).PrepTargetForDeployment(Target);
+			new UEDeployLumin(Receipt.ProjectFile).PrepTargetForDeployment(Receipt);
 		}
 
 		public override void ValidateTarget(TargetRules Target)

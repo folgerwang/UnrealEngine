@@ -840,7 +840,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public abstract void Deploy(UEBuildDeployTarget Target);
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public abstract void Deploy(TargetReceipt Receipt);
 	}
 }

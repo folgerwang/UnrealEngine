@@ -1076,43 +1076,41 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override bool PrepTargetForDeployment(UEBuildDeployTarget InTarget)
+		public override bool PrepTargetForDeployment(TargetReceipt Receipt)
 		{
-			return PrepTargetForDeployment(InTarget, false);
+			return PrepTargetForDeployment(Receipt, false);
 		}
 
-		public bool PrepTargetForDeployment(UEBuildDeployTarget InTarget, bool bCreateStubIPA)
+		public bool PrepTargetForDeployment(TargetReceipt Receipt, bool bCreateStubIPA)
 		{
-			TargetReceipt Receipt = TargetReceipt.Read(InTarget.BuildReceiptFileName);
-
 			string SubDir = GetTargetPlatformName();
 
-			string GameName = InTarget.TargetName;
-			string BuildPath = (GameName == "UE4Game" ? "../../Engine" : InTarget.ProjectDirectory.FullName) + "/Binaries/" + SubDir;
-			string ProjectDirectory = InTarget.ProjectDirectory.FullName;
+			string GameName = Receipt.TargetName;
+			string ProjectDirectory = (DirectoryReference.FromFile(Receipt.ProjectFile) ?? UnrealBuildTool.EngineDirectory).FullName;
+			string BuildPath = (GameName == "UE4Game" ? "../../Engine" : ProjectDirectory) + "/Binaries/" + SubDir;
 			bool bIsUE4Game = GameName.Contains("UE4Game");
 
-			Console.WriteLine("1 GameName: {0}, ProjectName: {1}", GameName, (InTarget.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(InTarget.ProjectFile.FullName));
+			Console.WriteLine("1 GameName: {0}, ProjectName: {1}", GameName, (Receipt.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(Receipt.ProjectFile.FullName));
 
 			string DecoratedGameName;
-			if (InTarget.Configuration == UnrealTargetConfiguration.Development)
+			if (Receipt.Configuration == UnrealTargetConfiguration.Development)
 			{
 				DecoratedGameName = GameName;
 			}
 			else
 			{
-				DecoratedGameName = String.Format("{0}-{1}-{2}", GameName, InTarget.Platform.ToString(), InTarget.Configuration.ToString());
+				DecoratedGameName = String.Format("{0}-{1}-{2}", GameName, Receipt.Platform.ToString(), Receipt.Configuration.ToString());
 			}
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && Environment.GetEnvironmentVariable("UBT_NO_POST_DEPLOY") != "true")
 			{
-				return PrepForUATPackageOrDeploy(InTarget.Configuration, InTarget.ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", false, "", false, bCreateStubIPA, Receipt);
+				return PrepForUATPackageOrDeploy(Receipt.Configuration, Receipt.ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", false, "", false, bCreateStubIPA, Receipt);
 			}
 			else
 			{
 				// @todo tvos merge: This used to copy the bundle back - where did that code go? It needs to be fixed up for TVOS directories
 				bool bSupportPortrait, bSupportLandscape, bSkipIcons;
-				GeneratePList(InTarget.ProjectFile, InTarget.Configuration, ProjectDirectory, bIsUE4Game, GameName, (InTarget.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(InTarget.ProjectFile.FullName), "../../Engine", "", Receipt, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
+				GeneratePList(Receipt.ProjectFile, Receipt.Configuration, ProjectDirectory, bIsUE4Game, GameName, (Receipt.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(Receipt.ProjectFile.FullName), "../../Engine", "", Receipt, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 			}
 			return true;
 		}

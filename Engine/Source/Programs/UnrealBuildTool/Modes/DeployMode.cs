@@ -16,8 +16,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// If we are just running the deployment step, specifies the path to the given deployment settings
 		/// </summary>
-		[CommandLine("-TargetInfo", Required=true)]
-		public FileReference TargetInfoFile = null;
+		[CommandLine("-Receipt", Required=true)]
+		public FileReference ReceiptFile = null;
 
 		/// <summary>
 		/// Execute the tool mode
@@ -38,9 +38,9 @@ namespace UnrealBuildTool
 			UnrealBuildTool.RegisterAllUBTClasses(false);
 
 			// Execute the deploy
-			UEBuildDeployTarget DeployTarget = new UEBuildDeployTarget(TargetInfoFile);
-			Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", DeployTarget.TargetName, DeployTarget.Platform, DeployTarget.Configuration);
-			UEBuildPlatform.GetBuildPlatform(DeployTarget.Platform).Deploy(DeployTarget);
+			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile);
+			Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", Receipt.TargetName, Receipt.Platform, Receipt.Configuration);
+			UEBuildPlatform.GetBuildPlatform(Receipt.Platform).Deploy(Receipt);
 
 			return (int)ECompilationResult.Succeeded;
 		}

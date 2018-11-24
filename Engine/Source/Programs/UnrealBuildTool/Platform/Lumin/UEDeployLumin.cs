@@ -381,7 +381,7 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override bool PrepTargetForDeployment(UEBuildDeployTarget InTarget)
+		public override bool PrepTargetForDeployment(TargetReceipt Receipt)
 		{
 			// @todo Lumin: Need to create a MabuFile with no data files - including the executable!!
 			return true;

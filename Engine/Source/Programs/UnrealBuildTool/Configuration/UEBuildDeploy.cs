@@ -17,9 +17,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Prepare the target for deployment
 		/// </summary>
-		/// <param name="InTarget"> The target for deployment</param>
-		/// <returns>bool   true if successful, false if not</returns>
-		public virtual bool PrepTargetForDeployment(UEBuildDeployTarget InTarget)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		/// <returns>True if successful, false if not</returns>
+		public virtual bool PrepTargetForDeployment(TargetReceipt Receipt)
 		{
 			return true;
 		}
