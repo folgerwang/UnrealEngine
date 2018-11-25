@@ -173,7 +173,25 @@ namespace UnrealBuildTool
 			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalLibraries);
 			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicFrameworks);
 			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicWeakFrameworks);
-			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks.Select(x => new UEBuildFramework(x)));
+
+			PublicAdditionalFrameworks = new HashSet<UEBuildFramework>();
+			if(Rules.PublicAdditionalFrameworks != null)
+			{
+				foreach(ModuleRules.Framework FrameworkRules in Rules.PublicAdditionalFrameworks)
+				{
+					UEBuildFramework Framework;
+					if(String.IsNullOrEmpty(FrameworkRules.ZipPath))
+					{
+						Framework = new UEBuildFramework(FrameworkRules.Name, FrameworkRules.CopyBundledAssets);
+					}
+					else
+					{
+						Framework = new UEBuildFramework(FrameworkRules.Name, FileReference.Combine(ModuleDirectory, FrameworkRules.ZipPath), DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "UnzippedFrameworks", Name, Path.GetFileNameWithoutExtension(FrameworkRules.ZipPath)), FrameworkRules.CopyBundledAssets);
+					}
+					PublicAdditionalFrameworks.Add(Framework);
+				}
+			}
+
 			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
 			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources.Select(x => new UEBuildBundleResource(x)));
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);
@@ -487,12 +505,6 @@ namespace UnrealBuildTool
 
 			// Add the additional frameworks so that the compiler can know about their #include paths
 			AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
-
-			// Remember the module so we can refer to it when needed
-			foreach (UEBuildFramework Framework in PublicAdditionalFrameworks)
-			{
-				Framework.OwningModule = this;
-			}
 		}
 
 		/// <summary>
@@ -679,11 +691,6 @@ namespace UnrealBuildTool
 				Frameworks.AddRange(PublicFrameworks);
 				WeakFrameworks.AddRange(PublicWeakFrameworks);
 				AdditionalBundleResources.AddRange(PublicAdditionalBundleResources);
-				// Remember the module so we can refer to it when needed
-				foreach (UEBuildFramework Framework in PublicAdditionalFrameworks)
-				{
-					Framework.OwningModule = this;
-				}
 				AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
 				AdditionalShadowFiles.AddRange(PublicAdditionalShadowFiles);
 				DelayLoadDLLs.AddRange(PublicDelayLoadDLLs);

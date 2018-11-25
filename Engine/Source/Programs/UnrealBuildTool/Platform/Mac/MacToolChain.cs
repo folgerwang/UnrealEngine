@@ -737,9 +737,9 @@ namespace UnrealBuildTool
 			}
 			foreach (UEBuildFramework Framework in LinkEnvironment.AdditionalFrameworks)
 			{
-				if (!AllFrameworks.ContainsKey(Framework.FrameworkName))
+				if (!AllFrameworks.ContainsKey(Framework.Name))
 				{
-					AllFrameworks.Add(Framework.FrameworkName, false);
+					AllFrameworks.Add(Framework.Name, false);
 				}
 			}
 			foreach (string Framework in LinkEnvironment.WeakFrameworks)

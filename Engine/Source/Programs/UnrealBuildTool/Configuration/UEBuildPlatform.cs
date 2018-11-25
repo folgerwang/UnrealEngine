@@ -295,10 +295,6 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		public virtual void PreBuildSync()
-		{
-		}
-
 		public virtual void PostBuildSync(UEBuildTarget Target)
 		{
 		}

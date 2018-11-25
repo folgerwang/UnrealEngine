@@ -770,11 +770,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override void PreBuildSync()
-		{
-			IOSToolChain.PreBuildSync();
-		}
-
 		public override void PostBuildSync(UEBuildTarget Target)
 		{
 			IOSToolChain.PostBuildSync(Target);

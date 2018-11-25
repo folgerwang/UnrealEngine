@@ -1310,11 +1310,6 @@ namespace UnrealBuildTool
 								// Make sure any old DLL files from in-engine recompiles aren't lying around.  Must be called after the action graph is finalized.
 								ActionGraph.DeleteStaleHotReloadDLLs();
 
-								foreach (UEBuildTarget Target in Targets)
-								{
-									UEBuildPlatform.GetBuildPlatform(Target.Platform).PreBuildSync();
-								}
-
 								// Plan the actions to execute for the build.
 								Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
 								List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, UBTMakefile.PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);

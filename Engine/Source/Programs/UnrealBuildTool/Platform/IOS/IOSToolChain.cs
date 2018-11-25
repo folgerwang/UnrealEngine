@@ -332,9 +332,9 @@ namespace UnrealBuildTool
 			// Add additional frameworks so that their headers can be found
 			foreach (UEBuildFramework Framework in CompileEnvironment.AdditionalFrameworks)
 			{
-				if (Framework.OwningModule != null && Framework.FrameworkZipPath != null && Framework.FrameworkZipPath != "")
+				if(Framework.OutputDirectory != null)
 				{
-					Result += " -F\"" + GetExtractedFrameworkDir(Framework) + "\"";
+					Result += String.Format(" -F\"{0}\"", Framework.OutputDirectory);
 				}
 			}
 
@@ -407,26 +407,6 @@ namespace UnrealBuildTool
 			}
 
 			return Result;
-		}
-
-		static FileReference GetFrameworkZip(UEBuildFramework Framework)
-		{
-			if (Framework.OwningModule == null)
-			{
-				throw new BuildException("GetLocalFrameworkZipPath: No owning module for framework {0}", Framework.FrameworkName);
-			}
-
-			return FileReference.Combine(Framework.OwningModule.ModuleDirectory, Framework.FrameworkZipPath);
-		}
-
-		static DirectoryReference GetExtractedFrameworkDir(UEBuildFramework Framework)
-		{
-			if (Framework.OwningModule == null)
-			{
-				throw new BuildException("GetRemoteIntermediateFrameworkZipPath: No owning module for framework {0}", Framework.FrameworkName);
-			}
-
-			return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "UnzippedFrameworks", Framework.OwningModule.Name, Framework.FrameworkZipPath.Replace(".zip", ""));
 		}
 
 		static void CleanIntermediateDirectory(string Path)
@@ -548,13 +528,13 @@ namespace UnrealBuildTool
 			}
 			foreach (UEBuildFramework Framework in LinkEnvironment.AdditionalFrameworks)
 			{
-				if (Framework.OwningModule != null && Framework.FrameworkZipPath != null && Framework.FrameworkZipPath != "")
+				if(Framework.OutputDirectory != null)
 				{
 					// If this framework has a zip specified, we'll need to setup the path as well
-					Result += " -F\"" + GetExtractedFrameworkDir(Framework) + "\"";
+					Result += String.Format(" -F\"{0}\"", Framework.OutputDirectory);
 				}
 
-				Result += " -framework " + Framework.FrameworkName;
+				Result += " -framework " + Framework.Name;
 			}
 			foreach (string Framework in LinkEnvironment.WeakFrameworks)
 			{
@@ -722,6 +702,15 @@ namespace UnrealBuildTool
 				CompileAction.bCanExecuteRemotely = false;
 				CompileAction.bShouldOutputStatusDescription = true;
 
+				foreach(UEBuildFramework Framework in CompileEnvironment.AdditionalFrameworks)
+				{
+					if(Framework.ZipFile != null)
+					{
+						FileItem ExtractedTokenFile = ExtractFramework(Framework, ActionGraph);
+						CompileAction.PrerequisiteItems.Add(ExtractedTokenFile);
+					}
+				}
+
 				AddFrameworksToTrack(CompileEnvironment.AdditionalFrameworks, CompileAction);
 			}
 			return Result;
@@ -731,7 +720,7 @@ namespace UnrealBuildTool
 		{
 			foreach (UEBuildFramework Framework in Frameworks)
 			{
-				if (Framework.OwningModule == null || Framework.FrameworkZipPath == null || Framework.FrameworkZipPath == "")
+				if (Framework.ZipFile == null)
 				{
 					continue;	// Only care about frameworks that have a zip specified
 				}
@@ -790,6 +779,14 @@ namespace UnrealBuildTool
 			}
 
 			// Handle additional framework assets that might need to be shadowed
+			foreach(UEBuildFramework Framework in LinkEnvironment.AdditionalFrameworks)
+			{
+				if(Framework.ZipFile != null)
+				{
+					FileItem ExtractedTokenFile = ExtractFramework(Framework, ActionGraph);
+					LinkAction.PrerequisiteItems.Add(ExtractedTokenFile);
+				}
+			}
 			AddFrameworksToTrack(LinkEnvironment.AdditionalFrameworks, LinkAction);
 
 			// Add the output file as a production of the link action.
@@ -1124,32 +1121,39 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static void PreBuildSync()
+		FileItem ExtractFramework(UEBuildFramework Framework, ActionGraph ActionGraph)
 		{
-			// Unzip any third party frameworks that are stored as zips
-			foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
+			if(Framework.ZipFile == null)
 			{
-				FileReference ZipSrcPath = GetFrameworkZip(Framework);
-				if(!FileReference.Exists(ZipSrcPath))
-				{
-					throw new BuildException("Unable to find framework '{0}'", ZipSrcPath);
-				}
-
-				DirectoryReference FrameworkDstPath = GetExtractedFrameworkDir(Framework);
-				Log.TraceInformation("Unzipping: {0} -> {1}", ZipSrcPath, FrameworkDstPath);
-
-				CleanIntermediateDirectory(FrameworkDstPath.FullName);
-
-				// Assume that there is another directory inside the zip with the same name as the zip
-				DirectoryReference ZipDstPath = FrameworkDstPath.ParentDirectory;
-
-				// If we're on the mac, just unzip using the shell
-				string ResultsText;
-				if(RunExecutableAndWait("unzip", String.Format("-o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), out ResultsText) != 0)
-				{
-					throw new BuildException("Unable to extract {0}:\n{1}", ZipSrcPath, ResultsText);
-				}
+				throw new BuildException("Unable to extract framework '{0}' - no zip file specified", Framework.Name);
 			}
+			if(Framework.ExtractedTokenFile == null)
+			{
+				FileItem InputFile = FileItem.GetItemByFileReference(Framework.ZipFile);
+				Framework.ExtractedTokenFile = FileItem.GetItemByFileReference(new FileReference(Framework.OutputDirectory.FullName + ".extracted"));
+
+				StringBuilder ExtractScript = new StringBuilder();
+				ExtractScript.AppendLine("#!/bin/sh");
+				ExtractScript.AppendLine("set -e");
+				// ExtractScript.AppendLine("set -x"); // For debugging
+				ExtractScript.AppendLine(String.Format("[ -d {0} ] && rm -rf {0}", Utils.EscapeShellArgument(Framework.OutputDirectory.FullName)));
+				ExtractScript.AppendLine(String.Format("unzip -q -o {0} -d {1}", Utils.EscapeShellArgument(Framework.ZipFile.FullName), Utils.EscapeShellArgument(Framework.OutputDirectory.ParentDirectory.FullName))); // Zip contains folder with the same name, hence ParentDirectory
+				ExtractScript.AppendLine(String.Format("touch {0}", Utils.EscapeShellArgument(Framework.ExtractedTokenFile.AbsolutePath)));
+
+				FileItem ExtractScriptFileItem = FileItem.CreateIntermediateTextFile(new FileReference(Framework.OutputDirectory.FullName + ".sh"), ExtractScript.ToString());
+
+				Action UnzipAction = ActionGraph.Add(ActionType.BuildProject);
+				UnzipAction.CommandPath = "/bin/sh";
+				UnzipAction.CommandArguments = Utils.EscapeShellArgument(ExtractScriptFileItem.AbsolutePath);
+				UnzipAction.WorkingDirectory = UnrealBuildTool.EngineDirectory.FullName;
+				UnzipAction.PrerequisiteItems.Add(InputFile);
+				UnzipAction.PrerequisiteItems.Add(ExtractScriptFileItem);
+				UnzipAction.ProducedItems.Add(Framework.ExtractedTokenFile);
+				UnzipAction.DeleteItems.Add(Framework.ExtractedTokenFile);
+				UnzipAction.StatusDescription = String.Format("Unzipping: {0} -> {1}", Framework.ZipFile, Framework.OutputDirectory);
+				UnzipAction.bCanExecuteRemotely = false;
+			}
+			return Framework.ExtractedTokenFile;
         }
 
         public static DirectoryReference GenerateAssetCatalog(FileReference ProjectFile, CppPlatform Platform, ref bool bUserImagesExist)
@@ -1684,22 +1688,20 @@ namespace UnrealBuildTool
 
 				foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
 				{
-					if (Framework.OwningModule == null || Framework.CopyBundledAssets == null || Framework.CopyBundledAssets == "")
+					if (!String.IsNullOrEmpty(Framework.CopyBundledAssets) && Framework.OutputDirectory != null)
 					{
-						continue;		// Only care if we need to copy bundle assets
+						string UnpackedZipPath = Framework.OutputDirectory.FullName;
+
+						// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
+						string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;
+						string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
+						string LocalDest = LocalFrameworkAssets + "/" + BundleName;
+
+						Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", LocalSource, LocalDest);
+
+						string ResultsText;
+						RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", LocalSource, LocalDest), out ResultsText);
 					}
-
-					string UnpackedZipPath = GetExtractedFrameworkDir(Framework).FullName;
-
-					// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
-					string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;
-					string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
-					string LocalDest = LocalFrameworkAssets + "/" + BundleName;
-
-					Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", LocalSource, LocalDest);
-
-					string ResultsText;
-                    RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", LocalSource, LocalDest), out ResultsText);
                 }
             }
 		}
