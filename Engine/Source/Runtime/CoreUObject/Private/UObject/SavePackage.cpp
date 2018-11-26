@@ -50,7 +50,6 @@
 #include "ProfilingDebugging/CookStats.h"
 #include "UObject/DebugSerializationFlags.h"
 #include "UObject/EnumProperty.h"
-#include "Blueprint/BlueprintSupport.h"
 #include "HAL/IConsoleManager.h"
 #include "Serialization/ArchiveStackTrace.h"
 #include "UObject/CoreRedirects.h"
@@ -1356,6 +1355,15 @@ FArchive& FArchiveSaveTagImports::operator<<( UObject*& Obj )
 				if( Parent )
 				{
 					*this << Parent;
+				}
+
+				// For things with a BP-created class we need to recurse into that class so the import ClassPackage will load properly
+				// We don't do this for native classes to avoid bloating the import table
+				UClass* ObjClass = Obj->GetClass();
+
+				if (!ObjClass->IsNative())
+				{
+					*this << ObjClass;
 				}
 			}
 		}
