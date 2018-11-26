@@ -641,7 +641,7 @@ public:
 		return bInitialized;
 	}
 
-	void Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo);
+	void Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo, FVulkanShader* ComputeShader);
 
 protected:
 	// Cached data from FDescriptorSetRemappingInfo

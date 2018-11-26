@@ -555,9 +555,10 @@ void FVulkanDescriptorSetsLayoutInfo::FinalizeBindings(const FUniformBufferGathe
 	check(!bConsolidateAllIntoOneSet || RemappingInfo.SetInfos.Num() == 1);
 }
 
-void FVulkanComputePipelineDescriptorInfo::Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo)
+void FVulkanComputePipelineDescriptorInfo::Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo, FVulkanShader* ComputeShader)
 {
 	check(!bInitialized);
+	check(ComputeShader);
 
 	RemappingGlobalInfos = InRemappingInfo.StageInfos[0].Globals.GetData();
 	RemappingUBInfos = InRemappingInfo.StageInfos[0].UniformBuffers.GetData();

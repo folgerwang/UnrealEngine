@@ -186,7 +186,7 @@ void FVulkanDynamicRHI::Init()
 
 	{
 		IConsoleVariable* GPUCrashDebuggingCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
-		GGPUCrashDebuggingEnabled = GPUCrashDebuggingCVar && GPUCrashDebuggingCVar->GetInt() != 0;
+		GGPUCrashDebuggingEnabled = (GPUCrashDebuggingCVar && GPUCrashDebuggingCVar->GetInt() != 0) || FParse::Param(FCommandLine::Get(), TEXT("gpucrashdebugging"));
 	}
 
 	InitInstance();
