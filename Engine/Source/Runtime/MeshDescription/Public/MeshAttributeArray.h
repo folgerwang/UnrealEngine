@@ -810,6 +810,13 @@ public:
 	/** Applies the given remapping to the attributes set */
 	void Remap( const TSparseArray<int32>& IndexRemap );
 
+	/** Returns an array of all the attribute names registered */
+	template <typename Allocator>
+	void GetAttributeNames( TArray<FName, Allocator>& OutAttributeNames ) const
+	{
+		Map.GetKeys( OutAttributeNames );
+	}
+
 	uint32 GetHash(const FName AttributeName) const
 	{
 		if (const FAttributesSetEntry* ArraySetPtr = Map.Find(AttributeName))
@@ -1025,13 +1032,6 @@ public:
 				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
 			}
 		}
-	}
-
-	/** Returns an array of all the attribute names registered for this attribute type */
-	template <typename AttributeType, typename Allocator>
-	void GetAttributeNames( TArray<FName, Allocator>& OutAttributeNames ) const
-	{
-		this->Map.GetKeys( OutAttributeNames );
 	}
 
 	template <typename AttributeType>
