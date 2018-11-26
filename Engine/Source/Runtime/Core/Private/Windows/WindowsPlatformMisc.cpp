@@ -604,7 +604,9 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 {
 	if (GetConsoleWindow() == nullptr)
+	{
 		return;
+	}
 
 	// Set console control handler so we can exit if requested.
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
