@@ -762,14 +762,6 @@ namespace UnrealBuildTool
 		{
 		}
 
-		/// <summary>
-		/// Gets all of the modules precompiled along with this module
-		/// </summary>
-		/// <param name="Modules">Set of all the precompiled modules</param>
-		public virtual void RecursivelyAddPrecompiledModules(List<UEBuildModule> Modules)
-		{
-		}
-
 		public delegate UEBuildModule CreateModuleDelegate(string Name, string ReferenceChain);
 
 		/// <summary>

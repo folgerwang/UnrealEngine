@@ -1183,34 +1183,5 @@ namespace UnrealBuildTool
 				}
 			}
 		}
-
-		public override void RecursivelyAddPrecompiledModules(List<UEBuildModule> Modules)
-		{
-			if (!Modules.Contains(this))
-			{
-				Modules.Add(this);
-
-				// Get the dependent modules
-				List<UEBuildModule> DependentModules = new List<UEBuildModule>();
-				if (PrivateDependencyModules != null)
-				{
-					DependentModules.AddRange(PrivateDependencyModules);
-				}
-				if (PublicDependencyModules != null)
-				{
-					DependentModules.AddRange(PublicDependencyModules);
-				}
-				if (DynamicallyLoadedModules != null)
-				{
-					DependentModules.AddRange(DynamicallyLoadedModules);
-				}
-
-				// Find modules for each of them, and add their dependencies too
-				foreach (UEBuildModule DependentModule in DependentModules)
-				{
-					DependentModule.RecursivelyAddPrecompiledModules(Modules);
-				}
-			}
-		}
 	}
 }
