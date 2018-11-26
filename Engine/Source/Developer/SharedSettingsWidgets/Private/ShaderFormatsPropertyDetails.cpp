@@ -21,7 +21,7 @@
 
 #define LOCTEXT_NAMESPACE "ShaderFormatsPropertyDetails"
 
-static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
+FText FShaderFormatsPropertyDetails::GetFriendlyNameFromRHINameMac(const FString& InRHIName)
 {
 	FText FriendlyRHIName = FText::FromString(InRHIName);
 	
@@ -122,7 +122,7 @@ void FShaderFormatsPropertyDetails::SetOnUpdateShaderWarning(FSimpleDelegate con
 	ShaderFormatsPropertyHandle->SetOnPropertyValueChanged(Delegate);
 }
 
-void FShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView(ITargetPlatform* TargetPlatform)
+void FShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView(ITargetPlatform* TargetPlatform, GetFriendlyNameFromRHINameFnc FriendlyNameFnc)
 {
 	check(TargetPlatform);
 	DetailBuilder->HideProperty(ShaderFormatsPropertyHandle);
@@ -133,31 +133,35 @@ void FShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView(ITarge
 	
 	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(*Title);
 	
+	int32 ShaderCounter = 0;
 	for (const FName& ShaderFormat : ShaderFormats)
 	{
-		FText FriendlyShaderFormatName = GetFriendlyNameFromRHIName(ShaderFormat.ToString());
-		
-		FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
-		
-		TargetedRHIWidgetRow
-		.NameContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0, 1, 0, 1))
-			.FillWidth(1.0f)
+		FText FriendlyShaderFormatName = FriendlyNameFnc(ShaderFormat.ToString());
+		if (!FriendlyShaderFormatName.IsEmpty())
+		{
+			ShaderFormatOrder.Add(ShaderFormat, ShaderCounter++);
+			FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
+
+			TargetedRHIWidgetRow
+			.NameContent()
 			[
-				SNew(STextBlock)
-				.Text(FriendlyShaderFormatName)
-				.Font(DetailBuilder->GetDetailFont())
-			 ]
-		 ]
-		.ValueContent()
-		[
-			SNew(SCheckBox)
-			.OnCheckStateChanged(this, &FShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
-			.IsChecked(this, &FShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
-		 ];
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(FMargin(0, 1, 0, 1))
+				.FillWidth(1.0f)
+				[
+					SNew(STextBlock)
+					.Text(FriendlyShaderFormatName)
+					.Font(DetailBuilder->GetDetailFont())
+				]
+			]
+			.ValueContent()
+			[
+				SNew(SCheckBox)
+				.OnCheckStateChanged(this, &FShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
+				.IsChecked(this, &FShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
+			];
+		}
 	}
 }
 
@@ -175,7 +179,17 @@ void FShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewVal
 			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
 			if(InNewValue == ECheckBoxState::Checked)
 			{
-				Array.Add(InRHIName.ToString());
+				// Preserve order from GetAllPossibleShaderFormats
+				const int32 InIndex = ShaderFormatOrder[InRHIName];
+				int32 InsertIndex = 0;
+				for (; InsertIndex < Array.Num(); ++InsertIndex)
+				{
+					if (InIndex < ShaderFormatOrder[*Array[InsertIndex]])
+					{
+						break;
+					}
+				}
+				Array.Insert(InRHIName.ToString(), InsertIndex);
 			}
 			else
 			{

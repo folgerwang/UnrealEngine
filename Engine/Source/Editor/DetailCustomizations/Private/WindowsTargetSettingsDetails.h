@@ -6,52 +6,12 @@
 #include "Styling/SlateColor.h"
 #include "Widgets/SWidget.h"
 #include "IDetailCustomization.h"
+#include "ShaderFormatsPropertyDetails.h"
 #include "TargetPlatformAudioCustomization.h"
 
 class IDetailLayoutBuilder;
 class IPropertyHandle;
 enum class ECheckBoxState : uint8;
-
-/* FTargetShaderFormatsPropertyDetails
-*****************************************************************************/
-
-/**
-* Helper which implements details panel customizations for a device profiles parent property
-*/
-class FTargetShaderFormatsPropertyDetails
-	: public TSharedFromThis<FTargetShaderFormatsPropertyDetails>
-{
-
-public:
-
-	/**
-	 * Constructor for the parent property details view
-	 *
-	 * @param InDetailsBuilder - Where we are adding our property view to
-	 */
-	FTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder);
-
-
-	/**
-	 * Create the UI to select which windows shader formats we are targetting
-	 */
-	void CreateTargetShaderFormatsPropertyView();
-
-private:
-
-	// Supported/Targeted RHI check boxes
-	void OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName);
-	ECheckBoxState IsTargetedRHIChecked(FName InRHIName) const;
-
-private:
-
-	/** A handle to the detail view builder */
-	IDetailLayoutBuilder* DetailBuilder;
-
-	/** Access to the Parent Property */
-	TSharedPtr<IPropertyHandle> TargetShaderFormatsPropertyHandle;
-};
-
 
 /**
  * Manages the Transform section of a details view                    
@@ -100,6 +60,6 @@ protected:
 
 private:
 	/** Reference to the target shader formats property view */
-	TSharedPtr<FTargetShaderFormatsPropertyDetails> TargetShaderFormatsDetails;
+	TSharedPtr<FShaderFormatsPropertyDetails> TargetShaderFormatsDetails;
 	FAudioPluginWidgetManager AudioPluginWidgetManager;
 };

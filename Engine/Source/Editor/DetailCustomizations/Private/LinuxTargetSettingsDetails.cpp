@@ -152,8 +152,9 @@ static FString GetIconFilename(EImageScope::Type Scope)
 void FLinuxTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	// Setup the supported/targeted RHI property view
-	TargetShaderFormatsDetails = MakeShareable(new FLinuxTargetShaderFormatsPropertyDetails(&DetailBuilder));
-	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
+	ITargetPlatform* TargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0];
+	TargetShaderFormatsDetails = MakeShareable(new FShaderFormatsPropertyDetails(&DetailBuilder));
+	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView(TargetPlatform, GetFriendlyNameFromRHIName);
 
 	// Next add the splash image customization
 	const FText EditorSplashDesc(LOCTEXT("EditorSplashLabel", "Editor Splash"));
@@ -401,96 +402,5 @@ TSharedRef<SWidget> FLinuxTargetSettingsDetails::MakeAudioDeviceMenu(const TShar
 
 	return MenuBuilder.MakeWidget();
 }
-
-FLinuxTargetShaderFormatsPropertyDetails::FLinuxTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder)
-: DetailBuilder(InDetailBuilder)
-{
-	TargetShaderFormatsPropertyHandle = DetailBuilder->GetProperty("TargetedRHIs");
-	ensure(TargetShaderFormatsPropertyHandle.IsValid());
-}
-
-void FLinuxTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
-{
-	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
-
-	// List of supported RHI's and selected targets
-	ITargetPlatform* LinuxTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0];
-	TArray<FName> ShaderFormats;
-	LinuxTargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
-
-	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(TEXT("Targeted RHIs"));
-
-	for (const FName& ShaderFormat : ShaderFormats)
-	{
-		FText FriendlyShaderFormatName = GetFriendlyNameFromRHIName(ShaderFormat.ToString());
-
-		FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
-
-		TargetedRHIWidgetRow
-		.NameContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0, 1, 0, 1))
-			.FillWidth(1.0f)
-			[
-				SNew(STextBlock)
-				.Text(FriendlyShaderFormatName)
-				.Font(DetailBuilder->GetDetailFont())
-			]
-		]
-		.ValueContent()
-		[
-			SNew(SCheckBox)
-			.OnCheckStateChanged(this, &FLinuxTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
-			.IsChecked(this, &FLinuxTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
-		];
-	}
-}
-
-
-void FLinuxTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
-{
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-
-	// Update the CVars with the selection
-	{
-		TargetShaderFormatsPropertyHandle->NotifyPreChange();
-		for (void* RawPtr : RawPtrs)
-		{
-			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-			if(InNewValue == ECheckBoxState::Checked)
-			{
-				Array.Add(InRHIName.ToString());
-			}
-			else
-			{
-				Array.Remove(InRHIName.ToString());
-			}
-		}
-		TargetShaderFormatsPropertyHandle->NotifyPostChange();
-	}
-}
-
-
-ECheckBoxState FLinuxTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
-{
-	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
-
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-	
-	for(void* RawPtr : RawPtrs)
-	{
-		TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-		if(Array.Contains(InRHIName.ToString()))
-		{
-			CheckState = ECheckBoxState::Checked;
-		}
-	}
-	return CheckState;
-}
-
 
 #undef LOCTEXT_NAMESPACE
