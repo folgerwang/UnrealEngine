@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "VT/VirtualTexture.h"
 #include "VT/VirtualTextureSpace.h"
 #include "VT/VirtualTextureBuiltData.h"

@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "OculusAvatarModule.h"
 #include "Features/IModularFeatures.h"
 #include "OvrAvatarManager.h"

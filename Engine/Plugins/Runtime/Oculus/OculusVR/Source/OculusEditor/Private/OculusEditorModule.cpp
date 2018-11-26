@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "OculusEditorModule.h"
 #include "OculusToolStyle.h"
 #include "OculusToolCommands.h"
