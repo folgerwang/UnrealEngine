@@ -8,7 +8,7 @@
 
 #include "RenderResource.h"
 #include "RenderGraphUtils.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 #include "RHI.h"
 #include "RHIStaticStates.h"
 #include "PipelineStateCache.h"

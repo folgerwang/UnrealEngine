@@ -8,7 +8,7 @@
 #include "RendererInterface.h"
 #include "StaticBoundShaderState.h"
 #include "PipelineStateCache.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 DECLARE_CYCLE_STAT(TEXT("Slate PostProcessing RT"), STAT_SlatePostProcessingRTTime, STATGROUP_Slate);
 DECLARE_CYCLE_STAT(TEXT("Slate ColorDeficiency RT"), STAT_SlateColorDeficiencyRTTime, STATGROUP_Slate);

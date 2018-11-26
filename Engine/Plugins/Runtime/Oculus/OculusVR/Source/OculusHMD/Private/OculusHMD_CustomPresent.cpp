@@ -8,7 +8,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "OculusShaders.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"

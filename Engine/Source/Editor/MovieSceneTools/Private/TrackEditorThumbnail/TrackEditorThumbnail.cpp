@@ -17,7 +17,7 @@
 #include "ScreenRendering.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "PipelineStateCache.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 namespace TrackEditorThumbnailConstants
 {

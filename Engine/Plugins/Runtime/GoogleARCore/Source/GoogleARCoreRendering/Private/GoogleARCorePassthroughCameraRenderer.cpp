@@ -18,7 +18,7 @@
 #include "ExternalTexture.h"
 #include "GoogleARCorePassthroughCameraExternalTextureGuid.h"
 #include "GoogleARCoreAndroidHelper.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 FGoogleARCorePassthroughCameraRenderer::FGoogleARCorePassthroughCameraRenderer()
 	: OverlayQuadUVs{ 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f }

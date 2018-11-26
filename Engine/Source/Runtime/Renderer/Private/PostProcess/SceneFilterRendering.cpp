@@ -11,7 +11,7 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "PixelShaderUtils.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 void FTesselatedScreenRectangleIndexBuffer::InitRHI()
 {

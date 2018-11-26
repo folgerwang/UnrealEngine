@@ -13,7 +13,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "SceneView.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 namespace 
 {

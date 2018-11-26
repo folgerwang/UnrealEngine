@@ -4,7 +4,7 @@
 	DummyRenderResources.cpp: Implementations of frequently used render resources.
 =============================================================================*/
 
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 #include "Containers/DynamicRHIResourceArray.h"
 
 

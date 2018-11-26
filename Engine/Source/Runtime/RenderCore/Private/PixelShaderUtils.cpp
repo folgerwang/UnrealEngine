@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "PixelShaderUtils.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 #include "RenderGraph.h"
 
 

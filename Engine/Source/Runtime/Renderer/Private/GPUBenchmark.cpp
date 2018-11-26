@@ -22,7 +22,7 @@
 #include "PipelineStateCache.h"
 #include "LongGPUTask.h"
 #include "VisualizeTexture.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 static const uint32 GBenchmarkResolution = 512;
 static const uint32 GBenchmarkPrimitives = 200000;

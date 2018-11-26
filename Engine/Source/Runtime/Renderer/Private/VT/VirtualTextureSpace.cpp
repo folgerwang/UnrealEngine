@@ -11,7 +11,7 @@
 #include "HAL/IConsoleManager.h"
 #include "SceneUtils.h"
 #include "VisualizeTexture.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 static TAutoConsoleVariable<int32> CVarVTRefreshEntirePageTable(
 	TEXT("r.VT.RefreshEntirePageTable"),

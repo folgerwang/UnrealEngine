@@ -20,7 +20,7 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PostProcessParameters.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 #if SUPPORTS_ARKIT_1_0
 	#include "IOSAppDelegate.h"
 #endif

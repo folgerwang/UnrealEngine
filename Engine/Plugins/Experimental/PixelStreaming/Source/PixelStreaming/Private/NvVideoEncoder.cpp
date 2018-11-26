@@ -15,7 +15,7 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 
 #if defined PLATFORM_WINDOWS
 // Disable macro redefinition warning for compatibility with Windows SDK 8+

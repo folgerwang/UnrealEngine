@@ -16,7 +16,7 @@
 #include "RenderTargetPool.h"
 #include "GlobalShader.h"
 #include "PipelineStateCache.h"
-#include "DummyRenderResources.h"
+#include "CommonRenderResources.h"
 #include "PixelShaderUtils.h"
 
 
