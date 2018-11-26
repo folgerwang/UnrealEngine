@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SBlueprintContextTargetMenu.h"
 #include "Engine/Blueprint.h"
@@ -538,7 +538,7 @@ void SBlueprintContextTargetMenu::Construct(const FArguments& InArgs, const FBlu
 		];
 	}
 
-	UEnum* const TargetEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EContextTargetFlags"));
+	UEnum* const TargetEnum = StaticEnum<EContextTargetFlags::Type>();
 	uint32 const GreatestFlag = (EContextTargetFlags::ContextTargetFlagsEnd & ~1);
 
 	int32  ColIndex = 0;

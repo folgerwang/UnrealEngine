@@ -16,7 +16,7 @@ namespace
 {
 	FORCEINLINE const TCHAR* GetGameplayTaskEventName(EGameplayTaskEvent Event)
 	{
-		/*static const UEnum* GameplayTaskEventEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskEvent"));
+		/*static const UEnum* GameplayTaskEventEnum = StaticEnum<EGameplayTaskEvent>();
 		return GameplayTaskEventEnum->GetDisplayNameTextByValue(static_cast<int64>(Event)).ToString();*/
 
 		return Event == EGameplayTaskEvent::Add ? TEXT("Add") : TEXT("Remove");
@@ -572,7 +572,7 @@ FString UGameplayTasksComponent::GetTasksPriorityQueueDescription() const
 
 FString UGameplayTasksComponent::GetTaskStateName(EGameplayTaskState Value)
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
+	static const UEnum* Enum = StaticEnum<EGameplayTaskState>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(Value));
 }

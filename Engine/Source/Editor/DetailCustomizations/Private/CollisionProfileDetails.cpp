@@ -834,7 +834,7 @@ void SProfileEditDialog::AddCollisionResponse()
 
 	// find the enum
 	TArray<FCollisionChannelInfo>	ValidCollisionChannels;
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum * Enum = StaticEnum<ECollisionChannel>();
 	// we need this Enum
 	check(Enum);
 	const FString KeyName = TEXT("DisplayName");

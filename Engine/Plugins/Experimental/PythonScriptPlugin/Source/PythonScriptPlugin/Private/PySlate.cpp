@@ -140,7 +140,7 @@ PyObject* ParentExternalWindowToSlate(PyObject* InSelf, PyObject* InArgs)
 		return nullptr;
 	}
 
-	static const UEnum* ParentWindowSearchMethodEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ESlateParentWindowSearchMethod"));
+	static const UEnum* ParentWindowSearchMethodEnum = StaticEnum<ESlateParentWindowSearchMethod>();
 	ESlateParentWindowSearchMethod ParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow;
 	if (PyParentWindowSearchMethod && !PyConversion::NativizeEnumEntry(PyParentWindowSearchMethod, ParentWindowSearchMethodEnum, ParentWindowSearchMethod))
 	{

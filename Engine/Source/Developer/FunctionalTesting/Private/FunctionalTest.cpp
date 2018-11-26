@@ -57,7 +57,7 @@ namespace
 
 	FString GetComparisonAsString(EComparisonMethod comparison)
 	{
-		UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EComparisonMethod"), true);
+		UEnum* Enum = StaticEnum<EComparisonMethod>();
 		return Enum->GetNameStringByValue((uint8)comparison).ToLower().Replace(TEXT("_"), TEXT(" "));
 	}
 
@@ -302,7 +302,7 @@ bool AFunctionalTest::IsReady_Implementation()
 
 void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString& Message)
 {
-	const static UEnum* FTestResultTypeEnum = FindObject<UEnum>( nullptr, TEXT("FunctionalTesting.EFunctionalTestResult") );
+	const static UEnum* FTestResultTypeEnum = StaticEnum<EFunctionalTestResult>();
 	
 	if (bIsRunning == false)
 	{

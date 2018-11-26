@@ -1826,7 +1826,7 @@ bool FGoogleVRHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	// Tune the distortion mesh vert count when use Unreal's PostProcessing Distortion
 	else if (FParse::Command(&Cmd, TEXT("DISTORTMESH")))
 	{
-		const static UEnum* MeshSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDistortionMeshSizeEnum"));
+		const static UEnum* MeshSizeEnum = StaticEnum<EDistortionMeshSizeEnum>();
 		FString Value = FParse::Token(Cmd, 0);
 
 		if (!Value.IsEmpty() && MeshSizeEnum->GetIndexByName(*FString::Printf(TEXT("DMS_%s"), *Value.ToUpper())) != INDEX_NONE)
@@ -1916,7 +1916,7 @@ void FGoogleVRHMD::NeckModelScaleCommandHandler(const TArray<FString>& Args, UWo
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 void FGoogleVRHMD::DistortMeshSizeCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar)
 {
-	const static UEnum* MeshSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDistortionMeshSizeEnum"));
+	const static UEnum* MeshSizeEnum = StaticEnum<EDistortionMeshSizeEnum>();
 	int EnumIndex = INDEX_NONE;
 
 	if (Args.Num())

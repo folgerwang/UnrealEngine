@@ -153,7 +153,7 @@ void FMovieSceneBuiltInEasingFunctionCustomization::CustomizeDetails(IDetailLayo
 {
 	TypeProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMovieSceneBuiltInEasingFunction, Type));
 
-	const UEnum* EasingEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMovieSceneBuiltInEasing"), false);
+	const UEnum* EasingEnum = StaticEnum<EMovieSceneBuiltInEasing>();
 	check(EasingEnum)
 
 	TArray<FGroupedEasing> Groups;

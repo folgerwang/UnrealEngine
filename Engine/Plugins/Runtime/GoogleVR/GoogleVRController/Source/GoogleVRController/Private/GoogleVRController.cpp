@@ -148,7 +148,7 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 		GoogleVRCaps = EGoogleVRCaps::Cardboard;
 		FString ValueString;
 		GConfig->GetString(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("GoogleVRCaps"), ValueString, GEngineIni);
-		UEnum* Enum = FindObject<UEnum>((UObject*)ANY_PACKAGE, TEXT("EGoogleVRCaps"), true);
+		UEnum* Enum = StaticEnum<EGoogleVRCaps::Type>();
 		if (Enum)
 		{
 			int64 Value = Enum->GetValueByName(FName(*ValueString));

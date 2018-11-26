@@ -25,7 +25,7 @@ FGameplayModEvaluationChannelSettings::FGameplayModEvaluationChannelSettings()
 	// static default channel used to initialize this struct
 	if (!EvalChannelEnum)
 	{
-		EvalChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayModEvaluationChannel"));
+		EvalChannelEnum = StaticEnum<EGameplayModEvaluationChannel>();
 		if (ensure(EvalChannelEnum) && ensure(GConfig))
 		{
 			const FString INISection(TEXT("/Script/GameplayAbilities.AbilitySystemGlobals"));
@@ -352,19 +352,25 @@ bool FGameplayEffectContextHandle::NetSerialize(FArchive& Ar, class UPackageMap*
 
 FString EGameplayModOpToString(int32 Type)
 {
-	static UEnum *e = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayModOp"));
+	static UEnum *e = StaticEnum<EGameplayModOp::Type>();
 	return e->GetNameStringByValue(Type);
+}
+
+FString EGameplayModToString(int32 Type)
+{
+	// Enum no longer exists.
+	return FString();
 }
 
 FString EGameplayModEffectToString(int32 Type)
 {
-	static UEnum *e = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayModEffect"));
-	return e->GetNameStringByValue(Type);
+	// Enum no longer exists.
+	return FString();
 }
 
 FString EGameplayCueEventToString(int32 Type)
 {
-	static UEnum *e = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayCueEvent"));
+	static UEnum *e = StaticEnum<EGameplayCueEvent::Type>();
 	return e->GetNameStringByValue(Type);
 }
 

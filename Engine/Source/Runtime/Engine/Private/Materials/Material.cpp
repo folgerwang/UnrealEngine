@@ -607,7 +607,7 @@ void SetCompactFullNameFromObject(FCompactFullName &Dest, UObject* InDepObject)
 
 FString MaterialDomainString(EMaterialDomain MaterialDomain)
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+	static const UEnum* Enum = StaticEnum<EMaterialDomain>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(MaterialDomain));
 }
@@ -4000,7 +4000,7 @@ void UMaterial::DumpDebugInfo()
 	UE_LOG(LogConsoleResponse, Display, TEXT("----------------------------- %s"), *GetFullName());
 
 	{
-		static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+		static const UEnum* Enum = StaticEnum<EMaterialDomain>();
 		check(Enum);
 		UE_LOG(LogConsoleResponse, Display, TEXT("  MaterialDomain %s"), *Enum->GetNameStringByValue(int64(MaterialDomain)));
 	}

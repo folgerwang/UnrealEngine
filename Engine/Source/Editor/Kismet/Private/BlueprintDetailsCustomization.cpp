@@ -706,7 +706,7 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 	];
 
 	ReplicationConditionEnumTypeNames.Empty();
-	UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ELifetimeCondition"), true);
+	UEnum* Enum = StaticEnum<ELifetimeCondition>();
 	check(Enum);
 	
 	for (int32 i = 0; i < Enum->NumEnums(); i++)

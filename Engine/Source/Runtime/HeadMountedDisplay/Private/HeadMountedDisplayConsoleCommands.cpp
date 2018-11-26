@@ -190,7 +190,7 @@ static FAutoConsoleCommand CShowTrackingSensorsCmd(
 
 static void TrackingOrigin(const TArray<FString>& Args, UWorld* , FOutputDevice& Ar)
 {
-	const static UEnum* TrackingOriginEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EHMDTrackingOrigin"));
+	const static UEnum* TrackingOriginEnum = StaticEnum<EHMDTrackingOrigin::Type>();
 	int Origin = INDEX_NONE;
 	if (Args.Num())
 	{
@@ -248,7 +248,7 @@ static void SpectatorScreenMode(const TArray<FString>& Args, UWorld* , FOutputDe
 		return;
 	}
 
-	const static UEnum* ScreenModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ESpectatorScreenMode"));
+	const static UEnum* ScreenModeEnum = StaticEnum<ESpectatorScreenMode>();
 	int ModeVal = INDEX_NONE;
 	if (Args.Num())
 	{

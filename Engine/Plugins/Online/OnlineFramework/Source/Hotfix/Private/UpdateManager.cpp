@@ -76,8 +76,8 @@ UUpdateManager::UUpdateManager()
 	LastCompletionResult[0] = LastCompletionResult[1] = EUpdateCompletionStatus::UpdateUnknown;
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		UpdateStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateState"));
-		UpdateCompletionEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateCompletionStatus"));
+		UpdateStateEnum = StaticEnum<EUpdateState>();
+		UpdateCompletionEnum = StaticEnum<EUpdateCompletionStatus>();
 
 		RegisterDelegates();
 	}

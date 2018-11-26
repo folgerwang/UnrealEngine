@@ -15,6 +15,7 @@
 #include "Math/RandomStream.h"
 #include "UObject/GarbageCollection.h"
 #include "UObject/CoreNative.h"
+#include "UObject/ReflectedTypeAccessors.h"
 #include "Templates/HasGetTypeHash.h"
 #include "Templates/IsAbstract.h"
 #include "Templates/IsEnum.h"
@@ -1852,6 +1853,86 @@ public:
 	FORCEINLINE static void GetDisplayValueAsText( const TCHAR* EnumPath, const T EnumeratorValue, FText& out_TextValue )
 	{
 		out_TextValue = GetDisplayValueAsText( EnumPath, EnumeratorValue);
+	}
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the name associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetNameByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsName((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsName(const EnumType EnumeratorValue, FName& out_NameValue )
+	{
+		out_NameValue = GetValueAsName(EnumeratorValue);
+	}
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the string associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		return GetValueAsName(EnumeratorValue).ToString();
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsString((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsString(const EnumType EnumeratorValue, FString& out_StringValue )
+	{
+		out_StringValue = GetValueAsString(EnumeratorValue );
+	}
+
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the localized display string associated with the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const EnumType EnumeratorValue )
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetDisplayNameTextByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetDisplayValueAsText((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetDisplayValueAsText(const EnumType EnumeratorValue, FText& out_TextValue )
+	{
+		out_TextValue = GetDisplayValueAsText(EnumeratorValue);
 	}
 
 	// Deprecated Functions

@@ -39,7 +39,7 @@ int32 UVOIPStatics::GetVoiceSampleRate()
 
 	if (GConfig->GetString(TEXT("/Script/Engine.AudioSettings"), TEXT("VoiPSampleRate"), DesiredSampleRateStr, GEngineIni))
 	{
-		SampleRate = (int32)GetEnumValueFromString<EVoiceSampleRate>(TEXT("EVoiceSampleRate"), DesiredSampleRateStr);
+		SampleRate = (int32)GetEnumValueFromString<EVoiceSampleRate>(DesiredSampleRateStr);
 		if (SampleRate > 0)
 		{		
 			return SampleRate;

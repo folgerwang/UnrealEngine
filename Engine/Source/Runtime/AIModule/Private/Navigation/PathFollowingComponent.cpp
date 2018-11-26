@@ -71,7 +71,7 @@ FPathFollowingResult::FPathFollowingResult(EPathFollowingResult::Type ResultCode
 
 FString FPathFollowingResult::ToString() const
 {
-	static UEnum* ResultEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingResult"));
+	static UEnum* ResultEnum = StaticEnum<EPathFollowingResult::Type>();
 	return FString::Printf(TEXT("%s[%s]"), ResultEnum ? *ResultEnum->GetNameStringByValue(Code) : TEXT("??"), *FPathFollowingResultFlags::ToString(Flags));
 }
 
@@ -228,7 +228,7 @@ FString GetPathDescHelper(FNavPathSharedPtr Path)
 
 void UPathFollowingComponent::OnPathEvent(FNavigationPath* InPath, ENavPathEvent::Type Event)
 {
-	const static UEnum* NavPathEventEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENavPathEvent"));
+	const static UEnum* NavPathEventEnum = StaticEnum<ENavPathEvent::Type>();
 	UE_VLOG(GetOwner(), LogPathFollowing, Log, TEXT("OnPathEvent: %s"), *NavPathEventEnum->GetNameStringByValue(Event));
 
 	if (InPath && Path.Get() == InPath)
@@ -1624,7 +1624,7 @@ bool UPathFollowingComponent::HasDirectPath() const
 
 FString UPathFollowingComponent::GetStatusDesc() const
 {
-	const static UEnum* StatusEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingStatus"));
+	const static UEnum* StatusEnum = StaticEnum<EPathFollowingStatus::Type>();
 	if (StatusEnum)
 	{
 		return StatusEnum->GetNameStringByValue(Status);
@@ -1635,7 +1635,7 @@ FString UPathFollowingComponent::GetStatusDesc() const
 
 FString UPathFollowingComponent::GetResultDesc(EPathFollowingResult::Type Result) const
 {
-	const static UEnum* ResultEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingResult"));
+	const static UEnum* ResultEnum = StaticEnum<EPathFollowingResult::Type>();
 	if (ResultEnum)
 	{
 		return ResultEnum->GetNameStringByValue(Result);
@@ -1783,7 +1783,7 @@ void UPathFollowingComponent::OnStartedFalling()
 
 void UPathFollowingComponent::LockResource(EAIRequestPriority::Type LockSource)
 {
-	const static UEnum* SourceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAILockSource"));
+	const static UEnum* SourceEnum = StaticEnum<EAILockSource::Type>();
 	const bool bWasLocked = ResourceLock.IsLocked();
 
 	ResourceLock.SetLock(LockSource);

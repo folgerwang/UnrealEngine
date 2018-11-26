@@ -43,9 +43,9 @@ namespace MicSilenceDetectionConfig
 class USoundAttenuation;
 
 template <typename EnumType>
-static FORCEINLINE EnumType GetEnumValueFromString(const FString& EnumName, const FString& String)
+static FORCEINLINE EnumType GetEnumValueFromString(const FString& String)
 {
-	UEnum* Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
+	UEnum* Enum = StaticEnum<EnumType>();
 	if (!Enum)
 	{
 		return EnumType(0);

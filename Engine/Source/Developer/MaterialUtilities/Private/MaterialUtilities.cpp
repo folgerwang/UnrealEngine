@@ -106,7 +106,7 @@ UMaterialInterface* FMaterialUtilities::CreateProxyMaterialAndTextures(UPackage*
 		const TArray<FColor>& ColorData = BakeOutput.PropertyData.FindChecked(Property);
 
 		// Look up the property name string 
-		const UEnum* PropertyEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialProperty"));
+		const UEnum* PropertyEnum = StaticEnum<EMaterialProperty>();
 		FName PropertyName = PropertyEnum->GetNameByValue(Property);
 		FString TrimmedPropertyName = PropertyName.ToString();
 		TrimmedPropertyName.RemoveFromStart(TEXT("MP_"));

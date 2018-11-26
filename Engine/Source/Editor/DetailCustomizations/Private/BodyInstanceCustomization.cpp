@@ -247,7 +247,7 @@ int32 FBodyInstanceCustomization::InitializeObjectTypeComboList()
 	ObjectTypeComboList.Empty();
 	ObjectTypeValues.Empty();
 
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum * Enum = StaticEnum<ECollisionChannel>();
 	const FString KeyName = TEXT("DisplayName");
 	const FString QueryType = TEXT("TraceQuery");
 
@@ -335,7 +335,7 @@ TSharedPtr<FString> FBodyInstanceCustomization::GetProfileString(FName ProfileNa
 void FBodyInstanceCustomization::UpdateValidCollisionChannels()
 {
 	// find the enum
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum * Enum = StaticEnum<ECollisionChannel>();
 	// we need this Enum
 	check (Enum);
 	const FString KeyName = TEXT("DisplayName");

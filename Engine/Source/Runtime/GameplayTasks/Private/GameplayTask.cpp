@@ -400,7 +400,7 @@ FString UGameplayTask::GenerateDebugDescription() const
 
 FString UGameplayTask::GetTaskStateName() const
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
+	static const UEnum* Enum = StaticEnum<EGameplayTaskState>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(TaskState));
 }

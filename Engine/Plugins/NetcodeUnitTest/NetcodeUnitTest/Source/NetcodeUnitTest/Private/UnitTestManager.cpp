@@ -902,7 +902,7 @@ void UUnitTestManager::DumpStatus(bool bForce/*=false*/)
 #endif
 void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSummary/*=false*/, bool bUnfinished/*=false*/)
 {
-	static const UEnum* VerificationStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUnitTestVerification"));
+	static const UEnum* VerificationStateEnum = StaticEnum<EUnitTestVerification>();
 
 	EUnitTestVerification UnitTestResult = InUnitTest->VerificationState;
 

@@ -271,7 +271,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void FEnvQueryTestDetails::BuildFilterTestValues()
 {
-	UEnum* TestConditionEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvTestFilterType"));
+	UEnum* TestConditionEnum = StaticEnum<EEnvTestFilterType::Type>();
 	check(TestConditionEnum);
 
 	FilterTestValues.Reset();
@@ -294,7 +294,7 @@ void FEnvQueryTestDetails::BuildFilterTestValues()
 
 void FEnvQueryTestDetails::BuildScoreEquationValues()
 {
-	UEnum* TestScoreEquationEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvTestScoreEquation"));
+	UEnum* TestScoreEquationEnum = StaticEnum<EEnvTestScoreEquation::Type>();
 	check(TestScoreEquationEnum);
 
 	ScoreEquationValues.Reset();
@@ -329,7 +329,7 @@ void FEnvQueryTestDetails::OnScoreEquationChange(int32 Index)
 
 void FEnvQueryTestDetails::BuildScoreClampingTypeValues(bool bBuildMinValues, TArray<FTextIntPair>& ClampTypeValues) const
 {
-	UEnum* ScoringNormalizationEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryTestClamping"));
+	UEnum* ScoringNormalizationEnum = StaticEnum<EEnvQueryTestClamping::Type>();
 	check(ScoringNormalizationEnum);
 
 	ClampTypeValues.Reset();

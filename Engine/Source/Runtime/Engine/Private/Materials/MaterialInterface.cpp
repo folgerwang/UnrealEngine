@@ -70,7 +70,7 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 
 		if (SamplerTypeEnum == nullptr)
 		{
-			SamplerTypeEnum = FindObject<UEnum>(NULL, TEXT("/Script/Engine.EMaterialSamplerType"));
+			SamplerTypeEnum = StaticEnum<EMaterialSamplerType>();
 			check(SamplerTypeEnum);
 		}
 

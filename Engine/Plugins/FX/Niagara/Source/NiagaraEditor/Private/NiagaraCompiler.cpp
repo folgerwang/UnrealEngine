@@ -344,8 +344,8 @@ void FNiagaraCompileRequestData::DeepCopyGraphs(UNiagaraScriptSource* ScriptSour
 void FNiagaraCompileRequestData::FinishPrecompile(UNiagaraScriptSource* ScriptSource, const TArray<FNiagaraVariable>& EncounterableVariables, ENiagaraScriptUsage InUsage)
 {
 	{
-		ENiagaraScriptCompileStatusEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptCompileStatus"), true);
-		ENiagaraScriptUsageEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+		ENiagaraScriptCompileStatusEnum = StaticEnum<ENiagaraScriptCompileStatus>();
+		ENiagaraScriptUsageEnum = StaticEnum<ENiagaraScriptUsage>();
 
 		PrecompiledHistories.Empty();
 

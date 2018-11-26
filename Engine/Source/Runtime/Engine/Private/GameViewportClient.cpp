@@ -371,7 +371,7 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 	FString DefaultViewportMouseCaptureMode;
 	if (FParse::Value(FCommandLine::Get(), TEXT("DefaultViewportMouseCaptureMode="), DefaultViewportMouseCaptureMode))
 	{
-		const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMouseCaptureMode"));
+		const UEnum* EnumPtr = StaticEnum<EMouseCaptureMode>();
 		checkf(EnumPtr, TEXT("Unable to find EMouseCaptureMode enum"));
 		if (EnumPtr)
 		{

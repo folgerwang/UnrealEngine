@@ -31,7 +31,7 @@ FBlendSampleDetails::FBlendSampleDetails(const UBlendSpaceBase* InBlendSpace, cl
 	, GridWidget(InGridWidget)
 {
 	// Retrieve the additive animation type enum
-	const UEnum* AdditiveTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAdditiveAnimationType"), true);
+	const UEnum* AdditiveTypeEnum = StaticEnum<EAdditiveAnimationType>();
 	// For each type check whether or not the blend space is compatible with it and cache the result
 	for (int32 TypeValue = 0; TypeValue < (int32)EAdditiveAnimationType::AAT_MAX; ++TypeValue)
 	{
@@ -207,7 +207,7 @@ bool FBlendSampleDetails::ShouldFilterAssetStatic(const FAssetData& AssetData, c
 	/** Cached flags to check whether or not an additive animation type is compatible with the blend space*/
 	TMap<FString, bool> bValidAdditiveTypes;
 	// Retrieve the additive animation type enum
-	const UEnum* AdditiveTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAdditiveAnimationType"), true);
+	const UEnum* AdditiveTypeEnum = StaticEnum<EAdditiveAnimationType>();
 	// For each type check whether or not the blend space is compatible with it and cache the result
 	for (int32 TypeValue = 0; TypeValue < (int32)EAdditiveAnimationType::AAT_MAX; ++TypeValue)
 	{

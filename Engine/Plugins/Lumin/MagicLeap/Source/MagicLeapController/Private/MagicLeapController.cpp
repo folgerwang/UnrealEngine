@@ -564,7 +564,7 @@ void FMagicLeapController::Enable()
 	TrackingMode = EMLControllerTrackingMode::CoordinateFrameUID;
 
 	// Pull preference from config file
-	const static UEnum* TrackingModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMLControllerTrackingMode"));
+	const static UEnum* TrackingModeEnum = StaticEnum<EMLControllerTrackingMode>();
 
 	FString EnumVal;
 	GConfig->GetString(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"),

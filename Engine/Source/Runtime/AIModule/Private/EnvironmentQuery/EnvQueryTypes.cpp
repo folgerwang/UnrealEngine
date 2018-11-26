@@ -154,7 +154,7 @@ FText FEnvTraceData::ToText(FEnvTraceData::EDescriptionMode DescMode) const
 
 		if (DescMode == FEnvTraceData::Brief)
 		{
-			static UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);
+			static UEnum* ChannelEnum = StaticEnum<ETraceTypeQuery>();
 
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("ExtentDescription"), Desc);

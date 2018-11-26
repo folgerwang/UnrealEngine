@@ -8,7 +8,7 @@
 
 FMovieSceneParticleChannel::FMovieSceneParticleChannel()
 {
-	SetEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("EParticleKey")));
+	SetEnum(StaticEnum<EParticleKey>());
 }
 
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )

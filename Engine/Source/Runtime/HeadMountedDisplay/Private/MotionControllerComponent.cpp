@@ -42,7 +42,7 @@ namespace LegacyMotionSources
 {
 	static bool GetSourceNameForHand(EControllerHand InHand, FName& OutSourceName)
 	{
-		UEnum* HandEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EControllerHand"));
+		UEnum* HandEnum = StaticEnum<EControllerHand>();
 		if (HandEnum)
 		{
 			FString ValueName = HandEnum->GetNameStringByValue((int64)InHand);

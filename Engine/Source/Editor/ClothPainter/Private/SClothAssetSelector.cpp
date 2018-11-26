@@ -394,7 +394,7 @@ public:
 		if(InColumnName == Column_CurrentTarget)
 		{
 			FClothParameterMask_PhysMesh* Mask = Item->GetMask();
-			UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT(PREPROCESSOR_TO_STRING(MaskTarget_PhysMesh)), true);
+			UEnum* Enum = StaticEnum<MaskTarget_PhysMesh>();
 			if(Enum && Mask)
 			{
 				return SNew(STextBlock).Text(Enum->GetDisplayNameTextByIndex((int32)Mask->CurrentTarget));
@@ -557,7 +557,7 @@ private:
 	{
 		Builder.BeginSection(NAME_None, LOCTEXT("MaskTargets_SectionName", "Targets"));
 		{
-			UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT(PREPROCESSOR_TO_STRING(MaskTarget_PhysMesh)), true);
+			UEnum* Enum = StaticEnum<MaskTarget_PhysMesh>();
 			if(Enum)
 			{
 				const int32 NumEntries = Enum->NumEnums();

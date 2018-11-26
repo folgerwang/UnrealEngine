@@ -355,7 +355,7 @@ EVisibility FVertexPaintSettingsCustomization::ArePropertiesVisible(const int32 
 
 void FVertexPaintSettingsCustomization::OnTextureWeightTypeChanged(TSharedRef<IPropertyHandle> WeightTypeProperty, TSharedRef<IPropertyHandle> PaintWeightProperty, TSharedRef<IPropertyHandle> EraseWeightProperty)
 {
-	UEnum* ImportTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETexturePaintIndex"));
+	UEnum* ImportTypeEnum = StaticEnum<ETexturePaintIndex>();
 	uint8 EnumValue = 0;
 	WeightTypeProperty->GetValue(EnumValue);	
 

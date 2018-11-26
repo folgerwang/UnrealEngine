@@ -119,7 +119,7 @@ void UPhysicsSettings::LoadSurfaceType()
 {
 	// read "SurfaceType" defines and set meta data for the enum
 	// find the enum
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPhysicalSurface"), true);
+	UEnum * Enum = StaticEnum<EPhysicalSurface>();
 	// we need this Enum
 	check(Enum);
 

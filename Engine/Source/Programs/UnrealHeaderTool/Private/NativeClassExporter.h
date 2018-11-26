@@ -188,7 +188,7 @@ private:
 	 * @param	Out		the output device for the mirror struct
 	 * @param	Enums	the enum to export
 	 */
-	static void ExportEnum(FOutputDevice& Out, UEnum* Enum);
+	void ExportEnum(FOutputDevice& Out, UEnum* Enum);
 
 	/**
 	 * Exports the inl text for enums declared in non-UClass headers.

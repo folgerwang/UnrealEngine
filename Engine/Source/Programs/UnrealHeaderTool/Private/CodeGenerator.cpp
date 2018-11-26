@@ -2178,6 +2178,11 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FOutputDevice& O
 		Out.Logf(TEXT("\tIMPLEMENT_DYNAMIC_CLASS(%s, TEXT(\"%s\"), %u);\r\n"), ClassNameCPP, *OverriddenClassName, ClassHash);
 	}
 
+	Out.Logf(TEXT("\ttemplate<> %sUClass* StaticClass<%s>()\r\n"), *GetAPIString(), ClassNameCPP);
+	Out.Logf(TEXT("\t{\r\n"));
+	Out.Logf(TEXT("\t\treturn %s::StaticClass();\r\n"), ClassNameCPP);
+	Out.Logf(TEXT("\t}\r\n"));
+
 	Out.Logf(TEXT("\tstatic FCompiledInDefer Z_CompiledInDefer_UClass_%s(%s, &%s::StaticClass, TEXT(\"%s\"), TEXT(\"%s\"), %s, %s, %s, %s);\r\n"),
 		ClassNameCPP,
 		*SingletonName,
@@ -2939,6 +2944,9 @@ void FNativeClassHeaderGenerator::ExportClassFromSourceFileInner(
 		OutGeneratedHeaderText.Log(*BodyMacros);
 	}
 
+	// Forward declare the StaticClass specialisation in the header
+	OutGeneratedHeaderText.Logf(TEXT("template<> %sUClass* StaticClass<class %s>();\r\n\r\n"), *GetAPIString(), ClassCPPName);
+
 	// If there is a serialization function implementation for the CPP file, add it now
 	if (GeneratedSerializeFunctionCPP.Len())
 	{
@@ -3202,6 +3210,38 @@ void FNativeClassHeaderGenerator::ExportEnum(FOutputDevice& Out, UEnum* Enum)
 		Out.Logf( TEXT("\\\r\n\top(%s) "), *QualifiedEnumValue );
 	}
 	Out.Logf( TEXT("\r\n") );
+
+	// Forward declare the StaticEnum<> specialisation for enum classes
+	if (const EUnderlyingEnumType* EnumPropType = GEnumUnderlyingTypes.Find(Enum))
+	{
+		check(Enum->GetCppForm() == UEnum::ECppForm::EnumClass);
+
+		FString UnderlyingTypeString;
+
+		if (*EnumPropType != EUnderlyingEnumType::Unspecified)
+		{
+			UnderlyingTypeString = TEXT(" : ");
+
+			switch (*EnumPropType)
+			{
+			case EUnderlyingEnumType::int8:        UnderlyingTypeString += TNameOf<int8>::GetName();	break;
+			case EUnderlyingEnumType::int16:       UnderlyingTypeString += TNameOf<int16>::GetName();	break;
+			case EUnderlyingEnumType::int32:       UnderlyingTypeString += TNameOf<int32>::GetName();	break;
+			case EUnderlyingEnumType::int64:       UnderlyingTypeString += TNameOf<int64>::GetName();	break;
+			case EUnderlyingEnumType::uint8:       UnderlyingTypeString += TNameOf<uint8>::GetName();	break;
+			case EUnderlyingEnumType::uint16:      UnderlyingTypeString += TNameOf<uint16>::GetName();	break;
+			case EUnderlyingEnumType::uint32:      UnderlyingTypeString += TNameOf<uint32>::GetName();	break;
+			case EUnderlyingEnumType::uint64:      UnderlyingTypeString += TNameOf<uint64>::GetName();	break;
+			default:
+				check(false);
+			}
+		}
+
+		Out.Logf( TEXT("\r\n") );
+		Out.Logf( TEXT("enum class %s%s;\r\n"), *Enum->CppType, *UnderlyingTypeString );
+		Out.Logf( TEXT("template<> %sUEnum* StaticEnum<%s>();\r\n"), *GetAPIString(), *Enum->CppType );
+		Out.Logf( TEXT("\r\n") );
+	}
 }
 
 // Exports the header text for the list of structs specified (GENERATED_BODY impls)
@@ -3267,6 +3307,15 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 
 		Out.Logf(TEXT("\t}\r\n"));
 		Out.Logf(TEXT("\treturn Singleton;\r\n"));
+		Out.Logf(TEXT("}\r\n"));
+
+		// Forward declare the StaticStruct specialisation in the header
+		OutGeneratedHeaderText.Logf(TEXT("template<> %sUScriptStruct* StaticStruct<struct %s>();\r\n\r\n"), *GetAPIString(), StructNameCPP);
+
+		// Generate the StaticStruct specialisation
+		Out.Logf(TEXT("template<> %sUScriptStruct* StaticStruct<%s>()\r\n"), *GetAPIString(), StructNameCPP);
+		Out.Logf(TEXT("{\r\n"));
+		Out.Logf(TEXT("\treturn %s::StaticStruct();\r\n"), StructNameCPP);
 		Out.Logf(TEXT("}\r\n"));
 
 		Out.Logf(TEXT("static FCompiledInDeferStruct Z_CompiledInDeferStruct_UScriptStruct_%s(%s::StaticStruct, TEXT(\"%s\"), TEXT(\"%s\"), %s, %s, %s);\r\n"),
@@ -3475,6 +3524,11 @@ void FNativeClassHeaderGenerator::ExportGeneratedEnumInitCode(FOutputDevice& Out
 
 	Out.Logf(TEXT("\t\t}\r\n"));
 	Out.Logf(TEXT("\t\treturn Singleton;\r\n"));
+	Out.Logf(TEXT("\t}\r\n"));
+
+	Out.Logf(TEXT("\ttemplate<> %sUEnum* StaticEnum<%s>()\r\n"), *GetAPIString(), *Enum->CppType);
+	Out.Logf(TEXT("\t{\r\n"));
+	Out.Logf(TEXT("\t\treturn %s_StaticEnum();\r\n"), *Enum->GetName());
 	Out.Logf(TEXT("\t}\r\n"));
 
 	Out.Logf(

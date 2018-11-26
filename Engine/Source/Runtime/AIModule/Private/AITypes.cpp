@@ -64,7 +64,7 @@ void FAIResourceLock::ForceClearAllLocks()
 
 FString FAIResourceLock::GetLockPriorityName() const
 {
-	const static UEnum* SourceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+	const static UEnum* SourceEnum = StaticEnum<EAIRequestPriority::Type>();
 
 	FString LockNames;
 

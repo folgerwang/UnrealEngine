@@ -287,7 +287,7 @@ void FNiagaraEditorUtilities::GatherChangeIds(UNiagaraEmitter& Emitter, TMap<FGu
 				FString KeyString;
 				Id.AppendKeyString(KeyString);
 
-				UEnum* FoundEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+				UEnum* FoundEnum = StaticEnum<ENiagaraScriptUsage>();
 
 				FString ResultsEnum = TEXT("??");
 				if (FoundEnum)

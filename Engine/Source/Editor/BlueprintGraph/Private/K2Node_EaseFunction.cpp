@@ -93,7 +93,7 @@ void UK2Node_EaseFunction::AllocateDefaultPins()
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	// Add the first pin representing all available easing functions. If EEasingFunc changes its name this will fail a runtime check!
-	UEnum* EaseFuncEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEasingFunc"), true);
+	UEnum* EaseFuncEnum = StaticEnum<EEasingFunc::Type>();
 	check(EaseFuncEnum);
 	CachedEaseFuncPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Byte, EaseFuncEnum, FEaseFunctionNodeHelper::GetEaseFuncPinName());
 	SetPinToolTip(*CachedEaseFuncPin, LOCTEXT("EaseFunsPinDescription", "Specifies the desired ease function to be applied. If connected no customization is possible."));
@@ -456,7 +456,7 @@ UEdGraphPin* UK2Node_EaseFunction::GetEaseFuncPin() const
 void UK2Node_EaseFunction::RefreshPinVisibility()
 {
 	const auto EaseFuncPin = GetEaseFuncPin();
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEasingFunc"), true);
+	UEnum * Enum = StaticEnum<EEasingFunc::Type>();
 	check(Enum != NULL);
 	const int32 NewEasingFunc = CanCustomizeCurve() ? Enum->GetValueByName(*EaseFuncPin->DefaultValue) : -1;
 	

@@ -243,7 +243,7 @@ void FIntroTutorials::AddSummonBlueprintTutorialsMenuExtension(FMenuBuilder& Men
 		UBlueprint* BP = Cast<UBlueprint>(PrimaryObject);
 		if(BP != nullptr)
 		{
-			UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBlueprintType"), true);
+			UEnum* Enum = StaticEnum<EBlueprintType>();
 			check(Enum);
 			MenuBuilder.AddMenuEntry(
 				FText::Format(LOCTEXT("BlueprintTutorialsMenuEntryTitle", "{0} Tutorial"), Enum->GetDisplayNameTextByValue(BP->BlueprintType)),

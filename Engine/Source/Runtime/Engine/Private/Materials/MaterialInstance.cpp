@@ -4128,7 +4128,7 @@ void UMaterialInstance::DumpDebugInfo()
 
 		if (Base)
 		{
-			static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+			static const UEnum* Enum = StaticEnum<EMaterialDomain>();
 			check(Enum);
 			UE_LOG(LogConsoleResponse, Display, TEXT("  MaterialDomain %s"), *Enum->GetNameStringByValue(int64(Base->MaterialDomain)));
 		}

@@ -1365,7 +1365,7 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 				{
 					if( FEngineAnalytics::IsAvailable() )
 					{
-						const static UEnum* FBXImportTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFBXImportType"));
+						const static UEnum* FBXImportTypeEnum = StaticEnum<EFBXImportType>();
 						TArray<FAnalyticsEventAttribute> Attribs;
 
 						FString OriginalVendor(UTF8_TO_TCHAR(DocInfo->Original_ApplicationVendor.Get().Buffer()));
