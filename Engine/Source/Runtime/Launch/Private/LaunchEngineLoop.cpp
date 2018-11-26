@@ -995,6 +995,11 @@ DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_
 
 int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 {
+#if PLATFORM_WINDOWS
+	// Register a handler for Ctrl-C so we've effective signal handling from the outset.
+	FWindowsPlatformMisc::SetGracefulTerminationHandler();
+#endif // PLATFORM_WINDOWS
+
 	FMemory::SetupTLSCachesOnCurrentThread();
 
 	// Set the flag for whether we've build DebugGame instead of Development. The engine does not know this (whereas the launch module does) because it is always built in development.
