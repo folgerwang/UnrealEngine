@@ -300,6 +300,11 @@ public:
 		{
 			AllowedLogVerbosity = ELogVerbosity::All;
 		}
+
+		if (stdout == nullptr)
+		{
+			AllowedLogVerbosity = ELogVerbosity::NoLogging;
+		}
 	}
 
 	virtual bool CanBeUsedOnAnyThread() const override
