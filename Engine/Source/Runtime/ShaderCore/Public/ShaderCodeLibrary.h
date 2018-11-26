@@ -88,6 +88,7 @@ struct SHADERCORE_API FStableShaderKeyAndValue
 	void ComputeKeyHash();
 	void ParseFromString(const FString& Src);
 	FString ToString() const;
+	void ToString(FString& OutResult) const;
 	static FString HeaderLine();
 
 	friend bool operator ==(const FStableShaderKeyAndValue& A, const FStableShaderKeyAndValue& B)
