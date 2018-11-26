@@ -291,7 +291,11 @@ bool FAndroidMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Option
 	else
 	{
 		// open remote media
-		JavaMediaPlayer->SetDataSource(Url);
+		if (!JavaMediaPlayer->SetDataSource(Url))
+		{
+			UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for URL %s"), *Url);
+			return false;
+		}
 	}
 
 	// prepare media
