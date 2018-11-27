@@ -2147,7 +2147,7 @@ namespace UnrealGameSync
 			Color HoverBadgeColor = Color.FromArgb(BadgeColor.A, Math.Min(BadgeColor.R + 32, 255), Math.Min(BadgeColor.G + 32, 255), Math.Min(BadgeColor.B + 32, 255));
 
 			Action ClickHandler;
-			if(BadgeData == null || BadgeData.Url == null)
+			if(BadgeData == null || String.IsNullOrEmpty(BadgeData.Url))
 			{
 				ClickHandler = null;
 			}
