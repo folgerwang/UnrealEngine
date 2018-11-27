@@ -15,7 +15,8 @@ namespace UnrealGameSync
 {
 	enum AutomationRequestType
 	{
-		SyncProject
+		SyncProject,
+		FindProject,
 	}
 
 	class AutomationRequestInput
@@ -56,7 +57,8 @@ namespace UnrealGameSync
 		Invalid,
 		Busy,
 		Canceled,
-		Error
+		Error,
+		NotFound
 	}
 
 	class AutomationRequestOutput

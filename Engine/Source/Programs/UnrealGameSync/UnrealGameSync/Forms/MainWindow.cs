@@ -174,6 +174,11 @@ namespace UnrealGameSync
 						Request.SetOutput(new AutomationRequestOutput(Result));
 					}
 				}
+				else if(Request.Input.Type == AutomationRequestType.FindProject)
+				{
+					AutomationRequestOutput Output = FindProject(Request);
+					Request.SetOutput(Output);
+				}
 				else
 				{
 					Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Invalid));
@@ -268,6 +273,36 @@ namespace UnrealGameSync
 			{
 				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Error));
 			}
+		}
+
+		AutomationRequestOutput FindProject(AutomationRequest Request)
+		{
+			BinaryReader Reader = new BinaryReader(new MemoryStream(Request.Input.Data));
+			string StreamName = Reader.ReadString();
+			string ProjectPath = Reader.ReadString();
+
+			for(int ExistingTabIdx = 0; ExistingTabIdx < TabControl.GetTabCount(); ExistingTabIdx++)
+			{
+				WorkspaceControl ExistingWorkspace = TabControl.GetTabData(ExistingTabIdx) as WorkspaceControl;
+				if(ExistingWorkspace != null && String.Compare(ExistingWorkspace.StreamName, StreamName, StringComparison.OrdinalIgnoreCase) == 0 && ExistingWorkspace.SelectedProject != null)
+				{
+					string ClientPath = ExistingWorkspace.SelectedProject.ClientPath;
+					if(ClientPath != null && ClientPath.StartsWith("//"))
+					{
+						int SlashIdx = ClientPath.IndexOf('/', 2);
+						if(SlashIdx != -1)
+						{
+							string ExistingProjectPath = ClientPath.Substring(SlashIdx);
+							if(String.Compare(ExistingProjectPath, ProjectPath, StringComparison.OrdinalIgnoreCase) == 0)
+							{
+								return new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(ExistingWorkspace.SelectedFileName));
+							}
+						}
+					}
+				}
+			}
+
+			return new AutomationRequestOutput(AutomationRequestResult.NotFound);
 		}
 
 		protected override void OnHandleCreated(EventArgs e)
