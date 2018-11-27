@@ -456,6 +456,12 @@ public:
 	 * @see ELifetimeCondition.
 	 */
 	bool ConditionMap[COND_Max];
+
+	// Cache off the RemoteRole and Role per connection to avoid issues with
+	// FScopedRoleDowngrade. See UE-66313 (among others).
+
+	ENetRole SavedRemoteRole = ROLE_MAX;
+	ENetRole SavedRole = ROLE_MAX;
 };
 
 /** Various types of Properties supported for Replication. */
@@ -1084,16 +1090,27 @@ public:
 		const bool					bEnableRepNotifies,
 		bool&						bOutGuidsChanged) const;
 
+	DEPRECATED(4.22, "Please use the version of CompareProperties that accepts a FRepState pointer.")
+	bool CompareProperties(
+		FRepChangelistState* RESTRICT	RepState,
+		const uint8* RESTRICT			Data,
+		const FReplicationFlags&		RepFlags) const
+	{
+		CompareProperties(nullptr, RepState, Data, RepFlags);
+	}
+
 	/**
 	 * Compare Property Values currently stored in the Changelist State to the Property Values
 	 * in the passed in data, generating a new changelist if necessary.
 	 *
-	 * @param RepState	The FRepChangelistState that contains the last cached values and changelists.
-	 * @param Data		The newest Property Data available.
-	 * @param RepFlags	Flags that will be used if the object is replicated.
+	 * @param RepState				RepState for the object.
+	 * @param RepChangelistState	The FRepChangelistState that contains the last cached values and changelists.
+	 * @param Data					The newest Property Data available.
+	 * @param RepFlags				Flags that will be used if the object is replicated.
 	 */
 	bool CompareProperties(
-		FRepChangelistState* RESTRICT	RepState,
+		FRepState* RESTRICT				RepState,
+		FRepChangelistState* RESTRICT	RepChangelistState,
 		const uint8* RESTRICT			Data,
 		const FReplicationFlags&		RepFlags) const;
 
@@ -1125,6 +1142,7 @@ private:
 		const uint8* RESTRICT				SourceData) const;
 
 	void SendAllProperties_BackwardsCompatible_r(
+		FRepState* RESTRICT					RepState,
 		FNetBitWriter&						Writer,
 		const bool							bDoChecksum,
 		UPackageMapClient*					PackageMapClient,
@@ -1144,6 +1162,7 @@ private:
 		const FRepSerializationSharedInfo&	SharedInfo) const;
 
 	uint16 CompareProperties_r(
+		FRepState* RESTRICT		RepState,
 		const int32				CmdStart,
 		const int32				CmdEnd,
 		const uint8* RESTRICT	CompareData,
@@ -1154,6 +1173,7 @@ private:
 		const bool				bForceFail) const;
 
 	void CompareProperties_Array_r(
+		FRepState* RESTRICT		RepState,
 		const uint8* RESTRICT	CompareData,
 		const uint8* RESTRICT	Data,
 		TArray<uint16>&			Changed,

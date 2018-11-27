@@ -3153,19 +3153,24 @@ void AActor::SetReplicates(bool bInReplicates)
 { 
 	if (Role == ROLE_Authority)
 	{
-		const bool ChangedReplicates = (bReplicates == false && bInReplicates == true);
-
-		// Update our settings before calling into net driver
-		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
-		bReplicates = bInReplicates;
-
 		// Only call into net driver if we actually changed
-		if (ChangedReplicates)
+		if (bReplicates != bInReplicates)
 		{
-			if (UWorld* MyWorld = GetWorld())		// GetWorld will return nullptr on CDO, FYI
+			// Update our settings before calling into net driver
+			RemoteRole = bInReplicates ? ROLE_SimulatedProxy : ROLE_None;
+			bReplicates = bInReplicates;
+
+			// This actor should already be in the Network Actors List if it was already replicating.
+			if (bReplicates)
 			{
-				MyWorld->AddNetworkActor(this);
+				// GetWorld will return nullptr on CDO, FYI
+				if (UWorld* MyWorld = GetWorld())		
+				{
+					MyWorld->AddNetworkActor(this);
+					ForcePropertyCompare();
+				}
 			}
+			
 		}
 	}
 	else
@@ -3206,6 +3211,7 @@ void AActor::CopyRemoteRoleFrom(const AActor* CopyFromActor)
 	if (RemoteRole != ROLE_None)
 	{
 		GetWorld()->AddNetworkActor(this);
+		ForcePropertyCompare();
 	}
 }
 
@@ -3238,6 +3244,7 @@ void AActor::ExchangeNetRoles(bool bRemoteOwned)
 	{
 		if (bRemoteOwned)
 		{
+			// Don't worry about calling SetRemoteRoleInternal here, as this should only be hit during initialization.
 			Exchange( Role, RemoteRole );
 		}
 		bExchangedRoles = true;
@@ -3247,6 +3254,7 @@ void AActor::ExchangeNetRoles(bool bRemoteOwned)
 void AActor::SwapRoles()
 {
 	Swap(Role, RemoteRole);
+	ForcePropertyCompare();
 }
 
 void AActor::DispatchBeginPlay()

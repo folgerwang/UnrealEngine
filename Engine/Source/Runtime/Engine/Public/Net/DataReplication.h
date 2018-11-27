@@ -61,7 +61,19 @@ public:
 
 	~FReplicationChangelistMgr();
 
-	void Update( const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags, const bool bForceCompare );
+	DEPRECATED(4.22, "Please use the version of Update that accepts a FRepState pointer.")
+	void Update(const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags, const bool bForceCompare);
+
+	/**
+	 * Updates the shared RepChangelistState for the given object, potentially skipping unnecessary updates.
+	 * See FRepLayout::CompareProperties.
+	 *
+	 * @param RepState		The connection specific RepState for this object.
+	 * @param InObject		The Object associated with the Changelist / RepLayout.
+	 * @param RepFlags		Replication Flags that will be used if the object needs to be replicated.
+	 * @param bForceCompare	Force the comparison, even if other connections have already done it this frame.
+	 */
+	void Update(FRepState* RESTRICT RepState, const UObject* InObject, const uint32 ReplicationFrame, const FReplicationFlags& RepFlags, const bool bForceCompare);
 
 	FRepChangelistState* GetRepChangelistState() const { return RepChangelistState.Get(); }
 

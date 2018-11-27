@@ -503,6 +503,7 @@ public:
 };
 
 uint16 FRepLayout::CompareProperties_r(
+	FRepState* RESTRICT		RepState,
 	const int32				CmdStart,
 	const int32				CmdEnd,
 	const uint8* RESTRICT	CompareData,
@@ -535,7 +536,7 @@ uint16 FRepLayout::CompareProperties_r(
 			}
 
 			// Once we hit an array, start using a stack based approach
-			CompareProperties_Array_r(CompareData + Cmd.Offset, (const uint8*)Data + Cmd.Offset, Changed, CmdIndex, Handle, bIsInitial, bForceFail);
+			CompareProperties_Array_r(RepState, CompareData + Cmd.Offset, ( const uint8* )Data + Cmd.Offset, Changed, CmdIndex, Handle, bIsInitial, bForceFail);
 			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
 			continue;
 		}
@@ -545,7 +546,27 @@ uint16 FRepLayout::CompareProperties_r(
 			continue;
 		}
 
-		if (bForceFail || !PropertiesAreIdentical(Cmd, (const void*)(CompareData + Cmd.Offset), (const void*)(Data + Cmd.Offset)))
+		// RepState may be null in the case where a deprecated version of this function is called.
+		// In that case, just allow this to fail and perform the old logic.
+		if (RepState && Cmd.ParentIndex == RoleIndex)
+		{
+			const ENetRole ObjectRole = *(const ENetRole*)(Data + Cmd.Offset);
+			if (bForceFail || RepState->SavedRole != ObjectRole)
+			{
+				RepState->SavedRole = ObjectRole;
+				Changed.Add(Handle);
+			}
+		}
+		else if (RepState && Cmd.ParentIndex == RemoteRoleIndex)
+		{
+			const ENetRole ObjectRemoteRole = *(const ENetRole*)(Data + Cmd.Offset);
+			if (bForceFail || RepState->SavedRemoteRole != ObjectRemoteRole)
+			{
+				RepState->SavedRemoteRole = ObjectRemoteRole;
+				Changed.Add(Handle);
+			}
+		}
+		else if (bForceFail || !PropertiesAreIdentical(Cmd, (const void*)(CompareData + Cmd.Offset), (const void*)(Data + Cmd.Offset)))
 		{
 			StoreProperty(Cmd, (void*)(CompareData + Cmd.Offset), (const void*)(Data + Cmd.Offset));
 			Changed.Add(Handle);
@@ -556,6 +577,7 @@ uint16 FRepLayout::CompareProperties_r(
 }
 
 void FRepLayout::CompareProperties_Array_r(
+	FRepState* RESTRICT		RepState,
 	const uint8* RESTRICT	CompareData,
 	const uint8* RESTRICT	Data,
 	TArray<uint16>&			Changed,
@@ -590,7 +612,7 @@ void FRepLayout::CompareProperties_Array_r(
 
 		const bool bNewForceFail = bForceFail || i >= CompareArrayNum;
 
-		LocalHandle = CompareProperties_r(CmdIndex + 1, Cmd.EndCmd - 1, CompareData + ElementOffset, Data + ElementOffset, ChangedLocal, LocalHandle, bIsInitial, bNewForceFail);
+		LocalHandle = CompareProperties_r(RepState, CmdIndex + 1, Cmd.EndCmd - 1, CompareData + ElementOffset, Data + ElementOffset, ChangedLocal, LocalHandle, bIsInitial, bNewForceFail);
 	}
 
 	if (ChangedLocal.Num())
@@ -613,6 +635,7 @@ void FRepLayout::CompareProperties_Array_r(
 }
 
 bool FRepLayout::CompareProperties(
+	FRepState* RESTRICT				RepState,
 	FRepChangelistState* RESTRICT	RepChangelistState,
 	const uint8* RESTRICT			Data,
 	const FReplicationFlags&		RepFlags) const
@@ -629,7 +652,7 @@ bool FRepLayout::CompareProperties(
 	TArray<uint16>& Changed = NewHistoryItem.Changed;
 	Changed.Empty();
 
-	CompareProperties_r(0, Cmds.Num() - 1, RepChangelistState->StaticBuffer.GetData(), Data, Changed, 0, RepFlags.bNetInitial, false);
+	CompareProperties_r(RepState, 0, Cmds.Num() - 1, RepChangelistState->StaticBuffer.GetData(), Data, Changed, 0, RepFlags.bNetInitial, false);
 
 	if (Changed.Num() == 0)
 	{
@@ -1423,6 +1446,17 @@ void FRepLayout::SendProperties_r(
 			WritePropertyHandle(Writer, 0, bDoChecksum);		// Signify end of dynamic array
 			continue;
 		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
+		}	
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if (GDoReplicationContextString> 0)
@@ -1737,6 +1771,17 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 			HandleIterator.ChangelistIterator.ChangedIndex++;
 			continue;
 		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
+		}
 
 		WriteProperty_BackwardsCompatible(Writer, Cmd, HandleIterator.CmdIndex, Owner, Data, bDoChecksum);
 	}
@@ -1745,6 +1790,7 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 }
 
 void FRepLayout::SendAllProperties_BackwardsCompatible_r(
+	FRepState* RESTRICT					RepState,
 	FNetBitWriter&						Writer,
 	const bool							bDoChecksum,
 	UPackageMapClient*					PackageMapClient,
@@ -1782,7 +1828,7 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 				uint32 ArrayIndex = i + 1;
 				TempWriter.SerializeIntPacked(ArrayIndex);
 
-				SendAllProperties_BackwardsCompatible_r(TempWriter, bDoChecksum, PackageMapClient, NetFieldExportGroup, CmdIndex + 1, Cmd.EndCmd - 1, ((const uint8*)Array->GetData()) + Cmd.ElementSize * i);
+				SendAllProperties_BackwardsCompatible_r(RepState, TempWriter, bDoChecksum, PackageMapClient, NetFieldExportGroup, CmdIndex + 1, Cmd.EndCmd - 1, ((const uint8*)Array->GetData()) + Cmd.ElementSize * i);
 			}
 
 			uint32 EndArrayIndex = 0;
@@ -1794,6 +1840,17 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 
 			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
 			continue;
+		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
 		}
 
 		WriteProperty_BackwardsCompatible(Writer, Cmd, CmdIndex, Owner, Data, bDoChecksum);
@@ -1836,7 +1893,7 @@ void FRepLayout::SendProperties_BackwardsCompatible(
 
 	if (Changed.Num() == 0)
 	{
-		SendAllProperties_BackwardsCompatible_r(Writer, bDoChecksum, PackageMapClient, NetFieldExportGroup.Get(), 0, Cmds.Num() - 1, Data);
+		SendAllProperties_BackwardsCompatible_r(RepState, Writer, bDoChecksum, PackageMapClient, NetFieldExportGroup.Get(), 0, Cmds.Num() - 1, Data);
 	}
 	else
 	{

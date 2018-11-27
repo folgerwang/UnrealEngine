@@ -411,7 +411,8 @@ FReplicationChangelistMgr::~FReplicationChangelistMgr()
 {
 }
 
-void FReplicationChangelistMgr::Update( const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags, const bool bForceCompare )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+void FReplicationChangelistMgr::Update(const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags, const bool bForceCompare)
 {
 	// See if we can re-use the work already done on a previous connection
 	// Rules:
@@ -419,13 +420,33 @@ void FReplicationChangelistMgr::Update( const UObject* InObject, const uint32 Re
 	//	2. We check LastCompareIndex > 1 so we can do at least one pass per connection to compare all properties
 	//		This is necessary due to how RemoteRole is manipulated per connection, so we need to give all connections a chance to see if it changed
 	//	3. We ALWAYS compare on bNetInitial to make sure we have a fresh changelist of net initial properties in this case
-	if ( !bForceCompare && GShareShadowState && !RepFlags.bNetInitial && LastCompareIndex > 1 && LastReplicationFrame == ReplicationFrame )
+	if (!bForceCompare && GShareShadowState && !RepFlags.bNetInitial && LastCompareIndex > 1 && LastReplicationFrame == ReplicationFrame)
+	{
+		INC_DWORD_STAT_BY(STAT_NetSkippedDynamicProps, 1);
+		return;
+	}
+
+	RepLayout->CompareProperties(nullptr, RepChangelistState.Get(), (const uint8*)InObject, RepFlags);
+
+	LastReplicationFrame = ReplicationFrame;
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+void FReplicationChangelistMgr::Update(FRepState* RESTRICT RepState, const UObject* InObject, const uint32 ReplicationFrame, const FReplicationFlags& RepFlags, const bool bForceCompare)
+{
+	// See if we can re-use the work already done on a previous connection
+	// Rules:
+	//	1. We always compare once per frame (i.e. check LastReplicationFrame == ReplicationFrame)
+	//	2. We check LastCompareIndex > 1 so we can do at least one pass per connection to compare all properties
+	//		This is necessary due to how RemoteRole is manipulated per connection, so we need to give all connections a chance to see if it changed
+	//	3. We ALWAYS compare on bNetInitial to make sure we have a fresh changelist of net initial properties in this case
+	if (!bForceCompare && GShareShadowState && !RepFlags.bNetInitial && RepState->LastCompareIndex > 1 && LastReplicationFrame == ReplicationFrame)
 	{
 		INC_DWORD_STAT_BY( STAT_NetSkippedDynamicProps, 1 );
 		return;
 	}
 
-	RepLayout->CompareProperties( RepChangelistState.Get(), (const uint8*)InObject, RepFlags );
+	RepLayout->CompareProperties(RepState, RepChangelistState.Get(), (const uint8*)InObject, RepFlags);
 
 	LastReplicationFrame = ReplicationFrame;
 }
@@ -1296,7 +1317,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 	FNetBitWriter Writer( Bunch.PackageMap, 8192 );
 
 	// Update change list (this will re-use work done by previous connections)
-	ChangelistMgr->Update( Object, Connection->Driver->ReplicationFrame, RepState->LastCompareIndex, RepFlags, OwningChannel->bForceCompareProperties );
+	ChangelistMgr->Update(RepState.Get(), Object, Connection->Driver->ReplicationFrame, RepFlags, OwningChannel->bForceCompareProperties);
 
 	// Replicate properties in the layout
 	const bool bHasRepLayout = RepLayout->ReplicateProperties( RepState.Get(), ChangelistMgr->GetRepChangelistState(), ( uint8* )Object, ObjectClass, OwningChannel, Writer, RepFlags );
