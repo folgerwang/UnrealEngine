@@ -305,7 +305,7 @@ FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKe
 				if (Suggestions.HasSelectedSuggestion())
 				{
 					MarkActiveSuggestion();
-					OnTextCommitted(InputText->GetText(), ETextCommit::OnEnter);
+					SuggestionBox->SetIsOpen(false);
 				}
 				else
 				{
@@ -314,6 +314,7 @@ FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKe
 				}
 			}
 
+			bConsumeTab = true;
 			return FReply::Handled();
 		}
 		else if (KeyEvent.GetKey() == EKeys::Escape)
@@ -575,6 +576,13 @@ FReply SConsoleInputBox::OnKeyCharHandler(const FGeometry& MyGeometry, const FCh
 	// A printable key may be used to open the console, so consume all characters before our first Tick
 	if (!bHasTicked)
 	{
+		return FReply::Handled();
+	}
+
+	// Intercept tab if used for auto-complete
+	if (InCharacterEvent.GetCharacter() == '\t' && bConsumeTab)
+	{
+		bConsumeTab = false;
 		return FReply::Handled();
 	}
 
