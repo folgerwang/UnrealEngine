@@ -2288,7 +2288,7 @@ namespace UnrealBuildTool
 			else
 			{
 				CopyAction.CommandPath = "/bin/sh";
-				CopyAction.CommandArguments = String.Format("cp -f {0} {1}", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
+				CopyAction.CommandArguments = String.Format("-c 'cp -f {0} {1}'", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
 			}
 			CopyAction.WorkingDirectory = Environment.CurrentDirectory;
 			CopyAction.PrerequisiteItems.Add(SourceFileItem);
