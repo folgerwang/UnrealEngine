@@ -459,7 +459,7 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 		}
 		else if (Major == 8)
 		{
-			if (Minor == 3 || Minor == 4)
+			if (Minor <= 4)
 			{
 				DeviceType = IOS_IPadPro_11;
 			}

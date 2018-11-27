@@ -209,7 +209,7 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 
 	// check to see if we are using the network file system, if so, disable the idle timer
 	FString HostIP;
-//	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
+	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
 	{
 		[UIApplication sharedApplication].idleTimerDisabled = YES;
 	}
