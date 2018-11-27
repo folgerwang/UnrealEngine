@@ -1078,7 +1078,13 @@ namespace UnrealGameSync
 
 							ListViewGroup Group;
 
-							string GroupName = Change.Date.ToString("D");//"dddd\\,\\ h\\.mmtt");
+							DateTime DisplayTime = Change.Date;
+							if(Settings.bShowLocalTimes)
+							{
+								DisplayTime = (DisplayTime - PerforceMonitor.ServerTimeZone).ToLocalTime();
+							}
+
+							string GroupName = DisplayTime.ToString("D");//"dddd\\,\\ h\\.mmtt");
 							for(int Idx = 0;;Idx++)
 							{
 								if(Idx == BuildList.Groups.Count)
@@ -1093,12 +1099,6 @@ namespace UnrealGameSync
 									Group = BuildList.Groups[Idx];
 									break;
 								}
-							}
-
-							DateTime DisplayTime = Change.Date;
-							if(Settings.bShowLocalTimes)
-							{
-								DisplayTime = (DisplayTime - PerforceMonitor.ServerTimeZone).ToLocalTime();
 							}
 
 							string[] SubItemLabels = new string[BuildList.Columns.Count];
