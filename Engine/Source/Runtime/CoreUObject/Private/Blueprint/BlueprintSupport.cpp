@@ -2040,7 +2040,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 		for (int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
 		{
 			FObjectExport& Export = ExportMap[ExportIndex];
-			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.ToExport() == DeferredCDOIndex)
+			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.IsExport() && Export.OuterIndex.ToExport() == DeferredCDOIndex)
 			{
 				if (Export.Object == nullptr && Export.OuterIndex.IsExport())
 				{
