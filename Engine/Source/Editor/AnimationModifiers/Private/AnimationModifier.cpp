@@ -39,7 +39,9 @@ void UAnimationModifier::ApplyToAnimationSequence(class UAnimSequence* InAnimati
 	OnApply(CurrentAnimSequence);
 
 	// Apply transaction
+	ModifierTransaction.BeginOperation();
 	ModifierTransaction.Apply();
+	ModifierTransaction.EndOperation();
 
 	GLog->RemoveOutputDevice(&OutputLog);
 
@@ -59,7 +61,9 @@ void UAnimationModifier::ApplyToAnimationSequence(class UAnimSequence* InAnimati
 	// Revert changes if necessary, otherwise post edit and refresh animation data
 	if (bShouldRevert)
 	{
+		AnimationDataTransaction.BeginOperation();
 		AnimationDataTransaction.Apply();
+		AnimationDataTransaction.EndOperation();
 		CurrentAnimSequence->RefreshCacheData();
 		CurrentAnimSequence->RefreshCurveData();
 	}
