@@ -1090,7 +1090,7 @@ public:
 		const bool					bEnableRepNotifies,
 		bool&						bOutGuidsChanged) const;
 
-	DEPRECATED(4.22, "Please use the version of CompareProperties that accepts a FRepState pointer.")
+	UE_DEPRECATED(4.22, "Please use the version of CompareProperties that accepts a FRepState pointer.")
 	bool CompareProperties(
 		FRepChangelistState* RESTRICT	RepState,
 		const uint8* RESTRICT			Data,

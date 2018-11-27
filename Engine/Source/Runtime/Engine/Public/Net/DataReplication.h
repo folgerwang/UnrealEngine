@@ -61,7 +61,7 @@ public:
 
 	~FReplicationChangelistMgr();
 
-	DEPRECATED(4.22, "Please use the version of Update that accepts a FRepState pointer.")
+	UE_DEPRECATED(4.22, "Please use the version of Update that accepts a FRepState pointer.")
 	void Update(const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags, const bool bForceCompare);
 
 	/**
