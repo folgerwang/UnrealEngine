@@ -1955,15 +1955,7 @@ void UEditorEngine::PlayUsingLauncher()
 			break;
 		default:
 			// same as the running editor
-			FString ExeName = FUnrealEdMisc::Get().GetExecutableForCommandlets();
-			if (ExeName.Contains(TEXT("Debug")))
-			{
-				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Debug);
-			}
-			else
-			{
-				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Development);
-			}
+			LauncherProfile->SetBuildConfiguration(FApp::GetBuildConfiguration());
 			break;
 		}
 
