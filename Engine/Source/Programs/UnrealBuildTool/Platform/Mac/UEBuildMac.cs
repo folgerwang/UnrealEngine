@@ -153,12 +153,6 @@ namespace UnrealBuildTool
 				Target.GlobalDefinitions.Add("FORCE_ANSI_ALLOCATOR=1");
 			}
 
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// When generating project files we need intellisense generator to include info from all modules, including editor-only third party libs
-				Target.bCompileLeanAndMeanUE = false;
-			}
-
 			Target.bUsePDBFiles = !Target.bDisableDebugInfo && Target.Configuration != UnrealTargetConfiguration.Debug && Platform == UnrealTargetPlatform.Mac && Target.MacPlatform.bGenerateDsymFile;
 
 			// we always deploy - the build machines need to be able to copy the files back, which needs the full bundle

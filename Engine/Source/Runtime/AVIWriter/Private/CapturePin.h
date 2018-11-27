@@ -11,7 +11,7 @@
 class FAVIWriter;
 struct FCapturedFrame;
 
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"

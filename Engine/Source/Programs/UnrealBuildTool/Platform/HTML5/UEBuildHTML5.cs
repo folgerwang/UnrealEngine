@@ -42,16 +42,16 @@ namespace UnrealBuildTool
 		public override void ResetTarget(TargetRules Target)
 		{
 			ValidateTarget(Target);
+
+			Target.bCompileSimplygon = false;
+			Target.bCompileSimplygonSSF = false;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileLeanAndMeanUE = true;
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
 			Target.bCompilePhysX = true;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 			Target.bCompileForSize = true;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
 			Target.bUsePCHFiles = false;
 			Target.bDeployAfterCompile = true;

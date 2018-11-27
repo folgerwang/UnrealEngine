@@ -229,12 +229,13 @@ namespace UnrealBuildTool
 		public override void ResetTarget(TargetRules Target)
 		{
 			ValidateTarget(Target);
+
+			Target.bCompileSimplygon = false;
+			Target.bCompileSimplygonSSF = false;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
@@ -261,13 +262,6 @@ namespace UnrealBuildTool
 			if (Target.Architecture.StartsWith("aarch64") || Target.Architecture.StartsWith("i686"))
 			{
 				Target.bCompileICU = false;
-			}
-
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// When generating project files we need intellisense generator to include info from all modules,
-				// including editor-only third party libs
-				Target.bCompileLeanAndMeanUE = false;
 			}
 		}
 

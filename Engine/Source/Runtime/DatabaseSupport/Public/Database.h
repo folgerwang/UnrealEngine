@@ -8,7 +8,7 @@
  * Whether to compile in support for database connectivity and SQL execution.
  */
 #ifndef WITH_DATABASE_SUPPORT
-	#define WITH_DATABASE_SUPPORT (!UE_BUILD_MINIMAL && !UE_BUILD_SHIPPING)
+	#define WITH_DATABASE_SUPPORT (WITH_UNREAL_DEVELOPER_TOOLS && !UE_BUILD_SHIPPING)
 #endif
 
 // Only use ADO on windows, if support is enabled and not for shipping games.

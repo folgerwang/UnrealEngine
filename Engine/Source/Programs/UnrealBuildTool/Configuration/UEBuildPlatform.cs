@@ -709,7 +709,7 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bCompileApex", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
-				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree",
+				"bIncludeADO", "bCompileRecast", "bCompileSpeedTree",
 				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType",
 				"bCompileForSize", "bCompileCEF3"
 			};

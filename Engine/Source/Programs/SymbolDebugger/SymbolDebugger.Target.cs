@@ -16,10 +16,7 @@ public class SymbolDebuggerTarget : TargetRules
 
 		GlobalDefinitions.Add("WITH_DATABASE_SUPPORT=1");
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// SymbolDebugger doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

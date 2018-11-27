@@ -20,7 +20,7 @@ public class UnrealCEFSubProcessTarget : TargetRules
 		// Turn off various third party features we don't need
 
 		// Currently we force Lean and Mean mode
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
 		bCompileAgainstEngine = false;

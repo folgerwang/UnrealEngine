@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -232,7 +232,11 @@ namespace UnrealBuildTool
 				if (!TypeToConfigFields.TryGetValue(TargetObjectType, out Fields))
 				{
 					Fields = new List<ConfigField>();
-					foreach (FieldInfo FieldInfo in TargetObjectType.GetFields(BindingFlags.Instance | BindingFlags.GetField | BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.NonPublic))
+					if(TargetObjectType.BaseType != null)
+					{
+						Fields.AddRange(FindConfigFieldsForType(TargetObjectType.BaseType));
+					}
+					foreach (FieldInfo FieldInfo in TargetObjectType.GetFields(BindingFlags.Instance | BindingFlags.GetField | BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
 					{
 						IEnumerable<ConfigFileAttribute> Attributes = FieldInfo.GetCustomAttributes<ConfigFileAttribute>();
 						foreach (ConfigFileAttribute Attribute in Attributes)
@@ -405,6 +409,10 @@ namespace UnrealBuildTool
 					Value = null;
 					return false;
 				}
+			}
+			else if(FieldType.GetGenericTypeDefinition() == typeof(Nullable<>))
+			{
+				return TryParseValue(Text, FieldType.GetGenericArguments()[0], out Value);
 			}
 			else
 			{

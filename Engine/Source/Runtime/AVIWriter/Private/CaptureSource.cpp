@@ -9,7 +9,7 @@
 #include "HAL/PlatformProcess.h"
 #include "HAL/Event.h"
 
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 
 FCaptureSource::FCaptureSource(const FAVIWriter& Writer)
            : CSource(NAME("ViewportCaptureFilter"), nullptr, CLSID_ViewportCaptureSource)

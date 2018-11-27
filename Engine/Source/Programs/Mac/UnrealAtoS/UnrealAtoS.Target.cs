@@ -12,10 +12,7 @@ public class UnrealAtoSTarget : TargetRules
 		LinkType = TargetLinkType.Monolithic;
 		LaunchModuleName = "UnrealAtoS";
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// DsymExporter doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

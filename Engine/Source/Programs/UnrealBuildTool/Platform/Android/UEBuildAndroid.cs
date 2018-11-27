@@ -95,19 +95,16 @@ namespace UnrealBuildTool
 			ValidateTarget(Target);
 
 			Target.bDeployAfterCompile = true;
+
+			Target.bCompileSimplygon = false;
+			Target.bCompileSimplygonSSF = false;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileLeanAndMeanUE = true;
 			Target.bCompilePhysX = true;
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
-
-			Target.bBuildEditor = false;
-			Target.bBuildDeveloperTools = false;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 
 			Target.bCompileRecast = true;
 		}

@@ -30,7 +30,7 @@ public class ShaderCompileWorkerTarget : TargetRules
 		// Turn off various third party features we don't need
 
 		// Currently we force Lean and Mean mode
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 
 		// ShaderCompileWorker isn't localized, so doesn't need ICU
 		bCompileICU = false;

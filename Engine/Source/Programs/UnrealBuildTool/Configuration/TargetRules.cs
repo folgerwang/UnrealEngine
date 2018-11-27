@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
 
@@ -93,7 +94,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Attribute used to mark fields which much match between targets in the shared build environment
 	/// </summary>
-	[AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
 	class RequiresUniqueBuildEnvironmentAttribute : Attribute
 	{
 	}
@@ -347,10 +348,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to compile the editor or not. Only desktop platforms (Windows or Mac) will use this, other platforms force this to false.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-NoEditor", Value = "false")]
-		public bool bBuildEditor = true;
-
+		public bool bBuildEditor
+		{
+			get { return (Type == TargetType.Editor); }
+			set { Log.TraceWarning("Setting {0}.bBuildEditor is deprecated. Set {0}.Type instead.", GetType().Name); }
+		}
+			
 		/// <summary>
 		/// Whether to compile code related to building assets. Consoles generally cannot build assets. Desktop platforms generally can.
 		/// </summary>
@@ -365,10 +368,19 @@ namespace UnrealBuildTool
 		public bool bBuildWithEditorOnlyData = true;
 
 		/// <summary>
+		/// Manually specified value for bBuildDeveloperTools.
+		/// </summary>
+		bool? bBuildDeveloperToolsOverride;
+
+		/// <summary>
 		/// Whether to compile the developer tools.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		public bool? bBuildDeveloperTools;
+		public bool bBuildDeveloperTools
+		{
+			set { bBuildDeveloperToolsOverride = value; }
+			get { return bBuildDeveloperToolsOverride ?? (bCompileAgainstEngine && (Type == TargetType.Editor || Type == TargetType.Program)); }
+		}
 
 		/// <summary>
 		/// Whether to force compiling the target platform modules, even if they wouldn't normally be built.
@@ -381,26 +393,57 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats = false;
 
 		/// <summary>
+		/// Cached value for whether Simplygon is available
+		/// </summary>
+		static Lazy<bool> HasSimplygon = new Lazy<bool>(() => FileReference.Exists(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "Simplygon", "Simplygon-latest", "Inc", "SimplygonSDK.h")), LazyThreadSafetyMode.PublicationOnly);
+
+		/// <summary>
+		/// Optional override for whether to use Simplygon. Allows the default value to be computed dynamically if unspecified.
+		/// </summary>
+		[CommandLine("-WithSimplygon")]
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
+		bool? bOverrideCompileSimplygon;
+		
+		/// <summary>
 		/// Whether we should compile in support for Simplygon or not.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-WithSimplygon")]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
-		public bool bCompileSimplygon = true;
+		public bool bCompileSimplygon
+		{
+			set { bOverrideCompileSimplygon = value; }
+			get { return bOverrideCompileSimplygon ?? (Type == TargetType.Editor && (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64) && HasSimplygon.Value); }
+		}
+		
+		/// <summary>
+		/// Cached value for whether SimplygonSSF is available
+		/// </summary>
+		static Lazy<bool> HasSimplygonSSF = new Lazy<bool>(() => FileReference.Exists(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "SSF", "Public", "ssf.h")), LazyThreadSafetyMode.PublicationOnly);
+
+        /// <summary>
+        /// Manually specified value for bCompileSimplygonSSF. Allows the default to be determined based on the target type.
+        /// </summary>
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
+        bool? bOverrideCompileSimplygonSSF;
 
         /// <summary>
         /// Whether we should compile in support for Simplygon's SSF library or not.
         /// </summary>
 		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
-        public bool bCompileSimplygonSSF = true;
+		public bool bCompileSimplygonSSF
+		{
+			set { bOverrideCompileSimplygonSSF = value; }
+			get { return bOverrideCompileSimplygonSSF ?? (Type == TargetType.Editor && (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64) && HasSimplygonSSF.Value); }
+		}
 
         /// <summary>
 		/// Whether to compile lean and mean version of UE.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE")]
-		public bool bCompileLeanAndMeanUE = false;
+		[Obsolete("bCompileLeanAndMeanUE is deprecated. Set bBuildDeveloperTools to the opposite value instead.")]
+		public bool bCompileLeanAndMeanUE
+		{
+			get { return !bBuildDeveloperTools; }
+			set { bBuildDeveloperTools = !value; }
+		}
 
         /// <summary>
 		/// Whether to utilize cache freed OS allocs with MallocBinned
@@ -444,9 +487,18 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to compile SpeedTree support.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSpeedTree")]
-		public bool bCompileSpeedTree = true;
+		bool? bOverrideCompileSpeedTree;
+
+		/// <summary>
+		/// Whether we should compile in support for Simplygon or not.
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public bool bCompileSpeedTree
+		{
+			set { bOverrideCompileSpeedTree = value; }
+			get { return bOverrideCompileSpeedTree ?? Type == TargetType.Editor; }
+		}
 
 		/// <summary>
 		/// Enable exceptions for all modules.
@@ -1162,24 +1214,6 @@ namespace UnrealBuildTool
 				UEBuildPlatform.GetBuildPlatform(Platform).ResetTarget(this);
 			}
 
-			// Check that the appropriate headers exist to enable Simplygon
-			if(bCompileSimplygon)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "Simplygon", "Simplygon-latest", "Inc", "SimplygonSDK.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygon = false;
-				}
-			}
-			if(bCompileSimplygonSSF)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "SSF", "Public", "ssf.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygonSSF = false;
-				}
-			}
-
 			// If we've got a changelist set, set that we're making a formal build
 			bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild);
 
@@ -1234,10 +1268,7 @@ namespace UnrealBuildTool
 		{
 			if(Type == global::UnrealBuildTool.TargetType.Game)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1254,10 +1285,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Client)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1277,10 +1305,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Editor)
 			{
-				bCompileLeanAndMeanUE = false;
-
 				// Do not include the editor
-				bBuildEditor = true;
 				bBuildWithEditorOnlyData = true;
 
 				// Require cooked data
@@ -1303,10 +1328,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Server)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1642,8 +1664,7 @@ namespace UnrealBuildTool
 
 		public bool bBuildDeveloperTools
 		{
-			// appropriate default will be set by this point
-			get { return Inner.bBuildDeveloperTools.Value; }
+			get { return Inner.bBuildDeveloperTools; }
 		}
 
 		public bool bForceBuildTargetPlatforms
@@ -1666,6 +1687,7 @@ namespace UnrealBuildTool
 			get { return Inner.bCompileSimplygonSSF; }
 		}
 
+		[Obsolete("bCompileLeanAndMeanUE is deprecated. Use bBuildDeveloperTools instead.")]
 		public bool bCompileLeanAndMeanUE
 		{
 			get { return Inner.bCompileLeanAndMeanUE; }

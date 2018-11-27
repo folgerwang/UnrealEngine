@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -15,14 +15,13 @@ public class UnrealWatchdogTarget : TargetRules
 		LaunchModuleName = "UnrealWatchdog";
 
 		// Lean and mean
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 
         bUseLoggingInShipping = true;
 
         // No editor needed
-        bBuildEditor = false;
-		bBuildWithEditorOnlyData = false;
+        bBuildWithEditorOnlyData = false;
 
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
 		bCompileAgainstEngine = false;

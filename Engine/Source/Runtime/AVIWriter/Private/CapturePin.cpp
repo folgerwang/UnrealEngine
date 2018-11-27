@@ -7,7 +7,7 @@
 
 DEFINE_LOG_CATEGORY(LogMovieCapture);
 
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 
 
 FCapturePin::FCapturePin(HRESULT *phr, CSource *pFilter, const FAVIWriter& InWriter)

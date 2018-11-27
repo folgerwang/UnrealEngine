@@ -18,7 +18,7 @@ class FAVIWriterModule : public IModuleInterface
 
 IMPLEMENT_MODULE(FAVIWriterModule, AVIWriter);
 
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -425,7 +425,7 @@ private:
 	IBaseFilter* EncodingFilter;
 };
 
-#elif PLATFORM_MAC && !UE_BUILD_MINIMAL
+#elif PLATFORM_MAC && WITH_UNREAL_DEVELOPER_TOOLS
 
 #import <AVFoundation/AVFoundation.h>
 
@@ -840,9 +840,9 @@ void FAVIWriter::Update(double FrameTimeSeconds, TArray<FColor> FrameData)
 
 FAVIWriter* FAVIWriter::CreateInstance(const FAVIWriterOptions& InOptions)
 {
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 	return new FAVIWriterWin(InOptions);
-#elif PLATFORM_MAC && !UE_BUILD_MINIMAL
+#elif PLATFORM_MAC && WITH_UNREAL_DEVELOPER_TOOLS
 	return new FAVIWriterMac(InOptions);
 #else
 	return nullptr;

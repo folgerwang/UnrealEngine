@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -13,11 +13,7 @@ public class TestPALTarget : TargetRules
 		LaunchModuleName = "TestPAL";
 
 		// Lean and mean
-		bCompileLeanAndMeanUE = true;
-
-		// No editor or editor-only data is needed
-		bBuildEditor = false;
-		//bBuildWithEditorOnlyData = false;
+		bBuildDeveloperTools = false;
 
 		// Compile out references from Core to the rest of the engine
 		bCompileAgainstEngine = false;

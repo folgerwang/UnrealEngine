@@ -11,17 +11,12 @@ public class UnrealHeaderToolTarget : TargetRules
 		LinkType = TargetLinkType.Modular;
 		LaunchModuleName = "UnrealHeaderTool";
 
-		// Lean and mean
-		bCompileLeanAndMeanUE = true;
-
 		// Never use malloc profiling in Unreal Header Tool.  We set this because often UHT is compiled right before the engine
 		// automatically by Unreal Build Tool, but if bUseMallocProfiler is defined, UHT can operate incorrectly.
 		bUseMallocProfiler = false;
 
-        // No editor needed
         bCompileICU = false;
-        bBuildEditor = false;
-		// Editor-only data, however, is needed
+        // Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = true;
 
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine

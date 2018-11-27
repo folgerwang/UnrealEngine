@@ -15,10 +15,7 @@ public class SlateViewerTarget : TargetRules
 		LaunchModuleName = "SlateViewer";
 		ExtraModuleNames.Add("EditorStyle");
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// SlateViewer doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

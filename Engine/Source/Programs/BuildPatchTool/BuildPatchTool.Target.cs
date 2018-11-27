@@ -15,7 +15,6 @@ public class BuildPatchToolTarget : TargetRules
 		bOutputPubliclyDistributable = true;
 		UndecoratedConfiguration = UnrealTargetConfiguration.Shipping;
 
-		bBuildEditor = false;
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = false;
 		if(Target.Configuration == UnrealTargetConfiguration.Shipping)
@@ -23,7 +22,7 @@ public class BuildPatchToolTarget : TargetRules
 			// AutomationController is referenced by BuildPatchTool.build.cs, and references a ton of editor things that it probably shouldn't. Need ApplicationCore for this.
 			bCompileAgainstApplicationCore = false;
 		}
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseLoggingInShipping = true;
 		bUseChecksInShipping = true;
 		bIsBuildingConsoleApplication = true;

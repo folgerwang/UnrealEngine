@@ -545,32 +545,47 @@ namespace UnrealBuildTool
 				{
 					if(Field.GetCustomAttribute<RequiresUniqueBuildEnvironmentAttribute>() != null)
 					{
-						// Get the values for the current target and for the base target
 						object ThisValue = Field.GetValue(ThisObjects[Idx]);
 						object BaseValue = Field.GetValue(BaseObjects[Idx]);
-
-						// Check if the fields match, treating lists of strings (eg. definitions) differently to value types.
-						bool bFieldsMatch;
-						if(ThisValue == null || BaseValue == null)
-						{
-							bFieldsMatch = (ThisValue == BaseValue);
-						}
-						else if(typeof(IEnumerable<string>).IsAssignableFrom(Field.FieldType))
-						{
-							bFieldsMatch = Enumerable.SequenceEqual((IEnumerable<string>)ThisValue, (IEnumerable<string>)BaseValue);
-						}
-						else
-						{
-							bFieldsMatch = ThisValue.Equals(BaseValue);
-						}
-
-						// Throw an exception if they don't match
-						if(!bFieldsMatch)
-						{
-							throw new BuildException("{0} modifies the value of {1}. This is not allowed, as {0} has build products in common with {2}.\nRemove the modified setting or change {0} to use a unique build environment by setting 'BuildEnvironment = TargetBuildEnvironment.Unique;' in the {3} constructor.", ThisTargetName, Field.Name, BaseTargetName, ThisRules.GetType().Name);
-						}
+						CheckValuesMatch(ThisRules.GetType(), ThisTargetName, BaseTargetName, Field.Name, Field.FieldType, ThisValue, BaseValue);
 					}
 				}
+				foreach(PropertyInfo Property in ObjectType.GetProperties())
+				{
+					if(Property.GetCustomAttribute<RequiresUniqueBuildEnvironmentAttribute>() != null)
+					{
+						object ThisValue = Property.GetValue(ThisObjects[Idx]);
+						object BaseValue = Property.GetValue(BaseObjects[Idx]);
+						CheckValuesMatch(ThisRules.GetType(), ThisTargetName, BaseTargetName, Property.Name, Property.PropertyType, ThisValue, BaseValue);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Check that two values match between a base and derived rules type
+		/// </summary>
+		static void CheckValuesMatch(Type RulesType, string ThisTargetName, string BaseTargetName, string FieldName, Type ValueType, object ThisValue, object BaseValue)
+		{
+			// Check if the fields match, treating lists of strings (eg. definitions) differently to value types.
+			bool bFieldsMatch;
+			if(ThisValue == null || BaseValue == null)
+			{
+				bFieldsMatch = (ThisValue == BaseValue);
+			}
+			else if(typeof(IEnumerable<string>).IsAssignableFrom(ValueType))
+			{
+				bFieldsMatch = Enumerable.SequenceEqual((IEnumerable<string>)ThisValue, (IEnumerable<string>)BaseValue);
+			}
+			else
+			{
+				bFieldsMatch = ThisValue.Equals(BaseValue);
+			}
+
+			// Throw an exception if they don't match
+			if(!bFieldsMatch)
+			{
+				throw new BuildException("{0} modifies the value of {1}. This is not allowed, as {0} has build products in common with {2}.\nRemove the modified setting or change {0} to use a unique build environment by setting 'BuildEnvironment = TargetBuildEnvironment.Unique;' in the {3} constructor.", ThisTargetName, FieldName, BaseTargetName, RulesType.Name);
 			}
 		}
 
@@ -3507,16 +3522,6 @@ namespace UnrealBuildTool
 			else
 			{
 				GlobalCompileEnvironment.Definitions.Add("USE_CHECKS_IN_SHIPPING=0");
-			}
-
-			// Propagate whether we want a lean and mean build to the C++ code.
-			if (Rules.bCompileLeanAndMeanUE)
-			{
-				GlobalCompileEnvironment.Definitions.Add("UE_BUILD_MINIMAL=1");
-			}
-			else
-			{
-				GlobalCompileEnvironment.Definitions.Add("UE_BUILD_MINIMAL=0");
 			}
 
 			// bBuildEditor has now been set appropriately for all platforms, so this is here to make sure the #define 
