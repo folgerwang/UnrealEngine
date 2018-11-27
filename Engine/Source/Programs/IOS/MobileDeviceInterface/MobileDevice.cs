@@ -3091,7 +3091,7 @@ namespace Manzana
                     return "Already Archived Error";
 
 				case 0xE8000067:
-					return "Device not Included in Provisioning Profile (0xE8000067)";
+					return "Internal API error (0xE8000067); Your Device may not be included in Provisioning Profile or the device may not have the required minimum IOS version installed.";
 
 				case 0xE8008001:
 					return "Unknown code signature related error (0xE8008001); your executable may be missing or misnamed (e.g., underscore issue)";
