@@ -14,6 +14,7 @@ public class UnrealPakTarget : TargetRules
 		bCompileLeanAndMeanUE = true;
 		bUseMallocProfiler = false;
 		bCompileWithPluginSupport = true;
+		bIncludePluginsForTargetPlatforms = true;
 
 		// No editor needed
 		bBuildEditor = false;
