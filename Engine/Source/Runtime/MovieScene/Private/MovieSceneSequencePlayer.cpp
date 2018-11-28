@@ -913,9 +913,9 @@ void UMovieSceneSequencePlayer::RPC_OnStopEvent_Implementation(FFrameTime Stoppe
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Handle an explicit Stop command from the server.
 
-	if (HasAuthority())
+	if (HasAuthority() || !Sequence)
 	{
-		// Never run network sync operations on authoritative players
+		// Never run network sync operations on authoritative players or players that have not been initialized yet
 		return;
 	}
 
@@ -954,9 +954,9 @@ void UMovieSceneSequencePlayer::PostNetReceive()
 
 	Super::PostNetReceive();
 
-	if (!ensure(!HasAuthority()))
+	if (!ensure(!HasAuthority()) || !Sequence)
 	{
-		// Never run network sync operations on authoritative players
+		// Never run network sync operations on authoritative players or players that have not been initialized yet
 		return;
 	}
 
