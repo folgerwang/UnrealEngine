@@ -195,9 +195,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Scrub();
 
-	/** Stop playback. */
+	/** Stop playback and move the cursor to the end (or start, for reversed playback) of the sequence. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Stop();
+
+	/** Stop playback without moving the cursor. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	void StopAtCurrentTime();
 
 	/** Go to end and stop. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (ToolTip = "Go to end of the sequence and stop. Adheres to 'When Finished' section rules."))
@@ -478,6 +482,7 @@ public:
 protected:
 
 	void PlayInternal();
+	void StopInternal(FFrameTime TimeToResetTo);
 
 	void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
 
@@ -584,7 +589,7 @@ protected:
 	{
 		enum EType { Stop, Pause, Update };
 
-		FLatentAction(EType InType)
+		FLatentAction(EType InType, FFrameTime DesiredTime = 0)
 			: Type(InType)
 		{}
 
