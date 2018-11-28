@@ -180,9 +180,21 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	TArray<FBoneReference> BonesToRemove;
 
+	/** Bones which should be prioritized for the quality, this will be weighted toward keeping source data. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	TArray<FBoneReference> BonesToPrioritize;
+
+	/** How much to consideration to give BonesToPrioritize.  The weight is an additional vertex simplification penalty where 0 means nothing. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings, meta = (UIMin = "0.0", ClampMin = "0.0"))
+	float WeightOfPrioritization;
+
 	/** Pose which should be used to reskin vertex influences for which the bones will be removed in this LOD level, uses ref-pose by default */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	class UAnimSequence* BakePose;
+
+	/** This is used when you are sharing the LOD settings, but you'd like to override the BasePose. This precedes prior to BakePose*/
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	class UAnimSequence* BakePoseOverride;
 
 	/** The filename of the file tha was used to import this LOD if it was not auto generated. */
 	UPROPERTY(VisibleAnywhere, Category= SkeletalMeshLODInfo, AdvancedDisplay)
@@ -218,7 +230,9 @@ struct FSkeletalMeshLODInfo
 	FSkeletalMeshLODInfo()
 		: ScreenSize(1.0)
 		, LODHysteresis(0.0f)
+		, WeightOfPrioritization(1.f)
 		, BakePose(nullptr)
+		, BakePoseOverride(nullptr)
 		, bHasBeenSimplified(false)
 		, bHasPerLODVertexColors(false)
 		, bAllowCPUAccess(false)
@@ -1125,7 +1139,12 @@ public:
 	 * Get LODInfo of the given index const
 	 */	
 	const FSkeletalMeshLODInfo* GetLODInfo(int32 Index) const { return LODInfo.IsValidIndex(Index) ? &LODInfo[Index] : nullptr; }
-	
+
+	/**
+	 *	Get BakePose for the given LOD
+	 */
+	const UAnimSequence* GetBakePose(int32 LODIndex) const;
+
 	/* 
 	 * Get Default LOD Setting of this mesh
 	 */

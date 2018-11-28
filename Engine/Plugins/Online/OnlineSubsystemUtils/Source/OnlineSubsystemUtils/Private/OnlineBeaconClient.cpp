@@ -11,6 +11,8 @@
 #include "Engine/LocalPlayer.h"
 #include "Net/DataChannel.h"
 #include "Misc/NetworkVersion.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystemUtils.h"
 
 #define BEACON_RPC_TIMEOUT 15.0f
 
@@ -108,11 +110,22 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 
 				BeaconConnection = NetDriver->ServerConnection;
 
-				ULocalPlayer* LocalPlayer = GEngine->GetFirstGamePlayer(World);
-				if (LocalPlayer)
+				if (IsRunningDedicatedServer())
 				{
-					// Send the player unique Id at login
-					BeaconConnection->PlayerId = LocalPlayer->GetPreferredUniqueNetId();
+					IOnlineIdentityPtr IdentityPtr = Online::GetIdentityInterface(World);
+					if (IdentityPtr.IsValid())
+					{
+						BeaconConnection->PlayerId = IdentityPtr->GetUniquePlayerId(DEDICATED_SERVER_USER_INDEX);
+					}
+				}
+				else
+				{
+					ULocalPlayer* LocalPlayer = GEngine->GetFirstGamePlayer(World);
+					if (LocalPlayer)
+					{
+						// Send the player unique Id at login
+						BeaconConnection->PlayerId = LocalPlayer->GetPreferredUniqueNetId();
+					}
 				}
 
 #if NETCONNECTION_HAS_SETENCRYPTIONKEY

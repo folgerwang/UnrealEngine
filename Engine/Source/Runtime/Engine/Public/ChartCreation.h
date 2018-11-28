@@ -210,6 +210,8 @@ public:
 	FString DeviceProfileName;
 	FDelegateHandle DeviceProfilesUpdatedDelegateHandle;
 
+	bool bIsChartingPaused;
+
 public:
 	FPerformanceTrackingChart();
 	FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel);
@@ -297,6 +299,9 @@ public:
 	virtual void ProcessFrame(const FFrameData& FrameData) override;
 	virtual void StopCharting() override;
 	// End of IPerformanceDataConsumer interface
+
+	void PauseCharting();
+	void ResumeCharting();
 };
 
 //////////////////////////////////////////////////////////////////////

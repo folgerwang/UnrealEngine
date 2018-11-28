@@ -13,7 +13,7 @@
 
 class UWidgetAnimation;
 
-UCLASS(transient)
+UCLASS(Transient, BlueprintType)
 class UMG_API UUMGSequencePlayer : public UObject, public IMovieScenePlayer
 {
 	GENERATED_UCLASS_BODY()
@@ -40,13 +40,23 @@ public:
 	void Reverse();
 
 	/** Gets the current time position in the player (in seconds). */
-	DEPRECATED(4.20, "Please use GetCurrentTime instead.")
+	UE_DEPRECATED(4.20, "Please use GetCurrentTime instead.")
 	double GetTimeCursorPosition() const { return GetCurrentTime().AsSeconds(); }
 
 	FQualifiedFrameTime GetCurrentTime() const { return FQualifiedFrameTime(TimeCursorPosition, AnimationResolution); }
 
 	/** @return The current animation being played */
 	const UWidgetAnimation* GetAnimation() const { return Animation; }
+
+	/** @return */
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	FName GetUserTag() const { return UserTag; }
+
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	void SetUserTag(FName InUserTag)
+	{
+		UserTag = InUserTag;
+	}
 
 	/** Sets the number of loops to play */
 	void SetNumLoopsToPlay(int32 InNumLoopsToPlay);
@@ -118,6 +128,13 @@ private:
 
 	/** The current playback mode. */
 	EUMGSequencePlayMode::Type PlayMode;
+
+	/**
+	 * The 'state' tag the user may want to use to track what the animation is for.  It's very common in UI to use the
+	 * same animation for intro / outro, so this allows you to tag what the animation is currently doing so that you can
+	 * have some events just get called back when the animation finishes the outtro, to say, remove the UI then.
+	 */
+	FName UserTag;
 
 	/** True if the animation is playing forward, otherwise false and it's playing in reverse. */
 	bool bIsPlayingForward;

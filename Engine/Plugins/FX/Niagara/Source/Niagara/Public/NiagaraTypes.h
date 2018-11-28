@@ -8,6 +8,7 @@
 #include "Templates/SharedPointer.h"
 #include "NiagaraTypes.generated.h"
 
+class UNiagaraDataInterfaceBase;
 DECLARE_LOG_CATEGORY_EXTERN(LogNiagara, Log, Verbose);
 
 // basic type struct definitions
@@ -617,6 +618,8 @@ public:
 	{ 
 		return RegisteredNumericTypes;
 	}
+
+	static UNiagaraDataInterfaceBase* GetDefaultDataInterfaceByName(const FString& DIClassName);
 
 	static void ClearUserDefinedRegistry()
 	{

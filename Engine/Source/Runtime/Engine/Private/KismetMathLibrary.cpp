@@ -466,8 +466,6 @@ void UKismetMathLibrary::GetAxes(FRotator A, FVector& X, FVector& Y, FVector& Z)
 
 FRotator UKismetMathLibrary::RLerp(FRotator A, FRotator B, float Alpha, bool bShortestPath)
 {
-	FRotator DeltaAngle = B - A;
-
 	// if shortest path, we use Quaternion to interpolate instead of using FRotator
 	if (bShortestPath)
 	{
@@ -475,11 +473,11 @@ FRotator UKismetMathLibrary::RLerp(FRotator A, FRotator B, float Alpha, bool bSh
 		FQuat BQuat(B);
 
 		FQuat Result = FQuat::Slerp(AQuat, BQuat, Alpha);
-		Result.Normalize();
 
 		return Result.Rotator();
 	}
 
+	const FRotator DeltaAngle = B - A;
 	return A + Alpha*DeltaAngle;
 }
 

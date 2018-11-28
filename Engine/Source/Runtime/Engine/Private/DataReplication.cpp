@@ -15,7 +15,8 @@
 #include "Net/RepLayout.h"
 #include "Engine/ActorChannel.h"
 #include "Engine/DemoNetDriver.h"
-
+#include "ProfilingDebugging/CsvProfiler.h"
+#include "Engine/Engine.h"
 
 DECLARE_CYCLE_STAT(TEXT("Custom Delta Property Rep Time"), STAT_NetReplicateCustomDeltaPropTime, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("ReceiveRPC"), STAT_NetReceiveRPC, STATGROUP_Game);
@@ -95,6 +96,24 @@ public:
 	UNetDriver * Driver;
 };
 
+FObjectReplicator::FObjectReplicator() :
+	ObjectClass(nullptr),
+	ObjectPtr(nullptr),
+	bLastUpdateEmpty(false),
+	bOpenAckCalled(false),
+	bForceUpdateUnmapped(false),
+	Connection(nullptr),
+	OwningChannel(nullptr),
+	RepState(nullptr),
+	RemoteFunctions(nullptr)
+{
+}
+
+FObjectReplicator::~FObjectReplicator()
+{
+	CleanUp();
+}
+
 bool FObjectReplicator::SerializeCustomDeltaProperty( UNetConnection * Connection, void* Src, UProperty * Property, uint32 ArrayIndex, FNetBitWriter & OutBunch, TSharedPtr<INetDeltaBaseState> &NewFullState, TSharedPtr<INetDeltaBaseState> & OldState )
 {
 	check( NewFullState.IsValid() == false ); // NewState is passed in as NULL and instantiated within this function if necessary
@@ -149,7 +168,7 @@ void FObjectReplicator::InitRecentProperties( uint8* Source )
 
 	UClass * InObjectClass = GetObject()->GetClass();
 
-	RepState = MakeShareable(new FRepState());
+	RepState = MakeUnique<FRepState>();
 
 	// Initialize the RepState memory
 	TSharedPtr<FRepChangedPropertyTracker> RepChangedPropertyTracker = Connection->Driver->FindOrCreateRepChangedPropertyTracker( GetObject() );
@@ -824,6 +843,7 @@ struct FScopedRPCTimingTracker
 
 bool FObjectReplicator::ReceivedRPC(FNetBitReader& Reader, const FReplicationFlags& RepFlags, const FFieldNetCache* FieldCache, const bool bCanDelayRPC, bool& bOutDelayRPC, TSet<FNetworkGUID>& UnmappedGuids)
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(HandleRPC);
 	const bool bIsServer = Connection->Driver->IsServer();
 	UObject* Object = GetObject();
 	FName FunctionName = FieldCache->Field->GetFName();
@@ -855,7 +875,7 @@ bool FObjectReplicator::ReceivedRPC(FNetBitReader& Reader, const FReplicationFla
 
 	// validate that the function is callable here
 	// we are client or net owner and shouldn't be ignoring rpcs
-	const bool bCanExecute = ((!bIsServer || RepFlags.bNetOwner) && !RepFlags.bIgnoreRPCs);
+	const bool bCanExecute = Connection->Driver->ShouldCallRemoteFunction(Object, Function, RepFlags);
 
 	if (bCanExecute)
 	{
@@ -892,13 +912,23 @@ bool FObjectReplicator::ReceivedRPC(FNetBitReader& Reader, const FReplicationFla
 		}
 		else
 		{
-			// Forward the RPC to a client recorded replay, if needed.
-			const UWorld* const OwningDriverWorld = Connection->Driver->World;
-			if (OwningDriverWorld && OwningDriverWorld->IsRecordingClientReplay())
+			AActor* OwningActor = OwningChannel->Actor;
+
+			if (Connection->Driver->ShouldForwardFunction(OwningActor, Function, Parms))
 			{
-				// If Object is not the channel actor, assume the target of the RPC is a subobject.
-				UObject* const SubObject = Object != OwningChannel->Actor ? Object : nullptr;
-				OwningDriverWorld->DemoNetDriver->ProcessRemoteFunction(OwningChannel->Actor, Function, Parms, nullptr, nullptr, SubObject);
+				FWorldContext* const Context = GEngine->GetWorldContextFromWorld(Connection->Driver->GetWorld());
+				if (Context != nullptr)
+				{
+					UObject* const SubObject = Object != OwningChannel->Actor ? Object : nullptr;
+
+					for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
+					{
+						if (Driver.NetDriver != nullptr && (Driver.NetDriver != Connection->Driver) && Driver.NetDriver->ShouldReplicateFunction(OwningActor, Function))
+						{
+							Driver.NetDriver->ProcessRemoteFunction(OwningActor, Function, Parms, nullptr, nullptr, SubObject);
+						}
+					}
+				}
 			}
 
 			// Reset errors from replay driver
@@ -1172,7 +1202,7 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, F
 	// Make sure net field export group is registered
 	FNetFieldExportGroup* NetFieldExportGroup = OwningChannel->GetOrCreateNetFieldExportGroupForClassNetCache( Object );
 
-	FNetBitWriter TempBitWriter( OwningChannel->Connection->PackageMap, 0 );
+	FNetBitWriter TempBitWriter( OwningChannel->Connection->PackageMap, 1024 );
 
 	// Replicate those properties.
 	for ( int32 i = 0; i < LifetimeCustomDeltaProperties.Num(); i++ )
@@ -1275,7 +1305,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 
 	UNetConnection* OwningChannelConnection = OwningChannel->Connection;
 
-	FNetBitWriter Writer( Bunch.PackageMap, 0 );
+	FNetBitWriter Writer( Bunch.PackageMap, 8192 );
 
 	// Update change list (this will re-use work done by previous connections)
 	ChangelistMgr->Update( Object, Connection->Driver->ReplicationFrame, RepState->LastCompareIndex, RepFlags, OwningChannel->bForceCompareProperties );
@@ -1409,10 +1439,46 @@ void FObjectReplicator::PostSendBunch( FPacketIdRange & PacketRange, uint8 bReli
 }
 
 void FObjectReplicator::Serialize(FArchive& Ar)
-{		
+{
 	if (Ar.IsCountingMemory())
 	{
 		Retirement.CountBytes(Ar);
+		RecentCustomDeltaState.CountBytes(Ar);
+		CDOCustomDeltaState.CountBytes(Ar);
+		LifetimeCustomDeltaProperties.CountBytes(Ar);
+		LifetimeCustomDeltaPropertyConditions.CountBytes(Ar);
+		UnmappedCustomProperties.CountBytes(Ar);
+		RepNotifies.CountBytes(Ar);
+		RepNotifyMetaData.CountBytes(Ar);
+		for (const auto& MetaDataPair : RepNotifyMetaData)
+		{
+			MetaDataPair.Value.CountBytes(Ar);
+		}
+
+		// FObjectReplicator has a shared pointer to an FRepLayout, but since it's shared with
+		// the UNetDriver, the memory isn't tracked here.
+
+		if (RepState.IsValid())
+		{
+			RepState->CountBytes(Ar);
+		}
+
+		ReferencedGuids.CountBytes(Ar);
+
+		// ChangelistMgr points to a ReplicationChangelistMgr managed by the UNetDriver, so it's not tracked here
+
+		RemoteFuncInfo.CountBytes(Ar);
+		if(RemoteFunctions)
+		{
+			RemoteFunctions->CountMemory(Ar);
+		}
+
+		PendingLocalRPCs.CountBytes(Ar);
+		for (const FRPCPendingLocalCall& PendingRPC : PendingLocalRPCs)
+		{
+			PendingRPC.Buffer.CountBytes(Ar);
+			PendingRPC.UnmappedGuids.CountBytes(Ar);
+		}
 	}
 }
 
@@ -1530,6 +1596,7 @@ void FObjectReplicator::StartBecomingDormant()
 
 void FObjectReplicator::CallRepNotifies(bool bSkipIfChannelHasQueuedBunches)
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RepNotifies);
 	UObject* Object = GetObject();
 
 	if ( Object == NULL || Object->IsPendingKill() )
@@ -1849,3 +1916,28 @@ void FObjectReplicator::WritePropertyHeaderAndPayload(
 
 	NETWORK_PROFILER( GNetworkProfiler.TrackWritePropertyHeader( Property, HeaderBits, nullptr ) );
 }
+
+FScopedActorRoleSwap::FScopedActorRoleSwap(AActor* InActor)
+	: Actor(InActor)
+{
+	const bool bShouldSwapRoles = Actor != nullptr && Actor->GetRemoteRole() == ROLE_Authority;
+
+	if (bShouldSwapRoles)
+	{
+		Actor->SwapRoles();
+	}
+	else
+	{
+		Actor = nullptr;
+	}
+}
+
+FScopedActorRoleSwap::~FScopedActorRoleSwap()
+{
+	if (Actor != nullptr)
+	{
+		Actor->SwapRoles();
+	}
+}
+
+

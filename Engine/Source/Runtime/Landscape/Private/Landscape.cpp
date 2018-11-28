@@ -848,6 +848,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	PrimaryActorTick.TickGroup = TG_DuringPhysics;
 	bAllowTickBeforeBeginPlay = true;
 
 	bReplicates = false;
@@ -2672,6 +2673,7 @@ bool ALandscapeProxy::ShouldTickIfViewportsOnly() const
 
 void ALandscapeProxy::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Landscape);
 #if WITH_EDITOR
 	// editor-only
 	UWorld* World = GetWorld();

@@ -220,6 +220,9 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Print the path to the private key
+			Log.TraceInformation("[Remote] Using private key at {0}", SshPrivateKey);
+
 			// resolve the rest of the strings
 			RsyncAuthentication = ExpandVariables(RsyncAuthentication);
 			SshAuthentication = ExpandVariables(SshAuthentication);
@@ -250,7 +253,7 @@ namespace UnrealBuildTool
 			StringBuilder Output;
 			if(ExecuteAndCaptureOutput("'echo ~'", out Output) != 0)
 			{
-				throw new BuildException("Unable to determine home directory for remote user");
+				throw new BuildException("Unable to determine home directory for remote user. SSH output:\n{0}", StringUtils.Indent(Output.ToString(), "  "));
 			}
 			RemoteBaseDir = String.Format("{0}/UE4/Builds/{1}", Output.ToString().Trim().TrimEnd('/'), Environment.MachineName);
 			Log.TraceInformation("[Remote] Using base directory '{0}'", RemoteBaseDir);
@@ -291,8 +294,13 @@ namespace UnrealBuildTool
 				FileReference KeyFile = FileReference.Combine(Location, "SSHKeys", ServerName, UserName, "RemoteToolChainPrivate.key");
 				if (FileReference.Exists(KeyFile))
 				{
-					OutPrivateKey = KeyFile;
-					return true;
+					// MacOS Mojave includes a new version of SSH that generates keys that are incompatible with our version of SSH. Make sure the detected keys have the right signature.
+					string Text = FileReference.ReadAllText(KeyFile);
+					if(Text.Contains("---BEGIN RSA PRIVATE KEY---"))
+					{
+						OutPrivateKey = KeyFile;
+						return true;
+					}
 				}
 			}
 

@@ -191,6 +191,15 @@ public:
 	/** Uses the asset registry to look for ObjectRedirectors. This will follow the chain of redirectors. It will return the original path if no redirectors are found */
 	virtual FName GetRedirectedObjectPath(const FName ObjectPath) const = 0;
 
+	/**
+	 * Removes a key from the key value pairs for an object
+	 *
+	 * @param ObjectPath the path of the object to be trimmed
+	 * @param Key the key to remove
+	 * @return the reduction in memory from removing this key
+	 */
+	virtual void StripAssetRegistryKeyForObject(FName ObjectPath, FName Key) = 0;
+
 	/** Returns true if the specified ClassName's ancestors could be found. If so, OutAncestorClassNames is a list of all its ancestors */
 	virtual bool GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const = 0;
 
@@ -208,6 +217,10 @@ public:
 	/** Trims items out of the asset data list that do not pass the supplied filter */
 	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void RunAssetsThroughFilter(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const = 0;
+
+	/** Trims items out of the asset data list that do not pass the supplied filter */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
+	virtual void UseFilterToExcludeAssets(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const = 0;
 
 	/** Modifies passed in filter to make it safe for use on FAssetRegistryState. This expands recursive paths and classes */
 	virtual void ExpandRecursiveFilter(const FARFilter& InFilter, FARFilter& ExpandedFilter) const = 0;
@@ -349,6 +362,9 @@ public:
 	virtual void Serialize(FArchive& Ar) = 0;
 	virtual void Serialize(FStructuredArchive::FRecord Record) = 0;
 
+	/** Append the assets from the incoming state into our own */
+	virtual void AppendState(const FAssetRegistryState& InState) = 0;
+
 	/** Returns memory size of entire registry, optionally logging sizes */
 	virtual uint32 GetAllocatedSize(bool bLogDetailed = false) const = 0;
 
@@ -365,18 +381,21 @@ public:
 	/** Returns read only reference to the current asset registry state. The contents of this may change at any time so do not save internal pointers */
 	virtual const FAssetRegistryState* GetAssetRegistryState() const = 0;
 
+	/** Returns the set of empty package names fast iteration */
+	virtual const TSet<FName>& GetCachedEmptyPackages() const = 0;
+
 	/** Fills in FAssetRegistrySerializationOptions from ini, optionally using a target platform ini name */
 	virtual void InitializeSerializationOptions(FAssetRegistrySerializationOptions& Options, const FString& PlatformIniName = FString()) const = 0;
 
 	/** Load FPackageRegistry data from the supplied package */
 	virtual void LoadPackageRegistryData(FArchive& Ar, TArray<FAssetData*>& Data) const = 0;
 
-	DEPRECATED(4.16, "Deprecated. Use InitializeTemporaryAssetRegistryState and call Serialize on it directly")
+	UE_DEPRECATED(4.16, "Deprecated. Use InitializeTemporaryAssetRegistryState and call Serialize on it directly")
 	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, TArray<FName>* InMaps = nullptr) = 0;
 	
-	DEPRECATED(4.16, "Deprecated. Create a FAssetRegistryState and call Serialize on it directly")
+	UE_DEPRECATED(4.16, "Deprecated. Create a FAssetRegistryState and call Serialize on it directly")
 	virtual void LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data) = 0;
-
+	
 protected:
 	// Functions specifically for calling from the asset manager
 	friend class UAssetManager;

@@ -174,6 +174,7 @@ bool FSkeletalMeshImportData::ApplyRigToGeo(FSkeletalMeshImportData& Other)
 
 	FWedgePosition OldGeoOverlappingPosition;
 	FWedgePosition::FillWedgePosition(OldGeoOverlappingPosition, Other.Points, Other.Wedges, THRESH_POINTS_ARE_SAME);
+	FOctreeQueryHelper OctreeQueryHelper(OldGeoOverlappingPosition.GetOctree());
 
 	int32 NewWedgesNum = Wedges.Num();
 	int32 OldWedgesNum = Other.Wedges.Num();
@@ -221,9 +222,11 @@ bool FSkeletalMeshImportData::ApplyRigToGeo(FSkeletalMeshImportData& Other)
 		if(!bFoundMatch)
 		{
 			TArray<FWedgeInfo> NearestWedges;
-			OldGeoOverlappingPosition.FindNearestWedgeIndexes(Points[NewVertexIndex], NearestWedges);
+			FVector SearchPosition = Points[NewVertexIndex];
+			OctreeQueryHelper.FindNearestWedgeIndexes(SearchPosition, NearestWedges);
 			if (NearestWedges.Num() > 0)
 			{
+				float MinDistance = MAX_FLT;
 				float MinNormalDiff = MAX_FLT;
 				int32 BestOldVertexIndex = INDEX_NONE;
 				for (const FWedgeInfo& WedgeInfo : NearestWedges)
@@ -234,11 +237,21 @@ bool FSkeletalMeshImportData::ApplyRigToGeo(FSkeletalMeshImportData& Other)
 					int32 OldFaceCorner = (OldWedgeIndex % 3);
 					FVector OldNormal = Other.Faces[OldFaceIndex].TangentZ[OldFaceCorner];
 
-					float AngleDiff = FMath::Abs(FMath::Acos(FVector::DotProduct(NewNormal, OldNormal)));
-					if (AngleDiff < MinNormalDiff)
+					const FVector& OtherPosition = Other.Points[OldVertexIndex];
+					float VectorDelta = FVector::DistSquared(OtherPosition, SearchPosition);
+					if (VectorDelta <= (MinDistance + KINDA_SMALL_NUMBER))
 					{
-						MinNormalDiff = AngleDiff;
-						BestOldVertexIndex = OldVertexIndex;
+						if (VectorDelta < MinDistance - KINDA_SMALL_NUMBER)
+						{
+							MinDistance = VectorDelta;
+							MinNormalDiff = MAX_FLT;
+						}
+						float AngleDiff = FMath::Abs(FMath::Acos(FVector::DotProduct(NewNormal, OldNormal)));
+						if (AngleDiff < MinNormalDiff)
+						{
+							MinNormalDiff = AngleDiff;
+							BestOldVertexIndex = OldVertexIndex;
+						}
 					}
 				}
 				OldToNewRemap[BestOldVertexIndex].AddUnique(NewVertexIndex);
@@ -262,6 +275,121 @@ bool FSkeletalMeshImportData::ApplyRigToGeo(FSkeletalMeshImportData& Other)
 	}
 
 	return true;
+}
+
+/**
+* Serialization of raw meshes uses its own versioning scheme because it is
+* stored in bulk data.
+*/
+enum
+{
+	// Engine raw mesh version:
+	REDUCTION_BASE_SK_DATA_BULKDATA_VER_INITIAL = 0,
+	
+	//////////////////////////////////////////////////////////////////////////
+	// Add new raw mesh versions here.
+
+	REDUCTION_BASE_SK_DATA_BULKDATA_VER_PLUS_ONE,
+	REDUCTION_BASE_SK_DATA_BULKDATA_VER = REDUCTION_BASE_SK_DATA_BULKDATA_VER_PLUS_ONE - 1,
+
+	// Licensee raw mesh version:
+	REDUCTION_BASE_SK_DATA_BULKDATA_LIC_VER_INITIAL = 0,
+	
+	//////////////////////////////////////////////////////////////////////////
+	// Licensees add new raw mesh versions here.
+
+	REDUCTION_BASE_SK_DATA_BULKDATA_LIC_VER_PLUS_ONE,
+	REDUCTION_BASE_SK_DATA_BULKDATA_LIC_VER = REDUCTION_BASE_SK_DATA_BULKDATA_LIC_VER_PLUS_ONE - 1
+};
+
+struct FReductionSkeletalMeshData
+{
+	FReductionSkeletalMeshData(FSkeletalMeshLODModel& InBaseLODModel, TMap<FString, TArray<FMorphTargetDelta>>& InBaseLODMorphTargetData)
+		: BaseLODModel(InBaseLODModel)
+		, BaseLODMorphTargetData(InBaseLODMorphTargetData)
+	{
+	}
+
+	FSkeletalMeshLODModel& BaseLODModel;
+	TMap<FString, TArray<FMorphTargetDelta>>& BaseLODMorphTargetData;
+};
+
+FArchive& operator<<(FArchive& Ar, FReductionSkeletalMeshData& ReductionSkeletalMeshData)
+{
+	int32 Version = REDUCTION_BASE_SK_DATA_BULKDATA_VER;
+	int32 LicenseeVersion = REDUCTION_BASE_SK_DATA_BULKDATA_LIC_VER;
+	Ar << Version;
+	Ar << LicenseeVersion;
+	ReductionSkeletalMeshData.BaseLODModel.Serialize(Ar, nullptr, 0);
+	Ar << ReductionSkeletalMeshData.BaseLODMorphTargetData;
+	return Ar;
+}
+
+FReductionBaseSkeletalMeshBulkData::FReductionBaseSkeletalMeshBulkData()
+{
+}
+
+void FReductionBaseSkeletalMeshBulkData::Serialize(FArchive& Ar, TArray<FReductionBaseSkeletalMeshBulkData*>& ReductionBaseSkeletalMeshDatas, UObject* Owner)
+{
+	Ar.CountBytes(ReductionBaseSkeletalMeshDatas.Num() * sizeof(FReductionBaseSkeletalMeshBulkData), ReductionBaseSkeletalMeshDatas.Num() * sizeof(FReductionBaseSkeletalMeshBulkData));
+	if (Ar.IsLoading())
+	{
+		// Load array.
+		int32 NewNum;
+		Ar << NewNum;
+		ReductionBaseSkeletalMeshDatas.Empty(NewNum);
+		for (int32 Index = 0; Index < NewNum; Index++)
+		{
+			FReductionBaseSkeletalMeshBulkData* EmptyData = new FReductionBaseSkeletalMeshBulkData();
+			ReductionBaseSkeletalMeshDatas.Add(EmptyData);
+		}
+		for (int32 Index = 0; Index < NewNum; Index++)
+		{
+			ReductionBaseSkeletalMeshDatas[Index]->Serialize(Ar, Owner);
+		}
+	}
+	else
+	{
+		// Save array.
+		int32 Num = ReductionBaseSkeletalMeshDatas.Num();
+		Ar << Num;
+		for (int32 Index = 0; Index < Num; Index++)
+		{
+			(ReductionBaseSkeletalMeshDatas)[Index]->Serialize(Ar, Owner);
+		}
+	}
+}
+
+void FReductionBaseSkeletalMeshBulkData::Serialize(FArchive& Ar, UObject* Owner)
+{
+	BulkData.Serialize(Ar, Owner);
+}
+
+void FReductionBaseSkeletalMeshBulkData::SaveReductionData(FSkeletalMeshLODModel& BaseLODModel, TMap<FString, TArray<FMorphTargetDelta>>& BaseLODMorphTargetData)
+{
+	FReductionSkeletalMeshData ReductionSkeletalMeshData(BaseLODModel, BaseLODMorphTargetData);
+	TArray<uint8> TempBytes;
+	FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
+	Ar << ReductionSkeletalMeshData;
+	BulkData.Lock(LOCK_READ_WRITE);
+	uint8* Dest = (uint8*)BulkData.Realloc(TempBytes.Num());
+	FMemory::Memcpy(Dest, TempBytes.GetData(), TempBytes.Num());
+	BulkData.Unlock();
+}
+
+void FReductionBaseSkeletalMeshBulkData::LoadReductionData(FSkeletalMeshLODModel& BaseLODModel, TMap<FString, TArray<FMorphTargetDelta>>& BaseLODMorphTargetData)
+{
+	BaseLODMorphTargetData.Empty();
+	if (BulkData.GetElementCount() > 0)
+	{
+		FReductionSkeletalMeshData ReductionSkeletalMeshData(BaseLODModel, BaseLODMorphTargetData);
+		FBufferReader Ar(
+			BulkData.Lock(LOCK_READ_ONLY), BulkData.GetElementCount(),
+			/*bInFreeOnClose=*/ false, /*bIsPersistent=*/ true
+		);
+		Ar << ReductionSkeletalMeshData;
+		BulkData.Unlock();
+	}
 }
 
 /*------------------------------------------------------------------------------
@@ -474,47 +602,63 @@ void FWedgePosition::FindMatchingPositionWegdeIndexes(const FVector &Position, f
 	}
 }
 
-void FWedgePosition::FindNearestWedgeIndexes(const FVector& SearchPosition, TArray<FWedgeInfo>& OutNearestWedges)
+void FOctreeQueryHelper::FindNearestWedgeIndexes(const FVector& SearchPosition, TArray<FWedgeInfo>& OutNearestWedges)
 {
-	OutNearestWedges.Empty();
-	TWedgeInfoPosOctree::TConstIterator<> OctreeIter((*WedgePosOctree));
-	// Iterate through the octree attempting to find the vertices closest to the current new point
-	while (OctreeIter.HasPendingNodes())
+	if (WedgePosOctree == nullptr)
 	{
-		const TWedgeInfoPosOctree::FNode& CurNode = OctreeIter.GetCurrentNode();
-		const FOctreeNodeContext& CurContext = OctreeIter.GetCurrentContext();
-
-		// Find the child of the current node, if any, that contains the current new point
-		FOctreeChildNodeRef ChildRef = CurContext.GetContainingChild(FBoxCenterAndExtent(SearchPosition, FVector::ZeroVector));
-
-		if (!ChildRef.IsNULL())
+		return;
+	}
+	float MinSquaredDistance = MAX_FLT;
+	OutNearestWedges.Empty();
+	
+	FVector Extend(1.0f);
+	for (int i = 0; i < 2; ++i)
+	{
+		TWedgeInfoPosOctree::TConstIterator<> OctreeIter((*WedgePosOctree));
+		// Iterate through the octree attempting to find the vertices closest to the current new point
+		while (OctreeIter.HasPendingNodes())
 		{
-			const TWedgeInfoPosOctree::FNode* ChildNode = CurNode.GetChild(ChildRef);
+			const TWedgeInfoPosOctree::FNode& CurNode = OctreeIter.GetCurrentNode();
+			const FOctreeNodeContext& CurContext = OctreeIter.GetCurrentContext();
 
-			// If the specified child node exists and contains any of the old vertices, push it to the iterator for future consideration
-			if (ChildNode && ChildNode->GetInclusiveElementCount() > 0)
+			// Find the child of the current node, if any, that contains the current new point
+
+			//The first shot is an intersection with a 1 CM cube box around the search position, this ensure we dont fall in the wrong neighbourg
+			FOctreeChildNodeSubset ChilNodesSubset = CurContext.GetIntersectingChildren(FBoxCenterAndExtent(SearchPosition, Extend));
+			FOREACH_OCTREE_CHILD_NODE(OctreeChildRef)
 			{
-				OctreeIter.PushChild(ChildRef);
-			}
-			// If the child node doesn't have any of the old vertices in it, it's not worth pursuing any further. In an attempt to find
-			// anything to match vs. the new point, add all of the children of the current octree node that have old points in them to the
-			// iterator for future consideration.
-			else
-			{
-				FOREACH_OCTREE_CHILD_NODE(OctreeChildRef)
+				if (ChilNodesSubset.Contains(OctreeChildRef) && CurNode.HasChild(OctreeChildRef))
 				{
-					if (CurNode.HasChild(OctreeChildRef))
-					{
-						OctreeIter.PushChild(OctreeChildRef);
-					}
+					OctreeIter.PushChild(OctreeChildRef);
 				}
 			}
+			// Add all of the elements in the current node to the list of points to consider for closest point calculations
+			for (const FWedgeInfo& WedgeInfo : CurNode.GetElements())
+			{
+				float VectorDelta = FVector::DistSquared(SearchPosition, WedgeInfo.Position);
+				if (VectorDelta <= (MinSquaredDistance + SMALL_NUMBER))
+				{
+					MinSquaredDistance = FMath::Min(VectorDelta, MinSquaredDistance);
+					OutNearestWedges.Add(WedgeInfo);
+				}
+			}
+			OctreeIter.Advance();
 		}
 
-		// Add all of the elements in the current node to the list of points to consider for closest point calculations
-		OutNearestWedges.Append(CurNode.GetElements());
-		OctreeIter.Advance();
+		if (i == 0)
+		{
+			float MinDistance = FMath::Sqrt(MinSquaredDistance);
+			if (MinDistance < Extend.X)
+			{
+				//We found the closest points
+				break;
+			}
+			OutNearestWedges.Empty();
+			//Change the extend to the distance we found so we are sure to find any closer point in the neighbourg
+			Extend = FVector(MinDistance + KINDA_SMALL_NUMBER);
+		}
 	}
+
 }
 
 void FWedgePosition::FillWedgePosition(

@@ -146,7 +146,7 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 	{
 		UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("FOnlineIdentityGoogle::Login Operation already in progress!"));
 		FString ErrorStr = FString::Printf(TEXT("Operation already in progress"));
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, GetEmptyUniqueId(), ErrorStr);
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, *FUniqueNetIdGoogle::EmptyId(), ErrorStr);
 	}
 
 	return bTriggeredLogin;
@@ -183,7 +183,7 @@ void FOnlineIdentityGoogle::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 			}
 			else
 			{
-				UserId = GetEmptyUniqueId().AsShared();
+				UserId = FUniqueNetIdGoogle::EmptyId();
 			}
 			// remove cached user id
 			UserIds.Remove(LocalUserNum);
@@ -224,7 +224,7 @@ bool FOnlineIdentityGoogle::Logout(int32 LocalUserNum)
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdGoogle::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);

@@ -2302,7 +2302,7 @@ void SSequencer::OnPaste()
 		}
 	}
 
-	PasteTracks();
+	DoPaste();
 }
 
 bool SSequencer::CanPaste()
@@ -2315,14 +2315,16 @@ bool SSequencer::CanPaste()
 	// Attempts to deserialize the text into object bindings/tracks that Sequencer understands.
 	if (Sequencer->CanPaste(TextToImport))
 	{
-		TArray<UMovieSceneTrack*> ImportedTrack;
+		TArray<UMovieSceneTrack*> ImportedTracks;
+		TArray<UMovieSceneSection*> ImportedSections;
 		TArray<UMovieSceneCopyableBinding*> ImportedObjects;
-		Sequencer->ImportTracksFromText(TextToImport, ImportedTrack);
-		Sequencer->ImportObjectsFromText(TextToImport, ImportedObjects);
+		Sequencer->ImportTracksFromText(TextToImport, ImportedTracks);
+		Sequencer->ImportSectionsFromText(TextToImport, ImportedSections);
+		Sequencer->ImportObjectBindingsFromText(TextToImport, ImportedObjects);
 
 		// If we couldn't deserialize any tracks or objects then the data isn't valid for sequencer,
 		// and we'll block a paste attempt.
-		if (ImportedTrack.Num() == 0 && ImportedObjects.Num() == 0)
+		if (ImportedTracks.Num() == 0 && ImportedSections.Num() == 0 && ImportedObjects.Num() == 0)
 		{
 			return false;
 		}
@@ -2334,11 +2336,11 @@ bool SSequencer::CanPaste()
 	return SequencerPtr.Pin()->GetClipboardStack().Num() != 0;
 }
 
-void SSequencer::PasteTracks()
+void SSequencer::DoPaste()
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 
-	Sequencer->PasteCopiedTracks();
+	Sequencer->DoPaste();
 }
 
 bool SSequencer::OpenPasteMenu()
@@ -2358,7 +2360,7 @@ bool SSequencer::OpenPasteMenu()
 	}
 	else if (ContextMenu->AutoPaste())
 	{
-		return false;
+		return true;
 	}
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;

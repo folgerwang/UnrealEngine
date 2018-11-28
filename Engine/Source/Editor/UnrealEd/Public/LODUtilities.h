@@ -34,7 +34,7 @@ public:
 	*
 	* @return true if succeed. If mesh reduction is not available this will return false.
 	*/
-	static bool RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount = 0, bool bRegenerateEvenIfImported = false);
+	static bool RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount = 0, bool bRegenerateEvenIfImported = false, bool bGenerateBaseLOD = false);
 
 	/** Removes a particular LOD from the SkeletalMesh. 
 	*
@@ -51,6 +51,15 @@ public:
 	*/
 	static void SimplifySkeletalMeshLOD(FSkeletalMeshUpdateContext& UpdateContext, int32 DesiredLOD, bool bReregisterComponent = true);
 
+	/**
+	*	Restore the LOD imported model to the last imported data. Call this function if you want to remove the reduce on the base LOD
+	*
+	* @param SkeletalMesh - The skeletal mesh to operate on.
+	* @param LodIndex - The LOD index to restore the imported LOD model
+	* @param bReregisterComponent - if true the component using the skeletal mesh will all be re register.
+	*/
+	static void RestoreSkeletalMeshLODImportedData(USkeletalMesh* SkeletalMesh, int32 LodIndex, bool bReregisterComponent = true);
+	
 	/**
 	 * Refresh LOD Change
 	 * 
@@ -72,15 +81,15 @@ private:
 	 * @param DesiredLOD - Desired LOD
 	 */
 	static void SimplifySkeletalMeshLOD(USkeletalMesh* SkeletalMesh, int32 DesiredLOD, bool bReregisterComponent = true);
-	
+
 	/**
 	*  Remap the morph targets of the base LOD onto the desired LOD.
 	*
-	* @param SkeletalMesh - The skeletal mesh and actor components to operate on.
-	* @param InSetting   - The user settings passed from the Simplification tool.
-	* @param DesiredLOD - Desired LOD
+	* @param SkeletalMesh - The skeletal mesh to operate on.
+	* @param SourceLOD      - The source LOD morph target .
+	* @param DestinationLOD   - The destination LOD morph target to apply the source LOD morph target
 	*/
-	static void ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD);
+	static void ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, int32 SourceLOD, int32 DestinationLOD);
 
 	/**
 	*  Clear generated morphtargets for the given LODs

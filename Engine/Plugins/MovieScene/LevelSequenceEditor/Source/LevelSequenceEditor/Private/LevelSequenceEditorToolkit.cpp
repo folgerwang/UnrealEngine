@@ -904,7 +904,7 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder&
 			int32 NumMaterials = PrimitiveComponent->GetNumMaterials();
 			if (NumMaterials > 0)
 			{
-				AddTrackMenuBuilder.BeginSection("Materials", LOCTEXT("MaterialSection", "Materials"));
+				AddTrackMenuBuilder.BeginSection("Materials", LOCTEXT("MaterialSection", "Material Parameters"));
 				{
 					for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; MaterialIndex++)
 					{

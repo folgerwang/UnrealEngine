@@ -167,7 +167,7 @@ void UPendingNetGame::NotifyAcceptedConnection( class UNetConnection* Connection
 }
 bool UPendingNetGame::NotifyAcceptingChannel( class UChannel* Channel )
 {
-	return 0;
+	return false;
 }
 
 void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, class FInBunch& Bunch)

@@ -82,10 +82,13 @@ class ENGINE_API UControlChannel
 	UControlChannel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 		: UChannel(ObjectInitializer)
 	{
-		ChType								= CHTYPE_Control;
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		ChType = CHTYPE_Control;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		ChName = NAME_Control;
 	}
 
-	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally ) override;
+	virtual void Init( UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags ) override;
 
 	//~ Begin UChannel Interface.
 	virtual FPacketIdRange SendBunch(FOutBunch* Bunch, bool Merge) override;

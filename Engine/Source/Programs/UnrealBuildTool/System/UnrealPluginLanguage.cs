@@ -51,6 +51,10 @@ namespace UnrealBuildTool
 	 *	$S(BuildDir) = project's platform appropriate build directory (within the Intermediate folder)
 	 *	$S(Configuration) = configuration type (Debug, DebugGame, Development, Test, Shipping)
 	 *	$B(Distribution) = true if distribution build
+	 *	$I(EngineMajorVersion) = major version of engine (ex. 4)
+	 *	$I(EngineMinorVersion) = minor version of engine (ex. 21)
+	 *	$I(EnginePatchVersion) = patch version of engine (ex. 0)
+	 *	$S(EngineVersion) = engine version string (ex. "4.21.0")
 	 * 
 	 * Note: with the exception of the above variables, all are in the context of the plugin to
 	 * prevent namespace collision; trying to set a new value to any of the above, with the
@@ -2397,7 +2401,7 @@ namespace UnrealBuildTool
 			return GlobalContext.StringVariables["Output"];
 		}
 
-		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration)
+		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration, BuildVersion Version)
 		{
 			GlobalContext.BoolVariables["Distribution"] = bDistribution;
 			GlobalContext.StringVariables["Configuration"] = Configuration;
@@ -2405,6 +2409,13 @@ namespace UnrealBuildTool
 			GlobalContext.StringVariables["EngineDir"] = EngineDirectory.Replace("\\", "/");
 			GlobalContext.StringVariables["BuildDir"] = BuildDirectory.Replace("\\", "/");
 			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory.Replace("\\", "/");
+
+			GlobalContext.IntVariables["EngineMajorVersion"] = Version.MajorVersion;
+			GlobalContext.IntVariables["EngineMinorVersion"] = Version.MinorVersion;
+			GlobalContext.IntVariables["EnginePatchVersion"] = Version.PatchVersion;
+			GlobalContext.IntVariables["EngineChangelist"] = Version.Changelist;
+			GlobalContext.StringVariables["EngineVersion"] = Version.MajorVersion.ToString() + "." + Version.MinorVersion.ToString() + "." + Version.PatchVersion.ToString();
+			GlobalContext.StringVariables["EngineBranchName"] = (Version.BranchName != null) ? Version.BranchName : "";
 
 			if (GlobalContext.StringVariables["EngineDir"].Length < 1)
 			{

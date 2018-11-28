@@ -18,23 +18,26 @@ UUnitTestChannel::UUnitTestChannel(const FObjectInitializer& ObjectInitializer)
 	, MinClient(nullptr)
 	, bVerifyOpen(false)
 {
-	ChType = CHTYPE_MAX;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	ChType = CHTYPE_None;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	ChName = NAME_None;
 }
 
-void UUnitTestChannel::Init(UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally)
+void UUnitTestChannel::Init(UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags)
 {
 	// If the channel type is still default, assume this is a control channel (since that is the only time ChType should be default)
-	if (ChType == CHTYPE_MAX)
+	if (ChName == NAME_None)
 	{
 		if (InChIndex != 0)
 		{
-			UE_LOG(LogUnitTest, Warning, TEXT("Unit test channel type was CHTYPE_MAX, for non-control channel"));
+			UE_LOG(LogUnitTest, Warning, TEXT("Unit test channel type was NAME_None, for non-control channel"));
 		}
 
-		ChType = CHTYPE_Control;
+		ChName = NAME_Control;
 	}
 
-	Super::Init(InConnection, InChIndex, InOpenedLocally);
+	Super::Init(InConnection, InChIndex, CreateFlags);
 }
 
 void UUnitTestChannel::ReceivedBunch(FInBunch& Bunch)

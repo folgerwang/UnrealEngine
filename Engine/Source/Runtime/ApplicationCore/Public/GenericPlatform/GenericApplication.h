@@ -376,7 +376,7 @@ struct FDisplayMetrics
 	/** The safe area for less important spill over on TVs (see TitleSafePaddingSize) */
 	FVector4 ActionSafePaddingSize;
 
-	DEPRECATED(4.21, "Please use RebuildDisplayMetrics - it is functionally the same but is clearer about the function cost")
+	UE_DEPRECATED(4.21, "Please use RebuildDisplayMetrics - it is functionally the same but is clearer about the function cost")
 	APPLICATIONCORE_API static void GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics) { RebuildDisplayMetrics(OutDisplayMetrics); };
 
 	APPLICATIONCORE_API static void RebuildDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics);

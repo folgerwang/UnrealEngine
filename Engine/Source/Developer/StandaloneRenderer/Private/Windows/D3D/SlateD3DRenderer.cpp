@@ -106,7 +106,7 @@ private:
 
 TSharedRef<FSlateFontServices> CreateD3DFontServices()
 {
-	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory)));
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory), ESlateTextureAtlasThreadId::Game));
 
 	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
 }

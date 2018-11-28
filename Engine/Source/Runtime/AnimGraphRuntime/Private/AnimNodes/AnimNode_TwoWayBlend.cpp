@@ -30,7 +30,7 @@ void FAnimNode_TwoWayBlend::CacheBones_AnyThread(const FAnimationCacheBonesConte
 void FAnimNode_TwoWayBlend::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimationNode_TwoWayBlend_Update);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	InternalBlendAlpha = 0.f;
 	switch (AlphaInputType)

@@ -241,7 +241,7 @@ public:
 	 * @param Delay The delay after which to send the message.
 	 * @param Expiration The time at which the message expires.
 	 */
-	DEPRECATED(4.21, "FMessageEndpoint::Send with 6 params is deprecated. Please use FMessageEndpoint::Send that takes additionnal EMessageFlags instead!")
+	UE_DEPRECATED(4.21, "FMessageEndpoint::Send with 6 params is deprecated. Please use FMessageEndpoint::Send that takes additionnal EMessageFlags instead!")
 	void Send(void* Message, UScriptStruct* TypeInfo, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
 	{
 		Send(Message, TypeInfo, EMessageFlags::None, Attachment, Recipients, Delay, Expiration);
@@ -825,9 +825,9 @@ private:
 
 
 /** Type definition for shared pointers to instances of FMessageEndpoint. */
-DEPRECATED(4.16, "FMessageEndpointPtr is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
+UE_DEPRECATED(4.16, "FMessageEndpointPtr is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
 typedef TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe> FMessageEndpointPtr;
 
 /** Type definition for shared references to instances of FMessageEndpoint. */
-DEPRECATED(4.16, "FMessageEndpointRef is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
+UE_DEPRECATED(4.16, "FMessageEndpointRef is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
 typedef TSharedRef<FMessageEndpoint, ESPMode::ThreadSafe> FMessageEndpointRef;

@@ -24,8 +24,12 @@ class ENGINE_API UDebugDrawService : public UBlueprintFunctionLibrary
 
 	static FDelegateHandle Register(const TCHAR* Name, const FDebugDrawDelegate& NewDelegate);
 	static void Unregister(FDelegateHandle HandleToRemove);
+
+	// Draws debug canvas that has already been initialized to a viewport
 	static void Draw(const FEngineShowFlags Flags, class UCanvas* Canvas);
-	static void Draw(const FEngineShowFlags Flags, class FViewport* Viewport, FSceneView* View, FCanvas* Canvas);
+
+	// Initialize a debug canvas object then calls above draw. If CanvasObject is null it will find/create it for you
+	static void Draw(const FEngineShowFlags Flags, class FViewport* Viewport, FSceneView* View, FCanvas* Canvas, class UCanvas* CanvasObject = nullptr);
 
 private:
 	static TArray<TArray<FDebugDrawDelegate> > Delegates;

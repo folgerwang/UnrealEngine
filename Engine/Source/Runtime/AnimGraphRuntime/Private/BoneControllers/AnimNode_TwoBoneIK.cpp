@@ -17,20 +17,22 @@ DECLARE_CYCLE_STAT(TEXT("TwoBoneIK Eval"), STAT_TwoBoneIK_Eval, STATGROUP_Anim);
 // FAnimNode_TwoBoneIK
 
 FAnimNode_TwoBoneIK::FAnimNode_TwoBoneIK()
-	: bAllowStretching(false)
-	, StartStretchRatio(1.f)
+	: StartStretchRatio(1.f)
 	, MaxStretchScale(1.2f)
+#if WITH_EDITORONLY_DATA
 	, StretchLimits_DEPRECATED(FVector2D::ZeroVector)
+	, bNoTwist_DEPRECATED(false)
+#endif
+	, EffectorLocation(FVector::ZeroVector)
+	, CachedUpperLimbIndex(INDEX_NONE)
+	, JointTargetLocation(FVector::ZeroVector)
+	, CachedLowerLimbIndex(INDEX_NONE)
+	, EffectorLocationSpace(BCS_ComponentSpace)
+	, JointTargetLocationSpace(BCS_ComponentSpace)
+	, bAllowStretching(false)
 	, bTakeRotationFromEffectorSpace(false)
 	, bMaintainEffectorRelRot(false)
-	, EffectorLocationSpace(BCS_ComponentSpace)
-	, EffectorLocation(FVector::ZeroVector)
-	, JointTargetLocationSpace(BCS_ComponentSpace)
-	, JointTargetLocation(FVector::ZeroVector)
 	, bAllowTwist(true)
-	, bNoTwist_DEPRECATED(false)
-	, CachedUpperLimbIndex(INDEX_NONE)
-	, CachedLowerLimbIndex(INDEX_NONE)
 {
 }
 

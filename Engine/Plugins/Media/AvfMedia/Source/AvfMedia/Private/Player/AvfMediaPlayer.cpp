@@ -74,8 +74,7 @@
 	{
 		if (object == (id)context)
 		{
-			AVPlayerItemStatus Status = ((AVPlayerItem*)object).status;
-			MediaPlayer->OnStatusNotification(Status);
+			MediaPlayer->OnStatusNotification();
 		}
 	}
 }
@@ -136,9 +135,10 @@ void FAvfMediaPlayer::OnEndReached()
 {
 	if (ShouldLoop)
 	{
-		PlayerTasks.Enqueue([=]() {
+		PlayerTasks.Enqueue([=]()
+		{
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackEndReached);
-			Seek(CurrentRate < 0.f ? Duration : FTimespan::FromSeconds(0.0f));
+			Seek(CurrentRate < 0.f ? Duration : FTimespan::Zero());
 		});
 	}
 	else
@@ -146,8 +146,9 @@ void FAvfMediaPlayer::OnEndReached()
 		CurrentState = EMediaState::Paused;
 		CurrentRate = 0.0f;
 
-		PlayerTasks.Enqueue([=]() {
-			Seek(FTimespan::FromSeconds(0.0f));
+		PlayerTasks.Enqueue([=]()
+		{
+			Seek(FTimespan::Zero());
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackEndReached);
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackSuspended);
 		});
@@ -155,21 +156,19 @@ void FAvfMediaPlayer::OnEndReached()
 }
 
 
-void FAvfMediaPlayer::OnStatusNotification(AVPlayerItemStatus Status)
+void FAvfMediaPlayer::OnStatusNotification()
 {
-	switch(Status)
+	PlayerTasks.Enqueue([=]()
 	{
-		case AVPlayerItemStatusReadyToPlay:
+		switch(PlayerItem.status)
 		{
-			if (Duration == 0.0f || CurrentState == EMediaState::Closed)
+			case AVPlayerItemStatusReadyToPlay:
 			{
-				PlayerTasks.Enqueue([=]() {
+				if (Duration == FTimespan::Zero() || CurrentState == EMediaState::Closed)
+				{
 					Tracks->Initialize(PlayerItem, Info);
-					
 					EventSink.ReceiveMediaEvent(EMediaEvent::TracksChanged);
-				});
-				
-				PlayerTasks.Enqueue([=]() {
+					
 					Duration = FTimespan::FromSeconds(CMTimeGetSeconds(PlayerItem.asset.duration));
 					CurrentState = (CurrentState == EMediaState::Closed) ? EMediaState::Stopped : CurrentState;
 
@@ -180,55 +179,58 @@ void FAvfMediaPlayer::OnStatusNotification(AVPlayerItemStatus Status)
 						{
 							if (bFinished)
 							{
-								bPrerolled = true;
-								CurrentState = EMediaState::Stopped;
-								PlayerTasks.Enqueue([=]() {
-									EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpened);
-									if (CurrentTime != FTimespan::Zero())
+								PlayerTasks.Enqueue([=]()
+								{
+									if(PlayerItem.status == AVPlayerItemStatusReadyToPlay)
 									{
-										Seek(CurrentTime);
-									}
-									if(CurrentRate != 0.0f)
-									{
-										SetRate(CurrentRate);
+										bPrerolled = true;
+										CurrentState = EMediaState::Stopped;
+										
+										EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpened);
+										if (CurrentTime != FTimespan::Zero())
+										{
+											Seek(CurrentTime);
+										}
+										if(CurrentRate != 0.0f)
+										{
+											SetRate(CurrentRate);
+										}
 									}
 								});
 							}
 							else
 							{
-								CurrentState = EMediaState::Error;
-								PlayerTasks.Enqueue([=]() {
+								PlayerTasks.Enqueue([=]()
+								{
+									CurrentState = EMediaState::Error;
 									EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
 								});
 							}
 						}];
 					}
-				});
+				}
+
+				break;
 			}
-			break;
-		}
-		case AVPlayerItemStatusFailed:
-		{
-			if (Duration == 0.0f || CurrentState == EMediaState::Closed)
+			case AVPlayerItemStatusFailed:
 			{
-				CurrentState = EMediaState::Error;
-				PlayerTasks.Enqueue([=]() {
+				if (Duration == FTimespan::Zero() || CurrentState == EMediaState::Closed)
+				{
+					CurrentState = EMediaState::Error;
 					EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
-				});
-			}
-			else
-			{
-				CurrentState = EMediaState::Error;
-				PlayerTasks.Enqueue([=]() {
+				}
+				else
+				{
+					CurrentState = EMediaState::Error;
 					EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackSuspended);
-				});
+				}
+				break;
 			}
-			break;
+			case AVPlayerItemStatusUnknown:
+			default:
+				break;
 		}
-		case AVPlayerItemStatusUnknown:
-		default:
-			break;
-	}
+	});
 }
 
 
@@ -446,19 +448,22 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 			// File movies will be ready now
 			if (PlayerItem.status == AVPlayerItemStatusReadyToPlay)
 			{
-				OnStatusNotification(PlayerItem.status);
+				PlayerTasks.Enqueue([=]()
+				{
+					OnStatusNotification();
+				});
 			}
 		}
 		else if (Error != nullptr)
 		{
-			CurrentState = EMediaState::Error;
-			
 			NSDictionary *userInfo = [Error userInfo];
 			NSString *errstr = [[userInfo objectForKey : NSUnderlyingErrorKey] localizedDescription];
 
 			UE_LOG(LogAvfMedia, Warning, TEXT("Failed to load video tracks. [%s]"), *FString(errstr));
 	 
-			PlayerTasks.Enqueue([=]() {
+			PlayerTasks.Enqueue([=]()
+			{
+				CurrentState = EMediaState::Error;
 				EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
 			});
 		}
@@ -511,7 +516,7 @@ void FAvfMediaPlayer::TickAudio()
 
 void FAvfMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
-	if ((CurrentState > EMediaState::Error) && (Duration > 0.0f))
+	if ((CurrentState > EMediaState::Error) && (Duration > FTimespan::Zero()))
 	{
 		Tracks->ProcessVideo();
 	}
@@ -521,7 +526,7 @@ void FAvfMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
 	// Prevent deadlock - can't do this in TickAudio
-	if ((CurrentState > EMediaState::Error) && (Duration > 0.0f))
+	if ((CurrentState > EMediaState::Error) && (Duration > FTimespan::Zero()))
 	{
 		if(MediaPlayer != nil)
 		{

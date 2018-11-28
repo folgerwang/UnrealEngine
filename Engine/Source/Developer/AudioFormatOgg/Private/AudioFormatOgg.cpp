@@ -451,8 +451,11 @@ public:
 
 		// Use a base chunk size of MONO_PCM_BUFFER_SIZE * 2 because Android uses MONO_PCM_BUFFER_SIZE to submit buffers to the os, the streaming system has more scheduling flexability when the chunk size is
 		//	larger the the buffer size submitted to the OS
+#if PLATFORM_ANDROID
 		uint32	ChunkSize = MONO_PCM_BUFFER_SIZE * 2 * QualityInfo.NumChannels;
-		
+#else
+		uint32 ChunkSize = MaxChunkSize;
+#endif
 		while(SrcSize > 0)
 		{
 			int32	CurChunkDataSize = FMath::Min<uint32>(SrcSize, ChunkSize);

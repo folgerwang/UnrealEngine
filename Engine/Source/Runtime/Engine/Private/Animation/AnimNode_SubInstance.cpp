@@ -28,7 +28,7 @@ void FAnimNode_SubInstance::CacheBones_AnyThread(const FAnimationCacheBonesConte
 void FAnimNode_SubInstance::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	InPose.Update(Context);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if(InstanceToRun)
 	{

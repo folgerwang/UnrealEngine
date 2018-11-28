@@ -44,10 +44,6 @@ public:
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 
-	/** How to access the snapshot */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapshot", meta = (PinHiddenByDefault))
-	ESnapshotSourceMode Mode;
-
 	/** The name of the snapshot previously stored with SavePoseSnapshot */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapshot", meta = (PinShownByDefault))
 	FName SnapshotName;
@@ -55,6 +51,10 @@ public:
 	/** Snapshot to use. This should be populated at first by calling SnapshotPose */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapshot", meta = (PinHiddenByDefault))
 	FPoseSnapshot Snapshot;
+
+	/** How to access the snapshot */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snapshot", meta = (PinHiddenByDefault))
+	ESnapshotSourceMode Mode;
 
 private:
 	/** Cache of target space bases to source space bases */

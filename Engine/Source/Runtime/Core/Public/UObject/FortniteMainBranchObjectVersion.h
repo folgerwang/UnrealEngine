@@ -59,6 +59,22 @@ struct CORE_API FFortniteMainBranchObjectVersion
 		// Migrate Foliage TLazyObjectPtr to TSoftObjectPtr
 		FoliageLazyObjPtrToSoftObjPtr,
 
+		// TimelineTemplates store their derived names instead of dynamically generating
+		// This code tied to this version was reverted and redone at a later date
+		REVERTED_StoreTimelineNamesInTemplate,
+
+		// Added BakePoseOverride for LOD setting
+		AddBakePoseOverrideForSkeletalMeshReductionSetting,
+
+		// TimelineTemplates store their derived names instead of dynamically generating
+		StoreTimelineNamesInTemplate,
+		
+		// New Pose Asset data type
+		WidgetStopDuplicatingAnimations,
+
+		// Allow reducing of the base LOD, we need to store some imported model data so we can reduce again from the same data.
+		AllowSkeletalMeshToReduceTheBaseLOD,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

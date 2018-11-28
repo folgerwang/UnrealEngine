@@ -18,16 +18,16 @@
 class FMeshUtilities : public IMeshUtilities
 {
 public:
-	DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
 	virtual IMeshReduction* GetStaticMeshReductionInterface() override;
 	
-	DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
 	virtual IMeshReduction* GetSkeletalMeshReductionInterface() override;
 	
-	DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshReduction Module")
 	virtual IMeshMerging* GetMeshMergingInterface() override;
 	
-	DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
 	virtual void MergeActors(
 		const TArray<AActor*>& SourceActors,
 		const FMeshMergingSettings& InSettings,
@@ -37,7 +37,7 @@ public:
 		FVector& OutMergedActorLocation,
 		bool bSilent = false) const override;
 
-	DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
 	virtual void MergeStaticMeshComponents(
 		const TArray<UStaticMeshComponent*>& ComponentsToMerge,
 		UWorld* World,
@@ -49,11 +49,11 @@ public:
 		const float ScreenSize,
 		bool bSilent = false) const override;
 
-	DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
+	UE_DEPRECATED(4.17, "Use functionality in new MeshMergeUtilities Module")
 	virtual void CreateProxyMesh(const TArray<AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, FCreateProxyDelegate InProxyCreatedDelegate, const bool bAllowAsync,
 	const float ScreenAreaSize = 1.0f) override;
 
-	DEPRECATED(4.17, "Function is removed, use functionality in new MeshMergeUtilities Module")
+	UE_DEPRECATED(4.17, "Function is removed, use functionality in new MeshMergeUtilities Module")
 	virtual void FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& InMaterials, TArray<FRawMeshExt>& InSourceMeshes, TMap<FMeshIdAndLOD, TArray<int32>>& InMaterialIndexMap, TArray<bool>& InMeshShouldBakeVertexData, const FMaterialProxySettings &InMaterialProxySettings, TArray<FFlattenMaterial> &OutFlattenedMaterials) const override;
 
 private:

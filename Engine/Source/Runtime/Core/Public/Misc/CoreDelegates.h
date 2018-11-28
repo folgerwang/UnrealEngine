@@ -35,7 +35,7 @@ struct FTestHotFixPayload
 // Parameters passed to CrashOverrideParamsChanged used to customize crash report client behavior/appearance. If the corresponding bool is not true, this value will not be stored.
 struct FCrashOverrideParameters
 {
-	DEPRECATED(4.21, "CrashReportClientMessageText should now be set through the CrashReportClientRichText property in the [CrashContextProperties] section of DefaultEngine.ini.")
+	UE_DEPRECATED(4.21, "CrashReportClientMessageText should now be set through the CrashReportClientRichText property in the [CrashContextProperties] section of DefaultEngine.ini.")
 	FString CrashReportClientMessageText;
 	/** Appended to the end of GameName (which is retreived from FApp::GetGameName). */
 	FString GameNameSuffix;

@@ -29,6 +29,18 @@ struct FMovieSceneKeyStruct
 	virtual ~FMovieSceneKeyStruct() {}
 };
 
+USTRUCT()
+struct FGeneratedMovieSceneKeyStruct
+{
+	GENERATED_BODY()
+
+	virtual ~FGeneratedMovieSceneKeyStruct() {}
+
+	/**
+	 * Function that is called when a property is changed on this struct
+	 */
+	TFunction<void(const FPropertyChangedEvent&)> OnPropertyChangedEvent;
+};
 
 USTRUCT()
 struct FMovieSceneKeyTimeStruct : public FMovieSceneKeyStruct
@@ -53,31 +65,3 @@ struct FMovieSceneKeyTimeStruct : public FMovieSceneKeyStruct
 	}
 };
 template<> struct TStructOpsTypeTraits<FMovieSceneKeyTimeStruct> : public TStructOpsTypeTraitsBase2<FMovieSceneKeyTimeStruct> { enum { WithCopy = false }; };
-
-/**
- * Templated helper to aid in the creation of key structs
- */
-template<typename KeyStructType, typename ChannelType>
-TSharedPtr<FStructOnScope> CreateKeyStruct(TMovieSceneChannelHandle<ChannelType> ChannelHandle, FKeyHandle InHandle)
-{
-	TSharedPtr<FStructOnScope> KeyStruct;
-
-	ChannelType* Channel = ChannelHandle.Get();
-	if (Channel)
-	{
-		auto ChannelData = Channel->GetData();
-		const int32 KeyIndex = ChannelData.GetIndex(InHandle);
-
-		if (KeyIndex != INDEX_NONE)
-		{
-			KeyStruct = MakeShared<FStructOnScope>(KeyStructType::StaticStruct());
-			KeyStructType* Struct = reinterpret_cast<KeyStructType*>(KeyStruct->GetStructMemory());
-
-			Struct->Time  = ChannelData.GetTimes()[KeyIndex];
-			Struct->Value = ChannelData.GetValues()[KeyIndex];
-
-			Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelHandle, &Struct->Value, MakeTuple(InHandle, Struct->Time)));
-		}
-	}
-	return KeyStruct;
-}

@@ -4,6 +4,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/Csv/CsvParser.h"
+#include "HAL/IConsoleManager.h"
 
 #include "EditorFramework/AssetImportData.h"
 
@@ -12,6 +13,10 @@ DEFINE_LOG_CATEGORY(LogCurveTable);
 DECLARE_CYCLE_STAT(TEXT("CurveTableRowHandle Eval"),STAT_CurveTableRowHandleEval,STATGROUP_Engine);
 
 int32 UCurveTable::GlobalCachedCurveID = 1;
+
+// MaxZ where we will create per-connection dormancy lists within the spatialization grid. This prevents lists being created while flying over in battle bus/parachutes.
+int32 CVar_CurveTable_RemoveRedundantKeys = 1;
+static FAutoConsoleVariableRef CVarCurveTableRemoveRedundantKeys(TEXT("CurveTable.RemoveRedundantKeys"), CVar_CurveTable_RemoveRedundantKeys, TEXT(""), ECVF_Default);
 
 
 namespace
@@ -22,16 +27,14 @@ namespace
 		FScopedCurveTableChange(UCurveTable* InTable)
 			: Table(InTable)
 		{
-			int8* Count = ScopeCount.Find(Table);
-			if (!Count)
-			{
-				Count = &ScopeCount.Add(Table, 0);
-			}
-			++(*Count);
+			FScopeLock Lock(&CriticalSection);
+			int32& Count = ScopeCount.FindOrAdd(Table);
+			++Count;
 		}
 		~FScopedCurveTableChange()
 		{
-			int8& Count = ScopeCount.FindChecked(Table);
+			FScopeLock Lock(&CriticalSection);
+			int32& Count = ScopeCount.FindChecked(Table);
 			--Count;
 			if (Count == 0)
 			{
@@ -43,10 +46,12 @@ namespace
 	private:
 		UCurveTable* Table;
 
-		static TMap<UCurveTable*, int8> ScopeCount;
+		static TMap<UCurveTable*, int32> ScopeCount;
+		static FCriticalSection CriticalSection;
 	};
 
-	TMap<UCurveTable*, int8> FScopedCurveTableChange::ScopeCount;
+	TMap<UCurveTable*, int32> FScopedCurveTableChange::ScopeCount;
+	FCriticalSection FScopedCurveTableChange::CriticalSection;
 
 #define CURVETABLE_CHANGE_SCOPE()	FScopedCurveTableChange ActiveScope(this);
 }
@@ -102,6 +107,11 @@ void UCurveTable::Serialize(FArchive& Ar)
 			// Load row data
 			FRichCurve* NewCurve = new FRichCurve();
 			FRichCurve::StaticStruct()->SerializeTaggedProperties(Ar, (uint8*)NewCurve, FRichCurve::StaticStruct(), nullptr);
+
+			if (!GIsEditor && CVar_CurveTable_RemoveRedundantKeys > 0)
+			{
+				NewCurve->RemoveRedundantKeys(0.f);
+			}
 
 			// Add to map
 			RowMap.Add(RowName, NewCurve);
@@ -486,9 +496,8 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 		RowMap.Add(RowName, NewCurve);
 	}
 
-#if WITH_EDITORONLY_DATA
 	OnCurveTableChanged().Broadcast();
-#endif
+
 	Modify(true);
 
 	return OutProblems;
@@ -537,6 +546,8 @@ TArray<FString> UCurveTable::CreateTableFromOtherTable(const UCurveTable* InTabl
 
 		RowMap.Add(RowMapIter.Key(), NewCurve);
 	}
+
+	OnCurveTableChanged().Broadcast();
 
 	return OutProblems;
 }
@@ -644,9 +655,8 @@ TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, 
 		RowMap.Add(RowName, NewCurve);
 	}
 
-#if WITH_EDITORONLY_DATA
 	OnCurveTableChanged().Broadcast();
-#endif
+
 	Modify(true);
 
 	return OutProblems;

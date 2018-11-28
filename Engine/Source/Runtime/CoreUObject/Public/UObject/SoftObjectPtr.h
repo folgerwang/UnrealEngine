@@ -65,7 +65,7 @@ public:
 		return GetUniqueID();
 	}
 
-	DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
+	UE_DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
 	FORCEINLINE const FSoftObjectPath& ToStringReference() const
 	{
 		return GetUniqueID();
@@ -345,7 +345,7 @@ public:
 		return SoftObjectPtr.GetUniqueID();
 	}
 
-	DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
+	UE_DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
 	FORCEINLINE const FSoftObjectPath& ToStringReference() const
 	{
 		return SoftObjectPtr.GetUniqueID();
@@ -560,7 +560,7 @@ public:
 		return SoftObjectPtr.GetUniqueID();
 	}
 
-	DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
+	UE_DEPRECATED(4.18, "ToStringReference was renamed to ToSoftObjectPath")
 	FORCEINLINE const FSoftObjectPath& ToStringReference() const
 	{
 		return SoftObjectPtr.GetUniqueID();
@@ -621,15 +621,15 @@ private:
 template <class T> struct TIsPODType<TSoftClassPtr<T> > { enum { Value = TIsPODType<FSoftObjectPtr>::Value }; };
 template <class T> struct TIsWeakPointerType<TSoftClassPtr<T> > { enum { Value = TIsWeakPointerType<FSoftObjectPtr>::Value }; };
 
-DEPRECATED(4.18, "FAssetPtr was renamed to FSoftObjectPtr as it is not necessarily an asset")
+UE_DEPRECATED(4.18, "FAssetPtr was renamed to FSoftObjectPtr as it is not necessarily an asset")
 typedef FSoftObjectPtr FAssetPtr;
 
 // Not deprecating these yet as it will lead to too many warnings in games
-//DEPRECATED(4.18, "TAssetPtr was renamed to TSoftObjectPtr as it is not necessarily an asset")
+//UE_DEPRECATED(4.18, "TAssetPtr was renamed to TSoftObjectPtr as it is not necessarily an asset")
 template<class T=UObject>
 using TAssetPtr = TSoftObjectPtr<T>;
 
-//DEPRECATED(4.18, "TAssetSubclassOf was renamed to TSoftClassPtr")
+//UE_DEPRECATED(4.18, "TAssetSubclassOf was renamed to TSoftClassPtr")
 template<class TClass = UObject>
 using TAssetSubclassOf = TSoftClassPtr<TClass>;
 

@@ -8,7 +8,8 @@
 #include "HAL/LowLevelMemTracker.h"
 
 IStreamedCompressedInfo::IStreamedCompressedInfo()
-	: SrcBufferData(nullptr)
+	: bIsStreaming(false)
+	,SrcBufferData(nullptr)
 	, SrcBufferDataSize(0)
 	, SrcBufferOffset(0)
 	, AudioDataOffset(0)
@@ -147,6 +148,7 @@ bool IStreamedCompressedInfo::StreamCompressedInfo(USoundWave* Wave, struct FSou
 	CurrentChunkIndex = 0;
 	const uint8* FirstChunk = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
 
+	bIsStreaming = true;
 	if (FirstChunk)
 	{
 		return ReadCompressedInfo(FirstChunk, Wave->RunningPlatformData->Chunks[0].AudioDataSize, QualityInfo);

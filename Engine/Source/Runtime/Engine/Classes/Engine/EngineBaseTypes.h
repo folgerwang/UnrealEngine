@@ -397,6 +397,11 @@ private:
 		check(0); // you cannot make this pure virtual in script because it wants to create constructors.
 		return FString(TEXT("invalid"));
 	}
+	/** Function to give a 'context' for this tick, used for grouped active tick reporting */
+	virtual FName DiagnosticContext(bool bDetailed)
+	{
+		return NAME_None;
+	}
 	
 	friend class FTickTaskSequencer;
 	friend class FTickTaskManager;
@@ -437,6 +442,7 @@ struct FActorTickFunction : public FTickFunction
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	ENGINE_API virtual FString DiagnosticMessage() override;
+	ENGINE_API virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -469,7 +475,7 @@ struct FActorComponentTickFunction : public FTickFunction
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	ENGINE_API virtual FString DiagnosticMessage() override;
-
+	ENGINE_API virtual FName DiagnosticContext(bool bDetailed) override;
 
 	/**
 	 * Conditionally calls ExecuteTickFunc if bRegistered == true and a bunch of other criteria are met
@@ -717,6 +723,16 @@ namespace EDemoPlayFailure
 		Corrupt,
 		/** Invalid version. */
 		InvalidVersion,
+		/** InitBase failed. */
+		InitBase,
+		/** Failed to process game specific header. */
+		GameSpecificHeader,
+		/** Replay streamer had an internal error. */
+		ReplayStreamerInternal,
+		/** LoadMap failed. */
+		LoadMap,
+		/** Error serializing data stream. */
+		Serialization
 	};
 }
 
@@ -734,6 +750,16 @@ namespace EDemoPlayFailure
 			return TEXT("Corrupt");
 		case InvalidVersion:
 			return TEXT("InvalidVersion");
+		case InitBase:
+			return TEXT("InitBase");
+		case GameSpecificHeader:
+			return TEXT("GameSpecificHeader");
+		case ReplayStreamerInternal:
+			return TEXT("ReplayStreamerInternal");
+		case LoadMap:
+			return TEXT("LoadMap");
+		case Serialization:
+			return TEXT("Serialization");
 		}
 
 		return TEXT("Unknown EDemoPlayFailure error occurred.");
@@ -758,6 +784,9 @@ struct ENGINE_API FURL
 	UPROPERTY()
 	int32 Port;
 
+	UPROPERTY()
+	int32 Valid;
+
 	// Map name, i.e. "SkyCity", default is "Entry".
 	UPROPERTY()
 	FString Map;
@@ -773,9 +802,6 @@ struct ENGINE_API FURL
 	// Portal to enter through, default is "".
 	UPROPERTY()
 	FString Portal;
-
-	UPROPERTY()
-	int32 Valid;
 
 	// Statics.
 	static FUrlConfig UrlConfig;

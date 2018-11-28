@@ -21,6 +21,10 @@ struct ANIMGRAPHRUNTIME_API FSocketReference
 {
 	GENERATED_USTRUCT_BODY()
 
+private:
+	FTransform CachedSocketLocalTransform;
+
+public:
 	/** Target socket to look at. Used if LookAtBone is empty. - You can use  LookAtLocation if you need offset from this point. That location will be used in their local space. **/
 	UPROPERTY(EditAnywhere, Category = FSocketReference)
 	FName SocketName;
@@ -28,8 +32,7 @@ struct ANIMGRAPHRUNTIME_API FSocketReference
 private:
 	int32 CachedSocketMeshBoneIndex;
 	FCompactPoseBoneIndex CachedSocketCompactBoneIndex;
-	FTransform CachedSocketLocalTransform;
-
+	
 public:
 	FSocketReference()
 		: CachedSocketMeshBoneIndex(INDEX_NONE)
@@ -308,8 +311,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
-
 	UPROPERTY(Transient)
 	float ActualAlpha;
 
@@ -317,11 +318,11 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	EAnimAlphaInputType AlphaInputType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
-	mutable bool bAlphaBoolEnabled;
+	bool bAlphaBoolEnabled;
 
 	// Current strength of the skeletal control
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBias AlphaScaleBias;
@@ -330,7 +331,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	FInputAlphaBoolBlend AlphaBoolBlend;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
-	mutable FName AlphaCurveName;
+	FName AlphaCurveName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBiasClamp AlphaScaleBiasClamp;
@@ -357,6 +358,7 @@ public:
 	virtual void CacheBones_AnyThread(const FAnimationCacheBonesContext& Context)  override;
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) final;
 	virtual void EvaluateComponentSpace_AnyThread(FComponentSpacePoseContext& Output) final;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 
 protected:
@@ -372,7 +374,7 @@ protected:
 
 	// use this function to evaluate for skeletal control base
 	virtual void EvaluateComponentSpaceInternal(FComponentSpacePoseContext& Context);
-	DEPRECATED(4.16, "Please use EvaluateSkeletalControl_AnyThread.")
+	UE_DEPRECATED(4.16, "Please use EvaluateSkeletalControl_AnyThread.")
 	virtual void EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms) {}
 	// Evaluate the new component-space transforms for the affected bones.
 	virtual void EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms);

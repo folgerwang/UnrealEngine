@@ -28,11 +28,23 @@ void FAnimNode_CopyPoseFromMesh::RefreshMeshComponent(FAnimInstanceProxy* AnimIn
 {
 	auto ResetMeshComponent = [this](USkeletalMeshComponent* InMeshComponent, FAnimInstanceProxy* InAnimInstanceProxy)
 	{
-		if (CurrentlyUsedSourceMeshComponent.IsValid() && CurrentlyUsedSourceMeshComponent.Get() != InMeshComponent)
+		USkeletalMeshComponent* CurrentMeshComponent = CurrentlyUsedSourceMeshComponent.Get();
+		// if current mesh exists, but not same as input mesh
+		if (CurrentMeshComponent)
 		{
-			ReinitializeMeshComponent(InMeshComponent, InAnimInstanceProxy);
+			// if component has been changed, reinitialize
+			if (CurrentMeshComponent != InMeshComponent)
+			{
+				ReinitializeMeshComponent(InMeshComponent, InAnimInstanceProxy);
+			}
+			// if component is still same but mesh has been changed, we have to reinitialize
+			else if (CurrentMeshComponent->SkeletalMesh != CurrentlyUsedSourceMesh.Get())
+			{
+				ReinitializeMeshComponent(InMeshComponent, InAnimInstanceProxy);
+			}
 		}
-		else if (!CurrentlyUsedSourceMeshComponent.IsValid() && InMeshComponent)
+		// if not valid, but input mesh is
+		else if (!CurrentMeshComponent && InMeshComponent)
 		{
 			ReinitializeMeshComponent(InMeshComponent, InAnimInstanceProxy);
 		}
@@ -70,8 +82,8 @@ void FAnimNode_CopyPoseFromMesh::RefreshMeshComponent(FAnimInstanceProxy* AnimIn
 
 void FAnimNode_CopyPoseFromMesh::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
-
+	GetEvaluateGraphExposedInputs().Execute(Context);
+	// still doing this because if this works, we avoid doing this in eval
 	RefreshMeshComponent(Context.AnimInstanceProxy);
 }
 
@@ -80,14 +92,19 @@ void FAnimNode_CopyPoseFromMesh::Evaluate_AnyThread(FPoseContext& Output)
 	FCompactPose& OutPose = Output.Pose;
 	OutPose.ResetToRefPose();
 
+	// I have to refresh this here because some of them already started on worker thread for evaluate
+	// it still has to do update
+	RefreshMeshComponent(Output.AnimInstanceProxy);
+
 	USkeletalMeshComponent* CurrentMeshComponent = CurrentlyUsedSourceMeshComponent.IsValid()? CurrentlyUsedSourceMeshComponent.Get() : nullptr;
 
 	if (CurrentMeshComponent && CurrentMeshComponent->SkeletalMesh && CurrentMeshComponent->IsRegistered())
 	{
 		const FBoneContainer& RequiredBones = OutPose.GetBoneContainer();
 		const bool bUROInSync = CurrentMeshComponent->AnimUpdateRateParams != nullptr && CurrentMeshComponent->AnimUpdateRateParams == Output.AnimInstanceProxy->GetSkelMeshComponent()->AnimUpdateRateParams;
+		const bool bUsingExternalInterpolation = CurrentMeshComponent->IsUsingExternalInterpolation();
 		const bool bArraySizesMatch = CurrentMeshComponent->CachedComponentSpaceTransforms.Num() == CurrentMeshComponent->GetComponentSpaceTransforms().Num();
-		const TArray<FTransform>& SourceMeshTransformArray =  bUROInSync && bArraySizesMatch ? CurrentMeshComponent->CachedComponentSpaceTransforms : CurrentMeshComponent->GetComponentSpaceTransforms();
+		const TArray<FTransform>& SourceMeshTransformArray =  (bUROInSync || bUsingExternalInterpolation) && bArraySizesMatch ? CurrentMeshComponent->CachedComponentSpaceTransforms : CurrentMeshComponent->GetComponentSpaceTransforms();
 		for(FCompactPoseBoneIndex PoseBoneIndex : OutPose.ForEachBoneIndex())
 		{
 			const int32& SkeletonBoneIndex = RequiredBones.GetSkeletonIndex(PoseBoneIndex);
@@ -138,13 +155,15 @@ void FAnimNode_CopyPoseFromMesh::GatherDebugData(FNodeDebugData& DebugData)
 {
 	FString DebugLine = DebugData.GetNodeName(this);
 
-	DebugLine += FString::Printf(TEXT("('%s')"), *GetNameSafe(CurrentlyUsedSourceMeshComponent.Get() ? CurrentlyUsedSourceMeshComponent.Get()->SkeletalMesh : nullptr));
+	DebugLine += FString::Printf(TEXT("('%s')"), *GetNameSafe(CurrentlyUsedSourceMeshComponent.IsValid() ? CurrentlyUsedSourceMeshComponent.Get()->SkeletalMesh : nullptr));
 	DebugData.AddDebugItem(DebugLine, true);
 }
 
 void FAnimNode_CopyPoseFromMesh::ReinitializeMeshComponent(USkeletalMeshComponent* NewSourceMeshComponent, FAnimInstanceProxy* AnimInstanceProxy)
 {
 	CurrentlyUsedSourceMeshComponent = NewSourceMeshComponent;
+	// reset source mesh
+	CurrentlyUsedSourceMesh.Reset();
 	BoneMapToSource.Reset();
 	CurveNameToUIDMap.Reset();
 
@@ -155,6 +174,7 @@ void FAnimNode_CopyPoseFromMesh::ReinitializeMeshComponent(USkeletalMeshComponen
 		{
 			USkeletalMesh* SourceSkelMesh = NewSourceMeshComponent->SkeletalMesh;
 			USkeletalMesh* TargetSkelMesh = TargetMeshComponent->SkeletalMesh;
+			CurrentlyUsedSourceMesh = SourceSkelMesh;
 
 			if (SourceSkelMesh == TargetSkelMesh)
 			{

@@ -40,6 +40,10 @@ void UMovieSceneLevelVisibilityTrack::RemoveSection( UMovieSceneSection& Section
 	Sections.Remove(&Section);
 }
 
+bool UMovieSceneLevelVisibilityTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneLevelVisibilitySection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneLevelVisibilityTrack::CreateNewSection()
 {

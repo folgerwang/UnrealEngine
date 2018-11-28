@@ -230,26 +230,28 @@ bool FPersonaAssetFamily::IsAssetCompatible(const FAssetData& InAssetData) const
 		}
 		else if (Class->IsChildOf<UAnimationAsset>() || Class->IsChildOf<USkeletalMesh>())
 		{
-			const FString* TargetSkeleton = InAssetData.TagsAndValues.Find("Skeleton");
-			if (TargetSkeleton)
+			FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag("Skeleton");
+
+			if (Result.IsSet())
 			{
-				return *TargetSkeleton == FAssetData(Skeleton.Get()).GetExportTextName();
+				return Result.GetValue() == FAssetData(Skeleton.Get()).GetExportTextName();
 			}
 		}
 		else if (Class->IsChildOf<UAnimBlueprint>())
 		{
-			const FString* TargetSkeleton = InAssetData.TagsAndValues.Find("TargetSkeleton");
-			if (TargetSkeleton)
+			FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag("TargetSkeleton");
+
+			if (Result.IsSet())
 			{
-				return *TargetSkeleton == FAssetData(Skeleton.Get()).GetExportTextName();
+				return Result.GetValue() == FAssetData(Skeleton.Get()).GetExportTextName();
 			}
 		}
 		else if (Class->IsChildOf<UPhysicsAsset>())
 		{
-			const FString* PreviewMesh = InAssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UPhysicsAsset, PreviewSkeletalMesh));
-			if (PreviewMesh && Mesh.IsValid())
+			FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag(GET_MEMBER_NAME_CHECKED(UPhysicsAsset, PreviewSkeletalMesh));
+			if (Result.IsSet() && Mesh.IsValid())
 			{
-				return *PreviewMesh == FAssetData(Mesh.Get()).ObjectPath.ToString();
+				return Result.GetValue() == FAssetData(Mesh.Get()).ObjectPath.ToString();
 			}
 		}
 	}

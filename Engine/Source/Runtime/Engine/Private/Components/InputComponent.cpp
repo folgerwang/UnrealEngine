@@ -196,9 +196,9 @@ bool UInputComponent::HasBindings( ) const
 }
 
 
-FInputActionBinding& UInputComponent::AddActionBinding( const FInputActionBinding& InBinding )
+FInputActionBinding& UInputComponent::AddActionBinding( FInputActionBinding InBinding )
 {
-	ActionBindings.Add(MakeShared<FInputActionBinding>(InBinding));
+	ActionBindings.Add(MakeShared<FInputActionBinding>(MoveTemp(InBinding)));
 	FInputActionBinding& Binding = *ActionBindings.Last().Get();
 
 	if (Binding.KeyEvent == IE_Pressed || Binding.KeyEvent == IE_Released)

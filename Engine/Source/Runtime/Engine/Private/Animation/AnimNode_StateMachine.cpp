@@ -16,30 +16,30 @@ FAnimationActiveTransitionEntry::FAnimationActiveTransitionEntry()
 	: ElapsedTime(0.0f)
 	, Alpha(0.0f)
 	, CrossfadeDuration(0.0f)
-	, BlendOption(EAlphaBlendOption::HermiteCubic)
-	, bActive(false)
 	, NextState(INDEX_NONE)
 	, PreviousState(INDEX_NONE)
 	, StartNotify(INDEX_NONE)
 	, EndNotify(INDEX_NONE)
 	, InterruptNotify(INDEX_NONE)
-	, LogicType(ETransitionLogicType::TLT_StandardBlend)
 	, BlendProfile(nullptr)
+	, BlendOption(EAlphaBlendOption::HermiteCubic)
+	, LogicType(ETransitionLogicType::TLT_StandardBlend)
+	, bActive(false)
 {
 }
 
 FAnimationActiveTransitionEntry::FAnimationActiveTransitionEntry(int32 NextStateID, float ExistingWeightOfNextState, FAnimationActiveTransitionEntry* ExistingTransitionForNextState, int32 PreviousStateID, const FAnimationTransitionBetweenStates& ReferenceTransitionInfo)
 	: ElapsedTime(0.0f)
 	, Alpha(0.0f)
-	, BlendOption(ReferenceTransitionInfo.BlendMode)
-	, bActive(true)
 	, NextState(NextStateID)
 	, PreviousState(PreviousStateID)
 	, StartNotify(ReferenceTransitionInfo.StartNotify)
 	, EndNotify(ReferenceTransitionInfo.EndNotify)
 	, InterruptNotify(ReferenceTransitionInfo.InterruptNotify)
-	, LogicType(ReferenceTransitionInfo.LogicType)
 	, BlendProfile(ReferenceTransitionInfo.BlendProfile)
+	, BlendOption(ReferenceTransitionInfo.BlendMode)
+	, LogicType(ReferenceTransitionInfo.LogicType)
+	, bActive(true)
 {
 	const float Scaler = 1.0f - ExistingWeightOfNextState;
 	CrossfadeDuration = ReferenceTransitionInfo.CrossfadeDuration * CalculateInverseAlpha(BlendOption, Scaler);
@@ -564,7 +564,7 @@ bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& 
 		else
 		{
 			// Execute it and see if we can take this rule
-			StateEntryRuleNode->EvaluateGraphExposedInputs.Execute(Context);
+			StateEntryRuleNode->GetEvaluateGraphExposedInputs().Execute(Context);
 		}
 
 		// not ok, back out
@@ -607,7 +607,7 @@ bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& 
 		else 
 		{
 			// Execute it and see if we can take this rule
-			ResultNode->EvaluateGraphExposedInputs.Execute(Context);
+			ResultNode->GetEvaluateGraphExposedInputs().Execute(Context);
 		}
 
 		if (ResultNode->bCanEnterTransition == TransitionRule.bDesiredTransitionReturnValue)

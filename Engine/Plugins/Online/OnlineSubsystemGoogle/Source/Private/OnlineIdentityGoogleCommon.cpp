@@ -231,12 +231,6 @@ FOnlineIdentityGoogleCommon::FOnlineIdentityGoogleCommon(FOnlineSubsystemGoogle*
 	}
 }
 
-const FUniqueNetId& FOnlineIdentityGoogleCommon::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdGoogle> EmptyUniqueId = MakeShared<const FUniqueNetIdGoogle>(FString());
-	return *EmptyUniqueId;
-}
-
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityGoogleCommon::GetUserAccount(const FUniqueNetId& UserId) const
 {
 	TSharedPtr<FUserOnlineAccount> Result;

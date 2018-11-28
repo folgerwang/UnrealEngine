@@ -28,7 +28,16 @@ public:
 	 *									If false, it will regenerate for only previously auto generated ones
 	 * @return	true if succeed. If mesh reduction is not available this will return false.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | SkeletalMesh")
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | SkeletalMesh", meta = (ScriptMethod))
 	static bool RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount = 0, bool bRegenerateEvenIfImported = false);
+
+	/** Get number of mesh vertices for an LOD of a Skeletal Mesh
+	 *
+	 * @param SkeletalMesh		Mesh to get number of vertices from.
+	 * @param LODIndex			Index of the mesh LOD.
+	 * @return Number of vertices. Returns 0 if invalid mesh or LOD index.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Editor Scripting | SkeletalMesh")
+	static int32 GetNumVerts(USkeletalMesh* SkeletalMesh, int32 LODIndex);
 };
 

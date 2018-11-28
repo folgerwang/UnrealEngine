@@ -495,14 +495,13 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 	}
 
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
-
-	RequestUIUpdate();
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
 	ApplyResolutionSettings(bCheckForCommandLineOverrides);
 	ApplyNonResolutionSettings();
+	RequestUIUpdate();
 
 	SaveSettings();
 }
@@ -632,6 +631,19 @@ EWindowMode::Type UGameUserSettings::GetDefaultWindowMode()
 {
 	// WindowedFullscreen should be the general default for games
 	return EWindowMode::WindowedFullscreen;
+}
+
+int32 UGameUserSettings::GetSyncInterval()
+{
+	static IConsoleVariable* SyncIntervalCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("rhi.syncinterval"));
+	if (ensure(SyncIntervalCVar))
+	{
+		return SyncIntervalCVar->GetInt();
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 void UGameUserSettings::ResetToCurrentSettings()
@@ -875,6 +887,7 @@ void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /
 				SetPreferredFullscreenMode(0);
 				SetFullscreenMode(GetPreferredFullscreenMode());
 				ApplyResolutionSettings(false);
+				RequestUIUpdate();
 			}
 #endif
 			CVarHDROutputEnabled->Set(1, ECVF_SetByGameSetting);

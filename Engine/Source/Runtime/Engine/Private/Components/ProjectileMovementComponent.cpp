@@ -123,7 +123,7 @@ void UProjectileMovementComponent::UpdateTickRegistration()
 void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	QUICK_SCOPE_CYCLE_COUNTER( STAT_ProjectileMovementComponent_TickComponent );
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_ProjectileMovement);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ProjectileMovement);
 
 	// Still need to finish interpolating after we've stopped simulating, so do that first.
 	if (bInterpMovement && !bInterpolationComplete)

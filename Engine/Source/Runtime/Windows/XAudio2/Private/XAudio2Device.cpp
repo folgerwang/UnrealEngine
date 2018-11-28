@@ -353,7 +353,11 @@ class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave
 
 	if (SoundWave->IsStreaming())
 	{
+#if USE_VORBIS_FOR_STREAMING
+		return new FVorbisAudioInfo();
+#else
 		return new FOpusAudioInfo();
+#endif
 	}
 
 #if WITH_OGGVORBIS

@@ -98,7 +98,7 @@ class AIMODULE_API UBTCompositeNode : public UBTNode
 	TArray<UBTService*> Services;
 
 	/** delegate for finding next child to execute */
-	DEPRECATED(4.21, "OnNextChild is no longer being used. Please override UBTCompositeNode::GetNextChildHandler instead")
+	UE_DEPRECATED(4.21, "OnNextChild is no longer being used. Please override UBTCompositeNode::GetNextChildHandler instead")
 	FGetNextChildDelegate OnNextChild;
 
 	~UBTCompositeNode();

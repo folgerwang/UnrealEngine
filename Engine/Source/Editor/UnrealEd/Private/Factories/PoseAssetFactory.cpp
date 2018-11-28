@@ -224,6 +224,9 @@ UObject* UPoseAssetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 {
 	if (SourceAnimation)
 	{
+		// Use the skeleton from the source animation
+		TargetSkeleton = SourceAnimation->GetSkeleton();
+
 		UPoseAsset* PoseAsset = NewObject<UPoseAsset>(InParent, Class, Name, Flags);
 		TArray<FSmartName> InputPoseNames;
 		if (PoseNames.Num() > 0)
@@ -244,7 +247,7 @@ UObject* UPoseAssetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 		}
 
 		PoseAsset->CreatePoseFromAnimation( SourceAnimation, &InputPoseNames);
-		PoseAsset->SetSkeleton( SourceAnimation->GetSkeleton() );
+		PoseAsset->SetSkeleton(TargetSkeleton);
 		return PoseAsset;
 	}
 
@@ -256,14 +259,11 @@ void UPoseAssetFactory::OnWindowUserActionDelegate(bool bCreate, UAnimSequence* 
 	if (bCreate && InSequence)
 	{
 		SourceAnimation = InSequence;
-		TargetSkeleton = InSequence->GetSkeleton();
-		PreviewSkeletalMesh = TargetSkeleton->GetPreviewMesh();
 		PoseNames = InPoseNames;
 	}
 	else
 	{
 		SourceAnimation = nullptr;
-		TargetSkeleton = nullptr;
 		PoseNames.Reset();
 	}
 }

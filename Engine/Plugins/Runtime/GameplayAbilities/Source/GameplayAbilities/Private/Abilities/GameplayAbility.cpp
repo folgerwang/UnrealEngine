@@ -3,6 +3,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "TimerManager.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
 #include "AbilitySystemStats.h"
 #include "AbilitySystemGlobals.h"
@@ -11,7 +12,6 @@
 #include "GameplayCue_Types.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
-
 
 namespace FAbilitySystemTweaks
 {
@@ -103,14 +103,23 @@ bool UGameplayAbility::CallRemoteFunction(UFunction* Function, void* Parameters,
 	check(GetOuter() != nullptr);
 
 	AActor* Owner = CastChecked<AActor>(GetOuter());
-	UNetDriver* NetDriver = Owner->GetNetDriver();
-	if (NetDriver)
+
+	bool bProcessed = false;
+
+	FWorldContext* const Context = GEngine->GetWorldContextFromWorld(GetWorld());
+	if (Context != nullptr)
 	{
-		NetDriver->ProcessRemoteFunction(Owner, Function, Parameters, OutParms, Stack, this);
-		return true;
+		for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
+		{
+			if (Driver.NetDriver != nullptr && Driver.NetDriver->ShouldReplicateFunction(Owner, Function))
+			{
+				Driver.NetDriver->ProcessRemoteFunction(Owner, Function, Parameters, OutParms, Stack, this);
+				bProcessed = true;
+			}
+		}
 	}
 
-	return false;
+	return bProcessed;
 }
 
 void UGameplayAbility::SendGameplayEvent(FGameplayTag EventTag, FGameplayEventData Payload)
@@ -655,6 +664,8 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 				// If we're still blocking other abilities, cancel now
 				AbilitySystemComponent->ApplyAbilityBlockAndCancelTags(AbilityTags, this, false, BlockAbilitiesWithTag, false, CancelAbilitiesWithTag);
 			}
+
+			AbilitySystemComponent->ClearAbilityReplicatedDataCache(Handle, CurrentActivationInfo);
 
 			// Tell owning AbilitySystemComponent that we ended so it can do stuff (including MarkPendingKill us)
 			AbilitySystemComponent->NotifyAbilityEnded(Handle, this, bWasCancelled);

@@ -157,13 +157,13 @@ private:
 
 		FElement( const TSharedRef<FJsonObject>& Object )
 			: Identifier()
-			, Value(MakeShareable(new FJsonValueObject(Object)))
+			, Value(MakeShared<FJsonValueObject>(Object))
 			, HasBeenProcessed( false )
 		{ }
 
 		FElement( const TArray<TSharedPtr<FJsonValue>>& Array )
 			: Identifier()
-			, Value( MakeShareable(new FJsonValueArray(Array)))
+			, Value(MakeShared<FJsonValueArray>(Array))
 			, HasBeenProcessed(false)
 		{ }
 
@@ -205,10 +205,10 @@ private:
 						ScopeStack.Push(CurrentState.ToSharedRef());
 					}
 
-					CurrentState = MakeShareable(new StackState());
+					CurrentState = MakeShared<StackState>();
 					CurrentState->Type = EJson::Object;
 					CurrentState->Identifier = Identifier;
-					CurrentState->Object = MakeShareable(new FJsonObject());
+					CurrentState->Object = MakeShared<FJsonObject>();
 				}
 				break;
 
@@ -217,7 +217,7 @@ private:
 					if (ScopeStack.Num() > 0)
 					{
 						Identifier = CurrentState->Identifier;
-						NewValue = MakeShareable(new FJsonValueObject(CurrentState->Object));
+						NewValue = MakeShared<FJsonValueObject>(CurrentState->Object);
 						CurrentState = ScopeStack.Pop();
 					}
 				}
@@ -230,7 +230,7 @@ private:
 						ScopeStack.Push(CurrentState.ToSharedRef());
 					}
 
-					CurrentState = MakeShareable(new StackState());
+					CurrentState = MakeShared<StackState>();
 					CurrentState->Type = EJson::Array;
 					CurrentState->Identifier = Identifier;
 				}
@@ -241,26 +241,26 @@ private:
 					if (ScopeStack.Num() > 0)
 					{
 						Identifier = CurrentState->Identifier;
-						NewValue = MakeShareable(new FJsonValueArray(CurrentState->Array));
+						NewValue = MakeShared<FJsonValueArray>(CurrentState->Array);
 						CurrentState = ScopeStack.Pop();
 					}
 				}
 				break;
 
 			case EJsonNotation::Boolean:
-				NewValue = MakeShareable(new FJsonValueBoolean(Reader.GetValueAsBoolean()));
+				NewValue = MakeShared<FJsonValueBoolean>(Reader.GetValueAsBoolean());
 				break;
 
 			case EJsonNotation::String:
-				NewValue = MakeShareable(new FJsonValueString(Reader.GetValueAsString()));
+				NewValue = MakeShared<FJsonValueString>(Reader.GetValueAsString());
 				break;
 
 			case EJsonNotation::Number:
-				NewValue = MakeShareable(new FJsonValueNumber(Reader.GetValueAsNumber()));
+				NewValue = MakeShared<FJsonValueNumber>(Reader.GetValueAsNumber());
 				break;
 
 			case EJsonNotation::Null:
-				NewValue = MakeShareable(new FJsonValueNull());
+				NewValue = MakeShared<FJsonValueNull>();
 				break;
 
 			case EJsonNotation::Error:
@@ -416,7 +416,7 @@ private:
 
 						for (int Index = Values.Num() - 1; Index >= 0; --Index)
 						{
-							ElementStack.Push(MakeShareable(new FElement(Keys[Index], Values[Index ])));
+							ElementStack.Push(MakeShared<FElement>(Keys[Index], Values[Index]));
 						}
 					}
 				}

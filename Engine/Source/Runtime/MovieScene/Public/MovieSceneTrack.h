@@ -236,6 +236,14 @@ public:
 
 public:
 
+	/*
+	 * Does this track support this section class type?
+
+	 * @param ClassType The movie scene section class type
+	 * @return Whether this track supports this section class type
+	 */
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const PURE_VIRTUAL(UMovieSceneTrack::SupportsType, return false;);
+
 	/**
 	 * Add a section to this track.
 	 *

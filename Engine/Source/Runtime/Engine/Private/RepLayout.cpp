@@ -16,6 +16,7 @@
 #include "Engine/NetworkSettings.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "Misc/NetworkVersion.h"
+#include "Misc/App.h"
 
 DECLARE_CYCLE_STAT(TEXT("RepLayout AddPropertyCmd"), STAT_RepLayout_AddPropertyCmd, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("RepLayout InitFromObjectClass"), STAT_RepLayout_InitFromObjectClass, STATGROUP_Game);
@@ -147,6 +148,7 @@ static FORCEINLINE bool PropertiesAreIdenticalNative( const FRepLayoutCmd& Cmd, 
 	switch ( Cmd.Type )
 	{
 		case ERepLayoutCmdType::PropertyBool:			return CompareBool( Cmd, A, B );
+		case ERepLayoutCmdType::PropertyNativeBool:		return CompareValue<bool>( A, B );
 		case ERepLayoutCmdType::PropertyByte:			return CompareValue<uint8>( A, B );
 		case ERepLayoutCmdType::PropertyFloat:			return CompareValue<float>( A, B );
 		case ERepLayoutCmdType::PropertyInt:			return CompareValue<int32>( A, B );
@@ -2181,6 +2183,7 @@ bool FRepLayout::ReceiveProperties_BackwardsCompatible_r(
 	bool&					bOutHasUnmapped,
 	bool&					bOutGuidsChanged ) const
 {
+
 	while ( true )
 	{
 		uint32 NetFieldExportHandle = 0;
@@ -2200,7 +2203,8 @@ bool FRepLayout::ReceiveProperties_BackwardsCompatible_r(
 
 		if ( !ensure( NetFieldExportGroup != nullptr ) )
 		{
-			UE_LOG( LogRep, Warning, TEXT( "ReceiveProperties_BackwardsCompatible_r: NetFieldExportGroup == nullptr. Owner: %s, NetFieldExportHandle: %u" ), *Owner->GetName(), NetFieldExportHandle );
+			// FORTNITE TEMP - Disable warnings during replay test
+			UE_CLOG(!FApp::IsUnattended(), LogRep, Warning, TEXT( "ReceiveProperties_BackwardsCompatible_r: NetFieldExportGroup == nullptr. Owner: %s, NetFieldExportHandle: %u" ), *Owner->GetName(), NetFieldExportHandle );
 			Reader.SetError();
 			return false;
 		}
@@ -3082,7 +3086,8 @@ uint32 FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 Rel
 	}
 	else if ( UnderlyingProperty->IsA( UBoolProperty::StaticClass() ) )
 	{
-		Cmd.Type = ERepLayoutCmdType::PropertyBool;
+		const UBoolProperty* BoolProperty = static_cast<UBoolProperty*>(UnderlyingProperty);
+		Cmd.Type = BoolProperty->IsNativeBool() ? ERepLayoutCmdType::PropertyNativeBool : ERepLayoutCmdType::PropertyBool;
 	}
 	else if ( UnderlyingProperty->IsA( UFloatProperty::StaticClass() ) )
 	{
@@ -4108,6 +4113,34 @@ void FRepLayout::AddReferencedObjects(FReferenceCollector& Collector)
 	}
 }
 
+void FRepState::CountBytes(FArchive& Ar) const
+{
+	if (Ar.IsCountingMemory())
+	{
+		StaticBuffer.CountBytes(Ar);
+		GuidReferencesMap.CountBytes(Ar);
+		for (const auto& GuidRefPair : GuidReferencesMap)
+		{
+			GuidRefPair.Value.CountBytes(Ar);
+		}
+		RepNotifies.CountBytes(Ar);
+
+		// RepChangedPropertyTracker is also stored on the net driver, so it's not tracked here.
+
+		for (const FRepChangedHistory& HistoryItem : ChangeHistory)
+		{
+			HistoryItem.CountBytes(Ar);
+		}
+
+		PreOpenAckHistory.CountBytes(Ar);
+		for (const FRepChangedHistory& HistoryItem : PreOpenAckHistory)
+		{
+			HistoryItem.CountBytes(Ar);
+		}
+
+		LifetimeChangelist.CountBytes(Ar);
+	}
+}
 
 FRepState::~FRepState()
 {

@@ -6,10 +6,10 @@
 #include "Animation/AnimSequence.h"
 
 FAnimNode_RandomPlayer::FAnimNode_RandomPlayer()
-: bShuffleMode(false)
-, CurrentEntry(INDEX_NONE)
+: CurrentEntry(INDEX_NONE)
 , NextEntry(INDEX_NONE)
 , CurrentDataIndex(0)
+, bShuffleMode(false)
 {
 
 }
@@ -17,7 +17,7 @@ FAnimNode_RandomPlayer::FAnimNode_RandomPlayer()
 void FAnimNode_RandomPlayer::Initialize_AnyThread(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_Base::Initialize_AnyThread(Context);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	const int32 NumEntries = Entries.Num();
 
@@ -76,7 +76,7 @@ void FAnimNode_RandomPlayer::Initialize_AnyThread(const FAnimationInitializeCont
 
 void FAnimNode_RandomPlayer::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if(Entries.Num() == 0)
 	{

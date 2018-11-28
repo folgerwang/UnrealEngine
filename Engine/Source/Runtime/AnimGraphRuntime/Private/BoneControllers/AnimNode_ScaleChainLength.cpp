@@ -13,9 +13,9 @@ FAnimNode_ScaleChainLength::FAnimNode_ScaleChainLength()
 	, TargetLocation(ForceInitToZero)
 	, Alpha(1.f)
 	, ActualAlpha(0.0f)
+	, ChainInitialLength(EScaleChainInitialLength::FixedDefaultLengthValue)
 	, bBoneIndicesCached(false)
 {
-	ChainInitialLength = EScaleChainInitialLength::FixedDefaultLengthValue;
 }
 
 void FAnimNode_ScaleChainLength::Initialize_AnyThread(const FAnimationInitializeContext& Context)
@@ -26,7 +26,7 @@ void FAnimNode_ScaleChainLength::Initialize_AnyThread(const FAnimationInitialize
 
 void FAnimNode_ScaleChainLength::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	InputPose.Update(Context);
 
 	ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);

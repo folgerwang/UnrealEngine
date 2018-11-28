@@ -90,7 +90,6 @@
 #include "Delegates/DelegateSettings.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/DelegateBase.h"
 #include "Delegates/IntegerSequence.h"

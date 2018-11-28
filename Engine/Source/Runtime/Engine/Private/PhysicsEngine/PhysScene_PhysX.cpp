@@ -1083,7 +1083,7 @@ void GatherClothingStats(const UWorld* World)
 void FPhysScene_PhysX::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletionEvent)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TotalPhysicsTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
 
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime_Async, SceneType == PST_Async);
@@ -1263,11 +1263,12 @@ void FPhysScene_PhysX::ProcessPhysScene(uint32 SceneType)
 {
 	LLM_SCOPE(ELLMTag::PhysX);
 
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
+
 	SCOPED_NAMED_EVENT(FPhysScene_ProcessPhysScene, FColor::Orange);
 	checkSlow(SceneType < PST_MAX);
 
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TotalPhysicsTime);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime_Async, SceneType == PST_Async);
 

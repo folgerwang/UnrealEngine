@@ -409,12 +409,7 @@ void FArchive::SerializeBool( bool& D )
 	const uint8 * RESTRICT Src = this->ActiveFPLB->StartFastPathLoadBuffer;
 	if (Src + sizeof(uint32) <= this->ActiveFPLB->EndFastPathLoadBuffer)
 	{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-		OldUBoolValue = *(uint32* RESTRICT)Src;
-#else
-		static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");
-		OldUBoolValue = Src[0] | Src[1] | Src[2] | Src[3];
-#endif
+		OldUBoolValue = FPlatformMemory::ReadUnaligned<uint32>(Src);
 		this->ActiveFPLB->StartFastPathLoadBuffer += 4;
 	}
 	else
@@ -1061,7 +1056,8 @@ void FArchive::SerializeIntPacked(uint32& Value)
 	}
 	else
 	{
-		TArray<uint8, TInlineAllocator<6>> PackedBytes;
+		uint8 PackedBytes[5];
+		int32 PackedByteCount = 0;
 		uint32 Remaining = Value;
 		while(true)
 		{
@@ -1071,15 +1067,15 @@ void FArchive::SerializeIntPacked(uint32& Value)
 			if( Remaining > 0)
 			{
 				nextByte |= 1;						// set more bit
-				PackedBytes.Add(nextByte);
+				PackedBytes[PackedByteCount++] = nextByte;
 			}
 			else
 			{
-				PackedBytes.Add(nextByte);
+				PackedBytes[PackedByteCount++] = nextByte;
 				break;
 			}
 		}
-		Serialize(PackedBytes.GetData(), PackedBytes.Num()); // Actually serialize the bytes we made
+		Serialize(PackedBytes, PackedByteCount); // Actually serialize the bytes we made
 	}
 }
 

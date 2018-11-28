@@ -496,7 +496,7 @@ public:
 	/** 
 	 * The base material's StateId.  
 	 * This guid represents all the state of a UMaterial that is not covered by the other members of FMaterialShaderMapId.
-	 * Any change to the UMaterial that modifes that state (for example, adding an expression) must modify this guid.
+	 * Any change to the UMaterial that modifies that state (for example, adding an expression) must modify this guid.
 	 */
 	FGuid BaseMaterialId;
 
@@ -527,9 +527,6 @@ public:
 
 	/** Guids of any Parameter Collections the material was dependent on. */
 	TArray<FGuid> ReferencedParameterCollections;
-
-	/** Guids of any Shared Input Collections the material was dependent on. */
-	TArray<FGuid> ReferencedSharedInputCollections;
 
 	/** Shader types of shaders that are inlined in this shader map in the DDC. */
 	TArray<FShaderTypeDependency> ShaderTypeDependencies;
@@ -575,7 +572,6 @@ public:
 		return sizeof(*this)
 			+ ReferencedFunctions.GetAllocatedSize()
 			+ ReferencedParameterCollections.GetAllocatedSize()
-			+ ReferencedSharedInputCollections.GetAllocatedSize()
 			+ ShaderTypeDependencies.GetAllocatedSize()
 			+ ShaderPipelineTypeDependencies.GetAllocatedSize()
 			+ VertexFactoryTypeDependencies.GetAllocatedSize();
@@ -1126,7 +1122,6 @@ public:
 	 */
 	FMaterial():
 		RenderingThreadShaderMap(NULL),
-		Id_DEPRECATED(0,0,0,0),
 		QualityLevel(EMaterialQualityLevel::High),
 		bHasQualityLevelUsage(false),
 		FeatureLevel(ERHIFeatureLevel::SM4),
@@ -1270,6 +1265,7 @@ public:
 	virtual bool IsPersistent() const = 0;
 	virtual UMaterialInterface* GetMaterialInterface() const { return NULL; }
 
+#if WITH_EDITOR
 	/**
 	* Called when compilation of an FMaterial finishes, after the GameThreadShaderMap is set and the render command to set the RenderThreadShaderMap is queued
 	*/
@@ -1291,6 +1287,7 @@ public:
 	 * @return returns true if compilation is complete false otherwise
 	 */
 	ENGINE_API bool IsCompilationFinished() const;
+#endif // WITH_EDITOR
 
 	/**
 	* Checks if there is a valid GameThreadShaderMap, that is, the material can be rendered as intended.
@@ -1315,15 +1312,18 @@ public:
 	}
 
 	// Accessors.
-	const TArray<FString>& GetCompileErrors() const { return CompileErrors; }
-	void SetCompileErrors(const TArray<FString>& InCompileErrors) { CompileErrors = InCompileErrors; }
-	const TArray<UMaterialExpression*>& GetErrorExpressions() const { return ErrorExpressions; }
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniform2DTextureExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniformCubeTextureExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& GetUniformVolumeTextureExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpression> >& GetUniformVectorParameterExpressions() const;
 	ENGINE_API const TArray<TRefCountPtr<FMaterialUniformExpression> >& GetUniformScalarParameterExpressions() const;
+
+#if WITH_EDITOR
+	const TArray<FString>& GetCompileErrors() const { return CompileErrors; }
+	void SetCompileErrors(const TArray<FString>& InCompileErrors) { CompileErrors = InCompileErrors; }
+	const TArray<UMaterialExpression*>& GetErrorExpressions() const { return ErrorExpressions; }
 	const FGuid& GetLegacyId() const { return Id_DEPRECATED; }
+#endif // WITH_EDITOR
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
 	bool GetUsesDynamicParameter() const 
@@ -1372,8 +1372,6 @@ public:
 		GameThreadShaderMap = InMaterialShaderMap;
 		bContainsInlineShaders = true;
 		bLoadedCookedShaderMapId = true;
-		CookedShaderMapId = InMaterialShaderMap->GetShaderMapId();
-
 	}
 
 	ENGINE_API class FMaterialShaderMap* GetRenderingThreadShaderMap() const;
@@ -1381,10 +1379,12 @@ public:
 	/** Note: SetGameThreadShaderMap must also be called with the same value, but from the game thread. */
 	ENGINE_API void SetRenderingThreadShaderMap(FMaterialShaderMap* InMaterialShaderMap);
 
+#if WITH_EDITOR
 	void RemoveOutstandingCompileId(const int32 OldOutstandingCompileShaderMapId )
 	{
 		OutstandingCompileShaderMapIds.Remove( OldOutstandingCompileShaderMapId );
 	}
+#endif // WITH_EDITOR
 
 	ENGINE_API virtual void AddReferencedObjects(FReferenceCollector& Collector);
 
@@ -1429,6 +1429,7 @@ public:
 	void DumpDebugInfo();
 	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, struct FStableShaderKeyAndValue& SaveKeyVal); // arg is non-const, we modify it as we go
 
+#if WITH_EDITOR
 	/** 
 	 * Adds an FMaterial to the global list.
 	 * Any FMaterials that don't belong to a UMaterialInterface need to be registered in this way to work correctly with runtime recompiling of outdated shaders.
@@ -1445,6 +1446,7 @@ public:
 	static void BackupEditorLoadedMaterialShadersToMemory(TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 	/** Recreates FShaders in editor loaded materials from the passed in memory, handling shader key changes. */
 	static void RestoreEditorLoadedMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData);
+#endif // WITH_EDITOR
 
 protected:
 	
@@ -1452,10 +1454,12 @@ protected:
 	// @return can be 0
 	const FMaterialShaderMap* GetShaderMapToUse() const;
 
+#if WITH_EDITOR
 	/**
 	* Fills the passed array with IDs of shader maps unfinished compilation jobs.
 	*/
 	void GetShaderMapIDsWithUnfinishedCompilation(TArray<int32>& ShaderMapIds);
+#endif // WITH_EDITOR
 
 	/**
 	 * Entry point for compiling a specific material property.  This must call SetMaterialProperty. 
@@ -1506,6 +1510,7 @@ protected:
 
 private:
 
+#if WITH_EDITOR
 	/** 
 	 * Tracks FMaterials without a corresponding UMaterialInterface in the editor, for example FExpressionPreviews.
 	 * Used to handle the 'recompileshaders changed' command in the editor.
@@ -1517,6 +1522,7 @@ private:
 
 	/** List of material expressions which generated a compiler error during the last compile. */
 	TArray<UMaterialExpression*> ErrorExpressions;
+#endif // WITH_EDITOR
 
 	/** 
 	 * Game thread tracked shader map, which is ref counted and manages shader map lifetime. 
@@ -1532,6 +1538,7 @@ private:
 	 */
 	FMaterialShaderMap* RenderingThreadShaderMap;
 
+#if WITH_EDITOR
 	/** 
 	 * Legacy unique identifier of this material resource.
 	 * This functionality is now provided by UMaterial::StateId.
@@ -1543,6 +1550,7 @@ private:
 	 * This can be used to access the shader map during async compiling, since GameThreadShaderMap will not have been set yet.
 	 */
 	TArray<int32, TInlineAllocator<1> > OutstandingCompileShaderMapIds;
+#endif // WITH_EDITOR
 
 	/** Quality level that this material is representing. */
 	EMaterialQualityLevel::Type QualityLevel;
@@ -1559,8 +1567,6 @@ private:
 	 */
 	uint32 bContainsInlineShaders : 1;
 	uint32 bLoadedCookedShaderMapId : 1;
-
-	FMaterialShaderMapId CookedShaderMapId;
 
 	/**
 	* Compiles this material for Platform, storing the result in OutShaderMap if the compile was synchronous
@@ -1962,7 +1968,9 @@ public:
 	ENGINE_API virtual bool IsPersistent() const override;
 	ENGINE_API virtual FGuid GetMaterialId() const override;
 
+#if WITH_EDITOR
 	ENGINE_API virtual void NotifyCompilationFinished() override;
+#endif // WITH_EDITOR
 
 	ENGINE_API void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize);
 

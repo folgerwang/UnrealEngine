@@ -176,7 +176,7 @@ public:
 	 */
 	virtual void ResizeFrame(uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode) override;
 
-	DEPRECATED(4.13, "The version of FSceneViewport::ResizeFrame that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
+	UE_DEPRECATED(4.13, "The version of FSceneViewport::ResizeFrame that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
 	void ResizeFrame(uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, int32, int32)
 	{
 		ResizeFrame(NewSizeX, NewSizeY, NewWindowMode);
@@ -300,7 +300,7 @@ private:
 	 */
 	virtual void ResizeViewport( uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode );
 
-	DEPRECATED(4.13, "The version of FSceneViewport::ResizeViewport that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
+	UE_DEPRECATED(4.13, "The version of FSceneViewport::ResizeViewport that takes a position is deprecated (the position was never used). Please use the version that doesn't take a position instead.")
 	void ResizeViewport(uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, int32, int32)
 	{
 		ResizeViewport(NewSizeX, NewSizeY, NewWindowMode);

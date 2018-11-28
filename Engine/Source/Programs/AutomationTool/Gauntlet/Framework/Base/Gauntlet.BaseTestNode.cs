@@ -35,6 +35,11 @@ namespace Gauntlet
 		public virtual bool HasWarnings { get; protected set; }
 
 		/// <summary>
+		/// Returns true if the test was cancelled
+		/// </summary>
+		public virtual bool WasCancelled { get; protected set; }
+
+		/// <summary>
 		/// Internal status state
 		/// </summary>
 		private TestStatus InnerStatus;
@@ -131,8 +136,9 @@ namespace Gauntlet
 		/// </summary>
 		/// <param name="WasCancelled"></param>
 		/// <returns></returns>
-		public virtual void StopTest(bool WasCancelled)
+		public virtual void StopTest(bool InWasCancelled)
 		{
+			WasCancelled = InWasCancelled;
 		}
 
 		/// <summary>

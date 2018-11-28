@@ -6,6 +6,7 @@
 #include "OnlineSubsystem.h"
 
 #include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineChatInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
 #include "Interfaces/OnlineEventsInterface.h"
@@ -22,11 +23,19 @@
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \
-	static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const FName SubsystemName = NAME_None) \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const FName SubsystemName = NAME_None) \
 { \
 	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(SubsystemName); \
 	return (OSS == NULL) ? NULL : OSS->Get##InterfaceType##Interface(); \
-}
+} \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##InterfaceChecked(const FName SubsystemName = NAME_None) \
+{ \
+	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(SubsystemName); \
+	check(OSS); \
+	IOnline##InterfaceType##Ptr InterfacePtr = OSS->Get##InterfaceType##Interface(); \
+	check(InterfacePtr.IsValid()); \
+	return InterfacePtr; \
+} 
 
 /** Helpers for accessing all the online features available in the online subsystem */
 namespace Online

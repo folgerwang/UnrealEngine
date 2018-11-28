@@ -34,8 +34,6 @@
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
 
-#include "FramePro/FrameProProfiler.h"
-
 #if !PLATFORM_TVOS
 #include <AdSupport/ASIdentifierManager.h> 
 #endif
@@ -1511,55 +1509,6 @@ bool FIOSPlatformMisc::DeleteStoredValue(const FString& InStoreId, const FString
 	// No Implementation (currently only used by editor code so not needed on iOS)
 	return false;
 }
-
-#if STATS || ENABLE_STATNAMEDEVENTS
-
-void FIOSPlatformMisc::BeginNamedEventFrame()
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::FrameStart();
-#endif // FRAMEPRO_ENABLED
-}
-
-void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::BeginNamedEvent(Color, Text);
-}
-
-void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::BeginNamedEvent(Color, Text);
-}
-
-void FIOSPlatformMisc::EndNamedEvent()
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PopEvent();
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::EndNamedEvent();
-}
-
-void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
-{
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
-}
-
-void FIOSPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
-{
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
-}
-
-#endif // STATS || ENABLE_STATNAMEDEVENTS
-
 
 void FIOSPlatformMisc::SetGracefulTerminationHandler()
 {

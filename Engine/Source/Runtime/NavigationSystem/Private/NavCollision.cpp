@@ -13,6 +13,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "CoreGlobals.h"
 #if WITH_EDITOR
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
@@ -172,8 +173,21 @@ UNavCollision::UNavCollision(const FObjectInitializer& ObjectInitializer) : Supe
 	bGatherConvexGeometry = true;
 	bHasConvexGeometry = false;
 	bForceGeometryRebuild = false;
+	bCreateOnClient = true;
+}
 
-	if (HasAnyFlags(RF_ClassDefaultObject))
+void UNavCollision::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	// if bCreateOnClient is false we're not even going to bind the delegate
+	if (HasAnyFlags(RF_ClassDefaultObject)
+		&& (GIsServer || bCreateOnClient
+#if WITH_EDITOR
+			|| GIsEditor
+#endif
+			)
+		)
 	{
 		UNavCollisionBase::ConstructNewInstanceDelegate = UNavCollisionBase::FConstructNew::CreateStatic(&CreateNewNavCollisionInstance);
 	}

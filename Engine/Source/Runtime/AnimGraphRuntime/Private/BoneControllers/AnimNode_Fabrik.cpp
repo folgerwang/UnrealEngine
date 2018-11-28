@@ -14,11 +14,13 @@
 
 FAnimNode_Fabrik::FAnimNode_Fabrik()
 	: EffectorTransform(FTransform::Identity)
-	, EffectorTransformSpace(BCS_ComponentSpace)
-	, EffectorRotationSource(BRS_KeepLocalSpaceRotation)
 	, Precision(1.f)
 	, MaxIterations(10)
+	, EffectorTransformSpace(BCS_ComponentSpace)
+	, EffectorRotationSource(BRS_KeepLocalSpaceRotation)
+#if WITH_EDITORONLY_DATA
 	, bEnableDebugDraw(false)
+#endif
 {
 }
 
@@ -206,7 +208,7 @@ bool FAnimNode_Fabrik::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneC
 
 void FAnimNode_Fabrik::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent* PreviewSkelMeshComp) const
 {
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 
 	if(bEnableDebugDraw && PreviewSkelMeshComp && PreviewSkelMeshComp->GetWorld())
 	{

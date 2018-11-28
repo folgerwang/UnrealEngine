@@ -544,7 +544,7 @@ namespace AnimationEditorUtils
 							AnimSeq->CompressCommandletVersion = 0;
 						}
 						AnimSeq->CompressionScheme = static_cast<UAnimCompress*>(StaticDuplicateObject(Algorithm, AnimSeq));
-						AnimSeq->RequestAnimCompression(false, CompressContext);
+						AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, CompressContext));
 						++CompressContext->AnimIndex;
 					}
 				}

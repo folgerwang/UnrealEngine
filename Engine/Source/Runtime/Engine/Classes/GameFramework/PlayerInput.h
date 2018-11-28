@@ -334,7 +334,7 @@ public:
 	/** Returns the mouse sensitivity along the Y-axis, or 1.0 if none are known. */
 	float GetMouseSensitivityY();
 
-	DEPRECATED(4.21, "Call axis specific GetMouseSensitivityX or GetMouseSensitivityY instead.")
+	UE_DEPRECATED(4.21, "Call axis specific GetMouseSensitivityX or GetMouseSensitivityY instead.")
 	float GetMouseSensitivity() { return GetMouseSensitivityX(); }
 
 	/** Returns whether an Axis Key is inverted */
@@ -441,7 +441,7 @@ public:
 	/** Handles a touch input event.  Returns true. */
 	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
 
-	DEPRECATED(4.20, "InputTouch now takes a Force")
+	UE_DEPRECATED(4.20, "InputTouch now takes a Force")
 	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 	{
 		return InputTouch(Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex);
@@ -513,7 +513,7 @@ public:
 	/** @return raw value of the InKey */
 	FVector GetRawVectorKeyValue(FKey InKey) const;
 
-	DEPRECATED(4.21, "Use GetProcessedVectorKeyValue or GetRawVectorKeyValue instead. GetRawVectorKeyValue will have the same result as GetVectorKeyValue previously.")
+	UE_DEPRECATED(4.21, "Use GetProcessedVectorKeyValue or GetRawVectorKeyValue instead. GetRawVectorKeyValue will have the same result as GetVectorKeyValue previously.")
 	FVector GetVectorKeyValue(FKey InKey) const
 	{
 		return GetRawVectorKeyValue(InKey);

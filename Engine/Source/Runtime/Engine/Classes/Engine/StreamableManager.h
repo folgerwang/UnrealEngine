@@ -303,11 +303,11 @@ struct ENGINE_API FStreamableManager : public FGCObject
 	/** Checks for any redirectors that were previously loaded, and returns the redirected target if found. This will not handle redirects that it doesn't yet know about */
 	FSoftObjectPath ResolveRedirects(const FSoftObjectPath& Target) const;
 
-	DEPRECATED(4.16, "Call LoadSynchronous with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
+	UE_DEPRECATED(4.16, "Call LoadSynchronous with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
 	UObject* SynchronousLoad(FSoftObjectPath const& Target);
 
 	template< typename T >
-	DEPRECATED(4.16, "Call LoadSynchronous with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
+	UE_DEPRECATED(4.16, "Call LoadSynchronous with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
 	T* SynchronousLoadType(FSoftObjectPath const& Target)
 	{
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -315,10 +315,10 @@ struct ENGINE_API FStreamableManager : public FGCObject
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
 
-	DEPRECATED(4.16, "Call RequestAsyncLoad with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
+	UE_DEPRECATED(4.16, "Call RequestAsyncLoad with bManageActiveHandle=true instead if you want the manager to keep the handle alive")
 	void SimpleAsyncLoad(const FSoftObjectPath& Target, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority);
 
-	DEPRECATED(4.16, "AddStructReferencedObjects is no longer necessary, as it is a GCObject now")
+	UE_DEPRECATED(4.16, "AddStructReferencedObjects is no longer necessary, as it is a GCObject now")
 	void AddStructReferencedObjects(class FReferenceCollector& Collector) const {}
 
 	/** Add referenced objects to stop them from GCing */

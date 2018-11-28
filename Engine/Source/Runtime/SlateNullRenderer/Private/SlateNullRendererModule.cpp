@@ -140,7 +140,7 @@ private:
 	{
 		if (!SlateFontServices.IsValid())
 		{
-			const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory)));
+			const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory), ESlateTextureAtlasThreadId::Game));
 
 			SlateFontServices = MakeShareable(new FSlateFontServices(FontCache, FontCache));
 		}

@@ -80,10 +80,36 @@ FMobileSceneRenderer::FMobileSceneRenderer(const FSceneViewFamily* InViewFamily,
 	bModulatedShadowsInUse = false;
 }
 
+class FMobileDirLightShaderParamsRenderResource : public FRenderResource
+{
+public:
+	using MobileDirLightUniformBufferRef = TUniformBufferRef<FMobileDirectionalLightShaderParameters>;
+
+	virtual void InitRHI() override
+	{
+		UniformBufferRHI =
+			MobileDirLightUniformBufferRef::CreateUniformBufferImmediate(
+				FMobileDirectionalLightShaderParameters(),
+				UniformBuffer_MultiFrame);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		UniformBufferRHI.SafeRelease();
+	}
+
+	MobileDirLightUniformBufferRef UniformBufferRHI;
+};
+
 TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirectionalLightShaderParameters()
 {
-	static TUniformBufferRef<FMobileDirectionalLightShaderParameters> NullLightParams = TUniformBufferRef<FMobileDirectionalLightShaderParameters>::CreateUniformBufferImmediate(FMobileDirectionalLightShaderParameters(), UniformBuffer_MultiFrame);
-	return NullLightParams;
+	static TGlobalResource<FMobileDirLightShaderParamsRenderResource>* NullLightParams;
+	if (!NullLightParams)
+	{
+		NullLightParams = new TGlobalResource<FMobileDirLightShaderParamsRenderResource>();
+	}
+	check(!!NullLightParams->UniformBufferRHI);
+	return NullLightParams->UniformBufferRHI;
 }
 
 /**

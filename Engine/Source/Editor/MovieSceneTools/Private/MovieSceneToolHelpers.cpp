@@ -471,7 +471,7 @@ int32 MovieSceneToolHelpers::FindAvailableRowIndex(UMovieSceneTrack* InTrack, UM
 		bool bFoundIntersect = false;
 		for (UMovieSceneSection* Section : InTrack->GetAllSections())
 		{
-			if (!Section->HasStartFrame() || !Section->HasEndFrame() || InSection->HasStartFrame() || !InSection->HasEndFrame())
+			if (!Section->HasStartFrame() || !Section->HasEndFrame() || !InSection->HasStartFrame() || !InSection->HasEndFrame())
 			{
 				bFoundIntersect = true;
 				break;
@@ -489,7 +489,7 @@ int32 MovieSceneToolHelpers::FindAvailableRowIndex(UMovieSceneTrack* InTrack, UM
 		}
 	}
 
-	return InTrack->GetMaxRowIndex();
+	return InTrack->GetMaxRowIndex() + 1;
 }
 
 class SEnumCombobox : public SComboBox<TSharedPtr<int32>>

@@ -231,23 +231,41 @@ private:
 	virtual bool InitiallyCollapsed() const override { return true; }
 
 	FReply OnApplyChanges();
+
+	// used by native tool and simplygon
 	float GetPercentTriangles() const;
+
+	// used by native quadric simplifier
+	float GetPercentVertices() const;
+
+	// used by simplygon only
 	float GetMaxDeviation() const;
 	float GetPixelError() const;
 	float GetWeldingThreshold() const;
 	ECheckBoxState ShouldRecalculateNormals() const;
 	float GetHardAngleThreshold() const;
 
+	// used by native tool and simplygon
 	void OnPercentTrianglesChanged(float NewValue);
 	void OnPercentTrianglesCommitted(float NewValue, ETextCommit::Type TextCommitType);
+
+	// Used by native code only
+	void OnPercentVerticesChanged(float NewValue);
+	void OnPercentVerticesCommitted(float NewValue, ETextCommit::Type TextCommitType);
+
+	//used by simplygon only
 	void OnMaxDeviationChanged(float NewValue);
 	void OnMaxDeviationCommitted(float NewValue, ETextCommit::Type TextCommitType);
 	void OnPixelErrorChanged(float NewValue);
 	void OnPixelErrorCommitted(float NewValue, ETextCommit::Type TextCommitType);
 	void OnReductionAmountChanged(float NewValue);
 	void OnRecalculateNormalsChanged(ECheckBoxState NewValue);
+
+	// used by native tool and simplygon
 	void OnWeldingThresholdChanged(float NewValue);
 	void OnWeldingThresholdCommitted(float NewValue, ETextCommit::Type TextCommitType);
+
+	// used by simplygon only
 	void OnHardAngleThresholdChanged(float NewValue);
 	void OnHardAngleThresholdCommitted(float NewValue, ETextCommit::Type TextCommitType);
 
@@ -255,13 +273,31 @@ private:
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnShadingImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 
+	// Used by native tool only.
+	void OnTerminationCriterionChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
+
+	// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+	bool UseNativeToolLayout() const;
+
+	EVisibility GetTriangleCriterionVisibility() const;
+	EVisibility GetVertexCriterionVisibility() const;
+
 private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
 	FMeshReductionSettings ReductionSettings;
+
+	// Used by simplygon
 	TArray<TSharedPtr<FString> > ImportanceOptions;
 	TSharedPtr<STextComboBox> SilhouetteCombo;
 	TSharedPtr<STextComboBox> TextureCombo;
 	TSharedPtr<STextComboBox> ShadingCombo;
+
+	// Used by quadric simplifier
+	TSharedPtr<STextComboBox> TerminationCriterionCombo;
+	TArray<TSharedPtr<FString> > TerminationOptions;
+
+    // Identify the actual that this UI drives
+	bool bUseQuadricSimplifier;
 };
 
 class FMeshSectionSettingsLayout : public TSharedFromThis<FMeshSectionSettingsLayout>

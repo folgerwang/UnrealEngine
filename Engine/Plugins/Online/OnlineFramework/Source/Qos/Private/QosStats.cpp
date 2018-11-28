@@ -185,9 +185,11 @@ void FQosDatacenterStats::ParseQosResults(TSharedPtr<IAnalyticsProvider>& Analyt
 		}
 
 		BestPing = FMath::Clamp(BestPing, 0, UNREACHABLE_PING);
-
-		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, BestRegionId));
-		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, BestPing));
+		if (BestPing < UNREACHABLE_PING)
+		{
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, BestRegionId));
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, BestPing));
+		}
 	}
 
 	{

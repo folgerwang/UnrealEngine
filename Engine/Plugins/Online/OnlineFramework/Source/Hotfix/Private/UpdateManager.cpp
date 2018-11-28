@@ -369,9 +369,13 @@ inline bool SkipPatchCheck(UUpdateManager* UpdateManager)
 
 	// Prevent a patch check on editor builds 
 	const bool bSkipDueToEditor = UE_EDITOR;
+
+	// prevent a check when running unattended
+	const bool bSkipDueToUnattended = FApp::IsUnattended();
+
 	// Explicitly skipping the check
 	const bool bForceSkipCheck = FParse::Param(FCommandLine::Get(), TEXT("SkipPatchCheck"));
-	const bool bSkipPatchCheck = !bForcePatchCheck && (!bEnvironmentWantsPatchCheck || bSkipDueToEditor || bForceSkipCheck);
+	const bool bSkipPatchCheck = !bForcePatchCheck && (!bEnvironmentWantsPatchCheck || bSkipDueToEditor || bForceSkipCheck || bSkipDueToUnattended);
 
 	return bSkipPatchCheck;
 }

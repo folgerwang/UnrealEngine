@@ -22,6 +22,7 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "PIEPreviewSettings.h"
+#include "Misc/CommandLine.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPIEPreviewDevice, Log, All); 
 DEFINE_LOG_CATEGORY(LogPIEPreviewDevice);
@@ -29,6 +30,19 @@ IMPLEMENT_MODULE(FPIEPreviewDeviceModule, PIEPreviewDeviceProfileSelector);
 
 void FPIEPreviewDeviceModule::StartupModule()
 {
+	// Parse the json file specified on the command line
+
+	if (FParse::Value(FCommandLine::Get(), GetPreviewDeviceCommandSwitch(), PreviewDevice))
+	{
+		const FString Filename = FindDeviceSpecificationFilePath(PreviewDevice);
+
+		FString Json;
+		if (FFileHelper::LoadFileToString(Json, *Filename))
+		{
+			TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(Json);
+			FJsonSerializer::Deserialize(JsonReader, JsonRootObject);
+		}
+	}
 }
 
 void FPIEPreviewDeviceModule::ShutdownModule()
@@ -56,6 +70,19 @@ void FPIEPreviewDeviceModule::ShutdownModule()
 	}
 }
 
+void FPIEPreviewDeviceModule::ApplyCommandLineOverrides()
+{
+	// Here we need to parse the json directly as we have not yet initialized the UObject system
+	if (JsonRootObject.IsValid())
+	{
+		FString DevicePlatform;
+		if (JsonRootObject->TryGetStringField(TEXT("DevicePlatform"), DevicePlatform))
+		{
+			FCommandLine::Append(*FString::Printf(TEXT(" -ScalabilityIniPlatformOverride=%s"), *DevicePlatform));
+		}
+	}
+}
+
 FString const FPIEPreviewDeviceModule::GetRuntimeDeviceProfileName()
 {
 	if (!bInitialized)
@@ -77,7 +104,7 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
 
 	bool bReadSuccess = ReadDeviceSpecification();
-	checkf(bReadSuccess, TEXT("Unable to read device specifications"));
+	checkf(bReadSuccess, TEXT("Unable to read PIE Preview Device specification"));
 
 	Device->ApplyRHIPrerequisitesOverrides();
 	DeviceProfile = Device->GetProfile();
@@ -235,29 +262,16 @@ bool FPIEPreviewDeviceModule::ReadDeviceSpecification()
 {
 	Device = nullptr;
 
-	if (!FParse::Value(FCommandLine::Get(), GetPreviewDeviceCommandSwitch(), PreviewDevice))
+	if (JsonRootObject.IsValid())
 	{
-		return false;
-	}
+		// We need to initialize FPIEPreviewDeviceSpecifications early as device profiles need to be evaluated before ProcessNewlyLoadedUObjects can be called.
+		CreatePackage(nullptr, TEXT("/Script/PIEPreviewDeviceProfileSelector"));
 
-	const FString Filename = FindDeviceSpecificationFilePath(PreviewDevice);
+		Device = MakeShareable(new FPIEPreviewDevice());
 
-	FString Json;
-	if (FFileHelper::LoadFileToString(Json, *Filename))
-	{
-		TSharedPtr<FJsonObject> RootObject;
-		TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(Json);
-		if (FJsonSerializer::Deserialize(JsonReader, RootObject) && RootObject.IsValid())
+		if (!FJsonObjectConverter::JsonAttributesToUStruct(JsonRootObject->Values, FPIEPreviewDeviceSpecifications::StaticStruct(), Device->GetDeviceSpecs().Get(), 0, 0))
 		{
-			// We need to initialize FPIEPreviewDeviceSpecifications early as device profiles need to be evaluated before ProcessNewlyLoadedUObjects can be called.
-			CreatePackage(nullptr, TEXT("/Script/PIEPreviewDeviceProfileSelector"));
-
-			Device = MakeShareable(new FPIEPreviewDevice());
-
-			if (!FJsonObjectConverter::JsonAttributesToUStruct(RootObject->Values, FPIEPreviewDeviceSpecifications::StaticStruct(), Device->GetDeviceSpecs().Get(), 0, 0))
-			{
-				Device = nullptr;
-			}
+			Device = nullptr;
 		}
 	}
 	bool bValidDeviceSpec = Device.IsValid();

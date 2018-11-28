@@ -978,6 +978,11 @@ bool AActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 EDataValidationResult AActor::IsDataValid(TArray<FText>& ValidationErrors)
 {
 	bool bSuccess = CheckDefaultSubobjectsInternal();
+	if (!bSuccess)
+	{
+		FText ErrorMsg = FText::Format(LOCTEXT("IsDataValid_Failed_CheckForErrors", "{0} failed CheckDefaultSubobjectsInternal()"), FText::FromString(GetName()));
+		ValidationErrors.Add(ErrorMsg);
+	}
 
 	int32 OldNumMapWarningsAndErrors = FMessageLog("MapCheck").NumMessages(EMessageSeverity::Warning);
 	CheckForErrors();

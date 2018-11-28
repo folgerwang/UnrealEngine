@@ -14,7 +14,7 @@ inline FXmppChatMemberPtr FindExistingRoomMember(FXmppRoomJingle& XmppRoom, cons
 {
 	for (auto Member : XmppRoom.Members)
 	{
-		if (Member->MemberJid == MemberJid)
+		if (Member->RoomMemberJid == MemberJid)
 		{
 			return Member;
 		}
@@ -1263,9 +1263,9 @@ FXmppChatMemberPtr FXmppMultiUserChatJingle::GetMember(const FXmppRoomId& RoomId
 		const FXmppRoomJingle& Room = Entry.Value;
 		if (Room.RoomInfo.Id == RoomId)
 		{
-			for (auto Member : Room.Members)
+			for (const FXmppChatMemberRef& Member : Room.Members)
 			{
-				if (Member->MemberJid == MemberJid)
+				if (Member->RoomMemberJid == MemberJid)
 				{
 					Result = Member;
 					break;
@@ -1558,17 +1558,23 @@ static void DecodeChatMemberPresence(FXmppChatMember& OutChatMember, const buzz:
 {
 	if (Presence)
 	{
-		const buzz::XmlElement* Xml = Presence->raw_xml();
+		const buzz::XmlElement* const Xml = Presence->raw_xml();
 		if (Xml)
 		{
-			const buzz::XmlChild* XChild = Xml->FirstNamed(buzz::QN_MUC_USER_X);
+			const buzz::XmlChild* const XChild = Xml->FirstNamed(buzz::QN_MUC_USER_X);
 			if (XChild && XChild->AsElement())
 			{
-				const buzz::XmlElement* Element = XChild->AsElement();
-				const buzz::XmlChild* ItemChild = Element->FirstNamed(buzz::QN_MUC_USER_ITEM);
+				const buzz::XmlElement* const Element = XChild->AsElement();
+				const buzz::XmlChild* const ItemChild = Element->FirstNamed(buzz::QN_MUC_USER_ITEM);
 				if (ItemChild && ItemChild->AsElement())
 				{
-					const buzz::XmlElement* ChildElement = ItemChild->AsElement();
+					const buzz::XmlElement* const ChildElement = ItemChild->AsElement();
+
+					std::string JidAttr(ChildElement->Attr(buzz::QN_JID));
+					if (JidAttr.length() > 0)
+					{
+						FXmppJingle::ConvertToJid(OutChatMember.UserJid, buzz::Jid(JidAttr));
+					}
 
 					const FString AffiliationAttr(UTF8_TO_TCHAR(ChildElement->Attr(buzz::QN_AFFILIATION).c_str()));
 					OutChatMember.Affiliation = EXmppChatMemberAffiliation::ToType(AffiliationAttr);
@@ -1583,7 +1589,7 @@ static void DecodeChatMemberPresence(FXmppChatMember& OutChatMember, const buzz:
 
 static void ConvertToChatMember(FXmppChatMember& OutChatMember, const buzz::XmppChatroomMember& InChatMemberJingle)
 {
-	FXmppJingle::ConvertToJid(OutChatMember.MemberJid, InChatMemberJingle.member_jid());
+	FXmppJingle::ConvertToJid(OutChatMember.RoomMemberJid, InChatMemberJingle.member_jid());
 	OutChatMember.Nickname = UTF8_TO_TCHAR(InChatMemberJingle.name().c_str());
 	if (InChatMemberJingle.presence() != nullptr)
 	{
@@ -1649,17 +1655,17 @@ public:
 class FXmppChatRoomMemberEnteredOpResult : public FXmppChatRoomOpResult
 {
 public:
-	FXmppChatRoomMemberEnteredOpResult(const FXmppUserJid& InMemberJid, const FXmppRoomId& InRoomId)
+	FXmppChatRoomMemberEnteredOpResult(const FXmppUserJid& InRoomMemberJid, const FXmppRoomId& InRoomId)
 		: FXmppChatRoomOpResult(InRoomId, true, FString())
-		, MemberJid(InMemberJid)
+		, RoomMemberJid(InRoomMemberJid)
 	{}
 
 	virtual void Process(class FXmppMultiUserChatJingle& Muc) override
 	{
-		Muc.OnRoomMemberJoin().Broadcast(Muc.Connection.AsShared(), RoomId, MemberJid);
+		Muc.OnRoomMemberJoin().Broadcast(Muc.Connection.AsShared(), RoomId, RoomMemberJid);
 	}
 
-	FXmppUserJid MemberJid;
+	FXmppUserJid RoomMemberJid;
 };
 
 void FXmppMultiUserChatJingle::MemberEntered(
@@ -1682,21 +1688,21 @@ void FXmppMultiUserChatJingle::MemberEntered(
 
 	UE_LOG(LogXmpp, Verbose, TEXT("MUC: MemberEntered room=%s, status=%d"), UTF8_TO_TCHAR(RoomModule->chatroom_jid().Str().c_str()), (int32)XmppRoom.Status);
 
-	FXmppUserJid MemberJid;
-	FXmppJingle::ConvertToJid(MemberJid, XmppMember->member_jid());
+	FXmppUserJid RoomMemberJid;
+	FXmppJingle::ConvertToJid(RoomMemberJid, XmppMember->member_jid());
 
 	// Check for existing member
-	FXmppChatMemberPtr UpdatedMember = FindExistingRoomMember(XmppRoom, MemberJid);
+	FXmppChatMemberPtr UpdatedMember = FindExistingRoomMember(XmppRoom, RoomMemberJid);
 	if (!UpdatedMember.IsValid())
 	{
-		UpdatedMember = MakeShareable(new FXmppChatMember());
+		UpdatedMember = MakeShared<FXmppChatMember, ESPMode::ThreadSafe>();
 		XmppRoom.Members.Add(UpdatedMember.ToSharedRef());
 	}
 
 	// Jid, nickname, and other details assigned inside
 	ConvertToChatMember(*UpdatedMember, *XmppMember);
-	UE_LOG(LogXmpp, Verbose, TEXT("Queueing FXmppChatRoomMemberChangedOpResult and FXmppChatRoomMemberEnteredOpResult for member %s in room %s"), *MemberJid.Id, *RoomId);
-	ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(MemberJid, RoomId));
+	UE_LOG(LogXmpp, Verbose, TEXT("Queueing FXmppChatRoomMemberChangedOpResult and FXmppChatRoomMemberEnteredOpResult for member=[%s] user=[%s] in room=[%s]"), *RoomMemberJid.Id, *UpdatedMember->UserJid.ToDebugString(), *RoomId);
+	ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(RoomMemberJid, RoomId));
 }
 
 /**
@@ -1705,31 +1711,31 @@ void FXmppMultiUserChatJingle::MemberEntered(
 class FXmppChatRoomMemberExitedOpResult : public FXmppChatRoomOpResult
 {
 public:
-	FXmppChatRoomMemberExitedOpResult(const FXmppUserJid& InMemberJid, const FXmppRoomId& InRoomId)
+	FXmppChatRoomMemberExitedOpResult(const FXmppUserJid& InRoomMemberJid, const FXmppRoomId& InRoomId)
 		: FXmppChatRoomOpResult(InRoomId, true, FString())
-		, MemberJid(InMemberJid)
+		, RoomMemberJid(InRoomMemberJid)
 	{}
 
 	virtual void Process(class FXmppMultiUserChatJingle& Muc) override
 	{
-		Muc.OnRoomMemberExit().Broadcast(Muc.Connection.AsShared(), RoomId, MemberJid);
+		Muc.OnRoomMemberExit().Broadcast(Muc.Connection.AsShared(), RoomId, RoomMemberJid);
 
 		FScopeLock Lock(&Muc.ChatroomsLock);
-		FXmppRoomJingle* XmppRoom = Muc.Chatrooms.Find(RoomId);
+		FXmppRoomJingle* const XmppRoom = Muc.Chatrooms.Find(RoomId);
 		if (XmppRoom != nullptr)
 		{
 			for (int32 Idx = 0; Idx < XmppRoom->Members.Num(); Idx++)
 			{
-				if (XmppRoom->Members[Idx]->MemberJid == MemberJid)
+				if (XmppRoom->Members[Idx]->RoomMemberJid == RoomMemberJid)
 				{
-					XmppRoom->Members.RemoveAt(Idx--);
+					XmppRoom->Members.RemoveAt(Idx);
 					break;
 				}
 			}
 		}
 	}
 
-	FXmppUserJid MemberJid;
+	FXmppUserJid RoomMemberJid;
 };
 
 /**
@@ -1757,7 +1763,7 @@ void FXmppMultiUserChatJingle::InternalHandleJoinedRoom(const FXmppChatMemberPtr
 	{
 		if (SelfMember != Member)
 		{
-			ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(Member->MemberJid, XmppRoom->RoomInfo.Id));
+			ResultOpQueue.Enqueue(new FXmppChatRoomMemberEnteredOpResult(Member->RoomMemberJid, XmppRoom->RoomInfo.Id));
 		}
 	}
 	for (auto Message : XmppRoom->LastMessages)
@@ -1807,7 +1813,7 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 				{
 					// Add user that requested the join to the room member list
 					MyChatMember = MakeShareable(new FXmppChatMember());
-					MyChatMember->MemberJid = MyMemberJid;
+					MyChatMember->RoomMemberJid = MyMemberJid;
 					XmppRoom->Members.Add(MyChatMember.ToSharedRef());
 				}
 
@@ -1831,13 +1837,13 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 						FXmppChatMemberPtr NewChatMember = FindExistingRoomMember(*XmppRoom, NewMemberJid);
 						if (!NewChatMember.IsValid())
 						{
-							NewChatMember = MakeShareable(new FXmppChatMember());
+							NewChatMember = MakeShared<FXmppChatMember, ESPMode::ThreadSafe>();
 							XmppRoom->Members.Add(NewChatMember.ToSharedRef());
 						}
 							
 						// Jid, nickname, and other details assigned inside
 						ConvertToChatMember(*NewChatMember, *XmppMember);
-						UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - existing member [%s] %s %s"), *RoomId, *NewChatMember->Nickname, *NewChatMember->MemberJid.Id);
+						UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - existing member [%s] %s %s"), *RoomId, *NewChatMember->Nickname, *NewChatMember->RoomMemberJid.Id);
 					}
 				}
 			}

@@ -60,9 +60,12 @@ protected:
 UCLASS(hideCategories=(Rendering, Physics, LOD, Activation, Input))
 class LEVELSEQUENCE_API ALevelSequenceActor
 	: public AActor
+	, public IMovieScenePlaybackClient
 	, public IMovieSceneBindingOwnerInterface
 {
 public:
+
+	DECLARE_DYNAMIC_DELEGATE(FOnLevelSequenceLoaded);
 
 	GENERATED_BODY()
 
@@ -77,13 +80,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Playback", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
-	UPROPERTY(transient, BlueprintReadOnly, Category="Playback", meta=(ExposeFunctionCategories="Game|Cinematic"))
+	UPROPERTY(Instanced, transient, replicated, BlueprintReadOnly, Category="Playback", meta=(ExposeFunctionCategories="Game|Cinematic"))
 	ULevelSequencePlayer* SequencePlayer;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="General", meta=(AllowedClasses="LevelSequence"))
 	FSoftObjectPath LevelSequence;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="General")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="General")
 	TArray<AActor*> AdditionalEventReceivers;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category="General")
@@ -105,13 +108,20 @@ public:
 	/**
 	 * Get the level sequence being played by this actor.
 	 *
-	 * @param bLoad Whether to load the sequence object if it is not already in memory.
-	 * @param bInitializePlayer Whether to initialize the player when the sequence has been loaded.
 	 * @return Level sequence, or nullptr if not assigned or if it cannot be loaded.
 	 * @see SetSequence
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
-	ULevelSequence* GetSequence(bool bLoad = false, bool bInitializePlayer = false) const;
+	ULevelSequence* GetSequence() const;
+
+	/**
+	 * Get the level sequence being played by this actor.
+	 *
+	 * @return Level sequence, or nullptr if not assigned or if it cannot be loaded.
+	 * @see SetSequence
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	ULevelSequence* LoadSequence() const;
 
 	/**
 	 * Set the level sequence being played by this actor.
@@ -128,7 +138,7 @@ public:
 	 * @param AdditionalReceivers An array of actors to receive events
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
-	void SetEventReceivers(TArray<AActor*> AdditionalReceivers);
+	void SetEventReceivers(TArray<AActor*> AdditionalReceivers) { AdditionalEventReceivers = AdditionalReceivers; }
 
 	/** Refresh this actor's burn in */
 	void RefreshBurnIn();
@@ -200,14 +210,22 @@ public:
 		}
 	}
 
-public:
-
-	virtual void PostInitializeComponents() override;
-	virtual void Tick(float DeltaSeconds) override;
-	virtual void PostLoad() override;
-
 protected:
+
+	//~ Begin IMovieScenePlaybackClient interface
+	virtual bool RetrieveBindingOverrides(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
+	virtual UObject* GetInstanceData() const override;
+	//~ End IMovieScenePlaybackClient interface
+
+	//~ Begin UObject interface
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags *RepFlags) override;
+	virtual void PostLoad() override;
+	//~ End UObject interface
+
+	//~ Begin AActor interface
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void BeginPlay() override;
+	//~ End AActor interface
 
 public:
 
@@ -215,16 +233,19 @@ public:
 	virtual bool GetReferencedContentObjects(TArray<UObject*>& Objects) const override;
 #endif //WITH_EDITOR
 
+	/** Initialize the player object by loading the asset, using async loading when necessary */
 	void InitializePlayer();
 
-	void OnSequenceLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, bool bInitializePlayer);
+	/** Initialize the player object with the specified asset */
+	void InitializePlayerWithSequence(ULevelSequence* LevelSequenceAsset);
+	void OnSequenceLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result);
 
 #if WITH_EDITOR
 	virtual TSharedPtr<FStructOnScope> GetObjectPickerProxy(TSharedPtr<IPropertyHandle> PropertyHandle) override;
 	virtual void UpdateObjectFromProxy(FStructOnScope& Proxy, IPropertyHandle& ObjectPropertyHandle) override;
 	virtual UMovieSceneSequence* RetrieveOwnedSequence() const override
 	{
-		return GetSequence(true);
+		return LoadSequence();
 	}
 #endif
 

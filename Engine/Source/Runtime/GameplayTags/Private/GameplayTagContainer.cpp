@@ -520,7 +520,16 @@ bool FGameplayTagContainer::operator==(FGameplayTagContainer const& Other) const
 	{
 		return false;
 	}
-	return FilterExact(Other).Num() == this->Num();
+
+	for (const FGameplayTag& Tag : GameplayTags)
+	{
+		if (!Tag.MatchesAnyExact(Other))
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool FGameplayTagContainer::operator!=(FGameplayTagContainer const& Other) const

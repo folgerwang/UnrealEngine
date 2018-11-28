@@ -103,6 +103,8 @@ struct NAVIGATIONSYSTEM_API FNavMeshPath : public FNavigationPath
 	/** retrieves normalized direction vector to given path segment. If path is not string pulled navigation corridor is being used */
 	virtual FVector GetSegmentDirection(uint32 SegmentEndIndex) const override;
 
+	void Invert();
+
 private:
 	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex, FVector* AgentExtent) const;
 	void InternalResetNavMeshPath();

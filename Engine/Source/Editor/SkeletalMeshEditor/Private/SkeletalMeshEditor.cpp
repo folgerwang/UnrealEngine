@@ -40,6 +40,7 @@
 
 #include "LODUtilities.h"
 #include "ScopedTransaction.h"
+#include "ComponentReregisterContext.h"
 
 const FName SkeletalMeshEditorAppIdentifier = FName(TEXT("SkeletalMeshEditorApp"));
 
@@ -501,7 +502,37 @@ void FSkeletalMeshEditor::OnCreateClothingAssetMenuItemClicked(FSkeletalMeshClot
 		// See if we're importing a LOD or new asset
 		if(Params.TargetAsset.IsValid())
 		{
+			UClothingAssetBase* TargetAssetPtr = Params.TargetAsset.Get();
+			int32 SectionIndex = -1, AssetLodIndex = -1;
+			if (Params.bRemapParameters)
+			{
+				if (TargetAssetPtr)
+				{
+					//Cache the section and asset LOD this asset was bound at before unbinding
+					FSkeletalMeshLODModel& SkelLod = Mesh->GetImportedModel()->LODModels[Params.TargetLod];
+					for (int32 i = 0; i < SkelLod.Sections.Num(); ++i)
+					{
+						if (SkelLod.Sections[i].ClothingData.AssetGuid == TargetAssetPtr->GetAssetGuid())
+						{
+							SectionIndex = i;
+							AssetLodIndex = SkelLod.Sections[i].ClothingData.AssetLodIndex;
+							TargetAssetPtr->UnbindFromSkeletalMesh(Mesh, Params.TargetLod);
+							break;
+						}
+					}
+				}
+			}
+
 			AssetFactory->ImportLodToClothing(Mesh, Params);
+
+			if (Params.bRemapParameters)
+			{
+				//If it was bound previously, rebind at same section with same LOD
+				if (TargetAssetPtr && SectionIndex > -1)
+				{
+					ApplyClothing(TargetAssetPtr, Params.TargetLod, SectionIndex, AssetLodIndex);
+				}
+			}
 		}
 		else
 		{

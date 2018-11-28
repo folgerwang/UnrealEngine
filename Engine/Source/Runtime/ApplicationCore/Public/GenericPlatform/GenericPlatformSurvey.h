@@ -149,9 +149,9 @@ struct FHardwareDisplay
 	uint32 CurrentModeWidth;
 	uint32 CurrentModeHeight;
 
-	TCHAR GPUCardName[MaxStringLength];
-	uint32 GPUDedicatedMemoryMB;
-	TCHAR GPUDriverVersion[MaxStringLength];
+	TCHAR GPUCardName_DEPRECATED[MaxStringLength];
+	uint32 GPUDedicatedMemoryMB_DEPRECATED;
+	TCHAR GPUDriverVersion_DEPRECATED[MaxStringLength];
 };
 
 
@@ -166,13 +166,15 @@ struct FGPUAdpater
 	TCHAR AdapterUserDriverVersion[MaxStringLength];
 	// extra data when RHI starts up
 	TCHAR AdapterDriverDate[MaxStringLength];
+	//
+	TCHAR AdapterDedicatedMemoryMB[MaxStringLength];
 };
 
 
 struct FHardwareSurveyResults
 {
 	static const int32 MaxDisplayCount = 8; 
-	static const int32 MaxStringLength = FHardwareDisplay::MaxStringLength; 
+	static const int32 MaxStringLength = 260;
 
 	TCHAR Platform[MaxStringLength];
 
@@ -181,7 +183,8 @@ struct FHardwareSurveyResults
 	uint32 OSBits;
 	TCHAR OSLanguage[MaxStringLength];
 
-	TCHAR MultimediaAPI[MaxStringLength];
+	TCHAR RenderingAPI[MaxStringLength];
+	TCHAR MultimediaAPI_DEPRECATED[MaxStringLength];
 
 	uint32 HardDriveGB;
 	uint32 MemoryMB;
@@ -202,7 +205,7 @@ struct FHardwareSurveyResults
 	uint32 DisplayCount;
 	FHardwareDisplay Displays[MaxDisplayCount];
 	// RHI chosen adapter, only if RHI started on Windows DX11
-	FGPUAdpater RHIAdpater;
+	FGPUAdpater RHIAdapter;
 
 	uint32 ErrorCount;
 	TCHAR LastSurveyError[MaxStringLength];

@@ -12,7 +12,7 @@
 #include "Rendering/SkeletalMeshLODModel.h"
 #include "GenericQuadTree.h"
 #include "Engine/SkeletalMesh.h"
-
+#include "EditorFramework/AssetImportData.h"
 #include "MeshUtilities.h"
 
 #if WITH_APEX_CLOTHING
@@ -24,7 +24,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogLODUtilities, Log, All);
 
-bool FLODUtilities::RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount /*= 0*/, bool bRegenerateEvenIfImported /*= false*/)
+bool FLODUtilities::RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount /*= 0*/, bool bRegenerateEvenIfImported /*= false*/, bool bGenerateBaseLOD /*= false*/)
 {
 	if (SkeletalMesh)
 	{
@@ -61,10 +61,10 @@ bool FLODUtilities::RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount
 		}
 		else
 		{
-			for (int32 LODIdx = 1; LODIdx < LODCount; LODIdx++)
+			for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
 			{
 				FSkeletalMeshLODInfo& CurrentLODInfo = *(SkeletalMesh->GetLODInfo(LODIdx));
-				if (bRegenerateEvenIfImported || CurrentLODInfo.bHasBeenSimplified )
+				if ((bRegenerateEvenIfImported && LODIdx > 0) || (bGenerateBaseLOD && LODIdx == 0) || CurrentLODInfo.bHasBeenSimplified )
 				{
 					FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIdx);
 				}
@@ -237,7 +237,7 @@ struct FTargetMatch
 };
 
 void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArray<TArray<uint32>>& PerSectionBaseTriangleIndices,
-						 TArray<FTargetMatch>& TargetMatchData, const TArray<FSkelMeshSection>& TargetSections, const TArray<int32>& TargetSectionMatchBaseIndex)
+						 TArray<FTargetMatch>& TargetMatchData, const TArray<FSkelMeshSection>& TargetSections, const TArray<int32>& TargetSectionMatchBaseIndex, const TCHAR* DebugContext)
 {
 	bool bNoMatchMsgDone = false;
 	TArray<FTriangleElement> Triangles;
@@ -254,7 +254,8 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 		const TArray<FSoftSkinVertex>& TargetVertices = TargetSections[SectionIndex].SoftVertices;
 		//Base Triangle indices for the matched base section
 		const TArray<uint32>& BaseTriangleIndices = PerSectionBaseTriangleIndices[BaseSectionIndex];
-		FBox2D BaseMeshBound(EForceInit::ForceInit);
+		FBox2D BaseMeshUVBound(EForceInit::ForceInit);
+		FBox BaseMeshPositionBound(EForceInit::ForceInit);
 		//Fill the triangle element to speed up the triangle research
 		Triangles.Reset(BaseTriangleIndices.Num() / 3);
 		for (uint32 TriangleIndex = 0; TriangleIndex < (uint32)BaseTriangleIndices.Num(); TriangleIndex += 3)
@@ -269,20 +270,21 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 				TriangleElement.Indexes.Add(CornerIndice);
 				TriangleElement.Vertices.Add(BaseVertex);
 				TriangleElement.UVsBound += BaseVertex.UVs[0];
+				BaseMeshPositionBound += BaseVertex.Position;
 			}
-			BaseMeshBound += TriangleElement.UVsBound;
+			BaseMeshUVBound += TriangleElement.UVsBound;
 			TriangleElement.TriangleIndex = Triangles.Num();
 			Triangles.Add(TriangleElement);
 		}
 		//Setup the Quad tree
 		float UVsQuadTreeMinSize = 0.001f;
-		TQuadTree<uint32, 100> QuadTree(BaseMeshBound, UVsQuadTreeMinSize);
+		TQuadTree<uint32, 100> QuadTree(BaseMeshUVBound, UVsQuadTreeMinSize);
 		for (FTriangleElement& TriangleElement : Triangles)
 		{
-			QuadTree.Insert(TriangleElement.TriangleIndex, TriangleElement.UVsBound);
+			QuadTree.Insert(TriangleElement.TriangleIndex, TriangleElement.UVsBound, DebugContext);
 		}
-		//Retrieve all triangle that are close to our point
-		float DistanceThreshold = KINDA_SMALL_NUMBER;
+		//Retrieve all triangle that are close to our point, let get 5% of UV extend
+		float DistanceThreshold = BaseMeshUVBound.GetExtent().Size()*0.05f;
 		//Find a match triangle for every target vertices
 		TArray<uint32> QuadTreeTriangleResults;
 		QuadTreeTriangleResults.Reserve(Triangles.Num() / 10); //Reserve 10% to speed up the query
@@ -307,7 +309,36 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 
 			FVector2D Extent(DistanceThreshold, DistanceThreshold);
 			FBox2D CurBox(TargetUV - Extent, TargetUV + Extent);
-			QuadTree.GetElements(CurBox, QuadTreeTriangleResults);
+			while (QuadTreeTriangleResults.Num() <= 0)
+			{
+				QuadTree.GetElements(CurBox, QuadTreeTriangleResults);
+				Extent *= 2;
+				CurBox = FBox2D(TargetUV - Extent, TargetUV + Extent);
+			}
+
+			auto GetDistancePointToBaseTriangle = [&Triangles, &TargetVertices, &TargetVertexIndex](const uint32 BaseTriangleIndex)->float
+			{
+				FTriangleElement& CandidateTriangle = Triangles[BaseTriangleIndex];
+				return FVector::DistSquared(FMath::ClosestPointOnTriangleToPoint(TargetVertices[TargetVertexIndex].Position, CandidateTriangle.Vertices[0].Position, CandidateTriangle.Vertices[1].Position, CandidateTriangle.Vertices[2].Position), TargetVertices[TargetVertexIndex].Position);
+			};
+
+			auto FailSafeUnmatchVertex = [&GetDistancePointToBaseTriangle, &QuadTreeTriangleResults](uint32 &OutIndexMatch)->bool
+			{
+				bool bFoundMatch = false;
+				float ClosestTriangleDistSquared = MAX_flt;
+				for (uint32 MatchTriangleIndex : QuadTreeTriangleResults)
+				{
+					float TriangleDistSquared = GetDistancePointToBaseTriangle(MatchTriangleIndex);
+					if (TriangleDistSquared < ClosestTriangleDistSquared)
+					{
+						ClosestTriangleDistSquared = TriangleDistSquared;
+						OutIndexMatch = MatchTriangleIndex;
+						bFoundMatch = true;
+					}
+				}
+				return bFoundMatch;
+			};
+
 			//Find all Triangles that contain the Target UV
 			if (QuadTreeTriangleResults.Num() > 0)
 			{
@@ -315,27 +346,30 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 				uint32 FoundIndexMatch = INDEX_NONE;
 				if(!FindTriangleUVMatch(TargetUV, Triangles, QuadTreeTriangleResults, MatchTriangleIndexes))
 				{
-					//We should always have a match
-					if (!bNoMatchMsgDone)
+					if (!FailSafeUnmatchVertex(FoundIndexMatch))
 					{
-						UE_LOG(LogLODUtilities, Warning, TEXT("Reduce LOD, remap morph target: Cannot find a triangle from the base LOD that contain a vertex UV in the target LOD. Remap morph target quality will be lower."));
-						bNoMatchMsgDone = true;
+						//We should always have a match
+						if (!bNoMatchMsgDone)
+						{
+							UE_LOG(LogLODUtilities, Warning, TEXT("Reduce LOD, remap morph target: Cannot find a triangle from the base LOD that contain a vertex UV in the target LOD. Remap morph target quality will be lower."));
+							bNoMatchMsgDone = true;
+						}
+						continue;
 					}
-					continue;
 				}
+				float ClosestTriangleDistSquared = MAX_flt;
 				if (MatchTriangleIndexes.Num() == 1)
 				{
 					//One match, this mean no mirror UVs simply take the single match
 					FoundIndexMatch = MatchTriangleIndexes[0];
+					ClosestTriangleDistSquared = GetDistancePointToBaseTriangle(FoundIndexMatch);
 				}
 				else
 				{
 					//Geometry can use mirror so the UVs are not unique. Use the closest match triangle to the point to find the best match
-					float ClosestTriangleDistSquared = MAX_flt;
 					for (uint32 MatchTriangleIndex : MatchTriangleIndexes)
 					{
-						FTriangleElement& CandidateTriangle = Triangles[MatchTriangleIndex];
-						float TriangleDistSquared = FVector::DistSquared(FMath::ClosestPointOnTriangleToPoint(TargetVertices[TargetVertexIndex].Position, CandidateTriangle.Vertices[0].Position, CandidateTriangle.Vertices[1].Position, CandidateTriangle.Vertices[2].Position), TargetVertices[TargetVertexIndex].Position);
+						float TriangleDistSquared = GetDistancePointToBaseTriangle(MatchTriangleIndex);
 						if (TriangleDistSquared < ClosestTriangleDistSquared)
 						{
 							ClosestTriangleDistSquared = TriangleDistSquared;
@@ -343,6 +377,16 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 						}
 					}
 				}
+
+				//FAIL SAFE, make sure we have a match that make sense
+				//Use the mesh section geometry bound extent (10% of it) to validate we are close enough.
+				if (ClosestTriangleDistSquared > BaseMeshPositionBound.GetExtent().SizeSquared()*0.1f)
+				{
+					//Executing fail safe, if the UVs are too much off because of the reduction, use the closest distance to polygons to find the match
+					//This path is not optimize and should not happen often.
+					FailSafeUnmatchVertex(FoundIndexMatch);
+				}
+
 				//We should always have a valid match at this point
 				check(FoundIndexMatch != INDEX_NONE);
 				FTriangleElement& BestTriangle = Triangles[FoundIndexMatch];
@@ -369,22 +413,39 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 	}
 }
 
-void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, int32 BaseLOD, int32 TargetLOD, const TMap<UMorphTarget *, TMap<uint32, uint32>>& PerMorphTargetBaseIndexToMorphTargetDelta, const TMap<uint32, TArray<uint32>>& BaseMorphIndexToTargetIndexList, const TArray<FSoftSkinVertex>& TargetVertices, const TArray<FTargetMatch>& TargetMatchData)
+void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, FReductionBaseSkeletalMeshBulkData* ReductionBaseSkeletalMeshBulkData, int32 SourceLOD, int32 DestinationLOD, const TMap<UMorphTarget *, TMap<uint32, uint32>>& PerMorphTargetBaseIndexToMorphTargetDelta, const TMap<uint32, TArray<uint32>>& BaseMorphIndexToTargetIndexList, const TArray<FSoftSkinVertex>& TargetVertices, const TArray<FTargetMatch>& TargetMatchData)
 {
+	TMap<FString, TArray<FMorphTargetDelta>> BaseLODMorphTargetData;
+	if (ReductionBaseSkeletalMeshBulkData != nullptr)
+	{
+		FSkeletalMeshLODModel TempBaseLODModel;
+		ReductionBaseSkeletalMeshBulkData->LoadReductionData(TempBaseLODModel, BaseLODMorphTargetData);
+	}
+
 	for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
 	{
-		if (!MorphTarget->HasDataForLOD(BaseLOD))
+		if (!MorphTarget->HasDataForLOD(SourceLOD))
 		{
 			continue;
 		}
+		bool bUseBaseMorphDelta = SourceLOD == DestinationLOD && BaseLODMorphTargetData.Contains(MorphTarget->GetFullName());
+
+		const TArray<FMorphTargetDelta> *BaseMorphDeltas = bUseBaseMorphDelta ? BaseLODMorphTargetData.Find(MorphTarget->GetFullName()) : nullptr;
+		if (BaseMorphDeltas == nullptr || BaseMorphDeltas->Num() <= 0)
+		{
+			bUseBaseMorphDelta = false;
+		}
+
 		const TMap<uint32, uint32>& BaseIndexToMorphTargetDelta = PerMorphTargetBaseIndexToMorphTargetDelta[MorphTarget];
 		TArray<FMorphTargetDelta> NewMorphTargetDeltas;
 		TSet<uint32> CreatedTargetIndex;
 		TMap<FVector, TArray<uint32>> MorphTargetPerPosition;
-		const FMorphTargetLODModel& BaseMorphModel = MorphTarget->MorphLODModels[BaseLOD];
+		const FMorphTargetLODModel& BaseMorphModel = MorphTarget->MorphLODModels[SourceLOD];
 		//Iterate each original morph target source index to fill the NewMorphTargetDeltas array with the TargetMatchData.
-		for (const FMorphTargetDelta& MorphDelta : BaseMorphModel.Vertices)
+		const TArray<FMorphTargetDelta>& Vertices = bUseBaseMorphDelta ? *BaseMorphDeltas : BaseMorphModel.Vertices;
+		for (uint32 MorphDeltaIndex = 0; MorphDeltaIndex < (uint32)(Vertices.Num()); ++MorphDeltaIndex)
 		{
+			const FMorphTargetDelta& MorphDelta = Vertices[MorphDeltaIndex];
 			const TArray<uint32>* TargetIndexesPtr = BaseMorphIndexToTargetIndexList.Find(MorphDelta.SourceIdx);
 			if (TargetIndexesPtr == nullptr)
 			{
@@ -411,9 +472,9 @@ void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, int32 BaseLOD, int32 Targ
 				for (int32 Corner = 0; Corner < 3; ++Corner)
 				{
 					const uint32* BaseMorphTargetIndexPtr = BaseIndexToMorphTargetDelta.Find(TargetMatch.Indices[Corner]);
-					if (BaseMorphTargetIndexPtr != nullptr && BaseMorphModel.Vertices.IsValidIndex(*BaseMorphTargetIndexPtr))
+					if (BaseMorphTargetIndexPtr != nullptr && Vertices.IsValidIndex(*BaseMorphTargetIndexPtr))
 					{
-						const FMorphTargetDelta& BaseMorphTargetDelta = BaseMorphModel.Vertices[*BaseMorphTargetIndexPtr];
+						const FMorphTargetDelta& BaseMorphTargetDelta = Vertices[*BaseMorphTargetIndexPtr];
 						FVector BasePositionDelta = !BaseMorphTargetDelta.PositionDelta.ContainsNaN() ? BaseMorphTargetDelta.PositionDelta : FVector(0.0f);
 						FVector BaseTangentZDelta = !BaseMorphTargetDelta.TangentZDelta.ContainsNaN() ? BaseMorphTargetDelta.TangentZDelta : FVector(0.0f);
 						MatchMorphDelta.PositionDelta += BasePositionDelta * TargetMatch.BarycentricWeight[Corner];
@@ -457,9 +518,9 @@ void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, int32 BaseLOD, int32 Targ
 		}
 		
 		FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		const FSkeletalMeshLODModel& BaseLODModel = SkeletalMeshModel->LODModels[TargetLOD];
+		const FSkeletalMeshLODModel& TargetLODModel = SkeletalMeshModel->LODModels[DestinationLOD];
 		//Register the new morph target on the target LOD
-		MorphTarget->PopulateDeltas(NewMorphTargetDeltas, TargetLOD, BaseLODModel.Sections, false, true);
+		MorphTarget->PopulateDeltas(NewMorphTargetDeltas, DestinationLOD, TargetLODModel.Sections, false, true);
 		SkeletalMesh->RegisterMorphTarget(MorphTarget);
 	}
 }
@@ -497,26 +558,46 @@ void FLODUtilities::ClearGeneratedMorphTarget(USkeletalMesh* SkeletalMesh, int32
 	}
 }
 
-void FLODUtilities::ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 TargetLOD)
+void FLODUtilities::ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, int32 SourceLOD, int32 DestinationLOD)
 {
-	int32 BaseLOD = InSetting.BaseLOD;
 	check(SkeletalMesh);
 	FSkeletalMeshModel* SkeletalMeshResource = SkeletalMesh->GetImportedModel();
 	if (!SkeletalMeshResource ||
-		!SkeletalMeshResource->LODModels.IsValidIndex(BaseLOD) ||
-		!SkeletalMeshResource->LODModels.IsValidIndex(TargetLOD) ||
-		BaseLOD >= TargetLOD)
+		!SkeletalMeshResource->LODModels.IsValidIndex(SourceLOD) ||
+		!SkeletalMeshResource->LODModels.IsValidIndex(DestinationLOD) ||
+		SourceLOD > DestinationLOD)
+	{
+		//Cannot reduce if the source model is missing or we reduce from a higher index LOD
+		return;
+	}
+
+	FSkeletalMeshLODModel& SourceLODModel = SkeletalMeshResource->LODModels[SourceLOD];
+	FReductionBaseSkeletalMeshBulkData* ReductionBaseSkeletalMeshBulkData = nullptr;
+	bool bReduceBaseLOD = DestinationLOD == SourceLOD && SkeletalMeshResource->OriginalReductionSourceMeshData.IsValidIndex(SourceLOD) && !SkeletalMeshResource->OriginalReductionSourceMeshData[SourceLOD]->IsEmpty();
+	if (!bReduceBaseLOD && SourceLOD == DestinationLOD)
 	{
 		//Abort remapping of morph target since the data is missing
 		return;
 	}
-	const FSkeletalMeshLODModel& BaseLODModel = SkeletalMeshResource->LODModels[BaseLOD];
-	const FSkeletalMeshLODModel& TargetLODModel = SkeletalMeshResource->LODModels[TargetLOD];
+	if (bReduceBaseLOD)
+	{
+		ReductionBaseSkeletalMeshBulkData = SkeletalMeshResource->OriginalReductionSourceMeshData[SourceLOD];
+	}
+
+	FSkeletalMeshLODModel TempBaseLODModel;
+	TMap<FString, TArray<FMorphTargetDelta>> TempBaseLODMorphTargetData;
+	if (bReduceBaseLOD)
+	{
+		ReductionBaseSkeletalMeshBulkData->LoadReductionData(TempBaseLODModel, TempBaseLODMorphTargetData);
+	}
+
+	const FSkeletalMeshLODModel& BaseLODModel = bReduceBaseLOD ? TempBaseLODModel : SkeletalMeshResource->LODModels[SourceLOD];
+	const FSkeletalMeshLODModel& TargetLODModel = SkeletalMeshResource->LODModels[DestinationLOD];
 	//Make sure we have some morph for this LOD
 	bool bContainsMorphTargets = false;
 	for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
 	{
-		if (MorphTarget->HasDataForLOD(BaseLOD))
+		if (MorphTarget->HasDataForLOD(SourceLOD))
 		{
 			bContainsMorphTargets = true;
 		}
@@ -579,22 +660,31 @@ void FLODUtilities::ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, const FS
 	TArray<FTargetMatch> TargetMatchData;
 	TargetMatchData.AddUninitialized(TargetVertices.Num());
 	//Match all target vertices to a Base triangle Using UVs.
-	ProjectTargetOnBase(BaseVertices, BaseTriangleIndices, TargetMatchData, TargetLODModel.Sections, TargetSectionMatchBaseIndex);
+	ProjectTargetOnBase(BaseVertices, BaseTriangleIndices, TargetMatchData, TargetLODModel.Sections, TargetSectionMatchBaseIndex, *SkeletalMesh->GetName());
 	//Helper to retrieve the FMorphTargetDelta from the BaseIndex
 	TMap<UMorphTarget *, TMap<uint32, uint32>> PerMorphTargetBaseIndexToMorphTargetDelta;
 	//Create a map from BaseIndex to a list of match target index for all base morph target point
 	TMap<uint32, TArray<uint32>> BaseMorphIndexToTargetIndexList;
 	for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
 	{
-		if (!MorphTarget->HasDataForLOD(BaseLOD))
+		if (!MorphTarget->HasDataForLOD(SourceLOD))
 		{
 			continue;
 		}
-		TMap<uint32, uint32>& BaseIndexToMorphTargetDelta = PerMorphTargetBaseIndexToMorphTargetDelta.FindOrAdd(MorphTarget);
-		const FMorphTargetLODModel& BaseMorphModel = MorphTarget->MorphLODModels[BaseLOD];
-		for (uint32 MorphDeltaIndex = 0; MorphDeltaIndex < (uint32)(BaseMorphModel.Vertices.Num()); ++MorphDeltaIndex)
+
+		bool bUseTempMorphDelta = SourceLOD == DestinationLOD && bReduceBaseLOD && TempBaseLODMorphTargetData.Contains(MorphTarget->GetFullName());
+		const TArray<FMorphTargetDelta> *TempMorphDeltas = bUseTempMorphDelta ? TempBaseLODMorphTargetData.Find(MorphTarget->GetFullName()) : nullptr;
+		if (TempMorphDeltas == nullptr || TempMorphDeltas->Num() <= 0)
 		{
-			const FMorphTargetDelta& MorphDelta = BaseMorphModel.Vertices[MorphDeltaIndex];
+			bUseTempMorphDelta = false;
+		}
+
+		TMap<uint32, uint32>& BaseIndexToMorphTargetDelta = PerMorphTargetBaseIndexToMorphTargetDelta.FindOrAdd(MorphTarget);
+		const FMorphTargetLODModel& BaseMorphModel = MorphTarget->MorphLODModels[SourceLOD];
+		const TArray<FMorphTargetDelta>& Vertices = bUseTempMorphDelta ? *TempMorphDeltas : BaseMorphModel.Vertices;
+		for (uint32 MorphDeltaIndex = 0; MorphDeltaIndex < (uint32)(Vertices.Num()); ++MorphDeltaIndex)
+		{
+			const FMorphTargetDelta& MorphDelta = Vertices[MorphDeltaIndex];
 			BaseIndexToMorphTargetDelta.Add(MorphDelta.SourceIdx, MorphDeltaIndex);
 			//Iterate the targetmatch data so we can store which target indexes is impacted by this morph delta.
 			for (int32 TargetIndex = 0; TargetIndex < TargetMatchData.Num(); ++TargetIndex)
@@ -614,7 +704,7 @@ void FLODUtilities::ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, const FS
 		}
 	}
 	//Create the target morph target
-	CreateLODMorphTarget(SkeletalMesh, BaseLOD, TargetLOD, PerMorphTargetBaseIndexToMorphTargetDelta, BaseMorphIndexToTargetIndexList, TargetVertices, TargetMatchData);
+	CreateLODMorphTarget(SkeletalMesh, ReductionBaseSkeletalMeshBulkData, SourceLOD, DestinationLOD, PerMorphTargetBaseIndexToMorphTargetDelta, BaseMorphIndexToTargetIndexList, TargetVertices, TargetMatchData);
 }
 
 void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, int32 DesiredLOD, bool bReregisterComponent /*= true*/ )
@@ -623,6 +713,28 @@ void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, int32 
 	IMeshReduction* MeshReduction = ReductionModule.GetSkeletalMeshReductionInterface();
 
 	check (MeshReduction && MeshReduction->IsSupported());
+
+	if (DesiredLOD == 0
+		&& SkeletalMesh->GetLODInfo(DesiredLOD) != nullptr
+		&& SkeletalMesh->GetLODInfo(DesiredLOD)->bHasBeenSimplified
+		&& (!SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(0) || SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData[0]->IsEmpty()))
+	{
+		//The base LOD was reduce and there is no valid data, we cannot regenerate this lod it must be re-import before
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()));
+		Args.Add(TEXT("LODIndex"), FText::AsNumber(DesiredLOD));
+		FText Message = FText::Format(NSLOCTEXT("UnrealEd", "MeshSimp_GenerateLODCannotGenerateMissingData", "Cannot generate LOD {LODIndex} for skeletal mesh '{SkeletalMeshName}'. This LOD must be re-import to create the necessary data"), Args);
+		if (FApp::IsUnattended())
+		{
+			UE_LOG(LogLODUtilities, Warning, TEXT("%s"), *(Message.ToString()));
+		}
+		else
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, Message);
+		}
+		return;
+	}
+
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("DesiredLOD"), DesiredLOD);
@@ -631,12 +743,57 @@ void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, int32 
 		GWarn->BeginSlowTask(StatusUpdate, true);
 	}
 
+	if (SkeletalMesh->GetLODInfo(DesiredLOD) != nullptr)
+	{
+		FSkeletalMeshModel* SkeletalMeshResource = SkeletalMesh->GetImportedModel();
+		FSkeletalMeshOptimizationSettings& Settings = SkeletalMesh->GetLODInfo(DesiredLOD)->ReductionSettings;
+
+		if (SkeletalMeshResource->LODModels.IsValidIndex(DesiredLOD) && !SkeletalMesh->GetLODInfo(DesiredLOD)->bHasBeenSimplified)
+		{
+			FSkeletalMeshLODModel& SrcModel = SkeletalMeshResource->LODModels[DesiredLOD];
+			while (DesiredLOD >= SkeletalMeshResource->OriginalReductionSourceMeshData.Num())
+			{
+				FReductionBaseSkeletalMeshBulkData *EmptyReductionData = new FReductionBaseSkeletalMeshBulkData();
+				SkeletalMeshResource->OriginalReductionSourceMeshData.Add(EmptyReductionData);
+			}
+			check(SkeletalMeshResource->OriginalReductionSourceMeshData.IsValidIndex(DesiredLOD));
+			//Make the copy of the data only once until the ImportedModel change (re-imported)
+			if (SkeletalMeshResource->OriginalReductionSourceMeshData[DesiredLOD]->IsEmpty())
+			{
+				TMap<FString, TArray<FMorphTargetDelta>> BaseLODMorphTargetData;
+				BaseLODMorphTargetData.Empty(SkeletalMesh->MorphTargets.Num());
+				for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
+				{
+					if (!MorphTarget->HasDataForLOD(DesiredLOD))
+					{
+						continue;
+					}
+					TArray<FMorphTargetDelta>& MorphDeltasArray = BaseLODMorphTargetData.FindOrAdd(MorphTarget->GetFullName());
+					const FMorphTargetLODModel& BaseMorphModel = MorphTarget->MorphLODModels[DesiredLOD];
+					//Iterate each original morph target source index to fill the NewMorphTargetDeltas array with the TargetMatchData.
+					for (const FMorphTargetDelta& MorphDelta : BaseMorphModel.Vertices)
+					{
+						MorphDeltasArray.Add(MorphDelta);
+					}
+				}
+				//Copy the original SkeletalMesh LODModel
+				SkeletalMeshResource->OriginalReductionSourceMeshData[DesiredLOD]->SaveReductionData(SrcModel, BaseLODMorphTargetData);
+
+				if (DesiredLOD == 0)
+				{
+					SkeletalMesh->GetLODInfo(DesiredLOD)->SourceImportFilename = SkeletalMesh->AssetImportData->GetFirstFilename();
+				}
+			}
+		}
+	}
+	
+
 	if (MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, bReregisterComponent))
 	{
-		check(SkeletalMesh->GetLODNum() >= 2);
+		check(SkeletalMesh->GetLODNum() >= 1);
 		
-		const FSkeletalMeshOptimizationSettings& ReductionSettings = SkeletalMesh->GetLODInfo(DesiredLOD)->ReductionSettings;
-		//Apply morph to the new LOD
+		FSkeletalMeshOptimizationSettings& ReductionSettings = SkeletalMesh->GetLODInfo(DesiredLOD)->ReductionSettings;
+		//Apply morph to the new LOD. Force it if we reduce the base LOD, base LOD must apply the morph target
 		if (ReductionSettings.bRemapMorphTargets)
 		{
 			if (bReregisterComponent)
@@ -644,13 +801,13 @@ void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, int32 
 				TComponentReregisterContext<USkinnedMeshComponent> ReregisterContext;
 				SkeletalMesh->ReleaseResources();
 				SkeletalMesh->ReleaseResourcesFence.Wait();
-				ApplyMorphTargetsToLOD(SkeletalMesh, ReductionSettings, DesiredLOD);
+				ApplyMorphTargetsToLOD(SkeletalMesh, ReductionSettings.BaseLOD, DesiredLOD);
 				SkeletalMesh->PostEditChange();
 				SkeletalMesh->InitResources();
 			}
 			else
 			{
-				ApplyMorphTargetsToLOD(SkeletalMesh, ReductionSettings, DesiredLOD);
+				ApplyMorphTargetsToLOD(SkeletalMesh, ReductionSettings.BaseLOD, DesiredLOD);
 			}
 		}
 		else
@@ -688,6 +845,60 @@ void FLODUtilities::SimplifySkeletalMeshLOD(FSkeletalMeshUpdateContext& UpdateCo
 		}
 	}
 }
+
+void FLODUtilities::RestoreSkeletalMeshLODImportedData(USkeletalMesh* SkeletalMesh, int32 LodIndex, bool bReregisterComponent /*= true*/)
+{
+
+	if (!SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(LodIndex) || SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData[LodIndex]->IsEmpty())
+	{
+		//There is nothing to restore
+		return;
+	}
+	FSkeletalMeshLODModel ImportedBaseLODModel;
+	TMap<FString, TArray<FMorphTargetDelta>> ImportedBaseLODMorphTargetData;
+	SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData[LodIndex]->LoadReductionData(ImportedBaseLODModel, ImportedBaseLODMorphTargetData);
+	{
+		FSkeletalMeshUpdateContext UpdateContext;
+		UpdateContext.SkeletalMesh = SkeletalMesh;
+
+		TComponentReregisterContext<USkinnedMeshComponent> ReregisterContext;
+		if (bReregisterComponent)
+		{
+			SkeletalMesh->ReleaseResources();
+			SkeletalMesh->ReleaseResourcesFence.Wait();
+		}
+		//Copy the SkeletalMeshLODModel
+		SkeletalMesh->GetImportedModel()->LODModels[LodIndex] = ImportedBaseLODModel;
+		//Copy the morph target deltas
+		for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
+		{
+			if (!ImportedBaseLODMorphTargetData.Contains(MorphTarget->GetFullName()))
+			{
+				continue;
+			}
+			TArray<FMorphTargetDelta>& ImportedDeltas = ImportedBaseLODMorphTargetData[MorphTarget->GetFullName()];
+
+			MorphTarget->PopulateDeltas(ImportedDeltas, LodIndex, SkeletalMesh->GetImportedModel()->LODModels[LodIndex].Sections, false, false);
+			SkeletalMesh->RegisterMorphTarget(MorphTarget);
+		}
+		
+		//Empty the bulkdata since we restore it
+		SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData[LodIndex]->EmptyBulkData();
+
+		if (bReregisterComponent)
+		{
+			SkeletalMesh->PostEditChange();
+			SkeletalMesh->InitResources();
+		}
+
+		if (UpdateContext.OnLODChanged.IsBound())
+		{
+			//Notify calling system of change
+			UpdateContext.OnLODChanged.ExecuteIfBound();
+		}
+	}
+}
+
 void FLODUtilities::RefreshLODChange(const USkeletalMesh* SkeletalMesh)
 {
 	for (FObjectIterator Iter(USkeletalMeshComponent::StaticClass()); Iter; ++Iter)

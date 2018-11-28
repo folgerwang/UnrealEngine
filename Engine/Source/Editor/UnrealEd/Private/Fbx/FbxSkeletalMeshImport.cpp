@@ -1622,6 +1622,9 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 
 	SkeletalMesh->ResetLODInfo();
 	FSkeletalMeshLODInfo& NewLODInfo = SkeletalMesh->AddLODInfo();
+	NewLODInfo.ReductionSettings.NumOfTrianglesPercentage = 1.0f;
+	NewLODInfo.ReductionSettings.NumOfVertPercentage = 1.0f;
+	NewLODInfo.ReductionSettings.MaxDeviationPercentage = 0.0f;
 	NewLODInfo.LODHysteresis = 0.02f;
 
 	SkeletalMesh->SetImportedBounds(FBoxSphereBounds(BoundingBox));
@@ -3512,6 +3515,13 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 
 	// If this LOD had been generated previously by automatic mesh reduction, clear that flag.
 	LODInfo.bHasBeenSimplified = false;
+	if (BaseSkeletalMesh->LODSettings == nullptr || !BaseSkeletalMesh->LODSettings->HasValidSettings() || BaseSkeletalMesh->LODSettings->GetNumberOfSettings() <= DesiredLOD)
+	{
+		//Make sure any custom LOD have correct settings (no reduce)
+		LODInfo.ReductionSettings.NumOfTrianglesPercentage = 1.0f;
+		LODInfo.ReductionSettings.NumOfVertPercentage = 1.0f;
+		LODInfo.ReductionSettings.MaxDeviationPercentage = 0.0f;
+	}
 
 	//Set back the user data
 	if (HasReimportData && BaseSkeletalMesh->GetLODNum() > DesiredLOD)

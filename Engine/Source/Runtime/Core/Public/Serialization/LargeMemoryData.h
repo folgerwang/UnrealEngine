@@ -54,6 +54,8 @@ public:
 		return Data != nullptr;
 	}
 
+	void Reserve(int64 Size);
+
 private:
 
 	/** Non-copyable */

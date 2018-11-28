@@ -145,13 +145,13 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 
 void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 {
-	if(!bIsValid)
+	if (!bIsValid)
 	{
 		// Check if the viewport's window is focused before resetting the swap chain's fullscreen state.
 		HWND FocusWindow = ::GetFocus();
 		const bool bIsFocused = FocusWindow == WindowHandle;
-		const bool bIsIconic = !!::IsIconic( WindowHandle );
-		if(bIgnoreFocus || (bIsFocused && !bIsIconic) )
+		const bool bIsIconic = !!::IsIconic(WindowHandle);
+		if (bIgnoreFocus || (bIsFocused && !bIsIconic))
 		{
 			FlushRenderingCommands();
 
@@ -159,14 +159,13 @@ void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 			bool bNeedsForcedDisplay = bIsFullscreen && (bForcedFullscreenDisplay || PixelFormat == PF_FloatRGBA);
 			HRESULT Result = SwapChain->SetFullscreenState(bIsFullscreen, bNeedsForcedDisplay ? ForcedFullscreenOutput : nullptr);
 
-			if(SUCCEEDED(Result))
+			if (SUCCEEDED(Result))
 			{
 				bIsValid = true;
 			}
-			else
+			else if (Result != DXGI_ERROR_NOT_CURRENTLY_AVAILABLE && Result != DXGI_STATUS_MODE_CHANGE_IN_PROGRESS)
 			{
-				// Even though the docs say SetFullscreenState always returns S_OK, that doesn't always seem to be the case.
-				UE_LOG(LogD3D11RHI, Log, TEXT("IDXGISwapChain::SetFullscreenState returned %08x; waiting for the next frame to try again."),Result);
+				UE_LOG(LogD3D11RHI, Error, TEXT("IDXGISwapChain::SetFullscreenState returned %08x, unknown error status."), Result);
 			}
 		}
 	}

@@ -36,6 +36,7 @@
 #include "ShaderCodeLibrary.h"
 #include "HAL/FileManager.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
+#include "UObject/CoreRedirects.h"
 
 DEFINE_LOG_CATEGORY(LogMaterial);
 
@@ -106,11 +107,23 @@ const FMaterialResourceLocOnDisk* FindMaterialResourceLocOnDisk(
 	return nullptr;
 }
 
-static inline void GetReloadInfo(const FString& PackageName, FString* OutFilename)
+static void GetReloadInfo(const FString& PackageName, FString* OutFilename)
 {
+	check(!GIsEditor);
 	check(!PackageName.IsEmpty());
 	FString& Filename = *OutFilename;
-	bool bSucceed = FPackageName::TryConvertLongPackageNameToFilename(PackageName, Filename, TEXT(".uexp"));
+
+	// Handle name redirection and localization
+	const FCoreRedirectObjectName RedirectedName =
+		FCoreRedirects::GetRedirectedName(
+			ECoreRedirectFlags::Type_Package,
+			FCoreRedirectObjectName(NAME_None, NAME_None, *PackageName));
+	FString LocalizedName;
+	LocalizedName = FPackageName::GetDelegateResolvedPackagePath(RedirectedName.PackageName.ToString());
+	LocalizedName = FPackageName::GetLocalizedPackagePath(LocalizedName);
+	bool bSucceed = FPackageName::DoesPackageExist(LocalizedName, nullptr, &Filename);
+	Filename = FPaths::ChangeExtension(Filename, TEXT(".uexp"));
+
 	// Dynamic material resource loading requires split export to work
 	check(bSucceed && IFileManager::Get().FileExists(*Filename));
 }
@@ -122,7 +135,7 @@ bool ReloadMaterialResource(
 	ERHIFeatureLevel::Type FeatureLevel,
 	EMaterialQualityLevel::Type QualityLevel)
 {
-	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	LLM_SCOPE(ELLMTag::Shaders);
 	SCOPED_LOADTIMER(SerializeInlineShaderMaps);
 
 	FString Filename;
@@ -455,7 +468,18 @@ void FMaterial::GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& O
 { 
 	if (bLoadedCookedShaderMapId)
 	{
-		OutId = CookedShaderMapId;
+		if (GameThreadShaderMap && (IsInGameThread() || IsInAsyncLoadingThread()))
+		{
+			OutId = GameThreadShaderMap->GetShaderMapId();
+		}
+		else if (RenderingThreadShaderMap && IsInParallelRenderingThread())
+		{
+			OutId = RenderingThreadShaderMap->GetShaderMapId();
+		}
+		else
+		{
+			UE_LOG(LogMaterial, Fatal, TEXT("Tried to access cooked shader map ID from unknown thread"));
+		}
 	}
 	else
 	{
@@ -484,6 +508,7 @@ ERefractionMode FMaterial::GetRefractionMode() const
 	return RM_IndexOfRefraction; 
 }
 
+#if WITH_EDITOR
 void FMaterial::GetShaderMapIDsWithUnfinishedCompilation(TArray<int32>& ShaderMapIds)
 {
 	// Build an array of the shader map Id's are not finished compiling.
@@ -505,15 +530,6 @@ bool FMaterial::IsCompilationFinished() const
 		return false;
 	}
 	else if (OutstandingCompileShaderMapIds.Num() != 0 )
-	{
-		return false;
-	}
-	return true;
-}
-
-bool FMaterial::HasValidGameThreadShaderMap() const
-{
-	if(!GameThreadShaderMap || !GameThreadShaderMap->IsCompilationFinalized())
 	{
 		return false;
 	}
@@ -542,6 +558,16 @@ void FMaterial::FinishCompilation()
 		// Block until the shader maps that we will save have finished being compiled
 		GShaderCompilingManager->FinishCompilation(*GetFriendlyName(), ShaderMapIdsToFinish);
 	}
+}
+#endif // WITH_EDITOR
+
+bool FMaterial::HasValidGameThreadShaderMap() const
+{
+	if(!GameThreadShaderMap || !GameThreadShaderMap->IsCompilationFinalized())
+	{
+		return false;
+	}
+	return true;
 }
 
 const FMaterialShaderMap* FMaterial::GetShaderMapToUse() const 
@@ -753,7 +779,9 @@ void FMaterial::SetRenderingThreadShaderMap(FMaterialShaderMap* InMaterialShader
 
 void FMaterial::AddReferencedObjects(FReferenceCollector& Collector)
 {
+#if WITH_EDITOR
 	Collector.AddReferencedObjects(ErrorExpressions);
+#endif
 }
 
 struct FLegacyTextureLookup
@@ -793,6 +821,11 @@ void FMaterial::LegacySerialize(FArchive& Ar)
 
 		FeatureLevel = ERHIFeatureLevel::SM4;
 		QualityLevel = EMaterialQualityLevel::High;
+
+#if !WITH_EDITOR
+		FGuid Id_DEPRECATED;
+		UE_LOG(LogMaterial, Error, TEXT("Attempted to serialize legacy material data at runtime, this content should be re-saved and re-cooked"));
+#endif	
 		Ar << Id_DEPRECATED;
 
 		TArray<UTexture*> LegacyTextures;
@@ -828,7 +861,9 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 	{
 		if (Ar.IsCooking())
 		{
+#if WITH_EDITOR
 			FinishCompilation();
+#endif
 
 			bool bValid = GameThreadShaderMap != nullptr && GameThreadShaderMap->CompiledSuccessfully();
 			
@@ -1244,10 +1279,12 @@ UMaterialInterface* FMaterialResource::GetMaterialInterface() const
 	return MaterialInstance ? (UMaterialInterface*)MaterialInstance : (UMaterialInterface*)Material;
 }
 
+#if WITH_EDITOR
 void FMaterialResource::NotifyCompilationFinished()
 {
 	UMaterial::NotifyCompilationFinished(MaterialInstance ? (UMaterialInterface*)MaterialInstance : (UMaterialInterface*)Material);
 }
+#endif
 
 void FMaterialResource::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
@@ -1305,6 +1342,7 @@ void FMaterialResource::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSiz
  */
 FMaterial::~FMaterial()
 {
+#if WITH_EDITOR
 	if (GIsEditor)
 	{
 		const FSetElementId FoundId = EditorLoadedMaterialResources.FindId(this);
@@ -1314,6 +1352,7 @@ FMaterial::~FMaterial()
 			EditorLoadedMaterialResources.Remove(FoundId);
 		}
 	}
+#endif // WITH_EDITOR
 
 	FMaterialShaderMap::RemovePendingMaterial(this);
 
@@ -1622,7 +1661,9 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 #if DEBUG_INFINITESHADERCOMPILE
 		UE_LOG(LogTemp, Display, TEXT("Found existing compiling shader for material %s, linking to other GameThreadShaderMap 0x%08X%08X"), *GetFriendlyName(), (int)((int64)(GameThreadShaderMap.GetReference()) >> 32), (int)((int64)(GameThreadShaderMap.GetReference())) );
 #endif
+#if WITH_EDITOR
 		OutstandingCompileShaderMapIds.AddUnique(GameThreadShaderMap->GetCompilingId());
+#endif // WITH_EDITOR
 		// Reset the shader map so the default material will be used until the compile finishes.
 		GameThreadShaderMap = nullptr;
 		bSucceeded = true;
@@ -1679,6 +1720,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 				// If it failed to compile the material, reset the shader map so the material isn't used.
 				GameThreadShaderMap = nullptr;
 
+#if WITH_EDITOR
 				if (IsDefaultMaterial())
 				{
 					for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
@@ -1690,6 +1732,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 					// Assert if the default material could not be compiled, since there will be nothing for other failed materials to fall back on.
 					UE_LOG(LogMaterial, Fatal,TEXT("Failed to compile default material %s!"), *GetFriendlyName());
 				}
+#endif // WITH_EDITOR
 			}
 		}
 	}
@@ -1697,8 +1740,10 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 	{
 		bSucceeded = true;
 
+#if WITH_EDITOR
 		// Clear outdated compile errors as we're not calling Translate on this path
 		CompileErrors.Empty();
+#endif // WITH_EDITOR
 	}
 
 	// Enqueue the final shader map update
@@ -1922,7 +1967,9 @@ int32 FMaterial::FindExpression( const TArray<TRefCountPtr<FMaterialUniformExpre
 	return -1;
 }
 
+#if WITH_EDITOR
 TSet<FMaterial*> FMaterial::EditorLoadedMaterialResources;
+#endif // WITH_EDITOR
 
 /*-----------------------------------------------------------------------------
 	FMaterialRenderContext
@@ -2443,9 +2490,11 @@ bool FMaterial::WritesEveryPixel(bool bShadowPass) const
 	return !IsMasked()
 		// Render dithered material as masked if a stencil prepass is not used (UE-50064, UE-49537)
 		&& !((bShadowPass || !bStencilDitheredLOD) && IsDitheredLODTransition())
-		&& !IsWireframe();
+		&& !IsWireframe()
+		&& !(bStencilDitheredLOD && IsDitheredLODTransition() && IsUsedWithInstancedStaticMeshes());
 }
 
+#if WITH_EDITOR
 /** Recompiles any materials in the EditorLoadedMaterialResources list if they are not complete. */
 void FMaterial::UpdateEditorLoadedMaterialResources(EShaderPlatform InShaderPlatform)
 {
@@ -2492,6 +2541,7 @@ void FMaterial::RestoreEditorLoadedMaterialShadersFromMemory(const TMap<FMateria
 		}
 	}
 }
+#endif // WITH_EDITOR
 
 void FMaterial::DumpDebugInfo()
 {
@@ -2846,12 +2896,12 @@ FMaterialInstanceBasePropertyOverrides::FMaterialInstanceBasePropertyOverrides()
 	,bOverride_DitheredLODTransition(false)
 	,bOverride_CastDynamicShadowAsMasked(false)
 	,bOverride_TwoSided(false)
-	,OpacityMaskClipValue(.333333f)
-	,BlendMode(BLEND_Opaque)
-	,ShadingModel(MSM_DefaultLit)
 	,TwoSided(0)
 	,DitheredLODTransition(0)
 	,bCastDynamicShadowAsMasked(false)
+	,BlendMode(BLEND_Opaque)
+	,ShadingModel(MSM_DefaultLit)
+	, OpacityMaskClipValue(.333333f)
 {
 
 }

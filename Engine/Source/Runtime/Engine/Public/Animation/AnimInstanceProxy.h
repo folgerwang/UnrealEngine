@@ -149,7 +149,7 @@ public:
 
 	// Get the Blueprint Generated Class associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClassInterface() instead.")
+	UE_DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClassInterface() instead.")
 	UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const
 	{
 		return Cast<UAnimBlueprintGeneratedClass>(IAnimClassInterface::GetActualAnimClass(AnimClassInterface));
@@ -418,7 +418,7 @@ public:
 	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
 	void ResetDynamics(ETeleportType InTeleportType);
 
-	DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
+	UE_DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
 	void ResetDynamics();
 
 	/** Get the relative transform of the component we are running on */

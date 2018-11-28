@@ -85,10 +85,10 @@ public:
 		bRead = InBRead;
 	}
 #endif
-	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	UE_DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
 	operator const FString& () const { return GetValue(); }
 
-	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	UE_DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
 	const TCHAR* operator*() const { return *GetValue(); }
 
 	bool operator==(const FConfigValue& Other) const { return (SavedValue.Compare(Other.SavedValue) == 0); }

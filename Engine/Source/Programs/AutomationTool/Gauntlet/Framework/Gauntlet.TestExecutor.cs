@@ -26,6 +26,9 @@ namespace Gauntlet
 
 		[AutoParam(1)]
 		public int Parallel;
+
+		[AutoParam(true)]
+		public bool DeferReports;
 	}
 
 	/// <summary>
@@ -49,11 +52,14 @@ namespace Gauntlet
 			public DateTime			PostStartTime;
 			public DateTime			EndTime;
 			public ExecutionResult	Result;
+			public TestResult		FinalResult;
+			public string			CancellationReason;
 
 			public TestExecutionInfo(ITestNode InNode)
 			{
 				FirstReadyCheckTime = PreStartTime = PostStartTime = EndTime = DateTime.MinValue;
 				TestNode = InNode;
+				CancellationReason = "";
 			}
 
 			public override string ToString()
@@ -430,7 +436,8 @@ namespace Gauntlet
 						Log.Info("MaxStartingTasks: {0}", MaxStartingTasks);
 					}
 
-					Log.Info("Completed test pass {0} of {1} in {2:mm\\:ss}. {3}/{4} tests passed.", CurrentTestPass + 1, Options.TestLoops, PassDuration, TestCount - FailedCount, TestCount);
+					// report all tests
+					ReportMasterSummary(CurrentTestPass + 1, Options.TestLoops, PassDuration, CompletedTests);
 
 					if (FailedCount > 0)
 					{
@@ -494,14 +501,123 @@ namespace Gauntlet
 			return true;			
 		}
 
+		/// <summary>
+		/// Report the summary for a single test
+		/// </summary>
+		/// <param name="TestInfo"></param>
+		/// <returns></returns>
+		void ReportTestSummary(TestExecutionInfo TestInfo)
+		{
+			string Summary = TestInfo.TestNode.GetTestSummary();
+
+			if (TestInfo.FinalResult != TestResult.Passed)
+			{
+				string Cause = TestInfo.FinalResult.ToString();
+
+				if (string.IsNullOrEmpty(TestInfo.CancellationReason) == false)
+				{
+					Cause = TestInfo.CancellationReason;
+				}
+
+				Log.Error("{0} result={1}", TestInfo, Cause);
+			}
+			else
+			{
+				if (TestInfo.TestNode.HasWarnings)
+				{
+					Log.Warning("{0} result={1}", TestInfo, TestInfo.FinalResult);
+				}
+				else
+				{
+					Log.Info("{0} result={1}", TestInfo, TestInfo.FinalResult);
+				}
+			}
+			Summary.Split('\n').ToList().ForEach(L => Log.Info("  " + L));
+		}
+
+		/// <summary>
+		/// Reports the summary of this pass, including a sumamry for each test
+		/// </summary>
+		/// <param name="CurrentPass"></param>
+		/// <param name="NumPasses"></param>
+		/// <param name="Duration"></param>
+		/// <param name="AllInfo"></param>
+		/// <returns></returns>
+		void ReportMasterSummary(int CurrentPass, int NumPasses, TimeSpan Duration, IEnumerable<TestExecutionInfo> AllInfo)
+		{
+
+			MarkdownBuilder MB = new MarkdownBuilder();
+
+			int TestCount = AllInfo.Count();
+			int FailedCount = AllInfo.Where(T => T.FinalResult != TestResult.Passed).Count();
+			int WarningCount = AllInfo.Where(T => T.TestNode.HasWarnings).Count();
+
+			var SortedInfo = AllInfo;
+
+			// sort our tests by failed/warning/ok
+			if (FailedCount > 0 || WarningCount > 0)
+			{
+				SortedInfo = AllInfo.OrderByDescending(T =>
+				{
+					if (T.FinalResult != TestResult.Passed)
+					{
+						return 10;
+					}
+
+					if (T.TestNode.HasWarnings)
+					{
+						return 5;
+					}
+
+					return 0;
+				});
+			}
+
+			Log.Info("Completed test pass {0} of {1}.", CurrentPass, NumPasses);
+
+			MB.H2(string.Format("{0} of {1} Tests Passed in {2:mm\\:ss}. ({3} Failed, {4} Passed with Warnings)",
+				TestCount - FailedCount, TestCount, Duration, FailedCount, WarningCount));
+
+			// write out a list of tests and results
+			List<string> TestResults = new List<string>();
+			foreach (TestExecutionInfo Info in SortedInfo)
+			{
+				string WarningString = Info.TestNode.HasWarnings ? " With Warnings" : "";
+				TestResults.Add(string.Format("\t{0} result={1}{2}", Info, Info.FinalResult, WarningString));
+			}
+
+			MB.UnorderedList(TestResults);
+
+			string Summary = string.Format("Completed test pass {0} of {1}.", CurrentPass, NumPasses);
+
+			if (FailedCount > 0)
+			{
+				Log.Error("{0}", Summary);
+			}
+			else if (WarningCount > 0)
+			{
+				Log.Warning("{0}", Summary);
+			}
+			else
+			{
+				Log.Info("{0}", Summary);
+			}
+
+			// write the markdown out with each line indented
+			MB.ToString().Split('\n').ToList().ForEach(L => Log.Info("  " + L));
+
+			if (Options.DeferReports)
+			{
+				// write each tests full summary
+				foreach (TestExecutionInfo Info in SortedInfo)
+				{
+					ReportTestSummary(Info);
+				}
+			}
+		}
+
 		TestResult TickTest(TestExecutionInfo TestInfo)
 		{
-			// invalid = no result yet..
-			TestResult ReturnResult = TestResult.Invalid;
-			bool TestCancelled = false;
-
-			string CancellationReason = "";
-
 			// Give the test a chance to update itself
 			try
 			{
@@ -509,7 +625,8 @@ namespace Gauntlet
 			}
 			catch (Exception Ex)
 			{
-				CancellationReason = string.Format("Test {0} threw an exception. Cancelling. Ex: {1}\n{2}", TestInfo.TestNode.Name, Ex.Message, Ex.StackTrace);
+				TestInfo.CancellationReason = string.Format("Test {0} threw an exception. Cancelling. Ex: {1}\n{2}", TestInfo.TestNode.Name, Ex.Message, Ex.StackTrace);
+				TestInfo.FinalResult = TestResult.Cancelled;
 			}
 		
 			// Does the test still say it's running?
@@ -519,15 +636,18 @@ namespace Gauntlet
 			
 			if (TestIsRunning && RunningTime.TotalSeconds > TestInfo.TestNode.MaxDuration && !Options.NoTimeout)
 			{
-				CancellationReason = string.Format("Terminating Test {0} due to maximum duration of {1} seconds. ", TestInfo.TestNode, TestInfo.TestNode.MaxDuration);
+				TestInfo.CancellationReason = string.Format("Terminating Test {0} due to maximum duration of {1} seconds. ", TestInfo.TestNode, TestInfo.TestNode.MaxDuration);
+				TestInfo.FinalResult = TestResult.TimedOut;
 			}
 
 			if (IsCancelled)
 			{
-				CancellationReason = string.Format("Cancelling Test {0} on request", TestInfo.TestNode);
+				TestInfo.CancellationReason = string.Format("Cancelling Test {0} on request", TestInfo.TestNode);
+				TestInfo.FinalResult = TestResult.Cancelled;
 			}
 
-			if (TestIsRunning == false || CancellationReason.Length > 0)
+			// if the test is not running. or we've determined a result for it..
+			if (TestIsRunning == false || TestInfo.FinalResult != TestResult.Invalid)
 			{
 				// Request the test stop
 				try
@@ -538,52 +658,33 @@ namespace Gauntlet
 					Log.Info("****************************************************************");
 					Log.Info("Finished Test: {0} in {1:mm\\:ss}", TestInfo, DateTime.Now - TestInfo.PostStartTime);
 
-					// Tell the test it's done
-					TestInfo.TestNode.StopTest(TestCancelled);
+					// Tell the test it's done. If it still thinks its running it was cancelled
+					TestInfo.TestNode.StopTest(TestIsRunning);
+					TestInfo.EndTime = DateTime.Now;
 
 					TestResult NodeResult = TestInfo.TestNode.GetTestResult();
-					TestResult ActualResult = (CancellationReason.Length > 0) ? TestResult.Failed : NodeResult;
+					TestInfo.FinalResult = (TestInfo.FinalResult != TestResult.Invalid) ? TestInfo.FinalResult : NodeResult;
 
-					if (ActualResult == TestResult.WantRetry)
+					if (TestInfo.FinalResult == TestResult.WantRetry)
 					{
-						Log.Warning("{0} requested retry. Cleaning up old test and relaunching", TestInfo);
+						Log.Info("{0} requested retry. Cleaning up old test and relaunching", TestInfo);
 
 						DateTime OriginalStartTime = TestInfo.PostStartTime;
 
 						TestInfo.TestNode.RestartTest();
 
 						// Mark us as still running
-						ReturnResult = TestResult.Invalid;
+						TestInfo.CancellationReason = "";
+						TestInfo.FinalResult = TestResult.Invalid;
 					}
 					else
 					{
-						ReturnResult = ActualResult;
+						Log.Info("{0} result={1}", TestInfo, TestInfo.FinalResult);
 
-						string Summary = TestInfo.TestNode.GetTestSummary();
-			
-						if (ActualResult == TestResult.Failed)
+						if (!Options.DeferReports)
 						{
-							string Cause = ActualResult.ToString();
-
-							if (TestCancelled)
-							{
-								Cause = CancellationReason;
-							}
-
-							Log.Error("{0} result={1}", TestInfo, Cause);
+							ReportTestSummary(TestInfo);
 						}
-						else
-						{
-							if (TestInfo.TestNode.HasWarnings)
-							{
-								Log.Warning("{0} result={1}", TestInfo, ActualResult);
-							}
-							else
-							{
-								Log.Info("{0} result={1}", TestInfo, ActualResult);
-							}
-						}
-						Summary.Split('\n').ToList().ForEach(L => Log.Info("  " + L));
 					}
 
 					// now cleanup
@@ -601,7 +702,7 @@ namespace Gauntlet
 				}
 				catch (System.Exception ex)
 				{
-					if (TestCancelled)
+					if (TestIsRunning)
 					{
 						Log.Warning("Cancelled Test {0} threw an exception while stopping. Ex: {1}\n{2}", 
 							TestInfo.TestNode.Name, ex.Message, ex.StackTrace);
@@ -612,11 +713,11 @@ namespace Gauntlet
 							TestInfo.TestNode.Name, ex.Message, ex.StackTrace);
 					}
 
-					ReturnResult = TestResult.Failed;
+					TestInfo.FinalResult = TestResult.Failed;
 				}				
 			}
 
-			return ReturnResult;
+			return TestInfo.FinalResult;
 		}
 
 		/// <summary>

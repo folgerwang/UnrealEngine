@@ -17,7 +17,7 @@ namespace NetworkProfiler
 		public const UInt32 ExpectedMagic = 0x1DBF348C;
 
 		/** We expect this version, or we can't proceed.			*/
-		public const UInt32 ExpectedVersion = 10;
+		public const UInt32 MinSupportedVersion = 10;
 
 		/** Magic to ensure we're opening the right file.			*/
 		public UInt32 Magic;
@@ -98,7 +98,7 @@ namespace NetworkProfiler
 				throw new InvalidDataException();
 			}
 
-			if ( Header.Version != StreamHeader.ExpectedVersion )
+			if ( Header.Version < StreamHeader.MinSupportedVersion )
 			{
 				ShowDialog( "Error", "Invalid version" );
 				throw new InvalidDataException();
@@ -127,7 +127,7 @@ namespace NetworkProfiler
 			Version = BinaryStream.ReadUInt32();
 
 			// Stop serializing data if version number doesn't match
-			if ( Version != ExpectedVersion )
+			if ( Version < MinSupportedVersion )
 			{
 				return;
 			}

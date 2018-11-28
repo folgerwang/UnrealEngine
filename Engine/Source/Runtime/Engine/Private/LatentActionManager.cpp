@@ -37,12 +37,19 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 	FObjectActions* ObjectActions = GetActionsForObject(InObject);
 	if (ObjectActions)
 	{
-		auto& ActionToRemoveListPtr = ActionsToRemoveMap.FindOrAdd(InObject);
-		if (!ActionToRemoveListPtr.IsValid())
+		FWeakObjectAndActions* FoundEntry = ActionsToRemoveMap.FindByPredicate([InObject](const FWeakObjectAndActions& Entry) { return Entry.Key == InObject; });
+
+		TSharedPtr<TArray<FUuidAndAction>> ActionToRemoveListPtr;
+		if (FoundEntry)
+		{
+			ActionToRemoveListPtr = FoundEntry->Value;
+		}
+		else
 		{
 			ActionToRemoveListPtr = MakeShareable(new TArray<FUuidAndAction>());
+			ActionsToRemoveMap.Emplace(FWeakObjectAndActions(InObject, ActionToRemoveListPtr));
 		}
-
+		ActionToRemoveListPtr->Reserve(ActionToRemoveListPtr->Num() + ObjectActions->ActionList.Num());
 		for (FActionList::TConstIterator It(ObjectActions->ActionList); It; ++It)
 		{
 			ActionToRemoveListPtr->Add(*It);
@@ -85,8 +92,8 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 
 	for (FActionsForObject::TIterator It(ActionsToRemoveMap); It; ++It)
 	{
-		FObjectActions* ObjectActions = GetActionsForObject(It.Key());
-		TSharedPtr<TArray<FUuidAndAction>> ActionToRemoveListPtr = It.Value();
+		FObjectActions* ObjectActions = GetActionsForObject(It->Key);
+		TSharedPtr<TArray<FUuidAndAction>> ActionToRemoveListPtr = It->Value;
 		if (ActionToRemoveListPtr.IsValid() && ObjectActions)
 		{
 			for (const FUuidAndAction& PendingActionToKill : *ActionToRemoveListPtr)
@@ -101,7 +108,7 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 			}
 
 			// Notify listeners that latent actions for this object were removed
-			LatentActionsChangedDelegate.Broadcast(It.Key().Get(), ELatentActionChangeType::ActionsRemoved);
+			LatentActionsChangedDelegate.Broadcast(It->Key.Get(), ELatentActionChangeType::ActionsRemoved);
 		}
 
 	}

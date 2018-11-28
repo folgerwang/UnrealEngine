@@ -410,19 +410,19 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	static void LogPathHelper(const AActor* LogOwner, FNavPathSharedPtr InLogPath, const AActor* LogGoalActor);
 	static void LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor);
 
-	DEPRECATED(4.12, "This function is now deprecated and replaced with HandlePathUpdateEvent. Receiving new path pointer for the same move request is no longer supported, please either update data within current path and call FNavigationPath::DoneUpdating or start new move request.")
+	UE_DEPRECATED(4.12, "This function is now deprecated and replaced with HandlePathUpdateEvent. Receiving new path pointer for the same move request is no longer supported, please either update data within current path and call FNavigationPath::DoneUpdating or start new move request.")
 	virtual bool UpdateMove(FNavPathSharedPtr Path, FAIRequestID RequestID = FAIRequestID::CurrentRequest);
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead. Any observers needs to register with OnRequestFinished mutlicast delegate now.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead. Any observers needs to register with OnRequestFinished mutlicast delegate now.")
 	virtual FAIRequestID RequestMove(FNavPathSharedPtr Path, FRequestCompletedSignature OnComplete, const AActor* DestinationActor = NULL, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bStopOnOverlap = true, FCustomMoveSharedPtr GameData = NULL);
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead.")
 	FAIRequestID RequestMove(FNavPathSharedPtr InPath, const AActor* InDestinationActor = NULL, float InAcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool InStopOnOverlap = true, FCustomMoveSharedPtr InGameData = NULL);
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter instead.")
 	virtual void AbortMove(const FString& Reason, FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true, bool bSilent = false, uint8 MessageFlags = 0);
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingVelocityMode parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingVelocityMode parameter instead.")
 	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true);
 
 	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing", meta = (DeprecatedFunction, DeprecationMessage = "This function is now deprecated, please use AIController.GetMoveStatus instead"))
@@ -431,16 +431,16 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing", meta = (DeprecatedFunction, DeprecationMessage = "This function is now deprecated, please use AIController.GetImmediateMoveDestination instead"))
 	FVector GetPathDestination() const;
 
-	DEPRECATED(4.13, "This function is now deprecated, please version with FPathFollowingResult parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please version with FPathFollowingResult parameter instead.")
 	virtual void OnPathFinished(EPathFollowingResult::Type Result);
 
-	DEPRECATED(4.13, "This function is now deprecated and no longer supported.")
+	UE_DEPRECATED(4.13, "This function is now deprecated and no longer supported.")
 	int32 OptimizeSegmentVisibility(int32 StartIndex) { return StartIndex + 1; }
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
 	bool HasReached(const FVector& TestPoint, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false) const;
 
-	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
+	UE_DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
 	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false, bool bUseNavAgentGoalLocation = true) const;
 
 #if WITH_EDITORONLY_DATA
@@ -723,4 +723,8 @@ public:
 	 *	value to be used, it's used to detect the fact that it's requested, and 
 	 *	appropriate value from querier/doer will be pulled */
 	static const float DefaultAcceptanceRadius;
+
+#if !UE_BUILD_SHIPPING
+	uint8 DEBUG_bMovingDirectlyToGoal : 1;
+#endif // !UE_BUILD_SHIPPING
 };

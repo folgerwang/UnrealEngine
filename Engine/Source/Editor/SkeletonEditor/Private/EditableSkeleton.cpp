@@ -674,6 +674,13 @@ void FEditableSkeleton::HandlePasteSockets(const FName& InBoneName, USkeletalMes
 	}
 }
 
+USkeletalMeshSocket* FEditableSkeleton::AddSocket(const FName& InBoneName)
+{
+	USkeletalMeshSocket* NewSocket = HandleAddSocket(InBoneName);
+	OnTreeRefresh.Broadcast();
+	return NewSocket;
+}
+
 USkeletalMeshSocket* FEditableSkeleton::HandleAddSocket(const FName& InBoneName)
 {
 	const FScopedTransaction Transaction(LOCTEXT("AddSocket", "Add Socket to Skeleton"));

@@ -210,14 +210,11 @@ struct FBPVariableMetaDataEntry
 	UPROPERTY(EditAnywhere, Category=BPVariableMetaDataEntry)
 	FString DataValue;
 
-
-
-		FBPVariableMetaDataEntry() {}
-		FBPVariableMetaDataEntry(const FName& InKey, const FString& InValue)
+	FBPVariableMetaDataEntry() {}
+	FBPVariableMetaDataEntry(const FName InKey, FString InValue)
 		: DataKey(InKey)
-		, DataValue(InValue)
-		{}
-	
+		, DataValue(MoveTemp(InValue))
+	{}
 };
 
 
@@ -272,15 +269,15 @@ struct FBPVariableDescription
 	}
 
 	/** Set a metadata value on the variable */
-	ENGINE_API void SetMetaData(const FName& Key, const FString& Value);
+	ENGINE_API void SetMetaData(FName Key, FString Value);
 	/** Gets a metadata value on the variable; asserts if the value isn't present.  Check for validiy using FindMetaDataEntryIndexForKey. */
-	ENGINE_API FString GetMetaData(const FName& Key) const;
+	ENGINE_API const FString& GetMetaData(FName Key) const;
 	/** Clear metadata value on the variable */
-	ENGINE_API void RemoveMetaData(const FName& Key);
+	ENGINE_API void RemoveMetaData(FName Key);
 	/** Find the index in the array of a metadata entry */
-	ENGINE_API int32 FindMetaDataEntryIndexForKey(const FName& Key) const;
+	ENGINE_API int32 FindMetaDataEntryIndexForKey(FName Key) const;
 	/** Checks if there is metadata for a key */
-	ENGINE_API bool HasMetaData(const FName& Key) const;
+	ENGINE_API bool HasMetaData(FName Key) const;
 	
 };
 

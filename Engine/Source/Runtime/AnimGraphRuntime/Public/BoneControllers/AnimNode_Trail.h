@@ -47,6 +47,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** LocalToWorld used last frame, used for building transform between frames. */
+	FTransform		OldBaseTransform;
+
 	/** Reference to the active bone in the hierarchy to modify. */
 	UPROPERTY(EditAnywhere, Category=Trail)
 	FBoneReference TrailBone;
@@ -115,6 +118,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 	float TrailRelaxation_DEPRECATED;
 #endif // WITH_EDITORONLY_DATA
 
+	/** To avoid hitches causing stretch of trail, you can use MaxDeltaTime to clamp the long delta time. If you want 30 fps to set it to 0.03333f ( = 1/30 ).  */
+	UPROPERTY(EditAnywhere, Category = Limit)
+	float MaxDeltaTime;
+
 	/** If you want to avoid loop, how many you want to unwind at once. 
 	 * Bigger value can cause jitter as it becomes more unstable in the ordering
 	 * Defaulted to 3. It will use this length to unwind at once 
@@ -169,9 +176,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 
 	/** Component-space locations of the bones from last frame. Each frame these are moved towards their 'animated' locations. */
 	TArray<FVector>	TrailBoneLocations;
-
-	/** LocalToWorld used last frame, used for building transform between frames. */
-	FTransform		OldBaseTransform;
 
 	/** Per Joint Trail Set up*/
 	TArray<FPerJointTrailSetup> PerJointTrailData;
