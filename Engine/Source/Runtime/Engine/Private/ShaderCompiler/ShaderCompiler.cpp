@@ -1944,7 +1944,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 					for (int32 Index = 0; Index < PipelineJob->StageJobs.Num(); ++Index)
 					{
 						bool bCheckSucceeded = CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), MaterialsArray, Errors);
-						bSuccess = PipelineJob->StageJobs[Index]->bSucceeded && bCheckSucceeded;
+						bSuccess = PipelineJob->StageJobs[Index]->bSucceeded && bCheckSucceeded && bSuccess;
 					}
 				}
 			}
