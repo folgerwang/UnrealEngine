@@ -3016,6 +3016,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 				SafeReplace = true;
 			}
 		}
+		else
+		{
+			SafeReplace = true;
+		}
 
 		if (!Import.XObject && !SafeReplace)
 		{
