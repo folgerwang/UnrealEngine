@@ -89,6 +89,11 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		AnimToOperateOn = OriginalAnimSequence;
 	}
 
+	if (!ensureMsgf(AnimToOperateOn->GetSkeleton(), TEXT("Trying to compress an animation that has no skeleton!")))
+	{
+		return false;
+	}
+
 	bool bCompressionSuccessful = false;
 	{
 		FScopedAnimSequenceRawDataCache RawDataCache;
