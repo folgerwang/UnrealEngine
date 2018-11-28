@@ -383,16 +383,16 @@ FArchive& FNetBitWriter::operator<<( UObject*& Object )
 
 FArchive& FNetBitWriter::operator<<(FSoftObjectPath& Value)
 {
+	// It's more efficient to serialize as a string then name+string
 	FString Path = Value.ToString();
-
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
-
 	return *this;
+}
+
+FArchive& FNetBitWriter::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
@@ -438,16 +438,17 @@ FArchive& FNetBitReader::operator<<( class FName& N )
 
 FArchive& FNetBitReader::operator<<(FSoftObjectPath& Value)
 {
-	FString Path = Value.ToString();
-
+	FString Path;
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
+	Value.SetPath(MoveTemp(Path));
 
 	return *this;
+}
+
+FArchive& FNetBitReader::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)

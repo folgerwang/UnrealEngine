@@ -283,6 +283,7 @@ public:
 	virtual FArchive& operator<<(FName& Name) override;
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FSoftObjectPath& Value) override;
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override;
 	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
 
 	virtual void CountMemory(FArchive& Ar) const override;
@@ -304,6 +305,7 @@ public:
 	virtual FArchive& operator<<(FName& Name) override;
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FSoftObjectPath& Value) override;
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override;
 	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
 
 	virtual void CountMemory(FArchive& Ar) const override;
