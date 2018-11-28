@@ -2056,7 +2056,7 @@ namespace UnrealBuildTool
 		{
 			if (!bHaveReadEngineVersion)
 			{
-				BuildVersion Version = BuildVersion.ReadDefault();
+				ReadOnlyBuildVersion Version = ReadOnlyBuildVersion.Current;
 
 				EngineMajorVersion = Version.MajorVersion.ToString();
 				EngineMinorVersion = Version.MinorVersion.ToString();
@@ -3215,7 +3215,7 @@ namespace UnrealBuildTool
 					NDKArches.Add(NDKArch);
 				}
 			}
-			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath, ProjectDirectory, Configuration, BuildVersion.ReadDefault());
+			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath, ProjectDirectory, Configuration);
 
 			IEnumerable<Tuple<string, string, string>> BuildList = null;
 

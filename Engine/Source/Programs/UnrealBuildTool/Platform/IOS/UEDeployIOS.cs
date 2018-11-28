@@ -161,7 +161,7 @@ namespace UnrealBuildTool
 				else
 				{
                     // get the changelist
-                    CFBundleVersion = BuildVersion.ReadDefault().Changelist.ToString();
+                    CFBundleVersion = ReadOnlyBuildVersion.Current.Changelist.ToString();
 
 				}
 
@@ -795,7 +795,7 @@ namespace UnrealBuildTool
 			UnrealPluginLanguage UPL = new UnrealPluginLanguage(ProjectFile, UPLScripts, ProjectArches, "", "", UnrealTargetPlatform.IOS);
 
 			// Passing in true for distribution is not ideal here but given the way that ios packaging happens and this call chain it seems unavoidable for now, maybe there is a way to correctly pass it in that I can't find?
-			UPL.Init(ProjectArches, true, RelativeEnginePath, BundlePath, ProjectDirectory, Config.ToString(), BuildVersion.ReadDefault());
+			UPL.Init(ProjectArches, true, RelativeEnginePath, BundlePath, ProjectDirectory, Config.ToString());
 
 			return GenerateIOSPList(ProjectFile, Config, ProjectDirectory, bIsUE4Game, GameName, ProjectName, InEngineDir, AppDirectory, SdkVersion, UPL, out bSupportsPortrait, out bSupportsLandscape, out bSkipIcons);
 		}
