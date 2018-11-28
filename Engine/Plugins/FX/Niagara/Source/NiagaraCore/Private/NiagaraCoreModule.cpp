@@ -6,6 +6,9 @@
 
 IMPLEMENT_MODULE(INiagaraCoreModule, NiagaraCore);
 
+// Temporary added for 4.21.1 fix. More permanent fix is in 4.22. Putting this variable here as it is shared between two downstream plugins.
+NIAGARACORE_API TMap<FString, UClass*> FNiagaraDataInterfaceParamRefKnownClasses;
+
 
 UNiagaraDataInterfaceBase::UNiagaraDataInterfaceBase(class FObjectInitializer const & Initializer)
 {
