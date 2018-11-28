@@ -988,7 +988,7 @@ namespace UnrealBuildTool
 						{
 							// Load the cache that contains the list of flattened resolved includes for resolved source files
 							// @todo ubtmake: Ideally load this asynchronously at startup and only block when it is first needed and not finished loading
-							FileReference CacheFile = FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(Target);
+							FileReference CacheFile = FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Architecture);
 							if (!FlatCPPIncludeDependencyCache.TryRead(CacheFile, out Headers.FlatCPPIncludeDependencyCache))
 							{
 								if (!bNeedsFullCPPIncludeRescan)

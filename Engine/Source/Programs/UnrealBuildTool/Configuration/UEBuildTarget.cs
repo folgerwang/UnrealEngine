@@ -883,7 +883,7 @@ namespace UnrealBuildTool
 			bDeployAfterCompile = InRules.bDeployAfterCompile && !InRules.bDisableLinking;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
-			PlatformIntermediateFolder = Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
+			PlatformIntermediateFolder = GetPlatformIntermediateFolder(Platform, Architecture);
 
 			TargetRulesFile = InRules.File;
 
@@ -988,6 +988,18 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the intermediate directory for a given platform
+		/// </summary>
+		/// <param name="Platform">Platform to get the folder for</param>
+		/// <param name="Architecture">Architecture to get the folder for</param>
+		/// <returns>The output directory for intermediates</returns>
+		public static string GetPlatformIntermediateFolder(UnrealTargetPlatform Platform, string Architecture)
+		{
+			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
+			return Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
+		}
+
+		/// <summary>
 		/// Gets the app name for a given target type
 		/// </summary>
 		/// <param name="Type">The target type</param>
@@ -1055,7 +1067,7 @@ namespace UnrealBuildTool
 
 			// Add all the makefiles and caches to be deleted
 			List<FileReference> FilesToDelete = new List<FileReference>();
-			FilesToDelete.Add(FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(this));
+			FilesToDelete.Add(FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(ProjectFile, TargetName, Platform, Architecture));
 			FilesToDelete.Add(DependencyCache.GetDependencyCachePathForTarget(ProjectFile, Platform, TargetName));
 			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, false));
 			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, true));

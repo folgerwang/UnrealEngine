@@ -285,20 +285,26 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets the dependency cache path and filename for the specified target.
 		/// </summary>
-		/// <param name="Target">Current build target</param>
+		/// <param name="ProjectFile">Project file containing this target</param>
+		/// <param name="TargetName">Name of the target being built</param>
+		/// <param name="Platform">Platform for the target</param>
+		/// <param name="Architecture">Architecture for the target</param>
 		/// <returns>Cache Path</returns>
-		public static FileReference GetDependencyCachePathForTarget(UEBuildTarget Target)
+		public static FileReference GetDependencyCachePathForTarget(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, string Architecture)
 		{
+			string PlatformIntermediateFolder = UEBuildTarget.GetPlatformIntermediateFolder(Platform, Architecture);
+
 			DirectoryReference PlatformIntermediatePath;
-			if (Target.ProjectFile != null)
+			if (ProjectFile != null)
 			{
-				PlatformIntermediatePath = DirectoryReference.Combine(Target.ProjectFile.Directory, Target.PlatformIntermediateFolder);
+				PlatformIntermediatePath = DirectoryReference.Combine(ProjectFile.Directory, PlatformIntermediateFolder);
 			}
 			else
 			{
-				PlatformIntermediatePath = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, Target.PlatformIntermediateFolder);
+				PlatformIntermediatePath = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, PlatformIntermediateFolder);
 			}
-			return FileReference.Combine(PlatformIntermediatePath, Target.GetTargetName(), "FlatCPPIncludes.bin");
+
+			return FileReference.Combine(PlatformIntermediatePath, TargetName, "FlatCPPIncludes.bin");
 		}
 	}
 }
