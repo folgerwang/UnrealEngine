@@ -1346,10 +1346,6 @@ namespace UnrealBuildTool
 								// if the build succeeded, write the receipts and do any needed syncing
 								if (bSuccess)
 								{
-									foreach (UEBuildTarget Target in Targets)
-									{
-										UEBuildPlatform.GetBuildPlatform(Target.Platform).PostBuildSync(Target);
-									}
 									if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
 									{
 										BuildResult = ECompilationResult.UpToDate;

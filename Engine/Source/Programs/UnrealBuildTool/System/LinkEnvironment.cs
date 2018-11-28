@@ -293,6 +293,11 @@ namespace UnrealBuildTool
 		public string ModuleDefinitionFile;
 
 		/// <summary>
+		/// All the additional properties from the modules linked into this binary
+		/// </summary>
+		public List<ReceiptProperty> AdditionalProperties = new List<ReceiptProperty>();
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
 		public LinkEnvironment(CppPlatform Platform, CppConfiguration Configuration, string Architecture)
@@ -357,6 +362,7 @@ namespace UnrealBuildTool
 			DefaultResourceFiles.AddRange(Other.DefaultResourceFiles);
 			CommonResourceFiles.AddRange(Other.CommonResourceFiles);
 			ModuleDefinitionFile = Other.ModuleDefinitionFile;
+			AdditionalProperties.AddRange(Other.AdditionalProperties);
         }
 	}
 }

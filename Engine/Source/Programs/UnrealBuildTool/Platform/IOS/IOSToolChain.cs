@@ -123,11 +123,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		private const string IOSArchiver = "libtool";
 
-		/// <summary>
-		/// Additional frameworks stored locally so we have access without LinkEnvironment
-		/// </summary>
-		public static List<UEBuildFramework> RememberedAdditionalFrameworks = new List<UEBuildFramework>();
-
         public override string GetSDKVersion()
         {
             return Settings.Value.IOSSDKVersionFloat.ToString();
@@ -710,30 +705,8 @@ namespace UnrealBuildTool
 						CompileAction.PrerequisiteItems.Add(ExtractedTokenFile);
 					}
 				}
-
-				AddFrameworksToTrack(CompileEnvironment.AdditionalFrameworks, CompileAction);
 			}
 			return Result;
-		}
-
-		static void AddFrameworksToTrack(List<UEBuildFramework> Frameworks, Action DependentAction)
-		{
-			foreach (UEBuildFramework Framework in Frameworks)
-			{
-				if (Framework.ZipFile == null)
-				{
-					continue;	// Only care about frameworks that have a zip specified
-				}
-
-				// If we've already remembered this framework, skip
-				if (RememberedAdditionalFrameworks.Contains(Framework))
-				{
-					continue;
-				}
-
-				// Remember any files we need to unzip
-				RememberedAdditionalFrameworks.Add(Framework);
-			}
 		}
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
@@ -787,7 +760,6 @@ namespace UnrealBuildTool
 					LinkAction.PrerequisiteItems.Add(ExtractedTokenFile);
 				}
 			}
-			AddFrameworksToTrack(LinkEnvironment.AdditionalFrameworks, LinkAction);
 
 			// Add the output file as a production of the link action.
 			FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
@@ -1128,7 +1100,7 @@ namespace UnrealBuildTool
 				throw new BuildException("Unable to extract framework '{0}' - no zip file specified", Framework.Name);
 			}
 			if(Framework.ExtractedTokenFile == null)
-			{
+				{
 				FileItem InputFile = FileItem.GetItemByFileReference(Framework.ZipFile);
 				Framework.ExtractedTokenFile = FileItem.GetItemByFileReference(new FileReference(Framework.OutputDirectory.FullName + ".extracted"));
 
@@ -1303,7 +1275,7 @@ namespace UnrealBuildTool
 
         public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
         {
-            ICollection<FileItem> OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
+            List<FileItem> OutputFiles = new List<FileItem>(base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph));
 
             if (BinaryLinkEnvironment.bIsBuildingLibrary)
             {
@@ -1360,6 +1332,44 @@ namespace UnrealBuildTool
 
 				// Add it to the output files so it's always built
 				OutputFiles.Add(AssetCatalogFile);
+			}
+
+			// Generate the app bundle
+			if(!Target.bDisableLinking)
+			{
+				Log.TraceInformation("Adding PostBuildSync action");
+			
+				List<string> UPLScripts = UEDeployIOS.CollectPluginDataPaths(BinaryLinkEnvironment.AdditionalProperties);
+				VersionNumber SdkVersion = VersionNumber.Parse(Settings.Value.IOSSDKVersion);
+
+				Dictionary<string, DirectoryReference> FrameworkNameToSourceDir = new Dictionary<string, DirectoryReference>();
+				foreach (UEBuildFramework Framework in BinaryLinkEnvironment.AdditionalFrameworks)
+				{
+					if (Framework.OutputDirectory != null && !String.IsNullOrEmpty(Framework.CopyBundledAssets))
+					{
+						// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
+						DirectoryReference LocalSource = DirectoryReference.Combine(Framework.OutputDirectory, Framework.CopyBundledAssets);
+						string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
+						FrameworkNameToSourceDir[BundleName] = LocalSource;
+					}
+				}
+
+				IOSPostBuildSyncTarget PostBuildSyncTarget = new IOSPostBuildSyncTarget(Target, Executable.Location, BinaryLinkEnvironment.IntermediateDirectory, UPLScripts, SdkVersion, FrameworkNameToSourceDir);
+				FileReference PostBuildSyncFile = FileReference.Combine(BinaryLinkEnvironment.IntermediateDirectory, "PostBuildSync.dat");
+				BinaryFormatterUtils.Save(PostBuildSyncFile, PostBuildSyncTarget);
+
+				string PostBuildSyncArguments = String.Format("-Mode=IOSPostBuildSync -Input=\"{0}\" -XmlConfigCache=\"{1}\"", PostBuildSyncFile, XmlConfig.CacheFile);
+
+				Action PostBuildSyncAction = ActionGraph.AddRecursiveCall(ActionType.CreateAppBundle, PostBuildSyncArguments);
+				PostBuildSyncAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				PostBuildSyncAction.PrerequisiteItems.Add(Executable);
+				PostBuildSyncAction.PrerequisiteItems.AddRange(OutputFiles);
+				PostBuildSyncAction.ProducedItems.Add(FileItem.GetItemByFileReference(GetStagedExecutablePath(Executable.Location, Target.Name)));
+				PostBuildSyncAction.DeleteItems.AddRange(PostBuildSyncAction.ProducedItems);
+				PostBuildSyncAction.StatusDescription = "Executing PostBuildSync";
+				PostBuildSyncAction.bCanExecuteRemotely = false;
+
+				OutputFiles.AddRange(PostBuildSyncAction.ProducedItems);
 			}
 
 			return OutputFiles;
@@ -1467,44 +1477,34 @@ namespace UnrealBuildTool
 			}
 		}
 
-        public static void PostBuildSync(UEBuildTarget Target)
+		public static FileReference GetStagedExecutablePath(FileReference Executable, string TargetName)
 		{
-			if (Target.Rules == null)
-			{
-				Log.TraceWarning("Unable to PostBuildSync, Target has no Rules object");
-				return;
-			}
-			if(Target.Rules.bDisableLinking)
-			{
-				return;
-			}
+			return FileReference.Combine(Executable.Directory, "Payload", TargetName + ".app", TargetName);
+		}
 
-			TargetReceipt Receipt = TargetReceipt.Read(Target.ReceiptFileName);
-
+        public static void PostBuildSync(IOSPostBuildSyncTarget Target)
+		{
 			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProjectSettings(Target.ProjectFile);
 
-			string AppName = Target.TargetType == TargetType.Game ? Target.TargetName : Target.AppName;
+			string AppName = Target.TargetName;
 
-			string RemoteShadowDirectoryMac = Path.GetDirectoryName(Target.OutputPath.FullName);
-			string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
+			string RemoteShadowDirectoryMac = Target.OutputPath.Directory.FullName;
+			FileReference StagedExecutablePath = GetStagedExecutablePath(Target.OutputPath, Target.TargetName);
 
             // ensure the plist, entitlements, and provision files are properly copied
             UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-            DeployHandler.PrepTargetForDeployment(Receipt, Target.Rules.IOSPlatform.bCreateStubIPA);
+            DeployHandler.PrepTargetForDeployment(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Configuration, Target.UPLScripts, Target.SdkVersion, Target.bCreateStubIPA);
 
 			// copy the executable
-			if (!File.Exists(FinalRemoteExecutablePath))
-			{
-				Directory.CreateDirectory(String.Format("{0}/Payload/{1}.app", RemoteShadowDirectoryMac, AppName));
-			}
-			File.Copy(Target.OutputPath.FullName, FinalRemoteExecutablePath, true);
+			DirectoryReference.CreateDirectory(StagedExecutablePath.Directory);
+			FileReference.Copy(Target.OutputPath, StagedExecutablePath, true);
 
-			if (!Target.Rules.IOSPlatform.bSkipCrashlytics)
+			if (!Target.bSkipCrashlytics)
 			{
 				GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
 			}
 
-			if (Target.Rules.IOSPlatform.bCreateStubIPA)
+			if (Target.bCreateStubIPA)
 			{
 				// generate the dummy project so signing works
 				DirectoryReference XcodeWorkspaceDir;
@@ -1527,7 +1527,7 @@ namespace UnrealBuildTool
 
 				// ensure the plist, entitlements, and provision files are properly copied
 				DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-				DeployHandler.PrepTargetForDeployment(Receipt, true);
+				DeployHandler.PrepTargetForDeployment(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Configuration, Target.UPLScripts, Target.SdkVersion, true);
 
 				FileReference SignProjectScript = FileReference.Combine(Target.ProjectIntermediateDirectory, "SignProject.sh");
 				using(StreamWriter Writer = new StreamWriter(SignProjectScript.FullName))
@@ -1538,9 +1538,9 @@ namespace UnrealBuildTool
 					Writer.WriteLine("set -x");
 
 					// Copy the mobile provision into the system store
-					if(Target.Rules.IOSPlatform.ImportProvision != null)
+					if(Target.ImportProvision != null)
 					{
-						Writer.WriteLine("cp -f {0} ~/Library/MobileDevice/Provisioning\\ Profiles/", Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportProvision));
+						Writer.WriteLine("cp -f {0} ~/Library/MobileDevice/Provisioning\\ Profiles/", Utils.EscapeShellArgument(Target.ImportProvision));
 					}
 
 					// Path to the temporary keychain. When -ImportCertificate is specified, we will temporarily add this to the list of keychains to search, and remove it later.
@@ -1548,7 +1548,7 @@ namespace UnrealBuildTool
 
 					// Get the signing certificate to use
 					string SigningCertificate;
-					if(Target.Rules.IOSPlatform.ImportCertificate == null)
+					if(Target.ImportCertificate == null)
 					{
 						// Take it from the standard settings
 						IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(Target.ProjectFile);
@@ -1566,11 +1566,11 @@ namespace UnrealBuildTool
 						X509Certificate2 Certificate;
 						try
 						{
-							Certificate = new X509Certificate2(Target.Rules.IOSPlatform.ImportCertificate, Target.Rules.IOSPlatform.ImportCertificatePassword ?? "");
+							Certificate = new X509Certificate2(Target.ImportCertificate, Target.ImportCertificatePassword ?? "");
 						}
 						catch(Exception Ex)
 						{
-							throw new BuildException(Ex, "Unable to read certificate '{0}': {1}", Target.Rules.IOSPlatform.ImportCertificate, Ex.Message);
+							throw new BuildException(Ex, "Unable to read certificate '{0}': {1}", Target.ImportCertificate, Ex.Message);
 						}
 						SigningCertificate = Certificate.GetNameInfo(X509NameType.SimpleName, false);
 
@@ -1584,7 +1584,7 @@ namespace UnrealBuildTool
 						Writer.WriteLine("security list-keychains");
 						Writer.WriteLine("security set-keychain-settings -t 3600 -l  \"{0}\"", TempKeychain);
 						Writer.WriteLine("security -v unlock-keychain -p \"A\" \"{0}\"", TempKeychain);
-						Writer.WriteLine("security import {0} -P {1} -k \"{2}\" -T /usr/bin/codesign -T /usr/bin/security -t agg", Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportCertificate), Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportCertificatePassword), TempKeychain);
+						Writer.WriteLine("security import {0} -P {1} -k \"{2}\" -T /usr/bin/codesign -T /usr/bin/security -t agg", Utils.EscapeShellArgument(Target.ImportCertificate), Utils.EscapeShellArgument(Target.ImportCertificatePassword), TempKeychain);
 						Writer.WriteLine("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"A\" -D '{0}' -t private {1}", SigningCertificate, TempKeychain);
 
 						// Set parameters to make sure it uses the correct identity and keychain
@@ -1596,7 +1596,7 @@ namespace UnrealBuildTool
 					FileReference MobileProvisionFile;
 					string MobileProvisionUUID;
 					string TeamUUID;
-					if(Target.Rules.IOSPlatform.ImportProvision == null)
+					if(Target.ImportProvision == null)
 					{
 						IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(ProjectSettings);
 						MobileProvisionFile = ProvisioningData.MobileProvisionFile;
@@ -1605,7 +1605,7 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						MobileProvisionFile = new FileReference(Target.Rules.IOSPlatform.ImportProvision);
+						MobileProvisionFile = new FileReference(Target.ImportProvision);
 
 						MobileProvisionContents MobileProvision = MobileProvisionContents.Read(MobileProvisionFile);
 						MobileProvisionUUID = MobileProvision.GetUniqueId();
@@ -1613,9 +1613,9 @@ namespace UnrealBuildTool
 					}
 
 					string ConfigName = Target.Configuration.ToString();
-					if (Target.Rules.Type != TargetType.Game && Target.Rules.Type != TargetType.Program)
+					if (Target.TargetType != TargetType.Game && Target.TargetType != TargetType.Program)
 					{
-						ConfigName += " " + Target.Rules.Type.ToString();
+						ConfigName += " " + Target.TargetType.ToString();
 					}
 
 					string SchemeName;
@@ -1686,22 +1686,17 @@ namespace UnrealBuildTool
 				// Clean the local dest directory if it exists
 				CleanIntermediateDirectory(LocalFrameworkAssets);
 
-				foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
+				foreach (KeyValuePair<string, DirectoryReference> Pair in Target.FrameworkNameToSourceDir)
 				{
-					if (!String.IsNullOrEmpty(Framework.CopyBundledAssets) && Framework.OutputDirectory != null)
-					{
-						string UnpackedZipPath = Framework.OutputDirectory.FullName;
+					string UnpackedZipPath = Pair.Value.FullName;
 
-						// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
-						string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;
-						string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
-						string LocalDest = LocalFrameworkAssets + "/" + BundleName;
+					// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
+					string LocalDest = LocalFrameworkAssets + "/" + Pair.Key;
 
-						Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", LocalSource, LocalDest);
+					Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", Pair.Value, LocalDest);
 
-						string ResultsText;
-						RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", LocalSource, LocalDest), out ResultsText);
-					}
+					string ResultsText;
+                    RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", Pair.Value, LocalDest), out ResultsText);
                 }
             }
 		}

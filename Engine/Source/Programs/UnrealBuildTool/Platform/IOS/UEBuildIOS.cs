@@ -767,11 +767,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override void PostBuildSync(UEBuildTarget Target)
-		{
-			IOSToolChain.PostBuildSync(Target);
-		}
-
 		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
 		{
 			string IconDir = Path.Combine(ProjectDirectoryName.FullName, "Build", "IOS", "Resources", "Graphics");
