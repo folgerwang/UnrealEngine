@@ -17,6 +17,7 @@ namespace UnrealGameSync
 	{
 		SyncProject,
 		FindProject,
+		OpenProject,
 	}
 
 	class AutomationRequestInput

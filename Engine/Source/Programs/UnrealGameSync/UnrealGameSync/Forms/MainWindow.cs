@@ -168,16 +168,24 @@ namespace UnrealGameSync
 				}
 				else if(Request.Input.Type == AutomationRequestType.SyncProject)
 				{
-					AutomationRequestResult Result = StartAutomatedSync(Request);
-					if(Result != AutomationRequestResult.Ok)
+					AutomationRequestOutput Output = StartAutomatedSync(Request, true);
+					if(Output != null)
 					{
-						Request.SetOutput(new AutomationRequestOutput(Result));
+						Request.SetOutput(Output);
 					}
 				}
 				else if(Request.Input.Type == AutomationRequestType.FindProject)
 				{
 					AutomationRequestOutput Output = FindProject(Request);
 					Request.SetOutput(Output);
+				}
+				else if(Request.Input.Type == AutomationRequestType.OpenProject)
+				{
+					AutomationRequestOutput Output = StartAutomatedSync(Request, false);
+					if(Output != null)
+					{
+						Request.SetOutput(Output);
+					}
 				}
 				else
 				{
@@ -191,7 +199,7 @@ namespace UnrealGameSync
 			}
 		}
 
-		AutomationRequestResult StartAutomatedSync(AutomationRequest Request)
+		AutomationRequestOutput StartAutomatedSync(AutomationRequest Request, bool bForceSync)
 		{
 			ShowAndActivate();
 
@@ -202,7 +210,7 @@ namespace UnrealGameSync
 			AutomatedSyncWindow.WorkspaceInfo WorkspaceInfo;
 			if(!AutomatedSyncWindow.ShowModal(this, StreamName, ProjectPath, out WorkspaceInfo, Log))
 			{
-				return AutomationRequestResult.Canceled;
+				return new AutomationRequestOutput(AutomationRequestResult.Canceled);
 			}
 
 			if(WorkspaceInfo.bRequiresStreamSwitch)
@@ -223,7 +231,7 @@ namespace UnrealGameSync
 				if(!Perforce.SwitchStream(StreamName, Log))
 				{
 					Log.WriteLine("Unable to switch stream");
-					return AutomationRequestResult.Error;
+					return new AutomationRequestOutput(AutomationRequestResult.Error);
 				}
 			}
 
@@ -233,18 +241,23 @@ namespace UnrealGameSync
 			if(TabIdx == -1)
 			{
 				Log.WriteLine("Unable to open project");
-				return AutomationRequestResult.Error;
+				return new AutomationRequestOutput(AutomationRequestResult.Error);
 			}
 
 			WorkspaceControl Workspace = TabControl.GetTabData(TabIdx) as WorkspaceControl;
 			if(Workspace == null)
 			{
 				Log.WriteLine("Workspace was unable to open");
-				return AutomationRequestResult.Error;
+				return new AutomationRequestOutput(AutomationRequestResult.Error);
+			}
+
+			if(!bForceSync && Workspace.CanLaunchEditor())
+			{
+				return new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(Workspace.SelectedFileName));
 			}
 
 			Workspace.AddStartupCallback((Control, bCancel) => StartAutomatedSyncAfterStartup(Control, bCancel, Request));
-			return AutomationRequestResult.Ok;
+			return null;
 		}
 
 		private void StartAutomatedSyncAfterStartup(WorkspaceControl Workspace, bool bCancel, AutomationRequest Request)
