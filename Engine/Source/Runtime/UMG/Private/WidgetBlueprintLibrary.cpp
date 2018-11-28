@@ -36,7 +36,7 @@ UWidgetBlueprintLibrary::UWidgetBlueprintLibrary(const FObjectInitializer& Objec
 
 UUserWidget* UWidgetBlueprintLibrary::Create(UObject* WorldContextObject, TSubclassOf<UUserWidget> WidgetType, APlayerController* OwningPlayer)
 {
-	if ( WidgetType == nullptr || WidgetType->HasAnyClassFlags(CLASS_Abstract) )
+	if (WidgetType == nullptr)
 	{
 		return nullptr;
 	}
