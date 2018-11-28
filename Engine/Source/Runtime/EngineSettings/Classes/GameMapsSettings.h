@@ -28,7 +28,8 @@ namespace EThreePlayerSplitScreenType
 	{
 		FavorTop,
 		FavorBottom,
-		Vertical
+		Vertical,
+		Horizontal
 	};
 }
 
@@ -36,7 +37,8 @@ UENUM()
 enum class EFourPlayerSplitScreenType : uint8
 {
 	Grid,
-	Vertical
+	Vertical,
+	Horizontal
 };
 
 /** Helper structure, used to associate GameModes with shortcut names. */
