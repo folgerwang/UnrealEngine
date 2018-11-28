@@ -461,6 +461,11 @@ namespace UnrealGameSync
 				Resources = new StatusElementResources(Font);
 			}
 
+			if(TintColor != NewTintColor)
+			{
+				Invalidate();
+			}
+
 			InvalidateElements();
 			Lines.Clear();
 			Lines.AddRange(NewLines);
