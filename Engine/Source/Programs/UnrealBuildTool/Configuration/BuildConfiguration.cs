@@ -149,6 +149,7 @@ namespace UnrealBuildTool
 		/// Whether to skip checking for files identified by the junk manifest
 		/// </summary>
 		[XmlConfigFile]
+		[CommandLine("-IgnoreJunk")]
 		public bool bIgnoreJunk = false;
 
 		/// <summary>
