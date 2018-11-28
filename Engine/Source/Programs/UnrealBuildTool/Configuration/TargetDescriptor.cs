@@ -19,7 +19,7 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform Platform;
 		public UnrealTargetConfiguration Configuration;
 		public string Architecture;
-		public List<OnlyModule> OnlyModules;
+		public List<OnlyModule> OnlyModules = new List<OnlyModule>();
 		public FileReference ForeignPlugin;
 		public string[] AdditionalArguments;
 
@@ -187,7 +187,7 @@ namespace UnrealBuildTool
 
 				// Create the target descriptor
 				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, AdditionalArguments.ToArray());
-				Target.OnlyModules = OnlyModules;
+				Target.OnlyModules.AddRange(OnlyModules);
 				Target.ForeignPlugin = ForeignPlugin;
 				Targets.Add(Target);
 			}

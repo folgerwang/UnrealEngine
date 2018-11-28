@@ -676,20 +676,7 @@ namespace UnrealBuildTool
 			return Type == UEBuildBinaryType.StaticLibrary;
 		}
 
-		public void GatherDataForProjectFiles(ReadOnlyTargetRules Target, CppCompileEnvironment GlobalCompileEnvironment)
-		{
-			CppCompileEnvironment BinaryCompileEnvironment = CreateBinaryCompileEnvironment(GlobalCompileEnvironment);
-			foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
-			{
-				ProjectFile ProjectFileForIDE;
-				if (ProjectFileGenerator.ModuleToProjectFileMap.TryGetValue(Module.Name, out ProjectFileForIDE))
-				{
-					Module.GatherDataForProjectFile(Target, BinaryCompileEnvironment, ProjectFileForIDE);
-				}
-			}
-		}
-
-		private CppCompileEnvironment CreateBinaryCompileEnvironment(CppCompileEnvironment GlobalCompileEnvironment)
+		public CppCompileEnvironment CreateBinaryCompileEnvironment(CppCompileEnvironment GlobalCompileEnvironment)
 		{
 			CppCompileEnvironment BinaryCompileEnvironment = new CppCompileEnvironment(GlobalCompileEnvironment);
 			BinaryCompileEnvironment.bIsBuildingDLL = IsBuildingDll(Type);

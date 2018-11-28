@@ -223,7 +223,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// True if build targets should pass the -useprecompiled argument
 		/// </summary>
-		public static bool bUsePrecompiled = false;
+		public bool bUsePrecompiled = false;
 
 		/// <summary>
 		/// True if we should include engine source in the generated solution
@@ -284,12 +284,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Name of the UE4 engine project that contains all of the engine code, config files and other files
 		/// </summary>
-		public static readonly string EngineProjectFileNameBase = "UE4";
+		public const string EngineProjectFileNameBase = "UE4";
 
 		/// <summary>
 		/// Name of the UE4 enterprise project that contains all of the enterprise code, config files and other files
 		/// </summary>
-		public static readonly string EnterpriseProjectFileNameBase = "Studio";
+		public const string EnterpriseProjectFileNameBase = "Studio";
 
 		/// <summary>
 		/// When ProjectsAreIntermediate is true, this is the directory to store generated project files
@@ -333,26 +333,13 @@ namespace UnrealBuildTool
 
 		/// <summary>
 		/// Maps all module names that were included in generated project files, to actual project file objects.
-		/// @todo projectfiles: Nasty global static list.  This is only really used for IntelliSense, and to avoid extra folder searches for projects we've already cached source files for.
 		/// </summary>
-		public static readonly Dictionary<string, ProjectFile> ModuleToProjectFileMap = new Dictionary<string, ProjectFile>( StringComparer.InvariantCultureIgnoreCase );
+		protected Dictionary<string, ProjectFile> ModuleToProjectFileMap = new Dictionary<string, ProjectFile>( StringComparer.InvariantCultureIgnoreCase );
 
 		/// <summary>
 		/// If generating project files for a single project, the path to its .uproject file.
 		/// </summary>
 		public readonly FileReference OnlyGameProject;
-
-		/// <summary>
-		/// When generating IntelliSense data, we may want to only generate data for a specific project file, even if other targets make use of modules
-		/// in this project file.  This is useful to prevent unusual or hacky global definitions from Programs affecting the Editor/Engine modules.  We
-		/// always want the most common and useful definitions to be set when working with solutions with many modules.
-		/// </summary>
-		public static ProjectFile OnlyGenerateIntelliSenseDataForProject
-		{
-			get;
-			private set;
-		}
-
 	
 		/// <summary>
 		/// File extension for project files we'll be generating (e.g. ".vcxproj")
@@ -957,11 +944,11 @@ namespace UnrealBuildTool
 
 				// Generate IntelliSense data if we need to.  This involves having UBT simulate the action compilation of
 				// the targets so that we can extra the compiler defines, include paths, etc.
-				if (GenerateIntelliSenseData(Arguments, IntelliSenseTargetFiles))
-				{
-					WriteProjectFiles(PlatformProjectGenerators);
-					Log.TraceVerbose( "Project generation complete ({0} generated, {1} imported)", GeneratedProjectFiles.Count, OtherProjectFiles.Count );
-				}
+				GenerateIntelliSenseData(Arguments, IntelliSenseTargetFiles);
+
+				// Write the project files
+				WriteProjectFiles(PlatformProjectGenerators);
+				Log.TraceVerbose( "Project generation complete ({0} generated, {1} imported)", GeneratedProjectFiles.Count, OtherProjectFiles.Count );
 			}
 
 			return bSuccess;
@@ -1686,12 +1673,11 @@ namespace UnrealBuildTool
 		/// <param name="Arguments">Incoming command-line arguments to UBT</param>
 		/// <param name="Targets">Targets to build for intellisense</param>
 		/// <return>Whether the process was successful or not</return>
-		private bool GenerateIntelliSenseData( String[] Arguments, List<Tuple<ProjectFile, ProjectTarget>> Targets )
+		private void GenerateIntelliSenseData(string[] Arguments, List<Tuple<ProjectFile, ProjectTarget>> Targets)
 		{
-			bool bSuccess = true;
-			if( ShouldGenerateIntelliSenseData() && Targets.Count > 0 )
+			if(ShouldGenerateIntelliSenseData() && Targets.Count > 0)
 			{
-				BuildConfiguration BuildConfiguration = new BuildConfiguration();
+				ReadOnlyBuildVersion CurrentBuildVersion = new ReadOnlyBuildVersion(BuildVersion.ReadDefault());
 
 				string ProgressInfoText = Utils.IsRunningOnMono ? "Generating data for project indexing..." : "Binding IntelliSense data...";
 				using(ProgressWriter Progress = new ProgressWriter(ProgressInfoText, true))
@@ -1701,12 +1687,9 @@ namespace UnrealBuildTool
 						ProjectFile TargetProjectFile = Targets[ TargetIndex ].Item1;
 						ProjectTarget CurTarget = Targets[ TargetIndex ].Item2;
 
-						Log.TraceVerbose( "Found target: " + CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions() );
+						Log.TraceVerbose("Found target: " + CurTarget.Name);
 
 						List<string> NewArguments = new List<string>(Arguments.Length + 4);
-						NewArguments.Add(CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions());
-						NewArguments.Add(BuildHostPlatform.Current.Platform.ToString());
-						NewArguments.Add(UnrealTargetConfiguration.Development.ToString());
 						if(CurTarget.TargetRules.Type != TargetType.Program)
 						{
 							NewArguments.Add("-precompile");
@@ -1714,29 +1697,50 @@ namespace UnrealBuildTool
 						NewArguments.Add("-Monolithic"); // Don't want any _API macros to be DLLIMPORT; this will cause Intellisense errors in the file that they are defined.
 						NewArguments.AddRange(Arguments);
 
-						// We only want to update definitions and include paths for modules that are part of this target's project file.
-						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = TargetProjectFile;
-
 						// Clear the CachedIncludePaths field on every FileItem. It's faster to keep the cache of file items around, but we need to wipe
 						// out any state.
 						FileItem.ClearCachedIncludePaths();
 
 						try
 						{
-							// Run UnrealBuildTool, pretending to build this target but instead only gathering data for IntelliSense (include paths and definitions).
-							// No actual compiling or linking will happen because we early out using the ProjectFileGenerator.bGenerateProjectFiles global
-							bSuccess = UnrealBuildTool.RunUBT( BuildConfiguration, NewArguments.ToArray(), CurTarget.UnrealProjectFilePath, false ) == ECompilationResult.Succeeded;
+							const string DefaultArchitecture = "";
+
+							// Create the target descriptor
+							TargetDescriptor TargetDesc = new TargetDescriptor(CurTarget.UnrealProjectFilePath, CurTarget.Name, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, DefaultArchitecture, NewArguments.ToArray());
+
+							// Create the target
+							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, NewArguments.ToArray(), false, false, bUsePrecompiled, CurrentBuildVersion);
+
+							// Generate a compile environment for each module in the binary
+							CppCompileEnvironment GlobalCompileEnvironment = Target.CreateCompileEnvironmentForProjectFiles();
+							foreach(UEBuildBinary Binary in Target.Binaries)
+							{
+								CppCompileEnvironment BinaryCompileEnvironment = Binary.CreateBinaryCompileEnvironment(GlobalCompileEnvironment);
+								foreach(UEBuildModuleCPP Module in Binary.Modules.OfType<UEBuildModuleCPP>())
+								{
+									ProjectFile ProjectFileForIDE;
+									if (ModuleToProjectFileMap.TryGetValue(Module.Name, out ProjectFileForIDE) && ProjectFileForIDE == TargetProjectFile)
+									{
+										CppCompileEnvironment ModuleCompileEnvironment = Module.CreateModuleCompileEnvironment(Target.Rules, BinaryCompileEnvironment);
+										ProjectFileForIDE.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
+										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
+										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+									}
+								}
+							}
+
+							// If we're generating project files, then go ahead and wipe out the existing UBTMakefile for every target, to make sure that
+							// it gets a full dependency scan next time.
+							// NOTE: This is just a safeguard and doesn't have to be perfect.  We also check for newer project file timestamps in LoadUBTMakefile()
+							FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(new List<TargetDescriptor>{ TargetDesc }, EHotReload.Disabled);
+							if (FileReference.Exists(UBTMakefilePath))
+							{
+								FileReference.Delete(UBTMakefilePath);
+							}
 						}
 						catch(Exception Ex)
 						{
-							Log.TraceWarning("Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
-						}
-
-						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = null;
-
-						if( !bSuccess )
-						{
-							break;
+							Log.TraceWarning("Exception while generating include data for {0}: {1}", CurTarget.Name, Ex.ToString());
 						}
 
 						// Display progress
@@ -1744,8 +1748,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-
-			return bSuccess;
 		}
 
 

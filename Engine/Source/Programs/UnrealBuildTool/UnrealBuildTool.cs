@@ -741,58 +741,47 @@ namespace UnrealBuildTool
 				}
 				TargetDescriptor HotReloadTargetDesc = (HotReload != EHotReload.Disabled) ? TargetDescs[0] : null;
 
-				if (ProjectFileGenerator.bGenerateProjectFiles)
-				{
-					// Create empty timestamp file to record when was the last time we regenerated projects.
-					Directory.CreateDirectory(Path.GetDirectoryName(ProjectFileGenerator.ProjectTimestampFile));
-					File.Create(ProjectFileGenerator.ProjectTimestampFile).Dispose();
-				}
-
-
 				// Used when BuildConfiguration.bUseUBTMakefiles is enabled.  If true, it means that our cached includes may not longer be
 				// valid (or never were), and we need to recover by forcibly scanning included headers for all build prerequisites to make sure that our
 				// cached set of includes is actually correct, before determining which files are outdated.
 				bool bNeedsFullCPPIncludeRescan = false;
 
-				if (!ProjectFileGenerator.bGenerateProjectFiles)
+				if (BuildConfiguration.bUseUBTMakefiles)
 				{
-					if (BuildConfiguration.bUseUBTMakefiles)
+					// Only the modular editor and game targets will share build products.  Unfortunately, we can't determine at
+					// at this point whether we're dealing with modular or monolithic game binaries, so we opt to always invalidate
+					// cached includes if the target we're switching to is either a game target (has project file) or "UE4Editor".
+					bool bMightHaveSharedBuildProducts =
+						ProjectFile != null ||  // Is this a game? (has a .uproject file for the target)
+						TargetDescs[0].Name.Equals("UE4Editor", StringComparison.InvariantCultureIgnoreCase); // Is the engine?
+					if (bMightHaveSharedBuildProducts)
 					{
-						// Only the modular editor and game targets will share build products.  Unfortunately, we can't determine at
-						// at this point whether we're dealing with modular or monolithic game binaries, so we opt to always invalidate
-						// cached includes if the target we're switching to is either a game target (has project file) or "UE4Editor".
-						bool bMightHaveSharedBuildProducts =
-							ProjectFile != null ||  // Is this a game? (has a .uproject file for the target)
-							TargetDescs[0].Name.Equals("UE4Editor", StringComparison.InvariantCultureIgnoreCase); // Is the engine?
-						if (bMightHaveSharedBuildProducts)
+						bool bIsBuildingSameTargetsAsLastTime = false;
+
+						string TargetCollectionName = UBTMakefile.MakeTargetCollectionName(TargetDescs);
+
+						string LastBuiltTargetsFileName = (HotReload != EHotReload.Disabled) ? "HotReloadLastBuiltTargets.txt" : "LastBuiltTargets.txt";
+						string LastBuiltTargetsFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", LastBuiltTargetsFileName).FullName;
+						if (File.Exists(LastBuiltTargetsFilePath) && Utils.ReadAllText(LastBuiltTargetsFilePath) == TargetCollectionName)
 						{
-							bool bIsBuildingSameTargetsAsLastTime = false;
+							// @todo ubtmake: Because we're using separate files for hot reload vs. full compiles, it's actually possible that includes will
+							// become out of date without us knowing if the developer ping-pongs between hot reloading target A and building target B normally.
+							// To fix this we can not use a different file name for last built targets, but the downside is slower performance when
+							// performing the first hot reload after compiling normally (forces full include dependency scan)
+							bIsBuildingSameTargetsAsLastTime = true;
+						}
 
-							string TargetCollectionName = UBTMakefile.MakeTargetCollectionName(TargetDescs);
+						// Save out the name of the targets we're building
+						if (!bIsBuildingSameTargetsAsLastTime)
+						{
+							Directory.CreateDirectory(Path.GetDirectoryName(LastBuiltTargetsFilePath));
+							File.WriteAllText(LastBuiltTargetsFilePath, TargetCollectionName, Encoding.UTF8);
 
-							string LastBuiltTargetsFileName = (HotReload != EHotReload.Disabled) ? "HotReloadLastBuiltTargets.txt" : "LastBuiltTargets.txt";
-							string LastBuiltTargetsFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", LastBuiltTargetsFileName).FullName;
-							if (File.Exists(LastBuiltTargetsFilePath) && Utils.ReadAllText(LastBuiltTargetsFilePath) == TargetCollectionName)
-							{
-								// @todo ubtmake: Because we're using separate files for hot reload vs. full compiles, it's actually possible that includes will
-								// become out of date without us knowing if the developer ping-pongs between hot reloading target A and building target B normally.
-								// To fix this we can not use a different file name for last built targets, but the downside is slower performance when
-								// performing the first hot reload after compiling normally (forces full include dependency scan)
-								bIsBuildingSameTargetsAsLastTime = true;
-							}
-
-							// Save out the name of the targets we're building
-							if (!bIsBuildingSameTargetsAsLastTime)
-							{
-								Directory.CreateDirectory(Path.GetDirectoryName(LastBuiltTargetsFilePath));
-								File.WriteAllText(LastBuiltTargetsFilePath, TargetCollectionName, Encoding.UTF8);
-
-								// Can't use super fast include checking unless we're building the same set of targets as last time, because
-								// we might not know about all of the C++ include dependencies for already-up-to-date shared build products
-								// between the targets
-								bNeedsFullCPPIncludeRescan = true;
-								Log.TraceInformation("Performing full C++ include scan ({0} a new target)", (HotReload != EHotReload.Disabled) ? "hot reloading" : "building");
-							}
+							// Can't use super fast include checking unless we're building the same set of targets as last time, because
+							// we might not know about all of the C++ include dependencies for already-up-to-date shared build products
+							// between the targets
+							bNeedsFullCPPIncludeRescan = true;
+							Log.TraceInformation("Performing full C++ include scan ({0} a new target)", (HotReload != EHotReload.Disabled) ? "hot reloading" : "building");
 						}
 					}
 				}
@@ -852,23 +841,12 @@ namespace UnrealBuildTool
 				{
 					UBTMakefile UBTMakefile = null;
 					{
-						// If we're generating project files, then go ahead and wipe out the existing UBTMakefile for every target, to make sure that
-						// it gets a full dependency scan next time.
-						// NOTE: This is just a safeguard and doesn't have to be perfect.  We also check for newer project file timestamps in LoadUBTMakefile()
 						FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(TargetDescs, HotReload);
-						if (ProjectFileGenerator.bGenerateProjectFiles) // @todo ubtmake: This is only hit when generating IntelliSense for project files.  Probably should be done right inside ProjectFileGenerator.bat
-						{                                                   // @todo ubtmake: Won't catch multi-target cases as GPF always builds one target at a time for Intellisense
-																			// Delete the UBTMakefile
-							if (FileReference.Exists(UBTMakefilePath))
-							{
-								FileReference.Delete(UBTMakefilePath);
-							}
-						}
 
 						// Make sure the gather phase is executed if we're not actually building anything
-						if (ProjectFileGenerator.bGenerateProjectFiles || BuildConfiguration.bGenerateManifest || BuildConfiguration.bCleanProject || BuildConfiguration.bXGEExport || GeneratingActionGraph)
+						if (BuildConfiguration.bGenerateManifest || BuildConfiguration.bCleanProject || BuildConfiguration.bXGEExport || GeneratingActionGraph)
 						{
-								bIsGatheringBuild = true;
+							bIsGatheringBuild = true;
 						}
 
 						// Were we asked to run in 'assembler only' mode?  If so, let's check to see if that's even possible by seeing if
@@ -1017,7 +995,7 @@ namespace UnrealBuildTool
 							{
 								if (!bNeedsFullCPPIncludeRescan)
 								{
-									if (!ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+									if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
 									{
 										bNeedsFullCPPIncludeRescan = true;
 										Log.TraceInformation("Performing full C++ include scan (no include cache file)");
@@ -1061,7 +1039,7 @@ namespace UnrealBuildTool
 					if (BuildResult == ECompilationResult.Succeeded && !BuildConfiguration.bSkipBuild &&
 						(
 							(BuildConfiguration.bXGEExport && BuildConfiguration.bGenerateManifest) ||
-							(!GeneratingActionGraph && !ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+							(!GeneratingActionGraph && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
 						))
 					{
 						if (bIsGatheringBuild)
@@ -1131,7 +1109,7 @@ namespace UnrealBuildTool
 								}
 
 								// Execute all the pre-build steps
-								if (!ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bXGEExport)
+								if (!BuildConfiguration.bXGEExport)
 								{
 									foreach (UEBuildTarget Target in Targets)
 									{
@@ -1223,7 +1201,6 @@ namespace UnrealBuildTool
 							// Run the deployment steps
 							if (BuildResult.Succeeded()
 								&& String.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile)
-								&& !ProjectFileGenerator.bGenerateProjectFiles
 								&& !BuildConfiguration.bGenerateManifest
 								&& !BuildConfiguration.bCleanProject
 							&& !BuildConfiguration.bXGEExport)
@@ -1330,7 +1307,7 @@ namespace UnrealBuildTool
 			// this code must be able to execute before we create or load module rules DLLs so that hot reload can work with bUseUBTMakefiles
 			bool bIsEditorTarget = TargetDesc.Name.EndsWith("Editor", StringComparison.InvariantCultureIgnoreCase);
 
-			if (!ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bGenerateManifest && bIsEditorTarget)
+			if (!BuildConfiguration.bGenerateManifest && bIsEditorTarget)
 			{
 				string EditorBaseFileName = "UE4Editor";
 				if (TargetDesc.Configuration != UnrealTargetConfiguration.Development && TargetDesc.Configuration != UnrealTargetConfiguration.DebugGame)

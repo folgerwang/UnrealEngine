@@ -288,20 +288,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Gathers intellisense data for the project file containing this module
-		/// </summary>
-		/// <param name="Target">The target being built</param>
-		/// <param name="BinaryCompileEnvironment">The inherited compile environment for this module</param>
-		/// <param name="ProjectFile">The project file containing this module</param>
-		public void GatherDataForProjectFile(ReadOnlyTargetRules Target, CppCompileEnvironment BinaryCompileEnvironment, ProjectFile ProjectFile)
-		{
-			CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
-			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
-			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
-			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
-		}
-
-		/// <summary>
 		/// Sets up the environment for compiling any module that includes the public interface of this module.
 		/// </summary>
 		public override void AddModuleToCompileEnvironment(

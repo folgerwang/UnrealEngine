@@ -286,6 +286,7 @@ namespace UnrealBuildTool
 		VCProjectFileFormat ProjectFileFormat;
 		bool bUseFastPDB;
 		bool bUsePerFileIntellisense;
+		bool bUsePrecompiled;
 		string BuildToolOverride;
 
 		/// This is the platform name that Visual Studio is always guaranteed to support.  We'll use this as
@@ -307,14 +308,16 @@ namespace UnrealBuildTool
 		/// <param name="InProjectFileFormat">Visual C++ project file version</param>
 		/// <param name="bUseFastPDB">If true, adds the -FastPDB argument to build command lines</param>
 		/// <param name="bUsePerFileIntellisense">If true, generates per-file intellisense data</param>
+		/// <param name="bUsePrecompiled">Whether to add the -UsePrecompiled argumemnt when building targets</param>
 		/// <param name="BuildToolOverride">Optional arguments to pass to UBT when building</param>
-		public VCProjectFile(FileReference InFilePath, FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, bool bUseFastPDB, bool bUsePerFileIntellisense, string BuildToolOverride)
+		public VCProjectFile(FileReference InFilePath, FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, bool bUseFastPDB, bool bUsePerFileIntellisense, bool bUsePrecompiled, string BuildToolOverride)
 			: base(InFilePath)
 		{
 			OnlyGameProject = InOnlyGameProject;
 			ProjectFileFormat = InProjectFileFormat;
 			this.bUseFastPDB = bUseFastPDB;
 			this.bUsePerFileIntellisense = bUsePerFileIntellisense;
+			this.bUsePrecompiled = bUsePrecompiled;
 			this.BuildToolOverride = BuildToolOverride;
 		}
 
@@ -1424,7 +1427,7 @@ namespace UnrealBuildTool
 					//	ie ..\..\Build\BatchFiles\Build.bat BlankProgram Win64 Debug
 
 					string BuildArguments = " " + TargetName + " " + UBTPlatformName + " " + UBTConfigurationName;
-					if (ProjectFileGenerator.bUsePrecompiled)
+					if (bUsePrecompiled)
 					{
 						BuildArguments += " -UsePrecompiled";
 					}
