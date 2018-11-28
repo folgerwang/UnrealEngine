@@ -55,9 +55,12 @@ enum class EVisualisePSType
 	MAX
 };
 
+#endif
+
 TGlobalResource<FVisualizeTexture> GVisualizeTexture;
 
 
+#if WITH_ENGINE
 /** A pixel shader which filters a texture. */
 // @param TextureType 0:Cube, 1:1D(not yet supported), 2:2D no MSAA, 3:3D, 4:Cube[], 5:2D MSAA, 6:2D DepthStencil no MSAA (needed to avoid D3DDebug error)
 class FVisualizeTexturePS : public FGlobalShader
@@ -76,7 +79,7 @@ class FVisualizeTexturePS : public FGlobalShader
 	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER(FVector, TextureExtent)
+		SHADER_PARAMETER(FVector4, TextureExtent)
 		SHADER_PARAMETER_ARRAY(FVector4, VisualizeParam, [3])
 
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, VisualizeTexture2D)
@@ -227,7 +230,7 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 
 	FVisualizeTexturePS::FParameters* PassParameters = GraphBuilder.AllocParameters<FVisualizeTexturePS::FParameters>();
 	{
-		PassParameters->TextureExtent = FVector(SrcDesc.Extent.X, SrcDesc.Extent.Y, SrcDesc.Depth);
+		PassParameters->TextureExtent = FVector4(SrcDesc.Extent.X, SrcDesc.Extent.Y, SrcDesc.Depth, 0.0f);
 
 		{
 			// alternates between 0 and 1 with a short pause
