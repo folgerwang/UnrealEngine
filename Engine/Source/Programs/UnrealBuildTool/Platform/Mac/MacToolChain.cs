@@ -1237,11 +1237,9 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override void FixBundleBinariesPaths(UEBuildTarget Target, List<UEBuildBinary> Binaries)
+		public static void FixBundleBinariesPaths(FileReference OutputPath, List<UEBuildBinary> Binaries)
 		{
-			base.FixBundleBinariesPaths(Target, Binaries);
-
-			string BundleContentsPath = Target.OutputPath.FullName + ".app/Contents/";
+			string BundleContentsPath = OutputPath.FullName + ".app/Contents/";
 			foreach (UEBuildBinary Binary in Binaries)
 			{
 				string BinaryFileName = Path.GetFileName(Binary.OutputFilePath.FullName);
@@ -1250,7 +1248,7 @@ namespace UnrealBuildTool
 					// Only dylibs from the same folder as the executable should be moved to the bundle. UE4Editor-*Game* dylibs and plugins will be loaded
 					// from their Binaries/Mac folders.
 					string DylibDir = Path.GetDirectoryName(Path.GetFullPath(Binary.OutputFilePath.FullName));
-					string ExeDir = Path.GetDirectoryName(Path.GetFullPath(Target.OutputPath.FullName));
+					string ExeDir = Path.GetDirectoryName(Path.GetFullPath(OutputPath.FullName));
 					if (DylibDir.StartsWith(ExeDir))
 					{
 						// get the subdir, which is the DylibDir - ExeDir

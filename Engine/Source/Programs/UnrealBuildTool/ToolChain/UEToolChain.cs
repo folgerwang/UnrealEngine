@@ -106,11 +106,6 @@ namespace UnrealBuildTool
 
 		}
 
-		public virtual void FixBundleBinariesPaths(UEBuildTarget Target, List<UEBuildBinary> Binaries)
-		{
-
-		}
-
         public virtual string GetSDKVersion()
         {
             return "Not Applicable";
