@@ -4039,7 +4039,7 @@ FGuid FSequencer::AddSpawnable(UObject& Object, UActorFactory* ActorFactory)
 	return NewGuid;
 }
 
-FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory )
+FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory, bool bSetupDefaults )
 {
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
@@ -4080,8 +4080,11 @@ FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory
 	// Spawn the object so we can position it correctly, it's going to get spawned anyway since things default to spawned.
 	UObject* SpawnedObject = SpawnRegister->SpawnObject(NewGuid, *MovieScene, ActiveTemplateIDs.Top(), *this);
 
-	FTransformData TransformData;
-	SpawnRegister->SetupDefaultsForSpawnable(SpawnedObject, Spawnable->GetGuid(), TransformData, AsShared(), Settings);
+	if (bSetupDefaults)
+	{
+		FTransformData TransformData;
+		SpawnRegister->SetupDefaultsForSpawnable(SpawnedObject, Spawnable->GetGuid(), TransformData, AsShared(), Settings);
+	}
 
 	Spawnable->SetSpawnOwnership(SavedOwnership);
 
@@ -6251,7 +6254,7 @@ bool FSequencer::PasteObjectBindings(const FString& TextToImport)
 			// because we need to use our binding (which has tracks associated with it). To solve this, we let it create
 			// an object template based off of our (transient package owned) template, then find the newly created binding
 			// and update it.
-			FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate);
+			FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate, nullptr, false);
 			FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
 			FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(NewGuid);
 
