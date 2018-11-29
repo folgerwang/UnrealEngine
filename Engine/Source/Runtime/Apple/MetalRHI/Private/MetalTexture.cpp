@@ -841,6 +841,10 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 				Desc.SetArrayLength(ArraySize * 6);
 			}
 		}
+		else
+		{
+			Desc.SetTextureType(mtlpp::TextureType::Texture2DArray);
+		}
 	}
 	Desc.SetMipmapLevelCount(NumMips);
 	
