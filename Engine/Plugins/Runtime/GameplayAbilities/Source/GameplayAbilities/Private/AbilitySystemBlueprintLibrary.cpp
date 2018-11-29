@@ -660,6 +660,48 @@ bool UAbilitySystemBlueprintLibrary::DoesGameplayCueMeetTagRequirements(FGamepla
 		&& TargetTagReqs.RequirementsMet(Parameters.AggregatedSourceTags);
 }
 
+FGameplayCueParameters UAbilitySystemBlueprintLibrary::MakeGameplayCueParameters(float NormalizedMagnitude, float RawMagnitude, FGameplayEffectContextHandle EffectContext, FGameplayTag MatchedTagName, FGameplayTag OriginalTag, FGameplayTagContainer AggregatedSourceTags, FGameplayTagContainer AggregatedTargetTags, FVector Location, FVector Normal, AActor* Instigator, AActor* EffectCauser, UObject* SourceObject, UPhysicalMaterial* PhysicalMaterial, int32 GameplayEffectLevel, int32 AbilityLevel, USceneComponent* TargetAttachComponent)
+{
+	FGameplayCueParameters Parameters;
+	Parameters.NormalizedMagnitude = NormalizedMagnitude;
+	Parameters.RawMagnitude = RawMagnitude;
+	Parameters.EffectContext = EffectContext;
+	Parameters.MatchedTagName = MatchedTagName;
+	Parameters.OriginalTag = OriginalTag;
+	Parameters.AggregatedSourceTags = AggregatedSourceTags;
+	Parameters.AggregatedTargetTags = AggregatedTargetTags;
+	Parameters.Location = Location;
+	Parameters.Normal = Normal;
+	Parameters.Instigator = Instigator;
+	Parameters.EffectCauser = EffectCauser;
+	Parameters.SourceObject = SourceObject;
+	Parameters.PhysicalMaterial = PhysicalMaterial;
+	Parameters.GameplayEffectLevel = GameplayEffectLevel;
+	Parameters.AbilityLevel = AbilityLevel;
+	Parameters.TargetAttachComponent = TargetAttachComponent;
+	return Parameters;
+}
+
+void UAbilitySystemBlueprintLibrary::BreakGameplayCueParameters(const struct FGameplayCueParameters& Parameters, float& NormalizedMagnitude, float& RawMagnitude, FGameplayEffectContextHandle& EffectContext, FGameplayTag& MatchedTagName, FGameplayTag& OriginalTag, FGameplayTagContainer& AggregatedSourceTags, FGameplayTagContainer& AggregatedTargetTags, FVector& Location, FVector& Normal, AActor* Instigator, AActor*& EffectCauser, UObject*& SourceObject, UPhysicalMaterial*& PhysicalMaterial, int32& GameplayEffectLevel, int32& AbilityLevel, USceneComponent*& TargetAttachComponent)
+{
+	NormalizedMagnitude = Parameters.NormalizedMagnitude;
+	RawMagnitude = Parameters.RawMagnitude;
+	EffectContext = Parameters.EffectContext;
+	MatchedTagName = Parameters.MatchedTagName;
+	OriginalTag = Parameters.OriginalTag;
+	AggregatedSourceTags = Parameters.AggregatedSourceTags;
+	AggregatedTargetTags = Parameters.AggregatedTargetTags;
+	Location = Parameters.Location;
+	Normal = Parameters.Normal;
+	Instigator = Parameters.Instigator.Get();
+	EffectCauser = Parameters.EffectCauser.Get();
+	SourceObject = const_cast<UObject*>(Parameters.SourceObject.Get());
+	PhysicalMaterial = const_cast<UPhysicalMaterial*>(Parameters.PhysicalMaterial.Get());
+	GameplayEffectLevel = GameplayEffectLevel;
+	AbilityLevel = AbilityLevel;
+	TargetAttachComponent = Parameters.TargetAttachComponent.Get();
+}
+
 // ---------------------------------------------------------------------------------------
 
 FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::AssignSetByCallerMagnitude(FGameplayEffectSpecHandle SpecHandle, FName DataName, float Magnitude)
