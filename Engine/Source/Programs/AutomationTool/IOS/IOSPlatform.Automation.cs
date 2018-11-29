@@ -893,16 +893,24 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Portrait.png");
 				ImageFileNames.Add("Default-Portrait@2x.png");
+				ImageFileNames.Add("Default-Portrait-1112@2x.png");
+				ImageFileNames.Add("Default-Portrait-1194@2x.png");
 				ImageFileNames.Add("Default-Portrait-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Portrait.png");
+				ImageFileNames.Add("Default-IPhoneXSMax-Portrait.png");
+				ImageFileNames.Add("Default-IPhoneXR-Portrait.png");
 			}
 			if (bSupportsLandscape)
 			{
 				ImageFileNames.Add("Default-IPhone6-Landscape.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Landscape.png");
 				ImageFileNames.Add("Default-Landscape@2x.png");
+				ImageFileNames.Add("Default-Landscape-1112@2x.png");
+				ImageFileNames.Add("Default-Landscape-1194@2x.png");
 				ImageFileNames.Add("Default-Landscape-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Landscape.png");
+				ImageFileNames.Add("Default-IPhoneXSMax-Landscape.png");
+				ImageFileNames.Add("Default-IPhoneXR-Landscape.png");
 			}
 			ImageFileNames.Add("Default@2x.png");
 			ImageFileNames.Add("Default-568h@2x.png");
