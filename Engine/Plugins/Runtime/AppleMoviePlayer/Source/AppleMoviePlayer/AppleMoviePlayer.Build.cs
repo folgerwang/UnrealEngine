@@ -14,7 +14,8 @@ namespace UnrealBuildTool.Rules
                     "MoviePlayer",
                     "RenderCore",
                     "RHI",
-                    "Slate"
+                    "Slate",
+					"ApplicationCore"
 				}
 			);
 

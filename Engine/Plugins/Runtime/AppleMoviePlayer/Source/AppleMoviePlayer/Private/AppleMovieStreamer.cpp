@@ -8,11 +8,14 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMoviePlayer, Log, All);
 
 #define MOVIE_FILE_EXTENSION @"mp4"
 #define TIMESCALE 1000
+
+extern bool GIsSuspended;
 
 static FString ConvertToNativePath(const FString& Filename, bool bForWrite)
 {
@@ -76,7 +79,10 @@ SyncStatus          ( Default ),
 StartTime           ( 0.0 ),
 Cursor              ( 0.0 ),
 bVideoTracksLoaded  ( false ),
-bWasActive          ( false )
+bWasActive          ( false ),
+//interrupt
+bIsMovieInterrupted	( false ),
+ResumeTime			( kCMTimeZero )
 {
 	UE_LOG(LogMoviePlayer, Log, TEXT("FAVMoviePlayer ctor..."));
 
@@ -132,6 +138,12 @@ bool FAVPlayerMovieStreamer::Init(const TArray<FString>& MoviePaths, TEnumAsByte
 
 bool FAVPlayerMovieStreamer::Tick(float DeltaTime)
 {
+	FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
+
+	if (bIsMovieInterrupted)
+	{
+		return false;
+	}
     // Check the list of textures pending deletion and remove any that are no longer valid
     for (int32 TextureIndex = 0; TextureIndex < TexturesPendingDeletion.Num(); )
     {
@@ -149,8 +161,6 @@ bool FAVPlayerMovieStreamer::Tick(float DeltaTime)
             ++TextureIndex;
         }
     }
-
-	FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
 
     if( bVideoTracksLoaded )
     {
@@ -265,8 +275,12 @@ void FAVPlayerMovieStreamer::Cleanup()
 
 bool FAVPlayerMovieStreamer::StartNextMovie()
 {
-	bool bDidStartMovie = false;
 	UE_LOG(LogMoviePlayer, Verbose, TEXT("Starting next movie....") );
+	ResumeTime = kCMTimeZero;
+
+	// Reset flag to indicate the movie may have started, but isn't playing yet.
+	bVideoTracksLoaded = false;
+
     if (MovieQueue.Num() > 0)
     {
         if( AVMovie != NULL )
@@ -275,9 +289,6 @@ bool FAVPlayerMovieStreamer::StartNextMovie()
             UE_LOG(LogMoviePlayer, Error, TEXT("can't setup FAVPlayerMovieStreamer because it is already set up"));
             return false;
         }
-
-        // Reset flag to indicate the movie may have started, but isn't playing yet.
-        bVideoTracksLoaded = false;
 
         NSURL* nsURL = nil;
 		FString MoviePath = FPaths::ProjectContentDir() + TEXT("Movies/") + MovieQueue[0] + TEXT(".") + FString(MOVIE_FILE_EXTENSION);
@@ -305,35 +316,58 @@ bool FAVPlayerMovieStreamer::StartNextMovie()
 			AudioPlayer.volume = 1;
 			[AudioPlayer prepareToPlay];
 		}
+		MovieName = MovieQueue[0];
+		MovieQueue.RemoveAt(0);
 
-        // Load the Movie with the appropriate URL.
-        AVMovie = [[AVURLAsset alloc] initWithURL:nsURL options:nil];
-        MovieQueue.RemoveAt(0);
+		bVideoTracksLoaded = LoadMovie(MovieName);
 
-        // Obtain the tracks asynchronously.
-        NSArray* nsTrackKeys = @[@"tracks"];
-        [AVMovie loadValuesAsynchronouslyForKeys:nsTrackKeys completionHandler:^()
-        {
-            // !!! This block will execute asynchronously !!!
+	}
+	return bVideoTracksLoaded;
+}
 
-            // Once loaded, initialize our reader object to start pulling frames.
-			FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
-            bVideoTracksLoaded = FinishLoadingTracks();
-            if( bVideoTracksLoaded && AudioPlayer != nil )
-            {
-                // Good time to start the audio playing.
-                [AudioPlayer play];
-            }
+bool FAVPlayerMovieStreamer::LoadMovie(FString InMovieName)
+{
+	// Reset flag to indicate the movie may have started, but isn't playing yet.
+	bVideoTracksLoaded = false;
+	NSURL* nsURL = nil;
+	FString MoviePath = FPaths::ProjectContentDir() + TEXT("Movies/") + InMovieName + TEXT(".") + FString(MOVIE_FILE_EXTENSION);
+	if (FPaths::FileExists(MoviePath))
+	{
+		nsURL = [NSURL fileURLWithPath : ConvertToNativePath(MoviePath, false).GetNSString()];
+	}
+	if (nsURL == nil)
+	{
+		return false;
+	}
 
-            // !!!
-        }];
-
-        // Movie has started.
-        bDidStartMovie = true;
+	// Load the Movie with the appropriate URL.
+    AVMovie = [[AVURLAsset alloc] initWithURL:nsURL options:nil];
 		
-		UE_LOG(LogMoviePlayer, Verbose, TEXT("Started next movie.") );
-    }
-    return bDidStartMovie;
+    // Obtain the tracks asynchronously.
+    NSArray* nsTrackKeys = @[@"tracks"];
+    [AVMovie loadValuesAsynchronouslyForKeys:nsTrackKeys completionHandler:^()
+    {
+        // !!! This block will execute asynchronously !!!
+        // Once loaded, initialize our reader object to start pulling frames.
+		FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
+        bVideoTracksLoaded = FinishLoadingTracks();
+
+		// Play the next movie in the queue
+		bIsMovieInterrupted = GIsSuspended;
+
+		if (!bIsMovieInterrupted && bVideoTracksLoaded && AudioPlayer != nil)
+        {
+            // Good time to start the audio playing.
+            [AudioPlayer play];
+        }
+
+        // !!!
+    }];
+
+    // Movie has started.
+		
+	UE_LOG(LogMoviePlayer, Log, TEXT("Started next movie.") );
+	return true;
 }
 
 bool FAVPlayerMovieStreamer::FinishLoadingTracks()
@@ -381,6 +415,8 @@ bool FAVPlayerMovieStreamer::FinishLoadingTracks()
                 [AVReader addOutput:AVVideoOutput];
 
                 // Begin reading!
+				[AVReader setTimeRange : CMTimeRangeMake(ResumeTime, kCMTimePositiveInfinity)];
+
                 if( ![AVReader startReading] )
                 {
                     UE_LOG(LogMoviePlayer, Error, TEXT("AVReader 'startReading' returned failure."));
@@ -392,7 +428,7 @@ bool FAVPlayerMovieStreamer::FinishLoadingTracks()
                 VideoRate = 1.0f / AVVideoTrack.nominalFrameRate;
 
                 // Save the starting time.
-                StartTime = CACurrentMediaTime();
+                StartTime = CACurrentMediaTime() - CMTimeGetSeconds(ResumeTime);
 
                 // Good to go.
                 bLoadedAndReading = true;
@@ -562,23 +598,7 @@ void FAVPlayerMovieStreamer::TeardownPlayback()
         LatestSamples = NULL;
     }
     
-    // NS Object release handled by external AutoReleasePool
-    if( AVVideoOutput != nil )
-    {
-        AVVideoOutput = nil;
-    }
-    if( AVVideoTrack != nil )
-    {
-        AVVideoTrack = nil;
-    }
-    if( AVReader != nil )
-    {
-        AVReader = nil;
-    }
-    if( AVMovie != nil )
-    {
-        AVMovie = nil;
-    }
+	ReleaseMovie();
     if ( AudioPlayer != nil )
     {
         AudioPlayer = nil;
@@ -587,13 +607,72 @@ void FAVPlayerMovieStreamer::TeardownPlayback()
     // NOTE: The any textures allocated are still allocated at this point. They will get released in Cleanup()
 }
 
+void FAVPlayerMovieStreamer::ReleaseMovie()
+{
+	if (AVMovie != nil)
+	{
+		AVMovie = nil;
+	}
+	// NS Object release handled by external AutoReleasePool
+	if (AVVideoOutput != nil)
+	{
+		AVVideoOutput = nil;
+	}
+	if (AVVideoTrack != nil)
+	{
+		AVVideoTrack = nil;
+	}
+	if (AVReader != nil)
+	{
+		AVReader = nil;
+	}
+
+}
+
 FString FAVPlayerMovieStreamer::GetMovieName()
 {
-	return MovieQueue.Num() > 0 ? MovieQueue[0] : TEXT("");
+	return MovieName;
 }
 
 bool FAVPlayerMovieStreamer::IsLastMovieInPlaylist()
 {
 	return MovieQueue.Num() <= 1;
+}
+
+
+/* Interrupts */
+void FAVPlayerMovieStreamer::Suspend()
+{
+	if (bIsMovieInterrupted)
+	{
+		//already paused
+		return;
+	}
+	bIsMovieInterrupted = true;
+
+	FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
+
+	if (bVideoTracksLoaded && AVReader != nil)
+	{
+		ResumeTime = CMTimeMake(Cursor * TIMESCALE, TIMESCALE);
+
+		[AudioPlayer pause];
+
+		[AVReader cancelReading];
+
+	}
+	ReleaseMovie();
+}
+
+void FAVPlayerMovieStreamer::Resume()
+{
+	if (!bIsMovieInterrupted)
+	{
+		//already resumed
+		return;
+	}
+	FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
+
+	LoadMovie(MovieName);
 }
 

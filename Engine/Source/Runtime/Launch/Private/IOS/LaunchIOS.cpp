@@ -20,6 +20,7 @@
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/ConfigCacheIni.h"
 #include "MoviePlayer.h"
+#include "PreLoadScreenManager.h"
 
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
@@ -36,6 +37,13 @@ FAutoConsoleVariableRef CVarDisableAudioSuspendOnAudioInterrupt(
 
 void FAppEntry::Suspend(bool bIsInterrupt)
 {
+	// also treats interrupts BEFORE initializing the engine
+	// the movie player gets initialized on the preinit phase, ApplicationHasEnteredForegroundDelegate and ApplicationWillEnterBackgroundDelegate are not yet available
+	if (GetMoviePlayer())
+	{
+		GetMoviePlayer()->Suspend();
+	}
+
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
@@ -101,6 +109,11 @@ void FAppEntry::Suspend(bool bIsInterrupt)
 
 void FAppEntry::Resume(bool bIsInterrupt)
 {
+	if (GetMoviePlayer())
+	{
+		GetMoviePlayer()->Resume();
+	}
+
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();

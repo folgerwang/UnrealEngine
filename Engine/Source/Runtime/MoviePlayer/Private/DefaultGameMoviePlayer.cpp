@@ -860,3 +860,21 @@ void FDefaultGameMoviePlayer::ForceCompletion()
 		MovieStreamer->ForceCompletion();
 	}
 }
+
+/*Interrupts*/
+void FDefaultGameMoviePlayer::Suspend()
+{
+	if (MovieStreamer.IsValid())
+	{
+		MovieStreamer->Suspend();
+	}
+}
+
+void FDefaultGameMoviePlayer::Resume()
+{
+	if (MovieStreamer.IsValid())
+	{
+		MovieStreamer->Resume();
+	}
+}
+
