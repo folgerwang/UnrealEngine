@@ -248,11 +248,12 @@ namespace SkeletalSimplifier
 			typedef ArrayBase<6, SymmetricMatrix>            MyBase;
 			typedef typename MyBase::ScalarType              ScalarType;
 
+			using MyBase::Data;
 
 			SymmetricMatrix() 
 			{
 				// Zero
-				Reset();
+				this->Reset();
 			}
 
 			/**
