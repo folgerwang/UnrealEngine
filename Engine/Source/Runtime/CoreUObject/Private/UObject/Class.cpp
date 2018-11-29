@@ -4464,6 +4464,12 @@ void UClass::CreateLinkAndAddChildFunctionsToMap(const FClassFunctionLinkInfo* F
 	}
 }
 
+void UClass::ClearFunctionMapsCaches()
+{
+	FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_Write);
+	SuperFuncMap.Empty();
+}
+
 UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper) const
 {
 	UFunction* Result = FuncMap.FindRef(InName);

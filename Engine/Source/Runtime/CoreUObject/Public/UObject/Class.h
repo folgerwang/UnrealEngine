@@ -2427,10 +2427,7 @@ public:
 	}
 
 	/** Clears the function name caches, in case things have changed */
-	void ClearFunctionMapsCaches()
-	{
-		SuperFuncMap.Empty();
-	}
+	void ClearFunctionMapsCaches();
 
 	/** Looks for a given function name */
 	UFunction* FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper = EIncludeSuperFlag::IncludeSuper) const;
