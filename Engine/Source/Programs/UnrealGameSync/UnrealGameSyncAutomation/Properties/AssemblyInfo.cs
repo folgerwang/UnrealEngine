@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
