@@ -2626,9 +2626,26 @@ protected:
 			{
 				if (bIsRWTexture)
 				{
+					ralloc_asprintf_append(buffer, "(");
 					deref->image->accept(this);
 					ralloc_asprintf_append(buffer, ".read(");
 					deref->image_index->accept(this);
+					ralloc_asprintf_append(buffer, ")");
+					switch(dst_elements)
+					{
+						case 1:
+							ralloc_asprintf_append(buffer, ".x");
+							break;
+						case 2:
+							ralloc_asprintf_append(buffer, ".xy");
+							break;
+						case 3:
+							ralloc_asprintf_append(buffer, ".xyz");
+							break;
+						case 4:
+						default:
+							break;
+					}
 					ralloc_asprintf_append(buffer, ")");
 				}
 				else
