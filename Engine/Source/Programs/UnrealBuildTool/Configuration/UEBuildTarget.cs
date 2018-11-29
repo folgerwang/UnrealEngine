@@ -1071,7 +1071,7 @@ namespace UnrealBuildTool
 			FilesToDelete.Add(DependencyCache.GetDependencyCachePathForTarget(ProjectFile, Platform, TargetName));
 			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, false));
 			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, true));
-			FilesToDelete.Add(ActionHistory.GeneratePathForTarget(this));
+			FilesToDelete.Add(ActionHistory.GeneratePathForTarget(ProjectFile, TargetName, Platform, Architecture, bUseSharedBuildEnvironment));
 
 			// Add all the intermediate folders to be deleted
 			List<DirectoryReference> DirectoriesToDelete = new List<DirectoryReference>();

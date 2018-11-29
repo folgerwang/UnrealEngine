@@ -326,7 +326,7 @@ namespace UnrealBuildTool
 			TargetToOutdatedPrerequisitesMap = new Dictionary<UEBuildTarget, List<FileItem>>();
 			foreach (UEBuildTarget BuildTarget in Targets)	// @todo ubtmake: Optimization: Ideally we don't even need to know about targets for ubtmake -- everything would come from the files
 			{
-				FileReference HistoryFilename = ActionHistory.GeneratePathForTarget(BuildTarget);
+				FileReference HistoryFilename = ActionHistory.GeneratePathForTarget(BuildTarget.ProjectFile, BuildTarget.TargetName, BuildTarget.Platform, BuildTarget.Architecture, BuildTarget.bUseSharedBuildEnvironment);
 				if (!OpenHistoryFiles.Contains(HistoryFilename))		// @todo ubtmake: Optimization: We should be able to move the command-line outdatedness and build product deletion over to the 'gather' phase, as the command-lines won't change between assembler runs
 				{
 					ActionHistory History = new ActionHistory(HistoryFilename.FullName);

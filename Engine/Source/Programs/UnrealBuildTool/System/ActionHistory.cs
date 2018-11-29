@@ -99,32 +99,32 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Generates a full path to action history file for the specified target.
 		/// </summary>
-		public static FileReference GeneratePathForTarget(UEBuildTarget Target)
+		public static FileReference GeneratePathForTarget(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, string Architecture, bool bUseSharedBuildEnvironment)
 		{
-			DirectoryReference Folder = null;
-			if (Target.ShouldCompileMonolithic() || Target.TargetType == TargetType.Program)
+			if(bUseSharedBuildEnvironment)
 			{
-				// Monolithic configs and programs have their Action History stored in their respective project folders
-				// or under engine intermediate folder + program name folder
-				DirectoryReference RootDirectory;
-				if (Target.ProjectFile != null)
+				if(UnrealBuildTool.IsEngineInstalled() && ProjectFile != null)
 				{
-					RootDirectory = Target.ProjectFile.Directory;
+					return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", "ActionHistory.bin");
 				}
 				else
 				{
-					RootDirectory = UnrealBuildTool.EngineDirectory;
+					return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "ActionHistory.bin");
 				}
-				Folder = DirectoryReference.Combine(RootDirectory, Target.PlatformIntermediateFolder, Target.GetTargetName());
 			}
 			else
 			{
-				// Shared action history (unless this is an installed build target)
-				Folder = (UnrealBuildTool.IsEngineInstalled() && Target.ProjectFile != null) ?
-					DirectoryReference.Combine(Target.ProjectFile.Directory, "Intermediate", "Build") :
-					DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build");
+				string PlatformIntermediateFolder = UEBuildTarget.GetPlatformIntermediateFolder(Platform, Architecture);
+
+				if(ProjectFile != null)
+				{
+					return FileReference.Combine(ProjectFile.Directory, PlatformIntermediateFolder, TargetName, "ActionHistory.bin");
+				}
+				else
+				{
+					return FileReference.Combine(UnrealBuildTool.EngineDirectory, PlatformIntermediateFolder, TargetName, "ActionHistory.bin");
+				}
 			}
-			return FileReference.Combine(Folder, "ActionHistory.bin");
 		}
 	}
 }
