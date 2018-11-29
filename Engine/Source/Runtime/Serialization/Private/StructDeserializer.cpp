@@ -204,7 +204,7 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 					int32 PairIndex = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
 					uint8* PairPtr = MapHelper.GetPairPtr(PairIndex);
 
-					MapProperty->KeyProp->ImportText(*PropertyName, PairPtr + MapProperty->MapLayout.KeyOffset, PPF_None, nullptr);
+					MapProperty->KeyProp->ImportText(*PropertyName, PairPtr, PPF_None, nullptr);
 
 					if (!Backend.ReadProperty(Property, CurrentState.Property, PairPtr, CurrentState.ArrayIndex))
 					{
@@ -326,7 +326,7 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 					NewState.Data = PairPtr + MapHelper.MapLayout.ValueOffset;
 					NewState.Property = MapProperty->ValueProp;
 
-					MapProperty->KeyProp->ImportText(*PropertyName, PairPtr + MapProperty->MapLayout.KeyOffset, PPF_None, nullptr);
+					MapProperty->KeyProp->ImportText(*PropertyName, PairPtr, PPF_None, nullptr);
 				}
 				else if ((CurrentState.Property != nullptr) && (CurrentState.Property->GetClass() == USetProperty::StaticClass()))
 				{
@@ -336,7 +336,7 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 					const int32 ElementIndex = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
 					uint8* ElementPtr = SetHelper.GetElementPtr(ElementIndex);
 
-					NewState.Data = ElementPtr + SetHelper.SetLayout.ElementOffset;
+					NewState.Data = ElementPtr;
 					NewState.Property = SetProperty->ElementProp;
 				}
 				else

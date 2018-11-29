@@ -1310,7 +1310,7 @@ struct TContainerTraits<TSet<ElementType, KeyFuncs, Allocator> > : public TConta
 
 struct FScriptSetLayout
 {
-	int32 ElementOffset;
+	// int32 ElementOffset = 0; // always at zero offset from the TSetElement - not stored here
 	int32 HashNextIdOffset;
 	int32 HashIndexOffset;
 	int32 Size;
@@ -1329,11 +1329,13 @@ public:
 
 		// TSetElement<TPair<Key, Value>>
 		FStructBuilder SetElementStruct;
-		Result.ElementOffset     = SetElementStruct.AddMember(ElementSize,           ElementAlignment);
+		int32 ElementOffset      = SetElementStruct.AddMember(ElementSize,           ElementAlignment);
 		Result.HashNextIdOffset  = SetElementStruct.AddMember(sizeof(FSetElementId), alignof(FSetElementId));
 		Result.HashIndexOffset   = SetElementStruct.AddMember(sizeof(int32),         alignof(int32));
 		Result.Size              = SetElementStruct.GetSize();
 		Result.SparseArrayLayout = FScriptSparseArray::GetScriptLayout(SetElementStruct.GetSize(), SetElementStruct.GetAlignment());
+
+		checkf(ElementOffset == 0, TEXT("The element inside the TSetElement is expected to be at the start of the struct"));
 
 		return Result;
 	}

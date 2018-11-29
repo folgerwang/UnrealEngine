@@ -231,7 +231,7 @@ bool ReKeyTextProperty(UStruct* InOuterType, void* InAddrToUpdate, const TArray<
 
 						if (ScriptSetHelper.IsValidIndex(SparseIndex))
 						{
-							AddrToUpdate = ScriptSetHelper.GetElementPtr(SparseIndex) + SetProp->SetLayout.ElementOffset;
+							AddrToUpdate = ScriptSetHelper.GetElementPtr(SparseIndex);
 
 							// Is this a complex property? If so, we need to recurse into it
 							if (UStructProperty* StructProp = Cast<UStructProperty>(SetProp->ElementProp))
@@ -253,7 +253,7 @@ bool ReKeyTextProperty(UStruct* InOuterType, void* InAddrToUpdate, const TArray<
 						FScriptMapHelper ScriptMapHelper(MapProp, AddrToUpdate);
 						if (ScriptMapHelper.IsValidIndex(ContainerIndex))
 						{
-							AddrToUpdate = ScriptMapHelper.GetPairPtr(ContainerIndex) + MapProp->MapLayout.KeyOffset;
+							AddrToUpdate = ScriptMapHelper.GetPairPtr(ContainerIndex);
 
 							// Is this a complex property? If so, we need to recurse into it
 							if (UStructProperty* StructProp = Cast<UStructProperty>(MapProp->KeyProp))

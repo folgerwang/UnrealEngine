@@ -3090,7 +3090,7 @@ public:
 		}
 		
 		checkSlow(IsValidIndex(Index));
-		return (uint8*)Map->GetData(Index, MapLayout) + MapLayout.KeyOffset;
+		return (uint8*)Map->GetData(Index, MapLayout);
 	}
 
 	/**
