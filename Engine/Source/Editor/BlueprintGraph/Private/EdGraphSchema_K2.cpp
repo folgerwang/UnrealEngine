@@ -5719,7 +5719,7 @@ struct FBackwardCompatibilityConversionHelper
 				UEdGraphPin* ExecPin = OldNode->GetExecPin();
 				UEdGraphPin* ExecCastPin = CastNode->GetExecPin();
 				check(ExecCastPin);
-				if (!ExecPin || !Schema.MovePinLinks(*ExecPin, *ExecCastPin).CanSafeConnect())
+				if (!ExecPin || !Schema.MovePinLinks(*ExecPin, *ExecCastPin, false, true).CanSafeConnect())
 				{
 					UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 						Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
@@ -5749,7 +5749,7 @@ struct FBackwardCompatibilityConversionHelper
 
 				UEdGraphPin* CastSourcePin = CastNode->GetCastSourcePin();
 				check(CastSourcePin);
-				if (!Schema.MovePinLinks(*OldBlueprintPin, *CastSourcePin).CanSafeConnect())
+				if (!Schema.MovePinLinks(*OldBlueprintPin, *CastSourcePin, false, true).CanSafeConnect())
 				{
 					UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 						Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
@@ -5780,7 +5780,7 @@ struct FBackwardCompatibilityConversionHelper
 					if (OldPin)
 					{
 						OldPins.Add(OldPin);
-						if (!Schema.MovePinLinks(*OldPin, *Pin).CanSafeConnect())
+						if (!Schema.MovePinLinks(*OldPin, *Pin, false, true).CanSafeConnect())
 						{
 							UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 								Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
@@ -5964,7 +5964,7 @@ bool UEdGraphSchema_K2::ReplaceOldNodeWithNew(UK2Node* OldNode, UK2Node* NewNode
 			{
 				continue;
 			}
-			else if (!Schema->MovePinLinks(*OldPin, *NewPin).CanSafeConnect())
+			else if (!Schema->MovePinLinks(*OldPin, *NewPin, false, true).CanSafeConnect())
 			{
 				UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot safely move pin %s to %s' in blueprint: %s"),
 					*OldPin->PinName.ToString(),

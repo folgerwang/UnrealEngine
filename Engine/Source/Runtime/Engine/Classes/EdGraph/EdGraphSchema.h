@@ -842,8 +842,15 @@ class ENGINE_API UEdGraphSchema : public UObject
 	/** Handles double-clicking on a pin<->pin connection */
 	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const { }
 
-	/** Break links on this pin and create links instead on MoveToPin */
-	virtual FPinConnectionResponse MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove = false) const;
+	/**
+	 * Break links on this pin and create links instead on MoveToPin
+	 * 
+	 * @param	MoveFromPin			Pin we are breaking links from
+	 * @param	MoveToPin			Pin we are copying links to
+	 * @param	bIsIntermediateMove	Allows linking to transient pins, should only be true when called from utility functions
+	 * @param	bNotifyLinkedNodes	If true, it will notify linked nodes if it fails to move connection, this allows type fixup
+	 */
+	virtual FPinConnectionResponse MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove = false, bool bNotifyLinkedNodes = false) const;
 	 
 	/** Copies pin links from one pin to another without breaking the original links */
 	virtual FPinConnectionResponse CopyPinLinks(UEdGraphPin& CopyFromPin, UEdGraphPin& CopyToPin, bool bIsIntermediateCopy = false) const;
