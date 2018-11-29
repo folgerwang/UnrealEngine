@@ -14,6 +14,8 @@ struct CORE_API FWindowsPlatformCrashContext : public FGenericCrashContext
 		bIsEnsure = bInIsEnsure;
 	}
 
+	virtual void SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack);
+
 	virtual void AddPlatformSpecificProperties() const override;
 };
 

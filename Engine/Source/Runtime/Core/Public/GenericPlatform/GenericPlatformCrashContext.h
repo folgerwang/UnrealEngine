@@ -74,11 +74,11 @@ struct FCrashStackFrame
 	uint64 BaseAddress;
 	uint64 Offset;
 
-	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+	FCrashStackFrame(FString ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+		: ModuleName(MoveTemp(ModuleNameIn))
+		, BaseAddress(BaseAddressIn)
+		, Offset(OffsetIn)
 	{
-		ModuleName = ModuleNameIn;
-		BaseAddress = BaseAddressIn;
-		Offset = OffsetIn;
 	}
 };
 
@@ -212,7 +212,7 @@ public:
 	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
 	
 	/** Sets the portable callstack to a specified stack */
-	void SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack);
+	virtual void SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack);
 
 	/**
 	 * @return whether this crash is a non-crash event

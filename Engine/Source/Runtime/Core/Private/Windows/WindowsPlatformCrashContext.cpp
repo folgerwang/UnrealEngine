@@ -28,6 +28,7 @@
 #include <strsafe.h>
 #include <dbghelp.h>
 #include <Shlwapi.h>
+#include <psapi.h>
 
 #ifndef UE_LOG_CRASH_CALLSTACK
 	#define UE_LOG_CRASH_CALLSTACK 1
@@ -35,6 +36,68 @@
 
 #pragma comment( lib, "version.lib" )
 #pragma comment( lib, "Shlwapi.lib" )
+
+void FWindowsPlatformCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	// Get all the module handles for the current process. Each module handle is its base address.
+	TArray<HMODULE, TInlineAllocator<128>> ProcessModuleHandles;
+	for (;;)
+	{
+		DWORD BufferSize = ProcessModuleHandles.Num() * sizeof(HMODULE);
+		DWORD RequiredBufferSize = 0;
+		if (!EnumProcessModules(GetCurrentProcess(), ProcessModuleHandles.GetData(), BufferSize, &RequiredBufferSize))
+		{
+			return;
+		}
+		if(RequiredBufferSize <= BufferSize)
+		{
+			break;
+		}
+		ProcessModuleHandles.SetNum(RequiredBufferSize / sizeof(HMODULE));
+	}
+
+	// Sort the handles by address. This allows us to do a binary search for the module containing an address.
+	Algo::Sort(ProcessModuleHandles);
+
+	// Prepare the callstack buffer
+	CallStack.Reset(Stack.Num());
+
+	// Create the crash context
+	for (int Idx = 0; Idx < Stack.Num(); Idx++)
+	{
+		int ModuleIdx = Algo::UpperBound(ProcessModuleHandles, (HMODULE)Stack[Idx].ProgramCounter) - 1;
+		if (ModuleIdx < 0 || ModuleIdx >= ProcessModuleHandles.Num())
+		{
+			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, Stack[Idx].ProgramCounter));
+		}
+		else
+		{
+			TCHAR ModuleName[MAX_PATH];
+			if (GetModuleFileNameW(ProcessModuleHandles[ModuleIdx], ModuleName, ARRAY_COUNT(ModuleName)) != 0)
+			{
+				TCHAR* ModuleNameEnd = FCString::Strrchr(ModuleName, '\\');
+				if(ModuleNameEnd != nullptr)
+				{
+					FMemory::Memmove(ModuleName, ModuleNameEnd + 1, (FCString::Strlen(ModuleNameEnd + 1) + 1) * sizeof(TCHAR));
+				}
+
+				TCHAR* ModuleNameExt = FCString::Strrchr(ModuleName, '.');
+				if(ModuleNameExt != nullptr)
+				{
+					*ModuleNameExt = 0;
+				}
+			}
+			else
+			{
+				FCString::Strcpy(ModuleName, TEXT("Unknown"));
+			}
+
+			uint64 BaseAddress = (uint64)ProcessModuleHandles[ModuleIdx];
+			uint64 Offset = Stack[Idx].ProgramCounter - BaseAddress;
+			CallStack.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
+		}
+	}
+}
 
 void FWindowsPlatformCrashContext::AddPlatformSpecificProperties() const
 {
