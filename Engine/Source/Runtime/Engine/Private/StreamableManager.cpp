@@ -205,30 +205,21 @@ EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout, boo
 
 bool FStreamableHandle::HasLoadCompletedOrStalled() const
 {
-	// We need to recursively look for complete or stalled handles
-	TArray<TSharedRef< FStreamableHandle>> HandlesToCheck;
-
-	HandlesToCheck.Add(const_cast<FStreamableHandle*>(this)->AsShared());
-
-	for (int32 i = 0; i < HandlesToCheck.Num(); i++)
+	// Check this handle
+	if (!IsCombinedHandle() && !HasLoadCompleted() && !IsStalled())
 	{
-		TSharedRef<const FStreamableHandle> Handle = HandlesToCheck[i];
+		return false;
+	}
 
-		if (!Handle->IsCombinedHandle() && !Handle->HasLoadCompleted() && !Handle->IsStalled())
+	// Check children recursively
+	for (const TSharedPtr<FStreamableHandle>& ChildHandle : ChildHandles)
+	{
+		if (ChildHandle.IsValid() && !ChildHandle->HasLoadCompletedOrStalled())
 		{
 			return false;
 		}
-
-		for (TSharedPtr<FStreamableHandle> ChildHandle : Handle->ChildHandles)
-		{
-			if (ChildHandle.IsValid())
-			{
-				HandlesToCheck.Add(ChildHandle.ToSharedRef());
-			}
-		}
 	}
 
-	// All handles are either completed or stalled
 	return true;
 }
 
@@ -518,16 +509,10 @@ void FStreamableHandle::UpdateCombinedHandle()
 	// Check all our children, complete if done
 	bool bAllCompleted = true;
 	bool bAllCanceled = true;
-	for (TSharedPtr<FStreamableHandle> ChildHandle : ChildHandles)
+	for (TSharedPtr<FStreamableHandle>& ChildHandle : ChildHandles)
 	{
-		if (ChildHandle->IsLoadingInProgress())
-		{
-			bAllCompleted = false;
-		}
-		if (!ChildHandle->WasCanceled())
-		{
-			bAllCanceled = false;
-		}
+		bAllCompleted = bAllCompleted && !ChildHandle->IsLoadingInProgress();
+		bAllCanceled = bAllCanceled && ChildHandle->WasCanceled();
 	}
 
 	// If all our sub handles were canceled, cancel us. Otherwise complete us if at least one was completed and there are none in progress

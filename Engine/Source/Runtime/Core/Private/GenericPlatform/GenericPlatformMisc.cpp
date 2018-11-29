@@ -1022,12 +1022,8 @@ bool FGenericPlatformMisc::UseRenderThread()
 
 bool FGenericPlatformMisc::AllowThreadHeartBeat()
 {
-	if (FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread")))
-	{
-		return false;
-	}
-
-	return true;
+	static bool bHeartbeat = !FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread"));
+	return bHeartbeat;
 }
 
 int32 FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads()

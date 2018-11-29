@@ -117,6 +117,15 @@ public:
 	}
 
 private:
+	
+	/** Reset a range of FSetElementIds to invalid */
+	FORCEINLINE static void ResetRange(FSetElementId* Range, int32 Count)
+	{
+		for (int32 I = 0; I < Count; ++I)
+		{
+			Range[I] = FSetElementId();
+		}
+	}
 
 	/** The index of the element in the set's element array. */
 	int32 Index;
@@ -365,14 +374,16 @@ public:
 	/** Efficiently empties out the set but preserves all allocations and capacities */
     void Reset()
     {
+		if (Num() == 0)
+		{
+			return;
+		}
+    	
 		// Reset the elements array.
 		Elements.Reset();
 
 		// Clear the references to the elements that have now been removed.
-		for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
-		{
-			GetTypedHash(HashIndex) = FSetElementId();
-		}
+		FSetElementId::ResetRange(Hash.GetAllocation(), HashSize);
     }
 
 	/** Shrinks the set's element storage to avoid slack. */
@@ -1374,10 +1385,7 @@ public:
 			Hash.ResizeAllocation(0, HashSize, sizeof(FSetElementId));
 		}
 
-		for (auto* It = (FSetElementId*)Hash.GetAllocation(), *End = It + HashSize; It != End; ++It)
-		{
-			*It = FSetElementId();
-		}
+		FSetElementId::ResetRange(Hash.GetAllocation(), HashSize);
 	}
 
 	void RemoveAt(int32 Index, const FScriptSetLayout& Layout)
