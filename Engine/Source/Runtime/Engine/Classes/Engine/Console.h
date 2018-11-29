@@ -110,6 +110,9 @@ class ENGINE_API UConsole
 	/** True while a control key is pressed. */
 	uint32 bCtrl:1;
 
+	/** True while a shift key is pressed. */
+	uint32 bShift:1;
+
 	/** Full list of auto-complete commands and info */
 	TArray<FAutoCompleteCommand> AutoCompleteList;
 
@@ -177,6 +180,9 @@ class ENGINE_API UConsole
 	
 	/** looks for Control key presses and the copy/paste combination that apply to both the console bar and the full open console */
 	virtual bool ProcessControlKey(FKey Key, EInputEvent Event);
+
+	/** looks for Shift key presses */
+	virtual bool ProcessShiftKey(FKey Key, EInputEvent Event);
 	
 	/** appends the specified text to the string of typed text */
 	virtual void AppendInputText(const FString& Text);

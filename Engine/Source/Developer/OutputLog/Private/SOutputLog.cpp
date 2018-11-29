@@ -241,7 +241,28 @@ void SConsoleInputBox::OnTextChanged(const FText& InText)
 
 			IConsoleManager::Get().ForEachConsoleObjectThatContains(FConsoleObjectVisitor::CreateLambda(OnConsoleVariable), *InputTextStr);
 		}
-		AutoCompleteList.Sort();
+		AutoCompleteList.Sort([InputTextStr](const FString& A, const FString& B)
+		{ 
+			if (A.StartsWith(InputTextStr))
+			{
+				if (!B.StartsWith(InputTextStr))
+				{
+					return true;
+				}
+			}
+			else
+			{
+				if (B.StartsWith(InputTextStr))
+				{
+					return false;
+				}
+			}
+
+			return A < B;
+
+		});
+
+
 		SetSuggestions(AutoCompleteList, FText::FromString(InputTextStr));
 	}
 	else
@@ -304,14 +325,13 @@ FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKe
 			{
 				if (Suggestions.HasSelectedSuggestion())
 				{
-					MarkActiveSuggestion();
-					SuggestionBox->SetIsOpen(false);
+					Suggestions.StepSelectedSuggestion(KeyEvent.IsShiftDown() ? -1 : +1);
 				}
 				else
 				{
 					Suggestions.SelectedSuggestion = 0;
-					MarkActiveSuggestion();
 				}
+				MarkActiveSuggestion();
 			}
 
 			bConsumeTab = true;
@@ -408,6 +428,10 @@ void SConsoleInputBox::SetSuggestions(TArray<FString>& Elements, FText Highlight
 		if (Suggestions.HasSelectedSuggestion())
 		{
 			SuggestionListView->RequestScrollIntoView(Suggestions.GetSelectedSuggestion());
+		}
+		else
+		{
+			SuggestionListView->ScrollToTop();
 		}
 	}
 	else
