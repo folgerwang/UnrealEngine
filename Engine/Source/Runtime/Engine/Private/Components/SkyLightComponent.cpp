@@ -249,10 +249,17 @@ void USkyLightComponent::CreateRenderState_Concurrent()
 {
 	Super::CreateRenderState_Concurrent();
 
-	bool bHidden = !ShouldComponentAddToScene() || !ShouldRender();
+	bool bHidden = false;
+#if WITH_EDITORONLY_DATA
+	bHidden = GetOwner() ? GetOwner()->bHiddenEdLevel : false;
+#endif // WITH_EDITORONLY_DATA
+
+	if(!ShouldComponentAddToScene())
+	{
+		bHidden = true;
+	}
+
 	const bool bIsValid = SourceType != SLS_SpecifiedCubemap || Cubemap != NULL;
-
-
 
 	if (bAffectsWorld && bVisible && !bHidden && bIsValid)
 	{
