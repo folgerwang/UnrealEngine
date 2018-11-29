@@ -652,53 +652,57 @@ FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStack
 		NumStackFramesToIgnore++;
 	}
 
-	const int32 MaxDepth = 100;
-	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
-	return SetPortableCallStack(Stack);
+	// Capture the stack trace
+	static const int StackTraceMaxDepth = 100;
+	uint64 StackTrace[StackTraceMaxDepth];
+	FMemory::Memzero(StackTrace);
+	int32 StackTraceDepth = FPlatformStackWalk::CaptureStackBackTrace(StackTrace, StackTraceMaxDepth, Context);
+
+	// Make sure we don't exceed the current stack depth
+	NumStackFramesToIgnore = FMath::Min(NumStackFramesToIgnore, StackTraceDepth);
+
+	// Generate the portable callstack from it
+	SetPortableCallStack(StackTrace + NumStackFramesToIgnore, StackTraceDepth - NumStackFramesToIgnore);
 }
 
-void FGenericCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
+void FGenericCrashContext::SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames)
 {
-	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
+	// Get all the modules in the current process
+	uint32 NumModules = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 
-	if (ModuleEntries)
+	TArray<FStackWalkModuleInfo> Modules;
+	Modules.AddUninitialized(NumModules);
+
+	NumModules = FPlatformStackWalk::GetProcessModuleSignatures(Modules.GetData(), NumModules);
+	Modules.SetNum(NumModules);
+
+	// Update the callstack with offsets from each module
+	CallStack.Reset(NumStackFrames);
+	for(int32 Idx = 0; Idx < NumStackFrames; Idx++)
 	{
-		TArray<FStackWalkModuleInfo> ProcessModules;
-		ProcessModules.AddUninitialized(ModuleEntries);
-		FPlatformStackWalk::GetProcessModuleSignatures(ProcessModules.GetData(), ProcessModules.Max());
+		const uint64 StackFrame = StackFrames[Idx];
 
-		TMap<FString, uint64> ImageBases;
-		int32 ModuleIndex = 0;
-		for (TArray<FProgramCounterSymbolInfo>::TConstIterator Itr(Stack); Itr; ++Itr)
+		// Try to find the module containing this stack frame
+		const FStackWalkModuleInfo* FoundModule = nullptr;
+		for(const FStackWalkModuleInfo& Module : Modules)
 		{
-			FString ModuleName = FPaths::GetBaseFilename(Itr->ModuleName);
-
-			if (!ImageBases.Contains(ModuleName))
+			if(StackFrame >= Module.BaseOfImage && StackFrame < Module.BaseOfImage + Module.ImageSize)
 			{
-				for (TArray<FStackWalkModuleInfo>::TConstIterator ProcessModuleItr(ProcessModules); ProcessModuleItr; ++ProcessModuleItr)
-				{
-					FString ProcessModuleName = FPaths::GetBaseFilename(ProcessModuleItr->ImageName);
-
-					if (!ModuleName.Compare(ProcessModuleName, ESearchCase::IgnoreCase))
-					{
-						ImageBases.Add(ModuleName, ProcessModuleItr->BaseOfImage);
-						break;
-					}
-				}
-
+				FoundModule = &Module;
+				break;
 			}
+		}
 
-			uint64 BaseOfImage = MAX_uint64;
-
-			if (ImageBases.Contains(ModuleName))
-			{
-				BaseOfImage = ImageBases[ModuleName];
-			}
-
-			CallStack.Add(FCrashStackFrame(ModuleName, BaseOfImage, Itr->ProgramCounter > BaseOfImage ? Itr->ProgramCounter - BaseOfImage : MAX_uint64));
+		// Add the callstack item
+		if(FoundModule == nullptr)
+		{
+			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, StackFrame));
+		}
+		else
+		{
+			CallStack.Add(FCrashStackFrame(FPaths::GetBaseFilename(FoundModule->ImageName), FoundModule->BaseOfImage, StackFrame - FoundModule->BaseOfImage));
 		}
 	}
-
 }
 
 FProgramCounterSymbolInfoEx::FProgramCounterSymbolInfoEx( FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter ) :

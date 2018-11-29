@@ -237,12 +237,7 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 		FCString::Strcpy(GErrorMessage, ARRAY_COUNT(GErrorMessage), *ErrorMessage);
 
 		// Skip macros and FDebug, we always want this to fire
-		TArray<FProgramCounterSymbolInfo> Stack;
-		for (int32 Idx = 0; Idx < NumStackFrames; Idx++)
-		{
-			FPlatformStackWalk::ProgramCounterToSymbolInfo(StackFrames[Idx], Stack.AddDefaulted_GetRef());
-		}
-		ReportHang(*ErrorMessage, Stack);
+		ReportHang(*ErrorMessage, StackFrames, NumStackFrames);
 
 		GErrorMessage[0] = '\0';
 #endif // PLATFORM_DESKTOP

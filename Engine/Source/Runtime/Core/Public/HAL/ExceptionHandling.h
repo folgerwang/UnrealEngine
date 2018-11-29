@@ -25,7 +25,7 @@ extern CORE_API TCHAR MiniDumpFilenameW[1024];
 // #CrashReport: 2014-10-09 These methods are specific to windows, remove from here.
 extern CORE_API int32 ReportCrash( Windows::LPEXCEPTION_POINTERS ExceptionInfo );
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore );
-extern CORE_API void ReportHang(const TCHAR*, const TArray<FProgramCounterSymbolInfo>& Stack);
+extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames);
 #elif PLATFORM_XBOXONE
 #include "XboxOne/XboxOneSystemIncludes.h"
 // #CrashReport: 2014-10-09 Should be move to another file
@@ -36,10 +36,10 @@ extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFra
 #include <signal.h>
 extern CORE_API int32 ReportCrash( ucontext_t *Context, int32 Signal, struct __siginfo* Info );
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore );
-extern CORE_API void ReportHang(const TCHAR*, const TArray<FProgramCounterSymbolInfo>& Stack);
+extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames);
 #elif PLATFORM_UNIX
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore );
-extern CORE_API void ReportHang(const TCHAR*, const TArray<FProgramCounterSymbolInfo>& Stack);
+extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames);
 #endif
 
 enum class ECrashType

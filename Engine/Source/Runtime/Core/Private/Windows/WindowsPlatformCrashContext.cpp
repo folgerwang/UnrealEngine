@@ -37,7 +37,7 @@
 #pragma comment( lib, "version.lib" )
 #pragma comment( lib, "Shlwapi.lib" )
 
-void FWindowsPlatformCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
+void FWindowsPlatformCrashContext::SetPortableCallStack(const uint64* StackTrace, int32 StackTraceDepth)
 {
 	// Get all the module handles for the current process. Each module handle is its base address.
 	TArray<HMODULE, TInlineAllocator<128>> ProcessModuleHandles;
@@ -60,15 +60,15 @@ void FWindowsPlatformCrashContext::SetPortableCallStack(const TArray<FProgramCou
 	Algo::Sort(ProcessModuleHandles);
 
 	// Prepare the callstack buffer
-	CallStack.Reset(Stack.Num());
+	CallStack.Reset(StackTraceDepth);
 
 	// Create the crash context
-	for (int Idx = 0; Idx < Stack.Num(); Idx++)
+	for (int Idx = 0; Idx < StackTraceDepth; Idx++)
 	{
-		int ModuleIdx = Algo::UpperBound(ProcessModuleHandles, (HMODULE)Stack[Idx].ProgramCounter) - 1;
+		int ModuleIdx = Algo::UpperBound(ProcessModuleHandles, (HMODULE)StackTrace[Idx]) - 1;
 		if (ModuleIdx < 0 || ModuleIdx >= ProcessModuleHandles.Num())
 		{
-			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, Stack[Idx].ProgramCounter));
+			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, StackTrace[Idx]));
 		}
 		else
 		{
@@ -93,7 +93,7 @@ void FWindowsPlatformCrashContext::SetPortableCallStack(const TArray<FProgramCou
 			}
 
 			uint64 BaseAddress = (uint64)ProcessModuleHandles[ModuleIdx];
-			uint64 Offset = Stack[Idx].ProgramCounter - BaseAddress;
+			uint64 Offset = StackTrace[Idx] - BaseAddress;
 			CallStack.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
 		}
 	}
@@ -397,12 +397,12 @@ void NewReportEnsure_Inner( const TCHAR* ErrorMessage )
 #endif	// WINVER
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames)
 {
 	const bool bIsEnsure = true;
 
 	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
-	CrashContext.SetPortableCallStack(Stack);
+	CrashContext.SetPortableCallStack(StackFrames, NumStackFrames);
 
 	EErrorReportUI ReportUI = IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode;
 	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ErrorMessage, ReportUI, bIsEnsure);
