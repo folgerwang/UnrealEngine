@@ -1840,46 +1840,6 @@ void FIOSTargetSettingsCustomization::UpdateShaderStandardWarning()
 
 void FIOSTargetSettingsCustomization::UpdateOSVersionWarning()
 {
-	bool bMRTEnabled = false;
-	if (MRTPropertyHandle.IsValid())
-	{
-		MRTPropertyHandle->GetValue(bMRTEnabled);
-	}
-	
-	// Due to a driver bug on A8 devices running iOS 9 we can only support the global clip-plane when running iOS 10+
-	static IConsoleVariable* ClipPlaneCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowGlobalClipPlane"));
-	if (MinOSPropertyHandle.IsValid() && IOSVersionWarningTextBox.IsValid() && ((ClipPlaneCVar && ClipPlaneCVar->GetInt() != 0) || bMRTEnabled))
-	{
-		uint8 EnumValue;
-		MinOSPropertyHandle->GetValue(EnumValue);
-		
-		if (EnumValue < (uint8)EIOSVersion::IOS_10)
-		{
-			SetMinVersion((int32)EIOSVersion::IOS_10);
-		}
-		
-		FText Message;
-		if (bMRTEnabled)
-		{
-			Message = LOCTEXT("MetalMRTStandardv1.2","Enabling the Desktop Forward Renderer Metal requires Shader Standard v1.2 which increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 10.0 or later.");
-			
-			if (ShaderVersionPropertyHandle.IsValid())
-			{
-				ShaderVersionPropertyHandle->GetValue(EnumValue);
-				if (EnumValue < (uint8)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2)
-				{
-					SetShaderStandard((int32)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2);
-				}
-			}
-		}
-		else
-		{
-			Message = LOCTEXT("GlobalClipPlaneiOS10", "Enabling the Global Clip Plane increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 10.0 or later.");
-		}
-		
-		// Update the UI
-		IOSVersionWarningTextBox->SetError(Message);
-	}
 }
 
 void FIOSTargetSettingsCustomization::UpdateMetalMRTWarning()
