@@ -647,3 +647,42 @@ extern RENDERCORE_API void BeginCleanup(FDeferredCleanupInterface* CleanupObject
  * @return A pointer to the set of pending cleanup objects.  The called is responsible for deletion.
  */
 extern RENDERCORE_API FPendingCleanupObjects* GetPendingCleanupObjects();
+
+////////////////////////////////////
+// RenderThread scoped work
+////////////////////////////////////
+
+class RENDERCORE_API FRenderThreadScope
+{
+	typedef TFunction<void(FRHICommandListImmediate&)> RenderCommandFunction;
+	typedef TArray<RenderCommandFunction> RenderCommandFunctionArray;
+public:
+	FRenderThreadScope()
+	{
+		RenderCommands = new RenderCommandFunctionArray;
+	}
+
+	~FRenderThreadScope()
+	{
+		RenderCommandFunctionArray* RenderCommandArray = RenderCommands;
+
+		ENQUEUE_RENDER_COMMAND(DispatchScopeCommands)(
+			[RenderCommandArray](FRHICommandListImmediate& RHICmdList)
+		{
+			for(uint32 Index = 0; Index < RenderCommandArray->Num(); Index++)
+			{
+				(*RenderCommandArray)[Index](RHICmdList);
+			}
+
+			delete RenderCommandArray;
+		});
+	}
+
+	void EnqueueRenderCommand(RenderCommandFunction&& Lambda)
+	{
+		RenderCommands->Add(MoveTemp(Lambda));
+	}
+
+private:
+	RenderCommandFunctionArray* RenderCommands;
+};
