@@ -1646,73 +1646,63 @@ namespace SceneOutliner
 			LOCTEXT( "AddChildrenToSelection", "Immediate Children" ),
 			LOCTEXT( "AddChildrenToSelection_ToolTip", "Select all immediate actor children of the selected folders" ),
 			FSlateIcon(),
-			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersImmediateChildren));
+			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants, /*bSelectImmediateChildrenOnly=*/ true));
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "AddDescendantsToSelection", "All Descendants" ),
 			LOCTEXT( "AddDescendantsToSelection_ToolTip", "Select all actor descendants of the selected folders" ),
 			FSlateIcon(),
-			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants));
+			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants, /*bSelectImmediateChildrenOnly=*/ false));
 	}
 
-	void SSceneOutliner::SelectFoldersImmediateChildren()
+	void SSceneOutliner::SelectFoldersDescendants(bool bSelectImmediateChildrenOnly)
 	{
-		struct FSelectActors : ITreeItemVisitor
-		{
-			virtual void Visit(const FActorTreeItem& ActorItem) const override
-			{
-				if (AActor* Actor = ActorItem.Actor.Get())
-				{
-					GEditor->SelectActor(Actor, true, /*bNotify=*/false);
-				}
-			}
-		};
-
-		struct FSelectFolders : IMutableTreeItemVisitor
+		struct FExpandFoldersRecursive : IMutableTreeItemVisitor
 		{
 			SSceneOutliner& Outliner;
-			FSelectFolders(SSceneOutliner& InOutliner) : Outliner(InOutliner) {}
+			bool bSelectImmediateChildrenOnly;
+
+			FExpandFoldersRecursive(SSceneOutliner& InOutliner, bool bInSelectImmediateChildrenOnly) :
+				Outliner(InOutliner), bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
+
+			virtual void Visit(FActorTreeItem& ActorItem) const override
+			{
+				if (!Outliner.OutlinerTreeView->IsItemExpanded(ActorItem.AsShared()))
+				{
+					Outliner.OutlinerTreeView->SetItemExpansion(ActorItem.AsShared(), true);
+				}
+
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : ActorItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
+			}
 
 			virtual void Visit(FFolderTreeItem& FolderItem) const override
 			{
-				Outliner.OutlinerTreeView->SetItemSelection(FolderItem.AsShared(), true);
+				if (!Outliner.OutlinerTreeView->IsItemExpanded(FolderItem.AsShared()))
+				{
+					Outliner.OutlinerTreeView->SetItemExpansion(FolderItem.AsShared(), true);
+				}
+
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
+
 			}
 		};
 
-		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
-		OutlinerTreeView->ClearSelection();
-
-		if (SelectedFolders.Num())
-		{
-			// We'll batch selection changes instead by using BeginBatchSelectOperation()
-			GEditor->GetSelectedActors()->BeginBatchSelectOperation();
-
-			FSelectActors SelectActorsVisitor;
-			for (const FFolderTreeItem* Folder : SelectedFolders)
-			{
-				for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
-				{
-					Child.Pin()->Visit(SelectActorsVisitor);
-				}
-			}
-
-			GEditor->GetSelectedActors()->EndBatchSelectOperation();
-			GEditor->NoteSelectionChange();
-		}
-
-		FSelectFolders SelectFoldersVisitor(*this);
-		for (const FFolderTreeItem* Folder : SelectedFolders)
-		{
-			for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
-			{
-				Child.Pin()->Visit(SelectFoldersVisitor);
-			}
-		}
-	}
-
-	void SSceneOutliner::SelectFoldersDescendants()
-	{
 		struct FSelectActorsRecursive : ITreeItemVisitor
 		{
+			bool bSelectImmediateChildrenOnly;
+			FSelectActorsRecursive(bool bInSelectImmediateChildrenOnly) : bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
+
 			virtual void Visit(const FActorTreeItem& ActorItem) const override
 			{
 				if (AActor* Actor = ActorItem.Actor.Get())
@@ -1720,17 +1710,23 @@ namespace SceneOutliner
 					GEditor->SelectActor(Actor, true, /*bNotify=*/false);
 				}
 
-				for (TWeakPtr<ITreeItem> Child : ActorItem.GetChildren())
+				if (!bSelectImmediateChildrenOnly)
 				{
-					Child.Pin()->Visit(*this);
+					for (TWeakPtr<ITreeItem> Child : ActorItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
 				}
 			}
 
 			virtual void Visit(const FFolderTreeItem& FolderItem) const override
 			{
-				for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+				if (!bSelectImmediateChildrenOnly)
 				{
-					Child.Pin()->Visit(*this);
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
 				}
 			}
 		};
@@ -1738,38 +1734,53 @@ namespace SceneOutliner
 		struct FSelectFoldersRecursive : IMutableTreeItemVisitor
 		{
 			SSceneOutliner& Outliner;
-			FSelectFoldersRecursive(SSceneOutliner& InOutliner) : Outliner(InOutliner) {}
+			bool bSelectImmediateChildrenOnly;
+			FSelectFoldersRecursive(SSceneOutliner& InOutliner, bool bInSelectImmediateChildrenOnly) : Outliner(InOutliner), bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
 
 			virtual void Visit(FFolderTreeItem& FolderItem) const override
 			{
 				Outliner.OutlinerTreeView->SetItemSelection(FolderItem.AsShared(), true);
 
-				for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+				if (!bSelectImmediateChildrenOnly)
 				{
-					Child.Pin()->Visit(*this);
-				}
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}	
 			}
 		};
 
 		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
+		OutlinerTreeView->ClearSelection();
+
+		FExpandFoldersRecursive ExpandFoldersRecursive(*this, bSelectImmediateChildrenOnly);
+		for (FFolderTreeItem* Folder : SelectedFolders)
+		{
+			Folder->Visit(ExpandFoldersRecursive);
+		}
+
 		if (SelectedFolders.Num())
 		{
 			// We'll batch selection changes instead by using BeginBatchSelectOperation()
 			GEditor->GetSelectedActors()->BeginBatchSelectOperation();
 
-			OutlinerTreeView->ClearSelection();
-
-			FSelectActorsRecursive SelectActorsRecursive;
+			FSelectActorsRecursive SelectActorsRecursive(bSelectImmediateChildrenOnly);
 			for (const FFolderTreeItem* Folder : SelectedFolders)
 			{
-				Folder->Visit(SelectActorsRecursive);
+				for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
+				{
+					Child.Pin()->Visit(SelectActorsRecursive);
+				}
 			}
 
 			GEditor->GetSelectedActors()->EndBatchSelectOperation();
 			GEditor->NoteSelectionChange();
 		}
 
-		FSelectFoldersRecursive SelectFoldersRecursiveVisitor(*this);
+		// Don't select folders, only select actors
+		/*  
+		FSelectFoldersRecursive SelectFoldersRecursiveVisitor(*this, bSelectImmediateChildrenOnly);
 		for (const FFolderTreeItem* Folder : SelectedFolders)
 		{
 			for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
@@ -1777,6 +1788,9 @@ namespace SceneOutliner
 				Child.Pin()->Visit(SelectFoldersRecursiveVisitor);
 			}
 		}
+		*/
+
+		Refresh();
 	}
 
 	void SSceneOutliner::MoveSelectionTo(FTreeItemRef NewParent)

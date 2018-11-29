@@ -483,11 +483,8 @@ namespace SceneOutliner
 
 	private:
 
-		/** Select the immediate children of the currently selected folders */
-		void SelectFoldersImmediateChildren();
-
-		/** Called to select all the descendants of the currently selected folders */
-		void SelectFoldersDescendants();
+		/** Called to select descendants of the currently selected folders */
+		void SelectFoldersDescendants(bool bSelectImmediateChildrenOnly = false);
 
 		/** Move the selected items to the specified parent */
 		void MoveSelectionTo(FTreeItemRef NewParent);
