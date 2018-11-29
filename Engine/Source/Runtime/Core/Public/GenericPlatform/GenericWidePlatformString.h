@@ -25,39 +25,6 @@ struct FGenericWidePlatformString : public FGenericPlatformString
 	}
 
 public:
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	template <typename CharType1, typename CharType2>
-	static inline int32 Stricmp(const CharType1* String1, const CharType2* String2)
-	{
-		return FGenericPlatformStricmp::Stricmp(String1, String2);
-	}
-
-	template <typename CharType>
-	static inline int32 Strnicmp( const CharType* String1, const CharType* String2, SIZE_T Count )
-	{
-		// walk the strings, comparing them case insensitively, up to a max size
-		for (; (*String1 || *String2) && Count > 0; String1++, String2++, Count--)
-		{
-			if(*String1 != *String2)
-			{
-				CharType Char1 = TChar<CharType>::ToUpper(*String1), Char2 = TChar<CharType>::ToUpper(*String2);
-				if (Char1 != Char2)
-				{
-					return Char1 - Char2;
-				}
-			}
-		}
-		return 0;
-	}
 
 	/**
 	 * Unicode implementation

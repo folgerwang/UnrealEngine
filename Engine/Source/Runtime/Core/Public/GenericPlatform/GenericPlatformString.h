@@ -4,12 +4,13 @@
 
 #include "CoreTypes.h"
 #include "Templates/EnableIf.h"
+#include "GenericPlatform/GenericPlatformStricmp.h"
 
 
 /**
  * Generic string implementation for most platforms
  */
-struct FGenericPlatformString
+struct FGenericPlatformString : public FGenericPlatformStricmp
 {
 	/**
 	 * Tests whether a particular character is a valid member of its encoding.

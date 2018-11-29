@@ -51,11 +51,6 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 		return _tcsncmp( String1, String2, Count );
 	}
 
-	static FORCEINLINE int32 Strnicmp( const WIDECHAR* String1, const WIDECHAR* String2, SIZE_T Count )
-	{
-		return _tcsnicmp( String1, String2, Count );
-	}
-
 	static FORCEINLINE int32 Strlen( const WIDECHAR* String )
 	{
 		return _tcslen( String );
@@ -162,45 +157,7 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	{
 		return strncmp( String1, String2, Count );
 	}
-
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * Specialized version for ANSICHAR types.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	static FORCEINLINE int32 Stricmp(const ANSICHAR* String1, const ANSICHAR* String2)
-	{
-		return _stricmp(String1, String2);
-	}
-
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	template <typename CharType1, typename CharType2>
-	static FORCEINLINE int32 Stricmp(const CharType1* String1, const CharType2* String2)
-	{
-		return FGenericPlatformStricmp::Stricmp(String1, String2);
-	}
-
-	static FORCEINLINE int32 Strnicmp( const ANSICHAR* String1, const ANSICHAR* String2, SIZE_T Count )
-	{
-		return _strnicmp( String1, String2, Count );
-	}
-
+	
 	static FORCEINLINE int32 Strlen( const ANSICHAR* String )
 	{
 		return strlen( String ); 
