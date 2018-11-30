@@ -111,6 +111,19 @@ void UProceduralFoliageSpawner::SimulateIfNeeded()
 
 }
 
+void UProceduralFoliageSpawner::Empty()
+{
+	for (TWeakObjectPtr<UProceduralFoliageTile>& WeakTile : PrecomputedTiles)
+	{
+		if (UProceduralFoliageTile* Tile = WeakTile.Get())
+		{
+			Tile->Empty();
+		}
+	}
+
+	PrecomputedTiles.Empty();
+}
+
 const UProceduralFoliageTile* UProceduralFoliageSpawner::GetRandomTile(int32 X, int32 Y)
 {
 	if (PrecomputedTiles.Num())

@@ -47,6 +47,7 @@ private:
 public:
 	UFUNCTION(BlueprintCallable, Category = ProceduralFoliageSimulation)
 	void Simulate(int32 NumSteps = -1);
+	void Empty();
 
 	int32 GetRandomNumber();
 
