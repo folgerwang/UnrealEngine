@@ -345,6 +345,7 @@ namespace UnrealBuildTool
 			public List<Project> CSharpProjects = new List<Project>();
 			public List<Project> AllProjects = new List<Project>();
 			public List<string> CombinedIncludePaths = new List<string>();
+			public List<string> CombinedPreprocessorDefinitions = new List<string>();
 		}
 
 		private ProjectData GatherProjectData(List<ProjectFile> InProjects)
@@ -433,6 +434,15 @@ namespace UnrealBuildTool
 								ProjectData.CombinedIncludePaths.Add(Processed);
 							}
 							
+						}
+					}
+					
+					foreach (string Definition in Project.IntelliSensePreprocessorDefinitions)
+					{
+						string Processed = Definition.Replace("\"", "\\\"");
+						if (!ProjectData.CombinedPreprocessorDefinitions.Contains(Processed))
+						{
+							ProjectData.CombinedPreprocessorDefinitions.Add(Processed);
 						}
 					}
 
@@ -615,8 +625,10 @@ namespace UnrealBuildTool
 
 						OutFile.BeginArray("defines");
 						{
-							OutFile.AddUnnamedField("_DEBUG");
-							OutFile.AddUnnamedField("UNICODE");
+							foreach (string Definition in Projects.CombinedPreprocessorDefinitions)
+							{
+								OutFile.AddUnnamedField(Definition);
+							}
 						}
 						OutFile.EndArray();
 					}
