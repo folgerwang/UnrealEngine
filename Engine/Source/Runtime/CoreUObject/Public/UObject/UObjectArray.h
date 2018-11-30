@@ -272,6 +272,17 @@ public:
 	{
 		return NumElements;
 	}
+
+	/**
+	* Return the number max capacity of the array
+	* Thread safe, but you know, someone might have added more elements before this even returns
+	* @return	the maximum number of elements in the array
+	**/
+	FORCEINLINE int32 Capacity() const TSAN_SAFE
+	{
+		return MaxElements;
+	}
+
 	/**
 	* Return if this index is valid
 	* Thread safe, if it is valid now, it is valid forever. Other threads might be adding during this call.
@@ -426,6 +437,17 @@ public:
 	{
 		return NumElements;
 	}
+
+	/**
+	* Return the number max capacity of the array
+	* Thread safe, but you know, someone might have added more elements before this even returns
+	* @return	the maximum number of elements in the array
+	**/
+	FORCEINLINE int32 Capacity() const TSAN_SAFE
+	{
+		return MaxElements;
+	}
+
 	/**
 	* Return if this index is valid
 	* Thread safe, if it is valid now, it is valid forever. Other threads might be adding during this call.
@@ -802,9 +824,17 @@ public:
 	 *
 	 * @return	The number of objects claimed
 	 */
-	FORCEINLINE int32 GetObjectArrayNumMinusAvailable()
+	int32 GetObjectArrayNumMinusAvailable()
 	{
 		return ObjObjects.Num() - ObjAvailableCount.GetValue();
+	}
+
+	/**
+	* Returns the estimated number of object indices available for allocation
+	*/
+	int32 GetObjectArrayEstimatedAvailable()
+	{
+		return ObjObjects.Capacity() - GetObjectArrayNumMinusAvailable();
 	}
 #endif
 
