@@ -4209,6 +4209,11 @@ void FNativeClassHeaderGenerator::ExportNativeFunctionHeader(
 	UProperty* ReturnProperty = Function->GetReturnProperty();
 	if (ReturnProperty != nullptr)
 	{
+		if (ReturnProperty->HasAnyPropertyFlags(EPropertyFlags::CPF_ConstParm))
+		{
+			Out.Log(TEXT("const "));
+		}
+
 		FString ExtendedReturnType;
 		FString ReturnType = ReturnProperty->GetCPPType(&ExtendedReturnType, (FunctionHeaderStyle == EExportFunctionHeaderStyle::Definition && (FunctionType != EExportFunctionType::Interface) ? CPPF_Implementation : 0) | CPPF_ArgumentOrReturnValue);
 		OutFwdDecls.Add(ReturnProperty->GetCPPTypeForwardDeclaration());
