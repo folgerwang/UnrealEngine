@@ -6,6 +6,7 @@
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
+#include "HAL/PlatformCrt.h"
 
 #if PLATFORM_APPLE || PLATFORM_UNIX || PLATFORM_HTML5 || PLATFORM_PS4 || PLATFORM_SWITCH || PLATFORM_ANDROID
 
