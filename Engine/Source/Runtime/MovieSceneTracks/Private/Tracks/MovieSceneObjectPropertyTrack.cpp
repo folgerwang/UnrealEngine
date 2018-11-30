@@ -13,7 +13,7 @@ UMovieSceneObjectPropertyTrack::UMovieSceneObjectPropertyTrack(const FObjectInit
 
 UMovieSceneSection* UMovieSceneObjectPropertyTrack::CreateNewSection()
 {
-	UMovieSceneObjectPropertySection* Section = NewObject<UMovieSceneObjectPropertySection>(this);
+	UMovieSceneObjectPropertySection* Section = NewObject<UMovieSceneObjectPropertySection>(this, NAME_None, RF_Transactional);
 	Section->ObjectChannel.SetPropertyClass(PropertyClass);
 	return Section;
 }
