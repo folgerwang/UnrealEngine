@@ -6,6 +6,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalCommandQueue.h"
 #include "MetalContext.h"
+#include "MetalProfiler.h"
 
 @implementation FMetalDebugFence
 @synthesize Inner;
@@ -148,6 +149,9 @@ void FMetalFencePool::Initialise(mtlpp::Device const& InDevice)
 		}
 	}
 	Count = FMetalFencePool::NumFences;
+#if METAL_DEBUG_OPTIONS
+    Allocated = 0;
+#endif
 }
 
 FMetalFence* FMetalFencePool::AllocateFence()
@@ -155,8 +159,10 @@ FMetalFence* FMetalFencePool::AllocateFence()
 	FMetalFence* Fence = Lifo.Pop();
 	if (Fence)
 	{
-		FPlatformAtomics::InterlockedDecrement(&Count);
+        INC_DWORD_STAT(STAT_MetalFenceCount);
+        FPlatformAtomics::InterlockedDecrement(&Count);
 #if METAL_DEBUG_OPTIONS
+        FPlatformAtomics::InterlockedIncrement(&Allocated);
 		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);
@@ -189,7 +195,9 @@ void FMetalFencePool::ReleaseFence(FMetalFence* const InFence)
 {
 	if (InFence)
 	{
+        DEC_DWORD_STAT(STAT_MetalFenceCount);
 #if METAL_DEBUG_OPTIONS
+        FPlatformAtomics::InterlockedDecrement(&Allocated);
 		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);

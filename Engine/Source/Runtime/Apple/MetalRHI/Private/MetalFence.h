@@ -184,6 +184,7 @@ private:
 #if METAL_DEBUG_OPTIONS
 	TSet<FMetalFence*> Fences;
 	FCriticalSection Mutex;
+    int32 Allocated;
 #endif
 	TLockFreePointerListLIFO<FMetalFence> Lifo;
 	static FMetalFencePool sSelf;

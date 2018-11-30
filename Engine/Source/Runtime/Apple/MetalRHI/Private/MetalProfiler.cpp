@@ -53,6 +53,7 @@ DEFINE_STAT(STAT_MetalTextureUnusedMemory);
 DEFINE_STAT(STAT_MetalBufferCount);
 DEFINE_STAT(STAT_MetalTextureCount);
 DEFINE_STAT(STAT_MetalHeapCount);
+DEFINE_STAT(STAT_MetalFenceCount);
 
 int64 volatile GMetalTexturePageOnTime = 0;
 int64 volatile GMetalGPUWorkTime = 0;

@@ -233,14 +233,21 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
                 Features |= EMetalFeaturesIABs;
             }
 			
-			if (!FParse::Param(FCommandLine::Get(),TEXT("nometalfence")))
+            // The editor spawns so many viewports and preview icons that we can run out of hardware fences!
+			// Need to figure out a way to safely flush the rendering and reuse the fences when that happens.
+#if WITH_EDITORONLY_DATA
+			if (!GIsEditor)
+#endif
 			{
-				Features |= EMetalFeaturesFences;
-			}
-			
-			if (!FParse::Param(FCommandLine::Get(),TEXT("nometalheap")) && [Device.GetName().GetPtr() rangeOfString:@"Intel" options:NSCaseInsensitiveSearch].location == NSNotFound)
-			{
-				Features |= EMetalFeaturesHeaps;
+				if (!FParse::Param(FCommandLine::Get(),TEXT("nometalfence")))
+				{
+					Features |= EMetalFeaturesFences;
+				}
+				
+				if (!FParse::Param(FCommandLine::Get(),TEXT("nometalheap")) && [Device.GetName().GetPtr() rangeOfString:@"Intel" options:NSCaseInsensitiveSearch].location == NSNotFound)
+				{
+					Features |= EMetalFeaturesHeaps;
+				}
 			}
 		}
     }
