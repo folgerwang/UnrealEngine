@@ -232,7 +232,7 @@ bool FSoftObjectPath::ExportTextItem(FString& ValueStr, FSoftObjectPath const& D
 	return true;
 }
 
-bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
+bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText, FArchive* InSerializingArchive)
 {
 	FString ImportedPath;
 	const TCHAR* NewBuffer = UPropertyHelpers::ReadToken(Buffer, ImportedPath, 1);
@@ -274,13 +274,13 @@ bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
 		// We're probably reading config for an editor only object, we need to mark this reference as editor only
 		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::EditorOnlyCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
-		PostLoadPath(nullptr);
+		PostLoadPath(InSerializingArchive);
 	}
 	else
 #endif
 	{
 		// Consider this a load, so Config string references get cooked
-		PostLoadPath(nullptr);
+		PostLoadPath(InSerializingArchive);
 	}
 
 	return true;

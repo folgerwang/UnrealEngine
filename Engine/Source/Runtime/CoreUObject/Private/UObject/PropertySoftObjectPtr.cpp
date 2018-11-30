@@ -5,6 +5,7 @@
 #include "UObject/SoftObjectPtr.h"
 #include "UObject/PropertyPortFlags.h"
 #include "UObject/UnrealType.h"
+#include "UObject/LinkerLoad.h"
 
 /*-----------------------------------------------------------------------------
 	USoftObjectProperty.
@@ -101,7 +102,7 @@ const TCHAR* USoftObjectProperty::ImportText_Internal( const TCHAR* InBuffer, vo
 
 	FSoftObjectPath SoftObjectPath;
 
-	if (SoftObjectPath.ImportTextItem(InBuffer, PortFlags, Parent, ErrorText))
+	if (SoftObjectPath.ImportTextItem(InBuffer, PortFlags, Parent, ErrorText, GetLinker()))
 	{
 		SoftObjectPtr = SoftObjectPath;
 		return InBuffer;

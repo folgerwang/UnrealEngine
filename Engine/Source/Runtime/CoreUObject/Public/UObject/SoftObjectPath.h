@@ -148,7 +148,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	}
 	FSoftObjectPath& operator=(FSoftObjectPath Other);
 	bool ExportTextItem(FString& ValueStr, FSoftObjectPath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
-	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
+	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText, FArchive* InSerializingArchive = nullptr );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Serializes the internal path and also handles save/PIE fixups. Call this from the archiver overrides */
