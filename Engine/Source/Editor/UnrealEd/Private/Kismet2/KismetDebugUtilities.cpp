@@ -1273,7 +1273,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 						{
 							void* PropertyValue = SelfPinProperty->ContainerPtrToValuePtr<void>(SelfPinData);
 							UObject* TempActiveObject = SelfPinPropertyBase->GetObjectPropertyValue(PropertyValue);
-							if (TempActiveObject)
+							if (TempActiveObject && TempActiveObject != ActiveObject)
 							{
 								return FindDebuggingData(Blueprint, TempActiveObject, WatchPin, OutProperty, OutData, OutDelta, OutParent);
 							}
