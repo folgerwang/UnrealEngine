@@ -2303,6 +2303,7 @@ FRHIShaderLibraryRef FDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHI
 
 FTextureReferenceRHIRef FDynamicRHI::RHICreateTextureReference_RenderThread(class FRHICommandListImmediate& RHICmdList, FLastRenderTimeContainer* LastRenderTime)
 {
+	// Notice no StallRHIThread needed! This function is safe on all RHIs
 	return GDynamicRHI->RHICreateTextureReference(LastRenderTime);
 }
 
