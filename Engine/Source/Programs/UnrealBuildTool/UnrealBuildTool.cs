@@ -523,7 +523,7 @@ namespace UnrealBuildTool
 			[CommandLine("-VSCode", Value="GenerateProjectFiles")]
 			[CommandLine("-VSMac", Value="GenerateProjectFiles")]
 			[CommandLine("-CLion", Value="GenerateProjectFiles")]
-			public string Mode = "Default";
+			public string Mode = "Build";
 
 			/// <summary>
 			/// Initialize the options with the given commnad line arguments
@@ -1555,15 +1555,6 @@ namespace UnrealBuildTool
 					CaughtException = Ex;
 				}
 			}
-		}
-	}
-
-	[ToolMode("Default")]
-	class DefaultToolMode : ToolMode
-	{
-		public override int Execute(CommandLineArguments Arguments)
-		{
-			return UnrealBuildTool.GuardedMain(Arguments);
 		}
 	}
 }
