@@ -383,7 +383,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry, HotReloadMode HotReload)
+		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName)
 		{
 			bool Result = true;
 			ExecutorName = "";
@@ -426,32 +426,6 @@ namespace UnrealBuildTool
 							foreach (FileItem Item in BuildAction.ProducedItems)
 							{
 								bool bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
-
-								if (HotReload != HotReloadMode.Disabled)
-								{
-									string FailedFilename = Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload");
-									if (!bExists)
-									{
-										// Create a failed.hotreload file here to indicate that we need to attempt another hotreload link
-										// step in future, even though no source files have changed.
-										// This is necessary because we also don't want to link a brand new instance of a module every time
-										// a user hits the Compile button when nothing has changed.
-										FileItem.CreateIntermediateTextFile(new FileReference(FailedFilename), "");
-									}
-									else
-									{
-										try
-										{
-											File.Delete(FailedFilename);
-										}
-										catch
-										{
-											// Ignore but log failed deletions
-											Log.TraceVerbose("Failed to delete failed.hotreload file \"{0}\" - this may cause redundant hotreloads", FailedFilename);
-										}
-									}
-								}
-
 								if (!bExists)
 								{
 									throw new BuildException("UBT ERROR: Failed to produce item: " + Item.AbsolutePath);

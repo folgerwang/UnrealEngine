@@ -1372,7 +1372,6 @@ namespace UnrealBuildTool
 								}
 
 								// Execute the actions.
-								string TargetInfoForTelemetry = String.Join("|", Targets.Select(x => String.Format("{0} {1} {2}{3}", x.TargetName, x.Platform, x.Configuration, "")));
 								DateTime ExecutorStartTime = DateTime.UtcNow;
 								if (BuildConfiguration.bXGEExport)
 								{
@@ -1381,7 +1380,7 @@ namespace UnrealBuildTool
 								}
 								else
 								{
-									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute.ToList(), out ExecutorName, TargetInfoForTelemetry, HotReloadMode);
+									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute.ToList(), out ExecutorName);
 								}
 								TotalExecutorTime += (DateTime.UtcNow - ExecutorStartTime).TotalSeconds;
 
