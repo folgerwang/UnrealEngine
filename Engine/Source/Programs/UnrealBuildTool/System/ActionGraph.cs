@@ -308,7 +308,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds a list of actions that need to be executed to produce the specified output items.
 		/// </summary>
-		public List<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
+		public HashSet<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
 			DateTime CheckOutdatednessStartTime = DateTime.UtcNow;
 
@@ -371,63 +371,13 @@ namespace UnrealBuildTool
 			// Build a list of actions that are both needed for this target and outdated.
 			HashSet<Action> ActionsToExecute = new HashSet<Action>(AllActions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]));
 
-			// Remove link actions if asked to
-			if (BuildConfiguration.bSkipLinkingWhenNothingToCompile)
-			{
-				// Get all items produced by a compile action
-				HashSet<FileItem> ProducedItems = new HashSet<FileItem>(ActionsToExecute.Where(Action => Action.ActionType == ActionType.Compile).SelectMany(x => x.ProducedItems));
-
-				// Get all link actions which have no out-of-date prerequisites
-				HashSet<Action> UnlinkedActions = new HashSet<Action>(ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link && !ProducedItems.Overlaps(Action.PrerequisiteItems)));
-
-				// Don't regard an action as unlinked if there is an associated 'failed.hotreload' file.
-				UnlinkedActions.RemoveWhere(Action => Action.ProducedItems.Any(Item => File.Exists(Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload"))));
-
-				HashSet<Action> UnlinkedActionsWithFailedHotreload = new HashSet<Action>(ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link && !ProducedItems.Overlaps(Action.PrerequisiteItems)));
-
-				// Remove unlinked items
-				ActionsToExecute.ExceptWith(UnlinkedActions);
-
-				// Re-add unlinked items which produce things which are dependencies of other actions
-				for (;;)
-				{
-					// Get all prerequisite items of a link action
-					HashSet<Action> PrerequisiteLinkActions = new HashSet<Action>(ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link).SelectMany(x => x.PrerequisiteItems).Select(Item => Item.ProducingAction));
-
-					// Find all unlinked actions that need readding
-					HashSet<Action> UnlinkedActionsToReadd = new HashSet<Action>(UnlinkedActions.Where(Action => PrerequisiteLinkActions.Contains(Action)));
-
-					// Also re-add any DLL whose import library is being rebuilt. These may be separate actions, and the import library will reference the new DLL even if it isn't being compiled itself, so it must exist.
-					HashSet<string> ProducedDllsToReAdd = new HashSet<string>(UnlinkedActionsToReadd.SelectMany(x => x.ProducedItems).Select(x => x.Location).Where(x => x.HasExtension(".lib")).Select(x => x.GetFileNameWithoutExtension() + ".dll"), StringComparer.OrdinalIgnoreCase);
-					UnlinkedActionsToReadd.UnionWith(UnlinkedActions.Where(x => x.ProducedItems.Any(y => ProducedDllsToReAdd.Contains(y.Location.GetFileName()))));
-
-					// Bail if we didn't find anything
-					if (UnlinkedActionsToReadd.Count == 0)
-					{
-						break;
-					}
-
-					ActionsToExecute.UnionWith(UnlinkedActionsToReadd);
-					UnlinkedActions.ExceptWith(UnlinkedActionsToReadd);
-
-					// Break early if there are no more unlinked actions to readd
-					if (UnlinkedActions.Count == 0)
-					{
-						break;
-					}
-				}
-
-				// Remove actions that are wholly dependent on unlinked actions
-				ActionsToExecute = new HashSet<Action>(ActionsToExecute.Where(Action => Action.PrerequisiteItems.Count == 0 || !new HashSet<Action>(Action.PrerequisiteItems.Select(Item => Item.ProducingAction)).IsSubsetOf(UnlinkedActions)));
-			}
-
 			if (UnrealBuildTool.bPrintPerformanceInfo)
 			{
 				double CheckOutdatednessTime = (DateTime.UtcNow - CheckOutdatednessStartTime).TotalSeconds;
 				Log.TraceInformation("Checking outdatedness took " + CheckOutdatednessTime + "s");
 			}
 
-			return ActionsToExecute.ToList();
+			return ActionsToExecute;
 		}
 
 		/// <summary>
@@ -571,82 +521,6 @@ namespace UnrealBuildTool
 				}
 			}
 			return WorkingString;
-		}
-
-
-		/// <summary>
-		/// Finds and deletes stale hot reload DLLs.
-		/// </summary>
-		public void DeleteStaleHotReloadDLLs()
-		{
-			DateTime DeleteStartTime = DateTime.UtcNow;
-
-			foreach (Action BuildAction in AllActions)
-			{
-				if (BuildAction.ActionType == ActionType.Link)
-				{
-					foreach (FileItem Item in BuildAction.ProducedItems)
-					{
-						if (Item.bNeedsHotReloadNumbersDLLCleanUp)
-						{
-							string PlatformSuffix, ConfigSuffix, ProducedItemExtension;
-							string Base = SplitFilename(Item.AbsolutePath, out PlatformSuffix, out ConfigSuffix, out ProducedItemExtension);
-							String WildCard = Base + "-*" + PlatformSuffix + ConfigSuffix + ProducedItemExtension;
-							// Log.TraceInformation("Deleting old hot reload wildcard: \"{0}\".", WildCard);
-							// Wildcard search and delete
-							string DirectoryToLookIn = Path.GetDirectoryName(WildCard);
-							string FileName = Path.GetFileName(WildCard);
-							if (Directory.Exists(DirectoryToLookIn))
-							{
-								// Delete all files within the specified folder
-								string[] FilesToDelete = Directory.GetFiles(DirectoryToLookIn, FileName, SearchOption.TopDirectoryOnly);
-								foreach (string JunkFile in FilesToDelete)
-								{
-
-									string JunkPlatformSuffix, JunkConfigSuffix, JunkProducedItemExtension;
-									SplitFilename(JunkFile, out JunkPlatformSuffix, out JunkConfigSuffix, out JunkProducedItemExtension);
-									// now make sure that this file has the same config and platform
-									if (JunkPlatformSuffix == PlatformSuffix && JunkConfigSuffix == ConfigSuffix)
-									{
-										try
-										{
-											Log.TraceInformation("Deleting old hot reload file: \"{0}\".", JunkFile);
-											File.Delete(JunkFile);
-										}
-										catch (Exception Ex)
-										{
-											// Ignore all exceptions
-											Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkFile, Ex.Message.TrimEnd());
-										}
-
-										// Delete the PDB file.
-										string JunkPDBFile = JunkFile.Replace(ProducedItemExtension, ".pdb");
-										if (System.IO.File.Exists(JunkPDBFile))
-										{
-											try
-											{
-												Log.TraceInformation("Deleting old hot reload file: \"{0}\".", JunkPDBFile);
-												File.Delete(JunkPDBFile);
-											}
-											catch (Exception Ex)
-											{
-												// Ignore all exceptions
-												Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkPDBFile, Ex.Message.TrimEnd());
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double DeleteTime = (DateTime.UtcNow - DeleteStartTime).TotalSeconds;
-				Log.TraceInformation("Deleting stale hot reload DLLs took " + DeleteTime + "s");
-			}
 		}
 
 		/// <summary>

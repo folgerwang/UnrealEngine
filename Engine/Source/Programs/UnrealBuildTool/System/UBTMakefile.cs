@@ -34,11 +34,6 @@ namespace UnrealBuildTool
 		public List<Action> AllActions;
 
 		/// <summary>
-		/// List of the actions that need to be run in order to build the targets' final output items
-		/// </summary>
-		public Action[] PrerequisiteActions;
-
-		/// <summary>
 		/// Environment variables that we'll need in order to invoke the platform's compiler and linker
 		/// </summary>
 		// @todo ubtmake: Really we want to allow a different set of environment variables for every Action.  This would allow for targets on multiple platforms to be built in a single assembling phase.  We'd only have unique variables for each platform that has actions, so we'd want to make sure we only store the minimum set.
@@ -48,6 +43,21 @@ namespace UnrealBuildTool
 		/// Maps each target to a list of UObject module info structures
 		/// </summary>
 		public Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules;
+
+		/// <summary>
+		/// The final output items for all target
+		/// </summary>
+		public List<FileItem> OutputItemsForAllTargets;
+
+		/// <summary>
+		/// Maps module names to output items
+		/// </summary>
+		public Dictionary<string, FileItem[]> ModuleNameToOutputItems;
+
+		/// <summary>
+		/// List of game module names, for hot-reload
+		/// </summary>
+		public HashSet<string> HotReloadModuleNamesForAllTargets;
 
 		/// <summary>
 		/// List of targets being built
@@ -83,9 +93,11 @@ namespace UnrealBuildTool
 			}
 
 			AllActions = (List<Action>)Info.GetValue("ac", typeof(List<Action>));
-			PrerequisiteActions = (Action[])Info.GetValue("pa", typeof(Action[]));
 			EnvironmentVariables = ((string[])Info.GetValue("e1", typeof(string[]))).Zip((string[])Info.GetValue("e2", typeof(string[])), (i1, i2) => new Tuple<string, string>(i1, i2)).ToList();
 			TargetNameToUObjectModules = (Dictionary<string, List<UHTModuleInfo>>)Info.GetValue("nu", typeof(Dictionary<string, List<UHTModuleInfo>>));
+			OutputItemsForAllTargets = (List<FileItem>)Info.GetValue("oi", typeof(List<FileItem>));
+			ModuleNameToOutputItems = (Dictionary<string, FileItem[]>)Info.GetValue("mn", typeof(Dictionary<string, FileItem[]>));
+			HotReloadModuleNamesForAllTargets = (HashSet<string>)Info.GetValue("gm", typeof(HashSet<string>));
 			Targets = (List<UEBuildTarget>)Info.GetValue("ta", typeof(List<UEBuildTarget>));
 			bUseAdaptiveUnityBuild = Info.GetBoolean("ua");
 			SourceFileWorkingSet = (HashSet<FileItem>)Info.GetValue("ws", typeof(HashSet<FileItem>));
@@ -96,10 +108,12 @@ namespace UnrealBuildTool
 		{
 			Info.AddValue("ve", Version);
 			Info.AddValue("ac", AllActions);
-			Info.AddValue("pa", PrerequisiteActions);
 			Info.AddValue("e1", EnvironmentVariables.Select(x => x.Item1).ToArray());
 			Info.AddValue("e2", EnvironmentVariables.Select(x => x.Item2).ToArray());
 			Info.AddValue("nu", TargetNameToUObjectModules);
+			Info.AddValue("oi", OutputItemsForAllTargets);
+			Info.AddValue("mn", ModuleNameToOutputItems);
+			Info.AddValue("gm", HotReloadModuleNamesForAllTargets);
 			Info.AddValue("ta", Targets);
 			Info.AddValue("ua", bUseAdaptiveUnityBuild);
 			Info.AddValue("ws", SourceFileWorkingSet);
@@ -112,9 +126,11 @@ namespace UnrealBuildTool
 		{
 			return
 				AllActions != null && AllActions.Count > 0 &&
-				PrerequisiteActions != null && PrerequisiteActions.Length > 0 &&
 				EnvironmentVariables != null &&
 				TargetNameToUObjectModules != null && TargetNameToUObjectModules.Count > 0 &&
+				OutputItemsForAllTargets != null && 
+				ModuleNameToOutputItems != null && 
+				HotReloadModuleNamesForAllTargets != null &&
 				Targets != null && Targets.Count > 0 &&
 				SourceFileWorkingSet != null &&
 				CandidateSourceFilesForWorkingSet != null;
@@ -125,9 +141,8 @@ namespace UnrealBuildTool
 		/// Saves a UBTMakefile to disk
 		/// </summary>
 		/// <param name="TargetDescs">List of targets.  Order is not important</param>
-		/// <param name="HotReload">The hot reload state</param>
 		/// <param name="UBTMakefile">The UBT makefile</param>
-		public static void SaveUBTMakefile(List<TargetDescriptor> TargetDescs, EHotReload HotReload, UBTMakefile UBTMakefile)
+		public static void SaveUBTMakefile(List<TargetDescriptor> TargetDescs, UBTMakefile UBTMakefile)
 		{
 			if (!UBTMakefile.IsValidMakefile())
 			{
@@ -136,7 +151,7 @@ namespace UnrealBuildTool
 
 			DateTime TimerStartTime = DateTime.UtcNow;
 
-			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetUBTMakefilePath(TargetDescs, HotReload));
+			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetUBTMakefilePath(TargetDescs));
 
 			// @todo ubtmake: Optimization: The UBTMakefile saved for game projects is upwards of 9 MB.  We should try to shrink its content if possible
 			// @todo ubtmake: Optimization: C# Serialization may be too slow for these big Makefiles.  Loading these files often shows up as the slower part of the assembling phase.
@@ -188,7 +203,7 @@ namespace UnrealBuildTool
 			FileInfo BuildVersionFileInfo = new FileInfo(BuildVersion.GetDefaultFileName().FullName);
 			if (BuildVersionFileInfo.Exists && UBTMakefileInfo.LastWriteTime.CompareTo(BuildVersionFileInfo.LastWriteTime) < 0)
 			{
-				Log.TraceVerbose("Existing makefile is older than Build.version, ignoring it");
+				Log.TraceLog("Existing makefile is older than Build.version, ignoring it");
 				ReasonNotLoaded = "Build.version is newer";
 				return null;
 			}
@@ -206,7 +221,7 @@ namespace UnrealBuildTool
 					if (UBTMakefileInfo.LastWriteTime.CompareTo(EngineProjectFilesLastUpdateTime) < 0)
 					{
 						// Engine project files are newer than UBTMakefile
-						Log.TraceVerbose("Existing makefile is older than generated engine project files, ignoring it");
+						Log.TraceLog("Existing makefile is older than generated engine project files, ignoring it");
 						ReasonNotLoaded = "project files are newer";
 						return null;
 					}
@@ -221,7 +236,7 @@ namespace UnrealBuildTool
 				if (!ProjectFileInfo.Exists || UBTMakefileInfo.LastWriteTime.CompareTo(ProjectFileInfo.LastWriteTime) < 0)
 				{
 					// .uproject file is newer than UBTMakefile
-					Log.TraceVerbose("Makefile is older than .uproject file, ignoring it");
+					Log.TraceLog("Makefile is older than .uproject file, ignoring it");
 					ReasonNotLoaded = ".uproject file is newer";
 					return null;
 				}
@@ -234,7 +249,7 @@ namespace UnrealBuildTool
 					if (UBTMakefileInfo.LastWriteTime.CompareTo(GameProjectFilesLastUpdateTime) < 0)
 					{
 						// Game project files are newer than UBTMakefile
-						Log.TraceVerbose("Makefile is older than generated game project files, ignoring it");
+						Log.TraceLog("Makefile is older than generated game project files, ignoring it");
 						ReasonNotLoaded = "game project files are newer";
 						return null;
 					}
@@ -246,7 +261,7 @@ namespace UnrealBuildTool
 			if (UBTMakefileInfo.LastWriteTime.CompareTo(UnrealBuildToolTimestamp) < 0)
 			{
 				// UnrealBuildTool.exe was compiled more recently than the UBTMakefile
-				Log.TraceVerbose("Makefile is older than UnrealBuildTool.exe, ignoring it");
+				Log.TraceLog("Makefile is older than UnrealBuildTool.exe, ignoring it");
 				ReasonNotLoaded = "UnrealBuildTool.exe is newer";
 				return null;
 			}
@@ -258,7 +273,7 @@ namespace UnrealBuildTool
 				FileInfo InputFileInfo = new FileInfo(InputFile.Location.FullName);
 				if (InputFileInfo.LastWriteTime > UBTMakefileInfo.LastWriteTime)
 				{
-					Log.TraceVerbose("Makefile is older than BuildConfiguration.xml, ignoring it");
+					Log.TraceLog("Makefile is older than BuildConfiguration.xml, ignoring it");
 					ReasonNotLoaded = "BuildConfiguration.xml is newer";
 					return null;
 				}
@@ -307,7 +322,7 @@ namespace UnrealBuildTool
 					bool bTargetCsFileExists = TargetCsFile.Exists;
 					if (!bTargetCsFileExists || TargetCsFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
 					{
-						Log.TraceVerbose("{0} has been {1} since makefile was built, ignoring it ({2})", TargetCsFilename, bTargetCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
+						Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", TargetCsFilename, bTargetCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
 						ReasonNotLoaded = string.Format("changes to target files");
 						return null;
 					}
@@ -322,7 +337,7 @@ namespace UnrealBuildTool
 						bool bBuildCsFileExists = BuildCsFile.Exists;
 						if (!bBuildCsFileExists || BuildCsFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
 						{
-							Log.TraceVerbose("{0} has been {1} since makefile was built, ignoring it ({2})", BuildCsFilename, bBuildCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
+							Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", BuildCsFilename, bBuildCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
 							ReasonNotLoaded = string.Format("changes to module files");
 							return null;
 						}
@@ -340,7 +355,7 @@ namespace UnrealBuildTool
 							bool bDependencyFileExists = DependencyFile.Exists;
 							if (!bDependencyFileExists || DependencyFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
 							{
-								Log.TraceVerbose("{0} has been {1} since makefile was built, ignoring it ({2})", DependencyFile.FullName, bDependencyFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
+								Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", DependencyFile.FullName, bDependencyFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
 								ReasonNotLoaded = string.Format("changes to external dependency");
 								return null;
 							}
@@ -353,7 +368,7 @@ namespace UnrealBuildTool
 					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
 					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						Log.TraceVerbose("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
+						Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
 						ReasonNotLoaded = "source directory changed";
 						return null;
 					}
@@ -383,7 +398,7 @@ namespace UnrealBuildTool
 				{
 					if (!File.Exists(FileName))
 					{
-						Log.TraceVerbose("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
+						Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
 						ReasonNotLoaded = string.Format("UHT file was deleted");
 						return null;
 					}
@@ -398,7 +413,7 @@ namespace UnrealBuildTool
 					bool bWasProcessed = AllUHTHeaders.Contains(Filename);
 					if (bContainsUHTData != bWasProcessed)
 					{
-						Log.TraceVerbose("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
+						Log.TraceLog("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
 						ReasonNotLoaded = string.Format("new files with reflected types");
 						return null;
 					}
@@ -417,7 +432,7 @@ namespace UnrealBuildTool
 				{
 					if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						Log.TraceVerbose("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
 						ReasonNotLoaded = string.Format("working set of source files changed");
 						return null;
 					}
@@ -428,7 +443,7 @@ namespace UnrealBuildTool
 				{
 					if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						Log.TraceVerbose("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
 						ReasonNotLoaded = string.Format("working set of source files changed");
 						return null;
 					}
@@ -444,9 +459,8 @@ namespace UnrealBuildTool
 		/// Gets the file path for a UBTMakefile
 		/// </summary>
 		/// <param name="TargetDescs">List of targets.  Order is not important</param>
-		/// <param name="HotReload">The hot reload state.</param>
 		/// <returns>UBTMakefile path</returns>
-		public static FileReference GetUBTMakefilePath(List<TargetDescriptor> TargetDescs, EHotReload HotReload)
+		public static FileReference GetUBTMakefilePath(List<TargetDescriptor> TargetDescs)
 		{
 			FileReference UBTMakefilePath;
 
@@ -454,7 +468,7 @@ namespace UnrealBuildTool
 			{
 				TargetDescriptor TargetDesc = TargetDescs[0];
 
-				string UBTMakefileName = (HotReload != EHotReload.Disabled) ? "HotReloadMakefile.ubt" : "Makefile.ubt";
+				string UBTMakefileName = "Makefile.ubt";
 
 				UBTMakefilePath = FileReference.Combine(GetUBTMakefileDirectoryPathForSingleTarget(TargetDesc), UBTMakefileName);
 			}

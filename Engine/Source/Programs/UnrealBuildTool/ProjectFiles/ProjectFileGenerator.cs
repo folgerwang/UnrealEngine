@@ -1730,7 +1730,7 @@ namespace UnrealBuildTool
 							// If we're generating project files, then go ahead and wipe out the existing UBTMakefile for every target, to make sure that
 							// it gets a full dependency scan next time.
 							// NOTE: This is just a safeguard and doesn't have to be perfect.  We also check for newer project file timestamps in LoadUBTMakefile()
-							FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(new List<TargetDescriptor>{ TargetDesc }, EHotReload.Disabled);
+							FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(new List<TargetDescriptor>{ TargetDesc });
 							if (FileReference.Exists(UBTMakefilePath))
 							{
 								FileReference.Delete(UBTMakefilePath);

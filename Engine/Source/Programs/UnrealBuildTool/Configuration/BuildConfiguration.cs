@@ -206,12 +206,6 @@ namespace UnrealBuildTool
 		public string CompilerArgumentForUnrealHeaderTool = null;
 
 		/// <summary>
-		/// When true, the targets won't execute their link actions if there was nothing to compile
-		/// </summary>
-		[CommandLine("-CanSkipLink")]
-		public bool bSkipLinkingWhenNothingToCompile = false;
-
-		/// <summary>
 		/// Default constructor. Reads settings from the XmlConfig files.
 		/// </summary>
 		public BuildConfiguration()

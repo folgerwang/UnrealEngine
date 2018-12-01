@@ -2,14 +2,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
 using System.Diagnostics;
-using System.Threading;
-using System.Reflection;
+using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
+using System.Reflection;
+using System.Text;
+using System.Threading;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
@@ -19,6 +17,14 @@ namespace UnrealBuildTool
 		Disabled,
 		FromIDE,
 		FromEditor
+	}
+
+	[Serializable]
+	class HotReloadState
+	{
+		public int NextSuffix = 1;
+		public Dictionary<FileReference, FileReference> OriginalFileToHotReloadFile = new Dictionary<FileReference, FileReference>();
+		public HashSet<FileReference> AllHotReloadFiles = new HashSet<FileReference>();
 	}
 
 	static class UnrealBuildTool
@@ -722,25 +728,6 @@ namespace UnrealBuildTool
 					return ECompilationResult.Succeeded;
 				}
 
-				EHotReload HotReload = EHotReload.Disabled;
-				if (TargetDescs.Count == 1 && !Arguments.Any(x => x.Equals("-NoHotReload", StringComparison.InvariantCultureIgnoreCase)))
-				{
-					if (BuildConfiguration.bAllowHotReloadFromIDE && ShouldDoHotReloadFromIDE(BuildConfiguration, Arguments, TargetDescs[0]))
-					{
-						HotReload = EHotReload.FromIDE;
-					}
-					else if (TargetDescs[0].OnlyModules.Count > 0 && TargetDescs[0].ForeignPlugin == null)
-					{
-						HotReload = EHotReload.FromEditor;
-					}
-
-					if (HotReload != EHotReload.Disabled && BuildConfiguration.bCleanProject)
-					{
-						throw new BuildException("Unable to clean target while hot-reloading. Close the editor and try again.");
-					}
-				}
-				TargetDescriptor HotReloadTargetDesc = (HotReload != EHotReload.Disabled) ? TargetDescs[0] : null;
-
 				// Used when BuildConfiguration.bUseUBTMakefiles is enabled.  If true, it means that our cached includes may not longer be
 				// valid (or never were), and we need to recover by forcibly scanning included headers for all build prerequisites to make sure that our
 				// cached set of includes is actually correct, before determining which files are outdated.
@@ -760,7 +747,7 @@ namespace UnrealBuildTool
 
 						string TargetCollectionName = UBTMakefile.MakeTargetCollectionName(TargetDescs);
 
-						string LastBuiltTargetsFileName = (HotReload != EHotReload.Disabled) ? "HotReloadLastBuiltTargets.txt" : "LastBuiltTargets.txt";
+						string LastBuiltTargetsFileName = "LastBuiltTargets.txt";
 						string LastBuiltTargetsFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", LastBuiltTargetsFileName).FullName;
 						if (File.Exists(LastBuiltTargetsFilePath) && Utils.ReadAllText(LastBuiltTargetsFilePath) == TargetCollectionName)
 						{
@@ -781,7 +768,7 @@ namespace UnrealBuildTool
 							// we might not know about all of the C++ include dependencies for already-up-to-date shared build products
 							// between the targets
 							bNeedsFullCPPIncludeRescan = true;
-							Log.TraceInformation("Performing full C++ include scan ({0} a new target)", (HotReload != EHotReload.Disabled) ? "hot reloading" : "building");
+							Log.TraceInformation("Performing full C++ include scan (building a new target)");
 						}
 					}
 				}
@@ -841,7 +828,7 @@ namespace UnrealBuildTool
 				{
 					UBTMakefile UBTMakefile = null;
 					{
-						FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(TargetDescs, HotReload);
+						FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(TargetDescs);
 
 						// Make sure the gather phase is executed if we're not actually building anything
 						if (BuildConfiguration.bGenerateManifest || BuildConfiguration.bCleanProject || BuildConfiguration.bXGEExport || GeneratingActionGraph)
@@ -859,19 +846,6 @@ namespace UnrealBuildTool
 							// Try to load the UBTMakefile.  It will only be loaded if it has valid content and is not determined to be out of date.    
 							string ReasonNotLoaded;
 							UBTMakefile = UBTMakefile.LoadUBTMakefile(UBTMakefilePath, ProjectFile, WorkingSet, out ReasonNotLoaded);
-
-							// Invalid makefile if only modules have changed
-							if (UBTMakefile != null && !TargetDescs.SelectMany(x => x.OnlyModules)
-									.Select(x => new Tuple<string, bool>(x.OnlyModuleName.ToLower(), string.IsNullOrWhiteSpace(x.OnlyModuleSuffix)))
-									.SequenceEqual(
-										UBTMakefile.Targets.SelectMany(x => x.OnlyModules)
-										.Select(x => new Tuple<string, bool>(x.OnlyModuleName.ToLower(), string.IsNullOrWhiteSpace(x.OnlyModuleSuffix)))
-									)
-								)
-							{
-								UBTMakefile = null;
-								ReasonNotLoaded = "modules to compile have changed";
-							}
 
 							if (UBTMakefile != null)
 							{
@@ -914,9 +888,8 @@ namespace UnrealBuildTool
 
 								FileItem.ClearCaches();
 
-								Log.TraceInformation("Creating makefile for {0}{1}{2} ({3})",
-									(HotReload != EHotReload.Disabled) ? "hot reloading " : "",
-										TargetDescs[0].Name,
+								Log.TraceInformation("Creating makefile for {0}{1} ({2})",
+									TargetDescs[0].Name,
 									TargetDescs.Count > 1 ? (" (and " + (TargetDescs.Count - 1).ToString() + " more)") : "",
 									ReasonNotLoaded);
 							}
@@ -953,16 +926,11 @@ namespace UnrealBuildTool
 
 					// Build action lists for all passed in targets.
 					List<FileItem> OutputItemsForAllTargets = new List<FileItem>();
+					Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 					Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules = new Dictionary<string, List<UHTModuleInfo>>(StringComparer.InvariantCultureIgnoreCase);
+					HashSet<string> HotReloadModuleNamesForAllTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 					foreach (UEBuildTarget Target in Targets)
 					{
-						if (HotReload != EHotReload.Disabled)
-						{
-							// Don't produce new DLLs if there's been no code changes
-							BuildConfiguration.bSkipLinkingWhenNothingToCompile = true;
-							Log.TraceInformation("Compiling game modules for hot reload");
-						}
-
 						// Create the header cache for this target
 						FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(ProjectFile, Target.Platform, Target.TargetName);
 						bool bUseFlatCPPIncludeDependencyCache = BuildConfiguration.bUseUBTMakefiles && bIsAssemblingBuild;
@@ -1007,13 +975,14 @@ namespace UnrealBuildTool
 						{
 							List<FileItem> TargetOutputItems = new List<FileItem>();
 							List<UHTModuleInfo> TargetUObjectModules = new List<UHTModuleInfo>();
+							Dictionary<string, FileItem[]> TargetModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 							if (BuildConfiguration.bCleanProject)
 							{
-								BuildResult = Target.Clean(!BuildConfiguration.bDoNotBuildUHT && HotReload != EHotReload.FromIDE);
+								BuildResult = Target.Clean(!BuildConfiguration.bDoNotBuildUHT);
 							}
 							else
 							{
-								BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, HotReload, bIsAssemblingBuild);
+								BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, bIsAssemblingBuild);
 							}
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
@@ -1031,6 +1000,23 @@ namespace UnrealBuildTool
 
 							// Update mapping of the target name to the list of UObject modules in this target
 							TargetNameToUObjectModules[Target.GetTargetName()] = TargetUObjectModules;
+
+							// Merge the module name to output items map
+							foreach(KeyValuePair<string, FileItem[]> Pair in TargetModuleNameToOutputItems)
+							{
+								FileItem[] Items;
+								if(ModuleNameToOutputItems.TryGetValue(Pair.Key, out Items))
+								{
+									ModuleNameToOutputItems[Pair.Key] = Items.Concat(Pair.Value).ToArray();
+								}
+								else
+								{
+									ModuleNameToOutputItems[Pair.Key] = Pair.Value;
+								}
+							}
+
+							// Get the game module names
+							HotReloadModuleNamesForAllTargets.UnionWith(Target.GetHotReloadModuleNames());
 						}
 					}
 
@@ -1046,22 +1032,14 @@ namespace UnrealBuildTool
 
 							UBTMakefile = new UBTMakefile();
 							UBTMakefile.AllActions = ActionGraph.AllActions;
-
-							// For now simply treat all object files as the root target.
-							{
-								HashSet<Action> PrerequisiteActionsSet = new HashSet<Action>();
-								foreach (FileItem OutputItem in OutputItemsForAllTargets)
-								{
-									ActionGraph.GatherPrerequisiteActions(OutputItem, ref PrerequisiteActionsSet);
-								}
-								UBTMakefile.PrerequisiteActions = PrerequisiteActionsSet.ToArray();
-							}
-
+							UBTMakefile.OutputItemsForAllTargets = OutputItemsForAllTargets;
 							foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
 							{
 								UBTMakefile.EnvironmentVariables.Add(Tuple.Create((string)EnvironmentVariable.Key, (string)EnvironmentVariable.Value));
 							}
 							UBTMakefile.TargetNameToUObjectModules = TargetNameToUObjectModules;
+							UBTMakefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
+							UBTMakefile.HotReloadModuleNamesForAllTargets = HotReloadModuleNamesForAllTargets;
 							UBTMakefile.Targets = Targets;
 							UBTMakefile.bUseAdaptiveUnityBuild = Targets.Any(x => x.Rules.bUseAdaptiveUnityBuild);
 							UBTMakefile.SourceFileWorkingSet = Unity.SourceFileWorkingSet;
@@ -1069,21 +1047,72 @@ namespace UnrealBuildTool
 
 							if (BuildConfiguration.bUseUBTMakefiles)
 							{
-								if(UBTMakefile.PrerequisiteActions.Length == 0)
-								{
-									// Nothing to build for this target
-									Log.TraceInformation("No buildable actions for this target. Makefile will not be saved.");
-								}
-								else
-								{
-									// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
-									// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
-									// Makefile so that it can be used on subsequent 'assemble only' runs, for the fastest possible iteration times
-									// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
-									UBTMakefile.SaveUBTMakefile(TargetDescs, HotReload, UBTMakefile);
-								}
+								// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
+								// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
+								// Makefile so that it can be used on subsequent 'assemble only' runs, for the fastest possible iteration times
+								// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
+								UBTMakefile.SaveUBTMakefile(TargetDescs, UBTMakefile);
 							}
 						}
+
+						HashSet<string> OnlyModuleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+						foreach(string Argument in Arguments)
+						{
+							const string ModuleArgument = "-Module=";
+							if(Argument.StartsWith(ModuleArgument, StringComparison.OrdinalIgnoreCase))
+							{
+								OnlyModuleNames.Add(Argument.Substring(ModuleArgument.Length));
+							}
+						}
+
+						Dictionary<string, int> HotReloadModuleNameToSuffix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+						foreach(string Argument in Arguments)
+						{
+							const string ModuleWithSuffixArgument = "-ModuleWithSuffix=";
+							if(Argument.StartsWith(ModuleWithSuffixArgument, StringComparison.OrdinalIgnoreCase))
+							{
+								string Value = Argument.Substring(ModuleWithSuffixArgument.Length);
+
+								int SuffixIdx = Value.LastIndexOf(',');
+								if(SuffixIdx == -1)
+								{
+									throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
+								}
+
+								string ModuleName = Value.Substring(0, SuffixIdx);
+
+								int Suffix;
+								if(!Int32.TryParse(Value.Substring(SuffixIdx + 1), out Suffix))
+								{
+									throw new BuildException("Suffix for modules must be an integer");
+								}
+
+								HotReloadModuleNameToSuffix[ModuleName] = Suffix;
+							}
+						}
+
+						EHotReload HotReloadMode = EHotReload.Disabled;
+						if(Arguments.Any(x => x.Equals("-ForceHotReload", StringComparison.InvariantCultureIgnoreCase)))
+						{
+							HotReloadMode = EHotReload.FromIDE;
+						}
+						else if (TargetDescs.Count == 1 && !Arguments.Any(x => x.Equals("-NoHotReload", StringComparison.InvariantCultureIgnoreCase)))
+						{
+							if (BuildConfiguration.bAllowHotReloadFromIDE && ShouldDoHotReloadFromIDE(BuildConfiguration, Arguments, TargetDescs[0]))
+							{
+								HotReloadMode = EHotReload.FromIDE;
+							}
+							else if (HotReloadModuleNameToSuffix.Count > 0 && TargetDescs[0].ForeignPlugin == null)
+							{
+								HotReloadMode = EHotReload.FromEditor;
+							}
+
+							if (HotReloadMode != EHotReload.Disabled && BuildConfiguration.bCleanProject)
+							{
+								throw new BuildException("Unable to clean target while hot-reloading. Close the editor and try again.");
+							}
+						}
+						TargetDescriptor HotReloadTargetDesc = (HotReloadMode != EHotReload.Disabled) ? TargetDescs[0] : null;
 
 						if (bIsAssemblingBuild)
 						{
@@ -1092,13 +1121,11 @@ namespace UnrealBuildTool
 							{
 								ActionGraph.AllActions = UBTMakefile.AllActions;
 
-								// Patch action history for hot reload when running in assembler mode.  In assembler mode, the suffix on the output file will be
-								// the same for every invocation on that makefile, but we need a new suffix each time.
-								if (HotReload != EHotReload.Disabled)
-								{
-									PatchActionHistoryForHotReloadAssembling(ActionGraph, HotReloadTargetDesc.OnlyModules, Targets);
-								}
+								OutputItemsForAllTargets = UBTMakefile.OutputItemsForAllTargets;
 
+								ModuleNameToOutputItems = UBTMakefile.ModuleNameToOutputItems;
+
+								HotReloadModuleNamesForAllTargets = UBTMakefile.HotReloadModuleNamesForAllTargets;
 
 								foreach (Tuple<string, string> EnvironmentVariable in UBTMakefile.EnvironmentVariables)
 								{
@@ -1132,7 +1159,7 @@ namespace UnrealBuildTool
 												// Execute the header tool
 												FileReference ModuleInfoFileName = FileReference.Combine(Target.ProjectIntermediateDirectory, Target.GetTargetName() + ".uhtmanifest");
 												ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, Target.ProjectFile, Target.TargetName, Target.TargetType, Target.bHasProjectScriptPlugin,  UObjectModules: TargetUObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild);
-												if(UHTResult.Succeeded())
+												if(!UHTResult.Succeeded())
 												{
 													Log.TraceInformation("UnrealHeaderTool failed for target '" + Target.GetTargetName() + "' (platform: " + Target.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
 													BuildResult = UHTResult;
@@ -1146,12 +1173,241 @@ namespace UnrealBuildTool
 
 							if (BuildResult.Succeeded())
 							{
-								// Make sure any old DLL files from in-engine recompiles aren't lying around.  Must be called after the action graph is finalized.
-								ActionGraph.DeleteStaleHotReloadDLLs();
+								// Get the output items we're trying to build right now
+								List<FileItem> OutputItems = OutputItemsForAllTargets;
+
+								// Filter them if we have any specific modules specified
+								if (OnlyModuleNames.Count > 0)
+								{
+									OutputItems = new List<FileItem>();
+									foreach(string OnlyModuleName in OnlyModuleNames)
+									{
+										FileItem[] OutputItemsForModule;
+										if(!ModuleNameToOutputItems.TryGetValue(OnlyModuleName, out OutputItemsForModule))
+										{
+											throw new BuildException("Unable to find output items for module '{0}'", OnlyModuleName);
+										}
+										OutputItems.AddRange(OutputItemsForModule);
+									}
+								}
+
+								// For now simply treat all object files as the root target.
+								Action[] PrerequisiteActions;
+								{
+									HashSet<Action> PrerequisiteActionsSet = new HashSet<Action>();
+									foreach (FileItem OutputItem in OutputItems)
+									{
+										ActionGraph.GatherPrerequisiteActions(OutputItem, ref PrerequisiteActionsSet);
+									}
+									PrerequisiteActions = PrerequisiteActionsSet.ToArray();
+								}
+
+								// Apply the previous hot reload state
+								HotReloadState HotReloadState = null;
+								if(HotReloadMode == EHotReload.Disabled)
+								{
+									// Delete any previous state files; they are no longer valid
+									foreach(TargetDescriptor TargetDesc in TargetDescs)
+									{
+										FileReference HotReloadStateFile = GetHotReloadStateFile(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture);
+										if(FileReference.Exists(HotReloadStateFile))
+										{
+											try
+											{
+												HotReloadState = ReadHotReloadState(HotReloadStateFile);
+											}
+											catch(Exception Ex)
+											{
+												Log.TraceWarning("Unable to read hot reload state file: {0}", HotReloadStateFile);
+												Log.WriteException(Ex, null);
+											}
+
+											if(HotReloadState != null)
+											{
+												foreach(FileReference Location in HotReloadState.AllHotReloadFiles.OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase))
+												{
+													if(FileReference.Exists(Location))
+													{
+														try
+														{
+															FileReference.Delete(Location);
+														}
+														catch(Exception Ex)
+														{
+															throw new BuildException(Ex, "Unable to delete hot-reload file: {0}", Location);
+														}
+														Log.TraceInformation("Deleted hot-reload file: {0}", Location);
+													}
+												}
+												try
+												{
+													FileReference.Delete(HotReloadStateFile);
+												}
+												catch(Exception Ex)
+												{
+													throw new BuildException(Ex, "Unable to delete hot-reload state file: {0}", HotReloadStateFile);
+												}
+											}
+										}
+									}
+								}
+								else
+								{
+									// Read the previous state file and apply it to the action graph
+									FileReference HotReloadStateFile = GetHotReloadStateFile(TargetDescs[0].ProjectFile, TargetDescs[0].Name, TargetDescs[0].Platform, TargetDescs[0].Configuration, TargetDescs[0].Architecture);
+									if(FileReference.Exists(HotReloadStateFile))
+									{
+										HotReloadState = ReadHotReloadState(HotReloadStateFile);
+									}
+									else
+									{
+										HotReloadState = new HotReloadState();
+									}
+
+									// Update the action graph to produce these new files
+									PatchActionGraphForHotReload(PrerequisiteActions, HotReloadState.OriginalFileToHotReloadFile);
+
+									// Update the module to output file mapping
+									foreach(string HotReloadModuleName in HotReloadModuleNamesForAllTargets)
+									{
+										FileItem[] ModuleOutputItems = ModuleNameToOutputItems[HotReloadModuleName];
+										for(int Idx = 0; Idx < ModuleOutputItems.Length; Idx++)
+										{
+											FileReference NewLocation;
+											if(HotReloadState.OriginalFileToHotReloadFile.TryGetValue(ModuleOutputItems[Idx].Location, out NewLocation))
+											{
+												ModuleOutputItems[Idx] = FileItem.GetItemByFileReference(NewLocation);
+											}
+										}
+									}
+
+									// If we want a specific suffix on any modules, apply that now. We'll track the outputs later, but the suffix has to be forced  (and is always out of date if it doesn't exist).
+									if(HotReloadModuleNameToSuffix.Count > 0)
+									{
+										Dictionary<FileReference, FileReference> OldLocationToNewLocation = new Dictionary<FileReference, FileReference>();
+										foreach(string HotReloadModuleName in HotReloadModuleNamesForAllTargets)
+										{
+											int ModuleSuffix;
+											if(HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix))
+											{
+												FileItem[] ModuleOutputItems = ModuleNameToOutputItems[HotReloadModuleName];
+												foreach(FileItem ModuleOutputItem in ModuleOutputItems)
+												{
+													FileReference OldLocation = ModuleOutputItem.Location;
+													FileReference NewLocation = ReplaceHotReloadSuffix(OldLocation, ModuleSuffix);
+													OldLocationToNewLocation[OldLocation] = NewLocation;
+												}
+											}
+										}
+										PatchActionGraphForHotReload(PrerequisiteActions, OldLocationToNewLocation);
+									}
+								}
 
 								// Plan the actions to execute for the build.
 								Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
-								List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, UBTMakefile.PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);
+								HashSet<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);
+
+								// Patch action history for hot reload when running in assembler mode.  In assembler mode, the suffix on the output file will be
+								// the same for every invocation on that makefile, but we need a new suffix each time.
+								if (HotReloadMode != EHotReload.Disabled)
+								{
+									// For all the hot-reloadable modules that may need a unique suffix appended, build a mapping from output item to all the output items in that module. We can't 
+									// apply a suffix to one without applying a suffix to all of them.
+									Dictionary<FileItem, FileItem[]> HotReloadItemToDependentItems = new Dictionary<FileItem, FileItem[]>();
+									foreach(string HotReloadModuleName in HotReloadModuleNamesForAllTargets)
+									{
+										int ModuleSuffix;
+										if(!HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix) || ModuleSuffix == -1)
+										{
+											FileItem[] ModuleOutputItems;
+											if(ModuleNameToOutputItems.TryGetValue(HotReloadModuleName, out ModuleOutputItems))
+											{
+												foreach(FileItem ModuleOutputItem in ModuleOutputItems)
+												{
+													HotReloadItemToDependentItems[ModuleOutputItem] = ModuleOutputItems;
+												}
+											}
+										} 
+									}
+
+									// Expand the list of actions to execute to include everything that references any files with a new suffix. Unlike a regular build, we can't ignore
+									// dependencies on import libraries under the assumption that a header would change if the API changes, because the dependency will be on a different DLL.
+									HashSet<FileItem> FilesRequiringSuffix = new HashSet<FileItem>(ActionsToExecute.SelectMany(x => x.ProducedItems).Where(x => HotReloadItemToDependentItems.ContainsKey(x)));
+									for(int LastNumFilesWithNewSuffix = 0; FilesRequiringSuffix.Count > LastNumFilesWithNewSuffix;)
+									{
+										LastNumFilesWithNewSuffix = FilesRequiringSuffix.Count;
+										foreach(Action PrerequisiteAction in PrerequisiteActions)
+										{
+											if(!ActionsToExecute.Contains(PrerequisiteAction))
+											{
+												foreach(FileItem ProducedItem in PrerequisiteAction.ProducedItems)
+												{
+													FileItem[] DependentItems;
+													if(HotReloadItemToDependentItems.TryGetValue(ProducedItem, out DependentItems))
+													{
+														ActionsToExecute.Add(PrerequisiteAction);
+														FilesRequiringSuffix.UnionWith(DependentItems);
+													}
+												}
+											}
+										}
+									}
+
+									// Build a list of file mappings
+									Dictionary<FileReference, FileReference> OldLocationToNewLocation = new Dictionary<FileReference, FileReference>();
+									foreach(FileItem FileRequiringSuffix in FilesRequiringSuffix)
+									{
+										FileReference OldLocation = FileRequiringSuffix.Location;
+										FileReference NewLocation = ReplaceHotReloadSuffix(OldLocation, HotReloadState.NextSuffix);
+										OldLocationToNewLocation[OldLocation] = NewLocation;
+									}
+
+									// Update the action graph with these new paths
+									PatchActionGraphForHotReload(PrerequisiteActions, OldLocationToNewLocation);
+
+									// Get a new list of actions to execute now that the graph has been modified
+									ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);
+
+									// Build a mapping of all file items to their original
+									Dictionary<FileReference, FileReference> HotReloadFileToOriginalFile = new Dictionary<FileReference, FileReference>();
+									foreach(KeyValuePair<FileReference, FileReference> Pair in HotReloadState.OriginalFileToHotReloadFile)
+									{
+										HotReloadFileToOriginalFile[Pair.Value] = Pair.Key;
+									}
+									foreach(KeyValuePair<FileReference, FileReference> Pair in OldLocationToNewLocation)
+									{
+										FileReference OriginalLocation;
+										if(!HotReloadFileToOriginalFile.TryGetValue(Pair.Key, out OriginalLocation))
+										{
+											OriginalLocation = Pair.Key;
+										}
+										HotReloadFileToOriginalFile[Pair.Value] = OriginalLocation;
+									}
+
+									// Now filter out all the hot reload files and update the state
+									foreach(Action Action in ActionsToExecute)
+									{
+										foreach(FileItem ProducedItem in Action.ProducedItems)
+										{
+											FileReference OriginalLocation;
+											if(HotReloadFileToOriginalFile.TryGetValue(ProducedItem.Location, out OriginalLocation))
+											{
+												HotReloadState.OriginalFileToHotReloadFile[OriginalLocation] = ProducedItem.Location;
+												HotReloadState.AllHotReloadFiles.Add(ProducedItem.Location);
+											}
+										}
+									}
+
+									// Increment the suffix for the next iteration
+									if(ActionsToExecute.Count > 0)
+									{
+										HotReloadState.NextSuffix++;
+									}
+
+									// Save the new state
+									FileReference HotReloadStateFile = GetHotReloadStateFile(TargetDescs[0].ProjectFile, TargetDescs[0].Name, TargetDescs[0].Platform, TargetDescs[0].Configuration, TargetDescs[0].Architecture);
+									WriteHotReloadState(HotReloadStateFile, HotReloadState);
+								}
 
 								// Display some stats to the user.
 								Log.TraceVerbose(
@@ -1173,24 +1429,17 @@ namespace UnrealBuildTool
 								DateTime ExecutorStartTime = DateTime.UtcNow;
 								if (BuildConfiguration.bXGEExport)
 								{
-									XGE.ExportActions(ActionsToExecute);
+									XGE.ExportActions(ActionsToExecute.ToList());
 									bSuccess = true;
 								}
 								else
 								{
-									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute, out ExecutorName, TargetInfoForTelemetry, HotReload);
+									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute.ToList(), out ExecutorName, TargetInfoForTelemetry, HotReloadMode);
 								}
 								TotalExecutorTime += (DateTime.UtcNow - ExecutorStartTime).TotalSeconds;
 
 								// if the build succeeded, write the receipts and do any needed syncing
-								if (bSuccess)
-								{
-									if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
-									{
-										BuildResult = ECompilationResult.UpToDate;
-									}
-								}
-								else
+								if (!bSuccess)
 								{
 									BuildResult = ECompilationResult.OtherCompilationError;
 								}
@@ -1205,7 +1454,7 @@ namespace UnrealBuildTool
 							{
 								foreach (UEBuildTarget Target in Targets)
 								{
-									if (Target.bDeployAfterCompile && Target.OnlyModules.Count == 0)
+									if (Target.bDeployAfterCompile && HotReloadModuleNameToSuffix.Count == 0)
 									{
 										Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", Target.TargetName, Target.Platform, Target.Configuration);
 										TargetReceipt Receipt = TargetReceipt.Read(Target.ReceiptFileName);
@@ -1280,6 +1529,7 @@ namespace UnrealBuildTool
 				}
 			}
 		}
+
 		/// <summary>
 		/// Checks if the editor is currently running and this is a hot-reload
 		/// </summary>
@@ -1448,111 +1698,108 @@ namespace UnrealBuildTool
 			}
 		}
 
-		/// <summary>
-		/// Replaces a hot reload suffix in a filename.
-		/// </summary>
-		/// <param name="InOutFilename">The filename to replace the suffix in.</param>
-		/// <param name="ModuleNameToSuffix">A function which returns a replacement suffix for a given module name.</param>
-		/// <returns>true is a suffix replacement was made, false otherwise.</returns>
-		public static bool ReplaceHotReloadFilenameSuffix(ref string InOutFilename, Func<string, string> ModuleNameToSuffix)
+		public static FileReference GetHotReloadStateFile(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture)
 		{
-			// Remove the extension
-			string FilenameWithoutExtension = Path.GetFileNameWithoutExtension(InOutFilename);
-			string Extension = Path.GetExtension(InOutFilename);
+			DirectoryReference BaseDir = DirectoryReference.FromFile(ProjectFile) ?? UnrealBuildTool.EngineDirectory;
+			return FileReference.Combine(BaseDir, UEBuildTarget.GetPlatformIntermediateFolder(Platform, Architecture), TargetName, Configuration.ToString(), "HotReload.state");
+		}
 
-			// Remove the numbered suffix from the end of the filename
-			int IndexOfLastHyphen = FilenameWithoutExtension.LastIndexOf('-');
-			string OriginalNumberSuffix = FilenameWithoutExtension.Substring(IndexOfLastHyphen);
-			int NumberSuffix;
-			bool bHasNumberSuffix = int.TryParse(OriginalNumberSuffix, out NumberSuffix);
+		public static HotReloadState ReadHotReloadState(FileReference Location)
+		{
+			return BinaryFormatterUtils.Load<HotReloadState>(Location);
+		}
 
-			string OriginalFileNameWithoutNumberSuffix = null;
-			string PlatformConfigSuffix = "";
-			if (bHasNumberSuffix)
-			{
-				// Remove "-####" suffix in Development configuration
-				OriginalFileNameWithoutNumberSuffix = FilenameWithoutExtension.Substring(0, IndexOfLastHyphen);
-			}
-			else
-			{
-				OriginalFileNameWithoutNumberSuffix = FilenameWithoutExtension;
-
-				// Remove "-####-Platform-Configuration" suffix in Debug configuration
-				int IndexOfSecondLastHyphen = FilenameWithoutExtension.LastIndexOf('-', IndexOfLastHyphen - 1, IndexOfLastHyphen);
-				if (IndexOfSecondLastHyphen > 0)
-				{
-					int IndexOfThirdLastHyphen = FilenameWithoutExtension.LastIndexOf('-', IndexOfSecondLastHyphen - 1, IndexOfSecondLastHyphen);
-					if (IndexOfThirdLastHyphen > 0)
-					{
-						if (int.TryParse(FilenameWithoutExtension.Substring(IndexOfThirdLastHyphen + 1, IndexOfSecondLastHyphen - IndexOfThirdLastHyphen - 1), out NumberSuffix))
-						{
-							OriginalFileNameWithoutNumberSuffix = FilenameWithoutExtension.Substring(0, IndexOfThirdLastHyphen);
-							PlatformConfigSuffix = FilenameWithoutExtension.Substring(IndexOfSecondLastHyphen);
-							bHasNumberSuffix = true;
-						}
-					}
-				}
-			}
-
-			if (!bHasNumberSuffix)
-			{
-				return false;
-			}
-
-			// Figure out which suffix to use
-			int FirstHyphenIndex = OriginalFileNameWithoutNumberSuffix.IndexOf('-');
-			if (FirstHyphenIndex == -1)
-			{
-				throw new BuildException("Expected produced item file name '{0}' to start with a prefix (such as 'UE4Editor-') when hot reloading", FilenameWithoutExtension);
-			}
-			string OutputFileNamePrefix = OriginalFileNameWithoutNumberSuffix.Substring(0, FirstHyphenIndex + 1);
-
-			// Get the module name from the file name
-			string ModuleName = OriginalFileNameWithoutNumberSuffix.Substring(OutputFileNamePrefix.Length);
-
-			// Add a new suffix
-			string UniqueSuffix = "-" + ModuleNameToSuffix(ModuleName);
-
-			InOutFilename = OriginalFileNameWithoutNumberSuffix + UniqueSuffix + PlatformConfigSuffix + Extension;
-			return true;
+		public static void WriteHotReloadState(FileReference Location, HotReloadState State)
+		{
+			DirectoryReference.CreateDirectory(Location.Directory);
+			BinaryFormatterUtils.Save(Location, State);
 		}
 
 		/// <summary>
-		/// Returns a module suffix from a list of OnlyModules if one exists, otherwise generates a new one and adds it to the list.
+		/// Replaces a hot reload suffix in a filename.
 		/// </summary>
-		/// <param name="OnlyModules">A list of modules with suffixes to search and add to if necessary.</param>
-		/// <param name="ModuleName">The module name to find in the list.</param>
-		/// <returns>The existing or new suffix for the module name.</returns>
-		public static string GetReplacementModuleSuffix(List<OnlyModule> OnlyModules, string ModuleName)
+		public static FileReference ReplaceHotReloadSuffix(FileReference File, int Suffix)
 		{
-			// Check the OnlyModules list for a prefix
-			if (OnlyModules != null)
+			string FileName = File.GetFileName();
+
+			// Find the end of the target and module name
+			int HyphenIdx = FileName.IndexOf('-');
+			if (HyphenIdx == -1)
 			{
-				OnlyModule FoundModule = OnlyModules.Find((OnlyModule) => OnlyModule.OnlyModuleName.Equals(ModuleName, StringComparison.InvariantCultureIgnoreCase));
-				if (FoundModule != null)
+				throw new BuildException("Hot-reloadable files are expected to contain a hyphen, eg. UE4Editor-Core");
+			}
+
+			int NameEndIdx = HyphenIdx + 1;
+			while(NameEndIdx < FileName.Length && FileName[NameEndIdx] != '.' && FileName[NameEndIdx] != '-')
+			{
+				NameEndIdx++;
+			}
+
+			// Strip any existing suffix
+			if(NameEndIdx + 1 < FileName.Length && Char.IsDigit(FileName[NameEndIdx + 1]))
+			{
+				int SuffixEndIdx = NameEndIdx + 2;
+				while(SuffixEndIdx < FileName.Length && Char.IsDigit(FileName[SuffixEndIdx]))
 				{
-					return FoundModule.OnlyModuleSuffix;
+					SuffixEndIdx++;
+				}
+				if(SuffixEndIdx == FileName.Length || FileName[SuffixEndIdx] == '-' || FileName[SuffixEndIdx] == '.')
+				{
+					FileName = FileName.Substring(0, NameEndIdx) + FileName.Substring(SuffixEndIdx);
 				}
 			}
 
-			// Generate a new random suffix
-			string Result = (new Random((int)(DateTime.Now.Ticks % Int32.MaxValue)).Next(10000)).ToString();
+			string NewFileName = String.Format("{0}-{1:D4}{2}", FileName.Substring(0, NameEndIdx), Suffix, FileName.Substring(NameEndIdx));
 
-			// Add it to the OnlyModules list
-			OnlyModules.Add(new OnlyModule(ModuleName, Result));
+			return FileReference.Combine(File.Directory, NewFileName);
+		}
 
-			return Result;
+		/// <summary>
+		/// Replaces a base filename within a string. Ensures that the filename is not a substring of another longer string (eg. replacing "Foo" will match "Foo.Bar" but not "FooBar" or "BarFooBar"). 
+		/// </summary>
+		/// <param name="Text">Text to replace within</param>
+		/// <param name="OldFileName">Old filename</param>
+		/// <param name="NewFileName">New filename</param>
+		/// <returns>Text with file names replaced</returns>
+		static string ReplaceBaseFileName(string Text, string OldFileName, string NewFileName)
+		{
+			int StartIdx = 0;
+			for(;;)
+			{
+				int Idx = Text.IndexOf(OldFileName, StartIdx, StringComparison.OrdinalIgnoreCase);
+				if(Idx == -1)
+				{
+					break;
+				}
+				else if((Idx == 0 || !IsBaseFileNameCharacter(Text[Idx - 1])) && (Idx + OldFileName.Length == Text.Length || !IsBaseFileNameCharacter(Text[Idx + OldFileName.Length])))
+				{
+					Text = Text.Substring(0, Idx) + NewFileName + Text.Substring(Idx + OldFileName.Length);
+					StartIdx = Idx + NewFileName.Length;
+				}
+				else
+				{
+					StartIdx = Idx + 1;
+				}
+			}
+			return Text;
+		}
+
+		/// <summary>
+		/// Determines if a character should be treated as part of a base filename, when updating strings for hot reload
+		/// </summary>
+		/// <param name="Character">The character to check</param>
+		/// <returns>True if the character is part of a base filename, false otherwise</returns>
+		static bool IsBaseFileNameCharacter(char Character)
+		{
+			return Char.IsLetterOrDigit(Character) || Character == '_';
 		}
 
 		/// <summary>
 		/// Patch action history for hot reload when running in assembler mode.  In assembler mode, the suffix on the output file will be
 		/// the same for every invocation on that makefile, but we need a new suffix each time.
 		/// </summary>
-		static void PatchActionHistoryForHotReloadAssembling(ActionGraph ActionGraph, List<OnlyModule> OnlyModules, List<UEBuildTarget> Targets)
+		static void PatchActionGraphForHotReload(IEnumerable<Action> Actions, Dictionary<FileReference, FileReference> OriginalFileToHotReloadFile)
 		{
-			// Take a copy of the array so that we don't modify the original in GetReplacementModuleSuffix
-			List<OnlyModule> OnlyModulesLocal = new List<OnlyModule>(OnlyModules);
-
 			// Gather all of the response files for link actions.  We're going to need to patch 'em up after we figure out new
 			// names for all of the output files and import libraries
 			List<string> ResponseFilePaths = new List<string>();
@@ -1562,21 +1809,22 @@ namespace UnrealBuildTool
 			List<string> LinkScriptFilePaths = new List<string>();
 
 			// Keep a map of the original file names and their new file names, so we can fix up response files after
-			List<Tuple<string, string>> OriginalFileNameAndNewFileNameList_NoExtensions = new List<Tuple<string, string>>();
+			Dictionary<string, string> OriginalFileNameAndNewFileNameList_NoExtensions = new Dictionary<string, string>();
 
 			// Finally, we'll keep track of any file items that we had to create counterparts for change file names, so we can fix those up too
 			Dictionary<FileItem, FileItem> AffectedOriginalFileItemAndNewFileItemMap = new Dictionary<FileItem, FileItem>();
 
-			foreach (Action Action in ActionGraph.AllActions.Where((Action) => Action.ActionType == ActionType.Link))
+			foreach (Action Action in Actions.Where((Action) => Action.ActionType == ActionType.Link))
 			{
 				// Assume that the first produced item (with no extension) is our output file name
-				string OriginalFileNameWithoutExtension = Utils.GetFilenameWithoutAnyExtensions(Action.ProducedItems[0].AbsolutePath);
-
-				string NewFileNameWithoutExtension = OriginalFileNameWithoutExtension;
-				if (!ReplaceHotReloadFilenameSuffix(ref NewFileNameWithoutExtension, (ModuleName) => GetReplacementModuleSuffix(OnlyModulesLocal, ModuleName)))
+				FileReference HotReloadFile;
+				if(!OriginalFileToHotReloadFile.TryGetValue(Action.ProducedItems[0].Location, out HotReloadFile))
 				{
 					continue;
 				}
+
+				string OriginalFileNameWithoutExtension = Utils.GetFilenameWithoutAnyExtensions(Action.ProducedItems[0].AbsolutePath);
+				string NewFileNameWithoutExtension = Utils.GetFilenameWithoutAnyExtensions(HotReloadFile.FullName);
 
 				// Find the response file in the command line.  We'll need to make a copy of it with our new file name.
 				string ResponseFileExtension = ".response";
@@ -1592,10 +1840,13 @@ namespace UnrealBuildTool
 					string OriginalResponseFilePathWithoutExtension = Action.CommandArguments.Substring(ResponseFilePathIndex + 2, (ResponseExtensionIndex - ResponseFilePathIndex) - 2);
 					string OriginalResponseFilePath = OriginalResponseFilePathWithoutExtension + ResponseFileExtension;
 
-					string NewResponseFilePath = OriginalResponseFilePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+					string NewResponseFilePath = ReplaceBaseFileName(OriginalResponseFilePath, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 					// Copy the old response file to the new path
-					File.Copy(OriginalResponseFilePath, NewResponseFilePath, overwrite: true);
+					if(String.Compare(OriginalResponseFilePath, NewResponseFilePath, StringComparison.OrdinalIgnoreCase) != 0)
+					{
+						File.Copy(OriginalResponseFilePath, NewResponseFilePath, overwrite: true);
+					}
 
 					// Keep track of the new response file name.  We'll have to do some edits afterwards.
 					ResponseFilePaths.Add(NewResponseFilePath);
@@ -1619,7 +1870,7 @@ namespace UnrealBuildTool
 						string OriginalLinkScriptFilePathWithoutExtension = Action.CommandArguments.Substring(LinkScriptFilePathIndex + 1, (LinkScriptExtensionIndex - LinkScriptFilePathIndex) - 1);
 						string OriginalLinkScriptFilePath = OriginalLinkScriptFilePathWithoutExtension + LinkScriptFileExtension;
 
-						string NewLinkScriptFilePath = OriginalLinkScriptFilePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+						string NewLinkScriptFilePath = ReplaceBaseFileName(OriginalLinkScriptFilePath, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 						// Copy the old response file to the new path
 						File.Copy(OriginalLinkScriptFilePath, NewLinkScriptFilePath, overwrite: true);
@@ -1632,7 +1883,7 @@ namespace UnrealBuildTool
 					for (int ItemIndex = 0; ItemIndex < Action.PrerequisiteItems.Count; ++ItemIndex)
 					{
 						FileItem OriginalPrerequisiteItem = Action.PrerequisiteItems[ItemIndex];
-						string NewPrerequisiteItemFilePath = OriginalPrerequisiteItem.AbsolutePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+						string NewPrerequisiteItemFilePath = ReplaceBaseFileName(OriginalPrerequisiteItem.AbsolutePath, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 						if (OriginalPrerequisiteItem.AbsolutePath != NewPrerequisiteItemFilePath)
 						{
@@ -1653,7 +1904,7 @@ namespace UnrealBuildTool
 								string OriginalResponseFilePathWithoutExtension = OriginalPrerequisiteItem.AbsolutePath.Substring(0, ResponseExtensionIndex);
 								string OriginalResponseFilePath = OriginalResponseFilePathWithoutExtension + ResponseFileExtension;
 
-								string NewResponseFilePath = OriginalResponseFilePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+								string NewResponseFilePath = ReplaceBaseFileName(OriginalResponseFilePath, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 								// Copy the old response file to the new path
 								File.Copy(OriginalResponseFilePath, NewResponseFilePath, overwrite: true);
@@ -1666,7 +1917,7 @@ namespace UnrealBuildTool
 				}
 
 				// Go ahead and replace all occurrences of our file name in the command-line (ignoring extensions)
-				Action.CommandArguments = Action.CommandArguments.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+				Action.CommandArguments = ReplaceBaseFileName(Action.CommandArguments, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 
 				// Update this action's list of produced items too
@@ -1674,7 +1925,7 @@ namespace UnrealBuildTool
 				{
 					FileItem OriginalProducedItem = Action.ProducedItems[ItemIndex];
 
-					string NewProducedItemFilePath = OriginalProducedItem.AbsolutePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+					string NewProducedItemFilePath = ReplaceBaseFileName(OriginalProducedItem.AbsolutePath, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 					if (OriginalProducedItem.AbsolutePath != NewProducedItemFilePath)
 					{
 						// OK, the produced item's file name changed so we'll update it to point to our new file
@@ -1691,16 +1942,23 @@ namespace UnrealBuildTool
 				}
 
 				// The status description of the item has the file name, so we'll update it too
-				Action.StatusDescription = Action.StatusDescription.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+				Action.StatusDescription = ReplaceBaseFileName(Action.StatusDescription, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
 
 				// Keep track of the file names, so we can fix up response files afterwards.
-				OriginalFileNameAndNewFileNameList_NoExtensions.Add(Tuple.Create(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension));
+				if(!OriginalFileNameAndNewFileNameList_NoExtensions.ContainsKey(OriginalFileNameWithoutExtension))
+				{
+					OriginalFileNameAndNewFileNameList_NoExtensions[OriginalFileNameWithoutExtension] = NewFileNameWithoutExtension;
+				}
+				else if(OriginalFileNameAndNewFileNameList_NoExtensions[OriginalFileNameWithoutExtension] != NewFileNameWithoutExtension)
+				{
+					throw new BuildException("Unexpected conflict in renaming files; {0} maps to {1} and {2}", OriginalFileNameWithoutExtension, OriginalFileNameAndNewFileNameList_NoExtensions[OriginalFileNameWithoutExtension], NewFileNameWithoutExtension);
+				}
 			}
 
 
 			// Do another pass and update any actions that depended on the original file names that we changed
-			foreach (Action Action in ActionGraph.AllActions)
+			foreach (Action Action in Actions)
 			{
 				for (int ItemIndex = 0; ItemIndex < Action.PrerequisiteItems.Count; ++ItemIndex)
 				{
@@ -1721,20 +1979,19 @@ namespace UnrealBuildTool
 				foreach (string ResponseFilePath in ResponseFilePaths)
 				{
 					// Load the file up
-					StringBuilder FileContents = new StringBuilder(Utils.ReadAllText(ResponseFilePath));
+					string FileContents = Utils.ReadAllText(ResponseFilePath);
 
 					// Replace all of the old file names with new ones
-					foreach (Tuple<string, string> FileNameTuple in OriginalFileNameAndNewFileNameList_NoExtensions)
+					foreach (KeyValuePair<string, string> FileNameTuple in OriginalFileNameAndNewFileNameList_NoExtensions)
 					{
-						string OriginalFileNameWithoutExtension = FileNameTuple.Item1;
-						string NewFileNameWithoutExtension = FileNameTuple.Item2;
+						string OriginalFileNameWithoutExtension = FileNameTuple.Key;
+						string NewFileNameWithoutExtension = FileNameTuple.Value;
 
-						FileContents.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+						FileContents = ReplaceBaseFileName(FileContents, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 					}
 
 					// Overwrite the original file
-					string FileContentsString = FileContents.ToString();
-					File.WriteAllText(ResponseFilePath, FileContentsString, new System.Text.UTF8Encoding(false));
+					File.WriteAllText(ResponseFilePath, FileContents, new System.Text.UTF8Encoding(false));
 				}
 
 				if (UEBuildPlatform.IsPlatformInGroup(BuildHostPlatform.Current.Platform, UnrealPlatformGroup.Unix))
@@ -1742,26 +1999,25 @@ namespace UnrealBuildTool
 					foreach (string LinkScriptFilePath in LinkScriptFilePaths)
 					{
 						// Load the file up
-						StringBuilder FileContents = new StringBuilder(Utils.ReadAllText(LinkScriptFilePath));
+						string FileContents = Utils.ReadAllText(LinkScriptFilePath);
 
 						// Replace all of the old file names with new ones
-						foreach (Tuple<string, string> FileNameTuple in OriginalFileNameAndNewFileNameList_NoExtensions)
+						foreach (KeyValuePair<string, string> FileNameTuple in OriginalFileNameAndNewFileNameList_NoExtensions)
 						{
-							string OriginalFileNameWithoutExtension = FileNameTuple.Item1;
-							string NewFileNameWithoutExtension = FileNameTuple.Item2;
+							string OriginalFileNameWithoutExtension = FileNameTuple.Key;
+							string NewFileNameWithoutExtension = FileNameTuple.Value;
 
-							FileContents.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+							FileContents = ReplaceBaseFileName(FileContents, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 						}
 
 						// Overwrite the original file
-						string FileContentsString = FileContents.ToString();
-						File.WriteAllText(LinkScriptFilePath, FileContentsString, new System.Text.UTF8Encoding(false));
+						File.WriteAllText(LinkScriptFilePath, FileContents, new System.Text.UTF8Encoding(false));
 					}
 				}
 			}
 
 			// Update the action that writes out the module manifests
-			foreach(Action Action in ActionGraph.AllActions)
+			foreach(Action Action in Actions)
 			{
 				if(Action.ActionType == ActionType.WriteMetadata)
 				{
@@ -1801,10 +2057,12 @@ namespace UnrealBuildTool
 					{
 						foreach (KeyValuePair<string, string> Manifest in FileNameToVersionManifest.Value.ModuleNameToFileName)
 						{
-							string ModuleFilename = Manifest.Value;
-							if (UnrealBuildTool.ReplaceHotReloadFilenameSuffix(ref ModuleFilename, (ModuleName) => UnrealBuildTool.GetReplacementModuleSuffix(OnlyModules, ModuleName)))
+							FileReference OriginalFile = FileReference.Combine(FileNameToVersionManifest.Key.Directory, Manifest.Key);
+
+							FileReference HotReloadFile;
+							if(OriginalFileToHotReloadFile.TryGetValue(OriginalFile, out HotReloadFile))
 							{
-								FileNameToVersionManifest.Value.ModuleNameToFileName[Manifest.Key] = ModuleFilename;
+								FileNameToVersionManifest.Value.ModuleNameToFileName[Manifest.Key] = HotReloadFile.GetFileName();
 								break;
 							}
 						}

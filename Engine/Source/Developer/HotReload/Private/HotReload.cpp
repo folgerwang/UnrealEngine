@@ -1571,21 +1571,8 @@ FString FHotReloadModule::MakeUBTArgumentsForModuleCompiling()
 	{
 		// We have to pass FULL paths to UBT
 		FString FullProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
-
-		// @todo projectdirs: Currently non-installed projects that exist under the UE4 root are compiled by UBT with no .uproject file
-		//     name passed in (see bIsProjectTarget in VCProject.cs), which causes intermediate libraries to be saved to the Engine
-		//     intermediate folder instead of the project's intermediate folder.  We're emulating this behavior here for module
-		//     recompiling, so that compiled modules will be able to find their import libraries in the original folder they were compiled.
-		if( FApp::IsEngineInstalled() || !FullProjectPath.StartsWith( FPaths::ConvertRelativePathToFull( FPaths::RootDir() ) ) )
-		{
-			const FString ProjectFilenameWithQuotes = FString::Printf(TEXT("\"%s\""), *FullProjectPath);
-			AdditionalArguments += FString::Printf(TEXT("%s "), *ProjectFilenameWithQuotes);
-		}
+		AdditionalArguments += FString::Printf(TEXT("\"%s\" "), *FullProjectPath);
 	}
-
-	// Use new FastPDB option to cut down linking time. Currently disabled due to problems with missing symbols in VS2015.
-	// AdditionalArguments += TEXT(" -FastPDB");
-
 	return AdditionalArguments;
 }
 
@@ -1636,7 +1623,7 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 
 	if (FPaths::IsProjectFilePathSet())
 	{
-		ExtraArg += FString::Printf(TEXT("-Project=\"%s\" "), *FPaths::GetProjectFilePath());
+		ExtraArg += FString::Printf(TEXT("-Project=\"%s\" "), *FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()));
 	}
 
 	if (bInFailIfGeneratedCodeChanges)
@@ -1644,9 +1631,6 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 		// Additional argument to let UHT know that we can only compile the module if the generated code didn't change
 		ExtraArg += TEXT( "-FailIfGeneratedCodeChanges " );
 	}
-
-	// If there's nothing to compile, don't bother linking the DLLs as the old ones are up-to-date
-	ExtraArg += TEXT("-canskiplink ");
 
 	// Shared PCH does no work with hot-reloading engine/editor modules as we don't scan all modules for them.
 	if (!ContainsOnlyGameModules(ModuleNames))

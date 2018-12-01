@@ -19,7 +19,6 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform Platform;
 		public UnrealTargetConfiguration Configuration;
 		public string Architecture;
-		public List<OnlyModule> OnlyModules = new List<OnlyModule>();
 		public FileReference ForeignPlugin;
 		public string[] AdditionalArguments;
 
@@ -57,7 +56,6 @@ namespace UnrealBuildTool
 			List<string> TargetNames = new List<string>();
 			List<TargetType> TargetTypes = new List<TargetType>();
 			string Architecture = null;
-			List<OnlyModule> OnlyModules = new List<OnlyModule>();
 			FileReference ForeignPlugin = null;
 			List<string> AdditionalArguments = new List<string>();
 
@@ -106,19 +104,6 @@ namespace UnrealBuildTool
 							throw new BuildException("Invalid target type: '{0}'", Value);
 						}
 						TargetTypes.Add(Type);
-					}
-					else if(ParseArgumentValue(Argument, "-Module=", out Value))
-					{
-						OnlyModules.Add(new OnlyModule(Value));
-					}
-					else if(ParseArgumentValue(Argument, "-ModuleWithSuffix=", out Value))
-					{
-						int SuffixIdx = Value.LastIndexOf(',');
-						if(SuffixIdx == -1)
-						{
-							throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
-						}
-						OnlyModules.Add(new OnlyModule(Value.Substring(0, SuffixIdx), Value.Substring(SuffixIdx + 1)));
 					}
 					else if(ParseArgumentValue(Argument, "-Plugin=", out Value))
 					{
@@ -187,7 +172,6 @@ namespace UnrealBuildTool
 
 				// Create the target descriptor
 				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, AdditionalArguments.ToArray());
-				Target.OnlyModules.AddRange(OnlyModules);
 				Target.ForeignPlugin = ForeignPlugin;
 				Targets.Add(Target);
 			}

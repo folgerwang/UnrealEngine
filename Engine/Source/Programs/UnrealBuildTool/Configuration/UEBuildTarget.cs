@@ -288,44 +288,6 @@ namespace UnrealBuildTool
 		public List<string> UHTHeaderNames = new List<string>();
 	}
 
-	[Serializable]
-	class OnlyModule : ISerializable
-	{
-		public OnlyModule(SerializationInfo Info, StreamingContext Context)
-		{
-			OnlyModuleName = Info.GetString("mn");
-			OnlyModuleSuffix = Info.GetString("ms");
-		}
-
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
-		{
-			Info.AddValue("mn", OnlyModuleName);
-			Info.AddValue("ms", OnlyModuleSuffix);
-		}
-
-		public OnlyModule(string InitOnlyModuleName)
-		{
-			OnlyModuleName = InitOnlyModuleName;
-			OnlyModuleSuffix = String.Empty;
-		}
-
-		public OnlyModule(string InitOnlyModuleName, string InitOnlyModuleSuffix)
-		{
-			OnlyModuleName = InitOnlyModuleName;
-			OnlyModuleSuffix = InitOnlyModuleSuffix;
-		}
-
-		/// <summary>
-		/// If building only a single module, this is the module name to build
-		/// </summary>
-		public readonly string OnlyModuleName;
-
-		/// <summary>
-		/// When building only a single module, the optional suffix for the module file name
-		/// </summary>
-		public readonly string OnlyModuleSuffix;
-	}
-
 	/// <summary>
 	/// A target that can be built
 	/// </summary>
@@ -397,15 +359,6 @@ namespace UnrealBuildTool
 			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared)
 			{
 				ValidateSharedEnvironment(RulesAssembly, Desc.Name, RulesObject);
-			}
-
-			// Make sure that we don't explicitly enable or disable any plugins through the target rules. We can't 
-			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared && Desc.OnlyModules.Count == 0)
-			{
-				if(RulesObject.EnablePlugins.Count > 0 || RulesObject.DisablePlugins.Count > 0)
-				{
-					throw new BuildException("Explicitly enabling and disabling plugins for a target is only supported when using a unique build environment (eg. for monolithic game targets).");
-				}
 			}
 
 			// If we're precompiling, generate a list of all the files that we depend on
@@ -558,6 +511,12 @@ namespace UnrealBuildTool
 						CheckValuesMatch(ThisRules.GetType(), ThisTargetName, BaseTargetName, Property.Name, Property.PropertyType, ThisValue, BaseValue);
 					}
 				}
+			}
+
+			// Make sure that we don't explicitly enable or disable any plugins through the target rules. We can't do this with the shared build environment because it requires recompiling the "Projects" engine module.
+			if(ThisRules.EnablePlugins.Count > 0 || ThisRules.DisablePlugins.Count > 0)
+			{
+				throw new BuildException("Explicitly enabling and disabling plugins for a target is only supported when using a unique build environment (eg. for monolithic game targets).");
 			}
 		}
 
@@ -725,11 +684,6 @@ namespace UnrealBuildTool
 		public List<UEBuildBinary> Binaries = new List<UEBuildBinary>();
 
 		/// <summary>
-		/// If building only a specific set of modules, these are the modules to build
-		/// </summary>
-		public List<OnlyModule> OnlyModules = new List<OnlyModule>();
-
-		/// <summary>
 		/// Kept to determine the correct module parsing order when filtering modules.
 		/// </summary>
 		[NonSerialized]
@@ -820,7 +774,6 @@ namespace UnrealBuildTool
 			OutputPaths = (List<FileReference>)Info.GetValue("op", typeof(List<FileReference>));
 			VersionFile = (FileReference)Info.GetValue("vf", typeof(FileReference));
 			bPrecompile = Info.GetBoolean("pc");
-			OnlyModules = (List<OnlyModule>)Info.GetValue("om", typeof(List<OnlyModule>));
 			bCompileMonolithic = Info.GetBoolean("cm");
 			FlatModuleCsData = (List<FlatModuleCsDataType>)Info.GetValue("fm", typeof(List<FlatModuleCsDataType>));
 			ReceiptFileName = (FileReference)Info.GetValue("rf", typeof(FileReference));
@@ -849,7 +802,6 @@ namespace UnrealBuildTool
 			Info.AddValue("op", OutputPaths);
 			Info.AddValue("vf", VersionFile);
 			Info.AddValue("pc", bPrecompile);
-			Info.AddValue("om", OnlyModules);
 			Info.AddValue("cm", bCompileMonolithic);
 			Info.AddValue("fm", FlatModuleCsData);
 			Info.AddValue("rf", ReceiptFileName);
@@ -955,8 +907,6 @@ namespace UnrealBuildTool
 			{
 				ProjectDescriptor = ProjectDescriptor.FromFile(ProjectFile);
 			}
-
-			OnlyModules = InDesc.OnlyModules;
 
 			// Construct the output paths for this target's executable
 			DirectoryReference OutputDirectory;
@@ -1338,10 +1288,7 @@ namespace UnrealBuildTool
 
 			if (!Rules.bDisableLinking)
 			{
-				if (OnlyModules.Count == 0)
-				{
-					Manifest.AddBuildProduct(ReceiptFileName.FullName);
-				}
+				Manifest.AddBuildProduct(ReceiptFileName.FullName);
 
 				if (bDeployAfterCompile)
 				{
@@ -1404,8 +1351,7 @@ namespace UnrealBuildTool
 		/// <param name="ToolChain">The toolchain used to build the target</param>
 		/// <param name="BuildProducts">Artifacts from the build</param>
 		/// <param name="RuntimeDependencies">Output runtime dependencies</param>
-		/// <param name="HotReload">The hot-reload mode</param>
-		TargetReceipt PrepareReceipt(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies, EHotReload HotReload)
+		TargetReceipt PrepareReceipt(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies)
 		{
 			// Read the version file
 			BuildVersion Version;
@@ -1423,15 +1369,6 @@ namespace UnrealBuildTool
 				{
 					// If this is a formal build, we can just the compatible changelist as the unique id.
 					Version.BuildId = String.Format("{0}", Version.EffectiveCompatibleChangelist);
-				}
-				else if(HotReload != EHotReload.Disabled || OnlyModules.Count > 0)
-				{
-					// If we're hot reloading or doing a partial build, just use the last version number.
-					BuildVersion LastVersion;
-					if(VersionFile != null && BuildVersion.TryRead(VersionFile, out LastVersion))
-					{
-						Version = LastVersion;
-					}
 				}
 			}
 
@@ -1542,7 +1479,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds the target, appending list of output files and returns building result.
 		/// </summary>
-		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph, EHotReload HotReload, bool bIsAssemblingBuild)
+		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph, bool bIsAssemblingBuild)
 		{
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
@@ -1557,25 +1494,6 @@ namespace UnrealBuildTool
 
 			// Save off the original list of binaries. We'll use this to figure out which PCHs to create later, to avoid switching PCHs when compiling single modules.
 			List<UEBuildBinary> OriginalBinaries = Binaries;
-
-			// If we're building a single module, then find the binary for that module and add it to our target
-			if (OnlyModules.Count > 0)
-			{
-				NonFilteredModules = Binaries;
-				Binaries = GetFilteredOnlyModules(Binaries, OnlyModules);
-				if (Binaries.Count == 0)
-				{
-					throw new BuildException("One or more of the modules specified using the '-module' argument could not be found.");
-				}
-			}
-			else if (HotReload == EHotReload.FromIDE)
-			{
-				Binaries = GetFilteredGameModules(Binaries);
-				if (Binaries.Count == 0)
-				{
-					throw new BuildException("One or more of the modules specified using the '-module' argument could not be found.");
-				}
-			}
 
 			// For installed builds, filter out all the binaries that aren't in mods
 			if (UnrealBuildTool.IsProjectInstalled())
@@ -1783,14 +1701,6 @@ namespace UnrealBuildTool
 			// Generate headers
 			HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.ToList());
 
-			if (OnlyModules.Count > 0)
-			{
-				HashSet<UEBuildModuleCPP> CorrectlyOrderedModules = GatherDependencyModules(NonFilteredModules);
-
-				CorrectlyOrderedModules.RemoveWhere((Module) => !ModulesToGenerateHeadersFor.Contains(Module));
-				ModulesToGenerateHeadersFor = CorrectlyOrderedModules;
-			}
-
 			Dictionary<string, FlatModuleCsDataType> NameToFlatModuleData = new Dictionary<string, FlatModuleCsDataType>(StringComparer.InvariantCultureIgnoreCase);
 			foreach(FlatModuleCsDataType FlatModuleData in FlatModuleCsData)
 			{
@@ -1847,7 +1757,12 @@ namespace UnrealBuildTool
 			DirectoryReference ExeDir = OutputPaths[0].Directory;
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph));
+				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph);
+				if(!bCompileMonolithic)
+				{
+					ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
+				}
+				OutputItems.AddRange(BinaryOutputItems);
 			}
 
 			// Prepare all the runtime dependencies, copying them from their source folders if necessary
@@ -1927,7 +1842,7 @@ namespace UnrealBuildTool
 				BuildProducts.AddRange(FileNameToModuleManifest.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
 				// Prepare the receipt
-				TargetReceipt Receipt = PrepareReceipt(TargetToolChain, BuildProducts, RuntimeDependencies, HotReload);
+				TargetReceipt Receipt = PrepareReceipt(TargetToolChain, BuildProducts, RuntimeDependencies);
 
 				// Create an action which to generate the receipts
 				WriteMetadataTargetInfo MetadataTargetInfo = new WriteMetadataTargetInfo(ProjectFile, VersionFile, ReceiptFileName, Receipt, FileNameToModuleManifest);
@@ -2478,54 +2393,25 @@ namespace UnrealBuildTool
 			return new FileReference(FilePath.FullName.Insert(MatchPos + ModuleName.Length, Appendage));
 		}
 
-		private static List<UEBuildBinary> GetFilteredOnlyModules(List<UEBuildBinary> Binaries, List<OnlyModule> OnlyModules)
+		/// <summary>
+		/// Finds a list of module names which can be hot-reloaded
+		/// </summary>
+		/// <returns>Set of module names</returns>
+		public HashSet<string> GetHotReloadModuleNames()
 		{
-			List<UEBuildBinary> Result = new List<UEBuildBinary>();
-
+			HashSet<string> HotReloadModuleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				// If we're doing an OnlyModule compile, we never want the executable that static libraries are linked into for monolithic builds
-				if(Binary.Type != UEBuildBinaryType.Executable)
-				{
-					OnlyModule FoundOnlyModule = Binary.FindOnlyModule(OnlyModules);
-					if (FoundOnlyModule != null)
-					{
-						Result.Add(Binary);
-
-						if (!String.IsNullOrEmpty(FoundOnlyModule.OnlyModuleSuffix))
-						{
-							Binary.OriginalOutputFilePaths = Binary.OutputFilePaths;
-							Binary.OutputFilePaths = Binary.OutputFilePaths.Select(Path => AddModuleFilenameSuffix(FoundOnlyModule.OnlyModuleName, Path, FoundOnlyModule.OnlyModuleSuffix)).ToList();
-						}
-					}
-				}
-			}
-
-			return Result;
-		}
-
-		private List<UEBuildBinary> GetFilteredGameModules(List<UEBuildBinary> Binaries)
-		{
-			List<UEBuildBinary> Result = new List<UEBuildBinary>();
-
-			foreach (UEBuildBinary DLLBinary in Binaries)
-			{
-				List<UEBuildModule> GameModules = DLLBinary.FindGameModules();
+				List<UEBuildModule> GameModules = Binary.FindGameModules();
 				if (GameModules != null && GameModules.Count > 0)
 				{
-					if(!UnrealBuildTool.IsProjectInstalled() || EnabledPlugins.Where(x => x.Type == PluginType.Mod).Any(x => DLLBinary.OutputFilePaths[0].IsUnderDirectory(x.Directory)))
+					if(!UnrealBuildTool.IsProjectInstalled() || EnabledPlugins.Where(x => x.Type == PluginType.Mod).Any(x => Binary.OutputFilePaths[0].IsUnderDirectory(x.Directory)))
 					{
-						Result.Add(DLLBinary);
-
-						string UniqueSuffix = (new Random((int)(DateTime.Now.Ticks % Int32.MaxValue)).Next(10000)).ToString();
-
-						DLLBinary.OriginalOutputFilePaths = DLLBinary.OutputFilePaths;
-						DLLBinary.OutputFilePaths = DLLBinary.OutputFilePaths.Select(Path => AddModuleFilenameSuffix(GameModules[0].Name, Path, UniqueSuffix)).ToList();
+						HotReloadModuleNames.UnionWith(GameModules.Select(x => x.Name));
 					}
 				}
 			}
-
-			return Result;
+			return HotReloadModuleNames;
 		}
 
 		/// <summary>
@@ -3846,7 +3732,7 @@ namespace UnrealBuildTool
 				// Figure out whether we need to build this module
 				// We don't care about actual source files when generating projects, as these are discovered separately
 				bool bDiscoverFiles = !ProjectFileGenerator.bGenerateProjectFiles;
-				bool bBuildFiles = bDiscoverFiles && (OnlyModules.Count == 0 || OnlyModules.Any(x => string.Equals(x.OnlyModuleName, ModuleName, StringComparison.InvariantCultureIgnoreCase)));
+				bool bBuildFiles = bDiscoverFiles;
 
 				List<FileItem> FoundSourceFiles = new List<FileItem>();
 				if (RulesObject.Type == ModuleRules.ModuleType.CPlusPlus)

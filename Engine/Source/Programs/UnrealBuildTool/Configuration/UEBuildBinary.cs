@@ -69,26 +69,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Original output filepath. This is the original binary name before hot-reload suffix has been appended to it.
-		/// </summary>
-		public List<FileReference> OriginalOutputFilePaths;
-
-		/// <summary>
-		/// Returns the OriginalOutputFilePath if there is only one entry in OriginalOutputFilePaths
-		/// </summary>
-		public FileReference OriginalOutputFilePath
-		{
-			get
-			{
-				if (OriginalOutputFilePaths.Count != 1)
-				{
-					throw new BuildException("Attempted to use UEBuildBinaryConfiguration.OriginalOutputFilePath property, but there are multiple (or no) OriginalOutputFilePaths. You need to handle multiple in the code that called this (size = {0})", OriginalOutputFilePaths.Count);
-				}
-				return OriginalOutputFilePaths[0];
-			}
-		}
-
-		/// <summary>
 		/// The intermediate directory for this binary. Modules should create separate intermediate directories below this. Must be set before a binary can be built using it.
 		/// </summary>
 		public DirectoryReference IntermediateDirectory;
@@ -181,7 +161,7 @@ namespace UnrealBuildTool
 		/// <param name="ExeDir">Directory containing the output executable</param>
 		/// <param name="ActionGraph">Graph to add build actions to</param>
 		/// <returns>Set of built products</returns>
-		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
+		public List<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
 			// Return nothing if we're using precompiled binaries. If we're not linking, we might want just one module to be compiled (eg. a foreign plugin), so allow any actions to run.
 			if (bUsePrecompiled && !Target.bDisableLinking)
@@ -331,26 +311,6 @@ namespace UnrealBuildTool
 				}
 			}
 			DependentLinkEnvironment.AdditionalLibraries.AddRange(DependentLinkLibraries);
-		}
-
-		/// <summary>
-		/// Called to allow the binary to to determine if it matches the Only module "short module name".
-		/// </summary>
-		/// <param name="OnlyModules"></param>
-		/// <returns>The OnlyModule if found, null if not</returns>
-		public OnlyModule FindOnlyModule(List<OnlyModule> OnlyModules)
-		{
-			foreach (UEBuildModule Module in Modules)
-			{
-				foreach (OnlyModule OnlyModule in OnlyModules)
-				{
-					if (OnlyModule.OnlyModuleName.ToLower() == Module.Name.ToLower())
-					{
-						return OnlyModule;
-					}
-				}
-			}
-			return null;
 		}
 
 		/// <summary>
@@ -684,10 +644,7 @@ namespace UnrealBuildTool
 
 			// @todo: This should be in some Windows code somewhere...
 			// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
-			string OriginalFilename = (OriginalOutputFilePaths != null) ?
-				OriginalOutputFilePaths[0].GetFileName() :
-				OutputFilePaths[0].GetFileName();
-			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
+			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 			return BinaryCompileEnvironment;
 		}
@@ -779,8 +736,7 @@ namespace UnrealBuildTool
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
-						string OriginalFilename = (OriginalOutputFilePaths != null) ? OriginalOutputFilePaths[0].GetFileName() : OutputFilePaths[0].GetFileName();
-						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
+						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 						// Set the other version fields
 						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILT_FROM_CHANGELIST={0}", Target.Version.Changelist));
