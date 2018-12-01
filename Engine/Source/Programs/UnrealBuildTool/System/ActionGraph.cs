@@ -383,7 +383,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry, EHotReload HotReload)
+		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry, HotReloadMode HotReload)
 		{
 			bool Result = true;
 			ExecutorName = "";
@@ -427,7 +427,7 @@ namespace UnrealBuildTool
 							{
 								bool bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
 
-								if (HotReload != EHotReload.Disabled)
+								if (HotReload != HotReloadMode.Disabled)
 								{
 									string FailedFilename = Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload");
 									if (!bExists)
