@@ -436,7 +436,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		internal static ECompilationResult RunUBT(BuildConfiguration BuildConfiguration, string[] Arguments, FileReference ProjectFile)
+		internal static ECompilationResult RunUBT(BuildConfiguration BuildConfiguration, string[] Arguments, FileReference ProjectFile, FileReference LogFile)
 		{
 			bool bSuccess = true;
 
@@ -500,10 +500,10 @@ namespace UnrealBuildTool
 						TargetDescriptor TargetDesc = TargetDescs[Idx];
 						if(TargetDesc.Platform == UnrealTargetPlatform.Mac || TargetDesc.Platform == UnrealTargetPlatform.IOS || TargetDesc.Platform == UnrealTargetPlatform.TVOS)
 						{
-							FileReference LogFile = null;
-							if(!String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+							FileReference RemoteLogFile = null;
+							if(LogFile != null)
 							{
-								LogFile = new FileReference(Path.Combine(Path.GetDirectoryName(BuildConfiguration.LogFileName), Path.GetFileNameWithoutExtension(BuildConfiguration.LogFileName) + "_Remote.txt"));
+								RemoteLogFile = FileReference.Combine(LogFile.Directory, LogFile.GetFileNameWithoutExtension() + "_Remote.txt");
 							}
 
 							RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
@@ -1238,7 +1238,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Ex)
 			{
-				Log.WriteException(Ex, String.IsNullOrEmpty(BuildConfiguration.LogFileName) ? null : BuildConfiguration.LogFileName);
+				Log.WriteException(Ex, (LogFile == null) ? null : LogFile.FullName);
 				BuildResult = ECompilationResult.OtherCompilationError;
 			}
 

@@ -1180,7 +1180,7 @@ namespace UnrealBuildTool
 						}
 
 						// Output the log next to the current log
-						if(String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+						if(Environment.CommandLine.IndexOf("-NoLog", StringComparison.OrdinalIgnoreCase) != -1)
 						{
 							UBTArguments.Append(" -nolog");
 						}

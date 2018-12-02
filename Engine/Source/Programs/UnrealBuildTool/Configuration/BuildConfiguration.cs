@@ -40,12 +40,6 @@ namespace UnrealBuildTool
 		public bool bPrintDebugInfo = false;
 
 		/// <summary>
-		/// Specifies the file to use for logging
-		/// </summary>
-		[XmlConfigFile]
-		public string LogFileName = "../Programs/UnrealBuildTool/Log.txt";
-
-		/// <summary>
 		/// Prints performance diagnostics about include dependencies and other bits
 		/// </summary>
 		[XmlConfigFile]
@@ -67,7 +61,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether we should just export the XGE XML and pretend it succeeded
 		/// </summary>
-		public bool bXGEExport;
+		[CommandLine("-XGEExport")]
+		public bool bXGEExport = false;
 
 		/// <summary>
 		/// Whether SN-DBS may be used.
@@ -143,6 +138,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
 		/// </summary>
+		[CommandLine("-SingleFile=")]
 		public FileReference SingleFileToCompile = null;
 
 		/// <summary>
