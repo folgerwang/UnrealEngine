@@ -323,7 +323,7 @@ namespace UnrealBuildTool
 			SourceFilesClass SourceFilesToBuild = new SourceFilesClass();
 			SourceFilesToBuild.CopyFrom(SourceFilesFound);
 
-			SourceDirectories = new HashSet<DirectoryReference>(SourceFilePaths.Select(x => x.Directory));
+			SourceDirectories = new HashSet<DirectoryReference>(SourceFiles.Select(x => x.Location.Directory));
 
 			// Process all of the header file dependencies for this module
 			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, SourceFilesToBuild.CPPFiles);
