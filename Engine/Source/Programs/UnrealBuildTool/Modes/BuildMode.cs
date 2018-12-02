@@ -131,10 +131,6 @@ namespace UnrealBuildTool
 							bSpecificModulesOnly = true;
 							continue;
 						}
-						else if (LowercaseArg == "-vsdebugandroid")
-						{
-							AndroidProjectGenerator.VSDebugCommandLineOptionPresent = true;
-						}
 					}
 
 					// Find and register all tool chains, build platforms, etc. that are present

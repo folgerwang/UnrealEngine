@@ -15,6 +15,15 @@ namespace UnrealBuildTool
 	class MacProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public MacProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
+		{
+		}
+
+		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
 		/// </summary>
 		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()

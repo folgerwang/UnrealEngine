@@ -17,6 +17,15 @@ namespace UnrealBuildTool
 		static bool VSSupportChecked = false;       // Don't want to check multiple times
 		static bool VSDebuggingEnabled = false;
 
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public LuminProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
+		{
+		}
+
 		private bool IsVSLuminSupportInstalled(VCProjectFileFormat ProjectFileFormat)
 		{
 			if (!VSSupportChecked)

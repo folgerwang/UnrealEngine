@@ -15,6 +15,14 @@ namespace UnrealBuildTool
 	abstract class PlatformProjectGenerator
 	{
 		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public PlatformProjectGenerator(CommandLineArguments Arguments)
+		{
+		}
+
+		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
 		/// </summary>
 		public abstract IEnumerable<UnrealTargetPlatform> GetPlatforms();

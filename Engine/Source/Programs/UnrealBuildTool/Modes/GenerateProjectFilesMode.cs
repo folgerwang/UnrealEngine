@@ -63,12 +63,6 @@ namespace UnrealBuildTool
 				// Find and register all tool chains, build platforms, etc. that are present
 				UnrealBuildTool.RegisterAllUBTClasses(false);
 
-				// HACK
-				if (Arguments.HasOption("-vsdebugandroid"))
-				{
-					AndroidProjectGenerator.VSDebugCommandLineOptionPresent = true;
-				}
-
 				// If there aren't any formats set, read the default project file format from the config file
 				if (ProjectFileFormats.Count == 0)
 				{
@@ -98,7 +92,7 @@ namespace UnrealBuildTool
 				{
 					if (CheckType.IsClass && !CheckType.IsAbstract && CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
 					{
-						PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType);
+						PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType, Arguments);
 						foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
 						{
 							Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
