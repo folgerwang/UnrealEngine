@@ -143,7 +143,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
 		/// </summary>
-		public string SingleFileToCompile = null;
+		public FileReference SingleFileToCompile = null;
 
 		/// <summary>
 		/// Whether to skip checking for files identified by the junk manifest

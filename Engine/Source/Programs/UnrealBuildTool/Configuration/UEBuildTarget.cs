@@ -735,11 +735,6 @@ namespace UnrealBuildTool
 		public bool bDeployAfterCompile;
 
 		/// <summary>
-		/// Directories which are scanned for source files. The UBT makefile uses this to check for files being added/removed.
-		/// </summary>
-		public HashSet<DirectoryReference> SourceDirectories = new HashSet<DirectoryReference>();
-
-		/// <summary>
 		/// A list of the module filenames which were used to build this target.
 		/// </summary>
 		/// <returns></returns>
@@ -782,7 +777,6 @@ namespace UnrealBuildTool
 			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
 			bDeployAfterCompile = Info.GetBoolean("dt");
 			bHasProjectScriptPlugin = Info.GetBoolean("sp");
-			SourceDirectories = (HashSet<DirectoryReference>)Info.GetValue("sd", typeof(HashSet<DirectoryReference>));
 		}
 
 		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
@@ -810,7 +804,6 @@ namespace UnrealBuildTool
 			Info.AddValue("po", PostBuildStepScripts);
 			Info.AddValue("dt", bDeployAfterCompile);
 			Info.AddValue("sp", bHasProjectScriptPlugin);
-			Info.AddValue("sd", SourceDirectories);
 		}
 
 		/// <summary>
@@ -1479,7 +1472,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds the target, appending list of output files and returns building result.
 		/// </summary>
-		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph, bool bIsAssemblingBuild)
+		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph, BuildPredicateStore Predicates, bool bIsAssemblingBuild)
 		{
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
@@ -1517,32 +1510,12 @@ namespace UnrealBuildTool
 			}
 
 			// If we're just compiling a single file, filter the list of binaries to only include the file we're interested in.
-			if (!String.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile))
+			if (BuildConfiguration.SingleFileToCompile != null)
 			{
-				FileItem SingleFileItem = FileItem.GetItemByPath(BuildConfiguration.SingleFileToCompile);
-
-				HashSet<UEBuildModuleCPP> Dependencies = GatherDependencyModules(Binaries);
-
-				// We only want to build the binaries for this single file
-				List<UEBuildBinary> FilteredBinaries = new List<UEBuildBinary>();
-				foreach (UEBuildModuleCPP Dependency in Dependencies)
-				{
-					bool bFileExistsInDependency = Dependency.SourceFilesFound.CPPFiles.Exists(x => x.AbsolutePath == SingleFileItem.AbsolutePath);
-					if (bFileExistsInDependency)
-					{
-						FilteredBinaries.Add(Dependency.Binary);
-
-						UEBuildModuleCPP.SourceFilesClass EmptySourceFileList = new UEBuildModuleCPP.SourceFilesClass();
-						Dependency.SourceFilesToBuild.CopyFrom(EmptySourceFileList);
-						Dependency.SourceFilesToBuild.CPPFiles.Add(SingleFileItem);
-					}
-				}
-				Binaries = FilteredBinaries;
-
-				// Check we have at least one match
+				Binaries.RemoveAll(x => !x.Modules.Any(y => BuildConfiguration.SingleFileToCompile.IsUnderDirectory(y.ModuleDirectory)));
 				if(Binaries.Count == 0)
 				{
-					throw new BuildException("Couldn't find any module containing {0} in {1}.", SingleFileItem.Location, TargetName);
+					throw new BuildException("Couldn't find any module containing {0} in {1}.", BuildConfiguration.SingleFileToCompile, TargetName);
 				}
 			}
 
@@ -1757,7 +1730,7 @@ namespace UnrealBuildTool
 			DirectoryReference ExeDir = OutputPaths[0].Directory;
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph);
+				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Predicates, ExeDir, ActionGraph);
 				if(!bCompileMonolithic)
 				{
 					ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
@@ -3729,23 +3702,6 @@ namespace UnrealBuildTool
 					}
 				}
 
-				// Figure out whether we need to build this module
-				// We don't care about actual source files when generating projects, as these are discovered separately
-				bool bDiscoverFiles = !ProjectFileGenerator.bGenerateProjectFiles;
-				bool bBuildFiles = bDiscoverFiles;
-
-				List<FileItem> FoundSourceFiles = new List<FileItem>();
-				if (RulesObject.Type == ModuleRules.ModuleType.CPlusPlus)
-				{
-					// So all we care about are the game module and/or plugins.
-					if (bDiscoverFiles && !RulesObject.bUsePrecompiled)
-					{
-						List<FileReference> SourceFilePaths = new List<FileReference>();
-						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File, SearchedDirectories: SourceDirectories);
-						FoundSourceFiles = GetCPlusPlusFilesToBuild(SourceFilePaths, ModuleDirectory, Platform);
-					}
-				}
-
 				// Allow the current platform to modify the module rules
 				UEBuildPlatform.GetBuildPlatform(Platform).ModifyModuleRulesForActivePlatform(ModuleName, RulesObject, Rules);
 
@@ -3756,7 +3712,7 @@ namespace UnrealBuildTool
 				UEBuildPlatform.PlatformModifyHostModuleRules(ModuleName, RulesObject, Rules);
 
 				// Now, go ahead and create the module builder instance
-				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles);
+				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory);
 				Modules.Add(Module.Name, Module);
 				FlatModuleCsData.Add(new FlatModuleCsDataType(Module.Name, (Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
 			}
@@ -3781,9 +3737,7 @@ namespace UnrealBuildTool
 
 		protected UEBuildModule InstantiateModule(
 			ModuleRules RulesObject,
-			DirectoryReference GeneratedCodeDirectory,
-			List<FileItem> ModuleSourceFiles,
-			bool bBuildSourceFiles)
+			DirectoryReference GeneratedCodeDirectory)
 		{
 			switch (RulesObject.Type)
 			{
@@ -3791,9 +3745,7 @@ namespace UnrealBuildTool
 					return new UEBuildModuleCPP(
 							Rules: RulesObject,
 							IntermediateDirectory: GetModuleIntermediateDirectory(RulesObject),
-							GeneratedCodeDirectory: GeneratedCodeDirectory,
-							SourceFiles: ModuleSourceFiles,
-							bBuildSourceFiles: bBuildSourceFiles
+							GeneratedCodeDirectory: GeneratedCodeDirectory
 						);
 
 				case ModuleRules.ModuleType.External:
@@ -3843,104 +3795,6 @@ namespace UnrealBuildTool
 				NewPathList.Add(System.IO.Path.Combine(BasePath.FullName, Path));
 			}
 			return NewPathList;
-		}
-
-
-		/// <summary>
-		/// Given a list of source files for a module, filters them into a list of files that should actually be included in a build
-		/// </summary>
-		/// <param name="SourceFiles">Original list of files, which may contain non-source</param>
-		/// <param name="SourceFilesBaseDirectory">Directory that the source files are in</param>
-		/// <param name="TargetPlatform">The platform we're going to compile for</param>
-		/// <returns>The list of source files to actually compile</returns>
-		static List<FileItem> GetCPlusPlusFilesToBuild(List<FileReference> SourceFiles, DirectoryReference SourceFilesBaseDirectory, UnrealTargetPlatform TargetPlatform)
-		{
-			// Make a list of all platform name strings that we're *not* currently compiling, to speed
-			// up file path comparisons later on
-			List<UnrealTargetPlatform> SupportedPlatforms = new List<UnrealTargetPlatform>();
-			SupportedPlatforms.Add(TargetPlatform);
-			List<string> OtherPlatformNameStrings = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms);
-
-
-			// @todo projectfiles: Consider saving out cached list of source files for modules so we don't need to harvest these each time
-
-			List<FileItem> FilteredFileItems = new List<FileItem>();
-			FilteredFileItems.Capacity = SourceFiles.Count;
-
-			// @todo projectfiles: hard-coded source file set.  Should be made extensible by platform tool chains.
-			string[] CompilableSourceFileTypes = new string[]
-				{
-					".cpp",
-					".c",
-					".cc",
-					".mm",
-					".m",
-					".rc",
-					".manifest"
-				};
-
-			// When generating project files, we have no file to extract source from, so we'll locate the code files manually
-			foreach (FileReference SourceFilePath in SourceFiles)
-			{
-				// We're only able to compile certain types of files
-				bool IsCompilableSourceFile = false;
-				foreach (string CurExtension in CompilableSourceFileTypes)
-				{
-					if (SourceFilePath.HasExtension(CurExtension))
-					{
-						IsCompilableSourceFile = true;
-						break;
-					}
-				}
-
-				if (IsCompilableSourceFile)
-				{
-					if (SourceFilePath.IsUnderDirectory(SourceFilesBaseDirectory))
-					{
-						// Store the path as relative to the project file
-						string RelativeFilePath = SourceFilePath.MakeRelativeTo(SourceFilesBaseDirectory);
-
-						// All compiled files should always be in a sub-directory under the project file directory.  We enforce this here.
-						if (Path.IsPathRooted(RelativeFilePath) || RelativeFilePath.StartsWith(".."))
-						{
-							throw new BuildException("Error: Found source file {0} in project whose path was not relative to the base directory of the source files", RelativeFilePath);
-						}
-
-						// Check for source files that don't belong to the platform we're currently compiling.  We'll filter
-						// those source files out
-						bool IncludeThisFile = true;
-						foreach (string CurPlatformName in OtherPlatformNameStrings)
-						{
-							if (RelativeFilePath.IndexOf(Path.DirectorySeparatorChar + CurPlatformName + Path.DirectorySeparatorChar, StringComparison.InvariantCultureIgnoreCase) != -1
-								|| RelativeFilePath.StartsWith(CurPlatformName + Path.DirectorySeparatorChar))
-							{
-								IncludeThisFile = false;
-								break;
-							}
-						}
-
-						if (IncludeThisFile)
-						{
-							FilteredFileItems.Add(FileItem.GetItemByFileReference(SourceFilePath));
-						}
-					}
-				}
-			}
-
-			// @todo projectfiles: Consider enabling this error but changing it to a warning instead.  It can fire for
-			//    projects that are being digested for IntelliSense (because the module was set as a cross-
-			//	  platform dependency), but all of their source files were filtered out due to platform masking
-			//    in the project generator
-			bool AllowEmptyProjects = true;
-			if (!AllowEmptyProjects)
-			{
-				if (FilteredFileItems.Count == 0)
-				{
-					throw new BuildException("Could not find any valid source files for base directory {0}.  Project has {1} files in it", SourceFilesBaseDirectory, SourceFiles.Count);
-				}
-			}
-
-			return FilteredFileItems;
 		}
 	}
 }

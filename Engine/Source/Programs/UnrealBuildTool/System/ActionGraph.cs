@@ -337,13 +337,13 @@ namespace UnrealBuildTool
 			}
 
 			// If we're only compiling a single file, we should always compile and should never link.
-			if (!string.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile))
+			if (BuildConfiguration.SingleFileToCompile != null)
 			{
 				// Never do anything but compile the target file
 				AllActions.RemoveAll(x => x.ActionType != ActionType.Compile);
 
 				// Check all of the leftover compilation actions for the one we want... that one is always outdated.
-				FileItem SingleFileToCompile = FileItem.GetExistingItemByPath(BuildConfiguration.SingleFileToCompile);
+				FileItem SingleFileToCompile = FileItem.GetItemByFileReference(BuildConfiguration.SingleFileToCompile);
 				foreach (Action Action in AllActions)
 				{
 					bool bIsSingleFileAction = Action.PrerequisiteItems.Contains(SingleFileToCompile);

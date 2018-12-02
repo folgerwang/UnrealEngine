@@ -617,7 +617,7 @@ namespace UnrealBuildTool
 					// If we've got this far and there are no source files then it's likely we're installed and ignoring
 					// engine files, so we don't need a .gen.cpp either
 					Info.GeneratedCPPFilenameBase = Path.Combine(Module.GeneratedCodeDirectory.FullName, Info.ModuleName) + ".gen";
-					if (Module.SourceFilesToBuild.Count != 0)
+					if (!Module.Rules.bUsePrecompiled)
 					{
 						Module.GeneratedCodeWildcard = Path.Combine(Module.GeneratedCodeDirectory.FullName, "*.gen.cpp");
 					}

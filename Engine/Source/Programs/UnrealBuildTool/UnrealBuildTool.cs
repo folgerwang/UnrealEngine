@@ -360,7 +360,7 @@ namespace UnrealBuildTool
 						else if (LowercaseArg.StartsWith("-singlefile="))
 						{
 							BuildConfiguration.bUseUBTMakefiles = false;
-							BuildConfiguration.SingleFileToCompile = LowercaseArg.Replace("-singlefile=", "");
+							BuildConfiguration.SingleFileToCompile = new FileReference(LowercaseArg.Replace("-singlefile=", ""));
 						}
 					}
 
@@ -904,6 +904,7 @@ namespace UnrealBuildTool
 					Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 					Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules = new Dictionary<string, List<UHTModuleInfo>>(StringComparer.InvariantCultureIgnoreCase);
 					HashSet<string> HotReloadModuleNamesForAllTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+					List<BuildPredicateStore> TargetBuildPredicates = new List<BuildPredicateStore>();
 					foreach (UEBuildTarget Target in Targets)
 					{
 						// Create the header cache for this target
@@ -951,13 +952,14 @@ namespace UnrealBuildTool
 							List<FileItem> TargetOutputItems = new List<FileItem>();
 							List<UHTModuleInfo> TargetUObjectModules = new List<UHTModuleInfo>();
 							Dictionary<string, FileItem[]> TargetModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
+							BuildPredicateStore Predicates = new BuildPredicateStore();
 							if (BuildConfiguration.bCleanProject)
 							{
 								BuildResult = Target.Clean(!BuildConfiguration.bDoNotBuildUHT);
 							}
 							else
 							{
-								BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, bIsAssemblingBuild);
+								BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, Predicates, bIsAssemblingBuild);
 							}
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
@@ -972,6 +974,8 @@ namespace UnrealBuildTool
 							}
 
 							OutputItemsForAllTargets.AddRange(TargetOutputItems);
+
+							TargetBuildPredicates.Add(Predicates);
 
 							// Update mapping of the target name to the list of UObject modules in this target
 							TargetNameToUObjectModules[Target.GetTargetName()] = TargetUObjectModules;
@@ -1017,8 +1021,7 @@ namespace UnrealBuildTool
 							UBTMakefile.HotReloadModuleNamesForAllTargets = HotReloadModuleNamesForAllTargets;
 							UBTMakefile.Targets = Targets;
 							UBTMakefile.bUseAdaptiveUnityBuild = Targets.Any(x => x.Rules.bUseAdaptiveUnityBuild);
-							UBTMakefile.SourceFileWorkingSet = Unity.SourceFileWorkingSet;
-							UBTMakefile.CandidateSourceFilesForWorkingSet = Unity.CandidateSourceFilesForWorkingSet;
+							UBTMakefile.TargetBuildPredicates = TargetBuildPredicates;
 
 							if (BuildConfiguration.bUseUBTMakefiles)
 							{
@@ -1383,10 +1386,10 @@ namespace UnrealBuildTool
 
 							// Run the deployment steps
 							if (BuildResult.Succeeded()
-								&& String.IsNullOrEmpty(BuildConfiguration.SingleFileToCompile)
+								&& BuildConfiguration.SingleFileToCompile == null
 								&& !BuildConfiguration.bGenerateManifest
 								&& !BuildConfiguration.bCleanProject
-							&& !BuildConfiguration.bXGEExport)
+								&& !BuildConfiguration.bXGEExport)
 							{
 								foreach (UEBuildTarget Target in Targets)
 								{

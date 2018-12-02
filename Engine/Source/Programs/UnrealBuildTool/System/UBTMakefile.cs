@@ -70,14 +70,9 @@ namespace UnrealBuildTool
 		public bool bUseAdaptiveUnityBuild;
 
 		/// <summary>
-		/// Current working set of source files, for when bUseAdaptiveUnityBuild is enabled
+		/// List of predicates for the action graph to be valid.
 		/// </summary>
-		public HashSet<FileItem> SourceFileWorkingSet = new HashSet<FileItem>();
-
-		/// <summary>
-		/// Set of source files which are included in unity files, but which should invalidate the makefile if modified (for when bUseAdaptiveUnityBuild is enabled)
-		/// </summary>
-		public HashSet<FileItem> CandidateSourceFilesForWorkingSet = new HashSet<FileItem>();
+		public List<BuildPredicateStore> TargetBuildPredicates;
 
 		public UBTMakefile()
 		{
@@ -99,9 +94,8 @@ namespace UnrealBuildTool
 			ModuleNameToOutputItems = (Dictionary<string, FileItem[]>)Info.GetValue("mn", typeof(Dictionary<string, FileItem[]>));
 			HotReloadModuleNamesForAllTargets = (HashSet<string>)Info.GetValue("gm", typeof(HashSet<string>));
 			Targets = (List<UEBuildTarget>)Info.GetValue("ta", typeof(List<UEBuildTarget>));
+			TargetBuildPredicates = (List<BuildPredicateStore>)Info.GetValue("tp", typeof(List<BuildPredicateStore>));
 			bUseAdaptiveUnityBuild = Info.GetBoolean("ua");
-			SourceFileWorkingSet = (HashSet<FileItem>)Info.GetValue("ws", typeof(HashSet<FileItem>));
-			CandidateSourceFilesForWorkingSet = (HashSet<FileItem>)Info.GetValue("wc", typeof(HashSet<FileItem>));
 		}
 
 		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
@@ -115,9 +109,8 @@ namespace UnrealBuildTool
 			Info.AddValue("mn", ModuleNameToOutputItems);
 			Info.AddValue("gm", HotReloadModuleNamesForAllTargets);
 			Info.AddValue("ta", Targets);
+			Info.AddValue("tp", TargetBuildPredicates);
 			Info.AddValue("ua", bUseAdaptiveUnityBuild);
-			Info.AddValue("ws", SourceFileWorkingSet);
-			Info.AddValue("wc", CandidateSourceFilesForWorkingSet);
 		}
 
 
@@ -132,8 +125,7 @@ namespace UnrealBuildTool
 				ModuleNameToOutputItems != null && 
 				HotReloadModuleNamesForAllTargets != null &&
 				Targets != null && Targets.Count > 0 &&
-				SourceFileWorkingSet != null &&
-				CandidateSourceFilesForWorkingSet != null;
+				TargetBuildPredicates != null;
 		}
 
 
@@ -362,8 +354,11 @@ namespace UnrealBuildTool
 						}
 					}
 				}
+			}
 
-				foreach(DirectoryReference SourceDirectory in Target.SourceDirectories)
+			foreach(BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
+			{
+				foreach(DirectoryReference SourceDirectory in Predicates.SourceDirectories)
 				{
 					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
 					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
@@ -427,25 +422,28 @@ namespace UnrealBuildTool
 			// iteration times.)
 			if (LoadedUBTMakefile.bUseAdaptiveUnityBuild)
 			{
-				// Check if any source files in the working set no longer belong in it
-				foreach (FileItem SourceFile in LoadedUBTMakefile.SourceFileWorkingSet)
+				foreach(BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
 				{
-					if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+					// Check if any source files in the working set no longer belong in it
+					foreach (FileItem SourceFile in Predicates.WorkingSet)
 					{
-						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-						ReasonNotLoaded = string.Format("working set of source files changed");
-						return null;
+						if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+						{
+							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+							ReasonNotLoaded = string.Format("working set of source files changed");
+							return null;
+						}
 					}
-				}
 
-				// Check if any source files that are eligible for being in the working set have been modified
-				foreach (FileItem SourceFile in LoadedUBTMakefile.CandidateSourceFilesForWorkingSet)
-				{
-					if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+					// Check if any source files that are eligible for being in the working set have been modified
+					foreach (FileItem SourceFile in Predicates.CandidatesForWorkingSet)
 					{
-						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-						ReasonNotLoaded = string.Format("working set of source files changed");
-						return null;
+						if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+						{
+							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+							ReasonNotLoaded = string.Format("working set of source files changed");
+							return null;
+						}
 					}
 				}
 			}

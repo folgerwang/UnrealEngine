@@ -62,21 +62,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// All the source files for this module
-		/// </summary>
-		public readonly List<FileItem> SourceFiles = new List<FileItem>();
-
-		/// <summary>
-		/// A list of the absolute paths of source files to be built in this module.
-		/// </summary>
-		public readonly SourceFilesClass SourceFilesToBuild = new SourceFilesClass();
-
-		/// <summary>
-		/// A list of the source files that were found for the module.
-		/// </summary>
-		public readonly SourceFilesClass SourceFilesFound = new SourceFilesClass();
-
-		/// <summary>
 		/// The directory for this module's object files
 		/// </summary>
 		public readonly DirectoryReference IntermediateDirectory;
@@ -101,14 +86,21 @@ namespace UnrealBuildTool
 		/// </summary>
 		public List<string> InvalidIncludeDirectiveMessages;
 
+		/// <summary>
+		/// Set of source directories referenced during a build
+		/// </summary>
+		HashSet<DirectoryReference> SourceDirectories;
+
 		protected override void GetReferencedDirectories(HashSet<DirectoryReference> Directories)
 		{
 			base.GetReferencedDirectories(Directories);
 
-			foreach(FileItem SourceFile in SourceFiles)
+			if(SourceDirectories == null)
 			{
-				Directories.Add(SourceFile.Location.Directory);
+				throw new BuildException("GetReferencedDirectories() should not be called before building.");
 			}
+
+			Directories.UnionWith(SourceDirectories);
 		}
 
 		/// <summary>
@@ -202,19 +194,11 @@ namespace UnrealBuildTool
         };
 
 
-		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory, IEnumerable<FileItem> SourceFiles, bool bBuildSourceFiles)
+		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory)
 			: base(Rules)
 		{
 			this.IntermediateDirectory = IntermediateDirectory;
 			this.GeneratedCodeDirectory = GeneratedCodeDirectory;
-
-			this.SourceFiles = SourceFiles.ToList();
-
-			CategorizeSourceFiles(SourceFiles, SourceFilesFound);
-			if (bBuildSourceFiles)
-			{
-				SourceFilesToBuild.CopyFrom(SourceFilesFound);
-			}
 
 			foreach (string Def in PublicDefinitions)
 			{
@@ -310,7 +294,7 @@ namespace UnrealBuildTool
 		}
 
 		// UEBuildModule interface.
-		public override List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment BinaryCompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		public override List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment BinaryCompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, BuildPredicateStore Predicates, ActionGraph ActionGraph)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(BinaryCompileEnvironment.Platform);
 
@@ -330,8 +314,19 @@ namespace UnrealBuildTool
 				return LinkInputFiles;
 			}
 
+			List<FileReference> SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesFile, SearchedDirectories: Predicates.SourceDirectories);
+			List<FileItem> SourceFiles = GetCPlusPlusFilesToBuild(SourceFilePaths, ModuleDirectory, Target.Platform);
+
+			SourceFilesClass SourceFilesFound = new SourceFilesClass();
+			CategorizeSourceFiles(SourceFiles, SourceFilesFound);
+
+			SourceFilesClass SourceFilesToBuild = new SourceFilesClass();
+			SourceFilesToBuild.CopyFrom(SourceFilesFound);
+
+			SourceDirectories = new HashSet<DirectoryReference>(SourceFilePaths.Select(x => x.Directory));
+
 			// Process all of the header file dependencies for this module
-			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment);
+			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, SourceFilesToBuild.CPPFiles);
 
 			// Make sure our RC files have cached includes.  
 			foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
@@ -477,7 +472,7 @@ namespace UnrealBuildTool
 			List<FileItem> CPPFilesToCompile = SourceFilesToBuild.CPPFiles;
 			if (bModuleUsesUnityBuild)
 			{
-				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory);
+				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Predicates, Rules.ShortName ?? Name, IntermediateDirectory);
 				LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, CompileEnvironment, ModuleCompileEnvironment, CPPFilesToCompile, ActionGraph).ObjectFiles);
 			}
 			else
@@ -519,7 +514,7 @@ namespace UnrealBuildTool
 
 					if (bModuleUsesUnityBuild)
 					{
-						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory);
+						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, Predicates, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory);
 						LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, GeneratedCPPCompileEnvironment, ModuleCompileEnvironment, GeneratedFileItems, ActionGraph).ObjectFiles);
 					}
 					else
@@ -934,7 +929,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Target">The target being compiled</param>
 		/// <param name="ModuleCompileEnvironment">Compile environment for the module</param>
-		private void CheckFirstIncludeMatchesEachCppFile(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment)
+		/// <param name="CppFiles">List of C++ source files</param>
+		private void CheckFirstIncludeMatchesEachCppFile(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment, List<FileItem> CppFiles)
 		{
 			if(Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 			{
@@ -954,7 +950,7 @@ namespace UnrealBuildTool
 					}
 
 					// Store the module compile environment along with the .cpp file.  This is so that we can use it later on when looking for header dependencies
-					foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
+					foreach (FileItem CPPFile in CppFiles)
 					{
 						CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 					}
@@ -963,7 +959,7 @@ namespace UnrealBuildTool
 					InvalidIncludeDirectiveMessages = new List<string>();
 					if (Rules != null && Rules.bEnforceIWYU && Target.bEnforceIWYU)
 					{
-						foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
+						foreach (FileItem CPPFile in CppFiles)
 						{
 							List<DependencyInclude> DirectIncludeFilenames = ModuleCompileEnvironment.Headers.GetDirectIncludeDependencies(CPPFile, bOnlyCachedDependencies: false);
 							if (DirectIncludeFilenames.Count > 0)
@@ -1172,6 +1168,103 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Given a list of source files for a module, filters them into a list of files that should actually be included in a build
+		/// </summary>
+		/// <param name="SourceFiles">Original list of files, which may contain non-source</param>
+		/// <param name="SourceFilesBaseDirectory">Directory that the source files are in</param>
+		/// <param name="TargetPlatform">The platform we're going to compile for</param>
+		/// <returns>The list of source files to actually compile</returns>
+		static List<FileItem> GetCPlusPlusFilesToBuild(List<FileReference> SourceFiles, DirectoryReference SourceFilesBaseDirectory, UnrealTargetPlatform TargetPlatform)
+		{
+			// Make a list of all platform name strings that we're *not* currently compiling, to speed
+			// up file path comparisons later on
+			List<UnrealTargetPlatform> SupportedPlatforms = new List<UnrealTargetPlatform>();
+			SupportedPlatforms.Add(TargetPlatform);
+			List<string> OtherPlatformNameStrings = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms);
+
+
+			// @todo projectfiles: Consider saving out cached list of source files for modules so we don't need to harvest these each time
+
+			List<FileItem> FilteredFileItems = new List<FileItem>();
+			FilteredFileItems.Capacity = SourceFiles.Count;
+
+			// @todo projectfiles: hard-coded source file set.  Should be made extensible by platform tool chains.
+			string[] CompilableSourceFileTypes = new string[]
+				{
+					".cpp",
+					".c",
+					".cc",
+					".mm",
+					".m",
+					".rc",
+					".manifest"
+				};
+
+			// When generating project files, we have no file to extract source from, so we'll locate the code files manually
+			foreach (FileReference SourceFilePath in SourceFiles)
+			{
+				// We're only able to compile certain types of files
+				bool IsCompilableSourceFile = false;
+				foreach (string CurExtension in CompilableSourceFileTypes)
+				{
+					if (SourceFilePath.HasExtension(CurExtension))
+					{
+						IsCompilableSourceFile = true;
+						break;
+					}
+				}
+
+				if (IsCompilableSourceFile)
+				{
+					if (SourceFilePath.IsUnderDirectory(SourceFilesBaseDirectory))
+					{
+						// Store the path as relative to the project file
+						string RelativeFilePath = SourceFilePath.MakeRelativeTo(SourceFilesBaseDirectory);
+
+						// All compiled files should always be in a sub-directory under the project file directory.  We enforce this here.
+						if (Path.IsPathRooted(RelativeFilePath) || RelativeFilePath.StartsWith(".."))
+						{
+							throw new BuildException("Error: Found source file {0} in project whose path was not relative to the base directory of the source files", RelativeFilePath);
+						}
+
+						// Check for source files that don't belong to the platform we're currently compiling.  We'll filter
+						// those source files out
+						bool IncludeThisFile = true;
+						foreach (string CurPlatformName in OtherPlatformNameStrings)
+						{
+							if (RelativeFilePath.IndexOf(Path.DirectorySeparatorChar + CurPlatformName + Path.DirectorySeparatorChar, StringComparison.InvariantCultureIgnoreCase) != -1
+								|| RelativeFilePath.StartsWith(CurPlatformName + Path.DirectorySeparatorChar))
+							{
+								IncludeThisFile = false;
+								break;
+							}
+						}
+
+						if (IncludeThisFile)
+						{
+							FilteredFileItems.Add(FileItem.GetItemByFileReference(SourceFilePath));
+						}
+					}
+				}
+			}
+
+			// @todo projectfiles: Consider enabling this error but changing it to a warning instead.  It can fire for
+			//    projects that are being digested for IntelliSense (because the module was set as a cross-
+			//	  platform dependency), but all of their source files were filtered out due to platform masking
+			//    in the project generator
+			bool AllowEmptyProjects = true;
+			if (!AllowEmptyProjects)
+			{
+				if (FilteredFileItems.Count == 0)
+				{
+					throw new BuildException("Could not find any valid source files for base directory {0}.  Project has {1} files in it", SourceFilesBaseDirectory, SourceFiles.Count);
+				}
+			}
+
+			return FilteredFileItems;
 		}
 	}
 }
