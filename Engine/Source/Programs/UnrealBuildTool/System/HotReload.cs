@@ -120,7 +120,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Checks if the editor is currently running and this is a hot-reload
 		/// </summary>
-		public static bool ShouldDoHotReloadFromIDE(BuildConfiguration BuildConfiguration, string[] Arguments, TargetDescriptor TargetDesc)
+		public static bool ShouldDoHotReloadFromIDE(BuildConfiguration BuildConfiguration, TargetDescriptor TargetDesc)
 		{
 			// Check if Hot-reload is disabled globally for this project
 			ConfigHierarchy Hierarchy = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(TargetDesc.ProjectFile), TargetDesc.Platform);
@@ -130,9 +130,8 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			if (Arguments.Any(x => x.Equals("-NoHotReloadFromIDE", StringComparison.InvariantCultureIgnoreCase)))
+			if(!BuildConfiguration.bAllowHotReloadFromIDE)
 			{
-				// Hot reload disabled through command line, possibly running from UAT
 				return false;
 			}
 

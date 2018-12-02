@@ -109,9 +109,6 @@ namespace UnrealBuildTool
 					UProjectInfo.FillProjectInfo();
 				}
 
-				// Read the project-specific build configuration settings
-				ConfigCache.ReadSettings(DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Unknown, BuildConfiguration);
-
 				DateTime BasicInitStartTime = DateTime.UtcNow;
 
 				// Find and register all tool chains, build platforms, etc. that are present

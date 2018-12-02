@@ -907,7 +907,7 @@ namespace UnrealBuildTool
 						}
 						else if (TargetDescs.Count == 1 && !Arguments.Any(x => x.Equals("-NoHotReload", StringComparison.InvariantCultureIgnoreCase)))
 						{
-							if (BuildConfiguration.bAllowHotReloadFromIDE && HotReload.ShouldDoHotReloadFromIDE(BuildConfiguration, Arguments, TargetDescs[0]))
+							if (BuildConfiguration.bAllowHotReloadFromIDE && HotReload.ShouldDoHotReloadFromIDE(BuildConfiguration, TargetDescs[0]))
 							{
 								HotReloadMode = HotReloadMode.FromIDE;
 							}

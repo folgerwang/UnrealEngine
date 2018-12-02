@@ -184,8 +184,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// True if hot-reload from IDE is allowed
 		/// </summary>
+		[CommandLine("-NoHotReloadFromIDE", Value="false")]
 		[XmlConfigFile(Category = "UEBuildConfiguration")]
-		[ConfigFile(ConfigHierarchyType.Engine, "BuildConfiguration")]
 		public bool bAllowHotReloadFromIDE = true;
 
 		/// <summary>
