@@ -1638,7 +1638,7 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 		ExtraArg += TEXT("-nosharedpch ");
 	}
 	
-	FString CmdLineParams = FString::Printf( TEXT( "%s %s %s %s%s" ), 
+	FString CmdLineParams = FString::Printf( TEXT( "%s %s %s %s%s -IgnoreJunk" ), 
 		*ModuleArg, 
 		BuildPlatformName, BuildConfigurationName, 
 		*ExtraArg, *InAdditionalCmdLineArgs );

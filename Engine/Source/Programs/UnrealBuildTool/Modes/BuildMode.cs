@@ -122,17 +122,6 @@ namespace UnrealBuildTool
 
 					DateTime BasicInitStartTime = DateTime.UtcNow;
 
-					bool bSpecificModulesOnly = false;
-					foreach (string Arg in Arguments)
-					{
-						string LowercaseArg = Arg.ToLowerInvariant();
-						if (LowercaseArg.StartsWith("-modulewithsuffix="))
-						{
-							bSpecificModulesOnly = true;
-							continue;
-						}
-					}
-
 					// Find and register all tool chains, build platforms, etc. that are present
 					UnrealBuildTool.RegisterAllUBTClasses(false);
 
@@ -143,7 +132,7 @@ namespace UnrealBuildTool
 					}
 
 					// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
-					if (!bSpecificModulesOnly && !BuildConfiguration.bIgnoreJunk)
+					if (!BuildConfiguration.bIgnoreJunk)
 					{
 						JunkDeleter.DeleteJunk();
 					}
