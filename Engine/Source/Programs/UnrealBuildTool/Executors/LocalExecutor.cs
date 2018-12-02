@@ -121,12 +121,10 @@ namespace UnrealBuildTool
 			ActionStartInfo.RedirectStandardError = false;
 
 			// Log command-line used to execute task if debug info printing is enabled.
-			if (UnrealBuildTool.bPrintDebugInfo)
-			{
-				Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
-			}
+			Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
+
 			// Log summary if wanted.
-			else if (Action.bShouldOutputStatusDescription)
+			if (Action.bShouldOutputStatusDescription)
 			{
 				string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ExpandedCommandPath);
 				if (string.IsNullOrEmpty(CommandDescription))
@@ -517,11 +515,11 @@ namespace UnrealBuildTool
 			Log.WriteLineIf(bLogDetailedActionStats, LogEventType.Console, "-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 			// Log total CPU seconds and numbers of processors involved in tasks.
-			Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+			Log.WriteLineIf(bLogDetailedActionStats,
 				LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 
 			// Log detailed stats
-			Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+			Log.WriteLineIf(bLogDetailedActionStats,
 				LogEventType.Console,
 				"Cumulative action seconds ({0} processors): {1:0.00} building projects, {2:0.00} compiling, {3:0.00} creating app bundles, {4:0.00} generating debug info, {5:0.00} linking, {6:0.00} other",
 				System.Environment.ProcessorCount,

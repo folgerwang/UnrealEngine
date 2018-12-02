@@ -110,15 +110,6 @@ namespace UnrealBuildTool
 		static string RemoteIniPath = null;
 
 		/// <summary>
-		/// Whether to print debug information out to the log
-		/// </summary>
-		static public bool bPrintDebugInfo
-		{
-			get;
-			private set;
-		}
-
-		/// <summary>
 		/// Whether to print performance information to the log
 		/// </summary>
 		static public bool bPrintPerformanceInfo
@@ -346,7 +337,6 @@ namespace UnrealBuildTool
 					CommandLine.ParseArguments(Arguments, BuildConfiguration);
 
 					// Copy some of the static settings that are being deprecated from BuildConfiguration
-					bPrintDebugInfo = BuildConfiguration.bPrintDebugInfo || Log.OutputLevel == LogEventType.Verbose || Log.OutputLevel == LogEventType.VeryVerbose;
 					bPrintPerformanceInfo = BuildConfiguration.bPrintPerformanceInfo;
 
 					// Then let the command lines override any configs necessary.

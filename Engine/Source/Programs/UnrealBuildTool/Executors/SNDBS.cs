@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -420,7 +420,7 @@ namespace UnrealBuildTool
 				Log.TraceInformation("-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 				// Log total CPU seconds and numbers of processors involved in tasks.
-				Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+				Log.WriteLineIf(bLogDetailedActionStats,
 					LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 			}
 			return SNDBSResult;
