@@ -1415,7 +1415,7 @@ namespace UnrealBuildTool
 			}
 
 			// Otherwise use the default
-			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "Default.ico");
 		}
 
 		/// <summary>
@@ -1437,7 +1437,7 @@ namespace UnrealBuildTool
 				IconFile = WindowsPlatform.GetApplicationIcon(null);
 			}
 
-			// Setup the compile environment, setting the icon to use via a macro. This is used in PCLaunch.rc2.
+			// Setup the compile environment, setting the icon to use via a macro. This is used in Default.rc2.
 			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
 		}
 

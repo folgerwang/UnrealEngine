@@ -644,7 +644,7 @@ namespace UnrealBuildTool
 			BinaryCompileEnvironment.bIsBuildingLibrary = IsBuildingLibrary(Type);
 
 			// @todo: This should be in some Windows code somewhere...
-			// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
+			// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.
 			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 			return BinaryCompileEnvironment;
@@ -694,12 +694,6 @@ namespace UnrealBuildTool
 				BinaryDependency.SetupDependentLinkEnvironment(BinaryLinkEnvironment);
 			}
 
-			// Remove the default resource file on Windows (PCLaunch.rc) if the user has specified their own
-			if (BinaryLinkEnvironment.InputFiles.Select(Item => Path.GetFileName(Item.AbsolutePath).ToLower()).Any(Name => Name.EndsWith(".res") && !Name.EndsWith(".inl.res") && Name != "pclaunch.rc.res"))
-			{
-				BinaryLinkEnvironment.InputFiles.RemoveAll(x => Path.GetFileName(x.AbsolutePath).ToLower() == "pclaunch.rc.res");
-			}
-
 			// Set the link output file.
 			BinaryLinkEnvironment.OutputFilePaths = OutputFilePaths.ToList();
 
@@ -719,7 +713,9 @@ namespace UnrealBuildTool
 			// If we don't have any resource file, use the default or compile a custom one for this module
 			if(BinaryLinkEnvironment.Platform == CppPlatform.Win32 || BinaryLinkEnvironment.Platform == CppPlatform.Win64)
 			{
-				if (!BinaryLinkEnvironment.InputFiles.Any(x => x.Location.HasExtension(".res")))
+				// Figure out if this binary has any custom resource files. Hacky check to ignore the resource file in the Launch module, since it contains dialogs that the engine needs and always needs to be included.
+				FileItem[] CustomResourceFiles = BinaryLinkEnvironment.InputFiles.Where(x => x.Location.HasExtension(".res") && !x.Location.FullName.EndsWith("\\Launch\\PCLaunch.rc.res", StringComparison.OrdinalIgnoreCase)).ToArray();
+				if(CustomResourceFiles.Length == 0)
 				{
 					if(BinaryLinkEnvironment.DefaultResourceFiles.Count > 0)
 					{
@@ -729,14 +725,14 @@ namespace UnrealBuildTool
 					else
 					{
 						// Get the intermediate directory
-						DirectoryReference ResourceIntermediateDirectory = ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory;
+						DirectoryReference ResourceIntermediateDirectory = BinaryLinkEnvironment.IntermediateDirectory;
 
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
 						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
 
 						// @todo: This should be in some Windows code somewhere...
-						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
+						// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.
 						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 						// Set the other version fields
@@ -744,7 +740,7 @@ namespace UnrealBuildTool
 						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_VERSION={0}", Target.BuildVersion));
 
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
-						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
+						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "Default.rc2"));
 						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, ActionGraph);
 						BinaryLinkEnvironment.InputFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}

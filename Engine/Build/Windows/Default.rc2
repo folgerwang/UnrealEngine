@@ -2,9 +2,9 @@
 //
 // This file contains resources which are edited by hand, and cannot be loaded/saved by the Visual Studio resource editor.
 
-#include "resource.h"
-#include "../../../Core/Public/Misc/CoreMiscDefines.h"
-#include "../Version.h"
+#include "../../Source/Runtime/Launch/Resources/Windows/resource.h"
+#include "../../Source/Runtime/Core/Public/Misc/CoreMiscDefines.h"
+#include "../../Source/Runtime/Launch/Resources/Version.h"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -68,18 +68,18 @@ IDICON_UE4Game          ICON                    BUILD_ICON_FILE_NAME
 
 // Debug manifest
 #if _WIN64
-1						RT_MANIFEST				"Debug-PCLaunch-Win64.manifest"
+1						RT_MANIFEST				"Default-Win64-Debug.manifest"
 #else
-1						RT_MANIFEST				"Debug-PCLaunch-Win32.manifest"
+1						RT_MANIFEST				"Default-Win32-Debug.manifest"
 #endif
 
 #else
 
 // Release manifest
 #if _WIN64
-1						RT_MANIFEST				"PCLaunch-Win64.manifest"
+1						RT_MANIFEST				"Default-Win64.manifest"
 #else
-1						RT_MANIFEST				"PCLaunch-Win32.manifest"
+1						RT_MANIFEST				"Default-Win32.manifest"
 #endif
 
 #endif
