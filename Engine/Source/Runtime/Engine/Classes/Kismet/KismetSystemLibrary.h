@@ -384,8 +384,8 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	VariableName	Name of the console variable to find.
 	 * @return	The value if found, 0 otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Development",meta=(WorldContext="WorldContextObject"))
-	static float GetConsoleVariableFloatValue(UObject* WorldContextObject, const FString& VariableName);
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static float GetConsoleVariableFloatValue(const FString& VariableName);
 
 	/**
 	 * Attempts to retrieve the value of the specified integer console variable, if it exists.
@@ -393,8 +393,17 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	VariableName	Name of the console variable to find.
 	 * @return	The value if found, 0 otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Development",meta=(WorldContext="WorldContextObject"))
-	static int32 GetConsoleVariableIntValue(UObject* WorldContextObject, const FString& VariableName);
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static int32 GetConsoleVariableIntValue(const FString& VariableName);
+
+	/**
+	 * Evaluates, if it exists, whether the specified integer console variable has a non-zero value (true) or not (false).
+	 *
+	 * @param	VariableName	Name of the console variable to find.
+	 * @return	True if found and has a non-zero value, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static bool GetConsoleVariableBoolValue(const FString& VariableName);
 
 	/** 
 	 *	Exit the current game 

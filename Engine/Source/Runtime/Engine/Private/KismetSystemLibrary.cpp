@@ -308,7 +308,7 @@ void UKismetSystemLibrary::ExecuteConsoleCommand(UObject* WorldContextObject, co
 	}
 }
 
-float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextObject, const FString& VariableName)
+float UKismetSystemLibrary::GetConsoleVariableFloatValue(const FString& VariableName)
 {
 	float Value = 0.0f;
 
@@ -325,7 +325,7 @@ float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextOb
 	return Value;
 }
 
-int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObject, const FString& VariableName)
+int32 UKismetSystemLibrary::GetConsoleVariableIntValue(const FString& VariableName)
 {
 	int32 Value = 0;
 
@@ -342,7 +342,10 @@ int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObje
 	return Value;
 }
 
-
+bool UKismetSystemLibrary::GetConsoleVariableBoolValue(const FString& VariableName)
+{
+	return (GetConsoleVariableIntValue(VariableName) != 0);
+}
 
 
 void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions)
