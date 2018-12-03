@@ -1473,7 +1473,8 @@ void FMaterialShaderMap::Compile(
 					{
 						// Create a new mesh material shader map.
 						MeshShaderMapIndex = MeshShaderMaps.Num();
-						MeshShaderMap = new(MeshShaderMaps) FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMap = new FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMaps.Add(MeshShaderMap);
 					}
   
 					// Enqueue compilation all mesh material shaders for this material and vertex factory type combo.
@@ -2365,7 +2366,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bo
 
 			if (VertexFactoryType->IsUsedWithMaterials())
 			{
-				new(MeshShaderMaps) FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType);
+				MeshShaderMaps.Add(new FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType));
 			}
 		}
 

@@ -166,7 +166,8 @@ void FStaticLightingSystem::SetupRadiosity()
 
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(RadiositySetupThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiositySetup);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiositySetup);
+		RadiositySetupThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("RadiositySetupThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -456,7 +457,8 @@ void FStaticLightingSystem::RunRadiosityIterations()
 
 		for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 		{
-			FMappingProcessingThreadRunnable* ThreadRunnable = new(RadiosityIterationThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiosityIterations);
+			FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiosityIterations);
+			RadiosityIterationThreads.Add(ThreadRunnable);
 			const FString ThreadName = FString::Printf(TEXT("RadiosityIterationThread%u"), ThreadIndex);
 			ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 		}

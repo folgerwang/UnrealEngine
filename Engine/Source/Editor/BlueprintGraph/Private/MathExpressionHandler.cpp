@@ -176,7 +176,8 @@ void FKCHandler_MathExpression::RegisterNets(FKismetFunctionContext& Context, UE
 				UEdGraphNode* LinkedOwnerNode = Linked ? Linked->GetOwningNodeUnchecked() : nullptr;
 				if (LinkedOwnerNode && (InnerExitNode != LinkedOwnerNode))
 				{
-					FBPTerminal* Term = new (Context.InlineGeneratedValues) FBPTerminal();
+					FBPTerminal* Term = new FBPTerminal();
+					Context.InlineGeneratedValues.Add(Term);
 					Term->CopyFromPin(Pin, Context.NetNameMap->MakeValidName(Pin));
 					Context.NetMap.Add(Pin, Term);
 				}

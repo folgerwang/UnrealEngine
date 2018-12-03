@@ -199,7 +199,8 @@ public:
 
 	FBPTerminal* RegisterLiteral(UEdGraphPin* Net)
 	{
-		FBPTerminal* Term = new (Literals) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Literals.Add(Term);
 		Term->CopyFromPin(Net, Net->DefaultValue);
 		Term->ObjectLiteral = Net->DefaultObject;
 		Term->TextLiteral = Net->DefaultTextValue;

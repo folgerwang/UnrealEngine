@@ -193,7 +193,7 @@ public:
 			Empty(NewNum);
 			for (int32 Index = 0; Index < NewNum; Index++)
 			{
-				new(*this) T;
+				Add(new T);
 			}
 			for (int32 Index = 0; Index < NewNum; Index++)
 			{
@@ -230,7 +230,9 @@ public:
 			A.Empty(NewNum);
 			for (int32 Index = 0; Index < NewNum; Index++)
 			{
-				Ar << *new(A)T;
+				T* NewElement = new T;
+				Ar << *NewElement;
+				A.Add(NewElement);
 			}
 		}
 		else
@@ -273,11 +275,7 @@ public:
 		T** Element = GetData() + Index;
 		for (int32 ElementId = Count; ElementId; --ElementId)
 		{
-			// We need a typedef here because VC won't compile the destructor call below if T itself has a member called T
-			typedef T IndirectArrayDestructElementType;
-
-			(*Element)->IndirectArrayDestructElementType::~IndirectArrayDestructElementType();
-			FMemory::Free(*Element);
+			delete *Element;
 			++Element;
 		}
 		Array.RemoveAt(Index, Count, bAllowShrinking);
@@ -303,11 +301,7 @@ public:
 		T** Element = GetData() + Index;
 		for (int32 ElementId = Count; ElementId; --ElementId)
 		{
-			// We need a typedef here because VC won't compile the destructor call below if T itself has a member called T
-			typedef T IndirectArrayDestructElementType;
-
-			(*Element)->IndirectArrayDestructElementType::~IndirectArrayDestructElementType();
-			FMemory::Free(*Element);
+			delete *Element;
 			++Element;
 		}
 		Array.RemoveAtSwap(Index, Count, bAllowShrinking);
@@ -428,11 +422,7 @@ private:
 		T** Element = GetData();
 		for (int32 Index = Array.Num(); Index; --Index)
 		{
-			// We need a typedef here because VC won't compile the destructor call below if T itself has a member called T
-			typedef T IndirectArrayDestructElementType;
-
-			(*Element)->IndirectArrayDestructElementType::~IndirectArrayDestructElementType();
-			FMemory::Free(*Element);
+			delete *Element;
 			++Element;
 		}
 	}
@@ -457,16 +447,18 @@ struct TContainerTraits<TIndirectArray<T, Allocator> >
 	enum { MoveWillEmptyContainer = TContainerTraitsBase<typename TIndirectArray<T, Allocator>::InternalArrayType>::MoveWillEmptyContainer };
 };
 
-
-template <typename T,typename Allocator> void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array )
+template <typename T,typename Allocator>
+DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Add() passing a pointer to an object created with new.")
+void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array )
 {
 	check(Size == sizeof(T));
 	const int32 Index = Array.Add((T*)FMemory::Malloc(Size));
 	return &Array[Index];
 }
 
-
-template <typename T,typename Allocator> void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array, int32 Index )
+template <typename T,typename Allocator>
+DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Insert() passing a pointer to an object created with new.")
+void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array, int32 Index )
 {
 	check(Size == sizeof(T));
 	Array.Insert((T*)FMemory::Malloc(Size), Index);

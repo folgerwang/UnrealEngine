@@ -354,7 +354,7 @@ static bool CompressImageUsingNVTT(
 		uint8* Dest = OutCompressedData.GetData();
 		for (int32 BatchIndex = 0; BatchIndex < NumBatches; ++BatchIndex)
 		{
-			new(Compressors) FNVTTCompressor(
+			Compressors.Add(new FNVTTCompressor(
 				Src,
 				PixelFormat,
 				SizeX,
@@ -363,7 +363,7 @@ static bool CompressImageUsingNVTT(
 				bIsNormalMap,
 				Dest,
 				CompressedStride
-				);
+			));
 			Src += UncompressedStride;
 			Dest += CompressedStride;
 		}
@@ -375,7 +375,8 @@ static bool CompressImageUsingNVTT(
 		TIndirectArray<FAsyncNVTTTask> AsyncTasks;
 		for (int32 BatchIndex = 0; BatchIndex < NumBatches; ++BatchIndex)
 		{
-			FAsyncNVTTTask* AsyncTask = new(AsyncTasks) FAsyncNVTTTask(&Compressors[BatchIndex]);
+			FAsyncNVTTTask* AsyncTask = new FAsyncNVTTTask(&Compressors[BatchIndex]);
+			AsyncTasks.Add(AsyncTask);
 #if WITH_EDITOR
 			AsyncTask->StartBackgroundTask(GLargeThreadPool);
 #else

@@ -206,7 +206,8 @@ void FStaticLightingSystem::FinalizeSurfaceCache()
 {
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(FinalizeSurfaceCacheThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_FinalizeSurfaceCache);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_FinalizeSurfaceCache);
+		FinalizeSurfaceCacheThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("FinalizeSurfaceCacheThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}

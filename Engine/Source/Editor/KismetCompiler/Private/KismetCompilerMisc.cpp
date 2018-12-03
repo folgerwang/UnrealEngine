@@ -1566,7 +1566,8 @@ void FNodeHandlingFunctor::ResolveAndRegisterScopedTerm(FKismetFunctionContext& 
 	{
 		UBlueprintEditorSettings* Settings = GetMutableDefault<UBlueprintEditorSettings>();
 		// Create the term in the list
-		FBPTerminal* Term = new (NetArray) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		NetArray.Add(Term);
 		Term->CopyFromPin(Net, Net->PinName);
 		Term->AssociatedVarProperty = BoundProperty;
 		Term->bPassedByReference = true;
@@ -2230,15 +2231,25 @@ FBPTerminal* FKismetFunctionContext::CreateLocalTerminal(ETerminalSpecification 
 	{
 	case ETerminalSpecification::TS_ForcedShared:
 		ensure(IsEventGraph());
-		Result = new (EventGraphLocals)FBPTerminal();
+		Result = new FBPTerminal();
+		EventGraphLocals.Add(Result);
 		break;
 	case ETerminalSpecification::TS_Literal:
-		Result = new (Literals) FBPTerminal();
+		Result = new FBPTerminal();
+		Literals.Add(Result);
 		Result->bIsLiteral = true;
 		break;
 	default:
 		const bool bIsLocal = !IsEventGraph();
-		Result = new (bIsLocal ? Locals : EventGraphLocals) FBPTerminal();
+		Result = new FBPTerminal();
+		if (bIsLocal)
+		{
+			Locals.Add(Result);
+		}
+		else
+		{
+			EventGraphLocals.Add(Result);
+		}
 		Result->SetVarTypeLocal(bIsLocal);
 		break;
 	}
@@ -2262,7 +2273,15 @@ FBPTerminal* FKismetFunctionContext::CreateLocalTerminalFromPinAutoChooseScope(U
 		// Pin's connections are checked, to tell if created terminal is shared, or if it could be a local variable.
 		bSharedTerm = FEventGraphUtils::PinRepresentsSharedTerminal(*Net, MessageLog);
 	}
-	FBPTerminal* Term = new (bSharedTerm ? EventGraphLocals : Locals) FBPTerminal();
+	FBPTerminal* Term = new FBPTerminal();
+	if (bSharedTerm)
+	{
+		EventGraphLocals.Add(Term);
+	}
+	else
+	{
+		Locals.Add(Term);
+	}
 	Term->CopyFromPin(Net, MoveTemp(NewName));
 	return Term;
 }

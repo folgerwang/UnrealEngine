@@ -427,7 +427,8 @@ FGlobalDynamicVertexBuffer::FAllocation FGlobalDynamicVertexBuffer::Allocate(uin
 		// Create a new vertex buffer if needed.
 		if (VertexBuffer == NULL)
 		{
-			VertexBuffer = new(Pool->VertexBuffers) FDynamicVertexBuffer(SizeInBytes);
+			VertexBuffer = new FDynamicVertexBuffer(SizeInBytes);
+			Pool->VertexBuffers.Add(VertexBuffer);
 			VertexBuffer->InitResource();
 		}
 
@@ -629,7 +630,8 @@ FGlobalDynamicIndexBuffer::FAllocation FGlobalDynamicIndexBuffer::Allocate(uint3
 		// Create a new index buffer if needed.
 		if (IndexBuffer == NULL)
 		{
-			IndexBuffer = new(Pool->IndexBuffers) FDynamicIndexBuffer(SizeInBytes, Pool->BufferStride);
+			IndexBuffer = new FDynamicIndexBuffer(SizeInBytes, Pool->BufferStride);
+			Pool->IndexBuffers.Add(IndexBuffer);
 			IndexBuffer->InitResource();
 		}
 

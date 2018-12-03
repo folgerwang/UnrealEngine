@@ -79,7 +79,8 @@ public:
 					return;
 				}
 			}
-			FBPTerminal* Term = new (Context.Results) FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.Results.Add(Term);
 			Term->CopyFromPin(Net, MoveTemp(NetPinName));
 			Context.NetMap.Add(Net, Term);
 		}

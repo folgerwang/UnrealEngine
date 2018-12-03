@@ -201,7 +201,8 @@ void UModelComponent::CommitSurfaces()
 		// If no matching element was found, create a new element.
 		if(!NewElement)
 		{
-			NewElement = new(Elements) FModelElement(this,Surf.Material);
+			NewElement = new FModelElement(this,Surf.Material);
+			Elements.Add(NewElement);
 			NewElement->MapBuildDataId = OldElement->MapBuildDataId;
 		}
 
@@ -524,7 +525,9 @@ bool UModelComponent::GenerateElements(bool bBuildRenderData)
 			if(!Element)
 			{
 				// If there's no matching element, create a new element.
-				Element = MaterialToElementMap.Add(Surf.Material,new(Elements) FModelElement(this,Surf.Material));
+				FModelElement* NewElement = new FModelElement(this,Surf.Material);
+				Elements.Add(NewElement);
+				Element = MaterialToElementMap.Add(Surf.Material, NewElement);
 			}
 
 			// Add the node to the element.
@@ -563,7 +566,9 @@ bool UModelComponent::GenerateElements(bool bBuildRenderData)
 			FModelElement** Element = NodeGroupToElementMap.Find(NodeGroupKey);
 			if (Element == nullptr)
 			{
-				Element = &NodeGroupToElementMap.Add(NodeGroupKey, new(Elements)FModelElement(this, Surf.Material));
+				FModelElement* NewElement = new FModelElement(this, Surf.Material);
+				Elements.Add(NewElement);
+				Element = &NodeGroupToElementMap.Add(NodeGroupKey, NewElement);
 			}
 			check(Element);
 
@@ -587,7 +592,8 @@ void UModelComponent::CopyElementsFrom(UModelComponent* SrcComponent)
 	for (int32 ElementIndex = 0; ElementIndex < SrcComponent->Elements.Num(); ++ElementIndex)
 	{
 		FModelElement& SrcElement = SrcComponent->Elements[ElementIndex];
-		FModelElement& DestElement = *new(Elements) FModelElement(SrcElement);
+		FModelElement& DestElement = *new FModelElement(SrcElement);
+		Elements.Add(&DestElement);
 		DestElement.Component = this;
 	}
 

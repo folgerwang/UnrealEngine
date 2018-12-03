@@ -397,7 +397,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				if (UStructProperty* StructProperty = Cast<UStructProperty>(Property))
 				{
 					// Create a new node for the struct property.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Recursively gather up all struct fields that differ and assign to the current node's sub property list.
 					if (BuildCustomPropertyListForPostConstruction((*CurrentNodePtr)->SubPropertyList, StructProperty->Struct, PropertyValue, DefaultPropertyValue))
@@ -417,7 +418,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				else if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
 				{
 					// Create a new node for the array property.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Recursively gather up all array item indices that differ and assign to the current node's sub property list.
 					if (BuildCustomArrayPropertyListForPostConstruction(ArrayProperty, (*CurrentNodePtr)->SubPropertyList, PropertyValue, DefaultPropertyValue))
@@ -437,7 +439,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				else if (!Property->Identical(PropertyValue, DefaultPropertyValue))
 				{
 					// Create a new node, link it into the chain and add it into the array.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Advance to the next node ptr.
 					CurrentNodePtr = &(*CurrentNodePtr)->PropertyListNext;
@@ -468,7 +471,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			if (UStructProperty* InnerStructProperty = Cast<UStructProperty>(ArrayProperty->Inner))
 			{
 				// Create a new node for the item value at this index.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Recursively gather up all struct fields that differ and assign to the array item value node's sub property list.
 				if (BuildCustomPropertyListForPostConstruction((*CurrentArrayNodePtr)->SubPropertyList, InnerStructProperty->Struct, ArrayPropertyValue, DefaultArrayPropertyValue))
@@ -488,7 +492,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			else if (UArrayProperty* InnerArrayProperty = Cast<UArrayProperty>(ArrayProperty->Inner))
 			{
 				// Create a new node for the item value at this index.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Recursively gather up all array item indices that differ and assign to the array item value node's sub property list.
 				if (BuildCustomArrayPropertyListForPostConstruction(InnerArrayProperty, (*CurrentArrayNodePtr)->SubPropertyList, ArrayPropertyValue, DefaultArrayPropertyValue))
@@ -508,7 +513,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			else if (!ArrayProperty->Inner->Identical(ArrayPropertyValue, DefaultArrayPropertyValue))
 			{
 				// Create a new node, link it into the chain and add it into the array.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Advance to the next array item node ptr.
 				CurrentArrayNodePtr = &(*CurrentArrayNodePtr)->PropertyListNext;
@@ -1610,7 +1616,8 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyList(FCustomPro
 		}
 
 		// Create a new node to hold property info.
-		FCustomPropertyListNode* NewNode = new(CachedPropertyListForSerialization) FCustomPropertyListNode(Property, ChangedPropertyInfo.ArrayIndex);
+		FCustomPropertyListNode* NewNode = new FCustomPropertyListNode(Property, ChangedPropertyInfo.ArrayIndex);
+		CachedPropertyListForSerialization.Add(NewNode);
 
 		// Link the new node into the current property list.
 		if (CurrentNode)
@@ -1644,7 +1651,8 @@ void FBlueprintCookedComponentInstancingData::BuildCachedArrayPropertyList(const
 		const FBlueprintComponentChangedPropertyInfo& ChangedArrayPropertyInfo = ChangedPropertyList[(*CurrentSourceIdx)++];
 		UProperty* InnerProperty = ChangedArrayPropertyInfo.PropertyName != NAME_None ? ArrayProperty->Inner : nullptr;
 
-		*ArraySubPropertyNode = new(CachedPropertyListForSerialization) FCustomPropertyListNode(InnerProperty, ChangedArrayPropertyInfo.ArrayIndex);
+		*ArraySubPropertyNode = new FCustomPropertyListNode(InnerProperty, ChangedArrayPropertyInfo.ArrayIndex);
+		CachedPropertyListForSerialization.Add(*ArraySubPropertyNode);
 
 		// If this is a UStruct property, recursively build a sub-property list.
 		if (const UStructProperty* InnerStructProperty = Cast<UStructProperty>(InnerProperty))

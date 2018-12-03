@@ -208,7 +208,7 @@ public:
 		// Reregister all components of the templated type.
 		for(TObjectIterator<ComponentType> ComponentIt;ComponentIt;++ComponentIt)
 		{
-			new(ComponentContexts) FComponentReregisterContext(*ComponentIt);
+			ComponentContexts.Add(new FComponentReregisterContext(*ComponentIt));
 		}
 	}
 

@@ -12584,7 +12584,8 @@ void UEngine::UpdateTransitionType(UWorld *CurrentWorld)
 
 FWorldContext& UEngine::CreateNewWorldContext(EWorldType::Type WorldType)
 {
-	FWorldContext *NewWorldContext = (new (WorldList) FWorldContext);
+	FWorldContext* NewWorldContext = new FWorldContext;
+	WorldList.Add(NewWorldContext);
 	NewWorldContext->WorldType = WorldType;
 	NewWorldContext->ContextHandle = FName(*FString::Printf(TEXT("Context_%d"), NextWorldContextHandle++));
 
@@ -13626,7 +13627,8 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 
 		for (UObject* OldInstance : Components)
 		{
-			FInstancedObjectRecord* pRecord = new(SavedInstances) FInstancedObjectRecord();
+			FInstancedObjectRecord* pRecord = new FInstancedObjectRecord();
+			SavedInstances.Add(pRecord);
 			pRecord->OldInstance = OldInstance;
 			OldInstanceMap.Add(OldInstance->GetPathName(OldObject), SavedInstances.Num() - 1);
 			const uint32 AdditionalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;

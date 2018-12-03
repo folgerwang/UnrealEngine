@@ -2152,7 +2152,7 @@ void FShaderCompilingManager::PropagateMaterialChangesToPrimitives(const TMap<FM
 
 				if (bPrimitiveIsDependentOnMaterial)
 				{
-					new(ComponentContexts) FComponentRecreateRenderStateContext(PrimitiveComponent);
+					ComponentContexts.Add(new FComponentRecreateRenderStateContext(PrimitiveComponent));
 				}
 			}
 		}

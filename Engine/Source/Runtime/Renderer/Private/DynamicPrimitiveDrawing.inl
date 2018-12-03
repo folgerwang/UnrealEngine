@@ -337,7 +337,8 @@ inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 		// Translucent view mesh elements in the foreground dpg are not supported yet
 		TIndirectArray<FMeshBatch>& ViewMeshElementList = ( ( DPGIndex == SDPG_Foreground  ) ? ViewInfo->TopViewMeshElements : ViewInfo->ViewMeshElements );
 
-		FMeshBatch* NewMesh = new(ViewMeshElementList) FMeshBatch(Mesh);
+		FMeshBatch* NewMesh = new FMeshBatch(Mesh);
+		ViewMeshElementList.Add(NewMesh);
 		if( CurrentHitProxy != nullptr )
 		{
 			NewMesh->BatchHitProxyId = CurrentHitProxy->Id;

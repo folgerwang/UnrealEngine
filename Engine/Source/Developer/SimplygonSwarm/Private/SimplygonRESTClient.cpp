@@ -71,7 +71,8 @@ void FSimplygonSwarmTask::CreateUploadParts(const int32 MaxUploadPartSize)
 
 			for (int32 PartIndex = 0; PartIndex < NumberOfPartsRequried; ++PartIndex)
 			{
-				FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+				FSwarmUploadPart* UploadPartData = new FSwarmUploadPart();
+				UploadParts.Add(UploadPartData);
 				int32 Offset = PartIndex * MaxUploadPartSize * sizeof(uint8);
 				UploadPartData->Data.AddUninitialized(MaxUploadPartSize);
 				FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData() + Offset, MaxUploadPartSize * sizeof(uint8));
@@ -83,7 +84,8 @@ void FSimplygonSwarmTask::CreateUploadParts(const int32 MaxUploadPartSize)
 			{
 				//NOTE: need to set Offset before doing a new on UploadParts
 				int32 Offset = UploadParts.Num() * MaxUploadPartSize;
-				FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+				FSwarmUploadPart* UploadPartData = new FSwarmUploadPart();
+				UploadParts.Add(UploadPartData);
 				UploadPartData->Data.AddUninitialized(RemainingBytes);
 				FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData() + Offset, RemainingBytes * sizeof(uint8));
 				UploadPartData->PartNumber = NumberOfPartsRequried + 1;
@@ -92,7 +94,8 @@ void FSimplygonSwarmTask::CreateUploadParts(const int32 MaxUploadPartSize)
 		}
 		else
 		{
-			FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+			FSwarmUploadPart* UploadPartData = new FSwarmUploadPart();
+			UploadParts.Add(UploadPartData);
 			UploadPartData->Data.AddUninitialized(fileBlob.Num());
 			FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData(), fileBlob.Num() * sizeof(uint8));
 			UploadPartData->PartNumber = 1;

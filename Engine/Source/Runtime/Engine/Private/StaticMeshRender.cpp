@@ -185,7 +185,8 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	const bool bLODsShareStaticLighting = RenderData->bLODsShareStaticLighting || bForceLODsShareStaticLighting;
 	for(int32 LODIndex = 0;LODIndex < RenderData->LODResources.Num();LODIndex++)
 	{
-		FLODInfo* NewLODInfo = new(LODs) FLODInfo(InComponent, RenderData->LODVertexFactories,LODIndex,bLODsShareStaticLighting);
+		FLODInfo* NewLODInfo = new FLODInfo(InComponent, RenderData->LODVertexFactories,LODIndex,bLODsShareStaticLighting);
+		LODs.Add(NewLODInfo);
 
 		// Under certain error conditions an LOD's material will be set to 
 		// DefaultMaterial. Ensure our material view relevance is set properly.

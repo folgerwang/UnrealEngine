@@ -951,7 +951,8 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 						}
 						else
 						{
-							FSkeletalMeshLODModel* NewLODModel = new(SkeletalMesh->GetImportedModel()->LODModels) FSkeletalMeshLODModel(LODModel);
+							FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(LODModel);
+							SkeletalMesh->GetImportedModel()->LODModels.Add(NewLODModel);
 							SkeletalMesh->AddLODInfo(LODInfo);
 						}
 					}
@@ -967,7 +968,8 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					int32 LODIndex = Index + 1;
 					FSkeletalMeshLODModel& LODModel = MeshData->ExistingLODModels[Index];
 					FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
-					FSkeletalMeshLODModel* NewLODModel = new(SkeletalMesh->GetImportedModel()->LODModels) FSkeletalMeshLODModel(LODModel);
+					FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(LODModel);
+					SkeletalMesh->GetImportedModel()->LODModels.Add(NewLODModel);
 					// add LOD info back
 					SkeletalMesh->AddLODInfo(LODInfo);
 					//Apply the new skinning to the existing LOD geometry

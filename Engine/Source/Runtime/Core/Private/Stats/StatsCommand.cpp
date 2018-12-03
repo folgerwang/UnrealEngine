@@ -1425,7 +1425,7 @@ struct FHUDGroupManager
 				FInternalGroup& InternalGroup = GroupIt.Value();
 
 				// Create a new hud group.
-				new(ToGame->ActiveStatGroups) FActiveStatGroupInfo();
+				ToGame->ActiveStatGroups.Add(new FActiveStatGroupInfo());
 				FActiveStatGroupInfo& HudGroup = ToGame->ActiveStatGroups.Last();
 
 				ToGame->GroupNames.Add( GroupName );

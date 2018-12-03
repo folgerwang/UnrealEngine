@@ -440,7 +440,8 @@ FNiagaraGlobalReadBuffer::FAllocation FNiagaraGlobalReadBuffer::AllocateFloat(ui
 		if (Buffer == NULL)
 		{
 			uint32 NewBufferSize = FMath::Max(Num, (uint32)GMinNiagaraRenderingBufferSize);
-			Buffer = new(FloatBufferPool->Buffers) FDynamicAllocReadBuffer();
+			Buffer = new FDynamicAllocReadBuffer();
+			FloatBufferPool->Buffers.Add(Buffer);
 			Buffer->Initialize(sizeof(float), NewBufferSize, PF_R32_FLOAT, BUF_Dynamic);
 		}
 
@@ -494,7 +495,8 @@ FNiagaraGlobalReadBuffer::FAllocation FNiagaraGlobalReadBuffer::AllocateInt32(ui
 		if (Buffer == NULL)
 		{
 			uint32 NewBufferSize = FMath::Max(Num, (uint32)GMinNiagaraRenderingBufferSize);
-			Buffer = new(Int32BufferPool->Buffers) FDynamicAllocReadBuffer();
+			Buffer = new FDynamicAllocReadBuffer();
+			Int32BufferPool->Buffers.Add(Buffer);
 			Buffer->Initialize(sizeof(int32), NewBufferSize, PF_R32_SINT, BUF_Dynamic);
 		}
 

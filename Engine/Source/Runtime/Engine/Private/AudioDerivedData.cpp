@@ -314,7 +314,8 @@ class FStreamedAudioCacheDerivedDataWorker : public FNonAbandonableTask
 						const int32 AudioDataSize = ChunkBuffers[ChunkIndex].Num();
 						const int32 ZeroPadBytes = FMath::Max(MaxChunkSize - AudioDataSize, 0);
 
-						FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
+						FStreamedAudioChunk* NewChunk = new FStreamedAudioChunk();
+						DerivedData->Chunks.Add(NewChunk);
 
 						// Store both the audio data size and the data size so decoders will know what portion of the bulk data is real audio
 						NewChunk->AudioDataSize = AudioDataSize;
@@ -339,7 +340,8 @@ class FStreamedAudioCacheDerivedDataWorker : public FNonAbandonableTask
 				else
 				{
 					// Could not split so copy compressed data into a single chunk
-					FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
+					FStreamedAudioChunk* NewChunk = new FStreamedAudioChunk();
+					DerivedData->Chunks.Add(NewChunk);
 					NewChunk->DataSize = CompressedBuffer.Num();
 					NewChunk->AudioDataSize = NewChunk->DataSize;
 
@@ -740,7 +742,7 @@ void FStreamedAudioPlatformData::Serialize(FArchive& Ar, USoundWave* Owner)
 		Chunks.Empty(NumChunks);
 		for (int32 ChunkIndex = 0; ChunkIndex < NumChunks; ++ChunkIndex)
 		{
-			new(Chunks) FStreamedAudioChunk();
+			Chunks.Add(new FStreamedAudioChunk());
 		}
 	}
 	for (int32 ChunkIndex = 0; ChunkIndex < NumChunks; ++ChunkIndex)

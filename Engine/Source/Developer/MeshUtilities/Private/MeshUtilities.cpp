@@ -2424,8 +2424,10 @@ public:
 		for (int32 LODIndex = 0; LODIndex < SourceModels.Num(); ++LODIndex)
 		{
 			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
-			FRawMesh& RawMesh = *new(LODMeshes)FRawMesh;
-			FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
+			FRawMesh& RawMesh = *new FRawMesh;
+			LODMeshes.Add(&RawMesh);
+			FOverlappingCorners& OverlappingCorners = *new FOverlappingCorners;
+			LODOverlappingCorners.Add(&OverlappingCorners);
 
 			if (!SrcModel.IsRawMeshEmpty())
 			{
@@ -3930,7 +3932,8 @@ public:
 
 		BeginSlowTask();
 
-		FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
+		FOverlappingCorners& OverlappingCorners = *new FOverlappingCorners;
+		LODOverlappingCorners.Add(&OverlappingCorners);
 
 		float ComparisonThreshold = THRESH_POINTS_ARE_SAME;//GetComparisonThreshold(LODBuildSettings[LODIndex]);
 		int32 NumWedges = BuildData->GetNumWedges();

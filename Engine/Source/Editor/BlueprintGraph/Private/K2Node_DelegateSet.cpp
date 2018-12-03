@@ -69,7 +69,8 @@ public:
 		// Create a term for this property
 		if( BoundProperty != NULL )
 		{
-			FBPTerminal* Term = new(Context.VariableReferences) FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.VariableReferences.Add(Term);
 			Term->CopyFromPin(DelegatePin, DelegatePin->PinName);
 			Term->AssociatedVarProperty = BoundProperty;
 

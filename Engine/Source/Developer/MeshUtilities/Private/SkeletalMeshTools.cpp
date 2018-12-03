@@ -251,7 +251,8 @@ namespace SkeletalMeshTools
 					Chunks.Add(DestChunk);
 					DestChunk->MaterialIndex = SrcChunk->MaterialIndex;
 					DestChunk->OriginalSectionIndex = SrcChunk->OriginalSectionIndex;
-					TArray<int32>& IndexMap = *new(IndexMaps) TArray<int32>();
+					TArray<int32>& IndexMap = *new TArray<int32>();
+					IndexMaps.Add(&IndexMap);
 					IndexMap.AddUninitialized(SrcChunk->Vertices.Num());
 					FMemory::Memset(IndexMap.GetData(),0xff,IndexMap.GetTypeSize()*IndexMap.Num());
 				}
