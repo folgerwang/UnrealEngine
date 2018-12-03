@@ -318,10 +318,10 @@ public:
 	void SetAxisProperties(const FKey AxisKey, const FInputAxisProperties& AxisProperties);
 
 	/** Exec function to change the mouse sensitivity */
-	UFUNCTION(exec)
 	void SetMouseSensitivity(const float SensitivityX, const float SensitivityY);
 
 	/** Sets both X and Y axis sensitivity to the supplied value. */
+	UFUNCTION(exec)
 	void SetMouseSensitivity(const float Sensitivity) { SetMouseSensitivity(Sensitivity, Sensitivity); }
 
 	/** Exec function to add a debug exec command */
