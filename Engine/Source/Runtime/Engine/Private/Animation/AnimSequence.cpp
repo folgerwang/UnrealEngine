@@ -4996,6 +4996,7 @@ void UAnimSequence::EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime
 	}
 	else
 	{
+		CSV_SCOPED_TIMING_STAT(Animation, EvaluateCurveData);
 		CompressedCurveData.EvaluateCurveData(OutCurve, CurrentTime);
 	}
 }
