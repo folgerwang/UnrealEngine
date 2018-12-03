@@ -122,6 +122,7 @@ public:
 	FString ProfilingEventName;
 
 	//~ Begin UActorComponent Interface
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void OnRegister() override;
 	//~ End UActorComponent Interface
 
@@ -192,5 +193,14 @@ protected:
 	 * NOTE: It is not safe to put a FSceneViewStateReference in a TArray, which moves its contents around without calling element constructors during realloc.
 	 */
 	TIndirectArray<FSceneViewStateReference> ViewStates;
+
+#if WITH_EDITORONLY_DATA
+	/** The mesh used by ProxyMeshComponent */
+	UPROPERTY(transient)
+	class UStaticMesh* CaptureMesh;
+
+	/** The mesh to show visually where the camera is placed */
+	class UStaticMeshComponent* ProxyMeshComponent;
+#endif
 };
 

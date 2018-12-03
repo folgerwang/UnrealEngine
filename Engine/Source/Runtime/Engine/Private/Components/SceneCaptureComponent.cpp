@@ -36,85 +36,51 @@ static TMultiMap<TWeakObjectPtr<UWorld>, TWeakObjectPtr<USceneCaptureComponent> 
 ASceneCapture::ASceneCapture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh0"));
+	SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
+	RootComponent = SceneComponent;
+}
 
-	MeshComp->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+void ASceneCapture::PostLoad()
+{
+	Super::PostLoad();
 
-	MeshComp->bHiddenInGame = true;
-	MeshComp->CastShadow = false;
-	MeshComp->PostPhysicsComponentTick.bCanEverTick = false;
-	RootComponent = MeshComp;
+	if (GetLinkerCustomVersion(FEditorObjectVersion::GUID) < FEditorObjectVersion::ChangeSceneCaptureRootComponent)
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		if (MeshComp_DEPRECATED)
+		{
+			MeshComp_DEPRECATED->SetStaticMesh(nullptr);
+		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
+}
+
+void ASceneCapture::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
 }
 // -----------------------------------------------
 
 ASceneCapture2D::ASceneCapture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if WITH_EDITOR
-	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->SetIsVisualizationComponent(true);
-	DrawFrustum->SetupAttachment(GetMeshComp());
-#endif
-
 	CaptureComponent2D = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("NewSceneCaptureComponent2D"));
-	CaptureComponent2D->SetupAttachment(GetMeshComp());
+	CaptureComponent2D->SetupAttachment(RootComponent);
 }
 
 void ASceneCapture2D::OnInterpToggle(bool bEnable)
 {
 	CaptureComponent2D->SetVisibility(bEnable);
 }
-
-#if WITH_EDITOR
-void ASceneCapture2D::UpdateDrawFrustum()
-{
-	if(DrawFrustum && CaptureComponent2D)
-	{
-		DrawFrustum->FrustumStartDist = GNearClippingPlane;
-		
-		// 1000 is the default frustum distance, ideally this would be infinite but that might cause rendering issues
-		DrawFrustum->FrustumEndDist = (CaptureComponent2D->MaxViewDistanceOverride > DrawFrustum->FrustumStartDist)
-			? CaptureComponent2D->MaxViewDistanceOverride : 1000.0f;
-
-		DrawFrustum->FrustumAngle = CaptureComponent2D->FOVAngle;
-		//DrawFrustum->FrustumAspectRatio = CaptureComponent2D->AspectRatio;
-	}
-}
-
-void ASceneCapture2D::PostActorCreated()
-{
-	Super::PostActorCreated();
-
-	// no need load the editor mesh when there is no editor
-	if(GetMeshComp())
-	{
-		if (!IsRunningCommandlet())
-		{
-			if( !GetMeshComp()->GetStaticMesh())
-			{
-				UStaticMesh* CamMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/MatineeCam_SM.MatineeCam_SM"), NULL, LOAD_None, NULL);
-				GetMeshComp()->SetStaticMesh(CamMesh);
-			}
-		}
-	}
-
-	// Sync component with CameraActor frustum settings.
-	UpdateDrawFrustum();
-}
-#endif
 // -----------------------------------------------
 
 ASceneCaptureCube::ASceneCaptureCube(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if WITH_EDITOR
-	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->SetIsVisualizationComponent(true);
-	DrawFrustum->SetupAttachment(GetMeshComp());
-#endif
-
 	CaptureComponentCube = CreateDefaultSubobject<USceneCaptureComponentCube>(TEXT("NewSceneCaptureComponentCube"));
-	CaptureComponentCube->SetupAttachment(GetMeshComp());
+	CaptureComponentCube->SetupAttachment(RootComponent);
 }
 
 void ASceneCaptureCube::OnInterpToggle(bool bEnable)
@@ -122,51 +88,6 @@ void ASceneCaptureCube::OnInterpToggle(bool bEnable)
 	CaptureComponentCube->SetVisibility(bEnable);
 }
 
-#if WITH_EDITOR
-void ASceneCaptureCube::UpdateDrawFrustum()
-{
-	if(DrawFrustum && CaptureComponentCube)
-	{
-		DrawFrustum->FrustumStartDist = GNearClippingPlane;
-
-		// 1000 is the default frustum distance, ideally this would be infinite but that might cause rendering issues
-		DrawFrustum->FrustumEndDist = (CaptureComponentCube->MaxViewDistanceOverride > DrawFrustum->FrustumStartDist)
-			? CaptureComponentCube->MaxViewDistanceOverride : 1000.0f;
-
-		DrawFrustum->FrustumAngle = 90;
-	}
-}
-
-void ASceneCaptureCube::PostActorCreated()
-{
-	Super::PostActorCreated();
-
-	// no need load the editor mesh when there is no editor
-	if(GetMeshComp())
-	{
-		if (!IsRunningCommandlet())
-		{
-			if( !GetMeshComp()->GetStaticMesh())
-			{
-				UStaticMesh* CamMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/MatineeCam_SM.MatineeCam_SM"), NULL, LOAD_None, NULL);
-				GetMeshComp()->SetStaticMesh(CamMesh);
-			}
-		}
-	}
-
-	// Sync component with CameraActor frustum settings.
-	UpdateDrawFrustum();
-}
-
-void ASceneCaptureCube::PostEditMove(bool bFinished)
-{
-	Super::PostEditMove(bFinished);
-	if(bFinished && CaptureComponentCube->bCaptureOnMovement)
-	{
-		CaptureComponentCube->CaptureSceneDeferred();
-	}
-}
-#endif
 // -----------------------------------------------
 USceneCaptureComponent::USceneCaptureComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer), ShowFlags(FEngineShowFlags(ESFIM_Game))
@@ -188,10 +109,41 @@ USceneCaptureComponent::USceneCaptureComponent(const FObjectInitializer& ObjectI
 
 void USceneCaptureComponent::OnRegister()
 {
+#if WITH_EDITORONLY_DATA
+	if (AActor* MyOwner = GetOwner())
+	{
+		if (ProxyMeshComponent == nullptr)
+		{
+			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
+			ProxyMeshComponent->SetupAttachment(this);
+			ProxyMeshComponent->SetIsVisualizationComponent(true);
+			ProxyMeshComponent->SetStaticMesh(CaptureMesh);
+			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			ProxyMeshComponent->bHiddenInGame = true;
+			ProxyMeshComponent->CastShadow = false;
+			ProxyMeshComponent->PostPhysicsComponentTick.bCanEverTick = false;
+			ProxyMeshComponent->CreationMethod = CreationMethod;
+			ProxyMeshComponent->RegisterComponentWithWorld(GetWorld());
+		}
+	}
+#endif
+
 	Super::OnRegister();
 
 	// Make sure any loaded saved flag settings are reflected in our FEngineShowFlags
 	UpdateShowFlags();
+}
+
+void USceneCaptureComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+
+#if WITH_EDITORONLY_DATA
+	if (ProxyMeshComponent)
+	{
+		ProxyMeshComponent->DestroyComponent();
+	}
+#endif
 }
 
 void USceneCaptureComponent::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -207,6 +159,9 @@ void USceneCaptureComponent::AddReferencedObjects(UObject* InThis, FReferenceCol
 		}
 	}
 
+#if WITH_EDITORONLY_DATA
+	Collector.AddReferencedObject(This->ProxyMeshComponent);
+#endif
 	Super::AddReferencedObjects(This, Collector);
 }
 
@@ -467,12 +422,35 @@ USceneCaptureComponent2D::USceneCaptureComponent2D(const FObjectInitializer& Obj
 		// previous behavior was not exposing MotionBlur and Temporal AA in scene capture 2d.
 		ShowFlags.TemporalAA = false;
 		ShowFlags.MotionBlur = false;
+
+#if WITH_EDITORONLY_DATA
+		if (!IsRunningCommandlet())
+		{
+			static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorMesh(TEXT("/Engine/EditorMeshes/MatineeCam_SM"));
+			CaptureMesh = EditorMesh.Object;
+		}
+#endif
 	}
 }
 
 void USceneCaptureComponent2D::OnRegister()
 {
 	Super::OnRegister();
+
+#if WITH_EDITORONLY_DATA
+	if (AActor* MyOwner = GetOwner())
+	{
+		if (DrawFrustum == nullptr)
+		{
+			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
+			DrawFrustum->SetupAttachment(this);
+			DrawFrustum->SetIsVisualizationComponent(true);
+			DrawFrustum->CreationMethod = CreationMethod;
+			DrawFrustum->RegisterComponentWithWorld(GetWorld());
+			UpdateDrawFrustum();
+		}
+	}
+#endif
 
 #if WITH_EDITOR
 	// Update content on register to have at least one frames worth of good data.
@@ -529,6 +507,52 @@ void USceneCaptureComponent2D::CaptureScene()
 		FMessageLog("Blueprint").Warning(LOCTEXT("CaptureScene", "CaptureScene: Scene capture with bCaptureEveryFrame enabled was told to update - major inefficiency."));
 	}
 }
+
+void USceneCaptureComponent2D::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+#if WITH_EDITORONLY_DATA
+	USceneCaptureComponent2D* This = CastChecked<USceneCaptureComponent2D>(InThis);
+	Collector.AddReferencedObject(This->DrawFrustum);
+#endif
+
+	Super::AddReferencedObjects(InThis, Collector);
+}
+
+void USceneCaptureComponent2D::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+
+#if WITH_EDITORONLY_DATA
+	if (DrawFrustum)
+	{
+		DrawFrustum->DestroyComponent();
+	}
+#endif
+}
+
+#if WITH_EDITORONLY_DATA
+void USceneCaptureComponent2D::UpdateDrawFrustum()
+{
+	if (DrawFrustum != nullptr)
+	{
+		const float FrustumDrawDistance = 1000.0f;
+		if (ProjectionType == ECameraProjectionMode::Perspective)
+		{
+			DrawFrustum->FrustumAngle = FOVAngle;
+		}
+		else
+		{
+			DrawFrustum->FrustumAngle = -OrthoWidth;
+		}
+
+		DrawFrustum->FrustumStartDist = GNearClippingPlane;
+		// 1000 is the default frustum distance, ideally this would be infinite but that might cause rendering issues
+		DrawFrustum->FrustumEndDist = (MaxViewDistanceOverride > DrawFrustum->FrustumStartDist)
+			? MaxViewDistanceOverride : 1000.0f;
+		DrawFrustum->MarkRenderStateDirty();
+	}
+}
+#endif
 
 #if WITH_EDITOR
 
@@ -587,6 +611,8 @@ void USceneCaptureComponent2D::PostEditChangeProperty(FPropertyChangedEvent& Pro
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	CaptureSceneDeferred();
+
+	UpdateDrawFrustum();
 }
 #endif // WITH_EDITOR
 
@@ -619,8 +645,9 @@ void USceneCaptureComponent2D::UpdateSceneCaptureContents(FSceneInterface* Scene
 APlanarReflection::APlanarReflection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bShowPreviewPlane = true;
-
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	bShowPreviewPlane_DEPRECATED = true;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	PlanarReflectionComponent = CreateDefaultSubobject<UPlanarReflectionComponent>(TEXT("NewPlanarReflectionComponent"));
 	RootComponent = PlanarReflectionComponent;
 
@@ -629,10 +656,6 @@ APlanarReflection::APlanarReflection(const FObjectInitializer& ObjectInitializer
 	DrawInfluenceBox->bUseEditorCompositing = true;
 	DrawInfluenceBox->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	PlanarReflectionComponent->PreviewBox = DrawInfluenceBox;
-
-	GetMeshComp()->SetWorldRotation(FRotator(0, 0, 0));
-	GetMeshComp()->SetWorldScale3D(FVector(4, 4, 1));
-	GetMeshComp()->SetupAttachment(PlanarReflectionComponent);
 
 #if WITH_EDITORONLY_DATA
 	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
@@ -661,33 +684,24 @@ APlanarReflection::APlanarReflection(const FObjectInitializer& ObjectInitializer
 #endif
 }
 
+void APlanarReflection::PostLoad()
+{
+	Super::PostLoad();
+
+	if (GetLinkerCustomVersion(FEditorObjectVersion::GUID) < FEditorObjectVersion::ChangeSceneCaptureRootComponent)
+	{
+		if (PlanarReflectionComponent)
+		{
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
+			PlanarReflectionComponent->bShowPreviewPlane = bShowPreviewPlane_DEPRECATED;
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		}
+	}
+}
+
 void APlanarReflection::OnInterpToggle(bool bEnable)
 {
 	PlanarReflectionComponent->SetVisibility(bEnable);
-}
-
-void APlanarReflection::PostActorCreated()
-{
-	Super::PostActorCreated();
-
-	// no need load the editor mesh when there is no editor
-#if WITH_EDITOR
-	if(GetMeshComp())
-	{
-		if (!IsRunningCommandlet())
-		{
-			if( !GetMeshComp()->GetStaticMesh())
-			{
-				UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PlanarReflectionPlane.PlanarReflectionPlane"), NULL, LOAD_None, NULL);
-				GetMeshComp()->SetStaticMesh(PlaneMesh);
-				UMaterial* PlaneMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorMeshes/ColorCalibrator/M_ChromeBall.M_ChromeBall"), NULL, LOAD_None, NULL);
-				GetMeshComp()->SetMaterial(0, PlaneMaterial);
-			}
-		}
-
-		GetMeshComp()->bVisible = bShowPreviewPlane;
-	}
-#endif
 }
 
 #if WITH_EDITOR
@@ -703,17 +717,6 @@ void APlanarReflection::EditorApplyScale(const FVector& DeltaScale, const FVecto
 	PostEditChange();
 }
 
-void APlanarReflection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	if (GetMeshComp())
-	{
-		GetMeshComp()->bVisible = bShowPreviewPlane;
-		GetMeshComp()->MarkRenderStateDirty();
-	}
-}
-
 #endif
 
 // -----------------------------------------------
@@ -724,6 +727,8 @@ int32 NextPlanarReflectionId = 0;
 UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+
+	bShowPreviewPlane = true;
 	bCaptureEveryFrame = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
@@ -751,8 +756,31 @@ UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer&
 
 	NextPlanarReflectionId++;
 	PlanarReflectionId = NextPlanarReflectionId;
+
+#if WITH_EDITORONLY_DATA
+	if (!IsRunningCommandlet())
+	{
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorMesh(TEXT("/Engine/EditorMeshes/PlanarReflectionPlane.PlanarReflectionPlane"));
+		CaptureMesh = EditorMesh.Object;
+		static ConstructorHelpers::FObjectFinder<UMaterial> EditorMaterial(TEXT("/Engine/EditorMeshes/ColorCalibrator/M_ChromeBall.M_ChromeBall"));
+		CaptureMaterial = EditorMaterial.Object;
+	}
+#endif
 }
 
+void UPlanarReflectionComponent::OnRegister()
+{
+	Super::OnRegister();
+
+#if WITH_EDITORONLY_DATA
+	if (ProxyMeshComponent)
+	{
+		ProxyMeshComponent->SetMaterial(0, CaptureMaterial);
+		ProxyMeshComponent->bVisible = bShowPreviewPlane;
+		ProxyMeshComponent->SetRelativeScale3D(FVector(4, 4, 1));
+	}
+#endif
+}
 
 void UPlanarReflectionComponent::Serialize(FArchive& Ar)
 {
@@ -823,6 +851,9 @@ void UPlanarReflectionComponent::PostEditChangeProperty(FPropertyChangedEvent& P
 		ViewStates[ViewIndex].Destroy();
 		ViewStates[ViewIndex].Allocate();
 	}
+
+	ProxyMeshComponent->bVisible = bShowPreviewPlane;
+	ProxyMeshComponent->MarkRenderStateDirty();
 }
 
 #endif
@@ -874,11 +905,35 @@ USceneCaptureComponentCube::USceneCaptureComponentCube(const FObjectInitializer&
 	PrimaryComponentTick.bAllowTickOnDedicatedServer = false;
 	bTickInEditor = true;
 	IPD = 6.2f;
+
+#if WITH_EDITORONLY_DATA
+	if (!IsRunningCommandlet())
+	{
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorMesh(TEXT("/Engine/EditorMeshes/MatineeCam_SM"));
+		CaptureMesh = EditorMesh.Object;
+	}
+#endif
 }
 
 void USceneCaptureComponentCube::OnRegister()
 {
 	Super::OnRegister();
+
+#if WITH_EDITORONLY_DATA
+	if (AActor* MyOwner = GetOwner())
+	{
+		if (DrawFrustum == nullptr)
+		{
+			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
+			DrawFrustum->SetupAttachment(this);
+			DrawFrustum->SetIsVisualizationComponent(true);
+			DrawFrustum->CreationMethod = CreationMethod;
+			DrawFrustum->RegisterComponentWithWorld(GetWorld());
+			UpdateDrawFrustum();
+		}
+	}
+#endif
+
 #if WITH_EDITOR
 	// Update content on register to have at least one frames worth of good data.
 	// Without updating here this component would not work in a blueprint construction script which recreates the component after each move in the editor
@@ -905,6 +960,51 @@ void USceneCaptureComponentCube::TickComponent(float DeltaTime, enum ELevelTick 
 		CaptureSceneDeferred();
 	}
 }
+
+void USceneCaptureComponentCube::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+
+#if WITH_EDITORONLY_DATA
+	USceneCaptureComponentCube* This = CastChecked<USceneCaptureComponentCube>(InThis);
+	Collector.AddReferencedObject(This->DrawFrustum);
+#endif
+
+	Super::AddReferencedObjects(InThis, Collector);
+}
+
+void USceneCaptureComponentCube::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+
+#if WITH_EDITORONLY_DATA
+	if (DrawFrustum)
+	{
+		DrawFrustum->DestroyComponent();
+	}
+#endif
+}
+
+#if WITH_EDITORONLY_DATA
+void USceneCaptureComponentCube::UpdateDrawFrustum()
+{
+	if (DrawFrustum != nullptr)
+	{
+		DrawFrustum->FrustumStartDist = GNearClippingPlane;
+
+		// 1000 is the default frustum distance, ideally this would be infinite but that might cause rendering issues
+		const float OldEndDist = DrawFrustum->FrustumEndDist;
+		DrawFrustum->FrustumEndDist = (MaxViewDistanceOverride > DrawFrustum->FrustumStartDist)
+			? MaxViewDistanceOverride : 1000.0f;
+
+		DrawFrustum->FrustumAngle = 90;
+
+		if (OldEndDist != DrawFrustum->FrustumEndDist)
+		{
+			DrawFrustum->MarkRenderStateDirty();
+		}
+	}
+}
+#endif
 
 void USceneCaptureComponentCube::CaptureSceneDeferred()
 {
@@ -947,6 +1047,8 @@ void USceneCaptureComponentCube::PostEditChangeProperty(FPropertyChangedEvent& P
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	CaptureSceneDeferred();
+
+	UpdateDrawFrustum();
 }
 #endif // WITH_EDITOR
 

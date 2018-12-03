@@ -29,16 +29,15 @@ private:
 #endif
 
 public:
+	UE_DEPRECATED(4.22, "Please use ShowPreviewPlane on PlanarReflectionComponent instead")
+	UPROPERTY()
+	bool bShowPreviewPlane_DEPRECATED;
 
-	UPROPERTY(EditAnywhere, Category = PlanarReflection)
-	bool bShowPreviewPlane;
+	virtual void PostLoad() override;
 
 	//~ Begin AActor Interface
-	ENGINE_API virtual void PostActorCreated() override;
-
 #if WITH_EDITOR
 	ENGINE_API virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
-	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//~ End AActor Interface.
 
