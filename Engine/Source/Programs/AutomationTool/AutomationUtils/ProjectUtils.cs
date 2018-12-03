@@ -726,7 +726,7 @@ namespace AutomationTool
         {
             BaseEngineProject = new BranchUProject();
 
-            var AllProjects = UnrealBuildTool.UProjectInfo.AllProjectFiles;
+            IEnumerable<FileReference> AllProjects = UnrealBuildTool.NativeProjects.EnumerateProjectFiles();
 			using(TelemetryStopwatch SortProjectsStopwatch = new TelemetryStopwatch("SortProjects"))
 			{
 				foreach (var InfoEntry in AllProjects)

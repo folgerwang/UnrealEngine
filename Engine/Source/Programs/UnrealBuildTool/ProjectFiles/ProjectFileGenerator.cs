@@ -473,7 +473,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				ProjectFiles.AddRange(UProjectInfo.AllProjectFiles.Where(x => ShouldGenerateProject(x)));
+				ProjectFiles.AddRange(NativeProjects.EnumerateProjectFiles().Where(x => ShouldGenerateProject(x)));
 			}
 			return ProjectFiles;
 		}
@@ -2077,8 +2077,8 @@ namespace UnrealBuildTool
 				{
 					RulesAssembly RulesAssembly;
 
-					FileReference CheckProjectFile;
-					if(!UProjectInfo.TryGetProjectForTarget(TargetName, out CheckProjectFile))
+					FileReference CheckProjectFile = AllGames.FirstOrDefault(x => TargetFilePath.IsUnderDirectory(x.Directory));
+					if(CheckProjectFile == null)
 					{
 						if(TargetFilePath.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 						{
@@ -2176,7 +2176,7 @@ namespace UnrealBuildTool
 
 					bool bProjectAlreadyExisted;
 					ProjectFile ProjectFile = FindOrAddProject(ProjectFilePath, BaseFolder, IncludeInGeneratedProjects: true, bAlreadyExisted: out bProjectAlreadyExisted);
-					ProjectFile.IsForeignProject = CheckProjectFile != null && UProjectInfo.IsForeignProject(CheckProjectFile);
+					ProjectFile.IsForeignProject = CheckProjectFile != null && !NativeProjects.IsNativeProject(CheckProjectFile);
 					ProjectFile.IsGeneratedProject = true;
 					ProjectFile.IsStubProject = UnrealBuildTool.IsProjectInstalled();
 					if (TargetRulesObject.bBuildInSolutionByDefault.HasValue)

@@ -470,9 +470,6 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 .
 				return ExitCode.Error_Unknown;
 			}
 
-			// Fill in the project info
-			UnrealBuildTool.UProjectInfo.FillProjectInfo();
-
 			// Clean rules folders up
 			ProjectUtils.CleanupFolders();
 

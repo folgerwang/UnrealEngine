@@ -188,6 +188,7 @@
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
     <Compile Include="System\EncryptionAndSigning.cs" />
     <Compile Include="System\HotReload.cs" />
+    <Compile Include="System\NativeProjects.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
     <Compile Include="System\PrecompiledManifest.cs" />
@@ -347,7 +348,6 @@
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />
     <Compile Include="System\Unity.cs" />
-    <Compile Include="System\UProjectInfo.cs" />
     <Compile Include="System\Utils.cs" />
     <Compile Include="ToolChain\UEToolChain.cs" />
     <Compile Include="Platform\Windows\UEBuildWindows.cs" />

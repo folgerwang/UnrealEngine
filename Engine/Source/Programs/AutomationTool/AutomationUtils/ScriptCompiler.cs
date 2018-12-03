@@ -125,7 +125,7 @@ namespace AutomationTool
 			List<DirectoryReference> AllGameFolders;
 			if(ScriptsForProjectFileName == null)
 			{
-				AllGameFolders = UProjectInfo.AllProjectFiles.Select(x => x.Directory).ToList();
+				AllGameFolders = NativeProjects.EnumerateProjectFiles().Select(x => x.Directory).ToList();
 			}
 			else
 			{

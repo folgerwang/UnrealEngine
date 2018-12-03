@@ -100,15 +100,8 @@ namespace UnrealBuildTool
 				// Build the list of game projects that we know about. When building from the editor (for hot-reload) or for projects from installed builds, we require the 
 				// project file to be passed in. Otherwise we scan for projects in directories named in UE4Games.uprojectdirs.
 				FileReference ProjectFile;
-				if (UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile))
-				{
-					UProjectInfo.AddProject(ProjectFile);
-				}
-				else
-				{
-					UProjectInfo.FillProjectInfo();
-				}
-
+				UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile);
+				
 				DateTime BasicInitStartTime = DateTime.UtcNow;
 
 				// Find and register all tool chains, build platforms, etc. that are present

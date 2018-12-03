@@ -165,9 +165,9 @@ namespace UnrealBuildTool
 			foreach(string TargetName in TargetNames)
 			{
 				// If a project file was not specified see if we can find one
-				if (ProjectFile == null && UProjectInfo.TryGetProjectForTarget(TargetName, out ProjectFile))
+				if (ProjectFile == null && NativeProjects.TryGetProjectForTarget(TargetName, out ProjectFile))
 				{
-					Log.TraceVerbose("Found project file for {0} - {1}", TargetName, ProjectFile);
+					Log.TraceLog("Found project file for {0}: {1}", TargetName, ProjectFile);
 				}
 
 				// Create the target descriptor
