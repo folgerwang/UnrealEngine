@@ -3033,13 +3033,18 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 	//
 	// get the first vertex color layer
 	//
+	
 	FbxLayerElementVertexColor* LayerElementVertexColor = BaseLayer->GetVertexColors();
 	FbxLayerElement::EReferenceMode VertexColorReferenceMode(FbxLayerElement::eDirect);
 	FbxLayerElement::EMappingMode VertexColorMappingMode(FbxLayerElement::eByControlPoint);
-	if (LayerElementVertexColor)
+	if (LayerElementVertexColor && ImportOptions->VertexColorImportOption == EVertexColorImportOption::Replace)
 	{
 		VertexColorReferenceMode = LayerElementVertexColor->GetReferenceMode();
 		VertexColorMappingMode = LayerElementVertexColor->GetMappingMode();
+		ImportData.bHasVertexColors = true;
+	}
+	else if(ImportOptions->VertexColorImportOption == EVertexColorImportOption::Override)
+	{
 		ImportData.bHasVertexColors = true;
 	}
 
@@ -3270,7 +3275,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 		}
 
 		// Read vertex colors if they exist.
-		if( LayerElementVertexColor )
+		if( LayerElementVertexColor && ImportOptions->VertexColorImportOption == EVertexColorImportOption::Replace)
 		{
 			switch(VertexColorMappingMode)
 			{
@@ -3308,6 +3313,14 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 					}
 				}
 				break;
+			}
+		}
+		else if (ImportOptions->VertexColorImportOption == EVertexColorImportOption::Override)
+		{
+			for (int32 VertexIndex = 0; VertexIndex < 3; VertexIndex++)
+			{
+				int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
+				TmpWedges[UnrealVertexIndex].Color = ImportOptions->VertexOverrideColor;
 			}
 		}
 		

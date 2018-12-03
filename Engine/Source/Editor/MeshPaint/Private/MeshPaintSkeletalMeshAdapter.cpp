@@ -8,6 +8,7 @@
 #include "ComponentReregisterContext.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FMeshPaintGeometryAdapterForSkeletalMeshes
@@ -337,6 +338,17 @@ void FMeshPaintGeometryAdapterForSkeletalMeshes::PreEdit()
 		ReferencedSkeletalMesh->bHasVertexColors = true;
 		ReferencedSkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 		BeginInitResource(&LODData->StaticVertexBuffers.ColorVertexBuffer);
+	}
+	//Make sure we change the import data so the re-import do not replace the new data
+	if (ReferencedSkeletalMesh->AssetImportData)
+	{
+		UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(ReferencedSkeletalMesh->AssetImportData);
+		if (ImportData && ImportData->VertexColorImportOption != EVertexColorImportOption::Ignore)
+		{
+			ImportData->SetFlags(RF_Transactional);
+			ImportData->Modify();
+			ImportData->VertexColorImportOption = EVertexColorImportOption::Ignore;
+		}
 	}
 }
 

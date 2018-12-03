@@ -93,6 +93,7 @@ private:
 
 	/** Called to determine the visibility of the VertexOverrideColor property */
 	bool GetVertexOverrideColorEnabledState() const;
+	bool GetSkeletalMeshVertexOverrideColorEnabledState() const;
 
 	FReply ShowConflictDialog(ConflictDialogType DialogType);
 	bool ShowCompareResult();
@@ -106,6 +107,7 @@ private:
 
 	/** Cached VertexColorImportOption property handle */
 	TSharedPtr<IPropertyHandle> VertexColorImportOptionHandle;
+	TSharedPtr<IPropertyHandle> SkeletalMeshVertexColorImportOptionHandle;
 
 	TArray< TSharedPtr< FString > > BaseColorNames;
 	TArray< TSharedPtr< FString > > BaseTextureNames;

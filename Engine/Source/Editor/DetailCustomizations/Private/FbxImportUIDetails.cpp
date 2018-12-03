@@ -411,6 +411,15 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetVertexOverrideColorEnabledState));
 					}
+
+					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexOverrideColor))
+					{
+						// Cache the VertexColorImportOption property
+						SkeletalMeshVertexColorImportOptionHandle = SkeletalMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexColorImportOption));
+
+						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState));
+					}
+					
 				}
 			}
 			//Add refresh callback
@@ -850,8 +859,18 @@ void FFbxImportUIDetails::OnLODGroupChanged(TSharedPtr<FString> NewValue, ESelec
 bool FFbxImportUIDetails::GetVertexOverrideColorEnabledState() const
 {
 	uint8 VertexColorImportOption;
-	check(VertexColorImportOptionHandle.IsValid())
+	check(VertexColorImportOptionHandle.IsValid());
 	ensure(VertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
+
+	return (VertexColorImportOption == EVertexColorImportOption::Override);
+}
+
+
+bool FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState() const
+{
+	uint8 VertexColorImportOption;
+	check(SkeletalMeshVertexColorImportOptionHandle.IsValid());
+	ensure(SkeletalMeshVertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
 
 	return (VertexColorImportOption == EVertexColorImportOption::Override);
 }

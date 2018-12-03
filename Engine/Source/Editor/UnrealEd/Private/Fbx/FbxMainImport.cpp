@@ -396,6 +396,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 		InOutImportOptions.bConvertScene			= StaticMeshData->bConvertScene;
 		InOutImportOptions.bForceFrontXAxis			= StaticMeshData->bForceFrontXAxis;
 		InOutImportOptions.bConvertSceneUnit		= StaticMeshData->bConvertSceneUnit;
+		InOutImportOptions.VertexColorImportOption	= StaticMeshData->VertexColorImportOption;
+		InOutImportOptions.VertexOverrideColor		= StaticMeshData->VertexOverrideColor;
 	}
 	else if ( ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh )
 	{
@@ -413,6 +415,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 		InOutImportOptions.bConvertScene				= SkeletalMeshData->bConvertScene;
 		InOutImportOptions.bForceFrontXAxis				= SkeletalMeshData->bForceFrontXAxis;
 		InOutImportOptions.bConvertSceneUnit			= SkeletalMeshData->bConvertSceneUnit;
+		InOutImportOptions.VertexColorImportOption		= SkeletalMeshData->VertexColorImportOption;
+		InOutImportOptions.VertexOverrideColor			= SkeletalMeshData->VertexOverrideColor;
 
 		if(ImportUI->bImportAnimations)
 		{
@@ -425,7 +429,6 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 			AnimData->bForceFrontXAxis				= SkeletalMeshData->bForceFrontXAxis;
 			AnimData->bConvertSceneUnit				= SkeletalMeshData->bConvertSceneUnit;
 		}
-
 	}
 	else
 	{
@@ -448,8 +451,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.OverlappingThresholds.ThresholdTangentNormal = ImportUI->SkeletalMeshImportData->ThresholdTangentNormal;
 	InOutImportOptions.OverlappingThresholds.ThresholdUV = ImportUI->SkeletalMeshImportData->ThresholdUV;
 	InOutImportOptions.bCombineToSingle = ImportUI->StaticMeshImportData->bCombineMeshes;
-	InOutImportOptions.VertexColorImportOption = ImportUI->StaticMeshImportData->VertexColorImportOption;
-	InOutImportOptions.VertexOverrideColor = ImportUI->StaticMeshImportData->VertexOverrideColor;
+	
 	InOutImportOptions.bRemoveDegenerates = ImportUI->StaticMeshImportData->bRemoveDegenerates;
 	InOutImportOptions.bBuildAdjacencyBuffer = ImportUI->StaticMeshImportData->bBuildAdjacencyBuffer;
 	InOutImportOptions.bBuildReversedIndexBuffer = ImportUI->StaticMeshImportData->bBuildReversedIndexBuffer;

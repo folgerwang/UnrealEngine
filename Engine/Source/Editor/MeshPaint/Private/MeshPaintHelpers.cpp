@@ -49,6 +49,8 @@
 #include "VREditorInteractor.h"
 #include "EditorWorldExtension.h"
 
+#include "Factories/FbxSkeletalMeshImportData.h"
+
 #include "Async/ParallelFor.h"
 #include "Rendering/SkeletalMeshModel.h"
 
@@ -1532,6 +1534,18 @@ void MeshPaintHelpers::ImportVertexColorsToSkeletalMesh(USkeletalMesh* SkeletalM
 
 		const FVector2D UV = LODModel.Sections[SectionIndex].SoftVertices[SectionVertexIndex].UVs[UVIndex];
 		LODModel.Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color = PickVertexColorFromTextureData(MipData, UV, Texture, ColorMask);
+	}
+
+	//Make sure we change the import data so the re-import do not replace the new data
+	if (SkeletalMesh->AssetImportData)
+	{
+		UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->AssetImportData);
+		if (ImportData && ImportData->VertexColorImportOption != EVertexColorImportOption::Ignore)
+		{
+			ImportData->SetFlags(RF_Transactional);
+			ImportData->Modify();
+			ImportData->VertexColorImportOption = EVertexColorImportOption::Ignore;
+		}
 	}
 }
 
