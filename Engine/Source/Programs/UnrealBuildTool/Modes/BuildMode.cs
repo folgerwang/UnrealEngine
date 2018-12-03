@@ -97,15 +97,13 @@ namespace UnrealBuildTool
 				Arguments.TryGetValue("-RemoteIni=", out RemoteIniPath);
 				UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
 
-				// Build the list of game projects that we know about. When building from the editor (for hot-reload) or for projects from installed builds, we require the 
-				// project file to be passed in. Otherwise we scan for projects in directories named in UE4Games.uprojectdirs.
-				FileReference ProjectFile;
-				UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile);
-				
 				DateTime BasicInitStartTime = DateTime.UtcNow;
 
 				// Find and register all tool chains, build platforms, etc. that are present
 				UnrealBuildTool.RegisterAllUBTClasses(false);
+
+				// Parse all the targets to build
+				List<TargetDescriptor> Targets = TargetDescriptor.ParseCommandLine(Arguments, false, false);
 
 				if (UnrealBuildTool.bPrintPerformanceInfo)
 				{
@@ -120,7 +118,7 @@ namespace UnrealBuildTool
 				}
 
 				// Build our project
-				ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), ProjectFile, LogFile);
+				ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), LogFile);
 
 				// Print some performance info
 				double BuildDuration = (DateTime.UtcNow - StartTime).TotalSeconds;

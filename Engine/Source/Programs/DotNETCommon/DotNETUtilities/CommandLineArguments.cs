@@ -679,6 +679,100 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Splits a command line into individual arguments
+		/// </summary>
+		/// <param name="CommandLine">The command line text</param>
+		/// <returns>Array of arguments</returns>
+		public static string[] Split(string CommandLine)
+		{
+			StringBuilder Argument = new StringBuilder();
+
+			List<string> Arguments = new List<string>();
+			for(int Idx = 0; Idx < CommandLine.Length; Idx++)
+			{
+				if(!Char.IsWhiteSpace(CommandLine[Idx]))
+				{
+					Argument.Clear();
+					for(bool bInQuotes = false; Idx < CommandLine.Length; Idx++)
+					{
+						if(CommandLine[Idx] == '\"')
+						{
+							bInQuotes ^= true;
+						}
+						else if(!bInQuotes && Char.IsWhiteSpace(CommandLine[Idx]))
+						{
+							break;
+						}
+						else
+						{
+							Argument.Append(CommandLine[Idx]);
+						}
+					}
+					Arguments.Add(Argument.ToString());
+				}
+			}
+			return Arguments.ToArray();
+		}
+
+		/// <summary>
+		/// Appends the given arguments to the current argument list
+		/// </summary>
+		/// <param name="Arguments">The arguments to add</param>
+		/// <returns>New argument list</returns>
+		public CommandLineArguments Append(IEnumerable<string> AppendArguments)
+		{
+			CommandLineArguments NewArguments = new CommandLineArguments(Enumerable.Concat(Arguments, AppendArguments).ToArray());
+			for(int Idx = 0; Idx < Arguments.Length; Idx++)
+			{
+				if(HasBeenUsed(Idx))
+				{
+					NewArguments.MarkAsUsed(Idx);
+				}
+			}
+			return NewArguments;
+		}
+
+		/// <summary>
+		/// Retrieves all arguments with the given prefix, and returns the remaining a list of strings
+		/// </summary>
+		/// <param name="Prefix">Prefix for the arguments to remove</param>
+		/// <param name="Values">Receives a list of values with the given prefix</param>
+		/// <returns>New argument list</returns>
+		public CommandLineArguments Remove(string Prefix, out List<string> Values)
+		{
+			Values = new List<string>();
+
+			// Split the arguments into the values array and an array of new arguments
+			int[] NewArgumentIndex = new int[Arguments.Length];
+			List<string> NewArgumentList = new List<string>(Arguments.Length);
+			for(int Idx = 0; Idx < Arguments.Length; Idx++)
+			{
+				string Argument = Arguments[Idx];
+				if(Argument.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+				{
+					NewArgumentIndex[Idx] = -1;
+					Values.Add(Argument.Substring(Prefix.Length));
+				}
+				else
+				{
+					NewArgumentIndex[Idx] = NewArgumentList.Count;
+					NewArgumentList.Add(Argument);
+				}
+			}
+
+			// Create the new argument list, and mark the same arguments as used
+			CommandLineArguments NewArguments = new CommandLineArguments(NewArgumentList.ToArray());
+			for(int Idx = 0; Idx < Arguments.Length; Idx++)
+			{
+				if(HasBeenUsed(Idx) && NewArgumentIndex[Idx] != -1)
+				{
+					NewArguments.MarkAsUsed(NewArgumentIndex[Idx]);
+				}
+			}
+			return NewArguments;
+		}
+
+		/// <summary>
 		/// Checks that there are no unused arguments (and warns if there are)
 		/// </summary>
 		public void CheckAllArgumentsUsed()
@@ -879,6 +973,51 @@ namespace Tools.DotNETCommon
 		public string[] GetRawArray()
 		{
 			return Arguments;
+		}
+
+		/// <summary>
+		/// Takes a command line argument and adds quotes if necessary
+		/// </summary>
+		/// <param name="Argument">The command line argument</param>
+		/// <returns>The command line argument with quotes inserted to escape it if necessary</returns>
+		public static void Append(StringBuilder CommandLine, string Argument)
+		{
+			if(CommandLine.Length > 0)
+			{
+				CommandLine.Append(' ');
+			}
+
+			int SpaceIdx = Argument.IndexOf(' ');
+			if(SpaceIdx == -1)
+			{
+				CommandLine.Append(Argument);
+			}
+			else
+			{
+				int EqualsIdx = Argument.IndexOf('=');
+				if(EqualsIdx == -1)
+				{
+					CommandLine.AppendFormat("\"{0}\"", Argument);
+				}
+				else
+				{
+					CommandLine.AppendFormat("{0}\"{1}\"", Argument.Substring(0, EqualsIdx + 1), Argument.Substring(EqualsIdx + 1));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Converts this string to 
+		/// </summary>
+		/// <returns></returns>
+		public override string ToString()
+		{
+			StringBuilder Result = new StringBuilder();
+			foreach(string Argument in Arguments)
+			{
+				Append(Result, Argument);
+			}
+			return Result.ToString();
 		}
 	}
 }

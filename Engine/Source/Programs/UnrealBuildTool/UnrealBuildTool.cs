@@ -168,6 +168,22 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the installed project file
+		/// </summary>
+		/// <returns>Location of the installed project file</returns>
+		static public FileReference GetInstalledProjectFile()
+		{
+			if(IsProjectInstalled())
+			{
+				return InstalledProjectFile;
+			}
+			else
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Checks whether the given file is under an installed directory, and should not be overridden
 		/// </summary>
 		/// <param name="File">File to test</param>
@@ -436,7 +452,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		internal static ECompilationResult RunUBT(BuildConfiguration BuildConfiguration, string[] Arguments, FileReference ProjectFile, FileReference LogFile)
+		internal static ECompilationResult RunUBT(BuildConfiguration BuildConfiguration, string[] Arguments, FileReference LogFile)
 		{
 			bool bSuccess = true;
 
@@ -458,8 +474,6 @@ namespace UnrealBuildTool
 
 			try
 			{
-				List<string[]> TargetSettings = ParseCommandLineFlags(Arguments);
-
 				int ArgumentIndex;
 				// action graph implies using the dependency resolve cache
 				bool GeneratingActionGraph = Utils.ParseCommandLineFlag(Arguments, "-graph", out ArgumentIndex);
@@ -480,10 +494,7 @@ namespace UnrealBuildTool
 				{
 					DateTime TargetDescstStartTime = DateTime.UtcNow;
 
-					foreach (string[] TargetSetting in TargetSettings)
-					{
-						TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, BuildConfiguration.bUsePrecompiled, bSkipRulesCompile, ref ProjectFile));
-					}
+					TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(new CommandLineArguments(Arguments), BuildConfiguration.bUsePrecompiled, bSkipRulesCompile));
 
 					if (UnrealBuildTool.bPrintPerformanceInfo)
 					{
@@ -545,7 +556,7 @@ namespace UnrealBuildTool
 					// at this point whether we're dealing with modular or monolithic game binaries, so we opt to always invalidate
 					// cached includes if the target we're switching to is either a game target (has project file) or "UE4Editor".
 					bool bMightHaveSharedBuildProducts =
-						ProjectFile != null ||  // Is this a game? (has a .uproject file for the target)
+						TargetDescs[0].ProjectFile != null ||  // Is this a game? (has a .uproject file for the target)
 						TargetDescs[0].Name.Equals("UE4Editor", StringComparison.InvariantCultureIgnoreCase); // Is the engine?
 					if (bMightHaveSharedBuildProducts)
 					{
@@ -630,7 +641,18 @@ namespace UnrealBuildTool
 					throw new BuildException("UnrealBuildTool: At least one of either IsGatheringBuild or IsAssemblingBuild must be true.  Did you pass '-NoGather' with '-NoAssemble'?");
 				}
 
-				using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, DirectoryReference.FromFile(ProjectFile)))
+				// Get a set of all the project directories.
+				HashSet<DirectoryReference> ProjectDirs = new HashSet<DirectoryReference>();
+				foreach(TargetDescriptor TargetDesc in TargetDescs)
+				{
+					if(TargetDesc.ProjectFile != null)
+					{
+						ProjectDirs.Add(TargetDesc.ProjectFile.Directory);
+					}
+				}
+
+				// Create the working set provider
+				using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 				{
 					UBTMakefile UBTMakefile = null;
 					{
@@ -651,7 +673,7 @@ namespace UnrealBuildTool
 
 							// Try to load the UBTMakefile.  It will only be loaded if it has valid content and is not determined to be out of date.    
 							string ReasonNotLoaded;
-							UBTMakefile = UBTMakefile.LoadUBTMakefile(UBTMakefilePath, ProjectFile, WorkingSet, out ReasonNotLoaded);
+							UBTMakefile = UBTMakefile.LoadUBTMakefile(UBTMakefilePath, TargetDescs[0].ProjectFile, WorkingSet, out ReasonNotLoaded);
 
 							if (UBTMakefile != null)
 							{
@@ -659,7 +681,7 @@ namespace UnrealBuildTool
 								FileInfo UBTMakefileInfo = new FileInfo(UBTMakefilePath.FullName);
 								foreach (TargetDescriptor Desc in TargetDescs)
 								{
-									DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
+									DirectoryReference ProjectDirectory = DirectoryReference.FromFile(Desc.ProjectFile);
 									foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
 									{
 										foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Desc.Platform))
@@ -739,9 +761,9 @@ namespace UnrealBuildTool
 					foreach (UEBuildTarget Target in Targets)
 					{
 						// Create the header cache for this target
-						FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(ProjectFile, Target.Platform, Target.TargetName);
+						FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName);
 						bool bUseFlatCPPIncludeDependencyCache = BuildConfiguration.bUseUBTMakefiles && bIsAssemblingBuild;
-						CPPHeaders Headers = new CPPHeaders(ProjectFile, DependencyCacheFile, bUseFlatCPPIncludeDependencyCache, BuildConfiguration.bUseUBTMakefiles, BuildConfiguration.bUseIncludeDependencyResolveCache, BuildConfiguration.bTestIncludeDependencyResolveCache);
+						CPPHeaders Headers = new CPPHeaders(Target.ProjectFile, DependencyCacheFile, bUseFlatCPPIncludeDependencyCache, BuildConfiguration.bUseUBTMakefiles, BuildConfiguration.bUseIncludeDependencyResolveCache, BuildConfiguration.bTestIncludeDependencyResolveCache);
 						TargetToHeaders[Target] = Headers;
 
 						// Make sure the appropriate executor is selected
@@ -1294,41 +1316,6 @@ namespace UnrealBuildTool
 					FileReference.Delete(MakefileRef);
 				}
 			}
-		}
-
-		/// <summary>
-		/// Parses the passed in command line for build configuration overrides.
-		/// </summary>
-		/// <param name="Arguments">List of arguments to parse</param>
-		/// <returns>List of build target settings</returns>
-		private static List<string[]> ParseCommandLineFlags(string[] Arguments)
-		{
-			List<string[]> TargetSettings = new List<string[]>();
-			int ArgumentIndex = 0;
-
-			if (Utils.ParseCommandLineFlag(Arguments, "-targets", out ArgumentIndex))
-			{
-				if (ArgumentIndex + 1 >= Arguments.Length)
-				{
-					throw new BuildException("Expected filename after -targets argument, but found nothing.");
-				}
-				// Parse lines from the referenced file into target settings.
-				string[] Lines = File.ReadAllLines(Arguments[ArgumentIndex + 1]);
-				foreach (string Line in Lines)
-				{
-					if (Line != "" && Line[0] != ';')
-					{
-						TargetSettings.Add(Line.Split(' '));
-					}
-				}
-			}
-			// Simply use full command line arguments as target setting if not otherwise overridden.
-			else
-			{
-				TargetSettings.Add(Arguments);
-			}
-
-			return TargetSettings;
 		}
 
 		/// <summary>
