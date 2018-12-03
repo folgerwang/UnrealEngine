@@ -184,7 +184,7 @@ void FStreamingLevelCollectionModel::BindCommands()
 	
 	ActionList.MapAction( Commands.World_RemoveSelectedLevels,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::UnloadSelectedLevels_Executed  ),
-		FCanExecuteAction::CreateSP( this, &FLevelCollectionModel::AreAllSelectedLevelsEditable ) );
+		FCanExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::AreAllSelectedLevelsRemovable ) );
 	
 	ActionList.MapAction( Commands.World_MergeSelectedLevels,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::MergeSelectedLevels_Executed  ),
@@ -564,6 +564,19 @@ bool FStreamingLevelCollectionModel::IsStreamingMethodChecked(UClass* InClass) c
 		}
 	}
 	return false;
+}
+
+bool FStreamingLevelCollectionModel::AreAllSelectedLevelsRemovable() const
+{
+	for (const TSharedPtr<FLevelModel>& LevelModel : SelectedLevelsList)
+	{
+		if (LevelModel->IsLocked() || LevelModel->IsPersistent())
+		{
+			return false;
+		}
+	}
+
+	return AreAnyLevelsSelected();
 }
 
 void FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed(UClass* InClass)

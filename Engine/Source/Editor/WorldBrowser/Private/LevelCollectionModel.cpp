@@ -664,6 +664,11 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 				EditorLevelUtils::RemoveLevelFromWorld(Level);
 			}
 		}
+		else if (ULevelStreaming* StreamingLevel = Cast<ULevelStreaming>(LevelModel->GetNodeObject()))
+		{
+			StreamingLevel->MarkPendingKill();
+			ThisWorld->RemoveStreamingLevel(StreamingLevel);
+		}
 	}
 
 	BroadcastPostLevelsUnloaded();
