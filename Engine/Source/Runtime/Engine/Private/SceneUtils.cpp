@@ -63,6 +63,7 @@ void TDrawEvent<TRHICmdList>::Start(TRHICmdList& InRHICmdList, FColor Color, con
 		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), Fmt, ptr);
 		InRHICmdList.PushEvent(TempStr, Color);
 		RHICmdList = &InRHICmdList;
+		va_end(ptr);
 	}
 }
 
@@ -89,6 +90,7 @@ void FDrawEventRHIExecute::Start(IRHIComputeContext& InRHICommandContext, FColor
 		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), Fmt, ptr);
 		RHICommandContext = &InRHICommandContext;
 		RHICommandContext->RHIPushEvent(TempStr, Color);
+		va_end(ptr);
 	}
 }
 

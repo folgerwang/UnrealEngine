@@ -214,8 +214,9 @@ int32 TestGetVarArgs(WIDECHAR* OutputString, const WIDECHAR* Format, ...)
 {
 	va_list ArgPtr;
 	va_start( ArgPtr, Format );
-
-	return FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, Format, ArgPtr);
+	int32 Result = FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, Format, ArgPtr);
+	va_end(ArgPtr);
+	return Result;
 }
 
 void RunGetVarArgsTests()
