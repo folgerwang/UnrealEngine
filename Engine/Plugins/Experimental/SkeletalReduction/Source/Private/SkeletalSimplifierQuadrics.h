@@ -168,6 +168,18 @@ namespace SkeletalSimplifier
 			typedef typename MyBase::D1VectorType                              D1VectorType;
 			typedef typename MyBase::D2VectorType                              D2VectorType;
 
+			using MyBase::CMatrix;
+			using MyBase::B1Matrix;
+			using MyBase::B2Matrix;
+			using MyBase::Gamma;
+			using MyBase::D0Vector;
+			using MyBase::D1Vector;
+			using MyBase::D2Vector;
+			using MyBase::CScalar;
+			using MyBase::VolGradConstraint;
+			using MyBase::VolDistConstraint;
+			using MyBase::UVBBox;
+
 			/**
 			* @param TriVert0  - The three verts that define the triangle face.
 			* @param TriVert1  -
@@ -281,6 +293,18 @@ namespace SkeletalSimplifier
 			typedef typename FaceQuadricType::BasicAttrContainerType                   BaseAttrContainerType;
 			typedef TQuadricBase<BaseAttrContainerType, AttrContainerType>             MyBase;
 			typedef FaceQuadricType                                                    FFaceQuadric;
+
+			using MyBase::CMatrix;
+			using MyBase::B1Matrix;
+			using MyBase::B2Matrix;
+			using MyBase::Gamma;
+			using MyBase::D0Vector;
+			using MyBase::D1Vector;
+			using MyBase::D2Vector;
+			using MyBase::CScalar;
+			using MyBase::VolGradConstraint;
+			using MyBase::VolDistConstraint;
+			using MyBase::UVBBox;
 
 			TQuadricOptimizer() :
 				MyBase()

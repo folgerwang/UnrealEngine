@@ -260,43 +260,46 @@ namespace AutomationScripts.Automation
 		 */
 		void SendCompletionMessage(bool bWasSuccessful, String MessageBody)
 		{
-			MailMessage Message = new System.Net.Mail.MailMessage();
-			Message.Priority = MailPriority.High;
-			Message.From = new MailAddress("unrealbot@epicgames.com");
-
-            string Branch = "Unknown";
-            if ( P4Enabled )
-            {
-                Branch = P4Env.Branch;
-            }
-
-			foreach (String NextStakeHolder in StakeholdersEmailAddresses)
+			if (StakeholdersEmailAddresses != null)
 			{
-				Message.To.Add(new MailAddress(NextStakeHolder));
-			}
+				MailMessage Message = new System.Net.Mail.MailMessage();
+				Message.Priority = MailPriority.High;
+				Message.From = new MailAddress("unrealbot@epicgames.com");
 
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorPerProjectUserSettings, DirectoryReference.FromFile(ProjectFullPath), UnrealTargetPlatform.Win64);
-			List<string> Emails;
-			Ini.GetArray("RebuildlightingSettings", "EmailNotification", out Emails);
-			foreach (var Email in Emails)
-			{
-				Message.CC.Add(new MailAddress(Email));
-			}
+				string Branch = "Unknown";
+				if (P4Enabled)
+				{
+					Branch = P4Env.Branch;
+				}
 
-			Message.Subject = String.Format("Nightly lightmap rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
-			Message.Body = MessageBody;
-            /*Attachment Attach = new Attachment();
-            Message.Attachments.Add()*/
-			try
-			{
-				#pragma warning disable CS0618 // Mono 4.6.x obsoletes this class
-				SmtpClient MailClient = new SmtpClient("smtp.epicgames.net");
-				MailClient.Send(Message);
-				#pragma warning restore CS0618
-			}
-			catch (Exception Ex)
-			{
-				LogError("Failed to send notify email to {0} ({1})", String.Join(", ", StakeholdersEmailAddresses.ToArray()), Ex.Message);
+				foreach (String NextStakeHolder in StakeholdersEmailAddresses)
+				{
+					Message.To.Add(new MailAddress(NextStakeHolder));
+				}
+
+				ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorPerProjectUserSettings, DirectoryReference.FromFile(ProjectFullPath), UnrealTargetPlatform.Win64);
+				List<string> Emails;
+				Ini.GetArray("RebuildlightingSettings", "EmailNotification", out Emails);
+				foreach (var Email in Emails)
+				{
+					Message.CC.Add(new MailAddress(Email));
+				}
+
+				Message.Subject = String.Format("Nightly lightmap rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
+				Message.Body = MessageBody;
+				/*Attachment Attach = new Attachment();
+				Message.Attachments.Add()*/
+				try
+				{
+#pragma warning disable CS0618 // Mono 4.6.x obsoletes this class
+					SmtpClient MailClient = new SmtpClient("smtp.epicgames.net");
+					MailClient.Send(Message);
+#pragma warning restore CS0618
+				}
+				catch (Exception Ex)
+				{
+					LogError("Failed to send notify email to {0} ({1})", String.Join(", ", StakeholdersEmailAddresses.ToArray()), Ex.Message);
+				}
 			}
 		}
 
