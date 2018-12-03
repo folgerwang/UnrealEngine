@@ -1051,7 +1051,7 @@ namespace UnrealBuildTool
 		/// <returns>True if this is a C++ source file</returns>
 		private static bool IsCPPResourceFile(FileItem FileItem)
 		{
-			return (FileItem.AbsolutePath.EndsWith(".rc", StringComparison.InvariantCultureIgnoreCase));
+			return (FileItem.AbsolutePath.EndsWith(".rc", StringComparison.InvariantCultureIgnoreCase) || FileItem.AbsolutePath.EndsWith(".rc2", StringComparison.InvariantCultureIgnoreCase));
 		}
 
 
