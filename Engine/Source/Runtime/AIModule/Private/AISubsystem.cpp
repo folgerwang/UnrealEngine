@@ -5,13 +5,26 @@
 #include "Misc/App.h"
 
 
+DEFINE_LOG_CATEGORY_STATIC(LogAISub, Log, All);
+
 UAISubsystem::UAISubsystem(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
 		AISystem = Cast<UAISystem>(GetOuter());
-		ensure(AISystem);
+		UE_CLOG(AISystem == nullptr, LogAISub, Error, TEXT("%s is an invalid outer for UAISubsystem instance %s")
+			, *GetName(), *GetNameSafe(GetOuter()));
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (AISystem == nullptr 
+			&& GetOuter()
+			&& (IsRunningCommandlet() 
+				|| (GIsEditor && GetWorld() && GetWorld()->WorldType == EWorldType::Editor)))
+		{
+			// not calling MarkPackageDirty on this because it might be marked as transient 
+			GetOuter()->MarkPackageDirty();
+		}		
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	}
 }
 
