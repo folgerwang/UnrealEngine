@@ -693,8 +693,6 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	Material->MaterialGraph->RebuildGraph();
 	RecenterEditor();
 
-	UMaterialEditingLibrary::RecompileMaterial(OriginalMaterial);
-
 	//Make sure the preview material is initialized.
 	UpdatePreviewMaterial(true);
 	RegenerateCodeView(true);
