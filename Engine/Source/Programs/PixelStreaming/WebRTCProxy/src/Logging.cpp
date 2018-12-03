@@ -103,6 +103,4 @@ void ILogOutput::LogToAll(
 	{
 		Out->Log(File, Line, Category, Verbosity, Buf);
 	}
-
-	va_end()
 }
