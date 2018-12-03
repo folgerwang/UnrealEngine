@@ -1284,22 +1284,6 @@ namespace UnrealBuildTool
 			// We need to know what third party dylibs would be copied to the bundle
 			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
-			    foreach (string AdditionalLibrary in Libraries)
-				{
-					string LibName = Path.GetFileName(AdditionalLibrary);
-					if (LibName.StartsWith("lib"))
-					{
-						if (Path.GetExtension(AdditionalLibrary) == ".dylib" && BundleContentsDirectory != null)
-						{
-							FileReference Entry = FileReference.Combine(BundleContentsDirectory, "MacOS", LibName);
-							if (!BuildProducts.ContainsKey(Entry))
-							{
-								BuildProducts.Add(Entry, BuildProductType.DynamicLibrary);
-							}
-						}
-					}
-				}
-
 			    foreach (UEBuildBundleResource Resource in BundleResources)
 				{
 					if (Directory.Exists(Resource.ResourcePath))
