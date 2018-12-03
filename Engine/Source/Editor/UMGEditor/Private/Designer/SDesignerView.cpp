@@ -1756,7 +1756,7 @@ FReply SDesignerView::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointe
 	}
 	else if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
-		if ( !bIsPanning && !bIsZoomingWithTrackpad )
+		if ( !bIsPanning && !bIsZooming )
 		{
 			ResolvePendingSelectedWidgets();
 

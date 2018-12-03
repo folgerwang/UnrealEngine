@@ -196,7 +196,7 @@ namespace NodePanelDefs
 	// Node Culling Guardband Area
 	static const float GuardBandArea = 0.25f;
 	// Scaling factor to reduce speed of mouse zooming
-	static const float MouseZoomScaling = 0.05f;
+	static const float MouseZoomScaling = 0.04f;
 };
 
 SNodePanel::SNodePanel()
@@ -291,7 +291,7 @@ void SNodePanel::Construct()
 
 	ViewOffset = FVector2D::ZeroVector;
 	TotalMouseDelta = 0;
-	TotalMouseDeltaY = 0;
+	TotalMouseDeltaXY = 0;
 	bDeferredZoomToSelection = false;
 	bDeferredZoomToNodeExtents = false;
 
@@ -534,7 +534,7 @@ FReply SNodePanel::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointe
 
 		DeferredMovementTargetObject = nullptr; // clear any interpolation when you manually zoom
 		CancelZoomToFit();
-		TotalMouseDeltaY = 0;
+		TotalMouseDeltaXY = 0;
 
 		if (!FSlateApplication::Get().IsUsingTrackpad()) // on trackpad we don't know yet if user wants to zoom or bring up the context menu
 		{
@@ -673,14 +673,14 @@ FReply SNodePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent&
 		{
 			FReply ReplyState = FReply::Handled();
 
-			TotalMouseDeltaY += CursorDelta.Y;
+			TotalMouseDeltaXY += CursorDelta.X + CursorDelta.Y;
 
-			const int32 ZoomLevelDelta = FMath::FloorToInt(TotalMouseDeltaY * NodePanelDefs::MouseZoomScaling);
+			const int32 ZoomLevelDelta = FMath::RoundToInt(TotalMouseDeltaXY * NodePanelDefs::MouseZoomScaling);
 
 			// Get rid of mouse movement that's been 'used up' by zooming
 			if (ZoomLevelDelta != 0)
 			{
-				TotalMouseDeltaY -= (ZoomLevelDelta / NodePanelDefs::MouseZoomScaling);
+				TotalMouseDeltaXY -= (ZoomLevelDelta / NodePanelDefs::MouseZoomScaling);
 			}
 
 			// Perform zoom centered on the cached start offset

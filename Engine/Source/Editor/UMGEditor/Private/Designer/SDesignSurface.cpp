@@ -122,7 +122,7 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	PostChangedZoom();
 	AllowContinousZoomInterpolation = InArgs._AllowContinousZoomInterpolation;
 	bIsPanning = false;
-	bIsZoomingWithTrackpad = false;
+	bIsZooming = false;
 
 	ViewOffset = FVector2D::ZeroVector;
 	bDrawGridLines = true;
@@ -146,7 +146,7 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	ZoomToFitPadding = FVector2D(100, 100);
 	TotalGestureMagnify = 0.0f;
 
-	TotalMouseDeltaY = 0.0f;
+	TotalMouseDelta = 0.0f;
 	ZoomStartOffset = FVector2D::ZeroVector;
 
 	ChildSlot
@@ -229,9 +229,9 @@ FReply SDesignSurface::OnMouseButtonDown(const FGeometry& MyGeometry, const FPoi
 		MouseDownPositionAbsolute = MouseEvent.GetLastScreenSpacePosition();
 	}
 
-	if (FSlateApplication::Get().IsUsingTrackpad())
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton || FSlateApplication::Get().IsUsingTrackpad())
 	{
-		TotalMouseDeltaY = 0.0f;
+		TotalMouseDelta = 0.0f;
 		ZoomStartOffset = MyGeometry.AbsoluteToLocal(MouseEvent.GetLastScreenSpacePosition());
 	}
 
@@ -245,7 +245,7 @@ FReply SDesignSurface::OnMouseButtonUp(const FGeometry& MyGeometry, const FPoint
 	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton || MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton )
 	{
 		bIsPanning = false;
-		bIsZoomingWithTrackpad = false;
+		bIsZooming = false;
 	}
 
 	return FReply::Unhandled();
@@ -265,27 +265,24 @@ FReply SDesignSurface::OnMouseMove(const FGeometry& MyGeometry, const FPointerEv
 		const bool bShouldZoom = bIsRightMouseButtonDown && (bIsLeftMouseButtonDown || bIsMiddleMouseButtonDown || ModifierKeysState.IsAltDown() || FSlateApplication::Get().IsUsingTrackpad());
 		if ( bShouldZoom )
 		{
+			const float MouseZoomScaling = 0.04f;
 			FReply ReplyState = FReply::Handled();
 
-			TotalMouseDeltaY += CursorDelta.Y;
+			TotalMouseDelta += CursorDelta.X + CursorDelta.Y;
 
-			const int32 ZoomLevelDelta = FMath::FloorToInt(TotalMouseDeltaY * 0.05f);
+			const int32 ZoomLevelDelta = FMath::RoundToInt(TotalMouseDelta * MouseZoomScaling);
 
 			// Get rid of mouse movement that's been 'used up' by zooming
 			if (ZoomLevelDelta != 0)
 			{
-				TotalMouseDeltaY -= (ZoomLevelDelta / 0.05f);
+				TotalMouseDelta -= (ZoomLevelDelta / MouseZoomScaling);
+				bIsZooming = true;
 			}
 
 			// Perform zoom centered on the cached start offset
 			ChangeZoomLevel(ZoomLevelDelta, ZoomStartOffset, MouseEvent.IsControlDown());
 
 			bIsPanning = false;
-
-			if (FSlateApplication::Get().IsUsingTrackpad() && ZoomLevelDelta != 0)
-			{
-				bIsZoomingWithTrackpad = true;
-			}
 
 			return ReplyState;
 		}
@@ -294,6 +291,7 @@ FReply SDesignSurface::OnMouseMove(const FGeometry& MyGeometry, const FPointerEv
 			FReply ReplyState = FReply::Handled();
 
 			bIsPanning = true;
+			bIsZooming = false;
 			ViewOffset = ViewOffsetStart + ( (MouseDownPositionAbsolute - MouseEvent.GetScreenSpacePosition()) / MyGeometry.Scale) / GetZoomAmount();
 
 			return ReplyState;
@@ -417,7 +415,7 @@ void SDesignSurface::ChangeZoomLevel(int32 ZoomLevelDelta, const FVector2D& Widg
 			// Update view offset to where ever we scrolled towards.
 			ViewOffset = NewViewOffset;
 
-			TotalMouseDeltaY = 0.0f;
+			TotalMouseDelta = 0.0f;
 		}
 	}
 }
