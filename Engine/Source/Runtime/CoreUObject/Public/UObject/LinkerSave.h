@@ -87,7 +87,7 @@ public:
 	FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
 	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override;
 	FUObjectSerializeContext* GetSerializeContext() override;
-
+	virtual void UsingCustomVersion(const struct FGuid& Guid) override;
 
 #if WITH_EDITOR
 	// proxy for debugdata

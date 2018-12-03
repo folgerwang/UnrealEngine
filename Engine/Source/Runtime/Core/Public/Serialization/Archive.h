@@ -879,7 +879,7 @@ public:
 	 *
 	 * @param Guid The guid of the custom version.  This must have previously been registered with FCustomVersionRegistration.
 	 */
-	void UsingCustomVersion(const struct FGuid& Guid);
+	virtual void UsingCustomVersion(const struct FGuid& Guid);
 
 	/**
 	 * Queries a custom version from the archive.  If the archive is being used to write, the custom version must have already been registered.
