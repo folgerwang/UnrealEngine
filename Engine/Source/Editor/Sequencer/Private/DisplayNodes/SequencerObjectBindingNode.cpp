@@ -488,10 +488,22 @@ FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
 
 	// Spawnables don't have valid object bindings when their track hasn't spawned them yet,
 	// so we override the default behavior of red with a gray so that users don't think there is something wrong.
-	if (GetBindingType() == EObjectBindingType::Spawnable)
+	
+	TSharedPtr<FSequencerDisplayNode> CurrentNode = SharedThis((FSequencerDisplayNode*)this);
+
+	while (CurrentNode.IsValid())
 	{
-		return FLinearColor::Gray;
+		if (CurrentNode->GetType() == ESequencerNode::Object)
+		{
+			if (StaticCastSharedPtr<FSequencerObjectBindingNode>(CurrentNode)->GetBindingType() == EObjectBindingType::Spawnable)
+			{
+				return FLinearColor::Gray;
+			}
+		}
+
+		CurrentNode = CurrentNode->GetParent();
 	}
+
 
 	return FLinearColor::Red;
 }
@@ -1133,7 +1145,9 @@ void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(FPropertyPath Pr
 		}
 	}
 
-	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, ESequencerKeyMode::ManualKey);
+	// When auto setting track defaults are disabled, force add a key so that the changed
+	// value is saved and is propagated to the property.
+	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, Sequencer.GetAutoSetTrackDefaults() == false ? ESequencerKeyMode::ManualKeyForced : ESequencerKeyMode::ManualKey);
 
 	Sequencer.KeyProperty(KeyPropertyParams);
 }

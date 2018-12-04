@@ -618,6 +618,9 @@ public:
 	 */
 	void UpdateAutoScroll(double NewTime);
 
+	/** Autoscrub to destination time */
+	void AutoScrubToTime(FFrameTime DestinationTime);
+
 public:
 
 	//~ FGCObject Interface
@@ -723,7 +726,7 @@ public:
 	virtual void Pause() override;
 	virtual TSharedRef<SWidget> MakeTimeRange(const TSharedRef<SWidget>& InnerContent, bool bShowWorkingRange, bool bShowViewRange, bool bShowPlaybackRange) override;
 	virtual UObject* FindSpawnedObjectOrTemplate(const FGuid& BindingId) override;
-	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr) override;
+	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr, bool bSetupDefaults = true) override;
 	virtual bool IsReadOnly() const override;
 	virtual void ExternalSelectionHasChanged() override { SynchronizeSequencerSelectionWithExternalSelection(); }
 	/** Access the user-supplied settings object */
@@ -920,6 +923,9 @@ protected:
 	/** Internal conversion function that doesn't perform expensive reset/update tasks */
 	FMovieScenePossessable* ConvertToPossessableInternal(FGuid SpawnableGuid);
 
+	/** Recurses through a folder to replace converted GUID with new GUID */
+	bool ReplaceFolderBindingGUID(UMovieSceneFolder *Folder, FGuid Original, FGuid Converted);
+
 	/** Internal function to render movie for a given start/end time */
 	void RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameOverrides = false) const;
 
@@ -1048,6 +1054,19 @@ private:
 
 	/** The amount of autoscrub offset that is currently being applied */
 	TOptional<float> AutoscrubOffset;
+
+	struct FAutoScrubTarget
+	{
+		FAutoScrubTarget(FFrameTime InDestinationTime, FFrameTime InSourceTime, double InStartTime)
+			: DestinationTime(InDestinationTime)
+			, SourceTime(InSourceTime)
+			, StartTime(InStartTime) {}
+		FFrameTime DestinationTime;
+		FFrameTime SourceTime;
+		double StartTime;
+	};
+
+	TOptional<FAutoScrubTarget> AutoScrubTarget;
 
 	/** Zoom smoothing curves */
 	FCurveSequence ZoomAnimation;

@@ -14,7 +14,7 @@ public:
 		: FSlateStyleSet("ActorSequenceEditorStyle")
 	{
 		const FVector2D Icon16x16(16.0f, 16.0f);
-		SetContentRoot(FPaths::EnginePluginsDir() / TEXT("MovieScene/ActorSequenceEditor/Content"));
+		SetContentRoot(FPaths::EnginePluginsDir() / TEXT("MovieScene/ActorSequence/Content"));
 
 		Set("ClassIcon.ActorSequence", new FSlateImageBrush(RootToContentDir(TEXT("ActorSequence_16x.png")), Icon16x16));
 		Set("ClassIcon.ActorSequenceComponent", new FSlateImageBrush(RootToContentDir(TEXT("ActorSequence_16x.png")), Icon16x16));

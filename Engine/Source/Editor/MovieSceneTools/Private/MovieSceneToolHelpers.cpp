@@ -890,6 +890,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 			if (FloatTrack)
 			{
+				FloatTrack->Modify();
 				FloatTrack->RemoveAllAnimationData();
 
 				FFrameRate FrameRate = FloatTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
@@ -965,10 +966,14 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
 {
+	// If there are no keys, don't clear the existing channel
+	if (!Source.GetNumKeys())
+	{
+		return;
+	}
+
 	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Dest->GetData();
 	ChannelData.Reset();
-	double DecimalRate = DestFrameRate.AsDecimal();
-
 	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 	{
 		const FRichCurveKey Key = Source.GetKey(SourceIt.Key());
@@ -977,7 +982,7 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 		if (Source.IsKeyHandleValid(PrevKeyHandle))
 		{
 			const FRichCurveKey PrevKey = Source.GetKey(PrevKeyHandle);
-			ArriveTangent = ArriveTangent / ((Key.Time - PrevKey.Time) * DecimalRate);
+			ArriveTangent = ArriveTangent / (Key.Time - PrevKey.Time);
 
 		}
 		float LeaveTangent = Key.LeaveTangent;
@@ -985,7 +990,7 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 		if (Source.IsKeyHandleValid(NextKeyHandle))
 		{
 			const FRichCurveKey NextKey = Source.GetKey(NextKeyHandle);
-			LeaveTangent = LeaveTangent / ((NextKey.Time - Key.Time) * DecimalRate);
+			LeaveTangent = LeaveTangent / (NextKey.Time - Key.Time);
 		}
 
 		if (bNegateTangents)
@@ -1030,7 +1035,7 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 		InMovieScene->Modify();
 		TransformTrack = InMovieScene->AddTrack<UMovieScene3DTransformTrack>(ObjectBinding);
 	}
-	TransformTrack->RemoveAllAnimationData();
+	TransformTrack->Modify();
 
 	bool bSectionAdded = false;
 	UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(TransformTrack->FindOrAddSection(0, bSectionAdded));
@@ -1042,7 +1047,6 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	TransformSection->Modify();
 
 	FFrameRate FrameRate = TransformSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
-
 
 	if (bSectionAdded)
 	{
@@ -1080,25 +1084,8 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	return true;
 }
 
-bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap, bool bMatchByNameOnly)
+bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer, FGuid ObjectBinding)
 {
-	// Find the matching object binding to apply this animation to. If not matching by name only, default to the first.
-	FGuid ObjectBinding;
-	for (auto It = InObjectBindingMap.CreateConstIterator(); It; ++It)
-	{
-		if (!bMatchByNameOnly || FCString::Strcmp(*It.Value().ToUpper(), *NodeName.ToUpper()) == 0)
-		{
-			ObjectBinding = It.Key();
-			break;
-		}
-	}
-
-	if (!ObjectBinding.IsValid())
-	{
-		UE_LOG(LogMovieScene, Warning, TEXT("Fbx Import: Failed to find any matching node for (%s)."), *NodeName);
-		return false;
-	}
-
 	// Look for animated float properties
 	TArray<FString> AnimatedPropertyNames;
 	CurveAPI.GetNodeAnimatedPropertyNameArray(NodeName, AnimatedPropertyNames);
@@ -1203,6 +1190,7 @@ void CopyCameraProperties(FbxCamera* CameraNode, ACineCameraActor* CameraActor)
 	CineCameraComponent->SetFieldOfView(FieldOfView);
 	CineCameraComponent->FilmbackSettings.SensorWidth = FUnitConversion::Convert(ApertureWidth, EUnit::Inches, EUnit::Millimeters);
 	CineCameraComponent->FilmbackSettings.SensorHeight = FUnitConversion::Convert(ApertureHeight, EUnit::Inches, EUnit::Millimeters);
+	CineCameraComponent->FocusSettings.ManualFocusDistance = CameraNode->FocusDistance;
 	if (FocalLength < CineCameraComponent->LensSettings.MinFocalLength)
 	{
 		CineCameraComponent->LensSettings.MinFocalLength = FocalLength;
@@ -1365,6 +1353,7 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 				UMovieSceneFloatTrack* FloatTrack = InMovieScene->FindTrack<UMovieSceneFloatTrack>(PropertyOwnerGuid, TEXT("CurrentFocalLength"));
 				if (FloatTrack)
 				{
+					FloatTrack->Modify();
 					FloatTrack->RemoveAllAnimationData();
 
 					bool bSectionAdded = false;
@@ -1574,9 +1563,57 @@ private:
 		TArray<FString> AllNodeNames;
 		CurveAPI.GetAllNodeNameArray(AllNodeNames);
 
+		// First try matching by name
+		for (int32 NodeIndex = 0; NodeIndex < AllNodeNames.Num(); )
+		{
+			FString NodeName = AllNodeNames[NodeIndex];
+			bool bFoundMatch = false;
+			for (auto It = ObjectBindingMap.CreateConstIterator(); It; ++It)
+			{
+				if (FCString::Strcmp(*It.Value().ToUpper(), *NodeName.ToUpper()) == 0)
+				{
+					ImportFBXNode(NodeName, CurveAPI, MovieScene, *Sequencer, It.Key());
+
+					ObjectBindingMap.Remove(It.Key());
+					AllNodeNames.RemoveAt(NodeIndex);
+
+					bFoundMatch = true;
+					break;
+				}
+			}
+
+			if (bFoundMatch)
+			{
+				continue;
+			}
+
+			++NodeIndex;
+		}
+
+		// Otherwise, get the first available node that hasn't been imported onto yet
+		if (!bMatchByNameOnly)
+		{
+			for (int32 NodeIndex = 0; NodeIndex < AllNodeNames.Num(); )
+			{
+				FString NodeName = AllNodeNames[NodeIndex];
+				auto It = ObjectBindingMap.CreateConstIterator();
+				if (It)
+				{
+					ImportFBXNode(NodeName, CurveAPI, MovieScene, *Sequencer, It.Key());
+
+					UE_LOG(LogMovieScene, Warning, TEXT("Fbx Import: Failed to find any matching node for (%s). Defaulting to first available (%s)."), *NodeName, *It.Value());
+					ObjectBindingMap.Remove(It.Key());
+					AllNodeNames.RemoveAt(NodeIndex);
+					continue;
+				}
+
+				++NodeIndex;
+			}
+		}
+
 		for (FString NodeName : AllNodeNames)
 		{
-			ImportFBXNode(NodeName, CurveAPI, MovieScene, *Sequencer, ObjectBindingMap, bMatchByNameOnly);
+			UE_LOG(LogMovieScene, Warning, TEXT("Fbx Import: Failed to find any matching node for (%s)."), *NodeName);
 		}
 
 		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
