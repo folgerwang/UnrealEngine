@@ -314,7 +314,6 @@ void FGoogleARCorePassthroughCameraRenderer::RenderVideoOverlay_RenderThread(FRH
 			RHICmdList.SetStreamSource(0, OverlayVertexBufferRHI, 0);
 			RHICmdList.DrawIndexedPrimitive(
 				OverlayIndexBufferRHI,
-				PT_TriangleList,
 				/*BaseVertexIndex=*/ 0,
 				/*MinIndex=*/ 0,
 				/*NumVertices=*/ 4,
