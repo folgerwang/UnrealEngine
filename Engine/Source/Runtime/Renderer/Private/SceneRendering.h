@@ -29,6 +29,7 @@
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
 #include "Templates/UniquePtr.h"
+#include "RenderGraph.h"
 
 class FScene;
 class FSceneViewState;
@@ -366,15 +367,6 @@ public:
 	*/
 	void DrawPrimitivesParallel(FRHICommandList& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPass::Type TranslucenyPassType, int32 FirstPrimIdx, int32 LastPrimIdx) const;
 
-	/**
-	* Draw a single primitive...this is used when we are rendering in parallel and we need to handlke a translucent shadow
-	* @param View - current view used to draw items
-	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param TranslucenyPassType
-	* @param PrimIdx in SortedPrims[]
-	*/
-	void DrawAPrimitive(FRHICommandList& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPass::Type TranslucenyPassType, int32 PrimIdx) const;
-
 	/** 
 	* Draw all the primitives in this set for the mobile pipeline. 
 	*/
@@ -659,39 +651,39 @@ public:
 const int32 GMaxForwardShadowCascades = 4;
 
 #define FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE \
-	UNIFORM_MEMBER(uint32,NumLocalLights) \
-	UNIFORM_MEMBER(uint32, NumReflectionCaptures) \
-	UNIFORM_MEMBER(uint32, HasDirectionalLight) \
-	UNIFORM_MEMBER(uint32, NumGridCells) \
-	UNIFORM_MEMBER(FIntVector, CulledGridSize) \
-	UNIFORM_MEMBER(uint32, MaxCulledLightsPerCell) \
-	UNIFORM_MEMBER(uint32, LightGridPixelSizeShift) \
-	UNIFORM_MEMBER(FVector, LightGridZParams) \
-	UNIFORM_MEMBER(FVector, DirectionalLightDirection) \
-	UNIFORM_MEMBER(FVector, DirectionalLightColor) \
-	UNIFORM_MEMBER(float, DirectionalLightVolumetricScatteringIntensity) \
-	UNIFORM_MEMBER(uint32, DirectionalLightShadowMapChannelMask) \
-	UNIFORM_MEMBER(FVector2D, DirectionalLightDistanceFadeMAD) \
-	UNIFORM_MEMBER(uint32, NumDirectionalLightCascades) \
-	UNIFORM_MEMBER(FVector4, CascadeEndDepths) \
-	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
-	UNIFORM_MEMBER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
-	UNIFORM_MEMBER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
-	UNIFORM_MEMBER(float, DirectionalLightDepthBias) \
-	UNIFORM_MEMBER(uint32, DirectionalLightUseStaticShadowing) \
-	UNIFORM_MEMBER(FVector4, DirectionalLightStaticShadowBufferSize) \
-	UNIFORM_MEMBER(FMatrix, DirectionalLightWorldToStaticShadow) \
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
-	UNIFORM_MEMBER_SAMPLER(SamplerState, ShadowmapSampler) \
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
-	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowmapSampler) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<float4>, ForwardLocalLightBuffer) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, NumCulledLightsGrid) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, CulledLightDataGrid) 
+	SHADER_PARAMETER(uint32,NumLocalLights) \
+	SHADER_PARAMETER(uint32, NumReflectionCaptures) \
+	SHADER_PARAMETER(uint32, HasDirectionalLight) \
+	SHADER_PARAMETER(uint32, NumGridCells) \
+	SHADER_PARAMETER(FIntVector, CulledGridSize) \
+	SHADER_PARAMETER(uint32, MaxCulledLightsPerCell) \
+	SHADER_PARAMETER(uint32, LightGridPixelSizeShift) \
+	SHADER_PARAMETER(FVector, LightGridZParams) \
+	SHADER_PARAMETER(FVector, DirectionalLightDirection) \
+	SHADER_PARAMETER(FVector, DirectionalLightColor) \
+	SHADER_PARAMETER(float, DirectionalLightVolumetricScatteringIntensity) \
+	SHADER_PARAMETER(uint32, DirectionalLightShadowMapChannelMask) \
+	SHADER_PARAMETER(FVector2D, DirectionalLightDistanceFadeMAD) \
+	SHADER_PARAMETER(uint32, NumDirectionalLightCascades) \
+	SHADER_PARAMETER(FVector4, CascadeEndDepths) \
+	SHADER_PARAMETER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
+	SHADER_PARAMETER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
+	SHADER_PARAMETER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
+	SHADER_PARAMETER(float, DirectionalLightDepthBias) \
+	SHADER_PARAMETER(uint32, DirectionalLightUseStaticShadowing) \
+	SHADER_PARAMETER(FVector4, DirectionalLightStaticShadowBufferSize) \
+	SHADER_PARAMETER(FMatrix, DirectionalLightWorldToStaticShadow) \
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
+	SHADER_PARAMETER_SAMPLER(SamplerState, ShadowmapSampler) \
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
+	SHADER_PARAMETER_SAMPLER(SamplerState, StaticShadowmapSampler) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<float4>, ForwardLocalLightBuffer) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<uint>, NumCulledLightsGrid) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<uint>, CulledLightDataGrid) 
 
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FForwardLightData,)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FForwardLightData,)
 	FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FForwardLightData)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 class FForwardLightingViewResources
 {
@@ -728,22 +720,23 @@ public:
 	}
 };
 
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FVolumetricFogGlobalData,) 
-	UNIFORM_MEMBER(FIntVector, GridSizeInt)
-	UNIFORM_MEMBER(FVector, GridSize)
-	UNIFORM_MEMBER(uint32, GridPixelSizeShift)
-	UNIFORM_MEMBER(FVector, GridZParams)
-	UNIFORM_MEMBER(FVector2D, SVPosToVolumeUV)
-	UNIFORM_MEMBER(FIntPoint, FogGridToPixelXY)
-	UNIFORM_MEMBER(float, MaxDistance)
-	UNIFORM_MEMBER(FVector, HeightFogInscatteringColor)
-	UNIFORM_MEMBER(FVector, HeightFogDirectionalLightInscatteringColor)
-END_UNIFORM_BUFFER_STRUCT(FVolumetricFogGlobalData)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FVolumetricFogGlobalData,)
+	SHADER_PARAMETER(FIntVector, GridSizeInt)
+	SHADER_PARAMETER(FVector, GridSize)
+	SHADER_PARAMETER(uint32, GridPixelSizeShift)
+	SHADER_PARAMETER(FVector, GridZParams)
+	SHADER_PARAMETER(FVector2D, SVPosToVolumeUV)
+	SHADER_PARAMETER(FIntPoint, FogGridToPixelXY)
+	SHADER_PARAMETER(float, MaxDistance)
+	SHADER_PARAMETER(FVector, HeightFogInscatteringColor)
+	SHADER_PARAMETER(FVector, HeightFogDirectionalLightInscatteringColor)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 class FVolumetricFogViewResources
 {
 public:
 	TUniformBufferRef<FVolumetricFogGlobalData> VolumetricFogGlobalData;
+
 	TRefCountPtr<IPooledRenderTarget> IntegratedLightScattering;
 
 	FVolumetricFogViewResources()
@@ -793,15 +786,15 @@ private:
 static const int32 GMaxNumReflectionCaptures = 341;
 
 /** Per-reflection capture data needed by the shader. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,)
-	UNIFORM_MEMBER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionCaptureShaderData,)
+	SHADER_PARAMETER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
 	// R is brightness, G is array index, B is shape
-	UNIFORM_MEMBER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
-	UNIFORM_MEMBER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
 	// Stores the box transform for a box shape, other data is packed for other shapes
-	UNIFORM_MEMBER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
-	UNIFORM_MEMBER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
-END_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData)
+	SHADER_PARAMETER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 // Structure in charge of storing all information about TAA's history.
 struct FTemporalAAHistory

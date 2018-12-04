@@ -38,6 +38,7 @@ struct MTLPP_EXPORT IMPTable<id<MTLCommandBuffer>, void> : public IMPTableBase<i
 	, INTERPOSE_CONSTRUCTOR(BlitCommandEncoder, C)
 	, INTERPOSE_CONSTRUCTOR(RenderCommandEncoderWithDescriptor, C)
 	, INTERPOSE_CONSTRUCTOR(ComputeCommandEncoder, C)
+	, INTERPOSE_CONSTRUCTOR(ComputeCommandEncoderWithType, C)
 	, INTERPOSE_CONSTRUCTOR(ParallelRenderCommandEncoderWithDescriptor, C)
 	, INTERPOSE_CONSTRUCTOR(PushDebugGroup, C)
 	, INTERPOSE_CONSTRUCTOR(PopDebugGroup, C)
@@ -67,6 +68,7 @@ struct MTLPP_EXPORT IMPTable<id<MTLCommandBuffer>, void> : public IMPTableBase<i
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, blitCommandEncoder, BlitCommandEncoder, id<MTLBlitCommandEncoder>);
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, renderCommandEncoderWithDescriptor:, RenderCommandEncoderWithDescriptor, id<MTLRenderCommandEncoder>, MTLRenderPassDescriptor*);
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, computeCommandEncoder, ComputeCommandEncoder, id<MTLComputeCommandEncoder>);
+	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, computeCommandEncoderWithDispatchType:, ComputeCommandEncoderWithType, id<MTLComputeCommandEncoder>, MTLDispatchType);
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, parallelRenderCommandEncoderWithDescriptor:, ParallelRenderCommandEncoderWithDescriptor, id<MTLParallelRenderCommandEncoder>, MTLRenderPassDescriptor*);
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, pushDebugGroup:, PushDebugGroup, void, NSString*);
 	INTERPOSE_SELECTOR(id<MTLCommandBuffer>, popDebugGroup, PopDebugGroup, void);
@@ -102,6 +104,7 @@ struct MTLPP_EXPORT IMPTable<id<MTLCommandBuffer>, InterposeClass> : public IMPT
 		INTERPOSE_REGISTRATION(BlitCommandEncoder, C);
 		INTERPOSE_REGISTRATION(RenderCommandEncoderWithDescriptor, C);
 		INTERPOSE_REGISTRATION(ComputeCommandEncoder, C);
+		INTERPOSE_REGISTRATION(ComputeCommandEncoderWithType, C);
 		INTERPOSE_REGISTRATION(ParallelRenderCommandEncoderWithDescriptor, C);
 		INTERPOSE_REGISTRATION(PushDebugGroup, C);
 		INTERPOSE_REGISTRATION(PopDebugGroup, C);

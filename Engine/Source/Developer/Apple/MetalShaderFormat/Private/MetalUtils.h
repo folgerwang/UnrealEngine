@@ -154,6 +154,48 @@ struct FBuffers
 
 		return -1;
 	}
+	
+	void Replace(ir_variable* Old, ir_variable* New)
+	{
+		for (int i = 0, n = Buffers.Num(); i < n; ++i)
+		{
+			if (Old == Buffers[i])
+			{
+				Buffers[i] = New;
+				return;
+			}
+		}
+		
+		for (int i = 0, n = Textures.Num(); i < n; ++i)
+		{
+			if (Old == Textures[i])
+			{
+				Textures[i] = New;
+				return;
+			}
+		}
+	}
+	
+	void Remove(ir_variable* Var)
+	{
+		for (int i = 0, n = Buffers.Num(); i < n; ++i)
+		{
+			if (Var == Buffers[i])
+			{
+				Buffers[i] = nullptr;
+				return;
+			}
+		}
+		
+		for (int i = 0, n = Textures.Num(); i < n; ++i)
+		{
+			if (Var == Textures[i])
+			{
+				Textures[i] = nullptr;
+				return;
+			}
+		}
+	}
 
 	void SortBuffers(_mesa_glsl_parse_state* state)
 	{

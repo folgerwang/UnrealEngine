@@ -9,21 +9,6 @@
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
 
-class SceneRenderingBitArrayAllocator
-	: public TInlineAllocator<4,SceneRenderingAllocator>
-{
-};
-
-class SceneRenderingSparseArrayAllocator
-	: public TSparseArrayAllocator<SceneRenderingAllocator,SceneRenderingBitArrayAllocator>
-{
-};
-
-class SceneRenderingSetAllocator
-	: public TSetAllocator<SceneRenderingSparseArrayAllocator,TInlineAllocator<1,SceneRenderingAllocator> >
-{
-};
-
 typedef TBitArray<SceneRenderingBitArrayAllocator> FSceneBitArray;
 typedef TConstSetBitIterator<SceneRenderingBitArrayAllocator> FSceneSetBitIterator;
 typedef TConstDualSetBitIterator<SceneRenderingBitArrayAllocator,SceneRenderingBitArrayAllocator> FSceneDualSetBitIterator;

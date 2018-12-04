@@ -106,22 +106,22 @@ static TAutoConsoleVariable<float> CVarLPVDirectionalOcclusionDefaultSpecular(
 /**
  * Uniform buffer parameters for LPV direct injection shaders
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FLpvDirectLightInjectParameters, )
-	UNIFORM_MEMBER( float, LightRadius )
-	UNIFORM_MEMBER( FVector4, LightPosition )
-	UNIFORM_MEMBER( FVector4, LightColor )
-	UNIFORM_MEMBER( float, LightFalloffExponent )
-	UNIFORM_MEMBER( float, LightSourceLength )
-	UNIFORM_MEMBER( FVector4, LightDirection )
-	UNIFORM_MEMBER( FVector2D, LightSpotAngles )
-	UNIFORM_MEMBER( float, bLightInverseSquaredAttenuation )
-END_UNIFORM_BUFFER_STRUCT( FLpvDirectLightInjectParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FLpvDirectLightInjectParameters, )
+	SHADER_PARAMETER( float, LightRadius )
+	SHADER_PARAMETER( FVector4, LightPosition )
+	SHADER_PARAMETER( FVector4, LightColor )
+	SHADER_PARAMETER( float, LightFalloffExponent )
+	SHADER_PARAMETER( float, LightSourceLength )
+	SHADER_PARAMETER( FVector4, LightDirection )
+	SHADER_PARAMETER( FVector2D, LightSpotAngles )
+	SHADER_PARAMETER( float, bLightInverseSquaredAttenuation )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLpvDirectLightInjectParameters,TEXT("LpvInject"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLpvDirectLightInjectParameters,"LpvInject");
 
 typedef TUniformBufferRef<FLpvDirectLightInjectParameters> FDirectLightInjectBufferRef;
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLpvWriteUniformBufferParameters,TEXT("LpvWrite"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLpvWriteUniformBufferParameters,"LpvWrite");
 
 // ----------------------------------------------------------------------------
 // Base LPV Write Compute shader
@@ -1339,7 +1339,7 @@ void FLightPropagationVolume::GetShaderParams( FLpvBaseWriteShaderParams& OutPar
 	OutParams.GvListHeadBufferUAV = GvListHeadBuffer->UAV;
 	OutParams.AOVolumeTextureUAV = AOVolumeTexture->GetRenderTargetItem().UAV;
 	OutParams.AOVolumeTextureSRV = AOVolumeTexture->GetRenderTargetItem().ShaderResourceTexture;
-	OutParams.UniformBuffer = LpvWriteUniformBuffer;
+	OutParams.UniformBuffer = LpvWriteUniformBuffer.GetUniformBufferRef();
 }
 
 void FLightPropagationVolume::InjectLightDirect(FRHICommandListImmediate& RHICmdList, const FLightSceneProxy& Light, const FViewInfo& View)

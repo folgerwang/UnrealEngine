@@ -122,7 +122,6 @@ namespace UnrealBuildTool.Rules
                     "InputDevice",
 					"Json",
 					"RenderCore",
-                    "ShaderCore",
                     "AnimGraphRuntime",
                     "RHI",
 					"Slate",

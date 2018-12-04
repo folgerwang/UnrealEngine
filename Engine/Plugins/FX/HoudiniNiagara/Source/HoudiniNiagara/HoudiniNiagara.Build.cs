@@ -44,7 +44,7 @@ public class HoudiniNiagara : ModuleRules
 				"NiagaraShader",
 				"RenderCore",
 				"UtilityShaders",
-				"ShaderCore"
+				"RenderCore"
 			}
 		);
 			
@@ -61,7 +61,7 @@ public class HoudiniNiagara : ModuleRules
 				"RHI",
 				"UtilityShaders",
 				"NiagaraVertexFactories",
-				"ShaderCore"
+				"RenderCore"
 			}
 		);
 			

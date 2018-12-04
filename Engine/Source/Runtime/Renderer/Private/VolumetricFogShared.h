@@ -15,17 +15,18 @@ extern FVector VolumetricFogTemporalRandom(uint32 FrameNumber);
 struct FVolumetricFogIntegrationParameterData
 {
 	FVolumetricFogIntegrationParameterData() :
-		bTemporalHistoryIsValid(false),
-		VBufferARenderTarget(NULL),
-		VBufferBRenderTarget(NULL),
-		LightScatteringRenderTarget(NULL)
+		bTemporalHistoryIsValid(false)
 	{}
 
 	bool bTemporalHistoryIsValid;
 	TArray<FVector4, TInlineAllocator<16>> FrameJitterOffsetValues;
-	IPooledRenderTarget* VBufferARenderTarget;
-	IPooledRenderTarget* VBufferBRenderTarget;
-	IPooledRenderTarget* LightScatteringRenderTarget;
+	const FRDGTexture* VBufferA;
+	const FRDGTexture* VBufferB;
+	const FRDGTextureUAV* VBufferA_UAV;
+	const FRDGTextureUAV* VBufferB_UAV;
+
+	const FRDGTexture* LightScattering;
+	const FRDGTextureUAV* LightScatteringUAV;
 };
 
 /**  */
@@ -59,31 +60,6 @@ public:
 		const FViewInfo& View, 
 		const FVolumetricFogIntegrationParameterData& IntegrationData) const
 	{
-		if (VBufferA.IsBound())
-		{
-			const FSceneRenderTargetItem& VBufferAItem = IntegrationData.VBufferARenderTarget->GetRenderTargetItem();
-			VBufferA.SetTexture(RHICmdList, ShaderRHI, VBufferAItem.ShaderResourceTexture, VBufferAItem.UAV);
-		}
-
-		if (VBufferB.IsBound())
-		{
-			const FSceneRenderTargetItem& VBufferBItem = IntegrationData.VBufferBRenderTarget->GetRenderTargetItem();
-			VBufferB.SetTexture(RHICmdList, ShaderRHI, VBufferBItem.ShaderResourceTexture, VBufferBItem.UAV);
-		}
-
-		if (LightScattering.IsBound())
-		{
-			const FSceneRenderTargetItem& LightScatteringItem = IntegrationData.LightScatteringRenderTarget->GetRenderTargetItem();
-			LightScattering.SetTexture(RHICmdList, ShaderRHI, LightScatteringItem.ShaderResourceTexture, LightScatteringItem.UAV);
-		}
-
-		if (IntegratedLightScattering.IsBound())
-		{
-			const FSceneRenderTargetItem& IntegratedLightScatteringItem = View.VolumetricFogResources.IntegratedLightScattering->GetRenderTargetItem();
-
-			IntegratedLightScattering.SetTexture(RHICmdList, ShaderRHI, IntegratedLightScatteringItem.ShaderResourceTexture, IntegratedLightScatteringItem.UAV);
-		}
-
 		SetSamplerParameter(RHICmdList, ShaderRHI, IntegratedLightScatteringSampler, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 		
 		if (VolumetricFogData.IsBound())
@@ -113,51 +89,6 @@ public:
 
 		extern int32 GVolumetricFogHistoryMissSupersampleCount;
 		SetShaderValue(RHICmdList, ShaderRHI, HistoryMissSuperSampleCount, FMath::Clamp(GVolumetricFogHistoryMissSupersampleCount, 1, 16));
-	}
-
-	template<typename ShaderRHIParamRef>
-	void UnsetParameters(
-		FRHICommandList& RHICmdList, 
-		const ShaderRHIParamRef& ShaderRHI, 
-		const FViewInfo& View, 
-		IPooledRenderTarget* VBufferARenderTarget, 
-		IPooledRenderTarget* VBufferBRenderTarget, 
-		IPooledRenderTarget* LightScatteringRenderTarget, 
-		bool bTransitionToReadable)
-	{
-		VBufferA.UnsetUAV(RHICmdList, ShaderRHI);
-		VBufferB.UnsetUAV(RHICmdList, ShaderRHI);
-		LightScattering.UnsetUAV(RHICmdList, ShaderRHI);
-		IntegratedLightScattering.UnsetUAV(RHICmdList, ShaderRHI);
-
-		const FSceneRenderTargetItem& IntegratedLightScatteringItem = View.VolumetricFogResources.IntegratedLightScattering->GetRenderTargetItem();
-
-		TArray<FUnorderedAccessViewRHIParamRef, TInlineAllocator<4>> OutUAVs;
-
-		if (VBufferA.IsUAVBound())
-		{
-			OutUAVs.Add(VBufferARenderTarget->GetRenderTargetItem().UAV);
-		}
-
-		if (VBufferB.IsUAVBound())
-		{
-			OutUAVs.Add(VBufferBRenderTarget->GetRenderTargetItem().UAV);
-		}
-
-		if (LightScattering.IsUAVBound())
-		{
-			OutUAVs.Add(LightScatteringRenderTarget->GetRenderTargetItem().UAV);
-		}
-
-		if (IntegratedLightScattering.IsUAVBound())
-		{
-			OutUAVs.Add(IntegratedLightScatteringItem.UAV);
-		}
-
-		if (OutUAVs.Num() > 0 && bTransitionToReadable)
-		{
-			RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, OutUAVs.GetData(), OutUAVs.Num());
-		}
 	}
 
 	/** Serializer. */

@@ -25,16 +25,16 @@
 /**
  * Uniform buffer parameters for generating particle sort keys.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleKeyGenParameters, )
-	UNIFORM_MEMBER( FVector4, ViewOrigin )
-	UNIFORM_MEMBER( uint32, ChunksPerGroup )
-	UNIFORM_MEMBER( uint32, ExtraChunkCount )
-	UNIFORM_MEMBER( uint32, OutputOffset )
-	UNIFORM_MEMBER( uint32, EmitterKey )
-	UNIFORM_MEMBER( uint32, KeyCount )
-END_UNIFORM_BUFFER_STRUCT( FParticleKeyGenParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleKeyGenParameters, )
+	SHADER_PARAMETER( FVector4, ViewOrigin )
+	SHADER_PARAMETER( uint32, ChunksPerGroup )
+	SHADER_PARAMETER( uint32, ExtraChunkCount )
+	SHADER_PARAMETER( uint32, OutputOffset )
+	SHADER_PARAMETER( uint32, EmitterKey )
+	SHADER_PARAMETER( uint32, KeyCount )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleKeyGenParameters,TEXT("ParticleKeyGen"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleKeyGenParameters,"ParticleKeyGen");
 
 typedef TUniformBufferRef<FParticleKeyGenParameters> FParticleKeyGenUniformBufferRef;
 

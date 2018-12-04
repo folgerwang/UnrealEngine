@@ -305,6 +305,16 @@ namespace mtlpp
         [(MTLSamplerDescriptor*)m_ptr setLabel:(NSString*)label.GetPtr()];
 #endif
     }
+	
+	void SamplerDescriptor::SetSupportArgumentBuffers(bool flag)
+	{
+		Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setsupportArgumentBuffers(m_ptr, flag);
+#else
+		[(MTLSamplerDescriptor*)m_ptr setSupportArgumentBuffers:flag];
+#endif
+	}
 
     ns::AutoReleased<ns::String> SamplerState::GetLabel() const
     {

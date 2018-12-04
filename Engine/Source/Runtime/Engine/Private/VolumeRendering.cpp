@@ -21,5 +21,5 @@ ENGINE_API void RasterizeToVolumeTexture(FRHICommandList& RHICmdList, FVolumeBou
 	RHICmdList.SetStreamSource(0, GVolumeRasterizeVertexBuffer.VertexBufferRHI, 0);
 	const int32 NumInstances = VolumeBounds.MaxZ - VolumeBounds.MinZ;
 	// Render a quad per slice affected by the given bounds
-	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, NumInstances);
+	RHICmdList.DrawPrimitive(0, 2, NumInstances);
 }

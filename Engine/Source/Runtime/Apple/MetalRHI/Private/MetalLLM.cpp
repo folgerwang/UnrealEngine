@@ -199,7 +199,13 @@ void MetalLLM::LogAllocTexture(mtlpp::Device& Device, mtlpp::TextureDescriptor c
 	void* Ptr = (void*)Texture.GetPtr();
 	uint64 Size = SizeAlign.Size;
 	
-	INC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
+#if PLATFORM_IOS
+	bool bMemoryless = (Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless);
+	if (!bMemoryless)
+#endif
+	{
+		INC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
+	}
 	INC_DWORD_STAT(STAT_MetalTextureCount);
 	
 	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
@@ -213,7 +219,12 @@ void MetalLLM::LogAllocTexture(mtlpp::Device& Device, mtlpp::TextureDescriptor c
 			
 			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, ELLMAllocType::System));
 			
-			DEC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
+#if PLATFORM_IOS
+			if (!bMemoryless)
+#endif
+			{
+				DEC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
+			}
 			DEC_DWORD_STAT(STAT_MetalTextureCount);
 		}] autorelease],
 		OBJC_ASSOCIATION_RETAIN);
@@ -272,4 +283,15 @@ void MetalLLM::LogAllocHeap(mtlpp::Device& Device, mtlpp::Heap const& Heap)
 		OBJC_ASSOCIATION_RETAIN);
 	}
 }
+
+void MetalLLM::LogAliasTexture(mtlpp::Texture const& Texture)
+{
+	objc_setAssociatedObject(Texture.GetPtr(), (void*)&MetalLLM::LogAllocTexture, nil, OBJC_ASSOCIATION_RETAIN);
+}
+
+void MetalLLM::LogAliasBuffer(mtlpp::Buffer const& Buffer)
+{
+	objc_setAssociatedObject(Buffer.GetPtr(), (void*)&MetalLLM::LogAllocBuffer, nil, OBJC_ASSOCIATION_RETAIN);
+}
+
 

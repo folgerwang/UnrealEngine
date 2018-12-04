@@ -11,8 +11,7 @@
 #include "Serialization/MemoryWriter.h"
 
 class FVulkanCmdBuffer;
-class FVulkanRenderQuery;
-class FVulkanRenderQuery;
+class FVulkanTimingQuery;
 class FVulkanCommandListContext;
 
 class FVulkanGPUTiming : public FGPUTiming
@@ -24,7 +23,6 @@ public:
 		, bEndTimestampIssued(false)
 		, CmdContext(InCmd)
 	{
-		FMemory::Memzero(Timers);
 	}
 
 	/**
@@ -78,22 +76,6 @@ private:
 	bool bEndTimestampIssued;
 
 	FVulkanCommandListContext* CmdContext;
-	enum
-	{
-		MaxTimers = 8,
-	};
-	int32 CurrentTimerIndex = 0;
-	int32 NumActiveTimers = 0;
-	struct FBeginEndPair
-	{
-		FVulkanCmdBuffer* BeginCmdBuffer = nullptr;
-		uint64 BeginFenceCounter = 0;
-		FVulkanCmdBuffer* EndCmdBuffer = nullptr;
-		uint64 EndFenceCounter = 0;
-		FVulkanRenderQuery* Begin;
-		FVulkanRenderQuery* End;
-	};
-	FBeginEndPair Timers[MaxTimers];
 };
 
 /** A single perf event node, which tracks information about a appBeginDrawEvent/appEndDrawEvent range. */

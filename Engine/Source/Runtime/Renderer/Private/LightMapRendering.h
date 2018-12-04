@@ -21,46 +21,46 @@ extern ENGINE_API bool GShowDebugSelectedLightmap;
 extern ENGINE_API class FLightMap2D* GDebugSelectedLightmap;
 extern bool GVisualizeMipLevels;
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, )
-	UNIFORM_MEMBER(FVector, IndirectLightingCachePrimitiveAdd) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCachePrimitiveScale) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCacheMinUV) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCacheMaxUV) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4, PointSkyBentNormal) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_EX(float, DirectionalLightShadowing, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER_ARRAY(FVector4, IndirectLightingSHCoefficients0, [3]) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_ARRAY(FVector4, IndirectLightingSHCoefficients1, [3]) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4,	IndirectLightingSHCoefficients2) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_EX(FVector4, IndirectLightingSHSingleCoefficient, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy used in forward Translucent
-	UNIFORM_MEMBER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
-	UNIFORM_MEMBER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-	UNIFORM_MEMBER(FMatrix, LightmapVirtualTextureUniformData) // VT
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture_1) // VT
-	UNIFORM_MEMBER_TEXTURE(Texture2D, SkyOcclusionTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AOMaterialMaskTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture1) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture2) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, StaticShadowTexture) // 
-	UNIFORM_MEMBER_SAMPLER(SamplerState, LightMapSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyOcclusionSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AOMaterialMaskSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler0) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowTextureSampler) // TDistanceFieldShadowsAndLightMapPolicy
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingParameters, )
+	SHADER_PARAMETER(FVector, IndirectLightingCachePrimitiveAdd) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCachePrimitiveScale) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCacheMinUV) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCacheMaxUV) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector4, PointSkyBentNormal) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_EX(float, DirectionalLightShadowing, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER_ARRAY(FVector4, IndirectLightingSHCoefficients0, [3]) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_ARRAY(FVector4, IndirectLightingSHCoefficients1, [3]) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER(FVector4,	IndirectLightingSHCoefficients2) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_EX(FVector4, IndirectLightingSHSingleCoefficient, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy used in forward Translucent
+	SHADER_PARAMETER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
+	SHADER_PARAMETER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	SHADER_PARAMETER(FMatrix, LightmapVirtualTextureUniformData) // VT
+	SHADER_PARAMETER_TEXTURE(Texture2D, LightMapTexture) // TLightMapPolicy
+	SHADER_PARAMETER_TEXTURE(Texture2D, LightMapTexture_1) // VT
+	SHADER_PARAMETER_TEXTURE(Texture2D, SkyOcclusionTexture) // TLightMapPolicy
+	SHADER_PARAMETER_TEXTURE(Texture2D, AOMaterialMaskTexture) // TLightMapPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture1) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture2) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture2D, StaticShadowTexture) // 
+	SHADER_PARAMETER_SAMPLER(SamplerState, LightMapSampler) // TLightMapPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyOcclusionSampler) // TLightMapPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, AOMaterialMaskSampler) // TLightMapPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler0) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, StaticShadowTextureSampler) // TDistanceFieldShadowsAndLightMapPolicy
 #if LIGHTMAP_VT_16BIT
-	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, LightmapVirtualTexturePageTable) // VT
+	SHADER_PARAMETER_TEXTURE(Texture2D<uint>, LightmapVirtualTexturePageTable) // VT
 #else
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightmapVirtualTexturePageTable) // VT
-	UNIFORM_MEMBER_SAMPLER(SamplerState, LightmapVirtualTexturePageTableSampler) // VT
+	SHADER_PARAMETER_TEXTURE(Texture2D, LightmapVirtualTexturePageTable) // VT
+	SHADER_PARAMETER_SAMPLER(SamplerState, LightmapVirtualTexturePageTableSampler) // VT
 #endif
-END_UNIFORM_BUFFER_STRUCT( FPrecomputedLightingParameters )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 
 uint32 GetPrecompuledLightingVersionID(const FLightMapInteraction& LightMapInteraction, const FShadowMapInteraction& ShadowMapInteraction, ERHIFeatureLevel::Type FeatureLevel);

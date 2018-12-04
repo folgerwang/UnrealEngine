@@ -301,6 +301,10 @@ struct FRHIUniformBufferLayout
 
 	const FName GetDebugName() const { return Name; }
 
+	uint32 NumRenderTargets()	const { return 0; }
+	uint32 NumTextures()		const { return 0; }
+	uint32 NumUAVs()			const { return 0; }
+
 private:
 	// for debugging / error message
 	FName Name;
@@ -1321,9 +1325,10 @@ public:
 	}
 
 	void Validate() const
-	{		
-		ensureMsgf(DepthStencilAccess.IsDepthWrite() || DepthStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Depth is read-only, but we are performing a store.  This is a waste on mobile.  If depth can't change, we don't need to store it out again"));
-		ensureMsgf(DepthStencilAccess.IsStencilWrite() || StencilStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Stencil is read-only, but we are performing a store.  This is a waste on mobile.  If stencil can't change, we don't need to store it out again"));
+	{
+		// VK and Metal MAY leave the attachment in an undefined state if the StoreAction is DontCare. So we can't assume read-only implies it should be DontCare unless we know for sure it will never be used again.
+		// ensureMsgf(DepthStencilAccess.IsDepthWrite() || DepthStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Depth is read-only, but we are performing a store.  This is a waste on mobile.  If depth can't change, we don't need to store it out again"));
+		/*ensureMsgf(DepthStencilAccess.IsStencilWrite() || StencilStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Stencil is read-only, but we are performing a store.  This is a waste on mobile.  If stencil can't change, we don't need to store it out again"));*/
 	}
 
 	bool operator==(const FRHIDepthRenderTargetView& Other) const
@@ -2035,6 +2040,11 @@ struct FRHIRenderPassInfo
 	// Some RHIs need to know if this render pass is going to be reading and writing to the same texture in the case of generating mip maps for partial resource transitions
 	bool bGeneratingMips = false;
 
+	//#RenderPasses
+	int32 UAVIndex = -1;
+	int32 NumUAVs = 0;
+	FUnorderedAccessViewRHIRef UAVs[MaxSimultaneousUAVs];
+
 	// Color, no depth, optional resolve, optional mip, optional array slice
 	explicit FRHIRenderPassInfo(FRHITexture* ColorRT, ERenderTargetActions ColorAction, FRHITexture* ResolveRT = nullptr, uint32 InMipIndex = 0, int32 InArraySlice = -1)
 	{
@@ -2047,6 +2057,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		bIsMSAA = ColorRT->GetNumSamples() > 1;
 		FMemory::Memzero(&ColorRenderTargets[1], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - 1));
 	}
@@ -2067,6 +2078,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		if (NumColorRTs < MaxSimultaneousRenderTargets)
 		{
 			FMemory::Memzero(&ColorRenderTargets[NumColorRTs], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - NumColorRTs));
@@ -2089,6 +2101,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		if (NumColorRTs < MaxSimultaneousRenderTargets)
 		{
 			FMemory::Memzero(&ColorRenderTargets[NumColorRTs], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - NumColorRTs));
@@ -2208,6 +2221,16 @@ struct FRHIRenderPassInfo
 		FMemory::Memzero(&ColorRenderTargets[1], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - 1));
 	}
 
+	explicit FRHIRenderPassInfo(int32 InNumUAVs, FUnorderedAccessViewRHIParamRef* InUAVs)
+	{
+		FMemory::Memzero(*this);
+		NumUAVs = InNumUAVs;
+		for (int32 Index = 0; Index < InNumUAVs; Index++)
+		{
+			UAVs[Index] = InUAVs[Index];
+		}
+	}
+
 	inline int32 GetNumColorRenderTargets() const
 	{
 		int32 ColorIndex = 0;
@@ -2233,13 +2256,12 @@ struct FRHIRenderPassInfo
 		return bIsMSAA;
 	}
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	RHI_API void Validate() const;
+#else
+	RHI_API void Validate() const {}
+#endif
 	RHI_API void ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& OutRTInfo) const;
-
-	//#RenderPasses
-	int32 UAVIndex = -1;
-	int32 NumUAVs = 0;
-	FUnorderedAccessViewRHIRef UAVs[MaxSimultaneousUAVs];
 
 	FRHIRenderPassInfo& operator = (const FRHIRenderPassInfo& In)
 	{
@@ -2247,6 +2269,5 @@ struct FRHIRenderPassInfo
 		return *this;
 	}
 
-private:
 	bool bIsMSAA = false;
 };

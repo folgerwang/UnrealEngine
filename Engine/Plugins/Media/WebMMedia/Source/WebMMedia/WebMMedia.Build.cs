@@ -14,7 +14,6 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"RenderCore",
 					"RHI",
-					"ShaderCore",
 				});
 
 			PublicDependencyModuleNames.AddRange(

@@ -8,6 +8,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "OculusShaders.h"
+#include "CommonRenderResources.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
@@ -392,56 +393,28 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 	const auto FeatureLevel = GMaxRHIFeatureLevel;
 	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 
 	if (DstTexture2D)
 	{
-		SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-
-		if (bNoAlphaWrite)
+		FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyTexture"));
 		{
-			RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
-			DrawClearQuad(RHICmdList, bAlphaPremultiply ? FLinearColor::Black : FLinearColor::White);
-		}
-
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		FSamplerStateRHIParamRef SamplerState = DstRect.Size() == SrcRect.Size() ? TStaticSamplerState<SF_Point>::GetRHI() : TStaticSamplerState<SF_Bilinear>::GetRHI();
-		PixelShader->SetParameters(RHICmdList, SamplerState, SrcTextureRHI);
-
-		RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
-
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			0, 0, ViewportWidth, ViewportHeight,
-			U, V, USize, VSize,
-			TargetSize,
-			FIntPoint(1, 1),
-			*VertexShader,
-			EDRF_Default);
-	}
-	else
-	{
-		for (int FaceIndex = 0; FaceIndex < 6; FaceIndex++)
-		{
-			SetRenderTarget(RHICmdList, DstTexture, 0, FaceIndex, FTextureRHIRef());
 
 			if (bNoAlphaWrite)
 			{
+				RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
 				DrawClearQuad(RHICmdList, bAlphaPremultiply ? FLinearColor::Black : FLinearColor::White);
 			}
 
 			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-			TShaderMapRef<FOculusCubemapPS> PixelShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 			FSamplerStateRHIParamRef SamplerState = DstRect.Size() == SrcRect.Size() ? TStaticSamplerState<SF_Point>::GetRHI() : TStaticSamplerState<SF_Bilinear>::GetRHI();
-			PixelShader->SetParameters(RHICmdList, SamplerState, SrcTextureRHI, FaceIndex);
+			PixelShader->SetParameters(RHICmdList, SamplerState, SrcTextureRHI);
 
 			RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
 
@@ -453,6 +426,43 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 				FIntPoint(1, 1),
 				*VertexShader,
 				EDRF_Default);
+		}
+		RHICmdList.EndRenderPass();
+	}
+	else
+	{
+		for (int FaceIndex = 0; FaceIndex < 6; FaceIndex++)
+		{
+			FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::Load_Store);
+			RPInfo.ColorRenderTargets[0].ArraySlice = FaceIndex;
+
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyTextureFace"));
+			{
+				if (bNoAlphaWrite)
+				{
+					DrawClearQuad(RHICmdList, bAlphaPremultiply ? FLinearColor::Black : FLinearColor::White);
+				}
+
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+				TShaderMapRef<FOculusCubemapPS> PixelShader(ShaderMap);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				FSamplerStateRHIParamRef SamplerState = DstRect.Size() == SrcRect.Size() ? TStaticSamplerState<SF_Point>::GetRHI() : TStaticSamplerState<SF_Bilinear>::GetRHI();
+				PixelShader->SetParameters(RHICmdList, SamplerState, SrcTextureRHI, FaceIndex);
+
+				RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
+
+				RendererModule->DrawRectangle(
+					RHICmdList,
+					0, 0, ViewportWidth, ViewportHeight,
+					U, V, USize, VSize,
+					TargetSize,
+					FIntPoint(1, 1),
+					*VertexShader,
+					EDRF_Default);
+			}
+			RHICmdList.EndRenderPass();
 		}
 	}
 }

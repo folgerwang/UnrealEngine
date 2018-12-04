@@ -9,7 +9,7 @@ public class ShaderCompilerCommon : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
-				"ShaderCore",
+				"RenderCore",
 			}
 			);
 

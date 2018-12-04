@@ -15,7 +15,6 @@ public class GeometryCache : ModuleRules
 				"SlateCore",
                 "InputCore",
                 "RenderCore",
-                "ShaderCore",
                 "RHI"
 			}
 		);

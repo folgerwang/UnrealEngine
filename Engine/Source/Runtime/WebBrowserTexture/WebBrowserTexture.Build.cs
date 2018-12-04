@@ -42,7 +42,6 @@ public class WebBrowserTexture : ModuleRules
 					"MediaUtils",
 					"RenderCore",
 					"Engine",
-					"ShaderCore",
 					"UtilityShaders",
 					"WebBrowser"
 				}

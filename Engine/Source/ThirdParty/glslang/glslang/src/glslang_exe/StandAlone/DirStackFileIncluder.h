@@ -41,7 +41,7 @@
 #include <fstream>
 #include <algorithm>
 
-#include "glslang/Public/ShaderLang.h"
+#include "./../glslang/Public/ShaderLang.h"
 
 // Default include class for normal include convention of search backward
 // through the stack of active include paths (for nested includes).

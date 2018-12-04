@@ -1,9 +1,10 @@
 # increase to 3.1 once all major distributions
 # include a version of CMake >= 3.1
 cmake_minimum_required(VERSION 2.8.12)
+if (POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Adhere to GNU filesystem layout conventions
 include(GNUInstallDirs)
@@ -19,6 +20,8 @@ option(ENABLE_GLSLANG_BINARIES "Builds glslangValidator and spirv-remap" ON)
 option(ENABLE_NV_EXTENSIONS "Enables support of Nvidia-specific extensions" ON)
 
 option(ENABLE_HLSL "Enables HLSL input support" ON)
+
+option(ENABLE_OPT "Enables spirv-opt capability if present" ON)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND WIN32)
     set(CMAKE_INSTALL_PREFIX "install" CACHE STRING "..." FORCE)
@@ -54,13 +57,16 @@ endif(WIN32)
 
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
     add_compile_options(-Wall -Wmaybe-uninitialized -Wuninitialized -Wunused -Wunused-local-typedefs
-                        -Wunused-parameter -Wunused-value  -Wunused-variable -Wunused-but-set-parameter -Wunused-but-set-variable)
+                        -Wunused-parameter -Wunused-value  -Wunused-variable -Wunused-but-set-parameter -Wunused-but-set-variable -fno-exceptions)
     add_compile_options(-Wno-reorder)  # disable this from -Wall, since it happens all over.
 elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
     add_compile_options(-Wall -Wuninitialized -Wunused -Wunused-local-typedefs
                         -Wunused-parameter -Wunused-value  -Wunused-variable)
     add_compile_options(-Wno-reorder)  # disable this from -Wall, since it happens all over.
     # use bundled libc++ - the variables should passed by the build script
+	string(REPLACE "\\" "/" LIBCXX_INCLUDE "${LIBCXX_INCLUDE}")
+	string(REPLACE "\\" "/" LIBCXX_ABI_INCLUDE "${LIBCXX_ABI_INCLUDE}")
+	string(REPLACE "\\" "/" LIBCXX_LIB_DIR "${LIBCXX_LIB_DIR}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -nostdinc++ -I${LIBCXX_INCLUDE} -I${LIBCXX_ABI_INCLUDE}")
     set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -stdlib=libc++ -L${LIBCXX_LIB_DIR} ${LIBCXX_LIB_DIR}/libc++abi.a")
 endif()
@@ -88,11 +94,22 @@ endfunction(glslang_set_link_args)
 # We depend on these for later projects, so they should come first.
 #add_subdirectory(External)
 
+if(NOT TARGET SPIRV-Tools-opt)
+    set(ENABLE_OPT OFF)
+endif()
+
+if(ENABLE_OPT)
+    message(STATUS "optimizer enabled")
+    add_definitions(-DENABLE_OPT)
+elseif(ENABLE_HLSL)
+    message(STATUS "spirv-tools not linked - illegal SPIRV may be generated for HLSL")
+endif()
+
 add_subdirectory(glslang)
-add_subdirectory(OGLCompilersDLL)
-#if(ENABLE_GLSLANG_BINARIES)
-#    add_subdirectory(StandAlone)
-#endif()
+#add_subdirectory(OGLCompilersDLL)
+if(ENABLE_GLSLANG_BINARIES)
+    #add_subdirectory(StandAlone)
+endif()
 add_subdirectory(SPIRV)
 if(ENABLE_HLSL)
     add_subdirectory(hlsl)

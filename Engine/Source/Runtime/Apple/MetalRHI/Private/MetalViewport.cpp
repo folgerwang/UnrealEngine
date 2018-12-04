@@ -364,7 +364,13 @@ FMetalTexture FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Access
 		}
 	}
 #endif
+	DrawableTextures[Accessor] = CurrentDrawable.texture;
 	return CurrentDrawable.texture;
+}
+
+ns::AutoReleased<FMetalTexture> FMetalViewport::GetCurrentTexture(EMetalViewportAccessFlag Accessor)
+{
+	return DrawableTextures[Accessor];
 }
 
 void FMetalViewport::ReleaseDrawable()
@@ -504,23 +510,45 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 #endif
 						};
 						
+#if WITH_EDITOR			// The Editor needs the older way to present otherwise we end up with bad behaviour of the completion handlers that causes GPU timeouts.
+						if (GIsEditor)
+						{
 #if !PLATFORM_IOS
-						mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&) {
+							mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&)
+							{
 #else
-						mtlpp::CommandBufferHandler H = [LocalDrawable, MinPresentDuration, FramePace](mtlpp::CommandBuffer const&) {
+							mtlpp::CommandBufferHandler H = [LocalDrawable, MinPresentDuration, FramePace](mtlpp::CommandBuffer const&)
+							{
+								if (MinPresentDuration && GEnablePresentPacing)
+								{
+									[LocalDrawable presentAfterMinimumDuration:1.0f/(float)FramePace];
+								}
+								else
+#endif
+								{
+									[LocalDrawable present];
+								};
+							};
+								
+							CurrentCommandBuffer.AddCompletedHandler(C);
+							CurrentCommandBuffer.AddScheduledHandler(H);
+						}
+						else
+#endif
+						{
+							CurrentCommandBuffer.AddCompletedHandler(C);
+#if PLATFORM_IOS
 							if (MinPresentDuration && GEnablePresentPacing)
 							{
-								[LocalDrawable presentAfterMinimumDuration:1.0f/(float)FramePace];
+								CurrentCommandBuffer.PresentAfterMinimumDuration(LocalDrawable, 1.0f/(float)FramePace);
 							}
 							else
 #endif
 							{
-								[LocalDrawable present];
-							};
-						};
+								CurrentCommandBuffer.Present(LocalDrawable);
+							}
+						}
 						
-						CurrentCommandBuffer.AddCompletedHandler(C);
-						CurrentCommandBuffer.AddScheduledHandler(H);
 						
 						METAL_GPUPROFILE(Stats->End(CurrentCommandBuffer));
 						CommandQueue.CommitCommandBuffer(CurrentCommandBuffer);
