@@ -135,6 +135,8 @@ private:
 	int32 MaxNumPackagesBeforePartialGC;
 	/** Max number of concurrent shader jobs reducing this too low will increase cook time */
 	int32 MaxConcurrentShaderJobs;
+	/** Min number of free UObject indices before the cooker should partial gc */
+	int32 MinFreeUObjectIndicesBeforeGC;
 
 	ECookInitializationFlags CookFlags = ECookInitializationFlags::None;
 	TUniquePtr<class FSandboxPlatformFile> SandboxFile;
