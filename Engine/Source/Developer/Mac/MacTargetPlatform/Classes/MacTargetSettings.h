@@ -21,6 +21,9 @@ enum class EMacMetalShaderStandard : uint8
     
     /** Metal Shaders, supporting indirect command buffers, Compatible With macOS 10.14.0 or later (std=osx-metal2.1) */
     MacMetalSLStandard_2_1 = 4 UMETA(DisplayName="Metal v2.1 (10.14.0+)"),
+	
+	/** Metal Shaders, using indirect argument buffers to reduce CPU cost, Compatible With macOS 10.14.0 or later (std=osx-metal2.1) */
+	MacMetalSLStandard_2_1_IABs = 5 UMETA(DisplayName="Metal v2.1 w/Indirect Argument Buffers (10.14.0+)"),
 };
 
 /**

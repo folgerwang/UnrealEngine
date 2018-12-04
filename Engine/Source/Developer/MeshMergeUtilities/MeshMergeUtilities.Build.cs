@@ -17,7 +17,6 @@ public class MeshMergeUtilities : ModuleRules
                 "RHI",
                 "Landscape",
                 "UnrealEd",
-                "ShaderCore",
                 "MaterialUtilities",     
                 "SlateCore",
                 "Slate",

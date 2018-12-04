@@ -641,17 +641,17 @@ void UVectorFieldComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 	Shader for constructing animated vector fields.
 ------------------------------------------------------------------------------*/
 
-BEGIN_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters, )
-	UNIFORM_MEMBER( FVector4, FrameA )
-	UNIFORM_MEMBER( FVector4, FrameB )
-	UNIFORM_MEMBER( FVector, VoxelSize )
-	UNIFORM_MEMBER( float, FrameLerp )
-	UNIFORM_MEMBER( float, NoiseScale )
-	UNIFORM_MEMBER( float, NoiseMax )
-	UNIFORM_MEMBER( uint32, Op )
-END_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters, )
+	SHADER_PARAMETER( FVector4, FrameA )
+	SHADER_PARAMETER( FVector4, FrameB )
+	SHADER_PARAMETER( FVector, VoxelSize )
+	SHADER_PARAMETER( float, FrameLerp )
+	SHADER_PARAMETER( float, NoiseScale )
+	SHADER_PARAMETER( float, NoiseMax )
+	SHADER_PARAMETER( uint32, Op )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FCompositeAnimatedVectorFieldUniformParameters,TEXT("CVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FCompositeAnimatedVectorFieldUniformParameters,"CVF");
 
 typedef TUniformBufferRef<FCompositeAnimatedVectorFieldUniformParameters> FCompositeAnimatedVectorFieldUniformBufferRef;
 

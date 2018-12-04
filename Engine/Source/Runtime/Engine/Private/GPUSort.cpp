@@ -49,15 +49,15 @@ void SetRadixSortShaderCompilerEnvironment( FShaderCompilerEnvironment& OutEnvir
 	Uniform buffer for passing in radix sort parameters.
 ------------------------------------------------------------------------------*/
 
-BEGIN_UNIFORM_BUFFER_STRUCT( FRadixSortParameters, )
-	UNIFORM_MEMBER( uint32, RadixShift )
-	UNIFORM_MEMBER( uint32, TilesPerGroup )
-	UNIFORM_MEMBER( uint32, ExtraTileCount )
-	UNIFORM_MEMBER( uint32, ExtraKeyCount )
-	UNIFORM_MEMBER( uint32, GroupCount )
-END_UNIFORM_BUFFER_STRUCT( FRadixSortParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FRadixSortParameters, )
+	SHADER_PARAMETER( uint32, RadixShift )
+	SHADER_PARAMETER( uint32, TilesPerGroup )
+	SHADER_PARAMETER( uint32, ExtraTileCount )
+	SHADER_PARAMETER( uint32, ExtraKeyCount )
+	SHADER_PARAMETER( uint32, GroupCount )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FRadixSortParameters,TEXT("RadixSortUB"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRadixSortParameters,"RadixSortUB");
 
 typedef TUniformBufferRef<FRadixSortParameters> FRadixSortUniformBufferRef;
 

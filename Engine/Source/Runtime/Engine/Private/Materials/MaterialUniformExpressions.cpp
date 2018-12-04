@@ -227,30 +227,25 @@ void FUniformExpressionSet::SetParameterCollections(const TArray<UMaterialParame
 	}
 }
 
-static FShaderUniformBufferParameter* ConstructMaterialUniformBufferParameter()
-{
-	return nullptr;
-}
-
 
 static FName MaterialLayoutName(TEXT("Material"));
 
 void FUniformExpressionSet::CreateBufferStruct()
 {
 	// Make sure FUniformExpressionSet::CreateDebugLayout() is in sync
-	TArray<FUniformBufferStruct::FMember> Members;
+	TArray<FShaderParametersMetadata::FMember> Members;
 	uint32 NextMemberOffset = 0;
 
 	if (UniformVectorExpressions.Num())
 	{
-		new(Members) FUniformBufferStruct::FMember(TEXT("VectorExpressions"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,UniformVectorExpressions.Num(),NULL);
+		new(Members) FShaderParametersMetadata::FMember(TEXT("VectorExpressions"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,UniformVectorExpressions.Num(),NULL);
 		const uint32 VectorArraySize = UniformVectorExpressions.Num() * sizeof(FVector4);
 		NextMemberOffset += VectorArraySize;
 	}
 
 	if (UniformScalarExpressions.Num())
 	{
-		new(Members) FUniformBufferStruct::FMember(TEXT("ScalarExpressions"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,(UniformScalarExpressions.Num() + 3) / 4,NULL);
+		new(Members) FShaderParametersMetadata::FMember(TEXT("ScalarExpressions"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,(UniformScalarExpressions.Num() + 3) / 4,NULL);
 		const uint32 ScalarArraySize = (UniformScalarExpressions.Num() + 3) / 4 * sizeof(FVector4);
 		NextMemberOffset += ScalarArraySize;
 	}
@@ -287,58 +282,56 @@ void FUniformExpressionSet::CreateBufferStruct()
 	for (int32 i = 0; i < Uniform2DTextureExpressions.Num(); ++i)
 	{
 		check((NextMemberOffset & 0x7) == 0);
-		new(Members) FUniformBufferStruct::FMember(*Texture2DNames[i],TEXT("Texture2D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*Texture2DNames[i],TEXT("Texture2D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
-		new(Members) FUniformBufferStruct::FMember(*Texture2DSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*Texture2DSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
 	}
 
 	for (int32 i = 0; i < UniformCubeTextureExpressions.Num(); ++i)
 	{
 		check((NextMemberOffset & 0x7) == 0);
-		new(Members) FUniformBufferStruct::FMember(*TextureCubeNames[i],TEXT("TextureCube"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*TextureCubeNames[i],TEXT("TextureCube"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
-		new(Members) FUniformBufferStruct::FMember(*TextureCubeSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*TextureCubeSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
 	}
 
 	for (int32 i = 0; i < UniformVolumeTextureExpressions.Num(); ++i)
 	{
 		check((NextMemberOffset & 0x7) == 0);
-		new(Members) FUniformBufferStruct::FMember(*VolumeTextureNames[i],TEXT("Texture3D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*VolumeTextureNames[i],TEXT("Texture3D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
-		new(Members) FUniformBufferStruct::FMember(*VolumeTextureSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+		new(Members) FShaderParametersMetadata::FMember(*VolumeTextureSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 		NextMemberOffset += 8;
 	}
 
 	for (int32 i = 0; i < UniformExternalTextureExpressions.Num(); ++i)
 	{
 		check((NextMemberOffset & 0x7) == 0);
-		new(Members) FUniformBufferStruct::FMember(*ExternalTextureNames[i], TEXT("TextureExternal"), NextMemberOffset, UBMT_TEXTURE, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
+		new(Members) FShaderParametersMetadata::FMember(*ExternalTextureNames[i], TEXT("TextureExternal"), NextMemberOffset, UBMT_TEXTURE, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
 		NextMemberOffset += 8;
-		new(Members) FUniformBufferStruct::FMember(*MediaTextureSamplerNames[i], TEXT("SamplerState"), NextMemberOffset, UBMT_SAMPLER, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
+		new(Members) FShaderParametersMetadata::FMember(*MediaTextureSamplerNames[i], TEXT("SamplerState"), NextMemberOffset, UBMT_SAMPLER, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
 		NextMemberOffset += 8;
 	}
 
-	new(Members) FUniformBufferStruct::FMember(TEXT("Wrap_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+	new(Members) FShaderParametersMetadata::FMember(TEXT("Wrap_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 	NextMemberOffset += 8;
 
-	new(Members) FUniformBufferStruct::FMember(TEXT("Clamp_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
+	new(Members) FShaderParametersMetadata::FMember(TEXT("Clamp_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
 	NextMemberOffset += 8;
 
-	const uint32 StructSize = Align(NextMemberOffset,UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+	const uint32 StructSize = Align(NextMemberOffset, SHADER_PARAMETER_STRUCT_ALIGNMENT);
 	UniformBufferStruct.Emplace(
+		FShaderParametersMetadata::EUseCase::DataDrivenShaderParameterStruct,
 		MaterialLayoutName,
 		TEXT("MaterialUniforms"),
 		TEXT("Material"),
-		ConstructMaterialUniformBufferParameter,
 		StructSize,
-		Members,
-		false
-		);
+		Members);
 }
 
-const FUniformBufferStruct& FUniformExpressionSet::GetUniformBufferStruct() const
+const FShaderParametersMetadata& FUniformExpressionSet::GetUniformBufferStruct() const
 {
 	return UniformBufferStruct.GetValue();
 }
@@ -353,7 +346,7 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 	if (UniformBufferStruct->GetSize() > 0)
 	{
 		FMemMark Mark(FMemStack::Get());
-		void* const TempBuffer = FMemStack::Get().PushBytes(UniformBufferStruct->GetSize(),UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+		void* const TempBuffer = FMemStack::Get().PushBytes(UniformBufferStruct->GetSize(), SHADER_PARAMETER_STRUCT_ALIGNMENT);
 		checkf(TempBuffer, TEXT("Failed to allocate uniform buffer struct of %i bytes."), UniformBufferStruct->GetSize());
 
 		FLinearColor* TempVectorBuffer = (FLinearColor*)TempBuffer;

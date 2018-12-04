@@ -22,11 +22,13 @@ public:
 	~FMetalRenderPass(void);
 	
 #pragma mark -
-    void Begin(mtlpp::Fence Fence);
+	void SetDispatchType(mtlpp::DispatchType Type);
 	
-	void Wait(mtlpp::Fence Fence);
+    void Begin(FMetalFence* Fence, bool const bParallelBegin = false);
+	
+	void Wait(FMetalFence* Fence);
 
-	void Update(mtlpp::Fence Fence);
+	void Update(FMetalFence* Fence);
 	
     void BeginParallelRenderPass(mtlpp::RenderPassDescriptor RenderPass, uint32 NumParallelContextsInPass);
 
@@ -52,7 +54,7 @@ public:
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    mtlpp::Fence EndRenderPass(void);
+    FMetalFence* EndRenderPass(void);
     
     void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
@@ -78,15 +80,17 @@ public:
 	
 	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    mtlpp::Fence Submit(EMetalSubmitFlags SubmissionFlags);
+    FMetalFence* Submit(EMetalSubmitFlags SubmissionFlags);
     
-    mtlpp::Fence End(void);
+    FMetalFence* End(void);
 	
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
 	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	void AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler Scheduled, mtlpp::CommandBufferHandler Completion);
+	
+	void TransitionResources(mtlpp::Resource const& Resource);
 
 #pragma mark - Public Debug Support -
 	
@@ -172,12 +176,15 @@ private:
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
     
-    FMetalFence PassStartFence;
-    FMetalFence CurrentEncoderFence;
-    FMetalFence PrologueEncoderFence;
+    FMetalFence* PassStartFence;
+    FMetalFence* ParallelPassEndFence;
+	FMetalFence* CurrentEncoderFence;
+    FMetalFence* PrologueEncoderFence;
+	FMetalFence* LastPrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     
+	mtlpp::DispatchType ComputeDispatchType;
     uint32 NumOutstandingOps;
     bool bWithinRenderPass;
 };

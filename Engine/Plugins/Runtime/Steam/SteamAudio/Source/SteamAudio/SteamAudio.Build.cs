@@ -27,7 +27,6 @@ namespace UnrealBuildTool.Rules
 					"AudioMixer",
 					"InputCore",
 					"RenderCore",
-					"ShaderCore",
 					"RHI"
 				}
 			);

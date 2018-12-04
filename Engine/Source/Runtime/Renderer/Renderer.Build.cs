@@ -37,7 +37,6 @@ public class Renderer : ModuleRules
 				"RenderCore", 
 				"ImageWriteQueue",
 				"RHI", 
-				"ShaderCore",
 				"UtilityShaders"
             }
             );

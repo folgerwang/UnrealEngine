@@ -355,7 +355,7 @@ EVisibility STextureEditorViewport::HandleExposureBiasWidgetVisibility( ) const
 {
 	UTexture* Texture = ToolkitPtr.Pin()->GetTexture();
 
-	if ((Texture != NULL) && (Texture->CompressionSettings == TC_HDR))
+	if ((Texture != NULL) && (Texture->CompressionSettings == TC_HDR || Texture->CompressionSettings == TC_HDR_Compressed))
 	{
 		return EVisibility::Visible;
 	}

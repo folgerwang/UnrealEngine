@@ -66,32 +66,26 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 	// Create the FCanvas which does the actual rendering.
 	const UWorld* WorldPtr = World.Get();
 	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
-	FCanvas RenderCanvas(GameThread_GetRenderTargetResource(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 
+	FTextureRenderTarget2DResource* TextureRenderTarget = (FTextureRenderTarget2DResource*) GameThread_GetRenderTargetResource();
+
+	FCanvas RenderCanvas(TextureRenderTarget, nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 	Canvas->Init(GetSurfaceWidth(), GetSurfaceHeight(), nullptr, &RenderCanvas);
 
 	// Enqueue the rendering command to set up the rendering canvas.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-	(
-		CanvasRenderTargetMakeCurrentCommand,
-		FTextureRenderTarget2DResource*,
-		TextureRenderTarget,
-		(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
-		bool,
-		bClearRenderTarget,
-		bShouldClearRenderTargetOnReceiveUpdate,
+	bool bClearRenderTarget = bShouldClearRenderTargetOnReceiveUpdate;
+	ENQUEUE_RENDER_COMMAND(CanvasRenderTargetMakeCurrentCommand)(
+		[&TextureRenderTarget, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
+	{
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TextureRenderTarget->GetRenderTargetTexture());
+
+		if (bClearRenderTarget)
 		{
-			RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
-			if (bClearRenderTarget)
-			{
-				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
-			}
-			else
-			{
-				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTexture2DRHIRef(), true);
-			}
+			FRHIRenderPassInfo RPInfo(TextureRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearUCanvas"));
+			RHICmdList.EndRenderPass();
 		}
-	);
+	});
 
 	if (!IsPendingKill() && OnCanvasRenderTargetUpdate.IsBound())
 	{

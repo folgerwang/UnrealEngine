@@ -413,31 +413,28 @@ const FCollectionVectorParameter* UMaterialParameterCollection::GetVectorParamet
 	return nullptr;
 }
 
-FShaderUniformBufferParameter* ConstructCollectionUniformBufferParameter() { return nullptr; }
-
 void UMaterialParameterCollection::CreateBufferStruct()
 {	
-	TArray<FUniformBufferStruct::FMember> Members;
+	TArray<FShaderParametersMetadata::FMember> Members;
 	uint32 NextMemberOffset = 0;
 
 	const uint32 NumVectors = FMath::DivideAndRoundUp(ScalarParameters.Num(), 4) + VectorParameters.Num();
-	new(Members) FUniformBufferStruct::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors, nullptr);
+	new(Members) FShaderParametersMetadata::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors, nullptr);
 	const uint32 VectorArraySize = NumVectors * sizeof(FVector4);
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
-	const uint32 StructSize = Align(NextMemberOffset,UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+	const uint32 StructSize = Align(NextMemberOffset, SHADER_PARAMETER_STRUCT_ALIGNMENT);
 
 	// If Collections ever get non-numeric resources (eg Textures), OutEnvironment.ResourceTableMap has a map by name
 	// and the N ParameterCollection Uniform Buffers ALL are named "MaterialCollection" with different hashes!
 	// (and the hlsl cbuffers are named MaterialCollection0, etc, so the names don't match the layout)
-	UniformBufferStruct = MakeUnique<FUniformBufferStruct>(
+	UniformBufferStruct = MakeUnique<FShaderParametersMetadata>(
+		FShaderParametersMetadata::EUseCase::DataDrivenShaderParameterStruct,
 		LayoutName,
 		TEXT("MaterialCollection"),
 		TEXT("MaterialCollection"),
-		ConstructCollectionUniformBufferParameter,
 		StructSize,
-		Members,
-		false
+		Members
 		);
 }
 

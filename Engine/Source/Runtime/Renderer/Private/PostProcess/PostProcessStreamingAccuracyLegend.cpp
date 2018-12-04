@@ -37,6 +37,7 @@ void FRCPassPostProcessStreamingAccuracyLegend::DrawCheckerBoard(FCanvas& Canvas
 
 void FRCPassPostProcessStreamingAccuracyLegend::DrawCustom(FRenderingCompositePassContext& Context)
 {
+	check(Context.RHICmdList.IsOutsideRenderPass());
 	if (Colors.Num() != NumStreamingAccuracyColors) return;
 
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessStreamingAccuracyLegend);

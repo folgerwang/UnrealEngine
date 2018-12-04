@@ -26,6 +26,7 @@
 #include "GlobalDistanceField.h"
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
+#include "VisualizeTexture.h"
 
 int32 GAOUseJitter = 1;
 FAutoConsoleVariableRef CVarAOUseJitter(
@@ -558,7 +559,7 @@ void FDeferredShadingSceneRenderer::RenderDistanceFieldAOScreenGrid(
 	}
 	ScreenGridResources->AcquireTransientResource();
 
-	SetRenderTarget(RHICmdList, NULL, NULL);
+	UnbindRenderTargets(RHICmdList);
 
 	if (bUseGlobalDistanceField)
 	{
@@ -695,7 +696,7 @@ void FDeferredShadingSceneRenderer::RenderDistanceFieldAOScreenGrid(
 		ScreenGridResources->DiscardTransientResource();
 	}
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, DownsampledBentNormal);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, DownsampledBentNormal);
 
 	PostProcessBentNormalAOScreenGrid(
 		RHICmdList, 

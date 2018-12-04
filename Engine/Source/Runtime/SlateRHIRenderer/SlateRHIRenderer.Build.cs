@@ -18,7 +18,6 @@ public class SlateRHIRenderer : ModuleRules
                 "Engine",
                 "RHI",
                 "RenderCore",
-				"ShaderCore",
 				"Renderer",
                 "ImageWrapper"
 			}

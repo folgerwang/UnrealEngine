@@ -270,30 +270,32 @@ void FAvfMediaVideoSampler::Tick()
 				TShaderMapRef<FMediaShadersVS> VertexShader(ShaderMap);
 				TShaderMapRef<FYCbCrConvertPS> PixelShader(ShaderMap);
 				
-				SetRenderTarget(RHICmdList, ShaderResource, nullptr, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop);
-				
-				FGraphicsPipelineStateInitializer GraphicsPSOInit;
-				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-				
-				GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
-				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-				
-				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMediaVertexDeclaration.VertexDeclarationRHI;
-				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-				GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
-				
-				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-				
-				PixelShader->SetParameters(RHICmdList, YTex, UVTex, MediaShaders::YuvToSrgbPs4, true);
-				
-				FVertexBufferRHIRef VertexBuffer = CreateTempMediaVertexBuffer();
-				RHICmdList.SetStreamSource(0, VertexBuffer, 0);
-				RHICmdList.SetViewport(0, 0, 0.0f, YWidth, YHeight, 1.0f);
+				FRHIRenderPassInfo RPInfo(ShaderResource, ERenderTargetActions::Load_Store);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("AvfMediaSampler"));
+				{
+					FGraphicsPipelineStateInitializer GraphicsPSOInit;
+					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-				RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
-				
+					GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
+					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMediaVertexDeclaration.VertexDeclarationRHI;
+					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+					GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+					PixelShader->SetParameters(RHICmdList, YTex, UVTex, MediaShaders::YuvToSrgbPs4, true);
+
+					FVertexBufferRHIRef VertexBuffer = CreateTempMediaVertexBuffer();
+					RHICmdList.SetStreamSource(0, VertexBuffer, 0);
+					RHICmdList.SetViewport(0, 0, 0.0f, YWidth, YHeight, 1.0f);
+
+					RHICmdList.DrawPrimitive(0, 2, 1);
+				}
+				RHICmdList.EndRenderPass();
 				RHICmdList.CopyToResolveTarget(ShaderResource, ShaderResource, FResolveParams());
 			}
 			

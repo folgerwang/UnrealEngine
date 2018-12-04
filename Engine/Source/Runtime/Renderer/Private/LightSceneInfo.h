@@ -69,7 +69,7 @@ struct FSortedLightSceneInfo
 		struct
 		{
 			// Note: the order of these members controls the light sort order!
-			// Currently bUsesLightingChannels is the MSB and LightType is LSB
+			// Currently bTiledDeferredNotSupported is the MSB and LightType is LSB
 			/** The type of light. */
 			uint32 LightType : LightType_NumBits;
 			/** Whether the light has a texture profile. */
@@ -80,6 +80,8 @@ struct FSortedLightSceneInfo
 			uint32 bShadowed : 1;
 			/** Whether the light uses lighting channels. */
 			uint32 bUsesLightingChannels : 1;
+			/** True if the light doesn't support tiled deferred, logic is inverted so that lights that DO support tiled deferred will sort first in list */
+			uint32 bTiledDeferredNotSupported : 1;
 		} Fields;
 		/** Sort key bits packed into an integer. */
 		int32 Packed;

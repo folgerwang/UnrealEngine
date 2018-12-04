@@ -3960,7 +3960,7 @@ void FSkeletalMeshSceneProxy::DebugDrawSkeleton(int32 ViewIndex, FMeshElementCol
 	{
 		FRandomStream Stream((int32)InUID);
 		const uint8 Hue = (uint8)(Stream.FRand()*255.f);
-		return FLinearColor::FGetHSV(Hue, 0, 255);
+		return FLinearColor::MakeFromHSV8(Hue, 0, 255);
 	};
 
 	FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);

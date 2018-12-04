@@ -107,7 +107,7 @@ static const ANSICHAR* GDeviceExtensions[] =
 #if VULKAN_SUPPORTS_VALIDATION_CACHE
 	VK_EXT_VALIDATION_CACHE_EXTENSION_NAME,
 #endif
-	VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,
+	//VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,
 	nullptr
 };
 
@@ -669,7 +669,7 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 #if VULKAN_SUPPORTS_MAINTENANCE_LAYER2
 	OptionalDeviceExtensions.HasKHRMaintenance2 = HasExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
 #endif
-	OptionalDeviceExtensions.HasMirrorClampToEdge = HasExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+	//OptionalDeviceExtensions.HasMirrorClampToEdge = HasExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 
 #if VULKAN_SUPPORTS_DEDICATED_ALLOCATION
 	OptionalDeviceExtensions.HasKHRDedicatedAllocation = HasExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME) && HasExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
@@ -684,13 +684,27 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 	OptionalDeviceExtensions.HasEXTValidationCache = HasExtension(VK_EXT_VALIDATION_CACHE_EXTENSION_NAME);
 #endif
 
+	bool bHasAnyCrashExtension = false;
 #if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-	OptionalDeviceExtensions.HasAMDBufferMarker = HasExtension(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+	if (GGPUCrashDebuggingEnabled)
+	{
+		OptionalDeviceExtensions.HasAMDBufferMarker = HasExtension(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+		bHasAnyCrashExtension = bHasAnyCrashExtension || !OptionalDeviceExtensions.HasAMDBufferMarker;
+	}
 #endif
 
 #if VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT
-	OptionalDeviceExtensions.HasNVDiagnosticCheckpoints = HasExtension(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+	if (GGPUCrashDebuggingEnabled)
+	{
+		OptionalDeviceExtensions.HasNVDiagnosticCheckpoints = HasExtension(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+		bHasAnyCrashExtension = bHasAnyCrashExtension || !OptionalDeviceExtensions.HasNVDiagnosticCheckpoints;
+	}
 #endif
+
+	if (GGPUCrashDebuggingEnabled && !bHasAnyCrashExtension)
+	{
+		UE_LOG(LogVulkanRHI, Warning, TEXT("Tried to enable GPU crash debugging but no extension found!"));
+	}
 
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
 	OptionalDeviceExtensions.HasGoogleDisplayTiming = HasExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);

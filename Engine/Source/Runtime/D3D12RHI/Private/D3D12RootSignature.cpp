@@ -456,13 +456,14 @@ void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& 
 	}
 }
 
-FD3D12RootSignatureManager::~FD3D12RootSignatureManager()
+void FD3D12RootSignatureManager::Destroy()
 {
 	for (auto Iter = RootSignatureMap.CreateIterator(); Iter; ++Iter)
 	{
 		FD3D12RootSignature* pRootSignature = Iter.Value();
 		delete pRootSignature;
 	}
+	RootSignatureMap.Reset();
 }
 
 FD3D12RootSignature* FD3D12RootSignatureManager::GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS)

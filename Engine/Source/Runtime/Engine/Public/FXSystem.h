@@ -202,7 +202,7 @@ public:
 	virtual void PostRenderOpaque(
 		FRHICommandListImmediate& RHICmdList, 
 		const FUniformBufferRHIParamRef ViewUniformBuffer, 
-		const class FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const class FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) = 0;
 
 	/**

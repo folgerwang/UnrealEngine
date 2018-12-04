@@ -40,7 +40,6 @@ public class MovieSceneCapture : ModuleRules
                 "MovieSceneTracks",
                 "RenderCore",
 				"RHI",
-				"ShaderCore",
 				"Slate",
 				"SlateCore",
 				"AudioMixer"

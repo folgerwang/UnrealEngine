@@ -1,24 +1,17 @@
 * Intermediate.h Add #define ENABLE_HLSL 1
-* check() doesn't work as it's on a header that ends up used in the Engine which conflicts with our macro check(), rename to Check()
 * Intermediate.cpp, Relaxed promotions for mobile profiles:
 	bool TIntermediate::canImplicitlyPromote(TBasicType from, TBasicType to) const
 	{
 		//#Epic - Allow more conversions
 		//if (profile == EEsProfile || version == 110)
 		//    return false;
-* reflection.h, missing method on TObjectReflection
-//#Epic - Expose missing functionality
-	int getBinding() const {
-        if (type == nullptr || type->getQualifier().layoutBinding == TQualifier::layoutBindingEnd)
-            return -1;
-        return type->getQualifier().layoutBinding;
-    }
-* ShaderLang.h/cpp, missing method on TProgram
-	//#Epic - Expose missing functionality
-	int getUniformBinding(int index) const;
-
-	//#Epic - Expose missing functionality
-	int TProgram::getUniformBinding(int index) const
-	{
-		return reflection->getUniform(index).getBinding();
-	}
+* PoolAlloc.h/.cpp check() doesn't work as it's on a header that ends up used in the Engine which conflicts with our macro check(), rename to Check()
+* StandAlone.cpp Add #define ENABLE_OPT 0
+* CMakeLists.txt:
+	Add to the top of the file
+		set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+	Comment out on some add_subdirectories()
+	Add to elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"):
+			# use bundled libc++ - the variables should passed by the build script
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -nostdinc++ -I${LIBCXX_INCLUDE} -I${LIBCXX_ABI_INCLUDE}")
+			set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -stdlib=libc++ -L${LIBCXX_LIB_DIR} ${LIBCXX_LIB_DIR}/libc++abi.a")
