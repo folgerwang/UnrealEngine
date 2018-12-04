@@ -1256,6 +1256,15 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 		// negative stringlen means it's a wide string
 		if (StringLen < 0)
 		{
+			// If StringLen cannot be negated due to integer overflow, Ar is corrupted.
+			if (StringLen == MIN_int32)
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("Archive is corrupted"));
+				return Ar;
+			}
+
 			StringLen = -StringLen;
 
 			// mark the name will be wide
