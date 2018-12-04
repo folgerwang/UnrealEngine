@@ -83,7 +83,6 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		const int32 BaseReduceLodIndex = 0;
 		float MaxDeviation = 0.0f;
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
 		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
@@ -92,6 +91,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];
 		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
 
+		const int32 BaseReduceLodIndex = ReductionSettings.BaseLODModel;
 		// Use simplifier if a reduction in triangles or verts has been requested.
 
 		const bool bVertTermination = (!bIsThirdPartyReductiontool) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles);
@@ -150,7 +150,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		//Reduce LODs
 		if (bUseReduction)
 		{
-			const int32 BaseLodIndex = 0;
+			const int32 BaseLodIndex = ReductionSettings.BaseLODModel;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			FOverlappingCorners OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseLodIndex], OverlappingThreshold);

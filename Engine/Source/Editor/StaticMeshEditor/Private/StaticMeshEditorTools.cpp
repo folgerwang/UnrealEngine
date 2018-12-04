@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditorTools.h"
 #include "Framework/Commands/UIAction.h"
@@ -26,6 +26,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxMeshUtils.h"
 #include "Widgets/Input/SVectorInputBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "SPerPlatformPropertiesWidget.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -1011,8 +1012,9 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 	OnDistanceFieldResolutionScaleChanged(NewValue);
 }
 
-FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
+FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex)
 	: ParentLODSettings( InParentLODSettings )
+	, CurrentLODIndex( InCurrentLODIndex )
 {
 
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
@@ -1319,6 +1321,31 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 		}
 	}
+
+	//Base LOD
+	{
+		ChildrenBuilder.AddCustomRow( LOCTEXT("BaseLOD", "Base LOD") )
+			.NameContent()
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("BaseLOD", "Base LOD"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+			.ValueContent()
+			.HAlign(HAlign_Left)
+			[
+				SNew(SNumericEntryBox<int32>)
+				.AllowSpin(true)
+				.MinSliderValue(0)
+				.MaxSliderValue(CurrentLODIndex)
+				.MinValue(0)
+				.MaxValue(CurrentLODIndex)
+				.Value(this, &FMeshReductionSettingsLayout::GetBaseLODIndex)
+				.OnValueChanged(this, &FMeshReductionSettingsLayout::SetBaseLODIndex)
+			];
+	}
+
 	{
 		ChildrenBuilder.AddCustomRow( LOCTEXT("ApplyChanges", "Apply Changes") )
 			.ValueContent()
@@ -1551,6 +1578,19 @@ void FMeshReductionSettingsLayout::OnTerminationCriterionChanged(TSharedPtr<FStr
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("TerminationCriterion"), *NewValue.Get());
 		}
 		ReductionSettings.TerminationCriterion = TerminationCriterion;
+	}
+}
+
+TOptional<int32> FMeshReductionSettingsLayout::GetBaseLODIndex() const
+{
+	return ReductionSettings.BaseLODModel;
+}
+
+void FMeshReductionSettingsLayout::SetBaseLODIndex(int32 NewLODBaseIndex)
+{
+	if (NewLODBaseIndex <= CurrentLODIndex)
+	{
+		ReductionSettings.BaseLODModel = NewLODBaseIndex;
 	}
 }
 
@@ -3178,7 +3218,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared() ) );
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex) );
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())

@@ -215,7 +215,7 @@ private:
 class FMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshReductionSettingsLayout>
 {
 public:
-	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings );
+	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex);
 	virtual ~FMeshReductionSettingsLayout();
 
 	const FMeshReductionSettings& GetSettings() const;
@@ -282,9 +282,13 @@ private:
 	EVisibility GetTriangleCriterionVisibility() const;
 	EVisibility GetVertexCriterionVisibility() const;
 
+	TOptional<int32> GetBaseLODIndex() const;
+	void SetBaseLODIndex(int32 NewLODBaseIndex);
+
 private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
 	FMeshReductionSettings ReductionSettings;
+	int32 CurrentLODIndex;
 
 	// Used by simplygon
 	TArray<TSharedPtr<FString> > ImportanceOptions;
