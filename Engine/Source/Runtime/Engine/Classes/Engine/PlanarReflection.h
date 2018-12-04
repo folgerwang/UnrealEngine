@@ -33,7 +33,7 @@ public:
 	UPROPERTY()
 	bool bShowPreviewPlane_DEPRECATED;
 
-	virtual void PostLoad() override;
+	ENGINE_API virtual void PostLoad() override;
 
 	//~ Begin AActor Interface
 #if WITH_EDITOR
