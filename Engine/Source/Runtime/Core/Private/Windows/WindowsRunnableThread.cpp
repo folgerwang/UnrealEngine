@@ -8,6 +8,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogThreadingWindows, Log, All);
 
+#if !PLATFORM_XBOXONE		
 void FRunnableThreadWin::SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDescription)
 {
 	// SetThreadDescription is only available from Windows 10 version 1607 / Windows Server 2016
@@ -27,7 +28,7 @@ void FRunnableThreadWin::SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDes
 		RealSetThreadDescription(hThread, lpThreadDescription);
 	}
 }
-
+#endif
 
 uint32 FRunnableThreadWin::GuardedRun()
 {

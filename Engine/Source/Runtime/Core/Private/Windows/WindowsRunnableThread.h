@@ -66,7 +66,9 @@ class FRunnableThreadWin
 #endif
 	}
 
+#if !PLATFORM_XBOXONE		
 	static void SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDescription);
+#endif
 
 	/**
 	 * The thread entry point. Simply forwards the call on to the right
