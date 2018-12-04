@@ -295,7 +295,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<Device>
+	class MTLPP_EXPORT Validator<Device>
 	{
 		public:
 		Validator(Device& Val, bool bEnable)
