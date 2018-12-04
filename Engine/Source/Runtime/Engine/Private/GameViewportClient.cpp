@@ -753,8 +753,11 @@ void UGameViewportClient::MouseLeave(FViewport* InViewport)
 			InViewport->GetMousePos(LastViewportCursorPos, false);
 
 #if PLATFORM_DESKTOP || PLATFORM_HTML5
-			FVector2D CursorPos(LastViewportCursorPos.X, LastViewportCursorPos.Y);
-			FSlateApplication::Get().SetGameIsFakingTouchEvents(false, &CursorPos);
+			if (!GetGameViewportWidget()->HasFocusedDescendants())
+			{
+				FVector2D CursorPos(LastViewportCursorPos.X, LastViewportCursorPos.Y);
+				FSlateApplication::Get().SetGameIsFakingTouchEvents(false, &CursorPos);
+			}
 #endif
 		}
 	}
