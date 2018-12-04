@@ -23,7 +23,6 @@ public class EyeTracker : ModuleRules
 // 				"SlateCore",
 //                 "RHI",
 //                 "Renderer",
-//                 "ShaderCore",
 //                 "RenderCore",
 //                 "UtilityShaders",
 //                 "Analytics"

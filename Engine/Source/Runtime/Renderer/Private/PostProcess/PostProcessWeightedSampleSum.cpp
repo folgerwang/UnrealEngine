@@ -998,7 +998,8 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		DestRect = {Context.SceneColorViewRect.Min, Context.SceneColorViewRect.Min + DestSize};
 
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpasses remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 
 		static FName AsyncEndFenceName(TEXT("AsyncWeightedSampleSumEndFence"));
@@ -1037,44 +1038,45 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		bool bRequiresClear = true;
 		// check if we have to clear the whole surface.
 		// Otherwise perform the clear when the dest rectangle has been computed.
+		ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
 		if (FeatureLevel == ERHIFeatureLevel::ES2 || FeatureLevel == ERHIFeatureLevel::ES3_1)
 		{
 			bRequiresClear = false;
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+			LoadAction = ERenderTargetLoadAction::EClear;
 		}
-		else
+
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("WeightedSampleSum"));
 		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);
+			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+			FIntRect SrcRect = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, SrcScaleFactor);
+			if (bRequiresClear)
+			{
+				DrawClear(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize);
+			}
+
+			FShader* VertexShader = nullptr;
+			SetFilterShaders(
+				Context.RHICmdList,
+				FeatureLevel,
+				TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Clamp>::GetRHI(),
+				FilterTexture,
+				AdditiveTexture,
+				CombineMethodInt,
+				BlurOffsets,
+				BlurWeights,
+				NumSamples,
+				&VertexShader,
+				SrcRect,
+				SrcSize,
+				AdditiveSrcRect,
+				AdditiveSrcSize
+			);
+
+			DrawQuad(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize, SrcSize, VertexShader);
 		}
-
-		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
-
-		FIntRect SrcRect = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, SrcScaleFactor);
-		if (bRequiresClear)
-		{
-			DrawClear(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize);
-		}
-
-		FShader* VertexShader = nullptr;
-		SetFilterShaders(
-			Context.RHICmdList,
-			FeatureLevel,
-			TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Clamp>::GetRHI(),
-			FilterTexture,
-			AdditiveTexture,
-			CombineMethodInt,
-			BlurOffsets,
-			BlurWeights,
-			NumSamples,
-			&VertexShader,
-			SrcRect,
-			SrcSize,
-			AdditiveSrcRect,
-			AdditiveSrcSize
-		);
-
-		DrawQuad(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize, SrcSize, VertexShader);
-
+		Context.RHICmdList.EndRenderPass();
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }

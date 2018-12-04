@@ -40,6 +40,9 @@ extern SHADERCOMPILERCOMMON_API void BuildResourceTableTokenStream(
 // Finds the number of used uniform buffers in a resource map
 extern SHADERCOMPILERCOMMON_API int16 GetNumUniformBuffersUsed(const FShaderCompilerResourceTable& InSRT);
 
+/** Moves all the shader parameter defined in the root scope of the shader into the root uniform buffer. */
+extern SHADERCOMPILERCOMMON_API void MoveShaderParametersToRootConstantBuffer(const FShaderCompilerInput& CompilerInput, FString& PreprocessedShaderSource);
+
 // The cross compiler doesn't yet support struct initializers needed to construct static structs for uniform buffers
 // Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
 extern SHADERCOMPILERCOMMON_API void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environment, FString& PreprocessedShaderSource);

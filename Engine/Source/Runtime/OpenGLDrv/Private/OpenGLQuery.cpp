@@ -558,9 +558,9 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 				if (IsRunningRHIInDedicatedThread())
 				{
 					// send a command that will wait, so if the RHIT runs out of work, it just blocks and waits for the GPU
-					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
+					ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
 					FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
-					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI); });
+					ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GBatcher.Flush(*this, QueryRHI); });
 					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 					while (!Done->IsComplete())
 					{
@@ -578,9 +578,9 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 				}
 				else
 				{
-					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
+					ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
 					FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
-					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI); });
+					ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GBatcher.Flush(*this, QueryRHI); });
 					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 					FRHICommandListExecutor::WaitOnRHIThreadFence(Done);
 				}
@@ -588,7 +588,7 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 			}
 			else
 			{
-				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), false); GBatcher.Flush(*this, QueryRHI);  });
+				ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), false); GBatcher.Flush(*this, QueryRHI);  });
 			}
 		}	
 	}
@@ -633,7 +633,7 @@ FOpenGLRenderQuery::FOpenGLRenderQuery(ERenderQueryType InQueryType)
 	else
 	{
 		CreationFence.Reset();
-		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {AcquireResource(); CreationFence.WriteAssertFence(); });
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {AcquireResource(); CreationFence.WriteAssertFence(); });
 		CreationFence.SetRHIThreadFence();
 	}
 }
@@ -657,7 +657,7 @@ FOpenGLRenderQuery::~FOpenGLRenderQuery()
 		else
 		{
 			CreationFence.WaitFence();
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([Resource = Resource, ResourceContext = ResourceContext]() {VERIFY_GL_SCOPE(); ReleaseResource(Resource, ResourceContext); });
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([Resource = Resource, ResourceContext = ResourceContext]() {VERIFY_GL_SCOPE(); ReleaseResource(Resource, ResourceContext); });
 		}
 	}
 }

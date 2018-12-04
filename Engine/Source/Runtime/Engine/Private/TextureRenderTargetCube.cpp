@@ -298,22 +298,18 @@ void FTextureRenderTargetCubeResource::UpdateDeferredResource(FRHICommandListImm
 	const FIntPoint Dims = GetSizeXY();
 	for(int32 FaceIdx = CubeFace_PosX; FaceIdx < CubeFace_MAX; FaceIdx++)
 	{
+		ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
 		// clear each face of the cube target texture to ClearColor
 		if (bClearRenderTarget)
 		{
-			TransitionSetRenderTargetsHelper(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
-
-			FRHIRenderTargetView RtView = FRHIRenderTargetView(RenderTargetTextureRHI, ERenderTargetLoadAction::EClear);
-			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
+			LoadAction = ERenderTargetLoadAction::EClear;
 		}
-		else
-		{
-			SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), true);
-			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
-		}
-
+		
+		FRHIRenderPassInfo RPInfo(RenderTargetTextureRHI, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+		TransitionRenderPassTargets(RHICmdList, RPInfo);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("UpdateTargetCube"));
+		RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
+		RHICmdList.EndRenderPass();
 		// copy surface to the texture for use
 		FResolveParams ResolveParams;
 		ResolveParams.CubeFace = (ECubeFace)FaceIdx;

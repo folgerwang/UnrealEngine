@@ -1687,7 +1687,6 @@ void FSceneViewport::BeginRenderFrame(FRHICommandListImmediate& RHICmdList)
 	if (UseSeparateRenderTarget())
 	{		
 		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RenderTargetTextureRenderThreadRHI);
-		SetRenderTarget(RHICmdList,  RenderTargetTextureRenderThreadRHI,  FTexture2DRHIRef(), true);
 	}
 	else if( IsValidRef( ViewportRHI ) ) 
 	{
@@ -1714,7 +1713,7 @@ void FSceneViewport::EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool b
 		if (bShouldUnsetTargets)
 		{
 			// Set the active render target(s) to nothing to release references in the case that the viewport is resized by slate before we draw again
-			SetRenderTarget(RHICmdList,  FTexture2DRHIRef(), FTexture2DRHIRef() );
+			UnbindRenderTargets(RHICmdList);
 		}
 		// Note: this releases our reference but does not release the resource as it is owned by slate (this is intended)
 		RenderTargetTextureRenderThreadRHI.SafeRelease();

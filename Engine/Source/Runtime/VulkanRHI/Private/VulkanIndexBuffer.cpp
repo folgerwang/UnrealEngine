@@ -315,7 +315,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 			else
 			{
 				check(IsInRenderingThread());
-				new (RHICmdList.AllocCommand<FRHICommandMultiBufferUnlock>()) FRHICommandMultiBufferUnlock(Device, PendingLock, this, DynamicBufferIndex);
+				ALLOC_COMMAND_CL(RHICmdList, FRHICommandMultiBufferUnlock)(Device, PendingLock, this, DynamicBufferIndex);
 			}
 		}
 		else

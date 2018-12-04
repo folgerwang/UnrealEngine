@@ -38,7 +38,6 @@ public class TextureEditor : ModuleRules
                 "InputCore",
 				"Engine",
 				"RenderCore",
-				"ShaderCore",
 				"RHI",
 				"Slate",
 				"SlateCore",

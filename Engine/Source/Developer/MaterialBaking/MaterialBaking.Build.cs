@@ -14,7 +14,6 @@ public class MaterialBaking : ModuleRules
 				"RenderCore",
                 "RHI",                
                 "UnrealEd",
-                "ShaderCore",
                 "MainFrame",
                 "SlateCore",
                 "Slate",

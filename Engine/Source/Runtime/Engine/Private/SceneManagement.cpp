@@ -101,7 +101,9 @@ void FSimpleElementCollector::DrawSprite(
 	uint8 BlendMode
 	)
 {
-	BatchedElements.AddSprite(
+	FBatchedElements& Elements = DepthPriorityGroup == SDPG_World ? BatchedElements : TopBatchedElements;
+
+	Elements.AddSprite(
 		Position,
 		SizeX,
 		SizeY,
@@ -126,7 +128,9 @@ void FSimpleElementCollector::DrawLine(
 	bool bScreenSpace/* = false*/
 	)
 {
-	BatchedElements.AddLine(
+	FBatchedElements& Elements = DepthPriorityGroup == SDPG_World ? BatchedElements : TopBatchedElements;
+
+	Elements.AddLine(
 		Start,
 		End,
 		Color,
@@ -144,7 +148,9 @@ void FSimpleElementCollector::DrawPoint(
 	uint8 DepthPriorityGroup
 	)
 {
-	BatchedElements.AddPoint(
+	FBatchedElements& Elements = DepthPriorityGroup == SDPG_World ? BatchedElements : TopBatchedElements;
+
+	Elements.AddPoint(
 		Position,
 		PointSize,
 		Color,
@@ -161,13 +167,15 @@ void FSimpleElementCollector::RegisterDynamicResource(FDynamicPrimitiveResource*
 	DynamicResource->InitPrimitiveResource();
 }
 
-void FSimpleElementCollector::DrawBatchedElements(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter) const
+void FSimpleElementCollector::DrawBatchedElements(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter, ESceneDepthPriorityGroup DepthPriorityGroup) const
 {
 	// Mobile HDR does not execute post process, so does not need to render flipped
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(InView.GetShaderPlatform()) && !bIsMobileHDR;
 
+	const FBatchedElements& Elements = DepthPriorityGroup == SDPG_World ? BatchedElements : TopBatchedElements;
+
 	// Draw the batched elements.
-	BatchedElements.Draw(
+	Elements.Draw(
 		RHICmdList,
 		DrawRenderState,
 		InView.GetFeatureLevel(),

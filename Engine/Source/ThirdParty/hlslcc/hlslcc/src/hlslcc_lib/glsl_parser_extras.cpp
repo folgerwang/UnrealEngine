@@ -1051,9 +1051,9 @@ bool do_optimization_pass(exec_list *ir, _mesa_glsl_parse_state * state, bool bP
 	bool progress = false;
 
 	progress = lower_instructions(ir, SUB_TO_ADD_NEG) || progress;
+	progress = do_structure_splitting(ir, state) || progress;
 	progress = do_function_inlining(ir) || progress;
 	progress = do_dead_functions(ir) || progress;
-	progress = do_structure_splitting(ir, state) || progress;
 	progress = do_if_simplification(ir) || progress;
 	progress = do_discard_simplification(ir) || progress;
 	progress = do_copy_propagation(ir, state->conservative_propagation) || progress;

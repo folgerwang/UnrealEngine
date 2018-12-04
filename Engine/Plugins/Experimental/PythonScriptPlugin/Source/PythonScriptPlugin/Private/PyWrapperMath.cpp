@@ -1540,7 +1540,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 				return nullptr;
 			}
 
-			FPyWrapperLinearColor::GetTypedStruct(InSelf) = FLinearColor::FGetHSV(H, S, V);
+			FPyWrapperLinearColor::GetTypedStruct(InSelf) = FLinearColor::MakeFromHSV8(H, S, V);
 			Py_RETURN_NONE;
 		}
 

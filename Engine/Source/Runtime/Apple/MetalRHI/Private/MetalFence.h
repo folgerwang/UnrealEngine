@@ -63,16 +63,18 @@
 
 class FMetalFence
 {
+	enum
+	{
+		NumFenceStages = 2
+	};
 public:
 	FMetalFence()
 	{
-		
-	}
-	
-	explicit FMetalFence(mtlpp::Fence Obj)
-	: Object(Obj)
-	{
-		
+		for (uint32 i = 0; i < NumFenceStages; i++)
+		{
+			Writes[i] = 0;
+			Waits[i] = 0;
+		}
 	}
 	
 	explicit FMetalFence(FMetalFence const& Other)
@@ -82,37 +84,18 @@ public:
 	
 	~FMetalFence()
 	{
-		SafeReleaseMetalFence(Object);
 	}
 	
 	FMetalFence& operator=(FMetalFence const& Other)
 	{
 		if (&Other != this)
 		{
-			operator=(Other.Object);
+			for (uint32 i = 0; i < NumFenceStages; i++)
+			{
+				Fences[i] = Other.Fences[i];
+			}
 		}
 		return *this;
-	}
-	
-	FMetalFence& operator=(mtlpp::Fence const& Other)
-	{
-		if (Other.GetPtr() != Object.GetPtr())
-		{
-			METAL_DEBUG_OPTION(Validate());
-			SafeReleaseMetalFence(Object);
-			Object = Other;
-		}
-		return *this;
-	}
-	
-	operator mtlpp::Fence() const
-	{
-		return Object;
-	}
-	
-	mtlpp::Fence operator*() const
-	{
-		return Object;
 	}
 	
 #if METAL_DEBUG_OPTIONS
@@ -121,14 +104,88 @@ public:
 	
 	void Reset(void)
 	{
-		Object = nil;
+		for (uint32 i = 0; i < NumFenceStages; i++)
+		{
+			Writes[i] = 0;
+			Waits[i] = 0;
+		}
 	}
 	
-	bool IsValid() const
+	void Write(mtlpp::RenderStages Stage)
 	{
-		return Object.GetPtr() != nil;
+		Writes[(uint32)Stage - 1u]++;
 	}
+	
+	void Wait(mtlpp::RenderStages Stage)
+	{
+		Waits[(uint32)Stage - 1u]++;
+	}
+	
+	int8 NumWrites(mtlpp::RenderStages Stage) const
+	{
+		return Writes[(uint32)Stage - 1u];
+	}
+	
+	int8 NumWaits(mtlpp::RenderStages Stage) const
+	{
+		return Waits[(uint32)Stage - 1u];
+	}
+	
+	bool NeedsWrite(mtlpp::RenderStages Stage) const
+	{
+		return Writes[(uint32)Stage - 1u] == 0 || (Waits[(uint32)Stage - 1u] > Writes[(uint32)Stage - 1u]);
+	}
+	
+	bool NeedsWait(mtlpp::RenderStages Stage) const
+	{
+		return Waits[(uint32)Stage - 1u] == 0 || (Writes[(uint32)Stage - 1u] > Waits[(uint32)Stage - 1u]);
+	}
+	
+	mtlpp::Fence Get(mtlpp::RenderStages Stage) const
+	{
+		return Fences[(uint32)Stage - 1u];
+	}
+	
+	void Set(mtlpp::RenderStages Stage, mtlpp::Fence Fence)
+	{
+		Fences[(uint32)Stage - 1u] = Fence;
+	}
+	
+	static void ValidateUsage(FMetalFence* Fence);
 	
 private:
-	mtlpp::Fence Object;
+	mtlpp::Fence Fences[NumFenceStages];
+	int8 Writes[NumFenceStages];
+	int8 Waits[NumFenceStages];
+};
+
+class FMetalFencePool
+{
+	enum
+	{
+		NumFences = 2048
+	};
+public:
+	FMetalFencePool() {}
+	
+	static FMetalFencePool& Get()
+	{
+		return sSelf;
+	}
+	
+	void Initialise(mtlpp::Device const& InDevice);
+	
+	FMetalFence* AllocateFence();
+	void ReleaseFence(FMetalFence* const InFence);
+	
+private:
+	int32 Count;
+	mtlpp::Device Device;
+#if METAL_DEBUG_OPTIONS
+	TSet<FMetalFence*> Fences;
+	FCriticalSection Mutex;
+    int32 Allocated;
+#endif
+	TLockFreePointerListLIFO<FMetalFence> Lifo;
+	static FMetalFencePool sSelf;
 };

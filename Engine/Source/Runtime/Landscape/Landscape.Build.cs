@@ -30,7 +30,6 @@ public class Landscape : ModuleRules
 				"Engine",
 				"RenderCore", 
 				"RHI",
-				"ShaderCore",
 				"Renderer",
 				"Foliage",
 			}

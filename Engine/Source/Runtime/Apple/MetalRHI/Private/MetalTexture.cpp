@@ -10,6 +10,7 @@
 #include "RenderUtils.h"
 #include "Containers/ResourceArray.h"
 #include "Misc/ScopeRWLock.h"
+#include "MetalLLM.h"
 
 volatile int64 FMetalSurface::ActiveUploads = 0;
 
@@ -20,21 +21,6 @@ FAutoConsoleVariableRef CVarMetalMaxOutstandingAsyncTexUploads(
 															   TEXT("The maximum number of outstanding asynchronous texture uploads allowed to be pending in Metal. After the limit is reached the next upload will wait for all outstanding operations to complete and purge the waiting free-lists in order to reduce peak memory consumption. Defaults to 0 (infinite), set to a value > 0 limit the number."),
 															   ECVF_ReadOnly|ECVF_RenderThreadSafe
 															   );
-
-enum EMetalTextureCacheMode
-{
-	EMetalTextureCacheModeOff = 0,
-	EMetalTextureCacheModeInFrame = 1,
-	EMetalTextureCacheModeAlways = 2
-};
-
-int32 GMetalTextureCacheMode = 0;
-FAutoConsoleVariableRef CVarMetalTextureCacheMode(
-												  TEXT("rhi.Metal.TextureCacheMode"),
-												  GMetalTextureCacheMode,
-												  TEXT("Set the internal texture cache mode to use in Metal.\n\t0: Off.\n\t1: Mark as volatile during streaming & either reuse within the frame or delete at the end.\n\t2: Always cache the texture object but if not reused within the frame, mark the backing store as empty to clear from VRAM. Default is 1."),
-												  ECVF_ReadOnly|ECVF_RenderThreadSafe
-												  );
 
 
 /** Texture reference class. */
@@ -86,7 +72,7 @@ FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture)
 
 static bool IsRenderTarget(uint32 Flags)
 {
-	return (Flags & (TexCreate_RenderTargetable | TexCreate_ResolveTargetable | TexCreate_DepthStencilTargetable)) != 0;
+	return (Flags & (TexCreate_RenderTargetable | TexCreate_ResolveTargetable | TexCreate_DepthStencilTargetable | TexCreate_DepthStencilResolveTarget)) != 0;
 }
 
 static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
@@ -115,11 +101,16 @@ static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
 	//are likely to be used in a manual shader resolve by the high level and must be bindable as rendertargets.
 	const bool bSeparateResolveTargets = FMetalCommandQueue::SupportsSeparateMSAAAndResolveTarget();
 	const bool bResolveTarget = (Flags & TexCreate_ResolveTargetable);
-	if ((Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable)) || (bResolveTarget && bSeparateResolveTargets))
+	if ((Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable|TexCreate_DepthStencilResolveTarget)) || (bResolveTarget && bSeparateResolveTargets))
 	{
 		Usage |= mtlpp::TextureUsage::RenderTarget;
 		Usage |= mtlpp::TextureUsage::ShaderRead;
-		Usage &= ~(mtlpp::TextureUsage::PixelFormatView);
+#if !PLATFORM_MAC // The cost of PixelFormatView on macOS is exorbitant, we need to reallocate on demand to avoid it
+		if (!(Flags & (TexCreate_ShaderResource)))
+#endif
+		{
+			Usage &= ~(mtlpp::TextureUsage::PixelFormatView);
+		}
 	}
 	return (mtlpp::TextureUsage)Usage;
 }
@@ -214,7 +205,11 @@ void FMetalSurface::PrepareTextureView()
 {
 	// Recreate the texture to enable MTLTextureUsagePixelFormatView which must be off unless we definitely use this feature or we are throwing ~4% performance vs. Windows on the floor.
 	mtlpp::TextureUsage Usage = (mtlpp::TextureUsage)Texture.GetUsage();
-	if(!(Usage & mtlpp::TextureUsage::PixelFormatView))
+	bool bMemoryLess = false;
+#if PLATFORM_IOS
+	bMemoryLess = (Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless);
+#endif
+	if(!(Usage & mtlpp::TextureUsage::PixelFormatView) && !bMemoryLess)
 	{
 		check(!bTextureView);
 		check(ImageSurfaceRef == nullptr);
@@ -393,14 +388,23 @@ void FMetalSurface::MakeAliasable(void)
 		if (StencilTexture && (StencilTexture != Texture) && !StencilTexture.IsAliasable())
 		{
 			StencilTexture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(StencilTexture);
+#endif
 		}
 		if (MSAATexture && (MSAATexture != Texture) && !MSAATexture.IsAliasable())
 		{
 			MSAATexture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(MSAATexture);
+#endif
 		}
 		if (!Texture.IsAliasable())
 		{
 			Texture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(Texture);
+#endif
 		}
 	}
 }
@@ -411,7 +415,7 @@ void FMetalSurface::MakeUnAliasable(void)
 	check(ImageSurfaceRef == nullptr);
 	
 	static bool bSupportsHeaps = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesHeaps);
-	if (bSupportsHeaps && Texture.GetStorageMode() == mtlpp::StorageMode::Private && Texture.GetHeap())
+	if (bSupportsHeaps && Texture.GetStorageMode() == mtlpp::StorageMode::Private && Texture.GetHeap() && Texture.IsAliasable())
 	{
 		FMetalTexture OldTexture = Texture;
 		Texture = Reallocate(Texture, mtlpp::TextureUsage::Unknown);
@@ -462,6 +466,14 @@ void FMetalSurface::MakeUnAliasable(void)
 
 void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange)
 {
+#if PLATFORM_IOS
+	// Mmeory;ess targets can't have texture views (SRVs or UAVs)
+	if (Source.Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless)
+	{
+		return;
+	}
+#endif
+	
 	mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PixelFormat].PlatformFormat;
 	
 	bool const bUseSourceTex = (Source.PixelFormat != PF_DepthStencil) && MipRange.location == 0 && MipRange.length == Source.Texture.GetMipmapLevelCount();
@@ -495,6 +507,13 @@ void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange)
 void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange, EPixelFormat Format)
 {
 	check(!Source.MSAATexture || Format == PF_X24_G8);
+#if PLATFORM_IOS
+	// Mmeory;ess targets can't have texture views (SRVs or UAVs)
+	if (Source.Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless)
+	{
+		return;
+	}
+#endif
 	
 	mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PixelFormat].PlatformFormat;
 	
@@ -822,6 +841,10 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 				Desc.SetArrayLength(ArraySize * 6);
 			}
 		}
+		else
+		{
+			Desc.SetTextureType(mtlpp::TextureType::Texture2DArray);
+		}
 	}
 	Desc.SetMipmapLevelCount(NumMips);
 	
@@ -852,12 +875,22 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModeShared));
 #endif
 		}
-		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable))
+		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable|TexCreate_ResolveTargetable|TexCreate_DepthStencilResolveTarget))
 		{
 			check(!(Flags & TexCreate_CPUReadback));
-			Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
-			Desc.SetStorageMode(mtlpp::StorageMode::Private);
-			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
+#if PLATFORM_IOS
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && !(Flags & (TexCreate_ShaderResource|TexCreate_UAV)))
+			{
+				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
+				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
+			}
+			else
+#endif
+			{
+				Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
+				Desc.SetStorageMode(mtlpp::StorageMode::Private);
+				Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
+			}
 		}
 		else
 		{
@@ -969,6 +1002,16 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			FParse::Value(FCommandLine::Get(), TEXT("msaa="), NumSamples);
 			Desc.SetSampleCount(NumSamples);
 			
+			bool bMemoryless = false;
+#if PLATFORM_IOS
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && GMaxRHIShaderPlatform == SP_METAL)
+			{
+				bMemoryless = true;
+				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
+				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
+			}
+#endif
+			
 			MSAATexture = GetMetalDeviceContext().CreateTexture(this, Desc);
 			
 			//device doesn't support HW depth resolve.  This case only valid on mobile renderer or
@@ -981,7 +1024,7 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 				// we don't have the resolve texture, so we just update the memory size with the MSAA size
 				TotalTextureSize = TotalTextureSize * NumSamples;
 			}
-			else
+			else if (!bMemoryless)
 			{
 				// an MSAA render target takes NumSamples more space, in addition to the resolve texture
 				TotalTextureSize += TotalTextureSize * NumSamples;
@@ -1649,6 +1692,17 @@ FMetalTexture FMetalSurface::GetDrawableTexture()
 	return Texture;
 }
 
+ns::AutoReleased<FMetalTexture> FMetalSurface::GetCurrentTexture()
+{
+	ns::AutoReleased<FMetalTexture> Tex;
+	if (Viewport && (Flags & TexCreate_Presentable))
+	{
+		check(Viewport);
+		Tex = Viewport->GetCurrentTexture(EMetalViewportAccessRHI);
+	}
+	return Tex;
+}
+
 
 /*-----------------------------------------------------------------------------
  Texture allocator support.
@@ -1829,6 +1883,9 @@ struct FMetalRHICommandAsyncReallocateTexture2D final : public FRHICommand<FMeta
 		
 		// Like D3D mark this as complete immediately.
 		RequestStatus->Decrement();
+		
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(OldTexture);
+		Source->MakeAliasable();
 	}
 };
 
@@ -2433,6 +2490,10 @@ void FMetalRHICommandContext::RHIUpdateTextureReference(FTextureReferenceRHIPara
 		if (TextureRef)
 		{
 			TextureRef->SetReferencedTexture(NewTextureRHI);
+			if (NewTextureRHI)
+			{
+				GetMetalDeviceContext().UpdateIABs(TextureRefRHI);
+			}
 		}
 	}
 }
@@ -2486,13 +2547,136 @@ struct FMetalRHICommandUnaliasTextures final : public FRHICommand<FMetalRHIComma
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
+		@autoreleasepool {
 		for (int32 i = 0; i < Textures.Num(); ++i)
 		{
 			FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Textures[i]);
 			Source->MakeUnAliasable();
 		}
+		}
 	}
 };
+
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FTextureRHIParamRef Texture)
+{
+	@autoreleasepool {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Texture);
+		Source->MakeUnAliasable();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandUnaliasTextures>()) FMetalRHICommandUnaliasTextures(&Texture, 1);
+		RHICmdList.RHIThreadFence(true);
+	}
+	}
+}
+
+struct FMetalRHICommandAliasTextures final : public FRHICommand<FMetalRHICommandAliasTextures>
+{
+	TArray<FTextureRHIParamRef> Textures;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandAliasTextures(FTextureRHIParamRef* InTextures, int32 NumTextures)
+	{
+		check(InTextures && NumTextures);
+		Textures.Append(InTextures, NumTextures);
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		@autoreleasepool {
+		for (int32 i = 0; i < Textures.Num(); ++i)
+		{
+			FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Textures[i]);
+			Source->MakeAliasable();
+		}
+		}
+	}
+};
+
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FTextureRHIParamRef Texture)
+{
+	@autoreleasepool {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Texture);
+		Source->MakeAliasable();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasTextures>()) FMetalRHICommandAliasTextures(&Texture, 1);
+		RHICmdList.RHIThreadFence(true);
+	}
+	}
+}
+
+struct FMetalRHICommandAliasBuffer final : public FRHICommand<FMetalRHICommandAliasBuffer>
+{
+	FMetalRHIBuffer* Buffer;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandAliasBuffer(FMetalRHIBuffer* InBuffer)
+	{
+		check(InBuffer);
+		Buffer = InBuffer;
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		@autoreleasepool {
+		Buffer->Unalias();
+		}
+	}
+};
+
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalVertexBuffer* MetalBuffer = ResourceCast(Buffer);
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		MetalBuffer->Unalias();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasBuffer>()) FMetalRHICommandAliasBuffer(MetalBuffer);
+		RHICmdList.RHIThreadFence(true);
+	}
+	}
+}
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalVertexBuffer* MetalBuffer = ResourceCast(Buffer);
+	MetalBuffer->Alias();
+	}
+}
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalStructuredBuffer* MetalBuffer = ResourceCast(Buffer);
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		MetalBuffer->Unalias();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasBuffer>()) FMetalRHICommandAliasBuffer(MetalBuffer);
+		RHICmdList.RHIThreadFence(true);
+	}
+	}
+}
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalStructuredBuffer* MetalBuffer = ResourceCast(Buffer);
+	MetalBuffer->Alias();
+	}
+}
 
 void FMetalDynamicRHI::RHISetResourceAliasability_RenderThread(class FRHICommandListImmediate& RHICmdList, EResourceAliasability AliasMode, FTextureRHIParamRef* InTextures, int32 NumTextures)
 {
