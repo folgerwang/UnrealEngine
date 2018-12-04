@@ -1686,14 +1686,20 @@ SafeSaturate_Def(float4)
 // Can be accessed with a Custom material node. If this turns out to be very useful we can expose as MaterialFunction
 // and potentially expose other queries as well (e.g. SkeletalMesh, HitProxy, ).
 // @return 0:no, 1:yes
-float IsShadowDepthShader()
+bool GetShadowReplaceState()
 {
 #ifdef SHADOW_DEPTH_SHADER
-	return 1;
+	return true;
 #else
-	return 0;
+	return false;
 #endif
 }
+
+float IsShadowDepthShader()
+{
+	return GetShadowReplaceState() ? 1.0f : 0.0f;
+}
+
 #define TERRAIN_ZSCALE (1.0f/128.0f)
 
 // Decodes a value which was packed into two 8 bit channels

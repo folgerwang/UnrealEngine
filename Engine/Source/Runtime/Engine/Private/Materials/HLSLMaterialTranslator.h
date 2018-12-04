@@ -2483,6 +2483,14 @@ protected:
 		return AddInlinedCodeChunk(MCT_Float, TEXT("fmod(View.RealTime,%s)"), *GetParameterCode(PeriodChunk));
 	}
 
+	virtual int32 DeltaTime() override
+	{
+		// explicitly avoid trying to return previous frame's delta time for bCompilingPreviousFrame here
+		// DeltaTime expression is designed to be used when generating custom motion vectors, by using world position offset along with previous frame switch
+		// in this context, we will technically be evaluating the previous frame, but we want to use the current frame's delta tick in order to offset the vector used to create previous position
+		return AddInlinedCodeChunk(MCT_Float, TEXT("View.DeltaTime"));
+	}
+
 	virtual int32 PeriodicHint(int32 PeriodicCode) override
 	{
 		if(PeriodicCode == INDEX_NONE)
@@ -5041,6 +5049,17 @@ protected:
 		EMaterialValueType ResultType = GetArithmeticResultType(Direct, DynamicIndirect);
 
 		return AddCodeChunk(ResultType,TEXT("(GetGIReplaceState() ? (%s) : (%s))"), *GetParameterCode(DynamicIndirect), *GetParameterCode(Direct));
+	}
+
+	virtual int32 ShadowReplace(int32 Default, int32 Shadow) override
+	{
+		if (Default == INDEX_NONE || Shadow == INDEX_NONE)
+		{
+			return INDEX_NONE;
+		}
+
+		EMaterialValueType ResultType = GetArithmeticResultType(Default, Shadow);
+		return AddCodeChunk(ResultType, TEXT("(GetShadowReplaceState() ? (%s) : (%s))"), *GetParameterCode(Shadow), *GetParameterCode(Default));
 	}
 
 	virtual int32 MaterialProxyReplace(int32 Realtime, int32 MaterialProxy) override { return Realtime; }
