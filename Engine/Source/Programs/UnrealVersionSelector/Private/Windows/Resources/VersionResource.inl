@@ -74,4 +74,4 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDICON_UE4Game			ICON                    "Icon.ico"
+IDICON_UE4Game			ICON                    "Icon.ico"
