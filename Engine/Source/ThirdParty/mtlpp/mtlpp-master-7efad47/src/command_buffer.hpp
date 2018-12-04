@@ -158,7 +158,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<CommandBuffer>
+	class MTLPP_EXPORT Validator<CommandBuffer>
 	{
 		public:
 		Validator(CommandBuffer& Val, bool bEnable)

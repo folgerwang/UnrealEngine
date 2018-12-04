@@ -17,19 +17,19 @@ namespace ns
 {
 #if __OBJC__
 	template<typename T>
-	struct Protocol
+	struct MTLPP_EXPORT Protocol
 	{
 		typedef T type;
 	};
 #else
 	template<typename t>
-	struct id
+	struct MTLPP_EXPORT id
 	{
 		typedef t* ptr;
 	};
 	
 	template<typename T>
-	struct Protocol
+	struct MTLPP_EXPORT Protocol
 	{
 		typedef typename T::ptr type;
 	};
@@ -227,7 +227,7 @@ namespace ns
 			return ArrayBase::GetSize((NSArray<id<NSObject>> *)this->m_ptr);
 		}
 		
-		class Iterator
+		class MTLPP_EXPORT Iterator
 		{
 		public:
 			Iterator(Array const& ptr, NSUInteger In): array(ptr), index(In) {}

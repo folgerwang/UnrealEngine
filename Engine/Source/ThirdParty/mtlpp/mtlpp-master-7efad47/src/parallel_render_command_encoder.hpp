@@ -76,7 +76,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<ParallelRenderCommandEncoder>
+	class MTLPP_EXPORT Validator<ParallelRenderCommandEncoder>
 	{
 		public:
 		Validator(ParallelRenderCommandEncoder& Val, bool bEnable)
