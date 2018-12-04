@@ -60,6 +60,7 @@ struct RENDERCORE_API FPixelShaderUtils
 		const TShaderClass* PixelShader,
 		typename TShaderClass::FParameters* Parameters)
 	{
+		CA_ASSUME(PixelShader != nullptr);
 		ClearUnusedGraphResources(PixelShader, Parameters);
 
 		GraphBuilder.AddPass(
