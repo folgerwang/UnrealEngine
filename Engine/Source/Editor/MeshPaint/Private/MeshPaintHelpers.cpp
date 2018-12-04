@@ -820,7 +820,9 @@ void MeshPaintHelpers::SetInstanceColorDataForLOD(UStaticMeshComponent* MeshComp
 			{
 				// Initialize vertex buffer from given color
 				ComponentLodInfo.OverrideVertexColors = new FColorVertexBuffer;
-				ComponentLodInfo.OverrideVertexColors->InitFromSingleColor(MaskColor, RenderData.GetNumVertices());
+				FColor NewFillColor(EForceInit::ForceInitToZero);
+				ApplyFillWithMask(NewFillColor, MaskColor, FillColor);
+				ComponentLodInfo.OverrideVertexColors->InitFromSingleColor(NewFillColor, RenderData.GetNumVertices());
 			}
 		}
 
