@@ -15,7 +15,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogMoviePlayer, Log, All);
 #define MOVIE_FILE_EXTENSION @"mp4"
 #define TIMESCALE 1000
 
+#if PLATFORM_IOS
 extern bool GIsSuspended;
+#endif
 
 static FString ConvertToNativePath(const FString& Filename, bool bForWrite)
 {
@@ -353,8 +355,11 @@ bool FAVPlayerMovieStreamer::LoadMovie(FString InMovieName)
         bVideoTracksLoaded = FinishLoadingTracks();
 
 		// Play the next movie in the queue
+        
+#if PLATFORM_IOS
 		bIsMovieInterrupted = GIsSuspended;
-
+#endif
+        
 		if (!bIsMovieInterrupted && bVideoTracksLoaded && AudioPlayer != nil)
         {
             // Good time to start the audio playing.
