@@ -220,6 +220,9 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Print the path to the private key
+			Log.TraceInformation("[Remote] Using private key at {0}", SshPrivateKey);
+
 			// resolve the rest of the strings
 			RsyncAuthentication = ExpandVariables(RsyncAuthentication);
 			SshAuthentication = ExpandVariables(SshAuthentication);
@@ -250,7 +253,7 @@ namespace UnrealBuildTool
 			StringBuilder Output;
 			if(ExecuteAndCaptureOutput("'echo ~'", out Output) != 0)
 			{
-				throw new BuildException("Unable to determine home directory for remote user");
+				throw new BuildException("Unable to determine home directory for remote user. SSH output:\n{0}", StringUtils.Indent(Output.ToString(), "  "));
 			}
 			RemoteBaseDir = String.Format("{0}/UE4/Builds/{1}", Output.ToString().Trim().TrimEnd('/'), Environment.MachineName);
 			Log.TraceInformation("[Remote] Using base directory '{0}'", RemoteBaseDir);
@@ -291,8 +294,13 @@ namespace UnrealBuildTool
 				FileReference KeyFile = FileReference.Combine(Location, "SSHKeys", ServerName, UserName, "RemoteToolChainPrivate.key");
 				if (FileReference.Exists(KeyFile))
 				{
-					OutPrivateKey = KeyFile;
-					return true;
+					// MacOS Mojave includes a new version of SSH that generates keys that are incompatible with our version of SSH. Make sure the detected keys have the right signature.
+					string Text = FileReference.ReadAllText(KeyFile);
+					if(Text.Contains("---BEGIN RSA PRIVATE KEY---"))
+					{
+						OutPrivateKey = KeyFile;
+						return true;
+					}
 				}
 			}
 
@@ -518,37 +526,41 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			// Download the manifest
-			Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
-			DownloadFile(RemoteManifestFile);
-
-			// Convert the manifest to local form
-			BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
-			for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
+			// Don't download anything if we're just doing a clean
+			if(!RemoteArguments.Contains("-Clean", StringComparer.OrdinalIgnoreCase))
 			{
-				Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
-			}
+				// Download the manifest
+				Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
+				DownloadFile(RemoteManifestFile);
 
-			// Download the files from the remote
-			if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
-			}
-			else
-			{
-				Log.TraceInformation("[Remote] Downloading build products");
+				// Convert the manifest to local form
+				BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
+				for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
+				{
+					Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
+				}
 
-				List<FileReference> FilesToDownload = new List<FileReference>();
-				FilesToDownload.Add(RemoteLogFile);
-				FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
-				DownloadFiles(FilesToDownload);
-			}
+				// Download the files from the remote
+				if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
+				{
+					LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
+				}
+				else
+				{
+					Log.TraceInformation("[Remote] Downloading build products");
 
-			// Write out all the local manifests
-			foreach(FileReference LocalManifestFile in LocalManifestFiles)
-			{
-				Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
-				Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
+					List<FileReference> FilesToDownload = new List<FileReference>();
+					FilesToDownload.Add(RemoteLogFile);
+					FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
+					DownloadFiles(FilesToDownload);
+				}
+
+				// Write out all the local manifests
+				foreach(FileReference LocalManifestFile in LocalManifestFiles)
+				{
+					Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
+					Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
+				}
 			}
 			return true;
 		}

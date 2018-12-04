@@ -1310,6 +1310,64 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets a list of platforms supported by this target
+		/// </summary>
+		/// <returns>Array of platforms</returns>
+		internal UnrealTargetPlatform[] GetSupportedPlatforms()
+		{
+			// Otherwise take the SupportedPlatformsAttribute from the first type in the inheritance chain that supports it
+			for (Type CurrentType = GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
+			{
+				object[] Attributes = CurrentType.GetCustomAttributes(typeof(SupportedPlatformsAttribute), false);
+				if (Attributes.Length > 0)
+				{
+					return Attributes.OfType<SupportedPlatformsAttribute>().SelectMany(x => x.Platforms).Distinct().ToArray();
+				}
+			}
+
+			// Otherwise, get the default for the target type
+			if (Type == TargetType.Program)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop);
+			}
+			else if (Type == TargetType.Editor)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Editor);
+			}
+			else
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.All);
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of configurations supported by this target
+		/// </summary>
+		/// <returns>Array of configurations</returns>
+		internal UnrealTargetConfiguration[] GetSupportedConfigurations()
+		{
+			// Otherwise take the SupportedConfigurationsAttribute from the first type in the inheritance chain that supports it
+			for (Type CurrentType = GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
+			{
+				object[] Attributes = CurrentType.GetCustomAttributes(typeof(SupportedConfigurationsAttribute), false);
+				if (Attributes.Length > 0)
+				{
+					return Attributes.OfType<SupportedConfigurationsAttribute>().SelectMany(x => x.Configurations).Distinct().ToArray();
+				}
+			}
+
+			// Otherwise, get the default for the target type
+			if(Type == TargetType.Editor)
+			{
+				return new[] { UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.DebugGame, UnrealTargetConfiguration.Development };
+			}
+			else
+			{
+				return ((UnrealTargetConfiguration[])Enum.GetValues(typeof(UnrealTargetConfiguration))).Where(x => x != UnrealTargetConfiguration.Unknown).ToArray();
+			}
+		}
+
+		/// <summary>
 		/// Checks whether nativization is enabled for this target, and determine the path for the nativized plugin
 		/// </summary>
 		/// <returns>The nativized plugin file, or null if nativization is not enabled</returns>

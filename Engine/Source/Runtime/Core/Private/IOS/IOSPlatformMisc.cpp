@@ -188,11 +188,14 @@ const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
         }
         
         // mark it to not be uploaded
-        NSError *error = nil;
-        BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
-        if (!success)
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
         {
-            NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+            NSError *error = nil;
+            BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+            if (!success)
+            {
+                NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+            }
         }
     }
     return *GamePersistentDownloadDir;
@@ -459,7 +462,7 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 		}
 		else if (Major == 8)
 		{
-			if (Minor == 3 || Minor == 4)
+			if (Minor <= 4)
 			{
 				DeviceType = IOS_IPadPro_11;
 			}

@@ -1011,12 +1011,12 @@ void UWorld::SendAllEndOfFrameUpdates()
 
 	if (CVarAllowAsyncRenderThreadUpdatesDuringGamethreadUpdates.GetValueOnGameThread() > 0)
 	{
-		ParallelForWithPreWork(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork, GTWork);
+		ParallelForWithPreWork(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork, GTWork, !GUseThreadedRendering);
 	}
 	else
 	{
 		GTWork();
-		ParallelFor(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork);
+		ParallelFor(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork, !GUseThreadedRendering);
 	}
 	
 	for (UMaterialParameterCollectionInstance* ParameterCollectionInstance : ParameterCollectionInstances)

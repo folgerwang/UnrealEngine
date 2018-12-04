@@ -1177,6 +1177,11 @@ namespace UnrealBuildTool
 							UBTArguments.AppendFormat(" -project=\"{0}\"", Target.ProjectFile);
 						}
 
+						if(!BuildConfiguration.bUseUBTMakefiles)
+						{
+							UBTArguments.Append(" -NoUBTMakefiles");
+						}
+
 						// Add any global override for the compiler
 						if(!String.IsNullOrEmpty(BuildConfiguration.CompilerArgumentForUnrealHeaderTool))
 						{

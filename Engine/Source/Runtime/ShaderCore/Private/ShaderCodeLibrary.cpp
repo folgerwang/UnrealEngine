@@ -883,14 +883,14 @@ struct FEditorShaderCodeArchive
 	{
 		check(LibraryName.Len() > 0);
 
-		const FString ShaderIntermediateLocation = FPaths::ProjectSavedDir() / TEXT("Shaders") / FormatName.ToString() / LibraryName;
+		const FString ShaderIntermediateLocation = FPaths::ProjectSavedDir() / TEXT("Shaders") / FormatName.ToString();
 
 		TArray<FString> ShaderFiles;
 		IFileManager::Get().FindFiles(ShaderFiles, *ShaderIntermediateLocation, *ShaderExtension);
 
 		for (const FString& ShaderFileName : ShaderFiles)
 		{
-			if (ShaderFileName.Contains(LibraryName + TEXT("_") + FormatName.ToString() + TEXT(".")))
+			if (ShaderFileName.Contains(LibraryName + TEXT("-") + FormatName.ToString() + TEXT(".")))
 			{
 				FArchive* PrevCookedAr = IFileManager::Get().CreateFileReader(*GetCodeArchiveFilename(OutputDir, LibraryName, FormatName));
 
@@ -940,7 +940,7 @@ struct FEditorShaderCodeArchive
 
 		for (const FString& ShaderFileName : PipelineFiles)
 		{
-			if (ShaderFileName.Contains(LibraryName + TEXT("_") + FormatName.ToString() + TEXT(".")))
+			if (ShaderFileName.Contains(LibraryName + TEXT("-") + FormatName.ToString() + TEXT(".")))
 			{
 				FArchive* PrevCookedAr = IFileManager::Get().CreateFileReader(*GetPipelinesArchiveFilename(OutputDir, LibraryName, FormatName));
 

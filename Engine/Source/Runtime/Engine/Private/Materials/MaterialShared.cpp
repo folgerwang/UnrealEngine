@@ -36,6 +36,7 @@
 #include "ShaderCodeLibrary.h"
 #include "HAL/FileManager.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
+#include "UObject/CoreRedirects.h"
 
 DEFINE_LOG_CATEGORY(LogMaterial);
 
@@ -106,11 +107,23 @@ const FMaterialResourceLocOnDisk* FindMaterialResourceLocOnDisk(
 	return nullptr;
 }
 
-static inline void GetReloadInfo(const FString& PackageName, FString* OutFilename)
+static void GetReloadInfo(const FString& PackageName, FString* OutFilename)
 {
+	check(!GIsEditor);
 	check(!PackageName.IsEmpty());
 	FString& Filename = *OutFilename;
-	bool bSucceed = FPackageName::TryConvertLongPackageNameToFilename(PackageName, Filename, TEXT(".uexp"));
+
+	// Handle name redirection and localization
+	const FCoreRedirectObjectName RedirectedName =
+		FCoreRedirects::GetRedirectedName(
+			ECoreRedirectFlags::Type_Package,
+			FCoreRedirectObjectName(NAME_None, NAME_None, *PackageName));
+	FString LocalizedName;
+	LocalizedName = FPackageName::GetDelegateResolvedPackagePath(RedirectedName.PackageName.ToString());
+	LocalizedName = FPackageName::GetLocalizedPackagePath(LocalizedName);
+	bool bSucceed = FPackageName::DoesPackageExist(LocalizedName, nullptr, &Filename);
+	Filename = FPaths::ChangeExtension(Filename, TEXT(".uexp"));
+
 	// Dynamic material resource loading requires split export to work
 	check(bSucceed && IFileManager::Get().FileExists(*Filename));
 }

@@ -20,6 +20,7 @@
 
 #include "NiagaraDataInterfaceBase.h"
 #include "UObject/UObjectGlobals.h"
+#include "NiagaraShaderModule.h"
 
 IMPLEMENT_SHADER_TYPE(,FNiagaraShader, TEXT("/Engine/Private/NiagaraEmitterInstanceShader.usf"),TEXT("SimulateMain"), SF_Compute)
 
@@ -1333,9 +1334,16 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 	Parameters = CastChecked<UNiagaraDataInterfaceBase>(DIClass->GetDefaultObject())->ConstructComputeParameters();
 }
 
+// Temporary fix for 4.21.1. More permanent fix is in 4.22. 
+extern  NIAGARACORE_API TMap<FString, UClass*> FNiagaraDataInterfaceParamRefKnownClasses;
+
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
-	DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ParameterInfo.DIClassName, true));
+	// Note that this implementation is temporary and has been replaced in 4.22. However, since this was found post release of 4.21, the following
+	// changes were needed to preserve API backwards compatibility.
+	// Any DataInterface derived class will need to register itself with this global map in 4.21.1.
+	UClass** FoundClass = FNiagaraDataInterfaceParamRefKnownClasses.Find(*ParameterInfo.DIClassName);
+	DIClass = FoundClass != nullptr ? *FoundClass : nullptr;
 	if (DIClass == nullptr)
 	{
 		FCoreRedirectObjectName OldObjName;
@@ -1343,11 +1351,12 @@ void FNiagaraDataInterfaceParamRef::InitDIClass()
 		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
 		if (NewObjName.IsValid())
 		{
-			DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewObjName.ObjectName.ToString(), true));
+			FoundClass = FNiagaraDataInterfaceParamRefKnownClasses.Find(*NewObjName.ObjectName.ToString());
+			DIClass = FoundClass != nullptr ? *FoundClass : nullptr;
 		}
 
 	}
-	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
+	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef: %s. Perhaps this wasn't registered properly?"), *ParameterInfo.DIClassName);
 }
 
 void FNiagaraDataInterfaceParamRef::Bind(const class FShaderParameterMap& ParameterMap)

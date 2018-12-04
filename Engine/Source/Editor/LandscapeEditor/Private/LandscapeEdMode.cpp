@@ -3022,11 +3022,11 @@ void FEdModeLandscape::ForceRealTimeViewports(const bool bEnable, const bool bSt
 					UVREditorMode* VREditorMode = Cast<UVREditorMode>( GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() )->FindExtension( UVREditorMode::StaticClass() ) );
 					if( VREditorMode != nullptr && VREditorMode->IsActive())
 					{
-						Viewport.SetGameView(true);
+						Viewport.SetVREditView(true);
 					} 
 					else
 					{
-						Viewport.SetGameView(false);
+						Viewport.SetVREditView(false);
 					}
 				}
 				else

@@ -300,7 +300,13 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
 /* EG END */
 
   // A map from section offsets to specifications.
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
   typedef map<uint64, Specification> SpecificationByOffset;
+#else
+  typedef vector<Specification> SpecificationByOffset;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   // Set this compilation unit's source language to LANGUAGE.
   void SetLanguage(DwarfLanguage language);

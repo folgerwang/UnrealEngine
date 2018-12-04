@@ -131,6 +131,13 @@ FVulkanCommandListContext::FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, F
 
 FVulkanCommandListContext::~FVulkanCommandListContext()
 {
+	if (FVulkanPlatform::SupportsTimestampRenderQueries())
+	{
+		FrameTiming->Release();
+		delete FrameTiming;
+		FrameTiming = nullptr;
+	}
+
 	check(CommandBufferManager != nullptr);
 	delete CommandBufferManager;
 	CommandBufferManager = nullptr;
@@ -179,7 +186,7 @@ void FVulkanDynamicRHI::Init()
 
 	{
 		IConsoleVariable* GPUCrashDebuggingCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
-		GGPUCrashDebuggingEnabled = GPUCrashDebuggingCVar && GPUCrashDebuggingCVar->GetInt() != 0;
+		GGPUCrashDebuggingEnabled = (GPUCrashDebuggingCVar && GPUCrashDebuggingCVar->GetInt() != 0) || FParse::Param(FCommandLine::Get(), TEXT("gpucrashdebugging"));
 	}
 
 	InitInstance();
@@ -450,7 +457,13 @@ static inline int32 PreferAdapterVendor()
 void FVulkanDynamicRHI::SelectAndInitDevice()
 {
 	uint32 GpuCount = 0;
-	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkEnumeratePhysicalDevices(Instance, &GpuCount, nullptr));
+	VkResult Result = VulkanRHI::vkEnumeratePhysicalDevices(Instance, &GpuCount, nullptr);
+	if (Result == VK_ERROR_INITIALIZATION_FAILED)
+	{
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Cannot find a compatible Vulkan device or driver. Try updating your video driver to a more recent version and make sure your video card supports Vulkan.\n\n"), TEXT("Vulkan device not available"));
+		FPlatformMisc::RequestExitWithStatus(true, 1);
+	}
+	VERIFYVULKANRESULT_EXPANDED(Result);
 	checkf(GpuCount >= 1, TEXT("No GPU(s)/Driver(s) that support Vulkan were found! Make sure your drivers are up to date and that you are not pending a reboot."));
 
 	TArray<VkPhysicalDevice> PhysicalDevices;

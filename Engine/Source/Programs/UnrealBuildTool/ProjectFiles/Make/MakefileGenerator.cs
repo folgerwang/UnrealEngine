@@ -80,7 +80,7 @@ namespace UnrealBuildTool
 			{
 				GameProjectFile = OnlyGameProject.FullName;
 				MakeGameProjectFile = "GAMEPROJECTFILE =" + GameProjectFile + "\n";
-				ProjectBuildCommand = "PROJECTBUILD = mono \"$(UNREALROOTPATH)/Engine/Binaries/DotNET/UnrealBuildTool.exe\"\n";
+				ProjectBuildCommand = "PROJECTBUILD = bash \"$(UNREALROOTPATH)/Engine/Build/BatchFiles/Linux/RunMono.sh\" \"$(UNREALROOTPATH)/Engine/Binaries/DotNET/UnrealBuildTool.exe\"\n";
 			}
 
 			BuildCommand = "BUILD = bash \"$(UNREALROOTPATH)/Engine/Build/BatchFiles/Linux/Build.sh\"\n";

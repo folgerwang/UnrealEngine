@@ -1,5 +1,5 @@
 #
-# This file tells Git about engine files that never really belong in source control.  They are usually build products, log 
+# This file tells Git about engine files that never really belong in source control.  They are usually build products, log
 # files and intermediate files generated from a compiler or the engine runtime.
 #
 #
@@ -11,7 +11,7 @@
 #  Paths in this file should use forward slash characters, not back slashes
 #  Use \ to escape special characters like ! and #
 #  Use ! to negate a previous pattern.  But it doesn't work if the parent sub-folder was masked out already.
-# 
+#
 
 # Ignore all files by default, but scan all directories
 *
@@ -196,6 +196,9 @@ Saved/
 # Ignore Swarm local save files
 Engine/Binaries/DotNET/SwarmAgent.DeveloperOptions.xml
 Engine/Binaries/DotNET/SwarmAgent.Options.xml
+
+# Ignore downloaded SDKs
+Engine/Extras/ThirdPartyNotUE/SDKs/
 
 # Explcitly ignore Mac DS_Store files, regardless of where they are
 .DS_Store

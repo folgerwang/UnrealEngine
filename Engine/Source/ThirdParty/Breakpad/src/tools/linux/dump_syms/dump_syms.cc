@@ -37,10 +37,67 @@
 #include <vector>
 #include <fstream>
 
+#include <jemalloc.h>
+
 #include "common/linux/dump_symbols.h"
 
 using google_breakpad::WriteSymbolFile;
 using google_breakpad::WriteSymbolFileHeader;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+
+// Only supports Linux atm
+#if defined(__linux__)
+// We are using je_malloc so we'll override these functions to our own definitions
+// https://www.gnu.org/software/libc/manual/html_node/Replacing-malloc.html
+void* malloc(size_t size)
+{
+  return je_malloc(size);
+}
+
+void free(void* ptr)
+{
+  je_free(ptr);
+}
+
+void* calloc(size_t nmemb, size_t size)
+{
+  return je_calloc(nmemb, size);
+}
+
+void* realloc(void* ptr, size_t size)
+{
+  return je_realloc(ptr, size);
+}
+
+void* aligned_alloc(size_t alignment, size_t size)
+{
+  return je_aligned_alloc(alignment, size);
+}
+
+size_t malloc_usable_size(void* ptr)
+{
+  return je_malloc_usable_size(ptr);
+}
+
+void* memalign(size_t alignment, size_t size)
+{
+  return je_memalign(alignment, size);
+}
+
+int posix_memalign(void** memptr, size_t alignment, size_t size)
+{
+  return je_posix_memalign(memptr, alignment, size);
+}
+
+void* valloc(size_t size)
+{
+  return je_valloc(size);
+}
+#endif /* defined (__linux__) */
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 int usage(const char* self) {
   fprintf(stderr, "Usage: %s [OPTION] <binary-with-debugging-info> "

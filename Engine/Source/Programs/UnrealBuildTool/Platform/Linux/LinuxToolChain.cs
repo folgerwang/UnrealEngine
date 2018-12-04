@@ -676,8 +676,11 @@ namespace UnrealBuildTool
 				// Make debug info LLDB friendly
 				Result += " -glldb";
 
-				// Makes debugging .so libraries better
-				Result += " -fstandalone-debug";
+				if (CompileEnvironment.bIsBuildingDLL)
+				{
+					// Makes debugging .so libraries better
+					Result += " -fstandalone-debug";
+				}
 			}
 
 			// optimization level

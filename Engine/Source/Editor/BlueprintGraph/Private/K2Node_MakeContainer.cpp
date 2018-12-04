@@ -344,7 +344,8 @@ void UK2Node_MakeContainer::PropagatePinType()
 				}
 
 				// Verify that all previous connections to this pin are still valid with the new type
-				for (UEdGraphPin* ConnectedPin : CurrentPin->LinkedTo)
+				TArray<UEdGraphPin*> LinkedToCopy = CurrentPin->LinkedTo;
+				for (UEdGraphPin* ConnectedPin : LinkedToCopy)
 				{
 					if (!Schema->ArePinsCompatible(CurrentPin, ConnectedPin, CallingContext))
 					{

@@ -9,13 +9,13 @@
 
 #include "PixelStreamingCommon.h"
 #include "Streamer.h"
-#include "IPixelStreamingPlugin.h"
+#include "PixelStreamingPlugin.h"
 #include "PixelStreamingInputDevice.h"
 #include "ProtocolDefs.h"
 
 FProxyConnection::FProxyConnection(const FString& IP, uint16 Port, FStreamer& Streamer) :
 	Streamer(Streamer),
-	InputDevice(FModuleManager::Get().GetModuleChecked<IPixelStreamingPlugin>("PixelStreaming").GetInputDevice()),
+	InputDevice(FModuleManager::Get().GetModuleChecked<FPixelStreamingPlugin>("PixelStreaming").GetInputDevicePtr()),
 	Thread(TEXT("WebRTC Proxy Connection"), [this, IP, Port]() { Run(IP, Port); }),
 	Socket(nullptr),
 	Listener(nullptr),
@@ -264,7 +264,10 @@ void FProxyConnection::InitReceiveHandlers()
 
 	ReceiveHandlers.SetNum(static_cast<int32>(EToUE4Msg::Count));
 
-#define HANDLER(MsgType, Handler) ReceiveHandlers[static_cast<int32>(EToUE4Msg::MsgType)] = [this]() { {Handler} return true; }
+#define HANDLER(MsgType, Handler) ReceiveHandlers[static_cast<int32>(EToUE4Msg::MsgType)] = { false, [this]() { {Handler} return true; } }
+
+// The INPUT_HANDLER will check to ensure the InputDevice is valid before running.
+#define INPUT_HANDLER(MsgType, Handler) ReceiveHandlers[static_cast<int32>(EToUE4Msg::MsgType)] = { true, [this]() { {Handler} return true; } }
 
 	HANDLER(IFrameRequest,
 	{
@@ -272,27 +275,27 @@ void FProxyConnection::InitReceiveHandlers()
 		Streamer.ForceIdrFrame();
 	});
 
-	HANDLER(UIInteraction,
+	INPUT_HANDLER(UIInteraction,
 	{
 		FString Descriptor;
 		if (ReceiveString(Socket, Descriptor))
 		{
 			UE_LOG(PixelStreamingInput, Verbose, TEXT("UIInteraction: %s"), *Descriptor);
-			InputDevice.ProcessUIInteraction(Descriptor);
+			InputDevice->ProcessUIInteraction(Descriptor);
 		}
 	});
 
-	HANDLER(Command,
+	INPUT_HANDLER(Command,
 	{
 		FString Descriptor;
 		if (ReceiveString(Socket, Descriptor))
 		{
 			UE_LOG(PixelStreamingInput, Verbose, TEXT("Command: %s"), *Descriptor);
-			InputDevice.ProcessCommand(Descriptor);
+			InputDevice->ProcessCommand(Descriptor);
 		}
 	});
 
-	HANDLER(KeyDown,
+	INPUT_HANDLER(KeyDown,
 	{
 		READFROMSOCKET(FKeyCodeType, KeyCode);
 		READFROMSOCKET(FRepeatType, Repeat);
@@ -300,42 +303,42 @@ void FProxyConnection::InitReceiveHandlers()
 
 		FPixelStreamingInputDevice::FEvent KeyDownEvent(FPixelStreamingInputDevice::EventType::KEY_DOWN);
 		KeyDownEvent.SetKeyDown(KeyCode, Repeat != 0);
-		InputDevice.ProcessEvent(KeyDownEvent);
+		InputDevice->ProcessEvent(KeyDownEvent);
 	});
 
-	HANDLER(KeyUp,
+	INPUT_HANDLER(KeyUp,
 	{
 		READFROMSOCKET(FKeyCodeType, KeyCode);
 		UE_LOG(PixelStreamingInput, Verbose, TEXT("key up: %d"), KeyCode);
 
 		FPixelStreamingInputDevice::FEvent KeyUpEvent(FPixelStreamingInputDevice::EventType::KEY_UP);
 		KeyUpEvent.SetKeyUp(KeyCode);
-		InputDevice.ProcessEvent(KeyUpEvent);
+		InputDevice->ProcessEvent(KeyUpEvent);
 	});
 
-	HANDLER(KeyPress,
+	INPUT_HANDLER(KeyPress,
 	{
 		READFROMSOCKET(FCharacterType, Character);
 		UE_LOG(PixelStreamingInput, Verbose, TEXT("key press: '%c'"), Character);
 
 		FPixelStreamingInputDevice::FEvent KeyPressEvent(FPixelStreamingInputDevice::EventType::KEY_PRESS);
 		KeyPressEvent.SetCharCode(Character);
-		InputDevice.ProcessEvent(KeyPressEvent);
+		InputDevice->ProcessEvent(KeyPressEvent);
 	});
 
-	HANDLER(MouseEnter,
+	INPUT_HANDLER(MouseEnter,
 	{
-		InputDevice.ProcessEvent(FPixelStreamingInputDevice::FEvent(FPixelStreamingInputDevice::EventType::MOUSE_ENTER));
+		InputDevice->ProcessEvent(FPixelStreamingInputDevice::FEvent(FPixelStreamingInputDevice::EventType::MOUSE_ENTER));
 		UE_LOG(PixelStreamingInput, Verbose, TEXT("mouseEnter"));
 	});
 
-	HANDLER(MouseLeave,
+	INPUT_HANDLER(MouseLeave,
 	{
-		InputDevice.ProcessEvent(FPixelStreamingInputDevice::FEvent(FPixelStreamingInputDevice::EventType::MOUSE_LEAVE));
+		InputDevice->ProcessEvent(FPixelStreamingInputDevice::FEvent(FPixelStreamingInputDevice::EventType::MOUSE_LEAVE));
 		UE_LOG(PixelStreamingInput, Verbose, TEXT("mouseLeave"));
 	});
 
-	HANDLER(MouseDown,
+	INPUT_HANDLER(MouseDown,
 	{
 		READFROMSOCKET(FButtonType, Button);
 		READFROMSOCKET(FPosType, PosX);
@@ -346,10 +349,10 @@ void FProxyConnection::InitReceiveHandlers()
 
 		FPixelStreamingInputDevice::FEvent MouseDownEvent(FPixelStreamingInputDevice::EventType::MOUSE_DOWN);
 		MouseDownEvent.SetMouseClick(Button, PosX, PosY);
-		InputDevice.ProcessEvent(MouseDownEvent);
+		InputDevice->ProcessEvent(MouseDownEvent);
 	});
 
-	HANDLER(MouseUp,
+	INPUT_HANDLER(MouseUp,
 	{
 		READFROMSOCKET(FButtonType, Button);
 		READFROMSOCKET(FPosType, PosX);
@@ -360,10 +363,10 @@ void FProxyConnection::InitReceiveHandlers()
 
 		FPixelStreamingInputDevice::FEvent MouseUpEvent(FPixelStreamingInputDevice::EventType::MOUSE_UP);
 		MouseUpEvent.SetMouseClick(Button, PosX, PosY);
-		InputDevice.ProcessEvent(MouseUpEvent);
+		InputDevice->ProcessEvent(MouseUpEvent);
 	});
 
-	HANDLER(MouseMove,
+	INPUT_HANDLER(MouseMove,
 	{
 		READFROMSOCKET(FPosType, PosX);
 		READFROMSOCKET(FPosType, PosY);
@@ -376,10 +379,10 @@ void FProxyConnection::InitReceiveHandlers()
 
 		FPixelStreamingInputDevice::FEvent MouseMoveEvent(FPixelStreamingInputDevice::EventType::MOUSE_MOVE);
 		MouseMoveEvent.SetMouseDelta(PosX, PosY, DeltaX, DeltaY);
-		InputDevice.ProcessEvent(MouseMoveEvent);
+		InputDevice->ProcessEvent(MouseMoveEvent);
 	});
 
-	HANDLER(MouseWheel,
+	INPUT_HANDLER(MouseWheel,
 	{
 		READFROMSOCKET(FDeltaType, Delta);
 		READFROMSOCKET(FPosType, PosX);
@@ -390,10 +393,10 @@ void FProxyConnection::InitReceiveHandlers()
 
 		FPixelStreamingInputDevice::FEvent MouseWheelEvent(FPixelStreamingInputDevice::EventType::MOUSE_WHEEL);
 		MouseWheelEvent.SetMouseWheel(Delta, PosX, PosY);
-		InputDevice.ProcessEvent(MouseWheelEvent);
+		InputDevice->ProcessEvent(MouseWheelEvent);
 	});
 
-	HANDLER(TouchStart,
+	INPUT_HANDLER(TouchStart,
 	{
 		FTouchesType Touches;
 		if (!ReceiveTouches(Socket, Touches))
@@ -407,11 +410,11 @@ void FProxyConnection::InitReceiveHandlers()
 		{
 			FPixelStreamingInputDevice::FEvent TouchStartEvent(FPixelStreamingInputDevice::EventType::TOUCH_START);
 			TouchStartEvent.SetTouch(Touch.TouchIndex, Touch.PosX, Touch.PosY, Touch.Force);
-			InputDevice.ProcessEvent(TouchStartEvent);
+			InputDevice->ProcessEvent(TouchStartEvent);
 		}
 	});
 
-	HANDLER(TouchEnd,
+	INPUT_HANDLER(TouchEnd,
 	{
 		FTouchesType Touches;
 		if (!ReceiveTouches(Socket, Touches))
@@ -425,11 +428,11 @@ void FProxyConnection::InitReceiveHandlers()
 		{
 			FPixelStreamingInputDevice::FEvent TouchEndEvent(FPixelStreamingInputDevice::EventType::TOUCH_END);
 			TouchEndEvent.SetTouch(Touch.TouchIndex, Touch.PosX, Touch.PosY, Touch.Force);
-			InputDevice.ProcessEvent(TouchEndEvent);
+			InputDevice->ProcessEvent(TouchEndEvent);
 		}
 	});
 
-	HANDLER(TouchMove,
+	INPUT_HANDLER(TouchMove,
 	{
 		FTouchesType Touches;
 		if (!ReceiveTouches(Socket, Touches))
@@ -443,7 +446,7 @@ void FProxyConnection::InitReceiveHandlers()
 		{
 			FPixelStreamingInputDevice::FEvent TouchMoveEvent(FPixelStreamingInputDevice::EventType::TOUCH_MOVE);
 			TouchMoveEvent.SetTouch(Touch.TouchIndex, Touch.PosX, Touch.PosY, Touch.Force);
-			InputDevice.ProcessEvent(TouchMoveEvent);
+			InputDevice->ProcessEvent(TouchMoveEvent);
 		}
 	});
 
@@ -474,6 +477,7 @@ void FProxyConnection::InitReceiveHandlers()
 	});
 
 #undef HANDLER
+#undef INPUT_HANDLER
 }
 
 #undef READFROMSOCKET
@@ -493,9 +497,19 @@ void FProxyConnection::Receive()
 
 		if (ReceiveHandlers.IsValidIndex(MsgType))
 		{
-			if (ReceiveHandlers[MsgType] != nullptr)
+			if (!InputDevice.IsValid() && ReceiveHandlers[MsgType].bRequiresInputDevice)
 			{
-				if (!ReceiveHandlers[MsgType]())
+				InputDevice = FModuleManager::Get().GetModuleChecked<FPixelStreamingPlugin>("PixelStreaming").GetInputDevicePtr();
+				if (!InputDevice.IsValid())
+				{
+					UE_LOG(PixelStreamingInput, Warning, TEXT("InputDevice required but not yet available"));
+					continue;
+				}
+			}
+
+			if (ReceiveHandlers[MsgType].Function != nullptr)
+			{
+				if (!ReceiveHandlers[MsgType].Function())
 				{
 					break;
 				}

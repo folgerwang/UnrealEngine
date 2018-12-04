@@ -196,7 +196,7 @@ void FInternetAddrBSD::SetIp(uint32 InAddr)
 		else
 		{
 			in6_addr ConvertedAddrData;
-			MapIPv4ToIPv6(InAddr, ConvertedAddrData);
+			MapIPv4ToIPv6(htonl(InAddr), ConvertedAddrData);
 			SetIp(ConvertedAddrData);
 		}
 		return;

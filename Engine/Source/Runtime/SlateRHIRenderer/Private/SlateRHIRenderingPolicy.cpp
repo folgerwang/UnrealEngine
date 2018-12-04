@@ -517,6 +517,9 @@ static void UpdateScissorRect(
 
 
 						SetGraphicsPipelineState(RHICmdList, WriteMaskPSOInit);
+
+						VertexShader->SetViewProjection(RHICmdList, ViewProjection);
+						VertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
 					}
 				}
 

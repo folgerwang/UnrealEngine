@@ -116,17 +116,8 @@ FTransform FXRTrackingSystemBase::ComputeTrackingToWorldTransform(FWorldContext&
 	UWorld* World = WorldContext.World();
 	if (World)
 	{
-		const ULocalPlayer* XRPlayer = nullptr;
-
-		const TArray<ULocalPlayer*>& LocalPlayers = GEngine->GetGamePlayers(World);
-		for (const ULocalPlayer* Player : LocalPlayers)
-		{
-			if (Player->IsPrimaryPlayer())
-			{
-				XRPlayer = Player;
-				break;
-			}
-		}
+		// Get the primary player for this world context
+		const ULocalPlayer* XRPlayer = GEngine->GetFirstGamePlayer(World);
 
 		if (XRPlayer)
 		{

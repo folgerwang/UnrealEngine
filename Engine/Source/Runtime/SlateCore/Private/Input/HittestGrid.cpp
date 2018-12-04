@@ -97,6 +97,7 @@ struct FHittestGrid::FGridTestingParams
 
 FHittestGrid::FHittestGrid()
 : WidgetsCachedThisFrame()
+, NumCells(0, 0)
 , NumCellsExcess(0, 0)
 {
 }

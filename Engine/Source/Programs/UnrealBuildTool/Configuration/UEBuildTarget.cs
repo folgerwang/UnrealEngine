@@ -347,33 +347,6 @@ namespace UnrealBuildTool
 			return TargetName;
 		}
 
-		public static UnrealTargetPlatform[] GetSupportedPlatforms(TargetRules Rules)
-		{
-			// Otherwise take the SupportedPlatformsAttribute from the first type in the inheritance chain that supports it
-			for (Type CurrentType = Rules.GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
-			{
-				object[] Attributes = Rules.GetType().GetCustomAttributes(typeof(SupportedPlatformsAttribute), false);
-				if (Attributes.Length > 0)
-				{
-					return Attributes.OfType<SupportedPlatformsAttribute>().SelectMany(x => x.Platforms).Distinct().ToArray();
-				}
-			}
-
-			// Otherwise, get the default for the target type
-			if (Rules.Type == TargetType.Program)
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop);
-			}
-			else if (Rules.Type == TargetType.Editor)
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.Editor);
-			}
-			else
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.All);
-			}
-		}
-
 		/// <summary>
 		/// Creates a target object for the specified target name.
 		/// </summary>
@@ -392,9 +365,16 @@ namespace UnrealBuildTool
 
 			FileReference TargetFileName;
 			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, Arguments, out TargetFileName);
-			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !GetSupportedPlatforms(RulesObject).Contains(Desc.Platform))
+			if (ProjectFileGenerator.bGenerateProjectFiles == false)
 			{
-				throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
+				if(!RulesObject.GetSupportedPlatforms().Contains(Desc.Platform))
+				{
+					throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
+				}
+				if(!RulesObject.GetSupportedConfigurations().Contains(Desc.Configuration))
+				{
+					throw new BuildException("{0} does not support the {1} configuration.", Desc.Name, Desc.Configuration.ToString());
+				}
 			}
 
 			// Now that we found the actual Editor target, make sure we're no longer using the old TargetName (which is the Game target)
@@ -2226,6 +2206,12 @@ namespace UnrealBuildTool
 				BuildProducts.AddRange(BinaryBuildProducts);
 			}
 			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
+
+			// Remove any installed build products that don't exist. They may be part of an optional install.
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				BuildProducts.RemoveAll(x => IsFileInstalled(x.Key) && !FileReference.Exists(x.Key));
+			}
 
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)

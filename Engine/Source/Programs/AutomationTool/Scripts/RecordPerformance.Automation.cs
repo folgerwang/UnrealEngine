@@ -147,7 +147,7 @@ class RecordPerformance : BuildCommand
 
 	private void RunCsvTool(string ToolName, string Arguments)
 	{
-		var ToolPath = FileReference.Combine(DirectoryReference.Combine(RootDir, "Engine", "Programs", "NotForLicensees", "CSVTools", "Binaries"), ToolName + ".exe");
+		var ToolPath = FileReference.Combine(DirectoryReference.Combine(RootDir, "Engine", "Source", "Programs", "NotForLicensees", "CSVTools", "Binaries"), ToolName + ".exe");
 		Run(ToolPath.FullName, Arguments);
 	}
 

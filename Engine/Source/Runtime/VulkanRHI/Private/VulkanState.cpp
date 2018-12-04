@@ -63,7 +63,7 @@ inline VkFilter TranslateMinFilterMode(ESamplerFilter InFilter)
 	return OutFilter;
 }
 
-inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode, const bool bSupportsMirrorClampToEdge)
+inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode)
 {
 	VkSamplerAddressMode OutAddressMode = VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
 
@@ -71,9 +71,7 @@ inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode,
 	{
 		case AM_Wrap:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;			break;
 		case AM_Clamp:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;		break;
-		case AM_Mirror:		OutAddressMode = bSupportsMirrorClampToEdge
-												? VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
-												: VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;		break;
+		case AM_Mirror:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;	break;
 		case AM_Border:		OutAddressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;	break;
 		default:
 			break;
@@ -229,10 +227,9 @@ void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerR
 	OutSamplerInfo.magFilter = TranslateMagFilterMode(Initializer.Filter);
 	OutSamplerInfo.minFilter = TranslateMinFilterMode(Initializer.Filter);
 	OutSamplerInfo.mipmapMode = TranslateMipFilterMode(Initializer.Filter);
-	const bool bSupportsMirrorClampToEdge = InDevice.GetOptionalExtensions().HasMirrorClampToEdge;
-	OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU, bSupportsMirrorClampToEdge);
-	OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV, bSupportsMirrorClampToEdge);
-	OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW, bSupportsMirrorClampToEdge);
+	OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU);
+	OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV);
+	OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW);
 
 	OutSamplerInfo.mipLodBias = Initializer.MipBias;
 	OutSamplerInfo.maxAnisotropy = FMath::Clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy), 1.0f, InDevice.GetLimits().maxSamplerAnisotropy);

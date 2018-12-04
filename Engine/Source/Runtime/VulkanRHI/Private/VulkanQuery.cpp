@@ -628,22 +628,20 @@ void FVulkanOcclusionQuery::ReleaseFromPool()
 
 void FVulkanCommandListContext::ReadAndCalculateGPUFrameTime()
 {
-	/*
 	check(IsImmediate());
 
-	if (FrameTiming)
+	if (FVulkanPlatform::SupportsTimestampRenderQueries() && FrameTiming)
 	{
-	const uint64 Delta = FrameTiming->GetTiming(false);
-	#if VULKAN_USE_NEW_QUERIES
-	const double SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
-	const double Frequency = double(FVulkanGPUTiming::GetTimingFrequency());
-	GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / SecondsPerCycle);
-	#else
-	GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
-	#endif
+		const uint64 Delta = FrameTiming->GetTiming(false);
+#if VULKAN_USE_NEW_QUERIES
+		const double SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
+		const double Frequency = double(FVulkanGPUTiming::GetTimingFrequency());
+		GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / SecondsPerCycle);
+#else
+		GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
+#endif
 	}
 	else
-	*/
 	{
 		GGPUFrameTime = 0;
 	}
@@ -804,5 +802,5 @@ void FVulkanCommandListContext::WriteBeginTimestamp(FVulkanCmdBuffer* CmdBuffer)
 
 void FVulkanCommandListContext::WriteEndTimestamp(FVulkanCmdBuffer* CmdBuffer)
 {
-	FrameTiming->EndTiming();
+	FrameTiming->EndTiming(CmdBuffer);
 }

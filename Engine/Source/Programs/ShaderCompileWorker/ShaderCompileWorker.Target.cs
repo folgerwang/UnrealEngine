@@ -5,6 +5,7 @@ using System.IO;
 using UnrealBuildTool;
 
 [SupportedPlatforms(UnrealPlatformClass.Editor)]
+[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class ShaderCompileWorkerTarget : TargetRules
 {
 	public ShaderCompileWorkerTarget(TargetInfo Target) : base(Target)

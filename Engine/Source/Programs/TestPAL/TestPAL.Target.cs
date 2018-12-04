@@ -3,7 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-[SupportedPlatforms(UnrealPlatformClass.All)]
+[SupportedPlatforms(UnrealPlatformClass.Desktop)]
 public class TestPALTarget : TargetRules
 {
 	public TestPALTarget(TargetInfo Target) : base(Target)

@@ -17,11 +17,16 @@ class FVulkanOcclusionQueryPool;
 
 struct FInputAttachmentData;
 
+
+extern VULKANRHI_API FCriticalSection GLayoutLock;
+
+
 class FTransitionAndLayoutManagerData
 {
 public:
 	void TempCopy(const FTransitionAndLayoutManagerData& In)
 	{
+		FScopeLock Lock(&GLayoutLock);
 		Framebuffers = In.Framebuffers;
 		RenderPasses = In.RenderPasses;
 		Layouts = In.Layouts;
@@ -124,16 +129,19 @@ public:
 
 	inline void NotifyDeletedImage(VkImage Image)
 	{
+		FScopeLock Lock(&GLayoutLock);
 		Layouts.Remove(Image);
 	}
 
 	VkImageLayout FindLayoutChecked(VkImage Image) const
 	{
+		FScopeLock Lock(&GLayoutLock);
 		return Layouts.FindChecked(Image);
 	}
 
 	VkImageLayout FindOrAddLayout(VkImage Image, VkImageLayout LayoutIfNotFound)
 	{
+		FScopeLock Lock(&GLayoutLock);
 		VkImageLayout* Found = Layouts.Find(Image);
 		if (Found)
 		{
@@ -146,6 +154,7 @@ public:
 
 	VkImageLayout& FindOrAddLayoutRW(VkImage Image, VkImageLayout LayoutIfNotFound)
 	{
+		FScopeLock Lock(&GLayoutLock);
 		VkImageLayout* Found = Layouts.Find(Image);
 		if (Found)
 		{

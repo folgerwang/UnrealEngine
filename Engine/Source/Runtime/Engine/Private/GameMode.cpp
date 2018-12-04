@@ -72,7 +72,12 @@ void AGameMode::InitGame(const FString& MapName, const FString& Options, FString
 	Super::InitGame(MapName, Options, ErrorMessage);
 	SetMatchState(MatchState::EnteringMap);
 
-	if (!GameStateClass->IsChildOf<AGameState>())
+	if (GameStateClass == nullptr)
+	{
+		UE_LOG(LogGameMode, Error, TEXT("GameStateClass is not set, falling back to AGameState."));
+		GameStateClass = AGameState::StaticClass();
+	}
+	else if (!GameStateClass->IsChildOf<AGameState>())
 	{
 		UE_LOG(LogGameMode, Error, TEXT("Mixing AGameStateBase with AGameMode is not compatible. Change AGameStateBase subclass (%s) to derive from AGameState, or make both derive from Base"), *GameStateClass->GetName());
 	}

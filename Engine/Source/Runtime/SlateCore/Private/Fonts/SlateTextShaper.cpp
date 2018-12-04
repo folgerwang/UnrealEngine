@@ -220,7 +220,7 @@ void FSlateTextShaper::PerformTextShaping(const TCHAR* InText, const int32 InTex
 
 					if (Char <= TEXT('\u007F'))
 					{
-						return false;
+						continue;
 					}
 
 					if (CharRequiresFullShaping(Char))

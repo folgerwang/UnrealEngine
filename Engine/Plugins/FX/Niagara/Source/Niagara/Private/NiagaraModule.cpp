@@ -127,6 +127,8 @@ FNiagaraVariable INiagaraModule::Particles_RibbonLinkOrder;
 FNiagaraVariable INiagaraModule::DataInstance_Alive;
 FNiagaraVariable INiagaraModule::Translator_BeginDefaults;
 
+extern NIAGARACORE_API TMap<FString, UClass*> FNiagaraDataInterfaceParamRefKnownClasses;
+
 void INiagaraModule::StartupModule()
 {
 	VectorVM::Init();
@@ -228,7 +230,21 @@ void INiagaraModule::StartupModule()
 	UNiagaraSpriteRendererProperties::InitCDOPropertiesAfterModuleStartup();
 	UNiagaraRibbonRendererProperties::InitCDOPropertiesAfterModuleStartup();
 	UNiagaraMeshRendererProperties::InitCDOPropertiesAfterModuleStartup();
-
+	
+	// Temporary fix for 4.21.1. More permanent fix is in 4.22. Adding in all CDO-registered types here. If your Data Interface class isn't registered yet, you 
+	// will need to register manually.
+	TArray<FNiagaraTypeDefinition> KnownTypes = FNiagaraTypeRegistry::GetRegisteredTypes();
+	for (const FNiagaraTypeDefinition& Def : KnownTypes)
+	{
+		if (Def.IsDataInterface())
+		{
+			UClass* FoundDIClass = Def.GetClass();
+			if (FoundDIClass)
+			{
+				FNiagaraDataInterfaceParamRefKnownClasses.Add(FoundDIClass->GetName(), FoundDIClass);
+			}
+		}
+	}
 }
 
 void INiagaraModule::ShutdownRenderingResources()

@@ -573,8 +573,6 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t<array>");
 				for (int ConfigIndex = 0; ConfigIndex < IPhoneConfigs.Length; ConfigIndex += 4)
 				{
-					if ((bSupportsPortrait && IPhoneConfigs[ConfigIndex + 1] == "Portrait") ||
-						(bSupportsLandscape && (IPhoneConfigs[ConfigIndex + 1] == "Landscape") || ConfigIndex > 12))
 					{
 						Text.AppendLine("\t\t<dict>");
 						Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
@@ -610,8 +608,6 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t<array>");
 				for (int ConfigIndex = 0; ConfigIndex < IPadConfigs.Length; ConfigIndex += 4)
 				{
-					if ((bSupportsPortrait && IPhoneConfigs[ConfigIndex + 1] == "Portrait") ||
-						(bSupportsLandscape && IPhoneConfigs[ConfigIndex + 1] == "Landscape"))
 					{
 						Text.AppendLine("\t\t<dict>");
 						Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");

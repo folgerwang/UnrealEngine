@@ -125,13 +125,12 @@ namespace FNavigationSystem
 			const UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(World->GetNavigationSystem());
 			return NavSys && NavSys->ShouldLoadNavigationOnClient(&NavData);
 		}
-		else
+		else if (GEngine->NavigationSystemClass && GEngine->NavigationSystemClass->IsChildOf<UNavigationSystemV1>())
 		{
-			const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
-				? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
-				: (const UNavigationSystemV1*)nullptr;
+			const UNavigationSystemV1* NavSysCDO = GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>();
 			return NavSysCDO && NavSysCDO->ShouldLoadNavigationOnClient(&NavData);
 		}
+		return false;
 	}
 
 	bool ShouldDiscardSubLevelNavData(ANavigationData& NavData)

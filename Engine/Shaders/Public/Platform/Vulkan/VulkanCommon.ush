@@ -5,7 +5,7 @@
 =============================================================================*/
 
 // Update this GUID to improve shader recompilation for Vulkan only shaders
-// GUID = {792BDC0A-A4A8-402F-8752-00000000003A}
+// GUID = {792BDC0A-A4A8-402F-8752-000000000040}
 // Glslang 1.0.65.1
 
 #pragma once

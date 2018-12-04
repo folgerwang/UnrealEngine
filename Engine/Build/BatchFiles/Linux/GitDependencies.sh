@@ -19,7 +19,7 @@ BASE_PATH="`dirname "$SCRIPT_PATH"`"
 cd ../../../..
 RESULT=0
 
-source "$BASE_PATH/SetupMono.sh" $BASE_PATH
+source "$BASE_PATH/SetupMono.sh" "$BASE_PATH"
 
 while : ; do
         mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS

@@ -168,7 +168,8 @@ UObject* UObject::GetArchetype() const
 		}
 	}
 #endif // UE_VERIFY_CACHED_ARCHETYPE
-	check(Archetype == nullptr || Archetype->IsValidLowLevelFast());
+	// Note that IsValidLowLevelFast check may fail during initial load as not all classes are initialized at this point so skip it
+	check(Archetype == nullptr || GIsInitialLoad || Archetype->IsValidLowLevelFast());
 
 	return Archetype;
 #else

@@ -194,11 +194,11 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 
 				if (FCStringAnsi::Stricmp(Arg, "-vmapoolevict") == 0)
 				{
-					GMemoryRangeDecommitIsNoOp = true;
+					GMemoryRangeDecommitIsNoOp = false;
 				}
 				if (FCStringAnsi::Stricmp(Arg, "-novmapoolevict") == 0)
 				{
-					GMemoryRangeDecommitIsNoOp = false;
+					GMemoryRangeDecommitIsNoOp = true;
 				}
 			}
 			free(Arg);

@@ -3,6 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
+[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class UnrealHeaderToolTarget : TargetRules
 {
 	public UnrealHeaderToolTarget(TargetInfo Target) : base(Target)

@@ -31,13 +31,51 @@ static TAutoConsoleVariable<int32> GDescriptorSetLayoutMode(
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
 );
 
-int32 GCacheCreatedShaders = 1;
-FAutoConsoleVariableRef CVarCacheCreatedShaders(
-	TEXT("r.Vulkan.CacheShaders"),
-	GCacheCreatedShaders,
-	TEXT("Whether to cache created shaders to avoid shader duplication\n"),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe
-	);
+// Vulkan hotfix for 4.21
+struct FVulkanShaderFactory_Hotfix421
+{
+	FRWLock Lock;
+	TMap<uint64, FVulkanShader*> ShaderMap[SF_NumFrequencies];
+};
+
+// This should be member of FVulkanShaderFactory
+FVulkanShader* FVulkanShaderFactory_LookupShader(FVulkanShaderFactory& ShaderFactory, EShaderFrequency ShaderFrequency, uint64 ShaderKey)
+{
+	if (ShaderKey)
+	{
+		FVulkanShaderFactory_Hotfix421& ShaderFactoryHotfix = reinterpret_cast<FVulkanShaderFactory_Hotfix421&>(ShaderFactory);
+		
+		FRWScopeLock ScopedLock(ShaderFactoryHotfix.Lock, SLT_ReadOnly);
+		FVulkanShader* const * FoundShaderPtr = ShaderFactoryHotfix.ShaderMap[ShaderFrequency].Find(ShaderKey);
+		if (FoundShaderPtr)
+		{
+			return *FoundShaderPtr;
+		}
+	}
+	return nullptr;
+}
+
+// This should be member of FVulkanShaderFactory
+void FVulkanShaderFactory_LookupShaders(FVulkanShaderFactory& ShaderFactory, const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages])
+{
+	FVulkanShaderFactory_Hotfix421& ShaderFactoryHotfix = reinterpret_cast<FVulkanShaderFactory_Hotfix421&>(ShaderFactory);
+
+	FRWScopeLock ScopedLock(ShaderFactoryHotfix.Lock, SLT_ReadOnly);
+	
+	for (int32 Idx = 0; Idx < ShaderStage::NumStages; ++Idx)
+	{
+		uint64 ShaderKey = InShaderKeys[Idx];
+		if (ShaderKey)
+		{
+			EShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::EStage)Idx);
+			FVulkanShader* const * FoundShaderPtr = ShaderFactoryHotfix.ShaderMap[ShaderFrequency].Find(ShaderKey);
+			if (FoundShaderPtr)
+			{
+				OutShaders[Idx] = *FoundShaderPtr;
+			}
+		}
+	}
+}
 
 FVulkanShaderFactory::~FVulkanShaderFactory()
 {
@@ -54,44 +92,25 @@ ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulka
 	uint32 ShaderCodeCRC = FCrc::MemCrc32(Code.GetData(), Code.Num());
 	uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
 
-	ShaderType* RetShader = nullptr;
-	if (GCacheCreatedShaders)
-	{
-		FVulkanShader** FoundShaderPtr = nullptr;
-		{
-			FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
-			FoundShaderPtr = ShaderMap[ShaderType::StaticFrequency].Find(ShaderKey);
-		}
-		if (FoundShaderPtr)
-		{
-			RetShader = static_cast<ShaderType*>(*FoundShaderPtr);
-		}
-		else
-		{
-			RetShader = new ShaderType(Device);
-			RetShader->Setup(Code, ShaderKey);
-			
-			FRWScopeLock ScopedLock(Lock, SLT_Write);
-			ShaderMap[ShaderType::StaticFrequency].Add(ShaderKey, RetShader);
-		}
-	}
-	else
+	EShaderFrequency ShaderFrequency = (EShaderFrequency)ShaderType::StaticFrequency;
+
+	ShaderType* RetShader = static_cast<ShaderType*>(FVulkanShaderFactory_LookupShader(*this, ShaderFrequency, ShaderKey));
+	if (RetShader == nullptr)
 	{
 		RetShader = new ShaderType(Device);
 		RetShader->Setup(Code, ShaderKey);
+			
+		FRWScopeLock ScopedLock(Lock, SLT_Write);
+		ShaderMap[ShaderFrequency].Add(ShaderKey, RetShader);
 	}
-
 	return RetShader;
 }
-	
+
 void FVulkanShaderFactory::OnDeleteShader(const FVulkanShader& Shader)
 {
-	if (GCacheCreatedShaders)
-	{
-		FRWScopeLock ScopedLock(Lock, SLT_Write);
-		uint64 ShaderKey = Shader.GetShaderKey(); 
-		ShaderMap[Shader.Frequency].Remove(ShaderKey);
-	}
+	FRWScopeLock ScopedLock(Lock, SLT_Write);
+	uint64 ShaderKey = Shader.GetShaderKey(); 
+	ShaderMap[Shader.Frequency].Remove(ShaderKey);
 }
 
 void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode, uint64 InShaderKey)

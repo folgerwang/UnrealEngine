@@ -265,11 +265,6 @@ bool InitGamePhys()
 	GPhysXFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, *GPhysXAllocator, *ErrorCallback);
 	check(GPhysXFoundation);
 
-#if STATS
-	FPhysXProfilerCallback* ProfilerCallback = new FPhysXProfilerCallback();
-	PxSetProfilerCallback(ProfilerCallback);
-#endif
-
 #if PHYSX_MEMORY_STATS
 	// Want names of PhysX allocations
 	GPhysXFoundation->setReportAllocationNames(true);
