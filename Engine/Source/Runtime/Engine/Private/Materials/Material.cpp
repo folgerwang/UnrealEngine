@@ -1987,32 +1987,32 @@ void UMaterial::GetDependentFunctions(TArray<UMaterialFunctionInterface*>& Depen
 	}
 }
 
-bool UMaterial::GetScalarParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetScalarParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetScalarParameterValue(ParameterInfo, OutValue, bOveriddenOnly);
 }
 
-bool UMaterial::GetVectorParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetVectorParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetVectorParameterValue(ParameterInfo, OutValue, bOveriddenOnly);
 }
 
-bool UMaterial::GetTextureParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, class UTexture*& OutValue, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetTextureParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, class UTexture*& OutValue, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetTextureParameterValue(ParameterInfo, OutValue);
 }
 
-bool UMaterial::GetFontParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, class UFont*& OutFontValue, int32& OutFontPage, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetFontParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, class UFont*& OutFontValue, int32& OutFontPage, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetFontParameterValue(ParameterInfo, OutFontValue, OutFontPage);
 }
 
-bool UMaterial::GetStaticComponentMaskParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetStaticComponentMaskParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetStaticComponentMaskParameterValue(ParameterInfo, OutR, OutG, OutB, OutA, OutExpressionGuid);
 }
 
-bool UMaterial::GetStaticSwitchParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
+bool UMaterial::GetStaticSwitchParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
 {
 	return GetStaticSwitchParameterValue(ParameterInfo, OutValue, OutExpressionGuid);
 }
