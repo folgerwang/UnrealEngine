@@ -725,9 +725,10 @@ FLinkerLoad* GetPackageLinker
 	}
 	else if (InExistingContext)
 	{
-		if (Result->GetSerializeContext() && Result->GetSerializeContext()->HasStartedLoading() && InExistingContext->GetBeginLoadCount() == 1)
+		if ((Result->GetSerializeContext() && Result->GetSerializeContext()->HasStartedLoading() && InExistingContext->GetBeginLoadCount() == 1) ||
+			  IsInAsyncLoadingThread())
 		{
-			// Use the context associated with the linker because it has already started loading objects
+			// Use the context associated with the linker because it has already started loading objects (or we're in ALT where each package needs its own context)
 			*InOutLoadContext = Result->GetSerializeContext();
 		}
 		else
