@@ -1869,10 +1869,10 @@ void UMaterialInstance::GetDependentFunctions(TArray<UMaterialFunctionInterface*
 	}
 }
 
-bool UMaterialInstance::GetScalarParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance::GetScalarParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
 {
 #if WITH_EDITOR
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -1924,18 +1924,18 @@ bool UMaterialInstance::GetScalarParameterDefaultValue(const FMaterialParameterI
 	if (Parent)
 	{
 #if WITH_EDITOR
-		FMICReentranceGuard	Guard(this);
+		RecursionGuard.Add(this);
 #endif
-		return Parent->GetScalarParameterDefaultValue(ParameterInfo, OutValue, bOveriddenOnly, true);
+		return Parent->GetScalarParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutValue, bOveriddenOnly, true);
 	}
 
 	return false;
 }
 
-bool UMaterialInstance::GetVectorParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance::GetVectorParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly, bool bCheckOwnedGlobalOverrides) const
 {
 #if WITH_EDITOR
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -1987,18 +1987,18 @@ bool UMaterialInstance::GetVectorParameterDefaultValue(const FMaterialParameterI
 	if (Parent)
 	{
 #if WITH_EDITOR
-		FMICReentranceGuard	Guard(this);
+		RecursionGuard.Add(this);
 #endif
-		return Parent->GetVectorParameterDefaultValue(ParameterInfo, OutValue, bOveriddenOnly, true);
+		return Parent->GetVectorParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutValue, bOveriddenOnly, true);
 	}
 
 	return false;
 }
 
-bool UMaterialInstance::GetTextureParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, UTexture*& OutValue, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance::GetTextureParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, UTexture*& OutValue, bool bCheckOwnedGlobalOverrides) const
 {
 #if WITH_EDITOR
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -2050,18 +2050,18 @@ bool UMaterialInstance::GetTextureParameterDefaultValue(const FMaterialParameter
 	if (Parent)
 	{
 #if WITH_EDITOR
-		FMICReentranceGuard	Guard(this);
+		RecursionGuard.Add(this);
 #endif
-		return Parent->GetTextureParameterDefaultValue(ParameterInfo, OutValue, true);
+		return Parent->GetTextureParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutValue, true);
 	}
 
 	return false;
 }
 
-bool UMaterialInstance::GetFontParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, UFont*& OutFontValue, int32& OutFontPage, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance::GetFontParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, UFont*& OutFontValue, int32& OutFontPage, bool bCheckOwnedGlobalOverrides) const
 {
 #if WITH_EDITOR
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -2114,17 +2114,17 @@ bool UMaterialInstance::GetFontParameterDefaultValue(const FMaterialParameterInf
 	if (Parent)
 	{
 #if WITH_EDITOR
-		FMICReentranceGuard	Guard(this);
+		RecursionGuard.Add(this);
 #endif
-		return Parent->GetFontParameterDefaultValue(ParameterInfo, OutFontValue, OutFontPage, true);
+		return Parent->GetFontParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutFontValue, OutFontPage, true);
 	}
 
 	return false;
 }
 
-bool UMaterialInstance::GetStaticSwitchParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance::GetStaticSwitchParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
 {
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -2175,16 +2175,16 @@ bool UMaterialInstance::GetStaticSwitchParameterDefaultValue(const FMaterialPara
 	
 	if (Parent)
 	{
-		FMICReentranceGuard	Guard(this);
-		return Parent->GetStaticSwitchParameterDefaultValue(ParameterInfo, OutValue, OutExpressionGuid, true);
+		RecursionGuard.Add(this);
+		return Parent->GetStaticSwitchParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutValue, OutExpressionGuid, true);
 	}
 
 	return false;
 }
 
-bool UMaterialInstance:: GetStaticComponentMaskParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
+bool UMaterialInstance:: GetStaticComponentMaskParameterDefaultValue_Concurrent(TMicRecursionGuard& RecursionGuard, const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides) const
 {
-	if (GetReentrantFlag())
+	if(RecursionGuard.Contains(this))
 	{
 		return false;
 	}
@@ -2238,8 +2238,8 @@ bool UMaterialInstance:: GetStaticComponentMaskParameterDefaultValue(const FMate
 	
 	if (Parent)
 	{
-		FMICReentranceGuard	Guard(this);
-		return Parent->GetStaticComponentMaskParameterDefaultValue(ParameterInfo, OutR, OutG, OutB, OutA, OutExpressionGuid, true);
+		RecursionGuard.Add(this);
+		return Parent->GetStaticComponentMaskParameterDefaultValue_Concurrent(RecursionGuard, ParameterInfo, OutR, OutG, OutB, OutA, OutExpressionGuid, true);
 	}
 
 	return false;
