@@ -131,6 +131,16 @@
 
 DEFINE_LOG_CATEGORY(LogSequencer);
 
+static TAutoConsoleVariable<float> CVarAutoScrubSpeed(
+	TEXT("Sequencer.AutoScrubSpeed"),
+	6.0f,
+	TEXT("How fast to scrub forward/backward when auto-scrubbing"));
+
+static TAutoConsoleVariable<float> CVarAutoScrubCurveExponent(
+	TEXT("Sequencer.AutoScrubCurveExponent"),
+	2.0f,
+	TEXT("How much to ramp in and out the scrub speed when auto-scrubbing"));
+
 struct FSequencerTemplateStore : IMovieSceneSequenceTemplateStore
 {
 	void Reset()
@@ -600,6 +610,35 @@ void FSequencer::Tick(float InDeltaTime)
 	else
 	{
 		PlayPosition.Reset(GlobalTime.ConvertTo(PlayPosition.GetInputRate()));
+	}
+
+	if (AutoScrubTarget.IsSet())
+	{
+		const double ScrubSpeed = CVarAutoScrubSpeed->GetFloat();		// How fast to scrub at peak curve speed
+		const double AutoScrubExp = CVarAutoScrubCurveExponent->GetFloat();	// How long to ease in and out.  Bigger numbers allow for longer easing.
+
+		const double SecondsPerFrame = GetFocusedTickResolution().AsInterval() / ScrubSpeed;
+		const int32 TotalFrames = FMath::Abs(AutoScrubTarget.GetValue().DestinationTime.GetFrame().Value - AutoScrubTarget.GetValue().SourceTime.GetFrame().Value);
+		const double TargetSeconds = (double)TotalFrames * SecondsPerFrame;
+
+		double ElapsedSeconds = FPlatformTime::Seconds() - AutoScrubTarget.GetValue().StartTime;
+		float Alpha = ElapsedSeconds / TargetSeconds;
+		Alpha = FMath::Clamp(Alpha, 0.f, 1.f);
+		int32 NewFrameNumber = FMath::InterpEaseInOut(AutoScrubTarget.GetValue().SourceTime.GetFrame().Value, AutoScrubTarget.GetValue().DestinationTime.GetFrame().Value, Alpha, AutoScrubExp);
+
+		FAutoScrubTarget CachedTarget = AutoScrubTarget.GetValue();
+
+		SetPlaybackStatus(EMovieScenePlayerStatus::Scrubbing);
+		PlayPosition.SetTimeBase(GetRootTickResolution(), GetRootTickResolution(), EMovieSceneEvaluationType::WithSubFrames);
+		SetLocalTimeDirectly(FFrameNumber(NewFrameNumber));
+
+		AutoScrubTarget = CachedTarget;
+
+		if (FMath::IsNearlyEqual(Alpha, 1.f, KINDA_SMALL_NUMBER))
+		{
+			SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+			AutoScrubTarget.Reset();
+		}
 	}
 
 	UpdateSubSequenceData();
@@ -2214,7 +2253,7 @@ void FSequencer::SetLocalTimeDirectly(FFrameTime NewTime)
 }
 
 
-void FSequencer::SetGlobalTime( FFrameTime NewTime )
+void FSequencer::SetGlobalTime(FFrameTime NewTime)
 {
 	NewTime = ConvertFrameTime(NewTime, GetRootTickResolution(), PlayPosition.GetInputRate());
 	if (PlayPosition.GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked)
@@ -2228,6 +2267,12 @@ void FSequencer::SetGlobalTime( FFrameTime NewTime )
 	if (PlayPosition.GetCurrentPosition() != NewTime)
 	{
 		EvaluateInternal(PlayPosition.JumpTo(NewTime));
+	}
+
+	if (AutoScrubTarget.IsSet())
+	{
+		SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+		AutoScrubTarget.Reset();
 	}
 }
 
@@ -2378,6 +2423,11 @@ TOptional<float> FSequencer::CalculateAutoscrollEncroachment(double NewTime, flo
 	return TOptional<float>();
 }
 
+
+void FSequencer::AutoScrubToTime(FFrameTime DestinationTime)
+{
+	AutoScrubTarget = FAutoScrubTarget(DestinationTime, GetLocalTime().Time, FPlatformTime::Seconds());
+}
 
 void FSequencer::SetPerspectiveViewportPossessionEnabled(bool bEnabled)
 {
@@ -2612,6 +2662,16 @@ FGuid FSequencer::GetHandleToObject( UObject* Object, bool bCreateHandleIfMissin
 		AActor* PossessedActor = Cast<AActor>(Object);
 
 		ObjectGuid = CreateBinding(*Object, PossessedActor != nullptr ? PossessedActor->GetActorLabel() : Object->GetName());
+
+		AActor* ActorAdded = PossessedActor ? PossessedActor : Object->GetTypedOuter<AActor>();
+		if (ActorAdded)
+		{
+			FGuid ActorAddedGuid = GetHandleToObject(ActorAdded);
+			if (ActorAddedGuid.IsValid())
+			{
+				OnActorAddedToSequencerEvent.Broadcast(ActorAdded, ActorAddedGuid);
+			}
+		}
 
 		NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 	}
@@ -3824,7 +3884,14 @@ void FSequencer::OnScrubPositionChanged( FFrameTime NewScrubPosition, bool bScru
 		NewScrubPosition = FMath::Clamp(NewScrubPosition, LowerBound, UpperBound);
 	}
 
-	SetLocalTimeDirectly( NewScrubPosition );
+	if (!bScrubbing && FSlateApplication::Get().GetModifierKeys().IsShiftDown())
+	{
+		AutoScrubToTime(NewScrubPosition);
+	}
+	else
+	{
+		SetLocalTimeDirectly(NewScrubPosition);
+	}
 }
 
 
@@ -3972,7 +4039,7 @@ FGuid FSequencer::AddSpawnable(UObject& Object, UActorFactory* ActorFactory)
 	return NewGuid;
 }
 
-FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory )
+FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory, bool bSetupDefaults )
 {
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
@@ -4013,8 +4080,11 @@ FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory
 	// Spawn the object so we can position it correctly, it's going to get spawned anyway since things default to spawned.
 	UObject* SpawnedObject = SpawnRegister->SpawnObject(NewGuid, *MovieScene, ActiveTemplateIDs.Top(), *this);
 
-	FTransformData TransformData;
-	SpawnRegister->SetupDefaultsForSpawnable(SpawnedObject, Spawnable->GetGuid(), TransformData, AsShared(), Settings);
+	if (bSetupDefaults)
+	{
+		FTransformData TransformData;
+		SpawnRegister->SetupDefaultsForSpawnable(SpawnedObject, Spawnable->GetGuid(), TransformData, AsShared(), Settings);
+	}
 
 	Spawnable->SetSpawnOwnership(SavedOwnership);
 
@@ -6184,7 +6254,7 @@ bool FSequencer::PasteObjectBindings(const FString& TextToImport)
 			// because we need to use our binding (which has tracks associated with it). To solve this, we let it create
 			// an object template based off of our (transient package owned) template, then find the newly created binding
 			// and update it.
-			FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate);
+			FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate, nullptr, false);
 			FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
 			FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(NewGuid);
 
@@ -6900,9 +6970,28 @@ FMovieSceneSpawnable* FSequencer::ConvertToSpawnableInternal(FGuid PossessableGu
 		// Remap all the spawnable's tracks and child bindings onto the new possessable
 		MovieScene->MoveBindingContents(PossessableGuid, SpawnableGuid);
 
+		FMovieSceneBinding* PossessableBinding = (FMovieSceneBinding*)MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == PossessableGuid; });
+		check(PossessableBinding);
+
+		for (UMovieSceneFolder* Folder : MovieScene->GetRootFolders())
+		{
+			if (ReplaceFolderBindingGUID(Folder, PossessableGuid, SpawnableGuid))
+			{
+				break;
+			}
+		}
+
+		int32 SortingOrder = PossessableBinding->GetSortingOrder();
+
 		if (MovieScene->RemovePossessable(PossessableGuid))
 		{
 			Sequence->UnbindPossessableObjects(PossessableGuid);
+
+			FMovieSceneBinding* SpawnableBinding = (FMovieSceneBinding*)MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == SpawnableGuid; });
+			check(SpawnableBinding);
+			
+			SpawnableBinding->SetSortingOrder(SortingOrder);
+
 		}
 
 		TOptional<FTransformData> TransformData;
@@ -7078,12 +7167,30 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 		// Remap all the spawnable's tracks and child bindings onto the new possessable
 		MovieScene->MoveBindingContents(OldSpawnableGuid, NewPossessableGuid);
 
+		FMovieSceneBinding* SpawnableBinding = (FMovieSceneBinding*)MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == OldSpawnableGuid; });
+		check(SpawnableBinding);
+
+		for (UMovieSceneFolder* Folder : MovieScene->GetRootFolders())
+		{
+			if (ReplaceFolderBindingGUID(Folder, Spawnable->GetGuid(), Possessable->GetGuid()))
+			{
+				break;
+			}
+		}
+
+		int32 SortingOrder = SpawnableBinding->GetSortingOrder();
+
 		// Remove the spawnable and all it's sub tracks
 		if (MovieScene->RemoveSpawnable(OldSpawnableGuid))
 		{
 			SpawnRegister->DestroySpawnedObject(OldSpawnableGuid, ActiveTemplateIDs.Top(), *this);
+
+			FMovieSceneBinding* PossessableBinding = (FMovieSceneBinding*)MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == NewPossessableGuid; });
+			check(PossessableBinding);
+			
+			PossessableBinding->SetSortingOrder(SortingOrder);
 		}
-	
+
 		static const FName SequencerActorTag(TEXT("SequencerActor"));
 		PossessedActor->Tags.Remove(SequencerActorTag);
 
@@ -7093,6 +7200,36 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 	}
 
 	return Possessable;
+}
+
+bool FSequencer::ReplaceFolderBindingGUID(UMovieSceneFolder* Folder, FGuid Original, FGuid Converted)
+{
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{
+		return true;
+	}
+
+	for (FGuid ChildGuid : Folder->GetChildObjectBindings())
+	{
+		if (ChildGuid == Original)
+		{
+			Folder->AddChildObjectBinding(Converted);
+			Folder->RemoveChildObjectBinding(Original);
+			return true;
+		}
+	}
+
+	for (UMovieSceneFolder* ChildFolder : Folder->GetChildFolders())
+	{
+		if (ReplaceFolderBindingGUID(ChildFolder, Original, Converted))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void FSequencer::OnAddFolder()
@@ -7698,7 +7835,7 @@ void FSequencer::StepToNextMark()
 				{
 					if (TickFrame > CurrentTickFrameNumber)
 					{
-						SetLocalTime(TickFrame.Value);
+						AutoScrubToTime(TickFrame.Value);
 						break;
 					}
 				}
@@ -7729,7 +7866,7 @@ void FSequencer::StepToPreviousMark()
 				{
 					if (TickFrame < CurrentTickFrameNumber)
 					{
-						SetLocalTime(TickFrame.Value);
+						AutoScrubToTime(TickFrame.Value);
 						break;
 					}
 				}

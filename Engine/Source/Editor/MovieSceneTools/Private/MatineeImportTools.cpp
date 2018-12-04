@@ -12,10 +12,14 @@
 #include "Channels/MovieSceneEvent.h"
 #include "K2Node_FunctionEntry.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "EngineUtils.h"
 
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
 #include "Matinee/InterpGroupInst.h"
+#include "Matinee/InterpTrackFloatMaterialParam.h"
+#include "Matinee/InterpTrackVectorMaterialParam.h"
 #include "Matinee/InterpTrackLinearColorProp.h"
 #include "Matinee/InterpTrackColorProp.h"
 #include "Matinee/InterpTrackBoolProp.h"
@@ -30,6 +34,7 @@
 
 #include "Tracks/MovieSceneBoolTrack.h"
 #include "Tracks/MovieSceneFloatTrack.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
 #include "Tracks/MovieSceneColorTrack.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "Tracks/MovieSceneParticleTrack.h"
@@ -52,6 +57,7 @@
 #include "Sections/MovieSceneEventSection.h"
 #include "Sections/MovieSceneEventTriggerSection.h"
 #include "Sections/MovieSceneVectorSection.h"
+#include "Sections/MovieSceneParameterSection.h"
 
 
 #include "Animation/AnimSequence.h"
@@ -120,7 +126,7 @@ bool FMatineeImportTools::TryConvertMatineeToggleToOutParticleKey( ETrackToggleA
 
 
 void FMatineeImportTools::SetOrAddKey(TMovieSceneChannelData<FMovieSceneFloatValue>& ChannelData, FFrameNumber Time, float Value, float ArriveTangent, float LeaveTangent, EInterpCurveMode MatineeInterpMode, FFrameRate FrameRate
-	, ERichCurveTangentWeightMode WeightedMode, float ArriveTangentWeight, float LeaveTangentWeight )
+	, ERichCurveTangentWeightMode WeightedMode, float ArriveTangentWeight, float LeaveTangentWeight)
 {
 	if (ChannelData.FindKey(Time) == INDEX_NONE)
 	{
@@ -219,6 +225,131 @@ bool FMatineeImportTools::CopyInterpFloatTrack( UInterpTrackFloatBase* MatineeFl
 		{
 			Section->SetRange( KeyRange );
 		}
+	}
+
+	return bSectionCreated;
+}
+
+bool FMatineeImportTools::CopyInterpMaterialParamTrack(UInterpTrackFloatMaterialParam* MatineeMaterialParamTrack, UMovieSceneComponentMaterialTrack * MaterialTrack)
+{
+	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "PasteMatineeFloatMaterialParamTrack", "Paste Matinee Float Material Param Track"));
+	bool bSectionCreated = false;
+
+	MaterialTrack->Modify();
+
+	FFrameRate   FrameRate = MaterialTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	FFrameNumber FirstKeyTime = (MatineeMaterialParamTrack->GetKeyframeTime(0) * FrameRate).RoundToFrame();
+
+	UMovieSceneParameterSection* Section = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindSectionAtTime(MaterialTrack->GetAllSections(), FirstKeyTime));
+	if (Section == nullptr)
+	{
+		Section = Cast<UMovieSceneParameterSection>(MaterialTrack->CreateNewSection());
+		MaterialTrack->AddSection(*Section);
+		Section->SetRange(TRange<FFrameNumber>::All());
+		bSectionCreated = true;
+	}
+	if (Section->TryModify())
+	{
+		auto FirstPoint = MatineeMaterialParamTrack->FloatTrack.Points[0];
+		FFrameNumber KeyTime = (FirstPoint.InVal * FrameRate).RoundToFrame();
+
+		// The section needs a key added to be initialized, so add the first key from the matinee track.
+		Section->AddScalarParameterKey(MatineeMaterialParamTrack->ParamName, KeyTime, FirstPoint.OutVal);
+
+		TArray<FScalarParameterNameAndCurve> ScalarParms = Section->GetScalarParameterNamesAndCurves();
+
+		FMovieSceneFloatChannel* Channel = nullptr;
+		int32 CurveIndex = 0;
+		for (FScalarParameterNameAndCurve NameAndCurve : ScalarParms)
+		{
+			if (NameAndCurve.ParameterName == MatineeMaterialParamTrack->ParamName)
+			{
+				Channel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(CurveIndex);
+				break;
+			}
+			++CurveIndex;
+		}
+
+		if (!Channel)
+		{
+			return false;
+		}
+
+		
+		TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
+
+
+		for (const auto& Point : MatineeMaterialParamTrack->FloatTrack.Points)
+		{
+			FFrameNumber CurrentKeyTime = (Point.InVal * FrameRate).RoundToFrame();
+
+			FMatineeImportTools::SetOrAddKey(ChannelData, CurrentKeyTime, Point.OutVal, Point.ArriveTangent, Point.LeaveTangent, Point.InterpMode, FrameRate);
+		}
+
+		CleanupCurveKeys(Channel);
+	}
+
+	return bSectionCreated;
+}
+
+bool FMatineeImportTools::CopyInterpMaterialParamTrack(UInterpTrackVectorMaterialParam * MatineeMaterialParamTrack, UMovieSceneComponentMaterialTrack * MaterialTrack)
+{
+	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "PasteMatineeFloatMaterialParamTrack", "Paste Matinee Float Material Param Track"));
+	bool bSectionCreated = false;
+
+	MaterialTrack->Modify();
+
+	FFrameRate   FrameRate = MaterialTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	FFrameNumber FirstKeyTime = (MatineeMaterialParamTrack->GetKeyframeTime(0) * FrameRate).RoundToFrame();
+
+	UMovieSceneParameterSection* Section = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindSectionAtTime(MaterialTrack->GetAllSections(), FirstKeyTime));
+	if (Section == nullptr)
+	{
+		Section = Cast<UMovieSceneParameterSection>(MaterialTrack->CreateNewSection());
+		MaterialTrack->AddSection(*Section);
+		Section->SetRange(TRange<FFrameNumber>::All());
+		bSectionCreated = true;
+	}
+	if (Section->TryModify())
+	{
+		FInterpCurvePointVector FirstPoint = MatineeMaterialParamTrack->VectorTrack.Points[0];
+		FFrameNumber KeyTime = (FirstPoint.InVal * FrameRate).RoundToFrame();
+
+		// The section needs a key added to be initialized, so add the first key from the matinee track.
+		Section->AddVectorParameterKey(MatineeMaterialParamTrack->ParamName, KeyTime, FirstPoint.OutVal);
+
+		TArray<FScalarParameterNameAndCurve> ScalarParms = Section->GetScalarParameterNamesAndCurves();
+
+		FMovieSceneFloatChannel* Channel = nullptr;
+		int32 CurveIndex = 0;
+		for (FScalarParameterNameAndCurve NameAndCurve : ScalarParms)
+		{
+			if (NameAndCurve.ParameterName == MatineeMaterialParamTrack->ParamName)
+			{
+				Channel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(CurveIndex);
+				break;
+			}
+			++CurveIndex;
+		}
+
+		TArrayView<FMovieSceneFloatChannel*> Channels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+		TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData[3] = {
+			Channels[CurveIndex]->GetData(), Channels[CurveIndex + 1]->GetData(), Channels[CurveIndex + 2]->GetData()
+		};
+
+
+		for (const auto& Point : MatineeMaterialParamTrack->VectorTrack.Points)
+		{
+			FFrameNumber CurrentKeyTime = (Point.InVal * FrameRate).RoundToFrame();
+
+			FMatineeImportTools::SetOrAddKey(ChannelData[0], CurrentKeyTime, Point.OutVal.X, Point.ArriveTangent.X, Point.LeaveTangent.X, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData[1], CurrentKeyTime, Point.OutVal.Y, Point.ArriveTangent.Y, Point.LeaveTangent.Y, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData[2], CurrentKeyTime, Point.OutVal.Z, Point.ArriveTangent.Z, Point.LeaveTangent.Z, Point.InterpMode, FrameRate);
+		}
+
+		CleanupCurveKeys(Channels[0]);
+		CleanupCurveKeys(Channels[1]);
+		CleanupCurveKeys(Channels[2]);
 	}
 
 	return bSectionCreated;
@@ -499,7 +630,7 @@ bool FMatineeImportTools::CopyInterpMoveTrack( UInterpTrackMove* MoveTrack, UMov
 				}
 			}
 		}
-
+		
 		CleanupCurveKeys(Channels[0]);
 		CleanupCurveKeys(Channels[1]);
 		CleanupCurveKeys(Channels[2]);
