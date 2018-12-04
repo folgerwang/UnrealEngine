@@ -137,15 +137,6 @@ public:
 	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
 
 	/**
-	 * Set playback range of this sequence
-	 *
-	 * @param Sequence        The sequence within which to set the playback range
-	 * @param PlaybackRange Playback range of this sequence
-	 */
-	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
-	static void SetPlaybackRange(UMovieSceneSequence* Sequence, FSequencerScriptingRange PlaybackRange);
-
-	/**
 	 * Get the timecode source of this sequence
 	 *
 	 * @param Sequence        The sequence within which to get the timecode source
