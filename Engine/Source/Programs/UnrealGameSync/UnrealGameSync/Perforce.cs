@@ -510,7 +510,7 @@ namespace UnrealGameSync
 				bIsLoggedIn = true;
 				return true;
 			}
-			else if(Lines[0].Channel == PerforceOutputChannel.Error && Lines[0].Text.Contains("P4PASSWD"))
+			else if(Lines[0].Channel == PerforceOutputChannel.Error && (Lines[0].Text.Contains("P4PASSWD") || Lines[0].Text.Contains("has expired")))
 			{
 				bIsLoggedIn = false;
 				return true;
