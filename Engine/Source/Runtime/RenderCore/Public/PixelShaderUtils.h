@@ -32,6 +32,7 @@ struct RENDERCORE_API FPixelShaderUtils
 		const TShaderClass* PixelShader,
 		const typename TShaderClass::FParameters& Parameters)
 	{
+		CA_ASSUME(PixelShader);
 		TShaderMapRef<FVisualizeTextureVS> VertexShader(GlobalShaderMap);
 
 		FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -60,6 +61,7 @@ struct RENDERCORE_API FPixelShaderUtils
 		const TShaderClass* PixelShader,
 		typename TShaderClass::FParameters* Parameters)
 	{
+		CA_ASSUME(PixelShader != nullptr);
 		ClearUnusedGraphResources(PixelShader, Parameters);
 
 		GraphBuilder.AddPass(
