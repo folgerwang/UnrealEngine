@@ -15,6 +15,7 @@
 	"IsBetaVersion" : false,
 	"Installed" : false,
 	"CanBeUsedWithUnrealHeaderTool" : true,
+	"SupportedPrograms": [ "UnrealHeaderTool" ],
 	
 	"Modules" :
 	[
