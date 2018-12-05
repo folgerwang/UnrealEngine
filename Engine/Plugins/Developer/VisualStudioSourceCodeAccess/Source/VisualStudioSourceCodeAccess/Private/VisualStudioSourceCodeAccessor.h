@@ -100,6 +100,13 @@ private:
 	 */
 	void AddVisualStudioVersion(const int MajorVersion, const bool bAllowExpress = true);
 
+	/**
+	 * Add a new version of Visual Studio to the supported locations array using VSWHERE
+	 *
+	 * @param	MajorVersion	The major version number of Visual Studio (eg, 11 for VS2012, 12 for VS2013)
+	 */
+	void AddVisualStudioVersionUsingVsWhere(const int MajorVersion);
+
 	/** 
 	 * Get the prioritized list of VS install locations based upon the version of the given solution
 	 * 

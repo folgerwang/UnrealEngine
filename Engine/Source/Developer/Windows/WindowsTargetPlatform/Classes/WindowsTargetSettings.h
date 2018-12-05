@@ -22,6 +22,7 @@ enum class ECompilerVersion : uint8
 	Default = 0,
 	VisualStudio2015 = 1 UMETA(DisplayName = "Visual Studio 2015"),
 	VisualStudio2017 = 2 UMETA(DisplayName = "Visual Studio 2017"),
+	VisualStudio2019 = 3 UMETA(DisplayName = "Visual Studio 2019"),
 };
 
 /**

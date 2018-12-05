@@ -15,6 +15,9 @@
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
 #include "Misc/FileHelper.h"
+#include "Misc/MonitoredProcess.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 //#include "GameProjectGenerationModule.h"
 
 #if WITH_EDITOR
@@ -25,6 +28,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
+#include <ShlObj.h>
 #include "Windows/COMPointer.h"
 #if VSACCESSOR_HAS_DTE
 	#pragma warning(push)
@@ -101,7 +105,9 @@ static void OnModuleCompileStarted(bool bIsAsyncCompile)
 
 int32 GetVisualStudioVersionForCompiler()
 {
-#if _MSC_VER >= 1910
+#if _MSC_VER >= 1920
+	return 16; // Visual Studio 2019
+#elif _MSC_VER >= 1910
 	return 15; // Visual Studio 2017
 #elif _MSC_VER == 1900
 	return 14; // Visual Studio 2015
@@ -126,8 +132,16 @@ int32 GetVisualStudioVersionForSolution(const FString& InSolutionFile)
 		const int32 VersionStringStart = SolutionFileContents.Find(VisualStudioVersionString);
 		if (VersionStringStart != INDEX_NONE)
 		{
+			const TCHAR* VersionChar = *SolutionFileContents + VersionStringStart + VisualStudioVersionString.Len();
+
+			const TCHAR VersionSuffix[] = TEXT("Version ");
+			if (FCString::Strnicmp(VersionChar, VersionSuffix, ARRAY_COUNT(VersionSuffix) - 1) == 0)
+			{
+				VersionChar += ARRAY_COUNT(VersionSuffix) - 1;
+			}
+
 			FString VersionString;
-			for (const TCHAR* VersionChar = *SolutionFileContents + VersionStringStart + VisualStudioVersionString.Len(); FChar::IsDigit(*VersionChar); ++VersionChar)
+			for (; FChar::IsDigit(*VersionChar); ++VersionChar)
 			{
 				VersionString.AppendChar(*VersionChar);
 			}
@@ -160,6 +174,7 @@ void FVisualStudioSourceCodeAccessor::RefreshAvailability()
 {
 	Locations.Reset();
 
+	AddVisualStudioVersionUsingVsWhere(16); // Visual Studio 2019
 	AddVisualStudioVersion(15); // Visual Studio 2017
 	AddVisualStudioVersion(14); // Visual Studio 2015
 	AddVisualStudioVersion(12); // Visual Studio 2013
@@ -1172,6 +1187,62 @@ void FVisualStudioSourceCodeAccessor::AddVisualStudioVersion(const int MajorVers
 		if (bWDExpressExists)
 		{
 			Locations.Add(NewLocation);
+		}
+	}
+}
+
+void FVisualStudioSourceCodeAccessor::AddVisualStudioVersionUsingVsWhere(int VersionNumber)
+{
+	TCHAR* ProgramFilesPath = nullptr;
+	if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DEFAULT, NULL, &ProgramFilesPath)))
+	{
+		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to get ProgramFiles(x86) path"));
+		return;
+	}
+
+	FString VsWhereLocation = FString(ProgramFilesPath) / TEXT("Microsoft Visual Studio/Installer/vswhere.exe");
+	CoTaskMemFree(ProgramFilesPath);
+
+	if (!FPaths::FileExists(VsWhereLocation))
+	{
+		UE_LOG(LogVSAccessor, Display, TEXT("Unable to find VSWHERE installation"));
+		return;
+	}
+
+	FString ProcessOutput;
+
+	FMonitoredProcess Process(VsWhereLocation, *FString::Printf(TEXT("-version [%d.0,%d.0] -format json -prerelease"), VersionNumber, VersionNumber + 1), true);
+	Process.OnOutput().BindLambda([&ProcessOutput](const FString& Str) { ProcessOutput += Str; });
+	Process.Launch();
+	while (Process.Update())
+	{
+		FPlatformProcess::Sleep(0.01);
+	}
+
+	TArray<TSharedPtr<FJsonValue>> Array;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ProcessOutput);
+	if (!FJsonSerializer::Deserialize(Reader, Array))
+	{
+		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to parse output from VSWHERE: %s"), *ProcessOutput);
+		return;
+	}
+
+	for (const TSharedPtr<FJsonValue>& Item : Array)
+	{
+		const TSharedPtr<FJsonObject>* Object;
+		if (Item->TryGetObject(Object))
+		{
+			FString ProductPath;
+			if ((*Object)->TryGetStringField(TEXT("productPath"), ProductPath))
+			{
+				VisualStudioLocation NewLocation;
+				NewLocation.VersionNumber = VersionNumber;
+				NewLocation.ExecutablePath = ProductPath;
+#if VSACCESSOR_HAS_DTE
+				NewLocation.ROTMoniker = FString::Printf(TEXT("!VisualStudio.DTE.%d.0"), VersionNumber);
+#endif
+				Locations.Add(NewLocation);
+			}
 		}
 	}
 }
