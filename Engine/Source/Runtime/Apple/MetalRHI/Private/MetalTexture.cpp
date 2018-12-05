@@ -863,7 +863,7 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModeShared));
 #endif
 		}
-		else if(((Flags & (TexCreate_NoTiling)) && !(Flags & (TexCreate_FastVRAM|TexCreate_DepthStencilTargetable|TexCreate_RenderTargetable))))
+		else if(((Flags & (TexCreate_NoTiling)) && !(Flags & (TexCreate_FastVRAM|TexCreate_DepthStencilTargetable|TexCreate_RenderTargetable|TexCreate_UAV))))
 		{
 #if PLATFORM_MAC
 			Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::WriteCombined);
@@ -964,7 +964,19 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 	}
 	else
 	{
-		Texture = GetMetalDeviceContext().CreateTexture(this, Desc);
+		if ((Flags & (TexCreate_UAV|TexCreate_NoTiling)) != (TexCreate_UAV|TexCreate_NoTiling))
+		{
+			Texture = GetMetalDeviceContext().CreateTexture(this, Desc);
+		}
+		else
+		{
+			mtlpp::Device Device = GetMetalDeviceContext().GetDevice();
+			mtlpp::SizeAndAlign SizeAlign = Device.HeapTextureSizeAndAlign(Desc);
+			FMetalPooledBufferArgs Args(Device, SizeAlign.Size, mtlpp::StorageMode::Private);
+			FMetalBuffer Buffer = GetMetalDeviceContext().CreatePooledBuffer(Args);
+			Texture = Buffer.NewTexture(Desc, 0, SizeAlign.Size);
+		}
+		
 		if (Texture.GetPtr() == nil)
 		{
 			UE_LOG(LogMetal, Fatal, TEXT("Failed to create texture, desc %s"), *FString([Desc description]));

@@ -286,7 +286,7 @@ struct FBuffers
         for(uint64 i = 0; i < 64ull && !ITextures.empty(); i++)
         {
             check(i < 64);
-            if (!(UAVIndices & (1ull << i)))
+            if (!(UAVIndices & (1ull << i)) || (AllBuffers[i] == (ir_variable*)ITextures.front()->constant_value))
             {
                 // i *must* be less than 8 as we only support indices 0-7 for UAVs and beyond that we can't bind it.
                 if (i >= 8)

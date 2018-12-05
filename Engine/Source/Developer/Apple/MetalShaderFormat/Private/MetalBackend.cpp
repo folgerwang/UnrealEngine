@@ -2954,9 +2954,32 @@ protected:
 		}
 		else if ( deref->op == ir_image_dimensions)
 		{
-			ralloc_asprintf_append( buffer, "imageSize( " );
+			// Convert from:
+			//	HLSL
+			//		int w, h;
+			//		T.GetDimensions({lod, }w, h);
+			// GLSL
+			//		ivec2 Temp;
+			//		Temp = textureSize(T{, lod});
+			// Metal
+			//		int2 Temp = int2((int)T.get_width({lod}), (int)T.get_height({lod}));
+			ralloc_asprintf_append(buffer, "int2(");
 			deref->image->accept(this);
-			ralloc_asprintf_append(buffer, ")");
+			ralloc_asprintf_append(buffer, ".get_width(");
+			
+			if (deref->image_index)
+			{
+				deref->image_index->accept(this);
+			}
+			ralloc_asprintf_append(buffer, "), (int)");
+			
+			deref->image->accept(this);
+			ralloc_asprintf_append(buffer, ".get_height(");
+			if (deref->image_index)
+			{
+				deref->image_index->accept(this);
+			}
+			ralloc_asprintf_append(buffer, "))");
 		}
 		else
 		{
@@ -3568,7 +3591,7 @@ protected:
 		};
 */
 		check(scope_depth > 0);
-		const bool is_image = ir->memory_ref->as_dereference_image() != NULL;
+		const bool is_image = ir->memory_ref->as_dereference_image() != NULL || ir->memory_ref->type->is_image();
 
 		if (ir->lhs)
 		{
@@ -3591,13 +3614,31 @@ protected:
 				"store_atomic",
 			};
 			static_assert(sizeof(SharedAtomicFunctions) / sizeof(SharedAtomicFunctions[0]) == ir_atomic_count, "Mismatched entries!");
-
-			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
-
 			int BufferIndex = 0;
 			char const* BufferSizesName = "BufferSizes";
-
-			ir_variable* image_var = atomic->image->variable_referenced();
+			
+			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
+			ir_dereference_variable* deref = ir->memory_ref->as_dereference_variable();
+			ir_variable* image_var = nullptr;
+			
+			ir_rvalue *image = nullptr;
+			ir_rvalue *image_index = nullptr;
+			ir_rvalue *operands[2] = {nullptr, nullptr};
+			if (atomic)
+			{
+				image_var = atomic->image->variable_referenced();
+				image = atomic->image;
+				image_index = atomic->image_index;
+				operands[0] = ir->operands[0];
+				operands[1] = ir->operands[1];
+			}
+			else
+			{
+				check(deref);
+				image_var = deref->variable_referenced();
+				image = deref;
+				image_index = ir->operands[0];
+			}
 			if (image_var->mode == ir_var_temporary)
 			{
 				// IAB sampling path
@@ -3621,20 +3662,20 @@ protected:
 			check(BufferIndex >= 0 && BufferIndex <= 30);
 
 			ralloc_asprintf_append(buffer, "buffer_atomic<memory_order_relaxed>::%s<", SharedAtomicFunctions[ir->operation]);
-			print_type_pre(ir->memory_ref->type);
+			print_type_pre(image_var->type->inner_type);
 			ralloc_asprintf_append(buffer, ", %d>(", BufferIndex);
-			atomic->image->accept(this);
+			image->accept(this);
 			ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
-			atomic->image_index->accept(this);
-			if (ir->operands[0])
+			image_index->accept(this);
+			if (operands[0])
 			{
 				ralloc_asprintf_append(buffer, ", ");
-				ir->operands[0]->accept(this);
+				operands[0]->accept(this);
 			}
-			if (ir->operands[1])
+			if (operands[1])
 			{
 				ralloc_asprintf_append(buffer, ", ");
-				ir->operands[1]->accept(this);
+				operands[1]->accept(this);
 			}
 			ralloc_asprintf_append(buffer, ")");
 		}
@@ -4774,6 +4815,103 @@ public:
 	}
 };
 
+struct FMetalAtomicTexture2DVisitor : public ir_hierarchical_visitor
+{
+	exec_list* Instructions;
+	_mesa_glsl_parse_state* ParseState;
+	
+	FMetalAtomicTexture2DVisitor(exec_list* ir, _mesa_glsl_parse_state* state)
+	: Instructions(ir)
+	, ParseState(state)
+	{
+		
+	}
+	
+	~FMetalAtomicTexture2DVisitor()
+	{
+		
+	}
+	
+	virtual ir_visitor_status visit_leave(class ir_atomic * ir) override final
+	{
+		const bool is_image = ir->memory_ref->as_dereference_image() != NULL;
+		if (is_image)
+		{
+			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
+			ir_variable* image_var = atomic->image->variable_referenced();
+			switch (image_var->type->sampler_dimensionality)
+			{
+				case GLSL_SAMPLER_DIM_BUF:
+					break;
+				case GLSL_SAMPLER_DIM_2D:
+				{
+					// Not handling IABs yet
+					check(image_var->mode == ir_var_uniform);
+					
+					char const* newName = ralloc_asprintf(ParseState, "%s_atomic", image_var->name);
+					ir_variable* newVar = ParseState->symbols->get_variable(newName);
+					if (!newVar)
+					{
+						glsl_type const* BufferType = glsl_type::GetStructuredBufferInstance("RWStructuredBuffer", image_var->type->inner_type);
+						newVar = new(ParseState)ir_variable(BufferType, newName, ir_var_uniform);
+						newVar->used = 1;
+						
+						image_var->constant_value = (ir_constant*)newVar;
+						
+						Instructions->push_head(newVar);
+						
+						ParseState->symbols->add_variable(newVar);
+					}
+					check(newVar);
+					
+					ir_dereference_variable* DerefVar = new(ParseState)ir_dereference_variable(newVar);
+					
+					const glsl_type *res_type = glsl_type::get_instance(GLSL_TYPE_INT, 2, 1);
+					ir_variable* temp = new(ParseState)ir_variable(res_type, nullptr, ir_var_temporary);
+					
+					ir_dereference_image* DerefOld = new(ParseState)ir_dereference_image(atomic->image->clone(ParseState, nullptr), new(ParseState) ir_constant(0.0f), ir_image_dimensions);
+					DerefOld->type = res_type;
+					
+					ir_assignment* Assign = new(ParseState)ir_assignment(new(ParseState)ir_dereference_variable(temp), DerefOld);
+					
+					ir->insert_before(temp);
+					ir->insert_before(Assign);
+					
+					unsigned int XSwizzle[] = { 0 };
+					ir_swizzle* Width = new(ParseState)ir_swizzle(new(ParseState)ir_dereference_variable(temp), XSwizzle, 1);
+					
+					ir_swizzle* XCoord = new(ParseState)ir_swizzle(atomic->image_index->clone(ParseState, nullptr), XSwizzle, 1);
+					
+					unsigned int YSwizzle[] = { 1 };
+					ir_swizzle* YCoord = new(ParseState)ir_swizzle(atomic->image_index->clone(ParseState, nullptr), YSwizzle, 1);
+					
+					ir_expression* Mul = new (ParseState)ir_expression(ir_binop_mul, Width, XCoord);
+					ir_expression* Add = new (ParseState)ir_expression(ir_binop_add, Mul, YCoord);
+					
+					ir_dereference_image* DerefImage = new(ParseState)ir_dereference_image(DerefVar, Add, ir_image_access);
+					
+					ir->memory_ref = DerefImage;
+					break;
+				}
+				default:
+					if (!image_var->type->sampler_buffer)
+					{
+						_mesa_glsl_error(ParseState, "Metal doesn't allow atommic operations on RWTexture %s", image_var->name);
+					}
+					break;
+			}
+		}
+		
+		return ir_hierarchical_visitor::visit_leave(ir);
+	}
+};
+
+void FMetalCodeBackend::FixupTextureAtomics(exec_list* ir, _mesa_glsl_parse_state* state)
+{
+	FMetalAtomicTexture2DVisitor Visitor(ir, state);
+	Visitor.run(ir);
+}
+
 char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency)
 {
 	// We'll need this Buffers info for the [[buffer()]] index
@@ -4797,6 +4935,8 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 	
 	// Move all inputs & outputs to structs for Metal
 	PackInputsAndOutputs(ir, state, Frequency, visitor.input_variables);
+	
+	FixupTextureAtomics(ir, state);
 	
 	FindAtomicVariables(ir, Buffers.AtomicVariables);
 	

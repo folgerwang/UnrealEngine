@@ -496,9 +496,10 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 {
 	@autoreleasepool {
 	FMetalUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
-	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer)
+	FMetalSurface* Surface = UnorderedAccessView->SourceView->SourceTexture ? GetMetalSurfaceFromRHITexture(UnorderedAccessView->SourceView->SourceTexture) : nullptr;
+	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer || (Surface && Surface->Texture.GetBuffer()))
 	{
-		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer);
+		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer || (Surface && Surface->Texture.GetBuffer()));
 		
 		FMetalBuffer Buffer;
 		uint32 Size = 0;
@@ -516,6 +517,10 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 		{
 			Buffer = UnorderedAccessView->SourceView->SourceIndexBuffer->Buffer;
 			Size = UnorderedAccessView->SourceView->SourceIndexBuffer->GetSize();
+		}
+		else if (Surface && Surface->Texture.GetBuffer())
+		{
+			Buffer = FMetalBuffer(Surface->Texture.GetBuffer(), false);
 		}
 		
 		uint32 NumComponents = 1;

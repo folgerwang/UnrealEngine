@@ -118,6 +118,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	void BreakPrecisionChangesVisitor(exec_list* ir, _mesa_glsl_parse_state* State);
 	void FixupMetalBaseOffsets(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency);
 	void InsertSamplerStates(exec_list* ir, _mesa_glsl_parse_state* State);
+	void FixupTextureAtomics(exec_list* ir, _mesa_glsl_parse_state* state);
 
 	TMap<ir_variable*, TSet<uint8>> IABVariableMask;
 	TMap<ir_variable*, ir_variable*> IABVariablesMap;
