@@ -34,6 +34,10 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 
+#include "Modules/ModuleManager.h"
+#include "IMeshReductionManagerModule.h"
+#include "IMeshReductionInterfaces.h"
+
 
 bool GBuildStaticMeshCollision = 1;
 
@@ -1196,6 +1200,23 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 	return ExistingMeshDataPtr;
 }
 
+// Helper to find if some reduction settings are active
+bool IsReductionActive(const FMeshReductionSettings& ReductionSettings)
+{
+	bool bUseQuadricSimplier = true;
+	{
+		// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+		IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+		FString VersionString = ReductionModule->GetVersionString();
+		TArray<FString> SplitVersionString;
+		VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+		bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+	}
+	const bool bVertTermination = (bUseQuadricSimplier) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles) && (ReductionSettings.PercentVertices < 1.0f);
+	const bool bTriTermination = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices && (ReductionSettings.PercentTriangles < 1.0f);
+	return bTriTermination || bVertTermination || (ReductionSettings.MaxDeviation > 0.0f);
+}
+
 /* This function is call before building the mesh when we do a re-import*/
 void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMesh* NewMesh, int32 LODIndex)
 {
@@ -1230,7 +1251,9 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			}
 			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
 			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
-			bool bWasReduced = ExistingMesh->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+
+			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[i].ExistingReductionSettings);
+
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
 				NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
@@ -1247,7 +1270,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		{
 			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(LODIndex);
 			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
-			bool bWasReduced = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.MaxDeviation > 0.0f;
+			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings);
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
 				NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
@@ -1448,7 +1471,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 		FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
 		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
 		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
-		bool bWasReduced = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+		bool bWasReduced = IsReductionActive(ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings);
 		if ( !bSwapFromGeneratedToImported && bWasReduced)
 		{
 			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
@@ -1490,7 +1513,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 			}
 
 			//When re-importing the asset, do not touch the LOD that was imported from file, the material array is keep intact so the section should still be valid.
-			bool NoRemapForThisLOD = LodLevel == INDEX_NONE && i != 0 && NewMesh->SourceModels[i].ReductionSettings.PercentTriangles >= 1.0f  && NewMesh->SourceModels[i].ReductionSettings.MaxDeviation <= 0.0f;
+			bool NoRemapForThisLOD = LodLevel == INDEX_NONE && i != 0 && !IsReductionActive(NewMesh->SourceModels[i].ReductionSettings);
 
 			FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
 			

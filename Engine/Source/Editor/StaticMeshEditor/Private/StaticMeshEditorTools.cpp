@@ -1012,9 +1012,10 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 	OnDistanceFieldResolutionScaleChanged(NewValue);
 }
 
-FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex)
+FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself)
 	: ParentLODSettings( InParentLODSettings )
 	, CurrentLODIndex( InCurrentLODIndex )
+	, bCanReduceMyself(InCanReduceMyself)
 {
 
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
@@ -1324,6 +1325,7 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	//Base LOD
 	{
+		int32 MaxBaseReduceIndex = bCanReduceMyself ? CurrentLODIndex : CurrentLODIndex - 1;
 		ChildrenBuilder.AddCustomRow( LOCTEXT("BaseLOD", "Base LOD") )
 			.NameContent()
 			.HAlign(HAlign_Left)
@@ -1338,9 +1340,9 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 				SNew(SNumericEntryBox<int32>)
 				.AllowSpin(true)
 				.MinSliderValue(0)
-				.MaxSliderValue(CurrentLODIndex)
+				.MaxSliderValue(MaxBaseReduceIndex)
 				.MinValue(0)
-				.MaxValue(CurrentLODIndex)
+				.MaxValue(MaxBaseReduceIndex)
 				.Value(this, &FMeshReductionSettingsLayout::GetBaseLODIndex)
 				.OnValueChanged(this, &FMeshReductionSettingsLayout::SetBaseLODIndex)
 			];
@@ -3218,7 +3220,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex) );
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex, StaticMesh->GetOriginalMeshDescription(LODIndex) != nullptr ));
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())
@@ -3258,7 +3260,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
-			bool bHasBeenSimplified = StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty() || StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation > 0.0f;
+			bool bHasBeenSimplified = StaticMesh->GetOriginalMeshDescription(LODIndex) == nullptr || StaticMesh->IsReductionActive(LODIndex);
 			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );

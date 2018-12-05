@@ -52,6 +52,9 @@
 #include "ScopedTransaction.h"
 #include "IMeshBuilderModule.h"
 #include "MeshDescriptionOperations.h"
+#include "IMeshReductionManagerModule.h"
+#include "IMeshReductionInterfaces.h"
+
 #endif // #if WITH_EDITOR
 
 #include "MeshDescription.h"
@@ -1312,6 +1315,34 @@ void UStaticMesh::GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNam
 	RunningPlatform->GetStaticMeshLODSettings().GetLODGroupDisplayNames(OutLODGroupsDisplayNames);
 }
 
+bool UStaticMesh::IsReductionActive(int32 LODIndex) const
+{
+	FMeshReductionSettings ReductionSettings = GetReductionSettings(LODIndex);
+	
+	// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+	FString VersionString = ReductionModule->GetVersionString();
+	TArray<FString> SplitVersionString;
+	VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+	bool bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+
+	const bool bVertTermination = (bUseQuadricSimplier) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles) && (ReductionSettings.PercentVertices < 1.0f);
+	const bool bTriTermination = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices && (ReductionSettings.PercentTriangles < 1.0f);
+
+	return bTriTermination || bVertTermination || (ReductionSettings.MaxDeviation > 0.0f);
+}
+
+FMeshReductionSettings UStaticMesh::GetReductionSettings(int32 LODIndex) const
+{
+	//Retrieve the reduction settings, make sure we use the LODGroup if the Group is valid
+	ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
+	ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
+	check(RunningPlatform);
+	const FStaticMeshLODSettings& LODSettings = RunningPlatform->GetStaticMeshLODSettings();
+	const FStaticMeshLODGroup& SMLODGroup = LODSettings.GetLODGroup(LODGroup);
+	const FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
+	return SMLODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
+}
 
 void UStaticMesh::PostDuplicate(bool bDuplicateForPIE)
 {
@@ -1336,6 +1367,7 @@ static void SerializeReductionSettingsForDDC(FArchive& Ar, FMeshReductionSetting
 	Ar << ReductionSettings.SilhouetteImportance;
 	Ar << ReductionSettings.TextureImportance;
 	Ar << ReductionSettings.ShadingImportance;
+	Ar << ReductionSettings.BaseLODModel;
 	FArchive_Serialize_BitfieldBool(Ar, ReductionSettings.bRecalculateNormals);
 }
 
@@ -2285,6 +2317,19 @@ void UStaticMesh::SetNumSourceModels(const int32 Num)
 	for (int32 Index = OldNum; Index < Num; ++Index)
 	{
 		SourceModels[Index].StaticMeshOwner = this;
+		int32 PreviousCustomLODIndex = 0;
+		//Find the previous custom LOD
+		for (int32 ReverseIndex = Index - 1; ReverseIndex > 0; ReverseIndex--)
+		{
+			const FStaticMeshSourceModel& StaticMeshModel = SourceModels[ReverseIndex];
+			//If the custom import LOD is reduce and is not using himself as the source, do not consider it
+			if (GetOriginalMeshDescription(ReverseIndex) != nullptr && !(IsReductionActive(ReverseIndex) && StaticMeshModel.ReductionSettings.BaseLODModel != ReverseIndex))
+			{
+				PreviousCustomLODIndex = ReverseIndex;
+				break;
+			}
+		}
+		SourceModels[Index].ReductionSettings.BaseLODModel = PreviousCustomLODIndex;
 	}
 }
 

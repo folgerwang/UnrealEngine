@@ -1032,7 +1032,7 @@ void UnFbx::FFbxImporter::AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* Stat
 	{
 		StaticMesh->AddSourceModel();
 	}
-	if (LODIndex - 1 > 0 && (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
+	if (LODIndex - 1 > 0 && StaticMesh->IsReductionActive(LODIndex - 1))
 	{
 		if (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f)
 		{

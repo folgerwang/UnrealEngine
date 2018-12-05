@@ -1375,7 +1375,9 @@ void FStaticMeshEditor::HandleReimportAllMesh()
 				{
 					continue;
 				}
-				bool bHasBeenSimplified = SourceModels[LodIndex].RawMeshBulkData->IsEmpty() || SourceModels[LodIndex].ReductionSettings.PercentTriangles < 1.0f || SourceModels[LodIndex].ReductionSettings.MaxDeviation > 0.0f;
+				
+				
+				bool bHasBeenSimplified = StaticMesh->GetOriginalMeshDescription(LodIndex) == nullptr || StaticMesh->IsReductionActive(LodIndex);
 				if (!bHasBeenSimplified)
 				{
 					FbxMeshUtils::ImportMeshLODDialog(StaticMesh, LodIndex);

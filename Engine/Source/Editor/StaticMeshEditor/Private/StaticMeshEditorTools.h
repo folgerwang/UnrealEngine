@@ -215,7 +215,7 @@ private:
 class FMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshReductionSettingsLayout>
 {
 public:
-	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex);
+	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself);
 	virtual ~FMeshReductionSettingsLayout();
 
 	const FMeshReductionSettings& GetSettings() const;
@@ -289,6 +289,7 @@ private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
 	FMeshReductionSettings ReductionSettings;
 	int32 CurrentLODIndex;
+	bool bCanReduceMyself;
 
 	// Used by simplygon
 	TArray<TSharedPtr<FString> > ImportanceOptions;

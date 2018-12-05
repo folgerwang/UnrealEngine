@@ -827,8 +827,9 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 						{
 							NewStaticMesh->AddSourceModel();
 						}
-						if (LODIndex - 1 > 0 && (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
+						if (LODIndex - 1 > 0 && NewStaticMesh->IsReductionActive(LODIndex-1))
 						{
+							//Do not add the LODGroup bias here, since the bias will be apply during the build
 							if (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f)
 							{
 								NewStaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles = NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles * 0.5f;

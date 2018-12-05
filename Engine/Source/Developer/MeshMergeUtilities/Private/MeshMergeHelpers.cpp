@@ -395,7 +395,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 	const bool bImportedMesh = !StaticMeshModel.IsRawMeshEmpty() || (StaticMeshModel.OriginalMeshDescription != nullptr);
 	
 	// Check whether or not this mesh has been reduced in-engine
-	const bool bReducedMesh = (StaticMeshModel.ReductionSettings.PercentTriangles < 1.0f);
+	const bool bReducedMesh = StaticMesh->IsReductionActive(LODIndex);
 	// Trying to retrieve rawmesh from SourceStaticMeshModel was giving issues, which causes a mismatch			
 	const bool bRenderDataMismatch = (LODIndex > 0) || StaticMeshModel.BuildSettings.bGenerateLightmapUVs;
 
