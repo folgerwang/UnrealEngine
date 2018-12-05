@@ -16,6 +16,16 @@
  */
 class CORE_API FArchiveSaveCompressedProxy : public FArchive
 {
+	/**
+	 * This enum and the following constructor is a workaround for VC compiler bug that prevents using attributes
+	 * on constructors without inline implementation. This should be removed when the deprecated ctor is removed.
+	 */
+	enum EVS2015Redirector
+	{
+		Redirect
+	};
+	FArchiveSaveCompressedProxy(EVS2015Redirector, TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags);
+
 public:
 	/** 
 	 * Constructor, initializing all member variables and allocating temp memory.
@@ -23,8 +33,11 @@ public:
 	 * @param	InCompressedData [ref]	Array of bytes that is going to hold compressed data
 	 * @param	InCompressionFormat		Compression format to use
 	 */
-	DEPRECATED(4.21, "Use the FName version of FArchiveSaveCompressedProxy constructor")
-	FArchiveSaveCompressedProxy(TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags);
+	UE_DEPRECATED(4.21, "Use the FName version of FArchiveSaveCompressedProxy constructor")
+	FArchiveSaveCompressedProxy(TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
+		// Make sure to remove the EVS2015Redirector constructor when this constructor is removed
+		: FArchiveSaveCompressedProxy(EVS2015Redirector::Redirect, InCompressedData, InCompressionFlags)
+	{}
 	FArchiveSaveCompressedProxy( TArray<uint8>& InCompressedData, FName InCompressionFormat, ECompressionFlags InCompressionFlags=COMPRESS_None);
 
 	/** Destructor, flushing array if needed. Also frees temporary memory. */

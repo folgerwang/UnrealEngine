@@ -9,7 +9,7 @@
 /*----------------------------------------------------------------------------
 	FArchiveSaveCompressedProxy
 ----------------------------------------------------------------------------*/
-FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy(TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
+FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy(FArchiveSaveCompressedProxy::EVS2015Redirector, TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
 	: FArchiveSaveCompressedProxy(InCompressedData, FCompression::GetCompressionFormatFromDeprecatedFlags(InCompressionFlags), InCompressionFlags)
 {
 }

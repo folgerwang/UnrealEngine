@@ -9,7 +9,7 @@
 	FArchiveLoadCompressedProxy
 ----------------------------------------------------------------------------*/
 
-FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy(const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
+FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy(FArchiveLoadCompressedProxy::EVS2015Redirector, const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
 	: FArchiveLoadCompressedProxy(InCompressedData, FCompression::GetCompressionFormatFromDeprecatedFlags(InCompressionFlags))
 {
 }

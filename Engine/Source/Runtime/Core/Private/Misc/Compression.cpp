@@ -437,7 +437,7 @@ bool FCompression::UncompressMemory(FName FormatName, void* UncompressedBuffer, 
  * @param	InMaxPendingBufferSize	Max chunk size to compress in uncompressed bytes
  * @param	InCompressionFlags		Compression flags to compress memory with
  */
-FCompressedGrowableBuffer::FCompressedGrowableBuffer(int32 InMaxPendingBufferSize, ECompressionFlags InCompressionFlags)
+FCompressedGrowableBuffer::FCompressedGrowableBuffer(FCompressedGrowableBuffer::EVS2015Redirector, int32 InMaxPendingBufferSize, ECompressionFlags InCompressionFlags)
 	: FCompressedGrowableBuffer(InMaxPendingBufferSize, FCompression::GetCompressionFormatFromDeprecatedFlags(InCompressionFlags), InCompressionFlags)
 {
 

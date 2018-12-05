@@ -11,14 +11,28 @@
  */
 struct CORE_API FCompressedGrowableBuffer
 {
+private:
+	/**
+	 * This enum and the following constructor is a workaround for VC compiler bug that prevents using attributes
+	 * on constructors without inline implementation. This should be removed when the deprecated ctor is removed.
+	 */
+	enum EVS2015Redirector
+	{
+		Redirect
+	};
+	FCompressedGrowableBuffer(EVS2015Redirector, int32 MaxPendingBufferSize, ECompressionFlags CompressionFlags);
+public:
 	/**
 	 * Constructor
 	 *
 	 * @param	MaxPendingBufferSize	Max chunk size to compress in uncompressed bytes
 	 * @param	CompressionFlags		Compression flags to compress memory with
 	 */
-	DEPRECATED(4.21, "Use FName version of FCompressedGrowableBuffer constructor")
-	FCompressedGrowableBuffer( int32 MaxPendingBufferSize, ECompressionFlags CompressionFlags );
+	UE_DEPRECATED(4.21, "Use FName version of FCompressedGrowableBuffer constructor")
+	FCompressedGrowableBuffer(int32 MaxPendingBufferSize, ECompressionFlags CompressionFlags)
+		// Make sure to remove the EVS2015Redirector constructor when this constructor is removed
+		: FCompressedGrowableBuffer(EVS2015Redirector::Redirect, MaxPendingBufferSize, CompressionFlags)
+	{}
 	FCompressedGrowableBuffer(int32 MaxPendingBufferSize, FName COmpressionFormat, ECompressionFlags CompressionFlags=COMPRESS_None);
 
 	/**
