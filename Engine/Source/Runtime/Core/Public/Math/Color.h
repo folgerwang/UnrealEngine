@@ -258,10 +258,13 @@ struct FLinearColor
 		return NewCopy;
 	}
 
+	UE_DEPRECATED(4.22, "FGetHSV doesn't perform a valid HSV conversion, use MakeFromHSV8 instead")
+	static CORE_API FLinearColor FGetHSV(uint8 H,uint8 S,uint8 V);
+
 	/**
 	 * Converts byte hue-saturation-brightness to floating point red-green-blue.
 	 */
-	static CORE_API FLinearColor FGetHSV(uint8 H,uint8 S,uint8 V);
+	static CORE_API FLinearColor MakeFromHSV8(uint8 H, uint8 S, uint8 V);
 
 	/**
 	* Makes a random but quite nice color.

@@ -13,7 +13,6 @@ public class CharacterAI : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
                 "AIModule",

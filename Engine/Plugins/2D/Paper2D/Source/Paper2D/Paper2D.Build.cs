@@ -13,7 +13,6 @@ public class Paper2D : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
         		        "SlateCore",

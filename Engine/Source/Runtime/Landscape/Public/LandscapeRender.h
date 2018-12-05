@@ -83,16 +83,16 @@ LANDSCAPE_API extern UMaterialInterface* GLandscapeLayerUsageMaterial;
 
 
 /** The uniform shader parameters for a landscape draw call. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, LANDSCAPE_API)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLandscapeUniformShaderParameters, LANDSCAPE_API)
 /** vertex shader parameters */
-UNIFORM_MEMBER(FVector4, HeightmapUVScaleBias)
-UNIFORM_MEMBER(FVector4, WeightmapUVScaleBias)
-UNIFORM_MEMBER(FVector4, LandscapeLightmapScaleBias)
-UNIFORM_MEMBER(FVector4, SubsectionSizeVertsLayerUVPan)
-UNIFORM_MEMBER(FVector4, SubsectionOffsetParams)
-UNIFORM_MEMBER(FVector4, LightmapSubsectionOffsetParams)
-UNIFORM_MEMBER(FMatrix, LocalToWorldNoScaling)
-END_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters)
+SHADER_PARAMETER(FVector4, HeightmapUVScaleBias)
+SHADER_PARAMETER(FVector4, WeightmapUVScaleBias)
+SHADER_PARAMETER(FVector4, LandscapeLightmapScaleBias)
+SHADER_PARAMETER(FVector4, SubsectionSizeVertsLayerUVPan)
+SHADER_PARAMETER(FVector4, SubsectionOffsetParams)
+SHADER_PARAMETER(FVector4, LightmapSubsectionOffsetParams)
+SHADER_PARAMETER(FMatrix, LocalToWorldNoScaling)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /* Data needed for the landscape vertex factory to set the render state for an individual batch element */
 struct FLandscapeBatchElementParams

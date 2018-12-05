@@ -116,22 +116,22 @@ private:
 /**
  * Uniform buffer for particle sprite vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters, ENGINE_API)
-	UNIFORM_MEMBER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER( FVector4, MacroUVParameters )
-	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
-END_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleSpriteUniformParameters, ENGINE_API)
+	SHADER_PARAMETER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER( FVector4, MacroUVParameters )
+	SHADER_PARAMETER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 typedef TUniformBufferRef<FParticleSpriteUniformParameters> FParticleSpriteUniformBufferRef;
 
 /**

@@ -27,7 +27,6 @@ public class Launch : ModuleRules
 				"RHI",
 				"SandboxFile",
 				"Serialization",
-				"ShaderCore",
 				"ApplicationCore",
 				"Slate",
 				"SlateCore",

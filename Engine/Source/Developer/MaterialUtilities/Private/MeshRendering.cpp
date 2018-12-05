@@ -546,7 +546,7 @@ public:
 		return true;
 	}
 
-	virtual bool Render_GameThread(const FCanvas* Canvas)
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope)
 	{
 		checkSlow(Data);
 		// current render target set for the canvas
@@ -581,22 +581,22 @@ public:
 		};
 
 		FDrawMaterialParameters Parameters = DrawMaterialParameters;
-		ENQUEUE_RENDER_COMMAND(DrawMaterialCommand)(
+		RenderScope.EnqueueRenderCommand(
 			[Parameters](FRHICommandListImmediate& RHICmdList)
+		{
+			FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+
+			// disable depth test & writes
+			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+			RenderMaterial(RHICmdList, DrawRenderState, *Parameters.View, *Parameters.RenderData);
+
+			delete Parameters.View;
+			if (Parameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
 			{
-				FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
-
-				// disable depth test & writes
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
-				RenderMaterial(RHICmdList, DrawRenderState, *Parameters.View, *Parameters.RenderData);
-
-				delete Parameters.View;
-				if (Parameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
-				{
-					delete Parameters.RenderData;
-				}
-			});
+				delete Parameters.RenderData;
+			}
+		});
 		if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
 		{
 			Data = NULL;

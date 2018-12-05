@@ -48,7 +48,7 @@ struct FVectorSectionEditorData
 		}
 		else
 		{
-			return Bindings.GetCurrentValue<FVector>(InObject);
+			return Bindings.GetCurrentValue<FVector4>(InObject);
 		}
 	}
 

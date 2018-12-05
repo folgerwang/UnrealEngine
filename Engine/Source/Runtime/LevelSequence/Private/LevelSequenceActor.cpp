@@ -57,7 +57,7 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 	bOverrideInstanceData = false;
 
 	PrimaryActorTick.bCanEverTick = true;
-	bAutoPlay = false;
+	bAutoPlay_DEPRECATED = false;
 }
 
 bool ALevelSequenceActor::RetrieveBindingOverrides(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
@@ -93,7 +93,7 @@ void ALevelSequenceActor::BeginPlay()
 	InitializePlayer();
 	RefreshBurnIn();
 
-	if (bAutoPlay)
+	if (PlaybackSettings.bAutoPlay)
 	{
 		SequencePlayer->Play();
 	}
@@ -112,6 +112,13 @@ void ALevelSequenceActor::Tick(float DeltaSeconds)
 void ALevelSequenceActor::PostLoad()
 {
 	Super::PostLoad();
+
+	// If autoplay was previously enabled, initialize the playback settings to autoplay
+	if (bAutoPlay_DEPRECATED)
+	{
+		PlaybackSettings.bAutoPlay = bAutoPlay_DEPRECATED;
+		bAutoPlay_DEPRECATED = false;
+	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// We intentionally do not attempt to load any asset in PostLoad other than by way of LoadPackageAsync

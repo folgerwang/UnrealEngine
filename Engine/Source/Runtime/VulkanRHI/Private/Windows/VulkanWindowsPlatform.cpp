@@ -131,6 +131,13 @@ void FVulkanWindowsPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExt
 			OutExtensions.Add(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
 		}
 	}
+
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	// YCbCr requires BindMem2 and GetMemReqs2
+	OutExtensions.Add(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
+#endif
 }
 
 void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)

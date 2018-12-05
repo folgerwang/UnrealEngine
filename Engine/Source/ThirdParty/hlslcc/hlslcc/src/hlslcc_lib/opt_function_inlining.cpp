@@ -335,7 +335,8 @@ public:
 void ir_sampler_replacement_visitor::replace_deref(ir_dereference **deref)
 {
 	ir_dereference_variable *deref_var = (*deref)->as_dereference_variable();
-	if (deref_var && deref_var->var == this->sampler)
+	ir_dereference_record *deref_rec = (*deref)->as_dereference_record();
+	if ((deref_var && deref_var->var == this->sampler) || (deref_rec && deref_rec->variable_referenced() == this->sampler))
 	{
 		*deref = this->deref->clone(ralloc_parent(*deref), NULL);
 	}
@@ -362,8 +363,14 @@ ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_texture *ir)
 	if (DeRefSS)
 	{
 		replace_deref(&DeRefSS);
-		check(DeRefSS->as_dereference_variable());
-		ir->SamplerState = DeRefSS->as_dereference_variable();
+		if(DeRefSS->as_dereference_variable())
+		{
+			ir->SamplerState = DeRefSS->as_dereference_variable();
+		}
+		else if(deref->as_dereference_record())
+		{
+			ir->SamplerState = DeRefSS->as_dereference_record();
+		}
 	}
 
 	replace_deref(&ir->sampler);

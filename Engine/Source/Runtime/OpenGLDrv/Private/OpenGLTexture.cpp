@@ -2248,7 +2248,7 @@ FTexture2DRHIRef FOpenGLDynamicRHI::AsyncReallocateTexture2D_RenderThread(class 
 		FOpenGLTexture2D* Texture2D = FOpenGLDynamicRHI::ResourceCast(NewTexture2DRHI.GetReference());
 		Texture2D->CreationFence.Reset();
 
-		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() 
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() 
 		{
 			GLCopyAsyncTexture2D(this, NewTexture2DRHI, NewSizeX, NewSizeY, Texture2DRHI, RequestStatus); 
 			Texture2D->CreationFence.WriteAssertFence();
@@ -2694,7 +2694,7 @@ void FOpenGLDynamicRHI::UnlockTexture2D_RenderThread(class FRHICommandListImmedi
 			FMemory::Free(Params.Buffer);
 			this->RHIUnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
 		};
-		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(GLCommand);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)(GLCommand);
 	}
 }
 
@@ -2748,7 +2748,7 @@ void FOpenGLDynamicRHI::RHIUnlockTextureCubeFace_RenderThread(class FRHICommandL
 			FMemory::Free(Params.Buffer);
 			this->RHIUnlockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, bLockWithinMiptail);
 		};
-		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(GLCommand);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)(GLCommand);
 	}
 }
 

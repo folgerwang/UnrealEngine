@@ -107,42 +107,44 @@ void FRCPassPostProcessHistogramReduce::Process(FRenderingCompositePassContext& 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("HistogramReduce"));
+	{
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessHistogramReducePS> PixelShader(Context.GetShaderMap());
 
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessHistogramReducePS> PixelShader(Context.GetShaderMap());
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		// we currently assume the input is half res, one full res pixel less to avoid getting bilinear filtered input
+		FIntPoint GatherExtent = (Context.SceneColorViewRect.Size() - FIntPoint(1, 1)) / 2;
 
-	// we currently assume the input is half res, one full res pixel less to avoid getting bilinear filtered input
-	FIntPoint GatherExtent = (Context.SceneColorViewRect.Size() - FIntPoint(1, 1)) / 2;
+		uint32 LoopSizeValue = ComputeLoopSize(GatherExtent);
 
-	uint32 LoopSizeValue = ComputeLoopSize(GatherExtent);
+		PixelShader->SetPS(Context.RHICmdList, Context, LoopSizeValue);
 
-	PixelShader->SetPS(Context.RHICmdList, Context, LoopSizeValue);
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DestSize.X, DestSize.Y,
-		0, 0,
-		SrcSize.X, 0,
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DestSize.X, DestSize.Y,
+			0, 0,
+			SrcSize.X, 0,
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 

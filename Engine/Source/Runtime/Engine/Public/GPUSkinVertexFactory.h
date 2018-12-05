@@ -68,30 +68,32 @@ MS_ALIGN(16) struct FSkinMatrix3x4
 } GCC_ALIGN(16);
 
 template<>
-class TUniformBufferTypeInfo<FSkinMatrix3x4, false>
+struct TShaderParameterTypeInfo<FSkinMatrix3x4>
 {
-public:
-	enum { BaseType = UBMT_FLOAT32 };
-	enum { NumRows = 3 };
-	enum { NumColumns = 4 };
-	enum { NumElements = 0 };
-	enum { Alignment = 16 };
-	enum { IsResource = 0 };
-	static const FUniformBufferStruct* GetStruct() { return NULL; }
+	static constexpr EUniformBufferBaseType BaseType = UBMT_FLOAT32;
+	static constexpr int32 NumRows = 3;
+	static constexpr int32 NumColumns = 4;
+	static constexpr int32 NumElements = 0;
+	static constexpr int32 Alignment = 16;
+	static constexpr bool bIsStoredInConstantBuffer = true;
+
+	using TAlignedType = TAlignedTypedef<FSkinMatrix3x4, Alignment>::Type;
+
+	static const FShaderParametersMetadata* GetStructMetadata() { return NULL; }
 };
 
 // Uniform buffer for APEX cloth
-BEGIN_UNIFORM_BUFFER_STRUCT(FAPEXClothUniformShaderParameters,)
-END_UNIFORM_BUFFER_STRUCT(FAPEXClothUniformShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FAPEXClothUniformShaderParameters,)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 enum
 {
 	MAX_GPU_BONE_MATRICES_UNIFORMBUFFER = 75,
 };
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,)
-	UNIFORM_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
-END_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FBoneMatricesUniformShaderParameters,)
+	SHADER_PARAMETER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 #define SET_BONE_DATA(B, X) B.SetMatrixTranspose(X)
 

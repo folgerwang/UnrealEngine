@@ -398,36 +398,37 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	bool bMobilePlatform = IsMobilePlatform(GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()]);
+
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
+
 	if (bMobilePlatform)
 	{
 		// clear on mobile to avoid restore
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-	}
-	else
-	{
-		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	}
-	
-	bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
-
-	// with distortion (bTessellatedQuad) we need to clear the background
-	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : DestRect;
-
-	Context.SetViewportAndCallRHI(DestRect);
-	if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear && !bMobilePlatform)
-	{
-		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, ExcludeRect);
+		LoadAction = ERenderTargetLoadAction::EClear;
 	}
 
-	FShader* VertexShader = 0;
-
-	bool ManullyClampUV = SrcRect.Min != FIntPoint::ZeroValue || SrcRect.Max != SrcSize;
-
-	if(bTessellatedQuad)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("Upscale"));
 	{
-		switch (UpscaleQuality)
+		bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
+
+		// with distortion (bTessellatedQuad) we need to clear the background
+		FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : DestRect;
+
+		Context.SetViewportAndCallRHI(DestRect);
+		if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear && !bMobilePlatform)
 		{
+			DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, ExcludeRect);
+		}
+
+		FShader* VertexShader = 0;
+
+		bool ManullyClampUV = SrcRect.Min != FIntPoint::ZeroValue || SrcRect.Max != SrcSize;
+
+		if (bTessellatedQuad)
+		{
+			switch (UpscaleQuality)
+			{
 			case 0:	VertexShader = SetShader<0, 1>(Context, PaniniConfig, false); break;
 			case 1:	VertexShader = SetShader<1, 1>(Context, PaniniConfig, ManullyClampUV); break;
 			case 2:	VertexShader = SetShader<2, 1>(Context, PaniniConfig, ManullyClampUV); break;
@@ -438,12 +439,12 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 			default:
 				checkNoEntry();
 				break;
+			}
 		}
-	}
-	else
-	{
-		switch (UpscaleQuality)
+		else
 		{
+			switch (UpscaleQuality)
+			{
 			case 0:	VertexShader = SetShader<0, 0>(Context, PaniniParams::Default, false); break;
 			case 1:	VertexShader = SetShader<1, 0>(Context, PaniniParams::Default, ManullyClampUV); break;
 			case 2:	VertexShader = SetShader<2, 0>(Context, PaniniParams::Default, ManullyClampUV); break;
@@ -454,21 +455,22 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 			default:
 				checkNoEntry();
 				break;
+			}
 		}
+
+		// Draw a quad, a triangle or a tessellated quad
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestRect.Size(),
+			SrcSize,
+			VertexShader,
+			bTessellatedQuad ? EDRF_UseTesselatedIndexBuffer : EDRF_UseTriangleOptimization);
 	}
-
-	// Draw a quad, a triangle or a tessellated quad
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestRect.Size(),
-		SrcSize,
-		VertexShader,
-		bTessellatedQuad ? EDRF_UseTesselatedIndexBuffer: EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Update scene color view rectangle for secondary upscale.

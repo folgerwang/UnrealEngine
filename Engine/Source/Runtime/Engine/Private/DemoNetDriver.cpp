@@ -1745,8 +1745,8 @@ void UDemoNetDriver::SaveCheckpoint()
 	// Do the first checkpoint tick now if we're not amortizing
 	if (GetCheckpointSaveMaxMSPerFrame() <= 0.0f)
 	{
-	TickCheckpoint();
-}
+		TickCheckpoint();
+	}
 }
 
 class FRepActorsCheckpointParams
@@ -1785,203 +1785,206 @@ void UDemoNetDriver::TickCheckpoint()
 		return;
 	}
 
-	FScopedForceUnicodeInArchive ScopedUnicodeSerialization(*CheckpointArchive);
-
 	FRepActorsCheckpointParams Params
 	{
 		FPlatformTime::Seconds(),
 		(double)GetCheckpointSaveMaxMSPerFrame() / 1000
 	};
 
-	UDemoNetConnection* ClientConnection = CastChecked<UDemoNetConnection>(ClientConnections[0]);
-
-	CheckpointSaveContext.TotalCheckpointSaveFrames++;
-
-	FlushNetChecked(*ClientConnection);
-
-	UPackageMapClient* PackageMapClient = ( ( UPackageMapClient* )ClientConnection->PackageMap );
-
-	// Save package map ack status in case we export stuff during the checkpoint (so we can restore the connection back to what it was before we saved the checkpoint)
-	PackageMapClient->OverridePackageMapExportAckStatus( &CheckpointSaveContext.CheckpointAckState );
-
 	bool bExecuteNextState = true;
 	double CurrentTime = Params.StartCheckpointTime;
-	while (bExecuteNextState && (CheckpointSaveContext.CheckpointSaveState != ECheckpointSaveState_Finalize) && !(Params.CheckpointMaxUploadTimePerFrame > 0 && CurrentTime - Params.StartCheckpointTime > Params.CheckpointMaxUploadTimePerFrame))
+
 	{
-		switch (CheckpointSaveContext.CheckpointSaveState)
+		FScopedForceUnicodeInArchive ScopedUnicodeSerialization(*CheckpointArchive);
+
+		UDemoNetConnection* ClientConnection = CastChecked<UDemoNetConnection>(ClientConnections[0]);
+
+		CheckpointSaveContext.TotalCheckpointSaveFrames++;
+
+		FlushNetChecked(*ClientConnection);
+
+		UPackageMapClient* PackageMapClient = ( ( UPackageMapClient* )ClientConnection->PackageMap );
+
+		// Save package map ack status in case we export stuff during the checkpoint (so we can restore the connection back to what it was before we saved the checkpoint)
+		PackageMapClient->OverridePackageMapExportAckStatus( &CheckpointSaveContext.CheckpointAckState );
+
+		while (bExecuteNextState && (CheckpointSaveContext.CheckpointSaveState != ECheckpointSaveState_Finalize) && !(Params.CheckpointMaxUploadTimePerFrame > 0 && CurrentTime - Params.StartCheckpointTime > Params.CheckpointMaxUploadTimePerFrame))
 		{
-			case ECheckpointSaveState_ProcessCheckpointActors:
+			switch (CheckpointSaveContext.CheckpointSaveState)
 			{
-				SCOPED_NAMED_EVENT(UDemoNetDriver_ProcessCheckpointActors, FColor::Green);
-
-				// Save the replicated server time so we can restore it after the checkpoint has been serialized.
-				// This preserves the existing behavior and prevents clients from receiving updated server time
-				// more often than the normal update rate.
-				AGameStateBase* const GameState = World != nullptr ? World->GetGameState() : nullptr;
-
-				const float SavedReplicatedServerTimeSeconds = GameState ? GameState->ReplicatedWorldTimeSeconds : -1.0f;
-
-				// Normally AGameStateBase::ReplicatedWorldTimeSeconds is only updated periodically,
-				// but we want to make sure it's accurate for the checkpoint.
-				if ( GameState )
+				case ECheckpointSaveState_ProcessCheckpointActors:
 				{
-					GameState->UpdateServerTimeSeconds();
-				}
+					SCOPED_NAMED_EVENT(UDemoNetDriver_ProcessCheckpointActors, FColor::Green);
 
-				{
-					// Re-use the existing connection to record all properties that have changed since channels were first opened
-					// Set bResendAllDataSinceOpen to true to signify that we want to do this
-					TGuardValue<bool> ResendAllData(ClientConnection->bResendAllDataSinceOpen, true);
+					// Save the replicated server time so we can restore it after the checkpoint has been serialized.
+					// This preserves the existing behavior and prevents clients from receiving updated server time
+					// more often than the normal update rate.
+					AGameStateBase* const GameState = World != nullptr ? World->GetGameState() : nullptr;
 
-					// Can't use conditionally create here, because NumActorsToProcess will be empty when HasLevelStreamingFixes is false.
-					TUniquePtr<FScopedPacketManager> PacketManager;
+					const float SavedReplicatedServerTimeSeconds = GameState ? GameState->ReplicatedWorldTimeSeconds : -1.0f;
 
-					int32 ProcessedLevelIndex = -1;
-					const int32 UseScopedPacketManager = HasLevelStreamingFixes() ? 1 : 0;
-
-					bool bContinue = true;
-					int32 NumActorsToReplicate = CheckpointSaveContext.PendingCheckpointActors.Num();
-
-					do
-					{
-						const PendingCheckPointActor Current = CheckpointSaveContext.PendingCheckpointActors.Pop();
-						AActor* Actor = Current.Actor.Get();
-
-						if (UseScopedPacketManager & (Current.LevelIndex != ProcessedLevelIndex))
-						{
-							PacketManager.Reset(new FScopedPacketManager(*ClientConnection, Current.LevelIndex + 1));
-							ProcessedLevelIndex = Current.LevelIndex;
-						}
-
-						bContinue = ReplicateCheckpointActor(Actor, ClientConnection, Params);				
-					}
-					while (--NumActorsToReplicate && bContinue);
-
+					// Normally AGameStateBase::ReplicatedWorldTimeSeconds is only updated periodically,
+					// but we want to make sure it's accurate for the checkpoint.
 					if ( GameState )
 					{
-						// Restore the game state's replicated world time
-						GameState->ReplicatedWorldTimeSeconds = SavedReplicatedServerTimeSeconds;
+						GameState->UpdateServerTimeSeconds();
 					}
 
-					FlushNetChecked(*ClientConnection);
-
-					PackageMapClient->OverridePackageMapExportAckStatus( nullptr );
-				}
-
-				// We are done processing for this frame so  store the TotalCheckpointSave time here to be true to the old behavior which did not account for the	actual saving time of the check point
-				CheckpointSaveContext.TotalCheckpointReplicationTimeSeconds += ( FPlatformTime::Seconds() - Params.StartCheckpointTime );
-
-				// if we have replicated all checkpointactors, move on to the next state
-				if ( CheckpointSaveContext.PendingCheckpointActors.Num() == 0 )
-				{
-					CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeDeletedStartupActors;
-				}
-			}
-			break;
-
-			case ECheckpointSaveState_SerializeDeletedStartupActors:
-			{
-				// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
-				const double RequiredRatioFor_SerializeDeletedStartupActors = 0.6;
-				if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeDeletedStartupActors)) == true)
-				{
-					SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeDeletedStartupActors, FColor::Green);
-
-					//
-					// We're done saving this checkpoint, now we need to write out all data for it.
-					//
-
-					CheckpointSaveContext.bWriteCheckpointOffset = HasLevelStreamingFixes();
-					if (HasLevelStreamingFixes())
 					{
-						CheckpointSaveContext.CheckpointOffset = CheckpointArchive->Tell();
-						// We will rewrite this offset when we are done saving the checkpoint
-						*CheckpointArchive << CheckpointSaveContext.CheckpointOffset;
+						// Re-use the existing connection to record all properties that have changed since channels were first opened
+						// Set bResendAllDataSinceOpen to true to signify that we want to do this
+						TGuardValue<bool> ResendAllData(ClientConnection->bResendAllDataSinceOpen, true);
+
+						// Can't use conditionally create here, because NumActorsToProcess will be empty when HasLevelStreamingFixes is false.
+						TUniquePtr<FScopedPacketManager> PacketManager;
+
+						int32 ProcessedLevelIndex = -1;
+						const int32 UseScopedPacketManager = HasLevelStreamingFixes() ? 1 : 0;
+
+						bool bContinue = true;
+						int32 NumActorsToReplicate = CheckpointSaveContext.PendingCheckpointActors.Num();
+
+						do
+						{
+							const PendingCheckPointActor Current = CheckpointSaveContext.PendingCheckpointActors.Pop();
+							AActor* Actor = Current.Actor.Get();
+
+							if (UseScopedPacketManager & (Current.LevelIndex != ProcessedLevelIndex))
+							{
+								PacketManager.Reset(new FScopedPacketManager(*ClientConnection, Current.LevelIndex + 1));
+								ProcessedLevelIndex = Current.LevelIndex;
+							}
+
+							bContinue = ReplicateCheckpointActor(Actor, ClientConnection, Params);				
+						}
+						while (--NumActorsToReplicate && bContinue);
+
+						if ( GameState )
+						{
+							// Restore the game state's replicated world time
+							GameState->ReplicatedWorldTimeSeconds = SavedReplicatedServerTimeSeconds;
+						}
+
+						FlushNetChecked(*ClientConnection);
+
+						PackageMapClient->OverridePackageMapExportAckStatus( nullptr );
 					}
 
-					*CheckpointArchive << CurrentLevelIndex;
+					// We are done processing for this frame so  store the TotalCheckpointSave time here to be true to the old behavior which did not account for the	actual saving time of the check point
+					CheckpointSaveContext.TotalCheckpointReplicationTimeSeconds += ( FPlatformTime::Seconds() - Params.StartCheckpointTime );
 
-					// Save deleted startup actors	
-					*CheckpointArchive << DeletedNetStartupActors;
-
-					CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeGuidCache;
-				}
-			}
-			break;
-
-			case ECheckpointSaveState_SerializeGuidCache:
-			{
-				// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
-				const double RequiredRatioFor_SerializeGuidCache = 0.8;
-				if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeGuidCache)) == true)
-				{
-					SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeGuidCache, FColor::Green);
-
-					// Save the current guid cache
-					SerializeGuidCache( GuidCache, CheckpointArchive );
-
-					CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeNetFieldExportGroupMap;
-				}
-			}
-			break;
-
-			case ECheckpointSaveState_SerializeNetFieldExportGroupMap:
-			{
-				// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
-				const double RequiredRatioFor_SerializeNetFieldExportGroupMap = 0.6;
-				if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeNetFieldExportGroupMap)) == true)
-				{
-					SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeNetFieldExportGroupMap, FColor::Green);
-
-					// Save the compatible rep layout map
-					PackageMapClient->SerializeNetFieldExportGroupMap( *CheckpointArchive );
-
-					CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeDemoFrameFromQueuedDemoPackets;
-				}
-			}
-			break;
-
-			case ECheckpointSaveState_SerializeDemoFrameFromQueuedDemoPackets:
-			{
-				// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
-				const double RequiredRatioFor_SerializeDemoFrameFromQueuedDemoPackets = 0.8;
-				if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeDemoFrameFromQueuedDemoPackets)) == true)
-				{
-					SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeDemoFrameFromQueuedDemoPackets, FColor::Green);
-
-					// Write offset
-					if (CheckpointSaveContext.bWriteCheckpointOffset)
+					// if we have replicated all checkpointactors, move on to the next state
+					if ( CheckpointSaveContext.PendingCheckpointActors.Num() == 0 )
 					{
-						const FArchivePos CurrentPosition = CheckpointArchive->Tell();
-						FArchivePos Offset = CurrentPosition - (CheckpointSaveContext.CheckpointOffset + sizeof(FArchivePos));
-						CheckpointArchive->Seek(CheckpointSaveContext.CheckpointOffset);
-						*CheckpointArchive << Offset;
-						CheckpointArchive->Seek(CurrentPosition);	
+						CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeDeletedStartupActors;
 					}
-
-					// Get the size of the guid data saved
-					CheckpointSaveContext.GuidCacheSize = CheckpointArchive->TotalSize();
-
-					// This will cause the entire name list to be written out again.
-					// Note, WriteDemoFrameFromQueuedDemoPackets will set this to 0 so we guard the value.
-					// This is because when checkpoint amortization is enabled, it's possible for new levels to stream
-					// in while recording a checkpoint, and we want to make sure those get written out to the normal
-					// streaming archive next frame.
-					TGuardValue<uint32> NumLevelsAddedThisFrameGuard(NumLevelsAddedThisFrame, AllLevelStatuses.Num());
-
-					// Write out all of the queued up packets generated while saving the checkpoint
-					WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, ClientConnection->QueuedCheckpointPackets, static_cast<float>(LastCheckpointTime) );
-
-					CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_Finalize;
 				}
-			}
-			break;
-
-			default:
 				break;
-		}
 
-		CurrentTime = FPlatformTime::Seconds();
+				case ECheckpointSaveState_SerializeDeletedStartupActors:
+				{
+					// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
+					const double RequiredRatioFor_SerializeDeletedStartupActors = 0.6;
+					if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeDeletedStartupActors)) == true)
+					{
+						SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeDeletedStartupActors, FColor::Green);
+
+						//
+						// We're done saving this checkpoint, now we need to write out all data for it.
+						//
+
+						CheckpointSaveContext.bWriteCheckpointOffset = HasLevelStreamingFixes();
+						if (HasLevelStreamingFixes())
+						{
+							CheckpointSaveContext.CheckpointOffset = CheckpointArchive->Tell();
+							// We will rewrite this offset when we are done saving the checkpoint
+							*CheckpointArchive << CheckpointSaveContext.CheckpointOffset;
+						}
+
+						*CheckpointArchive << CurrentLevelIndex;
+
+						// Save deleted startup actors	
+						*CheckpointArchive << DeletedNetStartupActors;
+
+						CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeGuidCache;
+					}
+				}
+				break;
+
+				case ECheckpointSaveState_SerializeGuidCache:
+				{
+					// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
+					const double RequiredRatioFor_SerializeGuidCache = 0.8;
+					if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeGuidCache)) == true)
+					{
+						SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeGuidCache, FColor::Green);
+
+						// Save the current guid cache
+						SerializeGuidCache( GuidCache, CheckpointArchive );
+
+						CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeNetFieldExportGroupMap;
+					}
+				}
+				break;
+
+				case ECheckpointSaveState_SerializeNetFieldExportGroupMap:
+				{
+					// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
+					const double RequiredRatioFor_SerializeNetFieldExportGroupMap = 0.6;
+					if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeNetFieldExportGroupMap)) == true)
+					{
+						SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeNetFieldExportGroupMap, FColor::Green);
+
+						// Save the compatible rep layout map
+						PackageMapClient->SerializeNetFieldExportGroupMap( *CheckpointArchive );
+
+						CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_SerializeDemoFrameFromQueuedDemoPackets;
+					}
+				}
+				break;
+
+				case ECheckpointSaveState_SerializeDemoFrameFromQueuedDemoPackets:
+				{
+					// Postpone execution of this state if we have used to much of our alloted time, this value can be tweaked based on profiling
+					const double RequiredRatioFor_SerializeDemoFrameFromQueuedDemoPackets = 0.8;
+					if ((bExecuteNextState = ShouldExecuteState(Params, CurrentTime, RequiredRatioFor_SerializeDemoFrameFromQueuedDemoPackets)) == true)
+					{
+						SCOPED_NAMED_EVENT(UDemoNetDriver_SerializeDemoFrameFromQueuedDemoPackets, FColor::Green);
+
+						// Write offset
+						if (CheckpointSaveContext.bWriteCheckpointOffset)
+						{
+							const FArchivePos CurrentPosition = CheckpointArchive->Tell();
+							FArchivePos Offset = CurrentPosition - (CheckpointSaveContext.CheckpointOffset + sizeof(FArchivePos));
+							CheckpointArchive->Seek(CheckpointSaveContext.CheckpointOffset);
+							*CheckpointArchive << Offset;
+							CheckpointArchive->Seek(CurrentPosition);	
+						}
+
+						// Get the size of the guid data saved
+						CheckpointSaveContext.GuidCacheSize = CheckpointArchive->TotalSize();
+
+						// This will cause the entire name list to be written out again.
+						// Note, WriteDemoFrameFromQueuedDemoPackets will set this to 0 so we guard the value.
+						// This is because when checkpoint amortization is enabled, it's possible for new levels to stream
+						// in while recording a checkpoint, and we want to make sure those get written out to the normal
+						// streaming archive next frame.
+						TGuardValue<uint32> NumLevelsAddedThisFrameGuard(NumLevelsAddedThisFrame, AllLevelStatuses.Num());
+
+						// Write out all of the queued up packets generated while saving the checkpoint
+						WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, ClientConnection->QueuedCheckpointPackets, static_cast<float>(LastCheckpointTime) );
+
+						CheckpointSaveContext.CheckpointSaveState = ECheckpointSaveState_Finalize;
+					}
+				}
+				break;
+
+				default:
+					break;
+			}
+
+			CurrentTime = FPlatformTime::Seconds();
+		}
 	}
 
 	// accumulate time spent over all checkpoint ticks
