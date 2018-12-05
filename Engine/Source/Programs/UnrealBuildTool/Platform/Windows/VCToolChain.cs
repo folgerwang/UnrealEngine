@@ -299,6 +299,9 @@ namespace UnrealBuildTool
 					// Favor code speed.
 					Arguments.Add("/Ot");
 
+					// Coalesce duplicate strings
+					Arguments.Add("/GF");
+
 					// Only omit frame pointers on the PC (which is implied by /Ox) if wanted.
 					if (CompileEnvironment.bOmitFramePointers == false
 					&& ((CompileEnvironment.Platform == CppPlatform.Win32) ||
