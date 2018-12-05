@@ -2166,12 +2166,11 @@ void SClassViewer::Construct(const FArguments& InArgs, const FClassViewerInitial
 	.MaxDesiredHeight(800.0f)
 	[
 		SNew(SBorder)
-		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+		.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( 1.0f, 0.0f, 1.0f, 0.0f )
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
