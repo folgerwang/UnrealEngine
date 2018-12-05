@@ -13,7 +13,6 @@
 
 #include "MovieSceneFloatChannel.generated.h"
 
-
 USTRUCT()
 struct FMovieSceneTangentData
 {
@@ -26,6 +25,15 @@ struct FMovieSceneTangentData
 		, ArriveTangentWeight(0.f)
 		, LeaveTangentWeight(0.f)
 	{}
+
+	bool Serialize(FArchive& Ar);
+	bool operator==(const FMovieSceneTangentData& Other) const;
+	bool operator!=(const FMovieSceneTangentData& Other) const;
+	friend FArchive& operator<<(FArchive& Ar, FMovieSceneTangentData& P)
+	{
+		P.Serialize(Ar);
+		return Ar;
+	}
 
 	/** If RCIM_Cubic, the arriving tangent at this key */
 	UPROPERTY(EditAnywhere, Category="Key")
@@ -49,6 +57,25 @@ struct FMovieSceneTangentData
 
 };
 
+template<>
+struct TIsPODType<FMovieSceneTangentData>
+{
+	enum { Value = true };
+};
+
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneTangentData>
+	: public TStructOpsTypeTraitsBase2<FMovieSceneTangentData>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithCopy = false,
+		WithIdenticalViaEquality = true,
+	};
+};
+
 USTRUCT()
 struct FMovieSceneFloatValue
 {
@@ -62,6 +89,15 @@ struct FMovieSceneFloatValue
 		: Value(InValue), InterpMode(RCIM_Cubic), TangentMode(RCTM_Auto)
 	{}
 
+	bool Serialize(FArchive& Ar);
+	bool operator==(const FMovieSceneFloatValue& Other) const;
+	bool operator!=(const FMovieSceneFloatValue& Other) const;
+	friend FArchive& operator<<(FArchive& Ar, FMovieSceneFloatValue& P)
+	{
+		P.Serialize(Ar);
+		return Ar;
+	}
+
 	UPROPERTY(EditAnywhere, Category="Key")
 	float Value;
 
@@ -73,6 +109,25 @@ struct FMovieSceneFloatValue
 
 	UPROPERTY(EditAnywhere, Category="Key")
 	FMovieSceneTangentData Tangent;
+};
+
+template<>
+struct TIsPODType<FMovieSceneFloatValue>
+{
+	enum { Value = true };
+};
+
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneFloatValue>
+	: public TStructOpsTypeTraitsBase2<FMovieSceneFloatValue>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithCopy = false,
+		WithIdenticalViaEquality = true,
+	};
 };
 
 USTRUCT()

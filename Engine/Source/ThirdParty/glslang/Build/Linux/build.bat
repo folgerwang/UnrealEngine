@@ -44,11 +44,11 @@ rem ## Compile and Build.
 rmdir /S /Q cmake-temp
 mkdir cmake-temp
 cd cmake-temp
-%CMAKE_PATH%\cmake -DCMAKE_MAKE_PROGRAM=%MAKE_PATH%\make.exe -DCMAKE_TOOLCHAIN_FILE="../LinuxCrossToolchain.multiarch.cmake" -DARCHITECTURE_TRIPLE=%ARCHITECTURE_TRIPLE% -DUSE_CUSTOM_LIBCXX=ON -DLIBCXX_INCLUDE=%LIBCXX_INCLUDE1% -DLIBCXX_ABI_INCLUDE=%LIBCXX_INCLUDE2% -DLIBCXX_LIB_DIR=%LIBCXX_LIB% -G"Unix Makefiles" ../../../../glslang/glslang/src/glslang_lib
+%CMAKE_PATH%\cmake -DCMAKE_MAKE_PROGRAM=%MAKE_PATH%\make.exe -DCMAKE_TOOLCHAIN_FILE="../LinuxCrossToolchain.multiarch.cmake" -DARCHITECTURE_TRIPLE=%ARCHITECTURE_TRIPLE% -DLIBCXX_INCLUDE="%LIBCXX_INCLUDE1%" -DLIBCXX_ABI_INCLUDE="%LIBCXX_INCLUDE2%" -DLIBCXX_LIB_DIR="%LIBCXX_LIB%" -G"Unix Makefiles" ../../../../glslang/glslang/src/glslang_lib
 
-%MAKE_PATH%\make.exe
+%MAKE_PATH%\make.exe -j 16 MAKE="%MAKE_PATH%\make.exe -j 16"
 
-rem ## Copy to destination.
+rem Copy to destination.
 set DESTINATION_DIRECTORY="../../../../glslang/glslang/lib/Linux"
 
 if not exist %DESTINATION_DIRECTORY%\%ARCHITECTURE_TRIPLE% mkdir %DESTINATION_DIRECTORY%\%ARCHITECTURE_TRIPLE%

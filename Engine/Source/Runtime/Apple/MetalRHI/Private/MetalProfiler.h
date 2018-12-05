@@ -14,6 +14,17 @@
 DECLARE_CYCLE_STAT_EXTERN(TEXT("MakeDrawable time"),STAT_MetalMakeDrawableTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Draw call time"),STAT_MetalDrawCallTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareDraw time"),STAT_MetalPrepareDrawTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SwitchToRender time"),STAT_MetalSwitchToRenderTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SwitchToTessellation time"),STAT_MetalSwitchToTessellationTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SwitchToCompute time"),STAT_MetalSwitchToComputeTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SwitchToBlit time"),STAT_MetalSwitchToBlitTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SwitchToAsyncBlit time"),STAT_MetalSwitchToAsyncBlitTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareToRender time"),STAT_MetalPrepareToRenderTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareToTessellate time"),STAT_MetalPrepareToTessellateTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareToDispatch time"),STAT_MetalPrepareToDispatchTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("CommitRenderResourceTables time"),STAT_MetalCommitRenderResourceTablesTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SetRenderState time"),STAT_MetalSetRenderStateTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("SetRenderPipelineState time"),STAT_MetalSetRenderPipelineStateTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineState time"),STAT_MetalPipelineStateTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Buffer Page-Off time"), STAT_MetalBufferPageOffTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-Off time"), STAT_MetalTexturePageOffTime, STATGROUP_MetalRHI, );
@@ -34,6 +45,7 @@ DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Texture Memory"), STAT_MetalTextureUnuse
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Heap Count"), STAT_MetalHeapCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Fence Count"), STAT_MetalFenceCount, STATGROUP_MetalRHI, );
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-On time"), STAT_MetalTexturePageOnTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Work time"), STAT_MetalGPUWorkTime, STATGROUP_MetalRHI, );
@@ -165,6 +177,7 @@ private:
 struct IMetalStatsScope
 {
 	FString Name;
+	FString Parent;
 	TArray<IMetalStatsScope*> Children;
 	
 	uint64 CPUStartTime;
@@ -214,10 +227,17 @@ struct FMetalDisplayStats : public IMetalStatsScope
 #endif
 };
 
+enum EMTLFenceType
+{
+	EMTLFenceTypeWait,
+	EMTLFenceTypeUpdate,
+};
+
 #if METAL_STATISTICS
 struct FMetalEventStats : public IMetalStatsScope
 {
 	FMetalEventStats(const TCHAR* Name, FColor Color);
+	FMetalEventStats(const TCHAR* Name, uint64 InGPUIdx);
 	virtual ~FMetalEventStats();
 	
 	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
@@ -234,6 +254,7 @@ struct FMetalOperationStats : public IMetalStatsScope
 {
 	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint);
+	FMetalOperationStats(FString DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint);
 	virtual ~FMetalOperationStats();
 	
 	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
@@ -276,8 +297,10 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	
 	void EncodeDraw(char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	void EncodeBlit(char const* DrawCall);
+	void EncodeBlit(FString DrawCall);
 	void EncodeDispatch(char const* DrawCall);
 	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
+	void EncodeFence(FMetalEventStats* Stat, EMTLFenceType Type);
 	
 	id<IMetalCommandBufferStats> CmdBufferStats;
 	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
@@ -285,6 +308,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	uint32 EndPoint;
 	id<IMetalStatisticsSamples> StartSample;
 	id<IMetalStatisticsSamples> EndSample;
+	TArray<FMetalEventStats*> FenceUpdates;
 };
 #endif
 
@@ -399,6 +423,7 @@ public:
 	
 	void EncodeDraw(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	void EncodeBlit(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
+	void EncodeBlit(FMetalCommandBufferStats* CmdBufStats, FString DrawCall);
 	void EncodeDispatch(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
 	
 #if METAL_STATISTICS
@@ -421,7 +446,10 @@ public:
 	
 	void AddCounter(NSString* Counter, EMTLCounterType Type);
 	void RemoveCounter(NSString* Counter);
+	void SetGranularity(EMetalSampleGranularity Sample);
 	TMap<FString, EMTLCounterType> const& GetCounterTypes() const { return CounterTypes; }
+	
+	void EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence, EMTLFenceType Type);
 	
 	void DumpPipeline(FMetalShaderPipeline* PipelineStat);
 #endif
@@ -437,12 +465,14 @@ public:
 private:
 	FCriticalSection Mutex;
 #if METAL_STATISTICS
+	EMetalSampleGranularity StatsGranularity;
 	NSMutableArray* NewCounters;
 	TMap<FString, EMTLCounterType> CounterTypes;
 	IMetalStatistics* StatisticsAPI;
 	TArray<FMetalEventStats*> FrameEvents;
 	TArray<FMetalEventStats*> ActiveEvents;
 	TSet<FMetalShaderPipeline*> Pipelines;
+	bool bChangeGranularity;
 #endif
 	
 	TArray<FMetalCommandBufferStats*> TracedBuffers;

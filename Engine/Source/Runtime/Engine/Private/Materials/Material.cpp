@@ -4289,13 +4289,15 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 void UMaterial::PreEditChange(UProperty* PropertyThatChanged)
 {
 	Super::PreEditChange(PropertyThatChanged);
-
-	// Flush all pending rendering commands.
-	FlushRenderingCommands();
 }
 
 void UMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	// PreEditChange is not enforced to be called before PostEditChange.
+	// CacheResourceShadersForRendering if called will cause a rendering thread race condition with a debug mechanism (bDeletedThroughDeferredCleanup) if there is no flush or
+	// FMaterialUpdateContext present.
+	FlushRenderingCommands();
+
 	// If the material changes, then the debug view material must reset to prevent parameters mismatch
 	void ClearAllDebugViewMaterials();
 	ClearAllDebugViewMaterials();
@@ -5813,18 +5815,26 @@ USubsurfaceProfile* UMaterial::GetSubsurfaceProfile_Internal() const
 	return SubsurfaceProfile; 
 }
 
-bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const 
+static bool IsPropertyActive_Internal(EMaterialProperty InProperty,
+	EMaterialDomain Domain,
+	EBlendMode BlendMode,
+	EMaterialShadingModel ShadingModel,
+	ETranslucencyLightingMode TranslucencyLightingMode,
+	EDecalBlendMode DecalBlendMode,
+	bool bBlendableOutputAlpha,
+	bool bHasTessellation,
+	bool bHasRefraction )
 {
-	if(MaterialDomain == MD_PostProcess)
+	if (Domain == MD_PostProcess)
 	{
-		return InProperty == MP_EmissiveColor || ( BlendableOutputAlpha && InProperty == MP_Opacity );
+		return InProperty == MP_EmissiveColor || (bBlendableOutputAlpha && InProperty == MP_Opacity);
 	}
-	else if(MaterialDomain == MD_LightFunction)
+	else if (Domain == MD_LightFunction)
 	{
 		// light functions should already use MSM_Unlit but we also we don't want WorldPosOffset
 		return InProperty == MP_EmissiveColor;
 	}
-	else if(MaterialDomain == MD_DeferredDecal)
+	else if (Domain == MD_DeferredDecal)
 	{
 		if (InProperty >= MP_CustomizedUVs0 && InProperty <= MP_CustomizedUVs7)
 		{
@@ -5835,150 +5845,150 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 			// todo: MaterialAttruibutes would not return true, should it? Why we don't check for the checkbox in the material
 			return true;
 		}
-		else if( InProperty == MP_WorldPositionOffset )
+		else if (InProperty == MP_WorldPositionOffset)
 		{
 			// Note: DeferredDecals don't support this but MeshDecals do
 			return true;
 		}
 
-		switch(DecalBlendMode)
+		switch (DecalBlendMode)
 		{
-			case DBM_Translucent:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Normal
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Opacity;
+		case DBM_Translucent:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Normal
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Opacity;
 
-			case DBM_Stain:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Normal
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Opacity;
+		case DBM_Stain:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Normal
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Opacity;
 
-			case DBM_Normal:
-				return InProperty == MP_Normal
-					|| InProperty == MP_Opacity;
+		case DBM_Normal:
+			return InProperty == MP_Normal
+				|| InProperty == MP_Opacity;
 
-			case DBM_Emissive:
-				// even emissive supports opacity
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Opacity;
+		case DBM_Emissive:
+			// even emissive supports opacity
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Opacity;
 
-			case DBM_AlphaComposite:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Opacity;
+		case DBM_AlphaComposite:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_AlphaComposite:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_AlphaComposite:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_ColorNormalRoughness:
-				return InProperty == MP_Normal
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_Opacity
-					|| InProperty == MP_EmissiveColor;
+		case DBM_DBuffer_ColorNormalRoughness:
+			return InProperty == MP_Normal
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_Opacity
+				|| InProperty == MP_EmissiveColor;
 
-			case DBM_DBuffer_Emissive:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_Emissive:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_EmissiveAlphaComposite:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_EmissiveAlphaComposite:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_Color:
-				return InProperty == MP_BaseColor
-					|| InProperty == MP_Opacity
-					|| InProperty == MP_EmissiveColor;
+		case DBM_DBuffer_Color:
+			return InProperty == MP_BaseColor
+				|| InProperty == MP_Opacity
+				|| InProperty == MP_EmissiveColor;
 
-			case DBM_DBuffer_ColorNormal:
-				return InProperty == MP_BaseColor
-					|| InProperty == MP_Normal
-					|| InProperty == MP_Opacity
-					|| InProperty == MP_EmissiveColor;
+		case DBM_DBuffer_ColorNormal:
+			return InProperty == MP_BaseColor
+				|| InProperty == MP_Normal
+				|| InProperty == MP_Opacity
+				|| InProperty == MP_EmissiveColor;
 
-			case DBM_DBuffer_ColorRoughness:
-				return InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_Opacity
-					|| InProperty == MP_EmissiveColor;
+		case DBM_DBuffer_ColorRoughness:
+			return InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_Opacity
+				|| InProperty == MP_EmissiveColor;
 
-			case DBM_DBuffer_NormalRoughness:
-				return InProperty == MP_Normal
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_NormalRoughness:
+			return InProperty == MP_Normal
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_Normal:
-				return InProperty == MP_Normal
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_Normal:
+			return InProperty == MP_Normal
+				|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_Roughness:
-				return InProperty == MP_Roughness
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_Opacity;
+		case DBM_DBuffer_Roughness:
+			return InProperty == MP_Roughness
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_Opacity;
 
-			case DBM_Volumetric_DistanceFunction:
-				return InProperty == MP_EmissiveColor
-					|| InProperty == MP_Normal
-					|| InProperty == MP_Metallic
-					|| InProperty == MP_Specular
-					|| InProperty == MP_BaseColor
-					|| InProperty == MP_Roughness
-					|| InProperty == MP_OpacityMask;
+		case DBM_Volumetric_DistanceFunction:
+			return InProperty == MP_EmissiveColor
+				|| InProperty == MP_Normal
+				|| InProperty == MP_Metallic
+				|| InProperty == MP_Specular
+				|| InProperty == MP_BaseColor
+				|| InProperty == MP_Roughness
+				|| InProperty == MP_OpacityMask;
 
-			case DBM_AmbientOcclusion:
-				return InProperty == MP_AmbientOcclusion;
+		case DBM_AmbientOcclusion:
+			return InProperty == MP_AmbientOcclusion;
 
-			default:
-				// if you create a new mode it needs to expose the right pins
-				return false;
+		default:
+			// if you create a new mode it needs to expose the right pins
+			return false;
 		}
 	}
-	else if (MaterialDomain == MD_Volume)
+	else if (Domain == MD_Volume)
 	{
 		return InProperty == MP_EmissiveColor
 			|| InProperty == MP_Opacity
 			|| InProperty == MP_BaseColor;
 	}
-	else if ( MaterialDomain == MD_UI )
+	else if (Domain == MD_UI)
 	{
 		return InProperty == MP_EmissiveColor
-			|| ( InProperty == MP_WorldPositionOffset )
-			|| ( InProperty == MP_OpacityMask && BlendMode == BLEND_Masked ) 
-			|| ( InProperty == MP_Opacity && IsTranslucentBlendMode((EBlendMode)BlendMode) && BlendMode != BLEND_Modulate )
-			|| ( InProperty >= MP_CustomizedUVs0 && InProperty <= MP_CustomizedUVs7);
+			|| (InProperty == MP_WorldPositionOffset)
+			|| (InProperty == MP_OpacityMask && BlendMode == BLEND_Masked)
+			|| (InProperty == MP_Opacity && IsTranslucentBlendMode(BlendMode) && BlendMode != BLEND_Modulate)
+			|| (InProperty >= MP_CustomizedUVs0 && InProperty <= MP_CustomizedUVs7);
 		{
 			return true;
 		}
 	}
 
-	const bool bIsTranslucentBlendMode = IsTranslucentBlendMode((EBlendMode)BlendMode);
+	const bool bIsTranslucentBlendMode = IsTranslucentBlendMode(BlendMode);
 	const bool bIsNonDirectionalTranslucencyLightingMode = TranslucencyLightingMode == TLM_VolumetricNonDirectional || TranslucencyLightingMode == TLM_VolumetricPerVertexNonDirectional;
-	const bool bIsVolumetricTranslucencyLightingMode = TranslucencyLightingMode == TLM_VolumetricNonDirectional 
-		|| TranslucencyLightingMode == TLM_VolumetricDirectional 
-		|| TranslucencyLightingMode == TLM_VolumetricPerVertexNonDirectional 
+	const bool bIsVolumetricTranslucencyLightingMode = TranslucencyLightingMode == TLM_VolumetricNonDirectional
+		|| TranslucencyLightingMode == TLM_VolumetricDirectional
+		|| TranslucencyLightingMode == TLM_VolumetricPerVertexNonDirectional
 		|| TranslucencyLightingMode == TLM_VolumetricPerVertexDirectional;
 
 	bool Active = true;
@@ -5990,7 +6000,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		Active = false;
 		break;
 	case MP_Refraction:
-		Active =bIsTranslucentBlendMode && BlendMode != BLEND_Modulate;
+		Active = bIsTranslucentBlendMode && BlendMode != BLEND_Modulate;
 		break;
 	case MP_Opacity:
 		Active = bIsTranslucentBlendMode && BlendMode != BLEND_Modulate;
@@ -6015,7 +6025,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		Active = ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
 		break;
 	case MP_Normal:
-		Active = (ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode)) || Refraction.IsConnected();
+		Active = (ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode)) || bHasRefraction;
 		break;
 	case MP_SubsurfaceColor:
 		Active = ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || ShadingModel == MSM_TwoSidedFoliage || ShadingModel == MSM_Cloth;
@@ -6028,7 +6038,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		break;
 	case MP_TessellationMultiplier:
 	case MP_WorldDisplacement:
-		Active = D3D11TessellationMode != MTM_NoTessellation;
+		Active = bHasTessellation;
 		break;
 	case MP_EmissiveColor:
 		// Emissive is always active, even for light functions and post process materials
@@ -6046,6 +6056,41 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		break;
 	}
 	return Active;
+}
+
+bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
+{
+	return IsPropertyActiveInDerived(InProperty, this);
+}
+
+#if WITH_EDITOR
+bool UMaterial::IsPropertyActiveInEditor(EMaterialProperty InProperty) const
+{
+	// explicitly DON'T use getters for BlendMode/ShadingModel...these getters may return an optimized value
+	// we want the actual value that's been set by the user in the material editor
+	return IsPropertyActive_Internal(InProperty,
+		MaterialDomain,
+		BlendMode,
+		ShadingModel,
+		TranslucencyLightingMode,
+		DecalBlendMode,
+		BlendableOutputAlpha,
+		D3D11TessellationMode != MTM_NoTessellation,
+		Refraction.IsConnected());
+}
+#endif // WITH_EDITOR
+
+bool UMaterial::IsPropertyActiveInDerived(EMaterialProperty InProperty, const UMaterialInterface* DerivedMaterial) const
+{
+	return IsPropertyActive_Internal(InProperty,
+		MaterialDomain,
+		DerivedMaterial->GetBlendMode(),
+		DerivedMaterial->GetShadingModel(),
+		TranslucencyLightingMode,
+		DecalBlendMode,
+		BlendableOutputAlpha,
+		D3D11TessellationMode != MTM_NoTessellation,
+		Refraction.IsConnected());
 }
 
 #if WITH_EDITORONLY_DATA

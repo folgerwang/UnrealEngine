@@ -152,7 +152,7 @@ public:
 	virtual void PostRenderOpaque(
 		FRHICommandListImmediate& RHICmdList, 
 		const FUniformBufferRHIParamRef ViewUniformBuffer, 
-		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) override;
 	// End FFXSystemInterface.
 
@@ -254,7 +254,7 @@ private:
 		EParticleSimulatePhase::Type Phase,
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		);
 

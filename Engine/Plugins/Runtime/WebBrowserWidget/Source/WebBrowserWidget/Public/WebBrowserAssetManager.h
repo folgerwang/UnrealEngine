@@ -3,7 +3,7 @@
 #pragma once
 
 #include "UObject/SoftObjectPtr.h"
-
+#include "Materials/Material.h"
 #include "WebBrowserAssetManager.generated.h"
 
 class UMaterial;

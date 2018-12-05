@@ -364,7 +364,7 @@ void QuantizeBoundShaderState(
 	// The objective is to allow a single root signature to represent many bound shader state objects.
 	// The bigger the quantization step sizes, the fewer the root signatures.
 	FMemory::Memzero(&QBSS, sizeof(QBSS));
-	QBSS.bAllowIAInputLayout = BSS->InputLayout.NumElements > 0;	// Does the root signature need access to vertex buffers?
+	QBSS.bAllowIAInputLayout = BSS->GetVertexDeclaration() != nullptr;	// Does the root signature need access to vertex buffers?
 
 	const FD3D12VertexShader* const VertexShader = BSS->GetVertexShader();
 	const FD3D12PixelShader* const PixelShader = BSS->GetPixelShader();

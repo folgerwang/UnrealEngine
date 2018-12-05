@@ -1098,8 +1098,6 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 
 	if (Settings)
 	{
-		EFrameNumberDisplayFormats CurrentDisplay = Settings->GetTimeDisplayFormat();
-
 		for (int32 Index = 0; Index < FrameNumberDisplayEnum->NumEnums() - 1; Index++)
 		{
 			if (!FrameNumberDisplayEnum->HasMetaData(TEXT("Hidden"), Index))
@@ -1110,7 +1108,6 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 				if (Value == EFrameNumberDisplayFormats::DropFrameTimecode && !bSupportsDropFormatDisplay)
 					continue;
 
-				bool bIsSet = CurrentDisplay == Value;
 				MenuBuilder.AddMenuEntry(
 					FrameNumberDisplayEnum->GetDisplayNameTextByIndex(Index),
 					FrameNumberDisplayEnum->GetToolTipTextByIndex(Index),
@@ -1118,7 +1115,7 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 					FUIAction(
 						FExecuteAction::CreateUObject(Settings, &USequencerSettings::SetTimeDisplayFormat, Value),
 						FCanExecuteAction(),
-						FIsActionChecked::CreateLambda([=] { return CurrentDisplay == Value; })
+						FIsActionChecked::CreateLambda([=] { return Settings->GetTimeDisplayFormat() == Value; })
 					),
 					NAME_None,
 					EUserInterfaceActionType::RadioButton
@@ -1242,8 +1239,13 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepCursorInPlaybackRangeWhileScrubbing );
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepCursorInPlaybackRange );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepPlaybackRangeInSectionBounds );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleLinkCurveEditorTimeRange );
+
+		if (!SequencerPtr.Pin()->IsLevelEditorSequencer())
+		{
+			MenuBuilder.AddMenuEntry(FSequencerCommands::Get().ToggleKeepPlaybackRangeInSectionBounds);
+		}
+		
+		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().ToggleLinkCurveEditorTimeRange);
 
 		// Menu entry for zero padding
 		auto OnZeroPadChanged = [=](uint8 NewValue){
@@ -2078,7 +2080,7 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 				SequencerHelpers::GetAllKeyAreas( Node, KeyAreas );
 				for ( TSharedPtr<IKeyArea> KeyArea : KeyAreas )
 				{
-					KeyArea->GetKeyTimes(AllTimes);
+					KeyArea->GetKeyTimes(AllTimes, KeyArea->GetOwningSection()->GetRange());
 				}
 
 				TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;

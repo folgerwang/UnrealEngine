@@ -155,46 +155,6 @@ void FRCPassPostProcessVisualizeBuffer::Process(FRenderingCompositePassContext& 
 	FIntRect DestRect = View.ViewRect;
 	FIntPoint SrcSize = InputDesc->Extent;
 
-	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
-
-	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(DestRect);
-
-	{
-		FShader* VertexShader = SetShaderTempl<false>(Context);
-
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestRect.Size(),
-		SrcSize,
-			VertexShader,
-		EDRF_UseTriangleOptimization);
-	}
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessVisualizeBufferPS<true> > PixelShader(Context.GetShaderMap());
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-	PixelShader->SetPS(Context.RHICmdList, Context);
-
 	// Track the name and position of each tile we draw so we can write text labels over them
 	struct LabelRecord
 	{
@@ -202,49 +162,91 @@ void FRCPassPostProcessVisualizeBuffer::Process(FRenderingCompositePassContext& 
 		int32 LocationX;
 		int32 LocationY;
 	};
-
 	TArray<LabelRecord> Labels;
 
-	const int32 MaxTilesX = 4;
-	const int32 MaxTilesY = 4;
-	const int32 TileWidth = DestRect.Width() / MaxTilesX;
-	const int32 TileHeight = DestRect.Height() / MaxTilesY;
-	int32 CurrentTileIndex = 0; 
+	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	for (TArray<TileData>::TConstIterator It = Tiles.CreateConstIterator(); It; ++It, ++CurrentTileIndex)
+	// Set the view family's render target/viewport.
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeBuffer"));
 	{
-		FRenderingCompositeOutputRef Tile = It->Source;
+		Context.SetViewportAndCallRHI(DestRect);
 
-		if (Tile.IsValid())
 		{
-			FTextureRHIRef Texture = Tile.GetOutput()->PooledRenderTarget->GetRenderTargetItem().TargetableTexture;
+			FShader* VertexShader = SetShaderTempl<false>(Context);
 
-			int32 TileX = CurrentTileIndex % MaxTilesX;
-			int32 TileY = CurrentTileIndex / MaxTilesX;
-
-			PixelShader->SetSourceTexture(Context.RHICmdList, Texture);
-
+			// Draw a quad mapping scene color to the view's render target
 			DrawRectangle(
 				Context.RHICmdList,
-				TileX * TileWidth, TileY * TileHeight,
-				TileWidth, TileHeight,
+				0, 0,
+				DestRect.Width(), DestRect.Height(),
 				SrcRect.Min.X, SrcRect.Min.Y,
 				SrcRect.Width(), SrcRect.Height(),
 				DestRect.Size(),
 				SrcSize,
-				*VertexShader,
-				EDRF_Default
+				VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessVisualizeBufferPS<true> > PixelShader(Context.GetShaderMap());
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+		PixelShader->SetPS(Context.RHICmdList, Context);
+
+		const int32 MaxTilesX = 4;
+		const int32 MaxTilesY = 4;
+		const int32 TileWidth = DestRect.Width() / MaxTilesX;
+		const int32 TileHeight = DestRect.Height() / MaxTilesY;
+		int32 CurrentTileIndex = 0;
+
+		for (TArray<TileData>::TConstIterator It = Tiles.CreateConstIterator(); It; ++It, ++CurrentTileIndex)
+		{
+			FRenderingCompositeOutputRef Tile = It->Source;
+
+			if (Tile.IsValid())
+			{
+				FTextureRHIRef Texture = Tile.GetOutput()->PooledRenderTarget->GetRenderTargetItem().TargetableTexture;
+
+				int32 TileX = CurrentTileIndex % MaxTilesX;
+				int32 TileY = CurrentTileIndex / MaxTilesX;
+
+				PixelShader->SetSourceTexture(Context.RHICmdList, Texture);
+
+				DrawRectangle(
+					Context.RHICmdList,
+					TileX * TileWidth, TileY * TileHeight,
+					TileWidth, TileHeight,
+					SrcRect.Min.X, SrcRect.Min.Y,
+					SrcRect.Width(), SrcRect.Height(),
+					DestRect.Size(),
+					SrcSize,
+					*VertexShader,
+					EDRF_Default
 				);
 
-			Labels.Add(LabelRecord());
-			Labels.Last().Label = It->Name;
-			Labels.Last().LocationX = 8 + TileX * TileWidth;
-			Labels.Last().LocationY = (TileY + 1) * TileHeight - 19;
+				Labels.Add(LabelRecord());
+				Labels.Last().Label = It->Name;
+				Labels.Last().LocationX = 8 + TileX * TileWidth;
+				Labels.Last().LocationY = (TileY + 1) * TileHeight - 19;
+			}
 		}
 	}
+	Context.RHICmdList.EndRenderPass();
 
 	// Draw tile labels
-
 	FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 	FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 	FLinearColor LabelColor(1, 1, 0);
@@ -254,8 +256,8 @@ void FRCPassPostProcessVisualizeBuffer::Process(FRenderingCompositePassContext& 
 	}
 	Canvas.Flush_RenderThread(Context.RHICmdList);
 
-
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVisualizeBuffer::ComputeOutputDesc(EPassOutputId InPassOutputId) const

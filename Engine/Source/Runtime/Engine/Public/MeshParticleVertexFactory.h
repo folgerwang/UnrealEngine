@@ -23,13 +23,13 @@ struct FShaderCompilerEnvironment;
 /**
  * Uniform buffer for mesh particle vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
-	UNIFORM_MEMBER( FVector4, SubImageSize )
-	UNIFORM_MEMBER( uint32, TexCoordWeightA )
-	UNIFORM_MEMBER( uint32, TexCoordWeightB )
-	UNIFORM_MEMBER( uint32, PrevTransformAvailable )
-	UNIFORM_MEMBER( float, DeltaSeconds)
-	END_UNIFORM_BUFFER_STRUCT(FMeshParticleUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
+	SHADER_PARAMETER( FVector4, SubImageSize )
+	SHADER_PARAMETER( uint32, TexCoordWeightA )
+	SHADER_PARAMETER( uint32, TexCoordWeightB )
+	SHADER_PARAMETER( uint32, PrevTransformAvailable )
+	SHADER_PARAMETER( float, DeltaSeconds)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 typedef TUniformBufferRef<FMeshParticleUniformParameters> FMeshParticleUniformBufferRef;
 
 class FMeshParticleInstanceVertices;

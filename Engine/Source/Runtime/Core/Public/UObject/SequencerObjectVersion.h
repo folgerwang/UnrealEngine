@@ -39,6 +39,9 @@ struct CORE_API FSequencerObjectVersion
 		// Finish UMG evaluation on end
 		FinishUMGEvaluation,
 
+		// Manual serialization of float channel
+		SerializeFloatChannel,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

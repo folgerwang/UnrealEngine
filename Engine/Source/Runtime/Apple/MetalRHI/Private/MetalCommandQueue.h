@@ -97,6 +97,12 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesTextureBuffers = 1llu << 38llu,
 	/** Supports max. compute threads per threadgroup */
 	EMetalFeaturesMaxThreadsPerThreadgroup = 1llu << 39llu,
+	/** Supports parallel render encoders */
+	EMetalFeaturesParallelRenderEncoders = 1llu << 40llu,
+	/** Supports indirect argument buffers */
+	EMetalFeaturesIABs = 1llu << 41llu,
+	/** Supports specifying the mutability of buffers bound to PSOs */
+	EMetalFeaturesPipelineBufferMutability = 1llu << 42llu,
 };
 
 /**
@@ -141,7 +147,7 @@ public:
 	void SubmitCommandBuffers(TArray<mtlpp::CommandBuffer> BufferList, uint32 Index, uint32 Count);
 
 	/** @returns Creates a new MTLFence or nil if this is unsupported */
-	mtlpp::Fence CreateFence(ns::String const& Label) const;
+	FMetalFence* CreateFence(ns::String const& Label) const;
 	
 	/** @params Fences An array of command-buffer fences for the committed command-buffers */
 	void GetCommittedCommandBufferFences(TArray<mtlpp::CommandBufferFence>& Fences);

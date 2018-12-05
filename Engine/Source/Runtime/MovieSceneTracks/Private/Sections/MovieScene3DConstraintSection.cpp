@@ -17,13 +17,6 @@ void UMovieScene3DConstraintSection::SetConstraintId(const FGuid& InConstraintId
 	}
 }
 
-
-FGuid UMovieScene3DConstraintSection::GetConstraintId() const
-{
-	return FGuid();
-}
-
-
 void UMovieScene3DConstraintSection::OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap)
 {
 	if (OldGuidToNewGuidMap.Contains(ConstraintBindingID.GetGuid()))

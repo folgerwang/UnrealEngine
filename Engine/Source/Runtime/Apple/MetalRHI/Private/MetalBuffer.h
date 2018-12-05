@@ -38,6 +38,7 @@ public:
     NSUInteger     GetSize() const;
     NSUInteger     GetUsedSize() const;
 	NSUInteger	 MaxAvailableSize() const;
+	int64     NumCurrentAllocations() const;
 
     void SetLabel(const ns::String& label);
 	
@@ -47,6 +48,7 @@ public:
 
 private:
 	FCriticalSection& PoolMutex;
+	int64 volatile OutstandingAllocs;
 	NSUInteger MinAlign;
 	NSUInteger UsedSize;
 	mtlpp::Buffer ParentBuffer;
@@ -67,7 +69,7 @@ public:
 	NSUInteger     GetSize() const;
 	NSUInteger     GetUsedSize() const;
 	bool	 CanAllocateSize(NSUInteger Size) const;
-	
+
 	void SetLabel(const ns::String& label);
 	
 	FMetalBuffer NewBuffer(NSUInteger length);
@@ -96,6 +98,7 @@ public:
     NSUInteger     GetSize() const;
     NSUInteger     GetUsedSize() const;
 	NSUInteger	 GetFreeSize() const;
+	int64     NumCurrentAllocations() const;
 
     void SetLabel(const ns::String& label);
 	void FreeRange(ns::Range const& Range);
@@ -105,6 +108,7 @@ public:
 
 private:
 	NSUInteger MinAlign;
+	int64 volatile OutstandingAllocs;
 	int64 volatile UsedSize;
 	mtlpp::Buffer ParentBuffer;
 	mutable mtlpp::Heap ParentHeap;
@@ -356,12 +360,36 @@ class FMetalResourceHeap
 		Size2Mb,
 		NumHeapSizes
 	};
+
+	enum TextureHeapSize
+	{
+		Size4Mb,
+		Size8Mb,
+		Size16Mb,
+		Size32Mb,
+		Size64Mb,
+		Size128Mb,
+		Size256Mb,
+		NumTextureHeapSizes,
+		MinTexturesPerHeap = 4,
+		MaxTextureSize = Size64Mb,
+	};
 	
 	enum AllocTypes
 	{
 		AllocShared,
 		AllocPrivate,
 		NumAllocTypes = 2
+	};
+	
+	enum EMetalHeapTextureUsage
+	{
+		/** Regular texture resource */
+		EMetalHeapTextureUsageResource = 0,
+		/** Render target or UAV that can be aliased */
+		EMetalHeapTextureUsageRenderTarget = 1,
+		/** Number of texture usage types */
+		EMetalHeapTextureUsageNum = 2
 	};
 
 public:
@@ -381,12 +409,16 @@ public:
 private:
 	uint32 GetMagazineIndex(uint32 Size);
 	uint32 GetHeapIndex(uint32 Size);
+	TextureHeapSize TextureSizeToIndex(uint32 Size);
+	
+	mtlpp::Heap GetTextureHeap(mtlpp::TextureDescriptor Desc, mtlpp::SizeAndAlign Size);
 	
 private:
 	static uint32 MagazineSizes[NumMagazineSizes];
 	static uint32 HeapSizes[NumHeapSizes];
 	static uint32 MagazineAllocSizes[NumMagazineSizes];
 	static uint32 HeapAllocSizes[NumHeapSizes];
+	static uint32 HeapTextureHeapSizes[NumTextureHeapSizes];
 
 	FCriticalSection Mutex;
 	FMetalCommandQueue* Queue;
@@ -409,4 +441,6 @@ private:
 	/** We can reuse texture allocations as well, to minimize their performance impact */
 	FMetalTexturePool TexturePool;
 	FMetalTexturePool TargetPool;
+	
+	TArray<mtlpp::Heap> TextureHeaps[EMetalHeapTextureUsageNum][NumTextureHeapSizes];
 };

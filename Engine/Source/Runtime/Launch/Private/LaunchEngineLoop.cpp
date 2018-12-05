@@ -1982,7 +1982,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	{
 		SCOPED_BOOT_TIMING("FUniformBufferStruct::InitializeStructs()");
-		FUniformBufferStruct::InitializeStructs();
+		FShaderParametersMetadata::InitializeAllGlobalStructs();
 	}
 
 	{
@@ -2013,6 +2013,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			FShaderPipelineCache::Initialize(GMaxRHIShaderPlatform);
 		}
 	}
+
 
 	FString Commandline = FCommandLine::Get();
 	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
@@ -2896,7 +2897,7 @@ void FEngineLoop::LoadPreInitModules()
 
 	// Initialize ShaderCore before loading or compiling any shaders,
 	// But after Renderer and any other modules which implement shader types.
-	FModuleManager::Get().LoadModule(TEXT("ShaderCore"));
+	FModuleManager::Get().LoadModule(TEXT("RenderCore"));
 
 #if WITH_EDITORONLY_DATA
 	// Load the texture compressor module before any textures load. They may

@@ -178,21 +178,6 @@ void FRCPassPostProcessCircleDOFSetup::Process(FRenderingCompositePassContext& C
 		return;
 	}
 
-	const FViewInfo& View = Context.View;
-	const FSceneViewFamily& ViewFamily = *(View.Family);
-
-	const auto FeatureLevel = Context.GetFeatureLevel();
-	auto ShaderMap = Context.GetShaderMap();
-
-	FIntPoint SrcSize = InputDesc->Extent;
-	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
-
-	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
-
-	FIntRect SrcRect = View.ViewRect / ScaleFactor;
-	FIntRect DestRect = SrcRect / 2;
-
 	const FSceneRenderTargetItem& DestRenderTarget0 = PassOutputs[0].RequestSurface(Context);
 	const FSceneRenderTargetItem& DestRenderTarget1 = FPostProcessing::HasAlphaChannelSupport() ? PassOutputs[1].RequestSurface(Context) : FSceneRenderTargetItem();
 
@@ -203,68 +188,86 @@ void FRCPassPostProcessCircleDOFSetup::Process(FRenderingCompositePassContext& C
 		DestRenderTarget1.TargetableTexture
 	};
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
-	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
-
-	if (View.StereoPass == eSSP_FULL)
+	
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFSetup"));
 	{
-		FLinearColor ClearColors[2] =
+		const FViewInfo& View = Context.View;
+		const FSceneViewFamily& ViewFamily = *(View.Family);
+
+		const auto FeatureLevel = Context.GetFeatureLevel();
+		auto ShaderMap = Context.GetShaderMap();
+
+		FIntPoint SrcSize = InputDesc->Extent;
+		FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
+
+		// e.g. 4 means the input texture is 4x smaller than the buffer size
+		uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
+
+		FIntRect SrcRect = View.ViewRect / ScaleFactor;
+		FIntRect DestRect = SrcRect / 2;
+
+		if (View.StereoPass == eSSP_FULL)
 		{
-			FLinearColor(0, 0, 0, 0),
-			FLinearColor(0, 0, 0, 0)
-		};
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+			FLinearColor ClearColors[2] =
+			{
+				FLinearColor(0, 0, 0, 0),
+				FLinearColor(0, 0, 0, 0)
+			};
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
+
+		if (CVarDepthOfFieldFarBlur.GetValueOnRenderThread())
+		{
+			TShaderMapRef< FPostProcessCircleDOFSetupPS<1> > PixelShader(ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			PixelShader->SetParameters(Context);
+		}
+		else
+		{
+			TShaderMapRef< FPostProcessCircleDOFSetupPS<0> > PixelShader(ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			PixelShader->SetParameters(Context);
+		}
+
+		VertexShader->SetParameters(Context);
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width() + 1, DestRect.Height() + 1,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width() + 1, SrcRect.Height() + 1,
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
-
-	if(CVarDepthOfFieldFarBlur.GetValueOnRenderThread())
-	{
-		TShaderMapRef< FPostProcessCircleDOFSetupPS<1> > PixelShader(ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		PixelShader->SetParameters(Context);
-	}
-	else
-	{
-		TShaderMapRef< FPostProcessCircleDOFSetupPS<0> > PixelShader(ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		PixelShader->SetParameters(Context);
-	}
-
-	VertexShader->SetParameters(Context);
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width() + 1, DestRect.Height() + 1,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width() + 1, SrcRect.Height() + 1,
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
 
 	if (DestRenderTarget1.TargetableTexture)
@@ -394,21 +397,6 @@ void FRCPassPostProcessCircleDOFDilate::Process(FRenderingCompositePassContext& 
 
 	uint32 NumRenderTargets = 1;
 
-	const FViewInfo& View = Context.View;
-	const FSceneViewFamily& ViewFamily = *(View.Family);
-
-	const auto FeatureLevel = Context.GetFeatureLevel();
-	auto ShaderMap = Context.GetShaderMap();
-
-	FIntPoint SrcSize = InputDesc->Extent;
-	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
-
-	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
-
-	FIntRect SrcRect = View.ViewRect / ScaleFactor;
-	FIntRect DestRect = SrcRect / 2;
-
 	const FSceneRenderTargetItem& DestRenderTarget0 = PassOutputs[0].RequestSurface(Context);
 	const FSceneRenderTargetItem& DestRenderTarget1 = FSceneRenderTargetItem();
 
@@ -418,68 +406,86 @@ void FRCPassPostProcessCircleDOFDilate::Process(FRenderingCompositePassContext& 
 		DestRenderTarget0.TargetableTexture,
 		DestRenderTarget1.TargetableTexture
 	};
-	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, nullptr);
 
-	if (View.StereoPass == eSSP_FULL)
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFDilate"));
 	{
-		FLinearColor ClearColors[2] =
+		const FViewInfo& View = Context.View;
+		const FSceneViewFamily& ViewFamily = *(View.Family);
+
+		const auto FeatureLevel = Context.GetFeatureLevel();
+		auto ShaderMap = Context.GetShaderMap();
+
+		FIntPoint SrcSize = InputDesc->Extent;
+		FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
+
+		// e.g. 4 means the input texture is 4x smaller than the buffer size
+		uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
+
+		FIntRect SrcRect = View.ViewRect / ScaleFactor;
+		FIntRect DestRect = SrcRect / 2;
+
+		if (View.StereoPass == eSSP_FULL)
 		{
-			FLinearColor(0, 0, 0, 0),
-			FLinearColor(0, 0, 0, 0)
-		};
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+			FLinearColor ClearColors[2] =
+			{
+				FLinearColor(0, 0, 0, 0),
+				FLinearColor(0, 0, 0, 0)
+			};
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
+
+		if (false)
+		{
+			TShaderMapRef< FPostProcessCircleDOFDilatePS<1> > PixelShader(ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+			PixelShader->SetParameters(Context.RHICmdList, Context);
+		}
+		else
+		{
+			TShaderMapRef< FPostProcessCircleDOFDilatePS<0> > PixelShader(ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			PixelShader->SetParameters(Context.RHICmdList, Context);
+		}
+
+		VertexShader->SetParameters(Context);
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width() + 1, DestRect.Height() + 1,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width() + 1, SrcRect.Height() + 1,
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
-
-	if (false)
-	{
-		TShaderMapRef< FPostProcessCircleDOFDilatePS<1> > PixelShader(ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-		PixelShader->SetParameters(Context.RHICmdList, Context);
-	}
-	else
-	{
-		TShaderMapRef< FPostProcessCircleDOFDilatePS<0> > PixelShader(ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		PixelShader->SetParameters(Context.RHICmdList, Context);
-	}
-
-	VertexShader->SetParameters(Context);
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width() + 1, DestRect.Height() + 1,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width() + 1, SrcRect.Height() + 1,
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-	
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
 
 	if (DestRenderTarget1.TargetableTexture)
@@ -677,21 +683,6 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 		return;
 	}
 
-	const FViewInfo& View = Context.View;
-	const FSceneViewFamily& ViewFamily = *(View.Family);
-
-	const auto FeatureLevel = Context.GetFeatureLevel();
-	auto ShaderMap = Context.GetShaderMap();
-
-	FIntPoint SrcSize = InputDesc->Extent;
-	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
-
-	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
-
-	FIntRect SrcRect = View.ViewRect / ScaleFactor;
-	FIntRect DestRect = SrcRect;
-
 	const FSceneRenderTargetItem& DestRenderTarget0 = PassOutputs[0].RequestSurface(Context);
 	const FSceneRenderTargetItem& DestRenderTarget1 = FPostProcessing::HasAlphaChannelSupport() ? PassOutputs[1].RequestSurface(Context) : FSceneRenderTargetItem();
 
@@ -702,50 +693,68 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 		DestRenderTarget1.TargetableTexture
 	};
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
-	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
 
-	if (View.StereoPass == eSSP_FULL)
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFApply"));
 	{
-		FLinearColor ClearColors[2] =
+		const FViewInfo& View = Context.View;
+		const FSceneViewFamily& ViewFamily = *(View.Family);
+
+		const auto FeatureLevel = Context.GetFeatureLevel();
+		auto ShaderMap = Context.GetShaderMap();
+
+		FIntPoint SrcSize = InputDesc->Extent;
+		FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
+
+		// e.g. 4 means the input texture is 4x smaller than the buffer size
+		uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
+
+		FIntRect SrcRect = View.ViewRect / ScaleFactor;
+		FIntRect DestRect = SrcRect;
+
+		if (View.StereoPass == eSSP_FULL)
 		{
-			FLinearColor(0, 0, 0, 0),
-			FLinearColor(0, 0, 0, 0)
-		};
+			FLinearColor ClearColors[2] =
+			{
+				FLinearColor(0, 0, 0, 0),
+				FLinearColor(0, 0, 0, 0)
+			};
 
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
-	}
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-		
-	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DepthOfFieldQuality"));
-	check(CVar);
-	int32 DOFQualityCVarValue = CVar->GetValueOnRenderThread();
-	
-	
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
 
-	FShader* VertexShader = 0;
-	
-	switch (DOFQualityCVarValue)
-	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DepthOfFieldQuality"));
+		check(CVar);
+		int32 DOFQualityCVarValue = CVar->GetValueOnRenderThread();
+
+
+
+		FShader* VertexShader = 0;
+
+		switch (DOFQualityCVarValue)
+		{
 		case 3:  VertexShader = SetShaderTempl<1>(Context); break;
-		case 4:  VertexShader = SetShaderTempl<2>(Context); break;	
+		case 4:  VertexShader = SetShaderTempl<2>(Context); break;
 		default: VertexShader = SetShaderTempl<0>(Context);
+		}
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width() + 1, DestRect.Height() + 1,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width() + 1, SrcRect.Height() + 1,
+			DestSize,
+			SrcSize,
+			VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width() + 1, DestRect.Height() + 1,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width() + 1, SrcRect.Height() + 1,
-		DestSize,
-		SrcSize,
-		VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
 
 	if (DestRenderTarget1.TargetableTexture)
@@ -915,64 +924,66 @@ void FRCPassPostProcessCircleDOFRecombine::Process(FRenderingCompositePassContex
 		return;
 	}
 
-	const FViewInfo& View = Context.View;
-
-	const auto FeatureLevel = Context.GetFeatureLevel();
-	auto ShaderMap = Context.GetShaderMap();
-
-	FIntPoint TexSize = InputDesc->Extent;
-
-	// usually 1, 2, 4 or 8
-	uint32 ScaleToFullRes = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / TexSize.X;
-
-	FIntRect HalfResViewRect = View.ViewRect / ScaleToFullRes;
-
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
+
+	ERenderTargetActions LoadStoreAction = ERenderTargetActions::Clear_Store;
 
 	if (!Context.HasHmdMesh())
 	{
-		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+		LoadStoreAction = ERenderTargetActions::DontLoad_Store;
 	}
-	else
+
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFRecombine"));
 	{
-		FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::ENoAction);
-		FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		const FViewInfo& View = Context.View;
+
+		const auto FeatureLevel = Context.GetFeatureLevel();
+		auto ShaderMap = Context.GetShaderMap();
+
+		FIntPoint TexSize = InputDesc->Extent;
+
+		// usually 1, 2, 4 or 8
+		uint32 ScaleToFullRes = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / TexSize.X;
+
+		FIntRect HalfResViewRect = View.ViewRect / ScaleToFullRes;
+
+		if (!Context.HasHmdMesh())
+		{
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+		}
+
+		Context.SetViewportAndCallRHI(View.ViewRect);
+
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DepthOfFieldQuality"));
+		check(CVar);
+		int32 DOFQualityCVarValue = CVar->GetValueOnRenderThread();
+
+		// 0:normal / 1:slow but very high quality
+		uint32 Quality = DOFQualityCVarValue >= 3;
+
+		FShader* VertexShader = 0;
+
+		if (Quality)
+			VertexShader = SetShaderTempl<1>(Context);
+		else
+			VertexShader = SetShaderTempl<0>(Context);
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			View.ViewRect.Min.X, View.ViewRect.Min.Y,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			View.ViewRect.Size(),
+			TexSize,
+			VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(View.ViewRect);
-
-	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DepthOfFieldQuality"));
-	check(CVar);
-	int32 DOFQualityCVarValue = CVar->GetValueOnRenderThread();
-	
-	// 0:normal / 1:slow but very high quality
-	uint32 Quality = DOFQualityCVarValue >= 3;
-
-	FShader* VertexShader = 0;
-
-	if (Quality)
-		VertexShader = SetShaderTempl<1>(Context);
-	else
-		VertexShader = SetShaderTempl<0>(Context);
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		View.ViewRect.Width(), View.ViewRect.Height(),
-		View.ViewRect.Min.X, View.ViewRect.Min.Y,
-		View.ViewRect.Width(), View.ViewRect.Height(),
-		View.ViewRect.Size(),
-		TexSize,
-		VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
