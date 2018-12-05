@@ -2252,7 +2252,11 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 			auto* RHSVar = ir->rhs->variable_referenced();
 			if (RHSVar && (RHSVar->mode == ir_var_shared || RHSVar->mode == ir_var_uniform) && AtomicVariables.find(RHSVar) != AtomicVariables.end())
 			{
-				auto* DeRefVar = ir->rhs->as_dereference_variable();
+				auto* Swizzle = ir->rhs->as_swizzle();
+				ir_rvalue*& rhs = Swizzle ? Swizzle->val : ir->rhs;
+				auto* DeRefVar = rhs->as_dereference_variable();
+				auto* DeRefVarImage = rhs->as_dereference_image();
+				auto* DeRefVarArray = rhs->as_dereference_array();
 				if (DeRefVar)
 				{
 					check(ir == base_ir);
@@ -2262,7 +2266,7 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 						auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), new(State) ir_dereference_variable(RHSVar), nullptr, nullptr);
 						base_ir->insert_before(ResultVar);
 						base_ir->insert_before(NewAtomic);
-						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+						rhs = new(State) ir_dereference_variable(ResultVar);
 					}
 					else
 					{
@@ -2273,16 +2277,32 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 						base_ir->insert_before(ResultVar);
 						base_ir->insert_before(DummyVar);
 						base_ir->insert_before(NewAtomic);
-						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+						rhs = new(State) ir_dereference_variable(ResultVar);
 					}
 					//#todo-rco: Won't handle the case of two atomic rvalues!
 					return visit_continue_with_parent;
 				}
+				else if (DeRefVarImage && State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* ResultVar = new(State)ir_variable(LHSVar->type->inner_type ? LHSVar->type->inner_type : LHSVar->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), DeRefVarImage, nullptr, nullptr);
+					base_ir->insert_before(ResultVar);
+					base_ir->insert_before(NewAtomic);
+					rhs = new(State) ir_dereference_variable(ResultVar);
+				}
+				else if (DeRefVarArray && State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* ResultVar = new(State)ir_variable(DeRefVarArray->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), DeRefVarArray, nullptr, nullptr);
+					base_ir->insert_before(ResultVar);
+					base_ir->insert_before(NewAtomic);
+					rhs = new(State) ir_dereference_variable(ResultVar);
+				}
 			}
 		}
-
+		
 		ir->rhs->accept(this);
-
+		
 		return visit_continue_with_parent;
 	}
 
