@@ -133,6 +133,7 @@ namespace UnrealBuildTool
 		VisualStudio2013,
 		VisualStudio2015,
 		VisualStudio2017,
+		VisualStudio2019,
 		XCode,
 		Eddie,
 		VisualStudioCode,

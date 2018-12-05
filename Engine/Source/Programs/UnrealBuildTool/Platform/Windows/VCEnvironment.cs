@@ -164,7 +164,7 @@ namespace UnrealBuildTool
 		/// <returns>Directory containing the 32-bit toolchain binaries</returns>
 		static DirectoryReference GetVCToolPath32(WindowsCompiler Compiler, DirectoryReference VCToolChainDir)
 		{
-			if (Compiler == WindowsCompiler.VisualStudio2017)
+			if (Compiler >= WindowsCompiler.VisualStudio2017)
 			{
 				FileReference NativeCompilerPath = FileReference.Combine(VCToolChainDir, "bin", "HostX64", "x86", "cl.exe");
 				if (FileReference.Exists(NativeCompilerPath))
@@ -199,7 +199,7 @@ namespace UnrealBuildTool
 		/// <returns>Directory containing the 64-bit toolchain binaries</returns>
 		static DirectoryReference GetVCToolPath64(WindowsCompiler Compiler, DirectoryReference VCToolChainDir)
 		{
-			if (Compiler == WindowsCompiler.VisualStudio2017)
+			if (Compiler >= WindowsCompiler.VisualStudio2017)
 			{
 				// Use the native 64-bit compiler if present
 				FileReference NativeCompilerPath = FileReference.Combine(VCToolChainDir, "bin", "HostX64", "x64", "cl.exe");

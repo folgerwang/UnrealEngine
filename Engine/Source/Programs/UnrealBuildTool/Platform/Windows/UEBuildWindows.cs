@@ -48,6 +48,11 @@ namespace UnrealBuildTool
 		/// Visual Studio 2017 (Visual C++ 15.0)
 		/// </summary>
 		VisualStudio2017,
+
+		/// <summary>
+		/// Visual Studio 2019 (Visual C++ 16.0)
+		/// </summary>
+		VisualStudio2019,
 	}
 
 	/// <summary>
@@ -83,6 +88,7 @@ namespace UnrealBuildTool
 		[XmlConfigFile(Category = "WindowsPlatform")]
 		[CommandLine("-2015", Value = "VisualStudio2015")]
 		[CommandLine("-2017", Value = "VisualStudio2017")]
+		[CommandLine("-2019", Value = "VisualStudio2019")]
 		public WindowsCompiler Compiler = WindowsCompiler.Default;
 
 		/// <summary>
@@ -159,7 +165,7 @@ namespace UnrealBuildTool
 		/// Microsoft provides legacy_stdio_definitions library to enable building with VS2015 until they fix everything up.
 		public bool bNeedsLegacyStdioDefinitionsLib
 		{
-			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.Clang; }
+			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019 || Compiler == WindowsCompiler.Clang; }
 		}
 
 		/// <summary>
@@ -233,6 +239,7 @@ namespace UnrealBuildTool
 				case WindowsCompiler.Intel:
 				case WindowsCompiler.VisualStudio2015:
 				case WindowsCompiler.VisualStudio2017:
+				case WindowsCompiler.VisualStudio2019:
 					return "2015"; // VS2017 is backwards compatible with VS2015 compiler
 
 				default:
@@ -559,11 +566,32 @@ namespace UnrealBuildTool
 		internal static WindowsCompiler GetDefaultCompiler(FileReference ProjectFile)
 		{
 			// If there's no specific compiler set, try to pick the matching compiler for the selected IDE
+			foreach(ProjectFileFormat Format in ProjectFileGeneratorSettings.ParseFormatList(ProjectFileGeneratorSettings.Format))
+			{
+				if (Format == ProjectFileFormat.VisualStudio2019)
+				{
+					return WindowsCompiler.VisualStudio2019;
+				}
+				else if (Format == ProjectFileFormat.VisualStudio2017)
+				{
+					return WindowsCompiler.VisualStudio2017;
+				}
+				else if (Format == ProjectFileFormat.VisualStudio2015)
+				{
+					return WindowsCompiler.VisualStudio2015;
+				}
+			}
+
+			// Also check the default format for the Visual Studio project generator
 			object ProjectFormatObject;
 			if (XmlConfig.TryGetValue(typeof(VCProjectFileGenerator), "Version", out ProjectFormatObject))
 			{
 				VCProjectFileFormat ProjectFormat = (VCProjectFileFormat)ProjectFormatObject;
-				if (ProjectFormat == VCProjectFileFormat.VisualStudio2017)
+				if (ProjectFormat == VCProjectFileFormat.VisualStudio2019)
+				{
+					return WindowsCompiler.VisualStudio2019;
+				}
+				else if (ProjectFormat == VCProjectFileFormat.VisualStudio2017)
 				{
 					return WindowsCompiler.VisualStudio2017;
 				}
@@ -577,7 +605,11 @@ namespace UnrealBuildTool
 			ProjectFileFormat PreferredAccessor;
 			if(ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredAccessor))
 			{
-				if(PreferredAccessor == ProjectFileFormat.VisualStudio2017)
+				if(PreferredAccessor == ProjectFileFormat.VisualStudio2019)
+			    {
+				    return WindowsCompiler.VisualStudio2019;
+			    }
+				else if(PreferredAccessor == ProjectFileFormat.VisualStudio2017)
 			    {
 				    return WindowsCompiler.VisualStudio2017;
 			    }
@@ -596,6 +628,10 @@ namespace UnrealBuildTool
 			{
 				return WindowsCompiler.VisualStudio2015;
 			}
+			if (HasCompiler(WindowsCompiler.VisualStudio2019))
+			{
+				return WindowsCompiler.VisualStudio2019;
+			}
 
 			// If we do have a Visual Studio installation, but we're missing just the C++ parts, warn about that.
 			DirectoryReference VSInstallDir;
@@ -606,6 +642,10 @@ namespace UnrealBuildTool
 			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2015, out VSInstallDir))
 			{
 				Log.TraceWarning("Visual Studio 2015 is installed, but is missing the C++ toolchain. Please verify that \"Common Tools for Visual C++ 2015\" are selected from the Visual Studio 2015 installation options.");
+			}
+			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2019, out VSInstallDir))
+			{
+				Log.TraceWarning("Visual Studio 2019 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2019 toolset\" component is selected in the Visual Studio 2019 installation options.");
 			}
 			else
 			{
@@ -629,6 +669,8 @@ namespace UnrealBuildTool
 					return "Visual Studio 2015";
 				case WindowsCompiler.VisualStudio2017:
 					return "Visual Studio 2017";
+				case WindowsCompiler.VisualStudio2019:
+					return "Visual Studio 2019";
 				default:
 					return Compiler.ToString();
 			}
@@ -685,29 +727,44 @@ namespace UnrealBuildTool
 						    InstallDirs.Add(InstallDir);
 					    }
 				    }
-				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    else if(Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019)
 				    {
-					    // Enumerate all the installed Visual Studio instances using the interop SDK. There may be several installed side by side on a single machine (preview, community, enterprise, etc...).
 						List<DirectoryReference> PreReleaseInstallDirs = new List<DirectoryReference>();
-					    try
-					    {
-						    SetupConfiguration Setup = new SetupConfiguration();
-						    IEnumSetupInstances Enumerator = Setup.EnumAllInstances(); 
-    
-						    ISetupInstance[] Instances = new ISetupInstance[1];
-						    for(;;)
-						    { 
-							    int NumFetched; 
-							    Enumerator.Next(1, Instances, out NumFetched);
-    
-							    if(NumFetched == 0)
-							    {
-								    break;
-							    }
-    
-							    ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
-							    if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
-							    {
+						try
+						{
+							SetupConfiguration Setup = new SetupConfiguration();
+							IEnumSetupInstances Enumerator = Setup.EnumAllInstances();
+
+							ISetupInstance[] Instances = new ISetupInstance[1];
+							for(;;)
+							{
+								int NumFetched;
+								Enumerator.Next(1, Instances, out NumFetched);
+
+								if(NumFetched == 0)
+								{
+									break;
+								}
+
+								ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
+								if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
+								{
+									string VersionString = Instance.GetInstallationVersion();
+
+									VersionNumber Version;
+									if (VersionNumber.TryParse(VersionString, out Version))
+									{
+										VersionNumber Version2019 = new VersionNumber(16);
+										if(Compiler == WindowsCompiler.VisualStudio2019 && Version < Version2019)
+										{
+											continue;
+										}
+										else if(Compiler == WindowsCompiler.VisualStudio2017 && Version >= Version2019)
+										{
+											continue;
+										}
+									}
+
 									ISetupInstanceCatalog Catalog = (ISetupInstanceCatalog)Instance as ISetupInstanceCatalog;
 									if (Catalog != null && Catalog.IsPrerelease())
 									{
@@ -717,15 +774,15 @@ namespace UnrealBuildTool
 									{
 										InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
 									}
-							    }
-						    }
-					    }
-					    catch
-					    {
-					    }
+								}
+							}
+						}
+						catch
+						{
+						}
 						InstallDirs.AddRange(PreReleaseInstallDirs);
-				    }
-				    else
+					}
+					else
 				    {
 					    throw new BuildException("Unsupported compiler version ({0})", Compiler);
 				    }
@@ -733,7 +790,7 @@ namespace UnrealBuildTool
 				CachedVSInstallDirs.Add(Compiler, InstallDirs);
 			}
 			return InstallDirs;
-		}	 
+		}
 
 		/// <summary>
 		/// Determines the directory containing the MSVC toolchain
@@ -809,7 +866,7 @@ namespace UnrealBuildTool
 							}
 					    }
 				    }
-				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    else if(Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019)
 				    {
 						// Enumerate all the manually installed toolchains
 						List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
@@ -821,7 +878,7 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
 								    {
 									    ToolChainVersionToDir[Version] = ToolChainDir;
 								    }
@@ -833,13 +890,13 @@ namespace UnrealBuildTool
 						DirectoryReference PlatformDir;
 						if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
 						{
-							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", "VS2017");
+							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", (Compiler == WindowsCompiler.VisualStudio2019)? "VS2019" : "VS2017");
 							if(DirectoryReference.Exists(ToolChainBaseDir))
 							{
 								foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 								{
 									VersionNumber Version;
-									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
 									{
 										ToolChainVersionToDir[Version] = ToolChainDir;
 									}
@@ -882,7 +939,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ToolChainDir">Directory to check</param>
 		/// <returns>True if the given directory is valid</returns>
-		static bool IsValidToolChainDir2017(DirectoryReference ToolChainDir)
+		static bool IsValidToolChainDir2017or2019(DirectoryReference ToolChainDir)
 		{
 			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
 		}
