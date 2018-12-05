@@ -224,6 +224,15 @@ typedef FOnQueryRecentPlayersComplete::FDelegate FOnQueryRecentPlayersCompleteDe
 DECLARE_DELEGATE_TwoParams(FOnAddRecentPlayersComplete, const FUniqueNetId& /*UserId*/, const FOnlineError& /*Error*/);
 
 /**
+ * Delegate used when recent players have been added
+ *
+ * @param UserId the id of the user recieving new recent players
+ * @param AddedPlayers players that were added to the recent players list
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRecentPlayersAdded, const FUniqueNetId& /*UserId*/, const TArray<TSharedRef<FOnlineRecentPlayer>>& /*AddedPlayers*/);
+typedef FOnRecentPlayersAdded::FDelegate FOnRecentPlayersAddedDelegate;
+
+/**
  * Delegate used when the query for blocked players has completed
  *
  * @param UserId the id of the user that made the request
@@ -548,6 +557,14 @@ public:
 	 * Dump state information about blocked players
 	 */
 	virtual void DumpRecentPlayers() const = 0;
+	
+	/**
+	 * Delegate used when recent players have been added
+	 *
+	 * @param UserId the id of the user recieving new recent players
+	 * @param AddedPlayers players that were added to the recent players list
+	 */
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnRecentPlayersAdded, const FUniqueNetId& /*UserId*/, const TArray<TSharedRef<FOnlineRecentPlayer>>& /*AddedPlayers*/);
 
 	/**
 	 * Block a player
@@ -594,23 +611,23 @@ public:
 	virtual void DumpBlockedPlayers() const = 0;
 
 	/**
-	* Query the current friend settings
+	 * Query the current friend settings
 	 *
-	 * @param PlayerId user to retrieve friend settings for
+	 * @param LocalUserId user to retrieve friend settings for
 	 * @param Delegate Delegate to call when operation has been completed
 	 *
-	*/
-	virtual void QueryFriendSettings(const FUniqueNetId& PlayerId, FOnSettingsOperationComplete Delegate) { check(false) }
+	 */
+	virtual void QueryFriendSettings(const FUniqueNetId& LocalUserId, FOnSettingsOperationComplete Delegate) { check(false) }
 
 	/**
-	* Update the current friend settings
+	 * Update the current friend settings
 	 *
-	 * @param PlayerId user to retrieve friend settings for
+	 * @param LocalUserId user to retrieve friend settings for
 	 * @param NewSettings Settings to be saved
 	 * @param Delegate Delegate to call when operation has been completed
 	 *
-	*/
-	virtual void UpdateFriendSettings(const FUniqueNetId& PlayerId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
+	 */
+	virtual void UpdateFriendSettings(const FUniqueNetId& LocalUserId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
 
 };
 

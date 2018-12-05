@@ -19,9 +19,10 @@
 #define D3D12RHI_USE_ASYNC_PRELOAD 0
 #endif
 
+// D3D12RHI PSO file cache doesn't work anymore. Use FPipelineFileCache instead
 static TAutoConsoleVariable<int32> CVarPipelineStateDiskCache(
 	TEXT("D3D12.PSO.DiskCache"),
-	1,
+	0,
 	TEXT("Enables a disk cache for Pipeline State Objects (PSOs).\n")
 	TEXT("PSO descs are cached to disk so subsequent runs can create PSOs at load-time instead of at run-time.\n")
 	TEXT("This cache contains data that is independent of hardware, driver, or machine that it was created on. It can be distributed with shipping content.\n")
@@ -31,7 +32,7 @@ static TAutoConsoleVariable<int32> CVarPipelineStateDiskCache(
 
 static TAutoConsoleVariable<int32> CVarDriverOptimizedPipelineStateDiskCache(
 	TEXT("D3D12.PSO.DriverOptimizedDiskCache"),
-	1,
+	0,
 	TEXT("Enables a disk cache for driver-optimized Pipeline State Objects (PSOs).\n")
 	TEXT("PSO descs are cached to disk so subsequent runs can create PSOs at load-time instead of at run-time.\n")
 	TEXT("This cache contains data specific to the hardware, driver, and machine that it was created on.\n")
@@ -583,7 +584,7 @@ DECLARE_CYCLE_STAT(TEXT("Create time"), STAT_PSOCreateTime, STATGROUP_D3D12Pipel
 
 // Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
 template <typename TDesc>
-static void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name)
+void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name)
 {
 	if (Library)
 	{
@@ -627,7 +628,7 @@ static void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, 
 }
 
 // Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
-static void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name)
+void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name)
 {
 	if (Library)
 	{
@@ -673,7 +674,7 @@ static void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Devic
 
 static inline void FastHashName(wchar_t Name[9], uint32 Hash)
 {
-	for (int i = 0; i < 8; i++)
+	for (int32 i = 0; i < 8; i++)
 	{
 		Name[i] = (Hash & 0xF) + 'A';
 		Hash >>= 4;

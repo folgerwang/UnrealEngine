@@ -4,6 +4,20 @@
 #include "HAL/PlatformTime.h"
 #include "Misc/FeedbackContext.h"
 
+bool FSlowTask::ShouldCreateThrottledSlowTask()
+{
+	static double LastThrottledSlowTaskTime = 0;
+
+	double CurrentTime = FPlatformTime::Seconds();
+	if (CurrentTime - LastThrottledSlowTaskTime > 0.1)
+	{
+		LastThrottledSlowTaskTime = CurrentTime;
+		return true;
+	}
+
+	return false;
+}
+
 FSlowTask::FSlowTask(float InAmountOfWork, const FText& InDefaultMessage, bool bInEnabled, FFeedbackContext& InContext)
 	: DefaultMessage(InDefaultMessage)
 	, FrameMessage()

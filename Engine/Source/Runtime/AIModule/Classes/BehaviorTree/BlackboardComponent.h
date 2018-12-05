@@ -84,11 +84,11 @@ public:
 	void ResumeObserverNotifications(bool bSendQueuedObserverNotifications);
 
 	/** pause change notifies and add them to queue */
-	DEPRECATED(4.15, "Please call PauseObserverUpdates.")
+	UE_DEPRECATED(4.15, "Please call PauseObserverUpdates.")
 	void PauseUpdates();
 
 	/** resume change notifies and process queued list */
-	DEPRECATED(4.15, "Please call ResumeObserverNotifications.")
+	UE_DEPRECATED(4.15, "Please call ResumeObserverNotifications.")
 	void ResumeUpdates();
 
 	/** @return associated behavior tree component */

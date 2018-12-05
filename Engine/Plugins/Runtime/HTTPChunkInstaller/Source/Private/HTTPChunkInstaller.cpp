@@ -864,7 +864,7 @@ private:
 	/**
 	* Should use the initialization constructor instead
 	*/
-	FOnlineTitleFileHttp();
+	FOnlineTitleFileHttp() = delete;
 
 	/** Config based url for enumerating list of cloud files*/
 	FString EnumerateFilesUrl;

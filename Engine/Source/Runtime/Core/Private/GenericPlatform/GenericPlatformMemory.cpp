@@ -19,6 +19,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
 #include "Misc/MessageDialog.h"
+#include "Templates/UnrealTemplate.h"
 
 #if PLATFORM_UNIX || PLATFORM_MAC || PLATFORM_IOS
 	#include <sys/mman.h>
@@ -64,6 +65,17 @@ DEFINE_STAT(STAT_UsedPhysical);
 DEFINE_STAT(STAT_PeakUsedPhysical);
 DEFINE_STAT(STAT_UsedVirtual);
 DEFINE_STAT(STAT_PeakUsedVirtual);
+
+struct TUnalignedTester
+{
+	FGenericPlatformMemory::TUnaligned<uint8> A;
+	FGenericPlatformMemory::TUnaligned<uint16> B;
+	TUnalignedTester()
+	{
+		static_assert(STRUCT_OFFSET(TUnalignedTester, B) == 1, "TUnaligned failure.");
+	}
+};
+
 
 /** Helper class used to update platform memory stats. */
 struct FGenericStatsUpdater

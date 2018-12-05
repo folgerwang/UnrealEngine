@@ -184,6 +184,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "GameFramework/OnlineSession.h"
 #include "ProfilingDebugging/ABTesting.h"
 #include "Performance/EnginePerformanceTargets.h"
+#include "FramePro/FrameProProfiler.h"
 
 #include "InstancedReferenceSubobjectHelper.h"
 
@@ -223,6 +224,8 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "HAL/FileManagerGeneric.h"
 #include "UObject/UObjectThreadContext.h"
 
+#include "Particles/ParticleSystemManager.h"
+
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
 
@@ -246,8 +249,14 @@ void FEngineModule::StartupModule()
 
 	SuspendTextureStreamingRenderTasks = &SuspendTextureStreamingRenderTasksInternal;
 	ResumeTextureStreamingRenderTasks = &ResumeTextureStreamingRenderTasksInternal;
+
+	FParticleSystemWorldManager::OnStartup();
 }
 
+void FEngineModule::ShutdownModule()
+{
+	FParticleSystemWorldManager::OnShutdown();
+}
 
 /* Global variables
 *****************************************************************************/
@@ -1143,6 +1152,23 @@ static FAutoConsoleVariableRef CVarTimeBetweenPurgingPendingKillObjectsOnIdleSer
 	ECVF_Default
 );
 
+static float GLowMemoryTimeBetweenPurgingPendingKillObjects = 30.0f;
+static FAutoConsoleVariableRef CVarLowMemoryTimeBetweenPurgingPendingKillObjects(
+	TEXT("gc.LowMemory.TimeBetweenPurgingPendingKillObjects"),
+	GLowMemoryTimeBetweenPurgingPendingKillObjects,
+	TEXT("Time in seconds (game time) we should wait between purging object references to objects that are pending kill when we're low on memory"),
+	ECVF_Default
+);
+
+static float GLowMemoryMemoryThresholdMB = 0.0f;
+static FAutoConsoleVariableRef CVarLowMemoryThresholdMB(
+	TEXT("gc.LowMemory.MemoryThresholdMB"),
+	GLowMemoryMemoryThresholdMB,
+	TEXT("Memory threshold for low memory GC mode, in MB"),
+	ECVF_Default
+);
+
+
 void UEngine::PreGarbageCollect()
 {
 	ForEachObjectOfClass(UWorld::StaticClass(), [](UObject* WorldObj)
@@ -1175,6 +1201,16 @@ float UEngine::GetTimeBetweenGarbageCollectionPasses() const
 		if (!bAtLeastOnePlayerConnected)
 		{
 			TimeBetweenGC *= GTimeBetweenPurgingPendingKillObjectsOnIdleServerMultiplier;
+		}
+	}
+
+	// Do more frequent GCs if we're under the low memory threshold (if enabled)
+	if ( GLowMemoryMemoryThresholdMB > 0.0 && GLowMemoryTimeBetweenPurgingPendingKillObjects < TimeBetweenGC )
+	{
+		float MBFree = float(FPlatformMemory::GetStats().AvailablePhysical / 1024 / 1024);
+		if ( MBFree <= GLowMemoryMemoryThresholdMB)
+		{
+			TimeBetweenGC = GLowMemoryTimeBetweenPurgingPendingKillObjects;
 		}
 	}
 
@@ -4162,18 +4198,24 @@ bool UEngine::HandleCeCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 
 bool UEngine::HandleDumpTicksCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	// Handle optional parameters, will dump all tick functions by default.
 	bool bShowEnabled = true;
 	bool bShowDisabled = true;
-	if (FParse::Command( &Cmd, TEXT( "ENABLED" ) ))
+	bool bGrouped = false;
+	if (FParse::Command( &Cmd, TEXT( "GROUPED" ) ))
+	{
+		bGrouped = true;
+	}
+	// Handle optional parameters, will dump all tick functions by default.
+	else if (FParse::Command( &Cmd, TEXT( "ENABLED" ) ))
 	{
 		bShowDisabled = false;
 	}
-	else if (FParse::Command( &Cmd, TEXT( "DISABLED" ) ))
+	else if (FParse::Command(&Cmd, TEXT("DISABLED")))
 	{
 		bShowEnabled = false;
 	}
-	FTickTaskManagerInterface::Get().DumpAllTickFunctions( Ar, InWorld, bShowEnabled, bShowDisabled );
+
+	FTickTaskManagerInterface::Get().DumpAllTickFunctions( Ar, InWorld, bShowEnabled, bShowDisabled, bGrouped);
 	return true;
 }
 
@@ -5252,7 +5294,7 @@ bool UEngine::HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 		int32 ResKBExc = (ResourceSizeExc.GetTotalMemoryBytes() + 512) / 1024;
 		int32 ResKBInc = (ResourceSizeInc.GetTotalMemoryBytes() + 512) / 1024;
 
-		FString Name = AnimAsset->GetFullName();
+		FString Name = AnimAsset->GetPathName();
 
 		FName AnimAssetType = AnimAsset->GetClass()->GetFName();
 
@@ -5266,7 +5308,7 @@ bool UEngine::HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 
 		if (UAnimSequence* AnimSeq = Cast<UAnimSequence>(AnimAsset))
 		{
-			NumKeys = AnimSeq->NumFrames;
+			NumKeys = AnimSeq->GetRawNumberOfFrames();
 			SequenceLength = AnimSeq->GetPlayLength();
 			RateScale = AnimSeq->RateScale;
 			NumCurves = AnimSeq->CompressedCurveData.FloatCurves.Num();
@@ -8603,6 +8645,11 @@ bool UEngine::IsConsoleBuild(EConsoleType ConsoleType) const
 	}
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+// Critical section used in AddOnScreenDebugMessage to handle concurrent insert.
+static FCriticalSection GOnScreenMessageCS;
+#endif
+
 /**
 *	This function will add a debug message to the onscreen message list.
 *	It will be displayed for FrameCount frames.
@@ -8617,6 +8664,8 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (bEnableOnScreenDebugMessages == true)
 	{
+		// Because some components add their message in concurrent work, we need a CS here.
+		FScopeLock ScopeLock(&GOnScreenMessageCS);
 		if (Key == (uint64)-1)
 		{
 			if (bNewerOnTop)
@@ -9325,6 +9374,7 @@ bool UEngine::ShouldThrottleCPUUsage() const
 	return false;
 }
 
+#if !UE_BUILD_SHIPPING
 /**
 *	Renders warnings about the level that should be addressed prior to shipping
 *
@@ -9548,6 +9598,7 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 
 	return MessageY;
 }
+#endif //!UE_BUILD_SHIPPING
 
 /**
 *	Renders warnings about the level that should be addressed prior to shipping
@@ -9642,6 +9693,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 	LLM_SCOPE(ELLMTag::Stats);
 
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "DrawStatsHUD" ), STAT_DrawStatsHUD, STATGROUP_StatSystem );
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(DebugHUD);
 
 	// We cannot draw without a canvas
 	if (Canvas == NULL)
@@ -9732,11 +9784,38 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		}
 #endif // STATS
 
-#if CSV_PROFILER
-		if ( FCsvProfiler::Get()->IsCapturing() )
+		if (FPlatformMemory::IsExtraDevelopmentMemoryAvailable())
+		{
+			SmallTextItem.SetColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f));
+			SmallTextItem.Text = LOCTEXT("LLMWARNING", "WARNING: Running with Debug Memory Enabled!");
+			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
+			MessageY += FontSizeY;
+		}
+
+#if FRAMEPRO_ENABLED
+		if (FFrameProProfiler::IsFrameProRecording())
 		{
 			SmallTextItem.SetColor(FLinearColor(0.0f, 1.0f, 0.0f, 1.0f));
-			SmallTextItem.Text = FText::Format(LOCTEXT("CsvProfilerFrameFmt", "CsvProfiler frame: {0}"), FCsvProfiler::Get()->GetCaptureFrameNumber());
+			SmallTextItem.Text = LOCTEXT("FrameProRecording", "FramePro Recording");
+
+			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
+			MessageY += FontSizeY;
+		}
+#endif // FRAMEPRO_ENABLED
+
+#if CSV_PROFILER
+		if (FCsvProfiler::Get()->IsCapturing() || FCsvProfiler::Get()->IsWritingFile())
+		{
+			if (FCsvProfiler::Get()->IsWritingFile())
+			{
+				SmallTextItem.SetColor(FLinearColor(1.0f, 0.0f, 0.0f, 1.0f));
+				SmallTextItem.Text = FText::Format(LOCTEXT("CsvProfilerWriteFmt", "CsvProfiler, please wait, writing file... Total frames: {0}"), FCsvProfiler::Get()->GetCaptureFrameNumber());
+			}
+			else
+			{
+				SmallTextItem.SetColor(FLinearColor(0.0f, 1.0f, 0.0f, 1.0f));
+				SmallTextItem.Text = FText::Format(LOCTEXT("CsvProfilerFrameFmt", "CsvProfiler frame: {0}"), FCsvProfiler::Get()->GetCaptureFrameNumber());
+			}
 
 			MessageY += 250.0f;
 			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
@@ -9763,13 +9842,6 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 			MessageY = DrawOnscreenDebugMessages(World, Viewport, Canvas, CanvasObject, MessageX, MessageY);
 		}
 #endif // UE_BUILD_TEST
-
-		if (FPlatformMemory::IsExtraDevelopmentMemoryAvailable())
-		{
-			SmallTextItem.Text = LOCTEXT("LLMWARNING", "WARNING: Running with Debug Memory Enabled!");
-			Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
-			MessageY += FontSizeY;
-		}
 
 		TArray<FText> PlatformScreenWarnings;
 

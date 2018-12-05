@@ -76,6 +76,7 @@ public:
 	virtual void SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
+	virtual void ResetLightColor(int32 ControllerId) override {}
 
 	bool IsControllerAssignedToGamepad(int32 ControllerId);
 

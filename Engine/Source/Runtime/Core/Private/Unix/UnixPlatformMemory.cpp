@@ -49,6 +49,14 @@ bool CORE_API GFullCrashCallstack = false;
 bool CORE_API GUseKSM = false;
 bool CORE_API GKSMMergeAllPages = false;
 
+// Used to enable or disable timing of ensures. Enabled by default
+bool CORE_API GTimeEnsures = true;
+
+#if UE_SERVER
+// Scale factor for how much we would like to increase or decrease the memory pool size
+float CORE_API GPoolTableScale = 1.0f;
+#endif
+
 // Used to set the maximum number of file mappings.
 #if UE_EDITOR
 int32 CORE_API GMaxNumberFileMappingCache = 10000;
@@ -164,12 +172,25 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					GKSMMergeAllPages = true;
 				}
 
+				if (FCStringAnsi::Stricmp(Arg, "-noensuretiming") == 0)
+				{
+					GTimeEnsures = false;
+				}
+
 				const char FileMapCacheCmd[] = "-filemapcachesize=";
 				if (const char* Cmd = FCStringAnsi::Stristr(Arg, FileMapCacheCmd))
 				{
 					int32 Max = FCStringAnsi::Atoi(Cmd + sizeof(FileMapCacheCmd) - 1);
 					GMaxNumberFileMappingCache = FMath::Clamp(Max, 0, MaximumAllowedMaxNumFileMappingCache);
 				}
+#if UE_SERVER
+				const char MemPoolTableScaleCmd[] = "-mempoolscale=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, MemPoolTableScaleCmd))
+				{
+					float MemPoolScale = FCStringAnsi::Atof(Cmd + sizeof(MemPoolTableScaleCmd) - 1);
+					GPoolTableScale = FMath::Max(MemPoolScale, 0.0f);
+				}
+#endif
 
 #if UE_USE_MALLOC_REPLAY_PROXY
 				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)

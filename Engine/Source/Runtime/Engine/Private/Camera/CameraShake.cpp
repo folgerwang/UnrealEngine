@@ -3,6 +3,8 @@
 #include "Camera/CameraShake.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Camera/CameraAnimInst.h"
+#include "Engine/Engine.h"
+#include "IXRTrackingSystem.h" // for IsHeadTrackingAllowed()
 
 //////////////////////////////////////////////////////////////////////////
 // FFOscillator
@@ -310,6 +312,15 @@ void UCameraShake::UpdateAndApplyCameraShake(float DeltaTime, float Alpha, FMini
 			RotOffset.Pitch = FFOscillator::UpdateOffset(RotOscillation.Pitch, RotSinOffset.X, DeltaTime) * OscillationScale;
 			RotOffset.Yaw = FFOscillator::UpdateOffset(RotOscillation.Yaw, RotSinOffset.Y, DeltaTime) * OscillationScale;
 			RotOffset.Roll = FFOscillator::UpdateOffset(RotOscillation.Roll, RotSinOffset.Z, DeltaTime) * OscillationScale;
+
+			// Don't allow shake to flip pitch past vertical, if not using a headset (where we can't limit the camera locked to your head).
+			if (!GEngine->XRSystem.IsValid() || !GEngine->XRSystem->IsHeadTrackingAllowed())
+			{
+				// Find normalized result when combined, and remove any offset that would push it past the limit.
+				const float NormalizedInputPitch = FRotator::NormalizeAxis(InOutPOV.Rotation.Pitch);
+				RotOffset.Pitch = FRotator::NormalizeAxis(RotOffset.Pitch);
+				RotOffset.Pitch = FMath::ClampAngle(NormalizedInputPitch + RotOffset.Pitch, -89.9f, 89.9f) - NormalizedInputPitch;
+			}
 
 			if (PlaySpace == ECameraAnimPlaySpace::CameraLocal)
 			{

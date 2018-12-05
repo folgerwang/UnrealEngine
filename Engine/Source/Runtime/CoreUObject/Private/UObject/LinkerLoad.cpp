@@ -74,6 +74,13 @@ FName FLinkerLoad::NAME_LoadErrors("LoadErrors");
 Helpers
 ----------------------------------------------------------------------------*/
 
+#if WITH_EDITOR
+bool FLinkerLoad::ShouldCreateThrottledSlowTask() const
+{
+	return ShouldReportProgress() && FSlowTask::ShouldCreateThrottledSlowTask();
+}
+#endif
+
 // Helper struct for getting the value of [Core.System] AllowCookedDataInEditorBuilds from ini
 struct FInitCookedDatataInEditorBuildsSupport
 {
@@ -780,8 +787,11 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::Tick( float InTimeLimit, bool bInUseTime
 		LinkerRoot->LinkerLoad = nullptr;
 #if WITH_EDITOR
 
+		if (LoadProgressScope)
+		{
 		delete LoadProgressScope;
 		LoadProgressScope = nullptr;	
+		}
 #endif
 	}
 
@@ -927,7 +937,11 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 
 	if (!LoadProgressScope)
 	{
-		LoadProgressScope = new FScopedSlowTask(FLinkerDefs::TotalProgressSteps, NSLOCTEXT("Core", "GenericLoading", "Loading..."), ShouldReportProgress());
+		if (ShouldCreateThrottledSlowTask())
+		{
+			static const FText LoadingText = NSLOCTEXT("Core", "GenericLoading", "Loading...");
+			LoadProgressScope = new FScopedSlowTask(FLinkerDefs::TotalProgressSteps, LoadingText);
+		}
 	}
 
 #endif
@@ -938,10 +952,14 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 	if( !Loader && !bDynamicClassLinker )
 	{
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
+			static const FTextFormat LoadingFileTextFormat = NSLOCTEXT("Core", "LoadingFileWithFilename", "Loading file: {CleanFilename}...");
 		FFormatNamedArguments FeedbackArgs;
 		FeedbackArgs.Add( TEXT("CleanFilename"), FText::FromString( FPaths::GetCleanFilename( *Filename ) ) );
-		LoadProgressScope->DefaultMessage = FText::Format( NSLOCTEXT("Core", "LoadingFileWithFilename", "Loading file: {CleanFilename}..."), FeedbackArgs );
+			LoadProgressScope->DefaultMessage = FText::Format(LoadingFileTextFormat, FeedbackArgs);
 		LoadProgressScope->EnterProgressFrame();
+		}
 #endif
 
 		// Check if this linker was created for dynamic class package
@@ -975,7 +993,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 						Result = CreateExport(ExportIndex->ToExport());
 					}
 					else
-					{
+						{
 						const FPackageIndex* ImportIndex = ObjectNameToPackageImportIndex.Find(FullObjectPath);
 
 						if (ImportIndex)
@@ -1127,7 +1145,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
 		LoadProgressScope->EnterProgressFrame(1);
+		}
 #endif
 		// Read summary from file.
 		StructuredArchiveRootRecord.GetValue() << NAMED_FIELD(Summary);
@@ -1485,7 +1506,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 	if( bHasFixedUpImportMap == false )
 	{
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
 		LoadProgressScope->EnterProgressFrame(1);
+		}
 #endif
 		// Fix up imports, not required if everything is cooked.
 		if (!FPlatformProperties::RequiresCookedData())
@@ -1926,7 +1950,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FindExistingExports()
 	{
 		// only look for existing exports in the editor after it has started up
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
 		LoadProgressScope->EnterProgressFrame(1);
+		}
 		if( GIsEditor && GIsRunning )
 		{
 			// Hunt down any existing objects and hook them up to this linker unless the user is either currently opening this
@@ -1961,7 +1988,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 	if( bHasFinishedInitialization == false )
 	{
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
 		LoadProgressScope->EnterProgressFrame(1);
+		}
 #endif
 
 		if (IsTextFormat())
@@ -1990,13 +2020,13 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 				// this package path to the name if it doesn't look like a long package name
 				if (FullName[0] != '/')
 				{
-					int32 DotIndex = INDEX_NONE;
-					if (FullName.FindChar('.', DotIndex))
-					{
-						FullName[DotIndex] = ':';
-					}
+				int32 DotIndex = INDEX_NONE;
+				if (FullName.FindChar('.', DotIndex))
+				{
+					FullName[DotIndex] = ':';
+				}
 
-					FullName = LinkerRoot->GetName() + TEXT(".") + FullName;
+				FullName = LinkerRoot->GetName() + TEXT(".") + FullName;
 				}
 
 				check(ObjectNameToPackageExportIndex.Find(*FullName) == nullptr);
@@ -2055,8 +2085,11 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 		bHasFinishedInitialization = true;
 
 #if WITH_EDITOR
+		if (LoadProgressScope)
+		{
 		delete LoadProgressScope;
 		LoadProgressScope = nullptr;
+		}
 #endif
 	}
 
@@ -2139,7 +2172,12 @@ void FLinkerLoad::Verify()
 		if (!bHaveImportsBeenVerified)
 		{
 #if WITH_EDITOR
-			FScopedSlowTask SlowTask(Summary.ImportCount, NSLOCTEXT("Core", "LinkerLoad_Imports", "Loading Imports"), ShouldReportProgress());
+			TOptional<FScopedSlowTask> SlowTask;
+			if (ShouldCreateThrottledSlowTask())
+			{
+				static const FText LoadingImportsText = NSLOCTEXT("Core", "LinkerLoad_Imports", "Loading Imports");
+				SlowTask.Emplace(Summary.ImportCount, LoadingImportsText);
+			}
 #endif
 			// Validate all imports and map them to their remote linkers.
 			for (int32 ImportIndex = 0; ImportIndex < Summary.ImportCount; ImportIndex++)
@@ -2147,7 +2185,11 @@ void FLinkerLoad::Verify()
 				FObjectImport& Import = ImportMap[ImportIndex];
 
 #if WITH_EDITOR
-				SlowTask.EnterProgressFrame(1, FText::Format(NSLOCTEXT("Core", "LinkerLoad_LoadingImportName", "Loading Import '{0}'"), FText::FromString(Import.ObjectName.ToString())));
+				if (SlowTask)
+				{
+					static const FText LoadingImportText = NSLOCTEXT("Core", "LinkerLoad_LoadingImportName", "Loading Import '{0}'");
+					SlowTask->EnterProgressFrame(1, FText::Format(LoadingImportText, FText::FromString(Import.ObjectName.ToString())));
+				}
 #endif
 				VerifyImport( ImportIndex );
 			}
@@ -2562,7 +2604,12 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 	FObjectImport& Import = ImportMap[ImportIndex];
 
 #if WITH_EDITOR
-	FScopedSlowTask SlowTask(100, FText::Format(NSLOCTEXT("Core", "VerifyPackage_Scope", "Verifying '{0}'"), FText::FromName(Import.ObjectName)), ShouldReportProgress());
+	TOptional<FScopedSlowTask> SlowTask;
+	if (ShouldCreateThrottledSlowTask())
+	{
+		static const FTextFormat VerifyingTextFormat = NSLOCTEXT("Core", "VerifyPackage_Scope", "Verifying '{0}'");
+		SlowTask.Emplace(100, FText::Format(VerifyingTextFormat, FText::FromName(Import.ObjectName)));
+	}
 #endif
 
 	if
@@ -2601,7 +2648,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		}
 
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(30);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(30);
+		}
 #endif
 
 		if (!bWasFullyLoaded)
@@ -2628,7 +2678,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		}
 
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(30);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(30);
+		}
 #endif
 
 		// following is the original VerifyImport code
@@ -2652,7 +2705,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		}
 
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(40);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(40);
+		}
 #endif
 
 		// Get the linker if the package hasn't been fully loaded already.
@@ -2667,7 +2723,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		checkf(Import.OuterIndex.IsImport(),TEXT("Outer for Import %s (%i) is not an import - OuterIndex:%i"), *GetImportFullName(ImportIndex), ImportIndex, Import.OuterIndex.ForDebugging());
 
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(50);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(50);
+		}
 #endif
 
 		VerifyImport( Import.OuterIndex.ToImport() );
@@ -2699,7 +2758,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		}
 
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(50);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(50);
+		}
 #endif
 
 		//check(Import.SourceLinker);
@@ -3033,8 +3095,13 @@ int32 FLinkerLoad::LoadMetaDataFromExportMap(bool bForcePreload)
 void FLinkerLoad::LoadAllObjects(bool bForcePreload)
 {
 #if WITH_EDITOR
-	FScopedSlowTask SlowTask(ExportMap.Num(), NSLOCTEXT("Core", "LinkerLoad_LoadingObjects", "Loading Objects"), ShouldReportProgress());
-	SlowTask.Visibility = ESlowTaskVisibility::Invisible;
+	TOptional<FScopedSlowTask> SlowTask;
+	if (ShouldCreateThrottledSlowTask())
+	{
+		static const FText LoadingObjectText = NSLOCTEXT("Core", "LinkerLoad_LoadingObjects", "Loading Objects");
+		SlowTask.Emplace(ExportMap.Num(), LoadingObjectText);
+		SlowTask->Visibility = ESlowTaskVisibility::Invisible;
+	}
 #endif
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -3080,7 +3147,10 @@ void FLinkerLoad::LoadAllObjects(bool bForcePreload)
 	for(int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
 	{
 #if WITH_EDITOR
-		SlowTask.EnterProgressFrame(1);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(1);
+		}
 #endif
 		if (ExportIndex == MetaDataIndex)
 		{
@@ -3479,8 +3549,8 @@ void FLinkerLoad::Preload( UObject* Object )
 							{
 								FStructuredArchiveChildReader ChildReader(ExportSlot);
 								FArchiveUObjectFromStructuredArchive Adapter(ChildReader.GetRoot());
-								Object->GetClass()->SerializeDefaultObject(Object, Adapter);
-							}
+							Object->GetClass()->SerializeDefaultObject(Object, Adapter);
+						}
 						}
 						else
 #endif
@@ -4640,10 +4710,10 @@ void FLinkerLoad::Detach()
 		CurrentLoadContext->RemoveDelayedLinkerClosePackage(this);
 	}
 
-	delete StructuredArchive;
-	StructuredArchive = nullptr;
-	delete StructuredArchiveFormatter;
-	StructuredArchiveFormatter = nullptr;
+		delete StructuredArchive;
+		StructuredArchive = nullptr;
+		delete StructuredArchiveFormatter;
+		StructuredArchiveFormatter = nullptr;
 
 	if (Loader)
 	{

@@ -12,6 +12,8 @@
 #include "Components.h"
 #include "IMeshReductionManagerModule.h"
 #include "MeshBuild.h"
+#include "Modules/ModuleManager.h"
+#include "IMeshReductionInterfaces.h"
 
 DEFINE_LOG_CATEGORY(LogStaticMeshBuilder);
 
@@ -38,8 +40,24 @@ FStaticMeshBuilder::FStaticMeshBuilder()
 
 }
 
+static bool UseNativeQuadraticReduction()
+{
+	// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+
+	FString VersionString = ReductionModule->GetVersionString();
+	TArray<FString> SplitVersionString;
+	VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+
+	bool bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+	return bUseQuadricSimplier;
+}
+
 bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, UStaticMesh* StaticMesh, const FStaticMeshLODGroup& LODGroup)
 {
+	// The tool can only been switch by restarting the editor
+	static bool bIsThirdPartyReductiontool = !UseNativeQuadraticReduction();
+
 	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
 	{
 		//Warn the user that there is no mesh description data
@@ -74,7 +92,13 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];
 		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
 
-		bool bUseReduction = (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f);
+		// Use simplifier if a reduction in triangles or verts has been requested.
+
+		const bool bVertTermination = (!bIsThirdPartyReductiontool) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles);
+		const bool bTriTermination  = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices;
+		bool bUseReduction = ( bTriTermination && ReductionSettings.PercentTriangles < 1.0f )
+			              || ( bVertTermination && ReductionSettings.PercentVertices < 1.0f )
+			              || ( ReductionSettings.MaxDeviation > 0.0f );
 
 		if (OriginalMeshDescription != nullptr)
 		{

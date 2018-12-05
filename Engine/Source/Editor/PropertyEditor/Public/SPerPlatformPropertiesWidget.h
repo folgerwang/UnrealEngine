@@ -96,24 +96,74 @@ public:
 			// Add Platform menu
 			bool bAddedMenuItem = false;
 			FMenuBuilder AddPlatformMenuBuilder(true, nullptr, nullptr, true);
-			{
-				for (FName PlatformName : PlatformInfo::GetAllPlatformGroupNames())
-				{
-					if (!PlatformOverrides.Contains(PlatformName))
-					{
-						const FText MenuText = FText::Format(NSLOCTEXT("SPerPlatformPropertiesWidget", "AddOverrideFor", "Add Override for {0}"), FText::AsCultureInvariant(PlatformName.ToString()));
-						AddPlatformMenuBuilder.AddMenuEntry(
-							MenuText,
-							MenuText,
-							FSlateIcon(FEditorStyle::GetStyleSetName(), "PerPlatformWidget.AddPlatform"),
-							FUIAction(FExecuteAction::CreateSP(this, &SPerPlatformPropertiesWidget::AddPlatform, PlatformName))
-						);
+						
+			// Platform (group) names
+			const TArray<FName>& PlatformGroupNameArray = PlatformInfo::GetAllPlatformGroupNames();
+			const TArray<FName>& VanillaPlatformNameArray = PlatformInfo::GetAllVanillaPlatformNames();			
 
-						bAddedMenuItem = true;
+			// Sanitized platform names
+			TArray<FName> BasePlatformNameArray;
+			// Mapping from platform group name to individual platforms
+			TMultiMap<FName, FName> GroupToPlatform;
+						
+			// Create mapping from platform to platform groups and remove postfixes and invalid platform names
+			const TArray<FString> Filters = { TEXT("NoEditor"), TEXT("Client"), TEXT("Server"), TEXT("AllDesktop") };
+			for (const FName& PlatformName : VanillaPlatformNameArray)
+			{
+				const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(PlatformName);
+				FString PlatformNameString = PlatformName.ToString();
+				for ( const FString& Filter : Filters)
+				{
+					const int32 Position = PlatformNameString.Find(Filter);
+					if (Position != INDEX_NONE)
+					{
+						PlatformNameString.RemoveAt(Position, Filter.Len());
+						break;
 					}
+				}
+
+				// Add filtered name if it isn't already set, and also add to group mapping
+				const FName FilteredName = FName(*PlatformNameString);				
+				if (PlatformNameString.Len() && !PlatformOverrides.Contains(FilteredName))
+				{	
+					BasePlatformNameArray.AddUnique(FilteredName);
+					GroupToPlatform.AddUnique(PlatformInfo->PlatformGroupName, FilteredName);
 				}
 			}
 
+			// Create section for platform groups 
+			const FName PlatformGroupSection(TEXT("PlatformGroupSection"));
+			AddPlatformMenuBuilder.BeginSection(PlatformGroupSection, FText::FromString(TEXT("Platform Groups")));
+			for (const FName& GroupName : PlatformGroupNameArray)
+			{				
+				if (!PlatformOverrides.Contains(GroupName))
+				{					
+					const FTextFormat Format = NSLOCTEXT("SPerPlatformPropertiesWidget", "AddOverrideGroupFor", "Add Override for Platforms part of the {0} Platform Group");
+					AddPlatformToMenu(GroupName, Format, AddPlatformMenuBuilder);
+					bAddedMenuItem = true;
+				}
+			}				
+			AddPlatformMenuBuilder.EndSection();
+			
+			for (const FName& GroupName : PlatformGroupNameArray)
+			{
+				// Create a section for each platform group and their respective platforms
+				AddPlatformMenuBuilder.BeginSection(GroupName, FText::FromName(GroupName));
+
+				TArray<FName> PlatformNames;
+				GroupToPlatform.MultiFind(GroupName, PlatformNames);
+
+				const FTextFormat Format = NSLOCTEXT("SPerPlatformPropertiesWidget", "AddOverrideFor", "Add Override specifically for {0}");
+				for (const FName& PlatformName : PlatformNames)
+				{
+					AddPlatformToMenu(PlatformName, Format, AddPlatformMenuBuilder);
+				}
+
+				bAddedMenuItem |= PlatformNames.Num() > 0;
+
+				AddPlatformMenuBuilder.EndSection();
+			}
+			
 			if (bAddedMenuItem)
 			{
 				HorizontalBox->AddSlot()
@@ -122,13 +172,19 @@ public:
 					SNew(SComboButton)
 					.VAlign(EVerticalAlignment::VAlign_Bottom)
 					.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
-					.ContentPadding(2)
+					.ContentPadding(4.0f)
 					.ForegroundColor(FSlateColor::UseForeground())
-					.HasDownArrow(true)
+					.HasDownArrow(false)
+					.ButtonContent()
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("PropertyWindow.Button_AddToArray"))
+					]
 					.MenuContent()
 					[
 						AddPlatformMenuBuilder.MakeWidget()
 					]
+					.ToolTipText(NSLOCTEXT("SPerPlatformPropertiesWidget", "AddOverrideToolTip", "Add an override for a specific platform or platform group"))
 				];
 			}
 
@@ -190,6 +246,18 @@ public:
 				.ColorAndOpacity(FLinearColor::Red)
 			];
 		}
+	}
+
+	void AddPlatformToMenu(const FName& PlatformName, const FTextFormat Format, FMenuBuilder &AddPlatformMenuBuilder)
+	{		
+		const FText MenuText = FText::Format(FText::FromString(TEXT("{0}")), FText::AsCultureInvariant(PlatformName.ToString()));
+		const FText MenuTooltipText = FText::Format(Format, FText::AsCultureInvariant(PlatformName.ToString()));
+		AddPlatformMenuBuilder.AddMenuEntry(
+			MenuText,
+			MenuTooltipText,
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "PerPlatformWidget.AddPlatform"),
+			FUIAction(FExecuteAction::CreateSP(this, &SPerPlatformPropertiesWidget::AddPlatform, PlatformName))
+		);
 	}
 
 protected:

@@ -127,7 +127,7 @@ FReply FCrashReportClient::SubmitAndRestart()
 				CrashedAppPathUri.RemoveAt(CrashedAppPathUri.Len() - 1);
 
 				// Re-run the application via the Launcher
-				FOpenLauncherOptions OpenOptions(FString::Printf(TEXT("apps/%s"), *CrashedAppPathUri));
+				FOpenLauncherOptions OpenOptions(FString::Printf(TEXT("apps/%s?action=launch"), *CrashedAppPathUri));
 				OpenOptions.bSilent = true;
 				if (LauncherPlatform->OpenLauncher(OpenOptions))
 				{

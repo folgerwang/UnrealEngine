@@ -941,6 +941,7 @@ static void DoAsyncReallocateTexture2D(FVulkanCommandListContext& Context, FVulk
 
 		Barrier.Execute(CmdBuffer);
 	}
+	Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(OldTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED) = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
 	VulkanRHI::vkCmdCopyImage(StagingCommandBuffer, OldTexture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, NewTexture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, NumSharedMips, Regions);
 
@@ -952,7 +953,7 @@ static void DoAsyncReallocateTexture2D(FVulkanCommandListContext& Context, FVulk
 		Barrier.SetTransition(BarrierIndex, EImageLayoutBarrier::TransferDest, VulkanRHI::EImageLayoutBarrier::PixelShaderRead);
 		Barrier.Execute(CmdBuffer);
 	}
-	Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(NewTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED) = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(NewTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED) = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	// request is now complete
 	RequestStatus->Decrement();

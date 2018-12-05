@@ -140,6 +140,3 @@ MONOLITHIC_HEADER_BOILERPLATE()
 ////
 #include "Widgets/SWindow.h"
 
-//Logging
-#include "Logging/IEventLogger.h"
-#include "Logging/EventLogger.h"

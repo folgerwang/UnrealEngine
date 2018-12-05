@@ -45,7 +45,7 @@ class UFunctionalTestingManager : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category="FunctionalTesting", meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext ) )
 	static bool RunAllFunctionalTests(UObject* WorldContextObject, bool bNewLog = true, bool bRunLooped = false, FString FailedTestsReproString = TEXT(""));
 
-	DEPRECATED(4.18, "This function is deprecated and is no longer used. Please use the version without the bWaitForNavigationBuildFinish parameter.")
+	UE_DEPRECATED(4.18, "This function is deprecated and is no longer used. Please use the version without the bWaitForNavigationBuildFinish parameter.")
 	static bool RunAllFunctionalTests(UObject* WorldContextObject, bool bNewLog, bool bRunLooped, bool bWaitForNavigationBuildFinish, FString FailedTestsReproString = TEXT("")) { return RunAllFunctionalTests(WorldContextObject, bNewLog, bRunLooped, FailedTestsReproString); }
 
 	bool IsRunning() const { return bIsRunning; }

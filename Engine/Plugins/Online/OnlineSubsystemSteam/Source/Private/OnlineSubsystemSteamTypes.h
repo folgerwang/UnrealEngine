@@ -206,6 +206,13 @@ public:
 		return GetTypeHash(A.UniqueNetId);
 	}
 
+	/** global static instance of invalid (zero) id */
+	static const TSharedRef<const FUniqueNetId>& EmptyId()
+	{
+		static const TSharedRef<const FUniqueNetId> EmptyId(MakeShared<FUniqueNetIdSteam>());
+		return EmptyId;
+	}
+
 	/** Convenience cast to CSteamID */
 	operator CSteamID()
 	{

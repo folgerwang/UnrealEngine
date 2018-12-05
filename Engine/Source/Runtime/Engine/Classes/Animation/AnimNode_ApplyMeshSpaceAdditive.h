@@ -20,7 +20,7 @@ struct ENGINE_API FAnimNode_ApplyMeshSpaceAdditive : public FAnimNode_Base
 	FPoseLink Additive;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FInputScaleBias AlphaScaleBias;
@@ -34,9 +34,6 @@ struct ENGINE_API FAnimNode_ApplyMeshSpaceAdditive : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
-
-	UPROPERTY(Transient)
 	float ActualAlpha;
 
 public:
@@ -48,5 +45,6 @@ public:
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 };

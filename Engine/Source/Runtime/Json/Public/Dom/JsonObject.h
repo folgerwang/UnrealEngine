@@ -37,7 +37,7 @@ public:
 			UE_LOG(LogJson, Warning, TEXT("Field %s was not found."), *FieldName);
 		}
 
-		return TSharedPtr<FJsonValue>(new FJsonValueNull());
+		return MakeShared<FJsonValueNull>();
 	}
 
 	/**

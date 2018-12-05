@@ -9,23 +9,14 @@
 #include "RigUnit_GetJointTransform.generated.h"
 
 
-UENUM()
-enum class ETransformGetterType : uint8
-{
-	Initial,
-	Current,
-	Initial_Local,
-	Current_Local,
-	Max UMETA(Hidden), 
-};
-
 USTRUCT(meta=(DisplayName="Get Joint Transform", Category="Transforms"))
 struct FRigUnit_GetJointTransform : public FRigUnit
 {
 	GENERATED_BODY()
 
 	FRigUnit_GetJointTransform()
-		: Type(ETransformGetterType::Initial)
+		: Type(ETransformGetterType::Current)
+		, TransformSpace(ETransformSpaceMode::GlobalSpace)
 	{}
 
 	virtual void Execute(const FRigUnitContext& InContext) override;
@@ -39,7 +30,21 @@ struct FRigUnit_GetJointTransform : public FRigUnit
 	UPROPERTY(meta = (Input))
 	ETransformGetterType Type;
 
+	UPROPERTY(meta = (Input))
+	ETransformSpaceMode TransformSpace;
+
+	// Transform op option. Use if ETransformSpace is BaseTransform
+	UPROPERTY(meta = (Input))
+	FTransform BaseTransform;
+
+	// Transform op option. Use if ETransformSpace is BaseJoint
+	UPROPERTY(meta = (Input))
+	FName BaseJoint;
+
 	// possibly space, relative transform so on can be input
 	UPROPERTY(meta=(Output))
 	FTransform Output;
+
+private:
+	FTransform GetBaseTransform(int32 JointIndex, const FRigHierarchy* CurrentHierarchy, bool bUseInitial) const;
 };

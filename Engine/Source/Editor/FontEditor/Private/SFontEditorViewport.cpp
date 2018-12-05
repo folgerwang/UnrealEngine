@@ -222,7 +222,8 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			// Draw and measure each name so we can work out where to start drawing the preview text column
 			for (const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
 			{
-				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FontInfo.FontFallback = EFontFallback::FF_NoFallback;
 
 				FCharacterList& CharacterList = FontCache->GetCharacterList(FontInfo, FontScale);
 
@@ -242,7 +243,8 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			// Draw the preview text using each of the default fonts
 			for (const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
 			{
-				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FontInfo.FontFallback = EFontFallback::FF_NoFallback;
 
 				FShapedGlyphSequenceRef ShapedPreviewText = FontCache->ShapeBidirectionalText(PreviewText.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, GetDefaultTextShapingMethod());
 

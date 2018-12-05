@@ -123,7 +123,7 @@ FLoginFlowResult FOnlineExternalUITwitch::ParseRedirectResult(const FTwitchLogin
 				Result.Error.ErrorRaw = LOGIN_ERROR_UNKNOWN;
 				Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_UNKNOWN);
 				Result.Error.ErrorCode = TEXT("-1");
-				Result.Error.NumericErrorCode = -1;
+				Result.NumericErrorCode = -1;
 			}
 		}
 		else

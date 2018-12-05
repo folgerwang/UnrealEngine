@@ -131,6 +131,8 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 	UFUNCTION(BlueprintCallable, Category="AI")
 	bool RegisterMovementComponent(class UMovementComponent* MovementComp, float AvoidanceWeight = 0.5f);
 
+	bool RegisterMovementComponent(UCharacterMovementComponent* MovementComp, float AvoidanceWeight = 0.5f);
+
 	/** Get your latest data. */
 	FNavAvoidanceData* GetAvoidanceObjectForUID(int32 AvoidanceUID) { return AvoidanceObjects.Find(AvoidanceUID); }
 	const FNavAvoidanceData* GetAvoidanceObjectForUID(int32 AvoidanceUID) const { return AvoidanceObjects.Find(AvoidanceUID); }
@@ -177,6 +179,9 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 
 	void SetNavEdgeProvider(INavEdgeProviderInterface* InEdgeProvider);
 
+	/** Used to manually mark data associated with given ID as 'dead' (and reusable) */
+	void RemoveAvoidanceObject(const int32 AvoidanceUID);
+
 protected:
 
 	/** Handle for efficient management of RemoveOutdatedObjects timer */
@@ -209,6 +214,11 @@ protected:
 
 	/** set when RemoveOutdatedObjects timer is already requested */
 	uint32 bRequestedUpdateTimer : 1;
+
+	/** If set then UAvoidanceManager::RemoveOutdatedObjects is responsisble
+	 *	for removing dead entries in AvoidanceObjects. If set to FALSE then the
+	 *	dead agents need to be removed manually with RemoveAvoidanceObject call */
+	uint32 bAutoPurceOutdatedObjects : 1;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Print out debug information when we predict using any of these IDs as our IgnoreUID */

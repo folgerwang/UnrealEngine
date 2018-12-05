@@ -7,10 +7,10 @@
 // FAnimNode_TransitionPoseEvaluator
 
 FAnimNode_TransitionPoseEvaluator::FAnimNode_TransitionPoseEvaluator()
-	: DataSource(EEvaluatorDataSource::EDS_SourcePose)
-	, EvaluatorMode(EEvaluatorMode::EM_Standard)
-	, FramesToCachePose(1)
+	: FramesToCachePose(1)
 	, CacheFramesRemaining(1)
+	, DataSource(EEvaluatorDataSource::EDS_SourcePose)
+	, EvaluatorMode(EEvaluatorMode::EM_Standard)
 {
 }
 

@@ -269,6 +269,27 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromSkeletalMesh(USkeletalMesh*
 	return nullptr;
 }
 
+UClothingAssetBase* UClothingAssetFactory::CreateFromExistingCloth(USkeletalMesh* TargetMesh, USkeletalMesh* SourceMesh, UClothingAssetBase* SourceAsset)
+{
+	UClothingAsset* SourceClothingAsset = Cast<UClothingAsset>(SourceAsset);
+
+	if (!SourceClothingAsset)
+	{
+		return nullptr;
+	}
+
+	//Duplicating the clothing asset using the existing asset as a template
+	UClothingAsset* NewAsset = DuplicateObject<UClothingAsset>(SourceClothingAsset, TargetMesh, SourceClothingAsset->GetFName());
+
+	NewAsset->AssetGuid = FGuid::NewGuid();
+	//Need to empty LODMap to remove previous mappings from cloth LOD to SkelMesh LOD
+	NewAsset->LodMap.Empty();
+	NewAsset->RefreshBoneMapping(TargetMesh);
+	NewAsset->InvalidateCachedData();
+
+	return NewAsset;
+}
+
 UClothingAssetBase* UClothingAssetFactory::ImportLodToClothing(USkeletalMesh* TargetMesh, FSkeletalMeshClothBuildParams& Params)
 {
 	if(!TargetMesh)
@@ -1273,6 +1294,8 @@ bool UClothingAssetFactory::ImportToLodInternal(USkeletalMesh* SourceMesh, int32
 
 			ParameterRemapper.Map(SourceMask.GetValueArray(), DestMask.Values);
 		}
+
+		DestAsset->ApplyParameterMasks();
 	}
 
 	return true;

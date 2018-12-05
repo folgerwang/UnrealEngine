@@ -619,7 +619,7 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Math|Float")
 	static float Lerp(float A, float B, float Alpha);
 	
-	DEPRECATED(4.19, "Use NormalizeToRange instead")
+	UE_DEPRECATED(4.19, "Use NormalizeToRange instead")
 	static float InverseLerp(float A, float B, float Value);
 
 	/** Easeing  between A and B using a specified easing function */
@@ -1821,15 +1821,19 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static FTransform ComposeTransforms(const FTransform& A, const FTransform& B);
 
 	/** 
-	 * Returns the given transform, converted to be relative to the given ParentTransform.
+	 * Computes a relative transform of one transform compared to another.
 	 *
-	 * Example: AToB = ConvertTransformToRelative(AToWorld, BToWorld) to compute A relative to B.
+	 * Example: ChildOffset = MakeRelativeTransform(Child.GetActorTransform(), Parent.GetActorTransform())
+	 * This computes the relative transform of the Child from the Parent.
 	 *
-	 * @param		Transform		The transform you wish to convert
-	 * @param		ParentTransform	The transform the conversion is relative to (in the same space as Transform)
+	 * @param		A				The object's transform
+	 * @param		RelativeTo		The transform the result is relative to (in the same space as A)
 	 * @return		The new relative transform
 	 */
-	UFUNCTION(BlueprintPure, Category="Math|Transform", meta=(Keywords="cast convert"))
+	UFUNCTION(BlueprintPure, Category="Math|Transform", meta=(Keywords="convert torelative"))
+	static FTransform MakeRelativeTransform(const FTransform& A, const FTransform& RelativeTo);
+
+	UE_DEPRECATED(4.22, "Use MakeRelativeTransform instead, with reversed order of arguments.")
 	static FTransform ConvertTransformToRelative(const FTransform& Transform, const FTransform& ParentTransform);
 
 	/** 

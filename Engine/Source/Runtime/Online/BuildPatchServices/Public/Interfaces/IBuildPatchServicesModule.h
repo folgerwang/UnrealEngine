@@ -240,9 +240,9 @@ public:
 	 */
 	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath) = 0;
 
-	DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
+	UE_DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) = 0;
 
-	DEPRECATED(4.16, "Please use EnumeratePatchData instead.")
+	UE_DEPRECATED(4.16, "Please use EnumeratePatchData instead.")
 	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes) { return EnumeratePatchData(ManifestFilePath, OutputFile, bIncludeSizes); }
 };

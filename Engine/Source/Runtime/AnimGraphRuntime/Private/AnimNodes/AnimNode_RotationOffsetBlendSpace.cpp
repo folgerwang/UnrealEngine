@@ -9,11 +9,12 @@
 
 FAnimNode_RotationOffsetBlendSpace::FAnimNode_RotationOffsetBlendSpace()
 	: LODThreshold(INDEX_NONE)
-	, bIsLODEnabled(false)
-	, AlphaInputType(EAnimAlphaInputType::Float)
 	, Alpha(1.f)
+	, AlphaCurveName(NAME_None)
 	, ActualAlpha(0.0f)
+	, AlphaInputType(EAnimAlphaInputType::Float)
 	, bAlphaBoolEnabled(false)
+	, bIsLODEnabled(false)
 {
 }
 
@@ -35,7 +36,7 @@ void FAnimNode_RotationOffsetBlendSpace::UpdateAssetPlayer(const FAnimationUpdat
 	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy);
 	if (bIsLODEnabled)
 	{
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 
 		// Determine Actual Alpha.
 		switch (AlphaInputType)

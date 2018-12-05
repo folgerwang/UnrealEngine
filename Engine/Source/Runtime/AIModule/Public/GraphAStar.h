@@ -120,7 +120,7 @@ struct FGraphAStar
 			return IndexPtr ? (*this)[*IndexPtr] : Add(NodeRef);
 		}
 
-		DEPRECATED(4.15, "This function is now deprecated, please use FindOrAdd instead")
+		UE_DEPRECATED(4.15, "This function is now deprecated, please use FindOrAdd instead")
 		FSearchNode& Get(const FGraphNodeRef NodeRef)
 		{
 			return FindOrAdd(NodeRef);
@@ -167,7 +167,7 @@ struct FGraphAStar
 			return SearchNodeIndex;
 		}
 
-		DEPRECATED(4.15, "This function is now deprecated, please use PopIndex instead")
+		UE_DEPRECATED(4.15, "This function is now deprecated, please use PopIndex instead")
 		FSearchNode& Pop(bool bAllowShrinking = true)
 		{
 			const int32 Index = PopIndex(bAllowShrinking);

@@ -27,6 +27,8 @@
 #include "ScopedTransaction.h"
 #include "Editor.h"
 #include "SCopyVertexColorSettingsPanel.h"
+#include "Editor/ContentBrowser/Private/SAssetPicker.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "ClothAssetSelector"
 
@@ -760,6 +762,35 @@ void SClothAssetSelector::Construct(const FArguments& InArgs, USkeletalMesh* InM
 					]
 				]
 				+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Right)
+					.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+					[
+						SNew(SComboButton)
+						.ButtonStyle(FEditorStyle::Get(), "RoundButton")
+					.ForegroundColor(FEditorStyle::GetSlateColor("DefaultForeground"))
+					.ContentPadding(FMargin(2, 0))
+					.OnGetMenuContent(this, &SClothAssetSelector::OnGenerateSkeletalMeshPickerForClothCopy)
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					.ButtonContent()
+					[
+						SNew(SHorizontalBox)
+
+						+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(FMargin(2, 0, 0, 0))
+					[
+						SNew(STextBlock)
+						.Font(IDetailLayoutBuilder::GetDetailFontBold())
+					.Text(LOCTEXT("CopyClothingFromMeshText", "Copy Clothing from SkeletalMesh"))
+					.ShadowOffset(FVector2D(1, 1))
+					]
+					]
+					]
+				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Right)
@@ -930,6 +961,48 @@ FReply SClothAssetSelector::OnImportApexFileClicked()
 	}
 
 	return FReply::Unhandled();
+}
+
+void SClothAssetSelector::OnCopyClothingAssetSelected(const FAssetData& AssetData)
+{
+	USkeletalMesh* SourceSkelMesh = Cast<USkeletalMesh>(AssetData.GetAsset());
+
+	if (Mesh && SourceSkelMesh && Mesh != SourceSkelMesh)
+	{
+		FScopedTransaction Transaction(LOCTEXT("CopiedClothingAssetsFromSkelMesh", "Copied clothing assets from another SkelMesh"));
+		Mesh->Modify();
+		FClothingSystemEditorInterfaceModule& ClothingEditorModule = FModuleManager::LoadModuleChecked<FClothingSystemEditorInterfaceModule>("ClothingSystemEditorInterface");
+		UClothingAssetFactoryBase* AssetFactory = ClothingEditorModule.GetClothingAssetFactory();
+
+		for (UClothingAssetBase* ClothingAsset : SourceSkelMesh->MeshClothingAssets)
+		{
+			UClothingAsset* NewAsset = Cast<UClothingAsset>(AssetFactory->CreateFromExistingCloth(Mesh, SourceSkelMesh, ClothingAsset));
+			Mesh->AddClothingAsset(NewAsset);
+		}
+		OnRefresh();
+	}
+	FSlateApplication::Get().DismissAllMenus();
+}
+
+TSharedRef<SWidget> SClothAssetSelector::OnGenerateSkeletalMeshPickerForClothCopy()
+{
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+	FAssetPickerConfig AssetPickerConfig;
+	AssetPickerConfig.Filter.ClassNames.Add(USkeletalMesh::StaticClass()->GetFName());
+	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SClothAssetSelector::OnCopyClothingAssetSelected);
+	AssetPickerConfig.bAllowNullSelection = true;
+	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
+	AssetPickerConfig.bFocusSearchBoxWhenOpened = true;
+	AssetPickerConfig.bShowBottomToolbar = false;
+	AssetPickerConfig.SelectionMode = ESelectionMode::Single;
+
+	return SNew(SBox)
+		.WidthOverride(300)
+		.HeightOverride(400)
+		[
+			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+		];
 }
 
 EVisibility SClothAssetSelector::GetAssetHeaderButtonTextVisibility() const

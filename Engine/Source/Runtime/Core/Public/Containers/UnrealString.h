@@ -1396,7 +1396,7 @@ public:
 	}
 
 	template <typename FmtType, typename... Types>
-	DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
+	UE_DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
 	static typename TEnableIf<!TIsArrayOrRefOfType<FmtType, TCHAR>::Value, FString>::Type Printf(const FmtType& Fmt, Types... Args)
 	{
 		// NOTE: When this deprecated function is removed, the return type of the overload above
@@ -1496,13 +1496,13 @@ public:
 	/**
 	 * Removes whitespace characters from the front of this string.
 	 */
-	DEPRECATED(4.18, "FString::Trim() has been split into separate functions for copy and mutate semantics. Call FString::TrimStart() to return a copy of the string with whitespace trimmed from the start, or FString::TrimStartInline() to modify an FString object in-place.")
+	UE_DEPRECATED(4.18, "FString::Trim() has been split into separate functions for copy and mutate semantics. Call FString::TrimStart() to return a copy of the string with whitespace trimmed from the start, or FString::TrimStartInline() to modify an FString object in-place.")
 	FString Trim();
 
 	/**
 	 * Removes trailing whitespace characters
 	 */
-	DEPRECATED(4.18, "FString::TrimTrailing() has been split into separate functions for copy and mutate semantics. Call FString::TrimEnd() to return a copy of the string with whitespace trimmed from the start, or FString::TrimEndInline() to modify an FString object in-place.")
+	UE_DEPRECATED(4.18, "FString::TrimTrailing() has been split into separate functions for copy and mutate semantics. Call FString::TrimEnd() to return a copy of the string with whitespace trimmed from the start, or FString::TrimEndInline() to modify an FString object in-place.")
 	FString TrimTrailing();
 
 	/**
@@ -2117,14 +2117,14 @@ namespace Lex
 {
 	
 	template<typename T> 
-	DEPRECATED(4.20, "Lex::FromString has been deprecated. Please use LexFromString instead.")
+	UE_DEPRECATED(4.20, "Lex::FromString has been deprecated. Please use LexFromString instead.")
 	void FromString(T& OutValue, const TCHAR* Buffer) 
 	{ 
 		LexFromString(OutValue, Buffer); 
 	}
 
 	template<typename T> 
-	DEPRECATED(4.20, "Lex::ToString has been deprecated. Please use LexToString instead.")
+	UE_DEPRECATED(4.20, "Lex::ToString has been deprecated. Please use LexToString instead.")
 #if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	decltype(auto) ToString(T&& Value)
 #else
@@ -2135,7 +2135,7 @@ namespace Lex
 	}
 
 	template<typename T>
-	DEPRECATED(4.20, "Lex::ToSanitizedString has been deprecated. Please use LexToSanitizedString instead.")
+	UE_DEPRECATED(4.20, "Lex::ToSanitizedString has been deprecated. Please use LexToSanitizedString instead.")
 #if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	decltype(auto) ToSanitizedString(T&& Value)
 #else
@@ -2146,7 +2146,7 @@ namespace Lex
 	}
 
 	template<typename T>
-	DEPRECATED(4.20, "Lex::TryParseString has been deprecated. Please use LexTryParseString instead.")
+	UE_DEPRECATED(4.20, "Lex::TryParseString has been deprecated. Please use LexTryParseString instead.")
 	bool TryParseString(T& OutValue, const TCHAR* Buffer) 
 	{ 
 		return LexTryParseString(OutValue, Buffer); 
@@ -2154,7 +2154,7 @@ namespace Lex
 }
 
 // Deprecated alias for old LexicalConversion namespace.
-// Namespace alias deprecation doesn't work on our compilers, so we can't actually mark it with the DEPRECATED() macro.
+// Namespace alias deprecation doesn't exist, so we can't actually mark it with the UE_DEPRECATED() macro.
 namespace LexicalConversion = Lex;
 
 /** Shorthand legacy use for Lex functions */

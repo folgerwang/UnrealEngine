@@ -361,6 +361,11 @@ namespace Audio
 		}
 	}
 
+	bool FMixerPlatformAndroid::SupportsRealtimeDecompression() const
+	{
+		return true;
+	}
+
 	void FMixerPlatformAndroid::SubmitBuffer(const uint8* Buffer)
 	{
 		SLresult Result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, Buffer, AudioStreamInfo.NumOutputFrames * AudioStreamInfo.DeviceInfo.NumChannels * sizeof(int16));

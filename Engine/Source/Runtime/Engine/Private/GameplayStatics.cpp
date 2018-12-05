@@ -847,12 +847,12 @@ UParticleSystemComponent* CreateParticleSystem(UParticleSystem* EmitterTemplate,
 	else
 	{
 		PSC = NewObject<UParticleSystemComponent>((Actor ? Actor : (UObject*)World));
-	PSC->bAutoDestroy = bAutoDestroy;
-	PSC->bAllowAnyoneToDestroyMe = true;
-	PSC->SecondsBeforeInactive = 0.0f;
-	PSC->bAutoActivate = false;
-	PSC->SetTemplate(EmitterTemplate);
-	PSC->bOverrideLODMethod = false;
+		PSC->bAutoDestroy = bAutoDestroy;
+		PSC->bAllowAnyoneToDestroyMe = true;
+		PSC->SecondsBeforeInactive = 0.0f;
+		PSC->bAutoActivate = false;
+		PSC->SetTemplate(EmitterTemplate);
+		PSC->bOverrideLODMethod = false;
 	}
 
 	return PSC;
@@ -867,31 +867,34 @@ UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorl
 {
 	check(World && EmitterTemplate);
 
-	UParticleSystemComponent* PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy, PoolingMethod);
+	if (UParticleSystemComponent* PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy, PoolingMethod))
+	{
+		PSC->bAbsoluteLocation = true;
+		PSC->bAbsoluteRotation = true;
+		PSC->bAbsoluteScale = true;
+		PSC->RelativeLocation = SpawnLocation;
+		PSC->RelativeRotation = SpawnRotation;
+		PSC->RelativeScale3D = SpawnScale;
 
-	PSC->bAbsoluteLocation = true;
-	PSC->bAbsoluteRotation = true;
-	PSC->bAbsoluteScale = true;
-	PSC->RelativeLocation = SpawnLocation;
-	PSC->RelativeRotation = SpawnRotation;
-	PSC->RelativeScale3D = SpawnScale;
+		PSC->RegisterComponentWithWorld(World);
+		PSC->ActivateSystem(true);
 
-	PSC->RegisterComponentWithWorld(World);
-	PSC->ActivateSystem(true);
-
-	// Notify the texture streamer so that PSC gets managed as a dynamic component.
-	IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
+		// Notify the texture streamer so that PSC gets managed as a dynamic component.
+		IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (PSC->Template && PSC->Template->IsImmortal())
-	{
-		UE_LOG(LogParticles, Warning, TEXT("GameplayStatics::SpawnEmitterAtLocation spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
-			*(PSC->GetPathName()), *(PSC->Template->GetPathName())
+		if (PSC->Template && PSC->Template->IsImmortal())
+		{
+			UE_LOG(LogParticles, Warning, TEXT("GameplayStatics::SpawnEmitterAtLocation spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
+				*(PSC->GetPathName()), *(PSC->Template->GetPathName())
 			);
-	}
+		}
 #endif
 
-	return PSC;
+		return PSC;
+	}
+
+	return nullptr;
 }
 
 UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(const UObject* WorldContextObject, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, FVector SpawnScale, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
@@ -937,52 +940,55 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 			if (World && !World->IsNetMode(NM_DedicatedServer))
 			{
 				PSC = CreateParticleSystem(EmitterTemplate, World, AttachToComponent->GetOwner(), bAutoDestroy, PoolingMethod);
-				
-				PSC->SetupAttachment(AttachToComponent, AttachPointName);
 
-				if (LocationType == EAttachLocation::KeepWorldPosition)
+				if (PSC != nullptr)
 				{
-					const FTransform ParentToWorld = AttachToComponent->GetSocketTransform(AttachPointName);
-					const FTransform ComponentToWorld(Rotation, Location, Scale);
-					const FTransform RelativeTM = ComponentToWorld.GetRelativeTransform(ParentToWorld);
-					PSC->RelativeLocation = RelativeTM.GetLocation();
-					PSC->RelativeRotation = RelativeTM.GetRotation().Rotator();
-					PSC->RelativeScale3D = RelativeTM.GetScale3D();
-				}
-				else
-				{
-					PSC->RelativeLocation = Location;
-					PSC->RelativeRotation = Rotation;
-					
-					if (LocationType == EAttachLocation::SnapToTarget)
+					PSC->SetupAttachment(AttachToComponent, AttachPointName);
+
+					if (LocationType == EAttachLocation::KeepWorldPosition)
 					{
-						// SnapToTarget indicates we "keep world scale", this indicates we we want the inverse of the parent-to-world scale 
-						// to calculate world scale at Scale 1, and then apply the passed in Scale
 						const FTransform ParentToWorld = AttachToComponent->GetSocketTransform(AttachPointName);
-						PSC->RelativeScale3D = Scale * ParentToWorld.GetSafeScaleReciprocal(ParentToWorld.GetScale3D());
+						const FTransform ComponentToWorld(Rotation, Location, Scale);
+						const FTransform RelativeTM = ComponentToWorld.GetRelativeTransform(ParentToWorld);
+						PSC->RelativeLocation = RelativeTM.GetLocation();
+						PSC->RelativeRotation = RelativeTM.GetRotation().Rotator();
+						PSC->RelativeScale3D = RelativeTM.GetScale3D();
 					}
 					else
 					{
-						PSC->RelativeScale3D = Scale;
-					}
-				}
+						PSC->RelativeLocation = Location;
+						PSC->RelativeRotation = Rotation;
 
-				PSC->RegisterComponentWithWorld(World);
-				PSC->ActivateSystem(true);
-				
-				// Notify the texture streamer so that PSC gets managed as a dynamic component.
-				IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
+						if (LocationType == EAttachLocation::SnapToTarget)
+						{
+							// SnapToTarget indicates we "keep world scale", this indicates we we want the inverse of the parent-to-world scale 
+							// to calculate world scale at Scale 1, and then apply the passed in Scale
+							const FTransform ParentToWorld = AttachToComponent->GetSocketTransform(AttachPointName);
+							PSC->RelativeScale3D = Scale * ParentToWorld.GetSafeScaleReciprocal(ParentToWorld.GetScale3D());
+						}
+						else
+						{
+							PSC->RelativeScale3D = Scale;
+						}
+					}
+
+					PSC->RegisterComponentWithWorld(World);
+					PSC->ActivateSystem(true);
+
+					// Notify the texture streamer so that PSC gets managed as a dynamic component.
+					IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				if (PSC->Template && PSC->Template->IsImmortal())
-				{
-					const FString OnScreenMessage = FString::Printf(TEXT("SpawnEmitterAttached spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."), *(PSC->GetPathName()), *(PSC->Template->GetName()));
-					GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)AttachToComponent), 3.f, FColor::Red, OnScreenMessage);
-					UE_LOG(LogParticles, Log, TEXT("GameplayStatics::SpawnEmitterAttached spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
-						*(PSC->GetPathName()), *(PSC->Template->GetPathName())
-					);
-				}
+					if (PSC->Template && PSC->Template->IsImmortal())
+					{
+						const FString OnScreenMessage = FString::Printf(TEXT("SpawnEmitterAttached spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."), *(PSC->GetPathName()), *(PSC->Template->GetName()));
+						GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)AttachToComponent), 3.f, FColor::Red, OnScreenMessage);
+						UE_LOG(LogParticles, Log, TEXT("GameplayStatics::SpawnEmitterAttached spawned potentially immortal particle system! %s (%s) may stay in world despite never spawning particles after burst spawning is over."),
+							*(PSC->GetPathName()), *(PSC->Template->GetPathName())
+						);
+					}
 #endif
+				}
 			}
 		}
 	}
@@ -1302,7 +1308,7 @@ UAudioComponent* UGameplayStatics::SpawnSoundAttached(USoundBase* Sound, USceneC
 
 	// Location used to check whether to create a component if out of range
 	FVector TestLocation = Location;
-	if (LocationType != EAttachLocation::KeepWorldPosition)
+	if (LocationType == EAttachLocation::KeepRelativeOffset)
 	{
 		if (AttachPointName != NAME_None)
 		{
@@ -1312,6 +1318,11 @@ UAudioComponent* UGameplayStatics::SpawnSoundAttached(USoundBase* Sound, USceneC
 		{
 			TestLocation = AttachToComponent->GetComponentTransform().TransformPosition(Location);
 		}
+	}
+	else if (LocationType == EAttachLocation::SnapToTarget || LocationType == EAttachLocation::SnapToTargetIncludingScale)
+	{
+		// If AttachPointName is NAME_None, will return just the component position
+		TestLocation = AttachToComponent->GetSocketLocation(AttachPointName);
 	}
 
 	FAudioDevice::FCreateComponentParams Params(ThisWorld, AttachToComponent->GetOwner());
@@ -1327,15 +1338,23 @@ UAudioComponent* UGameplayStatics::SpawnSoundAttached(USoundBase* Sound, USceneC
 		{
 			const bool bIsInGameWorld = ComponentWorld->IsGameWorld();
 
-			AudioComponent->AttachToComponent(AttachToComponent, FAttachmentTransformRules::KeepRelativeTransform, AttachPointName);
-			if (LocationType == EAttachLocation::KeepWorldPosition)
+			if (LocationType == EAttachLocation::SnapToTarget || LocationType == EAttachLocation::SnapToTargetIncludingScale)
 			{
-				AudioComponent->SetWorldLocationAndRotation(Location, Rotation);
+				AudioComponent->AttachToComponent(AttachToComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale, AttachPointName);
 			}
 			else
 			{
-				AudioComponent->SetRelativeLocationAndRotation(Location, Rotation);
+				AudioComponent->AttachToComponent(AttachToComponent, FAttachmentTransformRules::KeepRelativeTransform, AttachPointName);
+				if (LocationType == EAttachLocation::KeepWorldPosition)
+				{
+					AudioComponent->SetWorldLocationAndRotation(Location, Rotation);
+				}
+				else
+				{
+					AudioComponent->SetRelativeLocationAndRotation(Location, Rotation);
+				}
 			}
+
 			AudioComponent->SetVolumeMultiplier(VolumeMultiplier);
 			AudioComponent->SetPitchMultiplier(PitchMultiplier);
 			AudioComponent->bAllowSpatialization = bIsInGameWorld;

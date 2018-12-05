@@ -111,6 +111,9 @@ protected:
 	/** Handle to the registered HandleNetworkFailure delegate */
 	FDelegateHandle HandleNetworkFailureDelegateHandle;
 
+	/** Name of definition to use when creating the net driver */
+	FName NetDriverDefinitionName;
+
 	/** Common initialization for all beacon types */
 	virtual bool InitBase();
 

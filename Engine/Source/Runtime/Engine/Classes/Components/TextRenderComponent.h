@@ -103,7 +103,7 @@ class ENGINE_API UTextRenderComponent : public UPrimitiveComponent
 	 * Change the text value and signal the primitives to be rebuilt 
 	 * The FString variant is deprecated in favor of the FText variant
 	 */
-	DEPRECATED(4.8, "Passing text as FString is deprecated, please use FText instead (likely via a LOCTEXT).")
+	UE_DEPRECATED(4.8, "Passing text as FString is deprecated, please use FText instead (likely via a LOCTEXT).")
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|TextRender", meta=(DisplayName="Set Text (String)", ScriptNoExport, DeprecatedFunction, DeprecationMessage="Use the SetText function taking an FText instead."))
 	void SetText(const FString& Value);
 

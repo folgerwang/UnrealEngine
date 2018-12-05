@@ -2535,7 +2535,7 @@ FGPUDriverInfo FWindowsPlatformMisc::GetGPUDriverInfo(const FString& DeviceDescr
 		}
 	}
 
-	// FoundDriverCount can be != 1, we take the primary adapater (can be from upgrading a machine to a new OS or old drivers) which also might be wrong
+	// FoundDriverCount can be != 1, we take the primary adapter (can be from upgrading a machine to a new OS or old drivers) which also might be wrong
 	// see: http://win7settings.blogspot.com/2014/10/how-to-extract-installed-drivers-from.html
 	// https://support.microsoft.com/en-us/kb/200435
 	// http://www.experts-exchange.com/questions/10198207/Windows-NT-Display-adapter-information.html

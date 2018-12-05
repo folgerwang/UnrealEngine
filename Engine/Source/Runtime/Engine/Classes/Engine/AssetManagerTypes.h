@@ -151,3 +151,15 @@ struct FAssetManagerChunkInfo
 	/** All packages/Primary Assets in a chunk, includes everything in Explicit plus recursively added ones */
 	TSet<FAssetIdentifier> AllAssets;
 };
+
+/** Filter options that can be use to restrict the types of asset processed in various asset manager functionality */
+enum class EAssetManagerFilter : int32
+{
+	// Default filter, process everything
+	Default			= 0,
+
+	// Only process assets that are unloaded (have no active or pending bundle assignments)
+	UnloadedOnly	= 0x00000001
+};
+
+ENUM_CLASS_FLAGS(EAssetManagerFilter);

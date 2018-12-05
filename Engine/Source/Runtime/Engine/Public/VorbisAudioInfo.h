@@ -97,21 +97,25 @@ public:
 	virtual bool SupportsStreaming() const override {return true;}
 	virtual bool StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo) override;
 	virtual bool StreamCompressedData(uint8* InDestination, bool bLooping, uint32 BufferSize) override;
-	virtual int32 GetCurrentChunkIndex() const override {return StreamingChunksSize == 0 ? 0 : BufferOffset / StreamingChunksSize;}
-	virtual int32 GetCurrentChunkOffset() const override {return StreamingChunksSize == 0 ? 0 : BufferOffset % StreamingChunksSize;}
+	virtual int32 GetCurrentChunkIndex() const override {return CurrentStreamingChunkIndex;}
+	virtual int32 GetCurrentChunkOffset() const override {return BufferOffset % CurrentStreamingChunksSize;}
 	// End of ICompressedAudioInfo Interface
 
 	struct FVorbisFileWrapper* VFWrapper;
-	const uint8*		SrcBufferData;
-	uint32			SrcBufferDataSize;
-	uint32			BufferOffset;
+	const uint8* SrcBufferData;
+	uint32 SrcBufferDataSize;
+	uint32 BufferOffset;
+	uint32 CurrentBufferChunkOffset;
 
 	FThreadSafeBool bPerformingOperation;
 
 	/** Critical section used to prevent multiple threads accessing same ogg-vorbis file handles at the same time */
 	FCriticalSection VorbisCriticalSection;
 
-	USoundWave*		StreamingSoundWave;				// The current sound wave being streamed, this is used to fetch new chunks
-	uint32			StreamingChunksSize;
+	USoundWave* StreamingSoundWave;				// The current sound wave being streamed, this is used to fetch new chunks
+	uint8 const* CurrentStreamingChunkData;
+	int32 CurrentStreamingChunkIndex;
+	int32 NextStreamingChunkIndex;
+	uint32 CurrentStreamingChunksSize;
 };
 #endif

@@ -1790,9 +1790,9 @@ struct CompressAnimationsFunctor
 				continue;
 			}
 
-			if( !bAnalyze && !bForceCompression && bSkipLongAnimations && (AnimSeq->NumFrames > 300) )
+			if( !bAnalyze && !bForceCompression && bSkipLongAnimations && (AnimSeq->GetRawNumberOfFrames() > 300) )
 			{
-				UE_LOG(LogPackageUtilities, Warning, TEXT("Animation (%s) has more than 300 frames (%i frames) and SKIPLONGANIMS switch is set. Skipping."), *AnimSeq->GetName(), AnimSeq->NumFrames);
+				UE_LOG(LogPackageUtilities, Warning, TEXT("Animation (%s) has more than 300 frames (%i frames) and SKIPLONGANIMS switch is set. Skipping."), *AnimSeq->GetName(), AnimSeq->GetRawNumberOfFrames());
 				continue;
 			}
 
@@ -2250,7 +2250,7 @@ struct CompressAnimationsFunctor
 			// Problem is this is going to create a DDC key with 'Automatic Compressor'
 			UAnimCompress* CompressionAlgorithm = NewObject<UAnimCompress_Automatic>();
 			AnimSeq->CompressionScheme = static_cast<UAnimCompress*>(StaticDuplicateObject(CompressionAlgorithm, AnimSeq));
-			AnimSeq->RequestAnimCompression(false, true, false);
+			AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, true, false));
 
 			// Automatic compression should have picked a suitable compressor that is not UAnimCompress_Automatic
 			if (ensure(!AnimSeq->CompressionScheme->IsA(UAnimCompress_Automatic::StaticClass())))
@@ -2258,7 +2258,7 @@ struct CompressAnimationsFunctor
 				// Update CompressCommandletVersion in that case, and create a proper DDC entry
 				// (with actual compressor)
 				AnimSeq->CompressCommandletVersion = CompressCommandletVersion;
-				AnimSeq->RequestAnimCompression(false, false, false);
+				AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, false, false));
 				bDirtyPackage = true;
 			}
 

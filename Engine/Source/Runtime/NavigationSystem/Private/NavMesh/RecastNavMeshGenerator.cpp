@@ -3133,8 +3133,100 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 	, Version(0)
 {
 	INC_DWORD_STAT_BY(STAT_NavigationMemory, sizeof(*this));
+}
 
-	Init();
+FRecastNavMeshGenerator::~FRecastNavMeshGenerator()
+{
+	DEC_DWORD_STAT_BY( STAT_NavigationMemory, sizeof(*this) );
+}
+
+void FRecastNavMeshGenerator::ConfigureBuildProperties(FRecastBuildConfig& OutConfig)
+{
+	// @todo those variables should be tweakable per navmesh actor
+	const float CellSize = DestNavMesh->CellSize;
+	const float CellHeight = DestNavMesh->CellHeight;
+	const float AgentHeight = DestNavMesh->AgentHeight;
+	const float MaxAgentHeight = DestNavMesh->AgentMaxHeight;
+	const float AgentMaxSlope = DestNavMesh->AgentMaxSlope;
+	const float AgentMaxClimb = DestNavMesh->AgentMaxStepHeight;
+	const float AgentRadius = DestNavMesh->AgentRadius;
+
+	OutConfig.Reset();
+
+	OutConfig.cs = CellSize;
+	OutConfig.ch = CellHeight;
+	OutConfig.walkableSlopeAngle = AgentMaxSlope;
+	OutConfig.walkableHeight = (int32)ceilf(AgentHeight / CellHeight);
+	OutConfig.walkableClimb = (int32)ceilf(AgentMaxClimb / CellHeight);
+	const float WalkableRadius = FMath::CeilToFloat(AgentRadius / CellSize);
+	OutConfig.walkableRadius = WalkableRadius;
+
+	// store original sizes
+	OutConfig.AgentHeight = AgentHeight;
+	OutConfig.AgentMaxClimb = AgentMaxClimb;
+	OutConfig.AgentRadius = AgentRadius;
+
+	OutConfig.borderSize = WalkableRadius + 3;
+	OutConfig.maxEdgeLen = (int32)(1200.0f / CellSize);
+	OutConfig.maxSimplificationError = 1.3f;
+	// hardcoded, but can be overridden by RecastNavMesh params later
+	OutConfig.minRegionArea = (int32)rcSqr(0);
+	OutConfig.mergeRegionArea = (int32)rcSqr(20.f);
+
+	OutConfig.maxVertsPerPoly = (int32)MAX_VERTS_PER_POLY;
+	OutConfig.detailSampleDist = 600.0f;
+	OutConfig.detailSampleMaxError = 1.0f;
+	OutConfig.PolyMaxHeight = (int32)ceilf(MaxAgentHeight / CellHeight);
+
+	OutConfig.minRegionArea = (int32)rcSqr(DestNavMesh->MinRegionArea / CellSize);
+	OutConfig.mergeRegionArea = (int32)rcSqr(DestNavMesh->MergeRegionSize / CellSize);
+	OutConfig.maxSimplificationError = DestNavMesh->MaxSimplificationError;
+	OutConfig.bPerformVoxelFiltering = DestNavMesh->bPerformVoxelFiltering;
+	OutConfig.bMarkLowHeightAreas = DestNavMesh->bMarkLowHeightAreas;
+	OutConfig.bFilterLowSpanSequences = DestNavMesh->bFilterLowSpanSequences;
+	OutConfig.bFilterLowSpanFromTileCache = DestNavMesh->bFilterLowSpanFromTileCache;
+	if (DestNavMesh->bMarkLowHeightAreas)
+	{
+		OutConfig.walkableHeight = 1;
+	}
+
+	const UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	OutConfig.AgentIndex = NavSys->GetSupportedAgentIndex(DestNavMesh);
+
+	OutConfig.tileSize = FMath::TruncToInt(DestNavMesh->TileSizeUU / CellSize);
+
+	OutConfig.regionChunkSize = OutConfig.tileSize / DestNavMesh->LayerChunkSplits;
+	OutConfig.TileCacheChunkSize = OutConfig.tileSize / DestNavMesh->RegionChunkSplits;
+	OutConfig.regionPartitioning = DestNavMesh->LayerPartitioning;
+	OutConfig.TileCachePartitionType = DestNavMesh->RegionPartitioning;
+}
+
+void FRecastNavMeshGenerator::Init()
+{
+	check(DestNavMesh);
+
+	ConfigureBuildProperties(Config);
+
+	BBoxGrowth = FVector(2.0f * Config.borderSize * Config.cs);
+	RcNavMeshOrigin = Unreal2RecastPoint(DestNavMesh->NavMeshOriginOffset);
+	
+	AdditionalCachedData = FRecastNavMeshCachedData::Construct(DestNavMesh);
+
+	UpdateNavigationBounds();
+
+	/** setup maximum number of active tile generator*/
+	const int32 NumberOfWorkerThreads = FTaskGraphInterface::Get().GetNumWorkerThreads();
+	MaxTileGeneratorTasks = FMath::Min(FMath::Max(NumberOfWorkerThreads * 2, 1), GetOwner() ? GetOwner()->GetMaxSimultaneousTileGenerationJobsCount() : INT_MAX);
+	UE_LOG(LogNavigation, Log, TEXT("Using max of %d workers to build navigation."), MaxTileGeneratorTasks);
+	NumActiveTiles = 0;
+
+	// prepare voxel cache if needed
+	if (ARecastNavMesh::IsVoxelCacheEnabled())
+	{
+		VoxelCacheContext.Create(Config.tileSize + Config.borderSize * 2, Config.cs, Config.ch);
+	}
+
+	bInitialized = true;
 
 	int32 MaxTiles = 0;
 	int32 MaxPolysPerTile = 0;
@@ -3190,90 +3282,6 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 		Config.MaxPolysPerTile = MaxPolysPerTile;
 		NumActiveTiles = GetTilesCountHelper(DestNavMesh->GetRecastNavMeshImpl()->DetourNavMesh);
 	}
-}
-
-FRecastNavMeshGenerator::~FRecastNavMeshGenerator()
-{
-	DEC_DWORD_STAT_BY( STAT_NavigationMemory, sizeof(*this) );
-}
-
-void FRecastNavMeshGenerator::Init()
-{
-	// @todo those variables should be tweakable per navmesh actor
-	const float CellSize = DestNavMesh->CellSize;
-	const float CellHeight = DestNavMesh->CellHeight;
-	const float AgentHeight = DestNavMesh->AgentHeight;
-	const float MaxAgentHeight = DestNavMesh->AgentMaxHeight;
-	const float AgentMaxSlope = DestNavMesh->AgentMaxSlope;
-	const float AgentMaxClimb = DestNavMesh->AgentMaxStepHeight;
-	const float AgentRadius = DestNavMesh->AgentRadius;
-
-	Config.Reset();
-	
-	Config.cs = CellSize;
-	Config.ch = CellHeight;
-	Config.walkableSlopeAngle = AgentMaxSlope;
-	Config.walkableHeight = (int32)ceilf(AgentHeight / CellHeight);
-	Config.walkableClimb = (int32)ceilf(AgentMaxClimb / CellHeight);
-	const float WalkableRadius = FMath::CeilToFloat(AgentRadius / CellSize);
-	Config.walkableRadius = WalkableRadius;
-	
-	// store original sizes
-	Config.AgentHeight = AgentHeight;
-	Config.AgentMaxClimb = AgentMaxClimb;
-	Config.AgentRadius = AgentRadius;
-
-	Config.borderSize = WalkableRadius + 3;
-	Config.maxEdgeLen = (int32)(1200.0f / CellSize);
-	Config.maxSimplificationError = 1.3f;
-	// hardcoded, but can be overridden by RecastNavMesh params later
-	Config.minRegionArea = (int32)rcSqr(0);
-	Config.mergeRegionArea = (int32)rcSqr(20.f);
-
-	Config.maxVertsPerPoly = (int32)MAX_VERTS_PER_POLY;
-	Config.detailSampleDist = 600.0f;
-	Config.detailSampleMaxError = 1.0f;
-	Config.PolyMaxHeight = (int32)ceilf(MaxAgentHeight / CellHeight);
-		
-	Config.minRegionArea = (int32)rcSqr(DestNavMesh->MinRegionArea / CellSize);
-	Config.mergeRegionArea = (int32)rcSqr(DestNavMesh->MergeRegionSize / CellSize);
-	Config.maxSimplificationError = DestNavMesh->MaxSimplificationError;
-	Config.bPerformVoxelFiltering = DestNavMesh->bPerformVoxelFiltering;
-	Config.bMarkLowHeightAreas = DestNavMesh->bMarkLowHeightAreas;
-	Config.bFilterLowSpanSequences = DestNavMesh->bFilterLowSpanSequences;
-	Config.bFilterLowSpanFromTileCache = DestNavMesh->bFilterLowSpanFromTileCache;
-	if (DestNavMesh->bMarkLowHeightAreas)
-	{
-		Config.walkableHeight = 1;
-	}
-	
-	AdditionalCachedData = FRecastNavMeshCachedData::Construct(DestNavMesh);
-
-	const UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	Config.AgentIndex = NavSys->GetSupportedAgentIndex(DestNavMesh);
-
-	Config.tileSize = FMath::TruncToInt(DestNavMesh->TileSizeUU / CellSize);
-
-	Config.regionChunkSize = Config.tileSize / DestNavMesh->LayerChunkSplits;
-	Config.TileCacheChunkSize = Config.tileSize / DestNavMesh->RegionChunkSplits;
-	Config.regionPartitioning = DestNavMesh->LayerPartitioning;
-	Config.TileCachePartitionType = DestNavMesh->RegionPartitioning;
-
-	UpdateNavigationBounds();
-
-	/** setup maximum number of active tile generator*/
-	const int32 NumberOfWorkerThreads = FTaskGraphInterface::Get().GetNumWorkerThreads();
-	MaxTileGeneratorTasks = FMath::Min(FMath::Max(NumberOfWorkerThreads * 2, 1), GetOwner() ? GetOwner()->GetMaxSimultaneousTileGenerationJobsCount() : INT_MAX);
-	UE_LOG(LogNavigation, Log, TEXT("Using max of %d workers to build navigation."), MaxTileGeneratorTasks);
-	NumActiveTiles = 0;
-
-	// prepare voxel cache if needed
-	if (ARecastNavMesh::IsVoxelCacheEnabled())
-	{
-		VoxelCacheContext.Create(Config.tileSize + Config.borderSize * 2, Config.cs, Config.ch);
-	}
-
-	bInitialized = true;
 }
 
 void FRecastNavMeshGenerator::UpdateNavigationBounds()
@@ -3901,10 +3909,9 @@ bool FRecastNavMeshGenerator::HasDirtyTiles() const
 
 FBox FRecastNavMeshGenerator::GrowBoundingBox(const FBox& BBox, bool bIncludeAgentHeight) const
 {
-	const FVector BBoxGrowOffsetBoth = FVector(2.0f * Config.borderSize * Config.cs);
 	const FVector BBoxGrowOffsetMin = FVector(0, 0, bIncludeAgentHeight ? Config.AgentHeight : 0.0f);
 
-	return FBox(BBox.Min - BBoxGrowOffsetBoth - BBoxGrowOffsetMin, BBox.Max + BBoxGrowOffsetBoth);
+	return FBox(BBox.Min - BBoxGrowth - BBoxGrowOffsetMin, BBox.Max + BBoxGrowth);
 }
 
 static bool IntercestBounds(const FBox& TestBox, const TNavStatArray<FBox>& Bounds)

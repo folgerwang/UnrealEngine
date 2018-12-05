@@ -285,6 +285,20 @@ void PreAllocateRepList(int32 ListSize, int32 NumLists)
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 
+
+#if WITH_EDITOR
+void ForEachClientPIEWorld(TFunction<void(UWorld*)> Func)
+{
+	for (TObjectIterator<UWorld> It; It; ++It)
+	{
+		if (It->WorldType == EWorldType::PIE && It->GetNetMode() != NM_DedicatedServer)
+		{
+			Func(*It);
+		}
+	}
+}
+#endif
+
 void LogListDetails(FActorRepList& RepList, FOutputDevice& Ar)
 {
 	FString ListContentString;

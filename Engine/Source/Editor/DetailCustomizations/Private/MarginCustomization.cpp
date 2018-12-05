@@ -33,6 +33,7 @@ void FMarginStructCustomization::CustomizeHeader( TSharedRef<class IPropertyHand
 
 	TSharedPtr<SHorizontalBox> HorizontalBox;
 
+	HeaderRow.IsEnabled(TAttribute<bool>(InStructPropertyHandle, &IPropertyHandle::IsEditable));
 	HeaderRow.NameContent()
 	[
 		StructPropertyHandle->CreatePropertyNameWidget()
@@ -59,6 +60,7 @@ void FMarginStructCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 		TSharedRef<IPropertyHandle> ChildHandle = ChildPropertyHandles[ ChildIndex ];
 		IDetailPropertyRow& PropertyRow = StructBuilder.AddProperty( ChildHandle );
 		PropertyRow
+		.IsEnabled(TAttribute<bool>(ChildHandle, &IPropertyHandle::IsEditable))
 		.CustomWidget()
 		.NameContent()
 		[

@@ -631,6 +631,35 @@ public:
 	 */
 	bool SupportsRate(float Rate, bool Unthinned) const;
 
+	/**
+	 * Record last audio sample played to track audio sync (for automated tests)
+	 *
+	 * @param SampleTime Time of media sample currently being played
+	 * @return true if playback is being prepared, false otherwise.
+	 */
+	void SetLastAudioRenderedSampleTime(FTimespan SampleTime);
+
+	/**
+	 * Get time of last audio sample played
+	 *
+	 * @return Time of last audio sample played.
+	 */
+	FTimespan GetLastAudioRenderedSampleTime() const;
+
+	/**
+	 * Get time of last audio sample decoded
+	 *
+	 * @return Time of last audio sample decoded.
+	 */
+	FTimespan GetLastAudioSampleProcessedTime() const;
+
+	/**
+	 * Get time of last video sample decoded
+	 *
+	 * @return Time of last video sample decoded.
+	 */
+	FTimespan GetLastVideoSampleProcessedTime() const;
+
 public:
 
 	/** Get an event delegate that is invoked when a media event occurred. */
@@ -781,4 +810,13 @@ private:
 
 	/** Active media player options. */
 	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
+
+	/** Time of last audio sample played. */
+	TAtomic<FTimespan> LastAudioRenderedSampleTime;
+
+	/** Time of last audio sample decoded. */
+	TAtomic<FTimespan> LastAudioSampleProcessedTime;
+
+	/** Time of last video sample decoded. */
+	TAtomic<FTimespan> LastVideoSampleProcessedTime;
 };

@@ -461,7 +461,7 @@ void AnimationFormat_GetStats(
 	if (Seq)
 	{
 		OverheadSize = Seq->CompressedTrackOffsets.Num() * sizeof(int32);
-		const size_t KeyFrameLookupSize = (Seq->NumFrames > 0xFF) ? sizeof(uint16) : sizeof(uint8);
+		const size_t KeyFrameLookupSize = (Seq->GetCompressedNumberOfFrames() > 0xFF) ? sizeof(uint16) : sizeof(uint8);
 
 		if (Seq->KeyEncodingFormat != AKF_PerTrackCompression)
 		{

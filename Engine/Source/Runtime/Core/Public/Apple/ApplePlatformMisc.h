@@ -54,7 +54,7 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 {
 	static void PlatformInit();
 
-	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
+	UE_DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 
 	static FString GetEnvironmentVariable(const TCHAR* VariableName);
@@ -87,18 +87,20 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 	static TArray<uint8> GetSystemFontBytes();
 	static FString GetDefaultLocale();
 	static FString GetDefaultLanguage();
-	static TArray<FString> GetPreferredLanguages();
 	static FString GetLocalCurrencyCode();
 	static FString GetLocalCurrencySymbol();
 
 	static bool IsOSAtLeastVersion(const uint32 MacOSVersion[3], const uint32 IOSVersion[3], const uint32 TVOSVersion[3]);
 
-#if APPLE_PROFILING_ENABLED
-	static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text);
-	static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text);
+#if STATS || ENABLE_STATNAMEDEVENTS || APPLE_PROFILING_ENABLED
+	static void BeginNamedEventFrame();
+	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 	static void EndNamedEvent();
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit);
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit);
 #endif
-	
+
 	//////// Platform specific
 	static void* CreateAutoreleasePool();
 	static void ReleaseAutoreleasePool(void *Pool);

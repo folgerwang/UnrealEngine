@@ -630,8 +630,8 @@ void FWidgetBlueprintEditor::MigrateFromChain(FEditPropertyChain* PropertyThatCh
 {
 	UWidgetBlueprint* Blueprint = GetWidgetBlueprintObj();
 
-	UUserWidget* PreviewActor = GetPreview();
-	if ( PreviewActor != nullptr )
+	UUserWidget* PreviewUserWidget = GetPreview();
+	if ( PreviewUserWidget != nullptr )
 	{
 		for ( TWeakObjectPtr<UObject> ObjectRef : SelectedObjects )
 		{
@@ -854,8 +854,8 @@ void FWidgetBlueprintEditor::Compile()
 
 void FWidgetBlueprintEditor::DestroyPreview()
 {
-	UUserWidget* PreviewActor = GetPreview();
-	if ( PreviewActor != nullptr )
+	UUserWidget* PreviewUserWidget = GetPreview();
+	if ( PreviewUserWidget != nullptr )
 	{
 		check(PreviewScene.GetWorld());
 
@@ -866,10 +866,10 @@ void FWidgetBlueprintEditor::DestroyPreview()
 		// otherwise the leak detection can't be trusted.
 		OnWidgetPreviewUpdated.Broadcast();
 
-		TWeakPtr<SWidget> PreviewSlateWidgetWeak = PreviewActor->GetCachedWidget();
+		TWeakPtr<SWidget> PreviewSlateWidgetWeak = PreviewUserWidget->GetCachedWidget();
 
-		PreviewActor->MarkPendingKill();
-		PreviewActor->ReleaseSlateResources(true);
+		PreviewUserWidget->MarkPendingKill();
+		PreviewUserWidget->ReleaseSlateResources(true);
 
 		FCompilerResultsLog LogResults;
 		LogResults.bAnnotateMentionedNodes = false;
@@ -881,7 +881,7 @@ void FWidgetBlueprintEditor::DestroyPreview()
 		// NOTE: This doesn't explore sub UUserWidget trees, searching for leaks there.
 
 		// Verify everything is going to be garbage collected.
-		PreviewActor->WidgetTree->ForEachWidget([&LogResults, &bFoundLeak] (UWidget* Widget) {
+		PreviewUserWidget->WidgetTree->ForEachWidget([&LogResults, &bFoundLeak] (UWidget* Widget) {
 			if ( !bFoundLeak )
 			{
 				TWeakPtr<SWidget> PreviewChildWidget = Widget->GetCachedWidget();
@@ -927,7 +927,7 @@ void FWidgetBlueprintEditor::AppendExtraCompilerResults(TSharedPtr<class IMessag
 
 void FWidgetBlueprintEditor::UpdatePreview(UBlueprint* InBlueprint, bool bInForceFullUpdate)
 {
-	UUserWidget* PreviewActor = GetPreview();
+	UUserWidget* PreviewUserWidget = GetPreview();
 
 	// Signal that we're going to be constructing editor components
 	if ( InBlueprint != nullptr && InBlueprint->SimpleConstructionScript != nullptr )
@@ -949,11 +949,11 @@ void FWidgetBlueprintEditor::UpdatePreview(UBlueprint* InBlueprint, bool bInForc
 			// Assign the outer to the game instance if it exists, otherwise use the world
 			{
 				FMakeClassSpawnableOnScope TemporarilySpawnable(PreviewBlueprint->GeneratedClass);
-				PreviewActor = NewObject<UUserWidget>(PreviewScene.GetWorld(), PreviewBlueprint->GeneratedClass);
+				PreviewUserWidget = NewObject<UUserWidget>(PreviewScene.GetWorld(), PreviewBlueprint->GeneratedClass);
 			}
 
 			// The preview widget should not be transactional.
-			PreviewActor->ClearFlags(RF_Transactional);
+			PreviewUserWidget->ClearFlags(RF_Transactional);
 
 			UWidgetTree* LatestWidgetTree = PreviewBlueprint->WidgetTree;
 
@@ -971,21 +971,21 @@ void FWidgetBlueprintEditor::UpdatePreview(UBlueprint* InBlueprint, bool bInForc
 
 			// Update the widget tree directly to match the blueprint tree.  That way the preview can update
 			// without needing to do a full recompile.
-			PreviewActor->DuplicateAndInitializeFromWidgetTree(LatestWidgetTree);
+			PreviewUserWidget->DuplicateAndInitializeFromWidgetTree(LatestWidgetTree);
 
 			if ( ULocalPlayer* Player = PreviewScene.GetWorld()->GetFirstLocalPlayerFromController() )
 			{
-				PreviewActor->SetPlayerContext(FLocalPlayerContext(Player));
+				PreviewUserWidget->SetPlayerContext(FLocalPlayerContext(Player));
 			}
 
-			PreviewActor->Initialize();
+			// Establish the widget as being in design time before initializing (so that IsDesignTime is reliable within Initialize)
+			PreviewUserWidget->SetDesignerFlags(GetCurrentDesignerFlags());
 
-			// Configure all the widgets to be set to design time.
-			PreviewActor->SetDesignerFlags(GetCurrentDesignerFlags());
+			PreviewUserWidget->Initialize();
 		}
 
 		// Store a reference to the preview actor.
-		PreviewWidgetPtr = PreviewActor;
+		PreviewWidgetPtr = PreviewUserWidget;
 	}
 
 	OnWidgetPreviewUpdated.Broadcast();

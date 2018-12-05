@@ -802,7 +802,7 @@ protected:
 	{
 		if (bReallyNeedsFrameTable && (CompressedBytes.Num() > 0))
 		{
-			const int32 NumFrames = Params.AnimSeq->NumFrames;
+			const int32 NumFrames = Params.AnimSeq->GetRawNumberOfFrames();
 			const float SequenceLength = Params.AnimSeq->SequenceLength;
 			const float FramesPerSecond = (NumFrames - 1) / SequenceLength;
 
@@ -822,7 +822,7 @@ public:
 	FPerTrackCompressor(int32 InCompressionType, const FTranslationTrack& TranslationData, const FPerTrackParams& Params)
 	{
 		Reset();
-		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (TranslationData.PosKeys.Num() > 1) && (TranslationData.PosKeys.Num() < Params.AnimSeq->NumFrames);
+		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (TranslationData.PosKeys.Num() > 1) && (TranslationData.PosKeys.Num() < Params.AnimSeq->GetRawNumberOfFrames());
 
 		switch (InCompressionType)
 		{
@@ -856,7 +856,7 @@ public:
 	FPerTrackCompressor(int32 InCompressionType, const FRotationTrack& RotationData, const FPerTrackParams& Params)
 	{
 		Reset();
-		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (RotationData.RotKeys.Num() > 1) && (RotationData.RotKeys.Num() < Params.AnimSeq->NumFrames);
+		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (RotationData.RotKeys.Num() > 1) && (RotationData.RotKeys.Num() < Params.AnimSeq->GetRawNumberOfFrames());
 
 		switch (InCompressionType)
 		{
@@ -893,7 +893,7 @@ public:
 	FPerTrackCompressor(int32 InCompressionType, const FScaleTrack& ScaleData, const FPerTrackParams& Params)
 	{
 		Reset();
-		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (ScaleData.ScaleKeys.Num() > 1) && (ScaleData.ScaleKeys.Num() < Params.AnimSeq->NumFrames);
+		bReallyNeedsFrameTable = Params.bIncludeKeyTable && (ScaleData.ScaleKeys.Num() > 1) && (ScaleData.ScaleKeys.Num() < Params.AnimSeq->GetRawNumberOfFrames());
 
 		switch (InCompressionType)
 		{
@@ -2132,12 +2132,12 @@ void UAnimCompress_PerTrackCompression::FilterBeforeMainKeyRemoval(
 	const int32 NumTracks = TranslationData.Num();
 
 	// Downsample the keys if enabled
-	if ((AnimSeq->NumFrames >= MinKeysForResampling) && bResampleAnimation)
+	if ((AnimSeq->GetRawNumberOfFrames() >= MinKeysForResampling) && bResampleAnimation)
 	{
 		if(AnimSeq->SequenceLength > 0)
 		{
 			//Make sure we aren't going to oversample the original animation
-			const float CurrentFramerate = (AnimSeq->NumFrames - 1) / AnimSeq->SequenceLength;
+			const float CurrentFramerate = (AnimSeq->GetRawNumberOfFrames() - 1) / AnimSeq->SequenceLength;
 			if (CurrentFramerate > ResampledFramerate)
 			{
 				ResampleKeys(TranslationData, RotationData, ScaleData, 1.0f / ResampledFramerate, 0.0f);

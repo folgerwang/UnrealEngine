@@ -59,6 +59,10 @@ namespace MovieSceneClipboard
 	{
 		return "EventPayload";
 	}
+	template<> inline FName GetKeyTypeName<TSoftObjectPtr<UObject>>()
+	{
+		return "SoftObjectPtr";
+	}
 	template<> inline FName GetKeyTypeName<FMovieSceneEvent>()
 	{
 		return "MovieSceneEvent";

@@ -35,20 +35,19 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ModifyCurve : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = Links)
 	FPoseLink SourcePose;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ModifyCurve)
-	EModifyCurveApplyMode ApplyMode;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, editfixedsize, Category = ModifyCurve, meta = (PinShownByDefault))
 	TArray<float> CurveValues;
-
-	UPROPERTY(Transient)
-	TArray<float> LastCurveValues;
 
 	UPROPERTY()
 	TArray<FName> CurveNames;
 
+	TArray<float> LastCurveValues;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ModifyCurve, meta = (PinShownByDefault))
 	float Alpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ModifyCurve)
+	EModifyCurveApplyMode ApplyMode;
 
 	FAnimNode_ModifyCurve();
 

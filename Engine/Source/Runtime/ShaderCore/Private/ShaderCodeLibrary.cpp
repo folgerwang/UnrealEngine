@@ -1924,7 +1924,7 @@ void FShaderCodeLibrary::InitForRuntime(EShaderPlatform ShaderPlatform)
 	if (bEnable)
 	{
 		FShaderCodeLibraryImpl::Impl = new FShaderCodeLibraryImpl(false);
-		if (FShaderCodeLibraryImpl::Impl->OpenShaderCode(FPaths::ProjectContentDir(), ShaderPlatform, TEXT("Global")))
+		if (FShaderCodeLibraryImpl::Impl && FShaderCodeLibraryImpl::Impl->OpenShaderCode(FPaths::ProjectContentDir(), ShaderPlatform, TEXT("Global")))
 		{
 			IPluginManager::Get().OnNewPluginMounted().AddStatic(&FShaderCodeLibraryPluginMountedCallback);
 		

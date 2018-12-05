@@ -1190,7 +1190,7 @@ public:
 	 *
 	 * @param Ar Archive to count for.
 	 */
-	void CountBytes(FArchive& Ar)
+	void CountBytes(FArchive& Ar) const
 	{
 		Ar.CountBytes(ArrayNum*sizeof(ElementType), ArrayMax*sizeof(ElementType));
 	}

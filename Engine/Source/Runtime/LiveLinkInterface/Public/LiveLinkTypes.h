@@ -67,7 +67,7 @@ public:
 };
 
 USTRUCT()
-struct DEPRECATED(4.20, "FLiveLinkFrameRate is no longer used, please use FFrameRate from TimeManagement instead.") FLiveLinkFrameRate : public FFrameRate
+struct UE_DEPRECATED(4.20, "FLiveLinkFrameRate is no longer used, please use FFrameRate from TimeManagement instead.") FLiveLinkFrameRate : public FFrameRate
 {
 public:
 	GENERATED_USTRUCT_BODY()
@@ -123,7 +123,7 @@ struct FLiveLinkTimeCode_Base_DEPRECATED
 
 // A Qualified TimeCode associated with 
 USTRUCT()
-struct DEPRECATED(4.20, "FLiveLinkTimeCode is no longer used, please use FQualifiedFrameTime from TimeManagement instead.") FLiveLinkTimeCode : public FLiveLinkTimeCode_Base_DEPRECATED
+struct UE_DEPRECATED(4.20, "FLiveLinkTimeCode is no longer used, please use FQualifiedFrameTime from TimeManagement instead.") FLiveLinkTimeCode : public FLiveLinkTimeCode_Base_DEPRECATED
 {
 public:
 	GENERATED_BODY()

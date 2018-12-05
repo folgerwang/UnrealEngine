@@ -12,6 +12,10 @@ UMovieSceneFloatTrack::UMovieSceneFloatTrack( const FObjectInitializer& ObjectIn
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneFloatTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneFloatSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneFloatTrack::CreateNewSection()
 {

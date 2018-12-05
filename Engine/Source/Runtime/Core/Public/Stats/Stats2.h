@@ -17,6 +17,7 @@
 #include "Templates/Atomic.h"
 #include "Math/Color.h"
 #include "StatsCommon.h"
+#include "HAL/ThreadManager.h"
 #include "Templates/UniquePtr.h"
 
 class FScopeCycleCounter;
@@ -1117,6 +1118,9 @@ struct FStatPacket
 	/** Size we presize the message buffer to, currently the max of what we have seen for the last PRESIZE_MAX_NUM_ENTRIES. **/
 	TArray<int32> StatMessagesPresize;
 
+	/** If true, we dump ThreadedStats to track number of statmessage in each thread **/
+	static bool bDumpStatPacket;
+
 	/** constructor **/
 	FStatPacket()
 		: Frame(1)
@@ -1158,6 +1162,11 @@ struct FStatPacket
 	void AssignFrame( int64 InFrame )
 	{
 		Frame = InFrame;
+
+		if (bDumpStatPacket)
+		{
+			UE_LOG(LogStats, Display, TEXT("Frame %d, Size of StatMessages for Thread %d(%s) is %d"), Frame, ThreadId, *FThreadManager::Get().GetThreadName(ThreadId), StatMessages.Num());
+		}
 	}
 };
 

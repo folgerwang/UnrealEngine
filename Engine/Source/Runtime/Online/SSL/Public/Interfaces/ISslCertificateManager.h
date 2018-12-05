@@ -31,6 +31,11 @@ public:
 	virtual void ClearAllPinnedPublicKeys() = 0;
 
 	/**
+	 * Check if the domain is currently pinned
+	 */
+	virtual bool IsDomainPinned(const FString& Domain) = 0;
+
+	/**
 	* Set digests for pinned certificate public key for a domain
 	*
 	* @param Domain Domain the pinned keys are valid for. If Domain starts with a '.' it will match any subdomain

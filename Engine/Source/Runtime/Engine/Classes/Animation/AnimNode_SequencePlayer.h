@@ -21,18 +21,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	UAnimSequenceBase* Sequence;
 
-	// Should the animation continue looping when it reaches the end?
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable bool bLoopAnimation;
-
 	// The Basis in which the PlayRate is expressed in. This is used to rescale PlayRate inputs.
 	// For example a Basis of 100 means that the PlayRate input will be divided by 100.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable float PlayRateBasis;
+	float PlayRateBasis;
 
 	// The play rate multiplier. Can be negative, which will cause the animation to play in reverse.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable float PlayRate;
+	float PlayRate;
 	
 	// Additional scaling, offsetting and clamping of PlayRate input.
 	// Performed after PlayRateBasis.
@@ -42,15 +38,19 @@ public:
 	// The start up position, it only applies when reinitialized
 	// if you loop, it will still start from 0.f after finishing the round
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
-	mutable float StartPosition;
+	float StartPosition;
+
+	// Should the animation continue looping when it reaches the end?
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
+	bool bLoopAnimation;
 
 public:
 	FAnimNode_SequencePlayer()
-		: Sequence(NULL)
-		, bLoopAnimation(true)
+		: Sequence(nullptr)
 		, PlayRateBasis(1.0f)
 		, PlayRate(1.0f)
 		, StartPosition(0.f)
+		, bLoopAnimation(true)
 	{
 	}
 

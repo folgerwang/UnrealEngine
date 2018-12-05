@@ -26,6 +26,10 @@
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 
+#ifndef DISABLE_UNVERIFIED_CERTIFICATE_LOADING
+#define DISABLE_UNVERIFIED_CERTIFICATE_LOADING 0
+#endif
+
 CURLM* FCurlHttpManager::GMultiHandle = NULL;
 CURLSH* FCurlHttpManager::GShareHandle = NULL;
 
@@ -213,10 +217,14 @@ void FCurlHttpManager::InitCurl()
 #endif
 
 	bool bVerifyPeer = true;
+#if DISABLE_UNVERIFIED_CERTIFICATE_LOADING
+	CurlRequestOptions.bVerifyPeer = bVerifyPeer;
+#else
 	if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
 	{
 		CurlRequestOptions.bVerifyPeer = bVerifyPeer;
 	}
+#endif
 
 	bool bAcceptCompressedContent = true;
 	if (GConfig->GetBool(TEXT("HTTP"), TEXT("AcceptCompressedContent"), bAcceptCompressedContent, GEngineIni))

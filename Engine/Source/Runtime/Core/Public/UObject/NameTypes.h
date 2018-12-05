@@ -684,12 +684,7 @@ public:
 
 	FORCEINLINE bool operator==(const FName& Other) const
 	{
-		#if WITH_CASE_PRESERVING_NAME
-			return GetComparisonIndexFast() == Other.GetComparisonIndexFast() && GetNumber() == Other.GetNumber();
-		#else
-			static_assert(sizeof(CompositeComparisonValue) == sizeof(*this), "ComparisonValue does not cover the entire FName state");
-			return CompositeComparisonValue == Other.CompositeComparisonValue;
-		#endif
+		return (GetComparisonIndexFast() == Other.GetComparisonIndexFast()) & (GetNumber() == Other.GetNumber());
 	}
 	FORCEINLINE bool operator!=(const FName& Other) const
 	{
@@ -928,8 +923,8 @@ public:
 	FName(const ANSICHAR* Name, EFindName FindType=FNAME_Add);
 
 	// Deprecated bUnused
-	DEPRECATED(4.12, "Removed bUnused from FName") FName(const WIDECHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
-	DEPRECATED(4.12, "Removed bUnused from FName") FName(const ANSICHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
+	UE_DEPRECATED(4.12, "Removed bUnused from FName") FName(const WIDECHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
+	UE_DEPRECATED(4.12, "Removed bUnused from FName") FName(const ANSICHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
 
 	/**
 	 * Create an FName. If FindType is FNAME_Find, and the string part of the name 
@@ -1121,11 +1116,6 @@ private:
 			/** Number portion of the string/number pair (stored internally as 1 more than actual, so zero'd memory will be the default, no-instance case) */
 			uint32			Number;
 		};
-
-		// Used to perform a single comparison in FName::operator==
-		#if !WITH_CASE_PRESERVING_NAME
-			uint64 CompositeComparisonValue;
-		#endif
 	};
 
 	/** Name hash head - used to iterate the single-linked list.		*/

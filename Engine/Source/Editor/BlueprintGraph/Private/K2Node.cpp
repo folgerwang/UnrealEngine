@@ -637,22 +637,31 @@ UK2Node::ERedirectType UK2Node::ShouldRedirectParam(const TArray<FString>& OldPi
 
 void UK2Node::RestoreSplitPins(TArray<UEdGraphPin*>& OldPins)
 {
+	UEdGraph* OuterGraph = GetGraph();
+	if (!OuterGraph || !OuterGraph->Schema)
+	{
+		return;
+	}
+
 	// necessary to recreate split pins and keep their wires
+	TArray<UEdGraphPin*> UnmatchedSplitPins;
 	for (UEdGraphPin* OldPin : OldPins)
 	{
 		if (OldPin->ParentPin)
 		{
 			// find the new pin that corresponds to parent, and split it if it isn't already split
+			bool bMatched = false;
 			for (UEdGraphPin* NewPin : Pins)
 			{
-				// The pin we're searching for has the same direction, is not a container, has the same name as our parent pin (TODO: does this handle redirects?), and is either a wildcard or a struct
+				// The pin we're searching for has the same direction, is not a container, has the same name as our parent pin, and is either a wildcard or a struct
 				// We allow sub categories of struct to change because it may be changing to a type that has the same members
-				if ((NewPin->Direction == OldPin->Direction) && !NewPin->PinType.IsContainer() && (NewPin->PinName == OldPin->ParentPin->PinName) 
+				if ((NewPin->Direction == OldPin->Direction) && !NewPin->PinType.IsContainer() && (NewPin->PinName == OldPin->ParentPin->PinName)
 					&& (NewPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard || NewPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct))
 				{
+					bMatched = true;
+
 					// Make sure we're not dealing with a menu node
-					UEdGraph* OuterGraph = GetGraph();
-					if (OuterGraph && OuterGraph->Schema && NewPin->SubPins.Num() == 0)
+					if (NewPin->SubPins.Num() == 0)
 					{
 						if (NewPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard)
 						{
@@ -662,6 +671,37 @@ void UK2Node::RestoreSplitPins(TArray<UEdGraphPin*>& OldPins)
 						GetSchema()->SplitPin(NewPin, false);
 						break;
 					}
+				}
+			}
+
+			if (!bMatched)
+			{
+				UnmatchedSplitPins.Add(OldPin);
+			}
+		}
+	}
+
+	// try and use redirectors to match remaining pins:
+	for(UEdGraphPin* UnmatchedOldPin : UnmatchedSplitPins)
+	{
+		TArray<FString> OldPinNames;
+		GetRedirectPinNames(*UnmatchedOldPin->ParentPin, OldPinNames);
+
+		for (UEdGraphPin* NewPin : Pins)
+		{
+			FName NewPinName;
+			if (ShouldRedirectParam(OldPinNames, /*out*/ NewPinName, this) == ERedirectType_Name && NewPinName == NewPin->PinName)
+			{
+				// Make sure we're not dealing with a menu node
+				if (NewPin->SubPins.Num() == 0)
+				{
+					if (NewPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard)
+					{
+						NewPin->PinType = UnmatchedOldPin->ParentPin->PinType;
+					}
+
+					GetSchema()->SplitPin(NewPin, false);
+					break;
 				}
 			}
 		}
@@ -751,7 +791,7 @@ UK2Node::ERedirectType UK2Node::DoPinsMatchForReconstruction(const UEdGraphPin* 
 
 					FName RedirectedPinName = SubCategoryStruct ? UProperty::FindRedirectedPropertyName(SubCategoryStruct, FName(*ParentHierarchy[ParentIndex].PropertyName)) : NAME_None;
 
-					if (RedirectedPinName != NAME_Name)
+					if (RedirectedPinName != NAME_None)
 					{
 						NewPinNameStr += FString(TEXT("_")) + RedirectedPinName.ToString();
 					}

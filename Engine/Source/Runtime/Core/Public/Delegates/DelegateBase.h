@@ -176,7 +176,7 @@ public:
 	 * @return The delegate instance.
 	 * @see SetDelegateInstance
 	 */
-	DEPRECATED(4.11, "GetDelegateInstance has been deprecated - calls to IDelegateInstance::GetUObject() and IDelegateInstance::GetHandle() should call the same functions on the delegate.  Other calls should be reconsidered.")
+	UE_DEPRECATED(4.11, "GetDelegateInstance has been deprecated - calls to IDelegateInstance::GetUObject() and IDelegateInstance::GetHandle() should call the same functions on the delegate.  Other calls should be reconsidered.")
 	FORCEINLINE IDelegateInstance* GetDelegateInstance( ) const
 	{
 		return GetDelegateInstanceProtected();

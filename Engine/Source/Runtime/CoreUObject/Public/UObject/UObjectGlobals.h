@@ -1994,15 +1994,15 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	static FGetPrimaryAssetIdForObject GetPrimaryAssetIdForObject;
 
 	DECLARE_DELEGATE_OneParam(FSoftObjectPathLoaded, const FString&);
-	DEPRECATED(4.17, "StringAssetReferenceLoaded is deprecated, call FSoftObjectPath::PostLoadPath instead")
+	UE_DEPRECATED(4.17, "StringAssetReferenceLoaded is deprecated, call FSoftObjectPath::PostLoadPath instead")
 	static FSoftObjectPathLoaded StringAssetReferenceLoaded;
 
 	DECLARE_DELEGATE_RetVal_OneParam(FString, FSoftObjectPathSaving, FString const& /*SavingAssetLongPathname*/);
-	DEPRECATED(4.17, "StringAssetReferenceSaving is deprecated, call FSoftObjectPath::PreSavePath instead")
+	UE_DEPRECATED(4.17, "StringAssetReferenceSaving is deprecated, call FSoftObjectPath::PreSavePath instead")
 	static FSoftObjectPathSaving StringAssetReferenceSaving;
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRedirectorFollowed, const FString&, UObject*);
-	DEPRECATED(4.17, "RedirectorFollowed is deprecated, FixeupRedirects was replaced with ResavePackages -FixupRedirect")
+	UE_DEPRECATED(4.17, "RedirectorFollowed is deprecated, FixeupRedirects was replaced with ResavePackages -FixupRedirect")
 	static FOnRedirectorFollowed RedirectorFollowed;
 
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FShouldCookPackageForPlatform, const UPackage*, const ITargetPlatform*);

@@ -125,13 +125,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_PoseDriver : public FAnimNode_PoseHandler
 	UPROPERTY(EditAnywhere, Category = PoseDriver)
 	TArray<FBoneReference> SourceBones;
 
-	/** If we should filter bones to be driven using the DrivenBonesFilter array */
-	UPROPERTY(EditAnywhere, Category = PoseDriver)
-	bool bOnlyDriveSelectedBones;
-
 	/** If bFilterDrivenBones is specified, only these bones will be modified by this node */
 	UPROPERTY(EditAnywhere, Category = PoseDriver, meta = (EditCondition = "bOnlyDriveSelectedBones"))
 	TArray<FBoneReference> OnlyDriveBones;
+
+	/** Targets used to compare with current pose and drive morphs/poses */
+	UPROPERTY(EditAnywhere, Category = PoseDriver)
+	TArray<FPoseDriverTarget> PoseTargets;
+
+	/** Last set of output weights from RBF solve */
+	TArray<FRBFOutputWeight> OutputWeights;
+
+	/** Input source bone TM, used for debug drawing */
+	TArray<FTransform> SourceBoneTMs;
+
+	/** If bFilterDrivenBones, this array lists bones that we should filter out (ie have a track in the PoseAsset, but are not listed in OnlyDriveBones */
+	TArray<FCompactPoseBoneIndex> BonesToFilter;
 
 	/** 
 	 *	Optional other bone space to use when reading SourceBone transform.
@@ -144,18 +153,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_PoseDriver : public FAnimNode_PoseHandler
 	UPROPERTY(EditAnywhere, Category = PoseDriver, meta=(ShowOnlyInnerProperties))
 	FRBFParams RBFParams;
 
-	/** Which part of the transform is read */
-	UPROPERTY(EditAnywhere, Category = PoseDriver)
-	EPoseDriverSource DriveSource;
-
-	/** Whether we should drive poses or curves */
-	UPROPERTY(EditAnywhere, Category = PoseDriver)
-	EPoseDriverOutput DriveOutput;
-
-	/** Targets used to compare with current pose and drive morphs/poses */
-	UPROPERTY(EditAnywhere, Category = PoseDriver)
-	TArray<FPoseDriverTarget> PoseTargets;
-
+#if WITH_EDITORONLY_DATA
 	// Deprecated
 	UPROPERTY()
 	FBoneReference SourceBone_DEPRECATED;
@@ -166,18 +164,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_PoseDriver : public FAnimNode_PoseHandler
 	UPROPERTY()
 	float RadialScaling_DEPRECATED;
 	//
+#endif
 
-	/** Last set of output weights from RBF solve */
-	TArray<FRBFOutputWeight> OutputWeights;
+	/** Which part of the transform is read */
+	UPROPERTY(EditAnywhere, Category = PoseDriver)
+	EPoseDriverSource DriveSource;
 
-	/** Input source bone TM, used for debug drawing */
-	TArray<FTransform> SourceBoneTMs;
+	/** Whether we should drive poses or curves */
+	UPROPERTY(EditAnywhere, Category = PoseDriver)
+	EPoseDriverOutput DriveOutput;
 
-	/** If bFilterDrivenBones, this array lists bones that we should filter out (ie have a track in the PoseAsset, but are not listed in OnlyDriveBones */
-	TArray<FCompactPoseBoneIndex> BonesToFilter;
+	/** If we should filter bones to be driven using the DrivenBonesFilter array */
+	UPROPERTY(EditAnywhere, Category = PoseDriver)
+	uint8 bOnlyDriveSelectedBones : 1;
 
 	/** If true, will recalculate DrivenUID values in PoseTargets array on next eval */
-	bool bCachedDrivenIDsAreDirty;
+	uint8 bCachedDrivenIDsAreDirty : 1;
 
 	// FAnimNode_Base interface
 	virtual void Initialize_AnyThread(const FAnimationInitializeContext& Context) override;

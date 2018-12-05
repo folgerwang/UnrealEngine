@@ -253,7 +253,7 @@ public:
 	 *
 	 * @return	 Array of plug-in status objects.
 	 */
-	DEPRECATED(4.18, "QueryStatusForAllPlugins() has been deprecated. Please use GetDiscoveredPlugins() instead.")
+	UE_DEPRECATED(4.18, "QueryStatusForAllPlugins() has been deprecated. Please use GetDiscoveredPlugins() instead.")
 	virtual TArray<FPluginStatus> QueryStatusForAllPlugins() const = 0;
 
 	/**

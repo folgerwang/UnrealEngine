@@ -39,6 +39,19 @@ struct SLATECORE_API FFontOutlineSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings, meta=(ClampMin="0"))
 	int32 OutlineSize;
 
+	/**
+	 * When enabled the outline will be completely translucent where the filled area will be.  This allows for a separate fill alpha value
+	 * The trade off when enabling this is slightly worse quality for completely opaque fills where the inner outline border meets the fill area
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OutlineSettings)
+	bool bSeparateFillAlpha;
+
+	/**
+	 * When enabled the outline will be applied to any drop shadow that uses this font
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OutlineSettings)
+	bool bApplyOutlineToDropShadows;
+
 	/** Optional material to apply to the outline */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="MaterialInterface"))
 	UObject* OutlineMaterial;
@@ -47,36 +60,29 @@ struct SLATECORE_API FFontOutlineSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
 	FLinearColor OutlineColor;
 
-	/**
-	 * When enabled the outline will be completely translucent where the filled area will be.  This allows for a separate fill alpha value
-	 * The trade off when enabling this is slightly worse quality for completely opaque fills where the inner outline border meets the fill area
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OutlineSettings)
-	uint8 bSeparateFillAlpha : 1;
-
-	/**
-	 * When enabled the outline will be applied to any drop shadow that uses this font
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OutlineSettings)
-	uint8 bApplyOutlineToDropShadows : 1;
-
 	FFontOutlineSettings()
 		: OutlineSize(0)
-		, OutlineMaterial(nullptr)
-		, OutlineColor(FLinearColor::Black)
 		, bSeparateFillAlpha(false)
 		, bApplyOutlineToDropShadows(false)
+		, OutlineMaterial(nullptr)
+		, OutlineColor(FLinearColor::Black)
 	{}
 
 	FFontOutlineSettings(int32 InOutlineSize, FLinearColor InColor = FLinearColor::Black)
 		: OutlineSize(InOutlineSize)
-		, OutlineMaterial(nullptr)
-		, OutlineColor(InColor)
 		, bSeparateFillAlpha(false)
 		, bApplyOutlineToDropShadows(false)
+		, OutlineMaterial(nullptr)
+		, OutlineColor(InColor)
 	{}
 
-	bool operator==(const FFontOutlineSettings& Other) const
+	inline bool IsIdenticalToForCaching(const FFontOutlineSettings& Other) const
+	{
+		return OutlineSize == Other.OutlineSize
+			&&  bSeparateFillAlpha == Other.bSeparateFillAlpha;
+	}
+
+	inline bool IsIdenticalTo(const FFontOutlineSettings& Other) const
 	{
 		return OutlineSize == Other.OutlineSize
 			&& bSeparateFillAlpha == Other.bSeparateFillAlpha
@@ -90,7 +96,6 @@ struct SLATECORE_API FFontOutlineSettings
 		uint32 Hash = 0;
 		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineSize));
 		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.bSeparateFillAlpha));
-		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.bApplyOutlineToDropShadows));
 
 		return Hash;
 	}
@@ -100,12 +105,15 @@ struct SLATECORE_API FFontOutlineSettings
 		return OutlineSize > 0 && OutlineColor.A > 0;
 	}
 
+#if WITH_EDITORONLY_DATA
 	bool Serialize(FArchive& Ar);
 	void PostSerialize(const FArchive& Ar);
+#endif
 
 	static FFontOutlineSettings NoOutline;
 };
 
+#if WITH_EDITORONLY_DATA
 template<>
 struct TStructOpsTypeTraits<FFontOutlineSettings>
 	: public TStructOpsTypeTraitsBase2<FFontOutlineSettings>
@@ -116,6 +124,7 @@ struct TStructOpsTypeTraits<FFontOutlineSettings>
 		WithPostSerialize = true,
 	};
 };
+#endif
 
 /**
  * A representation of a font in Slate.
@@ -227,33 +236,28 @@ public:
 	FSlateFontInfo( const WIDECHAR* InFontName, uint16 InSize, EFontHinting InHinting = EFontHinting::Default );
 
 public:
-
-	/**
-	 * Compares this font info with another for equality.
-	 *
-	 * @param Other The other font info.
-	 * @return true if the two font infos are equal, false otherwise.
-	 */
-	bool operator==( const FSlateFontInfo& Other ) const 
+	inline bool IsIdentialToForCaching(const FSlateFontInfo& Other) const
 	{
 		return FontObject == Other.FontObject
-			&& FontMaterial == Other.FontMaterial
-			&& OutlineSettings == Other.OutlineSettings
+			&& OutlineSettings.IsIdenticalToForCaching(Other.OutlineSettings)
 			&& CompositeFont == Other.CompositeFont
 			&& TypefaceFontName == Other.TypefaceFontName
 			&& Size == Other.Size;
 	}
 
-	/**
-	 * Compares this font info with another for inequality.
-	 *
-	 * @param Other The other font info.
-	 *
-	 * @return false if the two font infos are equal, true otherwise.
-	 */
-	bool operator!=( const FSlateFontInfo& Other ) const 
+	inline bool IsIdenticalTo(const FSlateFontInfo& Other) const
 	{
-		return !(*this == Other);
+		return FontObject == Other.FontObject
+			&& FontMaterial == Other.FontMaterial
+			&& OutlineSettings.IsIdenticalTo(Other.OutlineSettings)
+			&& CompositeFont == Other.CompositeFont
+			&& TypefaceFontName == Other.TypefaceFontName
+			&& Size == Other.Size;
+	}
+
+	inline bool operator==(const FSlateFontInfo& Other) const
+	{
+		return IsIdenticalTo(Other);
 	}
 
 	/**

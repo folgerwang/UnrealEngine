@@ -10,11 +10,6 @@ FOnlineFriendsFacebook::FOnlineFriendsFacebook(FOnlineSubsystemFacebook* InSubsy
 {
 }
 
-FOnlineFriendsFacebook::FOnlineFriendsFacebook()
-	: FOnlineFriendsFacebookCommon(nullptr)
-{
-}
-
 FOnlineFriendsFacebook::~FOnlineFriendsFacebook()
 {
 }

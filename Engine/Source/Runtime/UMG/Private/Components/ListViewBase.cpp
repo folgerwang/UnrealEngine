@@ -4,6 +4,7 @@
 #include "UMGPrivate.h"
 #include "Widgets/Text/STextBlock.h"
 #include "TimerManager.h"
+#include "Engine/Blueprint.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -56,6 +57,14 @@ void UListViewBase::ScrollToBottom()
 	}
 }
 
+void UListViewBase::SetScrollbarVisibility(ESlateVisibility InVisibility)
+{
+	if (MyTableViewBase)
+	{
+		MyTableViewBase->SetScrollbarVisibility(UWidget::ConvertSerializedVisibilityToRuntime(InVisibility));
+	}
+}
+
 const TArray<UUserWidget*>& UListViewBase::GetDisplayedEntryWidgets() const
 { 
 	return EntryWidgetPool.GetActiveWidgets(); 
@@ -63,10 +72,30 @@ const TArray<UUserWidget*>& UListViewBase::GetDisplayedEntryWidgets() const
 
 TSharedRef<SWidget> UListViewBase::RebuildWidget()
 {
+	FText ErrorText;
 	if (!EntryWidgetClass)
 	{
+		ErrorText = LOCTEXT("Error_MissingEntryWidgetClass", "No EntryWidgetClass specified on this list.\nEven if doing custom stuff, this is always required as a fallback.");
+	}
+#if WITH_EDITOR
+	else
+	{
+		UBlueprint* EntryWidgetBP = Cast<UBlueprint>(EntryWidgetClass->ClassGeneratedBy);
+		if (!EntryWidgetBP)
+		{
+			ErrorText = FText::Format(LOCTEXT("Error_NonBPEntryWidget", "EntryWidgetClass [{0}] is not a Blueprint class"), FText::FromString(EntryWidgetClass->GetName()));
+		}
+		else if (EntryWidgetBP->Status == BS_Error)
+		{
+			ErrorText = FText::Format(LOCTEXT("Error_NonBPEntryWidget", "EntryWidget BP [{0}] has not compiled successfully"), FText::FromString(EntryWidgetBP->GetName()));
+		}
+	}
+#endif
+
+	if (!ErrorText.IsEmpty())
+	{
 		return SNew(STextBlock)
-			.Text(LOCTEXT("Error_MissingEntryWidgetClass", "There is no EntryWidgetClass specified on this list.\nEven if doing custom stuff, this is always required as a fallback."));
+			.Text(ErrorText);
 	}
 
 	MyTableViewBase = RebuildListWidget();
@@ -87,7 +116,7 @@ void UListViewBase::SynchronizeProperties()
 	Super::SynchronizeProperties();
 
 #if WITH_EDITORONLY_DATA
-	if (IsDesignTime())
+	if (IsDesignTime() && MyTableViewBase.IsValid())
 	{
 		bNeedsToCallRefreshDesignerItems = true;
 		OnRefreshDesignerItems();

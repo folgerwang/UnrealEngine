@@ -31,12 +31,9 @@ UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer)
 
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
-		UWorld* WorldOuter = Cast<UWorld>(GetOuter());
-		UObject* ManagersOuter = WorldOuter != NULL ? (UObject*)WorldOuter : (UObject*)this;
-		
-		BehaviorTreeManager = NewObject<UBehaviorTreeManager>(ManagersOuter);
-		EnvironmentQueryManager = NewObject<UEnvQueryManager>(ManagersOuter);
-		NavLocalGrids = NewObject<UNavLocalGridManager>(ManagersOuter);
+		BehaviorTreeManager = NewObject<UBehaviorTreeManager>(this, TEXT("BehaviorTreeManager"));
+		EnvironmentQueryManager = NewObject<UEnvQueryManager>(this, TEXT("EQSManager"));
+		NavLocalGrids = NewObject<UNavLocalGridManager>(this, TEXT("NavLocalGrids"));
 	}
 	else
 	{
@@ -64,19 +61,18 @@ void UAISystem::PostInitProperties()
 
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
-		UWorld* WorldOuter = Cast<UWorld>(GetOuter());
-		UObject* ManagersOuter = WorldOuter != NULL ? (UObject*)WorldOuter : (UObject*)this;
+		UWorld* WorldOuter = GetOuterWorld();
 		
 		TSubclassOf<UAIHotSpotManager> HotSpotManagerClass = HotSpotManagerClassName.IsValid() ? LoadClass<UAIHotSpotManager>(NULL, *HotSpotManagerClassName.ToString(), NULL, LOAD_None, NULL) : nullptr;
 		if (HotSpotManagerClass)
 		{
-			HotSpotManager = NewObject<UAIHotSpotManager>(ManagersOuter, HotSpotManagerClass);
+			HotSpotManager = NewObject<UAIHotSpotManager>(this, HotSpotManagerClass, TEXT("HotSpotManager"));
 		}
 
 		TSubclassOf<UAIPerceptionSystem> PerceptionSystemClass = PerceptionSystemClassName.IsValid() ? LoadClass<UAIPerceptionSystem>(NULL, *PerceptionSystemClassName.ToString(), NULL, LOAD_None, NULL) : nullptr;
 		if (PerceptionSystemClass)
 		{
-			PerceptionSystem = NewObject<UAIPerceptionSystem>(ManagersOuter, PerceptionSystemClass);
+			PerceptionSystem = NewObject<UAIPerceptionSystem>(this, PerceptionSystemClass, TEXT("PerceptionSystem"));
 		}
 
 		if (WorldOuter)
@@ -91,6 +87,8 @@ void UAISystem::PostInitProperties()
 
 void UAISystem::StartPlay()
 {
+	Super::StartPlay();
+
 	if (PerceptionSystem)
 	{
 		PerceptionSystem->StartPlay();
@@ -118,6 +116,8 @@ void UAISystem::WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVec
 
 void UAISystem::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* NewWorld)
 {
+	Super::CleanupWorld(bSessionEnded, bCleanupResources, NewWorld);
+	
 	if (bCleanupResources)
 	{
 		if (EnvironmentQueryManager)

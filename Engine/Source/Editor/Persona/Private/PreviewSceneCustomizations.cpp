@@ -72,7 +72,8 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 
 	TSharedRef<IPropertyHandle> PreviewControllerProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPersonaPreviewSceneDescription, PreviewController));
 	TSharedRef<IPropertyHandle> SkeletalMeshProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPersonaPreviewSceneDescription, PreviewMesh));
-	TSharedRef<IPropertyHandle> AdditionalMeshesProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPersonaPreviewSceneDescription, AdditionalMeshes));
+
+	AdditionalMeshesProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPersonaPreviewSceneDescription, AdditionalMeshes));
 
 	TArray<UClass*> BuiltInPreviewControllers = { UPersonaPreviewSceneDefaultController::StaticClass(), UPersonaPreviewSceneRefPoseController::StaticClass(), UPersonaPreviewSceneAnimationController::StaticClass() };
 
@@ -143,7 +144,10 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 		}
 	}
 
-	if (PersonaToolkit.Pin()->GetContext() != USkeletalMesh::StaticClass()->GetFName())
+	// if mesh editor, we hide preview mesh section and additional mesh section
+	// sometimes additional meshes are interfering with preview mesh, it is not a great experience
+	const bool bMeshEditor = PersonaToolkit.Pin()->GetContext() == USkeletalMesh::StaticClass()->GetFName();
+	if (!bMeshEditor)
 	{
 		FText PreviewMeshName;
 		if (PersonaToolkit.Pin()->GetContext() == UAnimationAsset::StaticClass()->GetFName())
@@ -189,10 +193,6 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 				{
 					TSharedPtr<IPersonaToolkit> PinnedPersonaToolkit = PersonaToolkit.Pin();
 					USkeletalMesh* SkeletalMesh = PinnedPersonaToolkit->GetPreviewMesh();
-					if(SkeletalMesh == nullptr)
-					{
-						SkeletalMesh = EditableSkeleton.IsValid() ? EditableSkeleton.Pin()->GetSkeleton().GetPreviewMesh() : nullptr;
-					}
 					return (SkeletalMesh != PinnedPersonaToolkit->GetPreviewScene()->GetPreviewMesh()) ? EVisibility::Visible : EVisibility::Collapsed;
 				})
 				.OnClicked_Lambda([this]() 
@@ -214,125 +214,132 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 			.OnObjectChanged(this, &FPreviewSceneDescriptionCustomization::HandleMeshChanged)
 			.ThumbnailPool(DetailBuilder.GetThumbnailPool())
 		];
+
+		// set the skeleton to use in our factory as we shouldn't be picking one here
+		FactoryToUse->CurrentSkeleton = EditableSkeleton.IsValid() ? MakeWeakObjectPtr(const_cast<USkeleton*>(&EditableSkeleton.Pin()->GetSkeleton())) : nullptr;
+		TArray<UFactory*> FactoriesToUse({ FactoryToUse });
+
+		FAssetData AdditionalMeshesAsset;
+		AdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
+
+		// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
+		DetailBuilder.EditCategory("Additional Meshes")
+		.AddCustomRow(LOCTEXT("AdditionalMeshOption", "Additional Mesh Selection Option"))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Text(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons", "Allow Different Skeletons"))
+			.ToolTipText(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons_ToolTip", "When selecting additional mesh, whether or not filter by the current skeleton."))
+		]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsIsChecked)
+			.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsCheckedStateChanged)
+		];
+	
+		// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
+		DetailBuilder.EditCategory("Additional Meshes")
+		.AddCustomRow(LOCTEXT("AdditionalMeshOption_AnimBP", "Additional Mesh Anim Selection Option"))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Text(LOCTEXT("UseCustomAnimBP", "Allow Custom AnimBP Override"))
+			.ToolTipText(LOCTEXT("UseCustomAnimBP_ToolTip", "When using preview collection, allow it to override custom AnimBP also."))
+		]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPIsChecked)
+			.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPCheckedStateChanged)
+		];
+
+		FResetToDefaultOverride ResetToDefaultOverride = FResetToDefaultOverride::Create(
+			FIsResetToDefaultVisible::CreateSP(this, &FPreviewSceneDescriptionCustomization::GetReplaceVisibility),
+			FResetToDefaultHandler::CreateSP(this, &FPreviewSceneDescriptionCustomization::OnResetToBaseClicked)
+		);
+
+		DetailBuilder.EditCategory("Additional Meshes")
+		.AddProperty(AdditionalMeshesProperty)
+		.CustomWidget()
+		.NameContent()
+		[
+			AdditionalMeshesProperty->CreatePropertyNameWidget()
+		]
+		.ValueContent()
+		.MaxDesiredWidth(250.0f)
+		.MinDesiredWidth(250.0f)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				SNew(SObjectPropertyEntryBox)
+				// searching uobject is too much for a scale of Fortnite
+				// for now we just allow UDataAsset
+				.AllowedClass(UDataAsset::StaticClass())
+				.PropertyHandle(AdditionalMeshesProperty)
+				.OnShouldFilterAsset(this, &FPreviewSceneDescriptionCustomization::HandleShouldFilterAdditionalMesh, true)
+				.OnObjectChanged(this, &FPreviewSceneDescriptionCustomization::HandleAdditionalMeshesChanged, &DetailBuilder)
+				.CustomResetToDefault(ResetToDefaultOverride)
+				.ThumbnailPool(DetailBuilder.GetThumbnailPool())
+				.NewAssetFactories(FactoriesToUse)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			.Padding(2.0f)
+			[
+				SNew(SButton)
+				.Visibility(this, &FPreviewSceneDescriptionCustomization::GetSaveButtonVisibility, AdditionalMeshesProperty.ToSharedRef())
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.OnClicked(this, &FPreviewSceneDescriptionCustomization::OnSaveCollectionClicked, AdditionalMeshesProperty.ToSharedRef(), &DetailBuilder)
+				.ContentPadding(4.0f)
+				.ForegroundColor(FSlateColor::UseForeground())
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("Persona.SavePreviewMeshCollection"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			]
+		];
+
+		if (AdditionalMeshesAsset.IsValid())
+		{
+			TArray<UObject*> Objects;
+			Objects.Add(AdditionalMeshesAsset.GetAsset());
+
+			IDetailPropertyRow* PropertyRow = DetailBuilder.EditCategory("Additional Meshes")
+			.AddExternalObjectProperty(Objects, "SkeletalMeshes");
+
+			if (PropertyRow)
+			{
+				PropertyRow->ShouldAutoExpand(true);
+			}
+		}
 	}
 	else
 	{
 		DetailBuilder.HideProperty(SkeletalMeshProperty);
-	}
-
-	// set the skeleton to use in our factory as we shouldn't be picking one here
-	FactoryToUse->CurrentSkeleton = EditableSkeleton.IsValid() ? MakeWeakObjectPtr(const_cast<USkeleton*>(&EditableSkeleton.Pin()->GetSkeleton())) : nullptr;
-	TArray<UFactory*> FactoriesToUse({ FactoryToUse });
-
-	FAssetData AdditionalMeshesAsset;
-	AdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
-
-	// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
-	DetailBuilder.EditCategory("Additional Meshes")
-	.AddCustomRow(LOCTEXT("AdditionalMeshOption", "Additional Mesh Selection Option"))
-	.NameContent()
-	[
-		SNew(STextBlock)
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-		.Text(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons", "Allow Different Skeletons"))
-		.ToolTipText(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons_ToolTip", "When selecting additional mesh, whether or not filter by the current skeleton."))
-	]
-	.ValueContent()
-	[
-		SNew(SCheckBox)
-		.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsIsChecked)
-		.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsCheckedStateChanged)
-	];
-	
-	// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
-	DetailBuilder.EditCategory("Additional Meshes")
-	.AddCustomRow(LOCTEXT("AdditionalMeshOption_AnimBP", "Additional Mesh Anim Selection Option"))
-	.NameContent()
-	[
-		SNew(STextBlock)
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-		.Text(LOCTEXT("UseCustomAnimBP", "Allow Custom AnimBP Override"))
-		.ToolTipText(LOCTEXT("UseCustomAnimBP_ToolTip", "When using preview collection, allow it to override custom AnimBP also."))
-	]
-	.ValueContent()
-	[
-		SNew(SCheckBox)
-		.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPIsChecked)
-		.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPCheckedStateChanged)
-	];
-
-	DetailBuilder.EditCategory("Additional Meshes")
-	.AddProperty(AdditionalMeshesProperty)
-	.CustomWidget()
-	.NameContent()
-	[
-		AdditionalMeshesProperty->CreatePropertyNameWidget()
-	]
-	.ValueContent()
-	.MaxDesiredWidth(250.0f)
-	.MinDesiredWidth(250.0f)
-	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.FillWidth(1.0f)
-		[
-			SNew(SObjectPropertyEntryBox)
-			// searching uobject is too much for a scale of Fortnite
-			// for now we just allow UDataAsset
-			.AllowedClass(UDataAsset::StaticClass())
-			.PropertyHandle(AdditionalMeshesProperty)
-			.OnShouldFilterAsset(this, &FPreviewSceneDescriptionCustomization::HandleShouldFilterAdditionalMesh, true)
-			.OnObjectChanged(this, &FPreviewSceneDescriptionCustomization::HandleAdditionalMeshesChanged, &DetailBuilder)
-			.ThumbnailPool(DetailBuilder.GetThumbnailPool())
-			.NewAssetFactories(FactoriesToUse)
-		]
-		+SHorizontalBox::Slot()
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		.Padding(2.0f)
-		[
-			SNew(SButton)
-			.Visibility(this, &FPreviewSceneDescriptionCustomization::GetSaveButtonVisibility, AdditionalMeshesProperty)
-			.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
-			.OnClicked(this, &FPreviewSceneDescriptionCustomization::OnSaveCollectionClicked, AdditionalMeshesProperty, &DetailBuilder)
-			.ContentPadding(4.0f)
-			.ForegroundColor(FSlateColor::UseForeground())
-			[
-				SNew(SImage)
-				.Image(FEditorStyle::GetBrush("Persona.SavePreviewMeshCollection"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		]
-	];
-
-	if (AdditionalMeshesAsset.IsValid())
-	{
-		TArray<UObject*> Objects;
-		Objects.Add(AdditionalMeshesAsset.GetAsset());
-
-		IDetailPropertyRow* PropertyRow = DetailBuilder.EditCategory("Additional Meshes")
-		.AddExternalObjectProperty(Objects, "SkeletalMeshes");
-
-		if (PropertyRow)
-		{
-			PropertyRow->ShouldAutoExpand(true);
-		}
+		DetailBuilder.HideProperty(AdditionalMeshesProperty);
 	}
 }
 
-EVisibility FPreviewSceneDescriptionCustomization::GetSaveButtonVisibility(TSharedRef<IPropertyHandle> AdditionalMeshesProperty) const
+EVisibility FPreviewSceneDescriptionCustomization::GetSaveButtonVisibility(TSharedRef<IPropertyHandle> InAdditionalMeshesProperty) const
 {
 	FAssetData AdditionalMeshesAsset;
-	AdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
+	InAdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
 	UObject* Object = AdditionalMeshesAsset.GetAsset();
 
 	return Object == nullptr || !Object->HasAnyFlags(RF_Transient) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
-FReply FPreviewSceneDescriptionCustomization::OnSaveCollectionClicked(TSharedRef<IPropertyHandle> AdditionalMeshesProperty, IDetailLayoutBuilder* DetailLayoutBuilder)
+FReply FPreviewSceneDescriptionCustomization::OnSaveCollectionClicked(TSharedRef<IPropertyHandle> InAdditionalMeshesProperty, IDetailLayoutBuilder* DetailLayoutBuilder)
 {
 	FAssetData AdditionalMeshesAsset;
-	AdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
+	InAdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
 	UPreviewMeshCollection* DefaultPreviewMeshCollection = CastChecked<UPreviewMeshCollection>(AdditionalMeshesAsset.GetAsset());
 	if (DefaultPreviewMeshCollection)
 	{
@@ -342,7 +349,7 @@ FReply FPreviewSceneDescriptionCustomization::OnSaveCollectionClicked(TSharedRef
 		{
 			NewPreviewMeshCollection->Skeleton = DefaultPreviewMeshCollection->Skeleton;
 			NewPreviewMeshCollection->SkeletalMeshes = DefaultPreviewMeshCollection->SkeletalMeshes;
-			AdditionalMeshesProperty->SetValue(FAssetData(NewPreviewMeshCollection));
+			InAdditionalMeshesProperty->SetValue(FAssetData(NewPreviewMeshCollection));
 			PreviewScene.Pin()->SetAdditionalMeshes(NewPreviewMeshCollection);
 
 			DetailLayoutBuilder->ForceRefreshDetails();
@@ -458,13 +465,41 @@ void FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPCheckedStateCha
 
 	if (PreviewScene.IsValid())
 	{
-		PreviewScene.Pin()->RefreshAdditionalMeshes();
+		PreviewScene.Pin()->RefreshAdditionalMeshes(false);
 	}
 }
 
 ECheckBoxState FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPIsChecked() const
 {
 	return GetDefault<UPersonaOptions>()->bAllowPreviewMeshCollectionsToUseCustomAnimBP? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+bool FPreviewSceneDescriptionCustomization::GetReplaceVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
+{
+	// Only show the replace button if the current material can be replaced
+ 	if (AdditionalMeshesProperty.IsValid())
+ 	{
+ 		FAssetData AdditionalMeshesAsset;
+ 		AdditionalMeshesProperty->GetValue(AdditionalMeshesAsset);
+ 		return AdditionalMeshesAsset.IsValid();
+ 	}
+
+	return false;
+}
+
+/**
+* Called when reset to base is clicked
+*/
+void FPreviewSceneDescriptionCustomization::OnResetToBaseClicked(TSharedPtr<IPropertyHandle> PropertyHandle)
+{
+	// Only allow reset to base if the current material can be replaced
+ 	if (AdditionalMeshesProperty.IsValid())
+ 	{
+		FAssetData NullAsset;
+		AdditionalMeshesProperty->SetValue(NullAsset);
+
+		PreviewScene.Pin()->SetAdditionalMeshes(nullptr);
+ 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -529,7 +564,8 @@ void FPreviewMeshCollectionEntryCustomization::HandleMeshChanged(const FAssetDat
 {
 	if (PreviewScene.IsValid())
 	{
-		PreviewScene.Pin()->RefreshAdditionalMeshes();
+		// if mesh changes, don't override base mesh
+		PreviewScene.Pin()->RefreshAdditionalMeshes(false);
 	}
 }
 
@@ -537,7 +573,8 @@ void FPreviewMeshCollectionEntryCustomization::HandleMeshesArrayChanged(TSharedP
 {
 	if (PreviewScene.IsValid())
 	{
-		PreviewScene.Pin()->RefreshAdditionalMeshes();
+		// if additional mesh changes, allow it to override
+		PreviewScene.Pin()->RefreshAdditionalMeshes(true);
 		if (PropertyUtilities.IsValid())
 		{
 			PropertyUtilities->ForceRefresh();

@@ -83,7 +83,7 @@ private:
 
 typedef TArray<FCustomVersion> FCustomVersionArray;
 
-DEPRECATED(4.19, "FCustomVersionSet renamed to FCustomVersionArray")
+UE_DEPRECATED(4.19, "FCustomVersionSet renamed to FCustomVersionArray")
 typedef FCustomVersionArray FCustomVersionSet;
 
 class CORE_API FCustomVersionRegistration;

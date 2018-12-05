@@ -482,7 +482,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 	/** Called when any gameplay effects are removed */
 	FOnGivenActiveGameplayEffectRemoved& OnAnyGameplayEffectRemovedDelegate();
 
-	DEPRECATED(4.17, "Use OnGameplayEffectRemoved_InfoDelegate (the delegate signature has changed)")
+	UE_DEPRECATED(4.17, "Use OnGameplayEffectRemoved_InfoDelegate (the delegate signature has changed)")
 	FOnActiveGameplayEffectRemoved* OnGameplayEffectRemovedDelegate(FActiveGameplayEffectHandle Handle);
 
 	/** Returns delegate structure that allows binding to several gameplay effect changes */
@@ -527,7 +527,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 		GameplayTagCountContainer.SetTagCount(Tag, NewCount);
 	}
 
-	/** Update the number of instancse of a given tag and calls callback */
+	/** Update the number of instances of a given tag and calls callback */
 	FORCEINLINE void UpdateTagMap(const FGameplayTag& BaseTag, int32 CountDelta)
 	{
 		if (GameplayTagCountContainer.UpdateTagCount(BaseTag, CountDelta))
@@ -536,7 +536,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 		}
 	}
 
-	/** Update the number of instancse of a given tag and calls callback */
+	/** Update the number of instances of a given tag and calls callback */
 	FORCEINLINE void UpdateTagMap(const FGameplayTagContainer& Container, int32 CountDelta)
 	{
 		for (auto TagIt = Container.CreateConstIterator(); TagIt; ++TagIt)
@@ -544,6 +544,12 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 			const FGameplayTag& Tag = *TagIt;
 			UpdateTagMap(Tag, CountDelta);
 		}
+	}
+
+	/** Fills TagContainer with BlockedAbilityTags */
+	FORCEINLINE void GetBlockedAbilityTags(FGameplayTagContainer& TagContainer) const
+	{
+		TagContainer.AppendTags(BlockedAbilityTags.GetExplicitGameplayTags());
 	}
 
 	/** 	 
@@ -969,6 +975,8 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 	/** Called from the ability to let the component know it is ended */
 	virtual void NotifyAbilityEnded(FGameplayAbilitySpecHandle Handle, UGameplayAbility* Ability, bool bWasCancelled);
 
+	void ClearAbilityReplicatedDataCache(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActivationInfo& ActivationInfo);
+
 	/** Called from FScopedAbilityListLock */
 	void IncrementAbilityListLock();
 	void DecrementAbilityListLock();
@@ -1360,7 +1368,7 @@ protected:
 	FGameplayAbilitySpecContainer	ActivatableAbilities;
 
 	/** Maps from an ability spec to the target data. Used to track replicated data and callbacks */
-	TMap<FGameplayAbilitySpecHandleAndPredictionKey, FAbilityReplicatedDataCache> AbilityTargetDataMap;
+	FGameplayAbilityReplicatedDataContainer AbilityTargetDataMap;
 
 	/** List of gameplay tag container filters, and the delegates they call */
 	TArray<TPair<FGameplayTagContainer, FGameplayEventTagMulticastDelegate>> GameplayEventTagContainerDelegates;

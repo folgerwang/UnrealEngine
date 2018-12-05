@@ -110,7 +110,7 @@ protected:
 	virtual void HandleListEntryHovered(UUserWidget& EntryWidget) override;
 	virtual void HandleListEntryUnhovered(UUserWidget& EntryWidget) override;
 	
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 	virtual void OnRefreshDesignerItems() override;
 #endif
 
@@ -126,7 +126,7 @@ protected:
 	template <template<typename> class ListViewT = SListView>
 	TSharedRef<ListViewT<UObject*>> ConstructListView()
 	{
-		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel);
+		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, bIsFocusable, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel);
 		return StaticCastSharedRef<ListViewT<UObject*>>(MyListView.ToSharedRef());
 	}
 
@@ -139,6 +139,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
 	bool bClearSelectionOnClick = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
+	bool bIsFocusable = true;
 
 	UPROPERTY(EditAnywhere, Category = ListEntries, meta = (ClampMin = 0))
 	float EntrySpacing = 0.f;

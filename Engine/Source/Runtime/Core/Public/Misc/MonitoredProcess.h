@@ -83,7 +83,7 @@ public:
 	 *
 	 * @return true if the process is running, false otherwise.
 	 */
-	DEPRECATED(4.16, "IsRunning() is deprecated because it doesn't support -nothreading. Please use Update()")
+	UE_DEPRECATED(4.16, "IsRunning() is deprecated because it doesn't support -nothreading. Please use Update()")
 	bool IsRunning() const
 	{
 		return bIsRunning;

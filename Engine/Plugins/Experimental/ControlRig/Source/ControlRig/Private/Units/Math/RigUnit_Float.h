@@ -65,3 +65,27 @@ struct FRigUnit_Divide_FloatFloat : public FRigUnit_BinaryFloatOp
 		Result = FRigMathLibrary::Divide(Argument0, Argument1);
 	}
 };
+
+/** Two args and a result of float type */
+USTRUCT(meta = (DisplayName = "Clamp", Category = "Math|Float"))
+struct FRigUnit_Clamp_Float: public FRigUnit
+{
+	GENERATED_BODY()
+
+	UPROPERTY(meta = (Input))
+	float Value;
+
+	UPROPERTY(meta = (Input))
+	float Min;
+
+	UPROPERTY(meta = (Input))
+	float Max;
+
+	UPROPERTY(meta = (Output))
+	float Result;
+
+	virtual void Execute(const FRigUnitContext& InContext) override
+	{
+		Result = FMath::Clamp(Value, Min, Max);
+	}
+};

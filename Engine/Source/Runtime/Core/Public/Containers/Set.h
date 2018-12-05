@@ -256,10 +256,19 @@ public:
 	{
 		if(this != &Copy)
 		{
-			Empty(Copy.Num());
-			for(TConstIterator CopyIt(Copy);CopyIt;++CopyIt)
+			if (Copy.Elements.IsCompact())
 			{
-				Add(*CopyIt);
+				Elements = Copy.Elements;
+				HashSize = Copy.HashSize;
+				Rehash();
+			}
+			else
+			{
+				Empty(Copy.Num());
+				for (TConstIterator CopyIt(Copy); CopyIt; ++CopyIt)
+				{
+					Add(*CopyIt);
+				}
 			}
 		}
 		return *this;
@@ -439,7 +448,7 @@ public:
 	}
 
 	/** Tracks the container's memory use through an archive. */
-	FORCEINLINE void CountBytes(FArchive& Ar)
+	FORCEINLINE void CountBytes(FArchive& Ar) const
 	{
 		Elements.CountBytes(Ar);
 		Ar.CountBytes(HashSize * sizeof(int32),HashSize * sizeof(FSetElementId));

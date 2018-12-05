@@ -185,7 +185,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	const bool bLODsShareStaticLighting = RenderData->bLODsShareStaticLighting || bForceLODsShareStaticLighting;
 	for(int32 LODIndex = 0;LODIndex < RenderData->LODResources.Num();LODIndex++)
 	{
-		FLODInfo* NewLODInfo = new FLODInfo(InComponent, RenderData->LODVertexFactories,LODIndex,bLODsShareStaticLighting);
+		FLODInfo* NewLODInfo = new FLODInfo(InComponent, RenderData->LODVertexFactories, LODIndex, ClampedMinLOD, bLODsShareStaticLighting);
 		LODs.Add(NewLODInfo);
 
 		// Under certain error conditions an LOD's material will be set to 
@@ -1471,7 +1471,7 @@ bool FStaticMeshSceneProxy::HasDynamicIndirectShadowCasterRepresentation() const
 }
 
 /** Initialization constructor. */
-FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponent, const TIndirectArray<FStaticMeshVertexFactories>& InLODVertexFactories, int32 LODIndex, bool bLODsShareStaticLighting)
+FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponent, const TIndirectArray<FStaticMeshVertexFactories>& InLODVertexFactories, int32 LODIndex, int32 InClampedMinLOD, bool bLODsShareStaticLighting)
 	: FLightCacheInterface(nullptr, nullptr)
 	, OverrideColorVertexBuffer(0)
 	, PreCulledIndexBuffer(NULL)
@@ -1488,7 +1488,7 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		SetGlobalVolumeLightmap(true);
 	}
 
-	if (LODIndex < InComponent->LODData.Num())
+	if (LODIndex < InComponent->LODData.Num() && LODIndex >= InClampedMinLOD)
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[LODIndex];
 
@@ -1529,9 +1529,16 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 					TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>* UniformBufferPtr = &OverrideColorVFUniformBuffer;
 					const FLocalVertexFactory* LocalVF = &VFs.VertexFactoryOverrideColorVertexBuffer;
 					FColorVertexBuffer* VertexBuffer = OverrideColorVertexBuffer;
+
+					//temp measure to identify nullptr crashes deep in the renderer
+					FString ComponentPathName = InComponent->GetPathName();
+					checkf(LODModel.VertexBuffers.PositionVertexBuffer.GetNumVertices() > 0, TEXT("LOD: %i of PathName: %s has an empty position stream."), LODIndex, *ComponentPathName);
+					
 					ENQUEUE_RENDER_COMMAND(FLocalVertexFactoryCopyData)(
-						[UniformBufferPtr, LocalVF, VertexBuffer](FRHICommandListImmediate& RHICmdList)
+						[UniformBufferPtr, LocalVF, VertexBuffer, LODIndex, ComponentPathName](FRHICommandListImmediate& RHICmdList)
 					{
+						checkf(LocalVF->GetTangentsSRV(), TEXT("LOD: %i of PathName: %s has a null tangents srv."), LODIndex, *ComponentPathName);
+						checkf(LocalVF->GetTextureCoordinatesSRV(), TEXT("LOD: %i of PathName: %s has a null texcoord srv."), LODIndex, *ComponentPathName);
 						*UniformBufferPtr = CreateLocalVFUniformBuffer(LocalVF, VertexBuffer);
 					});
 				}
@@ -1542,7 +1549,8 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 	if (LODIndex > 0 
 		&& bLODsShareStaticLighting 
 		&& InComponent->LODData.IsValidIndex(0)
-		&& InComponent->LightmapType != ELightmapType::ForceVolumetric)
+		&& InComponent->LightmapType != ELightmapType::ForceVolumetric
+		&& LODIndex >= InClampedMinLOD)
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[0];
 		const FMeshMapBuildData* MeshMapBuildData = InComponent->GetMeshMapBuildData(ComponentLODInfo);

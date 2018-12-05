@@ -345,7 +345,7 @@ void FOnlineSubsystemImpl::FinalizeReceipts(const FUniqueNetId& UserId)
 
 void FOnlineSubsystemImpl::OnQueryReceiptsComplete(const FOnlineError& Result, TSharedPtr<const FUniqueNetId> UserId)
 {
-	UE_LOG_ONLINE(Display, TEXT("OnQueryReceiptsComplete %s"), Result.ToLogString());
+	UE_LOG_ONLINE(Display, TEXT("OnQueryReceiptsComplete %s"), *Result.ToLogString());
 	DumpReceipts(*UserId);
 }
 

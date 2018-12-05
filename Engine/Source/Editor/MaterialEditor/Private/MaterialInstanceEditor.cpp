@@ -760,12 +760,15 @@ void FMaterialInstanceEditor::CreateInternalWidgets()
 	PreviewUIViewport = SNew(SMaterialEditorUIPreviewViewport, GetMaterialInterface());
 
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
-	const FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::HideNameArea, true, this );
+	FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::HideNameArea, true, this );
+	DetailsViewArgs.bShowModifiedPropertiesOption = false;
+	DetailsViewArgs.bShowCustomFilterOption = true;
 	MaterialInstanceDetails = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	FOnGetDetailCustomizationInstance LayoutMICDetails = FOnGetDetailCustomizationInstance::CreateStatic( 
 		&FMaterialInstanceParameterDetails::MakeInstance, MaterialEditorInstance, FGetShowHiddenParameters::CreateSP(this, &FMaterialInstanceEditor::GetShowHiddenParameters) );
 	MaterialInstanceDetails->RegisterInstancedCustomPropertyLayout( UMaterialEditorInstanceConstant::StaticClass(), LayoutMICDetails );
-
+	MaterialInstanceDetails->SetCustomFilterLabel(LOCTEXT("ShowOverriddenOnly", "Show Only Overridden Parameters"));
+	MaterialInstanceDetails->SetCustomFilterDelegate(FSimpleDelegate::CreateSP(this, &FMaterialInstanceEditor::FilterOverriddenProperties));
 	MaterialEditorInstance->DetailsView = MaterialInstanceDetails;
 
 	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
@@ -774,6 +777,12 @@ void FMaterialInstanceEditor::CreateInternalWidgets()
 		MaterialLayersFunctionsInstance = SNew(SMaterialLayersFunctionsInstanceWrapper)
 			.InMaterialEditorInstance(MaterialEditorInstance);
 	}
+}
+
+void FMaterialInstanceEditor::FilterOverriddenProperties()
+{
+	MaterialEditorInstance->bShowOnlyOverrides = !MaterialEditorInstance->bShowOnlyOverrides;
+	MaterialInstanceDetails->ForceRefresh();
 }
 
 void FMaterialInstanceEditor::UpdatePreviewViewportsVisibility()

@@ -59,6 +59,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogDebugRaycastCrash, All, All);
 /// @see dtNavMeshQuery
 
 dtQueryFilterData::dtQueryFilterData() : heuristicScale(0.999f), lowestAreaCost(1.0f), m_includeFlags(0xffff), m_excludeFlags(0), m_isBacktracking(0)
+//@UE4 BEGIN
+	, m_shouldIgnoreClosedNodes(0)
+//@UE4 END
 {
 	for (int i = 0; i < DT_MAX_AREAS; ++i)
 		m_areaCost[i] = 1.0f;
@@ -75,6 +78,9 @@ bool dtQueryFilterData::equals(const dtQueryFilterData* other) const
 					(m_includeFlags == other->m_includeFlags) &&
 					(m_excludeFlags == other->m_excludeFlags) &&
 					(m_isBacktracking == other->m_isBacktracking) &&
+//@UE4 BEGIN
+					(m_shouldIgnoreClosedNodes == other->m_shouldIgnoreClosedNodes) &&
+//@UE4 END
 					(memcmp(&m_areaCost, &other->m_areaCost, sizeof(m_areaCost)) == 0);
 
 #if WITH_FIXED_AREA_ENTERING_COST
@@ -246,6 +252,9 @@ dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, dtQueryS
 		{
 			m_nodePool->clear();
 		}
+//@UE4 BEGIN
+		m_nodePool->setMaxRuntimeNodes(maxNodes);
+//@UE4 END
 
 		if (!m_tinyNodePool)
 		{
@@ -1438,6 +1447,7 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	
 	//@UE4 BEGIN
 	const float H_SCALE = filter->getModifiedHeuristicScale();
+	const bool shouldIgnoreClosedNodes = filter->getShouldIgnoreClosedNodes();
 	//@UE4 END
 
 	m_nodePool->clear();
@@ -1459,7 +1469,7 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	dtStatus status = DT_SUCCESS;
 
 	int loopCounter = 0;
-	const int loopLimit = m_nodePool->getMaxNodes() + 1;
+	const int loopLimit = m_nodePool->getMaxRuntimeNodes() + 1;
 
 	while (!m_openList->empty())
 	{
@@ -1528,6 +1538,12 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 				status |= DT_OUT_OF_NODES;
 				continue;
 			}
+//@UE4 BEGIN
+			else if (shouldIgnoreClosedNodes && (neighbourNode->flags & DT_NODE_CLOSED) != 0)
+			{
+				continue;
+			}
+//@UE4 END
 
 			// Try to update node position for current edge to make paths more precise
 			// Unless heuristic is not admissible (overestimates), in which case
@@ -1878,6 +1894,7 @@ dtStatus dtNavMeshQuery::updateSlicedFindPath(const int maxIter, int* doneIters)
 
 	//@UE4 BEGIN
 	const float H_SCALE = m_query.filter->getModifiedHeuristicScale();
+	const bool shouldIgnoreClosedNodes = m_query.filter->getShouldIgnoreClosedNodes();
 	//@UE4 END
 			
 	int iter = 0;
@@ -1963,6 +1980,12 @@ dtStatus dtNavMeshQuery::updateSlicedFindPath(const int maxIter, int* doneIters)
 				m_query.status |= DT_OUT_OF_NODES;
 				continue;
 			}
+//@UE4 BEGIN
+			else if (shouldIgnoreClosedNodes && (neighbourNode->flags & DT_NODE_CLOSED) != 0)
+			{
+				continue;
+			}
+//@UE4 END
 			
 			// Always calculate correct position on neighbor's edge,
 			// skipping to wrong edge may greatly change path cost
@@ -3009,7 +3032,7 @@ dtStatus dtNavMeshQuery::raycast(dtPolyRef startRef, const float* startPos, cons
 	hitNormal[2] = 0;
 
 	// [UE4]: iteration limit, use the same value as findPath
-	const int loopLimit = (m_nodePool->getMaxNodes() + 1) * 4;
+	const int loopLimit = (m_nodePool->getMaxRuntimeNodes() + 1) * 4;
 	int loopCounter = 0;
 
 	dtStatus status = DT_SUCCESS;

@@ -1137,26 +1137,35 @@ namespace
 
 	void SkipDeprecatedMacroIfNecessary(FBaseParser& Parser)
 	{
-		if (!Parser.MatchIdentifier(TEXT("DEPRECATED")))
+		FToken MacroToken;
+		if (!Parser.GetToken(MacroToken))
 		{
 			return;
 		}
 
+		if (MacroToken.TokenType != TOKEN_Identifier || (FCString::Stricmp(MacroToken.Identifier, TEXT("DEPRECATED")) != 0 && FCString::Stricmp(MacroToken.Identifier, TEXT("UE_DEPRECATED")) != 0))
+		{
+			Parser.UngetToken(MacroToken);
+			return;
+		}
+
+		FString ErrorScope = FString::Printf(TEXT("%s macro"), MacroToken.Identifier);
+
+		Parser.RequireSymbol(TEXT("("), *ErrorScope);
+
 		FToken Token;
-		// DEPRECATED(Version, "Message")
-		Parser.RequireSymbol(TEXT("("), TEXT("DEPRECATED macro"));
 		if (Parser.GetToken(Token) && (Token.Type != CPT_Float || Token.TokenType != TOKEN_Const))
 		{
-			FError::Throwf(TEXT("Expected engine version in DEPRECATED macro"));
+			FError::Throwf(TEXT("Expected engine version in %s macro"), MacroToken.Identifier);
 		}
 
-		Parser.RequireSymbol(TEXT(","), TEXT("DEPRECATED macro"));
+		Parser.RequireSymbol(TEXT(","), *ErrorScope);
 		if (Parser.GetToken(Token) && (Token.Type != CPT_String || Token.TokenType != TOKEN_Const))
 		{
-			FError::Throwf(TEXT("Expected deprecation message in DEPRECATED macro"));
+			FError::Throwf(TEXT("Expected deprecation message in %s macro"), MacroToken.Identifier);
 		}
 
-		Parser.RequireSymbol(TEXT(")"), TEXT("DEPRECATED macro"));
+		Parser.RequireSymbol(TEXT(")"), *ErrorScope);
 	}
 }
 
@@ -7578,10 +7587,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 			Class->Bind();
 
 			// Finalize functions
-			if (Result == ECompilationResult::Succeeded)
-			{
-				FinalizeScriptExposedFunctions(Class);
-			}
+			FinalizeScriptExposedFunctions(Class);
 
 			bNoExportClassesOnly = bNoExportClassesOnly && Class->HasAnyClassFlags(CLASS_NoExport);
 		}
@@ -8252,7 +8258,6 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 	// Two passes, preprocessor, then looking for the class stuff
 
 	// The layer of multi-line comment we are in.
-	int32 CommentDim = 0;
 	int32 CurrentLine = 0;
 	const TCHAR* Buffer = InBuffer;
 
@@ -8261,14 +8266,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 	{
 		CurrentLine++;
 		const TCHAR* Str = *StrLine;
-		bool bProcess = CommentDim <= 0;	// for skipping nested multi-line comments
 		int32 BraceCount = 0;
-
-		if( !bProcess )
-		{
-			ClassHeaderTextStrippedOfCppText.Logf( TEXT("%s\r\n"), *StrLine );
-			continue;
-		}
 
 		bool bIf = FParse::Command(&Str,TEXT("#if"));
 		if( bIf || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
@@ -8452,7 +8450,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 
 	// now start over go look for the class
 
-	CommentDim  = 0;
+	int32 CommentDim  = 0;
 	CurrentLine = 0;
 	Buffer      = *ClassHeaderTextStrippedOfCppText;
 

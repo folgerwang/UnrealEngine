@@ -102,9 +102,9 @@ namespace FEQSHelpers
 
 	// deprecated
 
-	DEPRECATED_FORGAME(4.12, "This function is now deprecated, please use version with Querier argument instead.")
+	UE_DEPRECATED_FORGAME(4.12, "This function is now deprecated, please use version with Querier argument instead.")
 	void RunNavRaycasts(const ANavigationData& NavData, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode = ETraceMode::Keep);
 
-	DEPRECATED_FORGAME(4.12, "This function is now deprecated, please use version with Querier argument instead.")
+	UE_DEPRECATED_FORGAME(4.12, "This function is now deprecated, please use version with Querier argument instead.")
 	void RunNavProjection(const ANavigationData& NavData, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode = ETraceMode::Discard);
 }

@@ -82,6 +82,7 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	, bIsMouseAttached( false )
 	, bForceActivateByMouse( false )
 	, bForceNoGamepads( false )
+	, bConsumeAltSpace( false )
 	, XInput( XInputInterface::Create( MessageHandler ) )
 	, bHasLoadedInputPlugins( false )
 	, bAllowedToDeferMessageProcessing(true)
@@ -116,6 +117,11 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 
 	// Get initial display metrics. (display information for existing desktop, before we start changing resolutions)
 	FDisplayMetrics::RebuildDisplayMetrics(InitialDisplayMetrics);
+
+	if (!GIsEditor)
+	{
+		GConfig->GetBool(TEXT("WindowsApplication"), TEXT("bConsumeAltSpace"), bConsumeAltSpace, GEngineIni);
+	}
 
 	// Save the current sticky/toggle/filter key settings so they can be restored them later
 	// If there are .ini settings, use them instead of the current system settings.
@@ -880,7 +886,7 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			return 0;
 		case WM_SYSCHAR:
 			{
-				if( ( HIWORD(lParam) & 0x2000 ) != 0 && wParam == VK_SPACE )
+				if (!bConsumeAltSpace && (HIWORD(lParam) & 0x2000) != 0 && wParam == VK_SPACE)
 				{
 					// Do not handle Alt+Space so that it passes through and opens the window system menu
 					break;
@@ -895,9 +901,14 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 
 		case WM_SYSKEYDOWN:
 			{
-				// Alt-F4 or Alt+Space was pressed. 
-				// Allow alt+f4 to close the window and alt+space to open the window menu
-				if( wParam != VK_F4 && wParam != VK_SPACE)
+				// Alt-F4 or Alt+Space was pressed.
+				if (wParam == VK_F4)
+				{
+					// Allow alt+f4 to close the window, but write a log warning
+					UE_LOG(LogWindowsDesktop, Log, TEXT("Alt-F4 pressed!"));
+				}
+				// If we're consuming alt+space, pass it along
+				else if (bConsumeAltSpace || wParam != VK_SPACE)
 				{
 					DeferMessage( CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam );
 				}

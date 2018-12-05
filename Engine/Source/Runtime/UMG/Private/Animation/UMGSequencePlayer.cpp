@@ -15,9 +15,10 @@ UUMGSequencePlayer::UUMGSequencePlayer(const FObjectInitializer& ObjectInitializ
 	PlaybackSpeed = 1;
 	Animation = nullptr;
 	bIsEvaluating = false;
+	UserTag = NAME_None;
 }
 
-void UUMGSequencePlayer::InitSequencePlayer( UWidgetAnimation& InAnimation, UUserWidget& InUserWidget )
+void UUMGSequencePlayer::InitSequencePlayer(UWidgetAnimation& InAnimation, UUserWidget& InUserWidget)
 {
 	Animation = &InAnimation;
 	UserWidget = &InUserWidget;
@@ -123,8 +124,8 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 		if ( bCompleted )
 		{
 			PlayerStatus = EMovieScenePlayerStatus::Stopped;
+			UserWidget->OnAnimationFinishedPlaying(*this);
 			OnSequenceFinishedPlayingEvent.Broadcast(*this);
-			Animation->OnAnimationFinished.Broadcast();
 		}
 	}
 }
@@ -175,7 +176,6 @@ void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, int3
 	}
 
 	PlayerStatus = EMovieScenePlayerStatus::Playing;
-	Animation->OnAnimationStarted.Broadcast();
 }
 
 void UUMGSequencePlayer::Play(float StartAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
@@ -231,8 +231,8 @@ void UUMGSequencePlayer::Stop()
 		RootTemplateInstance.Finish(*this);
 	}
 
+	UserWidget->OnAnimationFinishedPlaying(*this);
 	OnSequenceFinishedPlayingEvent.Broadcast(*this);
-	Animation->OnAnimationFinished.Broadcast();
 
 	TimeCursorPosition = FFrameTime(0);
 }

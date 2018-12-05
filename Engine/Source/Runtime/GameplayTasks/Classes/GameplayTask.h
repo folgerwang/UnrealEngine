@@ -8,6 +8,7 @@
 #include "UObject/ScriptInterface.h"
 #include "UObject/ScriptMacros.h"
 #include "GameplayTaskOwnerInterface.h"
+#include "UObject/WeakInterfacePtr.h"
 #include "GameplayTask.generated.h"
 
 class AActor;

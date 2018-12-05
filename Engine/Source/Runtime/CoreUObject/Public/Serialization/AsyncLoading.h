@@ -496,10 +496,22 @@ struct FAsyncPackage : public FGCObject
 	void GetLoadedAssets(TArray<FWeakObjectPtr>& AssetList);
 #endif
 
+	/** Checks if all dependencies (imported packages) of this package have been fully loaded */
+	bool AreAllDependenciesFullyLoaded(TSet<UPackage*>& VisitedPackages);
+
+	/** Returs true if this package loaded objects that can create GC clusters */
+	bool HasClusterObjects() const
+	{
+		return DeferredClusterObjects.Num() > 0;
+	}
+
 	/** Creates GC clusters from loaded objects */
 	EAsyncPackageState::Type CreateClusters(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit);
 
 private:	
+
+	/** Checks if all dependencies (imported packages) of this package have been fully loaded */
+	static bool AreAllDependenciesFullyLoadedInternal(FAsyncPackage* Package, TSet<UPackage*>& VisitedPackages, FString& OutError);
 
 	struct FCompletionCallback
 	{
@@ -607,8 +619,11 @@ private:
 	FCriticalSection ReferencedObjectsCritical;
 	/** Cached async loading thread object this package was created by */
 	class FAsyncLoadingThread& AsyncLoadingThread;
+	/** Packages that have been imported by this async package */
+	TSet<UPackage*> ImportedPackages;
 
 public:
+	
 
 	/** [EDL] Begin Event driven loader specific stuff */
 

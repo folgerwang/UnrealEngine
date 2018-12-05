@@ -66,7 +66,8 @@
 	STAGE XII: COMPILE CLASS LAYOUT
 	STAGE XIII: COMPILE CLASS FUNCTIONS
 	STAGE XIV: REINSTANCE
-	STAGE XV: CLEAR TEMPORARY FLAGS
+	STAGE XV: POST CDO COMPILED 
+	STAGE XVI: CLEAR TEMPORARY FLAGS
 
 	The code that implements these stages are labeled below. At some later point a final
 	reinstancing operation will occur, unless the client is using CompileSynchronously, 
@@ -1093,6 +1094,15 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(bool bSuppressB
 			// We purposefully do not remove the OldCDOs yet, need to keep them in memory past first GC
 		}
 		
+		// STAGE XV: POST CDO COMPILED
+		for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
+		{
+			if(!CompilerData.IsSkeletonOnly() && CompilerData.Compiler.IsValid())
+			{
+				CompilerData.Compiler->PostCDOCompiled();
+			}
+		}
+
 		// STAGE XV: CLEAR TEMPORARY FLAGS
 		for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 		{
@@ -2121,11 +2131,17 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 		}
 	}
 	
-	for ( const UTimelineTemplate* Timeline : BP->Timelines )
+	for (UTimelineTemplate* Timeline : BP->Timelines)
 	{
-		for(int32 EventTrackIdx=0; EventTrackIdx<Timeline->EventTracks.Num(); EventTrackIdx++)
+		// If the timeline hasn't gone through post load that means that the cache isn't up to date, so force an update on it
+		if (Timeline->HasAllFlags(RF_NeedPostLoad) && Timeline->GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::StoreTimelineNamesInTemplate)
 		{
-			MakeEventFunction(Timeline->GetEventTrackFunctionName(EventTrackIdx), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);
+			FUpdateTimelineCachedNames::Execute(Timeline);
+		}
+
+		for (const FTTEventTrack& EventTrack : Timeline->EventTracks)
+		{
+			MakeEventFunction(EventTrack.GetFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);
 		}
 		
 		MakeEventFunction(Timeline->GetUpdateFunctionName(), EFunctionFlags::FUNC_None, TArray<UEdGraphPin*>(), TArray< TSharedPtr<FUserPinInfo> >(), nullptr, false);

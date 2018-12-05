@@ -411,7 +411,7 @@ void SEditableText::SynchronizeTextStyle()
 	if (Font.IsSet())
 	{
 		const FSlateFontInfo& NewFontInfo = Font.Get();
-		if (NewTextStyle.Font != NewFontInfo)
+		if (!NewTextStyle.Font.IsIdenticalTo(NewFontInfo))
 		{
 			NewTextStyle.Font = NewFontInfo;
 			bTextStyleChanged = true;

@@ -91,19 +91,21 @@ struct FAnimPhysConstraintSetup
 	: LinearXLimitType(AnimPhysLinearConstraintType::Limited)
 	, LinearYLimitType(AnimPhysLinearConstraintType::Limited)
 	, LinearZLimitType(AnimPhysLinearConstraintType::Limited)
+	, bLinearFullyLocked(false)
 	, LinearAxesMin(ForceInitToZero)
 	, LinearAxesMax(ForceInitToZero)
 	, AngularConstraintType(AnimPhysAngularConstraintType::Angular)
 	, TwistAxis(AnimPhysTwistAxis::AxisX)
+	, AngularTargetAxis(AnimPhysTwistAxis::AxisX)
 	, ConeAngle(0.0f)
+#if WITH_EDITORONLY_DATA
 	, AngularXAngle_DEPRECATED(0.0f)
 	, AngularYAngle_DEPRECATED(0.0f)
 	, AngularZAngle_DEPRECATED(0.0f)
+#endif
 	, AngularLimitsMin(ForceInitToZero)
 	, AngularLimitsMax(ForceInitToZero)
-	, AngularTargetAxis(AnimPhysTwistAxis::AxisX)
 	, AngularTarget(ForceInitToZero)
-	, bLinearFullyLocked(false)
 	{}
 
 	/** Whether to limit the linear X axis */
@@ -117,6 +119,9 @@ struct FAnimPhysConstraintSetup
 	/** Whether to limit the linear Z axis */
 	UPROPERTY(EditAnywhere, Category = Linear)
 	AnimPhysLinearConstraintType LinearZLimitType;
+
+	/** If all axes are locked we can use 3 linear limits instead of the 6 needed for limited axes */
+	bool bLinearFullyLocked;
 
 	/** Minimum linear movement per-axis (Set zero here and in the max limit to lock) */
 	UPROPERTY(EditAnywhere, Category = Linear, meta = (UIMax = "0", ClampMax = "0"))
@@ -134,10 +139,15 @@ struct FAnimPhysConstraintSetup
 	UPROPERTY(EditAnywhere, Category = Angular)
 	AnimPhysTwistAxis TwistAxis;
 
+	/** Axis on body1 to match to the angular target direction. */
+	UPROPERTY(EditAnywhere, Category = Angular)
+	AnimPhysTwistAxis AngularTargetAxis;
+
 	/** Angle to use when constraining using a cone */
 	UPROPERTY(EditAnywhere, Category = Angular, meta = (UIMin = "0", UIMax = "90", ClampMin = "0", ClampMax = "90"))
 	float ConeAngle;
 
+#if WITH_EDITORONLY_DATA
 	/** X-axis limit for angular motion when using the "Angular" constraint type (Set to 0 to lock, or 180 to remain free) */
 	UPROPERTY()
 	float AngularXAngle_DEPRECATED;
@@ -149,6 +159,7 @@ struct FAnimPhysConstraintSetup
 	/** Z-axis limit for angular motion when using the "Angular" constraint type (Set to 0 to lock, or 180 to remain free) */
 	UPROPERTY()
 	float AngularZAngle_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, Category = Angular, meta = (UIMin = "-180", UIMax = "180", ClampMin = "-180", ClampMax = "180"))
 	FVector AngularLimitsMin;
@@ -156,19 +167,9 @@ struct FAnimPhysConstraintSetup
 	UPROPERTY(EditAnywhere, Category = Angular, meta = (UIMin = "-180", UIMax = "180", ClampMin = "-180", ClampMax = "180"))
 	FVector AngularLimitsMax;
 
-	/** Axis on body1 to match to the angular target direction. */
-	UPROPERTY(EditAnywhere, Category = Angular)
-	AnimPhysTwistAxis AngularTargetAxis;
-
 	/** Target direction to face for body1 (in body0 local space) */
 	UPROPERTY(EditAnywhere, Category = Angular)
 	FVector AngularTarget;
-
-	/** The values below are calculated on initialisation and used when building the limits */
-
-	/** If all axes are locked we can use 3 linear limits instead of the 6 needed for limited axes */
-	UPROPERTY()
-	bool bLinearFullyLocked;
 };
 
 USTRUCT()
@@ -229,18 +230,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	GENERATED_BODY();
 
 	FAnimNode_AnimDynamics();
-	
-	/** The space used to run the simulation */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
-	AnimPhysSimSpaceType SimulationSpace;
+
+	/** Overridden linear damping value */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	float LinearDampingOverride;
+
+	/** Overridden angular damping value */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	float AngularDampingOverride;
+
+	// Previous component & actor transforms, used to account for teleports
+	FTransform PreviousCompWorldSpaceTM;
+	FTransform PreviousActorWorldSpaceTM;
 
 	/** When in BoneRelative sim space, the simulation will use this bone as the origin */
 	UPROPERTY(EditAnywhere, Category = Setup)
 	FBoneReference RelativeSpaceBone;
-
-	/** Set to true to use the solver to simulate a connected chain */
-	UPROPERTY(EditAnywhere, Category = Setup)
-	bool bChain;
 
 	/** The bone to attach the physics body to, if bChain is true this is the top of the chain */
 	UPROPERTY(EditAnywhere, Category = Setup)
@@ -266,18 +271,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault, EditCondition = "bUseGravityOverride"))
 	FVector GravityOverride;
 
-	/** Use gravity override value vs gravity scale */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (InlineEditConditionToggle))
-	bool bUseGravityOverride;
-
-	/** If true the body will attempt to spring back to its initial position */
-	UPROPERTY(EditAnywhere, Category = Setup)
-	bool bLinearSpring;
-
-	/** If true the body will attempt to align itself with the specified angular target */
-	UPROPERTY(EditAnywhere, Category = Setup)
-	bool bAngularSpring;
-
 	/** Spring constant to use when calculating linear springs, higher values mean a stronger spring.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float LinearSpringConstant;
@@ -286,52 +279,21 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float AngularSpringConstant;
 
-	/** Whether or not wind is enabled for the bodies in this simulation */
-	UPROPERTY(EditAnywhere, Category = Wind)
-	bool bEnableWind;
-
-	UPROPERTY(Transient)
-	bool bWindWasEnabled;
-
 	/** Scale to apply to calculated wind velocities in the solver */
 	UPROPERTY(EditAnywhere, Category = Wind)
 	float WindScale;
 
 	/** When using non-world-space sim, this controls how much of the components world-space acceleration is passed on to the local-space simulation. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinHiddenByDefault))
 	FVector ComponentLinearAccScale;
 
 	/** When using non-world-space sim, this applies a 'drag' to the bodies in the local space simulation, based on the components world-space velocity. */
-	UPROPERTY(EditAnywhere, Category = Settings)
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinHiddenByDefault))
 	FVector ComponentLinearVelScale;
 
 	/** When using non-world-space sim, this is an overall clamp on acceleration derived from ComponentLinearAccScale and ComponentLinearVelScale, to ensure it is not too large. */
 	UPROPERTY(EditAnywhere, Category = Settings)
 	FVector	ComponentAppliedLinearAccClamp;
-
-	/** If true, the override value will be used for linear damping */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
-	bool bOverrideLinearDamping;
-
-	/** Overridden linear damping value */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
-	float LinearDampingOverride;
-
-	/** If true, the override value will be used for angular damping */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
-	bool bOverrideAngularDamping;
-
-	/** Overridden angular damping value */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
-	float AngularDampingOverride;
-
-	/** If true, the override value will be used for the angular bias for bodies in this node. 
-	 *  Angular bias is essentially a twist reduction for chain forces and defaults to a value to keep chains stability
-	 *  in check. When using single-body systems sometimes angular forces will look like they are "catching-up" with
-	 *  the mesh, if that's the case override this and push it towards 1.0f until it settles correctly
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
-	bool bOverrideAngularBias;
 
 	/** Overridden angular bias value
 	 *  Angular bias is essentially a twist reduction for chain forces and defaults to a value to keep chains stability
@@ -340,14 +302,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
 	float AngularBiasOverride;
-
-	/** If true we will perform physics update, otherwise skip - allows visualisation of the initial state of the bodies */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
-	bool bDoUpdate;
-
-	/** If true we will perform bone transform evaluation, otherwise skip - allows visualisation of the initial anim state compared to the physics sim */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
-	bool bDoEval;
 
 	/** Number of update passes on the linear and angular limits before we solve the position of the bodies recommended to be four times the value of NumSolverIterationsPostUpdate */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
@@ -361,25 +315,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	UPROPERTY(EditAnywhere, Category = Constraint)
 	FAnimPhysConstraintSetup ConstraintSetup;
 
-	/** Whether to evaluate planar limits */
-	UPROPERTY(EditAnywhere, Category=PlanarLimit)
-	bool bUsePlanarLimit;
-
-	/** List of available planar limits for this node */
-	UPROPERTY(EditAnywhere, Category=PlanarLimit)
-	TArray<FAnimPhysPlanarLimit> PlanarLimits;
-
-	/** Whether to evaluate spherical limits */
-	UPROPERTY(EditAnywhere, Category = SphericalLimit)
-	bool bUseSphericalLimits;
-
 	/** List of available spherical limits for this node */
 	UPROPERTY(EditAnywhere, Category = SphericalLimit)
 	TArray<FAnimPhysSphericalLimit> SphericalLimits;
-
-	/** Resolution method for planar limits */
-	UPROPERTY(EditAnywhere, Category = Collision)
-	AnimPhysCollisionType CollisionType;
 
 	/** Radius to use if CollisionType is set to CustomSphere */
 	UPROPERTY(EditAnywhere, Category = Collision, meta = (UIMin = "1", ClampMin = "1"))
@@ -388,6 +326,79 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	/** An external force to apply to all bodies in the simulation when ticked, specified in world space */
 	UPROPERTY(EditAnywhere, Category = Forces, meta = (PinShownByDefault))
 	FVector ExternalForce;
+
+	/** List of available planar limits for this node */
+	UPROPERTY(EditAnywhere, Category=PlanarLimit)
+	TArray<FAnimPhysPlanarLimit> PlanarLimits;
+
+	/** Resolution method for planar limits */
+	UPROPERTY(EditAnywhere, Category = Collision)
+	AnimPhysCollisionType CollisionType;
+
+	/** The space used to run the simulation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	AnimPhysSimSpaceType SimulationSpace;
+
+	// Cached sim space that we last used
+	AnimPhysSimSpaceType LastSimSpace;
+
+	// We can't get clean bone positions unless we are in the evaluate step.
+	// Requesting an init or reinit sets this flag for us to pick up during evaluate
+	ETeleportType InitTeleportType;
+
+	/** Whether to evaluate spherical limits */
+	UPROPERTY(EditAnywhere, Category = SphericalLimit)
+	uint8 bUseSphericalLimits:1;
+
+	/** Whether to evaluate planar limits */
+	UPROPERTY(EditAnywhere, Category=PlanarLimit)
+	uint8 bUsePlanarLimit:1;
+
+	/** If true we will perform physics update, otherwise skip - allows visualisation of the initial state of the bodies */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
+	uint8 bDoUpdate:1;
+
+	/** If true we will perform bone transform evaluation, otherwise skip - allows visualisation of the initial anim state compared to the physics sim */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
+	uint8 bDoEval:1;
+
+	/** If true, the override value will be used for linear damping */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
+	uint8 bOverrideLinearDamping:1;
+
+	/** If true, the override value will be used for the angular bias for bodies in this node. 
+	 *  Angular bias is essentially a twist reduction for chain forces and defaults to a value to keep chains stability
+	 *  in check. When using single-body systems sometimes angular forces will look like they are "catching-up" with
+	 *  the mesh, if that's the case override this and push it towards 1.0f until it settles correctly
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
+	uint8 bOverrideAngularBias:1;
+
+	/** If true, the override value will be used for angular damping */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
+	uint8 bOverrideAngularDamping:1;
+
+	/** Whether or not wind is enabled for the bodies in this simulation */
+	UPROPERTY(EditAnywhere, Category = Wind)
+	uint8 bEnableWind:1;
+
+	uint8 bWindWasEnabled:1;
+
+	/** Use gravity override value vs gravity scale */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (InlineEditConditionToggle))
+	uint8 bUseGravityOverride:1;
+
+	/** If true the body will attempt to spring back to its initial position */
+	UPROPERTY(EditAnywhere, Category = Setup)
+	uint8 bLinearSpring:1;
+
+	/** If true the body will attempt to align itself with the specified angular target */
+	UPROPERTY(EditAnywhere, Category = Setup)
+	uint8 bAngularSpring:1;
+
+	/** Set to true to use the solver to simulate a connected chain */
+	UPROPERTY(EditAnywhere, Category = Setup)
+	uint8 bChain:1;
 
 	// FAnimNode_SkeletalControlBase interface
 	virtual void Initialize_AnyThread(const FAnimationInitializeContext& Context) override;
@@ -445,10 +456,6 @@ private:
 
 	void ConvertSimulationSpace(FComponentSpacePoseContext& Output, AnimPhysSimSpaceType From, AnimPhysSimSpaceType To);
 
-	// We can't get clean bone positions unless we are in the evaluate step.
-	// Requesting an init or reinit sets this flag for us to pick up during evaluate
-	ETeleportType InitTeleportType;
-
 	// Maximum time to consider when accumulating time debt to avoid spiraling
 	static const float MaxTimeDebt;
 
@@ -463,9 +470,6 @@ private:
 	float MaxSubstepDeltaTime;
 	int32 MaxSubsteps;
 	//////////////////////////////////////////////////////////////////////////
-
-	// Cached sim space that we last used
-	AnimPhysSimSpaceType LastSimSpace;
 
 	// Active body list
 	TArray<FAnimPhysLinkedBody> Bodies;
@@ -499,10 +503,6 @@ private:
 	// Gravity direction in sim space
 	FVector SimSpaceGravityDirection;
 
-	// Previous component & actor transforms, used to account for teleports
-	FTransform PreviousCompWorldSpaceTM;
-	FTransform PreviousActorWorldSpaceTM;
-	
 	// Previous linear velocity to resolve world accelerations when not using world space simulation
 	FVector PreviousComponentLinearVelocity;
 

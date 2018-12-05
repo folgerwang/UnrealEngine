@@ -87,7 +87,7 @@ public:
 	/** Returns true if either particle system would loop forever when played */
 	bool IsLooping() const;
 private:
-	/** DEPRECATED(4.11) */
+	/** UE_DEPRECATED(4.11) */
 	UPROPERTY()
 	float DistFromCamera_DEPRECATED;
 };

@@ -6,6 +6,11 @@
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Templates/Casts.h"
 
+bool UMovieSceneNiagaraFloatParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneFloatSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraFloatParameterTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneFloatSection>(this, NAME_None, RF_Transactional);

@@ -364,6 +364,7 @@ namespace AutomationTool
 			this.bTreatNonShippingBinariesAsDebugFiles = InParams.bTreatNonShippingBinariesAsDebugFiles;
 			this.bUseExtraFlavor = InParams.bUseExtraFlavor;
 			this.RunAssetNativization = InParams.RunAssetNativization;
+			this.AdditionalPackageOptions = InParams.AdditionalPackageOptions;
 		}
 
 		/// <summary>
@@ -489,7 +490,8 @@ namespace AutomationTool
             int? RunTimeoutSeconds = null,
 			string SpecifiedArchitecture = null,
 			string UbtArgs = null,
-            bool? IterativeDeploy = null,
+			string AdditionalPackageOptions = null,
+			bool? IterativeDeploy = null,
 			bool? FastCook = null,
 			bool? IgnoreCookErrors = null,
             bool? RunAssetNativization = null,
@@ -815,6 +817,7 @@ namespace AutomationTool
 			this.CrashReporter = GetParamValueIfNotSpecified(Command, CrashReporter, this.CrashReporter, "crashreporter");
 			this.SpecifiedArchitecture = ParseParamValueIfNotSpecified(Command, SpecifiedArchitecture, "specifiedarchitecture", String.Empty);
 			this.UbtArgs = ParseParamValueIfNotSpecified(Command, UbtArgs, "ubtargs", String.Empty);
+			this.AdditionalPackageOptions = ParseParamValueIfNotSpecified(Command, AdditionalPackageOptions, "AdditionalPackageOptions", String.Empty);
 
 			if (ClientConfigsToBuild == null)
 			{
@@ -1918,6 +1921,8 @@ namespace AutomationTool
 		[Help("UbtArgs", "extra options to pass to ubt")]
 		public string UbtArgs;
 
+		[Help("AdditionalPackageOptions", "extra options to pass to the platform's packager")]
+		public string AdditionalPackageOptions { get; set; }
 
 #endregion
 
@@ -2767,6 +2772,7 @@ namespace AutomationTool
 				CommandUtils.LogLog("bUseExtraFlavor={0}", bUseExtraFlavor);
 				CommandUtils.LogLog("NativizeAssets={0}", RunAssetNativization);
                 CommandUtils.LogLog("StageDirectoryParam={0}", StageDirectoryParam);
+				CommandUtils.LogLog("AdditionalPackageOptions={0}", AdditionalPackageOptions);
 				CommandUtils.LogLog("Project Params **************");
 			}
 			bLogged = true;

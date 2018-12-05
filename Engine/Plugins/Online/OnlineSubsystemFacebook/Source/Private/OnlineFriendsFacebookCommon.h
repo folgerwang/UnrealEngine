@@ -155,7 +155,7 @@ private:
 	/**
 	 * Should use the initialization constructor instead
 	 */
-	FOnlineFriendsFacebookCommon();
+	FOnlineFriendsFacebookCommon() = delete;
 
 	/**
 	 * Delegate called when a user /me request from Facebook is complete

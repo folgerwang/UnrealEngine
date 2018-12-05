@@ -359,6 +359,8 @@ private:
 		return !IsAsyncLoading() && (LoadFlags & (LOAD_Quiet | LOAD_Async)) == 0;
 	}
 
+	/** Test whether we should report progress or not based on how recently we last created a progress task */
+	bool ShouldCreateThrottledSlowTask() const;
 
 	virtual void PushDebugDataString(const FName& DebugData) override
 	{

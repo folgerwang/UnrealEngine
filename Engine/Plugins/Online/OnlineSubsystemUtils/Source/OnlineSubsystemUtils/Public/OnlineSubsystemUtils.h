@@ -158,7 +158,15 @@ static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const UWorld* W
 { \
 	IOnlineSubsystem* OSS = Online::GetSubsystem(World, SubsystemName); \
 	return (OSS == NULL) ? NULL : OSS->Get##InterfaceType##Interface(); \
-}
+} \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##InterfaceChecked(const UWorld* World, const FName SubsystemName = NAME_None) \
+{ \
+	IOnlineSubsystem* OSS = Online::GetSubsystem(World, SubsystemName); \
+	check(OSS); \
+	IOnline##InterfaceType##Ptr InterfacePtr = OSS->Get##InterfaceType##Interface(); \
+	check(InterfacePtr.IsValid()); \
+	return InterfacePtr; \
+} 
 
 namespace Online
 {

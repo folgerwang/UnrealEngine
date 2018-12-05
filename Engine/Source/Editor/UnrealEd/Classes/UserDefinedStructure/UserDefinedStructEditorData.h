@@ -48,15 +48,15 @@ struct FStructVariableDescription
 	UPROPERTY()
 	EPinContainerType ContainerType;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsArray_DEPRECATED:1;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsSet_DEPRECATED:1;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsMap_DEPRECATED:1;
 
@@ -83,7 +83,7 @@ struct FStructVariableDescription
 
 	UNREALED_API FEdGraphPinType ToPinType() const;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	void PostSerialize(const FArchive& Ar);
 
 	FStructVariableDescription()

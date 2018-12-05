@@ -337,7 +337,16 @@ bool FUntypedBulkData::CanLoadFromDisk() const
 #if WITH_EDITOR
 	return AttachedAr != NULL;
 #else
-	return Filename != TEXT("") || (Package.IsValid() && Package->LinkerLoad);
+	bool bCanLoadFromDisk = false;
+	if (!Filename.IsEmpty())
+	{
+		bCanLoadFromDisk = true;
+	}
+	else if (UPackage* PackagePtr = Package.Get())
+	{
+		bCanLoadFromDisk = (PackagePtr->LinkerLoad != nullptr);
+	}
+	return bCanLoadFromDisk;
 #endif // WITH_EDITOR
 }
 
@@ -1412,26 +1421,32 @@ void FUntypedBulkData::LoadDataIntoMemory( void* Dest )
 
 #else
 	bool bWasLoadedSuccessfully = false;
-	if (IsInAsyncLoadingThread() && Package.IsValid() && Package->LinkerLoad && Package->LinkerLoad->GetOwnerThreadId() == FPlatformTLS::GetCurrentThreadId() && ((BulkDataFlags & BULKDATA_PayloadInSeperateFile) == 0))
+	if (((BulkDataFlags & BULKDATA_PayloadInSeperateFile) == 0) && IsInAsyncLoadingThread())
 	{
-		FLinkerLoad* LinkerLoad = Package->LinkerLoad;
-		if (LinkerLoad && LinkerLoad->HasLoader())
+		if (UPackage* PackagePtr = Package.Get())
 		{
-			FArchive* Ar = LinkerLoad;
-			// keep track of current position in this archive
-			int64 CurPos = Ar->Tell();
+			if (PackagePtr->LinkerLoad && PackagePtr->LinkerLoad->GetOwnerThreadId() == FPlatformTLS::GetCurrentThreadId())
+			{
+				FLinkerLoad* LinkerLoad = PackagePtr->LinkerLoad;
+				if (LinkerLoad && LinkerLoad->HasLoader())
+				{
+					FArchive* Ar = LinkerLoad;
+					// keep track of current position in this archive
+					int64 CurPos = Ar->Tell();
 
-			// Seek to the beginning of the bulk data in the file.
-			Ar->Seek( BulkDataOffsetInFile );
+					// Seek to the beginning of the bulk data in the file.
+					Ar->Seek( BulkDataOffsetInFile );
 
-			// serialize the bulk data
-			SerializeBulkData( *Ar, Dest );
+					// serialize the bulk data
+					SerializeBulkData( *Ar, Dest );
 
-			// seek back to the position the archive was before
-			Ar->Seek(CurPos);
+					// seek back to the position the archive was before
+					Ar->Seek(CurPos);
 
-			// note that we loaded it
-			bWasLoadedSuccessfully = true;
+					// note that we loaded it
+					bWasLoadedSuccessfully = true;
+				}
+			}
 		}
 	}
 	// if we weren't able to load via linker, load directly by filename

@@ -170,12 +170,15 @@ TSharedRef<SWidget> UTextBlock::RebuildWidget()
  		TSharedPtr<SWidget> RetWidget = SNew(SInvalidationPanel)
  		[
  			SAssignNew(MyTextBlock, STextBlock)
+			.SimpleTextMode(bSimpleTextMode)
  		];
  		return RetWidget.ToSharedRef();
  	}
  	else
 	{
-		MyTextBlock = SNew(STextBlock);
+		MyTextBlock =
+			SNew(STextBlock)
+			.SimpleTextMode(bSimpleTextMode);
 		return MyTextBlock.ToSharedRef();
 	}
 }
@@ -224,7 +227,6 @@ void UTextBlock::SynchronizeProperties()
 		MyTextBlock->SetShadowOffset( ShadowOffset );
 		MyTextBlock->SetShadowColorAndOpacity( ShadowColorAndOpacityBinding );
 		MyTextBlock->SetMinDesiredWidth( MinDesiredWidth );
-
 		Super::SynchronizeTextLayoutProperties( *MyTextBlock );
 	}
 }
@@ -285,6 +287,28 @@ const FText UTextBlock::GetPaletteCategory()
 void UTextBlock::OnCreationFromPalette()
 {
 	Text = LOCTEXT("TextBlockDefaultValue", "Text Block");
+}
+
+bool UTextBlock::CanEditChange(const UProperty* InProperty) const
+{
+	if(bSimpleTextMode && InProperty)
+	{
+		static TArray<FName> InvalidPropertiesInSimpleMode =
+		{
+			GET_MEMBER_NAME_CHECKED(UTextBlock, ShapedTextOptions),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, Justification),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, WrappingPolicy),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, AutoWrapText),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, WrapTextAt),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, Margin),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, LineHeightPercentage),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, AutoWrapText),
+		};
+
+		return !InvalidPropertiesInSimpleMode.Contains(InProperty->GetFName());
+	}
+
+	return true;
 }
 
 #endif

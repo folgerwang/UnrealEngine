@@ -408,11 +408,13 @@ public:
 	{
 		static FName NAME_OGG(TEXT("OGG"));
 		static FName NAME_OPUS(TEXT("OPUS"));
-
+		
+#if !USE_VORBIS_FOR_STREAMING
 		if (Wave->IsStreaming())
 		{
 			return NAME_OPUS;
 		}
+#endif
 
 		return NAME_OGG;
 	}

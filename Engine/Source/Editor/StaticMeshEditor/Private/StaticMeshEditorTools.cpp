@@ -347,6 +347,18 @@ static UEnum& GetFeatureImportanceEnum()
 	return *FeatureImportanceEnum;
 }
 
+static UEnum& GetTerminationCriterionEunum()
+{
+	static FName Name(TEXT("EStaticMeshReductionTerimationCriterion::Triangles"));
+	static UEnum* EnumPtr = NULL;
+	if (EnumPtr == NULL)
+	{
+		UEnum::LookupEnumName(Name, &EnumPtr);
+		check(EnumPtr);
+	}
+	return *EnumPtr;
+}
+
 static void FillEnumOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InEnum)
 {
 	for (int32 EnumIndex = 0; EnumIndex < InEnum.NumEnums() - 1; ++EnumIndex)
@@ -1002,7 +1014,12 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
 	: ParentLODSettings( InParentLODSettings )
 {
+
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
+
+	FillEnumOptions(TerminationOptions, GetTerminationCriterionEunum());
+
+	bUseQuadricSimplifier = UseNativeToolLayout();
 }
 
 FMeshReductionSettingsLayout::~FMeshReductionSettingsLayout()
@@ -1019,10 +1036,77 @@ void FMeshReductionSettingsLayout::GenerateHeaderRowContent( FDetailWidgetRow& N
 	];
 }
 
+bool FMeshReductionSettingsLayout::UseNativeToolLayout() const 
+{
+	// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+
+	FString VersionString = ReductionModule->GetVersionString();
+	TArray<FString> SplitVersionString;
+	VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+
+	bool bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+	return bUseQuadricSimplier;
+}
+
+EVisibility FMeshReductionSettingsLayout::GetTriangleCriterionVisibility() const
+{
+	EVisibility VisibilityValue;
+	if (!bUseQuadricSimplifier || ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices)
+	{
+		VisibilityValue =  EVisibility::Visible;
+	}
+	else
+	{
+		VisibilityValue = EVisibility::Hidden;
+	}
+	return VisibilityValue;
+
+}
+
+
+EVisibility FMeshReductionSettingsLayout::GetVertexCriterionVisibility() const
+{
+	EVisibility VisibilityValue;
+	if (!bUseQuadricSimplifier || ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles)
+	{
+		VisibilityValue = EVisibility::Visible;
+	}
+	else
+	{
+		VisibilityValue = EVisibility::Hidden;
+	}
+	return VisibilityValue;
+
+}
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& ChildrenBuilder )
 {
+
+	if (bUseQuadricSimplifier)
+	{
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("Termination_MeshSimplification", "Termination"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("Termination_MeshSimplification", "Termination"))
+				]
+			.ValueContent()
+			[
+				SAssignNew(TerminationCriterionCombo, STextComboBox)
+				.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.OptionsSource(&TerminationOptions)
+				.InitiallySelectedItem(TerminationOptions[static_cast<int32>(ReductionSettings.TerminationCriterion)])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnTerminationCriterionChanged)
+			];
+
+		}
+	}
+
 	{
 		ChildrenBuilder.AddCustomRow( LOCTEXT("PercentTriangles", "Percent Triangles") )
 		.NameContent()
@@ -1040,112 +1124,139 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 			.Value(this, &FMeshReductionSettingsLayout::GetPercentTriangles)
 			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnPercentTrianglesChanged)
 			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnPercentTrianglesCommitted)
-		];
+		]
+		.Visibility(TAttribute<EVisibility>(this, &FMeshReductionSettingsLayout::GetTriangleCriterionVisibility));
 
 	}
 
+	if (bUseQuadricSimplifier)
 	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("MaxDeviation", "Max Deviation") )
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text(LOCTEXT("MaxDeviation", "Max Deviation"))
-		]
+		ChildrenBuilder.AddCustomRow(LOCTEXT("PercentVertices", "Percent Vertices"))
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Text(LOCTEXT("PercentVertices", "Percent Vertices"))
+			]
 		.ValueContent()
-		[
-			SNew(SSpinBox<float>)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			[
+				SNew(SSpinBox<float>)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			.MinValue(0.0f)
-			.MaxValue(1000.0f)
-			.Value(this, &FMeshReductionSettingsLayout::GetMaxDeviation)
-			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnMaxDeviationChanged)
-			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnMaxDeviationCommitted)
-		];
+			.MaxValue(100.0f)
+			.Value(this, &FMeshReductionSettingsLayout::GetPercentVertices)
+			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnPercentVerticesChanged)
+			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnPercentVerticesCommitted)
+			]
+		.Visibility(TAttribute<EVisibility>(this, &FMeshReductionSettingsLayout::GetVertexCriterionVisibility));
 
 	}
 
+	// Controls that only simplygon uses.
+	if (!bUseQuadricSimplifier)
 	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("PixelError", "Pixel Error") )
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text(LOCTEXT("PixelError", "Pixel Error"))
-		]
-		.ValueContent()
-		[
-			SNew(SSpinBox<float>)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.MinValue(0.0f)
-			.MaxValue(40.0f)
-			.Value(this, &FMeshReductionSettingsLayout::GetPixelError)
-			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnPixelErrorChanged)
-			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnPixelErrorCommitted)
-		];
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("MaxDeviation", "Max Deviation"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("MaxDeviation", "Max Deviation"))
+				]
+			.ValueContent()
+				[
+					SNew(SSpinBox<float>)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.MinValue(0.0f)
+				.MaxValue(1000.0f)
+				.Value(this, &FMeshReductionSettingsLayout::GetMaxDeviation)
+				.OnValueChanged(this, &FMeshReductionSettingsLayout::OnMaxDeviationChanged)
+				.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnMaxDeviationCommitted)
+				];
 
+		}
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("PixelError", "Pixel Error"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("PixelError", "Pixel Error"))
+				]
+			.ValueContent()
+				[
+					SNew(SSpinBox<float>)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.MinValue(0.0f)
+				.MaxValue(40.0f)
+				.Value(this, &FMeshReductionSettingsLayout::GetPixelError)
+				.OnValueChanged(this, &FMeshReductionSettingsLayout::OnPixelErrorChanged)
+				.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnPixelErrorCommitted)
+				];
+
+		}
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("Silhouette_MeshSimplification", "Silhouette"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("Silhouette_MeshSimplification", "Silhouette"))
+				]
+			.ValueContent()
+				[
+					SAssignNew(SilhouetteCombo, STextComboBox)
+					//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&ImportanceOptions)
+				.InitiallySelectedItem(ImportanceOptions[ReductionSettings.SilhouetteImportance])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnSilhouetteImportanceChanged)
+				];
+
+		}
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("Texture_MeshSimplification", "Texture"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("Texture_MeshSimplification", "Texture"))
+				]
+			.ValueContent()
+				[
+					SAssignNew(TextureCombo, STextComboBox)
+					//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&ImportanceOptions)
+				.InitiallySelectedItem(ImportanceOptions[ReductionSettings.TextureImportance])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnTextureImportanceChanged)
+				];
+
+		}
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("Shading_MeshSimplification", "Shading"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("Shading_MeshSimplification", "Shading"))
+				]
+			.ValueContent()
+				[
+					SAssignNew(ShadingCombo, STextComboBox)
+					//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&ImportanceOptions)
+				.InitiallySelectedItem(ImportanceOptions[ReductionSettings.ShadingImportance])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnShadingImportanceChanged)
+				];
+
+		}
 	}
-
-	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("Silhouette_MeshSimplification", "Silhouette") )
-		.NameContent()
-		[
-			SNew( STextBlock )
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text( LOCTEXT("Silhouette_MeshSimplification", "Silhouette") )
-		]
-		.ValueContent()
-		[
-			SAssignNew(SilhouetteCombo, STextComboBox)
-			//.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.ContentPadding(0)
-			.OptionsSource(&ImportanceOptions)
-			.InitiallySelectedItem(ImportanceOptions[ReductionSettings.SilhouetteImportance])
-			.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnSilhouetteImportanceChanged)
-		];
-
-	}
-
-	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("Texture_MeshSimplification", "Texture") )
-		.NameContent()
-		[
-			SNew( STextBlock )
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text( LOCTEXT("Texture_MeshSimplification", "Texture") )
-		]
-		.ValueContent()
-		[
-			SAssignNew( TextureCombo, STextComboBox )
-			//.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.ContentPadding(0)
-			.OptionsSource( &ImportanceOptions )
-			.InitiallySelectedItem(ImportanceOptions[ReductionSettings.TextureImportance])
-			.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnTextureImportanceChanged)
-		];
-
-	}
-
-	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("Shading_MeshSimplification", "Shading") )
-		.NameContent()
-		[
-			SNew( STextBlock )
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text( LOCTEXT("Shading_MeshSimplification", "Shading") )
-		]
-		.ValueContent()
-		[
-			SAssignNew( ShadingCombo, STextComboBox )
-			//.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.ContentPadding(0)
-			.OptionsSource( &ImportanceOptions )
-			.InitiallySelectedItem(ImportanceOptions[ReductionSettings.ShadingImportance])
-			.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnShadingImportanceChanged)
-		];
-
-	}
-
 	{
 		ChildrenBuilder.AddCustomRow( LOCTEXT("WeldingThreshold", "Welding Threshold") )
 		.NameContent()
@@ -1167,44 +1278,47 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	}
 
+	// controls that only simplygon uses
+	if (!bUseQuadricSimplifier)
 	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("RecomputeNormals", "Recompute Normals") )
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text(LOCTEXT("RecomputeNormals", "Recompute Normals"))
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("RecomputeNormals", "Recompute Normals"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("RecomputeNormals", "Recompute Normals"))
 
-		]
-		.ValueContent()
-		[
-			SNew(SCheckBox)
-			.IsChecked(this, &FMeshReductionSettingsLayout::ShouldRecalculateNormals)
-			.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnRecalculateNormalsChanged)
-		];
+				]
+			.ValueContent()
+				[
+					SNew(SCheckBox)
+					.IsChecked(this, &FMeshReductionSettingsLayout::ShouldRecalculateNormals)
+				.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnRecalculateNormalsChanged)
+				];
+		}
+
+		{
+			ChildrenBuilder.AddCustomRow(LOCTEXT("HardEdgeAngle", "Hard Edge Angle"))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("HardEdgeAngle", "Hard Edge Angle"))
+				]
+			.ValueContent()
+				[
+					SNew(SSpinBox<float>)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.MinValue(0.0f)
+				.MaxValue(180.0f)
+				.Value(this, &FMeshReductionSettingsLayout::GetHardAngleThreshold)
+				.OnValueChanged(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdChanged)
+				.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdCommitted)
+				];
+
+		}
 	}
-
-	{
-		ChildrenBuilder.AddCustomRow( LOCTEXT("HardEdgeAngle", "Hard Edge Angle") )
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text(LOCTEXT("HardEdgeAngle", "Hard Edge Angle"))
-		]
-		.ValueContent()
-		[
-			SNew(SSpinBox<float>)
-			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.MinValue(0.0f)
-			.MaxValue(180.0f)
-			.Value(this, &FMeshReductionSettingsLayout::GetHardAngleThreshold)
-			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdChanged)
-			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdCommitted)
-		];
-
-	}
-
 	{
 		ChildrenBuilder.AddCustomRow( LOCTEXT("ApplyChanges", "Apply Changes") )
 			.ValueContent()
@@ -1221,9 +1335,16 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 			];
 	}
 
-	SilhouetteCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.SilhouetteImportance]);
-	TextureCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.TextureImportance]);
-	ShadingCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.ShadingImportance]);
+	if (!bUseQuadricSimplifier)
+	{
+		SilhouetteCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.SilhouetteImportance]);
+		TextureCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.TextureImportance]);
+		ShadingCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.ShadingImportance]);
+	}
+	else
+	{
+		TerminationCriterionCombo->SetSelectedItem(TerminationOptions[static_cast<int32>(ReductionSettings.TerminationCriterion)]);
+	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -1249,6 +1370,11 @@ FReply FMeshReductionSettingsLayout::OnApplyChanges()
 float FMeshReductionSettingsLayout::GetPercentTriangles() const
 {
 	return ReductionSettings.PercentTriangles * 100.0f; // Display fraction as percentage.
+}
+
+float FMeshReductionSettingsLayout::GetPercentVertices() const
+{
+	return ReductionSettings.PercentVertices * 100.0f; // Display fraction as percentage.
 }
 
 float FMeshReductionSettingsLayout::GetMaxDeviation() const
@@ -1282,6 +1408,12 @@ void FMeshReductionSettingsLayout::OnPercentTrianglesChanged(float NewValue)
 	ReductionSettings.PercentTriangles = NewValue * 0.01f;
 }
 
+void FMeshReductionSettingsLayout::OnPercentVerticesChanged(float NewValue)
+{
+	// Percentage -> fraction.
+	ReductionSettings.PercentVertices = NewValue * 0.01f;
+}
+
 void FMeshReductionSettingsLayout::OnPercentTrianglesCommitted(float NewValue, ETextCommit::Type TextCommitType)
 {
 	if (FEngineAnalytics::IsAvailable())
@@ -1289,6 +1421,16 @@ void FMeshReductionSettingsLayout::OnPercentTrianglesCommitted(float NewValue, E
 		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("PercentTriangles"), FString::Printf(TEXT("%.1f"), NewValue));
 	}
 	OnPercentTrianglesChanged(NewValue);
+}
+
+
+void FMeshReductionSettingsLayout::OnPercentVerticesCommitted(float NewValue, ETextCommit::Type TextCommitType)
+{
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("PercentVertices"), FString::Printf(TEXT("%.1f"), NewValue));
+	}
+	OnPercentVerticesChanged(NewValue);
 }
 
 void FMeshReductionSettingsLayout::OnMaxDeviationChanged(float NewValue)
@@ -1396,6 +1538,19 @@ void FMeshReductionSettingsLayout::OnShadingImportanceChanged(TSharedPtr<FString
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("ShadingImportance"), *NewValue.Get());
 		}
 		ReductionSettings.ShadingImportance = ShadingImportance;
+	}
+}
+
+void FMeshReductionSettingsLayout::OnTerminationCriterionChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo)
+{
+	const EStaticMeshReductionTerimationCriterion TerminationCriterion = (EStaticMeshReductionTerimationCriterion)TerminationOptions.Find(NewValue);
+	if (ReductionSettings.TerminationCriterion != TerminationCriterion)
+	{
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("TerminationCriterion"), *NewValue.Get());
+		}
+		ReductionSettings.TerminationCriterion = TerminationCriterion;
 	}
 }
 

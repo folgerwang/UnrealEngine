@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/List.h"
 #include "RHI.h"
 
 DECLARE_STATS_GROUP(TEXT("ShaderPipelineCache"),STATGROUP_PipelineStateCache, STATCAT_Advanced);
@@ -11,6 +12,14 @@ DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Total Graphics Pipeline State Count"
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Total Compute Pipeline State Count"), STAT_TotalComputePipelineStateCount, STATGROUP_PipelineStateCache, RHI_API);
 
 #define PIPELINE_CACHE_DEFAULT_ENABLED (!WITH_EDITOR && PLATFORM_MAC)
+
+/**
+ * PSO_COOKONLY_DATA
+ * - Is a transitory data area that should only be used during the cook and stablepc.csv file generation processes.
+ * - If def'ing it out in GAME builds helps to reduce confusion as to where the actual data resides
+ * - Should not be serialized or used in comparsion operations (e.g. UsageMask: PSO need to be able to compare equal with different Masks during cook).
+ */
+#define PSO_COOKONLY_DATA (WITH_EDITOR || IS_PROGRAM)
 
 struct RHI_API FPipelineFileCacheRasterizerState
 {
@@ -154,6 +163,11 @@ struct RHI_API FPipelineCacheFileFormatPSO
 	GraphicsDescriptor GraphicsDesc;
 	mutable volatile uint32 Hash;
 	
+#if PSO_COOKONLY_DATA
+	uint64 UsageMask;
+	int64 BindCount;
+#endif
+	
 	FPipelineCacheFileFormatPSO();
 	~FPipelineCacheFileFormatPSO();
 	
@@ -167,10 +181,12 @@ struct RHI_API FPipelineCacheFileFormatPSO
 	
 	static bool Init(FPipelineCacheFileFormatPSO& PSO, FRHIComputeShader const* Init);
 	static bool Init(FPipelineCacheFileFormatPSO& PSO, FGraphicsPipelineStateInitializer const& Init);
-
-
-};
 	
+	FString CommonToString() const;
+	static FString CommonHeaderLine();
+	void CommonFromString(const FString& Src);
+};
+
 struct RHI_API FPipelineCacheFileFormatPSORead
 {	
 	FPipelineCacheFileFormatPSORead()
@@ -182,14 +198,16 @@ struct RHI_API FPipelineCacheFileFormatPSORead
 	
 	~FPipelineCacheFileFormatPSORead()
 	{
-		if(Ar)
+		if(Ar != nullptr)
 		{
 			delete Ar;
+			Ar = nullptr;
 		}
 	}
 	
 	TArray<uint8> Data;
 	FArchive* Ar;
+	
 	uint32 Hash;
 	bool bReadCompleted;
     bool bValid;
@@ -206,11 +224,27 @@ struct RHI_API FPipelineCachePSOHeader
 
 extern RHI_API const uint32 FPipelineCacheFileFormatCurrentVersion;
 
+/*
+ * User definable Mask Comparsion function:
+ * @param ReferenceMask is the Current Bitmask set via SetGameUsageMask
+ * @param PSOMask is the PSO UsageMask
+ * @return Function should return true if this PSO is to be precompiled or false otherwise
+ */
+typedef bool(*FPSOMaskComparisonFn)(uint64 ReferenceMask, uint64 PSOMask);
+
 /**
  * FPipelineFileCache:
  * The RHI-level backend for FShaderPipelineCache, responsible for tracking PSOs and their usage stats as well as dealing with the pipeline cache files.
  * It is not expected that games or end-users invoke this directly, they should be calling FShaderPipelineCache which exposes this functionality in a usable form. 
  */
+
+struct FPSOUsageData
+{
+	FPSOUsageData(uint32 InPSOHash, uint64 InUsageMask): PSOHash(InPSOHash), UsageMask(InUsageMask) {}
+	uint32 PSOHash;
+	uint64 UsageMask;
+};
+
 class RHI_API FPipelineFileCache
 {
     friend class FPipelineCacheFile;
@@ -257,22 +291,38 @@ public:
 	 */
 	static FPipelineStateLoggedEvent& OnPipelineStateLogged();
 	
-	static void GetOrderedPSOHashes(TArray<FPipelineCachePSOHeader>& PSOHashes, PSOOrder Order);
-	static void FetchPSODescriptors(TArray<FPipelineCacheFileFormatPSORead*>& LoadedBatch);
+	static void GetOrderedPSOHashes(TArray<FPipelineCachePSOHeader>& PSOHashes, PSOOrder Order, int64 MinBindCount, TSet<uint32> const& AlreadyCompiledHashes);
+	static void FetchPSODescriptors(TDoubleLinkedList<FPipelineCacheFileFormatPSORead*>& LoadedBatch);
 	static uint32 NumPSOsLogged();
 	
 	static bool IsPipelineFileCacheEnabled();
 	static bool LogPSOtoFileCache();
     static bool ReportNewPSOs();
 	
+	/**
+	 * Define the Current Game Usage Mask and a comparison function to compare this mask against the recorded mask in each PSO
+	 * @param GameUsageMask Current Game Usage Mask to set, typically from user quality settings
+	 * @param InComparisonFnPtr Pointer to the comparsion function - see above FPSOMaskComparisonFn definition for details
+	 * @returns the old mask
+	 */
+	static uint64 SetGameUsageMaskWithComparison(uint64 GameUsageMask, FPSOMaskComparisonFn InComparisonFnPtr);
+	static uint64 GetGameUsageMask()	{ return GameUsageMask;}
+	
+private:
+	
+	static void EnsurePSOUsageMask(uint32 PSOHash, uint64 UsageMask);
+	
 private:
 	static FRWLock FileCacheLock;
 	static class FPipelineCacheFile* FileCache;
-	static TMap<uint32, uint32> RunTimeToFileHashes;
+	static TMap<uint32, FPSOUsageData> RunTimeToPSOUsage;
+	static TMap<uint32, uint64> NewPSOUsageMasks;			// Note: this is not only for new PSO's but also for existing PSO's in the filecache when they have a new UsageMask
 	static TMap<uint32, FPipelineStateStats*> Stats;
 	static TSet<FPipelineCacheFileFormatPSO> NewPSOs;
     static uint32 NumNewPSOs;
 	static PSOOrder RequestedOrder;
 	static bool FileCacheEnabled;
 	static FPipelineStateLoggedEvent PSOLoggedEvent;
+	static uint64 GameUsageMask;
+	static FPSOMaskComparisonFn MaskComparisonFn;
 };

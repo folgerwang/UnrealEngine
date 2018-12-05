@@ -26,6 +26,13 @@ class IPIEPreviewDeviceModule : public IDeviceProfileSelectorModule
 		{
 		}
 
+		//~ Begin IPIEPreviewDeviceModule Interface
+
+		/**
+		 * Gives the PIEPreviewDeviceModule a chance to modify the command line based on the target device json
+		 */
+		virtual void ApplyCommandLineOverrides() = 0;
+
 		/**
 		* Create PieWindow Ref
 		*/
@@ -45,4 +52,6 @@ class IPIEPreviewDeviceModule : public IDeviceProfileSelectorModule
 		virtual void SetGameLayerManagerWidget(TSharedPtr<class SGameLayerManager> GameLayerManager)
 		{
 		}
+
+		//~ End IDeviceProfileSelectorModule Interface
 };

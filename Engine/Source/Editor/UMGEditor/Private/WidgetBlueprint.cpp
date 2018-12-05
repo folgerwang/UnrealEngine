@@ -18,6 +18,7 @@
 #include "UObject/PropertyTag.h"
 #include "WidgetBlueprintCompiler.h"
 #include "UObject/EditorObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "WidgetGraphSchema.h"
 #include "UMGEditorProjectSettings.h"
 
@@ -551,13 +552,13 @@ UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 
 void UWidgetBlueprint::ReplaceDeprecatedNodes()
 {
-	if ( GetLinkerCustomVersion(FEditorObjectVersion::GUID) < FEditorObjectVersion::WidgetGraphSchema )
+	if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::WidgetStopDuplicatingAnimations)
 	{
 		// Update old graphs to all use the widget graph schema.
 		TArray<UEdGraph*> Graphs;
 		GetAllGraphs(Graphs);
 
-		for ( UEdGraph* Graph : Graphs )
+		for (UEdGraph* Graph : Graphs)
 		{
 			Graph->Schema = UWidgetGraphSchema::StaticClass();
 		}
@@ -578,6 +579,7 @@ void UWidgetBlueprint::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 }
 
 void UWidgetBlueprint::PostLoad()

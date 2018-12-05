@@ -465,6 +465,8 @@ namespace UnrealBuildTool
 								Writer.WriteLine("#undef UE_IS_ENGINE_MODULE");
 								Writer.WriteLine("#undef DEPRECATED_FORGAME");
 								Writer.WriteLine("#define DEPRECATED_FORGAME DEPRECATED");
+								Writer.WriteLine("#undef UE_DEPRECATED_FORGAME");
+								Writer.WriteLine("#define UE_DEPRECATED_FORGAME UE_DEPRECATED");
 							}
 
 							WriteDefinitions(CompileEnvironment.Definitions, Writer);

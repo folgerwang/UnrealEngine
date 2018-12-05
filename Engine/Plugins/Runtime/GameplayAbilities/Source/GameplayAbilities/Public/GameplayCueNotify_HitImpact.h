@@ -11,11 +11,11 @@ class UParticleSystem;
 class USoundBase;
 
 /**
- *	Non instanced GAmeplayCueNotify for spawning particle and sound FX.
+ *	Non instanced GameplayCueNotify for spawning particle and sound FX.
  *	Still WIP - needs to be fleshed out more.
  */
 
-UCLASS()
+UCLASS(Blueprintable, meta = (DisplayName = "GCN Hit Impact (Deprecated)", Category = "GameplayCue", ShortTooltip = "This class is deprecated. Use UFortGameplayCueNotify_Burst (GCN Burst) instead."))
 class GAMEPLAYABILITIES_API UGameplayCueNotify_HitImpact : public UGameplayCueNotify_Static
 {
 	GENERATED_UCLASS_BODY()

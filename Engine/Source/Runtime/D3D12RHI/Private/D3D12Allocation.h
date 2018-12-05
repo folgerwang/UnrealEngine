@@ -7,6 +7,30 @@ D3D12Allocation.h: A Collection of allocators
 #pragma once
 #include "D3D12Resources.h"
 
+// Segregated free list texture allocator
+// Description:
+// - Binned read-only texture allocation based on sizes
+// Suggestions:
+// - You can check memory wastage using "stat d3d12rhi" in a dev build
+// - Tune d3d12.ReadOnlyTextureAllocator.MinPoolSize/MinNumToPool/MaxPoolSize
+//   according to video memory budget
+// - Memory overhead is slightly over 200 MB in internal tests but consider
+//   adjusting above cvars or disabling if it fails your use case
+// - The purpose of this allocator is pooling texture allocations because
+//   creating committed resources is slow on PC. But if committed resource
+//   creation ever becomes fast, there is no need for this allocator
+// Internal test statistics (11/6/2018):
+// - Average read-only texture alloc time reduced from ~420 us to ~72 us
+// - Number of allocations over 1 ms reduced from 8145 to 504 (from 14.76% to
+//   0.92%) over a 17 minutes 11 seconds game replay
+// - Peak memory overhead was ~207 MB (from 2666.58 MB to 2874.08 MB)
+// TODO:
+// - Defragmentation support
+#define D3D12RHI_SEGREGATED_TEXTURE_ALLOC (PLATFORM_WINDOWS)
+#define D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE (!(UE_BUILD_TEST || UE_BUILD_SHIPPING))
+
+class FD3D12SegList;
+
 class FD3D12ResourceAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
@@ -382,35 +406,6 @@ private:
 };
 
 //-----------------------------------------------------------------------------
-//	FD3D12TextureAllocator
-//-----------------------------------------------------------------------------
-
-class FD3D12TextureAllocator : public FD3D12MultiBuddyAllocator
-{
-public:
-	FD3D12TextureAllocator(FD3D12Device* Device, FRHIGPUMask VisibleNodes, const FString& Name, uint32 HeapSize, D3D12_HEAP_FLAGS Flags);
-
-	~FD3D12TextureAllocator();
-
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState );
-};
-
-class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
-{
-public:
-	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
-
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState );
-
-	void CleanUpAllocations() { ReadOnlyTexturePool.CleanUpAllocations(); }
-
-	void Destroy() { ReadOnlyTexturePool.Destroy(); }
-
-private:
-	FD3D12TextureAllocator ReadOnlyTexturePool;
-};
-
-//-----------------------------------------------------------------------------
 //	Fast Allocation
 //-----------------------------------------------------------------------------
 
@@ -637,3 +632,413 @@ private:
 	uint32 PageSize;
 	FD3D12AbstractRingBuffer RingBuffer;
 };
+
+//-----------------------------------------------------------------------------
+//	FD3D12SegListAllocator
+//-----------------------------------------------------------------------------
+
+class FD3D12SegHeap : public FD3D12Heap
+{
+private:
+	FD3D12SegHeap(
+		FD3D12Device* Parent,
+		FRHIGPUMask VisibileNodeMask,
+		ID3D12Heap* NewHeap,
+		FD3D12SegList* Owner,
+		uint32 Idx) :
+		FD3D12Heap(Parent, VisibileNodeMask),
+		OwnerList(Owner),
+		ArrayIdx(Idx),
+		FirstFreeOffset(0)
+	{
+		this->SetHeap(NewHeap);
+	}
+
+	virtual ~FD3D12SegHeap() = default;
+
+	FD3D12SegHeap(const FD3D12SegHeap&) = delete;
+	FD3D12SegHeap(FD3D12SegHeap&&) = delete;
+
+	FD3D12SegHeap& operator=(const FD3D12SegHeap&) = delete;
+	FD3D12SegHeap& operator=(FD3D12SegHeap&&) = delete;
+
+	bool IsArrayIdxValid() const { return ArrayIdx >= 0; }
+
+	bool IsFull(uint32 HeapSize) const
+	{
+		check(FirstFreeOffset <= HeapSize);
+		return !FreeBlockOffsets.Num() && FirstFreeOffset == HeapSize;
+	}
+
+	bool IsEmpty(uint32 BlockSize) const
+	{
+		return FreeBlockOffsets.Num() * BlockSize == FirstFreeOffset;
+	}
+
+	// @return - In-heap offset of the allocated block
+	uint32 AllocateBlock(uint32 BlockSize)
+	{
+		if (!FreeBlockOffsets.Num())
+		{
+			uint32 Ret = FirstFreeOffset;
+			FirstFreeOffset += BlockSize;
+			return Ret;
+		}
+		else
+		{
+			return FreeBlockOffsets.Pop();
+		}
+	}
+
+	TArray<uint32> FreeBlockOffsets;
+	FD3D12SegList* OwnerList;
+	int32 ArrayIdx;
+	uint32 FirstFreeOffset;
+
+	friend class FD3D12SegList;
+	friend class FD3D12SegListAllocator;
+};
+
+class FD3D12SegList
+{
+private:
+	FD3D12SegList(uint32 InBlockSize, uint32 InHeapSize)
+		: BlockSize(InBlockSize)
+		, HeapSize(InHeapSize)
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+		, TotalBytesAllocated(0)
+#endif
+	{
+		check(!(HeapSize % BlockSize));
+		check(HeapSize / BlockSize > 1);
+	}
+
+	~FD3D12SegList()
+	{
+		FScopeLock Lock(&CS);
+		check(!!BlockSize);
+		check(!!HeapSize);
+		for (const auto& Heap : FreeHeaps)
+		{
+			check(Heap->GetRefCount() == 1);
+		}
+	}
+
+	FD3D12SegList(const FD3D12SegList&) = delete;
+	FD3D12SegList(FD3D12SegList&&) = delete;
+
+	FD3D12SegList& operator=(const FD3D12SegList&) = delete;
+	FD3D12SegList& operator=(FD3D12SegList&&) = delete;
+
+	// @return - In-heap offset of the allocated block
+	uint32 AllocateBlock(
+		FD3D12Device* Device,
+		FRHIGPUMask VisibleNodeMask,
+		D3D12_HEAP_TYPE HeapType,
+		D3D12_HEAP_FLAGS HeapFlags,
+		TRefCountPtr<FD3D12SegHeap>& OutHeap)
+	{
+		FScopeLock Lock(&CS);
+		uint32 Offset;
+
+		if (!!FreeHeaps.Num())
+		{
+			const int32 LastHeapIdx = FreeHeaps.Num() - 1;
+			OutHeap = FreeHeaps[LastHeapIdx];
+			Offset = OutHeap->AllocateBlock(BlockSize);
+			check(Offset <= HeapSize - BlockSize);
+			if (OutHeap->IsFull(HeapSize))
+			{
+				// Heap is full
+				OutHeap->ArrayIdx = INDEX_NONE;
+				FreeHeaps.RemoveAt(LastHeapIdx);
+			}
+		}
+		else
+		{
+			OutHeap = CreateBackingHeap(Device, VisibleNodeMask, HeapType, HeapFlags);
+			Offset = OutHeap->AllocateBlock(BlockSize);
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+			TotalBytesAllocated += HeapSize;
+#endif
+		}
+		return Offset;
+	}
+
+	// Deferred deletion is handled by FD3D12SegListAllocator
+	void FreeBlock(FD3D12SegHeap* RESTRICT Heap, uint32 Offset)
+	{
+		FScopeLock Lock(&CS);
+
+		check(!(Offset % BlockSize));
+		check(Offset <= HeapSize - BlockSize);
+		check(this == Heap->OwnerList);
+
+		const bool bFull = Heap->IsFull(HeapSize);
+		Heap->FreeBlockOffsets.Add(Offset);
+
+		if (bFull)
+		{
+			// Heap was full
+			check(!Heap->IsArrayIdxValid());
+			Heap->ArrayIdx = FreeHeaps.Add(Heap);
+		}
+		else if (Heap->IsEmpty(BlockSize))
+		{
+			// Heap is empty
+			check(Heap->GetRefCount() == 1);
+			check(Heap->IsArrayIdxValid());
+			check(FreeHeaps.Num() > Heap->ArrayIdx);
+			const int32 Idx = Heap->ArrayIdx;
+			const int32 LastIdx = FreeHeaps.Num() - 1;
+			FreeHeaps.RemoveAtSwap(Idx);
+			if (Idx != LastIdx)
+			{
+				FreeHeaps[Idx]->ArrayIdx = Idx;
+			}
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+			TotalBytesAllocated -= HeapSize;
+#endif
+		}
+	}
+
+	FD3D12SegHeap* CreateBackingHeap(
+		FD3D12Device* Parent,
+		FRHIGPUMask VisibleNodeMask,
+		D3D12_HEAP_TYPE HeapType,
+		D3D12_HEAP_FLAGS HeapFlags);
+
+	TArray<TRefCountPtr<FD3D12SegHeap>> FreeHeaps;
+	FCriticalSection CS;
+	uint32 BlockSize;
+	uint32 HeapSize;
+
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+	uint64 TotalBytesAllocated;
+#endif
+
+	friend class FD3D12SegListAllocator;
+};
+
+#if !D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+static_assert(sizeof(FD3D12SegList) <= 64, "Try to make it fit in a single cacheline");
+#endif
+
+class FD3D12SegListAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
+{
+public:
+	static constexpr uint32 InvalidOffset = 0xffffffff;
+
+	FD3D12SegListAllocator(
+		FD3D12Device* Parent,
+		FRHIGPUMask VisibilityMask,
+		D3D12_HEAP_TYPE InHeapType,
+		D3D12_HEAP_FLAGS InHeapFlags,
+		uint32 InMinPoolSize,
+		uint32 InMinNumToPool,
+		uint32 InMaxPoolSize);
+
+	~FD3D12SegListAllocator()
+	{
+		check(!SegLists.Num());
+		check(!FenceValues.Num());
+		check(!DeferredDeletionQueue.Num());
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+		check(!TotalBytesRequested);
+#endif
+	}
+
+	FD3D12SegListAllocator(const FD3D12SegListAllocator&) = delete;
+	FD3D12SegListAllocator(FD3D12SegListAllocator&&) = delete;
+
+	FD3D12SegListAllocator& operator=(const FD3D12SegListAllocator&) = delete;
+	FD3D12SegListAllocator& operator=(FD3D12SegListAllocator&&) = delete;
+
+	uint32 Allocate(uint32 SizeInBytes, uint32 Alignment, TRefCountPtr<FD3D12SegHeap>& OutHeap)
+	{
+		check(!(Alignment & Alignment - 1));
+
+		const uint32 BlockSize = CalculateBlockSize(SizeInBytes, Alignment);
+		if (ShouldPool(BlockSize))
+		{
+			FD3D12SegList* SegList;
+			{
+				FRWScopeLock Lock(SegListsRWLock, SLT_ReadOnly);
+				FD3D12SegList** SegListPtr = SegLists.Find(BlockSize);
+				SegList = !!SegListPtr ? *SegListPtr : nullptr;
+			}
+			if (!SegList)
+			{
+				const uint32 HeapSize = CalculateHeapSize(BlockSize);
+				{
+					FRWScopeLock Lock(SegListsRWLock, SLT_Write);
+					FD3D12SegList** SegListPtr = SegLists.Find(BlockSize);
+					SegList = !!SegListPtr ?
+						*SegListPtr :
+						SegLists.Add(BlockSize, new FD3D12SegList(BlockSize, HeapSize));
+				}
+			}
+			check(!!SegList);
+			uint32 Ret = SegList->AllocateBlock(
+				this->GetParentDevice(),
+				this->GetVisibilityMask(),
+				HeapType,
+				HeapFlags,
+				OutHeap);
+			check(Ret != InvalidOffset);
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+			TotalBytesRequested += SizeInBytes;
+#endif
+			return Ret;
+		}
+		OutHeap = nullptr;
+		return InvalidOffset;
+	}
+
+	void Deallocate(FD3D12Resource* PlacedResource, uint32 Offset, uint32 SizeInBytes);
+
+	void CleanUpAllocations();
+
+	void Destroy();
+
+	bool GetMemoryStats(uint64& OutTotalAllocated, uint64& OutTotalUnused) const
+	{
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+		FScopeLock LockCS(&DeferredDeletionCS);
+		FRWScopeLock LockRW(SegListsRWLock, SLT_Write);
+
+		OutTotalAllocated = 0;
+		for (const auto& Pair : SegLists)
+		{
+			const FD3D12SegList* SegList = Pair.Value;
+			OutTotalAllocated += SegList->TotalBytesAllocated;
+		}
+		OutTotalUnused = OutTotalAllocated - TotalBytesRequested.Load(EMemoryOrder::Relaxed);
+		return true;
+#else
+		return false;
+#endif
+	}
+
+private:
+	struct FRetiredBlock
+	{
+		// FD3D12Resource knows which heap it is from
+		FD3D12Resource* PlacedResource;
+		uint32 Offset;
+		uint32 ResourceSize;
+
+		FRetiredBlock(
+			FD3D12Resource* InResource,
+			uint32 InOffset,
+			uint32 InResourceSize) :
+			PlacedResource(InResource),
+			Offset(InOffset),
+			ResourceSize(InResourceSize)
+		{}
+	};
+
+	static constexpr uint32 CalculateBlockSize(uint32 SizeInBytes, uint32 Alignment)
+	{
+		return (SizeInBytes + Alignment - 1) & ~(Alignment - 1);
+	}
+
+	bool ShouldPool(uint32 BlockSize) const
+	{
+		return BlockSize * 2 <= MaxPoolSize;
+	}
+
+	uint32 CalculateHeapSize(uint32 BlockSize) const
+	{
+		check(MinPoolSize + BlockSize - 1 > MinPoolSize);
+		uint32 NumPooled = (MinPoolSize + BlockSize - 1) / BlockSize;
+		if (NumPooled < MinNumToPool)
+		{
+			NumPooled = MinNumToPool;
+		}
+		const uint32 MaxNumPooled = MaxPoolSize / BlockSize;
+		if (NumPooled > MaxNumPooled)
+		{
+			NumPooled = MaxNumPooled;
+		}
+		check(NumPooled > 1);
+		check(NumPooled * BlockSize >= MinPoolSize);
+		check(NumPooled * BlockSize <= MaxPoolSize);
+		return NumPooled * BlockSize;
+	}
+
+	template <typename AllocX, typename AllocY>
+	void FreeRetiredBlocks(TArray<TArray<FRetiredBlock, AllocX>, AllocY>& PendingDeletes);
+
+	TMap<uint32, FD3D12SegList*> SegLists;
+	TArray<uint64> FenceValues;
+	TArray<TArray<FRetiredBlock>> DeferredDeletionQueue;
+	mutable FRWLock SegListsRWLock;
+	mutable FCriticalSection DeferredDeletionCS;
+	const D3D12_HEAP_TYPE HeapType;
+	const D3D12_HEAP_FLAGS HeapFlags;
+	const uint32 MinPoolSize;
+	const uint32 MinNumToPool;
+	const uint32 MaxPoolSize;
+
+#if D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+	TAtomic<uint64> TotalBytesRequested;
+#endif
+};
+
+//-----------------------------------------------------------------------------
+//	FD3D12TextureAllocator
+//-----------------------------------------------------------------------------
+
+#if D3D12RHI_SEGREGATED_TEXTURE_ALLOC
+class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
+{
+public:
+	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
+
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState);
+
+	void CleanUpAllocations()
+	{
+		ReadOnlyTexturePool.CleanUpAllocations();
+	}
+
+	void Destroy()
+	{
+		ReadOnlyTexturePool.Destroy();
+	}
+
+	bool GetMemoryStats(uint64& OutTotalAllocated, uint64& OutTotalUnused) const
+	{
+		return ReadOnlyTexturePool.GetMemoryStats(OutTotalAllocated, OutTotalUnused);
+	}
+
+private:
+	FD3D12SegListAllocator ReadOnlyTexturePool;
+};
+#else
+class FD3D12TextureAllocator : public FD3D12MultiBuddyAllocator
+{
+public:
+	FD3D12TextureAllocator(FD3D12Device* Device, FRHIGPUMask VisibleNodes, const FString& Name, uint32 HeapSize, D3D12_HEAP_FLAGS Flags);
+
+	~FD3D12TextureAllocator();
+
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState);
+};
+
+class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
+{
+public:
+	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
+
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState);
+
+	void CleanUpAllocations() { ReadOnlyTexturePool.CleanUpAllocations(); }
+
+	void Destroy() { ReadOnlyTexturePool.Destroy(); }
+
+private:
+	FD3D12TextureAllocator ReadOnlyTexturePool;
+};
+#endif

@@ -27,35 +27,31 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotationOffsetBlendSpace : public FAnimNod
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
-
-	UPROPERTY(Transient)
-	bool bIsLODEnabled;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
-	EAnimAlphaInputType AlphaInputType;
-
 	// Current strength of the AimOffset
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBias AlphaScaleBias;
-
-	UPROPERTY(Transient)
-	float ActualAlpha;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
-	mutable bool bAlphaBoolEnabled;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
 	FInputAlphaBoolBlend AlphaBoolBlend;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
-	mutable FName AlphaCurveName;
+	FName AlphaCurveName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBiasClamp AlphaScaleBiasClamp;
+
+	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	EAnimAlphaInputType AlphaInputType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled", DisplayAfter = "AlphaScaleBias"))
+	bool bAlphaBoolEnabled;
+
+	bool bIsLODEnabled;
 
 public:	
 	FAnimNode_RotationOffsetBlendSpace();
@@ -66,5 +62,6 @@ public:
 	virtual void UpdateAssetPlayer(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 };

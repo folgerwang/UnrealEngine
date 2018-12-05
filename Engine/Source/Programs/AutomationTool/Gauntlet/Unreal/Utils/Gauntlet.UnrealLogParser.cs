@@ -26,6 +26,22 @@ namespace Gauntlet
 			public string			Message;
 			public string[]			Callstack;
 			public bool				IsEnsure;
+			
+			/// <summary>
+			/// Generate a string that represents a CallstackMessage formatted to be inserted into a log file.
+			/// </summary>
+			/// <returns>Formatted log string version of callstack.</returns>
+			public string FormatForLog()
+			{
+				string FormattedString = "";
+				FormattedString += string.Format("{0}", Message);
+				foreach (string StackLine in Callstack)
+				{
+					FormattedString += string.Format("\t{0}\n", StackLine);
+				}
+				FormattedString += "\n";
+				return FormattedString;
+			}
 		};
 
 		public class PlatformInfo
@@ -528,7 +544,7 @@ namespace Gauntlet
 		/// <returns></returns>
 		public bool GetTestExitCode(out int ExitCode)
 		{
-			Regex Reg = new Regex(@"TEST COMPLETE. EXIT CODE:\s*(\d+)\s*");
+			Regex Reg = new Regex(@"\*\s+TEST COMPLETE. EXIT CODE:\s*(-?\d?)\s+\*");
 
 			Match M = Reg.Match(Content);
 

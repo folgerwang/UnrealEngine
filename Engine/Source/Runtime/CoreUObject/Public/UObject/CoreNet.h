@@ -284,6 +284,8 @@ public:
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FSoftObjectPath& Value) override;
 	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
+
+	virtual void CountMemory(FArchive& Ar) const override;
 };
 
 
@@ -303,6 +305,8 @@ public:
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FSoftObjectPath& Value) override;
 	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
+
+	virtual void CountMemory(FArchive& Ar) const override;
 };
 
 bool FORCEINLINE NetworkGuidSetsAreSame( const TSet< FNetworkGUID >& A, const TSet< FNetworkGUID >& B )

@@ -95,7 +95,7 @@ UPartyBeaconState::UPartyBeaconState(const FObjectInitializer& ObjectInitializer
 	TeamAssignmentMethod(ETeamAssignmentMethod::Smallest),
 	ReservedHostTeamNum(0),
 	ForceTeamNum(0),
-	bRestrictCrossConsole(true)
+	bRestrictCrossConsole(false)
 {
 }
 

@@ -157,7 +157,9 @@ struct FLandscapeVertexRef
 
 	uint64 MakeKey() const
 	{
-		return (uint64)X << 32 | (uint64)Y << 16 | (uint64)SubX << 8 | (uint64)SubY;
+		// this is very bad for TMap
+		//return (uint64)X << 32 | (uint64)Y << 16 | (uint64)SubX << 8 | (uint64)SubY;
+		return HashCombine((uint32(X) << 8) | uint32(SubY), (uint32(SubX) << 24) | uint32(Y));
 	}
 };
 

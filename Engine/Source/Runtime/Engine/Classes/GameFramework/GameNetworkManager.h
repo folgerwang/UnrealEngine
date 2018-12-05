@@ -122,6 +122,10 @@ class ENGINE_API AGameNetworkManager : public AInfo
 	UPROPERTY(GlobalConfig)
 	float MaxMoveDeltaTime;
 
+	/** MaxClientSmoothingDeltaTime is the maximum delta time between server updates that clients are allowed to smooth between for position interpolation. This was previously (2 * MaxMoveDeltaTime). */
+	UPROPERTY(GlobalConfig)
+	float MaxClientSmoothingDeltaTime;
+
 	/**
 	 * ClientNetSendMoveDeltaTime is the default minimum time delta of CharacterMovement client moves to the server. When updates occur more frequently, they may be combined to save bandwidth.
 	 * This value is not used when player count is over ClientNetSendMoveThrottleOverPlayerCount or player net speed is <= ClientNetSendMoveThrottleAtNetSpeed (see ClientNetSendMoveDeltaTimeThrottled).

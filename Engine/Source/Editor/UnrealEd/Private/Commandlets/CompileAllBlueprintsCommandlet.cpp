@@ -250,7 +250,8 @@ bool UCompileAllBlueprintsCommandlet::CheckHasTagInList(FAssetData const& Asset,
 			{
 				for (const FString& IndividualValueToCheck : TagValuesToCheck)
 				{
-					if ((Asset.TagsAndValues.Find(FName(*SingleTagAndValues.Key))) && (*Asset.TagsAndValues.Find(FName(*SingleTagAndValues.Key)) == IndividualValueToCheck))
+					
+					if (Asset.TagsAndValues.ContainsKeyValue(FName(*SingleTagAndValues.Key), IndividualValueToCheck))
 					{
 						bContainedTag = true;
 						break;

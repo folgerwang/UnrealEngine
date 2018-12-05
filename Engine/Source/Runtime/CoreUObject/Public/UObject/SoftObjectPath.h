@@ -274,10 +274,10 @@ private:
 };
 
 // Not deprecating these yet as it will lead to too many warnings in games
-//DEPRECATED(4.18, "FStringAssetReference was renamed to FSoftObjectPath as it is now not always a string and can also refer to a subobject")
+//UE_DEPRECATED(4.18, "FStringAssetReference was renamed to FSoftObjectPath as it is now not always a string and can also refer to a subobject")
 typedef FSoftObjectPath FStringAssetReference;
 
-//DEPRECATED(4.18, "FStringClassReference was renamed to FSoftClassPath")
+//UE_DEPRECATED(4.18, "FStringClassReference was renamed to FSoftClassPath")
 typedef FSoftClassPath FStringClassReference;
 
 /** Options for how to set soft object path collection */

@@ -295,20 +295,27 @@ class UMaterialInstance : public UMaterialInterface
 	 */
 	ENGINE_API const FStaticParameterSet& GetStaticParameters() const;
 
+	/** Flag to detect cycles in the material instance graph. */
+	bool ReentrantFlag[2];
+
 	/**
 	 * Indicates whether the instance has static permutation resources (which are required when static parameters are present) 
 	 * Read directly from the rendering thread, can only be modified with the use of a FMaterialUpdateContext.
 	 * When true, StaticPermutationMaterialResources will always be valid and non-null.
 	 */
 	UPROPERTY()
-	uint32 bHasStaticPermutationResource:1;
+	uint8 bHasStaticPermutationResource:1;
 
 	/** Defines if SubsurfaceProfile from this instance is used or it uses the parent one. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MaterialInstance)
-	uint32 bOverrideSubsurfaceProfile:1;
-	
-	/** Flag to detect cycles in the material instance graph. */
-	bool ReentrantFlag[2];
+	uint8 bOverrideSubsurfaceProfile:1;
+
+	uint8 TwoSided : 1;
+	uint8 DitheredLODTransition : 1;
+	uint8 bCastDynamicShadowAsMasked : 1;
+
+	TEnumAsByte<EBlendMode> BlendMode;
+	TEnumAsByte<EMaterialShadingModel> ShadingModel;
 
 	FORCEINLINE bool GetReentrantFlag() const
 	{
@@ -336,8 +343,10 @@ class UMaterialInstance : public UMaterialInterface
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MaterialInstance)
 	TArray<struct FFontParameterValue> FontParameterValues;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	bool bOverrideBaseProperties_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, Category=MaterialInstance)
 	struct FMaterialInstanceBasePropertyOverrides BasePropertyOverrides;
@@ -349,11 +358,6 @@ class UMaterialInstance : public UMaterialInterface
 
 	//Cached copies of the base property overrides or the value from the parent to avoid traversing the parent chain for each access.
 	float OpacityMaskClipValue;
-	TEnumAsByte<EBlendMode> BlendMode;
-	TEnumAsByte<EMaterialShadingModel> ShadingModel;
-	uint32 TwoSided : 1;
-	uint32 DitheredLODTransition : 1;
-	uint32 bCastDynamicShadowAsMasked : 1;
 
 	/** 
 	 * FMaterialRenderProxy derivatives that represent this material instance to the renderer, when the renderer needs to fetch parameter values. 
@@ -449,8 +453,11 @@ public:
 #endif
 	virtual ENGINE_API void RecacheUniformExpressions() const override;
 	virtual ENGINE_API bool GetRefractionSettings(float& OutBiasValue) const override;
+
+#if WITH_EDITOR
 	ENGINE_API virtual void ForceRecompileForRendering() override;
-	
+#endif // WITH_EDITOR
+
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;
 	ENGINE_API virtual EBlendMode GetBlendMode() const override;
 	ENGINE_API virtual EMaterialShadingModel GetShadingModel() const override;

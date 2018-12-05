@@ -479,25 +479,27 @@ bool UGameViewportClient::TryToggleFullscreenOnInputKey(FKey Key, EInputEvent Ev
 	return false;
 }
 
-bool UGameViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
+bool UGameViewportClient::InputKey(const FInputKeyEventArgs& EventArgs)
 {
-	if (TryToggleFullscreenOnInputKey(Key, EventType))
+	int32 ControllerId = EventArgs.ControllerId;
+
+	if (TryToggleFullscreenOnInputKey(EventArgs.Key, EventArgs.Event))
 	{
 		return true;
 	}
 
 	if (IgnoreInput())
 	{
-		return ViewportConsole ? ViewportConsole->InputKey(ControllerId, Key, EventType, AmountDepressed, bGamepad) : false;
+		return ViewportConsole ? ViewportConsole->InputKey(ControllerId, EventArgs.Key, EventArgs.Event, EventArgs.AmountDepressed, EventArgs.IsGamepad()) : false;
 	}
 
 	const int32 NumLocalPlayers = World ? World->GetGameInstance()->GetNumLocalPlayers() : 0;
 
-	if (NumLocalPlayers > 1 && Key.IsGamepadKey() && GetDefault<UGameMapsSettings>()->bOffsetPlayerGamepadIds)
+	if (NumLocalPlayers > 1 && EventArgs.Key.IsGamepadKey() && GetDefault<UGameMapsSettings>()->bOffsetPlayerGamepadIds)
 	{
 		++ControllerId;
 	}
-	else if (InViewport->IsPlayInEditorViewport() && Key.IsGamepadKey())
+	else if (EventArgs.Viewport->IsPlayInEditorViewport() && EventArgs.Key.IsGamepadKey())
 	{
 		GEngine->RemapGamepadControllerIdForPIE(this, ControllerId);
 	}
@@ -506,7 +508,7 @@ bool UGameViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FK
 	// Give debugger commands a chance to process key binding
 	if (GameViewportInputKeyDelegate.IsBound())
 	{
-		if ( GameViewportInputKeyDelegate.Execute(Key, FSlateApplication::Get().GetModifierKeys(), EventType) )
+		if ( GameViewportInputKeyDelegate.Execute(EventArgs.Key, FSlateApplication::Get().GetModifierKeys(), EventArgs.Event) )
 		{
 			return true;
 		}
@@ -514,33 +516,37 @@ bool UGameViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FK
 #endif
 
 	// route to subsystems that care
-	bool bResult = ( ViewportConsole ? ViewportConsole->InputKey(ControllerId, Key, EventType, AmountDepressed, bGamepad) : false );
+	bool bResult = ( ViewportConsole ? ViewportConsole->InputKey(ControllerId, EventArgs.Key, EventArgs.Event, EventArgs.AmountDepressed, EventArgs.IsGamepad()) : false );
 
 	if (!bResult)
 	{
 		ULocalPlayer* const TargetPlayer = GEngine->GetLocalPlayerFromControllerId(this, ControllerId);
 		if (TargetPlayer && TargetPlayer->PlayerController)
 		{
-			bResult = TargetPlayer->PlayerController->InputKey(Key, EventType, AmountDepressed, bGamepad);
+			bResult = TargetPlayer->PlayerController->InputKey(EventArgs.Key, EventArgs.Event, EventArgs.AmountDepressed, EventArgs.IsGamepad());
 		}
 
 		// A gameviewport is always considered to have responded to a mouse buttons to avoid throttling
-		if (!bResult && Key.IsMouseButton())
+		if (!bResult && EventArgs.Key.IsMouseButton())
 		{
 			bResult = true;
 		}
 	}
 
+#if WITH_EDITOR
 	// For PIE, let the next PIE window handle the input if none of our players did
 	// (this allows people to use multiple controllers to control each window)
-	if (!bResult && ControllerId > NumLocalPlayers - 1 && InViewport->IsPlayInEditorViewport())
+	if (!bResult && ControllerId > NumLocalPlayers - 1 && EventArgs.Viewport->IsPlayInEditorViewport())
 	{
-		UGameViewportClient *NextViewport = GEngine->GetNextPIEViewport(this);
+		UGameViewportClient* NextViewport = GEngine->GetNextPIEViewport(this);
 		if (NextViewport)
 		{
-			bResult = NextViewport->InputKey(InViewport, ControllerId - NumLocalPlayers, Key, EventType, AmountDepressed, bGamepad);
+			FInputKeyEventArgs NextViewportEventArgs = EventArgs;
+			NextViewportEventArgs.ControllerId = ControllerId - NumLocalPlayers;
+			bResult = NextViewport->InputKey(NextViewportEventArgs);
 		}
 	}
+#endif
 
 	return bResult;
 }
@@ -1512,6 +1518,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	// Render the UI.
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UIDrawingTime);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(UI);
 
 		// render HUD
 		bool bDisplayedSubtitles = false;
@@ -1561,7 +1568,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 						if (DebugCanvas != NULL )
 						{
 							DebugCanvas->PushAbsoluteTransform(FTranslationMatrix(CanvasOrigin));
-							UDebugDrawService::Draw(ViewFamily.EngineShowFlags, InViewport, View, DebugCanvas);
+							UDebugDrawService::Draw(ViewFamily.EngineShowFlags, InViewport, View, DebugCanvas, DebugCanvasObject);
 							DebugCanvas->PopTransform();
 						}
 

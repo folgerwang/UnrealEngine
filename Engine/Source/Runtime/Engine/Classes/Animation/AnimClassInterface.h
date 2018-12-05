@@ -14,6 +14,7 @@
 #include "AnimClassInterface.generated.h"
 
 class USkeleton;
+struct FExposedValueHandler;
 
 UINTERFACE()
 class ENGINE_API UAnimClassInterface : public UInterface
@@ -28,6 +29,7 @@ public:
 	virtual const TArray<FBakedAnimationStateMachine>& GetBakedStateMachines() const = 0;
 	virtual const TArray<FAnimNotifyEvent>& GetAnimNotifies() const = 0;
 	virtual const TArray<UStructProperty*>& GetAnimNodeProperties() const = 0;
+	virtual const TArray<FExposedValueHandler>& GetExposedValueHandlers() const = 0;
 	virtual const TArray<FName>& GetSyncGroupNames() const = 0;
 	virtual const TArray<int32>& GetOrderedSavedPoseNodeIndices() const = 0;
 

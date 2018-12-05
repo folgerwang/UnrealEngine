@@ -356,6 +356,11 @@ FReply STableViewBase::OnMouseButtonDown( const FGeometry& MyGeometry, const FPo
 	// Zero the scroll velocity so the list stops immediately on mouse down, even if the user does not drag
 	this->InertialScrollManager.ClearScrollVelocity();
 
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		OnRightMouseButtonDown(MouseEvent);
+	}
+
 	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && ScrollBar->IsNeeded() )
 	{
 		AmountScrolledWhileRightMouseDown = 0;
@@ -739,6 +744,14 @@ void STableViewBase::AddScrollOffset(const float InScrollOffsetDelta, bool Refre
 			OnTableViewScrolled.ExecuteIfBound(ScrollOffset);
 			RequestLayoutRefresh();
 		}
+	}
+}
+
+void STableViewBase::SetScrollbarVisibility(const EVisibility InVisibility)
+{
+	if (ScrollBar)
+	{
+		ScrollBar->SetVisibility(InVisibility);
 	}
 }
 

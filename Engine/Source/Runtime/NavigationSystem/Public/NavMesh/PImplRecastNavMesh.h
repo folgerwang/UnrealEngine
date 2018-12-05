@@ -223,8 +223,8 @@ public:
 	void PostProcessPath(dtStatus PathfindResult, FNavMeshPath& Path,
 		const dtNavMeshQuery& Query, const dtQueryFilter* Filter,
 		NavNodeRef StartNode, NavNodeRef EndNode,
-		const FVector& UnrealStart, const FVector& UnrealEnd,
-		const FVector& RecastStart, FVector& RecastEnd,
+		FVector UnrealStart, FVector UnrealEnd,
+		FVector RecastStart, FVector RecastEnd,
 		dtQueryResult& PathResult) const;
 
 	void GetDebugPolyEdges(const dtMeshTile& Tile, bool bInternalEdges, bool bNavMeshEdges, TArray<FVector>& InternalEdgeVerts, TArray<FVector>& NavMeshEdgeVerts) const;

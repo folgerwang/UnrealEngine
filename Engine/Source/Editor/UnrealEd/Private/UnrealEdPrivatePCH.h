@@ -98,7 +98,6 @@
 #include "Internationalization/TextLocalizationManager.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"
@@ -377,7 +376,6 @@
 #include "Rendering/SlateRenderer.h"
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
-#include "Logging/IEventLogger.h"
 #include "Types/SlateConstants.h"
 #include "Fonts/FontProviderInterface.h"
 

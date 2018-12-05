@@ -40,9 +40,9 @@ void FUserStructOnScopeIgnoreDefaults::Recreate(const UUserDefinedStruct* InUser
 
 void FUserStructOnScopeIgnoreDefaults::Initialize()
 {
-	if (ScriptStruct.IsValid())
+	if (const UStruct* ScriptStructPtr = ScriptStruct.Get())
 	{
-		SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize() ? ScriptStruct->GetStructureSize() : 1);
+		SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStructPtr->GetStructureSize() ? ScriptStructPtr->GetStructureSize() : 1);
 		((UUserDefinedStruct*)ScriptStruct.Get())->InitializeStructIgnoreDefaults(SampleStructMemory);
 		OwnsMemory = true;
 	}

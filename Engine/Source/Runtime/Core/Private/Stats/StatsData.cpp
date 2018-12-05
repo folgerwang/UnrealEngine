@@ -811,6 +811,18 @@ void FStatsThreadState::ToggleFindMemoryExtensiveStats()
 	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is %s now"), bFindMemoryExtensiveStats?TEXT("enabled"):TEXT("disabled"));
 }
 
+void FStatsThreadState::EnableFindMemoryExtensiveStats()
+{
+	bFindMemoryExtensiveStats = true;
+	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is enabled now"));
+}
+
+void FStatsThreadState::DisableFindMemoryExtensiveStats()
+{
+	bFindMemoryExtensiveStats = false;
+	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is disabled now"));
+}
+
 void FStatsThreadState::ProcessNonFrameStats(FStatMessagesArray& Data, TSet<FName>* NonFrameStatsFound)
 {
 	for (FStatMessage& Item : Data)

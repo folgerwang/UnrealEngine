@@ -257,10 +257,10 @@ private:
 	 */
 	void RefineCurvePoints(FFrameRate TickResolution, double TimeThreshold, float ValueThreshold, TArray<TTuple<double, double>>& InOutPoints) const;
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> Times;
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<FMovieSceneFloatValue> Values;
 
 	UPROPERTY()

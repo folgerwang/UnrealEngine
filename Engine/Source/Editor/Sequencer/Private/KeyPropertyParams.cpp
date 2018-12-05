@@ -111,6 +111,18 @@ template<> bool FPropertyChangedParams::GetPropertyValueImpl<bool>(void* Data, c
 	}
 }
 
+template<> UObject* FPropertyChangedParams::GetPropertyValueImpl<UObject*>(void* Data, const FPropertyInfo& PropertyInfo)
+{
+	if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(PropertyInfo.Property.Get()))
+	{
+		return ObjectProperty->GetObjectPropertyValue(Data);
+	}
+	else
+	{
+		return *((UObject**)Data);
+	}
+}
+
 FString FPropertyChangedParams::GetPropertyPathString() const
 {
 	return PropertyPath.ToString(TEXT("."));

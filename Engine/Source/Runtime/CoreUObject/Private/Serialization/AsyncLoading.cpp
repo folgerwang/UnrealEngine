@@ -81,6 +81,7 @@ DECLARE_STATS_GROUP(TEXT("Async Load Game Thread"), STATGROUP_AsyncLoadGameThrea
 DECLARE_CYCLE_STAT(TEXT("PostLoadObjects GT"), STAT_FAsyncPackage_PostLoadObjectsGameThread, STATGROUP_AsyncLoadGameThread);
 DECLARE_CYCLE_STAT(TEXT("TickAsyncLoading GT"), STAT_FAsyncPackage_TickAsyncLoadingGameThread, STATGROUP_AsyncLoadGameThread);
 DECLARE_CYCLE_STAT(TEXT("Flush Async Loading GT"), STAT_FAsyncPackage_FlushAsyncLoadingGameThread, STATGROUP_AsyncLoadGameThread);
+DECLARE_CYCLE_STAT(TEXT("CreateClusters GT"), STAT_FAsyncPackage_CreateClustersGameThread, STATGROUP_AsyncLoadGameThread);
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Total PostLoadObjects time GT"), STAT_FAsyncPackage_TotalPostLoadGameThread, STATGROUP_AsyncLoadGameThread);
 
 DECLARE_FLOAT_ACCUMULATOR_STAT( TEXT( "Async loading block time" ), STAT_AsyncIO_AsyncLoadingBlockingTime, STATGROUP_AsyncIO );
@@ -2378,36 +2379,41 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 		{
 			if (!Import.bImportFailed)
 			{
-			UPackage* ImportPackage = Import.XObject ? CastChecked<UPackage>(Import.XObject) : nullptr;
-			if (!ImportPackage)
-			{
-				ImportPackage = FindObjectFast<UPackage>(NULL, Import.ObjectName, false, false);
+				UPackage* ImportPackage = Import.XObject ? CastChecked<UPackage>(Import.XObject) : nullptr;
 				if (!ImportPackage)
 				{
-					Import.bImportFailed = true;
-					UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(Import.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of package %s"), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
-				}
-				else
-				{
-					Import.XObject = ImportPackage;
-					AddObjectReference(Import.XObject);
-				}
-			}
-
-			if (ImportPackage)
-			{
-				FLinkerLoad* ImportLinker = ImportPackage->LinkerLoad;
-				if (ImportLinker && ImportLinker->AsyncRoot)
-				{
-					check(ImportLinker->AsyncRoot != this);
-					// make sure we wait for this package to serialize (and all of its dependents) before we start doing postloads
-					if (int32(ImportLinker->AsyncRoot->AsyncPackageLoadingState) <= int32(EAsyncPackageLoadingState::WaitingForPostLoad)) // no need to clutter dependencies with things that are already done
+					ImportPackage = FindObjectFast<UPackage>(NULL, Import.ObjectName, false, false);
+					if (!ImportPackage)
 					{
-						PackagesIMayBeWaitingForBeforePostload.Add(FWeakAsyncPackagePtr(ImportLinker->AsyncRoot));
+						Import.bImportFailed = true;
+						UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(Import.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of package %s"), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
+					}
+					else
+					{
+						Import.XObject = ImportPackage;
+						AddObjectReference(Import.XObject);
+					}
+				}
+
+				if (ImportPackage)
+				{
+					if (!ImportedPackages.Contains(ImportPackage))
+					{
+						ImportedPackages.Add(ImportPackage);
+					}
+
+					FLinkerLoad* ImportLinker = ImportPackage->LinkerLoad;
+					if (ImportLinker && ImportLinker->AsyncRoot)
+					{
+						check(ImportLinker->AsyncRoot != this);
+						// make sure we wait for this package to serialize (and all of its dependents) before we start doing postloads
+						if (int32(ImportLinker->AsyncRoot->AsyncPackageLoadingState) <= int32(EAsyncPackageLoadingState::WaitingForPostLoad)) // no need to clutter dependencies with things that are already done
+						{
+							PackagesIMayBeWaitingForBeforePostload.Add(FWeakAsyncPackagePtr(ImportLinker->AsyncRoot));
+						}
 					}
 				}
 			}
-		}
 		}
 		else if (!Import.XObject || !IsFullyLoadedObj(Import.XObject) 
 			|| GIsInitialLoad) // during the initial load, we might find the object, but it hasn't yet actually been finished
@@ -3782,7 +3788,6 @@ void FAsyncPackage::MakeNextPrecacheRequestCurrent()
 	{
 		RemoveNode(EEventLoadNode::Export_StartIO, FPackageIndex::FromExport(LocalExportIndex));
 	}
-	Read->WaitCompletion();
 	PrecacheRequests.Remove(Read);
 	delete Read;	
 }
@@ -4634,6 +4639,62 @@ EAsyncPackageState::Type FAsyncLoadingThread::ProcessAsyncLoading(int32& OutPack
 	return LoadingState;
 }
 
+bool FAsyncPackage::AreAllDependenciesFullyLoadedInternal(FAsyncPackage* Package, TSet<UPackage*>& VisitedPackages, FString& OutError)
+{
+	for (UPackage* ImportPackage : Package->ImportedPackages)
+	{
+		if (VisitedPackages.Contains(ImportPackage))
+		{
+			continue;
+		}
+		VisitedPackages.Add(ImportPackage);
+
+		if (FLinkerLoad* ImportPackageLinker = FLinkerLoad::FindExistingLinkerForPackage(ImportPackage))
+		{
+			if (ImportPackageLinker->AsyncRoot)
+			{
+				if (!ImportPackageLinker->AsyncRoot->bAllExportsSerialized)
+				{
+					OutError = FString::Printf(TEXT("%s Doesn't have all exports Serialized"), *Package->GetPackageName().ToString());
+					return false;
+				}
+				if (ImportPackageLinker->AsyncRoot->DeferredPostLoadIndex < ImportPackageLinker->AsyncRoot->DeferredPostLoadObjects.Num())
+				{
+					OutError = FString::Printf(TEXT("%s Doesn't have all objects processed by DeferredPostLoad"), *Package->GetPackageName().ToString());
+					return false;
+				}
+				for (FObjectExport& Export : ImportPackageLinker->ExportMap)
+				{
+					if (Export.Object && Export.Object->HasAnyFlags(RF_NeedPostLoad|RF_NeedLoad))
+					{
+						OutError = FString::Printf(TEXT("%s Doesn't have %s %s"), *Export.Object->GetFullName(), 
+							Export.Object->HasAnyFlags(RF_NeedLoad) ? TEXT("Serialized") : TEXT("PostLoaded"));
+						return false;
+					}
+				}
+
+				if (!AreAllDependenciesFullyLoadedInternal(ImportPackageLinker->AsyncRoot, VisitedPackages, OutError))
+				{
+					OutError = Package->GetPackageName().ToString() + TEXT("->") + OutError;
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+bool FAsyncPackage::AreAllDependenciesFullyLoaded(TSet<UPackage*>& VisitedPackages)
+{
+	VisitedPackages.Reset();
+	FString Error;
+	bool bLoaded = AreAllDependenciesFullyLoadedInternal(this, VisitedPackages, Error);
+	if (!bLoaded)
+	{
+		UE_LOG(LogStreaming, Verbose, TEXT("AreAllDependenciesFullyLoaded: %s"), *Error);
+	}
+	return bLoaded;
+}
 
 EAsyncPackageState::Type FAsyncLoadingThread::ProcessLoadedPackages(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, bool& bDidSomething, FFlushTree* FlushTree)
 {
@@ -4764,21 +4825,45 @@ EAsyncPackageState::Type FAsyncLoadingThread::ProcessLoadedPackages(bool bUseTim
 	// Delete packages we're done processing and are no longer dependencies of anything else
 	if (Result != EAsyncPackageState::TimeOut)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_CreateClustersGameThread);
+
+		// For performance reasons this set is created here and reset inside of AreAllDependenciesFullyLoaded
+		TSet<UPackage*> VisitedPackages;
+
 		for (int32 PackageIndex = 0; PackageIndex < PackagesToDelete.Num(); ++PackageIndex)
 		{
 			FAsyncPackage* Package = PackagesToDelete[PackageIndex];
 			if (Package->GetDependencyRefCount() == 0 && !Package->IsBeingProcessedRecursively())
 			{
-				// This is a good time to safely create GC clusters since all the dependencies have been loaded
-				if (Package->CreateClusters(TickStartTime, bUseTimeLimit, TimeLimit) == EAsyncPackageState::Complete)
+				bool bSafeToDelete = false;
+				if (Package->HasClusterObjects())
 				{
-					PackagesToDelete.RemoveAtSwap(PackageIndex--);
-					delete Package;
+					// This package will create GC clusters but first check if all dependencies of this package have been fully loaded
+					if (Package->AreAllDependenciesFullyLoaded(VisitedPackages))
+					{
+						if (Package->CreateClusters(TickStartTime, bUseTimeLimit, TimeLimit) == EAsyncPackageState::Complete)
+						{
+							// All clusters created, it's safe to delete the package
+							bSafeToDelete = true;
+						}
+						else
+						{
+							// Cluster creation timed out
+							Result = EAsyncPackageState::TimeOut;
+							break;
+						}
+					}
 				}
 				else
 				{
-					Result = EAsyncPackageState::TimeOut;
-					break;
+					// No clusters to create so it's safe to delete
+					bSafeToDelete = true;
+				}
+
+				if (bSafeToDelete)
+				{
+					PackagesToDelete.RemoveAtSwap(PackageIndex--);
+					delete Package;
 				}
 			}
 
@@ -6946,6 +7031,8 @@ void FAsyncPackage::UpdateLoadPercentage()
 
 int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid /*= nullptr*/, const TCHAR* InPackageToLoadFrom /*= nullptr*/, FLoadPackageAsyncDelegate InCompletionDelegate /*= FLoadPackageAsyncDelegate()*/, EPackageFlags InPackageFlags /*= PKG_None*/, int32 InPIEInstanceID /*= INDEX_NONE*/, int32 InPackagePriority /*= 0*/)
 {
+	int32 RequestID = INDEX_NONE;
+
 	static bool bOnce = false;
 	if (!bOnce && GEventDrivenLoaderEnabled)
 	{
@@ -6956,6 +7043,8 @@ int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid /*= nullptr*/,
 	// The comments clearly state that it should be a package name but we also handle it being a filename as this function is not perf critical
 	// and LoadPackage handles having a filename being passed in as well.
 	FString PackageName;
+	bool bValidPackageName = true;
+
 	if (FPackageName::IsValidLongPackageName(InName, /*bIncludeReadOnlyRoots*/true))
 	{
 		PackageName = InName;
@@ -6963,46 +7052,64 @@ int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid /*= nullptr*/,
 	// PackageName got populated by the conditional function
 	else if (!(FPackageName::IsPackageFilename(InName) && FPackageName::TryConvertFilenameToLongPackageName(InName, PackageName)))
 	{
-		// PackageName will get populated by the conditional function
+		// PackageName may get populated by the conditional function
 		FString ClassName;
+
 		if (!FPackageName::ParseExportTextPath(PackageName, &ClassName, &PackageName))
 		{
-			UE_LOG(LogStreaming, Fatal, TEXT("LoadPackageAsync failed to begin to load a package because the supplied package name was neither a valid long package name nor a filename of a map within a content folder: '%s'"), *PackageName);
+			UE_LOG(LogStreaming, Warning, TEXT("LoadPackageAsync failed to begin to load a package because the supplied package name ")
+					TEXT("was neither a valid long package name nor a filename of a map within a content folder: '%s' (%s)"),
+					*PackageName, *InName);
+
+			bValidPackageName = false;
 		}
 	}
 
 	FString PackageNameToLoad(InPackageToLoadFrom);
-	if (PackageNameToLoad.IsEmpty())
-	{
-		PackageNameToLoad = PackageName;
-	}
-	// Make sure long package name is passed to FAsyncPackage so that it doesn't attempt to 
-	// create a package with short name.
-	if (FPackageName::IsShortPackageName(PackageNameToLoad))
-	{
-		UE_LOG(LogStreaming, Fatal, TEXT("Async loading code requires long package names (%s)."), *PackageNameToLoad);
-	}
 
-	if ( FCoreDelegates::OnAsyncLoadPackage.IsBound() )
+	if (bValidPackageName)
 	{
-		FCoreDelegates::OnAsyncLoadPackage.Broadcast(InName);
-	}
+		if (PackageNameToLoad.IsEmpty())
+		{
+			PackageNameToLoad = PackageName;
+		}
+		// Make sure long package name is passed to FAsyncPackage so that it doesn't attempt to 
+		// create a package with short name.
+		if (FPackageName::IsShortPackageName(PackageNameToLoad))
+		{
+			UE_LOG(LogStreaming, Warning, TEXT("Async loading code requires long package names (%s)."), *PackageNameToLoad);
 
-	// Generate new request ID and add it immediately to the global request list (it needs to be there before we exit
-	// this function, otherwise it would be added when the packages are being processed on the async thread).
-	const int32 RequestID = GPackageRequestID.Increment();
-	FAsyncLoadingThread::Get().AddPendingRequest(RequestID);
-
-	// Allocate delegate on Game Thread, it is not safe to copy delegates by value on other threads
-	TUniquePtr<FLoadPackageAsyncDelegate> CompletionDelegatePtr;
-	if (InCompletionDelegate.IsBound())
-	{
-		CompletionDelegatePtr.Reset(new FLoadPackageAsyncDelegate(InCompletionDelegate));
+			bValidPackageName = false;
+		}
 	}
 
-	// Add new package request
-	FAsyncPackageDesc PackageDesc(RequestID, *PackageName, *PackageNameToLoad, InGuid ? *InGuid : FGuid(), MoveTemp(CompletionDelegatePtr), InPackageFlags, InPIEInstanceID, InPackagePriority);
-	FAsyncLoadingThread::Get().QueuePackage(PackageDesc);
+	if (bValidPackageName)
+	{
+		if ( FCoreDelegates::OnAsyncLoadPackage.IsBound() )
+		{
+			FCoreDelegates::OnAsyncLoadPackage.Broadcast(InName);
+		}
+
+		// Generate new request ID and add it immediately to the global request list (it needs to be there before we exit
+		// this function, otherwise it would be added when the packages are being processed on the async thread).
+		RequestID = GPackageRequestID.Increment();
+		FAsyncLoadingThread::Get().AddPendingRequest(RequestID);
+
+		// Allocate delegate on Game Thread, it is not safe to copy delegates by value on other threads
+		TUniquePtr<FLoadPackageAsyncDelegate> CompletionDelegatePtr;
+		if (InCompletionDelegate.IsBound())
+		{
+			CompletionDelegatePtr.Reset(new FLoadPackageAsyncDelegate(InCompletionDelegate));
+		}
+
+		// Add new package request
+		FAsyncPackageDesc PackageDesc(RequestID, *PackageName, *PackageNameToLoad, InGuid ? *InGuid : FGuid(), MoveTemp(CompletionDelegatePtr), InPackageFlags, InPIEInstanceID, InPackagePriority);
+		FAsyncLoadingThread::Get().QueuePackage(PackageDesc);
+	}
+	else
+	{
+		InCompletionDelegate.ExecuteIfBound(FName(*InName), nullptr, EAsyncLoadingResult::Failed);
+	}
 
 	return RequestID;
 }
@@ -7190,7 +7297,7 @@ int32 GetNumAsyncPackages()
 EAsyncPackageState::Type ProcessAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AsyncLoadingTime);
-	CSV_SCOPED_TIMING_STAT(Basic, AsyncLoadingTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AsyncLoading);
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_TickAsyncLoadingGameThread);

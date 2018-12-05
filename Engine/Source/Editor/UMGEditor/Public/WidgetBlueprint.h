@@ -306,6 +306,12 @@ public:
 	UPROPERTY(AssetRegistrySearchable)
 	int32 InclusiveWidgets;
 
+	/**
+	 * The estimated size in bytes of the template class.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	int32 EstimatedTemplateSize;
+
 private:
 	/**
 	 * The desired tick frequency set by the user on the UserWidget's CDO.

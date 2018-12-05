@@ -10,6 +10,10 @@
 #include "Misc/Compression.h"
 
 
+#ifndef FAST_PATH_UNIQUE_NAME_GENERATION
+#define FAST_PATH_UNIQUE_NAME_GENERATION 0
+#endif
+
 #define LOCTEXT_NAMESPACE "Core"
 
 
@@ -86,7 +90,11 @@ FName GLongCoreUObjectPackageName(TEXT("/Script/CoreUObject"));
 bool GVerifyObjectReferencesOnly = false;
 
 /** when constructing objects, use the fast path on consoles... */
+#if FAST_PATH_UNIQUE_NAME_GENERATION && !WITH_EDITOR
+bool GFastPathUniqueNameGeneration = true;
+#else
 bool GFastPathUniqueNameGeneration = false;
+#endif
 
 /** allow AActor object to execute script in the editor from specific entry points, such as when running a construction script */
 bool GAllowActorScriptExecutionInEditor = false;
@@ -327,6 +335,156 @@ void ToggleGDebugPUCrashedFlag(const TArray<FString>& Args)
 	GIsGPUCrashed = !GIsGPUCrashed;
 	UE_LOG(LogCore, Log, TEXT("Gpu crashed flag forcibly set to: %i"), GIsGPUCrashed ? 1 : 0);
 }
+
+static struct FBootTimingStart
+{
+	double FirstTime;
+
+	FBootTimingStart()
+		: FirstTime(FPlatformTime::Seconds())
+	{
+	}
+} GBootTimingStart;
+
+
+#define USE_BOOT_PROFILING (0)
+
+#if !USE_BOOT_PROFILING
+FScopedBootTiming::FScopedBootTiming(const ANSICHAR *InMessage)
+{
+}
+
+FScopedBootTiming::FScopedBootTiming(const ANSICHAR *InMessage, FName Suffix)
+{
+}
+
+FScopedBootTiming::~FScopedBootTiming()
+{
+}
+void BootTimingPoint(const ANSICHAR *Message)
+{
+}
+void DumpBootTiming()
+{
+}
+#else
+static TArray<FString> GAllBootTiming;
+static bool GBootTimingCompleted = false;
+static int32 GBootScopeDepth = 0;
+
+static void DumpBootTimingString(const TCHAR* Message)
+{
+	if (0)
+	{
+		UE_LOG(LogCore, Display, TEXT("%s"), Message);
+	}
+	else
+	{
+		FPlatformMisc::LowLevelOutputDebugString(Message);
+	}
+}
+
+void DumpBootTiming()
+{
+	GBootTimingCompleted = true;
+	DumpBootTimingString(TEXT("************* Boot timing:"));
+	for (auto& Item : GAllBootTiming)
+	{
+		DumpBootTimingString(*Item);
+	}
+	GAllBootTiming.Empty();
+	DumpBootTimingString(TEXT("************* Boot timing end"));
+}
+
+static void BootTimingPoint(const TCHAR *Message, const TCHAR *Prefix = nullptr, int32 Depth = 0, double TookTime = 0.0)
+{
+	static double LastTime = 0.0;
+	static FString LastMessage;
+	double Now = FPlatformTime::Seconds();
+
+	FString Result;
+	FString GapTime;
+
+	if (!Prefix || FCString::Strcmp(Prefix, TEXT("}")) || LastMessage != FString(Message))
+	{
+		if (LastTime != 0.0 && float(Now - LastTime) >= 0.005f)
+		{
+			GapTime = FString::Printf(TEXT("              %7.3fs **Gap**"), float(Now - LastTime));
+			GAllBootTiming.Add(GapTime);
+			DumpBootTimingString(*FString::Printf(TEXT("[BT]******** %s"), *GapTime));
+		}
+	}
+	LastTime = Now;
+	LastMessage = Message;
+	if (Prefix)
+	{
+		if (TookTime != 0.0)
+		{
+			Result = FString::Printf(TEXT("%7.3fs took %7.3fs %s   %1s %s"), float(Now - GBootTimingStart.FirstTime), float(TookTime), FCString::Spc(Depth * 2), Prefix, Message);
+		}
+		else
+		{
+			Result = FString::Printf(TEXT("%7.3fs               %s   %1s %s"), float(Now - GBootTimingStart.FirstTime), FCString::Spc(Depth * 2), Prefix, Message);
+		}
+	}
+	else
+	{
+		if (TookTime != 0.0)
+		{
+			Result = FString::Printf(TEXT("%7.3fs took %7.3fs : %s"), float(Now - GBootTimingStart.FirstTime), float(TookTime), Message);
+		}
+		else
+		{
+			Result = FString::Printf(TEXT("%7.3fs : %s"), float(Now - GBootTimingStart.FirstTime), Message);
+		}
+	}
+	GAllBootTiming.Add(Result);
+	DumpBootTimingString(*FString::Printf(TEXT("[BT]******** %s"), *Result));
+}
+
+void BootTimingPoint(const ANSICHAR *Message)
+{
+	if (GBootTimingCompleted || !IsInGameThread())
+	{
+		return;
+	}
+	BootTimingPoint(*FString(Message));
+}
+
+FScopedBootTiming::FScopedBootTiming(const ANSICHAR *InMessage)
+{
+	if (GBootTimingCompleted || !IsInGameThread())
+	{
+		return;
+	}
+	Message = InMessage;
+	StartTime = FPlatformTime::Seconds();
+	BootTimingPoint(*Message, TEXT("{"), GBootScopeDepth);
+	GBootScopeDepth++;
+}
+
+FScopedBootTiming::FScopedBootTiming(const ANSICHAR *InMessage, FName Suffix)
+{
+	if (GBootTimingCompleted || !IsInGameThread())
+	{
+		return;
+	}
+	Message = FString(InMessage) + Suffix.ToString();
+	StartTime = FPlatformTime::Seconds();
+	BootTimingPoint(*Message, TEXT("{"), GBootScopeDepth);
+	GBootScopeDepth++;
+}
+
+FScopedBootTiming::~FScopedBootTiming()
+{
+	if (Message.Len())
+	{
+		GBootScopeDepth--;
+		BootTimingPoint(*Message, TEXT("}"), GBootScopeDepth, FPlatformTime::Seconds() - StartTime);
+	}
+}
+
+#endif
 
 FAutoConsoleCommand ToggleDebugGPUCrashedCmd(
 	TEXT("c.ToggleGPUCrashedFlagDbg"),

@@ -74,6 +74,49 @@
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
 
+#if DO_CHECK
+
+	namespace LLMPrivate
+	{
+		static inline bool HandleAssert(bool bLog, const TCHAR* Format, ...)
+		{
+			if (bLog)
+			{
+				TCHAR DescriptionString[4096];
+				GET_VARARGS(DescriptionString, ARRAY_COUNT(DescriptionString), ARRAY_COUNT(DescriptionString) - 1, Format, Format);
+
+				FPlatformMisc::LowLevelOutputDebugString(DescriptionString);
+
+				if (FPlatformMisc::IsDebuggerPresent())
+					FPlatformMisc::PromptForRemoteDebugging(true);
+
+				UE_DEBUG_BREAK();
+			}
+			return false;
+		}
+	}
+
+#if !USING_CODE_ANALYSIS
+	#define LLMTrueOnFirstCallOnly			UE4Asserts_Private::TrueOnFirstCallOnly([]{})
+#else
+	#define LLMTrueOnFirstCallOnly			false
+#endif
+
+#define LLMCheckMessage(expr)          TEXT("LLM check failed: %s [File:%s] [Line: %d]\r\n"),             TEXT(#expr), TEXT(__FILE__), __LINE__
+#define LLMCheckfMessage(expr, format) TEXT("LLM check failed: %s [File:%s] [Line: %d]\r\n") format,      TEXT(#expr), TEXT(__FILE__), __LINE__
+#define LLMEnsureMessage(expr)         TEXT("LLM ensure failed: %s [File:%s] [Line: %d]\r\n"),            TEXT(#expr), TEXT(__FILE__), __LINE__
+
+#define LLMCheck(expr)					do { if (UNLIKELY(!(expr))) { LLMPrivate::HandleAssert(true, LLMCheckMessage(expr));                         FPlatformMisc::RaiseException(1); } } while(false)
+#define LLMCheckf(expr,format,...)		do { if (UNLIKELY(!(expr))) { LLMPrivate::HandleAssert(true, LLMCheckfMessage(expr, format), ##__VA_ARGS__); FPlatformMisc::RaiseException(1); } } while(false)
+#define LLMEnsure(expr)					(LIKELY(!!(expr)) || LLMPrivate::HandleAssert(LLMTrueOnFirstCallOnly, LLMEnsureMessage(expr)))
+
+#else
+
+#define LLMCheck(expr)
+#define LLMCheckf(expr,...)
+#define LLMEnsure(expr)			(!!(expr))
+
+#endif
 
 #if LLM_STAT_TAGS_ENABLED
 	#define LLM_TAG_TYPE uint64
@@ -117,6 +160,8 @@ enum class ELLMTagSet : uint8
 	macro(PlatformTotal,						"Total",						GET_STATFNAME(STAT_PlatformTotalLLM),						NAME_None)									\
 	macro(TrackedTotal,							"TrackedTotal",					GET_STATFNAME(STAT_TrackedTotalLLM),						GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
 	macro(UntaggedTotal,						"Untagged",						GET_STATFNAME(STAT_UntaggedTotalLLM),						NAME_None)									\
+	macro(WorkingSetSize,						"WorkingSetSize",				GET_STATFNAME(STAT_WorkingSetSizeLLM),						GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
+	macro(PagefileUsed,							"PagefileUsed",					GET_STATFNAME(STAT_PagefileUsedLLM),						GET_STATFNAME(STAT_TrackedTotalSummaryLLM))	\
 	macro(PlatformTrackedTotal,					"TrackedTotal",					GET_STATFNAME(STAT_PlatformTrackedTotalLLM),				NAME_None)									\
 	macro(PlatformUntaggedTotal,				"Untagged",						GET_STATFNAME(STAT_PlatformUntaggedTotalLLM),				NAME_None)									\
 	macro(PlatformUntracked,					"Untracked",					GET_STATFNAME(STAT_PlatformUntrackedLLM),					NAME_None)									\
@@ -144,14 +189,11 @@ enum class ELLMTagSet : uint8
 	macro(Textures,								"Textures",						GET_STATFNAME(STAT_TexturesLLM),							GET_STATFNAME(STAT_TexturesSummaryLLM))		\
 	macro(RenderTargets,						"RenderTargets",				GET_STATFNAME(STAT_RenderTargetsLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(RHIMisc,								"RHIMisc",						GET_STATFNAME(STAT_RHIMiscLLM),								GET_STATFNAME(STAT_EngineSummaryLLM))		\
-	macro(PhysXTriMesh,							"PhysXTriMesh",					GET_STATFNAME(STAT_PhysXTriMeshLLM),						GET_STATFNAME(STAT_PhysXSummaryLLM))		\
-	macro(PhysXConvexMesh,						"PhysXConvexMesh",				GET_STATFNAME(STAT_PhysXConvexMeshLLM),						GET_STATFNAME(STAT_PhysXSummaryLLM))		\
 	macro(AsyncLoading,							"AsyncLoading",					GET_STATFNAME(STAT_AsyncLoadingLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(UObject,								"UObject",						GET_STATFNAME(STAT_UObjectLLM),								GET_STATFNAME(STAT_UObjectSummaryLLM))		\
 	macro(Animation,							"Animation",					GET_STATFNAME(STAT_AnimationLLM),							GET_STATFNAME(STAT_AnimationSummaryLLM))	\
 	macro(StaticMesh,							"StaticMesh",					GET_STATFNAME(STAT_StaticMeshLLM),							GET_STATFNAME(STAT_StaticMeshSummaryLLM))	\
 	macro(Materials,							"Materials",					GET_STATFNAME(STAT_MaterialsLLM),							GET_STATFNAME(STAT_MaterialsSummaryLLM))	\
-	macro(MaterialShaderMaps,					"MaterialShaderMaps",			GET_STATFNAME(STAT_MaterialShaderMapsLLM),					GET_STATFNAME(STAT_MaterialsSummaryLLM))	\
 	macro(Particles,							"Particles",					GET_STATFNAME(STAT_ParticlesLLM),							GET_STATFNAME(STAT_ParticlesSummaryLLM))	\
 	macro(GC,									"GC",							GET_STATFNAME(STAT_GCLLM),									GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(UI,									"UI",							GET_STATFNAME(STAT_UILLM),									GET_STATFNAME(STAT_UISummaryLLM))			\
@@ -169,7 +211,8 @@ enum class ELLMTagSet : uint8
 	macro(UniformBuffer,						"UniformBuffer",				GET_STATFNAME(STAT_UniformBufferLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(AssetRegistry,						"AssetRegistry",				GET_STATFNAME(STAT_AssetRegistryLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(ConfigSystem,							"ConfigSystem",					GET_STATFNAME(STAT_ConfigSystemLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
-	macro(InitUObject,							"InitUObject",					GET_STATFNAME(STAT_InitUObjectLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))
+	macro(InitUObject,							"InitUObject",					GET_STATFNAME(STAT_InitUObjectLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
+	macro(VideoRecording,						"VideoRecording",				GET_STATFNAME(STAT_VideoRecordingLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))
 
 /*
  * Enum values to be passed in to LLM_SCOPE() macro
@@ -295,7 +338,7 @@ public:
 		FScopeLock Lock(&CriticalSection);
 		void* Ptr = PlatformAlloc(Size);
 		Total += Size;
-		check(Ptr);
+		LLMCheck(Ptr);
 		return Ptr;
 	}
 
@@ -389,6 +432,9 @@ public:
 
 	// get the name for the given tag
 	const TCHAR* FindTagName(uint64 Tag) const;
+
+	// Get the amount of memory for a tag from the given tracker
+	int64 GetTagAmountForTracker(ELLMTracker Tracker, ELLMTag Tag);
 
 private:
 	FLowLevelMemTracker();

@@ -19,6 +19,7 @@
 #include "NiagaraParameterCollection.h"
 #include "NiagaraWorldManager.h"
 #include "EngineUtils.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DECLARE_CYCLE_STAT(TEXT("Sceneproxy create (GT)"), STAT_NiagaraCreateSceneProxy, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Component Tick (GT)"), STAT_NiagaraComponentTick, STATGROUP_Niagara);
@@ -346,6 +347,7 @@ UNiagaraComponent::UNiagaraComponent(const FObjectInitializer& ObjectInitializer
 void UNiagaraComponent::TickComponent(float DeltaSeconds, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentTick);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Particles);
 
 	if (bAwaitingActivationDueToNotReady)
 	{

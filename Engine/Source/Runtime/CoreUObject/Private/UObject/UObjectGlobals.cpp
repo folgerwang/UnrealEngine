@@ -52,6 +52,7 @@
 #include "UObject/MetaData.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "Misc/CoreDelegates.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
@@ -81,6 +82,8 @@ DEFINE_STAT(STAT_DestroyObject);
 
 DECLARE_CYCLE_STAT(TEXT("InstanceSubobjects"), STAT_InstanceSubobjects, STATGROUP_Object);
 DECLARE_CYCLE_STAT(TEXT("PostInitProperties"), STAT_PostInitProperties, STATGROUP_Object);
+
+CSV_DEFINE_CATEGORY(UObject, false);
 
 #if ENABLE_COOK_STATS
 #include "ProfilingDebugging/ScopedTimers.h"
@@ -152,6 +155,11 @@ FCoreUObjectDelegates::FGetPrimaryAssetIdForObject FCoreUObjectDelegates::GetPri
 bool ShouldReportProgress()
 {
 	return GIsEditor && IsInGameThread() && !IsRunningCommandlet() && !IsAsyncLoading();
+}
+
+bool ShouldCreateThrottledSlowTask()
+{
+	return ShouldReportProgress() && FSlowTask::ShouldCreateThrottledSlowTask();
 }
 
 /**
@@ -1191,7 +1199,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			}
 
 			int32 RequestID = LoadPackageAsync(InName, nullptr, *InPackageName);
-			FlushAsyncLoading(RequestID);
+
+			if (RequestID != INDEX_NONE)
+			{
+				FlushAsyncLoading(RequestID);
+			}
 		}
 
 		Result = FindObjectFast<UPackage>(nullptr, PackageFName);
@@ -1242,10 +1254,14 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	TGuardValue<bool> IsEditorLoadingPackage(GIsEditorLoadingPackage, GIsEditor || GIsEditorLoadingPackage);
 #endif
 
-	FScopedSlowTask SlowTask(100, FText::Format(NSLOCTEXT("Core", "LoadingPackage_Scope", "Loading Package '{0}'"), FText::FromString(FileToLoad)), ShouldReportProgress());
-	SlowTask.Visibility = ESlowTaskVisibility::Invisible;
-	
-	SlowTask.EnterProgressFrame(10);
+	TOptional<FScopedSlowTask> SlowTask;
+	if (ShouldCreateThrottledSlowTask())
+	{
+		static const FTextFormat LoadingPackageTextFormat = NSLOCTEXT("Core", "LoadingPackage_Scope", "Loading Package '{0}'");
+		SlowTask.Emplace(100, FText::Format(LoadingPackageTextFormat, FText::FromString(FileToLoad)));
+		SlowTask->Visibility = ESlowTaskVisibility::Invisible;
+		SlowTask->EnterProgressFrame(10);
+	}
 
 	if (FCoreDelegates::OnSyncLoadPackage.IsBound())
 	{
@@ -1258,7 +1274,10 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 
 	bool bFullyLoadSkipped = false;
 
-	SlowTask.EnterProgressFrame(30);
+	if (SlowTask)
+	{
+		SlowTask->EnterProgressFrame(30);
+	}
 
 	// Declare here so that the linker does not get destroyed before ResetLoaders is called
 	FLinkerLoad* Linker = nullptr;
@@ -1363,7 +1382,10 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			Linker->StartScriptSHAGeneration();
 		}
 
-		SlowTask.EnterProgressFrame(30);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(30);
+		}
 
 		uint32 DoNotLoadExportsFlags = LOAD_Verify;
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1385,7 +1407,10 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			bFullyLoadSkipped = true;
 		}
 
-		SlowTask.EnterProgressFrame(30);
+		if (SlowTask)
+		{
+			SlowTask->EnterProgressFrame(30);
+		}
 
 		Linker->FinishExternalReadDependencies(0.0);
 
@@ -1579,7 +1604,12 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 	}
 
 #if WITH_EDITOR
-	FScopedSlowTask SlowTask(0, NSLOCTEXT("Core", "PerformingPostLoad", "Performing post-load..."), ShouldReportProgress());
+	TOptional<FScopedSlowTask> SlowTask;
+	if (ShouldCreateThrottledSlowTask())
+	{
+		static const FText PostLoadText = NSLOCTEXT("Core", "PerformingPostLoad", "Performing post-load...");
+		SlowTask.Emplace(0, PostLoadText);
+	}
 
 	int32 NumObjectsLoaded = 0, NumObjectsFound = 0;
 	TSet<UObject*> AssetsLoaded;
@@ -1625,9 +1655,12 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 			}
 
 #if WITH_EDITOR
-			SlowTask.CompletedWork = SlowTask.TotalAmountOfWork;
-			SlowTask.TotalAmountOfWork += ObjLoaded.Num();
-			SlowTask.CurrentFrameScope = 0;
+			if (SlowTask)
+			{
+				SlowTask->CompletedWork = SlowTask->TotalAmountOfWork;
+				SlowTask->TotalAmountOfWork += ObjLoaded.Num();
+				SlowTask->CurrentFrameScope = 0;
+			}
 #endif
 
 			if (GIsEditor)
@@ -1652,7 +1685,11 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 					UObject* Obj = ObjLoaded[i];
 					check(Obj);
 #if WITH_EDITOR
-					SlowTask.EnterProgressFrame(1, FText::Format(NSLOCTEXT("Core", "FinalizingUObject", "Finalizing load of {0}"), FText::FromString(Obj->GetName())));
+					if (SlowTask)
+					{
+						static const FTextFormat FinalizingTextFormat = NSLOCTEXT("Core", "FinalizingUObject", "Finalizing load of {0}");
+						SlowTask->EnterProgressFrame(1, FText::Format(FinalizingTextFormat, FText::FromString(Obj->GetName())));
+					}
 #endif
 					
 					FLinkerLoad* LinkerLoad = Obj->GetLinker();
@@ -1815,6 +1852,7 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
  */
 FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=NAME_None*/ )
 {
+	CSV_SCOPED_TIMING_STAT(UObject, MakeUniqueObjectName);
 	check(Class);
 	const FName BaseName = (InBaseName == NAME_None) ? Class->GetFName() : InBaseName;
 
@@ -1822,74 +1860,71 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=N
 	do
 	{
 		// cache the class's name's index for faster name creation later
-		if (!FPlatformProperties::HasEditorOnlyData() && GFastPathUniqueNameGeneration)
-		{
-			/*   Fast Path Name Generation
-			* A significant fraction of object creation time goes into verifying that the a chosen unique name is really unique.
-			* The idea here is to generate unique names using very high numbers and only in situations where collisions are
-			* impossible for other reasons.
-			*
-			* Rationale for uniqueness as used here.
-			* - Consoles do not save objects in general, and certainly not animation trees. So we could never load an object that would later clash.
-			* - We assume that we never load or create any object with a "name number" as large as, say, MAX_int32 / 2, other than via
-			*   HACK_FastPathUniqueNameGeneration.
-			* - After using one of these large "name numbers", we decrement the static UniqueIndex, this no two names generated this way, during the
-			*   same run, could ever clash.
-			* - We assume that we could never create anywhere near MAX_int32/2 total objects at runtime, within a single run.
-			* - We require an outer for these items, thus outers must themselves be unique. Therefore items with unique names created on the fast path
-			*   could never clash with anything with a different outer. For animation trees, these outers are never saved or loaded, thus clashes are
-			*   impossible.
-			*/
-			static int32 UniqueIndex = MAX_int32 - 1000;
-			TestName = FName(BaseName, --UniqueIndex);
-			checkSlow(Parent);
-			checkSlow(Parent != ANY_PACKAGE);
-			checkSlow(!StaticFindObjectFastInternal(NULL, Parent, TestName));
-		}
-		else
-		{
-			UObject* ExistingObject;
+		UObject* ExistingObject;
 
-			do
+		do
+		{
+			// create the next name in the sequence for this class
+			if (BaseName.GetComparisonIndex() == NAME_Package)
 			{
-				// create the next name in the sequence for this class
-				if (BaseName.GetComparisonIndex() == NAME_Package)
+				if (Parent == NULL)
 				{
-					if (Parent == NULL)
-					{
-						//package names should default to "/Temp/Untitled" when their parent is NULL. Otherwise they are a group.
-						TestName = FName(*FString::Printf(TEXT("/Temp/%s"), *FName(NAME_Untitled).ToString()), ++Class->ClassUnique);
-					}
-					else
-					{
-						//package names should default to "Untitled"
-						TestName = FName(NAME_Untitled, ++Class->ClassUnique);
-					}
+					//package names should default to "/Temp/Untitled" when their parent is NULL. Otherwise they are a group.
+					TestName = FName(*FString::Printf(TEXT("/Temp/%s"), *FName(NAME_Untitled).ToString()), ++Class->ClassUnique);
 				}
 				else
 				{
-					int32 NameNumber = 0;
-					if (Parent && (Parent != ANY_PACKAGE))
+					//package names should default to "Untitled"
+					TestName = FName(NAME_Untitled, ++Class->ClassUnique);
+				}
+			}
+			else
+			{
+				int32 NameNumber = 0;
+				if (Parent && (Parent != ANY_PACKAGE))
+				{
+					if (!FPlatformProperties::HasEditorOnlyData() && GFastPathUniqueNameGeneration)
+					{
+						/*   Fast Path Name Generation
+						* A significant fraction of object creation time goes into verifying that the a chosen unique name is really unique.
+						* The idea here is to generate unique names using very high numbers and only in situations where collisions are
+						* impossible for other reasons.
+						*
+						* Rationale for uniqueness as used here.
+						* - Consoles do not save objects in general, and certainly not animation trees. So we could never load an object that would later clash.
+						* - We assume that we never load or create any object with a "name number" as large as, say, MAX_int32 / 2, other than via
+						*   HACK_FastPathUniqueNameGeneration.
+						* - After using one of these large "name numbers", we decrement the static UniqueIndex, this no two names generated this way, during the
+						*   same run, could ever clash.
+						* - We assume that we could never create anywhere near MAX_int32/2 total objects at runtime, within a single run.
+						* - We require an outer for these items, thus outers must themselves be unique. Therefore items with unique names created on the fast path
+						*   could never clash with anything with a different outer. For animation trees, these outers are never saved or loaded, thus clashes are
+						*   impossible.
+						*/
+						static TAtomic<int32> UniqueIndex(MAX_int32 - 1000);
+						NameNumber = --UniqueIndex;
+					}
+					else
 					{
 						NameNumber = UpdateSuffixForNextNewObject(Parent, Class, [](int32& Index) { ++Index; });
 					}
-					else
-					{
-						NameNumber = ++Class->ClassUnique;
-					}
-					TestName = FName(BaseName, NameNumber);
-				}
-
-				if (Parent == ANY_PACKAGE)
-				{
-					ExistingObject = StaticFindObject(NULL, ANY_PACKAGE, *TestName.ToString());
 				}
 				else
 				{
-					ExistingObject = StaticFindObjectFastInternal(NULL, Parent, TestName);
+					NameNumber = ++Class->ClassUnique;
 				}
-			} while (ExistingObject);
-		}
+				TestName = FName(BaseName, NameNumber);
+			}
+
+			if (Parent == ANY_PACKAGE)
+			{
+				ExistingObject = StaticFindObject(NULL, ANY_PACKAGE, *TestName.ToString());
+			}
+			else
+			{
+				ExistingObject = StaticFindObjectFastInternal(NULL, Parent, TestName);
+			}
+		} while (ExistingObject);
 	// InBaseName can be a name of an object from a different hierarchy (so it's still unique within given parents scope), we don't want to return the same name.
 	} while (TestName == BaseName);
 	return TestName;
@@ -3171,10 +3206,10 @@ UObject* StaticConstructObject_Internal
 	// If the existing subobject is to be re-used it can't have BeginDestroy called on it so we need to pass this information to StaticAllocateObject.	
 	const bool bIsNativeClass = InClass->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic);
 	const bool bIsNativeFromCDO = bIsNativeClass &&
-		(
+		(	
 			!InTemplate || 
 			(InName != NAME_None && (bAssumeTemplateIsArchetype || InTemplate == UObject::GetArchetypeFromRequiredInfo(InClass, InOuter, InName, InFlags)))
-		);
+			);
 #if WITH_HOT_RELOAD
 	// Do not recycle subobjects when performing hot-reload as they may contain old property values.
 	const bool bCanRecycleSubobjects = bIsNativeFromCDO && !GIsHotReload;

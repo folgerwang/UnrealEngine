@@ -956,9 +956,11 @@ namespace UnrealBuildTool
 
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
 			GenDebugAction.CommandPath = "sh";
+			string DsymutilPath = GetDsymutilPath();
 			if(ProjectSettings.bGeneratedSYMBundle)
 			{
-				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -o \"{1}\"; cd \"{1}/..\"; zip -r -y -1 {2}.zip {2}'",
+				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{2}\"; \"{0}\" \"{1}\" -o \"{2}\"; cd \"{2}/..\"; zip -r -y -1 {3}.zip {3}'",
+                    DsymutilPath,
 					Executable.AbsolutePath,
                     OutputFile.AbsolutePath,
 					Path.GetFileName(FullDestPathRoot));
@@ -967,7 +969,8 @@ namespace UnrealBuildTool
             }
             else
 			{
-				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -f -o \"{1}\"'",
+				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{2}\"; \"{0}\" \"{1}\" -f -o \"{2}\"'",
+						DsymutilPath,
 						Executable.AbsolutePath,
 						OutputFile.AbsolutePath);
 			}

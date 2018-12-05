@@ -19,6 +19,7 @@ class UInheritableComponentHandler;
 class UTimelineTemplate;
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Persistent Uber Graph Frame memory"), STAT_PersistentUberGraphFrameMemory, STATGROUP_Memory, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("BPComp Instancing Fast Path memory"), STAT_BPCompInstancingFastPathMemory, STATGROUP_Memory, );
 
 class UEdGraphPin;
 
@@ -570,6 +571,9 @@ struct ENGINE_API FBlueprintCookedComponentInstancingData
 		ComponentTemplateFlags = RF_NoFlags;
 	}
 
+	/** Destructor. */
+	~FBlueprintCookedComponentInstancingData();
+
 	/** Builds/returns the internal property list that's used for serialization. This is a linked list of UProperty references. */
 	const FCustomPropertyListNode* GetCachedPropertyList() const;
 
@@ -607,6 +611,10 @@ public:
 	/** Flag used to indicate if this class has a nativized parent in a cooked build. */
 	UPROPERTY()
 	uint8 bHasNativizedParent:1;
+
+	/** Flag used to indicate if this class has data to support the component instancing fast path. */
+	UPROPERTY()
+	uint8 bHasCookedComponentInstancingData:1;
 
 private:
 	/** Flag to make sure the custom property list has been initialized */
@@ -759,6 +767,9 @@ public:
 
 	static FName GetUberGraphFrameName();
 	static bool UsePersistentUberGraphFrame();
+
+	/** Whether or not to use "fast path" component instancing. */
+	bool UseFastPathComponentInstancing();
 
 #if WITH_EDITORONLY_DATA
 	FBlueprintDebugData DebugData;

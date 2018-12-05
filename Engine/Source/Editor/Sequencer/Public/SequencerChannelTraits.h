@@ -8,11 +8,9 @@
 #include "Channels/MovieSceneChannelData.h"
 #include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
-#include "SequencerGenericKeyStruct.h"
+#include "SequencerKeyStructGenerator.h"
 #include "Widgets/SNullWidget.h"
 #include "ISequencer.h"
-
-struct FSequencerGenericKeyStruct;
 
 /** Utility struct representing a number of selected keys on a single channel */
 template<typename ChannelType>
@@ -76,27 +74,8 @@ namespace Sequencer
 	template<typename ChannelType>
 	TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<ChannelType>& ChannelHandle, FKeyHandle KeyHandle)
 	{
-		ChannelType* Channel = ChannelHandle.Get();
-		if (Channel)
-		{
-			auto ChannelData = Channel->GetData();
-			const int32 KeyIndex = ChannelData.GetIndex(KeyHandle);
-
-			if (KeyIndex != INDEX_NONE)
-			{
-				TSharedRef<FStructOnScope> NewStruct = MakeShared<FStructOnScope>(FSequencerGenericKeyStruct::StaticStruct());
-				FSequencerGenericKeyStruct* StructPtr = (FSequencerGenericKeyStruct*)NewStruct->GetStructMemory();
-
-				StructPtr->Time = ChannelData.GetTimes()[KeyIndex];
-				StructPtr->CustomizationImpl = MakeShared<TMovieSceneKeyStructCustomization<ChannelType>>(ChannelHandle, KeyHandle);
-
-				return NewStruct;
-			}
-		}
-		return nullptr;
+		return FSequencerKeyStructGenerator::Get().CreateKeyStructInstance(ChannelHandle, KeyHandle);
 	}
-
-
 
 	/**
 	 * Check whether the specified channel can create a key editor widget that should be placed on the sequencer node tree 
@@ -362,7 +341,3 @@ namespace Sequencer
 	SEQUENCER_API TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer);
 
 }	// namespace Sequencer
-
-
-// include generic key struct function definitions
-#include "SequencerGenericKeyStruct.inl"

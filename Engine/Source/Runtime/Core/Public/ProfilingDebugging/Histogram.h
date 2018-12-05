@@ -51,11 +51,11 @@ struct CORE_API FHistogram
 	void DumpToLog(const FString& HistogramName);
 
 	/** Populates array commonly used in analytics events, adding two pairs per bin (count and sum). */
-	DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
+	UE_DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
 	void DumpToAnalytics(const FString& ParamNamePrefix, TArray<TPair<FString, double>>& OutParamArray);
 
 	/** Returns a string in a format that can be consumed by an analytics event in the format expected by the analytics backends. Bucket:Count:Sum;Bucket:Count:Sum;...  */
-	DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
+	UE_DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
 	FString DumpToAnalyticsString() const;
 
 	/** 

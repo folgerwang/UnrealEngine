@@ -46,20 +46,19 @@ struct ENGINE_API FAnimNode_TransitionPoseEvaluator : public FAnimNode_Base
 {
 	GENERATED_USTRUCT_BODY()
 
+	FCompactHeapPose CachedPose;
+	FBlendedHeapCurve CachedCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Pose, meta=(NeverAsPin, ClampMin="1", UIMin="1"))
+	int32 FramesToCachePose;
+
+	int32 CacheFramesRemaining;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Pose, meta=(NeverAsPin))
 	TEnumAsByte<EEvaluatorDataSource::Type> DataSource;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Pose, meta=(NeverAsPin))
 	TEnumAsByte<EEvaluatorMode::Mode> EvaluatorMode;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Pose, meta=(NeverAsPin, ClampMin="1", UIMin="1"))
-	int32 FramesToCachePose;
-
-	FCompactHeapPose CachedPose;
-	FBlendedHeapCurve CachedCurve;
-
-	UPROPERTY(transient)
-	int32 CacheFramesRemaining;
 
 public:	
 	FAnimNode_TransitionPoseEvaluator();
