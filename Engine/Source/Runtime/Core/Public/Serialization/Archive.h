@@ -746,7 +746,7 @@ public:
 	 * @param	bTreatBufferAsFileReader true if V is actually an FArchive, which is used when saving to read data - helps to avoid single huge allocations of source data
 	 * @param	bUsePlatformBitWindow use a platform specific bitwindow setting
 	 */
-	DEPRECATED(4.20, "Use the FName based version of SerializeCompressed (which also removes the basically-unused bUsePlatformBitWindow)")
+	UE_DEPRECATED(4.20, "Use the FName based version of SerializeCompressed (which also removes the basically-unused bUsePlatformBitWindow)")
 	void SerializeCompressed(void* V, int64 Length, ECompressionFlags Flags = COMPRESS_NoFlags, bool bTreatBufferAsFileReader = false, bool bUsePlatformBitWindow = false);
 	void SerializeCompressed(void* V, int64 Length, FName CompressionFormat, ECompressionFlags Flags=COMPRESS_NoFlags, bool bTreatBufferAsFileReader=false);
 

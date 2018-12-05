@@ -582,7 +582,7 @@ public:
 	{
 	}
 
-	DEPRECATED(4.20, "Use FAsyncCompress with FName for Format")
+	UE_DEPRECATED(4.20, "Use FAsyncCompress with FName for Format")
 		FAsyncUncompress(
 			ECompressionFlags InFlags,
 			void* InUncompressedBuffer,

@@ -448,7 +448,7 @@ struct TContainerTraits<TIndirectArray<T, Allocator> >
 };
 
 template <typename T,typename Allocator>
-DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Add() passing a pointer to an object created with new.")
+UE_DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Add() passing a pointer to an object created with new.")
 void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array )
 {
 	check(Size == sizeof(T));
@@ -457,7 +457,7 @@ void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array )
 }
 
 template <typename T,typename Allocator>
-DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Insert() passing a pointer to an object created with new.")
+UE_DEPRECATED(4.22, "Placement new on TIndirectArray has been deprecated - users should call Insert() passing a pointer to an object created with new.")
 void* operator new( size_t Size, TIndirectArray<T,Allocator>& Array, int32 Index )
 {
 	check(Size == sizeof(T));

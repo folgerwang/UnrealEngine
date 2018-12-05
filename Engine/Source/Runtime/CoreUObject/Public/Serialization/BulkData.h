@@ -373,7 +373,7 @@ public:
 	 *
 	 * @param CompressionFlags	Flags to use for compressing the data. Use COMPRESS_NONE for no compression, or something like COMPRESS_ZLIB to compress the data
 	 */
-	DEPRECATED(4.21, "Use the FName version of StoreCompressedOnDisk")
+	UE_DEPRECATED(4.21, "Use the FName version of StoreCompressedOnDisk")
 	void StoreCompressedOnDisk( ECompressionFlags CompressionFlags );
 	void StoreCompressedOnDisk( FName CompressionFormat );
 
