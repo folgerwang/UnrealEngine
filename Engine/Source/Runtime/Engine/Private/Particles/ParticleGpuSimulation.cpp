@@ -1660,17 +1660,18 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
 		// Copy new particles in to the vertex buffer.
 		const int32 TilesThisDrawCall = FMath::Min<int32>( TileCount, MaxTilesPerDrawCall );
 		const uint32* TilesPtr = Tiles.GetData() + FirstTile;
-		VertexShader->SetParameters(RHICmdList, ShaderParam);
 		
 		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 		{
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, TilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawParticleTiles(RHICmdList, BufferParam, TilesThisDrawCall);
 		}
 		else
 		{
 			const int32 AlignedTilesThisDrawCall = ComputeAlignedTileCount(TilesThisDrawCall);
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, AlignedTilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawAlignedParticleTiles(RHICmdList, AlignedTilesThisDrawCall);
 		}
 		
