@@ -11,7 +11,7 @@ class FMenuBuilder;
 class FSlateRect;
 class UEdGraph;
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UReferenceViewerSchema : public UEdGraphSchema
 {
 	GENERATED_UCLASS_BODY()

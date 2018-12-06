@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ReferenceViewerSchema.h"
+#include "ReferenceViewer/ReferenceViewerSchema.h"
 #include "Textures/SlateIcon.h"
 #include "Misc/Attribute.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
