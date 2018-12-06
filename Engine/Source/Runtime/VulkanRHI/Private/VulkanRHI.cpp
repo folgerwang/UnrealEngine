@@ -21,6 +21,12 @@
 
 extern RHI_API bool GUseTexture3DBulkDataRHI;
 
+TAtomic<uint64> GVulkanBufferHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanBufferViewHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanImageViewHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanSamplerHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanDSetLayoutHandleIdCounter{ 0 };
+
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #endif
@@ -811,8 +817,17 @@ void FVulkanCommandListContext::RHIEndFrame()
 
 	Device->GetStagingManager().ProcessPendingFree(false, true);
 	Device->GetResourceHeapManager().ReleaseFreedPages();
+	
+	if (UseVulkanDescriptorCache())
+	{
+		Device->GetDescriptorSetCache().GC();
+	}
+	else
+	{
+		Device->GetDescriptorPoolsManager().GC();
+	}
 
-	Device->GetDescriptorPoolsManager().GC();
+	Device->ReleaseUnusedOcclusionQueryPools();
 
 	++FrameCounter;
 }
@@ -1079,12 +1094,7 @@ FVulkanDescriptorSetsLayout::FVulkanDescriptorSetsLayout(FVulkanDevice* InDevice
 
 FVulkanDescriptorSetsLayout::~FVulkanDescriptorSetsLayout()
 {
-	VulkanRHI::FDeferredDeletionQueue& DeletionQueue = Device->GetDeferredDeletionQueue();
-	for (VkDescriptorSetLayout& Handle : LayoutHandles)
-	{
-		DeletionQueue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::DescriptorSetLayout, Handle);
-	}
-
+	// Handles are owned by FVulkanPipelineStateCacheManager
 	LayoutHandles.Reset(0);
 }
 
@@ -1135,8 +1145,8 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSampl
 
 	for (int32 layoutIndex = 0; layoutIndex < LayoutCount; ++layoutIndex)
 	{
-		TArray<VkDescriptorSetLayoutBinding>& DescSetLayout = SetLayouts[layoutIndex].LayoutBindings;
-		Hash = FCrc::MemCrc32(DescSetLayout.GetData(), sizeof(VkDescriptorSetLayoutBinding) * DescSetLayout.Num(), Hash);
+		SetLayouts[layoutIndex].GenerateHash();
+		Hash = FCrc::MemCrc32(&SetLayouts[layoutIndex].Hash, sizeof(uint32), Hash);
 	}
 
 	for (uint32 RemapingIndex = 0; RemapingIndex < ShaderStage::NumStages; ++RemapingIndex)
@@ -1148,7 +1158,7 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSampl
 		Hash = FCrc::MemCrc32(Globals.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * Globals.Num(), Hash);
 
 		TArray<FDescriptorSetRemappingInfo::FUBRemappingInfo>& UniformBuffers = RemappingInfo.StageInfos[RemapingIndex].UniformBuffers;
-		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * UniformBuffers.Num(), Hash);
+		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FUBRemappingInfo) * UniformBuffers.Num(), Hash);
 
 		TArray<uint16>& PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
 		Hash = FCrc::MemCrc32(PackedUBBindingIndices.GetData(), sizeof(uint16) * PackedUBBindingIndices.Num(), Hash);
@@ -1185,7 +1195,7 @@ void FVulkanDescriptorSetsLayoutInfo::CompileTypesUsageID()
 	}
 }
 
-void FVulkanDescriptorSetsLayout::Compile()
+void FVulkanDescriptorSetsLayout::Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap)
 {
 	check(LayoutHandles.Num() == 0);
 
@@ -1234,18 +1244,51 @@ void FVulkanDescriptorSetsLayout::Compile()
 			<	Limits.maxDescriptorSetStorageImages);
 
 	check(LayoutTypes[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT] < Limits.maxDescriptorSetInputAttachments);
-
+	
 	LayoutHandles.Empty(SetLayouts.Num());
 
+	if (UseVulkanDescriptorCache())
+	{
+		LayoutHandleIds.Empty(SetLayouts.Num());
+	}
+				
 	for (FSetLayout& Layout : SetLayouts)
 	{
+		VkDescriptorSetLayout* LayoutHandle = new(LayoutHandles) VkDescriptorSetLayout;
+
+		uint32* LayoutHandleId = nullptr;
+		if (UseVulkanDescriptorCache())
+		{
+			LayoutHandleId = new(LayoutHandleIds) uint32;
+		}
+			
+		if (FVulkanDescriptorSetLayoutEntry* Found = DSetLayoutMap.Find(Layout))
+		{
+			*LayoutHandle = Found->Handle;
+			if (LayoutHandleId)
+			{
+				*LayoutHandleId = Found->HandleId;
+			}
+			continue;
+		}
+
 		VkDescriptorSetLayoutCreateInfo DescriptorLayoutInfo;
 		ZeroVulkanStruct(DescriptorLayoutInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
 		DescriptorLayoutInfo.bindingCount = Layout.LayoutBindings.Num();
 		DescriptorLayoutInfo.pBindings = Layout.LayoutBindings.GetData();
 
-		VkDescriptorSetLayout* LayoutHandle = new(LayoutHandles) VkDescriptorSetLayout;
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateDescriptorSetLayout(Device->GetInstanceHandle(), &DescriptorLayoutInfo, VULKAN_CPU_ALLOCATOR, LayoutHandle));
+
+		if (LayoutHandleId)
+		{
+			*LayoutHandleId = ++GVulkanDSetLayoutHandleIdCounter;
+		}
+
+		FVulkanDescriptorSetLayoutEntry DescriptorSetLayoutEntry;
+		DescriptorSetLayoutEntry.Handle = *LayoutHandle;
+		DescriptorSetLayoutEntry.HandleId = LayoutHandleId ? *LayoutHandleId : 0;
+				
+		DSetLayoutMap.Add(Layout, DescriptorSetLayoutEntry);
 	}
 
 	if (TypesUsageID == ~0)
@@ -1277,6 +1320,12 @@ void FVulkanBufferView::Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint3
 	check(Flags);
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateBufferView(GetParent()->GetInstanceHandle(), &ViewInfo, VULKAN_CPU_ALLOCATOR, &View));
+	
+	if (UseVulkanDescriptorCache())
+	{
+		ViewId = ++GVulkanBufferViewHandleIdCounter;
+	}
+
 	INC_DWORD_STAT(STAT_VulkanNumBufferViews);
 }
 
@@ -1287,7 +1336,6 @@ void FVulkanBufferView::Create(FVulkanResourceMultiBuffer* Buffer, EPixelFormat 
 	check(FormatInfo.Supported);
 	Create((VkFormat)FormatInfo.PlatformFormat, Buffer, InOffset, InSize);
 }
-
 
 void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buffer, uint32 InOffset, uint32 InSize)
 {
@@ -1310,6 +1358,12 @@ void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buff
 	check(Flags);
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateBufferView(GetParent()->GetInstanceHandle(), &ViewInfo, VULKAN_CPU_ALLOCATOR, &View));
+	
+	if (UseVulkanDescriptorCache())
+	{
+		ViewId = ++GVulkanBufferViewHandleIdCounter;
+	}
+
 	INC_DWORD_STAT(STAT_VulkanNumBufferViews);
 }
 
@@ -1320,6 +1374,7 @@ void FVulkanBufferView::Destroy()
 		DEC_DWORD_STAT(STAT_VulkanNumBufferViews);
 		Device->GetDeferredDeletionQueue().EnqueueResource(FDeferredDeletionQueue::EType::BufferView, View);
 		View = VK_NULL_HANDLE;
+		ViewId = 0;
 	}
 }
 

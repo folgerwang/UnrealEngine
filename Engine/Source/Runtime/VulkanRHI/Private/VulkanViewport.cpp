@@ -98,6 +98,7 @@ FVulkanViewport::~FVulkanViewport()
 
 			TextureViews[Index].Destroy(*Device);
 
+			// FIXME: race condition on TransitionAndLayoutManager, could this be called from RT while RHIT is active?
 			Device->NotifyDeletedImage(BackBufferImages[Index]);
 		}
 
@@ -121,6 +122,7 @@ bool FVulkanViewport::DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> S
 
 	while (Status < 0 && AttemptsPending > 0)
 	{
+		// always force to recreate swapchain, on Android it will block until window is available
 		bool bForce = true;
 
 		if (Status == (int32)FVulkanSwapChain::EStatus::OutOfDate)
@@ -129,7 +131,6 @@ bool FVulkanViewport::DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> S
 		}
 		else if (Status == (int32)FVulkanSwapChain::EStatus::SurfaceLost)
 		{
-			bForce = false;
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Swapchain surface lost! Trying to recreate the swapchain."));
 		}
 		else
@@ -166,6 +167,7 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 		RHIBackBuffer = NewBackBuffer;
 		RHIBackBuffer->Surface.Image = BackBufferImages[AcquiredImageIndex];
 		RHIBackBuffer->DefaultView.View = TextureViews[AcquiredImageIndex].View;
+		RHIBackBuffer->DefaultView.ViewId = TextureViews[AcquiredImageIndex].ViewId;
 	}
 	FVulkanCommandListContext& Context = (FVulkanCommandListContext&)CmdList.GetContext();
 
@@ -287,7 +289,7 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 	, RTInfo(InRTInfo)
 	, NumColorAttachments(0)
 {
-	AttachmentViews.Empty(RTLayout.GetNumAttachmentDescriptions());
+	AttachmentTextureViews.Empty(RTLayout.GetNumAttachmentDescriptions());
 	uint32 MipIndex = 0;
 
 	const VkExtent3D& RTExtents = RTLayout.GetExtent3D();
@@ -307,20 +309,20 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 		ColorRenderTargetImages[Index] = Texture->Surface.Image;
 		MipIndex = InRTInfo.ColorRenderTarget[Index].MipIndex;
 
-		VkImageView RTView = VK_NULL_HANDLE;
+		FVulkanTextureView RTView;
 		if (Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_2D)
 		{
-			RTView = Texture->CreateRenderTargetView(MipIndex, 1, FMath::Max(0, (int32)InRTInfo.ColorRenderTarget[Index].ArraySliceIndex), 1);
+			RTView.Create(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, FMath::Max(0, (int32)InRTInfo.ColorRenderTarget[Index].ArraySliceIndex), 1, true);
 		}
 		else if (Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_CUBE)
 		{
 			// Cube always renders one face at a time
 			INC_DWORD_STAT(STAT_VulkanNumImageViews);
-			RTView = FVulkanTextureView::StaticCreate(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, InRTInfo.ColorRenderTarget[Index].ArraySliceIndex, 1, true);
+			RTView.Create(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, InRTInfo.ColorRenderTarget[Index].ArraySliceIndex, 1, true);
 		}
 		else if (Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_3D)
 		{
-			RTView = FVulkanTextureView::StaticCreate(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, 0, Texture->Surface.Depth, true);
+			RTView.Create(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, 0, Texture->Surface.Depth, true);
 		}
 		else
 		{
@@ -329,11 +331,11 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 
 		if (Texture->MSAASurface)
 		{
-			AttachmentViews.Add(Texture->MSAAView.View);
+			AttachmentTextureViews.Add(Texture->MSAAView);
 		}
 
-		AttachmentViews.Add(RTView);
-		AttachmentViewsToDelete.Add(RTView);
+		AttachmentTextureViews.Add(RTView);
+		AttachmentViewsToDelete.Add(RTView.View);
 
 		++NumColorAttachments;
 	}
@@ -344,20 +346,28 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 		DepthStencilRenderTargetImage = Texture->Surface.Image;
 		bool bHasStencil = (Texture->Surface.PixelFormat == PF_DepthStencil || Texture->Surface.PixelFormat == PF_X24_G8);
 		check(Texture->PartialView);
-		PartialDepthView = Texture->PartialView->View;
+		PartialDepthTextureView = *Texture->PartialView;
 
 		ensure(Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_2D || Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_CUBE);
 		if (NumColorAttachments == 0 && Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_CUBE)
 		{
-			VkImageView RTView = FVulkanTextureView::StaticCreate(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, 0, 6, true);
+			FVulkanTextureView RTView;
+			RTView.Create(*Texture->Surface.Device, Texture->Surface.Image, VK_IMAGE_VIEW_TYPE_2D_ARRAY, Texture->Surface.GetFullAspectMask(), Texture->Surface.PixelFormat, Texture->Surface.ViewFormat, MipIndex, 1, 0, 6, true);
 			NumLayers = 6;
-			AttachmentViews.Add(RTView);
-			AttachmentViewsToDelete.Add(RTView);
+			AttachmentTextureViews.Add(RTView);
+			AttachmentViewsToDelete.Add(RTView.View);
 		}
 		else
 		{
-			AttachmentViews.Add(Texture->DefaultView.View);
+			AttachmentTextureViews.Add(Texture->DefaultView);
 		}
+	}
+
+	TArray<VkImageView> AttachmentViews;
+	AttachmentViews.Empty(AttachmentTextureViews.Num());
+	for (auto& TextureView : AttachmentTextureViews)
+	{
+		AttachmentViews.Add(TextureView.View);
 	}
 
 	VkFramebufferCreateInfo CreateInfo;

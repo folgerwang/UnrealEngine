@@ -339,8 +339,10 @@ public:
 
 	void PrepareForDraw(FVulkanCmdBuffer* CmdBuffer);
 
-	bool SetGfxPipeline(FVulkanRHIGraphicsPipelineState* InGfxPipeline)
+	bool SetGfxPipeline(FVulkanRHIGraphicsPipelineState* InGfxPipeline, bool bForceReset)
 	{
+		bool bChanged = bForceReset;
+
 		if (InGfxPipeline != CurrentPipeline)
 		{
 			CurrentPipeline = InGfxPipeline;
@@ -356,14 +358,16 @@ public:
 				PipelineStates.Add(CurrentPipeline, CurrentState);
 			}
 
-			CurrentState->Reset();
-
 			PrimitiveType = InGfxPipeline->PrimitiveType;
-
-			return true;
+			bChanged = true;
 		}
 
-		return false;
+		if (bChanged || bForceReset)
+		{
+			CurrentState->Reset();
+		}
+
+		return bChanged;
 	}
 
 	inline void UpdateDynamicStates(FVulkanCmdBuffer* Cmd)

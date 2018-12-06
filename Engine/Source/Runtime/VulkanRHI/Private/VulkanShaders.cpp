@@ -10,7 +10,6 @@
 #include "GlobalShader.h"
 #include "Serialization/MemoryReader.h"
 #include "VulkanLLM.h"
-#include "Misc/ScopeRWLock.h"
 
 TAutoConsoleVariable<int32> GDynamicGlobalUBs(
 	TEXT("r.Vulkan.DynamicGlobalUBs"),
@@ -31,52 +30,6 @@ static TAutoConsoleVariable<int32> GDescriptorSetLayoutMode(
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
 );
 
-// Vulkan hotfix for 4.21
-struct FVulkanShaderFactory_Hotfix421
-{
-	FRWLock Lock;
-	TMap<uint64, FVulkanShader*> ShaderMap[SF_NumFrequencies];
-};
-
-// This should be member of FVulkanShaderFactory
-FVulkanShader* FVulkanShaderFactory_LookupShader(FVulkanShaderFactory& ShaderFactory, EShaderFrequency ShaderFrequency, uint64 ShaderKey)
-{
-	if (ShaderKey)
-	{
-		FVulkanShaderFactory_Hotfix421& ShaderFactoryHotfix = reinterpret_cast<FVulkanShaderFactory_Hotfix421&>(ShaderFactory);
-		
-		FRWScopeLock ScopedLock(ShaderFactoryHotfix.Lock, SLT_ReadOnly);
-		FVulkanShader* const * FoundShaderPtr = ShaderFactoryHotfix.ShaderMap[ShaderFrequency].Find(ShaderKey);
-		if (FoundShaderPtr)
-		{
-			return *FoundShaderPtr;
-		}
-	}
-	return nullptr;
-}
-
-// This should be member of FVulkanShaderFactory
-void FVulkanShaderFactory_LookupShaders(FVulkanShaderFactory& ShaderFactory, const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages])
-{
-	FVulkanShaderFactory_Hotfix421& ShaderFactoryHotfix = reinterpret_cast<FVulkanShaderFactory_Hotfix421&>(ShaderFactory);
-
-	FRWScopeLock ScopedLock(ShaderFactoryHotfix.Lock, SLT_ReadOnly);
-	
-	for (int32 Idx = 0; Idx < ShaderStage::NumStages; ++Idx)
-	{
-		uint64 ShaderKey = InShaderKeys[Idx];
-		if (ShaderKey)
-		{
-			EShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::EStage)Idx);
-			FVulkanShader* const * FoundShaderPtr = ShaderFactoryHotfix.ShaderMap[ShaderFrequency].Find(ShaderKey);
-			if (FoundShaderPtr)
-			{
-				OutShaders[Idx] = *FoundShaderPtr;
-			}
-		}
-	}
-}
-
 FVulkanShaderFactory::~FVulkanShaderFactory()
 {
 	for (auto& Map : ShaderMap)
@@ -84,7 +37,7 @@ FVulkanShaderFactory::~FVulkanShaderFactory()
 		Map.Empty();
 	}
 }
-	
+
 template <typename ShaderType> 
 ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulkanDevice* Device)
 {
@@ -92,18 +45,35 @@ ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulka
 	uint32 ShaderCodeCRC = FCrc::MemCrc32(Code.GetData(), Code.Num());
 	uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
 
-	EShaderFrequency ShaderFrequency = (EShaderFrequency)ShaderType::StaticFrequency;
-
-	ShaderType* RetShader = static_cast<ShaderType*>(FVulkanShaderFactory_LookupShader(*this, ShaderFrequency, ShaderKey));
+	ShaderType* RetShader = LookupShader<ShaderType>(ShaderKey);
 	if (RetShader == nullptr)
 	{
 		RetShader = new ShaderType(Device);
 		RetShader->Setup(Code, ShaderKey);
 			
 		FRWScopeLock ScopedLock(Lock, SLT_Write);
-		ShaderMap[ShaderFrequency].Add(ShaderKey, RetShader);
+		ShaderMap[ShaderType::StaticFrequency].Add(ShaderKey, RetShader);
 	}
 	return RetShader;
+}
+
+void FVulkanShaderFactory::LookupShaders(const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages]) const
+{
+	FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
+	
+	for (int32 Idx = 0; Idx < ShaderStage::NumStages; ++Idx)
+	{
+		uint64 ShaderKey = InShaderKeys[Idx];
+		if (ShaderKey)
+		{
+			EShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::EStage)Idx);
+			FVulkanShader* const * FoundShaderPtr = ShaderMap[ShaderFrequency].Find(ShaderKey);
+			if (FoundShaderPtr)
+			{
+				OutShaders[Idx] = *FoundShaderPtr;
+			}
+		}
+	}
 }
 
 void FVulkanShaderFactory::OnDeleteShader(const FVulkanShader& Shader)
@@ -287,11 +257,11 @@ FVulkanLayout::~FVulkanLayout()
 	}
 }
 
-void FVulkanLayout::Compile()
+void FVulkanLayout::Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap)
 {
 	check(PipelineLayout == VK_NULL_HANDLE);
 
-	DescriptorSetLayout.Compile();
+	DescriptorSetLayout.Compile(DSetLayoutMap);
 
 	const TArray<VkDescriptorSetLayout>& LayoutHandles = DescriptorSetLayout.GetHandles();
 
@@ -305,8 +275,12 @@ void FVulkanLayout::Compile()
 }
 
 
-uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(const TArray<VkDescriptorType>& Types, VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo, VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap)
+uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(
+	const TArray<VkDescriptorType>& Types, FVulkanHashableDescriptorInfo* InHashableDescriptorInfos,
+	VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo, VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap,
+	const FVulkanSamplerState& DefaultSampler, const FVulkanTextureView& DefaultImageView)
 {
+	HashableDescriptorInfos = InHashableDescriptorInfos;
 	WriteDescriptors = InWriteDescriptors;
 	NumWrites = Types.Num();
 	checkf(Types.Num() <= 64, TEXT("Out of bits for Dirty Mask! More than 64 resources in one descriptor set!"));
@@ -341,6 +315,16 @@ uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(const TArray<VkDescript
 		case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 		case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
 		case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+			// Texture.Load() still requires a default sampler...
+			if (InHashableDescriptorInfos) // UseVulkanDescriptorCache()
+			{
+				InHashableDescriptorInfos[Index].Image.SamplerId = DefaultSampler.SamplerId;
+				InHashableDescriptorInfos[Index].Image.ImageViewId = DefaultImageView.ViewId;
+				InHashableDescriptorInfos[Index].Image.ImageLayout = static_cast<uint32>(VK_IMAGE_LAYOUT_GENERAL);
+			}
+			InImageInfo->sampler = DefaultSampler.Sampler;
+			InImageInfo->imageView = DefaultImageView.View;
+			InImageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			InWriteDescriptors->pImageInfo = InImageInfo++;
 			break;
 		case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
@@ -457,55 +441,57 @@ void FVulkanDescriptorSetsLayoutInfo::FinalizeBindings(const FUniformBufferGathe
 				AddDescriptor(DescriptorSet, Binding);
 			}
 
-			RemappingInfo.StageInfos[Stage].UniformBuffers.Reserve(ShaderHeader->UniformBuffers.Num());
-			for (int32 Index = 0; Index < ShaderHeader->UniformBuffers.Num(); ++Index)
+			if (ShaderHeader->bHasRealUBs)
 			{
-				bool bAddUniformBuffer = true;
-				VkDescriptorType Type = bConvertAllUBsToDynamic ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				// Here we might mess up with the stageFlags, so reset them every loop
-				Binding.stageFlags = StageFlags;
-				Binding.descriptorType = Type;
-				const FVulkanShaderHeader::FUniformBufferInfo& UBInfo = ShaderHeader->UniformBuffers[Index];
-				const uint32 LayoutHash = UBInfo.LayoutHash;
-				const bool bUBHasConstantData = UBInfo.ConstantDataOriginalBindingIndex != UINT16_MAX;
-				if (bUBHasConstantData)
+				RemappingInfo.StageInfos[Stage].UniformBuffers.Reserve(ShaderHeader->UniformBuffers.Num());
+				for (int32 Index = 0; Index < ShaderHeader->UniformBuffers.Num(); ++Index)
 				{
-					bool bProcessRegularUB = true;
-					const VkShaderStageFlags* FoundFlags = bMoveCommonUBsToExtraSet ? UBGatherInfo.CommonUBLayoutsToStageMap.Find(LayoutHash) : nullptr;
-					if (FoundFlags)
+					VkDescriptorType Type = bConvertAllUBsToDynamic ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+					// Here we might mess up with the stageFlags, so reset them every loop
+					Binding.stageFlags = StageFlags;
+					Binding.descriptorType = Type;
+					const FVulkanShaderHeader::FUniformBufferInfo& UBInfo = ShaderHeader->UniformBuffers[Index];
+					const uint32 LayoutHash = UBInfo.LayoutHash;
+					const bool bUBHasConstantData = UBInfo.ConstantDataOriginalBindingIndex != UINT16_MAX;
+					if (bUBHasConstantData)
 					{
-						if (const FDescriptorSetRemappingInfo::FUBRemappingInfo* UBRemapInfo = AlreadyProcessedUBs.Find(LayoutHash))
+						bool bProcessRegularUB = true;
+						const VkShaderStageFlags* FoundFlags = bMoveCommonUBsToExtraSet ? UBGatherInfo.CommonUBLayoutsToStageMap.Find(LayoutHash) : nullptr;
+						if (FoundFlags)
 						{
-							RemappingInfo.AddRedundantUB(Stage, Index, UBRemapInfo);
-						}
-						else
-						{
-							//#todo-rco: Only process constant data part of the UB
-							check(bUBHasConstantData);
+							if (const FDescriptorSetRemappingInfo::FUBRemappingInfo* UBRemapInfo = AlreadyProcessedUBs.Find(LayoutHash))
+							{
+								RemappingInfo.AddRedundantUB(Stage, Index, UBRemapInfo);
+							}
+							else
+							{
+								//#todo-rco: Only process constant data part of the UB
+								check(bUBHasConstantData);
 
-							Binding.stageFlags = *FoundFlags;
+								Binding.stageFlags = *FoundFlags;
+								uint32 NewBindingIndex;
+								AlreadyProcessedUBs.Add(LayoutHash, RemappingInfo.AddUBWithData(Stage, Index, CommonUBDescriptorSet, Type, NewBindingIndex));
+								Binding.binding = NewBindingIndex;
+
+								AddDescriptor(CommonUBDescriptorSet, Binding);
+							}
+							bProcessRegularUB = false;
+						}
+
+						if (bProcessRegularUB)
+						{
+							int32 DescriptorSet = FindOrAddDescriptorSet(Stage);
 							uint32 NewBindingIndex;
-							AlreadyProcessedUBs.Add(LayoutHash, RemappingInfo.AddUBWithData(Stage, Index, CommonUBDescriptorSet, Type, NewBindingIndex));
+							RemappingInfo.AddUBWithData(Stage, Index, DescriptorSet, Type, NewBindingIndex);
 							Binding.binding = NewBindingIndex;
 
-							AddDescriptor(CommonUBDescriptorSet, Binding);
+							AddDescriptor(FindOrAddDescriptorSet(Stage), Binding);
 						}
-						bProcessRegularUB = false;
 					}
-					
-					if (bProcessRegularUB)
+					else
 					{
-						int32 DescriptorSet = FindOrAddDescriptorSet(Stage);
-						uint32 NewBindingIndex;
-						RemappingInfo.AddUBWithData(Stage, Index, DescriptorSet, Type, NewBindingIndex);
-						Binding.binding = NewBindingIndex;
-
-						AddDescriptor(FindOrAddDescriptorSet(Stage), Binding);
+						RemappingInfo.AddUBResourceOnly(Stage, Index);
 					}
-				}
-				else
-				{
-					RemappingInfo.AddUBResourceOnly(Stage, Index);
 				}
 			}
 

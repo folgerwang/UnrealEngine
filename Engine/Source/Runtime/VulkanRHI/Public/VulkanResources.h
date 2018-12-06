@@ -13,6 +13,7 @@
 #include "VulkanShaderResources.h"
 #include "VulkanState.h"
 #include "VulkanMemory.h"
+#include "Misc/ScopeRWLock.h"
 
 class FVulkanDevice;
 class FVulkanQueue;
@@ -179,10 +180,27 @@ public:
 	template <typename ShaderType> 
 	ShaderType* CreateShader(const TArray<uint8>& Code, FVulkanDevice* Device);
 	
+	template <typename ShaderType> 
+	ShaderType* LookupShader(uint64 ShaderKey) const
+	{
+		if (ShaderKey)
+		{
+			FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
+			FVulkanShader* const * FoundShaderPtr = ShaderMap[ShaderType::StaticFrequency].Find(ShaderKey);
+			if (FoundShaderPtr)
+			{
+				return static_cast<ShaderType*>(*FoundShaderPtr);
+			}
+		}
+		return nullptr;
+	}
+
+	void LookupShaders(const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages]) const;
+		
 	void OnDeleteShader(const FVulkanShader& Shader);
 
 private:
-	FRWLock Lock;
+	mutable FRWLock Lock;
 	TMap<uint64, FVulkanShader*> ShaderMap[SF_NumFrequencies];
 };
 
@@ -419,17 +437,20 @@ struct FVulkanTextureView
 	FVulkanTextureView()
 		: View(VK_NULL_HANDLE)
 		, Image(VK_NULL_HANDLE)
+		, ViewId(0)
 	{
 	}
 
-	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle = false, const FSamplerYcbcrConversionInitializer* ConversionInitializer = nullptr);
-
-	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
-	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, FSamplerYcbcrConversionInitializer& ConversionInitializer);
+	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle = false);
+	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, FSamplerYcbcrConversionInitializer& ConversionInitializer, bool bUseIdentitySwizzle = false);
 	void Destroy(FVulkanDevice& Device);
 
 	VkImageView View;
 	VkImage Image;
+	uint32 ViewId;
+
+private:
+	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle, const FSamplerYcbcrConversionInitializer* ConversionInitializer);
 };
 
 /** The base class of resources that may be bound as shader resources. */
@@ -453,7 +474,6 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 
 	virtual ~FVulkanTextureBase();
 
-	VkImageView CreateRenderTargetView(uint32 MipIndex, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
 	void AliasTextureResources(const FVulkanTextureBase* SrcTexture);
 
 	FVulkanSurface Surface;
@@ -800,7 +820,9 @@ public:
 		RT_PostGetResults,
 	};
 	EState State = Undefined;
-
+	
+	// frame number when pool was placed into free list
+	uint32 FreedFrameNumber = UINT32_MAX;
 protected:
 	uint32 NumUsedQueries = 0;
 	TArray<FVulkanOcclusionQuery*> AllocatedQueries;
@@ -958,6 +980,7 @@ struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 	FVulkanBufferView(FVulkanDevice* InDevice)
 		: VulkanRHI::FDeviceChild(InDevice)
 		, View(VK_NULL_HANDLE)
+		, ViewId(0)
 		, Flags(0)
 		, Offset(0)
 		, Size(0)
@@ -975,6 +998,7 @@ struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 	void Destroy();
 
 	VkBufferView View;
+	uint32 ViewId;
 	VkFlags Flags;
 	uint32 Offset;
 	uint32 Size;
@@ -1030,6 +1054,11 @@ public:
 		return WrapAroundAllocateMemory(Size, Alignment, InCmdBuffer);
 	}
 
+	inline VulkanRHI::FBufferAllocation* GetBufferAllocation() const
+	{
+		return BufferSuballocation->GetBufferAllocation();
+	}
+
 	inline uint32 GetBufferOffset() const
 	{
 		return BufferSuballocation->GetOffset();
@@ -1074,6 +1103,11 @@ public:
 		return CPUBuffer->AllocateMemory(Size, Alignment, InCmdBuffer);
 	}
 
+	VulkanRHI::FBufferAllocation* GetCPUBufferAllocation() const
+	{
+		return CPUBuffer->GetBufferAllocation();
+	}
+
 	VkBuffer GetCPUBufferHandle() const
 	{
 		return CPUBuffer->GetHandle();
@@ -1094,6 +1128,11 @@ class FVulkanResourceMultiBuffer : public VulkanRHI::FDeviceChild
 public:
 	FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, VkBufferUsageFlags InBufferUsageFlags, uint32 InSize, uint32 InUEUsage, FRHIResourceCreateInfo& CreateInfo, class FRHICommandListImmediate* InRHICmdList = nullptr);
 	virtual ~FVulkanResourceMultiBuffer();
+
+	inline VulkanRHI::FBufferAllocation* GetBufferAllocation() const
+	{
+		return Current.BufferAllocation;
+	}
 
 	inline VkBuffer GetHandle() const
 	{
@@ -1155,6 +1194,7 @@ protected:
 	struct
 	{
 		VulkanRHI::FBufferSuballocation* SubAlloc = nullptr;
+		VulkanRHI::FBufferAllocation* BufferAllocation = nullptr;
 		VkBuffer Handle = VK_NULL_HANDLE;
 		uint64 Offset = 0;
 	} Current;

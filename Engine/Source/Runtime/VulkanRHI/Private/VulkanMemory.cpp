@@ -1220,7 +1220,14 @@ namespace VulkanRHI
 			DeviceMemoryAllocation->Map(BufferSize, 0);
 		}
 
-		FBufferAllocation* BufferAllocation = new FBufferAllocation(this, DeviceMemoryAllocation, MemoryTypeIndex, MemoryPropertyFlags, MemReqs.alignment, Buffer, BufferUsageFlags, PoolSize);
+		uint32 BufferId = 0;
+		if (UseVulkanDescriptorCache())
+		{
+			BufferId = ++GVulkanBufferHandleIdCounter;
+		}
+
+		FBufferAllocation* BufferAllocation = new FBufferAllocation(this, DeviceMemoryAllocation, MemoryTypeIndex,
+			MemoryPropertyFlags, MemReqs.alignment, Buffer, BufferId, BufferUsageFlags, PoolSize);
 		UsedBufferAllocations[PoolSize].Add(BufferAllocation);
 
 		return (FBufferSuballocation*)BufferAllocation->TryAllocateNoLocking(Size, Alignment, File, Line);

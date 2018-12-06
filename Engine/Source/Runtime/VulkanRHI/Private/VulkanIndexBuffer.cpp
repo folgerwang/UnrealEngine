@@ -111,6 +111,7 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 			}
 
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 
@@ -169,6 +170,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			Device->GetImmediateContext().GetTempFrameAllocationBuffer().Alloc(Size + Offset, 256, VolatileLockInfo);
 			Data = VolatileLockInfo.Data;
 			++VolatileLockInfo.LockCounter;
+			Current.BufferAllocation = VolatileLockInfo.GetBufferAllocation();
 			Current.Handle = VolatileLockInfo.GetHandle();
 			Current.Offset = VolatileLockInfo.GetBindOffset();
 		}
@@ -186,6 +188,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			check(LockMode == RLM_WriteOnly);
 			DynamicBufferIndex = (DynamicBufferIndex + 1) % NumBuffers;
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 

@@ -615,11 +615,11 @@ namespace VulkanRHI
 	public:
 		FBufferAllocation(FResourceHeapManager* InOwner, FDeviceMemoryAllocation* InDeviceMemoryAllocation,
 			uint32 InMemoryTypeIndex, VkMemoryPropertyFlags InMemoryPropertyFlags,
-			uint32 InAlignment,
-			VkBuffer InBuffer, VkBufferUsageFlags InBufferUsageFlags, int32 InPoolSizeIndex)
+			uint32 InAlignment, VkBuffer InBuffer, uint32 InBufferId, VkBufferUsageFlags InBufferUsageFlags, int32 InPoolSizeIndex)
 			: FSubresourceAllocator(InOwner, InDeviceMemoryAllocation, InMemoryTypeIndex, InMemoryPropertyFlags, InAlignment)
 			, BufferUsageFlags(InBufferUsageFlags)
 			, Buffer(InBuffer)
+			, BufferId(InBufferId)
 			, PoolSizeIndex(InPoolSizeIndex)
 		{
 		}
@@ -642,9 +642,15 @@ namespace VulkanRHI
 			return Buffer;
 		}
 
+		inline uint32 GetHandleId() const
+		{
+			return BufferId;
+		}
+
 	protected:
 		VkBufferUsageFlags BufferUsageFlags;
 		VkBuffer Buffer;
+		uint32 BufferId;
 		int32 PoolSizeIndex;
 		friend class FResourceHeapManager;
 	};
@@ -1232,6 +1238,11 @@ namespace VulkanRHI
 				, CurrentOffset(0)
 				, LockCounter(0)
 			{
+			}
+
+			inline FBufferAllocation* GetBufferAllocation() const
+			{
+				return BufferSuballocation->GetBufferAllocation();
 			}
 
 			inline uint32 GetBindOffset() const

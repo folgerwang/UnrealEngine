@@ -142,7 +142,7 @@ void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, 
 	State = EState::IsInsideRenderPass;
 
 	// Acquire a descriptor pool set on a first render pass
-	if (CurrentDescriptorPoolSetContainer == nullptr)
+	if (!UseVulkanDescriptorCache() && CurrentDescriptorPoolSetContainer == nullptr)
 	{
 		AcquirePoolSetContainer();
 	}
@@ -214,6 +214,7 @@ void FVulkanCmdBuffer::Begin()
 
 void FVulkanCmdBuffer::AcquirePoolSetContainer()
 {
+	check(!UseVulkanDescriptorCache())
 	check(!CurrentDescriptorPoolSetContainer);
 	CurrentDescriptorPoolSetContainer = &Device->GetDescriptorPoolsManager().AcquirePoolSetContainer();
 	ensure(TypedDescriptorPoolSets.Num() == 0);
@@ -221,6 +222,7 @@ void FVulkanCmdBuffer::AcquirePoolSetContainer()
 
 bool FVulkanCmdBuffer::AcquirePoolSetAndDescriptorsIfNeeded(const class FVulkanDescriptorSetsLayout& Layout, bool bNeedDescriptors, VkDescriptorSet* OutDescriptors)
 {
+	check(!UseVulkanDescriptorCache())
 	//#todo-rco: This only happens when we call draws outside a render pass...
 	if (!CurrentDescriptorPoolSetContainer)
 	{
@@ -276,7 +278,7 @@ void FVulkanCmdBuffer::RefreshFenceStatus()
 #endif
 			++FenceSignaledCounter;
 
-			if (CurrentDescriptorPoolSetContainer)
+			if (!UseVulkanDescriptorCache() && CurrentDescriptorPoolSetContainer)
 			{
 				//#todo-rco: Reset here?
 				TypedDescriptorPoolSets.Reset();

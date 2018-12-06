@@ -8,6 +8,7 @@
 
 #include "VulkanMemory.h"
 
+class FVulkanDescriptorSetCache;
 class FVulkanDescriptorPool;
 class FVulkanDescriptorPoolsManager;
 class FVulkanCommandListContextImmediate;
@@ -151,14 +152,14 @@ public:
 		return Device;
 	}
 
-	inline VkSampler GetDefaultSampler() const
+	inline const FVulkanSamplerState& GetDefaultSampler() const
 	{
-		return DefaultSampler->Sampler;
+		return *DefaultSampler;
 	}
 
-	inline VkImageView GetDefaultImageView() const
+	inline const FVulkanTextureView& GetDefaultImageView() const
 	{
-		return DefaultImageView;
+		return DefaultTextureView;
 	}
 
 	inline const VkFormatProperties* GetFormatProperties() const
@@ -189,6 +190,11 @@ public:
 	inline VulkanRHI::FFenceManager& GetFenceManager()
 	{
 		return FenceManager;
+	}
+
+	inline FVulkanDescriptorSetCache& GetDescriptorSetCache()
+	{
+		return *DescriptorSetCache;
 	}
 
 	inline FVulkanDescriptorPoolsManager& GetDescriptorPoolsManager()
@@ -256,6 +262,7 @@ public:
 	void SubmitCommandsAndFlushGPU();
 
 	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
+	void ReleaseUnusedOcclusionQueryPools();
 
 	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
@@ -311,13 +318,16 @@ private:
 
 	VulkanRHI::FFenceManager FenceManager;
 
+	// Active on ES3.1
+	FVulkanDescriptorSetCache* DescriptorSetCache = nullptr;
+	// Active on >= SM4
 	FVulkanDescriptorPoolsManager* DescriptorPoolsManager = nullptr;
 
 	FVulkanShaderFactory ShaderFactory;
 
 	FVulkanSamplerState* DefaultSampler;
 	FVulkanSurface* DefaultImage;
-	VkImageView DefaultImageView;
+	FVulkanTextureView DefaultTextureView;
 
 	VkPhysicalDevice Gpu;
 	VkPhysicalDeviceProperties GpuProps;

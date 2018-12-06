@@ -196,15 +196,15 @@ public:
 		return Framebuffer;
 	}
 
-	inline VkImageView GetPartialDepthView() const
+	inline const FVulkanTextureView& GetPartialDepthTextureView() const
 	{
-		check(PartialDepthView != VK_NULL_HANDLE);
-		return PartialDepthView;
+		check(PartialDepthTextureView.View != VK_NULL_HANDLE);
+		return PartialDepthTextureView;
 	}
 
-	TArray<VkImageView> AttachmentViews;
+	TArray<FVulkanTextureView> AttachmentTextureViews;
 	// Copy from the Depth render target partial view
-	VkImageView PartialDepthView = VK_NULL_HANDLE;
+	FVulkanTextureView PartialDepthTextureView;
 	TArray<VkImageView> AttachmentViewsToDelete;
 
 	inline bool ContainsRenderTarget(FRHITexture* Texture) const

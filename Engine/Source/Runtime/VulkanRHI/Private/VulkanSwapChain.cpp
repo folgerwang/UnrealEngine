@@ -463,6 +463,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		if (GVulkanExtensionFramePacer)
 		{
 			GVulkanCPURenderThreadFramePacer = 0;
+			GVulkanCPURHIFramePacer = 0;
 		}
 	}
 #endif

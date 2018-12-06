@@ -22,7 +22,16 @@ TAutoConsoleVariable<int32> GSubmitOcclusionBatchCmdBufferCVar(
 );
 
 constexpr uint32 GMinNumberOfQueriesInPool = 256;
+
+#if PLATFORM_ANDROID
+constexpr int32 NUM_FRAMES_TO_WAIT_REUSE_POOL = 5;
+// numbers of frame to wait before releasing QueryPool
+constexpr uint32 NUM_FRAMES_TO_WAIT_RELEASE_POOL = 10; 
+#else
 constexpr int32 NUM_FRAMES_TO_WAIT_REUSE_POOL = 10;
+constexpr uint32 NUM_FRAMES_TO_WAIT_RELEASE_POOL = MAX_uint32; // never release
+#endif
+
 /*
 FCriticalSection GOcclusionQueryCS;
 const uint32 GMaxLifetimeTimestampQueries = 1024;
@@ -584,6 +593,7 @@ FVulkanOcclusionQueryPool* FVulkanDevice::AcquireOcclusionQueryPool(uint32 NumQu
 		{
 			UsedOcclusionQueryPools.RemoveAtSwap(Index);
 			FreeOcclusionQueryPools.Add(Pool);
+			Pool->FreedFrameNumber = GFrameNumberRenderThread;
 			bChanged = true;
 		}
 		else if (Pool->IsStalePool())
@@ -591,6 +601,7 @@ FVulkanOcclusionQueryPool* FVulkanDevice::AcquireOcclusionQueryPool(uint32 NumQu
 			Pool->FlushAllocatedQueries();
 			UsedOcclusionQueryPools.RemoveAtSwap(Index);
 			FreeOcclusionQueryPools.Add(Pool);
+			Pool->FreedFrameNumber = GFrameNumberRenderThread;
 			bChanged = true;
 		}
 	}
@@ -622,6 +633,47 @@ FVulkanOcclusionQueryPool* FVulkanDevice::AcquireOcclusionQueryPool(uint32 NumQu
 	return Pool;
 }
 
+void FVulkanDevice::ReleaseUnusedOcclusionQueryPools()
+{
+	if (GFrameNumberRenderThread < NUM_FRAMES_TO_WAIT_RELEASE_POOL)
+	{
+		return;
+	}
+	
+	uint32 ReleaseFrame = (GFrameNumberRenderThread - NUM_FRAMES_TO_WAIT_RELEASE_POOL);
+
+	for (int32 Index = FreeOcclusionQueryPools.Num() - 1; Index >= 0; --Index)
+	{
+		FVulkanOcclusionQueryPool* Pool = FreeOcclusionQueryPools[Index];
+		if (ReleaseFrame > Pool->FreedFrameNumber)
+		{
+			delete Pool;
+			FreeOcclusionQueryPools.RemoveAt(Index);
+		}
+	}
+}
+
+/*
+FVulkanTimestampQueryPool* FVulkanDevice::PrepareTimestampQueryPool(bool& bOutRequiresReset)
+{
+	bOutRequiresReset = false;
+	if (!TimestampQueryPool)
+	{
+		//#todo-rco: Create this earlier
+		TimestampQueryPool = new FVulkanTimestampQueryPool(this, GMaxLifetimeTimestampQueries);
+		bOutRequiresReset = true;
+	}
+
+	// Wrap around the queries
+	if (TimestampQueryPool->GetNumAllocatedQueries() >= TimestampQueryPool->GetMaxQueries())
+	{
+		//#todo-rco: Check overlap and grow if necessary
+		TimestampQueryPool->NumUsedQueries = 0;
+	}
+
+	return TimestampQueryPool;
+}
+*/
 void FVulkanCommandListContext::EndOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer)
 {
 	ensure(IsImmediate());

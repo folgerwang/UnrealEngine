@@ -123,7 +123,6 @@ FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 	, DeferredDeletionQueue(this)
 	, DefaultSampler(nullptr)
 	, DefaultImage(nullptr)
-	, DefaultImageView(VK_NULL_HANDLE)
 	, Gpu(InGpu)
 	, GfxQueue(nullptr)
 	, ComputeQueue(nullptr)
@@ -790,8 +789,16 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	}
 #endif
 
-	DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
-	DescriptorPoolsManager->Init(this);
+	if (UseVulkanDescriptorCache())
+	{
+		DescriptorSetCache = new FVulkanDescriptorSetCache(this);
+	}
+	else
+	{
+		DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
+		DescriptorPoolsManager->Init(this);
+	}
+
 	PipelineStateCache = new FVulkanPipelineStateCacheManager(this);
 
 	TArray<FString> CacheFilenames;
@@ -848,7 +855,7 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 
 		FRHIResourceCreateInfo CreateInfo;
 		DefaultImage = new FVulkanSurface(*this, VK_IMAGE_VIEW_TYPE_2D, PF_B8G8R8A8, 1, 1, 1, false, 0, 1, 1, TexCreate_RenderTargetable | TexCreate_ShaderResource, CreateInfo);
-		DefaultImageView = FVulkanTextureView::StaticCreate(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
+		DefaultTextureView.Create(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
 	}
 }
 
@@ -870,9 +877,12 @@ void FVulkanDevice::Destroy()
 	}
 #endif
 
-	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultImageView, VULKAN_CPU_ALLOCATOR);
-	DefaultImageView = VK_NULL_HANDLE;
+	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultTextureView.View, VULKAN_CPU_ALLOCATOR);
+	DefaultTextureView = {};
 
+	delete DescriptorSetCache;
+	DescriptorSetCache = nullptr;
+	
 	delete DescriptorPoolsManager;
 	DescriptorPoolsManager = nullptr;
 
