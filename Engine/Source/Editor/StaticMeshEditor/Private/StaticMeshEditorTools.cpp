@@ -1326,12 +1326,12 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 	//Base LOD
 	{
 		int32 MaxBaseReduceIndex = bCanReduceMyself ? CurrentLODIndex : CurrentLODIndex - 1;
-		ChildrenBuilder.AddCustomRow( LOCTEXT("BaseLOD", "Base LOD") )
+		ChildrenBuilder.AddCustomRow( LOCTEXT("ReductionBaseLOD", "Base LOD") )
 			.NameContent()
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("BaseLOD", "Base LOD"))
+				.Text(LOCTEXT("ReductionBaseLOD", "Base LOD"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.ValueContent()
@@ -3747,7 +3747,18 @@ void FLevelOfDetailSettingsLayout::OnImportLOD(TSharedPtr<FString> NewValue, ESe
 	{
 		UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 		check(StaticMesh);
-		FbxMeshUtils::ImportMeshLODDialog(StaticMesh,LODIndex);
+
+		//Are we a new imported LOD, we want to set some value for new imported LOD.
+		//This boolean prevent changing the value when the LOD is reimport
+		bool bImportCustomLOD = (LODIndex >= StaticMesh->SourceModels.Num());
+		
+		bool bResult = FbxMeshUtils::ImportMeshLODDialog(StaticMesh,LODIndex);
+
+		if (bImportCustomLOD && bResult && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			//Custom LOD should reduce base on them self when they get imported.
+			StaticMesh->SourceModels[LODIndex].ReductionSettings.BaseLODModel = LODIndex;
+		}
 		StaticMesh->PostEditChange();
 		StaticMeshEditor.RefreshTool();
 	}

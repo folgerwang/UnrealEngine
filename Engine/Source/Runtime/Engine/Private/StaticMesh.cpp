@@ -2330,6 +2330,11 @@ void UStaticMesh::SetNumSourceModels(const int32 Num)
 			}
 		}
 		SourceModels[Index].ReductionSettings.BaseLODModel = PreviousCustomLODIndex;
+		if (GetOriginalMeshDescription(Index) == nullptr && !IsReductionActive(Index))
+		{
+			//Set the Reduction percent
+			SourceModels[Index].ReductionSettings.PercentTriangles = FMath::Pow(0.5f, (float)(Index-PreviousCustomLODIndex));
+		}
 	}
 }
 
