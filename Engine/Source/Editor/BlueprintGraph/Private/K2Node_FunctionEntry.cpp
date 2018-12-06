@@ -248,6 +248,7 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 			if (!LocalVariable.DefaultValue.IsEmpty())
 			{
 				// If looking for references during save, expand any default values on the local variables
+				// This is only reliable when saving in the editor, the cook case is handled below
 				if (Ar.IsObjectReferenceCollector() && LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_Struct && LocalVariable.VarType.PinSubCategoryObject.IsValid())
 				{
 					UScriptStruct* Struct = Cast<UScriptStruct>(LocalVariable.VarType.PinSubCategoryObject.Get());
@@ -332,6 +333,24 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 
 						LocalVar.DefaultValue.Reset();
 					}
+				}
+			}
+		}
+
+		// In editor, fixup soft object ptrs on load on to handle redirects and finding refs for cooking
+		// We're not handling soft object ptrs inside FStructs because it's a rare edge case and would be a performance hit on load
+		if (GIsEditor)
+		{
+			FSoftObjectPathSerializationScope SetPackage(GetOutermost()->GetFName(), NAME_None, ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::SkipSerializeIfArchiveHasSize);
+
+			for (FBPVariableDescription& LocalVariable : LocalVariables)
+			{
+				if (!LocalVariable.DefaultValue.IsEmpty() && (LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftObject || LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftClass))
+				{
+					FSoftObjectPath TempRef(LocalVariable.DefaultValue);
+					TempRef.PostLoadPath();
+					TempRef.PreSavePath();
+					LocalVariable.DefaultValue = TempRef.ToString();
 				}
 			}
 		}
