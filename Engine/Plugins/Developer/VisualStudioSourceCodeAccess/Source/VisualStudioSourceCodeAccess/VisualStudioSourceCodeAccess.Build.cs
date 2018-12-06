@@ -15,7 +15,8 @@ namespace UnrealBuildTool.Rules
 					"SourceCodeAccess",
 					"DesktopPlatform",
 					"Projects",
-					"Json"
+					"Json",
+					"VisualStudioSetup"
 				}
 			);
 

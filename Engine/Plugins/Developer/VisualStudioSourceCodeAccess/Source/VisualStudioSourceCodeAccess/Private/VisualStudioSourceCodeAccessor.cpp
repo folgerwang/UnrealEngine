@@ -28,8 +28,8 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
-#include <ShlObj.h>
 #include "Windows/COMPointer.h"
+#include "Setup.Configuration.h"
 #if VSACCESSOR_HAS_DTE
 	#pragma warning(push)
 	#pragma warning(disable: 4278)
@@ -174,8 +174,8 @@ void FVisualStudioSourceCodeAccessor::RefreshAvailability()
 {
 	Locations.Reset();
 
-	AddVisualStudioVersionUsingVsWhere(16); // Visual Studio 2019
-	AddVisualStudioVersion(15); // Visual Studio 2017
+	AddVisualStudioVersionUsingVisualStudioSetupAPI(16); // Visual Studio 2019
+	AddVisualStudioVersionUsingVisualStudioSetupAPI(15); // Visual Studio 2017
 	AddVisualStudioVersion(14); // Visual Studio 2015
 	AddVisualStudioVersion(12); // Visual Studio 2013
 }
@@ -1191,57 +1191,73 @@ void FVisualStudioSourceCodeAccessor::AddVisualStudioVersion(const int MajorVers
 	}
 }
 
-void FVisualStudioSourceCodeAccessor::AddVisualStudioVersionUsingVsWhere(int VersionNumber)
+void FVisualStudioSourceCodeAccessor::AddVisualStudioVersionUsingVisualStudioSetupAPI(int VersionNumber)
 {
-	TCHAR* ProgramFilesPath = nullptr;
-	if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DEFAULT, NULL, &ProgramFilesPath)))
+	// Try to create the CoCreate the class; if that fails, likely no instances are registered.
+	TComPtr<ISetupConfiguration2> Query;
+	HRESULT Result = CoCreateInstance(__uuidof(SetupConfiguration), nullptr, CLSCTX_ALL, __uuidof(ISetupConfiguration2), (LPVOID*)&Query);
+	if (FAILED(Result))
 	{
-		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to get ProgramFiles(x86) path"));
+		UE_LOG(LogVSAccessor, Display, TEXT("Unable to create Visual Studio setup instance: %08x"), Result);
 		return;
 	}
 
-	FString VsWhereLocation = FString(ProgramFilesPath) / TEXT("Microsoft Visual Studio/Installer/vswhere.exe");
-	CoTaskMemFree(ProgramFilesPath);
-
-	if (!FPaths::FileExists(VsWhereLocation))
+	// Get the enumerator
+	TComPtr<IEnumSetupInstances> EnumSetupInstances;
+	Result = Query->EnumAllInstances(&EnumSetupInstances);
+	if (FAILED(Result))
 	{
-		UE_LOG(LogVSAccessor, Display, TEXT("Unable to find VSWHERE installation"));
+		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to query Visual Studio setup instances: %08x"), Result);
 		return;
 	}
 
-	FString ProcessOutput;
+	// Get the verison prefix string that we're looking for. We can compare this against reported version numbers from installed Visual Studio instances.
+	TCHAR VersionPrefix[10];
+	FCString::Sprintf(VersionPrefix, TEXT("%d."), VersionNumber);
+	size_t VersionPrefixLen = FCString::Strlen(VersionPrefix);
 
-	FMonitoredProcess Process(VsWhereLocation, *FString::Printf(TEXT("-version [%d.0,%d.0] -format json -prerelease"), VersionNumber, VersionNumber + 1), true);
-	Process.OnOutput().BindLambda([&ProcessOutput](const FString& Str) { ProcessOutput += Str; });
-	Process.Launch();
-	while (Process.Update())
+	// Check the state and version of the enumerated instances
+	TComPtr<ISetupInstance> Instance;
+	for (;;)
 	{
-		FPlatformProcess::Sleep(0.01);
-	}
-
-	TArray<TSharedPtr<FJsonValue>> Array;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ProcessOutput);
-	if (!FJsonSerializer::Deserialize(Reader, Array))
-	{
-		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to parse output from VSWHERE: %s"), *ProcessOutput);
-		return;
-	}
-
-	for (const TSharedPtr<FJsonValue>& Item : Array)
-	{
-		const TSharedPtr<FJsonObject>* Object;
-		if (Item->TryGetObject(Object))
+		unsigned long NumFetched = 0;
+		Result = EnumSetupInstances->Next(1, &Instance, &NumFetched);
+		if (FAILED(Result) || NumFetched == 0)
 		{
-			FString ProductPath;
-			if ((*Object)->TryGetStringField(TEXT("productPath"), ProductPath))
+			break;
+		}
+
+		TComPtr<ISetupInstance2> Instance2;
+		Result = Instance->QueryInterface(__uuidof(ISetupInstance2), (LPVOID*)&Instance2);
+		if (SUCCEEDED(Result))
+		{
+			InstanceState State;
+			Result = Instance2->GetState(&State);
+			if (SUCCEEDED(Result) && (State & eLocal) != 0)
 			{
-				VisualStudioLocation NewLocation;
-				NewLocation.VersionNumber = VersionNumber;
-				NewLocation.ExecutablePath = ProductPath;
+				BSTR InstallationVersion;
+				Result = Instance2->GetInstallationVersion(&InstallationVersion);
+				if (SUCCEEDED(Result))
+				{
+					if (FCString::Strncmp(InstallationVersion, VersionPrefix, VersionPrefixLen) == 0)
+					{
+						BSTR ProductPath;
+						Result = Instance2->GetProductPath(&ProductPath);
+						if (SUCCEEDED(Result))
+						{
+							VisualStudioLocation NewLocation;
+							NewLocation.VersionNumber = VersionNumber;
+							NewLocation.ExecutablePath = ProductPath;
 #if VSACCESSOR_HAS_DTE
-				NewLocation.ROTMoniker = FString::Printf(TEXT("!VisualStudio.DTE.%d.0"), VersionNumber);
+							NewLocation.ROTMoniker = FString::Printf(TEXT("!VisualStudio.DTE.%d.0"), VersionNumber);
 #endif
-				Locations.Add(NewLocation);
+							Locations.Add(NewLocation);
+
+							SysFreeString(ProductPath);
+						}
+					}
+					SysFreeString(InstallationVersion);
+				}
 			}
 		}
 	}
