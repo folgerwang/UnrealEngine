@@ -1618,7 +1618,7 @@ bool UK2Node_CallFunction::ShouldDrawAsBead() const
 bool UK2Node_CallFunction::ShouldShowNodeProperties() const
 {
 	// Show node properties if this corresponds to a function graph
-	if (FunctionReference.GetMemberName() != NAME_None)
+	if (FunctionReference.GetMemberName() != NAME_None && HasValidBlueprint())
 	{
 		return FindObject<UEdGraph>(GetBlueprint(), *(FunctionReference.GetMemberName().ToString())) != NULL;
 	}
