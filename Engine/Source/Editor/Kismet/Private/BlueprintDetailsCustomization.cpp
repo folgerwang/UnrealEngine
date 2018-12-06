@@ -4144,7 +4144,7 @@ bool FBaseBlueprintGraphActionDetails::OnVerifyPinRename(UK2Node_EditablePinBase
 
 	if (InNewName == TEXT("None"))
 	{
-		OutErrorMessage = FText::Format( LOCTEXT("PinNameNone", "'None' is a reserved name"));
+		OutErrorMessage = LOCTEXT("PinNameNone", "'None' is a reserved name");
 		return false;
 	}
 
