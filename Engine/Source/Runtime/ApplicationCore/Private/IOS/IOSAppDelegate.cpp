@@ -427,6 +427,22 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 		}
 	}];
 
+	[[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionRouteChangeNotification object : nil queue : nil usingBlock : ^ (NSNotification *notification)
+	{
+		switch ([[[notification userInfo] objectForKey:AVAudioSessionRouteChangeReasonKey] unsignedIntegerValue])
+		{
+			case AVAudioSessionRouteChangeReasonNewDeviceAvailable:
+				// headphones plugged in
+				FCoreDelegates::AudioRouteChangedDelegate.Broadcast(true);
+				break;
+
+			case AVAudioSessionRouteChangeReasonOldDeviceUnavailable:
+				// headphones unplugged
+				FCoreDelegates::AudioRouteChangedDelegate.Broadcast(false);
+				break;
+		}
+	}];
+
 	self.bUsingBackgroundMusic = [self IsBackgroundAudioPlaying];
 	self.bForceEmitOtherAudioPlaying = true;
 
@@ -705,7 +721,7 @@ bool GIsSuspended = 0;
 		// Don't deadlock here because a msg box may appear super early blocking the game thread and then the app may go into the background
 		double	startTime = FPlatformTime::Seconds();
 
-		// don't wait for FDefaultGameMoviePlayer::WaitForMovieToFinish(), crash with 0x8badf00d if ‚ÄúWait for Movies to Complete‚Äù is checked
+		// don't wait for FDefaultGameMoviePlayer::WaitForMovieToFinish(), crash with 0x8badf00d if ìWait for Movies to Completeî is checked
 		while(!self.bHasSuspended && !FAppEntry::IsStartupMoviePlaying() &&  (FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
 		{
             FIOSPlatformRHIFramePacer::Suspend();
