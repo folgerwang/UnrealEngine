@@ -381,6 +381,9 @@ namespace UnrealBuildTool
 		{
 			try
 			{
+				// Start capturing performance info
+				Timeline.Start();
+
 				// Parse the command line arguments
 				CommandLineArguments Arguments = new CommandLineArguments(ArgumentsArray);
 
@@ -447,6 +450,9 @@ namespace UnrealBuildTool
 			}
 			finally
 			{
+				// Print out all the performance info
+				Timeline.Print(TimeSpan.FromMilliseconds(20.0), LogEventType.Log);
+
 				// Make sure we flush the logs however we exit
 				Trace.Close();
 			}

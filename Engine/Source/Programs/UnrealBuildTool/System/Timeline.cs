@@ -176,7 +176,7 @@ namespace UnrealBuildTool
 			}
 
 			// Remove everything from the stack
-			for(; OuterEvents.Count > 1; OuterEvents.RemoveAt(OuterEvents.Count - 1))
+			for(; OuterEvents.Count > 0; OuterEvents.RemoveAt(OuterEvents.Count - 1))
 			{
 				UpdateLastEventTime(ref LastTime, OuterEvents.Last().FinishTime.Value, MaxUnknownTime, OuterEvents, Verbosity);
 			}
