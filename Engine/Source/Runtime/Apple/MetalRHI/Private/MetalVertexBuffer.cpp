@@ -14,7 +14,7 @@
 #include <objc/runtime.h>
 #include "HAL/LowLevelMemTracker.h"
 
-#if ENABLE_LOW_LEVEL_MEM_TRACKER/* || STATS*/
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
 #define METAL_LLM_BUFFER_SCOPE(Type) \
 	ELLMTag Tag; \
 	switch(Type)	{ \
@@ -24,6 +24,11 @@
 		default: Tag = ELLMTag::VertexBuffer; break; \
 	} \
 	LLM_SCOPE(Tag)
+#else
+#define METAL_LLM_BUFFER_SCOPE(Type)
+#endif
+
+#if STATS
 #define METAL_INC_DWORD_STAT_BY(Type, Name, Size) \
 	switch(Type)	{ \
 		case RRT_UniformBuffer: INC_DWORD_STAT_BY(STAT_MetalUniform##Name, Size); break; \
@@ -33,7 +38,6 @@
 		default: break; \
 	}
 #else
-#define METAL_LLM_BUFFER_SCOPE(Type)
 #define METAL_INC_DWORD_STAT_BY(Type, Name, Size)
 #endif
 
@@ -95,6 +99,12 @@ FMetalVertexBuffer::FMetalVertexBuffer(uint32 InSize, uint32 InUsage)
 
 FMetalVertexBuffer::~FMetalVertexBuffer()
 {
+}
+
+bool FMetalRHIBuffer::UsePrivateMemory() const
+{
+	return (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits) && (Usage & (BUF_Dynamic|BUF_Static)))
+	|| (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs) && Usage & (BUF_ShaderResource|BUF_UnorderedAccess));
 }
 
 FMetalRHIBuffer::FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType InType)
@@ -198,11 +208,35 @@ FMetalRHIBuffer::~FMetalRHIBuffer()
 		SafeReleaseMetalObject(Data);
 	}
 }
-	
+
+void FMetalRHIBuffer::Alias()
+{
+	if (Buffer.GetStorageMode() == mtlpp::StorageMode::Private && Buffer.GetHeap() && !Buffer.IsAliasable())
+	{
+		Buffer.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+		MetalLLM::LogAliasBuffer(Buffer);
+#endif
+	}
+}
+
+void FMetalRHIBuffer::Unalias()
+{
+	if (Buffer.GetStorageMode() == mtlpp::StorageMode::Private && Buffer.GetHeap() && Buffer.IsAliasable())
+	{
+		uint32 Len = Buffer.GetLength();
+		METAL_INC_DWORD_STAT_BY(Type, MemFreed, Len);
+		SafeReleaseMetalBuffer(Buffer);
+		Buffer = nil;
+		
+		Alloc(Len, RLM_WriteOnly);
+	}
+}
+
 void FMetalRHIBuffer::Alloc(uint32 InSize, EResourceLockMode LockMode)
 {
 	METAL_LLM_BUFFER_SCOPE(Type);
-	bool const bUsePrivateMem = (Usage & (BUF_Static|BUF_Dynamic)) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits);
+	bool const bUsePrivateMem = UsePrivateMemory();
 
 	if (!Buffer)
 	{
@@ -385,12 +419,14 @@ void* FMetalRHIBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 In
 		return ((uint8*)Data->Data) + Offset;
 	}
 	
+	check(!Buffer.IsAliasable());
+	
     uint32 Len = Buffer.GetLength();
     
 	// In order to properly synchronise the buffer access, when a dynamic buffer is locked for writing, discard the old buffer & create a new one. This prevents writing to a buffer while it is being read by the GPU & thus causing corruption. This matches the logic of other RHIs.
 	if (LockMode == RLM_WriteOnly)
 	{
-        bool const bUsePrivateMem = (Usage & (BUF_Static|BUF_Dynamic)) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits);
+        bool const bUsePrivateMem = UsePrivateMemory();
         if (bUsePrivateMem)
         {
 			METAL_LLM_BUFFER_SCOPE(Type);
@@ -481,7 +517,7 @@ void FMetalRHIBuffer::Unlock()
 
 			// Synchronise the buffer with the GPU
 			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.GetLength());
-			if (Usage & (BUF_Dynamic|BUF_Static))
+			if (UsePrivateMemory())
             {
 				METAL_LLM_BUFFER_SCOPE(Type);
 				SafeReleaseMetalBuffer(CPUBuffer);
@@ -529,14 +565,14 @@ FVertexBufferRHIRef FMetalDynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 	}
 	else if (VertexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
 	{
-		if (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		if (VertexBuffer->UsePrivateMemory())
 		{
 			LLM_SCOPE(ELLMTag::VertexBuffer);
 			SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);
 			VertexBuffer->CPUBuffer = nil;
 		}
 
-		if (GMetalBufferZeroFill)
+		if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
 		{
 			GetMetalDeviceContext().FillBuffer(VertexBuffer->Buffer, ns::Range(0, VertexBuffer->Buffer.GetLength()), 0);
 		}
@@ -612,7 +648,7 @@ struct FMetalRHICommandInitialiseVertexBuffer : public FRHICommand<FMetalRHIComm
 			uint32 Size = FMath::Min(Buffer->Buffer.GetLength(), Buffer->CPUBuffer.GetLength());
 			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Size);
 
-			if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (Buffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::VertexBuffer);
 				SafeReleaseMetalBuffer(Buffer->CPUBuffer);
@@ -622,7 +658,7 @@ struct FMetalRHICommandInitialiseVertexBuffer : public FRHICommand<FMetalRHIComm
 				Buffer->LastUpdate = GFrameNumberRenderThread;
 			}
 		}
-		else if (GMetalBufferZeroFill)
+		else if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
 		{
 			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
 		}
@@ -676,7 +712,7 @@ FVertexBufferRHIRef FMetalDynamicRHI::CreateVertexBuffer_RenderThread(class FRHI
 		}
 		else if (VertexBuffer->Buffer)
 		{
-			if (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (VertexBuffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::VertexBuffer);
 				SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);
@@ -764,7 +800,7 @@ void FMetalStagingBuffer::Unlock()
 {
 	check(BackingBuffer);
 	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
-	if (VertexBuffer->CPUBuffer && (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static)))
+	if (VertexBuffer->CPUBuffer && (VertexBuffer->UsePrivateMemory()))
 	{
 		LLM_SCOPE(ELLMTag::VertexBuffer);
 		SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);

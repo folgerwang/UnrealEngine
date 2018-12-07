@@ -19,7 +19,6 @@ namespace UnrealBuildTool.Rules
 					"ImageWrapper",
 					"InputCore",
 					"RenderCore",
-					"ShaderCore",
 					"RHI",
 					"Slate",
 				}

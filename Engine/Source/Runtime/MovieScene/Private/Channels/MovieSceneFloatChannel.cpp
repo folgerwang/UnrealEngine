@@ -4,7 +4,64 @@
 #include "MovieSceneFwd.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "MovieSceneFrameMigration.h"
+#include "UObject/SequencerObjectVersion.h"
 
+bool FMovieSceneTangentData::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FSequencerObjectVersion::GUID);
+	if (Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::SerializeFloatChannel)
+	{
+		return false;
+	}
+
+	// Serialization is handled manually to avoid the extra size overhead of UProperty tagging.
+	// Otherwise with many keys in a FMovieSceneTangentData the size can become quite large.
+	Ar << ArriveTangent;
+	Ar << LeaveTangent;
+	Ar << TangentWeightMode;
+	Ar << ArriveTangentWeight;
+	Ar << LeaveTangentWeight;
+
+	return true;
+}
+
+bool FMovieSceneTangentData::operator==(const FMovieSceneTangentData& TangentData) const
+{
+	return (ArriveTangent == TangentData.ArriveTangent) && (LeaveTangent == TangentData.LeaveTangent) && (TangentWeightMode == TangentData.TangentWeightMode) && (ArriveTangentWeight == TangentData.ArriveTangentWeight) && (LeaveTangentWeight == TangentData.LeaveTangentWeight);
+}
+
+bool FMovieSceneTangentData::operator!=(const FMovieSceneTangentData& Other) const
+{
+	return !(*this == Other);
+}
+
+bool FMovieSceneFloatValue::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FSequencerObjectVersion::GUID);
+	if (Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::SerializeFloatChannel)
+	{
+		return false;
+	}
+
+	// Serialization is handled manually to avoid the extra size overhead of UProperty tagging.
+	// Otherwise with many keys in a FMovieSceneFloatValue the size can become quite large.
+	Ar << Value;
+	Ar << InterpMode;
+	Ar << TangentMode;
+	Ar << Tangent;
+
+	return true;
+}
+
+bool FMovieSceneFloatValue::operator==(const FMovieSceneFloatValue& FloatValue) const
+{
+	return (Value == FloatValue.Value) && (InterpMode == FloatValue.InterpMode) && (TangentMode == FloatValue.TangentMode) && (Tangent == FloatValue.Tangent);
+}
+
+bool FMovieSceneFloatValue::operator!=(const FMovieSceneFloatValue& Other) const
+{
+	return !(*this == Other);
+}
 
 bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {

@@ -50,54 +50,54 @@ public:
 	FVector4 LightTangentAndSoftSourceRadius;
 };
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters,)
-	UNIFORM_MEMBER_STRUCT(FForwardLightData, Forward)
-	UNIFORM_MEMBER_STRUCT(FForwardLightData, ForwardISR)
-	UNIFORM_MEMBER_STRUCT(FReflectionUniformParameters, Reflection)
-	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, SSProfilesTexture)
-END_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FSharedBasePassUniformParameters,)
+	SHADER_PARAMETER_STRUCT(FForwardLightData, Forward)
+	SHADER_PARAMETER_STRUCT(FForwardLightData, ForwardISR)
+	SHADER_PARAMETER_STRUCT(FReflectionUniformParameters, Reflection)
+	SHADER_PARAMETER_STRUCT(FFogUniformParameters, Fog)
+	SHADER_PARAMETER_TEXTURE(Texture2D, SSProfilesTexture)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
-	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FOpaqueBasePassUniformParameters,)
+	SHADER_PARAMETER_STRUCT(FSharedBasePassUniformParameters, Shared)
 	// Forward shading 
-	UNIFORM_MEMBER(uint32, UseForwardScreenSpaceShadowMask)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, ForwardScreenSpaceShadowMaskTexture)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, IndirectOcclusionTexture)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, ResolvedSceneDepthTexture)
+	SHADER_PARAMETER(int32, UseForwardScreenSpaceShadowMask)
+	SHADER_PARAMETER_TEXTURE(Texture2D, ForwardScreenSpaceShadowMaskTexture)
+	SHADER_PARAMETER_TEXTURE(Texture2D, IndirectOcclusionTexture)
+	SHADER_PARAMETER_TEXTURE(Texture2D, ResolvedSceneDepthTexture)
 	// DBuffer decals
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferATexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferATextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferBTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferBTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferCTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DBufferCTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, DBufferRenderMask)
+	SHADER_PARAMETER_TEXTURE(Texture2D, DBufferATexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, DBufferATextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, DBufferBTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, DBufferBTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, DBufferCTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, DBufferCTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D<uint>, DBufferRenderMask)
 	// Misc
-	UNIFORM_MEMBER_TEXTURE(Texture2D, EyeAdaptation)
-END_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters)
+	SHADER_PARAMETER_TEXTURE(Texture2D, EyeAdaptation)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters,)
-	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
-	UNIFORM_MEMBER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTranslucentBasePassUniformParameters,)
+	SHADER_PARAMETER_STRUCT(FSharedBasePassUniformParameters, Shared)
+	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
 	// Material SSR
-	UNIFORM_MEMBER(FVector4, HZBUvFactorAndInvFactor)
-	UNIFORM_MEMBER(FVector4, PrevScreenPositionScaleBias)
-	UNIFORM_MEMBER(float, PrevSceneColorPreExposureInv)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, HZBTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, HZBSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, PrevSceneColor)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PrevSceneColorSampler)
+	SHADER_PARAMETER(FVector4, HZBUvFactorAndInvFactor)
+	SHADER_PARAMETER(FVector4, PrevScreenPositionScaleBias)
+	SHADER_PARAMETER(float, PrevSceneColorPreExposureInv)
+	SHADER_PARAMETER_TEXTURE(Texture2D, HZBTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, HZBSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PrevSceneColor)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PrevSceneColorSampler)
 	// Translucency Lighting Volume
-	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientInner)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientInnerSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientOuter)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientOuterSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalInner)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalInnerSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalOuter)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalOuterSampler)
-END_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters)
+	SHADER_PARAMETER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientInner)
+	SHADER_PARAMETER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientInnerSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, TranslucencyLightingVolumeAmbientOuter)
+	SHADER_PARAMETER_SAMPLER(SamplerState, TranslucencyLightingVolumeAmbientOuterSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalInner)
+	SHADER_PARAMETER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalInnerSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, TranslucencyLightingVolumeDirectionalOuter)
+	SHADER_PARAMETER_SAMPLER(SamplerState, TranslucencyLightingVolumeDirectionalOuterSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View);
 
@@ -138,9 +138,9 @@ public:
 
 inline void BindBasePassUniformBuffer(const FShaderParameterMap& ParameterMap, FShaderUniformBufferParameter& BasePassUniformBuffer)
 {
-	TArray<const FUniformBufferStruct*> NestedStructs;
-	FOpaqueBasePassUniformParameters::StaticStruct.GetNestedStructs(NestedStructs);
-	FTranslucentBasePassUniformParameters::StaticStruct.GetNestedStructs(NestedStructs);
+	TArray<const FShaderParametersMetadata*> NestedStructs;
+	FOpaqueBasePassUniformParameters::StaticStructMetadata.GetNestedStructs(NestedStructs);
+	FTranslucentBasePassUniformParameters::StaticStructMetadata.GetNestedStructs(NestedStructs);
 
 	for (int32 StructIndex = 0; StructIndex < NestedStructs.Num(); StructIndex++)
 	{
@@ -148,16 +148,16 @@ inline void BindBasePassUniformBuffer(const FShaderParameterMap& ParameterMap, F
 		checkfSlow(!ParameterMap.ContainsParameterAllocation(StructVariableName), TEXT("%s found bound in the base pass.  Base Pass uniform buffer nested structs should not be bound separately"), StructVariableName);
 	}
 	
-	const bool bNeedsOpaqueBasePass = ParameterMap.ContainsParameterAllocation(FOpaqueBasePassUniformParameters::StaticStruct.GetShaderVariableName());
-	const bool bNeedsTransparentBasePass = ParameterMap.ContainsParameterAllocation(FTranslucentBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+	const bool bNeedsOpaqueBasePass = ParameterMap.ContainsParameterAllocation(FOpaqueBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
+	const bool bNeedsTransparentBasePass = ParameterMap.ContainsParameterAllocation(FTranslucentBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 
 	checkSlow(!(bNeedsOpaqueBasePass && bNeedsTransparentBasePass));
 
-	BasePassUniformBuffer.Bind(ParameterMap, FOpaqueBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+	BasePassUniformBuffer.Bind(ParameterMap, FOpaqueBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 
 	if (!BasePassUniformBuffer.IsBound())
 	{
-		BasePassUniformBuffer.Bind(ParameterMap, FTranslucentBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+		BasePassUniformBuffer.Bind(ParameterMap, FTranslucentBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 }
 
@@ -458,7 +458,7 @@ public:
 
 	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FVertexFactoryType* VertexFactoryType, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
 	{
-		if (ParameterMap.ContainsParameterAllocation(FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName()))
+		if (ParameterMap.ContainsParameterAllocation(FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName()))
 		{
 			OutError.Add(TEXT("Base pass shaders cannot read from the SceneTexturesStruct."));
 			return false;
@@ -477,8 +477,8 @@ public:
 		ReflectionCaptureBuffer.Bind(Initializer.ParameterMap, TEXT("ReflectionCapture"));
 
 		// These parameters should only be used nested in the base pass uniform buffer
-		check(!Initializer.ParameterMap.ContainsParameterAllocation(FFogUniformParameters::StaticStruct.GetShaderVariableName()));
-		check(!Initializer.ParameterMap.ContainsParameterAllocation(FReflectionUniformParameters::StaticStruct.GetShaderVariableName()));
+		check(!Initializer.ParameterMap.ContainsParameterAllocation(FFogUniformParameters::StaticStructMetadata.GetShaderVariableName()));
+		check(!Initializer.ParameterMap.ContainsParameterAllocation(FReflectionUniformParameters::StaticStructMetadata.GetShaderVariableName()));
 	}
 	TBasePassPixelShaderPolicyParamType() {}
 

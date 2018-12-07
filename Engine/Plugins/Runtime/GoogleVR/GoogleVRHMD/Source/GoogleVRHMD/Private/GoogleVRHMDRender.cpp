@@ -132,13 +132,13 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 	{
 		RHICmdList.SetViewport(0, 0, 0.0f, ViewportSize.X / 2, ViewportSize.Y, 1.0f);
 		RHICmdList.SetStreamSource(0, DistortionMeshVerticesLeftEye, 0);
-		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
+		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, 0, 0, NumVerts, 0, NumTris, 1);
 	}
 	else
 	{
 		RHICmdList.SetViewport(ViewportSize.X / 2, 0, 0.0f, ViewportSize.X, ViewportSize.Y, 1.0f);
 		RHICmdList.SetStreamSource(0, DistortionMeshVerticesRightEye, 0);
-		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
+		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, 0, 0, NumVerts, 0, NumTris, 1);
 	}
 #else
 	// Editor Preview: We are using a hardcoded quad mesh for now with no distortion applyed.
@@ -166,13 +166,13 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 		{
 			RHICmdList.SetViewport(0, 0, 0.0f, XBound, TextureSize.Y, 1.0f);
 			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
 		else
 		{
 			RHICmdList.SetViewport(XBound, 0, 0.0f, TextureSize.X, TextureSize.Y, 1.0f);
 			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
 		VertexBufferRHI.SafeRelease();
 	}
@@ -215,14 +215,13 @@ static void ResolvePendingRenderTarget(FRHICommandListImmediate& RHICmdList, FGr
 		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 		RHICmdList.DrawIndexedPrimitive(
 			FakeIndexBuffer.IndexBufferRHI,
-			PT_TriangleList,
 			/*BaseVertexIndex=*/ 0,
 			/*MinIndex=*/ 0,
 			/*NumVertices=*/ 0,
@@ -262,21 +261,25 @@ void FGoogleVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	// When using distortion method in GVR SDK
-	if(IsUsingGVRApiDistortionCorrection() && bDistortionCorrectionEnabled)
+	if (IsUsingGVRApiDistortionCorrection() && bDistortionCorrectionEnabled)
 	{
 		// Use native gvr distortion without async reprojection
 		// Note that this method is not enabled by default.
-		if(!bUseOffscreenFramebuffers)
+		if (!bUseOffscreenFramebuffers)
 		{
 			// Set target to back buffer
-			SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
-			RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
-			ResolvePendingRenderTarget(RHICmdList, GraphicsPSOInit, RendererModule);
+			FRHIRenderPassInfo RPInfo(BackBuffer, ERenderTargetActions::Load_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("GoogleVRHMD_RenderTexture"));
+			{
+				RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
+				ResolvePendingRenderTarget(RHICmdList, GraphicsPSOInit, RendererModule);
 
-			gvr_distort_to_screen(GVRAPI, *reinterpret_cast<GLuint*>(SrcTexture->GetNativeResource()),
-								  DistortedBufferViewportList,
-								  CachedHeadPose,
-								  CachedFuturePoseTime);
+				gvr_distort_to_screen(GVRAPI, *reinterpret_cast<GLuint*>(SrcTexture->GetNativeResource()),
+					DistortedBufferViewportList,
+					CachedHeadPose,
+					CachedFuturePoseTime);
+			}
+			RHICmdList.EndRenderPass();
 		}
 		//When use aysnc reprojection, the framebuffer submit is handled in CustomPresent->FinishRendering
 	}
@@ -285,36 +288,40 @@ void FGoogleVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 
 	// Just render directly to output
 	{
-		SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FRHIRenderPassInfo RPInfo(BackBuffer, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("GoogleVRHMD_RenderTexture"));
+		{
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
+			RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
 
-		const auto FeatureLevel = GMaxRHIFeatureLevel;
-		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+			const auto FeatureLevel = GMaxRHIFeatureLevel;
+			auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SrcTexture);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SrcTexture);
 
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			0, 0,
-			ViewportWidth, ViewportHeight,
-			0.0f, 0.0f,
-			1.0f, 1.0f,
-			FIntPoint(ViewportWidth, ViewportHeight),
-			FIntPoint(1, 1),
-			*VertexShader,
-			EDRF_Default);
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,
+				ViewportWidth, ViewportHeight,
+				0.0f, 0.0f,
+				1.0f, 1.0f,
+				FIntPoint(ViewportWidth, ViewportHeight),
+				FIntPoint(1, 1),
+				*VertexShader,
+				EDRF_Default);
+		}
+		RHICmdList.EndRenderPass();
 	}
 }
 

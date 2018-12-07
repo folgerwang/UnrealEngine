@@ -319,7 +319,6 @@ void FTransitionAndLayoutManager::BeginRealRenderPass(FVulkanCommandListContext&
 		}
 		else
 		{
-			GenerateMipsInfo.Reset();
 			if (*Found == VK_IMAGE_LAYOUT_UNDEFINED)
 			{
 				VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), Surface.Image, EImageLayoutBarrier::Undefined, EImageLayoutBarrier::ColorAttachment, SetupImageSubresourceRange());
@@ -498,20 +497,17 @@ void FVulkanCommandListContext::RHISetRenderTargets(uint32 NumSimultaneousRender
 	}
 
 	FRHISetRenderTargetsInfo RenderTargetsInfo(NumSimultaneousRenderTargets, NewRenderTargets, DepthView);
-	RHISetRenderTargetsAndClear(RenderTargetsInfo);
 
-	// Yuck - Bind pending pixel shader UAVs from SetRenderTargets
+	if (NumUAVs)
 	{
-		PendingPixelUAVs.Reset();
-		for (uint32 UAVIndex = 0; UAVIndex < NumUAVs; ++UAVIndex)
+		RenderTargetsInfo.NumUAVs = NumUAVs;
+		for (uint32 Index = 0; Index < NumUAVs; Index++)
 		{
-			FVulkanUnorderedAccessView* UAV = ResourceCast(UAVs[UAVIndex]);
-			if (UAV)
-			{
-				PendingPixelUAVs.Add({UAV, UAVIndex});
-			}
+			RenderTargetsInfo.UnorderedAccessView[Index] = UAVs[Index];
 		}
 	}
+
+	RHISetRenderTargetsAndClear(RenderTargetsInfo);
 }
 
 // Find out whether we can re-use current renderpass instead of starting new one
@@ -611,6 +607,20 @@ void FVulkanCommandListContext::RHISetRenderTargetsAndClear(const FRHISetRenderT
 		else
 		{
 			ensureMsgf(0, TEXT("RenderPass not started! Bad combination of values? Depth %p #Color %d Color0 %p"), (void*)RenderTargetsInfo.DepthStencilRenderTarget.Texture, RenderTargetsInfo.NumColorRenderTargets, (void*)RenderTargetsInfo.ColorRenderTarget[0].Texture);
+		}
+	}
+
+	// Yuck - Bind pending pixel shader UAVs from SetRenderTargets
+	{
+		PendingPixelUAVs.Reset();
+		uint32 NumUAVs = RenderTargetsInfo.NumUAVs;
+		for (uint32 UAVIndex = 0; UAVIndex < NumUAVs; ++UAVIndex)
+		{
+			FVulkanUnorderedAccessView* UAV = ResourceCast(RenderTargetsInfo.UnorderedAccessView[UAVIndex].GetReference());
+			if (UAV)
+			{
+				PendingPixelUAVs.Add({ UAV, UAVIndex });
+			}
 		}
 	}
 }
@@ -1607,11 +1617,29 @@ void FVulkanCommandListContext::RHIBeginRenderPass(const FRHIRenderPassInfo& InI
 	{
 		BeginOcclusionQueryBatch(CmdBuffer, InInfo.NumOcclusionQueries);
 	}
+
 	FVulkanRenderTargetLayout RTLayout(*Device, InInfo);
 	check(RTLayout.GetExtent2D().width != 0 && RTLayout.GetExtent2D().height != 0);
 	FVulkanRenderPass* RenderPass = TransitionAndLayoutManager.GetOrCreateRenderPass(*Device, RTLayout);
 	FRHISetRenderTargetsInfo RTInfo;
 	InInfo.ConvertToRenderTargetsInfo(RTInfo);
+
+	// yuck. bind UAVs.
+	{
+		PendingPixelUAVs.Reset();
+		uint32 NumUAVs = InInfo.NumUAVs;
+		for (uint32 UAVIndex = 0; UAVIndex < NumUAVs; ++UAVIndex)
+		{
+			FVulkanUnorderedAccessView* UAV = ResourceCast(InInfo.UAVs[UAVIndex].GetReference());
+			if (UAV)
+			{
+				PendingPixelUAVs.Add({ UAV, UAVIndex });
+			}
+		}
+	}
+
+	TransitionAndLayoutManager.GenerateMipsInfo.Reset();
+
 	FVulkanFramebuffer* Framebuffer = TransitionAndLayoutManager.GetOrCreateFramebuffer(*Device, RTInfo, RTLayout, RenderPass);
 	checkf(RenderPass != nullptr && Framebuffer != nullptr, TEXT("RenderPass not started! Bad combination of values? Depth %p #Color %d Color0 %p"), (void*)InInfo.DepthStencilRenderTarget.DepthStencilTarget, InInfo.GetNumColorRenderTargets(), (void*)InInfo.ColorRenderTargets[0].RenderTarget);
 	TransitionAndLayoutManager.BeginRealRenderPass(*this, *Device, CmdBuffer, InInfo, RTLayout, RenderPass, Framebuffer);
@@ -1629,6 +1657,7 @@ void FVulkanCommandListContext::RHIEndRenderPass()
 	{
 		TransitionAndLayoutManager.EndRealRenderPass(CmdBuffer);
 	}
+
 	RHIPopEvent();
 }
 

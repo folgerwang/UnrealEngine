@@ -78,7 +78,6 @@ private:
 	{
 	public:
 		uint32 StartElement;    // The first element in the batch (inclusive)
-		uint32 EndElement;      // The last element in the batch (inclusive)
 		uint32 ElementCount;    // The number of elements in the batch
 		bool bOpen;             // Is the batch still open for more begin/end queries?
 		
@@ -95,7 +94,6 @@ private:
 		inline void Clear()
 		{
 			StartElement = 0;
-			EndElement = 0;
 			ElementCount = 0;
 			bOpen = false;
 			RenderQueries.Reset();
@@ -127,12 +125,8 @@ private:
 	void StartQueryBatch(); // Start tracking a new batch of begin/end query calls that will be resolved together
 
 	uint32 GetNextElement(uint32 InElement); // Get the next element, after the specified element. Handles overflow.
-	uint32 GetPreviousElement(uint32 InElement); // Get the previous element, before the specified element. Handles underflow.
-	bool IsHeapFull();
-	bool IsHeapEmpty() const { return ActiveAllocatedElementCount == 0; }
 
 	uint32 GetNextBatchElement(uint32 InBatchElement);
-	uint32 GetPreviousBatchElement(uint32 InBatchElement);
 
 	void CreateQueryHeap();
 	void CreateResultBuffer();
@@ -147,8 +141,6 @@ private:
 	const uint32 MaxActiveBatches;                      // The max number of query batches that will be held.
 	uint32 LastBatch;                                   // The index of the newest batch.
 
-	uint32 HeadActiveElement;                   // The oldest element that is in use (Active). The data for this element is being used.
-	uint32 TailActiveElement;                   // The most recent element that is in use (Active). The data for this element is being used.
 	uint32 ActiveAllocatedElementCount;         // The number of elements that are in use (Active). Between the head and the tail.
 
 	uint32 LastAllocatedElement;                // The last element that was allocated for BeginQuery

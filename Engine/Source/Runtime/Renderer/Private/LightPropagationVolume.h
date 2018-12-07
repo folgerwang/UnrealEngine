@@ -75,51 +75,51 @@ static const TCHAR * LpvGvVolumeTextureUAVNames[NUM_GV_TEXTURES] = {
 //
 // LPV Read constant buffer
 //
-BEGIN_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters, )
-	UNIFORM_MEMBER( FIntVector, mLpvGridOffset )
-	UNIFORM_MEMBER( float, LpvScale )
-	UNIFORM_MEMBER( float, OneOverLpvScale )
-	UNIFORM_MEMBER( float, SpecularIntensity )
-	UNIFORM_MEMBER( float, DiffuseIntensity )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FLpvReadUniformBufferParameters, )
+	SHADER_PARAMETER( FIntVector, mLpvGridOffset )
+	SHADER_PARAMETER( float, LpvScale )
+	SHADER_PARAMETER( float, OneOverLpvScale )
+	SHADER_PARAMETER( float, SpecularIntensity )
+	SHADER_PARAMETER( float, DiffuseIntensity )
 
-	UNIFORM_MEMBER( float, DirectionalOcclusionIntensity )
-	UNIFORM_MEMBER( float, DiffuseOcclusionExponent )
-	UNIFORM_MEMBER( float, SpecularOcclusionExponent )
-	UNIFORM_MEMBER( float, SpecularOcclusionIntensity )
-	UNIFORM_MEMBER( float, DiffuseOcclusionIntensity )
-	UNIFORM_MEMBER( float, PostprocessSpecularIntensityThreshold )
+	SHADER_PARAMETER( float, DirectionalOcclusionIntensity )
+	SHADER_PARAMETER( float, DiffuseOcclusionExponent )
+	SHADER_PARAMETER( float, SpecularOcclusionExponent )
+	SHADER_PARAMETER( float, SpecularOcclusionIntensity )
+	SHADER_PARAMETER( float, DiffuseOcclusionIntensity )
+	SHADER_PARAMETER( float, PostprocessSpecularIntensityThreshold )
 
-	UNIFORM_MEMBER( FVector, LpvGridOffsetSmooth )
-	UNIFORM_MEMBER( FVector, DirectionalOcclusionDefaultValue )
-	UNIFORM_MEMBER( float, DirectionalOcclusionFadeRange )
-	UNIFORM_MEMBER( float, FadeRange )
-END_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters )
+	SHADER_PARAMETER( FVector, LpvGridOffsetSmooth )
+	SHADER_PARAMETER( FVector, DirectionalOcclusionDefaultValue )
+	SHADER_PARAMETER( float, DirectionalOcclusionFadeRange )
+	SHADER_PARAMETER( float, FadeRange )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 
 /**
  * Uniform buffer parameters for LPV write shaders
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters, )
-	UNIFORM_MEMBER( FMatrix, mRsmToWorld )
-	UNIFORM_MEMBER( FVector4, mLightColour )
-	UNIFORM_MEMBER( FVector4, GeometryVolumeCaptureLightDirection )
-	UNIFORM_MEMBER( FVector4, mEyePos )
-	UNIFORM_MEMBER( FIntVector, mOldGridOffset ) 
-	UNIFORM_MEMBER( FIntVector, mLpvGridOffset )
-	UNIFORM_MEMBER( float, ClearMultiplier )
-	UNIFORM_MEMBER( float, LpvScale )
-	UNIFORM_MEMBER( float, OneOverLpvScale )
-	UNIFORM_MEMBER( float, DirectionalOcclusionIntensity )
-	UNIFORM_MEMBER( float, DirectionalOcclusionRadius )
-	UNIFORM_MEMBER( float, RsmAreaIntensityMultiplier )
-	UNIFORM_MEMBER( float, RsmPixelToTexcoordMultiplier )
-	UNIFORM_MEMBER( float, SecondaryOcclusionStrength )
-	UNIFORM_MEMBER( float, SecondaryBounceStrength )
-	UNIFORM_MEMBER( float, VplInjectionBias )
-	UNIFORM_MEMBER( float, GeometryVolumeInjectionBias )
-	UNIFORM_MEMBER( float, EmissiveInjectionMultiplier )
-	UNIFORM_MEMBER( int,	 PropagationIndex )
-END_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FLpvWriteUniformBufferParameters, )
+	SHADER_PARAMETER( FMatrix, mRsmToWorld )
+	SHADER_PARAMETER( FVector4, mLightColour )
+	SHADER_PARAMETER( FVector4, GeometryVolumeCaptureLightDirection )
+	SHADER_PARAMETER( FVector4, mEyePos )
+	SHADER_PARAMETER( FIntVector, mOldGridOffset ) 
+	SHADER_PARAMETER( FIntVector, mLpvGridOffset )
+	SHADER_PARAMETER( float, ClearMultiplier )
+	SHADER_PARAMETER( float, LpvScale )
+	SHADER_PARAMETER( float, OneOverLpvScale )
+	SHADER_PARAMETER( float, DirectionalOcclusionIntensity )
+	SHADER_PARAMETER( float, DirectionalOcclusionRadius )
+	SHADER_PARAMETER( float, RsmAreaIntensityMultiplier )
+	SHADER_PARAMETER( float, RsmPixelToTexcoordMultiplier )
+	SHADER_PARAMETER( float, SecondaryOcclusionStrength )
+	SHADER_PARAMETER( float, SecondaryBounceStrength )
+	SHADER_PARAMETER( float, VplInjectionBias )
+	SHADER_PARAMETER( float, GeometryVolumeInjectionBias )
+	SHADER_PARAMETER( float, EmissiveInjectionMultiplier )
+	SHADER_PARAMETER( int,	 PropagationIndex )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 // ----------------------------------------------------------------------------
 // Shader params for base LPV write shaders
@@ -185,8 +185,8 @@ public:
 	const FLpvReadUniformBufferParameters& GetReadUniformBufferParams()		{ return LpvReadUniformBufferParams; }
 	const FLpvWriteUniformBufferParameters& GetWriteUniformBufferParams()	{ return *LpvWriteUniformBufferParams; }
 
-	FLpvWriteUniformBufferRef GetWriteUniformBuffer() const				{ return (FLpvWriteUniformBufferRef)LpvWriteUniformBuffer; }
-	FLpvWriteUniformBufferRef GetRsmUniformBuffer() const				{ return (FLpvWriteUniformBufferRef)RsmRenderUniformBuffer; }
+	FLpvWriteUniformBufferRef GetWriteUniformBuffer() const				{ return LpvWriteUniformBuffer.GetUniformBufferRef(); }
+	FLpvWriteUniformBufferRef GetRsmUniformBuffer() const				{ return RsmRenderUniformBuffer.GetUniformBufferRef(); }
 
 	FTextureRHIParamRef GetLpvBufferSrv( int i )						{ return LpvVolumeTextures[ 1-mWriteBufferIndex ][i]->GetRenderTargetItem().ShaderResourceTexture; }
 

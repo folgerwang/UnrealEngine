@@ -74,11 +74,8 @@ const Decoration NoPrecision = DecorationMax;
 
 POTENTIALLY_UNUSED
 const MemorySemanticsMask MemorySemanticsAllMemory =
-                (MemorySemanticsMask)(MemorySemanticsSequentiallyConsistentMask |
-                                      MemorySemanticsUniformMemoryMask |
-                                      MemorySemanticsSubgroupMemoryMask |
+                (MemorySemanticsMask)(MemorySemanticsUniformMemoryMask |
                                       MemorySemanticsWorkgroupMemoryMask |
-                                      MemorySemanticsCrossWorkgroupMemoryMask |
                                       MemorySemanticsAtomicCounterMemoryMask |
                                       MemorySemanticsImageMemoryMask);
 
@@ -261,7 +258,8 @@ public:
             delete blocks[i];
     }
     Id getId() const { return functionInstruction.getResultId(); }
-    Id getParamId(int p) { return parameterInstructions[p]->getResultId(); }
+    Id getParamId(int p) const { return parameterInstructions[p]->getResultId(); }
+    Id getParamType(int p) const { return parameterInstructions[p]->getTypeId(); }
 
     void addBlock(Block* block) { blocks.push_back(block); }
     void removeBlock(Block* block)

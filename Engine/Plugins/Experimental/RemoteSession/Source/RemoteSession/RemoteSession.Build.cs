@@ -48,7 +48,6 @@ public class RemoteSession : ModuleRules
 				"RHI",
                 "Renderer",
                 "RenderCore",
-                "ShaderCore",
 				"ImageWrapper",
 				"MovieSceneCapture",
 				"Sockets",

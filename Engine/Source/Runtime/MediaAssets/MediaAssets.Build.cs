@@ -20,7 +20,6 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"RenderCore",
 					"RHI",
-					"ShaderCore",
 					"UtilityShaders",
 				});
 

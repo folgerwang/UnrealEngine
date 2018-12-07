@@ -28,7 +28,6 @@ public class VulkanRHI : ModuleRules
 				"Engine", 
 				"RHI", 
 				"RenderCore", 
-				"ShaderCore",
 				"UtilityShaders",
 				"HeadMountedDisplay",
                 "PreLoadScreen"

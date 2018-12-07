@@ -248,7 +248,6 @@ namespace SkeletalSimplifier
 			typedef ArrayBase<6, SymmetricMatrix>            MyBase;
 			typedef typename MyBase::ScalarType              ScalarType;
 
-
 			SymmetricMatrix() 
 			{
 				// Zero
@@ -964,6 +963,9 @@ namespace SkeletalSimplifier
 
 			typedef ArrayBase<SIZE, TDenseVecD>           MyBase;
 			typedef typename MyBase::ScalarType           ScalarType;
+
+			using MyBase::Data;
+			using MyBase::Reset;
 
 			enum { Size = SIZE };
 

@@ -387,7 +387,8 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		const float UVScaling = (float)HalfResViewRect.Height() / (float)TexSize.Y;
 	
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpasses remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 		
 		static FName AsyncEndFenceName(TEXT("AsyncBokehDOFRecombineEndFence"));
@@ -421,18 +422,19 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		WaitForInputPassComputeFences(Context.RHICmdList);
 
 		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-
-		if (View.StereoPass == eSSP_FULL)
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("BokenDOFRecombine"));
 		{
-			// is optimized away if possible (RT size=view size, )
-			DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 1.0f, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
-		}
+			if (View.StereoPass == eSSP_FULL)
+			{
+				// is optimized away if possible (RT size=view size, )
+				DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 1.0f, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+			}
 
-		Context.SetViewportAndCallRHI(View.ViewRect);
+			Context.SetViewportAndCallRHI(View.ViewRect);
 
-		switch(Method)
-		{
+			switch (Method)
+			{
 			case 1: SetShader<1>(Context); break;
 			case 2: SetShader<2>(Context); break;
 			case 3: SetShader<3>(Context); break;
@@ -440,23 +442,24 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 			case 5: SetShader<5>(Context); break;
 			default:
 				check(0);
+			}
+
+			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+			DrawPostProcessPass(
+				Context.RHICmdList,
+				0, 0,
+				View.ViewRect.Width(), View.ViewRect.Height(),
+				HalfResViewRect.Min.X, HalfResViewRect.Min.Y,
+				HalfResViewRect.Width(), HalfResViewRect.Height(),
+				View.ViewRect.Size(),
+				TexSize,
+				*VertexShader,
+				View.StereoPass,
+				false, // Disabled for correctness
+				EDRF_UseTriangleOptimization);
 		}
-
-		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-		DrawPostProcessPass(
-			Context.RHICmdList,
-			0, 0,
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			HalfResViewRect.Min.X, HalfResViewRect.Min.Y,
-			HalfResViewRect.Width(), HalfResViewRect.Height(),
-			View.ViewRect.Size(),
-			TexSize,
-			*VertexShader,
-			View.StereoPass,
-			false, // Disabled for correctness
-			EDRF_UseTriangleOptimization);
-
+		Context.RHICmdList.EndRenderPass();
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }

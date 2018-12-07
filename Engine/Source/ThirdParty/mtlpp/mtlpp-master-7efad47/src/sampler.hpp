@@ -108,6 +108,7 @@ namespace mtlpp
         void SetLodMaxClamp(float lodMaxClamp);
         void SetCompareFunction(CompareFunction compareFunction) MTLPP_AVAILABLE(10_11, 9_0);
         void SetLabel(const ns::String& label);
+		void SetSupportArgumentBuffers(bool flag) MTLPP_AVAILABLE(10_13, 11_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 

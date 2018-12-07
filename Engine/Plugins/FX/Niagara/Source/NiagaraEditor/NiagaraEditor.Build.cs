@@ -58,7 +58,6 @@ public class NiagaraEditor : ModuleRules
 				"AssetTools",
 				"ContentBrowser",
                 "DerivedDataCache",
-                "ShaderCore",
             }
         );
 

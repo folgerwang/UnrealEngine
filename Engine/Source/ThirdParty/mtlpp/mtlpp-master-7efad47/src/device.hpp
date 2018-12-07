@@ -100,13 +100,22 @@ namespace mtlpp
 		iOS_GPUFamily2_v4         MTLPP_AVAILABLE_IOS(11_0)  = 9,
 		iOS_GPUFamily3_v3         MTLPP_AVAILABLE_IOS(11_0)  = 10,
 		iOS_GPUFamily4_v1 		  MTLPP_AVAILABLE_IOS(11_0)  = 11,
+		
+		iOS_GPUFamily1_v5         MTLPP_AVAILABLE_IOS(12_0)  = 12,
+		iOS_GPUFamily2_v5         MTLPP_AVAILABLE_IOS(12_0)  = 13,
+		iOS_GPUFamily3_v4         MTLPP_AVAILABLE_IOS(12_0)  = 14,
+		iOS_GPUFamily4_v2 		  MTLPP_AVAILABLE_IOS(12_0)  = 15,
+		iOS_GPUFamily5_v1 		  MTLPP_AVAILABLE_IOS(12_0)  = 16,
 
-        macOS_GPUFamily1_v1         MTLPP_AVAILABLE_MAC(8_0)   = 10000,
+        macOS_GPUFamily1_v1         MTLPP_AVAILABLE_MAC(10_11)   = 10000,
 
         macOS_GPUFamily1_v2         MTLPP_AVAILABLE_MAC(10_12) = 10001,
         macOS_ReadWriteTextureTier2 MTLPP_AVAILABLE_MAC(10_12) = 10002,
 
 		macOS_GPUFamily1_v3         MTLPP_AVAILABLE_MAC(10_13) = 10003,
+		
+		macOS_GPUFamily1_v4         MTLPP_AVAILABLE_MAC(10_14) = 10004,
+		macOS_GPUFamily2_v1         MTLPP_AVAILABLE_MAC(10_14) = 10005,
 		
         tvOS_GPUFamily1_v1        MTLPP_AVAILABLE_TVOS(9_0)  = 30000,
 
@@ -114,6 +123,9 @@ namespace mtlpp
 		
 		tvOS_GPUFamily1_v3        MTLPP_AVAILABLE_TVOS(11_0) = 30002,
 		tvOS_GPUFamily2_v1 		MTLPP_AVAILABLE_TVOS(11_0) = 30003,
+		
+		tvOS_GPUFamily1_v4        MTLPP_AVAILABLE_TVOS(12_0) = 30004,
+		tvOS_GPUFamily2_v2 		MTLPP_AVAILABLE_TVOS(12_0) = 30005,
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -150,6 +162,7 @@ namespace mtlpp
 	{
 	public:
 		ArgumentDescriptor();
+		ArgumentDescriptor(ns::Ownership const retain);
 		ArgumentDescriptor(MTLArgumentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLArgumentDescriptor*>(handle, retain) {}
 		
 		DataType GetDataType() const;
@@ -158,6 +171,13 @@ namespace mtlpp
 		ArgumentAccess GetAccess() const;
 		TextureType GetTextureType() const;
 		NSUInteger GetConstantBlockAlignment() const;
+		
+		void SetDataType(DataType Type);
+		void SetIndex(NSUInteger Index);
+		void SetArrayLength(NSUInteger Len);
+		void SetAccess(ArgumentAccess Access);
+		void SetTextureType(TextureType Type);
+		void SetConstantBlockAlignment(NSUInteger Align);
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	
@@ -275,7 +295,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<Device>
+	class MTLPP_EXPORT Validator<Device>
 	{
 		public:
 		Validator(Device& Val, bool bEnable)

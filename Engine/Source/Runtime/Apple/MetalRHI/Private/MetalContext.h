@@ -116,13 +116,17 @@ public:
 	static FMetalContext* GetCurrentContext();
 #endif
 	
-	void SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End);
-	FMetalFence const& GetParallelPassStartFence(void) const;
-	FMetalFence const& GetParallelPassEndFence(void) const;
+	void SetParallelPassFences(FMetalFence* Start, FMetalFence* End);
+	FMetalFence* GetParallelPassStartFence(void) const;
+	FMetalFence* GetParallelPassEndFence(void) const;
 	
 	void InitFrame(bool const bImmediateContext, uint32 Index, uint32 Num);
 	void FinishFrame();
 
+	// Track Write->Read transitions for TBDR Fragment->Verex fencing
+	void TransitionResources(FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs);
+	void TransitionResources(FTextureRHIParamRef* InTextures, int32 NumTextures);
+	
 protected:
 	/** The underlying Metal device */
 	mtlpp::Device Device;
@@ -146,10 +150,10 @@ protected:
 	TSharedPtr<FMetalQueryBufferPool, ESPMode::ThreadSafe> QueryBuffer;
 	
 	/** Initial fence to wait on for parallel contexts */
-	FMetalFence StartFence;
+	FMetalFence* StartFence;
 	
 	/** Fence to update at the end for parallel contexts */
-	FMetalFence EndFence;
+	FMetalFence* EndFence;
 	
 #if ENABLE_METAL_GPUPROFILE
 	/** the slot to store a per-thread context ref */
@@ -182,10 +186,13 @@ public:
 	void ReleaseObject(id Object);
 	void ReleaseTexture(FMetalSurface* Surface, FMetalTexture& Texture);
 	void ReleaseTexture(FMetalTexture& Texture);
-	void ReleaseFence(mtlpp::Fence Fence);
+	void ReleaseFence(FMetalFence* Fence);
+	void RegisterUB(FMetalUniformBuffer* UB);
+	void UpdateIABs(FTextureReferenceRHIParamRef ModifiedRef);
+	void UnregisterUB(FMetalUniformBuffer* UB);
 	
 	void BeginFrame();
-	void FlushFreeList();
+	void FlushFreeList(bool const bFlushFences = true);
 	void ClearFreeList();
 	void DrainHeap();
 	void EndFrame();
@@ -238,6 +245,8 @@ private:
 	/** Free lists for releasing objects only once it is safe to do so */
 	TSet<FMetalBuffer> UsedBuffers;
 	TSet<FMetalTexture> UsedTextures;
+	TSet<FMetalFence*> UsedFences;
+	TLockFreePointerListLIFO<FMetalFence> FenceFreeList;
 	TSet<id> ObjectFreeList;
 	struct FMetalDelayedFreeList
 	{
@@ -245,6 +254,7 @@ private:
 		TArray<mtlpp::CommandBufferFence> Fences;
 		TSet<FMetalBuffer> UsedBuffers;
 		TSet<FMetalTexture> UsedTextures;
+		TSet<FMetalFence*> FenceFreeList;
 		TSet<id> ObjectFreeList;
 #if METAL_DEBUG_OPTIONS
 		int32 DeferCount;
@@ -252,9 +262,11 @@ private:
 	};
 	TArray<FMetalDelayedFreeList*> DelayedFreeLists;
 	
+	TSet<FMetalUniformBuffer*> UniformBuffers;
+	
 #if METAL_DEBUG_OPTIONS
 	/** The list of fences for the current frame */
-	TArray<mtlpp::Fence> FrameFences;
+	TArray<FMetalFence*> FrameFences;
     
     FCriticalSection ActiveBuffersMutex;
     
@@ -266,7 +278,7 @@ private:
 	TLockFreePointerListLIFO<FMetalRHICommandContext> ParallelContexts;
 	
 	/** Fences for parallel execution */
-	TArray<mtlpp::Fence> ParallelFences;
+	TArray<FMetalFence*> ParallelFences;
 	
 	/** Critical section for FreeList */
 	FCriticalSection FreeListMutex;

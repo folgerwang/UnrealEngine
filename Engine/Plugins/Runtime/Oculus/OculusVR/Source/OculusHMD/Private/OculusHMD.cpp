@@ -942,7 +942,7 @@ namespace OculusHMD
 		check(Mesh.IsValid());
 
 		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
-		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 
@@ -1164,10 +1164,14 @@ namespace OculusHMD
 	{
 		if (bClearBlack)
 		{
-			SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-			const FIntRect ClearRect(0, 0, DstTexture->GetSizeX(), DstTexture->GetSizeY());
-			RHICmdList.SetViewport(ClearRect.Min.X, ClearRect.Min.Y, 0, ClearRect.Max.X, ClearRect.Max.Y, 1.0f);
-			DrawClearQuad(RHICmdList, FLinearColor::Black);
+			FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::DontLoad_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearToBlack"));
+			{
+				const FIntRect ClearRect(0, 0, DstTexture->GetSizeX(), DstTexture->GetSizeY());
+				RHICmdList.SetViewport(ClearRect.Min.X, ClearRect.Min.Y, 0, ClearRect.Max.X, ClearRect.Max.Y, 1.0f);
+				DrawClearQuad(RHICmdList, FLinearColor::Black);
+			}
+			RHICmdList.EndRenderPass();
 		}
 
 		check(CustomPresent);
@@ -1660,9 +1664,13 @@ namespace OculusHMD
 			const int32 GapMinY = ViewFamily.Views[0]->UnscaledViewRect.Min.Y;
 			const int32 GapMaxY = ViewFamily.Views[1]->UnscaledViewRect.Max.Y;
 
-			SetRenderTarget(RHICmdList, ViewFamily.RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
-			RHICmdList.SetViewport(GapMinX, GapMinY, 0, GapMaxX, GapMaxY, 1.0f);
-			DrawClearQuad(RHICmdList, FLinearColor::Black);
+			FRHIRenderPassInfo RPInfo(ViewFamily.RenderTarget->GetRenderTargetTexture(), ERenderTargetActions::DontLoad_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
+			{
+				RHICmdList.SetViewport(GapMinX, GapMinY, 0, GapMaxX, GapMaxY, 1.0f);
+				DrawClearQuad(RHICmdList, FLinearColor::Black);
+			}
+			RHICmdList.EndRenderPass();
 		}
 	#endif
 #else

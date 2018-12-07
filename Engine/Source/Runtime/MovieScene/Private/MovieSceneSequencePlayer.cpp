@@ -262,19 +262,28 @@ void UMovieSceneSequencePlayer::Scrub()
 
 void UMovieSceneSequencePlayer::Stop()
 {
+	StopInternal(bReversePlayback ? GetLastValidTime() : FFrameTime(StartTime));
+}
+
+void UMovieSceneSequencePlayer::StopAtCurrentTime()
+{
+	StopInternal(PlayPosition.GetCurrentPosition());
+}
+
+void UMovieSceneSequencePlayer::StopInternal(FFrameTime TimeToResetTo)
+{
 	if (IsPlaying() || IsPaused() || RootTemplateInstance.IsValid())
 	{
 		if (bIsEvaluating)
 		{
-			LatentActions.Emplace(FLatentAction::Stop);
+			LatentActions.Emplace(FLatentAction::Stop, TimeToResetTo);
 			return;
 		}
 
 		Status = EMovieScenePlayerStatus::Stopped;
 
-		// Put the cursor back to the start
-		PlayPosition.Reset(bReversePlayback ? GetLastValidTime() : FFrameTime(StartTime));
-
+		// Put the cursor at the specified position
+		PlayPosition.Reset(TimeToResetTo);
 		TimeController->StopPlaying(GetCurrentTime());
 
 		CurrentNumLoops = 0;
@@ -294,7 +303,7 @@ void UMovieSceneSequencePlayer::Stop()
 		if (HasAuthority())
 		{
 			// Explicitly handle Stop() events through an RPC call
-			RPC_OnStopEvent(PlayPosition.GetCurrentPosition());
+			RPC_OnStopEvent(TimeToResetTo);
 		}
 		UpdateNetworkSyncProperties();
 
@@ -315,8 +324,9 @@ void UMovieSceneSequencePlayer::Stop()
 
 void UMovieSceneSequencePlayer::GoToEndAndStop()
 {
-	JumpToFrame(GetLastValidTime());
-	Stop();
+	FFrameTime Time = GetLastValidTime();
+	JumpToFrame(Time);
+	StopInternal(Time);
 }
 
 FQualifiedFrameTime UMovieSceneSequencePlayer::GetCurrentTime() const
@@ -515,7 +525,7 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 	// may be called during PostLoad.
 	if (Sequence)
 	{
-		Stop();
+		StopAtCurrentTime();
 	}
 
 	Sequence = InSequence;
@@ -714,10 +724,7 @@ void UMovieSceneSequencePlayer::UpdateTimeCursorPosition_Internal(FFrameTime New
 			}
 			else
 			{
-				Stop();
-
-				// When playback stops naturally, the time cursor is put at the boundary that was crossed to make ping-pong playback easy
-				PlayPosition.Reset(NewPosition);
+				StopInternal(NewPosition);
 			}
 
 			TimeController->StopPlaying(GetCurrentTime());
@@ -776,8 +783,8 @@ void UMovieSceneSequencePlayer::ApplyLatentActions()
 	{
 		switch (LatentAction.Type)
 		{
-		case FLatentAction::Stop:          Stop();                         continue;
-		case FLatentAction::Pause:         Pause();                        continue;
+		case FLatentAction::Stop:          StopInternal(LatentAction.Position); continue;
+		case FLatentAction::Pause:         Pause();                             continue;
 		}
 
 		check(LatentAction.Type == FLatentAction::Update);
@@ -906,9 +913,9 @@ void UMovieSceneSequencePlayer::RPC_OnStopEvent_Implementation(FFrameTime Stoppe
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Handle an explicit Stop command from the server.
 
-	if (HasAuthority())
+	if (HasAuthority() || !Sequence)
 	{
-		// Never run network sync operations on authoritative players
+		// Never run network sync operations on authoritative players or players that have not been initialized yet
 		return;
 	}
 
@@ -937,7 +944,7 @@ void UMovieSceneSequencePlayer::RPC_OnStopEvent_Implementation(FFrameTime Stoppe
 	case EMovieScenePlayerStatus::Scrubbing: ScrubToFrame(StoppedTime);  break;
 	}
 
-	Stop();
+	StopInternal(StoppedTime);
 }
 
 void UMovieSceneSequencePlayer::PostNetReceive()
@@ -947,9 +954,9 @@ void UMovieSceneSequencePlayer::PostNetReceive()
 
 	Super::PostNetReceive();
 
-	if (!ensure(!HasAuthority()))
+	if (!ensure(!HasAuthority()) || !Sequence)
 	{
-		// Never run network sync operations on authoritative players
+		// Never run network sync operations on authoritative players or players that have not been initialized yet
 		return;
 	}
 

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerKeyCollection.h"
+#include "MovieSceneSection.h"
 #include "IKeyArea.h"
 #include "DisplayNodes/SequencerDisplayNode.h"
 #include "DisplayNodes/SequencerTrackNode.h"
@@ -160,7 +161,7 @@ bool FSequencerKeyCollection::Update(const FSequencerKeyCollectionSignature& InS
 	// Get all the key times for the key areas
 	for (auto& Pair : InSignature.GetKeyAreas())
 	{
-		Pair.Key->GetKeyTimes(AllTimes);
+		Pair.Key->GetKeyTimes(AllTimes, Pair.Key->GetOwningSection()->GetRange());
 	}
 
 	AllTimes.Sort();
