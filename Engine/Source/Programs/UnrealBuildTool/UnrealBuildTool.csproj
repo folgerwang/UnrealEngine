@@ -220,6 +220,7 @@
     <Compile Include="System\SupportedConfigurationsAttribute.cs" />
     <Compile Include="System\SupportedPlatformsAttribute.cs" />
     <Compile Include="System\TargetReceipt.cs" />
+    <Compile Include="System\Timeline.cs" />
     <Compile Include="System\ToolMode.cs" />
     <Compile Include="System\UBTMakefile.cs" />
     <Compile Include="System\VersionNumber.cs" />
