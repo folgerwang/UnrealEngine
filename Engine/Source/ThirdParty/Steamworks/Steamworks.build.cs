@@ -72,10 +72,10 @@ public class Steamworks : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			LibraryPath += "osx32/libsteam_api.dylib";
+			string SteamBinariesPath = String.Format(Target.UEThirdPartyBinariesDirectory + "Steamworks/Steam{0}/Mac/", SteamVersion);
+			LibraryPath = SteamBinariesPath + "libsteam_api.dylib";
 			PublicDelayLoadDLLs.Add(LibraryPath);
-			PublicAdditionalShadowFiles.Add(LibraryPath);
-			AdditionalBundleResources.Add(new BundleResource(LibraryPath, "MacOS"));
+			RuntimeDependencies.Add(LibraryPath);
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{

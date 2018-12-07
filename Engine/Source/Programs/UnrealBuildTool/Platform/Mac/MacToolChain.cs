@@ -140,7 +140,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Track which scripts need to be deleted before appending to
 		/// </summary>
-		private bool bHasWipedCopyDylibScript = false;
 		private bool bHasWipedFixDylibScript = false;
 
 		private static List<FileItem> BundleDependencies = new List<FileItem>();
@@ -662,9 +661,11 @@ namespace UnrealBuildTool
 				LinkCommand += " -rpath @loader_path/ -rpath @executable_path/";
 			}
 
-			List<string> ThirdPartyLibraries = new List<string>();
-
 			bool bIsBuildingAppBundle = !LinkEnvironment.bIsBuildingDLL && !LinkEnvironment.bIsBuildingLibrary && !LinkEnvironment.bIsBuildingConsoleApplication;
+			if (bIsBuildingAppBundle)
+			{
+				LinkCommand += " -rpath @executable_path/../../../";
+			}
 
 			List<string> RPaths = new List<string>();
 
@@ -703,10 +704,6 @@ namespace UnrealBuildTool
 					else
 					{
 						LinkCommand += string.Format(" \"{0}\"", Path.GetFullPath(AdditionalLibrary));
-						if (Path.GetExtension(AdditionalLibrary) == ".dylib")
-						{
-							ThirdPartyLibraries.Add(AdditionalLibrary);
-						}
 					}
 
 					AddLibraryPathToRPaths(AdditionalLibrary, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
@@ -846,16 +843,6 @@ namespace UnrealBuildTool
 			// Add the additional arguments specified by the environment.
 			LinkCommand += LinkEnvironment.AdditionalArguments;
 
-			if (!bIsBuildingLibrary)
-			{
-				// Fix the paths for third party libs
-				foreach (string Library in ThirdPartyLibraries)
-				{
-					string LibraryFileName = Path.GetFileName(Library);
-					LinkCommand += "; " + Settings.ToolchainDir + "install_name_tool -change " + LibraryFileName + " " + DylibsPath + "/" + LibraryFileName + " \"" + OutputFile.AbsolutePath + "\"";
-				}
-			}
-
 			LinkAction.CommandArguments = "-c '" + LinkCommand + "'";
 
 			// Only execute linking on the local Mac.
@@ -907,33 +894,6 @@ namespace UnrealBuildTool
 
 				FixDylibDepsScript.Close();
 
-				// Prepare a script that will be called by FinalizeAppBundle.sh to copy all necessary third party dylibs to the app bundle
-				// This is done this way as FinalizeAppBundle.sh script can be created before all the libraries are processed, so
-				// at the time of it's creation we don't have the full list of third party dylibs all modules need.
-				if (DylibCopyScriptPath == null)
-				{
-					DylibCopyScriptPath = FileReference.Combine(LinkEnvironment.IntermediateDirectory, "DylibCopy.sh");
-				}
-				if (!bHasWipedCopyDylibScript)
-				{
-					if (FileReference.Exists(DylibCopyScriptPath))
-					{
-						FileReference.Delete(DylibCopyScriptPath);
-					}
-					bHasWipedCopyDylibScript = true;
-				}
-				string ExistingScript = FileReference.Exists(DylibCopyScriptPath) ? File.ReadAllText(DylibCopyScriptPath.FullName) : "";
-				StreamWriter DylibCopyScript = File.AppendText(DylibCopyScriptPath.FullName);
-				foreach (string Library in ThirdPartyLibraries)
-				{
-					string CopyCommandLineEntry = FormatCopyCommand(Path.GetFullPath(Library).Replace("$", "\\$"), "$1.app/Contents/MacOS");
-					if (!ExistingScript.Contains(CopyCommandLineEntry))
-					{
-						AppendMacLine(DylibCopyScript, CopyCommandLineEntry);
-					}
-				}
-				DylibCopyScript.Close();
-
 				// For non-console application, prepare a script that will create the app bundle. It'll be run by FinalizeAppBundle action
 				if (bIsBuildingAppBundle)
 				{
@@ -982,9 +942,6 @@ namespace UnrealBuildTool
 
 					AppendMacLine(FinalizeAppBundleScript, "mkdir -p \"{0}.app/Contents/MacOS\"", ExeName);
 					AppendMacLine(FinalizeAppBundleScript, "mkdir -p \"{0}.app/Contents/Resources\"", ExeName);
-
-					// Copy third party dylibs by calling additional script prepared earlier
-					AppendMacLine(FinalizeAppBundleScript, "sh \"{0}\" \"{1}\"", DylibCopyScriptPath.FullName.Replace("$", "\\$"), ExeName);
 
 					string IconName = "UE4";
 					string EngineSourcePath = Directory.GetCurrentDirectory().Replace("$", "\\$");
@@ -1325,22 +1282,6 @@ namespace UnrealBuildTool
 			// We need to know what third party dylibs would be copied to the bundle
 			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
-			    foreach (string AdditionalLibrary in Libraries)
-				{
-					string LibName = Path.GetFileName(AdditionalLibrary);
-					if (LibName.StartsWith("lib"))
-					{
-						if (Path.GetExtension(AdditionalLibrary) == ".dylib" && BundleContentsDirectory != null)
-						{
-							FileReference Entry = FileReference.Combine(BundleContentsDirectory, "MacOS", LibName);
-							if (!BuildProducts.ContainsKey(Entry))
-							{
-								BuildProducts.Add(Entry, BuildProductType.DynamicLibrary);
-							}
-						}
-					}
-				}
-
 			    foreach (UEBuildBundleResource Resource in BundleResources)
 				{
 					if (Directory.Exists(Resource.ResourcePath))
@@ -1437,7 +1378,6 @@ namespace UnrealBuildTool
 
 		private FileItem FixDylibOutputFile = null;
 		private List<FileItem> ExecutablesThatNeedDsyms = new List<FileItem>();
-		private FileReference DylibCopyScriptPath = null;
 
 		public void StripSymbols(FileReference SourceFile, FileReference TargetFile)
 		{
