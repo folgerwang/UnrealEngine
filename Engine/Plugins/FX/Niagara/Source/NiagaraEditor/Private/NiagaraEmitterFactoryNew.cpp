@@ -82,7 +82,7 @@ bool UNiagaraEmitterFactoryNew::ConfigureProperties()
 
 UNiagaraNodeFunctionCall* AddModuleFromAssetPath(FString AssetPath, UNiagaraNodeOutput& TargetOutputNode)
 {
-	FStringAssetReference AssetRef(AssetPath);
+	FSoftObjectPath AssetRef(AssetPath);
 	UNiagaraScript* AssetScript = Cast<UNiagaraScript>(AssetRef.TryLoad());
 	FAssetData ScriptAssetData(AssetScript);
 	if (ScriptAssetData.IsValid())

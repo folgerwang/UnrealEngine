@@ -2984,7 +2984,7 @@ const TMap<int32, FAssetManagerChunkInfo>& UAssetManager::GetChunkManagementMap(
 
 void UAssetManager::ApplyPrimaryAssetLabels()
 {
-	// Load all of them off disk. Turn off string asset reference tracking to avoid them getting cooked
+	// Load all of them off disk. Turn off soft object path tracking to avoid them getting cooked
 	FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::NeverCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
 	TSharedPtr<FStreamableHandle> Handle = LoadPrimaryAssetsWithType(PrimaryAssetLabelType);

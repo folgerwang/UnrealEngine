@@ -6860,7 +6860,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	TArray<FName> FilesInPath;
 	TSet<FName> StartupSoftObjectPackages;
 
-	// Get the list of string asset references, for both empty package and all startup packages
+	// Get the list of soft references, for both empty package and all startup packages
 	GRedirectCollector.ProcessSoftObjectPathPackageList(NAME_None, false, StartupSoftObjectPackages);
 
 	for (const FName& StartupPackage : CookByTheBookOptions->StartupPackages)

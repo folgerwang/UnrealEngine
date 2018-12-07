@@ -307,7 +307,7 @@ struct ENGINE_API FStreamableManager : public FGCObject
 	/** Returns true if all pending async loads have finished for this target */
 	bool IsAsyncLoadComplete(const FSoftObjectPath& Target) const;
 
-	/** This will release any managed active handles pointing to the target string asset reference, even if they include other requested assets in the same load */
+	/** This will release any managed active handles pointing to the target soft object path, even if they include other requested assets in the same load */
 	void Unload(const FSoftObjectPath& Target);
 
 	/** Checks for any redirectors that were previously loaded, and returns the redirected target if found. This will not handle redirects that it doesn't yet know about */

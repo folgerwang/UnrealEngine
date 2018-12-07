@@ -628,7 +628,7 @@ void FNiagaraTypeDefinition::RecreateUserDefinedTypeRegistry()
 
 		if (Obj != nullptr)
 		{
-			const FSoftObjectPath* ParamRefFound = Settings->AdditionalParameterEnums.FindByPredicate([&](const FStringAssetReference& Ref) { return Ref.ToString() == AssetRef.ToString(); });
+			const FSoftObjectPath* ParamRefFound = Settings->AdditionalParameterEnums.FindByPredicate([&](const FSoftObjectPath& Ref) { return Ref.ToString() == AssetRef.ToString(); });
 			const FSoftObjectPath* PayloadRefFound = nullptr;
 			UEnum* Enum = Cast<UEnum>(Obj);
 			if (Enum != nullptr)

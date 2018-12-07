@@ -10,7 +10,7 @@ namespace EAssetRegistryDependencyType
 {
 	enum Type
 	{
-		// Dependencies which don't need to be loaded for the object to be used (i.e. string asset references)
+		// Dependencies which don't need to be loaded for the object to be used (i.e. soft object paths)
 		Soft = 0x01,
 
 		// Dependencies which are required for correct usage of the source asset, and must be loaded at the same time

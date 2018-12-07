@@ -1031,12 +1031,12 @@ FString FPackageName::GetNormalizedObjectPath(const FString& ObjectPath)
 	{
 		FString LongPath;
 
-		UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" is in short form, which is unsupported and -- even if valid -- resolving it will be really slow."), *ObjectPath);
+		UE_LOG(LogPackageName, Warning, TEXT("Asset path \"%s\" is in short form, which is unsupported and -- even if valid -- resolving it will be really slow."), *ObjectPath);
 		UE_LOG(LogPackageName, Warning, TEXT("Please consider resaving package in order to speed-up loading."));
 		
 		if (!FPackageName::TryConvertShortPackagePathToLongInObjectPath(ObjectPath, LongPath))
 		{
-			UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" could not be resolved."), *ObjectPath);
+			UE_LOG(LogPackageName, Warning, TEXT("Asset path \"%s\" could not be resolved."), *ObjectPath);
 		}
 
 		return LongPath;

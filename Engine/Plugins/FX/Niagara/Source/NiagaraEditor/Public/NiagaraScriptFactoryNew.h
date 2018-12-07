@@ -25,7 +25,7 @@ public:
 protected:
 
 	/** Gets the script asset to create a new one from that based on the script usage type. */
-	const FStringAssetReference& GetDefaultScriptFromSettings(const class UNiagaraEditorSettings* Settings);
+	const FSoftObjectPath& GetDefaultScriptFromSettings(const class UNiagaraEditorSettings* Settings);
 
 	/** Give child factory classes the ability to define which asset action it represents. */
 	virtual FName GetAssetTypeActionName() const { return NAME_None; };

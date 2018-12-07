@@ -39,15 +39,15 @@ public:
 
 	/** Niagara script to duplicate as the base of all new script assets created. */
 	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	FStringAssetReference DefaultDynamicInputScript;
+	FSoftObjectPath DefaultDynamicInputScript;
 
 	/** Niagara script to duplicate as the base of all new script assets created. */
 	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	FStringAssetReference DefaultFunctionScript;
+	FSoftObjectPath DefaultFunctionScript;
 
 	/** Niagara script to duplicate as the base of all new script assets created. */
 	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	FStringAssetReference DefaultModuleScript;
+	FSoftObjectPath DefaultModuleScript;
 
 	/** Shortcut key bindings that if held down while doing a mouse click, will spawn the specified type of Niagara node.*/
 	UPROPERTY(config, EditAnywhere, Category = Niagara)

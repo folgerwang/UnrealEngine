@@ -3642,7 +3642,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 		// Reset any GUID fixups with lazy pointers
 		FLazyObjectPtr::ResetPIEFixups();
 
-		// Prepare string asset references for fixup
+		// Prepare soft object paths for fixup
 		FSoftObjectPath::AddPIEPackageName(FName(*PlayWorldMapName));
 		for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 		{
