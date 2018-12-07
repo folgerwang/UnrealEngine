@@ -933,19 +933,6 @@ const TCHAR* FMacPlatformProcess::GetBinariesSubdirectory()
 	return TEXT("Mac");
 }
 
-const FString FMacPlatformProcess::GetModulesDirectory()
-{
-	if ([[[[NSBundle mainBundle] bundlePath] pathExtension] isEqual: @"app"])
-	{
-		// If we're an app bundle, modules dylibs are stored in .app/Contents/MacOS
-		return [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
-	}
-	else
-	{
-		return FGenericPlatformProcess::GetModulesDirectory();
-	}
-}
-
 void FMacPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR* FileName, const TCHAR* Parms /*= NULL*/, ELaunchVerb::Type Verb /*= ELaunchVerb::Open*/ )
 {
 	SCOPED_AUTORELEASE_POOL;

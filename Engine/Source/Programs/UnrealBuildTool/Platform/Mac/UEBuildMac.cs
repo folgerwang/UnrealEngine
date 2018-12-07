@@ -228,14 +228,32 @@ namespace UnrealBuildTool
 
 		public override DirectoryReference GetBundleDirectory(ReadOnlyTargetRules Rules, List<FileReference> OutputFiles)
 		{
-			if(Rules.bIsBuildingConsoleApplication)
+			if (Rules.bIsBuildingConsoleApplication)
 			{
 				return null;
 			}
 			else
 			{
-				return new DirectoryReference(OutputFiles[0].FullName + ".app");
+				return OutputFiles[0].Directory.ParentDirectory.ParentDirectory;
 			}
+		}
+
+		/// <summary>
+		/// For platforms that need to output multiple files per binary (ie Android "fat" binaries)
+		/// this will emit multiple paths. By default, it simply makes an array from the input
+		/// </summary>
+		public override List<FileReference> FinalizeBinaryPaths(FileReference BinaryName, FileReference ProjectFile, ReadOnlyTargetRules Target)
+		{
+			List<FileReference> BinaryPaths = new List<FileReference>();
+			if (Target.bIsBuildingConsoleApplication || !String.IsNullOrEmpty(BinaryName.GetExtension()))
+			{
+				BinaryPaths.Add(BinaryName);
+			}
+			else
+			{
+				BinaryPaths.Add(new FileReference(BinaryName.FullName + ".app/Contents/MacOS/" + BinaryName.GetFileName()));
+			}
+			return BinaryPaths;
 		}
 
 		/// <summary>

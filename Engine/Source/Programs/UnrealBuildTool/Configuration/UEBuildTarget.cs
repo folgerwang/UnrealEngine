@@ -1705,6 +1705,10 @@ namespace UnrealBuildTool
 
 			// Build the target's binaries.
 			DirectoryReference ExeDir = OutputPaths[0].Directory;
+			if (CppPlatform == CppPlatform.Mac && ExeDir.FullName.EndsWith(".app/Contents/MacOS"))
+			{
+				ExeDir = ExeDir.ParentDirectory.ParentDirectory.ParentDirectory;
+			}
 			foreach (UEBuildBinary Binary in Binaries)
 			{
 				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Predicates, ExeDir, ActionGraph);
@@ -2203,12 +2207,6 @@ namespace UnrealBuildTool
 						}
 					}
 				}
-			}
-
-			// On Mac AppBinaries paths for non-console targets need to be adjusted to be inside the app bundle
-			if (Platform == UnrealTargetPlatform.Mac && !Rules.bIsBuildingConsoleApplication)
-			{
-				MacToolChain.FixBundleBinariesPaths(OutputPath, Binaries);
 			}
 		}
 

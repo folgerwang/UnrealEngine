@@ -580,8 +580,8 @@ namespace UnrealBuildTool
 			string ExeDir = Path.GetDirectoryName(ExeAbsolutePath);
 
 			// Only dylibs and frameworks, and only those that are outside of Engine/Binaries/Mac and Engine/Source/ThirdParty, and outside of the folder where the executable is need an additional RPATH entry
-			if ((Library.EndsWith("dylib") || Library.EndsWith(".framework")) && !LibraryFullPath.Contains("/Engine/Binaries/Mac/")
-			    && !LibraryFullPath.Contains("/Engine/Source/ThirdParty/") && LibraryDir != ExeDir && !RPaths.Contains(LibraryDir))
+			if ((Library.EndsWith("dylib") || Library.EndsWith(".framework"))
+				&& !LibraryFullPath.Contains("/Engine/Source/ThirdParty/") && LibraryDir != ExeDir && !RPaths.Contains(LibraryDir))
 			{
 				// macOS gatekeeper erroneously complains about not seeing the CEF3 framework in the codesigned Launcher because it's only present in one of the folders specified in RPATHs.
 				// To work around this we will only add a single RPATH entry for it, for the framework stored in .app/Contents/UE4/ subfolder of the packaged app bundle
@@ -770,19 +770,7 @@ namespace UnrealBuildTool
 
 			if (LinkEnvironment.bIsBuildingDLL)
 			{
-				// Add the output file to the command-line.
-				string Filename = "";
-				int Index = OutputFile.AbsolutePath.LastIndexOf(".app/Contents/MacOS/");
-				if (Index > -1)
-				{
-					Index += ".app/Contents/MacOS/".Length;
-					Filename = OutputFile.AbsolutePath.Substring(Index);
-				}
-				else
-				{
-					Filename = Path.GetFileName(OutputFile.AbsolutePath);
-				}
-				LinkCommand += string.Format(" -install_name {0}/{1}", DylibsPath, Filename);
+				LinkCommand += string.Format(" -install_name {0}/{1}", DylibsPath, Path.GetFileName(OutputFile.AbsolutePath));
 			}
 
 			if (!bIsBuildingLibrary)
@@ -1194,35 +1182,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static void FixBundleBinariesPaths(FileReference OutputPath, List<UEBuildBinary> Binaries)
-		{
-			string BundleContentsPath = OutputPath.FullName + ".app/Contents/";
-			foreach (UEBuildBinary Binary in Binaries)
-			{
-				string BinaryFileName = Path.GetFileName(Binary.OutputFilePath.FullName);
-				if (BinaryFileName.EndsWith(".dylib"))
-				{
-					// Only dylibs from the same folder as the executable should be moved to the bundle. UE4Editor-*Game* dylibs and plugins will be loaded
-					// from their Binaries/Mac folders.
-					string DylibDir = Path.GetDirectoryName(Path.GetFullPath(Binary.OutputFilePath.FullName));
-					string ExeDir = Path.GetDirectoryName(Path.GetFullPath(OutputPath.FullName));
-					if (DylibDir.StartsWith(ExeDir))
-					{
-						// get the subdir, which is the DylibDir - ExeDir
-						string SubDir = DylibDir.Replace(ExeDir, "");
-						Binary.OutputFilePaths[0] = new FileReference(BundleContentsPath + "MacOS" + SubDir + "/" + BinaryFileName);
-					}
-				}
-				else if (!BinaryFileName.EndsWith(".a") && !Binary.OutputFilePath.FullName.Contains(".app/Contents/MacOS/")) // Binaries can contain duplicates
-				{
-					Binary.OutputFilePaths[0] += ".app/Contents/MacOS/" + BinaryFileName;
-				}
-			}
-		}
-
 		static private DirectoryReference BundleContentsDirectory;
-
-		public static Dictionary<UEBuildBinary, Dictionary<FileReference, BuildProductType>> AllBuildProducts = new Dictionary<UEBuildBinary, Dictionary<FileReference, BuildProductType>>();
 
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
@@ -1319,8 +1279,6 @@ namespace UnrealBuildTool
 					BuildProducts.Add(FileReference.Combine(BundleContentsDirectory, "Resources/" + IconName + ".icns"), BuildProductType.RequiredResource);
 				}
 			}
-
-			AllBuildProducts.Add(Binary, new Dictionary<FileReference, BuildProductType>(BuildProducts));
 		}
 
 		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
