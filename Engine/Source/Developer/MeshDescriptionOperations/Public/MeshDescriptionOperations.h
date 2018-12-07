@@ -48,6 +48,7 @@ public:
 		FAppendPolygonGroupsDelegate PolygonGroupsDelegate;
 		bool bMergeVertexColor;
 		FVector MergedAssetPivot;
+		TOptional<FTransform> MeshTransform; // Apply a transformation on source mesh (see MeshTransform)
 	};
 
 	static void AppendMeshDescription(const FMeshDescription& SourceMesh, FMeshDescription& TargetMesh, FAppendSettings& AppendSettings);
@@ -62,10 +63,10 @@ public:
 	 * It also remove the degenerated polygon from the mesh description
 	 */
 	static void CreatePolygonNTB(FMeshDescription& MeshDescription, float ComparisonThreshold);
-	
+
 	/** Compute normal, tangent and Bi-Normal(only if bComputeTangent is true) for every vertex in the mesh description. */
 	static void CreateNormals(FMeshDescription& MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
-	
+
 	/** Compute tangent and Bi-Normal using mikkt space for every vertex in the mesh description. */
 	static void CreateMikktTangents(FMeshDescription& MeshDescription, ETangentOptions TangentOptions);
 
