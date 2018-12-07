@@ -118,18 +118,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Enters a scope event with the calling method name as the event name
-		/// </summary>
-		/// <returns>Event to track the lifetime of the method. Dispose it before returning.</returns>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static ITimelineEvent ScopeMethod()
-		{
-			StackFrame Frame = new StackFrame(1);
-			MethodBase Method = Frame.GetMethod();
-			return ScopeEvent(String.Format("{0}.{1}", Method.DeclaringType.Name, Method.Name));
-		}
-
-		/// <summary>
 		/// Prints this information to the log
 		/// </summary>
 		public static void Print(TimeSpan MaxUnknownTime, LogEventType Verbosity)
@@ -169,9 +157,16 @@ namespace UnrealBuildTool
 				Print(Event.StartTime, Event.FinishTime, Event.Name, OuterEvents, Verbosity);
 
 				// Push it onto the stack
-				if(Event.FinishTime.HasValue && EventIdx + 1 < Events.Count && Events[EventIdx + 1].StartTime < Event.FinishTime.Value)
+				if(Event.FinishTime.HasValue)
 				{
-					OuterEvents.Add(Event);
+					if(EventIdx + 1 < Events.Count && Events[EventIdx + 1].StartTime < Event.FinishTime.Value)
+					{
+						OuterEvents.Add(Event);
+					}
+					else
+					{
+						LastTime = Event.FinishTime.Value;
+					}
 				}
 			}
 

@@ -31,8 +31,6 @@ namespace UnrealBuildTool
 		{
 			Arguments.ApplyTo(this);
 
-			DateTime StartTime = DateTime.UtcNow;
-
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
 			Trace.Listeners.Add(StartupListener);
@@ -79,9 +77,6 @@ namespace UnrealBuildTool
 				XmlConfig.ApplyTo(BuildConfiguration);
 				Arguments.ApplyTo(BuildConfiguration);
 
-				// Copy some of the static settings that are being deprecated from BuildConfiguration
-				UnrealBuildTool.bPrintPerformanceInfo = BuildConfiguration.bPrintPerformanceInfo;
-
 				// Then let the command lines override any configs necessary.
 				if(BuildConfiguration.bXGEExport)
 				{
@@ -102,11 +97,7 @@ namespace UnrealBuildTool
 				// Find and register all tool chains, build platforms, etc. that are present
 				UnrealBuildTool.RegisterAllUBTClasses(false);
 
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					double BasicInitTime = (DateTime.UtcNow - BasicInitStartTime).TotalSeconds;
-					Log.TraceInformation("Basic UBT initialization took " + BasicInitTime + "s");
-				}
+				Timeline.AddEvent("Basic UBT initialization");
 
 				// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
 				if (!BuildConfiguration.bIgnoreJunk)
@@ -115,26 +106,19 @@ namespace UnrealBuildTool
 				}
 
 				// Build our project
-				ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), LogFile);
-
-				// Print some performance info
-				double BuildDuration = (DateTime.UtcNow - StartTime).TotalSeconds;
-				if (UnrealBuildTool.bPrintPerformanceInfo)
+				using(Timeline.ScopeEvent("Calling RunUBT"))
 				{
-					Log.TraceInformation("GetIncludes time: " + CPPHeaders.TotalTimeSpentGettingIncludes + "s (" + CPPHeaders.TotalIncludesRequested + " includes)");
-					Log.TraceInformation("DirectIncludes cache miss time: " + CPPHeaders.DirectIncludeCacheMissesTotalTime + "s (" + CPPHeaders.TotalDirectIncludeCacheMisses + " misses)");
-					Log.TraceInformation("FindIncludePaths calls: " + CPPHeaders.TotalFindIncludedFileCalls + " (" + CPPHeaders.IncludePathSearchAttempts + " searches)");
-					Log.TraceInformation("Deep C++ include scan time: " + UnrealBuildTool.TotalDeepIncludeScanTime + "s");
-					Log.TraceInformation("Include Resolves: {0} ({1} misses, {2:0.00}%)", CPPHeaders.TotalDirectIncludeResolves, CPPHeaders.TotalDirectIncludeResolveCacheMisses, (float)CPPHeaders.TotalDirectIncludeResolveCacheMisses / (float)CPPHeaders.TotalDirectIncludeResolves * 100);
-					Log.TraceInformation("Total FileItems: {0} ({1} missing)", FileItem.TotalFileItemCount, FileItem.MissingFileItemCount);
+					ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), LogFile);
 
-					Log.TraceInformation("Execution time: {0}s", BuildDuration);
+					// Print some performance info
+					Log.TraceLog("DirectIncludes cache miss time: {0}s ({1} misses)", CPPHeaders.DirectIncludeCacheMissesTotalTime, CPPHeaders.TotalDirectIncludeCacheMisses);
+					Log.TraceLog("FindIncludePaths calls: {0} ({1} searches)", CPPHeaders.TotalFindIncludedFileCalls, CPPHeaders.IncludePathSearchAttempts);
+					Log.TraceLog("Deep C++ include scan time: {0}s", UnrealBuildTool.TotalDeepIncludeScanTime);
+					Log.TraceLog("Include Resolves: {0} ({1} misses, {2:0.00}%)", CPPHeaders.TotalDirectIncludeResolves, CPPHeaders.TotalDirectIncludeResolveCacheMisses, (float)CPPHeaders.TotalDirectIncludeResolveCacheMisses / (float)CPPHeaders.TotalDirectIncludeResolves * 100);
+					Log.TraceLog("Total FileItems: {0} ({1} missing)", FileItem.TotalFileItemCount, FileItem.MissingFileItemCount);
+
+					return (int)Result;
 				}
-
-				// Print some performance info
-				Log.TraceVerbose("Execution time: {0}", (DateTime.UtcNow - StartTime).TotalSeconds);
-
-				return (int)Result;
 			}
 		}
 	}

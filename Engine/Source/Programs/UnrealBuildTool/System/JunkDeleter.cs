@@ -16,18 +16,13 @@ namespace UnrealBuildTool
 		/// </summary>
 		static public void DeleteJunk()
 		{
-			DateTime JunkStartTime = DateTime.UtcNow;
-
 			if (UnrealBuildTool.IsEngineInstalled() == false)
 			{
-				List<string> JunkManifest = LoadJunkManifest();
-				DeleteAllJunk(JunkManifest);
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double JunkTime = (DateTime.UtcNow - JunkStartTime).TotalSeconds;
-				Log.TraceInformation("DeleteJunk took " + JunkTime + "s");
+				using(Timeline.ScopeEvent("DeleteAllJunk()"))
+				{
+					List<string> JunkManifest = LoadJunkManifest();
+					DeleteAllJunk(JunkManifest);
+				}
 			}
 		}
 

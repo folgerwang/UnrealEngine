@@ -589,8 +589,6 @@ namespace UnrealBuildTool
 
 		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, UnrealTargetPlatform Platform, ProjectDescriptor ProjectDescriptor, List<UHTModuleInfo> UObjectModules, Dictionary<string, FlatModuleCsDataType> FlatModuleCsData, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsAssemblingBuild)
 		{
-			DateTime UObjectDiscoveryStartTime = DateTime.UtcNow;
-
 			// Find the type of each module
 			Dictionary<UEBuildModuleCPP, UHTModuleType> ModuleToType = new Dictionary<UEBuildModuleCPP, UHTModuleType>();
 			foreach(UEBuildModuleCPP Module in ModulesToGenerateHeadersFor)
@@ -639,12 +637,6 @@ namespace UnrealBuildTool
 						}
 					}
 				}
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double UObjectDiscoveryTime = (DateTime.UtcNow - UObjectDiscoveryStartTime).TotalSeconds;
-				Log.TraceInformation("UObject discovery time: " + UObjectDiscoveryTime + "s");
 			}
 		}
 
@@ -1226,7 +1218,9 @@ namespace UnrealBuildTool
 
 					Stopwatch s = new Stopwatch();
 					s.Start();
+					ITimelineEvent Timer = Timeline.ScopeEvent("Executing UnrealHeaderTool");
 					ECompilationResult UHTResult = (ECompilationResult)RunExternalNativeExecutable(ExternalExecution.GetHeaderToolPath(HeaderToolReceipt), CmdLine);
+					Timer.Finish();
 					s.Stop();
 
 					if (UHTResult != ECompilationResult.Succeeded)
@@ -1251,10 +1245,6 @@ namespace UnrealBuildTool
 					}
 
 					Log.TraceInformation("Reflection code generated for {0} in {1} seconds", ActualTargetName, s.Elapsed.TotalSeconds);
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						Log.TraceInformation("UnrealHeaderTool took {1}", ActualTargetName, (double)s.ElapsedMilliseconds / 1000.0);
-					}
 
 					// Now that UHT has successfully finished generating code, we need to update all cached FileItems in case their last write time has changed.
 					// Otherwise UBT might not detect changes UHT made.

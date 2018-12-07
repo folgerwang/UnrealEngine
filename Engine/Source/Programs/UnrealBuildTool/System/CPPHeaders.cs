@@ -134,6 +134,11 @@ namespace UnrealBuildTool
 		public static int IncludePathSearchAttempts = 0;
 
 		/// <summary>
+		/// Whether to print performance info on include file resolution
+		/// </summary>
+		public static bool bPrintPerformanceInfo = false;
+
+		/// <summary>
 		/// A cache of the list of other files that are directly or indirectly included by a C++ file.
 		/// </summary>
 		Dictionary<FileItem, List<FileItem>> ExhaustiveIncludedFilesMap = new Dictionary<FileItem, List<FileItem>>();
@@ -225,7 +230,7 @@ namespace UnrealBuildTool
 
 				IncludePathSearchAttempts += SearchAttempts;
 
-				if (UnrealBuildTool.bPrintPerformanceInfo)
+				if (bPrintPerformanceInfo)
 				{
 					// More than two search attempts indicates:
 					//		- Include path was not relative to the directory that the including file was in
@@ -420,9 +425,7 @@ namespace UnrealBuildTool
 			return DirectlyIncludedFiles;
 		}
 
-		public static double TotalTimeSpentGettingIncludes = 0.0;
-		public static int TotalIncludesRequested = 0;
-		public static double DirectIncludeCacheMissesTotalTime = 0.0;
+		public static TimeSpan DirectIncludeCacheMissesTotalTime = TimeSpan.Zero;
 		public static int TotalDirectIncludeCacheMisses = 0;
 		public static int TotalDirectIncludeResolveCacheMisses = 0;
 		public static int TotalDirectIncludeResolves = 0;
@@ -487,7 +490,8 @@ namespace UnrealBuildTool
 				return Result;
 			}
 
-			DateTime TimerStartTime = DateTime.UtcNow;
+			Stopwatch Timer = Stopwatch.StartNew();
+
 			++CPPHeaders.TotalDirectIncludeCacheMisses;
 
 			Result = GetUncachedDirectIncludeDependencies(CPPFile.Location, ProjectFile);
@@ -495,7 +499,7 @@ namespace UnrealBuildTool
 			// Populate cache with results.
 			IncludeDependencyCache.SetDependencyInfo(CPPFile, Result);
 
-			CPPHeaders.DirectIncludeCacheMissesTotalTime += (DateTime.UtcNow - TimerStartTime).TotalSeconds;
+			CPPHeaders.DirectIncludeCacheMissesTotalTime += Timer.Elapsed;
 
 			return Result;
 		}

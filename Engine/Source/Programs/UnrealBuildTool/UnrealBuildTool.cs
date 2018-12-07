@@ -17,7 +17,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// How much time was spent scanning for include dependencies for outdated C++ files
 		/// </summary>
-		public static double TotalDeepIncludeScanTime = 0.0;
+		public static TimeSpan TotalDeepIncludeScanTime = TimeSpan.Zero;
 
 		/// <summary>
 		/// The environment at boot time.
@@ -108,15 +108,6 @@ namespace UnrealBuildTool
 		/// The Remote Ini directory.  This should always be valid when compiling using a remote server.
 		/// </summary>
 		static string RemoteIniPath = null;
-
-		/// <summary>
-		/// Whether to print performance information to the log
-		/// </summary>
-		static public bool bPrintPerformanceInfo
-		{
-			get;
-			set;
-		}
 
 		/// <summary>
 		/// Returns true if UnrealBuildTool is running using installed Engine components
@@ -462,8 +453,7 @@ namespace UnrealBuildTool
 		{
 			bool bSuccess = true;
 
-			DateTime RunUBTInitStartTime = DateTime.UtcNow;
-
+			Stopwatch BuildTimer = Stopwatch.StartNew();
 
 			// Reset global configurations
 			ActionGraph ActionGraph = new ActionGraph();
@@ -476,7 +466,7 @@ namespace UnrealBuildTool
 			List<UEBuildTarget> Targets = null;
 			Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders = new Dictionary<UEBuildTarget, CPPHeaders>();
 
-			double TotalExecutorTime = 0.0;
+			Stopwatch ExecutorTimer = new Stopwatch();
 
 			try
 			{
@@ -488,25 +478,14 @@ namespace UnrealBuildTool
 					BuildConfiguration.bUseIncludeDependencyResolveCache = true;
 				}
 
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					double RunUBTInitTime = (DateTime.UtcNow - RunUBTInitStartTime).TotalSeconds;
-					Log.TraceInformation("RunUBT initialization took " + RunUBTInitTime + "s");
-				}
+				Timeline.AddEvent("RunUBT() initialization complete");
 
 				bool bSkipRulesCompile = Arguments.Any(x => x.Equals("-skiprulescompile", StringComparison.InvariantCultureIgnoreCase));
 
 				List<TargetDescriptor> TargetDescs = new List<TargetDescriptor>();
+				using(Timeline.ScopeEvent("TargetDescriptor.ParseCommandLine()"))
 				{
-					DateTime TargetDescstStartTime = DateTime.UtcNow;
-
 					TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(new CommandLineArguments(Arguments), BuildConfiguration.bUsePrecompiled, bSkipRulesCompile));
-
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						double TargetDescsTime = (DateTime.UtcNow - TargetDescstStartTime).TotalSeconds;
-						Log.TraceInformation("Target descriptors took " + TargetDescsTime + "s");
-					}
 				}
 
 				// Handle remote builds
@@ -679,7 +658,10 @@ namespace UnrealBuildTool
 
 							// Try to load the UBTMakefile.  It will only be loaded if it has valid content and is not determined to be out of date.    
 							string ReasonNotLoaded;
-							UBTMakefile = UBTMakefile.LoadUBTMakefile(UBTMakefilePath, TargetDescs[0].ProjectFile, WorkingSet, out ReasonNotLoaded);
+							using(Timeline.ScopeEvent("UBTMakefile.LoadUBTMakefile"))
+							{
+								UBTMakefile = UBTMakefile.LoadUBTMakefile(UBTMakefilePath, TargetDescs[0].ProjectFile, WorkingSet, out ReasonNotLoaded);
+							}
 
 							if (UBTMakefile != null)
 							{
@@ -738,23 +720,18 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						DateTime TargetInitStartTime = DateTime.UtcNow;
-
 						Targets = new List<UEBuildTarget>();
 						foreach (TargetDescriptor TargetDesc in TargetDescs)
 						{
-							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
-							if ((Target == null) && (BuildConfiguration.bCleanProject))
+							using(Timeline.ScopeEvent("UEBuildTarget.CreateTarget()"))
 							{
-								continue;
+								UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+								if ((Target == null) && (BuildConfiguration.bCleanProject))
+								{
+									continue;
+								}
+								Targets.Add(Target);
 							}
-							Targets.Add(Target);
-						}
-
-						if (UnrealBuildTool.bPrintPerformanceInfo)
-						{
-							double TargetInitTime = (DateTime.UtcNow - TargetInitStartTime).TotalSeconds;
-							Log.TraceInformation("Target init took " + TargetInitTime + "s");
 						}
 					}
 
@@ -782,27 +759,33 @@ namespace UnrealBuildTool
 						if (!(!bIsGatheringBuild && bIsAssemblingBuild))
 						{
 							// Load the direct include dependency cache.
-							Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.GetTargetName()));
+							using(Timeline.ScopeEvent("DependencyCache.Create()"))
+							{
+								Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.GetTargetName()));
+							}
 						}
 
 						// We don't need this dependency cache in 'gather only' mode
 						if (BuildConfiguration.bUseUBTMakefiles &&
 								!(bIsGatheringBuild && !bIsAssemblingBuild))
 						{
-							// Load the cache that contains the list of flattened resolved includes for resolved source files
-							// @todo ubtmake: Ideally load this asynchronously at startup and only block when it is first needed and not finished loading
-							FileReference CacheFile = FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Architecture);
-							if (!FlatCPPIncludeDependencyCache.TryRead(CacheFile, out Headers.FlatCPPIncludeDependencyCache))
+							using(Timeline.ScopeEvent("FlatCPPIncludeDependencyCache.TryRead()"))
 							{
-								if (!bNeedsFullCPPIncludeRescan)
+								// Load the cache that contains the list of flattened resolved includes for resolved source files
+								// @todo ubtmake: Ideally load this asynchronously at startup and only block when it is first needed and not finished loading
+								FileReference CacheFile = FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Architecture);
+								if (!FlatCPPIncludeDependencyCache.TryRead(CacheFile, out Headers.FlatCPPIncludeDependencyCache))
 								{
-									if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+									if (!bNeedsFullCPPIncludeRescan)
 									{
-										bNeedsFullCPPIncludeRescan = true;
-										Log.TraceInformation("Performing full C++ include scan (no include cache file)");
+										if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+										{
+											bNeedsFullCPPIncludeRescan = true;
+											Log.TraceInformation("Performing full C++ include scan (no include cache file)");
+										}
 									}
+									Headers.FlatCPPIncludeDependencyCache = new FlatCPPIncludeDependencyCache(CacheFile);
 								}
-								Headers.FlatCPPIncludeDependencyCache = new FlatCPPIncludeDependencyCache(CacheFile);
 							}
 						}
 
@@ -888,7 +871,10 @@ namespace UnrealBuildTool
 								// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
 								// Makefile so that it can be used on subsequent 'assemble only' runs, for the fastest possible iteration times
 								// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
-								UBTMakefile.SaveUBTMakefile(TargetDescs, UBTMakefile);
+								using(Timeline.ScopeEvent("UBTMakefile.SaveUBTMakefile()"))
+								{
+									UBTMakefile.SaveUBTMakefile(TargetDescs, UBTMakefile);
+								}
 							}
 						}
 
@@ -1224,17 +1210,23 @@ namespace UnrealBuildTool
 								}
 
 								// Execute the actions.
-								DateTime ExecutorStartTime = DateTime.UtcNow;
+								ExecutorTimer.Start();
 								if (BuildConfiguration.bXGEExport)
 								{
-									XGE.ExportActions(ActionsToExecute.ToList());
+									using(Timeline.ScopeEvent("XGE.ExportActions()"))
+									{
+										XGE.ExportActions(ActionsToExecute.ToList());
+									}
 									bSuccess = true;
 								}
 								else
 								{
-									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute.ToList(), out ExecutorName);
+									using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
+									{
+										bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute.ToList(), out ExecutorName);
+									}
 								}
-								TotalExecutorTime += (DateTime.UtcNow - ExecutorStartTime).TotalSeconds;
+								ExecutorTimer.Stop();
 
 								// if the build succeeded, write the receipts and do any needed syncing
 								if (!bSuccess)
@@ -1273,7 +1265,10 @@ namespace UnrealBuildTool
 			// Wait until our CPPIncludes dependency scanner thread has finished
 			if (CppIncludeThread != null)
 			{
-				CppIncludeThread.Join();
+				using(Timeline.ScopeEvent("CppIncludeThread.Join()"))
+				{
+					CppIncludeThread.Join();
+				}
 			}
 
 			// Save the include dependency cache.
@@ -1286,20 +1281,25 @@ namespace UnrealBuildTool
 
 				if (Headers.IncludeDependencyCache != null)
 				{
-					Headers.IncludeDependencyCache.Save();
+					using(Timeline.ScopeEvent("DependencyCache.Save()"))
+					{
+						Headers.IncludeDependencyCache.Save();
+					}
 				}
 
 				if (Headers.FlatCPPIncludeDependencyCache != null)
 				{
-					Headers.FlatCPPIncludeDependencyCache.Save();
+					using (Timeline.ScopeEvent("FlatCPPIncludeDependencyCache.Save()"))
+					{
+						Headers.FlatCPPIncludeDependencyCache.Save();
+					}
 				}
 			}
 
 			// Figure out how long we took to execute.
 			if (ExecutorName != "Unknown")
 			{
-				double BuildDuration = (DateTime.UtcNow - RunUBTInitStartTime).TotalSeconds;
-				Log.TraceInformation("Total build time: {0:0.00} seconds ({1} executor: {2:0.00} seconds)", BuildDuration, ExecutorName, TotalExecutorTime);
+				Log.TraceInformation("Total build time: {0:0.00} seconds ({1} executor: {2:0.00} seconds)", BuildTimer.Elapsed.TotalSeconds, ExecutorName, ExecutorTimer.Elapsed.TotalSeconds);
 			}
 
 			return BuildResult;

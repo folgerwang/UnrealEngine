@@ -141,8 +141,6 @@ namespace UnrealBuildTool
 				throw new BuildException("Can't save a makefile that has invalid contents.  See UBTMakefile.IsValidMakefile()");
 			}
 
-			DateTime TimerStartTime = DateTime.UtcNow;
-
 			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetUBTMakefilePath(TargetDescs));
 
 			// @todo ubtmake: Optimization: The UBTMakefile saved for game projects is upwards of 9 MB.  We should try to shrink its content if possible
@@ -161,12 +159,6 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				Log.TraceError("Failed to write makefile: {0}", Ex.Message);
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
-				Log.TraceInformation("Saving makefile took " + TimerDuration.TotalSeconds + "s");
 			}
 		}
 
@@ -275,18 +267,13 @@ namespace UnrealBuildTool
 
 			try
 			{
-				DateTime LoadUBTMakefileStartTime = DateTime.UtcNow;
-
-				using (FileStream Stream = new FileStream(UBTMakefileInfo.FullName, FileMode.Open, FileAccess.Read))
+				using(Timeline.ScopeEvent("Loading makefile"))
 				{
-					BinaryFormatter Formatter = new BinaryFormatter();
-					LoadedUBTMakefile = Formatter.Deserialize(Stream) as UBTMakefile;
-				}
-
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					double LoadUBTMakefileTime = (DateTime.UtcNow - LoadUBTMakefileStartTime).TotalSeconds;
-					Log.TraceInformation("LoadUBTMakefile took " + LoadUBTMakefileTime + "s");
+					using (FileStream Stream = new FileStream(UBTMakefileInfo.FullName, FileMode.Open, FileAccess.Read))
+					{
+						BinaryFormatter Formatter = new BinaryFormatter();
+						LoadedUBTMakefile = Formatter.Deserialize(Stream) as UBTMakefile;
+					}
 				}
 			}
 			catch (Exception Ex)

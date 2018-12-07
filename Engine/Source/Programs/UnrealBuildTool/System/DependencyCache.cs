@@ -92,25 +92,12 @@ namespace UnrealBuildTool
 			// See whether the cache file exists.
 			if (FileReference.Exists(CacheFile))
 			{
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					Log.TraceInformation("Loading existing IncludeFileCache: " + CacheFile.FullName);
-				}
-
-				DateTime TimerStartTime = DateTime.UtcNow;
-
 				// Deserialize cache from disk if there is one.
 				DependencyCache Result = Load(CacheFile);
 				if (Result != null)
 				{
 					// Successfully serialize, create the transient variables and return cache.
 					Result.UpdateTimeUtc = DateTime.UtcNow;
-
-					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						Log.TraceInformation("Loading IncludeFileCache took " + TimerDuration.TotalSeconds + "s");
-					}
 					return Result;
 				}
 			}
@@ -239,8 +226,6 @@ namespace UnrealBuildTool
 			// Only save if we've made changes to it since load.
 			if (bIsDirty)
 			{
-				DateTime TimerStartTime = DateTime.UtcNow;
-
 				// Save update date as new creation date.
 				CreationTimeUtc = UpdateTimeUtc;
 
@@ -257,19 +242,6 @@ namespace UnrealBuildTool
 				catch (Exception Ex)
 				{
 					Log.TraceError("Failed to write dependency cache: {0}", Ex.Message);
-				}
-
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
-					Log.TraceInformation("Saving IncludeFileCache took " + TimerDuration.TotalSeconds + "s");
-				}
-			}
-			else
-			{
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					Log.TraceInformation("IncludeFileCache did not need to be saved (bIsDirty=false)");
 				}
 			}
 

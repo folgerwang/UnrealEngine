@@ -342,8 +342,6 @@ namespace UnrealBuildTool
 		/// <returns>The build target object for the specified build rules source file</returns>
 		public static UEBuildTarget CreateTarget(TargetDescriptor Desc, string[] Arguments, bool bSkipRulesCompile, bool bCompilingSingleFile, bool bUsePrecompiled)
 		{
-			DateTime CreateTargetStartTime = DateTime.UtcNow;
-
 			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Desc.ProjectFile, Desc.Name, bSkipRulesCompile, bUsePrecompiled, Desc.ForeignPlugin);
 
 			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Arguments);
@@ -443,13 +441,6 @@ namespace UnrealBuildTool
 
 			// Generate a build target from this rules module
 			UEBuildTarget BuildTarget = new UEBuildTarget(Desc, new ReadOnlyTargetRules(RulesObject), RulesAssembly);
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double CreateTargetTime = (DateTime.UtcNow - CreateTargetStartTime).TotalSeconds;
-				Log.TraceInformation("CreateTarget for " + Desc.Name + " took " + CreateTargetTime + "s");
-			}
-
 			return BuildTarget;
 		}
 
@@ -1657,7 +1648,10 @@ namespace UnrealBuildTool
 				NameToFlatModuleData[FlatModuleData.ModuleName] = FlatModuleData;
 			}
 
-			ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+			using(Timeline.ScopeEvent("ExternalExecution.SetupUObjectModules()"))
+			{
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+			}
 
 			// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
 			// files that are injected as top level prerequisites.  If UHT only emitted included header files, we wouldn't need to run it during the Gather phase at all.

@@ -76,13 +76,6 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				Log.TraceInformation("Loading existing FlatCPPIncludeDependencyCache: " + BackingFile.FullName);
-			}
-
-			DateTime TimerStartTime = DateTime.UtcNow;
-
 			try
 			{
 				// If the .buildmutex file for the cache is present, it means that something went wrong between loading
@@ -107,13 +100,6 @@ namespace UnrealBuildTool
 					}
 
 					Cache = Deserialize(Reader);
-
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
-						Log.TraceInformation("Loading FlatCPPIncludeDependencyCache took " + TimerDuration.TotalSeconds + "s");
-					}
-
 					return true;
 				}
 			}
@@ -134,8 +120,6 @@ namespace UnrealBuildTool
 			// Only save if we've made changes to it since load.
 			if (bIsDirty)
 			{
-				DateTime TimerStartTime = DateTime.UtcNow;
-
 				// Serialize the cache to disk.
 				try
 				{
@@ -149,19 +133,6 @@ namespace UnrealBuildTool
 				catch (Exception Ex)
 				{
 					Log.TraceError("Failed to write FlatCPPIncludeDependencyCache: {0}", Ex.Message);
-				}
-
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					TimeSpan TimerDuration = DateTime.UtcNow - TimerStartTime;
-					Log.TraceInformation("Saving FlatCPPIncludeDependencyCache took " + TimerDuration.TotalSeconds + "s");
-				}
-			}
-			else
-			{
-				if (UnrealBuildTool.bPrintPerformanceInfo)
-				{
-					Log.TraceInformation("FlatCPPIncludeDependencyCache did not need to be saved (bIsDirty=false)");
 				}
 			}
 

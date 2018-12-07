@@ -310,7 +310,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public HashSet<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
-			DateTime CheckOutdatednessStartTime = DateTime.UtcNow;
+			ITimelineEvent GetActionsToExecuteTimer = Timeline.ScopeEvent("ActionGraph.GetActionsToExecute()");
 
 			// Build a set of all actions needed for this target.
 			Dictionary<Action, bool> IsActionOutdatedMap = new Dictionary<Action, bool>();
@@ -371,11 +371,7 @@ namespace UnrealBuildTool
 			// Build a list of actions that are both needed for this target and outdated.
 			HashSet<Action> ActionsToExecute = new HashSet<Action>(AllActions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]));
 
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double CheckOutdatednessTime = (DateTime.UtcNow - CheckOutdatednessStartTime).TotalSeconds;
-				Log.TraceInformation("Checking outdatedness took " + CheckOutdatednessTime + "s");
-			}
+			GetActionsToExecuteTimer.Finish();
 
 			return ActionsToExecute;
 		}
@@ -903,7 +899,7 @@ namespace UnrealBuildTool
 				// includes for this file, so that we'll be able to determine whether it is out of date next time very quickly.
 				if (BuildConfiguration.bUseUBTMakefiles)
 				{
-					DateTime DeepIncludeScanStartTime = DateTime.UtcNow;
+					Stopwatch DeepIncludeScanTimer = Stopwatch.StartNew();
 
 					// @todo ubtmake: we may be scanning more files than we need to here -- indirectly outdated files are bIsOutdated=true by this point (for example basemost includes when deeper includes are dirty)
 					if (bIsOutdated && RootAction.ActionType == ActionType.Compile)	// @todo ubtmake: Does this work with RC files?  See above too.
@@ -935,11 +931,7 @@ namespace UnrealBuildTool
 						}
 					}
 
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						double DeepIncludeScanTime = (DateTime.UtcNow - DeepIncludeScanStartTime).TotalSeconds;
-						UnrealBuildTool.TotalDeepIncludeScanTime += DeepIncludeScanTime;
-					}
+					UnrealBuildTool.TotalDeepIncludeScanTime += DeepIncludeScanTimer.Elapsed;
 				}
 
 				// Cache the outdated-ness of this action.
@@ -956,17 +948,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		void GatherAllOutdatedActions(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CPPHeaders Headers, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, ActionHistory ActionHistory, ref Dictionary<Action, bool> OutdatedActions, Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
-			DateTime CheckOutdatednessStartTime = DateTime.UtcNow;
-
 			foreach (Action Action in AllActions)
 			{
 				IsActionOutdated(BuildConfiguration, Target, Headers, Action, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, OutdatedActions, ActionHistory, TargetToOutdatedPrerequisitesMap);
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double CheckOutdatednessTime = (DateTime.UtcNow - CheckOutdatednessStartTime).TotalSeconds;
-				Log.TraceInformation("Checking actions for " + Target.GetTargetName() + " took " + CheckOutdatednessTime + "s");
 			}
 		}
 
