@@ -510,6 +510,20 @@ namespace UnrealBuildTool
 				Rules.GlobalDefinitions.Add("DISABLE_GENERATED_INI_WHEN_COOKED=1");
 			}
 
+			if (!Rules.bAllowNonUFSIniWhenCooked)
+			{
+				Rules.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");
+			}
+
+			if (Rules.bDisableUnverifiedCertificates)
+			{
+				Rules.GlobalDefinitions.Add("DISABLE_UNVERIFIED_CERTIFICATE_LOADING=1");
+			}
+
+			// Allow the platform to finalize the settings
+			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(Rules.Platform);
+			Platform.ValidateTarget(Rules);
+
 			return Rules;
 		}
 
