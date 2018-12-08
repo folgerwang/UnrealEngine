@@ -63,7 +63,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Writes all metadata files at the end of a build (receipts, version files, etc...). This is implemented as a separate mode to allow it to be done as part of the action graph.
 	/// </summary>
-	[ToolMode("WriteMetadata")]
+	[ToolMode("WriteMetadata", ToolModeOptions.None)]
 	class WriteMetadataMode : ToolMode
 	{
 		/// <summary>

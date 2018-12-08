@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Invokes the deployment handler for a target.
 	/// </summary>
-	[ToolMode("Deploy")]
+	[ToolMode("Deploy", ToolModeOptions.BuildPlatforms)]
 	class DeployMode : ToolMode
 	{
 		/// <summary>
@@ -31,13 +31,6 @@ namespace UnrealBuildTool
 			// Apply the arguments
 			Arguments.ApplyTo(this);
 			Arguments.CheckAllArgumentsUsed();
-
-			// Change the working directory to be the Engine/Source folder. We are likely running from Engine/Binaries/DotNET
-			// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
-			DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
-
-			// Find and register all tool chains, build platforms, etc. that are present
-			UnrealBuildTool.RegisterAllUBTClasses(false);
 
 			// Execute the deploy
 			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile);

@@ -38,7 +38,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Special mode for gathering all the messages into a single output file
 	/// </summary>
-	[ToolMode("PVSGather")]
+	[ToolMode("PVSGather", ToolModeOptions.None)]
 	class PVSGatherMode : ToolMode
 	{
 		/// <summary>

@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Validates the various platforms to determine if they are ready for building
 	/// </summary>
-	[ToolMode("ValidatePlatforms")]
+	[ToolMode("ValidatePlatforms", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatformsForValidation | ToolModeOptions.SingleInstance)]
 	class ValidatePlatformsMode : ToolMode
 	{
 		/// <summary>
@@ -34,38 +34,29 @@ namespace UnrealBuildTool
 		/// <returns>Exit code</returns>
 		public override int Execute(CommandLineArguments Arguments)
 		{
+			// Output a message if there are any arguments that are still unused
 			Arguments.ApplyTo(this);
-			using(SingleInstanceMutex.Acquire(SingleInstanceMutexType.Global, Arguments))
+			Arguments.CheckAllArgumentsUsed();
+
+			// If the -AllPlatforms argument is specified, add all the known platforms into the list
+			if(bAllPlatforms)
 			{
-				// Output a message if there are any arguments that are still unused
-				Arguments.CheckAllArgumentsUsed();
-
-				// If the -AllPlatforms argument is specified, add all the known platforms into the list
-				if(bAllPlatforms)
-				{
-					Platforms.UnionWith(Enum.GetValues(typeof(UnrealTargetPlatform)).OfType<UnrealTargetPlatform>().Where(x => x != UnrealTargetPlatform.Unknown));
-				}
-
-				// Read all the config files
-				XmlConfig.ReadConfigFiles(null);
-				
-				// Register all the platforms
-				UnrealBuildTool.RegisterAllUBTClasses(true);
-
-				// Output a line for each registered platform
-				foreach (UnrealTargetPlatform Platform in Platforms)
-				{
-					UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
-					if (BuildPlatform != null && BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid)
-					{
-						Log.TraceInformation("##PlatformValidate: {0} VALID", Platform.ToString());
-					}
-					else
-					{
-						Log.TraceInformation("##PlatformValidate: {0} INVALID", Platform.ToString());
-					}
-				} 
+				Platforms.UnionWith(Enum.GetValues(typeof(UnrealTargetPlatform)).OfType<UnrealTargetPlatform>().Where(x => x != UnrealTargetPlatform.Unknown));
 			}
+
+			// Output a line for each registered platform
+			foreach (UnrealTargetPlatform Platform in Platforms)
+			{
+				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
+				if (BuildPlatform != null && BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid)
+				{
+					Log.TraceInformation("##PlatformValidate: {0} VALID", Platform.ToString());
+				}
+				else
+				{
+					Log.TraceInformation("##PlatformValidate: {0} INVALID", Platform.ToString());
+				}
+			} 
 			return 0;
 		}
 	}

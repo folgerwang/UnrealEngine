@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Register all platforms (and in the process, configure all autosdks)
 	/// </summary>
-	[ToolMode("SetupPlatforms")]
+	[ToolMode("SetupPlatforms", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance)]
 	class SetupPlatforms : ToolMode
 	{
 		/// <summary>
@@ -22,17 +22,8 @@ namespace UnrealBuildTool
 		/// <returns>Exit code</returns>
 		public override int Execute(CommandLineArguments Arguments)
 		{
-			using(SingleInstanceMutex.Acquire(SingleInstanceMutexType.Global, Arguments))
-			{
-				// Output a warning if there are any arguments that are still unused
-				Arguments.CheckAllArgumentsUsed();
-
-				// Read the XML configuration files
-				XmlConfig.ReadConfigFiles(null);
-
-				// Find and register all tool chains, build platforms, etc. that are present
-				UnrealBuildTool.RegisterAllUBTClasses(false);
-			}
+			// Output a warning if there are any arguments that are still unused
+			Arguments.CheckAllArgumentsUsed();
 			return 0;
 		}
 	}

@@ -14,7 +14,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Generates project files for one or more projects
 	/// </summary>
-	[ToolMode("GenerateProjectFiles")]
+	[ToolMode("GenerateProjectFiles", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance)]
 	class GenerateProjectFilesMode : ToolMode
 	{
 		/// <summary>
@@ -45,135 +45,122 @@ namespace UnrealBuildTool
 		/// <returns>Exit code</returns>
 		public override int Execute(CommandLineArguments Arguments)
 		{
-			using(SingleInstanceMutex.Acquire(SingleInstanceMutexType.PerBranch, Arguments))
+			// Apply any command line arguments to this class
+			Arguments.ApplyTo(this);
+
+			// Parse rocket-specific arguments.
+			FileReference ProjectFile;
+			UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile);
+
+			// If there aren't any formats set, read the default project file format from the config file
+			if (ProjectFileFormats.Count == 0)
 			{
-				// Apply any command line arguments to this class
-				Arguments.ApplyTo(this);
+				// Read from the XML config
+				if (!String.IsNullOrEmpty(ProjectFileGeneratorSettings.Format))
+				{
+					ProjectFileFormats.UnionWith(ProjectFileGeneratorSettings.ParseFormatList(ProjectFileGeneratorSettings.Format));
+				}
 
-				// Parse rocket-specific arguments.
-				FileReference ProjectFile;
-				UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile);
+				// Read from the editor config
+				ProjectFileFormat PreferredSourceCodeAccessor;
+				if (ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredSourceCodeAccessor))
+				{
+					ProjectFileFormats.Add(PreferredSourceCodeAccessor);
+				}
 
-				// Change the working directory to be the Engine/Source folder. We are likely running from Engine/Binaries/DotNET
-				// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
-				DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
-
-				// Read the XML configuration files
-				XmlConfig.ReadConfigFiles(null);
-
-				// Find and register all tool chains, build platforms, etc. that are present
-				UnrealBuildTool.RegisterAllUBTClasses(false);
-
-				// If there aren't any formats set, read the default project file format from the config file
+				// If there's still nothing set, get the default project file format for this platform
 				if (ProjectFileFormats.Count == 0)
 				{
-					// Read from the XML config
-					if (!String.IsNullOrEmpty(ProjectFileGeneratorSettings.Format))
-					{
-						ProjectFileFormats.UnionWith(ProjectFileGeneratorSettings.ParseFormatList(ProjectFileGeneratorSettings.Format));
-					}
+					ProjectFileFormats.UnionWith(BuildHostPlatform.Current.GetDefaultProjectFileFormats());
+				}
+			}
 
-					// Read from the editor config
-					ProjectFileFormat PreferredSourceCodeAccessor;
-					if (ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredSourceCodeAccessor))
+			// Register all the platform project generators
+			PlatformProjectGeneratorCollection PlatformProjectGenerators = new PlatformProjectGeneratorCollection();
+			foreach (Type CheckType in Assembly.GetExecutingAssembly().GetTypes())
+			{
+				if (CheckType.IsClass && !CheckType.IsAbstract && CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
+				{
+					PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType, Arguments);
+					foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
 					{
-						ProjectFileFormats.Add(PreferredSourceCodeAccessor);
-					}
-
-					// If there's still nothing set, get the default project file format for this platform
-					if (ProjectFileFormats.Count == 0)
-					{
-						ProjectFileFormats.UnionWith(BuildHostPlatform.Current.GetDefaultProjectFileFormats());
+						Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
+						PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
 					}
 				}
+			}
 
-				// Register all the platform project generators
-				PlatformProjectGeneratorCollection PlatformProjectGenerators = new PlatformProjectGeneratorCollection();
-				foreach (Type CheckType in Assembly.GetExecutingAssembly().GetTypes())
+			// Create each project generator and run it
+			List<ProjectFileGenerator> Generators = new List<ProjectFileGenerator>();
+			foreach (ProjectFileFormat ProjectFileFormat in ProjectFileFormats.Distinct())
+			{
+				ProjectFileGenerator Generator;
+				switch (ProjectFileFormat)
 				{
-					if (CheckType.IsClass && !CheckType.IsAbstract && CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
-					{
-						PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType, Arguments);
-						foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
-						{
-							Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
-							PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
-						}
-					}
+					case ProjectFileFormat.Make:
+						Generator = new MakefileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.CMake:
+						Generator = new CMakefileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.QMake:
+						Generator = new QMakefileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.KDevelop:
+						Generator = new KDevelopGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.CodeLite:
+						Generator = new CodeLiteGenerator(ProjectFile, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.Default, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio2012:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2012, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio2013:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2013, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio2015:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2015, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio2017:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2017, Arguments);
+						break;
+					case ProjectFileFormat.VisualStudio2019:
+						Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2019, Arguments);
+						break;
+					case ProjectFileFormat.XCode:
+						Generator = new XcodeProjectFileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.Eddie:
+						Generator = new EddieProjectFileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.VisualStudioCode:
+						Generator = new VSCodeProjectFileGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.CLion:
+						Generator = new CLionGenerator(ProjectFile);
+						break;
+					case ProjectFileFormat.VisualStudioMac:
+						Generator = new VCMacProjectFileGenerator(ProjectFile, Arguments);
+						break;
+					default:
+						throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
 				}
+				Generators.Add(Generator);
+			}
 
-				// Create each project generator and run it
-				List<ProjectFileGenerator> Generators = new List<ProjectFileGenerator>();
-				foreach (ProjectFileFormat ProjectFileFormat in ProjectFileFormats.Distinct())
+			// Check there are no superfluous command line arguments
+			Arguments.CheckAllArgumentsUsed();
+
+			// Now generate project files
+			ProjectFileGenerator.bGenerateProjectFiles = true;
+			foreach(ProjectFileGenerator Generator in Generators)
+			{
+				if (!Generator.GenerateProjectFiles(PlatformProjectGenerators, Arguments.GetRawArray()))
 				{
-					ProjectFileGenerator Generator;
-					switch (ProjectFileFormat)
-					{
-						case ProjectFileFormat.Make:
-							Generator = new MakefileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.CMake:
-							Generator = new CMakefileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.QMake:
-							Generator = new QMakefileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.KDevelop:
-							Generator = new KDevelopGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.CodeLite:
-							Generator = new CodeLiteGenerator(ProjectFile, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.Default, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio2012:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2012, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio2013:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2013, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio2015:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2015, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio2017:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2017, Arguments);
-							break;
-						case ProjectFileFormat.VisualStudio2019:
-							Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2019, Arguments);
-							break;
-						case ProjectFileFormat.XCode:
-							Generator = new XcodeProjectFileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.Eddie:
-							Generator = new EddieProjectFileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.VisualStudioCode:
-							Generator = new VSCodeProjectFileGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.CLion:
-							Generator = new CLionGenerator(ProjectFile);
-							break;
-						case ProjectFileFormat.VisualStudioMac:
-							Generator = new VCMacProjectFileGenerator(ProjectFile, Arguments);
-							break;
-						default:
-							throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
-					}
-					Generators.Add(Generator);
-				}
-
-				// Check there are no superfluous command line arguments
-				Arguments.CheckAllArgumentsUsed();
-
-				// Now generate project files
-				ProjectFileGenerator.bGenerateProjectFiles = true;
-				foreach(ProjectFileGenerator Generator in Generators)
-				{
-					if (!Generator.GenerateProjectFiles(PlatformProjectGenerators, Arguments.GetRawArray()))
-					{
-						return (int)ECompilationResult.OtherCompilationError;
-					}
+					return (int)ECompilationResult.OtherCompilationError;
 				}
 			}
 			return (int)ECompilationResult.Succeeded;

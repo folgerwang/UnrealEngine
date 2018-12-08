@@ -370,6 +370,7 @@ namespace UnrealBuildTool
 		/// <returns>Zero on success, non-zero on error</returns>
 		private static int Main(string[] ArgumentsArray)
 		{
+			SingleInstanceMutex Mutex = null;
 			try
 			{
 				// Start capturing performance info
@@ -413,12 +414,54 @@ namespace UnrealBuildTool
 				// Ensure we can resolve any external assemblies that are not in the same folder as our assembly.
 				AssemblyUtils.InstallAssemblyResolver(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()));
 
+				// Change the working directory to be the Engine/Source folder. We are likely running from Engine/Binaries/DotNET
+				// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
+				DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
+
 				// Try to get the correct mode
 				Type ModeType;
 				if(!ModeNameToType.TryGetValue(Options.Mode, out ModeType))
 				{
 					Log.TraceError("No mode named '{0}'. Available modes are:\n  {1}", Options.Mode, String.Join("\n  ", ModeNameToType.Keys));
 					return 1;
+				}
+
+				// Get the options for which systems have to be initialized for this mode
+				ToolModeOptions ModeOptions = ModeType.GetCustomAttribute<ToolModeAttribute>().Options;
+
+				// Read the XML configuration files
+				if((ModeOptions & ToolModeOptions.XmlConfig) != 0)
+				{
+					using(Timeline.ScopeEvent("XmlConfig.ReadConfigFiles()"))
+					{
+						FileReference XmlConfigCache = Arguments.GetFileReferenceOrDefault("-XmlConfigCache=", null);
+						XmlConfig.ReadConfigFiles(XmlConfigCache);
+					}
+				}
+
+				// Register all the build platforms
+				if((ModeOptions & ToolModeOptions.BuildPlatforms) != 0)
+				{
+					using(Timeline.ScopeEvent("UnrealBuildTool.RegisterAllUBTClasses()"))
+					{
+						RegisterAllUBTClasses(false);
+					}
+				}
+				if((ModeOptions & ToolModeOptions.BuildPlatformsForValidation) != 0)
+				{
+					using(Timeline.ScopeEvent("UnrealBuildTool.RegisterAllUBTClasses()"))
+					{
+						RegisterAllUBTClasses(true);
+					}
+				}
+
+				// Acquire a lock for this branch
+				if((ModeOptions & ToolModeOptions.SingleInstance) != 0)
+				{
+					using(Timeline.ScopeEvent("SingleInstanceMutex.Acquire()"))
+					{
+						Mutex = SingleInstanceMutex.Acquire(SingleInstanceMutexType.PerBranch, Arguments);
+					}
 				}
 
 				// Create the appropriate handler
@@ -441,6 +484,12 @@ namespace UnrealBuildTool
 			}
 			finally
 			{
+				// Dispose of the mutex
+				if(Mutex != null)
+				{
+					Mutex.Dispose();
+				}
+
 				// Print out all the performance info
 				Timeline.Print(TimeSpan.FromMilliseconds(20.0), LogEventType.Log);
 

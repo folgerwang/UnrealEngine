@@ -50,7 +50,7 @@ namespace UnrealBuildTool
 		}
 	}
 
-	[ToolMode("IOSPostBuildSync")]
+	[ToolMode("IOSPostBuildSync", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms)]
 	class IOSPostBuildSyncMode : ToolMode
 	{
 		[CommandLine("-Input=", Required = true)]
@@ -63,16 +63,6 @@ namespace UnrealBuildTool
 		{
 			Arguments.ApplyTo(this);
 			Arguments.CheckAllArgumentsUsed();
-
-			// Read the XML config
-			XmlConfig.ReadConfigFiles(XmlConfigCache);
-
-			// Change the working directory to be the Engine/Source folder. We are likely running from Engine/Binaries/DotNET
-			// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
-			DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
-
-			// Find and register all tool chains, build platforms, etc. that are present
-			UnrealBuildTool.RegisterAllUBTClasses(false);
 
 			// Run the PostBuildSync command
 			IOSPostBuildSyncTarget Target = BinaryFormatterUtils.Load<IOSPostBuildSyncTarget>(InputFile);

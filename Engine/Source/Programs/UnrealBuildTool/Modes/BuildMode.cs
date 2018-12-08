@@ -13,7 +13,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Builds a target
 	/// </summary>
-	[ToolMode("Build")]
+	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance)]
 	class BuildMode : ToolMode
 	{
 		/// <summary>
@@ -45,80 +45,65 @@ namespace UnrealBuildTool
 				throw new BuildException("Environment could not be read");
 			}
 
-			// Get a mutex for building in this branch
-			using(SingleInstanceMutex.Acquire(SingleInstanceMutexType.PerBranch, Arguments))
+			// Read the XML configuration files
+			XmlConfig.ApplyTo(this);
+
+			// Create the log file, and flush the startup listener to it
+			FileReference LogFile = null;
+			if(!Arguments.HasOption("-NoLog") && !Log.HasFileWriter())
 			{
-				// Change the working directory to be the Engine/Source folder. We are likely running from Engine/Binaries/DotNET
-				// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
-				DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
-
-				// Read the XML configuration files
-				FileReference XmlConfigCache = Arguments.GetFileReferenceOrDefault("-XmlConfigCache=", null);
-				XmlConfig.ReadConfigFiles(XmlConfigCache);
-				XmlConfig.ApplyTo(this);
-
-				// Create the log file, and flush the startup listener to it
-				FileReference LogFile = null;
-				if(!Arguments.HasOption("-NoLog") && !Log.HasFileWriter())
+				LogFile = new FileReference(BaseLogFileName);
+				foreach(string LogSuffix in Arguments.GetValues("-LogSuffix="))
 				{
-					LogFile = new FileReference(BaseLogFileName);
-					foreach(string LogSuffix in Arguments.GetValues("-LogSuffix="))
-					{
-						LogFile = LogFile.ChangeExtension(null) + "_" + LogSuffix + LogFile.GetExtension();
-					}
-
-					TextWriterTraceListener LogTraceListener = Log.AddFileWriter("DefaultLogTraceListener", LogFile);
-					StartupListener.CopyTo(LogTraceListener);
-				}
-				Trace.Listeners.Remove(StartupListener);
-
-				// Create the build configuration object, and read the settings
-				BuildConfiguration BuildConfiguration = new BuildConfiguration();
-				XmlConfig.ApplyTo(BuildConfiguration);
-				Arguments.ApplyTo(BuildConfiguration);
-
-				// Then let the command lines override any configs necessary.
-				if(BuildConfiguration.bXGEExport)
-				{
-					BuildConfiguration.bAllowXGE = true;
-				}
-				if(BuildConfiguration.SingleFileToCompile != null)
-				{
-					BuildConfiguration.bUseUBTMakefiles = false;
+					LogFile = LogFile.ChangeExtension(null) + "_" + LogSuffix + LogFile.GetExtension();
 				}
 
-				// Parse the remote INI setting
-				string RemoteIniPath;
-				Arguments.TryGetValue("-RemoteIni=", out RemoteIniPath);
-				UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
+				TextWriterTraceListener LogTraceListener = Log.AddFileWriter("DefaultLogTraceListener", LogFile);
+				StartupListener.CopyTo(LogTraceListener);
+			}
+			Trace.Listeners.Remove(StartupListener);
 
-				DateTime BasicInitStartTime = DateTime.UtcNow;
+			// Create the build configuration object, and read the settings
+			BuildConfiguration BuildConfiguration = new BuildConfiguration();
+			XmlConfig.ApplyTo(BuildConfiguration);
+			Arguments.ApplyTo(BuildConfiguration);
 
-				// Find and register all tool chains, build platforms, etc. that are present
-				UnrealBuildTool.RegisterAllUBTClasses(false);
+			// Then let the command lines override any configs necessary.
+			if(BuildConfiguration.bXGEExport)
+			{
+				BuildConfiguration.bAllowXGE = true;
+			}
+			if(BuildConfiguration.SingleFileToCompile != null)
+			{
+				BuildConfiguration.bUseUBTMakefiles = false;
+			}
 
-				Timeline.AddEvent("Basic UBT initialization");
+			// Parse the remote INI setting
+			string RemoteIniPath;
+			Arguments.TryGetValue("-RemoteIni=", out RemoteIniPath);
+			UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
 
-				// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
-				if (!BuildConfiguration.bIgnoreJunk)
-				{
-					JunkDeleter.DeleteJunk();
-				}
+			Timeline.AddEvent("Basic UBT initialization");
 
-				// Build our project
-				using(Timeline.ScopeEvent("Calling RunUBT"))
-				{
-					ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), LogFile);
+			// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
+			if (!BuildConfiguration.bIgnoreJunk)
+			{
+				JunkDeleter.DeleteJunk();
+			}
 
-					// Print some performance info
-					Log.TraceLog("DirectIncludes cache miss time: {0}s ({1} misses)", CPPHeaders.DirectIncludeCacheMissesTotalTime, CPPHeaders.TotalDirectIncludeCacheMisses);
-					Log.TraceLog("FindIncludePaths calls: {0} ({1} searches)", CPPHeaders.TotalFindIncludedFileCalls, CPPHeaders.IncludePathSearchAttempts);
-					Log.TraceLog("Deep C++ include scan time: {0}s", UnrealBuildTool.TotalDeepIncludeScanTime);
-					Log.TraceLog("Include Resolves: {0} ({1} misses, {2:0.00}%)", CPPHeaders.TotalDirectIncludeResolves, CPPHeaders.TotalDirectIncludeResolveCacheMisses, (float)CPPHeaders.TotalDirectIncludeResolveCacheMisses / (float)CPPHeaders.TotalDirectIncludeResolves * 100);
-					Log.TraceLog("Total FileItems: {0} ({1} missing)", FileItem.TotalFileItemCount, FileItem.MissingFileItemCount);
+			// Build our project
+			using(Timeline.ScopeEvent("Calling RunUBT"))
+			{
+				ECompilationResult Result = UnrealBuildTool.RunUBT(BuildConfiguration, Arguments.GetRawArray(), LogFile);
 
-					return (int)Result;
-				}
+				// Print some performance info
+				Log.TraceLog("DirectIncludes cache miss time: {0}s ({1} misses)", CPPHeaders.DirectIncludeCacheMissesTotalTime, CPPHeaders.TotalDirectIncludeCacheMisses);
+				Log.TraceLog("FindIncludePaths calls: {0} ({1} searches)", CPPHeaders.TotalFindIncludedFileCalls, CPPHeaders.IncludePathSearchAttempts);
+				Log.TraceLog("Deep C++ include scan time: {0}s", UnrealBuildTool.TotalDeepIncludeScanTime);
+				Log.TraceLog("Include Resolves: {0} ({1} misses, {2:0.00}%)", CPPHeaders.TotalDirectIncludeResolves, CPPHeaders.TotalDirectIncludeResolveCacheMisses, (float)CPPHeaders.TotalDirectIncludeResolveCacheMisses / (float)CPPHeaders.TotalDirectIncludeResolves * 100);
+				Log.TraceLog("Total FileItems: {0} ({1} missing)", FileItem.TotalFileItemCount, FileItem.MissingFileItemCount);
+
+				return (int)Result;
 			}
 		}
 	}

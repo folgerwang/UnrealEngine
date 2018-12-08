@@ -10,6 +10,38 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
+	/// Systems that need to be configured to execute a tool mode
+	/// </summary>
+	[Flags]
+	enum ToolModeOptions
+	{
+		/// <summary>
+		/// Do not initialize anything
+		/// </summary>
+		None = 0,
+
+		/// <summary>
+		/// Initializes the XmlConfig system
+		/// </summary>
+		XmlConfig = 1,
+
+		/// <summary>
+		/// Registers build platforms
+		/// </summary>
+		BuildPlatforms = 2,
+
+		/// <summary>
+		/// Registers build platforms for validation
+		/// </summary>
+		BuildPlatformsForValidation = 4,
+
+		/// <summary>
+		/// Only allow a single instance running in the branch at once
+		/// </summary>
+		SingleInstance = 8,
+	}
+
+	/// <summary>
 	/// Attribute used to specify options for a UBT mode.
 	/// </summary>
 	class ToolModeAttribute : Attribute
@@ -20,12 +52,19 @@ namespace UnrealBuildTool
 		public string Name;
 
 		/// <summary>
+		/// Options for executing this mode
+		/// </summary>
+		public ToolModeOptions Options;
+
+		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="Name">Name of the mode</param>
-		public ToolModeAttribute(string Name)
+		/// <param name="Options">Options for this mode</param>
+		public ToolModeAttribute(string Name, ToolModeOptions Options)
 		{
 			this.Name = Name;
+			this.Options = Options;
 		}
 	}
 

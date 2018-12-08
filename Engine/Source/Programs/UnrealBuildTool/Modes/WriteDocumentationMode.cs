@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Generates documentation from reflection data
 	/// </summary>
-	[ToolMode("WriteDocumentation")]
+	[ToolMode("WriteDocumentation", ToolModeOptions.None)]
 	class WriteDocumentationMode : ToolMode
 	{
 		/// <summary>
