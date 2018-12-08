@@ -1708,7 +1708,7 @@ namespace UnrealBuildTool
 							TargetDescriptor TargetDesc = new TargetDescriptor(CurTarget.UnrealProjectFilePath, CurTarget.Name, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, DefaultArchitecture, null, new CommandLineArguments(NewArguments.ToArray()));
 
 							// Create the target
-							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, NewArguments.ToArray(), false, false, bUsePrecompiled);
+							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, false, false, bUsePrecompiled);
 
 							// Generate a compile environment for each module in the binary
 							CppCompileEnvironment GlobalCompileEnvironment = Target.CreateCompileEnvironmentForProjectFiles();

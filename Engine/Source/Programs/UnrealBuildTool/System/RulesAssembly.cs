@@ -410,7 +410,7 @@ namespace UnrealBuildTool
 		/// <param name="TargetInfo">Target configuration information to pass to the constructor</param>
 		/// <param name="Arguments">Command line arguments for this target</param>
 		/// <returns>Instance of the corresponding TargetRules</returns>
-		protected TargetRules CreateTargetRulesInstance(string TypeName, TargetInfo TargetInfo, string[] Arguments)
+		protected TargetRules CreateTargetRulesInstance(string TypeName, TargetInfo TargetInfo, CommandLineArguments Arguments)
 		{
 			// The build module must define a type named '<TargetName>Target' that derives from our 'TargetRules' type.  
 			Type RulesType = CompiledAssembly.GetType(TypeName);
@@ -451,7 +451,7 @@ namespace UnrealBuildTool
 			{
 				foreach(object ConfigurableObject in Rules.GetConfigurableObjects())
 				{
-					CommandLine.ParseArguments(Arguments, ConfigurableObject);
+					Arguments.ApplyTo(ConfigurableObject);
 				}
 			}
 
@@ -537,7 +537,7 @@ namespace UnrealBuildTool
 		/// <param name="ProjectFile">Path to the project file for this target</param>
 		/// <param name="Arguments">Command line arguments for this target</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, string[] Arguments)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, CommandLineArguments Arguments)
 		{
 			bool bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName);
 			if (bFoundTargetName == false)

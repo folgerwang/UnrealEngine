@@ -692,7 +692,7 @@ namespace UnrealBuildTool
 						{
 							using(Timeline.ScopeEvent("UEBuildTarget.CreateTarget()"))
 							{
-								UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+								UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
 								if ((Target == null) && (BuildConfiguration.bCleanProject))
 								{
 									continue;
