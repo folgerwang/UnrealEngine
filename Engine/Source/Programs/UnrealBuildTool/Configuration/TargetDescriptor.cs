@@ -327,7 +327,7 @@ namespace UnrealBuildTool
 			{
 				Result.AppendFormat(" -Project={0}", Utils.MakePathSafeToUseWithCommandLine(ProjectFile));
 			}
-			if(AdditionalArguments.Count > 0)
+			if(AdditionalArguments != null && AdditionalArguments.Count > 0)
 			{
 				Result.AppendFormat(" {0}", AdditionalArguments);
 			}
