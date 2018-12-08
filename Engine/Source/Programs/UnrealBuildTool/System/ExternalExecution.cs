@@ -322,6 +322,29 @@ namespace UnrealBuildTool
 		}
 	}
 
+	class UHTModuleHeaderInfo
+	{
+		public DirectoryReference SourceFolder;
+		public List<FileItem> HeaderFiles;
+
+		public UHTModuleHeaderInfo(DirectoryReference SourceFolder, List<FileItem> HeaderFiles)
+		{
+			this.SourceFolder = SourceFolder;
+			this.HeaderFiles = HeaderFiles;
+		}
+
+		public UHTModuleHeaderInfo(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		{
+			SourceFolder = Reader.ReadDirectoryReference();
+			HeaderFiles = Reader.ReadFileItemList(UniqueFileItems);
+		}
+
+		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		{
+			Writer.Write(SourceFolder);
+			Writer.Write(HeaderFiles, UniqueFileItemToIndex);
+		}
+	}
 
 	/// <summary>
 	/// This handles all running of the UnrealHeaderTool
@@ -586,7 +609,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, UnrealTargetPlatform Platform, ProjectDescriptor ProjectDescriptor, List<UHTModuleInfo> UObjectModules, Dictionary<string, FlatModuleCsDataType> FlatModuleCsData, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsAssemblingBuild)
+		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, UnrealTargetPlatform Platform, ProjectDescriptor ProjectDescriptor, List<UHTModuleInfo> UObjectModules, List<UHTModuleHeaderInfo> UObjectModuleHeaders, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsAssemblingBuild)
 		{
 			// Find the type of each module
 			Dictionary<UEBuildModuleCPP, UHTModuleType> ModuleToType = new Dictionary<UEBuildModuleCPP, UHTModuleType>();
@@ -620,8 +643,13 @@ namespace UnrealBuildTool
 					}
 
 					UObjectModules.Add(Info);
-					FlatModuleCsData[Module.Name].ModuleSourceFolder = Module.ModuleDirectory;
-					FlatModuleCsData[Module.Name].UHTHeaderNames = Info.PublicUObjectHeaders.Concat(Info.PublicUObjectClassesHeaders).Concat(Info.PrivateUObjectHeaders).Select(x => x.AbsolutePath).ToList();
+
+					List<FileItem> ReflectedHeaderFiles = new List<FileItem>();
+					ReflectedHeaderFiles.AddRange(Info.PublicUObjectHeaders);
+					ReflectedHeaderFiles.AddRange(Info.PublicUObjectClassesHeaders);
+					ReflectedHeaderFiles.AddRange(Info.PrivateUObjectHeaders);
+					UObjectModuleHeaders.Add(new UHTModuleHeaderInfo(Module.ModuleDirectory, ReflectedHeaderFiles));
+
 					Log.TraceVerbose("Detected UObject module: " + Info.ModuleName);
 				}
 				else

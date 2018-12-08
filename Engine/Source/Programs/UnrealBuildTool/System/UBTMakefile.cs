@@ -323,55 +323,6 @@ namespace UnrealBuildTool
 			// Check if any of the target's Build.cs files are newer than the makefile
 			foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
 			{
-				string TargetCsFilename = Target.TargetRulesFile.FullName;
-				if (TargetCsFilename != null)
-				{
-					FileInfo TargetCsFile = new FileInfo(TargetCsFilename);
-					bool bTargetCsFileExists = TargetCsFile.Exists;
-					if (!bTargetCsFileExists || TargetCsFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
-					{
-						Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", TargetCsFilename, bTargetCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
-						ReasonNotLoaded = string.Format("changes to target files");
-						return null;
-					}
-				}
-
-				IEnumerable<string> BuildCsFilenames = Target.GetAllModuleBuildCsFilenames();
-				foreach (string BuildCsFilename in BuildCsFilenames)
-				{
-					if (BuildCsFilename != null)
-					{
-						FileInfo BuildCsFile = new FileInfo(BuildCsFilename);
-						bool bBuildCsFileExists = BuildCsFile.Exists;
-						if (!bBuildCsFileExists || BuildCsFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
-						{
-							Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", BuildCsFilename, bBuildCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("changes to module files");
-							return null;
-						}
-					}
-				}
-
-				foreach (FlatModuleCsDataType FlatCsModuleData in Target.FlatModuleCsData)
-				{
-					if (FlatCsModuleData.BuildCsFilename != null && FlatCsModuleData.ExternalDependencies.Count > 0)
-					{
-						string BaseDir = Path.GetDirectoryName(FlatCsModuleData.BuildCsFilename);
-						foreach (string ExternalDependency in FlatCsModuleData.ExternalDependencies)
-						{
-							FileInfo DependencyFile = new FileInfo(Path.Combine(BaseDir, ExternalDependency));
-							bool bDependencyFileExists = DependencyFile.Exists;
-							if (!bDependencyFileExists || DependencyFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
-							{
-								Log.TraceLog("{0} has been {1} since makefile was built, ignoring it ({2})", DependencyFile.FullName, bDependencyFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
-								ReasonNotLoaded = string.Format("changes to external dependency");
-								return null;
-							}
-						}
-					}
-				}
-
-
 				// Check if ini files are newer. Ini files contain build settings too.
 				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
 				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
@@ -401,30 +352,44 @@ namespace UnrealBuildTool
 						return null;
 					}
 				}
-			}
 
-			// We do a check to see if any modules' headers have changed which have
-			// acquired or lost UHT types.  If so, which should be rare,
-			// we'll just invalidate the entire makefile and force it to be rebuilt.
-			foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
-			{
+				foreach(FileItem AdditionalDependency in Predicates.AdditionalDependencies)
+				{
+					if (!AdditionalDependency.bExists)
+					{
+						Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
+						ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
+						return null;
+					}
+					if(AdditionalDependency.LastWriteTime > UBTMakefileInfo.LastWriteTime)
+					{
+						Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
+						ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
+						return null;
+					}
+				}
+
+				// We do a check to see if any modules' headers have changed which have
+				// acquired or lost UHT types.  If so, which should be rare,
+				// we'll just invalidate the entire makefile and force it to be rebuilt.
+
 				// Get all H files in processed modules newer than the makefile itself
-				HashSet<string> HFilesNewerThanMakefile =
-					new HashSet<string>(
-						Target.FlatModuleCsData
-						.SelectMany(x => x.ModuleSourceFolder != null ? Directory.EnumerateFiles(x.ModuleSourceFolder.FullName, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<string>())
-						.Where(y => Directory.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
+				HashSet<FileReference> HFilesNewerThanMakefile =
+					new HashSet<FileReference>(
+						Predicates.UObjectModuleHeaders
+						.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
+						.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
 						.OrderBy(z => z).Distinct()
 					);
 
 				// Get all H files in all modules processed in the last makefile build
-				HashSet<string> AllUHTHeaders = new HashSet<string>(Target.FlatModuleCsData.SelectMany(x => x.UHTHeaderNames));
+				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Predicates.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
 
 				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
 				// and the file has been moved to a different module, we may include stale generated headers.
-				foreach (string FileName in AllUHTHeaders)
+				foreach (FileReference FileName in AllUHTHeaders)
 				{
-					if (!File.Exists(FileName))
+					if (!FileReference.Exists(FileName))
 					{
 						Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
 						ReasonNotLoaded = string.Format("UHT file was deleted");
@@ -435,9 +400,9 @@ namespace UnrealBuildTool
 				// Makefile is invalid if:
 				// * There are any newer files which contain no UHT data, but were previously in the makefile
 				// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
-				foreach (string Filename in HFilesNewerThanMakefile)
+				foreach (FileReference Filename in HFilesNewerThanMakefile)
 				{
-					bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename);
+					bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
 					bool bWasProcessed = AllUHTHeaders.Contains(Filename);
 					if (bContainsUHTData != bWasProcessed)
 					{

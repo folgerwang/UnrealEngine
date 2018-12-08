@@ -253,40 +253,6 @@ namespace UnrealBuildTool
 		}
 	}
 
-	class FlatModuleCsDataType
-	{
-		public FlatModuleCsDataType(BinaryReader Reader)
-		{
-			ModuleName = Reader.ReadString();
-			BuildCsFilename = Reader.ReadString();
-			ModuleSourceFolder = Reader.ReadDirectoryReference();
-			ExternalDependencies = Reader.ReadStringList();
-			UHTHeaderNames = Reader.ReadStringList();
-		}
-
-		public void Write(BinaryWriter Writer)
-		{
-			Writer.Write(ModuleName);
-			Writer.Write(BuildCsFilename);
-			Writer.Write(ModuleSourceFolder);
-			Writer.Write(ExternalDependencies);
-			Writer.Write(UHTHeaderNames);
-		}
-
-		public FlatModuleCsDataType(string InModuleName, string InBuildCsFilename, IEnumerable<string> InExternalDependencies)
-		{
-			ModuleName = InModuleName;
-			BuildCsFilename = InBuildCsFilename;
-			ExternalDependencies = new List<string>(InExternalDependencies);
-		}
-
-		public string ModuleName;
-		public string BuildCsFilename;
-		public DirectoryReference ModuleSourceFolder;
-		public List<string> ExternalDependencies;
-		public List<string> UHTHeaderNames = new List<string>();
-	}
-
 	/// <summary>
 	/// A target that can be built
 	/// </summary>
@@ -661,11 +627,6 @@ namespace UnrealBuildTool
 		private Dictionary<string, UEBuildModule> Modules = new Dictionary<string, UEBuildModule>(StringComparer.InvariantCultureIgnoreCase);
 
 		/// <summary>
-		/// Used to map names of modules to their .Build.cs filename
-		/// </summary>
-		public List<FlatModuleCsDataType> FlatModuleCsData = new List<FlatModuleCsDataType>();
-
-		/// <summary>
 		/// Filename for the receipt for this target.
 		/// </summary>
 		public FileReference ReceiptFileName
@@ -677,7 +638,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The name of the .Target.cs file, if the target was created with one
 		/// </summary>
-		public readonly FileReference TargetRulesFile;
+		readonly FileReference TargetRulesFile;
 
 		/// <summary>
 		/// List of scripts to run before building
@@ -693,15 +654,6 @@ namespace UnrealBuildTool
 		/// Whether to deploy this target after compilation
 		/// </summary>
 		public bool bDeployAfterCompile;
-
-		/// <summary>
-		/// A list of the module filenames which were used to build this target.
-		/// </summary>
-		/// <returns></returns>
-		public IEnumerable<string> GetAllModuleBuildCsFilenames()
-		{
-			return FlatModuleCsData.Select(Data => Data.BuildCsFilename);
-		}
 
 		/// <summary>
 		/// Whether this target should be compiled in monolithic mode
@@ -730,9 +682,7 @@ namespace UnrealBuildTool
 			VersionFile = Reader.ReadFileReference();
 			bPrecompile = Reader.ReadBoolean();
 			bCompileMonolithic = Reader.ReadBoolean();
-			FlatModuleCsData = Reader.ReadList(() => new FlatModuleCsDataType(Reader));
 			ReceiptFileName = Reader.ReadFileReference();
-			TargetRulesFile = Reader.ReadFileReference();
 			PreBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
 			PostBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
 			bDeployAfterCompile = Reader.ReadBoolean();
@@ -757,9 +707,7 @@ namespace UnrealBuildTool
 			Writer.Write(VersionFile);
 			Writer.Write(bPrecompile);
 			Writer.Write(bCompileMonolithic);
-			Writer.Write(FlatModuleCsData, x => x.Write(Writer));
 			Writer.Write(ReceiptFileName);
-			Writer.Write(TargetRulesFile);
 			Writer.Write(PreBuildStepScripts, x => Writer.Write(x));
 			Writer.Write(PostBuildStepScripts, x => Writer.Write(x));
 			Writer.Write(bDeployAfterCompile);
@@ -1477,16 +1425,9 @@ namespace UnrealBuildTool
 
 			// Generate headers
 			HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.ToList());
-
-			Dictionary<string, FlatModuleCsDataType> NameToFlatModuleData = new Dictionary<string, FlatModuleCsDataType>(StringComparer.InvariantCultureIgnoreCase);
-			foreach(FlatModuleCsDataType FlatModuleData in FlatModuleCsData)
-			{
-				NameToFlatModuleData[FlatModuleData.ModuleName] = FlatModuleData;
-			}
-
 			using(Timeline.ScopeEvent("ExternalExecution.SetupUObjectModules()"))
 			{
-				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, Predicates.UObjectModuleHeaders, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
 			}
 
 			// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
@@ -1714,6 +1655,18 @@ namespace UnrealBuildTool
 
 				// Check for linking against modules prohibited by the EULA
 				CheckForEULAViolation();
+			}
+
+			// Add all the input files to the predicate store
+			Predicates.AdditionalDependencies.Add(FileItem.GetItemByFileReference(TargetRulesFile));
+			foreach(UEBuildModule Module in Modules.Values)
+			{
+				Predicates.AdditionalDependencies.Add(FileItem.GetItemByFileReference(Module.RulesFile));
+				foreach(string ExternalDependency in Module.Rules.ExternalDependencies)
+				{
+					FileReference Location = FileReference.Combine(Module.RulesFile.Directory, ExternalDependency);
+					Predicates.AdditionalDependencies.Add(FileItem.GetItemByFileReference(Location));
+				}
 			}
 
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
@@ -3543,7 +3496,6 @@ namespace UnrealBuildTool
 				// Now, go ahead and create the module builder instance
 				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory);
 				Modules.Add(Module.Name, Module);
-				FlatModuleCsData.Add(new FlatModuleCsDataType(Module.Name, (Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
 			}
 			return Module;
 		}

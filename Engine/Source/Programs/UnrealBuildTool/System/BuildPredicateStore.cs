@@ -31,6 +31,16 @@ namespace UnrealBuildTool
 		/// </summary>
 		public HashSet<FileItem> CandidatesForWorkingSet = new HashSet<FileItem>();
 
+		/// <summary>
+		/// Additional files which are required 
+		/// </summary>
+		public HashSet<FileItem> AdditionalDependencies = new HashSet<FileItem>(); 
+
+		/// <summary>
+		/// Used to map names of modules to their .Build.cs filename
+		/// </summary>
+		public List<UHTModuleHeaderInfo> UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
+
 		public BuildPredicateStore()
 		{
 		}
@@ -40,6 +50,8 @@ namespace UnrealBuildTool
 			SourceDirectories = new HashSet<DirectoryReference>(Reader.ReadArray(() => Reader.ReadDirectoryReference()));
 			WorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
 			CandidatesForWorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
+			AdditionalDependencies = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
+			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader, UniqueFileItems));
 		}
 
 		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
@@ -47,6 +59,8 @@ namespace UnrealBuildTool
 			Writer.Write(SourceDirectories.ToArray(), x => Writer.Write(x));
 			Writer.Write(WorkingSet.ToList(), UniqueFileItemToIndex);
 			Writer.Write(CandidatesForWorkingSet.ToList(), UniqueFileItemToIndex);
+			Writer.Write(AdditionalDependencies.ToList(), UniqueFileItemToIndex);
+			Writer.Write(UObjectModuleHeaders, x => x.Write(Writer, UniqueFileItemToIndex));
 		}
 	}
 }
