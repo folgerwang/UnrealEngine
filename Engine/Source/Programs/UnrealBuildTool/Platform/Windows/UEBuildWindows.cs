@@ -1421,11 +1421,6 @@ namespace UnrealBuildTool
 			return new string [] {};
 		}
 
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
-		}
-
 		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
 			if (Platform == UnrealTargetPlatform.Win32)

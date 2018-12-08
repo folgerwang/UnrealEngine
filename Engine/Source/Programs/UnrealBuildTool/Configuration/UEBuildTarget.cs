@@ -392,13 +392,6 @@ namespace UnrealBuildTool
 				RulesObject.bDisableLinking = true;
 			}
 
-			// Disable the DDC and a few other things related to preparing assets
-			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
-			if (BuildPlatform.BuildRequiresCookedData(Desc.Platform, Desc.Configuration) == true)
-			{
-				RulesObject.bBuildRequiresCookedData = true;
-			}
-
 			if (!RulesObject.bAllowNonUFSIniWhenCooked)
 			{
 				RulesObject.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");

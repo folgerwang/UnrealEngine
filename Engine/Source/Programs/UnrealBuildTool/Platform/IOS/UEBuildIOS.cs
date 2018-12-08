@@ -828,11 +828,6 @@ namespace UnrealBuildTool
 			return HasCustomIcons(ProjectDirectoryName);
 		}
 
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return true; // for iOS can only run cooked. this is mostly for testing console code paths.
-		}
-
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
