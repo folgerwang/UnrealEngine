@@ -750,7 +750,7 @@ namespace UnrealBuildTool
 					Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 					Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules = new Dictionary<string, List<UHTModuleInfo>>(StringComparer.InvariantCultureIgnoreCase);
 					HashSet<string> HotReloadModuleNamesForAllTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-					List<BuildPredicateStore> TargetBuildPredicates = new List<BuildPredicateStore>();
+					List<BuildPrerequisites> TargetPrerequisites = new List<BuildPrerequisites>();
 					foreach (UEBuildTarget Target in Targets)
 					{
 						// Create the header cache for this target
@@ -804,9 +804,9 @@ namespace UnrealBuildTool
 							List<FileItem> TargetOutputItems = new List<FileItem>();
 							List<UHTModuleInfo> TargetUObjectModules = new List<UHTModuleInfo>();
 							Dictionary<string, FileItem[]> TargetModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
-							BuildPredicateStore Predicates = new BuildPredicateStore();
+							BuildPrerequisites Prerequisites = new BuildPrerequisites();
 
-							BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, Predicates, bIsAssemblingBuild);
+							BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, Prerequisites, bIsAssemblingBuild);
 							
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
@@ -822,7 +822,7 @@ namespace UnrealBuildTool
 
 							OutputItemsForAllTargets.AddRange(TargetOutputItems);
 
-							TargetBuildPredicates.Add(Predicates);
+							TargetPrerequisites.Add(Prerequisites);
 
 							// Update mapping of the target name to the list of UObject modules in this target
 							TargetNameToUObjectModules[Target.GetTargetName()] = TargetUObjectModules;
@@ -868,7 +868,7 @@ namespace UnrealBuildTool
 							Makefile.HotReloadModuleNamesForAllTargets = HotReloadModuleNamesForAllTargets;
 							Makefile.Targets = Targets;
 							Makefile.bUseAdaptiveUnityBuild = Targets.Any(x => x.Rules.bUseAdaptiveUnityBuild);
-							Makefile.TargetBuildPredicates = TargetBuildPredicates;
+							Makefile.TargetPrerequisites = TargetPrerequisites;
 
 							if (BuildConfiguration.bUseUBTMakefiles)
 							{

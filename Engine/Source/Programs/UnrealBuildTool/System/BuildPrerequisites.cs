@@ -13,8 +13,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Contains predicates required for the action graph generated for a build to be valid. Unlike individual actions within the graph, these conditions must hold for the graph itself to be valid.
 	/// </summary>
-	[Serializable]
-	class BuildPredicateStore
+	class BuildPrerequisites
 	{
 		/// <summary>
 		/// Set of all source directories. Any files being added or removed from these directories will invalidate the makefile.
@@ -41,11 +40,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		public List<UHTModuleHeaderInfo> UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
 
-		public BuildPredicateStore()
+		public BuildPrerequisites()
 		{
 		}
 
-		public BuildPredicateStore(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		public BuildPrerequisites(BinaryReader Reader, List<FileItem> UniqueFileItems)
 		{
 			SourceDirectories = new HashSet<DirectoryReference>(Reader.ReadArray(() => Reader.ReadDirectoryReference()));
 			WorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));

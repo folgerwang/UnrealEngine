@@ -66,7 +66,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of predicates for the action graph to be valid.
 		/// </summary>
-		public List<BuildPredicateStore> TargetBuildPredicates;
+		public List<BuildPrerequisites> TargetPrerequisites;
 
 		public UBTMakefile()
 		{
@@ -95,7 +95,7 @@ namespace UnrealBuildTool
 			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem(UniqueFileItems)));
 			HotReloadModuleNamesForAllTargets = new HashSet<string>(Reader.ReadStringArray());
 			Targets = Reader.ReadList(() => new UEBuildTarget(Reader));
-			TargetBuildPredicates = Reader.ReadList(() => new BuildPredicateStore(Reader, UniqueFileItems));
+			TargetPrerequisites = Reader.ReadList(() => new BuildPrerequisites(Reader, UniqueFileItems));
 			bUseAdaptiveUnityBuild = Reader.ReadBoolean();
 		}
 
@@ -115,7 +115,7 @@ namespace UnrealBuildTool
 			Writer.Write(ModuleNameToOutputItems, k => Writer.Write(k), v => Writer.Write(v, e => Writer.Write(e, UniqueFileItemToIndex)));
 			Writer.Write(HotReloadModuleNamesForAllTargets.ToArray(), x => Writer.Write(x));
 			Writer.Write(Targets, x => x.Write(Writer));
-			Writer.Write(TargetBuildPredicates, x => x.Write(Writer, UniqueFileItemToIndex));
+			Writer.Write(TargetPrerequisites, x => x.Write(Writer, UniqueFileItemToIndex));
 			Writer.Write(bUseAdaptiveUnityBuild);
 			Writer.Flush();
 
@@ -144,7 +144,7 @@ namespace UnrealBuildTool
 				ModuleNameToOutputItems != null && 
 				HotReloadModuleNamesForAllTargets != null &&
 				Targets != null && Targets.Count > 0 &&
-				TargetBuildPredicates != null;
+				TargetPrerequisites != null;
 		}
 
 
@@ -340,9 +340,9 @@ namespace UnrealBuildTool
 				}
 			}
 
-			foreach (BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
+			foreach (BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
 			{
-				foreach(DirectoryReference SourceDirectory in Predicates.SourceDirectories)
+				foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
 				{
 					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
 					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
@@ -353,7 +353,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach(FileItem AdditionalDependency in Predicates.AdditionalDependencies)
+				foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
 				{
 					if (!AdditionalDependency.bExists)
 					{
@@ -376,14 +376,14 @@ namespace UnrealBuildTool
 				// Get all H files in processed modules newer than the makefile itself
 				HashSet<FileReference> HFilesNewerThanMakefile =
 					new HashSet<FileReference>(
-						Predicates.UObjectModuleHeaders
+						Prerequisites.UObjectModuleHeaders
 						.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
 						.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
 						.OrderBy(z => z).Distinct()
 					);
 
 				// Get all H files in all modules processed in the last makefile build
-				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Predicates.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
+				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
 
 				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
 				// and the file has been moved to a different module, we may include stale generated headers.
@@ -420,10 +420,10 @@ namespace UnrealBuildTool
 			// iteration times.)
 			if (LoadedUBTMakefile.bUseAdaptiveUnityBuild)
 			{
-				foreach(BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
+				foreach(BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
 				{
 					// Check if any source files in the working set no longer belong in it
-					foreach (FileItem SourceFile in Predicates.WorkingSet)
+					foreach (FileItem SourceFile in Prerequisites.WorkingSet)
 					{
 						if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 						{
@@ -434,7 +434,7 @@ namespace UnrealBuildTool
 					}
 
 					// Check if any source files that are eligible for being in the working set have been modified
-					foreach (FileItem SourceFile in Predicates.CandidatesForWorkingSet)
+					foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
 					{
 						if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 						{
