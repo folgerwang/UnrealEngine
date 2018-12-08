@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,5 +30,23 @@ namespace UnrealBuildTool
 		/// Set of files which are currently not part of the working set, but could be.
 		/// </summary>
 		public HashSet<FileItem> CandidatesForWorkingSet = new HashSet<FileItem>();
+
+		public BuildPredicateStore()
+		{
+		}
+
+		public BuildPredicateStore(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		{
+			SourceDirectories = new HashSet<DirectoryReference>(Reader.ReadArray(() => Reader.ReadDirectoryReference()));
+			WorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
+			CandidatesForWorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
+		}
+
+		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		{
+			Writer.Write(SourceDirectories.ToArray(), x => Writer.Write(x));
+			Writer.Write(WorkingSet.ToList(), UniqueFileItemToIndex);
+			Writer.Write(CandidatesForWorkingSet.ToList(), UniqueFileItemToIndex);
+		}
 	}
 }

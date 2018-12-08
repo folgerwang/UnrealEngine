@@ -143,8 +143,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Information about a module that needs to be passed to UnrealHeaderTool for code generation
 	/// </summary>
-	[Serializable]
-	class UHTModuleInfo : ISerializable
+	class UHTModuleInfo
 	{
 		/// <summary>
 		/// Module name
@@ -209,32 +208,32 @@ namespace UnrealBuildTool
 			this.bIsReadOnly = bIsReadOnly;
 		}
 
-		public UHTModuleInfo(SerializationInfo Info, StreamingContext Context)
+		public UHTModuleInfo(BinaryReader Reader, List<FileItem> UniqueFileItems)
 		{
-			ModuleName = Info.GetString("mn");
-			ModuleRulesFile = (FileReference)Info.GetValue("mr", typeof(FileReference));
-			ModuleDirectory = (DirectoryReference)Info.GetValue("md", typeof(DirectoryReference));
-			ModuleType = Info.GetString("mt");
-			PublicUObjectClassesHeaders = (List<FileItem>)Info.GetValue("cl", typeof(List<FileItem>));
-			PublicUObjectHeaders = (List<FileItem>)Info.GetValue("pu", typeof(List<FileItem>));
-			PrivateUObjectHeaders = (List<FileItem>)Info.GetValue("pr", typeof(List<FileItem>));
-			GeneratedCPPFilenameBase = Info.GetString("ge");
-			GeneratedCodeVersion = (EGeneratedCodeVersion)Info.GetInt32("gv");
-			bIsReadOnly = Info.GetBoolean("ro");
+			ModuleName = Reader.ReadString();
+			ModuleRulesFile = Reader.ReadFileReference();
+			ModuleDirectory = Reader.ReadDirectoryReference();
+			ModuleType = Reader.ReadString();
+			PublicUObjectClassesHeaders = Reader.ReadFileItemList(UniqueFileItems);
+			PublicUObjectHeaders = Reader.ReadFileItemList(UniqueFileItems);
+			PrivateUObjectHeaders = Reader.ReadFileItemList(UniqueFileItems);
+			GeneratedCPPFilenameBase = Reader.ReadString();
+			GeneratedCodeVersion = (EGeneratedCodeVersion)Reader.ReadInt32();
+			bIsReadOnly = Reader.ReadBoolean();
 		}
 
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
+		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
 		{
-			Info.AddValue("mn", ModuleName);
-			Info.AddValue("mr", ModuleRulesFile);
-			Info.AddValue("md", ModuleDirectory);
-			Info.AddValue("mt", ModuleType);
-			Info.AddValue("cl", PublicUObjectClassesHeaders);
-			Info.AddValue("pu", PublicUObjectHeaders);
-			Info.AddValue("pr", PrivateUObjectHeaders);
-			Info.AddValue("ge", GeneratedCPPFilenameBase);
-			Info.AddValue("gv", (int)GeneratedCodeVersion);
-			Info.AddValue("ro", bIsReadOnly);
+			Writer.Write(ModuleName);
+			Writer.Write(ModuleRulesFile);
+			Writer.Write(ModuleDirectory);
+			Writer.Write(ModuleType);
+			Writer.Write(PublicUObjectClassesHeaders, UniqueFileItemToIndex);
+			Writer.Write(PublicUObjectHeaders, UniqueFileItemToIndex);
+			Writer.Write(PrivateUObjectHeaders, UniqueFileItemToIndex);
+			Writer.Write(GeneratedCPPFilenameBase);
+			Writer.Write((int)GeneratedCodeVersion);
+			Writer.Write(bIsReadOnly);
 		}
 
 		public override string ToString()

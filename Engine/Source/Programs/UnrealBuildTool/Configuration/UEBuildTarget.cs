@@ -253,25 +253,24 @@ namespace UnrealBuildTool
 		}
 	}
 
-	[Serializable]
-	class FlatModuleCsDataType : ISerializable
+	class FlatModuleCsDataType
 	{
-		public FlatModuleCsDataType(SerializationInfo Info, StreamingContext Context)
+		public FlatModuleCsDataType(BinaryReader Reader)
 		{
-			ModuleName = Info.GetString("mn");
-			BuildCsFilename = Info.GetString("bf");
-			ModuleSourceFolder = (DirectoryReference)Info.GetValue("mf", typeof(DirectoryReference));
-			ExternalDependencies = (List<string>)Info.GetValue("ed", typeof(List<string>));
-			UHTHeaderNames = (List<string>)Info.GetValue("hn", typeof(List<string>));
+			ModuleName = Reader.ReadString();
+			BuildCsFilename = Reader.ReadString();
+			ModuleSourceFolder = Reader.ReadDirectoryReference();
+			ExternalDependencies = Reader.ReadStringList();
+			UHTHeaderNames = Reader.ReadStringList();
 		}
 
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
+		public void Write(BinaryWriter Writer)
 		{
-			Info.AddValue("mn", ModuleName);
-			Info.AddValue("bf", BuildCsFilename);
-			Info.AddValue("mf", ModuleSourceFolder);
-			Info.AddValue("ed", ExternalDependencies);
-			Info.AddValue("hn", UHTHeaderNames);
+			Writer.Write(ModuleName);
+			Writer.Write(BuildCsFilename);
+			Writer.Write(ModuleSourceFolder);
+			Writer.Write(ExternalDependencies);
+			Writer.Write(UHTHeaderNames);
 		}
 
 		public FlatModuleCsDataType(string InModuleName, string InBuildCsFilename, IEnumerable<string> InExternalDependencies)
@@ -291,8 +290,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// A target that can be built
 	/// </summary>
-	[Serializable]
-	class UEBuildTarget : ISerializable
+	class UEBuildTarget
 	{
 		public string GetAppName()
 		{
@@ -743,58 +741,58 @@ namespace UnrealBuildTool
 			return bCompileMonolithic;	// @todo ubtmake: We need to make sure this function and similar things aren't called in assembler mode
 		}
 
-		public UEBuildTarget(SerializationInfo Info, StreamingContext Context)
+		public UEBuildTarget(BinaryReader Reader)
 		{
-			TargetType = (TargetType)Info.GetInt32("tt");
-			ProjectFile = (FileReference)Info.GetValue("pf", typeof(FileReference));
-			AppName = Info.GetString("an");
-			TargetName = Info.GetString("tn");
-			bUseSharedBuildEnvironment = Info.GetBoolean("sb");
-			Platform = (UnrealTargetPlatform)Info.GetInt32("pl");
-			Configuration = (UnrealTargetConfiguration)Info.GetInt32("co");
-			Architecture = Info.GetString("ar");
-			PlatformIntermediateFolder = Info.GetString("if");
-			ProjectDirectory = (DirectoryReference)Info.GetValue("pd", typeof(DirectoryReference));
-			ProjectIntermediateDirectory = (DirectoryReference)Info.GetValue("pi", typeof(DirectoryReference));
-			EngineIntermediateDirectory = (DirectoryReference)Info.GetValue("ed", typeof(DirectoryReference));
-			OutputPaths = (List<FileReference>)Info.GetValue("op", typeof(List<FileReference>));
-			VersionFile = (FileReference)Info.GetValue("vf", typeof(FileReference));
-			bPrecompile = Info.GetBoolean("pc");
-			bCompileMonolithic = Info.GetBoolean("cm");
-			FlatModuleCsData = (List<FlatModuleCsDataType>)Info.GetValue("fm", typeof(List<FlatModuleCsDataType>));
-			ReceiptFileName = (FileReference)Info.GetValue("rf", typeof(FileReference));
-			TargetRulesFile = (FileReference)Info.GetValue("tc", typeof(FileReference));
-			PreBuildStepScripts = (FileReference[])Info.GetValue("pr", typeof(FileReference[]));
-			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
-			bDeployAfterCompile = Info.GetBoolean("dt");
-			bHasProjectScriptPlugin = Info.GetBoolean("sp");
+			TargetType = (TargetType)Reader.ReadInt32();
+			ProjectFile = Reader.ReadFileReference();
+			AppName = Reader.ReadString();
+			TargetName = Reader.ReadString();
+			bUseSharedBuildEnvironment = Reader.ReadBoolean();
+			Platform = (UnrealTargetPlatform)Reader.ReadInt32();
+			Configuration = (UnrealTargetConfiguration)Reader.ReadInt32();
+			Architecture = Reader.ReadString();
+			PlatformIntermediateFolder = Reader.ReadString();
+			ProjectDirectory = Reader.ReadDirectoryReference();
+			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
+			EngineIntermediateDirectory = Reader.ReadDirectoryReference();
+			OutputPaths = Reader.ReadList(() => Reader.ReadFileReference());
+			VersionFile = Reader.ReadFileReference();
+			bPrecompile = Reader.ReadBoolean();
+			bCompileMonolithic = Reader.ReadBoolean();
+			FlatModuleCsData = Reader.ReadList(() => new FlatModuleCsDataType(Reader));
+			ReceiptFileName = Reader.ReadFileReference();
+			TargetRulesFile = Reader.ReadFileReference();
+			PreBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
+			PostBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
+			bDeployAfterCompile = Reader.ReadBoolean();
+			bHasProjectScriptPlugin = Reader.ReadBoolean();
 		}
 
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
+		public void Write(BinaryWriter Writer)
 		{
-			Info.AddValue("tt", (int)TargetType);
-			Info.AddValue("pf", ProjectFile);
-			Info.AddValue("an", AppName);
-			Info.AddValue("tn", TargetName);
-			Info.AddValue("sb", bUseSharedBuildEnvironment);
-			Info.AddValue("pl", (int)Platform);
-			Info.AddValue("co", (int)Configuration);
-			Info.AddValue("ar", Architecture);
-			Info.AddValue("if", PlatformIntermediateFolder);
-			Info.AddValue("pd", ProjectDirectory);
-			Info.AddValue("pi", ProjectIntermediateDirectory);
-			Info.AddValue("ed", EngineIntermediateDirectory);
-			Info.AddValue("op", OutputPaths);
-			Info.AddValue("vf", VersionFile);
-			Info.AddValue("pc", bPrecompile);
-			Info.AddValue("cm", bCompileMonolithic);
-			Info.AddValue("fm", FlatModuleCsData);
-			Info.AddValue("rf", ReceiptFileName);
-			Info.AddValue("tc", TargetRulesFile);
-			Info.AddValue("pr", PreBuildStepScripts);
-			Info.AddValue("po", PostBuildStepScripts);
-			Info.AddValue("dt", bDeployAfterCompile);
-			Info.AddValue("sp", bHasProjectScriptPlugin);
+			Writer.Write((int)TargetType);
+			Writer.Write(ProjectFile);
+			Writer.Write(AppName);
+			Writer.Write(TargetName);
+			Writer.Write(bUseSharedBuildEnvironment);
+			Writer.Write((int)Platform);
+			Writer.Write((int)Configuration);
+			Writer.Write(Architecture);
+			Writer.Write(PlatformIntermediateFolder);
+			Writer.Write(ProjectDirectory);
+			Writer.Write(ProjectIntermediateDirectory);
+			Writer.Write(EngineIntermediateDirectory);
+			Writer.Write(OutputPaths, OutputPath => Writer.Write(OutputPath));
+			Writer.Write(VersionFile);
+			Writer.Write(bPrecompile);
+			Writer.Write(bCompileMonolithic);
+			Writer.Write(FlatModuleCsData, x => x.Write(Writer));
+			Writer.Write(ReceiptFileName);
+			Writer.Write(TargetRulesFile);
+			Writer.Write(PreBuildStepScripts, x => Writer.Write(x));
+			Writer.Write(PostBuildStepScripts, x => Writer.Write(x));
+			Writer.Write(bDeployAfterCompile);
+			Writer.Write(bHasProjectScriptPlugin);
 		}
 
 		/// <summary>

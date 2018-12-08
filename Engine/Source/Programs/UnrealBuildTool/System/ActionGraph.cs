@@ -33,8 +33,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// A build action.
 	/// </summary>
-	[Serializable]
-	class Action : ISerializable
+	class Action
 	{
 		///
 		/// Preparation and Assembly (serialized)
@@ -158,47 +157,47 @@ namespace UnrealBuildTool
 			ActionType = InActionType;
 		}
 
-		public Action(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
+		public Action(BinaryReader Reader, List<FileItem> UniqueFileItems)
 		{
-			ActionType = (ActionType)SerializationInfo.GetByte("at");
-			WorkingDirectory = SerializationInfo.GetString("wd");
-			bPrintDebugInfo = SerializationInfo.GetBoolean("di");
-			CommandPath = SerializationInfo.GetString("cp");
-			CommandArguments = SerializationInfo.GetString("ca");
-			CommandDescription = SerializationInfo.GetString("cd");
-			StatusDescription = SerializationInfo.GetString("sd");
-			bCanExecuteRemotely = SerializationInfo.GetBoolean("ce");
-			bCanExecuteRemotelyWithSNDBS = SerializationInfo.GetBoolean("cs");
-			bIsGCCCompiler = SerializationInfo.GetBoolean("ig");
-			bIsUsingPCH = SerializationInfo.GetBoolean("iu");
-			bShouldOutputStatusDescription = SerializationInfo.GetBoolean("os");
-			bProducesImportLibrary = SerializationInfo.GetBoolean("il");
-			PrerequisiteItems = (List<FileItem>)SerializationInfo.GetValue("pr", typeof(List<FileItem>));
-			ProducedItems = (List<FileItem>)SerializationInfo.GetValue("pd", typeof(List<FileItem>));
-			DeleteItems = (List<FileItem>)SerializationInfo.GetValue("df", typeof(List<FileItem>));
+			ActionType = (ActionType)Reader.ReadByte();
+			WorkingDirectory = Reader.ReadString();
+			bPrintDebugInfo = Reader.ReadBoolean();
+			CommandPath = Reader.ReadString();
+			CommandArguments = Reader.ReadString();
+			CommandDescription = Reader.ReadNullable(() => Reader.ReadString());
+			StatusDescription = Reader.ReadString();
+			bCanExecuteRemotely = Reader.ReadBoolean();
+			bCanExecuteRemotelyWithSNDBS = Reader.ReadBoolean();
+			bIsGCCCompiler = Reader.ReadBoolean();
+			bIsUsingPCH = Reader.ReadBoolean();
+			bShouldOutputStatusDescription = Reader.ReadBoolean();
+			bProducesImportLibrary = Reader.ReadBoolean();
+			PrerequisiteItems = Reader.ReadFileItemList(UniqueFileItems);
+			ProducedItems = Reader.ReadFileItemList(UniqueFileItems);
+			DeleteItems = Reader.ReadFileItemList(UniqueFileItems);
 		}
 
 		/// <summary>
 		/// ISerializable: Called when serialized to report additional properties that should be saved
 		/// </summary>
-		public void GetObjectData(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
+		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
 		{
-			SerializationInfo.AddValue("at", (byte)ActionType);
-			SerializationInfo.AddValue("wd", WorkingDirectory);
-			SerializationInfo.AddValue("di", bPrintDebugInfo);
-			SerializationInfo.AddValue("cp", CommandPath);
-			SerializationInfo.AddValue("ca", CommandArguments);
-			SerializationInfo.AddValue("cd", CommandDescription);
-			SerializationInfo.AddValue("sd", StatusDescription);
-			SerializationInfo.AddValue("ce", bCanExecuteRemotely);
-			SerializationInfo.AddValue("cs", bCanExecuteRemotelyWithSNDBS);
-			SerializationInfo.AddValue("ig", bIsGCCCompiler);
-			SerializationInfo.AddValue("iu", bIsUsingPCH);
-			SerializationInfo.AddValue("os", bShouldOutputStatusDescription);
-			SerializationInfo.AddValue("il", bProducesImportLibrary);
-			SerializationInfo.AddValue("pr", PrerequisiteItems);
-			SerializationInfo.AddValue("pd", ProducedItems);
-			SerializationInfo.AddValue("df", DeleteItems);
+			Writer.Write((byte)ActionType);
+			Writer.Write(WorkingDirectory);
+			Writer.Write(bPrintDebugInfo);
+			Writer.Write(CommandPath);
+			Writer.Write(CommandArguments);
+			Writer.WriteNullable(CommandDescription, () => Writer.Write(CommandDescription));
+			Writer.Write(StatusDescription);
+			Writer.Write(bCanExecuteRemotely);
+			Writer.Write(bCanExecuteRemotelyWithSNDBS);
+			Writer.Write(bIsGCCCompiler);
+			Writer.Write(bIsUsingPCH);
+			Writer.Write(bShouldOutputStatusDescription);
+			Writer.Write(bProducesImportLibrary);
+			Writer.Write(PrerequisiteItems, UniqueFileItemToIndex);
+			Writer.Write(ProducedItems, UniqueFileItemToIndex);
+			Writer.Write(DeleteItems, UniqueFileItemToIndex);
 		}
 
 		/// <summary>

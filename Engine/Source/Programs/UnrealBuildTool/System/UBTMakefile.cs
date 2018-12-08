@@ -15,18 +15,12 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// A special Makefile that UBT is able to create in "-gather" mode, then load in "-assemble" mode to accelerate iterative compiling and linking
 	/// </summary>
-	[Serializable]
-	class UBTMakefile : ISerializable
+	class UBTMakefile
 	{
 		/// <summary>
 		/// The version number to write
 		/// </summary>
 		public const int CurrentVersion = 8;
-
-		/// <summary>
-		/// The version number that was read
-		/// </summary>
-		public int Version;
 
 		/// <summary>
 		/// Every action in the action graph
@@ -76,41 +70,66 @@ namespace UnrealBuildTool
 
 		public UBTMakefile()
 		{
-			Version = CurrentVersion;
 		}
 
-		public UBTMakefile(SerializationInfo Info, StreamingContext Context)
+		public UBTMakefile(BinaryReader Reader)
 		{
-			Version = Info.GetInt32("ve");
-			if (Version != CurrentVersion)
+			int Version = Reader.ReadInt32();
+			if(Version != CurrentVersion)
 			{
 				throw new Exception(string.Format("Makefile version does not match - found {0}, expected: {1}", Version, CurrentVersion));
 			}
 
-			AllActions = (List<Action>)Info.GetValue("ac", typeof(List<Action>));
-			EnvironmentVariables = ((string[])Info.GetValue("e1", typeof(string[]))).Zip((string[])Info.GetValue("e2", typeof(string[])), (i1, i2) => new Tuple<string, string>(i1, i2)).ToList();
-			TargetNameToUObjectModules = (Dictionary<string, List<UHTModuleInfo>>)Info.GetValue("nu", typeof(Dictionary<string, List<UHTModuleInfo>>));
-			OutputItemsForAllTargets = (List<FileItem>)Info.GetValue("oi", typeof(List<FileItem>));
-			ModuleNameToOutputItems = (Dictionary<string, FileItem[]>)Info.GetValue("mn", typeof(Dictionary<string, FileItem[]>));
-			HotReloadModuleNamesForAllTargets = (HashSet<string>)Info.GetValue("gm", typeof(HashSet<string>));
-			Targets = (List<UEBuildTarget>)Info.GetValue("ta", typeof(List<UEBuildTarget>));
-			TargetBuildPredicates = (List<BuildPredicateStore>)Info.GetValue("tp", typeof(List<BuildPredicateStore>));
-			bUseAdaptiveUnityBuild = Info.GetBoolean("ua");
+			long Offset = Reader.ReadInt64();
+			long OriginalOffset = Reader.BaseStream.Position;
+
+			Reader.BaseStream.Seek(Offset, SeekOrigin.Begin);
+			List<FileReference> UniqueFileReferences = Reader.ReadList(() => Reader.ReadFileReference());
+			List<FileItem> UniqueFileItems = UniqueFileReferences.Select(x => FileItem.GetItemByFileReference(x)).ToList();
+			Reader.BaseStream.Seek(OriginalOffset, SeekOrigin.Begin);
+
+			AllActions = Reader.ReadList(() => new Action(Reader, UniqueFileItems));
+			EnvironmentVariables = Reader.ReadList(() => Tuple.Create(Reader.ReadString(), Reader.ReadString()));
+			TargetNameToUObjectModules = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadList(() => new UHTModuleInfo(Reader, UniqueFileItems)));
+			OutputItemsForAllTargets = Reader.ReadFileItemList(UniqueFileItems);
+			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem(UniqueFileItems)));
+			HotReloadModuleNamesForAllTargets = new HashSet<string>(Reader.ReadStringArray());
+			Targets = Reader.ReadList(() => new UEBuildTarget(Reader));
+			TargetBuildPredicates = Reader.ReadList(() => new BuildPredicateStore(Reader, UniqueFileItems));
+			bUseAdaptiveUnityBuild = Reader.ReadBoolean();
 		}
 
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
+
+		public void Write(BinaryWriter Writer)
 		{
-			Info.AddValue("ve", Version);
-			Info.AddValue("ac", AllActions);
-			Info.AddValue("e1", EnvironmentVariables.Select(x => x.Item1).ToArray());
-			Info.AddValue("e2", EnvironmentVariables.Select(x => x.Item2).ToArray());
-			Info.AddValue("nu", TargetNameToUObjectModules);
-			Info.AddValue("oi", OutputItemsForAllTargets);
-			Info.AddValue("mn", ModuleNameToOutputItems);
-			Info.AddValue("gm", HotReloadModuleNamesForAllTargets);
-			Info.AddValue("ta", Targets);
-			Info.AddValue("tp", TargetBuildPredicates);
-			Info.AddValue("ua", bUseAdaptiveUnityBuild);
+			Writer.Write(CurrentVersion);
+
+			long Offset = Writer.BaseStream.Position;
+			Writer.Write((Int64)0);
+			Dictionary<FileItem, int> UniqueFileItemToIndex = new Dictionary<FileItem, int>();
+
+			Writer.Write(AllActions, x => x.Write(Writer, UniqueFileItemToIndex));
+			Writer.Write(EnvironmentVariables, x => { Writer.Write(x.Item1); Writer.Write(x.Item2); });
+			Writer.Write(TargetNameToUObjectModules, x => Writer.Write(x), v => Writer.Write(v, e => e.Write(Writer, UniqueFileItemToIndex)));
+			Writer.Write(OutputItemsForAllTargets, UniqueFileItemToIndex);
+			Writer.Write(ModuleNameToOutputItems, k => Writer.Write(k), v => Writer.Write(v, e => Writer.Write(e, UniqueFileItemToIndex)));
+			Writer.Write(HotReloadModuleNamesForAllTargets.ToArray(), x => Writer.Write(x));
+			Writer.Write(Targets, x => x.Write(Writer));
+			Writer.Write(TargetBuildPredicates, x => x.Write(Writer, UniqueFileItemToIndex));
+			Writer.Write(bUseAdaptiveUnityBuild);
+			Writer.Flush();
+
+			long FileItemTableOffset = Writer.BaseStream.Position;
+			FileReference[] UniqueFileReferences = new FileReference[UniqueFileItemToIndex.Count];
+			foreach(KeyValuePair<FileItem, int> Pair in UniqueFileItemToIndex)
+			{
+				UniqueFileReferences[Pair.Value] = Pair.Key.Location;
+			}
+			Writer.Write(UniqueFileReferences, x => Writer.Write(x));
+
+			Writer.BaseStream.Seek(Offset, SeekOrigin.Begin);
+			Writer.Write(FileItemTableOffset);
+			Writer.Flush();
 		}
 
 
@@ -152,8 +171,10 @@ namespace UnrealBuildTool
 				Directory.CreateDirectory(Path.GetDirectoryName(UBTMakefileItem.AbsolutePath));
 				using (FileStream Stream = new FileStream(UBTMakefileItem.AbsolutePath, FileMode.Create, FileAccess.Write))
 				{
-					BinaryFormatter Formatter = new BinaryFormatter();
-					Formatter.Serialize(Stream, UBTMakefile);
+					using(BinaryWriter Writer = new BinaryWriter(Stream, Encoding.UTF8, true))
+					{
+						UBTMakefile.Write(Writer);
+					}
 				}
 			}
 			catch (Exception Ex)
@@ -271,8 +292,16 @@ namespace UnrealBuildTool
 				{
 					using (FileStream Stream = new FileStream(UBTMakefileInfo.FullName, FileMode.Open, FileAccess.Read))
 					{
-						BinaryFormatter Formatter = new BinaryFormatter();
-						LoadedUBTMakefile = Formatter.Deserialize(Stream) as UBTMakefile;
+						byte[] Data = new byte[Stream.Length];
+						if(Stream.Read(Data, 0, Data.Length) != Data.Length)
+						{
+							throw new Exception("Error");
+						}
+
+						Timeline.AddEvent("AFTER READ");
+
+						BinaryReader Reader = new BinaryReader(new MemoryStream(Data));
+						LoadedUBTMakefile = new UBTMakefile(Reader);
 					}
 				}
 			}

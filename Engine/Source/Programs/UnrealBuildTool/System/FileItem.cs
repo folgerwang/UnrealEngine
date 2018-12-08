@@ -425,4 +425,62 @@ namespace UnrealBuildTool
 		}
 	}
 
+	static class FileItemExtensionMethods
+	{
+		public static FileItem ReadFileItem(this BinaryReader Reader, List<FileItem> UniqueFileItems)
+		{
+			int Idx = Reader.ReadInt32();
+			if (Idx == -1)
+			{
+				return null;
+			}
+			else
+			{
+				return UniqueFileItems[Idx];
+			}
+		}
+
+		public static List<FileItem> ReadFileItemList(this BinaryReader Reader, List<FileItem> UniqueFileItems)
+		{
+			int Length = Reader.ReadInt32();
+			if(Length == -1)
+			{
+				return null;
+			}
+
+			List<FileItem> Items = new List<FileItem>(Length);
+			for(int Idx = 0; Idx < Length; Idx++)
+			{
+				Items.Add(ReadFileItem(Reader, UniqueFileItems));
+			}
+			return Items;
+		}
+
+		public static void Write(this BinaryWriter Writer, FileItem FileItem, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		{
+			int Index = -1;
+			if (FileItem != null && !UniqueFileItemToIndex.TryGetValue(FileItem, out Index))
+			{
+				Index = UniqueFileItemToIndex.Count;
+				UniqueFileItemToIndex.Add(FileItem, Index);
+			}
+			Writer.Write(Index);
+		}
+
+		public static void Write(this BinaryWriter Writer, List<FileItem> FileItems, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		{
+			if(FileItems == null)
+			{
+				Writer.Write(-1);
+			}
+			else
+			{
+				Writer.Write(FileItems.Count);
+				for(int Idx = 0; Idx < FileItems.Count; Idx++)
+				{
+					Write(Writer, FileItems[Idx], UniqueFileItemToIndex);
+				}
+			}
+		}
+	}
 }
