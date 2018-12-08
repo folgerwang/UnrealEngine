@@ -907,7 +907,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Type">The target type</param>
 		/// <returns>The app name for this target type</returns>
-		static string GetAppNameForTargetType(TargetType Type)
+		public static string GetAppNameForTargetType(TargetType Type)
 		{
 			switch(Type)
 			{
@@ -922,139 +922,6 @@ namespace UnrealBuildTool
 				default:
 					throw new BuildException("Invalid target type ({0})", (int)Type);
 			}
-		}
-
-		/// <summary>
-		/// Cleans build products and intermediates for the target. This deletes files which are named consistently with the target being built
-		/// (e.g. UE4Editor-Foo-Win64-Debug.dll) rather than an actual record of previous build products.
-		/// </summary>
-		/// <param name="bIncludeUnrealHeaderTool">Whether to clean UnrealHeaderTool as well</param>
-		/// <returns>Whether the clean succeeded</returns>
-		public ECompilationResult Clean(bool bIncludeUnrealHeaderTool)
-		{
-			// Find the base folders that can contain binaries
-			List<DirectoryReference> BaseDirs = new List<DirectoryReference>();
-			BaseDirs.Add(UnrealBuildTool.EngineDirectory);
-			BaseDirs.Add(UnrealBuildTool.EnterpriseDirectory);
-			foreach (FileReference Plugin in Plugins.EnumeratePlugins(ProjectFile))
-			{
-				BaseDirs.Add(Plugin.Directory);
-			}
-			if (ProjectFile != null)
-			{
-				BaseDirs.Add(ProjectFile.Directory);
-			}
-
-			// If we're running a precompiled build, remove anything under the engine folder
-			BaseDirs.RemoveAll(x => RulesAssembly.IsReadOnly(x));
-
-			// Get all the names which can prefix build products
-			List<string> NamePrefixes = new List<string>();
-			if (Rules.Type != TargetType.Program)
-			{
-				NamePrefixes.Add(GetAppNameForTargetType(Rules.Type));
-			}
-			NamePrefixes.Add(TargetName);
-
-			// Get the suffixes for this configuration
-			List<string> NameSuffixes = new List<string>();
-			if (Configuration == Rules.UndecoratedConfiguration)
-			{
-				NameSuffixes.Add("");
-			}
-			NameSuffixes.Add(String.Format("-{0}-{1}", Platform.ToString(), Configuration.ToString()));
-			if (!String.IsNullOrEmpty(Architecture))
-			{
-				NameSuffixes.AddRange(NameSuffixes.ToArray().Select(x => x + Architecture));
-			}
-
-			// Add all the makefiles and caches to be deleted
-			List<FileReference> FilesToDelete = new List<FileReference>();
-			FilesToDelete.Add(FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(ProjectFile, TargetName, Platform, Architecture));
-			FilesToDelete.Add(DependencyCache.GetDependencyCachePathForTarget(ProjectFile, Platform, TargetName));
-			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, false));
-			FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(ProjectFile, Platform, Configuration, TargetName, true));
-			FilesToDelete.Add(ActionHistory.GeneratePathForTarget(ProjectFile, TargetName, Platform, Architecture, bUseSharedBuildEnvironment));
-
-			// Add all the intermediate folders to be deleted
-			List<DirectoryReference> DirectoriesToDelete = new List<DirectoryReference>();
-			foreach (DirectoryReference BaseDir in BaseDirs)
-			{
-				foreach (string NamePrefix in NamePrefixes)
-				{
-					DirectoryReference GeneratedCodeDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Build", Platform.ToString(), NamePrefix, "Inc");
-					if (DirectoryReference.Exists(GeneratedCodeDir))
-					{
-						DirectoriesToDelete.Add(GeneratedCodeDir);
-					}
-
-					DirectoryReference IntermediateDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Build", Platform.ToString(), NamePrefix, Configuration.ToString());
-					if (DirectoryReference.Exists(IntermediateDir))
-					{
-						DirectoriesToDelete.Add(IntermediateDir);
-					}
-				}
-			}
-
-			// Add all the build products from this target
-			string[] NamePrefixesArray = NamePrefixes.Distinct().ToArray();
-			string[] NameSuffixesArray = NameSuffixes.Distinct().ToArray();
-			foreach (DirectoryReference BaseDir in BaseDirs)
-			{
-				DirectoryReference BinariesDir = DirectoryReference.Combine(BaseDir, "Binaries", Platform.ToString());
-				if(DirectoryReference.Exists(BinariesDir))
-				{
-					UEBuildPlatform.GetBuildPlatform(Platform).FindBuildProductsToClean(BinariesDir, NamePrefixesArray, NameSuffixesArray, FilesToDelete, DirectoriesToDelete);
-				}
-			}
-
-			// Get all the additional intermediate folders created by this platform
-			List<FileReference> AdditionalFilesToDelete = new List<FileReference>();
-			List<DirectoryReference> AdditionalDirectoriesToDelete = new List<DirectoryReference>();
-			UEBuildPlatform.GetBuildPlatform(Platform).FindAdditionalBuildProductsToClean(Rules, AdditionalFilesToDelete, AdditionalDirectoriesToDelete);
-			FilesToDelete.AddRange(AdditionalFilesToDelete);
-			DirectoriesToDelete.AddRange(AdditionalDirectoriesToDelete);
-
-			// Delete all the directories, then all the files. By sorting the list of directories before we delete them, we avoid spamming the log if a parent directory is deleted first.
-			foreach (DirectoryReference DirectoryToDelete in DirectoriesToDelete.OrderBy(x => x.FullName))
-			{
-				if (DirectoryReference.Exists(DirectoryToDelete))
-				{
-					Log.TraceVerbose("    Deleting {0}{1}...", DirectoryToDelete, Path.DirectorySeparatorChar);
-					try
-					{
-						DirectoryReference.Delete(DirectoryToDelete, true);
-					}
-					catch (Exception Ex)
-					{
-						throw new BuildException(Ex, "Unable to delete {0} ({1})", DirectoryToDelete, Ex.Message.TrimEnd());
-					}
-				}
-			}
-
-			foreach (FileReference FileToDelete in FilesToDelete.OrderBy(x => x.FullName))
-			{
-				if (FileReference.Exists(FileToDelete))
-				{
-					Log.TraceVerbose("    Deleting " + FileToDelete);
-					try
-					{
-						FileReference.Delete(FileToDelete);
-					}
-					catch (Exception Ex)
-					{
-						throw new BuildException(Ex, "Unable to delete {0} ({1})", FileToDelete, Ex.Message.TrimEnd());
-					}
-				}
-			}
-
-			// Finally clean UnrealHeaderTool if this target uses CoreUObject modules and we're not cleaning UHT already and we want UHT to be cleaned.
-			if (bIncludeUnrealHeaderTool && !RulesAssembly.IsReadOnly(ExternalExecution.GetHeaderToolReceiptFile(ProjectFile, UnrealTargetConfiguration.Development, bHasProjectScriptPlugin)) && TargetName != "UnrealHeaderTool")
-			{
-				ExternalExecution.RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), String.Format("UnrealHeaderTool {0} {1} -NoMutex -Clean -IgnoreJunk -NoLog", BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development));
-			}
-
-			return ECompilationResult.Succeeded;
 		}
 
 		/// <summary>

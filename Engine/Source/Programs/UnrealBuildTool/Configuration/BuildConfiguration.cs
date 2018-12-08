@@ -155,12 +155,6 @@ namespace UnrealBuildTool
 		public bool bGenerateManifest = false;
 
 		/// <summary>
-		/// Whether to 'clean' the given project
-		/// </summary>
-		[CommandLine("-Clean")]
-		public bool bCleanProject = false;
-
-		/// <summary>
 		/// If true, force header regeneration. Intended for the build machine
 		/// </summary>
 		[CommandLine("-ForceHeaderGeneration")]

@@ -339,6 +339,7 @@ namespace UnrealBuildTool
 			/// The mode to execute
 			/// </summary>
 			[CommandLine]
+			[CommandLine("-Clean", Value="Clean")]
 			[CommandLine("-ProjectFiles", Value="GenerateProjectFiles")]
 			[CommandLine("-ProjectFileFormat=", Value="GenerateProjectFiles")]
 			[CommandLine("-Makefile", Value="GenerateProjectFiles")]
@@ -538,31 +539,28 @@ namespace UnrealBuildTool
 				}
 
 				// Handle remote builds
-				if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+				for(int Idx = 0; Idx < TargetDescs.Count; Idx++)
 				{
-					for(int Idx = 0; Idx < TargetDescs.Count; Idx++)
+					TargetDescriptor TargetDesc = TargetDescs[Idx];
+					if(RemoteMac.HandlesTargetPlatform(TargetDesc.Platform))
 					{
-						TargetDescriptor TargetDesc = TargetDescs[Idx];
-						if(TargetDesc.Platform == UnrealTargetPlatform.Mac || TargetDesc.Platform == UnrealTargetPlatform.IOS || TargetDesc.Platform == UnrealTargetPlatform.TVOS)
+						FileReference RemoteLogFile = null;
+						if(LogFile != null)
 						{
-							FileReference RemoteLogFile = null;
-							if(LogFile != null)
-							{
-								RemoteLogFile = FileReference.Combine(LogFile.Directory, LogFile.GetFileNameWithoutExtension() + "_Remote.txt");
-							}
-
-							RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
-							if(!RemoteMac.Build(TargetDesc, LogFile))
-							{
-								return ECompilationResult.Unknown;
-							}
-
-							TargetDescs.RemoveAt(Idx--);
+							RemoteLogFile = FileReference.Combine(LogFile.Directory, LogFile.GetFileNameWithoutExtension() + "_Remote.txt");
 						}
-					}
-					if(TargetDescs.Count == 0)
-					{
-						return ECompilationResult.Succeeded;
+
+						RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
+						if(!RemoteMac.Build(TargetDesc, LogFile))
+						{
+							return ECompilationResult.Unknown;
+						}
+
+						TargetDescs.RemoveAt(Idx--);
+						if(TargetDescs.Count == 0)
+						{
+							return ECompilationResult.Succeeded;
+						}
 					}
 				}
 
@@ -693,7 +691,7 @@ namespace UnrealBuildTool
 						FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(TargetDescs);
 
 						// Make sure the gather phase is executed if we're not actually building anything
-						if (BuildConfiguration.bGenerateManifest || BuildConfiguration.bCleanProject || BuildConfiguration.bXGEExport || GeneratingActionGraph)
+						if (BuildConfiguration.bGenerateManifest || BuildConfiguration.bXGEExport || GeneratingActionGraph)
 						{
 							bIsGatheringBuild = true;
 						}
@@ -742,10 +740,6 @@ namespace UnrealBuildTool
 							using(Timeline.ScopeEvent("UEBuildTarget.CreateTarget()"))
 							{
 								UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
-								if ((Target == null) && (BuildConfiguration.bCleanProject))
-								{
-									continue;
-								}
 								Targets.Add(Target);
 							}
 						}
@@ -794,7 +788,7 @@ namespace UnrealBuildTool
 								{
 									if (!bNeedsFullCPPIncludeRescan)
 									{
-										if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+										if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest)
 										{
 											bNeedsFullCPPIncludeRescan = true;
 											Log.TraceInformation("Performing full C++ include scan (no include cache file)");
@@ -811,14 +805,9 @@ namespace UnrealBuildTool
 							List<UHTModuleInfo> TargetUObjectModules = new List<UHTModuleInfo>();
 							Dictionary<string, FileItem[]> TargetModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 							BuildPredicateStore Predicates = new BuildPredicateStore();
-							if (BuildConfiguration.bCleanProject)
-							{
-								BuildResult = Target.Clean(!BuildConfiguration.bDoNotBuildUHT);
-							}
-							else
-							{
-								BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, Predicates, bIsAssemblingBuild);
-							}
+
+							BuildResult = Target.Build(BuildConfiguration, TargetToHeaders[Target], TargetOutputItems, TargetModuleNameToOutputItems, TargetUObjectModules, WorkingSet, ActionGraph, Predicates, bIsAssemblingBuild);
+							
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
 								break;
@@ -860,7 +849,7 @@ namespace UnrealBuildTool
 					if (BuildResult == ECompilationResult.Succeeded && !BuildConfiguration.bSkipBuild &&
 						(
 							(BuildConfiguration.bXGEExport && BuildConfiguration.bGenerateManifest) ||
-							(!GeneratingActionGraph && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject)
+							(!GeneratingActionGraph && !BuildConfiguration.bGenerateManifest)
 						))
 					{
 						if (bIsGatheringBuild)
@@ -944,11 +933,6 @@ namespace UnrealBuildTool
 							else if (HotReloadModuleNameToSuffix.Count > 0 && TargetDescs[0].ForeignPlugin == null)
 							{
 								HotReloadMode = HotReloadMode.FromEditor;
-							}
-
-							if (HotReloadMode != HotReloadMode.Disabled && BuildConfiguration.bCleanProject)
-							{
-								throw new BuildException("Unable to clean target while hot-reloading. Close the editor and try again.");
 							}
 						}
 						TargetDescriptor HotReloadTargetDesc = (HotReloadMode != HotReloadMode.Disabled) ? TargetDescs[0] : null;
@@ -1255,7 +1239,6 @@ namespace UnrealBuildTool
 							if (BuildResult.Succeeded()
 								&& BuildConfiguration.SingleFileToCompile == null
 								&& !BuildConfiguration.bGenerateManifest
-								&& !BuildConfiguration.bCleanProject
 								&& !BuildConfiguration.bXGEExport)
 							{
 								foreach (UEBuildTarget Target in Targets)
