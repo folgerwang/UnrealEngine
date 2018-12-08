@@ -524,6 +524,12 @@ namespace UnrealBuildTool
 			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(Rules.Platform);
 			Platform.ValidateTarget(Rules);
 
+			// Some platforms may *require* monolithic compilation...
+			if (Rules.LinkType != TargetLinkType.Monolithic && UEBuildPlatform.PlatformRequiresMonolithicBuilds(Rules.Platform, Rules.Configuration))
+			{
+				throw new BuildException(String.Format("{0} does not support modular builds", Rules.Platform));
+			}
+
 			return Rules;
 		}
 

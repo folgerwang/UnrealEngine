@@ -1402,6 +1402,37 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets a list of platforms that this target supports
+		/// </summary>
+		/// <returns>Array of platforms that the target supports</returns>
+		internal UnrealTargetPlatform[] GetSupportedPlatforms()
+		{
+			// Otherwise take the SupportedPlatformsAttribute from the first type in the inheritance chain that supports it
+			for (Type CurrentType = GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
+			{
+				object[] Attributes = GetType().GetCustomAttributes(typeof(SupportedPlatformsAttribute), false);
+				if (Attributes.Length > 0)
+				{
+					return Attributes.OfType<SupportedPlatformsAttribute>().SelectMany(x => x.Platforms).Distinct().ToArray();
+				}
+			}
+
+			// Otherwise, get the default for the target type
+			if (Type == TargetType.Program)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop);
+			}
+			else if (Type == TargetType.Editor)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Editor);
+			}
+			else
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.All);
+			}
+		}
+
+		/// <summary>
 		/// Finds all the subobjects which can be configured by command line options and config files
 		/// </summary>
 		/// <returns>Sequence of objects</returns>

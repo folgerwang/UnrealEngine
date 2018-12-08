@@ -771,7 +771,7 @@ namespace UnrealBuildTool
 							// Load the direct include dependency cache.
 							using(Timeline.ScopeEvent("DependencyCache.Create()"))
 							{
-								Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.GetTargetName()));
+								Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName));
 							}
 						}
 
@@ -825,7 +825,7 @@ namespace UnrealBuildTool
 							TargetPrerequisites.Add(Prerequisites);
 
 							// Update mapping of the target name to the list of UObject modules in this target
-							TargetNameToUObjectModules[Target.GetTargetName()] = TargetUObjectModules;
+							TargetNameToUObjectModules[Target.TargetName] = TargetUObjectModules;
 
 							// Merge the module name to output items map
 							foreach(KeyValuePair<string, FileItem[]> Pair in TargetModuleNameToOutputItems)
@@ -975,16 +975,16 @@ namespace UnrealBuildTool
 									foreach (UEBuildTarget Target in Targets)
 									{
 										List<UHTModuleInfo> TargetUObjectModules;
-										if (Makefile.TargetNameToUObjectModules.TryGetValue(Target.GetTargetName(), out TargetUObjectModules))
+										if (Makefile.TargetNameToUObjectModules.TryGetValue(Target.TargetName, out TargetUObjectModules))
 										{
 											if (TargetUObjectModules.Count > 0)
 											{
 												// Execute the header tool
-												FileReference ModuleInfoFileName = FileReference.Combine(Target.ProjectIntermediateDirectory, Target.GetTargetName() + ".uhtmanifest");
+												FileReference ModuleInfoFileName = FileReference.Combine(Target.ProjectIntermediateDirectory, Target.TargetName + ".uhtmanifest");
 												ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, Target.ProjectFile, Target.TargetName, Target.TargetType, Target.bHasProjectScriptPlugin,  UObjectModules: TargetUObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild);
 												if(!UHTResult.Succeeded())
 												{
-													Log.TraceInformation("UnrealHeaderTool failed for target '" + Target.GetTargetName() + "' (platform: " + Target.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
+													Log.TraceInformation("UnrealHeaderTool failed for target '" + Target.TargetName + "' (platform: " + Target.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
 													BuildResult = UHTResult;
 													break;
 												}

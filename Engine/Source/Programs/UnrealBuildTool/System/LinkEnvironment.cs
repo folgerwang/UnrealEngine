@@ -262,11 +262,6 @@ namespace UnrealBuildTool
 		public string BundleVersion;
 
 		/// <summary>
-		/// Whether we're linking in monolithic mode. Determines if linking should produce import library file. Relevant only for VC++, clang stores imports in shared library.
-		/// </summary>
-		public bool bShouldCompileMonolithic = false;
-
-		/// <summary>
 		/// A list of the object files to be linked.
 		/// </summary>
 		public List<FileItem> InputFiles = new List<FileItem>();

@@ -258,43 +258,6 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildTarget
 	{
-		public string GetAppName()
-		{
-			return AppName;
-		}
-
-		public string GetTargetName()
-		{
-			return TargetName;
-		}
-
-		public static UnrealTargetPlatform[] GetSupportedPlatforms(TargetRules Rules)
-		{
-			// Otherwise take the SupportedPlatformsAttribute from the first type in the inheritance chain that supports it
-			for (Type CurrentType = Rules.GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
-			{
-				object[] Attributes = Rules.GetType().GetCustomAttributes(typeof(SupportedPlatformsAttribute), false);
-				if (Attributes.Length > 0)
-				{
-					return Attributes.OfType<SupportedPlatformsAttribute>().SelectMany(x => x.Platforms).Distinct().ToArray();
-				}
-			}
-
-			// Otherwise, get the default for the target type
-			if (Rules.Type == TargetType.Program)
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop);
-			}
-			else if (Rules.Type == TargetType.Editor)
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.Editor);
-			}
-			else
-			{
-				return Utils.GetPlatformsInClass(UnrealPlatformClass.All);
-			}
-		}
-
 		/// <summary>
 		/// Creates a target object for the specified target name.
 		/// </summary>
@@ -308,7 +271,7 @@ namespace UnrealBuildTool
 			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Desc.ProjectFile, Desc.Name, bSkipRulesCompile, bUsePrecompiled, Desc.ForeignPlugin);
 
 			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Desc.AdditionalArguments);
-			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !GetSupportedPlatforms(RulesObject).Contains(Desc.Platform))
+			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !RulesObject.GetSupportedPlatforms().Contains(Desc.Platform))
 			{
 				throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
 			}
@@ -705,12 +668,6 @@ namespace UnrealBuildTool
 
 			bCompileMonolithic = (Rules.LinkType == TargetLinkType.Monolithic);
 
-			// Some platforms may *require* monolithic compilation...
-			if (!bCompileMonolithic && UEBuildPlatform.PlatformRequiresMonolithicBuilds(InDesc.Platform, InDesc.Configuration))
-			{
-				throw new BuildException(String.Format("{0} does not support modular builds", InDesc.Platform));
-			}
-
 			// Set the build environment
 			bUseSharedBuildEnvironment = (Rules.BuildEnvironment == TargetBuildEnvironment.Shared);
 			if (bUseSharedBuildEnvironment)
@@ -746,7 +703,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				ProjectIntermediateDirectory = DirectoryReference.Combine(ProjectDirectory, PlatformIntermediateFolder, GetTargetName(), Configuration.ToString());
+				ProjectIntermediateDirectory = DirectoryReference.Combine(ProjectDirectory, PlatformIntermediateFolder, TargetName, Configuration.ToString());
 			}
 
 			// Build the engine intermediate directory. If we're building agnostic engine binaries, we can use the engine intermediates folder. Otherwise we need to use the project intermediates directory.
@@ -1376,18 +1333,16 @@ namespace UnrealBuildTool
 			// files that are injected as top level prerequisites.  If UHT only emitted included header files, we wouldn't need to run it during the Gather phase at all.
 			if (UObjectModules.Count > 0)
 			{
-				FileReference ModuleInfoFileName = FileReference.Combine(ProjectIntermediateDirectory, GetTargetName() + ".uhtmanifest");
+				FileReference ModuleInfoFileName = FileReference.Combine(ProjectIntermediateDirectory, TargetName + ".uhtmanifest");
 
 				// Execute the header tool
 				ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, ProjectFile, TargetName, TargetType, bHasProjectScriptPlugin, UObjectModules, ModuleInfoFileName, true, bIsAssemblingBuild);
 				if(!UHTResult.Succeeded())
 				{
-					Log.TraceInformation(String.Format("Error: UnrealHeaderTool failed for target '{0}' (platform: {1}, module info: {2}, exit code: {3} ({4})).", GetTargetName(), Platform.ToString(), ModuleInfoFileName, UHTResult.ToString(), (int)UHTResult));
+					Log.TraceInformation(String.Format("Error: UnrealHeaderTool failed for target '{0}' (platform: {1}, module info: {2}, exit code: {3} ({4})).", TargetName, Platform.ToString(), ModuleInfoFileName, UHTResult.ToString(), (int)UHTResult));
 					return UHTResult;
 				}
 			}
-
-			GlobalLinkEnvironment.bShouldCompileMonolithic = ShouldCompileMonolithic();
 
 			// Find all the shared PCHs.
 			List<PrecompiledHeaderTemplate> SharedPCHs = new List<PrecompiledHeaderTemplate>();
@@ -2916,7 +2871,7 @@ namespace UnrealBuildTool
 			// @Hack: This to prevent UHT from listing CoreUObject.init.gen.cpp as its dependency.
 			// We flag the compile environment when we build UHT so that we don't need to check
 			// this for each file when generating their dependencies.
-			GlobalCompileEnvironment.bHackHeaderGenerator = (GetAppName() == "UnrealHeaderTool");
+			GlobalCompileEnvironment.bHackHeaderGenerator = (AppName == "UnrealHeaderTool");
 
 			GlobalCompileEnvironment.bUseDebugCRT = GlobalCompileEnvironment.Configuration == CppConfiguration.Debug && Rules.bDebugBuildsActuallyUseDebugCRT;
 			GlobalCompileEnvironment.bEnableOSX109Support = Rules.bEnableOSX109Support;
@@ -2983,10 +2938,8 @@ namespace UnrealBuildTool
 
 			//@todo.PLATFORM: Do any platform specific tool chain initialization here if required
 
-			string OutputAppName = GetAppName();
-
 			UnrealTargetConfiguration EngineTargetConfiguration = Configuration == UnrealTargetConfiguration.DebugGame ? UnrealTargetConfiguration.Development : Configuration;
-			DirectoryReference LinkIntermediateDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, PlatformIntermediateFolder, OutputAppName, EngineTargetConfiguration.ToString());
+			DirectoryReference LinkIntermediateDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, PlatformIntermediateFolder, AppName, EngineTargetConfiguration.ToString());
 
 			// Installed Engine intermediates go to the project's intermediate folder. Installed Engine never writes to the engine intermediate folder. (Those files are immutable)
 			// Also, when compiling in monolithic, all intermediates go to the project's folder.  This is because a project can change definitions that affects all engine translation
@@ -2997,11 +2950,11 @@ namespace UnrealBuildTool
 				{
 					if (ProjectFile != null)
 					{
-						LinkIntermediateDirectory = DirectoryReference.Combine(ProjectFile.Directory, PlatformIntermediateFolder, OutputAppName, Configuration.ToString());
+						LinkIntermediateDirectory = DirectoryReference.Combine(ProjectFile.Directory, PlatformIntermediateFolder, AppName, Configuration.ToString());
 					}
 					else if (ForeignPlugin != null)
 					{
-						LinkIntermediateDirectory = DirectoryReference.Combine(ForeignPlugin.Directory, PlatformIntermediateFolder, OutputAppName, Configuration.ToString());
+						LinkIntermediateDirectory = DirectoryReference.Combine(ForeignPlugin.Directory, PlatformIntermediateFolder, AppName, Configuration.ToString());
 					}
 				}
 			}
