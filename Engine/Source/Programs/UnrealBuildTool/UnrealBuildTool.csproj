@@ -182,6 +182,8 @@
     <Compile Include="ProjectFiles\VisualStudio\VCSolutionOptions.cs" />
     <Compile Include="ProjectFiles\Xcode\XcodeProject.cs" />
     <Compile Include="ProjectFiles\Xcode\XcodeProjectFileGenerator.cs" />
+    <Compile Include="System\Action.cs" />
+    <Compile Include="System\ActionExecutor.cs" />
     <Compile Include="System\Asn.cs" />
     <Compile Include="System\BuildVersion.cs" />
     <Compile Include="System\CppCompileEnvironment.cs" />
