@@ -192,7 +192,7 @@ namespace UnrealBuildTool
 		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <param name="WorkingSet">Interface to query which source files are in the working set</param>
 		/// <returns>The loaded makefile, or null if it failed for some reason.  On failure, the 'ReasonNotLoaded' variable will contain information about why</returns>
-		public static UBTMakefile LoadUBTMakefile(FileReference MakefilePath, FileReference ProjectFile, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
+		public static UBTMakefile Load(FileReference MakefilePath, FileReference ProjectFile, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
 		{
 			// Check the directory timestamp on the project files directory.  If the user has generated project files more
 			// recently than the UBTMakefile, then we need to consider the file to be out of date
@@ -370,9 +370,26 @@ namespace UnrealBuildTool
 						}
 					}
 				}
+
+
+				// Check if ini files are newer. Ini files contain build settings too.
+				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
+				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
+				{
+					foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Target.Platform))
+					{
+						FileInfo IniFileInfo = new FileInfo(IniFilename.FullName);
+						if (UBTMakefileInfo.LastWriteTime.CompareTo(IniFileInfo.LastWriteTime) < 0)
+						{
+							// Ini files are newer than UBTMakefile
+							ReasonNotLoaded = "ini files are newer than UBTMakefile";
+							return null;
+						}
+					}
+				}
 			}
 
-			foreach(BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
+			foreach (BuildPredicateStore Predicates in LoadedUBTMakefile.TargetBuildPredicates)
 			{
 				foreach(DirectoryReference SourceDirectory in Predicates.SourceDirectories)
 				{
