@@ -425,7 +425,6 @@ namespace UnrealBuildTool
 							Action.PrerequisiteItems[ItemIndex] = NewPrerequisiteItem;
 
 							// Copy the other important settings from the original file item
-							NewPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp = OriginalPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp;
 							NewPrerequisiteItem.ProducingAction = OriginalPrerequisiteItem.ProducingAction;
 
 							// Keep track of it so we can fix up dependencies in a second pass afterwards
@@ -466,7 +465,6 @@ namespace UnrealBuildTool
 						Action.ProducedItems[ItemIndex] = NewProducedItem;
 
 						// Copy the other important settings from the original file item
-						NewProducedItem.bNeedsHotReloadNumbersDLLCleanUp = OriginalProducedItem.bNeedsHotReloadNumbersDLLCleanUp;
 						NewProducedItem.ProducingAction = OriginalProducedItem.ProducingAction;
 
 						// Keep track of it so we can fix up dependencies in a second pass afterwards

@@ -1287,7 +1287,6 @@ namespace UnrealBuildTool
 			else
 			{
 				OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
-				OutputFile.bNeedsHotReloadNumbersDLLCleanUp = LinkEnvironment.bIsBuildingDLL;
 			}
 
 			List<FileItem> ProducedItems = new List<FileItem>();

@@ -646,7 +646,6 @@ namespace UnrealBuildTool
 
 			// Add the output file as a production of the link action.
 			FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
-			OutputFile.bNeedsHotReloadNumbersDLLCleanUp = LinkEnvironment.bIsBuildingDLL;
 
 			// To solve the problem with cross dependencies, for now we create a broken dylib that does not link with other engine dylibs.
 			// This is fixed in later step, FixDylibDependencies. For this and to know what libraries to copy whilst creating an app bundle,

@@ -33,11 +33,6 @@ namespace UnrealBuildTool
 		public FileReference Location;
 
 		/// <summary>
-		/// True if any DLLs produced by this
-		/// </summary>
-		public bool bNeedsHotReloadNumbersDLLCleanUp = false;
-
-		/// <summary>
 		/// Accessor for the absolute path to the file
 		/// </summary>
 		public string AbsolutePath
@@ -323,7 +318,6 @@ namespace UnrealBuildTool
 		{
 			ProducingAction = (Action)SerializationInfo.GetValue("pa", typeof(Action));
 			Location = (FileReference)SerializationInfo.GetValue("fi", typeof(FileReference));
-			bNeedsHotReloadNumbersDLLCleanUp = SerializationInfo.GetBoolean("hr");
 			CachedIncludePaths = (CppIncludePaths)SerializationInfo.GetValue("ci", typeof(CppIncludePaths));
 
 			// Go ahead and init normally now
@@ -349,7 +343,6 @@ namespace UnrealBuildTool
 		{
 			SerializationInfo.AddValue("pa", ProducingAction);
 			SerializationInfo.AddValue("fi", Location);
-			SerializationInfo.AddValue("hr", bNeedsHotReloadNumbersDLLCleanUp);
 			SerializationInfo.AddValue("ci", CachedIncludePaths);
 		}
 
