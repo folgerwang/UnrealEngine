@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Tools.DotNETCommon;
+using System.Reflection;
 
 namespace UnrealBuildTool
 {
@@ -51,6 +52,37 @@ namespace UnrealBuildTool
 		{
 			Platform = InPlatform;
 			DefaultCppPlatform = InDefaultCPPPlatform;
+		}
+
+		/// <summary>
+		/// Finds all the UEBuildPlatformFactory types in this assembly and uses them to register all the available platforms
+		/// </summary>
+		/// <param name="bIncludeNonInstalledPlatforms">Whether to register platforms that are not installed</param>
+		public static void RegisterPlatforms(bool bIncludeNonInstalledPlatforms)
+		{
+			// Find and register all tool chains and build platforms that are present
+			Assembly UBTAssembly = Assembly.GetExecutingAssembly();
+
+			Type[] AllTypes = UBTAssembly.GetTypes();
+
+			// register all build platforms first, since they implement SDK-switching logic that can set environment variables
+			foreach (Type CheckType in AllTypes)
+			{
+				if (CheckType.IsClass && !CheckType.IsAbstract)
+				{
+					if (CheckType.IsSubclassOf(typeof(UEBuildPlatformFactory)))
+					{
+						Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
+						UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
+
+						// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
+						if (bIncludeNonInstalledPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
+						{
+							TempInst.RegisterBuildPlatforms();
+						}
+					}
+				}
+			}
 		}
 
 		/// <summary>

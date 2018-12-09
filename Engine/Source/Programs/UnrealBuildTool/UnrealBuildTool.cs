@@ -228,40 +228,10 @@ namespace UnrealBuildTool
 		static public bool IsUnderAnEngineDirectory(DirectoryReference InDirectory)
 		{
 			// Enterprise modules are considered as engine modules
-			return InDirectory.IsUnderDirectory(UnrealBuildTool.EngineDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory) ||
-				InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
-		}
-
-		public static void RegisterAllUBTClasses(bool bValidatingPlatforms)
-		{
-			// Find and register all tool chains and build platforms that are present
-			Assembly UBTAssembly = Assembly.GetExecutingAssembly();
-			if (UBTAssembly != null)
-			{
-				Log.TraceVerbose("Searching for ToolChains, BuildPlatforms, BuildDeploys and ProjectGenerators...");
-
-				List<System.Type> ProjectGeneratorList = new List<System.Type>();
-				Type[] AllTypes = UBTAssembly.GetTypes();
-
-				// register all build platforms first, since they implement SDK-switching logic that can set environment variables
-				foreach (Type CheckType in AllTypes)
-				{
-					if (CheckType.IsClass && !CheckType.IsAbstract)
-					{
-						if (CheckType.IsSubclassOf(typeof(UEBuildPlatformFactory)))
-						{
-							Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
-							UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-
-							// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
-							if (bValidatingPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
-							{
-								TempInst.RegisterBuildPlatforms();
-							}
-						}
-					}
-				}
-			}
+			return InDirectory.IsUnderDirectory(UnrealBuildTool.EngineDirectory) 
+				|| InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory) 
+				|| InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) 
+				|| InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
 		}
 
 		/// <summary>
@@ -408,16 +378,16 @@ namespace UnrealBuildTool
 				// Register all the build platforms
 				if((ModeOptions & ToolModeOptions.BuildPlatforms) != 0)
 				{
-					using(Timeline.ScopeEvent("UnrealBuildTool.RegisterAllUBTClasses()"))
+					using(Timeline.ScopeEvent("UEBuildPlatform.RegisterPlatforms()"))
 					{
-						RegisterAllUBTClasses(false);
+						UEBuildPlatform.RegisterPlatforms(false);
 					}
 				}
 				if((ModeOptions & ToolModeOptions.BuildPlatformsForValidation) != 0)
 				{
-					using(Timeline.ScopeEvent("UnrealBuildTool.RegisterAllUBTClasses()"))
+					using(Timeline.ScopeEvent("UEBuildPlatform.RegisterPlatforms()"))
 					{
-						RegisterAllUBTClasses(true);
+						UEBuildPlatform.RegisterPlatforms(true);
 					}
 				}
 
