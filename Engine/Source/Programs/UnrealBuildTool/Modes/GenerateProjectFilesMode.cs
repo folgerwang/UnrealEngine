@@ -50,7 +50,7 @@ namespace UnrealBuildTool
 
 			// Parse rocket-specific arguments.
 			FileReference ProjectFile;
-			UnrealBuildTool.TryParseProjectFileArgument(Arguments, out ProjectFile);
+			TryParseProjectFileArgument(Arguments, out ProjectFile);
 
 			// If there aren't any formats set, read the default project file format from the config file
 			if (ProjectFileFormats.Count == 0)
@@ -164,6 +164,42 @@ namespace UnrealBuildTool
 				}
 			}
 			return (int)ECompilationResult.Succeeded;
+		}
+
+		/// <summary>
+		/// Try to parse the project file from the command line
+		/// </summary>
+		/// <param name="Arguments">The command line arguments</param>
+		/// <param name="ProjectFile">The project file that was parsed</param>
+		/// <returns>True if the project file was parsed, false otherwise</returns>
+		private static bool TryParseProjectFileArgument(CommandLineArguments Arguments, out FileReference ProjectFile)
+		{
+			FileReference ExplicitProjectFile;
+			if(Arguments.TryGetValue("-Project=", out ExplicitProjectFile))
+			{
+				ProjectFile = ExplicitProjectFile;
+				return true;
+			}
+
+			for(int Idx = 0; Idx < Arguments.Count; Idx++)
+			{
+				if(Arguments[Idx][0] != '-' && Arguments[Idx].EndsWith(".uproject", StringComparison.OrdinalIgnoreCase))
+				{
+					Arguments.MarkAsUsed(Idx);
+					ProjectFile = new FileReference(Arguments[Idx]);
+					return true;
+				}
+			}
+
+			FileReference InstalledProjectFile = UnrealBuildTool.GetInstalledProjectFile();
+			if(InstalledProjectFile != null)
+			{
+				ProjectFile = InstalledProjectFile;
+				return true;
+			}
+
+			ProjectFile = null;
+			return false;
 		}
 	}
 }
