@@ -54,7 +54,6 @@ public class MovieSceneTools : ModuleRules
                 "MaterialEditor",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"SequenceRecorder",
 				"TimeManagement",
                 "AnimationCore",

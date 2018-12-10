@@ -13,11 +13,11 @@
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 
-int32 GMetalSupportsIntermediateBackBuffer = PLATFORM_MAC ? 1 : 0;
+int32 GMetalSupportsIntermediateBackBuffer = 0;
 static FAutoConsoleVariableRef CVarMetalSupportsIntermediateBackBuffer(
 	TEXT("rhi.Metal.SupportsIntermediateBackBuffer"),
 	GMetalSupportsIntermediateBackBuffer,
-	TEXT("When enabled (> 0) allocate an intermediate texture to use as the back-buffer & blit from there into the actual device back-buffer, thereby allowing screenshots & video capture that would otherwise be impossible as the texture required has already been released back to the OS as required by Metal's API. (Off by default (0) on iOS/tvOS but enabled (1) on Mac)"), ECVF_ReadOnly);
+	TEXT("When enabled (> 0) allocate an intermediate texture to use as the back-buffer & blit from there into the actual device back-buffer, this is required if we use the experimental separate presentation thread. (Off by default (0))"), ECVF_ReadOnly);
 
 int32 GMetalSeparatePresentThread = 0;
 static FAutoConsoleVariableRef CVarMetalSeparatePresentThread(
@@ -25,7 +25,6 @@ static FAutoConsoleVariableRef CVarMetalSeparatePresentThread(
 	GMetalSeparatePresentThread,
 	TEXT("When enabled (> 0) requires rhi.Metal.SupportsIntermediateBackBuffer be enabled and will cause two intermediate back-buffers be allocated so that the presentation of frames to the screen can be run on a separate thread.\n")
 	TEXT("This option uncouples the Render/RHI thread from calls to -[CAMetalLayer nextDrawable] and will run arbitrarily fast by rendering but not waiting to present all frames. This is equivalent to running without V-Sync, but without the screen tearing.\n")
-	TEXT("On macOS 10.12 this will not be beneficial, but on later macOS versions this is the only way to ensure that we keep the CPU & GPU saturated with commands and don't ever stall waiting for V-Sync.\n")
 	TEXT("On iOS/tvOS this is the only way to run without locking the CPU to V-Sync somewhere - this shouldn't be used in a shipping title without understanding the power/heat implications.\n")
 	TEXT("(Off by default (0))"), ECVF_ReadOnly);
 
@@ -329,6 +328,11 @@ FMetalDeviceContext* FMetalDeviceContext::CreateDeviceContext()
 	FMetalCommandQueue* Queue = new FMetalCommandQueue(Device, GMetalCommandQueueSize);
 	check(Queue);
 	
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
+	{
+		FMetalFencePool::Get().Initialise(Device);
+	}
+	
 	return new FMetalDeviceContext(Device, DeviceIndex, Queue);
 }
 
@@ -467,6 +471,10 @@ void FMetalDeviceContext::ClearFreeList()
 					Heap.ReleaseTexture(nullptr, Texture);
 				}
 			}
+			for ( FMetalFence* Fence : Pair->FenceFreeList )
+			{
+				FMetalFencePool::Get().ReleaseFence(Fence);
+			}
 			delete Pair;
 			DelayedFreeLists.RemoveAt(Index, 1, false);
 		}
@@ -567,7 +575,7 @@ bool FMetalDeviceContext::FMetalDelayedFreeList::IsComplete() const
 	return bFinished;
 }
 
-void FMetalDeviceContext::FlushFreeList()
+void FMetalDeviceContext::FlushFreeList(bool const bFlushFences)
 {
 	FMetalDelayedFreeList* NewList = new FMetalDelayedFreeList;
 	
@@ -579,6 +587,19 @@ void FMetalDeviceContext::FlushFreeList()
 	NewList->UsedBuffers = MoveTemp(UsedBuffers);
 	NewList->UsedTextures = MoveTemp(UsedTextures);
 	NewList->ObjectFreeList = ObjectFreeList;
+	if (bFlushFences)
+	{
+		TArray<FMetalFence*> Fences;
+		FenceFreeList.PopAll(Fences);
+		for (FMetalFence* Fence : Fences)
+		{
+			if(!UsedFences.Contains(Fence))
+			{
+				UsedFences.Add(Fence);
+			}
+		}
+		NewList->FenceFreeList = MoveTemp(UsedFences);
+	}
 #if METAL_DEBUG_OPTIONS
 	if (FrameFences.Num())
 	{
@@ -677,7 +698,7 @@ void FMetalDeviceContext::ReleaseTexture(FMetalTexture& Texture)
 	}
 }
 
-void FMetalDeviceContext::ReleaseFence(mtlpp::Fence Fence)
+void FMetalDeviceContext::ReleaseFence(FMetalFence* Fence)
 {
 #if METAL_DEBUG_OPTIONS
 	if(GetCommandList().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
@@ -687,7 +708,44 @@ void FMetalDeviceContext::ReleaseFence(mtlpp::Fence Fence)
 	}
 #endif
 	
-	ReleaseObject([Fence.GetPtr() retain]);
+	if (GIsMetalInitialized) // @todo zebra: there seems to be some race condition at exit when the framerate is very low
+	{
+		check(Fence);
+		FenceFreeList.Push(Fence);
+	}
+}
+
+void FMetalDeviceContext::RegisterUB(FMetalUniformBuffer* UB)
+{
+	FScopeLock Lock(&FreeListMutex);
+	UniformBuffers.Add(UB);
+}
+
+void FMetalDeviceContext::UpdateIABs(FTextureReferenceRHIParamRef ModifiedRef)
+{
+	if(GIsMetalInitialized)
+	{
+		FScopeLock Lock(&FreeListMutex);
+		for (FMetalUniformBuffer* UB : UniformBuffers)
+		{
+			if (UB && UB->IAB && UB->TextureReferences.Contains(ModifiedRef))
+			{
+				FMetalUniformBuffer::FMetalIndirectArgumentBuffer* IAB = UB->IAB;
+				UB->IAB = nullptr;
+				UB->InitIAB();
+				delete IAB;
+			}
+		}
+	}
+}
+
+void FMetalDeviceContext::UnregisterUB(FMetalUniformBuffer* UB)
+{
+	if(GIsMetalInitialized)
+	{
+		FScopeLock Lock(&FreeListMutex);
+		UniformBuffers.Remove(UB);
+	}
 }
 
 FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::TextureDescriptor Descriptor)
@@ -733,10 +791,10 @@ void FMetalDeviceContext::ReleaseBuffer(FMetalBuffer& Buffer)
 
 struct FMetalRHICommandUpdateFence final : public FRHICommand<FMetalRHICommandUpdateFence>
 {
-	FMetalFence Fence;
+	FMetalFence* Fence;
 	uint32 Num;
 	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence const& InFence, uint32 InNum)
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence* InFence, uint32 InNum)
 	: Fence(InFence)
 	, Num(InNum)
 	{
@@ -777,8 +835,8 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 	EndLabel = [NSString stringWithFormat:@"End Parallel Context Index %d Num %d", NewIndex, NewNum];
 #endif
 	
-	FMetalFence StartFence(NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1]);
-	FMetalFence EndFence(CommandList.GetCommandQueue().CreateFence(EndLabel));
+	FMetalFence* StartFence(NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1]);
+	FMetalFence* EndFence(CommandList.GetCommandQueue().CreateFence(EndLabel));
 	ParallelFences[NewIndex] = EndFence;
 	
 	// Give the context the fences so that we can properly order the parallel contexts.
@@ -962,19 +1020,19 @@ void FMetalContext::MakeCurrent(FMetalContext* Context)
 }
 #endif
 
-void FMetalContext::SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End)
+void FMetalContext::SetParallelPassFences(FMetalFence* Start, FMetalFence* End)
 {
-	check(!StartFence.IsValid() && !EndFence.IsValid());
+	check(!StartFence && !EndFence);
 	StartFence = Start;
 	EndFence = End;
 }
 
-FMetalFence const& FMetalContext::GetParallelPassStartFence(void) const
+FMetalFence* FMetalContext::GetParallelPassStartFence(void) const
 {
 	return StartFence;
 }
 
-FMetalFence const& FMetalContext::GetParallelPassEndFence(void) const
+FMetalFence* FMetalContext::GetParallelPassEndFence(void) const
 {
 	return EndFence;
 }
@@ -988,13 +1046,8 @@ void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32
 	// Reset cached state in the encoder
 	StateCache.Reset();
 
-	bool bStatistics = false;
-#if METAL_STATISTICS
-	bStatistics = GetCommandQueue().GetStatistics() != nullptr;
-#endif
-
 	// Sets the index of the parallel context within the pass
-	if (!bImmediateContext && !bStatistics)
+	if (!bImmediateContext && FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders))
 	{
 		CommandList.SetParallelIndex(Index, Num);
 	}
@@ -1010,7 +1063,8 @@ void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32
 	RenderPass.Begin(StartFence);
 	
 	// Unset the start fence, the render-pass owns it and we can consider it encoded now!
-	StartFence.Reset();
+	SafeReleaseMetalFence(StartFence);
+	StartFence = nullptr;
 	
 	// make sure first SetRenderTarget goes through
 	StateCache.InvalidateRenderTargets();
@@ -1022,7 +1076,8 @@ void FMetalContext::FinishFrame()
 	RenderPass.Update(EndFence);
 	
 	// Unset the end fence, the render-pass owns it and we can consider it encoded now!
-	EndFence.Reset();
+	SafeReleaseMetalFence(EndFence);
+	EndFence = nullptr;
 	
 	// End the render pass
 	RenderPass.End();
@@ -1036,6 +1091,85 @@ void FMetalContext::FinishFrame()
 #if ENABLE_METAL_GPUPROFILE
 	FPlatformTLS::SetTlsValue(CurrentContextTLSSlot, nullptr);
 #endif
+}
+
+void FMetalContext::TransitionResources(FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs)
+{
+	for (uint32 i = 0; i < NumUAVs; i++)
+	{
+		FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)InUAVs[i];
+		if (UAV)
+		{
+			ns::AutoReleased<mtlpp::Resource> Resource;
+			
+			// figure out which one of the resources we need to set
+			FMetalStructuredBuffer* StructuredBuffer = UAV->SourceView->SourceStructuredBuffer.GetReference();
+			FMetalVertexBuffer* VertexBuffer = UAV->SourceView->SourceVertexBuffer.GetReference();
+			FMetalIndexBuffer* IndexBuffer = UAV->SourceView->SourceIndexBuffer.GetReference();
+			FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
+			FMetalSurface* Surface = UAV->SourceView->TextureView;
+			if (StructuredBuffer)
+			{
+				check(StructuredBuffer->Buffer);
+				RenderPass.TransitionResources(StructuredBuffer->Buffer);
+			}
+			else if (VertexBuffer && VertexBuffer->Buffer)
+			{
+				RenderPass.TransitionResources(VertexBuffer->Buffer);
+			}
+			else if (IndexBuffer)
+			{
+				check(IndexBuffer->Buffer);
+				RenderPass.TransitionResources(IndexBuffer->Buffer);
+			}
+			else if (Surface)
+			{
+				RenderPass.TransitionResources(Surface->Texture.GetParentTexture());
+			}
+			else if (Texture)
+			{
+				if (!Surface)
+				{
+					Surface = GetMetalSurfaceFromRHITexture(Texture);
+				}
+				if (Surface != nullptr && Surface->Texture)
+				{
+					RenderPass.TransitionResources(Surface->Texture);
+					if (Surface->StencilTexture)
+					{
+						RenderPass.TransitionResources(Surface->StencilTexture);
+					}
+					if (Surface->MSAATexture)
+					{
+						RenderPass.TransitionResources(Surface->MSAATexture);
+					}
+				}
+			}
+		}
+	}
+}
+
+void FMetalContext::TransitionResources(FTextureRHIParamRef* InTextures, int32 NumTextures)
+{
+	for (uint32 i = 0; i < NumTextures; i++)
+	{
+		if (InTextures[i])
+		{
+			FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(InTextures[i]);
+			if (Surface != nullptr && Surface->Texture)
+			{
+				RenderPass.TransitionResources(Surface->Texture);
+				if (Surface->StencilTexture)
+				{
+					RenderPass.TransitionResources(Surface->StencilTexture);
+				}
+				if (Surface->MSAATexture)
+				{
+					RenderPass.TransitionResources(Surface->MSAATexture);
+				}
+			}
+		}
+	}
 }
 
 void FMetalContext::SubmitCommandsHint(uint32 const Flags)
@@ -1508,7 +1642,8 @@ void FMetalDeviceContext::SetParallelRenderPassDescriptor(FRHISetRenderTargetsIn
 	if (!RenderPass.IsWithinParallelPass())
 	{
 		RenderPass.Begin(EndFence);
-		EndFence.Reset();
+		SafeReleaseMetalFence(EndFence);
+		EndFence = nullptr;
 		StateCache.InvalidateRenderTargets();
 		SetRenderTargetsInfo(TargetInfo, false);
 	}
@@ -1530,8 +1665,9 @@ void FMetalDeviceContext::EndParallelRenderCommandEncoding(void)
 	if (FPlatformAtomics::InterlockedDecrement(&ActiveParallelContexts) == 0)
 	{
 		RenderPass.EndRenderPass();
-		RenderPass.Begin(StartFence);
-		StartFence.Reset();
+		RenderPass.Begin(StartFence, true);
+		SafeReleaseMetalFence(StartFence);
+		StartFence = nullptr;
 		FPlatformAtomics::AtomicStore(&NumParallelContextsInPass, 0);
 	}
 }
@@ -1583,7 +1719,7 @@ public:
 			
 			if (Index == (Num - 1))
 			{
-				mtlpp::Fence Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
+				FMetalFence* Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
 				GetMetalDeviceContext().SetParallelPassFences(Fence, nil);
 			}
 

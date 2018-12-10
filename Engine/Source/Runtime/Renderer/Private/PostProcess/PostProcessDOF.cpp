@@ -145,7 +145,7 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 
-	if(!InputDesc)
+	if (!InputDesc)
 	{
 		// input is not hooked up correctly
 		return;
@@ -177,88 +177,93 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		DestRenderTarget0.TargetableTexture,
 		DestRenderTarget1.TargetableTexture
 	};
+	
+	ERenderTargetActions LoadStoreAction = ERenderTargetActions::Load_Store;
+
 	//@todo Ronin find a way to use the same codepath for all platforms.
 	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
 	if (IsVulkanMobilePlatform(ShaderPlatform))
 	{
-		SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth, FExclusiveDepthStencil());
-	}
-	else
-	{
-		SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
-	}
-	
-	if (View.StereoPass == eSSP_FULL)
-	{
-		FLinearColor ClearColors[2] =
-		{
-			FLinearColor(0, 0, 0, 0),
-			FLinearColor(0, 0, 0, 0)
-		};
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, DestSize, DestRect);
+		LoadStoreAction = ERenderTargetActions::Clear_Store;
 	}
 
-	Context.SetViewportAndCallRHI(DestRect.Min.X, DestRect.Min.Y, 0.0f, DestRect.Max.X + 1, DestRect.Max.Y + 1, 1.0f );
-	
-	const float DOFVignetteSize = FMath::Max(0.0f, View.FinalPostProcessSettings.DepthOfFieldVignetteSize);
-
-	// todo: test is conservative, with bad content we would waste a bit of performance
-	const bool bDOFVignette = bNearBlur && DOFVignetteSize < 200.0f;
-	
-	// 0:off, 1:on, 2:on with Vignette
-	uint32 NearBlur = 0;
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, LoadStoreAction);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFSetup"));
 	{
-		if(bNearBlur)
+		if (View.StereoPass == eSSP_FULL)
 		{
-			NearBlur = (DOFVignetteSize < 200.0f) ? 2 : 1;
+			FLinearColor ClearColors[2] =
+			{
+				FLinearColor(0, 0, 0, 0),
+				FLinearColor(0, 0, 0, 0)
+			};
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, DestSize, DestRect);
 		}
-	}
-		
-	FShader* VertexShader = 0;
 
-	if(bFarBlur)
-	{
-		switch(NearBlur)
+		Context.SetViewportAndCallRHI(DestRect.Min.X, DestRect.Min.Y, 0.0f, DestRect.Max.X + 1, DestRect.Max.Y + 1, 1.0f);
+
+		const float DOFVignetteSize = FMath::Max(0.0f, View.FinalPostProcessSettings.DepthOfFieldVignetteSize);
+
+		// todo: test is conservative, with bad content we would waste a bit of performance
+		const bool bDOFVignette = bNearBlur && DOFVignetteSize < 200.0f;
+
+		// 0:off, 1:on, 2:on with Vignette
+		uint32 NearBlur = 0;
 		{
-			case 0: VertexShader = SetDOFShaderTempl<1, 0>(Context);break;
-			case 1: VertexShader = SetDOFShaderTempl<1, 1>(Context);break;
-			case 2: VertexShader = SetDOFShaderTempl<1, 2>(Context);break;
+			if (bNearBlur)
+			{
+				NearBlur = (DOFVignetteSize < 200.0f) ? 2 : 1;
+			}
+		}
+
+		FShader* VertexShader = 0;
+
+		if (bFarBlur)
+		{
+			switch (NearBlur)
+			{
+			case 0: VertexShader = SetDOFShaderTempl<1, 0>(Context); break;
+			case 1: VertexShader = SetDOFShaderTempl<1, 1>(Context); break;
+			case 2: VertexShader = SetDOFShaderTempl<1, 2>(Context); break;
 			default: check(!"Invalid NearBlur input");
+			}
 		}
-	}
-	else
-	{
-		switch(NearBlur)
+		else
 		{
-			case 0: check(!"Internal error: In this case we should not run the pass");break;
-			case 1: VertexShader = SetDOFShaderTempl<0, 1>(Context);break;
-			case 2: VertexShader = SetDOFShaderTempl<0, 2>(Context);break;
+			switch (NearBlur)
+			{
+			case 0: check(!"Internal error: In this case we should not run the pass"); break;
+			case 1: VertexShader = SetDOFShaderTempl<0, 1>(Context); break;
+			case 2: VertexShader = SetDOFShaderTempl<0, 2>(Context); break;
 			default: check(!"Invalid NearBlur input");
+			}
 		}
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width() + 1, DestRect.Height() + 1,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width() + 1, SrcRect.Height() + 1,
+			DestRect.Size() + FIntPoint(1, 1),
+			SrcSize,
+			VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width() + 1, DestRect.Height() + 1,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width() + 1, SrcRect.Height() + 1,
-		DestRect.Size() + FIntPoint(1, 1),
-		SrcSize,
-		VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
-	// #todo-rco: needed to avoid multiple resolves clearing the RT with VK.
-	SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+
 	if (DestRenderTarget1.TargetableTexture)
 	{
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
 	}
+
+	// #todo-rco: needed to avoid multiple resolves clearing the RT with VK.
+	// #todo mattc this is probably busted now since the resolves previously happened after this SetRenderTarget.
+	UnbindRenderTargets(Context.RHICmdList);
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessDOFSetup::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -443,59 +448,63 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 
 	//@todo Ronin find a way to use the same codepath for all platforms.
 	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
+	ERenderTargetActions LoadStoreAction = ERenderTargetActions::Load_Store;
 	if (IsVulkanMobilePlatform(ShaderPlatform))
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+		LoadStoreAction = ERenderTargetActions::Clear_Store;
 	}
-	else
+	else if (View.StereoPass == eSSP_FULL)
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+		// #todo-renderpasses a possible optimization here is to use DontLoad since we'll clear immediately.
+		LoadStoreAction = ERenderTargetActions::Load_Store;
+	}
 
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFRecombine"));
+	{
 		if (View.StereoPass == eSSP_FULL)
 		{
 			// is optimized away if possible (RT size=view size, )
 			DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
 		}
-	}
+		Context.SetViewportAndCallRHI(View.ViewRect);
 
-	Context.SetViewportAndCallRHI(View.ViewRect);
+		bool bFarBlur = GetInputDesc(ePId_Input1) != 0;
+		bool bNearBlur = GetInputDesc(ePId_Input2) != 0;
+		bool bSeparateTranslucency = GetInputDesc(ePId_Input3) != 0;
 
-	bool bFarBlur = GetInputDesc(ePId_Input1) != 0;
-	bool bNearBlur = GetInputDesc(ePId_Input2) != 0;
-	bool bSeparateTranslucency = GetInputDesc(ePId_Input3) != 0;
+		FShader* VertexShader = 0;
 
-	FShader* VertexShader = 0;
-
-	if(bFarBlur)
-	{
-		if(bNearBlur)
+		if (bFarBlur)
 		{
-			VertexShader = SetDOFRecombineShaderTempl<1, 1>(Context, bSeparateTranslucency);
+			if (bNearBlur)
+			{
+				VertexShader = SetDOFRecombineShaderTempl<1, 1>(Context, bSeparateTranslucency);
+			}
+			else
+			{
+				VertexShader = SetDOFRecombineShaderTempl<1, 0>(Context, bSeparateTranslucency);
+			}
 		}
 		else
 		{
-			VertexShader = SetDOFRecombineShaderTempl<1, 0>(Context, bSeparateTranslucency);
+			VertexShader = SetDOFRecombineShaderTempl<0, 1>(Context, bSeparateTranslucency);
 		}
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			HalfResViewRect.Min.X, HalfResViewRect.Min.Y,
+			HalfResViewRect.Width(), HalfResViewRect.Height(),
+			View.ViewRect.Size(),
+			TexSize,
+			VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-	else
-	{
-		VertexShader = SetDOFRecombineShaderTempl<0, 1>(Context, bSeparateTranslucency);
-	}
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		View.ViewRect.Width(), View.ViewRect.Height(),
-		HalfResViewRect.Min.X, HalfResViewRect.Min.Y,
-		HalfResViewRect.Width(), HalfResViewRect.Height(),
-		View.ViewRect.Size(),
-		TexSize,
-		VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 

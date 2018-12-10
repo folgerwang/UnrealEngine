@@ -180,8 +180,6 @@ FD3D12QueryHeap::FD3D12QueryHeap(FD3D12Device* InParent, const D3D12_QUERY_HEAP_
 	, FD3D12SingleNodeGPUObject(InParent->GetGPUMask())
 	, MaxActiveBatches(InMaxActiveBatches)
 	, LastBatch(InMaxActiveBatches - 1)
-	, HeadActiveElement(0)
-	, TailActiveElement(0)
 	, ActiveAllocatedElementCount(0)
 	, LastAllocatedElement(InQueryHeapCount - 1)
 	, ResultSize(8)
@@ -265,20 +263,6 @@ uint32 FD3D12QueryHeap::GetNextElement(uint32 InElement)
 	return InElement;
 }
 
-uint32 FD3D12QueryHeap::GetPreviousElement(uint32 InElement)
-{
-	// Decrement the provided element
-	InElement--;
-
-	// See if we need to wrap around to the end of the heap
-	if (InElement == UINT_MAX)
-	{
-		InElement = GetQueryHeapCount() - 1;
-	}
-
-	return InElement;
-}
-
 uint32 FD3D12QueryHeap::GetNextBatchElement(uint32 InBatchElement)
 {
 	// Increment the provided element
@@ -291,26 +275,6 @@ uint32 FD3D12QueryHeap::GetNextBatchElement(uint32 InBatchElement)
 	}
 
 	return InBatchElement;
-}
-
-uint32 FD3D12QueryHeap::GetPreviousBatchElement(uint32 InBatchElement)
-{
-	// Decrement the provided element
-	InBatchElement--;
-
-	// See if we need to wrap around to the end of the heap
-	if (InBatchElement == UINT_MAX)
-	{
-		InBatchElement = MaxActiveBatches - 1;
-	}
-
-	return InBatchElement;
-}
-
-bool FD3D12QueryHeap::IsHeapFull()
-{
-	// Find the next element after the active tail and compare with the head
-	return (GetNextElement(TailActiveElement) == HeadActiveElement);
 }
 
 uint32 FD3D12QueryHeap::AllocQuery(FD3D12CommandContext& CmdContext)
@@ -372,13 +336,6 @@ void FD3D12QueryHeap::EndQueryBatchAndResolveQueryData(FD3D12CommandContext& Cmd
 	// Close the current batch
 	CurrentQueryBatch.bOpen = false;
 
-	// Update the end element
-	CurrentQueryBatch.EndElement = CurrentQueryBatch.StartElement + CurrentQueryBatch.ElementCount - 1;
-
-	// Update the tail
-	TailActiveElement = CurrentQueryBatch.EndElement;
-	check(TailActiveElement < GetQueryHeapCount());
-
 	// Increment the active element count
 	ActiveAllocatedElementCount += CurrentQueryBatch.ElementCount;
 	checkf(ActiveAllocatedElementCount <= GetQueryHeapCount(), TEXT("The query heap is too small. Either increase the heap count (larger resource) or decrease MAX_ACTIVE_BATCHES."));
@@ -389,7 +346,6 @@ void FD3D12QueryHeap::EndQueryBatchAndResolveQueryData(FD3D12CommandContext& Cmd
 
 	// Update the head
 	QueryBatch& OldestBatch = ActiveQueryBatches[GetNextBatchElement(LastBatch)];
-	HeadActiveElement = OldestBatch.StartElement;
 	ActiveAllocatedElementCount -= OldestBatch.ElementCount;
 
 	CmdContext.otherWorkCounter++;

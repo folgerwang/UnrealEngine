@@ -111,7 +111,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,
-							Mesh.Type,
 							BatchElement.BaseVertexIndex,
 							0,
 							BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1,
@@ -132,7 +131,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,
-							Mesh.Type,
 							BatchElement.BaseVertexIndex,
 							0,
 							BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1,
@@ -153,7 +151,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 
 					RHICmdList.DrawIndexedPrimitive(
 						BatchElement.IndexBuffer->IndexBufferRHI,
-						Mesh.Type,
 						BatchElement.BaseVertexIndex,
 						InstanceOffset,
 						BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1,
@@ -169,7 +166,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 			if (BatchElement.IndirectArgsBuffer)
 			{
 				RHICmdList.DrawIndexedPrimitiveIndirect(
-					Mesh.Type, 
 					BatchElement.IndexBuffer->IndexBufferRHI, 
 					BatchElement.IndirectArgsBuffer, 
 					0
@@ -183,7 +179,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 
 				RHICmdList.DrawIndexedPrimitive(
 					BatchElement.IndexBuffer->IndexBufferRHI,
-					Mesh.Type,
 					BatchElement.BaseVertexIndex,
 					0,
 					BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1,
@@ -199,7 +194,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 		SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex + BatchElement.FirstIndex, 0, 1);
 
 		RHICmdList.DrawPrimitive(
-			Mesh.Type,
 			BatchElement.BaseVertexIndex + BatchElement.FirstIndex,
 			BatchElement.NumPrimitives,
 			BatchElement.NumInstances

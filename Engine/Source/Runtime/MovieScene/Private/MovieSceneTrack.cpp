@@ -138,40 +138,14 @@ void UMovieSceneTrack::UpdateEasing()
 	}
 }
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-TInlineValue<FMovieSceneSegmentCompilerRules> UMovieSceneTrack::GetRowCompilerRules() const
-{
-	return TInlineValue<FMovieSceneSegmentCompilerRules>();
-}
-
-TInlineValue<FMovieSceneSegmentCompilerRules> UMovieSceneTrack::GetTrackCompilerRules() const
-{
-	return TInlineValue<FMovieSceneSegmentCompilerRules>();
-}
-
 FMovieSceneTrackRowSegmentBlenderPtr UMovieSceneTrack::GetRowSegmentBlender() const
 {
-	// Handle legacy row compiler rules
-	TInlineValue<FMovieSceneSegmentCompilerRules> LegacyRules = GetRowCompilerRules();
-	if (LegacyRules.IsValid())
-	{
-		return TLegacyTrackRowSegmentBlender<FMovieSceneTrackRowSegmentBlender>(MoveTemp(LegacyRules));
-	}
-	else
-	{
-		return FDefaultTrackRowSegmentBlender();
-	}
+	return FDefaultTrackRowSegmentBlender();
 }
 
 FMovieSceneTrackSegmentBlenderPtr UMovieSceneTrack::GetTrackSegmentBlender() const
 {
-	// Handle legacy track compiler rules
-	TInlineValue<FMovieSceneSegmentCompilerRules> LegacyRules = GetTrackCompilerRules();
-	if (LegacyRules.IsValid())
-	{
-		return TLegacyTrackRowSegmentBlender<FMovieSceneTrackSegmentBlender>(MoveTemp(LegacyRules));
-	}
-	else if (EvalOptions.bCanEvaluateNearestSection && EvalOptions.bEvalNearestSection)
+	if (EvalOptions.bCanEvaluateNearestSection && EvalOptions.bEvalNearestSection)
 	{
 		return FEvaluateNearestSegmentBlender();
 	}
@@ -180,7 +154,6 @@ FMovieSceneTrackSegmentBlenderPtr UMovieSceneTrack::GetTrackSegmentBlender() con
 		return FMovieSceneTrackSegmentBlenderPtr();
 	}
 }
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void UMovieSceneTrack::GenerateTemplate(const FMovieSceneTrackCompilerArgs& Args) const
 {

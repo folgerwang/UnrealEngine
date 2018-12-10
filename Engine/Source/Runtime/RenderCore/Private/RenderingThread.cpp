@@ -966,7 +966,7 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 			{
 				if (GRHIThread_InternalUseOnly)
 				{
-					new (RHICmdList.AllocCommand<FRHISyncFrameCommand>()) FRHISyncFrameCommand(CompletionEvent, GTSyncType);
+					ALLOC_COMMAND_CL(RHICmdList, FRHISyncFrameCommand)(CompletionEvent, GTSyncType);
 					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 				}
 				else

@@ -41,7 +41,7 @@ static TAutoConsoleVariable<int32> CVarFog(
 	ECVF_RenderThreadSafe | ECVF_Scalability);
 
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FFogUniformParameters, TEXT("FogStruct"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FFogUniformParameters, "FogStruct");
 
 void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& OutParameters)
 {
@@ -421,11 +421,13 @@ void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, c
 
 	// Draw a quad covering the view.
 	RHICmdList.SetStreamSource(0, GScreenSpaceVertexBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
+	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, 4, 0, 2, 1);
 }
 
 bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	if (Scene->ExponentialFogs.Num() > 0 
 		// Fog must be done in the base pass for MSAA to work
 		&& !IsForwardShadingEnabled(ShaderPlatform))
@@ -443,6 +445,8 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 				RenderViewFog(RHICmdList, View, LightShaftsOutput);
 			}
 		}
+
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 
 		return true;
 	}

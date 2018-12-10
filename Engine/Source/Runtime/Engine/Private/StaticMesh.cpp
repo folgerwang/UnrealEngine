@@ -874,6 +874,7 @@ void FStaticMeshRenderData::InitResources(ERHIFeatureLevel::Type InFeatureLevel,
 			LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], Owner);
 		}
 	}
+	bIsInitialized = true;
 }
 
 void FStaticMeshRenderData::ReleaseResources()
@@ -4794,7 +4795,7 @@ void UStaticMesh::GenerateLodsInPackage()
 
 #endif // #if WITH_EDITOR
 
-UStaticMeshSocket* UStaticMesh::FindSocket(FName InSocketName)
+UStaticMeshSocket* UStaticMesh::FindSocket(FName InSocketName) const
 {
 	if(InSocketName == NAME_None)
 	{

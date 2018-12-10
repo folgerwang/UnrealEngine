@@ -343,6 +343,20 @@ FComputeFenceRHIRef FVulkanDynamicRHI::RHICreateComputeFence(const FName& Name)
 	return new FVulkanComputeFence(Device, Name);
 }
 
+/*
+FRenderQueryPoolRHIRef FVulkanDynamicRHI::RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries)
+{
+	if (QueryType == RQT_AbsoluteTime)
+	{
+		return new FVulkanTimestampQueryPool(Device, NumQueries);
+	}
+	else
+	{
+		return new FDefaultRHIRenderQueryPool(QueryType, this, NumQueries);
+	}
+}
+*/
+
 
 bool FVulkanGPUFence::Poll() const
 {

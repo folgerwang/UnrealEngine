@@ -500,6 +500,7 @@ public:
 	
 	/** Gets the drawable texture if this is a back-buffer surface. */
 	FMetalTexture GetDrawableTexture();
+	ns::AutoReleased<FMetalTexture> GetCurrentTexture();
 
 	FMetalTexture Reallocate(FMetalTexture Texture, mtlpp::TextureUsage UsageModifier);
 	void ReplaceTexture(FMetalContext& Context, FMetalTexture OldTexture, FMetalTexture NewTexture);
@@ -746,6 +747,16 @@ public:
 	virtual ~FMetalRHIBuffer();
 	
 	/**
+	 * Alias the buffer backing store allowing the memory to be reused by another resource.
+	 */
+	void Alias();
+
+	/**
+	 * Unalias the buffer backing store forcing the memory to be reserved for use by this resource.
+	 */
+	void Unalias();
+	
+	/**
 	 * Allocate the index buffer backing store.
 	 */
 	void Alloc(uint32 InSize, EResourceLockMode LockMode);
@@ -774,6 +785,11 @@ public:
 	 * Prepare a CPU accessible buffer for uploading to GPU memory
 	 */
 	void Unlock();
+	
+	/**
+	 * Whether to allocate the resource rom private memory or not.
+	 */
+	bool UsePrivateMemory() const;
 	
 	// balsa buffer memory
 	FMetalBuffer Buffer;
@@ -840,10 +856,40 @@ public:
 	virtual ~FMetalUniformBuffer();
 	
 	void const* GetData();
+
+	void InitIAB();
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
+	
+	TSet<FTextureReferenceRHIParamRef> TextureReferences;
 
+	struct Argument
+	{
+		Argument() {}
+		Argument(FMetalBuffer const& InBuffer, mtlpp::ResourceUsage const InUsage) : Buffer(InBuffer), Usage(InUsage) {}
+		Argument(FMetalTexture const& InTexture, mtlpp::ResourceUsage const InUsage) : Texture(InTexture), Usage(InUsage) {}
+		Argument(FMetalSampler const& InSampler) : Sampler(InSampler), Usage(mtlpp::ResourceUsage::Read) {}
+
+		FMetalBuffer Buffer;
+		FMetalTexture Texture;
+		FMetalSampler Sampler;
+		mtlpp::ResourceUsage Usage;
+	};
+	
+	struct FMetalIndirectArgumentBuffer
+	{
+		FMetalIndirectArgumentBuffer();
+		~FMetalIndirectArgumentBuffer();
+		
+		TArray<Argument> IndirectArgumentResources;
+		FMetalBuffer IndirectArgumentBuffer;
+		FMetalBuffer IndirectArgumentBufferSideTable;
+	};
+	
+	EUniformBufferUsage UniformUsage;
+	FMetalIndirectArgumentBuffer& GetIAB();
+	FMetalIndirectArgumentBuffer* IAB;
 };
 
 
@@ -950,35 +996,29 @@ private:
 	void ResizeGlobalUniforms(uint32 TypeIndex, uint32 UniformArraySize);
 };
 
+class FMetalFence;
+
 class FMetalComputeFence : public FRHIComputeFence
 {
 public:
 	
 	FMetalComputeFence(FName InName)
 	: FRHIComputeFence(InName)
+	, Fence(nullptr)
 	{}
 	
 	virtual ~FMetalComputeFence()
 	{
 	}
 	
-	virtual void Reset() final override
-	{
-		FRHIComputeFence::Reset();
-		Fence = nil;
-	}
+	virtual void Reset() final override;
 	
-	void Write(mtlpp::Fence InFence)
-	{
-		check(Fence.GetPtr() == nil);
-		Fence = InFence;
-		FRHIComputeFence::WriteFence();
-	}
+	void Write(FMetalFence* InFence);
 	
 	void Wait(FMetalContext& Context);
 	
 private:
-	mtlpp::Fence Fence;
+	FMetalFence* Fence;
 };
 
 class FMetalGPUFence final : public FRHIGPUFence

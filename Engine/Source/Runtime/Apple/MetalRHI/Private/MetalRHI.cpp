@@ -118,8 +118,8 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	bool bCanUseWideMRTs = true;
 	bool bCanUseASTC = true;
 #else
-	bool bCanUseWideMRTs = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1];
-	bool bCanUseASTC = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1] && !FParse::Param(FCommandLine::Get(),TEXT("noastc"));
+	bool bCanUseWideMRTs = Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily2_v1);
+	bool bCanUseASTC = Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily2_v1) && !FParse::Param(FCommandLine::Get(),TEXT("noastc"));
 	
 	const mtlpp::FeatureSet FeatureSets[] = {
 		mtlpp::FeatureSet::iOS_GPUFamily1_v1,
@@ -143,6 +143,9 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 			GRHIDeviceId++;
 		}
 	}
+		
+	GSupportsVolumeTextureRendering = FMetalCommandQueue::SupportsFeature(EMetalFeaturesLayeredRendering);
+	bSupportsPointLights = GSupportsVolumeTextureRendering;
 #endif
 
     bool bProjectSupportsMRTs = false;
@@ -414,16 +417,6 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 #endif
 		GSupportsEfficientAsyncCompute = GRHISupportsParallelRHIExecute && (IsRHIDeviceAMD() || PLATFORM_IOS); // Only AMD currently support async. compute and it requires parallel execution to be useful.
 		GSupportsParallelOcclusionQueries = GRHISupportsRHIThread;
-		
-		// We must always use an intermediate back-buffer for the RHI thread to work properly at present.
-		if(GRHISupportsRHIThread)
-		{
-			static auto CVarSupportsIntermediateBackBuffer = IConsoleManager::Get().FindConsoleVariable(TEXT("rhi.Metal.SupportsIntermediateBackBuffer"));
-			if(CVarSupportsIntermediateBackBuffer && CVarSupportsIntermediateBackBuffer->GetInt() != 1)
-			{
-				CVarSupportsIntermediateBackBuffer->Set(1);
-			}
-		}
 	}
 	else
 	{
@@ -493,7 +486,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GSupportsRenderTargetFormat_PF_G8 = false;
 	GRHISupportsTextureStreaming = true;
 	GSupportsWideMRT = bCanUseWideMRTs;
-
+	// GSupportsTransientResourceAliasing = FMetalCommandQueue::SupportsFeature(EMetalFeaturesHeaps) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences);
 	GSupportsSeparateRenderTargetBlendState = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
 
 #if PLATFORM_MAC
@@ -516,7 +509,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GRHIHDRDisplayOutputFormat = PF_B8G8R8A8; // must have a default value for non-hdr, just like mac or ios
 #else
 	// Only A9+ can support this, so for now we need to limit this to the desktop-forward renderer only.
-	GRHISupportsBaseVertexIndex = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1] && (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
+	GRHISupportsBaseVertexIndex = Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v1) && (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	GRHISupportsFirstInstance = GRHISupportsBaseVertexIndex;
 	
 	// TODO: Move this into IOSPlatform
@@ -652,9 +645,9 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_PLATFORM_HDR_0		].Supported			= GRHISupportsHDROutput;
 		
 #if PLATFORM_TVOS
-	if (![Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily2_v1])
+    if (!Device.SupportsFeatureSet(mtlpp::FeatureSet::tvOS_GPUFamily2_v1))
 #else
-	if (![Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
+	if (!Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v2))
 #endif
 	{
 		GPixelFormats[PF_FloatRGB			].PlatformFormat 	= (uint32)mtlpp::PixelFormat::RGBA16Float;
@@ -854,7 +847,10 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	ImmediateContext.Profiler = nullptr;
 #if ENABLE_METAL_GPUPROFILE
 	ImmediateContext.Profiler = FMetalProfiler::CreateProfiler(ImmediateContext.Context);
+	if (ImmediateContext.Profiler)
+		ImmediateContext.Profiler->BeginFrame();
 #endif
+		
 		
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -868,6 +864,11 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 	
 	AsyncComputeContext = GSupportsEfficientAsyncCompute ? new FMetalRHIComputeContext(ImmediateContext.Profiler, new FMetalContext(ImmediateContext.Context->GetDevice(), ImmediateContext.Context->GetCommandQueue(), true)) : nullptr;
+
+#if ENABLE_METAL_GPUPROFILE
+		if (ImmediateContext.Profiler)
+			ImmediateContext.Profiler->EndFrame();
+#endif
 	}
 }
 
@@ -1134,7 +1135,7 @@ void FMetalDynamicRHI::RHIFlushResources()
 {
 	@autoreleasepool {
 		((FMetalDeviceContext*)ImmediateContext.Context)->DrainHeap();
-		((FMetalDeviceContext*)ImmediateContext.Context)->FlushFreeList();
+		((FMetalDeviceContext*)ImmediateContext.Context)->FlushFreeList(false);
 		ImmediateContext.Context->SubmitCommandBufferAndWait();
 		((FMetalDeviceContext*)ImmediateContext.Context)->ClearFreeList();
 		ImmediateContext.Context->GetCurrentState().Reset();

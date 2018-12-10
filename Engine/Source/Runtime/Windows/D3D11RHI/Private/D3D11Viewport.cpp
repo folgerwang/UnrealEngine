@@ -649,6 +649,11 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	}
 
 	StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_R16_UINT, 0);
+	
+	CurrentResourceBoundAsIB = nullptr;
+	FMemory::Memzero(CurrentResourcesBoundAsVBs, sizeof(CurrentResourcesBoundAsVBs));
+	MaxBoundVertexBufferIndex = INDEX_NONE;
+	
 	StateCache.SetPixelShader(nullptr);
 	StateCache.SetHullShader(nullptr);
 	StateCache.SetDomainShader(nullptr);

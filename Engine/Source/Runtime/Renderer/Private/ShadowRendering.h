@@ -304,7 +304,7 @@ public:
 	}
 };
 
-typedef TFunctionRef<void(FRHICommandList& RHICmdList, bool bFirst)> FSetShadowRenderTargetFunction;
+typedef TFunctionRef<void(FRHICommandList& RHICmdList, bool bFirst)> FBeginShadowRenderPassFunction;
 
 /**
  * Information about a projected shadow.
@@ -481,7 +481,7 @@ public:
 	/**
 	 * Renders the shadow subject depth.
 	 */
-	void RenderDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, FSetShadowRenderTargetFunction SetShadowRenderTargets, EShadowDepthRenderMode RenderMode);
+	void RenderDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, FBeginShadowRenderPassFunction BeginShadowRenderPass, EShadowDepthRenderMode RenderMode, bool bDoParallelDispatch);
 
 	/** Set state for depth rendering */
 	void SetStateForDepth(FRHICommandList& RHICmdList, EShadowDepthRenderMode RenderMode, FDrawingPolicyRenderState& DrawRenderState);
@@ -647,12 +647,12 @@ private:
 	 */
 	float ShaderDepthBias;
 
-	void CopyCachedShadowMap(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View, FSetShadowRenderTargetFunction SetShadowRenderTargets);
+	void CopyCachedShadowMap(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View);
 
 	/**
 	* Renders the shadow subject depth, to a particular hacked view
 	*/
-	void RenderDepthInner(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, FSetShadowRenderTargetFunction SetShadowRenderTargets, EShadowDepthRenderMode RenderMode );
+	void RenderDepthInner(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, FBeginShadowRenderPassFunction BeginShadowRenderPass, EShadowDepthRenderMode RenderMode, bool bDoParallelDispatch );
 
 	/**
 	* Modifies the passed in view for this shadow

@@ -136,6 +136,9 @@
     <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslAttributes.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\attribute.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h">
@@ -306,6 +309,12 @@
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\hex_float.h">
       <Filter>SPIRV</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\attribute.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.EXT.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="glslang">
@@ -340,6 +349,9 @@
     </None>
     <None Include="..\..\..\src\glslang_lib\README.md">
       <Filter>glslang</Filter>
+    </None>
+    <None Include="..\..\..\src\glslang_lib\glslang\Include\revision.template">
+      <Filter>glslang\Include</Filter>
     </None>
   </ItemGroup>
 </Project>

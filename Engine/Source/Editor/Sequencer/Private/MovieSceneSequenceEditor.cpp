@@ -31,7 +31,7 @@ namespace
 		FText DefaultComment_08 = LOCTEXT("DefaultComment_08", "\t\t\ta) Objects bound to the track's object binding, or:");
 		FText DefaultComment_09 = LOCTEXT("DefaultComment_09", "\t\t\tb) Objects specified on the track's event receivers array, or:");
 		FText DefaultComment_10 = LOCTEXT("DefaultComment_10", "\t\t\tc) Objects provided by the playback context (level blueprints, widgets etc)");
-		FText DefaultComment_11 = LOCTEXT("DefaultComment_11", "Tip: Trigger events on level blueprints by implementing an interface on it");
+		FText DefaultComment_11 = LOCTEXT("DefaultComment_11", "Tip: Trigger events on level blueprints using an interface pin, and adding the interface to the desired level blueprint");
 
 		return FText::Format(LOCTEXT("DefaultComment_Format", "{0}\n{1}\n{2}\n{3}\n{4}\n{5}\n{6}\n{7}\n{8}\n{9}\n\n{10}"),
 			DefaultComment_01, DefaultComment_02, DefaultComment_03, DefaultComment_04, DefaultComment_05,
@@ -108,7 +108,14 @@ UK2Node_FunctionEntry* FMovieSceneSequenceEditor::CreateEventEndpoint(UMovieScen
 
 void FMovieSceneSequenceEditor::InitializeEndpointForTrack(UMovieSceneEventTrack* EventTrack, UK2Node_FunctionEntry* Endpoint) const
 {
-	SetupDefaultPinForEndpoint(EventTrack, Endpoint);
+	UMovieScene* MovieScene = EventTrack->GetTypedOuter<UMovieScene>();
+
+	// Only add an object pin for the event if this is an event track on an object binding
+	FGuid Unused;
+	if (MovieScene->FindTrackBinding(*EventTrack, Unused))
+	{
+		SetupDefaultPinForEndpoint(EventTrack, Endpoint);
+	}
 }
 
 UClass* FMovieSceneSequenceEditor::FindTrackObjectBindingClass(UMovieSceneTrack* Track)

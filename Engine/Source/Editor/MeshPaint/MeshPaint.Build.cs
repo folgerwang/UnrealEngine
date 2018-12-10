@@ -23,7 +23,6 @@ public class MeshPaint : ModuleRules
                 "InputCore",
                 "RenderCore",
                 "RHI",
-                "ShaderCore",
                 "Slate",
 				"SlateCore",
                 "EditorStyle",

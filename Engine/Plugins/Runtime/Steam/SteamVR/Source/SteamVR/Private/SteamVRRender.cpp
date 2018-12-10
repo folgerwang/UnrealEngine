@@ -36,8 +36,12 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 
 	if (bSplashIsShown)
 	{
-		SetRenderTarget(RHICmdList, SrcTexture, FTextureRHIRef());
-		DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
+		FRHIRenderPassInfo RPInfo(SrcTexture, ERenderTargetActions::DontLoad_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
+		{
+			DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
+		}
+		RHICmdList.EndRenderPass();
 	}
 
 	check(SpectatorScreenController);
@@ -65,7 +69,7 @@ static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass Ste
 	check(Mesh.IsValid());
 
 	RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
+	RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 }
 
 void FSteamVRHMD::DrawHiddenAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const
@@ -98,7 +102,7 @@ void FSteamVRHMD::BridgeBaseImpl::BeginRendering_RenderThread(FRHICommandListImm
 {
 	if (IsUsingExplicitTimingMode())
 	{
-		new (RHICmdList.AllocCommand<FRHICommandExecute_BeginRendering>()) FRHICommandExecute_BeginRendering(this);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandExecute_BeginRendering)(this);
 	}
 }
 

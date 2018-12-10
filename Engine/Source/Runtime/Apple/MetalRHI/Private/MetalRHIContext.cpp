@@ -50,14 +50,14 @@ void SafeReleaseMetalBuffer(FMetalBuffer& Buffer)
 	}
 }
 
-void SafeReleaseMetalFence(id Object)
+void SafeReleaseMetalFence(FMetalFence* Object)
 {
 	if(GIsMetalInitialized && GDynamicRHI && Object)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseFence((id<MTLFence>)Object);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseFence(Object);
 			return;
 		}
 	}
@@ -82,6 +82,10 @@ FMetalRHICommandContext::~FMetalRHICommandContext()
 FMetalRHIComputeContext::FMetalRHIComputeContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext)
 : FMetalRHICommandContext(InProfiler, WrapContext)
 {
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences) && FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 14, 0}, (uint32[]){12, 0, 0}, (uint32[]){12, 0, 0}))
+	{
+		WrapContext->GetCurrentRenderPass().SetDispatchType(mtlpp::DispatchType::Concurrent);
+	}
 }
 
 FMetalRHIComputeContext::~FMetalRHIComputeContext()
@@ -135,9 +139,6 @@ FMetalRHIImmediateCommandContext::FMetalRHIImmediateCommandContext(class FMetalP
 
 void FMetalRHICommandContext::RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
 {
-	// Fallback...
-	InInfo.Validate();
-	
 	if (InInfo.bGeneratingMips)
 	{
 		FRHITexture* Textures[MaxSimultaneousRenderTargets];

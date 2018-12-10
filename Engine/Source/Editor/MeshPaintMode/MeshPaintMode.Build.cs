@@ -29,7 +29,6 @@ public class MeshPaintMode : ModuleRules
                 "InputCore",
                 "RenderCore",
                 "RHI",
-                "ShaderCore",
                 "Slate",
 				"SlateCore",
                 "EditorStyle",

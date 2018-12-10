@@ -470,11 +470,13 @@ void AllocateOrReuseLightShaftRenderTarget(FRHICommandListImmediate& RHICmdList,
 		EPixelFormat LightShaftFilterBufferFormat = PF_FloatRGB;
 		const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
 		FIntPoint LightShaftSize(FMath::Max<uint32>(BufferSize.X / GetLightShaftDownsampleFactor(), 1), FMath::Max<uint32>(BufferSize.Y / GetLightShaftDownsampleFactor(), 1));
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(LightShaftSize, LightShaftFilterBufferFormat, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
+		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(LightShaftSize, LightShaftFilterBufferFormat, FClearValueBinding::White, TexCreate_None, TexCreate_RenderTargetable, false));
 		Desc.AutoWritable = false;
 		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, Target, Name);
 
-		SetRenderTarget(RHICmdList, Target->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
+		FRHIRenderPassInfo RPInfo(Target->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearLightShaft"));
+		RHICmdList.EndRenderPass();
 	}
 }
 
@@ -489,25 +491,28 @@ void DownsamplePass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View,
 	const uint32 DownsampledSizeX = View.ViewRect.Width() / DownsampleFactor;
 	const uint32 DownsampledSizeY = View.ViewRect.Height() / DownsampleFactor;
 
-	SetRenderTarget(RHICmdList, LightShaftsDest->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);
-	RHICmdList.SetViewport(DownSampledXY.X, DownSampledXY.Y, 0.0f, DownSampledXY.X + DownsampledSizeX, DownSampledXY.Y + DownsampledSizeY, 1.0f);
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-	// No depth tests, no backface culling.
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	// Set shaders and texture
-	TShaderMapRef<FDownsampleLightShaftsVertexShader> DownsampleLightShaftsVertexShader(View.ShaderMap);
-	TRefCountPtr<IPooledRenderTarget> UnusedRT;
-
-	switch(LightSceneInfo->Proxy->GetLightType())
+	FRHIRenderPassInfo RPInfo(LightShaftsDest->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+	TransitionRenderPassTargets(RHICmdList, RPInfo);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("DownsampleLightshaftMask"));
 	{
-	case LightType_Directional:
+		RHICmdList.SetViewport(DownSampledXY.X, DownSampledXY.Y, 0.0f, DownSampledXY.X + DownsampledSizeX, DownSampledXY.Y + DownsampledSizeY, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		// No depth tests, no backface culling.
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		// Set shaders and texture
+		TShaderMapRef<FDownsampleLightShaftsVertexShader> DownsampleLightShaftsVertexShader(View.ShaderMap);
+		TRefCountPtr<IPooledRenderTarget> UnusedRT;
+
+		switch (LightSceneInfo->Proxy->GetLightType())
+		{
+		case LightType_Directional:
 		{
 			TShaderMapRef<TDownsampleLightShaftsPixelShader<LightType_Directional, bDownsampleOcclusion> > DownsampleLightShaftsPixelShader(View.ShaderMap);
 			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
@@ -517,7 +522,7 @@ void DownsamplePass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View,
 			DownsampleLightShaftsPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, UnusedRT);
 		}
 		break;
-	case LightType_Spot:
+		case LightType_Spot:
 		{
 			TShaderMapRef<TDownsampleLightShaftsPixelShader<LightType_Spot, bDownsampleOcclusion> > DownsampleLightShaftsPixelShader(View.ShaderMap);
 			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
@@ -527,8 +532,8 @@ void DownsamplePass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View,
 			DownsampleLightShaftsPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, UnusedRT);
 		}
 		break;
-	default:
-	case LightType_Point:
+		default:
+		case LightType_Point:
 		{
 			TShaderMapRef<TDownsampleLightShaftsPixelShader<LightType_Point, bDownsampleOcclusion> > DownsampleLightShaftsPixelShader(View.ShaderMap);
 			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
@@ -538,22 +543,23 @@ void DownsamplePass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View,
 			DownsampleLightShaftsPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, UnusedRT);
 		}
 		break;
+		}
+
+		DownsampleLightShaftsVertexShader->SetParameters(RHICmdList, View);
+
+		// Downsample scene color and depth, and convert them into a bloom term and an occlusion masking term
+		DrawRectangle(
+			RHICmdList,
+			0, 0,
+			DownsampledSizeX, DownsampledSizeY,
+			View.ViewRect.Min.X, View.ViewRect.Min.Y,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			FIntPoint(DownsampledSizeX, DownsampledSizeY),
+			BufferSize,
+			*DownsampleLightShaftsVertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	DownsampleLightShaftsVertexShader->SetParameters(RHICmdList, View);
-
-	// Downsample scene color and depth, and convert them into a bloom term and an occlusion masking term
-	DrawRectangle( 
-		RHICmdList,
-		0, 0, 
-		DownsampledSizeX, DownsampledSizeY,
-		View.ViewRect.Min.X, View.ViewRect.Min.Y, 
-		View.ViewRect.Width(), View.ViewRect.Height(),
-		FIntPoint(DownsampledSizeX, DownsampledSizeY), 
-		BufferSize,
-		*DownsampleLightShaftsVertexShader,
-		EDRF_UseTriangleOptimization);
-
+	RHICmdList.EndRenderPass();
 	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 	Swap(LightShaftsSource, LightShaftsDest);
@@ -625,6 +631,8 @@ void ApplyRadialBlurPasses(
 	/** First pass dest. */
 	TRefCountPtr<IPooledRenderTarget>& LightShaftsDest)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
 
 	const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
@@ -637,42 +645,46 @@ void ApplyRadialBlurPasses(
 
 	for (uint32 PassIndex = 0; PassIndex < NumPasses; PassIndex++)
 	{
-		SetRenderTarget(RHICmdList, LightShaftsDest->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);
-		RHICmdList.SetViewport(0, 0, 0.0f, FilterBufferSize.X, FilterBufferSize.Y, 1.0f);
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-		TShaderMapRef<FBlurLightShaftsPixelShader> BlurLightShaftsPixelShader(View.ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*BlurLightShaftsPixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-		TRefCountPtr<IPooledRenderTarget>& EffectiveSource = PassIndex == 0 ? FirstPassSource : LightShaftsSource;
-		/// ?
-		BlurLightShaftsPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, PassIndex, EffectiveSource);
-
+		FRHIRenderPassInfo RPInfo(LightShaftsDest->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+		TransitionRenderPassTargets(RHICmdList, RPInfo);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("LightShaftPass"));
 		{
-			// Apply a radial blur to the bloom and occlusion mask
-			DrawRectangle( 
-				RHICmdList,
-				DownSampledXY.X, DownSampledXY.Y, 
-				DownsampledSizeX, DownsampledSizeY,
-				DownSampledXY.X, DownSampledXY.Y, 
-				DownsampledSizeX, DownsampledSizeY,
-				FilterBufferSize, FilterBufferSize,
-				*ScreenVertexShader,
-				EDRF_UseTriangleOptimization);
-		}
+			RHICmdList.SetViewport(0, 0, 0.0f, FilterBufferSize.X, FilterBufferSize.Y, 1.0f);
 
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+			TShaderMapRef<FBlurLightShaftsPixelShader> BlurLightShaftsPixelShader(View.ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*BlurLightShaftsPixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+			TRefCountPtr<IPooledRenderTarget>& EffectiveSource = PassIndex == 0 ? FirstPassSource : LightShaftsSource;
+			/// ?
+			BlurLightShaftsPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, PassIndex, EffectiveSource);
+
+			{
+				// Apply a radial blur to the bloom and occlusion mask
+				DrawRectangle(
+					RHICmdList,
+					DownSampledXY.X, DownSampledXY.Y,
+					DownsampledSizeX, DownsampledSizeY,
+					DownSampledXY.X, DownSampledXY.Y,
+					DownsampledSizeX, DownsampledSizeY,
+					FilterBufferSize, FilterBufferSize,
+					*ScreenVertexShader,
+					EDRF_UseTriangleOptimization);
+			}
+		}
+		RHICmdList.EndRenderPass();
 		RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 		// Swap input and output for the next pass
@@ -682,6 +694,8 @@ void ApplyRadialBlurPasses(
 
 void FinishOcclusionTerm(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightSceneInfo* const LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& LightShaftsSource, TRefCountPtr<IPooledRenderTarget>& LightShaftsDest)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
 
 	const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
@@ -691,39 +705,43 @@ void FinishOcclusionTerm(FRHICommandList& RHICmdList, const FViewInfo& View, con
 	const uint32 DownsampledSizeX = View.ViewRect.Width() / DownsampleFactor;
 	const uint32 DownsampledSizeY = View.ViewRect.Height() / DownsampleFactor;
 
-	SetRenderTarget(RHICmdList, LightShaftsDest->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);
-	RHICmdList.SetViewport(0, 0, 0.0f, FilterBufferSize.X, FilterBufferSize.Y, 1.0f);
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	TShaderMapRef<FFinishOcclusionPixelShader> MaskOcclusionTermPixelShader(View.ShaderMap);
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*MaskOcclusionTermPixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-	/// ?
-	MaskOcclusionTermPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, LightShaftsSource);
-
+	FRHIRenderPassInfo RPInfo(LightShaftsDest->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+	TransitionRenderPassTargets(RHICmdList, RPInfo);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("FinishOcclusionTerm"));
 	{
-		// Apply a radial blur to the bloom and occlusion mask
-		DrawRectangle( 
-			RHICmdList,
-			DownSampledXY.X, DownSampledXY.Y, 
-			DownsampledSizeX, DownsampledSizeY,
-			DownSampledXY.X, DownSampledXY.Y, 
-			DownsampledSizeX, DownsampledSizeY,
-			FilterBufferSize, FilterBufferSize,
-			*ScreenVertexShader,
-			EDRF_UseTriangleOptimization);
-	}
+		RHICmdList.SetViewport(0, 0, 0.0f, FilterBufferSize.X, FilterBufferSize.Y, 1.0f);
 
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		TShaderMapRef<FFinishOcclusionPixelShader> MaskOcclusionTermPixelShader(View.ShaderMap);
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*MaskOcclusionTermPixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+		/// ?
+		MaskOcclusionTermPixelShader->SetParameters(RHICmdList, LightSceneInfo, View, LightShaftsSource);
+
+		{
+			// Apply a radial blur to the bloom and occlusion mask
+			DrawRectangle(
+				RHICmdList,
+				DownSampledXY.X, DownSampledXY.Y,
+				DownsampledSizeX, DownsampledSizeY,
+				DownSampledXY.X, DownSampledXY.Y,
+				DownsampledSizeX, DownsampledSizeY,
+				FilterBufferSize, FilterBufferSize,
+				*ScreenVertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+	}
+	RHICmdList.EndRenderPass();
 	RHICmdList.CopyToResolveTarget(LightShaftsDest->GetRenderTargetItem().TargetableTexture, LightShaftsDest->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 }
 
@@ -974,7 +992,12 @@ void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo&
 
 	if (bUseSeparateTranslucency)
 	{
-		SceneContext.FinishRenderingSeparateTranslucency(RHICmdList, View);
+		RHICmdList.EndRenderPass();
+		SceneContext.ResolveSeparateTranslucency(RHICmdList, View);
+	}
+	else
+	{
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 }
 

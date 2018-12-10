@@ -21,11 +21,12 @@ MobileSceneCaptureRendering.cpp - Mobile specific scene capture code.
 #include "SceneRenderTargetParameters.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "ScreenRendering.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "CommonRenderResources.h"
 
 /**
 * Shader set for the copy of scene color to capture target, decoding mosaic or RGBE encoded HDR image as part of a
@@ -195,6 +196,7 @@ static void CopyCaptureToTarget(
 	FSceneRenderer* SceneRenderer)
 {
 	check(SourceTextureRHI);
+	check(RHICmdList.IsOutsideRenderPass());
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	ESceneCaptureSource CaptureSource = View.Family->SceneCaptureSource;
@@ -226,53 +228,56 @@ static void CopyCaptureToTarget(
 	}
 
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	FRHIRenderTargetView ColorView(Target->GetRenderTargetTexture(), 0, -1, RTLoadAction, ERenderTargetStoreAction::EStore);
-	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView());
-	RHICmdList.SetRenderTargetsAndClear(Info);
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-
-	const bool bUsingDemosaic = IsMobileHDRMosaic();
-	FShader* VertexShader;
 	FIntPoint SourceTexSize = SourceTextureRHI->GetSizeXY();
-	if (bUsingDemosaic)
+	
 	{
-		VertexShader = SetCaptureToTargetShaders<true>(RHICmdList, GraphicsPSOInit, CaptureSource, View, SourceTexSize, SourceTextureRHI);
-	}
-	else
-	{
-		VertexShader = SetCaptureToTargetShaders<false>(RHICmdList, GraphicsPSOInit, CaptureSource, View, SourceTexSize, SourceTextureRHI);
-	}
+		FRHIRenderPassInfo RPInfo(Target->GetRenderTargetTexture(), MakeRenderTargetActions(RTLoadAction, ERenderTargetStoreAction::EStore));
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("CaptureToTarget"));
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	if (bNeedsFlippedRenderTarget)
-	{
-		DrawRectangle(
-			RHICmdList,
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Min.X, ViewRect.Height() - ViewRect.Min.Y,
-			ViewRect.Width(), -ViewRect.Height(),
-			TargetSize,
-			SourceTexSize,
-			VertexShader,
-			EDRF_UseTriangleOptimization);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+
+		const bool bUsingDemosaic = IsMobileHDRMosaic();
+		FShader* VertexShader;
+		if (bUsingDemosaic)
+		{
+			VertexShader = SetCaptureToTargetShaders<true>(RHICmdList, GraphicsPSOInit, CaptureSource, View, SourceTexSize, SourceTextureRHI);
+		}
+		else
+		{
+			VertexShader = SetCaptureToTargetShaders<false>(RHICmdList, GraphicsPSOInit, CaptureSource, View, SourceTexSize, SourceTextureRHI);
+		}
+
+		if (bNeedsFlippedRenderTarget)
+		{
+			DrawRectangle(
+				RHICmdList,
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				ViewRect.Min.X, ViewRect.Height() - ViewRect.Min.Y,
+				ViewRect.Width(), -ViewRect.Height(),
+				TargetSize,
+				SourceTexSize,
+				VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		else
+		{
+			DrawRectangle(
+				RHICmdList,
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				TargetSize,
+				SourceTexSize,
+				VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		RHICmdList.EndRenderPass();
 	}
-	else
-	{
-		DrawRectangle(
-			RHICmdList,
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			TargetSize,
-			SourceTexSize,
-			VertexShader,
-			EDRF_UseTriangleOptimization);
-	}
+	
 
 	// if opacity is needed.
 	if (CaptureSource == SCS_SceneColorHDR)
@@ -280,56 +285,58 @@ static void CopyCaptureToTarget(
 		// render translucent opacity. (to scene color)
 		check(View.Family->Scene->GetShadingPath() == EShadingPath::Mobile);
 		FMobileSceneRenderer* MobileSceneRenderer = (FMobileSceneRenderer*)SceneRenderer;
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorExistingDepth);
 
-		MobileSceneRenderer->RenderInverseOpacity(RHICmdList, View);
+		{
+			MobileSceneRenderer->RenderInverseOpacity(RHICmdList, View);
+		}		
 
 		// Set capture target.
-		FRHIRenderTargetView OpacityView(Target->GetRenderTargetTexture(), 0, -1, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
-		FRHISetRenderTargetsInfo OpacityInfo(1, &OpacityView, FRHIDepthRenderTargetView());
-		RHICmdList.SetRenderTargetsAndClear(OpacityInfo);
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		// Note lack of inverse, both the target and source images are already inverted.
-		GraphicsPSOInit.BlendState = TStaticBlendState<CW_ALPHA, BO_Add, BF_DestColor, BF_Zero, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		// Combine translucent opacity pass to earlier opaque pass to build final inverse opacity.
-		TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(View.ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-		ScreenVertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
-		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceTextureRHI);
-
-		int32 TargetPosY = ViewRect.Min.Y;
-		int32 TargetHeight = ViewRect.Height();
-	
-		if (bNeedsFlippedRenderTarget)
+		FRHIRenderPassInfo RPInfo(Target->GetRenderTargetTexture(), ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("OpacitySceneCapture"));
 		{
-			TargetPosY = ViewRect.Height() - TargetPosY;
-			TargetHeight = -TargetHeight;
-		}
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		DrawRectangle(
-			RHICmdList,
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Min.X, TargetPosY,
-			ViewRect.Width(), TargetHeight,
-			TargetSize,
-			SourceTexSize,
-			*ScreenVertexShader,
-			EDRF_UseTriangleOptimization);
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			// Note lack of inverse, both the target and source images are already inverted.
+			GraphicsPSOInit.BlendState = TStaticBlendState<CW_ALPHA, BO_Add, BF_DestColor, BF_Zero, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			// Combine translucent opacity pass to earlier opaque pass to build final inverse opacity.
+			TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(View.ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+			ScreenVertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceTextureRHI);
+
+			int32 TargetPosY = ViewRect.Min.Y;
+			int32 TargetHeight = ViewRect.Height();
+
+			if (bNeedsFlippedRenderTarget)
+			{
+				TargetPosY = ViewRect.Height() - TargetPosY;
+				TargetHeight = -TargetHeight;
+			}
+
+			DrawRectangle(
+				RHICmdList,
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				ViewRect.Min.X, TargetPosY,
+				ViewRect.Width(), TargetHeight,
+				TargetSize,
+				SourceTexSize,
+				*ScreenVertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		RHICmdList.EndRenderPass();
 	}
 }
 
@@ -403,8 +410,12 @@ void UpdateSceneCaptureContentMobile_RenderThread(
 		if(bNeedsFlippedFinalColor)
 		{
 			auto& RenderTargetRHI = Target->GetRenderTargetTexture();
-			SetRenderTarget(RHICmdList, RenderTargetRHI, NULL, true);
+			
+			FRHIRenderPassInfo RPInfo(RenderTargetRHI, ERenderTargetActions::DontLoad_Store);
+			TransitionRenderPassTargets(RHICmdList, RPInfo);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
 			DrawClearQuad(RHICmdList, true, FLinearColor::Black, false, 0, false, 0, Target->GetSizeXY(), ViewRect);
+			RHICmdList.EndRenderPass();
 		}
 
 		// Render the scene normally

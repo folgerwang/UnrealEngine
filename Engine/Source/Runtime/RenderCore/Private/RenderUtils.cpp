@@ -465,7 +465,7 @@ public:
 	{
 		// Create the texture RHI.
 		FRHIResourceCreateInfo CreateInfo;
-		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, 0, CreateInfo);
+		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, TexCreate_ShaderResource, CreateInfo);
 		TextureRHI = TextureCube;
 
 		// Write the contents of the texture.

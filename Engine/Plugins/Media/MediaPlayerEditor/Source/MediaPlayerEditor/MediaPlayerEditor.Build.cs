@@ -51,7 +51,6 @@ public class MediaPlayerEditor : ModuleRules
 				"PropertyEditor",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"TextureEditor",
 				"UnrealEd",
 			});

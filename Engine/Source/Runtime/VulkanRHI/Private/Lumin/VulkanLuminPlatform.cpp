@@ -130,6 +130,10 @@ void FVulkanLuminPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 	{
 		OutExtensions.Add("VK_LAYER_NV_vgd");
 	}
+	// YCbCr requires BindMem2 and GetMemReqs2
+	OutExtensions.Add(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
 }
 
 bool FVulkanLuminPlatform::ForceEnableDebugMarkers()

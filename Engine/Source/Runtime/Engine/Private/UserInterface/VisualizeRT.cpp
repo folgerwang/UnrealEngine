@@ -24,6 +24,7 @@
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/SListView.h"
+#include "VisualizeTexture.h"
 
 #define ENABLE_IMAGES	0
 
@@ -220,7 +221,9 @@ public:
 
 		// Get List from Renderer
 		FQueryVisualizeTexureInfo VisTextureInfo;
-		RendererModule.QueryVisualizeTexture(VisTextureInfo);
+		{
+			GVisualizeTexture.QueryInfo_GameThread(VisTextureInfo);
+		}
 		uint32 TotalSize = 0;
 		for (int32 Index = 0; Index < VisTextureInfo.Entries.Num(); ++Index)
 		{

@@ -107,6 +107,9 @@ private:
 	/** Called when viewport tab content changes. */
 	void OnTabContentChanged();
 
+	/** Called when the map is changed. */
+	void OnMapChanged(UWorld* World, EMapChangeType MapChangeType);
+
 	/** Called before a PIE session begins. */
 	void OnPreBeginPIE(bool bIsSimulating);
 

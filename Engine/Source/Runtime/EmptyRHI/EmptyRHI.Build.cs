@@ -13,8 +13,7 @@ public class EmptyRHI : ModuleRules
 				"Core",
 				"Engine",
 				"RHI",
-				"RenderCore",
-				"ShaderCore"
+				"RenderCore"
 			}
 			);
 

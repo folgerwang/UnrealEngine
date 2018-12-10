@@ -187,39 +187,42 @@ void FVirtualTextureTest::ProducePageData( FRHICommandList& RHICmdList, ERHIFeat
 
 	FSceneRenderTargetItem& RenderTarget = PhysicalTexture->GetRenderTargetItem();
 
-	SetRenderTarget( RHICmdList, RenderTarget.TargetableTexture, NULL );
-	RHICmdList.SetViewport( DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f );
+	FRHIRenderPassInfo RPInfo(RenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("ProducePageData"));
+	{
+		RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0.0f, DstRect.Max.X, DstRect.Max.Y, 1.0f);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets( GraphicsPSOInit );
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	TShaderMapRef< FScreenVS >				VertexShader( ShaderMap );
-	TShaderMapRef< FVirtualTextureTestPS >	PixelShader( ShaderMap );
+		TShaderMapRef< FScreenVS >				VertexShader(ShaderMap);
+		TShaderMapRef< FVirtualTextureTestPS >	PixelShader(ShaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	SetGraphicsPipelineState( RHICmdList, GraphicsPSOInit );
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	DrawRectangle(
-		RHICmdList,
-		0,					0,
-		DstRect.Width(),	DstRect.Height(),
-		SrcRect.Min.X,		SrcRect.Min.Y,
-		SrcRect.Width(),	SrcRect.Height(),
-		DstRect.Size(),
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization );
+		DrawRectangle(
+			RHICmdList,
+			0, 0,
+			DstRect.Width(), DstRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstRect.Size(),
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	RHICmdList.EndRenderPass();
+	RHICmdList.CopyToResolveTarget(RenderTarget.TargetableTexture, RenderTarget.ShaderResourceTexture, FResolveParams());
 
-	RHICmdList.CopyToResolveTarget( RenderTarget.TargetableTexture, RenderTarget.ShaderResourceTexture, false, FResolveParams() );
-
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PhysicalTexture );
+	GVisualizeTexture.SetCheckPoint( RHICmdList, PhysicalTexture );
 }
 
 void FVirtualTextureTest::DumpToConsole()

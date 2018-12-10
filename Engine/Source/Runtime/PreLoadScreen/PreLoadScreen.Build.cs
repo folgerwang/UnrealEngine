@@ -21,7 +21,6 @@ public class PreLoadScreen : ModuleRules
                     "Core",
                     "InputCore",
                     "RenderCore",
-                    "ShaderCore",
                     "CoreUObject",
                     "RHI",
                     "Slate",

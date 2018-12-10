@@ -15,17 +15,18 @@
 #include "ShaderParameterUtils.h"
 
 /** Uniform buffer for computing the vertex positional and UV adjustments in the vertex shader. */
-BEGIN_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters,)
-	UNIFORM_MEMBER( FVector4, PosScaleBias )
-	UNIFORM_MEMBER( FVector4, UVScaleBias )
-	UNIFORM_MEMBER( FVector4, InvTargetSizeAndTextureSize )
-END_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FDrawRectangleParameters,)
+	SHADER_PARAMETER( FVector4, PosScaleBias )
+	SHADER_PARAMETER( FVector4, UVScaleBias )
+	SHADER_PARAMETER( FVector4, InvTargetSizeAndTextureSize )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /**
  * Draws a quad with the given vertex positions and UVs in denormalized pixel/texel coordinates.
  * The platform-dependent mapping from pixels to texels is done automatically.
  * Note that the positions are affected by the current viewport.
  * NOTE: DrawRectangle should be used in the vertex shader to calculate the correct position and uv for vertices.
+ * NOTE2: Assumes previously set PSO has PrimitiveType = PT_TriangleList
  *
  * X, Y							Position in screen pixels of the top left corner of the quad
  * SizeX, SizeY					Size in screen pixels of the quad
@@ -54,6 +55,7 @@ extern void DrawRectangle(
 	uint32 InstanceCount = 1
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawTransformedRectangle(
 	FRHICommandListImmediate& RHICmdList,
 	float X,
@@ -70,6 +72,7 @@ extern void DrawTransformedRectangle(
 	FIntPoint TextureSize
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawHmdMesh(
 	FRHICommandList& RHICmdList,
 	float X,
@@ -86,6 +89,7 @@ extern void DrawHmdMesh(
 	FShader* VertexShader
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawPostProcessPass(
 	FRHICommandList& RHICmdList,
 	float X,
@@ -103,10 +107,6 @@ extern void DrawPostProcessPass(
 	bool bHasCustomMesh,
 	EDrawRectangleFlags Flags = EDRF_Default
 	);
-
-extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
-extern TGlobalResource<FEmptyVertexDeclaration> GEmptyVertexDeclaration;
-
 
 
 

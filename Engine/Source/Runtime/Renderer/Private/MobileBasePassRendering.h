@@ -25,10 +25,10 @@
 #include "PlanarReflectionRendering.h"
 #include "BasePassRendering.h"
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters, )
-	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
-	UNIFORM_MEMBER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
-END_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileBasePassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FFogUniformParameters, Fog)
+	SHADER_PARAMETER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern void CreateMobileBasePassUniformBuffer(
 	FRHICommandListImmediate& RHICmdList,
@@ -84,7 +84,7 @@ protected:
 		FMeshMaterialShader(Initializer)
 	{
 		VertexParametersType::Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 public:
@@ -210,7 +210,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		PixelParametersType::Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 		ReflectionCubemap.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap"));
 		ReflectionSampler.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler"));
 		InvReflectionCubemapAverageBrightness.Bind(Initializer.ParameterMap, TEXT("InvReflectionCubemapAverageBrightness"));

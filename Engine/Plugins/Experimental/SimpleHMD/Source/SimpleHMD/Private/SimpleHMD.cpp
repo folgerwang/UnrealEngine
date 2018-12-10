@@ -214,7 +214,7 @@ void FSimpleHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePassC
 	RHIUnlockIndexBuffer(IndexBufferRHI);
 
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
+	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, 0, 0, NumVerts, 0, NumTris, 1);
 
 	IndexBufferRHI.SafeRelease();
 	VertexBufferRHI.SafeRelease();

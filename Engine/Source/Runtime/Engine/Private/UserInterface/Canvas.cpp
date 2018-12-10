@@ -418,7 +418,7 @@ bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmedia
 	return bDirty;
 }
 
-bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
+bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope)
 {	
 	checkSlow(Data);
 	bool bDirty=false;
@@ -462,32 +462,32 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
 			Canvas->GetFeatureLevel(),
 			Canvas->GetShaderPlatform()
 		};
-		ENQUEUE_RENDER_COMMAND(BatchedDrawCommand)(
+		RenderScope.EnqueueRenderCommand(
 			[DrawParameters](FRHICommandList& RHICmdList)
+		{
+			FSceneView SceneView = FBatchedElements::CreateProxySceneView(DrawParameters.RenderData->Transform.GetMatrix(), FIntRect(0, 0, DrawParameters.ViewportSizeX, DrawParameters.ViewportSizeY));
+
+			FDrawingPolicyRenderState DrawRenderState(SceneView);
+
+			// disable depth test & writes
+			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+
+			// draw batched items
+			DrawParameters.RenderData->BatchedElements.Draw(
+				RHICmdList,
+				DrawRenderState,
+				DrawParameters.FeatureLevel,
+				DrawParameters.bNeedsToSwitchVerticalAxis,
+				SceneView,
+				DrawParameters.bHitTesting,
+				DrawParameters.DisplayGamma);
+
+			if(DrawParameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender )
 			{
-				FSceneView SceneView = FBatchedElements::CreateProxySceneView(DrawParameters.RenderData->Transform.GetMatrix(), FIntRect(0, 0, DrawParameters.ViewportSizeX, DrawParameters.ViewportSizeY));
-
-				FDrawingPolicyRenderState DrawRenderState(SceneView);
-
-				// disable depth test & writes
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-				DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
-
-				// draw batched items
-				DrawParameters.RenderData->BatchedElements.Draw(
-					RHICmdList,
-					DrawRenderState,
-					DrawParameters.FeatureLevel,
-					DrawParameters.bNeedsToSwitchVerticalAxis,
-					SceneView,
-					DrawParameters.bHitTesting,
-					DrawParameters.DisplayGamma);
-
-				if(DrawParameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender )
-				{
-					delete DrawParameters.RenderData;
-				}
-			});
+				delete DrawParameters.RenderData;
+			}
+		});
 	}
 	if( Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender )
 	{
@@ -645,6 +645,9 @@ FCanvas::~FCanvas()
 
 void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bForce)
 {
+	// This renderpass is self contained.
+	check(RHICmdList.IsOutsideRenderPass());
+
 	SCOPE_CYCLE_COUNTER(STAT_Canvas_FlushTime);
 
 	if (!(AllowedModes&Allow_Flush) && !bForce)
@@ -681,64 +684,66 @@ void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bFor
 	const FTexture2DRHIRef& RenderTargetTexture = RenderTarget->GetRenderTargetTexture();
 
 	check(IsValidRef(RenderTargetTexture));
+
+	FRHIRenderPassInfo RPInfo(RenderTargetTexture, ERenderTargetActions::Load_Store);
 	
 	// Set the RHI render target.
 	if (IsUsingInternalTexture())
 	{
-		::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+		RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
 	}
-	else
+	
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("CanvasRenderThread"));
 	{
-		::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef());
-	}
+		FDrawingPolicyRenderState DrawRenderState;
+		// disable depth test & writes
+		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-	FDrawingPolicyRenderState DrawRenderState;
-	// disable depth test & writes
-	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
-	if (ViewRect.Area() <= 0)
-	{
-		ViewRect = FIntRect(FIntPoint::ZeroValue, RenderTarget->GetSizeXY());
-	}
-
-	// set viewport to RT size
-	RHICmdList.SetViewport(ViewRect.Min.X, ViewRect.Min.Y, 0.0f, ViewRect.Max.X, ViewRect.Max.Y, 1.0f);
-
-	// Set scissor rect if valid applied
-	if (ScissorRect.Area() > 0)
-	{
-		RHICmdList.SetScissorRect(true, ScissorRect.Min.X, ScissorRect.Min.Y, ScissorRect.Max.X, ScissorRect.Max.Y);
-	}
-
-	// iterate over the FCanvasSortElements in sorted order and render all the batched items for each entry
-	for (int32 Idx = 0; Idx < SortedElements.Num(); Idx++)
-	{
-		FCanvasSortElement& SortElement = SortedElements[Idx];
-		for (int32 BatchIdx = 0; BatchIdx < SortElement.RenderBatchArray.Num(); BatchIdx++)
+		if (ViewRect.Area() <= 0)
 		{
-			FCanvasBaseRenderItem* RenderItem = SortElement.RenderBatchArray[BatchIdx];
-			if (RenderItem)
+			ViewRect = FIntRect(FIntPoint::ZeroValue, RenderTarget->GetSizeXY());
+		}
+
+		// set viewport to RT size
+		RHICmdList.SetViewport(ViewRect.Min.X, ViewRect.Min.Y, 0.0f, ViewRect.Max.X, ViewRect.Max.Y, 1.0f);
+
+		// Set scissor rect if valid applied
+		if (ScissorRect.Area() > 0)
+		{
+			RHICmdList.SetScissorRect(true, ScissorRect.Min.X, ScissorRect.Min.Y, ScissorRect.Max.X, ScissorRect.Max.Y);
+		}
+
+		// iterate over the FCanvasSortElements in sorted order and render all the batched items for each entry
+		for (int32 Idx = 0; Idx < SortedElements.Num(); Idx++)
+		{
+			FCanvasSortElement& SortElement = SortedElements[Idx];
+			for (int32 BatchIdx = 0; BatchIdx < SortElement.RenderBatchArray.Num(); BatchIdx++)
 			{
-				// mark current render target as dirty since we are drawing to it
-				bRenderTargetDirty |= RenderItem->Render_RenderThread(RHICmdList, DrawRenderState, this);
-				if (AllowedModes & Allow_DeleteOnRender)
+				FCanvasBaseRenderItem* RenderItem = SortElement.RenderBatchArray[BatchIdx];
+				if (RenderItem)
 				{
-					delete RenderItem;
+					// mark current render target as dirty since we are drawing to it
+					bRenderTargetDirty |= RenderItem->Render_RenderThread(RHICmdList, DrawRenderState, this);
+					if (AllowedModes & Allow_DeleteOnRender)
+					{
+						delete RenderItem;
+					}
 				}
+			}
+			if (AllowedModes & Allow_DeleteOnRender)
+			{
+				SortElement.RenderBatchArray.Empty();
 			}
 		}
 		if (AllowedModes & Allow_DeleteOnRender)
 		{
-			SortElement.RenderBatchArray.Empty();
+			// empty the array of FCanvasSortElement entries after finished with rendering	
+			SortedElements.Empty();
+			SortedElementLookupMap.Empty();
+			LastElementIndex = INDEX_NONE;
 		}
 	}
-	if (AllowedModes & Allow_DeleteOnRender)
-	{
-		// empty the array of FCanvasSortElement entries after finished with rendering	
-		SortedElements.Empty();
-		SortedElementLookupMap.Empty();
-		LastElementIndex = INDEX_NONE;
-	}
+	RHICmdList.EndRenderPass();	
 }
 
 void FCanvas::Flush_GameThread(bool bForce)
@@ -798,11 +803,19 @@ void FCanvas::Flush_GameThread(bool bForce)
 	};
 	bool bEmitCanvasDrawEvents = GetEmitDrawEvents();
 
-	ENQUEUE_RENDER_COMMAND(CanvasFlushSetupCommand)(
-		[FlushParameters](FRHICommandList& RHICmdList)
+	// Only create these render commands if we actually have something to draw.
+	if(SortedElements.Num() > 0)
+	{
+		FRenderThreadScope RenderThreadScope;
+		RenderThreadScope.EnqueueRenderCommand(
+			[FlushParameters](FRHICommandList& RHICmdList)
 		{
+			check(RHICmdList.IsOutsideRenderPass());
+
 			// Set the RHI render target.
-			::SetRenderTarget(RHICmdList, FlushParameters.CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
+			FRHIRenderPassInfo RPInfo(FlushParameters.CanvasRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Load_Store);
+			TransitionRenderPassTargets(RHICmdList, RPInfo);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("Canvas_GameThreadFlush"));
 
 			FIntRect ViewportRect = FlushParameters.ViewRect;
 			FIntRect ScissorRectParam = FlushParameters.ScissorRect;
@@ -820,31 +833,39 @@ void FCanvas::Flush_GameThread(bool bForce)
 			RHICmdList.SetViewport(ViewportRect.Min.X, ViewportRect.Min.Y, 0.0f, ViewportRect.Max.X, ViewportRect.Max.Y, 1.0f);
 		});
 
-	// iterate over the FCanvasSortElements in sorted order and render all the batched items for each entry
-	for( int32 Idx=0; Idx < SortedElements.Num(); Idx++ )
-	{
-		FCanvasSortElement& SortElement = SortedElements[Idx];
-		for( int32 BatchIdx=0; BatchIdx < SortElement.RenderBatchArray.Num(); BatchIdx++ )
+		// iterate over the FCanvasSortElements in sorted order and render all the batched items for each entry
+		for( int32 Idx=0; Idx < SortedElements.Num(); Idx++ )
 		{
-			FCanvasBaseRenderItem* RenderItem = SortElement.RenderBatchArray[BatchIdx];
-			if( RenderItem )
+			FCanvasSortElement& SortElement = SortedElements[Idx];
+			for( int32 BatchIdx=0; BatchIdx < SortElement.RenderBatchArray.Num(); BatchIdx++ )
 			{
-				// mark current render target as dirty since we are drawing to it
-				bRenderTargetDirty |= RenderItem->Render_GameThread(this);
-				if( AllowedModes & Allow_DeleteOnRender )
+				FCanvasBaseRenderItem* RenderItem = SortElement.RenderBatchArray[BatchIdx];
+				if( RenderItem )
 				{
-					delete RenderItem;
+					// mark current render target as dirty since we are drawing to it
+					bRenderTargetDirty |= RenderItem->Render_GameThread(this, RenderThreadScope);
+					if( AllowedModes & Allow_DeleteOnRender )
+					{
+						delete RenderItem;
+					}
 				}
-			}			
+			}
+			if( AllowedModes & Allow_DeleteOnRender )
+			{
+				SortElement.RenderBatchArray.Empty();
+			}
 		}
-		if( AllowedModes & Allow_DeleteOnRender )
+
+		RenderThreadScope.EnqueueRenderCommand(
+			[](FRHICommandList& RHICmdList)
 		{
-			SortElement.RenderBatchArray.Empty();
-		}
+			RHICmdList.EndRenderPass();
+		});
 	}
+	
 	if( AllowedModes & Allow_DeleteOnRender )
 	{
-		// empty the array of FCanvasSortElement entries after finished with rendering	
+		// empty the array of FCanvasSortElement entries after finished with rendering
 		SortedElements.Empty();
 		SortedElementLookupMap.Empty();
 		LastElementIndex = INDEX_NONE;
@@ -953,17 +974,22 @@ void FCanvas::Clear(const FLinearColor& ClearColor)
 			SCOPED_DRAW_EVENT(RHICmdList, CanvasClear);
 			if (CanvasRenderTarget)
 			{
-				// possibility for the RTT to be null for nullrhi
+				// possibility for the RTT to be null for nullrhi. In that case we do nothing.
 				if (CanvasRenderTarget->GetRenderTargetTexture() && CanvasRenderTarget->GetRenderTargetTexture()->GetClearBinding() == FClearValueBinding(ClearColor))
 				{
 					// do fast clear
-					SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+					FRHIRenderPassInfo RPInfo(CanvasRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearCanvas"));
+					RHICmdList.EndRenderPass();					
 				}
-				else
+				else if(CanvasRenderTarget->GetRenderTargetTexture())
 				{
-					::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
+					FRHIRenderPassInfo RPInfo(CanvasRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::DontLoad_Store);
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearCanvas"));
 					RHICmdList.SetViewport(0, 0, 0.0f, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y, 1.0f);
 					DrawClearQuad(RHICmdList, ClearColor);
+					RHICmdList.EndRenderPass();
 				}
 			}
 			else

@@ -62,7 +62,7 @@
 
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer MotionBlurStartFrame"), STAT_FDeferredShadingSceneRenderer_MotionBlurStartFrame, STATGROUP_SceneRendering);
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDistanceCullFadeUniformShaderParameters,TEXT("PrimitiveFade"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDistanceCullFadeUniformShaderParameters, "PrimitiveFade");
 
 /** Global primitive uniform buffer resource containing faded in */
 TGlobalResource< FGlobalDistanceCullFadeUniformBuffer > GDistanceCullFadedInUniformBuffer;
@@ -1342,7 +1342,9 @@ void FScene::AddLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 		}
 	}
 
-	if (IsForwardShadingEnabled(GetShaderPlatform()) && LightSceneInfo->Proxy->CastsDynamicShadow())
+	const bool bForwardShading = IsForwardShadingEnabled(GetShaderPlatform());
+
+	if (bForwardShading && (LightSceneInfo->Proxy->CastsDynamicShadow() || LightSceneInfo->Proxy->GetLightFunctionMaterial()))
 	{
 		AssignAvailableShadowMapChannelForLight(LightSceneInfo);
 	}
@@ -3556,10 +3558,10 @@ bool FMotionBlurInfoData::GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* 
 //////////////////////////////////////////////////////////////////////////
 
 FLatentGPUTimer::FLatentGPUTimer(int32 InAvgSamples)
-: AvgSamples(InAvgSamples)
-, TotalTime(0.0f)
-, SampleIndex(0)
-, QueryIndex(0)
+	: AvgSamples(InAvgSamples)
+	, TotalTime(0.0f)
+	, SampleIndex(0)
+	, QueryIndex(0)
 {
 	TimeSamples.AddZeroed(AvgSamples);
 }
@@ -3623,7 +3625,7 @@ void FLatentGPUTimer::Begin(FRHICommandListImmediate& RHICmdList)
 	}
 	
 	if (!StartQueries[QueryIndex])
-	{
+	{		
 		StartQueries[QueryIndex] = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);
 	}
 

@@ -348,7 +348,7 @@ bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& 
 	return true;
 }
 
-bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
+bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope)
 {
 	float CurrentRealTime = 0.f;
 	float CurrentWorldTime = 0.f;
@@ -405,40 +405,40 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 	InitTriangleBuffers(&Data->VertexFactory, Data->Triangles, *View, bNeedsToSwitchVerticalAxis);
 
 	FDrawTriangleParameters Parameters = DrawTriangleParameters;
-	ENQUEUE_RENDER_COMMAND(DrawTriangleCommand)(
+	RenderScope.EnqueueRenderCommand(
 		[Parameters](FRHICommandListImmediate& RHICmdList)	
+	{
+		FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+
+		// disable depth test & writes
+		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+		SCOPED_DRAW_EVENT(RHICmdList, CanvasDrawTriangle);
+		for (int32 TriIdx = 0; TriIdx < Parameters.RenderData->Triangles.Num(); TriIdx++)
 		{
-			FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+			const FRenderData::FTriangleInst& Tri = Parameters.RenderData->Triangles[TriIdx];
+			// update the FMeshBatch
+			FMeshBatch& TriMesh = Parameters.RenderData->TriMesh.TriMeshElement;
+			TriMesh.VertexFactory = &Parameters.RenderData->VertexFactory;
+			TriMesh.MaterialRenderProxy = Parameters.RenderData->MaterialRenderProxy;
+			TriMesh.Elements[0].BaseVertexIndex = 3 * TriIdx;
 
-			// disable depth test & writes
-			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+			GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, *Parameters.View, TriMesh, Parameters.bIsHitTesting, Tri.HitProxyId);
+		}
 
-			SCOPED_DRAW_EVENT(RHICmdList, CanvasDrawTriangle);
-			for (int32 TriIdx = 0; TriIdx < Parameters.RenderData->Triangles.Num(); TriIdx++)
-			{
-				const FRenderData::FTriangleInst& Tri = Parameters.RenderData->Triangles[TriIdx];
-				// update the FMeshBatch
-				FMeshBatch& TriMesh = Parameters.RenderData->TriMesh.TriMeshElement;
-				TriMesh.VertexFactory = &Parameters.RenderData->VertexFactory;
-				TriMesh.MaterialRenderProxy = Parameters.RenderData->MaterialRenderProxy;
-				TriMesh.Elements[0].BaseVertexIndex = 3 * TriIdx;
+		Parameters.RenderData->StaticMeshVertexBuffers.PositionVertexBuffer.ReleaseResource();
+		Parameters.RenderData->StaticMeshVertexBuffers.StaticMeshVertexBuffer.ReleaseResource();
+		Parameters.RenderData->StaticMeshVertexBuffers.ColorVertexBuffer.ReleaseResource();
+		Parameters.RenderData->TriMesh.ReleaseResource();
+		Parameters.RenderData->VertexFactory.ReleaseResource();
 
-				GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, *Parameters.View, TriMesh, Parameters.bIsHitTesting, Tri.HitProxyId);
-			}
-
-			Parameters.RenderData->StaticMeshVertexBuffers.PositionVertexBuffer.ReleaseResource();
-			Parameters.RenderData->StaticMeshVertexBuffers.StaticMeshVertexBuffer.ReleaseResource();
-			Parameters.RenderData->StaticMeshVertexBuffers.ColorVertexBuffer.ReleaseResource();
-			Parameters.RenderData->TriMesh.ReleaseResource();
-			Parameters.RenderData->VertexFactory.ReleaseResource();
-
-			delete Parameters.View->Family;
-			delete Parameters.View;
-			if (Parameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
-			{
-				delete Parameters.RenderData;
-			}
-		});
+		delete Parameters.View->Family;
+		delete Parameters.View;
+		if (Parameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
+		{
+			delete Parameters.RenderData;
+		}
+	});
 
 	if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
 	{

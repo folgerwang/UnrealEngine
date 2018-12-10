@@ -15,12 +15,12 @@ struct FMeshBatchElement;
 	LocalVertexFactory.h: Local vertex factory definitions.
 =============================================================================*/
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters,ENGINE_API)
-	UNIFORM_MEMBER(FIntVector,VertexFetch_Parameters)
-	UNIFORM_MEMBER_SRV(Buffer<float2>, VertexFetch_TexCoordBuffer)
-	UNIFORM_MEMBER_SRV(Buffer<float4>, VertexFetch_PackedTangentsBuffer)
-	UNIFORM_MEMBER_SRV(Buffer<float4>, VertexFetch_ColorComponentsBuffer)
-END_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLocalVertexFactoryUniformShaderParameters,ENGINE_API)
+	SHADER_PARAMETER(FIntVector,VertexFetch_Parameters)
+	SHADER_PARAMETER_SRV(Buffer<float2>, VertexFetch_TexCoordBuffer)
+	SHADER_PARAMETER_SRV(Buffer<float4>, VertexFetch_PackedTangentsBuffer)
+	SHADER_PARAMETER_SRV(Buffer<float4>, VertexFetch_ColorComponentsBuffer)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(const class FLocalVertexFactory* VertexFactory, class FColorVertexBuffer* OverrideColorVertexBuffer);
 

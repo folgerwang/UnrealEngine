@@ -11,25 +11,25 @@
 
 
 /** The uniform shader parameters associated with a primitive. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,ENGINE_API)
-	UNIFORM_MEMBER(FMatrix,LocalToWorld)		// always needed
-	UNIFORM_MEMBER_EX(FVector4,InvNonUniformScaleAndDeterminantSign,EShaderPrecisionModifier::Half) //often needed
-	UNIFORM_MEMBER(FVector4,ObjectWorldPositionAndRadius)	// needed by some materials
-	UNIFORM_MEMBER(FMatrix,WorldToLocal)		// rarely needed
-	UNIFORM_MEMBER(FVector,ActorWorldPosition)
-	UNIFORM_MEMBER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
-	UNIFORM_MEMBER(FVector,ObjectBounds)		// only needed for editor/development
-	UNIFORM_MEMBER(float,LpvBiasMultiplier)
-	UNIFORM_MEMBER_EX(float,DecalReceiverMask,EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(float,PerObjectGBufferData,EShaderPrecisionModifier::Half)		// 0..1, 2 bits, bDistanceFieldRepresentation, bHeightfieldRepresentation
-	UNIFORM_MEMBER_EX(float,UseVolumetricLightmapShadowFromStationaryLights,EShaderPrecisionModifier::Half)		
-	UNIFORM_MEMBER_EX(float,UseEditorDepthTest,EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4,ObjectOrientation,EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4,NonUniformScale,EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
-	UNIFORM_MEMBER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
-	UNIFORM_MEMBER(uint32,LightingChannelMask)
-END_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPrimitiveUniformShaderParameters,ENGINE_API)
+	SHADER_PARAMETER(FMatrix,LocalToWorld)		// always needed
+	SHADER_PARAMETER_EX(FVector4,InvNonUniformScaleAndDeterminantSign,EShaderPrecisionModifier::Half) //often needed
+	SHADER_PARAMETER(FVector4,ObjectWorldPositionAndRadius)	// needed by some materials
+	SHADER_PARAMETER(FMatrix,WorldToLocal)		// rarely needed
+	SHADER_PARAMETER(FVector,ActorWorldPosition)
+	SHADER_PARAMETER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
+	SHADER_PARAMETER(FVector,ObjectBounds)		// only needed for editor/development
+	SHADER_PARAMETER(float,LpvBiasMultiplier)
+	SHADER_PARAMETER_EX(float,DecalReceiverMask,EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(float,PerObjectGBufferData,EShaderPrecisionModifier::Half)		// 0..1, 2 bits, bDistanceFieldRepresentation, bHeightfieldRepresentation
+	SHADER_PARAMETER_EX(float,UseVolumetricLightmapShadowFromStationaryLights,EShaderPrecisionModifier::Half)		
+	SHADER_PARAMETER_EX(float,UseEditorDepthTest,EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4,ObjectOrientation,EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4,NonUniformScale,EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
+	SHADER_PARAMETER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
+	SHADER_PARAMETER(uint32,LightingChannelMask)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /** Initializes the primitive uniform shader parameters. */
 inline FPrimitiveUniformShaderParameters GetPrimitiveUniformShaderParameters(

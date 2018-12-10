@@ -11,7 +11,7 @@
 #include "CanvasTypes.h"
 #include "UnrealEngine.h"
 #include "SceneUtils.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "RenderTargetTemp.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "PostProcess/SceneFilterRendering.h"
@@ -20,6 +20,7 @@
 #include "CompositionLighting/PostProcessPassThrough.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandListImmediate& RHICmdList);
 
@@ -288,27 +289,31 @@ void FRCPassPostProcessSubsurfaceVisualize::Process(FRenderingCompositePassConte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	// #todo-renderpasses Use Clear? Load maintains previous behavior.
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SubsurfaceVisualize"));
+	{
+		// is optimized away if possible (RT size=view size, )
+		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
 
-	// is optimized away if possible (RT size=view size, )
-	DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
+		SetSubsurfaceVisualizeShader(Context);
 
-	SetSubsurfaceVisualizeShader(Context);
-
-	// Draw a quad mapping scene color to the view's render target
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	DrawRectangle(
-		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		// Draw a quad mapping scene color to the view's render target
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		DrawRectangle(
+			Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 
 	{
 		FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
@@ -335,6 +340,7 @@ void FRCPassPostProcessSubsurfaceVisualize::Process(FRenderingCompositePassConte
 	}
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	
 
 	// we no longer need the GBuffer
 	SceneContext.AdjustGBufferRefCount(Context.RHICmdList, -1);
@@ -500,56 +506,56 @@ void FRCPassPostProcessSubsurfaceSetup::Process(FRenderingCompositePassContext& 
 
 	ERenderTargetLoadAction LoadAction = Context.GetLoadActionForRenderTarget(DestRenderTarget);
 
-	FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, LoadAction);
-	FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-	Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	Context.SetViewportAndCallRHI(DestRect);
-
-	if(bHalfRes)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SubsurfaceSetup"));
 	{
-		if (bCheckerboard)
+		Context.SetViewportAndCallRHI(DestRect);
+
+		if (bHalfRes)
 		{
-			SetSubsurfaceSetupShader<1, 1>(Context);
+			if (bCheckerboard)
+			{
+				SetSubsurfaceSetupShader<1, 1>(Context);
+			}
+			else
+			{
+				SetSubsurfaceSetupShader<1, 0>(Context);
+			}
 		}
 		else
 		{
-			SetSubsurfaceSetupShader<1,0>(Context);
+			if (bCheckerboard)
+			{
+				SetSubsurfaceSetupShader<0, 1>(Context);
+			}
+			else
+			{
+				SetSubsurfaceSetupShader<0, 0>(Context);
+			}
 		}
+
+		// Draw a quad mapping scene color to the view's render target
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+		// Align up, so downsample always pickups correct pixel from the full-res buffer.
+		FIntPoint TargetSize = SrcRect.Size();
+		TargetSize.X = Align(TargetSize.X, ScaleFactor);
+		TargetSize.Y = Align(TargetSize.Y, ScaleFactor);
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			SrcRect.Width(), SrcRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			TargetSize,
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-	else
-	{
-		if (bCheckerboard)
-		{
-			SetSubsurfaceSetupShader<0, 1>(Context);
-		}
-		else
-		{
-			SetSubsurfaceSetupShader<0, 0>(Context);
-		}
-	}
-
-	// Draw a quad mapping scene color to the view's render target
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-	// Align up, so downsample always pickups correct pixel from the full-res buffer.
-	FIntPoint TargetSize = SrcRect.Size();
-	TargetSize.X = Align(TargetSize.X, ScaleFactor);
-	TargetSize.Y = Align(TargetSize.Y, ScaleFactor);
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		TargetSize,
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessSubsurfaceSetup::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -730,7 +736,7 @@ void FRCPassPostProcessSubsurface::Process(FRenderingCompositePassContext& Conte
 		check(PooledRT);
 
 		// for debugging
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, PooledRT);
+		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, PooledRT);
 	}
 
 	const FViewInfo& View = Context.View;
@@ -759,40 +765,40 @@ void FRCPassPostProcessSubsurface::Process(FRenderingCompositePassContext& Conte
 
 	ERenderTargetLoadAction LoadAction = Context.GetLoadActionForRenderTarget(DestRenderTarget);
 
-	FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, LoadAction);
-	FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-	Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	Context.SetViewportAndCallRHI(DestRect);
-
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePass, TEXT("SubsurfaceDirection#%d"), Direction);
-
-	uint32 SampleSet = FMath::Clamp(CVarSSSSampleSet.GetValueOnRenderThread(), 0, 2);
-
-	if (Direction == 0)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("Subsurface"));
 	{
-		SetSubsurfaceShaderSampleSet<0>(Context, VertexShader, SampleSet);
-	}
-	else
-	{
-		SetSubsurfaceShaderSampleSet<1>(Context, VertexShader, SampleSet);
-	}
+		Context.SetViewportAndCallRHI(DestRect);
 
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestRect.Size(),
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePass, TEXT("SubsurfaceDirection#%d"), Direction);
+
+		uint32 SampleSet = FMath::Clamp(CVarSSSSampleSet.GetValueOnRenderThread(), 0, 2);
+
+		if (Direction == 0)
+		{
+			SetSubsurfaceShaderSampleSet<0>(Context, VertexShader, SampleSet);
+		}
+		else
+		{
+			SetSubsurfaceShaderSampleSet<1>(Context, VertexShader, SampleSet);
+		}
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestRect.Size(),
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 }
 
 
@@ -948,106 +954,106 @@ void FRCPassPostProcessSubsurfaceRecombine::Process(FRenderingCompositePassConte
 
 	ERenderTargetLoadAction LoadAction = Context.GetLoadActionForRenderTarget(DestRenderTarget);
 
-	FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, LoadAction);
-	FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-	Context.RHICmdList.SetRenderTargetsAndClear(Info);
-
-	CopyOverOtherViewportsIfNeeded(Context, View);
-
-	Context.SetViewportAndCallRHI(DestRect);
-
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-	uint32 QualityCVar = CVarSSSQuality.GetValueOnRenderThread();
-	const bool bCheckerboard = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering( SceneContext.GetSceneColorFormat() );
-
-	// 0:low / 1:high
-	uint32 RecombineQuality = 0;
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SubsurfaceRecombine"));
 	{
-		if(QualityCVar == -1)
+
+		CopyOverOtherViewportsIfNeeded(Context, View);
+
+		Context.SetViewportAndCallRHI(DestRect);
+
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+		uint32 QualityCVar = CVarSSSQuality.GetValueOnRenderThread();
+		const bool bCheckerboard = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering(SceneContext.GetSceneColorFormat());
+
+		// 0:low / 1:high
+		uint32 RecombineQuality = 0;
 		{
-			RecombineQuality = (View.AntiAliasingMethod == AAM_TemporalAA) ? 0 : 1;
-		}
-		else if(QualityCVar == 1)
-		{
-			RecombineQuality = 1;
-		}
-	}
-
-	// needed for Scalability
-	// 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
-	uint32 RecombineMode = 2;
-
-	if(GetInput(ePId_Input1)->IsValid())
-	{
-		RecombineMode = bHalfRes ? 1 : 0;
-	}
-
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePassRecombine, TEXT("SubsurfacePassRecombine Mode:%d Quality:%d"), RecombineMode, RecombineQuality);
-
-	{
-		if (bCheckerboard)
-		{
-			if (RecombineQuality == 0)
+			if (QualityCVar == -1)
 			{
-				switch (RecombineMode)
+				RecombineQuality = (View.AntiAliasingMethod == AAM_TemporalAA) ? 0 : 1;
+			}
+			else if (QualityCVar == 1)
+			{
+				RecombineQuality = 1;
+			}
+		}
+
+		// needed for Scalability
+		// 0:fullres, 1: halfres, 2:no scattering, just reconstruct the lighting (needed for scalability)
+		uint32 RecombineMode = 2;
+
+		if (GetInput(ePId_Input1)->IsValid())
+		{
+			RecombineMode = bHalfRes ? 1 : 0;
+		}
+
+		SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePassRecombine, TEXT("SubsurfacePassRecombine Mode:%d Quality:%d"), RecombineMode, RecombineQuality);
+
+		{
+			if (bCheckerboard)
+			{
+				if (RecombineQuality == 0)
 				{
-				case 0: SetSubsurfaceRecombineShader<0, 0, 1>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 0, 1>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 0, 1>(Context, VertexShader); break;
-				default: check(0);
+					switch (RecombineMode)
+					{
+					case 0: SetSubsurfaceRecombineShader<0, 0, 1>(Context, VertexShader); break;
+					case 1: SetSubsurfaceRecombineShader<1, 0, 1>(Context, VertexShader); break;
+					case 2: SetSubsurfaceRecombineShader<2, 0, 1>(Context, VertexShader); break;
+					default: check(0);
+					}
+				}
+				else
+				{
+					switch (RecombineMode)
+					{
+					case 0: SetSubsurfaceRecombineShader<0, 1, 1>(Context, VertexShader); break;
+					case 1: SetSubsurfaceRecombineShader<1, 1, 1>(Context, VertexShader); break;
+					case 2: SetSubsurfaceRecombineShader<2, 1, 1>(Context, VertexShader); break;
+					default: check(0);
+					}
 				}
 			}
 			else
 			{
-				switch (RecombineMode)
+				if (RecombineQuality == 0)
 				{
-				case 0: SetSubsurfaceRecombineShader<0, 1, 1>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 1, 1>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 1, 1>(Context, VertexShader); break;
-				default: check(0);
+					switch (RecombineMode)
+					{
+					case 0: SetSubsurfaceRecombineShader<0, 0, 0>(Context, VertexShader); break;
+					case 1: SetSubsurfaceRecombineShader<1, 0, 0>(Context, VertexShader); break;
+					case 2: SetSubsurfaceRecombineShader<2, 0, 0>(Context, VertexShader); break;
+					default: check(0);
+					}
+				}
+				else
+				{
+					switch (RecombineMode)
+					{
+					case 0: SetSubsurfaceRecombineShader<0, 1, 0>(Context, VertexShader); break;
+					case 1: SetSubsurfaceRecombineShader<1, 1, 0>(Context, VertexShader); break;
+					case 2: SetSubsurfaceRecombineShader<2, 1, 0>(Context, VertexShader); break;
+					default: check(0);
+					}
 				}
 			}
 		}
-		else
-		{
-			if (RecombineQuality == 0)
-			{
-				switch (RecombineMode)
-				{
-				case 0: SetSubsurfaceRecombineShader<0, 0, 0>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 0, 0>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 0, 0>(Context, VertexShader); break;
-				default: check(0);
-				}
-			}
-			else
-			{
-				switch (RecombineMode)
-				{
-				case 0: SetSubsurfaceRecombineShader<0, 1, 0>(Context, VertexShader); break;
-				case 1: SetSubsurfaceRecombineShader<1, 1, 0>(Context, VertexShader); break;
-				case 2: SetSubsurfaceRecombineShader<2, 1, 0>(Context, VertexShader); break;
-				default: check(0);
-				}
-			}
-		}
+
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestRect.Size(),
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
 	}
-
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestRect.Size(),
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 
 	// replace the current SceneColor with this one
 	SceneContext.SetSceneColor(PassOutputs[0].PooledRenderTarget);

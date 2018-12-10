@@ -20,6 +20,11 @@ namespace ns
     {
         return (void*)[handle objectAtIndexedSubscript:index];
     }
+	
+	bool ArrayBase::EqualToArray(NSArray<id<NSObject>>* const Left, NSArray<id<NSObject>>* const Right)
+	{
+		return [Left isEqualToArray: Right];
+	}
 
     String::String(const char* cstr) :
         Object<NSString*, CallingConvention::ObjectiveC>([NSString stringWithUTF8String:cstr], ns::Ownership::Retain)

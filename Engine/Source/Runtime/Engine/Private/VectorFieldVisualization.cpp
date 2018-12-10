@@ -14,7 +14,7 @@
 #include "ShaderParameterUtils.h"
 #include "FXSystem.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FVectorFieldVisualizationParameters,TEXT("VectorFieldVis"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FVectorFieldVisualizationParameters,"VectorFieldVis");
 
 /*------------------------------------------------------------------------------
 	Vertex factory for visualizing vector fields.

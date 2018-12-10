@@ -34,7 +34,6 @@ namespace UnrealBuildTool.Rules
 					"RenderCore",
                     "UtilityShaders",
 					"Renderer",
-					"ShaderCore",
                     "InputCore",
 					"HeadMountedDisplay",
 					"Slate",

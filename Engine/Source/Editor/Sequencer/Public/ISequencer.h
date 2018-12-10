@@ -226,7 +226,7 @@ public:
 	 * @param	ActorFactory	Optional actor factory to use to create spawnable type
 	 * @return	The spawnable guid for the spawnable, or an invalid Guid if we were not able to create a spawnable
 	 */
-	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr) = 0;
+	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr, bool bSetupDefaults = false) = 0;
 
 	/**
 	 * Add actors as possessable objects to sequencer.

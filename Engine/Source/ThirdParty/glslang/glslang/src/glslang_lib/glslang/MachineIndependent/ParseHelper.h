@@ -44,13 +44,15 @@
 #ifndef _PARSER_HELPER_INCLUDED_
 #define _PARSER_HELPER_INCLUDED_
 
+#include <cstdarg>
+#include <functional>
+
 #include "parseVersions.h"
 #include "../Include/ShHandle.h"
 #include "SymbolTable.h"
 #include "localintermediate.h"
 #include "Scan.h"
-#include <cstdarg>
-#include <functional>
+#include "attribute.h"
 
 namespace glslang {
 
@@ -185,7 +187,7 @@ protected:
     TParseContextBase& operator=(TParseContextBase&);
 
     const bool parsingBuiltins;       // true if parsing built-in symbols/functions
-    TVector<TSymbol*> linkageSymbols; // these need to be transferred to 'linkage', after all editing is done
+    TVector<TSymbol*> linkageSymbols; // will be transferred to 'linkage', after all editing is done, order preserving
     TScanContext* scanContext;
     TPpContext* ppContext;
     TBuiltInResource resources;
@@ -307,7 +309,7 @@ public:
     TFunction* handleFunctionDeclarator(const TSourceLoc&, TFunction& function, bool prototype);
     TIntermAggregate* handleFunctionDefinition(const TSourceLoc&, TFunction&);
     TIntermTyped* handleFunctionCall(const TSourceLoc&, TFunction*, TIntermNode*);
-    TIntermTyped* handleBuiltInFunctionCall(TSourceLoc, TIntermNode& arguments, const TFunction& function);
+    TIntermTyped* handleBuiltInFunctionCall(TSourceLoc, TIntermNode* arguments, const TFunction& function);
     void computeBuiltinPrecisions(TIntermTyped&, const TFunction&);
     TIntermNode* handleReturnValue(const TSourceLoc&, TIntermTyped*);
     void checkLocation(const TSourceLoc&, TOperator);
@@ -338,17 +340,15 @@ public:
     bool arrayError(const TSourceLoc&, const TType&);
     void arraySizeRequiredCheck(const TSourceLoc&, const TArraySizes&);
     void structArrayCheck(const TSourceLoc&, const TType& structure);
-    void arraySizesCheck(const TSourceLoc&, const TQualifier&, const TArraySizes*, bool initializer, bool lastMember);
-    void arrayOfArrayVersionCheck(const TSourceLoc&);
-    void arrayDimCheck(const TSourceLoc&, const TArraySizes* sizes1, const TArraySizes* sizes2);
-    void arrayDimCheck(const TSourceLoc&, const TType*, const TArraySizes*);
-    void arrayDimMerge(TType& type, const TArraySizes* sizes);
+    void arraySizesCheck(const TSourceLoc&, const TQualifier&, TArraySizes*, const TIntermTyped* initializer, bool lastMember);
+    void arrayOfArrayVersionCheck(const TSourceLoc&, const TArraySizes*);
     bool voidErrorCheck(const TSourceLoc&, const TString&, TBasicType);
     void boolCheck(const TSourceLoc&, const TIntermTyped*);
     void boolCheck(const TSourceLoc&, const TPublicType&);
     void samplerCheck(const TSourceLoc&, const TType&, const TString& identifier, TIntermTyped* initializer);
     void atomicUintCheck(const TSourceLoc&, const TType&, const TString& identifier);
     void transparentOpaqueCheck(const TSourceLoc&, const TType&, const TString& identifier);
+    void memberQualifierCheck(glslang::TPublicType&);
     void globalQualifierFixCheck(const TSourceLoc&, TQualifier&);
     void globalQualifierTypeCheck(const TSourceLoc&, const TQualifier&, const TPublicType&);
     bool structQualifierErrorCheck(const TSourceLoc&, const TPublicType& pType);
@@ -361,12 +361,13 @@ public:
     bool containsFieldWithBasicType(const TType& type ,TBasicType basicType);
     TSymbol* redeclareBuiltinVariable(const TSourceLoc&, const TString&, const TQualifier&, const TShaderQualifiers&);
     void redeclareBuiltinBlock(const TSourceLoc&, TTypeList& typeList, const TString& blockName, const TString* instanceName, TArraySizes* arraySizes);
-    void paramCheckFix(const TSourceLoc&, const TStorageQualifier&, TType& type);
+    void paramCheckFixStorage(const TSourceLoc&, const TStorageQualifier&, TType& type);
     void paramCheckFix(const TSourceLoc&, const TQualifier&, TType& type);
     void nestedBlockCheck(const TSourceLoc&);
     void nestedStructCheck(const TSourceLoc&);
     void arrayObjectCheck(const TSourceLoc&, const TType&, const char* op);
     void opaqueCheck(const TSourceLoc&, const TType&, const char* op);
+    void storage16BitAssignmentCheck(const TSourceLoc&, const TType&, const char* op);
     void specializationCheck(const TSourceLoc&, const TType&, const char* op);
     void structTypeCheck(const TSourceLoc&, TPublicType&);
     void inductiveLoopCheck(const TSourceLoc&, TIntermNode* init, TIntermLoop* loop);
@@ -390,6 +391,7 @@ public:
     const TFunction* findFunctionExact(const TSourceLoc& loc, const TFunction& call, bool& builtIn);
     const TFunction* findFunction120(const TSourceLoc& loc, const TFunction& call, bool& builtIn);
     const TFunction* findFunction400(const TSourceLoc& loc, const TFunction& call, bool& builtIn);
+    const TFunction* findFunctionExplicitTypes(const TSourceLoc& loc, const TFunction& call, bool& builtIn);
     void declareTypeDefaults(const TSourceLoc&, const TPublicType&);
     TIntermNode* declareVariable(const TSourceLoc&, TString& identifier, const TPublicType&, TArraySizes* typeArray = 0, TIntermTyped* initializer = 0);
     TIntermTyped* addConstructor(const TSourceLoc&, TIntermNode*, const TType&);
@@ -408,7 +410,17 @@ public:
     void wrapupSwitchSubsequence(TIntermAggregate* statements, TIntermNode* branchNode);
     TIntermNode* addSwitch(const TSourceLoc&, TIntermTyped* expression, TIntermAggregate* body);
 
-    void updateImplicitArraySize(const TSourceLoc&, TIntermNode*, int index);
+    TAttributeType attributeFromName(const TString& name) const;
+    TAttributes* makeAttributes(const TString& identifier) const;
+    TAttributes* makeAttributes(const TString& identifier, TIntermNode* node) const;
+    TAttributes* mergeAttributes(TAttributes*, TAttributes*) const;
+
+    // Determine selection control from attributes
+    void handleSelectionAttributes(const TAttributes& attributes, TIntermNode*);
+    void handleSwitchAttributes(const TAttributes& attributes, TIntermNode*);
+
+    // Determine loop control from attributes
+    void handleLoopAttributes(const TAttributes& attributes, TIntermNode*);
 
 protected:
     void nonInitConstCheck(const TSourceLoc&, TString& identifier, TType& type);
@@ -416,6 +428,8 @@ protected:
     TVariable* makeInternalVariable(const char* name, const TType&) const;
     TVariable* declareNonArray(const TSourceLoc&, const TString& identifier, const TType&);
     void declareArray(const TSourceLoc&, const TString& identifier, const TType&, TSymbol*&);
+    void checkRuntimeSizable(const TSourceLoc&, const TIntermTyped&);
+    bool isRuntimeLength(const TIntermTyped&) const;
     TIntermNode* executeInitializer(const TSourceLoc&, TIntermTyped* initializer, TVariable* variable);
     TIntermTyped* convertInitializerList(const TSourceLoc&, const TType&, TIntermTyped* initializer);
     void finish() override;

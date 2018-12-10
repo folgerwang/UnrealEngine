@@ -23,6 +23,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
+#include "VisualizeTexture.h"
 
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarBasePassOutputsVelocity(
@@ -127,7 +128,7 @@ protected:
 		PrevTransformBuffer.Bind(Initializer.ParameterMap, TEXT("PrevTransformBuffer"));
 		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
 		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVelocityVS() {}
@@ -240,7 +241,7 @@ public:
 	FVelocityPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FMeshMaterialShader(Initializer)
 	{
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
@@ -623,6 +624,7 @@ bool IsMotionBlurEnabled(const FViewInfo& View)
 
 void FDeferredShadingSceneRenderer::RenderDynamicVelocitiesMeshElementsInner(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, int32 FirstIndex, int32 LastIndex)
 {
+	check(RHICmdList.IsInsideRenderPass());
 	FVelocityDrawingPolicyFactory::ContextType Context(DDM_AllOccluders, false);
 
 	for (int32 MeshBatchIndex = FirstIndex; MeshBatchIndex <= LastIndex; MeshBatchIndex++)
@@ -674,30 +676,34 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		check(RHICmdList.IsInsideRenderPass());
 		ThisRenderer.RenderDynamicVelocitiesMeshElementsInner(RHICmdList, View, DrawRenderState, FirstIndex, LastIndex);
+		RHICmdList.EndRenderPass();
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };
 
 static void BeginVelocityRendering(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT, bool bPerformClear)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	FTextureRHIRef VelocityTexture = VelocityRT->GetRenderTargetItem().TargetableTexture;
 	FTexture2DRHIRef DepthTexture = FSceneRenderTargets::Get(RHICmdList).GetSceneDepthTexture();	
+
+	FRHIRenderPassInfo RPInfo(VelocityTexture, ERenderTargetActions::Load_Store);
+	RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_Store, ERenderTargetActions::Load_Store);
+	RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthTexture;
+	RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
+
 	if (bPerformClear)
 	{
-		// now make the FRHISetRenderTargetsInfo that encapsulates all of the info
-		FRHIRenderTargetView ColorView(VelocityTexture, 0, -1, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore);
-		FRHIDepthRenderTargetView DepthView(DepthTexture, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::ENoAction, FExclusiveDepthStencil::DepthRead_StencilWrite);
-
-		FRHISetRenderTargetsInfo Info(1, &ColorView, DepthView);		
-
-		// Clear the velocity buffer (0.0f means "use static background velocity").
-		RHICmdList.SetRenderTargetsAndClear(Info);		
+		RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
 	}
-	else
-	{
-		SetRenderTarget(RHICmdList, VelocityTexture, DepthTexture, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("VelocityRendering"));
+
+	if (!bPerformClear)
+	{
 		// some platforms need the clear color when rendertargets transition to SRVs.  We propagate here to allow parallel rendering to always
 		// have the proper mapping when the RT is transitioned.
 		RHICmdList.BindClearMRTValues(true, false, false);
@@ -764,7 +770,6 @@ public:
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Velocity), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, VelocityRT(InVelocityRT)
 	{
-		SetStateOnCommandList(ParentCmdList);
 	}
 
 	virtual ~FVelocityPassParallelCommandListSet()
@@ -787,6 +792,8 @@ static TAutoConsoleVariable<int32> CVarRHICmdFlushRenderThreadTasksVelocityPass(
 
 void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
+	// Parallel rendering requires its own renderpasses so we cannot have an active one at this point
+	check(RHICmdList.IsOutsideRenderPass());
 	// parallel version
 	FScopedCommandListWaitForTasks Flusher(CVarRHICmdFlushRenderThreadTasksVelocityPass.GetValueOnRenderThread() > 0 || CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() > 0, RHICmdList);
 
@@ -848,6 +855,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 
 void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
+	check(RHICmdList.IsInsideRenderPass());
 	for(int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
@@ -927,21 +935,28 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 	{
 		// In this case, basepass also outputs some of the velocities, so append is already started, and don't clear the buffer.
 		BeginVelocityRendering(RHICmdList, VelocityRT, !FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel));
+	}
 
+	{
 		if (IsParallelVelocity())
 		{
+			// This initial renderpass will just be a clear in the parallel case.
+			RHICmdList.EndRenderPass();
+
+			// Now do parallel encoding.
 			RenderVelocitiesInnerParallel(RHICmdList, VelocityRT);
 		}
 		else
 		{
 			RenderVelocitiesInner(RHICmdList, VelocityRT);
+			RHICmdList.EndRenderPass();
 		}
 
 		RHICmdList.CopyToResolveTarget(VelocityRT->GetRenderTargetItem().TargetableTexture, VelocityRT->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 	}
 
 	// to be able to observe results with VisualizeTexture
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, VelocityRT);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, VelocityRT);
 }
 
 FPooledRenderTargetDesc FVelocityRendering::GetRenderTargetDesc()

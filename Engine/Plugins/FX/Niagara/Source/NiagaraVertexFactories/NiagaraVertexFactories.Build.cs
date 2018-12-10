@@ -11,7 +11,6 @@ public class NiagaraVertexFactories : ModuleRules
 				"Core",
 				"Engine",		
 				"RenderCore",
-				"ShaderCore",
                 "RHI",
 			}
         );

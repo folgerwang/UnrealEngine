@@ -17,7 +17,6 @@ public class MaterialUtilities : ModuleRules
                 "RHI",
                 "Landscape",
                 "UnrealEd",
-                "ShaderCore",
                 "MaterialBaking",
             }
 		);

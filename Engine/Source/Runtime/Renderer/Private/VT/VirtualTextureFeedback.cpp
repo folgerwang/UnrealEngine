@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualTextureFeedback.h"
+#include "VisualizeTexture.h"
 
 #include "ClearQuad.h"
 
@@ -36,7 +37,7 @@ void FVirtualTextureFeedback::TransferGPUToCPU( FRHICommandListImmediate& RHICmd
 {
 	RHICmdList.TransitionResource( EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToGfx, FeedbackTextureGPU->GetRenderTargetItem().UAV );
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, FeedbackTextureGPU );
+	GVisualizeTexture.SetCheckPoint( RHICmdList, FeedbackTextureGPU );
 	
 	FPooledRenderTargetDesc Desc( FPooledRenderTargetDesc::Create2DDesc( Size, PF_R32_UINT, FClearValueBinding::None, TexCreate_CPUReadback | TexCreate_HideInVisualizeTexture, TexCreate_None, false ) );
 	GRenderTargetPool.FindFreeElement( RHICmdList, Desc, FeedbackTextureCPU, TEXT("VTFeedbackCPU") );

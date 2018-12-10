@@ -123,7 +123,7 @@ class FVoxelizeVolumeVS : public FMeshMaterialShader
 		VoxelizationPassIndex.Bind(Initializer.ParameterMap, TEXT("VoxelizationPassIndex"));
 		ViewToVolumeClip.Bind(Initializer.ParameterMap, TEXT("ViewToVolumeClip"));
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumeVS()
@@ -250,7 +250,7 @@ protected:
 		VoxelizationPassIndex.Bind(Initializer.ParameterMap, TEXT("VoxelizationPassIndex"));
 		ViewToVolumeClip.Bind(Initializer.ParameterMap, TEXT("ViewToVolumeClip"));
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumeGS()
@@ -360,7 +360,7 @@ protected:
 		:	FMeshMaterialShader(Initializer)
 	{
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumePS()
@@ -681,7 +681,7 @@ void VoxelizeVolumePrimitive(
 }
 
 void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
-	FRHICommandListImmediate& RHICmdList, 
+	FRDGBuilder& GraphBuilder,
 	const FViewInfo& View,
 	const FVolumetricFogIntegrationParameterData& IntegrationData,
 	FIntVector VolumetricFogGridSize,
@@ -691,78 +691,79 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 	if (View.VolumetricPrimSet.NumPrims() > 0
 		&& DoesPlatformSupportVolumetricFogVoxelization(View.GetShaderPlatform()))
 	{
-		SCOPED_DRAW_EVENT(RHICmdList, VoxelizeVolumePrimitives);
+		FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
+		PassParameters->RenderTargets[0] = FRenderTargetBinding( IntegrationData.VBufferA, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
+		PassParameters->RenderTargets[1] = FRenderTargetBinding( IntegrationData.VBufferB, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
 
-		FViewUniformShaderParameters VoxelizeParameters = *View.CachedViewUniformShaderParameters;
-
-		// Update the parts of VoxelizeParameters which are dependent on the buffer size and view rect
-		View.SetupViewRectUniformBufferParameters(
-			VoxelizeParameters,
-			FIntPoint(VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
-			FIntRect(0, 0, VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
-			View.ViewMatrices,
-			View.PrevViewInfo.ViewMatrices
-		);
-
-		TUniformBufferRef<FViewUniformShaderParameters> VoxelizeViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(VoxelizeParameters, UniformBuffer_SingleFrame);
-
-		FSceneTexturesUniformParameters SceneTextureParameters;
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
-
-		FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-		DrawRenderState.SetViewUniformBuffer(VoxelizeViewUniformBuffer);
-
-		FVector2D Jitter(IntegrationData.FrameJitterOffsetValues[0].X / VolumetricFogGridSize.X, IntegrationData.FrameJitterOffsetValues[0].Y / VolumetricFogGridSize.Y);
-
-		FTextureRHIParamRef RenderTargets[2] =
-		{
-			IntegrationData.VBufferARenderTarget->GetRenderTargetItem().TargetableTexture,
-			IntegrationData.VBufferBRenderTarget->GetRenderTargetItem().TargetableTexture
-		};
-
-		SetRenderTargets(RHICmdList, ARRAY_COUNT(RenderTargets), RenderTargets, FTextureRHIParamRef(), 0, NULL);
-
-		for (int32 PrimIdx = 0; PrimIdx < View.VolumetricPrimSet.NumPrims(); PrimIdx++)
-		{
-			const FPrimitiveSceneProxy* PrimitiveSceneProxy = View.VolumetricPrimSet.GetPrim(PrimIdx);
-			const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
-
-			if (View.PrimitiveVisibilityMap[PrimitiveSceneInfo->GetIndex()])
+		GraphBuilder.AddPass(
+			RDG_EVENT_NAME("VoxelizeVolumePrimitives"),
+			PassParameters,
+			ERenderGraphPassFlags::None,
+			[PassParameters, &View, VolumetricFogGridSize, IntegrationData, VolumetricFogDistance, GridZParams](FRHICommandListImmediate& RHICmdList)
 			{
-				const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveSceneInfo->GetIndex()];
-				FBoxSphereBounds Bounds = PrimitiveSceneProxy->GetBounds();
+				FViewUniformShaderParameters VoxelizeParameters = *View.CachedViewUniformShaderParameters;
 
-				if ((View.ViewMatrices.GetViewOrigin() - Bounds.Origin).SizeSquared() < (VolumetricFogDistance + Bounds.SphereRadius) * (VolumetricFogDistance + Bounds.SphereRadius))
+				// Update the parts of VoxelizeParameters which are dependent on the buffer size and view rect
+				View.SetupViewRectUniformBufferParameters(
+					VoxelizeParameters,
+					FIntPoint(VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
+					FIntRect(0, 0, VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
+					View.ViewMatrices,
+					View.PrevViewInfo.ViewMatrices
+				);
+
+				TUniformBufferRef<FViewUniformShaderParameters> VoxelizeViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(VoxelizeParameters, UniformBuffer_SingleFrame);
+
+				FSceneTexturesUniformParameters SceneTextureParameters;
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+				TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+
+				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+				DrawRenderState.SetViewUniformBuffer(VoxelizeViewUniformBuffer);
+
+				FVector2D Jitter(IntegrationData.FrameJitterOffsetValues[0].X / VolumetricFogGridSize.X, IntegrationData.FrameJitterOffsetValues[0].Y / VolumetricFogGridSize.Y);
+
+				for (int32 PrimIdx = 0; PrimIdx < View.VolumetricPrimSet.NumPrims(); PrimIdx++)
 				{
-					// Range in View.DynamicMeshElements[] corresponding to this PrimitiveSceneInfo
-					FInt32Range Range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
+					const FPrimitiveSceneProxy* PrimitiveSceneProxy = View.VolumetricPrimSet.GetPrim(PrimIdx);
+					const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
 
-					for (int32 MeshBatchIndex = Range.GetLowerBoundValue(); MeshBatchIndex < Range.GetUpperBoundValue(); MeshBatchIndex++)
+					if (View.PrimitiveVisibilityMap[PrimitiveSceneInfo->GetIndex()])
 					{
-						const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
+						const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveSceneInfo->GetIndex()];
+						FBoxSphereBounds Bounds = PrimitiveSceneProxy->GetBounds();
 
-						checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
-
-						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-						VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, MeshBatch);
-					}
-				}
-
-				if (ViewRelevance.bStaticRelevance)
-				{
-					for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-					{
-						const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-						if (View.StaticMeshVisibilityMap[StaticMesh.Id])
+						if ((View.ViewMatrices.GetViewOrigin() - Bounds.Origin).SizeSquared() < (VolumetricFogDistance + Bounds.SphereRadius) * (VolumetricFogDistance + Bounds.SphereRadius))
 						{
-							VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, StaticMesh);
+							// Range in View.DynamicMeshElements[] corresponding to this PrimitiveSceneInfo
+							FInt32Range Range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
+
+							for (int32 MeshBatchIndex = Range.GetLowerBoundValue(); MeshBatchIndex < Range.GetUpperBoundValue(); MeshBatchIndex++)
+							{
+								const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
+
+								checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
+
+								const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
+								VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, MeshBatch);
+							}
+						}
+
+						if (ViewRelevance.bStaticRelevance)
+						{
+							for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
+							{
+								const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+
+								if (View.StaticMeshVisibilityMap[StaticMesh.Id])
+								{
+									VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, StaticMesh);
+								}
+							}
 						}
 					}
 				}
-			}
-		}
+			});
 	}
 }

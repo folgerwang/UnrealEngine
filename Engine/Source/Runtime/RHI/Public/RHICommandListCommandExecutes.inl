@@ -223,13 +223,13 @@ template<> void FRHICommandSetShaderSampler<FComputeShaderRHIParamRef, ECmdList:
 void FRHICommandDrawPrimitive::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DrawPrimitive);
-	INTERNAL_DECORATOR(RHIDrawPrimitive)(PrimitiveType, BaseVertexIndex, NumPrimitives, NumInstances);
+	INTERNAL_DECORATOR(RHIDrawPrimitive)(BaseVertexIndex, NumPrimitives, NumInstances);
 }
 
 void FRHICommandDrawIndexedPrimitive::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DrawIndexedPrimitive);
-	INTERNAL_DECORATOR(RHIDrawIndexedPrimitive)(IndexBuffer, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
+	INTERNAL_DECORATOR(RHIDrawIndexedPrimitive)(IndexBuffer, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
 }
 
 void FRHICommandSetBoundShaderState::Execute(FRHICommandListBase& CmdList)
@@ -329,7 +329,7 @@ void FRHICommandEndDrawPrimitiveUP::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EndDrawPrimitiveUP);
 	void* Buffer = NULL;
-	INTERNAL_DECORATOR(RHIBeginDrawPrimitiveUP)(PrimitiveType, NumPrimitives, NumVertices, VertexDataStride, Buffer);
+	INTERNAL_DECORATOR(RHIBeginDrawPrimitiveUP)(NumPrimitives, NumVertices, VertexDataStride, Buffer);
 	FMemory::Memcpy(Buffer, OutVertexData, NumVertices * VertexDataStride);
 	INTERNAL_DECORATOR(RHIEndDrawPrimitiveUP)();
 }
@@ -340,7 +340,6 @@ void FRHICommandEndDrawIndexedPrimitiveUP::Execute(FRHICommandListBase& CmdList)
 	void* VertexBuffer = nullptr;
 	void* IndexBuffer = nullptr;
 	INTERNAL_DECORATOR(RHIBeginDrawIndexedPrimitiveUP)(
-		PrimitiveType,
 		NumPrimitives,
 		NumVertices,
 		VertexDataStride,
@@ -415,19 +414,19 @@ void FRHICommandFlushComputeShaderCache::Execute(FRHICommandListBase& CmdList)
 void FRHICommandDrawPrimitiveIndirect::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DrawPrimitiveIndirect);
-	INTERNAL_DECORATOR(RHIDrawPrimitiveIndirect)(PrimitiveType, ArgumentBuffer, ArgumentOffset);
+	INTERNAL_DECORATOR(RHIDrawPrimitiveIndirect)(ArgumentBuffer, ArgumentOffset);
 }
 
 void FRHICommandDrawIndexedIndirect::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DrawIndexedIndirect);
-	INTERNAL_DECORATOR(RHIDrawIndexedIndirect)(IndexBufferRHI, PrimitiveType, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
+	INTERNAL_DECORATOR(RHIDrawIndexedIndirect)(IndexBufferRHI, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
 }
 
 void FRHICommandDrawIndexedPrimitiveIndirect::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DrawIndexedPrimitiveIndirect);
-	INTERNAL_DECORATOR(RHIDrawIndexedPrimitiveIndirect)(PrimitiveType, IndexBuffer, ArgumentsBuffer, ArgumentOffset);
+	INTERNAL_DECORATOR(RHIDrawIndexedPrimitiveIndirect)(IndexBuffer, ArgumentsBuffer, ArgumentOffset);
 }
 
 void FRHICommandSetDepthBounds::Execute(FRHICommandListBase& CmdList)

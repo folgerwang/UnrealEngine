@@ -179,6 +179,7 @@ enum MTLTessellationFactorStepFunction : NSUInteger;
 enum MTLVertexStepFunction : NSUInteger;
 enum MTLVertexFormat : NSUInteger;
 enum MTLMultisampleDepthResolveFilter : NSUInteger;
+enum MTLDispatchType : NSUInteger;
 
 struct MTLPPOrigin
 {

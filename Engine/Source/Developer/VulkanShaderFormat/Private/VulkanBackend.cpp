@@ -752,6 +752,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 	bool bUsesDXDY;
 
 	std::vector<std::string> SamplerStateNames;
+	TIRVarSet AtomicVariables;
 
 	/**
 	* Return true if the type is a multi-dimensional array. Also, track the
@@ -1027,6 +1028,55 @@ class FGenerateVulkanVisitor : public ir_visitor
 	virtual void visit(ir_rvalue *rvalue)
 	{
 		check(0 && "ir_rvalue not handled for GLSL export.");
+	}
+
+	static inline bool is_struct_type(const glsl_type * type)
+	{
+		if (type->base_type != GLSL_TYPE_STRUCT && type->base_type != GLSL_TYPE_INPUTPATCH)
+		{
+			if (type->base_type == GLSL_TYPE_ARRAY && type->element_type())
+			{
+				return is_struct_type(type->element_type());
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	void print_zero_initialiser(const glsl_type * type)
+	{
+		if (type->base_type != GLSL_TYPE_STRUCT)
+		{
+			if (type->base_type != GLSL_TYPE_ARRAY)
+			{
+				ir_constant* zero = ir_constant::zero(mem_ctx, type);
+				if (zero)
+				{
+					zero->accept(this);
+				}
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, "{");
+
+				for (uint32 i = 0; i < type->length; i++)
+				{
+					if (i > 0)
+					{
+						ralloc_asprintf_append(buffer, ", ");
+					}
+					print_zero_initialiser(type->element_type());
+				}
+
+				ralloc_asprintf_append(buffer, "}");
+			}
+		}
 	}
 
 	virtual void visit(ir_variable *var)
@@ -1330,6 +1380,14 @@ class FGenerateVulkanVisitor : public ir_visitor
 			else
 			{
 				var->constant_value->accept(this);
+			}
+		}
+		else if ((var->type->base_type != GLSL_TYPE_STRUCT) && (var->mode == ir_var_auto || var->mode == ir_var_temporary || var->mode == ir_var_shared) && (AtomicVariables.find(var) == AtomicVariables.end()))
+		{
+			if (!is_struct_type(var->type) && var->type->base_type != GLSL_TYPE_ARRAY && var->mode != ir_var_shared)
+			{
+				ralloc_asprintf_append(buffer, " = ");
+				print_zero_initialiser(var->type);
 			}
 		}
 
@@ -2100,19 +2158,24 @@ class FGenerateVulkanVisitor : public ir_visitor
 				switch (constant->value.u[index])
 				{
 				case 0x7f800000u:
-					ralloc_asprintf_append(buffer, "(1.0/0.0)");
+					ralloc_asprintf_append(buffer, "(1.0/0.0) /*Inf*/");
 					break;
 
 				case 0xffc00000u:
-					ralloc_asprintf_append(buffer, "(0.0/0.0)");
+					ralloc_asprintf_append(buffer, "(0.0/0.0) /*-Nan*/");
 					break;
 
 				case 0xff800000u:
-					ralloc_asprintf_append(buffer, "(-1.0/0.0)");
+					ralloc_asprintf_append(buffer, "(-1.0/0.0) /*-Inf*/");
+					break;
+
+				case 0x7fc00000u:
+					ralloc_asprintf_append(buffer, "(0.0/0.0) /*Nan*/");
 					break;
 
 				default:
-					check(0);
+					checkf(false, TEXT("constant->value.u[index] = 0x%0x"), constant->value.u[index]);
+					break;
 				}
 			}
 		}
@@ -3351,6 +3414,11 @@ public:
 		hash_table_dtor(used_uniform_blocks);
 	}
 
+	void FindAtomicVariables(exec_list* ir)
+	{
+		::FindAtomicVariables(ir, AtomicVariables);
+	}
+
 	int32 AddUniqueSamplerState(const std::string& Name)
 	{
 		if (Name == "")
@@ -3787,6 +3855,7 @@ char* FVulkanCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* st
 
 	// Setup root visitor
 	FGenerateVulkanVisitor visitor(Target, BindingTable, state, bGenerateLayoutLocations, bDefaultPrecisionIsHalf);
+	visitor.FindAtomicVariables(ir);
 
 	// Generate information for sharing samplers
 	{

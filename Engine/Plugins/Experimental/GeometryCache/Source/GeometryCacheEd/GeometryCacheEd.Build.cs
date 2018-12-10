@@ -15,7 +15,6 @@ public class GeometryCacheEd : ModuleRules
 				"SlateCore",
                 "InputCore",
                 "RenderCore",
-                "ShaderCore",
                 "RHI",		
                 "UnrealEd",
 				"AssetTools",

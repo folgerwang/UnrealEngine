@@ -345,6 +345,10 @@ static FMetalSampler FindOrCreateSamplerState(mtlpp::Device Device, const FSampl
 #if PLATFORM_MAC
 		Desc.SetBorderColor(Initializer.BorderColor == 0 ? mtlpp::SamplerBorderColor::TransparentBlack : mtlpp::SamplerBorderColor::OpaqueWhite);
 #endif
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
+		{
+			Desc.SetSupportArgumentBuffers(true);
+		}
 		
 		State = Device.NewSamplerState(Desc);
 		

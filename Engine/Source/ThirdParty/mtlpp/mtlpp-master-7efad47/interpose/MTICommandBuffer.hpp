@@ -35,6 +35,7 @@ struct MTICommandBufferTrace : public IMPTable<id<MTLCommandBuffer>, MTICommandB
 	static id<MTLBlitCommandEncoder> BlitCommandEncoderImpl(id Obj, SEL Cmd, Super::BlitCommandEncoderType::DefinedIMP Original);
 	static id<MTLRenderCommandEncoder> RenderCommandEncoderWithDescriptorImpl(id Obj, SEL Cmd, Super::RenderCommandEncoderWithDescriptorType::DefinedIMP Original, MTLRenderPassDescriptor* D);
 	static id<MTLComputeCommandEncoder> ComputeCommandEncoderImpl(id Obj, SEL Cmd, Super::ComputeCommandEncoderType::DefinedIMP Original);
+	static id<MTLComputeCommandEncoder> ComputeCommandEncoderWithTypeImpl(id Obj, SEL Cmd, Super::ComputeCommandEncoderWithTypeType::DefinedIMP Original, MTLDispatchType Type);
 	static id<MTLParallelRenderCommandEncoder> ParallelRenderCommandEncoderWithDescriptorImpl(id Obj, SEL Cmd, Super::ParallelRenderCommandEncoderWithDescriptorType::DefinedIMP Original, MTLRenderPassDescriptor* D);
 	static void PushDebugGroupImpl(id Obj, SEL Cmd, Super::PushDebugGroupType::DefinedIMP Original, NSString* S);
 	static void PopDebugGroupImpl(id Obj, SEL Cmd, Super::PopDebugGroupType::DefinedIMP Original);

@@ -1610,7 +1610,9 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 			{
 			// Set the hit proxy map's render target.
 			// Clear the hit proxy map to white, which is overloaded to mean no hit proxy.
-			SetRenderTarget(RHICmdList, Viewport->HitProxyMap.GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+			FRHIRenderPassInfo RPInfo(Viewport->HitProxyMap.GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearHitProxyMap"));
+			RHICmdList.EndRenderPass();
 		});
 
 		// Let the viewport client draw its hit proxies.
@@ -1625,7 +1627,7 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			UpdateHitProxyRTCommand,
 			FHitProxyMap*, HitProxyMap, &HitProxyMap,
-			{
+		{
 			// Copy (resolve) the rendered thumbnail from the render target to its texture
 			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), FResolveParams());
 			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), FResolveParams());

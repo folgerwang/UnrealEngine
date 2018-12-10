@@ -464,7 +464,7 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 		return Found;
 	}
 #endif
-	// TODO: Remove the need for BoundShaderState objects. Currently they are needed for the Root Signature and resource counts.
+	// TODO: Remove the need for BoundShaderState objects. Currently they are needed for the Root Signature.
 	FBoundShaderStateRHIRef const BSS = RHICreateBoundShaderState(
 		Initializer.BoundShaderState.VertexDeclarationRHI,
 		Initializer.BoundShaderState.VertexShaderRHI,
@@ -475,11 +475,13 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 
 	// Next try to find the PSO based on the hash of its desc.
 	FD3D12BoundShaderState* const BoundShaderState = FD3D12DynamicRHI::ResourceCast(BSS.GetReference());
+	const FD3D12RootSignature* RootSignature = BoundShaderState->pRootSignature;
+
 	FD3D12LowLevelGraphicsPipelineStateDesc LowLevelDesc;
 #if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
-	Found = PSOCache.FindInLoadedCache(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+	Found = PSOCache.FindInLoadedCache(Initializer, InitializerHash, RootSignature, LowLevelDesc);
 #else
-	FD3D12GraphicsPipelineState* Found = PSOCache.FindInLoadedCache(Initializer, BoundShaderState, LowLevelDesc);
+	FD3D12GraphicsPipelineState* Found = PSOCache.FindInLoadedCache(Initializer, RootSignature, LowLevelDesc);
 #endif
 	if (Found)
 	{
@@ -488,9 +490,9 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 
 	// We need to actually create a PSO.
 #if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
-	return PSOCache.CreateAndAdd(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+	return PSOCache.CreateAndAdd(Initializer, InitializerHash, RootSignature, LowLevelDesc);
 #else
-	return PSOCache.CreateAndAdd(Initializer, BoundShaderState, LowLevelDesc);
+	return PSOCache.CreateAndAdd(Initializer, RootSignature, LowLevelDesc);
 #endif
 }
 

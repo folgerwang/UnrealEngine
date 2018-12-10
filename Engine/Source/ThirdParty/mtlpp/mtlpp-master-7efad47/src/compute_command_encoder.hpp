@@ -96,7 +96,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<ComputeCommandEncoder>
+	class MTLPP_EXPORT Validator<ComputeCommandEncoder>
 	{
 		public:
 		Validator(ComputeCommandEncoder& Val, bool bEnable)

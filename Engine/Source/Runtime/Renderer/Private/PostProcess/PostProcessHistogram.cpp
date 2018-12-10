@@ -107,7 +107,8 @@ void FRCPassPostProcessHistogram::Process(FRenderingCompositePassContext& Contex
 
 	TShaderMapRef<FPostProcessHistogramCS> ComputeShader(Context.GetShaderMap());
 
-	SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
     Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
     
 

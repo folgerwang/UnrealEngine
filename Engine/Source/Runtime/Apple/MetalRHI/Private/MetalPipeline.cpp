@@ -388,6 +388,54 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		mtlpp::RenderPipelineDescriptor RenderPipelineDesc;
 		mtlpp::ComputePipelineDescriptor ComputePipelineDesc(nil);
 		
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesPipelineBufferMutability))
+		{
+			ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> VertexPipelineBuffers = RenderPipelineDesc.GetVertexBuffers();
+			FMetalShaderBindings& VertexBindings = DomainShader ? DomainShader->Bindings : VertexShader->Bindings;
+			int8 VertexSideTable = DomainShader ? DomainShader->SideTableBinding : VertexShader->SideTableBinding;
+			{
+				uint32 ImmutableBuffers = VertexBindings.ConstantBuffers | VertexBindings.ArgumentBuffers;
+				while(ImmutableBuffers)
+				{
+					uint32 Index = __builtin_ctz(ImmutableBuffers);
+					ImmutableBuffers &= ~(1 << Index);
+					
+					if (Index < ML_MaxBuffers)
+					{
+						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = VertexPipelineBuffers[Index];
+						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+					}
+				}
+				if (VertexSideTable > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = VertexPipelineBuffers[VertexSideTable];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+				}
+			}
+			
+			if (PixelShader)
+			{
+				ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> FragmentPipelineBuffers = RenderPipelineDesc.GetFragmentBuffers();
+				uint32 ImmutableBuffers = PixelShader->Bindings.ConstantBuffers | PixelShader->Bindings.ArgumentBuffers;
+				while(ImmutableBuffers)
+				{
+					uint32 Index = __builtin_ctz(ImmutableBuffers);
+					ImmutableBuffers &= ~(1 << Index);
+					
+					if (Index < ML_MaxBuffers)
+					{
+						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = FragmentPipelineBuffers[Index];
+						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+					}
+				}
+				if (PixelShader->SideTableBinding > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = FragmentPipelineBuffers[PixelShader->SideTableBinding];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+				}
+			}
+		}
+		
         FMetalBlendState* BlendState = (FMetalBlendState*)Init.BlendState;
 		
 		ns::Array<mtlpp::RenderPipelineColorAttachmentDescriptor> ColorAttachments = RenderPipelineDesc.GetColorAttachments();
@@ -526,6 +574,29 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             
 			ComputePipelineDesc = mtlpp::ComputePipelineDescriptor();
             check(ComputePipelineDesc);
+			
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesPipelineBufferMutability))
+			{
+				ns::AutoReleased<ns::Array<mtlpp::PipelineBufferDescriptor>> PipelineBuffers = ComputePipelineDesc.GetBuffers();
+				
+				uint32 ImmutableBuffers = VertexShader->Bindings.ConstantBuffers | VertexShader->Bindings.ArgumentBuffers;
+				while(ImmutableBuffers)
+				{
+					uint32 Index = __builtin_ctz(ImmutableBuffers);
+					ImmutableBuffers &= ~(1 << Index);
+					
+					if (Index < ML_MaxBuffers)
+					{
+						ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = PipelineBuffers[Index];
+						PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+					}
+				}
+				if (VertexShader->SideTableBinding > 0)
+				{
+					ns::AutoReleased<mtlpp::PipelineBufferDescriptor> PipelineBuffer = PipelineBuffers[VertexShader->SideTableBinding];
+					PipelineBuffer.SetMutability(mtlpp::Mutability::Immutable);
+				}
+			}
 			
 			mtlpp::VertexDescriptor DomainVertexDesc;
 			mtlpp::StageInputOutputDescriptor ComputeStageInOut;

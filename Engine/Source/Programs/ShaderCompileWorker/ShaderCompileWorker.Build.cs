@@ -11,7 +11,7 @@ public class ShaderCompileWorker : ModuleRules
 			new string[] {
 				"Core",
 				"Projects",
-				"ShaderCore",
+				"RenderCore",
 				"SandboxFile",
 				"TargetPlatform",
 				"ApplicationCore"

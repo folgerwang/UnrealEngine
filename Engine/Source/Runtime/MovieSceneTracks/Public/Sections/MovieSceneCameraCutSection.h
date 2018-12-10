@@ -31,12 +31,6 @@ public:
 				EMovieSceneCompletionMode::ProjectDefault);
 	}
 
-	UE_DEPRECATED(4.18, "Camera guid no longer supported, Use GetCameraBindingID.")
-	FGuid GetCameraGuid() const
-	{
-		return FGuid();
-	}
-
 	/** Sets the camera binding for this CameraCut section. Evaluates from the sequence binding ID */
 	void SetCameraGuid(const FGuid& InGuid)
 	{

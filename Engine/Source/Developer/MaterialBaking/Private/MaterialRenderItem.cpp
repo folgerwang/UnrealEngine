@@ -22,7 +22,7 @@ bool FMeshMaterialRenderItem::Render_RenderThread(FRHICommandListImmediate& RHIC
 	return false;
 }
 
-bool FMeshMaterialRenderItem::Render_GameThread(const FCanvas* Canvas)
+bool FMeshMaterialRenderItem::Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope)
 {
 	checkSlow(ViewFamily && MaterialSettings && MeshSettings && MaterialRenderProxy);
 	// current render target set for the canvas
@@ -63,7 +63,7 @@ bool FMeshMaterialRenderItem::Render_GameThread(const FCanvas* Canvas)
 
 	if (Vertices.Num() && Indices.Num())
 	{
-		ENQUEUE_RENDER_COMMAND(DrawMaterialCommand)(
+		RenderScope.EnqueueRenderCommand(
 			[Parameters](FRHICommandListImmediate& RHICmdList)
 		{
 			FDrawingPolicyRenderState DrawRenderState(*Parameters.View);

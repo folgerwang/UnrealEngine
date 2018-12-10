@@ -134,6 +134,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 #endif
 {
 	check(RenderData);
+	checkf(RenderData->IsInitialized(), TEXT("Uninitialized Renderdata for Mesh: %s"), *InComponent->GetStaticMesh()->GetFName().ToString());
 
 	const auto FeatureLevel = GetScene().GetFeatureLevel();
 

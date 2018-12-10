@@ -59,6 +59,10 @@ id<MTLComputeCommandEncoder> MTICommandBufferTrace::ComputeCommandEncoderImpl(id
 {
 	return MTIComputeCommandEncoderTrace::Register(Original(Obj, Cmd));
 }
+id<MTLComputeCommandEncoder> MTICommandBufferTrace::ComputeCommandEncoderWithTypeImpl(id Obj, SEL Cmd, Super::ComputeCommandEncoderWithTypeType::DefinedIMP Original, MTLDispatchType Type)
+{
+	return MTIComputeCommandEncoderTrace::Register(Original(Obj, Cmd, Type));
+}
 id<MTLParallelRenderCommandEncoder> MTICommandBufferTrace::ParallelRenderCommandEncoderWithDescriptorImpl(id Obj, SEL Cmd, Super::ParallelRenderCommandEncoderWithDescriptorType::DefinedIMP Original, MTLRenderPassDescriptor* D)
 {
 	return MTIParallelRenderCommandEncoderTrace::Register(Original(Obj, Cmd, D));

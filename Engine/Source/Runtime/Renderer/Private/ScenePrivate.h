@@ -25,7 +25,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TextureLayout3d.h"
 #include "ScenePrivateBase.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "SceneCore.h"
 #include "PrimitiveSceneInfo.h"
 #include "LightSceneInfo.h"
@@ -41,6 +41,7 @@
 #include "MobileBasePassRendering.h"
 #include "VolumeRendering.h"
 #include "SceneSoftwareOcclusion.h"
+#include "CommonRenderResources.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
@@ -496,7 +497,6 @@ Buffers multiple frames to avoid waiting on the GPU so times are a little lagged
 class FLatentGPUTimer
 {
 	static const int32 NumBufferedFrames = FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1;
-
 public:
 
 	FLatentGPUTimer(int32 InAvgSamples = 30);

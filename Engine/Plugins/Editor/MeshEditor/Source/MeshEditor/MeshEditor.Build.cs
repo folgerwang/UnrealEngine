@@ -22,7 +22,6 @@ namespace UnrealBuildTool.Rules
 					"ViewportInteraction",
                     "VREditor",
 					"Projects",
-                    "ShaderCore",
                     "RHI",
                     "LevelEditor"
                 }

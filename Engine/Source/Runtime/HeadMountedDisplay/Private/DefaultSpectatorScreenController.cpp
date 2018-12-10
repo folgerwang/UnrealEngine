@@ -121,7 +121,7 @@ void FDefaultSpectatorScreenController::SetSpectatorScreenTextureRenderCommand(U
 				Command.Execute(RHICmdList);
 				return;
 			}
-			new (RHICmdList.AllocCommand<FRHISetSpectatorScreenTexture>()) FRHISetSpectatorScreenTexture(SpectatorScreenController, Texture);
+			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenTexture)(SpectatorScreenController, Texture);
 		}
 	);
 }
@@ -165,7 +165,7 @@ void FDefaultSpectatorScreenController::SetSpectatorScreenModeTexturePlusEyeLayo
 				Command.Execute(RHICmdList);
 				return;
 			}
-			new (RHICmdList.AllocCommand<FRHISetSpectatorScreenModeTexturePlusEyeLayout>()) FRHISetSpectatorScreenModeTexturePlusEyeLayout(SpectatorScreenController, Layout);
+			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenModeTexturePlusEyeLayout)(SpectatorScreenController, Layout);
 		}
 	);
 }

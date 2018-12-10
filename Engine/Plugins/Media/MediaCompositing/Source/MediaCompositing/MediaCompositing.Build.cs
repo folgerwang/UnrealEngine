@@ -25,7 +25,6 @@ namespace UnrealBuildTool.Rules
 					"MediaAssets",
 					"RenderCore",
 					"RHI",
-					"ShaderCore",
 				});
 
 			PrivateIncludePaths.AddRange(

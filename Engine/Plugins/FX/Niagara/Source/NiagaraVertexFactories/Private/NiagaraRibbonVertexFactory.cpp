@@ -9,7 +9,7 @@
 #include "ParticleResources.h"
 #include "ShaderParameterUtils.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FNiagaraRibbonUniformParameters,TEXT("NiagaraRibbonVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraRibbonUniformParameters,"NiagaraRibbonVF");
 
 
 class FNiagaraRibbonVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
