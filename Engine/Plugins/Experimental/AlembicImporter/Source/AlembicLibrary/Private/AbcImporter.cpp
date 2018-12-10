@@ -192,7 +192,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromSample(UObject* InParent, const F
 		// Add the first LOD, we only support one
 		int32 LODIndex = 0;
 		StaticMesh->AddSourceModel();
-		FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+		FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 		StaticMesh->RegisterMeshAttributes(*MeshDescription);
 		// Generate a new lighting GUID (so its unique)
 		StaticMesh->LightingGuid = FGuid::NewGuid();
@@ -242,7 +242,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromSample(UObject* InParent, const F
 		SrcModel.BuildSettings.DstLightmapIndex = 1;
 
 		// Store the mesh description
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		StaticMesh->CommitMeshDescription(LODIndex);
 
 		//Set the Imported version before calling the build
 		StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;

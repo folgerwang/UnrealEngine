@@ -65,6 +65,8 @@ struct CORE_API FEditorObjectVersion
 		MeshDescriptionNewAttributeFormat,
 		// Switch root component of SceneCapture actors from MeshComponent to SceneComponent
 		ChangeSceneCaptureRootComponent,
+		// StaticMesh serializes MeshDescription instead of RawMesh
+		StaticMeshDeprecatedRawMesh,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

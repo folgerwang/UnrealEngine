@@ -596,9 +596,9 @@ UStaticMesh* CreateStaticMesh(FMeshDescription& RawMesh,TArray<FStaticMaterial>&
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
-	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(0);
 	*MeshDescription = RawMesh;
-	StaticMesh->CommitOriginalMeshDescription(0);
+	StaticMesh->CommitMeshDescription(0);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();
@@ -831,7 +831,7 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 	const int32 LodIndex = StaticMesh->SourceModels.Num() - 1;
-	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LodIndex);
+	FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LodIndex);
 	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
 
 	// Fill out the mesh description and materials from the brush geometry
@@ -839,7 +839,7 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush
 	GetBrushMesh(Brush, Model, *MeshDescription, Materials);
 
 	// Commit mesh description and materials list to static mesh
-	StaticMesh->CommitOriginalMeshDescription(LodIndex);
+	StaticMesh->CommitMeshDescription(LodIndex);
 	StaticMesh->StaticMaterials = Materials;
 
 	// Set up the SectionInfoMap to enable collision
@@ -1143,7 +1143,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
 
-			const FMeshDescription* MeshDescription = ExistingMesh->GetOriginalMeshDescription(i);
+			const FMeshDescription* MeshDescription = ExistingMesh->GetMeshDescription(i);
 			if (MeshDescription)
 			{
 				ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = MakeUnique<FMeshDescription>(*MeshDescription);
@@ -1249,7 +1249,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			{
 				NewMesh->AddSourceModel();
 			}
-			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
+			FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(i);
 			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 
 			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[i].ExistingReductionSettings);
@@ -1268,7 +1268,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		//Just set the old configuration for the desired LODIndex
 		if(LODIndex >= 0 && LODIndex < CurrentNumLods && LODIndex < ExistingNumLods)
 		{
-			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(LODIndex);
+			FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(LODIndex);
 			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings);
 			if (!bSwapFromGeneratedToImported && bWasReduced)
@@ -1468,7 +1468,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
-		FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
+		FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(i);
 		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
 		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 		bool bWasReduced = IsReductionActive(ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings);
@@ -1485,10 +1485,10 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 		FStaticMeshSourceModel& SrcModel = NewMesh->AddSourceModel();
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid())
 		{
-			FMeshDescription* MeshDescription = NewMesh->CreateOriginalMeshDescription(i);
+			FMeshDescription* MeshDescription = NewMesh->CreateMeshDescription(i);
 			*MeshDescription = MoveTemp(*ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription);
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.Reset();
-			NewMesh->CommitOriginalMeshDescription(i);
+			NewMesh->CommitMeshDescription(i);
 		}
 		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;

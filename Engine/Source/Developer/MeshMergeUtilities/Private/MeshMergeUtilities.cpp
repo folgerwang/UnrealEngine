@@ -2509,9 +2509,9 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 						}
 					}
 				}
-				FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+				FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 				*MeshDescription = MergedMeshLOD;
-				StaticMesh->CommitOriginalMeshDescription(LODIndex);
+				StaticMesh->CommitMeshDescription(LODIndex);
 			}
 		}
 		

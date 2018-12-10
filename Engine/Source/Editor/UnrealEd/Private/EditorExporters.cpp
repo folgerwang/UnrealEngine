@@ -1744,7 +1744,7 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 		}
 		Ar.Log( TEXT("# UnrealEd OBJ exporter\r\n") );
 
-		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+		FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
 		if (MeshDescription != nullptr)
 		{
 			uint32 TriangleCount = 0;

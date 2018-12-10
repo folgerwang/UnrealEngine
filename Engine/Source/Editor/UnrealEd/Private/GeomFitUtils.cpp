@@ -207,7 +207,7 @@ void ComputeBoundingBox(UStaticMesh* StaticMesh, FVector& Center, FVector& Exten
 	// Calculate bounding Box.
 	
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
 	FVector unitVec = FVector(1.f);
 	CalcBoundingBox(*MeshDescription, Center, Extents, unitVec);
 }
@@ -226,7 +226,7 @@ int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
 	
 	FVector unitVec = bs->BuildScale3D;
 	FVector Center, Extents;
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
 	CalcBoundingBox(*MeshDescription, Center, Extents, unitVec);
 	bs->Modify();
 
@@ -407,7 +407,7 @@ int32 GenerateSphereAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding sphere.
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
 	CalcBoundingSphere(*MeshDescription, bSphere, unitVec);
 	CalcBoundingSphere2(*MeshDescription, bSphere2, unitVec);
 
@@ -548,7 +548,7 @@ int32 GenerateSphylAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding box.
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
 	CalcBoundingSphyl(*MeshDescription, sphere, length, rotation, unitVec);
 
 	// Dont use if radius is zero.

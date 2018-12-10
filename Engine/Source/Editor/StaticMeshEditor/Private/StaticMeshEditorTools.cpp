@@ -3220,7 +3220,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex, StaticMesh->GetOriginalMeshDescription(LODIndex) != nullptr ));
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex, StaticMesh->IsMeshDescriptionValid(LODIndex)));
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())
@@ -3231,7 +3231,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.ReductionSettings);
 				}
 
-				if (SrcModel.RawMeshBulkData->IsEmpty() == false || SrcModel.OriginalMeshDescription != nullptr)
+				if (StaticMesh->IsMeshDescriptionValid(LODIndex))
 				{
 					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
@@ -3260,7 +3260,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
-			bool bHasBeenSimplified = StaticMesh->GetOriginalMeshDescription(LODIndex) == nullptr || StaticMesh->IsReductionActive(LODIndex);
+			bool bHasBeenSimplified = !StaticMesh->IsMeshDescriptionValid(LODIndex) || StaticMesh->IsReductionActive(LODIndex);
 			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );
@@ -3339,7 +3339,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames, LODIndex)
 			];
 
-			if(LODIndex > 0 && StaticMesh->SourceModels.IsValidIndex(LODIndex) && !StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty())
+			if(LODIndex > 0 && StaticMesh->IsMeshDescriptionValid(LODIndex))
 			{
 				FString FileTypeFilter = TEXT("All files (*.*)|*.*");
 				LODCategory.AddCustomRow(( LOCTEXT("SourceImporFilenameRow", "SourceImportFilename")))

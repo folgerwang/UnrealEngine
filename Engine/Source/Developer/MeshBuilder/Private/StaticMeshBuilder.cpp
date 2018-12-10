@@ -58,7 +58,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 	// The tool can only been switch by restarting the editor
 	static bool bIsThirdPartyReductiontool = !UseNativeQuadraticReduction();
 
-	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
+	if (!StaticMesh->IsMeshDescriptionValid(0))
 	{
 		//Warn the user that there is no mesh description data
 		UE_LOG(LogStaticMeshBuilder, Error, TEXT("Cannot find a valid mesh description to build the asset."));
@@ -85,7 +85,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 	{
 		float MaxDeviation = 0.0f;
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
-		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetMeshDescription(LodIndex);
 		FMeshDescriptionHelper MeshDescriptionHelper(&LODBuildSettings);
 
 		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];

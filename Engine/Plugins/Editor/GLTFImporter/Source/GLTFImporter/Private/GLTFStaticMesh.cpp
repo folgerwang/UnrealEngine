@@ -157,7 +157,7 @@ UStaticMesh* ImportStaticMesh(const FAsset& Asset, const TArray<UMaterial*>& Mat
 	FStaticMeshSourceModel& SourceModel = StaticMesh->AddSourceModel();
 	//GLTF do not support LOD yet so assuming LODIndex of 0
 	int32 LODIndex = 0;
-	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 	StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
 	TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -347,7 +347,7 @@ UStaticMesh* ImportStaticMesh(const FAsset& Asset, const TArray<UMaterial*>& Mat
 	// RawMesh.CompactMaterialIndices(); // needed?
 	bMeshUsesEmptyMaterial = MaterialIndicesUsed.Contains(INDEX_NONE);
 
-	StaticMesh->CommitOriginalMeshDescription(LODIndex);
+	StaticMesh->CommitMeshDescription(LODIndex);
 	StaticMesh->PostEditChange();
 
 	// Set the dirty flag so this package will get saved later

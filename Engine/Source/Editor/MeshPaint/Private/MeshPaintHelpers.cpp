@@ -112,7 +112,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 	if (RenderData.WedgeMap.Num() > 0 && ColorVertexBuffer.GetNumVertices() == RenderModel.GetNumVertices())
 	{
 		// Use the wedge map if it is available as it is lossless.
-		FMeshDescription* RawMeshPtr = StaticMesh->GetOriginalMeshDescription(LODIndex);
+		FMeshDescription* RawMeshPtr = StaticMesh->GetMeshDescription(LODIndex);
 
 		if (RawMeshPtr == nullptr)
 		{
@@ -138,13 +138,13 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				Colors[VertexInstanceID] = WedgeColor;
 				VertexInstanceIndex++;
 			}
-			StaticMesh->CommitOriginalMeshDescription(LODIndex);
+			StaticMesh->CommitMeshDescription(LODIndex);
 			bPropagatedColors = true;
 		}
 	}
 	else
 	{
-		FMeshDescription* SrcModelMeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+		FMeshDescription* SrcModelMeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 		// If there's no raw mesh data, don't try to do any fixup here
 		if (SrcModelMeshDescription == nullptr || ComponentLODInfo.OverrideVertexColors == nullptr)
 		{
@@ -182,7 +182,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				const FVertexID VertexID = SrcModelMeshDescription->GetVertexInstanceVertex(VertexInstanceID);
 				Colors[VertexInstanceID] = FLinearColor(NewVertexColors[VertexID.GetValue()]);
 			}
-			StaticMesh->CommitOriginalMeshDescription(LODIndex);
+			StaticMesh->CommitMeshDescription(LODIndex);
 			bPropagatedColors = true;
 		}
 	}

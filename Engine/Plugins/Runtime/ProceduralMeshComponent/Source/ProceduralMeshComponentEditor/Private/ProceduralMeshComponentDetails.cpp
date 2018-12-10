@@ -275,13 +275,13 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				SrcModel.BuildSettings.bGenerateLightmapUVs = true;
 				SrcModel.BuildSettings.SrcLightmapIndex = 0;
 				SrcModel.BuildSettings.DstLightmapIndex = 1;
-				FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+				FMeshDescription* OriginalMeshDescription = StaticMesh->GetMeshDescription(0);
 				if (OriginalMeshDescription == nullptr)
 				{
-					OriginalMeshDescription = StaticMesh->CreateOriginalMeshDescription(0);
+					OriginalMeshDescription = StaticMesh->CreateMeshDescription(0);
 				}
 				*OriginalMeshDescription = MeshDescription;
-				StaticMesh->CommitOriginalMeshDescription(0);
+				StaticMesh->CommitMeshDescription(0);
 
 				// Copy materials to new mesh
 				for (auto Kvp : UniqueMaterials)

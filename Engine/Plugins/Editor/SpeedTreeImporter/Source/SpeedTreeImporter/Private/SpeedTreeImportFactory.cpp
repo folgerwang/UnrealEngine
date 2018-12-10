@@ -1654,7 +1654,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					{
 						const SpeedTree::SLod* TreeLOD = &SpeedTreeGeometry->m_pLods[LODIndex];
 						FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
-						FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+						FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 						StaticMesh->RegisterMeshAttributes(*MeshDescription);
 						
 						TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -1839,7 +1839,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						LODModel.BuildSettings.bUseFullPrecisionUVs = false;
 						LODModel.BuildSettings.bGenerateLightmapUVs = false;
 						LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-						StaticMesh->CommitOriginalMeshDescription(LODIndex);
+						StaticMesh->CommitMeshDescription(LODIndex);
 
 						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 						{
@@ -1856,7 +1856,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				{
 					FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
 					const int32 LODIndex = StaticMesh->SourceModels.Num() - 1;
-					FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+					FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 					StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
 					TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -2012,7 +2012,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					LODModel.BuildSettings.bUseFullPrecisionUVs = false;
 					LODModel.BuildSettings.bGenerateLightmapUVs = false;
 					LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-					StaticMesh->CommitOriginalMeshDescription(LODIndex);
+					StaticMesh->CommitMeshDescription(LODIndex);
 					// Add mesh section info entry for billboard LOD (only one section/material index)
 					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, 0);
 					Info.MaterialIndex = MaterialIndex;
@@ -2212,7 +2212,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		{
 			SpeedTree8::CLod LOD = SpeedTree.Lods()[LODIndex];
 			
-			FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+			FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 			StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
 			TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -2414,7 +2414,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 			}
 
 			//Save the created mesh
-			StaticMesh->CommitOriginalMeshDescription(LODIndex);
+			StaticMesh->CommitMeshDescription(LODIndex);
 		}
 
 		// replace materials if they've been switched out

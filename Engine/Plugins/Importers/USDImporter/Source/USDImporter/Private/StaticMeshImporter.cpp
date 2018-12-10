@@ -439,8 +439,7 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 		}
 
 		//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
-		NewMesh->ClearOriginalMeshDescription(LODIndex);
-		State.MeshDescription = NewMesh->CreateOriginalMeshDescription(LODIndex);
+		State.MeshDescription = NewMesh->CreateMeshDescription(LODIndex);
 		check(State.MeshDescription != nullptr);
 		NewMesh->RegisterMeshAttributes(*State.MeshDescription);
 
@@ -488,7 +487,7 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 
 		State.ProcessMaterials(LODIndex);
 
-		NewMesh->CommitOriginalMeshDescription(LODIndex);
+		NewMesh->CommitMeshDescription(LODIndex);
 
 		FStaticMeshSourceModel& SrcModel = NewMesh->SourceModels[LODIndex];
 		SrcModel.BuildSettings.bGenerateLightmapUVs = false;

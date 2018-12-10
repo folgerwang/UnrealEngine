@@ -106,9 +106,9 @@ public:
 		Insert( ElementCount - 1, Default );
 	}
 
-	uint32 GetHash(uint32 Crc = 0) const
+	uint32 GetHash( uint32 Crc = 0 ) const
 	{
-		return FCrc::MemCrc32(Container.GetData(), Container.Num() * sizeof(AttributeType), Crc);
+		return FCrc::MemCrc32( Container.GetData(), Container.Num() * sizeof( AttributeType ), Crc );
 	}
 
 	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
@@ -271,6 +271,9 @@ public:
 	/** Get the flags for this attribute array set */
 	FORCEINLINE EMeshAttributeFlags GetFlags() const { return Flags; }
 
+	/** Set the flags for this attribute array set */
+	FORCEINLINE void SetFlags( const EMeshAttributeFlags InFlags ) { Flags = InFlags; }
+
 	/** Return number of elements each attribute index has */
 	FORCEINLINE int32 GetNumElements() const { return NumElements; }
 
@@ -342,9 +345,9 @@ public:
 	virtual uint32 GetHash() const
 	{
 		uint32 CrcResult = 0;
-		for (const TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices)
+		for ( const TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices )
 		{
-			CrcResult = ArrayForIndex.GetHash(CrcResult);
+			CrcResult = ArrayForIndex.GetHash( CrcResult );
 		}
 		return CrcResult;
 	}
@@ -449,21 +452,29 @@ public:
  * This is the class used to access attribute values.
  * It is a proxy object to a TMeshAttributeArraySet<> and should be passed by value.
  * It is valid for as long as the owning FMeshDescription exists.
- * Note that this only provides non-mutating accessors; a mutating version is derived from this.
  */
 template <typename ElementIDType, typename AttributeType>
-class TMeshAttributesConstRef
+class TMeshAttributesRef
 {
+	template <typename T, typename U> friend class TMeshAttributesRef;
+
 public:
 	using Type = AttributeType;
-	using ArrayType = TMeshAttributeArraySet<AttributeType>;
+	using ArrayType = typename TCopyQualifiersFromTo<AttributeType, TMeshAttributeArraySet<typename TRemoveCV<AttributeType>::Type>>::Type;
 
-	FORCEINLINE explicit TMeshAttributesConstRef( const ArrayType* InArrayPtr = nullptr )
+	/** Constructor taking a pointer to a TMeshAttributeArraySet */
+	FORCEINLINE explicit TMeshAttributesRef( ArrayType* InArrayPtr = nullptr )
 		: ArrayPtr( InArrayPtr )
 	{}
 
+	/** Implicitly construct a TMeshAttributesRef-to-const from a regular one */
+	template <typename T = AttributeType, typename TEnableIf<TIsSame<T, const T>::Value, int>::Type = 0>
+	FORCEINLINE TMeshAttributesRef( TMeshAttributesRef<ElementIDType, typename TRemoveCV<T>::Type> InRef )
+		: ArrayPtr( InRef.ArrayPtr )
+	{}
+
 	/** Access elements from attribute index 0 */
-	FORCEINLINE const AttributeType& operator[]( const ElementIDType ElementID ) const
+	FORCEINLINE AttributeType& operator[]( const ElementIDType ElementID ) const
 	{
 		return ArrayPtr->GetArrayForIndex( 0 )[ ElementID.GetValue() ];
 	}
@@ -501,65 +512,58 @@ public:
 	/** Get the flags for this attribute array set */
 	FORCEINLINE EMeshAttributeFlags GetFlags() const { return ArrayPtr->GetFlags(); }
 
-protected:
-	const ArrayType* ArrayPtr;
-};
-
-
-/**
- * This is a version which provides mutating accessors.
- * This hierarchy allows us to assign MeshAttributesConstRef = MeshAttributesRef.
- */
-template <typename ElementIDType, typename AttributeType>
-class TMeshAttributesRef final : public TMeshAttributesConstRef<ElementIDType, AttributeType>
-{
-public:
-	using Super = TMeshAttributesConstRef<ElementIDType, AttributeType>;
-	using Type = typename Super::Type;
-	using ArrayType = typename Super::ArrayType;
-
-	FORCEINLINE explicit TMeshAttributesRef( const ArrayType* InArrayPtr = nullptr )
-		: Super( InArrayPtr )
-	{}
-
-	/** Access elements from attribute index 0 */
-	FORCEINLINE AttributeType& operator[]( const ElementIDType ElementID ) const
-	{
-		return const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( 0 )[ ElementID.GetValue() ];
-	}
-
 	/** Set the element with the given ID and index 0 to the provided value */
 	FORCEINLINE void Set( const ElementIDType ElementID, const AttributeType& Value ) const
 	{
-		const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( 0 )[ ElementID.GetValue() ] = Value;
+		ArrayPtr->GetArrayForIndex( 0 )[ ElementID.GetValue() ] = Value;
 	}
 
 	/** Set the element with the given ID and index to the provided value */
 	FORCEINLINE void Set( const ElementIDType ElementID, const int32 Index, const AttributeType& Value ) const
 	{
-		const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( Index )[ ElementID.GetValue() ] = Value;
+		ArrayPtr->GetArrayForIndex( Index )[ ElementID.GetValue() ] = Value;
 	}
+
+	/** Copies the given attribute array and index to this index */
+	void Copy( TMeshAttributesRef<ElementIDType, const AttributeType> Src, const int32 DestIndex = 0, const int32 SrcIndex = 0 );
 
 	/** Sets number of indices this attribute has */
 	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
 	{
-		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
+		ArrayPtr->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
 	}
 
 	/** Inserts an attribute index */
 	FORCEINLINE void InsertIndex( const int32 Index ) const
 	{
-		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::InsertIndex( Index );	// note: override virtual dispatch
+		ArrayPtr->ArrayType::InsertIndex( Index );		// note: override virtual dispatch
 	}
 
 	/** Removes an attribute index */
 	FORCEINLINE void RemoveIndex( const int32 Index ) const
 	{
-		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
+		ArrayPtr->ArrayType::RemoveIndex( Index );		// note: override virtual dispatch
 	}
+
+protected:
+	ArrayType* ArrayPtr;
 };
 
+template <typename ElementIDType, typename AttributeType>
+using TMeshAttributesConstRef = TMeshAttributesRef<ElementIDType, const AttributeType>;
 
+template <typename ElementIDType, typename AttributeType>
+void TMeshAttributesRef<ElementIDType, AttributeType>::Copy( TMeshAttributesRef<ElementIDType, const AttributeType> Src, const int32 DestIndex, const int32 SrcIndex )
+{
+	check( Src.IsValid() );
+	const TMeshAttributeArrayBase<AttributeType>& SrcArray = Src->ArrayPtr->GetArrayForIndex( SrcIndex );
+	TMeshAttributeArrayBase<AttributeType>& DestArray = ArrayPtr->GetArrayForIndex( DestIndex );
+	const int32 Num = FMath::Min( SrcArray.Num(), DestArray.Num() );
+	for( int32 Index = 0; Index < Num; Index++ )
+	{
+		DestArray[ Index ] = SrcArray[ Index ];
+	}
+}
 
 /**
  * This is the class used to provide a 'view' of the specified type on an attribute array.
@@ -572,6 +576,9 @@ template <typename ViewType>
 class TMeshAttributesViewBase
 {
 public:
+	using Type = ViewType;
+	using ArrayType = typename TCopyQualifiersFromTo<ViewType, FMeshAttributeArraySetBase>::Type;
+
 	/** Return whether the reference is valid or not */
 	FORCEINLINE bool IsValid() const { return ( ArrayPtr != nullptr ); }
 
@@ -588,7 +595,8 @@ public:
 	}
 
 protected:
-	FORCEINLINE explicit TMeshAttributesViewBase( const FMeshAttributeArraySetBase* InArrayPtr )
+	/** Constructor taking a pointer to a FMeshAttributeArraySetBase */
+	FORCEINLINE explicit TMeshAttributesViewBase( ArrayType* InArrayPtr )
 		: ArrayPtr( InArrayPtr )
 	{}
 
@@ -604,22 +612,30 @@ protected:
 	/** Set the element with the given element and attribute indices to the provided value */
 	FORCEINLINE void SetByIndex( const int32 ElementIndex, const int32 AttributeIndex, const ViewType& Value ) const;
 
-	const FMeshAttributeArraySetBase* ArrayPtr;
+	ArrayType* ArrayPtr;
 };
 
 
 /**
  * This is a derived version with typesafe element accessors, which is returned by TAttributesSet<>.
- * It is also limited to non-mutating accessors, and is returned by GetAttributesRef on a const attribute set.
  */
 template <typename ElementIDType, typename ViewType>
-class TMeshAttributesConstView : public TMeshAttributesViewBase<ViewType>
+class TMeshAttributesView final : public TMeshAttributesViewBase<ViewType>
 {
 	using Super = TMeshAttributesViewBase<ViewType>;
 
+	template <typename T, typename U> friend class TMeshAttributesView;
+
 public:
-	FORCEINLINE explicit TMeshAttributesConstView( const FMeshAttributeArraySetBase* InArrayPtr = nullptr )
+	/** Constructor taking a pointer to a FMeshAttributeArraySetBase */
+	FORCEINLINE explicit TMeshAttributesView( typename Super::ArrayType* InArrayPtr = nullptr )
 		: Super( InArrayPtr )
+	{}
+
+	/** Implicitly construct a TMeshAttributesViewBase-to-const from a regular one */
+	template <typename T = ViewType, typename TEnableIf<TIsSame<T, const T>::Value, int>::Type = 0>
+	FORCEINLINE TMeshAttributesView( TMeshAttributesView<ElementIDType, typename TRemoveCV<T>::Type> InView )
+		: Super( InView.ArrayPtr )
 	{}
 
 	/** Get the element with the given ID from index 0. This version has a typesafe element ID accessor. */
@@ -627,22 +643,6 @@ public:
 
 	/** Get the element with the given ID and index. This version has a typesafe element ID accessor. */
 	FORCEINLINE ViewType Get( const ElementIDType ElementID, const int32 Index ) const { return this->GetByIndex( ElementID.GetValue(), Index ); }
-};
-
-
-/**
- * This is a derived version with mutating accessors.
- * This type of hierarchy means it's possible to assign a MeshAttributesConstView = MeshAttributesView.
- */
-template <typename ElementIDType, typename ViewType>
-class TMeshAttributesView final : public TMeshAttributesConstView<ElementIDType, ViewType>
-{
-	using Super = TMeshAttributesConstView<ElementIDType, ViewType>;
-
-public:
-	FORCEINLINE explicit TMeshAttributesView( FMeshAttributeArraySetBase* InArrayPtr = nullptr )
-		: Super( InArrayPtr )
-	{}
 
 	/** Set the element with the given ID and index 0 to the provided value. This version has a typesafe element ID accessor. */
 	FORCEINLINE void Set( const ElementIDType ElementID, const ViewType& Value ) const { this->SetByIndex( ElementID.GetValue(), Value ); }
@@ -651,23 +651,17 @@ public:
 	FORCEINLINE void Set( const ElementIDType ElementID, const int32 Index, const ViewType& Value ) const { this->SetByIndex( ElementID.GetValue(), Index, Value ); }
 
 	/** Sets number of indices this attribute has */
-	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
-	{
-		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->SetNumIndices( NumIndices );
-	}
+	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const { this->ArrayPtr->SetNumIndices( NumIndices ); }
 
 	/** Inserts an attribute index */
-	FORCEINLINE void InsertIndex( const int32 Index ) const
-	{
-		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->InsertIndex( Index );
-	}
+	FORCEINLINE void InsertIndex( const int32 Index ) const { this->ArrayPtr->InsertIndex( Index ); }
 
 	/** Removes an attribute index */
-	FORCEINLINE void RemoveIndex( const int32 Index )
-	{
-		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->RemoveIndex( Index );
-	}
+	FORCEINLINE void RemoveIndex( const int32 Index ) const { this->ArrayPtr->RemoveIndex( Index ); }
 };
+
+template <typename ElementIDType, typename AttributeType>
+using TMeshAttributesConstView = TMeshAttributesView<ElementIDType, const AttributeType>;
 
 
 /**
@@ -751,7 +745,7 @@ public:
 
 	/**
 	 * Register a new attribute name with the given type (must be a member of the AttributeTypes tuple).
-	 * If the attribute name is already registered, it will do nothing.
+	 * If the attribute name is already registered, it will update it to use the new type, number of indices and flags.
 	 *
 	 * Example of use:
 	 *
@@ -761,13 +755,7 @@ public:
 	 *		UV0[ VertexInstanceID ] = FVector2D( 1.0f, 1.0f );
 	 */
 	template <typename AttributeType>
-	void RegisterAttribute( const FName AttributeName, const int32 NumberOfIndices = 1, const AttributeType& Default = AttributeType(), const EMeshAttributeFlags Flags = EMeshAttributeFlags::None )
-	{
-		if( !Map.Contains( AttributeName ) )
-		{
-			Map.Emplace( AttributeName, FAttributesSetEntry( NumberOfIndices, Default, Flags, NumElements ) );
-		}
-	}
+	void RegisterAttribute( const FName AttributeName, const int32 NumberOfIndices = 1, const AttributeType& Default = AttributeType(), const EMeshAttributeFlags Flags = EMeshAttributeFlags::None );
 
 	/**
 	 * Unregister an attribute with the given name.
@@ -817,11 +805,11 @@ public:
 		Map.GetKeys( OutAttributeNames );
 	}
 
-	uint32 GetHash(const FName AttributeName) const
+	uint32 GetHash( const FName AttributeName ) const
 	{
-		if (const FAttributesSetEntry* ArraySetPtr = Map.Find(AttributeName))
+		if ( const FAttributesSetEntry* ArraySetPtr = Map.Find( AttributeName ) )
 		{
-			return (*ArraySetPtr)->GetHash();
+			return ( *ArraySetPtr )->GetHash();
 		}
 		return 0;
 	}
@@ -880,6 +868,30 @@ protected:
 	/** The number of elements in each attribute array */
 	int32 NumElements;
 };
+
+
+template <typename AttributeType>
+void FAttributesSetBase::RegisterAttribute( const FName AttributeName, const int32 NumberOfIndices, const AttributeType& Default, const EMeshAttributeFlags Flags )
+{
+	if( FAttributesSetEntry* ArraySetPtr = Map.Find( AttributeName ) )
+	{
+		if( ( *ArraySetPtr )->HasType<AttributeType>() )
+		{
+			using ArrayType = TMeshAttributeArraySet<AttributeType>;
+			static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::SetNumIndices( NumberOfIndices );	// note: override virtual dispatch
+			( *ArraySetPtr )->SetFlags( Flags );
+		}
+		else
+		{
+			Map.Remove( AttributeName );
+			Map.Emplace( AttributeName, FAttributesSetEntry( NumberOfIndices, Default, Flags, NumElements ) );
+		}
+	}
+	else
+	{
+		Map.Emplace( AttributeName, FAttributesSetEntry( NumberOfIndices, Default, Flags, NumElements ) );
+	}
+}
 
 
 /**
@@ -1086,7 +1098,7 @@ public:
 	}
 
 	template <typename FuncType>
-	UE_DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type const TMeshAttributesRef instead." )
+	UE_DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type TMeshAttributesConstRef instead." )
 	void ForEachAttributeIndicesArray( const FuncType& Func ) const
 	{
 		check( false );
@@ -1406,7 +1418,7 @@ FORCEINLINE void TMeshAttributesViewBase<ViewType>::SetByIndex( const int32 Elem
 	static constexpr AttributesViewSetImpl::JumpTableType<ViewType>
 		JumpTable = AttributesViewSetImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
 
-	JumpTable.Fns[ this->ArrayPtr->GetType() ]( const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr ), ElementIndex, Value );
+	JumpTable.Fns[ ArrayPtr->GetType() ]( ArrayPtr, ElementIndex, Value );
 }
 
 
@@ -1449,7 +1461,7 @@ FORCEINLINE void TMeshAttributesViewBase<ViewType>::SetByIndex( const int32 Elem
 	static constexpr AttributesViewSetWithIndexImpl::JumpTableType<ViewType>
 		JumpTable = AttributesViewSetWithIndexImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
 
-	JumpTable.Fns[ this->ArrayPtr->GetType() ]( const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr ), ElementIndex, AttributeIndex, Value );
+	JumpTable.Fns[ ArrayPtr->GetType() ]( ArrayPtr, ElementIndex, AttributeIndex, Value );
 }
 
 

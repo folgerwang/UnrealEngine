@@ -846,11 +846,17 @@ void FMeshDescriptionOperations::RecomputeNormalsAndTangentsIfNeeded(FMeshDescri
 
 void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescription, float ComparisonThreshold)
 {
-	const TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
-	TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Normal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Tangent, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Binormal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Center, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesConstRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	TPolygonAttributesRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
 	TPolygonAttributesRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
 	TPolygonAttributesRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributesRef<FVector> PolygonCenters = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Center);
 
 	FVertexInstanceArray& VertexInstanceArray = MeshDescription.VertexInstances();
 	FVertexArray& VertexArray = MeshDescription.Vertices();
@@ -882,6 +888,7 @@ void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescript
 			}
 
 			const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+
 			//Check for degenerated polygons, avoid NAN
 			if (!Normal.IsNearlyZero(ComparisonThreshold))
 			{
@@ -928,6 +935,16 @@ void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescript
 		PolygonTangents[PolygonID] = TangentX;
 		PolygonBinormals[PolygonID] = TangentY;
 		PolygonNormals[PolygonID] = TangentZ;
+
+		// Calculate polygon center: just an average of all vertex positions.
+		FVector Center = FVector::ZeroVector;
+		const TArray<FVertexInstanceID>& VertexInstanceIDs = MeshDescription.GetPolygonPerimeterVertexInstances(PolygonID);
+		for (const FVertexInstanceID VertexInstanceID : VertexInstanceIDs)
+		{
+			Center += VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)];
+		}
+		Center /= float(VertexInstanceIDs.Num());
+		PolygonCenters[PolygonID] = Center;
 	}
 }
 
@@ -963,14 +980,17 @@ void FMeshDescriptionOperations::CreateNormals(FMeshDescription& MeshDescription
 	// the angle it makes with the vertex being calculated. This means that triangulated faces whose
 	// internal edge meets the vertex doesn't get undue extra weight.
 
-	const TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TVertexInstanceAttributesConstRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	TVertexInstanceAttributesRef<FVector> VertexNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
 	TVertexInstanceAttributesRef<FVector> VertexTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
 	TVertexInstanceAttributesRef<float> VertexBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
 
-	TPolygonAttributesRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
-	TPolygonAttributesRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
-	TPolygonAttributesRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributesConstRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
+	TPolygonAttributesConstRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
+	TPolygonAttributesConstRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	check(PolygonNormals.IsValid());
+	check(PolygonTangents.IsValid());
+	check(PolygonBinormals.IsValid());
 
 	TMap<FPolygonID, FVertexInfo> VertexInfoMap;
 	VertexInfoMap.Reserve(20);

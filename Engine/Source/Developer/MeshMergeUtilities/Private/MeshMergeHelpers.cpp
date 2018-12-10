@@ -196,8 +196,8 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 
 	const bool bIsSplineMeshComponent = StaticMeshComponent->IsA<USplineMeshComponent>();
 
-	// Imported meshes will have a filled RawMeshBulkData set
-	const bool bImportedMesh = !StaticMeshModel.IsRawMeshEmpty();
+	// Imported meshes will have a valid mesh description
+	const bool bImportedMesh = StaticMesh->IsMeshDescriptionValid(LODIndex);
 		
 	// Export the raw mesh data using static mesh render data
 	ExportStaticMeshLOD(StaticMesh->RenderData->LODResources[LODIndex], RawMesh, StaticMesh->StaticMaterials);
@@ -391,8 +391,8 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 {
 	const FStaticMeshSourceModel& StaticMeshModel = StaticMesh->SourceModels[LODIndex];
 
-	// Imported meshes will have a filled RawMeshBulkData set
-	const bool bImportedMesh = !StaticMeshModel.IsRawMeshEmpty() || (StaticMeshModel.OriginalMeshDescription != nullptr);
+	// Imported meshes will have a valid mesh description
+	const bool bImportedMesh = StaticMesh->IsMeshDescriptionValid(LODIndex);
 	
 	// Check whether or not this mesh has been reduced in-engine
 	const bool bReducedMesh = StaticMesh->IsReductionActive(LODIndex);
@@ -401,7 +401,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 
 	if (bImportedMesh && !bReducedMesh && !bRenderDataMismatch)
 	{
-		StaticMesh->GetOriginalMeshDescription(LODIndex, RawMesh);
+		RawMesh = *StaticMesh->GetMeshDescription(LODIndex);
 	}
 	else
 	{

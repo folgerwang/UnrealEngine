@@ -2158,7 +2158,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				//Set the Imported version before calling the build
 				StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 			}
-			FMeshDescription& LandscapeRawMesh = *(StaticMesh->CreateOriginalMeshDescription(0));
+			FMeshDescription& LandscapeRawMesh = *(StaticMesh->CreateMeshDescription(0));
 		
 			Landscape->ExportToRawMesh(LandscapeLOD, LandscapeRawMesh);
 		
@@ -2170,7 +2170,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 
 			//Commit raw mesh and build the staticmesh
 			{
-				StaticMesh->CommitOriginalMeshDescription(0);
+				StaticMesh->CommitMeshDescription(0);
 				StaticMesh->Build();
 				StaticMesh->PostEditChange();
 			}

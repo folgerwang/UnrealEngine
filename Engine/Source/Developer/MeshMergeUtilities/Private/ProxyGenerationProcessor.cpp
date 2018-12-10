@@ -219,9 +219,9 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 		}
 		//Commit the FMeshDescription to the staticmesh
 		int32 LodIndex = StaticMesh->GetNumLODs() - 1;
-		FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		FMeshDescription* OriginalMeshDescription = StaticMesh->GetMeshDescription(LodIndex);
 		*OriginalMeshDescription = Data->RawMesh;
-		StaticMesh->CommitOriginalMeshDescription(LodIndex);
+		StaticMesh->CommitMeshDescription(LodIndex);
 	};
 
 	if (bContainsImposters)

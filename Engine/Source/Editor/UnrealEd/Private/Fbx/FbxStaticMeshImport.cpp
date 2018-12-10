@@ -266,7 +266,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FbxMesh* Mesh = Node->GetMesh();
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 	//The mesh description should have been created before calling BuildStaticMeshFromGeometry
 	check(MeshDescription);
 	//remove the bad polygons before getting any data from mesh
@@ -1479,13 +1479,12 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 	if (MeshDescription == nullptr)
 	{
-		MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+		MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 		check(MeshDescription != nullptr);
-		UStaticMesh::RegisterMeshAttributes(*MeshDescription);
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		StaticMesh->CommitMeshDescription(LODIndex);
 	}
 	else if (InStaticMesh != NULL && LODIndex > 0)
 	{
@@ -1612,7 +1611,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			}
 		}
 		//Set the original mesh description to be able to do non destructive reduce
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		StaticMesh->CommitMeshDescription(LODIndex);
 
 		// Setup default LOD settings based on the selected LOD group.
 		if (LODIndex == 0)
@@ -1909,7 +1908,7 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
 	
 	//Always triangulate the original mesh description after we import it
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 	if (MeshDescription)
 	{
 		MeshDescription->TriangulateMesh();
