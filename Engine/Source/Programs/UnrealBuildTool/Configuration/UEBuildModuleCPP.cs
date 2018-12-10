@@ -345,6 +345,24 @@ namespace UnrealBuildTool
 				return LinkInputFiles;
 			}
 
+			// Store the module compile environment along with the source file.  This is so that we can use it later on when looking for header dependencies
+			foreach (FileItem CFile in SourceFilesFound.CFiles)
+			{
+				CFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem CCFile in SourceFilesFound.CCFiles)
+			{
+				CCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
+			{
+				CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem MMFile in SourceFilesFound.MMFiles)
+			{
+				MMFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+
 			// Process all of the header file dependencies for this module
 			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment);
 
