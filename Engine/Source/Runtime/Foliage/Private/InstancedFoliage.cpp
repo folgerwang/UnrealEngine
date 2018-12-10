@@ -3038,7 +3038,7 @@ void AInstancedFoliageActor::OnLevelActorMoved(AActor* InActor)
 
 	if (!InWorld || !InWorld->IsGameWorld())
 	{
-		for (UActorComponent* Component : GetComponents())
+		for (UActorComponent* Component : InActor->GetComponents())
 		{
 			if (Component)
 			{
@@ -3054,7 +3054,7 @@ void AInstancedFoliageActor::OnLevelActorDeleted(AActor* InActor)
 
 	if (!InWorld || !InWorld->IsGameWorld())
 	{
-		for (UActorComponent* Component : GetComponents())
+		for (UActorComponent* Component : InActor->GetComponents())
 		{
 			if (Component)
 			{
