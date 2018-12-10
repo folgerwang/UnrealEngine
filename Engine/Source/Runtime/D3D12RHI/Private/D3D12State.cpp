@@ -313,7 +313,7 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 	SCOPE_CYCLE_COUNTER(STAT_PSOGraphicsFindOrCreateTime);
 
 	FD3D12PipelineStateCache& PSOCache = GetAdapter().GetPSOCache();
-
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	// First try to find the PSO based on the hash of runtime objects.
 	uint32 InitializerHash;
 	FD3D12GraphicsPipelineState* Found = PSOCache.FindInRuntimeCache(Initializer, InitializerHash);
@@ -324,7 +324,7 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 #endif // DO_CHECK
 		return Found;
 	}
-
+#endif
 	// TODO: Remove the need for BoundShaderState objects. Currently they are needed for the Root Signature and resource counts.
 	FBoundShaderStateRHIRef const BSS = RHICreateBoundShaderState(
 		Initializer.BoundShaderState.VertexDeclarationRHI,
@@ -337,14 +337,22 @@ FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(co
 	// Next try to find the PSO based on the hash of its desc.
 	FD3D12BoundShaderState* const BoundShaderState = FD3D12DynamicRHI::ResourceCast(BSS.GetReference());
 	FD3D12LowLevelGraphicsPipelineStateDesc LowLevelDesc;
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	Found = PSOCache.FindInLoadedCache(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+#else
+	FD3D12GraphicsPipelineState* Found = PSOCache.FindInLoadedCache(Initializer, BoundShaderState, LowLevelDesc);
+#endif
 	if (Found)
 	{
 		return Found;
 	}
 
 	// We need to actually create a PSO.
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	return PSOCache.CreateAndAdd(Initializer, InitializerHash, BoundShaderState, LowLevelDesc);
+#else
+	return PSOCache.CreateAndAdd(Initializer, BoundShaderState, LowLevelDesc);
+#endif
 }
 
 TRefCountPtr<FRHIComputePipelineState> FD3D12DynamicRHI::RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI)
@@ -356,12 +364,14 @@ TRefCountPtr<FRHIComputePipelineState> FD3D12DynamicRHI::RHICreateComputePipelin
 	FD3D12ComputeShader* ComputeShader = FD3D12DynamicRHI::ResourceCast(ComputeShaderRHI);
 
 	// First try to find the PSO based on Compute Shader pointer.
-	FD3D12ComputePipelineState* Found = PSOCache.FindInRuntimeCache(ComputeShader);
+	FD3D12ComputePipelineState* Found;
+#if D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
+	Found = PSOCache.FindInRuntimeCache(ComputeShader);
 	if (Found)
 	{
 		return Found;
 	}
-
+#endif
 	// Next try to find the PSO based on the hash of its desc.
 	FD3D12ComputePipelineStateDesc LowLevelDesc;
 	Found = PSOCache.FindInLoadedCache(ComputeShader, LowLevelDesc);
