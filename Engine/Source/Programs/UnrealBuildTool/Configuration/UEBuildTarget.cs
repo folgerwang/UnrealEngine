@@ -1495,7 +1495,7 @@ namespace UnrealBuildTool
 				WriteMetadataAction.StatusDescription = ReceiptFileName.GetFileName();
 				WriteMetadataAction.bCanExecuteRemotely = false;
 				WriteMetadataAction.PrerequisiteItems.AddRange(OutputItems);
-				WriteMetadataAction.PrerequisiteItems.Add(FileItem.GetExistingItemByPath(Assembly.GetExecutingAssembly().Location));
+				WriteMetadataAction.PrerequisiteItems.Add(FileItem.GetItemByPath(Assembly.GetExecutingAssembly().Location));
 				WriteMetadataAction.ProducedItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
 
 				OutputItems.AddRange(WriteMetadataAction.ProducedItems);

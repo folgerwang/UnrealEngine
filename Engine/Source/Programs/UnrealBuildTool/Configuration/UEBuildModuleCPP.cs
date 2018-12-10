@@ -308,7 +308,11 @@ namespace UnrealBuildTool
 				PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
 				{
-					FileItem ObjectFile = FileItem.GetExistingItemByFileReference(OutputFile);
+					FileItem ObjectFile = FileItem.GetItemByFileReference(OutputFile);
+					if(!ObjectFile.bExists)
+					{
+						throw new BuildException("Missing object file {0} listed in {1}", OutputFile, PrecompiledManifestLocation);
+					}
 					LinkInputFiles.Add(ObjectFile);
 				}
 				return LinkInputFiles;
@@ -497,8 +501,14 @@ namespace UnrealBuildTool
 					// Always force include the PCH, even if PCHs are disabled, for generated code. Legacy code can rely on PCHs being included to compile correctly, and this used to be done by UHT manually including it.
 					if(GeneratedCPPCompileEnvironment.PrecompiledHeaderFile == null && Rules.PrivatePCHHeaderFile != null && Rules.PCHUsage != ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 					{
+						FileItem PrivatePchFileItem = FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile));
+						if(!PrivatePchFileItem.bExists)
+						{
+							throw new BuildException("Unable to find private PCH file '{0}', referenced by '{1}'", PrivatePchFileItem.Location, RulesFile);
+						}
+
 						GeneratedCPPCompileEnvironment = new CppCompileEnvironment(GeneratedCPPCompileEnvironment);
-						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(FileItem.GetExistingItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)));
+						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(PrivatePchFileItem);
 					}
 
 					// Compile all the generated files

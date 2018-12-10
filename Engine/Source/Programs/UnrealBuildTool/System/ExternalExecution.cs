@@ -368,7 +368,7 @@ namespace UnrealBuildTool
 			{
 				// Check to see if we know anything about this file.  If we have up-to-date cached information about whether it has
 				// UObjects or not, we can skip doing a test here.
-				FileItem UObjectHeaderFileItem = FileItem.GetExistingItemByFileReference(Header);
+				FileItem UObjectHeaderFileItem = FileItem.GetItemByFileReference(Header);
 
 				if (CPPHeaders.DoesFileContainUObjects(UObjectHeaderFileItem.AbsolutePath))
 				{

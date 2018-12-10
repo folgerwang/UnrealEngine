@@ -168,30 +168,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// If the given file path identifies a file that already exists, returns the FileItem that represents it.
-		/// </summary>
-		public static FileItem GetExistingItemByPath(string FileName)
-		{
-			return GetExistingItemByFileReference(new FileReference(FileName));
-		}
-
-		/// <summary>
-		/// If the given file path identifies a file that already exists, returns the FileItem that represents it.
-		/// </summary>
-		public static FileItem GetExistingItemByFileReference(FileReference FileRef)
-		{
-			FileItem Result = GetItemByFileReference(FileRef);
-			if (Result.bExists)
-			{
-				return Result;
-			}
-			else
-			{
-				return null;
-			}
-		}
-
-		/// <summary>
 		/// Determines the appropriate encoding for a string: either ASCII or UTF-8.
 		/// </summary>
 		/// <param name="Str">The string to test.</param>
