@@ -1031,15 +1031,40 @@ public:
 	 * @param	ForceFeedbackEffect		The force feedback pattern to play
 	 * @param	bLooping				Whether the pattern should be played repeatedly or be a single one shot
 	 * @param	bIgnoreTimeDilation		Whether the pattern should ignore time dilation
+	 * @param	bPlayWhilePaused		Whether the pattern should continue to play while the game is paused
 	 * @param	Tag						A tag that allows stopping of an effect.  If another effect with this Tag is playing, it will be stopped and replaced
 	 */
-	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
-	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag);
+	UFUNCTION(BlueprintCallable, Category="Game|Feedback", meta=(DisplayName="Client Play Force Feedback", AdvancedDisplay="bIgnoreTimeDilation,bPlayWhilePaused"))
+	void K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused)
+	{
+		FForceFeedbackParameters Params;
+		Params.Tag = Tag;
+		Params.bLooping = bLooping;
+		Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+		Params.bPlayWhilePaused = bPlayWhilePaused;
+		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+	}
 
-	UE_DEPRECATED(4.18, "Use version that specifies whether to ignore time dilation or not")
+	UFUNCTION(unreliable, client)
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters());
+
+	UE_DEPRECATED(4.22, "Use version that specifies parameters using a struct instead of a list of parameters")
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
+	{
+		FForceFeedbackParameters Params;
+		Params.Tag = Tag;
+		Params.bLooping = bLooping;
+		Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+	}
+
+	UE_DEPRECATED(4.18, "Use version that specifies parameters using a struct instead of a list of parameters")
 	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
 	{
-		ClientPlayForceFeedback(ForceFeedbackEffect, bLooping, false, Tag);
+		FForceFeedbackParameters Params;
+		Params.Tag = Tag;
+		Params.bLooping = bLooping;
+		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
 	}
 
 	/** 
