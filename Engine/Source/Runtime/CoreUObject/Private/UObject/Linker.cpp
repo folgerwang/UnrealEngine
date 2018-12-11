@@ -733,6 +733,13 @@ FLinkerLoad* GetPackageLinker
 		}
 		else
 		{
+			if (Result->GetSerializeContext() && Result->GetSerializeContext() != InExistingContext)
+			{
+				// Make sure the objects already loaded with the context associated with the existing linker
+				// are copied to the context provided for this function call to make sure they all get loaded ASAP
+				check(!IsInAsyncLoadingThread());
+				InExistingContext->AddUniqueLoadedObjects(Result->GetSerializeContext()->PRIVATE_GetObjectsLoadedInternalUseOnly());
+			}
 			// Replace the linker context with the one passed into this function
 			Result->SetSerializeContext(InExistingContext);
 		}

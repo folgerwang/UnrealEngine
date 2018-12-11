@@ -45,3 +45,12 @@ int32 FUObjectSerializeContext::DecrementBeginLoadCount()
 	check(HasStartedLoading());
 	return --ObjBeginLoadCount;
 }
+
+void FUObjectSerializeContext::AddUniqueLoadedObjects(const TArray<UObject*>& InObjects)
+{
+	for (UObject* NewLoadedObject : InObjects)
+	{
+		ObjectsLoaded.AddUnique(NewLoadedObject);
+	}
+	
+}

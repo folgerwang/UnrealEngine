@@ -133,6 +133,7 @@ public:
 	{
 		ObjectsLoaded.Add(InObject);
 	}
+	void AddUniqueLoadedObjects(const TArray<UObject*>& InObjects);
 
 	/** Checks if object loading has started */
 	bool HasStartedLoading() const
@@ -190,7 +191,7 @@ public:
 	}
 
 	/** This is only meant to be used by FAsyncPackage for performance reasons. The ObjectsLoaded array should not be manipulated directly! */
-	TArray<UObject*>& PRIVATE_GetObjectsLoadedForFAsyncPackage()
+	TArray<UObject*>& PRIVATE_GetObjectsLoadedInternalUseOnly()
 	{
 		return ObjectsLoaded;
 	}
