@@ -188,7 +188,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<Texture>
+	class MTLPP_EXPORT Validator<Texture>
 	{
 		public:
 		Validator(Texture& Val, bool bEnable)

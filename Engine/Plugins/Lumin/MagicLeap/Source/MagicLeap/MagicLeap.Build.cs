@@ -41,7 +41,6 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"Renderer",
-					"ShaderCore",
 					"Slate",
 					"SlateCore",
 					"MLSDK",

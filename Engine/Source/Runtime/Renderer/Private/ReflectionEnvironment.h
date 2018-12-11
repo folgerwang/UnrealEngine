@@ -14,15 +14,15 @@
 extern bool IsReflectionEnvironmentAvailable(ERHIFeatureLevel::Type InFeatureLevel);
 extern bool IsReflectionCaptureAvailable();
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FReflectionUniformParameters,)
-	UNIFORM_MEMBER(FVector4, SkyLightParameters)
-	UNIFORM_MEMBER(float, SkyLightCubemapBrightness)
-	UNIFORM_MEMBER_TEXTURE(TextureCube, SkyLightCubemap)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyLightCubemapSampler)
-	UNIFORM_MEMBER_TEXTURE(TextureCube, SkyLightBlendDestinationCubemap)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyLightBlendDestinationCubemapSampler)
-	UNIFORM_MEMBER_TEXTURE(TextureCubeArray, ReflectionCubemap)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, ReflectionCubemapSampler)
-END_UNIFORM_BUFFER_STRUCT(FReflectionUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionUniformParameters,)
+	SHADER_PARAMETER(FVector4, SkyLightParameters)
+	SHADER_PARAMETER(float, SkyLightCubemapBrightness)
+	SHADER_PARAMETER_TEXTURE(TextureCube, SkyLightCubemap)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyLightCubemapSampler)
+	SHADER_PARAMETER_TEXTURE(TextureCube, SkyLightBlendDestinationCubemap)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyLightBlendDestinationCubemapSampler)
+	SHADER_PARAMETER_TEXTURE(TextureCubeArray, ReflectionCubemap)
+	SHADER_PARAMETER_SAMPLER(SamplerState, ReflectionCubemapSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern void SetupReflectionUniformParameters(const class FViewInfo& View, FReflectionUniformParameters& OutParameters);

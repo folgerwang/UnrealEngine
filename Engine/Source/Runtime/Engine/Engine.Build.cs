@@ -71,7 +71,6 @@ public class Engine : ModuleRules
 				"MessagingCommon",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"Sockets",
 				"UtilityShaders",
 				"AssetRegistry", // Here until FAssetData is moved to engine

@@ -15,9 +15,11 @@
 #define VULKAN_DYNAMICALLYLOADED				1
 #define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT		1
 #define VULKAN_SIGNAL_UNIMPLEMENTED()			checkf(false, TEXT("Unimplemented vulkan functionality: %s"), TEXT(__FUNCTION__))
+#define VULKAN_SUPPORTS_COLOR_CONVERSIONS		1
 #define	VULKAN_SUPPORTS_DEDICATED_ALLOCATION	0
 #define VULKAN_SUPPORTS_AMD_BUFFER_MARKER			1
 #define VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT	1
+
 
 // 32-bit windows has warnings on custom mem mgr callbacks
 #define VULKAN_SHOULD_USE_LLM					(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT) && !PLATFORM_32BITS
@@ -33,7 +35,9 @@
 	EnumMacro(PFN_vkGetQueueCheckpointDataNV, vkGetQueueCheckpointDataNV) \
 	EnumMacro(PFN_vkGetBufferMemoryRequirements2KHR , vkGetBufferMemoryRequirements2KHR)
 
-#define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro)
+#define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro) \
+	EnumMacro(PFN_vkCreateSamplerYcbcrConversionKHR, vkCreateSamplerYcbcrConversionKHR) \
+	EnumMacro(PFN_vkDestroySamplerYcbcrConversionKHR, vkDestroySamplerYcbcrConversionKHR)
 
 #include "../VulkanLoader.h"
 

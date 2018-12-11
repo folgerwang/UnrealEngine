@@ -14,7 +14,6 @@ namespace UnrealBuildTool.Rules
                     "Engine",
                     "EngineSettings",
                     "RenderCore",
-                    "ShaderCore",
                     "AnimGraphRuntime",
                     "RHI",
                     "PhysXVehicleLib"

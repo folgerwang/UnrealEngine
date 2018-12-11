@@ -9,11 +9,39 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "VulkanMemory.h"
-#include "PipelineStateCache.h"
 #include "Misc/OutputDeviceRedirector.h"
 
 
 extern CORE_API bool GIsGPUCrashed;
+
+//#todo-rco: Horrible work-around to avoid breaking binary compatibility; move to header!
+struct FVulkanTimingQueryPool : public FVulkanQueryPool
+{
+	FVulkanTimingQueryPool(FVulkanDevice* InDevice, uint32 InBufferSize)
+		: FVulkanQueryPool(InDevice, InBufferSize * 2, VK_QUERY_TYPE_TIMESTAMP)
+		, BufferSize(InBufferSize)
+	{
+		TimestampListHandles.AddZeroed(InBufferSize * 2);
+	}
+
+	uint32 CurrentTimestamp = 0;
+	uint32 NumIssuedTimestamps = 0;
+	const uint32 BufferSize;
+
+	struct FCmdBufferFence
+	{
+		FVulkanCmdBuffer* CmdBuffer;
+		uint64 FenceCounter;
+	};
+	TArray<FCmdBufferFence> TimestampListHandles;
+
+	VulkanRHI::FStagingBuffer* ResultsBuffer = nullptr;
+};
+
+
+//#todo-rco: Horrible work-around to avoid breaking binary compatibility
+static TMap<FVulkanGPUTiming*, FVulkanTimingQueryPool*> GTimingQueryPools;
+
 
 static FString		EventDeepString(TEXT("EventTooDeep"));
 static const uint32	EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
@@ -38,7 +66,8 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Timestamps not supported on Device"));
 			return;
 		}
-		GTimingFrequency = (uint64)((1.0f / Limits.timestampPeriod) * 1000.0f * 1000.0f * 1000.0f);
+		GTimingFrequency = (uint64)((1000.0 * 1000.0 * 1000.0) / Limits.timestampPeriod);
+		GIsSupported = true;
 	}
 }
 
@@ -124,14 +153,11 @@ void FVulkanGPUTiming::Initialize()
 
 	bIsTiming = false;
 
-	// Now initialize the queries for this timing object.
-	if ( GIsSupported )
+	if (FVulkanPlatform::SupportsTimestampRenderQueries() && GIsSupported)
 	{
-		for (int32 Index = 0; Index < MaxTimers; ++Index)
-		{
-			Timers[Index].Begin = new FVulkanRenderQuery(RQT_AbsoluteTime);
-			Timers[Index].End = new FVulkanRenderQuery(RQT_AbsoluteTime);
-		}
+		FVulkanTimingQueryPool* Pool = new FVulkanTimingQueryPool(Device, 8);
+		Pool->ResultsBuffer = Device->GetStagingManager().AcquireBuffer(8 * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
+		GTimingQueryPools.Add(this, Pool);
 	}
 }
 
@@ -140,13 +166,15 @@ void FVulkanGPUTiming::Initialize()
  */
 void FVulkanGPUTiming::Release()
 {
-	for (int32 Index = 0; Index < MaxTimers; ++Index)
+	if (FVulkanPlatform::SupportsTimestampRenderQueries())
 	{
-		delete Timers[Index].Begin;
-		delete Timers[Index].End;
+		FVulkanTimingQueryPool* FoundPool = nullptr;
+		if (GTimingQueryPools.RemoveAndCopyValue(this, FoundPool) && FoundPool)
+		{
+			Device->GetStagingManager().ReleaseBuffer(nullptr, FoundPool->ResultsBuffer);
+			delete FoundPool;
+		}
 	}
-
-	FMemory::Memzero(Timers);
 }
 
 /**
@@ -155,20 +183,18 @@ void FVulkanGPUTiming::Release()
 void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 {
 	// Issue a timestamp query for the 'start' time.
-	if ( GIsSupported && !bIsTiming )
+	if (GIsSupported && !bIsTiming)
 	{
-		CurrentTimerIndex = (CurrentTimerIndex + 1) % MaxTimers;
-		NumActiveTimers = FMath::Min(NumActiveTimers + 1, (int32)MaxTimers);
-/*
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		Timers[CurrentTimerIndex].BeginCmdBuffer = CmdBuffer;
-		Timers[CurrentTimerIndex].BeginFenceCounter = CmdBuffer->GetFenceSignaledCounter();
-		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].Begin);
-*/
-
+		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
+		Pool->CurrentTimestamp = (Pool->CurrentTimestamp + 1) % Pool->BufferSize;
+		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
+		VulkanRHI::vkCmdWriteTimestamp(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, Pool->GetHandle(), QueryStartIndex);
+		Pool->TimestampListHandles[QueryStartIndex].CmdBuffer = CmdBuffer;
+		Pool->TimestampListHandles[QueryStartIndex].FenceCounter = CmdBuffer->GetFenceSignaledCounter();
 		bIsTiming = true;
 	}
 }
@@ -182,15 +208,23 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 	// Issue a timestamp query for the 'end' time.
 	if (GIsSupported && bIsTiming)
 	{
-/*
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		Timers[CurrentTimerIndex].EndCmdBuffer = CmdBuffer;
-		Timers[CurrentTimerIndex].EndFenceCounter = CmdBuffer->GetFenceSignaledCounter();
-		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].End);
-*/
+		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
+		check(Pool->CurrentTimestamp < Pool->BufferSize);
+		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
+		const uint32 QueryEndIndex = Pool->CurrentTimestamp * 2 + 1;
+		check(QueryEndIndex == QueryStartIndex + 1);	// Make sure they're adjacent indices.
+		VulkanRHI::vkCmdWriteTimestamp(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, Pool->GetHandle(), QueryEndIndex);
+		//check(CmdBuffer->IsOutsideRenderPass());
+		VulkanRHI::vkCmdCopyQueryPoolResults(CmdBuffer->GetHandle(), Pool->GetHandle(), QueryStartIndex, 2, Pool->ResultsBuffer->GetHandle(), sizeof(uint64) * QueryStartIndex, sizeof(uint64), VK_QUERY_RESULT_64_BIT);
+		VulkanRHI::vkCmdResetQueryPool(CmdBuffer->GetHandle(), Pool->GetHandle(), QueryStartIndex, 2);
+		Pool->TimestampListHandles[QueryEndIndex].CmdBuffer = CmdBuffer;
+		Pool->TimestampListHandles[QueryEndIndex].FenceCounter = CmdBuffer->GetFenceSignaledCounter();
+		Pool->NumIssuedTimestamps = FMath::Min<uint32>(Pool->NumIssuedTimestamps + 1, Pool->BufferSize);
+
 		bIsTiming = false;
 		bEndTimestampIssued = true;
 	}
@@ -206,96 +240,88 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 {
 	if (GIsSupported)
 	{
-/*
-		uint64 BeginTime, EndTime;
-		int32 TimerIndex = CurrentTimerIndex;
+		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
+		check(Pool->CurrentTimestamp < Pool->BufferSize);
+		uint64 StartTime, EndTime;
+		int32 TimestampIndex = Pool->CurrentTimestamp;
 		if (!bGetCurrentResultsAndBlock)
 		{
-			// Go backwards through the list
-			for (int32 Index = 1; Index < NumActiveTimers; ++Index)
+			// Quickly check the most recent measurements to see if any of them has been resolved.  Do not flush these queries.
+			for (uint32 IssueIndex = 1; IssueIndex < Pool->NumIssuedTimestamps; ++IssueIndex)
 			{
-#if VULKAN_USE_NEW_QUERIES
-				check(Timers[TimerIndex].BeginCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].BeginFenceCounter);
-				check(Timers[TimerIndex].EndCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].EndFenceCounter);
-				if (Timers[TimerIndex].EndCmdBuffer->GetFenceSignaledCounter() <= Timers[TimerIndex].EndFenceCounter)
+				const uint32 QueryStartIndex = TimestampIndex * 2;
+				const uint32 QueryEndIndex = TimestampIndex * 2 + 1;
+				const FVulkanTimingQueryPool::FCmdBufferFence& StartQuerySyncPoint = Pool->TimestampListHandles[QueryStartIndex];
+				const FVulkanTimingQueryPool::FCmdBufferFence& EndQuerySyncPoint = Pool->TimestampListHandles[QueryEndIndex];
+				if (EndQuerySyncPoint.FenceCounter < EndQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter() && StartQuerySyncPoint.FenceCounter < StartQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter())
 				{
-					// Nothing here...
-					int i = 0;
-					++i;
-				}
-				else if (Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded())
-#endif
-				{
-#if VULKAN_USE_NEW_QUERIES
-					check(Timers[TimerIndex].BeginCmdBuffer->GetFenceSignaledCounter() > Timers[TimerIndex].BeginFenceCounter);
-#endif
-					check(Device == CmdContext->GetDevice());
-					if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, false))
+					uint64* Data = (uint64*)Pool->ResultsBuffer->GetMappedPointer();
+					StartTime = Data[QueryStartIndex];
+					EndTime = Data[QueryEndIndex];
+
+					if (EndTime > StartTime)
 					{
-						if (Timers[TimerIndex].End->GetResult(Device, EndTime, false))
-						{
-							if (BeginTime < EndTime)
-							{
-								return (EndTime - BeginTime);
-							}
-						}
-						else
-						{
-							int i = 0;
-							++i;
-						}
+						return EndTime - StartTime;
 					}
 				}
 
-				// Go back
-				TimerIndex = (TimerIndex + MaxTimers - 1) % MaxTimers;
+				TimestampIndex = (TimestampIndex + Pool->BufferSize - 1) % Pool->BufferSize;
 			}
 		}
 
-		if (bGetCurrentResultsAndBlock)
+		if (Pool->NumIssuedTimestamps > 0 || bGetCurrentResultsAndBlock)
 		{
-			TimerIndex = CurrentTimerIndex;
-#if VULKAN_USE_NEW_QUERIES
-			check(Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded());
-#endif
+			// None of the (NumIssuedTimestamps - 1) measurements were ready yet,
+			// so check the oldest measurement more thoroughly.
+			// This really only happens if occlusion and frame sync event queries are disabled, otherwise those will block until the GPU catches up to 1 frame behind
 
-			if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, true))
+			const bool bBlocking = (Pool->NumIssuedTimestamps == Pool->BufferSize) || bGetCurrentResultsAndBlock;
+			const uint32 IdleStart = FPlatformTime::Cycles();
+
+			SCOPE_CYCLE_COUNTER(STAT_RenderQueryResultTime);
+
+			const uint32 QueryStartIndex = TimestampIndex * 2;
+			const uint32 QueryEndIndex = TimestampIndex * 2 + 1;
+
+			if (bBlocking)
 			{
-				if (Timers[TimerIndex].End->GetResult(Device, EndTime, true))
+				const FVulkanTimingQueryPool::FCmdBufferFence& StartQuerySyncPoint = Pool->TimestampListHandles[QueryStartIndex];
+				const FVulkanTimingQueryPool::FCmdBufferFence& EndQuerySyncPoint = Pool->TimestampListHandles[QueryEndIndex];
+				bool bWaitForStart = StartQuerySyncPoint.FenceCounter == StartQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter();
+				bool bWaitForEnd = EndQuerySyncPoint.FenceCounter == EndQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter();
+				if (bWaitForEnd || bWaitForStart)
 				{
-#if VULKAN_USE_NEW_QUERIES
-					check(BeginTime < EndTime);
-					return (EndTime - BeginTime);
-#else
-					if (BeginTime < EndTime)
-					{
-						return (EndTime - BeginTime);
-					}
-#endif
+					// Need to submit the open command lists.
+					Device->SubmitCommandsAndFlushGPU();
 				}
-				else
+
+				// CPU wait for query results to be ready.
+				if (bWaitForStart && StartQuerySyncPoint.FenceCounter == StartQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter())
 				{
-					checkf(0, TEXT("Could not wait for End timer query result!"));
+					CmdContext->GetCommandBufferManager()->WaitForCmdBuffer(StartQuerySyncPoint.CmdBuffer);
+				}
+				if (bWaitForEnd && EndQuerySyncPoint.FenceCounter == EndQuerySyncPoint.CmdBuffer->GetFenceSignaledCounter())
+				{
+					CmdContext->GetCommandBufferManager()->WaitForCmdBuffer(EndQuerySyncPoint.CmdBuffer);
 				}
 			}
-			else
+
+			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
+			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
+
+			uint64* Data = (uint64*)Pool->ResultsBuffer->GetMappedPointer();
+			StartTime = Data[QueryStartIndex];
+			EndTime = Data[QueryEndIndex];
+
+			if (EndTime > StartTime)
 			{
-				checkf(0, TEXT("Could not wait for Begin timer query result!"));
+				return EndTime - StartTime;
 			}
 		}
-		*/
 	}
 
 	return 0;
 }
-
-#if VULKAN_USE_NEW_QUERIES
-#else
-static double ConvertTiming(uint64 Delta)
-{
-	return Delta / 1e6;
-}
-#endif
 
 /** Start this frame of per tracking */
 void FVulkanEventNodeFrame::StartFrame()
@@ -317,14 +343,8 @@ float FVulkanEventNodeFrame::GetRootTimingResults()
 	{
 		const uint64 GPUTiming = RootEventTiming.GetTiming(true);
 
-#if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
-/*
 		RootResult = (double)GPUTiming / (double)RootEventTiming.GetTimingFrequency();
-*/
-#else
-		RootResult = ConvertTiming(GPUTiming);
-#endif
 	}
 
 	return (float)RootResult;
@@ -337,14 +357,8 @@ float FVulkanEventNode::GetTiming()
 	if (Timing.IsSupported())
 	{
 		const uint64 GPUTiming = Timing.GetTiming(true);
-#if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
-/*
 		Result = (double)GPUTiming / (double)Timing.GetTimingFrequency();
-*/
-#else
-		Result = ConvertTiming(GPUTiming);
-#endif
 	}
 
 	return Result;

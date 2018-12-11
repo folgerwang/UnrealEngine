@@ -20,7 +20,6 @@ namespace UnrealBuildTool.Rules
                     "UnrealEd",
                     "PropertyEditor",
                     "RenderCore",
-                    "ShaderCore",
                     "RHI",
                     "GeometryCollectionComponent",
                     "RawMesh",

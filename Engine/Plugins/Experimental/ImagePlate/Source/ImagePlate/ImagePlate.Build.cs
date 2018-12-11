@@ -27,7 +27,6 @@ namespace UnrealBuildTool.Rules
 					"MediaAssets",
 					"RenderCore",
 					"RHI",
-					"ShaderCore",
 					"TimeManagement",
 				}
 			);

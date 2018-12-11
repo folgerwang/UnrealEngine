@@ -11,7 +11,6 @@ public class UtilityShaders : ModuleRules
 				"Core",
 				"RHI",
                 "RenderCore",
-				"ShaderCore",
 			}
 		);
 	}

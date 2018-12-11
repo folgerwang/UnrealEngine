@@ -10,6 +10,8 @@
 #include "PipelineStateCache.h"
 #include "HAL/IConsoleManager.h"
 #include "SceneUtils.h"
+#include "VisualizeTexture.h"
+#include "CommonRenderResources.h"
 
 static TAutoConsoleVariable<int32> CVarVTRefreshEntirePageTable(
 	TEXT("r.VT.RefreshEntirePageTable"),
@@ -243,7 +245,7 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 	{
 		if( PageTableUpdates.Num() == 0 )
 		{
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
+			GVisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
 			return;
 		}
 
@@ -310,59 +312,65 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 		uint32 NumUpdates = ExpandedUpdates[ Mip ].Num();
 		if( NumUpdates )
 		{
-			SetRenderTarget( RHICmdList, PageTableTarget.TargetableTexture, Mip, NULL );
-			RHICmdList.SetViewport( 0, 0, 0.0f, MipSize, MipSize, 1.0f );
-
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets( GraphicsPSOInit );
-
-			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-			FPageTableUpdateVS* VertexShader = nullptr;
-			FPageTableUpdatePS* PixelShader = nullptr;
-
-			switch( PageTableFormat )
+			// We will resolve this target once after all mips are updated.
+			FRHIRenderPassInfo RPInfo(PageTableTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+			RPInfo.ColorRenderTargets[0].MipIndex = Mip;
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("VirtualTextureUpdate"));
 			{
-			case PF_R16_UINT:
+				RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
+
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+				FPageTableUpdateVS* VertexShader = nullptr;
+				FPageTableUpdatePS* PixelShader = nullptr;
+
+				switch (PageTableFormat)
 				{
-					VertexShader = *TShaderMapRef< TPageTableUpdateVS<0> >( ShaderMap );
-					PixelShader  = *TShaderMapRef< TPageTableUpdatePS<0> >( ShaderMap );
+				case PF_R16_UINT:
+				{
+					VertexShader = *TShaderMapRef< TPageTableUpdateVS<0> >(ShaderMap);
+					PixelShader = *TShaderMapRef< TPageTableUpdatePS<0> >(ShaderMap);
 				}
 				break;
-			case PF_R8G8B8A8:
+				case PF_R8G8B8A8:
 				{
-					VertexShader = *TShaderMapRef< TPageTableUpdateVS<1> >( ShaderMap );
-					PixelShader  = *TShaderMapRef< TPageTableUpdatePS<1> >( ShaderMap );
+					VertexShader = *TShaderMapRef< TPageTableUpdateVS<1> >(ShaderMap);
+					PixelShader = *TShaderMapRef< TPageTableUpdatePS<1> >(ShaderMap);
 				}
 				break;
-			default:
-				check(0);
+				default:
+					check(0);
+				}
+				checkSlow(VertexShader && PixelShader);
+
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+				{
+					const FVertexShaderRHIParamRef ShaderRHI = VertexShader->GetVertexShader();
+
+					SetShaderValue(RHICmdList, ShaderRHI, VertexShader->PageTableSize, PageTableSize);
+					SetShaderValue(RHICmdList, ShaderRHI, VertexShader->FirstUpdate, FirstUpdate);
+					SetShaderValue(RHICmdList, ShaderRHI, VertexShader->NumUpdates, NumUpdates);
+					SetSRVParameter(RHICmdList, ShaderRHI, VertexShader->UpdateBuffer, UpdateBufferSRV);
+				}
+
+				// needs to be the same on shader side (faster on NVIDIA and AMD)
+				uint32 QuadsPerInstance = 8;
+
+				RHICmdList.SetStreamSource(0, NULL, 0);
+				RHICmdList.DrawIndexedPrimitive(GQuadIndexBuffer.IndexBufferRHI, 0, 0, 32, 0, 2 * QuadsPerInstance, FMath::DivideAndRoundUp(NumUpdates, QuadsPerInstance));
 			}
-			checkSlow( VertexShader && PixelShader );
-			
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
-
-			SetGraphicsPipelineState( RHICmdList, GraphicsPSOInit );
-
-			{
-				const FVertexShaderRHIParamRef ShaderRHI = VertexShader->GetVertexShader();
-
-				SetShaderValue( RHICmdList, ShaderRHI, VertexShader->PageTableSize,	PageTableSize );
-				SetShaderValue( RHICmdList, ShaderRHI, VertexShader->FirstUpdate,	FirstUpdate );
-				SetShaderValue( RHICmdList, ShaderRHI, VertexShader->NumUpdates,	NumUpdates );
-				SetSRVParameter( RHICmdList, ShaderRHI, VertexShader->UpdateBuffer,	UpdateBufferSRV );
-			}
-
-			// needs to be the same on shader side (faster on NVIDIA and AMD)
-			uint32 QuadsPerInstance = 8;
-
-			RHICmdList.SetStreamSource( 0, NULL, 0 );
-			RHICmdList.DrawIndexedPrimitive( GQuadIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 32, 0, 2 * QuadsPerInstance, FMath::DivideAndRoundUp( NumUpdates, QuadsPerInstance ) );
+			RHICmdList.EndRenderPass();
 
 			ExpandedUpdates[ Mip ].Reset();
 		}
@@ -373,5 +381,5 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 
 	RHICmdList.CopyToResolveTarget( PageTableTarget.TargetableTexture, PageTableTarget.ShaderResourceTexture, FResolveParams() );
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
+	GVisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
 }

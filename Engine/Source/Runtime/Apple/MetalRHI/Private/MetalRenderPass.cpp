@@ -45,9 +45,12 @@ FMetalRenderPass::FMetalRenderPass(FMetalCommandList& InCmdList, FMetalStateCach
 , CurrentEncoder(InCmdList)
 , PrologueEncoder(InCmdList)
 , PassStartFence(nil)
+, ParallelPassEndFence(nil)
 , CurrentEncoderFence(nil)
 , PrologueEncoderFence(nil)
+, LastPrologueEncoderFence(nil)
 , RenderPassDesc(nil)
+, ComputeDispatchType(mtlpp::DispatchType::Serial)
 , NumOutstandingOps(0)
 , bWithinRenderPass(false)
 {
@@ -57,13 +60,32 @@ FMetalRenderPass::~FMetalRenderPass(void)
 {
 	check(!CurrentEncoder.GetCommandBuffer());
 	check(!PrologueEncoder.GetCommandBuffer());
-	check(!PassStartFence.IsValid());
+	check(!PassStartFence);
 }
 
-void FMetalRenderPass::Begin(mtlpp::Fence Fence)
+void FMetalRenderPass::SetDispatchType(mtlpp::DispatchType Type)
 {
-	check(!PassStartFence.IsValid());
-	PassStartFence = Fence;
+	ComputeDispatchType = Type;
+}
+
+void FMetalRenderPass::Begin(FMetalFence* Fence, bool const bParallelBegin)
+{
+	if (!bParallelBegin || !FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders))
+	{
+		check(!PassStartFence || Fence == nullptr);
+		if (Fence)
+		{
+			PassStartFence = Fence;
+		}
+	}
+	else
+	{
+		check(!ParallelPassEndFence || Fence == nullptr);
+		if (Fence)
+		{
+			ParallelPassEndFence = Fence;
+		}
+	}
 	
 	if (!CmdList.IsParallel() && !CurrentEncoder.GetCommandBuffer())
 	{
@@ -72,24 +94,29 @@ void FMetalRenderPass::Begin(mtlpp::Fence Fence)
 	}
 }
 
-void FMetalRenderPass::Wait(mtlpp::Fence Fence)
+void FMetalRenderPass::Wait(FMetalFence* Fence)
 {
 	if (Fence)
 	{
 		if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 		{
 			PrologueEncoder.WaitForFence(Fence);
+			METAL_DEBUG_LAYER(EMetalDebugLevelValidation, FMetalFence::ValidateUsage(Fence));
 		}
-		if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
+		else if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 		{
 			CurrentEncoder.WaitForFence(Fence);
+			METAL_DEBUG_LAYER(EMetalDebugLevelValidation, FMetalFence::ValidateUsage(Fence));
 		}
+        else
+        {
+            PassStartFence = Fence;
+        }
 	}
-	PassStartFence = Fence;
 		
 }
 
-void FMetalRenderPass::Update(mtlpp::Fence Fence)
+void FMetalRenderPass::Update(FMetalFence* Fence)
 {
 	if (Fence)
 	{
@@ -97,15 +124,20 @@ void FMetalRenderPass::Update(mtlpp::Fence Fence)
 		// the higher-level can generate empty contexts but we have no sane way to deal with that.
 		if (!CurrentEncoder.IsRenderCommandEncoderActive() && !CurrentEncoder.IsBlitCommandEncoderActive() && !CurrentEncoder.IsComputeCommandEncoderActive())
 		{
-			ConditionalSwitchToCompute();
+			ConditionalSwitchToBlit();
 		}
 		CurrentEncoder.UpdateFence(Fence);
 		State.FlushVisibilityResults(CurrentEncoder);
-		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		FMetalFence* NewFence = CurrentEncoder.EndEncoding();
+		check(!CurrentEncoderFence || !NewFence);
+		if (NewFence)
+		{
+			CurrentEncoderFence = NewFence;
+		}
 	}
 }
 
-mtlpp::Fence FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
+FMetalFence* FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 {
 	if (CurrentEncoder.GetCommandBuffer() || (Flags & EMetalSubmitFlagsAsyncCommandBuffer))
 	{
@@ -113,6 +145,7 @@ mtlpp::Fence FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 		{
 			check(PrologueEncoder.GetCommandBuffer());
 			PrologueEncoderFence = PrologueEncoder.EndEncoding();
+			LastPrologueEncoderFence = PrologueEncoderFence;
 		}
 		if (PrologueEncoder.GetCommandBuffer())
 		{
@@ -140,6 +173,11 @@ mtlpp::Fence FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 	{
 		PrologueEncoder.Reset();
 		CurrentEncoder.Reset();
+		
+		if (!LastPrologueEncoderFence || !LastPrologueEncoderFence->NeedsWait(mtlpp::RenderStages::Fragment))
+		{
+			LastPrologueEncoderFence = CurrentEncoderFence;
+		}
 	}
 	
 	return CurrentEncoderFence;
@@ -157,6 +195,7 @@ void FMetalRenderPass::BeginParallelRenderPass(mtlpp::RenderPassDescriptor Rende
 		if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 		{
 			PrologueEncoderFence = PrologueEncoder.EndEncoding();
+			LastPrologueEncoderFence = PrologueEncoderFence;
 		}
 		if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 		{
@@ -190,6 +229,7 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 	{
@@ -206,17 +246,25 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	if (!GMetalDeferRenderPasses || !State.CanRestartRenderPass() || CmdList.IsParallel())
 	{
 		CurrentEncoder.BeginRenderCommandEncoding();
-		if (PassStartFence.IsValid())
+		if (PassStartFence)
 		{
 			CurrentEncoder.WaitForFence(PassStartFence);
+			PassStartFence = nullptr;
 		}
-		if (CurrentEncoderFence.IsValid())
+		if (ParallelPassEndFence)
+		{
+			CurrentEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
+		}
+		if (CurrentEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(CurrentEncoderFence);
+			CurrentEncoderFence = nullptr;
 		}
-		if (PrologueEncoderFence.IsValid())
+		if (PrologueEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
 		}
 		State.SetRenderStoreActions(CurrentEncoder, false);
 		check(CurrentEncoder.IsRenderCommandEncoderActive());
@@ -314,17 +362,25 @@ void FMetalRenderPass::RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	
 	CurrentEncoder.SetRenderPassDescriptor(RenderPassDesc);
 	CurrentEncoder.BeginRenderCommandEncoding();
-	if (CurrentEncoderFence.IsValid())
+	if (CurrentEncoderFence)
 	{
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoderFence = nullptr;
 	}
-	else if (PassStartFence.IsValid())
+	else if (PassStartFence)
 	{
 		CurrentEncoder.WaitForFence(PassStartFence);
+		PassStartFence = nullptr;
 	}
-	if (PrologueEncoderFence.IsValid())
+	if (ParallelPassEndFence)
+	{
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		ParallelPassEndFence = nullptr;
+	}
+	if (PrologueEncoderFence)
 	{
 		CurrentEncoder.WaitForFence(PrologueEncoderFence);
+		PrologueEncoderFence = nullptr;
 	}
 	State.SetRenderStoreActions(CurrentEncoder, false);
 	
@@ -560,61 +616,61 @@ void FMetalRenderPass::DrawPatches(uint32 PrimitiveType,FMetalBuffer const& Inde
 		// Per-draw call bindings should *not* be cached in the StateCache - causes absolute chaos.
 		if(IndexBuffer && Pipeline->TessellationPipelineDesc.TessellationControlPointIndexBufferIndex != UINT_MAX)
 		{
-			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, IndexBuffer, StartIndex * IndexBufferStride, IndexBuffer.GetLength() - (StartIndex * IndexBufferStride), Pipeline->TessellationPipelineDesc.TessellationControlPointIndexBufferIndex);
-			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, IndexBuffer, StartIndex * IndexBufferStride, IndexBuffer.GetLength() - (StartIndex * IndexBufferStride), Pipeline->TessellationPipelineDesc.TessellationIndexBufferIndex);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationControlPointIndexBufferIndex);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationIndexBufferIndex);
+			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, IndexBuffer, StartIndex * IndexBufferStride, IndexBuffer.GetLength() - (StartIndex * IndexBufferStride), Pipeline->TessellationPipelineDesc.TessellationControlPointIndexBufferIndex, mtlpp::ResourceUsage::Read);
+			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, IndexBuffer, StartIndex * IndexBufferStride, IndexBuffer.GetLength() - (StartIndex * IndexBufferStride), Pipeline->TessellationPipelineDesc.TessellationIndexBufferIndex, mtlpp::ResourceUsage::Read);
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationControlPointIndexBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationIndexBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		
 		if(Pipeline->TessellationPipelineDesc.TessellationOutputControlPointBufferIndex != UINT_MAX) //TessellationOutputControlPointBufferIndex -> hullShaderOutputBuffer
 		{
-			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, hullShaderOutputBuffer, hullShaderOutputOffset, hullShaderOutputBuffer.GetLength() - hullShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationOutputControlPointBufferIndex);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationOutputControlPointBufferIndex);
+			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, hullShaderOutputBuffer, hullShaderOutputOffset, hullShaderOutputBuffer.GetLength() - hullShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationOutputControlPointBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationOutputControlPointBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		
 		if(Pipeline->TessellationPipelineDesc.TessellationPatchConstBufferIndex != UINT_MAX) //TessellationPatchConstBufferIndex -> hullConstShaderOutputBuffer
 		{
-			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, hullConstShaderOutputBuffer, hullConstShaderOutputOffset, hullConstShaderOutputBuffer.GetLength() - hullConstShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationPatchConstBufferIndex);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationPatchConstBufferIndex);
+			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, hullConstShaderOutputBuffer, hullConstShaderOutputOffset, hullConstShaderOutputBuffer.GetLength() - hullConstShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationPatchConstBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationPatchConstBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		
 		if(Pipeline->TessellationPipelineDesc.TessellationFactorBufferIndex != UINT_MAX) // TessellationFactorBufferIndex->tessellationFactorBuffer
 		{
-			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, tessellationFactorBuffer, tessellationFactorsOffset, tessellationFactorBuffer.GetLength() - tessellationFactorsOffset, Pipeline->TessellationPipelineDesc.TessellationFactorBufferIndex);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationFactorBufferIndex);
+			PrologueEncoder.SetShaderBuffer(mtlpp::FunctionType::Kernel, tessellationFactorBuffer, tessellationFactorsOffset, tessellationFactorBuffer.GetLength() - tessellationFactorsOffset, Pipeline->TessellationPipelineDesc.TessellationFactorBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationFactorBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		
 		if(Pipeline->TessellationPipelineDesc.TessellationInputControlPointBufferIndex != UINT_MAX) //TessellationInputControlPointBufferIndex->hullShaderOutputBuffer
 		{
-			CurrentEncoder.SetShaderBuffer(mtlpp::FunctionType::Vertex, hullShaderOutputBuffer, hullShaderOutputOffset, hullShaderOutputBuffer.GetLength() - hullShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationInputControlPointBufferIndex);
-			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationInputControlPointBufferIndex);
+			CurrentEncoder.SetShaderBuffer(mtlpp::FunctionType::Vertex, hullShaderOutputBuffer, hullShaderOutputOffset, hullShaderOutputBuffer.GetLength() - hullShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationInputControlPointBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationInputControlPointBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		if(Pipeline->TessellationPipelineDesc.TessellationInputPatchConstBufferIndex != UINT_MAX) //TessellationInputPatchConstBufferIndex->hullConstShaderOutputBuffer
 		{
-			CurrentEncoder.SetShaderBuffer(mtlpp::FunctionType::Vertex, hullConstShaderOutputBuffer, hullConstShaderOutputOffset, hullConstShaderOutputBuffer.GetLength() - hullConstShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationInputPatchConstBufferIndex);
-			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationInputPatchConstBufferIndex);
+			CurrentEncoder.SetShaderBuffer(mtlpp::FunctionType::Vertex, hullConstShaderOutputBuffer, hullConstShaderOutputOffset, hullConstShaderOutputBuffer.GetLength() - hullConstShaderOutputOffset, Pipeline->TessellationPipelineDesc.TessellationInputPatchConstBufferIndex, mtlpp::ResourceUsage(0));
+			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationInputPatchConstBufferIndex, mtlpp::ResourceUsage(0));
 		}
 		
 		// set the patchCount
 		PrologueEncoder.SetShaderBytes(mtlpp::FunctionType::Kernel, (const uint8*)&NumPrimitives, sizeof(NumPrimitives), Pipeline->TessellationPipelineDesc.TessellationPatchCountBufferIndex);
-		State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationPatchCountBufferIndex);
+		State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, Pipeline->TessellationPipelineDesc.TessellationPatchCountBufferIndex, mtlpp::ResourceUsage(0));
 		
 		if (boundShaderState->VertexShader->SideTableBinding >= 0)
 		{
 			PrologueEncoder.SetShaderSideTable(mtlpp::FunctionType::Kernel, boundShaderState->VertexShader->SideTableBinding);
-			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, boundShaderState->VertexShader->SideTableBinding);
+			State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, boundShaderState->VertexShader->SideTableBinding, mtlpp::ResourceUsage(0));
 		}
 		
 		if (boundShaderState->DomainShader->SideTableBinding >= 0)
 		{
 			CurrentEncoder.SetShaderSideTable(mtlpp::FunctionType::Vertex, boundShaderState->DomainShader->SideTableBinding);
-			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, boundShaderState->DomainShader->SideTableBinding);
+			State.SetShaderBuffer(SF_Domain, nil, nil, 0, 0, boundShaderState->DomainShader->SideTableBinding, mtlpp::ResourceUsage(0));
 		}
 		
 		if (IsValidRef(boundShaderState->PixelShader) && boundShaderState->PixelShader->SideTableBinding >= 0)
 		{
 			CurrentEncoder.SetShaderSideTable(mtlpp::FunctionType::Fragment, boundShaderState->PixelShader->SideTableBinding);
-			State.SetShaderBuffer(SF_Pixel, nil, nil, 0, 0, boundShaderState->PixelShader->SideTableBinding);
+			State.SetShaderBuffer(SF_Pixel, nil, nil, 0, 0, boundShaderState->PixelShader->SideTableBinding, mtlpp::ResourceUsage(0));
 		}
 		
 		auto patchesPerThreadGroup = boundShaderState->VertexShader->TessellationPatchesPerThreadGroup;
@@ -708,7 +764,7 @@ void FMetalRenderPass::DispatchIndirect(FMetalVertexBuffer* ArgumentBuffer, uint
 	ConditionalSubmit();
 }
 
-mtlpp::Fence FMetalRenderPass::EndRenderPass(void)
+FMetalFence* FMetalRenderPass::EndRenderPass(void)
 {
 	if (bWithinRenderPass)
 	{
@@ -805,7 +861,7 @@ void FMetalRenderPass::SynchronizeTexture(FMetalTexture const& Texture, uint32 S
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
-	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+	// METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Synchronize(Texture, Slice, Level));
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetBlitCommandEncoderDebugging().Synchronize(Texture, Slice, Level));
 	ConditionalSubmit();
@@ -820,7 +876,7 @@ void FMetalRenderPass::SynchroniseResource(mtlpp::Resource const& Resource)
 	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
 	check(Encoder.GetPtr());
 	
-	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+	// METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Synchronize(Resource));
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetBlitCommandEncoderDebugging().Synchronize(Resource));
 	ConditionalSubmit();
@@ -838,14 +894,14 @@ void FMetalRenderPass::FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, u
 	{
 		ConditionalSwitchToAsyncBlit();
 		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
-		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), FString::Printf(TEXT("FillBuffer: %p %llu %llu"), Buffer.GetPtr(), Buffer.GetOffset() + Range.Location, Range.Length)));
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = PrologueEncoder.GetBlitCommandEncoderDebugging());
 	}
 	else
 	{
 		ConditionalSwitchToBlit();
 		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
-		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), FString::Printf(TEXT("FillBuffer: %p %llu %llu"), Buffer.GetPtr(), Buffer.GetOffset() + Range.Location, Range.Length)));
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = CurrentEncoder.GetBlitCommandEncoderDebugging());
 	}
 	
@@ -933,14 +989,14 @@ void FMetalRenderPass::AsyncCopyFromBufferToBuffer(FMetalBuffer const& SourceBuf
 	{
 		ConditionalSwitchToAsyncBlit();
 		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
-		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), FString::Printf(TEXT("AsyncCopyFromBufferToBuffer: %p %llu %llu"), DestinationBuffer.GetPtr(), DestinationBuffer.GetOffset() + DestinationOffset, Size)));
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = PrologueEncoder.GetBlitCommandEncoderDebugging());
 	}
 	else
 	{
 		ConditionalSwitchToBlit();
 		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
-		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), FString::Printf(TEXT("AsyncCopyFromBufferToBuffer: %p %llu %llu"), DestinationBuffer.GetPtr(), DestinationBuffer.GetOffset() + DestinationOffset, Size)));
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = CurrentEncoder.GetBlitCommandEncoderDebugging());
 	}
 	
@@ -963,27 +1019,58 @@ void FMetalRenderPass::AsyncGenerateMipmapsForTexture(FMetalTexture const& Textu
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, PrologueEncoder.GetBlitCommandEncoderDebugging().GenerateMipmaps(Texture));
 }
 
-mtlpp::Fence FMetalRenderPass::End(void)
+FMetalFence* FMetalRenderPass::End(void)
 {
 	// EndEncoding should provide the encoder fence...
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
-	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
+	
+	if (CmdList.IsImmediate() && IsWithinParallelPass() && CurrentEncoder.IsParallelRenderCommandEncoderActive())
 	{
-		State.FlushVisibilityResults(CurrentEncoder);
-
-		if (CmdList.IsImmediate() && IsWithinParallelPass())
-		{
-			State.SetRenderStoreActions(CurrentEncoder, false);
-		}
+		State.SetRenderStoreActions(CurrentEncoder, false);
+		CurrentEncoder.EndEncoding();
+		
+		ConditionalSwitchToBlit();
+		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
 	}
+	else if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
+	{
+		State.FlushVisibilityResults(CurrentEncoder);
+		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
+	}
+	else if (PassStartFence)
+	{
+		ConditionalSwitchToBlit();
+		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
+	}
+	else if (ParallelPassEndFence)
+	{
+		ConditionalSwitchToBlit();
+		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
+	}
+	
+	ParallelPassEndFence = nullptr;
+	PassStartFence = nullptr;
 	
 	State.SetRenderTargetsActive(false);
-	
-	PassStartFence.Reset();
 	
 	RenderPassDesc = nil;
 	bWithinRenderPass = false;
@@ -1012,6 +1099,12 @@ void FMetalRenderPass::AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler
 	{
 		PrologueEncoder.AddCompletionHandler(Completion);
 	}
+}
+
+void FMetalRenderPass::TransitionResources(mtlpp::Resource const& Resource)
+{
+	PrologueEncoder.TransitionResources(Resource);
+	CurrentEncoder.TransitionResources(Resource);
 }
 
 #pragma mark - Public Debug Support -
@@ -1086,6 +1179,8 @@ mtlpp::RenderCommandEncoder FMetalRenderPass::GetParallelRenderCommandEncoder(ui
 
 void FMetalRenderPass::ConditionalSwitchToRender(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToRenderTime);
+	
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
 	check(CmdList.IsParallel() || CurrentEncoder.GetCommandBuffer());
@@ -1105,6 +1200,8 @@ void FMetalRenderPass::ConditionalSwitchToRender(void)
 
 void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToTessellationTime);
+	
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
 	check(CurrentEncoder.GetCommandBuffer());
@@ -1112,6 +1209,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 	if (PrologueEncoder.IsBlitCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	
 	if (CurrentEncoder.IsComputeCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive())
@@ -1127,32 +1225,49 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 		{
 			PrologueEncoder.StartCommandBuffer();
 		}
-		PrologueEncoder.BeginComputeCommandEncoding();
+		PrologueEncoder.BeginComputeCommandEncoding(ComputeDispatchType);
 		
-		// check(PrologueEncoderFence.IsValid() || CurrentEncoderFence.IsValid() || PassStartFence.IsValid());
-		if (PrologueEncoderFence.IsValid())
+		if (PrologueEncoderFence)
 		{
 			PrologueEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
+			LastPrologueEncoderFence = nullptr;
 		}
-		if (CurrentEncoderFence.IsValid())
+		if (LastPrologueEncoderFence)
+		{
+			PrologueEncoder.WaitAndUpdateFence(LastPrologueEncoderFence);
+			LastPrologueEncoderFence = nullptr;
+		}
+		if (CurrentEncoderFence)
 		{
 			PrologueEncoder.WaitForFence(CurrentEncoderFence);
+			CurrentEncoderFence = nullptr;
 		}
-		if (PassStartFence.IsValid())
+		if (PassStartFence)
 		{
 			PrologueEncoder.WaitForFence(PassStartFence);
+			PassStartFence = nullptr;
+		}
+		if (ParallelPassEndFence)
+		{
+			PrologueEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
 		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 #if METAL_DEBUG_OPTIONS
-		if (GetEmitDrawEvents() && PrologueEncoderFence.IsValid())
+		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{
-			if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+			for (uint32 i = mtlpp::RenderStages::Vertex; i <= mtlpp::RenderStages::Fragment; i++)
 			{
-				(*PrologueEncoderFence).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()];
-			}
-			else
-			{
-				(*PrologueEncoderFence).SetLabel([NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()]);
+				if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()];
+				}
+				else
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).SetLabel([NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()]);
+				}
 			}
 		}
 #endif
@@ -1165,6 +1280,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 	else if (bCreatePrologueEncoder)
 	{
 		CurrentEncoder.WaitForFence(PrologueEncoderFence);
+		PrologueEncoderFence = nullptr;
 	}
 	
 	check(CurrentEncoder.IsRenderCommandEncoderActive());
@@ -1173,6 +1289,8 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 
 void FMetalRenderPass::ConditionalSwitchToCompute(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToComputeTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsParallel());
 	
@@ -1190,14 +1308,16 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 	if (!CurrentEncoder.IsComputeCommandEncoderActive())
 	{
 		State.SetStateDirty();
-		CurrentEncoder.BeginComputeCommandEncoding();
-		if (CurrentEncoderFence.IsValid())
+		CurrentEncoder.BeginComputeCommandEncoding(ComputeDispatchType);
+		if (CurrentEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(CurrentEncoderFence);
+			CurrentEncoderFence = nullptr;
 		}
-		if (PrologueEncoderFence.IsValid())
+		if (PrologueEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
 		}
 	}
 	
@@ -1206,6 +1326,8 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 
 void FMetalRenderPass::ConditionalSwitchToBlit(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToBlitTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsParallel());
 	
@@ -1223,13 +1345,15 @@ void FMetalRenderPass::ConditionalSwitchToBlit(void)
 	if (!CurrentEncoder.IsBlitCommandEncoderActive())
 	{
 		CurrentEncoder.BeginBlitCommandEncoding();
-		if (CurrentEncoderFence.IsValid())
+		if (CurrentEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(CurrentEncoderFence);
+			CurrentEncoderFence = nullptr;
 		}
-		if (PrologueEncoderFence.IsValid())
+		if (PrologueEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
 		}
 	}
 	
@@ -1238,9 +1362,12 @@ void FMetalRenderPass::ConditionalSwitchToBlit(void)
 
 void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToAsyncBlitTime);
+	
 	if (PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	
 	if (!PrologueEncoder.IsBlitCommandEncoderActive())
@@ -1250,29 +1377,45 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 			PrologueEncoder.StartCommandBuffer();
 		}
 		PrologueEncoder.BeginBlitCommandEncoding();
-		if (PrologueEncoderFence.IsValid())
+		if (PrologueEncoderFence)
 		{
+			if (PrologueEncoderFence->NeedsWait(mtlpp::RenderStages::Fragment))
+			{
+				LastPrologueEncoderFence = nullptr;
+			}
 			PrologueEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
 		}
-		if (CurrentEncoderFence.IsValid())
+		if (LastPrologueEncoderFence)
 		{
-			PrologueEncoder.WaitForFence(CurrentEncoderFence);
+			PrologueEncoder.WaitAndUpdateFence(LastPrologueEncoderFence);
+			LastPrologueEncoderFence = nullptr;
 		}
-		if (PassStartFence.IsValid())
+		if (PassStartFence)
 		{
 			PrologueEncoder.WaitForFence(PassStartFence);
+			PassStartFence = nullptr;
+		}
+		if (ParallelPassEndFence)
+		{
+			PrologueEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
 		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 #if METAL_DEBUG_OPTIONS
-		if (GetEmitDrawEvents() && PrologueEncoderFence.IsValid())
+		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{
-			if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+			for (uint32 i = mtlpp::RenderStages::Vertex; i <= mtlpp::RenderStages::Fragment; i++)
 			{
-				(*PrologueEncoderFence).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()];
-			}
-			else
-			{
-				(*PrologueEncoderFence).SetLabel([NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()]);
+				if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()];
+				}
+				else
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).SetLabel([NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()]);
+				}
 			}
 		}
 #endif
@@ -1281,6 +1424,7 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 		if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive())
 		{
 			CurrentEncoder.WaitForFence(PrologueEncoderFence);
+			PrologueEncoderFence = nullptr;
 		}
 	}
 	
@@ -1289,6 +1433,8 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 
 void FMetalRenderPass::CommitRenderResourceTables(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalCommitRenderResourceTablesTime);
+	
 	State.CommitRenderResources(&CurrentEncoder);
 	
 	State.CommitResourceTable(SF_Vertex, mtlpp::FunctionType::Vertex, CurrentEncoder);
@@ -1298,7 +1444,7 @@ void FMetalRenderPass::CommitRenderResourceTables(void)
 	if (BoundShaderState->VertexShader->SideTableBinding >= 0)
 	{
 		CurrentEncoder.SetShaderSideTable(mtlpp::FunctionType::Vertex, BoundShaderState->VertexShader->SideTableBinding);
-		State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, BoundShaderState->VertexShader->SideTableBinding);
+		State.SetShaderBuffer(SF_Vertex, nil, nil, 0, 0, BoundShaderState->VertexShader->SideTableBinding, mtlpp::ResourceUsage(0));
 	}
 	
 	if (IsValidRef(BoundShaderState->PixelShader))
@@ -1307,7 +1453,7 @@ void FMetalRenderPass::CommitRenderResourceTables(void)
 		if (BoundShaderState->PixelShader->SideTableBinding >= 0)
 		{
 			CurrentEncoder.SetShaderSideTable(mtlpp::FunctionType::Fragment, BoundShaderState->PixelShader->SideTableBinding);
-			State.SetShaderBuffer(SF_Pixel, nil, nil, 0, 0, BoundShaderState->PixelShader->SideTableBinding);
+			State.SetShaderBuffer(SF_Pixel, nil, nil, 0, 0, BoundShaderState->PixelShader->SideTableBinding, mtlpp::ResourceUsage(0));
 		}
 	}
 }
@@ -1339,12 +1485,14 @@ void FMetalRenderPass::CommitDispatchResourceTables(void)
 	if (ComputeShader->SideTableBinding >= 0)
 	{
 		CurrentEncoder.SetShaderSideTable(mtlpp::FunctionType::Kernel, ComputeShader->SideTableBinding);
-		State.SetShaderBuffer(SF_Compute, nil, nil, 0, 0, ComputeShader->SideTableBinding);
+		State.SetShaderBuffer(SF_Compute, nil, nil, 0, 0, ComputeShader->SideTableBinding, mtlpp::ResourceUsage(0));
 	}
 }
 
 void FMetalRenderPass::PrepareToRender(uint32 PrimitiveType)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToRenderTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsRenderCommandEncoderActive());
 	
@@ -1359,6 +1507,8 @@ void FMetalRenderPass::PrepareToRender(uint32 PrimitiveType)
 
 void FMetalRenderPass::PrepareToTessellate(uint32 PrimitiveType)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToTessellateTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(PrologueEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsRenderCommandEncoderActive());
@@ -1375,6 +1525,8 @@ void FMetalRenderPass::PrepareToTessellate(uint32 PrimitiveType)
 
 void FMetalRenderPass::PrepareToDispatch(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToDispatchTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsComputeCommandEncoderActive());
 	

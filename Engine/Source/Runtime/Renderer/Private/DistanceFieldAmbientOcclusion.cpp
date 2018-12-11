@@ -17,6 +17,7 @@
 #include "DistanceFieldGlobalIllumination.h"
 #include "RendererModule.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
 
 int32 GDistanceFieldAO = 1;
 FAutoConsoleVariableRef CVarDistanceFieldAO(
@@ -133,7 +134,7 @@ int32 GDistanceFieldAOTileSizeY = 16;
 
 DEFINE_LOG_CATEGORY(LogDistanceField);
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FAOSampleData2,TEXT("AOSamples2"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FAOSampleData2,"AOSamples2");
 
 FDistanceFieldAOParameters::FDistanceFieldAOParameters(float InOcclusionMaxDistance, float InContrast)
 {
@@ -394,7 +395,8 @@ void ComputeDistanceFieldNormal(FRHICommandListImmediate& RHICmdList, const TArr
 {
 	if (GAOComputeShaderNormalCalculation)
 	{
-		SetRenderTarget(RHICmdList, NULL, NULL);
+		// #todo-renderpasses remove once everything is converted to renderpasses
+		UnbindRenderTargets(RHICmdList);
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
@@ -417,49 +419,49 @@ void ComputeDistanceFieldNormal(FRHICommandListImmediate& RHICmdList, const TArr
 	}
 	else
 	{
-		SetRenderTarget(RHICmdList,
-			DistanceFieldNormal.TargetableTexture,
-			NULL,
-			ESimpleRenderTargetMode::EClearColorExistingDepth,
-			FExclusiveDepthStencil::DepthNop_StencilNop,
-			true);
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		FRHIRenderPassInfo RPInfo(DistanceFieldNormal.TargetableTexture, ERenderTargetActions::Clear_Store);
+		TransitionRenderPassTargets(RHICmdList, RPInfo);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("ComputeDistanceFieldNormal"));
 		{
-			const FViewInfo& View = Views[ViewIndex];
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-			SCOPED_DRAW_EVENT(RHICmdList, ComputeNormal);
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-			RHICmdList.SetViewport(0, 0, 0.0f, View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor, 1.0f);
+			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+			{
+				const FViewInfo& View = Views[ViewIndex];
 
-			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
-			TShaderMapRef<FComputeDistanceFieldNormalPS> PixelShader(View.ShaderMap);
+				SCOPED_DRAW_EVENT(RHICmdList, ComputeNormal);
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				RHICmdList.SetViewport(0, 0, 0.0f, View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor, 1.0f);
 
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
+				TShaderMapRef<FComputeDistanceFieldNormalPS> PixelShader(View.ShaderMap);
 
-			PixelShader->SetParameters(RHICmdList, View, Parameters);
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-			DrawRectangle(
-				RHICmdList,
-				0, 0,
-				View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor,
-				0, 0,
-				View.ViewRect.Width(), View.ViewRect.Height(),
-				FIntPoint(View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor),
-				FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
-				*VertexShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+				PixelShader->SetParameters(RHICmdList, View, Parameters);
+
+				DrawRectangle(
+					RHICmdList,
+					0, 0,
+					View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor,
+					0, 0,
+					View.ViewRect.Width(), View.ViewRect.Height(),
+					FIntPoint(View.ViewRect.Width() / GAODownsampleFactor, View.ViewRect.Height() / GAODownsampleFactor),
+					FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
+					*VertexShader);
+			}
 		}
+		RHICmdList.EndRenderPass();
 
 		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DistanceFieldNormal.TargetableTexture);
 	}
@@ -794,6 +796,8 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 	bool bModulateToSceneColor,
 	bool bVisualizeAmbientOcclusion)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	SCOPED_DRAW_EVENT(RHICmdList, RenderDistanceFieldLighting);
 
 	//@todo - support multiple views
@@ -850,7 +854,7 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 				BuildTileObjectLists(RHICmdList, Scene, Views, DistanceFieldNormal->GetRenderTargetItem(), Parameters);
 			}
 
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, DistanceFieldNormal);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, DistanceFieldNormal);
 
 			TRefCountPtr<IPooledRenderTarget> BentNormalOutput;
 
@@ -872,15 +876,20 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 
 			RenderCapsuleShadowsForMovableSkylight(RHICmdList, BentNormalOutput);
 
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, BentNormalOutput);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, BentNormalOutput);
 
 			if (bVisualizeAmbientOcclusion)
 			{
-				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilNop);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 			}
 			else
 			{
-				SetRenderTarget(RHICmdList, SceneContext.GetSceneColorSurface(), SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilNop);
+				FRHIRenderPassInfo RPInfo(	SceneContext.GetSceneColorSurface(), 
+											ERenderTargetActions::Load_Store, 
+											SceneContext.GetSceneDepthSurface(), 
+											EDepthStencilTargetActions::LoadDepthStencil_StoreStencilNotDepth, 
+											FExclusiveDepthStencil::DepthRead_StencilWrite);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("DistanceFieldAO"));
 			}
 
 			// Upsample to full resolution, write to output in case of debug AO visualization or scene color modulation (standard upsampling is done later together with sky lighting and reflection environment)
@@ -891,8 +900,13 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 
 			OutDynamicBentNormalAO = BentNormalOutput;
 
-			if (!bVisualizeAmbientOcclusion)
+			if (bVisualizeAmbientOcclusion)
 			{
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
+			}
+			else
+			{
+				RHICmdList.EndRenderPass();
 				RHICmdList.CopyToResolveTarget(OutDynamicBentNormalAO->GetRenderTargetItem().TargetableTexture, OutDynamicBentNormalAO->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 			}
 

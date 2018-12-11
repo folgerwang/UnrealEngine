@@ -16,6 +16,7 @@
 #include "PostProcess/PostProcessSubsurface.h"
 #include "LightPropagationVolumeSettings.h"
 #include "DecalRenderingShared.h"
+#include "VisualizeTexture.h"
 
 /** The global center for all deferred lighting activities. */
 FCompositionLighting GCompositionLighting;
@@ -274,14 +275,14 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 	SceneContext.GetSceneColor()->SetDebugName(TEXT("SceneColor"));
 	// to be able to observe results with VisualizeTexture
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GetSceneColor());
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferA);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferB);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferC);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferD);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferE);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferVelocity);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.ScreenSpaceAO);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GetSceneColor());
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferA);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferB);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferC);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferD);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferE);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferVelocity);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.ScreenSpaceAO);
 	
 	// so that the passes can register themselves to the graph
 	{

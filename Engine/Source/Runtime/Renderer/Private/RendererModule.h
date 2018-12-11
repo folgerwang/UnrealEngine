@@ -48,7 +48,6 @@ public:
 	virtual void TickRenderTargetPool() override;
 	virtual void DebugLogOnCrash() override;
 	virtual void GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScale) override;
-	virtual void QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out) override;
 	virtual void ExecVisualizeTextureCmd(const FString& Cmd) override;
 	virtual void UpdateMapNeedsLightingFullyRebuiltState(UWorld* World) override;
 	virtual void DrawRectangle(
@@ -66,7 +65,6 @@ public:
 		class FShader* VertexShader,
 		EDrawRectangleFlags Flags = EDRF_Default
 		) override;
-	virtual TGlobalResource<FFilterVertexDeclaration>& GetFilterVertexDeclaration() override;
 
 	virtual const TSet<FSceneInterface*>& GetAllocatedScenes() override
 	{
@@ -104,7 +102,6 @@ public:
 
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
-	ICustomCulling* CustomCullingImpl;
 	FPostOpaqueRenderDelegate PostOpaqueRenderDelegate;
 	FPostOpaqueRenderDelegate OverlayRenderDelegate;
 	FOnResolvedSceneColor PostResolvedSceneColorCallbacks;

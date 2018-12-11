@@ -143,6 +143,7 @@ void HlslScanContext::fillInKeywordMap()
     (*KeywordMap)["bool"] =                    EHTokBool;
     (*KeywordMap)["int"] =                     EHTokInt;
     (*KeywordMap)["uint"] =                    EHTokUint;
+    (*KeywordMap)["uint64_t"] =                EHTokUint64;
     (*KeywordMap)["dword"] =                   EHTokDword;
     (*KeywordMap)["half"] =                    EHTokHalf;
     (*KeywordMap)["float"] =                   EHTokFloat;
@@ -345,6 +346,7 @@ void HlslScanContext::fillInKeywordMap()
     (*KeywordMap)["RWByteAddressBuffer"] =     EHTokRWByteAddressBuffer;
     (*KeywordMap)["RWStructuredBuffer"] =      EHTokRWStructuredBuffer;
     (*KeywordMap)["StructuredBuffer"] =        EHTokStructuredBuffer;
+    (*KeywordMap)["TextureBuffer"] =           EHTokTextureBuffer;
 
     (*KeywordMap)["class"] =                   EHTokClass;
     (*KeywordMap)["struct"] =                  EHTokStruct;
@@ -548,6 +550,7 @@ EHlslTokenClass HlslScanContext::tokenizeClass(HlslToken& token)
 
         case PpAtomConstInt:           parserToken->i = ppToken.ival;       return EHTokIntConstant;
         case PpAtomConstUint:          parserToken->i = ppToken.ival;       return EHTokUintConstant;
+        case PpAtomConstFloat16:       parserToken->d = ppToken.dval;       return EHTokFloat16Constant;
         case PpAtomConstFloat:         parserToken->d = ppToken.dval;       return EHTokFloatConstant;
         case PpAtomConstDouble:        parserToken->d = ppToken.dval;       return EHTokDoubleConstant;
         case PpAtomIdentifier:
@@ -564,10 +567,15 @@ EHlslTokenClass HlslScanContext::tokenizeClass(HlslToken& token)
         case EndOfInput:               return EHTokNone;
 
         default:
-            char buf[2];
-            buf[0] = (char)token;
-            buf[1] = 0;
-            parseContext.error(loc, "unexpected token", buf, "");
+            if (token < PpAtomMaxSingle) {
+                char buf[2];
+                buf[0] = (char)token;
+                buf[1] = 0;
+                parseContext.error(loc, "unexpected token", buf, "");
+            } else if (tokenText[0] != 0)
+                parseContext.error(loc, "unexpected token", tokenText, "");
+            else
+                parseContext.error(loc, "unexpected token", "", "");
             break;
         }
     } while (true);
@@ -644,6 +652,7 @@ EHlslTokenClass HlslScanContext::tokenizeIdentifier()
     case EHTokBool:
     case EHTokInt:
     case EHTokUint:
+    case EHTokUint64:
     case EHTokDword:
     case EHTokHalf:
     case EHTokFloat:
@@ -829,6 +838,7 @@ EHlslTokenClass HlslScanContext::tokenizeIdentifier()
     case EHTokRWByteAddressBuffer:
     case EHTokRWStructuredBuffer:
     case EHTokStructuredBuffer:
+    case EHTokTextureBuffer:
     case EHTokSubpassInput:
     case EHTokSubpassInputMS:
         return keyword;

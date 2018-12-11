@@ -23,7 +23,7 @@ public class MainFrame : ModuleRules
 				"EngineSettings",
                 "InputCore",
 				"RHI",
-				"ShaderCore",
+				"RenderCore",
 				"Slate",
 				"SlateCore",
                 "EditorStyle",

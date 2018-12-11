@@ -9,7 +9,7 @@
 #include "ParticleResources.h"
 #include "ShaderParameterUtils.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters,TEXT("NiagaraMeshVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraMeshUniformParameters,"NiagaraMeshVF");
 
 class FNiagaraMeshVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
 {

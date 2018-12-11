@@ -173,7 +173,11 @@ FD3D12Resource::FD3D12Resource(FD3D12Device* ParentDevice,
 	FPlatformAtomics::InterlockedIncrement(&TotalResourceCount);
 #endif
 
-	if (Resource)
+	if (Resource
+#if PLATFORM_WINDOWS
+		&& Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+#endif
+		)
 	{
 		GPUVirtualAddress = Resource->GetGPUVirtualAddress();
 	}

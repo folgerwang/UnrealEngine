@@ -18,7 +18,7 @@ public class ShaderFormatVectorVM : ModuleRules
 			new string[] {
 				"Core",
                 "CoreUObject",                
-                "ShaderCore",
+                "RenderCore",
 				"ShaderCompilerCommon",
 				"ShaderPreprocessor",
             	"VectorVM",

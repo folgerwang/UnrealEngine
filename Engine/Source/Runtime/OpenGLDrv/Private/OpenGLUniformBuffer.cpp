@@ -483,7 +483,7 @@ void CopyDataToUniformBuffer(const bool bCanRunOnThisThread, FOpenGLUniformBuffe
 			void* ConstantBufferCopy = RHICmdList.Alloc(ContentSize, 16);
 			FMemory::Memcpy(ConstantBufferCopy, Contents, ContentSize);
 			
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)(
 				[=]() 
 				{
 					VERIFY_GL_SCOPE();
@@ -568,7 +568,7 @@ static FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHI
 		{
 			NewUniformBuffer->AccessFence.Reset();
 			// Queue GL resource creation.
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GLCreationFunc(); NewUniformBuffer->AccessFence.WriteAssertFence(); });
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() {GLCreationFunc(); NewUniformBuffer->AccessFence.WriteAssertFence(); });
 			NewUniformBuffer->AccessFence.SetRHIThreadFence();
 
 			// flush for the UBO case
@@ -661,7 +661,7 @@ FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Conte
 					}
 					else
 					{
-						new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(CacheGLUniformBuffer);
+						ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)(CacheGLUniformBuffer);
 					}
 				}
 			}

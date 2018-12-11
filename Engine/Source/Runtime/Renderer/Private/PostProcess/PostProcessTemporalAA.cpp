@@ -768,7 +768,8 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 			PassName, Parameters.bUseFast ? TEXT(" Fast") : TEXT(""), PracticableSrcRect.Width(), PracticableSrcRect.Height(), PracticableDestRect.Width(), PracticableDestRect.Height());
 
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpass remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(PracticableDestRect, 0.0f, 1.0f);
 		
 		static FName AsyncEndFenceName(TEXT("AsyncTemporalAAEndFence"));
@@ -870,77 +871,83 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		TransitionPixelPassResources(Context);
 
 		// Setup render targets.
+		
+		// Inform MultiGPU systems that we're starting to update this resource
+		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget[0]->TargetableTexture, ERenderTargetActions::DontLoad_Store);
+
+		if (RenderTargetCount == 2)
 		{
-			FRHIDepthRenderTargetView DepthRTV(SceneContext.GetSceneDepthTexture(),
-				ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction,
-				ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::ENoAction,
-				FExclusiveDepthStencil::DepthRead_StencilWrite);
+			RPInfo.ColorRenderTargets[1].RenderTarget = DestRenderTarget[1]->TargetableTexture;
+			RPInfo.ColorRenderTargets[1].Action = ERenderTargetActions::DontLoad_Store;
+			RPInfo.ColorRenderTargets[1].ArraySlice = -1;
+			RPInfo.ColorRenderTargets[1].MipIndex = 0;
 
-			FRHIRenderTargetView RTVs[2];
+			Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
+		}
 
-			RTVs[0] = FRHIRenderTargetView(DestRenderTarget[0]->TargetableTexture, ERenderTargetLoadAction::ENoAction);
+		RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneContext.GetSceneDepthTexture();
+		RPInfo.DepthStencilRenderTarget.ResolveTarget = nullptr;
+		RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::DontLoad_DontStore, ERenderTargetActions::Load_Store);
+		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
 
-			// Inform MultiGPU systems that we're starting to update this resource
-			Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("TemporalAA"));
+		{
+			Context.SetViewportAndCallRHI(ViewRect);
+
+			FPostProcessTemporalAAPS::FPermutationDomain PermutationVector;
+			PermutationVector.Set<FTAAPassConfigDim>(Parameters.Pass);
+			PermutationVector.Set<FTAAFastDim>(Parameters.bUseFast);
+			PermutationVector.Set<FTAACameraCutDim>(bCameraCut);
+
+			if (bUseResponsiveStencilTest)
+			{
+				// Normal temporal feedback
+				// Draw to pixels where stencil == 0
+				FDepthStencilStateRHIParamRef DepthStencilState = TStaticDepthStencilState<
+					false, CF_Always,
+					true, CF_Equal, SO_Keep, SO_Keep, SO_Keep,
+					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
+					STENCIL_TEMPORAL_RESPONSIVE_AA_MASK, STENCIL_TEMPORAL_RESPONSIVE_AA_MASK>::GetRHI();
+
+				DrawPixelPassTemplate(
+					Context, PermutationVector, SrcSize, ViewRect,
+					InputHistory, Parameters, bUseDither,
+					DepthStencilState);
+
+				// Responsive feedback for tagged pixels
+				// Draw to pixels where stencil != 0
+				DepthStencilState = TStaticDepthStencilState<
+					false, CF_Always,
+					true, CF_NotEqual, SO_Keep, SO_Keep, SO_Keep,
+					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
+					STENCIL_TEMPORAL_RESPONSIVE_AA_MASK, STENCIL_TEMPORAL_RESPONSIVE_AA_MASK>::GetRHI();
+
+				PermutationVector.Set<FTAAResponsiveDim>(true);
+				DrawPixelPassTemplate(
+					Context, PermutationVector, SrcSize, ViewRect,
+					InputHistory, Parameters, bUseDither,
+					DepthStencilState);
+			}
+			else
+			{
+				DrawPixelPassTemplate(
+					Context, PermutationVector, SrcSize, ViewRect,
+					InputHistory, Parameters, bUseDither,
+					TStaticDepthStencilState<false, CF_Always>::GetRHI());
+			}
 
 			if (RenderTargetCount == 2)
 			{
-				RTVs[1] = FRHIRenderTargetView(DestRenderTarget[1]->TargetableTexture, ERenderTargetLoadAction::ENoAction);
-				Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
+				Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
 			}
-			Context.RHICmdList.SetRenderTargets(RenderTargetCount, RTVs, &DepthRTV, 0, nullptr);
 		}
-
-		Context.SetViewportAndCallRHI(ViewRect);
-
-		FPostProcessTemporalAAPS::FPermutationDomain PermutationVector;
-		PermutationVector.Set<FTAAPassConfigDim>(Parameters.Pass);
-		PermutationVector.Set<FTAAFastDim>(Parameters.bUseFast);
-		PermutationVector.Set<FTAACameraCutDim>(bCameraCut);
-
-		if(bUseResponsiveStencilTest)
-		{
-			// Normal temporal feedback
-			// Draw to pixels where stencil == 0
-			FDepthStencilStateRHIParamRef DepthStencilState = TStaticDepthStencilState<
-				false, CF_Always,
-				true, CF_Equal, SO_Keep, SO_Keep, SO_Keep,
-				false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-				STENCIL_TEMPORAL_RESPONSIVE_AA_MASK, STENCIL_TEMPORAL_RESPONSIVE_AA_MASK>::GetRHI();
-
-			DrawPixelPassTemplate(
-				Context, PermutationVector, SrcSize, ViewRect,
-				InputHistory, Parameters, bUseDither,
-				DepthStencilState);
-	
-			// Responsive feedback for tagged pixels
-			// Draw to pixels where stencil != 0
-			DepthStencilState = TStaticDepthStencilState<
-				false, CF_Always,
-				true, CF_NotEqual, SO_Keep, SO_Keep, SO_Keep,
-				false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-				STENCIL_TEMPORAL_RESPONSIVE_AA_MASK, STENCIL_TEMPORAL_RESPONSIVE_AA_MASK>::GetRHI();
-
-			PermutationVector.Set<FTAAResponsiveDim>(true);
-			DrawPixelPassTemplate(
-				Context, PermutationVector, SrcSize, ViewRect,
-				InputHistory, Parameters, bUseDither,
-				DepthStencilState);
-		}
-		else
-		{
-			DrawPixelPassTemplate(
-				Context, PermutationVector, SrcSize, ViewRect,
-				InputHistory, Parameters, bUseDither,
-				TStaticDepthStencilState<false, CF_Always>::GetRHI());
-		}
-
+		Context.RHICmdList.EndRenderPass();
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[0]->TargetableTexture, DestRenderTarget[0]->ShaderResourceTexture, FResolveParams());
 
 		if (RenderTargetCount == 2)
 		{
 			Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[1]->TargetableTexture, DestRenderTarget[1]->ShaderResourceTexture, FResolveParams());
-			Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[1]->ShaderResourceTexture);
 		}
 
 		if (IsDOFTAAConfig(Parameters.Pass))

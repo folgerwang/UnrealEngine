@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Templates/RefCounting.h"
 #include "StandaloneRendererPlatformHeaders.h"
+#include "Windows/D3D/SlateD3DRenderer.h"
 
 template<typename BufferType>
 class FSlateD3DConstantBuffer

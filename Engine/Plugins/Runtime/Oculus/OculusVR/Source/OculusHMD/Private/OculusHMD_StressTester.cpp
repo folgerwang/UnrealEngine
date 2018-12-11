@@ -21,21 +21,21 @@ DECLARE_CYCLE_STAT(TEXT("GPUStressRendering"), STAT_GPUStressRendering, STATGROU
 //-------------------------------------------------------------------------------------------------
 
 //This buffer should contain variables that never, or rarely change
-BEGIN_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters,)
-//UNIFORM_MEMBER(FVector4, Name)
-END_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FOculusPixelShaderConstantParameters, )
+//SHADER_PARAMETER(FVector4, Name)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters, TEXT("PSConstants"))
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FOculusPixelShaderConstantParameters, "PSConstants");
 
 typedef TUniformBufferRef<FOculusPixelShaderConstantParameters> FOculusPixelShaderConstantParametersRef;
 
 
 //This buffer is for variables that change very often (each frame for example)
-BEGIN_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters,)
-UNIFORM_MEMBER(int, IterationsMultiplier)
-END_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FOculusPixelShaderVariableParameters, )
+SHADER_PARAMETER(int, IterationsMultiplier)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters, TEXT("PSVariables"))
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FOculusPixelShaderVariableParameters, "PSVariables");
 
 typedef TUniformBufferRef<FOculusPixelShaderVariableParameters> FOculusPixelShaderVariableParametersRef;
 
@@ -357,32 +357,35 @@ void FStressTester::DoTickGPU_RenderThread(FRHICommandListImmediate& RHICmdList,
 		}
 
 		//This is where the magic happens
-		SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
+		FRHIRenderPassInfo RPInfo(BackBuffer, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("FSPass"));
+		{
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			const auto FeatureLevel = GMaxRHIFeatureLevel;
+			TShaderMapRef<FOculusVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
+			TShaderMapRef<FOculusStressShadersPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
 
-		const auto FeatureLevel = GMaxRHIFeatureLevel;
-		TShaderMapRef<FOculusVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
-		TShaderMapRef<FOculusStressShadersPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
-		
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GOculusTextureVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GOculusTextureVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		FShaderResourceViewRHIRef TextureParameterSRV = RHICreateShaderResourceView(SrcTexture, 0);
-		PixelShader->SetSurfaces(RHICmdList, TextureParameterSRV);
-		PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
+			FShaderResourceViewRHIRef TextureParameterSRV = RHICreateShaderResourceView(SrcTexture, 0);
+			PixelShader->SetSurfaces(RHICmdList, TextureParameterSRV);
+			PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
 
-		// Draw a fullscreen quad that we can run our pixel shader on
-		RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
-		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+			// Draw a fullscreen quad that we can run our pixel shader on
+			RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
+			RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		}
+		RHICmdList.EndRenderPass();
 
 		PixelShader->UnbindBuffers(RHICmdList);
 	}

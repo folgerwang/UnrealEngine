@@ -12,9 +12,7 @@ public class Niagara : ModuleRules
                 "NiagaraShader",
                 "Core",
                 "Engine",
-                "RenderCore",
                 "UtilityShaders",
-                "ShaderCore",
                 "TimeManagement",
                 "Renderer",
             }
@@ -32,7 +30,7 @@ public class Niagara : ModuleRules
                 "RHI",
                 "UtilityShaders",
                 "NiagaraVertexFactories",
-                "ShaderCore"
+                "RenderCore"
             }
         );
 

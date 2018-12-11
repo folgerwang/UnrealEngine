@@ -118,7 +118,7 @@ class UMaterialParameterCollection : public UObject
 	ENGINE_API const FCollectionVectorParameter* GetVectorParameterByName(FName ParameterName) const;
 
 	/** Accessor for the uniform buffer layout description. */
-	const FUniformBufferStruct& GetUniformBufferStruct() const
+	const FShaderParametersMetadata& GetUniformBufferStruct() const
 	{
 		check(UniformBufferStruct);
 		return *UniformBufferStruct;
@@ -129,7 +129,7 @@ private:
 	/** Default resource used when no instance is available. */
 	class FMaterialParameterCollectionInstanceResource* DefaultResource;
 
-	TUniquePtr<FUniformBufferStruct> UniformBufferStruct;
+	TUniquePtr<FShaderParametersMetadata> UniformBufferStruct;
 
 	void CreateBufferStruct();
 

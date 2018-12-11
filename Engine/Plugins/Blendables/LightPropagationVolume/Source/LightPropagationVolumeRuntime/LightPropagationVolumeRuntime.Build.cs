@@ -16,7 +16,6 @@ public class LightPropagationVolumeRuntime : ModuleRules
 				"Renderer"
 //				"RHI",
 //				"RenderCore",
-//				"ShaderCore",
 			}
 		);
 	}

@@ -14,7 +14,7 @@ LightMapRendering.cpp: Light map rendering implementations.
 #include "Runtime/Engine/Classes/VT/VirtualTextureSpace.h"
 #include "VT/VirtualTextureSpace.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, TEXT("PrecomputedLightingBuffer"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingParameters, "PrecomputedLightingBuffer");
 
 const TCHAR* GLightmapDefineName[2] =
 {
@@ -459,7 +459,7 @@ FUniformBufferRHIRef CreatePrecomputedLightingUniformBuffer(
 {
 	FPrecomputedLightingParameters Parameters;
 	GetPrecomputedLightingParameters(FeatureLevel, Parameters, LightingCache, LightingAllocation, VolumetricLightmapLookupPosition, SceneFrameNumber, VolumetricLightmapSceneData, LCI);
-	return FPrecomputedLightingParameters::CreateUniformBuffer(Parameters, BufferUsage);
+	return CreateUniformBufferImmediate(Parameters, BufferUsage);
 }
 
 void FEmptyPrecomputedLightingUniformBuffer::InitDynamicRHI()

@@ -59,21 +59,21 @@ static FAutoConsoleVariableRef CVarNumLightsBeforeUsingTiledDeferred(
  * First constant buffer of light data for tiled deferred. 
  * Light data is split into two constant buffers to allow more lights per pass before hitting the d3d11 max constant buffer size of 4096 float4's
  */
-BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,)
-	UNIFORM_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
-END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData,)
+	SHADER_PARAMETER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,TEXT("TiledDeferred"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData,"TiledDeferred");
 
 /** Second constant buffer of light data for tiled deferred. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,)
-	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
-END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData2,)
+	SHADER_PARAMETER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,TEXT("TiledDeferred2"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData2,"TiledDeferred2");
 
 /** Compute shader used to implement tiled deferred lighting. */
 template <bool bVisualizeLightCulling>
@@ -223,11 +223,14 @@ public:
 					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
 				}
 
+				// Lights with non-0 length don't support tiled deferred pass, should not have gotten into this list
+				ensure(LightParameters.LightSourceLength==0.0f);
+
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(
 						LightParameters.SpotAngles.X,
 						LightParameters.SpotAngles.Y,
 						LightParameters.LightSourceRadius,
-						LightParameters.LightSourceLength);
+						0.0f);
 
 				int32 ShadowMapChannel = LightSceneInfo->Proxy->GetShadowMapChannel();
 
@@ -250,7 +253,7 @@ public:
 				LightData.LightPositionAndInvRadius[LightIndex] = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
 				LightData.LightColorAndFalloffExponent[LightIndex] = FVector4(SimpleLight.Color, SimpleLight.Exponent);
 				LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(FVector(1, 0, 0), 0);
-				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, 1);
+				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, 1.0f);
 				LightData2.ShadowMapChannelMask[LightIndex] = FVector4(0, 0, 0, 0);
 			}
 		}
@@ -371,7 +374,7 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredLighting(FRHICommandListI
 		INC_DWORD_STAT_BY(STAT_NumLightsUsingSimpleTiledDeferred, SimpleLights.InstanceData.Num());
 		SCOPE_CYCLE_COUNTER(STAT_DirectLightRenderingTime);
 
-		SetRenderTarget(RHICmdList, NULL, NULL);
+		UnbindRenderTargets(RHICmdList);
 
 		// Determine how many compute shader passes will be needed to process all the lights
 		const int32 NumPassesNeeded = FMath::DivideAndRoundUp(NumLightsToRender, GMaxNumTiledDeferredLights);

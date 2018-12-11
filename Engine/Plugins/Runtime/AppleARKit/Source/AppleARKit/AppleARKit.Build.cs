@@ -34,7 +34,6 @@ public class AppleARKit : ModuleRules
 				"RHI",
                 "Renderer",
                 "RenderCore",
-                "ShaderCore",
                 "HeadMountedDisplay",
                 "AugmentedReality",
                 "AppleImageUtils"

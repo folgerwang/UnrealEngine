@@ -74,17 +74,19 @@ public:
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Offset The length of data (caller accounts for Offset) in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage flags.
 	 * @param Format The UAV pixel format.
 	 */
-	void SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, mtlpp::ResourceUsage const Usage, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set a global texture for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage flags.
 	 */
-	void SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index);
+	void SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index, mtlpp::ResourceUsage const Usage);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -181,7 +183,7 @@ private:
 #pragma mark - Private Type Declarations -
 	struct FMetalBufferBinding
 	{
-		FMetalBufferBinding() : Bytes(nil), Offset(0), Length(0) {}
+		FMetalBufferBinding() : Bytes(nil), Offset(0), Length(0), Usage((mtlpp::ResourceUsage)0) {}
 		/** The bound buffers or nil. */
 		ns::AutoReleased<FMetalBuffer> Buffer;
 		/** Optional bytes buffer used instead of an FMetalBuffer */
@@ -190,6 +192,8 @@ private:
 		NSUInteger Offset;
 		/** The bound buffer lengths or 0. */
 		NSUInteger Length;
+		/** The bound buffer usage or 0 */
+		mtlpp::ResourceUsage Usage;
 	};
 	
 	/** A structure of arrays for the current buffer binding settings. */
@@ -209,9 +213,11 @@ private:
 	/** A structure of arrays for the current texture binding settings. */
 	struct FMetalTextureBindings
 	{
-		FMetalTextureBindings() : Bound(0) {}
+		FMetalTextureBindings() : Bound(0) { FMemory::Memzero(Usage); }
 		/** The bound textures or nil. */
 		ns::AutoReleased<FMetalTexture> Textures[ML_MaxTextures];
+		/** The bound texture usage or 0 */
+		mtlpp::ResourceUsage Usage[ML_MaxTextures];
 		/** A bitmask for which textures were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		FMetalTextureMask Bound;
 	};

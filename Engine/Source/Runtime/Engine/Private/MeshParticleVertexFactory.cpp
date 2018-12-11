@@ -338,4 +338,4 @@ FVertexFactoryShaderParameters* FMeshParticleVertexFactory::ConstructShaderParam
 
 IMPLEMENT_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactory,"/Engine/Private/MeshParticleVertexFactory.ush",true,false,true,false,false);
 IMPLEMENT_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactoryEmulatedInstancing,"/Engine/Private/MeshParticleVertexFactory.ush",true,false,true,false,false);
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMeshParticleUniformParameters,TEXT("MeshParticleVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMeshParticleUniformParameters,"MeshParticleVF");

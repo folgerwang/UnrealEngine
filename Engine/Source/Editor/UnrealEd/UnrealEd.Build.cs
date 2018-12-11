@@ -129,7 +129,6 @@ public class UnrealEd : ModuleRules
 				"MeshUtilitiesCommon",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"Sockets",
 				"SourceControlWindows",
 				"StatsViewer",

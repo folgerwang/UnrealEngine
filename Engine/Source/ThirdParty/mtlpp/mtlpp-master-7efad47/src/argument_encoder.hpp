@@ -32,7 +32,7 @@ namespace mtlpp
 	class Texture;
 	class SamplerState;
 	
-	class ArgumentEncoder : public ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>
+	class MTLPP_EXPORT ArgumentEncoder : public ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>
 	{
 	public:
 		ArgumentEncoder() { }

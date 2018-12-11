@@ -583,16 +583,16 @@ static const int MAX_MOBILE_SHADOWCASCADES = 4;
 /** The uniform shader parameters for a mobile directional light and its shadow.
   * One uniform buffer will be created for the first directional light in each lighting channel.
   */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FMobileDirectionalLightShaderParameters, ENGINE_API)
-	UNIFORM_MEMBER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDirectionAndShadowTransition, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowSize, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half) // .zw is not used atm
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowDistances, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DirectionalLightShadowSampler)
-END_UNIFORM_BUFFER_STRUCT(FMobileDirectionalLightShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FMobileDirectionalLightShaderParameters, ENGINE_API)
+	SHADER_PARAMETER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightDirectionAndShadowTransition, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightShadowSize, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half) // .zw is not used atm
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightShadowDistances, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightShadowTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, DirectionalLightShadowSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -747,79 +747,79 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
-	UNIFORM_MEMBER(type, identifier)
+	SHADER_PARAMETER(type, identifier)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER_EX(type, identifier, precision) \
-	UNIFORM_MEMBER_EX(type, identifier, precision)
+	SHADER_PARAMETER_EX(type, identifier, precision)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER_ARRAY(type, identifier, dimension) \
-	UNIFORM_MEMBER_ARRAY(type, identifier, dimension)
+	SHADER_PARAMETER_ARRAY(type, identifier, dimension)
 
 /** The uniform shader parameters associated with a view. */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters, ENGINE_API)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters, ENGINE_API)
 
 	VIEW_UNIFORM_BUFFER_MEMBER_TABLE
 
 	// Same as Wrap_WorldGroupSettings and Clamp_WorldGroupSettings, but with mipbias=MaterialTextureMipBias.
-	UNIFORM_MEMBER_SAMPLER(SamplerState, MaterialTextureBilinearWrapedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, MaterialTextureBilinearClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, MaterialTextureBilinearWrapedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, MaterialTextureBilinearClampedSampler)
 
-	UNIFORM_MEMBER_TEXTURE(Texture3D<uint4>, VolumetricLightmapIndirectionTexture) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickAmbientVector) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients0) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients1) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients2) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients3) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients4) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients5) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, SkyBentNormalBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, DirectionalLightShadowingBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D<uint4>, VolumetricLightmapIndirectionTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickAmbientVector) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients0) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients1) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients2) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients3) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients4) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients5) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, SkyBentNormalBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, DirectionalLightShadowingBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
 
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapBrickAmbientVectorSampler) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler0) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler1) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler2) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler3) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler4) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler5) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyBentNormalTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DirectionalLightShadowingTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapBrickAmbientVectorSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler0) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler1) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler2) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler3) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler4) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler5) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyBentNormalTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, DirectionalLightShadowingTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
 
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture0)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler0)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture1)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler1)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture2)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler2)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture3)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler3)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture0)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler0)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture1)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler1)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture2)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler2)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture3)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler3)
 
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AtmosphereTransmittanceTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereTransmittanceTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AtmosphereIrradianceTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereIrradianceTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, AtmosphereInscatterTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereInscatterTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, PerlinNoiseGradientTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PerlinNoiseGradientTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, PerlinNoise3DTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PerlinNoise3DTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, SobolSamplingTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedPointWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedPointClampedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedBilinearWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedBilinearClampedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedTrilinearWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, PreIntegratedBRDF)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, AtmosphereTransmittanceTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereTransmittanceTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, AtmosphereIrradianceTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereIrradianceTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, AtmosphereInscatterTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereInscatterTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PerlinNoiseGradientTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PerlinNoiseGradientTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, PerlinNoise3DTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PerlinNoise3DTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D<uint>, SobolSamplingTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedPointWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedPointClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedBilinearWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedBilinearClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedBRDF)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
 
-END_UNIFORM_BUFFER_STRUCT(FViewUniformShaderParameters)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /** Copy of the view uniform shader parameters associated with a view for instanced stereo. */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FInstancedViewUniformShaderParameters, ENGINE_API)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FInstancedViewUniformShaderParameters, ENGINE_API)
 	VIEW_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FInstancedViewUniformShaderParameters)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 #undef VIEW_UNIFORM_BUFFER_MEMBER_TABLE
 #undef VIEW_UNIFORM_BUFFER_MEMBER

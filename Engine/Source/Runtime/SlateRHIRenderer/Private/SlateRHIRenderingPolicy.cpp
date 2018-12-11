@@ -232,7 +232,7 @@ void FSlateRHIRenderingPolicy::UpdateVertexAndIndexBuffers(FRHICommandListImmedi
 		}
 		else
 		{
-			new (RHICmdList.AllocCommand<FSlateUpdateVertexAndIndexBuffers>()) FSlateUpdateVertexAndIndexBuffers(VertexBuffer, IndexBuffer, InBatchData, bAbsoluteIndices);
+			ALLOC_COMMAND_CL(RHICmdList, FSlateUpdateVertexAndIndexBuffers)(VertexBuffer, IndexBuffer, InBatchData, bAbsoluteIndices);
 		}
 	}
 
@@ -304,7 +304,7 @@ static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, 
 
 static const FName RendererModuleName("Renderer");
 
-static void UpdateScissorRect(
+static bool UpdateScissorRect(
 	FRHICommandList& RHICmdList, 
 #if STATS
 	int32& ScissorClips, 
@@ -323,6 +323,9 @@ static void UpdateScissorRect(
 	const FMatrix& ViewProjection, 
 	bool bForceStateChange)
 {
+	check(RHICmdList.IsInsideRenderPass());
+	bool bDidRestartRenderpass = false;
+
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_UpdateScissorRect);
 
 	if (RenderBatch.ClippingState != LastClippingState || bForceStateChange)
@@ -338,10 +341,16 @@ static void UpdateScissorRect(
 
 				if (bForceStateChange && MaskingID > 0)
 				{
-					FRHIRenderTargetView ColorView(ColorTarget, ERenderTargetLoadAction::ELoad);
-					FRHIDepthRenderTargetView DepthStencilView(DepthStencilTarget, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
-					FRHISetRenderTargetsInfo CurrentRTInfo(1, &ColorView, DepthStencilView);
-					RHICmdList.SetRenderTargetsAndClear(CurrentRTInfo);
+					// #todo-renderpasses this is very gross. If/when this gets refactored we can detect a simple clear or batch up elements by rendertarget (and other stuff)
+					RHICmdList.EndRenderPass();
+					bDidRestartRenderpass = true;
+
+					FRHIRenderPassInfo RPInfo(ColorTarget, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::DontLoad_DontStore, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthStencilTarget;
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilWrite;
+
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("SlateUpdateScissorRect"));
 				}
 
 				const FSlateClippingZone& ScissorRect = ClipState.ScissorRect.GetValue();
@@ -423,11 +432,18 @@ static void UpdateScissorRect(
 				// Don't bother setting the render targets unless we actually need to clear them.
 				if (bClearStencil || bForceStateChange)
 				{
+					// #todo-renderpasses Similar to above this is gross. Would require a refactor to really fix.
+					RHICmdList.EndRenderPass();
+					bDidRestartRenderpass = true;
+
 					// Clear current stencil buffer, we use ELoad/EStore, because we need to keep the stencil around.
-					FRHIRenderTargetView ColorView(ColorTarget, ERenderTargetLoadAction::ELoad);
-					FRHIDepthRenderTargetView DepthStencilView(DepthStencilTarget, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, bClearStencil ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
-					FRHISetRenderTargetsInfo CurrentRTInfo(1, &ColorView, DepthStencilView);
-					RHICmdList.SetRenderTargetsAndClear(CurrentRTInfo);
+					ERenderTargetLoadAction StencilLoadAction = bClearStencil ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad;
+
+					FRHIRenderPassInfo RPInfo(ColorTarget, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::DontLoad_DontStore, MakeRenderTargetActions(StencilLoadAction, ERenderTargetStoreAction::EStore));
+					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthStencilTarget;
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilWrite;
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("SlateUpdateScissorRect_ClearStencil"));
 				}
 
 				// Start by setting up the stenciling states so that we can write representations of the clipping zones into the stencil buffer only.
@@ -490,7 +506,7 @@ static void UpdateScissorRect(
 
 						RHIUnlockVertexBuffer(VertexBufferRHI);
 						RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-						RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+						RHICmdList.DrawPrimitive(0, 2, 1);
 					}
 
 					// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
@@ -517,6 +533,9 @@ static void UpdateScissorRect(
 
 
 						SetGraphicsPipelineState(RHICmdList, WriteMaskPSOInit);
+
+						VertexShader->SetViewProjection(RHICmdList, ViewProjection);
+						VertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
 					}
 				}
 
@@ -542,7 +561,7 @@ static void UpdateScissorRect(
 
 					RHIUnlockVertexBuffer(VertexBufferRHI);
 					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-					RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+					RHICmdList.DrawPrimitive(0, 2, 1);
 				}
 
 				// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer
@@ -589,6 +608,8 @@ static void UpdateScissorRect(
 
 		LastClippingState = RenderBatch.ClippingState;
 	}
+
+	return bDidRestartRenderpass;
 }
 
 void FSlateRHIRenderingPolicy::DrawElements(
@@ -601,6 +622,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 {
 	// Should only be called by the rendering thread
 	check(IsInRenderingThread());
+	check(RHICmdList.IsInsideRenderPass());
 
 	// Cache the TextureLODGroups so that we can look them up for texture filtering.
 	if (UDeviceProfileManager::DeviceProfileManagerSingleton)
@@ -710,8 +732,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	FVector2D ViewTranslation2D = Options.ViewOffset;
 
 	// Draw each element
+	/*
+		#todo-renderpasses This loop ends up with ugly logic.
+		CustomDrawers will draw in their own renderpass. So we must remember to reopen the renderpass with the passed in Color/DepthStencil targets.
+	*/
 	for (int32 BatchIndex = 0; BatchIndex < RenderBatches.Num(); ++BatchIndex)
 	{
+		check(RHICmdList.IsInsideRenderPass());
 #if WITH_SLATE_VISUALIZERS
 		FLinearColor BatchColor = FLinearColor(BatchColors.GetUnitVector());
 #endif
@@ -798,6 +825,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			ESlateShaderResource::Type ResourceType = ShaderResource ? ShaderResource->GetType() : ESlateShaderResource::Invalid;
 			if (ResourceType != ESlateShaderResource::Material && ShaderType != ESlateShader::PostProcess)
 			{
+				check(RHICmdList.IsInsideRenderPass());
 				check(RenderBatch.NumIndices > 0);
 				FSlateElementPS* PixelShader = nullptr;
 
@@ -998,19 +1026,20 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 					{
 						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
 					}
 					else
 					{
 						uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
 					}
 				}
 			}
 			else if (GEngine && ShaderResource && ShaderResource->GetType() == ESlateShaderResource::Material && ShaderType != ESlateShader::PostProcess)
 			{
 				SLATE_DRAW_EVENT(RHICmdList, MaterialBatch);
+				check(RHICmdList.IsInsideRenderPass());
 
 				check(RenderBatch.NumIndices > 0);
 				// Note: This code is only executed if the engine is loaded (in early loading screens attempting to use a material is unsupported
@@ -1137,13 +1166,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 									if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 									{
 										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
 									}
 									else
 									{
 										uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
 									}
 								}
 							}
@@ -1155,13 +1184,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 								if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 								{
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
 								else
 								{
 									uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
 							}
 						}
@@ -1171,6 +1200,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			else if (ShaderType == ESlateShader::PostProcess)
 			{
 				SLATE_DRAW_EVENT(RHICmdList, PostProcess);
+				RHICmdList.EndRenderPass();
 
 				const FVector4& QuadPositionData = ShaderParams.PixelParams;
 
@@ -1181,7 +1211,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				RectParams.SourceTextureSize = BackBuffer.GetSizeXY();
 
 				RectParams.RestoreStateFunc = [&](FRHICommandListImmediate&InRHICmdList, FGraphicsPipelineStateInitializer& InGraphicsPSOInit) {
-					UpdateScissorRect(
+					return UpdateScissorRect(
 						InRHICmdList,
 #if STATS
 						ScissorClips,
@@ -1211,14 +1241,33 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				BlurParams.DownsampleAmount = ShaderParams.PixelParams2.Z;
 
 				PostProcessor->BlurRect(RHICmdList, RendererModule, BlurParams, RectParams);
-			}
 
+				check(RHICmdList.IsOutsideRenderPass());
+				{
+					FRHIRenderPassInfo RPInfo(BackBuffer.GetRenderTargetTexture(), ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthStencilTarget;
+					if (DepthStencilTarget)
+					{
+						RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
+						RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
+					}
+					else
+					{
+						RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
+						RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+					}
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("RestartingSlateDrawElements"));
+				}
+			}
 		}
 		else
 		{
 			TSharedPtr<ICustomSlateElement, ESPMode::ThreadSafe> CustomDrawer = RenderBatch.CustomDrawer.Pin();
 			if (CustomDrawer.IsValid())
 			{
+				// CustomDrawers will change the rendertarget. So we must close any outstanding renderpasses.
+				RHICmdList.EndRenderPass();	
+
 				SLATE_DRAW_EVENT(RHICmdList, CustomDrawer);
 
 				// Disable scissor rect. A previous draw element may have had one
@@ -1228,15 +1277,29 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				// This element is custom and has no Slate geometry.  Tell it to render itself now
 				CustomDrawer->DrawRenderThread(RHICmdList, &BackBuffer.GetRenderTargetTexture());
 
-
 				//We reset the maskingID here because otherwise the RT might not get re-set in the lines above see: if (bClearStencil || bForceStateChange)
 				MaskingID = 0;
+
+				// Restart the renderpass since the CustomDrawer will have drawn into its own.
+				FRHIRenderPassInfo RPInfo(ColorTarget, ERenderTargetActions::Load_Store);
+				RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthStencilTarget;
+				if (DepthStencilTarget)
+				{
+					RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
+				}
+				else
+				{
+					RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+				}
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("SlateDrawElements"));
 
 				// Something may have messed with the viewport size so set it back to the full target.
 				RHICmdList.SetViewport(0, 0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y, 0.0f);
 				RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
 			}
-		}
+		} // CustomDrawer
 	}
 
 	// Don't do color correction on iOS or Android, we don't have the GPU overhead for it.

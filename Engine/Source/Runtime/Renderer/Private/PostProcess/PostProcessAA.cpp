@@ -262,33 +262,36 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessFXAA, TEXT("PostProcessFXAA %dx%d"), DestRect.Width(), DestRect.Height());
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-
-	switch(Quality)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessAA"));
 	{
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+		switch (Quality)
+		{
 		case 1:  SetShaderTemplAA<1>(Context.RHICmdList, Context); break;
 		case 2:  SetShaderTemplAA<2>(Context.RHICmdList, Context); break;
 		case 3:  SetShaderTemplAA<3>(Context.RHICmdList, Context); break;
 		case 4:  SetShaderTemplAA<4>(Context.RHICmdList, Context); break;
 		case 5:  SetShaderTemplAA<5>(Context.RHICmdList, Context); break;
 		default: SetShaderTemplAA<6>(Context.RHICmdList, Context); break;
+		}
+
+		TShaderMapRef<FFXAAVS> VertexShader(Context.GetShaderMap());
+
+		DrawPostProcessPass(Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_Default);
 	}
-	
-	TShaderMapRef<FFXAAVS> VertexShader(Context.GetShaderMap());
-
-	DrawPostProcessPass(Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_Default);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 

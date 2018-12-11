@@ -472,6 +472,8 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		// In parallel rendering we must have a renderpass open before starting our task.
+		check(RHICmdList.IsInsideRenderPass());
 		LLM_SCOPE(ELLMTag::StaticMesh);
 
 		FScopeCycleCounter ScopeOuter(RHICmdList.ExecuteStat);
@@ -502,6 +504,9 @@ public:
 		{
 			this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->DrawRenderState, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, this->FirstPolicy, this->LastPolicy, true);
 		}
+
+		// Now that this task is complete we must close our renderpass.
+		this->RHICmdList.EndRenderPass();
 		this->RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };

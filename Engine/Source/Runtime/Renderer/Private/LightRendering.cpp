@@ -13,10 +13,11 @@
 #include "ClearQuad.h"
 #include "Engine/SubsurfaceProfile.h"
 #include "ShowFlags.h"
+#include "VisualizeTexture.h"
 
 DECLARE_GPU_STAT(Lights);
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,TEXT("DeferredLightUniforms"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDeferredLightUniformStruct, "DeferredLightUniforms");
 
 extern int32 GUseTranslucentLightingVolumes;
 ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandListImmediate& RHICmdList);
@@ -58,7 +59,7 @@ float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
 void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
 {
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVertexBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, 0, 0,
 		StencilingGeometry::GStencilSphereVertexBuffer.GetVertexCount(), 0, 
 		StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
 }
@@ -66,7 +67,7 @@ void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
 void StencilingGeometry::DrawVectorSphere(FRHICommandList& RHICmdList)
 {
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVectorBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, 0, 0,
 									StencilingGeometry::GStencilSphereVectorBuffer.GetVertexCount(), 0,
 									StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
 }
@@ -76,7 +77,7 @@ void StencilingGeometry::DrawCone(FRHICommandList& RHICmdList)
 	// No Stream Source needed since it will generate vertices on the fly
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilConeVertexBuffer.VertexBufferRHI, 0);
 
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, 0, 0,
 		FStencilConeIndexBuffer::NumVerts, 0, StencilingGeometry::GStencilConeIndexBuffer.GetIndexCount() / 3, 1);
 }
 
@@ -458,6 +459,8 @@ uint32 GetShadowQuality();
 /** Renders the scene's lighting. */
 void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICmdList)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_RenderLights, FColor::Emerald);
 	SCOPED_DRAW_EVENT(RHICmdList, Lights);
 	SCOPED_GPU_STAT(RHICmdList, Lights);
@@ -502,6 +505,14 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					SortedLightInfo->SortKey.Fields.bShadowed = bDynamicShadows && CheckForProjectedShadows(LightSceneInfo);
 					SortedLightInfo->SortKey.Fields.bLightFunction = ViewFamily.EngineShowFlags.LightFunctions && CheckForLightFunction(LightSceneInfo);
 					SortedLightInfo->SortKey.Fields.bUsesLightingChannels = Views[ViewIndex].bUsesLightingChannels && LightSceneInfo->Proxy->GetLightingChannelMask() != GetDefaultLightingChannelMask();
+
+					// tiled deferred lighting only supported for certain lights that don't use any additional features
+					const bool bTiledDeferredSupported = LightSceneInfo->Proxy->IsTiledDeferredLightingSupported() &&
+						!SortedLightInfo->SortKey.Fields.bTextureProfile &&
+						!SortedLightInfo->SortKey.Fields.bShadowed &&
+						!SortedLightInfo->SortKey.Fields.bLightFunction &&
+						!SortedLightInfo->SortKey.Fields.bUsesLightingChannels;
+					SortedLightInfo->SortKey.Fields.bTiledDeferredNotSupported = !bTiledDeferredSupported;
 					break;
 				}
 			}
@@ -525,40 +536,28 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 		int32 AttenuationLightStart = SortedLights.Num();
 		int32 SupportedByTiledDeferredLightEnd = SortedLights.Num();
-		bool bAnyUnsupportedByTiledDeferred = false;
 
 		// Iterate over all lights to be rendered and build ranges for tiled deferred and unshadowed lights
 		for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
 		{
 			const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
-			bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
-			bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
-			bool bTextureLightProfile = SortedLightInfo.SortKey.Fields.bTextureProfile;
-			bool bLightingChannels = SortedLightInfo.SortKey.Fields.bUsesLightingChannels;
+			const bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
+			const bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
+			const bool bTextureLightProfile = SortedLightInfo.SortKey.Fields.bTextureProfile;
+			const bool bLightingChannels = SortedLightInfo.SortKey.Fields.bUsesLightingChannels;
 
-			if (bTextureLightProfile && SupportedByTiledDeferredLightEnd == SortedLights.Num())
+			if (SortedLightInfo.SortKey.Fields.bTiledDeferredNotSupported && SupportedByTiledDeferredLightEnd == SortedLights.Num())
 			{
-				// Mark the first index to not support tiled deferred due to texture light profile
+				// Mark the first index to not support tiled deferred
 				SupportedByTiledDeferredLightEnd = LightIndex;
 			}
 
 			if (bDrawShadows || bDrawLightFunction || bLightingChannels)
 			{
+				// Once we find a shadowed light, we can exit the loop, these lights should never support tiled deferred rendering either
+				check(SortedLightInfo.SortKey.Fields.bTiledDeferredNotSupported);
 				AttenuationLightStart = LightIndex;
-
-				if (SupportedByTiledDeferredLightEnd == SortedLights.Num())
-				{
-					// Mark the first index to not support tiled deferred due to shadowing
-					SupportedByTiledDeferredLightEnd = LightIndex;
-				}
 				break;
-			}
-
-			if (LightIndex < SupportedByTiledDeferredLightEnd)
-			{
-				// Directional lights currently not supported by tiled deferred
-				bAnyUnsupportedByTiledDeferred = bAnyUnsupportedByTiledDeferred 
-					|| (SortedLightInfo.SortKey.Fields.LightType != LightType_Point && SortedLightInfo.SortKey.Fields.LightType != LightType_Spot);
 			}
 		}
 		
@@ -590,7 +589,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				}
 
 				// Use tiled deferred shading on any unshadowed lights without a texture light profile
-				if (ShouldUseTiledDeferred(SupportedByTiledDeferredLightEnd, SimpleLights.InstanceData.Num()) && !bAnyUnsupportedByTiledDeferred && !bAnyViewIsStereo)
+				if (ShouldUseTiledDeferred(SupportedByTiledDeferredLightEnd, SimpleLights.InstanceData.Num()) && !bAnyViewIsStereo)
 				{
 					// Update the range that needs to be processed by standard deferred to exclude the lights done with tiled
 					StandardDeferredStart = SupportedByTiledDeferredLightEnd;
@@ -603,6 +602,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			{
 				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 				RenderSimpleLightsStandardDeferred(RHICmdList, SimpleLights);
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 
 			{
@@ -620,6 +620,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					// Render the light to the scene color buffer, using a 1x1 white texture as input 
 					RenderLight(RHICmdList, LightSceneInfo, NULL, false, false);
 				}
+
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 
 			if (GUseTranslucentLightingVolumes && GSupportsVolumeTextureRendering)
@@ -758,37 +760,49 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					// All shadows render with min blending
 					bool bClearToWhite = !bClearLightScreenExtentsOnly;
 
-					SetRenderTarget(RHICmdList, ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, SceneContext.GetSceneDepthSurface(), bClearToWhite ? ESimpleRenderTargetMode::EClearColorExistingDepth : ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
-
-					if (bClearLightScreenExtentsOnly)
+					FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneContext.GetSceneDepthSurface();
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
+					if (bClearToWhite)
 					{
-						SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
+						RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+					}
 
-						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearScreenShadowMask"));
+					{
+						if (bClearLightScreenExtentsOnly)
 						{
-							const FViewInfo& View = Views[ViewIndex];
-							FIntRect ScissorRect;
+							SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
 
-							if (!LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect))
+							for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 							{
-								ScissorRect = View.ViewRect;
-							}
+								const FViewInfo& View = Views[ViewIndex];
+								FIntRect ScissorRect;
 
-							if (ScissorRect.Min.X < ScissorRect.Max.X && ScissorRect.Min.Y < ScissorRect.Max.Y)
-							{
-								RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
-								DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
-							}
-							else
-							{
-								LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect);
+								if (!LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect))
+								{
+									ScissorRect = View.ViewRect;
+								}
+
+								if (ScissorRect.Min.X < ScissorRect.Max.X && ScissorRect.Min.Y < ScissorRect.Max.Y)
+								{
+									RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
+									DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
+								}
+								else
+								{
+									LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect);
+								}
 							}
 						}
 					}
+					RHICmdList.EndRenderPass();
 
 					RenderShadowProjections(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, bInjectedTranslucentVolume);
-
-					bUsedShadowMaskTexture = true;
+					
+					bUsedShadowMaskTexture = true;					
 				}
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -816,7 +830,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 						INC_DWORD_STAT(STAT_NumLightFunctionOnlyLights);
 					}
 				}
-			
+
 				if (bUsedShadowMaskTexture)
 				{
 					RHICmdList.CopyToResolveTarget(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ScreenShadowMaskTexture->GetRenderTargetItem().ShaderResourceTexture, FResolveParams(FResolveRect()));
@@ -832,7 +846,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					}
 				}
 
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, ScreenShadowMaskTexture);
+				GVisualizeTexture.SetCheckPoint(RHICmdList, ScreenShadowMaskTexture);
 
 				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
@@ -841,6 +855,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				{
 					RenderLight(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, false, true);
 				}
+
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 		}
 	}
@@ -882,7 +898,8 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 {
 	if (Scene->bIsEditorScene)
 	{
-		FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 		// Clear to discard base pass values in scene color since we didn't skip that, to have valid scene depths
 		DrawClearQuad(RHICmdList, FLinearColor::Black);
@@ -892,6 +909,8 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 		//Note: making use of FScene::InvisibleLights, which contains lights that haven't been added to the scene in the same way as visible lights
 		// So code called by RenderLightArrayForOverlapViewmode must be careful what it accesses
 		RenderLightArrayForOverlapViewmode(RHICmdList, Scene->InvisibleLights);
+
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 }
 

@@ -452,7 +452,12 @@ public:
 		: FD3D12AdapterChild(InParent)
 	{
 	}
-	~FD3D12RootSignatureManager();
+	~FD3D12RootSignatureManager()
+	{
+		check(RootSignatureMap.Num() == 0);
+	}
+	void Destroy();
+
 	FD3D12RootSignature* GetRootSignature(const FD3D12QuantizedBoundShaderState& QBSS);
 	FD3D12QuantizedBoundShaderState GetQuantizedBoundShaderState(const FD3D12RootSignature* const RootSignature);
 

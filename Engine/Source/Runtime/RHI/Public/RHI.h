@@ -18,8 +18,13 @@
 class FResourceArrayInterface;
 class FResourceBulkDataInterface;
 
-/** Uniform buffer structs must be aligned to 16-byte boundaries. */
-#define UNIFORM_BUFFER_STRUCT_ALIGNMENT 16
+
+/** Alignment of the shader parameters struct is required to be 16-byte boundaries. */
+#define SHADER_PARAMETER_STRUCT_ALIGNMENT 16
+
+/** The alignment in bytes between elements of array shader parameters. */
+#define SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT 16
+
 
 /** RHI Logging. */
 RHI_API DECLARE_LOG_CATEGORY_EXTERN(LogRHI,Log,VeryVerbose);
@@ -152,6 +157,11 @@ inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
 inline bool RHISupportsVolumeTextures(ERHIFeatureLevel::Type FeatureLevel)
 {
 	return FeatureLevel >= ERHIFeatureLevel::SM4;
+}
+
+inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
+{
+	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsMetalPlatform(Platform) && (IsPCPlatform(Platform) || (Platform == SP_METAL_MRT && RHIGetShaderLanguageVersion(Platform) >= 4));
 }
 
 inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)

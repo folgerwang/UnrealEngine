@@ -3364,7 +3364,7 @@ ir_rvalue* ast_declarator_list::hir(exec_list *instructions, struct _mesa_glsl_p
 		ir_variable *earlier = get_variable_being_redeclared(var, decl, state);
 
 		// Make static non-const variables initialized to zero as FXC does
-		if (this->type->qualifier.flags.q.is_static && !decl->initializer)
+		if (this->type->qualifier.flags.q.is_static && !this->type->qualifier.flags.q.constant && !this->type->specifier->structure && !decl->initializer)
 		{
 			ast_expression* Zero = new(ctx)ast_expression(ast_int_constant, NULL, NULL, NULL);
 			Zero->set_location(decl->get_location());

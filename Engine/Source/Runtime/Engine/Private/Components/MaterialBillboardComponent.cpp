@@ -223,7 +223,7 @@ public:
 							BatchElement.FirstIndex = 0;
 							BatchElement.MinVertexIndex = 0;
 							BatchElement.MaxVertexIndex = 3;
-							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
+							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer().GetUniformBufferRef();
 							BatchElement.NumPrimitives = 2;
 							BatchElement.BaseVertexIndex = WriteOffset;
 

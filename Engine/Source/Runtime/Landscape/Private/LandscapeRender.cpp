@@ -35,7 +35,7 @@ LandscapeRender.cpp: New terrain rendering
 #include "SceneView.h"
 #include "LandscapeProxy.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, TEXT("LandscapeParameters"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLandscapeUniformShaderParameters, "LandscapeParameters");
 
 int32 GLandscapeMeshLODBias = 0;
 FAutoConsoleVariableRef CVarLandscapeMeshLODBias(

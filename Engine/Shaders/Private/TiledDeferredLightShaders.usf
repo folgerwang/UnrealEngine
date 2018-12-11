@@ -216,9 +216,9 @@ void TiledDeferredLightingMain(
 			BRANCH
 			if (bInDepthRange) 
 			{
-				// Separate lights into different index lists depending on whether they will use simple shading or not
+				// Separate lights into different index lists depending on whether they will use simple shading or not (designated by a negative SourceLength)
 				// This prevents the need for an inner loop branch when shading
-				if (TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].w > .5f)
+				if (TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].w > 0.0f)
 				{
 					uint ListIndex;
 					InterlockedAdd(TileNumSimpleLights, 1U, ListIndex);
@@ -261,7 +261,9 @@ void TiledDeferredLightingMain(
 				LightData.bSpotLight = Value.w > 0;
 				LightData.SpecularScale = abs(Value.w);
 			}
-			LightData.SpotAnglesAndSourceRadius = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex];
+
+			// don't support lights with non-0 length in tiled-deferred path, so make sure it stays zero-initialized
+			LightData.SpotAnglesAndSourceRadius.xyz = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].xyz;
 			LightData.ShadowMapChannelMask = TiledDeferred2.ShadowMapChannelMask[LightIndex];
 			LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
 			// Only radial lights supported with tiled deferred

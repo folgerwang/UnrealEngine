@@ -20,7 +20,6 @@ public class UMG : ModuleRules
                 "InputCore",
 				"Slate",
 				"SlateCore",
-                "ShaderCore",
 				"RenderCore",
 				"RHI",
 			}

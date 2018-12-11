@@ -129,73 +129,76 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 	// Set render target and clear.
 	FTexture2DRHIRef RTResource = RenderTargetResource->GetTextureRHI();
-	FRHIRenderTargetView ColorRTV(RTResource, ERenderTargetLoadAction::ELoad);
-	ColorRTV.LoadAction = ERenderTargetLoadAction::EClear;
-	FRHISetRenderTargetsInfo Info(1, &ColorRTV, FRHIDepthRenderTargetView());
-	Info.bClearColor = bInClearTarget;
-
 	InRHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RTResource);
-	InRHICmdList.SetRenderTargetsAndClear(Info);
-
-	for ( int32 WindowIndex = 0; WindowIndex < WindowsToDraw.Num(); WindowIndex++ )
+	
+	FRHIRenderPassInfo RPInfo(RTResource, ERenderTargetActions::Load_Store);
+	if (bInClearTarget)
 	{
-		FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex];
+		RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+	}
+	InRHICmdList.BeginRenderPass(RPInfo, TEXT("Slate3D"));
+	{
 
-		FSlateBatchData& BatchData = WindowElementList.GetBatchData();
-		FElementBatchMap& RootBatchMap = WindowElementList.GetRootDrawLayer().GetElementBatchMap();
-
-		WindowElementList.PreDraw_ParallelThread();
-
-		BatchData.CreateRenderBatches(RootBatchMap);
-
-		if ( BatchData.GetRenderBatches().Num() > 0 )
+		for (int32 WindowIndex = 0; WindowIndex < WindowsToDraw.Num(); WindowIndex++)
 		{
-			RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
-		
-			FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
+			FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex];
 
-			FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
-			FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
-			ProjectionMatrix = ViewOffset * ProjectionMatrix;
-		
-			FSlateBackBuffer BackBufferTarget(RenderTargetResource->GetTextureRHI(), FIntPoint(RTResource->GetSizeX(), RTResource->GetSizeY()));
+			FSlateBatchData& BatchData = WindowElementList.GetBatchData();
+			FElementBatchMap& RootBatchMap = WindowElementList.GetRootDrawLayer().GetElementBatchMap();
 
-			FSlateRenderingOptions DrawOptions(ProjectionMatrix);
-			// The scene renderer will handle it in this case
-			DrawOptions.bAllowSwitchVerticalAxis = false;
-			DrawOptions.ViewOffset = DrawOffset;
+			WindowElementList.PreDraw_ParallelThread();
 
-			FTexture2DRHIRef ColorTarget = RenderTargetResource->GetTextureRHI();
+			BatchData.CreateRenderBatches(RootBatchMap);
 
-			if (BatchData.IsStencilClippingRequired())
+			if (BatchData.GetRenderBatches().Num() > 0)
 			{
-				if (!DepthStencil.IsValid() || ColorTarget->GetSizeXY() != DepthStencil->GetSizeXY())
+				RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
+
+				FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
+
+				FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
+				FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
+				ProjectionMatrix = ViewOffset * ProjectionMatrix;
+
+				FSlateBackBuffer BackBufferTarget(RenderTargetResource->GetTextureRHI(), FIntPoint(RTResource->GetSizeX(), RTResource->GetSizeY()));
+
+				FSlateRenderingOptions DrawOptions(ProjectionMatrix);
+				// The scene renderer will handle it in this case
+				DrawOptions.bAllowSwitchVerticalAxis = false;
+				DrawOptions.ViewOffset = DrawOffset;
+
+				FTexture2DRHIRef ColorTarget = RenderTargetResource->GetTextureRHI();
+
+				if (BatchData.IsStencilClippingRequired())
 				{
-					DepthStencil.SafeRelease();
+					if (!DepthStencil.IsValid() || ColorTarget->GetSizeXY() != DepthStencil->GetSizeXY())
+					{
+						DepthStencil.SafeRelease();
 
-					FTexture2DRHIRef ShaderResourceUnused;
-					FRHIResourceCreateInfo CreateInfo(FClearValueBinding::DepthZero);
-					RHICreateTargetableShaderResource2D(ColorTarget->GetSizeX(), ColorTarget->GetSizeY(), PF_DepthStencil, 1, TexCreate_None, TexCreate_DepthStencilTargetable, false, CreateInfo, DepthStencil, ShaderResourceUnused);
-					check(IsValidRef(DepthStencil));
+						FTexture2DRHIRef ShaderResourceUnused;
+						FRHIResourceCreateInfo CreateInfo(FClearValueBinding::DepthZero);
+						RHICreateTargetableShaderResource2D(ColorTarget->GetSizeX(), ColorTarget->GetSizeY(), PF_DepthStencil, 1, TexCreate_None, TexCreate_DepthStencilTargetable, false, CreateInfo, DepthStencil, ShaderResourceUnused);
+						check(IsValidRef(DepthStencil));
+					}
 				}
-			}
 
-			RenderTargetPolicy->DrawElements(
-				InRHICmdList,
-				BackBufferTarget,
-				ColorTarget,
-				DepthStencil,
-				BatchData.GetRenderBatches(),
-				DrawOptions
-			);
+				RenderTargetPolicy->DrawElements(
+					InRHICmdList,
+					BackBufferTarget,
+					ColorTarget,
+					DepthStencil,
+					BatchData.GetRenderBatches(),
+					DrawOptions
+				);
+			}
 		}
 	}
-
+	InRHICmdList.EndRenderPass();
 
 	FSlateEndDrawingWindowsCommand::EndDrawingWindows(InRHICmdList, &WindowDrawBuffer, *RenderTargetPolicy);
 	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, FResolveParams());
 
 	ISlate3DRendererPtr Self = SharedThis(this);
 
-	new ( InRHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Self);
+	ALLOC_COMMAND_CL(InRHICmdList, TKeepAliveCommand<ISlate3DRendererPtr>)(Self);
 }

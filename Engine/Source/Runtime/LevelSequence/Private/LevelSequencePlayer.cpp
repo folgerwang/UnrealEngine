@@ -52,6 +52,10 @@ ULevelSequencePlayer* ULevelSequencePlayer::CreateLevelSequencePlayer(UObject* W
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnParams.ObjectFlags |= RF_Transient;
 	SpawnParams.bAllowDuringConstructionScript = true;
+
+	// Defer construction for autoplay so that BeginPlay() is called
+	SpawnParams.bDeferConstruction = true;
+
 	ALevelSequenceActor* Actor = World->SpawnActor<ALevelSequenceActor>(SpawnParams);
 
 	Actor->PlaybackSettings = Settings;
@@ -59,6 +63,9 @@ ULevelSequencePlayer* ULevelSequencePlayer::CreateLevelSequencePlayer(UObject* W
 
 	Actor->InitializePlayer();
 	OutActor = Actor;
+
+	FTransform DefaultTransform;
+	Actor->FinishSpawning(DefaultTransform);
 
 	return Actor->SequencePlayer;
 }
@@ -108,6 +115,20 @@ void ULevelSequencePlayer::OnStopped()
 			Actor->PrimaryActorTick.RemovePrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
 		}
 	}
+
+	if (World != nullptr && World->GetGameInstance() != nullptr)
+	{
+		APlayerController* PC = World->GetGameInstance()->GetFirstLocalPlayerController();
+
+		if (PC != nullptr)
+		{
+			if (PC->PlayerCameraManager)
+			{
+				PC->PlayerCameraManager->bClientSimulatingViewTarget = false;
+			}
+		}
+	}
+
 	PrerequisiteActors.Reset();
 	LastViewTarget.Reset();
 }
@@ -184,6 +205,12 @@ void ULevelSequencePlayer::UpdateCameraCut(UObject* CameraObject, UObject* Unloc
 	if (CameraActor == nullptr)
 	{
 		CameraActor = LastViewTarget.Get();
+
+		// Skip if the last view target is the same as the current view target so that there's no additional camera cut
+		if (CameraActor == ViewTarget)
+		{
+			return;
+		}
 	}
 
 	FViewTargetTransitionParams TransitionParams;

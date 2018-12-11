@@ -290,7 +290,7 @@ public:
 		else
 		{
 			CreationFence.Reset();
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([this, CreateFunc = MoveTemp(CreateFunc)]()
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([this, CreateFunc = MoveTemp(CreateFunc)]()
 			{
 				GLResourceObject = CreateFunc(this);
 				GLResourceObject->AddRef();
@@ -452,7 +452,7 @@ public:
 					FMemory::Memcpy(BuffData, InData, RealSize);
 				}
 				TransitionFence.Reset();
-				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() 
+				ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([=]() 
 				{
 					CreateGLBuffer(BuffData, ResourceToUse, ResourceSize); 
 					TransitionFence.WriteAssertFence();

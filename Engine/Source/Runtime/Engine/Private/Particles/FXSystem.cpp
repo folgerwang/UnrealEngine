@@ -373,7 +373,7 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
 void FFXSystem::PostRenderOpaque(
 	FRHICommandListImmediate& RHICmdList, 
 	const FUniformBufferRHIParamRef ViewUniformBuffer, 
-	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer)
 {
 	if (RHISupportsGPUParticles() && IsParticleCollisionModeSupported(GetShaderPlatform(), PCM_DepthBuffer))

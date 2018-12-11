@@ -124,7 +124,8 @@ FVulkanDescriptorPool* FVulkanTypedDescriptorPoolSet::PushNewPool()
 {
 	// Max number of descriptor sets layout allocations
 	const uint32 MaxSetsAllocationsBase = 32;
-	const uint32 MaxSetsAllocations = FMath::Min((MaxSetsAllocationsBase << PoolsCount), 128u);
+	// Allow max 128 setS per pool (32 << 2)
+	const uint32 MaxSetsAllocations = MaxSetsAllocationsBase << FMath::Min(PoolsCount, 2u);
 
 	auto* NewPool = new FVulkanDescriptorPool(Device, Layout, MaxSetsAllocations);
 
@@ -471,9 +472,12 @@ void FVulkanPendingGfxState::PrepareForDraw(FVulkanCmdBuffer* CmdBuffer)
 					if (VertexInputStateInfo.Attributes[AttributeIndex].binding == CurrBinding.binding)
 					{
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+						extern FVulkanShader* FVulkanShaderFactory_LookupShader(FVulkanShaderFactory& ShaderFactory, EShaderFrequency ShaderFrequency, uint64 ShaderKey);
+						uint64 VertexShaderKey = GetCurrentShaderKey(ShaderStage::Vertex);
+						FVulkanShader* VertexShader = FVulkanShaderFactory_LookupShader(Device->GetShaderFactory(), SF_Vertex, VertexShaderKey);
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in '%s' vertex shader"),
 							CurrBinding.binding,
-							*GetCurrentShader(ShaderStage::Vertex)->GetDebugName());
+							VertexShader ? *VertexShader->GetDebugName() : TEXT("Null"));
 #else
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in vertex shader"), CurrBinding.binding);
 #endif

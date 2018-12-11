@@ -26,7 +26,6 @@ namespace UnrealBuildTool.Rules
           "CoreUObject",
           "Engine",
           "RenderCore",
-          "ShaderCore",
           "RHI",
           "AnimGraphRuntime",
 					// ... add other public dependencies that you statically link with here ...

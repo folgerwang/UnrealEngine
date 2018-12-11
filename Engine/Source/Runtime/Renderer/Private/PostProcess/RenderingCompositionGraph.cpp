@@ -10,13 +10,14 @@
 #include "Async/Async.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "RendererModule.h"
 #include "HighResScreenshot.h"
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
+#include "VisualizeTexture.h"
 
 #include "IImageWrapper.h"
 #include "ImageWriteQueue.h"
@@ -679,7 +680,9 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 	Context.SetViewportInvalid();
 
 	// then process the pass itself
+	check(!Context.RHICmdList.IsInsideRenderPass());
 	Pass->Process(Context);
+	check(!Context.RHICmdList.IsInsideRenderPass());
 
 	// for VisualizeTexture and output buffer dumping
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -691,7 +694,7 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 			// use intermediate texture unless it's the last one where we render to the final output
 			if(PassOutput->PooledRenderTarget)
 			{
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
+				GVisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
 
 				// If this buffer was given a dump filename, write it out
 				const FString& Filename = Pass->GetOutputDumpFilename((EPassOutputId)OutputId);

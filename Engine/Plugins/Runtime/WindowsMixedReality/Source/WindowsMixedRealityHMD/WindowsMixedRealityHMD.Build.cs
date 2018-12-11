@@ -55,7 +55,6 @@ namespace UnrealBuildTool.Rules
 						"RHI",
 						"RenderCore",
 						"Renderer",
-						"ShaderCore",
 						"HeadMountedDisplay",
 						"D3D11RHI",
 						"Slate",

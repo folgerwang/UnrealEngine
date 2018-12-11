@@ -419,7 +419,7 @@ bool FCanvasTileRendererItem::Render_RenderThread(FRHICommandListImmediate& RHIC
 	return true;
 }
 
-bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas)
+bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope)
 {
 	float CurrentRealTime = 0.f;
 	float CurrentWorldTime = 0.f;
@@ -475,41 +475,41 @@ bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas)
 
 	InitTileBuffers(&Data->VertexFactory, Data->Tiles, *View, bNeedsToSwitchVerticalAxis);
 
-	ENQUEUE_RENDER_COMMAND(DrawTileCommand)(
+	RenderScope.EnqueueRenderCommand(
 		[DrawTileParameters](FRHICommandListImmediate& RHICmdList)
+	{
+		SCOPED_DRAW_EVENTF(RHICmdList, CanvasDrawTile, *DrawTileParameters.RenderData->MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel)->GetFriendlyName());
+
+		FDrawingPolicyRenderState DrawRenderState(*DrawTileParameters.View);
+
+		// disable depth test & writes
+		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+		for (int32 TileIdx = 0; TileIdx < DrawTileParameters.RenderData->Tiles.Num(); TileIdx++)
 		{
-			SCOPED_DRAW_EVENTF(RHICmdList, CanvasDrawTile, *DrawTileParameters.RenderData->MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel)->GetFriendlyName());
+			FRenderData::FTileInst& Tile = DrawTileParameters.RenderData->Tiles[TileIdx];
 
-			FDrawingPolicyRenderState DrawRenderState(*DrawTileParameters.View);
+			// update the FMeshBatch
+			FMeshBatch& Mesh = DrawTileParameters.RenderData->TileMesh.MeshElement;
+			Mesh.MaterialRenderProxy = DrawTileParameters.RenderData->MaterialRenderProxy;
+			Mesh.Elements[0].BaseVertexIndex = NUM_MATERIAL_TILE_VERTS * TileIdx;
 
-			// disable depth test & writes
-			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+			GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, *DrawTileParameters.View, Mesh, DrawTileParameters.bIsHitTesting, Tile.HitProxyId);
+		}
 
-			for (int32 TileIdx = 0; TileIdx < DrawTileParameters.RenderData->Tiles.Num(); TileIdx++)
-			{
-				FRenderData::FTileInst& Tile = DrawTileParameters.RenderData->Tiles[TileIdx];
+		DrawTileParameters.RenderData->StaticMeshVertexBuffers.PositionVertexBuffer.ReleaseResource();
+		DrawTileParameters.RenderData->StaticMeshVertexBuffers.StaticMeshVertexBuffer.ReleaseResource();
+		DrawTileParameters.RenderData->StaticMeshVertexBuffers.ColorVertexBuffer.ReleaseResource();
+		DrawTileParameters.RenderData->TileMesh.ReleaseResource();
+		DrawTileParameters.RenderData->VertexFactory.ReleaseResource();
 
-				// update the FMeshBatch
-				FMeshBatch& Mesh = DrawTileParameters.RenderData->TileMesh.MeshElement;
-				Mesh.MaterialRenderProxy = DrawTileParameters.RenderData->MaterialRenderProxy;
-				Mesh.Elements[0].BaseVertexIndex = NUM_MATERIAL_TILE_VERTS * TileIdx;
-
-				GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, *DrawTileParameters.View, Mesh, DrawTileParameters.bIsHitTesting, Tile.HitProxyId);
-			}
-
-			DrawTileParameters.RenderData->StaticMeshVertexBuffers.PositionVertexBuffer.ReleaseResource();
-			DrawTileParameters.RenderData->StaticMeshVertexBuffers.StaticMeshVertexBuffer.ReleaseResource();
-			DrawTileParameters.RenderData->StaticMeshVertexBuffers.ColorVertexBuffer.ReleaseResource();
-			DrawTileParameters.RenderData->TileMesh.ReleaseResource();
-			DrawTileParameters.RenderData->VertexFactory.ReleaseResource();
-
-			delete DrawTileParameters.View->Family;
-			delete DrawTileParameters.View;
-			if (DrawTileParameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
-			{
-				delete DrawTileParameters.RenderData;
-			}
-		});
+		delete DrawTileParameters.View->Family;
+		delete DrawTileParameters.View;
+		if (DrawTileParameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
+		{
+			delete DrawTileParameters.RenderData;
+		}
+	});
 
 	if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
 	{

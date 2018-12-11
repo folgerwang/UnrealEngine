@@ -11,6 +11,8 @@ class IMovieScenePlayer;
 class UInterpTrackAnimControl;
 class UInterpTrackBoolProp;
 class UInterpTrackColorProp;
+class UInterpTrackFloatMaterialParam;
+class UInterpTrackVectorMaterialParam;
 class UInterpTrackDirector;
 class UInterpTrackEvent;
 class UInterpTrackFade;
@@ -25,6 +27,7 @@ class UMovieSceneAudioTrack;
 class UMovieSceneBoolTrack;
 class UMovieSceneCameraCutTrack;
 class UMovieSceneColorTrack;
+class UMovieSceneComponentMaterialTrack;
 class UMovieSceneEventTrack;
 class UMovieSceneFadeTrack;
 class UMovieSceneFloatTrack;
@@ -55,6 +58,12 @@ public:
 
 	/** Copies keys from a matinee float track to a sequencer float track. */
 	static bool CopyInterpFloatTrack( UInterpTrackFloatBase* MatineeFloatTrack, UMovieSceneFloatTrack* FloatTrack );
+
+	/** Copies keys from a matinee material paramter track to a sequencer material track*/
+	static bool CopyInterpMaterialParamTrack( UInterpTrackFloatMaterialParam* MatineeMaterialParamTrack, UMovieSceneComponentMaterialTrack* MaterialTrack );
+
+	/** Copies keys from a matinee material paramter track to a sequencer material track */
+	static bool CopyInterpMaterialParamTrack( UInterpTrackVectorMaterialParam* MatineeMaterialParamTrack, UMovieSceneComponentMaterialTrack* MaterialTrack);
 
 	/** Copies keys from a matinee vector track to a sequencer vector track. */
 	static bool CopyInterpVectorTrack( UInterpTrackVectorProp* MatineeVectorTrack, UMovieSceneVectorTrack* VectorTrack );

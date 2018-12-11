@@ -33,7 +33,7 @@ namespace mtlpp
 	class Buffer;
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ResourceValidationTable : public ns::Object<ResourceValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT ResourceValidationTable : public ns::Object<ResourceValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		ResourceValidationTable(Resource& Resource);
@@ -44,7 +44,7 @@ namespace mtlpp
 		static char const* kTableAssociationKey;
 	};
 	
-	class BufferValidationTable : public ns::Object<BufferValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT BufferValidationTable : public ns::Object<BufferValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		BufferValidationTable(Buffer& Resource);
@@ -61,7 +61,7 @@ namespace mtlpp
 		static char const* kTableAssociationKey;
 	};
 	
-	class CommandEncoderValidationTable : public ns::Object<CommandEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT CommandEncoderValidationTable : public ns::Object<CommandEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		CommandEncoderValidationTable(BlitCommandEncoder& Encoder);
@@ -79,7 +79,7 @@ namespace mtlpp
 		static char const* kTableAssociationKey;
 	};
 	
-	class ParallelEncoderValidationTable : public ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT ParallelEncoderValidationTable : public ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		ParallelEncoderValidationTable(ParallelRenderCommandEncoder& Encoder);
@@ -90,7 +90,7 @@ namespace mtlpp
 		static char const* kTableAssociationKey;
 	};
 	
-	class CommandBufferValidationTable : public ns::Object<CommandBufferValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT CommandBufferValidationTable : public ns::Object<CommandBufferValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		CommandBufferValidationTable(CommandBuffer& Buffer);
@@ -109,7 +109,7 @@ namespace mtlpp
 		static char const* kTableAssociationKey;
 	};
 	
-	class DeviceValidationTable : public ns::Object<DeviceValidationTableImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT DeviceValidationTable : public ns::Object<DeviceValidationTableImpl*, ns::CallingConvention::ObjectiveC>
 	{
 	public:
 		DeviceValidationTable(Device& Device);
@@ -124,7 +124,7 @@ namespace mtlpp
 	};
 	
 	template <typename T>
-	class Validator
+	class MTLPP_EXPORT Validator
 	{
 	public:
 		Validator(T& Val, bool bEnable)

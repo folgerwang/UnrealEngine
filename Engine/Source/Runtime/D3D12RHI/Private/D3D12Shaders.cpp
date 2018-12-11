@@ -281,8 +281,6 @@ void FD3D12CommandContext::RHISetMultipleViewports(uint32 Count, const FViewport
 	StateCache.SetViewports(Count, reinterpret_cast<const D3D12_VIEWPORT*>(Data));
 }
 
-static volatile uint64 BoundShaderStateID = 0;
-
 FD3D12BoundShaderState::FD3D12BoundShaderState(
 	FVertexDeclarationRHIParamRef InVertexDeclarationRHI,
 	FVertexShaderRHIParamRef InVertexShaderRHI,
@@ -292,44 +290,11 @@ FD3D12BoundShaderState::FD3D12BoundShaderState(
 	FGeometryShaderRHIParamRef InGeometryShaderRHI,
 	FD3D12Device* InDevice
 	) :
-	FD3D12DeviceChild(InDevice),
-	CacheLink(InVertexDeclarationRHI, InVertexShaderRHI, InPixelShaderRHI, InHullShaderRHI, InDomainShaderRHI, InGeometryShaderRHI, this),
-	UniqueID(FPlatformAtomics::InterlockedIncrement(reinterpret_cast<volatile int64*>(&BoundShaderStateID)))
+	CacheLink(InVertexDeclarationRHI, InVertexShaderRHI, InPixelShaderRHI, InHullShaderRHI, InDomainShaderRHI, InGeometryShaderRHI, this)
 {
 	INC_DWORD_STAT(STAT_D3D12NumBoundShaderState);
 
-	// Warning: Input layout desc contains padding which must be zero-initialized to prevent PSO cache misses
-	FMemory::Memzero(&InputLayout, sizeof(InputLayout));
-
-	FD3D12VertexDeclaration*  InVertexDeclaration = FD3D12DynamicRHI::ResourceCast(InVertexDeclarationRHI);
-	FD3D12VertexShader*  InVertexShader = FD3D12DynamicRHI::ResourceCast(InVertexShaderRHI);
-	FD3D12PixelShader*  InPixelShader = FD3D12DynamicRHI::ResourceCast(InPixelShaderRHI);
-	FD3D12HullShader*  InHullShader = FD3D12DynamicRHI::ResourceCast(InHullShaderRHI);
-	FD3D12DomainShader*  InDomainShader = FD3D12DynamicRHI::ResourceCast(InDomainShaderRHI);
-	FD3D12GeometryShader*  InGeometryShader = FD3D12DynamicRHI::ResourceCast(InGeometryShaderRHI);
-
-	// Create an input layout for this combination of vertex declaration and vertex shader.
-	InputLayout.NumElements = (InVertexDeclaration ? InVertexDeclaration->VertexElements.Num() : 0);
-	InputLayout.pInputElementDescs = (InVertexDeclaration ? InVertexDeclaration->VertexElements.GetData() : nullptr);
-
-	bShaderNeedsGlobalConstantBuffer[SF_Vertex] = InVertexShader ? InVertexShader->ResourceCounts.bGlobalUniformBufferUsed : false;
-	bShaderNeedsGlobalConstantBuffer[SF_Hull] = InHullShader ? InHullShader->ResourceCounts.bGlobalUniformBufferUsed : false;
-	bShaderNeedsGlobalConstantBuffer[SF_Domain] = InDomainShader ? InDomainShader->ResourceCounts.bGlobalUniformBufferUsed : false;
-	bShaderNeedsGlobalConstantBuffer[SF_Pixel] = InPixelShader ? InPixelShader->ResourceCounts.bGlobalUniformBufferUsed : false;
-	bShaderNeedsGlobalConstantBuffer[SF_Geometry] = InGeometryShader ? InGeometryShader->ResourceCounts.bGlobalUniformBufferUsed : false;
-
-	static_assert(ARRAY_COUNT(bShaderNeedsGlobalConstantBuffer) == SF_NumFrequencies, "EShaderFrequency size should match with array count of bShaderNeedsGlobalConstantBuffer.");
-
-	if (InVertexDeclaration)
-	{
-		FMemory::Memcpy(StreamStrides, InVertexDeclaration->StreamStrides, sizeof(StreamStrides));
-	}
-	else
-	{
-		FMemory::Memzero(StreamStrides, sizeof(StreamStrides));
-	}
-
-	FD3D12Adapter* Adapter = GetParentDevice()->GetParentAdapter();
+	FD3D12Adapter* Adapter = InDevice->GetParentAdapter();
 
 #if USE_STATIC_ROOT_SIGNATURE
 	pRootSignature = Adapter->GetStaticGraphicsRootSignature();

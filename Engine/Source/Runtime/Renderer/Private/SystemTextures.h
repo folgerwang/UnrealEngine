@@ -81,6 +81,9 @@ public:
 	// float4(0.5,0.5,0.5,1)
 	TRefCountPtr<IPooledRenderTarget> DefaultNormal8Bit;
 
+	/** float4(0,0,0,0) volumetric texture. */
+	TRefCountPtr<IPooledRenderTarget> VolumetricBlackDummy;
+
 protected:
 	/** Maximum feature level that the textures have been initialized up to */
 	ERHIFeatureLevel::Type FeatureLevelInitializedTo;

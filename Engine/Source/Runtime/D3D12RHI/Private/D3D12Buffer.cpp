@@ -224,7 +224,7 @@ BufferType* FD3D12Adapter::CreateRHIBuffer(FRHICommandListImmediate* RHICmdList,
 			
 			if (RHICmdList && !RHICmdList->Bypass())
 			{
-				new (RHICmdList->AllocCommand<FD3D12RHICommandInitializeBuffer>()) FD3D12RHICommandInitializeBuffer(BufferOut, SrcResourceLoc, Size);
+				ALLOC_COMMAND_CL(*RHICmdList, FD3D12RHICommandInitializeBuffer)(BufferOut, SrcResourceLoc, Size);
 			}
 			else
 			{
@@ -271,7 +271,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 			// If on the RenderThread, queue up a command on the RHIThread to rename this buffer at the correct time
 			if (ShouldDeferBufferLockOperation(RHICmdList))
 			{
-				FRHICommandRenameUploadBuffer<BufferType>* Command = new (RHICmdList->AllocCommand<FRHICommandRenameUploadBuffer<BufferType>>()) FRHICommandRenameUploadBuffer<BufferType>(Buffer, Device);
+				FRHICommandRenameUploadBuffer<BufferType>* Command = ALLOC_COMMAND_CL(*RHICmdList, FRHICommandRenameUploadBuffer<BufferType>)(Buffer, Device);
 
 				Data = Adapter.GetUploadHeapAllocator(Device->GetGPUIndex()).AllocUploadResource(Buffer->GetSize(), Buffer->BufferAlignment, Command->NewLocation);
 				RHICmdList->RHIThreadFence(true);
@@ -392,13 +392,13 @@ void FD3D12DynamicRHI::UnlockBuffer(FRHICommandListImmediate* RHICmdList, Buffer
 				{
 					if (GNumExplicitGPUsForRendering == 1)
 					{
-						new (RHICmdList->AllocCommand<FRHICommandUpdateBuffer>()) FRHICommandUpdateBuffer(&CurrentBuffer->ResourceLocation, LockedData.ResourceLocation, LockedData.LockedOffset, LockedData.LockedPitch);
+						ALLOC_COMMAND_CL(*RHICmdList, FRHICommandUpdateBuffer)(&CurrentBuffer->ResourceLocation, LockedData.ResourceLocation, LockedData.LockedOffset, LockedData.LockedPitch);
 					}
 					else // The resource location must be copied because the constructor in FRHICommandUpdateBuffer transfers ownership and clears it.
 					{
 						FD3D12ResourceLocation NodeResourceLocation(LockedData.ResourceLocation.GetParentDevice());
 						FD3D12ResourceLocation::ReferenceNode(NodeResourceLocation.GetParentDevice(), NodeResourceLocation, LockedData.ResourceLocation);
-						new (RHICmdList->AllocCommand<FRHICommandUpdateBuffer>()) FRHICommandUpdateBuffer(&CurrentBuffer->ResourceLocation, NodeResourceLocation, LockedData.LockedOffset, LockedData.LockedPitch);
+						ALLOC_COMMAND_CL(*RHICmdList, FRHICommandUpdateBuffer)(&CurrentBuffer->ResourceLocation, NodeResourceLocation, LockedData.LockedOffset, LockedData.LockedPitch);
 					}
 				}
 				else

@@ -39,6 +39,7 @@ public:
 	TRefCountPtr<FMetalTexture2D> GetBackBuffer(EMetalViewportAccessFlag Accessor) const;
 	mtlpp::Drawable GetDrawable(EMetalViewportAccessFlag Accessor);
 	FMetalTexture GetDrawableTexture(EMetalViewportAccessFlag Accessor);
+	ns::AutoReleased<FMetalTexture> GetCurrentTexture(EMetalViewportAccessFlag Accessor);
 	void ReleaseDrawable(void);
 
 	// supports pulling the raw MTLTexture
@@ -66,6 +67,8 @@ private:
 	mtlpp::Drawable Drawable;
 	TRefCountPtr<FMetalTexture2D> BackBuffer[2];
 	mutable FCriticalSection Mutex;
+	
+	ns::AutoReleased<FMetalTexture> DrawableTextures[2];
 	
 	uint32 DisplayID;
 	FMetalViewportPresentHandler Block;

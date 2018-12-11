@@ -14,8 +14,9 @@
 #include "RenderingThread.h"
 #include "RHIStaticStates.h"
 #include "SceneView.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneRenderTargets.h"
+#include "VisualizeTexture.h"
 #include "SceneCore.h"
 #include "SceneHitProxyRendering.h"
 #include "SceneRendering.h"
@@ -25,6 +26,7 @@
 #include "RendererModule.h"
 #include "GPUBenchmark.h"
 #include "SystemSettings.h"
+#include "VisualizeTexturePresent.h"
 
 DEFINE_LOG_CATEGORY(LogRenderer);
 
@@ -110,7 +112,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				// Crash fix - reflection capture shader parameter is bound but we have no buffer during Build Texture Streaming
 				if(!View.ReflectionCaptureUniformBuffer.IsValid())
 				{
-					View.ReflectionCaptureUniformBuffer = GDummyReflectionCaptureUniformBuffer;
+					View.ReflectionCaptureUniformBuffer = GDummyReflectionCaptureUniformBuffer.GetUniformBufferRef();
 				}
 			
 				TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
@@ -170,9 +172,9 @@ void FRendererModule::TickRenderTargetPool()
 
 void FRendererModule::DebugLogOnCrash()
 {
-	GRenderTargetPool.VisualizeTexture.SortOrder = 1;
-	GRenderTargetPool.VisualizeTexture.bFullList = true;
-	GRenderTargetPool.VisualizeTexture.DebugLog(false);
+	GVisualizeTexture.SortOrder = 1;
+	GVisualizeTexture.bFullList = true;
+	FVisualizeTexturePresent::DebugLog(false);
 	
 	GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 
@@ -238,14 +240,6 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 	FlushRenderingCommands();
 }
 
-void FRendererModule::QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out)
-{
-	check(IsInGameThread());
-	FlushRenderingCommands();
-
-	GRenderTargetPool.VisualizeTexture.QueryInfo(Out);
-}
-
 static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 {
 	check(IsInGameThread());
@@ -267,44 +261,44 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		// FULL flag
 		if(Parameter == TEXT("fulllist") || Parameter == TEXT("full"))
 		{
-			GRenderTargetPool.VisualizeTexture.bFullList = true;
+			GVisualizeTexture.bFullList = true;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		// SORT0 flag
 		else if(Parameter == TEXT("sort0"))
 		{
-			GRenderTargetPool.VisualizeTexture.SortOrder = 0;
+			GVisualizeTexture.SortOrder = 0;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		// SORT1 flag
 		else if(Parameter == TEXT("sort1"))
 		{
-			GRenderTargetPool.VisualizeTexture.SortOrder = 1;
+			GVisualizeTexture.SortOrder = 1;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		else if(ParameterCount == 0)
 		{
 			// Init
-			GRenderTargetPool.VisualizeTexture.RGBMul = 1;
-			GRenderTargetPool.VisualizeTexture.SingleChannelMul = 0.0f;
-			GRenderTargetPool.VisualizeTexture.SingleChannel = -1;
-			GRenderTargetPool.VisualizeTexture.AMul = 0;
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 3;
-			GRenderTargetPool.VisualizeTexture.Flags = 0;
-			GRenderTargetPool.VisualizeTexture.Mode = 0;
-			GRenderTargetPool.VisualizeTexture.CustomMip = 0;
-			GRenderTargetPool.VisualizeTexture.ArrayIndex = 0;
-			GRenderTargetPool.VisualizeTexture.bOutputStencil = false;
+			GVisualizeTexture.RGBMul = 1;
+			GVisualizeTexture.SingleChannelMul = 0.0f;
+			GVisualizeTexture.SingleChannel = -1;
+			GVisualizeTexture.AMul = 0;
+			GVisualizeTexture.UVInputMapping = 3;
+			GVisualizeTexture.Flags = 0;
+			GVisualizeTexture.Mode = 0;
+			GVisualizeTexture.CustomMip = 0;
+			GVisualizeTexture.ArrayIndex = 0;
+			GVisualizeTexture.bOutputStencil = false;
 
 			// e.g. "VisualizeTexture Name" or "VisualizeTexture 5"
 			bool bIsDigit = FChar::IsDigit(**Parameter);
 
 			if (bIsDigit)
 			{
-				GRenderTargetPool.VisualizeTexture.Mode = FCString::Atoi(*Parameter);
+				GVisualizeTexture.Mode = FCString::Atoi(*Parameter);
 			}
 
 			if(!bIsDigit)
@@ -321,45 +315,45 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				{
 					// user specified a reuse goal
 					FString NameWithoutAt = Parameter.Left(AfterAt - *Parameter);
-					GRenderTargetPool.VisualizeTexture.SetObserveTarget(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
+					GVisualizeTexture.SetRenderTargetNameToObserve(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
 				}
 				else
 				{
 					// we take the last one
-					GRenderTargetPool.VisualizeTexture.SetObserveTarget(*Parameter);
+					GVisualizeTexture.SetRenderTargetNameToObserve(*Parameter);
 				}
 			}
 			else
 			{
 				// the index was used
-				GRenderTargetPool.VisualizeTexture.SetObserveTarget(TEXT(""));
+				GVisualizeTexture.SetRenderTargetNameToObserve(TEXT(""));
 			}
 		}
 		// GRenderTargetPoolInputMapping mode
 		else if(Parameter == TEXT("uv0"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 0;
+			GVisualizeTexture.UVInputMapping = 0;
 		}
 		else if(Parameter == TEXT("uv1"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 1;
+			GVisualizeTexture.UVInputMapping = 1;
 		}
 		else if(Parameter == TEXT("uv2"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 2;
+			GVisualizeTexture.UVInputMapping = 2;
 		}
 		else if(Parameter == TEXT("pip"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 3;
+			GVisualizeTexture.UVInputMapping = 3;
 		}
 		// BMP flag
 		else if(Parameter == TEXT("bmp"))
 		{
-			GRenderTargetPool.VisualizeTexture.bSaveBitmap = true;
+			GVisualizeTexture.bSaveBitmap = true;
 		}
 		else if (Parameter == TEXT("stencil"))
 		{
-			GRenderTargetPool.VisualizeTexture.bOutputStencil = true;
+			GVisualizeTexture.bOutputStencil = true;
 		}
 		// saturate flag
 		else if(Parameter == TEXT("frac"))
@@ -369,19 +363,19 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		// saturate flag
 		else if(Parameter == TEXT("sat"))
 		{
-			GRenderTargetPool.VisualizeTexture.Flags |= 0x1;
+			GVisualizeTexture.Flags |= 0x1;
 		}
 		// e.g. mip2 or mip0
 		else if(Parameter.Left(3) == TEXT("mip"))
 		{
 			Parameter = Parameter.Right(Parameter.Len() - 3);
-			GRenderTargetPool.VisualizeTexture.CustomMip = FCString::Atoi(*Parameter);
+			GVisualizeTexture.CustomMip = FCString::Atoi(*Parameter);
 		}
 		// e.g. [0] or [2]
 		else if(Parameter.Left(5) == TEXT("index"))
 		{
 			Parameter = Parameter.Right(Parameter.Len() - 5);
-			GRenderTargetPool.VisualizeTexture.ArrayIndex = FCString::Atoi(*Parameter);
+			GVisualizeTexture.ArrayIndex = FCString::Atoi(*Parameter);
 		}
 		// e.g. RGB*6, A, *22, /2.7, A*7
 		else if(Parameter.Left(3) == TEXT("rgb")
@@ -405,9 +399,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 			if ( SingleChannel >= 0 )
 			{
 				Parameter = Parameter.Right(Parameter.Len() - 1);
-				GRenderTargetPool.VisualizeTexture.SingleChannel = SingleChannel;
-				GRenderTargetPool.VisualizeTexture.SingleChannelMul = 1;
-				GRenderTargetPool.VisualizeTexture.RGBMul = 0;
+				GVisualizeTexture.SingleChannel = SingleChannel;
+				GVisualizeTexture.SingleChannelMul = 1;
+				GVisualizeTexture.RGBMul = 0;
 			}
 
 			float Mul = 1.0f;
@@ -423,9 +417,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				Parameter = Parameter.Right(Parameter.Len() - 1);
 				Mul = 1.0f / FCString::Atof(*Parameter);
 			}
-			GRenderTargetPool.VisualizeTexture.RGBMul *= Mul;
-			GRenderTargetPool.VisualizeTexture.SingleChannelMul *= Mul;
-			GRenderTargetPool.VisualizeTexture.AMul *= Mul;
+			GVisualizeTexture.RGBMul *= Mul;
+			GVisualizeTexture.SingleChannelMul *= Mul;
+			GVisualizeTexture.AMul *= Mul;
 		}
 		else
 		{
@@ -468,9 +462,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		Ar.Logf(TEXT("TextureId:"));
 		Ar.Logf(TEXT("  0        = <off>"));
 
-		GRenderTargetPool.VisualizeTexture.DebugLog(true);
+		FVisualizeTexturePresent::DebugLog(true);
 	}
-	//		Ar.Logf(TEXT("VisualizeTexture %d"), GRenderTargetPool.VisualizeTexture.Mode);
+	//		Ar.Logf(TEXT("VisualizeTexture %d"), GVisualizeTexture.Mode);
 }
 
 static bool RendererExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )

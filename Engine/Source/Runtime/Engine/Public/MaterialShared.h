@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.h: Shared material definitions.
@@ -356,7 +356,7 @@ public:
 
 	void SetParameterCollections(const TArray<class UMaterialParameterCollection*>& Collections);
 	void CreateBufferStruct();
-	ENGINE_API const FUniformBufferStruct& GetUniformBufferStruct() const;
+	ENGINE_API const FShaderParametersMetadata& GetUniformBufferStruct() const;
 
 	ENGINE_API FUniformBufferRHIRef CreateUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, FRHICommandList* CommandListIfLocalMode, struct FLocalUniformBuffer* OutLocalUniformBuffer) const;
 
@@ -369,7 +369,7 @@ public:
 			+ UniformVolumeTextureExpressions.GetAllocatedSize()
 			+ UniformExternalTextureExpressions.GetAllocatedSize()
 			+ ParameterCollections.GetAllocatedSize()
-			+ (UniformBufferStruct ? (sizeof(FUniformBufferStruct) + UniformBufferStruct->GetMembers().GetAllocatedSize()) : 0);
+			+ (UniformBufferStruct ? (sizeof(FShaderParametersMetadata) + UniformBufferStruct->GetMembers().GetAllocatedSize()) : 0);
 	}
 
 protected:
@@ -385,7 +385,7 @@ protected:
 	TArray<FGuid> ParameterCollections;
 
 	/** The structure of a uniform buffer containing values for these uniform expressions. */
-	TOptional<FUniformBufferStruct> UniformBufferStruct;
+	TOptional<FShaderParametersMetadata> UniformBufferStruct;
 
 	friend class FMaterial;
 	friend class FHLSLMaterialTranslator;

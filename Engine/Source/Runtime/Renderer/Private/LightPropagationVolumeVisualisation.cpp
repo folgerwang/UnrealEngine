@@ -235,7 +235,7 @@ void FLightPropagationVolume::Visualise(FRHICommandList& RHICmdList, const FView
 	PixelShader->SetParameters(RHICmdList, this, View);
 
 	RHICmdList.SetStreamSource(0, NULL, 0);
-	RHICmdList.DrawPrimitive(PrimType, 0, NumPrims, 32 * 3);
+	RHICmdList.DrawPrimitive(0, NumPrims, 32 * 3);
 
 	PixelShader->UnbindBuffers(RHICmdList);
 }

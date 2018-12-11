@@ -228,7 +228,7 @@ FLinearColor FColor::FromRGBE() const
 }
 
 /**
- * Converts byte hue-saturation-brightness to floating point red-green-blue.
+ * Old version of MakeFromHSV8, formula is not correct
  */
 FLinearColor FLinearColor::FGetHSV( uint8 H, uint8 S, uint8 V )
 {
@@ -240,6 +240,15 @@ FLinearColor FLinearColor::FGetHSV( uint8 H, uint8 S, uint8 V )
 	return FLinearColor(ColorVector.X,ColorVector.Y,ColorVector.Z,1);
 }
 
+/**
+ * Converts byte hue-saturation-brightness to floating point red-green-blue.
+ */
+FLinearColor FLinearColor::MakeFromHSV8(uint8 H, uint8 S, uint8 V)
+{
+	// want a given H value of 255 to map to just below 360 degrees
+	const FLinearColor HSVColor((float)H * (360.0f / 256.0f), (float)S / 255.0f, (float)V / 255.0f);
+	return HSVColor.HSVToLinearRGB();
+}
 
 /** Converts a linear space RGB color to an HSV color */
 FLinearColor FLinearColor::LinearRGBToHSV() const
@@ -344,7 +353,7 @@ FLinearColor FLinearColor::LerpUsingHSV( const FLinearColor& From, const FLinear
 FLinearColor FLinearColor::MakeRandomColor()
 {
 	const uint8 Hue = (uint8)(FMath::FRand()*255.f);
-	return FLinearColor::FGetHSV(Hue, 0, 255);
+	return FLinearColor::MakeFromHSV8(Hue, 0, 255);
 }
 
 FColor FColor::MakeRandomColor()

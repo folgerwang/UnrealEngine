@@ -34,22 +34,26 @@ void FRCDistortionAccumulatePassES2::Process(FRenderingCompositePassContext& Con
 	FSceneRenderTargets& SceneTargets = FSceneRenderTargets::Get(Context.RHICmdList);
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-	Context.SetViewportAndCallRHI(View.ViewRect);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DistortionAccumulate"));
+	{
 
-	FMobileSceneTextureUniformParameters SceneTextureParameters;
-	SetupMobileSceneTextureUniformParameters(SceneTargets, View.FeatureLevel, true, SceneTextureParameters);
-	TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+		Context.SetViewportAndCallRHI(View.ViewRect);
 
-	FDrawingPolicyRenderState DrawRenderState(View, MobilePassUniformBuffer);
-	// We don't have depth, render all pixels, pixel shader will sample SceneDepth from SceneColor.A and discard if occluded
-	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-	// additive blending of offsets
-	DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
+		FMobileSceneTextureUniformParameters SceneTextureParameters;
+		SetupMobileSceneTextureUniformParameters(SceneTargets, View.FeatureLevel, true, SceneTextureParameters);
+		TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
 
-	// draw only distortion meshes to accumulate their offsets
-	View.DistortionPrimSet.DrawAccumulatedOffsets(Context.RHICmdList, View, DrawRenderState, false);
-		
+		FDrawingPolicyRenderState DrawRenderState(View, MobilePassUniformBuffer);
+		// We don't have depth, render all pixels, pixel shader will sample SceneDepth from SceneColor.A and discard if occluded
+		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+		// additive blending of offsets
+		DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
+
+		// draw only distortion meshes to accumulate their offsets
+		View.DistortionPrimSet.DrawAccumulatedOffsets(Context.RHICmdList, View, DrawRenderState, false);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -118,45 +122,47 @@ void FRCDistortionMergePassES2::Process(FRenderingCompositePassContext& Context)
 	const FPooledRenderTargetDesc& OutputDesc = PassOutputs[0].RenderTargetDesc;
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DistortionMerge"));
+	{
+		FIntRect SrcRect = View.ViewRect;
+		FIntRect DestRect = View.ViewRect;
+		FIntPoint SrcSize = InputDesc->Extent;
+		FIntPoint DstSize = OutputDesc.Extent;
 
-	FIntRect SrcRect = View.ViewRect;
-	FIntRect DestRect = View.ViewRect;
-	FIntPoint SrcSize = InputDesc->Extent;
-	FIntPoint DstSize = OutputDesc.Extent;
-	
-	Context.SetViewportAndCallRHI(View.ViewRect);
+		Context.SetViewportAndCallRHI(View.ViewRect);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
-	TShaderMapRef<FDistortionMergePS_ES2> PixelShader(View.ShaderMap);
+		TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
+		TShaderMapRef<FDistortionMergePS_ES2> PixelShader(View.ShaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	VertexShader->SetParameters(Context);
-	PixelShader->SetParameters(Context);
+		VertexShader->SetParameters(Context);
+		PixelShader->SetParameters(Context);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstSize.X, DstSize.Y,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstSize.X, DstSize.Y,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 

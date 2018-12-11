@@ -12,7 +12,7 @@ public class PreLoadScreenMoviePlayer : ModuleRules
 			new string[] {
                 "Core",
                 "RHI",
-                "ShaderCore",
+                "RenderCore",
                 "MoviePlayer",
                 "Slate",
                 "SlateCore",

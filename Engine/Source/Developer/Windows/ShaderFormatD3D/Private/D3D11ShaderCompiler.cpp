@@ -1073,6 +1073,10 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		}
 	}
 
+	if (Input.RootParameterBindings.Num())
+	{
+		MoveShaderParametersToRootConstantBuffer(Input, PreprocessedShaderSource);
+	}
 	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShaderSource);
 
 	// Override default compiler path to newer dll

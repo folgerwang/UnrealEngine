@@ -105,6 +105,8 @@ FVulkanCmdBuffer::~FVulkanCmdBuffer()
 	if (Timing)
 	{
 		Timing->Release();
+		delete Timing;
+		Timing = nullptr;
 	}
 }
 
@@ -584,7 +586,7 @@ void FVulkanCommandBufferManager::FreeUnusedCmdBuffers()
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandFreeUnusedCmdBuffers>()) FRHICommandFreeUnusedCmdBuffers(&Pool, Queue);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandFreeUnusedCmdBuffers)(&Pool, Queue);
 	}
 #endif
 }

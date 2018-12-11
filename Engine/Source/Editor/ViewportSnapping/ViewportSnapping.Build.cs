@@ -14,7 +14,6 @@ public class ViewportSnapping : ModuleRules
 				"CoreUObject",
 				"Engine",
 // 				"RenderCore",
-// 				"ShaderCore",
 // 				"RHI",
 				"Slate",
 				"UnrealEd"

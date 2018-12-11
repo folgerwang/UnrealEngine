@@ -169,7 +169,7 @@ public:
 * Combined shader state and vertex definition for rendering geometry.
 * Each unique instance consists of a vertex decl, vertex shader, and pixel shader.
 */
-class FD3D12BoundShaderState : public FRHIBoundShaderState, public FD3D12DeviceChild
+class FD3D12BoundShaderState : public FRHIBoundShaderState
 {
 public:
 
@@ -179,11 +179,6 @@ public:
 	FCachedBoundShaderStateLink CacheLink;
 #endif
 
-	D3D12_INPUT_LAYOUT_DESC InputLayout;
-	uint16 StreamStrides[MaxVertexElementCount];
-
-	bool bShaderNeedsGlobalConstantBuffer[SF_NumFrequencies];
-	uint64 UniqueID;
 	const FD3D12RootSignature* pRootSignature;
 
 	/** Initialization constructor. */
@@ -202,11 +197,12 @@ public:
 	/**
 	* Get the shader for the given frequency.
 	*/
-	FORCEINLINE FD3D12VertexShader*   GetVertexShader() const { return (FD3D12VertexShader*)CacheLink.GetVertexShader(); }
-	FORCEINLINE FD3D12PixelShader*    GetPixelShader() const { return (FD3D12PixelShader*)CacheLink.GetPixelShader(); }
-	FORCEINLINE FD3D12HullShader*     GetHullShader() const { return (FD3D12HullShader*)CacheLink.GetHullShader(); }
-	FORCEINLINE FD3D12DomainShader*   GetDomainShader() const { return (FD3D12DomainShader*)CacheLink.GetDomainShader(); }
-	FORCEINLINE FD3D12GeometryShader* GetGeometryShader() const { return (FD3D12GeometryShader*)CacheLink.GetGeometryShader(); }
+	FORCEINLINE FD3D12VertexDeclaration* GetVertexDeclaration() const { return (FD3D12VertexDeclaration*) CacheLink.GetVertexDeclaration(); }
+	FORCEINLINE FD3D12VertexShader*      GetVertexShader()      const { return (FD3D12VertexShader*)      CacheLink.GetVertexShader();      }
+	FORCEINLINE FD3D12PixelShader*       GetPixelShader()       const { return (FD3D12PixelShader*)       CacheLink.GetPixelShader();       }
+	FORCEINLINE FD3D12HullShader*        GetHullShader()        const { return (FD3D12HullShader*)        CacheLink.GetHullShader();        }
+	FORCEINLINE FD3D12DomainShader*      GetDomainShader()      const { return (FD3D12DomainShader*)      CacheLink.GetDomainShader();      }
+	FORCEINLINE FD3D12GeometryShader*    GetGeometryShader()    const { return (FD3D12GeometryShader*)    CacheLink.GetGeometryShader();    }
 };
 
 template<>
