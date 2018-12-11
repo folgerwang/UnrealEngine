@@ -204,7 +204,7 @@ struct FUnloadedAssetData
 		, AssetFriendlyName(FText::FromString(FName::NameToDisplayString(InAsset.AssetName.ToString(), false)))
 		, PossibleObjectReferenceTypes(InPossibleObjectReferenceTypes)
 	{
-		InAsset.GetTagValue("Tooltip", Tooltip);
+		InAsset.GetTagValue(FBlueprintMetadata::MD_Tooltip, Tooltip);
 		if (Tooltip.IsEmpty())
 		{
 			Tooltip = FText::FromString(InAsset.ObjectPath.ToString());

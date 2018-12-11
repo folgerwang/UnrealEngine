@@ -64,6 +64,8 @@ private:
 	/** Flag used to track validity of pin tooltips, when tooltips are invalid they will be refreshed before being displayed */
 	mutable bool bPinTooltipsValid;
 
+	TArray<UEdGraphPin*> ExpandAsEnumPins;
+
 public:
 
 	// UObject interface
@@ -198,6 +200,8 @@ public:
 
 	/** */
 	static FSlateIcon GetPaletteIconForFunction(UFunction const* Function, FLinearColor& OutColor);
+
+	static void GetExpandEnumPinNames(const UFunction* Function, TArray<FName>& EnumNamesToCheck);
 
 private: 
 	/* Looks at function metadata and properties to determine if this node should be using enum to exec expansion */

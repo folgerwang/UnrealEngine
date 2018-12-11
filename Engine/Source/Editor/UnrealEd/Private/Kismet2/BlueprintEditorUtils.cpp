@@ -4137,9 +4137,19 @@ void FBlueprintEditorUtils::GetHiddenPinsForFunction(UEdGraph const* Graph, UFun
 
 			const FName& Key = It.Key();
 
-			if (Key == NAME_LatentInfo || Key == NAME_HidePin || Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			if (Key == NAME_LatentInfo || Key == NAME_HidePin)
 			{
 				HiddenPins.Add(*It.Value());
+			}
+			else if (Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			{
+				TArray<FName> EnumPinNames;
+				UK2Node_CallFunction::GetExpandEnumPinNames(Function, EnumPinNames);
+				
+				for (const FName& EnumName : EnumPinNames)
+				{
+					HiddenPins.Add(EnumName);
+				}
 			}
 			else if (Key == FBlueprintMetadata::MD_InternalUseParam)
 			{

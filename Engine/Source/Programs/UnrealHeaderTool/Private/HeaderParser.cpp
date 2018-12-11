@@ -1010,9 +1010,46 @@ namespace
 			{
 				if (UFunction* Function = Cast<UFunction>(Field))
 				{
-					if (FHeaderParser::FindField(Function, *InValue, false) == nullptr)
+					// multiple entry parsing in the same format as eg SetParam.
+					TArray<FString> RawGroupings;
+					InValue.ParseIntoArray(RawGroupings, TEXT(","), false);
+
+					UProperty* FirstInput = nullptr;
+					for (const FString& RawGroup : RawGroupings)
 					{
-						UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *InValue);
+						TArray<FString> IndividualEntries;
+						RawGroup.ParseIntoArray(IndividualEntries, TEXT("|"));
+
+						for (const FString& Entry : IndividualEntries)
+						{
+							if (Entry.IsEmpty())
+							{
+								continue;
+							}
+							
+							UField* FoundField = FHeaderParser::FindField(Function, *Entry, false);
+							if (!FoundField)
+							{
+								UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *Entry);
+							}
+							else if (UProperty* Prop = Cast<UProperty>(FoundField))
+							{
+								if (!Prop->HasAnyPropertyFlags(CPF_ReturnParm) &&
+
+								    (!Prop->HasAnyPropertyFlags(CPF_OutParm) ||
+									Prop->HasAnyPropertyFlags(CPF_ReferenceParm)))
+								{
+									if (!FirstInput)
+									{
+										FirstInput = Prop;
+									}
+									else
+									{
+										UE_LOG_ERROR_UHT(TEXT("Function already specified an ExpandEnumAsExec input (%s), but '%s' is also an input parameter. Only one is permitted."), *FirstInput->GetName(), *Entry);
+									}
+								}
+							}
+						}
 					}
 				}
 			}
