@@ -155,7 +155,7 @@ void SLevelEditor::Construct( const SLevelEditor::FArguments& InArgs)
 	BindCommands();
 
 	// We need to register when modes list changes so that we can refresh the auto generated commands.
-	FEditorModeRegistry::Get().OnRegisteredModesChanged().AddRaw(this, &SLevelEditor::RefreshEditorModeCommands);
+	FEditorModeRegistry::Get().OnRegisteredModesChanged().AddRaw(this, &SLevelEditor::EditorModeCommandsChanged);
 
 	// @todo This is a hack to get this working for now. This won't work with multiple worlds
 	GEditor->GetEditorWorldContext(true).AddRef(World);
@@ -1303,6 +1303,16 @@ bool SLevelEditor::IsModeActive( FEditorModeID ModeID )
 		}
 	}
 	return GLevelEditorModeTools().IsModeActive( ModeID );
+}
+
+void SLevelEditor::EditorModeCommandsChanged()
+{
+	if (FLevelEditorModesCommands::IsRegistered())
+	{
+		FLevelEditorModesCommands::Unregister();
+	}
+
+	RefreshEditorModeCommands();
 }
 
 void SLevelEditor::RefreshEditorModeCommands()

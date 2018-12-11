@@ -155,6 +155,9 @@ private:
 	/** Rebuilds the command list for spawning editor modes, this is done when new modes are registered. */
 	void RefreshEditorModeCommands();
 
+	/** Editor mode has been added or removed, clears cached command list so it will be rebuilt */
+	void EditorModeCommandsChanged();
+
 	/** Gets the tabId mapping to an editor mode */
 	static FName GetEditorModeTabId( FEditorModeID ModeID );
 
