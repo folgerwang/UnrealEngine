@@ -329,6 +329,24 @@ namespace UnrealBuildTool
 
 			SourceDirectories = new HashSet<DirectoryReference>(SourceFiles.Select(x => x.Location.Directory));
 
+			// Store the module compile environment along with the source file.  This is so that we can use it later on when looking for header dependencies
+			foreach (FileItem CFile in SourceFilesFound.CFiles)
+			{
+				CFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem CCFile in SourceFilesFound.CCFiles)
+			{
+				CCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
+			{
+				CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+			foreach (FileItem MMFile in SourceFilesFound.MMFiles)
+			{
+				MMFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+			}
+
 			// Process all of the header file dependencies for this module
 			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, SourceFilesToBuild.CPPFiles);
 
@@ -1228,38 +1246,38 @@ namespace UnrealBuildTool
 				}
 
 				if (IsCompilableSourceFile)
-				{
+		{
 					if (SourceFilePath.IsUnderDirectory(SourceFilesBaseDirectory))
-					{
+			{
 						// Store the path as relative to the project file
 						string RelativeFilePath = SourceFilePath.MakeRelativeTo(SourceFilesBaseDirectory);
 
 						// All compiled files should always be in a sub-directory under the project file directory.  We enforce this here.
 						if (Path.IsPathRooted(RelativeFilePath) || RelativeFilePath.StartsWith(".."))
-						{
+				{
 							throw new BuildException("Error: Found source file {0} in project whose path was not relative to the base directory of the source files", RelativeFilePath);
-						}
+				}
 
 						// Check for source files that don't belong to the platform we're currently compiling.  We'll filter
 						// those source files out
 						bool IncludeThisFile = true;
 						foreach (string CurPlatformName in OtherPlatformNameStrings)
-						{
+				{
 							if (RelativeFilePath.IndexOf(Path.DirectorySeparatorChar + CurPlatformName + Path.DirectorySeparatorChar, StringComparison.InvariantCultureIgnoreCase) != -1
 								|| RelativeFilePath.StartsWith(CurPlatformName + Path.DirectorySeparatorChar))
 							{
 								IncludeThisFile = false;
 								break;
 							}
-						}
+				}
 
 						if (IncludeThisFile)
-						{
+				{
 							FilteredFileItems.Add(FileItem.GetItemByFileReference(SourceFilePath));
 						}
 					}
 				}
-			}
+				}
 
 			// @todo projectfiles: Consider enabling this error but changing it to a warning instead.  It can fire for
 			//    projects that are being digested for IntelliSense (because the module was set as a cross-
@@ -1267,7 +1285,7 @@ namespace UnrealBuildTool
 			//    in the project generator
 			bool AllowEmptyProjects = true;
 			if (!AllowEmptyProjects)
-			{
+				{
 				if (FilteredFileItems.Count == 0)
 				{
 					throw new BuildException("Could not find any valid source files for base directory {0}.  Project has {1} files in it", SourceFilesBaseDirectory, SourceFiles.Count);
