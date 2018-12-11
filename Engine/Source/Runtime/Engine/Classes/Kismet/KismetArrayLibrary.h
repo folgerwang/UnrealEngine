@@ -47,6 +47,16 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	static void Array_Shuffle(const TArray<int32>& TargetArray);
 
 	/** 
+	 * Checks if two arrays are memberwise identical
+	 *
+	 * @param	ArrayA		One of the arrays to compare
+	 * @param	ArrayB		The other array to compare
+	 * @return Whether the two arrays are identical
+	 */
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Identical", CompactNodeTitle = "==", ArrayParm = "ArrayA,ArrayB", ArrayTypeDependentParams = "ArrayB"), Category="Utilities|Array")
+	static bool Array_Identical(const TArray<int32>& ArrayA, const TArray<int32>& ArrayB);
+
+	/** 
 	 *Append an array to another array
 	 *
 	 *@param	TargetArray		The array to add the source array to
@@ -203,6 +213,7 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	static int32 GenericArray_Add(void* TargetArray, const UArrayProperty* ArrayProp, const void* NewItem);
 	static int32 GenericArray_AddUnique(void* TargetArray, const UArrayProperty* ArrayProp, const void* NewItem);
 	static void GenericArray_Shuffle(void* TargetArray, const UArrayProperty* ArrayProp);
+	static bool GenericArray_Identical(void* ArrayA, const UArrayProperty* ArrayAProp, void* ArrayB, const UArrayProperty* ArrayBProperty);
 	static void GenericArray_Append(void* TargetArray, const UArrayProperty* TargetArrayProp, void* SourceArray, const UArrayProperty* SourceArrayProperty);
 	static void GenericArray_Insert(void* TargetArray, const UArrayProperty* ArrayProp, const void* NewItem, int32 Index);
 	static void GenericArray_Remove(void* TargetArray, const UArrayProperty* ArrayProp, int32 IndexToRemove);
@@ -300,6 +311,35 @@ public:
 		P_FINISH;
 		P_NATIVE_BEGIN;
 		GenericArray_Shuffle(ArrayAddr, ArrayProperty);
+		P_NATIVE_END;
+	}
+
+	DECLARE_FUNCTION(execArray_Identical)
+	{
+		// Retrieve the first array
+		Stack.MostRecentProperty = nullptr;
+		Stack.StepCompiledIn<UArrayProperty>(NULL);
+		void* ArrayAAddr = Stack.MostRecentPropertyAddress;
+		UArrayProperty* ArrayAProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayAProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
+		// Retrieve the second array
+		Stack.MostRecentProperty = nullptr;
+		Stack.StepCompiledIn<UArrayProperty>(NULL);
+		void* ArrayBAddr = Stack.MostRecentPropertyAddress;
+		UArrayProperty* ArrayBProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayBProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
+
+		P_FINISH;
+		P_NATIVE_BEGIN;
+		*(bool*)RESULT_PARAM = GenericArray_Identical(ArrayAAddr, ArrayAProperty, ArrayBAddr, ArrayBProperty);
 		P_NATIVE_END;
 	}
 
