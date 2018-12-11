@@ -483,10 +483,16 @@ namespace Tools.DotNETCommon
 				}
 
 				FrameworkProcess.Start();
-				FrameworkProcess.PriorityClass = Priority;
+				try
+				{
+					FrameworkProcess.PriorityClass = Priority;
+				}
+				catch
+				{
 
+				}
 				// If we have any input text, write it to stdin now
-				if(Input != null)
+				if (Input != null)
 				{
 					FrameworkProcess.StandardInput.BaseStream.Write(Input, 0, Input.Length);
 					FrameworkProcess.StandardInput.BaseStream.Close();
