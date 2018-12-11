@@ -3142,6 +3142,8 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 	int32 MaxTiles = 0;
 	int32 MaxPolysPerTile = 0;
 
+	RcNavMeshOrigin = Unreal2RecastPoint(DestNavMesh->NavMeshOriginOffset);
+
 	// recreate navmesh if no data was loaded, or when loaded data doesn't match current grid layout
 	bool bRecreateNavmesh = true;
 	if (DestNavMesh->HasValidNavmesh())
