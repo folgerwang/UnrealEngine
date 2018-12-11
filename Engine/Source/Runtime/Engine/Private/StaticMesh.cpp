@@ -1483,7 +1483,18 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
+		
+		if (SrcModel.MeshDescriptionBulkData.IsValid())
+		{
+			KeySuffix += "MD";
+			KeySuffix += SrcModel.MeshDescriptionBulkData->GetIdString();
+			// @todo: handle generated LODs? They will not have a valid MeshDescription bulk data
+		}
+		else
+		{
+			// Legacy path for old assets
+			KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
+		}
 
 		// Serialize the build and reduction settings into a temporary array. The archive
 		// is flagged as persistent so that machines of different endianness produce
@@ -2993,7 +3004,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("E8B980F2DF8F4BB292D0FAA928277269")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("7B4DCBC8C34E4C6E97A9A84BA61CADCD")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {

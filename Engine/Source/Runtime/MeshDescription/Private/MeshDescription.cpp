@@ -1199,6 +1199,15 @@ void FMeshDescription::ReverseAllPolygonFacing()
 void FMeshDescriptionBulkData::Serialize( FArchive& Ar, UObject* Owner )
 {
 	BulkData.Serialize( Ar, Owner );
+
+	if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionBulkDataGuid )
+	{
+		FPlatformMisc::CreateGuid( Guid );
+	}
+	else
+	{
+		Ar << Guid;
+	}
 }
 
 
@@ -1212,6 +1221,8 @@ void FMeshDescriptionBulkData::SaveMeshDescription( FMeshDescription& MeshDescri
 		FBulkDataWriter Ar( BulkData, bIsPersistent );
 		Ar << MeshDescription;
 	}
+
+	FPlatformMisc::CreateGuid( Guid );
 }
 
 
@@ -1238,6 +1249,12 @@ void FMeshDescriptionBulkData::LoadMeshDescription( FMeshDescription& MeshDescri
 void FMeshDescriptionBulkData::Empty()
 {
 	BulkData.RemoveBulkData();
+}
+
+
+FString FMeshDescriptionBulkData::GetIdString() const
+{
+	return Guid.ToString();
 }
 
 #endif // #if WITH_EDITORONLY_DATA

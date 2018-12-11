@@ -67,6 +67,8 @@ struct CORE_API FEditorObjectVersion
 		ChangeSceneCaptureRootComponent,
 		// StaticMesh serializes MeshDescription instead of RawMesh
 		StaticMeshDeprecatedRawMesh,
+		// MeshDescriptionBulkData contains a Guid used as a DDC key
+		MeshDescriptionBulkDataGuid,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

@@ -948,11 +948,17 @@ public:
 
 	/** Returns true if there is no bulk data available */
 	bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
+
+	/** Return unique ID string for this bulk data */
+	FString GetIdString() const;
 #endif
 
 private:
 	/** Internally store bulk data as bytes */
 	FByteBulkData BulkData;
+
+	/** GUID associated with the data stored herein. */
+	FGuid Guid;
 };
 
 
