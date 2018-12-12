@@ -4092,48 +4092,62 @@ void SSCSEditor::OnDuplicateComponent()
 	{
 		const FScopedTransaction Transaction(SelectedNodes.Num() > 1 ? LOCTEXT("DuplicateComponents", "Duplicate Components") : LOCTEXT("DuplicateComponent", "Duplicate Component"));
 
+		TMap<USceneComponent*, USceneComponent*> DuplicateSceneComponentMap;
 		for (int32 i = 0; i < SelectedNodes.Num(); ++i)
 		{
 			if (UActorComponent* ComponentTemplate = SelectedNodes[i]->GetComponentTemplate())
 			{
 				UActorComponent* CloneComponent = AddNewComponent(ComponentTemplate->GetClass(), ComponentTemplate);
-				UActorComponent* OriginalComponent = ComponentTemplate;
-
-				// If we've duplicated a scene component, attempt to reposition the duplicate in the hierarchy if the original
-				// was attached to another scene component as a child. By default, the duplicate is attached to the scene root node.
-				USceneComponent* NewSceneComponent = Cast<USceneComponent>(CloneComponent);
-				if(NewSceneComponent != NULL)
+				if (USceneComponent* SceneClone = Cast<USceneComponent>(CloneComponent))
 				{
-					if (EditorMode == EComponentEditorMode::BlueprintSCS)
-					{
-						// Ensure that any native attachment relationship inherited from the original copy is removed (to prevent a GLEO assertion)
-						NewSceneComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-					}
+					DuplicateSceneComponentMap.Add(CastChecked<USceneComponent>(ComponentTemplate), SceneClone);
+				}
+			}
+		}
+
+		for (const TPair<USceneComponent*,USceneComponent*>& DuplicatedPair : DuplicateSceneComponentMap)
+		{
+			USceneComponent* OriginalComponent = DuplicatedPair.Key;
+			USceneComponent* NewSceneComponent = DuplicatedPair.Value;
+
+			if (EditorMode == EComponentEditorMode::BlueprintSCS)
+			{
+				// Ensure that any native attachment relationship inherited from the original copy is removed (to prevent a GLEO assertion)
+				NewSceneComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			}
 					
-					// Attempt to locate the original node in the SCS tree
-					FSCSEditorTreeNodePtrType OriginalNodePtr = FindTreeNode(OriginalComponent);
-					if(OriginalNodePtr.IsValid())
+			// Attempt to locate the original node in the SCS tree
+			FSCSEditorTreeNodePtrType OriginalNodePtr = FindTreeNode(OriginalComponent);
+			if(OriginalNodePtr.IsValid())
+			{
+				// If we're duplicating the root then we're already a child of it so need to reparent, but we do need to reset the scale
+				// otherwise we'll end up with the square of the root's scale instead of being the same size.
+				if (OriginalNodePtr == SceneRootNodePtr)
+				{
+					NewSceneComponent->RelativeScale3D = FVector(1.f);
+				}
+				else
+				{
+					// If the original node was parented, attempt to add the duplicate as a child of the same parent node if the parent is not
+					// part of the duplicate set, otherwise parent to the parent's duplicate
+					FSCSEditorTreeNodePtrType ParentNodePtr = OriginalNodePtr->GetParent();
+					if (ParentNodePtr.IsValid())
 					{
-						// If we're duplicating the root then we're already a child of it so need to reparent, but we do need to reset the scale
-						// otherwise we'll end up with the square of the root's scale instead of being the same size.
-						if (OriginalNodePtr == SceneRootNodePtr)
+						if (USceneComponent** ParentDuplicateComponent = DuplicateSceneComponentMap.Find(Cast<USceneComponent>(ParentNodePtr->GetComponentTemplate())))
 						{
-							NewSceneComponent->RelativeScale3D = FVector(1.f);
-						}
-						else
-						{
-							// If the original node was parented, attempt to add the duplicate as a child of the same parent node
-							FSCSEditorTreeNodePtrType ParentNodePtr = OriginalNodePtr->GetParent();
-							if (ParentNodePtr.IsValid())
+							FSCSEditorTreeNodePtrType DuplicateParentNodePtr = FindTreeNode(*ParentDuplicateComponent);
+							if (DuplicateParentNodePtr.IsValid())
 							{
-								// Locate the duplicate node (as a child of the current scene root node), and switch it to be a child of the original node's parent
-								FSCSEditorTreeNodePtrType NewChildNodePtr = SceneRootNodePtr->FindChild(NewSceneComponent, true);
-								if (NewChildNodePtr.IsValid())
-								{
-									// Note: This method will handle removal from the scene root node as well
-									ParentNodePtr->AddChild(NewChildNodePtr);
-								}
+								ParentNodePtr = DuplicateParentNodePtr;
 							}
+						}
+
+						// Locate the duplicate node (as a child of the current scene root node), and switch it to be a child of the original node's parent
+						FSCSEditorTreeNodePtrType NewChildNodePtr = SceneRootNodePtr->FindChild(NewSceneComponent, true);
+						if (NewChildNodePtr.IsValid())
+						{
+							// Note: This method will handle removal from the scene root node as well
+							ParentNodePtr->AddChild(NewChildNodePtr);
 						}
 					}
 				}
@@ -5128,7 +5142,18 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 			bAllowTreeUpdates = false;
 		}
 		
-		const FName NewVariableName = (Asset ? FName(*FComponentEditorUtils::GenerateValidVariableNameFromAsset(Asset, nullptr)) : NAME_None);
+		FName NewVariableName;
+		if (ComponentTemplate)
+		{
+			FString TemplateName = ComponentTemplate->GetName();
+			NewVariableName = (TemplateName.EndsWith(USimpleConstructionScript::ComponentTemplateNameSuffix) 
+								? FName(*TemplateName.LeftChop(USimpleConstructionScript::ComponentTemplateNameSuffix.Len()))
+								: ComponentTemplate->GetFName());
+		}
+		else if (Asset)
+		{
+			NewVariableName = *FComponentEditorUtils::GenerateValidVariableNameFromAsset(Asset, nullptr);
+		}
 		NewComponent = AddNewNode(Blueprint->SimpleConstructionScript->CreateNode(NewComponentClass, NewVariableName), Asset, bMarkBlueprintModified, bSetFocusToNewItem);
 
 		if (ComponentTemplate)
@@ -5425,11 +5450,41 @@ void SSCSEditor::CopySelectedNodes()
 		if (ComponentTemplate)
 		{
 			ComponentsToCopy.Add(ComponentTemplate);
+
+			if (EditorMode == EComponentEditorMode::BlueprintSCS)
+			{
+				// CopyComponents uses component attachment to maintain hierarchy, but the SCS templates are not
+				// setup with a relationship to each other. Briefly setup the attachment between the templates being
+				// copied so that the hierarchy is retained upon pasting
+				if (USceneComponent* SceneTemplate = Cast<USceneComponent>(ComponentTemplate))
+				{
+					FSCSEditorTreeNodePtrType SelectedParentNodePtr = SelectedNodePtr->GetParent();
+					if (SelectedParentNodePtr.IsValid())
+					{
+						if (USceneComponent* ParentSceneTemplate = Cast<USceneComponent>(SelectedParentNodePtr->GetComponentTemplate()))
+						{
+							SceneTemplate->SetupAttachment(ParentSceneTemplate);
+						}
+					}
+				}
+			}
 		}
 	}
 
 	// Copy the components to the clipboard
 	FComponentEditorUtils::CopyComponents(ComponentsToCopy);
+
+	if (EditorMode == EComponentEditorMode::BlueprintSCS)
+	{
+		for (UActorComponent* ComponentTemplate : ComponentsToCopy)
+		{
+			if (USceneComponent* SceneTemplate = Cast<USceneComponent>(ComponentTemplate))
+			{
+				// clear back out any temporary attachments we set up for the copy
+				SceneTemplate->SetupAttachment(nullptr);
+			}
+		}
+	}
 }
 
 bool SSCSEditor::CanPasteNodes() const

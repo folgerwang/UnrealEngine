@@ -428,7 +428,7 @@ void FComponentEditorUtils::PasteComponents(TArray<UActorComponent*>& OutPastedC
 		check(NewActorComponent);
 
 		// Relocate the instance from the transient package to the Actor and assign it a unique object name
-		FString NewComponentName = FComponentEditorUtils::GenerateValidVariableName(NewActorComponent->GetClass(), TargetActor);
+		FString NewComponentName = FComponentEditorUtils::GenerateValidVariableNameFromAsset(NewActorComponent, TargetActor);
 		NewActorComponent->Rename(*NewComponentName, TargetActor, REN_DontCreateRedirectors | REN_DoNotDirty);
 
 		if (USceneComponent* NewSceneComponent = Cast<USceneComponent>(NewActorComponent))
@@ -631,8 +631,7 @@ UActorComponent* FComponentEditorUtils::DuplicateComponent(UActorComponent* Temp
 	if (!TemplateComponent->IsVisualizationComponent() && Actor)
 	{
 		Actor->Modify();
-		UClass* ComponentClass = TemplateComponent->GetClass();
-		FName NewComponentName = *FComponentEditorUtils::GenerateValidVariableName(ComponentClass, Actor);
+		FName NewComponentName = *FComponentEditorUtils::GenerateValidVariableNameFromAsset(TemplateComponent, Actor);
 
 		bool bKeepWorldLocationOnAttach = false;
 
