@@ -6,6 +6,17 @@
 #include "../../Source/Runtime/Core/Public/Misc/CoreMiscDefines.h"
 #include "../../Source/Runtime/Launch/Resources/Version.h"
 
+#define APSTUDIO_READONLY_SYMBOLS
+#include <windows.h>
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
@@ -83,4 +94,7 @@ IDICON_UE4Game          ICON                    BUILD_ICON_FILE_NAME
 #endif
 
 #endif
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
 
