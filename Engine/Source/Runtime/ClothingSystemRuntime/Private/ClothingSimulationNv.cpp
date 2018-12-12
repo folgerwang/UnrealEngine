@@ -435,8 +435,8 @@ void FClothingSimulationNv::ApplyClothConfig(FClothConfig &Config, FClothingActo
 
 		LodCloth->setDamping(U2PVector(AdjustedDamping));
 		LodCloth->setFriction(Config.Friction);
-		LodCloth->setLinearDrag(U2PVector(AdjustedDragAng));
-		LodCloth->setAngularDrag(U2PVector(AdjustedDragLin));
+		LodCloth->setLinearDrag(U2PVector(AdjustedDragLin));
+		LodCloth->setAngularDrag(U2PVector(AdjustedDragAng));
 		LodCloth->setLinearInertia(U2PVector(Config.LinearInertiaScale));
 		LodCloth->setAngularInertia(U2PVector(Config.AngularInertiaScale));
 		LodCloth->setCentrifugalInertia(U2PVector(Config.CentrifugalInertiaScale));

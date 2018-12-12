@@ -30,8 +30,11 @@ namespace SceneOutliner
 		/** Optional array of dragged folders */
 		TOptional<FFolderPaths> Folders;
 
-		/** OPtional array of dragged actors */
+		/** Optional array of dragged actors */
 		TOptional<FActorArray> Actors;
+
+		/** Optional array of dragged sub-component Items */
+		TOptional<FSubComponentItemArray> SubComponents;
 
 		/**
 		 *	Parse a drag operation into our list of actors and folders
@@ -93,6 +96,17 @@ namespace SceneOutliner
 		void Init(FFolderPaths InFolders);
 	};
 
+	/* A drag/drop operation when dragging sub-component items in the scene outliner */
+	struct FSubComponentDragDropOp: public FDecoratedDragDropOp
+	{
+		DRAG_DROP_OPERATOR_TYPE(FSubComponentDragDropOp, FDecoratedDragDropOp)
+
+			/** Actor that we are dragging */
+			FSubComponentItemArray Items;
+
+		void Init(const FSubComponentItemArray& InItems);
+	};
+
 	/** A drag/drop operation that was started from the scene outliner */
 	struct FSceneOutlinerDragDropOp : public FDragDropOperation
 	{
@@ -105,8 +119,11 @@ namespace SceneOutliner
 		/** Actor drag operation */
 		TSharedPtr<FActorDragDropOp>	ActorOp;
 
-		/** Actor drag operation */
+		/** Folder drag operation */
 		TSharedPtr<FFolderDragDropOp>	FolderOp;
+
+		/** Sub-Component drag operation */
+		TSharedPtr<FSubComponentDragDropOp>	SubComponentOp;
 
 		void ResetTooltip()
 		{

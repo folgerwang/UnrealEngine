@@ -299,13 +299,27 @@ public:
 	 */
 	virtual IXRInput* GetXRInput() { return nullptr; }
 
-	/*** XR System related methods moved from IHeadMontedDisplay ***/
+	/*** XR System related methods moved from IHeadMountedDisplay ***/
 
 	/**
 	* Returns true, if head tracking is allowed. Most common case: it returns true when GEngine->IsStereoscopic3D() is true,
 	* but some overrides are possible.
 	*/
 	virtual bool IsHeadTrackingAllowed() const = 0;
+
+	/** 
+	* Can be used to enforce tracking even when stereo rendering is disabled. 
+	* The default implementation does not allow enforcing tracking and always returns false.
+	* This method is called both from the game and render threads.
+	*/
+	virtual bool IsHeadTrackingEnforced() const { return false; }
+
+	/**
+	* Can be used to enforce tracking even when stereo rendering is disabled.
+	* The default implementation does not allow enforcing tracking and ignores the argument.
+	*/
+	virtual void SetHeadTrackingEnforced(bool bEnabled) {};
+
 
 	/**
 	* This method is called when playing begins. Useful to reset all runtime values stored in the plugin.

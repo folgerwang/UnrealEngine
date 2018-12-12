@@ -19,9 +19,9 @@ class UDestructibleComponent;
 
 struct FApexDestructionSyncActors : public FCustomPhysXSyncActors
 {
-	virtual void BuildSyncData_AssumesLocked(int32 SceneType, const TArray<physx::PxRigidActor*>& RigidActors) override;
+	virtual void BuildSyncData_AssumesLocked(const TArray<physx::PxRigidActor*>& RigidActors) override;
 
-	virtual void FinalizeSync(int32 SceneType) override;
+	virtual void FinalizeSync() override;
 
 private:
 

@@ -13,14 +13,13 @@
 
 struct FSimulationScratchBuffer;
 
-void FinishSceneStat(uint32 Scene);
+void FinishSceneStat();
 
 //This is only here for now while we transition into substepping
 #if WITH_PHYSX
 class PhysXCompletionTask : public PxLightCpuTask
 {
 	FGraphEventRef EventToFire;
-	uint32 Scene;
 
 	// Scratch memory for call to PxScene::simulate. This is owned by the FPhysScene that spawned this
 	// task and is guaranteed to remain valid till FPhysScene destruction - can be nullptr if size
@@ -29,13 +28,11 @@ class PhysXCompletionTask : public PxLightCpuTask
 
 public:
 	PhysXCompletionTask()
-		: Scene(0)
-		, ScratchBuffer(nullptr)
+		: ScratchBuffer(nullptr)
 	{}
 
-	PhysXCompletionTask(FGraphEventRef& InEventToFire, uint32 InScene, PxTaskManager* InTaskManager, FSimulationScratchBuffer* InScratchBuffer = nullptr)
+	PhysXCompletionTask(FGraphEventRef& InEventToFire, PxTaskManager* InTaskManager, FSimulationScratchBuffer* InScratchBuffer = nullptr)
 		: EventToFire(InEventToFire)
-		, Scene(InScene)
 		, ScratchBuffer(InScratchBuffer)
 	{
 		setContinuation(*InTaskManager, NULL);
@@ -46,7 +43,7 @@ public:
 	virtual void release()
 	{
 		PxLightCpuTask::release();
-		FinishSceneStat(Scene);
+		FinishSceneStat();
 		if (EventToFire.GetReference())
 		{
 			TArray<FBaseGraphTask*> NewTasks;
@@ -165,7 +162,7 @@ class FPhysSubstepTask
 {
 public:
 #if WITH_PHYSX
-	FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene, uint32 InSceneType);
+	FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene);
 #endif
 
 	void SetKinematicTarget_AssumesLocked(FBodyInstance* Body, const FTransform& TM);
@@ -218,7 +215,6 @@ private:
 	FGraphEventRef CompletionEvent;
 
 	FPhysScene* PhysScene;
-	uint32 SceneType;
 
 #if WITH_PHYSX
 	PxApexScene * PAScene;

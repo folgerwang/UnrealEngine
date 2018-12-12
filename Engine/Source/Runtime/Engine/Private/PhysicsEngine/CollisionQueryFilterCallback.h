@@ -6,6 +6,10 @@
 #include "CollisionQueryParams.h"
 #include "Physics/PhysicsInterfaceTypes.h"
 
+#if PHYSICS_INTERFACE_PHYSX
+#include "PhysXInterfaceWrapper.h"
+#endif
+
 #define ENABLE_PREFILTER_LOGGING 0
 
 struct FBodyInstance;
@@ -69,6 +73,9 @@ public:
 	ECollisionQueryHitType PreFilter(const FCollisionFilterData& FilterData, const FCollisionFilterData& ShapeFilterData, uint32 ComponentID, const FBodyInstance* BodyInstance);
 
 	ECollisionQueryHitType PostFilter(const FCollisionFilterData& FilterData, bool bIsOverlap);
+
+	ECollisionQueryHitType PostFilter(const FCollisionFilterData& FilterData, const FPhysicsQueryHit& Hit);
+	ECollisionQueryHitType PreFilter(const FCollisionFilterData& FilterData, const FPhysicsShape& Shape, const FPhysicsActor& Actor);
 
 #if DETECT_SQ_HITCHES
 	// Util struct to record what preFilter was called with

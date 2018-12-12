@@ -31,6 +31,8 @@ DEFINE_STAT(STAT_Collision_GeomSweepAny);
 DEFINE_STAT(STAT_Collision_GeomSweepSingle);
 DEFINE_STAT(STAT_Collision_GeomSweepMultiple);
 DEFINE_STAT(STAT_Collision_GeomOverlapMultiple);
+DEFINE_STAT(STAT_Collision_GeomOverlapBlocking);
+DEFINE_STAT(STAT_Collision_GeomOverlapAny);
 DEFINE_STAT(STAT_Collision_FBodyInstance_OverlapMulti);
 DEFINE_STAT(STAT_Collision_FBodyInstance_OverlapTest);
 DEFINE_STAT(STAT_Collision_FBodyInstance_LineTrace);
@@ -346,6 +348,8 @@ bool UWorld::ComponentOverlapMultiByChannel(TArray<struct FOverlapResult>& OutOv
 
 bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrimitiveComponent* PrimComp, const FVector& Start, const FVector& End, const FQuat& Quat, const FComponentQueryParams& Params) const
 {
+	OutHits.Reset();
+
 	if (GetPhysicsScene() == NULL)
 	{
 		return false;
@@ -365,7 +369,6 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 		return FPhysicsInterface::RaycastMulti(this, OutHits, Start, End, TraceChannel, Params, FCollisionResponseParams(PrimComp->GetCollisionResponseToChannels()));
 	}
 
-	OutHits.Reset();
 
 	const FBodyInstance* BodyInstance = PrimComp->GetBodyInstance();
 
@@ -395,7 +398,7 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 
 		// Get all the shapes from the actor
 		FInlineShapeArray PShapes;
-		const int32 NumShapes = FillInlineShapeArray_AssumesLocked(PShapes, Actor, FPhysicsInterface::HasSyncSceneData(Actor) ? PST_Sync : PST_Async);
+		const int32 NumShapes = FillInlineShapeArray_AssumesLocked(PShapes, Actor);
 
 		// calculate the test global pose of the actor
 		const FTransform GlobalStartTransform(Quat, Start);
@@ -422,13 +425,15 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 
 			FPhysicsGeometryCollection GeomCollection = FPhysicsInterface::GetGeometryCollection(Shape);
 
-#if WITH_APEIRON
+#if WITH_CHAOS
             check(false);
 #else
-			if(FPhysicsInterface::GeomSweepMulti(this, GeomCollection, ShapeQuat, OutHits, GlobalStartTransform_Shape.GetTranslation(), GlobalEndTransform_Shape.GetTranslation(), TraceChannel, Params, FCollisionResponseParams(PrimComp->GetCollisionResponseToChannels())))
+			TArray<FHitResult> TmpHits;
+			if(FPhysicsInterface::GeomSweepMulti(this, GeomCollection, ShapeQuat, TmpHits, GlobalStartTransform_Shape.GetTranslation(), GlobalEndTransform_Shape.GetTranslation(), TraceChannel, Params, FCollisionResponseParams(PrimComp->GetCollisionResponseToChannels())))
 			{
 				bHaveBlockingHit = true;
 			}
+			OutHits.Append(TmpHits);	//todo: should these be made unique?
 #endif
 		}
 	});

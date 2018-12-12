@@ -18,7 +18,7 @@ static void ConvertGeometryCollection(const FPhysicsGeometryCollection& GeomColl
 	OutQueryShape = ECAQueryShape::Capsule;
 	OutDims = FVector(0, 0, 0);
 	
-#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || PHYSICS_INTERFACE_LLIMMEDIATE
     ensure(false);
 #else
 	switch (GeomCollection.GetType())

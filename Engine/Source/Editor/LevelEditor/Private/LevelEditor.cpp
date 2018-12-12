@@ -1731,7 +1731,29 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction(
 		Commands.OpenMergeActor,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::OpenMergeActor_Clicked)
-	);
+		);
+
+	ActionList.MapAction(
+		Commands.GeometryCollectionSelectAllGeometry,
+		FExecuteAction::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_SelectAllGeometry),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_IsChecked)
+		);
+
+	ActionList.MapAction(
+		Commands.GeometryCollectionSelectNone,
+		FExecuteAction::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_SelectNone),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_IsChecked)
+		);
+
+	ActionList.MapAction(
+		Commands.GeometryCollectionSelectInverseGeometry,
+		FExecuteAction::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_SelectInverseGeometry),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(FLevelEditorActionCallbacks::GeometryCollection_IsChecked)
+		);
+
 
 	for (int32 i = 0; i < ERHIFeatureLevel::Num; ++i)
 	{

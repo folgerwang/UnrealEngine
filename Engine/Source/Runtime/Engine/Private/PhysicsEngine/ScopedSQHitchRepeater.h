@@ -11,6 +11,12 @@
 #include "CollisionQueryFilterCallback.h"
 #include "PxQueryFilterCallback.h"
 
+#if PHYSICS_INTERFACE_PHYSX
+#include "PhysXInterfaceWrapper.h"
+#elif PHYSICS_INTERFACE_LLIMMEDIATE
+#include "Physics/Experimental/LLImmediateInterfaceWrapper.h"
+#endif
+
 #if DETECT_SQ_HITCHES
 struct FSQHitchRepeaterCVars
 {
@@ -33,7 +39,7 @@ struct FHitchDetectionInfo
 #if DETECT_SQ_HITCHES
 	FVector Start;
 	FVector End;
-	PxTransform Pose;
+	FTransform Pose;
 	ECollisionChannel TraceChannel;
 	const FCollisionQueryParams& Params;
 	bool bInTM;
@@ -47,7 +53,7 @@ struct FHitchDetectionInfo
 	{
 	}
 
-	FHitchDetectionInfo(const PxTransform& InPose, ECollisionChannel InTraceChannel, const FCollisionQueryParams& InParams)
+	FHitchDetectionInfo(const FTransform& InPose, ECollisionChannel InTraceChannel, const FCollisionQueryParams& InParams)
 		: Pose(InPose)
 		, TraceChannel(InTraceChannel)
 		, Params(InParams)
@@ -59,7 +65,7 @@ struct FHitchDetectionInfo
 	{
 		if (bInTM)
 		{
-			return FString::Printf(TEXT("Pose:%s TraceChannel:%d Params:%s"), *P2UTransform(Pose).ToString(), (int32)TraceChannel, *Params.ToString());
+			return FString::Printf(TEXT("Pose:%s TraceChannel:%d Params:%s"), *Pose.ToString(), (int32)TraceChannel, *Params.ToString());
 		}
 		else
 		{
@@ -68,7 +74,7 @@ struct FHitchDetectionInfo
 	};
 #else
 	FHitchDetectionInfo(const FVector&, const FVector&, ECollisionChannel, const FCollisionQueryParams&) {}
-	FHitchDetectionInfo(const PxTransform& InPose, ECollisionChannel InTraceChannel, const FCollisionQueryParams& InParams) {}
+	FHitchDetectionInfo(const FTransform& InPose, ECollisionChannel InTraceChannel, const FCollisionQueryParams& InParams) {}
 	FString ToString() const { return FString(); }
 #endif // DETECT_SQ_HITCHES
 };
@@ -83,7 +89,7 @@ struct FScopedSQHitchRepeater
 	BufferType& UserBuffer;	//The buffer the user would normally use when no repeating happens
 	BufferType* OriginalBuffer;	//The buffer as it was before the query, this is needed to maintain the same buffer properties for each loop
 	BufferType* RepeatBuffer;			//Dummy buffer for loops
-	FPxQueryFilterCallback& QueryCallback;
+	FPhysicsQueryFilterCallback& QueryCallback;
 	FHitchDetectionInfo HitchDetectionInfo;
 
 	bool RepeatOnHitch()
@@ -118,14 +124,14 @@ struct FScopedSQHitchRepeater
 		}
 	}
 
-	FScopedSQHitchRepeater(BufferType& OutBuffer, FPxQueryFilterCallback& PQueryCallback, const FHitchDetectionInfo& InHitchDetectionInfo)
+	FScopedSQHitchRepeater(BufferType& OutBuffer, FPhysicsQueryFilterCallback& QueryCallback, const FHitchDetectionInfo& InHitchDetectionInfo)
 		: HitchDuration(0.0)
 		, HitchTimer(HitchDuration)
 		, LoopCounter(0)
 		, UserBuffer(OutBuffer)
 		, OriginalBuffer(nullptr)
 		, RepeatBuffer(nullptr)
-		, QueryCallback(PQueryCallback)
+		, QueryCallback(QueryCallback)
 		, HitchDetectionInfo(InHitchDetectionInfo)
 	{
 		if (FSQHitchRepeaterCVars::SQHitchDetection)
@@ -160,7 +166,7 @@ struct FScopedSQHitchRepeater
 	}
 
 #else
-	FScopedSQHitchRepeater(BufferType& OutBuffer, FPxQueryFilterCallback& PQueryCallback, const FHitchDetectionInfo& InHitchDetectionInfo)
+	FScopedSQHitchRepeater(BufferType& OutBuffer, FPhysicsQueryFilterCallback& PQueryCallback, const FHitchDetectionInfo& InHitchDetectionInfo)
 		: UserBuffer(OutBuffer)
 	{
 	}

@@ -40,6 +40,7 @@
 #include "Materials/MaterialInterface.h"
 #include "MeshEditorStaticMeshAdapter.h"
 #include "MeshEditorSubdividedStaticMeshAdapter.h"
+#include "MeshEditorGeometryCollectionAdapter.h"
 #include "WireframeMeshComponent.h"
 #include "Misc/FeedbackContext.h"
 #include "Framework/Application/SlateApplication.h"
@@ -49,9 +50,16 @@
 #include "SLevelViewport.h"
 #include "MeshEditorSelectionModifiers.h"
 #include "Algo/Find.h"
+#include "MeshFractureSettings.h"
+#include "IEditableMeshFormat.h"
+#include "GeometryHitTest.h"
+#include "FractureToolComponent.h"
+
+#include "GeometryCollection/GeometryCollectionActor.h"
+#include "FractureToolDelegates.h"
+
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
-
 
 // @todo mesheditor extensibility: This should probably be removed after we've evicted all current mesh editing actions to another module
 namespace EMeshEditAction
@@ -83,8 +91,6 @@ namespace MeshEd
 	static FAutoConsoleVariable OverlayVertexSize( TEXT( "MeshEd.OverlayVertexSize" ), 4.0f, TEXT( "How large a vertex is on a mesh overlay" ) );
 	static FAutoConsoleVariable OverlayLineThickness( TEXT( "MeshEd.OverlayLineThickness" ), 0.9f, TEXT( "How thick overlay lines should be on top of meshes when hovered or selected" ) );
 	static FAutoConsoleVariable OverlayDistanceScaleFactor( TEXT( "MeshEd.OverlayDistanceScaleFactor" ), 0.002f, TEXT( "How much to scale overlay wires automatically based on distance to the viewer" ) );
-	static FAutoConsoleVariable OverlayPerspectiveDistanceBias( TEXT( "MeshEd.OverlayPerspectiveDistanceBias" ), 0.05f, TEXT( "How much to bias distance scale by in perspective views, regardless of distance to the viewer" ) );
-	static FAutoConsoleVariable OverlayOrthographicDistanceBias( TEXT( "MeshEd.OverlayOrthographicDistanceBias" ), 1.0f, TEXT( "How much to bias distance scale by in orthograph views, regardless of distance to the viewer" ) );
 	static FAutoConsoleVariable SelectedSizeBias( TEXT( "MeshEd.SelectedSizeBias" ), 0.1f, TEXT( "Selected mesh element size bias" ) );
 	static FAutoConsoleVariable SelectedAnimationExtraSizeBias( TEXT( "MeshEd.SelectedAnimationExtraSizeBias" ), 2.5f, TEXT( "Extra hovered mesh element size bias when animating" ) );
 	static FAutoConsoleVariable HoveredSizeBias( TEXT( "MeshEd.HoveredSizeBias" ), 0.1f, TEXT( "Selected mesh element size bias" ) );
@@ -247,6 +253,7 @@ TUniquePtr<FChange> FMeshEditorMode::FSetElementSelectionModeChange::Execute( UO
 				case EEditableMeshElementType::Vertex: return MeshEditorMode.SelectedVertices;
 				case EEditableMeshElementType::Edge: return MeshEditorMode.SelectedEdges;
 				case EEditableMeshElementType::Polygon: return MeshEditorMode.SelectedPolygons;
+				case EEditableMeshElementType::Fracture: return MeshEditorMode.SelectedMeshElements;
 				case EEditableMeshElementType::Any: return MeshEditorMode.SelectedMeshElements;
 				default: return MeshEditorMode.SelectedMeshElements;
 			}
@@ -383,19 +390,6 @@ FString FMeshEditorMode::FSetElementSelectionModeChange::ToString() const
 }
 
 
-FMeshEditorMode::FMeshEditorInteractorData::FMeshEditorInteractorData()
-	: ViewportInteractor( nullptr ),
-	  bGrabberSphereIsValid( false ),
-	  GrabberSphere( 0 ),
-	  bLaserIsValid( false ),
-	  LaserStart( FVector::ZeroVector ),
-	  LaserEnd( FVector::ZeroVector ),
-	  HoverInteractorShape(EInteractorShape::Invalid),
-	  HoveredMeshElement(),
-	  PreviouslyHoveredMeshElement(),
-	  HoverLocation( FVector::ZeroVector )
-{
-}
 
 FMeshEditorMode::FMeshEditorMode()
 	: HoveredGeometryMaterial( nullptr ),
@@ -419,6 +413,7 @@ FMeshEditorMode::FMeshEditorMode()
 	  SelectedElementsComponent( nullptr ),
 	  SelectedSubDElementsComponent( nullptr ),
 	  DebugNormalsComponent( nullptr ),
+	  FractureToolComponent(nullptr),
 	  ActiveActionInteractor( nullptr ),
 	  bActiveActionNeedsHoverLocation( false ),
 	  bIsFirstActiveActionUpdate( false ),
@@ -460,7 +455,12 @@ FMeshEditorMode::FMeshEditorMode()
 	FMeshEditorVertexCommands::Register();
 	FMeshEditorEdgeCommands::Register();
 	FMeshEditorPolygonCommands::Register();
+	FMeshEditorFractureCommands::Register();
 	FMeshEditorSelectionModifiers::Register();
+
+	// Mesh fracture configuration settings
+	MeshFractureSettings = NewObject<UMeshFractureSettings>(GetTransientPackage(), *LOCTEXT("FractureSettingsName", "FractureSettings").ToString());
+	MeshFractureSettings->AddToRoot();
 
 	// Register UI commands
 	BindCommands();
@@ -471,6 +471,7 @@ FMeshEditorMode::~FMeshEditorMode()
 {
 	// Unregister mesh editor actions
 	FMeshEditorSelectionModifiers::Unregister();
+	FMeshEditorFractureCommands::Unregister();
 	FMeshEditorPolygonCommands::Unregister();
 	FMeshEditorEdgeCommands::Unregister();
 	FMeshEditorVertexCommands::Unregister();
@@ -513,6 +514,13 @@ void FMeshEditorMode::OnEndPIE( bool bIsSimulating )
 	}
 }
 
+void FMeshEditorMode::OnAssetReload(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent)
+{
+	if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPostGC)
+	{
+		UpdateSelectedEditableMeshes();
+	}
+}
 
 void FMeshEditorMode::OnEditableMeshElementIDsRemapped( UEditableMesh* EditableMesh, const FElementIDRemappings& Remappings )
 {
@@ -641,6 +649,7 @@ void FMeshEditorMode::BindCommands()
 	const FMeshEditorVertexCommands& MeshEditorVertexCommands( FMeshEditorVertexCommands::Get() );
 	const FMeshEditorEdgeCommands& MeshEditorEdgeCommands( FMeshEditorEdgeCommands::Get() );
 	const FMeshEditorPolygonCommands& MeshEditorPolygonCommands( FMeshEditorPolygonCommands::Get() );
+	const FMeshEditorFractureCommands& MeshEditorFractureCommands(FMeshEditorFractureCommands::Get());
 
 	// Register editing modes (equipped actions)
 	RegisterVertexEditingMode( MeshEditorVertexCommands.MoveVertex, EMeshEditAction::Move );
@@ -717,6 +726,11 @@ void FMeshEditorMode::BindCommands()
 			case EEditableMeshElementType::Polygon:
 				PolygonActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
 				break;
+
+			case EEditableMeshElementType::Fracture:
+				FractureActions.Emplace(Command->GetUICommandInfo(), Command->MakeUIAction(*this));
+				break;
+
 			case EEditableMeshElementType::Any:
 				VertexActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
 				EdgeActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
@@ -755,6 +769,13 @@ void FMeshEditorMode::BindCommands()
 	for( const TTuple<TSharedPtr<FUICommandInfo>, FUIAction>& PolygonAction : PolygonActions )
 	{
 		PolygonCommands->MapAction( PolygonAction.Get<0>(), PolygonAction.Get<1>() );
+	}
+
+	// Bind fracture actions
+	FractureCommands = MakeShared<FUICommandList>();
+	for (const TTuple<TSharedPtr<FUICommandInfo>, FUIAction>& FractureAction : FractureActions)
+	{
+		FractureCommands->MapAction(FractureAction.Get<0>(), FractureAction.Get<1>());
 	}
 
 	BindSelectionModifiersCommands();
@@ -797,6 +818,14 @@ void FMeshEditorMode::RegisterPolygonEditingMode( const TSharedPtr<FUICommandInf
 	) );
 }
 
+void FMeshEditorMode::RegisterFractureEditingMode(const TSharedPtr<FUICommandInfo>& Command, FName EditingMode)
+{
+	FractureActions.Emplace(Command, FUIAction(
+		FExecuteAction::CreateLambda([this, EditingMode] { SetEquippedAction(EEditableMeshElementType::Fracture, EditingMode); }),
+		FCanExecuteAction::CreateLambda([this] { return IsMeshElementTypeSelectedOrIsActiveSelectionMode(EEditableMeshElementType::Fracture); }),
+		FIsActionChecked::CreateLambda([this, EditingMode] { return (EquippedFractureAction == EditingMode); })
+	));
+}
 
 void FMeshEditorMode::RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction, const FCanExecuteAction CanExecuteAction )
 {
@@ -852,6 +881,7 @@ void FMeshEditorMode::Enter()
 	LevelEditorModule.OnActorSelectionChanged().AddRaw( this, &FMeshEditorMode::OnActorSelectionChanged );
 
 	FEditorDelegates::EndPIE.AddRaw( this, &FMeshEditorMode::OnEndPIE );
+	FCoreUObjectDelegates::OnPackageReloaded.AddRaw(this, &FMeshEditorMode::OnAssetReload);
 
 	// Create wireframe component container
 	FActorSpawnParameters ActorSpawnParameters;
@@ -885,6 +915,10 @@ void FMeshEditorMode::Enter()
 	DebugNormalsComponent->SetPointMaterial( OverlayPointMaterial );
 	DebugNormalsComponent->TranslucencySortPriority = 600;
 	DebugNormalsComponent->RegisterComponent();
+
+	// Add component for bone hierarchy rendering
+	FractureToolComponent = NewObject<UFractureToolComponent>( WireframeComponentContainer );
+	FractureToolComponent->RegisterComponent();
 
 	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() );
 	check( ExtensionCollection != nullptr );
@@ -940,11 +974,18 @@ void FMeshEditorMode::Enter()
 	}
 
 	UpdateSelectedEditableMeshes();
+
+	// Let us know when the fracture UI exploded view slider is interacted with
+	FFractureToolDelegates::Get().OnFractureExpansionBegin.AddRaw(this, &FMeshEditorMode::OnFractureExpansionBegin);
+	FFractureToolDelegates::Get().OnFractureExpansionEnd.AddRaw(this, &FMeshEditorMode::OnFractureExpansionEnd);
 }
 
 
 void FMeshEditorMode::Exit()
 {
+	FFractureToolDelegates::Get().OnFractureExpansionBegin.RemoveAll(this);
+	FFractureToolDelegates::Get().OnFractureExpansionEnd.RemoveAll(this);
+
 	if( VREditorMode && VREditorMode->IsFullyInitialized() )
 	{
 		VREditorMode->ResetActionsMenuGenerator();
@@ -1017,8 +1058,10 @@ void FMeshEditorMode::Exit()
 
 	WireframeComponentContainer->Destroy();
 	WireframeComponentContainer = nullptr;
+	FractureToolComponent->DestroyComponent();
 
 	FEditorDelegates::EndPIE.RemoveAll( this );
+	FCoreUObjectDelegates::OnPackageReloaded.RemoveAll(this);
 
 	FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>( "LevelEditor" );
 	if( LevelEditor )
@@ -1087,9 +1130,18 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 			// Create a wireframe mesh for the base cage
 			UWireframeMesh* WireframeBaseCage = NewObject<UWireframeMesh>();
 
-			UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
-			EditableMesh->Adapters.Add( WireframeAdapter );
-			WireframeAdapter->Initialize( EditableMesh, WireframeBaseCage );
+			if (!EditableMesh->SubMeshAddress.EditableMeshFormat->HandlesBones())
+			{
+				UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
+				EditableMesh->Adapters.Add(WireframeAdapter);
+				WireframeAdapter->Initialize(EditableMesh, WireframeBaseCage);
+			}
+			else
+			{
+				UMeshEditorGeometryCollectionAdapter* WireframeAdapter = NewObject<UMeshEditorGeometryCollectionAdapter>();
+				EditableMesh->Adapters.Add(WireframeAdapter);
+				WireframeAdapter->Initialize(EditableMesh, WireframeBaseCage);
+			}
 
 			// Create a wireframe mesh for the subdivided mesh
 			UWireframeMesh* WireframeSubdividedMesh = NewObject<UWireframeMesh>();
@@ -1111,11 +1163,15 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 		}
 	}
 
-	// Create a wireframe component if necessary
-	const FWireframeMeshComponents& WireframeMeshComponents = CreateWireframeMeshComponents( &Component );
-	const FTransform Transform = Component.GetComponentTransform();
-	WireframeMeshComponents.WireframeMeshComponent->SetWorldTransform( Transform );
-	WireframeMeshComponents.WireframeSubdividedMeshComponent->SetWorldTransform( Transform );
+	// only create this if the above succeeds i.e. the Component is a supported EditableMesh type
+	if (EditableMesh)
+	{
+		// Create a wireframe component if necessary
+		const FWireframeMeshComponents& WireframeMeshComponents = CreateWireframeMeshComponents(&Component);
+		const FTransform Transform = Component.GetComponentTransform();
+		WireframeMeshComponents.WireframeMeshComponent->SetWorldTransform(Transform);
+		WireframeMeshComponents.WireframeSubdividedMeshComponent->SetWorldTransform(Transform);
+	}
 
 	return EditableMesh;
 }
@@ -1403,7 +1459,6 @@ void FMeshEditorMode::RequestSelectedElementsOverlayUpdate()
 	bShouldUpdateSelectedElementsOverlay = true;
 }
 
-
 void FMeshEditorMode::UpdateSelectedElementsOverlay()
 {
 	SelectedElementsComponent->Clear();
@@ -1414,6 +1469,19 @@ void FMeshEditorMode::UpdateSelectedElementsOverlay()
 
 	static TMap<TTuple<UPrimitiveComponent*, FEditableMeshSubMeshAddress>, TSet<FEdgeID>> SelectedEdgesByComponentsAndSubMeshes;
 	SelectedEdgesByComponentsAndSubMeshes.Reset();
+
+	if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+	{
+		for (const FMeshElement& SelectedMeshElement : SelectedMeshElements)
+		{
+			const FEditableMeshSubMeshAddress& SubMeshAddress = SelectedMeshElement.ElementAddress.SubMeshAddress;
+			if (FractureToolComponent && SubMeshAddress.EditableMeshFormat->HandlesBones())
+			{
+				UPrimitiveComponent* Component = SelectedMeshElement.Component.Get();
+				FractureToolComponent->UpdateBoneState(Component);
+			}
+		}
+	}
 
 	for( const FMeshElement& SelectedMeshElement : SelectedMeshElements )
 	{
@@ -1587,9 +1655,18 @@ void FMeshEditorMode::CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh
 		// Create a wireframe mesh for the base cage
 		UWireframeMesh* WireframeBaseCage = NewObject<UWireframeMesh>();
 
-		UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
-		NewEditableMesh->Adapters.Add( WireframeAdapter );
-		WireframeAdapter->Initialize( NewEditableMesh, WireframeBaseCage );
+		if (!EditableMesh->SubMeshAddress.EditableMeshFormat->HandlesBones())
+		{
+			UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
+			NewEditableMesh->Adapters.Add( WireframeAdapter );
+			WireframeAdapter->Initialize( NewEditableMesh, WireframeBaseCage );
+		}
+		else
+		{
+			UMeshEditorGeometryCollectionAdapter* WireframeAdapter = NewObject<UMeshEditorGeometryCollectionAdapter>();
+			NewEditableMesh->Adapters.Add(WireframeAdapter);
+			WireframeAdapter->Initialize(NewEditableMesh, WireframeBaseCage);
+		}
 
 		// Create a wireframe mesh for the subdivided mesh
 		UWireframeMesh* WireframeSubdividedMesh = NewObject<UWireframeMesh>();
@@ -1827,6 +1904,8 @@ void FMeshEditorMode::BindSelectionModifiersCommands()
 		switch ( SelectionModifier->GetElementType() )
 		{
 		case EEditableMeshElementType::Invalid:
+			break;
+		case EEditableMeshElementType::Fracture:
 			break;
 		case EEditableMeshElementType::Vertex:
 			VertexSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
@@ -2476,7 +2555,7 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 }
 
 
-FMeshEditorMode::FMeshEditorInteractorData& FMeshEditorMode::GetMeshEditorInteractorData( const UViewportInteractor* ViewportInteractor ) const
+FMeshEditorInteractorData& FMeshEditorMode::GetMeshEditorInteractorData( const UViewportInteractor* ViewportInteractor ) const
 {
 	check( ViewportInteractor != nullptr );
 
@@ -2652,10 +2731,25 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 		// 						static TArray<FEditableMeshElementAddress> CandidateElementAddresses;
 		// 						CandidateElementAddresses.Reset();
 
+						// @todo pure GeometryComponents don't have physics representation to use for hit testing
+						// so temp just add the GeometryComponents to the hit list if their actors are selected
+						USelection* SelectedActors = GEditor->GetSelectedActors();
+						TArray<AActor*> Actors;
+						for (FSelectionIterator Iter(*SelectedActors); Iter; ++Iter)
+						{
+							AGeometryCollectionActor* GCActor = Cast<AGeometryCollectionActor>(*Iter);
+							if (GCActor)
+							{
+								UPrimitiveComponent* Component = (UPrimitiveComponent*)(GCActor->GetGeometryCollectionComponent());
+								HitComponents.AddUnique(Component);
+							}
+						}
+
 						UPrimitiveComponent* ClosestComponent = nullptr;
 						FEditableMeshElementAddress ClosestElementAddress;
 						EInteractorShape ClosestInteractorShape = EInteractorShape::Invalid;
 						FVector ClosestHoverLocation = FVector::ZeroVector;
+						FHitParamsOut ParamsOut(ClosestHoverLocation, ClosestComponent, ClosestElementAddress, ClosestInteractorShape);
 
 						for( UPrimitiveComponent* HitComponent : HitComponents )
 						{
@@ -2677,7 +2771,12 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 								{
 									// If we're selecting by painting, only hover over elements of the same type that we already have selected
 									EEditableMeshElementType OnlyElementType = EEditableMeshElementType::Invalid;
-									if( this->MeshElementSelectionMode != EEditableMeshElementType::Any )
+
+									if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+									{
+										OnlyElementType = EEditableMeshElementType::Polygon;
+									}
+									else if( this->MeshElementSelectionMode != EEditableMeshElementType::Any )
 									{
 										OnlyElementType = this->MeshElementSelectionMode;
 									}
@@ -2686,69 +2785,25 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 										OnlyElementType = GetSelectedMeshElementType();
 									}
 
-									// Shapes are in world space, but we need it in the local space of our component
-									const FVector ComponentSpaceLaserStart = ComponentToWorldMatrix.InverseTransformPosition( MeshEditorInteractorData.LaserStart );
-									const FVector ComponentSpaceLaserEnd = ComponentToWorldMatrix.InverseTransformPosition( MeshEditorInteractorData.LaserEnd );
-
-									const FSphere ComponentSpaceGrabberSphere(
-										ComponentToWorldMatrix.InverseTransformPosition( MeshEditorInteractorData.GrabberSphere.Center ),
-										ComponentToWorldMatrix.InverseTransformVector( FVector( MeshEditorInteractorData.GrabberSphere.W ) ).X );
-
-									const FTransform CameraToWorld = CachedCameraToWorld.IsSet() ? CachedCameraToWorld.GetValue() : HitComponent->GetComponentToWorld();	// @todo mesheditor: We're expecting to have a CameraToWorld here
+									const FTransform CameraToWorld = CachedCameraToWorld.IsSet() ? CachedCameraToWorld.GetValue() : HitComponent->GetComponentToWorld();
 									const bool bIsPerspectiveView = bCachedIsPerspectiveView.IsSet() ? bCachedIsPerspectiveView.GetValue() : true;
-									const FVector ComponentSpaceCameraLocation = ComponentToWorldMatrix.InverseTransformPosition( CameraToWorld.GetLocation() );
-									const float ComponentSpaceFuzzyDistanceScaleFactor = ComponentToWorldMatrix.InverseTransformVector( FVector( MeshEd::OverlayDistanceScaleFactor->GetFloat() / ViewportWorldInteraction->GetWorldScaleFactor(), 0.0f, 0.0f ) ).Size();
+									const float ComponentSpaceFuzzyDistanceScaleFactor = ComponentToWorldMatrix.InverseTransformVector(FVector(MeshEd::OverlayDistanceScaleFactor->GetFloat() / ViewportWorldInteraction->GetWorldScaleFactor(), 0.0f, 0.0f)).Size();
 
-									EInteractorShape HitInteractorShape = EInteractorShape::Invalid;
-									FVector ComponentSpaceHitLocation = FVector::ZeroVector;
-									FEditableMeshElementAddress MeshElementAddress = QueryElement( 
-										*EditableMesh, 
-										InteractorShape,
-										ComponentSpaceGrabberSphere, 
-										ComponentSpaceGrabberSphereFuzzyDistance, 
-										ComponentSpaceLaserStart, 
-										ComponentSpaceLaserEnd, 
-										ComponentSpaceRayFuzzyDistance, 
-										OnlyElementType, 
-										ComponentSpaceCameraLocation,
-										bIsPerspectiveView,
-										ComponentSpaceFuzzyDistanceScaleFactor,
-										/* Out */ HitInteractorShape,
-										/* Out */ ComponentSpaceHitLocation );
+									FHitParamsIn ParamsIn(HitComponent, CameraToWorld, bIsPerspectiveView, ComponentSpaceFuzzyDistanceScaleFactor, ComponentToWorldMatrix, MeshEditorInteractorData, EditableMesh, InteractorShape, ComponentSpaceGrabberSphereFuzzyDistance, ComponentSpaceRayFuzzyDistance, OnlyElementType);
 
-									if( MeshElementAddress.ElementType != EEditableMeshElementType::Invalid )
-									{
-										const FVector WorldSpaceHitLocation = ComponentToWorldMatrix.TransformPosition( ComponentSpaceHitLocation );
-										
-										const float ClosestDistanceToGrabberSphere = ( MeshEditorInteractorData.GrabberSphere.Center - ClosestHoverLocation ).Size();
-										const float DistanceToGrabberSphere = ( MeshEditorInteractorData.GrabberSphere.Center - WorldSpaceHitLocation ).Size();
-
-										const float ClosestDistanceOnRay = ( MeshEditorInteractorData.LaserStart - ClosestHoverLocation ).Size();
-										const float DistanceOnRay = ( MeshEditorInteractorData.LaserStart - WorldSpaceHitLocation ).Size();
-
-										// NOTE: We're preferring any grabber sphere hit over laser hits
-										if( ClosestComponent == nullptr ||
-											( HitInteractorShape == EInteractorShape::GrabberSphere && DistanceToGrabberSphere < ClosestDistanceToGrabberSphere ) ||
-											( HitInteractorShape == EInteractorShape::Laser && DistanceOnRay < ClosestDistanceOnRay ) )
-										{
-											ClosestComponent = HitComponent;
-											ClosestElementAddress = MeshElementAddress;
-											ClosestInteractorShape = HitInteractorShape;
-											ClosestHoverLocation = WorldSpaceHitLocation;
-										}
-									}
+									EditableMesh->GeometryHitTest(ParamsIn, ParamsOut);
 								}
 							}
 						}
 
-						if( ClosestElementAddress.ElementType != EEditableMeshElementType::Invalid )
+						if( ParamsOut.ClosestElementAddress.ElementType != EEditableMeshElementType::Invalid )
 						{
 							// We have a hovered element!
-							MeshEditorInteractorData.HoveredMeshElement.Component = ClosestComponent;
+							MeshEditorInteractorData.HoveredMeshElement.Component = ParamsOut.ClosestComponent;
 							MeshEditorInteractorData.HoveredMeshElement.LastHoverTime = FSlateApplication::Get().GetCurrentTime();
-							MeshEditorInteractorData.HoveredMeshElement.ElementAddress = ClosestElementAddress;
-							MeshEditorInteractorData.HoverInteractorShape = ClosestInteractorShape;
-							MeshEditorInteractorData.HoverLocation = ClosestHoverLocation;
+							MeshEditorInteractorData.HoveredMeshElement.ElementAddress = ParamsOut.ClosestElementAddress;
+							MeshEditorInteractorData.HoverInteractorShape = ParamsOut.ClosestInteractorShape;
+							MeshEditorInteractorData.HoverLocation = ParamsOut.ClosestHoverLocation;
 
 							bWasHandled = true;
 							OutHoverImpactPoint = MeshEditorInteractorData.HoverLocation;
@@ -3376,6 +3431,57 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	bIsFirstActiveActionUpdate = false;
 }
 
+void FMeshEditorMode::OnFractureExpansionBegin()
+{
+	if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+	{
+		// just elimitante the wireframe just now as it looks wrong being static when the mesh is expanding, since it's going to be recreated again in OnFractureExpansionEnd
+		for (int i = 0; i < SelectedComponentsAndEditableMeshes.Num(); i++)
+		{
+			const FComponentAndEditableMesh& ComponentAndEditableMesh = this->SelectedComponentsAndEditableMeshes[i];
+			check(ComponentAndEditableMesh.EditableMesh);
+			check(ComponentAndEditableMesh.Component.IsValid());
+
+			FWireframeMeshComponents* WireframeMeshComponentsPtr = this->ComponentToWireframeComponentMap.Find(FObjectKey(ComponentAndEditableMesh.Component.Get()));
+			if (WireframeMeshComponentsPtr)
+			{
+				check(WireframeMeshComponentsPtr->WireframeMeshComponent);
+				check(WireframeMeshComponentsPtr->WireframeMeshComponent->GetWireframeMesh());
+				WireframeMeshComponentsPtr->WireframeMeshComponent->GetWireframeMesh()->Reset();
+				WireframeMeshComponentsPtr->WireframeSubdividedMeshComponent->GetWireframeMesh()->Reset();
+
+				WireframeMeshComponentsPtr->WireframeMeshComponent->MarkRenderStateDirty();
+				WireframeMeshComponentsPtr->WireframeSubdividedMeshComponent->MarkRenderStateDirty();
+			}
+		}
+	}
+}
+
+void FMeshEditorMode::OnFractureExpansionEnd()
+{
+	if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+	{
+		// update the editable mesh and the wireframes now that the Geometry Collection pieces have stopped moving
+		for (int i = 0; i < SelectedComponentsAndEditableMeshes.Num(); i++)
+		{
+			const FComponentAndEditableMesh& ComponentAndEditableMesh = this->SelectedComponentsAndEditableMeshes[i];
+			check(ComponentAndEditableMesh.EditableMesh);
+			check(ComponentAndEditableMesh.Component.IsValid());
+			UEditableMeshFactory::RefreshEditableMesh(ComponentAndEditableMesh.EditableMesh, *ComponentAndEditableMesh.Component);
+
+			// select all new pieces
+			ComponentAndEditableMesh.EditableMesh->RebuildRenderMesh();
+
+			const FEditableMeshSubMeshAddress& SubMeshAddress = ComponentAndEditableMesh.EditableMesh->GetSubMeshAddress();
+			if (FractureToolComponent && SubMeshAddress.EditableMeshFormat->HandlesBones())
+			{
+				UPrimitiveComponent* Component = ComponentAndEditableMesh.Component.Get();
+				FractureToolComponent->UpdateBoneState(Component);
+			}
+		}
+	}
+
+}
 
 void FMeshEditorMode::GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements )
 {
@@ -3471,392 +3577,6 @@ bool FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* Viewpor
 }
 
 
-FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& EditableMesh, const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const EEditableMeshElementType OnlyElementType, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& OutInteractorShape, FVector& OutHitLocation ) const
-{
-	OutHitLocation = FVector::ZeroVector;
-
-	FEditableMeshElementAddress HitElementAddress;
-	HitElementAddress.SubMeshAddress = EditableMesh.GetSubMeshAddress();
-
-
-	// Figure out our candidate set of polygons by performing a spatial query on the mesh
-	static TArray<FPolygonID> CandidatePolygons;
-	CandidatePolygons.Reset();
-
-	if( InteractorShape == EInteractorShape::Laser )
-	{
-		// @todo mesheditor spatial: Do we need to use a "fat ray" to account for fuzzy testing (or expanded octree boxes)?  We don't currently have a 'segment distance to AABB' function.
-
-		check( EditableMesh.IsSpatialDatabaseAllowed() );	// We need a spatial database to do this query fast!
-		EditableMesh.SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( RayStart, RayEnd, /* Out */ CandidatePolygons );
-
-		// @todo mesheditor debug
-		// 	if( EditableMesh.GetPolygonCount() > 0 )
-		// 	{
-		// 		UE_LOG( LogEditableMesh, Display, TEXT( "%i  (%0.1f%%)" ), CandidatePolygons.Num(), ( (float)CandidatePolygons.Num() / (float)EditableMesh.GetPolygonCount() ) * 100.0f );
-		// 	}
-	}
-	else
-	{
-		// @todo mesheditor spatial: Need GrabberSphere support for spatial queries.  Currently we're just testing all polygons (slow!)
-		for( const FPolygonID PolygonID : EditableMesh.GetMeshDescription()->Polygons().GetElementIDs() )
-		{
-			CandidatePolygons.Add( PolygonID );
-		}
-	}
-
-	static TSet<FVertexID> FrontFacingVertices;
-	FrontFacingVertices.Reset();
-	
-	static TSet<FEdgeID> FrontFacingEdges;
-	FrontFacingEdges.Reset();
-
-	static TSet<FPolygonID> FrontFacingPolygons;
-	FrontFacingPolygons.Reset();
-
-	TPolygonAttributesConstRef<FVector> PolygonCenters = EditableMesh.GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Center );
-
-	// Look for all the front-facing elements
-	for( const FPolygonID PolygonID : CandidatePolygons )
-	{
-		const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonID );
-		const FVector PolygonCenter = PolygonCenters[ PolygonID ];
-		if( ( InteractorShape == EInteractorShape::GrabberSphere ) ||	// Sphere tests never eliminate back-facing geometry
-			!bIsPerspectiveView ||			// @todo mesheditor: Add support for backface culling in orthographic views
-			FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )
-		{
-			FrontFacingPolygons.Add( PolygonID );
-
-			const int32 PolygonVertexCount = EditableMesh.GetPolygonPerimeterVertexCount( PolygonID );
-			for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
-			{
-				FrontFacingVertices.Add( EditableMesh.GetPolygonPerimeterVertex( PolygonID, Index ) );
-				bool bOutEdgeWindingIsReversedForPolygons;
-				FrontFacingEdges.Add( EditableMesh.GetPolygonPerimeterEdge( PolygonID, Index, bOutEdgeWindingIsReversedForPolygons ) );
-			}
-		}
-	}
-
-	EInteractorShape ClosestInteractorShape = EInteractorShape::Invalid;
-	FVector ClosestHitLocation = FVector::ZeroVector;
-	float ClosestDistanceOnRay = TNumericLimits<float>::Max();
-	float ClosestDistanceToRay = TNumericLimits<float>::Max();
-	FVector CurrentRayEnd = RayEnd;
-
-	const FMeshDescription* MeshDescription = EditableMesh.GetMeshDescription();
-	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
-
-	// Check polygons first; this is so we always impose a closest hit location at the poly before checking other elements, so anything behind is occluded
-	for( const FPolygonID PolygonID : FrontFacingPolygons )
-	{
-		static TArray<FVertexID> MeshVertexIDs;
-		MeshVertexIDs.Reset();
-		EditableMesh.GetPolygonPerimeterVertices( PolygonID, /* Out */ MeshVertexIDs );
-
-		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonID );
-		for( uint32 PolygonTriangleNumber = 0; PolygonTriangleNumber < PolygonTriangleCount; ++PolygonTriangleNumber )
-		{
-			FVector TriangleVertexPositions[ 3 ];
-			for( uint32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
-			{
-				const FVertexInstanceID VertexInstanceID = EditableMesh.GetPolygonTriangulatedTriangle( PolygonID, PolygonTriangleNumber ).GetVertexInstanceID( TriangleVertexNumber );
-				const FVertexID VertexID = EditableMesh.GetVertexInstanceVertex( VertexInstanceID );
-				TriangleVertexPositions[ TriangleVertexNumber ] = VertexPositions[ VertexID ];
-			}
-
-			const bool bAlreadyHitTriangle = ( HitElementAddress.ElementType == EEditableMeshElementType::Polygon );
-			const bool bHit = CheckTriangle( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, TriangleVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitTriangle );
-			if( bHit )
-			{
-				HitElementAddress.ElementType = EEditableMeshElementType::Polygon;
-				HitElementAddress.ElementID = PolygonID;
-			}
-		}
-	}
-
-	// Reset the closest distance to ray (which will have been set to 0 by the polygon check) so other elements can be found within the fuzzy distance
-	ClosestDistanceToRay = TNumericLimits<float>::Max();
-
-	// Check edges
-	if( OnlyElementType == EEditableMeshElementType::Invalid || OnlyElementType == EEditableMeshElementType::Edge )
-	{
-		for( const FEdgeID EdgeID : FrontFacingEdges )
-		{
-			FVector EdgeVertexPositions[ 2 ];
-			EdgeVertexPositions[ 0 ] = VertexPositions[ EditableMesh.GetEdgeVertex( EdgeID, 0 ) ];
-			EdgeVertexPositions[ 1 ] = VertexPositions[ EditableMesh.GetEdgeVertex( EdgeID, 1 ) ];
-
-			const bool bAlreadyHitEdge = ( HitElementAddress.ElementType == EEditableMeshElementType::Edge );
-			const bool bHit = CheckEdge( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, EdgeVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitEdge );
-			if( bHit )
-			{
-				HitElementAddress.ElementType = EEditableMeshElementType::Edge;
-				HitElementAddress.ElementID = EdgeID;
-			}
-		}
-	}
-
-	ClosestDistanceToRay = TNumericLimits<float>::Max();
-
-	// Check vertices
-	if( OnlyElementType == EEditableMeshElementType::Invalid || OnlyElementType == EEditableMeshElementType::Vertex )
-	{
-		for( const FVertexID VertexID : FrontFacingVertices )
-		{
-			const FVector VertexPosition = VertexPositions[ VertexID ];
-			const bool bAlreadyHitVertex = ( HitElementAddress.ElementType == EEditableMeshElementType::Vertex );
-			const bool bHit = CheckVertex( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, VertexPosition, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitVertex );
-			if( bHit )
-			{
-				HitElementAddress.ElementType = EEditableMeshElementType::Vertex;
-				HitElementAddress.ElementID = VertexID;
-			}
-		}
-	}
-
-	if( HitElementAddress.ElementType != EEditableMeshElementType::Invalid )
-	{
-		OutInteractorShape = ClosestInteractorShape;
-		OutHitLocation = ClosestHitLocation;
-	}
-
-	return HitElementAddress;
-}
-
-
-bool FMeshEditorMode::CheckVertex( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector& VertexPosition, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitVertex )
-{
-	bool bHit = false;
-
-	const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-	const float DistanceToCamera = bIsPerspectiveView ? ( CameraLocation - VertexPosition ).Size() : 0.0f;
-	const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
-	check( DistanceBasedScaling > 0.0f );
-
-	if( InteractorShape == EInteractorShape::GrabberSphere )
-	{
-		const float DistanceToSphere = ( VertexPosition - Sphere.Center ).Size();
-		if( DistanceToSphere <= Sphere.W )
-		{
-			// Inside sphere
-			if( DistanceToSphere < ClosestDistanceToRay ||
-				( !bAlreadyHitVertex && FMath::Abs( DistanceToSphere - ClosestDistanceToRay ) < SphereFuzzyDistance * DistanceBasedScaling ) )
-			{
-				ClosestDistanceToRay = DistanceToSphere;
-				ClosestDistanceOnRay = 0.0f;
-				ClosestHitLocation = VertexPosition;
-				ClosestInteractorShape = EInteractorShape::GrabberSphere;
-
-				bHit = true;
-			}
-		}
-	}
-
-	if( InteractorShape == EInteractorShape::Laser )
-	{
-		const FVector ClosestPointOnRay = FMath::ClosestPointOnSegment( VertexPosition, RayStart, RayEnd );
-		const float DistanceToRay = ( ClosestPointOnRay - VertexPosition ).Size();
-		const float DistanceOnRay = ( ClosestPointOnRay - RayStart ).Size();
-
-		const FVector RayDirection = ( RayEnd - RayStart ).GetSafeNormal();
-		const FVector DirectionTowardClosestPointOnRay = ( ClosestPointOnRay - RayStart ).GetSafeNormal();
-		const bool bIsBehindRay = FVector::DotProduct( RayDirection, DirectionTowardClosestPointOnRay ) < 0.0f;
-		if( !bIsBehindRay )
-		{
-			// Are we within the minimum distance for hitting a vertex?
-			if( DistanceToRay < RayFuzzyDistance * DistanceBasedScaling )
-			{
-				const bool bWithinFuzzyRadius = FMath::Abs( DistanceOnRay - ClosestDistanceOnRay ) < RayFuzzyDistance * DistanceBasedScaling;
-
-				if( ( bWithinFuzzyRadius && DistanceToRay < ClosestDistanceToRay ) || ( !bWithinFuzzyRadius && DistanceOnRay < ClosestDistanceOnRay ) )
-				{
-					ClosestDistanceToRay = DistanceToRay;
-					ClosestDistanceOnRay = DistanceOnRay;
-					ClosestHitLocation = ClosestPointOnRay;
-					ClosestInteractorShape = EInteractorShape::Laser;
-					bHit = true;
-				}
-
-				// @todo mesheditor debug
-				// const float Radius = GHackComponentToWorld.InverseTransformVector( FVector( RayFuzzyDistance * DistanceBasedScaling, 0.0f, 0.0f ) ).X;
-				// DrawDebugSphere( GHackVWI->GetWorld(), GHackComponentToWorld.TransformPosition( VertexPosition ), Radius, 8, bHit ? FColor::Green : FColor::Yellow, false, 0.0f );
-			}
-		}
-	}
-
-	return bHit;
-}
-
-
-bool FMeshEditorMode::CheckEdge( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector EdgeVertexPositions[ 2 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitEdge )
-{
-	bool bHit = false;
-
-	if( InteractorShape == EInteractorShape::GrabberSphere )
-	{
-		const float DistanceToSphere = FMath::PointDistToSegment( Sphere.Center, EdgeVertexPositions[ 0 ], EdgeVertexPositions[ 1 ] );
-		if( DistanceToSphere <= Sphere.W )
-		{
-			const FVector ClosestPointOnEdge = FMath::ClosestPointOnSegment( Sphere.Center, EdgeVertexPositions[ 0 ], EdgeVertexPositions[ 1 ] );
-			const float DistanceToCamera = bIsPerspectiveView ? ( CameraLocation - ClosestPointOnEdge ).Size() : 0.0f;
-			const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-			const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
-
-			// Inside sphere
-			if( DistanceToSphere < ClosestDistanceToRay ||
-				( !bAlreadyHitEdge && FMath::Abs( DistanceToSphere - ClosestDistanceToRay ) < SphereFuzzyDistance * DistanceBasedScaling ) )
-			{
-				ClosestDistanceToRay = DistanceToSphere;
-				ClosestDistanceOnRay = 0.0f;
-				ClosestHitLocation = ClosestPointOnEdge;
-				ClosestInteractorShape = EInteractorShape::GrabberSphere;
-
-				bHit = true;
-			}
-		}
-	}
-
-
-	if( InteractorShape == EInteractorShape::Laser )
-	{
-		FVector ClosestPointOnEdge, ClosestPointOnRay;
-		FMath::SegmentDistToSegmentSafe(
-			EdgeVertexPositions[ 0 ], EdgeVertexPositions[ 1 ],
-			RayStart, RayEnd,
-			/* Out */ ClosestPointOnEdge,
-			/* Out */ ClosestPointOnRay );
-		const float DistanceToRay = ( ClosestPointOnEdge - ClosestPointOnRay ).Size();
-		const float DistanceOnRay = ( ClosestPointOnRay - RayStart ).Size();
-
-		const FVector RayDirection = ( RayEnd - RayStart ).GetSafeNormal();
-		const FVector DirectionTowardClosestPointOnRay = ( ClosestPointOnRay - RayStart ).GetSafeNormal();
-		const bool bIsBehindRay = FVector::DotProduct( RayDirection, DirectionTowardClosestPointOnRay ) < 0.0f;
-		if( !bIsBehindRay )
-		{
-			const float DistanceToCamera = bIsPerspectiveView ? ( CameraLocation - ClosestPointOnEdge ).Size() : 0.0f;
-			const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-			const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
-			check( DistanceBasedScaling > 0.0f );
-
-			// Are we within the minimum distance for hitting an edge?
-			if( DistanceToRay < RayFuzzyDistance * DistanceBasedScaling )
-			{
-				const bool bWithinFuzzyRadius = FMath::Abs( DistanceOnRay - ClosestDistanceOnRay ) < RayFuzzyDistance * DistanceBasedScaling;
-
-				if( ( bWithinFuzzyRadius && DistanceToRay < ClosestDistanceToRay ) || ( !bWithinFuzzyRadius && DistanceOnRay < ClosestDistanceOnRay ) )
-				{
-					ClosestDistanceToRay = DistanceToRay;
-					ClosestDistanceOnRay = DistanceOnRay;
-					ClosestHitLocation = ClosestPointOnRay;
-					ClosestInteractorShape = EInteractorShape::Laser;
-					bHit = true;
-				}
-
-				// @todo mesheditor debug
-				// const float Radius = GHackComponentToWorld.InverseTransformVector( FVector( RayFuzzyDistance * DistanceBasedScaling, 0.0f, 0.0f ) ).X;
-				// DrawDebugSphere( GHackVWI->GetWorld(), GHackComponentToWorld.InverseTransformPosition( ClosestPointOnEdge ), Radius, 12, bHit ? FColor::Green : FColor::Yellow, false, 0.0f );
-			}
-		}
-	}
-
-	return bHit;
-}
-
-
-bool FMeshEditorMode::CheckTriangle( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector TriangleVertexPositions[ 3 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitTriangle )
-{
-	bool bHit = false;
-
-	if( InteractorShape == EInteractorShape::GrabberSphere )
-	{
-		// @todo grabber: FMath::ClosestPointOnTriangleToPoint doesn't work with degenerates (always returns ray start point?)
-		const FVector ClosestPointOnTriangleToSphere = FMath::ClosestPointOnTriangleToPoint( Sphere.Center, TriangleVertexPositions[ 0 ], TriangleVertexPositions[ 1 ], TriangleVertexPositions[ 2 ] );
-		const float DistanceToSphere = ( ClosestPointOnTriangleToSphere - Sphere.Center ).Size();
-		if( DistanceToSphere <= Sphere.W )
-		{
-			const float DistanceToCamera = bIsPerspectiveView ? ( CameraLocation - ClosestPointOnTriangleToSphere ).Size() : 0.0f;
-			const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-			const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
-
-			// Inside sphere
-			if( DistanceToSphere < ClosestDistanceToRay ||
-				( !bAlreadyHitTriangle && FMath::Abs( DistanceToSphere - ClosestDistanceToRay ) < SphereFuzzyDistance * DistanceBasedScaling ) )
-			{
-				ClosestHitLocation = ClosestPointOnTriangleToSphere;
-				ClosestDistanceToRay = DistanceToSphere;
-				ClosestDistanceOnRay = 0.0f;
-				ClosestInteractorShape = EInteractorShape::GrabberSphere;
-
-				bHit = true;
-			}
-		}
-	}
-
-
-	if( InteractorShape == EInteractorShape::Laser )
-	{
-		// @todo mesheditor: We have like 5 different versions of this in the engine, but nothing generic in a nice place
-		struct Local
-		{
-			static bool RayIntersectTriangle( const FVector& Start, const FVector& End, const FVector& A, const FVector& B, const FVector& C, FVector& IntersectPoint )
-			{
-				const FVector TriNormal = ( B - A ) ^ ( C - A );
-
-				bool bCollide = FMath::SegmentPlaneIntersection( Start, End, FPlane( A, TriNormal ), IntersectPoint );
-				if( !bCollide )
-				{
-					return false;
-				}
-
-				// Make sure points are not colinear.  ComputeBaryCentric2D() doesn't like that.
-				if( TriNormal.SizeSquared() > SMALL_NUMBER )
-				{
-					FVector BaryCentric = FMath::ComputeBaryCentric2D( IntersectPoint, A, B, C );
-					if( BaryCentric.X > 0.0f && BaryCentric.Y > 0.0f && BaryCentric.Z > 0.0f )
-					{
-						return true;
-					}
-				}
-				return false;
-			}
-		};
-
-
-		// @todo mesheditor: Possibly we shouldn't always check for faces when in wire frame view mode?
-
-		// Note: Polygon is assumed to be front facing
-		FVector IntersectionPoint;
-
-		// @todo mesheditor hole: Needs support for polygon hole contours
-		// @todo mesheditor perf: We also have a SIMD version of this that does four triangles at once
-		if( Local::RayIntersectTriangle( RayStart, RayEnd, TriangleVertexPositions[ 0 ], TriangleVertexPositions[ 1 ], TriangleVertexPositions[ 2 ], /* Out */ IntersectionPoint ) )
-		{
-			const float DistanceToCamera = bIsPerspectiveView ? ( CameraLocation - IntersectionPoint ).Size() : 0.0f;
-			const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-			const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
-    
-			const float DistanceToRay = 0.0f;  // We intersected the triangle, otherwise we wouldn't even be in here
-			const float DistanceOnRay = ( IntersectionPoint - RayStart ).Size();
-			if( DistanceOnRay < ClosestDistanceOnRay ||
-				( !bAlreadyHitTriangle && FMath::Abs( DistanceOnRay - ClosestDistanceOnRay ) < RayFuzzyDistance * DistanceBasedScaling ) )
-			{
-				ClosestHitLocation = IntersectionPoint;
-				ClosestDistanceToRay = DistanceToRay;
-				ClosestDistanceOnRay = DistanceOnRay;
-				ClosestInteractorShape = EInteractorShape::Laser;
-
-				bHit = true;
-			}
-
-			// @todo mesheditor debug
-			// const float Radius = GHackComponentToWorld.InverseTransformVector( FVector( RayFuzzyDistance * DistanceBasedScaling, 0.0f, 0.0f ) ).X;
-			// DrawDebugSphere( GHackVWI->GetWorld(), GHackComponentToWorld.TransformPosition( IntersectionPoint ), Radius, 16, bHit ? FColor::Green : FColor::Yellow, false, 0.0f );
-		}
-	}
-
-	return bHit;
-}
-
 
 
 void FMeshEditorMode::SetMeshElementSelectionMode( EEditableMeshElementType ElementType )
@@ -3865,6 +3585,15 @@ void FMeshEditorMode::SetMeshElementSelectionMode( EEditableMeshElementType Elem
 	FSetElementSelectionModeChangeInput ChangeInput;
 	ChangeInput.Mode = ElementType;
 	TrackUndo( MeshEditorModeProxyObject, FSetElementSelectionModeChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+
+	if (ElementType == EEditableMeshElementType::Fracture)
+	{
+		FractureToolComponent->OnEnterFractureMode();
+	}
+	else
+	{
+		FractureToolComponent->OnExitFractureMode();
+	}
 }
 
 
@@ -3937,6 +3666,12 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 			{
 				FMeshElement HoveredMeshElement = GetHoveredMeshElement( MeshEditorInteractorData.ViewportInteractor.Get() );
 
+				if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+				{
+					// Take the hovered BoneID and store it in the Editable Mesh now a selection has been made
+					UpdateBoneSelection(HoveredMeshElement, ViewportInteractor);
+				}
+
 				// Make sure the actor is selected
 				// @todo mesheditor: Do we need/want to automatically select actors when doing mesh editing?  If so, consider how undo will 
 				// encapsulate the actor selection change with the mesh element selection change
@@ -4000,6 +3735,10 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 
 									case EEditableMeshElementType::Polygon:
 										EquippedAction = EquippedPolygonAction;
+										break;
+
+									case EEditableMeshElementType::Fracture:
+										EquippedAction = EquippedFractureAction;
 										break;
 								}
 
@@ -4688,10 +4427,13 @@ const FMeshEditorMode::FWireframeMeshComponents& FMeshEditorMode::CreateWirefram
 
 void FMeshEditorMode::DestroyWireframeMeshComponents( UPrimitiveComponent* Component )
 {
+	if (ComponentToWireframeComponentMap.Contains(FObjectKey( Component )))
+	{
 	FWireframeMeshComponents& WireframeMeshComponents = ComponentToWireframeComponentMap.FindChecked( FObjectKey( Component ) );
 	WireframeMeshComponents.WireframeMeshComponent->DestroyComponent();
 	WireframeMeshComponents.WireframeSubdividedMeshComponent->DestroyComponent();
 	ComponentToWireframeComponentMap.Remove( FObjectKey( Component ) );
+}
 }
 
 
@@ -4763,6 +4505,15 @@ void FMeshEditorMode::UpdateSelectedEditableMeshes()
 					{
 						SelectedComponentsAndEditableMeshes.AddUnique( FComponentAndEditableMesh( Component, EditableMesh ) );
 						SelectedEditableMeshes.AddUnique( EditableMesh );
+
+						if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+						{
+							if (FractureToolComponent)
+							{
+								FractureToolComponent->OnSelected(Component);
+							}
+						}
+
 					}
 				}
 			}
@@ -4784,6 +4535,14 @@ void FMeshEditorMode::UpdateSelectedEditableMeshes()
 
 	for( UPrimitiveComponent* DeselectedComponent : DeselectedComponents )
 	{
+		if (this->MeshElementSelectionMode == EEditableMeshElementType::Fracture)
+		{
+			if (FractureToolComponent)
+			{
+				FractureToolComponent->OnDeselected(DeselectedComponent);
+			}
+		}
+
 		DestroyWireframeMeshComponents( DeselectedComponent );
 	}
 
@@ -4984,6 +4743,10 @@ void FMeshEditorMode::SetEquippedAction( const EEditableMeshElementType ForEleme
 			EquippedPolygonAction = ActionToEquip;
 			break;
 
+		case EEditableMeshElementType::Fracture:
+			EquippedFractureAction = ActionToEquip;
+			break;
+
 		default:
 			check( 0 );
 	}
@@ -5113,5 +4876,20 @@ FMeshElement FMeshEditorMode::GetHoveredMeshElement( const UViewportInteractor* 
 	return HoveredMeshElement;
 }
 
+void FMeshEditorMode::UpdateBoneSelection(FMeshElement &HoveredMeshElement, UViewportInteractor* ViewportInteractor)
+{
+	UPrimitiveComponent* Comp = HoveredMeshElement.Component.Get();
+	if (Comp != nullptr)
+	{
+		const int32 LODIndex = 0;
+		UEditableMesh* EditableMesh = FindOrCreateEditableMesh(*Comp, UEditableMeshFactory::MakeSubmeshAddress(Comp, LODIndex));
+
+		int32 BoneNum = HoveredMeshElement.ElementAddress.BoneID.GetValue();
+		//UE_LOG(LogEditableMesh, Log, TEXT("CLICK Bone %d"), BoneNum);
+		const bool bIsMultiSelecting = ViewportInteractor->IsModifierPressed();
+		FractureToolComponent->SetSelectedBones(EditableMesh, BoneNum, bIsMultiSelecting, GetFractureSettings()->CommonSettings->ShowBoneColors);
+	}
+}
 
 #undef LOCTEXT_NAMESPACE
+

@@ -3,6 +3,7 @@
 #include "EditableMeshModule.h"
 #include "IEditableMeshModule.h"
 #include "StaticMeshEditableMeshFormat.h"
+#include "GeometryCollectionEditableMeshFormat.h"
 
 
 class FEditableMeshModule : public IEditableMeshModule
@@ -22,18 +23,23 @@ private:
 	/** Static mesh editing */
 	FStaticMeshEditableMeshFormat StaticMeshEditableMeshFormat;
 
+	/** Geometry Collection editing */
+	FGeometryCollectionEditableMeshFormat GeometryCollectionEditableMeshFormat;
+
 };
 
 
 void FEditableMeshModule::StartupModule()
 {
-	IModularFeatures::Get().RegisterModularFeature( "EditableMeshFormat", &StaticMeshEditableMeshFormat );
+	IModularFeatures::Get().RegisterModularFeature("EditableMeshFormat", &StaticMeshEditableMeshFormat);
+	IModularFeatures::Get().RegisterModularFeature("EditableMeshFormat", &GeometryCollectionEditableMeshFormat);
 }
 
 
 void FEditableMeshModule::ShutdownModule()
 {
-	IModularFeatures::Get().UnregisterModularFeature( "EditableMeshFormat", &StaticMeshEditableMeshFormat );
+	IModularFeatures::Get().UnregisterModularFeature("EditableMeshFormat", &StaticMeshEditableMeshFormat);
+	IModularFeatures::Get().UnregisterModularFeature("EditableMeshFormat", &GeometryCollectionEditableMeshFormat);
 }
 
 

@@ -93,6 +93,41 @@ struct FGetInfo : TTreeItemGetter<FString>
 			return FString();
 		}
 	}
+
+	virtual FString Get(const FComponentTreeItem& ComponentItem) const override
+	{
+		UActorComponent* Component = ComponentItem.Component.Get();
+		if (!Component)
+		{
+			return FString();
+		}
+
+		switch (CurrentMode)
+		{
+		case ECustomColumnMode::Class:
+			return LOCTEXT("ComponentTypeName", "Component").ToString();
+
+		case ECustomColumnMode::InternalName:
+			return Component->GetFName().ToString();
+
+		default:
+			return FString();
+		}
+	}
+
+	virtual FString Get(const FSubComponentTreeItem& Item) const override
+	{
+		switch (CurrentMode)
+		{
+		case ECustomColumnMode::Class:
+		case ECustomColumnMode::InternalName:
+			return Item.GetTypeName();
+
+		default:
+			return FString();
+		}
+	}
+
 };
 
 
