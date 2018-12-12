@@ -29,7 +29,7 @@
 #include "Chaos/Vector.h"
 #include "ChaosClothPrivate.h"
 
-#if WITH_PHYSX && !PLATFORM_LUMIN
+#if WITH_PHYSX && !PLATFORM_LUMIN && !PLATFORM_ANDROID
 #include "PhysXIncludes.h" 
 #endif
 
@@ -296,7 +296,7 @@ void ClothingSimulation::CreateActor(USkeletalMeshComponent* InOwnerComponent, U
 			}*/
             {
 // Collision bodies are stored in PhysX specific data structures so they can only be imported if we enable PhysX.
-#if WITH_PHYSX && !PLATFORM_LUMIN
+#if WITH_PHYSX && !PLATFORM_LUMIN && !PLATFORM_ANDROID
                 uint32 OldSize = CollisionParticles.Size();
                 CollisionParticles.AddParticles(BodySetup->AggGeom.ConvexElems.Num());
                 for (uint32 i = OldSize; i < CollisionParticles.Size(); ++i)
