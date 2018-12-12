@@ -24,6 +24,8 @@ namespace NetworkProfiler
 
 		/** Array of unique addresses. Code has fixed indexes into it.				*/
 		public List<UInt64> AddressArray = new List<UInt64>();
+		// Used for new storage method.
+		public List<string> StringAddressArray = new List<string>();
 
 		/** Last address index parsed from token stream								*/
 		public int CurrentConnectionIndex = 0;
@@ -61,22 +63,27 @@ namespace NetworkProfiler
 		 * Returns the ip address string associated with the passed in connection index.
 		 * 
 		 * @param	ConnectionIndex	Index in address table
-		 * @return	Ip string associated with adress table index
+		 * @param	NetworkVersion the version of this network profiler, determines if we need to do extra parsing with the string
+		 * @return	Ip string associated with address table index
 		 */
-		public string GetIpString( int ConnectionIndex )
+		public string GetIpString( int ConnectionIndex, uint NetworkVersion )
 		{
-			UInt64 Addr = AddressArray[ConnectionIndex];
-			UInt32 IP	= ( UInt32 )( Addr >> 32 );
-			UInt32 Port = ( UInt32 )( Addr & ( ( ( UInt64 )1 << 32 ) - 1 ) );
+			if( NetworkVersion < 12 )
+			{
+				UInt64 Addr = AddressArray[ConnectionIndex];
+				UInt32 IP = (UInt32)(Addr >> 32);
+				UInt32 Port = (UInt32)(Addr & (((UInt64)1 << 32) - 1));
 
-			byte ip0 = ( byte )( ( IP >> 24 ) & 255 );
-			byte ip1 = ( byte )( ( IP >> 16 ) & 255 );
-			byte ip2 = ( byte )( ( IP >> 8 ) & 255 );
-			byte ip3 = ( byte )( ( IP >> 0 ) & 255 );
-
-			//return string.Format( "{0,3:000}.{1,3:000}.{2,3:000}.{3,3:000}: {4,-5}", ip0, ip1, ip2, ip3, Port );
-			//return string.Format( "{0,3}.{1,3}.{2,3}.{3,3}: {4,-5}", ip0, ip1, ip2, ip3, Port );
-			return string.Format( "{0}.{1}.{2}.{3}: {4}", ip0, ip1, ip2, ip3, Port );
+				byte ip0 = (byte)((IP >> 24) & 255);
+				byte ip1 = (byte)((IP >> 16) & 255);
+				byte ip2 = (byte)((IP >> 8) & 255);
+				byte ip3 = (byte)((IP >> 0) & 255);
+				return string.Format("{0}.{1}.{2}.{3}: {4}", ip0, ip1, ip2, ip3, Port);
+			}
+			else
+			{
+				return StringAddressArray[ConnectionIndex];
+			}
 		}
 
 		/**

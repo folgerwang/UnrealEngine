@@ -135,7 +135,15 @@ namespace NetworkProfiler
 
 				if ( Token.TokenType == ETokenTypes.ConnectionReference )
 				{
-					NetworkStream.AddressArray.Add( ( Token as TokenConnectionReference ).Address );
+					if( NetworkStream.GetVersion() < 12 )
+					{
+						NetworkStream.AddressArray.Add((Token as TokenConnectionReference).Address);
+					}
+					else
+					{
+						NetworkStream.StringAddressArray.Add((Token as TokenConnectionStringReference).Address);
+					}
+					
 					continue;
 				}
 

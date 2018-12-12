@@ -127,7 +127,16 @@ namespace NetworkProfiler
 					SerializedToken = new TokenNameReference( BinaryStream );
 					break;
 				case ETokenTypes.ConnectionReference:
-					SerializedToken = new TokenConnectionReference( BinaryStream );
+					{
+						if (InNetworkStream.GetVersion() < 12)
+						{
+							SerializedToken = new TokenConnectionReference(BinaryStream);
+						}
+						else
+						{
+							SerializedToken = new TokenConnectionStringReference(BinaryStream);
+						}
+					}
 					break;
 				case ETokenTypes.ConnectionChange:
 					SerializedToken = new TokenConnectionChanged( BinaryStream );
@@ -228,7 +237,7 @@ namespace NetworkProfiler
 		{
 			TreeNode Child = TokenHelper.AddNode( Tree, "Socket SendTo" );
 
-			Child = Child.Nodes.Add( "Destination : " + StreamParser.NetworkStream.GetIpString( ConnectionIndex ) );
+			Child = Child.Nodes.Add( "Destination : " + StreamParser.NetworkStream.GetIpString( ConnectionIndex, StreamParser.NetworkStream.GetVersion() ) );
 
 			Child.Nodes.Add( "SocketName          : " + StreamParser.NetworkStream.GetName( SocketNameIndex ) );
 			Child.Nodes.Add( "DesiredBytesSent    : " + ( NumPacketIdBits + NumBunchBits + NumAckBits + NumPaddingBits ) / 8.0f );
@@ -748,6 +757,24 @@ namespace NetworkProfiler
 		public TokenConnectionReference( BinaryReader BinaryStream )
 		{
 			Address = BinaryStream.ReadUInt64();
+		}
+	}
+
+	/**
+	 * Token for connection reference as a string.
+	 * This allows for support for different address formats without having to do any additional work.
+	 * Addresses are pushed in via the ToString(true) call on an FInternetAddr
+	 */
+	class TokenConnectionStringReference : TokenBase
+	{
+		/** Address of connection */
+		public string Address = null;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenConnectionStringReference(BinaryReader BinaryStream)
+		{
+			int StrLength = Math.Abs(BinaryStream.ReadInt32());
+			Address = new string(BinaryStream.ReadChars(StrLength));
 		}
 	}
 

@@ -8,6 +8,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
+#include "IPAddress.h"
 
 class AActor;
 class FOutBunch;
@@ -80,10 +81,7 @@ private:
 	TArray<FString>							NameArray;
 
 	/** Mapping from address to index in address array.												*/
-	TMap<uint64, int32>						AddressTableIndexMap;
-
-	/** Array of unique addresses																	*/
-	TArray<uint64>							AddressArray;
+	TMap<FString, int32>					AddressTableIndexMap;
 
 	/** Whether noticeable network traffic has occured in this session. Used to discard it.			*/
 	bool									bHasNoticeableNetworkTrafficOccured;
@@ -94,7 +92,7 @@ private:
 	FNetworkProfilerHeader					CurrentHeader;
 
 	/** Last known address																			*/
-	uint64									LastAddress;
+	TSharedPtr<FInternetAddr>				LastAddress;
 
 	/** All the data required for writing sent bunches to the profiler stream						*/
 	struct FSendBunchInfo
@@ -157,7 +155,7 @@ private:
 	* @param	Address	Address to find index for
 	* @return	Index of passed in name
 	*/
-	int32 GetAddressTableIndex( uint64 Address );
+	int32 GetAddressTableIndex( const FString& Address );
 
 public:
 	/**

@@ -31,7 +31,7 @@ FNetworkProfiler GNetworkProfiler;
 /** Magic value, determining that file is a network profiler file.				*/
 #define NETWORK_PROFILER_MAGIC						0x1DBF348C
 /** Version of memory profiler. Incremented on serialization changes.			*/
-#define NETWORK_PROFILER_VERSION					11
+#define NETWORK_PROFILER_VERSION					12
 
 static const FString UnknownName("UnknownName");
 
@@ -96,10 +96,10 @@ FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader& Header )
  * Constructor, initializing member variables.
  */
 FNetworkProfiler::FNetworkProfiler()
-:	FileWriter(NULL)
+:	FileWriter( nullptr )
 ,	bHasNoticeableNetworkTrafficOccured(false)
 ,	bIsTrackingEnabled(false)
-,	LastAddress( 0xFFFFFFFFFFFFFFFF )
+,	LastAddress( nullptr )
 {
 }
 
@@ -140,10 +140,10 @@ int32 FNetworkProfiler::GetNameTableIndex( const FString& Name )
 /**
 * Returns index of passed in name into name array. If not found, adds it.
 *
-* @param	Name	Name to find index for
+* @param	Address	Address string to find index for
 * @return	Index of passed in name
 */
-int32 FNetworkProfiler::GetAddressTableIndex( uint64 Address )
+int32 FNetworkProfiler::GetAddressTableIndex( const FString& Address )
 {
 	// Index of name in name table.
 	int32 Index = INDEX_NONE;
@@ -157,14 +157,13 @@ int32 FNetworkProfiler::GetAddressTableIndex( uint64 Address )
 	// Encountered new name, add to array and set index mapping.
 	else
 	{
-		Index = AddressArray.Num();
-		AddressArray.Add( Address );
+		Index = AddressTableIndexMap.Num();
 		AddressTableIndexMap.Add( Address, Index );
 
 		// Write out the name reference token
 		uint8 Type = NPTYPE_ConnectionReference;
 		( *FileWriter ) << Type;
-		( *FileWriter ) << Address;
+		Address.SerializeAsANSICharArray( *FileWriter );
 	}
 
 	check( Index != INDEX_NONE );
@@ -204,7 +203,7 @@ void FNetworkProfiler::TrackFrameBegin()
 		(*FileWriter) << Type;
 		float RelativeTime=  (float)(FPlatformTime::Seconds() - GStartTime);
 		(*FileWriter) << RelativeTime;
-		LastAddress = 0xFFFFFFFFFFFFFFFF;
+		LastAddress = nullptr;
 	}
 }
 
@@ -217,20 +216,19 @@ void FNetworkProfiler::SetCurrentConnection( UNetConnection* Connection )
 {
 	if ( bIsTrackingEnabled && Connection != nullptr )
 	{
-		const uint32 NetworkByteOrderIP = Connection->GetAddrAsInt();
-		const uint32 Port				= Connection->GetAddrPort();
-
-		const uint64 Address = ( ( ( uint64 )NetworkByteOrderIP ) << 32 ) | Port;
-
-		if ( Address != LastAddress )
+		const TSharedPtr<FInternetAddr> ConnectionAddr = Connection->GetInternetAddr();
+		if ( ConnectionAddr.IsValid() )
 		{
-			uint32 Index = GetAddressTableIndex( Address );
+			if ( LastAddress != ConnectionAddr )
+			{
+				uint32 Index = GetAddressTableIndex(ConnectionAddr->ToString(true));
 
-			uint8 Type = NPTYPE_ConnectionChanged;
-			( *FileWriter ) << Type;
-			( *FileWriter ).SerializeIntPacked( Index );
+				uint8 Type = NPTYPE_ConnectionChanged;
+				(*FileWriter) << Type;
+				(*FileWriter).SerializeIntPacked(Index);
 
-			LastAddress = Address;
+				LastAddress = ConnectionAddr;
+			}
 		}
 	}
 }
@@ -596,14 +594,14 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 
 			// Clean up.
 			delete FileWriter;
-			FileWriter = NULL;
+			FileWriter = nullptr;
 			bHasNoticeableNetworkTrafficOccured = false;
 		}
 
 		if( bShouldContinueTracking )
 		{
 			// Start a new tracking session.
-			check( FileWriter == NULL );
+			check( FileWriter == nullptr );
 
 			static int32 Salt = 0;
 			Salt++;		// Use a salt to solve the issue where this function is called so fast it produces the same time (seems to happen during seamless travel)
@@ -617,7 +615,6 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 			NameToNameTableIndexMap.Reset();
 			NameArray.Reset();
 			AddressTableIndexMap.Reset();
-			AddressArray.Reset();
 
 			CurrentHeader.Reset(InURL);
 
@@ -746,10 +743,10 @@ bool FNetworkProfiler::Exec( UWorld * InWorld, const TCHAR* Cmd, FOutputDevice &
 	}
 
 	// If we are tracking, and we don't have a file writer, force one now 
-	if ( bIsTrackingEnabled && FileWriter == NULL ) 
+	if ( bIsTrackingEnabled && FileWriter == nullptr ) 
 	{
 		TrackSessionChange( true, InWorld != nullptr ? InWorld->URL : FURL() );
-		if ( FileWriter == NULL )
+		if ( FileWriter == nullptr )
 		{
 			UE_LOG(LogNet, Warning, TEXT("FNetworkProfiler::Exec: FAILED to create file writer!"));
 			EnableTracking( false );
