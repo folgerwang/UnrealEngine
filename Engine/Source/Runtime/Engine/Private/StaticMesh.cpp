@@ -2613,7 +2613,7 @@ void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
 	// Initialize the StaticMeshOwner
 	if (Ar.IsLoading())
 	{
-		StaticMeshOwner = Owner;
+		StaticMeshOwner = Cast<UStaticMesh>(Owner);
 	}
 
 	// Always serialize the MeshDescription bulk data when transacting (so undo/redo works correctly).
