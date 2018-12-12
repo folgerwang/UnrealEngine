@@ -131,16 +131,16 @@ IMPLEMENT_BASEPASS_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_DISTANCE_
 
 DECLARE_GPU_STAT(Basepass);
 
-void SetBasePassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 MeshId, FDrawingPolicyRenderState& DrawRenderState)
+void SetBasePassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 StaticMeshId, FDrawingPolicyRenderState& DrawRenderState)
 {
-	if (SceneView && MeshId >= 0 && Mesh.bDitheredLODTransition)
+	if (SceneView && StaticMeshId >= 0 && Mesh.bDitheredLODTransition)
 	{
 		checkSlow(SceneView->bIsViewInfo);
 		const FViewInfo* ViewInfo = (FViewInfo*)SceneView;
 
 		if (ViewInfo->bAllowStencilDither)
 		{
-			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[MeshId])
+			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[StaticMeshId])
 			{
 				DrawRenderState.SetDepthStencilState(
 					TStaticDepthStencilState<
@@ -150,7 +150,7 @@ void SetBasePassDitheredLODTransitionState(const FSceneView* SceneView, const FM
 					0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)
 					>::GetRHI());
 			}
-			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[MeshId])
+			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[StaticMeshId])
 			{
 				DrawRenderState.SetDepthStencilState(
 					TStaticDepthStencilState<
@@ -938,7 +938,7 @@ template<typename LightMapPolicyType>
 void FBasePassMeshProcessor::Process(
 	const FMeshBatch& RESTRICT MeshBatch,
 	uint64 BatchElementMask,
-	int32 MeshId,
+	int32 StaticMeshId,
 	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
 	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
 	const FMaterial& RESTRICT MaterialResource,
@@ -984,7 +984,7 @@ void FBasePassMeshProcessor::Process(
 		SetTranslucentRenderState(DrawRenderState, MaterialResource);
 	}
 
-	SetBasePassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, MeshId, DrawRenderState);
+	SetBasePassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, StaticMeshId, DrawRenderState);
 
 	FMeshDrawCommandSortKey SortKey = FMeshDrawCommandSortKey::Default;
 
@@ -998,7 +998,7 @@ void FBasePassMeshProcessor::Process(
 	}
 
 	TBasePassShaderElementData<LightMapPolicyType> ShaderElementData(LightMapElementData);
-	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, true);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
 	BuildMeshDrawCommands(
 		MeshBatch,
@@ -1019,7 +1019,7 @@ void FBasePassMeshProcessor::Process(
 void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 	const FMeshBatch& RESTRICT MeshBatch,
 	uint64 BatchElementMask,
-	int32 MeshId,
+	int32 StaticMeshId,
 	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
 	const FMaterialRenderProxy& MaterialRenderProxy,
 	const FMaterial& Material,
@@ -1045,7 +1045,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 			Process< FUniformLightMapPolicy >(
 				MeshBatch,
 				BatchElementMask,
-				MeshId,
+				StaticMeshId,
 				PrimitiveSceneProxy,
 				MaterialRenderProxy,
 				Material,
@@ -1061,7 +1061,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 			Process< FUniformLightMapPolicy >(
 				MeshBatch,
 				BatchElementMask,
-				MeshId,
+				StaticMeshId,
 				PrimitiveSceneProxy,
 				MaterialRenderProxy,
 				Material,
@@ -1081,7 +1081,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 		Process< FUniformLightMapPolicy >(
 			MeshBatch,
 			BatchElementMask,
-			MeshId,
+			StaticMeshId,
 			PrimitiveSceneProxy,
 			MaterialRenderProxy,
 			Material,
@@ -1113,7 +1113,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 			Process< FUniformLightMapPolicy >(
 				MeshBatch,
 				BatchElementMask,
-				MeshId,
+				StaticMeshId,
 				PrimitiveSceneProxy,
 				MaterialRenderProxy,
 				Material,
@@ -1129,7 +1129,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 			Process< FUniformLightMapPolicy >(
 				MeshBatch,
 				BatchElementMask,
-				MeshId,
+				StaticMeshId,
 				PrimitiveSceneProxy,
 				MaterialRenderProxy,
 				Material,
@@ -1147,7 +1147,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 		Process< FUniformLightMapPolicy >(
 			MeshBatch,
 			BatchElementMask,
-			MeshId,
+			StaticMeshId,
 			PrimitiveSceneProxy,
 			MaterialRenderProxy,
 			Material,
@@ -1163,7 +1163,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 		Process< FUniformLightMapPolicy >(
 			MeshBatch,
 			BatchElementMask,
-			MeshId,
+			StaticMeshId,
 			PrimitiveSceneProxy,
 			MaterialRenderProxy,
 			Material,
@@ -1176,7 +1176,7 @@ void FBasePassMeshProcessor::AddMeshBatchForSimpleForwardShading(
 	}
 }
 
-void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
+void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
 	if (MeshBatch.bUseForMaterial)
 	{
@@ -1243,7 +1243,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 			const bool bUseVolumetricLightmap = Scene && Scene->VolumetricLightmapSceneData.HasData();
 
 			FMeshMaterialShaderElementData MeshMaterialShaderElementData;
-			MeshMaterialShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, true);
+			MeshMaterialShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
 			if (IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)))
 			{
@@ -1252,7 +1252,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 				AddMeshBatchForSimpleForwardShading(
 					MeshBatch,
 					BatchElementMask,
-					MeshId,
+					StaticMeshId,
 					PrimitiveSceneProxy,
 					MaterialRenderProxy,
 					Material,
@@ -1289,7 +1289,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 					Process< FSelfShadowedVolumetricLightmapPolicy >(
 						MeshBatch,
 						BatchElementMask,
-						MeshId,
+						StaticMeshId,
 						PrimitiveSceneProxy,
 						MaterialRenderProxy,
 						Material,
@@ -1308,7 +1308,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 					Process< FSelfShadowedCachedPointIndirectLightingPolicy >(
 						MeshBatch,
 						BatchElementMask,
-						MeshId,
+						StaticMeshId,
 						PrimitiveSceneProxy,
 						MaterialRenderProxy,
 						Material,
@@ -1324,7 +1324,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 					Process< FSelfShadowedTranslucencyPolicy >(
 						MeshBatch,
 						BatchElementMask,
-						MeshId,
+						StaticMeshId,
 						PrimitiveSceneProxy,
 						MaterialRenderProxy,
 						Material,
@@ -1355,7 +1355,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 							Process< FUniformLightMapPolicy >(
 								MeshBatch,
 								BatchElementMask,
-								MeshId,
+								StaticMeshId,
 								PrimitiveSceneProxy,
 								MaterialRenderProxy,
 								Material,
@@ -1371,7 +1371,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 							Process< FUniformLightMapPolicy >(
 								MeshBatch,
 								BatchElementMask,
-								MeshId,
+								StaticMeshId,
 								PrimitiveSceneProxy,
 								MaterialRenderProxy,
 								Material,
@@ -1388,7 +1388,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 						Process< FUniformLightMapPolicy >(
 							MeshBatch,
 							BatchElementMask,
-							MeshId,
+							StaticMeshId,
 							PrimitiveSceneProxy,
 							MaterialRenderProxy,
 							Material,
@@ -1404,7 +1404,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 						Process< FUniformLightMapPolicy >(
 							MeshBatch,
 							BatchElementMask,
-							MeshId,
+							StaticMeshId,
 							PrimitiveSceneProxy,
 							MaterialRenderProxy,
 							Material,
@@ -1429,7 +1429,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 						Process< FUniformLightMapPolicy >(
 							MeshBatch,
 							BatchElementMask,
-							MeshId,
+							StaticMeshId,
 							PrimitiveSceneProxy,
 							MaterialRenderProxy,
 							Material,
@@ -1468,7 +1468,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 								Process< FUniformLightMapPolicy >(
 									MeshBatch,
 									BatchElementMask,
-									MeshId,
+									StaticMeshId,
 									PrimitiveSceneProxy,
 									MaterialRenderProxy,
 									Material,
@@ -1485,7 +1485,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 								Process< FUniformLightMapPolicy >(
 									MeshBatch,
 									BatchElementMask,
-									MeshId,
+									StaticMeshId,
 									PrimitiveSceneProxy,
 									MaterialRenderProxy,
 									Material,
@@ -1502,7 +1502,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 							Process< FUniformLightMapPolicy >(
 								MeshBatch,
 								BatchElementMask,
-								MeshId,
+								StaticMeshId,
 								PrimitiveSceneProxy,
 								MaterialRenderProxy,
 								Material,
@@ -1519,7 +1519,7 @@ void FBasePassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, 
 						Process< FUniformLightMapPolicy >(
 							MeshBatch,
 							BatchElementMask,
-							MeshId,
+							StaticMeshId,
 							PrimitiveSceneProxy,
 							MaterialRenderProxy,
 							Material,

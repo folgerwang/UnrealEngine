@@ -26,7 +26,7 @@ public:
 	FUniformBufferRHIParamRef FadeUniformBuffer = nullptr;
 	FUniformBufferRHIParamRef DitherUniformBuffer = nullptr;
 
-	RENDERER_API void InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 MeshId, bool bAllowStencilDither);
+	RENDERER_API void InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 StaticMeshId, bool bAllowStencilDither);
 };
 
 /** Base class of all shaders that need material and vertex factory parameters. */

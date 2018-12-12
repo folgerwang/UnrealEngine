@@ -238,16 +238,16 @@ FDepthDrawingPolicy::FDepthDrawingPolicy(
 	BaseVertexShader = VertexShader;
 }
 
-void SetDepthPassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 MeshId, FDrawingPolicyRenderState& DrawRenderState)
+void SetDepthPassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 StaticMeshId, FDrawingPolicyRenderState& DrawRenderState)
 {
-	if (SceneView && MeshId >= 0 && Mesh.bDitheredLODTransition)
+	if (SceneView && StaticMeshId >= 0 && Mesh.bDitheredLODTransition)
 	{
 		checkSlow(SceneView->bIsViewInfo);
 		const FViewInfo* ViewInfo = (FViewInfo*)SceneView;
 
 		if (ViewInfo->bAllowStencilDither)
 		{
-			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[MeshId])
+			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[StaticMeshId])
 			{
 				DrawRenderState.SetDepthStencilState(
 					TStaticDepthStencilState<true, CF_DepthNearOrEqual,
@@ -257,7 +257,7 @@ void SetDepthPassDitheredLODTransitionState(const FSceneView* SceneView, const F
 					>::GetRHI());
 				DrawRenderState.SetStencilRef(STENCIL_SANDBOX_MASK);
 			}
-			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[MeshId])
+			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[StaticMeshId])
 			{
 				DrawRenderState.SetDepthStencilState(
 					TStaticDepthStencilState<true, CF_DepthNearOrEqual,
@@ -1458,7 +1458,7 @@ template<bool bPositionOnly>
 void FDepthPassMeshProcessor::Process(
 	const FMeshBatch& RESTRICT MeshBatch,
 	uint64 BatchElementMask,
-	int32 MeshId,
+	int32 StaticMeshId,
 	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
 	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
 	const FMaterial& RESTRICT MaterialResource,
@@ -1489,10 +1489,10 @@ void FDepthPassMeshProcessor::Process(
 
 	FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
 
-	SetDepthPassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, MeshId, DrawRenderState);
+	SetDepthPassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, StaticMeshId, DrawRenderState);
 
 	FDepthOnlyShaderElementData ShaderElementData(0.0f);
-	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, true);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
 	BuildMeshDrawCommands(
 		MeshBatch,
@@ -1510,7 +1510,7 @@ void FDepthPassMeshProcessor::Process(
 		ShaderElementData);
 }
 
-void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
+void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
 	bool bDraw = true;
 
@@ -1559,7 +1559,7 @@ void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
 			{
 				const FMaterialRenderProxy& DefaultProxy = *UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 				const FMaterial& DefaultMaterial = *DefaultProxy.GetMaterial(FeatureLevel);
-				Process<true>(MeshBatch, BatchElementMask, MeshId, PrimitiveSceneProxy, DefaultProxy, DefaultMaterial, MeshFillMode, MeshCullMode);
+				Process<true>(MeshBatch, BatchElementMask, StaticMeshId, PrimitiveSceneProxy, DefaultProxy, DefaultMaterial, MeshFillMode, MeshCullMode);
 			}
 			else
 			{
@@ -1577,7 +1577,7 @@ void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
 						EffectiveMaterial = EffectiveMaterialRenderProxy->GetMaterial(FeatureLevel);
 					}
 
-					Process<false>(MeshBatch, BatchElementMask, MeshId, PrimitiveSceneProxy, *EffectiveMaterialRenderProxy, *EffectiveMaterial, MeshFillMode, MeshCullMode);
+					Process<false>(MeshBatch, BatchElementMask, StaticMeshId, PrimitiveSceneProxy, *EffectiveMaterialRenderProxy, *EffectiveMaterial, MeshFillMode, MeshCullMode);
 				}
 			}
 		}

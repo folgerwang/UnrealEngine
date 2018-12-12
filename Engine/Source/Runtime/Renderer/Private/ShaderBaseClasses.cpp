@@ -23,23 +23,23 @@ FAutoConsoleVariableRef FMaterialShader::CVarAllowCachedUniformExpressions(
 	TEXT("Allow uniform expressions to be cached."),
 	ECVF_RenderThreadSafe);
 
-void FMeshMaterialShaderElementData::InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 MeshId, bool bAllowStencilDither)
+void FMeshMaterialShaderElementData::InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 StaticMeshId, bool bAllowStencilDither)
 {
 	FadeUniformBuffer = GDistanceCullFadedInUniformBuffer.GetUniformBufferRHI();
 	DitherUniformBuffer = GDitherFadedInUniformBuffer.GetUniformBufferRHI();
 
-	if (SceneView && MeshId >= 0)
+	if (SceneView && StaticMeshId >= 0)
 	{
 		checkSlow(SceneView->bIsViewInfo);
 		const FViewInfo* ViewInfo = (FViewInfo*)SceneView;
 
 		if (MeshBatch.bDitheredLODTransition && !(bAllowStencilDither && ViewInfo->bAllowStencilDither))
 		{
-			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[MeshId])
+			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[StaticMeshId])
 			{
 				DitherUniformBuffer = ViewInfo->DitherFadeOutUniformBuffer;
 			}
-			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[MeshId])
+			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[StaticMeshId])
 			{
 				DitherUniformBuffer = ViewInfo->DitherFadeInUniformBuffer;
 			}

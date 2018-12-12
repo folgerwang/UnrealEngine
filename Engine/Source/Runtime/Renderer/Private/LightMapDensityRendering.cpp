@@ -97,7 +97,7 @@ void FLightmapDensityMeshProcessor::Process(
 	const FMeshBatch& MeshBatch,
 	uint64 BatchElementMask,
 	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
-	int32 MeshId, 
+	int32 StaticMeshId,
 	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
 	const FMaterial& RESTRICT MaterialResource,
 	const LightMapPolicyType& RESTRICT LightMapPolicy,
@@ -130,7 +130,7 @@ void FLightmapDensityMeshProcessor::Process(
 	LightmapDensityPassShaders.PixelShader = MaterialResource.GetShader<TLightMapDensityPS<LightMapPolicyType>>(VertexFactoryType);
 
 	TLightMapDensityElementData<LightMapPolicyType> ShaderElementData(LightMapElementData);
-	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, true);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
 	{		
 		// BuiltLightingAndSelectedFlags informs the shader is lighting is built or not for this primitive
@@ -203,7 +203,7 @@ void FLightmapDensityMeshProcessor::Process(
 		ShaderElementData.LightMapResolutionScale *= 0.5f;
 	}
 
-	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, false);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
 
 	BuildMeshDrawCommands(
 		MeshBatch,
@@ -221,7 +221,7 @@ void FLightmapDensityMeshProcessor::Process(
 		ShaderElementData);
 }
 
-void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
+void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
 	if (FeatureLevel >= ERHIFeatureLevel::SM4 && ViewIfDynamicMeshCommand->Family->EngineShowFlags.LightMapDensity && AllowDebugViewmodes() && MeshBatch.bUseForMaterial)
 	{
@@ -272,7 +272,7 @@ void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT Mesh
 							MeshBatch, 
 							BatchElementMask, 
 							PrimitiveSceneProxy, 
-							MeshId,
+							StaticMeshId,
 							*MaterialRenderProxy, 
 							*Material, 
 							TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>(), 
@@ -286,7 +286,7 @@ void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT Mesh
 							MeshBatch, 
 							BatchElementMask, 
 							PrimitiveSceneProxy, 
-							MeshId,
+							StaticMeshId,
 							*MaterialRenderProxy, 
 							*Material, 
 							TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>(), 
@@ -301,7 +301,7 @@ void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT Mesh
 						MeshBatch, 
 						BatchElementMask, 
 						PrimitiveSceneProxy, 
-						MeshId,
+						StaticMeshId,
 						*MaterialRenderProxy, 
 						*Material, 
 						TUniformLightMapPolicy<LMP_DUMMY>(), 
@@ -316,7 +316,7 @@ void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT Mesh
 					MeshBatch, 
 					BatchElementMask, 
 					PrimitiveSceneProxy, 
-					MeshId,
+					StaticMeshId,
 					*MaterialRenderProxy, 
 					*Material, 
 					TUniformLightMapPolicy<LMP_NO_LIGHTMAP>(), 
