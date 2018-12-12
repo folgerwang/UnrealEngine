@@ -657,7 +657,12 @@ namespace UnrealBuildTool
 			List<UEBuildBinary> BinaryDependencies = new List<UEBuildBinary>();
 
 			CppCompileEnvironment BinaryCompileEnvironment = CreateBinaryCompileEnvironment(CompileEnvironment);
-			
+
+			if(BinaryCompileEnvironment.bUseSharedBuildEnvironment && Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			{
+				BinaryCompileEnvironment.bUseSharedBuildEnvironment = false;
+			}
+
 			foreach (UEBuildModule Module in Modules)
 			{
 				List<FileItem> LinkInputFiles;
@@ -729,7 +734,7 @@ namespace UnrealBuildTool
 
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
+						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.

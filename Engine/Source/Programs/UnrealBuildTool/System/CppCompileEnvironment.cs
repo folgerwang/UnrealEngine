@@ -101,6 +101,11 @@ namespace UnrealBuildTool
 		public PrecompiledHeaderAction PrecompiledHeaderAction = PrecompiledHeaderAction.None;
 
 		/// <summary>
+		/// Whether artifacts from this compile are shared with other targets. If so, we should not apply any target-wide modifications to the compile environment.
+		/// </summary>
+		public bool bUseSharedBuildEnvironment;
+
+		/// <summary>
 		/// Use run time type information
 		/// </summary>
 		public bool bUseRTTI = false;
@@ -333,6 +338,7 @@ namespace UnrealBuildTool
 			Architecture = Other.Architecture;
 			PrecompiledHeaderIncludeFilename = Other.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = Other.PrecompiledHeaderAction;
+			bUseSharedBuildEnvironment = Other.bUseSharedBuildEnvironment;
 			bUseRTTI = Other.bUseRTTI;
 			bUseInlining = Other.bUseInlining;
 			bUseAVX = Other.bUseAVX;

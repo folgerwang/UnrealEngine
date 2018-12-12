@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 		public string CopyrightNotice;
 
 		/// <summary>
-		/// The project's name.
+		/// The product name.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Game, "/Script/EngineSettings.GeneralProjectSettings", "ProjectName")]
 		public string ProductName;
@@ -1477,13 +1477,12 @@ namespace UnrealBuildTool
 		/// Configures the resource compile environment for the given target
 		/// </summary>
 		/// <param name="ResourceCompileEnvironment">The compile environment</param>
-		/// <param name="IntermediateDirectory">The output directory for compiled files</param>
 		/// <param name="Target">The target being built</param>
-		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, DirectoryReference IntermediateDirectory, ReadOnlyTargetRules Target)
+		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, ReadOnlyTargetRules Target)
 		{
 			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
 			FileReference IconFile;
-			if(Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			if(Target.ProjectFile != null && !ResourceCompileEnvironment.bUseSharedBuildEnvironment)
 			{
 				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
 			}
@@ -1494,6 +1493,30 @@ namespace UnrealBuildTool
 
 			// Setup the compile environment, setting the icon to use via a macro. This is used in Default.rc2.
 			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
+
+			// Apply the target settings for the resources
+			if(!ResourceCompileEnvironment.bUseSharedBuildEnvironment)
+			{
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
+				}
+
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
+				}
+
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
+				}
+
+				if (Target.ProjectFile != null)
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
+				}
+			}
 		}
 
 		/// <summary>
@@ -1685,29 +1708,6 @@ namespace UnrealBuildTool
 			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
 				LinkEnvironment.AdditionalArguments += " /ignore:4078";
-			}
-
-			if (Target.Type != TargetType.Editor)
-			{
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
-				}
-
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
-				}
-
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
-				}
-
-				if (Target.ProjectFile != null)
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
-				}
 			}
 
 			// Set up default stack size

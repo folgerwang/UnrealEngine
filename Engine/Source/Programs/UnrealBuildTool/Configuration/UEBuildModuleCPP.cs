@@ -576,7 +576,7 @@ namespace UnrealBuildTool
 			if(SourceFilesToBuild.RCFiles.Count > 0)
 			{
 				CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-				WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, IntermediateDirectory, Target);
+				WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
 				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, SourceFilesToBuild.RCFiles, IntermediateDirectory, ActionGraph).ObjectFiles);
 			}
 
