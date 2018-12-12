@@ -367,7 +367,6 @@ const TCHAR* UPropertyHelpers::ReadToken( const TCHAR* Buffer, FString& String, 
 		if (!FParse::QuotedString(Buffer, String, &NumCharsRead))
 		{
 			UE_LOG(LogProperty, Warning, TEXT("ReadToken: Bad quoted string: %s"), Buffer );
-			ensure(false);
 			return nullptr;
 		}
 		Buffer += NumCharsRead;
