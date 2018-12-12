@@ -176,6 +176,75 @@ public:
 	int32 SpecificPermutationId;
 };
 
+class FShaderParameterInfo
+{
+public:
+	uint8 BaseIndex;
+	uint8 Size;
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderParameterInfo& Info)
+	{
+		Ar << Info.BaseIndex;
+		Ar << Info.Size;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderParameterInfo& Rhs) const
+	{
+		return BaseIndex == Rhs.BaseIndex
+			&& Size == Rhs.Size;
+	}
+};
+
+class FShaderLooseParameterBufferInfo
+{
+public:
+	uint8 BufferIndex;
+	uint16 BufferSize;
+	TArray<FShaderParameterInfo> Parameters;
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderLooseParameterBufferInfo& Info)
+	{
+		Ar << Info.BufferIndex;
+		Ar << Info.BufferSize;
+		Ar << Info.Parameters;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderLooseParameterBufferInfo& Rhs) const
+	{
+		return BufferIndex == Rhs.BufferIndex
+			&& BufferSize == Rhs.BufferSize
+			&& Parameters == Rhs.Parameters;
+	}
+};
+
+class FShaderParameterMapInfo
+{
+public:
+	TArray<FShaderParameterInfo> UniformBuffers;
+	TArray<FShaderParameterInfo> TextureSamplers;
+	TArray<FShaderParameterInfo> SRVs;
+	TArray<FShaderLooseParameterBufferInfo> LooseParameterBuffers;
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderParameterMapInfo& Info)
+	{
+		Ar << Info.UniformBuffers;
+		Ar << Info.TextureSamplers;
+		Ar << Info.SRVs;
+		Ar << Info.LooseParameterBuffers;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderParameterMapInfo& Rhs) const
+	{
+		return UniformBuffers == Rhs.UniformBuffers
+			&& TextureSamplers == Rhs.TextureSamplers
+			&& SRVs == Rhs.SRVs
+			&& LooseParameterBuffers == Rhs.LooseParameterBuffers;
+	}
+};
+
 /** 
  * Compiled shader bytecode and its corresponding RHI resource. 
  * This can be shared by multiple FShaders with identical compiled output.
@@ -297,7 +366,7 @@ public:
 	* Passes back a zeroed out hash to serialize when saving out cooked data.
 	* The goal here is to ensure that source hash changes do not cause widespread binary differences in cooked data, resulting in bloated patch diffs.
 	*/
-	RENDERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
+	RENDERCORE_API static FSHAHash& FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
 
 private:
 	// compression functions
@@ -353,6 +422,7 @@ private:
 	uint32 NumTextureSamplers;
 #endif
 
+	FShaderParameterMapInfo ParameterMapInfo;
 	/** Whether the shader code is stored in a shader library. */
 	bool bCodeInSharedLocation;
 	/** Whether the shader code was requested (and hence if we need to drop the ref later). */
@@ -360,6 +430,8 @@ private:
 
 	/** Initialize the shader RHI resources. */
 	RENDERCORE_API void InitializeShaderRHI();
+
+	void BuildParameterMapInfo(const TMap<FString, FParameterAllocation>& ParameterMap);
 
 	/** Tracks loaded shader resources by id. */
 	static TMap<FShaderResourceId, FShaderResource*> ShaderResourceIdMap;
@@ -787,6 +859,7 @@ public:
 	FShaderId GetId() const;
 	inline FVertexFactoryType* GetVertexFactoryType() const { return VFType; }
 	inline int32 GetNumRefs() const { return NumRefs; }
+	const FShaderParameterMapInfo& GetParameterMapInfo() const { return Resource->ParameterMapInfo; }
 
 	inline FShaderResourceId GetResourceId() const
 	{
@@ -887,6 +960,19 @@ public:
 		}
 	}
 
+	const FShaderParametersMetadata* FindAutomaticallyBoundUniformBufferStruct(int32 BaseIndex) const
+	{
+		for (int32 i = 0; i < UniformBufferParameters.Num(); i++)
+		{
+			if (UniformBufferParameters[i]->GetBaseIndex() == BaseIndex)
+			{
+				return UniformBufferParameterStructs[i];
+			}
+		}
+
+		return nullptr;
+	}
+
 	/** Gets the shader. */
 	inline FShader* GetShader()
 	{
@@ -912,7 +998,7 @@ public:
 protected:
 
 	/** Indexed the same as UniformBufferParameters.  Packed densely for coherent traversal. */
-	TArray<FShaderParametersMetadata*> UniformBufferParameterStructs;
+	TArray<const FShaderParametersMetadata*> UniformBufferParameterStructs;
 	TArray<FShaderUniformBufferParameter*> UniformBufferParameters;
 
 private:

@@ -119,7 +119,7 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		float3x3 TangentToLocal = VertexFactoryGetTangentToLocalDS(I[ControlPointID].FactoryInterpolants);
 		float4 Normal = GetNormalDS(TangentToLocal);
 
-		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal);
+		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal, VertexFactoryGetPrimitiveId(I[ControlPointID].FactoryInterpolants.InterpolantsVSToPS));
 
 		const uint NextControlPointID = ControlPointID < 2 ? ControlPointID + 1 : 0; // (ControlPointID + 1) % 3
 		const uint NeighborControlPointID = 3 + 2 * ControlPointID;

@@ -16,6 +16,7 @@
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "MeshMaterialShader.h"
 
 #if WITH_EDITOR
 #include "IHierarchicalLODUtilities.h"
@@ -101,6 +102,63 @@ void FSplineMeshVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdLi
 		DirMask[(SplineProxy->ForwardAxis + 2) % 3] = 1;
 		SetShaderValue(RHICmdList, VertexShader, SplineMeshYParam, DirMask);
 	}
+}
+
+void FSplineMeshVertexFactoryShaderParameters::GetElementShaderBindings(
+	const class FSceneInterface* Scene,
+	const FSceneView* View,
+	const class FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams
+	) const 
+{
+	if (BatchElement.bUserDataIsColorVertexBuffer)
+	{
+		const auto* LocalVertexFactory = static_cast<const FLocalVertexFactory*>(VertexFactory);
+		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
+		check(OverrideColorVertexBuffer);
+
+		if (!LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
+		{
+			LocalVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
+		}	
+	}
+
+	checkSlow(BatchElement.bIsSplineProxy);
+	FSplineMeshSceneProxy* SplineProxy = BatchElement.SplineMeshSceneProxy;
+	FSplineMeshParams& SplineParams = SplineProxy->SplineParams;
+
+	ShaderBindings.Add(SplineStartPosParam, SplineParams.StartPos);
+	ShaderBindings.Add(SplineStartTangentParam, SplineParams.StartTangent);
+	ShaderBindings.Add(SplineStartRollParam, SplineParams.StartRoll);
+	ShaderBindings.Add(SplineStartScaleParam, SplineParams.StartScale);
+	ShaderBindings.Add(SplineStartOffsetParam, SplineParams.StartOffset);
+
+	ShaderBindings.Add(SplineEndPosParam, SplineParams.EndPos);
+	ShaderBindings.Add(SplineEndTangentParam, SplineParams.EndTangent);
+	ShaderBindings.Add(SplineEndRollParam, SplineParams.EndRoll);
+	ShaderBindings.Add(SplineEndScaleParam, SplineParams.EndScale);
+	ShaderBindings.Add(SplineEndOffsetParam, SplineParams.EndOffset);
+
+	ShaderBindings.Add(SplineUpDirParam, SplineProxy->SplineUpDir);
+	ShaderBindings.Add(SmoothInterpRollScaleParam, (int32)SplineProxy->bSmoothInterpRollScale);
+
+	ShaderBindings.Add(SplineMeshMinZParam, SplineProxy->SplineMeshMinZ);
+	ShaderBindings.Add(SplineMeshScaleZParam, SplineProxy->SplineMeshScaleZ);
+
+	FVector DirMask(0, 0, 0);
+	DirMask[SplineProxy->ForwardAxis] = 1;
+	ShaderBindings.Add(SplineMeshDirParam, DirMask);
+	DirMask = FVector::ZeroVector;
+	DirMask[(SplineProxy->ForwardAxis + 1) % 3] = 1;
+	ShaderBindings.Add(SplineMeshXParam, DirMask);
+	DirMask = FVector::ZeroVector;
+	DirMask[(SplineProxy->ForwardAxis + 2) % 3] = 1;
+	ShaderBindings.Add(SplineMeshYParam, DirMask);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -905,7 +905,7 @@ void AHUD::DrawMaterial(UMaterialInterface* Material, float ScreenX, float Scree
 {
 	if (IsCanvasValid_WarnIfNot() && Material)
 	{
-		FCanvasTileItem TileItem( FVector2D( ScreenX, ScreenY ), Material->GetRenderProxy(0), FVector2D( ScreenW, ScreenH ) * Scale, FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight) );
+		FCanvasTileItem TileItem( FVector2D( ScreenX, ScreenY ), Material->GetRenderProxy(), FVector2D( ScreenW, ScreenH ) * Scale, FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight) );
 		TileItem.Rotation = FRotator(0, Rotation, 0);
 		TileItem.PivotPoint = RotPivot;
 		if (bScalePosition)
@@ -920,7 +920,7 @@ void AHUD::DrawMaterialSimple(UMaterialInterface* Material, float ScreenX, float
 {
 	if (IsCanvasValid_WarnIfNot() && Material)
 	{
-		FCanvasTileItem TileItem( FVector2D( ScreenX, ScreenY ), Material->GetRenderProxy(0), FVector2D( ScreenW, ScreenH ) * Scale );
+		FCanvasTileItem TileItem( FVector2D( ScreenX, ScreenY ), Material->GetRenderProxy(), FVector2D( ScreenW, ScreenH ) * Scale );
 		if (bScalePosition)
 		{
 			TileItem.Position *= Scale;
@@ -969,7 +969,7 @@ void AHUD::DrawMaterialTriangle(UMaterialInterface* Material, FVector2D V0_Pos, 
 		TriangleItem.TriangleList[0].V0_Color = V0_Color;
 		TriangleItem.TriangleList[0].V1_Color = V1_Color;
 		TriangleItem.TriangleList[0].V2_Color = V2_Color;
-		TriangleItem.MaterialRenderProxy = Material->GetRenderProxy(0);
+		TriangleItem.MaterialRenderProxy = Material->GetRenderProxy();
 		Canvas->DrawItem(TriangleItem);
 	}
 }

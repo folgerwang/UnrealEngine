@@ -745,7 +745,8 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapIndirectionTextureSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
-	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
+	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectLightingCacheShowFlag)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
 	SHADER_PARAMETER(type, identifier)
@@ -814,6 +815,8 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParamete
 	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
 	SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedBRDF)
 	SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, PrimitiveSceneData)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, LightmapSceneData)
 
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 

@@ -114,7 +114,7 @@ public:
 	
 	void CommitResourceTable(EShaderFrequency const Frequency, mtlpp::FunctionType const Type, FMetalCommandEncoder& CommandEncoder);
 	
-	bool PrepareToRestart(void);
+	bool PrepareToRestart(bool const bCurrentApplied);
 	
 	FMetalShaderParameterCache& GetShaderParameters(uint32 const Stage) { return ShaderParameters[Stage]; }
 	FLinearColor const& GetBlendFactor() const { return BlendFactor; }

@@ -261,7 +261,7 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 	if (bWireframe)
 	{
 		WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr,
+			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
 			FLinearColor(0, 0.5f, 1.f)
 			);
 
@@ -297,7 +297,7 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 				int32 BatchIndex = 0;
 				for (const FGeometryCacheMeshBatchInfo BatchInfo : TrackProxy->MeshData->BatchesInfo)
 				{
-					FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy(IsSelected());
+					FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy();
 
 					// Figure out which frame(s) we need to decode
 					int32 FrameIndex;
@@ -660,7 +660,7 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 	
 				for (int32 BatchIndex = 0; BatchIndex < NumBatches; ++BatchIndex)
 				{	
-					FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy(IsSelected());
+					FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy();
 					const FGeometryCacheMeshBatchInfo BatchInfo = TrackProxy->MeshData->BatchesInfo[BatchIndex];
 
 					FGeometryCacheVertexFactoryUserDataWrapper &UserDataWrapper = Collector.AllocateOneFrameResource<FGeometryCacheVertexFactoryUserDataWrapper>();
@@ -734,6 +734,11 @@ FPrimitiveViewRelevance FGeometryCacheSceneProxy::GetViewRelevance(const FSceneV
 bool FGeometryCacheSceneProxy::CanBeOccluded() const
 {
 	return !MaterialRelevance.bDisableDepthTest;
+}
+
+bool FGeometryCacheSceneProxy::IsUsingDistanceCullFade() const
+{
+	return MaterialRelevance.bUsesDistanceCullFade;
 }
 
 uint32 FGeometryCacheSceneProxy::GetMemoryFootprint(void) const

@@ -814,6 +814,19 @@ static bool CheckSingleJob(FShaderCompileJob* SingleJob, const TArray<FMaterial*
 		}
 	}
 
+	if (SingleJob->VFType)
+	{
+		const int32 OriginalNumErrors = Errors.Num();
+
+		// Allow the vertex factory to fail the compile if it sees any parameters bound that aren't supported
+		SingleJob->VFType->ValidateCompiledResult((EShaderPlatform)SingleJob->Input.Target.Platform, SingleJob->Output.ParameterMap, Errors);
+
+		if (Errors.Num() > OriginalNumErrors)
+		{
+			bSucceeded = false;
+		}
+	}
+
 	return bSucceeded;
 };
 
@@ -1931,7 +1944,6 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 			for (int32 JobIndex = 0; JobIndex < ResultArray.Num(); JobIndex++)
 			{
 				FShaderCommonCompileJob& CurrentJob = *ResultArray[JobIndex];
-				bSuccess = bSuccess && CurrentJob.bSucceeded;
 
 				auto* SingleJob = CurrentJob.GetSingleShaderJob();
 				if (SingleJob)

@@ -15,9 +15,6 @@
 // Only support previous transform for deferred feature level
 #define USE_PREVIOUS_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
 
-float4x4 PreviousLocalToWorld;
-
-
 #if USE_PREVIOUS_TRANSFORM
 #if PARTICLE_MESH_INSTANCED
 	Buffer<float4> PrevTransformBuffer;
@@ -75,7 +72,7 @@ struct FVertexFactoryInput
 #endif
 
 /** Optional instance ID for vertex layered rendering */
-#if (PARTICLE_MESH_INSTANCED || (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER))
+#if (PARTICLE_MESH_INSTANCED)
 	uint InstanceId	: SV_InstanceID;
 #endif
 };
@@ -185,7 +182,7 @@ float4x4 GetParticleTransform(FVertexFactoryInput Input)
 float4x4 GetParticlePrevTransform(FVertexFactoryInput Input)
 {
 #if PARTICLE_MESH_INSTANCED
-	uint TransformBaseIdx = GetLayerInstanceID(Input.InstanceId) * 3;
+	uint TransformBaseIdx = Input.InstanceId * 3;
 
 	float4x4 PrevTransform4x4 = float4x4(
 		PrevTransformBuffer[TransformBaseIdx + 0], 
@@ -339,19 +336,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	return Result;
 }
-
-#if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-#endif
-
 
 float4 CalcWorldPosition(FVertexFactoryInput Input)
 {
@@ -709,6 +693,11 @@ uint VertexFactoryGetEyeIndex(uint InstanceId)
 #endif
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

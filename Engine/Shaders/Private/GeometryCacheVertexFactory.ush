@@ -36,7 +36,6 @@ float3 MeshExtension;
 float3 MotionBlurDataOrigin;
 float3 MotionBlurDataExtension;
 float MotionBlurPositionScale;
-float4x4 PreviousLocalToWorld;
 
 struct FVertexFactoryInput
 {
@@ -61,22 +60,12 @@ struct FVertexFactoryInput
 		#error Too many texture coordinate sets defined on Geometry cache vertex input. Max: 4.
 	#endif
 #endif
-
-	/** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 };
 
 
 struct FPositionOnlyVertexFactoryInput
 {
 	float4	Position	: ATTRIBUTE0;
-
-		/** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 };
 
 /** for depth-only pass */
@@ -129,18 +118,6 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.TwoSidedSign = 1;
 	return Result;
 }
-
-#if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-#endif
 
 #define FBoneMatrix float3x4
 
@@ -311,7 +288,7 @@ float3 CalcPreviousPosition(FVertexFactoryInput Input, FVertexFactoryIntermediat
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-	float4x4 PreviousLocalToWorldTranslated = PreviousLocalToWorld;
+	float4x4 PreviousLocalToWorldTranslated = Primitive.PreviousLocalToWorld;
 	PreviousLocalToWorldTranslated[3][0] += ResolvedView.PrevPreViewTranslation.x;
 	PreviousLocalToWorldTranslated[3][1] += ResolvedView.PrevPreViewTranslation.y;
 	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
@@ -414,6 +391,11 @@ uint VertexFactoryGetEyeIndex(uint InstanceId)
 #endif
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

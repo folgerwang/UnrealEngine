@@ -110,15 +110,6 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 	Compiler->SetMaterialProperty(Property, OverrideShaderFrequency, bUsePreviousFrameTime);
 
 	EShaderFrequency ShaderFrequency = Compiler->GetCurrentShaderFrequency();
-
-	int32 SelectionColorIndex = INDEX_NONE;
-
-	if (ShaderFrequency == SF_Pixel && 
-		GetMaterialDomain() != MD_Volume && 
-		Compiler->IsDevelopmentFeatureEnabled(NAME_SelectionColor))
-	{
-		SelectionColorIndex = Compiler->ComponentMask(Compiler->VectorParameter(NAME_SelectionColor,FLinearColor::Black),1,1,1,0);
-	}
 	
 	//Compile the material instance if we have one.
 	UMaterialInterface* MaterialInterface = MaterialInstance ? static_cast<UMaterialInterface*>(MaterialInstance) : Material;
@@ -128,14 +119,7 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 	switch(Property)
 	{
 		case MP_EmissiveColor:
-			if (SelectionColorIndex != INDEX_NONE)
-			{
-				Ret = Compiler->Add(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor, MFCF_ForceCast), SelectionColorIndex);
-			}
-			else
-			{
-				Ret = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor);
-			}
+			Ret = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor);
 			break;
 
 		case MP_DiffuseColor: 
@@ -278,7 +262,7 @@ public:
 	}
 
 	// FMaterialRenderProxy interface.
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const
 	{
 		const FMaterialResource* MaterialResource = Material->GetMaterialResource(InFeatureLevel);
 		if (MaterialResource && MaterialResource->GetRenderingThreadShaderMap())
@@ -287,15 +271,14 @@ public:
 			checkSlow(MaterialResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
 			// The shader map reference should have been NULL'ed if it did not compile successfully
 			checkSlow(MaterialResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
-			OutMaterialRenderProxy = this;
-			OutMaterial = MaterialResource;
-			return;
+			return *MaterialResource;
 		}
 
 		// If we are the default material, must not try to fall back to the default material in an error state as that will be infinite recursion
 		check(!Material->IsDefaultMaterial());
 
-		GetFallbackRenderProxy().GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
+		OutFallbackMaterialRenderProxy = &GetFallbackRenderProxy();
+		return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
 	}
 
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
@@ -314,24 +297,6 @@ public:
 		const FMaterialResource* MaterialResource = Material->GetMaterialResource(Context.Material.GetFeatureLevel());
 		if(MaterialResource && MaterialResource->GetRenderingThreadShaderMap())
 		{
-			if(ParameterInfo.Name == NAME_SelectionColor)
-			{
-				*OutValue = FLinearColor::Black;
-				if( GIsEditor && Context.bShowSelection )
-				{
-					if( IsSelected() )
-					{
-						// Note this code is only used for mesh selections in mesh editors now
-						// Selected objects in the level editor now goes through the selection outline post process effect where it applies the highlight intensity there
-						*OutValue = GEngine->GetSelectedMaterialColor() * GEngine->SelectionMeshSectionHighlightIntensity;
-					}
-					else if( IsHovered() )
-					{
-						*OutValue = GEngine->GetHoveredMaterialColor() * GEngine->HoverHighlightIntensity;
-					}
-				}
-				return true;
-			}
 			return false;
 		}
 		else
@@ -390,9 +355,8 @@ public:
 	virtual FString GetFriendlyName() const { return Material->GetName(); }
 
 	// Constructor.
-	FDefaultMaterialInstance(UMaterial* InMaterial,bool bInSelected,bool bInHovered):
-		FMaterialRenderProxy(bInSelected, bInHovered),
-		Material(InMaterial)
+	FDefaultMaterialInstance(UMaterial* InMaterial)
+		: Material(InMaterial)
 	{}
 
 private:
@@ -400,7 +364,7 @@ private:
 	/** Get the fallback material. */
 	FMaterialRenderProxy& GetFallbackRenderProxy() const
 	{
-		return *(UMaterial::GetDefaultMaterial(Material->MaterialDomain)->GetRenderProxy(IsSelected(),IsHovered()));
+		return *(UMaterial::GetDefaultMaterial(Material->MaterialDomain)->GetRenderProxy());
 	}
 
 	UMaterial* Material;
@@ -929,12 +893,7 @@ void UMaterial::PostInitProperties()
 	Super::PostInitProperties();
 	if(!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		DefaultMaterialInstances[0] = new FDefaultMaterialInstance(this,false,false);
-		if(GIsEditor)
-		{
-			DefaultMaterialInstances[1] = new FDefaultMaterialInstance(this,true,false);
-			DefaultMaterialInstances[2] = new FDefaultMaterialInstance(this,false,true);
-		}
+		DefaultMaterialInstance = new FDefaultMaterialInstance(this);
 	}
 
 	// Initialize StateId to something unique, in case this is a new material
@@ -1247,11 +1206,9 @@ void UMaterial::RecacheUniformExpressions() const
 		UMaterial::GetDefaultMaterial(MD_Surface);
 	}
 
-	// Only cache the unselected + unhovered material instance. Selection color
-	// can change at runtime and would invalidate the parameter cache.
-	if (DefaultMaterialInstances[0])
+	if (DefaultMaterialInstance)
 	{
-		DefaultMaterialInstances[0]->CacheUniformExpressions_GameThread();
+		DefaultMaterialInstance->CacheUniformExpressions_GameThread(true);
 	}
 }
 
@@ -2906,10 +2863,9 @@ bool UMaterial::GetRefractionSettings(float& OutBiasValue) const
 	return true;
 }
 
-FMaterialRenderProxy* UMaterial::GetRenderProxy(bool Selected,bool Hovered) const
+FMaterialRenderProxy* UMaterial::GetRenderProxy() const
 {
-	check(!( Selected || Hovered ) || GIsEditor);
-	return DefaultMaterialInstances[Selected ? 1 : ( Hovered ? 2 : 0 )];
+	return DefaultMaterialInstance;
 }
 
 UPhysicalMaterial* UMaterial::GetPhysicalMaterial() const
@@ -3033,8 +2989,8 @@ bool UMaterial::IsTextureForceRecompileCacheRessource(UTexture *Texture)
 void UMaterial::UpdateMaterialShaderCacheAndTextureReferences()
 {
 	// If the material changes, then the debug view material must reset to prevent parameters mismatch
-	void ClearAllDebugViewMaterials();
-	ClearAllDebugViewMaterials();
+	void ClearDebugViewMaterials(UMaterialInterface*);
+	ClearDebugViewMaterials(this);
 
 	//Cancel any current compilation jobs that are in flight for this material.
 	CancelOutstandingCompilation();
@@ -4057,13 +4013,7 @@ void UMaterial::SaveShaderStableKeysInner(const class ITargetPlatform* TP, const
 
 void UMaterial::PropagateDataToMaterialProxy()
 {
-	for (int32 i = 0; i < ARRAY_COUNT(DefaultMaterialInstances); i++)
-	{
-		if (DefaultMaterialInstances[i])
-		{
-			UpdateMaterialRenderProxy(*DefaultMaterialInstances[i]);
-		}
-	}
+	UpdateMaterialRenderProxy(*DefaultMaterialInstance);
 }
 #if WITH_EDITOR
 void UMaterial::BeginCacheForCookedPlatformData( const ITargetPlatform *TargetPlatform )
@@ -4300,8 +4250,8 @@ void UMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 	FlushRenderingCommands();
 
 	// If the material changes, then the debug view material must reset to prevent parameters mismatch
-	void ClearAllDebugViewMaterials();
-	ClearAllDebugViewMaterials();
+	void ClearDebugViewMaterials(UMaterialInterface*);
+	ClearDebugViewMaterials(this);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -4691,12 +4641,9 @@ void UMaterial::BeginDestroy()
 {
 	Super::BeginDestroy();
 
-	for (int32 InstanceIndex = 0; InstanceIndex < 3; ++InstanceIndex)
+	if (DefaultMaterialInstance)
 	{
-		if (DefaultMaterialInstances[InstanceIndex])
-		{
-			BeginReleaseResource(DefaultMaterialInstances[InstanceIndex]);
-		}
+		BeginReleaseResource(DefaultMaterialInstance);
 	}
 
 	ReleaseFence.BeginFence();
@@ -4726,13 +4673,10 @@ void UMaterial::ReleaseResources()
 		ClearAllCachedCookedPlatformData();
 	}
 #endif
-	for (int32 InstanceIndex = 0; InstanceIndex < 3; ++InstanceIndex)
+	if (DefaultMaterialInstance)
 	{
-		if (DefaultMaterialInstances[InstanceIndex])
-		{
-			DefaultMaterialInstances[InstanceIndex]->GameThread_Destroy();
-			DefaultMaterialInstances[InstanceIndex] = NULL;
-		}
+		DefaultMaterialInstance->GameThread_Destroy();
+		DefaultMaterialInstance = nullptr;
 	}
 }
 
@@ -4753,12 +4697,9 @@ void UMaterial::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
 	Super::GetResourceSizeEx(CumulativeResourceSize);
 
-	for (int32 InstanceIndex = 0; InstanceIndex < 3; ++InstanceIndex)
+	if (DefaultMaterialInstance)
 	{
-		if (DefaultMaterialInstances[InstanceIndex])
-		{
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FDefaultMaterialInstance));
-		}
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FDefaultMaterialInstance));
 	}
 
 	for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
@@ -5717,7 +5658,7 @@ static void ListSceneColorMaterials()
 		for (TObjectIterator<UMaterialInterface> It; It; ++It)
 		{
 			UMaterialInterface* Mat = *It;
-			const FMaterial* MatRes = Mat->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+			const FMaterial* MatRes = Mat->GetRenderProxy()->GetMaterial(FeatureLevel);
 			if (MatRes && MatRes->RequiresSceneColorCopy_GameThread())
 			{
 				UMaterial* BaseMat = Mat->GetMaterial();

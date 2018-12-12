@@ -15,9 +15,6 @@
 #define INTERPOLATE_VF_ATTRIBUTES (!MATERIALBLENDING_SOLID || REFLECTIVE_SHADOW_MAP || MATERIALBLENDING_MASKED || (REQUIRES_VF_ATTRIBUTES_FOR_CLIPPING && !POSITION_ONLY))
 #define INTERPOLATE_POSITION ((REFLECTIVE_SHADOW_MAP && !ONEPASS_POINTLIGHT_SHADOW) || MATERIALBLENDING_MASKED)
 
-// x: Tweakable depth bias, y:InvMaxSubjectDepthUsed to normalize the outputted depth
-float2 ShadowParams;
-
 /** Data passed from the vertex shader to the pixel shader for the shadow depth pass. */
 struct FShadowDepthVSToPS
 {

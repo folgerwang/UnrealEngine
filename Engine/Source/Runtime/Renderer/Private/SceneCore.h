@@ -10,6 +10,8 @@
 #include "Templates/RefCounting.h"
 #include "HitProxies.h"
 #include "MeshBatch.h"
+#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 class FLightSceneInfo;
 class FPrimitiveSceneInfo;
@@ -150,6 +152,9 @@ public:
 	/** Index of the mesh into the scene's StaticMeshBatchVisibility array. */
 	int32 BatchVisibilityId;
 
+	/** Maps from this FStaticMesh to its FMeshDrawCommands cached in the scene. */
+	int32 PassMeshCommandIndices[EMeshPass::Num];
+
 	// Constructor/destructor.
 	FStaticMesh(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
@@ -164,6 +169,11 @@ public:
 		BatchVisibilityId(INDEX_NONE)
 	{
 		BatchHitProxyId = InHitProxyId;
+
+		for (int32 i = 0; i < ARRAY_COUNT(PassMeshCommandIndices); i++)
+		{
+			PassMeshCommandIndices[i] = -1;
+		}
 	}
 
 	~FStaticMesh();
@@ -177,11 +187,10 @@ public:
 	/** Adds the static mesh to the appropriate draw lists in a scene. */
 	void AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene);
 
-	/** Removes the static mesh from all draw lists. */
-	void RemoveFromDrawLists();
+	void CacheMeshDrawCommands(FScene* Scene);
 
-	/** Returns true if the mesh is linked to the given draw list. */
-	bool IsLinkedToDrawList(const FStaticMeshDrawListBase* DrawList) const;
+	/** Removes the static mesh from all draw lists. */
+	void RemoveFromDrawLists(bool bMeshIsBeingDestroyed = false);
 
 private:
 	/** Links to the draw lists this mesh is an element of. */

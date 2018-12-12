@@ -159,6 +159,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
 	const bool bUAV = (UEUsage & BUF_UnorderedAccess) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -179,7 +180,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 	}
 	else
 	{
-		check(bStatic || bDynamic || bUAV);
+		check(bStatic || bDynamic || bUAV || bSR);
 
 		if (LockMode == RLM_ReadOnly)
 		{
@@ -281,6 +282,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	const bool bDynamic = (UEUsage & BUF_Dynamic) != 0;
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -290,7 +292,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	}
 	else
 	{
-		check(bStatic || bDynamic);
+		check(bStatic || bDynamic || bSR);
 
 		const bool bUnifiedMem = Device->HasUnifiedMemory();
 		if (bUnifiedMem)

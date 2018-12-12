@@ -8,48 +8,89 @@ ShaderComplexityRendering.cpp: Contains definitions for rendering the shader com
 #include "PostProcess/SceneRenderTargets.h"
 #include "PostProcess/PostProcessVisualizeComplexity.h"
 
-IMPLEMENT_SHADER_TYPE(template<>,TShaderComplexityAccumulatePS,TEXT("/Engine/Private/ShaderComplexityAccumulatePixelShader.usf"),TEXT("Main"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>,TQuadComplexityAccumulatePS,TEXT("/Engine/Private/QuadComplexityAccumulatePixelShader.usf"),TEXT("Main"),SF_Pixel);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+IMPLEMENT_SHADER_TYPE(template<>,TComplexityAccumulatePS<false>,TEXT("/Engine/Private/ShaderComplexityAccumulatePixelShader.usf"),TEXT("Main"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(template<>,TComplexityAccumulatePS<true>,TEXT("/Engine/Private/QuadComplexityAccumulatePixelShader.usf"),TEXT("Main"),SF_Pixel);
 
 template <bool bQuadComplexity>
-void TComplexityAccumulatePS<bQuadComplexity>::SetParameters(
-	FRHICommandList& RHICmdList, 
-	const FShader* OriginalVS, 
-	const FShader* OriginalPS, 
-	const FMaterialRenderProxy* MaterialRenderProxy,
-	const FMaterial& Material,
-	const FSceneView& View,
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
+void TComplexityAccumulatePS<bQuadComplexity>::GetDebugViewModeShaderBindings(
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT Material,
+	EDebugViewShaderMode DebugViewMode,
+	const FVector& ViewOrigin,
+	int32 VisualizeLODIndex,
+	int32 VisualizeElementIndex,
+	int32 NumVSInstructions,
+	int32 NumPSInstructions,
+	int32 ViewModeParam,
+	FName ViewModeParamName,
+	FMeshDrawSingleShaderBindings& ShaderBindings
+) const
 {
-	EDebugViewShaderMode DebugViewShaderMode = View.Family->GetDebugViewShaderMode();
-
-	const float NormalizeMul = 1.0f / GetMaxShaderComplexityCount(View.GetFeatureLevel());
+	const float NormalizeMul = 1.0f / GetMaxShaderComplexityCount(Material.GetFeatureLevel());
 	const int32 DeferredBasePassBuiltinInstructions = 83;
 	const int32 ForwardBasePassBuiltinInstructions = 476;
 	// Attempt to remove instructions from code features only present in the forward renderer, so we are showing users their graph cost
-	const int32 LitBaseline = IsAnyForwardShadingEnabled(View.GetShaderPlatform()) ? (ForwardBasePassBuiltinInstructions - DeferredBasePassBuiltinInstructions) : 0;
+	const int32 LitBaseline = IsAnyForwardShadingEnabled(GetFeatureLevelShaderPlatform(Material.GetFeatureLevel())) ? (ForwardBasePassBuiltinInstructions - DeferredBasePassBuiltinInstructions) : 0;
 	const int32 Baseline = Material.GetShadingModel() == MSM_Unlit ? 0 : LitBaseline;
-	const int32 AdjustedInstructionCount = FMath::Max<int32>(OriginalPS->GetNumInstructions() - Baseline, 0);
+	const int32 AdjustedInstructionCount = FMath::Max<int32>(NumPSInstructions - Baseline, 0);
 
 	// normalize the complexity so we can fit it in a low precision scene color which is necessary on some platforms
-	// late value is for overdraw which can be problmatic with a low precision float format, at some point the precision isn't there any more and it doesn't accumulate
-	FVector Value = DebugViewShaderMode == DVSM_QuadComplexity ? FVector(NormalizedQuadComplexityValue) : FVector(AdjustedInstructionCount * NormalizeMul, OriginalVS->GetNumInstructions() * NormalizeMul, 1/32.0f);
-
-	// Disable UAVs if something is wrong
-	if (DebugViewShaderMode != DVSM_ShaderComplexity)
+	// late value is for overdraw which can be problematic with a low precision float format, at some point the precision isn't there any more and it doesn't accumulate
+	if (DebugViewMode == DVSM_QuadComplexity)
 	{
-		const FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		if (QuadBufferUAV.IsBound() && SceneContext.GetQuadOverdrawIndex() != QuadBufferUAV.GetBaseIndex())
-		{
-			DebugViewShaderMode = DVSM_ShaderComplexity;
-		}
+		ShaderBindings.Add(NormalizedComplexity, FVector4(NormalizedQuadComplexityValue));
+	}
+	else
+	{
+		ShaderBindings.Add(NormalizedComplexity, FVector4(AdjustedInstructionCount * NormalizeMul, NumVSInstructions * NormalizeMul, 1 / 32.0f));
+	}
+	ShaderBindings.Add(ShowQuadOverdraw, DebugViewMode != DVSM_ShaderComplexity ? 1 : 0);
+}
+
+FDebugViewModePS* FComplexityAccumulateInterface::GetPixelShader(const FMaterial* InMaterial, FVertexFactoryType* VertexFactoryType) const
+{
+	if (bShowQuadComplexity)
+	{
+		return InMaterial->GetShader<TComplexityAccumulatePS<true>>(VertexFactoryType);
+	}
+	else
+	{
+		return InMaterial->GetShader<TComplexityAccumulatePS<false>>(VertexFactoryType);
 	}
 
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), NormalizedComplexity, Value);
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), ShowQuadOverdraw, DebugViewShaderMode != DVSM_ShaderComplexity);
+}
+void FComplexityAccumulateInterface::SetDrawRenderState(EBlendMode BlendMode, FRenderState& DrawRenderState) const
+{
+	if (bShowShaderComplexity)
+	{
+		// When rendering masked materials in the shader complexity viewmode, 
+		// We want to overwrite complexity for the pixels which get depths written,
+		// And accumulate complexity for pixels which get killed due to the opacity mask being below the clip value.
+		// This is accomplished by forcing the masked materials to render depths in the depth only pass, 
+		// Then rendering in the base pass with additive complexity blending, depth tests on, and depth writes off.
+		DrawRenderState.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
+
+		if (IsTranslucentBlendMode(BlendMode))
+		{
+			DrawRenderState.BlendState = TStaticBlendState<>::GetRHI();
+		}
+		else
+		{
+			// If we are in the translucent pass then override the blend mode, otherwise maintain additive blending.
+			DrawRenderState.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_One>::GetRHI();
+		}
+	}
+	else
+	{
+		FDebugViewModeInterface::SetDrawRenderState(BlendMode, DrawRenderState);
+	}
 }
 
 // Instantiate the template 
 template class TComplexityAccumulatePS<false>;
 template class TComplexityAccumulatePS<true>;
+
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

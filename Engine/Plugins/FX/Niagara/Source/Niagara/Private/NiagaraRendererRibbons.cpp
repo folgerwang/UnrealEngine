@@ -101,7 +101,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 	}
 
 	const bool bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
-	FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy(SceneProxy->IsSelected(), SceneProxy->IsHovered());
+	FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy();
 
 	FGlobalDynamicIndexBuffer::FAllocation DynamicIndexAllocation = FGlobalDynamicIndexBuffer::Get().Allocate(DynamicDataRibbon->IndexData.Num(), sizeof(int16));
 
@@ -124,6 +124,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 		{
 			FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(
 				FMatrix::Identity,
+				FMatrix::Identity,
 				SceneProxy->GetActorPosition(),
 				SceneProxy->GetBounds(),
 				SceneProxy->GetLocalBounds(),
@@ -133,7 +134,10 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				SceneProxy->UseSingleSampleShadowFromStationaryLights(),
 				SceneProxy->GetScene().HasPrecomputedVolumetricLightmap_RenderThread(),
 				SceneProxy->UseEditorDepthTest(),
-				SceneProxy->GetLightingChannelMask()
+				SceneProxy->GetLightingChannelMask(),
+				0,
+				INDEX_NONE,
+				INDEX_NONE
 				);
 			WorldSpacePrimitiveUniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 			WorldSpacePrimitiveUniformBuffer.InitResource();
@@ -238,7 +242,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 
 				if (bIsWireframe)
 				{
-					MeshBatch.MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(SceneProxy->IsSelected(), SceneProxy->IsHovered());
+					MeshBatch.MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 				}
 				else
 				{
@@ -253,7 +257,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				MeshElement.NumInstances = 1;
 				MeshElement.MinVertexIndex = 0;
 				MeshElement.MaxVertexIndex = DynamicDataRibbon->VertexData.Num() - 1;
-				MeshElement.PrimitiveUniformBufferResource = &WorldSpacePrimitiveUniformBuffer;
+				MeshElement.PrimitiveUniformBuffer = WorldSpacePrimitiveUniformBuffer.GetUniformBufferRHI();
 
 				Collector.AddMesh(ViewIndex, MeshBatch);
 			}

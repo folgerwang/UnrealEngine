@@ -11,60 +11,39 @@ MeshTexCoordSizeAccuracyRendering.cpp: Contains definitions for rendering the vi
 #include "MeshBatch.h"
 #include "Engine/Engine.h"
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 IMPLEMENT_SHADER_TYPE(,FMeshTexCoordSizeAccuracyPS,TEXT("/Engine/Private/MeshTexCoordSizeAccuracyPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
-void FMeshTexCoordSizeAccuracyPS::SetParameters(
-	FRHICommandList& RHICmdList, 
-	const FShader* OriginalVS, 
-	const FShader* OriginalPS, 
-	const FMaterialRenderProxy* MaterialRenderProxy,
-	const FMaterial& Material,
-	const FSceneView& View,
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
-{
-	const int32 NumEngineColors = FMath::Min<int32>(GEngine->StreamingAccuracyColors.Num(), NumStreamingAccuracyColors);
-	int32 ColorIndex = 0;
-	for (; ColorIndex < NumEngineColors; ++ColorIndex)
-	{
-		SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), AccuracyColorsParameter, GEngine->StreamingAccuracyColors[ColorIndex], ColorIndex);
-	}
-	for (; ColorIndex < NumStreamingAccuracyColors; ++ColorIndex)
-	{
-		SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), AccuracyColorsParameter, FLinearColor::Black, ColorIndex);
-	}
-
-	// Bind view params
-	FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, FGlobalShader::GetPixelShader(), View.ViewUniformBuffer);
-}
-
-void FMeshTexCoordSizeAccuracyPS::SetMesh(
-	FRHICommandList& RHICmdList, 
-	const FVertexFactory* VertexFactory,
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* Proxy,
+void FMeshTexCoordSizeAccuracyPS::GetDebugViewModeShaderBindings(
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT Material,
+	EDebugViewShaderMode DebugViewMode,
+	const FVector& ViewOrigin,
 	int32 VisualizeLODIndex,
-	const FMeshBatchElement& BatchElement, 
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
+	int32 VisualizeElementIndex,
+	int32 NumVSInstructions,
+	int32 NumPSInstructions,
+	int32 ViewModeParam,
+	FName ViewModeParamName,
+	FMeshDrawSingleShaderBindings& ShaderBindings
+) const
 {
-	const int32 AnalysisIndex = View.Family->GetViewModeParam() >= 0 ? FMath::Clamp<int32>(View.Family->GetViewModeParam(), 0, MAX_TEXCOORDS - 1) : -1;
+	const int32 AnalysisIndex = ViewModeParam >= 0 ? FMath::Clamp<int32>(ViewModeParam, 0, MAX_TEXCOORDS - 1) : -1;
 
 	FVector4 WorldUVDensities;
 #if WITH_EDITORONLY_DATA
-	if (!Proxy || !Proxy->GetMeshUVDensities(VisualizeLODIndex, BatchElement.VisualizeElementIndex, WorldUVDensities))
+	if (!PrimitiveSceneProxy || !PrimitiveSceneProxy->GetMeshUVDensities(VisualizeLODIndex, VisualizeElementIndex, WorldUVDensities))
 #endif
 	{
 		FMemory::Memzero(WorldUVDensities);
 	}
 
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), CPUTexelFactorParameter, WorldUVDensities);
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), PrimitiveAlphaParameter, (!Proxy || Proxy->IsSelected()) ? 1.f : .2f);
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), TexCoordAnalysisIndexParameter, AnalysisIndex);
+	ShaderBindings.Add(CPUTexelFactorParameter, WorldUVDensities);
+	ShaderBindings.Add(PrimitiveAlphaParameter, (!PrimitiveSceneProxy || PrimitiveSceneProxy->IsSelected()) ? 1.f : .2f);
+	ShaderBindings.Add(TexCoordAnalysisIndexParameter, AnalysisIndex);
 }
 
-void FMeshTexCoordSizeAccuracyPS::SetMesh(FRHICommandList& RHICmdList, const FSceneView& View)
-{
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), CPUTexelFactorParameter, -1.f);
-	SetShaderValue(RHICmdList, FGlobalShader::GetPixelShader(), PrimitiveAlphaParameter, 1.f);
-}
+
+#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)

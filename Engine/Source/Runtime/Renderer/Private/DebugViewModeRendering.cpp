@@ -11,15 +11,48 @@ DebugViewModeRendering.cpp: Contains definitions for rendering debug viewmodes.
 #include "MeshTexCoordSizeAccuracyRendering.h"
 #include "MaterialTexCoordScalesRendering.h"
 #include "RequiredTextureResolutionRendering.h"
+#include "PrimitiveSceneInfo.h"
+#include "ScenePrivate.h"
+#include "PostProcessing.h"
+#include "PostProcess/PostProcessVisualizeComplexity.h"
+#include "PostProcess/PostProcessStreamingAccuracyLegend.h"
+#include "CompositionLighting/PostProcessPassThrough.h"
+#include "PostProcess/PostProcessCompositeEditorPrimitives.h"
+#include "SceneRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "MeshPassProcessor.inl"
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDebugViewModePassPassUniformParameters, "DebugViewModePass");
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+
+void SetupDebugViewModePassUniformBuffer(FSceneRenderTargets& SceneContext, ERHIFeatureLevel::Type FeatureLevel, FDebugViewModePassPassUniformParameters& PassParameters)
+{
+	SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, ESceneTextureSetupMode::None, PassParameters.SceneTextures);
+
+	const int32 NumEngineColors = FMath::Min<int32>(GEngine->StreamingAccuracyColors.Num(), NumStreamingAccuracyColors);
+	int32 ColorIndex = 0;
+	for (; ColorIndex < NumEngineColors; ++ColorIndex)
+	{
+		PassParameters.AccuracyColors[ColorIndex] = GEngine->StreamingAccuracyColors[ColorIndex];
+	}
+	for (; ColorIndex < NumStreamingAccuracyColors; ++ColorIndex)
+	{
+		PassParameters.AccuracyColors[ColorIndex] = FLinearColor::Black;
+	}
+}
+
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeVS,TEXT("/Engine/Private/DebugViewModeVertexShader.usf"),TEXT("Main"),SF_Vertex);	
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeHS,TEXT("/Engine/Private/DebugViewModeVertexShader.usf"),TEXT("MainHull"),SF_Hull);	
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeDS,TEXT("/Engine/Private/DebugViewModeVertexShader.usf"),TEXT("MainDomain"),SF_Domain);
 
+#if 0 // todo : implement FMissingShaderPS
 /**
 * Pixel shader that renders texture streamer wanted mips accuracy.
 */
-class FMissingShaderPS : public FGlobalShader, public IDebugViewModePSInterface
+class FMissingShaderPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FMissingShaderPS,Global);
 
@@ -39,8 +72,8 @@ public:
 
 	virtual void SetParameters(
 		FRHICommandList& RHICmdList, 
-		const FShader* OriginalVS, 
-		const FShader* OriginalPS, 
+		int32 NumVSInstructions, 
+		int32 NumPSInstructions, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& Material,
 		const FSceneView& View,
@@ -64,157 +97,329 @@ public:
 
 IMPLEMENT_SHADER_TYPE(,FMissingShaderPS,TEXT("/Engine/Private/MissingShaderPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
+#endif // todo : implement FMissingShaderPS
 
-void FDebugViewMode::GetMaterialForVSHSDS(const FMaterialRenderProxy** MaterialRenderProxy, const FMaterial** Material, ERHIFeatureLevel::Type FeatureLevel)
+ENGINE_API bool GetDebugViewMaterial(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial);
+
+void FDeferredShadingSceneRenderer::DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
-	// If the material was compiled fo VS, return it, otherwise, return the default material.
-	if (!(*Material)->HasVertexPositionOffsetConnected() && (*Material)->GetTessellationMode() == MTM_NoTessellation)
+	QUICK_SCOPE_CYCLE_COUNTER( STAT_PostProcessing_Process );
+
+	check(IsInRenderingThread());
+	check(View.VerifyMembersChecks());
+
+	GRenderTargetPool.AddPhaseEvent(TEXT("PostProcessing"));
+
+	// so that the passes can register themselves to the graph
+	FMemMark Mark(FMemStack::Get());
+	FRenderingCompositePassContext CompositeContext(RHICmdList, View);
+
+	FPostprocessContext Context(RHICmdList, CompositeContext.Graph, View);
+	ensure(Context.View.PrimaryScreenPercentageMethod != EPrimaryScreenPercentageMethod::TemporalUpscale);
+
+	const bool bHDROutputEnabled = GRHISupportsHDROutput && IsHDREnabled();
+
+	// Shader complexity does not actually output a color
+	if (!View.Family->EngineShowFlags.ShaderComplexity)
 	{
-		if (MaterialRenderProxy)
+		GPostProcessing.AddGammaOnlyTonemapper(Context);
+	}
+
+	switch (View.Family->GetDebugViewShaderMode())
+	{
+		case DVSM_QuadComplexity:
 		{
-			*MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false);
+			float ComplexityScale = 1.f / (float)(GEngine->QuadComplexityColors.Num() - 1) / NormalizedQuadComplexityValue; // .1f comes from the values used in LightAccumulator_GetResult
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->QuadComplexityColors, FVisualizeComplexityApplyPS::CS_STAIR, ComplexityScale, true));
+			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+			break;
 		}
-		*Material = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
-	}
-}
-
-ENGINE_API const FMaterial* GetDebugViewMaterialPS(const FMaterial* Material, EMaterialShaderMapUsage::Type Usage);
-
-IDebugViewModePSInterface* FDebugViewMode::GetPSInterface(TShaderMap<FGlobalShaderType>* ShaderMap, const FMaterial* Material, EDebugViewShaderMode DebugViewShaderMode)
-{
-    // The mesh material shaders are only compiled with the local vertex factory to prevent multiple compilation.
-    // Nothing from the factory is actually used, but the shader must still derive from FMeshMaterialShader.
-    // This is required to call FMeshMaterialShader::SetMesh and bind primitive related data.
-	static FVertexFactoryType* LocalVertexFactory = FindVertexFactoryType(FName(TEXT("FLocalVertexFactory"), FNAME_Find));
-
-	switch (DebugViewShaderMode)
-	{
-	case DVSM_QuadComplexity:
-	case DVSM_ShaderComplexityBleedingQuadOverhead:
-		return *TShaderMapRef<TQuadComplexityAccumulatePS>(ShaderMap);
-	case DVSM_ShaderComplexity:
-	case DVSM_ShaderComplexityContainedQuadOverhead:
-		return *TShaderMapRef<TShaderComplexityAccumulatePS>(ShaderMap);
-	case DVSM_PrimitiveDistanceAccuracy:
-		return *TShaderMapRef<FPrimitiveDistanceAccuracyPS>(ShaderMap);
-	case DVSM_MeshUVDensityAccuracy:
-		return *TShaderMapRef<FMeshTexCoordSizeAccuracyPS>(ShaderMap);
-	case DVSM_MaterialTextureScaleAccuracy:
-	case DVSM_OutputMaterialTextureScales:
-	{
-		const FMaterial* MaterialForPS = GetDebugViewMaterialPS(Material, EMaterialShaderMapUsage::DebugViewModeTexCoordScale);
-		if (MaterialForPS)
+		case DVSM_ShaderComplexity:
+		case DVSM_ShaderComplexityContainedQuadOverhead:
+		case DVSM_ShaderComplexityBleedingQuadOverhead:
 		{
-			return MaterialForPS->GetShader<FMaterialTexCoordScalePS>(LocalVertexFactory);
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->ShaderComplexityColors, FVisualizeComplexityApplyPS::CS_RAMP, 1.f, true));
+			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+			break;
 		}
-		break;
-	}
-	case DVSM_RequiredTextureResolution:
-	{
-		const FMaterial* MaterialForPS = GetDebugViewMaterialPS(Material, EMaterialShaderMapUsage::DebugViewModeRequiredTextureResolution);
-		if (MaterialForPS)
+		case DVSM_PrimitiveDistanceAccuracy:
+		case DVSM_MeshUVDensityAccuracy:
+		case DVSM_MaterialTextureScaleAccuracy:
+		case DVSM_RequiredTextureResolution:
 		{
-			return MaterialForPS->GetShader<FRequiredTextureResolutionPS>(LocalVertexFactory);
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessStreamingAccuracyLegend(GEngine->StreamingAccuracyColors));
+			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+			break;
 		}
-		break;
-	}
-	default:
-		break;
-	}
-	return *TShaderMapRef<FMissingShaderPS>(ShaderMap);
-}
+		default:
+			ensure(false);
+			break;
+	};
 
-void FDebugViewMode::PatchBoundShaderState(
-	FBoundShaderStateInput& BoundShaderStateInput,
-	const FMaterial* Material,
-	const FVertexFactory* VertexFactory,
-	ERHIFeatureLevel::Type FeatureLevel, 
-	EDebugViewShaderMode DebugViewShaderMode
-	)
-{
-	const FMaterial* MaterialForPS = Material; // Backup before calling GetMaterialForVSHSDS
-
-	if (AllowDebugViewVSDSHS(GetFeatureLevelShaderPlatform(FeatureLevel)))
+#if WITH_EDITOR
+	if (GIsEditor)
 	{
-		GetMaterialForVSHSDS(nullptr, &Material, FeatureLevel);
+		GPostProcessing.AddSelectionOutline(Context);
+	}
+#endif
 
-		FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
+	// After the graph is built but before the graph is processed.
+	// If a postprocess material is using a GBuffer it adds the refcount int FRCPassPostProcessMaterial::Process()
+	// and when it gets processed it removes the refcount
+	// We only release the GBuffers after the last view was processed (SplitScreen)
+	if(View.Family->Views[View.Family->Views.Num() - 1] == &View)
+	{
+		// Generally we no longer need the GBuffers, anyone that wants to keep the GBuffers for longer should have called AdjustGBufferRefCount(1) to keep it for longer
+		// and call AdjustGBufferRefCount(-1) once it's consumed. This needs to happen each frame. PostProcessMaterial do that automatically
+		FSceneRenderTargets::Get(RHICmdList).AdjustGBufferRefCount(RHICmdList, -1);
+	}
 
-		BoundShaderStateInput.VertexShaderRHI = Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->GetVertexShader();
+	// Add a pass-through for the final step if a backbuffer UAV is required but unsupported by this RHI
+	if (Context.FinalOutput.IsComputePass() && !View.Family->RenderTarget->GetRenderTargetUAV().IsValid())
+	{
+		FRenderingCompositePass* PassthroughNode = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessPassThrough(nullptr));
+		PassthroughNode->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+		Context.FinalOutput = FRenderingCompositeOutputRef(PassthroughNode);
+	}
 
-		if (BoundShaderStateInput.HullShaderRHI)
+	// The graph setup should be finished before this line ----------------------------------------
+	{
+		// currently created on the heap each frame but View.Family->RenderTarget could keep this object and all would be cleaner
+		TRefCountPtr<IPooledRenderTarget> Temp;
+		FSceneRenderTargetItem Item;
+		Item.TargetableTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
+		Item.ShaderResourceTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
+		Item.UAV = View.Family->RenderTarget->GetRenderTargetUAV();
+
+		FPooledRenderTargetDesc Desc;
+
+		// Texture could be bigger than viewport
+		if (View.Family->RenderTarget->GetRenderTargetTexture())
 		{
-			BoundShaderStateInput.HullShaderRHI = Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->GetHullShader();
+			Desc.Extent.X = View.Family->RenderTarget->GetRenderTargetTexture()->GetSizeX();
+			Desc.Extent.Y = View.Family->RenderTarget->GetRenderTargetTexture()->GetSizeY();
 		}
-		if (BoundShaderStateInput.DomainShaderRHI)
+		else
 		{
-			BoundShaderStateInput.DomainShaderRHI = Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->GetDomainShader();
+			Desc.Extent = View.Family->RenderTarget->GetSizeXY();
+		}
+
+		const bool bIsFinalOutputComputePass = Context.FinalOutput.IsComputePass();
+		Desc.TargetableFlags |= bIsFinalOutputComputePass ? TexCreate_UAV : TexCreate_RenderTargetable;
+		Desc.Format = bIsFinalOutputComputePass ? PF_R8G8B8A8 : PF_B8G8R8A8;
+
+		// todo: this should come from View.Family->RenderTarget
+		Desc.Format = bHDROutputEnabled ? GRHIHDRDisplayOutputFormat : Desc.Format;
+		Desc.NumMips = 1;
+		Desc.DebugName = TEXT("FinalPostProcessColor");
+
+		GRenderTargetPool.CreateUntrackedElement(Desc, Temp, Item);
+
+		GPostProcessing.OverrideRenderTarget(Context.FinalOutput, Temp, Desc);
+
+		TArray<FRenderingCompositePass*> TargetedRoots;
+		TargetedRoots.Add(Context.FinalOutput.GetPass());
+
+		// execute the graph/DAG
+		CompositeContext.Process(TargetedRoots, TEXT("PostProcessing"));
+
+		// May need to wait on the final pass to complete
+		if (Context.FinalOutput.IsAsyncComputePass())
+		{
+			FComputeFenceRHIParamRef ComputeFinalizeFence = Context.FinalOutput.GetComputePassEndFence();
+			if (ComputeFinalizeFence)
+			{
+				Context.RHICmdList.WaitComputeFence(ComputeFinalizeFence);
+			}
 		}
 	}
 
-	BoundShaderStateInput.PixelShaderRHI = GetPSInterface(GetGlobalShaderMap(FeatureLevel), MaterialForPS, DebugViewShaderMode)->GetShader()->GetPixelShader();
+	GRenderTargetPool.AddPhaseEvent(TEXT("AfterPostprocessing"));
 }
 
-void FDebugViewMode::SetParametersVSHSDS(
-	FRHICommandList& RHICmdList, 
-	const FMaterialRenderProxy* MaterialRenderProxy, 
-	const FMaterial* Material, 
-	const FSceneView& View,
-	const FVertexFactory* VertexFactory,
-	bool bHasHullAndDomainShader, 
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
+bool FDeferredShadingSceneRenderer::RenderDebugViewMode(FRHICommandListImmediate& RHICmdList)
 {
-	VertexFactory->SetStreams(View.GetFeatureLevel(), RHICmdList);
+	bool bDirty=0;
+	SCOPED_DRAW_EVENT(RHICmdList, DebugViewMode);
 
-	GetMaterialForVSHSDS(&MaterialRenderProxy, &Material, View.GetFeatureLevel());
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
-
-	Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, *Material, View, DrawRenderState);
-
-	if (bHasHullAndDomainShader)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
-		Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-		Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->SetParameters(RHICmdList, MaterialRenderProxy, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+		SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
+
+		FViewInfo& View = Views[ViewIndex];
+
+		Scene->UniformBuffers.UpdateViewUniformBuffer(View);
+
+		// Some of the viewmodes use SCENE_TEXTURES_DISABLED to prevent issues when running in commandlet mode.
+		FDebugViewModePassPassUniformParameters PassParameters;
+		SetupDebugViewModePassUniformBuffer(SceneContext, View.GetFeatureLevel(), PassParameters);
+		Scene->UniformBuffers.DebugViewModePassUniformBuffer.UpdateUniformBufferImmediate(PassParameters);
+
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, Dynamic);
+
+			SubmitMeshDrawCommandsForView(View, EMeshPass::DebugViewMode, nullptr, RHICmdList);
+		}
+	}
+
+	return bDirty;
+}
+
+FDebugViewModePS::FDebugViewModePS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer) : FMeshMaterialShader(Initializer) 
+{
+	PassUniformBuffer.Bind(Initializer.ParameterMap, FDebugViewModePassPassUniformParameters::StaticStructMetadata.GetShaderVariableName());
+}
+
+FDebugViewModeMeshProcessor::FDebugViewModeMeshProcessor(
+	const FScene* InScene, 
+	ERHIFeatureLevel::Type InFeatureLevel,
+	const FSceneView* InViewIfDynamicMeshCommand, 
+	FUniformBufferRHIParamRef InPassUniformBuffer, 
+	bool bTranslucentBasePass,
+	FMeshPassDrawListContext& InDrawListContext
+)
+	: FMeshPassProcessor(InScene, InFeatureLevel, InViewIfDynamicMeshCommand, InDrawListContext)
+	, PassUniformBuffer(InPassUniformBuffer)
+	, DebugViewMode(DVSM_None)
+	, ViewModeParam(INDEX_NONE)
+	, DebugViewModeInterface(nullptr)
+{
+	if (InViewIfDynamicMeshCommand)
+	{
+		DebugViewMode = InViewIfDynamicMeshCommand->Family->GetDebugViewShaderMode();
+		ViewModeParam = InViewIfDynamicMeshCommand->Family->GetViewModeParam();
+		ViewModeParamName = InViewIfDynamicMeshCommand->Family->GetViewModeParamName();
+
+		ViewUniformBuffer = InViewIfDynamicMeshCommand->ViewUniformBuffer;
+
+		DebugViewModeInterface = FDebugViewModeInterface::GetInterface(DebugViewMode);
+	}
+	if (InScene)
+	{
+		if (!ViewUniformBuffer)
+		{
+			ViewUniformBuffer = InScene->UniformBuffers.ViewUniformBuffer;
+		}
+		if (!PassUniformBuffer)
+		{
+			PassUniformBuffer = InScene->UniformBuffers.DebugViewModePassUniformBuffer;
+		}
 	}
 }
 
-void FDebugViewMode::SetMeshVSHSDS(
-	FRHICommandList& RHICmdList, 
-	const FVertexFactory* VertexFactory,
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* Proxy,
-	const FMeshBatchElement& BatchElement, 
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FMaterial* Material, 
-	bool bHasHullAndDomainShader
-	)
+void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
 {
-	GetMaterialForVSHSDS(nullptr, &Material, View.GetFeatureLevel());
+	const FMaterialRenderProxy* MaterialRenderProxy = nullptr;
+	const FMaterial* Material = nullptr;
+	const FMaterial* BatchMaterial = MeshBatch.MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
 
-	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
-
-	Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->SetMesh(RHICmdList, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-
-	if (bHasHullAndDomainShader)
+	if (!DebugViewModeInterface || !BatchMaterial)
 	{
-		Material->GetShader<FDebugViewModeHS>(VertexFactoryType)->SetMesh(RHICmdList, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-		Material->GetShader<FDebugViewModeDS>(VertexFactoryType)->SetMesh(RHICmdList, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
+		return;
 	}
+
+	const UMaterialInterface* ResolvedMaterial = MeshBatch.MaterialRenderProxy->GetMaterialInterface();
+	if (!DebugViewModeInterface->bNeedsMaterialProperties && FDebugViewModeInterface::AllowFallbackToDefaultMaterial(BatchMaterial))
+	{
+		ResolvedMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+	if (!GetDebugViewMaterial(ResolvedMaterial, DebugViewMode, MaterialRenderProxy,  Material))
+	{
+		return;
+	}
+
+	MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
+
+	FVertexFactoryType* VertexFactoryType = MeshBatch.VertexFactory->GetType();
+
+	const EMaterialTessellationMode MaterialTessellationMode = Material->GetTessellationMode();
+	const bool bNeedsHSDS = RHISupportsTessellation(GShaderPlatformForFeatureLevel[FeatureLevel])
+			&& VertexFactoryType->SupportsTessellationShaders()
+			&& MaterialTessellationMode != MTM_NoTessellation;
+
+	TMeshProcessorShaders<FDebugViewModeVS,	FDebugViewModeHS, FDebugViewModeDS,	FDebugViewModePS> DebugViewModePassShaders;
+	DebugViewModePassShaders.VertexShader = Material->GetShader<FDebugViewModeVS>(VertexFactoryType);
+	if (bNeedsHSDS)
+	{
+		DebugViewModePassShaders.DomainShader = Material->GetShader<FDebugViewModeDS>(VertexFactoryType);
+		DebugViewModePassShaders.HullShader = Material->GetShader<FDebugViewModeHS>(VertexFactoryType);
+	}
+	DebugViewModePassShaders.PixelShader = DebugViewModeInterface->GetPixelShader(Material, VertexFactoryType);
+
+	const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *BatchMaterial);
+	const ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, *BatchMaterial);
+
+	FDrawingPolicyRenderState DrawRenderState;
+	DrawRenderState.SetViewUniformBuffer(ViewUniformBuffer);
+	DrawRenderState.SetPassUniformBuffer(PassUniformBuffer);
+
+	FDebugViewModeInterface::FRenderState InterfaceRenderState;
+	DebugViewModeInterface->SetDrawRenderState(Material->GetBlendMode(), InterfaceRenderState);
+	DrawRenderState.SetBlendState(InterfaceRenderState.BlendState);
+	DrawRenderState.SetDepthStencilState(InterfaceRenderState.DepthStencilState);
+
+	FDebugViewModeShaderElementData ShaderElementData(
+		*MaterialRenderProxy,
+		*Material,
+		DebugViewMode, 
+		ViewIfDynamicMeshCommand->ViewMatrices.GetViewOrigin(), 
+		MeshBatch.VisualizeLODIndex, 
+		ViewModeParam, 
+		ViewModeParamName);
+
+	if (DebugViewModeInterface->bNeedsInstructionCount)
+	{
+		ShaderElementData.NumVSInstructions = BatchMaterial->GetShader<TBasePassVS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(VertexFactoryType)->GetNumInstructions();
+		ShaderElementData.NumPSInstructions = BatchMaterial->GetShader<TBasePassPS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(VertexFactoryType)->GetNumInstructions();
+	}
+
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, true);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		*MaterialRenderProxy,
+		*Material,
+		DrawRenderState,
+		DebugViewModePassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		1,
+		FMeshDrawCommandSortKey::Default,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
 }
 
-void FDebugViewMode::SetInstanceParameters(
-	FRHICommandList& RHICmdList,
-	const FVertexFactory* VertexFactory,
-	const FSceneView& View,
-	const FMaterial* Material, 
-	uint32 InVertexOffset, 
-	uint32 InInstanceOffset, 
-	uint32 InInstanceCount)
+FMeshPassProcessor* CreateDebugViewModePassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
 {
-	GetMaterialForVSHSDS(nullptr, &Material, View.GetFeatureLevel());
-	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
-	Material->GetShader<FDebugViewModeVS>(VertexFactoryType)->SetInstanceParameters(RHICmdList, InVertexOffset, InInstanceOffset, InInstanceCount);
+	const ERHIFeatureLevel::Type FeatureLevel = Scene ? Scene->GetFeatureLevel() : (InViewIfDynamicMeshCommand ? InViewIfDynamicMeshCommand->GetFeatureLevel() : GMaxRHIFeatureLevel);
+	return new(FMemStack::Get()) FDebugViewModeMeshProcessor(Scene, FeatureLevel, InViewIfDynamicMeshCommand, nullptr, false, InDrawListContext);
 }
+
+FRegisterPassProcessorCreateFunction RegisterDebugViewModePass(&CreateDebugViewModePassProcessor, EShadingPath::Deferred, EMeshPass::DebugViewMode, EMeshPassFlags::MainView);
+
+
+void InitDebugViewModeInterfaces()
+{
+	FDebugViewModeInterface::SetInterface(DVSM_ShaderComplexity, new FComplexityAccumulateInterface(true, false));
+	FDebugViewModeInterface::SetInterface(DVSM_ShaderComplexityContainedQuadOverhead, new FComplexityAccumulateInterface(true, false));
+	FDebugViewModeInterface::SetInterface(DVSM_ShaderComplexityBleedingQuadOverhead, new FComplexityAccumulateInterface(true, true));
+	FDebugViewModeInterface::SetInterface(DVSM_QuadComplexity, new FComplexityAccumulateInterface(false, false));
+
+	FDebugViewModeInterface::SetInterface(DVSM_PrimitiveDistanceAccuracy, new FPrimitiveDistanceAccuracyInterface());
+	FDebugViewModeInterface::SetInterface(DVSM_MeshUVDensityAccuracy, new FMeshTexCoordSizeAccuracyInterface());
+	FDebugViewModeInterface::SetInterface(DVSM_MaterialTextureScaleAccuracy, new FMaterialTexCoordScaleAccuracyInterface());
+	FDebugViewModeInterface::SetInterface(DVSM_OutputMaterialTextureScales, new FOutputMaterialTexCoordScaleInterface());
+	FDebugViewModeInterface::SetInterface(DVSM_RequiredTextureResolution, new FRequiredTextureResolutionInterface());
+}
+
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 

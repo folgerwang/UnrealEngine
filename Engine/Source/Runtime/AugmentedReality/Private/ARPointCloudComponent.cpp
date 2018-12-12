@@ -79,6 +79,7 @@ public:
 		Result.bRenderInMainPass = true;
 		Result.bUsesLightingChannels = false;
 		Result.bRenderCustomDepth = false;
+		Result.bTranslucentSelfShadow = false;
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
 		return Result;
 	}

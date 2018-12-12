@@ -40,7 +40,7 @@ DECLARE_ISBOUNDSHADER(DomainShader)
 DECLARE_ISBOUNDSHADER(ComputeShader)
 
 
-#if DO_CHECK
+#if DO_GUARD_SLOW
 #define VALIDATE_BOUND_SHADER(s) ValidateBoundShader(StateCache, s)
 #else
 #define VALIDATE_BOUND_SHADER(s)

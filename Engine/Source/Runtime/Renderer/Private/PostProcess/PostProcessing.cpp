@@ -428,7 +428,7 @@ static FRCPassPostProcessTonemap* AddTonemapper(
 }
 
 #if WITH_EDITOR
-static void AddSelectionOutline(FPostprocessContext& Context)
+void FPostProcessing::AddSelectionOutline(FPostprocessContext& Context)
 {
 	FRenderingCompositePass* SelectionColorPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessSelectionOutlineColor());
 	SelectionColorPass->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
@@ -441,7 +441,7 @@ static void AddSelectionOutline(FPostprocessContext& Context)
 }
 #endif
 
-static void AddGammaOnlyTonemapper(FPostprocessContext& Context)
+void FPostProcessing::AddGammaOnlyTonemapper(FPostprocessContext& Context)
 {
 	const bool bIsComputePass = ShouldDoComputePostProcessing(Context.View);
 	FRenderingCompositePass* PostProcessTonemap = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTonemap(Context.View, true, false/*eye*/, false, bIsComputePass));
@@ -993,7 +993,7 @@ static FRenderingCompositePass* AddSinglePostProcessMaterial(FPostprocessContext
 
 	if(UMaterialInterface* MaterialInterface = PPNode.GetMaterialInterface())
 	{
-		FMaterialRenderProxy* Proxy = MaterialInterface->GetRenderProxy(false);
+		FMaterialRenderProxy* Proxy = MaterialInterface->GetRenderProxy();
 
 		check(Proxy);
 
@@ -1103,7 +1103,7 @@ static FRenderingCompositeOutputRef AddPostProcessMaterialChain(
 	{
 		UMaterialInterface* MaterialInterface = PPNodes[i].GetMaterialInterface();
 
-		FMaterialRenderProxy* Proxy = MaterialInterface->GetRenderProxy(false);
+		FMaterialRenderProxy* Proxy = MaterialInterface->GetRenderProxy();
 
 		check(Proxy);
 
@@ -1172,7 +1172,7 @@ static void AddHighResScreenshotMask(FPostprocessContext& Context, FRenderingCom
 		CaptureRegionVisualizationPass->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 		Context.FinalOutput = FRenderingCompositeOutputRef(CaptureRegionVisualizationPass);
 
-		auto Proxy = Material->GetRenderProxy(false);
+		auto Proxy = Material->GetRenderProxy();
 		const FMaterial* RendererMaterial = Proxy->GetMaterial(Context.View.GetFeatureLevel());
 		if (RendererMaterial->NeedsGBuffer())
 		{
@@ -1223,7 +1223,7 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 					MaterialPass->SetInput(ePId_Input2, FRenderingCompositeOutputRef(PreTonemapHDRColorInput));
 					MaterialPass->SetInput(ePId_Input3, FRenderingCompositeOutputRef(PostTonemapHDRColorInput));
 
-					auto Proxy = MaterialInterface->GetRenderProxy(false);
+					auto Proxy = MaterialInterface->GetRenderProxy();
 					const FMaterial* Material = Proxy->GetMaterial(Context.View.GetFeatureLevel());
 					if (Material->NeedsGBuffer())
 					{
@@ -1283,7 +1283,7 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 
 // could be moved into the graph
 // allows for Framebuffer blending optimization with the composition graph
-void OverrideRenderTarget(FRenderingCompositeOutputRef It, TRefCountPtr<IPooledRenderTarget>& RT, FPooledRenderTargetDesc& Desc)
+void FPostProcessing::OverrideRenderTarget(FRenderingCompositeOutputRef It, TRefCountPtr<IPooledRenderTarget>& RT, FPooledRenderTargetDesc& Desc)
 {
 	for(;;)
 	{
@@ -1965,35 +1965,6 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 		}
 
-		const EDebugViewShaderMode DebugViewShaderMode = View.Family->GetDebugViewShaderMode();
-		if(DebugViewShaderMode == DVSM_QuadComplexity)
-		{
-			ensureMsgf(!bUnscaledFinalOutput, TEXT("Should not unscale final output multiple times."));
-
-			float ComplexityScale = 1.f / (float)(GEngine->QuadComplexityColors.Num() - 1) / NormalizedQuadComplexityValue; // .1f comes from the values used in LightAccumulator_GetResult
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->QuadComplexityColors, FVisualizeComplexityApplyPS::CS_STAIR, ComplexityScale, true));
-			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
-		}
-
-		if(DebugViewShaderMode == DVSM_ShaderComplexity || DebugViewShaderMode == DVSM_ShaderComplexityContainedQuadOverhead || DebugViewShaderMode == DVSM_ShaderComplexityBleedingQuadOverhead)
-		{
-			ensureMsgf(!bUnscaledFinalOutput, TEXT("Should not unscale final output multiple times."));
-
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->ShaderComplexityColors, FVisualizeComplexityApplyPS::CS_RAMP, 1.f, true));
-			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
-		}
-
-		if (DebugViewShaderMode == DVSM_PrimitiveDistanceAccuracy || DebugViewShaderMode == DVSM_MeshUVDensityAccuracy || DebugViewShaderMode == DVSM_MaterialTextureScaleAccuracy ||DebugViewShaderMode == DVSM_RequiredTextureResolution)
-		{
-			ensureMsgf(!bUnscaledFinalOutput, TEXT("Should not unscale final output multiple times."));
-
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessStreamingAccuracyLegend(GEngine->StreamingAccuracyColors));
-			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
-		}
-
 		if(View.Family->EngineShowFlags.VisualizeLightCulling) 
 		{
 			ensureMsgf(!bUnscaledFinalOutput, TEXT("Should not unscale final output multiple times."));
@@ -2280,7 +2251,7 @@ static bool IsGaussianActive(FPostprocessContext& Context)
 	return true;
 }
 
-void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bUsedFramebufferFetch)
+void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, bool bUsedFramebufferFetch)
 {
 	check(IsInRenderingThread());
 
@@ -2369,7 +2340,7 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 			
 			if (bUsePost && IsMobileDistortionActive(View))
 			{
-				FRenderingCompositePass* AccumulatedDistortion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionAccumulatePassES2(SceneColorSize));
+				FRenderingCompositePass* AccumulatedDistortion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionAccumulatePassES2(SceneColorSize, Scene));
 				AccumulatedDistortion->SetInput(ePId_Input0, Context.FinalOutput); // unused atm
 				FRenderingCompositeOutputRef AccumulatedDistortionRef(AccumulatedDistortion);
 				

@@ -15,6 +15,13 @@
 #include "RHI.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 
+enum class EShadingPath
+{
+	Mobile,
+	Deferred,
+	Num,
+};
+
 // Note:  WITH_PROFILEGPU should be 0 for final builds
 #define WANTS_DRAW_MESH_EVENTS (RHI_COMMAND_LIST_DEBUG_TRACES || (WITH_PROFILEGPU && PLATFORM_SUPPORTS_DRAW_MESH_EVENTS))
 

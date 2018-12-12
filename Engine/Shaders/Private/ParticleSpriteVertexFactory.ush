@@ -29,11 +29,6 @@ struct FVertexFactoryInput
 #endif	//USE_DYNAMIC_PARAMETERS
 	float2	TexCoord				: ATTRIBUTE4;
 	uint VertexId					: SV_VertexID;
-
-/** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 };
 
 struct FVertexFactoryInterpolantsVSToPS
@@ -303,16 +298,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.Particle.Size = Intermediates.ParticleSize;
 #endif
 	return Result;
-}
-
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
 }
 
 float3 SafeNormalize(float3 V)
@@ -703,5 +688,10 @@ float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolant
 #if USE_PARTICLE_POSITION
 	return Interpolants.ParticleTranslatedWorldPositionAndSize;
 #endif
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
 	return 0;
 }

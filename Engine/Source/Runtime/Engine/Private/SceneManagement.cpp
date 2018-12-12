@@ -12,6 +12,9 @@
 #include "LightMap.h"
 #include "ShadowMap.h"
 #include "Engine/Engine.h"
+#include "Engine/LightMapTexture2D.h"
+#include "Engine/ShadowMapTexture2D.h"
+#include "UnrealEngine.h"
 
 ENGINE_API bool GDrawListsLocked = false;
 
@@ -233,7 +236,6 @@ void FMeshElementCollector::ProcessTasks()
 	}
 }
 
-
 void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 {
 	DEFINE_LOG_CATEGORY_STATIC(FMeshElementCollector_AddMesh, Warning, All);
@@ -258,16 +260,53 @@ void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 			*this);
 	}
 
+	MeshBatch.bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(MeshBatch.VertexFactory, PrimitiveSceneProxy);
+
+	MeshBatch.PreparePrimitiveUniformBuffer(PrimitiveSceneProxy, FeatureLevel);
+
 	for (int32 Index = 0; Index < MeshBatch.Elements.Num(); ++Index)
 	{
-		checkf(MeshBatch.Elements[Index].PrimitiveUniformBuffer || MeshBatch.Elements[Index].PrimitiveUniformBufferResource, TEXT("Missing PrimitiveUniformBuffer on MeshBatchElement %d, Material '%s'"), Index, *MeshBatch.MaterialRenderProxy->GetFriendlyName());
 		UE_CLOG(MeshBatch.Elements[Index].IndexBuffer && !MeshBatch.Elements[Index].IndexBuffer->IndexBufferRHI, FMeshElementCollector_AddMesh, Fatal,
 			TEXT("FMeshElementCollector::AddMesh - On MeshBatchElement %d, Material '%s', index buffer object has null RHI resource"),
 			Index, MeshBatch.MaterialRenderProxy ? *MeshBatch.MaterialRenderProxy->GetFriendlyName() : TEXT("null"));
 	}
 
+	// If we are maintaining primitive scene data on the GPU, copy the primitive uniform buffer data to a unified array so it can be uploaded later
+	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && MeshBatch.VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0)
+	{
+		for (int32 Index = 0; Index < MeshBatch.Elements.Num(); ++Index)
+		{
+			const TUniformBuffer<FPrimitiveUniformShaderParameters>* PrimitiveUniformBufferResource = MeshBatch.Elements[Index].PrimitiveUniformBufferResource;
+
+			if (PrimitiveUniformBufferResource)
+			{
+				const int32 DataIndex = DynamicPrimitiveShaderData->AddUninitialized(1);
+				MeshBatch.Elements[Index].PrimitiveIdMode = PrimID_DynamicPrimitiveShaderData;
+				MeshBatch.Elements[Index].DynamicPrimitiveShaderDataIndex = DataIndex;
+				FPlatformMemory::Memcpy(&(*DynamicPrimitiveShaderData)[DataIndex], PrimitiveUniformBufferResource->GetContents(), sizeof(FPrimitiveUniformShaderParameters));
+			}
+		}
+	}
+
+	MeshBatch.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(Views[ViewIndex]->GetFeatureLevel());
+
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& ViewMeshBatches = *MeshBatches[ViewIndex];
 	new (ViewMeshBatches) FMeshBatchAndRelevance(MeshBatch, PrimitiveSceneProxy, FeatureLevel);	
+}
+
+void FDynamicPrimitiveUniformBuffer::Set(
+	const FMatrix& LocalToWorld,
+	const FMatrix& PreviousLocalToWorld,
+	const FBoxSphereBounds& WorldBounds,
+	const FBoxSphereBounds& LocalBounds,
+	bool bReceivesDecals,
+	bool bHasPrecomputedVolumetricLightmap,
+	bool bUseEditorDepthTest)
+{
+	check(IsInRenderingThread());
+	UniformBuffer.SetContents(
+		GetPrimitiveUniformShaderParameters(LocalToWorld, PreviousLocalToWorld, WorldBounds.Origin, WorldBounds, LocalBounds, bReceivesDecals, false, false, false, bHasPrecomputedVolumetricLightmap, bUseEditorDepthTest, GetDefaultLightingChannelMask(), 1.0f, INDEX_NONE, INDEX_NONE));
+	UniformBuffer.InitResource();
 }
 
 FLightMapInteraction FLightMapInteraction::Texture(
@@ -665,6 +704,9 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 
 	PreIntegratedBRDF = GWhiteTexture->TextureRHI;
 	PreIntegratedBRDFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	PrimitiveSceneData = GIdentityPrimitiveBuffer.BufferSRV;
+	LightmapSceneData = GIdentityPrimitiveBuffer.BufferSRV;
 }
 
 FInstancedViewUniformShaderParameters::FInstancedViewUniformShaderParameters()
@@ -701,6 +743,137 @@ void InitializeSharedSamplerStates()
 	}
 }
 
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingUniformParameters, "PrecomputedLightingBuffer");
+
+FLightmapSceneShaderData::FLightmapSceneShaderData(const class FLightCacheInterface* LCI, ERHIFeatureLevel::Type FeatureLevel)
+{
+	FPrecomputedLightingUniformParameters Parameters;
+	GetPrecomputedLightingParameters(FeatureLevel, Parameters, LCI);
+	Setup(Parameters);
+}
+
+void FLightmapSceneShaderData::Setup(const FPrecomputedLightingUniformParameters& ShaderParameters)
+{
+	static_assert(sizeof(FPrecomputedLightingUniformParameters) == 128, "The FLightmapSceneShaderData manual layout below and in usf must match FPrecomputedLightingUniformParameters.  Update this assert when adding a new member.");
+	// Note: layout must match GetLightmapData in usf
+
+	Data[0] = ShaderParameters.StaticShadowMapMasks;
+	Data[1] = ShaderParameters.InvUniformPenumbraSizes;
+	Data[2] = ShaderParameters.LightMapCoordinateScaleBias;
+	Data[3] = ShaderParameters.ShadowMapCoordinateScaleBias;
+	Data[4] = ShaderParameters.LightMapScale[0];
+	Data[5] = ShaderParameters.LightMapScale[1];
+	Data[6] = ShaderParameters.LightMapAdd[0];
+	Data[7] = ShaderParameters.LightMapAdd[1];
+}
+
+void GetPrecomputedLightingParameters(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FPrecomputedLightingUniformParameters& Parameters, 
+	const FLightCacheInterface* LCI
+	)
+{
+	// TDistanceFieldShadowsAndLightMapPolicy
+	const FShadowMapInteraction ShadowMapInteraction = LCI ? LCI->GetShadowMapInteraction() : FShadowMapInteraction(); 
+	if (ShadowMapInteraction.GetType() == SMIT_Texture)
+	{
+		Parameters.ShadowMapCoordinateScaleBias = FVector4(ShadowMapInteraction.GetCoordinateScale(), ShadowMapInteraction.GetCoordinateBias());
+		Parameters.StaticShadowMapMasks = FVector4(ShadowMapInteraction.GetChannelValid(0), ShadowMapInteraction.GetChannelValid(1), ShadowMapInteraction.GetChannelValid(2), ShadowMapInteraction.GetChannelValid(3));
+		Parameters.InvUniformPenumbraSizes = ShadowMapInteraction.GetInvUniformPenumbraSize();
+	}
+	else
+	{
+		Parameters.StaticShadowMapMasks = FVector4(1, 1, 1, 1);
+		Parameters.InvUniformPenumbraSizes = FVector4(0, 0, 0, 0);
+	}
+
+	// TLightMapPolicy
+	const FLightMapInteraction LightMapInteraction = LCI ? LCI->GetLightMapInteraction(FeatureLevel) : FLightMapInteraction();
+	if (LightMapInteraction.GetType() == LMIT_Texture)
+	{
+		const bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel) && LightMapInteraction.AllowsHighQualityLightmaps();
+
+		// Vertex Shader
+		const FVector2D LightmapCoordinateScale = LightMapInteraction.GetCoordinateScale();
+		const FVector2D LightmapCoordinateBias = LightMapInteraction.GetCoordinateBias();
+		Parameters.LightMapCoordinateScaleBias = FVector4(LightmapCoordinateScale.X, LightmapCoordinateScale.Y, LightmapCoordinateBias.X, LightmapCoordinateBias.Y);
+
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+		if (CVar->GetValueOnRenderThread() == 0)
+		{
+
+		}
+		else
+		{
+			checkf(0, TEXT("VT needs to be implemented with Mesh Draw Command pipeline"));
+		}
+
+		const uint32 NumCoef = bAllowHighQualityLightMaps ? NUM_HQ_LIGHTMAP_COEF : NUM_LQ_LIGHTMAP_COEF;
+		const FVector4* Scales = LightMapInteraction.GetScaleArray();
+		const FVector4* Adds = LightMapInteraction.GetAddArray();
+		for (uint32 CoefIndex = 0; CoefIndex < NumCoef; ++CoefIndex)
+		{
+			Parameters.LightMapScale[CoefIndex] = Scales[CoefIndex];
+			Parameters.LightMapAdd[CoefIndex] = Adds[CoefIndex];
+		}
+	}
+	else
+	{
+		// Vertex Shader
+		Parameters.LightMapCoordinateScaleBias = FVector4(1, 1, 0, 0);
+
+		// Pixel Shader
+		const uint32 NumCoef = FMath::Max<uint32>(NUM_HQ_LIGHTMAP_COEF, NUM_LQ_LIGHTMAP_COEF);
+		for (uint32 CoefIndex = 0; CoefIndex < NumCoef; ++CoefIndex)
+		{
+			Parameters.LightMapScale[CoefIndex] = FVector4(1, 1, 1, 1);
+			Parameters.LightMapAdd[CoefIndex] = FVector4(0, 0, 0, 0);
+		}
+	}
+}
+
+void FLightCacheInterface::CreatePrecomputedLightingUniformBuffer_RenderingThread(ERHIFeatureLevel::Type FeatureLevel)
+{
+	if (LightMap || ShadowMap)
+	{
+		FPrecomputedLightingUniformParameters Parameters;
+		GetPrecomputedLightingParameters(FeatureLevel, Parameters, this);
+		PrecomputedLightingUniformBuffer = FPrecomputedLightingUniformParameters::CreateUniformBuffer(Parameters, UniformBuffer_MultiFrame);
+	}
+}
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapResourceClusterShaderParameters, "LightmapResourceCluster");
+
+void GetLightmapClusterResourceParameters(
+	ERHIFeatureLevel::Type FeatureLevel, 
+	const FLightmapClusterResourceInput& Input,
+	FLightmapResourceClusterShaderParameters& Parameters)
+{
+	const bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel);
+	const UTexture2D* LightMapTexture = Input.LightMapTextures[bAllowHighQualityLightMaps ? 0 : 1];
+
+	Parameters.LightMapTexture = LightMapTexture ? LightMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+	Parameters.SkyOcclusionTexture = Input.SkyOcclusionTexture ? Input.SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
+	Parameters.AOMaterialMaskTexture = Input.AOMaterialMaskTexture ? Input.AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+
+	Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+	Parameters.SkyOcclusionSampler = (Input.SkyOcclusionTexture && Input.SkyOcclusionTexture->Resource) ? Input.SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+	Parameters.AOMaterialMaskSampler = (Input.AOMaterialMaskTexture && Input.AOMaterialMaskTexture->Resource) ? Input.AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+
+	Parameters.StaticShadowTexture = Input.ShadowMapTexture ? Input.ShadowMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
+	Parameters.StaticShadowTextureSampler = (Input.ShadowMapTexture && Input.ShadowMapTexture->Resource) ? Input.ShadowMapTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+}
+
+void FDefaultLightmapResourceClusterUniformBuffer::InitDynamicRHI()
+{
+	FLightmapResourceClusterShaderParameters Parameters;
+	GetLightmapClusterResourceParameters(GMaxRHIFeatureLevel, FLightmapClusterResourceInput(), Parameters);
+	SetContents(Parameters);
+	Super::InitDynamicRHI();
+}
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+TGlobalResource< FDefaultLightmapResourceClusterUniformBuffer > GDefaultLightmapResourceClusterUniformBuffer;
 
 FLightMapInteraction FLightCacheInterface::GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
 {
@@ -814,4 +987,32 @@ void FReadOnlyCVARCache::Init()
 	}
 
 	bInitialized = true;
+}
+
+void FMeshBatch::PreparePrimitiveUniformBuffer(const FPrimitiveSceneProxy* PrimitiveSceneProxy, ERHIFeatureLevel::Type FeatureLevel)
+{
+	const bool bVFSupportsPrimitiveIdStream = VertexFactory->GetType()->SupportsPrimitiveIdStream();
+	checkf((PrimitiveSceneProxy->DoesVFRequirePrimitiveUniformBuffer() || bVFSupportsPrimitiveIdStream), TEXT("PrimitiveSceneProxy has bVFRequiresPrimitiveUniformBuffer disabled yet tried to draw with a vertex factory (%s) that did not support PrimitiveIdStream."), VertexFactory->GetType()->GetName());
+
+	const bool bPrimitiveShaderDataComesFromSceneBuffer = VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0;
+
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+	{
+		FMeshBatchElement& MeshElement = Elements[ElementIndex];
+
+		if (bPrimitiveShaderDataComesFromSceneBuffer)
+		{
+			checkf(!Elements[ElementIndex].PrimitiveUniformBuffer, 
+				TEXT("FMeshBatch was assigned a PrimitiveUniformBuffer even though Vertex Factory %s fetches primitive shader data through a Scene buffer.  The assigned PrimitiveUniformBuffer cannot be respected.  Use PrimitiveUniformBufferResource instead for dynamic primitive data, or leave both null to get FPrimitiveSceneProxy->UniformBuffer."), VertexFactory->GetType()->GetName());
+		}
+
+		// If we are not using GPU Scene, draws using vertex factories that do not support an explicit PrimitiveUniformBuffer on the FMeshBatch need to be setup with the FPrimitiveSceneProxy's uniform buffer
+		if (!MeshElement.PrimitiveUniformBufferResource && !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && bVFSupportsPrimitiveIdStream)
+		{
+			MeshElement.PrimitiveUniformBuffer = PrimitiveSceneProxy->GetUniformBuffer();
+		}
+
+		checkf(bPrimitiveShaderDataComesFromSceneBuffer || Elements[ElementIndex].PrimitiveUniformBuffer || Elements[ElementIndex].PrimitiveUniformBufferResource != NULL,
+			TEXT("FMeshBatch was not properly setup.  The primitive uniform buffer must be specified."));
+	}
 }

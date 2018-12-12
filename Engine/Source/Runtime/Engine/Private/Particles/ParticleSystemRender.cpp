@@ -562,8 +562,7 @@ void FDynamicSpriteEmitterData::Init( bool bInSelected )
 	bUsesDynamicParameter = GetSourceData()->DynamicParameterDataOffset > 0;
 
 	UMaterialInterface const* MaterialInterface = const_cast<UMaterialInterface const*>(Source.MaterialInterface);
-	MaterialResource[0] = MaterialInterface->GetRenderProxy(false);
-	MaterialResource[1] = GIsEditor ? MaterialInterface->GetRenderProxy(true) : MaterialResource[0];
+	MaterialResource = MaterialInterface->GetRenderProxy();
 
 	// We won't need this on the render thread
 	Source.MaterialInterface = NULL;
@@ -1103,8 +1102,7 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 					{
 						SCOPE_CYCLE_COUNTER(STAT_FDynamicSpriteEmitterData_GetDynamicMeshElementsEmitter_GetParticleOrderData);
 						// If material is using unlit translucency and the blend mode is translucent then we need to sort (back to front)
-						int32 SelectedMat = GIsEditor && (ViewFamily.EngineShowFlags.Selection) ? bSelected : false;
-						const FMaterial* Material = MaterialResource[SelectedMat] ? MaterialResource[SelectedMat]->GetMaterial(FeatureLevel) : nullptr;
+						const FMaterial* Material = MaterialResource ? MaterialResource->GetMaterial(FeatureLevel) : nullptr;
 
 						if (Material && 
 							(Material->GetBlendMode() == BLEND_Translucent || Material->GetBlendMode() == BLEND_AlphaComposite ||
@@ -1231,11 +1229,11 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 					Mesh.LCI = NULL;
 					if (SourceData->bUseLocalSpace == true)
 					{
-						BatchElement.PrimitiveUniformBufferResource = &Proxy->GetUniformBuffer();
+						BatchElement.PrimitiveUniformBuffer = Proxy->GetUniformBuffer();
 					}
 					else
 					{
-						BatchElement.PrimitiveUniformBufferResource = &Proxy->GetWorldSpacePrimitiveUniformBuffer();
+						BatchElement.PrimitiveUniformBuffer = Proxy->GetWorldSpacePrimitiveUniformBuffer();
 					}
 					BatchElement.MinVertexIndex = 0;
 					BatchElement.MaxVertexIndex = (ParticleCount * NumVerticesPerParticle) - 1;
@@ -1244,11 +1242,11 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 
 					if ( bIsWireframe )
 					{
-						Mesh.MaterialRenderProxy = UMaterial::GetDefaultMaterial( MD_Surface )->GetRenderProxy( ViewFamily.EngineShowFlags.Selection ? bSelected : false );
+						Mesh.MaterialRenderProxy = UMaterial::GetDefaultMaterial( MD_Surface )->GetRenderProxy();
 					}
 					else
 					{
-						Mesh.MaterialRenderProxy = MaterialResource[GIsEditor && (ViewFamily.EngineShowFlags.Selection) ? bSelected : 0];
+						Mesh.MaterialRenderProxy = MaterialResource;
 					}
 					Mesh.Type = PT_TriangleList;
 
@@ -1420,7 +1418,6 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 									float InLODSizeScale,
 									ERHIFeatureLevel::Type InFeatureLevel )
 {
-	bSelected = bInSelected;
 	EmitterInstance = InEmitterInstance;
 
 	// @todo: For replays, currently we're assuming the original emitter instance is bound to the same mesh as
@@ -1452,7 +1449,7 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 	MeshMaterials.AddZeroed(MeshMaterialsGT.Num());
 	for (int32 i = 0; i < MeshMaterialsGT.Num(); ++i)
 	{
-		MeshMaterials[i] = MeshMaterialsGT[i]->GetRenderProxy(bInSelected);
+		MeshMaterials[i] = MeshMaterialsGT[i]->GetRenderProxy();
 	}
 
 	bUsesDynamicParameter = GetSourceData()->DynamicParameterDataOffset > 0;
@@ -1846,7 +1843,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 					Mesh.DepthPriorityGroup = (ESceneDepthPriorityGroup)Proxy->GetDepthPriorityGroup(View);
 
 					FMeshBatchElement& BatchElement = Mesh.Elements[0];
-					BatchElement.PrimitiveUniformBufferResource = &Proxy->GetWorldSpacePrimitiveUniformBuffer();
+					BatchElement.PrimitiveUniformBuffer = Proxy->GetWorldSpacePrimitiveUniformBuffer();
 					BatchElement.FirstIndex = Section.FirstIndex;
 					BatchElement.MinVertexIndex = Section.MinVertexIndex;
 					BatchElement.MaxVertexIndex = Section.MaxVertexIndex;
@@ -2642,8 +2639,7 @@ void FDynamicBeam2EmitterData::Init( bool bInSelected )
 		(MaxNoiseFrequency * (sizeof(FVector) + sizeof(FVector) + sizeof(float) + sizeof(float)))
 		);	// TTP #33330 - Max of 10k per beam (includes interpolation points, noise, etc.)
 
-	MaterialResource[0] = Source.MaterialInterface->GetRenderProxy(false);
-	MaterialResource[1] = GIsEditor ? Source.MaterialInterface->GetRenderProxy(true) : MaterialResource[0];
+	MaterialResource = Source.MaterialInterface->GetRenderProxy();
 
 	bUsesDynamicParameter = false;
 
@@ -2800,11 +2796,11 @@ void FDynamicBeam2EmitterData::GetDynamicMeshElementsEmitter(const FParticleSyst
 		Mesh.LCI					= NULL;
 		if (Source.bUseLocalSpace == true)
 		{
-			BatchElement.PrimitiveUniformBufferResource = &Proxy->GetUniformBuffer();
+			BatchElement.PrimitiveUniformBuffer = Proxy->GetUniformBuffer();
 		}
 		else
 		{
-			BatchElement.PrimitiveUniformBufferResource = &Proxy->GetWorldSpacePrimitiveUniformBuffer();
+			BatchElement.PrimitiveUniformBuffer = Proxy->GetWorldSpacePrimitiveUniformBuffer();
 		}
 		int32 TrianglesToRender = OutTriangleCount;
 		if ((TrianglesToRender % 2) != 0)
@@ -2820,11 +2816,11 @@ void FDynamicBeam2EmitterData::GetDynamicMeshElementsEmitter(const FParticleSyst
 
 		if (AllowDebugViewmodes() && bIsWireframe && !ViewFamily.EngineShowFlags.Materials)
 		{
-			Mesh.MaterialRenderProxy	= Proxy->GetDeselectedWireframeMatInst();
+			Mesh.MaterialRenderProxy = Proxy->GetDeselectedWireframeMatInst();
 		}
 		else
 		{
-			Mesh.MaterialRenderProxy	= MaterialResource[GIsEditor && (ViewFamily.EngineShowFlags.Selection) ? bSelected : 0];
+			Mesh.MaterialRenderProxy = MaterialResource;
 		}
 		Mesh.Type = PT_TriangleStrip;
 
@@ -5475,8 +5471,7 @@ void FDynamicTrailsEmitterData::Init(bool bInSelected)
 	check(SourcePointer->ActiveParticleCount < (16 * 1024));	// TTP #33330
 	check(SourcePointer->ParticleStride < (2 * 1024));			// TTP #33330
 
-	MaterialResource[0] = SourcePointer->MaterialInterface->GetRenderProxy(false);
-	MaterialResource[1] = GIsEditor ? SourcePointer->MaterialInterface->GetRenderProxy(true) : MaterialResource[0];
+	MaterialResource = SourcePointer->MaterialInterface->GetRenderProxy();
 
 	bUsesDynamicParameter = GetSourceData()->DynamicParameterDataOffset > 0;
 
@@ -5576,7 +5571,7 @@ void FDynamicTrailsEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 		Mesh.VertexFactory			= BeamTrailVertexFactory;
 		Mesh.LCI					= NULL;
 
-		BatchElement.PrimitiveUniformBufferResource = &Proxy->GetWorldSpacePrimitiveUniformBuffer();
+		BatchElement.PrimitiveUniformBuffer = Proxy->GetWorldSpacePrimitiveUniformBuffer();
 		BatchElement.NumPrimitives			= OutTriangleCount;
 		BatchElement.MinVertexIndex			= 0;
 		BatchElement.MaxVertexIndex			= SourcePointer->VertexCount - 1;
@@ -5616,7 +5611,7 @@ void FDynamicTrailsEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 			}
 #endif
 			checkf(OutTriangleCount <= SourcePointer->PrimitiveCount, TEXT("Data.OutTriangleCount = %4d vs. SourcePrimCount = %4d"), OutTriangleCount, SourcePointer->PrimitiveCount);
-			Mesh.MaterialRenderProxy = MaterialResource[GIsEditor && (ViewFamily.EngineShowFlags.Selection) ? bSelected : 0];
+			Mesh.MaterialRenderProxy = MaterialResource;
 		}
 		Mesh.Type = PT_TriangleStrip;
 
@@ -6871,7 +6866,7 @@ FParticleSystemSceneProxy::FParticleSystemSceneProxy(const UParticleSystemCompon
 	, DynamicData(InDynamicData)
 	, LastDynamicData(NULL)
 	, DeselectedWireframeMaterialInstance(
-		GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(false) : NULL,
+		GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : NULL,
 		GetSelectionColor(FLinearColor(1.0f, 0.0f, 0.0f, 1.0f),false,false)
 		)
 	, PendingLODDistance(0.0f)
@@ -7206,6 +7201,7 @@ FPrimitiveViewRelevance FParticleSystemSceneProxy::GetViewRelevance(const FScene
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 	Result.bDynamicRelevance = true;
 	Result.bHasSimpleLights = true;
 	if (!View->Family->EngineShowFlags.Wireframe && View->Family->EngineShowFlags.Materials)
@@ -7239,6 +7235,7 @@ void FParticleSystemSceneProxy::UpdateWorldSpacePrimitiveUniformBuffer() const
 	{
 		FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(
 			FMatrix::Identity,
+			FMatrix::Identity,
 			GetActorPosition(),
 			GetBounds(),
 			GetLocalBounds(),
@@ -7249,7 +7246,9 @@ void FParticleSystemSceneProxy::UpdateWorldSpacePrimitiveUniformBuffer() const
 			GetScene().HasPrecomputedVolumetricLightmap_RenderThread(),
 			UseEditorDepthTest(),
 			GetLightingChannelMask(),
-			1.0f			// LPV bias
+			0,
+			INDEX_NONE,
+			INDEX_NONE
 			);
 		WorldSpacePrimitiveUniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 		WorldSpacePrimitiveUniformBuffer.InitResource();

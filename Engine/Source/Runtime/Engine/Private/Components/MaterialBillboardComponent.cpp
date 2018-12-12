@@ -209,7 +209,7 @@ public:
 							FMeshBatch& Mesh = Collector.AllocateMesh();
 
 							Mesh.VertexFactory = &VertexFactory;
-							Mesh.MaterialRenderProxy = Element.Material->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
+							Mesh.MaterialRenderProxy = Element.Material->GetRenderProxy();
 							Mesh.LCI = NULL;
 							Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative() ? true : false;
 							Mesh.CastShadow = false;
@@ -223,7 +223,6 @@ public:
 							BatchElement.FirstIndex = 0;
 							BatchElement.MinVertexIndex = 0;
 							BatchElement.MaxVertexIndex = 3;
-							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer().GetUniformBufferRef();
 							BatchElement.NumPrimitives = 2;
 							BatchElement.BaseVertexIndex = WriteOffset;
 

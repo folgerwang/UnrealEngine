@@ -21,6 +21,8 @@ public:
 	/** @return The global initialized resource list. */
 	static TLinkedList<FRenderResource*>*& GetResourceList();
 
+	static void ChangeFeatureLevel(ERHIFeatureLevel::Type NewFeatureLevel);
+
 	/** Default constructor. */
 	FRenderResource()
 		: FeatureLevel(ERHIFeatureLevel::Num)
@@ -98,9 +100,9 @@ protected:
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel == ERHIFeatureLevel::Num ? GMaxRHIFeatureLevel : FeatureLevel; }
 	FORCEINLINE bool HasValidFeatureLevel() const { return FeatureLevel < ERHIFeatureLevel::Num; }
 
-private:
-
 	ERHIFeatureLevel::Type FeatureLevel;
+
+private:
 
 	/** True if the resource has been initialized. */
 	bool bInitialized;

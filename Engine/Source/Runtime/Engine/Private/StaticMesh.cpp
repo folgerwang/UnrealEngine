@@ -301,6 +301,7 @@ int32 FStaticMeshLODResources::GetNumTexCoords() const
 void FStaticMeshVertexFactories::InitVertexFactory(
 	const FStaticMeshLODResources& LodResources,
 	FLocalVertexFactory& InOutVertexFactory,
+	uint32 LODIndex,
 	const UStaticMesh* InParentMesh,
 	bool bInOverrideColorVertexBuffer
 	)
@@ -313,6 +314,7 @@ void FStaticMeshVertexFactories::InitVertexFactory(
 		const FStaticMeshLODResources* LODResources;
 		bool bOverrideColorVertexBuffer;
 		uint32 LightMapCoordinateIndex;
+		uint32 LODIndex;
 	} Params;
 
 	uint32 LightMapCoordinateIndex = (uint32)InParentMesh->LightMapCoordinateIndex;
@@ -322,6 +324,7 @@ void FStaticMeshVertexFactories::InitVertexFactory(
 	Params.LODResources = &LodResources;
 	Params.bOverrideColorVertexBuffer = bInOverrideColorVertexBuffer;
 	Params.LightMapCoordinateIndex = LightMapCoordinateIndex;
+	Params.LODIndex = LODIndex;
 
 	// Initialize the static mesh's vertex factory.
 	ENQUEUE_RENDER_COMMAND(InitStaticMeshVertexFactory)(
@@ -346,17 +349,18 @@ void FStaticMeshVertexFactories::InitVertexFactory(
 				Params.LODResources->VertexBuffers.ColorVertexBuffer.BindColorVertexBuffer(Params.VertexFactory, Data);
 			}
 
+			Data.LODLightmapDataIndex = Params.LODIndex;
 			Params.VertexFactory->SetData(Data);
 			Params.VertexFactory->InitResource();
 		});
 }
 
-void FStaticMeshVertexFactories::InitResources(const FStaticMeshLODResources& LodResources, const UStaticMesh* Parent)
+void FStaticMeshVertexFactories::InitResources(const FStaticMeshLODResources& LodResources, uint32 LODIndex, const UStaticMesh* Parent)
 {
-	InitVertexFactory(LodResources, VertexFactory, Parent, false);
+	InitVertexFactory(LodResources, VertexFactory, LODIndex, Parent, false);
 	BeginInitResource(&VertexFactory);
 
-	InitVertexFactory(LodResources, VertexFactoryOverrideColorVertexBuffer, Parent, true);
+	InitVertexFactory(LodResources, VertexFactoryOverrideColorVertexBuffer, LODIndex, Parent, true);
 	BeginInitResource(&VertexFactoryOverrideColorVertexBuffer);
 }
 
@@ -772,7 +776,7 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 		LODVertexFactories.Empty(LODResources.Num());
 		for (int i = 0; i < LODResources.Num(); i++)
 		{
-			new(LODVertexFactories) FStaticMeshVertexFactories(ERHIFeatureLevel::Num);
+			new(LODVertexFactories) FStaticMeshVertexFactories(GMaxRHIFeatureLevel);
 		}
 	}
 
@@ -871,7 +875,7 @@ void FStaticMeshRenderData::InitResources(ERHIFeatureLevel::Type InFeatureLevel,
 		if (LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0)
 		{
 			LODResources[LODIndex].InitResources(Owner);
-			LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], Owner);
+			LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], LODIndex, Owner);
 		}
 	}
 	bIsInitialized = true;
@@ -895,7 +899,7 @@ void FStaticMeshRenderData::AllocateLODResources(int32 NumLODs)
 	while (LODResources.Num() < NumLODs)
 	{
 		new(LODResources) FStaticMeshLODResources;
-		new(LODVertexFactories) FStaticMeshVertexFactories(ERHIFeatureLevel::Num);
+		new(LODVertexFactories) FStaticMeshVertexFactories(GMaxRHIFeatureLevel);
 	}
 }
 

@@ -28,6 +28,7 @@
 #include "RendererModule.h"
 #include "VT/VirtualTextureSystem.h"
 #include "VT/VirtualTextureFeedback.h"
+#include "GPUScene.h"
 
 TAutoConsoleVariable<int32> CVarEarlyZPass(
 	TEXT("r.EarlyZPass"),
@@ -374,6 +375,12 @@ void FDeferredShadingSceneRenderer::RenderVisualizeTexturePool(FRHICommandListIm
 }
 #endif
 
+void FDeferredShadingSceneRenderer::GenerateDynamicMeshDrawCommands()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateDynamicMeshDrawCommands);
+
+	FSceneRenderer::GenerateDynamicMeshDrawCommands();
+}
 
 /** 
 * Finishes the view family rendering.
@@ -603,13 +610,28 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		SceneContext.Allocate(RHICmdList, this);
 	}
 
+	const bool bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
+
+	// Use readonly depth in the base pass if we have a full depth prepass
+	const bool bAllowReadonlyDepthBasePass = EarlyZPassMode == DDM_AllOpaque
+		&& CVarBasePassWriteDepthEvenWithFullPrepass.GetValueOnRenderThread() == 0
+		&& !ViewFamily.EngineShowFlags.ShaderComplexity
+		&& !ViewFamily.UseDebugViewPS()
+		&& !bIsWireframe
+		&& !ViewFamily.EngineShowFlags.LightMapDensity;
+
+	const FExclusiveDepthStencil::Type BasePassDepthStencilAccess = 
+		bAllowReadonlyDepthBasePass
+		? FExclusiveDepthStencil::DepthRead_StencilWrite 
+		: FExclusiveDepthStencil::DepthWrite_StencilWrite;
+
 	FGraphEventArray SortEvents;
 	FGraphEventArray UpdateViewCustomDataEvents;
 	FILCUpdatePrimTaskData ILCTaskData;
 
 	// Find the visible primitives.
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-	bool bDoInitViewAftersPrepass = InitViews(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+	bool bDoInitViewAftersPrepass = InitViews(RHICmdList, BasePassDepthStencilAccess, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 
 	static const auto CVarVirtualTextureLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
 	if (CVarVirtualTextureLightmaps && CVarVirtualTextureLightmaps->GetValueOnRenderThread())
@@ -643,6 +665,13 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
 	}
 
+	UpdateGPUScene(RHICmdList, *Scene);
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		UploadDynamicPrimitiveShaderDataForView(RHICmdList, *Scene, Views[ViewIndex]);
+	}	
+	
 	if (!bDoInitViewAftersPrepass)
 	{
 		bool bSplitDispatch = !GDoPrepareDistanceFieldSceneAfterRHIFlush;
@@ -656,7 +685,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
 	}
 
-	const bool bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
 	static const auto ClearMethodCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ClearSceneMethod"));
 	bool bRequiresRHIClear = true;
 	bool bRequiresFarZQuadClear = false;
@@ -777,7 +805,11 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			{
 				InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 				PrepareDistanceFieldScene(RHICmdList, false);
-				PostInitViewCustomData(UpdateViewCustomDataEvents);
+
+				if (!UseMeshDrawCommandPipeline())
+				{
+					PostInitViewCustomData(UpdateViewCustomDataEvents);
+				}
 
 				GEngine->GetPreRenderDelegate().Broadcast();
 
@@ -848,19 +880,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	const bool bShouldRenderVelocities = ShouldRenderVelocities();
 	const bool bBasePassCanOutputVelocity = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel);
 	const bool bUseSelectiveBasePassOutputs = bUseGBuffer && UseSelectiveBasePassOutputs();
-
-	// Use readonly depth in the base pass if we have a full depth prepass
-	const bool bAllowReadonlyDepthBasePass = EarlyZPassMode == DDM_AllOpaque
-		&& CVarBasePassWriteDepthEvenWithFullPrepass.GetValueOnRenderThread() == 0
-		&& !ViewFamily.EngineShowFlags.ShaderComplexity
-		&& !ViewFamily.UseDebugViewPS()
-		&& !bIsWireframe
-		&& !ViewFamily.EngineShowFlags.LightMapDensity;
-
-	const FExclusiveDepthStencil::Type BasePassDepthStencilAccess =
-		bAllowReadonlyDepthBasePass
-		? FExclusiveDepthStencil::DepthRead_StencilWrite
-		: FExclusiveDepthStencil::DepthWrite_StencilWrite;
 
 	SceneContext.ResolveSceneDepthTexture(RHICmdList, FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
 	SceneContext.ResolveSceneDepthToAuxiliaryTexture(RHICmdList);
@@ -965,6 +984,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		{
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 			FViewInfo& View = Views[ViewIndex];
+
+			Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
 			uint32 SSAOLevels = FSSAOHelper::ComputeAmbientOcclusionPassCount(View);
 			// In deferred shader, the SSAO uses the GBuffer and must be executed after base pass. 
@@ -1297,6 +1318,9 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
+
+			Scene->UniformBuffers.UpdateViewUniformBuffer(Views[ViewIndex]);
+
 			GCompositionLighting.ProcessAfterBasePass(RHICmdList, Views[ViewIndex]);
 		}
 		ServiceLocalQueue();
@@ -1588,7 +1612,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		{
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 
-			GPostProcessing.Process(RHICmdList, Views[ ViewIndex ], VelocityRT);
+			if (ViewFamily.UseDebugViewPS())
+			{
+				DoDebugViewModePostProcessing(RHICmdList, Views[ViewIndex], VelocityRT);
+			}
+			else
+			{
+				GPostProcessing.Process(RHICmdList, Views[ViewIndex], VelocityRT);
+			}
 		}
 
 		// End of frame, we don't need it anymore

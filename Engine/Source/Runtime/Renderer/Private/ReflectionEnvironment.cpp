@@ -296,12 +296,12 @@ void FReflectionEnvironmentSceneData::ResizeCubemapArrayGPU(uint32 InMaxCubemaps
 	for (int32 i=0; i<Components.Num(); i++ )
 	{
 		FCaptureComponentSceneState* ComponentStatePtr = AllocatedReflectionCaptureState.Find(Components[i]);
-		check(ComponentStatePtr->CaptureIndex < IndexRemapping.Num());
-		int32 NewIndex = IndexRemapping[ComponentStatePtr->CaptureIndex];
+		check(ComponentStatePtr->CubemapIndex < IndexRemapping.Num());
+		int32 NewIndex = IndexRemapping[ComponentStatePtr->CubemapIndex];
 		CubemapArraySlotsUsed[NewIndex] = true; 
-		ComponentStatePtr->CaptureIndex = NewIndex;
-		check(ComponentStatePtr->CaptureIndex > -1);
-		UsedCubemapCount = FMath::Max(UsedCubemapCount, ComponentStatePtr->CaptureIndex + 1);
+		ComponentStatePtr->CubemapIndex = NewIndex;
+		check(ComponentStatePtr->CubemapIndex > -1);
+		UsedCubemapCount = FMath::Max(UsedCubemapCount, ComponentStatePtr->CubemapIndex + 1);
 	}
 
 	// Clear elements in the remapping array which are outside the range of the used components (these were allocated but not used)
@@ -452,29 +452,6 @@ private:
 	FShaderParameter ContrastAndNormalizeMulAdd;
 	FShaderParameter OcclusionExponent;
 	FShaderParameter OcclusionCombineMode;
-};
-
-struct FReflectionCaptureSortData
-{
-	uint32 Guid;
-	int32 CaptureIndex;
-	FVector4 PositionAndRadius;
-	FVector4 CaptureProperties;
-	FMatrix BoxTransform;
-	FVector4 BoxScales;
-	FVector4 CaptureOffsetAndAverageBrightness;
-
-	bool operator < (const FReflectionCaptureSortData& Other) const
-	{
-		if( PositionAndRadius.W != Other.PositionAndRadius.W )
-		{
-			return PositionAndRadius.W < Other.PositionAndRadius.W;
-		}
-		else
-		{
-			return Guid < Other.Guid;
-		}
-	}
 };
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionCaptureShaderData, "ReflectionCapture");
@@ -670,103 +647,6 @@ bool FDeferredShadingSceneRenderer::ShouldDoReflectionEnvironment() const
 	return IsReflectionEnvironmentAvailable(SceneFeatureLevel)
 		&& Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num()
 		&& ViewFamily.EngineShowFlags.ReflectionEnvironment;
-}
-
-void GatherAndSortReflectionCaptures(const FViewInfo& View, const FScene* Scene, TArray<FReflectionCaptureSortData>& OutSortData, int32& OutNumBoxCaptures, int32& OutNumSphereCaptures, float& OutFurthestReflectionCaptureDistance)
-{	
-	OutSortData.Reset(Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num());
-	OutNumBoxCaptures = 0;
-	OutNumSphereCaptures = 0;
-	OutFurthestReflectionCaptureDistance = 1000;
-
-	const int32 MaxCubemaps = Scene->ReflectionSceneData.CubemapArray.GetMaxCubemaps();
-
-	if (View.Family->EngineShowFlags.ReflectionEnvironment)
-	{
-		// Pack only visible reflection captures into the uniform buffer, each with an index to its cubemap array entry
-		//@todo - view frustum culling
-		for (int32 ReflectionProxyIndex = 0; ReflectionProxyIndex < Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num() && OutSortData.Num() < GMaxNumReflectionCaptures; ReflectionProxyIndex++)
-		{
-			FReflectionCaptureProxy* CurrentCapture = Scene->ReflectionSceneData.RegisteredReflectionCaptures[ReflectionProxyIndex];
-
-			FReflectionCaptureSortData NewSortEntry;
-
-			NewSortEntry.CaptureIndex = -1;
-			NewSortEntry.CaptureOffsetAndAverageBrightness = FVector4(CurrentCapture->CaptureOffset, 1.0f);
-			if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM5)
-			{
-				const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(CurrentCapture->Component);
-
-				if (!ComponentStatePtr)
-				{
-					// Skip reflection captures without built data to upload
-					continue;
-				}
-
-				NewSortEntry.CaptureIndex = ComponentStatePtr->CaptureIndex;
-				check(NewSortEntry.CaptureIndex < MaxCubemaps || NewSortEntry.CaptureIndex == 0);
-				NewSortEntry.CaptureOffsetAndAverageBrightness.W = ComponentStatePtr->AverageBrightness;
-			}
-
-			NewSortEntry.Guid = CurrentCapture->Guid;
-			NewSortEntry.PositionAndRadius = FVector4(CurrentCapture->Position, CurrentCapture->InfluenceRadius);
-			float ShapeTypeValue = (float)CurrentCapture->Shape;
-			NewSortEntry.CaptureProperties = FVector4(CurrentCapture->Brightness, NewSortEntry.CaptureIndex, ShapeTypeValue, 0);
-
-			if (CurrentCapture->Shape == EReflectionCaptureShape::Plane)
-			{
-				//planes count as boxes in the compute shader.
-				++OutNumBoxCaptures;
-				NewSortEntry.BoxTransform = FMatrix(
-					FPlane(CurrentCapture->ReflectionPlane),
-					FPlane(CurrentCapture->ReflectionXAxisAndYScale),
-					FPlane(0, 0, 0, 0),
-					FPlane(0, 0, 0, 0));
-
-				NewSortEntry.BoxScales = FVector4(0);
-			}
-			else if (CurrentCapture->Shape == EReflectionCaptureShape::Sphere)
-			{
-				++OutNumSphereCaptures;
-			}
-			else
-			{
-				++OutNumBoxCaptures;
-				NewSortEntry.BoxTransform = CurrentCapture->BoxTransform;
-				NewSortEntry.BoxScales = FVector4(CurrentCapture->BoxScales, CurrentCapture->BoxTransitionDistance);
-			}
-
-			const FSphere BoundingSphere(CurrentCapture->Position, CurrentCapture->InfluenceRadius);
-			const float Distance = View.ViewMatrices.GetViewMatrix().TransformPosition(BoundingSphere.Center).Z + BoundingSphere.W;
-			OutFurthestReflectionCaptureDistance = FMath::Max(OutFurthestReflectionCaptureDistance, Distance);
-
-			OutSortData.Add(NewSortEntry);
-		}
-	}
-
-	OutSortData.Sort();	
-}
-
-void FDeferredShadingSceneRenderer::SetupReflectionCaptureBuffers(FViewInfo& View, FRHICommandListImmediate& RHICmdList)
-{
-	TArray<FReflectionCaptureSortData> SortData;
-	GatherAndSortReflectionCaptures(View, Scene, SortData, View.NumBoxReflectionCaptures, View.NumSphereReflectionCaptures, View.FurthestReflectionCaptureDistance);
-		
-	if (View.GetFeatureLevel() >= ERHIFeatureLevel::SM5)
-	{
-		FReflectionCaptureShaderData SamplePositionsBuffer;
-
-		for (int32 CaptureIndex = 0; CaptureIndex < SortData.Num(); CaptureIndex++)
-		{
-			SamplePositionsBuffer.PositionAndRadius[CaptureIndex] = SortData[CaptureIndex].PositionAndRadius;
-			SamplePositionsBuffer.CaptureProperties[CaptureIndex] = SortData[CaptureIndex].CaptureProperties;
-			SamplePositionsBuffer.CaptureOffsetAndAverageBrightness[CaptureIndex] = SortData[CaptureIndex].CaptureOffsetAndAverageBrightness;
-			SamplePositionsBuffer.BoxTransform[CaptureIndex] = SortData[CaptureIndex].BoxTransform;
-			SamplePositionsBuffer.BoxScales[CaptureIndex] = SortData[CaptureIndex].BoxScales;
-		}
-
-		View.ReflectionCaptureUniformBuffer = TUniformBufferRef<FReflectionCaptureShaderData>::CreateUniformBufferImmediate(SamplePositionsBuffer, UniformBuffer_SingleFrame);
-	}
 }
 
 void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT)

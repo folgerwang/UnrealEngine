@@ -4,14 +4,6 @@
 	ReflectionEnvironmentComposite
 =============================================================================*/
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-	int SingleCubemapArrayIndex;	
-#endif  
-
-float4 SingleCaptureOffsetAndAverageBrightness;
-float4 SingleCapturePositionAndRadius; 
-float SingleCaptureBrightness;
-
 float3 CompositeReflectionCapturesAndSkylight(
 	float CompositeAlpha, 
 	float3 WorldPosition, 
@@ -22,6 +14,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 	float3 ExtraIndirectSpecular,
 	uint NumCapturesAffectingTile,
 	uint CaptureDataStartIndex, 
+	int SingleCaptureIndex,
 	uint EyeIndex)
 {
 	float Mip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
@@ -122,6 +115,11 @@ float3 CompositeReflectionCapturesAndSkylight(
 
 	float3 ProjectedCaptureVector = RayDirection;
 
+	float4 SingleCaptureOffsetAndAverageBrightness = ReflectionCapture.CaptureOffsetAndAverageBrightness[SingleCaptureIndex];
+	float4 SingleCapturePositionAndRadius = ReflectionCapture.PositionAndRadius[SingleCaptureIndex];
+	float SingleCaptureBrightness = ReflectionCapture.CaptureProperties[SingleCaptureIndex].x;
+	float SingleCaptureArrayIndex = ReflectionCapture.CaptureProperties[SingleCaptureIndex].y;
+
 	#define APPROXIMATE_CONTINUOUS_SINGLE_CAPTURE_PARALLAX 0
 	#if APPROXIMATE_CONTINUOUS_SINGLE_CAPTURE_PARALLAX
 		float3 CaptureVector = WorldPosition - SingleCapturePositionAndRadius.xyz;
@@ -137,7 +135,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 		ProjectedCaptureVector = lerp(RayDirection, normalize(ProjectedCaptureVector), DistanceAlpha);
 	#endif
 
-	float4 Sample = TextureCubeArraySampleLevel(ReflectionStruct.ReflectionCubemap, ReflectionStruct.ReflectionCubemapSampler, ProjectedCaptureVector, SingleCubemapArrayIndex, Mip);
+	float4 Sample = TextureCubeArraySampleLevel(ReflectionStruct.ReflectionCubemap, ReflectionStruct.ReflectionCubemapSampler, ProjectedCaptureVector, SingleCaptureArrayIndex, Mip);
 
 	Sample.rgb *= SingleCaptureBrightness;
 	ImageBasedReflections = float4(Sample.rgb, 1 - Sample.a);
@@ -206,7 +204,8 @@ float3 CompositeReflectionCapturesAndSkylight(
 	float IndirectSpecularOcclusion,
 	float3 ExtraIndirectSpecular,
 	uint NumCapturesAffectingTile,
-	uint CaptureDataStartIndex)
+	uint CaptureDataStartIndex,
+	int SingleCaptureIndex)
 {
 	return CompositeReflectionCapturesAndSkylight(
 		CompositeAlpha, 
@@ -217,6 +216,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 		IndirectSpecularOcclusion, 
 		ExtraIndirectSpecular, 
 		NumCapturesAffectingTile, 
-		CaptureDataStartIndex, 
+		CaptureDataStartIndex,
+		SingleCaptureIndex,
 		0);
 }

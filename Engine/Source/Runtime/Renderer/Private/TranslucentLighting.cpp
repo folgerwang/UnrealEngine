@@ -184,6 +184,61 @@ void FViewInfo::CalcTranslucencyLightingVolumeBounds(FBox* InOutCascadeBoundsArr
 	}
 }
 
+/** Shader parameters for rendering the depth of a mesh for shadowing. */
+class FShadowDepthShaderParameters
+{
+public:
+
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		ProjectionMatrix.Bind(ParameterMap,TEXT("ProjectionMatrix"));
+		ShadowParams.Bind(ParameterMap,TEXT("ShadowParams"));
+		ClampToNearPlane.Bind(ParameterMap,TEXT("bClampToNearPlane"));
+	}
+
+	template<typename ShaderRHIParamRef>
+	void Set(FRHICommandList& RHICmdList, ShaderRHIParamRef ShaderRHI, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
+	{
+		SetShaderValue(
+			RHICmdList, 
+			ShaderRHI,
+			ProjectionMatrix,
+			FTranslationMatrix(ShadowInfo->PreShadowTranslation - View.ViewMatrices.GetPreViewTranslation()) * ShadowInfo->SubjectAndReceiverMatrix
+			);
+
+		SetShaderValue(RHICmdList, ShaderRHI, ShadowParams, FVector2D(ShadowInfo->GetShaderDepthBias(), ShadowInfo->InvMaxSubjectDepth));
+		// Only clamp vertices to the near plane when rendering whole scene directional light shadow depths or preshadows from directional lights
+		const bool bClampToNearPlaneValue = ShadowInfo->IsWholeSceneDirectionalShadow() || (ShadowInfo->bPreShadow && ShadowInfo->bDirectionalLight);
+		SetShaderValue(RHICmdList, ShaderRHI,ClampToNearPlane,bClampToNearPlaneValue ? 1.0f : 0.0f);
+	}
+
+	/** Set the vertex shader parameter values. */
+	void SetVertexShader(FRHICommandList& RHICmdList, FShader* VertexShader, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
+	{
+		Set(RHICmdList, VertexShader->GetVertexShader(), View, ShadowInfo, MaterialRenderProxy);
+	}
+
+	/** Set the domain shader parameter values. */
+	void SetDomainShader(FRHICommandList& RHICmdList, FShader* DomainShader, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
+	{
+		Set(RHICmdList, DomainShader->GetDomainShader(), View, ShadowInfo, MaterialRenderProxy);
+	}
+
+	/** Serializer. */
+	friend FArchive& operator<<(FArchive& Ar,FShadowDepthShaderParameters& P)
+	{
+		Ar << P.ProjectionMatrix;
+		Ar << P.ShadowParams;
+		Ar << P.ClampToNearPlane;
+		return Ar;
+	}
+
+private:
+	FShaderParameter ProjectionMatrix;
+	FShaderParameter ShadowParams;
+	FShaderParameter ClampToNearPlane;
+};
+
 /**
  * Vertex shader used to render shadow maps for translucency.
  */
@@ -280,7 +335,6 @@ public:
 	{
 		TranslInvMaxSubjectDepth.Bind(Initializer.ParameterMap,TEXT("TranslInvMaxSubjectDepth"));
 		TranslucentShadowStartOffset.Bind(Initializer.ParameterMap,TEXT("TranslucentShadowStartOffset"));
-		TranslucencyProjectionParameters.Bind(Initializer.ParameterMap);
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
@@ -304,7 +358,10 @@ public:
 		const float LocalToWorldScale = ShadowInfo->GetParentSceneInfo()->Proxy->GetLocalToWorld().GetScaleVector().GetMax();
 		const float TranslucentShadowStartOffsetValue = MaterialRenderProxy->GetMaterial(FeatureLevel)->GetTranslucentShadowStartOffset() * LocalToWorldScale;
 		SetShaderValue(RHICmdList, ShaderRHI,TranslucentShadowStartOffset, TranslucentShadowStartOffsetValue / (ShadowInfo->MaxSubjectZ - ShadowInfo->MinSubjectZ));
-		TranslucencyProjectionParameters.Set(RHICmdList, this, ShadowInfo);
+
+		FTranslucentSelfShadowUniformParameters TranslucentSelfShadowUniformParameters;
+		SetupTranslucentSelfShadowUniformParameters(ShadowInfo, TranslucentSelfShadowUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, GetUniformBufferParameter<FTranslucentSelfShadowUniformParameters>(), TranslucentSelfShadowUniformParameters);
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
@@ -317,14 +374,12 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		Ar << TranslInvMaxSubjectDepth;
 		Ar << TranslucentShadowStartOffset;
-		Ar << TranslucencyProjectionParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FShaderParameter TranslInvMaxSubjectDepth;
 	FShaderParameter TranslucentShadowStartOffset;
-	FTranslucencyShadowProjectionShaderParameters TranslucencyProjectionParameters;
 };
 
 template <ETranslucencyShadowDepthShaderMode ShaderMode>
@@ -429,6 +484,7 @@ public:
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 		PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		SetPrimitiveIdStream(RHICmdList, View, PrimitiveSceneProxy, BatchElement.PrimitiveIdMode, BatchElement.DynamicPrimitiveShaderDataIndex);
 	}
 
 private:
@@ -548,7 +604,10 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	{
 #if WANTS_DRAW_MESH_EVENTS
 		FString EventName;
-		GetShadowTypeNameForDrawEvent(EventName);
+		if (GetEmitDrawEvents())
+		{
+			GetShadowTypeNameForDrawEvent(EventName);
+		}
 		SCOPED_DRAW_EVENTF(RHICmdList, EventShadowDepthActor, *EventName);
 #endif
 		// Clear the shadow and its border
@@ -762,7 +821,6 @@ public:
 	FTranslucentObjectShadowingPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
 	{
-		TranslucencyProjectionParameters.Bind(Initializer.ParameterMap);
 		TranslucentInjectParameters.Bind(Initializer.ParameterMap);
 	}
 	FTranslucentObjectShadowingPS() {}
@@ -770,20 +828,21 @@ public:
 	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightSceneInfo* LightSceneInfo, const FProjectedShadowInfo* ShadowMap, uint32 VolumeCascadeIndex)
 	{
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetPixelShader(), View.ViewUniformBuffer);
-		TranslucencyProjectionParameters.Set(RHICmdList, this, ShadowMap);
 		TranslucentInjectParameters.Set(RHICmdList, GetPixelShader(), this, View, LightSceneInfo, ShadowMap, VolumeCascadeIndex, true);
+
+		FTranslucentSelfShadowUniformParameters TranslucentSelfShadowUniformParameters;
+		SetupTranslucentSelfShadowUniformParameters(ShadowMap, TranslucentSelfShadowUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, GetPixelShader(), GetUniformBufferParameter<FTranslucentSelfShadowUniformParameters>(), TranslucentSelfShadowUniformParameters);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << TranslucencyProjectionParameters;
 		Ar << TranslucentInjectParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
-	FTranslucencyShadowProjectionShaderParameters TranslucencyProjectionParameters;
 	FTranslucentInjectParameters TranslucentInjectParameters;
 };
 
@@ -1423,7 +1482,7 @@ static void AddLightForInjection(
 
 		const FMaterialRenderProxy* MaterialProxy = bApplyLightFunction ? 
 			LightSceneInfo.Proxy->GetLightFunctionMaterial() : 
-			UMaterial::GetDefaultMaterial(MD_LightFunction)->GetRenderProxy(false);
+			UMaterial::GetDefaultMaterial(MD_LightFunction)->GetRenderProxy();
 
 		// Skip rendering if the DefaultLightFunctionMaterial isn't compiled yet
 		if (MaterialProxy->GetMaterial(FeatureLevel)->IsLightFunction())

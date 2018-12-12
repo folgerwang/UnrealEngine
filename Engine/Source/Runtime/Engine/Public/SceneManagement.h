@@ -28,6 +28,7 @@
 
 class FCanvas;
 class FLightMap;
+class FLightmapResourceCluster;
 class FLightSceneInfo;
 class FLightSceneProxy;
 class FPrimitiveSceneInfo;
@@ -630,16 +631,112 @@ private:
 class FLightMap;
 class FShadowMap;
 
+// When using virtual textures for the 2D lightmaps, use the 16bbp (1) or 32bbp (0) page table
+// 16bbp is limited to 64*64 pools
+#define LIGHTMAP_VT_16BIT 1
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingUniformParameters,ENGINE_API)
+	SHADER_PARAMETER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
+	SHADER_PARAMETER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
+	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+struct FLightmapSceneShaderData
+{
+	// Must match usf
+	enum { LightmapDataStrideInFloat4s = 8 };
+
+	FVector4 Data[LightmapDataStrideInFloat4s];
+
+	explicit FLightmapSceneShaderData(const FPrecomputedLightingUniformParameters& ShaderParameters)
+	{
+		Setup(ShaderParameters);
+	}
+
+	ENGINE_API FLightmapSceneShaderData(const class FLightCacheInterface* LCI, ERHIFeatureLevel::Type FeatureLevel);
+
+	ENGINE_API void Setup(const FPrecomputedLightingUniformParameters& ShaderParameters);
+};
+
+ENGINE_API void GetPrecomputedLightingParameters(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FPrecomputedLightingUniformParameters& Parameters, 
+	const FLightCacheInterface* LCI);
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapResourceClusterShaderParameters,ENGINE_API)
+	SHADER_PARAMETER_TEXTURE(Texture2D, LightMapTexture) 
+	SHADER_PARAMETER_TEXTURE(Texture2D, SkyOcclusionTexture) 
+	SHADER_PARAMETER_TEXTURE(Texture2D, AOMaterialMaskTexture) 
+	SHADER_PARAMETER_TEXTURE(Texture2D, StaticShadowTexture) 
+	SHADER_PARAMETER_SAMPLER(SamplerState, LightMapSampler) 
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyOcclusionSampler) 
+	SHADER_PARAMETER_SAMPLER(SamplerState, AOMaterialMaskSampler) 
+	SHADER_PARAMETER_SAMPLER(SamplerState, StaticShadowTextureSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+class FLightmapClusterResourceInput
+{
+public:
+
+	FLightmapClusterResourceInput()
+	{
+		LightMapTextures[0] = nullptr;
+		LightMapTextures[1] = nullptr;
+		SkyOcclusionTexture = nullptr;
+		AOMaterialMaskTexture = nullptr;
+		ShadowMapTexture = nullptr;
+	}
+
+	const UTexture2D* LightMapTextures[2];
+	const UTexture2D* SkyOcclusionTexture;
+	const UTexture2D* AOMaterialMaskTexture;
+	const UTexture2D* ShadowMapTexture;
+
+	friend uint32 GetTypeHash(const FLightmapClusterResourceInput& Cluster)
+	{
+		return PointerHash(Cluster.LightMapTextures[0], 
+			PointerHash(Cluster.LightMapTextures[1],
+				PointerHash(Cluster.ShadowMapTexture)));
+	}
+
+	bool operator==(const FLightmapClusterResourceInput& Rhs) const
+	{
+		return LightMapTextures[0] == Rhs.LightMapTextures[0]
+			&& LightMapTextures[1] == Rhs.LightMapTextures[1]
+			&& SkyOcclusionTexture == Rhs.SkyOcclusionTexture
+			&& AOMaterialMaskTexture == Rhs.AOMaterialMaskTexture
+			&& ShadowMapTexture == Rhs.ShadowMapTexture;
+	}
+};
+
+ENGINE_API void GetLightmapClusterResourceParameters(
+	ERHIFeatureLevel::Type FeatureLevel, 
+	const FLightmapClusterResourceInput& Input,
+	FLightmapResourceClusterShaderParameters& Parameters);
+
+class FDefaultLightmapResourceClusterUniformBuffer : public TUniformBuffer< FLightmapResourceClusterShaderParameters >
+{
+	typedef TUniformBuffer< FLightmapResourceClusterShaderParameters > Super;
+public:
+	virtual void InitDynamicRHI() override;
+};
+
+ENGINE_API extern TGlobalResource< FDefaultLightmapResourceClusterUniformBuffer > GDefaultLightmapResourceClusterUniformBuffer;
+
 /**
  * An interface to cached lighting for a specific mesh.
  */
 class FLightCacheInterface
 {
 public:
-	FLightCacheInterface(const FLightMap* InLightMap, const FShadowMap* InShadowMap)
+	FLightCacheInterface()
 		: bGlobalVolumeLightmap(false)
-		, LightMap(InLightMap)
-		, ShadowMap(InShadowMap)
+		, LightMap(nullptr)
+		, ShadowMap(nullptr)
+		, ResourceCluster(nullptr)
 	{
 	}
 
@@ -654,10 +751,18 @@ public:
 	// @param LightSceneProxy same as in GetInteraction(), must not be 0
 	ENGINE_API ELightInteractionType GetStaticInteraction(const FLightSceneProxy* LightSceneProxy, const TArray<FGuid>& IrrelevantLights) const;
 	
+	ENGINE_API void CreatePrecomputedLightingUniformBuffer_RenderingThread(ERHIFeatureLevel::Type FeatureLevel);
+
 	// @param InLightMap may be 0
 	void SetLightMap(const FLightMap* InLightMap)
 	{
 		LightMap = InLightMap;
+	}
+
+	void SetResourceCluster(const FLightmapResourceCluster* InResourceCluster)
+	{
+		checkSlow(InResourceCluster);
+		ResourceCluster = InResourceCluster;
 	}
 
 	// @return may be 0
@@ -678,20 +783,24 @@ public:
 		return ShadowMap;
 	}
 
+	const FLightmapResourceCluster* GetResourceCluster() const
+	{
+		return ResourceCluster;
+	}
+
 	void SetGlobalVolumeLightmap(bool bInGlobalVolumeLightmap)
 	{
 		bGlobalVolumeLightmap = bInGlobalVolumeLightmap;
 	}
 
-	// WARNING : This can be called with buffers valid for a single frame only, don't cache anywhere. See FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
-	void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer)
-	{
-		PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
-	}
-
 	FUniformBufferRHIParamRef GetPrecomputedLightingBuffer() const
 	{
 		return PrecomputedLightingUniformBuffer;
+	}
+
+	void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer)
+	{
+		PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
 	}
 
 	ENGINE_API FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const;
@@ -707,6 +816,8 @@ private:
 
 	// The shadowmap used by the element, may be 0
 	const FShadowMap* ShadowMap;
+
+	const FLightmapResourceCluster* ResourceCluster;
 
 	/** The uniform buffer holding mapping the lightmap policy resources. */
 	FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
@@ -1395,6 +1506,7 @@ public:
 	float Brightness;
 	uint32 Guid;
 	FVector CaptureOffset;
+	int32 SortedCaptureIndex; // Index into ReflectionSceneData.SortedCaptures (and ReflectionCaptures uniform buffer).
 
 	// Box properties
 	FMatrix BoxTransform;
@@ -1851,17 +1963,20 @@ private:
 		Views.Empty();
 		MeshBatches.Empty();
 		SimpleElementCollectors.Empty();
+		DynamicPrimitiveShaderData = nullptr;
 	}
 
 	void AddViewMeshArrays(
 		FSceneView* InView, 
 		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>* ViewMeshes,
 		FSimpleElementCollector* ViewSimpleElementCollector, 
+		TArray<FPrimitiveUniformShaderParameters>* InDynamicPrimitiveShaderData,
 		ERHIFeatureLevel::Type InFeatureLevel)
 	{
 		Views.Add(InView);
 		MeshBatches.Add(ViewMeshes);
 		SimpleElementCollectors.Add(ViewSimpleElementCollector);
+		DynamicPrimitiveShaderData = InDynamicPrimitiveShaderData;
 	}
 
 	/** 
@@ -1896,151 +2011,35 @@ private:
 	/** Tasks to wait for at the end of gathering dynamic mesh elements. */
 	TArray<TFunction<void()>*, SceneRenderingAllocator> ParallelTasks;
 
+	/** Tracks dynamic primitive data for upload to GPU Scene, when enabled. */
+	TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderData;
 
 	friend class FSceneRenderer;
+	friend class FDeferredShadingSceneRenderer;
 	friend class FProjectedShadowInfo;
 	friend class FUniformMeshConverter;
 };
 
-
-/**
- *	Helper structure for storing motion blur information for a primitive
- */
-struct FMotionBlurInfo
-{
-	FMotionBlurInfo(FPrimitiveComponentId InComponentId, FPrimitiveSceneInfo* InPrimitiveSceneInfo)
-		: ComponentId(InComponentId), MBPrimitiveSceneInfo(InPrimitiveSceneInfo), bKeepAndUpdateThisFrame(true)
-	{
-	}
-
-	/**  */
-	void UpdateMotionBlurInfo();
-
-	void SetKeepAndUpdateThisFrame(bool bValue = true)
-	{
-		if(bValue)
-		{
-			// we update right away so when it comes to HasVelocity this frame we detect no movement and next frame we actually render it with correct velocity
-			UpdateMotionBlurInfo();
-		}
-
-		bKeepAndUpdateThisFrame = bValue;
-	}
-
-	bool GetKeepAndUpdateThisFrame() const
-	{
-		return bKeepAndUpdateThisFrame; 
-	}
-
-	FMatrix GetPreviousLocalToWorld() const
-	{
-		return PreviousLocalToWorld;
-	}
-
-	FPrimitiveSceneInfo* GetPrimitiveSceneInfo() const
-	{
-		return MBPrimitiveSceneInfo;
-	}
-
-	void SetPrimitiveSceneInfo(FPrimitiveSceneInfo* Value)
-	{
-		MBPrimitiveSceneInfo = Value;
-	}
-
-	void ApplyOffset(FVector InOffset)
-	{
-		PreviousLocalToWorld.SetOrigin(PreviousLocalToWorld.GetOrigin() + InOffset);
-		CurrentLocalToWorld.SetOrigin(CurrentLocalToWorld.GetOrigin() + InOffset);
-	}
-
-	void OnStartFrame()
-	{
-		PreviousLocalToWorld = CurrentLocalToWorld;
-	}
-
-private:
-	/** The component this info represents. */
-	FPrimitiveComponentId ComponentId;
-	/** The primitive scene info for the component.	*/
-	FPrimitiveSceneInfo* MBPrimitiveSceneInfo;
-	/** The previous LocalToWorld of the component.	*/
-	FMatrix	PreviousLocalToWorld;
-	/** todo */
-	FMatrix	CurrentLocalToWorld;
-	/** if true then the PreviousLocalToWorld has already been updated for the current frame */
-	bool bKeepAndUpdateThisFrame;
-};
-
-// stored in the scene, can be shared for multiple views
-class FMotionBlurInfoData
+class FDynamicPrimitiveUniformBuffer : public FOneFrameResource
 {
 public:
 
-	// constructor
-	FMotionBlurInfoData();
-	/** 
-	 *	Set the primitives motion blur info
-	 * 
-	 *	@param PrimitiveSceneInfo The primitive to add, must not be 0
-	 */
-	void UpdatePrimitiveMotionBlur(FPrimitiveSceneInfo* PrimitiveSceneInfo);
+	virtual ~FDynamicPrimitiveUniformBuffer()
+	{
+		UniformBuffer.ReleaseResource();
+	}
 
-	/** 
-	 *	Unsets the primitives motion blur info
-	 * 
-	 *	@param PrimitiveSceneInfo The primitive to remove, must not be 0
-	 */
-	void RemovePrimitiveMotionBlur(FPrimitiveSceneInfo* PrimitiveSceneInfo);
+	TUniformBuffer<FPrimitiveUniformShaderParameters> UniformBuffer;
 
-	/**
-	 * Creates any needed motion blur infos if needed and saves the transforms of the frame we just completed
-	 * called in RenderFinish()
-	 * @param InScene must not be 0
-	 */
-	void UpdateMotionBlurCache(class FScene* InScene);
-
-	void StartFrame(bool bWorldIsPaused);
-
-	/** 
-	 *	Get the primitives motion blur info
-	 * 
-	 *	@param	PrimitiveSceneInfo	The primitive to retrieve the motion blur info for
-	 *
-	 *	@return	bool				true if the primitive info was found and set
-	 */
-	bool GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld);
-	bool GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const;
-
-	/** Request to clear all stored motion blur data for this scene. */
-	void SetClearMotionBlurInfo();
-
-	/**
-	 * Shifts motion blur data by arbitrary delta
-	 */
-	void ApplyOffset(FVector InOffset);
-
-	/**
-	 * Get some debug string for VisualizeMotionBlur
-	 */
-	FString GetDebugString() const;
-
-private:
-	/** The motion blur info entries for the frame. Accessed on Renderthread only! */
-	TMap<FPrimitiveComponentId, FMotionBlurInfo> MotionBlurInfos;
-	/** */
-	bool bShouldClearMotionBlurInfo;
-	/** set in StartFrame() */
-	bool bWorldIsPaused;
-
-	/**
-	 * O(n) with the amount of motion blurred objects but that number should be low
-	 * @return 0 if not found, otherwise pointer into MotionBlurInfos, don't store for longer
-	 */
-	FMotionBlurInfo* FindMBInfoIndex(FPrimitiveComponentId ComponentId);
-	const FMotionBlurInfo* FindMBInfoIndex(FPrimitiveComponentId ComponentId) const;
+	ENGINE_API void Set(
+		const FMatrix& LocalToWorld,
+		const FMatrix& PreviousLocalToWorld,
+		const FBoxSphereBounds& WorldBounds,
+		const FBoxSphereBounds& LocalBounds,
+		bool bReceivesDecals,
+		bool bHasPrecomputedVolumetricLightmap,
+		bool bUseEditorDepthTest);
 };
-
-
 
 //
 // Primitive drawing utility functions.

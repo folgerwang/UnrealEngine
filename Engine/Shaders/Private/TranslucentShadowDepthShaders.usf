@@ -21,6 +21,9 @@ float4x4 ProjectionMatrix;
 //@todo - make this a bool, bool shader parameters currently do not work in vertex shaders on Xbox 360 (TTP 125134)
 float bClampToNearPlane;
 
+// x: Tweakable depth bias, y:InvMaxSubjectDepthUsed to normalize the outputted depth
+float2 ShadowParams;
+
 void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out float ShadowDepth)
 {
 	OutPosition = mul(WorldPosition,ProjectionMatrix);

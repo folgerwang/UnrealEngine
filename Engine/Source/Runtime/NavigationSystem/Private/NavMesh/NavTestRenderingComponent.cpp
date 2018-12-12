@@ -69,7 +69,7 @@ void FNavTestSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 				const FColor ClosestWallColor = FColorList::Orange;
 				const FVector BoxExtent(20, 20, 20);
 
-				FMaterialRenderProxy* const ColoredMeshInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), ProjectedColor);
+				FMaterialRenderProxy* const ColoredMeshInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), ProjectedColor);
 				//DrawBox(PDI, FTransform(ProjectedLocation).ToMatrixNoScale(),BoxExtent, ColoredMeshInstance, SDPG_World);
 				GetSphereMesh(ProjectedLocation, BoxExtent, 10, 7, ColoredMeshInstance, SDPG_World, false, ViewIndex, Collector);
 
@@ -102,7 +102,7 @@ void FNavTestSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 			{
 				if (ClosedSetIndices.Num())
 				{
-					const FColoredMaterialRenderProxy *MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), NavMeshRenderColor_ClosedSet);						
+					const FColoredMaterialRenderProxy *MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), NavMeshRenderColor_ClosedSet);						
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(ClosedSetVerts);
 					MeshBuilder.AddTriangles(ClosedSetIndices);
@@ -111,7 +111,7 @@ void FNavTestSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 
 				if (OpenSetIndices.Num())
 				{
-					const FColoredMaterialRenderProxy *MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), NavMeshRenderColor_OpenSet);						
+					const FColoredMaterialRenderProxy *MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), NavMeshRenderColor_OpenSet);						
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(OpenSetVerts);
 					MeshBuilder.AddTriangles(OpenSetIndices);

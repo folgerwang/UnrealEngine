@@ -58,13 +58,7 @@ bool AllowDebugViewPS(EDebugViewShaderMode ShaderMode, EShaderPlatform Platform)
 bool AllowDebugViewVSDSHS(EShaderPlatform Platform)
 {
 #if WITH_EDITOR
-	// Those options are used to test compilation on specific platforms
-	static const bool bForce = 
-		FParse::Param(FCommandLine::Get(), TEXT("quadoverdraw")) || 
-		FParse::Param(FCommandLine::Get(), TEXT("streamingaccuracy")) || 
-		FParse::Param(FCommandLine::Get(), TEXT("streamingbuild"));
-
-	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && (bForce || PlatformSupportsDebugViewShaders(Platform));
+	return true; 
 #else
 	return false;
 #endif
@@ -236,21 +230,6 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 
 	check(Materials.Num())
 
-	EMaterialShaderMapUsage::Type ShaderMapUsage = EMaterialShaderMapUsage::Default;
-
-	switch (ShaderMode)
-	{
-	case DVSM_MaterialTextureScaleAccuracy:
-	case DVSM_OutputMaterialTextureScales:	
-		ShaderMapUsage = EMaterialShaderMapUsage::DebugViewModeTexCoordScale;
-		break;
-	case DVSM_RequiredTextureResolution:
-		ShaderMapUsage = EMaterialShaderMapUsage::DebugViewModeRequiredTextureResolution;
-		break;
-	default:
-		return false;
-	}
-
 	// Finish compiling pending shaders first.
 	if (!bWaitForPreviousShaders)
 	{
@@ -264,15 +243,16 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 	const double StartTime = FPlatformTime::Seconds();
 	const float OneOverNumMaterials = 1.f / (float)Materials.Num();
 
-	if (bFullRebuild)
-	{
-		FDebugViewModeMaterialProxy::ClearAllShaders();
-	}
-
 	TArray<UMaterialInterface*> MaterialsToRemove;
 	for (UMaterialInterface* MaterialInterface : Materials)
 	{
 		check(MaterialInterface); // checked for null in GetTextureStreamingBuildMaterials
+
+		if (bFullRebuild)
+		{
+			FDebugViewModeMaterialProxy::ClearAllShaders(MaterialInterface);
+		}
+
 
 		const FMaterial* Material = MaterialInterface->GetMaterialResource(FeatureLevel);
 		if (!Material)
@@ -299,8 +279,7 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 			MaterialInterface->SetTextureStreamingData(TArray<FMaterialTextureInfo>());
 			continue;
 		}
-
-		FDebugViewModeMaterialProxy::AddShader(MaterialInterface, QualityLevel, FeatureLevel, !bWaitForPreviousShaders, ShaderMapUsage);
+		FDebugViewModeMaterialProxy::AddShader(MaterialInterface, QualityLevel, FeatureLevel, !bWaitForPreviousShaders, ShaderMode);
 	}
 
 	for (UMaterialInterface* RemovedMaterial : MaterialsToRemove)
@@ -318,7 +297,7 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 	}
 	else
 	{
-		FDebugViewModeMaterialProxy::ClearAllShaders();
+		FDebugViewModeMaterialProxy::ClearAllShaders(nullptr);
 		return false;
 	}
 #else

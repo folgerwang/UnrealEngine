@@ -293,7 +293,7 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 	const auto FeatureLevel = InView.GetFeatureLevel();
 	IRendererModule& RendererModule = GetRendererModule();
 
-	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy()->GetMaterial(FeatureLevel);
 	const FMaterialShaderMap* const MaterialShaderMap = CameraMaterial->GetRenderingThreadShaderMap();
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -338,14 +338,14 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 		FRemoteSessionARCameraVS<true>* const VertexShaderPtr = reinterpret_cast<FRemoteSessionARCameraVS<true>*>(VertexShader);
 		SetUniformBufferParameterImmediate(RHICmdList, VertexShaderPtr->GetVertexShader(), VertexShaderPtr->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
 		VertexShaderPtr->SetParameters(RHICmdList, InView);
-		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
+		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy());
 	}
 	else
 	{
 		FRemoteSessionARCameraVS<false>* const VertexShaderPtr = reinterpret_cast<FRemoteSessionARCameraVS<false>*>(VertexShader);
 		SetUniformBufferParameterImmediate(RHICmdList, VertexShaderPtr->GetVertexShader(), VertexShaderPtr->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
 		VertexShaderPtr->SetParameters(RHICmdList, InView);
-		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
+		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy());
 	}
 
 	if (VertexBufferRHI && IndexBufferRHI.IsValid())

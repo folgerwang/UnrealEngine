@@ -293,7 +293,6 @@ public:
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	// If possible we should re-factor this to avoid having to deal with compiler state
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return false; }
-	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const { return true; }
 };
 
 /** 
@@ -549,11 +548,6 @@ public:
 	virtual int32 EyeAdaptation() override
 	{
 		return Compiler->EyeAdaptation();
-	}
-
-	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
-	{
-		return Compiler->IsDevelopmentFeatureEnabled(FeatureName);
 	}
 
 protected:

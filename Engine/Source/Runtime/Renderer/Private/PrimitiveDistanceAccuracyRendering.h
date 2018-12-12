@@ -11,29 +11,32 @@ PrimitiveDistanceAccuracyRendering.h: Declarations used for the viewmode.
 #include "Shader.h"
 #include "GlobalShader.h"
 #include "DebugViewModeRendering.h"
+#include "DebugViewModeInterface.h"
 
 class FPrimitiveSceneProxy;
 struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 /**
 * Pixel shader that renders texture streamer wanted mips accuracy.
 */
-class FPrimitiveDistanceAccuracyPS : public FGlobalShader, public IDebugViewModePSInterface
+class FPrimitiveDistanceAccuracyPS : public FDebugViewModePS
 {
-	DECLARE_SHADER_TYPE(FPrimitiveDistanceAccuracyPS,Global);
+	DECLARE_SHADER_TYPE(FPrimitiveDistanceAccuracyPS,MeshMaterial);
 
 public:
 
-	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
 	{
-		return AllowDebugViewPS(DVSM_PrimitiveDistanceAccuracy, Parameters.Platform);
+		// See FDebugViewModeMaterialProxy::GetFriendlyName()
+		return AllowDebugViewPS(DVSM_PrimitiveDistanceAccuracy, Platform) && Material->GetFriendlyName().Contains(TEXT("PrimitiveDistanceAccuracy"));
 	}
 
 	FPrimitiveDistanceAccuracyPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-		FGlobalShader(Initializer)
+		FDebugViewModePS(Initializer)
 	{
-		AccuracyColorsParameter.Bind(Initializer.ParameterMap,TEXT("AccuracyColors"));
 		CPULogDistanceParameter.Bind(Initializer.ParameterMap, TEXT("CPULogDistance"));
 		PrimitiveAlphaParameter.Bind(Initializer.ParameterMap, TEXT("PrimitiveAlpha"));
 	}
@@ -42,45 +45,44 @@ public:
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << AccuracyColorsParameter;
+		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		Ar << CPULogDistanceParameter;
 		Ar << PrimitiveAlphaParameter;
 		return bShaderHasOutdatedParameters;
 	}
 
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("UNDEFINED_ACCURACY"), UndefinedStreamingAccuracyIntensity);
 	}
 
-	virtual void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FShader* OriginalVS, 
-		const FShader* OriginalPS, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override;
-
-	virtual void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* Proxy,
+	virtual void GetDebugViewModeShaderBindings(
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT Material,
+		EDebugViewShaderMode DebugViewMode,
+		const FVector& ViewOrigin,
 		int32 VisualizeLODIndex,
-		const FMeshBatchElement& BatchElement, 
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override;
-
-	virtual void SetMesh(FRHICommandList& RHICmdList, const FSceneView& View) override;
-
-	virtual FShader* GetShader() override { return static_cast<FShader*>(this); }
+		int32 VisualizeElementIndex,
+		int32 NumVSInstructions,
+		int32 NumPSInstructions,
+		int32 ViewModeParam,
+		FName ViewModeParamName,
+		FMeshDrawSingleShaderBindings& ShaderBindings
+	) const override;
 
 private:
 
-	FShaderParameter AccuracyColorsParameter;
 	FShaderParameter CPULogDistanceParameter;
 	FShaderParameter PrimitiveAlphaParameter;
 };
+
+class FPrimitiveDistanceAccuracyInterface : public FDebugViewModeInterface
+{
+public:
+
+	FPrimitiveDistanceAccuracyInterface() : FDebugViewModeInterface(TEXT("PrimitiveDistanceAccuracy"), false, false, false) {}
+	virtual FDebugViewModePS* GetPixelShader(const FMaterial* InMaterial, FVertexFactoryType* VertexFactoryType) const override { return InMaterial->GetShader<FPrimitiveDistanceAccuracyPS>(VertexFactoryType); }
+};
+
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

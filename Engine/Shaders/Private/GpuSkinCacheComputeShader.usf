@@ -6,6 +6,7 @@
 
 #include "Common.ush"
 #include "Definitions.usf"
+#include "SceneData.ush"
 #include "VertexFactoryCommon.ush"
 #include "GpuSkinCommon.ush"
 

@@ -128,7 +128,7 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, EAggCollisionShape::Sphere, j);
-					AggGeom->SphereElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->SphereElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy());
 				}
 
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid || CollisionViewMode == EPhysicsAssetEditorRenderMode::Wireframe)
@@ -148,7 +148,7 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, EAggCollisionShape::Box, j);
-					AggGeom->BoxElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->BoxElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy());
 				}
 
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid || CollisionViewMode == EPhysicsAssetEditorRenderMode::Wireframe)
@@ -168,7 +168,7 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, EAggCollisionShape::Sphyl, j);
-					AggGeom->SphylElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->SphylElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy());
 				}
 
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid || CollisionViewMode == EPhysicsAssetEditorRenderMode::Wireframe)
@@ -203,7 +203,7 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, EAggCollisionShape::TaperedCapsule, j);
-					AggGeom->TaperedCapsuleElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->TaperedCapsuleElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy());
 				}
 
 				if (CollisionViewMode == EPhysicsAssetEditorRenderMode::Solid || CollisionViewMode == EPhysicsAssetEditorRenderMode::Wireframe)

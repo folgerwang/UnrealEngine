@@ -210,6 +210,26 @@ public:
 		return OldNum;
 	}
 
+	template<typename OtherAllocator>
+	void CopyToLinearArray(TArray<ElementType, OtherAllocator>& DestinationArray)
+	{
+		static_assert(TIsPODType<ElementType>::Value, "CopyToLinearArray does not support a constructor / destructor on the element class.");
+		if (NumElements > 0)
+		{
+			int32 OriginalNumElements = DestinationArray.Num();
+			DestinationArray.AddUninitialized(NumElements);
+			InElementType* CopyDestPtr = &DestinationArray[OriginalNumElements];
+
+			for (int32 ChunkIndex = 0; ChunkIndex < Chunks.Num(); ChunkIndex++)
+			{
+				const int32 NumElementsInCurrentChunk = FMath::Min<int32>(NumElements - ChunkIndex * NumElementsPerChunk, NumElementsPerChunk);
+				check(NumElementsInCurrentChunk > 0);
+				FMemory::Memcpy(CopyDestPtr, &Chunks[ChunkIndex].Elements[0], NumElementsInCurrentChunk * sizeof(ElementType));
+				CopyDestPtr += NumElementsInCurrentChunk;
+			}
+		}
+	}
+
 	void Empty( int32 Slack=0 ) 
 	{
 		// Compute the number of chunks needed.

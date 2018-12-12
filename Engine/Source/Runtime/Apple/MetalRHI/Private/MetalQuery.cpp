@@ -255,6 +255,8 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 				check(StatSample);
 				[StatSample retain];
 				
+				AddRef();
+				
 				// Insert the fence to wait on the current command buffer
 				Context->InsertCommandBufferFence(*(Buffer.CommandBufferFence), [this, StatSample](mtlpp::CommandBuffer const&)
 				{
@@ -269,6 +271,8 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 			else
 #endif
 			{
+				AddRef();
+				
 				// Insert the fence to wait on the current command buffer
 				Context->InsertCommandBufferFence(*(Buffer.CommandBufferFence), [this](mtlpp::CommandBuffer const&)
 				{

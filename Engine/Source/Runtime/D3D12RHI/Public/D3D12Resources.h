@@ -652,14 +652,17 @@ public:
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
 
+	const EUniformBufferUsage UniformBufferUsage;
+
 	/** Initialization constructor. */
-	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout)
+	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout, EUniformBufferUsage InUniformBufferUsage)
 		: FRHIUniformBuffer(InLayout)
 		, FD3D12DeviceChild(InParent)
 #if USE_STATIC_ROOT_SIGNATURE
 		, View(nullptr)
 #endif
 		, ResourceLocation(InParent)
+		, UniformBufferUsage(InUniformBufferUsage)
 	{
 	}
 

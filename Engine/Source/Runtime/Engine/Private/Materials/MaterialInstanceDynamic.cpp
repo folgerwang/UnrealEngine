@@ -401,21 +401,21 @@ void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface*
 				checkSlow(VectorParameterValues.Num() == 0);
 				checkSlow(TextureParameterValues.Num() == 0);
 
-				const FMaterialResource* Resource = nullptr;		
+				const FMaterialResource* MaterialResource = nullptr;		
 				if (UWorld* World = AsMaterial->GetWorld())
 				{
-					Resource = AsMaterial->GetMaterialResource(World->FeatureLevel);
+					MaterialResource = AsMaterial->GetMaterialResource(World->FeatureLevel);
 				}
 
-				if (!Resource)
+				if (!MaterialResource)
 				{
-					Resource = AsMaterial->GetMaterialResource(GMaxRHIFeatureLevel);
+					MaterialResource = AsMaterial->GetMaterialResource(GMaxRHIFeatureLevel);
 				}
 
-				if (Resource)
+				if (MaterialResource)
 				{
 					// Scalars
-					const TArray<TRefCountPtr<FMaterialUniformExpression>>& ScalarExpressions = Resource->GetUniformScalarParameterExpressions();
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& ScalarExpressions = MaterialResource->GetUniformScalarParameterExpressions();
 					for (FMaterialUniformExpression* ScalarExpression : ScalarExpressions)
 					{
 						if (ScalarExpression->GetType() == &FMaterialUniformExpressionScalarParameter::StaticType)
@@ -429,7 +429,7 @@ void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface*
 					}
 
 					// Vectors
-					const TArray<TRefCountPtr<FMaterialUniformExpression>>& VectorExpressions = Resource->GetUniformVectorParameterExpressions();
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& VectorExpressions = MaterialResource->GetUniformVectorParameterExpressions();
 					for (FMaterialUniformExpression* VectorExpression : VectorExpressions)
 					{
 						if (VectorExpression->GetType() == &FMaterialUniformExpressionVectorParameter::StaticType)
@@ -445,8 +445,8 @@ void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface*
 					// Textures
 					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture>>* TextureExpressions[2] =
 					{
-						&Resource->GetUniform2DTextureExpressions(),
-						&Resource->GetUniformCubeTextureExpressions()
+						&MaterialResource->GetUniform2DTextureExpressions(),
+						&MaterialResource->GetUniformCubeTextureExpressions()
 					};
 
 					for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(TextureExpressions); TypeIndex++)
@@ -459,7 +459,7 @@ void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface*
 
 								FTextureParameterValue* ParameterValue = new(TextureParameterValues) FTextureParameterValue;
 								ParameterValue->ParameterInfo.Name = TextureParameter->GetParameterName();
-								TextureParameter->GetGameThreadTextureValue(AsMaterial, *Resource, ParameterValue->ParameterValue, false);
+								TextureParameter->GetGameThreadTextureValue(AsMaterial, *MaterialResource, ParameterValue->ParameterValue, false);
 							}
 						}
 					}

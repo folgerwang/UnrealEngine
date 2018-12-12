@@ -45,10 +45,71 @@
 #include "SceneSoftwareOcclusion.h"
 #include "VirtualTexturing.h"
 #include "VisualizeTexturePresent.h"
+#include "GPUScene.h"
+#include "TranslucentRendering.h"
+#include "VisualizeTexture.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
 -----------------------------------------------------------------------------*/
+
+// TEMP: remove after new path is tested on mobile
+static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipelineMobileCooked(
+	TEXT("r.MeshDrawCommandPipelineMobileCooked"),
+	1,
+	TEXT("  0: only old path\n")
+	TEXT("  1: cache both \n")
+	TEXT("  2: only new path\n"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+int32 MeshDrawCommandPipelineMobileCooked()
+{
+#if PLATFORM_ANDROID || PLATFORM_IOS
+	return CVarMeshDrawCommandPipelineMobileCooked.GetValueOnAnyThread();
+#endif
+	return 1;
+}
+
+static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipeline(
+	TEXT("r.MeshDrawCommandPipeline"),
+	1,
+	TEXT("Whether to use the Mesh Draw Command pipeline, which replaces Drawing Polices and StaticMeshDrawLists.  The Mesh Draw Command pipeline supports Cached Mesh Draw Commands and Dynamic Instancing."),
+	ECVF_RenderThreadSafe);
+
+bool UseMeshDrawCommandPipeline()
+{
+	return CVarMeshDrawCommandPipeline.GetValueOnRenderThread() > 0 && MeshDrawCommandPipelineMobileCooked() > 0;
+}
+
+static TAutoConsoleVariable<int32> CVarCachedMeshDrawCommands(
+	TEXT("r.MeshDrawCommands.UseCachedCommands"),
+	1,
+	TEXT("Whether to render from cached mesh draw commands (on vertex factories that support it), or to generate draw commands every frame."),
+	ECVF_RenderThreadSafe);
+
+bool UseCachedMeshDrawCommands()
+{
+	return CVarCachedMeshDrawCommands.GetValueOnRenderThread() > 0;
+}
+
+static TAutoConsoleVariable<int32> CVarMeshDrawCommandsDynamicInstancing(
+	TEXT("r.MeshDrawCommands.DynamicInstancing"),
+	1,
+	TEXT("Whether to dynamically combine multiple compatible visible Mesh Draw Commands into one instanced draw on vertex factories that support it."),
+	ECVF_RenderThreadSafe);
+
+bool IsDynamicInstancingEnabled()
+{
+	return CVarMeshDrawCommandsDynamicInstancing.GetValueOnRenderThread() > 0;
+}
+
+int32 GDumpInstancingStats = 0;
+FAutoConsoleVariableRef CVarDumpInstancingStats(
+	TEXT("r.MeshDrawCommands.LogDynamicInstancingStats"),
+	GDumpInstancingStats,
+	TEXT("Whether to log dynamic instancing stats on the next frame"),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
 
 extern ENGINE_API FLightMap2D* GDebugSelectedLightmap;
 extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
@@ -330,7 +391,6 @@ static FParallelCommandListSet* GOutstandingParallelCommandListSet = nullptr;
 FGraphEventRef FSceneRenderer::OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 
 
-DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer UpdateMotionBlurCache"), STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache, STATGROUP_SceneRendering);
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer ViewExtensionPostRenderView"), STAT_FDeferredShadingSceneRenderer_ViewExtensionPostRenderView, STATGROUP_SceneRendering);
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer ViewExtensionPreRenderView"), STAT_FDeferredShadingSceneRenderer_ViewExtensionPreRenderView, STATGROUP_SceneRendering);
 
@@ -841,6 +901,11 @@ void FViewInfo::Init()
 	{
 		bIsValidWorldTextureGroupSamplerFilter = false;
 	}
+
+	PrimitiveSceneDataOverrideSRV = nullptr;
+
+	DitherFadeInUniformBuffer = nullptr;
+	DitherFadeOutUniformBuffer = nullptr;
 }
 
 FViewInfo::~FViewInfo()
@@ -853,6 +918,9 @@ FViewInfo::~FViewInfo()
 	{
 		CustomVisibilityQuery->Release();
 	}
+
+	//this uses memstack allocation for strongrefs, so we need to manually empty to get the destructor called to not leak the uniformbuffers stored here.
+	TranslucentSelfShadowUniformBufferMap.Empty();
 }
 
 #if DO_CHECK
@@ -968,9 +1036,9 @@ void UpdateNoiseTextureParameters(FViewUniformShaderParameters& ViewUniformShade
 	check(ViewUniformShaderParameters.SobolSamplingTexture);
 }
 
-void SetupPrecomputedVolumetricLightmapUniformBufferParameters(const FScene* Scene, FViewUniformShaderParameters& ViewUniformShaderParameters)
+void SetupPrecomputedVolumetricLightmapUniformBufferParameters(const FScene* Scene, FEngineShowFlags EngineShowFlags, FViewUniformShaderParameters& ViewUniformShaderParameters)
 {
-	if (Scene && Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap())
+	if (Scene && Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap() && EngineShowFlags.VolumetricLightmap)
 	{
 		const FPrecomputedVolumetricLightmapData* VolumetricLightmapData = Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap()->Data;
 
@@ -1042,6 +1110,8 @@ void FViewInfo::SetupUniformBufferParameters(
 	const bool bCheckerboardSubsurfaceRendering = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering(SceneContext.GetSceneColorFormat());
 	ViewUniformShaderParameters.bCheckerboardSubsurfaceProfileRendering = bCheckerboardSubsurfaceRendering ? 1.0f : 0.0f;
 
+	ViewUniformShaderParameters.IndirectLightingCacheShowFlag = Family->EngineShowFlags.IndirectLightingCache;
+
 	FScene* Scene = nullptr;
 
 	if (Family->Scene)
@@ -1091,7 +1161,7 @@ void FViewInfo::SetupUniformBufferParameters(
 			ViewUniformShaderParameters.AtmosphericFogDistanceScale = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogAltitudeScale = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogHeightScaleRayleigh = 0.f;
-			ViewUniformShaderParameters.AtmosphericFogStartDistance = 0.f;
+			ViewUniformShaderParameters.AtmosphericFogStartDistance = FLT_MAX;
 			ViewUniformShaderParameters.AtmosphericFogDistanceOffset = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogSunDiscScale = 1.f;
 			//Added check so atmospheric light color and vector can use a directional light without needing an atmospheric fog actor in the scene
@@ -1112,7 +1182,7 @@ void FViewInfo::SetupUniformBufferParameters(
 		ViewUniformShaderParameters.AtmosphericFogDistanceScale = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogAltitudeScale = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogHeightScaleRayleigh = 0.f;
-		ViewUniformShaderParameters.AtmosphericFogStartDistance = 0.f;
+		ViewUniformShaderParameters.AtmosphericFogStartDistance = FLT_MAX;
 		ViewUniformShaderParameters.AtmosphericFogDistanceOffset = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogSunDiscScale = 1.f;
 		ViewUniformShaderParameters.AtmosphericFogSunColor = FLinearColor::Black;
@@ -1136,7 +1206,7 @@ void FViewInfo::SetupUniformBufferParameters(
 
 	SetupVolumetricFogUniformBufferParameters(ViewUniformShaderParameters);
 
-	SetupPrecomputedVolumetricLightmapUniformBufferParameters(Scene, ViewUniformShaderParameters);
+	SetupPrecomputedVolumetricLightmapUniformBufferParameters(Scene, Family->EngineShowFlags, ViewUniformShaderParameters);
 
 	// Setup view's shared sampler for material texture sampling.
 	{
@@ -1306,11 +1376,6 @@ void FViewInfo::SetupUniformBufferParameters(
 
 	ViewUniformShaderParameters.CircleDOFParams = CircleDofHalfCoc(*this);
 
-	if (Family->Scene)
-	{
-		Scene = Family->Scene->GetRenderScene();
-	}
-
 	ERHIFeatureLevel::Type RHIFeatureLevel = Scene == nullptr ? GMaxRHIFeatureLevel : Scene->GetFeatureLevel();
 
 	if (Scene && Scene->SkyLight)
@@ -1377,6 +1442,28 @@ void FViewInfo::SetupUniformBufferParameters(
 	ViewUniformShaderParameters.StereoIPD = StereoIPD;
 	
 	ViewUniformShaderParameters.PreIntegratedBRDF = GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI;
+
+	if (UseGPUScene(GMaxRHIShaderPlatform, RHIFeatureLevel))
+	{
+		if (PrimitiveSceneDataOverrideSRV)
+		{
+			ViewUniformShaderParameters.PrimitiveSceneData = PrimitiveSceneDataOverrideSRV;
+		}
+		else
+		{
+			const FRWBufferStructured& ViewPrimitiveShaderDataBuffer = ViewState ? ViewState->PrimitiveShaderDataBuffer : OneFramePrimitiveShaderDataBuffer;
+
+			if (ViewPrimitiveShaderDataBuffer.SRV)
+			{
+				ViewUniformShaderParameters.PrimitiveSceneData = ViewPrimitiveShaderDataBuffer.SRV;
+			}
+		}
+
+		if (Scene && Scene->GPUScene.LightmapDataBuffer.SRV)
+		{
+			ViewUniformShaderParameters.LightmapSceneData = Scene->GPUScene.LightmapDataBuffer.SRV;
+		}
+	}
 }
 
 void FViewInfo::InitRHIResources()
@@ -1399,20 +1486,19 @@ void FViewInfo::InitRHIResources()
 
 	const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
 
+	// Reset CachedView when CachedViewUniformShaderParameters change.
+	FScene* Scene = Family->Scene ? Family->Scene->GetRenderScene() : nullptr;
+	if (Scene)
+	{
+		Scene->UniformBuffers.CachedView = nullptr;
+	}
+
 	for (int32 CascadeIndex = 0; CascadeIndex < TVC_MAX; CascadeIndex++)
 	{
 		TranslucencyLightingVolumeMin[CascadeIndex] = VolumeBounds[CascadeIndex].Min;
 		TranslucencyVolumeVoxelSize[CascadeIndex] = (VolumeBounds[CascadeIndex].Max.X - VolumeBounds[CascadeIndex].Min.X) / TranslucencyLightingVolumeDim;
 		TranslucencyLightingVolumeSize[CascadeIndex] = VolumeBounds[CascadeIndex].Max - VolumeBounds[CascadeIndex].Min;
 	}
-
-	// Initialize the dynamic resources used by the view's FViewElementDrawer.
-	for(int32 ResourceIndex = 0;ResourceIndex < DynamicResources.Num();ResourceIndex++)
-	{
-		DynamicResources[ResourceIndex]->InitPrimitiveResource();
-	}
-
-
 }
 
 // These are not real view infos, just dumb memory blocks
@@ -1454,6 +1540,10 @@ FViewInfo* FViewInfo::CreateSnapshot() const
 
 	TUniquePtr<FViewUniformShaderParameters> NullViewParameters;
 	FMemory::Memcpy(Result->CachedViewUniformShaderParameters, NullViewParameters); 
+
+	FReadBuffer NullReadBuffer;
+	FMemory::Memcpy(Result->OneFramePrimitiveIdBufferEmulation, NullReadBuffer);
+
 	Result->bIsSnapshot = true;
 	ViewInfoSnapshots.Add(Result);
 	return Result;
@@ -1737,7 +1827,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 		// Batch the view's elements for later rendering.
 		if(ViewInfo->Drawer)
 		{
-			FViewElementPDI ViewElementPDI(ViewInfo,HitProxyConsumer);
+			FViewElementPDI ViewElementPDI(ViewInfo,HitProxyConsumer,&ViewInfo->DynamicPrimitiveShaderData);
 			ViewInfo->Drawer->Draw(ViewInfo,&ViewElementPDI);
 		}
 
@@ -1814,6 +1904,9 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 
 	FeatureLevel = Scene->GetFeatureLevel();
 	ShaderPlatform = Scene->GetShaderPlatform();
+
+	bDumpMeshDrawCommandInstancingStats = !!GDumpInstancingStats;
+	GDumpInstancingStats = 0;
 }
 
 // static
@@ -2224,7 +2317,7 @@ bool FSceneRenderer::DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) c
 FSceneRenderer::~FSceneRenderer()
 {
 	// To prevent keeping persistent references to single frame buffers, clear any such reference at this point.
-	ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+	ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 
 	if(Scene)
 	{
@@ -2246,6 +2339,8 @@ FSceneRenderer::~FSceneRenderer()
 
 	// Manually release references to TRefCountPtrs that are allocated on the mem stack, which doesn't call dtors
 	SortedShadowsForShadowDepthPass.Release();
+
+	Views.Empty();
 }
 
 /** 
@@ -2549,6 +2644,306 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 	RHICmdList.EndScene();
 }
 
+void FSceneRenderer::ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FSceneRenderer_ApplyViewOverridesToMeshDrawCommands);
+
+	EShadingPath ShadingPath = Scene->GetShadingPath();
+	FExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess = GetDefaultBasePassDepthStencilAccess(ShadingPath);
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		FViewInfo& View = Views[ViewIndex];
+		EDrawingPolicyOverrideFlags ViewOverrideFlags = EDrawingPolicyOverrideFlags::None;
+
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		{
+			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+			{
+				if (View.bReverseCulling || View.bRenderSceneTwoSided || (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass))
+				{
+					const FMeshCommandOneFrameArray& PassVisibleMeshDrawCommands = View.VisibleMeshDrawCommands[PassIndex];
+
+					FMeshCommandOneFrameArray ViewOverriddenMeshCommands;
+					ViewOverriddenMeshCommands.Empty(PassVisibleMeshDrawCommands.Num());
+
+					FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage = View.DynamicMeshDrawCommandStorage[PassIndex];
+
+					for (int32 MeshCommandIndex = 0; MeshCommandIndex < PassVisibleMeshDrawCommands.Num(); MeshCommandIndex++)
+					{
+						MeshDrawCommandStorage.MeshDrawCommands.Add(1);
+						FMeshDrawCommand& NewMeshCommand = MeshDrawCommandStorage.MeshDrawCommands[MeshDrawCommandStorage.MeshDrawCommands.Num() - 1];
+
+						const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[MeshCommandIndex];
+						const FMeshDrawCommand& MeshCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
+						NewMeshCommand = MeshCommand;
+
+						const ERasterizerCullMode LocalCullMode = View.bRenderSceneTwoSided ? CM_None : View.bReverseCulling ? FMeshDrawingPolicy::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
+						NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
+
+						if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)
+						{
+							FDrawingPolicyRenderState PassDrawRenderState;
+							SetupBasePassState(BasePassDepthStencilAccess, false, PassDrawRenderState);
+							NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
+						}
+
+						NewMeshCommand.Finalize();
+
+						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+						NewVisibleMeshDrawCommand.Setup(
+							&NewMeshCommand,
+							VisibleMeshDrawCommand.DrawPrimitiveId,
+							VisibleMeshDrawCommand.ScenePrimitiveId,
+							VisibleMeshDrawCommand.StateBucketId,
+							VisibleMeshDrawCommand.MeshFillMode,
+							VisibleMeshDrawCommand.MeshCullMode,
+							VisibleMeshDrawCommand.SortKey);
+
+						ViewOverriddenMeshCommands.Add(NewVisibleMeshDrawCommand);
+					}
+
+					// Replace VisibleMeshDrawCommands
+					FMemory::Memswap(&View.VisibleMeshDrawCommands[PassIndex], &ViewOverriddenMeshCommands, sizeof(ViewOverriddenMeshCommands));
+				}
+			}
+		}
+	}
+}
+
+struct FCompareFMeshDrawCommands
+{
+	FORCEINLINE bool operator() (FVisibleMeshDrawCommand A, FVisibleMeshDrawCommand B) const
+	{
+		// First order by a sort key.
+		if (A.SortKey != B.SortKey)
+		{
+			return A.SortKey < B.SortKey;
+		}
+
+		// Next order by instancing bucket.
+		if (A.StateBucketId != B.StateBucketId)
+		{
+			return A.StateBucketId < B.StateBucketId;
+		}
+
+		// No valid StateBucketId - we cannot dynamically instance but we can still order by PSO to maximize state filtering
+		if (A.StateBucketId == -1 && B.StateBucketId == -1)
+		{
+			if (A.MeshDrawCommand->CachedPipelineId.GetId() != B.MeshDrawCommand->CachedPipelineId.GetId())
+			{
+				return A.MeshDrawCommand->CachedPipelineId.GetId() < B.MeshDrawCommand->CachedPipelineId.GetId();
+			}
+		}
+
+		return false;
+	}
+};
+
+void SortPassMeshDrawCommands(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FMeshCommandOneFrameArray& VisibleMeshDrawCommands, 
+	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
+	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
+	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer,
+	bool bDumpStats)
+{
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_SortVisibleMeshDrawCommands);
+
+		//@todo MeshCommandPipeline - sort in parallel during visibility or bucket in parallel
+		VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
+	}
+
+	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
+	{
+		const FVisibleMeshDrawCommand* RESTRICT PassVisibleMeshDrawCommands = VisibleMeshDrawCommands.GetData();
+		const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
+
+		PrimitiveIdBuffer = DynamicVertexBuffer.Allocate(NumDrawCommands * sizeof(int32));
+		int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdBuffer.Buffer;
+
+		if (IsDynamicInstancingEnabled())
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_DynamicInstancingOfVisibleMeshDrawCommands);
+
+			FMeshCommandOneFrameArray NewPassVisibleMeshDrawCommands;
+			NewPassVisibleMeshDrawCommands.Empty(NumDrawCommands);
+
+			int32 CurrentStateBucketId = -1;
+			uint32* RESTRICT CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
+			int32 MaxInstances = 1;
+
+			for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
+			{
+				const FVisibleMeshDrawCommand& RESTRICT VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[DrawCommandIndex];
+
+				if (VisibleMeshDrawCommand.StateBucketId == CurrentStateBucketId && VisibleMeshDrawCommand.StateBucketId != -1)
+				{
+					if (CurrentDynamicallyInstancedMeshCommandNumInstances)
+					{
+						const int32 CurrentNumInstances = *CurrentDynamicallyInstancedMeshCommandNumInstances;
+						*CurrentDynamicallyInstancedMeshCommandNumInstances = CurrentNumInstances + 1;
+						MaxInstances = FMath::Max(MaxInstances, CurrentNumInstances + 1);
+					}
+					else
+					{
+						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
+						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
+					}
+				}
+				else
+				{
+					// First time state bucket setup
+					CurrentStateBucketId = VisibleMeshDrawCommand.StateBucketId;
+
+					if (VisibleMeshDrawCommand.MeshDrawCommand->PrimitiveIdStreamIndex >= 0 
+						&& VisibleMeshDrawCommand.MeshDrawCommand->NumInstances == 1
+						// Don't create a new FMeshDrawCommand for the last command and make it safe for us to look at the next command
+						&& DrawCommandIndex + 1 <= NumDrawCommands 
+						// Only create a new FMeshDrawCommand if more than one draw in the state bucket
+						&& CurrentStateBucketId == PassVisibleMeshDrawCommands[DrawCommandIndex + 1].StateBucketId)
+					{
+						const int32 Index = MeshDrawCommandStorage.MeshDrawCommands.AddElement(*VisibleMeshDrawCommand.MeshDrawCommand);
+						FMeshDrawCommand& NewCommand = MeshDrawCommandStorage.MeshDrawCommands[Index];
+						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+						NewVisibleMeshDrawCommand.Setup(
+							&NewCommand, 
+							VisibleMeshDrawCommand.DrawPrimitiveId,
+							VisibleMeshDrawCommand.ScenePrimitiveId,
+							VisibleMeshDrawCommand.StateBucketId,
+							VisibleMeshDrawCommand.MeshFillMode,
+							VisibleMeshDrawCommand.MeshCullMode,
+							VisibleMeshDrawCommand.SortKey);
+
+						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
+
+						CurrentDynamicallyInstancedMeshCommandNumInstances = &NewCommand.NumInstances;
+					}
+					else
+					{
+						CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
+						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
+						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
+					}
+				}
+
+				//@todo - refactor into memcpy
+				PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			}
+
+			if (bDumpStats && VisibleMeshDrawCommands.Num() > 0)
+			{
+				UE_LOG(LogRenderer, Log, TEXT("   %i Mesh Draw Commands in %i instancing state buckets"), VisibleMeshDrawCommands.Num(), NewPassVisibleMeshDrawCommands.Num());
+				UE_LOG(LogRenderer, Log, TEXT("   Largest %i"), MaxInstances);
+				UE_LOG(LogRenderer, Log, TEXT("   %.1f Dynamic Instancing draw call reduction factor"), VisibleMeshDrawCommands.Num() / (float)NewPassVisibleMeshDrawCommands.Num());
+			}
+
+			// Replace VisibleMeshDrawCommands
+			FMemory::Memswap(&VisibleMeshDrawCommands, &NewPassVisibleMeshDrawCommands, sizeof(NewPassVisibleMeshDrawCommands));
+		}
+		else
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildVisibleMeshDrawCommandPrimitiveIdBuffers);
+
+			for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
+			{
+				const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
+				PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			}
+		}
+	}
+}
+
+uint32 BitInvertIfNegativeFloat(uint32 f)
+{
+	unsigned mask = -int32(f >> 31) | 0x80000000;
+	return f ^ mask;
+}
+
+/**
+* Update mesh sort keys with view dependent data.
+*/
+void UpdateTranslucentMeshSortKeys(FScene* Scene, FViewInfo& View, ETranslucencyPass::Type TranslucencyPass, FMeshCommandOneFrameArray& VisibleMeshCommands)
+{
+	for (int32 CommandIndex = 0; CommandIndex < VisibleMeshCommands.Num(); ++CommandIndex)
+	{
+		FVisibleMeshDrawCommand& VisibleCommand = VisibleMeshCommands[CommandIndex];
+
+		const int32 PrimitiveIndex = VisibleCommand.ScenePrimitiveId;
+		const FVector BoundsOrigin = PrimitiveIndex >= 0 ? Scene->PrimitiveBounds[PrimitiveIndex].BoxSphereBounds.Origin : FVector::ZeroVector;
+
+		float Distance = 0.0f;
+		if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByDistance)
+		{
+			//sort based on distance to the view position, view rotation is not a factor
+			Distance = (BoundsOrigin - View.ViewMatrices.GetViewOrigin()).Size();
+		}
+		else if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortAlongAxis)
+		{
+			// Sort based on enforced orthogonal distance
+			const FVector CameraToObject = BoundsOrigin - View.ViewMatrices.GetViewOrigin();
+			Distance = FVector::DotProduct(CameraToObject, View.TranslucentSortAxis);
+		}
+		else
+		{
+			// Sort based on projected Z distance
+			check(View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByProjectedZ);
+			Distance = View.ViewMatrices.GetViewMatrix().TransformPosition(BoundsOrigin).Z;
+		}
+
+		// Patch distance inside translucent mesh sort key.
+		UTranslucentMeshSortKey TranslucentMeshSortKey;
+		TranslucentMeshSortKey.PackedData = VisibleCommand.SortKey.PackedData;
+		TranslucentMeshSortKey.Fields.Distance = (uint32)~BitInvertIfNegativeFloat(*((uint32*)&Distance));
+		VisibleCommand.SortKey.PackedData = TranslucentMeshSortKey.PackedData;		
+	}
+}
+
+void FSceneRenderer::SortMeshDrawCommands()
+{
+	EShadingPath ShadingPath = Scene->GetShadingPath();
+	
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		FViewInfo& View = Views[ViewIndex];
+	
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ProcessVisibleMeshDrawCommands);
+
+		UpdateTranslucentMeshSortKeys(Scene, View, ETranslucencyPass::TPT_StandardTranslucency, View.VisibleMeshDrawCommands[EMeshPass::TranslucencyStandard]);
+		UpdateTranslucentMeshSortKeys(Scene, View, ETranslucencyPass::TPT_TranslucencyAfterDOF, View.VisibleMeshDrawCommands[EMeshPass::TranslucencyAfterDOF]);
+		UpdateTranslucentMeshSortKeys(Scene, View, ETranslucencyPass::TPT_AllTranslucency, View.VisibleMeshDrawCommands[EMeshPass::TranslucencyAll]);
+
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		{
+			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+			{
+				if (ShouldDumpMeshDrawCommandInstancingStats() && View.VisibleMeshDrawCommands[PassIndex].Num() > 0)
+				{
+					UE_LOG(LogRenderer, Log, TEXT("%s"), GetMeshPassName(PassType));
+				}
+
+ 				SortPassMeshDrawCommands(
+					FeatureLevel,
+					View.VisibleMeshDrawCommands[PassIndex],
+					View.DynamicMeshDrawCommandStorage[PassIndex],
+					FGlobalDynamicVertexBuffer::Get(),
+					View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassIndex],
+					ShouldDumpMeshDrawCommandInstancingStats());
+			}
+		}
+	}
+}
+
 FSceneRenderer* FSceneRenderer::CreateSceneRenderer(const FSceneViewFamily* InViewFamily, FHitProxyConsumer* HitProxyConsumer)
 {
 	EShadingPath ShadingPath = InViewFamily->Scene->GetShadingPath();
@@ -2615,28 +3010,24 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 
 			if (View.ShouldRenderView())
 			{
-				TUniformBufferRef<FSceneTexturesUniformParameters> DeferredPassUniformBuffer;
-				TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer;
 				FUniformBufferRHIParamRef PassUniformBuffer = nullptr;
-
-				if (FSceneInterface::GetShadingPath(View.FeatureLevel) == EShadingPath::Deferred)
-				{
-					FSceneTexturesUniformParameters SceneTextureParameters;
-					SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-					DeferredPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-					PassUniformBuffer = DeferredPassUniformBuffer;
-				}
 
 				if (FSceneInterface::GetShadingPath(View.FeatureLevel) == EShadingPath::Mobile)
 				{
 					FMobileSceneTextureUniformParameters SceneTextureParameters;
 					SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, false, SceneTextureParameters);
-					MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-					PassUniformBuffer = MobilePassUniformBuffer;
+					Scene->UniformBuffers.MobileCustomDepthPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
+					PassUniformBuffer = Scene->UniformBuffers.MobileCustomDepthPassUniformBuffer;
 				}
-				
-				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+				else
+				{
+					FSceneTexturesUniformParameters SceneTextureParameters;
+					SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+					Scene->UniformBuffers.CustomDepthPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
+					PassUniformBuffer = Scene->UniformBuffers.CustomDepthPassUniformBuffer;
+				}
 
+				
 				if (!View.IsInstancedStereoPass())
 				{
 					RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
@@ -2659,34 +3050,45 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 					}
 				}
 
-				DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 
-				const bool bWriteCustomStencilValues = SceneContext.IsCustomDepthPassWritingStencil();
-	
-				if (!bWriteCustomStencilValues)
-				{
-					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
-				}
-	
-				if ((CVarCustomDepthTemporalAAJitter.GetValueOnRenderThread() == 0) && (View.AntiAliasingMethod == AAM_TemporalAA))
+				FViewUniformShaderParameters CustomDepthViewUniformBufferParameters = *View.CachedViewUniformShaderParameters;
+
+				if (CVarCustomDepthTemporalAAJitter.GetValueOnRenderThread() == 0 && View.AntiAliasingMethod == AAM_TemporalAA)
 				{
 					FBox VolumeBounds[TVC_MAX];
-	
+
 					FViewMatrices ModifiedViewMatricies = View.ViewMatrices;
 					ModifiedViewMatricies.HackRemoveTemporalAAProjectionJitter();
-					FViewUniformShaderParameters OverriddenViewUniformShaderParameters;
+
 					View.SetupUniformBufferParameters(
 						SceneContext,
 						ModifiedViewMatricies,
 						ModifiedViewMatricies,
 						VolumeBounds,
 						TVC_MAX,
-						OverriddenViewUniformShaderParameters);
-					DrawRenderState.SetViewUniformBuffer(TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(OverriddenViewUniformShaderParameters, UniformBuffer_SingleFrame));
-					View.CustomDepthSet.DrawPrims(RHICmdList, View, DrawRenderState, bWriteCustomStencilValues);
+						CustomDepthViewUniformBufferParameters);
+				}
+
+				Scene->UniformBuffers.CustomDepthViewUniformBuffer.UpdateUniformBufferImmediate(CustomDepthViewUniformBufferParameters);
+	
+				if (UseMeshDrawCommandPipeline())
+				{
+					SubmitMeshDrawCommandsForView(View, EMeshPass::CustomDepth, nullptr, RHICmdList);
 				}
 				else
 				{
+					FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+
+					DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+					DrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.CustomDepthViewUniformBuffer);
+
+					const bool bWriteCustomStencilValues = SceneContext.IsCustomDepthPassWritingStencil();
+
+					if (!bWriteCustomStencilValues)
+					{
+						DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
+					}
+
 					View.CustomDepthSet.DrawPrims(RHICmdList, View, DrawRenderState, bWriteCustomStencilValues);
 				}
 			}
@@ -2697,7 +3099,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 	}
 }
 
-void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderer::OnStartRender(FRHICommandListImmediate& RHICmdList)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -2706,11 +3108,11 @@ void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
 	SceneContext.bScreenSpaceAOIsValid = false;
 	SceneContext.bCustomDepthIsValid = false;
 
-	for(FViewInfo& View : Views)
+	for (FViewInfo& View : Views)
 	{
-		if(View.ViewState)
+		if (View.ViewState)
 		{
-			View.ViewState->OnStartFrame(View, ViewFamily);
+			View.ViewState->OnStartRender(View, ViewFamily);
 		}
 	}
 }
@@ -2814,7 +3216,7 @@ void FSceneRenderer::DelayWaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIC
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GetRenderThread_Local()); 
 }
 
-void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
+void FSceneRenderer::UpdatePrimitiveIndirectLightingCacheBuffers()
 {
 	// Use a bit array to prevent primitives from being updated more than once.
 	FSceneBitArray UpdatedPrimitiveMap;
@@ -2824,20 +3226,20 @@ void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
 	{		
 		FViewInfo& View = Views[ViewIndex];
 
-		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		for (int32 Index = 0; Index < View.DirtyIndirectLightingCacheBufferPrimitives.Num(); ++Index)
 		{
-			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyIndirectLightingCacheBufferPrimitives[Index];
 
 			FBitReference bInserted = UpdatedPrimitiveMap[PrimitiveSceneInfo->GetIndex()];
 			if (!bInserted)
 			{
-				PrimitiveSceneInfo->UpdatePrecomputedLightingBuffer();
+				PrimitiveSceneInfo->UpdateIndirectLightingCacheBuffer();
 				bInserted = true;
 			}
 			else
 			{
 				// This will prevent clearing it twice.
-				View.DirtyPrecomputedLightingBufferPrimitives[Index] = nullptr;
+				View.DirtyIndirectLightingCacheBufferPrimitives[Index] = nullptr;
 			}
 		}
 	}
@@ -2859,19 +3261,19 @@ void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
 	}
 }
 
-void FSceneRenderer::ClearPrimitiveSingleFramePrecomputedLightingBuffers()
+void FSceneRenderer::ClearPrimitiveSingleFrameIndirectLightingCacheBuffers()
 {
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{		
 		FViewInfo& View = Views[ViewIndex];
 
-		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		for (int32 Index = 0; Index < View.DirtyIndirectLightingCacheBufferPrimitives.Num(); ++Index)
 		{
-			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyIndirectLightingCacheBufferPrimitives[Index];
 	
 			if (PrimitiveSceneInfo) // Could be null if it was a duplicate.
 			{
-				PrimitiveSceneInfo->ClearPrecomputedLightingBuffer(true);
+				PrimitiveSceneInfo->ClearIndirectLightingCacheBuffer(true);
 			}
 		}
 	}
@@ -2968,11 +3370,6 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 		for (int32 CacheType = 0; CacheType < ARRAY_COUNT(SceneRenderer->Scene->DistanceFieldSceneData.PrimitiveModifiedBounds); CacheType++)
 		{
 			SceneRenderer->Scene->DistanceFieldSceneData.PrimitiveModifiedBounds[CacheType].Reset();
-		}
-
-		{
-			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache);
-			SceneRenderer->Scene->MotionBlurInfoData.UpdateMotionBlurCache(SceneRenderer->Scene);
 		}
 
 #if STATS
@@ -3078,6 +3475,11 @@ FRendererModule::FRendererModule()
 
 	static auto CVarEarlyZPassMovable = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPassMovable"));
 	CVarEarlyZPassMovable->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeCVarRequiringRecreateRenderState));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	void InitDebugViewModeInterfaces();
+	InitDebugViewModeInterfaces();
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 void FRendererModule::CreateAndInitSingleView(FRHICommandListImmediate& RHICmdList, class FSceneViewFamily* ViewFamily, const struct FSceneViewInitOptions* ViewInitOptions)
@@ -3161,8 +3563,6 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 		// Construct the scene renderer.  This copies the view family attributes into its own structures.
 		FSceneRenderer* SceneRenderer = FSceneRenderer::CreateSceneRenderer(ViewFamily, Canvas->GetHitProxyConsumer());
 
-		Scene->EnsureMotionBlurCacheIsUpToDate(SceneRenderer->ViewFamily.bWorldIsPaused);
-
 		if (!SceneRenderer->ViewFamily.EngineShowFlags.HitProxies)
 		{
 			USceneCaptureComponent::UpdateDeferredCaptures(Scene);
@@ -3195,8 +3595,6 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 			RenderViewFamily_RenderThread(RHICmdList, SceneRenderer);
 			FlushPendingDeleteRHIResources_RenderThread();
 		});
-
-		Scene->ResetMotionBlurCacheTracking();
 	}
 }
 
@@ -3639,3 +4037,49 @@ FTextureRHIParamRef FSceneRenderer::GetMultiViewSceneColor(const FSceneRenderTar
 	}
 }
 
+void FSceneRenderer::GenerateDynamicMeshDrawCommands()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateDynamicMeshDrawCommands);
+
+	EShadingPath ShadingPath = FSceneInterface::GetShadingPath(FeatureLevel);
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		FViewInfo& View = Views[ViewIndex];
+
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		{
+			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+			{
+				FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext(View.DynamicMeshDrawCommandStorage[PassType], View.VisibleMeshDrawCommands[PassType]);
+				PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
+				FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, DynamicPassMeshDrawListContext);
+
+				const int32 NumDynamicMeshBatches = View.DynamicMeshElements.Num();
+
+				for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
+				{
+					const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicMeshElements[MeshIndex];
+					check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+					const uint64 BatchElementMask = ~0ull;
+
+					PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+				}
+
+				const int32 NumStaticMeshBatches = View.DynamicMeshCommandBuildRequests[PassType].Num();
+
+				for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
+				{
+					const FStaticMesh* StaticMeshBatch = View.DynamicMeshCommandBuildRequests[PassType][MeshIndex];
+					const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
+
+					PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
+				}
+
+				PassMeshProcessor->~FMeshPassProcessor();
+			}
+		}
+	}
+}

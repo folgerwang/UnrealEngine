@@ -234,6 +234,17 @@ void UModelComponent::ShrinkElements()
 	}
 }
 
+void UModelComponent::OnModelResourcesReleased()
+{
+	// Need to invalidate IndexBuffer*, as it's a pointer into Model resources which were just released.
+
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+	{
+		FModelElement& Element = Elements[ElementIndex];
+		Element.IndexBuffer = nullptr;
+	}
+}
+
 void UModelComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);

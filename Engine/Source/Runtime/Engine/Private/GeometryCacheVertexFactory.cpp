@@ -9,6 +9,7 @@
 #include "MeshBatch.h"
 #include "GPUSkinCache.h"
 #include "ShaderParameterUtils.h"
+#include "MeshMaterialShader.h"
 
 /*-----------------------------------------------------------------------------
 FGeometryCacheVertexFactoryShaderParameters
@@ -77,6 +78,37 @@ public:
 		}
 	}
 
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* View,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* GenericVertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		// Ensure the vertex factory matches this parameter object and cast relevant objects
+		check(GenericVertexFactory->GetType() == &FGeometryCacheVertexVertexFactory::StaticType);
+		const FGeometryCacheVertexVertexFactory* GCVertexFactory = static_cast<const FGeometryCacheVertexVertexFactory*>(GenericVertexFactory);
+
+		FGeometryCacheVertexFactoryUserData* BatchData = (FGeometryCacheVertexFactoryUserData*)BatchElement.VertexFactoryUserData;
+
+		// Check the passed in vertex buffers make sense
+		checkf(BatchData->PositionBuffer->IsInitialized(), TEXT("Batch position Vertex buffer was not initialized! Name %s"), *BatchData->PositionBuffer->GetFriendlyName());
+		checkf(BatchData->MotionBlurDataBuffer->IsInitialized(), TEXT("Batch motion blur data buffer was not initialized! Name %s"), *BatchData->MotionBlurDataBuffer->GetFriendlyName());
+
+		VertexStreams.Add(FVertexInputStream(GCVertexFactory->PositionStreamIndex, 0, BatchData->PositionBuffer->VertexBufferRHI));
+		VertexStreams.Add(FVertexInputStream(GCVertexFactory->MotionBlurDataStreamIndex, 0, BatchData->MotionBlurDataBuffer->VertexBufferRHI));
+
+		ShaderBindings.Add(MeshOrigin, BatchData->MeshOrigin);
+		ShaderBindings.Add(MeshExtension, BatchData->MeshExtension);
+		ShaderBindings.Add(MotionBlurDataOrigin, BatchData->MotionBlurDataOrigin);
+		ShaderBindings.Add(MotionBlurDataExtension, BatchData->MotionBlurDataExtension);
+		ShaderBindings.Add(MotionBlurPositionScale, BatchData->MotionBlurPositionScale);
+	}
+
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
@@ -90,9 +122,9 @@ private:
 /*-----------------------------------------------------------------------------
 FGPUSkinPassthroughVertexFactory
 -----------------------------------------------------------------------------*/
-void FGeometryCacheVertexVertexFactory::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+void FGeometryCacheVertexVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
-	Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	Super::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 }
 
 bool FGeometryCacheVertexVertexFactory::ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType)

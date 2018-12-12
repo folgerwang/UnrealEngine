@@ -10,6 +10,7 @@
 #include "SceneView.h"
 #include "MeshBatch.h"
 #include "PipelineStateCache.h"
+#include "MeshMaterialShader.h"
 
 class FPrimitiveSceneProxy;
 class FStaticMesh;
@@ -48,6 +49,18 @@ struct FDrawingPolicyRenderState
 	{
 		ViewOverrideFlags |= SceneView.bReverseCulling ? EDrawingPolicyOverrideFlags::ReverseCullMode : EDrawingPolicyOverrideFlags::None;
 		ViewOverrideFlags |= SceneView.bRenderSceneTwoSided ? EDrawingPolicyOverrideFlags::TwoSided : EDrawingPolicyOverrideFlags::None;
+	}
+
+	FDrawingPolicyRenderState(const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer, FUniformBufferRHIParamRef InPassUniformBuffer) : 
+		  BlendState(nullptr)
+		, DepthStencilState(nullptr)
+		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
+		, ViewUniformBuffer(InViewUniformBuffer)
+		, PassUniformBuffer(InPassUniformBuffer)
+		, StencilRef(0)
+		, ViewOverrideFlags(EDrawingPolicyOverrideFlags::None)
+		, DitheredLODTransitionAlpha(0.0f)
+	{
 	}
 
 	FDrawingPolicyRenderState() :
@@ -317,8 +330,7 @@ public:
 		const FVertexFactory* InVertexFactory,
 		const FMaterialRenderProxy* InMaterialRenderProxy,
 		const FMaterial& InMaterialResource,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		EDebugViewShaderMode InDebugViewShaderMode = DVSM_None
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 		);
 
 	FMeshDrawingPolicy& operator = (const FMeshDrawingPolicy& Other)
@@ -331,7 +343,6 @@ public:
 		MeshPrimitiveType = Other.MeshPrimitiveType;
 		bIsDitheredLODTransitionMaterial = Other.bIsDitheredLODTransitionMaterial;
 		bUsePositionOnlyVS = Other.bUsePositionOnlyVS;
-		DebugViewShaderMode = Other.DebugViewShaderMode;
 		InstanceFactor = Other.InstanceFactor;
 		BaseVertexShader = Other.BaseVertexShader;
 		return *this; 
@@ -396,6 +407,14 @@ public:
 		) const
 	{	
 	}
+
+	void SetPrimitiveIdStream(
+		FRHICommandList& RHICmdList,
+		const FSceneView& View,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		EPrimitiveIdMode PrimitiveIdMode,
+		uint32 DynamicPrimitiveShaderDataIndex
+	) const;
 
 	/**
 	 * Executes the draw commands for a mesh.
@@ -463,14 +482,6 @@ public:
 	const FVertexFactory* GetVertexFactory() const { return VertexFactory; }
 	const FMaterialRenderProxy* GetMaterialRenderProxy() const { return MaterialRenderProxy; }
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	FORCEINLINE EDebugViewShaderMode GetDebugViewShaderMode() const { return (EDebugViewShaderMode)DebugViewShaderMode; }
-	FORCEINLINE bool UseDebugViewPS() const { return DebugViewShaderMode != DVSM_None; }
-#else
-	FORCEINLINE EDebugViewShaderMode GetDebugViewShaderMode() const { return DVSM_None; }
-	FORCEINLINE bool UseDebugViewPS() const { return false; }
-#endif
-
 protected:
 	const FMaterialShader* BaseVertexShader = nullptr;
 	const FVertexFactory* VertexFactory;
@@ -484,7 +495,6 @@ protected:
 	uint32 InstanceFactor = 1;
 	uint32 bIsDitheredLODTransitionMaterial : 1;
 	uint32 bUsePositionOnlyVS : 1;
-	uint32 DebugViewShaderMode : 6; // EDebugViewShaderMode
 
 private:
 	uint32 GetInstanceFactor() const
@@ -492,5 +502,5 @@ private:
 		return InstanceFactor;
 	}
 
-	void SetInstanceParameters(FRHICommandList& RHICmdList, const FSceneView& View, uint32 InVertexOffset, uint32 InInstanceOffset, uint32 InInstanceCount) const;
+	void SetInstanceParameters(FRHICommandList& RHICmdList, const FSceneView& View, uint32 InInstanceOffset, uint32 InInstanceCount) const;
 };

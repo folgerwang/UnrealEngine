@@ -22,13 +22,14 @@ FStructuredBufferRHIRef FVulkanDynamicRHI::RHICreateStructuredBuffer(uint32 InSt
 
 void* FVulkanDynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
 	FVulkanStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
-	return nullptr;
+	return StructuredBuffer->Lock(false, LockMode, Size, Offset);
 }
 
 void FVulkanDynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
+	FVulkanStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
+
+	StructuredBuffer->Unlock(false);
 }

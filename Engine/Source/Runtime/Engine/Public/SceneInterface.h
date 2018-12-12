@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 #include "SceneTypes.h"
+#include "SceneUtils.h"
 #include "Math/SHMath.h"
 
 class AWorldSettings;
@@ -31,13 +32,6 @@ enum EBasePassDrawListType
 	EBasePass_Default=0,
 	EBasePass_Masked,
 	EBasePass_MAX
-};
-
-enum class EShadingPath
-{
-	Mobile,
-	Deferred,
-	Num,
 };
 
 /**
@@ -169,6 +163,11 @@ public:
 	virtual void RemovePrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) {}
 
 	/** 
+	 * Retrieves primitive uniform shader parameters that are internal to the renderer.
+	 */
+	virtual void GetPrimitiveUniformShaderParameters_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool& bHasPrecomputedVolumetricLightmap, FMatrix& PreviousLocalToWorld, int32& SingleCaptureIndex) const {}
+	 
+	/** 
 	 * Updates the transform of a light which has already been added to the scene. 
 	 *
 	 * @param Light - light component to update
@@ -276,7 +275,7 @@ public:
 	 * Looks up the SpeedTree uniform buffer for the passed in vertex factory.
 	 * @param VertexFactory - The vertex factory registered for SpeedTree.
 	 */
-	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) = 0;
+	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const = 0;
 
 	/**
 	 * Release this scene and remove it from the rendering thread
@@ -336,11 +335,6 @@ public:
 	 * Dumps static mesh draw list stats to the log.
 	 */
 	virtual void DumpStaticMeshDrawListStats() const {}
-
-	/**
-	 * Request to clear the MB info. Game thread only
-	 */
-	virtual void SetClearMotionBlurInfoGameThread() {}
 
 	/** Updates the scene's list of parameter collection id's and their uniform buffers. */
 	virtual void UpdateParameterCollections(const TArray<class FMaterialParameterCollectionInstanceResource*>& InParameterCollections) {}
@@ -423,6 +417,7 @@ public:
 	 */
 	virtual ENGINE_API TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const;
 
+	virtual void StartFrame() {}
 	virtual uint32 GetFrameNumber() const { return 0; }
 	virtual void IncrementFrameNumber() {}
 

@@ -104,7 +104,7 @@ static bool IsPoolingEnabled()
 	return CVarValue != 0;
 };
 
-FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Contents,const FRHIUniformBufferLayout& Layout,EUniformBufferUsage Usage)
+FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Contents,const FRHIUniformBufferLayout& Layout,EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	check(IsInRenderingThread());
 
@@ -213,7 +213,9 @@ FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Conten
 			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
 
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && (Layout.Resources[i] == UBMT_SRV || Layout.Resources[i] == UBMT_GRAPH_TRACKED_SRV || Layout.Resources[i] == UBMT_GRAPH_TRACKED_BUFFER_SRV)))
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 
+				&& (Layout.Resources[i] == UBMT_SRV || Layout.Resources[i] == UBMT_GRAPH_TRACKED_SRV || Layout.Resources[i] == UBMT_GRAPH_TRACKED_BUFFER_SRV))
+				&& Validation == EUniformBufferValidation::ValidateResources)
 			{
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *Layout.GetDebugName().ToString(), i, Layout.Resources[i]);
 			}
@@ -222,6 +224,102 @@ FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Conten
 	}
 
 	return NewUniformBuffer;
+}
+
+void UpdateUniformBufferContents(FD3D11Device* Direct3DDevice, FD3D11DeviceContext* Context, FD3D11UniformBuffer* UniformBuffer, const void* Contents, uint32 ConstantBufferSize)
+{
+	// Update the contents of the uniform buffer.
+	if (ConstantBufferSize > 0)
+	{
+		// Constant buffers must also be 16-byte aligned.
+		check(Align(Contents, 16) == Contents);
+
+		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+		// Discard previous results since we always do a full update
+		VERIFYD3D11RESULT_EX(Context->Map(UniformBuffer->Resource.GetReference(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource), Direct3DDevice);
+		check(MappedSubresource.RowPitch >= ConstantBufferSize);
+		FMemory::Memcpy(MappedSubresource.pData, Contents, ConstantBufferSize);
+		Context->Unmap(UniformBuffer->Resource.GetReference(), 0);
+	}
+}
+
+void FD3D11DynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents)
+{
+	check(IsInRenderingThread());
+	check(UniformBufferRHI);
+
+	FD3D11UniformBuffer* UniformBuffer = ResourceCast(UniformBufferRHI);
+	const FRHIUniformBufferLayout& Layout = UniformBufferRHI->GetLayout();
+
+	const uint32 ConstantBufferSize = Layout.ConstantBufferSize;
+	const int32 NumResources = Layout.Resources.Num();
+
+	check(UniformBuffer->ResourceTable.Num() == NumResources);
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	if (RHICmdList.Bypass())
+	{
+		UpdateUniformBufferContents(Direct3DDevice, Direct3DDeviceIMContext, UniformBuffer, Contents, ConstantBufferSize);
+
+		for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+		{
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[ResourceIndex]);
+
+			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+				*Layout.GetDebugName().ToString(),
+				ResourceIndex,
+				Layout.Resources[ResourceIndex]);
+
+			UniformBuffer->ResourceTable[ResourceIndex] = Resource;
+		}
+	}
+	else
+	{
+		FRHIResource** CmdListResources = nullptr;
+		void* CmdListConstantBufferData = nullptr;
+
+		if (NumResources > 0)
+		{
+			CmdListResources = (FRHIResource**)RHICmdList.Alloc(sizeof(FRHIResource*) * NumResources, alignof(FRHIResource*));
+
+			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+			{
+				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[ResourceIndex]);
+
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+					*Layout.GetDebugName().ToString(),
+					ResourceIndex,
+					Layout.Resources[ResourceIndex]);
+
+				CmdListResources[ResourceIndex] = Resource;
+			}
+		}
+
+		if (ConstantBufferSize > 0)
+		{
+			CmdListConstantBufferData = (void*)RHICmdList.Alloc(ConstantBufferSize, 16);
+			FMemory::Memcpy(CmdListConstantBufferData, Contents, ConstantBufferSize);
+		}
+
+		RHICmdList.EnqueueLambda([Direct3DDeviceIMContext = Direct3DDeviceIMContext.GetReference(),
+			Direct3DDevice = Direct3DDevice.GetReference(),
+			UniformBuffer,
+			CmdListResources,
+			NumResources,
+			CmdListConstantBufferData,
+			ConstantBufferSize](FRHICommandList&)
+		{
+			UpdateUniformBufferContents(Direct3DDevice, Direct3DDeviceIMContext, UniformBuffer, CmdListConstantBufferData, ConstantBufferSize);
+
+			// Update resource table.
+			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+			{
+				UniformBuffer->ResourceTable[ResourceIndex] = CmdListResources[ResourceIndex];
+			}
+		});
+		RHICmdList.RHIThreadFence(true);
+	}
 }
 
 FD3D11UniformBuffer::~FD3D11UniformBuffer()

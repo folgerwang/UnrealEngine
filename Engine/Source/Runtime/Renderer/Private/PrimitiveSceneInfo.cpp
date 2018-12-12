@@ -45,10 +45,10 @@ public:
 		{
 			check(Mesh.VertexFactory);
 			check(Mesh.VertexFactory->IsInitialized());
-#if DO_CHECK
-			Mesh.CheckUniformBuffers();
-#endif
-			PrimitiveSceneInfo->Proxy->VerifyUsedMaterial(Mesh.MaterialRenderProxy);
+			checkSlow(IsInRenderingThread());
+
+			FPrimitiveSceneProxy* PrimitiveSceneProxy = PrimitiveSceneInfo->Proxy;
+			PrimitiveSceneProxy->VerifyUsedMaterial(Mesh.MaterialRenderProxy);
 
 			FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
 				PrimitiveSceneInfo,
@@ -56,6 +56,10 @@ public:
 				ScreenSize,
 				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
 				);
+
+			StaticMesh->bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(StaticMesh->VertexFactory, PrimitiveSceneProxy);
+
+			StaticMesh->PreparePrimitiveUniformBuffer(PrimitiveSceneProxy, PrimitiveSceneInfo->Scene->GetFeatureLevel());
 		}
 	}
 
@@ -94,7 +98,6 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	DefaultDynamicHitProxy(NULL),
 	LightList(NULL),
 	LastRenderTime(-FLT_MAX),
-	LastVisibilityChangeTime(0.0f),
 	Scene(InScene),
 	NumMobileMovablePointLights(0),
 	bIsUsingCustomLODRules(Proxy->IsUsingCustomLODRules()),
@@ -103,8 +106,9 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	ComponentForDebuggingOnly(InComponent),
 	bNeedsStaticMeshUpdate(false),
 	bNeedsUniformBufferUpdate(false),
-	bPrecomputedLightingBufferDirty(false),
-	bPrecomputedLightingBufferAssignedToProxyLCIs(false)
+	bIndirectLightingCacheBufferDirty(false),
+	LightmapDataOffset(INDEX_NONE),
+	NumLightmapDataEntries(0)
 {
 	check(ComponentForDebuggingOnly);
 	check(PrimitiveComponentId.IsValid());
@@ -179,6 +183,28 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool bUpdateStaticDrawLists, bool bAddToStaticDrawLists)
 {
 	check(IsInRenderingThread());
+
+	// Create an indirect lighting cache uniform buffer if we attaching a primitive that may require it, as it may be stored inside a cached mesh command.
+	if (IsIndirectLightingCacheAllowed(Scene->GetFeatureLevel())
+		&& Proxy->WillEverBeLit()
+		&& ((Proxy->HasStaticLighting() && Proxy->NeedsUnbuiltPreviewLighting()) || (Proxy->IsMovable() && Proxy->GetIndirectLightingCacheQuality() != ILCQ_Off)))
+	{
+		if (!IndirectLightingCacheUniformBuffer)
+		{
+			FIndirectLightingCacheUniformParameters Parameters;
+
+			GetIndirectLightingCacheParameters(
+				Scene->GetFeatureLevel(), 
+				Parameters, 
+				nullptr,
+				nullptr,
+				FVector(0.0f, 0.0f, 0.0f),
+				0, 
+				nullptr);
+
+			IndirectLightingCacheUniformBuffer = TUniformBufferRef<FIndirectLightingCacheUniformParameters>::CreateUniformBufferImmediate(Parameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+		}
+	}
 	
 	// If we are attaching a primitive that should be statically lit but has unbuilt lighting,
 	// Allocate space in the indirect lighting cache so that it can be used for previewing indirect lighting
@@ -200,7 +226,32 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 			IndirectLightingCacheAllocation = PrimitiveAllocation;
 		}
 	}
-	MarkPrecomputedLightingBufferDirty();
+	MarkIndirectLightingCacheBufferDirty();
+
+	FPrimitiveSceneProxy::FLCIArray LCIs;
+	Proxy->GetLCIs(LCIs);
+	for (int32 i = 0; i < LCIs.Num(); ++i)
+	{
+		FLightCacheInterface* LCI = LCIs[i];
+
+		if (LCI) 
+		{
+			LCI->CreatePrecomputedLightingUniformBuffer_RenderingThread(Scene->GetFeatureLevel());
+		}
+	}
+
+	NumLightmapDataEntries = LCIs.Num();
+
+	if (NumLightmapDataEntries > 0 && UseGPUScene(GMaxRHIShaderPlatform, Scene->GetFeatureLevel()))
+	{
+		LightmapDataOffset = Scene->GPUScene.LightmapDataAllocator.Allocate(NumLightmapDataEntries);
+	}
+
+	// Cache the nearest reflection proxy if needed
+	if (NeedsReflectionCaptureUpdate())
+	{
+		CacheReflectionCaptures();
+	}
 
 	if (bUpdateStaticDrawLists)
 	{
@@ -275,8 +326,6 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 	// Store the component.
 	Scene->PrimitiveComponentIds[PackedIndex] = PrimitiveComponentId;
 
-	bNeedsCachedReflectionCaptureUpdate = true;
-
 	{
 		FMemMark MemStackMark(FMemStack::Get());
 
@@ -318,18 +367,32 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 	Scene->PrimitiveOctree.RemoveElement(OctreeId);
 	OctreeId = FOctreeElementId();
 
+	if (LightmapDataOffset != INDEX_NONE && UseGPUScene(GMaxRHIShaderPlatform, Scene->GetFeatureLevel()))
+	{
+		Scene->GPUScene.LightmapDataAllocator.Free(LightmapDataOffset, NumLightmapDataEntries);
+	}
+	
 	if (Proxy->CastsDynamicIndirectShadow())
 	{
 		Scene->DynamicIndirectCasterPrimitives.RemoveSingleSwap(this);
 	}
 
 	IndirectLightingCacheAllocation = NULL;
-	ClearPrecomputedLightingBuffer(false);
+	ClearIndirectLightingCacheBuffer(false);
 
 	DEC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + Proxy->GetMemoryFootprint());
 
+	if (bNeedsStaticMeshUpdate)
+	{
+		Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
+	}
+
 	if (bUpdateStaticDrawLists)
 	{
+		// IndirectLightingCacheUniformBuffer may be cached inside cached mesh draw commands, so we 
+		// can't delete it unless we also update cached mesh command.
+		IndirectLightingCacheUniformBuffer.SafeRelease();
+
 		RemoveStaticMeshes();
 	}
 }
@@ -337,7 +400,20 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdList, bool bReAddToDrawLists)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPrimitiveSceneInfo_UpdateStaticMeshes);
+	const bool bOriginalNeedsStaticMeshUpdate = bNeedsStaticMeshUpdate;
 	bNeedsStaticMeshUpdate = !bReAddToDrawLists;
+
+	if (bOriginalNeedsStaticMeshUpdate != bNeedsStaticMeshUpdate)
+	{
+		if (bNeedsStaticMeshUpdate)
+		{
+			Scene->PrimitivesNeedingStaticMeshUpdate.Add(this);
+		}
+		else
+		{
+			Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
+		}
+	}
 
 	// Remove the primitive's static meshes from the draw lists they're currently in, and re-add them to the appropriate draw lists.
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
@@ -361,6 +437,8 @@ void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshes()
 {
 	// Set a flag which causes InitViews to update the static meshes the next time the primitive is visible.
 	bNeedsStaticMeshUpdate = true;
+
+	Scene->PrimitivesNeedingStaticMeshUpdate.Add(this);
 }
 
 void FPrimitiveSceneInfo::LinkLODParentComponent()
@@ -580,7 +658,7 @@ bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bChec
 	}
 
 	// Only render primitives with velocity.
-	if (!FVelocityDrawingPolicy::HasVelocity(View, this))
+	if (!FVelocityRendering::PrimitiveHasVelocity(View, this))
 	{
 		return false;
 	}
@@ -599,79 +677,73 @@ void FPrimitiveSceneInfo::ApplyWorldOffset(FVector InOffset)
 	Proxy->ApplyWorldOffset(InOffset);
 }
 
-void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
+void FPrimitiveSceneInfo::UpdateIndirectLightingCacheBuffer(
+	const FIndirectLightingCache* LightingCache,
+	const FIndirectLightingCacheAllocation* LightingAllocation,
+	FVector VolumetricLightmapLookupPosition,
+	uint32 SceneFrameNumber,
+	FVolumetricLightmapSceneData* VolumetricLightmapSceneData)
+{
+	FIndirectLightingCacheUniformParameters Parameters;
+
+	GetIndirectLightingCacheParameters(
+		Scene->GetFeatureLevel(),
+		Parameters,
+		LightingCache,
+		LightingAllocation,
+		VolumetricLightmapLookupPosition,
+		SceneFrameNumber,
+		VolumetricLightmapSceneData);
+
+	if (IndirectLightingCacheUniformBuffer)
+	{
+		IndirectLightingCacheUniformBuffer.UpdateUniformBufferImmediate(Parameters);
+	}
+}
+
+void FPrimitiveSceneInfo::UpdateIndirectLightingCacheBuffer()
 {
 	// The update is invalid if the lighting cache allocation was not in a functional state.
-	if (bPrecomputedLightingBufferDirty && (!IndirectLightingCacheAllocation || (Scene->IndirectLightingCache.IsInitialized() && IndirectLightingCacheAllocation->bHasEverUpdatedSingleSample)))
+	if (bIndirectLightingCacheBufferDirty && (!IndirectLightingCacheAllocation || (Scene->IndirectLightingCache.IsInitialized() && IndirectLightingCacheAllocation->bHasEverUpdatedSingleSample)))
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdatePrecomputedLightingBuffer);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateIndirectLightingCacheBuffer);
 
-		EUniformBufferUsage BufferUsage = Proxy->IsOftenMoving() ? UniformBuffer_SingleFrame : UniformBuffer_MultiFrame;
-
-		// If the PrimitiveInfo has no precomputed lighting buffer, it will fallback to the global Empty buffer.
 		if (!RHISupportsVolumeTextures(Scene->GetFeatureLevel())
 			&& Scene->VolumetricLightmapSceneData.HasData()
 			&& (Proxy->IsMovable() || Proxy->NeedsUnbuiltPreviewLighting() || Proxy->GetLightmapType() == ELightmapType::ForceVolumetric)
 			&& Proxy->WillEverBeLit())
 		{
-			IndirectLightingCacheUniformBuffer = CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), NULL, NULL, Proxy->GetBounds().Origin, Scene->GetFrameNumber(), &Scene->VolumetricLightmapSceneData, NULL);
+			UpdateIndirectLightingCacheBuffer(
+				nullptr, 
+				nullptr,
+				Proxy->GetBounds().Origin,
+				Scene->GetFrameNumber(),
+				&Scene->VolumetricLightmapSceneData);
 		}
 		else if (IndirectLightingCacheAllocation)
 		{
-			IndirectLightingCacheUniformBuffer = CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), &Scene->IndirectLightingCache, IndirectLightingCacheAllocation, FVector(0, 0, 0), 0, NULL, NULL);
+			UpdateIndirectLightingCacheBuffer(
+				&Scene->IndirectLightingCache,
+				IndirectLightingCacheAllocation,
+				FVector(0, 0, 0),
+				0,
+				nullptr);
 		}
 		else
 		{
-			IndirectLightingCacheUniformBuffer.SafeRelease();
+			// Fallback to the global empty buffer parameters
+			UpdateIndirectLightingCacheBuffer(nullptr, nullptr, FVector(0.0f, 0.0f, 0.0f), 0, nullptr);
 		}
 
-		bPrecomputedLightingBufferAssignedToProxyLCIs = false;
-
-		FPrimitiveSceneProxy::FLCIArray LCIs;
-		Proxy->GetLCIs(LCIs);
-		for (int32 i = 0; i < LCIs.Num(); ++i)
-		{
-			FLightCacheInterface* LCI = LCIs[i];
-			if (!LCI) continue;
-
-			// If the LCI has no precomputed lighting buffer, it will fallback to the PrimitiveInfo buffer.
-			if (LCI->GetShadowMapInteraction().GetType() == SMIT_Texture || LCI->GetLightMapInteraction(Scene->GetFeatureLevel()).GetType() == LMIT_Texture)
-			{
-				LCI->SetPrecomputedLightingBuffer(CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), NULL, NULL, FVector(0, 0, 0), 0, NULL, LCI));
-				bPrecomputedLightingBufferAssignedToProxyLCIs = true;
-			}
-			else
-			{
-				LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
-			}
-		}
-
-		bPrecomputedLightingBufferDirty = false;
+		bIndirectLightingCacheBufferDirty = false;
 	}
 }
 
-void FPrimitiveSceneInfo::ClearPrecomputedLightingBuffer(bool bSingleFrameOnly)
+void FPrimitiveSceneInfo::ClearIndirectLightingCacheBuffer(bool bSingleFrameOnly)
 {
 	if (!bSingleFrameOnly || Proxy->IsOftenMoving())
 	{
-		IndirectLightingCacheUniformBuffer.SafeRelease();
-
-		if (bPrecomputedLightingBufferAssignedToProxyLCIs)
-		{
-			FPrimitiveSceneProxy::FLCIArray LCIs;
-			Proxy->GetLCIs(LCIs);
-			for (int32 i = 0; i < LCIs.Num(); ++i)
-			{
-				FLightCacheInterface* LCI = LCIs[i];
-				if (LCI)
-				{
-					LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
-				}
-			}
-			bPrecomputedLightingBufferAssignedToProxyLCIs = false;
-		}
-
-		MarkPrecomputedLightingBufferDirty();
+		MarkIndirectLightingCacheBufferDirty();
 	}
 }
 
@@ -696,4 +768,27 @@ const FMeshBatch* FPrimitiveSceneInfo::GetMeshBatch(int8 InLODIndex) const
 	}
 
 	return nullptr;
+}
+
+bool FPrimitiveSceneInfo::NeedsReflectionCaptureUpdate() const
+{
+	return bNeedsCachedReflectionCaptureUpdate && 
+		// For mobile, the per-object reflection is used for everything
+		(Scene->GetShadingPath() == EShadingPath::Mobile || IsForwardShadingEnabled(Scene->GetShaderPlatform()));
+}
+
+void FPrimitiveSceneInfo::CacheReflectionCaptures()
+{
+	// do not use Scene->PrimitiveBounds here, as it may be not initialized yet
+	FBoxSphereBounds BoxSphereBounds = Proxy->GetBounds(); 
+	
+	CachedReflectionCaptureProxy = Scene->FindClosestReflectionCapture(BoxSphereBounds.Origin);
+	CachedPlanarReflectionProxy = Scene->FindClosestPlanarReflection(BoxSphereBounds);
+	if (Scene->GetShadingPath() == EShadingPath::Mobile)
+	{
+		// mobile HQ reflections
+		Scene->FindClosestReflectionCaptures(BoxSphereBounds.Origin, CachedReflectionCaptureProxies);
+	}
+	
+	bNeedsCachedReflectionCaptureUpdate = false;
 }

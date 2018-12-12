@@ -208,7 +208,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 	auto DrawDebugCapsule = [](FViewInfo& InView, const FLightSceneInfo* InLightSceneInfo, const FVector& Start, float CastLength, float CapsuleRadius)
 	{
 		const FMatrix& LightToWorld = InLightSceneInfo->Proxy->GetLightToWorld();
-		FViewElementPDI ShadowFrustumPDI(&InView, NULL);
+		FViewElementPDI ShadowFrustumPDI(&InView, nullptr, nullptr);
 		FVector Dir = LightToWorld.GetUnitAxis(EAxis::X);
 		FVector End = Start + (Dir*CastLength);
 		DrawWireSphere(&ShadowFrustumPDI, FTransform(Start), FColor::White, CapsuleRadius, 40, 0);
@@ -259,7 +259,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 			if (CullingMethod >= 1 && CullingMethod <= 3)
 			{
 				// all culling modes draw the receiver frustum.
-				FViewElementPDI ShadowFrustumPDI(&View, NULL);
+				FViewElementPDI ShadowFrustumPDI(&View, nullptr, nullptr);
 				FMatrix Reciever = ProjectedShadowInfo->InvReceiverMatrix;
 				DrawFrustumWireframe(&ShadowFrustumPDI, Reciever * FTranslationMatrix(-ProjectedShadowInfo->PreShadowTranslation), FColor::Cyan, 0);
 			}
@@ -318,6 +318,7 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 		MobileCSMVisibilityInfo.MobileNonCSMStaticBatchVisibility = View.StaticMeshBatchVisibility;
 	}
 
+	bool bAlwaysUseCSM = false;
 	for (FLightSceneInfo* MobileDirectionalLightSceneInfo : Scene->MobileDirectionalLights)
 	{
 		const FLightSceneProxy* LightSceneProxy = MobileDirectionalLightSceneInfo ? MobileDirectionalLightSceneInfo->Proxy : nullptr;
@@ -325,11 +326,40 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 		{
 			bool bLightHasCombinedStaticAndCSMEnabled = bCombinedStaticAndCSMEnabled && LightSceneProxy->UseCSMForDynamicObjects();
 			bool bMovableLightUsingCSM = bMobileEnableMovableLightCSMShaderCulling && LightSceneProxy->IsMovable() && MobileDirectionalLightSceneInfo->ShouldRenderViewIndependentWholeSceneShadows();
-
+			
+			// non-csm culling movable light will force all draws to use CSM shaders.
+			// TODO: Cases in which a light channel uses a shadow casting non-csm culled movable light we only really need to use CSM on primitives that match the light channel.
+			bAlwaysUseCSM = bAlwaysUseCSM || (!bMobileEnableMovableLightCSMShaderCulling && LightSceneProxy->IsMovable() && MobileDirectionalLightSceneInfo->ShouldRenderViewIndependentWholeSceneShadows());
 			if (bLightHasCombinedStaticAndCSMEnabled || bMovableLightUsingCSM)
 			{
 				BuildCSMVisibilityState(MobileDirectionalLightSceneInfo);
 			}
+		}
+	}
+
+	// Where we've determined CSM is required we copy the MobileBasePassCSM mesh commands to the BasePass visible list:
+	for (auto& View : Views)
+	{
+		FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
+		if(MobileCSMVisibilityInfo.bMobileDynamicCSMInUse)
+		{
+			// determine per view CSM visibility
+			FMeshCommandOneFrameArray& MeshCommands = View.VisibleMeshDrawCommands[EMeshPass::BasePass];
+			FMeshCommandOneFrameArray& MeshCommandsCSM = View.VisibleMeshDrawCommands[EMeshPass::MobileBasePassCSM];
+			checkf(MeshCommands.Num() == MeshCommandsCSM.Num(), TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
+			for (int32 i = MeshCommands.Num() - 1; i >= 0; --i)
+			{
+				FVisibleMeshDrawCommand& MeshCommand = MeshCommands[i];
+				FVisibleMeshDrawCommand& MeshCommandCSM = MeshCommandsCSM[i];
+
+				if (bAlwaysUseCSM || (MeshCommand.ScenePrimitiveId >= 0 && MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[MeshCommand.ScenePrimitiveId]))
+				{
+					checkf(MeshCommand.ScenePrimitiveId == MeshCommandCSM.ScenePrimitiveId, TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
+					// Use CSM's VisibleMeshDrawCommand.
+					MeshCommand = MeshCommandCSM;
+				}
+			}
+			MeshCommandsCSM.Reset();
 		}
 	}
 

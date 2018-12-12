@@ -1948,7 +1948,7 @@ void UCanvas::K2_DrawMaterial(UMaterialInterface* RenderMaterial, FVector2D Scre
 		// Canvas can be NULL if the user tried to draw after EndDrawCanvasToRenderTarget
 		&& Canvas)
 	{
-		FCanvasTileItem TileItem(ScreenPosition, RenderMaterial->GetRenderProxy(0), ScreenSize, CoordinatePosition, CoordinatePosition + CoordinateSize);
+		FCanvasTileItem TileItem(ScreenPosition, RenderMaterial->GetRenderProxy(), ScreenSize, CoordinatePosition, CoordinatePosition + CoordinateSize);
 		TileItem.Rotation = FRotator(0, Rotation, 0);
 		TileItem.PivotPoint = PivotPoint;
 		TileItem.SetColor(DrawColor);
@@ -2016,7 +2016,7 @@ void UCanvas::K2_DrawMaterialTriangle(UMaterialInterface* RenderMaterial, TArray
 	if (RenderMaterial && Triangles.Num() > 0 && Canvas)
 	{
 		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, NULL);
-		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy(0);
+		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy();
 		TriangleItem.TriangleList = MoveTemp(Triangles);
 		DrawItem(TriangleItem);
 	}

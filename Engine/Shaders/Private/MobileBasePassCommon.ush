@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #define FogStruct MobileBasePass.Fog
+#define PlanarReflectionStruct MobileBasePass.PlanarReflection
 
 #define USE_PS_CLIP_PLANE PROJECT_ALLOW_GLOBAL_CLIP_PLANE
 

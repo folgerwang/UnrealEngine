@@ -1228,10 +1228,6 @@ void FRCPassPostProcessVisualizeMotionBlur::Process(FRenderingCompositePassConte
 	Canvas.DrawShadowedString(X + ColumnWidth, Y, *Line, GetStatsFont(), FLinearColor(1, 1, 0));
 
 	const FScene* Scene = (const FScene*)View.Family->Scene;
-
-	Canvas.DrawShadowedString(X, Y += YStep, TEXT("MotionBlurInfoData (per object):"), GetStatsFont(), FLinearColor(1, 1, 0));
-	Canvas.DrawShadowedString(X + ColumnWidth, Y, *Scene->MotionBlurInfoData.GetDebugString(), GetStatsFont(), FLinearColor(1, 1, 0));
-
 	const FSceneViewState *SceneViewState = (const FSceneViewState*)View.State;
 
 	Line = FString::Printf(TEXT("View=%.4x PrevView=%.4x"),

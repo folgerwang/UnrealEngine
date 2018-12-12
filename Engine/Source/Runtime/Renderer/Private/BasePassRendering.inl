@@ -13,65 +13,69 @@ class FMeshMaterialShader;
 class FPrimitiveSceneProxy;
 class FRHICommandList;
 class FSceneView;
-class FVelocityDrawingPolicy;
 class FVertexFactory;
 class FViewInfo;
 struct FMeshBatch;
 struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
-template<typename PixelParametersType> class TBasePassPixelShaderPolicyParamType;
-template<typename VertexParametersType> class TBasePassVertexShaderPolicyParamType;
 
-template<typename VertexParametersType>
-inline void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
+template<typename LightMapPolicyType>
+inline void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
 {
 	FVertexShaderRHIParamRef VertexShaderRHI = GetVertexShader();
 	FMeshMaterialShader::SetMesh(RHICmdList, VertexShaderRHI, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-
-	const bool bHasPreviousLocalToWorldParameter = PreviousLocalToWorldParameter.IsBound();
-	const bool bHasSkipOutputVelocityParameter = SkipOutputVelocityParameter.IsBound();
-
-	float SkipOutputVelocityValue = 1.0f;
-	FMatrix PreviousLocalToWorldMatrix;
-
-	if (bHasPreviousLocalToWorldParameter || bHasSkipOutputVelocityParameter)
-	{
-		if (Proxy)
-		{
-			bool bHasPreviousLocalToWorldMatrix = false;
-			const auto& ViewInfo = (const FViewInfo&)View;
-
-			if (FVelocityDrawingPolicy::HasVelocityOnBasePass(ViewInfo, Proxy, Proxy->GetPrimitiveSceneInfo(), Mesh,
-				bHasPreviousLocalToWorldMatrix, PreviousLocalToWorldMatrix))
-			{
-				PreviousLocalToWorldMatrix = bHasPreviousLocalToWorldMatrix ? PreviousLocalToWorldMatrix : Proxy->GetLocalToWorld();
-
-				SkipOutputVelocityValue = 0.0f;
-			}
-			else
-			{
-				PreviousLocalToWorldMatrix.SetIdentity();
-			}
-		}
-		else
-		{
-			PreviousLocalToWorldMatrix.SetIdentity();
-		}
-	}
-
-	if (bHasPreviousLocalToWorldParameter)
-	{
-		SetShaderValue(RHICmdList, VertexShaderRHI, PreviousLocalToWorldParameter, PreviousLocalToWorldMatrix);
-	}
-
-	if (bHasSkipOutputVelocityParameter)
-	{
-		SetShaderValue(RHICmdList, VertexShaderRHI, SkipOutputVelocityParameter, SkipOutputVelocityValue);
-	}
 }
 
-template<typename VertexParametersType>
-void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
+template<typename LightMapPolicyType>
+void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::GetShaderBindings(
+	const FScene* Scene,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FMaterialRenderProxy& MaterialRenderProxy,
+	const FMaterial& Material,
+	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+	FUniformBufferRHIParamRef PassUniformBufferValue,
+	const TBasePassShaderElementData<LightMapPolicyType>& ShaderElementData,
+	FMeshDrawSingleShaderBindings& ShaderBindings) const
+{
+	FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
+
+	if (Scene)
+	{
+		FUniformBufferRHIParamRef ReflectionCaptureUniformBuffer = Scene->UniformBuffers.ReflectionCaptureUniformBuffer.GetReference();
+		ShaderBindings.Add(ReflectionCaptureBuffer, ReflectionCaptureUniformBuffer);
+	}
+	else
+	{
+		ensure(!ReflectionCaptureBuffer.IsBound());
+	}
+
+	LightMapPolicyType::GetVertexShaderBindings(
+		PrimitiveSceneProxy,
+		ShaderElementData.LightMapPolicyElementData,
+		this,
+		ShaderBindings);
+}
+
+template<typename LightMapPolicyType>
+void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::GetElementShaderBindings(
+	const FScene* Scene, 
+	const FSceneView* ViewIfDynamicMeshCommand, 
+	const FVertexFactory* VertexFactory,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FMeshBatch& MeshBatch,
+	const FMeshBatchElement& BatchElement, 
+	const TBasePassShaderElementData<LightMapPolicyType>& ShaderElementData,
+	FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams) const
+{
+	FMeshMaterialShader::GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, bShaderRequiresPositionOnlyStream, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, ShaderBindings, VertexStreams);
+}
+
+template<typename LightMapPolicyType>
+void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
 {
 	if (InstancedEyeIndexParameter.IsBound())
 	{
@@ -79,13 +83,39 @@ void TBasePassVertexShaderPolicyParamType<VertexParametersType>::SetInstancedEye
 	}
 }
 
-template<typename PixelParametersType>
-void TBasePassPixelShaderPolicyParamType<PixelParametersType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode)
+template<typename LightMapPolicyType>
+void TBasePassPixelShaderPolicyParamType<LightMapPolicyType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode)
 {
-	if (View.GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+	FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
+}
+
+template<typename LightMapPolicyType>
+void TBasePassPixelShaderPolicyParamType<LightMapPolicyType>::GetShaderBindings(
+	const FScene* Scene,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FMaterialRenderProxy& MaterialRenderProxy,
+	const FMaterial& Material,
+	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+	FUniformBufferRHIParamRef PassUniformBufferValue,
+	const TBasePassShaderElementData<LightMapPolicyType>& ShaderElementData,
+	FMeshDrawSingleShaderBindings& ShaderBindings) const
+{
+	FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
+
+	if (Scene)
 	{
-		ReflectionParameters.SetMesh(RHICmdList, GetPixelShader(), View, Proxy, View.GetFeatureLevel());
+		FUniformBufferRHIParamRef ReflectionCaptureUniformBuffer = Scene->UniformBuffers.ReflectionCaptureUniformBuffer.GetReference();
+		ShaderBindings.Add(ReflectionCaptureBuffer, ReflectionCaptureUniformBuffer);
+	}
+	else
+	{
+		ensure(!ReflectionCaptureBuffer.IsBound());
 	}
 
-	FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
+	LightMapPolicyType::GetPixelShaderBindings(
+		PrimitiveSceneProxy,
+		ShaderElementData.LightMapPolicyElementData,
+		this,
+		ShaderBindings);
 }

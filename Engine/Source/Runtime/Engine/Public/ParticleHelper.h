@@ -1425,7 +1425,7 @@ struct FDynamicEmitterDataBase
 	 *
 	 *	@return	FMaterialRenderProxy*	The material proxt to render with.
 	 */
-	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected) = 0;
+	virtual const FMaterialRenderProxy* GetMaterialRenderProxy() = 0;
 
 	/** Callback from the renderer to gather simple lights that this proxy wants renderered. */
 	virtual void GatherSimpleLights(const FParticleSystemSceneProxy* Proxy, const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const {}
@@ -1519,8 +1519,7 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 		FDynamicEmitterDataBase(RequiredModule),
 		bUsesDynamicParameter( false )
 	{
-		MaterialResource[0] = NULL;
-		MaterialResource[1] = NULL;
+		MaterialResource = nullptr;
 	}
 
 	virtual ~FDynamicSpriteEmitterDataBase()
@@ -1534,9 +1533,9 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 	 *
 	 *	@return	FMaterialRenderProxy*	The material proxt to render with.
 	 */
-	const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) 
+	const FMaterialRenderProxy* GetMaterialRenderProxy() 
 	{ 
-		return MaterialResource[bInSelected]; 
+		return MaterialResource;
 	}
 
 	/**
@@ -1627,8 +1626,8 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 		FGlobalDynamicVertexBuffer::FAllocation* DynamicParameterAllocation,
 		FAsyncBufferFillData& Data) const;
 
-	/** The material render proxies for this emitter */
-	const FMaterialRenderProxy*	MaterialResource[2];
+	/** The material render proxy for this emitter */
+	const FMaterialRenderProxy*	MaterialResource;
 	/** true if the particle emitter utilizes the DynamicParameter module */
 	uint32 bUsesDynamicParameter:1;
 };
@@ -2566,7 +2565,7 @@ public:
 	void SetVisualizeLODIndex(int32 InVisualizeLODIndex) { VisualizeLODIndex = InVisualizeLODIndex; }
 	int32  GetVisualizeLODIndex() const { return VisualizeLODIndex; }
 
-	inline const TUniformBuffer<FPrimitiveUniformShaderParameters>& GetWorldSpacePrimitiveUniformBuffer() const { return WorldSpacePrimitiveUniformBuffer; }
+	inline FUniformBufferRHIParamRef GetWorldSpacePrimitiveUniformBuffer() const { return WorldSpacePrimitiveUniformBuffer.GetUniformBufferRHI(); }
 
 	const FColoredMaterialRenderProxy* GetDeselectedWireframeMatInst() const	{	return &DeselectedWireframeMaterialInstance;	}
 

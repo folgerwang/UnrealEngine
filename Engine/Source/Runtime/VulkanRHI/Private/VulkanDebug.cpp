@@ -3627,6 +3627,16 @@ void FWrapLayer::SetStencilReference(VkResult Result, VkCommandBuffer CommandBuf
 	}
 }
 
+void FWrapLayer::UpdateBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize DataSize, const void* pData)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdUpdateBuffer(DstBuffer=0x%p, DstOffset=%d, Size=%d, Data=0x%p)"), DstBuffer, (uint32)DstOffset, (uint32)DataSize, pData));
+#endif
+	}
+}
+
 void FWrapLayer::FillBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize Size, uint32 Data)
 {
 	if (Result == VK_RESULT_MAX_ENUM)

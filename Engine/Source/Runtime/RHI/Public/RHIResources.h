@@ -225,6 +225,12 @@ class FRHIComputePipelineState : public FRHIResource {};
 // Buffers
 //
 
+// Whether to assert in cases where the layout is released before uniform buffers created with that layout
+#define VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME 0
+
+// Whether to assert when a uniform buffer is being deleted while still referenced by a mesh draw command
+#define VALIDATE_UNIFORM_BUFFER_LIFETIME 0
+
 /** The layout of a uniform buffer in memory. */
 struct FRHIUniformBufferLayout
 {
@@ -234,6 +240,10 @@ struct FRHIUniformBufferLayout
 	TArray<uint16> ResourceOffsets;
 	/** The type of each resource (EUniformBufferBaseType). */
 	TArray<uint8> Resources;
+
+#if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
+	mutable int32 NumUsesForDebugging = 0;
+#endif
 
 	inline uint32 GetHash() const
 	{
@@ -290,6 +300,13 @@ struct FRHIUniformBufferLayout
 	{
 	}
 
+#if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
+	~FRHIUniformBufferLayout()
+	{
+		check(NumUsesForDebugging == 0 || GIsRequestingExit);
+	}
+#endif
+
 	void CopyFrom(const FRHIUniformBufferLayout& Source)
 	{
 		ConstantBufferSize = Source.ConstantBufferSize;
@@ -330,6 +347,35 @@ public:
 	, LayoutConstantBufferSize(InLayout.ConstantBufferSize)
 	{}
 
+	FORCEINLINE_DEBUGGABLE uint32 AddRef() const
+	{
+#if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
+		if (GetRefCount() == 0)
+		{
+			Layout->NumUsesForDebugging++;
+		}
+#endif
+		return FRHIResource::AddRef();
+	}
+
+	FORCEINLINE_DEBUGGABLE uint32 Release() const
+	{
+		uint32 NewRefCount = FRHIResource::Release();
+
+		if (NewRefCount == 0)
+		{
+#if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
+			Layout->NumUsesForDebugging--;
+			check(Layout->NumUsesForDebugging >= 0);
+#endif
+#if VALIDATE_UNIFORM_BUFFER_LIFETIME
+			check(NumMeshCommandReferencesForDebugging == 0 || GIsRequestingExit);
+#endif
+		}
+
+		return NewRefCount;
+	}
+
 	/** @return The number of bytes in the uniform buffer. */
 	uint32 GetSize() const
 	{
@@ -337,6 +383,10 @@ public:
 		return LayoutConstantBufferSize;
 	}
 	const FRHIUniformBufferLayout& GetLayout() const { return *Layout; }
+
+#if VALIDATE_UNIFORM_BUFFER_LIFETIME
+	mutable int32 NumMeshCommandReferencesForDebugging = 0;
+#endif
 
 private:
 	/** Layout of the uniform buffer. */
@@ -1579,51 +1629,30 @@ struct FImmutableSamplerState
 	TImmutableSamplers ImmutableSamplers;
 };
 
-class FGraphicsPipelineStateInitializer final
+/** 
+ * Pipeline state without render target state 
+ * Useful for mesh passes where the render target state is not changing between draws.
+ * Note: the size of this class affects rendering mesh pass traversal performance. 
+ */
+class FGraphicsMinimalPipelineStateInitializer
 {
 public:
-	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
-	using TRenderTargetFlags		= TStaticArray<uint32, MaxSimultaneousRenderTargets>;
 
-	FGraphicsPipelineStateInitializer()
+	FGraphicsMinimalPipelineStateInitializer()
 		: BlendState(nullptr)
 		, RasterizerState(nullptr)
 		, DepthStencilState(nullptr)
 		, PrimitiveType(PT_Num)
-		, RenderTargetsEnabled(0)
-		, RenderTargetFormats(PF_Unknown)
-		, RenderTargetFlags(0)
-		, DepthStencilTargetFormat(PF_Unknown)
-		, DepthStencilTargetFlag(0)
-		, DepthTargetLoadAction(ERenderTargetLoadAction::ENoAction)
-		, DepthTargetStoreAction(ERenderTargetStoreAction::ENoAction)
-		, StencilTargetLoadAction(ERenderTargetLoadAction::ENoAction)
-		, StencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
-		, NumSamples(0)
-		, Flags(0)
 	{
-		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
 	}
 
-	FGraphicsPipelineStateInitializer(
+	FGraphicsMinimalPipelineStateInitializer(
 		FBoundShaderStateInput				InBoundShaderState,
 		FBlendStateRHIParamRef				InBlendState,
 		FRasterizerStateRHIParamRef			InRasterizerState,
 		FDepthStencilStateRHIParamRef		InDepthStencilState,
 		FImmutableSamplerState				InImmutableSamplerState,
-		EPrimitiveType						InPrimitiveType,
-		uint32								InRenderTargetsEnabled,
-		const TRenderTargetFormats&			InRenderTargetFormats,
-		const TRenderTargetFlags&			InRenderTargetFlags,
-		EPixelFormat						InDepthStencilTargetFormat,
-		uint32								InDepthStencilTargetFlag,
-		ERenderTargetLoadAction				InDepthTargetLoadAction,
-		ERenderTargetStoreAction			InDepthTargetStoreAction,
-		ERenderTargetLoadAction				InStencilTargetLoadAction,
-		ERenderTargetStoreAction			InStencilTargetStoreAction,
-		FExclusiveDepthStencil				InDepthStencilAccess,
-		uint32								InNumSamples,
-		uint16								InFlags
+		EPrimitiveType						InPrimitiveType
 		)
 		: BoundShaderState(InBoundShaderState)
 		, BlendState(InBlendState)
@@ -1631,41 +1660,20 @@ public:
 		, DepthStencilState(InDepthStencilState)
 		, ImmutableSamplerState(InImmutableSamplerState)
 		, PrimitiveType(InPrimitiveType)
-		, RenderTargetsEnabled(InRenderTargetsEnabled)
-		, RenderTargetFormats(InRenderTargetFormats)
-		, RenderTargetFlags(InRenderTargetFlags)
-		, DepthStencilTargetFormat(InDepthStencilTargetFormat)
-		, DepthStencilTargetFlag(InDepthStencilTargetFlag)
-		, DepthTargetLoadAction(InDepthTargetLoadAction)
-		, DepthTargetStoreAction(InDepthTargetStoreAction)
-		, StencilTargetLoadAction(InStencilTargetLoadAction)
-		, StencilTargetStoreAction(InStencilTargetStoreAction)
-		, DepthStencilAccess(InDepthStencilAccess)
-		, NumSamples(InNumSamples)
-		, Flags(InFlags)
 	{
-		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
-		BoundShaderState = InBoundShaderState;
-		BlendState = InBlendState;
-		RasterizerState = InRasterizerState;
-		DepthStencilState = InDepthStencilState;
-		PrimitiveType = InPrimitiveType;
-		ImmutableSamplerState = InImmutableSamplerState;
-		RenderTargetsEnabled = InRenderTargetsEnabled;
-		RenderTargetFormats = InRenderTargetFormats;
-		RenderTargetFlags = InRenderTargetFlags;
-		DepthStencilTargetFormat = InDepthStencilTargetFormat;
-		DepthStencilTargetFlag = InDepthStencilTargetFlag;
-		DepthTargetLoadAction = InDepthTargetLoadAction;
-		DepthTargetStoreAction = InDepthTargetStoreAction;
-		StencilTargetLoadAction = InStencilTargetLoadAction;
-		StencilTargetStoreAction = InStencilTargetStoreAction;
-		DepthStencilAccess = InDepthStencilAccess;
-		NumSamples = InNumSamples;
-		Flags = InFlags;
 	}
 
-	bool operator==(const FGraphicsPipelineStateInitializer& rhs) const
+	FGraphicsMinimalPipelineStateInitializer(const FGraphicsMinimalPipelineStateInitializer& InMinimalState)
+		: BoundShaderState(InMinimalState.BoundShaderState)
+		, BlendState(InMinimalState.BlendState)
+		, RasterizerState(InMinimalState.RasterizerState)
+		, DepthStencilState(InMinimalState.DepthStencilState)
+		, ImmutableSamplerState(InMinimalState.ImmutableSamplerState)
+		, PrimitiveType(InMinimalState.PrimitiveType)
+	{
+	}
+
+	inline bool operator==(const FGraphicsMinimalPipelineStateInitializer& rhs) const
 	{
 		if (BoundShaderState.VertexDeclarationRHI != rhs.BoundShaderState.VertexDeclarationRHI || 
 			BoundShaderState.VertexShaderRHI != rhs.BoundShaderState.VertexShaderRHI ||
@@ -1678,23 +1686,25 @@ public:
 			DepthStencilState != rhs.DepthStencilState ||
 			ImmutableSamplerState != rhs.ImmutableSamplerState ||
 			bDepthBounds != rhs.bDepthBounds ||
-			PrimitiveType != rhs.PrimitiveType ||
-			RenderTargetsEnabled != rhs.RenderTargetsEnabled ||
-			RenderTargetFormats != rhs.RenderTargetFormats || 
-			RenderTargetFlags != rhs.RenderTargetFlags || 
-			DepthStencilTargetFormat != rhs.DepthStencilTargetFormat || 
-			DepthStencilTargetFlag != rhs.DepthStencilTargetFlag ||
-			DepthTargetLoadAction != rhs.DepthTargetLoadAction ||
-			DepthTargetStoreAction != rhs.DepthTargetStoreAction ||
-			StencilTargetLoadAction != rhs.StencilTargetLoadAction ||
-			StencilTargetStoreAction != rhs.StencilTargetStoreAction || 
-			DepthStencilAccess != rhs.DepthStencilAccess ||
-			NumSamples != rhs.NumSamples)
+			PrimitiveType != rhs.PrimitiveType) 
 		{
 			return false;
 		}
 
 		return true;
+	}
+
+	inline bool operator!=(const FGraphicsMinimalPipelineStateInitializer& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	inline friend uint32 GetTypeHash(const FGraphicsMinimalPipelineStateInitializer& Initializer)
+	{
+		return PointerHash(Initializer.BoundShaderState.VertexDeclarationRHI, 
+			PointerHash(Initializer.BoundShaderState.VertexShaderRHI, 
+				PointerHash(Initializer.BoundShaderState.PixelShaderRHI, 
+					PointerHash(Initializer.RasterizerState))));
 	}
 
 #define COMPARE_FIELD_BEGIN(Field) \
@@ -1708,7 +1718,7 @@ public:
 #define COMPARE_FIELD_END \
 		else { return false; }
 
-	bool operator<(FGraphicsPipelineStateInitializer& rhs) const
+	bool operator<(const FGraphicsMinimalPipelineStateInitializer& rhs) const
 	{
 #define COMPARE_OP <
 
@@ -1728,7 +1738,7 @@ public:
 #undef COMPARE_OP
 	}
 
-	bool operator>(FGraphicsPipelineStateInitializer& rhs) const
+	bool operator>(const FGraphicsMinimalPipelineStateInitializer& rhs) const
 	{
 #define COMPARE_OP >
 
@@ -1752,6 +1762,117 @@ public:
 #undef COMPARE_FIELD
 #undef COMPARE_FIELD_END
 
+	// TODO: [PSO API] - As we migrate reuse existing API objects, but eventually we can move to the direct initializers. 
+	// When we do that work, move this to RHI.h as its more appropriate there, but here for now since dependent typdefs are here.
+	FBoundShaderStateInput			BoundShaderState;
+	FBlendStateRHIParamRef			BlendState;
+	FRasterizerStateRHIParamRef		RasterizerState;
+	FDepthStencilStateRHIParamRef	DepthStencilState;
+	FImmutableSamplerState			ImmutableSamplerState;
+
+	// Note: FGraphicsMinimalPipelineStateInitializer is 8-byte aligned and can't have any implicit padding,
+	// as it is sometimes hashed and compared as raw bytes. Explicit padding is therefore required between
+	// all data members and at the end of the structure.
+	bool							bDepthBounds = false;
+	uint8							Padding[3] = {};
+
+	EPrimitiveType					PrimitiveType;
+};
+
+class FGraphicsPipelineStateInitializer final : public FGraphicsMinimalPipelineStateInitializer
+{
+public:
+	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
+	using TRenderTargetFlags		= TStaticArray<uint32, MaxSimultaneousRenderTargets>;
+
+	FGraphicsPipelineStateInitializer()
+		: RenderTargetsEnabled(0)
+		, RenderTargetFormats(PF_Unknown)
+		, RenderTargetFlags(0)
+		, DepthStencilTargetFormat(PF_Unknown)
+		, DepthStencilTargetFlag(0)
+		, DepthTargetLoadAction(ERenderTargetLoadAction::ENoAction)
+		, DepthTargetStoreAction(ERenderTargetStoreAction::ENoAction)
+		, StencilTargetLoadAction(ERenderTargetLoadAction::ENoAction)
+		, StencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
+		, NumSamples(0)
+		, Flags(0)
+	{
+	}
+
+	FGraphicsPipelineStateInitializer(const FGraphicsMinimalPipelineStateInitializer& InMinimalState)
+		: FGraphicsMinimalPipelineStateInitializer(InMinimalState)
+		, RenderTargetsEnabled(0)
+		, RenderTargetFormats(PF_Unknown)
+		, RenderTargetFlags(0)
+		, DepthStencilTargetFormat(PF_Unknown)
+		, DepthStencilTargetFlag(0)
+		, DepthTargetLoadAction(ERenderTargetLoadAction::ENoAction)
+		, DepthTargetStoreAction(ERenderTargetStoreAction::ENoAction)
+		, StencilTargetLoadAction(ERenderTargetLoadAction::ENoAction)
+		, StencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
+		, NumSamples(0)
+		, Flags(0)
+	{
+	}
+
+	FGraphicsPipelineStateInitializer(
+		FBoundShaderStateInput				InBoundShaderState,
+		FBlendStateRHIParamRef				InBlendState,
+		FRasterizerStateRHIParamRef			InRasterizerState,
+		FDepthStencilStateRHIParamRef		InDepthStencilState,
+		FImmutableSamplerState				InImmutableSamplerState,
+		EPrimitiveType						InPrimitiveType,
+		uint32								InRenderTargetsEnabled,
+		const TRenderTargetFormats&			InRenderTargetFormats,
+		const TRenderTargetFlags&			InRenderTargetFlags,
+		EPixelFormat						InDepthStencilTargetFormat,
+		uint32								InDepthStencilTargetFlag,
+		ERenderTargetLoadAction				InDepthTargetLoadAction,
+		ERenderTargetStoreAction			InDepthTargetStoreAction,
+		ERenderTargetLoadAction				InStencilTargetLoadAction,
+		ERenderTargetStoreAction			InStencilTargetStoreAction,
+		FExclusiveDepthStencil				InDepthStencilAccess,
+		uint32								InNumSamples,
+		uint16								InFlags
+		)
+		: FGraphicsMinimalPipelineStateInitializer(InBoundShaderState, InBlendState, InRasterizerState, InDepthStencilState, InImmutableSamplerState, InPrimitiveType)
+		, RenderTargetsEnabled(InRenderTargetsEnabled)
+		, RenderTargetFormats(InRenderTargetFormats)
+		, RenderTargetFlags(InRenderTargetFlags)
+		, DepthStencilTargetFormat(InDepthStencilTargetFormat)
+		, DepthStencilTargetFlag(InDepthStencilTargetFlag)
+		, DepthTargetLoadAction(InDepthTargetLoadAction)
+		, DepthTargetStoreAction(InDepthTargetStoreAction)
+		, StencilTargetLoadAction(InStencilTargetLoadAction)
+		, StencilTargetStoreAction(InStencilTargetStoreAction)
+		, DepthStencilAccess(InDepthStencilAccess)
+		, NumSamples(InNumSamples)
+		, Flags(InFlags)
+	{
+	}
+
+	bool operator==(const FGraphicsPipelineStateInitializer& rhs) const
+	{
+		if (!FGraphicsMinimalPipelineStateInitializer::operator ==(rhs) ||
+			RenderTargetsEnabled != rhs.RenderTargetsEnabled ||
+			RenderTargetFormats != rhs.RenderTargetFormats || 
+			RenderTargetFlags != rhs.RenderTargetFlags || 
+			DepthStencilTargetFormat != rhs.DepthStencilTargetFormat || 
+			DepthStencilTargetFlag != rhs.DepthStencilTargetFlag ||
+			DepthTargetLoadAction != rhs.DepthTargetLoadAction ||
+			DepthTargetStoreAction != rhs.DepthTargetStoreAction ||
+			StencilTargetLoadAction != rhs.StencilTargetLoadAction ||
+			StencilTargetStoreAction != rhs.StencilTargetStoreAction || 
+			DepthStencilAccess != rhs.DepthStencilAccess ||
+			NumSamples != rhs.NumSamples)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	uint32 ComputeNumValidRenderTargets() const
 	{
 		// Get the count of valid render targets (ignore those at the end of the array with PF_Unknown)
@@ -1771,15 +1892,6 @@ public:
 		return RenderTargetsEnabled;
 	}
 
-	// TODO: [PSO API] - As we migrate reuse existing API objects, but eventually we can move to the direct initializers. 
-	// When we do that work, move this to RHI.h as its more appropriate there, but here for now since dependent typdefs are here.
-	FBoundShaderStateInput			BoundShaderState;
-	FBlendStateRHIParamRef			BlendState;
-	FRasterizerStateRHIParamRef		RasterizerState;
-	FDepthStencilStateRHIParamRef	DepthStencilState;
-	FImmutableSamplerState			ImmutableSamplerState;
-	bool							bDepthBounds = false;
-	EPrimitiveType					PrimitiveType;
 	uint32							RenderTargetsEnabled;
 	TRenderTargetFormats			RenderTargetFormats;
 	TRenderTargetFlags				RenderTargetFlags;
@@ -1808,15 +1920,6 @@ public:
 
 	friend class FMeshDrawingPolicy;
 };
-
-// TIsTriviallyCopyable (a.k.a. std::is_trivially_copyable) should be used but
-// TIsTriviallyCopyable is not provided by the core module at the moment. Core's
-// implementation of TIsTrivial is actually equivalent to std::is_trivially_copyable
-// since std::is_trivial<T> requires T to have a trivial constructor but TIsTrivial
-// doesn't
-static_assert(
-	TIsTrivial<FGraphicsPipelineStateInitializer>::Value,
-	"Due to the use of memset in ctors, FGraphicsPipelineStateInitializer must have no v-table");
 
 // This PSO is used as a fallback for RHIs that dont support PSOs. It is used to set the graphics state using the legacy state setting APIs
 class FRHIGraphicsPipelineStateFallBack : public FRHIGraphicsPipelineState

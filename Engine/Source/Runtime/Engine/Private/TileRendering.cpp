@@ -200,7 +200,6 @@ void FCanvasTileRendererItem::FTileMesh::InitRHI()
 
 void FCanvasTileRendererItem::FTileMesh::ReleaseRHI()
 {
-	MeshElement.Elements[0].PrimitiveUniformBuffer.SafeRelease();
 }
 
 FCanvasTileRendererItem::FRenderData::FRenderData(ERHIFeatureLevel::Type InFeatureLevel,

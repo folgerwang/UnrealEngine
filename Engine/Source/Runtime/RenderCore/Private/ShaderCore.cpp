@@ -291,12 +291,14 @@ bool FShaderParameterMap::ContainsParameterAllocation(const TCHAR* ParameterName
 	return ParameterMap.Find(ParameterName) != NULL;
 }
 
-void FShaderParameterMap::AddParameterAllocation(const TCHAR* ParameterName,uint16 BufferIndex,uint16 BaseIndex,uint16 Size)
+void FShaderParameterMap::AddParameterAllocation(const TCHAR* ParameterName,uint16 BufferIndex,uint16 BaseIndex,uint16 Size,EShaderParameterType ParameterType)
 {
+	check(ParameterType < EShaderParameterType::Num);
 	FParameterAllocation Allocation;
 	Allocation.BufferIndex = BufferIndex;
 	Allocation.BaseIndex = BaseIndex;
 	Allocation.Size = Size;
+	Allocation.Type = ParameterType;
 	ParameterMap.Add(ParameterName,Allocation);
 }
 

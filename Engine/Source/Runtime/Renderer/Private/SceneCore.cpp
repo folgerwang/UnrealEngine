@@ -17,6 +17,7 @@
 #include "RendererModule.h"
 #include "ScenePrivate.h"
 #include "Containers/AllocatorFixedSizeFreeList.h"
+#include "MaterialShared.h"
 
 int32 GUnbuiltPreviewShadowsInGame = 1;
 FAutoConsoleVariableRef CVarUnbuiltPreviewShadowsInGame(
@@ -229,6 +230,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		{
 			bES2DynamicPointLight = true;
 			PrimitiveSceneInfo->NumMobileMovablePointLights++;
+			// enable dynamic path for primitives affected by dynamic point lights
+			PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
 			// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
 			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 		}
@@ -275,6 +278,8 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 	if (bES2DynamicPointLight)
 	{
 		PrimitiveSceneInfo->NumMobileMovablePointLights--;
+		// enable dynamic path for primitives affected by dynamic point lights
+		PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
 		// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
 		PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 	}
@@ -330,11 +335,14 @@ void FStaticMesh::UnlinkDrawList(FStaticMesh::FDrawListElementLink* Link)
 void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene)
 {
 	const auto FeatureLevel = Scene->GetFeatureLevel();
+	
+	// TEMP: optionally allow to switch off mesh command caching for cooked mobile
+	extern int32 MeshDrawCommandPipelineMobileCooked();
+	const int32 CacheMeshCommandsVal = MeshDrawCommandPipelineMobileCooked();
 
-	if (bUseForMaterial && Scene->RequiresHitProxies() && PrimitiveSceneInfo->Proxy->IsSelectable())
+	if (SupportsCachingMeshDrawCommands(VertexFactory, PrimitiveSceneInfo->Proxy) && CacheMeshCommandsVal > 0)
 	{
-		// Add the static mesh to the DPG's hit proxy draw list.
-		FHitProxyDrawingPolicyFactory::AddStaticMesh(Scene, this);
+		CacheMeshDrawCommands(Scene);
 	}
 
 	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass() || !ShouldIncludeDomainInMeshPass(MaterialRenderProxy->GetMaterial(FeatureLevel)->GetMaterialDomain()))
@@ -342,7 +350,7 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 		return;
 	}
 
-	if (CastShadow)
+	if (CastShadow && CacheMeshCommandsVal < 2)
 	{
 		FShadowDepthDrawingPolicyFactory::AddStaticMesh(Scene, this);
 	}
@@ -352,34 +360,7 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 		return;
 	}
 
-	if (Scene->GetShadingPath() == EShadingPath::Deferred)
-	{
-		extern void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
-
-		EDepthDrawingMode EarlyZPassMode;
-		bool bEarlyZPassMovable;
-		GetEarlyZPassMode(Scene->GetShaderPlatform(), EarlyZPassMode, bEarlyZPassMovable);
-
-		if (bUseAsOccluder || EarlyZPassMode == DDM_AllOpaque)
-		{
-			// WARNING : If you change this condition, also change the logic in FStaticMeshSceneProxy::DrawStaticElements.
-			// Warning: also mirrored in FDeferredShadingSceneRenderer::FDeferredShadingSceneRenderer
-			if ((PrimitiveSceneInfo->Proxy->ShouldUseAsOccluder() || EarlyZPassMode == DDM_AllOpaque)
-				&& (!IsMasked(FeatureLevel) || EarlyZPassMode >= DDM_AllOccluders)
-				&& (!PrimitiveSceneInfo->Proxy->IsMovable() || bEarlyZPassMovable))
-			{
-				FDepthDrawingPolicyFactory::AddStaticMesh(Scene,this);
-			}
-		}
-
-		if (bUseForMaterial)
-		{
-			// Add the static mesh to the DPG's base pass draw list.
-			FBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-			FVelocityDrawingPolicyFactory::AddStaticMesh(Scene, this);
-		}
-	}
-	else if (Scene->GetShadingPath() == EShadingPath::Mobile)
+	if (Scene->GetShadingPath() == EShadingPath::Mobile && CacheMeshCommandsVal < 2)
 	{
 		if (bUseForMaterial)
 		{
@@ -389,52 +370,109 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 	}
 }
 
-void FStaticMesh::RemoveFromDrawLists()
+void FStaticMesh::CacheMeshDrawCommands(FScene* Scene)
 {
-	// Remove the mesh from all draw lists.
-	while(DrawListLinks.Num())
+	//@todo - only need material uniform buffers to be created since we are going to cache pointers to them
+	// Any updates (after initial creation) don't need to be forced here
+	FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
+
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_CacheMeshDrawCommands);
+	FMemMark Mark(FMemStack::Get());
+
+	EShadingPath ShadingPath = Scene->GetShadingPath();
+
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
 	{
-		TRefCountPtr<FStaticMesh::FDrawListElementLink> Link = DrawListLinks[0];
-		const int32 OriginalNumLinks = DrawListLinks.Num();
-		// This will call UnlinkDrawList.
-		Link->Remove(true);
-		check(DrawListLinks.Num() == OriginalNumLinks - 1);
-		if(DrawListLinks.Num())
+		EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands) != EMeshPassFlags::None)
 		{
-			check(DrawListLinks[0] != Link);
+			FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
+			FCachedPassMeshDrawListContext CachedPassMeshDrawListContext(PassMeshCommandIndices[PassType], SceneDrawList, *Scene);
+
+			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
+			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, nullptr, CachedPassMeshDrawListContext);
+
+			check(!bRequiresPerElementVisibility);
+			uint64 BatchElementMask = ~0ull;
+			PassMeshProcessor->AddMeshBatch(*this, BatchElementMask, PrimitiveSceneInfo->Proxy);
+		
+			PassMeshProcessor->~FMeshPassProcessor();
 		}
 	}
 }
 
-/** Returns true if the mesh is linked to the given draw list. */
-bool FStaticMesh::IsLinkedToDrawList(const FStaticMeshDrawListBase* DrawList) const
+void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
 {
-	for (int32 i = 0; i < DrawListLinks.Num(); i++)
+	if (bMeshIsBeingDestroyed)
 	{
-		if (DrawListLinks[i]->IsInDrawList(DrawList))
+		// This is cheaper than calling RemoveFromDrawLists, since it 
+		// doesn't unlink meshes which are about to be destroyed
+		for (int32 i = 0; i < DrawListLinks.Num(); i++)
 		{
-			return true;
+			DrawListLinks[i]->Remove(false);
 		}
 	}
-	return false;
+	else
+	{
+		// Remove the mesh from all draw lists.
+		while(DrawListLinks.Num())
+		{
+			TRefCountPtr<FStaticMesh::FDrawListElementLink> Link = DrawListLinks[0];
+			const int32 OriginalNumLinks = DrawListLinks.Num();
+			// This will call UnlinkDrawList.
+			Link->Remove(true);
+			check(DrawListLinks.Num() == OriginalNumLinks - 1);
+			if(DrawListLinks.Num())
+			{
+				check(DrawListLinks[0] != Link);
+			}
+		}
+	}
+
+	FScene* Scene = PrimitiveSceneInfo->Scene;
+
+	for (int32 PassIndex = 0; PassIndex < ARRAY_COUNT(PassMeshCommandIndices); PassIndex++)
+	{
+		const int32 CommandIndex = PassMeshCommandIndices[PassIndex];
+		if (CommandIndex != -1)
+		{
+			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[PassIndex];
+
+			FCachedMeshDrawCommandInfo& CachedMeshDrawCommandInfo = PassDrawList.MeshDrawCommandInfo[CommandIndex];
+			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedMeshDrawCommandInfo.StateBucketId);
+			checkSlow(StateBucketId.IsValidId());
+			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
+
+			if (StateBucket.Num == 1)
+			{
+				Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
+			}
+			else
+			{
+				StateBucket.Num--;
+			}
+		
+			PassDrawList.MeshDrawCommandInfo.RemoveAt(CommandIndex);
+			PassDrawList.MeshDrawCommands.RemoveAt(CommandIndex);
+		}
+
+		PassMeshCommandIndices[PassIndex] = -1;
+	}
 }
 
 FStaticMesh::~FStaticMesh()
 {
+	FScene* Scene = PrimitiveSceneInfo->Scene;
 	// Remove this static mesh from the scene's list.
-	PrimitiveSceneInfo->Scene->StaticMeshes.RemoveAt(Id);
+	Scene->StaticMeshes.RemoveAt(Id);
 
 	if (BatchVisibilityId != INDEX_NONE)
 	{
-		PrimitiveSceneInfo->Scene->StaticMeshBatchVisibility.RemoveAt(BatchVisibilityId);
+		Scene->StaticMeshBatchVisibility.RemoveAt(BatchVisibilityId);
 	}
 
-	// This is cheaper than calling RemoveFromDrawLists, since it 
-	// doesn't unlink meshes which are about to be destroyed
-	for (int32 i = 0; i < DrawListLinks.Num(); i++)
-	{
-		DrawListLinks[i]->Remove(false);
-	}
+	RemoveFromDrawLists(true);
 }
 
 /** Initialization constructor. */

@@ -70,7 +70,7 @@ public:
 	};
 
 	/** Initialization constructor. */
-	FMaterialInstanceResource(UMaterialInstance* InOwner,bool bInSelected,bool bInHovered);
+	FMaterialInstanceResource(UMaterialInstance* InOwner);
 
 	/**
 	 * Called from the game thread to destroy the material instance on the rendering thread.
@@ -90,7 +90,7 @@ public:
 
 	// FMaterialRenderProxy interface.
 	/** Get the FMaterial to use for rendering.  Must return a valid FMaterial, even if it had to fall back to the default material. */
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const override;
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override;
 	/** Get the FMaterial that should be used for rendering, but might not be in a valid state to actually use.  Can return NULL. */
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type FeatureLevel) const override;
 	virtual UMaterialInterface* GetMaterialInterface() const override;
@@ -108,7 +108,7 @@ public:
 		VectorParameterArray.Reset();
 		ScalarParameterArray.Reset();
 		TextureParameterArray.Reset();
-		InvalidateUniformExpressionCache();
+		InvalidateUniformExpressionCache(false);
 	}
 
 	/**
@@ -117,7 +117,7 @@ public:
 	template <typename ValueType>
 	void RenderThread_UpdateParameter(const FMaterialParameterInfo& ParameterInfo, const ValueType& Value )
 	{
-		InvalidateUniformExpressionCache();
+		InvalidateUniformExpressionCache(false);
 		TArray<TNamedParameter<ValueType> >& ValueArray = GetValueArray<ValueType>();
 		const int32 ParameterCount = ValueArray.Num();
 		for (int32 ParameterIndex = 0; ParameterIndex < ParameterCount; ++ParameterIndex)

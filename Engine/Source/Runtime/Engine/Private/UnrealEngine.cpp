@@ -246,6 +246,12 @@ void FEngineModule::StartupModule()
 	static auto CVarCacheWPOPrimitives = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.CacheWPOPrimitives"));
 	CVarCacheWPOPrimitives->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
 
+	static auto CVARShowMaterialDrawEvents = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShowMaterialDrawEvents"));
+	if (CVARShowMaterialDrawEvents)
+	{
+		CVARShowMaterialDrawEvents->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
+	}
+
 	SuspendTextureStreamingRenderTasks = &SuspendTextureStreamingRenderTasksInternal;
 	ResumeTextureStreamingRenderTasks = &ResumeTextureStreamingRenderTasksInternal;
 
@@ -2322,6 +2328,9 @@ void UEngine::InitializeObjectReferences()
 	LoadSpecialMaterial(TEXT("ArrowMaterialName"), ArrowMaterialName.ToString(), ArrowMaterial, false);
 
 #if !UE_BUILD_SHIPPING
+	ArrowMaterialYellow = UMaterialInstanceDynamic::Create(ArrowMaterial, nullptr);
+	ArrowMaterialYellow->SetVectorParameterValue("GizmoColor", FLinearColor::Yellow);
+
 	LoadSpecialMaterial(TEXT("ConstraintLimitMaterialName"), TEXT("/Engine/EngineMaterials/PhAT_JointLimitMaterial.PhAT_JointLimitMaterial"), ConstraintLimitMaterial, false);
 
 	ConstraintLimitMaterialX = UMaterialInstanceDynamic::Create(ConstraintLimitMaterial, NULL);

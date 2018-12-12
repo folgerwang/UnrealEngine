@@ -28,6 +28,7 @@
 #include "SceneRenderTargetParameters.h"
 #include "ShaderParameterUtils.h"
 #include "LightRendering.h"
+#include "LightPropagationVolume.h"
 
 ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandListImmediate& RHICmdList);
 
@@ -154,7 +155,7 @@ private:
 	class FOnePassPointShadowDepthGS* GeometryShader;
 	TShadowDepthBasePS<bRenderingReflectiveShadowMaps>* PixelShader;
 	class FBaseHS* HullShader;
-	class FShadowDepthDS* DomainShader;
+	class FBaseDS* DomainShader;
 	ERHIFeatureLevel::Type FeatureLevel;
 
 public:
@@ -265,6 +266,66 @@ enum EShadowDepthRenderMode
 	ShadowDepthRenderMode_GIBlockingVolumes,
 };
 
+class FShadowDepthType
+{
+public:
+	bool bDirectionalLight;
+	bool bOnePassPointLightShadow;
+	bool bReflectiveShadowmap;
+
+	FShadowDepthType(bool bInDirectionalLight, bool bInOnePassPointLightShadow, bool bInReflectiveShadowmap) 
+	: bDirectionalLight(bInDirectionalLight)
+	, bOnePassPointLightShadow(bInOnePassPointLightShadow)
+	, bReflectiveShadowmap(bInReflectiveShadowmap)
+	{}
+
+	inline bool operator==(const FShadowDepthType& rhs) const
+	{
+		if (bDirectionalLight != rhs.bDirectionalLight || 
+			bOnePassPointLightShadow != rhs.bOnePassPointLightShadow || 
+			bReflectiveShadowmap != rhs.bReflectiveShadowmap) 
+		{
+			return false;
+		}
+
+		return true;
+	}
+};
+
+extern FShadowDepthType CSMShadowDepthType;
+
+class FShadowDepthPassMeshProcessor : public FMeshPassProcessor
+{
+public:
+
+	FShadowDepthPassMeshProcessor(
+		const FScene* Scene, 
+		const FSceneView* InViewIfDynamicMeshCommand, 
+		const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer,
+		FUniformBufferRHIParamRef InPassUniformBuffer,
+		FShadowDepthType InShadowDepthType,
+		FMeshPassDrawListContext& InDrawListContext);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId = -1) override final;
+
+	FDrawingPolicyRenderState PassDrawRenderState;
+
+private:
+
+	template<bool bRenderReflectiveShadowMap>
+	void Process(
+		const FMeshBatch& RESTRICT MeshBatch,
+		uint64 BatchElementMask,
+		int32 MeshId,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
+
+	FShadowDepthType ShadowDepthType;
+};
+
 enum EShadowDepthCacheMode
 {
 	SDCM_MovablePrimitivesOnly,
@@ -306,6 +367,30 @@ public:
 
 typedef TFunctionRef<void(FRHICommandList& RHICmdList, bool bFirst)> FBeginShadowRenderPassFunction;
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FShadowDepthPassUniformParameters,)
+	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+	SHADER_PARAMETER_STRUCT(FLpvWriteUniformBufferParameters, LPV)
+	SHADER_PARAMETER(FMatrix, ProjectionMatrix)
+	SHADER_PARAMETER(FVector2D, ShadowParams)
+	SHADER_PARAMETER(float, bClampToNearPlane)
+	SHADER_PARAMETER_ARRAY(FMatrix, ShadowViewProjectionMatrices, [6])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileShadowDepthPassUniformParameters,)
+	SHADER_PARAMETER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FMatrix, ProjectionMatrix)
+	SHADER_PARAMETER(FVector2D, ShadowParams)
+	SHADER_PARAMETER(float, bClampToNearPlane)
+	SHADER_PARAMETER_ARRAY(FMatrix, ShadowViewProjectionMatrices, [6])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+class FShadowMeshDrawCommandPass
+{
+public:
+	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
+	FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBuffer;
+};
+
 /**
  * Information about a projected shadow.
  */
@@ -316,6 +401,9 @@ public:
 
 	/** The view to be used when rendering this shadow's depths. */
 	FViewInfo* ShadowDepthView;
+
+	TUniformBufferRef<FShadowDepthPassUniformParameters> ShadowDepthPassUniformBuffer;
+	TUniformBufferRef<FMobileShadowDepthPassUniformParameters> MobileShadowDepthPassUniformBuffer;
 
 	/** The depth or color targets this shadow was rendered to. */
 	FShadowMapRenderTargets RenderTargets;
@@ -481,10 +569,12 @@ public:
 	/**
 	 * Renders the shadow subject depth.
 	 */
-	void RenderDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, FBeginShadowRenderPassFunction BeginShadowRenderPass, EShadowDepthRenderMode RenderMode, bool bDoParallelDispatch);
+	void RenderDepth(FRHICommandListImmediate& RHICmdList, class FSceneRenderer* SceneRenderer, FBeginShadowRenderPassFunction BeginShadowRenderPass, bool bDoParallelDispatch);
+
+	void SetStateForView(FRHICommandList& RHICmdList) const;
 
 	/** Set state for depth rendering */
-	void SetStateForDepth(FRHICommandList& RHICmdList, EShadowDepthRenderMode RenderMode, FDrawingPolicyRenderState& DrawRenderState);
+	void SetStateForDepth(FDrawingPolicyRenderState& DrawRenderState) const;
 
 	void ClearDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, int32 NumColorTextures, FTextureRHIParamRef* ColorTextures, FTextureRHIParamRef DepthTexture, bool bPerformClear);
 
@@ -536,6 +626,12 @@ public:
 
 	/** Gathers dynamic mesh elements for all the shadow's primitives arrays. */
 	void GatherDynamicMeshElements(FSceneRenderer& Renderer, class FVisibleLightInfo& VisibleLightInfo, TArray<const FSceneView*>& ReusedViewsArray);
+
+	void SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& Renderer, FUniformBufferRHIParamRef PassUniformBuffer);
+
+	void SetupMeshDrawCommandsForProjectionStenciling(FSceneRenderer& Renderer);
+
+	void ApplyViewOverridesToMeshDrawCommands(const FViewInfo& View, FMeshCommandOneFrameArray& VisibleMeshDrawCommands);
 
 	/** 
 	 * @param View view to check visibility in
@@ -603,6 +699,11 @@ public:
 	/** Creates a new view from the pool and caches it in ShadowDepthView for depth rendering. */
 	void SetupShadowDepthView(FRHICommandListImmediate& RHICmdList, FSceneRenderer* SceneRenderer);
 
+	FShadowDepthType GetShadowDepthType() const 
+	{
+		return FShadowDepthType(bDirectionalLight, bOnePassPointLightShadow, bReflectiveShadowmap);
+	}
+
 private:
 	// 0 if Setup...() wasn't called yet
 	const FLightSceneInfo* LightSceneInfo;
@@ -621,16 +722,6 @@ private:
 	/** Subject primitives with translucent relevance. */
 	PrimitiveArrayType SubjectTranslucentPrimitives;
 
-	/** Translucent LPV injection: dynamic shadow casting elements */
-	PrimitiveArrayType EmissiveOnlyPrimitives;
-	/** Translucent LPV injection: Static shadow casting elements. */
-	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> EmissiveOnlyMeshElements;
-
-	/** GI blocking volume: dynamic shadow casting elements */
-	PrimitiveArrayType GIBlockingPrimitives;
-	/** GI blocking volume: Static shadow casting elements. */
-	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> GIBlockingMeshElements;
-
 	/** Static shadow casting elements. */
 	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> StaticSubjectMeshElements;
 
@@ -640,6 +731,12 @@ private:
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicReceiverMeshElements;
 	/** Dynamic mesh elements for translucent subject primitives. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectTranslucentMeshElements;
+
+	TArray<const FStaticMesh*, SceneRenderingAllocator> SubjectMeshCommandBuildRequests;
+	FShadowMeshDrawCommandPass ShadowDepthPass;
+	TArray<FShadowMeshDrawCommandPass, TInlineAllocator<2>> ProjectionStencilingPasses;
+
+	FDynamicMeshDrawCommandStorage DynamicMeshDrawCommandStorage;
 
 	/**
 	 * Bias during in shadowmap rendering, stored redundantly for better performance 
@@ -652,7 +749,7 @@ private:
 	/**
 	* Renders the shadow subject depth, to a particular hacked view
 	*/
-	void RenderDepthInner(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, FBeginShadowRenderPassFunction BeginShadowRenderPass, EShadowDepthRenderMode RenderMode, bool bDoParallelDispatch );
+	void RenderDepthInner(FRHICommandListImmediate& RHICmdList, class FSceneRenderer* SceneRenderer, FBeginShadowRenderPassFunction BeginShadowRenderPass, bool bDoParallelDispatch);
 
 	/**
 	* Modifies the passed in view for this shadow
@@ -664,7 +761,15 @@ private:
 	*/
 	FViewInfo* FindViewForShadow(FSceneRenderer* SceneRenderer) const;
 
-	/** Will return if we should draw the static mesh for the shadow, and will perform lazy init of primitive if it was'nt visible */
+	void AddCachedMeshDrawCommandsForPass(
+		int32 PrimitiveIndex,
+		const FStaticMesh& StaticMesh,
+		const FScene* Scene,
+		EMeshPass::Type PassType,
+		FMeshCommandOneFrameArray& VisibleMeshCommands,
+		TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests);
+
+	/** Will return if we should draw the static mesh for the shadow, and will perform lazy init of primitive if it wasn't visible */
 	bool ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool bInCustomDataRelevance, FPrimitiveSceneInfo* InPrimitiveSceneInfo);
 
 	/**
@@ -684,15 +789,16 @@ private:
 	void GatherDynamicMeshElementsArray(
 		FViewInfo* FoundView,
 		FSceneRenderer& Renderer, 
-		PrimitiveArrayType& PrimitiveArray, 
-		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements, 
-		TArray<const FSceneView*>& ReusedViewsArray);
+		const PrimitiveArrayType& PrimitiveArray, 
+		const TArray<const FSceneView*>& ReusedViewsArray,
+		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements);
 
 	void SetupFrustumForProjection(const FViewInfo* View, TArray<FVector4, TInlineAllocator<8>>& OutFrustumVertices, bool& bOutCameraInsideShadowFrustum) const;
 
 	void SetupProjectionStencilMask(
 		FRHICommandListImmediate& RHICmdList,
-		const FViewInfo* View,
+		const FViewInfo* View, 
+		int32 ViewIndex,
 		const class FSceneRenderer* SceneRender,
 		const TArray<FVector4, TInlineAllocator<8>>& FrustumVertices,
 		bool bMobileModulatedProjections,
@@ -703,61 +809,6 @@ private:
 	friend class FShadowVolumeBoundProjectionVS;
 	friend class FShadowProjectionPS;
 	friend class FShadowDepthDrawingPolicyFactory;
-};
-
-/** Shader parameters for rendering the depth of a mesh for shadowing. */
-class FShadowDepthShaderParameters
-{
-public:
-
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		ProjectionMatrix.Bind(ParameterMap,TEXT("ProjectionMatrix"));
-		ShadowParams.Bind(ParameterMap,TEXT("ShadowParams"));
-		ClampToNearPlane.Bind(ParameterMap,TEXT("bClampToNearPlane"));
-	}
-
-	template<typename ShaderRHIParamRef>
-	void Set(FRHICommandList& RHICmdList, ShaderRHIParamRef ShaderRHI, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
-	{
-		SetShaderValue(
-			RHICmdList, 
-			ShaderRHI,
-			ProjectionMatrix,
-			FTranslationMatrix(ShadowInfo->PreShadowTranslation - View.ViewMatrices.GetPreViewTranslation()) * ShadowInfo->SubjectAndReceiverMatrix
-			);
-
-		SetShaderValue(RHICmdList, ShaderRHI, ShadowParams, FVector2D(ShadowInfo->GetShaderDepthBias(), ShadowInfo->InvMaxSubjectDepth));
-		// Only clamp vertices to the near plane when rendering whole scene directional light shadow depths or preshadows from directional lights
-		const bool bClampToNearPlaneValue = ShadowInfo->IsWholeSceneDirectionalShadow() || (ShadowInfo->bPreShadow && ShadowInfo->bDirectionalLight);
-		SetShaderValue(RHICmdList, ShaderRHI,ClampToNearPlane,bClampToNearPlaneValue ? 1.0f : 0.0f);
-	}
-
-	/** Set the vertex shader parameter values. */
-	void SetVertexShader(FRHICommandList& RHICmdList, FShader* VertexShader, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
-	{
-		Set(RHICmdList, VertexShader->GetVertexShader(), View, ShadowInfo, MaterialRenderProxy);
-	}
-
-	/** Set the domain shader parameter values. */
-	void SetDomainShader(FRHICommandList& RHICmdList, FShader* DomainShader, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FMaterialRenderProxy* MaterialRenderProxy)
-	{
-		Set(RHICmdList, DomainShader->GetDomainShader(), View, ShadowInfo, MaterialRenderProxy);
-	}
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar,FShadowDepthShaderParameters& P)
-	{
-		Ar << P.ProjectionMatrix;
-		Ar << P.ShadowParams;
-		Ar << P.ClampToNearPlane;
-		return Ar;
-	}
-
-private:
-	FShaderParameter ProjectionMatrix;
-	FShaderParameter ShadowParams;
-	FShaderParameter ClampToNearPlane;
 };
 
 /**
@@ -1198,73 +1249,32 @@ protected:
 	FShaderParameter ModulatedShadowColorParameter;
 };
 
-/** Translucency shadow projection parameters used by multiple shaders. */
-class FTranslucencyShadowProjectionShaderParameters
+/** Translucency shadow projection uniform buffer containing data needed for Fourier opacity maps. */
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTranslucentSelfShadowUniformParameters, )
+	SHADER_PARAMETER(FMatrix, WorldToShadowMatrix)
+	SHADER_PARAMETER(FVector4, ShadowUVMinMax)
+	SHADER_PARAMETER(FVector4, DirectionalLightDirection)
+	SHADER_PARAMETER(FVector4, DirectionalLightColor)
+	SHADER_PARAMETER_TEXTURE(Texture2D, Transmission0)
+	SHADER_PARAMETER_TEXTURE(Texture2D, Transmission1)
+	SHADER_PARAMETER_SAMPLER(SamplerState, Transmission0Sampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, Transmission1Sampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+extern void SetupTranslucentSelfShadowUniformParameters(const FProjectedShadowInfo* ShadowInfo, FTranslucentSelfShadowUniformParameters& OutParameters);
+
+/**
+* Default translucent self shadow data.
+*/
+class FEmptyTranslucentSelfShadowUniformBuffer : public TUniformBuffer< FTranslucentSelfShadowUniformParameters >
 {
+	typedef TUniformBuffer< FTranslucentSelfShadowUniformParameters > Super;
 public:
-
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		TranslucencyShadowTransmission0.Bind(ParameterMap,TEXT("TranslucencyShadowTransmission0"));
-		TranslucencyShadowTransmission0Sampler.Bind(ParameterMap,TEXT("TranslucencyShadowTransmission0Sampler"));
-		TranslucencyShadowTransmission1.Bind(ParameterMap,TEXT("TranslucencyShadowTransmission1"));
-		TranslucencyShadowTransmission1Sampler.Bind(ParameterMap,TEXT("TranslucencyShadowTransmission1Sampler"));
-	}
-
-	void Set(FRHICommandList& RHICmdList, FShader* Shader, const FProjectedShadowInfo* ShadowInfo) const
-	{
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-		FTextureRHIParamRef TranslucencyShadowTransmission0Value;
-		FTextureRHIParamRef TranslucencyShadowTransmission1Value;
-
-		if (ShadowInfo)
-		{
-			TranslucencyShadowTransmission0Value = ShadowInfo->RenderTargets.ColorTargets[0]->GetRenderTargetItem().ShaderResourceTexture.GetReference();
-			TranslucencyShadowTransmission1Value = ShadowInfo->RenderTargets.ColorTargets[1]->GetRenderTargetItem().ShaderResourceTexture.GetReference();
-		}
-		else
-		{
-			TranslucencyShadowTransmission0Value = GSystemTextures.BlackDummy->GetRenderTargetItem().ShaderResourceTexture.GetReference();
-			TranslucencyShadowTransmission1Value = GSystemTextures.BlackDummy->GetRenderTargetItem().ShaderResourceTexture.GetReference();
-		}
-			
-		SetTextureParameter(
-			RHICmdList, 
-			Shader->GetPixelShader(),
-			TranslucencyShadowTransmission0,
-			TranslucencyShadowTransmission0Sampler,
-			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-			TranslucencyShadowTransmission0Value
-			);
-
-		SetTextureParameter(
-			RHICmdList, 
-			Shader->GetPixelShader(),
-			TranslucencyShadowTransmission1,
-			TranslucencyShadowTransmission1Sampler,
-			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-			TranslucencyShadowTransmission1Value
-			);
-	}
-
-	/** Serializer. */ 
-	friend FArchive& operator<<(FArchive& Ar,FTranslucencyShadowProjectionShaderParameters& P)
-	{
-		Ar << P.TranslucencyShadowTransmission0;
-		Ar << P.TranslucencyShadowTransmission0Sampler;
-		Ar << P.TranslucencyShadowTransmission1;
-		Ar << P.TranslucencyShadowTransmission1Sampler;
-		return Ar;
-	}
-
-private:
-
-	FShaderResourceParameter TranslucencyShadowTransmission0;
-	FShaderResourceParameter TranslucencyShadowTransmission0Sampler;
-	FShaderResourceParameter TranslucencyShadowTransmission1;
-	FShaderResourceParameter TranslucencyShadowTransmission1Sampler;
+	virtual void InitDynamicRHI() override;
 };
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+extern TGlobalResource< FEmptyTranslucentSelfShadowUniformBuffer > GEmptyTranslucentSelfShadowUniformBuffer;
 
 /** Pixel shader to project both opaque and translucent shadows onto opaque surfaces. */
 template<uint32 Quality> 
@@ -1289,7 +1299,6 @@ public:
 	TShadowProjectionFromTranslucencyPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		TShadowProjectionPS<Quality>(Initializer)
 	{
-		TranslucencyProjectionParameters.Bind(Initializer.ParameterMap);
 	}
 
 	virtual void SetParameters(
@@ -1300,7 +1309,9 @@ public:
 	{
 		TShadowProjectionPS<Quality>::SetParameters(RHICmdList, ViewIndex, View, ShadowInfo);
 
-		TranslucencyProjectionParameters.Set(RHICmdList, this, ShadowInfo);
+		FTranslucentSelfShadowUniformParameters TranslucentSelfShadowUniformParameters;
+		SetupTranslucentSelfShadowUniformParameters(ShadowInfo, TranslucentSelfShadowUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, this->GetPixelShader(), this->template GetUniformBufferParameter<FTranslucentSelfShadowUniformParameters>(), TranslucentSelfShadowUniformParameters);
 	}
 
 	/**
@@ -1310,12 +1321,8 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = TShadowProjectionPS<Quality>::Serialize(Ar);
-		Ar << TranslucencyProjectionParameters;
 		return bShaderHasOutdatedParameters;
 	}
-
-protected:
-	FTranslucencyShadowProjectionShaderParameters TranslucencyProjectionParameters;
 };
 
 

@@ -8,6 +8,7 @@
 #include "ParticleHelper.h"
 #include "ParticleResources.h"
 #include "ShaderParameterUtils.h"
+#include "MeshMaterialShader.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraRibbonUniformParameters,"NiagaraRibbonVF");
 
@@ -74,6 +75,29 @@ public:
 		SetShaderValue(RHICmdList, VertexShaderRHI, SortedIndicesOffset, RibbonVF->GetSortedIndicesOffset());
 	}
 
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		FNiagaraRibbonVertexFactory* RibbonVF = (FNiagaraRibbonVertexFactory*)VertexFactory;
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FNiagaraRibbonUniformParameters>(), RibbonVF->GetRibbonUniformBuffer());
+		ShaderBindings.Add(NiagaraParticleDataFloat, RibbonVF->GetParticleDataFloatSRV());
+		ShaderBindings.Add(FloatDataOffset, RibbonVF->GetFloatDataOffset());
+		ShaderBindings.Add(FloatDataStride, RibbonVF->GetFloatDataStride());
+
+		ShaderBindings.Add(SortedIndices, RibbonVF->GetSortedIndicesSRV());
+		ShaderBindings.Add(SegmentDistances, RibbonVF->GetSegmentDistancesSRV());
+		ShaderBindings.Add(PackedPerRibbonDataByIndex, RibbonVF->GetPackedPerRibbonDataByIndexSRV());
+		ShaderBindings.Add(SortedIndicesOffset, RibbonVF->GetSortedIndicesOffset());
+	}
+
 private:
 	FShaderResourceParameter NiagaraParticleDataFloat;
 	FShaderParameter FloatDataOffset;
@@ -105,6 +129,21 @@ public:
 	{
 		FNiagaraRibbonVertexFactory* RibbonVF = (FNiagaraRibbonVertexFactory*)VertexFactory;
 		SetUniformBufferParameter(RHICmdList, Shader->GetPixelShader(), Shader->GetUniformBufferParameter<FNiagaraRibbonUniformParameters>(), RibbonVF->GetRibbonUniformBuffer());
+	}
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		FNiagaraRibbonVertexFactory* RibbonVF = (FNiagaraRibbonVertexFactory*)VertexFactory;
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FNiagaraRibbonUniformParameters>(), RibbonVF->GetRibbonUniformBuffer());
 	}
 };
 
@@ -160,9 +199,9 @@ bool FNiagaraRibbonVertexFactory::ShouldCompilePermutation(EShaderPlatform Platf
 /**
 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 */
-void FNiagaraRibbonVertexFactory::ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+void FNiagaraRibbonVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
-	FNiagaraVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	FNiagaraVertexFactoryBase::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 	OutEnvironment.SetDefine(TEXT("NIAGARA_RIBBON_FACTORY"), TEXT("1"));
 }
 

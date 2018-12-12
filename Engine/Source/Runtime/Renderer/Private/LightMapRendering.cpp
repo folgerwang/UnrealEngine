@@ -5,8 +5,6 @@ LightMapRendering.cpp: Light map rendering implementations.
 =============================================================================*/
 
 #include "LightMapRendering.h"
-#include "Engine/LightMapTexture2D.h"
-#include "Engine/ShadowMapTexture2D.h"
 #include "ScenePrivate.h"
 #include "PrecomputedVolumetricLightmap.h"
 
@@ -14,7 +12,7 @@ LightMapRendering.cpp: Light map rendering implementations.
 #include "Runtime/Engine/Classes/VT/VirtualTextureSpace.h"
 #include "VT/VirtualTextureSpace.h"
 
-IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingParameters, "PrecomputedLightingBuffer");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FIndirectLightingCacheUniformParameters, "IndirectLightingCache");
 
 const TCHAR* GLightmapDefineName[2] =
 {
@@ -39,6 +37,73 @@ void FSelfShadowedCachedPointIndirectLightingPolicy::ModifyCompilationEnvironmen
 	FSelfShadowedTranslucencyPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 }
 
+void SetupLCIUniformBuffers(const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FLightCacheInterface* LCI, FUniformBufferRHIParamRef& PrecomputedLightingBuffer, FUniformBufferRHIParamRef& LightmapResourceClusterBuffer, FUniformBufferRHIParamRef& IndirectLightingCacheBuffer)
+{
+	if (LCI)
+	{
+		PrecomputedLightingBuffer = LCI->GetPrecomputedLightingBuffer();
+		LightmapResourceClusterBuffer = LCI->GetResourceCluster() ? LCI->GetResourceCluster()->UniformBuffer : nullptr;
+	}
+
+	if (!PrecomputedLightingBuffer)
+	{
+		PrecomputedLightingBuffer = GEmptyPrecomputedLightingUniformBuffer.GetUniformBufferRHI();
+	}
+
+	if (!LightmapResourceClusterBuffer)
+	{
+		LightmapResourceClusterBuffer = GDefaultLightmapResourceClusterUniformBuffer.GetUniformBufferRHI();
+	}
+
+	if (PrimitiveSceneProxy && PrimitiveSceneProxy->GetPrimitiveSceneInfo())
+	{
+		IndirectLightingCacheBuffer = PrimitiveSceneProxy->GetPrimitiveSceneInfo()->IndirectLightingCacheUniformBuffer;
+	}
+
+	if (!IndirectLightingCacheBuffer)
+	{
+		IndirectLightingCacheBuffer = GEmptyIndirectLightingCacheUniformBuffer.GetUniformBufferRHI();
+	}
+}
+
+void FSelfShadowedCachedPointIndirectLightingPolicy::GetPixelShaderBindings(
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const ElementDataType& ShaderElementData,
+	const PixelParametersType* PixelShaderParameters,
+	FMeshDrawSingleShaderBindings& ShaderBindings)
+{
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
+
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, ShaderElementData.LCI, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
+
+	ShaderBindings.Add(PixelShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+	ShaderBindings.Add(PixelShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+	ShaderBindings.Add(PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
+
+	FSelfShadowedTranslucencyPolicy::GetPixelShaderBindings(PrimitiveSceneProxy, ShaderElementData.SelfShadowTranslucencyUniformBuffer, PixelShaderParameters, ShaderBindings);
+}
+
+void FSelfShadowedVolumetricLightmapPolicy::GetPixelShaderBindings(
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const ElementDataType& ShaderElementData,
+	const PixelParametersType* PixelShaderParameters,
+	FMeshDrawSingleShaderBindings& ShaderBindings)
+{
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
+
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, ShaderElementData.LCI, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
+
+	ShaderBindings.Add(PixelShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+	ShaderBindings.Add(PixelShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+	ShaderBindings.Add(PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
+
+	FSelfShadowedTranslucencyPolicy::GetPixelShaderBindings(PrimitiveSceneProxy, ShaderElementData.SelfShadowTranslucencyUniformBuffer, PixelShaderParameters, ShaderBindings);
+}
+
 void FUniformLightMapPolicy::SetMesh(
 	FRHICommandList& RHICmdList,
 	const FSceneView& View,
@@ -52,30 +117,58 @@ void FUniformLightMapPolicy::SetMesh(
 	const FLightCacheInterface* LCI
 	) const
 {
-	FUniformBufferRHIParamRef PrecomputedLightingBuffer = NULL;
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
 
-	// The buffer is not cached to prevent updating the static mesh draw lists when it changes (for instance when streaming new mips)
-	if (LCI)
-	{
-		PrecomputedLightingBuffer = LCI->GetPrecomputedLightingBuffer();
-	}
-	if (!PrecomputedLightingBuffer && PrimitiveSceneProxy && PrimitiveSceneProxy->GetPrimitiveSceneInfo())
-	{
-		PrecomputedLightingBuffer = PrimitiveSceneProxy->GetPrimitiveSceneInfo()->IndirectLightingCacheUniformBuffer;
-	}
-	if (!PrecomputedLightingBuffer)
-	{
-		PrecomputedLightingBuffer = GEmptyPrecomputedLightingUniformBuffer.GetUniformBufferRHI();
-	}
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, LCI, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
 
-	if (VertexShaderParameters && VertexShaderParameters->BufferParameter.IsBound())
+	if (VertexShaderParameters)
 	{
-		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->BufferParameter, PrecomputedLightingBuffer);
+		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
 	}
-	if (PixelShaderParameters && PixelShaderParameters->BufferParameter.IsBound())
+	if (PixelShaderParameters)
 	{
-		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->BufferParameter, PrecomputedLightingBuffer);
+		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
 	}
+}
+
+void FUniformLightMapPolicy::GetVertexShaderBindings(
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const ElementDataType& ShaderElementData,
+	const VertexParametersType* VertexShaderParameters,
+	FMeshDrawSingleShaderBindings& ShaderBindings) 
+{
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
+
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, ShaderElementData, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
+
+	ShaderBindings.Add(VertexShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+	ShaderBindings.Add(VertexShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+	ShaderBindings.Add(VertexShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
+}
+
+void FUniformLightMapPolicy::GetPixelShaderBindings(
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const ElementDataType& ShaderElementData,
+	const PixelParametersType* PixelShaderParameters,
+	FMeshDrawSingleShaderBindings& ShaderBindings)
+{
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
+
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, ShaderElementData, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
+
+	ShaderBindings.Add(PixelShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+	ShaderBindings.Add(PixelShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+	ShaderBindings.Add(PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
 }
 
 void InterpolateVolumetricLightmap(
@@ -178,15 +271,26 @@ void InterpolateVolumetricLightmap(
 	OutInterpolation.DirectionalLightShadowing = DirectionalLightShadowingUnpacked.R;
 }
 
-void GetPrecomputedLightingParameters(
+void FEmptyPrecomputedLightingUniformBuffer::InitDynamicRHI()
+{
+	FPrecomputedLightingUniformParameters Parameters;
+	GetPrecomputedLightingParameters(GMaxRHIFeatureLevel, Parameters, NULL);
+	SetContentsNoUpdate(Parameters);
+
+	Super::InitDynamicRHI();
+}
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+TGlobalResource< FEmptyPrecomputedLightingUniformBuffer > GEmptyPrecomputedLightingUniformBuffer;
+
+void GetIndirectLightingCacheParameters(
 	ERHIFeatureLevel::Type FeatureLevel,
-	FPrecomputedLightingParameters& Parameters, 
+	FIndirectLightingCacheUniformParameters& Parameters, 
 	const FIndirectLightingCache* LightingCache, 
 	const FIndirectLightingCacheAllocation* LightingAllocation, 
 	FVector VolumetricLightmapLookupPosition,
 	uint32 SceneFrameNumber,
-	FVolumetricLightmapSceneData* VolumetricLightmapSceneData,
-	const FLightCacheInterface* LCI
+	FVolumetricLightmapSceneData* VolumetricLightmapSceneData
 	)
 {
 	// FCachedVolumeIndirectLightingPolicy, FCachedPointIndirectLightingPolicy
@@ -292,184 +396,16 @@ void GetPrecomputedLightingParameters(
 			Parameters.IndirectLightingCacheTextureSampler2 = GBlackTexture->SamplerStateRHI;
 		}
 	}
-
-	// TDistanceFieldShadowsAndLightMapPolicy
-	const FShadowMapInteraction ShadowMapInteraction = LCI ? LCI->GetShadowMapInteraction() : FShadowMapInteraction(); 
-	if (ShadowMapInteraction.GetType() == SMIT_Texture)
-	{
-		const UShadowMapTexture2D* ShadowMapTexture = ShadowMapInteraction.GetTexture();
-		Parameters.ShadowMapCoordinateScaleBias = FVector4(ShadowMapInteraction.GetCoordinateScale(), ShadowMapInteraction.GetCoordinateBias());
-		Parameters.StaticShadowMapMasks = FVector4(ShadowMapInteraction.GetChannelValid(0), ShadowMapInteraction.GetChannelValid(1), ShadowMapInteraction.GetChannelValid(2), ShadowMapInteraction.GetChannelValid(3));
-		Parameters.InvUniformPenumbraSizes = ShadowMapInteraction.GetInvUniformPenumbraSize();
-		Parameters.StaticShadowTexture = ShadowMapTexture ? ShadowMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
-		Parameters.StaticShadowTextureSampler = (ShadowMapTexture && ShadowMapTexture->Resource) ? ShadowMapTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
-	}
-	else
-	{
-		Parameters.StaticShadowMapMasks = FVector4(1, 1, 1, 1);
-		Parameters.InvUniformPenumbraSizes = FVector4(0, 0, 0, 0);
-		Parameters.StaticShadowTexture = GWhiteTexture->TextureRHI;
-		Parameters.StaticShadowTextureSampler = GWhiteTexture->SamplerStateRHI;
-	}
-
-	// TLightMapPolicy
-	const FLightMapInteraction LightMapInteraction = LCI ? LCI->GetLightMapInteraction(FeatureLevel) : FLightMapInteraction();
-	if (LightMapInteraction.GetType() == LMIT_Texture)
-	{
-		const bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel) && LightMapInteraction.AllowsHighQualityLightmaps();
-
-		// Vertex Shader
-		const FVector2D LightmapCoordinateScale = LightMapInteraction.GetCoordinateScale();
-		const FVector2D LightmapCoordinateBias = LightMapInteraction.GetCoordinateBias();
-		Parameters.LightMapCoordinateScaleBias = FVector4(LightmapCoordinateScale.X, LightmapCoordinateScale.Y, LightmapCoordinateBias.X, LightmapCoordinateBias.Y);
-
-		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
-		if (CVar->GetValueOnRenderThread() == 0)
-		{
-			// Pixel Shader
-			const ULightMapTexture2D* LightMapTexture = LightMapInteraction.GetTexture(bAllowHighQualityLightMaps);
-			const ULightMapTexture2D* SkyOcclusionTexture = LightMapInteraction.GetSkyOcclusionTexture();
-			const ULightMapTexture2D* AOMaterialMaskTexture = LightMapInteraction.GetAOMaterialMaskTexture();
-
-			Parameters.LightMapTexture = LightMapTexture ? LightMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
-			Parameters.LightMapTexture_1 = GBlackTexture->TextureRHI;
-			Parameters.SkyOcclusionTexture = SkyOcclusionTexture ? SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
-			Parameters.AOMaterialMaskTexture = AOMaterialMaskTexture ? AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
-
-			Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
-			Parameters.SkyOcclusionSampler = (SkyOcclusionTexture && SkyOcclusionTexture->Resource) ? SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
-			Parameters.AOMaterialMaskSampler = (AOMaterialMaskTexture && AOMaterialMaskTexture->Resource) ? AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
-
-			Parameters.LightmapVirtualTextureUniformData = FVirtualTextureUniformData::Invalid;
-			Parameters.LightmapVirtualTexturePageTable = GBlackTexture->TextureRHI;
-#if LIGHTMAP_VT_16BIT==0
-			Parameters.LightmapVirtualTexturePageTableSampler = GBlackTexture->SamplerStateRHI;
-#endif
-		}
-		else
-		{
-			const ULightMapVirtualTexture *VirtualTexture = LightMapInteraction.GetVirtualTexture();
-			
-			//LIGHTMAP_VT_16BIT only has support for pools of size 64
-			check((VirtualTexture->Space->PoolSize <= 64 && LIGHTMAP_VT_16BIT) || !LIGHTMAP_VT_16BIT);
-
-			FVirtualTextureSpace* Space = (FVirtualTextureSpace*)VirtualTexture->Space->GetRenderResource();
-			
-			// Bind VT here
-			Parameters.LightMapTexture = Space->GetPhysicalTexture(
-				LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::HqLayers));
-			Parameters.LightMapTexture_1 = Space->GetPhysicalTexture(
-				LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::HqLayers)+1);
-
-			if (VirtualTexture->LayerFlags & LightMapVirtualTextureLayerFlags::SkyOcclusionLayer)
-			{
-				Parameters.SkyOcclusionTexture = Space->GetPhysicalTexture(
-					LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::SkyOcclusionLayer));
-			}
-			else
-			{
-				Parameters.SkyOcclusionTexture = GWhiteTexture->TextureRHI;
-			}
-
-			if (VirtualTexture->LayerFlags & LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer)
-			{
-				Parameters.AOMaterialMaskTexture = Space->GetPhysicalTexture(
-					LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer));
-			}
-			else
-			{
-				Parameters.AOMaterialMaskTexture = GBlackTexture->TextureRHI;
-			}
-
-			const uint32 MaxAniso = 8;
-
-			Parameters.LightMapSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
-			Parameters.SkyOcclusionSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
-			Parameters.AOMaterialMaskSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
-
-			Parameters.LightMapCoordinateScaleBias = VirtualTexture->GetTransform(Parameters.LightMapCoordinateScaleBias);
-
-			FVirtualTextureUniformData VTData;
-
-			VTData.MaxAnisotropic = MaxAniso;
-			VTData.PageTableSize = VirtualTexture->Space->Size;
-			VTData.pPageBorder = VirtualTexture->Space->BorderWidth;
-			VTData.pTextureSize = VirtualTexture->Space->GetRenderResource()->Get2DPhysicalTextureSize();
-			VTData.SpaceID = VirtualTexture->Space->GetRenderResource()->GetSpaceID();
-			VTData.vPageSize = VirtualTexture->Space->TileSize;
-			VTData.MaxAssetLevel = VirtualTexture->GetMaxLevel();
-
-			Parameters.LightmapVirtualTextureUniformData = VTData.Pack();
-
-			Parameters.LightmapVirtualTexturePageTable = VirtualTexture->Space->GetRenderResource()->GetPageTableTexture();
-#if LIGHTMAP_VT_16BIT==0
-			Parameters.LightmapVirtualTexturePageTableSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-#endif
-		}
-
-		const uint32 NumCoef = bAllowHighQualityLightMaps ? NUM_HQ_LIGHTMAP_COEF : NUM_LQ_LIGHTMAP_COEF;
-		const FVector4* Scales = LightMapInteraction.GetScaleArray();
-		const FVector4* Adds = LightMapInteraction.GetAddArray();
-		for (uint32 CoefIndex = 0; CoefIndex < NumCoef; ++CoefIndex)
-		{
-			Parameters.LightMapScale[CoefIndex] = Scales[CoefIndex];
-			Parameters.LightMapAdd[CoefIndex] = Adds[CoefIndex];
-		}
-	}
-	else
-	{
-		// Vertex Shader
-		Parameters.LightMapCoordinateScaleBias = FVector4(1, 1, 0, 0);
-
-		// Pixel Shader
-		Parameters.LightMapTexture = GBlackTexture->TextureRHI;
-		Parameters.LightMapTexture_1 = GBlackTexture->TextureRHI;
-		Parameters.SkyOcclusionTexture  = GWhiteTexture->TextureRHI;
-		Parameters.AOMaterialMaskTexture  = GBlackTexture->TextureRHI;
-
-		Parameters.LightMapSampler = GBlackTexture->SamplerStateRHI;
-		Parameters.SkyOcclusionSampler = GWhiteTexture->SamplerStateRHI;
-		Parameters.AOMaterialMaskSampler = GBlackTexture->SamplerStateRHI;
-
-		const uint32 NumCoef = FMath::Max<uint32>(NUM_HQ_LIGHTMAP_COEF, NUM_LQ_LIGHTMAP_COEF);
-		for (uint32 CoefIndex = 0; CoefIndex < NumCoef; ++CoefIndex)
-		{
-			Parameters.LightMapScale[CoefIndex] = FVector4(1, 1, 1, 1);
-			Parameters.LightMapAdd[CoefIndex] = FVector4(0, 0, 0, 0);
-		}
-
-		Parameters.LightmapVirtualTextureUniformData = FVirtualTextureUniformData::Invalid;
-		Parameters.LightmapVirtualTexturePageTable = GBlackTexture->TextureRHI;
-#if LIGHTMAP_VT_16BIT==0
-		Parameters.LightmapVirtualTexturePageTableSampler = GBlackTexture->SamplerStateRHI;
-#endif
-	}
 }
 
-FUniformBufferRHIRef CreatePrecomputedLightingUniformBuffer(
-	EUniformBufferUsage BufferUsage,
-	ERHIFeatureLevel::Type FeatureLevel,
-	const FIndirectLightingCache* LightingCache, 
-	const FIndirectLightingCacheAllocation* LightingAllocation, 
-	FVector VolumetricLightmapLookupPosition,
-	uint32 SceneFrameNumber,
-	FVolumetricLightmapSceneData* VolumetricLightmapSceneData,
-	const FLightCacheInterface* LCI
-	)
+void FEmptyIndirectLightingCacheUniformBuffer::InitDynamicRHI()
 {
-	FPrecomputedLightingParameters Parameters;
-	GetPrecomputedLightingParameters(FeatureLevel, Parameters, LightingCache, LightingAllocation, VolumetricLightmapLookupPosition, SceneFrameNumber, VolumetricLightmapSceneData, LCI);
-	return CreateUniformBufferImmediate(Parameters, BufferUsage);
-}
-
-void FEmptyPrecomputedLightingUniformBuffer::InitDynamicRHI()
-{
-	FPrecomputedLightingParameters Parameters;
-	GetPrecomputedLightingParameters(GMaxRHIFeatureLevel, Parameters, NULL, NULL, FVector(0, 0, 0), 0, NULL, NULL);
+	FIndirectLightingCacheUniformParameters Parameters;
+	GetIndirectLightingCacheParameters(GMaxRHIFeatureLevel, Parameters, nullptr, nullptr, FVector(0, 0, 0), 0, nullptr);
 	SetContentsNoUpdate(Parameters);
 
 	Super::InitDynamicRHI();
 }
 
-/** Global uniform buffer containing the default precomputed lighting data. */
-TGlobalResource< FEmptyPrecomputedLightingUniformBuffer > GEmptyPrecomputedLightingUniformBuffer;
+/** */
+TGlobalResource< FEmptyIndirectLightingCacheUniformBuffer > GEmptyIndirectLightingCacheUniformBuffer;

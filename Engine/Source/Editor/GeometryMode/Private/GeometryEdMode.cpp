@@ -501,10 +501,10 @@ void FEdModeGeometry::RenderPoly( const FSceneView* View, FViewport* Viewport, F
 		SelectedColor.A = .5f;
 
 		// Allocate the material proxy and register it so it can be deleted properly once the rendering is done with it.
-		FDynamicColoredMaterialRenderProxy* SelectedColorInstance = new FDynamicColoredMaterialRenderProxy(GEngine->GeomMaterial->GetRenderProxy(false),SelectedColor );
+		FDynamicColoredMaterialRenderProxy* SelectedColorInstance = new FDynamicColoredMaterialRenderProxy(GEngine->GeomMaterial->GetRenderProxy(),SelectedColor );
 		PDI->RegisterDynamicResource( SelectedColorInstance );
 
-		FDynamicColoredMaterialRenderProxy* UnselectedColorInstance = new FDynamicColoredMaterialRenderProxy(GEngine->GeomMaterial->GetRenderProxy(false),UnselectedColor);
+		FDynamicColoredMaterialRenderProxy* UnselectedColorInstance = new FDynamicColoredMaterialRenderProxy(GEngine->GeomMaterial->GetRenderProxy(),UnselectedColor);
 		PDI->RegisterDynamicResource( UnselectedColorInstance );		
 
 		// Render selected filled polygons.

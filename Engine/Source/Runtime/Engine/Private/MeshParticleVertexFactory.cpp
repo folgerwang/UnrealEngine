@@ -7,7 +7,7 @@
 #include "MeshParticleVertexFactory.h"
 #include "ParticleHelper.h"
 #include "ShaderParameterUtils.h"
-
+#include "MeshMaterialShader.h"
 
 class FMeshParticleVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
 {
@@ -86,6 +86,56 @@ public:
 		else if (View.FeatureLevel >= ERHIFeatureLevel::SM4)
 		{
 			SetSRVParameter(RHICmdList, VertexShaderRHI, PrevTransformBuffer, MeshParticleVF->GetPreviousTransformBufferSRV());
+		}
+	}
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		const bool bInstanced = GRHISupportsInstancing;
+		FMeshParticleVertexFactory* MeshParticleVF = (FMeshParticleVertexFactory*)VertexFactory;
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FMeshParticleUniformParameters>(), MeshParticleVF->GetUniformBuffer() );
+
+		if (!bInstanced)
+		{
+			const FMeshParticleVertexFactory::FBatchParametersCPU* BatchParameters = (const FMeshParticleVertexFactory::FBatchParametersCPU*)BatchElement.UserData;
+			const FMeshParticleInstanceVertex* Vertex = BatchParameters->InstanceBuffer + BatchElement.UserIndex;
+			const FMeshParticleInstanceVertexDynamicParameter* DynamicVertex = BatchParameters->DynamicParameterBuffer + BatchElement.UserIndex;
+			const FMeshParticleInstanceVertexPrevTransform* PrevTransformVertex = BatchParameters->PrevTransformBuffer + BatchElement.UserIndex;
+
+			ShaderBindings.Add(Transform1, Vertex->Transform[0]);
+			ShaderBindings.Add(Transform2, Vertex->Transform[1]);
+			ShaderBindings.Add(Transform3, Vertex->Transform[2]);
+			ShaderBindings.Add(SubUVParams, FVector4((float)Vertex->SubUVParams[0], (float)Vertex->SubUVParams[1], (float)Vertex->SubUVParams[2], (float)Vertex->SubUVParams[3]));
+			ShaderBindings.Add(SubUVLerp, Vertex->SubUVLerp);
+			ShaderBindings.Add(ParticleDirection, Vertex->Velocity);
+			ShaderBindings.Add(RelativeTime, Vertex->RelativeTime);
+
+			if (BatchParameters->DynamicParameterBuffer)
+			{
+				ShaderBindings.Add(DynamicParameter, FVector4(DynamicVertex->DynamicValue[0], DynamicVertex->DynamicValue[1], DynamicVertex->DynamicValue[2], DynamicVertex->DynamicValue[3]));
+			}
+
+			if (BatchParameters->PrevTransformBuffer && FeatureLevel >= ERHIFeatureLevel::SM4)
+			{
+				ShaderBindings.Add(PrevTransform0, PrevTransformVertex->PrevTransform0);
+				ShaderBindings.Add(PrevTransform1, PrevTransformVertex->PrevTransform1);
+				ShaderBindings.Add(PrevTransform2, PrevTransformVertex->PrevTransform2);
+			}
+
+			ShaderBindings.Add(ParticleColor, FVector4(Vertex->Color.Component(0), Vertex->Color.Component(1), Vertex->Color.Component(2), Vertex->Color.Component(3)));
+		}
+		else if (FeatureLevel >= ERHIFeatureLevel::SM4)
+		{
+			ShaderBindings.Add(PrevTransformBuffer, MeshParticleVF->GetPreviousTransformBufferSRV());
 		}
 	}
 

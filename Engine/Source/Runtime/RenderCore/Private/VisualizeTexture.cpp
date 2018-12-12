@@ -419,7 +419,7 @@ void FVisualizeTexture::SetCheckPoint(FRHICommandList& RHICmdList, const IPooled
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-void FVisualizeTexture::QueryInfo_GameThread( FQueryVisualizeTexureInfo& Out )
+void FVisualizeTexture::QueryInfo_GameThread(FQueryVisualizeTexureInfo& Out)
 {
 	check(IsInGameThread());
 	FlushRenderingCommands();

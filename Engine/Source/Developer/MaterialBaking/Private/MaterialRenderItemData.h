@@ -12,8 +12,10 @@ class FMeshRenderInfo : public FLightCacheInterface
 {
 public:
 	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer)
-		: FLightCacheInterface(InLightMap, InShadowMap)
+		: FLightCacheInterface()
 	{
+		SetLightMap(InLightMap);
+		SetShadowMap(InShadowMap);
 		SetPrecomputedLightingBuffer(Buffer);
 	}
 

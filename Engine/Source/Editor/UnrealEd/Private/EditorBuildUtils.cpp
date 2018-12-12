@@ -1062,6 +1062,31 @@ void FEditorBuildUtils::TriggerHierarchicalLODBuilder(UWorld* InWorld, FName Id)
 	InWorld->HierarchicalLODBuilder->BuildMeshesForLODActors(false);
 }
 
+EDebugViewShaderMode ViewModeIndexToDebugViewShaderMode(EViewModeIndex SelectedViewMode)
+{
+	switch (SelectedViewMode)
+	{
+	case VMI_ShaderComplexity:
+		return DVSM_ShaderComplexity;
+	case VMI_ShaderComplexityWithQuadOverdraw:
+		return DVSM_ShaderComplexityContainedQuadOverhead;
+	case VMI_QuadOverdraw:
+		return DVSM_QuadComplexity;
+	case VMI_PrimitiveDistanceAccuracy:
+		return DVSM_PrimitiveDistanceAccuracy;
+	case VMI_MeshUVDensityAccuracy:
+		return DVSM_MeshUVDensityAccuracy;
+	case VMI_Unknown:
+		return DVSM_OutputMaterialTextureScales;
+	case VMI_MaterialTextureScaleAccuracy:
+		return DVSM_MaterialTextureScaleAccuracy;
+	case VMI_RequiredTextureResolution:
+		return DVSM_RequiredTextureResolution;
+	default :
+		return DVSM_None;
+	}
+}
+
 bool FEditorBuildUtils::EditorBuildTextureStreaming(UWorld* InWorld, EViewModeIndex SelectedViewMode)
 {
 	if (!InWorld) return false;
@@ -1265,8 +1290,8 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 	//const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
 	//bool bIsSimulated = IsSimulatedPlatform(ShaderPlatform);
 	//bool bExtractComplexityStats = bIsSimulated && (SelectedViewMode == VMI_ShaderComplexity || SelectedViewMode == VMI_ShaderComplexityWithQuadOverdraw);
-
-	if (SelectedViewMode != VMI_RequiredTextureResolution)
+	EDebugViewShaderMode DebugViewMode = ViewModeIndexToDebugViewShaderMode(SelectedViewMode);
+	if (DebugViewMode == DVSM_None)
 	{
 		return false;
 	}
@@ -1297,7 +1322,7 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 		}
 		else if (SelectedViewMode == VMI_RequiredTextureResolution)*/
 		{
-			if (!CompileDebugViewModeShaders(DVSM_RequiredTextureResolution, QualityLevel, FeatureLevel, false, true, Materials, CompileShaderTask))
+			if (!CompileDebugViewModeShaders(DebugViewMode, QualityLevel, FeatureLevel, false, true, Materials, CompileShaderTask))
 			{
 				return false;
 			}

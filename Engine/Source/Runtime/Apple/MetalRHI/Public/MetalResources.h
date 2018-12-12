@@ -850,7 +850,7 @@ class FMetalUniformBuffer : public FRHIUniformBuffer, public FMetalRHIBuffer
 public:
 
 	// Constructor
-	FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage);
+	FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation);
 
 	// Destructor 
 	virtual ~FMetalUniformBuffer();
@@ -858,6 +858,8 @@ public:
 	void const* GetData();
 
 	void InitIAB();
+
+	void Update(const void* Contents, EUniformBufferValidation Validation);
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;

@@ -79,6 +79,11 @@ public:
 	 */
 	void ShrinkElements();
 
+	/**
+	* Invalidate resources depending on the Model.
+	*/
+	void OnModelResourcesReleased();
+
 
 	/** Calculate the lightmap resolution to be used by the given surface. */
 	ENGINE_API void GetSurfaceLightMapResolution( int32 SurfaceIndex, int32 QualityScale, int32& Width, int32& Height, FMatrix& WorldToMap, TArray<int32>* GatheredNodes=NULL ) const;

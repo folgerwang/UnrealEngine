@@ -10,6 +10,7 @@ LandscapeRenderMobile.cpp: Landscape Rendering without using vertex texture fetc
 #include "Serialization/MemoryReader.h"
 #include "PrimitiveSceneInfo.h"
 #include "LandscapeLayerInfoObject.h"
+#include "MeshMaterialShader.h"
 
 void FLandscapeVertexFactoryMobile::InitRHI()
 {
@@ -150,6 +151,106 @@ public:
 				}
 			}
 		}	
+	}
+
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* InView,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+	) const override
+	{
+		SCOPE_CYCLE_COUNTER(STAT_LandscapeVFDrawTimeVS);
+
+		const FLandscapeBatchElementParams* BatchElementParams = (const FLandscapeBatchElementParams*)BatchElement.UserData;
+		check(BatchElementParams);
+
+		const FLandscapeComponentSceneProxyMobile* SceneProxy = (const FLandscapeComponentSceneProxyMobile*)BatchElementParams->SceneProxy;
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FLandscapeUniformShaderParameters>(),*BatchElementParams->LandscapeUniformShaderParametersResource);
+
+		if (LodValuesParameter.IsBound())
+		{
+			FVector4 LodValues(
+				0.0f, // this is the mesh's LOD, ES2 always uses the LOD0 mesh
+				0.0f, // unused
+				(float)SceneProxy->SubsectionSizeQuads,
+				1.f / (float)SceneProxy->SubsectionSizeQuads);
+
+			ShaderBindings.Add(LodValuesParameter, LodValues);
+		}
+
+		if (LodBiasParameter.IsBound())
+		{
+			FVector CameraLocalPos3D = SceneProxy->WorldToLocal.TransformPosition(InView->ViewMatrices.GetViewOrigin());
+
+			FVector4 LodBias(
+				0.0f, // unused
+				0.0f, // unused
+				CameraLocalPos3D.X + SceneProxy->SectionBase.X,
+				CameraLocalPos3D.Y + SceneProxy->SectionBase.Y
+			);
+			ShaderBindings.Add(LodBiasParameter, LodBias);
+		}
+
+		FLandscapeComponentSceneProxy::FViewCustomDataLOD* LODData = (FLandscapeComponentSceneProxy::FViewCustomDataLOD*)InView->GetCustomData(SceneProxy->GetPrimitiveSceneInfo()->GetIndex());
+		int32 SubSectionIndex = BatchElementParams->SubX + BatchElementParams->SubY * SceneProxy->NumSubsections;
+
+		if (LODData != nullptr)
+		{
+			SceneProxy->PostInitViewCustomData(*InView, LODData);
+
+			if (LodTessellationParameter.IsBound())
+			{
+				ShaderBindings.Add(LodTessellationParameter, LODData->LodTessellationParams);
+			}
+
+			if (SectionLodsParameter.IsBound())
+			{
+				if (LODData->UseCombinedMeshBatch)
+				{
+					ShaderBindings.Add(SectionLodsParameter, LODData->ShaderCurrentLOD);
+				}
+				else // in non combined, only the one representing us as we'll be called 4 times (once per sub section)
+				{
+					check(SubSectionIndex >= 0);
+					FVector4 ShaderCurrentLOD(ForceInitToZero);
+					ShaderCurrentLOD.Component(SubSectionIndex) = LODData->ShaderCurrentLOD.Component(SubSectionIndex);
+
+					ShaderBindings.Add(SectionLodsParameter, ShaderCurrentLOD);
+				}
+			}
+
+			if (NeighborSectionLodParameter.IsBound())
+			{
+				FVector4 ShaderCurrentNeighborLOD[FLandscapeComponentSceneProxy::NEIGHBOR_COUNT] = { FVector4(ForceInitToZero), FVector4(ForceInitToZero), FVector4(ForceInitToZero), FVector4(ForceInitToZero) };
+
+				if (LODData->UseCombinedMeshBatch)
+				{
+					int32 SubSectionCount = SceneProxy->NumSubsections == 1 ? 1 : FLandscapeComponentSceneProxy::MAX_SUBSECTION_COUNT;
+
+					for (int32 NeighborSubSectionIndex = 0; NeighborSubSectionIndex < SubSectionCount; ++NeighborSubSectionIndex)
+					{
+						ShaderCurrentNeighborLOD[NeighborSubSectionIndex] = LODData->SubSections[NeighborSubSectionIndex].ShaderCurrentNeighborLOD;
+						check(ShaderCurrentNeighborLOD[NeighborSubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
+					}
+
+					ShaderBindings.Add(NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
+				}
+				else // in non combined, only the one representing us as we'll be called 4 times (once per sub section)
+				{
+					check(SubSectionIndex >= 0);
+					ShaderCurrentNeighborLOD[SubSectionIndex] = LODData->SubSections[SubSectionIndex].ShaderCurrentNeighborLOD;
+					check(ShaderCurrentNeighborLOD[SubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
+
+					ShaderBindings.Add(NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
+				}
+			}
+		}
 	}
 protected:
 	FShaderParameter LodValuesParameter;

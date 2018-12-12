@@ -336,18 +336,14 @@ const FShaderParametersMetadata& FUniformExpressionSet::GetUniformBufferStruct()
 	return UniformBufferStruct.GetValue();
 }
 
-FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, FRHICommandList* CommandListIfLocalMode, struct FLocalUniformBuffer* OutLocalUniformBuffer) const
+void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, void* TempBuffer) const
 {
 	check(UniformBufferStruct);
 	check(IsInParallelRenderingThread());
-	
-	FUniformBufferRHIRef UniformBuffer;
 
 	if (UniformBufferStruct->GetSize() > 0)
 	{
-		FMemMark Mark(FMemStack::Get());
-		void* const TempBuffer = FMemStack::Get().PushBytes(UniformBufferStruct->GetSize(), SHADER_PARAMETER_STRUCT_ALIGNMENT);
-		checkf(TempBuffer, TEXT("Failed to allocate uniform buffer struct of %i bytes."), UniformBufferStruct->GetSize());
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FUniformExpressionSet_FillUniformBuffer);
 
 		FLinearColor* TempVectorBuffer = (FLinearColor*)TempBuffer;
 		for(int32 VectorIndex = 0;VectorIndex < UniformVectorExpressions.Num();++VectorIndex)
@@ -567,21 +563,7 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			*Clamp_WorldGroupSettingsSamplerPtr = Clamp_WorldGroupSettings->SamplerStateRHI;
 			ResourceIndex++;
 		}
-
-		if (CommandListIfLocalMode)
-		{
-			check(OutLocalUniformBuffer);
-			*OutLocalUniformBuffer = CommandListIfLocalMode->BuildLocalUniformBuffer(TempBuffer, UniformBufferStruct->GetSize(), UniformBufferStruct->GetLayout());
-			check(OutLocalUniformBuffer->IsValid());
-		}
-		else
-		{
-			UniformBuffer = RHICreateUniformBuffer(TempBuffer, UniformBufferStruct->GetLayout(), UniformBuffer_MultiFrame);
-			check(!OutLocalUniformBuffer->IsValid());
-		}
 	}
-
-	return UniformBuffer;
 }
 
 FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture() :

@@ -1066,6 +1066,10 @@ void UWorld::AddParameterCollectionInstance(UMaterialParameterCollection* Collec
 		ParameterCollectionInstances.Add(NewInstance);
 	}
 
+	// Ensure the new instance creates initial render thread resources
+	// This needs to happen right away, so they can be picked up by any cached shader bindings
+	NewInstance->DeferredUpdateRenderState(false);
+
 	if (bUpdateScene)
 	{
 		// Update the scene's list of instances, needs to happen to prevent a race condition with GC 
@@ -7072,6 +7076,9 @@ void UWorld::RecreateScene(ERHIFeatureLevel::Type InFeatureLevel)
 		Scene->Release();
 		IRendererModule& RendererModule = GetRendererModule();
 		RendererModule.RemoveScene(Scene);
+
+		FRenderResource::ChangeFeatureLevel(InFeatureLevel);
+
 		RendererModule.AllocateScene(this, bRequiresHitProxies, FXSystem != nullptr, InFeatureLevel);
 
 		for (ULevel* Level : Levels)

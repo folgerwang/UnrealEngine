@@ -34,6 +34,13 @@ bool CacheShadowDepthsFromPrimitivesUsingWPO()
 	return CVarCacheWPOPrimitives.GetValueOnAnyThread(true) != 0;
 }
 
+bool SupportsCachingMeshDrawCommands(const FVertexFactory* RESTRICT VertexFactory, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy)
+{
+	// Volumetric self shadow mesh commands need to be generated every frame, as they depend on single frame uniform buffers with self shadow data.
+	return VertexFactory->GetType()->SupportsCachingMeshDrawCommands() 
+		&& !PrimitiveSceneProxy->CastsVolumetricTranslucentShadow();
+}
+
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
 :
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -66,7 +73,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bIsComponentLevelVisible(false)
 ,	bCollisionEnabled(InComponent->IsCollisionEnabled())
 ,	bTreatAsBackgroundForOcclusion(InComponent->bTreatAsBackgroundForOcclusion)
-,	bDisableStaticPath(false)
+,	bHasMobileMovablePointLightInteraction(false)
 ,	bGoodCandidateForCachedShadowmap(true)
 ,	bNeedsUnbuiltPreviewLighting(!InComponent->IsPrecomputedLightingValid())
 ,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting(false))
@@ -88,6 +95,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bLightAttachmentsAsGroup(InComponent->bLightAttachmentsAsGroup)
 ,	bSingleSampleShadowFromStationaryLights(InComponent->bSingleSampleShadowFromStationaryLights)
 ,	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer(false)
+,	bVFRequiresPrimitiveUniformBuffer(true)
 ,	bAlwaysHasVelocity(false)
 ,	bUseEditorDepthTest(true)
 ,	bSupportsDistanceFieldRepresentation(false)
@@ -139,9 +147,6 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 		StatId = StatObject->GetStatID(true);
 	}
 #endif
-
-	// Initialize the uniform buffer resource.
-	BeginInitResource(&UniformBuffer);
 
 	if (bNeedsUnbuiltPreviewLighting && !bHasValidSettingsForStaticLighting)
 	{
@@ -198,7 +203,6 @@ void FPrimitiveSceneProxy::SetUsedMaterialForVerification(const TArray<UMaterial
 FPrimitiveSceneProxy::~FPrimitiveSceneProxy()
 {
 	check(IsInRenderingThread());
-	UniformBuffer.ReleaseResource();
 }
 
 HHitProxy* FPrimitiveSceneProxy::CreateHitProxies(UPrimitiveComponent* Component,TArray<TRefCountPtr<HHitProxy> >& OutHitProxies)
@@ -231,11 +235,13 @@ FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView*
 
 static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
 	TEXT("r.DeferUniformBufferUpdatesUntilVisible"),
-	1,
-	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible."));
+	0,
+	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible. Incompatible with the Mesh Draw Command pipeline."));
 
 void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
 {
+	//@todo MeshCommandPipeline r.DeferUniformBufferUpdatesUntilVisible isn't currently supported.
+	/*
 	if (PrimitiveSceneInfo && CVarDeferUniformBufferUpdatesUntilVisible.GetValueOnAnyThread() > 0)
 	{
 		PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);
@@ -244,36 +250,66 @@ void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
 	{
 		UpdateUniformBuffer();
 	}
+	*/
+
+	UpdateUniformBuffer();
 }
 
 bool FPrimitiveSceneProxy::NeedsUniformBufferUpdate() const
 {
+	//@todo MeshCommandPipeline r.DeferUniformBufferUpdatesUntilVisible isn't currently supported.
+	/*
 	if (PrimitiveSceneInfo && CVarDeferUniformBufferUpdatesUntilVisible.GetValueOnAnyThread() > 0)
 	{
 		return PrimitiveSceneInfo->NeedsUniformBufferUpdate();
 	}
+	*/
+
 	return false;
 }
 
 void FPrimitiveSceneProxy::UpdateUniformBuffer()
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPrimitiveSceneProxy_UpdateUniformBuffer);
-	// Update the uniform shader parameters.
-	const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = 
-		GetPrimitiveUniformShaderParameters(
-			LocalToWorld, 
-			ActorPosition, 
-			Bounds, 
-			LocalBounds, 
-			bReceivesDecals, 
-			HasDistanceFieldRepresentation(), 
-			HasDynamicIndirectShadowCasterRepresentation(), 
-			UseSingleSampleShadowFromStationaryLights(),
-			Scene->HasPrecomputedVolumetricLightmap_RenderThread(),
-			UseEditorDepthTest(), 
-			GetLightingChannelMask(),
-			LpvBiasMultiplier);
-	UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
+
+	// Skip expensive primitive uniform buffer creation for proxies whose vertex factories only use GPUScene for primitive data
+	if (DoesVFRequirePrimitiveUniformBuffer())
+	{
+		bool bHasPrecomputedVolumetricLightmap;
+		FMatrix PreviousLocalToWorld;
+		int32 SingleCaptureIndex;
+
+		Scene->GetPrimitiveUniformShaderParameters_RenderThread(PrimitiveSceneInfo, bHasPrecomputedVolumetricLightmap, PreviousLocalToWorld, SingleCaptureIndex);
+
+		// Update the uniform shader parameters.
+		const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = 
+			GetPrimitiveUniformShaderParameters(
+				LocalToWorld, 
+				PreviousLocalToWorld,
+				ActorPosition, 
+				Bounds, 
+				LocalBounds, 
+				bReceivesDecals, 
+				HasDistanceFieldRepresentation(), 
+				HasDynamicIndirectShadowCasterRepresentation(), 
+				UseSingleSampleShadowFromStationaryLights(),
+				bHasPrecomputedVolumetricLightmap,
+				UseEditorDepthTest(), 
+				GetLightingChannelMask(),
+				LpvBiasMultiplier,
+				PrimitiveSceneInfo ? PrimitiveSceneInfo->GetLightmapDataOffset() : 0,
+				SingleCaptureIndex);
+
+		if (UniformBuffer.GetReference())
+		{
+			UniformBuffer.UpdateUniformBufferImmediate(PrimitiveUniformShaderParameters);
+		}
+		else
+		{
+			UniformBuffer = TUniformBufferRef<FPrimitiveUniformShaderParameters>::CreateUniformBufferImmediate(PrimitiveUniformShaderParameters, UniformBuffer_MultiFrame);
+		}
+	}
+
 	if (PrimitiveSceneInfo)
 	{
 		PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(false);

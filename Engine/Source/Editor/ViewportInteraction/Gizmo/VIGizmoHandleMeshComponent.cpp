@@ -44,7 +44,7 @@ public:
 								const bool bIsHovered = false;
 								FMeshBatch& MeshElement = Collector.AllocateMesh();
 
-								if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, bIsHovered, true, MeshElement))
+								if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, true, MeshElement))
 								{
 									Collector.AddMesh(ViewIndex, MeshElement);
 								}

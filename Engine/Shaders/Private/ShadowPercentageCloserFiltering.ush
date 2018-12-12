@@ -192,7 +192,8 @@ float DirectionalPCSS(FPCSSSamplerSettings Settings, float2 ShadowPosition, floa
 	float UVCrossSum = 0;
 	for (int i = 0; i < PCSS_SEARCH_SAMPLES; i++)
 	{
-		float2 PCSSSample = RandToCircle(SobolIndex(SobolRandom ^ uint2(0x4B05, 0xB0CD), i << 3, PCSS_SEARCH_BITS + 3));
+		float2 E = SobolIndex(SobolRandom ^ uint2(0x4B05, 0xB0CD), i << 3, PCSS_SEARCH_BITS + 3) / 0x10000;
+		float2 PCSSSample = UniformSampleDiskConcentricApprox(E);
 		float2 SampleUVOffset = PCSSSample * SearchRadius;
 		float2 SampleUV = ShadowPosition + SampleUVOffset * Settings.ShadowTileOffsetAndSize.zw;
 
@@ -390,7 +391,8 @@ float DirectionalPCSS(FPCSSSamplerSettings Settings, float2 ShadowPosition, floa
 	float ShadowOcclusionSum = 0;
 	for (int j = 0; j < PCSS_SAMPLES; j++)
 	{
-		float2 PCFSample = RandToCircle(SobolIndex(SobolRandom, j << 3, PCSS_SAMPLE_BITS + 3));
+		float2 E = SobolIndex(SobolRandom, j << 3, PCSS_SAMPLE_BITS + 3) / 0x10000;
+		float2 PCFSample = UniformSampleDiskConcentricApprox(E);
 
 		float OriginalUVLength = length(PCFSample);
 		float2 SampleUVOffset = mul(PCFUVMatrix, PCFSample) * FilterRadius;// *pow(OriginalUVLength, 0.9);
@@ -415,7 +417,8 @@ float DirectionalPCSS(FPCSSSamplerSettings Settings, float2 ShadowPosition, floa
 	float VisibleLightAccumulation = 0;
 	for (int j = 0; j < PCSS_SAMPLES; j++)
 	{
-		float2 PCFSample = RandToCircle(SobolIndex(SobolRandom, j << 3, PCSS_SAMPLE_BITS + 3));
+		float2 E = SobolIndex(SobolRandom, j << 3, PCSS_SAMPLE_BITS + 3) / 0x10000;
+		float2 PCFSample = UniformSampleDiskConcentricApprox(E);
 		float2 SampleUVOffset = mul(PCFUVMatrix, PCFSample) * FilterRadius;
 		float2 SampleUV = ShadowPosition + SampleUVOffset * Settings.ShadowTileOffsetAndSize.zw;
 		float SampleDepth = Texture2DSampleLevel(Settings.ShadowDepthTexture, Settings.ShadowDepthTextureSampler, SampleUV, 0).r;

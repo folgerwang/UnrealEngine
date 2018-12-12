@@ -86,7 +86,7 @@ public:
 
 				if (FreeCellMeshVerts.Num() > 0)
 				{
-					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), FLinearColor(FreeCellColor));
+					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), FLinearColor(FreeCellColor));
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(FreeCellMeshVerts);
 					MeshBuilder.AddTriangles(FreeCellMeshIndices);
@@ -95,7 +95,7 @@ public:
 
 				if (MarkedCellMeshVerts.Num() > 0)
 				{
-					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), FLinearColor(MarkedCellColor));
+					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), FLinearColor(MarkedCellColor));
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(MarkedCellMeshVerts);
 					MeshBuilder.AddTriangles(MarkedCellMeshIndices);
@@ -104,7 +104,7 @@ public:
 
 				if (BoundsMeshVerts.Num() > 0)
 				{
-					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), FLinearColor(BoundsColor));
+					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), FLinearColor(BoundsColor));
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(BoundsMeshVerts);
 					MeshBuilder.AddTriangles(BoundsMeshIndices);
@@ -113,7 +113,7 @@ public:
 
 				if (PathMeshVerts.Num() > 0)
 				{
-					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false), FLinearColor(PathColor));
+					const FColoredMaterialRenderProxy* MeshColorInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), FLinearColor(PathColor));
 					FDynamicMeshBuilder	MeshBuilder(View->GetFeatureLevel());
 					MeshBuilder.AddVertices(PathMeshVerts);
 					MeshBuilder.AddTriangles(PathMeshIndices);

@@ -3759,7 +3759,18 @@ void FEngineLoop::Tick()
 			BeginFrameRenderThread(RHICmdList, CurrentFrameCounter);
 		});
 
-		#if !UE_SERVER && WITH_ENGINE
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			UWorld* CurrentWorld = Context.World();
+			FSceneInterface* Scene = CurrentWorld->Scene;
+
+			ENQUEUE_RENDER_COMMAND(SceneStartFrame)([Scene](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->StartFrame();
+			});
+		}
+
+#if !UE_SERVER && WITH_ENGINE
 		if (!GIsEditor && GEngine->GameViewport && GEngine->GameViewport->GetWorld() && GEngine->GameViewport->GetWorld()->IsCameraMoveable())
 		{
 			// When not in editor, we emit dynamic resolution's begin frame right after RHI's.

@@ -469,6 +469,17 @@ inline bool IsUsingPerPixelDBufferMask(EShaderPlatform Platform)
 	}
 }
 
+inline bool UseGPUScene(EShaderPlatform Platform, ERHIFeatureLevel::Type FeatureLevel)
+{
+	// GPU Scene management uses compute shaders
+	return FeatureLevel >= ERHIFeatureLevel::SM5 
+		//@todo - support GPU Scene management compute shaders on these platforms to get dynamic instancing speedups on the Rendering Thread and RHI Thread
+		&& Platform != SP_OPENGL_SM5
+		&& Platform != SP_VULKAN_SM5
+		&& Platform != SP_SWITCH
+		&& Platform != SP_SWITCH_FORWARD;
+}
+
 /** Unit cube vertex buffer (VertexDeclarationFVector4) */
 RENDERCORE_API FVertexBufferRHIRef& GetUnitCubeVertexBuffer();
 
@@ -481,3 +492,11 @@ RENDERCORE_API FIndexBufferRHIRef& GetUnitCubeIndexBuffer();
 * be halved in size several times.
 */
 RENDERCORE_API void QuantizeSceneBufferSize(const FIntPoint& InBufferSize, FIntPoint& OutBufferSize);
+
+RENDERCORE_API void DefaultInitializeUniformBufferResources(const void* Contents, const FRHIUniformBufferLayout& Layout);
+
+template<typename TBufferStruct>
+void DefaultInitializeUniformBufferResources(const TBufferStruct& Value)
+{
+	DefaultInitializeUniformBufferResources(&Value, TBufferStruct::StaticStructMetadata.GetLayout());
+}

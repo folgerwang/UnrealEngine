@@ -768,9 +768,9 @@ void FSceneRenderTargets::SetQuadOverdrawUAV(FRHICommandList& RHICmdList, bool b
 			OutInfo.UAVIndex = QuadOverdrawIndex;
 			OutInfo.UAVs[OutInfo.NumUAVs++] = QuadOverdrawBuffer->GetRenderTargetItem().UAV;
 
-			// Clear to default value
 			if (bClearQuadOverdrawBuffers)
 			{
+				// Clear to default value
 				const uint32 ClearValue[4] = { 0, 0, 0, 0 };
 				ClearUAV(RHICmdList, QuadOverdrawBuffer->GetRenderTargetItem(), ClearValue);
 				RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToGfx, QuadOverdrawBuffer->GetRenderTargetItem().UAV);
@@ -2748,7 +2748,7 @@ IPooledRenderTarget* FSceneRenderTargets::RequestCustomDepth(FRHICommandListImme
 	return 0;
 }
 
-bool FSceneRenderTargets::IsCustomDepthPassWritingStencil() const
+bool FSceneRenderTargets::IsCustomDepthPassWritingStencil()
 {
 	return (CVarCustomDepth.GetValueOnRenderThread() == 3);
 }

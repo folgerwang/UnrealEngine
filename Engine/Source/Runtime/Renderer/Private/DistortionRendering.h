@@ -8,6 +8,8 @@
 
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
+#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 class FPrimitiveSceneProxy;
 struct FDrawingPolicyRenderState;
@@ -56,4 +58,39 @@ public:
 private:
 	/** list of distortion prims added from the scene */
 	TArray<FPrimitiveSceneProxy*, SceneRenderingAllocator> Prims;
+};
+
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FDistortionPassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FVector4, DistortionParams)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileDistortionPassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FVector4, DistortionParams)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+extern void SetupMobileDistortionPassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMobileDistortionPassUniformParameters& DistortionPassParameters);
+
+class FDistortionMeshProcessor : public FMeshPassProcessor
+{
+public:
+
+	FDistortionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FDrawingPolicyRenderState& InPassDrawRenderState, FMeshPassDrawListContext& InDrawListContext);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId = -1) override final;
+
+	FDrawingPolicyRenderState PassDrawRenderState;
+
+private:
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		int32 MeshId,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
 };

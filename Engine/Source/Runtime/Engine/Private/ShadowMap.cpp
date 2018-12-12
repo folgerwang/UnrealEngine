@@ -534,6 +534,9 @@ FShadowMap2D::FShadowMap2D(TArray<FGuid> LightGuids)
 	}
 }
 
+UTexture2D* FShadowMap2D::GetTexture() { check(IsValid()); return Texture; }
+const UTexture2D* FShadowMap2D::GetTexture() const { check(IsValid()); return Texture; }
+
 void FShadowMap2D::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(Texture);

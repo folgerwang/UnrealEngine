@@ -11,6 +11,7 @@
 #include "MaterialShader.h"
 #include "DebugViewModeRendering.h"
 #include "SceneCore.h"
+#include "ScenePrivate.h"
 
 int32 GEmitMeshDrawEvent = 0;
 static FAutoConsoleVariableRef CVarEmitMeshDrawEvent(
@@ -25,16 +26,13 @@ FMeshDrawingPolicy::FMeshDrawingPolicy(
 	const FVertexFactory* InVertexFactory,
 	const FMaterialRenderProxy* InMaterialRenderProxy,
 	const FMaterial& InMaterialResource,
-	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-	EDebugViewShaderMode InDebugViewShaderMode
+	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 	):
 	VertexFactory(InVertexFactory),
 	MaterialRenderProxy(InMaterialRenderProxy),
 	MaterialResource(&InMaterialResource),
 	MeshPrimitiveType(InOverrideSettings.MeshPrimitiveType),
-	bIsDitheredLODTransitionMaterial(InMaterialResource.IsDitheredLODTransition() || !!(InOverrideSettings.MeshOverrideFlags & EDrawingPolicyOverrideFlags::DitheredLODTransition)),
-	//convert from signed bool to unsigned uint32
-	DebugViewShaderMode((uint32)InDebugViewShaderMode)
+	bIsDitheredLODTransitionMaterial(InMaterialResource.IsDitheredLODTransition() || !!(InOverrideSettings.MeshOverrideFlags & EDrawingPolicyOverrideFlags::DitheredLODTransition))
 {
 	// using this saves a virtual function call
 	bool bMaterialResourceIsTwoSided = InMaterialResource.IsTwoSided();
@@ -68,15 +66,50 @@ void FMeshDrawingPolicy::OnlyApplyDitheredLODTransitionState(FDrawingPolicyRende
 	}
 }
 
-void FMeshDrawingPolicy::SetInstanceParameters(FRHICommandList& RHICmdList, const FSceneView& View, uint32 InVertexOffset, uint32 InInstanceOffset, uint32 InInstanceCount) const
+void FMeshDrawingPolicy::SetInstanceParameters(FRHICommandList& RHICmdList, const FSceneView& View, uint32 InInstanceOffset, uint32 InInstanceCount) const
 {
-	if (UseDebugViewPS() && View.Family->UseDebugViewVSDSHS())
+	BaseVertexShader->SetInstanceParameters(RHICmdList, InInstanceOffset, InInstanceCount);
+}
+
+void FMeshDrawingPolicy::SetPrimitiveIdStream(
+	FRHICommandList& RHICmdList,
+	const FSceneView& View,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	EPrimitiveIdMode PrimitiveIdMode,
+	uint32 DynamicPrimitiveShaderDataIndex
+	) const
+{
+	if (UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel()))
 	{
-		FDebugViewMode::SetInstanceParameters(RHICmdList, VertexFactory, View, MaterialResource, InVertexOffset, InInstanceOffset, InInstanceCount);
-	}
-	else
-	{
-		BaseVertexShader->SetInstanceParameters(RHICmdList, InVertexOffset, InInstanceOffset, InInstanceCount);
+		const int8 PrimitiveIdStreamIndex = VertexFactory->GetPrimitiveIdStreamIndex(GetUsePositionOnlyVS());
+
+		if (PrimitiveIdStreamIndex >= 0)
+		{
+			const FScene* Scene = ((const FScene*)View.Family->Scene);
+
+			if (Scene)
+			{
+				int32 PrimitiveId = 0;
+
+				if (PrimitiveIdMode == PrimID_FromPrimitiveSceneInfo)
+				{
+					PrimitiveId = PrimitiveSceneProxy->GetPrimitiveSceneInfo()->GetIndex();
+				}
+				else if (PrimitiveIdMode == PrimID_DynamicPrimitiveShaderData)
+				{
+					PrimitiveId = Scene->Primitives.Num() + DynamicPrimitiveShaderDataIndex;
+				}
+
+				// PrimitiveIdBufferEmulation is setup so the value at a given offset is equal to the offset, this allows passing a different PrimitiveId to each draw without updating any constant buffers
+				RHICmdList.SetStreamSource(PrimitiveIdStreamIndex, ((const FViewInfo&)View).OneFramePrimitiveIdBufferEmulation.Buffer, PrimitiveId * sizeof(int32));
+			}
+			else
+			{
+				check(PrimitiveIdMode == PrimID_ForceZero);
+				// Note: DrawTileMesh is relying on the shader getting a PrimitiveId of 0 when Scene is null
+				RHICmdList.SetStreamSource(PrimitiveIdStreamIndex, GPrimitiveIdDummy.VertexBufferRHI, 0);
+			}
+		}
 	}
 }
 
@@ -97,7 +130,6 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 
 		if (BatchElement.bIsInstanceRuns)
 		{
-			checkSlow(BatchElement.bIsInstanceRuns);
 			if (!GRHISupportsFirstInstance)
 			{
 				if (GetUsePositionOnlyVS())
@@ -106,7 +138,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 					{
 						const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
 						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
-						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
+						SetInstanceParameters(RHICmdList, View, InstanceOffset, InstanceCount);
 						Mesh.VertexFactory->OffsetPositionInstanceStreams(RHICmdList, InstanceOffset);
 
 						RHICmdList.DrawIndexedPrimitive(
@@ -126,7 +158,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 					{
 						const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
 						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
-						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
+						SetInstanceParameters(RHICmdList, View, InstanceOffset, InstanceCount);
 						Mesh.VertexFactory->OffsetInstanceStreams(RHICmdList, InstanceOffset);
 
 						RHICmdList.DrawIndexedPrimitive(
@@ -147,7 +179,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 				{
 					const uint32 InstanceOffset = BatchElement.InstanceRuns[Run * 2];
 					const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - InstanceOffset);
-					SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, InstanceOffset, InstanceCount);
+					SetInstanceParameters(RHICmdList, View, InstanceOffset, InstanceCount);
 
 					RHICmdList.DrawIndexedPrimitive(
 						BatchElement.IndexBuffer->IndexBufferRHI,
@@ -175,7 +207,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 			{
 				// Currently only supporting this path for instanced stereo.
 				const uint32 InstanceCount = ((bIsInstancedStereo && !BatchElement.bIsInstancedMesh) ? 2 : BatchElement.NumInstances);
-				SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, 0, InstanceCount);
+				SetInstanceParameters(RHICmdList, View, 0, InstanceCount);
 
 				RHICmdList.DrawIndexedPrimitive(
 					BatchElement.IndexBuffer->IndexBufferRHI,
@@ -191,7 +223,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 	}
 	else
 	{
-		SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex + BatchElement.FirstIndex, 0, 1);
+		SetInstanceParameters(RHICmdList, View, 0, 1);
 
 		RHICmdList.DrawPrimitive(
 			BatchElement.BaseVertexIndex + BatchElement.FirstIndex,

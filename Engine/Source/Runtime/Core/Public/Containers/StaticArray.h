@@ -36,15 +36,15 @@ public:
 	}
 
 	// Accessors.
-	TElement& operator[](uint32 Index)
+	FORCEINLINE_DEBUGGABLE TElement& operator[](uint32 Index)
 	{
-		check(Index < NumElements);
+		checkSlow(Index < NumElements);
 		return Storage.Elements[Index].Element;
 	}
 
-	const TElement& operator[](uint32 Index) const
+	FORCEINLINE_DEBUGGABLE const TElement& operator[](uint32 Index) const
 	{
-		check(Index < NumElements);
+		checkSlow(Index < NumElements);
 		return Storage.Elements[Index].Element;
 	}
 
@@ -74,7 +74,7 @@ public:
 	}
 
 	/** The number of elements in the array. */
-	int32 Num() const { return NumElements; }
+	FORCEINLINE_DEBUGGABLE int32 Num() const { return NumElements; }
 	
 	/** Hash function. */
 	friend uint32 GetTypeHash(const TStaticArray& Array)

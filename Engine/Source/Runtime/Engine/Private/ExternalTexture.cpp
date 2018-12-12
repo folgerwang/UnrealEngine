@@ -30,7 +30,7 @@ void FExternalTextureRegistry::RegisterExternalTexture(const FGuid& InGuid, FTex
 
 	for (const FMaterialRenderProxy* MaterialRenderProxy : ReferencingMaterialRenderProxies)
 	{
-		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->InvalidateUniformExpressionCache();
+		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->CacheUniformExpressions(false);
 	}
 }
 
@@ -43,7 +43,7 @@ void FExternalTextureRegistry::UnregisterExternalTexture(const FGuid& InGuid)
 
 	for (const FMaterialRenderProxy* MaterialRenderProxy : ReferencingMaterialRenderProxies)
 	{
-		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->InvalidateUniformExpressionCache();
+		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->CacheUniformExpressions(false);
 	}
 }
 

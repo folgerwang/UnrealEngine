@@ -13,6 +13,7 @@
 #include "DynamicMeshBuilder.h"
 #include "SpriteIndexBuffer.h"
 #include "StaticMeshResources.h"
+#include "MeshPassProcessor.inl"
 
 int32 GVolumetricFogVoxelizationSlicesPerGSPass = 8;
 FAutoConsoleVariableRef CVarVolumetricFogVoxelizationSlicesPerPass(
@@ -33,6 +34,26 @@ FAutoConsoleVariableRef CVarVolumetricFogVoxelizationShowOnlyPassIndex(
 static FORCEINLINE int32 GetVoxelizationSlicesPerPass(EShaderPlatform Platform)
 {
 	return RHISupportsGeometryShaders(Platform) ? GVolumetricFogVoxelizationSlicesPerGSPass : 1;
+}
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FVoxelizeVolumePassUniformParameters, "VoxelizeVolumePass");
+
+void SetupVoxelizeVolumePassUniformBuffer(FRHICommandListImmediate& RHICmdList, 
+	const FViewInfo& View, 
+	const FVolumetricFogIntegrationParameterData& IntegrationData, 
+	FVector2D Jitter, 
+	FVoxelizeVolumePassUniformParameters& Parameters)
+{
+	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
+	SetupSceneTextureUniformParameters(SceneRenderTargets, View.FeatureLevel, ESceneTextureSetupMode::None, Parameters.SceneTextures);
+
+	Parameters.ViewToVolumeClip = View.ViewMatrices.ComputeProjectionNoAAMatrix();
+	Parameters.ViewToVolumeClip.M[2][0] += Jitter.X;
+	Parameters.ViewToVolumeClip.M[2][1] += Jitter.Y;
+
+	Parameters.FrameJitterOffset0 = IntegrationData.FrameJitterOffsetValues[0];
+
+	SetupVolumetricFogGlobalData(View, Parameters.VolumetricFog);
 }
 
 class FQuadMeshVertexBuffer : public FRenderResource
@@ -113,6 +134,18 @@ public:
 
 FQuadMeshVertexFactory* GQuadMeshVertexFactory = NULL;
 
+class FVoxelizeVolumeShaderElementData : public FMeshMaterialShaderElementData
+{
+public:
+
+	FVoxelizeVolumeShaderElementData(int32 InVoxelizationPassIndex)
+		: VoxelizationPassIndex(InVoxelizationPassIndex)
+	{
+	}
+
+	int32 VoxelizationPassIndex;
+};
+
 class FVoxelizeVolumeVS : public FMeshMaterialShader
 {
     protected:
@@ -121,9 +154,7 @@ class FVoxelizeVolumeVS : public FMeshMaterialShader
 		:	FMeshMaterialShader(Initializer)
 	{
 		VoxelizationPassIndex.Bind(Initializer.ParameterMap, TEXT("VoxelizationPassIndex"));
-		ViewToVolumeClip.Bind(Initializer.ParameterMap, TEXT("ViewToVolumeClip"));
-		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FVoxelizeVolumePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumeVS()
@@ -153,24 +184,9 @@ public:
 		const FVertexFactory* VertexFactory,
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FVolumetricFogIntegrationParameterData& IntegrationData,
-		FVector2D Jitter)
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-
-		if (!RHISupportsGeometryShaders(View.GetShaderPlatform()))
-		{
-			VolumetricFogParameters.Set(RHICmdList, GetVertexShader(), View, IntegrationData);
-
-			FMatrix ProjectionMatrix = View.ViewMatrices.ComputeProjectionNoAAMatrix();
-
-			ProjectionMatrix.M[2][0] += Jitter.X;
-			ProjectionMatrix.M[2][1] += Jitter.Y;
-
-			const FMatrix ViewToVolumeClipValue = ProjectionMatrix;
-			SetShaderValue(RHICmdList, GetVertexShader(), ViewToVolumeClip, ViewToVolumeClipValue);
-		}
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState,int32 VoxelizationPassIndexValue)
@@ -186,16 +202,14 @@ public:
 	{		
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		Ar << VoxelizationPassIndex;
-		Ar << ViewToVolumeClip;
-		Ar << VolumetricFogParameters;
 		return bShaderHasOutdatedParameters;
 	}
+
+	const FShaderParameter& GetVoxelizationPassIndexParameter() const { return VoxelizationPassIndex; }
 
 protected:
 
 	FShaderParameter VoxelizationPassIndex;
-	FShaderParameter ViewToVolumeClip;
-	FVolumetricFogIntegrationParameters VolumetricFogParameters;
 };
 
 enum EVoxelizeShapeMode
@@ -248,9 +262,7 @@ protected:
 		:	FMeshMaterialShader(Initializer)
 	{
 		VoxelizationPassIndex.Bind(Initializer.ParameterMap, TEXT("VoxelizationPassIndex"));
-		ViewToVolumeClip.Bind(Initializer.ParameterMap, TEXT("ViewToVolumeClip"));
-		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FVoxelizeVolumePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumeGS()
@@ -278,20 +290,9 @@ public:
 		const FVertexFactory* VertexFactory,
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FVolumetricFogIntegrationParameterData& IntegrationData,
-		FVector2D Jitter)
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetParameters(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-		VolumetricFogParameters.Set(RHICmdList, GetGeometryShader(), View, IntegrationData);
-
-		FMatrix ProjectionMatrix = View.ViewMatrices.ComputeProjectionNoAAMatrix();
-
-		ProjectionMatrix.M[2][0] += Jitter.X;
-		ProjectionMatrix.M[2][1] += Jitter.Y;
-
-		const FMatrix ViewToVolumeClipValue = ProjectionMatrix;
-		SetShaderValue(RHICmdList, GetGeometryShader(), ViewToVolumeClip, ViewToVolumeClipValue);
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState,int32 VoxelizationPassIndexValue)
@@ -304,16 +305,28 @@ public:
 	{		
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		Ar << VoxelizationPassIndex;
-		Ar << ViewToVolumeClip;
-		Ar << VolumetricFogParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+		FUniformBufferRHIParamRef PassUniformBufferValue,
+		const FVoxelizeVolumeShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const
+	{
+		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
+
+		ShaderBindings.Add(VoxelizationPassIndex, ShaderElementData.VoxelizationPassIndex);
+	}
+	
 protected:
 
 	FShaderParameter VoxelizationPassIndex;
-	FShaderParameter ViewToVolumeClip;
-	FVolumetricFogIntegrationParameters VolumetricFogParameters;
 };
 
 template<EVoxelizeShapeMode Mode>
@@ -359,8 +372,7 @@ protected:
 	FVoxelizeVolumePS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
-		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FVoxelizeVolumePassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FVoxelizeVolumePS()
@@ -381,28 +393,15 @@ public:
 		const FVertexFactory* VertexFactory,
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FVolumetricFogIntegrationParameterData& IntegrationData)
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-		VolumetricFogParameters.Set(RHICmdList, GetPixelShader(), View, IntegrationData);
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
-
-	virtual bool Serialize(FArchive& Ar)
-	{		
-		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
-		Ar << VolumetricFogParameters;
-		return bShaderHasOutdatedParameters;
-	}
-
-protected:
-
-	FVolumetricFogIntegrationParameters VolumetricFogParameters;
 };
 
 template<EVoxelizeShapeMode Mode>
@@ -437,168 +436,128 @@ public:
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(template<>,TVoxelizeVolumePS<VMode_Primitive_Sphere>,TEXT("/Engine/Private/VolumetricFogVoxelization.usf"),TEXT("VoxelizePS"),SF_Pixel); 
-IMPLEMENT_MATERIAL_SHADER_TYPE(template<>,TVoxelizeVolumePS<VMode_Object_Box>,TEXT("/Engine/Private/VolumetricFogVoxelization.usf"),TEXT("VoxelizePS"),SF_Pixel); 
+IMPLEMENT_MATERIAL_SHADER_TYPE(template<>,TVoxelizeVolumePS<VMode_Object_Box>,TEXT("/Engine/Private/VolumetricFogVoxelization.usf"),TEXT("VoxelizePS"),SF_Pixel);
 
-class FVoxelizeVolumeDrawingPolicy : public FMeshDrawingPolicy
+class FVoxelizeVolumeMeshProcessor : public FMeshPassProcessor
 {
 public:
-	/** context type */
-	typedef FMeshDrawingPolicy::ElementDataType ElementDataType;
+	FVoxelizeVolumeMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext);
 
-	FVoxelizeVolumeDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& MaterialResouce,
-		ERHIFeatureLevel::Type InFeatureLevel,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
-		);
+	void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, int32 NumVoxelizationPasses, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy);
 
-	// FMeshDrawingPolicy interface.
-
-	FDrawingPolicyMatchResult Matches(const FVoxelizeVolumeDrawingPolicy& Other, bool bForReals = false) const;
-
-	void SetupPipelineState(FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View) const
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId = -1) override final
 	{
-		DrawRenderState.SetBlendState(TStaticBlendState<
-			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One,
-			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
-		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-		DrawRenderState.ModifyViewOverrideFlags() |= EDrawingPolicyOverrideFlags::TwoSided;
+		checkf(false, TEXT("Default AddMeshBatch can't be used as rendering requires extra parameters per pass."));
 	}
 
-	void SetSharedState(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View, 
-		const FVolumetricFogIntegrationParameterData& IntegrationData,
-		FVector2D Jitter, 
-		const ContextDataType PolicyContext, 
-		const FDrawingPolicyRenderState& DrawRenderState) const;
-	
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel);
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		int32 VoxelizationPassIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData,
-		const ContextDataType PolicyContext
-		) const;
-
 private:
-	FVoxelizeVolumeVS* VertexShader;
-	FVoxelizeVolumeGS* GeometryShader;
-	FVoxelizeVolumePS* PixelShader;
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		int32 NumVoxelizationPasses,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
+
+	FDrawingPolicyRenderState PassDrawRenderState;
 };
 
-FVoxelizeVolumeDrawingPolicy::FVoxelizeVolumeDrawingPolicy(
-	const FVertexFactory* InVertexFactory,
-	const FMaterialRenderProxy* InMaterialRenderProxy,
-	const FMaterial& InMaterialResource,
-	ERHIFeatureLevel::Type InFeatureLevel,
-	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
-	)
-:	FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,InOverrideSettings)
-,	GeometryShader(nullptr)
+FVoxelizeVolumeMeshProcessor::FVoxelizeVolumeMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
-	const bool bUsePrimitiveSphere = InVertexFactory != GQuadMeshVertexFactory;
+	PassDrawRenderState.SetBlendState(TStaticBlendState<
+		CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One,
+		CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.VoxelizeVolumeViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer);
+}
+
+void FVoxelizeVolumeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, int32 NumVoxelizationPasses, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy)
+{
+	// Determine the mesh's material and blend mode.
+	const FMaterialRenderProxy* FallbackMaterialRenderProxyPtr = nullptr;
+	const FMaterial& Material = MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, FallbackMaterialRenderProxyPtr);
+
+	const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, Material);
+	const ERasterizerCullMode MeshCullMode = CM_None;
+
+	const FMaterialRenderProxy& MaterialRenderProxy = FallbackMaterialRenderProxyPtr ? *FallbackMaterialRenderProxyPtr : *MeshBatch.MaterialRenderProxy;
+
+	Process(MeshBatch, BatchElementMask, PrimitiveSceneProxy, MaterialRenderProxy, Material, NumVoxelizationPasses, MeshFillMode, MeshCullMode);
+}
+
+void FVoxelizeVolumeMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	int32 NumVoxelizationPasses,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+
+	TMeshProcessorShaders<
+		FVoxelizeVolumeVS,
+		FMeshMaterialShader,
+		FMeshMaterialShader,
+		FVoxelizeVolumePS,
+		FVoxelizeVolumeGS> PassShaders;
+
+	const bool bUsePrimitiveSphere = VertexFactory != GQuadMeshVertexFactory;
 
 	if (bUsePrimitiveSphere)
 	{
-		VertexShader = InMaterialResource.GetShader<TVoxelizeVolumeVS<VMode_Primitive_Sphere>>(InVertexFactory->GetType());
-		BaseVertexShader = VertexShader;
-		if (RHISupportsGeometryShaders(GShaderPlatformForFeatureLevel[InFeatureLevel]))
+		PassShaders.VertexShader = MaterialResource.GetShader<TVoxelizeVolumeVS<VMode_Primitive_Sphere>>(VertexFactory->GetType());
+		if (RHISupportsGeometryShaders(GShaderPlatformForFeatureLevel[FeatureLevel]))
 		{
-			GeometryShader = InMaterialResource.GetShader<TVoxelizeVolumeGS<VMode_Primitive_Sphere>>(InVertexFactory->GetType());
+			PassShaders.GeometryShader = MaterialResource.GetShader<TVoxelizeVolumeGS<VMode_Primitive_Sphere>>(VertexFactory->GetType());
 		}
-		PixelShader = InMaterialResource.GetShader<TVoxelizeVolumePS<VMode_Primitive_Sphere>>(InVertexFactory->GetType());
+		PassShaders.PixelShader = MaterialResource.GetShader<TVoxelizeVolumePS<VMode_Primitive_Sphere>>(VertexFactory->GetType());
 	}
 	else
 	{
-		VertexShader = InMaterialResource.GetShader<TVoxelizeVolumeVS<VMode_Object_Box>>(InVertexFactory->GetType());
-		BaseVertexShader = VertexShader;
-		if (RHISupportsGeometryShaders(GShaderPlatformForFeatureLevel[InFeatureLevel]))
+		PassShaders.VertexShader = MaterialResource.GetShader<TVoxelizeVolumeVS<VMode_Object_Box>>(VertexFactory->GetType());
+		if (RHISupportsGeometryShaders(GShaderPlatformForFeatureLevel[FeatureLevel]))
 		{
-			GeometryShader = InMaterialResource.GetShader<TVoxelizeVolumeGS<VMode_Object_Box>>(InVertexFactory->GetType());
+			PassShaders.GeometryShader = MaterialResource.GetShader<TVoxelizeVolumeGS<VMode_Object_Box>>(VertexFactory->GetType());
 		}
-		PixelShader = InMaterialResource.GetShader<TVoxelizeVolumePS<VMode_Object_Box>>(InVertexFactory->GetType());
-	}
-}
+		PassShaders.PixelShader = MaterialResource.GetShader<TVoxelizeVolumePS<VMode_Object_Box>>(VertexFactory->GetType());
+	};
 
-FDrawingPolicyMatchResult FVoxelizeVolumeDrawingPolicy::Matches(
-	const FVoxelizeVolumeDrawingPolicy& Other, bool bForReals
-	) const
-{
-	DRAWING_POLICY_MATCH_BEGIN
-		DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-		DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-		DRAWING_POLICY_MATCH(GeometryShader == Other.GeometryShader) &&
-		DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-	DRAWING_POLICY_MATCH_END
-}
-
-void FVoxelizeVolumeDrawingPolicy::SetSharedState(
-	FRHICommandList& RHICmdList, 
-	const FViewInfo& View,
-	const FVolumetricFogIntegrationParameterData& IntegrationData,
-	FVector2D Jitter,
-	const ContextDataType PolicyContext,
-	const FDrawingPolicyRenderState& DrawRenderState
-	) const
-{
-	// Set shared mesh resources
-	FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, &View, PolicyContext);
-
-	VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View, DrawRenderState, IntegrationData, Jitter);
-	if (GeometryShader)
+	for (int32 VoxelizationPassIndex = 0; VoxelizationPassIndex < NumVoxelizationPasses; VoxelizationPassIndex++)
 	{
-		GeometryShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View, DrawRenderState, IntegrationData, Jitter);
+		if (GVolumetricFogVoxelizationShowOnlyPassIndex < 0 || GVolumetricFogVoxelizationShowOnlyPassIndex == VoxelizationPassIndex)
+		{
+			FVoxelizeVolumeShaderElementData ShaderElementData(VoxelizationPassIndex);
+			ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, -1, true);
+
+			BuildMeshDrawCommands(
+				MeshBatch,
+				BatchElementMask,
+				PrimitiveSceneProxy,
+				MaterialRenderProxy,
+				MaterialResource,
+				PassDrawRenderState,
+				PassShaders,
+				MeshFillMode,
+				MeshCullMode,
+				1,
+				FMeshDrawCommandSortKey::Default,
+				EMeshPassFeatures::Default,
+				ShaderElementData);
+		}
 	}
-	PixelShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View, DrawRenderState, IntegrationData);
 }
 
-FBoundShaderStateInput FVoxelizeVolumeDrawingPolicy::GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel)
-{
-	return FBoundShaderStateInput(
-		FMeshDrawingPolicy::GetVertexDeclaration(), 
-		VertexShader->GetVertexShader(),
-		NULL,
-		NULL,
-		PixelShader->GetPixelShader(), 
-		GeometryShader ? GeometryShader->GetGeometryShader() : NULL);
-}
-
-void FVoxelizeVolumeDrawingPolicy::SetMeshRenderState(
-	FRHICommandList& RHICmdList, 
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	const FMeshBatch& Mesh,
-	int32 BatchElementIndex,
-	int32 VoxelizationPassIndex,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const ElementDataType& ElementData,
-	const ContextDataType PolicyContext
-	) const
-{
-	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-
-	VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState, VoxelizationPassIndex);
-	if (GeometryShader)
-	{
-		GeometryShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState, VoxelizationPassIndex);
-	}
-	PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-}
-
-void VoxelizeVolumePrimitive(
+void VoxelizeVolumePrimitive(FVoxelizeVolumeMeshProcessor& PassMeshProcessor,
 	FRHICommandListImmediate& RHICmdList,
 	const FViewInfo& View,
-	const FVolumetricFogIntegrationParameterData& IntegrationData,
-	const FDrawingPolicyRenderState& PassDrawRenderState,
-	FVector2D Jitter,
 	FIntVector VolumetricFogGridSize,
 	FVector GridZParams,
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
@@ -630,7 +589,7 @@ void VoxelizeVolumePrimitive(
 			LocalQuadMesh.VertexFactory = GQuadMeshVertexFactory;
 			LocalQuadMesh.MaterialRenderProxy = OriginalMesh.MaterialRenderProxy;
 			LocalQuadMesh.Elements[0].IndexBuffer = &GQuadMeshIndexBuffer;
-			LocalQuadMesh.Elements[0].PrimitiveUniformBufferResource = OriginalMesh.Elements[0].PrimitiveUniformBufferResource;
+			LocalQuadMesh.Elements[0].PrimitiveUniformBuffer = OriginalMesh.Elements[0].PrimitiveUniformBuffer;
 			LocalQuadMesh.Elements[0].FirstIndex = 0;
 			LocalQuadMesh.Elements[0].NumPrimitives = 2;
 			LocalQuadMesh.Elements[0].MinVertexIndex = 0;
@@ -638,18 +597,6 @@ void VoxelizeVolumePrimitive(
 		}
 
 		const FMeshBatch& Mesh = bOverrideWithQuadMesh ? LocalQuadMesh : OriginalMesh;
-
-		FVoxelizeVolumeDrawingPolicy DrawingPolicy(
-			Mesh.VertexFactory,
-			Mesh.MaterialRenderProxy,
-			Material,
-			View.GetFeatureLevel(),
-			ComputeMeshOverrideSettings(Mesh));
-
-		FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
-		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-		DrawingPolicy.SetSharedState(RHICmdList, View, IntegrationData, Jitter, FVoxelizeVolumeDrawingPolicy::ContextDataType(), DrawRenderState);
 
 		FBoxSphereBounds Bounds = PrimitiveSceneProxy->GetBounds();
 		//@todo - compute NumSlices based on the largest particle size.  Bounds is overly conservative in most cases.
@@ -663,20 +610,8 @@ void VoxelizeVolumePrimitive(
 		const int32 NumSlices = FarSlice - NearSlice + 1;
 		const int32 NumVoxelizationPasses = FMath::DivideAndRoundUp(NumSlices, GetVoxelizationSlicesPerPass(View.GetShaderPlatform()));
 
-		TDrawEvent<FRHICommandList> MeshEvent;
-		BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::FogVoxelization));
-
-		for (int32 VoxelizationPassIndex = 0; VoxelizationPassIndex < NumVoxelizationPasses; VoxelizationPassIndex++)
-		{
-			if (GVolumetricFogVoxelizationShowOnlyPassIndex < 0 || GVolumetricFogVoxelizationShowOnlyPassIndex == VoxelizationPassIndex)
-			{
-				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, VoxelizationPassIndex, DrawRenderState, FVoxelizeVolumeDrawingPolicy::ElementDataType(), FVoxelizeVolumeDrawingPolicy::ContextDataType());
-					DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex);
-				}
-			}
-		}
+		const uint64 DefaultBatchElementMask = ~0ull;
+		PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, NumVoxelizationPasses, PrimitiveSceneProxy);
 	}
 }
 
@@ -692,37 +627,43 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 		&& DoesPlatformSupportVolumetricFogVoxelization(View.GetShaderPlatform()))
 	{
 		FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
-		PassParameters->RenderTargets[0] = FRenderTargetBinding( IntegrationData.VBufferA, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
-		PassParameters->RenderTargets[1] = FRenderTargetBinding( IntegrationData.VBufferB, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore );
+		PassParameters->RenderTargets[0] = FRenderTargetBinding(IntegrationData.VBufferA, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
+		PassParameters->RenderTargets[1] = FRenderTargetBinding(IntegrationData.VBufferB, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
 
 		GraphBuilder.AddPass(
 			RDG_EVENT_NAME("VoxelizeVolumePrimitives"),
 			PassParameters,
 			ERenderGraphPassFlags::None,
-			[PassParameters, &View, VolumetricFogGridSize, IntegrationData, VolumetricFogDistance, GridZParams](FRHICommandListImmediate& RHICmdList)
+			[PassParameters, Scene = Scene, &View, VolumetricFogGridSize, IntegrationData, VolumetricFogDistance, GridZParams](FRHICommandListImmediate& RHICmdList)
+		{
+			FViewUniformShaderParameters ViewVoxelizeParameters = *View.CachedViewUniformShaderParameters;
+
+			// Update the parts of VoxelizeParameters which are dependent on the buffer size and view rect
+			View.SetupViewRectUniformBufferParameters(
+				ViewVoxelizeParameters,
+				FIntPoint(VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
+				FIntRect(0, 0, VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
+				View.ViewMatrices,
+				View.PrevViewInfo.ViewMatrices
+			);
+
+			FVector2D Jitter(IntegrationData.FrameJitterOffsetValues[0].X / VolumetricFogGridSize.X, IntegrationData.FrameJitterOffsetValues[0].Y / VolumetricFogGridSize.Y);
+
+			FVoxelizeVolumePassUniformParameters VoxelizeVolumePassParameters;
+			SetupVoxelizeVolumePassUniformBuffer(RHICmdList, View, IntegrationData, Jitter, VoxelizeVolumePassParameters);
+			Scene->UniformBuffers.VoxelizeVolumeViewUniformBuffer.UpdateUniformBufferImmediate(ViewVoxelizeParameters);
+			Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer.UpdateUniformBufferImmediate(VoxelizeVolumePassParameters);
+
+			FDrawingPolicyRenderState DrawRenderState(View, Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer);
+			DrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.VoxelizeVolumeViewUniformBuffer);
+
+			DrawDynamicMeshPass(View, RHICmdList,
+				[&View, VolumetricFogDistance, &RHICmdList, &VolumetricFogGridSize, &GridZParams](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
 			{
-				FViewUniformShaderParameters VoxelizeParameters = *View.CachedViewUniformShaderParameters;
-
-				// Update the parts of VoxelizeParameters which are dependent on the buffer size and view rect
-				View.SetupViewRectUniformBufferParameters(
-					VoxelizeParameters,
-					FIntPoint(VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
-					FIntRect(0, 0, VolumetricFogGridSize.X, VolumetricFogGridSize.Y),
-					View.ViewMatrices,
-					View.PrevViewInfo.ViewMatrices
-				);
-
-				TUniformBufferRef<FViewUniformShaderParameters> VoxelizeViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(VoxelizeParameters, UniformBuffer_SingleFrame);
-
-				FSceneTexturesUniformParameters SceneTextureParameters;
-				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-				SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-				TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-
-				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-				DrawRenderState.SetViewUniformBuffer(VoxelizeViewUniformBuffer);
-
-				FVector2D Jitter(IntegrationData.FrameJitterOffsetValues[0].X / VolumetricFogGridSize.X, IntegrationData.FrameJitterOffsetValues[0].Y / VolumetricFogGridSize.Y);
+				FVoxelizeVolumeMeshProcessor PassMeshProcessor(
+					View.Family->Scene->GetRenderScene(),
+					&View,
+					DynamicMeshPassContext);
 
 				for (int32 PrimIdx = 0; PrimIdx < View.VolumetricPrimSet.NumPrims(); PrimIdx++)
 				{
@@ -746,7 +687,7 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 								checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
 
 								const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-								VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, MeshBatch);
+								VoxelizeVolumePrimitive(PassMeshProcessor, RHICmdList, View, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, MeshBatch);
 							}
 						}
 
@@ -758,12 +699,13 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 
 								if (View.StaticMeshVisibilityMap[StaticMesh.Id])
 								{
-									VoxelizeVolumePrimitive(RHICmdList, View, IntegrationData, DrawRenderState, Jitter, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, StaticMesh);
+									VoxelizeVolumePrimitive(PassMeshProcessor, RHICmdList, View, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, StaticMesh);
 								}
 							}
 						}
 					}
 				}
 			});
+		});
 	}
 }

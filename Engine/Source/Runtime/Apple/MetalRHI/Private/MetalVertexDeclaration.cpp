@@ -30,6 +30,7 @@ static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type
 		case VET_UShort2N:		return mtlpp::VertexFormat::UShort2Normalized;
 		case VET_UShort4N:		return mtlpp::VertexFormat::UShort4Normalized;
 		case VET_URGB10A2N:		return mtlpp::VertexFormat::UInt1010102Normalized;
+		case VET_UInt:			return mtlpp::VertexFormat::UInt;
 		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return mtlpp::VertexFormat::Float;
 	};
 
@@ -58,6 +59,7 @@ uint32 TranslateElementTypeToSize(EVertexElementType Type)
 		case VET_Short4N:		return 8;
 		case VET_UShort4N:		return 8;
 		case VET_URGB10A2N:		return 4;
+		case VET_UInt:			return 4;
 		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return 0;
 	};
 }

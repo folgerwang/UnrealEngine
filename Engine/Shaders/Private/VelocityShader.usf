@@ -232,10 +232,6 @@ void MainVertexShader(
 /*=============================================================================
  * Pixel Shader
  *============================================================================*/
-
-// set by C++
-// xy for the instance scale, zw for the camera scale (includes y flip for both scale)
-float4 IndividualVelocityScale;
  
 void MainPixelShader(
 	FVelocityInterpsVSToPS Input,

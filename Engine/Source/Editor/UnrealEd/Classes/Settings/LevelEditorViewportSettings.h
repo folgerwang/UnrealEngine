@@ -432,10 +432,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, AdvancedDisplay, meta=(DisplayName = "BSP Surface Highlight Intensity" ,ClampMin = "0", UIMin = "0", UIMax = "1"))
 	float BSPSelectionHighlightIntensity;
 
-	/** Sets the intensity of the overlay displayed when an object is hovered */
-	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, AdvancedDisplay, meta=(DisplayName = "Hover Highlight Intensity" ,ClampMin = "0", UIMin = "0", UIMax = "20"))
-	float HoverHighlightIntensity;
-
 	/** Enables the editor perspective camera to be dropped at the last PlayInViewport cam position */
 	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, meta=(DisplayName = "Use Camera Location from Play-In-Viewport"))
 	uint32 bEnableViewportCameraToUpdateFromPIV:1;

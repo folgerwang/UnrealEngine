@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditorTools.h"
 #include "Framework/Commands/UIAction.h"
@@ -2505,6 +2505,7 @@ void FMeshMaterialsLayout::OnMaterialHighlightedChanged(ECheckBoxState NewState,
 			Component->SelectedEditorMaterial = INDEX_NONE;
 		}
 		Component->MarkRenderStateDirty();
+		Component->PushSelectionToProxy();
 		StaticMeshEditor.RefreshViewport();
 	}
 }

@@ -8,38 +8,29 @@ RequiredTextureResolutionRendering.cpp: Contains definitions for rendering the v
 #include "RendererPrivate.h"
 #include "ScenePrivate.h"
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FRequiredTextureResolutionPS,TEXT("/Engine/Private/RequiredTextureResolutionPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
-void FRequiredTextureResolutionPS::SetParameters(
-	FRHICommandList& RHICmdList, 
-	const FShader* OriginalVS, 
-	const FShader* OriginalPS, 
-	const FMaterialRenderProxy* MaterialRenderProxy,
-	const FMaterial& Material,
-	const FSceneView& View,
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
+void FRequiredTextureResolutionPS::GetDebugViewModeShaderBindings(
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT Material,
+	EDebugViewShaderMode DebugViewMode,
+	const FVector& ViewOrigin,
+	int32 VisualizeLODIndex,
+	int32 VisualizeElementIndex,
+	int32 NumVSInstructions,
+	int32 NumPSInstructions,
+	int32 ViewModeParam,
+	FName ViewModeParamName,
+	FMeshDrawSingleShaderBindings& ShaderBindings
+) const
 {
-	const int32 NumEngineColors = FMath::Min<int32>(GEngine->StreamingAccuracyColors.Num(), NumStreamingAccuracyColors);
-	int32 ColorIndex = 0;
-	for (; ColorIndex < NumEngineColors; ++ColorIndex)
-	{
-		SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), AccuracyColorsParameter, GEngine->StreamingAccuracyColors[ColorIndex], ColorIndex);
-	}
-	for (; ColorIndex < NumStreamingAccuracyColors; ++ColorIndex)
-	{
-		SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), AccuracyColorsParameter, FLinearColor::Black, ColorIndex);
-	}
-
-	const int32 ViewModeParam = View.Family->GetViewModeParam();
-	const FName ViewModeParamName = View.Family->GetViewModeParamName();
-
 	int32 AnalysisIndex = INDEX_NONE;
 	int32 TextureResolution = 64;
-
-	FMaterialRenderContext MaterialContext(MaterialRenderProxy, Material, &View);
+	FMaterialRenderContext MaterialContext(&MaterialRenderProxy, Material, nullptr);
 	const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& ExpressionsByType = Material.GetUniform2DTextureExpressions();
-
 	if (ViewModeParam != INDEX_NONE && ViewModeParamName == NAME_None) // If displaying texture per texture indices
 	{
 		AnalysisIndex = ViewModeParam;
@@ -54,7 +45,7 @@ void FRequiredTextureResolutionPS::SetParameters(
 				const UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
 				if (Texture2D && Texture2D->Resource)
 				{
-					FTexture2DResource* Texture2DResource =  (FTexture2DResource*)Texture2D->Resource;
+					FTexture2DResource* Texture2DResource = (FTexture2DResource*)Texture2D->Resource;
 					if (Texture2DResource->GetTexture2DRHI().IsValid())
 					{
 						TextureResolution = 1 << (Texture2DResource->GetTexture2DRHI()->GetNumMips() - 1);
@@ -79,7 +70,7 @@ void FRequiredTextureResolutionPS::SetParameters(
 					const UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
 					if (Texture2D && Texture2D->Resource)
 					{
-						FTexture2DResource* Texture2DResource =  (FTexture2DResource*)Texture2D->Resource;
+						FTexture2DResource* Texture2DResource = (FTexture2DResource*)Texture2D->Resource;
 						if (Texture2DResource->GetTexture2DRHI().IsValid())
 						{
 							AnalysisIndex = Expression->GetTextureIndex();
@@ -92,22 +83,9 @@ void FRequiredTextureResolutionPS::SetParameters(
 		}
 	}
 
-	SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), AnalysisParamsParameter, FIntVector4(AnalysisIndex, TextureResolution, 0, 0));
-
-	FMeshMaterialShader::SetParameters(RHICmdList, FMeshMaterialShader::GetPixelShader(), MaterialRenderProxy, Material, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+	ShaderBindings.Add(AnalysisParamsParameter, FIntPoint(AnalysisIndex, TextureResolution));
+	ShaderBindings.Add(PrimitiveAlphaParameter, (!PrimitiveSceneProxy || PrimitiveSceneProxy->IsSelected()) ? 1.f : .2f);
 }
 
-void FRequiredTextureResolutionPS::SetMesh(
-	FRHICommandList& RHICmdList, 
-	const FVertexFactory* VertexFactory,
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* Proxy,
-	int32 VisualizeLODIndex,
-	const FMeshBatchElement& BatchElement, 
-	const FDrawingPolicyRenderState& DrawRenderState
-	)
-{
-	SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), PrimitiveAlphaParameter, (!Proxy || Proxy->IsSelected()) ? 1.f : .2f);
 
-	FMeshMaterialShader::SetMesh(RHICmdList, FMeshMaterialShader::GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

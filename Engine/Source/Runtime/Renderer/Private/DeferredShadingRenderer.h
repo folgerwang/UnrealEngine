@@ -75,26 +75,6 @@ public:
 	/** Culls local lights to a grid in frustum space.  Needed for forward shading or translucency using the Surface lighting mode. */
 	void ComputeLightGrid(FRHICommandListImmediate& RHICmdList, bool bNeedLightGrid);
 
-	/** Renders the basepass for the static data of a given View. */
-	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
-	bool RenderBasePassStaticDataType(FRHICommandList& RHICmdList, FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const EBasePassDrawListType DrawType);
-
-	/** Renders the basepass for the static data of a given View. Parallel versions.*/
-	void RenderBasePassStaticDataParallel(FParallelCommandListSet& ParallelCommandListSet);
-	void RenderBasePassStaticDataTypeParallel(FParallelCommandListSet& ParallelCommandListSet, const EBasePassDrawListType DrawType);
-
-	/** Asynchronously sorts base pass draw lists front to back for improved GPU culling. */
-	void AsyncSortBasePassStaticData(const FVector ViewPosition, FGraphEventArray &SortEvents);
-
-	/** Sorts base pass draw lists front to back for improved GPU culling. */
-	void SortBasePassStaticData(FVector ViewPosition);
-
-	/** Renders the basepass for the dynamic data of a given View. */
-	void RenderBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, bool& bOutDirty);
-
-	/** Renders the basepass for the dynamic data of a given View, in parallel. */
-	void RenderBasePassDynamicDataParallel(FParallelCommandListSet& ParallelCommandListSet);
-
 	/** Renders the basepass for a given View, in parallel */
 	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState);
 
@@ -129,8 +109,15 @@ public:
 	virtual void RenderHitProxies(FRHICommandListImmediate& RHICmdList) override;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	void DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 	void RenderVisualizeTexturePool(FRHICommandListImmediate& RHICmdList);
+#else
+	FORCEINLINE void DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT) {}
 #endif
+
+protected:
+
+	virtual void GenerateDynamicMeshDrawCommands() override;
 
 private:
 
@@ -153,12 +140,17 @@ private:
 	*/
 	bool CheckForLightFunction(const FLightSceneInfo* LightSceneInfo) const;
 
+	/**
+	* Performs once per frame setup prior to visibility determination.
+	*/
+	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
+
 	/** Determines which primitives are visible for each view. */
-	bool InitViews(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
+	bool InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
 
 	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
 
-	void SetupReflectionCaptureBuffers(FViewInfo& View, FRHICommandListImmediate& RHICmdList);
+	void SetupSceneReflectionCaptureBuffer(FRHICommandListImmediate& RHICmdList);
 
 	/**
 	Updates auto-downsampling of separate translucency and sets FSceneRenderTargets::SeparateTranslucencyBufferSize.
@@ -268,17 +260,10 @@ private:
 
 	void RenderLightShaftBloom(FRHICommandListImmediate& RHICmdList);
 
-	/** Returns an existing translucent shadow map for a given primitive. */
-	const FProjectedShadowInfo* GetTranslucentShadowMap(FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPass::Type TranslucenyPassType);
-
 	bool ShouldRenderVelocities() const;
 
 	/** Renders the velocities of movable objects for the motion blur effect. */
 	void RenderVelocities(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
-
-	/** Renders the velocities for a subset of movable objects for the motion blur effect. */
-	friend class FRenderVelocityDynamicThreadTask;
-	void RenderDynamicVelocitiesMeshElementsInner(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, int32 FirstIndex, int32 LastIndex);
 
 	/** Renders the velocities of movable objects for the motion blur effect. */
 	void RenderVelocitiesInner(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
@@ -286,6 +271,9 @@ private:
 
 	/** Renders world-space lightmap density instead of the normal color. */
 	bool RenderLightMapDensities(FRHICommandListImmediate& RHICmdList);
+
+	/** Renders one of the EDebugViewShaderMode instead of the normal color. */
+	bool RenderDebugViewMode(FRHICommandListImmediate& RHICmdList);
 
 	/** Updates the downsized depth buffer with the current full resolution depth buffer. */
 	void UpdateDownsampledDepthSurface(FRHICommandList& RHICmdList);
@@ -453,8 +441,6 @@ private:
 	void RenderViewTranslucencyParallel(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass);
 
 	void CopySceneCaptureComponentToTarget(FRHICommandListImmediate& RHICmdList);
-
-	friend class FTranslucentPrimSet;
 };
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );

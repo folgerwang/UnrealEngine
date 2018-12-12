@@ -466,18 +466,18 @@ bool FIndirectLightingCache::IndirectLightingAllowed(FScene* Scene, FSceneRender
 void FIndirectLightingCache::ProcessPrimitiveUpdate(FScene* Scene, FViewInfo& View, int32 PrimitiveIndex, bool bAllowUnbuiltPreview, bool bAllowVolumeSample, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate)
 {
 	FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[PrimitiveIndex];
-	const bool bPrecomputedLightingBufferWasDirty = PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate();
-
+	const bool bIndirectLightingCacheBufferWasDirty = PrimitiveSceneInfo->NeedsIndirectLightingCacheBufferUpdate();
+	
 	const TMap<FPrimitiveComponentId, FAttachmentGroupSceneInfo>& AttachmentGroups = Scene->AttachmentGroups;
 	UpdateCachePrimitive(AttachmentGroups, PrimitiveSceneInfo, bAllowUnbuiltPreview, bAllowVolumeSample, OutBlocksToUpdate, OutTransitionsOverTimeToUpdate);
 
 	// If it was already dirty, then the primitive is already in one of the view dirty primitive list at this point.
 	// This also ensures that a primitive does not get added twice to the list, which could create an array reallocation.
-	if (!bPrecomputedLightingBufferWasDirty && PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate())
+	if (!bIndirectLightingCacheBufferWasDirty && PrimitiveSceneInfo->NeedsIndirectLightingCacheBufferUpdate())
 	{
 		// Since the update can be executed on a threaded job (see GILCUpdatePrimTaskEnabled), no reallocation must happen here.
-		check(View.DirtyPrecomputedLightingBufferPrimitives.Num() < View.DirtyPrecomputedLightingBufferPrimitives.Max());
-		View.DirtyPrecomputedLightingBufferPrimitives.Push(PrimitiveSceneInfo);
+		check(View.DirtyIndirectLightingCacheBufferPrimitives.Num() < View.DirtyIndirectLightingCacheBufferPrimitives.Max());
+		View.DirtyIndirectLightingCacheBufferPrimitives.Push(PrimitiveSceneInfo);
 	}
 }
 
@@ -496,15 +496,15 @@ void FIndirectLightingCache::UpdateCachePrimitivesInternal(FScene* Scene, FScene
 			for (uint32 PrimitiveIndex = 0; PrimitiveIndex < PrimitiveCount; ++PrimitiveIndex)
 			{
 				FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[PrimitiveIndex];
-				const bool bPrecomputedLightingBufferWasDirty = PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate();
-
+				const bool bIndirectLightingCacheBufferWasDirty = PrimitiveSceneInfo->NeedsIndirectLightingCacheBufferUpdate();
+				
 				UpdateCachePrimitive(AttachmentGroups, PrimitiveSceneInfo, false, true, OutBlocksToUpdate, OutTransitionsOverTimeToUpdate);
 
 				// If it was already dirty, then the primitive is already in one of the view dirty primitive list at this point.
 				// This also ensures that a primitive does not get added twice to the list, which could create an array reallocation.
-				if (!bPrecomputedLightingBufferWasDirty)
+				if (!bIndirectLightingCacheBufferWasDirty)
 				{
-					PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+					PrimitiveSceneInfo->MarkIndirectLightingCacheBufferDirty();
 
 					// Check if it is visible otherwise, it will be updated next time it is visible.
 					for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
@@ -514,8 +514,8 @@ void FIndirectLightingCache::UpdateCachePrimitivesInternal(FScene* Scene, FScene
 						if (View.PrimitiveVisibilityMap[PrimitiveIndex])
 						{
 							// Since the update can be executed on a threaded job (see GILCUpdatePrimTaskEnabled), no reallocation must happen here.
-							checkSlow(View.DirtyPrecomputedLightingBufferPrimitives.Num() < View.DirtyPrecomputedLightingBufferPrimitives.Max());
-							View.DirtyPrecomputedLightingBufferPrimitives.Push(PrimitiveSceneInfo);
+							checkSlow(View.DirtyIndirectLightingCacheBufferPrimitives.Num() < View.DirtyIndirectLightingCacheBufferPrimitives.Max());
+							View.DirtyIndirectLightingCacheBufferPrimitives.Push(PrimitiveSceneInfo);
 							break; // We only need to add it in one of the view list.
 						}
 					}
@@ -572,7 +572,7 @@ void FIndirectLightingCache::FinalizeUpdateInternal_RenderThread(FScene* Scene, 
 
 	if (GCacheDrawLightingSamples || Renderer.ViewFamily.EngineShowFlags.VolumeLightingSamples || GCacheDrawDirectionalShadowing)
 	{
-		FViewElementPDI DebugPDI(Renderer.Views.GetData(), NULL);
+		FViewElementPDI DebugPDI(&Renderer.Views[0], nullptr, &Renderer.Views[0].DynamicPrimitiveShaderData);
 
 		for (int32 VolumeIndex = 0; VolumeIndex < Scene->PrecomputedLightVolumes.Num(); VolumeIndex++)
 		{
@@ -684,7 +684,7 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			PrimitiveSceneInfo->IndirectLightingCacheAllocation = AttachmentParentAllocation;
 
 			// Don't know here if this parent ILC is or will be dirty or not. Always update.
-			PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+			PrimitiveSceneInfo->MarkIndirectLightingCacheBufferDirty();
 		}
 		else
 		{
@@ -712,7 +712,7 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 
 			if (bUpdated)
 			{
-				PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+				PrimitiveSceneInfo->MarkIndirectLightingCacheBufferDirty();
 			}
 		}
 	}
@@ -864,7 +864,7 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 	{
 		if (GCacheDrawInterpolationPoints != 0 && DebugDrawingView)
 		{
-			FViewElementPDI DebugPDI(DebugDrawingView, NULL);
+			FViewElementPDI DebugPDI(DebugDrawingView, nullptr, nullptr);
 			const FVector WorldPosition = BlockInfo.Block.Min;
 			DebugPDI.DrawPoint(WorldPosition, FLinearColor(0, 0, 1), 10, SDPG_World);
 		}
@@ -1114,7 +1114,7 @@ void FIndirectLightingCache::EncodeBlock(
 	TArray<FFloat16Color>& Texture2Data	
 	)
 {
-	FViewElementPDI DebugPDI(DebugDrawingView, NULL);
+	FViewElementPDI DebugPDI(DebugDrawingView, nullptr, nullptr);
 
 	for (int32 Z = 0; Z < Block.TexelSize; Z++)
 	{

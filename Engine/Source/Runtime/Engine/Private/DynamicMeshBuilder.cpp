@@ -653,9 +653,12 @@ FMeshBuilderOneFrameResources::~FMeshBuilderOneFrameResources()
 		delete VertexBuffer;
 	}
 
-	if (IndexBuffer && IndexBuffer->Indices.Num())
+	if (IndexBuffer)
 	{
-		IndexBuffer->ReleaseResource();
+		if (IndexBuffer->Indices.Num())
+		{
+			IndexBuffer->ReleaseResource();
+		}
 		delete IndexBuffer;
 	}
 
@@ -720,6 +723,7 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 			OneFrameResources->PrimitiveUniformBuffer = new FDynamicMeshPrimitiveUniformBuffer();
 			FPrimitiveUniformShaderParameters PrimitiveParams = GetPrimitiveUniformShaderParameters(
 				LocalToWorld,
+				LocalToWorld,
 				LocalToWorld.GetOrigin(),
 				FBoxSphereBounds(EForceInit::ForceInit),
 				FBoxSphereBounds(EForceInit::ForceInit),
@@ -730,7 +734,9 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 				false,
 				false,
 				GetDefaultLightingChannelMask(),
-				1.0f		// LPV bias
+				0,
+				INDEX_NONE,
+				INDEX_NONE
 			);
 
 
@@ -807,6 +813,7 @@ void FDynamicMeshBuilder::GetMeshElement(const FMatrix& LocalToWorld, const FMat
 			OneFrameResource.PrimitiveUniformBuffer = new FDynamicMeshPrimitiveUniformBuffer();
 			FPrimitiveUniformShaderParameters PrimitiveParams = GetPrimitiveUniformShaderParameters(
 				LocalToWorld,
+				LocalToWorld,
 				LocalToWorld.GetOrigin(),
 				FBoxSphereBounds(EForceInit::ForceInit),
 				FBoxSphereBounds(EForceInit::ForceInit),
@@ -817,7 +824,9 @@ void FDynamicMeshBuilder::GetMeshElement(const FMatrix& LocalToWorld, const FMat
 				false,
 				false,
 				GetDefaultLightingChannelMask(),
-				1.0f		// LPV bias
+				0,
+				INDEX_NONE,
+				INDEX_NONE
 			);
 
 
@@ -881,6 +890,7 @@ void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& Local
 		FDynamicMeshPrimitiveUniformBuffer* PrimitiveUniformBuffer = new FDynamicMeshPrimitiveUniformBuffer();
 		FPrimitiveUniformShaderParameters PrimitiveParams = GetPrimitiveUniformShaderParameters(
 			LocalToWorld,
+			LocalToWorld,
 			LocalToWorld.GetOrigin(),
 			FBoxSphereBounds(EForceInit::ForceInit),
 			FBoxSphereBounds(EForceInit::ForceInit),
@@ -891,7 +901,9 @@ void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& Local
 			false,
 			false,
 			GetDefaultLightingChannelMask(),
-			1.0f		// LPV bias
+			0,
+			INDEX_NONE,
+			INDEX_NONE
 			);
 
 

@@ -118,8 +118,11 @@ RHI_API bool RHIGetPreviewFeatureLevel(ERHIFeatureLevel::Type& PreviewFeatureLev
 
 inline bool RHISupportsInstancedStereo(const EShaderPlatform Platform)
 {
+	//@todo MeshCommandPipeline - add vr.InstancedStereo render path.
+	return false;
+
 	// Only D3D SM5, PS4 and Metal SM5 supports Instanced Stereo
-	return (Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4 || Platform == EShaderPlatform::SP_METAL_SM5 || Platform == EShaderPlatform::SP_METAL_SM5_NOTESS);
+	//return (Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4 || Platform == EShaderPlatform::SP_METAL_SM5 || Platform == EShaderPlatform::SP_METAL_SM5_NOTESS);
 }
 
 inline bool RHISupportsMultiView(const EShaderPlatform Platform)
@@ -176,6 +179,14 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
 	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
+}
+
+/** 
+ * Returns true if SV_VertexID contains BaseVertexIndex passed to the draw call, false if shaders must manually construct an absolute VertexID.
+ */
+inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
+{
+	return IsVulkanPlatform(InShaderPlatform) || IsVulkanMobilePlatform(InShaderPlatform);
 }
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
@@ -436,7 +447,7 @@ extern RHI_API TRHIGlobal<bool> GRHISupportsInstancing;
 /** True if the RHI supports copying cubemap faces using CopyToResolveTarget */
 extern RHI_API bool GRHISupportsResolveCubemapFaces;
 
-/** Whether or not the RHI can handle a non-zero FirstInstance - extra SetStreamSource calls will be needed if this is false */
+/** Whether or not the RHI can handle a non-zero FirstInstance to DrawIndexedPrimitive and friends - extra SetStreamSource calls will be needed if this is false */
 extern RHI_API bool GRHISupportsFirstInstance;
 
 /** Whether or not the RHI can handle dynamic resolution or not. */

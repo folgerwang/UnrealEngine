@@ -111,7 +111,7 @@ void FMeshMaterialRenderItem::QueueMaterial(FRHICommandListImmediate& RHICmdList
 
 	check(OneFrameResource.IsValidForRendering());
 
-	LCI->SetPrecomputedLightingBuffer(LightMapHelpers::CreateDummyPrecomputedLightingUniformBuffer(UniformBuffer_SingleFrame, GMaxRHIFeatureLevel, LCI));
+	LCI->CreatePrecomputedLightingUniformBuffer_RenderingThread(View->GetFeatureLevel());
 	MeshElement.LCI = LCI;
 
 #if SHOW_WIREFRAME_MESH

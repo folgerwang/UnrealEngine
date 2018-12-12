@@ -114,15 +114,21 @@ public:
 	{}
 
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
-	static TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage)
+	static TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 	{
 		check(IsInRenderingThread() || IsInRHIThread());
-		return TUniformBufferRef<TBufferStruct>(RHICreateUniformBuffer(&Value,TBufferStruct::StaticStructMetadata.GetLayout(),Usage));
+		return TUniformBufferRef<TBufferStruct>(RHICreateUniformBuffer(&Value, TBufferStruct::StaticStructMetadata.GetLayout(), Usage, Validation));
 	}
+
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
 	static FLocalUniformBuffer CreateLocalUniformBuffer(FRHICommandList& RHICmdList, const TBufferStruct& Value, EUniformBufferUsage Usage)
 	{
 		return RHICmdList.BuildLocalUniformBuffer(&Value, sizeof(TBufferStruct), TBufferStruct::StaticStructMetadata.GetLayout());
+	}
+
+	void UpdateUniformBufferImmediate(const TBufferStruct& Value)
+	{
+		RHIUpdateUniformBuffer(GetReference(), &Value);
 	}
 
 private:
@@ -540,9 +546,12 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 		StructTypeName::zzGetMembers()); \
 	return &StaticStructMetadata;
 
+#define INTERNAL_LOCAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER return nullptr;
+
+#define INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER return RHICreateUniformBuffer(&InContents, StaticStructMetadata.GetLayout(), InUsage);
 
 /** Begins a uniform buffer struct declaration. */
-#define INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,ConstructorSuffix,GetStructMetadataScope) \
+#define INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,ConstructorSuffix,GetStructMetadataScope,CreateUniformBufferImpl) \
 	MS_ALIGN(SHADER_PARAMETER_STRUCT_ALIGNMENT) class PrefixKeywords StructTypeName \
 	{ \
 	public: \
@@ -556,6 +565,10 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 			using TAlignedType = StructTypeName; \
 			static inline const FShaderParametersMetadata* GetStructMetadata() { GetStructMetadataScope } \
 		}; \
+		static FUniformBufferRHIRef CreateUniformBuffer(const StructTypeName& InContents, EUniformBufferUsage InUsage) \
+		{ \
+			CreateUniformBufferImpl \
+		} \
 	private: \
 		typedef StructTypeName zzTThisStruct; \
 		struct zzFirstMemberId { enum { HasDeclaredResource = 0 }; }; \
@@ -610,7 +623,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	END_SHADER_PARAMETER_STRUCT()
  */
 #define BEGIN_SHADER_PARAMETER_STRUCT(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName, PrefixKeywords, {}, INTERNAL_LOCAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName, PrefixKeywords, {}, INTERNAL_LOCAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_LOCAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define END_SHADER_PARAMETER_STRUCT() \
 		zzLastMemberId; \
@@ -628,10 +641,10 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMyParameterStruct, "MyShaderBindingName");
  */
 #define BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,{} INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,{} INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,; INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,; INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define END_GLOBAL_SHADER_PARAMETER_STRUCT() \
 	END_SHADER_PARAMETER_STRUCT()

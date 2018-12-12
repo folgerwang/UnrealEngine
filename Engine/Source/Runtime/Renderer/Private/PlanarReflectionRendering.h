@@ -8,66 +8,30 @@ PlanarReflectionRendering.h: shared planar reflection rendering declarations.
 
 #include "CoreMinimal.h"
 #include "ShaderParameters.h"
+#include "UniformBuffer.h"
+#include "Matrix3x4.h"
 
 class FShaderParameterMap;
 class FSceneView;
+class FMeshDrawSingleShaderBindings;
+class FPlanarReflectionSceneProxy;
 
-/** Parameters needed for planar reflections, shared by multiple shaders. */
-class FPlanarReflectionParameters
-{
-public:
+const int32 GPlanarReflectionUniformMaxReflectionViews = 2;
 
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{
-		ReflectionPlane.Bind(ParameterMap, TEXT("ReflectionPlane"));
-		PlanarReflectionOrigin.Bind(ParameterMap, TEXT("PlanarReflectionOrigin"));
-		PlanarReflectionXAxis.Bind(ParameterMap, TEXT("PlanarReflectionXAxis"));
-		PlanarReflectionYAxis.Bind(ParameterMap, TEXT("PlanarReflectionYAxis"));
-		InverseTransposeMirrorMatrix.Bind(ParameterMap, TEXT("InverseTransposeMirrorMatrix"));
-		PlanarReflectionParameters.Bind(ParameterMap, TEXT("PlanarReflectionParameters"));
-		PlanarReflectionParameters2.Bind(ParameterMap, TEXT("PlanarReflectionParameters2"));
-		ProjectionWithExtraFOV.Bind(ParameterMap, TEXT("ProjectionWithExtraFOV"));
-		PlanarReflectionScreenScaleBias.Bind(ParameterMap, TEXT("PlanarReflectionScreenScaleBias"));
-		IsStereoParameter.Bind(ParameterMap, TEXT("bIsStereo"));
-		PlanarReflectionScreenBound.Bind(ParameterMap, TEXT("PlanarReflectionScreenBound"));
-		PlanarReflectionTexture.Bind(ParameterMap, TEXT("PlanarReflectionTexture"));
-		PlanarReflectionSampler.Bind(ParameterMap, TEXT("PlanarReflectionSampler"));
-	}
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPlanarReflectionUniformParameters, )
+	SHADER_PARAMETER(FVector4, ReflectionPlane)
+	SHADER_PARAMETER(FVector4, PlanarReflectionOrigin)
+	SHADER_PARAMETER(FVector4, PlanarReflectionXAxis)
+	SHADER_PARAMETER(FVector4, PlanarReflectionYAxis)
+	SHADER_PARAMETER(FMatrix3x4, InverseTransposeMirrorMatrix)
+	SHADER_PARAMETER(FVector, PlanarReflectionParameters)
+	SHADER_PARAMETER(FVector2D, PlanarReflectionParameters2)
+	SHADER_PARAMETER_ARRAY(FMatrix, ProjectionWithExtraFOV, [GPlanarReflectionUniformMaxReflectionViews])
+	SHADER_PARAMETER_ARRAY(FVector4, PlanarReflectionScreenScaleBias, [GPlanarReflectionUniformMaxReflectionViews])
+	SHADER_PARAMETER(FVector2D, PlanarReflectionScreenBound)
+	SHADER_PARAMETER(bool, bIsStereo)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PlanarReflectionTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PlanarReflectionSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-	void SetParameters(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef ShaderRHI, const FSceneView& View, const class FPlanarReflectionSceneProxy* ReflectionSceneProxy);
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar, FPlanarReflectionParameters& P)
-	{
-		Ar << P.ReflectionPlane;
-		Ar << P.PlanarReflectionOrigin;
-		Ar << P.PlanarReflectionXAxis;
-		Ar << P.PlanarReflectionYAxis;
-		Ar << P.InverseTransposeMirrorMatrix;
-		Ar << P.PlanarReflectionParameters;
-		Ar << P.PlanarReflectionParameters2;
-		Ar << P.ProjectionWithExtraFOV;
-		Ar << P.PlanarReflectionScreenScaleBias;
-		Ar << P.IsStereoParameter;
-		Ar << P.PlanarReflectionScreenBound;
-		Ar << P.PlanarReflectionTexture;
-		Ar << P.PlanarReflectionSampler;
-		return Ar;
-	}
-
-private:
-
-	FShaderParameter ReflectionPlane;
-	FShaderParameter PlanarReflectionOrigin;
-	FShaderParameter PlanarReflectionXAxis;
-	FShaderParameter PlanarReflectionYAxis;
-	FShaderParameter InverseTransposeMirrorMatrix;
-	FShaderParameter PlanarReflectionParameters;
-	FShaderParameter PlanarReflectionParameters2;
-	FShaderParameter ProjectionWithExtraFOV;
-	FShaderParameter PlanarReflectionScreenScaleBias;
-	FShaderParameter IsStereoParameter;
-	FShaderParameter PlanarReflectionScreenBound;
-	FShaderResourceParameter PlanarReflectionTexture;
-	FShaderResourceParameter PlanarReflectionSampler;
-};
+extern void SetupPlanarReflectionUniformParameters(const class FSceneView& View, const FPlanarReflectionSceneProxy* ReflectionSceneProxy, FPlanarReflectionUniformParameters& OutParameters);

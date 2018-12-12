@@ -267,6 +267,11 @@ bool FMetalCommandEncoder::IsRenderPassDescriptorValid(void) const
 	return (RenderPassDesc != nil);
 }
 
+mtlpp::RenderPassDescriptor const& FMetalCommandEncoder::GetRenderPassDescriptor(void) const
+{
+	return RenderPassDesc;
+}
+
 mtlpp::ParallelRenderCommandEncoder& FMetalCommandEncoder::GetParallelRenderCommandEncoder(void)
 {
 	return ParallelRenderCommandEncoder;

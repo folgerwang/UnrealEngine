@@ -53,6 +53,7 @@
 #include "Engine/StaticMesh.h"
 #include "GPUSkinCache.h"
 #include "DynamicShadowMapChannelBindingHelper.h"
+#include "GPUScene.h"
 
 // Enable this define to do slow checks for components being added to the wrong
 // world's scene, when using PIE. This can happen if a PIE component is reattached
@@ -64,8 +65,13 @@ DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer MotionBlurStartFrame"), ST
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDistanceCullFadeUniformShaderParameters, "PrimitiveFade");
 
-/** Global primitive uniform buffer resource containing faded in */
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDitherUniformShaderParameters, "PrimitiveDither");
+
+/** Global primitive uniform buffer resource containing distance cull faded in */
 TGlobalResource< FGlobalDistanceCullFadeUniformBuffer > GDistanceCullFadedInUniformBuffer;
+
+/** Global primitive uniform buffer resource containing dither faded in */
+TGlobalResource< FGlobalDitherUniformBuffer > GDitherFadedInUniformBuffer;
 
 SIZE_T FStaticMeshDrawListBase::TotalBytesUsed = 0;
 
@@ -85,7 +91,7 @@ struct FSpeedTreeWindComputation
 	FSpeedTreeWind Wind;
 
 	/** Uniform buffer shared between trees of the same type. */
-	TUniformBuffer<FSpeedTreeUniformParameters> UniformBuffer;
+	TUniformBufferRef<FSpeedTreeUniformParameters> UniformBuffer;
 
 	int32 ReferenceCount;
 };
@@ -437,18 +443,6 @@ FFXSystemInterface* FScene::GetFXSystem()
 	return FXSystem;
 }
 
-void FScene::SetClearMotionBlurInfoGameThread()
-{
-	check(IsInGameThread());
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ShouldClearMBInfoCommand,
-		FScene*,Scene,this,
-	{
-		Scene->MotionBlurInfoData.SetClearMotionBlurInfo();
-	});
-}
-
 void FScene::UpdateParameterCollections(const TArray<FMaterialParameterCollectionInstanceResource*>& InParameterCollections)
 {
 	ENQUEUE_RENDER_COMMAND(UpdateParameterCollectionsCommand)(
@@ -495,10 +489,12 @@ void FScene::CheckPrimitiveArrays()
 static TAutoConsoleVariable<int32> CVarDoLazyStaticMeshUpdate(
 	TEXT("r.DoLazyStaticMeshUpdate"),
 	0,
-	TEXT("If true, then do not add meshes to the static mesh draw lists until they are visible. Experiemental option."));
+	TEXT("If true, then do not add meshes to the static mesh draw lists until they are visible. Experiemental option. Incompatible with the Mesh Draw Command pipeline."));
 
 static void DoLazyStaticMeshUpdateCVarSinkFunction()
 {
+	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
+	/*
 	static bool CachedDoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !WITH_EDITOR;
 	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !WITH_EDITOR;
 
@@ -519,22 +515,26 @@ static void DoLazyStaticMeshUpdateCVarSinkFunction()
 			}
 		}
 	}
+	*/
 }
 
 static FAutoConsoleVariableSink CVarDoLazyStaticMeshUpdateSink(FConsoleCommandDelegate::CreateStatic(&DoLazyStaticMeshUpdateCVarSinkFunction));
 
 void FScene::UpdateDoLazyStaticMeshUpdate(FRHICommandListImmediate& CmdList)
 {
+	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
+	/*
 	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnRenderThread() && !WITH_EDITOR;
 
 	for (int32 PrimitiveIndex = 0; PrimitiveIndex < Primitives.Num(); PrimitiveIndex++)
 	{
 		Primitives[PrimitiveIndex]->UpdateStaticMeshes(CmdList, !DoLazyStaticMeshUpdate);
 	}
+	*/
 }
 
 template<typename T>
-static void SwapTArray(TArray<T>& Array, int i1, int i2)
+static void TArraySwapElements(TArray<T>& Array, int i1, int i2)
 {
 	T tmp = Array[i1];
 	Array[i1] = Array[i2];
@@ -613,14 +613,16 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 				Primitives[DestIndex]->PackedIndex = SourceIndex;
 				Primitives[SourceIndex]->PackedIndex = DestIndex;
 
-				SwapTArray(Primitives, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveSceneProxies, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveBounds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveFlagsCompact, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveVisibilityIds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveOcclusionFlags, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveComponentIds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveOcclusionBounds, DestIndex, SourceIndex);
+				TArraySwapElements(Primitives, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveSceneProxies, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveBounds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveFlagsCompact, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveVisibilityIds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveOcclusionFlags, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveComponentIds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveOcclusionBounds, DestIndex, SourceIndex);
+
+				AddPrimitiveToUpdateGPU(*this, DestIndex);
 			}
 		}
 	}
@@ -635,6 +637,10 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 	PrimitiveSceneInfo->LinkLODParentComponent();
 
 	// Add the primitive to the scene.
+	PrimitiveSceneInfo->AddToScene(RHICmdList, true);
+
+	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
+	/*
 #if WITH_EDITOR
 	PrimitiveSceneInfo->AddToScene(RHICmdList, true);
 #else
@@ -649,6 +655,9 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 		PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 	}
 #endif
+	*/
+
+	AddPrimitiveToUpdateGPU(*this, SourceIndex);
 
 	DistanceFieldSceneData.AddPrimitive(PrimitiveSceneInfo);
 
@@ -676,6 +685,116 @@ FORCEINLINE static void VerifyProperPIEScene(UPrimitiveComponent* Component, UWo
 		*Component->GetFullName()
 		);
 #endif
+}
+
+void FPersistentUniformBuffers::Initialize()
+{
+	FViewUniformShaderParameters ViewUniformBufferParameters;
+	DefaultInitializeUniformBufferResources(ViewUniformBufferParameters);
+	ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters DepthPassParameters;
+	DefaultInitializeUniformBufferResources(DepthPassParameters);
+	DepthPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(DepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FOpaqueBasePassUniformParameters BasePassParameters;
+	DefaultInitializeUniformBufferResources(BasePassParameters);
+	OpaqueBasePassUniformBuffer = TUniformBufferRef<FOpaqueBasePassUniformParameters>::CreateUniformBufferImmediate(BasePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FTranslucentBasePassUniformParameters TranslucentBasePassParameters;
+	DefaultInitializeUniformBufferResources(TranslucentBasePassParameters);
+	TranslucentBasePassUniformBuffer = TUniformBufferRef<FTranslucentBasePassUniformParameters>::CreateUniformBufferImmediate(TranslucentBasePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FReflectionCaptureShaderData ReflectionCaptureParameters;
+	ReflectionCaptureUniformBuffer = TUniformBufferRef<FReflectionCaptureShaderData>::CreateUniformBufferImmediate(ReflectionCaptureParameters, UniformBuffer_MultiFrame);
+
+	CSMShadowDepthViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FShadowDepthPassUniformParameters CSMShadowDepthPassParameters;
+	DefaultInitializeUniformBufferResources(CSMShadowDepthPassParameters);
+	CSMShadowDepthPassUniformBuffer = TUniformBufferRef<FShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(CSMShadowDepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FDistortionPassUniformParameters DistortionPassParameters;
+	DefaultInitializeUniformBufferResources(DistortionPassParameters);
+	DistortionPassUniformBuffer = TUniformBufferRef<FDistortionPassUniformParameters>::CreateUniformBufferImmediate(DistortionPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters VelocityPassParameters;
+	DefaultInitializeUniformBufferResources(VelocityPassParameters);
+	VelocityPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(VelocityPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters HitProxyPassParameters;
+	DefaultInitializeUniformBufferResources(HitProxyPassParameters);
+	HitProxyPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(HitProxyPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters MeshDecalPassParameters;
+	DefaultInitializeUniformBufferResources(MeshDecalPassParameters);
+	MeshDecalPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(MeshDecalPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FLightmapDensityPassUniformParameters LightmapDensityPassParameters;
+	DefaultInitializeUniformBufferResources(LightmapDensityPassParameters);
+	LightmapDensityPassUniformBuffer = TUniformBufferRef<FLightmapDensityPassUniformParameters>::CreateUniformBufferImmediate(LightmapDensityPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FDebugViewModePassPassUniformParameters DebugViewModePassParameters;
+	DefaultInitializeUniformBufferResources(DebugViewModePassParameters);
+	DebugViewModePassUniformBuffer = TUniformBufferRef<FDebugViewModePassPassUniformParameters>::CreateUniformBufferImmediate(DebugViewModePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	VoxelizeVolumeViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FVoxelizeVolumePassUniformParameters VoxelizeVolumePassParameters;
+	DefaultInitializeUniformBufferResources(VoxelizeVolumePassParameters);
+	VoxelizeVolumePassUniformBuffer = TUniformBufferRef<FVoxelizeVolumePassUniformParameters>::CreateUniformBufferImmediate(VoxelizeVolumePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters ConvertToUniformMeshPassParameters;
+	DefaultInitializeUniformBufferResources(ConvertToUniformMeshPassParameters);
+	ConvertToUniformMeshPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(ConvertToUniformMeshPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FSceneTexturesUniformParameters CustomDepthPassUniformBufferParameters;
+	DefaultInitializeUniformBufferResources(CustomDepthPassUniformBufferParameters);
+	CustomDepthPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(CustomDepthPassUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FMobileSceneTextureUniformParameters MobileCustomDepthPassUniformBufferParameters;
+	DefaultInitializeUniformBufferResources(MobileCustomDepthPassUniformBufferParameters);
+	MobileCustomDepthPassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(MobileCustomDepthPassUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	CustomDepthViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FMobileShadowDepthPassUniformParameters MobileCSMShadowDepthPassParameters;
+	DefaultInitializeUniformBufferResources(MobileCSMShadowDepthPassParameters);
+	MobileCSMShadowDepthPassUniformBuffer = TUniformBufferRef<FMobileShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(MobileCSMShadowDepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
+	FMobileBasePassUniformParameters MobileBasePassUniformParameters;
+	DefaultInitializeUniformBufferResources(MobileBasePassUniformParameters);
+	MobileOpaqueBasePassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(MobileBasePassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+	MobileTranslucentBasePassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(MobileBasePassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+	
+	FMobileDistortionPassUniformParameters MobileDistortionPassUniformParameters;
+	DefaultInitializeUniformBufferResources(MobileDistortionPassUniformParameters);
+	MobileDistortionPassUniformBuffer = TUniformBufferRef<FMobileDistortionPassUniformParameters>::CreateUniformBufferImmediate(MobileDistortionPassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+	
+	FMobileDirectionalLightShaderParameters MobileDirectionalLightShaderParameters = {};
+	for (int32 Index = 0; Index < ARRAY_COUNT(MobileDirectionalLightUniformBuffers); ++Index)
+	{
+		MobileDirectionalLightUniformBuffers[Index] = TUniformBufferRef<FMobileDirectionalLightShaderParameters>::CreateUniformBufferImmediate(MobileDirectionalLightShaderParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+	}
+	
+
+#if WITH_EDITOR
+	FSceneTexturesUniformParameters EditorSelectionPassParameters;
+	DefaultInitializeUniformBufferResources(EditorSelectionPassParameters);
+	EditorSelectionPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(EditorSelectionPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+#endif
+}
+
+bool FPersistentUniformBuffers::UpdateViewUniformBuffer(const FViewInfo& View)
+{
+	// ViewUniformBuffer can be cached by mesh commands, so we need to update it every time we change current view.
+	if (CachedView != &View)
+	{
+		ViewUniformBuffer.UpdateUniformBufferImmediate(*View.CachedViewUniformShaderParameters);
+		CachedView = &View;
+		return true;
+	}
+	return false;
 }
 
 FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScene, bool bCreateFXSystem, ERHIFeatureLevel::Type InFeatureLevel)
@@ -713,7 +832,6 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	NumVisibleLights_GameThread(0)
 ,	NumEnabledSkylights_GameThread(0)
 ,	SceneFrameNumber(0)
-,	CurrentFrameUpdatedMotionBlurCache(false)
 {
 	FMemory::Memzero(MobileDirectionalLights);
 
@@ -755,6 +873,13 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 	}
 
 	World->UpdateParameterCollectionInstances(false);
+
+	FPersistentUniformBuffers* PersistentUniformBuffers = &UniformBuffers;
+	ENQUEUE_RENDER_COMMAND(InitializeUniformBuffers)(
+		[PersistentUniformBuffers](FRHICommandListImmediate& RHICmdList)
+	{
+		PersistentUniformBuffers->Initialize();
+	});
 }
 
 FScene::~FScene()
@@ -895,17 +1020,17 @@ void FScene::UpdatePrimitiveTransform_RenderThread(FRHICommandListImmediate& RHI
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdatePrimitiveTransformRenderThreadTime);
 
-	const bool bUpdateStaticDrawLists = !PrimitiveSceneProxy->StaticElementsAlwaysUseProxyPrimitiveUniformBuffer();
+	FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
+
+	const bool bUpdateStaticDrawLists = !PrimitiveSceneProxy->StaticElementsAlwaysUseProxyPrimitiveUniformBuffer() 
+		|| !UseGPUScene(GMaxRHIShaderPlatform, GetFeatureLevel());
 
 	// Remove the primitive from the scene at its old location
 	// (note that the octree update relies on the bounds not being modified yet).
-	PrimitiveSceneProxy->GetPrimitiveSceneInfo()->RemoveFromScene(bUpdateStaticDrawLists);
-	
-	// Update the primitive motion blur information.
-	FScene* Scene = (FScene*)&PrimitiveSceneProxy->GetScene();
+	PrimitiveSceneInfo->RemoveFromScene(bUpdateStaticDrawLists);
 
-	Scene->MotionBlurInfoData.UpdatePrimitiveMotionBlur(PrimitiveSceneProxy->GetPrimitiveSceneInfo());
-	
+	VelocityData.UpdateTransform(PrimitiveSceneInfo->PrimitiveComponentId, LocalToWorld, PrimitiveSceneProxy->GetLocalToWorld());
+
 	if (GWarningOnRedundantTransformUpdate && PrimitiveSceneProxy->WouldSetTransformBeRedundant(LocalToWorld, WorldBounds, LocalBounds, AttachmentRootPosition))
 	{
 		UE_LOG(LogRenderer, Warning, TEXT("Redundant UpdatePrimitiveTransform_RenderThread Owner: %s, Resource: %s, Level: %s"), *PrimitiveSceneProxy->GetOwnerName().ToString(), *PrimitiveSceneProxy->GetResourceName().ToString(), *PrimitiveSceneProxy->GetLevelName().ToString());
@@ -916,16 +1041,18 @@ void FScene::UpdatePrimitiveTransform_RenderThread(FRHICommandListImmediate& RHI
 	if (!RHISupportsVolumeTextures(GetFeatureLevel())
 		&& (PrimitiveSceneProxy->IsMovable() || PrimitiveSceneProxy->NeedsUnbuiltPreviewLighting() || PrimitiveSceneProxy->GetLightmapType() == ELightmapType::ForceVolumetric))
 	{
-		PrimitiveSceneProxy->GetPrimitiveSceneInfo()->MarkPrecomputedLightingBufferDirty();
+		PrimitiveSceneInfo->MarkIndirectLightingCacheBufferDirty();
 	}
 
-	DistanceFieldSceneData.UpdatePrimitive(PrimitiveSceneProxy->GetPrimitiveSceneInfo());
+	AddPrimitiveToUpdateGPU(*this, PrimitiveSceneInfo->PackedIndex);
+
+	DistanceFieldSceneData.UpdatePrimitive(PrimitiveSceneInfo);
 
 	// If the primitive has static mesh elements, it should have returned true from ShouldRecreateProxyOnUpdateTransform!
-	check(!(bUpdateStaticDrawLists && PrimitiveSceneProxy->GetPrimitiveSceneInfo()->StaticMeshes.Num()));
+	check(!(bUpdateStaticDrawLists && PrimitiveSceneInfo->StaticMeshes.Num()));
 
 	// Re-add the primitive to the scene with the new transform.
-	PrimitiveSceneProxy->GetPrimitiveSceneInfo()->AddToScene(RHICmdList, bUpdateStaticDrawLists);
+	PrimitiveSceneInfo->AddToScene(RHICmdList, bUpdateStaticDrawLists);
 }
 
 void FScene::UpdatePrimitiveTransform(UPrimitiveComponent* Primitive)
@@ -1083,11 +1210,6 @@ FPrimitiveSceneInfo* FScene::GetPrimitiveSceneInfo(int32 PrimitiveIndex)
 	return NULL;
 }
 
-bool FScene::GetPreviousLocalToWorld(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const
-{
-	return MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneInfo, OutPreviousLocalToWorld);
-}
-
 void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RemoveScenePrimitiveTime);
@@ -1139,15 +1261,17 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 				Primitives[DestIndex]->PackedIndex = SourceIndex;
 				Primitives[SourceIndex]->PackedIndex = DestIndex;
 
-				SwapTArray(Primitives, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveSceneProxies, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveBounds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveFlagsCompact, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveVisibilityIds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveOcclusionFlags, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveComponentIds, DestIndex, SourceIndex);
-				SwapTArray(PrimitiveOcclusionBounds, DestIndex, SourceIndex);
+				TArraySwapElements(Primitives, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveSceneProxies, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveBounds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveFlagsCompact, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveVisibilityIds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveOcclusionFlags, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveComponentIds, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveOcclusionBounds, DestIndex, SourceIndex);
 				SourceIndex = DestIndex;
+
+				AddPrimitiveToUpdateGPU(*this, DestIndex);
 			}
 		}
 
@@ -1180,8 +1304,8 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 	
 	CheckPrimitiveArrays();
 
-	// Update the primitive's motion blur information.
-	MotionBlurInfoData.RemovePrimitiveMotionBlur(PrimitiveSceneInfo);
+	// Remove primitive's motion blur information.
+	VelocityData.RemoveTransform(PrimitiveSceneInfo->PrimitiveComponentId);
 
 	// Unlink the primitive from its shadow parent.
 	PrimitiveSceneInfo->UnlinkAttachmentGroup();
@@ -1191,6 +1315,9 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 
 	// Remove the primitive from the scene.
 	PrimitiveSceneInfo->RemoveFromScene(true);
+
+	// Update the primitive that was swapped to this index
+	AddPrimitiveToUpdateGPU(*this, PrimitiveIndex);
 
 	DistanceFieldSceneData.RemovePrimitive(PrimitiveSceneInfo);
 
@@ -1426,11 +1553,10 @@ void FScene::SetSkyLight(FSkyLightSceneProxy* LightProxy)
 	check(LightProxy);
 	NumEnabledSkylights_GameThread++;
 
-	// Send a command to the rendering thread to add the light to the scene.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FSetSkyLightCommand,
-		FScene*,Scene,this,
-		FSkyLightSceneProxy*,LightProxy,LightProxy,
+	FScene* Scene = this;
+
+	ENQUEUE_RENDER_COMMAND(FSetSkyLightCommand)
+		([Scene, LightProxy](FRHICommandListImmediate& RHICmdList)
 	{
 		check(!Scene->SkyLightStack.Contains(LightProxy));
 		Scene->SkyLightStack.Push(LightProxy);
@@ -1455,10 +1581,10 @@ void FScene::DisableSkyLight(FSkyLightSceneProxy* LightProxy)
 	check(LightProxy);
 	NumEnabledSkylights_GameThread--;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FDisableSkyLightCommand,
-		FScene*,Scene,this,
-		FSkyLightSceneProxy*,LightProxy,LightProxy,
+	FScene* Scene = this;
+
+	ENQUEUE_RENDER_COMMAND(FDisableSkyLightCommand)
+		([Scene, LightProxy](FRHICommandListImmediate& RHICmdList)
 	{
 		const bool bOriginalHadSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
 
@@ -1739,8 +1865,8 @@ void FScene::ReleaseReflectionCubemap(UReflectionCaptureComponent* CaptureCompon
 			if (ComponentStatePtr)
 			{
 				// We track removed captures so we can remap them when reallocating the cubemap array
-				check(ComponentStatePtr->CaptureIndex != -1);
-				Scene->ReflectionSceneData.CubemapArraySlotsUsed[ComponentStatePtr->CaptureIndex] = false;
+				check(ComponentStatePtr->CubemapIndex != -1);
+				Scene->ReflectionSceneData.CubemapArraySlotsUsed[ComponentStatePtr->CubemapIndex] = false;
 		}
 		Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Remove(Component);
 	});
@@ -1795,6 +1921,18 @@ const FPlanarReflectionSceneProxy* FScene::FindClosestPlanarReflection(const FBo
 	}
 
 	return ClosestPlanarReflection;
+}
+
+const FPlanarReflectionSceneProxy* FScene::GetForwardPassGlobalPlanarReflection() const
+{
+	// For the forward pass just pick first planar reflection.
+
+	if (PlanarReflections.Num() > 0)
+	{
+		return PlanarReflections[0];
+	}
+
+	return nullptr;
 }
 
 void FScene::FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const
@@ -1856,22 +1994,6 @@ void FScene::FindClosestReflectionCaptures(FVector Position, const FReflectionCa
 	for (int32 CaptureIndex = 0; CaptureIndex < PopulateCaptureCount; CaptureIndex++)
 	{
 		SortedByDistanceOUT[CaptureIndex] = ClosestCaptureIndices[CaptureIndex].CaptureProxy;
-	}
-}
-
-void FScene::GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, int32& ArrayIndex, float& AverageBrightness) const
-{
-	ERHIFeatureLevel::Type LocalFeatureLevel = GetFeatureLevel();
-
-	if (LocalFeatureLevel >= ERHIFeatureLevel::SM5)
-	{
-		const FCaptureComponentSceneState* FoundState = ReflectionSceneData.AllocatedReflectionCaptureState.Find(ReflectionProxy->Component);
-
-		if (FoundState)
-		{
-			ArrayIndex = FoundState->CaptureIndex;
-			AverageBrightness = FoundState->AverageBrightness;
-		}
 	}
 }
 
@@ -1971,6 +2093,25 @@ void FScene::RemovePrecomputedVolumetricLightmap(const FPrecomputedVolumetricLig
 #endif
 		Scene->VolumetricLightmapSceneData.RemoveLevelVolume(Volume);
 		});
+}
+
+bool FScene::GetPreviousLocalToWorld(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const
+{
+	return VelocityData.GetComponentPreviousLocalToWorld(PrimitiveSceneInfo->PrimitiveComponentId, OutPreviousLocalToWorld);
+}
+
+void FScene::GetPrimitiveUniformShaderParameters_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool& bHasPrecomputedVolumetricLightmap, FMatrix& PreviousLocalToWorld, int32& SingleCaptureIndex) const 
+{
+	bHasPrecomputedVolumetricLightmap = VolumetricLightmapSceneData.HasData();
+	
+	const bool bVelocityDataFound = VelocityData.GetComponentPreviousLocalToWorld(PrimitiveSceneInfo->PrimitiveComponentId, PreviousLocalToWorld);
+
+	if (!bVelocityDataFound)
+	{
+		PreviousLocalToWorld = PrimitiveSceneInfo->Proxy->GetLocalToWorld();
+	}
+
+	SingleCaptureIndex = PrimitiveSceneInfo->CachedReflectionCaptureProxy ? PrimitiveSceneInfo->CachedReflectionCaptureProxy->SortedCaptureIndex : -1;
 }
 
 struct FUpdateLightTransformParameters
@@ -2415,8 +2556,10 @@ void FScene::AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* 
 				{
 					FSpeedTreeWindComputation* WindComputation = new FSpeedTreeWindComputation;
 					WindComputation->Wind = *(StaticMesh->SpeedTreeWind.Get( ));
-					WindComputation->UniformBuffer.SetContentsToZero();
-					WindComputation->UniformBuffer.InitResource();
+
+					FSpeedTreeUniformParameters UniformParameters;
+					FPlatformMemory::Memzero(&UniformParameters, sizeof(UniformParameters));
+					WindComputation->UniformBuffer = TUniformBufferRef<FSpeedTreeUniformParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 					Scene->SpeedTreeWindComputationMap.Add(StaticMesh, WindComputation);
 				}
 			});
@@ -2442,7 +2585,6 @@ void FScene::RemoveSpeedTreeWind_RenderThread(class FVertexFactory* VertexFactor
 			}
 
 			SpeedTreeWindComputationMap.Remove(StaticMesh);
-			WindComputation->UniformBuffer.ReleaseResource();
 			delete WindComputation;
 		}
 	}
@@ -2514,23 +2656,23 @@ void FScene::UpdateSpeedTreeWind(double CurrentTime)
 				SET_SPEEDTREE_TABLE_FLOAT4V(WindRollingLeafAndDirection, SH_ROLLING_LEAF_RIPPLE_MIN);
 				SET_SPEEDTREE_TABLE_FLOAT4V(WindRollingNoise, SH_ROLLING_NOISE_PERIOD);
 
-				WindComputation->UniformBuffer.SetContents(UniformParameters);
+				WindComputation->UniformBuffer.UpdateUniformBufferImmediate(UniformParameters);
 			}
 		});
 	#undef SET_SPEEDTREE_TABLE_FLOAT4V
 }
 
-FUniformBufferRHIParamRef FScene::GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory)
+FUniformBufferRHIParamRef FScene::GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const
 {
 	if (VertexFactory != NULL)
 	{
-		const UStaticMesh** StaticMesh = SpeedTreeVertexFactoryMap.Find(VertexFactory);
+		const UStaticMesh* const* StaticMesh = SpeedTreeVertexFactoryMap.Find(VertexFactory);
 		if (StaticMesh != NULL)
 		{
-			FSpeedTreeWindComputation** WindComputation = SpeedTreeWindComputationMap.Find(*StaticMesh);
+			const FSpeedTreeWindComputation* const * WindComputation = SpeedTreeWindComputationMap.Find(*StaticMesh);
 			if (WindComputation != NULL)
 			{
-				return (*WindComputation)->UniformBuffer.GetUniformBufferRHI();
+				return (*WindComputation)->UniformBuffer;
 			}
 		}
 	}
@@ -2625,7 +2767,7 @@ void FScene::SetShaderMapsOnMaterialResources_RenderThread(FRHICommandListImmedi
 		{
 			// Materials used as async fallbacks can't be updated through this mechanism and should have been updated synchronously earlier
 			check(!Material->RequiresSynchronousCompilation());
-			MaterialProxy->CacheUniformExpressions();
+			MaterialProxy->CacheUniformExpressions(true);
 			bFoundAnyInitializedMaterials = true;
 
 			const FMaterial& MaterialForRendering = *MaterialProxy->GetMaterial(SceneFeatureLevel);
@@ -2664,17 +2806,7 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 	TArray<FPrimitiveSceneInfo*> PrimitivesToUpdate;
 	auto SceneFeatureLevel = GetFeatureLevel();
 
-	if (GetShadingPath() == EShadingPath::Deferred)
-	{
-		for (int32 DrawType = 0; DrawType < EBasePass_MAX; DrawType++)
-		{
-			BasePassSelfShadowedTranslucencyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-
-			BasePassUniformLightMapPolicyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-		}
-	}
-	else if (GetShadingPath() == EShadingPath::Mobile)
+	if (GetShadingPath() == EShadingPath::Mobile)
 	{
 		for (int32 DrawType = 0; DrawType < EBasePass_MAX; DrawType++)
 		{
@@ -2686,12 +2818,6 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 	PositionOnlyDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	DepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	MaskedDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	HitProxyDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	HitProxyDrawList_OpaqueOnly.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-#if WITH_EDITOR
-	EditorSelectionDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-#endif
-	VelocityDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	WholeSceneShadowDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	WholeSceneReflectiveShadowMapDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 
@@ -2909,22 +3035,10 @@ void FScene::DumpStaticMeshDrawListStats() const
 	DUMP_DRAW_LIST(PositionOnlyDepthDrawList);
 	DUMP_DRAW_LIST(DepthDrawList);
 	DUMP_DRAW_LIST(MaskedDepthDrawList);
-	DUMP_DRAW_LIST(BasePassSelfShadowedTranslucencyDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassSelfShadowedTranslucencyDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassUniformLightMapPolicyDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassUniformLightMapPolicyDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Default]);
 	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Default]);
 	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Masked]);
-	DUMP_DRAW_LIST(HitProxyDrawList);
-	DUMP_DRAW_LIST(HitProxyDrawList_OpaqueOnly);
-#if WITH_EDITOR
-	DUMP_DRAW_LIST(EditorSelectionDrawList);
-#endif
-	DUMP_DRAW_LIST(VelocityDrawList);
 	DUMP_DRAW_LIST(WholeSceneShadowDepthDrawList);
 #undef DUMP_DRAW_LIST
 }
@@ -3083,18 +3197,11 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 	StaticMeshDrawListApplyWorldOffset(PositionOnlyDepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(DepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(MaskedDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassSelfShadowedTranslucencyDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassUniformLightMapPolicyDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(HitProxyDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(HitProxyDrawList_OpaqueOnly, InOffset);
-	StaticMeshDrawListApplyWorldOffset(VelocityDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(WholeSceneShadowDepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(MobileBasePassUniformLightMapPolicyDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(MobileBasePassUniformLightMapPolicyDrawListWithCSM, InOffset);
 
-	// Motion blur 
-	MotionBlurInfoData.ApplyOffset(InOffset);
+	VelocityData.ApplyOffset(InOffset);
 }
 
 void FScene::OnLevelAddedToWorld(FName LevelAddedName, UWorld* InWorld, bool bIsLightingScenario)
@@ -3152,23 +3259,6 @@ bool FScene::AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequ
 	return PixelInspectorData.AddPixelInspectorRequest(PixelInspectorRequest);
 }
 #endif //WITH_EDITOR
-
-void FScene::EnsureMotionBlurCacheIsUpToDate(bool bWorldIsPaused)
-{
-	if (!CurrentFrameUpdatedMotionBlurCache)
-	{
-		FScene* Scene = this;
-
-		ENQUEUE_RENDER_COMMAND(MotionBlurStartFrame)(
-			[Scene, bWorldIsPaused](FRHICommandList& RHICmdList)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_MotionBlurStartFrame);
-			Scene->MotionBlurInfoData.StartFrame(bWorldIsPaused);
-		});
-
-		CurrentFrameUpdatedMotionBlurCache = true;
-	}
-}
 
 /**
  * Dummy NULL scene interface used by dedicated servers.
@@ -3238,7 +3328,7 @@ public:
 	virtual void AddSpeedTreeWind(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) override {}
 	virtual void RemoveSpeedTreeWind_RenderThread(class FVertexFactory* VertexFactory, const class UStaticMesh* StaticMesh) override {}
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override {}
-	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override { return FUniformBufferRHIParamRef(); }
+	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const override { return FUniformBufferRHIParamRef(); }
 
 	virtual void Release() override {}
 
@@ -3331,228 +3421,14 @@ FSceneViewStateInterface* FRendererModule::AllocateViewState()
 	return new FSceneViewState();
 }
 
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedTranslucencyPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedTranslucencyPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassSelfShadowedTranslucencyDrawList[DrawType];
-}
-
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedCachedPointIndirectLightingPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedCachedPointIndirectLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedVolumetricLightmapPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedVolumetricLightmapPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassSelfShadowedVolumetricLightmapTranslucencyDrawList[DrawType];
-}
-
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FUniformLightMapPolicy> >& FScene::GetBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassUniformLightMapPolicyDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
+TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& FScene::GetMobileBasePassDrawList(EBasePassDrawListType DrawType)
 {
 	return MobileBasePassUniformLightMapPolicyDrawList[DrawType];
 }
 
-template<>
-TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
+TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& FScene::GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType)
 {
 	return MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType];
-}
-
-/*-----------------------------------------------------------------------------
-	MotionBlurInfoData
------------------------------------------------------------------------------*/
-
-FMotionBlurInfoData::FMotionBlurInfoData()
-	: bShouldClearMotionBlurInfo(false)
-	, bWorldIsPaused(false)
-{
-}
-
-void FMotionBlurInfoData::UpdatePrimitiveMotionBlur(FPrimitiveSceneInfo* PrimitiveSceneInfo)
-{
-	check(PrimitiveSceneInfo && IsInRenderingThread());
-
-	const FPrimitiveSceneProxy* Proxy = PrimitiveSceneInfo->Proxy; 
-	FPrimitiveComponentId ComponentId = PrimitiveSceneInfo->PrimitiveComponentId;
-
-	if (Proxy != NULL && ComponentId.IsValid() && Proxy->IsMovable())
-	{
-		FMotionBlurInfo* MotionBlurInfo = FindMBInfoIndex(ComponentId);
-
-		if(MotionBlurInfo)
-		{
-			if(!MotionBlurInfo->GetPrimitiveSceneInfo())
-			{
-				MotionBlurInfo->SetPrimitiveSceneInfo(PrimitiveSceneInfo);
-			}
-		}
-		else
-		{
-			// add to the end
-			MotionBlurInfo = &MotionBlurInfos.Add(ComponentId, FMotionBlurInfo(ComponentId, PrimitiveSceneInfo));
-		}
-
-		//request that this primitive scene info caches its transform at the end of the frame
-		MotionBlurInfo->SetKeepAndUpdateThisFrame();
-	}
-}
-
-void FMotionBlurInfoData::RemovePrimitiveMotionBlur(FPrimitiveSceneInfo* PrimitiveSceneInfo)
-{
-	check(PrimitiveSceneInfo && IsInRenderingThread());
-
-	const FPrimitiveSceneProxy* Proxy = PrimitiveSceneInfo->Proxy; 
-
-	if (Proxy != NULL && PrimitiveSceneInfo->PrimitiveComponentId.IsValid() && Proxy->IsMovable())
-	{
-		FMotionBlurInfo* MotionBlurInfo = FindMBInfoIndex(PrimitiveSceneInfo->PrimitiveComponentId);
-
-		if(MotionBlurInfo)
-		{ 
-			// in case someone called SetKeepAndUpdateThisFrame() before
-			MotionBlurInfo->SetKeepAndUpdateThisFrame(false);
-			MotionBlurInfo->SetPrimitiveSceneInfo(0);
-		}
-	}
-}
-
-void FMotionBlurInfo::UpdateMotionBlurInfo()
-{
-	if(MBPrimitiveSceneInfo && MBPrimitiveSceneInfo->Proxy)
-	{
-		// only if the proxy is still there
-		CurrentLocalToWorld = MBPrimitiveSceneInfo->Proxy->GetLocalToWorld();
-	}
-
-	bKeepAndUpdateThisFrame = false;
-}
-
-// Doxygen has trouble parsing these functions because the header declaring them is in Engine, not Renderer
-#if !UE_BUILD_DOCS
-
-void FMotionBlurInfoData::StartFrame(bool bInWorldIsPaused)
-{
-	bWorldIsPaused = bInWorldIsPaused;
-
-	if(!bWorldIsPaused)
-	{
-		for (TMap<FPrimitiveComponentId, FMotionBlurInfo>::TIterator It(MotionBlurInfos); It; ++It)
-		{
-			FMotionBlurInfo& MotionBlurInfo = It.Value();
-
-			MotionBlurInfo.OnStartFrame();
-		}
-	}
-}
-
-void FMotionBlurInfoData::UpdateMotionBlurCache(FScene* InScene)
-{
-	check(InScene && IsInRenderingThread());
-
-	if(bWorldIsPaused)
-	{
-		return;
-	}
-
-	if (InScene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
-	{
-		if(bShouldClearMotionBlurInfo)
-		{
-			// Clear the motion blur information for this frame.		
-			MotionBlurInfos.Empty();
-			bShouldClearMotionBlurInfo = false;
-		}
-		else
-		{
-			for (TMap<FPrimitiveComponentId, FMotionBlurInfo>::TIterator It(MotionBlurInfos); It; ++It)
-			{
-				FMotionBlurInfo& MotionBlurInfo = It.Value();
-
-				if (MotionBlurInfo.GetKeepAndUpdateThisFrame())
-				{
-					MotionBlurInfo.UpdateMotionBlurInfo();
-				}
-				else
-				{
-					It.RemoveCurrent();
-				}
-			}
-		}
-	}
-}
-
-void FMotionBlurInfoData::SetClearMotionBlurInfo()
-{
-	bShouldClearMotionBlurInfo = true;
-}
-
-void FMotionBlurInfoData::ApplyOffset(FVector InOffset)
-{
-	for (auto It = MotionBlurInfos.CreateIterator(); It; ++It)
-	{
-		It.Value().ApplyOffset(InOffset);
-	}
-}
-
-FString FMotionBlurInfoData::GetDebugString() const
-{
-	return FString::Printf(TEXT("Num=%d Clear=%d"), MotionBlurInfos.Num(), bShouldClearMotionBlurInfo);
-}
-
-const FMotionBlurInfo* FMotionBlurInfoData::FindMBInfoIndex(FPrimitiveComponentId ComponentId) const
-{
-	return MotionBlurInfos.Find(ComponentId);
-}
-
-FMotionBlurInfo* FMotionBlurInfoData::FindMBInfoIndex(FPrimitiveComponentId ComponentId)
-{
-	return MotionBlurInfos.Find(ComponentId);
-}
-
-bool FMotionBlurInfoData::GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld)
-{
-	check(IsInParallelRenderingThread());
-
-	if (PrimitiveSceneInfo && PrimitiveSceneInfo->PrimitiveComponentId.IsValid())
-	{
-		FMotionBlurInfo* MotionBlurInfo = FindMBInfoIndex(PrimitiveSceneInfo->PrimitiveComponentId);
-
-		if(MotionBlurInfo)
-		{
-			OutPreviousLocalToWorld = MotionBlurInfo->GetPreviousLocalToWorld();
-			return true;
-		}
-	}
-	return false;
-}
-
-bool FMotionBlurInfoData::GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const
-{
-	check(IsInParallelRenderingThread());
-
-	if (PrimitiveSceneInfo && PrimitiveSceneInfo->PrimitiveComponentId.IsValid())
-	{
-		const FMotionBlurInfo* MotionBlurInfo = FindMBInfoIndex(PrimitiveSceneInfo->PrimitiveComponentId);
-
-		if (MotionBlurInfo)
-		{
-			OutPreviousLocalToWorld = MotionBlurInfo->GetPreviousLocalToWorld();
-			return true;
-		}
-	}
-	return false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -3681,5 +3557,3 @@ float FLatentGPUTimer::GetAverageTimeMS()
 	return TotalTime / AvgSamples;
 }
 
-
-#endif

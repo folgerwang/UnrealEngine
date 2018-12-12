@@ -10,13 +10,20 @@ MobileSeparateTranslucencyPass.cpp - Mobile specific separate translucensy pass
 
 bool IsMobileSeparateTranslucencyActive(const FViewInfo& View)
 {
-	return View.TranslucentPrimSet.SortedPrimsNum.Num(ETranslucencyPass::TPT_TranslucencyAfterDOF) > 0;
+	if (UseMeshDrawCommandPipeline())
+	{
+		return View.VisibleMeshDrawCommands[EMeshPass::TranslucencyAfterDOF].Num() > 0;
+	}
+	else
+	{
+		return View.TranslucentPrimSet.SortedPrimsNum.Num(ETranslucencyPass::TPT_TranslucencyAfterDOF) > 0;
+	}
 }
 
 void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Context)
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, SeparateTranslucensyPass);
-	
+
 	const FViewInfo& View = Context.View;
 
 	FSceneRenderTargets& SceneTargets = FSceneRenderTargets::Get(Context.RHICmdList);
@@ -30,17 +37,24 @@ void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Con
 		// Set the view family's render target/viewport.
 		Context.SetViewportAndCallRHI(View.ViewRect);
 
-		TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-		CreateMobileBasePassUniformBuffer(Context.RHICmdList, View, true, BasePassUniformBuffer);
+		if (UseMeshDrawCommandPipeline())
+		{
+			SubmitMeshDrawCommandsForView(View, TranslucencyPassToMeshPass(ETranslucencyPass::TPT_TranslucencyAfterDOF), nullptr, Context.RHICmdList);
+		}
+		else
+		{
+			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+			CreateMobileBasePassUniformBuffer(Context.RHICmdList, View, true, BasePassUniformBuffer);
 
-		FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
+			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
-		// Enable depth test, disable depth writes.
-		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
+			// Enable depth test, disable depth writes.
+			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 
-		// Draw translucent prims
-		FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_TranslucencyAfterDOF);
-		View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(Context.RHICmdList, View, DrawRenderState, DrawingContext);
+			// Draw translucent prims
+			FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_TranslucencyAfterDOF);
+			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(Context.RHICmdList, View, DrawRenderState, DrawingContext);
+		}
 	}
 	Context.RHICmdList.EndRenderPass();
 }
@@ -52,7 +66,7 @@ FRenderingCompositeOutput* FRCSeparateTranslucensyPassES2::GetOutput(EPassOutput
 	{
 		return GetInput(EPassInputId::ePId_Input0)->GetOutput();
 	}
-	
+
 	return nullptr;
 }
 

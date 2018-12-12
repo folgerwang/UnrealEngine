@@ -690,7 +690,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 	}
@@ -705,7 +705,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*PackedGlobal.Name,
 			PackedGlobal.PackedType,
 			PackedGlobal.Offset * BytesPerComponent,
-			PackedGlobal.Count * BytesPerComponent
+			PackedGlobal.Count * BytesPerComponent,
+			EShaderParameterType::LooseData
 			);
 
 		uint16& Size = PackedGlobalArraySize.FindOrAdd(PackedGlobal.PackedType);
@@ -727,7 +728,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 
@@ -840,7 +841,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*Sampler.Name,
 			0,
 			Sampler.Offset,
-			Sampler.Count
+			Sampler.Count,
+			EShaderParameterType::SRV
 			);
 		}
 
@@ -862,7 +864,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 					*SamplerState,
 					0,
 					Sampler.Offset,
-					Sampler.Count
+					Sampler.Count,
+					EShaderParameterType::Sampler
 					);
 			}
 		}
@@ -884,7 +887,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*UAV.Name,
 			0,
 			UAV.Offset,
-			UAV.Count
+			UAV.Count,
+			EShaderParameterType::UAV
 			);
 		}
 

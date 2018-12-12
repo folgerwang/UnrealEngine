@@ -159,6 +159,11 @@ void ULevel::HandleLegacyMapBuildData()
 				delete LegacyData.Data[EntryIndex].Value;
 			}
 		}
+
+		if (MapBuildData)
+		{
+			MapBuildData->SetupLightmapResourceClusters();
+		}
 	}
 
 	if (GReflectionCapturesWithLegacyBuildData.GetAnnotationMap().Num() > 0)
@@ -202,7 +207,9 @@ void ULevel::HandleLegacyMapBuildData()
 }
 
 FMeshMapBuildData::FMeshMapBuildData()
-{}
+{
+	ResourceCluster = nullptr;
+}
 
 FMeshMapBuildData::~FMeshMapBuildData()
 {}
@@ -335,6 +342,7 @@ UMapBuildDataRegistry::UMapBuildDataRegistry(const FObjectInitializer& ObjectIni
 	: Super(ObjectInitializer)
 {
 	LevelLightingQuality = Quality_MAX;
+	bSetupResourceClusters = false;
 }
 
 void UMapBuildDataRegistry::Serialize(FArchive& Ar)
@@ -406,6 +414,8 @@ void UMapBuildDataRegistry::PostLoad()
 			check(CaptureBuildData.FullHDRCapturedData.Num() > 0 || CaptureBuildData.EncodedHDRCapturedData.Num() > 0 || FApp::CanEverRender() == false);
 		}
 	}
+
+	SetupLightmapResourceClusters();
 }
 
 void UMapBuildDataRegistry::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -446,6 +456,7 @@ void UMapBuildDataRegistry::FinishDestroy()
 FMeshMapBuildData& UMapBuildDataRegistry::AllocateMeshBuildData(const FGuid& MeshId, bool bMarkDirty)
 {
 	check(MeshId.IsValid());
+	check(!bSetupResourceClusters);
 
 	if (bMarkDirty)
 	{
@@ -457,12 +468,28 @@ FMeshMapBuildData& UMapBuildDataRegistry::AllocateMeshBuildData(const FGuid& Mes
 
 const FMeshMapBuildData* UMapBuildDataRegistry::GetMeshBuildData(FGuid MeshId) const
 {
-	return MeshBuildData.Find(MeshId);
+	const FMeshMapBuildData* FoundData = MeshBuildData.Find(MeshId);
+
+	if (FoundData && !FoundData->ResourceCluster)
+	{
+		// Don't expose a FMeshMapBuildData to the renderer which hasn't had its ResourceCluster setup yet
+		// This can happen during lighting build completion, before the clusters have been assigned.
+		return nullptr;
+	}
+
+	return FoundData;
 }
 
 FMeshMapBuildData* UMapBuildDataRegistry::GetMeshBuildData(FGuid MeshId)
 {
-	return MeshBuildData.Find(MeshId);
+	FMeshMapBuildData* FoundData = MeshBuildData.Find(MeshId);
+
+	if (FoundData && !FoundData->ResourceCluster)
+	{
+		return nullptr;
+	}
+
+	return FoundData;
 }
 
 FPrecomputedLightVolumeData& UMapBuildDataRegistry::AllocateLevelPrecomputedLightVolumeBuildData(const FGuid& LevelId)
@@ -622,7 +649,7 @@ void UMapBuildDataRegistry::InvalidateStaticLighting(UWorld* World, const TSet<F
 		MarkPackageDirty();
 	}
 
-	if (LevelPrecomputedLightVolumeBuildData.Num() > 0 || LevelPrecomputedVolumetricLightmapBuildData.Num() > 0)
+	if (LevelPrecomputedLightVolumeBuildData.Num() > 0 || LevelPrecomputedVolumetricLightmapBuildData.Num() > 0 || LightmapResourceClusters.Num() > 0)
 	{
 		for (int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); LevelIndex++)
 		{
@@ -688,6 +715,86 @@ bool UMapBuildDataRegistry::IsVTLightingValid() const
 	return false;
 }
 
+FLightmapClusterResourceInput GetClusterInput(const FMeshMapBuildData& MeshBuildData)
+{
+	FLightmapClusterResourceInput ClusterInput;
+
+	FLightMap2D* LightMap2D = MeshBuildData.LightMap ? MeshBuildData.LightMap->GetLightMap2D() : nullptr;
+
+	if (LightMap2D)
+	{
+		ClusterInput.LightMapTextures[0] = LightMap2D->GetTexture(0);
+		ClusterInput.LightMapTextures[1] = LightMap2D->GetTexture(1);
+		ClusterInput.SkyOcclusionTexture = LightMap2D->GetSkyOcclusionTexture();
+		ClusterInput.AOMaterialMaskTexture = LightMap2D->GetAOMaterialMaskTexture();
+	}
+
+	FShadowMap2D* ShadowMap2D = MeshBuildData.ShadowMap ? MeshBuildData.ShadowMap->GetShadowMap2D() : nullptr;
+		
+	if (ShadowMap2D)
+	{
+		ClusterInput.ShadowMapTexture = ShadowMap2D->GetTexture();
+	}
+
+	return ClusterInput;
+}
+
+void UMapBuildDataRegistry::SetupLightmapResourceClusters()
+{
+	if (!bSetupResourceClusters)
+	{
+		bSetupResourceClusters = true;
+
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UMapBuildDataRegistry_SetupLightmapResourceClusters);
+
+		TSet<FLightmapClusterResourceInput> LightmapClusters;
+		LightmapClusters.Empty(1 + MeshBuildData.Num() / 30);
+
+		// Build resource clusters from MeshBuildData
+		for (TMap<FGuid, FMeshMapBuildData>::TIterator It(MeshBuildData); It; ++It)
+		{
+			const FMeshMapBuildData& Data = It.Value();
+			LightmapClusters.Add(GetClusterInput(Data));
+		}
+
+		LightmapResourceClusters.Empty(LightmapClusters.Num());
+		LightmapResourceClusters.AddDefaulted(LightmapClusters.Num());
+
+		// Assign ResourceCluster to FMeshMapBuildData
+		for (TMap<FGuid, FMeshMapBuildData>::TIterator It(MeshBuildData); It; ++It)
+		{
+			FMeshMapBuildData& Data = It.Value();
+			const FLightmapClusterResourceInput ClusterInput = GetClusterInput(Data);
+			const FSetElementId ClusterId = LightmapClusters.FindId(ClusterInput);
+			check(ClusterId.IsValidId());
+			const int32 ClusterIndex = ClusterId.AsInteger();
+			LightmapResourceClusters[ClusterIndex].Input = ClusterInput;
+			Data.ResourceCluster = &LightmapResourceClusters[ClusterIndex];
+		}
+	}
+}
+
+void UMapBuildDataRegistry::GetLightmapResourceClusterStats(int32& NumMeshes, int32& NumClusters) const
+{
+	check(bSetupResourceClusters);
+	NumMeshes = MeshBuildData.Num();
+	NumClusters = LightmapResourceClusters.Num();
+}
+
+void UMapBuildDataRegistry::InitializeClusterRenderingResources(ERHIFeatureLevel::Type InFeatureLevel)
+{
+	// Resource clusters should have been setup during PostLoad, however the cooker makes a dummy level for InitializePhysicsSceneForSaveIfNecessary which is not PostLoaded and contains no build data, ignore it.
+	check(bSetupResourceClusters || MeshBuildData.Num() == 0);
+	// If we have any mesh build data, we must have at least one resource cluster, otherwise clusters have not been setup properly.
+	check(LightmapResourceClusters.Num() > 0 || MeshBuildData.Num() == 0);
+
+	for (FLightmapResourceCluster& Cluster : LightmapResourceClusters)
+	{
+		Cluster.SetFeatureLevel(InFeatureLevel);
+		BeginInitResource(&Cluster);
+	}
+}
+
 void UMapBuildDataRegistry::ReleaseResources(const TSet<FGuid>* ResourcesToKeep)
 {
 	for (TMap<FGuid, FPrecomputedVolumetricLightmapData*>::TIterator It(LevelPrecomputedVolumetricLightmapBuildData); It; ++It)
@@ -696,6 +803,11 @@ void UMapBuildDataRegistry::ReleaseResources(const TSet<FGuid>* ResourcesToKeep)
 		{
 			BeginReleaseResource(It.Value());
 		}
+	}
+
+	for (FLightmapResourceCluster& ResourceCluster : LightmapResourceClusters)
+	{
+		BeginReleaseResource(&ResourceCluster);
 	}
 }
 
@@ -731,6 +843,9 @@ void UMapBuildDataRegistry::EmptyLevelData(const TSet<FGuid>* ResourcesToKeep)
 			LevelPrecomputedVolumetricLightmapBuildData.Add(It.Key(), It.Value());
 		}
 	}
+
+	LightmapResourceClusters.Empty();
+	bSetupResourceClusters = false;
 }
 
 FUObjectAnnotationSparse<FMeshMapBuildLegacyData, true> GComponentsWithLegacyLightmaps;

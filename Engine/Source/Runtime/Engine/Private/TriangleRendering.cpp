@@ -216,7 +216,6 @@ void FCanvasTriangleRendererItem::FTriangleMesh::InitRHI()
 	
 void FCanvasTriangleRendererItem::FTriangleMesh::ReleaseRHI()
 {
-	TriMeshElement.Elements[0].PrimitiveUniformBuffer.SafeRelease();
 }
 
 void FCanvasTriangleRendererItem::InitTriangleBuffers(FLocalVertexFactory* VertexFactory, TArray<FTriangleInst>& Triangles, const FSceneView& View, bool bNeedsToSwitchVerticalAxis)

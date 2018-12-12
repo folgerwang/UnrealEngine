@@ -92,9 +92,12 @@ FVertexFactoryType::FVertexFactoryType(
 	bool bInSupportsDynamicLighting,
 	bool bInSupportsPrecisePrevWorldPos,
 	bool bInSupportsPositionOnly,
+	bool bInSupportsCachingMeshDrawCommands,
+	bool bInSupportsPrimitiveIdStream,
 	ConstructParametersType InConstructParameters,
 	ShouldCacheType InShouldCache,
 	ModifyCompilationEnvironmentType InModifyCompilationEnvironment,
+	ValidateCompiledResultType InValidateCompiledResult,
 	SupportsTessellationShadersType InSupportsTessellationShaders
 	):
 	Name(InName),
@@ -105,9 +108,12 @@ FVertexFactoryType::FVertexFactoryType(
 	bSupportsDynamicLighting(bInSupportsDynamicLighting),
 	bSupportsPrecisePrevWorldPos(bInSupportsPrecisePrevWorldPos),
 	bSupportsPositionOnly(bInSupportsPositionOnly),
+	bSupportsCachingMeshDrawCommands(bInSupportsCachingMeshDrawCommands),
+	bSupportsPrimitiveIdStream(bInSupportsPrimitiveIdStream),
 	ConstructParameters(InConstructParameters),
 	ShouldCacheRef(InShouldCache),
 	ModifyCompilationEnvironmentRef(InModifyCompilationEnvironment),
+	ValidateCompiledResultRef(InValidateCompiledResult),
 	SupportsTessellationShadersRef(InSupportsTessellationShaders),
 	GlobalListLink(this)
 {
@@ -200,6 +206,37 @@ void FVertexFactory::SetStreams(ERHIFeatureLevel::Type InFeatureLevel, FRHIComma
 	}
 }
 
+void FVertexFactory::GetStreams(ERHIFeatureLevel::Type InFeatureLevel, FVertexInputStreamArray& OutVertexStreams) const
+{
+	bool bSupportsVertexFetch = SupportsManualVertexFetch(InFeatureLevel);
+	check(IsInitialized());
+
+	for (int32 StreamIndex = 0;StreamIndex < Streams.Num();StreamIndex++)
+	{
+		const FVertexStream& Stream = Streams[StreamIndex];
+
+		if (!(EnumHasAnyFlags(EVertexStreamUsage::ManualFetch, Stream.VertexStreamUsage) && bSupportsVertexFetch))
+		{
+			if (!Stream.VertexBuffer)
+			{
+				OutVertexStreams.Add(FVertexInputStream(StreamIndex, 0, nullptr));
+			}
+			else
+			{
+				if (EnumHasAnyFlags(EVertexStreamUsage::Overridden, Stream.VertexStreamUsage) && !Stream.VertexBuffer->IsInitialized())
+				{
+					OutVertexStreams.Add(FVertexInputStream(StreamIndex, 0, nullptr));
+				}
+				else
+				{
+					checkf(Stream.VertexBuffer->IsInitialized(), TEXT("Vertex buffer was not initialized! Stream %u, Stride %u, Name %s"), StreamIndex, Stream.Stride, *Stream.VertexBuffer->GetFriendlyName());
+					OutVertexStreams.Add(FVertexInputStream(StreamIndex, Stream.Offset, Stream.VertexBuffer->VertexBufferRHI));
+				}
+			}
+		}
+	}
+}
+
 void FVertexFactory::OffsetInstanceStreams(FRHICommandList& RHICmdList, uint32 FirstVertex) const
 {
 	for(int32 StreamIndex = 0;StreamIndex < Streams.Num();StreamIndex++)
@@ -208,6 +245,27 @@ void FVertexFactory::OffsetInstanceStreams(FRHICommandList& RHICmdList, uint32 F
 		if (EnumHasAnyFlags(EVertexStreamUsage::Instancing, Stream.VertexStreamUsage))
 		{
 			RHICmdList.SetStreamSource( StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Offset + Stream.Stride * FirstVertex);
+		}
+	}
+}
+
+void FVertexFactory::OffsetInstanceStreams(uint32 InstanceOffset, bool bOperateOnPositionOnly, FVertexInputStreamArray& VertexStreams) const
+{
+	const TArray<FVertexStream,TFixedAllocator<MaxVertexElementCount> >& StreamArray = bOperateOnPositionOnly ? PositionStream : Streams;
+
+	for (int32 StreamIndex = 0; StreamIndex < StreamArray.Num(); StreamIndex++)
+	{
+		const FVertexStream& Stream = StreamArray[StreamIndex];
+
+		if (EnumHasAnyFlags(EVertexStreamUsage::Instancing, Stream.VertexStreamUsage))
+		{
+			for (int32 BindingIndex = 0; BindingIndex < VertexStreams.Num(); BindingIndex++)
+			{
+				if (VertexStreams[BindingIndex].StreamIndex == StreamIndex)
+				{
+					VertexStreams[BindingIndex].Offset = Stream.Offset + Stream.Stride * InstanceOffset;
+				}
+			}
 		}
 	}
 }
@@ -221,6 +279,18 @@ void FVertexFactory::SetPositionStream(FRHICommandList& RHICmdList) const
 		const FVertexStream& Stream = PositionStream[StreamIndex];
 		check(Stream.VertexBuffer->IsInitialized());
 		RHICmdList.SetStreamSource( StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Offset);
+	}
+}
+
+void FVertexFactory::GetPositionOnlyStream(FVertexInputStreamArray& OutVertexStreams) const
+{
+	check(IsInitialized());
+	// Set the predefined vertex streams.
+	for(int32 StreamIndex = 0;StreamIndex < PositionStream.Num();StreamIndex++)
+	{
+		const FVertexStream& Stream = PositionStream[StreamIndex];
+		check(Stream.VertexBuffer->IsInitialized());
+		OutVertexStreams.Add(FVertexInputStream(StreamIndex, Stream.Offset, Stream.VertexBuffer->VertexBufferRHI));
 	}
 }
 
@@ -409,3 +479,17 @@ EShaderPlatform FVertexFactoryParameterRef::GetShaderPlatform() const
 {
 	return ShaderPlatform;
 }
+void FPrimitiveIdDummyBuffer::InitRHI() 
+{
+	// create a static vertex buffer
+	FRHIResourceCreateInfo CreateInfo;
+		
+	void* LockedData = nullptr;
+	VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(uint32), BUF_Static | BUF_ShaderResource, CreateInfo, LockedData);
+	uint32* Vertices = (uint32*)LockedData;
+	Vertices[0] = 0;
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(uint32), PF_R32_UINT);
+}
+
+TGlobalResource<FPrimitiveIdDummyBuffer> GPrimitiveIdDummy;

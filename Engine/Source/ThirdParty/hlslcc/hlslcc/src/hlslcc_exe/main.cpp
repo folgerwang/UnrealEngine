@@ -191,6 +191,7 @@ struct SCmdOptions
 	bool bUseFullPrecision;
 	bool bUsesExternalTexture;
 	bool bExpandUBMemberArrays;
+	uint32 CFlags = 0;
 	const char* OutFile;
 
 	SCmdOptions() 
@@ -265,6 +266,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			else if (!strcmp(*argv, "-es2"))
 			{
 				OutOptions.Target = HCT_FeatureLevelES2;
+			}
+			else if (!strncmp(*argv, "-hlslccflags=", 13))
+			{
+				OutOptions.CFlags = atoi((*argv) + 13);
 			}
 			else if (!strncmp(*argv, "-entry=", 7))
 			{
@@ -448,6 +453,8 @@ int main( int argc, char** argv)
 	Flags |= Options.bUseFullPrecision ? HLSLCC_UseFullPrecisionInPS : 0;
 	Flags |= Options.bUsesExternalTexture ? HLSLCC_UsesExternalTexture : 0;
 	Flags |= Options.bExpandUBMemberArrays ? HLSLCC_ExpandUBMemberArrays : 0;
+
+	Flags |= Options.CFlags;
 
 	FGlslCodeBackend GlslCodeBackend(Flags, Options.Target);
 	FGlslLanguageSpec GlslLanguageSpec;//(Options.Target == HCT_FeatureLevelES2);

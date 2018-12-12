@@ -374,7 +374,7 @@ void FControlRigTrajectoryCache::RenderTrajectories(const FTransform& ComponentT
 		if (Material.IsValid())
 		{
 			Material->SetScalarParameterValue("Time", CurrentDisplayTime);
-			MeshBuilder.Draw(PDI, ComponentTransform.ToMatrixWithScale(), Material->GetRenderProxy(false), SDPG_Foreground);
+			MeshBuilder.Draw(PDI, ComponentTransform.ToMatrixWithScale(), Material->GetRenderProxy(), SDPG_Foreground);
 		}
 	}
 }

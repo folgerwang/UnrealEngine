@@ -313,7 +313,9 @@ public:
 	* @return The new uniform buffer.
 	*/
 	// FlushType: Thread safe, but varies depending on the RHI
-	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) = 0;
+	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation) = 0;
+
+	virtual void RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents) = 0;
 
 	// FlushType: Wait RHI Thread
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) = 0;
@@ -1097,9 +1099,14 @@ FORCEINLINE TRefCountPtr<FRHIComputePipelineState> RHICreateComputePipelineState
 	return GDynamicRHI->RHICreateComputePipelineState(ComputeShader);
 }
 
-FORCEINLINE FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FORCEINLINE FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 {
-	return GDynamicRHI->RHICreateUniformBuffer(Contents, Layout, Usage);
+	return GDynamicRHI->RHICreateUniformBuffer(Contents, Layout, Usage, Validation);
+}
+
+FORCEINLINE void RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents)
+{
+	return GDynamicRHI->RHIUpdateUniformBuffer(UniformBufferRHI, Contents);
 }
 
 FORCEINLINE uint64 RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign)

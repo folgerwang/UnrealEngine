@@ -300,7 +300,7 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 								? GEngine->ShadedLevelColorationLitMaterial : GEngine->ShadedLevelColorationUnlitMaterial;
 
 							auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
-								LevelColorationMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+								LevelColorationMaterial->GetRenderProxy(),
 								GetWireframeColor()
 								);
 

@@ -187,10 +187,11 @@ bool DrawViewElements(
 	return false;
 }
 
-inline FViewElementPDI::FViewElementPDI(FViewInfo* InViewInfo,FHitProxyConsumer* InHitProxyConsumer):
+inline FViewElementPDI::FViewElementPDI(FViewInfo* InViewInfo,FHitProxyConsumer* InHitProxyConsumer,TArray<FPrimitiveUniformShaderParameters>* InDynamicPrimitiveShaderData):
 	FPrimitiveDrawInterface(InViewInfo),
 	ViewInfo(InViewInfo),
-	HitProxyConsumer(InHitProxyConsumer)
+	HitProxyConsumer(InHitProxyConsumer),
+	DynamicPrimitiveShaderData(InDynamicPrimitiveShaderData)
 {}
 
 inline bool FViewElementPDI::IsHitTesting()
@@ -219,11 +220,13 @@ inline void FViewElementPDI::RegisterDynamicResource(FDynamicPrimitiveResource* 
 			FDynamicPrimitiveResource*, InDynamicResource, DynamicResource,
 			{
 				InViewInfo->DynamicResources.Add(InDynamicResource);
+				InDynamicResource->InitPrimitiveResource();
 			});
 	}
 	else
 	{
 		ViewInfo->DynamicResources.Add(DynamicResource);
+		DynamicResource->InitPrimitiveResource();
 	}
 }
 
@@ -330,6 +333,8 @@ inline bool MeshBatchHasPrimitives(const FMeshBatch& Mesh)
 
 inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 {
+	// Warning: can be called from Game Thread or Rendering Thread.  Be careful what you access.
+
 	if (ensure(MeshBatchHasPrimitives(Mesh)))
 	{
 		// Keep track of view mesh elements whether that have translucency.
@@ -345,6 +350,50 @@ inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 		{
 			NewMesh->BatchHitProxyId = CurrentHitProxy->Id;
 		}
+
+		{
+			TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderDataForRT = DynamicPrimitiveShaderData;
+			ERHIFeatureLevel::Type FeatureLevel = ViewInfo->GetFeatureLevel();
+
+			ENQUEUE_RENDER_COMMAND(FCopyDynamicPrimitiveShaderData)(
+				[NewMesh, DynamicPrimitiveShaderDataForRT, FeatureLevel](FRHICommandListImmediate& RHICmdList)
+				{
+					const bool bPrimitiveShaderDataComesFromSceneBuffer = NewMesh->VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0;
+
+					for (int32 ElementIndex = 0; ElementIndex < NewMesh->Elements.Num(); ElementIndex++)
+					{
+						FMeshBatchElement& MeshElement = NewMesh->Elements[ElementIndex];
+
+						if (bPrimitiveShaderDataComesFromSceneBuffer)
+						{
+							checkf(!NewMesh->Elements[ElementIndex].PrimitiveUniformBuffer,
+								TEXT("FMeshBatch was assigned a PrimitiveUniformBuffer even though Vertex Factory %s fetches primitive shader data through a Scene buffer.  The assigned PrimitiveUniformBuffer cannot be respected.  Use PrimitiveUniformBufferResource instead for dynamic primitive data, or leave both null to get FPrimitiveSceneProxy->UniformBuffer."), NewMesh->VertexFactory->GetType()->GetName());
+						}
+
+						checkf(bPrimitiveShaderDataComesFromSceneBuffer || NewMesh->Elements[ElementIndex].PrimitiveUniformBufferResource != NULL,
+							TEXT("FMeshBatch was not properly setup.  The primitive uniform buffer must be specified."));
+					}
+
+					// If we are maintaining primitive scene data on the GPU, copy the primitive uniform buffer data to a unified array so it can be uploaded later
+					if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && bPrimitiveShaderDataComesFromSceneBuffer)
+					{
+						for (int32 Index = 0; Index < NewMesh->Elements.Num(); ++Index)
+						{
+							const TUniformBuffer<FPrimitiveUniformShaderParameters>* PrimitiveUniformBufferResource = NewMesh->Elements[Index].PrimitiveUniformBufferResource;
+
+							if (PrimitiveUniformBufferResource)
+							{
+								const int32 DataIndex = DynamicPrimitiveShaderDataForRT->AddUninitialized(1);
+								NewMesh->Elements[Index].PrimitiveIdMode = PrimID_DynamicPrimitiveShaderData;
+								NewMesh->Elements[Index].DynamicPrimitiveShaderDataIndex = DataIndex;
+								FPlatformMemory::Memcpy(&(*DynamicPrimitiveShaderDataForRT)[DataIndex], PrimitiveUniformBufferResource->GetContents(), sizeof(FPrimitiveUniformShaderParameters));
+							}
+						}
+					}
+
+					NewMesh->MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
+				});
+		}		
 
 		return 1;
 	}

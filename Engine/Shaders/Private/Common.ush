@@ -867,14 +867,6 @@ MaterialFloat AtanFast( MaterialFloat x )
 	return A.y + A.z * ( ( ( -0.130234 * A.x - 0.0954105 ) * A.x + 1.00712 ) * A.x - 0.00001203333 );
 }
 
-/**
- * Returns the upper 3x3 portion of the LocalToWorld matrix.
- */
-MaterialFloat3x3 GetLocalToWorld3x3()
-{
-	return (MaterialFloat3x3)Primitive.LocalToWorld;
-}
-
 /** Converts a linear input value into a value to be stored in the light attenuation buffer. */
 MaterialFloat EncodeLightAttenuation(MaterialFloat InColor)
 {

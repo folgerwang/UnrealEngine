@@ -39,7 +39,7 @@
 #include "ShaderParameters.h"
 #include "UniformBuffer.h"
 #include "GPUSkinPublicDefs.h"
-
+#include "VertexFactory.h"
 
 class FGPUSkinPassthroughVertexFactory;
 class FGPUBaseSkinVertexFactory;
@@ -111,6 +111,16 @@ public:
 	static void SetVertexStreams(FGPUSkinCacheEntry* Entry, int32 Section, FRHICommandList& RHICmdList,
 		class FShader* Shader, const FGPUSkinPassthroughVertexFactory* VertexFactory,
 		uint32 BaseVertexIndex, FShaderResourceParameter PreviousStreamBuffer);
+
+	static void GetShaderBindings(
+		FGPUSkinCacheEntry* Entry,
+		int32 Section,
+		const FShader* Shader,
+		const FGPUSkinPassthroughVertexFactory* VertexFactory,
+		uint32 BaseVertexIndex,
+		FShaderResourceParameter GPUSkinCachePreviousPositionBuffer,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams);
 
 	static void Release(FGPUSkinCacheEntry*& SkinCacheEntry);
 

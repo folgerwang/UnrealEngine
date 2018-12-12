@@ -10,9 +10,10 @@
 #include "RHI.h"
 #include "RenderResource.h"
 #include "UnrealClient.h"
+#include "Matrix3x4.h"
 
 // Currently we support at most 2 views for each planar reflection, one view per stereo pass
-// Must match shader code
+// Must match FPlanarReflectionUniformParameters.
 const int32 GMaxPlanarReflectionViews = 2;
 
 class UPlanarReflectionComponent;
@@ -111,7 +112,7 @@ public:
 		const FMirrorMatrix MirrorMatrix(ReflectionPlane);
 		// Using TransposeAdjoint instead of full inverse because we only care about transforming normals
 		const FMatrix InverseTransposeMirrorMatrix4x4 = MirrorMatrix.TransposeAdjoint();
-		InverseTransposeMirrorMatrix4x4.GetScaledAxes((FVector&)InverseTransposeMirrorMatrix[0], (FVector&)InverseTransposeMirrorMatrix[1], (FVector&)InverseTransposeMirrorMatrix[2]);
+		InverseTransposeMirrorMatrix.SetMatrix(InverseTransposeMirrorMatrix4x4);
 	}
 
 	void ApplyWorldOffset(const FVector& InOffset)
@@ -136,7 +137,7 @@ public:
 	float PrefilterRoughnessDistance;
 	FMatrix ProjectionWithExtraFOV[GMaxPlanarReflectionViews];
 	FIntRect ViewRect[GMaxPlanarReflectionViews];
-	FVector4 InverseTransposeMirrorMatrix[3];
+	FMatrix3x4 InverseTransposeMirrorMatrix;
 	FName OwnerName;
 
 	/** This is specific to a certain view and should actually be stored in FSceneViewState. */

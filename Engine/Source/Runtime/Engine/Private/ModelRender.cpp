@@ -204,7 +204,7 @@ public:
 		CollisionResponse(InComponent->GetCollisionResponseToChannels())
 #if WITH_EDITOR
 		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial
-			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false)
+			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy()
 			: nullptr,
 			FColor(157,149,223,255))
 #endif
@@ -436,9 +436,8 @@ public:
 												FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 												BatchElement.IndexBuffer = IndexAllocation.IndexBuffer;
 												MeshElement.VertexFactory = &VertexFactory;
-												MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : ProxyElementInfo.GetMaterial()->GetRenderProxy(bOnlySelectedSurfaces, bOnlyHoveredSurfaces);
+												MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : ProxyElementInfo.GetMaterial()->GetRenderProxy();
 												MeshElement.LCI = &ProxyElementInfo;
-												BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 												BatchElement.FirstIndex = FirstIndex;
 												BatchElement.NumPrimitives = NumIndices / 3;
 												BatchElement.MinVertexIndex = MinVertexIndex;
@@ -472,9 +471,8 @@ public:
 								FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 								BatchElement.IndexBuffer = ModelElement.IndexBuffer;
 								MeshElement.VertexFactory = &VertexFactory;
-								MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : Elements[ElementIndex].GetMaterial()->GetRenderProxy(false);
+								MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : Elements[ElementIndex].GetMaterial()->GetRenderProxy();
 								MeshElement.LCI = &Elements[ElementIndex];
-								BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 								BatchElement.FirstIndex = ModelElement.FirstIndex;
 								BatchElement.NumPrimitives = ModelElement.NumTriangles;
 								BatchElement.MinVertexIndex = ModelElement.MinVertexIndex;
@@ -513,9 +511,8 @@ public:
 					FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 					BatchElement.IndexBuffer = ModelElement.IndexBuffer;
 					MeshElement.VertexFactory = &VertexFactory;
-					MeshElement.MaterialRenderProxy = Elements[ElementIndex].GetMaterial()->GetRenderProxy(false);
+					MeshElement.MaterialRenderProxy = Elements[ElementIndex].GetMaterial()->GetRenderProxy();
 					MeshElement.LCI = &Elements[ElementIndex];
-					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 					BatchElement.FirstIndex = ModelElement.FirstIndex;
 					BatchElement.NumPrimitives = ModelElement.NumTriangles;
 					BatchElement.MinVertexIndex = ModelElement.MinVertexIndex;
@@ -655,7 +652,7 @@ private:
 
 		/** Initialization constructor. */
 		FElementInfo(const FModelElement& InModelElement, const FVertexFactoryType* VertexFactoryType)
-			: FLightCacheInterface(NULL, NULL)
+			: FLightCacheInterface()
 			, Bounds(InModelElement.BoundingBox)
 		{
 			const FMeshMapBuildData* MapBuildData = InModelElement.GetMeshMapBuildData();
@@ -664,6 +661,7 @@ private:
 			{
 				SetLightMap(MapBuildData->LightMap);
 				SetShadowMap(MapBuildData->ShadowMap);
+				SetResourceCluster(MapBuildData->ResourceCluster);
 				IrrelevantLights = MapBuildData->IrrelevantLights;
 			}
 

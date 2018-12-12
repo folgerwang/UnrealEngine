@@ -225,8 +225,6 @@ void FEngineShowFlags::AddNameByIndex(uint32 InIndex, FString& Out)
 	}
 }
 
-RENDERER_API void BuildDebugViewModeShader(EViewModeIndex);
-
 void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowFlags& EngineShowFlags)
 {
 	bool bPostProcessing = true;

@@ -75,7 +75,7 @@ void PrefilterPlanarReflectionPS(
 	if (KernelRadiusY > 0)
 	{
 		// Compute distance from camera origin to the camera vector intersection with the reflection plane
-		float CenterDistanceToPlane = -(dot(View.WorldCameraOrigin, ReflectionPlane.xyz) - ReflectionPlane.w) / dot(normalize(ScreenVector), ReflectionPlane.xyz);
+		float CenterDistanceToPlane = -(dot(View.WorldCameraOrigin, PlanarReflectionStruct.ReflectionPlane.xyz) - PlanarReflectionStruct.ReflectionPlane.w) / dot(normalize(ScreenVector), PlanarReflectionStruct.ReflectionPlane.xyz);
 		// Note: reading from depth after the temporal AA pass
 		// This works without jittering because we disable temporal AA jittering for planar reflections
 		float CenterSceneDepth = CalcSceneDepth(BufferUV);
@@ -107,6 +107,15 @@ void PrefilterPlanarReflectionPS(
 #endif // ENABLE_PLANAR_REFLECTIONS_PREFILTER
 	{
 		float4 SceneColorValue = SampleSceneColorInput(BufferUV);
+
+		#if (ES2_PROFILE || ES3_1_PROFILE)
+			// when mesh draw command pipline is active mobile scene color contains depth in the alpha channel, any value > 1.0 has been written to.
+			if( SceneColorValue.a > 1.0)
+			{
+				SceneColorValue.a = 0;
+			}
+		#endif
+
 		// We cleared the planar reflection alpha to 1, and base pass writes 0
 		float ValidContentMask = 1 - SceneColorValue.a;
 		OutColor = float4(SceneColorValue.xyz, ValidContentMask);
@@ -132,6 +141,6 @@ void PlanarReflectionPS(
 	BRANCH
 	if (ScreenSpaceData.GBuffer.ShadingModelID > 0)
 	{
-		OutColor = ComputePlanarReflections(WorldPosition, ScreenSpaceData.GBuffer.WorldNormal, ScreenSpaceData.GBuffer.Roughness, PlanarReflectionSampler);
+		OutColor = ComputePlanarReflections(WorldPosition, ScreenSpaceData.GBuffer.WorldNormal, ScreenSpaceData.GBuffer.Roughness, PlanarReflectionStruct.PlanarReflectionSampler);
 	}
 }

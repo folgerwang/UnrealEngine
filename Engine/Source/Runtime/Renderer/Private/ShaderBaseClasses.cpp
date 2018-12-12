@@ -23,6 +23,40 @@ FAutoConsoleVariableRef FMaterialShader::CVarAllowCachedUniformExpressions(
 	TEXT("Allow uniform expressions to be cached."),
 	ECVF_RenderThreadSafe);
 
+void FMeshMaterialShaderElementData::InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 MeshId, bool bAllowStencilDither)
+{
+	FadeUniformBuffer = GDistanceCullFadedInUniformBuffer.GetUniformBufferRHI();
+	DitherUniformBuffer = GDitherFadedInUniformBuffer.GetUniformBufferRHI();
+
+	if (SceneView && MeshId >= 0)
+	{
+		checkSlow(SceneView->bIsViewInfo);
+		const FViewInfo* ViewInfo = (FViewInfo*)SceneView;
+
+		if (MeshBatch.bDitheredLODTransition && !(bAllowStencilDither && ViewInfo->bAllowStencilDither))
+		{
+			if (ViewInfo->StaticMeshFadeOutDitheredLODMap[MeshId])
+			{
+				DitherUniformBuffer = ViewInfo->DitherFadeOutUniformBuffer;
+			}
+			else if (ViewInfo->StaticMeshFadeInDitheredLODMap[MeshId])
+			{
+				DitherUniformBuffer = ViewInfo->DitherFadeInUniformBuffer;
+			}
+		}
+
+		if (PrimitiveSceneProxy)
+		{
+			int32 const PrimitiveIndex = PrimitiveSceneProxy->GetPrimitiveSceneInfo()->GetIndex();
+
+			if (ViewInfo->PrimitiveFadeUniformBufferMap[PrimitiveIndex])
+			{
+				FadeUniformBuffer = ViewInfo->PrimitiveFadeUniformBuffers[PrimitiveIndex];
+			}
+		}
+	}
+}
+
 FName FMaterialShader::UniformBufferLayoutName(TEXT("Material"));
 
 FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitializerType& Initializer)
@@ -50,9 +84,7 @@ FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitia
 
 	SceneTextureParameters.Bind(Initializer);
 
-	InstanceCount.Bind(Initializer.ParameterMap, TEXT("InstanceCount"));
 	InstanceOffset.Bind(Initializer.ParameterMap, TEXT("InstanceOffset"));
-	VertexOffset.Bind(Initializer.ParameterMap, TEXT("VertexOffset"));
 }
 
 FUniformBufferRHIParamRef FMaterialShader::GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const
@@ -170,14 +202,6 @@ void FMaterialShader::SetParametersInner(
 	const FMaterial& Material,
 	const FSceneView& View)
 {
-	// If the material has cached uniform expressions for selection or hover
-	// and that is being overridden by show flags in the editor, recache
-	// expressions for this draw call.
-	const bool bOverrideSelection =
-		GIsEditor &&
-		!View.Family->EngineShowFlags.Selection &&
-		(MaterialRenderProxy->IsSelected() || MaterialRenderProxy->IsHovered());
-
 	ERHIFeatureLevel::Type FeatureLevel = View.GetFeatureLevel();
 	checkf(Material.GetRenderingThreadShaderMap(), TEXT("RenderingThreadShaderMap: %i"), Material.GetRenderingThreadShaderMap() ? 1 : 0);
 	checkf(Material.GetRenderingThreadShaderMap()->IsValidForRendering(true) && Material.GetFeatureLevel() == FeatureLevel, TEXT("IsValid:%i, MaterialFeatureLevel:%i, FeatureLevel:%i"), Material.GetRenderingThreadShaderMap()->IsValidForRendering() ? 1 : 0, Material.GetFeatureLevel(), FeatureLevel);
@@ -187,7 +211,7 @@ void FMaterialShader::SetParametersInner(
 	bool bForceExpressionEvaluation = false;
 
 #if !(UE_BUILD_TEST || UE_BUILD_SHIPPING || !WITH_EDITOR)
-	if (!(!bAllowCachedUniformExpressions || !UniformExpressionCache->bUpToDate || bOverrideSelection))
+	if (!(!bAllowCachedUniformExpressions || !UniformExpressionCache->bUpToDate))
 	{
 		// UE-46061 - Workaround for a rare crash with an outdated cached shader map
 		if (UniformExpressionCache->CachedUniformExpressionShaderMap != Material.GetRenderingThreadShaderMap())
@@ -208,7 +232,7 @@ void FMaterialShader::SetParametersInner(
 	}
 #endif
 
-	if (!bAllowCachedUniformExpressions || !UniformExpressionCache->bUpToDate || bOverrideSelection || bForceExpressionEvaluation)
+	if (!bAllowCachedUniformExpressions || !UniformExpressionCache->bUpToDate || bForceExpressionEvaluation)
 	{
 		FMaterialRenderContext MaterialRenderContext(MaterialRenderProxy, Material, &View);
 		bUniformExpressionCacheNeedsDelete = true;
@@ -344,6 +368,71 @@ IMPLEMENT_MATERIAL_SHADER_SetParameters( FComputeShaderRHIParamRef );
 
 #endif
 
+void FMaterialShader::GetShaderBindings(
+	const FScene* Scene,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FMaterialRenderProxy& MaterialRenderProxy,
+	const FMaterial& Material,
+	FMeshDrawSingleShaderBindings& ShaderBindings) const
+{
+	check(Material.GetRenderingThreadShaderMap() && Material.GetRenderingThreadShaderMap()->IsValidForRendering() && Material.GetFeatureLevel() == FeatureLevel);
+
+	const FUniformExpressionCache& UniformExpressionCache = MaterialRenderProxy.UniformExpressionCache[FeatureLevel];
+	check(UniformExpressionCache.bUpToDate && UniformExpressionCache.UniformBuffer);
+	ShaderBindings.Add(MaterialUniformBuffer, UniformExpressionCache.UniformBuffer);
+
+	{
+		const TArray<FGuid>& ParameterCollections = UniformExpressionCache.ParameterCollections;
+		const int32 ParameterCollectionsNum = ParameterCollections.Num();
+
+		// For shipping and test builds the assert above will be compiled out, but we're trying to verify that this condition is never hit.
+		if (ParameterCollectionUniformBuffers.Num() < ParameterCollectionsNum)
+		{
+			UE_LOG(LogRenderer, Warning,
+				TEXT("ParameterCollectionUniformBuffers.Num() [%u] < ParameterCollectionsNum [%u], this would crash below on SetUniformBufferParameter.\n")
+				TEXT("RenderProxy=%s Material=%s"),
+				ParameterCollectionUniformBuffers.Num(),
+				ParameterCollectionsNum,
+				*MaterialRenderProxy.GetFriendlyName(),
+				*Material.GetFriendlyName()
+				);
+		}
+
+		check(ParameterCollectionUniformBuffers.Num() >= ParameterCollectionsNum);
+
+		const int32 NumToSet = FMath::Min(ParameterCollectionUniformBuffers.Num(), ParameterCollections.Num());
+
+		// Find each referenced parameter collection's uniform buffer in the scene and set the parameter
+		for (int32 CollectionIndex = 0; CollectionIndex < NumToSet; CollectionIndex++)
+		{			
+			FUniformBufferRHIParamRef UniformBuffer = GetParameterCollectionBuffer(ParameterCollections[CollectionIndex], Scene);
+
+			if (!UniformBuffer)
+			{
+				// Dump the currently registered parameter collections and the ID we failed to find.
+				// In a cooked project these numbers are persistent so we can track back to the original
+				// parameter collection that was being referenced and no longer exists
+				FString InstancesString;
+				TMap<FGuid, FMaterialParameterCollectionInstanceResource*>::TIterator Iter = GDefaultMaterialParameterCollectionInstances.CreateIterator();
+				while (Iter)
+				{
+					FMaterialParameterCollectionInstanceResource* Instance = Iter.Value();
+					InstancesString += FString::Printf(TEXT("\n0x%p: %s: %s"),
+						Instance, Instance ? *Instance->GetOwnerName().ToString() : TEXT("None"), *Iter.Key().ToString());
+					++Iter;
+				}
+
+				UE_LOG(LogRenderer, Fatal, TEXT("Failed to find parameter collection buffer with GUID '%s'.\n")
+					TEXT("Currently %i listed default instances: %s"),
+					*ParameterCollections[CollectionIndex].ToString(),
+					GDefaultMaterialParameterCollectionInstances.Num(), *InstancesString);
+			}
+
+			ShaderBindings.Add(ParameterCollectionUniformBuffers[CollectionIndex], UniformBuffer);		
+		}
+	}
+}
+
 bool FMaterialShader::Serialize(FArchive& Ar)
 {
 	const bool bShaderHasOutdatedParameters = FShader::Serialize(Ar);
@@ -386,9 +475,7 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 	Ar << PageTable;
 	Ar << PageTableSampler;
 
-	Ar << InstanceCount;
 	Ar << InstanceOffset;
-	Ar << VertexOffset;
 
 	return bShaderHasOutdatedParameters;
 }
@@ -418,13 +505,12 @@ void FMeshMaterialShader::SetMesh(
 	// Set the mesh for the vertex factory
 	VertexFactoryParameters.SetMesh(RHICmdList, this,VertexFactory,View,BatchElement, DataFlags);
 		
-	if(IsValidRef(BatchElement.PrimitiveUniformBuffer))
+	if (BatchElement.PrimitiveUniformBuffer)
 	{
 		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(),BatchElement.PrimitiveUniformBuffer);
 	}
-	else
+	else if (BatchElement.PrimitiveUniformBufferResource)
 	{
-		check(BatchElement.PrimitiveUniformBufferResource);
 		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(),*BatchElement.PrimitiveUniformBufferResource);
 	}
 
@@ -433,9 +519,12 @@ void FMeshMaterialShader::SetMesh(
 	{
 		SetUniformBufferParameter(RHICmdList, ShaderRHI,LODParameter,GetPrimitiveFadeUniformBufferParameter(View, Proxy));
 	}
-	if (NonInstancedDitherLODFactorParameter.IsBound())
+
+	TShaderUniformBufferParameter<FDitherUniformShaderParameters> DitherParameter = GetUniformBufferParameter<FDitherUniformShaderParameters>();
+	if (DitherParameter.IsBound())
 	{
-		SetShaderValue(RHICmdList, ShaderRHI, NonInstancedDitherLODFactorParameter, DrawRenderState.GetDitheredLODTransitionAlpha());
+		// Dither is currently disabled in mesh draw policy rendering path.
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, DitherParameter, GDitherFadedInUniformBuffer.GetUniformBufferRHI());
 	}
 }
 
@@ -458,12 +547,66 @@ IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FGeometryShaderRHIParamRef );
 IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FPixelShaderRHIParamRef );
 IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FComputeShaderRHIParamRef );
 
+void FMeshMaterialShader::GetShaderBindings(
+	const FScene* Scene,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FMaterialRenderProxy& MaterialRenderProxy,
+	const FMaterial& Material,
+	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+	FUniformBufferRHIParamRef PassUniformBufferValue,
+	const FMeshMaterialShaderElementData& ShaderElementData,
+	FMeshDrawSingleShaderBindings& ShaderBindings) const
+{
+	FMaterialShader::GetShaderBindings(Scene, FeatureLevel, MaterialRenderProxy, Material, ShaderBindings);
+	ShaderBindings.Add(PassUniformBuffer, PassUniformBufferValue);
+	ShaderBindings.Add(GetUniformBufferParameter<FViewUniformShaderParameters>(), ViewUniformBuffer);
+	ShaderBindings.Add(GetUniformBufferParameter<FDistanceCullFadeUniformShaderParameters>(), ShaderElementData.FadeUniformBuffer);
+	ShaderBindings.Add(GetUniformBufferParameter<FDitherUniformShaderParameters>(), ShaderElementData.DitherUniformBuffer);
+}
+
+void FMeshMaterialShader::GetElementShaderBindings(
+	const FScene* Scene, 
+	const FSceneView* ViewIfDynamicMeshCommand, 
+	const FVertexFactory* VertexFactory,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FMeshBatch& MeshBatch,
+	const FMeshBatchElement& BatchElement, 
+	const FMeshMaterialShaderElementData& ShaderElementData,
+	FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams) const
+{
+	checkSlow(ShaderBindings.Frequency == GetType()->GetFrequency());
+
+	//@todo MeshCommandPipeline - remove from FMaterialShader
+	VertexFactoryParameters.GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, this, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
+		
+	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && VertexFactory->GetPrimitiveIdStreamIndex(bShaderRequiresPositionOnlyStream) >= 0)
+	{
+		ensureMsgf(!GetUniformBufferParameter<FPrimitiveUniformShaderParameters>().IsBound(), TEXT("Shader %s attempted to bind the Primitive uniform buffer even though Vertex Factory computes a PrimitiveId per-instance.  This will break auto-instancing.  Shaders should use GetPrimitiveData(PrimitiveId).Member instead of Primitive.Member."), GetType()->GetName());
+		ensureMsgf(!BatchElement.PrimitiveUniformBuffer, TEXT("FMeshBatchElement was assigned a PrimitiveUniformBuffer even though Vertex Factory %s fetches primitive shader data through a Scene buffer.  The assigned PrimitiveUniformBuffer cannot be respected.  Use PrimitiveUniformBufferResource instead for dynamic primitive data."), GetType()->GetName());
+	}
+	else
+	{
+		if (BatchElement.PrimitiveUniformBuffer)
+		{
+			ShaderBindings.Add(GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(), BatchElement.PrimitiveUniformBuffer);
+		}
+		else
+		{
+			checkf(BatchElement.PrimitiveUniformBufferResource, TEXT("%s expected a primitive uniform buffer but none was set on BatchElement.PrimitiveUniformBuffer or BatchElement.PrimitiveUniformBufferResource"), GetType()->GetName());
+			ShaderBindings.Add(GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(), BatchElement.PrimitiveUniformBufferResource->GetUniformBufferRHI());
+		}
+	}
+}
+
 bool FMeshMaterialShader::Serialize(FArchive& Ar)
 {
 	bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
 	Ar << PassUniformBuffer;
 	bShaderHasOutdatedParameters |= Ar << VertexFactoryParameters;
-	Ar << NonInstancedDitherLODFactorParameter;
 	return bShaderHasOutdatedParameters;
 }
 
@@ -473,6 +616,7 @@ uint32 FMeshMaterialShader::GetAllocatedSize() const
 		+ VertexFactoryParameters.GetAllocatedSize();
 }
 
+//@todo MeshCommandPipeline Remove it together with draw policies.
 FUniformBufferRHIParamRef FMeshMaterialShader::GetPrimitiveFadeUniformBufferParameter(const FSceneView& View, const FPrimitiveSceneProxy* Proxy)
 {
 	FUniformBufferRHIParamRef FadeUniformBuffer = NULL;

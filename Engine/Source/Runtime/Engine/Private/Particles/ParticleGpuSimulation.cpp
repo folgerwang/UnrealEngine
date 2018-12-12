@@ -46,6 +46,7 @@
 #include "Misc/CoreDelegates.h"
 #include "PipelineStateCache.h"
 #include "SceneRenderTargetParameters.h"
+#include "MeshMaterialShader.h"
 
 DECLARE_CYCLE_STAT(TEXT("GPUSpriteEmitterInstance Init GT"), STAT_GPUSpriteEmitterInstance_Init, STATGROUP_Particles);
 DECLARE_GPU_STAT_NAMED(ParticleSimulation, TEXT("Particle Simulation"));
@@ -600,6 +601,17 @@ public:
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override;
 
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override;
+
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
@@ -633,6 +645,18 @@ public:
 	virtual void Serialize(FArchive& Ar) override {}
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override;
+	
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override;
+
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
@@ -753,9 +777,9 @@ public:
 	/**
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("PARTICLES_PER_INSTANCE"), MAX_PARTICLES_PER_INSTANCE);
 
 		// Set a define so we can tell in MaterialTemplate.usf when we are compiling a sprite vertex factory
@@ -806,11 +830,52 @@ void FGPUSpriteVertexFactoryShaderParametersVS::SetMesh(FRHICommandList& RHICmdL
 	SetTextureParameter(RHICmdList, VertexShader, CurveTexture, CurveTextureSampler, SamplerStateLinear, GParticleCurveTexture.GetCurveTexture() );
 }
 
+void FGPUSpriteVertexFactoryShaderParametersVS::GetElementShaderBindings(
+	const FSceneInterface* Scene,
+	const FSceneView* View,
+	const FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams) const 
+{
+	FGPUSpriteVertexFactory* GPUVF = (FGPUSpriteVertexFactory*)VertexFactory;
+	FSamplerStateRHIParamRef SamplerStatePoint = TStaticSamplerState<SF_Point>::GetRHI();
+	FSamplerStateRHIParamRef SamplerStateLinear = TStaticSamplerState<SF_Bilinear>::GetRHI();
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FGPUSpriteEmitterUniformParameters>(), GPUVF->EmitterUniformBuffer);
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FGPUSpriteEmitterDynamicUniformParameters>(), GPUVF->EmitterDynamicUniformBuffer);
+	FShaderResourceViewRHIParamRef ParticleIndicesBuffer = GPUVF->ParticleIndicesBuffer->VertexBufferSRV;
+	ShaderBindings.Add(ParticleIndices, ParticleIndicesBuffer ? ParticleIndicesBuffer : (FShaderResourceViewRHIParamRef)GNullColorVertexBuffer.VertexBufferSRV);
+	ShaderBindings.Add(ParticleIndicesOffset, GPUVF->ParticleIndicesOffset);
+
+	ShaderBindings.AddTexture(PositionTexture, PositionTextureSampler, SamplerStatePoint, GPUVF->PositionTextureRHI);
+	ShaderBindings.AddTexture(VelocityTexture, VelocityTextureSampler, SamplerStatePoint, GPUVF->VelocityTextureRHI);
+	ShaderBindings.AddTexture(AttributesTexture, AttributesTextureSampler, SamplerStatePoint, GPUVF->AttributesTextureRHI);
+	ShaderBindings.AddTexture(CurveTexture, CurveTextureSampler, SamplerStateLinear, GParticleCurveTexture.GetCurveTexture());
+}
+
 void FGPUSpriteVertexFactoryShaderParametersPS::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
 {
 	FGPUSpriteVertexFactory* GPUVF = (FGPUSpriteVertexFactory*)VertexFactory;
 	FPixelShaderRHIParamRef PixelShader = Shader->GetPixelShader();
-	SetUniformBufferParameter(RHICmdList, PixelShader, Shader->GetUniformBufferParameter<FGPUSpriteEmitterDynamicUniformParameters>(), GPUVF->EmitterDynamicUniformBuffer );
+	SetUniformBufferParameter(RHICmdList, PixelShader, Shader->GetUniformBufferParameter<FGPUSpriteEmitterDynamicUniformParameters>(), GPUVF->EmitterDynamicUniformBuffer);
+}
+
+void FGPUSpriteVertexFactoryShaderParametersPS::GetElementShaderBindings(
+	const FSceneInterface* Scene,
+	const FSceneView* View,
+	const FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams) const 
+{
+	FGPUSpriteVertexFactory* GPUVF = (FGPUSpriteVertexFactory*)VertexFactory;
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FGPUSpriteEmitterDynamicUniformParameters>(), GPUVF->EmitterDynamicUniformBuffer);
 }
 
 IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSpriteVertexFactory,"/Engine/Private/ParticleGPUSpriteVertexFactory.ush",true,false,true,false,false);
@@ -2860,8 +2925,7 @@ static void GetNewParticleArray(TArray<FNewParticle>& NewParticles, int32 NumPar
 struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 {
 public:
-	// render proxies for unselected (0) and selected (1) materials
-	FMaterialRenderProxy *MaterialProxies[2];
+	FMaterialRenderProxy *MaterialProxy;
 	// translucent?
 	bool bIsMaterialTranslucent;
 	/** FX system. */
@@ -2915,10 +2979,9 @@ public:
 		, bLocalVectorFieldTileY(false)
 		, bLocalVectorFieldTileZ(false)
 		, bLocalVectorFieldUseFixDT(false)
+		, MaterialProxy(nullptr)
 	{
 		GetNewParticleArray(NewParticles);
-		MaterialProxies[0] = nullptr;
-		MaterialProxies[1] = nullptr;
 	}
 	~FGPUSpriteDynamicEmitterData()
 	{
@@ -3095,18 +3158,18 @@ public:
 					Mesh.LCI = NULL;
 					if ( bUseLocalSpace )
 					{
-						BatchElement.PrimitiveUniformBufferResource = &Proxy->GetUniformBuffer();
+						BatchElement.PrimitiveUniformBuffer = Proxy->GetUniformBuffer();
 					}
 					else
 					{
-						BatchElement.PrimitiveUniformBufferResource = &Proxy->GetWorldSpacePrimitiveUniformBuffer();
+						BatchElement.PrimitiveUniformBuffer = Proxy->GetWorldSpacePrimitiveUniformBuffer();
 					}
 					BatchElement.MinVertexIndex = 0;
 					BatchElement.MaxVertexIndex = 3;
 					Mesh.ReverseCulling = Proxy->IsLocalToWorldDeterminantNegative();
 					Mesh.CastShadow = Proxy->GetCastShadow();
 					Mesh.DepthPriorityGroup = (ESceneDepthPriorityGroup)Proxy->GetDepthPriorityGroup(View);
-					Mesh.MaterialRenderProxy = GetMaterialRenderProxy(bSelected);
+					Mesh.MaterialRenderProxy = GetMaterialRenderProxy();
 					Mesh.Type = PT_TriangleList;
 					Mesh.bCanApplyViewModeOverrides = true;
 					Mesh.bUseWireframeSelectionColoring = Proxy->IsSelected();
@@ -3131,18 +3194,16 @@ public:
 	 * Retrieves the material render proxy with which to render sprites.
 	 * Const version of the virtual below, needed because GetDynamicMeshElementsemitter is const
 	 */
-	const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) const
+	const FMaterialRenderProxy* GetMaterialRenderProxy() const
 	{
-		FMaterialRenderProxy *Proxy = MaterialProxies[bInSelected ? 1 : 0];
-		check(Proxy);
-		return Proxy;
+		check(MaterialProxy);
+		return MaterialProxy;
 	}
 
-	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) override
+	virtual const FMaterialRenderProxy* GetMaterialRenderProxy() override
 	{
-		FMaterialRenderProxy *Proxy = MaterialProxies[bInSelected ? 1 : 0];
-		check(Proxy);
-		return Proxy;
+		check(MaterialProxy);
+		return MaterialProxy;
 	}
 
 	/**
@@ -3332,8 +3393,7 @@ FGPUSpriteParticleEmitterInstance(FFXSystem* InFXSystem, FGPUSpriteEmitterInfo& 
 		FGPUSpriteDynamicEmitterData* DynamicData = new FGPUSpriteDynamicEmitterData(EmitterInfo.RequiredModule);
 		DynamicData->FXSystem = FXSystem;
 		DynamicData->Resources = EmitterInfo.Resources;
-		DynamicData->MaterialProxies[0] = GetCurrentMaterial()->GetRenderProxy(false);
-		DynamicData->MaterialProxies[1] = GIsEditor ? GetCurrentMaterial()->GetRenderProxy(true) : DynamicData->MaterialProxies[0];
+		DynamicData->MaterialProxy = GetCurrentMaterial()->GetRenderProxy();
 		DynamicData->bIsMaterialTranslucent = IsTranslucentBlendMode(GetCurrentMaterial()->GetBlendMode());
 		DynamicData->Simulation = Simulation;
 		DynamicData->SimulationBounds = Template->bUseFixedRelativeBoundingBox ? Template->FixedRelativeBoundingBox.TransformBy(ComponentToWorldMatrix) : Component->Bounds.GetBox();

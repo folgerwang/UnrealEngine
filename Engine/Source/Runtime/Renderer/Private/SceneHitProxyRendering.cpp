@@ -18,6 +18,20 @@
 #include "DynamicPrimitiveDrawing.h"
 #include "ClearQuad.h"
 #include "VisualizeTexture.h"
+#include "MeshPassProcessor.inl"
+#include "GPUScene.h"
+
+class FHitProxyShaderElementData : public FMeshMaterialShaderElementData
+{
+public:
+
+	FHitProxyShaderElementData(FHitProxyId InBatchHitProxyId)
+		: BatchHitProxyId(InBatchHitProxyId)
+	{
+	}
+
+	FHitProxyId BatchHitProxyId;
+};
 
 /**
  * A vertex shader for rendering the depth of a mesh.
@@ -150,6 +164,36 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(), HitProxyId, HitProxyIdValue.GetColor().ReinterpretAsLinear());
 	}
 
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+		FUniformBufferRHIParamRef PassUniformBufferValue,
+		const FHitProxyShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const
+	{
+		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
+
+
+		FHitProxyId hitProxyId = ShaderElementData.BatchHitProxyId;
+
+		if (PrimitiveSceneProxy && ShaderElementData.BatchHitProxyId == FHitProxyId())
+		{
+			hitProxyId = PrimitiveSceneProxy->GetPrimitiveSceneInfo()->DefaultDynamicHitProxyId;
+		}
+
+		// Per-instance hitproxies are supplied by the vertex factory.
+		if (PrimitiveSceneProxy && PrimitiveSceneProxy->HasPerInstanceHitProxies())
+		{
+			hitProxyId = FColor(0);
+		}
+
+		ShaderBindings.Add(HitProxyId, hitProxyId.GetColor().ReinterpretAsLinear());
+	}
+
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
@@ -157,254 +201,12 @@ public:
 		return bShaderHasOutdatedParameters;
 	}
 
+
 private:
 	FShaderParameter HitProxyId;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FHitProxyPS,TEXT("/Engine/Private/HitProxyPixelShader.usf"),TEXT("Main"),SF_Pixel);
-
-FHitProxyDrawingPolicy::FHitProxyDrawingPolicy(
-	const FVertexFactory* InVertexFactory,
-	const FMaterialRenderProxy* InMaterialRenderProxy,
-	ERHIFeatureLevel::Type InFeatureLevel,
-	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings):
-	FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, *InMaterialRenderProxy->GetMaterial(InFeatureLevel), InOverrideSettings)
-{
-	HullShader = NULL;
-	DomainShader = NULL;
-
-	EMaterialTessellationMode MaterialTessellationMode = MaterialResource->GetTessellationMode();
-	if (RHISupportsTessellation(GShaderPlatformForFeatureLevel[InFeatureLevel])
-		&& InVertexFactory->GetType()->SupportsTessellationShaders() 
-		&& MaterialTessellationMode != MTM_NoTessellation)
-	{
-		HullShader = MaterialResource->GetShader<FHitProxyHS>(VertexFactory->GetType());
-		DomainShader = MaterialResource->GetShader<FHitProxyDS>(VertexFactory->GetType());
-	}
-	VertexShader = MaterialResource->GetShader<FHitProxyVS>(InVertexFactory->GetType());
-	PixelShader = MaterialResource->GetShader<FHitProxyPS>(InVertexFactory->GetType());
-	BaseVertexShader = VertexShader;
-}
-
-void FHitProxyDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const
-{
-	// Set the depth-only shader parameters for the material.
-	VertexShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState);
-	PixelShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState);
-
-	if(HullShader && DomainShader)
-	{
-		HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
-		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
-	}
-
-	// Set the shared mesh resources.
-	FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-}
-
-/** 
-* Create bound shader state using the vertex decl from the mesh draw policy
-* as well as the shaders needed to draw the mesh
-* @return new bound shader state object
-*/
-FBoundShaderStateInput FHitProxyDrawingPolicy::GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const
-{
-	return FBoundShaderStateInput(
-		FMeshDrawingPolicy::GetVertexDeclaration(), 
-		VertexShader->GetVertexShader(),
-		GETSAFERHISHADER_HULL(HullShader), 
-		GETSAFERHISHADER_DOMAIN(DomainShader), 
-		PixelShader->GetPixelShader(),
-		FGeometryShaderRHIRef());
-}
-
-void FHitProxyDrawingPolicy::SetMeshRenderState(
-	FRHICommandList& RHICmdList, 
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	const FMeshBatch& Mesh,
-	int32 BatchElementIndex,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FHitProxyId HitProxyId,
-	const ContextDataType PolicyContext
-	) const
-{
-	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-
-	VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-
-	if(HullShader && DomainShader)
-	{
-		HullShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-		DomainShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-	}
-
-	PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-	// Per-instance hitproxies are supplied by the vertex factory
-	if( PrimitiveSceneProxy && PrimitiveSceneProxy->HasPerInstanceHitProxies() )
-	{
-		PixelShader->SetHitProxyId(RHICmdList, FColor(0) );
-	}
-	else
-	{
-		PixelShader->SetHitProxyId(RHICmdList, HitProxyId);	
-	}
-}
-
-#if WITH_EDITOR
-
-TMap<const FPrimitiveSceneProxy*,int32> FEditorSelectionDrawingPolicy::ProxyToStencilIndex;
-TMap<FName, int32> FEditorSelectionDrawingPolicy::ActorNameToStencilIndex;
-
-void FEditorSelectionDrawingPolicy::SetMeshRenderState( FRHICommandList& RHICmdList, const FSceneView& View, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh, int32 BatchElementIndex, const FDrawingPolicyRenderState& DrawRenderState, const FHitProxyId HitProxyId, const ContextDataType PolicyContext )
-{
-	int32 StencilValue = GetStencilValue(View, PrimitiveSceneProxy);
-	RHICmdList.SetStencilRef(StencilValue);
-
-	FHitProxyDrawingPolicy::SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderState, HitProxyId, PolicyContext);
-}
-
-void FEditorSelectionDrawingPolicy::SetupPipelineState(FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View) const
-{
-	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
-	DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI());
-}
-
-
-void FEditorSelectionDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const
-{
-	// Set the shared mesh resources.
-	FHitProxyDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-}
-
-int32 FEditorSelectionDrawingPolicy::GetStencilValue(const FSceneView& View, const FPrimitiveSceneProxy* PrimitiveSceneProxy)
-{
-	const bool bActorSelectionColorIsSubdued = View.bHasSelectedComponents;
-
-	const int32* ExistingStencilValue = PrimitiveSceneProxy->IsIndividuallySelected() ? ProxyToStencilIndex.Find(PrimitiveSceneProxy) : ActorNameToStencilIndex.Find(PrimitiveSceneProxy->GetOwnerName());
-
-	int32 StencilValue = 0;
-	if(ExistingStencilValue != nullptr )
-	{
-		StencilValue = *ExistingStencilValue;
-	}
-	else if(PrimitiveSceneProxy->IsIndividuallySelected())
-	{
-		// Any component that is individually selected should have a stencil value of < 128 so that it can have a unique color.  We offset the value by 2 because 0 means no selection and 1 is for bsp
-		StencilValue = ProxyToStencilIndex.Num() % 126 + 2;
-		ProxyToStencilIndex.Add(PrimitiveSceneProxy, StencilValue);
-	}
-	else
-	{
-			
-		// If we are subduing actor color highlight then use the top level bits to indicate that to the shader.  
-		StencilValue = bActorSelectionColorIsSubdued ? ActorNameToStencilIndex.Num() % 128 + 128 : ActorNameToStencilIndex.Num() % 126 + 2;
-		ActorNameToStencilIndex.Add(PrimitiveSceneProxy->GetOwnerName(), StencilValue);
-	}
-
-	return StencilValue;
-}
-
-void FEditorSelectionDrawingPolicy::ResetStencilValues()
-{
-	ProxyToStencilIndex.Reset();
-	ActorNameToStencilIndex.Reset();
-	ActorNameToStencilIndex.Add(NAME_BSP,1);
-}
-
-#endif
-
-void FHitProxyDrawingPolicyFactory::AddStaticMesh(FScene* Scene,FStaticMesh* StaticMesh,ContextType)
-{
-	checkSlow( Scene->RequiresHitProxies() );
-
-	// Add the static mesh to the DPG's hit proxy draw list.
-	const FMaterialRenderProxy* MaterialRenderProxy = StaticMesh->MaterialRenderProxy;
-	const FMaterial* Material = MaterialRenderProxy->GetMaterial(Scene->GetFeatureLevel());
-	if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
-	{
-		// Default material doesn't handle masked, and doesn't have the correct bIsTwoSided setting.
-		MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false);
-	}
-	
-	Scene->HitProxyDrawList.AddMesh(
-		StaticMesh,
-		StaticMesh->BatchHitProxyId,
-		FHitProxyDrawingPolicy(StaticMesh->VertexFactory, MaterialRenderProxy, Scene->GetFeatureLevel(), ComputeMeshOverrideSettings(*StaticMesh)),
-		Scene->GetFeatureLevel()
-		);
-
-#if WITH_EDITOR
-
-	Scene->EditorSelectionDrawList.AddMesh(
-		StaticMesh,
-		StaticMesh->BatchHitProxyId,
-		FEditorSelectionDrawingPolicy(StaticMesh->VertexFactory, MaterialRenderProxy, Scene->GetFeatureLevel(), ComputeMeshOverrideSettings(*StaticMesh)),
-		Scene->GetFeatureLevel());
-
-	// If the mesh isn't translucent then we'll also add it to the "opaque-only" draw list.  Depending
-	// on user preferences in the editor, we may use this draw list to disallow selection of
-	// translucent objects in perspective viewports
-	if( !IsTranslucentBlendMode( Material->GetBlendMode() ) )
-	{
-		Scene->HitProxyDrawList_OpaqueOnly.AddMesh(
-			StaticMesh,
-			StaticMesh->BatchHitProxyId,
-			FHitProxyDrawingPolicy(StaticMesh->VertexFactory, MaterialRenderProxy, Scene->GetFeatureLevel(), ComputeMeshOverrideSettings(*StaticMesh)),
-			Scene->GetFeatureLevel()
-			);
-	}
-#endif
-
-}
-
-bool FHitProxyDrawingPolicyFactory::DrawDynamicMesh(
-	FRHICommandList& RHICmdList,
-	const FSceneView& View,
-	ContextType DrawingContext,
-	const FMeshBatch& Mesh,
-	bool bPreFog,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	FHitProxyId HitProxyId
-	)
-{
-	if (!PrimitiveSceneProxy || PrimitiveSceneProxy->IsSelectable())
-	{
-		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
-		const FMaterial* Material = MaterialRenderProxy->GetMaterial(View.GetFeatureLevel());
-		if( HitProxyId != FHitProxyId::InvisibleHitProxyId )
-		{
-#if WITH_EDITOR
-			const HHitProxy* HitProxy = GetHitProxyById( HitProxyId );
-			// Only draw translucent primitives to the hit proxy if the user wants those objects to be selectable
-			if( View.bAllowTranslucentPrimitivesInHitProxy || !IsTranslucentBlendMode( Material->GetBlendMode() ) || ( HitProxy && HitProxy->AlwaysAllowsTranslucentPrimitives() ) )
-#endif
-		    {
-			    if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
-			    {
-				    // Default material doesn't handle masked, and doesn't have the correct bIsTwoSided setting.
-				    MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false);
-			    }
-			    FHitProxyDrawingPolicy DrawingPolicy( Mesh.VertexFactory, MaterialRenderProxy, View.GetFeatureLevel(), ComputeMeshOverrideSettings(Mesh) );
-
-				FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-				DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
-				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FHitProxyDrawingPolicy::ContextDataType());
-
-			    for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-			    {
-				    DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, HitProxyId, FHitProxyDrawingPolicy::ContextDataType());
-				    DrawingPolicy.DrawMesh(RHICmdList,View,Mesh,BatchElementIndex);
-			    }
-			    return true;
-			}
-		}
-	}
-	return false;
-}
 
 #if WITH_EDITOR
 
@@ -485,12 +287,15 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
+		const FScene* LocalScene = SceneRenderer->Scene;
+
+		SceneRenderer->Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
 		FSceneTexturesUniformParameters SceneTextureParameters;
 		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+		SceneRenderer->Scene->UniformBuffers.HitProxyPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
 
-		FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+		FDrawingPolicyRenderState DrawRenderState(View, SceneRenderer->Scene->UniformBuffers.HitProxyPassUniformBuffer);
 
 		// Set the device viewport for the view.
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
@@ -502,55 +307,86 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 		DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 
-		// Adjust the visibility map for this view
-		if (!View.bAllowTranslucentPrimitivesInHitProxy)
-		{
-			// Draw the scene's hit proxy draw lists. (opaque primitives only)
-			SceneRenderer->Scene->HitProxyDrawList_OpaqueOnly.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
-		}
-		else
-		{
-			// Draw the scene's hit proxy draw lists.
-			SceneRenderer->Scene->HitProxyDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
-		}
-
 		const bool bPreFog = true;
 		const bool bHitTesting = true;
 
-		FHitProxyDrawingPolicyFactory::ContextType DrawingContext;
-
-		for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
+		// Adjust the visibility map for this view
+		if (!View.bAllowTranslucentPrimitivesInHitProxy)
 		{
-			const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-
-			if (MeshBatch.bSelectable)
-			{
-				const FHitProxyId EffectiveHitProxyId = MeshBatch.BatchHitProxyId == FHitProxyId() ? MeshBatchAndRelevance.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->DefaultDynamicHitProxyId : MeshBatch.BatchHitProxyId;
-				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, DrawingContext, MeshBatch, bPreFog, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, EffectiveHitProxyId);
-			}
+			SubmitMeshDrawCommandsForView(View, EMeshPass::HitProxyOpaqueOnly, nullptr, RHICmdList);
 		}
+		else
+		{
+			SubmitMeshDrawCommandsForView(View, EMeshPass::HitProxy, nullptr, RHICmdList);
+		}
+
+		DrawDynamicMeshPass(View, RHICmdList,
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+		{
+			FHitProxyMeshProcessor PassMeshProcessor(
+				LocalScene,
+				&View,
+				View.bAllowTranslucentPrimitivesInHitProxy,
+				DrawRenderState,
+				DynamicMeshPassContext);
+
+			const uint64 DefaultBatchElementMask = ~0ull;
+
+			for (int32 MeshIndex = 0; MeshIndex < View.DynamicEditorMeshElements.Num(); MeshIndex++)
+			{
+				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicEditorMeshElements[MeshIndex];
+
+				if (MeshBatchAndRelevance.Mesh->bSelectable)
+				{
+					PassMeshProcessor.AddMeshBatch(*MeshBatchAndRelevance.Mesh, DefaultBatchElementMask, MeshBatchAndRelevance.PrimitiveSceneProxy);
+				}
+			}
+		});
 
 		View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::All, SDPG_World);
 		View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::All, SDPG_Foreground);
 
-		for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicEditorMeshElements.Num(); MeshBatchIndex++)
-		{
-			const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicEditorMeshElements[MeshBatchIndex];
-			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-
-			if (MeshBatch.bSelectable)
-			{
-				const FHitProxyId EffectiveHitProxyId = MeshBatch.BatchHitProxyId == FHitProxyId() ? MeshBatchAndRelevance.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->DefaultDynamicHitProxyId : MeshBatch.BatchHitProxyId;
-				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, DrawingContext, MeshBatch, bPreFog, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, EffectiveHitProxyId);
-			}
-		}
-
 		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::All, SDPG_World);
 		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::All, SDPG_Foreground);
 
-		// Draw the view's elements.
-		DrawViewElements<FHitProxyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FHitProxyDrawingPolicyFactory::ContextType(), SDPG_World, bPreFog);
+		DrawDynamicMeshPass(View, RHICmdList,
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+		{
+			FHitProxyMeshProcessor PassMeshProcessor(
+				LocalScene,
+				&View,
+				View.bAllowTranslucentPrimitivesInHitProxy,
+				DrawRenderState,
+				DynamicMeshPassContext);
+
+			const uint64 DefaultBatchElementMask = ~0ull;
+
+			for (int32 MeshIndex = 0; MeshIndex < View.ViewMeshElements.Num(); MeshIndex++)
+			{
+				const FMeshBatch& MeshBatch = View.ViewMeshElements[MeshIndex];
+				PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+			}
+		});
+
+		DrawDynamicMeshPass(View, RHICmdList,
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+		{
+			FHitProxyMeshProcessor PassMeshProcessor(
+				LocalScene,
+				&View,
+				View.bAllowTranslucentPrimitivesInHitProxy,
+				DrawRenderState,
+				DynamicMeshPassContext);
+
+			const uint64 DefaultBatchElementMask = ~0ull;
+
+			for (int32 MeshIndex = 0; MeshIndex < View.TopViewMeshElements.Num(); MeshIndex++)
+			{
+				const FMeshBatch& MeshBatch = View.TopViewMeshElements[MeshIndex];
+				PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+			}
+		});
+
 
 		// Draw the view's batched simple elements(lines, sprites, etc).
 		View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, true);
@@ -560,15 +396,47 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		// then again to allows proper occlusion within those elements.
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-		// Draw the view's foreground elements last.
-		DrawViewElements<FHitProxyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FHitProxyDrawingPolicyFactory::ContextType(), SDPG_Foreground, bPreFog);
+		DrawDynamicMeshPass(View, RHICmdList,
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			{
+				FHitProxyMeshProcessor PassMeshProcessor(
+					LocalScene,
+					&View, 
+					View.bAllowTranslucentPrimitivesInHitProxy, 
+					DrawRenderState,
+					DynamicMeshPassContext);
+
+				const uint64 DefaultBatchElementMask = ~0ull;
+					
+				for (int32 MeshIndex = 0; MeshIndex < View.TopViewMeshElements.Num(); MeshIndex++)
+				{
+					const FMeshBatch& MeshBatch = View.TopViewMeshElements[MeshIndex];
+					PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+				}
+			});
 
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, true);
 
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 
-		// Draw the view's foreground elements last.
-		DrawViewElements<FHitProxyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, FHitProxyDrawingPolicyFactory::ContextType(), SDPG_Foreground, bPreFog);
+		DrawDynamicMeshPass(View, RHICmdList,
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			{
+				FHitProxyMeshProcessor PassMeshProcessor(
+					LocalScene,
+					&View, 
+					View.bAllowTranslucentPrimitivesInHitProxy, 
+					DrawRenderState,
+					DynamicMeshPassContext);
+
+				const uint64 DefaultBatchElementMask = ~0ull;
+					
+				for (int32 MeshIndex = 0; MeshIndex < View.TopViewMeshElements.Num(); MeshIndex++)
+				{
+					const FMeshBatch& MeshBatch = View.TopViewMeshElements[MeshIndex];
+					PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+				}
+			});
 
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, true);
 	}
@@ -693,11 +561,18 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 		FGraphEventArray SortEvents;
 		FGraphEventArray UpdateViewCustomDataEvents;
 		FILCUpdatePrimTaskData ILCTaskData;
-		bool bDoInitViewAftersPrepass = InitViews(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+		bool bDoInitViewAftersPrepass = InitViews(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 		if (bDoInitViewAftersPrepass)
 		{
 			InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 		}
+
+		UpdateGPUScene(RHICmdList, *Scene);
+
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			UploadDynamicPrimitiveShaderDataForView(RHICmdList, *Scene, Views[ViewIndex]);
+		}	
 
 		if (UpdateViewCustomDataEvents.Num())
 		{
@@ -706,8 +581,287 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 		}
 
 		::DoRenderHitProxies(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
-		ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+		ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 	}
 	check(RHICmdList.IsOutsideRenderPass());
 #endif
 }
+
+void FHitProxyMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
+{
+	if (MeshBatch.bUseForMaterial && MeshBatch.bSelectable && Scene->RequiresHitProxies() && (!PrimitiveSceneProxy || PrimitiveSceneProxy->IsSelectable()))
+	{
+		// Determine the mesh's material and blend mode.
+		const FMaterialRenderProxy* MaterialRenderProxy = nullptr;
+		const FMaterial* Material = &MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, MaterialRenderProxy);
+		const EBlendMode BlendMode = Material->GetBlendMode();
+		const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *Material);
+		const ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, *Material);
+
+		if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
+		{
+			// Default material doesn't handle masked, and doesn't have the correct bIsTwoSided setting.
+			MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+		}
+
+		if (!MaterialRenderProxy)
+		{
+			MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
+		}
+
+		check(Material && MaterialRenderProxy);
+
+		if (!bOpaqueOnly || !IsTranslucentBlendMode(BlendMode))
+		{
+			Process(MeshBatch, BatchElementMask, MeshId, PrimitiveSceneProxy, *MaterialRenderProxy, *Material, MeshFillMode, MeshCullMode);
+		}
+	}
+}
+
+void GetHitProxyPassShaders(
+	const FMaterial& Material,
+	FVertexFactoryType* VertexFactoryType,
+	ERHIFeatureLevel::Type FeatureLevel,
+	FHitProxyHS*& HullShader,
+	FHitProxyDS*& DomainShader,
+	FHitProxyVS*& VertexShader,
+	FHitProxyPS*& PixelShader)
+{
+	const EMaterialTessellationMode MaterialTessellationMode = Material.GetTessellationMode();
+
+	const bool bNeedsHSDS = RHISupportsTessellation(GShaderPlatformForFeatureLevel[FeatureLevel])
+		&& VertexFactoryType->SupportsTessellationShaders()
+		&& MaterialTessellationMode != MTM_NoTessellation;
+
+	if (bNeedsHSDS)
+	{
+		DomainShader = Material.GetShader<FHitProxyDS>(VertexFactoryType);
+		HullShader = Material.GetShader<FHitProxyHS>(VertexFactoryType);
+	}
+
+	VertexShader = Material.GetShader<FHitProxyVS>(VertexFactoryType);
+	PixelShader = Material.GetShader<FHitProxyPS>(VertexFactoryType);
+}
+
+void FHitProxyMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	int32 MeshId,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+
+	TMeshProcessorShaders<
+		FHitProxyVS,
+		FHitProxyHS,
+		FHitProxyDS,
+		FHitProxyPS> HitProxyPassShaders;
+
+	GetHitProxyPassShaders(
+		MaterialResource,
+		VertexFactory->GetType(),
+		FeatureLevel,
+		HitProxyPassShaders.HullShader,
+		HitProxyPassShaders.DomainShader,
+		HitProxyPassShaders.VertexShader,
+		HitProxyPassShaders.PixelShader
+	);
+
+	FHitProxyShaderElementData ShaderElementData(MeshBatch.BatchHitProxyId);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, false);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		MaterialRenderProxy,
+		MaterialResource,
+		PassDrawRenderState,
+		HitProxyPassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		1,
+		FMeshDrawCommandSortKey::Default,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
+}
+
+FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbOpaqueOnly, const FDrawingPolicyRenderState& InRenderState, FMeshPassDrawListContext& InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+	, PassDrawRenderState(InRenderState)
+	, bOpaqueOnly(InbOpaqueOnly)
+{
+}
+
+FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+{
+	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
+	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+	return new(FMemStack::Get()) FHitProxyMeshProcessor(Scene, InViewIfDynamicMeshCommand, false, PassDrawRenderState, InDrawListContext);
+}
+
+FMeshPassProcessor* CreateHitProxyOpaqueOnlyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+{
+	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
+	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+	return new(FMemStack::Get()) FHitProxyMeshProcessor(Scene, InViewIfDynamicMeshCommand, true, PassDrawRenderState, InDrawListContext);
+}
+
+FRegisterPassProcessorCreateFunction RegisterHitProxyPass(&CreateHitProxyPassProcessor, EShadingPath::Deferred, EMeshPass::HitProxy, EMeshPassFlags::CachedMeshCommands | EMeshPassFlags::MainView);
+FRegisterPassProcessorCreateFunction RegisterHitProxyOpaqueOnlyPass(&CreateHitProxyOpaqueOnlyPassProcessor, EShadingPath::Deferred, EMeshPass::HitProxyOpaqueOnly, EMeshPassFlags::CachedMeshCommands | EMeshPassFlags::MainView);
+FRegisterPassProcessorCreateFunction RegisterMobileHitProxyPass(&CreateHitProxyPassProcessor, EShadingPath::Mobile, EMeshPass::HitProxy, EMeshPassFlags::CachedMeshCommands | EMeshPassFlags::MainView);
+FRegisterPassProcessorCreateFunction RegisterMobileHitProxyOpaqueOnlyPass(&CreateHitProxyOpaqueOnlyPassProcessor, EShadingPath::Mobile, EMeshPass::HitProxyOpaqueOnly, EMeshPassFlags::CachedMeshCommands | EMeshPassFlags::MainView);
+
+
+#if WITH_EDITOR
+
+void FEditorSelectionMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 MeshId)
+{
+	if (MeshBatch.bUseForMaterial 
+		&& MeshBatch.bUseSelectionOutline 
+		&& PrimitiveSceneProxy->WantsSelectionOutline() 
+		&& (PrimitiveSceneProxy->IsSelected() || PrimitiveSceneProxy->IsHovered()))
+	{
+		// Determine the mesh's material and blend mode.
+		const FMaterialRenderProxy* MaterialRenderProxy = nullptr;
+		const FMaterial* Material = &MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, MaterialRenderProxy);
+
+		const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *Material);
+		const ERasterizerCullMode MeshCullMode = CM_None;
+
+		if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
+		{
+			// Default material doesn't handle masked, and doesn't have the correct bIsTwoSided setting.
+			MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+		}
+
+		if (!MaterialRenderProxy)
+		{
+			MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
+		}
+
+		check(Material && MaterialRenderProxy);
+
+		Process(MeshBatch, BatchElementMask, MeshId, PrimitiveSceneProxy, *MaterialRenderProxy, *Material, MeshFillMode, MeshCullMode);
+	}
+}
+
+void FEditorSelectionMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	int32 MeshId,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+
+	TMeshProcessorShaders<
+		FHitProxyVS,
+		FHitProxyHS,
+		FHitProxyDS,
+		FHitProxyPS> HitProxyPassShaders;
+
+	GetHitProxyPassShaders(
+		MaterialResource,
+		VertexFactory->GetType(),
+		FeatureLevel,
+		HitProxyPassShaders.HullShader,
+		HitProxyPassShaders.DomainShader,
+		HitProxyPassShaders.VertexShader,
+		HitProxyPassShaders.PixelShader
+	);
+
+	const int32 StencilRef = GetStencilValue(ViewIfDynamicMeshCommand, PrimitiveSceneProxy);
+	PassDrawRenderState.SetStencilRef(StencilRef);
+
+	FHitProxyId DummyId;
+	FHitProxyShaderElementData ShaderElementData(DummyId);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, MeshId, false);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		MaterialRenderProxy,
+		MaterialResource,
+		PassDrawRenderState,
+		HitProxyPassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		1,
+		FMeshDrawCommandSortKey::Default,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
+}
+
+int32 FEditorSelectionMeshProcessor::GetStencilValue(const FSceneView* View, const FPrimitiveSceneProxy* PrimitiveSceneProxy)
+{
+	const bool bActorSelectionColorIsSubdued = View->bHasSelectedComponents;
+
+	const int32* ExistingStencilValue = PrimitiveSceneProxy->IsIndividuallySelected() ? ProxyToStencilIndex.Find(PrimitiveSceneProxy) : ActorNameToStencilIndex.Find(PrimitiveSceneProxy->GetOwnerName());
+
+	int32 StencilValue = 0;
+
+	if (PrimitiveSceneProxy->GetOwnerName() == NAME_BSP)
+	{
+		StencilValue = 1;
+	}
+	else if (ExistingStencilValue != nullptr)
+	{
+		StencilValue = *ExistingStencilValue;
+	}
+	else if (PrimitiveSceneProxy->IsIndividuallySelected())
+	{
+		// Any component that is individually selected should have a stencil value of < 128 so that it can have a unique color.  We offset the value by 2 because 0 means no selection and 1 is for bsp
+		StencilValue = ProxyToStencilIndex.Num() % 126 + 2;
+		ProxyToStencilIndex.Add(PrimitiveSceneProxy, StencilValue);
+	}
+	else
+	{
+		// If we are subduing actor color highlight then use the top level bits to indicate that to the shader.  
+		StencilValue = bActorSelectionColorIsSubdued ? ActorNameToStencilIndex.Num() % 128 + 128 : ActorNameToStencilIndex.Num() % 126 + 2;
+		ActorNameToStencilIndex.Add(PrimitiveSceneProxy->GetOwnerName(), StencilValue);
+	}
+
+	return StencilValue;
+}
+
+TMap<const FPrimitiveSceneProxy*, int32> FEditorSelectionMeshProcessor::ProxyToStencilIndex;
+TMap<FName, int32> FEditorSelectionMeshProcessor::ActorNameToStencilIndex;
+
+FEditorSelectionMeshProcessor::FEditorSelectionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+{
+	checkf(InViewIfDynamicMeshCommand, TEXT("Editor selection mesh process required dynamic mesh command mode."));
+
+	// Reset common outline maps per every view render.
+	ProxyToStencilIndex.Reset();
+	ActorNameToStencilIndex.Reset();
+	ActorNameToStencilIndex.Add(NAME_BSP, 1);
+
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
+	PassDrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI());
+	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.EditorSelectionPassUniformBuffer);
+}
+
+FMeshPassProcessor* CreateEditorSelectionPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+{
+	return new(FMemStack::Get()) FEditorSelectionMeshProcessor(Scene, InViewIfDynamicMeshCommand, InDrawListContext);
+}
+
+FRegisterPassProcessorCreateFunction RegisterEditorSelectionPass(&CreateEditorSelectionPassProcessor, EShadingPath::Deferred, EMeshPass::EditorSelection, EMeshPassFlags::MainView);
+FRegisterPassProcessorCreateFunction RegisterMobileEditorSelectionPass(&CreateEditorSelectionPassProcessor, EShadingPath::Mobile, EMeshPass::EditorSelection, EMeshPassFlags::MainView);
+
+#endif

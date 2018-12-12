@@ -160,30 +160,37 @@ public:
 		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
 		ESceneTextureSetupMode SceneTextureSetupMode);
 
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const;
+
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
 
-	void SetInstanceParameters(FRHICommandList& RHICmdList, uint32 InVertexOffset, uint32 InInstanceOffset, uint32 InInstanceCount) const
+	void SetInstanceParameters(FRHICommandList& RHICmdList, uint32 InInstanceOffset, uint32 InInstanceCount) const
 	{
-		bool const bZeroInstanceOffset = IsVulkanPlatform(GMaxRHIShaderPlatform) || IsVulkanMobilePlatform(GMaxRHIShaderPlatform);
-		SetShaderValue(RHICmdList, GetVertexShader(), VertexOffset, bZeroInstanceOffset ? 0 : InVertexOffset);
-		SetShaderValue(RHICmdList, GetVertexShader(), InstanceOffset, bZeroInstanceOffset ? 0 : InInstanceOffset);
-		SetShaderValue(RHICmdList, GetVertexShader(), InstanceCount, InInstanceCount);
+		//@todo MeshCommandPipeline - remove when switching fully to the mesh draw command pipeline.  These are now handled by the vertex factories.
+		static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("foliage.InstanceRuns"));
+		if (CVar->GetValueOnAnyThread() != 0)
+		{
+			bool const bZeroInstanceOffset = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform);
+			SetShaderValue(RHICmdList, GetVertexShader(), InstanceOffset, bZeroInstanceOffset ? 0 : InInstanceOffset);
+		}
 	}
 
 protected:
 
 	FSceneTextureShaderParameters SceneTextureParameters;
+	FShaderParameter InstanceOffset;
 
 private:
 
 	FShaderUniformBufferParameter MaterialUniformBuffer;
 	TArray<FShaderUniformBufferParameter> ParameterCollectionUniformBuffers;
-
-	FShaderParameter InstanceCount;
-	FShaderParameter InstanceOffset;
-	FShaderParameter VertexOffset;
 
 #if ALLOW_SHADERMAP_DEBUG_DATA
 	FDebugUniformExpressionSet	DebugUniformExpressionSet;

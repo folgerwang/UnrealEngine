@@ -26,6 +26,28 @@ TLinkedList<FRenderResource*>*& FRenderResource::GetResourceList()
 	return FirstResourceLink;
 }
 
+void FRenderResource::ChangeFeatureLevel(ERHIFeatureLevel::Type NewFeatureLevel)
+{
+	ENQUEUE_RENDER_COMMAND(FRenderResourceChangeFeatureLevel)(
+		[NewFeatureLevel](FRHICommandList& RHICmdList)
+	{
+		for (TLinkedList<FRenderResource*>::TIterator It(FRenderResource::GetResourceList()); It; It.Next())
+		{
+			FRenderResource* Resource = *It;
+
+			// Only resources configured for a specific feature level need to be updated
+			if (Resource->HasValidFeatureLevel())
+			{
+				Resource->ReleaseRHI();
+				Resource->ReleaseDynamicRHI();
+				Resource->FeatureLevel = NewFeatureLevel;
+				Resource->InitDynamicRHI();
+				Resource->InitRHI();
+			}
+		}
+	});
+}
+
 void FRenderResource::InitResource()
 {
 	check(IsInRenderingThread());

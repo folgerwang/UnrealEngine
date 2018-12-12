@@ -3337,6 +3337,9 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	{
 		ShadowCapsuleBoneIndices.Sort();
 	}
+
+	// Skip primitive uniform buffer if we will be using local vertex factory which gets it's data from GPUScene.
+	bVFRequiresPrimitiveUniformBuffer = !(bRenderStatic && UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel));
 }
 
 
@@ -3531,7 +3534,7 @@ void FSkeletalMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* 
 					FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 					MeshElement.DepthPriorityGroup = PrimitiveDPG;
 					MeshElement.VertexFactory = MeshObject->GetSkinVertexFactory(nullptr, LODIndex, SectionIndex);
-					MeshElement.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy(bUseSelectedMaterial, false);
+					MeshElement.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy();
 					MeshElement.ReverseCulling = IsLocalToWorldDeterminantNegative();
 					MeshElement.CastShadow = SectionElementInfo.bEnableShadowCasting;
 					MeshElement.Type = PT_TriangleList;
@@ -3542,7 +3545,7 @@ void FSkeletalMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* 
 					BatchElement.MaxVertexIndex = LODData.GetNumVertices() - 1;
 					BatchElement.NumPrimitives = Section.NumTriangles;
 					BatchElement.IndexBuffer = LODData.MultiSizeIndexContainer.GetIndexBuffer();
-					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+					BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 								
 					PDI->DrawMesh(MeshElement, ScreenSize);
 				}
@@ -3719,7 +3722,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 				BatchElement.FirstIndex *= 4;
 			}
 
-			Mesh.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy(false, IsHovered());
+			Mesh.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy();
 		#if WITH_EDITOR
 			Mesh.BatchHitProxyId = SectionElementInfo.HitProxy ? SectionElementInfo.HitProxy->Id : FHitProxyId();
 
@@ -3733,7 +3736,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 			}
 		#endif
 
-			BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+			BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 
 			BatchElement.NumPrimitives = Section.NumTriangles;
 
@@ -3770,7 +3773,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 					check(VertexColorVisualizationMaterial != NULL);
 
 					auto VertexColorVisualizationMaterialInstance = new FColoredMaterialRenderProxy(
-						VertexColorVisualizationMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
+						VertexColorVisualizationMaterial->GetRenderProxy(),
 						GetSelectionColor(FLinearColor::White, bSectionSelected, IsHovered())
 					);
 
@@ -3873,6 +3876,7 @@ FPrimitiveViewRelevance FSkeletalMeshSceneProxy::GetViewRelevance(const FSceneVi
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 	
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
 
@@ -3894,6 +3898,11 @@ FPrimitiveViewRelevance FSkeletalMeshSceneProxy::GetViewRelevance(const FSceneVi
 bool FSkeletalMeshSceneProxy::CanBeOccluded() const
 {
 	return !MaterialRelevance.bDisableDepthTest && !ShouldRenderCustomDepth();
+}
+
+bool FSkeletalMeshSceneProxy::IsUsingDistanceCullFade() const
+{
+	return MaterialRelevance.bUsesDistanceCullFade;
 }
 
 /** Util for getting LOD index currently used by this SceneProxy. */

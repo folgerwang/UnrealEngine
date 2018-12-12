@@ -159,7 +159,7 @@ void UNiagaraMeshRendererProperties::PostEditChangeProperty(FPropertyChangedEven
 			UMaterialInterface *Material = ParticleMesh->GetMaterial(Section.MaterialIndex);
 			if (Material)
 			{
-				FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy(false, false);
+				FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy();
 				Material->CheckMaterialUsage(MATUSAGE_NiagaraMeshParticles);
 			}
 		}

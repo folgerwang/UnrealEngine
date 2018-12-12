@@ -99,7 +99,7 @@ struct FFlatTessellationHSToDS
 		FFlatTessellationHSToDS O = (FFlatTessellationHSToDS) 0;
 		
 		float3x3 TangentToLocal = VertexFactoryGetTangentToLocalDS(I[ControlPointID].FactoryInterpolants);
-		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal);
+		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal, VertexFactoryGetPrimitiveId(I[ControlPointID].FactoryInterpolants.InterpolantsVSToPS));
 
 		const uint NextControlPointID = ControlPointID < 2 ? ControlPointID + 1 : 0; // (ControlPointID + 1) % 3
 

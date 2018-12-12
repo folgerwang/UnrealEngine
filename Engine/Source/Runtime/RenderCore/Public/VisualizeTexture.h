@@ -19,12 +19,12 @@ public:
 
 #if WITH_ENGINE
 	virtual void ReleaseDynamicRHI() override;
-	
+
 	/**
-	 * calling this allows to grab the state of the texture at this point to be queried by visualizetexture e.g. "vis LightAttenuation@2"
-	 * @param PooledRenderTarget 0 is silently ignored
-	 * Warning: this may change the active render target and other state
-	 */
+	* calling this allows to grab the state of the texture at this point to be queried by visualizetexture e.g. "vis LightAttenuation@2"
+	* @param PooledRenderTarget 0 is silently ignored
+	* Warning: this may change the active render target and other state
+	*/
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	void SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget);
 #else

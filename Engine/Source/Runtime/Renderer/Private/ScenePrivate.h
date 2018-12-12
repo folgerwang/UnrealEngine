@@ -42,6 +42,10 @@
 #include "VolumeRendering.h"
 #include "SceneSoftwareOcclusion.h"
 #include "CommonRenderResources.h"
+#include "ByteBuffer.h"
+#include "LightMapDensityRendering.h"
+#include "VolumetricFogShared.h"
+#include "DebugViewModeRendering.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
@@ -354,7 +358,7 @@ public:
 };
 
 /**
- * Distance cull fading uniform buffer containing faded in
+ * Distance cull fading uniform buffer containing fully faded in.
  */
 class FGlobalDistanceCullFadeUniformBuffer : public TUniformBuffer< FDistanceCullFadeUniformShaderParameters >
 {
@@ -362,15 +366,33 @@ public:
 	/** Default constructor. */
 	FGlobalDistanceCullFadeUniformBuffer()
 	{
-		FDistanceCullFadeUniformShaderParameters Uniforms;
-		Uniforms.FadeTimeScaleBias.X = 0.0f;
-		Uniforms.FadeTimeScaleBias.Y = 1.0f;
-		SetContents( Uniforms );
+		FDistanceCullFadeUniformShaderParameters Parameters;
+		Parameters.FadeTimeScaleBias.X = 0.0f;
+		Parameters.FadeTimeScaleBias.Y = 1.0f;
+		SetContents(Parameters);
 	}
 };
 
 /** Global primitive uniform buffer resource containing faded in */
 extern TGlobalResource< FGlobalDistanceCullFadeUniformBuffer > GDistanceCullFadedInUniformBuffer;
+
+/**
+ * Dither uniform buffer containing fully faded in.
+ */
+class FGlobalDitherUniformBuffer : public TUniformBuffer< FDitherUniformShaderParameters >
+{
+public:
+	/** Default constructor. */
+	FGlobalDitherUniformBuffer()
+	{
+		FDitherUniformShaderParameters Parameters;
+		Parameters.LODFactor = 0.0f;
+		SetContents(Parameters);
+	}
+};
+
+/** Global primitive uniform buffer resource containing faded in */
+extern TGlobalResource< FGlobalDitherUniformBuffer > GDitherFadedInUniformBuffer;
 
 /**
  * Stores fading state for a single primitive in a single view
@@ -897,6 +919,9 @@ public:
 	FRWBuffer IndirectShadowVolumetricLightmapDerivedLightDirection;
 	FRWBuffer CapsuleTileIntersectionCountsBuffer;
 
+	/** Contains both DynamicPrimitiveShaderData (per view) and primitive shader data (per scene).  Stored in ViewState for pooling only (contents are not persistent). */
+	FRWBufferStructured PrimitiveShaderDataBuffer;
+
 	/** Timestamp queries around separate translucency, used for auto-downsampling. */
 	FLatentGPUTimer TranslucencyTimer;
 	FLatentGPUTimer SeparateTranslucencyTimer;
@@ -1231,6 +1256,7 @@ public:
 		}
 		ForwardLightingCullingResources.Release();
 		LightScatteringHistory.SafeRelease();
+		PrimitiveShaderDataBuffer.Release();
 	}
 
 	// FSceneViewStateInterface
@@ -1253,7 +1279,7 @@ public:
 	}
 
 	/** called in InitViews() */
-	void OnStartFrame(FViewInfo& View, FSceneViewFamily& ViewFamily)
+	void OnStartRender(FViewInfo& View, FSceneViewFamily& ViewFamily)
 	{
 		check(IsInRenderingThread());
 
@@ -1327,7 +1353,7 @@ public:
 			NewMID->CopyInterpParameters(InputAsMID);
 		}
 
-		check(NewMID->GetRenderProxy(false));
+		check(NewMID->GetRenderProxy());
 		MIDUsedCount++;
 		return NewMID;
 	}
@@ -1443,18 +1469,42 @@ class FCaptureComponentSceneState
 {
 public:
 	/** Index of the cubemap in the array for this capture component. */
-	int32 CaptureIndex;
+	int32 CubemapIndex;
 
 	float AverageBrightness;
 
-	FCaptureComponentSceneState(int32 InCaptureIndex) :
-		CaptureIndex(InCaptureIndex),
+	FCaptureComponentSceneState(int32 InCubemapIndex) :
+		CubemapIndex(InCubemapIndex),
 		AverageBrightness(0.0f)
 	{}
 
 	bool operator==(const FCaptureComponentSceneState& Other) const 
 	{
-		return CaptureIndex == Other.CaptureIndex;
+		return CubemapIndex == Other.CubemapIndex;
+	}
+};
+
+struct FReflectionCaptureSortData
+{
+	uint32 Guid;
+	int32 CubemapIndex;
+	FVector4 PositionAndRadius;
+	FVector4 CaptureProperties;
+	FMatrix BoxTransform;
+	FVector4 BoxScales;
+	FVector4 CaptureOffsetAndAverageBrightness;
+	FReflectionCaptureProxy* CaptureProxy;
+
+	bool operator < (const FReflectionCaptureSortData& Other) const
+	{
+		if (PositionAndRadius.W != Other.PositionAndRadius.W)
+		{
+			return PositionAndRadius.W < Other.PositionAndRadius.W;
+		}
+		else
+		{
+			return Guid < Other.Guid;
+		}
 	}
 };
 
@@ -1468,6 +1518,9 @@ public:
 	 * Which allows one frame to update cached proxy associations.
 	 */
 	bool bRegisteredReflectionCapturesHasChanged;
+
+	/** True if AllocatedReflectionCaptureState has changed. Allows to update cached single capture id. */
+	bool AllocatedReflectionCaptureStateHasChanged;
 
 	/** The rendering thread's list of visible reflection captures in the scene. */
 	TArray<FReflectionCaptureProxy*> RegisteredReflectionCaptures;
@@ -1485,6 +1538,10 @@ public:
 	/** Rendering bitfield to track cubemap slots used. Needs to kept in sync with AllocatedReflectionCaptureState */
 	TBitArray<> CubemapArraySlotsUsed;
 
+	/** Sorted scene reflection captures for upload to the GPU. */
+	TArray<FReflectionCaptureSortData> SortedCaptures;
+	int32 NumBoxCaptures;
+	int32 NumSphereCaptures;
 
 	/** 
 	 * Game thread list of reflection components that have been allocated in the cubemap array. 
@@ -1497,6 +1554,7 @@ public:
 
 	FReflectionEnvironmentSceneData(ERHIFeatureLevel::Type InFeatureLevel) :
 		bRegisteredReflectionCapturesHasChanged(true),
+		AllocatedReflectionCaptureStateHasChanged(false),
 		CubemapArray(InFeatureLevel),
 		MaxAllocatedReflectionCubemapsGameThread(0)
 	{}
@@ -1547,6 +1605,80 @@ public:
 	FVector4 BoundingSphere;
 	FPrimitiveSceneInfo* Primitive;
 	int32 InstanceIndex;
+};
+
+class FLinearAllocation
+{
+public:
+
+	FLinearAllocation(int32 InStartOffset, int32 InNum) :
+		StartOffset(InStartOffset),
+		Num(InNum)
+	{}
+
+	int32 StartOffset;
+	int32 Num;
+
+	bool Contains(FLinearAllocation Other)
+	{
+		return StartOffset <= Other.StartOffset && (StartOffset + Num) >= (Other.StartOffset + Other.Num);
+	}
+};
+
+class FGrowOnlySpanAllocator
+{
+public:
+
+	FGrowOnlySpanAllocator() :
+		MaxSize(0)
+	{}
+
+	// Allocate a range.  Returns allocated StartOffset.
+	int32 Allocate(int32 Num);
+
+	// Free an already allocated range.  
+	void Free(int32 BaseOffset, int32 Num);
+
+	int32 GetMaxSize() const
+	{
+		return MaxSize;
+	}
+
+private:
+
+	// Size of the linear range used by the allocator
+	int32 MaxSize;
+
+	// Unordered free list
+	TArray<FLinearAllocation, TInlineAllocator<10>> FreeSpans;
+
+	int32 SearchFreeList(int32 Num);
+};
+
+class FGPUScene
+{
+public:
+	FGPUScene()
+		: bUpdateAllPrimitives(false)
+	{
+	}
+
+	FReadBuffer	PrimitivesUploadScatterBuffer;
+	FReadBuffer	PrimitivesUploadDataBuffer;
+
+	bool bUpdateAllPrimitives;
+
+	/** Indices of primitives that need to be updated in GPU Scene */
+	TArray<int32> PrimitivesToUpdate;
+
+	/** GPU mirror of Primitives */
+	FRWBufferStructured PrimitiveBuffer;
+
+	FGrowOnlySpanAllocator LightmapDataAllocator;
+
+	FReadBuffer	LightmapUploadScatterBuffer;
+	FReadBuffer	LightmapUploadDataBuffer;
+	FRWBufferStructured LightmapDataBuffer;
 };
 
 class FPrimitiveSurfelFreeEntry
@@ -1958,6 +2090,105 @@ namespace EOcclusionFlags
 	};
 };
 
+/** Velocity state for a single component. */
+class FComponentVelocityData
+{
+public:
+
+	FMatrix LocalToWorld;
+	FMatrix PreviousLocalToWorld;
+	mutable uint64 LastFrameUsed;
+	bool bPreviousLocalToWorldValid = false;
+};
+
+/**
+ * Tracks primitive transforms so they will be persistent across rendering state recreates.
+ */
+class FSceneVelocityData
+{
+public:
+
+	/**
+	 * Must be called once per frame, even when there are multiple BeginDrawingViewports.
+	 */
+	void StartFrame()
+	{
+		InternalFrameIndex++;
+
+		const bool bTrimOld = InternalFrameIndex % 100 == 0;
+
+		for (TMap<FPrimitiveComponentId, FComponentVelocityData>::TIterator It(ComponentData); It; ++It)
+		{
+			FComponentVelocityData& VelocityData = It.Value();
+			VelocityData.PreviousLocalToWorld = VelocityData.LocalToWorld;
+			VelocityData.bPreviousLocalToWorldValid = true;
+
+			if (bTrimOld && (InternalFrameIndex - VelocityData.LastFrameUsed) > 10)
+			{
+				It.RemoveCurrent();
+			}
+		}
+	}
+
+	/** 
+	 * Looks up the PreviousLocalToWorld state for the given component.  Returns false if none is found (the primitive has never been moved). 
+	 */
+	inline bool GetComponentPreviousLocalToWorld(FPrimitiveComponentId PrimitiveComponentId, FMatrix& OutPreviousLocalToWorld) const
+	{
+		const FComponentVelocityData* VelocityData = ComponentData.Find(PrimitiveComponentId);
+
+		if (VelocityData)
+		{
+			check(VelocityData->bPreviousLocalToWorldValid);
+			VelocityData->LastFrameUsed = InternalFrameIndex;
+			OutPreviousLocalToWorld = VelocityData->PreviousLocalToWorld;
+			return true;
+		}
+
+		return false;
+	}
+
+	/** 
+	 * Updates a primitives current LocalToWorld state.
+	 */
+	void UpdateTransform(FPrimitiveComponentId PrimitiveComponentId, FMatrix LocalToWorld, FMatrix PreviousLocalToWorld)
+	{
+		FComponentVelocityData& VelocityData = ComponentData.FindOrAdd(PrimitiveComponentId);
+		VelocityData.LocalToWorld = LocalToWorld;
+		VelocityData.LastFrameUsed = InternalFrameIndex;
+
+		// If this transform state is newly added, use the passed in PreviousLocalToWorld for this frame
+		if (!VelocityData.bPreviousLocalToWorldValid)
+		{
+			VelocityData.PreviousLocalToWorld = PreviousLocalToWorld;
+			VelocityData.bPreviousLocalToWorldValid = true;
+		}
+	}
+
+	/**
+	* Removes primitives velocity data.
+	*/
+	void RemoveTransform(FPrimitiveComponentId PrimitiveComponentId)
+	{
+		ComponentData.Remove(PrimitiveComponentId);
+	}
+
+	void ApplyOffset(FVector Offset)
+	{
+		for (TMap<FPrimitiveComponentId, FComponentVelocityData>::TIterator It(ComponentData); It; ++It)
+		{
+			FComponentVelocityData& VelocityData = It.Value();
+			VelocityData.LocalToWorld.SetOrigin(VelocityData.LocalToWorld.GetOrigin() + Offset);
+			VelocityData.PreviousLocalToWorld.SetOrigin(VelocityData.PreviousLocalToWorld.GetOrigin() + Offset);
+		}
+	}
+
+private:
+
+	uint64 InternalFrameIndex = 0;
+	TMap<FPrimitiveComponentId, FComponentVelocityData> ComponentData;
+};
+
 class FLODSceneTree
 {
 public:
@@ -2059,6 +2290,95 @@ public:
 };
 #endif //WITH_EDITOR
 
+class FPersistentUniformBuffers
+{
+public:
+	FPersistentUniformBuffers()
+		: CachedView(nullptr)
+	{
+	}
+
+	void Initialize();
+	// @return Whether uniform buffer was updated
+	bool UpdateViewUniformBuffer(const FViewInfo& View);
+
+	TUniformBufferRef<FViewUniformShaderParameters> ViewUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> DepthPassUniformBuffer;
+	TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
+	TUniformBufferRef<FTranslucentBasePassUniformParameters> TranslucentBasePassUniformBuffer;
+	TUniformBufferRef<FReflectionCaptureShaderData> ReflectionCaptureUniformBuffer;
+	TUniformBufferRef<FViewUniformShaderParameters> CSMShadowDepthViewUniformBuffer;
+	TUniformBufferRef<FShadowDepthPassUniformParameters> CSMShadowDepthPassUniformBuffer;
+	TUniformBufferRef<FDistortionPassUniformParameters> DistortionPassUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> VelocityPassUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> HitProxyPassUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> MeshDecalPassUniformBuffer;
+	TUniformBufferRef<FLightmapDensityPassUniformParameters> LightmapDensityPassUniformBuffer;
+	TUniformBufferRef<FDebugViewModePassPassUniformParameters> DebugViewModePassUniformBuffer;
+	TUniformBufferRef<FVoxelizeVolumePassUniformParameters> VoxelizeVolumePassUniformBuffer;
+	TUniformBufferRef<FViewUniformShaderParameters> VoxelizeVolumeViewUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> ConvertToUniformMeshPassUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> CustomDepthPassUniformBuffer;
+	TUniformBufferRef<FMobileSceneTextureUniformParameters> MobileCustomDepthPassUniformBuffer;
+	TUniformBufferRef<FViewUniformShaderParameters> CustomDepthViewUniformBuffer;
+
+	TUniformBufferRef<FMobileBasePassUniformParameters> MobileOpaqueBasePassUniformBuffer;
+	TUniformBufferRef<FMobileBasePassUniformParameters> MobileTranslucentBasePassUniformBuffer;
+	TUniformBufferRef<FMobileShadowDepthPassUniformParameters> MobileCSMShadowDepthPassUniformBuffer;
+	TUniformBufferRef<FMobileDistortionPassUniformParameters> MobileDistortionPassUniformBuffer;
+	/** Mobile Directional Lighting uniform buffers, one for each lighting channel 
+	  * The first is used for primitives with no lighting channels set.
+	  */
+	TUniformBufferRef<FMobileDirectionalLightShaderParameters> MobileDirectionalLightUniformBuffers[NUM_LIGHTING_CHANNELS+1];
+
+#if WITH_EDITOR
+	TUniformBufferRef<FSceneTexturesUniformParameters> EditorSelectionPassUniformBuffer;
+#endif
+
+	// View from which ViewUniformBuffer was last updated.
+	const FViewInfo* CachedView;
+};
+
+class FMeshDrawCommandStateBucket
+{
+public:
+
+	FMeshDrawCommandStateBucket(int32 InNum, const FMeshDrawCommand& InMeshDrawCommand) 
+		: Num(InNum)
+		, MeshDrawCommand(InMeshDrawCommand)
+	{}
+
+	int32 Num;
+	FMeshDrawCommand MeshDrawCommand;
+};
+
+struct MeshDrawCommandKeyFuncs : DefaultKeyFuncs<FMeshDrawCommandStateBucket,false>
+{
+	typedef typename TCallTraits<FMeshDrawCommand>::ConstReference KeyInitType;
+
+	/**
+	 * @return True if the keys match.
+	 */
+	static FORCEINLINE bool Matches(KeyInitType A,KeyInitType B)
+	{
+		return A.MatchesForDynamicInstancing(B);
+	}
+
+	/**
+	 * @return The key used to index the given element.
+	 */
+	static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
+	{
+		return Element.MeshDrawCommand;
+	}
+
+	/** Calculates a hash index for a key. */
+	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+	{
+		return PointerHash(Key.IndexBuffer, GetTypeHash(Key.PipelineState));
+	}
+};
+
 /** 
  * Renderer scene which is private to the renderer module.
  * Ordinarily this is the renderer version of a UWorld, but an FScene can be created for previewing in editors which don't have a UWorld as well.
@@ -2074,7 +2394,12 @@ public:
 	/** An optional FX system associated with the scene. */
 	class FFXSystemInterface* FXSystem;
 
-	// various static draw lists for this DPG
+	FPersistentUniformBuffers UniformBuffers;
+
+	/** Instancing state buckets.  These are stored on the scene as they are precomputed at FPrimitiveSceneInfo::AddToScene time. */
+	TSet<FMeshDrawCommandStateBucket, MeshDrawCommandKeyFuncs> CachedMeshDrawCommandStateBuckets;
+
+	FCachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
 
 	/** position-only opaque depth draw list */
 	TStaticMeshDrawList<FPositionOnlyDepthDrawingPolicy> PositionOnlyDepthDrawList;
@@ -2082,21 +2407,6 @@ public:
 	TStaticMeshDrawList<FDepthDrawingPolicy> DepthDrawList;
 	/** masked depth draw list */
 	TStaticMeshDrawList<FDepthDrawingPolicy> MaskedDepthDrawList;
-	/** Base pass draw list - no light map */
-	TStaticMeshDrawList<TBasePassDrawingPolicy<FUniformLightMapPolicy> > BasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
-	/** Base pass draw list - self shadowed translucency*/
-	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedTranslucencyPolicy> > BasePassSelfShadowedTranslucencyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedCachedPointIndirectLightingPolicy> > BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedVolumetricLightmapPolicy> > BasePassSelfShadowedVolumetricLightmapTranslucencyDrawList[EBasePass_MAX];
-
-	/** hit proxy draw list (includes both opaque and translucent objects) */
-	TStaticMeshDrawList<FHitProxyDrawingPolicy> HitProxyDrawList;
-
-	/** hit proxy draw list, with only opaque objects */
-	TStaticMeshDrawList<FHitProxyDrawingPolicy> HitProxyDrawList_OpaqueOnly;
-
-	/** draw list for motion blur velocities */
-	TStaticMeshDrawList<FVelocityDrawingPolicy> VelocityDrawList;
 
 	/** Draw list used for rendering whole scene shadow depths. */
 	TStaticMeshDrawList<FShadowDepthDrawingPolicy<false> > WholeSceneShadowDepthDrawList;
@@ -2104,26 +2414,15 @@ public:
 	/** Draw list used for rendering whole scene reflective shadow maps.  */
 	TStaticMeshDrawList<FShadowDepthDrawingPolicy<true> > WholeSceneReflectiveShadowMapDrawList;
 
-	/** Maps a light-map type to the appropriate base pass draw list. */
-	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TBasePassDrawingPolicy<LightMapPolicyType> >& GetBasePassDrawList(EBasePassDrawListType DrawType);
-
 	/** Mobile base pass draw lists */
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
+	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy> MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
+	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy> MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
 
 
 	/** Maps a light-map type to the appropriate base pass draw list. */
-	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
 
-	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
-
-#if WITH_EDITOR
-	/** Draw list to use for selected static meshes in the editor only */
-	TStaticMeshDrawList<FEditorSelectionDrawingPolicy> EditorSelectionDrawList;
-#endif
 	/**
 	 * The following arrays are densely packed primitive data needed by various
 	 * rendering passes. PrimitiveSceneInfo->PackedIndex maintains the index
@@ -2146,6 +2445,8 @@ public:
 	TArray<FBoxSphereBounds> PrimitiveOcclusionBounds;
 	/** Packed array of primitive components associated with the primitive. */
 	TArray<FPrimitiveComponentId> PrimitiveComponentIds;
+
+	TSet<FPrimitiveSceneInfo*> PrimitivesNeedingStaticMeshUpdate;
 
 	struct FTypeOffsetTableEntry
 	{
@@ -2179,7 +2480,7 @@ public:
 	int32 StaticDrawShaderPipelines;
 
 	/** True if a change to SkyLight / Lighting has occurred that requires static draw lists to be updated. */
-	bool bScenesPrimitivesNeedStaticMeshElementUpdate;	
+	bool bScenesPrimitivesNeedStaticMeshElementUpdate;
 
 	/** The scene's sky light, if any. */
 	FSkyLightSceneProxy* SkyLight;
@@ -2218,6 +2519,8 @@ public:
 	FIndirectLightingCache IndirectLightingCache;
 
 	FVolumetricLightmapSceneData VolumetricLightmapSceneData;
+	
+	FGPUScene GPUScene;
 
 	/** Distance field object scene data. */
 	FDistanceFieldSceneData DistanceFieldSceneData;
@@ -2251,7 +2554,7 @@ public:
 	/** Wind source components, tracked so the game thread can also access wind parameters */
 	TArray<UWindDirectionalSourceComponent*> WindComponents_GameThread;
 
-	/** SpeedTree wind objects in the scene. FLocalVertexFactoryShaderParameters needs to lookup by FVertexFactory, but wind objects are per tree (i.e. per UStaticMesh)*/
+	/** SpeedTree wind objects in the scene. FLocalVertexFactoryShaderParametersBase needs to lookup by FVertexFactory, but wind objects are per tree (i.e. per UStaticMesh)*/
 	TMap<const UStaticMesh*, struct FSpeedTreeWindComputation*> SpeedTreeWindComputationMap;
 	TMap<FVertexFactory*, const UStaticMesh*> SpeedTreeVertexFactoryMap;
 
@@ -2282,7 +2585,7 @@ public:
 	int32 NumMobileStaticAndCSMLights_RenderThread;
 	int32 NumMobileMovableDirectionalLights_RenderThread;
 
-	FMotionBlurInfoData MotionBlurInfoData;
+	FSceneVelocityData VelocityData;
 
 	/** GPU Skinning cache, if enabled */
 	class FGPUSkinCache* GPUSkinCache;
@@ -2348,6 +2651,7 @@ public:
 	virtual bool HasPrecomputedVolumetricLightmap_RenderThread() const override;
 	virtual void AddPrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) override;
 	virtual void RemovePrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) override;
+	virtual void GetPrimitiveUniformShaderParameters_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool& bHasPrecomputedVolumetricLightmap, FMatrix& PreviousLocalToWorld, int32& SingleCaptureIndex) const override;
 	virtual void UpdateLightTransform(ULightComponent* Light) override;
 	virtual void UpdateLightColorAndBrightness(ULightComponent* Light) override;
 	virtual void AddExponentialHeightFog(UExponentialHeightFogComponent* FogComponent) override;
@@ -2365,10 +2669,9 @@ public:
 	virtual void AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void RemoveSpeedTreeWind_RenderThread(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override;
-	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override;
+	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const override;
 	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const override;
 	virtual void DumpStaticMeshDrawListStats() const override;
-	virtual void SetClearMotionBlurInfoGameThread() override;
 	virtual void UpdateParameterCollections(const TArray<FMaterialParameterCollectionInstanceResource*>& InParameterCollections) override;
 
 	/** Determines whether the scene has atmospheric fog and sun light. */
@@ -2402,13 +2705,9 @@ public:
 
 	const class FPlanarReflectionSceneProxy* FindClosestPlanarReflection(const FBoxSphereBounds& Bounds) const;
 
-	void FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const;
+	const class FPlanarReflectionSceneProxy* GetForwardPassGlobalPlanarReflection() const;
 
-	/** 
-	 * Gets the scene's cubemap array and index into that array for the given reflection proxy. 
-	 * If the proxy was not found in the scene's reflection state, the outputs are not written to.
-	 */
-	void GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, int32& ArrayIndex, float& AverageBrightness) const;
+	void FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const;
 
 	int64 GetCachedWholeSceneShadowMapsSize() const;
 
@@ -2515,6 +2814,11 @@ public:
 	virtual bool AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequest) override;
 #endif //WITH_EDITOR
 
+	virtual void StartFrame() override
+	{
+		VelocityData.StartFrame();
+	}
+
 	virtual uint32 GetFrameNumber() const override
 	{
 		return SceneFrameNumber;
@@ -2523,13 +2827,6 @@ public:
 	virtual void IncrementFrameNumber() override
 	{
 		++SceneFrameNumber;
-	}
-
-	void EnsureMotionBlurCacheIsUpToDate(bool bWorldIsPaused);
-
-	void ResetMotionBlurCacheTracking()
-	{
-		CurrentFrameUpdatedMotionBlurCache = false;
 	}
 
 	/** Debug function to abtest lazy static mesh drawlists. */
@@ -2636,9 +2933,6 @@ private:
 
 	/** Frame number incremented per-family viewing this scene. */
 	uint32 SceneFrameNumber;
-
-	/** Whether the motion blur cache has been updated already for this frame. */
-	bool CurrentFrameUpdatedMotionBlurCache;
 };
 
 inline bool ShouldIncludeDomainInMeshPass(EMaterialDomain Domain)

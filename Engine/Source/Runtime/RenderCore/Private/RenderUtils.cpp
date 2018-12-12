@@ -4,6 +4,7 @@
 #include "Containers/ResourceArray.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "RenderResource.h"
+#include "RHIStaticStates.h"
 
 #if WITH_EDITOR
 #include "Misc/CoreMisc.h"
@@ -1035,4 +1036,17 @@ RENDERCORE_API void QuantizeSceneBufferSize(const FIntPoint& InBufferSize, FIntP
 	const uint32 Mask = ~(DividableBy - 1);
 	OutBufferSize.X = (InBufferSize.X + DividableBy - 1) & Mask;
 	OutBufferSize.Y = (InBufferSize.Y + DividableBy - 1) & Mask;
+}
+
+void DefaultInitializeUniformBufferResources(const void* Contents, const FRHIUniformBufferLayout& Layout)
+{
+	int32 NumResources = Layout.Resources.Num();
+		
+	for (int32 i = 0; i < NumResources; ++i)
+	{
+		FRHIResource** ResourcePtr = (FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+		EUniformBufferBaseType Type = (EUniformBufferBaseType)Layout.Resources[i];
+		check(IsUniformBufferResourceType(Type));
+		*ResourcePtr = nullptr;
+	}
 }

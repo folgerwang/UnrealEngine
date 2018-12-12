@@ -1905,7 +1905,7 @@ void FMetalStateCache::CommitComputeResources(FMetalCommandEncoder* Compute)
 	GetShaderParameters(CrossCompiler::SHADER_STAGE_COMPUTE).CommitPackedGlobals(this, Compute, SF_Compute, ComputeShader->Bindings);
 }
 
-bool FMetalStateCache::PrepareToRestart(void)
+bool FMetalStateCache::PrepareToRestart(bool const bCurrentApplied)
 {
 	if(CanRestartRenderPass())
 	{
@@ -1919,25 +1919,54 @@ bool FMetalStateCache::PrepareToRestart(void)
 			static bool bSupportsDeferredStore = GetMetalDeviceContext().GetCommandQueue().SupportsFeature(EMetalFeaturesDeferredStoreActions);
 			
 			FRHISetRenderTargetsInfo Info = GetRenderTargetsInfo();
+			
+			ERenderTargetLoadAction DepthLoadAction = Info.DepthStencilRenderTarget.DepthLoadAction;
+			ERenderTargetStoreAction DepthStoreAction = Info.DepthStencilRenderTarget.DepthStoreAction;
+			ERenderTargetLoadAction StencilLoadAction = Info.DepthStencilRenderTarget.StencilLoadAction;
+			ERenderTargetStoreAction StencilStoreAction = Info.DepthStencilRenderTarget.GetStencilStoreAction();
+			bool bClearDepth = Info.bClearDepth;
+			bool bClearStencil = Info.bClearStencil;
+
+			if (Info.DepthStencilRenderTarget.Texture)
+			{
+				if (bCurrentApplied || Info.DepthStencilRenderTarget.DepthLoadAction != ERenderTargetLoadAction::EClear)
+				{
+					DepthLoadAction = ERenderTargetLoadAction::ELoad;
+					bClearDepth = false;
+				}
+				if (Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsDepthWrite())
+				{
+					DepthStoreAction = ERenderTargetStoreAction::EStore;
+				}
+
+				if (bCurrentApplied || Info.DepthStencilRenderTarget.StencilLoadAction != ERenderTargetLoadAction::EClear)
+				{
+					StencilLoadAction = ERenderTargetLoadAction::ELoad;
+					bClearStencil = false;
+				}
+				if (Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsStencilWrite())
+				{
+					StencilStoreAction = ERenderTargetStoreAction::EStore;
+				}
+				
+				Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(Info.DepthStencilRenderTarget.Texture, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, Info.DepthStencilRenderTarget.GetDepthStencilAccess());
+				Info.bClearDepth = bClearDepth;
+				Info.bClearStencil = bClearStencil;
+			}
+			
 			for (int32 RenderTargetIndex = 0; RenderTargetIndex < Info.NumColorRenderTargets; RenderTargetIndex++)
 			{
 				FRHIRenderTargetView& RenderTargetView = Info.ColorRenderTarget[RenderTargetIndex];
-				RenderTargetView.LoadAction = ERenderTargetLoadAction::ELoad;
+				if (!bCurrentApplied && RenderTargetView.LoadAction == ERenderTargetLoadAction::EClear)
+				{
+					RenderTargetView.StoreAction == ERenderTargetStoreAction::EStore;
+				}
+				else
+				{
+					RenderTargetView.LoadAction = ERenderTargetLoadAction::ELoad;
+					Info.bClearColor = false;
+				}
 				check(RenderTargetView.Texture == nil || RenderTargetView.StoreAction == ERenderTargetStoreAction::EStore);
-			}
-			Info.bClearColor = false;
-			
-			if (Info.DepthStencilRenderTarget.Texture)
-			{
-				Info.DepthStencilRenderTarget.DepthLoadAction = ERenderTargetLoadAction::ELoad;
-				check(bSupportsDeferredStore || !Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsDepthWrite() || Info.DepthStencilRenderTarget.DepthStoreAction == ERenderTargetStoreAction::EStore);
-				Info.bClearDepth = false;
-				
-				Info.DepthStencilRenderTarget.StencilLoadAction = ERenderTargetLoadAction::ELoad;
-				// @todo Stencil writes that need to persist must use ERenderTargetStoreAction::EStore on iOS.
-				// We should probably be using deferred store actions so that we can safely lazily instantiate encoders.
-				check(bSupportsDeferredStore || !Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsStencilWrite() || Info.DepthStencilRenderTarget.GetStencilStoreAction() == ERenderTargetStoreAction::EStore);
-				Info.bClearStencil = false;
 			}
 			
 			InvalidateRenderTargets();

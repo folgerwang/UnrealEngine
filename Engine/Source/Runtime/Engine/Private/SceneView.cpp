@@ -2406,10 +2406,10 @@ bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 
 	return CVarAllowTranslucencyAfterDOF.GetValueOnRenderThread() != 0
 		&& (GetFeatureLevel() > ERHIFeatureLevel::ES3_1 || (IsMobileHDR() && !bMobileMSAA)) // on <= ES3_1 separate translucency requires HDR on and MSAA off
-	&& EngineShowFlags.PostProcessing // Used for reflection captures.
-	&& !UseDebugViewPS()
-	&& EngineShowFlags.SeparateTranslucency
-	&& !bPostProcessAlphaChannel;
+		&& EngineShowFlags.PostProcessing // Used for reflection captures.
+		&& !UseDebugViewPS()
+		&& EngineShowFlags.SeparateTranslucency
+		&& !bPostProcessAlphaChannel;
 	// If not, translucency after DOF will be rendered in standard translucency.
 }
 

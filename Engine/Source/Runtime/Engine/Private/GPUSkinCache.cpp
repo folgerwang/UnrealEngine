@@ -14,6 +14,7 @@ GPUSkinCache.cpp: Performs skinning on a compute shader into a buffer to avoid v
 #include "ShaderParameterUtils.h"
 #include "ClearQuad.h"
 #include "Shader.h"
+#include "MeshMaterialShader.h"
 
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumChunks);
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumVertices);
@@ -1149,6 +1150,34 @@ void FGPUSkinCache::SetVertexStreams(FGPUSkinCacheEntry* Entry, int32 Section, F
 	{
 		RHICmdList.SetShaderResourceViewParameter(ShaderRHI, GPUSkinCachePreviousPositionBuffer.GetBaseIndex(), DispatchData.GetPreviousPositionRWBuffer()->SRV);
 	}
+}
+
+void FGPUSkinCache::GetShaderBindings(
+	FGPUSkinCacheEntry* Entry, 
+	int32 Section,
+	const FShader* Shader, 
+	const FGPUSkinPassthroughVertexFactory* VertexFactory,
+	uint32 BaseVertexIndex, 
+	FShaderResourceParameter GPUSkinCachePreviousPositionBuffer,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams)
+{
+	INC_DWORD_STAT(STAT_GPUSkinCache_NumSetVertexStreams);
+	check(Entry);
+	check(Entry->IsSectionValid(Section));
+
+	FGPUSkinCacheEntry::FSectionDispatchData& DispatchData = Entry->DispatchData[Section];
+
+	//UE_LOG(LogSkinCache, Warning, TEXT("*** SetVertexStreams E %p All %p Sec %d(%p) LOD %d"), Entry, Entry->DispatchData[Section].Allocation, Section, Entry->DispatchData[Section].Section, Entry->LOD);
+
+	VertexStreams.Add(FVertexInputStream(VertexFactory->GetPositionStreamIndex(), 0, DispatchData.GetPositionRWBuffer()->Buffer));
+
+	if (VertexFactory->GetTangentStreamIndex() > -1 && DispatchData.GetTangentRWBuffer())
+	{
+		VertexStreams.Add(FVertexInputStream(VertexFactory->GetTangentStreamIndex(), 0, DispatchData.GetTangentRWBuffer()->Buffer));
+	}
+
+	ShaderBindings.Add(GPUSkinCachePreviousPositionBuffer, DispatchData.GetPreviousPositionRWBuffer()->SRV);
 }
 
 void FGPUSkinCache::DispatchUpdateSkinning(FRHICommandListImmediate& RHICmdList, FGPUSkinCacheEntry* Entry, int32 Section, uint32 RevisionNumber)

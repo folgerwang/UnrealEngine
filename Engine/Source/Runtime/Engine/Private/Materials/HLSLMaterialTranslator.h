@@ -244,6 +244,7 @@ protected:
 	uint32 bUsesPixelDepthOffset : 1;
 	uint32 bUsesWorldPositionOffset : 1;
 	uint32 bUsesEmissiveColor : 1;
+	uint32 bUsesDistanceCullFade : 1;
 	/** true if the Roughness input evaluates to a constant 1.0 */
 	uint32 bIsFullyRough : 1;
 	/** Tracks the number of texture coordinates used by this material. */
@@ -299,7 +300,8 @@ public:
 	,	bOutputsBasePassVelocities(true)
 	,	bUsesPixelDepthOffset(false)
     ,   bUsesWorldPositionOffset(false)
-	,	bUsesEmissiveColor(0)
+	,	bUsesEmissiveColor(false)
+	,	bUsesDistanceCullFade(false)
 	,	bIsFullyRough(0)
 	,	NumUserTexCoords(0)
 	,	NumUserVertexTexCoords(0)
@@ -710,6 +712,8 @@ public:
 			}
 
 			MaterialCompilationOutput.bUsesSceneDepthLookup = bUsesSceneDepth;
+
+			MaterialCompilationOutput.bUsesDistanceCullFade = bUsesDistanceCullFade;
 
 			if (MaterialCompilationOutput.bRequiresSceneColorCopy)
 			{
@@ -1683,9 +1687,7 @@ protected:
 					FMaterialUniformExpressionVectorParameter* VectorParameterA = (FMaterialUniformExpressionVectorParameter*)TestExpression;
 					FMaterialUniformExpressionVectorParameter* VectorParameterB = (FMaterialUniformExpressionVectorParameter*)UniformExpression;
 
-					// Note: Skipping NAME_SelectionColor here as this behavior is relied on for editor materials
-					if (!VectorParameterA->GetParameterInfo().Name.IsNone() && VectorParameterA->GetParameterInfo() == VectorParameterB->GetParameterInfo()
-						&& VectorParameterA->GetParameterInfo().Name != NAME_SelectionColor)
+					if (!VectorParameterA->GetParameterInfo().Name.IsNone() && VectorParameterA->GetParameterInfo() == VectorParameterB->GetParameterInfo())
 					{
 						delete UniformExpression;
 						return Errorf(TEXT("Invalid vector parameter '%s' found. Identical parameters must have the same value."), *(VectorParameterA->GetParameterInfo().Name.ToString()));
@@ -3177,6 +3179,8 @@ protected:
 
 	virtual int32 DistanceCullFade() override
 	{
+		bUsesDistanceCullFade = true;
+
 		return AddInlinedCodeChunk(MCT_Float,TEXT("GetDistanceCullFade()"));		
 	}
 
@@ -3189,11 +3193,11 @@ protected:
 			// material node is used in VS
 			return AddInlinedCodeChunk(
 				MCT_Float3,
-				TEXT("mul(mul(float4(GetActorWorldPosition(), 1), Primitive.WorldToLocal), Parameters.PrevFrameLocalToWorld)"));
+				TEXT("mul(mul(float4(GetActorWorldPosition(Parameters.PrimitiveId), 1), GetPrimitiveData(Parameters.PrimitiveId).WorldToLocal), Parameters.PrevFrameLocalToWorld)"));
 		}
 		else
 		{
-			return AddInlinedCodeChunk(MCT_Float3, TEXT("GetActorWorldPosition()"));
+			return AddInlinedCodeChunk(MCT_Float3, TEXT("GetActorWorldPosition(Parameters.PrimitiveId)"));
 		}
 	}
 
@@ -3588,9 +3592,7 @@ protected:
 
 		FString UVs = CoerceParameter(CoordinateIndex, UVsType);
 
-		const bool bStoreTexCoordScales = ShaderFrequency == SF_Pixel && TextureReferenceIndex != INDEX_NONE && Material && 
-			(Material->GetShaderMapUsage() == EMaterialShaderMapUsage::DebugViewModeTexCoordScale || Material->GetShaderMapUsage() == EMaterialShaderMapUsage::DebugViewModeRequiredTextureResolution);
-
+		const bool bStoreTexCoordScales = ShaderFrequency == SF_Pixel && TextureReferenceIndex != INDEX_NONE && Material && Material->GetShaderMapUsage() == EMaterialShaderMapUsage::DebugViewMode;
 		if (bStoreTexCoordScales)
 		{
 			AddCodeChunk(MCT_Float, TEXT("StoreTexCoordScale(Parameters.TexCoordScalesParams, %s, %d)"), *UVs, (int)TextureReferenceIndex);
@@ -4850,9 +4852,16 @@ protected:
 						return INDEX_NONE;
 					}
 
-					// TODO: need Primitive.PrevWorldToLocal
 					// TODO: inconsistent with TransformLocal<TO>World with instancing
-					CodeStr = TEXT("mul(<A>, <MATRIX>(Primitive.WorldToLocal))");
+					if (bCompilingPreviousFrame)
+					{
+						// uses different prefix than other Prev* names, so can't use <PREV> tag here
+						CodeStr = TEXT("mul(<A>, <MATRIX>(GetPrimitiveData(Parameters.PrimitiveId).PreviousWorldToLocal))");
+					}
+					else
+					{
+						CodeStr = TEXT("mul(<A>, <MATRIX>(GetPrimitiveData(Parameters.PrimitiveId).WorldToLocal))");
+					}
 				}
 				else if (DestCoordBasis == MCB_TranslatedWorld)
 				{
@@ -5066,7 +5075,7 @@ protected:
 
 	virtual int32 ObjectOrientation() override
 	{ 
-		return AddInlinedCodeChunk(MCT_Float3,TEXT("GetObjectOrientation()"));
+		return AddInlinedCodeChunk(MCT_Float3,TEXT("GetObjectOrientation(Parameters.PrimitiveId)"));
 	}
 
 	virtual int32 RotateAboutAxis(int32 NormalizedRotationAxisAndAngleIndex, int32 PositionOnAxisIndex, int32 PositionIndex) override
@@ -5785,35 +5794,11 @@ protected:
 			return INDEX_NONE;
 		}
 
-		return AddInlinedCodeChunk(Type, TEXT("Primitive.%s"), HLSLName);
+		return AddInlinedCodeChunk(Type, TEXT("GetPrimitiveData(Parameters.PrimitiveId).%s"), HLSLName);
 	}
 
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return bCompilingPreviousFrame; }
-
-	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
-	{ 
-		if (FeatureName == NAME_SelectionColor)
-		{
-			// This is an editor-only feature (see FDefaultMaterialInstance::GetVectorValue).
-
-			// Determine if we're sure the editor will never run using the target shader platform.
-			// The list below may not be comprehensive enough, but it definitely includes platforms which won't use selection color for sure.
-			const bool bEditorMayUseTargetShaderPlatform = IsPCPlatform(Platform);
-			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.CompileShadersForDevelopment"));
-			const bool bCompileShadersForDevelopment = (CVar && CVar->GetValueOnAnyThread() != 0);
-
-			return
-				// Does the material explicitly forbid development features?
-				Material->GetAllowDevelopmentShaderCompile()
-				// Can the editor run using the current shader platform?
-				&& bEditorMayUseTargetShaderPlatform
-				// Are shader development features globally disabled?
-				&& bCompileShadersForDevelopment;
-		}
-
-		return true;
-	}
 };
 
 #endif

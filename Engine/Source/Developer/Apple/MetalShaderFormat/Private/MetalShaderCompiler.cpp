@@ -1181,7 +1181,7 @@ void BuildMetalShaderOutput(
 			Header.Bindings.NumUniformBuffers = UBIndex + 1;
 		}
 		UsedUniformBufferSlots[UBIndex] = true;
-		ParameterMap.AddParameterAllocation(*UniformBlock.Name, UBIndex, 0, 0);
+		ParameterMap.AddParameterAllocation(*UniformBlock.Name, UBIndex, 0, 0, EShaderParameterType::UniformBuffer);
 	}
 
 	// Packed global uniforms
@@ -1193,7 +1193,8 @@ void BuildMetalShaderOutput(
 			*PackedGlobal.Name,
 			PackedGlobal.PackedType,
 			PackedGlobal.Offset * BytesPerComponent,
-			PackedGlobal.Count * BytesPerComponent
+			PackedGlobal.Count * BytesPerComponent,
+			EShaderParameterType::LooseData
 			);
 
 		uint16& Size = PackedGlobalArraySize.FindOrAdd(PackedGlobal.PackedType);
@@ -1210,7 +1211,8 @@ void BuildMetalShaderOutput(
 												*Member.Name,
 												EArrayType_FloatHighp,
 												Member.Offset * BytesPerComponent,
-												Member.Count * BytesPerComponent
+												Member.Count * BytesPerComponent, 
+												EShaderParameterType::LooseData
 												);
 			
 			uint16& Size = PackedUniformBuffersSize.FindOrAdd(PackedUB.Attribute.Index).FindOrAdd(EArrayType_FloatHighp);
@@ -1264,7 +1266,8 @@ void BuildMetalShaderOutput(
 			*Sampler.Name,
 			0,
 			Sampler.Offset,
-			Sampler.Count
+			Sampler.Count,
+			EShaderParameterType::SRV
 			);
 
 		NumTextures += Sampler.Count;
@@ -1284,7 +1287,8 @@ void BuildMetalShaderOutput(
 			*UAV.Name,
 			0,
 			UAV.Offset,
-			UAV.Count
+			UAV.Count,
+			EShaderParameterType::UAV
 			);
 
 		Header.Bindings.NumUAVs = FMath::Max<uint8>(
@@ -1304,7 +1308,8 @@ void BuildMetalShaderOutput(
 			*SamplerState.Name,
 			0,
 			SamplerState.Index,
-			SamplerMap[SamplerState.Name]
+			SamplerMap[SamplerState.Name],
+			EShaderParameterType::Sampler
 			);
 	}
 
@@ -1527,7 +1532,7 @@ void BuildMetalShaderOutput(
 				if(UE4StdLibCRCLen != 0 && UE4StdLibCRC != 0 && PchLen != 0 && PchCRC != 0)
 				{
 					// If we need to add more items (e.g debug info, math mode, std) and this gets too long - convert to using a hash of all the required items instead
-					TempDir /= FString::Printf(TEXT("UE4_%s_%u_%u_%u_%u"), *CompilerVersion, UE4StdLibCRC, UE4StdLibCRCLen, PchCRC, PchLen);
+					TempDir /= FString::Printf(TEXT("UE4_%s_%hu_%u_%u_%u_%u"), *CompilerVersion, XcodeVers, UE4StdLibCRC, UE4StdLibCRCLen, PchCRC, PchLen);
 				}
 			}
 			

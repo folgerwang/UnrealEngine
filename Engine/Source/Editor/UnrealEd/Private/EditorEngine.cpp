@@ -633,7 +633,6 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	GEngine->SetSubduedSelectionOutlineColor(StyleSettings->GetSubduedSelectionColor());
 	GEngine->SelectionHighlightIntensity = ViewportSettings->SelectionHighlightIntensity;
 	GEngine->BSPSelectionHighlightIntensity = ViewportSettings->BSPSelectionHighlightIntensity;
-	GEngine->HoverHighlightIntensity = ViewportSettings->HoverHighlightIntensity;
 
 	// Set navigation system property indicating whether navigation is supposed to rebuild automatically 
 	FWorldContext &EditorContext = GetEditorWorldContext();

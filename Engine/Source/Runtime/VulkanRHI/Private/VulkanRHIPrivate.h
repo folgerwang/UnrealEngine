@@ -727,6 +727,8 @@ static inline VkFormat UEToVkFormat(EVertexElementType Type)
 		return VK_FORMAT_R32G32B32A32_SFLOAT;
 	case VET_URGB10A2N:
 		return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+	case VET_UInt:
+		return VK_FORMAT_R32_UINT;
 	default:
 		break;
 	}

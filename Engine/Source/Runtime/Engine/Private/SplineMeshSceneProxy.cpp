@@ -7,6 +7,7 @@ FSplineMeshSceneProxy::FSplineMeshSceneProxy(USplineMeshComponent* InComponent) 
 	FStaticMeshSceneProxy(InComponent, false)
 {
 	bSupportsDistanceFieldRepresentation = false;
+	bVFRequiresPrimitiveUniformBuffer = true;
 
 	// make sure all the materials are okay to be rendered as a spline mesh
 	for (FStaticMeshSceneProxy::FLODInfo& LODInfo : LODs)
@@ -57,17 +58,18 @@ bool FSplineMeshSceneProxy::GetShadowMeshElement(int32 LODIndex, int32 BatchInde
 		check(OutMeshBatch.VertexFactory);
 		OutMeshBatch.Elements[0].SplineMeshSceneProxy = const_cast<FSplineMeshSceneProxy*>(this);
 		OutMeshBatch.Elements[0].bIsSplineProxy = true;
+		OutMeshBatch.Elements[0].PrimitiveUniformBuffer = GetUniformBuffer();
 		OutMeshBatch.ReverseCulling ^= (SplineParams.StartScale.X < 0) ^ (SplineParams.StartScale.Y < 0);
 		return true;
 	}
 	return false;
 }
 
-bool FSplineMeshSceneProxy::GetMeshElement(int32 LODIndex, int32 BatchIndex, int32 SectionIndex, uint8 InDepthPriorityGroup, bool bUseSelectedMaterial, bool bUseHoveredMaterial, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const
+bool FSplineMeshSceneProxy::GetMeshElement(int32 LODIndex, int32 BatchIndex, int32 SectionIndex, uint8 InDepthPriorityGroup, bool bUseSelectionOutline, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const
 {
 	//checkf(LODIndex == 0 /*&& SectionIndex == 0*/, TEXT("Getting spline static mesh element with invalid params [%d, %d]"), LODIndex, SectionIndex);
 
-	if (FStaticMeshSceneProxy::GetMeshElement(LODIndex, BatchIndex, SectionIndex, InDepthPriorityGroup, bUseSelectedMaterial, bUseHoveredMaterial, bAllowPreCulledIndices, OutMeshBatch))
+	if (FStaticMeshSceneProxy::GetMeshElement(LODIndex, BatchIndex, SectionIndex, InDepthPriorityGroup, bUseSelectionOutline, bAllowPreCulledIndices, OutMeshBatch))
 	{
 		const FStaticMeshVertexFactories& VFs = RenderData->LODVertexFactories[LODIndex];
 		check(OutMeshBatch.Elements.Num() == 1);
@@ -75,6 +77,7 @@ bool FSplineMeshSceneProxy::GetMeshElement(int32 LODIndex, int32 BatchIndex, int
 		check(OutMeshBatch.VertexFactory);
 		OutMeshBatch.Elements[0].SplineMeshSceneProxy = const_cast<FSplineMeshSceneProxy*>(this);
 		OutMeshBatch.Elements[0].bIsSplineProxy = true;
+		OutMeshBatch.Elements[0].PrimitiveUniformBuffer = GetUniformBuffer();
 		OutMeshBatch.ReverseCulling ^= (SplineParams.StartScale.X < 0) ^ (SplineParams.StartScale.Y < 0);
 		return true;
 	}
@@ -93,6 +96,7 @@ bool FSplineMeshSceneProxy::GetWireframeMeshElement(int32 LODIndex, int32 BatchI
 		check(OutMeshBatch.VertexFactory);
 		OutMeshBatch.Elements[0].SplineMeshSceneProxy = const_cast<FSplineMeshSceneProxy*>(this);
 		OutMeshBatch.Elements[0].bIsSplineProxy = true;
+		OutMeshBatch.Elements[0].PrimitiveUniformBuffer = GetUniformBuffer();
 		OutMeshBatch.ReverseCulling ^= (SplineParams.StartScale.X < 0) ^ (SplineParams.StartScale.Y < 0);
 		return true;
 	}

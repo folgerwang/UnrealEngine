@@ -9,6 +9,7 @@
 #include "MeshBatch.h"
 #include "GPUSkinCache.h"
 #include "ShaderParameterUtils.h"
+#include "MeshMaterialShader.h"
 
 // Changing this is currently unsupported after content has been chunked with the previous setting
 // Changing this causes a full shader recompile
@@ -42,9 +43,12 @@ static FBoneMatricesUniformShaderParameters GBoneUniformStruct;
 	bSupportsDynamicLighting, \
 	bPrecisePrevWorldPos, \
 	bSupportsPositionOnly, \
+	false, \
+	false, \
 	Construct##FactoryClass##ShaderParameters<bExtraBoneInfluencesT>, \
 	FactoryClass<bExtraBoneInfluencesT>::ShouldCompilePermutation, \
 	FactoryClass<bExtraBoneInfluencesT>::ModifyCompilationEnvironment, \
+	FactoryClass<bExtraBoneInfluencesT>::ValidateCompiledResult, \
 	FactoryClass<bExtraBoneInfluencesT>::SupportsTessellationShaders \
 	); \
 	template <bool bExtraBoneInfluencesT> inline FVertexFactoryType* FactoryClass<bExtraBoneInfluencesT>::GetType() const { return &StaticType; }
@@ -213,8 +217,8 @@ struct FRHICommandUpdateBoneBuffer final : public FRHICommand<FRHICommandUpdateB
 	void Execute(FRHICommandListBase& CmdList)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateBoneBuffer_Execute);
-		FSkinMatrix3x4* ChunkMatrices = (FSkinMatrix3x4*)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, BufferSize, RLM_WriteOnly);
-		//FSkinMatrix3x4 is sizeof() == 48
+		FMatrix3x4* ChunkMatrices = (FMatrix3x4*)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, BufferSize, RLM_WriteOnly);
+		//FMatrix3x4 is sizeof() == 48
 		// PLATFORM_CACHE_LINE_SIZE (128) / 48 = 2.6
 		//  sizeof(FMatrix) == 64
 		// PLATFORM_CACHE_LINE_SIZE (128) / 64 = 2
@@ -228,7 +232,7 @@ struct FRHICommandUpdateBoneBuffer final : public FRHICommand<FRHICommandUpdateB
 			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
 			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, PLATFORM_CACHE_LINE_SIZE );
 
-			FSkinMatrix3x4& BoneMat = ChunkMatrices[BoneIdx];
+			FMatrix3x4& BoneMat = ChunkMatrices[BoneIdx];
 			const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
@@ -242,7 +246,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinVertexFactory_UpdateBoneData);
 	const uint32 NumBones = BoneMap.Num();
 	check(NumBones <= MaxGPUSkinBones);
-	FSkinMatrix3x4* ChunkMatrices = nullptr;
+	FMatrix3x4* ChunkMatrices = nullptr;
 
 	FVertexBufferAndSRV* CurrentBoneBuffer = 0;
 
@@ -277,21 +281,21 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 				ALLOC_COMMAND_CL(RHICmdList, FRHICommandUpdateBoneBuffer)(CurrentBoneBuffer->VertexBufferRHI, VectorArraySize, ReferenceToLocalMatrices, BoneMap);
 				return true;
 			}
-			ChunkMatrices = (FSkinMatrix3x4*)RHILockVertexBuffer(CurrentBoneBuffer->VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
+			ChunkMatrices = (FMatrix3x4*)RHILockVertexBuffer(CurrentBoneBuffer->VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
 		}
 	}
 	else
 	{
 		if(NumBones)
 		{
-			check(NumBones * sizeof(FSkinMatrix3x4) <= sizeof(GBoneUniformStruct));
-			ChunkMatrices = (FSkinMatrix3x4*)&GBoneUniformStruct;
+			check(NumBones * sizeof(FMatrix3x4) <= sizeof(GBoneUniformStruct));
+			ChunkMatrices = (FMatrix3x4*)&GBoneUniformStruct;
 		}
 	}
 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinVertexFactory_ShaderDataType_UpdateBoneData_CopyBones);
-		//FSkinMatrix3x4 is sizeof() == 48
+		//FMatrix3x4 is sizeof() == 48
 		// PLATFORM_CACHE_LINE_SIZE (128) / 48 = 2.6
 		//  sizeof(FMatrix) == 64
 		// PLATFORM_CACHE_LINE_SIZE (128) / 64 = 2
@@ -302,7 +306,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
 			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, PLATFORM_CACHE_LINE_SIZE );
 
-			FSkinMatrix3x4& BoneMat = ChunkMatrices[BoneIdx];
+			FMatrix3x4& BoneMat = ChunkMatrices[BoneIdx];
 			const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
@@ -349,9 +353,9 @@ bool TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ShouldCompilePermutation(ESha
 
 
 template <bool bExtraBoneInfluencesT>
-void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
+void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 {
-	FVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	FVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 	const int32 MaxGPUSkinBones = GetFeatureLevelMaxNumberOfBones(GetMaxSupportedFeatureLevel(Platform));
 	OutEnvironment.SetDefine(TEXT("MAX_SHADER_BONES"), MaxGPUSkinBones);
 	const uint32 UseExtraBoneInfluences = bExtraBoneInfluencesT;
@@ -559,8 +563,48 @@ public:
 			}
 
 
-			SetShaderValue(RHICmdList, ShaderRHI, PerBoneMotionBlur, bLocalPerBoneMotionBlur);
+			SetShaderValue(RHICmdList, ShaderRHI, PerBoneMotionBlur, (uint32)(bLocalPerBoneMotionBlur ? 1 : 0));
 		}
+	}
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		const FGPUBaseSkinVertexFactory::FShaderDataType& ShaderData = ((const FGPUBaseSkinVertexFactory*)VertexFactory)->GetShaderData();
+
+		bool bLocalPerBoneMotionBlur = false;
+
+		if (SupportsBonesBufferSRV(FeatureLevel))
+		{
+			if (BoneMatrices.IsBound())
+			{
+				FShaderResourceViewRHIParamRef CurrentData = ShaderData.GetBoneBufferForReading(false).VertexBufferSRV;
+				ShaderBindings.Add(BoneMatrices, CurrentData);
+			}
+
+			if (PreviousBoneMatrices.IsBound())
+			{
+				// todo: Maybe a check for PreviousData!=CurrentData would save some performance (when objects don't have velocty yet) but removing the bool also might save performance
+				bLocalPerBoneMotionBlur = true;
+
+				FShaderResourceViewRHIParamRef PreviousData = ShaderData.GetBoneBufferForReading(true).VertexBufferSRV;
+				ShaderBindings.Add(PreviousBoneMatrices, PreviousData);
+			}
+		}
+		else
+		{
+			ShaderBindings.Add(Shader->GetUniformBufferParameter<FBoneMatricesUniformShaderParameters>(), ShaderData.GetUniformBuffer());
+		}
+
+		ShaderBindings.Add(PerBoneMotionBlur, (uint32)(bLocalPerBoneMotionBlur ? 1 : 0));
 	}
 
 	virtual uint32 GetSize() const override { return sizeof(*this); }
@@ -615,6 +659,23 @@ public:
 		FGPUSkinCache::SetVertexStreams(BatchUserData->Entry, BatchUserData->Section, RHICmdList, Shader, (FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousPositionBuffer);
 	}
 
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
+		FGPUSkinBatchElementUserData* BatchUserData = (FGPUSkinBatchElementUserData*)BatchElement.VertexFactoryUserData;
+		check(BatchUserData);
+		FGPUSkinCache::GetShaderBindings(BatchUserData->Entry, BatchUserData->Section, Shader, (const FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousPositionBuffer, ShaderBindings, VertexStreams);
+	}
+
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
@@ -624,7 +685,7 @@ private:
 /*-----------------------------------------------------------------------------
 FGPUSkinPassthroughVertexFactory
 -----------------------------------------------------------------------------*/
-void FGPUSkinPassthroughVertexFactory::ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
+void FGPUSkinPassthroughVertexFactory::ModifyCompilationEnvironment( const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 {
 	const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
 	if (!ContainsManualVertexFetch)
@@ -632,7 +693,7 @@ void FGPUSkinPassthroughVertexFactory::ModifyCompilationEnvironment( EShaderPlat
 		OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("0"));
 	}
 
-	Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	Super::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 	OutEnvironment.SetDefine(TEXT("GPUSKIN_PASS_THROUGH"),TEXT("1"));
 }
 
@@ -721,9 +782,9 @@ TGPUSkinMorphVertexFactory
 * @param OutEnvironment - shader compile environment to modify
 */
 template <bool bExtraBoneInfluencesT>
-void TGPUSkinMorphVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
+void TGPUSkinMorphVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment( const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 {
-	Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	Super::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 	OutEnvironment.SetDefine(TEXT("GPUSKIN_MORPH_BLEND"),TEXT("1"));
 }
 
@@ -881,6 +942,50 @@ public:
 			}
 		}
 	}
+	
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		// Call regular GPU skinning shader parameters
+		FGPUSkinVertexFactoryShaderParameters::GetElementShaderBindings(Scene, View, Shader, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
+		const auto* GPUSkinVertexFactory = (const FGPUBaseSkinVertexFactory*)VertexFactory;
+		// A little hacky; problem is we can't upcast from FGPUBaseSkinVertexFactory to FGPUBaseSkinAPEXClothVertexFactory as they are unrelated; a nice solution would be
+		// to use virtual inheritance, but that requires RTTI and complicates things further...
+		const FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType& ClothShaderData = GPUSkinVertexFactory->UsesExtraBoneInfluences()
+			? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothShaderData()
+			: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothShaderData();
+
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FAPEXClothUniformShaderParameters>(),ClothShaderData.GetClothUniformBuffer());
+
+		uint32 FrameNumber = View->Family->FrameNumber;
+
+		ShaderBindings.Add(ClothSimulVertsPositionsNormalsParameter, ClothShaderData.GetClothBufferForReading(false, FrameNumber).VertexBufferSRV);
+		ShaderBindings.Add(PreviousClothSimulVertsPositionsNormalsParameter, ClothShaderData.GetClothBufferForReading(true, FrameNumber).VertexBufferSRV);
+		ShaderBindings.Add(ClothLocalToWorldParameter, ClothShaderData.GetClothLocalToWorldForReading(false, FrameNumber));
+		ShaderBindings.Add(PreviousClothLocalToWorldParameter, ClothShaderData.GetClothLocalToWorldForReading(true, FrameNumber));
+		ShaderBindings.Add(ClothBlendWeightParameter,ClothShaderData.ClothBlendWeight);
+
+		ShaderBindings.Add(GPUSkinApexClothParameter,
+			GPUSkinVertexFactory->UsesExtraBoneInfluences()
+			? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothBuffer()
+			: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothBuffer());
+
+		int32 ClothIndexOffset =
+			GPUSkinVertexFactory->UsesExtraBoneInfluences()
+			? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothIndexOffset(BatchElement.MinVertexIndex)
+			: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothIndexOffset(BatchElement.MinVertexIndex);
+
+		FIntPoint GPUSkinApexClothStartIndexOffset(BatchElement.MinVertexIndex, ClothIndexOffset);
+		ShaderBindings.Add(GPUSkinApexClothStartIndexOffsetParameter, GPUSkinApexClothStartIndexOffset);
+	}
 
 protected:
 	FShaderResourceParameter ClothSimulVertsPositionsNormalsParameter;
@@ -1003,9 +1108,9 @@ TGlobalResource<FClothBufferPool> FGPUBaseSkinAPEXClothVertexFactory::ClothSimul
 * @param OutEnvironment - shader compile environment to modify
 */
 template <bool bExtraBoneInfluencesT>
-void TGPUSkinAPEXClothVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
+void TGPUSkinAPEXClothVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment( const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 {
-	Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	Super::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 	OutEnvironment.SetDefine(TEXT("GPUSKIN_APEX_CLOTH"),TEXT("1"));
 }
 

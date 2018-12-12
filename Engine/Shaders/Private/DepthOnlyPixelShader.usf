@@ -8,10 +8,6 @@
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 
-#if OUTPUT_PIXEL_DEPTH_OFFSET
-bool bApplyDepthOffset;
-#endif
-
 #if (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
 // used to write custom stencil values to color target
 float MobileColorValue;
@@ -54,7 +50,6 @@ void Main(
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
 	ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
-	OutDepth = bApplyDepthOffset ? OutDepth : SvPosition.z;
 	#endif
 
 	#if MATERIALBLENDING_TRANSLUCENT

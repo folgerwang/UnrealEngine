@@ -8,6 +8,7 @@
 #include "ParticleHelper.h"
 #include "ParticleResources.h"
 #include "ShaderParameterUtils.h"
+#include "MeshMaterialShader.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraMeshUniformParameters,"NiagaraMeshVF");
 
@@ -68,6 +69,31 @@ public:
 
 		SetSRVParameter(RHICmdList, VertexShaderRHI, SortedIndices, NiagaraMeshVF->GetSortedIndicesSRV() ? NiagaraMeshVF->GetSortedIndicesSRV() : GFNiagaraNullSortedIndicesVertexBuffer.VertexBufferSRV);
 		SetShaderValue(RHICmdList, VertexShaderRHI, SortedIndicesOffset, NiagaraMeshVF->GetSortedIndicesOffset());
+	}
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override
+	{
+		const bool bInstanced = GRHISupportsInstancing;
+		FNiagaraMeshVertexFactory* NiagaraMeshVF = (FNiagaraMeshVertexFactory*)VertexFactory;
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FNiagaraMeshUniformParameters>(), NiagaraMeshVF->GetUniformBuffer());
+
+		ShaderBindings.Add(MeshFacingMode, NiagaraMeshVF->GetMeshFacingMode());
+
+		ShaderBindings.Add(NiagaraParticleDataFloat, NiagaraMeshVF->GetParticleDataFloatSRV());
+		ShaderBindings.Add(FloatDataOffset, NiagaraMeshVF->GetFloatDataOffset());
+		ShaderBindings.Add(FloatDataStride, NiagaraMeshVF->GetFloatDataStride());
+
+		ShaderBindings.Add(SortedIndices, NiagaraMeshVF->GetSortedIndicesSRV());
+		ShaderBindings.Add(SortedIndicesOffset, NiagaraMeshVF->GetSortedIndicesOffset());
 	}
 
 private:

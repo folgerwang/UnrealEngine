@@ -49,9 +49,9 @@ public:
 	{
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
 	{
-		FVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("PARTICLE_FACTORY"),TEXT("1"));
 	}
 
@@ -177,7 +177,7 @@ public:
 	/**
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 
 	/**
 	 * Set the source vertex buffer that contains particle instance data.

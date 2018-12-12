@@ -621,7 +621,7 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 	}
 }
 
-void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
+void UMaterialParameterCollectionInstance::DeferredUpdateRenderState(bool bUpdateScene)
 {
 	if (bNeedsRenderStateUpdate && World.IsValid())
 	{
@@ -629,8 +629,12 @@ void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
 		TArray<FVector4> ParameterData;
 		GetParameterData(ParameterData);
 		Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
-		// Update the world's scene with the new uniform buffer pointer
-		World->UpdateParameterCollectionInstances(false);
+
+		if (bUpdateScene)
+		{
+			// Update the world's scene with the new uniform buffer pointer
+			World->UpdateParameterCollectionInstances(false);
+		}
 	}
 
 	bNeedsRenderStateUpdate = false;
@@ -716,8 +720,6 @@ FMaterialParameterCollectionInstanceResource::~FMaterialParameterCollectionInsta
 
 void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& InId, const TArray<FVector4>& Data, const FName& InOwnerName)
 {
-	UniformBuffer.SafeRelease();
-
 	Id = InId;
 	OwnerName = InOwnerName;
 
@@ -726,6 +728,15 @@ void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& I
 		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
 		UniformBufferLayout.ComputeHash();
 		check(UniformBufferLayout.Resources.Num() == 0);
-		UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
+
+		if (IsValidRef(UniformBuffer))
+		{
+			check(UniformBuffer->GetLayout() == UniformBufferLayout);
+			RHIUpdateUniformBuffer(UniformBuffer, Data.GetData());
+		}
+		else
+		{
+			UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
+		}
 	}
 }

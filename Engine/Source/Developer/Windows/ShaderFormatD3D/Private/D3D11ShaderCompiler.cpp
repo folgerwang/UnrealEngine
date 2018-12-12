@@ -279,11 +279,11 @@ static FString D3D11CreateShaderCompileCommandLine(
 	// Batch file header:
 	/*
 	@ECHO OFF
-		SET FXC="C:\Program Files (x86)\Windows Kits\8.1\bin\x64\fxc.exe"
+		SET FXC="C:\Program Files (x86)\Windows Kits\10\bin\x64\fxc.exe"
 		IF EXIST %FXC% (
 			REM
 			) ELSE (
-				ECHO Couldn't find Windows 8.1 SDK, falling back to DXSDK...
+				ECHO Couldn't find Windows 10 SDK, falling back to DXSDK...
 				SET FXC="%DXSDK_DIR%\Utilities\bin\x86\fxc.exe"
 				IF EXIST %FXC% (
 					REM
@@ -293,8 +293,8 @@ static FString D3D11CreateShaderCompileCommandLine(
 					)
 			)
 	*/
-	FString BatchFileHeader = TEXT("@ECHO OFF\nSET FXC=\"C:\\Program Files (x86)\\Windows Kits\\8.1\\bin\\x64\\fxc.exe\"\n"\
-		"IF EXIST %FXC% (\nREM\n) ELSE (\nECHO Couldn't find Windows 8.1 SDK, falling back to DXSDK...\n"\
+	FString BatchFileHeader = TEXT("@ECHO OFF\nSET FXC=\"C:\\Program Files (x86)\\Windows Kits\\10\\bin\\x64\\fxc.exe\"\n"\
+		"IF EXIST %FXC% (\nREM\n) ELSE (\nECHO Couldn't find Windows 10 SDK, falling back to DXSDK...\n"\
 		"SET FXC=\"%DXSDK_DIR%\\Utilities\\bin\\x86\\fxc.exe\"\nIF EXIST %FXC% (\nREM\n) ELSE (\nECHO Couldn't find DXSDK! Exiting...\n"\
 		"GOTO END\n)\n)\n");
 	return BatchFileHeader + FXCCommandline + TEXT("\n:END\nREM\n");
@@ -721,7 +721,8 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 									ANSI_TO_TCHAR(VariableDesc.Name),
 									CBIndex,
 									VariableDesc.StartOffset,
-									VariableDesc.Size
+									VariableDesc.Size,
+									EShaderParameterType::LooseData
 									);
 								UsedUniformBufferSlots[CBIndex] = true;
 							}
@@ -734,7 +735,8 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 							ANSI_TO_TCHAR(CBDesc.Name),
 							CBIndex,
 							0,
-							0
+							0,
+							EShaderParameterType::UniformBuffer
 							);
 						UsedUniformBufferSlots[CBIndex] = true;
 
@@ -792,12 +794,15 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 						}
 					}
 
+					EShaderParameterType ParameterType = EShaderParameterType::Num;
 					if (BindDesc.Type == D3D10_SIT_SAMPLER)
 					{
+						ParameterType = EShaderParameterType::Sampler;
 						NumSamplers = FMath::Max(NumSamplers, BindDesc.BindPoint + BindCount);
 					}
 					else if (BindDesc.Type == D3D10_SIT_TEXTURE)
 					{
+						ParameterType = EShaderParameterType::SRV;
 						NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindCount);
 					}
 
@@ -806,7 +811,8 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 						OfficialName,
 						0,
 						BindDesc.BindPoint,
-						BindCount
+						BindCount,
+						ParameterType
 					);
 				}
 				else if (BindDesc.Type == D3D11_SIT_UAV_RWTYPED || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED ||
@@ -820,7 +826,8 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 						OfficialName,
 						0,
 						BindDesc.BindPoint,
-						1
+						1,
+						EShaderParameterType::UAV
 						);
 
 					NumUAVs = FMath::Max(NumUAVs, BindDesc.BindPoint + BindDesc.BindCount);
@@ -834,7 +841,8 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 						OfficialName,
 						0,
 						BindDesc.BindPoint,
-						1
+						1,
+						EShaderParameterType::SRV
 						);
 
 					NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);

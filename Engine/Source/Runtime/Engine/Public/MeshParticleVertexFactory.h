@@ -106,9 +106,9 @@ public:
 	 * Modify compile environment to enable instancing
 	 * @param OutEnvironment - shader compile environment to modify
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 
 		// Set a define so we can tell in MaterialTemplate.usf when we are compiling a mesh particle vertex factory
 		OutEnvironment.SetDefine(TEXT("PARTICLE_MESH_FACTORY"),TEXT("1"));
@@ -220,9 +220,9 @@ public:
 			&& FMeshParticleVertexFactory::ShouldCompilePermutation(Platform, Material, ShaderType);
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FMeshParticleVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FMeshParticleVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 
 		OutEnvironment.SetDefine(TEXT("PARTICLE_MESH_INSTANCED"),TEXT("0"));
 	}

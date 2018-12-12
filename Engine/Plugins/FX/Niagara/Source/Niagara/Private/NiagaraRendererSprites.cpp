@@ -108,12 +108,13 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 	}
 
 	const bool bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
-	FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy(SceneProxy->IsSelected(), SceneProxy->IsHovered());
+	FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy();
 
 	// Update the primitive uniform buffer if needed.
 	if (!WorldSpacePrimitiveUniformBuffer.IsInitialized())
 	{
 		FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(
+			FMatrix::Identity,
 			FMatrix::Identity,
 			SceneProxy->GetActorPosition(),
 			SceneProxy->GetBounds(),
@@ -124,7 +125,10 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 			SceneProxy->UseSingleSampleShadowFromStationaryLights(),
 			SceneProxy->GetScene().HasPrecomputedVolumetricLightmap_RenderThread(),
 			SceneProxy->UseEditorDepthTest(),
-			SceneProxy->GetLightingChannelMask()
+			SceneProxy->GetLightingChannelMask(),
+			0,
+			INDEX_NONE,
+			INDEX_NONE
 			);
 		WorldSpacePrimitiveUniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 		WorldSpacePrimitiveUniformBuffer.InitResource();
@@ -265,7 +269,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 
 				if (bIsWireframe)
 				{
-					MeshBatch.MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(SceneProxy->IsSelected(), SceneProxy->IsHovered());
+					MeshBatch.MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 				}
 				else
 				{
@@ -279,7 +283,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				MeshElement.NumInstances = FMath::Max(0, NumInstances);	//->VertexData.Num();
 				MeshElement.MinVertexIndex = 0;
 				MeshElement.MaxVertexIndex = 0;// MeshElement.NumInstances * 4 - 1;
-				MeshElement.PrimitiveUniformBufferResource = &WorldSpacePrimitiveUniformBuffer;
+				MeshElement.PrimitiveUniformBuffer = WorldSpacePrimitiveUniformBuffer.GetUniformBufferRHI();
 				if (DynamicDataSprites->DataSet->GetSimTarget() == ENiagaraSimTarget::GPUComputeSim)
 				{
 					MeshElement.IndirectArgsBuffer = DynamicDataSprites->DataSet->GetCurDataSetIndices().Buffer;

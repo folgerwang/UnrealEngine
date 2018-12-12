@@ -626,33 +626,34 @@ IMPLEMENT_SHADER_TYPE(,FCopyCubemapToCubeFacePS,TEXT("/Engine/Private/Reflection
 
 int32 FindOrAllocateCubemapIndex(FScene* Scene, const UReflectionCaptureComponent* Component)
 {
-	int32 CaptureIndex = -1;
+	int32 CubemapIndex = -1;
 
 	// Try to find an existing capture index for this component
 	const FCaptureComponentSceneState* CaptureSceneStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(Component);
 
 	if (CaptureSceneStatePtr)
 	{
-		CaptureIndex = CaptureSceneStatePtr->CaptureIndex;
+		CubemapIndex = CaptureSceneStatePtr->CubemapIndex;
 	}
 	else
 	{
 		// Reuse a freed index if possible
-		CaptureIndex = Scene->ReflectionSceneData.CubemapArraySlotsUsed.FindAndSetFirstZeroBit();
-		if (CaptureIndex == INDEX_NONE)
+		CubemapIndex = Scene->ReflectionSceneData.CubemapArraySlotsUsed.FindAndSetFirstZeroBit();
+		if (CubemapIndex == INDEX_NONE)
 		{
 			// If we didn't find a free index, allocate a new one from the CubemapArraySlotsUsed bitfield
-			CaptureIndex = Scene->ReflectionSceneData.CubemapArraySlotsUsed.Num();
+			CubemapIndex = Scene->ReflectionSceneData.CubemapArraySlotsUsed.Num();
 			Scene->ReflectionSceneData.CubemapArraySlotsUsed.Add(true);
 		}
 
-		Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Add(Component, FCaptureComponentSceneState(CaptureIndex));
+		Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Add(Component, FCaptureComponentSceneState(CubemapIndex));
+		Scene->ReflectionSceneData.AllocatedReflectionCaptureStateHasChanged = true;
 
-		check(CaptureIndex < GMaxNumReflectionCaptures);
+		check(CubemapIndex < GMaxNumReflectionCaptures);
 	}
 
-	check(CaptureIndex >= 0);
-	return CaptureIndex;
+	check(CubemapIndex >= 0);
+	return CubemapIndex;
 }
 
 void ClearScratchCubemaps(FRHICommandList& RHICmdList, int32 TargetSize)
@@ -1056,7 +1057,7 @@ void GetReflectionCaptureData_RenderingThread(FRHICommandListImmediate& RHICmdLi
 	{
 		FSceneRenderTargetItem& EffectiveDest = Scene->ReflectionSceneData.CubemapArray.GetRenderTarget();
 
-		const int32 CaptureIndex = ComponentStatePtr->CaptureIndex;
+		const int32 CubemapIndex = ComponentStatePtr->CubemapIndex;
 		const int32 NumMips = EffectiveDest.ShaderResourceTexture->GetNumMips();
 		const int32 EffectiveTopMipSize = FMath::Pow(2, NumMips - 1);
 
@@ -1088,7 +1089,7 @@ void GetReflectionCaptureData_RenderingThread(FRHICommandListImmediate& RHICmdLi
 				// Read each mip face
 				//@todo - do this without blocking the GPU so many times
 				//@todo - pool the temporary textures in RHIReadSurfaceFloatData instead of always creating new ones
-				RHICmdList.ReadSurfaceFloatData(EffectiveDest.ShaderResourceTexture, FIntRect(0, 0, MipSize, MipSize), SurfaceData, (ECubeFace)CubeFace, CaptureIndex, MipIndex);
+				RHICmdList.ReadSurfaceFloatData(EffectiveDest.ShaderResourceTexture, FIntRect(0, 0, MipSize, MipSize), SurfaceData, (ECubeFace)CubeFace, CubemapIndex, MipIndex);
 				const int32 DestIndex = MipBaseIndex + CubeFace * CubeFaceBytes;
 				uint8* FaceData = &OutCaptureData->FullHDRCapturedData[DestIndex];
 				check(SurfaceData.Num() * SurfaceData.GetTypeSize() == CubeFaceBytes);

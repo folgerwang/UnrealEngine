@@ -404,7 +404,6 @@ FShaderResource::FShaderResource()
 	INC_DWORD_STAT_BY(STAT_Shaders_NumShaderResourcesLoaded, 1);
 }
 
-
 FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderType* InSpecificType, int32 InSpecificPermutationId) 
 	: SpecificType(InSpecificType)
 	, SpecificPermutationId(InSpecificPermutationId)
@@ -417,6 +416,8 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 	, bCodeInSharedLocationRequested(false)
 
 {
+	BuildParameterMapInfo(Output.ParameterMap.GetParameterMap());
+
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
 
 	Target = Output.Target;
@@ -451,6 +452,99 @@ FShaderResource::~FShaderResource()
 	DEC_DWORD_STAT_BY(STAT_Shaders_NumShaderResourcesLoaded, 1);
 }
 
+void FShaderResource::BuildParameterMapInfo(const TMap<FString, FParameterAllocation>& ParameterMap)
+{
+	for (int32 ParameterTypeIndex = 0; ParameterTypeIndex < (int32)EShaderParameterType::Num; ParameterTypeIndex++)
+	{
+		EShaderParameterType CurrentParameterType = (EShaderParameterType)ParameterTypeIndex;
+
+		if (CurrentParameterType == EShaderParameterType::LooseData)
+		{
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					bool bAddedToExistingBuffer = false;
+
+					for (int32 LooseParameterBufferIndex = 0; LooseParameterBufferIndex < ParameterMapInfo.LooseParameterBuffers.Num(); LooseParameterBufferIndex++)
+					{
+						FShaderLooseParameterBufferInfo& LooseParameterBufferInfo = ParameterMapInfo.LooseParameterBuffers[LooseParameterBufferIndex];
+
+						if (LooseParameterBufferInfo.BufferIndex == ParamValue.BufferIndex)
+						{
+							FShaderParameterInfo ParameterInfo;
+							ParameterInfo.BaseIndex = ParamValue.BaseIndex;
+							ParameterInfo.Size = ParamValue.Size;
+							LooseParameterBufferInfo.Parameters.Add(ParameterInfo);
+							LooseParameterBufferInfo.BufferSize += ParamValue.Size;
+							bAddedToExistingBuffer = true;
+						}
+					}
+
+					if (!bAddedToExistingBuffer)
+					{
+						FShaderLooseParameterBufferInfo NewParameterBufferInfo;
+						NewParameterBufferInfo.BufferIndex = ParamValue.BufferIndex;
+						NewParameterBufferInfo.BufferSize = ParamValue.Size;
+
+						FShaderParameterInfo ParameterInfo;
+						ParameterInfo.BaseIndex = ParamValue.BaseIndex;
+						ParameterInfo.Size = ParamValue.Size;
+						NewParameterBufferInfo.Parameters.Add(ParameterInfo);
+
+						ParameterMapInfo.LooseParameterBuffers.Add(NewParameterBufferInfo);
+					}
+				}
+			}
+		}
+		else if (CurrentParameterType != EShaderParameterType::UAV)
+		{
+			int32 NumParameters = 0;
+
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					NumParameters++;
+				}
+			}
+
+			TArray<FShaderParameterInfo>* ParameterInfoArray = &ParameterMapInfo.UniformBuffers;
+
+			if (CurrentParameterType == EShaderParameterType::Sampler)
+			{
+				ParameterInfoArray = &ParameterMapInfo.TextureSamplers;
+			}
+			else if (CurrentParameterType == EShaderParameterType::SRV)
+			{
+				ParameterInfoArray = &ParameterMapInfo.SRVs;
+			}
+			else
+			{
+				check(CurrentParameterType == EShaderParameterType::UniformBuffer);
+			}
+
+			ParameterInfoArray->Empty(NumParameters);
+		
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					FShaderParameterInfo ParameterInfo;
+					ParameterInfo.BaseIndex = CurrentParameterType == EShaderParameterType::UniformBuffer ? ParamValue.BufferIndex : ParamValue.BaseIndex;
+					ParameterInfo.Size = ParamValue.Size;
+					ParameterInfoArray->Add(ParameterInfo);
+				}
+			}
+		}
+	}
+}
 
 void FShaderResource::UncompressCode(TArray<uint8>& UncompressedCode) const
 {
@@ -484,7 +578,7 @@ void FShaderResource::Register()
 	ShaderResourceIdMap.Add(GetId(), this);
 }
 
-
+// Note: this is derived data.  Bump guid in ShaderVersion.ush if changing the format, no backwards compat is necessary
 void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 {
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
@@ -504,13 +598,16 @@ void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 	}
 	Ar << OutputHash;
 	Ar << NumInstructions;
+
 #if WITH_EDITORONLY_DATA
-	Ar << NumTextureSamplers;
-#else
-	uint32 Temp = 0;
-	Ar << Temp;
-#endif
-	
+	if (!Ar.IsCooking() || Ar.CookingTarget()->HasEditorOnlyData())
+	{
+		Ar << NumTextureSamplers;
+	}
+#endif // WITH_EDITORONLY_DATA
+
+	Ar << ParameterMapInfo;
+
 	if (Ar.UE4Ver() >= VER_UE4_COMPRESSED_SHADER_RESOURCES)
 	{
 		Ar << UncompressedCodeSize;
@@ -657,7 +754,7 @@ FShaderResource* FShaderResource::FindOrCreateShaderResource(const FShaderCompil
 	{
 		Resource = new FShaderResource(Output, SpecificType, SpecificPermutationId);
 	}
-
+	
 	return Resource;
 }
 

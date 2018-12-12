@@ -107,7 +107,7 @@ bool BuildResourceTableMapping(
 			if (!ParameterMap.FindParameterAllocation(*Entry.UniformBufferName, UniformBufferIndex, UBBaseIndex, UBSize))
 			{
 				UniformBufferIndex = UsedUniformBufferSlots.FindAndSetFirstZeroBit();
-				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0);
+				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0,EShaderParameterType::UniformBuffer);
 			}
 
 			// Mark used UB index
@@ -763,7 +763,7 @@ void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environmen
 	}
 }
 
-FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
+FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input, uint32 CCFlags)
 {
 	FString Text(TEXT("-directcompile -format="));
 	Text += Input.ShaderFormat.GetPlainNameString();
@@ -808,6 +808,11 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	{
 		Text += TEXT(" -cflags=");
 		Text += FString::Printf(TEXT("%llu"), CFlags);
+	}
+	if (CCFlags)
+	{
+		Text += TEXT(" -hlslccflags=");
+		Text += FString::Printf(TEXT("%llu"), CCFlags);
 	}
 	// When we're running in directcompile mode, we don't to spam the crash reporter
 	Text += TEXT(" -nocrashreports");

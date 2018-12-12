@@ -288,7 +288,7 @@ void FMetalRenderPass::RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 		check(State.CanRestartRenderPass());
 		StartDesc = RenderPass;
 	}
-	else if (State.PrepareToRestart())
+	else if (State.PrepareToRestart(CurrentEncoder.IsRenderPassDescriptorValid() && (State.GetRenderPassDescriptor().GetPtr() == CurrentEncoder.GetRenderPassDescriptor().GetPtr())))
 	{
 		// Restart with the render pass we have in the state cache - the state cache says its safe
 		StartDesc = State.GetRenderPassDescriptor();

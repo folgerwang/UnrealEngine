@@ -464,16 +464,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	return Result;
 }
 
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-
 float3 SafeNormalize(float3 V)
 {
 	return V / sqrt(max(dot(V,V),0.01));
@@ -757,6 +747,11 @@ uint VertexFactoryGetEyeIndex(uint InstanceId)
 #endif
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

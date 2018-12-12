@@ -695,11 +695,7 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	C_BrushShape = FColor(128, 255, 128, 255);
 
 	SelectionHighlightIntensity = 0.0f;
-#if WITH_EDITOR
-	SelectionMeshSectionHighlightIntensity = 0.2f;
-#endif
 	BSPSelectionHighlightIntensity = 0.0f;
-	HoverHighlightIntensity = 10.f;
 
 	SelectionHighlightIntensityBillboards = 0.25f;
 

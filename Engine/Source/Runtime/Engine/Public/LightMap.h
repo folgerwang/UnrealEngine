@@ -22,10 +22,6 @@ class UPrimitiveComponent;
 struct FQuantizedLightmapData;
 class UVirtualTexture;
 
-// When using virtual textures for the 2D lightmaps, use the 16bbp (1) or 32bbp (0) page table
-// 16bbp is limited to 64*64 pools
-#define LIGHTMAP_VT_16BIT 1
-
 /** Whether to use bilinear filtering on lightmaps */
 extern ENGINE_API bool GUseBilinearLightmaps;
 
@@ -609,3 +605,24 @@ void CropUnmappedTexels( const TMappingData& MappingData, int32 SizeX, int32 Siz
 	CroppedRect.Min.X = FMath::Min<int32>(CroppedRect.Min.X, CroppedRect.Max.X);
 	CroppedRect.Min.Y = FMath::Min<int32>(CroppedRect.Min.Y, CroppedRect.Max.Y);
 }
+
+/** 
+ * A bundle of lightmap resources which are referenced by multiple components. 
+ */
+class FLightmapResourceCluster : public FRenderResource
+{
+public:
+
+	ENGINE_API void SetFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel);
+
+	ENGINE_API virtual void InitRHI();
+
+	virtual void ReleaseRHI()
+	{
+		UniformBuffer = nullptr;
+	}
+
+	FLightmapClusterResourceInput Input;
+
+	FUniformBufferRHIRef UniformBuffer;
+};

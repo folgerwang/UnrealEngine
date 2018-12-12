@@ -383,6 +383,7 @@ public:
 
 	FORCEINLINE_DEBUGGABLE void* Alloc(int32 AllocSize, int32 Alignment)
 	{
+		checkSlow(!Bypass() && "Can't use RHICommandList in bypass mode.");
 		return MemManager.Alloc(AllocSize, Alignment);
 	}
 

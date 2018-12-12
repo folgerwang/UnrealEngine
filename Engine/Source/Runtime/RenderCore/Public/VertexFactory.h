@@ -17,6 +17,58 @@
 
 class FMaterial;
 
+#if PLATFORM_SUPPORTS_PRAGMA_PACK
+	#pragma pack (push,4)
+#endif
+
+struct FVertexInputStream
+{
+	uint32 StreamIndex : 4;
+	uint32 Offset : 28;
+	FVertexBufferRHIParamRef VertexBuffer;
+
+	FVertexInputStream() :
+		StreamIndex(0),
+		Offset(0),
+		VertexBuffer(nullptr)
+	{}
+
+	FVertexInputStream(uint32 InStreamIndex, uint32 InOffset, FVertexBufferRHIParamRef InVertexBuffer)
+		: StreamIndex(InStreamIndex), Offset(InOffset), VertexBuffer(InVertexBuffer)
+	{
+		// Verify no overflow
+		checkSlow(InStreamIndex == StreamIndex && InOffset == Offset);
+	}
+
+	inline bool operator==(const FVertexInputStream& rhs) const
+	{
+		if (StreamIndex != rhs.StreamIndex ||
+			Offset != rhs.Offset || 
+			VertexBuffer != rhs.VertexBuffer) 
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	inline bool operator!=(const FVertexInputStream& rhs) const
+	{
+		return !(*this == rhs);
+	}
+};
+
+#if PLATFORM_SUPPORTS_PRAGMA_PACK
+	#pragma pack (pop)
+#endif
+
+/** 
+ * Number of vertex input bindings to allocate inline within a FMeshDrawCommand.
+ * This is tweaked so that the bindings for FLocalVertexFactory fit into the inline storage.
+ * Overflow of the inline storage will cause a heap allocation per draw (and corresponding cache miss on traversal)
+ */
+typedef TArray<FVertexInputStream, TInlineAllocator<2>> FVertexInputStreamArray;
+
 enum class EVertexStreamUsage : uint8
 {
 	Default			= 0 << 0,
@@ -98,6 +150,22 @@ public:
 	virtual void Bind(const class FShaderParameterMap& ParameterMap) = 0;
 	virtual void Serialize(FArchive& Ar) = 0;
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* VertexShader,const class FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const = 0;
+	
+	/** 
+	 * Gets the vertex factory's shader bindings and vertex streams.
+	 * View can be null when caching mesh draw commands (only for supported vertex factories)
+	 */
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* View,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const = 0;
+
 	virtual uint32 GetSize() const { return sizeof(*this); }
 };
 
@@ -110,7 +178,8 @@ public:
 
 	typedef FVertexFactoryShaderParameters* (*ConstructParametersType)(EShaderFrequency ShaderFrequency);
 	typedef bool (*ShouldCacheType)(EShaderPlatform, const class FMaterial*, const class FShaderType*);
-	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform, const class FMaterial*, FShaderCompilerEnvironment&);
+	typedef void (*ModifyCompilationEnvironmentType)(const FVertexFactoryType*, EShaderPlatform, const class FMaterial*, FShaderCompilerEnvironment&);
+	typedef void (*ValidateCompiledResultType)(const FVertexFactoryType*, EShaderPlatform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors);
 	typedef bool (*SupportsTessellationShadersType)();
 
 	/**
@@ -142,9 +211,12 @@ public:
 		bool bInSupportsDynamicLighting,
 		bool bInSupportsPrecisePrevWorldPos,
 		bool bInSupportsPositionOnly,
+		bool bInSupportsCachingMeshDrawCommands,
+		bool bInSupportsPrimitiveIdStream,
 		ConstructParametersType InConstructParameters,
 		ShouldCacheType InShouldCache,
 		ModifyCompilationEnvironmentType InModifyCompilationEnvironment,
+		ValidateCompiledResultType InValidateCompiledResult,
 		SupportsTessellationShadersType InSupportsTessellationShaders
 		);
 
@@ -160,6 +232,8 @@ public:
 	bool SupportsDynamicLighting() const { return bSupportsDynamicLighting; }
 	bool SupportsPrecisePrevWorldPos() const { return bSupportsPrecisePrevWorldPos; }
 	bool SupportsPositionOnly() const { return bSupportsPositionOnly; }
+	bool SupportsCachingMeshDrawCommands() const { return bSupportsCachingMeshDrawCommands; }
+	bool SupportsPrimitiveIdStream() const { return bSupportsPrimitiveIdStream; }
 	/** Returns an int32 specific to this vertex factory type. */
 	inline int32 GetId() const { return HashIndex; }
 	static int32 GetNumVertexFactoryTypes() { return NextHashIndex; }
@@ -190,15 +264,19 @@ public:
 	* Calls the function ptr for the shader type on the given environment
 	* @param Environment - shader compile environment to modify
 	*/
-	void ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
-	{
+	void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment){
 		// Set up the mapping from VertexFactory.usf to the vertex factory type's source code.
 		FString VertexFactoryIncludeString = FString::Printf( TEXT("#include \"%s\""), GetShaderFilename() );
 		OutEnvironment.IncludeVirtualPathToContentsMap.Add(TEXT("/Engine/Generated/VertexFactory.ush"), VertexFactoryIncludeString);
 
 		OutEnvironment.SetDefine(TEXT("HAS_PRIMITIVE_UNIFORM_BUFFER"), 1);
 
-		(*ModifyCompilationEnvironmentRef)(Platform, Material, OutEnvironment);
+		(*ModifyCompilationEnvironmentRef)(this, Platform, Material, OutEnvironment);
+	}
+
+	void ValidateCompiledResult(EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors)
+	{
+		(*ValidateCompiledResultRef)(this, Platform, ParameterMap, OutErrors);
 	}
 
 	/**
@@ -239,9 +317,12 @@ private:
 	uint32 bSupportsDynamicLighting : 1;
 	uint32 bSupportsPrecisePrevWorldPos : 1;
 	uint32 bSupportsPositionOnly : 1;
+	uint32 bSupportsCachingMeshDrawCommands : 1;
+	uint32 bSupportsPrimitiveIdStream : 1;
 	ConstructParametersType ConstructParameters;
 	ShouldCacheType ShouldCacheRef;
 	ModifyCompilationEnvironmentType ModifyCompilationEnvironmentRef;
+	ValidateCompiledResultType ValidateCompiledResultRef;
 	SupportsTessellationShadersType SupportsTessellationShadersRef;
 
 	TLinkedList<FVertexFactoryType*> GlobalListLink;
@@ -297,9 +378,33 @@ extern RENDERCORE_API FVertexFactoryType* FindVertexFactoryType(FName TypeName);
 		bSupportsDynamicLighting, \
 		bPrecisePrevWorldPos, \
 		bSupportsPositionOnly, \
+		false, \
+		false, \
 		Construct##FactoryClass##ShaderParameters, \
 		FactoryClass::ShouldCompilePermutation, \
 		FactoryClass::ModifyCompilationEnvironment, \
+		FactoryClass::ValidateCompiledResult, \
+		FactoryClass::SupportsTessellationShaders \
+		); \
+		FVertexFactoryType* FactoryClass::GetType() const { return &StaticType; }
+
+// @todo - need more extensible type properties - shouldn't have to change all IMPLEMENT_VERTEX_FACTORY_TYPE's when you add one new parameter
+#define IMPLEMENT_VERTEX_FACTORY_TYPE_EX(FactoryClass,ShaderFilename,bUsedWithMaterials,bSupportsStaticLighting,bSupportsDynamicLighting,bPrecisePrevWorldPos,bSupportsPositionOnly,bSupportsCachingMeshDrawCommands,bSupportsPrimitiveIdStream) \
+	FVertexFactoryShaderParameters* Construct##FactoryClass##ShaderParameters(EShaderFrequency ShaderFrequency) { return FactoryClass::ConstructShaderParameters(ShaderFrequency); } \
+	FVertexFactoryType FactoryClass::StaticType( \
+		TEXT(#FactoryClass), \
+		TEXT(ShaderFilename), \
+		bUsedWithMaterials, \
+		bSupportsStaticLighting, \
+		bSupportsDynamicLighting, \
+		bPrecisePrevWorldPos, \
+		bSupportsPositionOnly, \
+		bSupportsCachingMeshDrawCommands, \
+		bSupportsPrimitiveIdStream, \
+		Construct##FactoryClass##ShaderParameters, \
+		FactoryClass::ShouldCompilePermutation, \
+		FactoryClass::ModifyCompilationEnvironment, \
+		FactoryClass::ValidateCompiledResult, \
 		FactoryClass::SupportsTessellationShaders \
 		); \
 		FVertexFactoryType* FactoryClass::GetType() const { return &StaticType; }
@@ -364,15 +469,21 @@ public:
 	 */
 	void SetStreams(ERHIFeatureLevel::Type InFeatureLevel, FRHICommandList& RHICmdList) const;
 
+	void GetStreams(ERHIFeatureLevel::Type InFeatureLevel, FVertexInputStreamArray& OutVertexStreams) const;
+
 	/**
 	 * Call SetStreamSource on instance streams to offset the read pointer
 	 */
 	void OffsetInstanceStreams(FRHICommandList& RHICmdList, uint32 FirstVertex) const;
 
+	void OffsetInstanceStreams(uint32 InstanceOffset, bool bOperateOnPositionOnly, FVertexInputStreamArray& VertexStreams) const;
+
 	/**
 	* Sets the position stream as the current stream source.
 	*/
 	void SetPositionStream(FRHICommandList& RHICmdList) const;
+
+	void GetPositionOnlyStream(FVertexInputStreamArray& OutVertexStreams) const;
 
 	/**
 	* Call SetStreamSource on instance streams to offset the read pointer
@@ -382,7 +493,12 @@ public:
 	/**
 	* Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	*/
-	static void ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment ) {}
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment ) {}
+
+	/**
+	* Can be overridden by FVertexFactory subclasses to fail a compile based on compilation output.
+	*/
+	static void ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors) {}
 
 	/**
 	* Can be overridden by FVertexFactory subclasses to enable HS/DS in D3D11
@@ -431,6 +547,11 @@ public:
 	{ 
 		check(InFeatureLevel != ERHIFeatureLevel::Num);
 		return bSupportsManualVertexFetch && (InFeatureLevel > ERHIFeatureLevel::ES3_1) && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform);
+	}
+
+	inline int32 GetPrimitiveIdStreamIndex(bool bPositionOnly) const
+	{
+		return bPositionOnly ? PositionOnlyPrimitiveIdStreamIndex : PrimitiveIdStreamIndex;
 	}
 
 protected:
@@ -492,6 +613,9 @@ protected:
 	
 	bool bSupportsManualVertexFetch = false;
 
+	int8 PositionOnlyPrimitiveIdStreamIndex = -1;
+	int8 PrimitiveIdStreamIndex = -1;
+
 private:
 
 	/** The position only vertex stream used to render the factory during depth only passes. */
@@ -531,6 +655,26 @@ public:
 		}
 	}
 
+	void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+		) const
+	{
+		if (Parameters)
+		{
+			checkSlow(VertexFactory->GetType() == VertexFactoryType);
+			checkSlow(View || VertexFactoryType->SupportsCachingMeshDrawCommands());
+			Parameters->GetElementShaderBindings(Scene, View, Shader, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
+		}
+	}
+
 	const FVertexFactoryType* GetVertexFactoryType() const { return VertexFactoryType; }
 
 	/** Returns the hash of the vertex factory shader file that this shader was compiled with. */
@@ -555,3 +699,24 @@ private:
 	// Hash of the vertex factory's source file at shader compile time, used by the automatic versioning system to detect changes
 	FSHAHash VFHash;
 };
+
+/**
+* Default PrimitiveId vertex buffer.  Contains a single index of 0.
+* This is used when the VF is used for rendering outside normal mesh passes, where there is no valid scene.
+*/
+class FPrimitiveIdDummyBuffer : public FVertexBuffer
+{
+public:
+
+	virtual void InitRHI() override;
+
+	virtual void ReleaseRHI() override
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+	FShaderResourceViewRHIRef VertexBufferSRV;
+};
+
+extern RENDERCORE_API TGlobalResource<FPrimitiveIdDummyBuffer> GPrimitiveIdDummy;

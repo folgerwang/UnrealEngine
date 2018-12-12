@@ -919,7 +919,7 @@ public:
 	uint8* PersistentlyMappedBuffer;
 
 	/** Unique ID for state shadowing purposes. */
-	const uint32 UniqueID;
+	uint32 UniqueID;
 
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;

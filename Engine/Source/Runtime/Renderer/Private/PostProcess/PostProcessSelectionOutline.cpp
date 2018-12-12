@@ -101,48 +101,15 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 			SetupSceneTextureUniformParameters(SceneContext, EditorView.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
 
-			FDrawingPolicyRenderState DrawRenderState(EditorView, PassUniformBuffer);
+			FBox VolumeBounds[TVC_MAX];
+			EditorView.SetupUniformBufferParameters(SceneContext, VolumeBounds, TVC_MAX, *EditorView.CachedViewUniformShaderParameters);
 
-			FHitProxyDrawingPolicyFactory::ContextType FactoryContext;
-			DrawRenderState.ModifyViewOverrideFlags() |= EDrawingPolicyOverrideFlags::TwoSided;
-			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI());
-			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
-			// Note that the stencil value will overflow with enough selected objects
-			FEditorSelectionDrawingPolicy::ResetStencilValues();
+			FScene* Scene = View.Family->Scene->GetRenderScene();
+			Scene->UniformBuffers.ViewUniformBuffer.UpdateUniformBufferImmediate(*EditorView.CachedViewUniformShaderParameters);
+			EditorView.ViewUniformBuffer = Scene->UniformBuffers.ViewUniformBuffer;
 
 			// Run selection pass on static elements
-			FScene* Scene = View.Family->Scene->GetRenderScene();
-			if (Scene)
-			{
-				Scene->EditorSelectionDrawList.DrawVisible(Context.RHICmdList, EditorView, DrawRenderState, View.StaticMeshEditorSelectionMap, View.StaticMeshBatchVisibility);
-			}
-
-			for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
-			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-				const FPrimitiveSceneProxy* PrimitiveSceneProxy = MeshBatchAndRelevance.PrimitiveSceneProxy;
-
-				// Selected actors should be subdued if any component is individually selected
-				bool bActorSelectionColorIsSubdued = View.bHasSelectedComponents;
-
-				if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline && PrimitiveSceneProxy->WantsSelectionOutline())
-				{
-					int32 StencilValue = 1;
-					if (PrimitiveSceneProxy->GetOwnerName() != NAME_BSP)
-					{
-						StencilValue = FEditorSelectionDrawingPolicy::GetStencilValue(View, PrimitiveSceneProxy);
-
-					}
-
-					// Note that the stencil value will overflow with enough selected objects
-					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
-					DrawRenderState.SetStencilRef(StencilValue);
-
-					const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-					FHitProxyDrawingPolicyFactory::DrawDynamicMesh(Context.RHICmdList, EditorView, FactoryContext, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-				}
-			}
+			SubmitMeshDrawCommandsForView(View, EMeshPass::EditorSelection, nullptr, Context.RHICmdList);
 
 			// to get an outline around the objects if it's partly outside of the screen
 			{

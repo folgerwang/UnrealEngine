@@ -281,7 +281,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	if(LightComponent->LightFunctionMaterial &&
 		LightComponent->LightFunctionMaterial->GetMaterial()->MaterialDomain == MD_LightFunction )
 	{
-		LightFunctionMaterial = LightComponent->LightFunctionMaterial->GetRenderProxy(false);
+		LightFunctionMaterial = LightComponent->LightFunctionMaterial->GetRenderProxy();
 	}
 	else
 	{

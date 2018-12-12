@@ -471,32 +471,32 @@ public:
 
 	////////////////
 	// FMaterialRenderProxy interface.
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			OutMaterialRenderProxy = this;
-			OutMaterial = this;
+			return *this;
 		}
 		else
 		{
-			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
+			OutFallbackMaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, OutFallbackMaterialRenderProxy);
 		}
 	}
 
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const override
 	{
-		return MaterialInterface->GetRenderProxy(0)->GetVectorValue(ParameterInfo, OutValue, Context);
+		return MaterialInterface->GetRenderProxy()->GetVectorValue(ParameterInfo, OutValue, Context);
 	}
 
 	virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const override
 	{
-		return MaterialInterface->GetRenderProxy(0)->GetScalarValue(ParameterInfo, OutValue, Context);
+		return MaterialInterface->GetRenderProxy()->GetScalarValue(ParameterInfo, OutValue, Context);
 	}
 
 	virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const override
 	{
-		return MaterialInterface->GetRenderProxy(0)->GetTextureValue(ParameterInfo,OutValue,Context);
+		return MaterialInterface->GetRenderProxy()->GetTextureValue(ParameterInfo,OutValue,Context);
 	}
 
 	// Material properties.
@@ -2182,30 +2182,11 @@ bool FMaterialUtilities::ExportMaterialUVDensities(UMaterialInterface* InMateria
 		// Allocate the render output.
 		RenderedVectors.Empty(RenderTargetSize.X * RenderTargetSize.Y);
 
-		FMaterialRenderProxy* MaterialProxy = InMaterial->GetRenderProxy(false, false);
+		FMaterialRenderProxy* MaterialProxy = InMaterial->GetRenderProxy();
 		if (!MaterialProxy)
 		{
 			return false;
 		}
-
-		// If for some reason the shadermap of the proxy is not available, it will return the default material.
-		bool bHasValidMaterial = false;
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			CheckForDefaultMaterialCommand,
-			FMaterialRenderProxy*, TestProxy, MaterialProxy,
-			ERHIFeatureLevel::Type, TestFeatureLevel, FeatureLevel,
-			bool*, HasValidMaterial, &bHasValidMaterial,
-		{
-			check(TestProxy && HasValidMaterial);
-			*HasValidMaterial = TestProxy->GetMaterial(TestFeatureLevel) && !TestProxy->GetMaterial(TestFeatureLevel)->IsDefaultMaterial();
-		});
-		FlushRenderingCommands();
-
-		if (!bHasValidMaterial)
-		{
-			return false;
-		}
-
 
 		FBox2D DummyBounds(FVector2D(0, 0), FVector2D(1, 1));
 		TArray<FVector2D> EmptyTexCoords;

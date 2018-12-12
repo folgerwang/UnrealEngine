@@ -353,6 +353,7 @@ enum EVertexElementType
 	VET_UShort2N,		// 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
 	VET_UShort4N,		// 4 X 16 bit word unsigned, normalized 
 	VET_URGB10A2N,		// 10 bit r, g, b and 2 bit a normalized to (value/1023.0f, value/1023.0f, value/1023.0f, value/3.0f)
+	VET_UInt,
 	VET_MAX,
 
 	VET_NumBits = 5,
@@ -378,6 +379,12 @@ enum EUniformBufferUsage
 	UniformBuffer_SingleFrame,
 	// the uniform buffer is used for multiple draw calls, possibly across multiple frames
 	UniformBuffer_MultiFrame,
+};
+
+enum class EUniformBufferValidation
+{
+	None,
+	ValidateResources
 };
 
 /** The base type of a value in a uniform buffer. */

@@ -307,7 +307,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 					FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 
 					FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-					FScopeResourceBarrier ScopeResourceBarrierSource(hCommandList, pResource, pResource->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+					FConditionalScopeResourceBarrier ScopeResourceBarrierSource(hCommandList, pResource, D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
 					// Don't need to transition upload heaps
 
 					uint64 SubAllocOffset = Buffer->ResourceLocation.GetOffsetFromBaseOfResource();

@@ -45,7 +45,7 @@ FTransientDecalRenderData::FTransientDecalRenderData(const FScene& InScene, cons
 	, FadeAlpha(1.0f)
 	, ConservativeRadius(InConservativeRadius)
 {
-	MaterialProxy = InDecalProxy->DecalMaterial->GetRenderProxy(InDecalProxy->bOwnerSelected);
+	MaterialProxy = InDecalProxy->DecalMaterial->GetRenderProxy();
 	MaterialResource = MaterialProxy->GetMaterial(InScene.GetFeatureLevel());
 	check(MaterialProxy && MaterialResource);
 	bHasNormal = MaterialResource->HasNormalConnected();
@@ -371,34 +371,16 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 	const FTransientDecalRenderData& DecalData, EDecalRenderStage DecalRenderStage, const FMatrix& FrustumComponentToClip)
 {
 	const FMaterialShaderMap* MaterialShaderMap = DecalData.MaterialResource->GetRenderingThreadShaderMap();
-	const EDebugViewShaderMode DebugViewShaderMode = View.Family->GetDebugViewShaderMode();
+	const EDebugViewShaderMode DebugViewMode = View.Family->GetDebugViewShaderMode();
 
 	// When in shader complexity, decals get rendered as emissive even though there might not be emissive decals.
 	// FDeferredDecalEmissivePS might not be available depending on the decal blend mode.
-	FDeferredDecalPS* PixelShader = (DecalRenderStage == DRS_Emissive && DebugViewShaderMode == DVSM_None)
+	FDeferredDecalPS* PixelShader = (DecalRenderStage == DRS_Emissive && DebugViewMode == DVSM_None)
 		? MaterialShaderMap->GetShader<FDeferredDecalEmissivePS>()
 		: MaterialShaderMap->GetShader<FDeferredDecalPS>();
 
 	TShaderMapRef<FDeferredDecalVS> VertexShader(View.ShaderMap);
 
-	if (DebugViewShaderMode != DVSM_None)
-	{
-		// For this to work, decal VS must output compatible interpolants. Currently this requires to use FDebugPSInLean.
-		// Here we pass nullptr for the material interface because the use of a static bound shader state is only compatible with unique shaders.
-		IDebugViewModePSInterface* DebugPixelShader = FDebugViewMode::GetPSInterface(View.ShaderMap, nullptr, DebugViewShaderMode); 
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(DebugPixelShader->GetShader());
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit, EApplyRendertargetOption::ForceApply);
-
-		FDrawingPolicyRenderState DrawRenderState(View);
-		DebugPixelShader->SetParameters(RHICmdList, *VertexShader, PixelShader, DecalData.MaterialProxy, *DecalData.MaterialResource, View, DrawRenderState);
-		DebugPixelShader->SetMesh(RHICmdList, View);
-	}
-	else
 	{
 		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
@@ -423,7 +405,7 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 		// to prevent potential shader error (UE-18852 ElementalDemo crashes due to nil constant buffer)
 		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), PrimitiveVS, GIdentityPrimitiveUniformBuffer);
 
-		if (DebugViewShaderMode == DVSM_None)
+		if (DebugViewMode == DVSM_None)
 		{
 			SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PrimitivePS, GIdentityPrimitiveUniformBuffer);
 		}

@@ -148,6 +148,7 @@ struct FWrapLayer
 	static void SetStencilCompareMask(VkResult Result, VkCommandBuffer CommandBuffer, VkStencilFaceFlags FaceMask, uint32 CompareMask) VULKAN_LAYER_BODY
 	static void SetStencilWriteMask(VkResult Result, VkCommandBuffer CommandBuffer, VkStencilFaceFlags FaceMask, uint32 WriteMask) VULKAN_LAYER_BODY
 	static void SetStencilReference(VkResult Result, VkCommandBuffer CommandBuffer, VkStencilFaceFlags FaceMask, uint32 Reference) VULKAN_LAYER_BODY
+	static void UpdateBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize DataSize, const void* pData) VULKAN_LAYER_BODY
 	static void FillBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize Size, uint32 Data) VULKAN_LAYER_BODY
 	static void SetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEvent Event, VkPipelineStageFlags StageMask) VULKAN_LAYER_BODY
 	static void ResetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEvent Event, VkPipelineStageFlags StageMask) VULKAN_LAYER_BODY
@@ -1054,14 +1055,12 @@ namespace VulkanRHI
 		FWrapLayer::CopyImageToBuffer(VK_SUCCESS, CommandBuffer, SrcImage, SrcImageLayout, DstBuffer, RegionCount, Regions);
 	}
 
-#if 0
-	static FORCEINLINE_DEBUGGABLE void  vkCmdUpdateBuffer(
-		VkCommandBuffer                             commandBuffer,
-		VkBuffer                                    dstBuffer,
-		VkDeviceSize                                dstOffset,
-		VkDeviceSize                                dataSize,
-		const uint32*                             pData);
-#endif
+	static FORCEINLINE_DEBUGGABLE void  vkCmdUpdateBuffer(VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize DataSize, const void* pData)
+	{
+		FWrapLayer::UpdateBuffer(VK_RESULT_MAX_ENUM, CommandBuffer, DstBuffer, DstOffset, DataSize, pData);
+		VULKANAPINAMESPACE::vkCmdUpdateBuffer(CommandBuffer, DstBuffer, DstOffset, DataSize, pData);
+		FWrapLayer::UpdateBuffer(VK_SUCCESS, CommandBuffer, DstBuffer, DstOffset, DataSize, pData);
+	}
 
 	static FORCEINLINE_DEBUGGABLE void  vkCmdFillBuffer(VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize Size, uint32 Data)
 	{

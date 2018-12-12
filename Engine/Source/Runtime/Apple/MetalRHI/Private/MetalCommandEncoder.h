@@ -112,6 +112,9 @@ public:
 	/** @returns True if and only if there is valid render pass descriptor set on the encoder, otherwise false. */
 	bool IsRenderPassDescriptorValid(void) const;
 	
+	/** @returns The current render pass descriptor. */
+	mtlpp::RenderPassDescriptor const& GetRenderPassDescriptor(void) const;
+	
 	/** @returns The active render command encoder or nil if there isn't one. */
 	mtlpp::ParallelRenderCommandEncoder& GetParallelRenderCommandEncoder(void);
 	
@@ -455,7 +458,6 @@ private:
 	FMetalSubBufferRing RingBuffer;
 	
 	mtlpp::RenderPassDescriptor RenderPassDesc;
-	NSUInteger RenderPassDescApplied;
 	
 	mtlpp::CommandBuffer CommandBuffer;
 	mtlpp::ParallelRenderCommandEncoder ParallelRenderCommandEncoder;
