@@ -2738,66 +2738,6 @@ void FScene::SetPrecomputedVisibility(const FPrecomputedVisibilityHandler* NewPr
 	});
 }
 
-void FScene::SetShaderMapsOnMaterialResources_RenderThread(FRHICommandListImmediate& RHICmdList, const FMaterialsToUpdateMap& MaterialsToUpdate)
-{
-	SCOPE_CYCLE_COUNTER(STAT_Scene_SetShaderMapsOnMaterialResources_RT);
-
-	TArray<const FMaterial*> MaterialArray;
-
-	for (FMaterialsToUpdateMap::TConstIterator It(MaterialsToUpdate); It; ++It)
-	{
-		FMaterial* Material = It.Key();
-		FMaterialShaderMap* ShaderMap = It.Value();
-		Material->SetRenderingThreadShaderMap(ShaderMap);
-		check(!ShaderMap || ShaderMap->IsValidForRendering());
-		MaterialArray.Add(Material);
-	}
-
-	const auto SceneFeatureLevel = GetFeatureLevel();
-	bool bFoundAnyInitializedMaterials = false;
-
-	// Iterate through all loaded material render proxies and recache their uniform expressions if needed
-	// This search does not scale well, but is only used when uploading async shader compile results
-	for (TSet<FMaterialRenderProxy*>::TConstIterator It(FMaterialRenderProxy::GetMaterialRenderProxyMap()); It; ++It)
-	{
-		FMaterialRenderProxy* MaterialProxy = *It;
-		FMaterial* Material = MaterialProxy->GetMaterialNoFallback(SceneFeatureLevel);
-
-		if (Material && MaterialsToUpdate.Contains(Material))
-		{
-			// Materials used as async fallbacks can't be updated through this mechanism and should have been updated synchronously earlier
-			check(!Material->RequiresSynchronousCompilation());
-			MaterialProxy->CacheUniformExpressions(true);
-			bFoundAnyInitializedMaterials = true;
-
-			const FMaterial& MaterialForRendering = *MaterialProxy->GetMaterial(SceneFeatureLevel);
-			check(MaterialForRendering.GetRenderingThreadShaderMap());
-
-			check(!MaterialProxy->UniformExpressionCache[SceneFeatureLevel].bUpToDate
-				|| MaterialProxy->UniformExpressionCache[SceneFeatureLevel].CachedUniformExpressionShaderMap == MaterialForRendering.GetRenderingThreadShaderMap());
-
-			check(MaterialForRendering.GetRenderingThreadShaderMap()->IsValidForRendering());
-		}
-	}
-}
-
-void FScene::SetShaderMapsOnMaterialResources(const TMap<FMaterial*, class FMaterialShaderMap*>& MaterialsToUpdate)
-{
-	for (TMap<FMaterial*, FMaterialShaderMap*>::TConstIterator It(MaterialsToUpdate); It; ++It)
-	{
-		FMaterial* Material = It.Key();
-		check(!Material->RequiresSynchronousCompilation());
-	}
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FSetShaderMapOnMaterialResources,
-		FScene*,Scene,this,
-		FMaterialsToUpdateMap,MaterialsToUpdate,MaterialsToUpdate,
-	{
-		Scene->SetShaderMapsOnMaterialResources_RenderThread(RHICmdList, MaterialsToUpdate);
-	});
-}
-
 void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmediate& RHICmdList, const TArray<const FMaterial*>& Materials)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Scene_UpdateStaticDrawListsForMaterials_RT);

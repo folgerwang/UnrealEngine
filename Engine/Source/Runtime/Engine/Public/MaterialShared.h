@@ -2378,6 +2378,9 @@ private:
 		bool bSeekToEnd = false);
 };
 
+/** Sets shader maps on the specified materials without blocking. */
+extern ENGINE_API void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate);
+
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 bool HasMaterialResource(
 	UMaterial* Material,

@@ -186,9 +186,6 @@ public:
 	/** Sets the precomputed volume distance field for the scene, or NULL to clear the current one. */
 	virtual void SetPrecomputedVolumeDistanceField(const class FPrecomputedVolumeDistanceField* PrecomputedVolumeDistanceField) {}
 
-	/** Sets shader maps on the specified materials without blocking. */
-	virtual void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate) {}
-
 	/** Updates static draw lists for the given set of materials. */
 	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) {}
 

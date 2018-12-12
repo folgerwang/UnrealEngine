@@ -2105,10 +2105,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 
 		const TSet<FSceneInterface*>& AllocatedScenes = GetRendererModule().GetAllocatedScenes();
 
-		for (TSet<FSceneInterface*>::TConstIterator SceneIt(AllocatedScenes); SceneIt; ++SceneIt)
-		{
-			(*SceneIt)->SetShaderMapsOnMaterialResources(MaterialsToApplyToScene);
-		}
+		SetShaderMapsOnMaterialResources(MaterialsToApplyToScene);
 
 #if WITH_EDITOR
 		for (TMap<FMaterial*, FMaterialShaderMap*>::TIterator It(MaterialsToUpdate); It; ++It)

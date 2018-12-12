@@ -3368,3 +3368,73 @@ void FMaterialResourceProxyReader::Initialize(
 		OffsetToEnd = OffsetToFirstResource + NumBytes;
 	}
 }
+
+typedef TMap<FMaterial*, FMaterialShaderMap*> FMaterialsToUpdateMap;
+
+void SetShaderMapsOnMaterialResources_RenderThread(FRHICommandListImmediate& RHICmdList, const FMaterialsToUpdateMap& MaterialsToUpdate)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Scene_SetShaderMapsOnMaterialResources_RT);
+
+	TArray<const FMaterial*> MaterialArray;
+	bool bUpdateFeatureLevel[ERHIFeatureLevel::Num] = { false };
+
+	for (FMaterialsToUpdateMap::TConstIterator It(MaterialsToUpdate); It; ++It)
+	{
+		FMaterial* Material = It.Key();
+		FMaterialShaderMap* ShaderMap = It.Value();
+		Material->SetRenderingThreadShaderMap(ShaderMap);
+		check(!ShaderMap || ShaderMap->IsValidForRendering());
+		MaterialArray.Add(Material);
+		bUpdateFeatureLevel[Material->GetFeatureLevel()] = true;
+	}
+
+	bool bFoundAnyInitializedMaterials = false;
+
+	// Iterate through all loaded material render proxies and recache their uniform expressions if needed
+	// This search does not scale well, but is only used when uploading async shader compile results
+	for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ARRAY_COUNT(bUpdateFeatureLevel); ++FeatureLevelIndex)
+	{
+		if (bUpdateFeatureLevel[FeatureLevelIndex])
+		{
+			const ERHIFeatureLevel::Type MaterialFeatureLevel = (ERHIFeatureLevel::Type) FeatureLevelIndex;
+
+			for (TSet<FMaterialRenderProxy*>::TConstIterator It(FMaterialRenderProxy::GetMaterialRenderProxyMap()); It; ++It)
+			{
+				FMaterialRenderProxy* MaterialProxy = *It;
+				FMaterial* Material = MaterialProxy->GetMaterialNoFallback(MaterialFeatureLevel);
+
+				if (Material && MaterialsToUpdate.Contains(Material))
+				{
+					// Materials used as async fallbacks can't be updated through this mechanism and should have been updated synchronously earlier
+					check(!Material->RequiresSynchronousCompilation());
+					MaterialProxy->CacheUniformExpressions(true);
+					bFoundAnyInitializedMaterials = true;
+
+					const FMaterial& MaterialForRendering = *MaterialProxy->GetMaterial(MaterialFeatureLevel);
+					check(MaterialForRendering.GetRenderingThreadShaderMap());
+
+					check(!MaterialProxy->UniformExpressionCache[MaterialFeatureLevel].bUpToDate
+						|| MaterialProxy->UniformExpressionCache[MaterialFeatureLevel].CachedUniformExpressionShaderMap == MaterialForRendering.GetRenderingThreadShaderMap());
+
+					check(MaterialForRendering.GetRenderingThreadShaderMap()->IsValidForRendering());
+				}
+			}
+		}
+	}
+}
+
+void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate)
+{
+	for (TMap<FMaterial*, FMaterialShaderMap*>::TConstIterator It(MaterialsToUpdate); It; ++It)
+	{
+		FMaterial* Material = It.Key();
+		check(!Material->RequiresSynchronousCompilation());
+	}
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		FSetShaderMapOnMaterialResources,
+		FMaterialsToUpdateMap, MaterialsToUpdate, MaterialsToUpdate,
+		{
+			SetShaderMapsOnMaterialResources_RenderThread(RHICmdList, MaterialsToUpdate);
+		});
+}
