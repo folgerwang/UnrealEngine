@@ -62,7 +62,7 @@ struct FSimulationParameters
 		, bool OwnsTrackIn
 		, bool SimulatingIn
 		, const FFieldSystem* FieldSystemIn
-		, FTransform WorldTransformIn
+		, FTransform& WorldTransformIn
 		, EObjectTypeEnum ObjectTypeIn
 		, bool EnableClusteringIn
 		, int32 MaxClusterLevelIn

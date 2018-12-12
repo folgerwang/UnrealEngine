@@ -854,7 +854,7 @@ bool TPBDCollisionConstraintPGS<T, d>::NearestPoint(TArray<Pair<TVector<T, d>, T
 }
 
 template<class T, int d>
-void UpdateLevelsetConstraintHelperCCD(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d> LocalToWorld1, const TRigidTransform<T, d> LocalToWorld2, const T Thickness, TRigidBodyContactConstraintPGS<T, d>& Constraint)
+void UpdateLevelsetConstraintHelperCCD(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d>& LocalToWorld1, const TRigidTransform<T, d>& LocalToWorld2, const T Thickness, TRigidBodyContactConstraintPGS<T, d>& Constraint)
 {
 	if(InParticles.CollisionParticles(Constraint.ParticleIndex))
 	{
@@ -876,7 +876,7 @@ void UpdateLevelsetConstraintHelperCCD(const TRigidParticles<T, d>& InParticles,
 }
 
 template<class T, int d>
-void UpdateLevelsetConstraintHelper(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d> LocalToWorld1, const TRigidTransform<T, d> LocalToWorld2, const T Thickness, TRigidBodyContactConstraintPGS<T, d>& Constraint)
+void UpdateLevelsetConstraintHelper(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d>& LocalToWorld1, const TRigidTransform<T, d>& LocalToWorld2, const T Thickness, TRigidBodyContactConstraintPGS<T, d>& Constraint)
 {
 	if(InParticles.CollisionParticles(Constraint.ParticleIndex))
 	{
