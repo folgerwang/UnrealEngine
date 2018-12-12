@@ -190,7 +190,6 @@ bool FComponentSweepMultiTest::RunTest(const FString& Parameters)
 			// Setup the query
 			FComponentQueryParams ShapeQueryParameters(SCENE_QUERY_STAT(TestTrace), nullptr);
 			ShapeQueryParameters.bTraceComplex = true;
-			ShapeQueryParameters.bTraceAsyncScene = true;
 
 			// Perform test
 			TArray<FHitResult> OutHits;

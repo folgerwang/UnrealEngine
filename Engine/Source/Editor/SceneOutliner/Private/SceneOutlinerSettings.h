@@ -28,4 +28,8 @@ class USceneOutlinerSettings
 	/** True when the Scene Outliner is only displaying selected Actors */
 	UPROPERTY(config)
 	uint32 bShowOnlySelectedActors:1;
+
+	/** True when the Scene Outliner is only displaying Actor Components*/
+	UPROPERTY(config)
+	uint32 bShowActorComponents : 1;
 };

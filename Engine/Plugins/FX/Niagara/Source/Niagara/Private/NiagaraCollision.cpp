@@ -207,7 +207,6 @@ int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Direc
 
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(NiagraAsync));
 			QueryParams.OwnerTag = "Niagara";
-			QueryParams.bTraceAsyncScene = true;
 			QueryParams.bFindInitialOverlaps = false;
 			QueryParams.bReturnFaceIndex = false;
 			QueryParams.bReturnPhysicalMaterial = true;

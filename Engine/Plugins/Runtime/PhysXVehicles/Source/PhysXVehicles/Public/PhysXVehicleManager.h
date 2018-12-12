@@ -26,7 +26,7 @@ public:
 	// Used when designer tweaks values while the game is running.
 	static uint32											VehicleSetupTag;
 
-	FPhysXVehicleManager(FPhysScene* PhysScene, uint32 SceneType);
+	FPhysXVehicleManager(FPhysScene* PhysScene);
 	~FPhysXVehicleManager();
 
 	/**
@@ -62,11 +62,11 @@ public:
 	/**
 	 * Update vehicle data before the scene simulates
 	 */
-	void Update(FPhysScene* PhysScene, uint32 SceneType, float DeltaTime);
+	void Update(FPhysScene* PhysScene, float DeltaTime);
 	
 	/**
 	 * Update vehicle tuning and other state such as input */
-	void PreTick(FPhysScene* PhysScene, uint32 SceneType, float DeltaTime);
+	void PreTick(FPhysScene* PhysScene, float DeltaTime);
 
 	/** Detach this vehicle manager from a FPhysScene (remove delegates, remove from map etc) */
 	void DetachFromPhysScene(FPhysScene* PhysScene);

@@ -42,7 +42,7 @@
 #include "TimerManager.h"
 #include "Camera/CameraPhotography.h"
 #include "HAL/LowLevelMemTracker.h"
-#if WITH_APEIRON
+#if WITH_CHAOS
 #include "PhysicsEngine/CollisionAnalyzerCapture.h"
 #endif
 

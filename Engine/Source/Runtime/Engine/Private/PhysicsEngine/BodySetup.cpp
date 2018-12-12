@@ -571,11 +571,7 @@ void UBodySetup::CreatePhysicsMeshesAsync(FOnAsyncPhysicsCookFinished OnAsyncPhy
 #endif
 
 #if WITH_PHYSX_COOKING
-	UActorComponent* OwningComp = Cast<UActorComponent>(GetOuter());
-	UWorld* World = OwningComp ? OwningComp->GetWorld() : nullptr;
-	const bool bIsRuntime = World && World->IsGameWorld();
-
-	if (bIsRuntime && !IsRuntimeCookingEnabled())
+	if (IsRuntime(this) && !IsRuntimeCookingEnabled())
 	{
 		UE_LOG(LogPhysics, Error, TEXT("Attempting to build physics data for %s at runtime, but runtime cooking is disabled (see the RuntimePhysXCooking plugin)."), *GetPathName());
 		FinishCreatePhysicsMeshesAsync(nullptr, OnAsyncPhysicsCookFinished);
@@ -688,14 +684,12 @@ void UBodySetup::ClearPhysicsMeshes()
 
 void UBodySetup::AddShapesToRigidActor_AssumesLocked(
 	FBodyInstance* OwningInstance, 
-	EPhysicsSceneType SceneType, 
 	FVector& Scale3D, 
 	UPhysicalMaterial* SimpleMaterial,
 	TArray<UPhysicalMaterial*>& ComplexMaterials, 
 	const FBodyCollisionData& BodyCollisionData,
 	const FTransform& RelativeTM, 
-	TArray<FPhysicsShapeHandle>* NewShapes, 
-	bool bShapeSharing)
+	TArray<FPhysicsShapeHandle>* NewShapes)
 {
 	check(OwningInstance);
 
@@ -712,8 +706,6 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(
 	}
 
 	FGeometryAddParams AddParams;
-	AddParams.SceneType = SceneType;
-	AddParams.bSharedShapes = bShapeSharing;
 	AddParams.bDoubleSided = bDoubleSidedGeometry;
 	AddParams.CollisionData = BodyCollisionData;
 	AddParams.CollisionTraceType = GetCollisionTraceFlag();

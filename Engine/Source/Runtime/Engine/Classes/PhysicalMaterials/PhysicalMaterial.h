@@ -131,7 +131,8 @@ public:
 	virtual void FinishDestroy() override;
 	//~ End UObject Interface
 
-	const FPhysicsMaterialHandle& GetPhysicsMaterial();
+	/** Get the physics-interface derived version of this material */
+	FPhysicsMaterialHandle& GetPhysicsMaterial();
 
 	/** Determine Material Type from input PhysicalMaterial **/
 	static EPhysicalSurface DetermineSurfaceType(UPhysicalMaterial const* PhysicalMaterial);

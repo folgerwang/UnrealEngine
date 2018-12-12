@@ -23,23 +23,30 @@ namespace UnrealBuildTool.Rules
                     "VREditor",
 					"Projects",
                     "RHI",
-                    "LevelEditor"
+					"LevelEditor",
+                    "MeshBuilder",
+                    "BlastAuthoring",
+                    "GeometryCollectionCore",
+                    "GeometryCollectionEngine",
                 }
             );
 
-			PrivateIncludePathModuleNames.AddRange(
+            PrivateIncludePathModuleNames.AddRange(
 				new string[] {
                     "ContentBrowser",
 					"LevelEditor",
-                    "MeshDescription"
-				}
-			);
+                    "MeshDescription",
+                }
+            );
 
-			DynamicallyLoadedModuleNames.AddRange(
+            DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
                     "ContentBrowser"
-				}
-			);
+                }
+            );
+
+            EnableMeshEditorSupport(Target);
+
         }
     }
 }

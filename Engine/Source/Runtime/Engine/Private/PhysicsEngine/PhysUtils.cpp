@@ -243,20 +243,18 @@ FCollisionResponseContainer::FCollisionResponseContainer(ECollisionResponse Defa
 	SetAllChannels(DefaultResponse);
 }
 
-#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || PHYSICS_INTERFACE_LLIMMEDIATE
 bool FPhysScene::ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
 {
     return false;
 }
 #else
-/** PxScene visualization for a particular EPhysicsSceneType */
-bool FPhysScene::ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+/** PxScene visualization*/
+bool FPhysScene::ExecPxVis(const TCHAR* Cmd, FOutputDevice* Ar)
 {
-	check(SceneType < PST_MAX);
-
 #if WITH_PHYSX
 	// Get the scene to set flags on
-	PxScene* PScene = GetPxScene(SceneType);
+	PxScene* PScene = GetPxScene();
 
 	struct { const TCHAR* Name; PxVisualizationParameter::Enum Flag; float Size; } Flags[] =
 	{
@@ -343,22 +341,20 @@ bool FPhysScene::ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar
 }
 #endif
 
-#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || PHYSICS_INTERFACE_LLIMMEDIATE
 bool FPhysScene::ExecApexVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
 {
     return false;
 }
 #else
-/** PxScene visualization for a particular EPhysicsSceneType */
-bool FPhysScene::ExecApexVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+/** PxScene visualization */
+bool FPhysScene::ExecApexVis(const TCHAR* Cmd, FOutputDevice* Ar)
 {
 	check(Cmd);
-	check(SceneType < PST_MAX);
-
 #if WITH_PHYSX
 #if WITH_APEX
 	// Get the scene to set flags on
-	apex::Scene* ApexScene = GetApexScene(SceneType);
+	apex::Scene* ApexScene = GetApexScene();
 
 	if (ApexScene == NULL)
 	{
@@ -469,7 +465,7 @@ void PvdConnect(FString Host, bool bVisualization)
 }
 #endif
 
-#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || PHYSICS_INTERFACE_LLIMMEDIATE
 bool FPhysicsInterface::ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 {
     return false;
@@ -477,74 +473,9 @@ bool FPhysicsInterface::ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UW
 #else
 bool FPhysScene::HandleExecCommands(const TCHAR* Cmd, FOutputDevice* Ar)
 {
-	if (FParse::Command(&Cmd, TEXT("PXVIS")))
+	if (FParse::Command(&Cmd, TEXT("PXVIS")) || FParse::Command(&Cmd, TEXT("APEXVIS")))
 	{
-		// See which scene type(s) is(are) requested
-		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
-		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && HasAsyncScene();
-		if (!bVisualizeSync && !bVisualizeAsync)
-		{
-			// If none are requested, do both
-			bVisualizeSync = true;
-			bVisualizeAsync = HasAsyncScene();
-		}
-
-		bool bResult = false;
-
-		// Visualize sync scene if requested
-		if (bVisualizeSync)
-		{
-			if (ExecPxVis(PST_Sync, Cmd, Ar) != 0)
-			{
-				bResult = 1;
-			}
-		}
-
-		// Visualize async scene if requested
-		if (bVisualizeAsync)
-		{
-			if (ExecPxVis(PST_Async, Cmd, Ar) != 0)
-			{
-				bResult = true;
-			}
-		}
-
-		return bResult;
-	}
-
-	if (FParse::Command(&Cmd, TEXT("APEXVIS")))
-	{
-		// See which scene type(s) is(are) requested
-		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
-		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && HasAsyncScene();
-		if (!bVisualizeSync && !bVisualizeAsync)
-		{
-			// If none are requested, do both
-			bVisualizeSync = true;
-			bVisualizeAsync = HasAsyncScene();
-		}
-
-		bool bResult = false;
-
-		// Visualize sync scene if requested
-		if (bVisualizeSync)
-		{
-			if (ExecApexVis(PST_Sync, Cmd, Ar) != 0)
-			{
-				bResult = 1;
-			}
-		}
-
-		// Visualize async scene if requested
-		if (bVisualizeAsync)
-		{
-			if (ExecApexVis(PST_Async, Cmd, Ar) != 0)
-			{
-				bResult = true;
-			}
-		}
-
-		return bResult;
+		return ExecPxVis(Cmd, Ar);
 	}
 
 	return false;

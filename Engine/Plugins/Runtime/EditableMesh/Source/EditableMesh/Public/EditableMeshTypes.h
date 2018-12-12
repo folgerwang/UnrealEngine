@@ -96,6 +96,9 @@ enum class EEditableMeshElementType
 	/** A polygon with at least three 3D points.  It could be triangle, quad, or more complex shape */
 	Polygon,
 
+	/** Mesh Fracturing Mode */
+	Fracture,
+
 	/** Represents any element type */
 	Any,
 };

@@ -2088,8 +2088,7 @@ namespace UnrealBuildTool
 					IsCurrentPlatform = Platform == UnrealTargetPlatform.Win64 || Platform == UnrealTargetPlatform.Win32;
 				}
 
-				if ((TargetType == TargetType.Game || TargetType == TargetType.Client || TargetType == TargetType.Server)
-					&& IsCurrentPlatform)
+				if (IsCurrentPlatform)
 				{
 					// The hardcoded engine directory needs to be a relative path to match the normal EngineDir format. Not doing so breaks the network file system (TTP#315861).
 					string OutputFilePath = ExecutableBinary.OutputFilePath.FullName;

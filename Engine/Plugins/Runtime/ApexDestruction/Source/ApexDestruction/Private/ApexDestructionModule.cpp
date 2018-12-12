@@ -190,7 +190,7 @@ public:
 
 	}
 
-	virtual void OnInitPhys(FPhysScene* PhysScene, EPhysicsSceneType SceneType)
+	virtual void OnInitPhys(FPhysScene* PhysScene)
 	{
 #if WITH_APEX
 		//Can't set this flag after scene already created
@@ -200,12 +200,11 @@ public:
 			PScene->setFlag(PxSceneFlag::eENABLE_KINEMATIC_PAIRS, true);
 		}*/
 
-		if((PhysScene->HasAsyncScene() && SceneType == PST_Async) || (!PhysScene->HasAsyncScene() && SceneType == PST_Sync))
 		{
 			// Make sure we use the sync scene for apex world support of destructibles in the async scene
-			apex::Scene* ApexScene = PhysScene->GetApexScene(PhysScene->HasAsyncScene() ? PST_Async : PST_Sync);
+			apex::Scene* ApexScene = PhysScene->GetApexScene();
 			check(ApexScene);
-			PxScene* SyncPhysXScene = PhysScene->GetPxScene(PST_Sync);
+			PxScene* SyncPhysXScene = PhysScene->GetPxScene();
 			check(SyncPhysXScene);
 			check(GApexModuleDestructible);
 			GApexModuleDestructible->setWorldSupportPhysXScene(*ApexScene, SyncPhysXScene);

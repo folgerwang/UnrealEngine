@@ -10,7 +10,7 @@ class FPhysScene_PhysX;
 
 #if WITH_PHYSX
 
-ENGINE_API PxShapeFlags BuildPhysXShapeFlags(FBodyCollisionFlags BodyCollisionFlags, bool bPhysicsStatic, bool bIsSync, bool bIsTriangleMesh);
+ENGINE_API PxShapeFlags BuildPhysXShapeFlags(FBodyCollisionFlags BodyCollisionFlags, bool bPhysicsStatic, bool bIsTriangleMesh);
 ENGINE_API PxFilterData U2PFilterData(const FCollisionFilterData& FilterData);
 FCollisionFilterData P2UFilterData(const PxFilterData& PFilterData);
 ENGINE_API PxGeometryType::Enum U2PCollisionShapeType(ECollisionShapeType InUType);
@@ -126,7 +126,7 @@ inline void ModifyShapeFlag_Isolated(PxShape* PShape, const bool bValue)
 // MISC
 
 /** Convert from unreal to physx capsule rotation */
-PxQuat ConvertToPhysXCapsuleRot(const FQuat& GeomRot);
+FQuat ConvertToPhysXCapsuleRot(const FQuat& GeomRot);
 /** Convert from physx to unreal capsule rotation */
 FQuat ConvertToUECapsuleRot(const PxQuat & GeomRot);
 FQuat ConvertToUECapsuleRot(const FQuat & GeomRot);
@@ -136,12 +136,12 @@ PxTransform ConvertToPhysXCapsulePose(const FTransform& GeomPose);
 // FILTER DATA
 
 /** Utility for creating a PhysX PxFilterData for performing a query (trace) against the scene */
-PxFilterData CreateQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const struct FCollisionQueryParams& QueryParam, const struct FCollisionObjectQueryParams & ObjectParam, const bool bMultitrace);
+FCollisionFilterData CreateQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const struct FCollisionQueryParams& QueryParam, const struct FCollisionObjectQueryParams & ObjectParam, const bool bMultitrace);
 
 
 
 //Find the face index for a given hit. This gives us a chance to modify face index based on things like most opposing normal
-PxU32 FindFaceIndex(const PxSweepHit& PHit, const PxVec3& UnitDirection);
+PxU32 FindFaceIndex(const FHitLocation& PHit, const FVector& UnitDirection);
 
 // Adapts a FCollisionShape to a PxGeometry type, used for various queries
 struct FPhysXShapeAdaptor
@@ -149,27 +149,25 @@ struct FPhysXShapeAdaptor
 public:
 	FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& CollisionShape);
 
-	PxGeometry& GetGeometry() const
+	const PxGeometry& GetGeometry() const
 	{
-		return *PtrToUnionData;
+		return GeometryHolder.any();
 	}
 
 public:
-	PxTransform GetGeomPose(const FVector& Pos) const
+	FTransform GetGeomPose(const FVector& Pos) const
 	{
-		return PxTransform(U2PVector(Pos), Rotation);
+		return FTransform(Rotation, Pos);
 	}
 
-	PxQuat GetGeomOrientation() const
+	const FQuat& GetGeomOrientation() const
 	{
 		return Rotation;
 	}
 
 private:
-	TUnion<PxSphereGeometry, PxBoxGeometry, PxCapsuleGeometry> UnionData;
-
-	PxGeometry* PtrToUnionData;
-	PxQuat Rotation;
+	PxGeometryHolder GeometryHolder;
+	FQuat Rotation;
 };
 
 struct FConstraintBrokenDelegateData

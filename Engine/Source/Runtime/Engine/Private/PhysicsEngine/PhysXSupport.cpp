@@ -271,7 +271,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	}
 	
 	// if these bodies are from the same component, use the disable table to see if we should disable collision. This case should only happen for things like skeletalmesh and destruction. The table is only created for skeletal mesh components at the moment
-#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !PHYSICS_INTERFACE_LLIMMEDIATE
 	if(filterData0.word2 == filterData1.word2)
 	{
 		check(constantBlockSize == sizeof(FPhysSceneShaderInfo));
@@ -336,7 +336,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	return PxFilterFlags();
 }
 
-#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !PHYSICS_INTERFACE_LLIMMEDIATE
 
 /** Figures out the new FCollisionNotifyInfo needed for pending notification. It adds it, and then returns an array that goes from pair index to notify collision index */
 TArray<int32> AddCollisionNotifyInfo(const FBodyInstance* Body0, const FBodyInstance* Body1, const physx::PxContactPair * Pairs, uint32 NumPairs, TArray<FCollisionNotifyInfo> & PendingNotifyInfos)
@@ -458,7 +458,7 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 		}
 	}
 
-	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = OwningScene->GetPendingCollisionNotifies(SceneType);
+	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = OwningScene->GetPendingCollisionNotifies();
 
 	uint32 PreAddingCollisionNotify = PendingCollisionNotifies.Num() - 1;
 	TArray<int32> PairNotifyMapping = AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PendingCollisionNotifies);
@@ -561,7 +561,7 @@ void FPhysXSimEventCallback::onConstraintBreak( PxConstraintInfo* constraints, P
 		{
 			if (FConstraintInstance* Constraint = FPhysxUserData::Get<FConstraintInstance>(Joint->userData))
 			{
-				OwningScene->AddPendingOnConstraintBreak(Constraint, SceneType);
+				OwningScene->AddPendingOnConstraintBreak(Constraint);
 			}
 		}
 	}
@@ -573,7 +573,7 @@ void FPhysXSimEventCallback::onWake(PxActor** Actors, PxU32 Count)
 	{
 		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
 		{
-			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Wakeup, SceneType);
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Wakeup);
 		}
 	}
 }
@@ -584,7 +584,7 @@ void FPhysXSimEventCallback::onSleep(PxActor** Actors, PxU32 Count)
 	{
 		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
 		{
-			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Sleep, SceneType);
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Sleep);
 		}
 	}
 }
@@ -852,7 +852,7 @@ void AddToCollection(PxCollection* PCollection, PxBase* PBase)
 
 PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMaterials, const TArray<UBodySetup*>& BodySetups, uint64 BaseId)
 {
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     ensure(false);
     return nullptr;
 #else

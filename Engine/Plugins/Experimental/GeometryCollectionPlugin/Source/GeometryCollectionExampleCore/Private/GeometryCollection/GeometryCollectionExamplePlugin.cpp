@@ -1,0 +1,31 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#include "GeometryCollection/GeometryCollectionExamplePlugin.h"
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+
+
+
+
+class FGeometryCollectionExamplePlugin : public IGeometryCollectionExamplePlugin
+{
+	/** IModuleInterface implementation */
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+};
+
+IMPLEMENT_MODULE(FGeometryCollectionExamplePlugin, GeometryCollectionExamplePlugin)
+
+
+
+void FGeometryCollectionExamplePlugin::StartupModule()
+{
+
+}
+
+
+void FGeometryCollectionExamplePlugin::ShutdownModule()
+{
+
+}

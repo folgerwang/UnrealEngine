@@ -415,14 +415,12 @@ public:
 	 */
 	ENGINE_API void AddShapesToRigidActor_AssumesLocked(
 		FBodyInstance* OwningInstance, 
-		EPhysicsSceneType SceneType, 
 		FVector& Scale3D, 
 		UPhysicalMaterial* SimpleMaterial,
 		TArray<UPhysicalMaterial*>& ComplexMaterials, 
 		const FBodyCollisionData& BodyCollisionData,
 		const FTransform& RelativeTM = FTransform::Identity, 
-		TArray<FPhysicsShapeHandle>* NewShapes = NULL, 
-		bool bShapeSharing = false);
+		TArray<FPhysicsShapeHandle>* NewShapes = NULL);
 
 	friend struct FIterateBodySetupHelper;
 

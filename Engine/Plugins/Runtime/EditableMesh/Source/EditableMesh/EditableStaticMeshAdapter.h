@@ -162,6 +162,10 @@ public:
 	virtual void OnAssignPolygonsToPolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons ) override;
 	virtual void OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs ) override;
 
+#if WITH_EDITOR
+	virtual void GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams) override;
+#endif // WITH_EDITOR
+
 
 private:
 

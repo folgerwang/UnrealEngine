@@ -71,6 +71,9 @@ namespace SceneOutliner
 		/** Array of children contained underneath this item */
 		mutable TArray<TWeakPtr<ITreeItem>> Children;
 
+		/** Array of sub-component data contained within this item */
+		mutable TArray<FTreeItemRef> SubComponentItems;
+
 	public:
 
 		const FSharedOutlinerData& GetSharedData() const
@@ -115,6 +118,12 @@ namespace SceneOutliner
 		/** Create this item's parent. It is valid to return nullptr if this item has no parent */
 		virtual FTreeItemPtr CreateParent() const = 0;
 
+		/** Get this item's sub-component items, if any. */
+		FORCEINLINE const TArray<FTreeItemRef>& GetSubComponentItems() const
+		{
+			return SubComponentItems;
+		}
+
 	public:
 
 	 	/** Visit this tree item */
@@ -151,6 +160,9 @@ namespace SceneOutliner
 
 		/** Populate the specified drag/drop payload with any relevant information for this type */
 		virtual void PopulateDragDropPayload(FDragDropPayload& Payload) const = 0;
+
+		virtual void SynchronizeSubItemSelection(TSharedPtr<class SOutlinerTreeView> OutlinerTreeView) {}
+
 	};
 
 }	// namespace SceneOutliner
