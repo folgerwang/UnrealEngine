@@ -1489,12 +1489,16 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 		{
 			KeySuffix += "MD";
 			KeySuffix += SrcModel.MeshDescriptionBulkData->GetIdString();
-			// @todo: handle generated LODs? They will not have a valid MeshDescription bulk data
 		}
-		else
+		else if (!SrcModel.RawMeshBulkData->IsEmpty())
 		{
 			// Legacy path for old assets
 			KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
+		}
+		else
+		{
+			// If neither mesh description nor raw mesh bulk data are valid, this is a generated LOD
+			KeySuffix += "_";
 		}
 
 		// Serialize the build and reduction settings into a temporary array. The archive
@@ -2604,6 +2608,12 @@ void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
 	{
 		check(RawMeshBulkData != NULL);
 		RawMeshBulkData->Serialize(Ar, Owner);
+	}
+
+	// Initialize the StaticMeshOwner
+	if (Ar.IsLoading())
+	{
+		StaticMeshOwner = Owner;
 	}
 
 	// Always serialize the MeshDescription bulk data when transacting (so undo/redo works correctly).
