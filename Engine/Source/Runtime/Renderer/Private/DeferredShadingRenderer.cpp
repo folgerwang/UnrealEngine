@@ -375,13 +375,6 @@ void FDeferredShadingSceneRenderer::RenderVisualizeTexturePool(FRHICommandListIm
 }
 #endif
 
-void FDeferredShadingSceneRenderer::GenerateDynamicMeshDrawCommands()
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateDynamicMeshDrawCommands);
-
-	FSceneRenderer::GenerateDynamicMeshDrawCommands();
-}
-
 /** 
 * Finishes the view family rendering.
 */

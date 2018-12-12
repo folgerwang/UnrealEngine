@@ -1533,7 +1533,7 @@ protected:
 
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
 
-	virtual void GenerateDynamicMeshDrawCommands();
+	void GenerateDynamicMeshDrawCommands();
 
 	void ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
 
@@ -1714,8 +1714,6 @@ protected:
 	void BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo);
 
 	void InitViews(FRHICommandListImmediate& RHICmdList);
-
-	virtual void GenerateDynamicMeshDrawCommands() override;
 
 	/** Renders the opaque base pass for mobile. */
 	void RenderMobileBasePass(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);

@@ -863,7 +863,7 @@ private:
 		ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, Material);
 	
 		FMeshMaterialShaderElementData ShaderElementData;
-		ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, -1, false);
+		ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
 
 		FMeshDrawCommandSortKey SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy);
 		

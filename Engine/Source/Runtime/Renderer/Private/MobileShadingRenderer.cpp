@@ -221,11 +221,6 @@ void FMobileSceneRenderer::PostInitViewCustomData()
 	}
 }
 
-void FMobileSceneRenderer::GenerateDynamicMeshDrawCommands()
-{
-	FSceneRenderer::GenerateDynamicMeshDrawCommands();
-}
-
 /** 
 * Renders the view family. 
 */
