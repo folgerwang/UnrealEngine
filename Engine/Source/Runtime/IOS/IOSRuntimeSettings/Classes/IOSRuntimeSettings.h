@@ -513,7 +513,4 @@ public:
 	// End of UObject interface
 #endif
 
-private:
-	virtual void EnsureOrientationInProjectDefaultEngine();
-
 };
