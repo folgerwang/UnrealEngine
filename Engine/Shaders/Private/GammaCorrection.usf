@@ -17,7 +17,7 @@ void MainVS(
 	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord);
 }
 
-half3 ColorScale;
+half4 ColorScale;
 half4 OverlayColor;
 half InverseGamma;
 
@@ -46,7 +46,7 @@ void MainPS(float2 UV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	half3 LDRColor = TonemapAndGammaCorrect(LinearColor.rgb);
 	
 	// blend with custom LDR color, used for Fade track in Matinee
-	LDRColor = lerp(LDRColor * ColorScale, OverlayColor.rgb, OverlayColor.a);
+	LDRColor = lerp(LDRColor * ColorScale.xyz, OverlayColor.rgb, OverlayColor.a);
 	
 	// RETURN_COLOR not needed unless writing to SceneColor
 	OutColor = float4(LDRColor, LinearColor.a);

@@ -9,15 +9,15 @@
 
 /*
     Meshes vertices can optionally still be packed and will be unpacked using the following formula:
-    VertextBuffer.Position*MeshExtension+MeshOrigin
+    VertextBuffer.Position * MeshExtension + MeshOrigin
 */
-float3 MeshOrigin;
-float3 MeshExtension;
+float4 MeshOrigin;
+float4 MeshExtension;
 
 /* This vertex type is passed in an extra float4 MotionBlurData. This allows specifying motion blur data in a generic way. The previous
     frame's object space position is derived from the MotionBlurData and the current unpacked object space position fields in the following way:
 
-    (Vertex.MotionBlurData * MotionBlurDataExtension + MotionBlurDataOrigin) + (UnpackePosition * MotionBlurPositionScale)
+    (Vertex.MotionBlurData * MotionBlurDataExtension + MotionBlurDataOrigin.xyz) + (UnpackePosition * MotionBlurPositionScale)
     
     Using this formula a number of effects can be achieved with a single vertex shader. Some common examples
     - Packed previous vertex positions are bound to MotionBlurData
@@ -33,8 +33,8 @@ float3 MeshExtension;
         - MotionBlurDataExtension: 0
         - MotionBlurPositionScale: 1
 */
-float3 MotionBlurDataOrigin;
-float3 MotionBlurDataExtension;
+float4 MotionBlurDataOrigin;
+float4 MotionBlurDataExtension;
 float MotionBlurPositionScale;
 
 struct FVertexFactoryInput
@@ -160,7 +160,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 */
 float3 UnpackedPosition( FVertexFactoryInput Input )
 {
-		return float3(Input.Position.xyz*MeshExtension + MeshOrigin);
+		return float3(Input.Position.xyz * MeshExtension.xyz + MeshOrigin.xyz);
 }
 
 /**
@@ -276,7 +276,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 // @return The previous position of the vertex in object space.
 float3 CalcPreviousPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-    float3 PreviousPosition =  (Input.MotionBlurData.xyz * MotionBlurDataExtension + MotionBlurDataOrigin) + Intermediates.UnpackedPosition * MotionBlurPositionScale;
+    float3 PreviousPosition =  (Input.MotionBlurData.xyz * MotionBlurDataExtension.xyz + MotionBlurDataOrigin.xyz) + Intermediates.UnpackedPosition * MotionBlurPositionScale;
 #if 0    
     float ExaggerateMotion = 10.0;
     float3 Delta = Intermediates.UnpackedPosition - PreviousPosition;

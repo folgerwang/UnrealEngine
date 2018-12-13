@@ -964,7 +964,7 @@ void SunMergeVS_ES2(
 #undef SUN_M
 
 float4 SunColorVignetteIntensity;
-float3 BloomColor;
+float4 BloomColor;
 
 void SunMergePS_ES2(
 	float4 InUVVignette : TEXCOORD0,
@@ -989,7 +989,7 @@ void SunMergePS_ES2(
 
 		OutColor.rgb = HDRDecode(PostprocessInput2.Sample(PostprocessInput2Sampler, InUVVignette.xy));
 
-		OutColor.rgb += Bloom2 * BloomColor;
+		OutColor.rgb += Bloom2 * BloomColor.xyz;
 
 		// Have 5 layers on mobile.
 		OutColor.rgb *= 1.0/5.0;
@@ -1062,7 +1062,7 @@ void SunMergeSmallVS_ES2(
 	OutTexCoords[5] = InTexCoord.xy + Circle(Start, 6.0, 5.0) * Scale * PostprocessInput0Size.zw;
 }
 
-float3 BloomColor2;
+float4 BloomColor2;
 
 void SunMergeSmallPS_ES2(
 	float4 InUVVignette : TEXCOORD0,
@@ -1092,9 +1092,9 @@ void SunMergeSmallPS_ES2(
 		PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].xy).rgb * Scale2 + 
 		PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].xy).rgb * Scale2) * rcp(Scale1 * 1.0 + Scale2 * 6.0);
 
-	OutColor.rgb *= BloomColor2;
+	OutColor.rgb *= BloomColor2.xyz;
 
-	OutColor.rgb += Bloom1 * BloomColor;
+	OutColor.rgb += Bloom1 * BloomColor.xyz;
 
 	// Have 5 layers on mobile (actually only 2 in this shader).
 	OutColor.rgb *= 1.0/5.0;

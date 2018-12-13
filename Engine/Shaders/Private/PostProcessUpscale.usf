@@ -13,7 +13,7 @@ float UpscaleSoftness;
 
 // only for MainVS()
 // .x:HalfFOV .y:tan(HalfFov) .z:CylinderDistortion(0=none, 1:full) .w:Correction to scale Y the same as X is scaled in the center
-float3 PaniniParams;
+float4 PaniniParams;
 
 // Min and max UV coordingate for input scene color.
 float4 SceneColorBilinearUVMinMax;

@@ -8,7 +8,7 @@
 #include "GammaCorrectionCommon.ush"
 
 // usually 1/2.2, the .y is used for inverse gamma when "gamma only" mode is not used
-half3 InverseGamma;
+half4 InverseGamma;
 
 // Film tonal and color control.
 half4 ColorMatrixR_ColorCurveCd1;

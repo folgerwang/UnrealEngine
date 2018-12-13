@@ -62,19 +62,19 @@ float4 InstancingFadeOutParams;
 #endif	// USE_INSTANCING
 
 #if USE_SPLINEDEFORM
-float3 SplineStartPos;
-float3 SplineStartTangent;
+float4 SplineStartPos;
+float4 SplineStartTangent;
 float SplineStartRoll;
 float2 SplineStartScale;
 float2 SplineStartOffset;
 
-float3 SplineEndPos;
-float3 SplineEndTangent;
+float4 SplineEndPos;
+float4 SplineEndTangent;
 float SplineEndRoll;
 float2 SplineEndScale;
 float2 SplineEndOffset;
 
-float3 SplineUpDir;
+float4 SplineUpDir;
 #if ES2_PROFILE
 float SmoothInterpRollScale;
 #else
@@ -84,9 +84,9 @@ bool SmoothInterpRollScale;
 float SplineMeshMinZ;
 float SplineMeshScaleZ;
 
-float3 SplineMeshDir;
-float3 SplineMeshX;
-float3 SplineMeshY;
+float4 SplineMeshDir;
+float4 SplineMeshX;
+float4 SplineMeshY;
 #endif	// USE_SPLINEDEFORM
 
 #ifndef MANUAL_VERTEX_FETCH
@@ -500,11 +500,11 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		float HermiteAlpha = SmoothInterpRollScale ? smoothstep(0.0, 1.0, Alpha) : Alpha;
 
 		// Then find the point and direction of the spline at this point along
-		float3 SplinePos = SplineEvalPos( SplineStartPos, SplineStartTangent, SplineEndPos, SplineEndTangent, Alpha );
-		float3 SplineDir = SplineEvalDir( SplineStartPos, SplineStartTangent, SplineEndPos, SplineEndTangent, Alpha );
+		float3 SplinePos = SplineEvalPos( SplineStartPos.xyz, SplineStartTangent.xyz, SplineEndPos.xyz, SplineEndTangent.xyz, Alpha );
+		float3 SplineDir = SplineEvalDir( SplineStartPos.xyz, SplineStartTangent.xyz, SplineEndPos.xyz, SplineEndTangent.xyz, Alpha );
 	
 		// Find base frenet frame
-		float3 BaseXVec = normalize( cross(SplineUpDir, SplineDir) );
+		float3 BaseXVec = normalize( cross(SplineUpDir.xyz, SplineDir) );
 		float3 BaseYVec = normalize( cross(SplineDir, BaseXVec) );
 	
 		// Offset from the spline, using the frenet frame
@@ -526,7 +526,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		YVec *= UseScale.y;
 
 		// Build overall transform
-		float3x3 SliceTransform3 = mul(transpose(float3x3(SplineMeshDir, SplineMeshX, SplineMeshY)), float3x3(float3(0,0,0), XVec, YVec));
+		float3x3 SliceTransform3 = mul(transpose(float3x3(SplineMeshDir.xyz, SplineMeshX.xyz, SplineMeshY.xyz)), float3x3(float3(0,0,0), XVec, YVec));
 		float4x3 SliceTransform = float4x3(SliceTransform3[0], SliceTransform3[1], SliceTransform3[2], SplinePos);
 
 		return SliceTransform;
@@ -542,10 +542,10 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		half HermiteAlpha = SmoothInterpRollScale ? smoothstep(0.0, 1.0, Alpha) : Alpha;
 
 		// Then find the point and direction of the spline at this point along
-		half3 SplineDir = SplineEvalDir( SplineStartPos, SplineStartTangent, SplineEndPos, SplineEndTangent, Alpha );
+		half3 SplineDir = SplineEvalDir( SplineStartPos.xyz, SplineStartTangent.xyz, SplineEndPos.xyz, SplineEndTangent.xyz, Alpha );
 
 		// Find base frenet frame
-		half3 BaseXVec = normalize( cross(SplineUpDir, (half3)SplineDir) );
+		half3 BaseXVec = normalize( cross(SplineUpDir.xyz, (half3)SplineDir) );
 		half3 BaseYVec = normalize( cross((half3)SplineDir, BaseXVec) );
 
 		// Apply roll to frame around spline
@@ -562,7 +562,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		YVec *= sign(UseScale.y);
 
 		// Build rotation transform
-		half3x3 SliceTransform = mul(transpose(half3x3(SplineMeshDir, SplineMeshX, SplineMeshY)), half3x3(SplineDir, XVec, YVec));
+		half3x3 SliceTransform = mul(transpose(half3x3(SplineMeshDir.xyz, SplineMeshX.xyz, SplineMeshY.xyz)), half3x3(SplineDir, XVec, YVec));
 
 		return SliceTransform;
 	}
@@ -579,14 +579,14 @@ float4 CalcWorldPosition(float4 Position, uint PrimitiveId)
 #elif USE_SPLINEDEFORM
 /*
 	// Make transform for this point along spline
-	float4x3 SliceTransform = CalcSliceTransform(dot(Position.xyz, SplineMeshDir));
+	float4x3 SliceTransform = CalcSliceTransform(dot(Position.xyz, SplineMeshDir.xyz));
 
 	// Transform into mesh space
 	float4 LocalPos = float4(mul(Position, SliceTransform), Position.w);
 	// Transform from mesh to world space
 	return TransformLocalToTranslatedWorld(LocalPos.xyz);
 	*/
-	return INVARIANT(TransformLocalToTranslatedWorld(float3(mul(Position, CalcSliceTransform(dot(Position.xyz, SplineMeshDir))).xyz), PrimitiveId));
+	return INVARIANT(TransformLocalToTranslatedWorld(float3(mul(Position, CalcSliceTransform(dot(Position.xyz, SplineMeshDir.xyz))).xyz), PrimitiveId));
 #else
 	return TransformLocalToTranslatedWorld(Position.xyz, PrimitiveId);
 #endif
@@ -616,7 +616,7 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, out float TangentSign)
 
 #if USE_SPLINEDEFORM
 	// Make slice rotation matrix, and use that to transform tangents
-	half3x3 SliceRot = CalcSliceRot(dot(Input.Position.xyz, SplineMeshDir));
+	half3x3 SliceRot = CalcSliceRot(dot(Input.Position.xyz, SplineMeshDir.xyz));
 
 	TangentX = mul(TangentX, SliceRot);
 	TangentZ.xyz = mul(TangentZ.xyz, SliceRot);
@@ -870,7 +870,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	return mul(float4(PreviousPos, 1), PreviousLocalToWorldTranslated);
 #elif USE_SPLINEDEFORM
 	// Just like CalcWorldPosition...
-	float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir));
+	float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir.xyz));
 
 	// Transform into mesh space
 	float4 LocalPos = float4(mul(Input.Position, SliceTransform), Input.Position.w);

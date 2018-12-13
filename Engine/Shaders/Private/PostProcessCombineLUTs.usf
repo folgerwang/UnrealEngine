@@ -25,7 +25,7 @@ Texture2D Texture4;
 SamplerState Texture4Sampler;
 // 0 is for neutral, 1 for Texture1, 2 for ...
 float LUTWeights[5];
-half3 ColorScale;
+half4 ColorScale;
 half4 OverlayColor;
 
 static const float LUTSize = 32;
@@ -372,7 +372,7 @@ float4 CombineLUTsCommon(float2 InUV, uint InLayerIndex)
 	FilmColor = ColorCorrection( FilmColor );
 
 	// blend with custom LDR color, used for Fade track in Matinee
-	FilmColor = lerp( FilmColor * ColorScale, OverlayColor.rgb, OverlayColor.a );
+	FilmColor = lerp( FilmColor * ColorScale.xyz, OverlayColor.rgb, OverlayColor.a );
 
 	// Apply "gamma" curve adjustment.
 	FilmColor = pow( max(0, FilmColor), InverseGamma.y );

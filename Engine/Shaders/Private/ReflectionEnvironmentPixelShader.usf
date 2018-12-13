@@ -47,7 +47,7 @@ float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDire
 Texture2D ScreenSpaceReflectionsTexture;
 SamplerState ScreenSpaceReflectionsSampler;
 
-float3 ContrastAndNormalizeMulAdd;
+float4 ContrastAndNormalizeMulAdd;
 float OcclusionExponent;
 float OcclusionCombineMode;
 

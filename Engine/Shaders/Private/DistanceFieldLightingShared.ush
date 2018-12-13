@@ -42,7 +42,7 @@ float SampleMeshDistanceField(float3 VolumeUV, float2 ObjectDistanceFieldMAD)
 	return TextureValue;
 }
 
-float3 DistanceFieldAtlasTexelSize;
+float4 DistanceFieldAtlasTexelSize;
 
 RWBuffer<uint> RWObjectIndirectArguments;
 Buffer<uint> ObjectIndirectArguments;

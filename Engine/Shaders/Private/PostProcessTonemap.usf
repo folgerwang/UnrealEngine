@@ -43,8 +43,8 @@ float4 ColorScale1;
 float2 TonemapperParams;
 
 // Fine film grain
-float3 GrainRandomFull;
-float3 GrainScaleBiasJitter;
+float2 GrainRandomFull;
+float4 GrainScaleBiasJitter;
 
 float4 SceneUVMinMax;
 float4 SceneBloomUVMinMax;
