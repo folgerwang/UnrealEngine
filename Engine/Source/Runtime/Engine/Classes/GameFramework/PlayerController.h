@@ -1035,37 +1035,33 @@ public:
 	 * @param	Tag						A tag that allows stopping of an effect.  If another effect with this Tag is playing, it will be stopped and replaced
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Feedback", meta=(DisplayName="Client Play Force Feedback", AdvancedDisplay="bIgnoreTimeDilation,bPlayWhilePaused"))
-	void K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused)
-	{
-		FForceFeedbackParameters Params;
-		Params.Tag = Tag;
-		Params.bLooping = bLooping;
-		Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
-		Params.bPlayWhilePaused = bPlayWhilePaused;
-		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
-	}
+	void K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused);
 
+private:
+	/** 
+	 * Internal replicated version of client play force feedback event. 
+	 * Cannot be named ClientPlayForceFeedback as redirector for blueprint function version to K2_... does not work in that case
+	 */
 	UFUNCTION(unreliable, client)
-	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters());
+	void ClientPlayForceFeedback_Internal(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters());
+
+public:
+
+	/** 
+	 * Play a force feedback pattern on the player's controller
+	 * @param	ForceFeedbackEffect		The force feedback pattern to play
+	 * @param	Params					Parameter struct to customize playback behavior of the feedback effect
+	 */
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters())
+	{
+		ClientPlayForceFeedback_Internal(ForceFeedbackEffect, Params);
+	}
 
 	UE_DEPRECATED(4.22, "Use version that specifies parameters using a struct instead of a list of parameters")
-	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
-	{
-		FForceFeedbackParameters Params;
-		Params.Tag = Tag;
-		Params.bLooping = bLooping;
-		Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
-		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
-	}
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag);
 
 	UE_DEPRECATED(4.18, "Use version that specifies parameters using a struct instead of a list of parameters")
-	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
-	{
-		FForceFeedbackParameters Params;
-		Params.Tag = Tag;
-		Params.bLooping = bLooping;
-		ClientPlayForceFeedback(ForceFeedbackEffect, Params);
-	}
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag);
 
 	/** 
 	 * Stops a playing force feedback pattern

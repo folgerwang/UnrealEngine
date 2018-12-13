@@ -3662,7 +3662,7 @@ void APlayerController::ClientPrestreamTextures_Implementation( AActor* ForcedAc
 	}
 }
 
-void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params)
+void APlayerController::ClientPlayForceFeedback_Internal_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params)
 {
 	if (ForceFeedbackEffect)
 	{
@@ -3683,6 +3683,33 @@ void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEf
 		ForceFeedbackEffectHistoryEntries.Emplace(ActiveForceFeedbackEffects.Last(), GetWorld()->GetTimeSeconds());
 #endif
 	}
+}
+
+void APlayerController::K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+	Params.bPlayWhilePaused = bPlayWhilePaused;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+}
+
+void APlayerController::ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+}
+
+void APlayerController::ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
 }
 
 void APlayerController::ClientStopForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, FName Tag)
