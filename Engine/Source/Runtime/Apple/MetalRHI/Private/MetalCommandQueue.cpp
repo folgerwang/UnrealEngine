@@ -31,16 +31,19 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 {
 	int32 MaxShaderVersion = 0;
 #if PLATFORM_MAC
-	int32 DefaultMaxShaderVersion = 2;
+	int32 DefaultMaxShaderVersion = 3;
+	int32 MinShaderVersion = 3;
     const TCHAR* const Settings = TEXT("/Script/MacTargetPlatform.MacTargetSettings");
 #else
 	int32 DefaultMaxShaderVersion = 0;
+	int32 MinShaderVersion = 0;
     const TCHAR* const Settings = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
 #endif
     if(!GConfig->GetInt(Settings, TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
     {
         MaxShaderVersion = DefaultMaxShaderVersion;
     }
+	MaxShaderVersion = FMath::Max(MinShaderVersion, MaxShaderVersion);
 	ValidateVersion(MaxShaderVersion);
 
 	if(MaxNumCommandBuffers == 0)

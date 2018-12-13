@@ -762,10 +762,12 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 			if (MaxShaderVersion < 0)
 			{
 				MaxShaderVersion = 2;
+				int32 MinShaderVersion = 3;
 				if(!GConfig->GetInt(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
 				{
-					MaxShaderVersion = 2;
+					MaxShaderVersion = 3;
 				}
+				MaxShaderVersion = FMath::Max(MinShaderVersion, MaxShaderVersion);
 			}
 			Version = (uint32)MaxShaderVersion;
 		}
@@ -775,10 +777,12 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 			if (MaxShaderVersion < 0)
 			{
 				MaxShaderVersion = 0;
+				int32 MinShaderVersion = 0;
 				if(!GConfig->GetInt(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
 				{
 					MaxShaderVersion = 0;
 				}
+				MaxShaderVersion = FMath::Max(MinShaderVersion, MaxShaderVersion);
 			}
 			Version = (uint32)MaxShaderVersion;
 		}
