@@ -699,6 +699,12 @@ struct FShaderCompilerError
 	,	StrippedErrorMessage(InStrippedErrorMessage)
 	{}
 
+	FShaderCompilerError(const TCHAR* InVirtualFilePath, const TCHAR* InLineString, const TCHAR* InStrippedErrorMessage)
+		: ErrorVirtualFilePath(InVirtualFilePath)
+		, ErrorLineString(InLineString)
+		, StrippedErrorMessage(InStrippedErrorMessage)
+	{}
+
 	FString ErrorVirtualFilePath;
 	FString ErrorLineString;
 	FString StrippedErrorMessage;
