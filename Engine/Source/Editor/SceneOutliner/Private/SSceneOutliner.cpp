@@ -7,7 +7,6 @@
 #include "Modules/ModuleManager.h"
 #include "Layout/WidgetPath.h"
 #include "Framework/Application/SlateApplication.h"
-//#include "Framework/Commands/GenericCommands.h"
 #include "Textures/SlateIcon.h"
 #include "Framework/Commands/UIAction.h"
 #include "Widgets/Layout/SSeparator.h"
@@ -29,6 +28,7 @@
 #include "SceneOutlinerSettings.h"
 #include "ISceneOutlinerColumn.h"
 #include "SceneOutlinerModule.h"
+#include "SceneOutlinerDelegates.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Widgets/Input/SSearchBox.h"
 
@@ -41,6 +41,11 @@
 #include "EditorActorFolders.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Features/IModularFeatures.h"
+#include "ISceneOutlinerTraversal.h"
+
+//HACK THIS IS TEMP AND SHOULD BE REMOVED 
+#include "FractureToolDelegates.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSceneOutliner, Log, All);
 
@@ -137,11 +142,22 @@ namespace SceneOutliner
 		return MakeShareable( new FOnlyCurrentLevelFilter() );
 	}
 
+	TSharedPtr< FOutlinerFilter > CreateShowActorComponentsFilter()
+	{
+		auto* Filter = new FOutlinerPredicateFilter(FActorFilterPredicate::CreateStatic([](const AActor* InActor) {	return InActor!= nullptr; }), EDefaultFilterBehaviour::Fail);
+
+		// If anything fails this filter, make it non interactive. We don't want to allow selection of implicitly included parents which might nuke the actor selection.
+		Filter->FailedItemState = EFailedFilterState::NonInteractive;
+		return MakeShareable(Filter);
+	}
+
 	struct FItemSelection : IMutableTreeItemVisitor
 	{
 		mutable TArray<FActorTreeItem*> Actors;
 		mutable TArray<FWorldTreeItem*> Worlds;
 		mutable TArray<FFolderTreeItem*> Folders;
+		mutable TArray<FComponentTreeItem*> Components;
+		mutable TArray<FSubComponentTreeItem*> SubComponents;
 
 		FItemSelection()
 		{}
@@ -177,6 +193,27 @@ namespace SceneOutliner
 					ActorArray.Add(Actor);
 				}
 			}
+
+			// if we select a component then we are actually wanting the owning actor to be selected
+			for (const auto* ComponentItem : Components)
+			{
+				if (UActorComponent* ActorComponent = ComponentItem->Component.Get())
+				{
+					AActor* Actor = ActorComponent->GetOwner();
+					ActorArray.Add(Actor);
+				}
+			}
+
+			// if we select a sub item from within a component then we are actually wanting the owning actor to be selected
+			for (const auto* SubItem : SubComponents)
+			{
+				if (UActorComponent* ActorComponent = SubItem->ParentComponent.Get())
+				{
+					AActor* Actor = ActorComponent->GetOwner();
+					ActorArray.Add(Actor);
+				}
+			}
+
 			return ActorArray;
 		}
 
@@ -193,6 +230,15 @@ namespace SceneOutliner
 		{
 			Folders.Add(&FolderItem);
 		}
+		virtual void Visit(FComponentTreeItem& ComponentItem) const override
+		{
+			Components.Add(&ComponentItem);
+		}
+		virtual void Visit(FSubComponentTreeItem& SubComponentItem) const override
+		{
+			SubComponents.Add(&SubComponentItem);
+		}
+
 	};
 
 	void SSceneOutliner::Construct( const FArguments& InArgs, const FInitializationOptions& InInitOptions )
@@ -204,12 +250,14 @@ namespace SceneOutliner
 
 		if (InInitOptions.OnSelectionChanged.IsBound())
 		{
-			SelectionChanged.Add(InInitOptions.OnSelectionChanged);
+			FSceneOutlinerDelegates::Get().SelectionChanged.Add(InInitOptions.OnSelectionChanged);
 		}
 
 		bFullRefresh = true;
 		bNeedsRefresh = true;
 		bIsReentrant = false;
+		bActorComponentsEnabled = true;
+
 		bSortDirty = true;
 		bActorSelectionDirty = SharedData->Mode == ESceneOutlinerMode::ActorBrowsing;
 		FilteredActorCount = 0;
@@ -484,6 +532,10 @@ namespace SceneOutliner
 			USelection::SelectObjectEvent.AddRaw(this, &SSceneOutliner::OnLevelSelectionChanged);
 		}
 
+		// Capture selection changes of bones from mesh selection in fracture tools
+		FFractureToolDelegates::Get().OnComponentSelectionChanged.AddRaw(this, &SSceneOutliner::OnComponentSelectionChanged);
+		FFractureToolDelegates::Get().OnComponentsUpdated.AddRaw(this, &SSceneOutliner::OnComponentsUpdated);
+
 		// Register to find out when actors are added or removed
 		// @todo outliner: Might not catch some cases (see: CALLBACK_ActorPropertiesChange, CALLBACK_LayerChange, CALLBACK_LevelDirtied, CALLBACK_OnActorMoved, CALLBACK_UpdateLevelsForAllActors)
 		FEditorDelegates::MapChange.AddSP( this, &SSceneOutliner::OnMapChange );
@@ -506,6 +558,7 @@ namespace SceneOutliner
 
 		// Register to be notified when properties are edited
 		FCoreDelegates::OnActorLabelChanged.AddRaw(this, &SSceneOutliner::OnActorLabelChanged);
+		FCoreUObjectDelegates::OnPackageReloaded.AddRaw(this, &SSceneOutliner::OnAssetReloaded);
 
 		auto& Folders = FActorFolders::Get();
 		Folders.OnFolderCreate.AddSP(this, &SSceneOutliner::OnBroadcastFolderCreate);
@@ -586,6 +639,9 @@ namespace SceneOutliner
 
 	SSceneOutliner::~SSceneOutliner()
 	{
+		FFractureToolDelegates::Get().OnComponentSelectionChanged.RemoveAll(this);
+		FFractureToolDelegates::Get().OnComponentsUpdated.RemoveAll(this);
+
 		// We only synchronize selection when in actor browsing mode
 		if( SharedData->Mode == ESceneOutlinerMode::ActorBrowsing )
 		{
@@ -608,6 +664,7 @@ namespace SceneOutliner
 		FWorldDelegates::LevelRemovedFromWorld.RemoveAll( this );
 
 		FCoreDelegates::OnActorLabelChanged.RemoveAll(this);
+		FCoreUObjectDelegates::OnPackageReloaded.RemoveAll(this);
 
 		if (FActorFolders::IsAvailable())
 		{
@@ -692,6 +749,22 @@ namespace SceneOutliner
 					NAME_None,
 					EUserInterfaceActionType::ToggleButton
 				);
+
+				if (bActorComponentsEnabled)
+				{
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("ToggleShowActorComponents", "Show Actor Components"),
+						LOCTEXT("ToggleShowActorComponentsToolTip", "When enabled, shows components beloging to actors."),
+						FSlateIcon(),
+						FUIAction(
+							FExecuteAction::CreateSP(this, &SSceneOutliner::ToggleShowActorComponents),
+							FCanExecuteAction(),
+							FIsActionChecked::CreateSP(this, &SSceneOutliner::IsShowingActorComponents)
+						),
+						NAME_None,
+						EUserInterfaceActionType::ToggleButton
+					);
+				}
 
 				// Add additional filters
 				FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked< FSceneOutlinerModule >("SceneOutliner");
@@ -851,6 +924,40 @@ namespace SceneOutliner
 			Filters->Remove( ShowOnlyActorsInCurrentLevelFilter );
 		}
 	}
+
+	bool SSceneOutliner::IsShowingActorComponents()
+	{
+		return bActorComponentsEnabled && GetDefault<USceneOutlinerSettings>()->bShowActorComponents;
+	}
+
+	void SSceneOutliner::ToggleShowActorComponents()
+	{
+		const bool bEnableFlag = !IsShowingActorComponents();
+
+		USceneOutlinerSettings* Settings = GetMutableDefault<USceneOutlinerSettings>();
+		Settings->bShowActorComponents = bEnableFlag;
+		Settings->PostEditChange();
+
+		ApplyShowActorComponentsFilter(bEnableFlag);
+	}
+
+	void SSceneOutliner::ApplyShowActorComponentsFilter(bool bShowActorComponents)
+	{
+		if (!ShowActorComponentsFilter.IsValid())
+		{
+			ShowActorComponentsFilter = CreateShowActorComponentsFilter();
+		}
+
+		if (bShowActorComponents)
+		{
+			Filters->Add(ShowActorComponentsFilter);
+		}
+		else
+		{
+			Filters->Remove(ShowActorComponentsFilter);
+		}
+	}
+
 	bool SSceneOutliner::IsShowingOnlyCurrentLevel() const
 	{
 		return GetDefault<USceneOutlinerSettings>()->bShowOnlyActorsInCurrentLevel;
@@ -1052,6 +1159,16 @@ namespace SceneOutliner
 
 	void SSceneOutliner::RepopulateEntireTree()
 	{
+		// to avoid dependencies Custom Tree Items are accessed via modular features
+		TArray<ISceneOutlinerTraversal*> ConstructTreeItemImp = IModularFeatures::Get().GetModularFeatureImplementations<ISceneOutlinerTraversal>("SceneOutlinerTraversal");
+		ISceneOutlinerTraversal *CustomImplementation = nullptr;
+		if (ConstructTreeItemImp.Num() > 0 && ConstructTreeItemImp[0] != nullptr)
+		{
+			// As an optimization, since we have only one customisation at present, just grab the one CustomImplementation to mitigate a further for loop inside the actor iterator
+			check(ConstructTreeItemImp.Num() < 2);
+			CustomImplementation = ConstructTreeItemImp[0];
+		}
+
 		EmptyTreeItems();
 
 		ConstructItemFor<FWorldTreeItem>(SharedData->RepresentingWorld);
@@ -1069,6 +1186,23 @@ namespace SceneOutliner
 						ApplicableActors.Emplace(Actor);
 					}
 					ConstructItemFor<FActorTreeItem>(Actor);
+
+					if (IsShowingActorComponents())
+					{
+						for (UActorComponent* Component : Actor->GetComponentsByClass(UPrimitiveComponent::StaticClass()))
+						{
+							bool IsHandled = false;
+							if (CustomImplementation)
+							{
+								IsHandled = CustomImplementation->ConstructTreeItem(*this, Component);
+							}
+							if (!IsHandled)
+							{
+								// add the actor's components - default implementation
+								ConstructItemFor<FComponentTreeItem>(Component);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2440,6 +2574,13 @@ namespace SceneOutliner
 
 				// Make a list of all the actors that should now be selected in the world.
 				FItemSelection Selection(*OutlinerTreeView);
+
+				// notify components of selection change
+				if (Selection.SubComponents.Num() > 0)
+				{
+					FSceneOutlinerDelegates::Get().OnSubComponentSelectionChanged.Broadcast(Selection.SubComponents);
+				}
+
 				auto SelectedActors = TSet<AActor*>(Selection.GetActorPtrs());
 
 				bool bChanged = false;
@@ -2587,6 +2728,13 @@ namespace SceneOutliner
 						WorldItem.OpenWorldSettings();
 					})
 
+					.Component([](const FComponentTreeItem& ComponentItem) {
+						ComponentItem.OnDoubleClick();
+					})
+
+					.SubComponent([](const FSubComponentTreeItem& SubComponentItem) {
+						SubComponentItem.OnDoubleClick();
+					})
 				);
 
 			}
@@ -2659,6 +2807,29 @@ namespace SceneOutliner
 					}
 
 					ConstructItemFor<FActorTreeItem>(InActor);
+
+					if (IsShowingActorComponents())
+					{
+						for (UActorComponent* Component : InActor->GetComponentsByClass(UPrimitiveComponent::StaticClass()))
+						{
+							TArray<ISceneOutlinerTraversal*> ConstructTreeItemImp = IModularFeatures::Get().GetModularFeatureImplementations<ISceneOutlinerTraversal>("SceneOutlinerTraversal");
+
+							bool IsHandled = false;
+							for (ISceneOutlinerTraversal* CustomImplementation : ConstructTreeItemImp)
+							{
+								IsHandled = CustomImplementation->ConstructTreeItem(*this, Component);
+								if (IsHandled)
+								{
+									break;
+								}
+							}
+							if (!IsHandled)
+							{
+								// add the actor's components - default implementation
+								ConstructItemFor<FComponentTreeItem>(Component);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2799,6 +2970,15 @@ namespace SceneOutliner
 		{
 			// Attempt to add the item if we didn't find it - perhaps it now matches the filter?
 			ConstructItemFor<FActorTreeItem>(ChangedActor);
+		}
+	}
+
+	void SSceneOutliner::OnAssetReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent)
+	{
+		if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPostGC)
+		{
+			// perhaps overkill but a simple Refresh() doesn't appear to work.
+			FullRefresh();
 		}
 	}
 
@@ -3083,6 +3263,7 @@ namespace SceneOutliner
 			}
 		}
 
+
 		// See if the tree view selector is pointing at a selected item
 		bool bSelectorInSelectionSet = false;
 		for (FSelectionIterator SelectionIt(*SelectedActors); SelectionIt; ++SelectionIt)
@@ -3100,23 +3281,47 @@ namespace SceneOutliner
 
 		// If NOT bSelectorInSelectionSet then we want to just move the selector to the first selected item.
 		ESelectInfo::Type SelectInfo = bSelectorInSelectionSet ? ESelectInfo::Direct : ESelectInfo::OnMouseClick;
-
-		// Ensure that all selected actors in the world are selected in the tree
-		for (FSelectionIterator SelectionIt( *SelectedActors ); SelectionIt; ++SelectionIt)
+		// Show actor selection but only if sub objects are not selected
+		if (Selection.Components.Num() == 0 && Selection.SubComponents.Num() == 0)
 		{
-			AActor* Actor = CastChecked< AActor >(*SelectionIt);
-			if (FTreeItemPtr* ActorItem = TreeItemMap.Find(Actor))
+			// Ensure that all selected actors in the world are selected in the tree
+			for (FSelectionIterator SelectionIt(*SelectedActors); SelectionIt; ++SelectionIt)
 			{
-				OutlinerTreeView->SetItemSelection(*ActorItem, true, SelectInfo);
-				SelectInfo = ESelectInfo::Direct;
+				AActor* Actor = CastChecked< AActor >(*SelectionIt);
+				if (FTreeItemPtr* ActorItem = TreeItemMap.Find(Actor))
+				{
+					OutlinerTreeView->SetItemSelection(*ActorItem, true, SelectInfo);				
+					SelectInfo = ESelectInfo::Direct;
+				}
+
 			}
 		}
 
 		// Broadcast selection changed delegate
-		SelectionChanged.Broadcast();
+		FSceneOutlinerDelegates::Get().SelectionChanged.Broadcast();
 	}
 
-	void SSceneOutliner::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+	void SSceneOutliner::OnComponentSelectionChanged(UActorComponent* Component)
+	{
+		if (!Component)
+			return;
+
+		if (FTreeItemPtr* ComponentItem = TreeItemMap.Find(Component))
+		{
+			if (ComponentItem->IsValid())
+			{
+				(*ComponentItem)->SynchronizeSubItemSelection(OutlinerTreeView);
+			}
+		}
+	}
+	
+	void SSceneOutliner::OnComponentsUpdated()
+	{
+		// #todo: A bit overkill, only one actors sub-components have changed
+		FullRefresh();
+	}
+
+	void SSceneOutliner::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 	{	
 		for (auto& Pair : Columns)
 		{

@@ -3,7 +3,7 @@
 #include "EditableMeshFactory.h"
 #include "Features/IModularFeatures.h"
 #include "IEditableMeshFormat.h"
-
+#include "EditableMesh.h"
 
 FEditableMeshSubMeshAddress UEditableMeshFactory::MakeSubmeshAddress( UPrimitiveComponent* PrimitiveComponent, const int32 LODIndex )
 {
@@ -16,18 +16,21 @@ FEditableMeshSubMeshAddress UEditableMeshFactory::MakeSubmeshAddress( UPrimitive
 	{
 		IEditableMeshFormat& EditableMeshFormat = *static_cast<IEditableMeshFormat*>( IModularFeatures::Get().GetModularFeatureImplementation( "EditableMeshFormat", EditableMeshFormatIndex ) );
 
-		SubMeshAddress = FEditableMeshSubMeshAddress();
-		SubMeshAddress.MeshObjectPtr = nullptr;	// This will be filled in below (FillMeshObjectPtr)
-		SubMeshAddress.EditableMeshFormat = &EditableMeshFormat;
-		SubMeshAddress.LODIndex = LODIndex;
-		EditableMeshFormat.FillMeshObjectPtr( *PrimitiveComponent, SubMeshAddress );	// @todo mesheditor: This stuff is a bit clunky, would like to refactor it
-		if( SubMeshAddress.MeshObjectPtr != nullptr )
-		{
-			break;
-		}
-		else
+		if (EditableMeshFormat.HandlesComponentType(*PrimitiveComponent))
 		{
 			SubMeshAddress = FEditableMeshSubMeshAddress();
+			SubMeshAddress.MeshObjectPtr = nullptr;	// This will be filled in below (FillMeshObjectPtr)
+			SubMeshAddress.EditableMeshFormat = &EditableMeshFormat;
+			SubMeshAddress.LODIndex = LODIndex;
+			EditableMeshFormat.FillMeshObjectPtr( *PrimitiveComponent, SubMeshAddress );	// @todo mesheditor: This stuff is a bit clunky, would like to refactor it
+			if( SubMeshAddress.MeshObjectPtr != nullptr )
+			{
+				break;
+			}
+			else
+			{
+				SubMeshAddress = FEditableMeshSubMeshAddress();
+			}
 		}
 	}
 
@@ -76,6 +79,20 @@ UEditableMesh* UEditableMeshFactory::MakeEditableMesh( UPrimitiveComponent* Prim
 	}
 
 	return EditableMesh;
+}
+
+void UEditableMeshFactory::RefreshEditableMesh(UEditableMesh* EditableMesh, UPrimitiveComponent& PrimitiveComponent)
+{
+	check(EditableMesh != nullptr);
+
+	const FEditableMeshSubMeshAddress& SubMeshAddress = EditableMesh->GetSubMeshAddress();
+
+	if (SubMeshAddress.EditableMeshFormat != nullptr &&
+		SubMeshAddress.MeshObjectPtr != nullptr)
+	{
+		// @todo mesheditor perf: This is going to HITCH
+		SubMeshAddress.EditableMeshFormat->RefreshEditableMesh(EditableMesh, PrimitiveComponent);
+	}
 }
 
 

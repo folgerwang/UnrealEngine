@@ -18,9 +18,13 @@ namespace UnrealBuildTool.Rules
 					"MeshEditor",
                     "MeshDescription",
 					"SlateCore",
-					"ViewportInteraction"
-				}
-			);
+					"ViewportInteraction",
+                    "BlastAuthoring",
+                    "GeometryCollectionCore",
+                    "GeometryCollectionEngine",
+                    "GeometryCollectionEditor"
+                }
+            );
 		}
 	}
 }

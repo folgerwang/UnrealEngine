@@ -45,7 +45,7 @@ namespace ImmediatePhysics
 	};
 
 	FActorData CreateActorData(const FActorCreationParams& InParams);
-
+	
 /** Owns all the data associated with the simulation. Can be considered a single scene or world*/
 struct ENGINE_API FSimulation
 {
@@ -95,8 +95,13 @@ public:
 	/** Set bodies that require no collision */
 	void SetIgnoreCollisionActors(const TArray<FActorHandle*>& InIgnoreCollision);
 
+	/** Get/Set whether the body is kinematic or not, kinematics do not simulate and move where they're told. They also act as if they have infinite mass */
+	bool GetIsKinematic(uint32 ActorDataIndex);
+	void SetIsKinematic(uint32 ActorDataIndex, bool bKinematic);
+
 	/** Advance the simulation by DeltaTime */
 	void Simulate(float DeltaTime, const FVector& Gravity);
+	void Simulate_AssumesLocked(float DeltaTime, const FVector& Gravity);
 
 	/** Whether or not an entity is simulated */
 	bool IsSimulated(uint32 ActorDataIndex) const
@@ -130,6 +135,10 @@ public:
 #endif
 
 	int32 NumActors() const { return ActorHandles.Num(); }
+
+	/* Set solver iteration counts per step */
+	void SetPositionIterationCount(int32 InIterationCount);
+	void SetVelocityIterationCount(int32 InIterationCount);
 
 private:
 	friend FActorHandle;
@@ -197,7 +206,6 @@ private:
 
 	/** Entities holding loose data. NOTE: for performance reasons we don't automatically cleanup on destructor (needed for tarray swaps etc...) it's very important that Terminate is called */
 	TArray<FActor> Actors;
-
 	TArray<FJoint> Joints;
 
 	/** Workspace memory that we use for per frame allocations */

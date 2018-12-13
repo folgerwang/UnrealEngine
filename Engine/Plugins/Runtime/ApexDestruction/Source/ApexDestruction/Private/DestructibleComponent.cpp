@@ -42,7 +42,6 @@ UDestructibleComponent::UDestructibleComponent(const FObjectInitializer& ObjectI
 
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
 
-	BodyInstance.SetUseAsyncScene(true);
 	static FName CollisionProfileName(TEXT("Destructible"));
 	SetCollisionProfileName(CollisionProfileName);
 
@@ -327,7 +326,7 @@ void UDestructibleComponent::OnCreatePhysicsState()
 	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word2", QueryFilterData.Word2 ) );
 	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word3", QueryFilterData.Word3 ) );
 
-#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX
+#if !WITH_CHAOS && !WITH_IMMEDIATE_PHYSX
 	// Set the PhysX material in the shape descriptor
 	const FPhysicsMaterialHandle_PhysX& MaterialHandle = PhysMat->GetPhysicsMaterial();
 	if(PxMaterial* PMaterial = MaterialHandle.Material)
@@ -377,10 +376,8 @@ void UDestructibleComponent::OnCreatePhysicsState()
 
 	
 
-	// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
-	const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
-	apex::Scene* ApexScene = PhysScene->GetApexScene(SceneType);
-	PxScene* PScene = PhysScene->GetPxScene(SceneType);
+	apex::Scene* ApexScene = PhysScene->GetApexScene();
+	PxScene* PScene = PhysScene->GetPxScene();
 
 	check(ApexScene);
 
@@ -440,13 +437,12 @@ void UDestructibleComponent::OnDestroyPhysicsState()
 		GPhysCommandHandler->DeferredRelease(ApexDestructibleActor);
 		ApexDestructibleActor = NULL;
 	
-#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX
+#if !WITH_CHAOS && !WITH_IMMEDIATE_PHYSX
 		//Destructible component uses the BodyInstance in PrimitiveComponent in a very dangerous way. It assigns PxRigidDynamic to it as it needs it.
 		//Destructible PxRigidDynamic actors can be deleted from under us as PhysX sees fit.
 		//Ideally we wouldn't ever have a dangling pointer, but in practice this is hard to avoid.
 		//In theory anyone using BodyInstance on a PrimitiveComponent should be using functions like GetBodyInstance - in which case we properly fix up the dangling pointer
 		BodyInstance.ActorHandle.SyncActor = NULL;
-		BodyInstance.ActorHandle.AsyncActor = NULL;
 #endif
 	}
 #endif	// #if WITH_APEX
@@ -762,8 +758,7 @@ bool UDestructibleComponent::ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func)
 	{
 		FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
 		// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
-		const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
-		PxScene* PScene = PhysScene->GetPxScene(SceneType);
+		PxScene* PScene = PhysScene->GetPxScene();
 
 		SCOPED_SCENE_READ_LOCK(PScene);
 		Func();
@@ -781,9 +776,7 @@ bool UDestructibleComponent::ExecuteOnPhysicsReadWrite(TFunctionRef<void()> Func
 	if (ApexDestructibleActor)
 	{
 		FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
-		// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
-		const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
-		PxScene* PScene = PhysScene->GetPxScene(SceneType);
+		PxScene* PScene = PhysScene->GetPxScene();
 
 		SCOPED_SCENE_WRITE_LOCK(PScene);
 		Func();
@@ -1344,13 +1337,12 @@ void UDestructibleComponent::SetupFakeBodyInstance( physx::PxRigidActor* NewRigi
 	//Ideally we wouldn't ever have a dangling pointer, but in practice this is hard to avoid.
 	//In theory anyone using BodyInstance on a PrimitiveComponent should be using functions like GetBodyInstance - in which case we properly fix up the dangling pointer
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
     check(PrevState == nullptr);
 #else
 	if (PrevState != NULL)
 	{
 		PrevState->ActorSync = BodyInstance.ActorHandle.SyncActor;
-		PrevState->ActorAsync = BodyInstance.ActorHandle.AsyncActor;
 		PrevState->InstanceIndex = BodyInstance.InstanceBodyIndex;
 	}
 #endif
@@ -1358,22 +1350,20 @@ void UDestructibleComponent::SetupFakeBodyInstance( physx::PxRigidActor* NewRigi
 	const UWorld* World = GetWorld();
 	const FPhysScene* PhysScene = World ? World->GetPhysicsScene() : nullptr;
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
     check(false);
 #else
-	BodyInstance.ActorHandle.SyncActor = BodyInstance.UseAsyncScene(PhysScene) ? NULL : NewRigidActor;
-	BodyInstance.ActorHandle.AsyncActor = BodyInstance.UseAsyncScene(PhysScene) ? NewRigidActor : NULL;
+	BodyInstance.ActorHandle.SyncActor = NewRigidActor;
 #endif
 	BodyInstance.InstanceBodyIndex = InstanceIdx;
 }
 
 void UDestructibleComponent::ResetFakeBodyInstance( FFakeBodyInstanceState& PrevState )
 {
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
     check(false);
 #else
 	BodyInstance.ActorHandle.SyncActor = PrevState.ActorSync;
-	BodyInstance.ActorHandle.AsyncActor = PrevState.ActorAsync;
 #endif
 	BodyInstance.InstanceBodyIndex = PrevState.InstanceIndex;
 }
@@ -1674,7 +1664,7 @@ void UDestructibleComponent::SetMaterial(int32 ElementIndex, UMaterialInterface*
 			
 			if(SimpleMaterial)
 			{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
                 check(false);
 #else
 				const FPhysicsMaterialHandle_PhysX& MaterialHandle = SimpleMaterial->GetPhysicsMaterial();

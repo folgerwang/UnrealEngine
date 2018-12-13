@@ -79,9 +79,9 @@ void UPhysicalMaterial::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-const FPhysicsMaterialHandle& UPhysicalMaterial::GetPhysicsMaterial()
+FPhysicsMaterialHandle& UPhysicalMaterial::GetPhysicsMaterial()
 {
-#if WITH_APEIRON
+#if WITH_CHAOS
     check(false);
     MaterialHandle = nullptr;
     return MaterialHandle;

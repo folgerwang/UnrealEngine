@@ -6,8 +6,8 @@
 	#define PHYSICS_INTERFACE_PHYSX 0
 #endif
 
-#ifndef WITH_APEIRON
-	#define WITH_APEIRON 0
+#ifndef WITH_CHAOS
+	#define WITH_CHAOS 0
 #endif
 
 #ifndef WITH_IMMEDIATE_PHYSX
@@ -63,6 +63,45 @@
 		typedef FPhysicsShapeHandle_PhysX			FPhysicsShapeHandle;
 		typedef FPhysicsGeometryCollection_PhysX	FPhysicsGeometryCollection;
 		typedef FPhysicsMaterialHandle_PhysX		FPhysicsMaterialHandle;
+
+		namespace physx
+		{
+			struct PxLocationHit;
+			struct PxSweepHit;
+			struct PxRaycastHit;
+			struct PxOverlapHit;
+			struct PxQueryHit;
+
+			class PxTransform;
+			class PxShape;
+			class PxGeometry;
+			class PxCapsuleGeometry;
+			class PxMaterial;
+			class PxRigidActor;
+
+			template<typename T>
+			struct PxHitBuffer;
+		}
+
+		template<typename T>
+		class FSingleHitBuffer;
+
+		using FHitLocation = physx::PxLocationHit;
+		using FHitSweep = physx::PxSweepHit;
+		using FHitRaycast = physx::PxRaycastHit;
+		using FHitOverlap = physx::PxOverlapHit;
+		using FPhysicsQueryHit = physx::PxQueryHit;
+
+		using FPhysicsTransform = physx::PxTransform;
+
+		using FPhysicsShape = physx::PxShape;
+		using FPhysicsGeometry = physx::PxGeometry;
+		using FPhysicsCapsuleGeometry = physx::PxCapsuleGeometry;
+		using FPhysicsMaterial = physx::PxMaterial;
+		using FPhysicsActor = physx::PxRigidActor;
+		
+		using FPhysicsSweepBuffer = FSingleHitBuffer<physx::PxSweepHit>;
+		using FPhysicsRaycastBuffer = FSingleHitBuffer<physx::PxRaycastHit>;
 	
 	#endif
 
@@ -87,23 +126,98 @@
 	typedef FPhysicsGeometryCollection_LLImmediate    FPhysicsGeometryCollection;
 	typedef FPhysicsMaterialHandle_LLImmediate        FPhysicsMaterialHandle;
 
-#elif WITH_APEIRON
+	namespace physx
+	{
+		//struct PxLocationHit;
+		//struct PxSweepHit;
+		//struct PxRaycastHit;
+		//struct PxOverlapHit;
+		//
+		//class PxShape;
+		class PxGeometry;
+		class PxCapsuleGeometry;
+		//class PxMaterial;
+		//class PxRigidActor;
+		//
+		//template<typename T>
+		//struct PxHitBuffer;
 
-	class FPhysInterface_Apeiron;
-	class FPhysicsActorReference_Apeiron;
-	class FPhysicsConstraintReference_Apeiron;
-	class FPhysicsAggregateReference_Apeiron;
-	class FPhysicsShapeReference_Apeiron;
+		//struct PxSweepBuffer;
+		//struct PxRaycastBuffer;
+	}
+
+	// Temporary dummy types until SQ implemented
+	struct FPhysTypeDummy {};
+	struct FPhysActorDummy {};
+	template<typename T>
+	struct FCallbackDummy;
+
+	using FHitLocation = FPhysTypeDummy;
+	using FHitSweep = FPhysTypeDummy;
+	using FHitRaycast = FPhysTypeDummy;
+	using FHitOverlap = FPhysTypeDummy;
+	using FPhysicsQueryHit = FPhysTypeDummy;
+
+	using FPhysicsTransform = FTransform;
+
+	using FPhysicsShape = FPhysTypeDummy;
+	using FPhysicsGeometry = physx::PxGeometry;
+	using FPhysicsCapsuleGeometry = physx::PxCapsuleGeometry;
+	using FPhysicsMaterial = FPhysTypeDummy;
+	using FPhysicsActor = FPhysActorDummy;
+
+	using FPhysicsSweepBuffer = FCallbackDummy<FHitSweep>;
+	using FPhysicsRaycastBuffer = FCallbackDummy<FHitRaycast>;
+
+#elif WITH_CHAOS
+
+	class FPhysInterface_Chaos;
+	class FPhysicsActorReference_Chaos;
+	class FPhysicsConstraintReference_Chaos;
+	class FPhysicsAggregateReference_Chaos;
+	class FPhysicsShapeReference_Chaos;
 	
-	typedef FPhysicsActorReference_Apeiron		FPhysicsActorHandle;
-	typedef FPhysicsConstraintReference_Apeiron	FPhysicsConstraintHandle;
-	typedef FPhysInterface_Apeiron    		    FPhysicsInterface;
-	typedef FPhysInterface_Apeiron			    FPhysScene;
-	typedef FPhysicsAggregateReference_Apeiron	FPhysicsAggregateHandle;
-	typedef FPhysInterface_Apeiron				FPhysicsCommand;
-	typedef FPhysicsShapeReference_Apeiron		FPhysicsShapeHandle;
-	typedef FPhysicsShapeReference_Apeiron	    FPhysicsGeometryCollection;
+	typedef FPhysicsActorReference_Chaos		FPhysicsActorHandle;
+	typedef FPhysicsConstraintReference_Chaos	FPhysicsConstraintHandle;
+	typedef FPhysInterface_Chaos    		    FPhysicsInterface;
+	typedef FPhysInterface_Chaos			    FPhysScene;
+	typedef FPhysicsAggregateReference_Chaos	FPhysicsAggregateHandle;
+	typedef FPhysInterface_Chaos				FPhysicsCommand;
+	typedef FPhysicsShapeReference_Chaos		FPhysicsShapeHandle;
+	typedef FPhysicsShapeReference_Chaos	    FPhysicsGeometryCollection;
 	typedef void*                           	FPhysicsMaterialHandle;
+
+	namespace Chaos
+	{
+		template<class T, int d>
+		class TImplicitObject;
+
+		template<class T>
+		class TCapsule;
+	}
+
+	// Temporary dummy types until SQ implemented
+	struct FPhysTypeDummy {};
+	struct FPhysActorDummy {};
+	template<typename T>
+	struct FCallbackDummy;
+
+	using FHitLocation = FPhysTypeDummy;
+	using FHitSweep = FPhysTypeDummy;
+	using FHitRaycast = FPhysTypeDummy;
+	using FHitOverlap = FPhysTypeDummy;
+	using FPhysicsQueryHit = FPhysTypeDummy;
+
+	using FPhysicsTransform = FTransform;
+
+	using FPhysicsShape = Chaos::TImplicitObject<float, 3>;
+	using FPhysicsGeometry = Chaos::TImplicitObject<float, 3>;
+	using FPhysicsCapsuleGeometry = Chaos::TCapsule<float>;
+	using FPhysicsMaterial = FPhysTypeDummy;
+	using FPhysicsActor = FPhysActorDummy;
+
+	using FPhysicsSweepBuffer = FCallbackDummy<FHitSweep>;
+	using FPhysicsRaycastBuffer = FCallbackDummy<FHitRaycast>;
 
 #else
 

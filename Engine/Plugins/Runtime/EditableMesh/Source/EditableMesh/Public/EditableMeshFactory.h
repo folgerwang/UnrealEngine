@@ -25,4 +25,6 @@ public:
 	UFUNCTION( BlueprintCallable, Category = "Editable Mesh" )
 	static UEditableMesh* MakeEditableMesh( class UPrimitiveComponent* PrimitiveComponent, const int32 LODIndex );
 
+	static void RefreshEditableMesh(UEditableMesh* EditableMesh, class UPrimitiveComponent& PrimitiveComponent);
+
 };

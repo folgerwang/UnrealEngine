@@ -618,6 +618,17 @@ public:
 
         // Open merge actor command
 	TSharedPtr< FUICommandInfo > OpenMergeActor;
+
+	/** Selects all Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectAllGeometry;
+
+	/** Deselects all Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectNone;
+
+	/** Selects inverse of currently seleted Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectInverseGeometry;
+
+
 };
 
 /**
@@ -791,7 +802,11 @@ public:
 	static void SetFeatureLevelPreview(ERHIFeatureLevel::Type InFeatureLevel);
 	static bool IsFeatureLevelPreviewChecked(ERHIFeatureLevel::Type InFeatureLevel);
 	static bool IsFeatureLevelPreviewAvailable(ERHIFeatureLevel::Type InFeatureLevel);
-	
+	static void GeometryCollection_SelectAllGeometry();
+	static void GeometryCollection_SelectNone();
+	static void GeometryCollection_SelectInverseGeometry();
+	static bool GeometryCollection_IsChecked();
+
 	/**
 	 * Called when the Scene Stats button is clicked.  Invokes the Primitive Stats dialog.
 	 */

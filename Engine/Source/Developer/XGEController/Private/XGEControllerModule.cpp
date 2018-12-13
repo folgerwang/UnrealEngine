@@ -26,8 +26,16 @@
 
 	#define XGE_CONTROL_WORKER_NAME		TEXT("XGEControlWorker")
 	#define XGE_CONTROL_WORKER_FILENAME	TEXT("XGEControlWorker.exe")
-	#define XGE_CONTROL_WORKER_REL_DIR	TEXT("../../../Engine/Binaries/Win64/")
-	#define XGE_CONTROL_WORKER_EXE_PATH TEXT("../../../Engine/Binaries/Win64/XGEControlWorker.exe")
+
+FString GetControlWorkerBinariesPath()
+{
+	return FPaths::EngineDir() / TEXT("Binaries/Win64/");
+}
+
+FString GetControlWorkerExePath()
+{
+	return FPaths::EngineDir() / TEXT("Binaries/Win64/XGEControlWorker.exe");
+}
 
 #else
 #error XGE Controller is not supported on non-Windows platforms.
@@ -145,7 +153,7 @@ public:
 FXGEControllerModule::FXGEControllerModule()
 	: bSupported(false)
 	, bInitialized(false)
-	, ControlWorkerDirectory(FPaths::ConvertRelativePathToFull(XGE_CONTROL_WORKER_REL_DIR))
+	, ControlWorkerDirectory(FPaths::ConvertRelativePathToFull(GetControlWorkerBinariesPath()))
 	, RootWorkingDirectory(FString::Printf(TEXT("%sUnrealXGEWorkingDir/"), FPlatformProcess::UserTempDir()))
 	, WorkingDirectory(RootWorkingDirectory + FGuid::NewGuid().ToString(EGuidFormats::Digits))
 	, PipeName(FString::Printf(TEXT("UnrealEngine-XGE-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits)))
@@ -414,7 +422,7 @@ void FXGEControllerModule::WriteOutThreadProc()
 		// Start up the build monitor process to monitor for engine crashes.
 		uint32 BuildMonitorProcessID;
 		FString XGMonitorArgs = FString::Printf(TEXT("-xgemonitor %d %d"), FPlatformProcess::GetCurrentProcessId(), XGConsoleProcID);
-		FProcHandle BuildMonitorHandle = FPlatformProcess::CreateProc(XGE_CONTROL_WORKER_EXE_PATH, *XGMonitorArgs, true, false, false, &BuildMonitorProcessID, 0, nullptr, nullptr);
+		FProcHandle BuildMonitorHandle = FPlatformProcess::CreateProc(*GetControlWorkerExePath(), *XGMonitorArgs, true, false, false, &BuildMonitorProcessID, 0, nullptr, nullptr);
 		FPlatformProcess::CloseProc(BuildMonitorHandle);
 
 		// Wait for the controller to connect to the output pipe

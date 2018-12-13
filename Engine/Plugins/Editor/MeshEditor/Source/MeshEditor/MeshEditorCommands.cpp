@@ -54,6 +54,13 @@ FUIAction UMeshEditorInstantCommand::MakeUIAction( IMeshEditorModeUIContract& Me
 				FCanExecuteAction::CreateLambda( [&MeshEditorMode] { return MeshEditorMode.GetSelectedMeshElementType() != EEditableMeshElementType::Invalid; } )
 			);
 		}
+		else if (ElementType == EEditableMeshElementType::Fracture)
+		{
+			UIAction = FUIAction(
+				ExecuteAction,
+				FCanExecuteAction::CreateLambda([&MeshEditorMode] { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0; })
+			);
+		}
 		else
 		{
 			UIAction = FUIAction(
@@ -110,6 +117,7 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(SetEdgeSelectionMode, "Set Edge Selection Mode", "Sets the selection mode so that only edges will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Two));
 	UI_COMMAND(SetPolygonSelectionMode, "Set Polygon Selection Mode", "Sets the selection mode so that only polygons will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Three));
 	UI_COMMAND(SetAnySelectionMode, "Set Any Selection Mode", "Sets the selection mode so that any element type may be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Four));
+	UI_COMMAND(SetFractureSelectionMode, "Set Fracture Selection Mode", "Sets the selection mode for mesh fracturing.", EUserInterfaceActionType::None, FInputChord(EKeys::Five));
 
 	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
@@ -211,6 +219,28 @@ void FMeshEditorPolygonCommands::RegisterCommands()
 		if( Command->GetElementType() == EEditableMeshElementType::Polygon )
 		{
 			Command->RegisterUICommand( this );
+		}
+	}
+}
+
+
+FMeshEditorFractureCommands::FMeshEditorFractureCommands()
+	: TCommands<FMeshEditorFractureCommands>(
+		"MeshEditorFracture",
+		LOCTEXT("MeshEditorFracture", "Mesh Editor Fracture"),
+		"MeshEditorCommon",
+		FMeshEditorStyle::GetStyleSetName())
+{
+}
+
+
+void FMeshEditorFractureCommands::RegisterCommands()
+{
+	for (UMeshEditorCommand* Command : MeshEditorCommands::Get())
+	{
+		if (Command->GetElementType() == EEditableMeshElementType::Fracture)
+		{
+			Command->RegisterUICommand(this);
 		}
 	}
 }
