@@ -1395,12 +1395,6 @@ void UVREditorMotionControllerInteractor::SetLaserVisuals( const FLinearColor& N
 
 void UVREditorMotionControllerInteractor::UpdateRadialMenuInput( const float DeltaTime )
 {
-	// Don't try to update the menu if we are about to start/stop simulating and the menu needs to transition
-	if (GEditor->bIsSimulateInEditorQueued || GEditor->bRequestEndPlayMapQueued)
-	{
-		return;
-	}
-
 	UVREditorUISystem& UISystem = GetVRMode().GetUISystem();
 	const FName HMDDeviceType = GetVRMode().GetHMDDeviceType();
 	//Update the radial menu

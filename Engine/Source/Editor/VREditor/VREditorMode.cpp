@@ -1251,7 +1251,6 @@ void UVREditorMode::PostPIEStarted( bool bIsSimulatingInEditor )
 	{
 		GEnableVREditorHacks = false;
 	}
-	UISystem->TryToSpawnRadialMenu(UISystem->GetUIInteractor(), true, false);
 }
 
 
