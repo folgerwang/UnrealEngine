@@ -8687,7 +8687,7 @@ void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineS
 }
 
 // @todo mesheditor: Combine this function with the one above
-void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingPlane( const FPlane InPlane, TArray<FPolygonID>& OutPolygons ) const
+void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingPlane( const FPlane& InPlane, TArray<FPolygonID>& OutPolygons ) const
 {
 	OutPolygons.Reset();
 
