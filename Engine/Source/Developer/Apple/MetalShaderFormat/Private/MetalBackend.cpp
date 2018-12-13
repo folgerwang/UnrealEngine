@@ -2294,6 +2294,11 @@ protected:
 					ralloc_asprintf_append(buffer, ",");
 					tex->lod_info.sample_index->accept(this);
 				}
+				else if (tex->lod_info.lod && !tex->lod_info.lod->is_zero())
+				{
+					ralloc_asprintf_append(buffer, ",");
+					tex->lod_info.lod->accept(this);
+				}
 			}
 		}
 			break;
