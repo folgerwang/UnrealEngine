@@ -235,7 +235,7 @@ private:
 			++CurrentAck;
 
 			// Everything not found in the history buffer is treated as lost
-			while (AckCount > NotificationData.History.Size())
+			while (AckCount > (SequenceNumberT::DifferenceT)(NotificationData.History.Size()))
 			{
 				--AckCount;
 				UE_LOG_PACKET_NOTIFY(TEXT("Notification::ProcessReceivedAcks Seq: %u - IsAck: 0 HistoryIndex: N/A"), CurrentAck.Get());

@@ -49,7 +49,7 @@ struct FNetPacketNotifyTestUtil
 	{
 		size_t SequenceNumberCount = sizeof(InSequenceNumbers) / sizeof(InSequenceNumbers[0]);
 
-		for (int32 I=0; I<SequenceNumberCount; ++I)
+		for (size_t I=0; I<SequenceNumberCount; ++I)
 		{
 			FNetPacketNotifyTestUtil::PretendReceiveSeq(PacketNotify, InSequenceNumbers[I]);
 		}
