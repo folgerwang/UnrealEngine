@@ -1151,7 +1151,7 @@ protected:
 													   buffer,
 													   "const device "
 													   );
-								print_type_pre(PtrType);
+								print_base_type(PtrType->inner_type);
 								ralloc_asprintf_append(buffer, " *%s", unique_name(var));
 								print_type_post(PtrType);
 								ralloc_asprintf_append(
