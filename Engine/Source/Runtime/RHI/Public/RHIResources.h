@@ -1669,6 +1669,7 @@ public:
 		, RasterizerState(InMinimalState.RasterizerState)
 		, DepthStencilState(InMinimalState.DepthStencilState)
 		, ImmutableSamplerState(InMinimalState.ImmutableSamplerState)
+		, bDepthBounds(InMinimalState.bDepthBounds)
 		, PrimitiveType(InMinimalState.PrimitiveType)
 	{
 	}

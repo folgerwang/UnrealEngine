@@ -367,6 +367,7 @@ public:
 
 		check( LocalCache.Contains(InKey) == false );
 		LocalCache.Add(InKey, InValue);
+		checkfSlow(LocalCache.Contains(InKey), TEXT("PSO not found immediately after adding.  Likely cause is an uninitialized field in a constructor or copy constructor"));
 		return true;
 	}
 
