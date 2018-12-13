@@ -13,6 +13,7 @@
 #include "DDoSDetection.h"
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
+#include "PacketHandlerProfileConfig.h"
 
 // @todo #JohnB: There is quite a lot of inefficient copying of packet data going on.
 //					Redo the whole packet parsing/modification pipeline.
@@ -82,7 +83,7 @@ void PacketHandler::Tick(float DeltaTime)
 }
 
 void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/,
-								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/)
+								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/, FName InDriverProfile/*=NAME_None*/)
 {
 	Mode = InMode;
 	MaxPacketBits = InMaxPacketBits;
@@ -96,8 +97,14 @@ void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, boo
 	if (!bConnectionlessHandler)
 	{
 		TArray<FString> Components;
-
-		GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), Components, GEngineIni);
+		UPacketHandlerProfileConfig* CurNetDriverProfile = NewObject<UPacketHandlerProfileConfig>((UObject*)GetTransientPackage(), InDriverProfile);
+		Components.Append(CurNetDriverProfile->Components);
+		
+		// If we didn't get any matches, push in the regular components.
+		if (Components.Num() == 0)
+		{
+			GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), Components, GEngineIni);
+		}
 
 		for (const FString& CurComponent : Components)
 		{
@@ -788,6 +795,49 @@ void PacketHandler::HandlerComponentInitialized(HandlerComponent* InComponent)
 			HandlerInitialized();
 		}
 	}
+}
+
+bool PacketHandler::DoesAnyProfileHaveComponent(const FString& InComponentName)
+{
+	TArray<FString> ProfileSectionNames;
+	if (GConfig->GetPerObjectConfigSections(GEngineIni, TEXT("PacketHandlerProfileConfig"), ProfileSectionNames))
+	{
+		for (const FString& CurProfileSection : ProfileSectionNames)
+		{
+			FName CurNetDriver(*CurProfileSection.Left(CurProfileSection.Find(TEXT(" "))));
+			if (DoesProfileHaveComponent(CurNetDriver, InComponentName))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool PacketHandler::DoesProfileHaveComponent(const FName InNetDriverName, const FString& InComponentName)
+{
+	TArray<FString> Components;
+	// If this call was made during a module load, we cannot use the packethandler config object
+	if (GetTransientPackage() == nullptr)
+	{
+		FString DriverProfileCategory = FString::Printf(TEXT("%s PacketHandlerProfileConfig"), *InNetDriverName.ToString());
+		GConfig->GetArray(*DriverProfileCategory, TEXT("Components"), Components, GEngineIni);
+	}
+	else
+	{
+		UPacketHandlerProfileConfig* CurNetDriverProfile = NewObject<UPacketHandlerProfileConfig>((UObject*)GetTransientPackage(), InNetDriverName);
+		Components.Append(CurNetDriverProfile->Components);
+	}
+	
+	for (const FString& Component : Components)
+	{
+		if (Component.Contains(InComponentName, ESearchCase::CaseSensitive))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 BufferedPacket* PacketHandler::GetQueuedPacket()
