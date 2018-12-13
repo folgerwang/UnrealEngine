@@ -31,7 +31,6 @@ private:
 
 #if !UE_BUILD_SHIPPING
 	// Debug console commands
-	FAutoConsoleCommand EnforceHeadTrackingCommand;
 	FAutoConsoleCommand StatsCommand;
 	FAutoConsoleCommand CubemapCommand;
 	FAutoConsoleCommand ShowSettingsCommand;

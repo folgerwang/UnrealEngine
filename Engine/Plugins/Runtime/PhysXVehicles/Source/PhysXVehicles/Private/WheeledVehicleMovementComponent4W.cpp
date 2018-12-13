@@ -267,10 +267,10 @@ void UWheeledVehicleMovementComponent4W::SetupVehicleDrive(PxVehicleWheelsSimDat
 
 	FPhysicsCommand::ExecuteWrite(UpdatedPrimitive->GetBodyInstance()->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
         PxRigidActor* PRigidActor = nullptr;
 #else
-		PxRigidActor* PRigidActor = Actor.SyncActor ? Actor.SyncActor : Actor.AsyncActor;
+		PxRigidActor* PRigidActor = Actor.SyncActor;
 #endif
 
 		if(PRigidActor)

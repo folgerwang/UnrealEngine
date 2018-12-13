@@ -9,6 +9,8 @@
 #include "FolderTreeItem.h"
 #include "ActorTreeItem.h"
 #include "WorldTreeItem.h"
+#include "ComponentTreeItem.h"
+#include "SubComponentTreeItem.h"
 
 namespace SceneOutliner
 {

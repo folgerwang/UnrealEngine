@@ -25,11 +25,11 @@ struct FCustomPhysXSyncActors
 	  */
 
 	/** This is step 1 of the sync. Do not store any raw PhysX data or update any UE4 component/actors which may trigger a callback. Ideally this should build an array of TWeakObjectPtr<UYourComponent>, Transform pairs */
-	virtual void BuildSyncData_AssumesLocked(int32 SceneType, const TArray<physx::PxRigidActor*>& RigidActors) = 0;
+	virtual void BuildSyncData_AssumesLocked(const TArray<physx::PxRigidActor*>& RigidActors) = 0;
 
 	/** This is step 2 of the sync. It's safe to update any UE4 components/actors or trigger callbacks, as long as the code within this function handles it gracefully.
 	  * For example if a callback destroys some components you will update, make sure to use TWeakObjectPtr */
-	virtual void FinalizeSync(int32 SceneType) = 0;
+	virtual void FinalizeSync() = 0;
 
 private:
 	friend class FPhysScene_PhysX;

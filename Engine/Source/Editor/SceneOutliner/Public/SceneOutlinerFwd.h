@@ -20,6 +20,8 @@ namespace SceneOutliner
 	struct FActorTreeItem;
 	struct FWorldTreeItem;
 	struct FFolderTreeItem;
+	struct FComponentTreeItem;
+	struct FSubComponentTreeItem;
 
 	struct ITreeItemVisitor;
 	struct IMutableTreeItemVisitor;
@@ -42,6 +44,10 @@ namespace SceneOutliner
 
 	/** Typedef to define an array of folder names, used during dragging */
 	typedef TArray<FName> FFolderPaths;
+
+	/** Typedef to define an array of actors, used during dragging */
+	typedef TArray<TWeakPtr<const FSubComponentTreeItem>> FSubComponentItemArray;
+
 }
 
 /** Delegate used with the Scene Outliner in 'actor picking' mode.  You'll bind a delegate when the

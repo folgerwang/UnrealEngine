@@ -42,31 +42,24 @@ private:
 		}
 	}
 
-	void PhysSceneInit(FPhysScene* PhysScene, EPhysicsSceneType SceneType)
+	void PhysSceneInit(FPhysScene* PhysScene)
 	{
-		// Only create PhysXVehicleManager in the sync scene
-		if (SceneType == PST_Sync)
-		{
 #if WITH_PHYSX_VEHICLES
-			new FPhysXVehicleManager(PhysScene, SceneType);
+		new FPhysXVehicleManager(PhysScene);
 #endif // WITH_PHYSX
-		}
 	}
 
-	void PhysSceneTerm(FPhysScene* PhysScene, EPhysicsSceneType SceneType)
+	void PhysSceneTerm(FPhysScene* PhysScene)
 	{
-		if (SceneType == PST_Sync)
-		{
 #if WITH_PHYSX_VEHICLES
-			FPhysXVehicleManager* VehicleManager = FPhysXVehicleManager::GetVehicleManagerFromScene(PhysScene);
-			if (VehicleManager != nullptr)
-			{
-				VehicleManager->DetachFromPhysScene(PhysScene);
-				delete VehicleManager;
-				VehicleManager = nullptr;
-			}
-#endif // WITH_PHYSX
+		FPhysXVehicleManager* VehicleManager = FPhysXVehicleManager::GetVehicleManagerFromScene(PhysScene);
+		if (VehicleManager != nullptr)
+		{
+			VehicleManager->DetachFromPhysScene(PhysScene);
+			delete VehicleManager;
+			VehicleManager = nullptr;
 		}
+#endif // WITH_PHYSX
 	}
 
 	FDelegateHandle OnUpdatePhysXMaterialHandle;

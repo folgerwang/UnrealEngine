@@ -423,7 +423,7 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 					Bodies[BodyIndex]->SetKinematicTarget(BodyTM);
 				}
 			}
-
+			
 			UpdateWorldForces(CompWorldSpaceTM, BaseBoneTM);
 			const FVector SimSpaceGravity = WorldVectorToSpaceNoScale(SimulationSpace, WorldSpaceGravity, CompWorldSpaceTM, BaseBoneTM);
 
@@ -435,7 +435,9 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 
 			for (int32 Step = 1; Step <= NumIterations; Step++)
 			{
-				PhysicsSimulation->Simulate(StepDeltaTime, SimSpaceGravity);
+				// We call the _AssumesLocked version here without a lock as the simulation is local to this node and we know
+				// we're not going to alter anything while this is running.
+				PhysicsSimulation->Simulate_AssumesLocked(StepDeltaTime, SimSpaceGravity);
 			}
 		}
 		
@@ -671,7 +673,7 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 					{
 						FPhysicsConstraintHandle& ConstraintRef = CI->ConstraintHandle;
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                         ensure(false);
 #else
 						PhysicsSimulation->CreateJoint(ConstraintRef.ConstraintData, Body1Handle, Body2Handle);
@@ -893,7 +895,7 @@ void FAnimNode_RigidBody::UpdateInternal(const FAnimationUpdateContext& Context)
 		TArray<FOverlapResult> Overlaps;
 		UnsafeWorld->OverlapMultiByChannel(Overlaps, Bounds.Center, FQuat::Identity, OverlapChannel, FCollisionShape::MakeSphere(Bounds.W), QueryParams, FCollisionResponseParams(ECR_Overlap));
 
-		SCOPED_SCENE_READ_LOCK(PhysScene ? PhysScene->GetPxScene(PST_Sync) : nullptr); //TODO: expose this part to the anim node
+		SCOPED_SCENE_READ_LOCK(PhysScene ? PhysScene->GetPxScene() : nullptr); //TODO: expose this part to the anim node
 	
 		for (const FOverlapResult& Overlap : Overlaps)
 		{
@@ -902,7 +904,7 @@ void FAnimNode_RigidBody::UpdateInternal(const FAnimationUpdateContext& Context)
 				if (ComponentsInSim.Contains(OverlapComp) == false)
 				{
 					ComponentsInSim.Add(OverlapComp);
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
                     check(false);
 #else
 					if (PxRigidActor* RigidActor = FPhysicsInterface_PhysX::GetPxRigidActor_AssumesLocked(OverlapComp->BodyInstance.ActorHandle))

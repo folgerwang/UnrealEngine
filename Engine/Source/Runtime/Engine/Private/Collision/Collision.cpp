@@ -160,7 +160,6 @@ FCollisionQueryParams::FCollisionQueryParams(FName InTraceTag, const TStatId& In
 	MobilityType = EQueryMobilityType::Any;
 	TraceTag = InTraceTag;
 	StatId = InStatId;
-	bTraceAsyncScene = false;
 	bFindInitialOverlaps = true;
 	bReturnFaceIndex = false;
 	bReturnPhysicalMaterial = false;
@@ -251,7 +250,7 @@ void FCollisionQueryParams::AddIgnoredActors(const TArray<const AActor*>& InIgno
 	}
 }
 
-void FCollisionQueryParams::AddIgnoredActors(const TArray<TWeakObjectPtr<AActor> >& InIgnoreActors)
+void FCollisionQueryParams::AddIgnoredActors(const TArray<TWeakObjectPtr<const AActor> >& InIgnoreActors)
 {
 	for (int32 Idx = 0; Idx < InIgnoreActors.Num(); ++Idx)
 	{

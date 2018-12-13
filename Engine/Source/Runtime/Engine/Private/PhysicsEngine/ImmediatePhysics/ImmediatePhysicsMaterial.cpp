@@ -18,4 +18,7 @@ namespace ImmediatePhysics
 	{
 	}
 #endif
+
+	/** Default shape material. Created from the CDO of UPhysicalMaterial */
+	FMaterial FMaterial::Default;
 }

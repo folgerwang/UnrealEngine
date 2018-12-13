@@ -268,6 +268,23 @@ static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& A
 }
 
 
+/** Copies all element attributes with the given ID into a different AttributesSet */
+template <typename ElementIDType>
+static void CopyAllAttributes( TAttributesSet<ElementIDType>& DestAttributesSet, const TAttributesSet<ElementIDType>& SrcAttributesSet, const ElementIDType ElementID )
+{
+	SrcAttributesSet.ForEachAttributeIndicesArray(
+		[ &DestAttributesSet, ElementID ]( const FName AttributeName, const auto& AttributeIndicesArray )
+		{
+			for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+			{
+				using AttributeType = decltype( AttributeIndicesArray.GetDefaultValue() );
+				DestAttributesSet.template SetAttribute<AttributeType>( ElementID, AttributeName, Index, AttributeIndicesArray.GetArrayForIndex( Index )[ ElementID ] );
+			}
+		}
+	);
+}
+
+
 /** Copies all element attributes with the given ID into an FMeshElementAttributeList */
 template <typename ElementIDType>
 static void BackupAllAttributes( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ElementID )
@@ -357,6 +374,7 @@ UEditableMesh::UEditableMesh()
 	: MeshDescription( &OwnedMeshDescription ),
 	  bAllowUndo( false ),
 	  bAllowCompact( false ),
+	  PrimaryAdapter(nullptr),
 	  PendingCompactCounter( 0 ),
 	  bAllowSpatialDatabase( false )
 {
@@ -3630,6 +3648,7 @@ void UEditableMesh::SplitPolygons( const TArray<FPolygonToSplit>& PolygonsToSpli
 				PerimeterVertexNumbers.Add( LastPolygonVertexNumbers[ 0 ] );
 			}
 
+            check(PerimeterVertexNumbers.Num() >= 3);
 			NewPolygon.PerimeterVertices.Reserve( PerimeterVertexNumbers.Num() );
 			for( const int32 VertexNumber : PerimeterVertexNumbers )
 			{
@@ -3785,6 +3804,7 @@ void UEditableMesh::DeleteOrphanVertices( const TArray<FVertexID>& VertexIDsToDe
 		{
 			VerticesPendingMerging.Remove( VertexIDToDelete );
 			GetMeshDescription()->DeleteVertex( VertexIDToDelete );
+            VerticesPendingMerging.Remove(VertexIDToDelete);
 		}
 	}
 
@@ -6487,6 +6507,197 @@ void UEditableMesh::GenerateTangentsAndNormals()
 	SetVertexInstancesAttributes( AttributesForVertexInstances );
 }
 
+void UEditableMesh::SplitPolygonalMesh(const FPlane& InPlane, TArray<FPolygonID>& PolygonIDs1, TArray<FPolygonID>& PolygonIDs2, TArray<FEdgeID>& BoundaryEdges)
+{
+	TPolygonAttributesConstRef<FVector> PolygonCenters = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Center);
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+    // Find potential polygons to split
+    TArray<FPolygonID> PotentialPolygonsToSplit;
+    SearchSpatialDatabaseForPolygonsPotentiallyIntersectingPlane(InPlane, PotentialPolygonsToSplit);
+    TSet<FPolygonID> PotentialPolygonsToSplitSet;
+    for (const auto& PolygonID : PotentialPolygonsToSplit)
+    {
+        PotentialPolygonsToSplitSet.Add(PolygonID);
+    }
+
+    TMap<FPolygonID, TArray<FEdgeID>> PolygonToEdgesMap;
+    for (const auto& PolygonID : GetMeshDescription()->Polygons().GetElementIDs())
+    {
+        PolygonToEdgesMap.Add(PolygonID, {});
+        GetMeshDescription()->GetPolygonEdges(PolygonID, PolygonToEdgesMap[PolygonID]);
+    }
+    
+    // Find polygons that need to be split and if they don't need to add them to the appropriate list
+    TArray<FPolygonToSplit> PolygonsToSplit;
+    TMap<FEdgeID, FVertexID> EdgeToSplitVertMap;
+    for (const auto& PolygonID : GetMeshDescription()->Polygons().GetElementIDs())
+    {
+        bool bIsPolygonIntersecting = false;
+        if (PotentialPolygonsToSplitSet.Contains(PolygonID))
+        {
+            TSet<FVertexInstanceID> VertexInstanceIDs;
+            VertexInstanceIDs.Append(GetMeshDescription()->GetPolygonPerimeterVertexInstances(PolygonID));
+            int32 PosNeg = 0;
+            TArray<bool> PosNegResults;
+            for (const auto& VertexInstanceID : VertexInstanceIDs)
+            {
+                const FVertexID VertexID = GetMeshDescription()->GetVertexInstanceVertex(VertexInstanceID);
+                const float PlaneDot = InPlane.PlaneDot(VertexPositions[VertexID]);
+                if (PlaneDot > 0)
+                {
+                    if (PosNeg < 0)
+                    {
+                        bIsPolygonIntersecting = true;
+                        break;
+                    }
+                    else if (PosNeg == 0)
+                    {
+                        PosNeg = 1;
+                    }
+                }
+                else if (PlaneDot < 0)
+                {
+                    if (PosNeg > 0)
+                    {
+                        bIsPolygonIntersecting = true;
+                        break;
+                    }
+                    else if (PosNeg == 0)
+                    {
+                        PosNeg = -1;
+                    }
+                }
+                PosNegResults.Add(PlaneDot > 0);
+            }
+        }
+        if (bIsPolygonIntersecting)
+        {
+            const TArray<FEdgeID>& EdgeIDs = PolygonToEdgesMap[PolygonID];
+            TArray<FPolygonID> TriangulatedPolygons;
+            if (EdgeIDs.Num() > 3)
+            {
+                TArray<FPolygonID> PolygonIDs, OutPolygonIDs;
+                TriangulatePolygons(PolygonIDs, OutPolygonIDs);
+                for (const auto& NewPolygonID : OutPolygonIDs)
+                {
+                    TriangulatedPolygons.Add(NewPolygonID);
+                    PolygonToEdgesMap.Add(NewPolygonID, {});
+                    GetMeshDescription()->GetPolygonEdges(PolygonID, PolygonToEdgesMap[NewPolygonID]);
+                }
+            }
+            else
+            {
+                TriangulatedPolygons.Add(PolygonID);
+            }
+            for (int32 i = 0; i < TriangulatedPolygons.Num(); ++i)
+            {
+                const auto& TriPolygonID = TriangulatedPolygons[i];
+                const auto& TriEdgeIDs = PolygonToEdgesMap[TriPolygonID];
+                check(TriEdgeIDs.Num() == 3);
+                TArray<FVertexID> SplitVertexIDs;
+                for (const auto& EdgeID : TriEdgeIDs)
+                {
+                    if (EdgeToSplitVertMap.Contains(EdgeID))
+                    {
+                        SplitVertexIDs.Add(EdgeToSplitVertMap[EdgeID]);
+                    }
+                    else
+                    {
+                        const auto& VertexID0 = GetMeshDescription()->GetEdgeVertex(EdgeID, 0);
+                        const auto& VertexID1 = GetMeshDescription()->GetEdgeVertex(EdgeID, 1);
+                        const bool Sign0 = InPlane.PlaneDot(VertexPositions[VertexID0]) > 0;
+                        const bool Sign1 = InPlane.PlaneDot(VertexPositions[VertexID1]) > 0;
+                        if (Sign0 != Sign1)
+                        {
+                            const FVector EdgeVertex0Location = VertexPositions[VertexID0];
+                            const FVector EdgeVertex1Location = VertexPositions[VertexID1];
+
+                            const FVector Direction = (EdgeVertex1Location - EdgeVertex0Location).GetSafeNormal();
+                            const FVector Intersection = FMath::RayPlaneIntersection(EdgeVertex0Location, Direction, InPlane);
+
+                            const float EdgeLength = (EdgeVertex1Location - EdgeVertex0Location).Size();
+                            const float ImpactProgressAlongEdge = (Intersection - EdgeVertex0Location).Size() / EdgeLength;
+
+                            TArray<FVertexID> NewVertexIDs;
+                            TArray<float> SplitEdgeSplitList;
+                            SplitEdgeSplitList.SetNumUninitialized(1);
+                            SplitEdgeSplitList[0] = ImpactProgressAlongEdge;
+
+                            SplitEdge(EdgeID, SplitEdgeSplitList, NewVertexIDs);
+                            check(NewVertexIDs.Num() == 1);
+                            SplitVertexIDs.Add(NewVertexIDs[0]);
+                            EdgeToSplitVertMap.Add(EdgeID, NewVertexIDs[0]);
+                        }
+                    }
+                }
+                // If we split then we may not be intersection
+                if (SplitVertexIDs.Num())
+                {
+                    check(SplitVertexIDs.Num() == 2);
+                    FPolygonToSplit PolygonToSplit;
+                    PolygonToSplit.PolygonID = TriPolygonID;
+                    PolygonToSplit.VertexPairsToSplitAt.SetNum(1);
+                    PolygonToSplit.VertexPairsToSplitAt[0].VertexID0 = SplitVertexIDs[0];
+                    PolygonToSplit.VertexPairsToSplitAt[0].VertexID1 = SplitVertexIDs[1];
+                    PolygonsToSplit.Add(PolygonToSplit);
+                }
+                else
+                {
+                    //if (InPlane.PlaneDot(PolygonCenters[PolygonID]) >= 0)
+                    if (InPlane.PlaneDot(UEditableMesh::ComputePolygonCenter(PolygonID)) >= 0)
+                    {
+                        PolygonIDs1.Add(PolygonID);
+                    }
+                    else
+                    {
+                        PolygonIDs2.Add(PolygonID);
+                    }
+                }
+            }
+        }
+        else
+        {
+            //if (InPlane.PlaneDot(PolygonCenters[PolygonID]) >= 0)
+            if (InPlane.PlaneDot(UEditableMesh::ComputePolygonCenter(PolygonID)) >= 0)
+            {
+                PolygonIDs1.Add(PolygonID);
+            }
+            else
+            {
+                PolygonIDs2.Add(PolygonID);
+            }
+        }
+    }
+
+    // Split polygons and add new ones to the correct list
+    SplitPolygons(PolygonsToSplit, BoundaryEdges);
+    for (const auto& EdgeID : BoundaryEdges)
+    {
+        const TArray<FPolygonID>& EdgeIDConnectedPolygons = GetMeshDescription()->GetEdgeConnectedPolygons(EdgeID);
+        for (const auto& NewPolygonID : EdgeIDConnectedPolygons)
+        {
+            //if (InPlane.PlaneDot(PolygonCenters[NewPolygonID]) >= 0)
+            if (InPlane.PlaneDot(UEditableMesh::ComputePolygonCenter(NewPolygonID)) >= 0)
+            {
+                PolygonIDs1.Add(NewPolygonID);
+            }
+            {
+                PolygonIDs2.Add(NewPolygonID);
+            }
+        }
+    }
+}
+
+void UEditableMesh::GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams)
+{
+#if WITH_EDITOR
+	if (PrimaryAdapter)
+	{
+		PrimaryAdapter->GeometryHitTest(InParams, OutParams);
+	}
+#endif // WITH_EDITOR
+}
 
 #if 0
 void UEditableMesh::GenerateTangentsForPolygons( const TArray< FPolygonID >& PolygonIDs )
@@ -8475,6 +8686,62 @@ void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineS
 	SearchSpatialDatabaseWithPredicate( SearchByLineSegmentIntersection, OutPolygons );
 }
 
+// @todo mesheditor: Combine this function with the one above
+void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingPlane( const FPlane& InPlane, TArray<FPolygonID>& OutPolygons ) const
+{
+	OutPolygons.Reset();
+
+	// @todo mesheditor scripting: Should spit a warning for Blueprint users if Octree is not allowed when calling this function
+
+	if( IsSpatialDatabaseAllowed() && ensure( Octree.IsValid() ) )
+	{
+		// @todo mesheditor perf: Do we need to use a custom stack allocator for iterating?  The default should probably be okay.
+		for( FEditableMeshOctree::TConstIterator<> OctreeIt( *Octree );
+			 OctreeIt.HasPendingNodes();
+			 OctreeIt.Advance() )
+		{
+			const FEditableMeshOctree::FNode& OctreeNode = OctreeIt.GetCurrentNode();
+			const FOctreeNodeContext& OctreeNodeContext = OctreeIt.GetCurrentContext();
+
+			// Leaf nodes have no children, so don't bother iterating
+			if( !OctreeNode.IsLeaf() )
+			{
+				// Find children of this octree node that overlap our line segment
+				FOREACH_OCTREE_CHILD_NODE( ChildRef )
+				{
+					if( OctreeNode.HasChild( ChildRef ) )
+					{
+						const FOctreeNodeContext ChildContext = OctreeNodeContext.GetChildContext( ChildRef );
+
+                        const bool bIsOverlappingLineSegment =
+                            FMath::PlaneAABBIntersection(
+                                InPlane,
+                                ChildContext.Bounds.GetBox());
+
+						if( bIsOverlappingLineSegment )
+						{
+							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent * 0.8f, FQuat::Identity, FColor::Green, false, 0.0f );		// @todo mesheditor debug: (also, wrong coordinate system!)
+
+							// Push it on the iterator's pending node stack.
+							OctreeIt.PushChild( ChildRef );
+						}
+						else
+						{
+							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent, FQuat::Identity, FColor( 128, 128, 128 ), false, 0.0f );	// @todo mesheditor debug: (also, wrong coordinate system!)
+						}
+					}
+				}
+			}
+
+			// All of the elements in this octree node are candidates.  Note this node may not be a leaf node, and that's OK.
+			for( FEditableMeshOctree::ElementConstIt OctreeElementIt( OctreeNode.GetElementIt() ); OctreeElementIt; ++OctreeElementIt )
+			{
+				const FEditableMeshOctreePolygon& OctreePolygon = *OctreeElementIt;
+				OutPolygons.Add( OctreePolygon.PolygonID );
+			}
+		}
+	}
+}
 
 void UEditableMesh::SetAllowSpatialDatabase( const bool bInAllowSpatialDatabase )
 {
@@ -8525,3 +8792,4 @@ TUniquePtr<FChange> UEditableMesh::MakeUndo()
 
 	return UndoChange;
 }
+

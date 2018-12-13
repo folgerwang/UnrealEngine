@@ -6,7 +6,13 @@
 #include "Physics/PhysicsFiltering.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "Components/PrimitiveComponent.h"
+#include "Collision.h"
 
+#if PHYSICS_INTERFACE_PHYSX
+#include "PhysXInterfaceWrapper.h"
+#elif PHYSICS_INTERFACE_LLIMMEDIATE
+#include "Physics/Experimental/LLImmediateInterfaceWrapper.h"
+#endif
 
 ECollisionQueryHitType FCollisionQueryFilterCallback::CalcQueryHitType(const FCollisionFilterData& QueryFilter, const FCollisionFilterData& ShapeFilter, bool bPreFilter)
 {
@@ -79,7 +85,25 @@ ECollisionQueryHitType FCollisionQueryFilterCallback::CalcQueryHitType(const FCo
 	return ECollisionQueryHitType::None;
 }
 
+ECollisionQueryHitType FCollisionQueryFilterCallback::PreFilter(const FCollisionFilterData& FilterData, const FPhysicsShape& Shape, const FPhysicsActor& Actor)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Collision_PreFilter);
+	FCollisionFilterData ShapeFilter = GetQueryFilterData(Shape);
 
+	// We usually don't have ignore components so we try to avoid the virtual getSimulationFilterData() call below. 'word2' of shape sim filter data is componentID.
+	uint32 ComponentID = 0;
+	if (IgnoreComponents.Num() > 0)
+	{
+		ComponentID = GetSimulationFilterData(Shape).Word2;
+	}
+
+	FBodyInstance* BodyInstance = nullptr;
+#if ENABLE_PREFILTER_LOGGING || DETECT_SQ_HITCHES
+	BodyInstance = GetUserData(Actor);
+#endif // ENABLE_PREFILTER_LOGGING || DETECT_SQ_HITCHES
+
+	return PreFilter(FilterData, ShapeFilter, ComponentID, BodyInstance);
+}
 
 ECollisionQueryHitType FCollisionQueryFilterCallback::PreFilter(const FCollisionFilterData& FilterData, const FCollisionFilterData& ShapeFilter, uint32 ComponentID, const FBodyInstance* BodyInstance)
 {
@@ -202,4 +226,18 @@ ECollisionQueryHitType FCollisionQueryFilterCallback::PostFilter(const FCollisio
 
 		return PreFilterReturnValue;
 	}
+}
+
+ECollisionQueryHitType FCollisionQueryFilterCallback::PostFilter(const FCollisionFilterData& FilterData, const FPhysicsQueryHit& Hit)
+{
+	// Unused in non-sweeps
+	if (!bIsSweep)
+	{
+		return ECollisionQueryHitType::None;
+	}
+
+	const FHitLocation& SweepHit = (const FHitLocation&)Hit;
+	const bool bIsOverlap = HadInitialOverlap(SweepHit);
+
+	return PostFilter(FilterData, bIsOverlap);
 }

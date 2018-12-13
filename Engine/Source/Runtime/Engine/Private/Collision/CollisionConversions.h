@@ -33,23 +33,7 @@ enum class EConvertQueryResult
  * @param	bReturnPhysMat		True if we want to lookup the physical material
  * @return	Whether result passed NaN/Inf checks.
  */
-EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
-
-/** 
- * Util to convert physX raycast results to our hit results
- *
- * @param	OutHasValidBlockingHit set to whether there is a valid blocking hit found in the results.
- * @param	NumHits		Number of Hits
- * @param	Hits		Array of hits
- * @param	CheckLength	Distance of trace
- * @param	QueryFilter	Query Filter 
- * @param	StartLoc	Start of trace
- * @param	EndLoc		End of trace
- * @param	bReturnFaceIndex	True if we want to lookup the face index
- * @param	bReturnPhysMat		True if we want to lookup the physical material
- * @return	Whether all results passed NaN/Inf checks.
- */
-EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat);
+EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const FCollisionFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* Geom, const FTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX sweep results to unreal hit results and add to array
@@ -66,7 +50,11 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
  * @param	bReturnPhysMat		True if we want to lookup the physical material
  * @return	Whether all results passed NaN/Inf checks.
  */
-EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat);
+template <typename Hit>
+EConvertQueryResult ConvertTraceResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, Hit* Hits, float CheckLength, const FCollisionFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const FTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat);
+
+template <typename Hit>
+EConvertQueryResult ConvertTraceResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, Hit* Hits, float CheckLength, const FCollisionFilterData& QueryFilter, FHitResult& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const FTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX overlap query to our overlap result
@@ -76,7 +64,7 @@ EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* 
  * @param	OutOverlap	(out) Result converted
  * @param	QueryFilter	Query Filter 
  */
-void ConvertQueryOverlap(const UWorld* World, const PxShape* PShape, const PxRigidActor* PActor, FOverlapResult& OutOverlap, const PxFilterData& QueryFilter);
+void ConvertQueryOverlap(const UWorld* World, const PxShape& PShape, const PxRigidActor& PActor, FOverlapResult& OutOverlap, const FCollisionFilterData& QueryFilter);
 
 /**
  * Util to determine if a shape is deemed blocking based on the query filter
@@ -85,7 +73,7 @@ void ConvertQueryOverlap(const UWorld* World, const PxShape* PShape, const PxRig
  * @QueryFilter Query Filter
  * @return true if the query filter and shape filter resolve to be blocking
  */
-bool IsBlocking(const PxShape* PShape, const PxFilterData& QueryFilter);
+bool IsBlocking(const FPhysicsShape& PShape, const FCollisionFilterData& QueryFilter);
 
 
 /** 
@@ -96,7 +84,7 @@ bool IsBlocking(const PxShape* PShape, const PxFilterData& QueryFilter);
  * @param	QueryFilter	Query filter for converting
  * @return	OutOverlaps	Converted data
  */
-bool ConvertOverlapResults(int32 NumOverlaps,  PxOverlapHit* POverlapResults, const PxFilterData& QueryFilter, TArray<FOverlapResult>& OutOverlaps);
+bool ConvertOverlapResults(int32 NumOverlaps, FHitOverlap* POverlapResults, const FCollisionFilterData& QueryFilter, TArray<FOverlapResult>& OutOverlaps);
 
 
 #endif // WITH_PHYX
@@ -116,3 +104,7 @@ struct FCompareFHitResultTime
 		return A.Time < B.Time;
 	}
 };
+
+#ifndef DRAW_OVERLAPPING_TRIS
+#define DRAW_OVERLAPPING_TRIS (!(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+#endif

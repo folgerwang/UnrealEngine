@@ -27,5 +27,7 @@ namespace ImmediatePhysics
 
 		EFrictionCombineMode::Type FrictionCombineMode;
 		EFrictionCombineMode::Type RestitutionCombineMode;
+
+		static FMaterial Default;
 	};
 }

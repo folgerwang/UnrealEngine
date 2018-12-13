@@ -281,7 +281,7 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 					PxHeightFieldGeometry LandscapeComponentGeomEd(HeightfieldRef->RBHeightfieldEd, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * CollisionScale, LandscapeScale.X * CollisionScale);
 					if (LandscapeComponentGeomEd.isValid())
 					{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                         ensure(false);
 #else
 						FPhysicsMaterialHandle_PhysX MaterialHandle = GEngine->DefaultPhysMaterial->GetPhysicsMaterial();
@@ -310,79 +310,20 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 
 				FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
 
-				PxRigidStatic* HeightFieldActorAsync = nullptr;
-				bool bHasAsyncScene = PhysScene->HasAsyncScene();
-				if (bHasAsyncScene)
-				{
-					// Create the async scene actor
-					HeightFieldActorAsync = GPhysXSDK->createRigidStatic(PhysXLandscapeComponentTransform);
-					PxShape* HeightFieldShapeAsync = GPhysXSDK->createShape(LandscapeComponentGeom, HeightfieldRef->UsedPhysicalMaterialArray.GetData(), HeightfieldRef->UsedPhysicalMaterialArray.Num(), true);
-
-					HeightFieldShapeAsync->setQueryFilterData(U2PFilterData(QueryFilterData));
-					HeightFieldShapeAsync->setSimulationFilterData(U2PFilterData(SimFilterData));
-					// Only perform scene queries in the synchronous scene for static shapes
-					HeightFieldShapeAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
-					HeightFieldShapeAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
-					HeightFieldShapeAsync->setFlag(PxShapeFlag::eVISUALIZATION, true);
-
-					HeightFieldActorAsync->attachShape(*HeightFieldShapeAsync);
-
-					// attachShape holds its own ref(), so release this here.
-					HeightFieldShapeAsync->release();
-
-					if (bCreateSimpleCollision)
-					{
-						PxHeightFieldGeometry LandscapeComponentGeomSimple(HeightfieldRef->RBHeightfieldSimple, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * SimpleCollisionScale, LandscapeScale.X * SimpleCollisionScale);
-						check(LandscapeComponentGeomSimple.isValid());
-						PxShape* HeightFieldShapeSimpleAsync = GPhysXSDK->createShape(LandscapeComponentGeomSimple, HeightfieldRef->UsedPhysicalMaterialArray.GetData(), HeightfieldRef->UsedPhysicalMaterialArray.Num(), true);
-						check(HeightFieldShapeSimpleAsync);
-
-						// Setup filtering
-						FCollisionFilterData QueryFilterDataSimple = QueryFilterData;
-						FCollisionFilterData SimFilterDataSimple = SimFilterData;
-						QueryFilterDataSimple.Word3 = (QueryFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-						SimFilterDataSimple.Word3 = (SimFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-						HeightFieldShapeSimpleAsync->setQueryFilterData(U2PFilterData(QueryFilterDataSimple));
-						HeightFieldShapeSimpleAsync->setSimulationFilterData(U2PFilterData(SimFilterDataSimple));
-						// Only perform scene queries in the synchronous scene for static shapes
-						HeightFieldShapeSimpleAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
-						HeightFieldShapeSimpleAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
-						HeightFieldShapeSimpleAsync->setFlag(PxShapeFlag::eVISUALIZATION, true);
-
-						HeightFieldActorAsync->attachShape(*HeightFieldShapeSimpleAsync);
-
-						// attachShape holds its own ref(), so release this here.
-						HeightFieldShapeSimpleAsync->release();
-					}
-				}
-
 				// Set body instance data
 				BodyInstance.PhysxUserData = FPhysxUserData(&BodyInstance);
 				BodyInstance.OwnerComponent = this;
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                 ensure(false);
 #else
 				BodyInstance.ActorHandle.SyncActor = HeightFieldActorSync;
-				BodyInstance.ActorHandle.AsyncActor = HeightFieldActorAsync;
 				HeightFieldActorSync->userData = &BodyInstance.PhysxUserData;
-				if (bHasAsyncScene)
-				{
-					HeightFieldActorAsync->userData = &BodyInstance.PhysxUserData;
-				}
 
 				// Add to scenes
-				PxScene* SyncScene = PhysScene->GetPxScene(PST_Sync);
+				PxScene* SyncScene = PhysScene->GetPxScene();
 				SCOPED_SCENE_WRITE_LOCK(SyncScene);
 				SyncScene->addActor(*HeightFieldActorSync);
-
-				if (bHasAsyncScene)
-				{
-					PxScene* AsyncScene = PhysScene->GetPxScene(PST_Async);
-
-					SCOPED_SCENE_WRITE_LOCK(AsyncScene);
-					AsyncScene->addActor(*HeightFieldActorAsync);
-				}
 #endif
 			}
 		}
@@ -460,7 +401,7 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 
 				for (UPhysicalMaterial* PhysicalMaterial : CookedPhysicalMaterials)
 				{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                     ensure(false);
 #else
 					const FPhysicsMaterialHandle_PhysX& MaterialHandle = PhysicalMaterial->GetPhysicsMaterial();
@@ -962,7 +903,7 @@ void ULandscapeMeshCollisionComponent::CreateCollisionObject()
 
 				for (UPhysicalMaterial* PhysicalMaterial : CookedPhysicalMaterials)
 				{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                     ensure(false);
 #else
 					MeshRef->UsedPhysicalMaterialArray.Add(PhysicalMaterial->GetPhysicsMaterial().Material);
@@ -1054,26 +995,6 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 
 				FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
 
-				PxRigidStatic* MeshActorAsync = nullptr;
-				bool bHasAsyncScene = PhysScene->HasAsyncScene();
-				if (bHasAsyncScene)
-				{
-					// Create the async scene actor
-					MeshActorAsync = GPhysXSDK->createRigidStatic(PhysXLandscapeComponentTransform);
-					PxShape* MeshShapeAsync = GPhysXSDK->createShape(PTriMeshGeom, MeshRef->UsedPhysicalMaterialArray.GetData(), MeshRef->UsedPhysicalMaterialArray.Num(), true);
-					check(MeshShapeAsync);
-
-					MeshShapeAsync->setQueryFilterData(U2PFilterData(QueryFilterData));
-					MeshShapeAsync->setSimulationFilterData(U2PFilterData(SimFilterData));
-					// Only perform scene queries in the synchronous scene for static shapes
-					MeshShapeAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
-					MeshShapeAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
-					MeshShapeAsync->setFlag(PxShapeFlag::eVISUALIZATION, true);	// Setting visualization flag, in case we visualize only the async scene
-
-					MeshActorAsync->attachShape(*MeshShapeAsync);
-					MeshShapeAsync->release();
-				}
-
 #if WITH_EDITOR
 				// Create a shape for a mesh which is used only by the landscape editor
 				if (!GetWorld()->IsGameWorld())
@@ -1085,7 +1006,7 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 					PTriMeshGeomEd.scale.scale.z = LandscapeScale.Z;
 					if (PTriMeshGeomEd.isValid())
 					{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                         ensure(false);
 #else
 						PxMaterial* PDefaultMat = GEngine->DefaultPhysMaterial->GetPhysicsMaterial().Material;
@@ -1113,29 +1034,16 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 				BodyInstance.PhysxUserData = FPhysxUserData(&BodyInstance);
 				BodyInstance.OwnerComponent = this;
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                 ensure(false);
 #else
 				BodyInstance.ActorHandle.SyncActor = MeshActorSync;
-				BodyInstance.ActorHandle.AsyncActor = MeshActorAsync;
 				MeshActorSync->userData = &BodyInstance.PhysxUserData;
-				if (bHasAsyncScene)
-				{
-					MeshActorAsync->userData = &BodyInstance.PhysxUserData;
-				}
 
 				// Add to scenes
-				PxScene* SyncScene = PhysScene->GetPxScene(PST_Sync);
+				PxScene* SyncScene = PhysScene->GetPxScene();
 				SCOPED_SCENE_WRITE_LOCK(SyncScene);
 				SyncScene->addActor(*MeshActorSync);
-
-				if (bHasAsyncScene)
-				{
-					PxScene* AsyncScene = PhysScene->GetPxScene(PST_Async);
-
-					SCOPED_SCENE_WRITE_LOCK(AsyncScene);
-					AsyncScene->addActor(*MeshActorAsync);
-				}
 #endif
 			}
 			else
@@ -1181,7 +1089,7 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 			return;
 		}
 
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
         ensure(false);
 #else
 		if (BodyInstance.ActorHandle.SyncActor == NULL)
@@ -1253,7 +1161,7 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 	
 			{
 				FInlineShapeArray PShapes;
-#if WITH_APEIRON
+#if WITH_CHAOS
 				ensure(false);
 				const int32 NumShapes = 0;
 #else

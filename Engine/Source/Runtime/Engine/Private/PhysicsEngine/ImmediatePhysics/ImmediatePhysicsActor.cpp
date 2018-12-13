@@ -3,9 +3,26 @@
 #include "Physics/ImmediatePhysics/ImmediatePhysicsActor.h"
 #include "PhysicsPublic.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 namespace ImmediatePhysics
 {
+
+	FMaterial* GetBaseMaterialFromUnrealMaterial(UPhysicalMaterial* InMaterial)
+	{
+#if PHYSICS_INTERFACE_LLIMMEDIATE
+		if(InMaterial)
+		{
+			FPhysicsMaterialHandle_LLImmediate MatHandle = InMaterial->GetPhysicsMaterial();
+
+			return MatHandle.Get();
+		}
+#else
+		return &FMaterial::Default;
+#endif
+
+		return nullptr;
+	}
 
 #if WITH_PHYSX
 void FActor::CreateGeometry(PxRigidActor* RigidActor, const PxTransform& ActorToBodyTM)
@@ -37,13 +54,20 @@ void FActor::CreateGeometry(PxRigidActor* RigidActor, const PxTransform& ActorTo
 		Materials.SetNumUninitialized(NumMaterials);
 		Shape->getMaterials(Materials.GetData(), sizeof(Materials[0]) * NumMaterials);
 
-		FMaterial NewMaterial;
+		FMaterial* NewMaterial = nullptr;
 		if(NumMaterials > 0)
 		{
-			NewMaterial = FMaterial(Materials[0]);	//NOTE: this does not support complex materials for trimeshes
+			PxMaterial* FirstMaterial = Materials[0];
+			UPhysicalMaterial* UnrealMaterial = FPhysxUserData::Get<UPhysicalMaterial>(FirstMaterial->userData);
+
+			NewMaterial = GetBaseMaterialFromUnrealMaterial(UnrealMaterial);
+		}
+
+		if(!NewMaterial)
+		{
+			NewMaterial = GetBaseMaterialFromUnrealMaterial((UPhysicalMaterial*)UPhysicalMaterial::StaticClass()->GetDefaultObject());
 		}
 		
-
 		switch (GeomHolder.getType())
 		{
 			case PxGeometryType::eSPHERE:		Shapes.Emplace(BodyLocalShape, BoundsCenter, BoundsMag, new PxSphereGeometry(GeomHolder.sphere().radius), NewMaterial); break;
@@ -76,10 +100,18 @@ bool FActor::AddShape(PxShape* InShape)
 	Materials.SetNumUninitialized(NumMaterials);
 	InShape->getMaterials(Materials.GetData(), sizeof(Materials[0]) * NumMaterials);
 
-	FMaterial NewMaterial;
+	FMaterial* NewMaterial = nullptr;
 	if(NumMaterials > 0)
 	{
-		NewMaterial = FMaterial(Materials[0]);	//NOTE: this does not support complex materials for trimeshes
+		PxMaterial* FirstMaterial = Materials[0];
+		UPhysicalMaterial* UnrealMaterial = FPhysxUserData::Get<UPhysicalMaterial>(FirstMaterial->userData);
+
+		NewMaterial = GetBaseMaterialFromUnrealMaterial(UnrealMaterial);
+	}
+
+	if(!NewMaterial)
+	{
+		NewMaterial = GetBaseMaterialFromUnrealMaterial((UPhysicalMaterial*)UPhysicalMaterial::StaticClass()->GetDefaultObject());
 	}
 
 	switch(GeomHolder.getType())

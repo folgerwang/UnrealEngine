@@ -75,7 +75,7 @@ void* FMallocTBB::Malloc( SIZE_T Size, uint32 Alignment )
 #if UE_BUILD_DEBUG
 	else if (Size)
 	{
-		FMemory::Memset(NewPtr, DEBUG_FILL_NEW, Size); 
+		FMemory::Memset(NewPtr, DEBUG_FILL_NEW, scalable_msize(NewPtr));
 	}
 #endif
 	MEM_TIME(MemTime += FPlatformTime::Seconds());
@@ -126,7 +126,7 @@ void* FMallocTBB::Realloc( void* Ptr, SIZE_T NewSize, uint32 Alignment )
 #if UE_BUILD_DEBUG
 	if (NewPtr && NewSize > OldSize )
 	{
-		FMemory::Memset((uint8*)NewPtr + OldSize, DEBUG_FILL_NEW, NewSize - OldSize); 
+		FMemory::Memset((uint8*)NewPtr + OldSize, DEBUG_FILL_NEW, scalable_msize(NewPtr) -OldSize);
 	}
 #endif
 	if( !NewPtr && NewSize )

@@ -266,7 +266,6 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 
 	SetGenerateOverlapEvents(true);
 	bMultiBodyOverlap = false;
-	bCheckAsyncSceneOnMove = false;
 	bReturnMaterialOnMove = false;
 	bCanEverAffectNavigation = false;
 	bNavigationRelevant = false;
@@ -1829,7 +1828,6 @@ void UPrimitiveComponent::InitSweepCollisionParams(FCollisionQueryParams &OutPar
 	OutResponseParam.CollisionResponse = BodyInstance.GetResponseToChannels();
 	OutParams.AddIgnoredActors(MoveIgnoreActors);
 	OutParams.AddIgnoredComponents(MoveIgnoreComponents);
-	OutParams.bTraceAsyncScene = bCheckAsyncSceneOnMove;
 	OutParams.bTraceComplex = bTraceComplexOnMove;
 	OutParams.bReturnPhysicalMaterial = bReturnMaterialOnMove;
 	OutParams.IgnoreMask = GetMoveIgnoreMask();
