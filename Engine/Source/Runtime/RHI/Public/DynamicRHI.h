@@ -1055,6 +1055,9 @@ public:
 
 	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) { return true; }
 
+	virtual uint16 RHIGetPlatformTextureMaxSampleCount() { return 8; };
+
+
 protected:
 	TArray<uint32> PixelFormatBlockBytes;
 };

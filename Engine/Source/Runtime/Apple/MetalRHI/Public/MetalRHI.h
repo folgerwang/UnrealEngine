@@ -218,6 +218,9 @@ public:
 	virtual FRHIShaderLibraryRef RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath, FString Name) final override;
 
 	virtual void RHICalibrateTimers() final override;
+
+	virtual uint16 RHIGetPlatformTextureMaxSampleCount() override;
+
 private:
 	FTextureMemoryStats MemoryStats;
 	FMetalRHIImmediateCommandContext ImmediateContext;
