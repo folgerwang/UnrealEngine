@@ -249,13 +249,13 @@ FPlatformEnumerator EnumeratePlatformInfoArray(bool bAccessiblePlatformsOnly)
 	}
 }
 
-TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter)
+TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly)
 {
 	TArray<FVanillaPlatformEntry> VanillaPlatforms;
 
 	// Build up a tree from the platforms we support (vanilla outers, with a list of flavors)
 	// PlatformInfoArray should be ordered in such a way that the vanilla platforms always appear before their flavors
-	for(const FPlatformInfo& PlatformInfo : AllPlatformInfoArray)
+	for (const PlatformInfo::FPlatformInfo& PlatformInfo : EnumeratePlatformInfoArray(bAccessiblePlatformsOnly))
 	{
 		if(PlatformInfo.IsVanilla())
 		{
@@ -287,7 +287,7 @@ TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFil
 	return VanillaPlatforms;
 }
 
-FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter)
+FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly)
 {
 	FVanillaPlatformEntry VanillaPlatformEntry;
 	const FPlatformInfo* VanillaPlatformInfo = FindVanillaPlatformInfo(InPlatformName);
@@ -296,7 +296,7 @@ FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const 
 	{
 		VanillaPlatformEntry.PlatformInfo = VanillaPlatformInfo;
 		
-		for (const FPlatformInfo& PlatformInfo : AllPlatformInfoArray)
+		for (const PlatformInfo::FPlatformInfo& PlatformInfo : EnumeratePlatformInfoArray(bAccessiblePlatformsOnly))
 		{
 			if (!PlatformInfo.IsVanilla() && PlatformInfo.VanillaPlatformName == VanillaPlatformInfo->PlatformInfoName)
 			{
