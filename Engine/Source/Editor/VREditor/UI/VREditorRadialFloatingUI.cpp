@@ -524,7 +524,7 @@ const void AVREditorRadialFloatingUI::HighlightSlot(const FVector2D& TrackpadPos
 	// Simulate mouse leaving events for any buttons that were previously hovered
 	for (int32 ButtonCount = 0; ButtonCount < (NumberOfEntries); ButtonCount++)
 	{
-		if (ButtonCount != Index && WidgetComponents.IsValidIndex(ButtonCount))
+		if (ButtonCount != Index && WidgetComponents.IsValidIndex(ButtonCount) && WidgetComponents[ButtonCount]->GetSlateWidget())
 		{
 			TSharedRef<SWidget> ChildWidget = WidgetComponents[ButtonCount]->GetSlateWidget().ToSharedRef();
 			TestWidget = UVREditorUISystem::FindWidgetOfType(ChildWidget, ButtonTypeOverride);
