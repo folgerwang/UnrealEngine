@@ -125,6 +125,7 @@ void USplitMeshCommand::RegisterUICommand(FBindingContext* BindingContext)
 
 void USplitMeshCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMode)
 {
+#if 0
 	const TArray<UEditableMesh*>& SelectedMeshes = MeshEditorMode.GetSelectedEditableMeshes();
 	const TArray<AActor*> SelectedActors = GetSelectedActors();
 	check(SelectedMeshes.Num() == SelectedActors.Num());
@@ -376,6 +377,7 @@ void USplitMeshCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMode)
 
 		MeshEditorMode.TrackUndo(Mesh, Mesh->MakeUndo());
 	}
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE
