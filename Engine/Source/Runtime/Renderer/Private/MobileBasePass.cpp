@@ -732,7 +732,7 @@ void FMobileBasePassMeshProcessor::Process(
 	FMeshDrawCommandSortKey SortKey; 
 	if (bTranslucentBasePass)
 	{
-		SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy);
+		SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy, MeshBatch.MeshIdInPrimitive);
 	}
 	else
 	{

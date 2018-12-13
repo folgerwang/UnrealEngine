@@ -289,18 +289,19 @@ float CalculateTranslucentSortKey(const FPrimitiveSceneInfo* RESTRICT PrimitiveS
 	return SortKey;
 }
 
-FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy)
+FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive)
 {
-	uint32 UnsignedSortPriority = 0;
+	uint16 SortKeyPriority = 0;
 
 	if (PrimitiveSceneProxy)
 	{
 		const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
-		UnsignedSortPriority = (int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN;
+		SortKeyPriority = (uint16)((int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN);
 	}
 
 	UTranslucentMeshSortKey TranslucentMeshSortKey;
-	TranslucentMeshSortKey.Fields.SortPriority = UnsignedSortPriority;
+	TranslucentMeshSortKey.Fields.MeshIdInPrimitive = MeshIdInPrimitive;
+	TranslucentMeshSortKey.Fields.Priority = SortKeyPriority;
 	TranslucentMeshSortKey.Fields.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
 
 	FMeshDrawCommandSortKey SortKey;

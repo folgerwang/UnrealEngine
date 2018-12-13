@@ -1809,6 +1809,7 @@ public:
 private:
 
 	FHitProxyId HitProxyId;
+	uint16 PrimitiveMeshId;
 
 	bool bIsMobileHDR;
 
@@ -1955,6 +1956,12 @@ private:
 		for (int32 ViewIndex = 0; ViewIndex < SimpleElementCollectors.Num(); ViewIndex++)
 		{
 			SimpleElementCollectors[ViewIndex]->HitProxyId = DefaultHitProxyId;
+			SimpleElementCollectors[ViewIndex]->PrimitiveMeshId = 0;
+		}
+
+		for (int32 ViewIndex = 0; ViewIndex < MeshIdInPrimitivePerView.Num(); ++ViewIndex)
+		{
+			MeshIdInPrimitivePerView[ViewIndex] = 0;
 		}
 	}
 
@@ -1963,6 +1970,7 @@ private:
 		Views.Empty();
 		MeshBatches.Empty();
 		SimpleElementCollectors.Empty();
+		MeshIdInPrimitivePerView.Empty();
 		DynamicPrimitiveShaderData = nullptr;
 	}
 
@@ -1974,6 +1982,7 @@ private:
 		ERHIFeatureLevel::Type InFeatureLevel)
 	{
 		Views.Add(InView);
+		MeshIdInPrimitivePerView.AddZeroed(Views.Num());
 		MeshBatches.Add(ViewMeshes);
 		SimpleElementCollectors.Add(ViewSimpleElementCollector);
 		DynamicPrimitiveShaderData = InDynamicPrimitiveShaderData;
@@ -1993,6 +2002,9 @@ private:
 
 	/** Views being collected for */
 	TArray<FSceneView*, TInlineAllocator<2> > Views;
+
+	/** Current Mesh Id In Primitive per view */
+	TArray<uint16, TInlineAllocator<2> > MeshIdInPrimitivePerView;
 
 	/** Material proxies that will be deleted at the end of the frame. */
 	TArray<FMaterialRenderProxy*, SceneRenderingAllocator> TemporaryProxies;

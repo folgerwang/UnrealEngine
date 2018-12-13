@@ -17,7 +17,7 @@
 bool UseNearestDepthNeighborUpsampleForSeparateTranslucency(const FSceneRenderTargets& SceneContext);
 
 extern float CalculateTranslucentSortKey(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FSceneView& View);
-extern FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy);
+extern FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive);
 EMeshPass::Type TranslucencyPassToMeshPass(ETranslucencyPass::Type TranslucencyPass);
 
 /**
@@ -29,8 +29,9 @@ union UTranslucentMeshSortKey
 
 	struct
 	{
-		uint64 Distance		: 32; // Order by distance.
-		uint64 SortPriority : 32; // First order by sort priority.
+		uint64 MeshIdInPrimitive	: 16; // Order meshes belonging to the same primitive by a stable id.
+		uint64 Distance				: 32; // Order by distance.
+		uint64 Priority				: 16; // First order by priority.
 	} Fields;
 };
 

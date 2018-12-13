@@ -990,7 +990,7 @@ void FBasePassMeshProcessor::Process(
 
 	if (bTranslucentBasePass)
 	{
-		SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy);
+		SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy, MeshBatch.MeshIdInPrimitive);
 	}
 	else
 	{

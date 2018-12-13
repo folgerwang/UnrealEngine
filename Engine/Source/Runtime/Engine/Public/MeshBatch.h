@@ -131,6 +131,9 @@ struct FMeshBatch
 {
 	TArray<FMeshBatchElement,TInlineAllocator<1> > Elements;
 
+	/* Mesh Id in a primitive. Used for stable sorting of draws belonging to the same primitive. **/
+	uint16 MeshIdInPrimitive;
+
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
 
@@ -256,7 +259,8 @@ struct FMeshBatch
 
 	/** Default constructor. */
 	FMeshBatch()
-	:	LODIndex(INDEX_NONE)
+	:	MeshIdInPrimitive(0)
+	,	LODIndex(INDEX_NONE)
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	,	VisualizeLODIndex(INDEX_NONE)
 #endif
