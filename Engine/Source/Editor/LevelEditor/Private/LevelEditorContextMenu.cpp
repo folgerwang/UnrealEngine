@@ -729,6 +729,18 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		MenuBuilder.EndSection();
 	}
 
+	// Add geometry collection commands
+	if (FModuleManager::Get().IsModuleLoaded("GeometryCollectionEditor"))
+	{
+		MenuBuilder.BeginSection("SelectBones", LOCTEXT("GeometryCollectionHeading", "Geometry Collection"));
+		{
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectAllGeometry);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectNone);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectInverseGeometry);
+		}
+		MenuBuilder.EndSection();
+	}
+
 	// build matinee related selection menu
 	FillMatineeSelectActorMenu( MenuBuilder );
 }

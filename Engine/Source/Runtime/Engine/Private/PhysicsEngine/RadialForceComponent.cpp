@@ -45,7 +45,6 @@ void URadialForceComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 		TArray<FOverlapResult> Overlaps;
 
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(AddForceOverlap), false);
-		Params.bTraceAsyncScene = true; // want to hurt stuff in async scene
 
 		// Ignore owner actor if desired
 		if (bIgnoreOwningActor)
@@ -114,7 +113,6 @@ void URadialForceComponent::FireImpulse()
 	TArray<FOverlapResult> Overlaps;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(FireImpulseOverlap),  false);
-	Params.bTraceAsyncScene = true; // want to hurt stuff in async scene
 
 	// Ignore owner actor if desired
 	if (bIgnoreOwningActor)

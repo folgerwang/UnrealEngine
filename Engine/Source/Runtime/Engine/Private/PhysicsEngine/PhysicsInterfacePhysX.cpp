@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
 
 #include "Physics/PhysicsInterfacePhysX.h"
 #include "Physics/PhysicsInterfaceUtils.h"
@@ -9,6 +9,7 @@
 #include "Logging/MessageLog.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Internationalization/Internationalization.h"
+#include "Physics/SQAccelerator.h"
 
 #if WITH_PHYSX
 #include "PhysXPublic.h"
@@ -32,6 +33,11 @@ using namespace physx;
 using namespace PhysicsInterfaceTypes;
 
 #define LOCTEXT_NAMESPACE "PhysicsInterface_PhysX"
+
+template <>
+int32 ENGINE_API FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle_PhysX, FDefaultAllocator>& OutShapes);
+template <>
+int32 ENGINE_API FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, PhysicsInterfaceTypes::FInlineShapeArray& OutShapes);
 
 extern TAutoConsoleVariable<float> CVarConstraintLinearDampingScale;
 extern TAutoConsoleVariable<float> CVarConstraintLinearStiffnessScale;
@@ -75,7 +81,7 @@ private:
 
 PxRigidActor* FPhysicsInterface_PhysX::GetPxRigidActor_AssumesLocked(const FPhysicsActorHandle_PhysX& InRef)
 {
-	return InRef.SyncActor ? InRef.SyncActor : InRef.AsyncActor;
+	return InRef.SyncActor;
 }
 
 physx::PxRigidDynamic* FPhysicsInterface_PhysX::GetPxRigidDynamic_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle)
@@ -126,30 +132,12 @@ FPhysicsActorHandle FPhysicsInterface_PhysX::CreateActor(const FActorCreationPar
 			ModifyActorFlag_Isolated<PxActorFlag::eDISABLE_SIMULATION>(NewActor.SyncActor, true);
 		}
 		NewActor.SyncActor->setName(Params.DebugName);
-
-		if(PhysScene && PhysScene->HasAsyncScene())
-		{
-			NewActor.AsyncActor = GPhysXSDK->createRigidStatic(PTransform);
-			if(Params.bQueryOnly)
-			{
-				ModifyActorFlag_Isolated<PxActorFlag::eDISABLE_SIMULATION>(NewActor.AsyncActor, true);
-			}
-			NewActor.AsyncActor->setName(Params.DebugName);
-		}
 	}
 	// Create Dynamic
 	else
 	{
 		PxRigidDynamic* PNewDynamic = GPhysXSDK->createRigidDynamic(PTransform);
-
-		if(PhysScene && PhysScene->HasAsyncScene() && Params.bUseAsyncScene)
-		{
-			NewActor.AsyncActor = PNewDynamic;
-		}
-		else
-		{
-			NewActor.SyncActor = PNewDynamic;
-		}
+		NewActor.SyncActor = PNewDynamic;
 
 		PNewDynamic->setName(Params.DebugName);
 
@@ -170,16 +158,16 @@ FPhysicsActorHandle FPhysicsInterface_PhysX::CreateActor(const FActorCreationPar
 }
 
 //helper function for TermBody to avoid code duplication between scenes
-void TermBodyHelper(FPhysScene* PhysScene, PxRigidActor*& PRigidActor, int32 SceneType, bool bNeverDeferRelease = false)
+void TermBodyHelper(FPhysScene* PhysScene, PxRigidActor*& PRigidActor, bool bNeverDeferRelease = false)
 {
 	if(PRigidActor)
 	{
 		// #Phys2 fixed hitting the check below because body scene was null, check was invalid in this case.
-		PxScene* PScene = PhysScene ? PhysScene->GetPxScene(SceneType) : nullptr;
+		PxScene* PScene = PhysScene ? PhysScene->GetPxScene() : nullptr;
 		PxScene* BodyPScene = PRigidActor->getScene();
 		if(PScene && BodyPScene)
 		{
-			checkSlow(PhysScene->GetPxScene(SceneType) == PRigidActor->getScene());
+			checkSlow(PScene == PRigidActor->getScene());
 
 			// Enable scene lock
 			SCOPED_SCENE_WRITE_LOCK(PScene);
@@ -188,7 +176,7 @@ void TermBodyHelper(FPhysScene* PhysScene, PxRigidActor*& PRigidActor, int32 Sce
 			FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PRigidActor->userData);
 			if(BodyInst)
 			{
-				PhysScene->RemoveBodyInstanceFromPendingLists_AssumesLocked(BodyInst, SceneType);
+				PhysScene->RemoveBodyInstanceFromPendingLists_AssumesLocked(BodyInst);
 			}
 
 			PRigidActor->release();
@@ -219,22 +207,12 @@ PxMaterial* GetDefaultPhysMaterial()
 
 void FPhysicsInterface_PhysX::ReleaseActor(FPhysicsActorHandle_PhysX& InActorHandle, FPhysScene* InScene, bool bNeverDeferRelease)
 {
-	TermBodyHelper(InScene, InActorHandle.SyncActor, PST_Sync, bNeverDeferRelease);
-	TermBodyHelper(InScene, InActorHandle.AsyncActor, PST_Async, bNeverDeferRelease);
+	TermBodyHelper(InScene, InActorHandle.SyncActor, bNeverDeferRelease);
 }
 
-PxRigidActor* FPhysicsInterface_PhysX::GetPxRigidActorFromScene_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, int32 SceneType)
+PxRigidActor* FPhysicsInterface_PhysX::GetPxRigidActorFromScene_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle)
 {
-	if(SceneType < 0)
-	{
-		return InActorHandle.SyncActor ? InActorHandle.SyncActor : InActorHandle.AsyncActor;
-	}
-	else if(SceneType < PST_MAX)
-	{
-		return SceneType == PST_Sync ? InActorHandle.SyncActor : InActorHandle.AsyncActor;
-	}
-
-	return nullptr;
+	return InActorHandle.SyncActor;
 }
 
 PxD6Axis::Enum U2PConstraintAxis(PhysicsInterfaceTypes::ELimitAxis InAxis)
@@ -392,7 +370,6 @@ void LogHillClimbError_PhysX(const FBodyInstance* BI, const PxGeometry& PGeom, c
 
 FPhysicsActorHandle_PhysX::FPhysicsActorHandle_PhysX() 
 	: SyncActor(nullptr)
-	, AsyncActor(nullptr)
 {
 
 }
@@ -404,8 +381,7 @@ bool FPhysicsActorHandle_PhysX::IsValid() const
 
 bool FPhysicsActorHandle_PhysX::Equals(const FPhysicsActorHandle_PhysX& Other) const
 {
-	return SyncActor == Other.SyncActor
-		&& AsyncActor == Other.AsyncActor;
+	return SyncActor == Other.SyncActor;
 }
 
 FPhysicsConstraintHandle_PhysX::FPhysicsConstraintHandle_PhysX()
@@ -441,7 +417,7 @@ FPhysicsInterfaceScopedLock_PhysX::FPhysicsInterfaceScopedLock_PhysX(FPhysicsAct
 	: LockType(InLockType)
 {
 	Scenes[0] = (InActorHandle && InActorHandle->SyncActor) ? InActorHandle->SyncActor->getScene() : nullptr;
-	Scenes[1] = (InActorHandle && InActorHandle->AsyncActor) ? InActorHandle->AsyncActor->getScene() : nullptr;
+	Scenes[1] = nullptr;
 	LockScenes();
 }
 
@@ -453,10 +429,6 @@ PxScene* GetPxSceneForPhysActor(FPhysicsActorHandle_PhysX const * InActorHandle)
 		if (InActorHandle->SyncActor)
 		{
 			PScene = InActorHandle->SyncActor->getScene();
-		}
-		else if (InActorHandle->AsyncActor)
-		{
-			PScene = InActorHandle->AsyncActor->getScene();
 		}
 	}
 
@@ -525,8 +497,8 @@ FPhysicsInterfaceScopedLock_PhysX::FPhysicsInterfaceScopedLock_PhysX(FPhysScene_
 
 	if(InScene)
 	{
-		Scenes[0] = InScene->GetPxScene(PST_Sync);
-		Scenes[1] = InScene->GetPxScene(PST_Async);
+		Scenes[0] = InScene->GetPxScene();
+		Scenes[1] = nullptr;
 	}
 
 	LockScenes();
@@ -704,78 +676,27 @@ bool FPhysicsCommand_PhysX::ExecuteWrite(FPhysScene_PhysX* InScene, TFunctionRef
 	return false;
 }
 
-struct FScopedSharedShapeHandler
-{
-	FScopedSharedShapeHandler() = delete;
-	FScopedSharedShapeHandler(const FScopedSharedShapeHandler& Other) = delete;
-	FScopedSharedShapeHandler& operator=(const FScopedSharedShapeHandler& Other) = delete;
-
-	FScopedSharedShapeHandler(FBodyInstance* InInstance, FPhysicsShapeHandle_PhysX& InShape)
-		: Instance(InInstance)
-		, Shape(InShape)
-		, bShared(false)
-	{
-		bShared = Instance && Instance->HasSharedShapes() && Instance->ActorHandle.IsValid();
-
-		if(bShared)
-		{
-			Actor = Instance->ActorHandle;
-
-			FPhysicsShapeHandle_PhysX NewShape = FPhysicsInterface::CloneShape(Shape);
-			FPhysicsInterface::DetachShape(Actor, Shape);
-			Shape = NewShape;
-		}
-	}
-
-	~FScopedSharedShapeHandler()
-	{
-		if(bShared)
-		{
-			FPhysicsInterface::AttachShape(Actor, Shape);
-			FPhysicsInterface::ReleaseShape(Shape);
-		}
-	}
-
-private:
-	FBodyInstance* Instance;
-	FPhysicsShapeHandle_PhysX& Shape;
-	FPhysicsActorHandle_PhysX Actor;
-	bool bShared;
-};
-
-void FPhysicsCommand_PhysX::ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_PhysX& InShape, TFunctionRef<void(const FPhysicsShapeHandle_PhysX& InShape)> InCallable)
+void FPhysicsCommand_PhysX::ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_PhysX& InShape, TFunctionRef<void(FPhysicsShapeHandle_PhysX& InShape)> InCallable)
 {
 	if(InShape.IsValid())
 	{
-		FScopedSharedShapeHandler SharedShapeHandler(InInstance, InShape);
 		InCallable(InShape);
 	}
 }
 
 template<typename AllocatorType>
-int32 GetAllShapesInternal_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle, AllocatorType>& OutShapes, EPhysicsSceneType InSceneType)
+int32 GetAllShapesInternal_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle, AllocatorType>& OutShapes)
 {
 	int32 NumSyncShapes = 0;
 	TArray<PxShape*> TempShapes;
 	OutShapes.Empty();
 
-	const bool bCollectSync = InSceneType == PST_MAX || InSceneType == PST_Sync;
-	const bool bCollectAsync = InSceneType == PST_MAX || InSceneType == PST_Async;
-
 	// grab shapes from sync actor
-	if (InActorHandle.SyncActor && bCollectSync)
+	if (InActorHandle.SyncActor)
 	{
 		NumSyncShapes = InActorHandle.SyncActor->getNbShapes();
 		TempShapes.AddUninitialized(NumSyncShapes);
 		InActorHandle.SyncActor->getShapes(TempShapes.GetData(), NumSyncShapes);
-	}
-
-	// grab shapes from async actor
-	if (InActorHandle.AsyncActor && bCollectAsync)
-	{
-		const int32 NumAsyncShapes = InActorHandle.AsyncActor->getNbShapes();
-		TempShapes.AddUninitialized(NumAsyncShapes);
-		InActorHandle.AsyncActor->getShapes(TempShapes.GetData() + NumSyncShapes, NumAsyncShapes);
 	}
 
 	OutShapes.Reset(TempShapes.Num());
@@ -787,22 +708,21 @@ int32 GetAllShapesInternal_AssumedLocked(const FPhysicsActorHandle_PhysX& InActo
 	return NumSyncShapes;
 }
 
-template<>
-int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle_PhysX, FDefaultAllocator>& OutShapes, EPhysicsSceneType InSceneType)
+template <>
+int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle_PhysX, FDefaultAllocator>& OutShapes)
 {
-	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes, InSceneType);
+	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes);
 }
 
-template<>
-int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, PhysicsInterfaceTypes::FInlineShapeArray& OutShapes, EPhysicsSceneType InSceneType)
+template <>
+int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, PhysicsInterfaceTypes::FInlineShapeArray& OutShapes)
 {
-	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes, InSceneType);
+	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes);
 }
 
-void FPhysicsInterface_PhysX::GetNumShapes(const FPhysicsActorHandle_PhysX& InActorHandle, int32& OutNumSyncShapes, int32& OutNumAsyncShapes)
+int32 FPhysicsInterface_PhysX::GetNumShapes(const FPhysicsActorHandle_PhysX& InActorHandle)
 {
-	OutNumSyncShapes = InActorHandle.SyncActor ? InActorHandle.SyncActor->getNbShapes() : 0;
-	OutNumAsyncShapes = InActorHandle.AsyncActor ? InActorHandle.AsyncActor->getNbShapes() : 0;
+	return InActorHandle.SyncActor ? InActorHandle.SyncActor->getNbShapes() : 0;
 }
 
 void FPhysicsInterface_PhysX::ReleaseShape(const FPhysicsShapeHandle_PhysX& InShape)
@@ -817,28 +737,7 @@ void FPhysicsInterface_PhysX::AttachShape(const FPhysicsActorHandle_PhysX& InAct
 {
 	if(InActor.IsValid() && InNewShape.IsValid())
 	{
-		PxRigidActor* SyncActor = InActor.SyncActor;
-		PxRigidActor* AsyncActor = InActor.AsyncActor;
-
-		if(SyncActor)
-		{
-			SyncActor->attachShape(*InNewShape.Shape);
-		}
-
-		if(AsyncActor)
-		{
-			AsyncActor->attachShape(*InNewShape.Shape);
-		}
-	}
-}
-
-void FPhysicsInterface_PhysX::AttachShape(const FPhysicsActorHandle_PhysX& InActor, const FPhysicsShapeHandle_PhysX& InNewShape, EPhysicsSceneType SceneType)
-{
-	if(InActor.IsValid() && InNewShape.IsValid())
-	{
-		PxRigidActor* InternalActor = SceneType == PST_Sync ? InActor.SyncActor : InActor.AsyncActor;
-
-		if(InternalActor)
+		if(PxRigidActor* InternalActor = InActor.SyncActor)
 		{
 			InternalActor->attachShape(*InNewShape.Shape);
 		}
@@ -849,17 +748,9 @@ void FPhysicsInterface_PhysX::DetachShape(const FPhysicsActorHandle_PhysX& InAct
 {
 	if(InActor.IsValid() && InShape.IsValid())
 	{
-		PxRigidActor* SyncActor = InActor.SyncActor;
-		PxRigidActor* AsyncActor = InActor.AsyncActor;
-
-		if(SyncActor)
+		if(PxRigidActor* SyncActor = InActor.SyncActor)
 		{
 			SyncActor->detachShape(*InShape.Shape, bWakeTouching);
-		}
-
-		if(AsyncActor)
-		{
-			AsyncActor->detachShape(*InShape.Shape, bWakeTouching);
 		}
 	}
 }
@@ -900,14 +791,10 @@ void FPhysicsInterface_PhysX::AddActorToAggregate_AssumesLocked(const FPhysicsAg
 		{
 			InAggregate.Aggregate->addActor(*InActor.SyncActor);
 		}
-		else
-		{
-			InAggregate.Aggregate->addActor(*InActor.AsyncActor);
-		}
 	}
 }
 
-FPhysicsShapeHandle_PhysX FPhysicsInterface_PhysX::CreateShape(physx::PxGeometry* InGeom, bool bSimulation /*= true*/, bool bQuery /*= true*/, UPhysicalMaterial* InSimpleMaterial /*= nullptr*/, TArray<UPhysicalMaterial*>* InComplexMaterials /*= nullptr*/, bool bShared /*= false*/)
+FPhysicsShapeHandle_PhysX FPhysicsInterface_PhysX::CreateShape(physx::PxGeometry* InGeom, bool bSimulation /*= true*/, bool bQuery /*= true*/, UPhysicalMaterial* InSimpleMaterial /*= nullptr*/, TArray<UPhysicalMaterial*>* InComplexMaterials /*= nullptr*/)
 {
 	FPhysicsShapeHandle_PhysX OutHandle;
 
@@ -929,13 +816,13 @@ FPhysicsShapeHandle_PhysX FPhysicsInterface_PhysX::CreateShape(physx::PxGeometry
 
 		Flags |= PxShapeFlag::Enum::eVISUALIZATION;
 
-		PxShape* NewShape = GPhysXSDK->createShape(*InGeom, *DefaultMaterial, bShared, Flags);
+		PxShape* NewShape = GPhysXSDK->createShape(*InGeom, *DefaultMaterial, true, Flags);
 
 		if(NewShape && (InSimpleMaterial || InComplexMaterials))
 		{
 			OutHandle = FPhysicsShapeHandle_PhysX(NewShape);
 			TArrayView<UPhysicalMaterial*> ComplexMaterialsView(InComplexMaterials ? InComplexMaterials->GetData() : nullptr, InComplexMaterials ? InComplexMaterials->Num() : 0);
-			FBodyInstance::ApplyMaterialToShape_AssumesLocked(OutHandle, InSimpleMaterial, ComplexMaterialsView, bShared);
+			FBodyInstance::ApplyMaterialToShape_AssumesLocked(OutHandle, InSimpleMaterial, ComplexMaterialsView);
 		}
 	}
 
@@ -944,15 +831,14 @@ FPhysicsShapeHandle_PhysX FPhysicsInterface_PhysX::CreateShape(physx::PxGeometry
 
 void FPhysicsInterface_PhysX::AddGeometry(const FPhysicsActorHandle& InActor, const FGeometryAddParams& InParams, TArray<FPhysicsShapeHandle_PhysX>* OutOptShapes)
 {
-	PxRigidActor* PDestActor = InParams.SceneType == PST_Sync ? InActor.SyncActor : InActor.AsyncActor;
+	PxRigidActor* PDestActor = InActor.SyncActor;
 
 	auto AttachShape_AssumesLocked = [&InParams, &OutOptShapes, PDestActor](const PxGeometry& PGeom, const PxTransform& PLocalPose, const float ContactOffset, const float RestOffset, const FPhysxUserData* ShapeElemUserData, PxShapeFlags PShapeFlags)
 	{
-		const bool bShapeSharing = InParams.bSharedShapes;
 		const FBodyCollisionData& BodyCollisionData = InParams.CollisionData;
 
 		const PxMaterial* PMaterial = GetDefaultPhysMaterial();
-		PxShape* PNewShape = GPhysXSDK->createShape(PGeom, *PMaterial, !bShapeSharing, PShapeFlags);
+		PxShape* PNewShape = GPhysXSDK->createShape(PGeom, *PMaterial, true, PShapeFlags);
 
 		if(PNewShape)
 		{
@@ -967,16 +853,15 @@ void FPhysicsInterface_PhysX::AddGeometry(const FPhysicsActorHandle& InActor, co
 			PNewShape->setContactOffset(ContactOffset);
 			PNewShape->setRestOffset(RestOffset);
 
-			const bool bSyncFlags = bShapeSharing || InParams.SceneType == PST_Sync;
 			const bool bComplexShape = PNewShape->getGeometryType() == PxGeometryType::eTRIANGLEMESH;
 			const bool bIsStatic = (PDestActor->is<PxRigidStatic>() != nullptr);
 
-			PxShapeFlags ShapeFlags = BuildPhysXShapeFlags(BodyCollisionData.CollisionFlags, bIsStatic, bSyncFlags, bComplexShape);
+			PxShapeFlags ShapeFlags = BuildPhysXShapeFlags(BodyCollisionData.CollisionFlags, bIsStatic, bComplexShape);
 
 			PNewShape->setQueryFilterData(U2PFilterData(bComplexShape ? BodyCollisionData.CollisionFilterData.QueryComplexFilter : BodyCollisionData.CollisionFilterData.QuerySimpleFilter));
 			PNewShape->setFlags(ShapeFlags);
 			PNewShape->setSimulationFilterData(U2PFilterData(BodyCollisionData.CollisionFilterData.SimFilter));
-			FBodyInstance::ApplyMaterialToShape_AssumesLocked(FPhysicsShapeHandle_PhysX(PNewShape), InParams.SimpleMaterial, InParams.ComplexMaterials, bShapeSharing);
+			FBodyInstance::ApplyMaterialToShape_AssumesLocked(FPhysicsShapeHandle_PhysX(PNewShape), InParams.SimpleMaterial, InParams.ComplexMaterials);
 
 			PDestActor->attachShape(*PNewShape);
 			PNewShape->release();
@@ -1089,16 +974,6 @@ bool FPhysicsInterface_PhysX::IsShapeType(const FPhysicsShapeHandle_PhysX& InSha
 	if(InShape.IsValid())
 	{
 		return InShape.Shape->getGeometryType() == U2PCollisionShapeType(InType);
-	}
-
-	return false;
-}
-
-bool FPhysicsInterface_PhysX::IsShared(const FPhysicsShapeHandle_PhysX& InShape)
-{
-	if(InShape.IsValid())
-	{
-		return !(InShape.Shape->isExclusive());
 	}
 
 	return false;
@@ -1305,11 +1180,6 @@ void FPhysicsInterface_PhysX::SetActorUserData_AssumesLocked(const FPhysicsActor
 	{
 		InActorHandle.SyncActor->userData = InUserData;
 	}
-
-	if (InActorHandle.AsyncActor)
-	{
-		InActorHandle.AsyncActor->userData = InUserData;
-	}
 }
 
 bool FPhysicsInterface_PhysX::IsRigidBody(const FPhysicsActorHandle_PhysX& InActorHandle)
@@ -1367,16 +1237,6 @@ bool FPhysicsInterface_PhysX::IsInScene(const FPhysicsActorHandle_PhysX& InActor
 	}
 
 	return false;
-}
-
-bool FPhysicsInterface_PhysX::HasSyncSceneData(const FPhysicsActorHandle_PhysX& InActorHandle)
-{
-	return InActorHandle.SyncActor != nullptr;
-}
-
-bool FPhysicsInterface_PhysX::HasAsyncSceneData(const FPhysicsActorHandle_PhysX& InActorHandle)
-{
-	return InActorHandle.AsyncActor != nullptr;
 }
 
 FPhysScene* FPhysicsInterface_PhysX::GetCurrentScene(const FPhysicsActorHandle_PhysX& InActorHandle)
@@ -1467,7 +1327,7 @@ void FPhysicsInterface_PhysX::SetGlobalPose_AssumesLocked(const FPhysicsActorHan
 
 	if(Actor)
 	{
-		Actor->setGlobalPose(U2PTransform(InNewPose), bAutoWake);
+		Actor->setGlobalPose(U2PTransform(InNewPose));
 	}
 }
 
@@ -1541,7 +1401,7 @@ void FPhysicsInterface_PhysX::SetLinearVelocity_AssumesLocked(const FPhysicsActo
 
 	if(Body)
 	{
-		Body->setLinearVelocity(U2PVector(InNewVelocity), bAutoWake);
+		Body->setLinearVelocity(U2PVector(InNewVelocity));
 	}
 }
 
@@ -1565,7 +1425,7 @@ void FPhysicsInterface_PhysX::SetAngularVelocity_AssumesLocked(const FPhysicsAct
 
 	if(Body)
 	{
-		Body->setAngularVelocity(U2PVector(InNewVelocity), bAutoWake);
+		Body->setAngularVelocity(U2PVector(InNewVelocity));
 	}
 }
 
@@ -1889,11 +1749,6 @@ SIZE_T FPhysicsInterface_PhysX::GetResourceSizeEx(const FPhysicsActorHandle_Phys
 		OutSize += GetPhysxObjectSize(InHandle.SyncActor, FPhysxSharedData::Get().GetCollection());
 	}
 
-	if(InHandle.AsyncActor)
-	{
-		OutSize += GetPhysxObjectSize(InHandle.AsyncActor, FPhysxSharedData::Get().GetCollection());
-	}
-
 	return OutSize;
 }
 
@@ -1998,21 +1853,6 @@ FPhysicsConstraintHandle_PhysX FPhysicsInterface_PhysX::CreateConstraint(const F
 	if(GetSceneForConstraintActors_LockFree(InActorHandle1, InActorHandle2, PScene))
 	{
 		SCOPED_SCENE_WRITE_LOCK(PScene);
-
-		// Resolve which scene for static/dynamics (If a dynamic is in the async scene, we want the static from that scene for constraints)
-		if(Actor1 && Actor2)
-		{
-			if(Actor1->is<PxRigidStatic>() && Actor2->is<PxRigidBody>())
-			{
-				const uint32 SceneType = InActorHandle2.SyncActor ? PST_Sync : PST_Async;
-				Actor1 = GetPxRigidActorFromScene_AssumesLocked(InActorHandle1, SceneType);
-			}
-			else if(Actor2->is<PxRigidStatic>() && Actor1->is<PxRigidBody>())
-			{
-				const uint32 SceneType = InActorHandle1.SyncActor ? PST_Sync : PST_Async;
-				Actor2 = GetPxRigidActorFromScene_AssumesLocked(InActorHandle2, SceneType);
-			}
-		}
 
 		// Create the internal joint
 		PxD6Joint* NewJoint = PxD6JointCreate(*GPhysXSDK, Actor2, U2PTransform(InLocalFrame2), Actor1, U2PTransform(InLocalFrame1));
@@ -2638,7 +2478,7 @@ bool FPhysicsInterface_PhysX::LineTrace_Geom(FHitResult& OutHit, const FBodyInst
 						if((bTraceComplex && bShapeIsComplex) || (!bTraceComplex && bShapeIsSimple))
 						{
 							const int32 ArraySize = ARRAY_COUNT(PHits);
-							// #PHYS2 This may not work with shared shapes (GetTransform requires getActor to return non-nullptr) verify
+							
 							PxTransform ShapeTransform = U2PTransform(GetTransform(ShapeRef));
 							const PxI32 NumHits = PxGeometryQuery::raycast(U2PVector(InStart), U2PVector(Delta / DeltaMag), PShape->getGeometry().any(), ShapeTransform, DeltaMag, PHitFlags, ArraySize, PHits);
 
@@ -2655,7 +2495,7 @@ bool FPhysicsInterface_PhysX::LineTrace_Geom(FHitResult& OutHit, const FBodyInst
 										// we don't get Shape information when we access via PShape, so I filled it up
 										BestHit.shape = PShape;
 
-										BestHit.actor = InInstance->HasSharedShapes() ? Actor.SyncActor : PShape->getActor();	//for shared shapes there is no actor, but since it's shared just return the sync actor
+										BestHit.actor = PShape->getActor();
 									}
 								}
 							}
@@ -2665,12 +2505,12 @@ bool FPhysicsInterface_PhysX::LineTrace_Geom(FHitResult& OutHit, const FBodyInst
 					if(BestHitDistance < BIG_NUMBER)
 					{
 						// we just like to make sure if the hit is made, set to test touch
-						PxFilterData QueryFilter;
-						QueryFilter.word2 = 0xFFFFF;
+						FCollisionFilterData QueryFilter;
+						QueryFilter.Word2 = 0xFFFFF;
 
-						PxTransform PStartTM(U2PVector(InStart));
+						FTransform StartTM(InStart);
 						const UPrimitiveComponent* OwnerComponentInst = InInstance->OwnerComponent.Get();
-						ConvertQueryImpactHit(OwnerComponentInst ? OwnerComponentInst->GetWorld() : nullptr, BestHit, OutHit, DeltaMag, QueryFilter, InStart, InEnd, nullptr, PStartTM, true, bExtractPhysMaterial);
+						ConvertQueryImpactHit(OwnerComponentInst ? OwnerComponentInst->GetWorld() : nullptr, BestHit, OutHit, DeltaMag, QueryFilter, InStart, InEnd, nullptr, StartTM, true, bExtractPhysMaterial);
 						bHitSomething = true;
 					}
 				}
@@ -2711,7 +2551,7 @@ bool FPhysicsInterface_PhysX::Sweep_Geom(FHitResult& OutHit, const FBodyInstance
 					PxHitFlags POutputFlags = PxHitFlag::ePOSITION | PxHitFlag::eNORMAL | PxHitFlag::eDISTANCE | PxHitFlag::eFACE_INDEX | PxHitFlag::eMTD;
 
 					UPrimitiveComponent* OwnerComponentInst = InInstance->OwnerComponent.Get();
-					PxTransform PStartTM(U2PVector(InStart), ShapeAdaptor.GetGeomOrientation());
+					PxTransform PStartTM(U2PVector(InStart), U2PQuat(ShapeAdaptor.GetGeomOrientation()));
 					PxTransform PCompTM(U2PTransform(OwnerComponentInst->GetComponentTransform()));
 
 					PxVec3 PDir = U2PVector(Delta / DeltaMag);
@@ -2737,9 +2577,9 @@ bool FPhysicsInterface_PhysX::Sweep_Geom(FHitResult& OutHit, const FBodyInstance
 						}
 
 						// Filter so we trace against the right kind of collision
-						PxFilterData ShapeFilter = PShape->getQueryFilterData();
-						const bool bShapeIsComplex = (ShapeFilter.word3 & EPDF_ComplexCollision) != 0;
-						const bool bShapeIsSimple = (ShapeFilter.word3 & EPDF_SimpleCollision) != 0;
+						FCollisionFilterData ShapeFilter = P2UFilterData(PShape->getQueryFilterData());
+						const bool bShapeIsComplex = (ShapeFilter.Word3 & EPDF_ComplexCollision) != 0;
+						const bool bShapeIsSimple = (ShapeFilter.Word3 & EPDF_SimpleCollision) != 0;
 						if((bSweepComplex && bShapeIsComplex) || (!bSweepComplex && bShapeIsSimple))
 						{
 							PxTransform PGlobalPose = PCompTM.transform(PShape->getLocalPose());
@@ -2747,16 +2587,16 @@ bool FPhysicsInterface_PhysX::Sweep_Geom(FHitResult& OutHit, const FBodyInstance
 							if(PxGeometryQuery::sweep(PDir, DeltaMag, Geometry, PStartTM, PShape->getGeometry().any(), PGlobalPose, PHit, POutputFlags))
 							{
 								// we just like to make sure if the hit is made
-								PxFilterData QueryFilter;
-								QueryFilter.word2 = 0xFFFFF;
+								FCollisionFilterData QueryFilter;
+								QueryFilter.Word2 = 0xFFFFF;
 
 								// we don't get Shape information when we access via PShape, so I filled it up
 								PHit.shape = PShape;
-								PHit.actor = InInstance->HasSharedShapes() ? Actor.SyncActor : PShape->getActor();	//in the case of shared shapes getActor will return null. Since the shape is shared we just return the sync actor
+								PHit.actor = PShape->getActor();
 
-								PxTransform PStartTransform(U2PVector(InStart));
-								PHit.faceIndex = FindFaceIndex(PHit, PDir);
-								ConvertQueryImpactHit(OwnerComponentInst->GetWorld(), PHit, OutHit, DeltaMag, QueryFilter, InStart, InEnd, nullptr, PStartTransform, false, false);
+								FTransform StartTransform(InStart);
+								PHit.faceIndex = FindFaceIndex(PHit, P2UVector(PDir));
+								ConvertQueryImpactHit(OwnerComponentInst->GetWorld(), PHit, OutHit, DeltaMag, QueryFilter, InStart, InEnd, nullptr, StartTransform, false, false);
 								bSweepHit = true;
 							}
 						}
@@ -2769,7 +2609,7 @@ bool FPhysicsInterface_PhysX::Sweep_Geom(FHitResult& OutHit, const FBodyInstance
 	return bSweepHit;
 }
 
-bool Overlap_GeomInternal(const FBodyInstance* InInstance, PxGeometry& InPxGeom, const FTransform& InShapeTransform, FMTDResult* OutOptResult)
+bool Overlap_GeomInternal(const FBodyInstance* InInstance, const PxGeometry& InPxGeom, const FTransform& InShapeTransform, FMTDResult* OutOptResult)
 {
 	PxTransform ShapePose = U2PTransform(InShapeTransform);
 	const FBodyInstance* TargetInstance = InInstance->WeldParent ? InInstance->WeldParent : InInstance;
@@ -2850,7 +2690,7 @@ bool FPhysicsInterface_PhysX::Overlap_Geom(const FBodyInstance* InInstance, cons
 {
 	FPhysXShapeAdaptor Adaptor(InShapeRotation, InCollisionShape);
 
-	return Overlap_GeomInternal(InInstance, Adaptor.GetGeometry(), P2UTransform(Adaptor.GetGeomPose(InShapeTransform.GetTranslation())), OutOptResult);
+	return Overlap_GeomInternal(InInstance, Adaptor.GetGeometry(), Adaptor.GetGeomPose(InShapeTransform.GetTranslation()), OutOptResult);
 }
 
 bool FPhysicsInterface_PhysX::GetSquaredDistanceToBody(const FBodyInstance* InInstance, const FVector& InPoint, float& OutDistanceSquared, FVector* OutOptPointOnBody)
@@ -2869,12 +2709,7 @@ bool FPhysicsInterface_PhysX::GetSquaredDistanceToBody(const FBodyInstance* InIn
 
 	FPhysicsCommand::ExecuteRead(UseBI->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-		bool bSyncData = FPhysicsInterface::HasSyncSceneData(Actor);
-		int32 NumSyncShapes = 0;
-		int32 NumAsyncShapes = 0;
-		FPhysicsInterface::GetNumShapes(Actor, NumSyncShapes, NumAsyncShapes);
-
-		int32 NumShapes = bSyncData ? NumSyncShapes : NumAsyncShapes;
+		const int32 NumShapes = FPhysicsInterface::GetNumShapes(Actor);
 
 		if(NumShapes == 0 || UseBI->OwnerComponent == NULL)
 		{
@@ -2963,91 +2798,53 @@ void FPhysicsInterface_PhysX::CalculateMassPropertiesFromShapeCollection(PxMassP
 	OutProperties = PxRigidBodyExt::computeMassPropertiesFromShapes(PShapes.GetData(), PShapes.Num()) * InDensityKGPerCM;
 }
 
-FPhysicsShapeHandle_PhysX::FPhysicsShapeHandle_PhysX()
-	: Shape(nullptr)
-{
-
-}
-
-FPhysicsShapeHandle_PhysX::FPhysicsShapeHandle_PhysX(physx::PxShape* InShape)
-	: Shape(InShape)
-{
-
-}
-
-bool FPhysicsShapeHandle_PhysX::IsValid() const
-{
-	return Shape != nullptr;
-}
-
 FPhysicsGeometryCollection_PhysX::~FPhysicsGeometryCollection_PhysX() = default;
 FPhysicsGeometryCollection_PhysX::FPhysicsGeometryCollection_PhysX(FPhysicsGeometryCollection_PhysX&& Steal) = default;
 FPhysicsGeometryCollection_PhysX& FPhysicsGeometryCollection_PhysX::operator=(FPhysicsGeometryCollection_PhysX&& Steal) = default;
 
 ECollisionShapeType FPhysicsGeometryCollection_PhysX::GetType() const
 {
-	check(ShapeRef.IsValid());
-	return P2UCollisionShapeType(ShapeRef.Shape->getGeometryType());
+	return P2UCollisionShapeType(GeomHolder->getType());
 }
 
 physx::PxGeometry& FPhysicsGeometryCollection_PhysX::GetGeometry() const
 {
-	check(ShapeRef.IsValid());
 	return GeomHolder->any();
 }
 
 bool FPhysicsGeometryCollection_PhysX::GetBoxGeometry(physx::PxBoxGeometry& OutGeom) const
 {
-	check(ShapeRef.IsValid());
-	return ShapeRef.Shape->getBoxGeometry(OutGeom);
+	OutGeom = GeomHolder->box();
+	return true;
 }
 
 bool FPhysicsGeometryCollection_PhysX::GetSphereGeometry(physx::PxSphereGeometry& OutGeom) const
 {
-	check(ShapeRef.IsValid());
-	return ShapeRef.Shape->getSphereGeometry(OutGeom);
+	OutGeom = GeomHolder->sphere();
+	return true;
 }
 
 bool FPhysicsGeometryCollection_PhysX::GetCapsuleGeometry(physx::PxCapsuleGeometry& OutGeom) const
 {
-	check(ShapeRef.IsValid());
-	return ShapeRef.Shape->getCapsuleGeometry(OutGeom);
+	OutGeom = GeomHolder->capsule();
+	return true;
 }
 
 bool FPhysicsGeometryCollection_PhysX::GetConvexGeometry(physx::PxConvexMeshGeometry& OutGeom) const
 {
-	check(ShapeRef.IsValid());
-	return ShapeRef.Shape->getConvexMeshGeometry(OutGeom);
+	OutGeom = GeomHolder->convexMesh();
+	return true;
 }
 
 bool FPhysicsGeometryCollection_PhysX::GetTriMeshGeometry(physx::PxTriangleMeshGeometry& OutGeom) const
 {
-	check(ShapeRef.IsValid());
-	return ShapeRef.Shape->getTriangleMeshGeometry(OutGeom);
+	OutGeom = GeomHolder->triangleMesh();
+	return true;
 }
 
-FPhysicsGeometryCollection_PhysX::FPhysicsGeometryCollection_PhysX(const FPhysicsShapeHandle_PhysX& InShape)
-	: ShapeRef(InShape)
+FPhysicsGeometryCollection_PhysX::FPhysicsGeometryCollection_PhysX(const FPhysicsShapeHandle_PhysX& ShapeRef)
 {
-	check(ShapeRef.IsValid());
 	GeomHolder = MakeUnique<PxGeometryHolder>(ShapeRef.Shape->getGeometry());
-}
-
-FPhysicsMaterialHandle_PhysX::FPhysicsMaterialHandle_PhysX()
-	: Material(nullptr)
-{
-
-}
-
-FPhysicsMaterialHandle_PhysX::FPhysicsMaterialHandle_PhysX(physx::PxMaterial* InMaterial)
-	: Material(InMaterial)
-{
-
-}
-
-bool FPhysicsMaterialHandle_PhysX::IsValid() const
-{
-	return Material != nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

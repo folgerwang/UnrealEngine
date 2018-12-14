@@ -2,7 +2,7 @@
 
 #pragma once
 
-#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
 
 #include "EngineGlobals.h"
 #include "Engine/EngineTypes.h"
@@ -57,7 +57,6 @@ struct ENGINE_API FPhysicsActorHandle_PhysX
 	bool Equals(const FPhysicsActorHandle_PhysX& Other) const;
 
 	physx::PxRigidActor* SyncActor;
-	physx::PxRigidActor* AsyncActor;
 
 private:
 
@@ -91,23 +90,18 @@ struct ENGINE_API FPhysicsAggregateHandle_PhysX
 
 struct ENGINE_API FPhysicsShapeHandle_PhysX
 {
-	FPhysicsShapeHandle_PhysX();
-	explicit FPhysicsShapeHandle_PhysX(physx::PxShape* InShape);
+	FPhysicsShapeHandle_PhysX() : Shape(nullptr) {}
+	explicit FPhysicsShapeHandle_PhysX(physx::PxShape* InShape) : Shape(InShape) {}
 
-	bool IsValid() const;
-
+	bool IsValid() const { return Shape != nullptr; }
+	bool operator==(const FPhysicsShapeHandle_PhysX Rhs) const { return Shape == Rhs.Shape; }
 	physx::PxShape* Shape;
-
-	friend uint32 GetTypeHash(const FPhysicsShapeHandle_PhysX& InHandle)
-	{
-		return GetTypeHash(InHandle.Shape);
-	}
-
-	friend bool operator==(const FPhysicsShapeHandle_PhysX& InHandleA, const FPhysicsShapeHandle_PhysX& InHandleB)
-	{
-		return InHandleA.Shape == InHandleB.Shape;
-	}
 };
+
+inline uint32 GetTypeHash(const FPhysicsShapeHandle_PhysX& InHandle)
+{
+	return GetTypeHash(InHandle.Shape);
+}
 
 /**
  * This object is essentially a one-stop container for any geometry a shape can have and is necessary because of the
@@ -138,8 +132,6 @@ private:
 	friend struct FPhysicsInterface_PhysX;
 	explicit FPhysicsGeometryCollection_PhysX(const FPhysicsShapeHandle_PhysX& InShape);
 
-	FPhysicsShapeHandle_PhysX ShapeRef;
-
 	// PhysX geom holder, needs to exist longer than the uses of any geometry it returns
 	TUniquePtr<physx::PxGeometryHolder> GeomHolder;
 };
@@ -147,12 +139,13 @@ private:
 /**
  * Wrapper for internal PhysX materials
  */
+
 struct ENGINE_API FPhysicsMaterialHandle_PhysX
 {
-	FPhysicsMaterialHandle_PhysX();
-	explicit FPhysicsMaterialHandle_PhysX(physx::PxMaterial* InMaterial);
+	FPhysicsMaterialHandle_PhysX() : Material(nullptr) {}
+	explicit FPhysicsMaterialHandle_PhysX(physx::PxMaterial* InMaterial) : Material(InMaterial) {}
 
-	bool IsValid() const;
+	bool IsValid() const { return Material != nullptr; }
 
 	physx::PxMaterial* Material;
 };
@@ -177,15 +170,15 @@ struct ENGINE_API FPhysicsCommand_PhysX
 	static bool ExecuteWrite(const FPhysicsConstraintHandle_PhysX& InHandle, TFunctionRef<void(const FPhysicsConstraintHandle_PhysX& Constraint)> InCallable);
 	static bool ExecuteWrite(FPhysScene_PhysX* InScene, TFunctionRef<void()> InCallable);
 
-	// Executes function on a shape, handling shared shapes
-	static void ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_PhysX& InShape, TFunctionRef<void(const FPhysicsShapeHandle_PhysX& InShape)> InCallable);
+	// Executes function on a shape
+	static void ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_PhysX& InShape, TFunctionRef<void(FPhysicsShapeHandle_PhysX& InShape)> InCallable);
 };
 
 struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 {
 	// PhysX Only functions, not related to wider physics interface
 	// To be used only in code that handles PhysX
-	static physx::PxRigidActor* GetPxRigidActorFromScene_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, int32 SceneType = -1);
+	static physx::PxRigidActor* GetPxRigidActorFromScene_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle);
 	static physx::PxRigidActor* GetPxRigidActor_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 	static physx::PxRigidDynamic* GetPxRigidDynamic_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 	static physx::PxRigidBody* GetPxRigidBody_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
@@ -201,7 +194,7 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	//////////////////////////////////////////////////////////////////////////
 	// Shape interface functions
 	//////////////////////////////////////////////////////////////////////////
-	static FPhysicsShapeHandle_PhysX CreateShape(physx::PxGeometry* InGeom, bool bSimulation = true, bool bQuery = true, UPhysicalMaterial* InSimpleMaterial = nullptr, TArray<UPhysicalMaterial*>* InComplexMaterials = nullptr, bool bShared = false);
+	static FPhysicsShapeHandle_PhysX CreateShape(physx::PxGeometry* InGeom, bool bSimulation = true, bool bQuery = true, UPhysicalMaterial* InSimpleMaterial = nullptr, TArray<UPhysicalMaterial*>* InComplexMaterials = nullptr);
 	
 	static void AddGeometry(const FPhysicsActorHandle& InActor, const FGeometryAddParams& InParams, TArray<FPhysicsShapeHandle_PhysX>* OutOptShapes = nullptr);
 	static FPhysicsShapeHandle_PhysX CloneShape(const FPhysicsShapeHandle_PhysX& InShape);
@@ -211,7 +204,6 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	static bool IsSimulationShape(const FPhysicsShapeHandle_PhysX& InShape);
 	static bool IsQueryShape(const FPhysicsShapeHandle_PhysX& InShape);
 	static bool IsShapeType(const FPhysicsShapeHandle_PhysX& InShape, ECollisionShapeType InType);
-	static bool IsShared(const FPhysicsShapeHandle_PhysX& InShape);
 	static ECollisionShapeType GetShapeType(const FPhysicsShapeHandle_PhysX& InShape);
 	static FPhysicsGeometryCollection_PhysX GetGeometryCollection(const FPhysicsShapeHandle_PhysX& InShape);
 	static FTransform GetLocalTransform(const FPhysicsShapeHandle_PhysX& InShape);
@@ -247,13 +239,12 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	//////////////////////////////////////////////////////////////////////////
 
 	template<typename AllocatorType>
-	static int32 GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InHandle, TArray<FPhysicsShapeHandle_PhysX, AllocatorType>& OutShapes, EPhysicsSceneType InSceneType = PST_MAX);
-	static void GetNumShapes(const FPhysicsActorHandle_PhysX& InHandle, int32& OutNumSyncShapes, int32& OutNumAsyncShapes);
+	static int32 GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InHandle, TArray<FPhysicsShapeHandle_PhysX, AllocatorType>& OutShapes);
+	static int32 GetNumShapes(const FPhysicsActorHandle_PhysX& InHandle);
 
 	static void ReleaseShape(const FPhysicsShapeHandle_PhysX& InShape);
 
 	static void AttachShape(const FPhysicsActorHandle_PhysX& InActor, const FPhysicsShapeHandle_PhysX& InNewShape);
-	static void AttachShape(const FPhysicsActorHandle_PhysX& InActor, const FPhysicsShapeHandle_PhysX& InNewShape, EPhysicsSceneType SceneType);
 	static void DetachShape(const FPhysicsActorHandle_PhysX& InActor, FPhysicsShapeHandle_PhysX& InShape, bool bWakeTouching = true);
 
 	static void SetActorUserData_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, FPhysxUserData* InUserData);
@@ -265,8 +256,6 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	static bool IsSleeping(const FPhysicsActorHandle_PhysX& InHandle);
 	static bool IsCcdEnabled(const FPhysicsActorHandle_PhysX& InHandle);
 	static bool IsInScene(const FPhysicsActorHandle_PhysX& InHandle);
-	static bool HasSyncSceneData(const FPhysicsActorHandle_PhysX& InHandle);
-	static bool HasAsyncSceneData(const FPhysicsActorHandle_PhysX& InHandle);
 	static FPhysScene* GetCurrentScene(const FPhysicsActorHandle_PhysX& InHandle);
 	static bool CanSimulate_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 	static float GetMass_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
@@ -391,46 +380,9 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 
 	// Scene query interface functions
 
-	/** Trace a ray against the world and return if a blocking hit is found */
-	static bool RaycastTest(const UWorld* World, const FVector Start, const FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	/** Trace a ray against the world and return the first blocking hit */
-	static bool RaycastSingle(const UWorld* World, struct FHitResult& OutHit, const FVector Start, const FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	/**
-	*  Trace a ray against the world and return touching hits and then first blocking hit
-	*  Results are sorted, so a blocking hit (if found) will be the last element of the array
-	*  Only the single closest blocking result will be generated, no tests will be done after that
-	*/
-	static bool RaycastMulti(const UWorld* World, TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	// GEOM OVERLAP
-
-	/** Function for testing overlaps between a supplied PxGeometry and the world. Returns true if at least one overlapping shape is blocking*/
-	static bool GeomOverlapBlockingTest(const UWorld* World, const FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	/** Function for testing overlaps between a supplied PxGeometry and the world. Returns true if anything is overlapping (blocking or touching)*/
-	static bool GeomOverlapAnyTest(const UWorld* World, const FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
+	
 
 	// GEOM SWEEP
-
-	/** Function used for sweeping a supplied PxGeometry against the world as a test */
-	static bool GeomSweepTest(const UWorld* World, const FCollisionShape& CollisionShape, const FQuat& Rot, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	/** Function for sweeping a supplied PxGeometry against the world */
-	static bool GeomSweepSingle(const UWorld* World, const FCollisionShape& CollisionShape, const FQuat& Rot, FHitResult& OutHit, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-
-	/**
-	 * Templated sweep designed to take collision shapes and geometry collections (specialized for those types in implementation)
-	 * When implementing replacement interfaces all accepted types should be specialized/accepted, currently this is:
-	 *			FCollisionShape
-	 *			FPhysicsGeometryCollection
-	 * Accepted specializations underneath FPhysicsInterface_PhysX declaration
-	 */
-	template<typename GeomType>
-	static bool GeomSweepMulti(const UWorld* World, const GeomType& InGeom, const FQuat& InGeomRot, TArray<FHitResult>& OutHits, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
-	template<typename GeomType>
-	static bool GeomOverlapMulti(const UWorld* World, const GeomType& InGeom, const FVector& InPosition, const FQuat& InRotation, TArray<FOverlapResult>& OutOverlaps, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Trace functions for testing specific geometry (not against a world)
@@ -459,13 +411,10 @@ template <>
 ENGINE_API int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, PhysicsInterfaceTypes::FInlineShapeArray& OutShapes, EPhysicsSceneType InSceneType);
 
 template<>
-bool FPhysicsInterface_PhysX::GeomSweepMulti(const UWorld* World, const FPhysicsGeometryCollection& InGeom, const FQuat& InGeomRot, TArray<FHitResult>& OutHits, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams /*= FCollisionObjectQueryParams::DefaultObjectQueryParam*/);
-template<>
-bool FPhysicsInterface_PhysX::GeomSweepMulti(const UWorld* World, const FCollisionShape& InGeom, const FQuat& InGeomRot, TArray<FHitResult>& OutHits, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams /*= FCollisionObjectQueryParams::DefaultObjectQueryParam*/);
+bool FGenericPhysicsInterface::GeomSweepMulti(const UWorld* World, const FPhysicsGeometryCollection& InGeom, const FQuat& InGeomRot, TArray<FHitResult>& OutHits, FVector Start, FVector End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams /*= FCollisionObjectQueryParams::DefaultObjectQueryParam*/);
 
 template<>
-bool FPhysicsInterface_PhysX::GeomOverlapMulti(const UWorld* World, const FPhysicsGeometryCollection& InGeom, const FVector& InPosition, const FQuat& InRotation, TArray<FOverlapResult>& OutOverlaps, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams);
-template<>
-bool FPhysicsInterface_PhysX::GeomOverlapMulti(const UWorld* World, const FCollisionShape& InGeom, const FVector& InPosition, const FQuat& InRotation, TArray<FOverlapResult>& OutOverlaps, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams);
+bool FGenericPhysicsInterface::GeomOverlapMulti(const UWorld* World, const FPhysicsGeometryCollection& InGeom, const FVector& InPosition, const FQuat& InRotation, TArray<FOverlapResult>& OutOverlaps, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectParams);
+
 
 #endif

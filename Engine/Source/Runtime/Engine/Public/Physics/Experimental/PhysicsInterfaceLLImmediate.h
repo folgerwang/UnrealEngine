@@ -13,6 +13,7 @@
 #include "PhysicsReplication.h"
 #include "PhysxUserData.h"
 #include "Physics/GenericPhysicsInterface.h"
+#include "Physics/ImmediatePhysics/ResourceManager.h"
 
 class AWorldSettings;
 
@@ -36,6 +37,9 @@ namespace ImmediatePhysics
 	struct FJointHandle;
 }
 
+class FSQAccelerator;
+class FSQAcceleratorEntry;
+
 struct ENGINE_API FPhysicsActorHandle_LLImmediate
 {
 	friend class FPhysInterface_LLImmediate;
@@ -54,7 +58,9 @@ struct ENGINE_API FPhysicsActorHandle_LLImmediate
 	bool Equals(const FPhysicsActorHandle_LLImmediate& InOther) const;
 
 	ImmediatePhysics::FActor* GetActor() const;
-	immediate::PxRigidBodyData* GetActorData() const;
+	ImmediatePhysics::FActorData* GetPendingActorData() const;
+	immediate::PxRigidBodyData* GetActorRBData() const;
+	FPhysScene* GetScene() const { return OwningScene; }
 
 	bool IsStatic() const;
 
@@ -133,60 +139,36 @@ struct ENGINE_API FPhysicsMaterialHandle_LLImmediate
 {
 	friend class FPhysInterface_LLImmediate;
 
-	bool IsValid() const
-	{
-		return Material != nullptr;
-	}
+	FPhysicsMaterialHandle_LLImmediate()
+	{}
+
+	bool IsValid() const;
+
+	ImmediatePhysics::FMaterial* Get();
+	const ImmediatePhysics::FMaterial* Get() const;
 
 private:
-	ImmediatePhysics::FMaterial* Material;
+
+	ImmediatePhysics::FResourceHandle ResourceHandle;
 };
 
 struct ENGINE_API FPhysicsGeometryCollection_LLImmediate
 {
-	FPhysicsGeometryCollection_LLImmediate() {}
-	
-	bool IsValid() const
-	{
-		return false;
-	}
+	FPhysicsGeometryCollection_LLImmediate();
+	FPhysicsGeometryCollection_LLImmediate(ImmediatePhysics::FShape* InShape);
+	FPhysicsGeometryCollection_LLImmediate(physx::PxGeometry* InGeom);
 
-	ECollisionShapeType GetType() const
-	{
-		return ECollisionShapeType::None;
-	}
+	ECollisionShapeType GetType() const;
+	const physx::PxGeometry& GetGeometry() const;
 
-	physx::PxBoxGeometry TempDummyGeom;
+	bool GetBoxGeometry(physx::PxBoxGeometry& OutGeom) const;
+	bool GetSphereGeometry(physx::PxSphereGeometry& OutGeom) const;
+	bool GetCapsuleGeometry(physx::PxCapsuleGeometry& OutGeom) const;
+	bool GetConvexGeometry(physx::PxConvexMeshGeometry& OutGeom) const;
+	bool GetTriMeshGeometry(physx::PxTriangleMeshGeometry& OutGeom) const;
 
-	physx::PxGeometry& GetGeometry() const 
-	{
-		return (physx::PxGeometry&)TempDummyGeom;
-	}
-
-	bool GetBoxGeometry(physx::PxBoxGeometry& OutGeom) const
-	{
-		return false;
-	}
-
-	bool GetSphereGeometry(physx::PxSphereGeometry& OutGeom) const
-	{
-		return false;
-	}
-
-	bool GetCapsuleGeometry(physx::PxCapsuleGeometry& OutGeom) const
-	{
-		return false;
-	}
-
-	bool GetConvexGeometry(physx::PxConvexMeshGeometry& OutGeom) const
-	{
-		return false;
-	}
-
-	bool GetTriMeshGeometry(physx::PxTriangleMeshGeometry& OutGeom) const
-	{
-		return false;
-	}
+private:
+	physx::PxGeometryHolder GeomHolder;
 };
 
 // #PHYS2 TODO, generalise, shouldn't use physx callback structure here
@@ -234,8 +216,8 @@ struct ENGINE_API FPhysicsCommand_LLImmediate
 	static bool ExecuteWrite(const FPhysicsConstraintHandle_LLImmediate& InConstraintRef, TFunctionRef<void(const FPhysicsConstraintHandle_LLImmediate& Constraint)> InCallable);
 	static bool ExecuteWrite(FPhysScene* InScene, TFunctionRef<void()> InCallable);
 
-	// Executes function on a shape, handling shared shapes
-	static void ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_LLImmediate& InShape, TFunctionRef<void(const FPhysicsShapeHandle_LLImmediate& InShape)> InCallable);
+	// Executes function on a shape
+	static void ExecuteShapeWrite(FBodyInstance* InInstance, FPhysicsShapeHandle_LLImmediate& InShape, TFunctionRef<void(FPhysicsShapeHandle_LLImmediate& InShape)> InCallable);
 };
 
 // Descriptor for a pending actor that we wish to add to the scene
@@ -260,7 +242,6 @@ struct FPendingActor
 	// Handle to an interface reference to update when this actor is added to the simulation
 	FPhysicsActorHandle_LLImmediate InterfaceHandle;
 };
-
 
 class ENGINE_API FPhysInterface_LLImmediate : public FGenericPhysicsInterface
 {
@@ -300,6 +281,8 @@ public:
 	// Callback functions from low level scene
 	void Callback_CreateActors(TArray<ImmediatePhysics::FActorHandle*>& ActorArray);
 
+	FSQAccelerator* GetSQAccelerator() const;
+
 	//////////////////////////////////////////////////////////////////////////
 
 	static FPhysicsActorHandle CreateActor(const FActorCreationParams& Params);
@@ -312,20 +295,19 @@ public:
 
 	// Material interface functions
 	// @todo(mlentine): How do we set material on the solver?
-	static FPhysicsMaterialHandle_LLImmediate CreateMaterial(const UPhysicalMaterial* InMaterial);
+	static FPhysicsMaterialHandle_LLImmediate CreateMaterial(UPhysicalMaterial* InMat);
 	static void ReleaseMaterial(FPhysicsMaterialHandle_LLImmediate& InHandle);
-	static void UpdateMaterial(const FPhysicsMaterialHandle_LLImmediate& InHandle, UPhysicalMaterial* InMaterial);
+	static void UpdateMaterial(FPhysicsMaterialHandle_LLImmediate& InHandle, UPhysicalMaterial* InMaterial);
 	static void SetUserData(const FPhysicsMaterialHandle_LLImmediate& InHandle, void* InUserData);
 
 	// Actor interface functions
 	template<typename AllocatorType>
-	static int32 GetAllShapes_AssumedLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, TArray<FPhysicsShapeHandle, AllocatorType>& OutShapes, EPhysicsSceneType InSceneType = PST_MAX);
-	static void GetNumShapes(const FPhysicsActorHandle& InHandle, int32& OutNumSyncShapes, int32& OutNumAsyncShapes);
+	static int32 GetAllShapes_AssumedLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, TArray<FPhysicsShapeHandle, AllocatorType>& OutShapes);
+	static int32 GetNumShapes(const FPhysicsActorHandle& InHandle);
 
 	static void ReleaseShape(FPhysicsShapeHandle& InShape);
 
 	static void AttachShape(const FPhysicsActorHandle& InActor, const FPhysicsShapeHandle& InNewShape);
-	static void AttachShape(const FPhysicsActorHandle& InActor, const FPhysicsShapeHandle& InNewShape, EPhysicsSceneType SceneType);
 	static void DetachShape(const FPhysicsActorHandle& InActor, FPhysicsShapeHandle& InShape, bool bWakeTouching = true);
 
 	static void SetActorUserData_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, FPhysxUserData* InUserData);
@@ -587,7 +569,7 @@ public:
 	//static const TArray<UEPhysics::Vector<int32, 2>>& GetConstraintArrayAndIndex(const FPhysicsConstraintHandle_LLImmediate& InActorReference, uint32& Index);
 
 	// Shape interface functions
-	static FPhysicsShapeHandle CreateShape(physx::PxGeometry* InGeom, bool bSimulation = true, bool bQuery = true, UPhysicalMaterial* InSimpleMaterial = nullptr, TArray<UPhysicalMaterial*>* InComplexMaterials = nullptr, bool bShared = false);
+	static FPhysicsShapeHandle CreateShape(physx::PxGeometry* InGeom, bool bSimulation = true, bool bQuery = true, UPhysicalMaterial* InSimpleMaterial = nullptr, TArray<UPhysicalMaterial*>* InComplexMaterials = nullptr);
 
 	static void AddGeometry(const FPhysicsActorHandle& InActor, const FGeometryAddParams& InParams, TArray<FPhysicsShapeHandle>* OutOptShapes = nullptr);
 	static FPhysicsShapeHandle CloneShape(const FPhysicsShapeHandle& InShape);
@@ -595,8 +577,6 @@ public:
 	static bool IsSimulationShape(const FPhysicsShapeHandle& InShape);
 	static bool IsQueryShape(const FPhysicsShapeHandle& InShape);
 	static bool IsShapeType(const FPhysicsShapeHandle& InShape, ECollisionShapeType InType);
-	// @todo(mlentine): We don't keep track of what is shared but anything can be
-	static bool IsShared(const FPhysicsShapeHandle& InShape) { return true; }
 	static ECollisionShapeType GetShapeType(const FPhysicsShapeHandle& InShape);
 	static FPhysicsGeometryCollection GetGeometryCollection(const FPhysicsShapeHandle& InShape);
 	static FTransform GetLocalTransform(const FPhysicsShapeHandle& InShape);
@@ -618,12 +598,12 @@ public:
 	static void SetIsQueryShape(const FPhysicsShapeHandle& InShape, bool bIsQueryShape) {}
 	static void SetUserData(const FPhysicsShapeHandle& InShape, void* InUserData);
 	static void SetGeometry(const FPhysicsShapeHandle& InShape, physx::PxGeometry& InGeom) {}
-	static void SetLocalTransform(const FPhysicsShapeHandle& InShape, const FTransform& NewLocalTransform);
-	static void SetMaterials(const FPhysicsShapeHandle& InShape, const TArrayView<UPhysicalMaterial*>InMaterials) {}
+	static void SetLocalTransform(FPhysicsShapeHandle& InShape, const FTransform& NewLocalTransform);
+	static void SetMaterials(const FPhysicsShapeHandle& InShape, const TArrayView<UPhysicalMaterial*>InMaterials);
 
 	// Scene
 	void AddActorsToScene_AssumesLocked(const TArray<FPhysicsActorHandle>& InActors);
-	void AddAggregateToScene(const FPhysicsAggregateHandle& InAggregate, bool bUseAsyncScene) {}
+	void AddAggregateToScene(const FPhysicsAggregateHandle& InAggregate) {}
 
 	void SetOwningWorld(UWorld* InOwningWorld) { OwningWorld = InOwningWorld; }
 	UWorld* GetOwningWorld() { return OwningWorld; }
@@ -692,9 +672,9 @@ public:
 
 	static TSharedPtr<FSimEventCallbackFactory> SimEventCallbackFactory;
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysScenePreTick, FPhysInterface_LLImmediate*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysScenePreTick, FPhysInterface_LLImmediate*, float /*DeltaSeconds*/);
 	FOnPhysScenePreTick OnPhysScenePreTick;
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysSceneStep, FPhysInterface_LLImmediate*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneStep, FPhysInterface_LLImmediate*, float /*DeltaSeconds*/);
 	FOnPhysSceneStep OnPhysSceneStep;
 
 	bool ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar);
@@ -731,8 +711,8 @@ private:
 	TArray<FPendingActor> PendingActors;
 	TArray<ImmediatePhysics::FActorHandle*> PendingRemoveActors;
 
-	// High-level handles maintained by this interface
-	TArray<FPhysicsActorHandle_LLImmediate*> ActorHandles;
+	// Callbacks to call *after* the current pending lists have been pushed to the simulation
+	TArray<TFunction<void()>> PendingObjectCallbacks;
 };
 
 #endif

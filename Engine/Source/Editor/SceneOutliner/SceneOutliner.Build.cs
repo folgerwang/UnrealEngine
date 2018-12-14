@@ -20,14 +20,14 @@ public class SceneOutliner : ModuleRules
 				"Slate", 
 				"SlateCore",
 				"EditorStyle",
-				"UnrealEd",
-			}
-		);
+				"UnrealEd"
+            }
+        );
 
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"LevelEditor"
-			}
-		);
-	}
+            }
+        );
+    }
 }

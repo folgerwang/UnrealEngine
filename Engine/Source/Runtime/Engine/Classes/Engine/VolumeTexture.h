@@ -36,6 +36,11 @@ public:
 #endif
 
 	ENGINE_API bool UpdateSourceFromSourceTexture();
+	
+	// Updates a volume texture from a lambda, which allows for arbitrary UVolumeTexture objects
+	// to be filled.  ret is the buffer owned by UVolumeTexture that the user should fill with data
+	// @todo: expose texture format.  For now, this only supports 16 bit rgba textures
+	ENGINE_API bool UpdateSourceFromFunction(TFunction<void(const int32 x, const int32 y, const int32 z, FFloat16 *ret)> Func, const int32 SizeX, const int32 SizeY, const int32 SizeZ);
 
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;

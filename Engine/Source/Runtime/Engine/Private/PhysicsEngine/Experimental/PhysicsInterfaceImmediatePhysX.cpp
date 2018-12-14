@@ -718,7 +718,7 @@ bool FPhysicsInterface_ImmediatePhysX::IsShapeType(const FPhysicsShapeHandle& In
         || (Shape.Geometry->getType() == PxGeometryType::Enum::eCONVEXMESH && InType == ECollisionShapeType::Convex)
         || (Shape.Geometry->getType() == PxGeometryType::Enum::eTRIANGLEMESH && InType == ECollisionShapeType::Trimesh)
         || (Shape.Geometry->getType() == PxGeometryType::Enum::eHEIGHTFIELD && InType == ECollisionShapeType::Heightfield)
-        || (Shape.Geometry->getType() == PxGeometryType::Enum::eCAPSULE && InType == ECollisionShapeType::Capsule))
+        || (Shape.Geometry->getType() == PxGeometryType::Enum::eCAPSULE && InType == ECollisionShapeType::TCapsule))
     {
         return true;
     }
@@ -754,7 +754,7 @@ ECollisionShapeType FPhysicsInterface_ImmediatePhysX::GetShapeType(const FPhysic
     }
     if (Shape.Geometry->getType() == PxGeometryType::Enum::eCAPSULE)
     {
-        return ECollisionShapeType::Capsule;
+        return ECollisionShapeType::TCapsule;
     }
     return ECollisionShapeType::None;
 }
@@ -1197,7 +1197,7 @@ void FPhysicsInterface_ImmediatePhysX::SetMassSpaceInertiaTensor_AssumesLocked(c
 
 void FPhysicsInterface_ImmediatePhysX::SetComLocalPose_AssumesLocked(const FPhysicsActorReference_ImmediatePhysX& InHandle, const FTransform& InComLocalPose)
 {
-    // @todo(mlentine): Similar to Apeiron this shouldn't be possible as this makes initia tensor non diagonal
+    // @todo(mlentine): Similar to Chaos this shouldn't be possible as this makes initia tensor non diagonal
     check(false);
 }
 
@@ -1715,7 +1715,7 @@ bool FPhysicsInterface_ImmediatePhysX::Sweep_Geom(FHitResult& OutHit, const FBod
 	return bSweepHit;
 }
 
-bool Overlap_GeomInternal(const FBodyInstance* InInstance, PxGeometry& InPxGeom, const FTransform& InShapeTransform, FMTDResult* OutOptResult)
+bool Overlap_GeomInternal(const FBodyInstance* InInstance, const PxGeometry& InPxGeom, const FTransform& InShapeTransform, FMTDResult* OutOptResult)
 {
 	PxTransform ShapePose = U2PTransform(InShapeTransform);
 	const FBodyInstance* TargetInstance = InInstance->WeldParent ? InInstance->WeldParent : InInstance;

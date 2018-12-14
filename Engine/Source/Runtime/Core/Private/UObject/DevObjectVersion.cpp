@@ -23,6 +23,7 @@
 #include "UObject/LoadTimesObjectVersion.h"
 #include "UObject/AutomationObjectVersion.h"
 #include "UObject/NiagaraObjectVersion.h"
+#include "UObject/DestructionObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDevObjectVersion, Log, All);
 
@@ -157,3 +158,9 @@ FDevVersionRegistration GRegisterEnterpriseObjectVersion(FEnterpriseObjectVersio
 const FGuid FNiagaraObjectVersion::GUID(0xF2AED0AC, 0x9AFE416F, 0x8664AA7F, 0xFA26D6FC);
 // Register Niagara custom version with Core
 FDevVersionRegistration GRegisterNiagaraObjectVersion(FNiagaraObjectVersion::GUID, FNiagaraObjectVersion::LatestVersion, TEXT("Dev-Niagara"));
+
+// Unique Destruction Object version id
+const FGuid FDestructionObjectVersion::GUID(0x174F1F0B, 0xB4C645A5, 0xB13F2EE8, 0xD0FB917D);
+// Register Destruction custom version with Core
+FDevVersionRegistration GRegisterDestructionObjectVersion(FDestructionObjectVersion::GUID, FDestructionObjectVersion::LatestVersion, TEXT("Dev-Destruction"));
+

@@ -15,6 +15,10 @@ class HEADMOUNTEDDISPLAY_API FHeadMountedDisplayBase : public FXRTrackingSystemB
 {
 
 public:
+	FHeadMountedDisplayBase()
+		: bHeadTrackingEnforced(false)
+	{}
+
 	virtual ~FHeadMountedDisplayBase() {}
 
 	/**
@@ -26,6 +30,11 @@ public:
 	 * Default IXRTrackingSystem implementation
 	 */
 	virtual bool IsHeadTrackingAllowed() const override;
+
+	/** Optional IXRTrackingSystem methods.
+	  */
+	virtual bool IsHeadTrackingEnforced() const override;
+	virtual void SetHeadTrackingEnforced(bool bEnabled) override;
 
 	/** 
 	 * Default stereo layer implementation
@@ -59,7 +68,7 @@ protected:
 	 */
 	virtual bool PopulateAnalyticsAttributes(TArray<struct FAnalyticsEventAttribute>& EventAttributes);
 
-	/** 
+	/**
 	 * Implement this method to provide an alternate render target for head locked stereo layer rendering, when using the default Stereo Layers implementation.
 	 * 
 	 * Return a FTexture2DRHIRef pointing to a texture that can be composed on top of each eye without applying reprojection to it.
@@ -88,4 +97,7 @@ protected:
 	 */
 	static void CVarSinkHandler();
 	static FAutoConsoleVariableSink CVarSink;
+
+private:
+	bool bHeadTrackingEnforced;
 };

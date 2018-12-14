@@ -175,7 +175,6 @@ public:
 	struct FFakeBodyInstanceState
 	{
 		physx::PxRigidActor* ActorSync;
-		physx::PxRigidActor* ActorAsync;
 		int32 InstanceIndex;
 	};
 

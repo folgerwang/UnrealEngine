@@ -56,7 +56,6 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
 	CapsuleComponent->SetShouldUpdatePhysicsVolume(true);
-	CapsuleComponent->bCheckAsyncSceneOnMove = false;
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;

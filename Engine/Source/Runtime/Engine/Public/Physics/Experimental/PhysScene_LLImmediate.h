@@ -14,6 +14,7 @@ namespace ImmediatePhysics
 	struct FSimulation;
 }
 
+
 class ENGINE_API FPhysScene_LLImmediate
 {
 public:
@@ -71,6 +72,8 @@ public:
 		return Simulation;
 	}
 
+	const int32 GetCurrentFrame() const { return CurrentFrame; }
+
 private:
 
 	TFunction<void(TArray<ImmediatePhysics::FActorHandle*>&, const float, const float, const int32)> KinematicUpdateFunction;
@@ -84,4 +87,24 @@ private:
 
 	ImmediatePhysics::FSimulation* Simulation;
 	float SimulationTime;
+	int32 CurrentFrame;
 };
+
+#if ! INCLUDE_CHAOS
+// stub solver callbacks for when Chaos is not included.
+class FSolverCallbacks
+{
+public:
+	typedef FPhysScene_LLImmediate::DataType FParticlesType;
+
+	virtual ~FSolverCallbacks() {}
+	virtual void UpdateKinematicBodiesCallback(const FParticlesType& Particles, const float Dt, const float Time) {};
+	virtual void StartFrameCallback(const float) {};
+	virtual void EndFrameCallback(const float) {};
+	virtual void CreateRigidBodyCallback(FParticlesType&) {};
+	virtual void ParameterUpdateCallback(FParticlesType&, const float) {};
+	virtual void DisableCollisionsCallback(TSet<TTuple<int32, int32>>&) {};
+	virtual void AddConstraintCallback(FParticlesType&, const float, const int32) {};
+	virtual void AddForceCallback(FParticlesType&, const float, const int32) {};
+};
+#endif
