@@ -309,7 +309,7 @@ namespace UnrealBuildTool
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
 				{
 					FileItem ObjectFile = FileItem.GetItemByFileReference(OutputFile);
-					if(!ObjectFile.bExists)
+					if(!ObjectFile.Exists)
 					{
 						throw new BuildException("Missing object file {0} listed in {1}", OutputFile, PrecompiledManifestLocation);
 					}
@@ -520,7 +520,7 @@ namespace UnrealBuildTool
 					if(GeneratedCPPCompileEnvironment.PrecompiledHeaderFile == null && Rules.PrivatePCHHeaderFile != null && Rules.PCHUsage != ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 					{
 						FileItem PrivatePchFileItem = FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile));
-						if(!PrivatePchFileItem.bExists)
+						if(!PrivatePchFileItem.Exists)
 						{
 							throw new BuildException("Unable to find private PCH file '{0}', referenced by '{1}'", PrivatePchFileItem.Location, RulesFile);
 						}
@@ -923,7 +923,7 @@ namespace UnrealBuildTool
 			WrapperFile.CachedIncludePaths = IncludedFile.CachedIncludePaths;
 
 			// Touch it if the included file is newer, to make sure our timestamp dependency checking is accurate.
-			if (IncludedFile.LastWriteTime > WrapperFile.LastWriteTime)
+			if (IncludedFile.LastWriteTimeUtc > WrapperFile.LastWriteTimeUtc)
 			{
 				File.SetLastWriteTimeUtc(WrapperFile.AbsolutePath, DateTime.UtcNow);
 				WrapperFile.ResetFileInfo();

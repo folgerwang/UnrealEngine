@@ -355,13 +355,13 @@ namespace UnrealBuildTool
 
 				foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
 				{
-					if (!AdditionalDependency.bExists)
+					if (!AdditionalDependency.Exists)
 					{
 						Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
 						ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
 						return null;
 					}
-					if(AdditionalDependency.LastWriteTime > UBTMakefileInfo.LastWriteTime)
+					if(AdditionalDependency.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTime)
 					{
 						Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
 						ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());

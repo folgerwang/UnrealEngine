@@ -13,15 +13,11 @@ using System.Collections.Concurrent;
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// Represents a file on disk that is used as an input or output of a build action.
-	/// FileItems are created by calling FileItem.GetItemByFileReference, which creates a single FileItem for each unique file path.
+	/// Represents a file on disk that is used as an input or output of a build action. FileItem instances are unique for a given path. Use FileItem.GetItemByFileReference 
+	/// to get the FileItem for a specific path.
 	/// </summary>
 	class FileItem
 	{
-		///
-		/// Preparation and Assembly (serialized)
-		/// 
-
 		/// <summary>
 		/// The action that produces the file.
 		/// </summary>
@@ -31,14 +27,6 @@ namespace UnrealBuildTool
 		/// The file reference
 		/// </summary>
 		public FileReference Location;
-
-		/// <summary>
-		/// Accessor for the absolute path to the file
-		/// </summary>
-		public string AbsolutePath
-		{
-			get { return Location.FullName; }
-		}
 
 		/// <summary>
 		/// For C++ file items, this stores cached information about the include paths needed in order to include header files from these C++ files.  This is part of UBT's dependency caching optimizations.
@@ -62,11 +50,6 @@ namespace UnrealBuildTool
 		}
 		private CppIncludePaths CachedIncludePathsValue;
 
-
-		///
-		/// Transients (not serialized)
-		///
-
 		/// <summary>
 		/// The information about the file.
 		/// </summary>
@@ -78,17 +61,33 @@ namespace UnrealBuildTool
 		public long RelativeCost = 0;
 
 		/// <summary>
-		/// The last write time of the file.
+		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
 		/// </summary>
-		public DateTimeOffset LastWriteTime
+		static ConcurrentDictionary<FileReference, FileItem> UniqueSourceFileMap = new ConcurrentDictionary<FileReference, FileItem>();
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Location">Location of the file</param>
+		/// <param name="Info">File info</param>
+		private FileItem(FileReference Location, FileInfo Info)
 		{
-			get { return Info.LastWriteTimeUtc; }
+			this.Location = Location;
+			this.Info = Info;
+		}
+
+		/// <summary>
+		/// Accessor for the absolute path to the file
+		/// </summary>
+		public string AbsolutePath
+		{
+			get { return Location.FullName; }
 		}
 
 		/// <summary>
 		/// Whether the file exists.
 		/// </summary>
-		public bool bExists
+		public bool Exists
 		{
 			get { return Info.Exists; }
 		}
@@ -101,15 +100,13 @@ namespace UnrealBuildTool
 			get { return Info.Length; }
 		}
 
-
-		///
-		/// Statics
-		///
-
 		/// <summary>
-		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
+		/// The last write time of the file.
 		/// </summary>
-		static ConcurrentDictionary<FileReference, FileItem> UniqueSourceFileMap = new ConcurrentDictionary<FileReference, FileItem>();
+		public DateTimeOffset LastWriteTimeUtc
+		{
+			get { return Info.LastWriteTimeUtc; }
+		}
 
 		/// <summary>
 		/// Clears the FileItem caches.
@@ -130,26 +127,34 @@ namespace UnrealBuildTool
 			}
 		}
 
+		/// <summary>
+		/// Gets a FileItem corresponding to the given path
+		/// </summary>
+		/// <param name="FilePath">Path for the FileItem</param>
 		/// <returns>The FileItem that represents the given file path.</returns>
 		public static FileItem GetItemByPath(string FilePath)
 		{
 			return GetItemByFileReference(new FileReference(FilePath));
 		}
 
+		/// <summary>
+		/// Gets a FileItem for a given path
+		/// </summary>
+		/// <param name="Location">Location of the file</param>
 		/// <returns>The FileItem that represents the given a full file path.</returns>
-		public static FileItem GetItemByFileReference(FileReference Reference)
+		public static FileItem GetItemByFileReference(FileReference Location)
 		{
 			FileItem Result;
-			if (!UniqueSourceFileMap.TryGetValue(Reference, out Result))
+			if (!UniqueSourceFileMap.TryGetValue(Location, out Result))
 			{
-				FileItem NewFileItem = new FileItem(Reference, Reference.ToFileInfo());
-				if(UniqueSourceFileMap.TryAdd(Reference, NewFileItem))
+				FileItem NewFileItem = new FileItem(Location, Location.ToFileInfo());
+				if(UniqueSourceFileMap.TryAdd(Location, NewFileItem))
 				{
 					Result = NewFileItem;
 				}
 				else
 				{
-					Result = UniqueSourceFileMap[Reference];
+					Result = UniqueSourceFileMap[Location];
 				}
 			}
 			return Result;
@@ -213,7 +218,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void Delete()
 		{
-			Debug.Assert(bExists);
+			Debug.Assert(Exists);
 
 			int MaxRetryCount = 3;
 			int DeleteTryCount = 0;
@@ -256,17 +261,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Constructor
-		/// </summary>
-		/// <param name="Location">Location of the file</param>
-		/// <param name="Info">File info</param>
-		private FileItem(FileReference Location, FileInfo Info)
-		{
-			this.Location = Location;
-			this.Info = Info;
-		}
-
-		/// <summary>
 		/// Resets the cached file info
 		/// </summary>
 		public void ResetFileInfo()
@@ -285,6 +279,10 @@ namespace UnrealBuildTool
 			}
 		}
 
+		/// <summary>
+		/// Return the path to this FileItem to debugging
+		/// </summary>
+		/// <returns>Absolute path to this file item</returns>
 		public override string ToString()
 		{
 			return AbsolutePath;

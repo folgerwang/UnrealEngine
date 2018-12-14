@@ -450,7 +450,7 @@ namespace UnrealBuildTool
 			{
 				// Determine the last time the action was run based on the write times of its produced files.
 				string LatestUpdatedProducedItemName = null;
-				DateTimeOffset LastExecutionTime = DateTimeOffset.MaxValue;
+				DateTimeOffset LastExecutionTimeUtc = DateTimeOffset.MaxValue;
 				foreach (FileItem ProducedItem in RootAction.ProducedItems)
 				{
 					// Optionally skip the action history check, as this only works for local builds
@@ -462,7 +462,7 @@ namespace UnrealBuildTool
 						if (!ActionHistory.GetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
 						|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.InvariantCultureIgnoreCase))
 						{
-							if(ProducedItem.bExists)
+							if(ProducedItem.Exists)
 							{
 								Log.TraceLog(
 									"{0}: Produced item \"{1}\" was produced by outdated command-line.\n  Old command-line: {2}\n  New command-line: {3}",
@@ -483,12 +483,12 @@ namespace UnrealBuildTool
 					// If the produced file doesn't exist or has zero size, consider it outdated.  The zero size check is to detect cases
 					// where aborting an earlier compile produced invalid zero-sized obj files, but that may cause actions where that's
 					// legitimate output to always be considered outdated.
-					if (ProducedItem.bExists && (RootAction.ActionType != ActionType.Compile || ProducedItem.Length > 0))
+					if (ProducedItem.Exists && (RootAction.ActionType != ActionType.Compile || ProducedItem.Length > 0))
 					{
 						// Use the oldest produced item's time as the last execution time.
-						if (ProducedItem.LastWriteTime < LastExecutionTime)
+						if (ProducedItem.LastWriteTimeUtc < LastExecutionTimeUtc)
 						{
-							LastExecutionTime = ProducedItem.LastWriteTime;
+							LastExecutionTimeUtc = ProducedItem.LastWriteTimeUtc;
 							LatestUpdatedProducedItemName = ProducedItem.AbsolutePath;
 						}
 					}
@@ -547,10 +547,10 @@ namespace UnrealBuildTool
 							{
 								foreach (FileItem IncludedFile in IncludedFileList)
 								{
-									if (IncludedFile.bExists)
+									if (IncludedFile.Exists)
 									{
 										// allow a 1 second slop for network copies
-										TimeSpan TimeDifference = IncludedFile.LastWriteTime - LastExecutionTime;
+										TimeSpan TimeDifference = IncludedFile.LastWriteTimeUtc - LastExecutionTimeUtc;
 										bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 										if (bPrerequisiteItemIsNewerThanLastExecution)
 										{
@@ -558,8 +558,8 @@ namespace UnrealBuildTool
 												"{0}: Included file {1} is newer than the last execution of the action: {2} vs {3}",
 												RootAction.StatusDescription,
 												Path.GetFileName(IncludedFile.AbsolutePath),
-												IncludedFile.LastWriteTime.LocalDateTime,
-												LastExecutionTime.LocalDateTime
+												IncludedFile.LastWriteTimeUtc.LocalDateTime,
+												LastExecutionTimeUtc.LocalDateTime
 												);
 											bIsOutdated = true;
 
@@ -609,10 +609,10 @@ namespace UnrealBuildTool
 								}
 							}
 
-							if (PrerequisiteItem.bExists)
+							if (PrerequisiteItem.Exists)
 							{
 								// allow a 1 second slop for network copies
-								TimeSpan TimeDifference = PrerequisiteItem.LastWriteTime - LastExecutionTime;
+								TimeSpan TimeDifference = PrerequisiteItem.LastWriteTimeUtc - LastExecutionTimeUtc;
 								bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 								if (bPrerequisiteItemIsNewerThanLastExecution)
 								{
@@ -620,8 +620,8 @@ namespace UnrealBuildTool
 										"{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}",
 										RootAction.StatusDescription,
 										Path.GetFileName(PrerequisiteItem.AbsolutePath),
-										PrerequisiteItem.LastWriteTime.LocalDateTime,
-										LastExecutionTime.LocalDateTime
+										PrerequisiteItem.LastWriteTimeUtc.LocalDateTime,
+										LastExecutionTimeUtc.LocalDateTime
 										);
 									bIsOutdated = true;
 								}
@@ -711,7 +711,7 @@ namespace UnrealBuildTool
 					Action OutdatedAction = OutdatedActionInfo.Key;
 					foreach (FileItem DeleteItem in OutdatedActionInfo.Key.DeleteItems)
 					{
-						if (DeleteItem.bExists)
+						if (DeleteItem.Exists)
 						{
 							Log.TraceLog("Deleting outdated item: {0}", DeleteItem.AbsolutePath);
 							DeleteItem.Delete();

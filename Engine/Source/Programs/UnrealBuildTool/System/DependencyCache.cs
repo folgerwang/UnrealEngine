@@ -273,7 +273,7 @@ namespace UnrealBuildTool
 			}
 
 			// File is in cache, now check whether last write time is prior to cache creation time.
-			if (File.LastWriteTime.ToUniversalTime() >= CreationTimeUtc)
+			if (File.LastWriteTimeUtc.ToUniversalTime() >= CreationTimeUtc)
 			{
 				// Remove entry from cache as it's stale.
 				DependencyMap.Remove(File.Location);
