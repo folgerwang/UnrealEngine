@@ -8,6 +8,7 @@
 #include "PackUniformBuffers.h"
 #include "IRDump.h"
 #include "ast.h"
+#include "HlslccDefinitions.h"
 #include "LanguageSpec.h"
 //@todo-rco: Remove STL!
 #include <algorithm>
@@ -832,8 +833,13 @@ static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
 	return (TotalElements < STotalElements);
 }
 
-static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, TVarVarMap& OutUniformMap)
+static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, TVarVarMap& OutUniformMap)
 {
+	const bool PackUniformsIntoUniformBufferWithNames = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
+	const bool bPackGlobalArraysIntoUniformBuffers = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
+	const bool bGroupFlattenedUBs = (HLSLCCFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers;
+	const bool bFlattenStructure = (HLSLCCFlags & HLSLCC_FlattenUniformBufferStructures) == HLSLCC_FlattenUniformBufferStructures;
+
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
 	TIRVarVector PackedVariables;
@@ -1609,8 +1615,10 @@ namespace DebugPackUniforms
 * @param Instructions - The IR for which to pack uniforms.
 * @param ParseState - Parse state.
 */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, bool bKeepNames, TVarVarMap& OutUniformMap)
+void PackUniforms(uint32 HLSLCCFlags, exec_list* Instructions, _mesa_glsl_parse_state* ParseState, TVarVarMap& OutUniformMap)
 {
+	const bool bKeepNames = (HLSLCCFlags & HLSLCC_KeepSamplerAndImageNames) == HLSLCC_KeepSamplerAndImageNames;
+
 	//IRDump(Instructions);
 	void* ctx = ParseState;
 	void* tmp_ctx = ralloc_context(NULL);
@@ -1622,7 +1630,7 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	if (MainSig && UniformVariables.Num())
 	{
 		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
-		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, OutUniformMap);
+		int UniformIndex = ProcessPackedUniformArrays(HLSLCCFlags, Instructions, ctx, ParseState, UniformVariables,  OutUniformMap);
 		if (UniformIndex == -1)
 		{
 			goto done;

@@ -398,14 +398,10 @@ bool FHlslCrossCompilerContext::RunBackend(
 		}
 	}
 
-	const bool bGroupFlattenedUBs = ((Flags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
 	if (bPackUniforms)
 	{
-		const bool bPackGlobalArraysIntoUniformBuffers = ((Flags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
-		const bool PackUniformsIntoUniformBufferWithNames = ((Flags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
-		const bool bKeepNames = (Flags & HLSLCC_KeepSamplerAndImageNames) == HLSLCC_KeepSamplerAndImageNames;
 		TVarVarMap UniformMap;
-		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, bKeepNames, UniformMap);
+		PackUniforms(Flags, ir, ParseState, UniformMap);
 		//TIMER(pack_uniforms);
 
 		RemovePackedUniformBufferReferences(ir, ParseState, UniformMap);

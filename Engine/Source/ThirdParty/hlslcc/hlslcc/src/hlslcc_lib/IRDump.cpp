@@ -42,7 +42,7 @@
 #if !defined(_MSC_VER)
 #define dprintf(...) printf(__VA_ARGS__)
 #endif
-#define irdump_printf(...)  dprintf(0, __VA_ARGS__)
+#define irdump_printf(...)  dprintf(__VA_ARGS__)
 
 static inline void irdump_flush()
 {
