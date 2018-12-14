@@ -623,6 +623,9 @@ public:
 
 	FMeshMapBuildData* LegacyMapBuildData;
 
+	/** Vertex factory uniform buffer. Needs to be per model element, so every element can have it's unique LODLightmapDataIndex. */
+	FUniformBufferRHIRef VertexFactoryUniformBuffer;
+
 	/** Uniquely identifies this component's built map data. */
 	FGuid MapBuildDataId;
 
