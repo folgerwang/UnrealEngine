@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "GeometryCollection/RecordedTransformTrack.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGeometryCollectionCache, Log, All);

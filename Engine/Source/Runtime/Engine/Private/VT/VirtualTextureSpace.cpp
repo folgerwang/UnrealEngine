@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "VT/VirtualTextureSpace.h"
 #include "RenderResource.h"
 #include "Runtime/Renderer/Public/VirtualTexturing.h"
