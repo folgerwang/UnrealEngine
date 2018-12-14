@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "FileCache.h"
 #include "Containers/BinaryHeap.h"
 #include "Containers/Queue.h"

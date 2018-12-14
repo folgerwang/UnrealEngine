@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 // UsdWrapperTest.cpp : Defines the entry point for the console application.
 //
 
