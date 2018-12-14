@@ -242,7 +242,6 @@ public:
 			FMemory::Free(Mem);
 			NumFree.Decrement();
 		}
-		check(!NumFree.GetValue());
 	}
 
 	/**
