@@ -301,11 +301,11 @@ RWTexture2D<float2> RWShadowFactors;
 float2 NumGroups;
 
 /** From point being shaded toward light, for directional lights. */
-float4 LightDirection;
+float3 LightDirection;
 float4 LightPositionAndInvRadius;
 float LightSourceRadius;
 float RayStartOffsetDepthScale;
-float4 TanLightAngleAndNormalThreshold;
+float3 TanLightAngleAndNormalThreshold;
 int4 ScissorRectMinAndSize;
 
 /** Min and Max depth for this tile. */
@@ -426,8 +426,8 @@ void CullObjectsToTileWithGather(
 		|| LightVector1Length < 1.0f / LightPositionAndInvRadius.w + Group1BoundingRadius;
 
 #else
-	float3 LightDirection0 = LightDirection.xyz;
-	float3 LightDirection1 = LightDirection.xyz;
+	float3 LightDirection0 = LightDirection;
+	float3 LightDirection1 = LightDirection;
 	float RayLength0 = TraceDistance;
 	float RayLength1 = TraceDistance;
 
@@ -547,8 +547,8 @@ void DistanceFieldShadowingCS(
 
 			#else
 
-				float3 WorldRayStart = OpaqueWorldPosition + LightDirection.xyz * RayStartOffset;
-				float3 WorldRayEnd = OpaqueWorldPosition + LightDirection.xyz * TraceDistance;
+				float3 WorldRayStart = OpaqueWorldPosition + LightDirection * RayStartOffset;
+				float3 WorldRayEnd = OpaqueWorldPosition + LightDirection * TraceDistance;
 				float MaxRayTime = TraceDistance;
 				float TanLightAngle = TanLightAngleAndNormalThreshold.x;
 

@@ -9,7 +9,7 @@
 float4 StencilingGeometryPosAndScale;
 float4 StencilingConeParameters;	// .x NumSides (0 if not cone), .y NumSlices, .z ConeAngle, .w ConeSphereRadius
 float4x4 StencilingConeTransform;
-float4 StencilingPreViewTranslation;
+float3 StencilingPreViewTranslation;
 
 /** Vertex shader for rendering a directional light using a full screen quad. */
 void DirectionalVertexMain(
@@ -62,7 +62,7 @@ void RadialVertexMain(
 			// Create a position in the local space of the cone, forming a circle in the XY plane, and offsetting along the Z axis
 			const float3 LocalPosition = float3(ZRadius * SliceIndex / (float)(NumSlices - 1), SliceRadius * sin(CurrentAngle), SliceRadius * cos(CurrentAngle));
 			// Transform to world space and apply pre-view translation, since these vertices will be used with a shader that has pre-view translation removed
-			WorldPosition = mul(float4(LocalPosition, 1), StencilingConeTransform).xyz + StencilingPreViewTranslation.xyz;
+			WorldPosition = mul(float4(LocalPosition, 1), StencilingConeTransform).xyz + StencilingPreViewTranslation;
 		}
 		else
 		{
@@ -81,7 +81,7 @@ void RadialVertexMain(
 
 			const float CurrentAngle = SideIndex * 2 * PI / (float)NumSides;
 			const float3 LocalPosition = float3(ZDistance, SliceRadius * sin(CurrentAngle), SliceRadius * cos(CurrentAngle));
-			WorldPosition = mul(float4(LocalPosition, 1), StencilingConeTransform).xyz + StencilingPreViewTranslation.xyz;
+			WorldPosition = mul(float4(LocalPosition, 1), StencilingConeTransform).xyz + StencilingPreViewTranslation;
 		}
 	}
 	else

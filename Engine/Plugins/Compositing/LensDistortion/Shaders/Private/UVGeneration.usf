@@ -24,7 +24,7 @@
 float2 PixelUVSize;
 
 // K1, K2, K3
-float4 RadialDistortionCoefs;
+float3 RadialDistortionCoefs;
 
 // P1, P2
 float2 TangentialDistortionCoefs;

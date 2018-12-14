@@ -179,11 +179,11 @@ bool SphereIntersectSphere(float4 SphereCenterAndRadius, float4 OtherSphereCente
 
 #if LIGHT_SOURCE_MODE == LIGHT_SOURCE_PUNCTUAL
 /** From point being shaded toward light, for directional lights. */
-float4 LightDirection;
+float3 LightDirection;
 float4 LightPositionAndInvRadius;
 float LightSourceRadius;
 float RayStartOffsetDepthScale;
-float4 LightAngleAndNormalThreshold;
+float3 LightAngleAndNormalThreshold;
 #endif
 
 uint4 ScissorRectMinAndSize;
@@ -377,7 +377,7 @@ void SetupTileCullingData(
 		bTileShouldComputeShadowing = bTileShouldComputeShadowing && bTileInLightInfluenceBounds;
 
 	#else
-		TileCullingData0.ConeAxis = TileCullingData1.ConeAxis = LightDirection.xyz;
+		TileCullingData0.ConeAxis = TileCullingData1.ConeAxis = LightDirection;
 		TileCullingData0.ConeAngleCos = TileCullingData1.ConeAngleCos = cos(LightAngleAndNormalThreshold.x);
 		TileCullingData0.ConeAngleSin = TileCullingData1.ConeAngleSin = sin(LightAngleAndNormalThreshold.x);
 	#endif

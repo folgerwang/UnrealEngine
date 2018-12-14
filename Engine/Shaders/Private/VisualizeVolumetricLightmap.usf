@@ -78,7 +78,7 @@ void VisualizeVolumetricLightmapVS(
 
 #define WRITE_TO_SHADING_MODEL (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && !FORWARD_SHADING)
 
-float4 DiffuseColor;
+float3 DiffuseColor;
 
 void VisualizeVolumetricLightmapPS(
 	FVisualizeVolumetricLightmapVSToPS Input,
@@ -108,7 +108,7 @@ void VisualizeVolumetricLightmapPS(
 #endif
 
 	// Use a diffuse color that matches the rest of the scene for LightingOnly and DetailLighting view modes
-	float3 EffectiveDiffuseColor = DiffuseColor.xyz * View.DiffuseOverrideParameter.w + View.DiffuseOverrideParameter.xyz;
+	float3 EffectiveDiffuseColor = DiffuseColor * View.DiffuseOverrideParameter.w + View.DiffuseOverrideParameter.xyz;
 	OutColor = float4(EffectiveDiffuseColor * FinalLighting, 0);
 
 	//OutColor = float4(WorldNormal, 0);

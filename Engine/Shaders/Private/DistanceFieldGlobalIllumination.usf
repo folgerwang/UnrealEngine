@@ -310,7 +310,7 @@ void SetupLightVPLsIndirectArgumentsCS(
 }
 
 // From receiver to to light
-float4 LightDirection;
+float3 LightDirection;
 float4 LightPositionAndInvRadius;
 float LightSourceRadius;
 float2 TanLightAngleAndNormalThreshold;
@@ -443,7 +443,7 @@ float3 ComputeVPLFlux(uint SurfelIndex, float4x4 InstanceToWorld)
 	float3 AccumulatedLighting = 0;
 
 	{
-		float SurfelDotLight = dot(SurfelNormal, LightDirection.xyz);
+		float SurfelDotLight = dot(SurfelNormal, LightDirection);
 
 		BRANCH
 		if (SurfelDotLight > 0)
@@ -479,8 +479,8 @@ float3 ComputeVPLFlux(uint SurfelIndex, float4x4 InstanceToWorld)
 				}
 				else
 				{
-					WorldRayStart = PositionAndRadius.xyz + LightDirection.xyz * RayStartOffset;
-					WorldRayEnd = PositionAndRadius.xyz + LightDirection.xyz * TraceDistance;
+					WorldRayStart = PositionAndRadius.xyz + LightDirection * RayStartOffset;
+					WorldRayEnd = PositionAndRadius.xyz + LightDirection * TraceDistance;
 					MaxRayTime = TraceDistance;
 					TanLightAngle = TanLightAngleAndNormalThreshold.x;
 

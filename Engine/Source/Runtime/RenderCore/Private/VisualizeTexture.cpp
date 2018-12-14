@@ -79,7 +79,7 @@ class FVisualizeTexturePS : public FGlobalShader
 	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER(FVector4, TextureExtent)
+		SHADER_PARAMETER(FVector, TextureExtent)
 		SHADER_PARAMETER_ARRAY(FVector4, VisualizeParam, [3])
 
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, VisualizeTexture2D)
@@ -230,7 +230,7 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 
 	FVisualizeTexturePS::FParameters* PassParameters = GraphBuilder.AllocParameters<FVisualizeTexturePS::FParameters>();
 	{
-		PassParameters->TextureExtent = FVector4(SrcDesc.Extent.X, SrcDesc.Extent.Y, SrcDesc.Depth, 0.0f);
+		PassParameters->TextureExtent = FVector(SrcDesc.Extent.X, SrcDesc.Extent.Y, SrcDesc.Depth);
 
 		{
 			// alternates between 0 and 1 with a short pause

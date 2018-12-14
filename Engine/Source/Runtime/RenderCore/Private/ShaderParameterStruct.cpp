@@ -108,17 +108,9 @@ struct FShaderParameterStructBindingContext
 
 				if (uint32(BoundSize) > ByteSize)
 				{
-					if (IsHlslccShaderPlatform(Shader->GetShaderPlatform()) && BoundSize == 16 && ByteSize == 12)
-					{
-						UE_LOG(LogShaders, Fatal, TEXT("Shader %s's (Permutation Id %d) struct %s parameter %s is a float3; hlslcc will pad float3 to float4, so please adjust the parameter from a float3 to a float4"),
-							Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(), *ShaderBindingName);
-					}
-					else
-					{
-						UE_LOG(LogShaders, Fatal, TEXT("The size required to bind shader %s's (Permutation Id %d) struct %s parameter %s is %i bytes, smaller than %s's %i bytes."),
-							Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(),
-							*ShaderBindingName, BoundSize, *CppName, ByteSize);
-					}
+					UE_LOG(LogShaders, Fatal, TEXT("The size required to bind shader %s's (Permutation Id %d) struct %s parameter %s is %i bytes, smaller than %s's %i bytes."),
+						Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(),
+						*ShaderBindingName, BoundSize, *CppName, ByteSize);
 				}
 
 				Bindings->Parameters.Add(Parameter);

@@ -39,7 +39,7 @@ SamplerState InTextureSampler;
  * Y = Sky distance threshold, 
  * Z = whether a skylight's lower hemisphere should be replaced with LowerHemisphereColor.
  */
-float4 SkyLightCaptureParameters;
+float3 SkyLightCaptureParameters;
 float4 LowerHemisphereColor;
 
 void CopySceneColorToCubeFaceColorPS(

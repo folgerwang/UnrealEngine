@@ -54,7 +54,7 @@ SamplerState	BoundsCenterSampler;
 Texture2D		BoundsExtentTexture;
 SamplerState	BoundsExtentSampler;
 
-float4 HZBUvFactor;
+float3 HZBUvFactor;
 float4 HZBSize;
 
 void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)

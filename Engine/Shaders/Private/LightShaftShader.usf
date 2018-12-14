@@ -27,7 +27,7 @@ float4 WorldSpaceBlurOriginAndRadius;
 float LightSourceRadius;
 
 /** Spot light direction. */
-float4 WorldSpaceSpotDirection;
+float3 WorldSpaceSpotDirection;
 
 /** SpotLightInfo->CosOuterCone in x, SpotLightInfo->InvCosConeDifference in y. */
 float2 SpotAngles;
@@ -92,7 +92,7 @@ void DownsampleLightShaftsPixelMain(
 		#if SPOT_LIGHT_SHAFTS
 	
 			// Setup a mask that only allows occlusion or blooming from pixels in the spotlight's cone
-			float SpotDotProduct = dot(WorldLightVector, WorldSpaceSpotDirection.xyz);
+			float SpotDotProduct = dot(WorldLightVector, WorldSpaceSpotDirection);
 
 			// Filter the spotlight mask instead of the depths
 			SpotLightAttenuation = Square(saturate((SpotDotProduct / Distance - SpotAngles.x) * SpotAngles.y));
@@ -137,7 +137,7 @@ void DownsampleLightShaftsPixelMain(
 		#if SPOT_LIGHT_SHAFTS
 	
 			// Setup a mask that only allows occlusion or blooming from pixels in the spotlight's cone
-			float SpotDotProduct = dot(WorldLightVector, WorldSpaceSpotDirection.xyz);
+			float SpotDotProduct = dot(WorldLightVector, WorldSpaceSpotDirection);
 
 			// Filter the spotlight mask instead of the depths
 			SpotLightAttenuation = Square(saturate((SpotDotProduct / Distance - SpotAngles.x) * SpotAngles.y));

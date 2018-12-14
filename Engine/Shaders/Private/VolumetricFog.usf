@@ -62,8 +62,8 @@ float3 ScatteringFunction()
 	//return RaleighScattering();
 }
 
-float4 GlobalAlbedo;
-float4 GlobalEmissive;
+float3 GlobalAlbedo;
+float3 GlobalEmissive;
 float GlobalExtinctionScale;
 
 #ifndef THREADGROUP_SIZE 
@@ -85,7 +85,7 @@ void MaterialSetupCS(
 
 	float GlobalDensity = FogStruct.ExponentialFogParameters3.x * exp2(-FogStruct.ExponentialFogParameters.y * (WorldPosition.z - FogStruct.ExponentialFogParameters3.y));
 
-	float3 Albedo = GlobalAlbedo.xyz;
+	float3 Albedo = GlobalAlbedo;
 
 	// Exponential height fog interprets density differently, match its behavior
 	float MatchHeightFogFactor = .5f;
@@ -97,7 +97,7 @@ void MaterialSetupCS(
 	if (all((int3)GridCoordinate < VolumetricFog.GridSizeInt))
 	{
 		RWVBufferA[GridCoordinate] = float4(Scattering, Absorption);
-		RWVBufferB[GridCoordinate] = float4(GlobalEmissive.xyz, 0);
+		RWVBufferB[GridCoordinate] = float4(GlobalEmissive, 0);
 	}
 }
 

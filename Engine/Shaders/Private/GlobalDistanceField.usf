@@ -110,10 +110,10 @@ void CullObjectsForVolumeCS(
 }
 
 uint ClipmapIndex;
-float4 VolumeTexelSize;
-float4 UpdateRegionVolumeMin;
+float3 VolumeTexelSize;
+float3 UpdateRegionVolumeMin;
 float UpdateRegionVolumeStep;
-uint4 CullGridDimension;
+uint3 CullGridDimension;
 
 RWBuffer<uint> RWCullGridObjectNum;
 RWBuffer<uint> RWCullGridObjectArray;
@@ -142,7 +142,7 @@ void CullObjectsToGridCS(
 	uint ThreadIndex = GroupThreadId.x;
 	uint CullTileIndex = ComputeCullTileIndex(GroupId);
 
-	if (ThreadIndex == 0 && all(GroupId < CullGridDimension.xyz))
+	if (ThreadIndex == 0 && all(GroupId < CullGridDimension))
 	{
 		// Clear array num to 0 for all cull grid cells
 		RWCullGridObjectNum[CullTileIndex] = 0;
@@ -150,12 +150,12 @@ void CullObjectsToGridCS(
 
 	GroupMemoryBarrierWithGroupSync();
 
-	if (all(GroupId < CullGridDimension.xyz))
+	if (all(GroupId < CullGridDimension))
 	{
 		uint NumCulledObjects = GetCulledNumObjects();
 		float GlobalVolumeExtent = GlobalVolumeCenterAndExtent[ClipmapIndex].w;
-		float3 TileBoxExtent = .5f * CULL_GRID_TILE_SIZE * VolumeTexelSize.xyz * GlobalVolumeExtent * 2;
-		float3 TileBoxCenter = UpdateRegionVolumeMin.xyz + ((GroupId.xyz + .5f) * CULL_GRID_TILE_SIZE + .5f) * VolumeTexelSize.xyz * GlobalVolumeExtent * 2;
+		float3 TileBoxExtent = .5f * CULL_GRID_TILE_SIZE * VolumeTexelSize * GlobalVolumeExtent * 2;
+		float3 TileBoxCenter = UpdateRegionVolumeMin + ((GroupId.xyz + .5f) * CULL_GRID_TILE_SIZE + .5f) * VolumeTexelSize * GlobalVolumeExtent * 2;
 
 		for (uint ObjectIndex = ThreadIndex; ObjectIndex < NumCulledObjects; ObjectIndex += GRID_CULL_THREADGORUP_TOTALSIZE)
 		{
@@ -180,7 +180,7 @@ void CullObjectsToGridCS(
 	}
 }
 
-uint4 UpdateRegionSize;
+uint3 UpdateRegionSize;
 Buffer<uint> CullGridObjectNum;
 Buffer<uint> CullGridObjectArray;
 Texture3D<float> ParentGlobalDistanceFieldTexture;
@@ -228,8 +228,8 @@ void CompositeObjectDistanceFieldsCS(
 	uint ThreadIndex = (GroupThreadId.z * COMPOSITE_THREADGROUP_SIZEY + GroupThreadId.y) * COMPOSITE_THREADGROUP_SIZEX + GroupThreadId.x;
 
 	float3 GroupSize = float3(COMPOSITE_THREADGROUP_SIZEX, COMPOSITE_THREADGROUP_SIZEY, COMPOSITE_THREADGROUP_SIZEZ);
-	float3 TileBoxExtent = .5f * GroupSize * VolumeTexelSize.xyz * GlobalVolumeExtent * 2;
-	float3 TileBoxCenter = UpdateRegionVolumeMin.xyz + ((GroupId.xyz + .5f) * GroupSize + .5f) * VolumeTexelSize.xyz * GlobalVolumeExtent * 2;
+	float3 TileBoxExtent = .5f * GroupSize * VolumeTexelSize * GlobalVolumeExtent * 2;
+	float3 TileBoxCenter = UpdateRegionVolumeMin + ((GroupId.xyz + .5f) * GroupSize + .5f) * VolumeTexelSize * GlobalVolumeExtent * 2;
 
 #if USE_CULL_GRID
 	uint CullTileIndex = ComputeCullTileIndex(DispatchThreadId / CULL_GRID_TILE_SIZE);
@@ -266,7 +266,7 @@ void CompositeObjectDistanceFieldsCS(
 
 #endif
 
-	float3 WorldPosition = UpdateRegionVolumeMin.xyz + (DispatchThreadId.xyz + .5f) * VolumeTexelSize.xyz * GlobalVolumeExtent * 2;
+	float3 WorldPosition = UpdateRegionVolumeMin + (DispatchThreadId.xyz + .5f) * VolumeTexelSize * GlobalVolumeExtent * 2;
 	float3 GlobalUV = ComputeGlobalUV(WorldPosition, ClipmapIndex);
 	uint3 IntCoordinate = (uint3)(frac(GlobalUV) * GlobalVolumeDimension);
 
@@ -308,7 +308,7 @@ void CompositeObjectDistanceFieldsCS(
 		}
 	}
 
-	if (all(DispatchThreadId.xyz < UpdateRegionSize.xyz))
+	if (all(DispatchThreadId.xyz < UpdateRegionSize))
 	{
 		RWGlobalDistanceFieldTexture[IntCoordinate] = MinDistance;
 	}
@@ -325,7 +325,7 @@ void CompositeHeightfieldsIntoGlobalDistanceFieldCS(
 	uint3 GroupThreadId : SV_GroupThreadID)
 {
 	// We only dispatch one depth layer, so the z value is incorrect
-	float3 LookupWorldPosition = UpdateRegionVolumeMin.xyz + float3(DispatchThreadId.xy, 0.0f) * UpdateRegionVolumeStep;
+	float3 LookupWorldPosition = UpdateRegionVolumeMin + float3(DispatchThreadId.xy, 0.0f) * UpdateRegionVolumeStep;
 
 	uint ValidHeightfieldIndex = 0;
 

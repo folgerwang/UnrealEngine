@@ -88,7 +88,7 @@ float ConvertToLuma(in float3 ColorValue)
 // BrightPixelGain.y = Max Threshold: the maximal value brightness
 // BrightPixelGain.z = Multiplier applied to brightness above Min Threshold
 
-float4 BrightPixelGain;
+float3 BrightPixelGain;
 
 bool FilterPixel(in float3 Filter, inout float4 PixelValue)
 {
@@ -269,7 +269,7 @@ void ModifyInput(inout Complex LocalBuffer[2][RADIX])
 	{
 		float4 InputColor = float4(LocalBuffer[0][r].x, LocalBuffer[0][r].y, LocalBuffer[1][r].x, LocalBuffer[1][r].y);
 
-		bool bIsChanged = FilterPixel(BrightPixelGain.xyz, InputColor);
+		bool bIsChanged = FilterPixel(BrightPixelGain, InputColor);
 		
 		if (bIsChanged)
 		{

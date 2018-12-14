@@ -7,7 +7,7 @@
 #include "LightFunctionCommon.ush"
 
 /** Fade distance in x, disabled brightness in y, output for preview shadows mask in z. */
-float4 LightFunctionParameters2;
+float3 LightFunctionParameters2;
 float2 LightFunctionTexelSize;
 
 float4x4 ShadowToWorld;

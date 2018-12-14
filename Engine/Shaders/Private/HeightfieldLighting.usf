@@ -236,7 +236,7 @@ void ShadowHeightfieldsPS(
 	OutColor = float4(Visibility, 0, 0, 0);
 }
 
-float4 LightDirection;
+float3 LightDirection;
 float TanLightAngle;
 
 void RayTracedShadowHeightfieldsPS(
@@ -270,7 +270,7 @@ void RayTracedShadowHeightfieldsPS(
 		float TraceDistance = 10000;
 
 		float3 WorldRayStart = OpaqueWorldPosition;
-		float3 WorldRayEnd = OpaqueWorldPosition + -LightDirection.xyz * TraceDistance;
+		float3 WorldRayEnd = OpaqueWorldPosition + -LightDirection * TraceDistance;
 		float MaxRayTime = TraceDistance;
 
 		Shadow = ShadowRayTraceThroughCulledObjects(
@@ -295,7 +295,7 @@ void RayTracedShadowHeightfieldsPS(
 	OutColor = float4(Shadow, 0, 0, 0);
 }
 
-float4 LightColor;
+float3 LightColor;
 float SkyLightIndirectScale;
 
 #if APPLY_LIGHT_FUNCTION
@@ -321,7 +321,7 @@ void LightHeightfieldsPS(
 	float Shadowing = Texture2DSampleLevel(HeightfieldShadowing, HeightfieldShadowingSampler, Input.GlobalUV, 0).x;
 
 	float3 DiffuseColor = GetGlobalDiffuseColor(Input.GlobalUV);
-	float3 Lighting = (Shadowing * GreyScaleLightFunction * saturate(dot(-LightDirection.xyz, WorldHeightfieldNormal))) * LightColor.xyz;
+	float3 Lighting = (Shadowing * GreyScaleLightFunction * saturate(dot(-LightDirection, WorldHeightfieldNormal))) * LightColor;
 	 
 	float3 SkylightDiffuse = GetSkySHDiffuse(WorldHeightfieldNormal) * View.SkyLightColor.rgb * SkyLightIndirectScale;
 	Lighting += SkylightDiffuse;
