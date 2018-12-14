@@ -39,7 +39,7 @@
 #include "IRDump.h"
 #include "hlslcc_private.h"
 
-#if !defined(_MSC_VER)
+#if !defined(_MSC_VER) && !defined(dprintf)
 #define dprintf(...) printf(__VA_ARGS__)
 #endif
 #define irdump_printf(...)  dprintf(__VA_ARGS__)

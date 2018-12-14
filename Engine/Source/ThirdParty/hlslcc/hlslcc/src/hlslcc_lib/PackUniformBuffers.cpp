@@ -835,10 +835,11 @@ static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
 
 static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, TVarVarMap& OutUniformMap)
 {
-	const bool PackUniformsIntoUniformBufferWithNames = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
+	const bool bPackUniformsIntoUniformBufferWithNames = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
 	const bool bPackGlobalArraysIntoUniformBuffers = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
 	const bool bGroupFlattenedUBs = (HLSLCCFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers;
 	const bool bFlattenStructure = (HLSLCCFlags & HLSLCC_FlattenUniformBufferStructures) == HLSLCC_FlattenUniformBufferStructures;
+	const bool bRetainSizes = (HLSLCCFlags & HLSLCC_RetainSizes) == HLSLCC_RetainSizes;
 
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
@@ -861,7 +862,7 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 			return -1;
 		}
 		
-		if (!bFlattenStructure && !bGroupFlattenedUBs && bPackGlobalArraysIntoUniformBuffers && PackUniformsIntoUniformBufferWithNames)
+		if (!bFlattenStructure && !bGroupFlattenedUBs && bPackGlobalArraysIntoUniformBuffers && bPackUniformsIntoUniformBufferWithNames)
 		{
 			PackedVariables.Add(var);
 		}
@@ -875,7 +876,15 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 			{
 				ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, VarInfo.CB_OffsetInFloats, VarInfo.CB_SizeInFloats);
 			}
-			OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(VarInfo);
+
+			if (bRetainSizes)
+			{
+				OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].PushFront(VarInfo);
+			}
+			else
+			{
+				OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(VarInfo);
+			}
 		}
 	}
 	
@@ -1068,6 +1077,7 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 			check(OrganizedVars.find(SourceCB) != OrganizedVars.end());
 			for (auto& VarSetPair : OrganizedVars[SourceCB])
 			{
+				// Current packed array we're working on (eg pu_h)
 				ir_variable* UniformArrayVar = nullptr;
 				char ArrayType = VarSetPair.first;
 				TCBVarInfoVector& VarInfos = VarSetPair.second;
@@ -1084,10 +1094,12 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 					const glsl_base_type array_base_type = (type->base_type == GLSL_TYPE_BOOL) ? GLSL_TYPE_UINT : type->base_type;
 					if (!UniformArrayVar)
 					{
+						// Obtain current packed array
 						std::string UniformArrayName = GetUniformArrayName(ParseState->target, type->base_type, CBIndices[DestCB]);
 						auto IterFound = UniformArrayVarMap.find(UniformArrayName);
 						if (IterFound == UniformArrayVarMap.end())
 						{
+							// We haven't created current packed array, do so
 							const glsl_type* ArrayElementType = glsl_type::get_instance(array_base_type, 4, 1);
 							int SizeInFloats = ComputePackedArraySizeFloats(OrganizedVars, DestCB, ArrayType, bGroupFlattenedUBs);
 							int NumElementsAligned = (SizeInFloats + 3) / 4;
@@ -1113,7 +1125,7 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 					}
 					
 					int& NumElements = NumElementsMap[DestCB][ArrayType];
-					int Stride = (type->vector_elements > 2 || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
+					int Stride = ((type->vector_elements > 2) || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
 					int NumRows = var->type->is_array() ? var->type->length : 1;
 					NumRows = NumRows * MAX2(type->matrix_columns, 1u);
 					
@@ -1121,7 +1133,8 @@ static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instruction
 					check(var->name);
 					PackedUniform.Name = var->name;
 					PackedUniform.offset = NumElements;
-					PackedUniform.num_components = Stride * NumRows;
+					PackedUniform.num_components = (bRetainSizes && !var->type->is_array()) ? MAX2(type->vector_elements, 1u) : Stride;
+					PackedUniform.num_components *= NumRows;
 					if (!SourceCB.empty())
 					{
 						PackedUniform.CB_PackedSampler = SourceCB;

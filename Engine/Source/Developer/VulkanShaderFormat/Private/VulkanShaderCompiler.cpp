@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ..
+// .
 
 #include "VulkanShaderFormat.h"
 #include "VulkanCommon.h"
@@ -1956,6 +1956,8 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 
 	CompilerInfo.CCFlags |= HLSLCC_SeparateShaderObjects;
 	CompilerInfo.CCFlags |= HLSLCC_KeepSamplerAndImageNames;
+
+	CompilerInfo.CCFlags |= HLSLCC_RetainSizes;
 
 	// ES doesn't support origin layout
 	CompilerInfo.CCFlags |= HLSLCC_DX11ClipSpace;
