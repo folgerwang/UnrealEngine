@@ -753,6 +753,12 @@ static const int32 Str##PrefixLen = FCStringAnsi::Strlen(Str##Prefix)
 				ShaderSource++;
 			}
 		}
+		
+		if (*ShaderSource && !CrossCompiler::Match(ShaderSource, '\n'))
+		{
+			return false;
+		}
+		
 		if (SideTable < 0)
 		{
 			UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Couldn't parse the SideTable buffer index for bounds checking"));
