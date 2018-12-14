@@ -73,11 +73,6 @@ namespace UnrealBuildTool
 		public FileInfo Info;
 
 		/// <summary>
-		/// This is true if this item is actually a directory. Consideration for Mac application bundles. Note that Info will be null if true!
-		/// </summary>
-		public bool IsDirectory;
-
-		/// <summary>
 		/// Relative cost of action associated with producing this file.
 		/// </summary>
 		public long RelativeCost = 0;
@@ -328,25 +323,13 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void ResetFileInfo()
 		{
-			if (Directory.Exists(AbsolutePath))
-			{
-				// path is actually a directory (such as a Mac app bundle)
-				_bExists = true;
-				LastWriteTime = Directory.GetLastWriteTimeUtc(AbsolutePath);
-				IsDirectory = true;
-				_Length = 0;
-				Info = null;
-			}
-			else
-			{
-				Info = new FileInfo(AbsolutePath);
+			Info = new FileInfo(AbsolutePath);
 
-				_bExists = Info.Exists;
-				if (_bExists)
-				{
-					_LastWriteTime = Info.LastWriteTimeUtc;
-					_Length = Info.Length;
-				}
+			_bExists = Info.Exists;
+			if (_bExists)
+			{
+				_LastWriteTime = Info.LastWriteTimeUtc;
+				_Length = Info.Length;
 			}
 		}
 
