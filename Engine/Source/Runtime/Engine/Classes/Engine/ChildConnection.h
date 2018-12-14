@@ -52,6 +52,10 @@ public:
 		Parent->AssertValid();
 	}
 
+	virtual void SendAck(int32 PacketId, bool FirstTime=1) override
+	{
+	}
+
 	virtual void FlushNet(bool bIgnoreSimulation = false) override
 	{
 		Parent->FlushNet(bIgnoreSimulation);

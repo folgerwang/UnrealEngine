@@ -14,7 +14,6 @@
 #include "GameFramework/OnlineReplStructs.h"
 #include "Engine/NetDriver.h"
 #include "Net/DataBunch.h"
-#include "Net/NetPacketNotify.h"
 #include "Engine/Player.h"
 #include "Engine/Channel.h"
 #include "ProfilingDebugging/Histogram.h"
@@ -39,11 +38,10 @@ typedef TMap<TWeakObjectPtr<AActor>, UActorChannel*, FDefaultSetAllocator, TWeak
 	Types.
 -----------------------------------------------------------------------------*/
 enum { RELIABLE_BUFFER = 256 }; // Power of 2 >= 1.
-enum { MAX_PACKETID = FNetPacketNotify::SequenceNumberT::SeqNumberCount };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
+enum { MAX_PACKETID = 16384 };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
 enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
 enum { MAX_BUNCH_HEADER_BITS = 256 };
-enum { UE_PACKET_SEQUENCE_HISTORY_BITS = FNetPacketNotify::SequenceHistoryLength };
-enum { MAX_PACKET_HEADER_BITS = 81 }; // = [(Seq)16|(AckSeq)16|(SeqHistory)32|1|?(ServerTime)8|(ReceviedRateByte)8]
+enum { MAX_PACKET_HEADER_BITS = 15 }; // = FMath::CeilLogTwo(MAX_PACKETID) + 1 (IsAck)
 enum { MAX_PACKET_TRAILER_BITS = 1 };
 
 // 
@@ -386,7 +384,7 @@ public:
 	FBitWriter		SendBuffer;						// Queued up bits waiting to send
 	double			OutLagTime[256];				// For lag measuring.
 	int32			OutLagPacketId[256];			// For lag measuring.
-	uint8			OutBytesPerSecondHistory[256];	// For saturation measuring.
+	int32			OutBytesPerSecondHistory[256];	// For saturation measuring.
 	float			RemoteSaturation;
 	int32			InPacketId;						// Full incoming packet index.
 	int32			OutPacketId;					// Most recently sent packet.
@@ -402,7 +400,6 @@ public:
 	TArray<int32>		OutReliable;
 	TArray<int32>		InReliable;
 	TArray<int32>		PendingOutRec;	// Outgoing reliable unacked data from previous (now destroyed) channel in this slot.  This contains the first chsequence not acked
-	UE_DEPRECATED(4.22, "QueuedAcks, ResendAcks variables will be removed.")
 	TArray<int32> QueuedAcks, ResendAcks;
 
 	int32				InitOutReliable;
@@ -691,7 +688,6 @@ public:
 	ENGINE_API virtual void AssertValid();
 
 	/** Send an acknowledgment. */
-	UE_DEPRECATED(4.22, "This method will be removed")
 	ENGINE_API virtual void SendAck( int32 PacketId, bool FirstTime=1);
 
 	/**
@@ -856,7 +852,6 @@ public:
 	// Functions.
 
 	/** Resend any pending acks. */
-	UE_DEPRECATED(4.22, "This method will be removed.")
 	void PurgeAcks();
 
 	/** Send package map to the remote. */
@@ -1054,18 +1049,6 @@ private:
 	/** Returns true if an outgoing packet should be dropped due to packet simulation settings, including loss burst simulation. */
 	bool ShouldDropOutgoingPacketForLossSimulation(int64 NumBits) const;
 
-	/** Write packetHeader */
-	void WritePacketHeader(FBitWriter& Writer) const;
-
-	/** Write extended packet header information (ServerFrameTime, SaturationData) */
-	void WritePacketInfo(FBitWriter& Writer) const;
-	
-	/** Read extended packet header information (ServerFrameTime, SaturationData) */
-	bool ReadPacketInfo(FBitReader& Reader);
-
-	/** Packet was acknowledged as delivered */
-	void ReceivedAck(int32 AckPacketId);
-
 	/**
 	 * on the server, the world the client has told us it has loaded
 	 * used to make sure the client has traveled correctly, prevent replicating actors before level transitions are done, etc
@@ -1084,15 +1067,6 @@ private:
 
 	/** Bookkeeping for connections using internal ack to avoid acking all open channels */
 	TArray<int32> ChannelsWaitingForInternalAck;
-
-	/** Sequence data used to implement reliability */
-	FNetPacketNotify PacketNotify;
-
-	/** Full PacketId  of last sent packet that we have received notification for (i.e. we know if it was delivered or not). Related to OutAckPacketId which is tha last successfully delivered PacketId */
-	int32 LastNotifiedPacketId;
-
-	/** Keep old behavior where we send a packet with only acks even if we have no other outgoing data if we got incoming data */
-	bool bHasDirtyAcks;
 };
 
 
