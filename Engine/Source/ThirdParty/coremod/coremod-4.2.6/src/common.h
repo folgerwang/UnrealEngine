@@ -1,4 +1,4 @@
-/* Modifications copyright (c) 2014-2018 Epic Games, Inc. All rights reserved. */
+/* Modifications copyright (c) 2014-2019 Epic Games, Inc. All rights reserved. */
 
 #ifndef LIBXMP_COMMON_H
 #define LIBXMP_COMMON_H
