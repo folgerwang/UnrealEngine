@@ -340,7 +340,6 @@ namespace UnrealBuildTool
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
 				UnityCPPFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
-				UnityCPPFile.RelativeCost = UnityFile.TotalLength;
 				NewCPPFiles.Add(UnityCPPFile);
 			}
 

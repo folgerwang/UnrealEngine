@@ -56,11 +56,6 @@ namespace UnrealBuildTool
 		public FileInfo Info;
 
 		/// <summary>
-		/// Relative cost of action associated with producing this file.
-		/// </summary>
-		public long RelativeCost = 0;
-
-		/// <summary>
 		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
 		/// </summary>
 		static ConcurrentDictionary<FileReference, FileItem> UniqueSourceFileMap = new ConcurrentDictionary<FileReference, FileItem>();

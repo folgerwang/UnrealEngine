@@ -195,7 +195,6 @@ namespace UnrealBuildTool
 				foreach (FileItem ProducedItem in Action.ProducedItems)
 				{
 					ProducedItem.ProducingAction = Action;
-					Action.RelativeCost += ProducedItem.RelativeCost;
 				}
 			}
 		}
