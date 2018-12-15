@@ -188,7 +188,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Links actions with their prerequisite and produced items into an action graph.
 		/// </summary>
-		void LinkActionsAndItems()
+		public void LinkActionsAndItems()
 		{
 			foreach (Action Action in AllActions)
 			{

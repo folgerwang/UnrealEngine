@@ -534,6 +534,7 @@ namespace UnrealBuildTool
 							if (!bIsGatheringBuild && BuildResult.Succeeded())
 							{
 								ActionGraph.AllActions = Makefile.AllActions;
+								ActionGraph.LinkActionsAndItems();
 
 								OutputItemsForAllTargets = Makefile.OutputItemsForAllTargets;
 
