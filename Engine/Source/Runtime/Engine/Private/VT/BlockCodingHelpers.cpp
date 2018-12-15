@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "BlockCodingHelpers.h"
 
 #define MAKE_565(r,g,b) (((r>>3) << 11) | ((g>>2) << 5) | (b>>3))

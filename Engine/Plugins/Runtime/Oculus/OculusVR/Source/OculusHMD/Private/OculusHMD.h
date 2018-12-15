@@ -94,6 +94,8 @@ public:
 	virtual class IHeadMountedDisplay* GetHMDDevice() override { return this; }
 	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override { return SharedThis(this); }
 	//virtual class IXRInput* GetXRInput() override;
+	virtual bool IsHeadTrackingEnforced() const override;
+	virtual void SetHeadTrackingEnforced(bool bEnabled) override;
 	virtual bool IsHeadTrackingAllowed() const override;
 	virtual void OnBeginPlay(FWorldContext& InWorldContext) override;
 	virtual void OnEndPlay(FWorldContext& InWorldContext) override;
@@ -330,7 +332,6 @@ protected:
 	void ShowGlobalMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowQuitMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #if !UE_BUILD_SHIPPING
-	void EnforceHeadTrackingCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void StatsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowSettingsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void IPDCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);

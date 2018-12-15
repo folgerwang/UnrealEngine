@@ -12,7 +12,9 @@ namespace UnrealBuildTool.Rules
 				    "CoreUObject",
 				    "Engine",
                     "MeshDescription",
-					"RenderCore"	// @todo mesheditor: For FlushRenderingCommands()
+                    "GeometryCollectionCore",
+                    "GeometryCollectionEngine",
+                    "RenderCore"	// @todo mesheditor: For FlushRenderingCommands()
 				}
 			);
 

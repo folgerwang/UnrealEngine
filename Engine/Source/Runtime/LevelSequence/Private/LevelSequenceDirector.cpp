@@ -5,5 +5,9 @@
 
 UWorld* ULevelSequenceDirector::GetWorld() const
 {
+	if (ULevel* OuterLevel = GetTypedOuter<ULevel>())
+	{
+		return OuterLevel->OwningWorld;
+	}
 	return GetTypedOuter<UWorld>();
 }

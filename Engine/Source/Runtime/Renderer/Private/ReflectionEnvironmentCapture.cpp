@@ -66,6 +66,13 @@ static TAutoConsoleVariable<int32> CVarReflectionCaptureGPUArrayCopy(
 	TEXT(" 0 is off, 1 is on (default)"),
 	ECVF_ReadOnly);
 
+// Chaos addition
+static TAutoConsoleVariable<int32> CVarReflectionCaptureStaticSceneOnly(
+	TEXT("r.chaos.ReflectionCaptureStaticSceneOnly"),
+	1,
+	TEXT("")
+	TEXT(" 0 is off, 1 is on (default)"),
+	ECVF_ReadOnly);
 
 bool DoGPUArrayCopy()
 {
@@ -1397,6 +1404,8 @@ void CopyToSceneArray(FRHICommandListImmediate& RHICmdList, FScene* Scene, FRefl
 	}
 }
 
+
+
 /** 
  * Updates the contents of the given reflection capture by rendering the scene. 
  * This must be called on the game thread.
@@ -1468,7 +1477,8 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 			
 			if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::CapturedScene)
 			{
-				CaptureSceneIntoScratchCubemap(this, CaptureComponent->GetComponentLocation() + CaptureComponent->CaptureOffset, ReflectionCaptureSize, false, true, 0, false, false, FLinearColor());
+				bool const bCaptureStaticSceneOnly = CVarReflectionCaptureStaticSceneOnly.GetValueOnGameThread() != 0;
+				CaptureSceneIntoScratchCubemap(this, CaptureComponent->GetComponentLocation() + CaptureComponent->CaptureOffset, ReflectionCaptureSize, false, bCaptureStaticSceneOnly, 0, false, false, FLinearColor());
 			}
 			else if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::SpecifiedCubemap)
 			{

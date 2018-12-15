@@ -83,7 +83,8 @@ USTRUCT(BlueprintType)
 struct FMovieSceneSequencePlaybackSettings
 {
 	FMovieSceneSequencePlaybackSettings()
-		: PlayRate(1.f)
+		: bAutoPlay(false)
+		, PlayRate(1.f)
 		, StartTime(0.f)
 		, bRandomStartTime(false)
 		, bRestoreState(false)
@@ -96,6 +97,10 @@ struct FMovieSceneSequencePlaybackSettings
 	{ }
 
 	GENERATED_BODY()
+
+	/** Auto-play the sequence when created */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Playback")
+	uint32 bAutoPlay : 1;
 
 	/** Number of times to loop playback. -1 for infinite, else the number of times to loop before stopping */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", meta=(UIMin=1, DisplayName="Loop"))
@@ -190,9 +195,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Scrub();
 
-	/** Stop playback. */
+	/** Stop playback and move the cursor to the end (or start, for reversed playback) of the sequence. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Stop();
+
+	/** Stop playback without moving the cursor. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	void StopAtCurrentTime();
 
 	/** Go to end and stop. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (ToolTip = "Go to end of the sequence and stop. Adheres to 'When Finished' section rules."))
@@ -325,7 +334,8 @@ public:
 public:
 
 	/**
-	 * Play the sequence from the current time, to the specified frame position
+	 * Low-level call to set the current time of the player by evaluating from the current time to the specified time, as if the sequence is playing. 
+	 * Triggers events that lie within the evaluated range. Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to play to
 	 */
@@ -333,7 +343,8 @@ public:
 	void PlayToFrame(FFrameTime NewPosition);
 
 	/**
-	 * Scrub the sequence from the current time, to the specified frame position
+	 * Low-level call to set the current time of the player by evaluating only the specified time. Will not trigger any events. 
+	 * Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to scrub to
 	 */
@@ -341,7 +352,8 @@ public:
 	void ScrubToFrame(FFrameTime NewPosition);
 
 	/**
-	 * Jump to the specified frame position, without evaluating the sequence in between the current and desired time (as if in a paused state)
+	 * Low-level call to set the current time of the player by evaluating only the specified time, as if scrubbing the timeline. Will trigger only events that exist at the specified time. 
+	 * Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to jump to
 	 */
@@ -470,6 +482,7 @@ public:
 protected:
 
 	void PlayInternal();
+	void StopInternal(FFrameTime TimeToResetTo);
 
 	void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
 
@@ -576,7 +589,7 @@ protected:
 	{
 		enum EType { Stop, Pause, Update };
 
-		FLatentAction(EType InType)
+		FLatentAction(EType InType, FFrameTime DesiredTime = 0)
 			: Type(InType)
 		{}
 

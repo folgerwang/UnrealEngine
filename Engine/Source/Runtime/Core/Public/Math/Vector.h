@@ -1433,35 +1433,13 @@ FORCEINLINE FVector FVector::operator/=(const FVector& V)
 FORCEINLINE float& FVector::operator[](int32 Index)
 {
 	check(Index >= 0 && Index < 3);
-	if(Index == 0)
-	{
-		return X;
-	}
-	else if(Index == 1)
-	{
-		return Y;
-	}
-	else
-	{
-		return Z;
-	}
+	return (&X)[Index];
 }
 
 FORCEINLINE float FVector::operator[](int32 Index)const
 {
 	check(Index >= 0 && Index < 3);
-	if(Index == 0)
-	{
-		return X;
-	}
-	else if(Index == 1)
-	{
-		return Y;
-	}
-	else
-	{
-		return Z;
-	}
+	return (&X)[Index];
 }
 
 FORCEINLINE void FVector::Set(float InX, float InY, float InZ)

@@ -172,7 +172,6 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 
 					// Remember the scene index that the handle joint/actor are in.
 					FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(Scene->userData);
-					const uint32 SceneType = InComponent->BodyInstance.UseAsyncScene(RBScene) ? PST_Async : PST_Sync;
 
 					// Setting up the joint
 

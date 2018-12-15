@@ -314,6 +314,7 @@ void FMovieSceneCompiler::CompileRange(TRange<FFrameNumber> InGlobalRange, UMovi
 		// next entry in the evaluation field iterator (which should be a populated range)
 		if (CompiledRange.GetUpperBound() == EmptySpaceRange.GetUpperBound())
 		{
+			IterFromBound = TRangeBound<FFrameNumber>::FlipInclusion(CompiledRange.GetUpperBound());
 			++ExistingEvaluationFieldIter;
 		}
 	}

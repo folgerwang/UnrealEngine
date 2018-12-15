@@ -140,7 +140,6 @@ public:
 private:
 	void UpdateFilters();
 	bool IsSimulatePhysicsEditable() const;
-	bool IsUseAsyncEditable() const;
 
 	TOptional<float> OnGetBodyMass() const;
 	void OnSetBodyMass(float InBodyMass, ETextCommit::Type Commit);

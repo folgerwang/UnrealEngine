@@ -144,7 +144,6 @@ FHitResult AGameplayAbilityTargetActor_GroundTrace::PerformTrace(AActor* InSourc
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGameplayAbilityTargetActor_GroundTrace), bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActor(InSourceActor);
 
 	FVector TraceStart = StartLocation.GetTargetingTransform().GetLocation();// InSourceActor->GetActorLocation();

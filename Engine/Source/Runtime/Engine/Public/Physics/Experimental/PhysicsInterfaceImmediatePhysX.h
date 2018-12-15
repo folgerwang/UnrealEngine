@@ -110,7 +110,7 @@ struct ENGINE_API FPhysicsGeometryCollection_ImmediatePhysX
         }
         if (Geometry->getType() == PxGeometryType::Enum::eCAPSULE)
         {
-            return ECollisionShapeType::Capsule;
+            return ECollisionShapeType::TCapsule;
         }
         if (Geometry->getType() == PxGeometryType::Enum::eCONVEXMESH)
         {

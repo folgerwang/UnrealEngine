@@ -355,7 +355,7 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 					int32 ChildBodyIdx = PhysAsset->FindBodyIndex(PhysAnimData.BodyName);
 					if (FBodyInstance* ChildBody = (ChildBodyIdx == INDEX_NONE ? nullptr : SkeletalMeshComponent->Bodies[ChildBodyIdx]))
 					{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                         ensure(false);
 #else
 						if (PxRigidActor* PRigidActor = FPhysicsInterface_PhysX::GetPxRigidActor_AssumesLocked(ChildBody->ActorHandle))

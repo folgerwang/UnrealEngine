@@ -31,9 +31,6 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=VideoSettings, meta=(ClampMin=1, ClampMax=100, EditCondition=bUseCompression))
 	float CompressionQuality;
 
-	UPROPERTY(config, EditAnywhere, Category=VideoSettings, AdvancedDisplay)
-	FString VideoCodec;
-
 public:
 	virtual bool SetupImpl() override;
 	virtual void FinalizeImpl() override;

@@ -75,12 +75,6 @@ class UPhysicsAsset : public UObject, public IInterface_PreviewMeshProvider
 
 public:
 
-	/**
-	* If true, bodies of the physics asset will be put into the asynchronous physics scene. If false, they will be put into the synchronous physics scene.
-	*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
-	uint8 bUseAsyncScene:1;
-
 	/** If true, we skip instancing bodies for this PhysicsAsset on dedicated servers */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
 	uint8 bNotForDedicatedServer:1;

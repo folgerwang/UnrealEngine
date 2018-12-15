@@ -1,4 +1,7 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
 #include "Containers/Ticker.h"
 #include "OVR_Avatar.h"
 #include "Containers/Map.h"

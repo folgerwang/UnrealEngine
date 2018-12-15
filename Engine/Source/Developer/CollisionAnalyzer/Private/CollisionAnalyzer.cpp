@@ -55,7 +55,9 @@ FArchive& operator << (FArchive& Ar, FCAQuery& Query)
 
 	Ar << Query.Params.TraceTag;
 	Ar << Query.Params.OwnerTag;
-	Ar << Query.Params.bTraceAsyncScene;
+
+	bool bTraceAsyncDeprecated = false;
+	Ar << bTraceAsyncDeprecated;
 	Ar << Query.Params.bTraceComplex;
 	Ar << Query.Params.bFindInitialOverlaps;
 	Ar << Query.Params.bReturnFaceIndex;

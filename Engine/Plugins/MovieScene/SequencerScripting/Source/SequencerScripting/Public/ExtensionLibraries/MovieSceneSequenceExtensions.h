@@ -70,7 +70,7 @@ public:
 	static UMovieSceneTrack* AddMasterTrack(UMovieSceneSequence* Sequence, TSubclassOf<UMovieSceneTrack> TrackType);
 
 	/**
-	 * Get's this sequence's display rate
+	 * Gets this sequence's display rate
 	 *
 	 * @param Sequence        The sequence to use
 	 * @return The display rate that this sequence is displayed as
@@ -79,13 +79,31 @@ public:
 	static FFrameRate GetDisplayRate(UMovieSceneSequence* Sequence);
 
 	/**
-	 * Get's this sequence's tick resolution
+	 * Sets this sequence's display rate
+	 *
+	 * @param Sequence        The sequence to use
+	 * @param DisplayRate The display rate that this sequence is displayed as
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static void SetDisplayRate(UMovieSceneSequence* Sequence, FFrameRate DisplayRate);
+
+	/**
+	 * Gets this sequence's tick resolution
 	 *
 	 * @param Sequence        The sequence to use
 	 * @return The tick resolution of the sequence, defining the smallest unit of time representable on this sequence
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FFrameRate GetTickResolution(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Sets this sequence's tick resolution
+	 *
+	 * @param Sequence        The sequence to use
+	 * @param TickResolution The tick resolution of the sequence, defining the smallest unit of time representable on this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static void SetTickResolution(UMovieSceneSequence* Sequence, FFrameRate TickResolution);
 
 	/**
 	 * Make a new range for this sequence in its display rate
@@ -119,11 +137,11 @@ public:
 	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
 
 	/**
-	* Get the timecode source of this sequence
-	*
-	* @param Sequence        The sequence within which to get the timecode source
-	* @return Timecode source of this sequence
-	*/
+	 * Get the timecode source of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the timecode source
+	 * @return Timecode source of this sequence
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
 	static FTimecode GetTimecodeSource(UMovieSceneSequence* Sequence);
 

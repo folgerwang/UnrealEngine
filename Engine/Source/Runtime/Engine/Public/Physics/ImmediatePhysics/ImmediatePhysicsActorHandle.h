@@ -26,6 +26,35 @@ public:
 #endif
 	}
 
+	/** Make a body kinematic, or non-kinematic */
+	void SetIsKinematic(bool bKinematic)
+	{
+#if WITH_PHYSX
+		OwningSimulation.SetIsKinematic(ActorDataIndex, bKinematic);
+#endif
+	}
+	
+	/** Is the actor kinematic */
+	bool GetIsKinematic() const
+	{
+#if WITH_PHYSX
+		return OwningSimulation.GetIsKinematic(ActorDataIndex);
+#else
+		return false;
+#endif
+	}
+
+	/** Gets the kinematic target (next transform) for the actor if one is set (check HasKinematicTarget() to see if a target is available) */
+	FImmediateKinematicTarget& GetKinematicTarget()
+	{
+#if WITH_PHYSX
+		return OwningSimulation.GetKinematicTarget(ActorDataIndex);
+#else
+		static FImmediateKinematicTarget EmptyTarget;
+		return EmptyTarget;
+#endif
+	}
+
 	/** Sets the kinematic target. This will affect velocities as expected*/
 	void SetKinematicTarget(const FTransform& WorldTM)
 	{
@@ -33,6 +62,17 @@ public:
 		FImmediateKinematicTarget& KinematicTarget = OwningSimulation.GetKinematicTarget(ActorDataIndex);
 		KinematicTarget.BodyToWorld = U2PTransform(ActorToBody * WorldTM);
 		KinematicTarget.bTargetSet = true;
+#endif
+	}
+
+	/** Does this actor have a kinematic target (next kinematic transform to be applied) */
+	bool HasKinematicTarget() const
+	{
+#if WITH_PHYSX
+		FImmediateKinematicTarget& KinematicTarget = OwningSimulation.GetKinematicTarget(ActorDataIndex);
+		return KinematicTarget.bTargetSet;
+#else
+		return false;
 #endif
 	}
 

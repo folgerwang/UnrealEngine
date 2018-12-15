@@ -145,30 +145,3 @@ private:
 
 	MOVIESCENE_API static bool SortByStartTime(const FMovieSceneSectionData& A, const FMovieSceneSectionData& B);
 };
-
-
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
-/** Track row segment blender that acts as a proxy to an instance of the legacy FMovieSceneSegmentCompilerRules */
-template<typename BaseType>
-struct TLegacyTrackRowSegmentBlender : BaseType
-{
-	TLegacyTrackRowSegmentBlender(TInlineValue<FMovieSceneSegmentCompilerRules>&& InRules)
-		: LegacyRules(MoveTemp(InRules))
-	{}
-
-	~TLegacyTrackRowSegmentBlender()
-	{}
-
-	TLegacyTrackRowSegmentBlender(TLegacyTrackRowSegmentBlender&&) = default;
-
-	virtual void Blend(FSegmentBlendData& BlendData) const override
-	{
-		return LegacyRules->Blend(BlendData);
-	}
-
-private:
-	TInlineValue<FMovieSceneSegmentCompilerRules> LegacyRules;
-};
-
-PRAGMA_ENABLE_DEPRECATION_WARNINGS

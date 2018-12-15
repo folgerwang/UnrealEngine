@@ -1,4 +1,6 @@
-﻿using Gauntlet;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using Gauntlet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

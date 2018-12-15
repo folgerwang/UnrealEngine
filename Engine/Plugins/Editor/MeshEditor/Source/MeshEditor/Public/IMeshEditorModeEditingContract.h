@@ -59,4 +59,7 @@ public:
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	virtual class UViewportInteractor* GetActiveActionInteractor() = 0;
+	/** Access fracture settings from UI detail views */
+	virtual class UMeshFractureSettings* GetFractureSettings() = 0;
+
 };

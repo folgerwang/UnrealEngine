@@ -45,10 +45,6 @@ FConsoleCommands::FConsoleCommands(class FOculusHMD* InHMDPtr)
 		FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateRaw(InHMDPtr, &FOculusHMD::ShowQuitMenuCommandHandler))
 
 #if !UE_BUILD_SHIPPING
-	, EnforceHeadTrackingCommand(TEXT("vr.oculus.Debug.EnforceHeadTracking"),
-		*NSLOCTEXT("OculusRift", "CCommandText_EnforceTracking",
-			"Oculus Rift specific extension.\nSet to on to enforce head tracking even when not in stereo mode.").ToString(),
-		FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateRaw(InHMDPtr, &FOculusHMD::EnforceHeadTrackingCommandHandler))
 	, StatsCommand(TEXT("vr.oculus.Debug.bShowStats"),
 		*NSLOCTEXT("OculusRift", "CCommandText_Stats",
 			"Oculus Rift specific extension.\nEnable or disable rendering of stats.").ToString(),
@@ -82,6 +78,12 @@ bool FConsoleCommands::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	{
 		AliasedCommand = TEXT("vr.oculus.ShowQuitMenu");
 	}
+#if !UE_BUILD_SHIPPING
+	else if (FParse::Command(&Cmd, TEXT("vr.oculus.Debug.EnforceHeadTracking")))
+	{
+		AliasedCommand = TEXT("vr.HeadTracking.bEnforced");
+	}
+#endif // !UE_BUILD_SHIPPING
 
 	if (!AliasedCommand.IsEmpty())
 	{

@@ -633,6 +633,397 @@ private:
 	}
 };
 
+struct SComponentTreeLabel : FCommonLabelData, public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SComponentTreeLabel) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, FComponentTreeItem& ComponentItem, ISceneOutliner& SceneOutliner, const STableRow<FTreeItemPtr>& InRow)
+	{
+		TreeItemPtr = StaticCastSharedRef<FComponentTreeItem>(ComponentItem.AsShared());
+		WeakSceneOutliner = StaticCastSharedRef<ISceneOutliner>(SceneOutliner.AsShared());
+
+		MobilityStaticBrush = FEditorStyle::GetBrush("ClassIcon.ComponentMobilityStaticPip");
+
+		ComponentPtr = ComponentItem.Component;
+		
+		HighlightText = SceneOutliner.GetFilterHighlightText();
+
+		TSharedPtr<SInlineEditableTextBlock> InlineTextBlock;
+
+		auto MainContent = SNew(SHorizontalBox)
+
+			// Main actor label
+			+ SHorizontalBox::Slot()
+			[
+				SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
+				.Text(this, &SComponentTreeLabel::GetDisplayText)
+			.ToolTipText(this, &SComponentTreeLabel::GetTooltipText)
+			//.HighlightText(HighlightText)
+			.ColorAndOpacity(this, &SComponentTreeLabel::GetForegroundColor)
+			//.OnTextCommitted(this, &SComponentTreeLabel::OnLabelCommitted)
+			//.OnVerifyTextChanged(this, &SComponentTreeLabel::OnVerifyItemLabelChanged)
+			.IsSelected(FIsSelected::CreateSP(&InRow, &STableRow<FTreeItemPtr>::IsSelectedExclusively))
+			];
+
+		TSharedRef<SOverlay> IconContent = SNew(SOverlay)
+			+ SOverlay::Slot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SComponentTreeLabel::GetIcon)
+			.ToolTipText(this, &SComponentTreeLabel::GetIconTooltip)
+			]
+
+		+ SOverlay::Slot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SComponentTreeLabel::GetIconOverlay)
+			];
+
+
+		if (ComponentItem.GetSharedData().Mode == ESceneOutlinerMode::ActorBrowsing)
+		{
+			// Add the component mobility icon
+			IconContent->AddSlot()
+				.HAlign(HAlign_Left)
+				[
+					SNew(SImage)
+					.Image(this, &SComponentTreeLabel::GetBrushForComponentMobilityIcon)
+				];
+
+			ComponentItem.RenameRequestEvent.BindSP(InlineTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		}
+
+		ChildSlot
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(FDefaultTreeItemMetrics::IconPadding())
+			[
+				SNew(SBox)
+				.WidthOverride(FDefaultTreeItemMetrics::IconSize())
+			.HeightOverride(FDefaultTreeItemMetrics::IconSize())
+			[
+				IconContent
+			]
+			]
+
+		+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 2.0f)
+			[
+				MainContent
+			]
+			];
+
+	}
+
+private:
+	TWeakPtr<FComponentTreeItem> TreeItemPtr;
+	TWeakObjectPtr<UActorComponent> ComponentPtr;
+	TAttribute<FText> HighlightText;
+	const FSlateBrush* MobilityStaticBrush;
+
+
+	FText GetDisplayText() const
+	{
+		auto Item = TreeItemPtr.Pin();
+		return Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+	}
+
+	FText GetTypeText() const
+	{
+		if (const UActorComponent* Component = ComponentPtr.Get())
+		{
+			return FText::FromName(Component->GetClass()->GetFName());
+		}
+
+		return FText();
+	}
+
+	EVisibility GetTypeTextVisibility() const
+	{
+		return HighlightText.Get().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
+	}
+
+	FText GetTooltipText() const
+	{
+		if (const UActorComponent* Component = ComponentPtr.Get())
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("ID_Name"), LOCTEXT("CustomColumnMode_InternalName", "ID Name"));
+			Args.Add(TEXT("Name"), FText::FromString(Component->GetName()));
+			return FText::Format(LOCTEXT("ComponentNameTooltip", "{ID_Name}: {Name}"), Args);
+		}
+
+		return FText();
+	}
+
+	const FSlateBrush* GetIcon() const
+	{
+		if (const UActorComponent* Component = ComponentPtr.Get())
+		{
+			if (WeakSceneOutliner.IsValid())
+			{
+				const FSlateBrush* CachedBrush = WeakSceneOutliner.Pin()->GetCachedIconForClass(Component->GetClass()->GetFName());
+				if (CachedBrush != nullptr)
+				{
+					return CachedBrush;
+				}
+				else
+				{
+					const FSlateBrush* FoundSlateBrush = FSlateIconFinder::FindIconBrushForClass(UActorComponent::StaticClass()); //FClassIconFinder::FindIconForActor(const_cast<UActorComponent*>(Component));
+					WeakSceneOutliner.Pin()->CacheIconForClass(Component->GetClass()->GetFName(), const_cast<FSlateBrush*>(FoundSlateBrush));
+					return FoundSlateBrush;
+				}
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	const FSlateBrush* GetIconOverlay() const
+	{
+		const FSlateBrush* IconBrush = MobilityStaticBrush;
+		return IconBrush;
+	}
+
+	FText GetIconTooltip() const
+	{
+		FText ToolTipText;
+		return ToolTipText;
+	}
+
+	const FSlateBrush* GetBrushForComponentMobilityIcon() const
+	{
+		const FSlateBrush* IconBrush = MobilityStaticBrush;
+		return IconBrush;
+	}
+
+	FSlateColor GetForegroundColor() const
+	{
+		if (auto BaseColor = FCommonLabelData::GetForegroundColor(TreeItemPtr.Pin()))
+		{
+			return BaseColor.GetValue();
+		}
+
+		return FSlateColor::UseForeground();
+	}
+};
+
+struct SSubComponentTreeLabel : FCommonLabelData, public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SSubComponentTreeLabel) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, FSubComponentTreeItem& SubComponentItem, ISceneOutliner& SceneOutliner, const STableRow<FTreeItemPtr>& InRow)
+	{
+		TreeItemPtr = StaticCastSharedRef<FSubComponentTreeItem>(SubComponentItem.AsShared());
+		WeakSceneOutliner = StaticCastSharedRef<ISceneOutliner>(SceneOutliner.AsShared());
+
+		MobilityStaticBrush = FEditorStyle::GetBrush("ClassIcon.ComponentMobilityStaticPip");
+		ComponentPtr = SubComponentItem.ParentComponent;
+
+		TSharedPtr<SInlineEditableTextBlock> InlineTextBlock;
+
+		auto MainContent = SNew(SHorizontalBox)
+
+			// Main actor label
+			+ SHorizontalBox::Slot()
+			[
+				SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
+				.Text(this, &SSubComponentTreeLabel::GetDisplayText)
+			.ToolTipText(this, &SSubComponentTreeLabel::GetTooltipText)
+			//.HighlightText(HighlightText)
+			.ColorAndOpacity(this, &SSubComponentTreeLabel::GetForegroundColor)
+			.OnTextCommitted(this, &SSubComponentTreeLabel::OnLabelCommitted)
+			.OnVerifyTextChanged(this, &SSubComponentTreeLabel::OnVerifyItemLabelChanged)
+			.IsSelected(FIsSelected::CreateSP(&InRow, &STableRow<FTreeItemPtr>::IsSelectedExclusively))
+			];
+
+		TSharedRef<SOverlay> IconContent = SNew(SOverlay)
+			+ SOverlay::Slot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SSubComponentTreeLabel::GetIcon)
+			.ToolTipText(this, &SSubComponentTreeLabel::GetIconTooltip)
+			]
+
+		+ SOverlay::Slot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SSubComponentTreeLabel::GetIconOverlay)
+			];
+
+		if (SubComponentItem.GetSharedData().Mode == ESceneOutlinerMode::ActorBrowsing)
+		{
+			// Add the component mobility icon
+			IconContent->AddSlot()
+				.HAlign(HAlign_Left)
+				[
+					SNew(SImage)
+					.Image(this, &SSubComponentTreeLabel::GetBrushForComponentMobilityIcon)
+				];
+
+			SubComponentItem.RenameRequestEvent.BindSP(InlineTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		}
+
+		ChildSlot
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(FDefaultTreeItemMetrics::IconPadding())
+			[
+				SNew(SBox)
+				.WidthOverride(FDefaultTreeItemMetrics::IconSize())
+			.HeightOverride(FDefaultTreeItemMetrics::IconSize())
+			[
+				IconContent
+			]
+			]
+
+		+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 2.0f)
+			[
+				MainContent
+			]
+
+			];
+	}
+
+private:
+	TWeakPtr<FSubComponentTreeItem> TreeItemPtr;
+	TWeakObjectPtr<UActorComponent> ComponentPtr;
+	const FSlateBrush* MobilityStaticBrush;
+
+	FText GetDisplayText() const
+	{
+		auto Item = TreeItemPtr.Pin();
+		return Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+	}
+
+	FSlateColor GetForegroundColor() const
+	{
+		if (auto BaseColor = FCommonLabelData::GetForegroundColor(TreeItemPtr.Pin()))
+		{
+			return BaseColor.GetValue();
+		}
+
+		return FSlateColor::UseForeground();
+	}
+	
+	FText GetTooltipText() const
+	{
+		if (const UActorComponent* Component = ComponentPtr.Get())
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("ID_Name"), LOCTEXT("CustomColumnMode_InternalName", "ID Name"));
+			Args.Add(TEXT("Name"), FText::FromString(Component->GetName()));
+			return FText::Format(LOCTEXT("ComponentNameTooltip", "{ID_Name}: {Name}"), Args);
+		}
+
+		return FText();
+	}
+
+	const FSlateBrush* GetIcon() const
+	{
+		UClass* StaticClass = UActorComponent::StaticClass();
+		auto Item = TreeItemPtr.Pin();
+		if (Item.IsValid())
+		{
+			StaticClass = Item->GetIconClass();
+		}
+
+		if (WeakSceneOutliner.IsValid())
+		{
+			const FSlateBrush* CachedBrush = WeakSceneOutliner.Pin()->GetCachedIconForClass(StaticClass->GetFName());
+			if (CachedBrush != nullptr)
+			{
+				return CachedBrush;
+			}
+			else
+			{
+				const FSlateBrush* FoundSlateBrush = FSlateIconFinder::FindIconBrushForClass(StaticClass);
+				WeakSceneOutliner.Pin()->CacheIconForClass(StaticClass->GetFName(), const_cast<FSlateBrush*>(FoundSlateBrush));
+				return FoundSlateBrush;
+			}
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	const FSlateBrush* GetIconOverlay() const
+	{
+		const FSlateBrush* IconBrush = MobilityStaticBrush;
+		return IconBrush;
+	}
+
+	FText GetIconTooltip() const
+	{
+		FText ToolTipText;
+		return ToolTipText;
+	}
+
+	const FSlateBrush* GetBrushForComponentMobilityIcon() const
+	{
+		const FSlateBrush* IconBrush = MobilityStaticBrush;
+		return IconBrush;
+	}
+
+	virtual bool OnVerifyItemLabelChanged(const FText& InLabel, FText& OutErrorMessage)
+	{
+		bool IsValidName = false;
+		auto Item = TreeItemPtr.Pin();
+		if (Item.IsValid())
+		{
+			IsValidName = Item->ValidateSubComponentName(InLabel, OutErrorMessage);
+		}
+
+		return IsValidName;
+	}
+
+	virtual void OnLabelCommitted(const FText& InLabel, ETextCommit::Type InCommitInfo)
+	{
+		auto Item = TreeItemPtr.Pin();
+		if (Item.IsValid())
+		{
+			Item->RenameSubComponent(InLabel);
+
+			auto Outliner = WeakSceneOutliner.Pin();
+			if (Outliner.IsValid())
+			{
+				Outliner->SetKeyboardFocus();
+			}
+		}
+	}
+};
+
+
 FName FItemLabelColumn::GetColumnID()
 {
 	return GetID();
@@ -685,6 +1076,20 @@ TSharedRef<SWidget> FItemLabelColumn::GenerateWidget( FFolderTreeItem& TreeItem,
 	ISceneOutliner* Outliner = WeakSceneOutliner.Pin().Get();
 	check(Outliner);
 	return SNew(SFolderTreeLabel, TreeItem, *Outliner, InRow);
+}
+
+TSharedRef<SWidget> FItemLabelColumn::GenerateWidget( FComponentTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow)
+{
+	ISceneOutliner* Outliner = WeakSceneOutliner.Pin().Get();
+	check(Outliner);
+	return SNew(SComponentTreeLabel, TreeItem, *Outliner, InRow);
+}
+
+TSharedRef<SWidget> FItemLabelColumn::GenerateWidget(FSubComponentTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow)
+{
+	ISceneOutliner* Outliner = WeakSceneOutliner.Pin().Get();
+	check(Outliner);
+	return SNew(SSubComponentTreeLabel, TreeItem, *Outliner, InRow);
 }
 
 }	// namespace SceneOutliner
