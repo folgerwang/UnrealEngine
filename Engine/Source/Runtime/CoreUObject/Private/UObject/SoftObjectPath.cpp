@@ -483,7 +483,7 @@ bool FSoftObjectPath::FixupCoreRedirects()
 	if (OldName != NewName)
 	{
 		// Only do the fixup if the old object isn't in memory, this avoids false positives
-		UObject* FoundOldObject = FindObject<UObject>(nullptr, *OldString);
+		UObject* FoundOldObject = FindObjectSafe<UObject>(nullptr, *OldString);
 
 		if (!FoundOldObject)
 		{
