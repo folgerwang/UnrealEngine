@@ -795,6 +795,13 @@ public:
 
 void UModelComponent::CreateRenderState_Concurrent()
 {
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+	{
+		FModelElement& Element = Elements[ElementIndex];
+		TUniquePtr<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
+		Element.IndexBuffer = IndexBufferRef ? IndexBufferRef->Get() : nullptr;
+	}
+
 	if (GetModel())
 	{
 		++GetModel()->VertexBuffer.RefCount;

@@ -1391,7 +1391,6 @@ void ULevel::PreEditUndo()
 	{
 		if(ModelComponents[ComponentIndex])
 		{
-			ModelComponents[ComponentIndex]->OnModelResourcesReleased();
 			ModelComponents[ComponentIndex]->UnregisterComponent();
 		}
 	}
@@ -1502,7 +1501,6 @@ void ULevel::InvalidateModelGeometry()
 	{
 		if(ModelComponents[ComponentIndex])
 		{
-			ModelComponents[ComponentIndex]->OnModelResourcesReleased();
 			ModelComponents[ComponentIndex]->Modify();
 			ModelComponents[ComponentIndex]->UnregisterComponent();
 		}
@@ -1549,7 +1547,6 @@ void ULevel::CommitModelSurfaces()
 		{
 			if(ModelComponents[ComponentIndex])
 			{
-				ModelComponents[ComponentIndex]->OnModelResourcesReleased();
 				ModelComponents[ComponentIndex]->CommitSurfaces();
 			}
 		}
