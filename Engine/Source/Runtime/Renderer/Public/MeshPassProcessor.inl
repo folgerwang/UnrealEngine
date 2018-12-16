@@ -126,11 +126,9 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 
 			SetDrawCommandEvent(PrimitiveSceneProxy, MaterialResource, MeshDrawCommand);
 
-			int32 DrawPrimitiveId;
-			int32 ScenePrimitiveId;
-			GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement, DrawPrimitiveId, ScenePrimitiveId);
+			const int32 DrawPrimitiveId = GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement);
 
-			DrawListContext.FinalizeCommand(MeshBatch, BatchElement, DrawPrimitiveId, ScenePrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand);
+			DrawListContext.FinalizeCommand(MeshBatch, BatchElement, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand);
 		}
 	}
 }

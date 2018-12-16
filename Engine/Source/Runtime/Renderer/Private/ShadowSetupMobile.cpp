@@ -352,9 +352,9 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 				FVisibleMeshDrawCommand& MeshCommand = MeshCommands[i];
 				FVisibleMeshDrawCommand& MeshCommandCSM = MeshCommandsCSM[i];
 
-				if (bAlwaysUseCSM || (MeshCommand.ScenePrimitiveId >= 0 && MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[MeshCommand.ScenePrimitiveId]))
+				if (bAlwaysUseCSM || (MeshCommand.DrawPrimitiveId < Scene->Primitives.Num() && MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[MeshCommand.DrawPrimitiveId]))
 				{
-					checkf(MeshCommand.ScenePrimitiveId == MeshCommandCSM.ScenePrimitiveId, TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
+					checkf(MeshCommand.DrawPrimitiveId == MeshCommandCSM.DrawPrimitiveId, TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
 					// Use CSM's VisibleMeshDrawCommand.
 					MeshCommand = MeshCommandCSM;
 				}

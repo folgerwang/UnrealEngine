@@ -818,9 +818,9 @@ void FMeshPassProcessor::SetDrawCommandEvent(const FPrimitiveSceneProxy* Primiti
 #endif
 }
 
-void FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement, int32& DrawPrimitiveId, int32& ScenePrimitiveId) const
+int32 FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const
 {
-	DrawPrimitiveId = 0;
+	int32 DrawPrimitiveId;
 
 	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
 	{
@@ -836,10 +836,15 @@ void FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RE
 		else
 		{
 			check(BatchElement.PrimitiveIdMode == PrimID_ForceZero);
+			DrawPrimitiveId = 0;
 		}
 	}
+	else
+	{
+		DrawPrimitiveId = PrimitiveSceneInfo ? PrimitiveSceneInfo->GetIndex() : Scene->Primitives.Num();
+	}
 
-	ScenePrimitiveId = PrimitiveSceneInfo ? PrimitiveSceneInfo->GetIndex() : -1;
+	return DrawPrimitiveId;
 }
 
 FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(int32& InCommandIndex, FCachedPassMeshDrawList& InDrawList, FScene& InScene) :
@@ -863,7 +868,6 @@ void FCachedPassMeshDrawListContext::FinalizeCommand(
 	const FMeshBatch& MeshBatch, 
 	const FMeshBatchElement& BatchElement,
 	int32 DrawPrimitiveId,
-	int32 ScenePrimitiveId,
 	ERasterizerFillMode MeshFillMode,
 	ERasterizerCullMode MeshCullMode,
 	int32 InstanceFactor,

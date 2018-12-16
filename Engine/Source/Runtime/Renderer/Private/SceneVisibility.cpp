@@ -1713,7 +1713,6 @@ struct FDrawCommandRelevancePacket
 				NewVisibleMeshDrawCommand.Setup(
 					&SceneDrawList.MeshDrawCommands[CommandIndex],
 					PrimitiveIndex,
-					PrimitiveIndex,
 					CachedMeshDrawCommand.StateBucketId,
 					CachedMeshDrawCommand.MeshFillMode,
 					CachedMeshDrawCommand.MeshCullMode,

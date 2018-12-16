@@ -2698,7 +2698,6 @@ void FSceneRenderer::ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil
 						NewVisibleMeshDrawCommand.Setup(
 							&NewMeshCommand,
 							VisibleMeshDrawCommand.DrawPrimitiveId,
-							VisibleMeshDrawCommand.ScenePrimitiveId,
 							VisibleMeshDrawCommand.StateBucketId,
 							VisibleMeshDrawCommand.MeshFillMode,
 							VisibleMeshDrawCommand.MeshCullMode,
@@ -2816,7 +2815,6 @@ void SortPassMeshDrawCommands(
 						NewVisibleMeshDrawCommand.Setup(
 							&NewCommand, 
 							VisibleMeshDrawCommand.DrawPrimitiveId,
-							VisibleMeshDrawCommand.ScenePrimitiveId,
 							VisibleMeshDrawCommand.StateBucketId,
 							VisibleMeshDrawCommand.MeshFillMode,
 							VisibleMeshDrawCommand.MeshCullMode,
@@ -2878,8 +2876,11 @@ void UpdateTranslucentMeshSortKeys(FScene* Scene, FViewInfo& View, ETranslucency
 	{
 		FVisibleMeshDrawCommand& VisibleCommand = VisibleMeshCommands[CommandIndex];
 
-		const int32 PrimitiveIndex = VisibleCommand.ScenePrimitiveId;
-		const FVector BoundsOrigin = PrimitiveIndex >= 0 ? Scene->PrimitiveBounds[PrimitiveIndex].BoxSphereBounds.Origin : FVector::ZeroVector;
+		FVector BoundsOrigin = FVector::ZeroVector;
+		if (VisibleCommand.DrawPrimitiveId < Scene->PrimitiveBounds.Num())
+		{
+			BoundsOrigin = Scene->PrimitiveBounds[VisibleCommand.DrawPrimitiveId].BoxSphereBounds.Origin;
+		}
 
 		float Distance = 0.0f;
 		if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByDistance)

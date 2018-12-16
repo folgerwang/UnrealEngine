@@ -819,7 +819,6 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 			NewVisibleMeshDrawCommand.Setup(
 				&SceneDrawList.MeshDrawCommands[CommandIndex], 
 				PrimitiveIndex,
-				PrimitiveIndex,
 				CachedMeshDrawCommand.StateBucketId,
 				CachedMeshDrawCommand.MeshFillMode,
 				CachedMeshDrawCommand.MeshCullMode,
@@ -1377,7 +1376,6 @@ void FProjectedShadowInfo::ApplyViewOverridesToMeshDrawCommands(const FViewInfo&
 			NewVisibleMeshDrawCommand.Setup(
 				&NewMeshCommand,
 				VisibleMeshDrawCommand.DrawPrimitiveId,
-				VisibleMeshDrawCommand.ScenePrimitiveId,
 				VisibleMeshDrawCommand.StateBucketId,
 				VisibleMeshDrawCommand.MeshFillMode,
 				VisibleMeshDrawCommand.MeshCullMode,

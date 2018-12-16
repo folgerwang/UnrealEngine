@@ -484,13 +484,12 @@ void MobileBasePass::ComputeBasePassSortKeys(const FScene& Scene, const FViewInf
 	for (int32 CmdIdx = 0; CmdIdx < NumCmds; ++CmdIdx)
 	{
 		FVisibleMeshDrawCommand& Cmd = VisibleMeshCommands[CmdIdx];
-		int32 PrimitiveIndex = Cmd.ScenePrimitiveId;
 
 		float PrimitiveDistance = 0;
 
-		if (PrimitiveIndex >= 0)
+		if (Cmd.DrawPrimitiveId < Scene.PrimitiveBounds.Num())
 		{
-			const FPrimitiveBounds& PrimitiveBounds = Scene.PrimitiveBounds[PrimitiveIndex];
+			const FPrimitiveBounds& PrimitiveBounds = Scene.PrimitiveBounds[Cmd.DrawPrimitiveId];
 			PrimitiveDistance = (PrimitiveBounds.BoxSphereBounds.Origin - ViewLocation).Size();
 		}
 		
@@ -503,17 +502,16 @@ void MobileBasePass::ComputeBasePassSortKeys(const FScene& Scene, const FViewInf
 	for (int32 CmdIdx = 0; CmdIdx < NumCmds; ++CmdIdx)
 	{
 		FVisibleMeshDrawCommand& Cmd = VisibleMeshCommands[CmdIdx];
-		int32 PrimitiveIndex = Cmd.ScenePrimitiveId;
 		float PrimitiveDistance = 0;
 		bool bMasked = false;
 		bool bBackground = false;
 
-		if (PrimitiveIndex >= 0)
+		if (Cmd.DrawPrimitiveId < Scene.PrimitiveBounds.Num())
 		{
-			const FPrimitiveBounds& PrimitiveBounds = Scene.PrimitiveBounds[PrimitiveIndex];
+			const FPrimitiveBounds& PrimitiveBounds = Scene.PrimitiveBounds[Cmd.DrawPrimitiveId];
 			PrimitiveDistance = (PrimitiveBounds.BoxSphereBounds.Origin - ViewLocation).Size();
 			bBackground = (PrimitiveBounds.BoxSphereBounds.SphereRadius > HALF_WORLD_MAX/4.0f); // TODO: per-primitive bBackgound flag
-			bMasked = View.PrimitiveViewRelevanceMap[PrimitiveIndex].bMaskedRelevance;
+			bMasked = View.PrimitiveViewRelevanceMap[Cmd.DrawPrimitiveId].bMaskedRelevance;
 		}
 
 		int32 PipelineId = Cmd.MeshDrawCommand->CachedPipelineId.GetId();
