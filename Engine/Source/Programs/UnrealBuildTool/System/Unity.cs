@@ -271,12 +271,6 @@ namespace UnrealBuildTool
 
 						// Compile this file as part of the unity blob
 						CPPUnityFileBuilder.AddFile(CPPFile);
-
-						// Now that the CPPFile is part of this unity file, we will no longer need to treat it like a root level prerequisite for our
-						// dependency cache, as it is now an "indirect include" from the unity file.  We'll clear out the compile environment
-						// attached to this file.  This prevents us from having to cache all of the indirect includes from these files inside our
-						// dependency cache, which speeds up iterative builds a lot!
-						CPPFile.CachedIncludePaths = null;
 					}
 				}
 
@@ -339,7 +333,6 @@ namespace UnrealBuildTool
 
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
-				UnityCPPFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 				NewCPPFiles.Add(UnityCPPFile);
 			}
 

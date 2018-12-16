@@ -1700,10 +1700,6 @@ namespace UnrealBuildTool
 						NewArguments.Add("-Monolithic"); // Don't want any _API macros to be DLLIMPORT; this will cause Intellisense errors in the file that they are defined.
 						NewArguments.AddRange(Arguments);
 
-						// Clear the CachedIncludePaths field on every FileItem. It's faster to keep the cache of file items around, but we need to wipe
-						// out any state.
-						FileItem.ClearCachedIncludePaths();
-
 						try
 						{
 							const string DefaultArchitecture = "";

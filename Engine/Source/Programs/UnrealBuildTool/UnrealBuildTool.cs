@@ -15,11 +15,6 @@ namespace UnrealBuildTool
 	static class UnrealBuildTool
 	{
 		/// <summary>
-		/// How much time was spent scanning for include dependencies for outdated C++ files
-		/// </summary>
-		public static TimeSpan TotalDeepIncludeScanTime = TimeSpan.Zero;
-
-		/// <summary>
 		/// The environment at boot time.
 		/// </summary>
 		static public System.Collections.IDictionary InitialEnvironment;

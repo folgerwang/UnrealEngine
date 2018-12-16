@@ -29,28 +29,6 @@ namespace UnrealBuildTool
 		public FileReference Location;
 
 		/// <summary>
-		/// For C++ file items, this stores cached information about the include paths needed in order to include header files from these C++ files.  This is part of UBT's dependency caching optimizations.
-		/// </summary>
-		public CppIncludePaths CachedIncludePaths
-		{
-			get
-			{
-				return CachedIncludePathsValue;
-			}
-			set
-			{
-				if (value != null && CachedIncludePathsValue != null && CachedIncludePathsValue != value)
-				{
-					// Uh oh.  We're clobbering our cached CompileEnvironment for this file with a different CompileEnvironment.  This means
-					// that the same source file is being compiled into more than one module.
-					throw new BuildException("File '{0}' was included by multiple modules, but with different include paths", this.Info.FullName);
-				}
-				CachedIncludePathsValue = value;
-			}
-		}
-		private CppIncludePaths CachedIncludePathsValue;
-
-		/// <summary>
 		/// The information about the file.
 		/// </summary>
 		public FileInfo Info;
@@ -101,25 +79,6 @@ namespace UnrealBuildTool
 		public DateTimeOffset LastWriteTimeUtc
 		{
 			get { return Info.LastWriteTimeUtc; }
-		}
-
-		/// <summary>
-		/// Clears the FileItem caches.
-		/// </summary>
-		public static void ClearCaches()
-		{
-			UniqueSourceFileMap.Clear();
-		}
-
-		/// <summary>
-		/// Clears the cached include paths on every file item
-		/// </summary>
-		public static void ClearCachedIncludePaths()
-		{
-			foreach(FileItem Item in UniqueSourceFileMap.Values)
-			{
-				Item.CachedIncludePaths = null;
-			}
 		}
 
 		/// <summary>

@@ -618,7 +618,7 @@ namespace UnrealBuildTool
 				}
 
 				// Add the C++ source file and its included files to the prerequisite item list.
-				AddPrerequisiteSourceFile(CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
+				CompileAction.PrerequisiteItems.Add(SourceFile);
 
 				// Add the precompiled header
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
@@ -629,7 +629,7 @@ namespace UnrealBuildTool
 				// Upload the force included files
 				foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 				{
-					AddPrerequisiteSourceFile(CompileEnvironment, ForceIncludeFile, CompileAction.PrerequisiteItems);
+					CompileAction.PrerequisiteItems.Add(ForceIncludeFile);
 				}
 
 				string OutputFilePath = null;
@@ -662,6 +662,15 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				FileArguments += string.Format(" \"{0}\"", SourceFile.AbsolutePath);
+
+				// Generate the included header dependency list
+				if(CompileEnvironment.bGenerateDependenciesFile)
+				{
+					FileItem DependencyListFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".d"));
+					FileArguments += string.Format(" -MD -MF\"{0}\"", DependencyListFile.AbsolutePath.Replace('\\', '/'));
+					CompileAction.DependencyListFile = DependencyListFile;
+					CompileAction.ProducedItems.Add(DependencyListFile);
+				}
 
 				string CompilerPath = Settings.Value.ToolchainDir + IOSCompiler;
 

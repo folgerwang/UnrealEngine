@@ -103,8 +103,6 @@ namespace UnrealBuildTool
 			string ExecutorName = "Unknown";
 			ECompilationResult BuildResult = ECompilationResult.Succeeded;
 
-			CppIncludeBackgroundThread CppIncludeThread = null;
-
 			List<UEBuildTarget> Targets = null;
 			Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders = new Dictionary<UEBuildTarget, CPPHeaders>();
 
@@ -114,10 +112,6 @@ namespace UnrealBuildTool
 			{
 				// action graph implies using the dependency resolve cache
 				bool GeneratingActionGraph = Arguments.HasOption("-Graph");
-				if (GeneratingActionGraph)
-				{
-					BuildConfiguration.bUseIncludeDependencyResolveCache = true;
-				}
 
 				Timeline.AddEvent("RunUBT() initialization complete");
 
@@ -166,51 +160,6 @@ namespace UnrealBuildTool
 
 					InvalidateMakefiles(TargetDescs[0]);
 					return (int)ECompilationResult.Succeeded;
-				}
-
-				// Used when BuildConfiguration.bUseUBTMakefiles is enabled.  If true, it means that our cached includes may not longer be
-				// valid (or never were), and we need to recover by forcibly scanning included headers for all build prerequisites to make sure that our
-				// cached set of includes is actually correct, before determining which files are outdated.
-				bool bNeedsFullCPPIncludeRescan = false;
-
-				if (BuildConfiguration.bUseUBTMakefiles)
-				{
-					// Only the modular editor and game targets will share build products.  Unfortunately, we can't determine at
-					// at this point whether we're dealing with modular or monolithic game binaries, so we opt to always invalidate
-					// cached includes if the target we're switching to is either a game target (has project file) or "UE4Editor".
-					bool bMightHaveSharedBuildProducts =
-						TargetDescs[0].ProjectFile != null ||  // Is this a game? (has a .uproject file for the target)
-						TargetDescs[0].Name.Equals("UE4Editor", StringComparison.InvariantCultureIgnoreCase); // Is the engine?
-					if (bMightHaveSharedBuildProducts)
-					{
-						bool bIsBuildingSameTargetsAsLastTime = false;
-
-						string TargetCollectionName = UBTMakefile.MakeTargetCollectionName(TargetDescs);
-
-						string LastBuiltTargetsFileName = "LastBuiltTargets.txt";
-						string LastBuiltTargetsFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", LastBuiltTargetsFileName).FullName;
-						if (File.Exists(LastBuiltTargetsFilePath) && Utils.ReadAllText(LastBuiltTargetsFilePath) == TargetCollectionName)
-						{
-							// @todo ubtmake: Because we're using separate files for hot reload vs. full compiles, it's actually possible that includes will
-							// become out of date without us knowing if the developer ping-pongs between hot reloading target A and building target B normally.
-							// To fix this we can not use a different file name for last built targets, but the downside is slower performance when
-							// performing the first hot reload after compiling normally (forces full include dependency scan)
-							bIsBuildingSameTargetsAsLastTime = true;
-						}
-
-						// Save out the name of the targets we're building
-						if (!bIsBuildingSameTargetsAsLastTime)
-						{
-							Directory.CreateDirectory(Path.GetDirectoryName(LastBuiltTargetsFilePath));
-							File.WriteAllText(LastBuiltTargetsFilePath, TargetCollectionName, Encoding.UTF8);
-
-							// Can't use super fast include checking unless we're building the same set of targets as last time, because
-							// we might not know about all of the C++ include dependencies for already-up-to-date shared build products
-							// between the targets
-							bNeedsFullCPPIncludeRescan = true;
-							Log.TraceInformation("Performing full C++ include scan (building a new target)");
-						}
-					}
 				}
 
 				// True if we should gather module dependencies for building in this run.  If this is false, then we'll expect to be loading information from disk about
@@ -307,8 +256,6 @@ namespace UnrealBuildTool
 								// a 'gather' and 'assemble' in the same run.  This will take a while longer, but subsequent runs will be fast!
 								bIsGatheringBuild = true;
 
-								FileItem.ClearCaches();
-
 								Log.TraceInformation("Creating makefile for {0}{1} ({2})",
 									TargetDescs[0].Name,
 									TargetDescs.Count > 1 ? (" (and " + (TargetDescs.Count - 1).ToString() + " more)") : "",
@@ -346,8 +293,7 @@ namespace UnrealBuildTool
 					{
 						// Create the header cache for this target
 						FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName);
-						bool bUseFlatCPPIncludeDependencyCache = BuildConfiguration.bUseUBTMakefiles && bIsAssemblingBuild;
-						CPPHeaders Headers = new CPPHeaders(Target.ProjectFile, DependencyCacheFile, bUseFlatCPPIncludeDependencyCache, BuildConfiguration.bUseUBTMakefiles, BuildConfiguration.bUseIncludeDependencyResolveCache, BuildConfiguration.bTestIncludeDependencyResolveCache);
+						CPPHeaders Headers = new CPPHeaders(Target.ProjectFile, DependencyCacheFile);
 						TargetToHeaders[Target] = Headers;
 
 						// Make sure the appropriate executor is selected
@@ -363,30 +309,6 @@ namespace UnrealBuildTool
 							using(Timeline.ScopeEvent("DependencyCache.Create()"))
 							{
 								Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName));
-							}
-						}
-
-						// We don't need this dependency cache in 'gather only' mode
-						if (BuildConfiguration.bUseUBTMakefiles &&
-								!(bIsGatheringBuild && !bIsAssemblingBuild))
-						{
-							using(Timeline.ScopeEvent("FlatCPPIncludeDependencyCache.TryRead()"))
-							{
-								// Load the cache that contains the list of flattened resolved includes for resolved source files
-								// @todo ubtmake: Ideally load this asynchronously at startup and only block when it is first needed and not finished loading
-								FileReference CacheFile = FlatCPPIncludeDependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.TargetName, Target.Platform, Target.Architecture);
-								if (!FlatCPPIncludeDependencyCache.TryRead(CacheFile, out Headers.FlatCPPIncludeDependencyCache))
-								{
-									if (!bNeedsFullCPPIncludeRescan)
-									{
-										if (!BuildConfiguration.bXGEExport && !BuildConfiguration.bGenerateManifest)
-										{
-											bNeedsFullCPPIncludeRescan = true;
-											Log.TraceInformation("Performing full C++ include scan (no include cache file)");
-										}
-									}
-									Headers.FlatCPPIncludeDependencyCache = new FlatCPPIncludeDependencyCache(CacheFile);
-								}
 							}
 						}
 
@@ -680,9 +602,16 @@ namespace UnrealBuildTool
 									}
 								}
 
+								// Create the dependencies cache
+								CppDependencyCache CppDependencies;
+								using(Timeline.ScopeEvent("Reading dependency cache"))
+								{
+									CppDependencies = CppDependencyCache.CreateHierarchy(Targets[0].ProjectFile, Targets[0].TargetName, Targets[0].Platform, Targets[0].Configuration, Targets[0].TargetType);
+								}
+
 								// Plan the actions to execute for the build.
 								Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
-								HashSet<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);
+								HashSet<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, CppDependencies, out TargetToOutdatedPrerequisitesMap);
 
 								// Patch action history for hot reload when running in assembler mode.  In assembler mode, the suffix on the output file will be
 								// the same for every invocation on that makefile, but we need a new suffix each time.
@@ -743,7 +672,7 @@ namespace UnrealBuildTool
 									HotReload.PatchActionGraph(PrerequisiteActions, OldLocationToNewLocation);
 
 									// Get a new list of actions to execute now that the graph has been modified
-									ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, out TargetToOutdatedPrerequisitesMap);
+									ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, CppDependencies, out TargetToOutdatedPrerequisitesMap);
 
 									// Build a mapping of all file items to their original
 									Dictionary<FileReference, FileReference> HotReloadFileToOriginalFile = new Dictionary<FileReference, FileReference>();
@@ -792,14 +721,6 @@ namespace UnrealBuildTool
 										ActionGraph.AllActions.Count,
 										ActionsToExecute.Count
 										);
-
-								// Cache indirect includes for all outdated C++ files.  We kick this off as a background thread so that it can
-								// perform the scan while we're compiling.  It usually only takes up to a few seconds, but we don't want to hurt
-								// our best case UBT iteration times for this task which can easily be performed asynchronously
-								if (BuildConfiguration.bUseUBTMakefiles && TargetToOutdatedPrerequisitesMap.Count > 0)
-								{
-									CppIncludeThread = new CppIncludeBackgroundThread(TargetToOutdatedPrerequisitesMap, TargetToHeaders);
-								}
 
 								// Execute the actions.
 								ExecutorTimer.Start();
@@ -854,14 +775,7 @@ namespace UnrealBuildTool
 			}
 			finally
 			{
-				// Wait until our CPPIncludes dependency scanner thread has finished
-				if (CppIncludeThread != null)
-				{
-					using(Timeline.ScopeEvent("CppIncludeThread.Join()"))
-					{
-						CppIncludeThread.Join();
-					}
-				}
+				CppDependencyCache.SaveAll();
 
 				// Save the include dependency cache.
 				foreach (CPPHeaders Headers in TargetToHeaders.Values)
@@ -878,14 +792,6 @@ namespace UnrealBuildTool
 							Headers.IncludeDependencyCache.Save();
 						}
 					}
-
-					if (Headers.FlatCPPIncludeDependencyCache != null)
-					{
-						using (Timeline.ScopeEvent("FlatCPPIncludeDependencyCache.Save()"))
-						{
-							Headers.FlatCPPIncludeDependencyCache.Save();
-						}
-					}
 				}
 
 				// Figure out how long we took to execute.
@@ -896,9 +802,6 @@ namespace UnrealBuildTool
 
 				// Print some performance info
 				Log.TraceLog("DirectIncludes cache miss time: {0}s ({1} misses)", CPPHeaders.DirectIncludeCacheMissesTotalTime, CPPHeaders.TotalDirectIncludeCacheMisses);
-				Log.TraceLog("FindIncludePaths calls: {0} ({1} searches)", CPPHeaders.TotalFindIncludedFileCalls, CPPHeaders.IncludePathSearchAttempts);
-				Log.TraceLog("Deep C++ include scan time: {0}s", UnrealBuildTool.TotalDeepIncludeScanTime);
-				Log.TraceLog("Include Resolves: {0} ({1} misses, {2:0.00}%)", CPPHeaders.TotalDirectIncludeResolves, CPPHeaders.TotalDirectIncludeResolveCacheMisses, (float)CPPHeaders.TotalDirectIncludeResolveCacheMisses / (float)CPPHeaders.TotalDirectIncludeResolves * 100);
 			}
 			return (int)BuildResult;
 		}
@@ -918,56 +821,6 @@ namespace UnrealBuildTool
 				if (FileReference.Exists(MakefileRef))
 				{
 					FileReference.Delete(MakefileRef);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Helper class to update the C++ dependency cache on a background thread. Captures exceptions and re-throws on the main thread when joined.
-		/// </summary>
-		class CppIncludeBackgroundThread
-		{
-			Thread BackgroundThread;
-			Exception CaughtException;
-
-			public CppIncludeBackgroundThread(Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders)
-			{
-				BackgroundThread = new Thread(() => Run(TargetToOutdatedPrerequisitesMap, TargetToHeaders));
-				BackgroundThread.Start();
-			}
-
-			public void Join()
-			{
-				BackgroundThread.Join();
-				if (CaughtException != null)
-				{
-					throw CaughtException;
-				}
-			}
-
-			private void Run(Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders)
-			{
-				try
-				{
-					// @todo ubtmake: This thread will access data structures that are also used on the main UBT thread, but during this time UBT
-					// is only invoking the build executor, so should not be touching this stuff.  However, we need to at some guards to make sure.
-					foreach (KeyValuePair<UEBuildTarget, List<FileItem>> TargetAndOutdatedPrerequisites in TargetToOutdatedPrerequisitesMap)
-					{
-						UEBuildTarget Target = TargetAndOutdatedPrerequisites.Key;
-						List<FileItem> OutdatedPrerequisites = TargetAndOutdatedPrerequisites.Value;
-						CPPHeaders Headers = TargetToHeaders[Target];
-
-						foreach (FileItem PrerequisiteItem in OutdatedPrerequisites)
-						{
-							// Invoke our deep include scanner to figure out whether any of the files included by this source file have
-							// changed since the build product was built
-							Headers.FindAndCacheAllIncludedFiles(PrerequisiteItem, PrerequisiteItem.CachedIncludePaths, bOnlyCachedDependencies: false);
-						}
-					}
-				}
-				catch (Exception Ex)
-				{
-					CaughtException = Ex;
 				}
 			}
 		}

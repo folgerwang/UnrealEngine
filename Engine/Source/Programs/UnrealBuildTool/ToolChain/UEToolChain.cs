@@ -80,27 +80,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		protected virtual void AddPrerequisiteSourceFile(CppCompileEnvironment CompileEnvironment, FileItem SourceFile, List<FileItem> PrerequisiteItems)
-		{
-			PrerequisiteItems.Add(SourceFile);
-
-			if (!CompileEnvironment.Headers.bUseUBTMakefiles)	// In fast build iteration mode, we'll gather includes later on
-			{
-				// @todo ubtmake: What if one of the prerequisite files has become missing since it was updated in our cache? (usually, because a coder eliminated the source file)
-				//		-> Two CASES:
-				//				1) NOT WORKING: Non-unity file went away (SourceFile in this context).  That seems like an existing old use case.  Compile params or Response file should have changed?
-				//				2) WORKING: Indirect file went away (unity'd original source file or include).  This would return a file that no longer exists and adds to the prerequiteitems list
-				List<FileItem> IncludedFileList = CompileEnvironment.Headers.FindAndCacheAllIncludedFiles(SourceFile, CompileEnvironment.IncludePaths, bOnlyCachedDependencies: false);
-				if (IncludedFileList != null)
-				{
-					foreach (FileItem IncludedFile in IncludedFileList)
-					{
-						PrerequisiteItems.Add(IncludedFile);
-					}
-				}
-			}
-		}
-
 		public virtual void SetupBundleDependencies(List<UEBuildBinary> Binaries, string GameName)
 		{
 

@@ -21,13 +21,6 @@ namespace UnrealBuildTool
 		public bool bIgnoreOutdatedImportLibraries = true;
 
 		/// <summary>
-		/// Whether to generate command line dependencies for compile actions when requested
-		/// </summary>
-		[XmlConfigFile]
-		[CommandLine("-SkipActionHistory", Value = "false")]
-		public bool bUseActionHistory = true;
-
-		/// <summary>
 		/// Use existing static libraries for all engine modules in this target.
 		/// </summary>
 		[CommandLine("-UsePrecompiled")]
@@ -82,20 +75,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-SkipBuild")]
 		public bool bSkipBuild = false;
-
-		/// <summary>
-		/// Whether the dependency cache includes pre-resolved include locations so UBT doesn't have to re-resolve each include location just to check the timestamp.
-		/// This is technically not fully correct because the dependency cache is global and each module could have a different set of include paths that could cause headers
-		/// to resolve files differently. In practice this is not the case, and significantly speeds up UBT when nothing is to be done.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bUseIncludeDependencyResolveCache = true;
-
-		/// <summary>
-		/// Used to test the dependency resolve cache. This will verify the resolve cache has no conflicts by resolving every time and checking against any previous resolve attempts.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bTestIncludeDependencyResolveCache = false;
 
 		/// <summary>
 		/// Enables support for very fast iterative builds by caching target data.  Turning this on causes Unreal Build Tool to emit

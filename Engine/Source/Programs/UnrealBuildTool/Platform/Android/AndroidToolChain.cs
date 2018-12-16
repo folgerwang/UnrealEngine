@@ -1362,7 +1362,7 @@ namespace UnrealBuildTool
 						}
 
 						// Add the C++ source file and its included files to the prerequisite item list.
-						AddPrerequisiteSourceFile(CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
+						CompileAction.PrerequisiteItems.Add(SourceFile);
 
 						if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create && !bIsPlainCFile)
 						{
@@ -1414,6 +1414,15 @@ namespace UnrealBuildTool
 
 						// Add the source file path to the command-line.
 						FileArguments += string.Format(" \"{0}\"", SourceFile.AbsolutePath);
+
+						// Generate the included header dependency list
+						if(CompileEnvironment.bGenerateDependenciesFile)
+						{
+							FileItem DependencyListFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, InlineArchName(Path.GetFileName(SourceFile.AbsolutePath) + ".d", Arch, GPUArchitecture, true)));
+							FileArguments += string.Format(" -MD -MF\"{0}\"", DependencyListFile.AbsolutePath.Replace('\\', '/'));
+							CompileAction.DependencyListFile = DependencyListFile;
+							CompileAction.ProducedItems.Add(DependencyListFile);
+						}
 
 						// Build a full argument list
 						string AllArguments = Arguments + FileArguments + CompileEnvironment.AdditionalArguments;

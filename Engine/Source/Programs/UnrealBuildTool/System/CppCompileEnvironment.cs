@@ -267,6 +267,11 @@ namespace UnrealBuildTool
 		public bool bPrintTimingInfo;
 
 		/// <summary>
+		/// Whether to output a dependencies file along with the output build products
+		/// </summary>
+		public bool bGenerateDependenciesFile = true;
+
+		/// <summary>
 		/// When enabled, allows XGE to compile pre-compiled header files on remote machines.  Otherwise, PCHs are always generated locally.
 		/// </summary>
 		public bool bAllowRemotelyCompiledPCHs = false;
@@ -370,6 +375,7 @@ namespace UnrealBuildTool
 			PGOFilenamePrefix = Other.PGOFilenamePrefix;
 			PGODirectory = Other.PGODirectory;
 			bPrintTimingInfo = Other.bPrintTimingInfo;
+			bGenerateDependenciesFile = Other.bGenerateDependenciesFile;
 			bAllowRemotelyCompiledPCHs = Other.bAllowRemotelyCompiledPCHs;
 			IncludePaths = new CppIncludePaths(Other.IncludePaths);
 			ForceIncludeFiles.AddRange(Other.ForceIncludeFiles);

@@ -60,6 +60,11 @@ namespace UnrealBuildTool
 		public List<FileItem> DeleteItems = new List<FileItem>();
 
 		/// <summary>
+		/// For C++ source files, specifies a dependency list file used to check changes to header files
+		/// </summary>
+		public FileItem DependencyListFile;
+
+		/// <summary>
 		/// Directory from which to execute the program to create produced items
 		/// </summary>
 		public string WorkingDirectory = null;
@@ -175,6 +180,7 @@ namespace UnrealBuildTool
 			PrerequisiteItems = Reader.ReadFileItemList(UniqueFileItems);
 			ProducedItems = Reader.ReadFileItemList(UniqueFileItems);
 			DeleteItems = Reader.ReadFileItemList(UniqueFileItems);
+			DependencyListFile = Reader.ReadFileItem(UniqueFileItems);
 		}
 
 		/// <summary>
@@ -198,6 +204,7 @@ namespace UnrealBuildTool
 			Writer.Write(PrerequisiteItems, UniqueFileItemToIndex);
 			Writer.Write(ProducedItems, UniqueFileItemToIndex);
 			Writer.Write(DeleteItems, UniqueFileItemToIndex);
+			Writer.Write(DependencyListFile, UniqueFileItemToIndex);
 		}
 
 		/// <summary>

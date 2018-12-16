@@ -329,36 +329,8 @@ namespace UnrealBuildTool
 
 			SourceDirectories = new HashSet<DirectoryReference>(SourceFiles.Select(x => x.Location.Directory));
 
-			// Store the module compile environment along with the source file.  This is so that we can use it later on when looking for header dependencies
-			foreach (FileItem CFile in SourceFilesFound.CFiles)
-			{
-				CFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem CCFile in SourceFilesFound.CCFiles)
-			{
-				CCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
-			{
-				CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem MMFile in SourceFilesFound.MMFiles)
-			{
-				MMFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-
 			// Process all of the header file dependencies for this module
 			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, SourceFilesToBuild.CPPFiles);
-
-			// Make sure our RC files have cached includes.  
-			foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
-			{
-				// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
-				if(RCFile.CachedIncludePaths == null)
-				{
-					RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-				}
-			}
 
 			// Should we force a precompiled header to be generated for this module?  Usually, we only bother with a
 			// precompiled header if there are at least several source files in the module (after combining them for unity
@@ -534,7 +506,6 @@ namespace UnrealBuildTool
 					foreach (string GeneratedFilename in GeneratedFiles)
 					{
 						FileItem GeneratedCppFileItem = FileItem.GetItemByPath(GeneratedFilename);
-						GeneratedCppFileItem.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 
 						// @todo ubtmake: Check for ALL other places where we might be injecting .cpp or .rc files for compiling without caching CachedCPPIncludeInfo first (anything platform specific?)
 						GeneratedFileItems.Add(GeneratedCppFileItem);
@@ -603,7 +574,6 @@ namespace UnrealBuildTool
 		{
 			CppCompileEnvironment CompileEnvironment = CreateSharedPCHCompileEnvironment(Target, BaseCompileEnvironment);
 			FileItem HeaderFile = FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.SharedPCHHeaderFile));
-			HeaderFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 
 			DirectoryReference PrecompiledHeaderDir;
 			if(Rules.bUsePrecompiled)
@@ -628,12 +598,6 @@ namespace UnrealBuildTool
 		/// <returns>The created PCH instance.</returns>
 		private PrecompiledHeaderInstance CreatePrivatePCH(UEToolChain ToolChain, FileItem HeaderFile, CppCompileEnvironment ModuleCompileEnvironment, ActionGraph ActionGraph)
 		{
-			// Cache the header file include paths. This file could have been a shared PCH too, so ignore if the include paths are already set.
-			if(HeaderFile.CachedIncludePaths == null)
-			{
-				HeaderFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-
 			// Create the wrapper file, which sets all the definitions needed to compile it
 			FileReference WrapperLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.{0}.h", Name));
 			FileItem WrapperFile = CreatePCHWrapperFile(WrapperLocation, ModuleCompileEnvironment.Definitions, HeaderFile);
@@ -839,7 +803,6 @@ namespace UnrealBuildTool
 				// Write the PCH header
 				FileReference DedicatedPchLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.Dedicated.{0}.h", File.Location.GetFileNameWithoutExtension()));
 				FileItem DedicatedPchFile = FileItem.CreateIntermediateTextFile(DedicatedPchLocation, WrapperContents.ToString());
-				DedicatedPchFile.CachedIncludePaths = File.CachedIncludePaths;
 
 				// Create a new C++ environment to compile the PCH
 				CppCompileEnvironment PchEnvironment = new CppCompileEnvironment(CompileEnvironment);
@@ -920,7 +883,6 @@ namespace UnrealBuildTool
 
 			// Create the item
 			FileItem WrapperFile = FileItem.CreateIntermediateTextFile(OutputFile, WrapperContents.ToString());
-			WrapperFile.CachedIncludePaths = IncludedFile.CachedIncludePaths;
 
 			// Touch it if the included file is newer, to make sure our timestamp dependency checking is accurate.
 			if (IncludedFile.LastWriteTimeUtc > WrapperFile.LastWriteTimeUtc)
@@ -975,12 +937,6 @@ namespace UnrealBuildTool
 						{
 							NameToHeaderFile[ModuleFile.GetFileNameWithoutExtension()] = ModuleFile;
 						}
-					}
-
-					// Store the module compile environment along with the .cpp file.  This is so that we can use it later on when looking for header dependencies
-					foreach (FileItem CPPFile in CppFiles)
-					{
-						CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 					}
 
 					// Find the directly included files for each source file, and make sure it includes the matching header if possible
