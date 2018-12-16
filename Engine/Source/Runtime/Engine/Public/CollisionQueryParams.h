@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Structs used for passing parameters to scene query functions
 
@@ -44,9 +44,6 @@ struct ENGINE_API FCollisionQueryParams
 
 	/** Tag used to indicate an owner for this trace */
 	FName OwnerTag;
-
-	/** Whether we should perform the trace in the asynchronous scene.  Default is false. */
-	bool bTraceAsyncScene;
 
 	/** Whether we should trace against complex collision */
 	bool bTraceComplex;
@@ -138,7 +135,6 @@ public:
 		bTraceComplex = bInTraceComplex;
 		MobilityType = EQueryMobilityType::Any;
 		TraceTag = NAME_None;
-		bTraceAsyncScene = false;
 		bFindInitialOverlaps = true;
 		bReturnFaceIndex = false;
 		bReturnPhysicalMaterial = false;
@@ -154,7 +150,6 @@ public:
 		bTraceComplex = false;
 		MobilityType = EQueryMobilityType::Any;
 		TraceTag = NAME_None;
-		bTraceAsyncScene = false;
 		bFindInitialOverlaps = true;
 		bReturnFaceIndex = false;
 		bReturnPhysicalMaterial = false;
@@ -187,7 +182,7 @@ public:
 	void AddIgnoredActors(const TArray<const AActor*>& InIgnoreActors);
 
 	/** Variant that uses an array of TWeakObjectPtrs */
-	void AddIgnoredActors(const TArray<TWeakObjectPtr<AActor> >& InIgnoreActors);
+	void AddIgnoredActors(const TArray<TWeakObjectPtr<const AActor> >& InIgnoreActors);
 
 	/** Add a component for this trace to ignore */
 	void AddIgnoredComponent(const UPrimitiveComponent* InIgnoreComponent);
@@ -206,7 +201,7 @@ public:
 
 	FString ToString() const
 	{
-		return FString::Printf(TEXT("[%s:%s] TraceAsync(%d), TraceComplex(%d)"), *OwnerTag.ToString(), *TraceTag.ToString(), bTraceAsyncScene, bTraceComplex );
+		return FString::Printf(TEXT("[%s:%s] TraceComplex(%d)"), *OwnerTag.ToString(), *TraceTag.ToString(), bTraceComplex );
 	}
 
 	/** static variable for default data to be used without reconstructing everytime **/

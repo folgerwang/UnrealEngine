@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Physics/PhysicsInterfaceUtils.h"
 #include "PhysXPublic.h"
@@ -8,12 +8,12 @@
 
 #if WITH_PHYSX
 
-PxShapeFlags BuildPhysXShapeFlags(FBodyCollisionFlags BodyCollisionFlags, bool bPhysicsStatic, bool bIsSync, bool bIsTriangleMesh)
+PxShapeFlags BuildPhysXShapeFlags(FBodyCollisionFlags BodyCollisionFlags, bool bPhysicsStatic, bool bIsTriangleMesh)
 {
 	PxShapeFlags ShapeFlags;
 
-	// Only perform scene queries if enabled and the shape is non-static or the shape is sync.
-	ModifyShapeFlag<PxShapeFlag::eSCENE_QUERY_SHAPE>(ShapeFlags, BodyCollisionFlags.bEnableQueryCollision && (!bPhysicsStatic || bIsSync));
+	// Only perform scene queries if enabled
+	ModifyShapeFlag<PxShapeFlag::eSCENE_QUERY_SHAPE>(ShapeFlags, BodyCollisionFlags.bEnableQueryCollision);
 
 	if (bIsTriangleMesh)
 	{
@@ -74,9 +74,11 @@ ECollisionShapeType P2UCollisionShapeType(PxGeometryType::Enum InPType)
 	return ECollisionShapeType::None;
 }
 
-uint32 FindFaceIndex(const PxSweepHit& PHit, const PxVec3& unitDir)
+uint32 FindFaceIndex(const FHitLocation& PHit, const FVector& UnitDir)
 {
+#if PHYSICS_INTERFACE_PHYSX
 	PxConvexMeshGeometry convexGeom;
+	PxVec3 PUnitDir = U2PVector(UnitDir);
 	if (PHit.shape->getConvexMeshGeometry(convexGeom))
 	{
 		//PhysX has given us the most correct face. However, we actually want the most useful face which is the one with the most opposed normal within some radius.
@@ -88,15 +90,15 @@ uint32 FindFaceIndex(const PxSweepHit& PHit, const PxVec3& unitDir)
 		{
 			//This is copied directly from PxFindFace. However, we made some modifications in order to favor 'most opposing' faces.
 			static const PxReal gEpsilon = .01f;
-			PX_ASSERT(unitDir.isFinite());
-			PX_ASSERT(unitDir.isNormalized());
+			PX_ASSERT(PUnitDir.isFinite());
+			PX_ASSERT(PUnitDir.isNormalized());
 			PX_ASSERT(impactPos.isFinite());
 			PX_ASSERT(pose.isFinite());
 
-			const PxVec3 impact = impactPos - unitDir * gEpsilon;
+			const PxVec3 impact = impactPos - PUnitDir * gEpsilon;
 
 			const PxVec3 localPoint = pose.transformInv(impact);
-			const PxVec3 localDir = pose.rotateInv(unitDir);
+			const PxVec3 localDir = pose.rotateInv(PUnitDir);
 
 			// Create shape to vertex scale transformation matrix
 			const PxMeshScale& meshScale = convexGeom.scale;
@@ -164,15 +166,18 @@ uint32 FindFaceIndex(const PxSweepHit& PHit, const PxVec3& unitDir)
 	}
 
 	return PHit.faceIndex;	//If no custom logic just return whatever face index they initially had
+#endif
+	ensure(false);
+	return 0;
 }
 
 FPhysXShapeAdaptor::FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& CollisionShape)
-	: Rotation(physx::PxIdentity)
+	: Rotation(FQuat::Identity)
 {
 	// Perform other kinds of zero-extent queries as zero-extent sphere queries
 	if ((CollisionShape.ShapeType != ECollisionShape::Sphere) && CollisionShape.IsNearlyZero())
 	{
-		PtrToUnionData = UnionData.SetSubtype<PxSphereGeometry>(PxSphereGeometry(FCollisionShape::MinSphereRadius()));
+		GeometryHolder.storeAny(PxSphereGeometry(FCollisionShape::MinSphereRadius()));
 	}
 	else
 	{
@@ -185,12 +190,12 @@ FPhysXShapeAdaptor::FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& 
 			BoxExtents.y = FMath::Max(BoxExtents.y, FCollisionShape::MinBoxExtent());
 			BoxExtents.z = FMath::Max(BoxExtents.z, FCollisionShape::MinBoxExtent());
 
-			PtrToUnionData = UnionData.SetSubtype<PxBoxGeometry>(PxBoxGeometry(BoxExtents));
-			Rotation = U2PQuat(Rot);
+			GeometryHolder.storeAny(PxBoxGeometry(BoxExtents));
+			Rotation = Rot;
 			break;
 		}
 		case ECollisionShape::Sphere:
-			PtrToUnionData = UnionData.SetSubtype<PxSphereGeometry>(PxSphereGeometry(FMath::Max(CollisionShape.GetSphereRadius(), FCollisionShape::MinSphereRadius())));
+			GeometryHolder.storeAny(PxSphereGeometry(FMath::Max(CollisionShape.GetSphereRadius(), FCollisionShape::MinSphereRadius())));
 			break;
 		case ECollisionShape::Capsule:
 		{
@@ -198,13 +203,13 @@ FPhysXShapeAdaptor::FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& 
 			const float CapsuleHalfHeight = CollisionShape.GetCapsuleHalfHeight();
 			if (CapsuleRadius < CapsuleHalfHeight)
 			{
-				PtrToUnionData = UnionData.SetSubtype<PxCapsuleGeometry>(PxCapsuleGeometry(FMath::Max(CapsuleRadius, FCollisionShape::MinCapsuleRadius()), FMath::Max(CollisionShape.GetCapsuleAxisHalfLength(), FCollisionShape::MinCapsuleAxisHalfHeight())));
+				GeometryHolder.storeAny(PxCapsuleGeometry(FMath::Max(CapsuleRadius, FCollisionShape::MinCapsuleRadius()), FMath::Max(CollisionShape.GetCapsuleAxisHalfLength(), FCollisionShape::MinCapsuleAxisHalfHeight())));
 				Rotation = ConvertToPhysXCapsuleRot(Rot);
 			}
 			else
 			{
 				// Use a sphere instead.
-				PtrToUnionData = UnionData.SetSubtype<PxSphereGeometry>(PxSphereGeometry(FMath::Max(CapsuleRadius, FCollisionShape::MinSphereRadius())));
+				GeometryHolder.storeAny(PxSphereGeometry(FMath::Max(CapsuleRadius, FCollisionShape::MinSphereRadius())));
 			}
 			break;
 		}
@@ -217,10 +222,10 @@ FPhysXShapeAdaptor::FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& 
 
 static const PxQuat CapsuleRotator(0.f, 0.707106781f, 0.f, 0.707106781f);
 
-PxQuat ConvertToPhysXCapsuleRot(const FQuat& GeomRot)
+FQuat ConvertToPhysXCapsuleRot(const FQuat& GeomRot)
 {
 	// Rotation required because PhysX capsule points down X, we want it down Z
-	return U2PQuat(GeomRot) * CapsuleRotator;
+	return P2UQuat(U2PQuat(GeomRot) * CapsuleRotator);	//todo(ocohen): avoid pointless conversion
 }
 
 FQuat ConvertToUECapsuleRot(const PxQuat & PGeomRot)
@@ -239,12 +244,12 @@ PxTransform ConvertToPhysXCapsulePose(const FTransform& GeomPose)
 
 	PFinalPose.p = U2PVector(GeomPose.GetTranslation());
 	// Rotation required because PhysX capsule points down X, we want it down Z
-	PFinalPose.q = ConvertToPhysXCapsuleRot(GeomPose.GetRotation());
+	PFinalPose.q = U2PQuat(ConvertToPhysXCapsuleRot(GeomPose.GetRotation()));
 	return PFinalPose;
 }
 
 
-PxFilterData CreateObjectQueryFilterData(const bool bTraceComplex, const int32 MultiTrace/*=1 if multi. 0 otherwise*/, const struct FCollisionObjectQueryParams & ObjectParam)
+FCollisionFilterData CreateObjectQueryFilterData(const bool bTraceComplex, const int32 MultiTrace/*=1 if multi. 0 otherwise*/, const struct FCollisionObjectQueryParams & ObjectParam)
 {
 	/**
 	* Format for QueryData :
@@ -257,29 +262,29 @@ PxFilterData CreateObjectQueryFilterData(const bool bTraceComplex, const int32 M
 	*		word3 (Multi (1) or single (0) (top 8) + Flags (lower 24))
 	*/
 
-	PxFilterData PNewData;
+	FCollisionFilterData NewData;
 
-	PNewData.word0 = (uint32)ECollisionQuery::ObjectQuery;
+	NewData.Word0 = (uint32)ECollisionQuery::ObjectQuery;
 
 	if (bTraceComplex)
 	{
-		PNewData.word3 |= EPDF_ComplexCollision;
+		NewData.Word3 |= EPDF_ComplexCollision;
 	}
 	else
 	{
-		PNewData.word3 |= EPDF_SimpleCollision;
+		NewData.Word3 |= EPDF_SimpleCollision;
 	}
 
 	// get object param bits
-	PNewData.word1 = ObjectParam.GetQueryBitfield();
+	NewData.Word1 = ObjectParam.GetQueryBitfield();
 
 	// if 'nothing', then set no bits
-	PNewData.word3 |= CreateChannelAndFilter((ECollisionChannel)MultiTrace, ObjectParam.IgnoreMask);
+	NewData.Word3 |= CreateChannelAndFilter((ECollisionChannel)MultiTrace, ObjectParam.IgnoreMask);
 
-	return PNewData;
+	return NewData;
 }
 
-PxFilterData CreateTraceQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const FCollisionQueryParams& Params)
+FCollisionFilterData CreateTraceQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const FCollisionQueryParams& Params)
 {
 	/**
 	* Format for QueryData :
@@ -292,17 +297,17 @@ PxFilterData CreateTraceQueryFilterData(const uint8 MyChannel, const bool bTrace
 	*		word3 (MyChannel (top 8) as ECollisionChannel + Flags (lower 24))
 	*/
 
-	PxFilterData PNewData;
+	FCollisionFilterData NewData;
 
-	PNewData.word0 = (uint32)ECollisionQuery::TraceQuery;
+	NewData.Word0 = (uint32)ECollisionQuery::TraceQuery;
 
 	if (bTraceComplex)
 	{
-		PNewData.word3 |= EPDF_ComplexCollision;
+		NewData.Word3 |= EPDF_ComplexCollision;
 	}
 	else
 	{
-		PNewData.word3 |= EPDF_SimpleCollision;
+		NewData.Word3 |= EPDF_SimpleCollision;
 	}
 
 	// word1 encodes 'what i block', word2 encodes 'what i touch'
@@ -311,26 +316,26 @@ PxFilterData CreateTraceQueryFilterData(const uint8 MyChannel, const bool bTrace
 		if (InCollisionResponseContainer.EnumArray[i] == ECR_Block)
 		{
 			// if i block, set that in word1
-			PNewData.word1 |= CRC_TO_BITFIELD(i);
+			NewData.Word1 |= CRC_TO_BITFIELD(i);
 		}
 		else if (InCollisionResponseContainer.EnumArray[i] == ECR_Overlap)
 		{
 			// if i touch, set that in word2
-			PNewData.word2 |= CRC_TO_BITFIELD(i);
+			NewData.Word2 |= CRC_TO_BITFIELD(i);
 		}
 	}
 
 	// if 'nothing', then set no bits
-	PNewData.word3 |= CreateChannelAndFilter((ECollisionChannel)MyChannel, Params.IgnoreMask);
+	NewData.Word3 |= CreateChannelAndFilter((ECollisionChannel)MyChannel, Params.IgnoreMask);
 
-	return PNewData;
+	return NewData;
 }
 
 #define TRACE_MULTI		1
 #define TRACE_SINGLE	0
 
 /** Utility for creating a PhysX PxFilterData for performing a query (trace) against the scene */
-PxFilterData CreateQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const struct FCollisionQueryParams& QueryParam, const struct FCollisionObjectQueryParams & ObjectParam, const bool bMultitrace)
+FCollisionFilterData CreateQueryFilterData(const uint8 MyChannel, const bool bTraceComplex, const FCollisionResponseContainer& InCollisionResponseContainer, const struct FCollisionQueryParams& QueryParam, const struct FCollisionObjectQueryParams & ObjectParam, const bool bMultitrace)
 {
 	if (ObjectParam.IsValid())
 	{

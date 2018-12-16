@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HeadMountedDisplayBase.h"
 
@@ -53,17 +53,28 @@ bool FHeadMountedDisplayBase::PopulateAnalyticsAttributes(TArray<FAnalyticsEvent
 	return true;
 }
 
+bool FHeadMountedDisplayBase::IsHeadTrackingEnforced() const
+{
+	return bHeadTrackingEnforced;
+}
+
+void FHeadMountedDisplayBase::SetHeadTrackingEnforced(bool bEnabled)
+{
+	bHeadTrackingEnforced = bEnabled;
+}
+
 bool FHeadMountedDisplayBase::IsHeadTrackingAllowed() const
 {
+	const bool bTrackingEnabled = IsStereoEnabled() || IsHeadTrackingEnforced();
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
 		// @todo vreditor: We need to do a pass over VREditor code and make sure we are handling the VR modes correctly.  HeadTracking can be enabled without Stereo3D, for example
 		UEditorEngine* EdEngine = Cast<UEditorEngine>(GEngine);
-		return (!EdEngine || EdEngine->IsHMDTrackingAllowed()) && IsStereoEnabled();
+		return (!EdEngine || EdEngine->IsHMDTrackingAllowed()) && bTrackingEnabled;
 	}
 #endif // WITH_EDITOR
-	return IsStereoEnabled();
+	return bTrackingEnabled;
 }
 
 IStereoLayers* FHeadMountedDisplayBase::GetStereoLayers()
@@ -84,7 +95,9 @@ FVector2D FHeadMountedDisplayBase::GetEyeCenterPoint_RenderThread(EStereoscopicP
 {
 	check(IsInRenderingThread());
 
-	if (!IsStereoEnabled())
+	// Note: IsHeadTrackingAllowed() can only be called from the game thread.
+	// IsStereoEnabled() and IsHeadTrackingEnforced() can be called from both the render and game threads, however.
+	if (IsStereoEnabled() || IsHeadTrackingEnforced())
 	{
 		return FVector2D(0.5f, 0.5f);
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "KismetTraceUtils.h"
 #include "GameFramework/Actor.h"
@@ -13,7 +13,6 @@ FCollisionQueryParams ConfigureCollisionParams(FName TraceTag, bool bTraceComple
 	FCollisionQueryParams Params(TraceTag, SCENE_QUERY_STAT_ONLY(KismetTraceUtils), bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
 	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Character.cpp: ACharacter implementation
@@ -56,7 +56,6 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
 	CapsuleComponent->SetShouldUpdatePhysicsVolume(true);
-	CapsuleComponent->bCheckAsyncSceneOnMove = false;
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditorContextMenu.h"
 #include "Misc/Attribute.h"
@@ -725,6 +725,18 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		MenuBuilder.BeginSection("SelectMaterial", LOCTEXT("SelectMaterialHeading", "Materials") );
 		{
 			MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllWithSameMaterial );
+		}
+		MenuBuilder.EndSection();
+	}
+
+	// Add geometry collection commands
+	if (FModuleManager::Get().IsModuleLoaded("GeometryCollectionEditor"))
+	{
+		MenuBuilder.BeginSection("SelectBones", LOCTEXT("GeometryCollectionHeading", "Geometry Collection"));
+		{
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectAllGeometry);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectNone);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectInverseGeometry);
 		}
 		MenuBuilder.EndSection();
 	}

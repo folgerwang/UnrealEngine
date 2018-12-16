@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshEditorModeToolkit.h"
 #include "IMeshEditorModeUIContract.h"
@@ -14,6 +14,7 @@
 #include "Widgets/Layout/SSeparator.h"
 #include "Widgets/Layout/SBox.h"
 #include "EditorStyleSet.h"
+#include "SFractureSettingsWidget.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorModeToolkit"
 
@@ -252,6 +253,11 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 		SNew( SMeshEditorModeControlWidget, LOCTEXT( "PolygonGroupName", "Polygon" ), MeshEditorMode.GetPolygonActions(), MeshEditorMode.GetPolygonSelectionModifiers() )
 	];
 
+	WidgetSwitcher->AddSlot(static_cast<int32>(EEditableMeshElementType::Fracture))
+	[
+		SNew(SMeshEditorModeControlWidget, LOCTEXT("FractureGroupName", "Fracture"), MeshEditorMode.GetFractureActions(), MeshEditorMode.GetFractureSelectionModifiers())
+	];
+
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Invalid ) )
 	[
 		SNew( SBox )
@@ -298,6 +304,13 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 				[
 					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Vertex, LOCTEXT( "Vertex", "Vertex" ) )
 				]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1)
+				.Padding(2)
+				[
+					SNew(SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Fracture, LOCTEXT("Fracture", "Fracture"))
+				]
+
 			]
 			+SVerticalBox::Slot()
 			.AutoHeight()
@@ -386,18 +399,30 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						SNew( SBox )
-						.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
+						SNew(SBox)
+						.Visibility_Lambda([&MeshEditorMode, WidgetSwitcher]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0
+							&& WidgetSwitcher->GetActiveWidgetIndex() != static_cast<int32>(EEditableMeshElementType::Fracture) ? EVisibility::Visible : EVisibility::Collapsed; })
 						[
-							SNew( SMeshEditorModeControlWidget, LOCTEXT( "MeshGroupName", "Mesh" ), MeshEditorMode.GetCommonActions(), TArray< TTuple< TSharedPtr<FUICommandInfo>, FUIAction > >() )
+							SNew(SMeshEditorModeControlWidget, LOCTEXT("MeshGroupName", "Mesh"), MeshEditorMode.GetCommonActions(), TArray< TTuple< TSharedPtr<FUICommandInfo>, FUIAction > >())
 						]
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SFractureSettingsWidget, MeshEditorMode)
+						.FractureSettings(MeshEditorMode.GetFractureSettings())
+						.Visibility_Lambda([&MeshEditorMode, WidgetSwitcher]()
+							{
+								return (MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 &&
+								WidgetSwitcher->GetActiveWidgetIndex() == static_cast<int32>(EEditableMeshElementType::Fracture)) ?
+								EVisibility::Visible : EVisibility::Collapsed;
+							})
 					]
 				]
 			]
 		]
 	];
 }
-
 
 void FMeshEditorModeToolkit::RegisterTabSpawners( const TSharedRef<FTabManager>& TabManager )
 {

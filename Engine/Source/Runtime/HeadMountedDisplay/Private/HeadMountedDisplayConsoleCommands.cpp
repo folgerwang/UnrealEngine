@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 //
 #include "HeadMountedDisplay.h"
 #include "Engine/Engine.h"
@@ -341,7 +341,7 @@ static void HMDStatus(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
 		auto HMD = GEngine->XRSystem;
 		Ar.Logf(TEXT("Position tracking status: %s\nHead tracking allowed: %s\nNumber of tracking sensors: %d"), 
 			HMD->DoesSupportPositionalTracking() ? (HMD->HasValidTrackingPosition() ? TEXT("active") : TEXT("lost")) : TEXT("not supported"),
-			HMD->IsHeadTrackingAllowed() ? TEXT("yes") : TEXT("no"),
+			HMD->IsHeadTrackingAllowed() ? (HMD->IsHeadTrackingEnforced() ? TEXT("enforced") : TEXT("yes")) : TEXT("no"),
 			HMD->CountTrackedDevices(EXRTrackedDeviceType::TrackingReference));
 	}
 }
@@ -350,6 +350,32 @@ static FAutoConsoleCommand CHMDStatusCmd(
 	TEXT("vr.HeadTracking.Status"),
 	*LOCTEXT("CVarText_HMDStatus", "Reports the current status of the head tracking.").ToString(),
 	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(HMDStatus));
+
+static void ForceTracking(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
+{
+	bool bEnable = false;
+	if (!GEngine || !GEngine->XRSystem.IsValid())
+	{
+		return;
+	}
+
+	if (Args.Num())
+	{
+		bEnable = FCString::ToBool(*Args[0]);
+		GEngine->XRSystem->SetHeadTrackingEnforced(bEnable);
+	}
+	else
+	{
+		bEnable = GEngine->XRSystem->IsHeadTrackingEnforced();
+		Ar.Logf(TEXT("Forced head tracking is %s"), bEnable ? TEXT("on") : TEXT("off"));
+	}
+}
+
+static FAutoConsoleCommand CForceTrackingCmd(
+	TEXT("vr.HeadTracking.bEnforced"),
+	*LOCTEXT("CCommandText_ForceTracking", "If set, head tracking is enabled even when stereo rendering is disabled.\nMay not be supported by all XR implementations.").ToString(),
+	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(ForceTracking));
+
 
 static void EnableHMD(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
 {
@@ -416,6 +442,7 @@ static FAutoConsoleCommand CEnableStereoCmd(
 	TEXT("vr.bEnableStereo"),
 	*LOCTEXT("CCommandText_EnableStereo", "Enables or disables the stereo rendering. Use 1, True, or Yes to enable, 0, False or No to disable.").ToString(),
 	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(EnableStereo));
+
 
 static void HMDVersion(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
 {

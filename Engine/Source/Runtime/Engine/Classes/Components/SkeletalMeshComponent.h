@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -336,11 +336,7 @@ public:
 	/** Used to scale speed of all animations on this skeletal mesh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Animation)
 	float GlobalAnimRateScale;
-
-	/** The simulation scene to use for this instance. By default we use what's in the physics asset (which defaults to the sync scene) */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
-	EDynamicActorScene UseAsyncScene;
-
+	
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	TEnumAsByte<EKinematicBonesUpdateToPhysics::Type> KinematicBonesUpdateType;

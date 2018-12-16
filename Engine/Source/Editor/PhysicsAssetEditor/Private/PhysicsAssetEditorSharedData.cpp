@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetEditorSharedData.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
@@ -276,25 +276,28 @@ void FPhysicsAssetEditorSharedData::Mirror()
 				UBodySetup * DestBody = PhysicsAsset->SkeletalBodySetups[MirrorBodyIndex];
 				DestBody->Modify();
 				DestBody->CopyBodyPropertiesFrom(SrcBody);
-				FQuat ArtistMirrorConvention(0,0,1,0);   // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar 
+				
+				FQuat ArtistMirrorConvention(1,0,0,0);   //used to be (0 0 1 0)
+														 // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar W
+
 				for (FKSphylElem& Sphyl : DestBody->AggGeom.SphylElems)
 				{
-					Sphyl.Rotation	= (ArtistMirrorConvention*Sphyl.Rotation.Quaternion()).Rotator();
-					Sphyl.Center	= ArtistMirrorConvention.RotateVector(Sphyl.Center);
+					Sphyl.Rotation	= (Sphyl.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					Sphyl.Center = -Sphyl.Center;
 				}
 				for (FKBoxElem& Box : DestBody->AggGeom.BoxElems)
 				{
-					Box.Rotation	= (ArtistMirrorConvention*Box.Rotation.Quaternion()).Rotator();
-					Box.Center      = ArtistMirrorConvention.RotateVector(Box.Center);
+					Box.Rotation	= (Box.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					Box.Center      = -Box.Center;
 				}
 				for (FKSphereElem& Sphere : DestBody->AggGeom.SphereElems)
 				{
-					Sphere.Center = ArtistMirrorConvention.RotateVector(Sphere.Center);
+					Sphere.Center = -Sphere.Center;
 				}
 				for (FKTaperedCapsuleElem& TaperedCapsule : DestBody->AggGeom.TaperedCapsuleElems)
 				{
-					TaperedCapsule.Rotation	= (ArtistMirrorConvention*TaperedCapsule.Rotation.Quaternion()).Rotator();
-					TaperedCapsule.Center	= ArtistMirrorConvention.RotateVector(TaperedCapsule.Center);
+					TaperedCapsule.Rotation	= (TaperedCapsule.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					TaperedCapsule.Center	= -TaperedCapsule.Center;
 				}
 				int32 MirrorConstraintIndex = PhysicsAsset->FindConstraintIndex(DestBody->BoneName);
 				if(PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorConstraintIndex) && PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorInfo.ConstraintIndex))

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetDetailsCustomization.h"
 #include "Widgets/SCompoundWidget.h"
@@ -23,7 +23,6 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "PropertyHandle.h"
 #include "PhysicsAssetEditorActions.h"
-#include "Customizations/SkeletalMeshCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetDetailsCustomization"
 
@@ -40,7 +39,6 @@ void FPhysicsAssetDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& D
 
 	PhysicalAnimationProfilesHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UPhysicsAsset, PhysicalAnimationProfiles));
 	ConstraintProfilesHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UPhysicsAsset, ConstraintProfiles));
-	AsyncScenePropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UPhysicsAsset, bUseAsyncScene));
 
 	DetailLayout.EditCategory(TEXT("Physical Animation Profiles"))
 	.AddProperty(PhysicalAnimationProfilesHandle)
@@ -56,20 +54,6 @@ void FPhysicsAssetDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& D
 	.WholeRowContent()
 	[
 		MakeConstraintProfilesWidget()
-	];
-
-	DetailLayout.HideProperty(AsyncScenePropertyHandle);
-	DetailLayout.EditCategory(TEXT("Physics"))
-	.AddCustomRow(AsyncScenePropertyHandle->GetPropertyDisplayName(), true)
-	.Visibility(EVisibility::Visible)
-	.NameContent()
-	[
-		AsyncScenePropertyHandle->CreatePropertyNameWidget()
-	]
-	.ValueContent()
-	.HAlign(HAlign_Fill)
-	[
-		SkeletalMeshCustomizationHelpers::CreateAsyncSceneValueWidgetWithWarning(AsyncScenePropertyHandle)
 	];
 }
 

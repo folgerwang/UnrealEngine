@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,5 +24,7 @@ public:
 
 	UFUNCTION( BlueprintCallable, Category = "Editable Mesh" )
 	static UEditableMesh* MakeEditableMesh( class UPrimitiveComponent* PrimitiveComponent, const int32 LODIndex );
+
+	static void RefreshEditableMesh(UEditableMesh* EditableMesh, class UPrimitiveComponent& PrimitiveComponent);
 
 };

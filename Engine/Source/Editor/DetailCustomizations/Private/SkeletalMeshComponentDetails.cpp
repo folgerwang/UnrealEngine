@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletalMeshComponentDetails.h"
 #include "Modules/ModuleManager.h"
@@ -21,7 +21,6 @@
 #include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Widgets/Images/SImage.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "Customizations/SkeletalMeshCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponentDetails"
 
@@ -214,24 +213,6 @@ void FSkeletalMeshComponentDetails::UpdateAnimationCategory( IDetailLayoutBuilde
 
 void FSkeletalMeshComponentDetails::UpdatePhysicsCategory(IDetailLayoutBuilder& DetailBuilder)
 {
-	IDetailCategoryBuilder& PhysicsCategory = DetailBuilder.EditCategory("Physics", FText::GetEmpty(), ECategoryPriority::TypeSpecific);
-
-	const FName AsyncSceneFName(GET_MEMBER_NAME_CHECKED(USkeletalMeshComponent, UseAsyncScene));
-	AsyncSceneHandle = DetailBuilder.GetProperty(AsyncSceneFName);
-	check(AsyncSceneHandle->IsValidHandle());
-
-	DetailBuilder.HideProperty(AsyncSceneHandle);
-	PhysicsCategory.AddCustomRow(AsyncSceneHandle->GetPropertyDisplayName(), true)
-	.Visibility(EVisibility::Visible)
-	.NameContent()
-	[
-		AsyncSceneHandle->CreatePropertyNameWidget()
-	]
-	.ValueContent()
-	.HAlign(HAlign_Fill)
-	[
-		SkeletalMeshCustomizationHelpers::CreateAsyncSceneValueWidgetWithWarning(AsyncSceneHandle)
-	];
 }
 
 EVisibility FSkeletalMeshComponentDetails::VisibilityForAnimationMode(EAnimationMode::Type AnimationMode) const

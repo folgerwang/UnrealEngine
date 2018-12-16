@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsPublic.h
@@ -381,10 +381,10 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysicsAssetChanged, const UPhysicsAsset*);
 	static FOnPhysicsAssetChanged OnPhysicsAssetChanged;
 
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneInit, FPhysScene*, EPhysicsSceneType);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysSceneInit, FPhysScene*);
 	static FOnPhysSceneInit OnPhysSceneInit;
 
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneTerm, FPhysScene*, EPhysicsSceneType);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysSceneTerm, FPhysScene*);
 	static FOnPhysSceneTerm OnPhysSceneTerm;
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysDispatchNotifications, FPhysScene*);

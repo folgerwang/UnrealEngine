@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=====================================================================================================
 	AnsiAllocator.h: helper allocator that allocates directly from standard library allocation functions

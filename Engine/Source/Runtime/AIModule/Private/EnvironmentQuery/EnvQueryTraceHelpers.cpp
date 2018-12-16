@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/EnvQueryTraceHelpers.h"
 #include "NavigationData.h"
@@ -289,7 +289,6 @@ void FEQSHelpers::RunRaycastsOnNavHitOnlyWalls(const ANavigationData& NavData, c
 		FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
 
 		FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(EnvQueryTrace), TraceData.bTraceComplex);
-		TraceParams.bTraceAsyncScene = true;
 		TraceParams.AddIgnoredActors(IgnoredActors);
 
 		FBatchTrace TraceHelper(NavData.GetWorld(), TraceCollisionChannel, TraceParams, TraceExtent, TraceMode);
@@ -395,7 +394,6 @@ void FEQSHelpers::RunPhysRaycasts(UWorld* World, const FEnvTraceData& TraceData,
 	FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
 
 	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(EnvQueryTrace), TraceData.bTraceComplex);
-	TraceParams.bTraceAsyncScene = true;
 	TraceParams.AddIgnoredActors(IgnoredActors);
 
 	FBatchTrace BatchOb(World, TraceCollisionChannel, TraceParams, TraceExtent, TraceMode);
@@ -429,7 +427,6 @@ void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceDat
 	FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
 
 	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(EnvQueryTrace), TraceData.bTraceComplex);
-	TraceParams.bTraceAsyncScene = true;
 
 	FBatchTrace BatchOb(World, TraceCollisionChannel, TraceParams, TraceExtent, TraceMode);
 
@@ -462,7 +459,6 @@ void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceDat
 	FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
 
 	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(EnvQueryTrace), TraceData.bTraceComplex);
-	TraceParams.bTraceAsyncScene = true;
 
 	FBatchTrace BatchOb(World, TraceCollisionChannel, TraceParams, TraceExtent, ETraceMode::Keep);
 	BatchOb.TraceHits.AddZeroed(Points.Num());

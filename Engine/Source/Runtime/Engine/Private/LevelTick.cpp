@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LevelTick.cpp: Level timer tick function
@@ -42,7 +42,7 @@
 #include "TimerManager.h"
 #include "Camera/CameraPhotography.h"
 #include "HAL/LowLevelMemTracker.h"
-#if WITH_APEIRON
+#if WITH_CHAOS
 #include "PhysicsEngine/CollisionAnalyzerCapture.h"
 #endif
 

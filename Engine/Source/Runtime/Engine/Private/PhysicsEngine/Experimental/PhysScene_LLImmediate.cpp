@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Physics/Experimental/PhysScene_LLImmediate.h"
 #include "Async/ParallelFor.h"
@@ -29,8 +29,13 @@ void FPhysScene_LLImmediate::Init()
 		delete Simulation;
 		Simulation = nullptr;
 	}
-	
+
+	CurrentFrame = 0;
 	Simulation = new FSimulation();
+
+	// #PHYS2 move to configuration somewhere
+	Simulation->SetPositionIterationCount(16);
+	Simulation->SetVelocityIterationCount(4);
 }
 
 void FPhysScene_LLImmediate::Tick(float InDeltaSeconds)
@@ -77,6 +82,7 @@ void FPhysScene_LLImmediate::Tick(float InDeltaSeconds)
 	}
 	
 	SimulationTime += InDeltaSeconds;
+	CurrentFrame++;
 }
 
 template class FPhysScene_Base<FPhysScene_LLImmediate>;

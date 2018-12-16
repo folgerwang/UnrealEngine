@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Updated to SDK 1.1.82.1
 
 #include "VulkanShaderFormat.h"

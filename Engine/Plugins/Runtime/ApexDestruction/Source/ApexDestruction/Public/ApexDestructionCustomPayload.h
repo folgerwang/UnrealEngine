@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,9 +19,9 @@ class UDestructibleComponent;
 
 struct FApexDestructionSyncActors : public FCustomPhysXSyncActors
 {
-	virtual void BuildSyncData_AssumesLocked(int32 SceneType, const TArray<physx::PxRigidActor*>& RigidActors) override;
+	virtual void BuildSyncData_AssumesLocked(const TArray<physx::PxRigidActor*>& RigidActors) override;
 
-	virtual void FinalizeSync(int32 SceneType) override;
+	virtual void FinalizeSync() override;
 
 private:
 

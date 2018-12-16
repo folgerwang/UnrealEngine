@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,8 +6,8 @@
 #include "UObject/Object.h"
 #include "EditableMesh.h"
 #include "EditableMeshTypes.h"
+#include "GeometryHitTest.h"
 #include "EditableMeshAdapter.generated.h"
-
 
 UCLASS(Abstract)
 class EDITABLEMESH_API UEditableMeshAdapter : public UObject
@@ -51,4 +51,9 @@ public:
 	virtual void OnSetPolygonGroupAttribute( const UEditableMesh* EditableMesh, const FPolygonGroupID PolygonGroupID, const FMeshElementAttributeData& Attribute ) PURE_VIRTUAL(,);
 	virtual void OnAssignPolygonsToPolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons ) PURE_VIRTUAL(,);
 	virtual void OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs ) PURE_VIRTUAL(,);
+
+#if WITH_EDITOR
+	virtual void GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams) PURE_VIRTUAL(, );
+#endif // WITH_EDITOR
+
 };

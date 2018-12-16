@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Physics/ImmediatePhysics/ImmediatePhysicsMaterial.h"
 
@@ -18,4 +18,7 @@ namespace ImmediatePhysics
 	{
 	}
 #endif
+
+	/** Default shape material. Created from the CDO of UPhysicalMaterial */
+	FMaterial FMaterial::Default;
 }
