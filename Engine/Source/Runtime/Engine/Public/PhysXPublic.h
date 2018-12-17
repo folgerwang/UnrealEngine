@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysXSupport.h: PhysX support
@@ -16,6 +16,7 @@
 
 #include "PhysXIncludes.h"
 #include "EngineLogs.h"
+#include "Physics/PhysicsInterfaceTypes.h"
 
 // Whether or not to use the PhysX scene lock
 #ifndef USE_SCENE_LOCK
@@ -245,6 +246,35 @@ ENGINE_API FORCEINLINE_DEBUGGABLE FVector4 P2U4BaryCoord(const PxVec3& PVec)
 	return FVector4(PVec.x, PVec.y, 1.f - PVec.x - PVec.y, PVec.z);
 }
 
+inline ECollisionShapeType P2UGeometryType(PxGeometryType::Enum Type)
+{
+	switch(Type)
+	{
+	case PxGeometryType::eSPHERE: return ECollisionShapeType::Sphere;
+	case PxGeometryType::ePLANE: return ECollisionShapeType::Plane;
+	case PxGeometryType::eCAPSULE: return ECollisionShapeType::Capsule;
+	case PxGeometryType::eBOX: return ECollisionShapeType::Box;
+	case PxGeometryType::eCONVEXMESH: return ECollisionShapeType::Convex;
+	case PxGeometryType::eTRIANGLEMESH: return ECollisionShapeType::Trimesh;
+	case PxGeometryType::eHEIGHTFIELD: return ECollisionShapeType::Heightfield;
+	default: return ECollisionShapeType::None;
+	}
+}
+
+inline PxGeometryType::Enum U2PGeometryType(ECollisionShapeType Type)
+{
+	switch(Type)
+	{
+	case ECollisionShapeType::Sphere: return PxGeometryType::eSPHERE;
+	case ECollisionShapeType::Plane: return PxGeometryType::ePLANE;
+	case ECollisionShapeType::Capsule: return PxGeometryType::eCAPSULE;
+	case ECollisionShapeType::Box: return PxGeometryType::eBOX;
+	case ECollisionShapeType::Convex: return PxGeometryType::eCONVEXMESH;
+	case ECollisionShapeType::Trimesh: return PxGeometryType::eTRIANGLEMESH;
+	case ECollisionShapeType::Heightfield: return PxGeometryType::eHEIGHTFIELD;
+	default: return PxGeometryType::eINVALID;
+	}
+}
 
 /** Calculates correct impulse at the body's center of mass and adds the impulse to the body. */
 ENGINE_API void AddRadialImpulseToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -674,28 +674,47 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Setup this module for physics support (based on the settings in UEBuildConfiguration)
 		/// </summary>
+		public void EnableMeshEditorSupport(ReadOnlyTargetRules Target)
+		{
+			if (Target.bEnableMeshEditor == true)
+			{
+				PublicDefinitions.Add("ENABLE_MESH_EDITOR=1");
+			}
+			else
+			{
+				PublicDefinitions.Add("ENABLE_MESH_EDITOR=0");
+			}
+		}
+
+		/// <summary>
+		/// Setup this module for physics support (based on the settings in UEBuildConfiguration)
+		/// </summary>
 		public void SetupModulePhysicsSupport(ReadOnlyTargetRules Target)
 		{
-            bool bUseNonPhysXInterface = Target.bUseApeiron == true || Target.bCompileImmediatePhysics == true;
+            bool bUseNonPhysXInterface = Target.bUseChaos == true || Target.bCompileImmediatePhysics == true;
 
             // 
-            if (Target.bCompileApeiron == true || Target.bUseApeiron == true)
+            if (Target.bCompileChaos == true || Target.bUseChaos == true)
             {
-                PublicDefinitions.Add("INCLUDE_APEIRON=1");
+                PublicDefinitions.Add("INCLUDE_CHAOS=1");
                 PublicIncludePathModuleNames.AddRange(
                     new string[] {
-                        "Apeiron",
+                        "Chaos",
+						"ChaosSolvers",
+						"FieldSystemCore",
                     }
                 );
                 PublicDependencyModuleNames.AddRange(
                   new string[] {
-                        "Apeiron",
+                        "Chaos",
+						"ChaosSolvers",
+						"FieldSystemCore"
                   }
                 );
             }
             else
             {
-                PublicDefinitions.Add("INCLUDE_APEIRON=0");
+                PublicDefinitions.Add("INCLUDE_CHAOS=0");
             }
             // definitions used outside of PhysX/APEX need to be set here, not in PhysX.Build.cs or APEX.Build.cs, 
             // since we need to make sure we always set it, even to 0 (because these are Private dependencies, the
@@ -713,7 +732,7 @@ namespace UnrealBuildTool
 			if(!bUseNonPhysXInterface)
 			{
 				// Disable non-physx interfaces
-				PublicDefinitions.Add("WITH_APEIRON=0");
+				PublicDefinitions.Add("WITH_CHAOS=0");
 				PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
 
 				if (Target.bCompilePhysX)
@@ -772,26 +791,26 @@ namespace UnrealBuildTool
 				PublicDefinitions.Add(string.Format("WITH_PHYSX_COOKING={0}", Target.bBuildEditor && Target.bCompilePhysX ? 1 : 0));  // without APEX, we only need cooking in editor builds
 				PublicDefinitions.Add("WITH_NVCLOTH=0");
 
-				if(Target.bUseApeiron)
+				if(Target.bUseChaos)
 				{
-					PublicDefinitions.Add("WITH_APEIRON=1");
+					PublicDefinitions.Add("WITH_CHAOS=1");
 					PublicDefinitions.Add("COMPILE_ID_TYPES_AS_INTS=0");
 					
 					PublicIncludePathModuleNames.AddRange(
 						new string[] {
-						"Apeiron",
+						"Chaos",
 						}
 					);
 
 					PublicDependencyModuleNames.AddRange(
 						new string[] {
-						"Apeiron",
+						"Chaos",
 						}
 					);
 				}
 				else
 				{
-					PublicDefinitions.Add("WITH_APEIRON=0");
+					PublicDefinitions.Add("WITH_CHAOS=0");
 				}
 
 				if(Target.bCompileImmediatePhysics)
@@ -803,6 +822,15 @@ namespace UnrealBuildTool
 				{
 					PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
 				}
+			}
+
+			if(Target.bCustomSceneQueryStructure)
+			{
+				PublicDefinitions.Add("WITH_CUSTOM_SQ_STRUCTURE=1");
+			}
+			else
+			{
+				PublicDefinitions.Add("WITH_CUSTOM_SQ_STRUCTURE=0");
 			}
 
 			// Unused interface

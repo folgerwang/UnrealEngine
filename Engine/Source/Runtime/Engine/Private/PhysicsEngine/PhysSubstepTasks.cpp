@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsEngine/PhysSubstepTasks.h"
 #include "PhysicsEngine/PhysicsSettings.h"
@@ -40,7 +40,7 @@ struct FSubstepCallbackGuard
 };
 
 #if WITH_PHYSX
-FPhysSubstepTask::FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene, uint32 InSceneType) :
+FPhysSubstepTask::FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene) :
 	NumSubsteps(0),
 	SubTime(0.f),
 	DeltaSeconds(0.f),
@@ -51,7 +51,6 @@ FPhysSubstepTask::FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysS
 	CurrentSubStep(0),
 	SubstepCallbackGuard(0),
 	PhysScene(InPhysScene),
-	SceneType(InSceneType),
 	PAScene(GivenScene)
 {
 	check(PAScene);
@@ -244,7 +243,7 @@ bool IsKinematicHelper(const PxRigidBody* PRigidBody)
 void FPhysSubstepTask::ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     check(false);
 #else
 	/** Apply Forces */
@@ -278,7 +277,7 @@ void FPhysSubstepTask::ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, 
 void FPhysSubstepTask::ApplyTorques_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     check(false);
 #else
 	/** Apply Torques */
@@ -297,7 +296,7 @@ void FPhysSubstepTask::ApplyTorques_AssumesLocked(const FPhysTarget& PhysTarget,
 void FPhysSubstepTask::ApplyRadialForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     check(false);
 #else
 	/** Apply Torques */
@@ -317,7 +316,7 @@ void FPhysSubstepTask::ApplyRadialForces_AssumesLocked(const FPhysTarget& PhysTa
 void FPhysSubstepTask::InterpolateKinematicActor_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float InAlpha)
 {
 #if WITH_PHYSX
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     check(false);
 #else
 	PxRigidDynamic * PRigidDynamic = FPhysicsInterface_PhysX::GetPxRigidDynamic_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
@@ -363,7 +362,7 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 	PxScene * PScene = PAScene;
 	SCOPED_SCENE_WRITE_LOCK(PScene);
 #endif
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     check(false);
 #else
 
@@ -456,9 +455,7 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	
 	check(!CompletionEvent.GetReference());	//should be done
 	CompletionEvent = FGraphEvent::CreateGraphEvent();
-	PhysXCompletionTask* SubstepTask = new PhysXCompletionTask(CompletionEvent,
-		 PST_MAX //we don't care about sub-step time. The full time is recorded by FullSimulationTask
-		,PAScene->getTaskManager());
+	PhysXCompletionTask* SubstepTask = new PhysXCompletionTask(CompletionEvent,PAScene->getTaskManager());
 	ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::SetTaskPriority(ENamedThreads::GameThread, ENamedThreads::HighTaskPriority);
 
 	DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysSubstepSimulation"),
@@ -484,11 +481,11 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	float Interpolation = bLastSubstep ? 1.f : Alpha;
 
 	// Call scene step delegate
-#if !WITH_APEIRON
+#if !WITH_CHAOS
 	if (PhysScene != nullptr)
 	{
 		FSubstepCallbackGuard Guard(*this);
-		PhysScene->OnPhysSceneStep.Broadcast(PhysScene, SceneType, DeltaTime);
+		PhysScene->OnPhysSceneStep.Broadcast(PhysScene, DeltaTime);
 	}
 #endif
 

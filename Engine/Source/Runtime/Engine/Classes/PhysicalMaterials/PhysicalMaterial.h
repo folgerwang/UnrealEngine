@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -131,7 +131,8 @@ public:
 	virtual void FinishDestroy() override;
 	//~ End UObject Interface
 
-	const FPhysicsMaterialHandle& GetPhysicsMaterial();
+	/** Get the physics-interface derived version of this material */
+	FPhysicsMaterialHandle& GetPhysicsMaterial();
 
 	/** Determine Material Type from input PhysicalMaterial **/
 	static EPhysicalSurface DetermineSurfaceType(UPhysicalMaterial const* PhysicalMaterial);

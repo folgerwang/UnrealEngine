@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditorActions.h"
 #include "SceneView.h"
@@ -2863,6 +2863,26 @@ bool FLevelEditorActionCallbacks::ActorsSelected_CanExecute()
 	return ( ( GEditor->GetSelectedActorCount() > 1 ) ? true : false );
 }
 
+void FLevelEditorActionCallbacks::GeometryCollection_SelectAllGeometry()
+{
+	GEditor->Exec(GetWorld(), TEXT("GeometryCollection.SelectAllGeometry"));
+}
+
+void FLevelEditorActionCallbacks::GeometryCollection_SelectNone()
+{
+	GEditor->Exec(GetWorld(), TEXT("GeometryCollection.SelectNone"));
+}
+
+void FLevelEditorActionCallbacks::GeometryCollection_SelectInverseGeometry()
+{
+	GEditor->Exec(GetWorld(), TEXT("GeometryCollection.SelectInverseGeometry"));
+}
+
+bool FLevelEditorActionCallbacks::GeometryCollection_IsChecked()
+{
+	return true;
+}
+
 class UWorld* FLevelEditorActionCallbacks::GetWorld()
 {
 	return GEditor->GetEditorWorldContext().World();
@@ -3171,6 +3191,10 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( ChangeSourceControlSettings, "Change Source Control Settings...", "Opens a dialog to change source control settings.", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND( CheckOutModifiedFiles, "Check Out Modified Files...", "Opens a dialog to check out any assets which have been modified.", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND( SubmitToSourceControl, "Submit to Source Control...", "Opens a dialog with check in options for content and levels.", EUserInterfaceActionType::Button, FInputChord());
+
+	UI_COMMAND(GeometryCollectionSelectAllGeometry, "Select All Geometry In Hierarchy", "Select all geometry in hierarchy", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(GeometryCollectionSelectNone, "Deselect All Geometry In Hierarchy", "Deselect all geometry in hierarchy", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(GeometryCollectionSelectInverseGeometry, "Select Inverse Geometry In Hierarchy", "Select inverse geometry in hierarchy", EUserInterfaceActionType::Button, FInputChord());
 
 	static const FText FeatureLevelLabels[ERHIFeatureLevel::Num] = 
 	{

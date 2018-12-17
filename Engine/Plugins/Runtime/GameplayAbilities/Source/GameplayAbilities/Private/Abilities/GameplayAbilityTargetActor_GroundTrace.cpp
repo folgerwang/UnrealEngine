@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Abilities/GameplayAbilityTargetActor_GroundTrace.h"
 #include "GameFramework/Pawn.h"
@@ -144,7 +144,6 @@ FHitResult AGameplayAbilityTargetActor_GroundTrace::PerformTrace(AActor* InSourc
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AGameplayAbilityTargetActor_GroundTrace), bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActor(InSourceActor);
 
 	FVector TraceStart = StartLocation.GetTargetingTransform().GetLocation();// InSourceActor->GetActorLocation();

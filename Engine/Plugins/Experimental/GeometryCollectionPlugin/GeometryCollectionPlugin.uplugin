@@ -11,26 +11,29 @@
     "MarketplaceURL" : "",
     "SupportURL" : "",
     "EnabledByDefault" : false,
-    "CanContainContent" : false,
+    "CanContainContent" : true,
     "IsBetaVersion" : true,
     "Installed" : false,
     "Modules": [
-    {
-      "Name": "GeometryCollectionComponent",
+	{
+      "Name": "GeometryCollectionExampleCore",
       "Type": "Runtime",
       "LoadingPhase": "Default"
     },
     {
-      "Name": "GeometryCollectionComponentEditor",
+      "Name": "GeometryCollectionEditor",
       "Type": "Editor",
       "LoadingPhase": "Default"
     },
     ],
-    "Plugins":
-    [
-      {
-        "Name": "ProceduralMeshComponent",
-        "Enabled": true
-      }
-    ]
+	"Plugins": [
+		{
+			"Name": "ProceduralMeshComponent",
+			"Enabled": true
+		},
+		{
+			"Name": "ChaosSolverPlugin",
+			"Enabled": true
+		}
+	]
 }

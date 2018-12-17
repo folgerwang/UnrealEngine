@@ -1,14 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-//#include "ImmediatePhysicsSimulation.h"
-//#include "ImmediatePhysicsActorHandle.h"
-//#include "ImmediatePhysicsJointHandle.h"
-//#include "ImmediatePhysicsContactPointRecorder.h"
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Physics/ImmediatePhysics/ImmediatePhysicsSimulation.h"
 #include "Physics/ImmediatePhysics/ImmediatePhysicsActorHandle.h"
 #include "Physics/ImmediatePhysics/ImmediatePhysicsJointHandle.h"
 #include "Physics/ImmediatePhysics/ImmediatePhysicsContactPointRecorder.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Physics/ImmediatePhysics/ResourceManager.h"
 
 namespace ImmediatePhysics
 {
@@ -40,6 +37,16 @@ FSimulation::~FSimulation()
 	}
 
 	ActorHandles.Empty();
+}
+
+void FSimulation::SetPositionIterationCount(int32 InIterationCount)
+{
+	NumVelocityIterations = InIterationCount;
+}
+
+void FSimulation::SetVelocityIterationCount(int32 InIterationCount)
+{
+	NumPositionIterations = InIterationCount;
 }
 
 void FSimulation::SetNumActiveBodies(uint32 InNumActiveBodies)
@@ -107,6 +114,65 @@ void FSimulation::SetIgnoreCollisionActors(const TArray<FActorHandle*>& InIgnore
 	IgnoreCollisionActors.Reset();
 	IgnoreCollisionActors.Append(InIgnoreCollisionActors);
 	bRecreateIterationCache = true;
+}
+
+bool FSimulation::GetIsKinematic(uint32 ActorDataIndex)
+{
+	const uint32 NumMobileBodies = NumSimulatedBodies + NumKinematicBodies;
+	const bool bIsSimulated = ActorDataIndex < NumSimulatedBodies;
+	const bool bIsKinematic = !bIsSimulated && ActorDataIndex < NumMobileBodies;
+
+	return bIsKinematic;
+}
+
+void FSimulation::SetIsKinematic(uint32 ActorDataIndex, bool bKinematic)
+{
+	const int32 NumMobileBodies = NumSimulatedBodies + NumKinematicBodies;
+	const bool bIsSimulated = ActorDataIndex < NumSimulatedBodies;
+	const bool bIsKinematic = !bIsSimulated && ActorDataIndex < NumKinematicBodies;
+	const bool bStatic = !bIsSimulated && !bIsKinematic;
+
+	if(bStatic)
+	{
+		// Should we support this case? Currently we build static solver data on actor creation
+		// so likely can't just force this to be kinematic here.
+		return;
+	}
+
+	if(bIsSimulated && bKinematic)
+	{
+		// A to B
+
+		// Need to clear out some stuff first, no velocities when kinematic
+		immediate::PxRigidBodyData& RBData = RigidBodiesData[ActorDataIndex];
+		RBData.angularVelocity = PxVec3(0.0f);
+		RBData.linearVelocity = PxVec3(0.0f);
+
+		int32 LastSimIndex = NumSimulatedBodies - 1;
+		if(ActorDataIndex != LastSimIndex)
+		{
+			SwapActorData(ActorDataIndex, LastSimIndex);
+		}
+
+		// Rearrange groups so kinematic now contains the body
+		--NumSimulatedBodies;
+		--NumActiveSimulatedBodies;
+		++NumKinematicBodies;
+	}
+	else if(bIsKinematic && !bKinematic)
+	{
+		// B to A
+		int32 FirstKinematicIndex = NumSimulatedBodies;
+
+		if(ActorDataIndex != FirstKinematicIndex)
+		{
+			SwapActorData(ActorDataIndex, FirstKinematicIndex);
+		}
+
+		++NumSimulatedBodies;
+		++NumActiveSimulatedBodies;
+		--NumKinematicBodies;
+	}
 }
 
 template <FSimulation::ECreateActorType ActorType>
@@ -229,7 +295,7 @@ ImmediatePhysics::FActorHandle* FSimulation::InsertActorData(const FActor& InAct
 	{
 		// Dynamic object
 
-		// #PHYS2 Setup max angular velocity, position and velocity iteration counts
+		// #PHYS2 Setup max angular velocity
 	}
 	else if(InData.bKinematic)
 	{
@@ -415,6 +481,13 @@ DECLARE_CYCLE_STAT(TEXT("FSimulation::Simulate"), STAT_ImmediateSimulate, STATGR
 
 void FSimulation::Simulate(float DeltaTime, const FVector& Gravity)
 {
+	// Lock the resource manager before we simulate - any writes need to wait until we're done
+	ImmediatePhysics::FScopedSharedResourceLock<ImmediatePhysics::LockMode::Read> ScopeLock;
+	Simulate_AssumesLocked(DeltaTime, Gravity);
+}
+
+void FSimulation::Simulate_AssumesLocked(float DeltaTime, const FVector& Gravity)
+{
 	SET_DWORD_STAT(STAT_IPNumSimulatedBodies, NumSimulatedBodies);
 	SET_DWORD_STAT(STAT_IPNumActiveSimulatedBodies, NumActiveSimulatedBodies);
 	SET_DWORD_STAT(STAT_IPNumKinematicBodies, NumKinematicBodies);
@@ -532,7 +605,7 @@ void FSimulation::PrepareIterationCache()
 		for(const FShape& Shape : Actor.Shapes)
 		{
 			ShapeSOA.LocalTMs.Add(Shape.LocalTM);
-			ShapeSOA.Materials.Add(Shape.Material);
+			ShapeSOA.Materials.Add(Shape.Material ? *Shape.Material : FMaterial());
 			ShapeSOA.Geometries.Add(Shape.Geometry);
 			ShapeSOA.Bounds.Add(Shape.BoundsMagnitude);
 			ShapeSOA.BoundsOffsets.Add(Shape.BoundsOffset);

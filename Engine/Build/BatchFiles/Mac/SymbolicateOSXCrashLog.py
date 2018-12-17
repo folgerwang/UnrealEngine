@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #
 # This script will symbolicate a macOS crash report. It currently only works with x86_64 binaries because the regexes are dumb.
 # It depends on atos so you must have xcode installed. It will use the currently set xcode to find atos.

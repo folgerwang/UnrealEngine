@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -166,6 +166,7 @@ public:
 	TSharedPtr<FUICommandInfo> SetEdgeSelectionMode;
 	TSharedPtr<FUICommandInfo> SetPolygonSelectionMode;
 	TSharedPtr<FUICommandInfo> SetAnySelectionMode;
+	TSharedPtr<FUICommandInfo> SetFractureSelectionMode;
 };
 
 
@@ -238,6 +239,17 @@ public:
 
 	/** Triangulates the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> TriangulatePolygon;
+};
+
+// Mesh Fracture Tools
+class MESHEDITOR_API FMeshEditorFractureCommands : public TCommands<FMeshEditorFractureCommands>
+{
+public:
+	FMeshEditorFractureCommands();
+
+	// TCommands<> interface
+	virtual void RegisterCommands() override;
+	// End of TCommands<> interface
 };
 
 

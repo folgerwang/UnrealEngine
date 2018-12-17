@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -606,12 +606,6 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 
 TAutoConsoleVariable<int32> CVarEnableRagdollPhysics(TEXT("p.RagdollPhysics"), 1, TEXT("If 1, ragdoll physics will be used. Otherwise just root body is simulated"));
 
-static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene, EDynamicActorScene SimulationScene)
-{
-	bool bUseAsync = SimulationScene == EDynamicActorScene::Default ? PhysAsset.bUseAsyncScene : (SimulationScene == EDynamicActorScene::UseAsyncScene);
-	return (bUseAsync && PhysScene.HasAsyncScene()) ? PST_Async : PST_Sync;
-}
-
 void USkeletalMeshComponent::InstantiatePhysicsAsset(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene, USkeletalMeshComponent* OwningComponent, int32 UseRootBodyIndex, const FPhysicsAggregateHandle& UseAggregate) const
 {
 	auto BoneTMCallable = [this](int32 BoneIndex)
@@ -711,7 +705,6 @@ void USkeletalMeshComponent::InstantiatePhysicsAsset_Internal(const UPhysicsAsse
 			FTransform BoneTransform = BoneTransformGetter(BoneIndex);
 
 			FBodyInstance::FInitBodySpawnParams SpawnParams(OwningComponent);
-			SpawnParams.DynamicActorScene = UseAsyncScene;
 
 			if(OwningComponent == nullptr)
 			{
@@ -731,8 +724,7 @@ void USkeletalMeshComponent::InstantiatePhysicsAsset_Internal(const UPhysicsAsse
 #if WITH_PHYSX
 	if(PhysScene && Aggregate.IsValid())
 	{
-		const uint32 SceneType = GetPhysicsSceneType(PhysAsset, *PhysScene, UseAsyncScene);
-		PhysScene->AddAggregateToScene(Aggregate, SceneType == PST_Async);
+		PhysScene->AddAggregateToScene(Aggregate);
 	}
 
 #endif //WITH_PHYSX
@@ -2605,7 +2597,7 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 						// Pose of the shape in actor space
 						FMatrix ShapeLocalPose = FPhysicsInterface::GetLocalTransform(Shape).ToMatrixWithScale();
 
-#if WITH_APEIRON
+#if WITH_CHAOS
                         check(false);
 #else
 						switch(GeoType)

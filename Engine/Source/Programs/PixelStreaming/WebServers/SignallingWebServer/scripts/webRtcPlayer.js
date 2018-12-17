@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // universal module definition - read https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/
 
 (function (root, factory) {

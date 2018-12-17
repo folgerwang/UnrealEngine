@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ApexDestructionCustomPayload.h"
 #include "DestructibleComponent.h"
@@ -8,7 +8,7 @@
 
 #if WITH_APEX
 
-void FApexDestructionSyncActors::BuildSyncData_AssumesLocked(int32 SceneType, const TArray<physx::PxRigidActor*>& ActiveActors)
+void FApexDestructionSyncActors::BuildSyncData_AssumesLocked(const TArray<physx::PxRigidActor*>& ActiveActors)
 {
 	//We want to consolidate the transforms so that we update each destructible component once by passing it an array of chunks to update.
 	//This helps avoid a lot of duplicated work like marking render dirty, computing inverse world component, etc...
@@ -49,7 +49,7 @@ void FApexDestructionSyncActors::BuildSyncData_AssumesLocked(int32 SceneType, co
 
 }
 
-void FApexDestructionSyncActors::FinalizeSync(int32 SceneType)
+void FApexDestructionSyncActors::FinalizeSync()
 {
 	//update each component
 	for (auto It = ComponentUpdateMapping.CreateIterator(); It; ++It)

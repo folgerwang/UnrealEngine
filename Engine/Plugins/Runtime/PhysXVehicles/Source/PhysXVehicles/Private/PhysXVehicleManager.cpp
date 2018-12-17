@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysXVehicleManager.h"
 #include "UObject/UObjectIterator.h"
@@ -79,7 +79,7 @@ static PxQueryHitType::Enum WheelRaycastPreFilter(
 	return PxQueryHitType::eNONE;
 }
 
-FPhysXVehicleManager::FPhysXVehicleManager(FPhysScene* PhysScene, uint32 SceneType)
+FPhysXVehicleManager::FPhysXVehicleManager(FPhysScene* PhysScene)
 	: WheelRaycastBatchQuery(NULL)
 
 #if PX_DEBUG_VEHICLE_ON
@@ -88,7 +88,7 @@ FPhysXVehicleManager::FPhysXVehicleManager(FPhysScene* PhysScene, uint32 SceneTy
 #endif
 {
 	// Save pointer to PhysX scene
-	Scene = PhysScene->GetPxScene(SceneType);
+	Scene = PhysScene->GetPxScene();
 
 	// Set up delegates
 	OnPhysScenePreTickHandle = PhysScene->OnPhysScenePreTick.AddRaw(this, &FPhysXVehicleManager::PreTick);
@@ -314,12 +314,12 @@ void FPhysXVehicleManager::RemoveVehicle( TWeakObjectPtr<UWheeledVehicleMovement
 	}
 }
 
-void FPhysXVehicleManager::Update(FPhysScene* PhysScene, uint32 SceneType, float DeltaTime)
+void FPhysXVehicleManager::Update(FPhysScene* PhysScene, float DeltaTime)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PhysXVehicleManager_Update);
 
 	// Only support vehicles in sync scene
-	if (SceneType != PST_Sync || Vehicles.Num() == 0 )
+	if (Vehicles.Num() == 0 )
 	{
 		return;
 	}
@@ -366,18 +366,14 @@ void FPhysXVehicleManager::Update(FPhysScene* PhysScene, uint32 SceneType, float
 #endif //PX_DEBUG_VEHICLE_ON
 }
 
-void FPhysXVehicleManager::PreTick(FPhysScene* PhysScene, uint32 SceneType, float DeltaTime)
+void FPhysXVehicleManager::PreTick(FPhysScene* PhysScene, float DeltaTime)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PhysXVehicleManager_PretickVehicles);
 
-	// Only support vehicles in sync scene
-	if (SceneType == PST_Sync)
-{
 	for (int32 i = 0; i < Vehicles.Num(); ++i)
 	{
 		Vehicles[i]->PreTick(DeltaTime);
 	}
-}
 }
 
 

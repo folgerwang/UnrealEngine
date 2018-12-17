@@ -14,12 +14,11 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
-	"Modules" :
-	[
-		{
-			"Name" : "EditableMesh",
-			"Type" : "Runtime",
-			"LoadingPhase" : "Default"
-		}
-	]
+  "Modules": [
+    {
+      "Name": "EditableMesh",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
 }

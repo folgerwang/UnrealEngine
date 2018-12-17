@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -59,4 +59,7 @@ public:
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	virtual class UViewportInteractor* GetActiveActionInteractor() = 0;
+	/** Access fracture settings from UI detail views */
+	virtual class UMeshFractureSettings* GetFractureSettings() = 0;
+
 };
