@@ -380,7 +380,6 @@ namespace UnrealBuildTool
 							Makefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
 							Makefile.HotReloadModuleNamesForAllTargets = HotReloadModuleNamesForAllTargets;
 							Makefile.Targets = Targets;
-							Makefile.bUseAdaptiveUnityBuild = Targets.Any(x => x.Rules.bUseAdaptiveUnityBuild);
 							Makefile.TargetPrerequisites = TargetPrerequisites;
 
 							if (BuildConfiguration.bUseUBTMakefiles)
