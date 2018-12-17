@@ -460,19 +460,23 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 					}
 					else
 					{
-						const bool bUsesDistanceCullFade = Scene->Primitives[Index]->Proxy->IsUsingDistanceCullFade();
-
-						if (bUsesDistanceCullFade && DistanceSquared > FMath::Square(MaxDrawDistance))
+						if (DistanceSquared > FMath::Square(MaxDrawDistance))
 						{
-							FadingBits |= Mask;
+							if (Scene->Primitives[Index]->Proxy->IsUsingDistanceCullFade())
+							{
+								FadingBits |= Mask;
+							}
 						}
 						else
 						{
 							// The primitive is visible!
 							VisBits |= Mask;
-							if (bUsesDistanceCullFade && DistanceSquared > FMath::Square(MaxDrawDistance - FadeRadius))
+							if (DistanceSquared > FMath::Square(MaxDrawDistance - FadeRadius))
 							{
-								FadingBits |= Mask;
+								if (Scene->Primitives[Index]->Proxy->IsUsingDistanceCullFade())
+								{
+									FadingBits |= Mask;
+								}
 							}
 						}
 					}
