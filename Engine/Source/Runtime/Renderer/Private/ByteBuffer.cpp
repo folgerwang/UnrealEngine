@@ -149,7 +149,7 @@ void MemcpyBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& SrcBuf
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
 }
 
-void ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buffer, uint32 NumFloat4s)
+bool ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buffer, uint32 NumFloat4s)
 {
 	EPixelFormat BufferFormat = PF_A32B32G32R32F;
 	uint32 BytesPerElement = GPixelFormats[BufferFormat].BlockBytes;
@@ -168,7 +168,10 @@ void ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buff
 		MemcpyBuffer(RHICmdList, Buffer, NewBuffer, CopyFloat4s);
 
 		Buffer = NewBuffer;
+		return true;
 	}
+
+	return false;
 }
 
 class FScatterCopyCS : public FGlobalShader
