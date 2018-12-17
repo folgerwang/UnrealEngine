@@ -223,9 +223,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		private void Read()
 		{
-			using(FileStream Stream = File.Open(Location.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+			try
 			{
-				using(BinaryArchiveReader Reader = new BinaryArchiveReader(Stream))
+				using(BinaryArchiveReader Reader = new BinaryArchiveReader(Location))
 				{
 					int Version = Reader.ReadInt();
 					if(Version != CurrentVersion)
@@ -241,6 +241,11 @@ namespace UnrealBuildTool
 						DependencyFileToInfo[File] = DependencyInfo.Read(Reader);
 					}
 				}
+			}
+			catch(Exception Ex)
+			{
+				Log.TraceWarning("Unable to read {0}. See log for additional information.", Location);
+				Log.TraceLog("{0}", ExceptionUtils.FormatExceptionDetails(Ex));
 			}
 		}
 
