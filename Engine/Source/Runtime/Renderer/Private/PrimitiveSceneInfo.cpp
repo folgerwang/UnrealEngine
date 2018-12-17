@@ -39,6 +39,12 @@ public:
 		}
 	}
 
+	virtual void ReserveMemoryForMeshes(int32 MeshNum)
+	{
+		PrimitiveSceneInfo->StaticMeshRelevances.Reserve(PrimitiveSceneInfo->StaticMeshRelevances.Max() + MeshNum);
+		PrimitiveSceneInfo->StaticMeshes.Reserve(PrimitiveSceneInfo->StaticMeshes.Max() + MeshNum);
+	}
+
 	virtual void DrawMesh(const FMeshBatch& Mesh, float ScreenSize) final override
 	{
 		if (Mesh.GetNumPrimitives() > 0)
@@ -53,13 +59,18 @@ public:
 			FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
 				PrimitiveSceneInfo,
 				Mesh,
-				ScreenSize,
 				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
 				);
 
-			StaticMesh->bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(StaticMesh->VertexFactory, PrimitiveSceneProxy);
-
 			StaticMesh->PreparePrimitiveUniformBuffer(PrimitiveSceneProxy, PrimitiveSceneInfo->Scene->GetFeatureLevel());
+
+			const bool bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(StaticMesh->VertexFactory, PrimitiveSceneProxy);
+
+			FStaticMeshRelevance* StaticMeshRelevance = new(PrimitiveSceneInfo->StaticMeshRelevances) FStaticMeshRelevance(
+				*StaticMesh, 
+				ScreenSize, 
+				bSupportsCachingMeshDrawCommands
+			);
 		}
 	}
 
@@ -154,15 +165,20 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 	BatchingSPDI.SetHitProxy(DefaultDynamicHitProxy);
 	Proxy->DrawStaticElements(&BatchingSPDI);
 	StaticMeshes.Shrink();
+	StaticMeshRelevances.Shrink();
+
+	check(StaticMeshRelevances.Num() == StaticMeshes.Num());
 
 	for(int32 MeshIndex = 0;MeshIndex < StaticMeshes.Num();MeshIndex++)
 	{
+		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 		FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 
 		// Add the static mesh to the scene's static mesh list.
 		FSparseArrayAllocationInfo SceneArrayAllocation = Scene->StaticMeshes.AddUninitialized();
 		Scene->StaticMeshes[SceneArrayAllocation.Index] = &Mesh;
 		Mesh.Id = SceneArrayAllocation.Index;
+		MeshRelevance.Id = SceneArrayAllocation.Index;
 
 		if (Mesh.bRequiresPerElementVisibility)
 		{
@@ -342,13 +358,14 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 		}
 	}
 
-	INC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + Proxy->GetMemoryFootprint());
+	INC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + StaticMeshRelevances.GetAllocatedSize() + Proxy->GetMemoryFootprint());
 }
 
 void FPrimitiveSceneInfo::RemoveStaticMeshes()
 {
 	// Remove static meshes from the scene.
 	StaticMeshes.Empty();
+	StaticMeshRelevances.Empty();
 }
 
 void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
@@ -380,7 +397,7 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 	IndirectLightingCacheAllocation = NULL;
 	ClearIndirectLightingCacheBuffer(false);
 
-	DEC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + Proxy->GetMemoryFootprint());
+	DEC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + StaticMeshRelevances.GetAllocatedSize() + Proxy->GetMemoryFootprint());
 
 	if (bNeedsStaticMeshUpdate)
 	{
@@ -615,7 +632,7 @@ FBoxSphereBounds FPrimitiveSceneInfo::GetAttachmentGroupBounds() const
 
 uint32 FPrimitiveSceneInfo::GetMemoryFootprint()
 {
-	return( sizeof( *this ) + HitProxies.GetAllocatedSize() + StaticMeshes.GetAllocatedSize() );
+	return( sizeof( *this ) + HitProxies.GetAllocatedSize() + StaticMeshes.GetAllocatedSize() + StaticMeshRelevances.GetAllocatedSize() );
 }
 
 bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility) const
@@ -752,11 +769,11 @@ void FPrimitiveSceneInfo::GetStaticMeshesLODRange(int8& OutMinLOD, int8& OutMaxL
 	OutMinLOD = MAX_int8;
 	OutMaxLOD = 0;
 
-	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); ++MeshIndex)
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 	{
-		const FMeshBatch&  Mesh = StaticMeshes[MeshIndex];
-		OutMinLOD = FMath::Min(OutMinLOD, Mesh.LODIndex);
-		OutMaxLOD = FMath::Max(OutMaxLOD, Mesh.LODIndex);
+		const FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+		OutMinLOD = FMath::Min(OutMinLOD, MeshRelevance.LODIndex);
+		OutMaxLOD = FMath::Max(OutMaxLOD, MeshRelevance.LODIndex);
 	}
 }
 

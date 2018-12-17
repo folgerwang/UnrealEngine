@@ -755,6 +755,8 @@ void FTextRenderSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 	// Vertex factory will not been initialized when the font is invalid or the text string is empty.
 	if(VertexFactory.IsInitialized())
 	{
+		PDI->ReserveMemoryForMeshes(TextBatches.Num());
+
 		for (const FTextBatch& TextBatch : TextBatches)
 		{
 			// Draw the mesh.

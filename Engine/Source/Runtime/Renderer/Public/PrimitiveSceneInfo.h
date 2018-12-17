@@ -211,8 +211,11 @@ public:
 	 */
 	FPrimitiveComponentId LODParentComponentId;
 
+	/** The primitive's static mesh relevances. Must be in sync with StaticMeshes. */
+	TArray<class FStaticMeshRelevance> StaticMeshRelevances;
+
 	/** The primitive's static meshes. */
-	TIndirectArray<class FStaticMesh> StaticMeshes;
+	TArray<class FStaticMesh> StaticMeshes;
 
 	/** The identifier for the primitive in Scene->PrimitiveOctree. */
 	FOctreeElementId OctreeId;

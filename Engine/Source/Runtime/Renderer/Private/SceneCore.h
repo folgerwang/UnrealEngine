@@ -140,9 +140,6 @@ public:
 		virtual void Remove(const bool bUnlinkMesh) = 0;
 	};
 
-	/** The screen space size to draw this primitive at */
-	float ScreenSize;
-
 	/** The render info for the primitive which created this mesh. */
 	FPrimitiveSceneInfo* PrimitiveSceneInfo;
 
@@ -152,28 +149,21 @@ public:
 	/** Index of the mesh into the scene's StaticMeshBatchVisibility array. */
 	int32 BatchVisibilityId;
 
-	/** Maps from this FStaticMesh to its FMeshDrawCommands cached in the scene. */
-	int32 PassMeshCommandIndices[EMeshPass::Num];
+	/** Cached mesh draw commands for this FStaticMesh. */
+	FCachedMeshDrawCommandInfo CachedMeshDrawCommands[EMeshPass::Num];
 
 	// Constructor/destructor.
 	FStaticMesh(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 		const FMeshBatch& InMesh,
-		float InScreenSize,
 		FHitProxyId InHitProxyId
 		):
 		FMeshBatch(InMesh),
-		ScreenSize(InScreenSize),
 		PrimitiveSceneInfo(InPrimitiveSceneInfo),
 		Id(INDEX_NONE),
 		BatchVisibilityId(INDEX_NONE)
 	{
 		BatchHitProxyId = InHitProxyId;
-
-		for (int32 i = 0; i < ARRAY_COUNT(PassMeshCommandIndices); i++)
-		{
-			PassMeshCommandIndices[i] = -1;
-		}
 	}
 
 	~FStaticMesh();
@@ -199,11 +189,52 @@ private:
 	/** Private copy constructor. */
 	FStaticMesh(const FStaticMesh& InStaticMesh):
 		FMeshBatch(InStaticMesh),
-		ScreenSize(InStaticMesh.ScreenSize),
 		PrimitiveSceneInfo(InStaticMesh.PrimitiveSceneInfo),
 		Id(InStaticMesh.Id),
 		BatchVisibilityId(InStaticMesh.BatchVisibilityId)
 	{}
+};
+
+/**
+ * FStaticMesh data which is InitViews specific. Stored separately for cache efficiency.
+ */
+class FStaticMeshRelevance
+{
+public:
+	FStaticMeshRelevance(const FStaticMesh& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
+		: Id(StaticMesh.Id)
+		, ScreenSize(InScreenSize)
+		, LODIndex(StaticMesh.LODIndex)
+		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
+		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
+		, CastShadow(StaticMesh.CastShadow)
+		, bUseForMaterial(StaticMesh.bUseForMaterial)
+		, bUseAsOccluder(StaticMesh.bUseAsOccluder)
+		, bSupportsCachingMeshDrawCommands(InbSupportsCachingMeshDrawCommands)
+	{
+	}
+
+	/** The index of the mesh in the scene's static meshes array. */
+	int32 Id;
+
+	/** The screen space size to draw this primitive at */
+	float ScreenSize;
+
+	/** LOD index of the mesh, used for fading LOD transitions. */
+	int8 LODIndex;
+
+	/** Whether the mesh batch should apply dithered LOD. */
+	uint32 bDitheredLODTransition : 1;
+
+	/** Whether the mesh batch needs VertexFactory->GetStaticBatchElementVisibility to be called each frame to determine which elements of the batch are visible. */
+	uint32 bRequiresPerElementVisibility : 1;
+
+	uint32 CastShadow : 1;			// Whether it can be used in shadow renderpasses.
+	uint32 bUseForMaterial : 1;		// Whether it can be used in renderpasses requiring material outputs.
+	uint32 bUseAsOccluder : 1;		// Whether it can be used in renderpasses only depending on the raw geometry (i.e. Depth Prepass).
+
+	/** Cached from vertex factory to avoid dereferencing VF in InitViews. */
+	uint32 bSupportsCachingMeshDrawCommands : 1;
 };
 
 /** The properties of a exponential height fog layer which are used for rendering. */

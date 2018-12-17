@@ -260,8 +260,6 @@ void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 			*this);
 	}
 
-	MeshBatch.bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(MeshBatch.VertexFactory, PrimitiveSceneProxy);
-
 	MeshBatch.PreparePrimitiveUniformBuffer(PrimitiveSceneProxy, FeatureLevel);
 
 	for (int32 Index = 0; Index < MeshBatch.Elements.Num(); ++Index)
@@ -538,12 +536,12 @@ int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVecto
 	return MinLOD;
 }
 
-FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale)
+FLODMask ComputeLODForMeshes( const TArray<class FStaticMeshRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale)
 {
 	FLODMask LODToRender;
 	const FSceneView& LODView = GetLODView(View);
 
-	const int32 NumMeshes = StaticMeshes.Num();
+	const int32 NumMeshes = StaticMeshRelevances.Num();
 
 	// Handle forced LOD level first
 	if (ForcedLODLevel >= 0)
@@ -551,9 +549,9 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 		OutScreenRadiusSquared = 0.0f;
 
 		int8 MinLOD = 127, MaxLOD = 0;
-		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); ++MeshIndex)
+		for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 		{
-			const FStaticMesh&  Mesh = StaticMeshes[MeshIndex];
+			const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 			MinLOD = FMath::Min(MinLOD, Mesh.LODIndex);
 			MaxLOD = FMath::Max(MaxLOD, Mesh.LODIndex);
 		}
@@ -561,7 +559,7 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 	}
 	else if (LODView.Family->EngineShowFlags.LOD && NumMeshes)
 	{
-		if (StaticMeshes[0].bDitheredLODTransition)
+		if (StaticMeshRelevances[0].bDitheredLODTransition)
 		{
 			for (int32 SampleIndex = 0; SampleIndex < 2; SampleIndex++)
 			{
@@ -571,7 +569,7 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 
 				for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
 				{
-					const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+					const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 
 					float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 
@@ -599,7 +597,7 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 
 			for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
 			{
-				const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+				const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 
 				float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 

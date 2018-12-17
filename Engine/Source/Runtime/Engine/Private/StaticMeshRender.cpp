@@ -792,6 +792,8 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 
 				const int32 NumBatches = GetNumMeshBatches();
 
+				PDI->ReserveMemoryForMeshes(NumBatches);
+
 				for (int32 BatchIndex = 0; BatchIndex < NumBatches; BatchIndex++)
 				{
 					FMeshBatch MeshBatch;
@@ -857,6 +859,8 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 						{
 							const int32 NumBatches = GetNumMeshBatches();
 
+							PDI->ReserveMemoryForMeshes(NumBatches);
+
 							for (int32 BatchIndex = 0; BatchIndex < NumBatches; BatchIndex++)
 							{
 								FMeshBatch MeshBatch;
@@ -890,6 +894,8 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 #endif // WITH_EDITOR
 
 					const int32 NumBatches = GetNumMeshBatches();
+
+					PDI->ReserveMemoryForMeshes(NumBatches);
 
 					for (int32 BatchIndex = 0; BatchIndex < NumBatches; BatchIndex++)
 					{

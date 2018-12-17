@@ -1699,35 +1699,37 @@ struct FDrawCommandRelevancePacket
 	bool bUseMeshDrawCommandPipeline;
 	bool bUseCachedMeshDrawCommands;
 
-	void AddCommandsForMesh(int32 PrimitiveIndex, const FStaticMesh& RESTRICT StaticMesh, const FScene* RESTRICT Scene, bool bCanCache, EMeshPass::Type PassType)
+	void AddCommandsForMesh(int32 PrimitiveIndex, const FStaticMeshRelevance& RESTRICT StaticMeshRelevance, const FStaticMesh& RESTRICT StaticMesh, const FScene* RESTRICT Scene, bool bCanCache, EMeshPass::Type PassType)
 	{
 		if (bUseMeshDrawCommandPipeline)
 		{
-			const bool bCacheMeshCommand = bUseCachedMeshDrawCommands && bCanCache;
-			const int32 CommandIndex = StaticMesh.PassMeshCommandIndices[PassType];
 			const EShadingPath ShadingPath = Scene->GetShadingPath();
+			const bool bUseCachedMeshCommand = bUseCachedMeshDrawCommands
+				&& !!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
+				&& StaticMeshRelevance.bSupportsCachingMeshDrawCommands
+				&& bCanCache;
 
-			if (bCacheMeshCommand && CommandIndex != -1)
+			if (bUseCachedMeshCommand)
 			{
-				const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
+				const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = StaticMesh.CachedMeshDrawCommands[PassType];
+				if (CachedMeshDrawCommand.CommandIndex != -1)
+				{
+					const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
 
-				const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = SceneDrawList.MeshDrawCommandInfo[CommandIndex];
-				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
-				NewVisibleMeshDrawCommand.Setup(
-					&SceneDrawList.MeshDrawCommands[CommandIndex],
-					PrimitiveIndex,
-					CachedMeshDrawCommand.StateBucketId,
-					CachedMeshDrawCommand.MeshFillMode,
-					CachedMeshDrawCommand.MeshCullMode,
-					CachedMeshDrawCommand.SortKey);
+					NewVisibleMeshDrawCommand.Setup(
+						&SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex],
+						PrimitiveIndex,
+						CachedMeshDrawCommand.StateBucketId,
+						CachedMeshDrawCommand.MeshFillMode,
+						CachedMeshDrawCommand.MeshCullMode,
+						CachedMeshDrawCommand.SortKey);
 
-				VisibleCachedDrawCommands[(uint32)PassType].AddElement(NewVisibleMeshDrawCommand);
+					VisibleCachedDrawCommands[(uint32)PassType].AddElement(NewVisibleMeshDrawCommand);
+				}
 			}
-			
-			if (!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
-				|| !StaticMesh.bSupportsCachingMeshDrawCommands
-				|| !bCacheMeshCommand)
+			else
 			{
 				DynamicBuildRequests[PassType].AddElement(&StaticMesh);
 			}
@@ -2017,7 +2019,7 @@ struct FRelevancePacket
 			}
 			else
 			{
-				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
+				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshRelevances, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
 			}
 
 			PrimitivesLODMask.AddPrim(FRelevancePacket::FPrimitiveLODMask(PrimitiveIndex, LODToRender));
@@ -2045,11 +2047,13 @@ struct FRelevancePacket
 
 			const bool bAddLightmapDensityCommands = View.Family->EngineShowFlags.LightMapDensity && AllowDebugViewmodes();
 
-			const int32 NumStaticMeshes = PrimitiveSceneInfo->StaticMeshes.Num();
+			const int32 NumStaticMeshes = PrimitiveSceneInfo->StaticMeshRelevances.Num();
 			for(int32 MeshIndex = 0;MeshIndex < NumStaticMeshes;MeshIndex++)
 			{
+				const FStaticMeshRelevance& StaticMeshRelevance = PrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
 				const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[MeshIndex];
-				if (LODToRender.ContainsLOD(StaticMesh.LODIndex))
+
+				if (LODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
 					uint8 MarkMask = 0;
 					bool bNeedsBatchVisibility = false;
@@ -2059,7 +2063,7 @@ struct FRelevancePacket
 					{
 						if (bIsHLODFadingOut)
 						{
-							if (bIsLODDithered && LODToRender.DitheredLODIndices[1] == StaticMesh.LODIndex)
+							if (bIsLODDithered && LODToRender.DitheredLODIndices[1] == StaticMeshRelevance.LODIndex)
 							{
 								bHiddenByHLODFade = true;
 							}
@@ -2070,7 +2074,7 @@ struct FRelevancePacket
 						}
 						else
 						{
-							if (bIsLODDithered && LODToRender.DitheredLODIndices[0] == StaticMesh.LODIndex)
+							if (bIsLODDithered && LODToRender.DitheredLODIndices[0] == StaticMeshRelevance.LODIndex)
 							{
 								bHiddenByHLODFade = true;
 							}
@@ -2082,7 +2086,7 @@ struct FRelevancePacket
 					}
 					else if (bIsLODDithered)
 					{
-						if (LODToRender.DitheredLODIndices[0] == StaticMesh.LODIndex)
+						if (LODToRender.DitheredLODIndices[0] == StaticMeshRelevance.LODIndex)
 						{
 							MarkMask |= EMarkMaskBits::StaticMeshFadeOutDitheredLODMapMask;
 						}
@@ -2093,57 +2097,57 @@ struct FRelevancePacket
 					}
 
 					// Don't cache if it requires per view per mesh state for LOD dithering or distance cull fade.
-					const bool bIsMeshDitheringLOD = StaticMesh.bDitheredLODTransition && (MarkMask & (EMarkMaskBits::StaticMeshFadeOutDitheredLODMapMask | EMarkMaskBits::StaticMeshFadeInDitheredLODMapMask));
+					const bool bIsMeshDitheringLOD = StaticMeshRelevance.bDitheredLODTransition && (MarkMask & (EMarkMaskBits::StaticMeshFadeOutDitheredLODMapMask | EMarkMaskBits::StaticMeshFadeInDitheredLODMapMask));
 					const bool bCanCache = !bIsPrimitiveDistanceCullFading && !bIsMeshDitheringLOD;
 
-					if (ViewRelevance.bShadowRelevance && bDrawShadowDepth && StaticMesh.CastShadow)
+					if (ViewRelevance.bShadowRelevance && bDrawShadowDepth && StaticMeshRelevance.CastShadow)
 					{
 						// Mark static mesh as visible in shadows.
 						MarkMask |= EMarkMaskBits::StaticMeshShadowDepthMapMask;
 						bNeedsBatchVisibility = true;
 					}
 
-					if(ViewRelevance.bDrawRelevance && (StaticMesh.bUseForMaterial || StaticMesh.bUseAsOccluder) && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth) && !bHiddenByHLODFade)
+					if(ViewRelevance.bDrawRelevance && (StaticMeshRelevance.bUseForMaterial || StaticMeshRelevance.bUseAsOccluder) && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth) && !bHiddenByHLODFade)
 					{
 						// Mark static mesh as visible for rendering
-						if (StaticMesh.bUseForMaterial)
+						if (StaticMeshRelevance.bUseForMaterial)
 						{
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::BasePass);
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::BasePass);
 							MarkMask |= EMarkMaskBits::StaticMeshVisibilityMapMask;
 
 							if (ShadingPath == EShadingPath::Mobile)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::MobileBasePassCSM);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::MobileBasePassCSM);
 							}
 
 							if (ViewRelevance.bRenderCustomDepth)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::CustomDepth);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::CustomDepth);
 							}
 
 							if (bAddLightmapDensityCommands)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::LightmapDensity);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::LightmapDensity);
 							}
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 							else if (View.Family->UseDebugViewPS())
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::DebugViewMode);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DebugViewMode);
 							}
 #endif
 							if (StaticMesh.bSelectable)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::HitProxy);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::HitProxy);
 
 								if (!ViewRelevance.HasTranslucency())
 								{
-									DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::HitProxyOpaqueOnly);
+									DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::HitProxyOpaqueOnly);
 								}
 							}
 
 							if (PrimitiveSceneInfo->ShouldRenderVelocity(View, false))
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::Velocity);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::Velocity);
 								MarkMask |= EMarkMaskBits::StaticMeshVelocityMapMask;
 							}
 
@@ -2151,15 +2155,15 @@ struct FRelevancePacket
 						}
 
 						// If the static mesh is an occluder, check whether it covers enough of the screen to be used as an occluder.
-						if(	StaticMesh.bUseAsOccluder && bDrawDepthOnly )
+						if (StaticMeshRelevance.bUseAsOccluder && bDrawDepthOnly)
 						{
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
 							MarkMask |= EMarkMaskBits::StaticMeshOccluderMapMask;
 						}
 						bNeedsBatchVisibility = true;
 					}
 
-					if (StaticMesh.bUseForMaterial 
+					if (StaticMeshRelevance.bUseForMaterial
 						&& ViewRelevance.HasTranslucency() 
 						&& !ViewRelevance.bEditorPrimitiveRelevance
 						&& ViewRelevance.bRenderInMainPass)
@@ -2168,48 +2172,48 @@ struct FRelevancePacket
 						{
 							if (ViewRelevance.bNormalTranslucencyRelevance)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyStandard);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyStandard);
 							}
 
 							if (ViewRelevance.bSeparateTranslucencyRelevance)
 							{
-								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyAfterDOF);
+								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyAfterDOF);
 							}
 						}
 						else
 						{
 							// Otherwise, everything is rendered in a single bucket. This is not related to whether DOF is currently enabled or not.
 							// When using all translucency, Standard and AfterDOF are sorted together instead of being rendered like 2 buckets.
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyAll);
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::TranslucencyAll);
 						}
 
 						if (ViewRelevance.bDistortionRelevance)
 						{
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::Distortion);
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::Distortion);
 						}
 
 						if (ShadingPath == EShadingPath::Mobile && View.bIsSceneCapture)
 						{
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::MobileInverseOpacity);
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::MobileInverseOpacity);
 						}
 					}
 
 #if WITH_EDITOR
 					if(ViewRelevance.bDrawRelevance && ViewRelevance.bEditorStaticSelectionRelevance)
 					{
-						DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMesh, Scene, bCanCache, EMeshPass::EditorSelection);
+						DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::EditorSelection);
 
 						MarkMask |= EMarkMaskBits::StaticMeshEditorSelectedMask;
 					}
 #endif
 					if (MarkMask)
 					{
-						MarkMasks[StaticMesh.Id] = MarkMask;
+						MarkMasks[StaticMeshRelevance.Id] = MarkMask;
 					}
 
 					// Static meshes which don't need per-element visibility always draw all elements
-					if (bNeedsBatchVisibility && StaticMesh.bRequiresPerElementVisibility)
-					{						
+					if (bNeedsBatchVisibility && StaticMeshRelevance.bRequiresPerElementVisibility)
+					{
 						WriteView.StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] = StaticMesh.VertexFactory->GetStaticBatchElementVisibility(View, &StaticMesh, UserViewCustomData);
 					}
 				}
@@ -2998,6 +3002,8 @@ static TAutoConsoleVariable<int32> CVarAlsoUseSphereForFrustumCull(
 
 void UpdateReflectionSceneData(FScene* Scene)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateReflectionSceneData)
+
 	FReflectionEnvironmentSceneData& ReflectionSceneData = Scene->ReflectionSceneData;
 
 	ReflectionSceneData.SortedCaptures.Reset(ReflectionSceneData.RegisteredReflectionCaptures.Num());
@@ -4129,10 +4135,10 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 			}
 
 			FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(SceneInfo->PrimitiveComponentId);
-			const TIndirectArray<FStaticMesh>& NodeMeshes = SceneInfo->StaticMeshes;
+			const TArray<FStaticMeshRelevance>& NodeMeshRelevances = SceneInfo->StaticMeshRelevances;
 
 			// Ignore already updated nodes, or those that we can't work with
-			if (NodeVisibility.UpdateCount == UpdateCount || !NodeMeshes.IsValidIndex(0))
+			if (NodeVisibility.UpdateCount == UpdateCount || !NodeMeshRelevances.IsValidIndex(0))
 			{
 				continue;
 			}
@@ -4153,7 +4159,7 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 			const bool bIsInDrawRange = DistanceSquared >= Bounds.MinDrawDistanceSq * HLODState.FOVDistanceScaleSq;
 
 			const bool bWasFadingPreUpdate = !!NodeVisibility.bIsFading;
-			const bool bIsDitheredTransition = NodeMeshes[0].bDitheredLODTransition;
+			const bool bIsDitheredTransition = NodeMeshRelevances[0].bDitheredLODTransition;
 
 			if (bIsDitheredTransition && !bForcedIntoView)
 			{		

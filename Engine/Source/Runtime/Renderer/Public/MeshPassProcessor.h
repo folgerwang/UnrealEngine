@@ -509,12 +509,15 @@ class FCachedMeshDrawCommandInfo
 public:
 	explicit FCachedMeshDrawCommandInfo() :
 		SortKey(FMeshDrawCommandSortKey::Default),
+		CommandIndex(-1),
 		StateBucketId(-1),
 		MeshFillMode(ERasterizerFillMode_Num),
 		MeshCullMode(ERasterizerCullMode_Num)
 	{}
 
 	FMeshDrawCommandSortKey SortKey;
+
+	int32 CommandIndex;
 	int32 StateBucketId;
 
 	// Needed for view overrides
@@ -525,10 +528,7 @@ public:
 class FCachedPassMeshDrawList
 {
 public:
-	/** Indices held by FStaticMesh::DrawCommandIndices must be stable */
-	TSparseArray<FCachedMeshDrawCommandInfo> MeshDrawCommandInfo;
-
-	/** Indices held by FStaticMesh::DrawCommandIndices must be stable */
+	/** Indices held by FStaticMesh::CachedMeshDrawCommands must be stable */
 	TSparseArray<FMeshDrawCommand> MeshDrawCommands;
 };
 
@@ -537,7 +537,7 @@ typedef TArray<int32, TInlineAllocator<5>> FDrawCommandIndices;
 class FCachedPassMeshDrawListContext : public FMeshPassDrawListContext
 {
 public:
-	FCachedPassMeshDrawListContext(int32& InCommandIndex, FCachedPassMeshDrawList& InDrawList, FScene& InScene);
+	FCachedPassMeshDrawListContext(FCachedMeshDrawCommandInfo& InCommandInfo, FCachedPassMeshDrawList& InDrawList, FScene& InScene);
 
 	virtual FMeshDrawCommand& AddCommand(const FMeshDrawCommand& Initializer) override final;
 
@@ -552,7 +552,7 @@ public:
 		FMeshDrawCommand& MeshDrawCommand) override final;
 
 private:
-	int32& CommandIndex;
+	FCachedMeshDrawCommandInfo& CommandInfo;
 	FCachedPassMeshDrawList& DrawList;
 	FScene& Scene;
 };

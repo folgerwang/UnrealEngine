@@ -1690,7 +1690,14 @@ class FStaticPrimitiveDrawInterface
 {
 public:
 	virtual ~FStaticPrimitiveDrawInterface() { }
+
 	virtual void SetHitProxy(HHitProxy* HitProxy) = 0;
+
+	/**
+	  * Reserve memory for specified number of meshes in order to minimize number of allocations inside DrawMesh.
+	  */
+	virtual void ReserveMemoryForMeshes(int32 MeshNum) = 0;
+
 	virtual void DrawMesh(
 		const FMeshBatch& Mesh,
 		float ScreenSize
@@ -2580,7 +2587,7 @@ struct FLODMask
 		return DitheredLODIndices[0] != DitheredLODIndices[1];
 	}
 };
-FLODMask ENGINE_API ComputeLODForMeshes(const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale = 1.0f);
+FLODMask ENGINE_API ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale = 1.0f);
 
 class FSharedSamplerState : public FRenderResource
 {

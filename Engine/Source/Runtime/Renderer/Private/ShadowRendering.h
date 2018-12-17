@@ -763,6 +763,7 @@ private:
 
 	void AddCachedMeshDrawCommandsForPass(
 		int32 PrimitiveIndex,
+		const FStaticMeshRelevance& RESTRICT StaticMeshRelevance,
 		const FStaticMesh& StaticMesh,
 		const FScene* Scene,
 		EMeshPass::Type PassType,

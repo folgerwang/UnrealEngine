@@ -1606,6 +1606,8 @@ void FLandscapeComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInter
 
 	int32 CurrentLODIndex = 0;
 
+	PDI->ReserveMemoryForMeshes(MaterialCount);
+
 	for (int32 i = 0; i < MaterialCount; ++i)
 	{
 		UMaterialInstance* MaterialInstance = Cast<UMaterialInstance>(AvailableMaterials[i]);

@@ -798,6 +798,7 @@ void FProjectedShadowInfo::SetupWholeSceneProjection(
 
 void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 	int32 PrimitiveIndex, 
+	const FStaticMeshRelevance& RESTRICT StaticMeshRelevance,
 	const FStaticMesh& RESTRICT StaticMesh, 
 	const FScene* RESTRICT Scene, 
 	EMeshPass::Type PassType,
@@ -806,32 +807,32 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 {
 	if (UseMeshDrawCommandPipeline())
 	{
-		const bool bUseCachedMeshDrawCommands = UseCachedMeshDrawCommands();
-		const int32 CommandIndex = StaticMesh.PassMeshCommandIndices[PassType];
-
-		if (CommandIndex != -1 && bUseCachedMeshDrawCommands)
-		{
-			const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
-
-			const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = SceneDrawList.MeshDrawCommandInfo[CommandIndex];
-			FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
-
-			NewVisibleMeshDrawCommand.Setup(
-				&SceneDrawList.MeshDrawCommands[CommandIndex], 
-				PrimitiveIndex,
-				CachedMeshDrawCommand.StateBucketId,
-				CachedMeshDrawCommand.MeshFillMode,
-				CachedMeshDrawCommand.MeshCullMode,
-				CachedMeshDrawCommand.SortKey);
-
-			VisibleMeshCommands.Add(NewVisibleMeshDrawCommand);
-		}
-
 		EShadingPath ShadingPath = Scene->GetShadingPath();
-			
-		if (!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
-			|| !StaticMesh.bSupportsCachingMeshDrawCommands
-			|| !bUseCachedMeshDrawCommands)
+		const bool bUseCachedMeshCommand = UseCachedMeshDrawCommands()
+			&& !!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
+			&& StaticMeshRelevance.bSupportsCachingMeshDrawCommands;
+
+		if (bUseCachedMeshCommand)
+		{
+			const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = StaticMesh.CachedMeshDrawCommands[PassType];
+			if (CachedMeshDrawCommand.CommandIndex != -1)
+			{
+				const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
+
+				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+				NewVisibleMeshDrawCommand.Setup(
+					&SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex],
+					PrimitiveIndex,
+					CachedMeshDrawCommand.StateBucketId,
+					CachedMeshDrawCommand.MeshFillMode,
+					CachedMeshDrawCommand.MeshCullMode,
+					CachedMeshDrawCommand.SortKey);
+
+				VisibleMeshCommands.Add(NewVisibleMeshDrawCommand);
+			}
+		}
+		else
 		{
 			MeshCommandBuildRequests.Add(&StaticMesh);
 		}
@@ -860,7 +861,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 			else
 			{
 				const FBoxSphereBounds& Bounds = InPrimitiveSceneInfo->Proxy->GetBounds();
-				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->StaticMeshes, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenSizeSquared, InCurrentView.LODDistanceFactor);
+				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->StaticMeshRelevances, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenSizeSquared, InCurrentView.LODDistanceFactor);
 			}	
 
 			InCurrentView.PrimitivesLODMask[PrimitiveId] = ViewLODToRender;
@@ -886,9 +887,9 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 			int8 LODToRenderScan = -MAX_int8;
 			FLODMask LODToRender;
 
-			for (int32 Index = 0; Index < InPrimitiveSceneInfo->StaticMeshes.Num(); Index++)
+			for (int32 Index = 0; Index < InPrimitiveSceneInfo->StaticMeshRelevances.Num(); Index++)
 			{
-				LODToRenderScan = FMath::Max<int8>(InPrimitiveSceneInfo->StaticMeshes[Index].LODIndex, LODToRenderScan);
+				LODToRenderScan = FMath::Max<int8>(InPrimitiveSceneInfo->StaticMeshRelevances[Index].LODIndex, LODToRenderScan);
 			}
 			if (LODToRenderScan != -MAX_int8)
 			{
@@ -909,10 +910,12 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 			const bool bIsPrimitiveDistanceCullFading = InCurrentView.PotentiallyFadingPrimitiveMap[InPrimitiveSceneInfo->GetIndex()];
 			const bool bCanCache = !bIsPrimitiveDistanceCullFading;
 
-			for (int32 MeshIndex = 0; MeshIndex < InPrimitiveSceneInfo->StaticMeshes.Num(); MeshIndex++)
+			for (int32 MeshIndex = 0; MeshIndex < InPrimitiveSceneInfo->StaticMeshRelevances.Num(); MeshIndex++)
 			{
+				const FStaticMeshRelevance& StaticMeshRelevance = InPrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
 				const FStaticMesh& StaticMesh = InPrimitiveSceneInfo->StaticMeshes[MeshIndex];
-				if ((StaticMesh.CastShadow || (bSelfShadowOnly && StaticMesh.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMesh.LODIndex))
+
+				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
 					if (UseMeshDrawCommandPipeline())
 					{
@@ -920,6 +923,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 						{
 							AddCachedMeshDrawCommandsForPass(
 								PrimitiveId,
+								StaticMeshRelevance,
 								StaticMesh,
 								InPrimitiveSceneInfo->Scene,
 								EMeshPass::CSMShadowDepth,
@@ -931,12 +935,12 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 							SubjectMeshCommandBuildRequests.Add(&StaticMesh);
 						}
 					}
-					else if (StaticMesh.CastShadow)
+					else if (StaticMeshRelevance.CastShadow)
 					{
-						StaticMeshWholeSceneShadowDepthMap[StaticMesh.Id] = true;
+						StaticMeshWholeSceneShadowDepthMap[StaticMeshRelevance.Id] = true;
 					}
 
-					if (StaticMesh.bRequiresPerElementVisibility)
+					if (StaticMeshRelevance.bRequiresPerElementVisibility)
 					{
 						StaticMeshWholeSceneShadowBatchVisibility[StaticMesh.BatchVisibilityId] = StaticMesh.VertexFactory->GetStaticBatchElementVisibility(InCurrentView, &StaticMesh);
 					}
@@ -947,21 +951,23 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 		}
 		else
 		{
-			for (int32 MeshIndex = 0; MeshIndex < InPrimitiveSceneInfo->StaticMeshes.Num(); MeshIndex++)
+			for (int32 MeshIndex = 0; MeshIndex < InPrimitiveSceneInfo->StaticMeshRelevances.Num(); MeshIndex++)
 			{
+				const FStaticMeshRelevance& StaticMeshRelevance = InPrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
 				const FStaticMesh& StaticMesh = InPrimitiveSceneInfo->StaticMeshes[MeshIndex];
-				if ((StaticMesh.CastShadow || (bSelfShadowOnly && StaticMesh.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMesh.LODIndex))
+
+				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
 					if (UseMeshDrawCommandPipeline())
 					{
 						SubjectMeshCommandBuildRequests.Add(&StaticMesh);
 					}
-					else if (StaticMesh.CastShadow)
+					else if (StaticMeshRelevance.CastShadow)
 					{
-						InCurrentView.StaticMeshShadowDepthMap[StaticMesh.Id] = true;
+						InCurrentView.StaticMeshShadowDepthMap[StaticMeshRelevance.Id] = true;
 					}
 
-					if (StaticMesh.bRequiresPerElementVisibility)
+					if (StaticMeshRelevance.bRequiresPerElementVisibility)
 					{
 						InCurrentView.StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] = StaticMesh.VertexFactory->GetStaticBatchElementVisibility(InCurrentView, &StaticMesh);
 					}

@@ -388,7 +388,7 @@ void FStaticMesh::CacheMeshDrawCommands(FScene* Scene)
 		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands) != EMeshPassFlags::None)
 		{
 			FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
-			FCachedPassMeshDrawListContext CachedPassMeshDrawListContext(PassMeshCommandIndices[PassType], SceneDrawList, *Scene);
+			FCachedPassMeshDrawListContext CachedPassMeshDrawListContext(CachedMeshDrawCommands[PassType], SceneDrawList, *Scene);
 
 			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
 			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, nullptr, CachedPassMeshDrawListContext);
@@ -432,15 +432,14 @@ void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
 
 	FScene* Scene = PrimitiveSceneInfo->Scene;
 
-	for (int32 PassIndex = 0; PassIndex < ARRAY_COUNT(PassMeshCommandIndices); PassIndex++)
+	for (int32 PassIndex = 0; PassIndex < ARRAY_COUNT(CachedMeshDrawCommands); PassIndex++)
 	{
-		const int32 CommandIndex = PassMeshCommandIndices[PassIndex];
-		if (CommandIndex != -1)
+		const FCachedMeshDrawCommandInfo& CachedCommand = CachedMeshDrawCommands[PassIndex];
+		if (CachedCommand.CommandIndex != -1)
 		{
 			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[PassIndex];
 
-			FCachedMeshDrawCommandInfo& CachedMeshDrawCommandInfo = PassDrawList.MeshDrawCommandInfo[CommandIndex];
-			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedMeshDrawCommandInfo.StateBucketId);
+			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
 			checkSlow(StateBucketId.IsValidId());
 			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
 
@@ -453,11 +452,10 @@ void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
 				StateBucket.Num--;
 			}
 		
-			PassDrawList.MeshDrawCommandInfo.RemoveAt(CommandIndex);
-			PassDrawList.MeshDrawCommands.RemoveAt(CommandIndex);
+			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);
 		}
 
-		PassMeshCommandIndices[PassIndex] = -1;
+		CachedMeshDrawCommands[PassIndex] = FCachedMeshDrawCommandInfo();
 	}
 }
 

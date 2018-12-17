@@ -847,8 +847,8 @@ int32 FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* R
 	return DrawPrimitiveId;
 }
 
-FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(int32& InCommandIndex, FCachedPassMeshDrawList& InDrawList, FScene& InScene) :
-	CommandIndex(InCommandIndex),
+FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(FCachedMeshDrawCommandInfo& InCommandInfo, FCachedPassMeshDrawList& InDrawList, FScene& InScene) :
+	CommandInfo(InCommandInfo),
 	DrawList(InDrawList),
 	Scene(InScene)
 {}
@@ -856,12 +856,9 @@ FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(int32& InCommandI
 FMeshDrawCommand& FCachedPassMeshDrawListContext::AddCommand(const FMeshDrawCommand& Initializer)
 {
 	// Only one FMeshDrawCommand supported per FStaticMesh in a pass
-	check(CommandIndex == -1);
-	const int32 Index = DrawList.MeshDrawCommands.Add(Initializer);
-	const int32 SecondIndex = DrawList.MeshDrawCommandInfo.Add(FCachedMeshDrawCommandInfo());
-	check(Index == SecondIndex);
-	CommandIndex = Index;
-	return DrawList.MeshDrawCommands[Index];
+	check(CommandInfo.CommandIndex == -1);
+	CommandInfo.CommandIndex = DrawList.MeshDrawCommands.Add(Initializer);
+	return DrawList.MeshDrawCommands[CommandInfo.CommandIndex];
 }
 
 void FCachedPassMeshDrawListContext::FinalizeCommand(
@@ -878,8 +875,7 @@ void FCachedPassMeshDrawListContext::FinalizeCommand(
 
 	MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElement, InstanceFactor);
 
-	check(CommandIndex != -1);
-	FCachedMeshDrawCommandInfo& CachedMeshDrawCommandInfo = DrawList.MeshDrawCommandInfo[CommandIndex];
+	check(CommandInfo.CommandIndex != -1);
 
 	FSetElementId SetId = Scene.CachedMeshDrawCommandStateBuckets.FindId(MeshDrawCommand);
 
@@ -892,10 +888,10 @@ void FCachedPassMeshDrawListContext::FinalizeCommand(
 		SetId = Scene.CachedMeshDrawCommandStateBuckets.Add(FMeshDrawCommandStateBucket(1, MeshDrawCommand));
 	}
 
-	CachedMeshDrawCommandInfo.StateBucketId = SetId.AsInteger();
-	CachedMeshDrawCommandInfo.SortKey = SortKey;
-	CachedMeshDrawCommandInfo.MeshFillMode = MeshFillMode;
-	CachedMeshDrawCommandInfo.MeshCullMode = MeshCullMode;
+	CommandInfo.StateBucketId = SetId.AsInteger();
+	CommandInfo.SortKey = SortKey;
+	CommandInfo.MeshFillMode = MeshFillMode;
+	CommandInfo.MeshCullMode = MeshCullMode;
 }
 
 PassProcessorCreateFunction FPassProcessorManager::JumpTable[(int32)EShadingPath::Num][EMeshPass::Num] = {};
