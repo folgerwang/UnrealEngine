@@ -208,32 +208,32 @@ namespace UnrealBuildTool
 			this.bIsReadOnly = bIsReadOnly;
 		}
 
-		public UHTModuleInfo(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		public UHTModuleInfo(BinaryArchiveReader Reader)
 		{
 			ModuleName = Reader.ReadString();
 			ModuleRulesFile = Reader.ReadFileReference();
 			ModuleDirectory = Reader.ReadDirectoryReference();
 			ModuleType = Reader.ReadString();
-			PublicUObjectClassesHeaders = Reader.ReadFileItemList(UniqueFileItems);
-			PublicUObjectHeaders = Reader.ReadFileItemList(UniqueFileItems);
-			PrivateUObjectHeaders = Reader.ReadFileItemList(UniqueFileItems);
+			PublicUObjectClassesHeaders = Reader.ReadList(() => Reader.ReadFileItem());
+			PublicUObjectHeaders = Reader.ReadList(() => Reader.ReadFileItem());
+			PrivateUObjectHeaders = Reader.ReadList(() => Reader.ReadFileItem());
 			GeneratedCPPFilenameBase = Reader.ReadString();
-			GeneratedCodeVersion = (EGeneratedCodeVersion)Reader.ReadInt32();
-			bIsReadOnly = Reader.ReadBoolean();
+			GeneratedCodeVersion = (EGeneratedCodeVersion)Reader.ReadInt();
+			bIsReadOnly = Reader.ReadBool();
 		}
 
-		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write(ModuleName);
-			Writer.Write(ModuleRulesFile);
-			Writer.Write(ModuleDirectory);
-			Writer.Write(ModuleType);
-			Writer.Write(PublicUObjectClassesHeaders, UniqueFileItemToIndex);
-			Writer.Write(PublicUObjectHeaders, UniqueFileItemToIndex);
-			Writer.Write(PrivateUObjectHeaders, UniqueFileItemToIndex);
-			Writer.Write(GeneratedCPPFilenameBase);
-			Writer.Write((int)GeneratedCodeVersion);
-			Writer.Write(bIsReadOnly);
+			Writer.WriteString(ModuleName);
+			Writer.WriteFileReference(ModuleRulesFile);
+			Writer.WriteDirectoryReference(ModuleDirectory);
+			Writer.WriteString(ModuleType);
+			Writer.WriteList(PublicUObjectClassesHeaders, Item => Writer.WriteFileItem(Item));
+			Writer.WriteList(PublicUObjectHeaders, Item => Writer.WriteFileItem(Item));
+			Writer.WriteList(PrivateUObjectHeaders, Item => Writer.WriteFileItem(Item));
+			Writer.WriteString(GeneratedCPPFilenameBase);
+			Writer.WriteInt((int)GeneratedCodeVersion);
+			Writer.WriteBool(bIsReadOnly);
 		}
 
 		public override string ToString()
@@ -333,16 +333,16 @@ namespace UnrealBuildTool
 			this.HeaderFiles = HeaderFiles;
 		}
 
-		public UHTModuleHeaderInfo(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		public UHTModuleHeaderInfo(BinaryArchiveReader Reader)
 		{
 			SourceFolder = Reader.ReadDirectoryReference();
-			HeaderFiles = Reader.ReadFileItemList(UniqueFileItems);
+			HeaderFiles = Reader.ReadList(() => Reader.ReadFileItem());
 		}
 
-		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write(SourceFolder);
-			Writer.Write(HeaderFiles, UniqueFileItemToIndex);
+			Writer.WriteDirectoryReference(SourceFolder);
+			Writer.WriteList(HeaderFiles, Item => Writer.WriteFileItem(Item));
 		}
 	}
 

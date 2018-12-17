@@ -44,22 +44,22 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public BuildPrerequisites(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		public BuildPrerequisites(BinaryArchiveReader Reader)
 		{
-			SourceDirectories = new HashSet<DirectoryReference>(Reader.ReadArray(() => Reader.ReadDirectoryReference()));
-			WorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
-			CandidatesForWorkingSet = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
-			AdditionalDependencies = new HashSet<FileItem>(Reader.ReadFileItemList(UniqueFileItems));
-			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader, UniqueFileItems));
+			SourceDirectories = Reader.ReadHashSet(() => Reader.ReadDirectoryReference());
+			WorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
+			CandidatesForWorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
+			AdditionalDependencies = Reader.ReadHashSet(() => Reader.ReadFileItem());
+			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader));
 		}
 
-		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write(SourceDirectories.ToArray(), x => Writer.Write(x));
-			Writer.Write(WorkingSet.ToList(), UniqueFileItemToIndex);
-			Writer.Write(CandidatesForWorkingSet.ToList(), UniqueFileItemToIndex);
-			Writer.Write(AdditionalDependencies.ToList(), UniqueFileItemToIndex);
-			Writer.Write(UObjectModuleHeaders, x => x.Write(Writer, UniqueFileItemToIndex));
+			Writer.WriteHashSet(SourceDirectories, x => Writer.WriteDirectoryReference(x));
+			Writer.WriteHashSet(WorkingSet, x => Writer.WriteFileItem(x));
+			Writer.WriteHashSet(CandidatesForWorkingSet, x => Writer.WriteFileItem(x));
+			Writer.WriteHashSet(AdditionalDependencies, x => Writer.WriteFileItem(x));
+			Writer.WriteList(UObjectModuleHeaders, x => x.Write(Writer));
 		}
 	}
 }

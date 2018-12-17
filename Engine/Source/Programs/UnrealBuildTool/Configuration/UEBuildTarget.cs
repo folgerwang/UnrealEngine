@@ -597,48 +597,48 @@ namespace UnrealBuildTool
 			return bCompileMonolithic;	// @todo ubtmake: We need to make sure this function and similar things aren't called in assembler mode
 		}
 
-		public UEBuildTarget(BinaryReader Reader)
+		public UEBuildTarget(BinaryArchiveReader Reader)
 		{
-			TargetType = (TargetType)Reader.ReadInt32();
+			TargetType = (TargetType)Reader.ReadInt();
 			ProjectFile = Reader.ReadFileReference();
 			AppName = Reader.ReadString();
 			TargetName = Reader.ReadString();
-			bUseSharedBuildEnvironment = Reader.ReadBoolean();
-			Platform = (UnrealTargetPlatform)Reader.ReadInt32();
-			Configuration = (UnrealTargetConfiguration)Reader.ReadInt32();
+			bUseSharedBuildEnvironment = Reader.ReadBool();
+			Platform = (UnrealTargetPlatform)Reader.ReadInt();
+			Configuration = (UnrealTargetConfiguration)Reader.ReadInt();
 			Architecture = Reader.ReadString();
 			PlatformIntermediateFolder = Reader.ReadString();
 			ProjectDirectory = Reader.ReadDirectoryReference();
 			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
 			EngineIntermediateDirectory = Reader.ReadDirectoryReference();
-			bCompileMonolithic = Reader.ReadBoolean();
+			bCompileMonolithic = Reader.ReadBool();
 			ReceiptFileName = Reader.ReadFileReference();
 			PreBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
 			PostBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
-			bDeployAfterCompile = Reader.ReadBoolean();
-			bHasProjectScriptPlugin = Reader.ReadBoolean();
+			bDeployAfterCompile = Reader.ReadBool();
+			bHasProjectScriptPlugin = Reader.ReadBool();
 		}
 
-		public void Write(BinaryWriter Writer)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write((int)TargetType);
-			Writer.Write(ProjectFile);
-			Writer.Write(AppName);
-			Writer.Write(TargetName);
-			Writer.Write(bUseSharedBuildEnvironment);
-			Writer.Write((int)Platform);
-			Writer.Write((int)Configuration);
-			Writer.Write(Architecture);
-			Writer.Write(PlatformIntermediateFolder);
-			Writer.Write(ProjectDirectory);
-			Writer.Write(ProjectIntermediateDirectory);
-			Writer.Write(EngineIntermediateDirectory);
-			Writer.Write(bCompileMonolithic);
-			Writer.Write(ReceiptFileName);
-			Writer.Write(PreBuildStepScripts, x => Writer.Write(x));
-			Writer.Write(PostBuildStepScripts, x => Writer.Write(x));
-			Writer.Write(bDeployAfterCompile);
-			Writer.Write(bHasProjectScriptPlugin);
+			Writer.WriteInt((int)TargetType);
+			Writer.WriteFileReference(ProjectFile);
+			Writer.WriteString(AppName);
+			Writer.WriteString(TargetName);
+			Writer.WriteBool(bUseSharedBuildEnvironment);
+			Writer.WriteInt((int)Platform);
+			Writer.WriteInt((int)Configuration);
+			Writer.WriteString(Architecture);
+			Writer.WriteString(PlatformIntermediateFolder);
+			Writer.WriteDirectoryReference(ProjectDirectory);
+			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
+			Writer.WriteDirectoryReference(EngineIntermediateDirectory);
+			Writer.WriteBool(bCompileMonolithic);
+			Writer.WriteFileReference(ReceiptFileName);
+			Writer.WriteArray(PreBuildStepScripts, x => Writer.WriteFileReference(x));
+			Writer.WriteArray(PostBuildStepScripts, x => Writer.WriteFileReference(x));
+			Writer.WriteBool(bDeployAfterCompile);
+			Writer.WriteBool(bHasProjectScriptPlugin);
 		}
 
 		/// <summary>

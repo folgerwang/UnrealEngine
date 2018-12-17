@@ -162,49 +162,49 @@ namespace UnrealBuildTool
 			ActionType = InActionType;
 		}
 
-		public Action(BinaryReader Reader, List<FileItem> UniqueFileItems)
+		public Action(BinaryArchiveReader Reader)
 		{
 			ActionType = (ActionType)Reader.ReadByte();
 			WorkingDirectory = Reader.ReadString();
-			bPrintDebugInfo = Reader.ReadBoolean();
+			bPrintDebugInfo = Reader.ReadBool();
 			CommandPath = Reader.ReadString();
 			CommandArguments = Reader.ReadString();
-			CommandDescription = Reader.ReadNullable(() => Reader.ReadString());
+			CommandDescription = Reader.ReadString();
 			StatusDescription = Reader.ReadString();
-			bCanExecuteRemotely = Reader.ReadBoolean();
-			bCanExecuteRemotelyWithSNDBS = Reader.ReadBoolean();
-			bIsGCCCompiler = Reader.ReadBoolean();
-			bIsUsingPCH = Reader.ReadBoolean();
-			bShouldOutputStatusDescription = Reader.ReadBoolean();
-			bProducesImportLibrary = Reader.ReadBoolean();
-			PrerequisiteItems = Reader.ReadFileItemList(UniqueFileItems);
-			ProducedItems = Reader.ReadFileItemList(UniqueFileItems);
-			DeleteItems = Reader.ReadFileItemList(UniqueFileItems);
-			DependencyListFile = Reader.ReadFileItem(UniqueFileItems);
+			bCanExecuteRemotely = Reader.ReadBool();
+			bCanExecuteRemotelyWithSNDBS = Reader.ReadBool();
+			bIsGCCCompiler = Reader.ReadBool();
+			bIsUsingPCH = Reader.ReadBool();
+			bShouldOutputStatusDescription = Reader.ReadBool();
+			bProducesImportLibrary = Reader.ReadBool();
+			PrerequisiteItems = Reader.ReadList(() => Reader.ReadFileItem());
+			ProducedItems = Reader.ReadList(() => Reader.ReadFileItem());
+			DeleteItems = Reader.ReadList(() => Reader.ReadFileItem());
+			DependencyListFile = Reader.ReadFileItem();
 		}
 
 		/// <summary>
 		/// ISerializable: Called when serialized to report additional properties that should be saved
 		/// </summary>
-		public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write((byte)ActionType);
-			Writer.Write(WorkingDirectory);
-			Writer.Write(bPrintDebugInfo);
-			Writer.Write(CommandPath);
-			Writer.Write(CommandArguments);
-			Writer.WriteNullable(CommandDescription, () => Writer.Write(CommandDescription));
-			Writer.Write(StatusDescription);
-			Writer.Write(bCanExecuteRemotely);
-			Writer.Write(bCanExecuteRemotelyWithSNDBS);
-			Writer.Write(bIsGCCCompiler);
-			Writer.Write(bIsUsingPCH);
-			Writer.Write(bShouldOutputStatusDescription);
-			Writer.Write(bProducesImportLibrary);
-			Writer.Write(PrerequisiteItems, UniqueFileItemToIndex);
-			Writer.Write(ProducedItems, UniqueFileItemToIndex);
-			Writer.Write(DeleteItems, UniqueFileItemToIndex);
-			Writer.Write(DependencyListFile, UniqueFileItemToIndex);
+			Writer.WriteByte((byte)ActionType);
+			Writer.WriteString(WorkingDirectory);
+			Writer.WriteBool(bPrintDebugInfo);
+			Writer.WriteString(CommandPath);
+			Writer.WriteString(CommandArguments);
+			Writer.WriteString(CommandDescription);
+			Writer.WriteString(StatusDescription);
+			Writer.WriteBool(bCanExecuteRemotely);
+			Writer.WriteBool(bCanExecuteRemotelyWithSNDBS);
+			Writer.WriteBool(bIsGCCCompiler);
+			Writer.WriteBool(bIsUsingPCH);
+			Writer.WriteBool(bShouldOutputStatusDescription);
+			Writer.WriteBool(bProducesImportLibrary);
+			Writer.WriteList(PrerequisiteItems, Item => Writer.WriteFileItem(Item));
+			Writer.WriteList(ProducedItems, Item => Writer.WriteFileItem(Item));
+			Writer.WriteList(DeleteItems, Item => Writer.WriteFileItem(Item));
+			Writer.WriteFileItem(DependencyListFile);
 		}
 
 		/// <summary>

@@ -72,63 +72,38 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public UBTMakefile(BinaryReader Reader)
+		public UBTMakefile(BinaryArchiveReader Reader)
 		{
-			int Version = Reader.ReadInt32();
+			int Version = Reader.ReadInt();
 			if(Version != CurrentVersion)
 			{
 				throw new Exception(string.Format("Makefile version does not match - found {0}, expected: {1}", Version, CurrentVersion));
 			}
 
-			long Offset = Reader.ReadInt64();
-			long OriginalOffset = Reader.BaseStream.Position;
-
-			Reader.BaseStream.Seek(Offset, SeekOrigin.Begin);
-			List<FileReference> UniqueFileReferences = Reader.ReadList(() => Reader.ReadFileReference());
-			List<FileItem> UniqueFileItems = UniqueFileReferences.Select(x => FileItem.GetItemByFileReference(x)).ToList();
-			Reader.BaseStream.Seek(OriginalOffset, SeekOrigin.Begin);
-
-			AllActions = Reader.ReadList(() => new Action(Reader, UniqueFileItems));
+			AllActions = Reader.ReadList(() => new Action(Reader));
 			EnvironmentVariables = Reader.ReadList(() => Tuple.Create(Reader.ReadString(), Reader.ReadString()));
-			TargetNameToUObjectModules = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadList(() => new UHTModuleInfo(Reader, UniqueFileItems)));
-			OutputItemsForAllTargets = Reader.ReadFileItemList(UniqueFileItems);
-			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem(UniqueFileItems)));
-			HotReloadModuleNamesForAllTargets = new HashSet<string>(Reader.ReadStringArray());
+			TargetNameToUObjectModules = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadList(() => new UHTModuleInfo(Reader)));
+			OutputItemsForAllTargets = Reader.ReadList(() => Reader.ReadFileItem());
+			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem()));
+			HotReloadModuleNamesForAllTargets = Reader.ReadHashSet(() => Reader.ReadString());
 			Targets = Reader.ReadList(() => new UEBuildTarget(Reader));
-			TargetPrerequisites = Reader.ReadList(() => new BuildPrerequisites(Reader, UniqueFileItems));
-			bUseAdaptiveUnityBuild = Reader.ReadBoolean();
+			TargetPrerequisites = Reader.ReadList(() => new BuildPrerequisites(Reader));
+			bUseAdaptiveUnityBuild = Reader.ReadBool();
 		}
 
-
-		public void Write(BinaryWriter Writer)
+		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.Write(CurrentVersion);
+			Writer.WriteInt(CurrentVersion);
 
-			long Offset = Writer.BaseStream.Position;
-			Writer.Write((Int64)0);
-			Dictionary<FileItem, int> UniqueFileItemToIndex = new Dictionary<FileItem, int>();
-
-			Writer.Write(AllActions, x => x.Write(Writer, UniqueFileItemToIndex));
-			Writer.Write(EnvironmentVariables, x => { Writer.Write(x.Item1); Writer.Write(x.Item2); });
-			Writer.Write(TargetNameToUObjectModules, x => Writer.Write(x), v => Writer.Write(v, e => e.Write(Writer, UniqueFileItemToIndex)));
-			Writer.Write(OutputItemsForAllTargets, UniqueFileItemToIndex);
-			Writer.Write(ModuleNameToOutputItems, k => Writer.Write(k), v => Writer.Write(v, e => Writer.Write(e, UniqueFileItemToIndex)));
-			Writer.Write(HotReloadModuleNamesForAllTargets.ToArray(), x => Writer.Write(x));
-			Writer.Write(Targets, x => x.Write(Writer));
-			Writer.Write(TargetPrerequisites, x => x.Write(Writer, UniqueFileItemToIndex));
-			Writer.Write(bUseAdaptiveUnityBuild);
-			Writer.Flush();
-
-			long FileItemTableOffset = Writer.BaseStream.Position;
-			FileReference[] UniqueFileReferences = new FileReference[UniqueFileItemToIndex.Count];
-			foreach(KeyValuePair<FileItem, int> Pair in UniqueFileItemToIndex)
-			{
-				UniqueFileReferences[Pair.Value] = Pair.Key.Location;
-			}
-			Writer.Write(UniqueFileReferences, x => Writer.Write(x));
-
-			Writer.BaseStream.Seek(Offset, SeekOrigin.Begin);
-			Writer.Write(FileItemTableOffset);
+			Writer.WriteList(AllActions, Action => Action.Write(Writer));
+			Writer.WriteList(EnvironmentVariables, x => { Writer.WriteString(x.Item1); Writer.WriteString(x.Item2); });
+			Writer.WriteDictionary(TargetNameToUObjectModules, x => Writer.WriteString(x), v => Writer.WriteList(v, e => e.Write(Writer)));
+			Writer.WriteList(OutputItemsForAllTargets, Item => Writer.WriteFileItem(Item));
+			Writer.WriteDictionary(ModuleNameToOutputItems, k => Writer.WriteString(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
+			Writer.WriteHashSet(HotReloadModuleNamesForAllTargets, x => Writer.WriteString(x));
+			Writer.WriteList(Targets, x => x.Write(Writer));
+			Writer.WriteList(TargetPrerequisites, x => x.Write(Writer));
+			Writer.WriteBool(bUseAdaptiveUnityBuild);
 			Writer.Flush();
 		}
 
@@ -169,12 +144,9 @@ namespace UnrealBuildTool
 			try
 			{
 				Directory.CreateDirectory(Path.GetDirectoryName(UBTMakefileItem.AbsolutePath));
-				using (FileStream Stream = new FileStream(UBTMakefileItem.AbsolutePath, FileMode.Create, FileAccess.Write))
+				using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(UBTMakefileItem.Location))
 				{
-					using(BinaryWriter Writer = new BinaryWriter(Stream, Encoding.UTF8, true))
-					{
-						UBTMakefile.Write(Writer);
-					}
+					UBTMakefile.Write(Writer);
 				}
 			}
 			catch (Exception Ex)
@@ -284,155 +256,156 @@ namespace UnrealBuildTool
 				}
 			}
 
-			UBTMakefile LoadedUBTMakefile = null;
-
-			try
+			UBTMakefile LoadedUBTMakefile;
+			using(Timeline.ScopeEvent("Loading makefile"))
 			{
-				using(Timeline.ScopeEvent("Loading makefile"))
+				try
 				{
-					using (FileStream Stream = new FileStream(UBTMakefileInfo.FullName, FileMode.Open, FileAccess.Read))
+					using(BinaryArchiveReader Reader = new BinaryArchiveReader(new FileReference(UBTMakefileInfo)))
 					{
-						BinaryReader Reader = new BinaryReader(Stream);
 						LoadedUBTMakefile = new UBTMakefile(Reader);
 					}
 				}
-			}
-			catch (Exception Ex)
-			{
-				Log.TraceWarning("Failed to read makefile: {0}", Ex.Message);
-				Log.TraceLog("Exception: {0}", Ex.ToString());
-				ReasonNotLoaded = "couldn't read existing makefile";
-				return null;
-			}
-
-			if (!LoadedUBTMakefile.IsValidMakefile())
-			{
-				Log.TraceWarning("Loaded makefile appears to have invalid contents, ignoring it ({0})", UBTMakefileInfo.FullName);
-				ReasonNotLoaded = "existing makefile appears to be invalid";
-				return null;
-			}
-
-			// Check if any of the target's Build.cs files are newer than the makefile
-			foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
-			{
-				// Check if ini files are newer. Ini files contain build settings too.
-				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
-				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
+				catch (Exception Ex)
 				{
-					foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Target.Platform))
+					Log.TraceWarning("Failed to read makefile: {0}", Ex.Message);
+					Log.TraceLog("Exception: {0}", Ex.ToString());
+					ReasonNotLoaded = "couldn't read existing makefile";
+					return null;
+				}
+			}
+
+			using(Timeline.ScopeEvent("Checking makefile validity"))
+			{
+				if (!LoadedUBTMakefile.IsValidMakefile())
+				{
+					Log.TraceWarning("Loaded makefile appears to have invalid contents, ignoring it ({0})", UBTMakefileInfo.FullName);
+					ReasonNotLoaded = "existing makefile appears to be invalid";
+					return null;
+				}
+
+				// Check if any of the target's Build.cs files are newer than the makefile
+				foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
+				{
+					// Check if ini files are newer. Ini files contain build settings too.
+					DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
+					foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
 					{
-						FileInfo IniFileInfo = new FileInfo(IniFilename.FullName);
-						if (UBTMakefileInfo.LastWriteTime.CompareTo(IniFileInfo.LastWriteTime) < 0)
+						foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Target.Platform))
 						{
-							// Ini files are newer than UBTMakefile
-							ReasonNotLoaded = "ini files are newer than UBTMakefile";
-							return null;
+							FileInfo IniFileInfo = new FileInfo(IniFilename.FullName);
+							if (UBTMakefileInfo.LastWriteTime.CompareTo(IniFileInfo.LastWriteTime) < 0)
+							{
+								// Ini files are newer than UBTMakefile
+								ReasonNotLoaded = "ini files are newer than UBTMakefile";
+								return null;
+							}
 						}
 					}
 				}
-			}
 
-			foreach (BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
-			{
-				foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
+				foreach (BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
 				{
-					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
-					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
+					foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
 					{
-						Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
-						ReasonNotLoaded = "source directory changed";
-						return null;
-					}
-				}
-
-				foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
-				{
-					if (!AdditionalDependency.Exists)
-					{
-						Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
-						ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
-						return null;
-					}
-					if(AdditionalDependency.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTime)
-					{
-						Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
-						ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
-						return null;
-					}
-				}
-
-				// We do a check to see if any modules' headers have changed which have
-				// acquired or lost UHT types.  If so, which should be rare,
-				// we'll just invalidate the entire makefile and force it to be rebuilt.
-
-				// Get all H files in processed modules newer than the makefile itself
-				HashSet<FileReference> HFilesNewerThanMakefile =
-					new HashSet<FileReference>(
-						Prerequisites.UObjectModuleHeaders
-						.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
-						.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
-						.OrderBy(z => z).Distinct()
-					);
-
-				// Get all H files in all modules processed in the last makefile build
-				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
-
-				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
-				// and the file has been moved to a different module, we may include stale generated headers.
-				foreach (FileReference FileName in AllUHTHeaders)
-				{
-					if (!FileReference.Exists(FileName))
-					{
-						Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
-						ReasonNotLoaded = string.Format("UHT file was deleted");
-						return null;
-					}
-				}
-
-				// Makefile is invalid if:
-				// * There are any newer files which contain no UHT data, but were previously in the makefile
-				// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
-				foreach (FileReference Filename in HFilesNewerThanMakefile)
-				{
-					bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
-					bool bWasProcessed = AllUHTHeaders.Contains(Filename);
-					if (bContainsUHTData != bWasProcessed)
-					{
-						Log.TraceLog("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
-						ReasonNotLoaded = string.Format("new files with reflected types");
-						return null;
-					}
-				}
-			}
-
-			// If adaptive unity build is enabled, do a check to see if there are any source files that became part of the
-			// working set since the Makefile was created (or, source files were removed from the working set.)  If anything
-			// changed, then we'll force a new Makefile to be created so that we have fresh unity build blobs.  We always
-			// want to make sure that source files in the working set are excluded from those unity blobs (for fastest possible
-			// iteration times.)
-			if (LoadedUBTMakefile.bUseAdaptiveUnityBuild)
-			{
-				foreach(BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
-				{
-					// Check if any source files in the working set no longer belong in it
-					foreach (FileItem SourceFile in Prerequisites.WorkingSet)
-					{
-						if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+						DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
+						if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
 						{
-							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("working set of source files changed");
+							Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
+							ReasonNotLoaded = "source directory changed";
 							return null;
 						}
 					}
 
-					// Check if any source files that are eligible for being in the working set have been modified
-					foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
+					foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
 					{
-						if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+						if (!AdditionalDependency.Exists)
 						{
-							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("working set of source files changed");
+							Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
+							ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
 							return null;
+						}
+						if(AdditionalDependency.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTime)
+						{
+							Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
+							ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
+							return null;
+						}
+					}
+
+					// We do a check to see if any modules' headers have changed which have
+					// acquired or lost UHT types.  If so, which should be rare,
+					// we'll just invalidate the entire makefile and force it to be rebuilt.
+
+					// Get all H files in processed modules newer than the makefile itself
+					HashSet<FileReference> HFilesNewerThanMakefile =
+						new HashSet<FileReference>(
+							Prerequisites.UObjectModuleHeaders
+							.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
+							.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
+							.OrderBy(z => z).Distinct()
+						);
+
+					// Get all H files in all modules processed in the last makefile build
+					HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
+
+					// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
+					// and the file has been moved to a different module, we may include stale generated headers.
+					foreach (FileReference FileName in AllUHTHeaders)
+					{
+						if (!FileReference.Exists(FileName))
+						{
+							Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
+							ReasonNotLoaded = string.Format("UHT file was deleted");
+							return null;
+						}
+					}
+
+					// Makefile is invalid if:
+					// * There are any newer files which contain no UHT data, but were previously in the makefile
+					// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
+					foreach (FileReference Filename in HFilesNewerThanMakefile)
+					{
+						bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
+						bool bWasProcessed = AllUHTHeaders.Contains(Filename);
+						if (bContainsUHTData != bWasProcessed)
+						{
+							Log.TraceLog("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
+							ReasonNotLoaded = string.Format("new files with reflected types");
+							return null;
+						}
+					}
+				}
+
+				// If adaptive unity build is enabled, do a check to see if there are any source files that became part of the
+				// working set since the Makefile was created (or, source files were removed from the working set.)  If anything
+				// changed, then we'll force a new Makefile to be created so that we have fresh unity build blobs.  We always
+				// want to make sure that source files in the working set are excluded from those unity blobs (for fastest possible
+				// iteration times.)
+				if (LoadedUBTMakefile.bUseAdaptiveUnityBuild)
+				{
+					foreach(BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
+					{
+						// Check if any source files in the working set no longer belong in it
+						foreach (FileItem SourceFile in Prerequisites.WorkingSet)
+						{
+							if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+							{
+								Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+								ReasonNotLoaded = string.Format("working set of source files changed");
+								return null;
+							}
+						}
+
+						// Check if any source files that are eligible for being in the working set have been modified
+						foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
+						{
+							if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+							{
+								Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+								ReasonNotLoaded = string.Format("working set of source files changed");
+								return null;
+							}
 						}
 					}
 				}

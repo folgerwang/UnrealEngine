@@ -31,18 +31,25 @@ namespace UnrealBuildTool
 				this.Files = Files;
 			}
 
-			public DependencyInfo(BinaryReader Reader, List<FileItem> UniqueFileItems)
+			public static DependencyInfo Read(BinaryArchiveReader Reader)
 			{
-				LastWriteTimeUtc = Reader.ReadInt64();
-				Files = Reader.ReadFileItemList(UniqueFileItems);
+				long LastWriteTimeUtc = Reader.ReadLong();
+				List<FileItem> Files = Reader.ReadList(() => Reader.ReadFileItem());
+
+				return new DependencyInfo(LastWriteTimeUtc, Files);
 			}
 
-			public void Write(BinaryWriter Writer, Dictionary<FileItem, int> UniqueFileItemToIndex)
+			public void Write(BinaryArchiveWriter Writer)
 			{
-				Writer.Write(LastWriteTimeUtc);
-				Writer.Write(Files, UniqueFileItemToIndex);
+				Writer.WriteLong(LastWriteTimeUtc);
+				Writer.WriteList<FileItem>(Files, File => Writer.WriteFileItem(File));
 			}
 		}
+
+		/// <summary>
+		/// The current file version
+		/// </summary>
+		public const int CurrentVersion = 1;
 
 		/// <summary>
 		/// Location of this dependency cache
@@ -218,22 +225,21 @@ namespace UnrealBuildTool
 		{
 			using(FileStream Stream = File.Open(Location.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
 			{
-				BinaryReader Reader = new BinaryReader(Stream);
-
-				long Offset = Reader.ReadInt64();
-				long OriginalOffset = Reader.BaseStream.Position;
-
-				Reader.BaseStream.Seek(Offset, SeekOrigin.Begin);
-				List<FileReference> UniqueFileReferences = Reader.ReadList(() => Reader.ReadFileReference());
-				List<FileItem> UniqueFileItems = UniqueFileReferences.Select(x => FileItem.GetItemByFileReference(x)).ToList();
-				Reader.BaseStream.Seek(OriginalOffset, SeekOrigin.Begin);
-
-				int Count = Reader.ReadInt32();
-				for(int Idx = 0; Idx < Count; Idx++)
+				using(BinaryArchiveReader Reader = new BinaryArchiveReader(Stream))
 				{
-					FileItem File = Reader.ReadFileItem(UniqueFileItems);
-					DependencyInfo Info = new DependencyInfo(Reader, UniqueFileItems);
-					DependencyFileToInfo[File] = Info;
+					int Version = Reader.ReadInt();
+					if(Version != CurrentVersion)
+					{
+						Log.TraceLog("Unable to read dependency cache from {0}; version {1} vs current {2}", Location, Version, CurrentVersion);
+						return;
+					}
+
+					int Count = Reader.ReadInt();
+					for(int Idx = 0; Idx < Count; Idx++)
+					{
+						FileItem File = Reader.ReadFileItem();
+						DependencyFileToInfo[File] = DependencyInfo.Read(Reader);
+					}
 				}
 			}
 		}
@@ -246,30 +252,17 @@ namespace UnrealBuildTool
 			DirectoryReference.CreateDirectory(Location.Directory);
 			using(FileStream Stream = File.Open(Location.FullName, FileMode.Create, FileAccess.Write, FileShare.Read))
 			{
-				BinaryWriter Writer = new BinaryWriter(Stream);
-
-				long Offset = Writer.BaseStream.Position;
-				Writer.Write((Int64)0);
-				Dictionary<FileItem, int> UniqueFileItemToIndex = new Dictionary<FileItem, int>();
-
-				Writer.Write(DependencyFileToInfo.Count);
-				foreach(KeyValuePair<FileItem, DependencyInfo> Pair in DependencyFileToInfo)
+				using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Stream))
 				{
-					Writer.Write(Pair.Key, UniqueFileItemToIndex);
-					Pair.Value.Write(Writer, UniqueFileItemToIndex);
-				}
+					Writer.WriteInt(CurrentVersion);
 
-				long FileItemTableOffset = Writer.BaseStream.Position;
-				FileReference[] UniqueFileReferences = new FileReference[UniqueFileItemToIndex.Count];
-				foreach(KeyValuePair<FileItem, int> Pair in UniqueFileItemToIndex)
-				{
-					UniqueFileReferences[Pair.Value] = Pair.Key.Location;
+					Writer.WriteInt(DependencyFileToInfo.Count);
+					foreach(KeyValuePair<FileItem, DependencyInfo> Pair in DependencyFileToInfo)
+					{
+						Writer.WriteFileItem(Pair.Key);
+						Pair.Value.Write(Writer);
+					}
 				}
-				Writer.Write(UniqueFileReferences, x => Writer.Write(x));
-
-				Writer.BaseStream.Seek(Offset, SeekOrigin.Begin);
-				Writer.Write(FileItemTableOffset);
-				Writer.Flush();
 			}
 			bModified = false;
 		}
