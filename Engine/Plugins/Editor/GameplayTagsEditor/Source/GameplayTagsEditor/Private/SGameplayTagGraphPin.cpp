@@ -5,6 +5,7 @@
 #include "K2Node_CallFunction.h"
 #include "GameplayTagsModule.h"
 #include "Widgets/Layout/SScaleBox.h"
+#include "K2Node_VariableSet.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagGraphPin"
 
@@ -48,7 +49,7 @@ void SGameplayTagGraphPin::ParseDefaultValueData()
 	FilterString.Empty();
 	if (UScriptStruct* PinStructType = Cast<UScriptStruct>(GraphPinObj->PinType.PinSubCategoryObject.Get()))
 	{
-		FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromStruct(PinStructType);
+		FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromField(PinStructType);
 	}
 
 	if (FilterString.IsEmpty())
@@ -59,6 +60,10 @@ void SGameplayTagGraphPin::ParseDefaultValueData()
 			{
 				FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromFunction(ThisFunction);
 			}
+		}
+		else if (UK2Node_VariableSet* ThisVariable = Cast<UK2Node_VariableSet>(GraphPinObj->GetOwningNode()))
+		{
+			FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromField(ThisVariable->GetPropertyForVariable());
 		}
 	}
 

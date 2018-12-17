@@ -1118,12 +1118,12 @@ void UGameplayTagsManager::GetFilteredGameplayRootTags(const FString& InFilterSt
 	}
 }
 
-FString UGameplayTagsManager::GetCategoriesMetaFromStruct(UScriptStruct* Struct) const
+FString UGameplayTagsManager::GetCategoriesMetaFromField(UField* Field) const
 {
-	check(Struct);
-	if (Struct->HasMetaData(NAME_Categories))
+	check(Field);
+	if (Field->HasMetaData(NAME_Categories))
 	{
-		return Struct->GetMetaData(NAME_Categories);
+		return Field->GetMetaData(NAME_Categories);
 	}
 	return FString();
 }
