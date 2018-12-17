@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 SCRIPT_DIR=$(cd "$(dirname "$BASH_SOURCE")" ; pwd)
 TOP_DIR=$(cd "$SCRIPT_DIR/../../.." ; pwd)

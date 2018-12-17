@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Adapted from 
 // * https://blog.risingstack.com/node-hero-node-js-authentication-passport-js/
 // * https://github.com/RisingStack/nodehero-authentication/tree/master/app

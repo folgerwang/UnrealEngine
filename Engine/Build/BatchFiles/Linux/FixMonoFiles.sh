@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 function try_symlink_dir {
 	if [ -d $(dirname $2)/$1 ]; then

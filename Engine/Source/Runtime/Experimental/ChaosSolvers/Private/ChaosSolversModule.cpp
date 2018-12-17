@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "ChaosSolversModule.h"
+#include "CoreMinimal.h"
 
 #if INCLUDE_CHAOS
 
-#include "ChaosSolversModule.h"
 #include "ChaosStats.h"
-#include "CoreMinimal.h"
 #include "ChaosLog.h"
 #include "HAL/PlatformProcess.h"
 #include "Framework/PersistentTask.h"
@@ -301,5 +302,10 @@ bool FChaosScopedPhysicsThreadLock::DidGetLock() const
 }
 
 IMPLEMENT_MODULE(FChaosSolversModule, ChaosSolvers);
+
+#else
+
+// Workaround for module not having any exported symbols
+CHAOSSOLVERS_API int ChaosSolversExportedSymbol = 0;
 
 #endif

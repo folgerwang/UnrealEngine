@@ -1,3 +1,4 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OvrAvatarManager.h"
 #include "OvrAvatar.h"

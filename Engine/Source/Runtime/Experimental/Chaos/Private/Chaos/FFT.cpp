@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Parts of this file are adapted from PhysBAM under Copyright http://physbam.stanford.edu/links/backhistdisclaimcopy.html
 #include "Chaos/FFT.h"
 

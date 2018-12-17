@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## Unreal Engine 4 Container Build script for Third Party Libs
-## Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 ## This script is expecting to exist in the UE4/Engine/Build/BatchFiles/Linux directory.  It will not work correctly
 ## if you copy it to a different location and run it.

@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #include "GeometryCollectionExampleCore/Resource/FracturedGeometry.h"
 #include "Chaos/Box.h"
 #include "Math/RandomStream.h"
