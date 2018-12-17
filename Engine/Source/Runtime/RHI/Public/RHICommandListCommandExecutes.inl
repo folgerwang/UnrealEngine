@@ -51,10 +51,7 @@ struct FRHICommandEndRenderQuery;
 struct FRHICommandEndScene;
 struct FRHICommandFlushComputeShaderCache;
 struct FRHICommandSetBlendFactor;
-struct FRHICommandSetBlendState;
 struct FRHICommandSetBoundShaderState;
-struct FRHICommandSetDepthStencilState;
-struct FRHICommandSetLocalBoundShaderState;
 struct FRHICommandSetLocalGraphicsPipelineState;
 struct FRHICommandSetRasterizerState;
 struct FRHICommandSetRenderTargets;
@@ -92,18 +89,6 @@ void FRHICommandEndUpdateMultiFrameUAV::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EndUpdateMultiFrameUAV);
 	INTERNAL_DECORATOR(RHIEndUpdateMultiFrameResource)(UAV);
-}
-
-void FRHICommandSetRasterizerState::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(SetRasterizerState);
-	INTERNAL_DECORATOR(RHISetRasterizerState)(State);
-}
-
-void FRHICommandSetDepthStencilState::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(SetDepthStencilState);
-	INTERNAL_DECORATOR(RHISetDepthStencilState)(State, StencilRef);
 }
 
 void FRHICommandSetStencilRef::Execute(FRHICommandListBase& CmdList)
@@ -236,12 +221,6 @@ void FRHICommandSetBoundShaderState::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetBoundShaderState);
 	INTERNAL_DECORATOR(RHISetBoundShaderState)(BoundShaderState);
-}
-
-void FRHICommandSetBlendState::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(SetBlendState);
-	INTERNAL_DECORATOR(RHISetBlendState)(State, BlendFactor);
 }
 
 void FRHICommandSetBlendFactor::Execute(FRHICommandListBase& CmdList)
@@ -500,31 +479,6 @@ void FRHICommandEnqueueStagedRead<CmdListType>::Execute(FRHICommandListBase& Cmd
 }
 template struct FRHICommandEnqueueStagedRead<ECmdList::EGfx>;
 template struct FRHICommandEnqueueStagedRead<ECmdList::ECompute>;
-
-void FRHICommandBuildLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
-{
-	LLM_SCOPE(ELLMTag::Shaders);
-	RHISTAT(BuildLocalGraphicsPipelineState);
-	check(!IsValidRef(WorkArea.ComputedGraphicsPipelineState->GraphicsPipelineState));
-	if (WorkArea.ComputedGraphicsPipelineState->UseCount)
-	{
-		WorkArea.ComputedGraphicsPipelineState->GraphicsPipelineState =
-			RHICreateGraphicsPipelineState(WorkArea.Args);
-	}
-}
-
-void FRHICommandSetLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(SetLocalGraphicsPipelineState);
-	check(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->UseCount > 0 && IsValidRef(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->GraphicsPipelineState)); // this should have been created and should have uses outstanding
-
-	INTERNAL_DECORATOR(RHISetGraphicsPipelineState)(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->GraphicsPipelineState);
-
-	if (--LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->UseCount == 0)
-	{
-		LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->~FComputedGraphicsPipelineState();
-	}
-}
 
 void FRHICommandBuildLocalUniformBuffer::Execute(FRHICommandListBase& CmdList)
 {
