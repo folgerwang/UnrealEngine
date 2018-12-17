@@ -1518,7 +1518,7 @@ void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
 	{
 		bDraw = MeshBatch.bUseAsOccluder || EarlyZPassMode == DDM_AllOpaque;
 
-		if (EarlyZPassMode < DDM_AllOpaque)
+		if (EarlyZPassMode < DDM_AllOpaque && PrimitiveSceneProxy)
 		{
 			// Only render primitives marked as occluders.
 			bDraw = bDraw && PrimitiveSceneProxy->ShouldUseAsOccluder()
