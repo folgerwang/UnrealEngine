@@ -59,12 +59,19 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	 * Gets the FGameplayTag that corresponds to the TagName
 	 *
 	 * @param TagName The Name of the tag to search for
-	 * 
 	 * @param ErrorIfNotfound: ensure() that tag exists.
-	 * 
 	 * @return Will return the corresponding FGameplayTag or an empty one if not found.
 	 */
 	static FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true);
+
+	/** 
+	 * Returns true if this is a valid gameplay tag string (foo.bar.baz). If false, it will fill 
+	 * @param TagString String to check for validity
+	 * @param OutError If non-null and string invalid, will fill in with an error message
+	 * @param OutFixedString If non-null and string invalid, will attempt to fix. Will be empty if no fix is possible
+	 * @return True if this can be added to the tag dictionary, false if there's a syntax error
+	 */
+	static bool IsValidGameplayTagString(const FString& TagString, FText* OutError = nullptr, FString* OutFixedString = nullptr);
 
 	/** Operators */
 	FORCEINLINE bool operator==(FGameplayTag const& Other) const
