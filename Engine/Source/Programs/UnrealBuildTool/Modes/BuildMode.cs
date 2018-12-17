@@ -226,9 +226,9 @@ namespace UnrealBuildTool
 				// Create the working set provider
 				using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 				{
-					UBTMakefile Makefile = null;
+					TargetMakefile Makefile = null;
 					{
-						FileReference UBTMakefilePath = UBTMakefile.GetUBTMakefilePath(TargetDescs);
+						FileReference UBTMakefilePath = TargetMakefile.GetUBTMakefilePath(TargetDescs);
 
 						// Make sure the gather phase is executed if we're not actually building anything
 						if (BuildConfiguration.bGenerateManifest || BuildConfiguration.bXGEExport || GeneratingActionGraph)
@@ -247,7 +247,7 @@ namespace UnrealBuildTool
 							string ReasonNotLoaded;
 							using(Timeline.ScopeEvent("UBTMakefile.LoadUBTMakefile"))
 							{
-								Makefile = UBTMakefile.Load(UBTMakefilePath, TargetDescs[0].ProjectFile, WorkingSet, out ReasonNotLoaded);
+								Makefile = TargetMakefile.Load(UBTMakefilePath, TargetDescs[0].ProjectFile, WorkingSet, out ReasonNotLoaded);
 							}
 
 							if (Makefile == null)
@@ -369,7 +369,7 @@ namespace UnrealBuildTool
 						{
 							ActionGraph.FinalizeActionGraph();
 
-							Makefile = new UBTMakefile();
+							Makefile = new TargetMakefile();
 							Makefile.AllActions = ActionGraph.AllActions;
 							Makefile.OutputItemsForAllTargets = OutputItemsForAllTargets;
 							foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
@@ -391,7 +391,7 @@ namespace UnrealBuildTool
 								// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
 								using(Timeline.ScopeEvent("UBTMakefile.SaveUBTMakefile()"))
 								{
-									UBTMakefile.SaveUBTMakefile(TargetDescs, Makefile);
+									TargetMakefile.SaveUBTMakefile(TargetDescs, Makefile);
 								}
 							}
 						}
@@ -813,7 +813,7 @@ namespace UnrealBuildTool
 		private static void InvalidateMakefiles(TargetDescriptor Target)
 		{
 			string[] MakefileNames = new string[] { "HotReloadMakefile.ubt", "Makefile.ubt" };
-			DirectoryReference BaseDir = UBTMakefile.GetUBTMakefileDirectoryPathForSingleTarget(Target);
+			DirectoryReference BaseDir = TargetMakefile.GetUBTMakefileDirectoryPathForSingleTarget(Target);
 
 			foreach (string MakefileName in MakefileNames)
 			{

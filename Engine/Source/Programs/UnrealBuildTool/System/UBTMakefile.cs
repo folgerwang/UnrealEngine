@@ -15,7 +15,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// A special Makefile that UBT is able to create in "-gather" mode, then load in "-assemble" mode to accelerate iterative compiling and linking
 	/// </summary>
-	class UBTMakefile
+	class TargetMakefile
 	{
 		/// <summary>
 		/// The version number to write
@@ -68,11 +68,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		public List<BuildPrerequisites> TargetPrerequisites;
 
-		public UBTMakefile()
+		public TargetMakefile()
 		{
 		}
 
-		public UBTMakefile(BinaryArchiveReader Reader)
+		public TargetMakefile(BinaryArchiveReader Reader)
 		{
 			int Version = Reader.ReadInt();
 			if(Version != CurrentVersion)
@@ -128,7 +128,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="TargetDescs">List of targets.  Order is not important</param>
 		/// <param name="UBTMakefile">The UBT makefile</param>
-		public static void SaveUBTMakefile(List<TargetDescriptor> TargetDescs, UBTMakefile UBTMakefile)
+		public static void SaveUBTMakefile(List<TargetDescriptor> TargetDescs, TargetMakefile UBTMakefile)
 		{
 			if (!UBTMakefile.IsValidMakefile())
 			{
@@ -164,7 +164,7 @@ namespace UnrealBuildTool
 		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <param name="WorkingSet">Interface to query which source files are in the working set</param>
 		/// <returns>The loaded makefile, or null if it failed for some reason.  On failure, the 'ReasonNotLoaded' variable will contain information about why</returns>
-		public static UBTMakefile Load(FileReference MakefilePath, FileReference ProjectFile, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
+		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
 		{
 			// Check the directory timestamp on the project files directory.  If the user has generated project files more
 			// recently than the UBTMakefile, then we need to consider the file to be out of date
@@ -256,14 +256,14 @@ namespace UnrealBuildTool
 				}
 			}
 
-			UBTMakefile LoadedUBTMakefile;
+			TargetMakefile LoadedUBTMakefile;
 			using(Timeline.ScopeEvent("Loading makefile"))
 			{
 				try
 				{
 					using(BinaryArchiveReader Reader = new BinaryArchiveReader(new FileReference(UBTMakefileInfo)))
 					{
-						LoadedUBTMakefile = new UBTMakefile(Reader);
+						LoadedUBTMakefile = new TargetMakefile(Reader);
 					}
 				}
 				catch (Exception Ex)

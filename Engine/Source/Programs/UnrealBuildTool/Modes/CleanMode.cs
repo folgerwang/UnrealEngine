@@ -128,8 +128,8 @@ namespace UnrealBuildTool
 
 				// Add all the makefiles and caches to be deleted
 				FilesToDelete.Add(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.Name));
-				FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(Target.ProjectFile, Target.Platform, Target.Configuration, Target.Name, false));
-				FilesToDelete.Add(UBTMakefile.GetUBTMakefilePath(Target.ProjectFile, Target.Platform, Target.Configuration, Target.Name, true));
+				FilesToDelete.Add(TargetMakefile.GetUBTMakefilePath(Target.ProjectFile, Target.Platform, Target.Configuration, Target.Name, false));
+				FilesToDelete.Add(TargetMakefile.GetUBTMakefilePath(Target.ProjectFile, Target.Platform, Target.Configuration, Target.Name, true));
 				FilesToDelete.Add(ActionHistory.GeneratePathForTarget(Target.ProjectFile, Target.Name, Target.Platform, Target.Architecture, (Target.BuildEnvironment == TargetBuildEnvironment.Shared)));
 
 				// Add all the intermediate folders to be deleted
