@@ -3532,6 +3532,11 @@ void FHeaderParser::GetVarType(
 
 				case EVariableSpecifier::BlueprintAssignable:
 				{
+					if (OwnerStruct->IsA<UScriptStruct>())
+					{
+						UE_LOG_ERROR_UHT(TEXT("Cannot specify BlueprintAssignable for a struct member."))
+					}
+
 					Flags |= CPF_BlueprintAssignable;
 				}
 				break;
