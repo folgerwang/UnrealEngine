@@ -604,5 +604,40 @@ namespace Tools.DotNETCommon
 				return Result;
 			}
 		}
+
+		/// <summary>
+		/// Writes a FileReference to a binary archive
+		/// </summary>
+		/// <param name="Writer">The writer to output data to</param>
+		/// <param name="File">The file reference to write</param>
+		public static void WriteFileReference(this BinaryArchiveWriter Writer, FileReference File)
+		{
+			if(File == null)
+			{
+				Writer.WriteString(null);
+			}
+			else
+			{
+				Writer.WriteString(File.FullName);
+			}
+		}
+
+		/// <summary>
+		/// Reads a FileReference from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>New file reference instance</returns>
+		public static FileReference ReadFileReference(this BinaryArchiveReader Reader)
+		{
+			string FullName = Reader.ReadString();
+			if(FullName == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new FileReference(FullName, FileReference.Sanitize.None);
+			}
+		}
 	}
 }

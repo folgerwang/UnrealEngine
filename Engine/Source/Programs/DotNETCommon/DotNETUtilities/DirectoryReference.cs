@@ -428,5 +428,40 @@ namespace Tools.DotNETCommon
 			string FullName = Reader.ReadString();
 			return (FullName.Length == 0) ? null : new DirectoryReference(FullName, DirectoryReference.Sanitize.None);
 		}
+
+		/// <summary>
+		/// Writes a directory reference  to a binary archive
+		/// </summary>
+		/// <param name="Writer">The writer to output data to</param>
+		/// <param name="Directory">The item to write</param>
+		public static void WriteDirectoryReference(this BinaryArchiveWriter Writer, DirectoryReference Directory)
+		{
+			if(Directory == null)
+			{
+				Writer.WriteString(null);
+			}
+			else
+			{
+				Writer.WriteString(Directory.FullName);
+			}
+		}
+
+		/// <summary>
+		/// Reads a directory reference from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>New directory reference instance</returns>
+		public static DirectoryReference ReadDirectoryReference(this BinaryArchiveReader Reader)
+		{
+			string FullName = Reader.ReadString();
+			if(FullName == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new DirectoryReference(FullName, DirectoryReference.Sanitize.None);
+			}
+		}
 	}
 }
