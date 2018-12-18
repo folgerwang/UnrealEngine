@@ -278,6 +278,8 @@ void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 
 			if (PrimitiveUniformBufferResource)
 			{
+				TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderData = DynamicPrimitiveShaderDataPerView[ViewIndex];
+
 				const int32 DataIndex = DynamicPrimitiveShaderData->AddUninitialized(1);
 				MeshBatch.Elements[Index].PrimitiveIdMode = PrimID_DynamicPrimitiveShaderData;
 				MeshBatch.Elements[Index].DynamicPrimitiveShaderDataIndex = DataIndex;

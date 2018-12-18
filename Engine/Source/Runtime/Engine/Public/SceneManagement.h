@@ -1978,7 +1978,7 @@ private:
 		MeshBatches.Empty();
 		SimpleElementCollectors.Empty();
 		MeshIdInPrimitivePerView.Empty();
-		DynamicPrimitiveShaderData = nullptr;
+		DynamicPrimitiveShaderDataPerView.Empty();
 	}
 
 	void AddViewMeshArrays(
@@ -1989,10 +1989,10 @@ private:
 		ERHIFeatureLevel::Type InFeatureLevel)
 	{
 		Views.Add(InView);
-		MeshIdInPrimitivePerView.AddZeroed(Views.Num());
+		MeshIdInPrimitivePerView.Add(0);
 		MeshBatches.Add(ViewMeshes);
 		SimpleElementCollectors.Add(ViewSimpleElementCollector);
-		DynamicPrimitiveShaderData = InDynamicPrimitiveShaderData;
+		DynamicPrimitiveShaderDataPerView.Add(InDynamicPrimitiveShaderData);
 	}
 
 	/** 
@@ -2030,8 +2030,8 @@ private:
 	/** Tasks to wait for at the end of gathering dynamic mesh elements. */
 	TArray<TFunction<void()>*, SceneRenderingAllocator> ParallelTasks;
 
-	/** Tracks dynamic primitive data for upload to GPU Scene, when enabled. */
-	TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderData;
+	/** Tracks dynamic primitive data for upload to GPU Scene for every view, when enabled. */
+	TArray<TArray<FPrimitiveUniformShaderParameters>*, TInlineAllocator<2> > DynamicPrimitiveShaderDataPerView;
 
 	friend class FSceneRenderer;
 	friend class FDeferredShadingSceneRenderer;
