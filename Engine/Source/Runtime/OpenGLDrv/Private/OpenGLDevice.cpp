@@ -1609,6 +1609,7 @@ void FOpenGLDynamicRHI::Init()
 	VERIFY_GL_SCOPE();
 
 	FOpenGLProgramBinaryCache::Initialize();
+	RegisterSharedShaderCodeDelegates();
 	InitializeStateResources();
 
 	// Create a default point sampler state for internal use.
