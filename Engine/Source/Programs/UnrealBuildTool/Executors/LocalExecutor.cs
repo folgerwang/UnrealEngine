@@ -378,12 +378,12 @@ namespace UnrealBuildTool
 								// Determine whether there are any prerequisites of the action that are outdated.
 								bool bHasOutdatedPrerequisites = false;
 								bool bHasFailedPrerequisites = false;
-								foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+								foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 								{
-									if (PrerequisiteItem.ProducingAction != null && Actions.Contains(PrerequisiteItem.ProducingAction))
+									if (Actions.Contains(PrerequisiteAction))
 									{
 										ActionThread PrerequisiteProcess = null;
-										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 										if (bFoundPrerequisiteProcess == true)
 										{
 											if (PrerequisiteProcess == null)

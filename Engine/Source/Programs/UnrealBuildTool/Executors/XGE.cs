@@ -218,11 +218,11 @@ namespace UnrealBuildTool
 				for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
 				{
 					Action Action = InActions[ActionIndex];
-					foreach (FileItem Item in Action.PrerequisiteItems)
+					foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 					{
-						if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+						if (InActions.Contains(PrerequisiteAction))
 						{
-							int DepIndex = InActions.IndexOf(Item.ProducingAction);
+							int DepIndex = InActions.IndexOf(PrerequisiteAction);
 							if (DepIndex > ActionIndex)
 							{
 								NumSortErrors++;
@@ -241,16 +241,16 @@ namespace UnrealBuildTool
 							continue;
 						}
 						Action Action = InActions[ActionIndex];
-						foreach (FileItem Item in Action.PrerequisiteItems)
+						foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 						{
-							if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+							if (InActions.Contains(PrerequisiteAction))
 							{
-								int DepIndex = InActions.IndexOf(Item.ProducingAction);
+								int DepIndex = InActions.IndexOf(PrerequisiteAction);
 								if (UsedActions.Contains(DepIndex))
 								{
 									continue;
 								}
-								Actions.Add(Item.ProducingAction);
+								Actions.Add(PrerequisiteAction);
 								UsedActions.Add(DepIndex);
 							}
 						}
@@ -260,14 +260,14 @@ namespace UnrealBuildTool
 					for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
 					{
 						Action Action = Actions[ActionIndex];
-						foreach (FileItem Item in Action.PrerequisiteItems)
+						foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 						{
-							if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+							if (Actions.Contains(PrerequisiteAction))
 							{
-								int DepIndex = Actions.IndexOf(Item.ProducingAction);
+								int DepIndex = Actions.IndexOf(PrerequisiteAction);
 								if (DepIndex > ActionIndex)
 								{
-									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
+									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, PrerequisiteAction.CommandPath, PrerequisiteAction.CommandArguments);
 								}
 							}
 						}
@@ -338,6 +338,10 @@ namespace UnrealBuildTool
 				if (OutputPrefix.Length > 0)
 				{
 					ToolElement.SetAttribute("OutputPrefix", OutputPrefix);
+				}
+				if(Action.GroupNames.Count > 0)
+				{
+					ToolElement.SetAttribute("GroupPrefix", String.Format("** For {0}", String.Join(" + ", Action.GroupNames)));
 				}
 
 				// When running on Windows, differentiate between .exe and batch files.
@@ -417,11 +421,11 @@ namespace UnrealBuildTool
 
 				// Create a semi-colon separated list of the other tasks this task depends on the results of.
 				List<string> DependencyNames = new List<string>();
-				foreach (FileItem Item in Action.PrerequisiteItems)
+				foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 				{
-					if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+					if (Actions.Contains(PrerequisiteAction))
 					{
-						DependencyNames.Add(string.Format("Action{0}", Actions.IndexOf(Item.ProducingAction)));
+						DependencyNames.Add(string.Format("Action{0}", Actions.IndexOf(PrerequisiteAction)));
 					}
 				}
 

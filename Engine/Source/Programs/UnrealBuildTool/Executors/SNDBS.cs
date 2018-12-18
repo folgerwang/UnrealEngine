@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -113,12 +113,12 @@ namespace UnrealBuildTool
 							// Determine whether there are any prerequisites of the action that are outdated.
 							bool bHasOutdatedPrerequisites = false;
 							bool bHasFailedPrerequisites = false;
-							foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+							foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 							{
-								if (PrerequisiteItem.ProducingAction != null && InLocalActions.Contains(PrerequisiteItem.ProducingAction))
+								if (InLocalActions.Contains(PrerequisiteAction))
 								{
 									ActionThread PrerequisiteProcess = null;
-									bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+									bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 									if (bFoundPrerequisiteProcess == true)
 									{
 										if (PrerequisiteProcess == null)
@@ -190,12 +190,12 @@ namespace UnrealBuildTool
 					// Determine whether there are any prerequisites of the action that are outdated.
 					bool bHasOutdatedPrerequisites = false;
 					bool bHasFailedPrerequisites = false;
-					foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+					foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 					{
-						if (PrerequisiteItem.ProducingAction != null && InActions.Contains(PrerequisiteItem.ProducingAction))
+						if (InActions.Contains(PrerequisiteAction))
 						{
 							ActionThread PrerequisiteProcess = null;
-							bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+							bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 							if (bFoundPrerequisiteProcess == true)
 							{
 								if (PrerequisiteProcess == null)

@@ -19,11 +19,6 @@ namespace UnrealBuildTool
 	class FileItem
 	{
 		/// <summary>
-		/// The action that produces the file.
-		/// </summary>
-		public Action ProducingAction = null;
-
-		/// <summary>
 		/// The file reference
 		/// </summary>
 		public FileReference Location;

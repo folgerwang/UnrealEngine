@@ -439,13 +439,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The target rules
 		/// </summary>
-		[NonSerialized]
 		public ReadOnlyTargetRules Rules;
 
 		/// <summary>
 		/// The rules assembly to use when searching for modules
 		/// </summary>
-		[NonSerialized]
 		public RulesAssembly RulesAssembly;
 
 		/// <summary>
@@ -456,7 +454,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The project descriptor for this target
 		/// </summary>
-		[NonSerialized]
 		public ProjectDescriptor ProjectDescriptor;
 
 		/// <summary>
@@ -522,13 +519,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// All plugins which are built for this target
 		/// </summary>
-		[NonSerialized]
 		public List<UEBuildPlugin> BuildPlugins;
 
 		/// <summary>
 		/// All plugin dependencies for this target. This differs from the list of plugins that is built for Launcher, where we build everything, but link in only the enabled plugins.
 		/// </summary>
-		[NonSerialized]
 		public List<UEBuildPlugin> EnabledPlugins;
 
 		/// <summary>
@@ -539,13 +534,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// All application binaries; may include binaries not built by this target.
 		/// </summary>
-		[NonSerialized]
 		public List<UEBuildBinary> Binaries = new List<UEBuildBinary>();
 
 		/// <summary>
 		/// Kept to determine the correct module parsing order when filtering modules.
 		/// </summary>
-		[NonSerialized]
 		protected List<UEBuildBinary> NonFilteredModules = new List<UEBuildBinary>();
 
 		/// <summary>
@@ -556,7 +549,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Used to keep track of all modules by name.
 		/// </summary>
-		[NonSerialized]
 		private Dictionary<string, UEBuildModule> Modules = new Dictionary<string, UEBuildModule>(StringComparer.InvariantCultureIgnoreCase);
 
 		/// <summary>
@@ -576,7 +568,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of scripts to run before building
 		/// </summary>
-		FileReference[] PreBuildStepScripts;
+		public FileReference[] PreBuildStepScripts;
 
 		/// <summary>
 		/// List of scripts to run after building
@@ -595,50 +587,6 @@ namespace UnrealBuildTool
 		public bool ShouldCompileMonolithic()
 		{
 			return bCompileMonolithic;	// @todo ubtmake: We need to make sure this function and similar things aren't called in assembler mode
-		}
-
-		public UEBuildTarget(BinaryArchiveReader Reader)
-		{
-			TargetType = (TargetType)Reader.ReadInt();
-			ProjectFile = Reader.ReadFileReference();
-			AppName = Reader.ReadString();
-			TargetName = Reader.ReadString();
-			bUseSharedBuildEnvironment = Reader.ReadBool();
-			Platform = (UnrealTargetPlatform)Reader.ReadInt();
-			Configuration = (UnrealTargetConfiguration)Reader.ReadInt();
-			Architecture = Reader.ReadString();
-			PlatformIntermediateFolder = Reader.ReadString();
-			ProjectDirectory = Reader.ReadDirectoryReference();
-			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
-			EngineIntermediateDirectory = Reader.ReadDirectoryReference();
-			bCompileMonolithic = Reader.ReadBool();
-			ReceiptFileName = Reader.ReadFileReference();
-			PreBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
-			PostBuildStepScripts = Reader.ReadArray(() => Reader.ReadFileReference());
-			bDeployAfterCompile = Reader.ReadBool();
-			bHasProjectScriptPlugin = Reader.ReadBool();
-		}
-
-		public void Write(BinaryArchiveWriter Writer)
-		{
-			Writer.WriteInt((int)TargetType);
-			Writer.WriteFileReference(ProjectFile);
-			Writer.WriteString(AppName);
-			Writer.WriteString(TargetName);
-			Writer.WriteBool(bUseSharedBuildEnvironment);
-			Writer.WriteInt((int)Platform);
-			Writer.WriteInt((int)Configuration);
-			Writer.WriteString(Architecture);
-			Writer.WriteString(PlatformIntermediateFolder);
-			Writer.WriteDirectoryReference(ProjectDirectory);
-			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
-			Writer.WriteDirectoryReference(EngineIntermediateDirectory);
-			Writer.WriteBool(bCompileMonolithic);
-			Writer.WriteFileReference(ReceiptFileName);
-			Writer.WriteArray(PreBuildStepScripts, x => Writer.WriteFileReference(x));
-			Writer.WriteArray(PostBuildStepScripts, x => Writer.WriteFileReference(x));
-			Writer.WriteBool(bDeployAfterCompile);
-			Writer.WriteBool(bHasProjectScriptPlugin);
 		}
 
 		/// <summary>
@@ -1705,10 +1653,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Export the definition of this target to a JSON file
 		/// </summary>
-		/// <param name="FileName">File to write to</param>
-		public void ExportJson(string FileName)
+		/// <param name="OutputFile">File to write to</param>
+		public void ExportJson(FileReference OutputFile)
 		{
-			using (JsonWriter Writer = new JsonWriter(FileName))
+			DirectoryReference.CreateDirectory(OutputFile.Directory);
+			using (JsonWriter Writer = new JsonWriter(OutputFile))
 			{
 				Writer.WriteObjectStart();
 

@@ -17,17 +17,16 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of all the actions
 		/// </summary>
-		public List<Action> AllActions = new List<Action>();
+		public List<Action> Actions = new List<Action>();
 
 		public ActionGraph()
 		{
-			XmlConfig.ApplyTo(this);
 		}
 
 		public Action Add(ActionType Type)
 		{
 			Action NewAction = new Action(Type);
-			AllActions.Add(NewAction);
+			Actions.Add(NewAction);
 			return NewAction;
 		}
 
@@ -39,22 +38,76 @@ namespace UnrealBuildTool
 			return NewAction;
 		}
 
-		public void FinalizeActionGraph()
+		/// <summary>
+		/// Links the actions together and sets up their dependencies
+		/// </summary>
+		/// <param name="Actions">List of actions in the graph</param>
+		public static void Link(List<Action> Actions)
 		{
-			// Link producing actions to the items they produce.
-			LinkActionsAndItems();
+			// Build a map from item to its producing action
+			Dictionary<FileItem, Action> ItemToProducingAction = new Dictionary<FileItem, Action>();
+			foreach (Action Action in Actions)
+			{
+				foreach (FileItem ProducedItem in Action.ProducedItems)
+				{
+					ItemToProducingAction[ProducedItem] = Action;
+				}
+			}
 
-			// Detect cycles in the action graph.
-			DetectActionGraphCycles();
+			// Check for cycles
+			DetectActionGraphCycles(Actions, ItemToProducingAction);
 
-			// Sort action list by "cost" in descending order to improve parallelism.
-			SortActionList();
+			// Use this map to add all the prerequisite actions
+			foreach (Action Action in Actions)
+			{
+				Action.PrerequisiteActions = new HashSet<Action>();
+				foreach(FileItem PrerequisiteItem in Action.PrerequisiteItems)
+				{
+					Action PrerequisiteAction;
+					if(ItemToProducingAction.TryGetValue(PrerequisiteItem, out PrerequisiteAction))
+					{
+						Action.PrerequisiteActions.Add(PrerequisiteAction);
+					}
+				}
+			}
+
+			// Sort the action graph
+			SortActionList(Actions);
+		}
+
+		/// <summary>
+		/// Checks a set of actions for conflicts (ie. different actions producing the same output items)
+		/// </summary>
+		/// <param name="Actions">The set of actions to check</param>
+		/// <returns>True if the actions are ok, false if there are conflicts</returns>
+		public static bool CheckForConflicts(IEnumerable<Action> Actions)
+		{
+			bool bResult = true;
+
+			Dictionary<FileItem, Action> ItemToProducingAction = new Dictionary<FileItem, Action>();
+			foreach(Action Action in Actions)
+			{
+				foreach(FileItem ProducedItem in Action.ProducedItems)
+				{
+					Action ExistingAction;
+					if(ItemToProducingAction.TryGetValue(ProducedItem, out ExistingAction))
+					{
+						bResult &= ExistingAction.CheckForConflicts(Action);
+					}
+					else
+					{
+						ItemToProducingAction.Add(ProducedItem, Action);
+					}
+				}
+			}
+
+			return bResult;
 		}
 
 		/// <summary>
 		/// Builds a list of actions that need to be executed to produce the specified output items.
 		/// </summary>
-		public HashSet<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, CppDependencyCache CppDependencies, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
+		public static HashSet<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, List<Action> Actions, List<Action> PrerequisiteActions, CppDependencyCache CppDependencies, ActionHistory History)
 		{
 			ITimelineEvent GetActionsToExecuteTimer = Timeline.ScopeEvent("ActionGraph.GetActionsToExecute()");
 
@@ -67,55 +120,25 @@ namespace UnrealBuildTool
 
 			// For all targets, build a set of all actions that are outdated.
 			Dictionary<Action, bool> OutdatedActionDictionary = new Dictionary<Action, bool>();
-			List<ActionHistory> HistoryList = new List<ActionHistory>();
-			HashSet<FileReference> OpenHistoryFiles = new HashSet<FileReference>();
-			TargetToOutdatedPrerequisitesMap = new Dictionary<UEBuildTarget, List<FileItem>>();
-			foreach (UEBuildTarget BuildTarget in Targets)	// @todo ubtmake: Optimization: Ideally we don't even need to know about targets for ubtmake -- everything would come from the files
-			{
-				FileReference HistoryFilename = ActionHistory.GeneratePathForTarget(BuildTarget.ProjectFile, BuildTarget.TargetName, BuildTarget.Platform, BuildTarget.Architecture, BuildTarget.bUseSharedBuildEnvironment);
-				if (!OpenHistoryFiles.Contains(HistoryFilename))		// @todo ubtmake: Optimization: We should be able to move the command-line outdatedness and build product deletion over to the 'gather' phase, as the command-lines won't change between assembler runs
-				{
-					ActionHistory History = new ActionHistory(HistoryFilename.FullName);
-					HistoryList.Add(History);
-					OpenHistoryFiles.Add(HistoryFilename);
-					GatherAllOutdatedActions(History, OutdatedActionDictionary, CppDependencies, BuildConfiguration.bIgnoreOutdatedImportLibraries);
-				}
-			}
+			GatherAllOutdatedActions(Actions, History, OutdatedActionDictionary, CppDependencies, BuildConfiguration.bIgnoreOutdatedImportLibraries);
 
 			// If we're only compiling a single file, we should always compile and should never link.
 			if (BuildConfiguration.SingleFileToCompile != null)
 			{
 				// Never do anything but compile the target file
-				AllActions.RemoveAll(x => x.ActionType != ActionType.Compile);
+				Actions.RemoveAll(x => x.ActionType != ActionType.Compile);
 
 				// Check all of the leftover compilation actions for the one we want... that one is always outdated.
 				FileItem SingleFileToCompile = FileItem.GetItemByFileReference(BuildConfiguration.SingleFileToCompile);
-				foreach (Action Action in AllActions)
+				foreach (Action Action in Actions)
 				{
 					bool bIsSingleFileAction = Action.PrerequisiteItems.Contains(SingleFileToCompile);
 					OutdatedActionDictionary[Action] = bIsSingleFileAction;
 				}
-
-				// Don't save the history of a single file compilation.
-				HistoryList.Clear();
 			}
-
-			// Delete produced items that are outdated.
-			DeleteOutdatedProducedItems(OutdatedActionDictionary);
-
-			// Save the action history.
-			// This must happen after deleting outdated produced items to ensure that the action history on disk doesn't have
-			// command-lines that don't match the produced items on disk.
-			foreach (ActionHistory TargetHistory in HistoryList)
-			{
-				TargetHistory.Save();
-			}
-
-			// Create directories for the outdated produced items.
-			CreateDirectoriesForProducedItems(OutdatedActionDictionary);
 
 			// Build a list of actions that are both needed for this target and outdated.
-			HashSet<Action> ActionsToExecute = new HashSet<Action>(AllActions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]));
+			HashSet<Action> ActionsToExecute = new HashSet<Action>(Actions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]));
 
 			GetActionsToExecuteTimer.Finish();
 
@@ -177,7 +200,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			// Nothing to execute.
 			else
 			{
 				ExecutorName = "NoActionsToExecute";
@@ -188,109 +210,30 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Links actions with their prerequisite and produced items into an action graph.
-		/// </summary>
-		public void LinkActionsAndItems()
-		{
-			foreach (Action Action in AllActions)
-			{
-				foreach (FileItem ProducedItem in Action.ProducedItems)
-				{
-					ProducedItem.ProducingAction = Action;
-				}
-			}
-		}
-		static string SplitFilename(string Filename, out string PlatformSuffix, out string ConfigSuffix, out string ProducedItemExtension)
-		{
-			string WorkingString = Filename;
-			ProducedItemExtension = Path.GetExtension(WorkingString);
-			if (!WorkingString.EndsWith(ProducedItemExtension))
-			{
-				throw new BuildException("Bogus extension");
-			}
-			WorkingString = WorkingString.Substring(0, WorkingString.Length - ProducedItemExtension.Length);
-
-			ConfigSuffix = "";
-			foreach (UnrealTargetConfiguration CurConfig in Enum.GetValues(typeof(UnrealTargetConfiguration)))
-			{
-				if (CurConfig != UnrealTargetConfiguration.Unknown)
-				{
-					string Test = "-" + CurConfig;
-					if (WorkingString.EndsWith(Test))
-					{
-						WorkingString = WorkingString.Substring(0, WorkingString.Length - Test.Length);
-						ConfigSuffix = Test;
-						break;
-					}
-				}
-			}
-			PlatformSuffix = "";
-			foreach (object CurPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
-			{
-				string Test = "-" + CurPlatform;
-				if (WorkingString.EndsWith(Test))
-				{
-					WorkingString = WorkingString.Substring(0, WorkingString.Length - Test.Length);
-					PlatformSuffix = Test;
-					break;
-				}
-			}
-			return WorkingString;
-		}
-
-		/// <summary>
 		/// Sorts the action list for improved parallelism with local execution.
 		/// </summary>
-		public void SortActionList()
+		static void SortActionList(List<Action> Actions)
 		{
-			// Mapping from action to a list of actions that directly or indirectly depend on it (up to a certain depth).
-			Dictionary<Action, HashSet<Action>> ActionToDependentActionsMap = new Dictionary<Action, HashSet<Action>>();
-			// Perform multiple passes over all actions to propagate dependencies.
-			const int MaxDepth = 5;
-			for (int Pass = 0; Pass < MaxDepth; Pass++)
+			// Clear the current dependent count
+			foreach(Action Action in Actions)
 			{
-				foreach (Action DependendAction in AllActions)
-				{
-					foreach (FileItem PrerequisiteItem in DependendAction.PrerequisiteItems)
-					{
-						Action PrerequisiteAction = PrerequisiteItem.ProducingAction;
-						if (PrerequisiteAction != null)
-						{
-							HashSet<Action> DependentActions = null;
-							if (ActionToDependentActionsMap.ContainsKey(PrerequisiteAction))
-							{
-								DependentActions = ActionToDependentActionsMap[PrerequisiteAction];
-							}
-							else
-							{
-								DependentActions = new HashSet<Action>();
-								ActionToDependentActionsMap[PrerequisiteAction] = DependentActions;
-							}
-							// Add dependent action...
-							DependentActions.Add(DependendAction);
-							// ... and all actions depending on it.
-							if (ActionToDependentActionsMap.ContainsKey(DependendAction))
-							{
-								DependentActions.UnionWith(ActionToDependentActionsMap[DependendAction]);
-							}
-						}
-					}
-				}
+				Action.NumTotalDependentActions = 0;
+			}
 
-			}
-			// At this point we have a list of dependent actions for each action, up to MaxDepth layers deep.
-			foreach (KeyValuePair<Action, HashSet<Action>> ActionMap in ActionToDependentActionsMap)
+			// Increment all the dependencies
+			foreach(Action Action in Actions)
 			{
-				ActionMap.Key.NumTotalDependentActions = ActionMap.Value.Count;
+				Action.IncrementDependentCount(new HashSet<Action>());
 			}
+
 			// Sort actions by number of actions depending on them, descending. Secondary sort criteria is file size.
-			AllActions.Sort(Action.Compare);
+			Actions.Sort(Action.Compare);
 		}
 
 		/// <summary>
 		/// Checks for cycles in the action graph.
 		/// </summary>
-		void DetectActionGraphCycles()
+		static void DetectActionGraphCycles(List<Action> Actions, Dictionary<FileItem, Action> ItemToProducingAction)
 		{
 			// Starting with actions that only depend on non-produced items, iteratively expand a set of actions that are only dependent on
 			// non-cyclical actions.
@@ -300,7 +243,7 @@ namespace UnrealBuildTool
 			{
 				bool bFoundNewNonCyclicalAction = false;
 
-				foreach (Action Action in AllActions)
+				foreach (Action Action in Actions)
 				{
 					if (!ActionIsNonCyclical.ContainsKey(Action))
 					{
@@ -308,9 +251,10 @@ namespace UnrealBuildTool
 						bool bActionOnlyDependsOnNonCyclicalActions = true;
 						foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
 						{
-							if (PrerequisiteItem.ProducingAction != null)
+							Action ProducingAction;
+							if (ItemToProducingAction.TryGetValue(PrerequisiteItem, out ProducingAction))
 							{
-								if (!ActionIsNonCyclical.ContainsKey(PrerequisiteItem.ProducingAction))
+								if (!ActionIsNonCyclical.ContainsKey(ProducingAction))
 								{
 									bActionOnlyDependsOnNonCyclicalActions = false;
 									if (!CyclicActions.ContainsKey(Action))
@@ -319,9 +263,9 @@ namespace UnrealBuildTool
 									}
 
 									List<Action> CyclicPrereq = CyclicActions[Action];
-									if (!CyclicPrereq.Contains(PrerequisiteItem.ProducingAction))
+									if (!CyclicPrereq.Contains(ProducingAction))
 									{
-										CyclicPrereq.Add(PrerequisiteItem.ProducingAction);
+										CyclicPrereq.Add(ProducingAction);
 									}
 								}
 							}
@@ -349,18 +293,18 @@ namespace UnrealBuildTool
 			}
 
 			// If there are any cyclical actions, throw an exception.
-			if (ActionIsNonCyclical.Count < AllActions.Count)
+			if (ActionIsNonCyclical.Count < Actions.Count)
 			{
 				// Find the index of each action
 				Dictionary<Action, int> ActionToIndex = new Dictionary<Action, int>();
-				for(int Idx = 0; Idx < AllActions.Count; Idx++)
+				for(int Idx = 0; Idx < Actions.Count; Idx++)
 				{
-					ActionToIndex[AllActions[Idx]] = Idx;
+					ActionToIndex[Actions[Idx]] = Idx;
 				}
 
 				// Describe the cyclical actions.
 				string CycleDescription = "";
-				foreach (Action Action in AllActions)
+				foreach (Action Action in Actions)
 				{
 					if (!ActionIsNonCyclical.ContainsKey(Action))
 					{
@@ -409,22 +353,34 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Determines the full set of actions that must be built to produce an item.
 		/// </summary>
-		/// <param name="OutputItem">- The item to be built.</param>
-		/// <param name="PrerequisiteActions">- The actions that must be built and the root action are</param>
-		public void GatherPrerequisiteActions(
-			FileItem OutputItem,
-			ref HashSet<Action> PrerequisiteActions
-			)
+		/// <param name="Actions">All the actions in the graph</param>
+		/// <param name="OutputItems">Set of output items to be built</param>
+		/// <returns>Set of prerequisite actions</returns>
+		public static List<Action> GatherPrerequisiteActions(List<Action> Actions, HashSet<FileItem> OutputItems)
 		{
-			if (OutputItem != null && OutputItem.ProducingAction != null)
+			HashSet<Action> PrerequisiteActions = new HashSet<Action>();
+			foreach(Action Action in Actions)
 			{
-				if (!PrerequisiteActions.Contains(OutputItem.ProducingAction))
+				if(Action.ProducedItems.Any(x => OutputItems.Contains(x)))
 				{
-					PrerequisiteActions.Add(OutputItem.ProducingAction);
-					foreach (FileItem PrerequisiteItem in OutputItem.ProducingAction.PrerequisiteItems)
-					{
-						GatherPrerequisiteActions(PrerequisiteItem, ref PrerequisiteActions);
-					}
+					GatherPrerequisiteActions(Action, PrerequisiteActions);
+				}
+			}
+			return PrerequisiteActions.ToList();
+		}
+
+		/// <summary>
+		/// Determines the full set of actions that must be built to produce an item.
+		/// </summary>
+		/// <param name="Action">The root action to scan</param>
+		/// <param name="PrerequisiteActions">Set of prerequisite actions</param>
+		private static void GatherPrerequisiteActions(Action Action, HashSet<Action> PrerequisiteActions)
+		{
+			if(PrerequisiteActions.Add(Action))
+			{
+				foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
+				{
+					GatherPrerequisiteActions(PrerequisiteAction, PrerequisiteActions);
 				}
 			}
 		}
@@ -439,7 +395,7 @@ namespace UnrealBuildTool
 		/// <param name="CppDependencies"></param>
 		/// <param name="bIgnoreOutdatedImportLibraries"></param>
 		/// <returns>true if outdated</returns>
-		public bool IsActionOutdated(Action RootAction, Dictionary<Action, bool> OutdatedActionDictionary, ActionHistory ActionHistory, CppDependencyCache CppDependencies, bool bIgnoreOutdatedImportLibraries)
+		public static bool IsActionOutdated(Action RootAction, Dictionary<Action, bool> OutdatedActionDictionary, ActionHistory ActionHistory, CppDependencyCache CppDependencies, bool bIgnoreOutdatedImportLibraries)
 		{
 			// Only compute the outdated-ness for actions that don't aren't cached in the outdated action dictionary.
 			bool bIsOutdated = false;
@@ -453,7 +409,7 @@ namespace UnrealBuildTool
 					// Check if the command-line of the action previously used to produce the item is outdated.
 					string OldProducingCommandLine = "";
 					string NewProducingCommandLine = RootAction.CommandPath + " " + RootAction.CommandArguments;
-					if (!ActionHistory.GetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
+					if (!ActionHistory.TryGetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
 					|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.InvariantCultureIgnoreCase))
 					{
 						if(ProducedItem.Exists)
@@ -497,59 +453,41 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Check if any of the prerequisite actions are out of date
 				if (!bIsOutdated)
 				{
-					// Check if any of the prerequisite items are produced by outdated actions, or have changed more recently than
-					// the oldest produced item.
+					foreach (Action PrerequisiteAction in RootAction.PrerequisiteActions)
+					{
+						if (IsActionOutdated(PrerequisiteAction, OutdatedActionDictionary, ActionHistory, CppDependencies, bIgnoreOutdatedImportLibraries))
+						{
+							// Only check for outdated import libraries if we were configured to do so.  Often, a changed import library
+							// won't affect a dependency unless a public header file was also changed, in which case we would be forced
+							// to recompile anyway.  This just allows for faster iteration when working on a subsystem in a DLL, as we
+							// won't have to wait for dependent targets to be relinked after each change.
+							if(!bIgnoreOutdatedImportLibraries || !IsImportLibraryDependency(RootAction, PrerequisiteAction))
+							{
+								Log.TraceLog("{0}: Prerequisite {1} is produced by outdated action.", RootAction.StatusDescription, PrerequisiteAction.StatusDescription);
+								bIsOutdated = true;
+								break;
+							}
+						}
+					}
+				} 
+
+				// Check if any prerequisite item has a newer timestamp than the last execution time of this action
+				if(!bIsOutdated)
+				{
 					foreach (FileItem PrerequisiteItem in RootAction.PrerequisiteItems)
 					{
-						// Only check for outdated import libraries if we were configured to do so.  Often, a changed import library
-						// won't affect a dependency unless a public header file was also changed, in which case we would be forced
-						// to recompile anyway.  This just allows for faster iteration when working on a subsystem in a DLL, as we
-						// won't have to wait for dependent targets to be relinked after each change.
-						bool bIsImportLibraryFile = false;
-						if (PrerequisiteItem.ProducingAction != null && PrerequisiteItem.ProducingAction.bProducesImportLibrary)
+						if (PrerequisiteItem.Exists)
 						{
-							bIsImportLibraryFile = PrerequisiteItem.AbsolutePath.EndsWith(".LIB", StringComparison.InvariantCultureIgnoreCase);
-						}
-						if (!bIsImportLibraryFile || !bIgnoreOutdatedImportLibraries)
-						{
-							// If the prerequisite is produced by an outdated action, then this action is outdated too.
-							if (PrerequisiteItem.ProducingAction != null)
+							// allow a 1 second slop for network copies
+							TimeSpan TimeDifference = PrerequisiteItem.LastWriteTimeUtc - LastExecutionTimeUtc;
+							bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
+							if (bPrerequisiteItemIsNewerThanLastExecution)
 							{
-								if (IsActionOutdated(PrerequisiteItem.ProducingAction, OutdatedActionDictionary, ActionHistory, CppDependencies, bIgnoreOutdatedImportLibraries))
-								{
-									Log.TraceLog(
-										"{0}: Prerequisite {1} is produced by outdated action.",
-										RootAction.StatusDescription,
-										Path.GetFileName(PrerequisiteItem.AbsolutePath)
-										);
-									bIsOutdated = true;
-								}
-							}
-
-							if (PrerequisiteItem.Exists)
-							{
-								// allow a 1 second slop for network copies
-								TimeSpan TimeDifference = PrerequisiteItem.LastWriteTimeUtc - LastExecutionTimeUtc;
-								bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
-								if (bPrerequisiteItemIsNewerThanLastExecution)
-								{
-									Log.TraceLog(
-										"{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}",
-										RootAction.StatusDescription,
-										Path.GetFileName(PrerequisiteItem.AbsolutePath),
-										PrerequisiteItem.LastWriteTimeUtc.LocalDateTime,
-										LastExecutionTimeUtc.LocalDateTime
-										);
-									bIsOutdated = true;
-								}
-							}
-
-							// GatherAllOutdatedActions will ensure all actions are checked for outdated-ness, so we don't need to recurse with
-							// all this action's prerequisites once we've determined it's outdated.
-							if (bIsOutdated)
-							{
+								Log.TraceLog("{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}", RootAction.StatusDescription, Path.GetFileName(PrerequisiteItem.AbsolutePath), PrerequisiteItem.LastWriteTimeUtc.LocalDateTime, LastExecutionTimeUtc.LocalDateTime);
+								bIsOutdated = true;
 								break;
 							}
 						}
@@ -593,15 +531,33 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Determines if the dependency between two actions is only for an import library
+		/// </summary>
+		/// <param name="RootAction">The action to check</param>
+		/// <param name="PrerequisiteAction">The action that it depends on</param>
+		/// <returns>True if the only dependency between two actions is for an import library</returns>
+		static bool IsImportLibraryDependency(Action RootAction, Action PrerequisiteAction)
+		{
+			if(PrerequisiteAction.bProducesImportLibrary)
+			{
+				return PrerequisiteAction.ProducedItems.Any(x => !x.Location.HasExtension(".lib") && RootAction.PrerequisiteItems.Contains(x));
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Builds a dictionary containing the actions from AllActions that are outdated by calling
 		/// IsActionOutdated.
 		/// </summary>
-		void GatherAllOutdatedActions(ActionHistory ActionHistory, Dictionary<Action, bool> OutdatedActions, CppDependencyCache CppDependencies, bool bIgnoreOutdatedImportLibraries)
+		static void GatherAllOutdatedActions(List<Action> Actions, ActionHistory ActionHistory, Dictionary<Action, bool> OutdatedActions, CppDependencyCache CppDependencies, bool bIgnoreOutdatedImportLibraries)
 		{
 			using(Timeline.ScopeEvent("Prefetching include dependencies"))
 			{
 				List<FileItem> Dependencies = new List<FileItem>();
-				foreach(Action Action in AllActions)
+				foreach(Action Action in Actions)
 				{
 					if(Action.DependencyListFile != null)
 					{
@@ -611,7 +567,7 @@ namespace UnrealBuildTool
 				Parallel.ForEach(Dependencies, File => { List<FileItem> Temp; CppDependencies.TryGetDependencies(File, out Temp); });
 			}
 
-			foreach (Action Action in AllActions)
+			foreach (Action Action in Actions)
 			{
 				IsActionOutdated(Action, OutdatedActions, ActionHistory, CppDependencies, bIgnoreOutdatedImportLibraries);
 			}
@@ -620,21 +576,17 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deletes all the items produced by actions in the provided outdated action dictionary.
 		/// </summary>
-		/// <param name="OutdatedActionDictionary">Dictionary of outdated actions</param>
-		static void DeleteOutdatedProducedItems(Dictionary<Action, bool> OutdatedActionDictionary)
+		/// <param name="OutdatedActions">List of outdated actions</param>
+		public static void DeleteOutdatedProducedItems(List<Action> OutdatedActions)
 		{
-			foreach (KeyValuePair<Action, bool> OutdatedActionInfo in OutdatedActionDictionary)
+			foreach(Action OutdatedAction in OutdatedActions)
 			{
-				if (OutdatedActionInfo.Value)
+				foreach (FileItem DeleteItem in OutdatedAction.DeleteItems)
 				{
-					Action OutdatedAction = OutdatedActionInfo.Key;
-					foreach (FileItem DeleteItem in OutdatedActionInfo.Key.DeleteItems)
+					if (DeleteItem.Exists)
 					{
-						if (DeleteItem.Exists)
-						{
-							Log.TraceLog("Deleting outdated item: {0}", DeleteItem.AbsolutePath);
-							DeleteItem.Delete();
-						}
+						Log.TraceLog("Deleting outdated item: {0}", DeleteItem.AbsolutePath);
+						DeleteItem.Delete();
 					}
 				}
 			}
@@ -644,72 +596,23 @@ namespace UnrealBuildTool
 		/// Creates directories for all the items produced by actions in the provided outdated action
 		/// dictionary.
 		/// </summary>
-		static void CreateDirectoriesForProducedItems(Dictionary<Action, bool> OutdatedActionDictionary)
+		public static void CreateDirectoriesForProducedItems(List<Action> OutdatedActions)
 		{
-			foreach (KeyValuePair<Action, bool> OutdatedActionInfo in OutdatedActionDictionary)
+			HashSet<DirectoryReference> OutputDirectories = new HashSet<DirectoryReference>();
+			foreach(Action OutdatedAction in OutdatedActions)
 			{
-				if (OutdatedActionInfo.Value)
+				foreach(FileItem ProducedItem in OutdatedAction.ProducedItems)
 				{
-					foreach (FileItem ProducedItem in OutdatedActionInfo.Key.ProducedItems)
-					{
-						string DirectoryPath = Path.GetDirectoryName(ProducedItem.AbsolutePath);
-						if (!Directory.Exists(DirectoryPath))
-						{
-							Log.TraceVerbose("Creating directory for produced item: {0}", DirectoryPath);
-							Directory.CreateDirectory(DirectoryPath);
-						}
-					}
+					OutputDirectories.Add(ProducedItem.Location.Directory);
 				}
 			}
-		}
-
-
-
-		/// <summary>
-		/// Checks if the specified file is a C++ source implementation file (e.g., .cpp)
-		/// </summary>
-		/// <param name="FileItem">The file to check</param>
-		/// <returns>True if this is a C++ source file</returns>
-		private static bool IsCPPImplementationFile(FileItem FileItem)
-		{
-			return (FileItem.AbsolutePath.EndsWith(".cpp", StringComparison.InvariantCultureIgnoreCase) ||
-					FileItem.AbsolutePath.EndsWith(".c", StringComparison.InvariantCultureIgnoreCase) ||
-					FileItem.AbsolutePath.EndsWith(".mm", StringComparison.InvariantCultureIgnoreCase));
-		}
-
-
-		/// <summary>
-		/// Checks if the specified file is a C++ source header file (e.g., .h or .inl)
-		/// </summary>
-		/// <param name="FileItem">The file to check</param>
-		/// <returns>True if this is a C++ source file</returns>
-		private static bool IsCPPIncludeFile(FileItem FileItem)
-		{
-			return (FileItem.AbsolutePath.EndsWith(".h", StringComparison.InvariantCultureIgnoreCase) ||
-					FileItem.AbsolutePath.EndsWith(".hpp", StringComparison.InvariantCultureIgnoreCase) ||
-					FileItem.AbsolutePath.EndsWith(".inl", StringComparison.InvariantCultureIgnoreCase));
-		}
-
-
-		/// <summary>
-		/// Checks if the specified file is a C++ resource file (e.g., .rc)
-		/// </summary>
-		/// <param name="FileItem">The file to check</param>
-		/// <returns>True if this is a C++ source file</returns>
-		private static bool IsCPPResourceFile(FileItem FileItem)
-		{
-			return (FileItem.AbsolutePath.EndsWith(".rc", StringComparison.InvariantCultureIgnoreCase) || FileItem.AbsolutePath.EndsWith(".rc2", StringComparison.InvariantCultureIgnoreCase));
-		}
-
-
-		/// <summary>
-		/// Checks if the specified file is a C++ source file
-		/// </summary>
-		/// <param name="FileItem">The file to check</param>
-		/// <returns>True if this is a C++ source file</returns>
-		private static bool IsCPPFile(FileItem FileItem)
-		{
-			return IsCPPImplementationFile(FileItem) || IsCPPIncludeFile(FileItem) || IsCPPResourceFile(FileItem);
+			foreach(DirectoryReference OutputDirectory in OutputDirectories)
+			{
+				if(!DirectoryReference.Exists(OutputDirectory))
+				{
+					DirectoryReference.CreateDirectory(OutputDirectory);
+				}
+			}
 		}
 	}
 }

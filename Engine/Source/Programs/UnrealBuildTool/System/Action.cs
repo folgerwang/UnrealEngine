@@ -65,6 +65,11 @@ namespace UnrealBuildTool
 		public FileItem DependencyListFile;
 
 		/// <summary>
+		/// Set of other actions that this action depends on. This set is built when the action graph is linked.
+		/// </summary>
+		public HashSet<Action> PrerequisiteActions;
+
+		/// <summary>
 		/// Directory from which to execute the program to create produced items
 		/// </summary>
 		public string WorkingDirectory = null;
@@ -93,6 +98,11 @@ namespace UnrealBuildTool
 		/// Human-readable description of this action that may be displayed as status while invoking the action.  This is often the name of the file being compiled, or an executable file name being linked.  Displayed by some executors.
 		/// </summary>
 		public string StatusDescription = "...";
+
+		/// <summary>
+		/// If set, will be output whenever the group differs to the last executed action. Set when executing multiple targets at once.
+		/// </summary>
+		public List<string> GroupNames = new List<string>();
 
 		/// <summary>
 		/// True if this action is allowed to be run on a remote machine when a distributed build system is being used, such as XGE
@@ -135,11 +145,6 @@ namespace UnrealBuildTool
 		/// Total number of actions depending on this one.
 		/// </summary>
 		public int NumTotalDependentActions = 0;
-
-		/// <summary>
-		/// Relative cost of producing items for this action.
-		/// </summary>
-		public long RelativeCost = 0;
 
 
 		///
@@ -208,6 +213,81 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Finds conflicts betwee two actions, and prints them to the log
+		/// </summary>
+		/// <param name="Other">Other action to compare to.</param>
+		/// <returns>True if any conflicts were found, false otherwise.</returns>
+		public bool CheckForConflicts(Action Other)
+		{
+			bool bResult = true;
+			if(ActionType != Other.ActionType)
+			{
+				LogConflict("action type is different", ActionType.ToString(), Other.ActionType.ToString());
+				bResult = false;
+			}
+			if(!Enumerable.SequenceEqual(PrerequisiteItems, Other.PrerequisiteItems))
+			{
+				LogConflict("prerequisites are different", String.Join(", ", PrerequisiteItems.Select(x => x.Location)), String.Join(", ", Other.PrerequisiteItems.Select(x => x.Location)));
+				bResult = false;
+			}
+			if(!Enumerable.SequenceEqual(DeleteItems, Other.DeleteItems))
+			{
+				LogConflict("deleted items are different", String.Join(", ", DeleteItems.Select(x => x.Location)), String.Join(", ", Other.DeleteItems.Select(x => x.Location)));
+				bResult = false;
+			}
+			if(DependencyListFile != Other.DependencyListFile)
+			{
+				LogConflict("dependency list is different", (DependencyListFile == null)? "(none)" : DependencyListFile.AbsolutePath, (Other.DependencyListFile == null)? "(none)" : Other.DependencyListFile.AbsolutePath);
+				bResult = false;
+			}
+			if(WorkingDirectory != Other.WorkingDirectory)
+			{
+				LogConflict("working directory is different", WorkingDirectory, Other.WorkingDirectory);
+				bResult = false;
+			}
+			if(CommandPath != Other.CommandPath)
+			{
+				LogConflict("command path is different", CommandPath, Other.CommandPath);
+				bResult = false;
+			}
+			if(CommandArguments != Other.CommandArguments)
+			{
+				LogConflict("command arguments are different", CommandArguments, Other.CommandArguments);
+				bResult = false;
+			}
+			return bResult;
+		}
+
+		/// <summary>
+		/// Adds the description of a merge error to an output message
+		/// </summary>
+		/// <param name="Description">Description of the difference</param>
+		/// <param name="OldValue">Previous value for the field</param>
+		/// <param name="NewValue">Conflicting value for the field</param>
+		void LogConflict(string Description, string OldValue, string NewValue)
+		{
+			Log.TraceError("Unable to merge actions producing {0}: {1}", ProducedItems[0].Location.GetFileName(), Description);
+			Log.TraceLog("  Previous: {0}", OldValue);
+			Log.TraceLog("  Conflict: {0}", NewValue);
+		}
+
+		/// <summary>
+		/// Increment the number of dependents, recursively
+		/// </summary>
+		/// <param name="VisitedActions">Set of visited actions</param>
+		public void IncrementDependentCount(HashSet<Action> VisitedActions)
+		{
+			if(VisitedActions.Add(this))
+			{
+				NumTotalDependentActions++;
+				foreach(Action PrerequisiteAction in PrerequisiteActions)
+				{
+					PrerequisiteAction.IncrementDependentCount(VisitedActions);
+				}
+			}
+		}
+
+		/// <summary>
 		/// Compares two actions based on total number of dependent items, descending.
 		/// </summary>
 		/// <param name="A">Action to compare</param>
@@ -219,12 +299,7 @@ namespace UnrealBuildTool
 			{
 				return Math.Sign(B.NumTotalDependentActions - A.NumTotalDependentActions);
 			}
-			// Secondary sort criteria is relative cost.
-			if (B.RelativeCost != A.RelativeCost)
-			{
-				return Math.Sign(B.RelativeCost - A.RelativeCost);
-			}
-			// Tertiary sort criteria is number of pre-requisites.
+			// Secondary sort criteria is number of pre-requisites.
 			else
 			{
 				return Math.Sign(B.PrerequisiteItems.Count - A.PrerequisiteItems.Count);

@@ -20,12 +20,42 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The version number to write
 		/// </summary>
-		public const int CurrentVersion = 8;
+		public const int CurrentVersion = 9;
+
+		/// <summary>
+		/// Path to the receipt file for this target
+		/// </summary>
+		public FileReference ReceiptFile;
+
+		/// <summary>
+		/// The project intermediate directory
+		/// </summary>
+		public DirectoryReference ProjectIntermediateDirectory;
+
+		/// <summary>
+		/// Type of the target
+		/// </summary>
+		public TargetType TargetType;
+
+		/// <summary>
+		/// Whether the target should be deployed after being built
+		/// </summary>
+		public bool bDeployAfterCompile;
+
+		/// <summary>
+		/// Whether the project has a script plugin. UHT needs to know this to detect which manifest to use for checking out-of-datedness.
+		/// </summary>
+		public bool bHasProjectScriptPlugin;
+
+		/// <summary>
+		/// Scripts which should be run before building anything
+		/// </summary>
+		public FileReference[] PreBuildScripts;
 
 		/// <summary>
 		/// Every action in the action graph
 		/// </summary>
-		public List<Action> AllActions;
+		public List<Action> Actions;
 
 		/// <summary>
 		/// Environment variables that we'll need in order to invoke the platform's compiler and linker
@@ -36,12 +66,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Maps each target to a list of UObject module info structures
 		/// </summary>
-		public Dictionary<string, List<UHTModuleInfo>> TargetNameToUObjectModules;
+		public List<UHTModuleInfo> UObjectModules;
 
 		/// <summary>
 		/// The final output items for all target
 		/// </summary>
-		public List<FileItem> OutputItemsForAllTargets;
+		public List<FileItem> OutputItems;
 
 		/// <summary>
 		/// Maps module names to output items
@@ -51,20 +81,16 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of game module names, for hot-reload
 		/// </summary>
-		public HashSet<string> HotReloadModuleNamesForAllTargets;
-
-		/// <summary>
-		/// List of targets being built
-		/// </summary>
-		public List<UEBuildTarget> Targets;
+		public HashSet<string> HotReloadModuleNames;
 
 		/// <summary>
 		/// List of predicates for the action graph to be valid.
 		/// </summary>
-		public List<BuildPrerequisites> TargetPrerequisites;
+		public BuildPrerequisites Prerequisites;
 
-		public TargetMakefile()
+		public TargetMakefile(TargetType TargetType)
 		{
+			this.TargetType = TargetType;
 		}
 
 		public TargetMakefile(BinaryArchiveReader Reader)
@@ -75,60 +101,67 @@ namespace UnrealBuildTool
 				throw new Exception(string.Format("Makefile version does not match - found {0}, expected: {1}", Version, CurrentVersion));
 			}
 
-			AllActions = Reader.ReadList(() => new Action(Reader));
+			ReceiptFile = Reader.ReadFileReference();
+			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
+			TargetType = (TargetType)Reader.ReadInt();
+			bDeployAfterCompile = Reader.ReadBool();
+			bHasProjectScriptPlugin = Reader.ReadBool();
+			PreBuildScripts = Reader.ReadArray(() => Reader.ReadFileReference());
+			Actions = Reader.ReadList(() => new Action(Reader));
 			EnvironmentVariables = Reader.ReadList(() => Tuple.Create(Reader.ReadString(), Reader.ReadString()));
-			TargetNameToUObjectModules = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadList(() => new UHTModuleInfo(Reader)));
-			OutputItemsForAllTargets = Reader.ReadList(() => Reader.ReadFileItem());
+			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
+			OutputItems = Reader.ReadList(() => Reader.ReadFileItem());
 			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem()));
-			HotReloadModuleNamesForAllTargets = Reader.ReadHashSet(() => Reader.ReadString());
-			Targets = Reader.ReadList(() => new UEBuildTarget(Reader));
-			TargetPrerequisites = Reader.ReadList(() => new BuildPrerequisites(Reader));
+			HotReloadModuleNames = Reader.ReadHashSet(() => Reader.ReadString());
+			Prerequisites = new BuildPrerequisites(Reader);
 		}
 
 		public void Write(BinaryArchiveWriter Writer)
 		{
 			Writer.WriteInt(CurrentVersion);
 
-			Writer.WriteList(AllActions, Action => Action.Write(Writer));
+			Writer.WriteFileReference(ReceiptFile);
+			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
+			Writer.WriteInt((int)TargetType);
+			Writer.WriteBool(bDeployAfterCompile);
+			Writer.WriteBool(bHasProjectScriptPlugin);
+			Writer.WriteArray(PreBuildScripts, Item => Writer.WriteFileReference(Item));
+			Writer.WriteList(Actions, Action => Action.Write(Writer));
 			Writer.WriteList(EnvironmentVariables, x => { Writer.WriteString(x.Item1); Writer.WriteString(x.Item2); });
-			Writer.WriteDictionary(TargetNameToUObjectModules, x => Writer.WriteString(x), v => Writer.WriteList(v, e => e.Write(Writer)));
-			Writer.WriteList(OutputItemsForAllTargets, Item => Writer.WriteFileItem(Item));
+			Writer.WriteList(UObjectModules, e => e.Write(Writer));
+			Writer.WriteList(OutputItems, Item => Writer.WriteFileItem(Item));
 			Writer.WriteDictionary(ModuleNameToOutputItems, k => Writer.WriteString(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
-			Writer.WriteHashSet(HotReloadModuleNamesForAllTargets, x => Writer.WriteString(x));
-			Writer.WriteList(Targets, x => x.Write(Writer));
-			Writer.WriteList(TargetPrerequisites, x => x.Write(Writer));
-			Writer.Flush();
+			Writer.WriteHashSet(HotReloadModuleNames, x => Writer.WriteString(x));
+            Prerequisites.Write(Writer);
 		}
-
 
 		/// <returns> True if this makefile's contents look valid.  Called after loading the file to make sure it is legit.</returns>
 		public bool IsValidMakefile()
 		{
 			return
-				AllActions != null && AllActions.Count > 0 &&
+				Actions != null && Actions.Count > 0 &&
 				EnvironmentVariables != null &&
-				TargetNameToUObjectModules != null && TargetNameToUObjectModules.Count > 0 &&
-				OutputItemsForAllTargets != null && 
+				UObjectModules != null && 
+				OutputItems != null && 
 				ModuleNameToOutputItems != null && 
-				HotReloadModuleNamesForAllTargets != null &&
-				Targets != null && Targets.Count > 0 &&
-				TargetPrerequisites != null;
+				HotReloadModuleNames != null &&
+				Prerequisites != null;
 		}
 
 
 		/// <summary>
 		/// Saves a UBTMakefile to disk
 		/// </summary>
-		/// <param name="TargetDescs">List of targets.  Order is not important</param>
+		/// <param name="TargetDesc">Target being built</param>
 		/// <param name="UBTMakefile">The UBT makefile</param>
-		public static void SaveUBTMakefile(List<TargetDescriptor> TargetDescs, TargetMakefile UBTMakefile)
+		public static void SaveUBTMakefile(TargetDescriptor TargetDesc, TargetMakefile UBTMakefile)
 		{
 			if (!UBTMakefile.IsValidMakefile())
 			{
 				throw new BuildException("Can't save a makefile that has invalid contents.  See UBTMakefile.IsValidMakefile()");
 			}
 
-			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetUBTMakefilePath(TargetDescs));
+			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration));
 
 			// @todo ubtmake: Optimization: The UBTMakefile saved for game projects is upwards of 9 MB.  We should try to shrink its content if possible
 			// @todo ubtmake: Optimization: C# Serialization may be too slow for these big Makefiles.  Loading these files often shows up as the slower part of the assembling phase.
@@ -154,10 +187,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="MakefilePath">Path to the makefile to load</param>
 		/// <param name="ProjectFile">Path to the project file</param>
+		/// <param name="Platform">Platform for this makefile</param>
 		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <param name="WorkingSet">Interface to query which source files are in the working set</param>
 		/// <returns>The loaded makefile, or null if it failed for some reason.  On failure, the 'ReasonNotLoaded' variable will contain information about why</returns>
-		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
+		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, UnrealTargetPlatform Platform, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
 		{
 			// Check the directory timestamp on the project files directory.  If the user has generated project files more
 			// recently than the UBTMakefile, then we need to consider the file to be out of date
@@ -277,96 +311,91 @@ namespace UnrealBuildTool
 					return null;
 				}
 
-				// Check if any of the target's Build.cs files are newer than the makefile
-				foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
+				// Check if ini files are newer. Ini files contain build settings too.
+				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
+				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
 				{
-					// Check if ini files are newer. Ini files contain build settings too.
-					DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
-					foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
+					foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Platform))
 					{
-						foreach (FileReference IniFilename in ConfigHierarchy.EnumerateConfigFileLocations(IniType, ProjectDirectory, Target.Platform))
+						FileInfo IniFileInfo = new FileInfo(IniFilename.FullName);
+						if (UBTMakefileInfo.LastWriteTime.CompareTo(IniFileInfo.LastWriteTime) < 0)
 						{
-							FileInfo IniFileInfo = new FileInfo(IniFilename.FullName);
-							if (UBTMakefileInfo.LastWriteTime.CompareTo(IniFileInfo.LastWriteTime) < 0)
-							{
-								// Ini files are newer than UBTMakefile
-								ReasonNotLoaded = "ini files are newer than UBTMakefile";
-								return null;
-							}
+							// Ini files are newer than UBTMakefile
+							ReasonNotLoaded = "ini files are newer than UBTMakefile";
+							return null;
 						}
 					}
 				}
 
-				foreach (BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
+				BuildPrerequisites Prerequisites = LoadedUBTMakefile.Prerequisites;
+
+				foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
 				{
-					foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
+					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
+					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
-						if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
-						{
-							Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
-							ReasonNotLoaded = "source directory changed";
-							return null;
-						}
+						Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
+						ReasonNotLoaded = "source directory changed";
+						return null;
 					}
+				}
 
-					foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
+				foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
+				{
+					if (!AdditionalDependency.Exists)
 					{
-						if (!AdditionalDependency.Exists)
-						{
-							Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
-							ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
-							return null;
-						}
-						if(AdditionalDependency.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTime)
-						{
-							Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
-							ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
-							return null;
-						}
+						Log.TraceLog("{0} has been deleted since makefile was built.", AdditionalDependency.Location);
+						ReasonNotLoaded = string.Format("{0} deleted", AdditionalDependency.Location.GetFileName());
+						return null;
 					}
-
-					// We do a check to see if any modules' headers have changed which have
-					// acquired or lost UHT types.  If so, which should be rare,
-					// we'll just invalidate the entire makefile and force it to be rebuilt.
-
-					// Get all H files in processed modules newer than the makefile itself
-					HashSet<FileReference> HFilesNewerThanMakefile =
-						new HashSet<FileReference>(
-							Prerequisites.UObjectModuleHeaders
-							.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
-							.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
-							.OrderBy(z => z).Distinct()
-						);
-
-					// Get all H files in all modules processed in the last makefile build
-					HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
-
-					// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
-					// and the file has been moved to a different module, we may include stale generated headers.
-					foreach (FileReference FileName in AllUHTHeaders)
+					if(AdditionalDependency.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTime)
 					{
-						if (!FileReference.Exists(FileName))
-						{
-							Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
-							ReasonNotLoaded = string.Format("UHT file was deleted");
-							return null;
-						}
+						Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
+						ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
+						return null;
 					}
+				}
 
-					// Makefile is invalid if:
-					// * There are any newer files which contain no UHT data, but were previously in the makefile
-					// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
-					foreach (FileReference Filename in HFilesNewerThanMakefile)
+				// We do a check to see if any modules' headers have changed which have
+				// acquired or lost UHT types.  If so, which should be rare,
+				// we'll just invalidate the entire makefile and force it to be rebuilt.
+
+				// Get all H files in processed modules newer than the makefile itself
+				HashSet<FileReference> HFilesNewerThanMakefile =
+					new HashSet<FileReference>(
+						Prerequisites.UObjectModuleHeaders
+						.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
+						.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
+						.OrderBy(z => z).Distinct()
+					);
+
+				// Get all H files in all modules processed in the last makefile build
+				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
+
+				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
+				// and the file has been moved to a different module, we may include stale generated headers.
+				foreach (FileReference FileName in AllUHTHeaders)
+				{
+					if (!FileReference.Exists(FileName))
 					{
-						bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
-						bool bWasProcessed = AllUHTHeaders.Contains(Filename);
-						if (bContainsUHTData != bWasProcessed)
-						{
-							Log.TraceLog("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("new files with reflected types");
-							return null;
-						}
+						Log.TraceLog("File processed by UHT was deleted ({0}); invalidating makefile", FileName);
+						ReasonNotLoaded = string.Format("UHT file was deleted");
+						return null;
+					}
+				}
+
+				// Makefile is invalid if:
+				// * There are any newer files which contain no UHT data, but were previously in the makefile
+				// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
+				foreach (FileReference Filename in HFilesNewerThanMakefile)
+				{
+					bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
+					bool bWasProcessed = AllUHTHeaders.Contains(Filename);
+					if (bContainsUHTData != bWasProcessed)
+					{
+						Log.TraceLog("{0} {1} contain UHT types and now {2} , ignoring it ({3})", Filename, bWasProcessed ? "used to" : "didn't", bWasProcessed ? "doesn't" : "does", UBTMakefileInfo.FullName);
+						ReasonNotLoaded = string.Format("new files with reflected types");
+						return null;
 					}
 				}
 
@@ -375,28 +404,26 @@ namespace UnrealBuildTool
 				// changed, then we'll force a new Makefile to be created so that we have fresh unity build blobs.  We always
 				// want to make sure that source files in the working set are excluded from those unity blobs (for fastest possible
 				// iteration times.)
-				foreach(BuildPrerequisites Prerequisites in LoadedUBTMakefile.TargetPrerequisites)
-				{
-					// Check if any source files in the working set no longer belong in it
-					foreach (FileItem SourceFile in Prerequisites.WorkingSet)
-					{
-						if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
-						{
-							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("working set of source files changed");
-							return null;
-						}
-					}
 
-					// Check if any source files that are eligible for being in the working set have been modified
-					foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
+				// Check if any source files in the working set no longer belong in it
+				foreach (FileItem SourceFile in Prerequisites.WorkingSet)
+				{
+					if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
-						{
-							Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
-							ReasonNotLoaded = string.Format("working set of source files changed");
-							return null;
-						}
+						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+						ReasonNotLoaded = string.Format("working set of source files changed");
+						return null;
+					}
+				}
+
+				// Check if any source files that are eligible for being in the working set have been modified
+				foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
+				{
+					if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
+					{
+						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile ({1})", SourceFile.AbsolutePath, UBTMakefileInfo.FullName);
+						ReasonNotLoaded = string.Format("working set of source files changed");
+						return null;
 					}
 				}
 			}
@@ -405,110 +432,18 @@ namespace UnrealBuildTool
 			return LoadedUBTMakefile;
 		}
 
-
 		/// <summary>
-		/// Gets the file path for a UBTMakefile
+		/// Gets the location of the makefile for particular target
 		/// </summary>
-		/// <param name="TargetDescs">List of targets.  Order is not important</param>
-		/// <returns>UBTMakefile path</returns>
-		public static FileReference GetUBTMakefilePath(List<TargetDescriptor> TargetDescs)
+		/// <param name="ProjectFile">Project file for the build</param>
+		/// <param name="TargetName">Name of the target being built</param>
+		/// <param name="Platform">The platform that the target is being built for</param>
+		/// <param name="Configuration">The configuration being built</param>
+		/// <returns>Path to the makefile</returns>
+		public static FileReference GetLocation(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration)
 		{
-			FileReference UBTMakefilePath;
-
-			if (TargetDescs.Count == 1)
-			{
-				TargetDescriptor TargetDesc = TargetDescs[0];
-
-				string UBTMakefileName = "Makefile.ubt";
-
-				UBTMakefilePath = FileReference.Combine(GetUBTMakefileDirectoryPathForSingleTarget(TargetDesc), UBTMakefileName);
-			}
-			else
-			{
-				// For Makefiles that contain multiple targets, we'll make up a file name that contains all of the targets, their
-				// configurations and platforms, and save it into the base intermediate folder
-				string TargetCollectionName = MakeTargetCollectionName(TargetDescs);
-
-				TargetDescriptor DescriptorWithProject = TargetDescs.FirstOrDefault(x => x.ProjectFile != null);
-
-				DirectoryReference ProjectIntermediatePath;
-				if (DescriptorWithProject != null)
-				{
-					ProjectIntermediatePath = DirectoryReference.Combine(DescriptorWithProject.ProjectFile.Directory, "Intermediate", "Build");
-				}
-				else
-				{
-					ProjectIntermediatePath = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build");
-				}
-
-				// @todo ubtmake: The TargetCollectionName string could be really long if there is more than one target!  Hash it?
-				UBTMakefilePath = FileReference.Combine(ProjectIntermediatePath, TargetCollectionName + ".ubt");
-			}
-
-			return UBTMakefilePath;
+			DirectoryReference BaseDirectory = DirectoryReference.FromFile(ProjectFile) ?? UnrealBuildTool.EngineDirectory;
+			return FileReference.Combine(BaseDirectory, "Intermediate", "Build", Platform.ToString(), TargetName, Configuration.ToString(), "Makefile.ubt");
 		}
-
-		/// <summary>
-		/// Gets the file path for a UBTMakefile for single target.
-		/// </summary>
-		/// <param name="Target">The target.</param>
-		/// <returns>UBTMakefile path</returns>
-		public static DirectoryReference GetUBTMakefileDirectoryPathForSingleTarget(TargetDescriptor Target)
-		{
-			return GetUBTMakefileDirectory(Target.ProjectFile, Target.Platform, Target.Configuration, Target.Name);
-		}
-
-		public static DirectoryReference GetUBTMakefileDirectory(FileReference ProjectFile, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string TargetName)
-		{
-			// If there's only one target, just save the UBTMakefile in the target's build intermediate directory
-			// under a folder for that target (and platform/config combo.)
-			if (ProjectFile != null)
-			{
-				return DirectoryReference.Combine(ProjectFile.Directory, "Intermediate", "Build", Platform.ToString(), TargetName, Configuration.ToString());
-			}
-			else
-			{
-				return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", Platform.ToString(), TargetName, Configuration.ToString());
-			}
-		}
-
-		public static FileReference GetUBTMakefilePath(FileReference ProjectFile, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string TargetName, bool bForHotReload)
-		{
-			DirectoryReference BaseDir = GetUBTMakefileDirectory(ProjectFile, Platform, Configuration, TargetName);
-			return FileReference.Combine(BaseDir, bForHotReload ? "HotReloadMakefile.ubt" : "Makefile.ubt");
-		}
-
-		/// <summary>
-		/// Makes up a name for a set of targets that we can use for file or directory names
-		/// </summary>
-		/// <param name="TargetDescs">List of targets.  Order is not important</param>
-		/// <returns>The name to use</returns>
-		public static string MakeTargetCollectionName(List<TargetDescriptor> TargetDescs)
-		{
-			if (TargetDescs.Count == 0)
-			{
-				throw new BuildException("Expecting at least one Target to be passed to MakeTargetCollectionName");
-			}
-
-			List<TargetDescriptor> SortedTargets = new List<TargetDescriptor>();
-			SortedTargets.AddRange(TargetDescs);
-			SortedTargets.Sort((x, y) => { return x.Name.CompareTo(y.Name); });
-
-			// Figure out what to call our action graph based on everything we're building
-			StringBuilder TargetCollectionName = new StringBuilder();
-			foreach (TargetDescriptor Target in SortedTargets)
-			{
-				if (TargetCollectionName.Length > 0)
-				{
-					TargetCollectionName.Append("_");
-				}
-
-				// @todo ubtmake: Should we also have the platform Architecture in this string?
-				TargetCollectionName.Append(Target.Name + "-" + Target.Platform.ToString() + "-" + Target.Configuration.ToString());
-			}
-
-			return TargetCollectionName.ToString();
-		}
-
 	}
 }

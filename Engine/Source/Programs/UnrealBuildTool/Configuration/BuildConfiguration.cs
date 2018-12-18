@@ -64,13 +64,6 @@ namespace UnrealBuildTool
 		public bool bAllowSNDBS = true;
 
 		/// <summary>
-		/// Whether we should export a JSON file containing detailed target information.
-		/// </summary>
-		[XmlConfigFile]
-		[CommandLine("-JsonExport")]
-		public string JsonExportFile = null;
-
-		/// <summary>
 		/// Skip building; just do setup and terminate.
 		/// </summary>
 		[CommandLine("-SkipBuild")]

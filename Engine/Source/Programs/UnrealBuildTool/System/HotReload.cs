@@ -463,9 +463,6 @@ namespace UnrealBuildTool
 							FileItem NewPrerequisiteItem = FileItem.GetItemByPath(NewPrerequisiteItemFilePath);
 							Action.PrerequisiteItems[ItemIndex] = NewPrerequisiteItem;
 
-							// Copy the other important settings from the original file item
-							NewPrerequisiteItem.ProducingAction = OriginalPrerequisiteItem.ProducingAction;
-
 							// Keep track of it so we can fix up dependencies in a second pass afterwards
 							AffectedOriginalFileItemAndNewFileItemMap.Add(OriginalPrerequisiteItem, NewPrerequisiteItem);
 
@@ -490,7 +487,6 @@ namespace UnrealBuildTool
 				// Go ahead and replace all occurrences of our file name in the command-line (ignoring extensions)
 				Action.CommandArguments = ReplaceBaseFileName(Action.CommandArguments, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
 
-
 				// Update this action's list of produced items too
 				for (int ItemIndex = 0; ItemIndex < Action.ProducedItems.Count; ++ItemIndex)
 				{
@@ -503,9 +499,6 @@ namespace UnrealBuildTool
 						FileItem NewProducedItem = FileItem.GetItemByPath(NewProducedItemFilePath);
 						Action.ProducedItems[ItemIndex] = NewProducedItem;
 
-						// Copy the other important settings from the original file item
-						NewProducedItem.ProducingAction = OriginalProducedItem.ProducingAction;
-
 						// Keep track of it so we can fix up dependencies in a second pass afterwards
 						AffectedOriginalFileItemAndNewFileItemMap.Add(OriginalProducedItem, NewProducedItem);
 					}
@@ -513,7 +506,6 @@ namespace UnrealBuildTool
 
 				// The status description of the item has the file name, so we'll update it too
 				Action.StatusDescription = ReplaceBaseFileName(Action.StatusDescription, OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
-
 
 				// Keep track of the file names, so we can fix up response files afterwards.
 				if(!OriginalFileNameAndNewFileNameList_NoExtensions.ContainsKey(OriginalFileNameWithoutExtension))
