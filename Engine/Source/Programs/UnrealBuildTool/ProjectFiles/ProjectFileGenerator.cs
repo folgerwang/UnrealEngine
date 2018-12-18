@@ -1722,8 +1722,8 @@ namespace UnrealBuildTool
 									{
 										CppCompileEnvironment ModuleCompileEnvironment = Module.CreateModuleCompileEnvironment(Target.Rules, BinaryCompileEnvironment);
 										ProjectFileForIDE.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
-										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
-										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.SystemIncludePaths, true);
+										ProjectFileForIDE.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.UserIncludePaths, false);
 									}
 								}
 							}

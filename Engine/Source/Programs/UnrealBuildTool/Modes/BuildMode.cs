@@ -96,8 +96,6 @@ namespace UnrealBuildTool
 			// Reset global configurations
 			string ExecutorName = "Unknown";
 
-			List<CPPHeaders> HeadersList = new List<CPPHeaders>();
-
 			Stopwatch ExecutorTimer = new Stopwatch();
 
 			try
@@ -200,17 +198,6 @@ namespace UnrealBuildTool
 								Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
 							}
 
-							// Create the header cache for this target
-							FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName);
-							CPPHeaders Headers = new CPPHeaders(Target.ProjectFile, DependencyCacheFile);
-							HeadersList.Add(Headers);
-
-							// Read the dependency cache
-							using(Timeline.ScopeEvent("DependencyCache.Create()"))
-							{
-								Headers.IncludeDependencyCache = DependencyCache.Create(DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName));
-							}
-
 							// Build the target
 							const bool bIsAssemblingBuild = true;
 
@@ -223,7 +210,7 @@ namespace UnrealBuildTool
 							ECompilationResult BuildResult;
 							using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
 							{
-								BuildResult = Target.Build(BuildConfiguration, Headers, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
+								BuildResult = Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
 							}
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
@@ -408,34 +395,15 @@ namespace UnrealBuildTool
 			}
 			finally
 			{
-				// Save the dependency caches
+				// Save all the caches
+				SourceFileMetadataCache.SaveAll();
 				CppDependencyCache.SaveAll();
-
-				// Save the include dependency cache.
-				foreach (CPPHeaders Headers in HeadersList)
-				{
-					// NOTE: It's very important that we save the include cache, even if a build exception was thrown (compile error, etc), because we need to make sure that
-					//    any C++ include dependencies that we computed for out of date source files are saved.  Remember, the build may fail *after* some build products
-					//    are successfully built.  If we didn't save our dependency cache after build failures, source files for those build products that were successfully
-					//    built before the failure would not be considered out of date on the next run, so this is our only chance to cache C++ includes for those files!
-
-					if (Headers.IncludeDependencyCache != null)
-					{
-						using(Timeline.ScopeEvent("DependencyCache.Save()"))
-						{
-							Headers.IncludeDependencyCache.Save();
-						}
-					}
-				}
 
 				// Figure out how long we took to execute.
 				if (ExecutorName != "Unknown")
 				{
 					Log.TraceInformation("Total build time: {0:0.00} seconds ({1} executor: {2:0.00} seconds)", BuildTimer.Elapsed.TotalSeconds, ExecutorName, ExecutorTimer.Elapsed.TotalSeconds);
 				}
-
-				// Print some performance info
-				Log.TraceLog("DirectIncludes cache miss time: {0}s ({1} misses)", CPPHeaders.DirectIncludeCacheMissesTotalTime, CPPHeaders.TotalDirectIncludeCacheMisses);
 			}
 		}
 

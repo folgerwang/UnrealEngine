@@ -204,11 +204,11 @@ namespace UnrealBuildTool
 			{
 				SharedArguments.Add("/D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}

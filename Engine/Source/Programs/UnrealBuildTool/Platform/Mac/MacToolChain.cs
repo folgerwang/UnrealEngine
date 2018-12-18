@@ -406,8 +406,8 @@ namespace UnrealBuildTool
 			}
 
 			// Add include paths to the argument list.
-			HashSet<DirectoryReference> AllIncludes = new HashSet<DirectoryReference>(CompileEnvironment.IncludePaths.UserIncludePaths);
-			AllIncludes.UnionWith(CompileEnvironment.IncludePaths.SystemIncludePaths);
+			HashSet<DirectoryReference> AllIncludes = new HashSet<DirectoryReference>(CompileEnvironment.UserIncludePaths);
+			AllIncludes.UnionWith(CompileEnvironment.SystemIncludePaths);
 			foreach (DirectoryReference IncludePath in AllIncludes)
 			{
 				Arguments.Append(" -I\"");

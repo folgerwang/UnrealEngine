@@ -1142,11 +1142,11 @@ namespace UnrealBuildTool
 			}
 
 			// Add include paths to the argument list.
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
 				Arguments += string.Format(" -I\"{0}\"", IncludePath.FullName.Replace('\\', '/'));
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 			{
 				Arguments += string.Format(" -I\"{0}\"", IncludePath.FullName.Replace('\\', '/'));
 			}

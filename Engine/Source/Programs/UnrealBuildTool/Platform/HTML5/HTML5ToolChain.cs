@@ -346,11 +346,11 @@ namespace UnrealBuildTool
 			CPPOutput Result = new CPPOutput();
 
 			// Add include paths to the argument list.
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
 				AddIncludePath(ref Arguments, IncludePath);
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 			{
 				AddIncludePath(ref Arguments, IncludePath);
 			}

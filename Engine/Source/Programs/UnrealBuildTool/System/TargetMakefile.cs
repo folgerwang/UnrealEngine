@@ -188,8 +188,8 @@ namespace UnrealBuildTool
 		/// <param name="MakefilePath">Path to the makefile to load</param>
 		/// <param name="ProjectFile">Path to the project file</param>
 		/// <param name="Platform">Platform for this makefile</param>
-		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <param name="WorkingSet">Interface to query which source files are in the working set</param>
+		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <returns>The loaded makefile, or null if it failed for some reason.  On failure, the 'ReasonNotLoaded' variable will contain information about why</returns>
 		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, UnrealTargetPlatform Platform, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
 		{
@@ -387,9 +387,10 @@ namespace UnrealBuildTool
 				// Makefile is invalid if:
 				// * There are any newer files which contain no UHT data, but were previously in the makefile
 				// * There are any newer files contain data which needs processing by UHT, but weren't not previously in the makefile
+				SourceFileMetadataCache MetadataCache = SourceFileMetadataCache.CreateHierarchy(ProjectFile);
 				foreach (FileReference Filename in HFilesNewerThanMakefile)
 				{
-					bool bContainsUHTData = CPPHeaders.DoesFileContainUObjects(Filename.FullName);
+					bool bContainsUHTData = MetadataCache.ContainsReflectionMarkup(FileItem.GetItemByFileReference(Filename));
 					bool bWasProcessed = AllUHTHeaders.Contains(Filename);
 					if (bContainsUHTData != bWasProcessed)
 					{

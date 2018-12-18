@@ -1304,14 +1304,14 @@ namespace UnrealBuildTool
 					}
 
 					// Add include paths to the argument list (filtered by architecture)
-					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 					{
 						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{
 							Arguments += string.Format(" -I\"{0}\"", IncludePath);
 						}
 					}
-					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 					{
 						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{

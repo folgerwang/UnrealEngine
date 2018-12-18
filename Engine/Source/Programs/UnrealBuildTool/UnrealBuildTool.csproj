@@ -190,6 +190,7 @@
     <Compile Include="System\CppCompileEnvironment.cs" />
     <Compile Include="System\CppDependencyCache.cs" />
     <Compile Include="System\CppIncludeParser.cs" />
+    <Compile Include="System\SourceFileMetadataCache.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
     <Compile Include="System\EncryptionAndSigning.cs" />
     <Compile Include="System\HotReload.cs" />
@@ -342,8 +343,6 @@
     <Compile Include="System\PluginDescriptor.cs" />
     <Compile Include="System\ProjectDescriptor.cs" />
     <Compile Include="System\DirectoryLookupCache.cs" />
-    <Compile Include="System\CPPHeaders.cs" />
-    <Compile Include="System\DependencyCache.cs" />
     <Compile Include="System\DynamicCompilation.cs" />
     <Compile Include="System\ExternalExecution.cs" />
     <Compile Include="System\FileItem.cs" />

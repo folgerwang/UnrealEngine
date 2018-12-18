@@ -454,7 +454,7 @@ namespace UnrealBuildTool
 			string BaseLinuxPath = SDK.GetBaseLinuxPathForArchitecture(Target.Architecture);
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux && String.IsNullOrEmpty(BaseLinuxPath))
 			{
-				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
+				CompileEnvironment.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)

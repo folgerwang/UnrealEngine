@@ -354,21 +354,21 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
 			DirectoryReference NdkDir = new DirectoryReference(NDKPath);
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
 
 			// the toolchain will actually filter these out
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include"));
 
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64"));
 
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
 
 
 			// if the project has an Oodle compression Dll, enable the decompressor on Android

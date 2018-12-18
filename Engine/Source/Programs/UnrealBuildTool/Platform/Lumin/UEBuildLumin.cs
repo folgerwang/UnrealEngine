@@ -166,9 +166,9 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
 			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
 
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lib/lumin"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/lib"));

@@ -847,12 +847,12 @@ namespace UnrealBuildTool
 			AppendCLArguments_Global(CompileEnvironment, SharedArguments);
 
 			// Add include paths to the argument list.
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
 				AddIncludePath(SharedArguments, IncludePath);
 			}
 
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 			{
 				AddSystemIncludePath(SharedArguments, IncludePath);
 			}
@@ -1143,13 +1143,13 @@ namespace UnrealBuildTool
 				Arguments.Add("/l 0x409");
 
 				// Include paths. Don't use AddIncludePath() here, since it uses the full path and exceeds the max command line length.
-				foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+				foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 				{
 					Arguments.Add(String.Format("/I \"{0}\"", IncludePath));
 				}
 
 				// System include paths.
-				foreach (DirectoryReference SystemIncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+				foreach (DirectoryReference SystemIncludePath in CompileEnvironment.SystemIncludePaths)
 				{
 					Arguments.Add(String.Format("/I \"{0}\"", SystemIncludePath));
 				}

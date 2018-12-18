@@ -447,6 +447,11 @@ namespace UnrealBuildTool
 		public RulesAssembly RulesAssembly;
 
 		/// <summary>
+		/// Cache of source file metadata for this target
+		/// </summary>
+		public SourceFileMetadataCache MetadataCache;
+
+		/// <summary>
 		/// The project file for this target
 		/// </summary>
 		public FileReference ProjectFile;
@@ -597,6 +602,7 @@ namespace UnrealBuildTool
 		/// <param name="InRulesAssembly">The chain of rules assemblies that this target was created with</param>
 		public UEBuildTarget(TargetDescriptor InDesc, ReadOnlyTargetRules InRules, RulesAssembly InRulesAssembly)
 		{
+			MetadataCache = SourceFileMetadataCache.CreateHierarchy(InDesc.ProjectFile);
 			ProjectFile = InDesc.ProjectFile;
 			AppName = InDesc.Name;
 			TargetName = InDesc.Name;
@@ -1072,7 +1078,9 @@ namespace UnrealBuildTool
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
 
-			CppCompileEnvironment GlobalCompileEnvironment = new CppCompileEnvironment(CppPlatform, CppConfiguration, Architecture, null);
+			SourceFileMetadataCache MetadataCache = SourceFileMetadataCache.CreateHierarchy(ProjectFile);
+
+			CppCompileEnvironment GlobalCompileEnvironment = new CppCompileEnvironment(CppPlatform, CppConfiguration, Architecture, MetadataCache);
 			LinkEnvironment GlobalLinkEnvironment = new LinkEnvironment(GlobalCompileEnvironment.Platform, GlobalCompileEnvironment.Configuration, GlobalCompileEnvironment.Architecture);
 
 			UEToolChain TargetToolChain = CreateToolchain(CppPlatform);
@@ -1084,12 +1092,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds the target, appending list of output files and returns building result.
 		/// </summary>
-		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, List<Action> Actions, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
+		public ECompilationResult Build(BuildConfiguration BuildConfiguration, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, List<Action> Actions, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
 		{
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
 
-			CppCompileEnvironment GlobalCompileEnvironment = new CppCompileEnvironment(CppPlatform, CppConfiguration, Architecture, Headers);
+			SourceFileMetadataCache MetadataCache = SourceFileMetadataCache.CreateHierarchy(ProjectFile);
+
+			CppCompileEnvironment GlobalCompileEnvironment = new CppCompileEnvironment(CppPlatform, CppConfiguration, Architecture, MetadataCache);
 			LinkEnvironment GlobalLinkEnvironment = new LinkEnvironment(GlobalCompileEnvironment.Platform, GlobalCompileEnvironment.Configuration, GlobalCompileEnvironment.Architecture);
 
 			UEToolChain TargetToolChain = CreateToolchain(CppPlatform);
@@ -1263,7 +1273,7 @@ namespace UnrealBuildTool
 			HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.ToList());
 			using(Timeline.ScopeEvent("ExternalExecution.SetupUObjectModules()"))
 			{
-				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, Prerequisites.UObjectModuleHeaders, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, Prerequisites.UObjectModuleHeaders, Rules.GeneratedCodeVersion, bIsAssemblingBuild, MetadataCache);
 			}
 
 			// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
@@ -2835,7 +2845,7 @@ namespace UnrealBuildTool
 			GlobalCompileEnvironment.bPGOOptimize = Rules.bPGOOptimize;
 			GlobalCompileEnvironment.bPGOProfile = Rules.bPGOProfile;
 			GlobalCompileEnvironment.bAllowRemotelyCompiledPCHs = Rules.bAllowRemotelyCompiledPCHs;
-			GlobalCompileEnvironment.IncludePaths.bCheckSystemHeadersForModification = Rules.bCheckSystemHeadersForModification;
+			GlobalCompileEnvironment.bCheckSystemHeadersForModification = Rules.bCheckSystemHeadersForModification;
 			GlobalCompileEnvironment.bPrintTimingInfo = Rules.bPrintToolChainTimingInfo;
 			GlobalCompileEnvironment.bUseRTTI = Rules.bForceEnableRTTI;
 			GlobalCompileEnvironment.bUseInlining = Rules.bUseInlining;
@@ -2878,7 +2888,7 @@ namespace UnrealBuildTool
 			GlobalCompileEnvironment.Definitions.Add("USE_VORBIS_FOR_STREAMING=1");
 
 			// Add the 'Engine/Source' path as a global include path for all modules
-			GlobalCompileEnvironment.IncludePaths.UserIncludePaths.Add(UnrealBuildTool.EngineSourceDirectory);
+			GlobalCompileEnvironment.UserIncludePaths.Add(UnrealBuildTool.EngineSourceDirectory);
 
 			//@todo.PLATFORM: Do any platform specific tool chain initialization here if required
 
@@ -3193,10 +3203,10 @@ namespace UnrealBuildTool
 					FileReference CppFile = DirectoryReference.EnumerateFiles(RulesObject.Directory, "*.cpp", SearchOption.AllDirectories).FirstOrDefault();
 					if(CppFile != null)
 					{
-						List<DependencyInclude> Includes = CPPHeaders.GetUncachedDirectIncludeDependencies(CppFile, ProjectFile);
-						if(Includes.Count > 0)
+						string IncludeFile = MetadataCache.GetFirstInclude(FileItem.GetItemByFileReference(CppFile));
+						if(IncludeFile != null)
 						{
-							FileReference PchIncludeFile = DirectoryReference.EnumerateFiles(RulesObject.Directory, Path.GetFileName(Includes[0].IncludeName), SearchOption.AllDirectories).FirstOrDefault();
+							FileReference PchIncludeFile = DirectoryReference.EnumerateFiles(RulesObject.Directory, Path.GetFileName(IncludeFile), SearchOption.AllDirectories).FirstOrDefault();
 							if(PchIncludeFile != null)
 							{
 								RulesObject.PrivatePCHHeaderFile = PchIncludeFile.MakeRelativeTo(RulesObject.Directory).Replace(Path.DirectorySeparatorChar, '/');
