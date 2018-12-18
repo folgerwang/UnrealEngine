@@ -233,7 +233,7 @@ void FMacPlatformSplash::Show()
 
 				// Display copyright information in editor splash screen
 				{
-					const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2018   Epic Games, Inc.   All rights reserved." );
+					const FText CopyrightInfo = NSLOCTEXT( "UnrealEd", "SplashScreen_CopyrightInfo", "Copyright \x00a9 1998-2019   Epic Games, Inc.   All rights reserved." );
 					StartSetSplashText( SplashTextType::CopyrightInfo, CopyrightInfo );
 				}
 			}
