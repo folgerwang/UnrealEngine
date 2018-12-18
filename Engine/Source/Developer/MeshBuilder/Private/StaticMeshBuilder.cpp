@@ -150,9 +150,6 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			FOverlappingCorners OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseReduceLodIndex], OverlappingThreshold);
 
-			//Create a reduced mesh from the base LOD
-			UStaticMesh::RegisterMeshAttributes(MeshDescriptions[LodIndex]);
-			
 			int32 OldSectionInfoMapCount = StaticMesh->SectionInfoMap.GetSectionNumber(LodIndex);
 
 			if (LodIndex == BaseReduceLodIndex)
