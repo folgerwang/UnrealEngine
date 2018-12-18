@@ -823,16 +823,6 @@ namespace UnrealBuildTool
 					}
 				}
 
-				// Add all the additional shadow files
-				foreach (string AdditionalShadowFile in Rules.PublicAdditionalShadowFiles)
-				{
-					string ShadowFileName = Path.GetFullPath(AdditionalShadowFile);
-					if (File.Exists(ShadowFileName))
-					{
-						Files.Add(new FileReference(ShadowFileName));
-					}
-				}
-
 				// Find all the include paths
 				List<string> AllIncludePaths = new List<string>();
 				AllIncludePaths.AddRange(Rules.PublicIncludePaths);
@@ -3265,7 +3255,6 @@ namespace UnrealBuildTool
 						RulesObject.PublicIncludePaths = CombinePathList(ProjectSourceDirectoryName, RulesObject.PublicIncludePaths);
 						RulesObject.PrivateIncludePaths = CombinePathList(ProjectSourceDirectoryName, RulesObject.PrivateIncludePaths);
 						RulesObject.PublicLibraryPaths = CombinePathList(ProjectSourceDirectoryName, RulesObject.PublicLibraryPaths);
-						RulesObject.PublicAdditionalShadowFiles = CombinePathList(ProjectSourceDirectoryName, RulesObject.PublicAdditionalShadowFiles);
 					}
 				}
 

@@ -30,7 +30,6 @@ public class coremod: ModuleRules
 		else if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			PublicLibraryPaths.Add(LibraryPath + "/lib/IOS");
-			PublicAdditionalShadowFiles.Add(LibraryPath + "/lib/IOS/libcoremod.a");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {

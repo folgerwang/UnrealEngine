@@ -626,6 +626,7 @@ namespace UnrealBuildTool
 		/// need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
 		/// automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
 		/// </summary>
+		[Obsolete("To specify files to be transferred to a remote Mac for compilation, create a [Project]/Build/Rsync/RsyncProject.txt file. See https://linux.die.net/man/1/rsync for more information about Rsync filter rules.")]
 		public List<string> PublicAdditionalShadowFiles = new List<string>();
 
 		/// <summary>

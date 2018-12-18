@@ -53,7 +53,6 @@ public class Expat : ModuleRules
 		else if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			PublicAdditionalLibraries.Add(Path.Combine(ExpatPackagePath, "IOS", ConfigName, "libexpat.a"));
-			PublicAdditionalShadowFiles.Add(Path.Combine(ExpatPackagePath, "IOS", ConfigName, "libexpat.a"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{

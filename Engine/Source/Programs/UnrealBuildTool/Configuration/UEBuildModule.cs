@@ -114,11 +114,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		protected readonly HashSet<string> PublicAdditionalShadowFiles;
-
-		/// <summary>
-		/// 
-		/// </summary>
 		protected readonly HashSet<UEBuildBundleResource> PublicAdditionalBundleResources;
 
 		/// <summary>
@@ -192,7 +187,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
 			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources.Select(x => new UEBuildBundleResource(x)));
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);
 			if(Rules.bUsePrecompiled)
@@ -641,7 +635,6 @@ namespace UnrealBuildTool
 			List<string> Frameworks,
 			List<string> WeakFrameworks,
 			List<UEBuildFramework> AdditionalFrameworks,
-			List<string> AdditionalShadowFiles,
 			List<UEBuildBundleResource> AdditionalBundleResources,
 			List<string> DelayLoadDLLs,
 			List<UEBuildBinary> BinaryDependencies,
@@ -679,7 +672,7 @@ namespace UnrealBuildTool
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
 							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, RuntimeLibraryPaths, Frameworks, WeakFrameworks,
-								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+								AdditionalFrameworks, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 						}
 					}
 				}
@@ -692,7 +685,6 @@ namespace UnrealBuildTool
 				WeakFrameworks.AddRange(PublicWeakFrameworks);
 				AdditionalBundleResources.AddRange(PublicAdditionalBundleResources);
 				AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
-				AdditionalShadowFiles.AddRange(PublicAdditionalShadowFiles);
 				DelayLoadDLLs.AddRange(PublicDelayLoadDLLs);
 			}
 		}
@@ -713,7 +705,7 @@ namespace UnrealBuildTool
 
 			// Allow the module's public dependencies to add library paths and additional libraries to the link environment.
 			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 
 			// Also allow the module's public and private dependencies to modify the link environment.
 			List<UEBuildModule> AllDependencyModules = new List<UEBuildModule>();
@@ -723,7 +715,7 @@ namespace UnrealBuildTool
 			foreach (UEBuildModule DependencyModule in AllDependencyModules)
 			{
 				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 			}
 
 			// Add all the additional properties
