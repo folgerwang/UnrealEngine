@@ -1208,7 +1208,12 @@ namespace UnrealBuildTool
 							UBTArguments.Append(" -logsuffix=UHT");
 						}
 
-						if (RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString()) != 0)
+						int ExitCode;
+						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))
+						{
+							ExitCode = RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString());
+						}
+						if(ExitCode != 0)
 						{
 							return ECompilationResult.OtherCompilationError;
 						}

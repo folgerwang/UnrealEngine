@@ -1313,14 +1313,17 @@ namespace UnrealBuildTool
 			{
 				ExeDir = ExeDir.ParentDirectory.ParentDirectory.ParentDirectory;
 			}
-			foreach (UEBuildBinary Binary in Binaries)
+			using(Timeline.ScopeEvent("UEBuildBinary.Build()"))
 			{
-				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Prerequisites, ExeDir, Actions);
-				if(!bCompileMonolithic)
+				foreach (UEBuildBinary Binary in Binaries)
 				{
-					ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
+					List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Prerequisites, ExeDir, Actions);
+					if(!bCompileMonolithic)
+					{
+						ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
+					}
+					OutputItems.AddRange(BinaryOutputItems);
 				}
-				OutputItems.AddRange(BinaryOutputItems);
 			}
 
 			// Prepare all the runtime dependencies, copying them from their source folders if necessary

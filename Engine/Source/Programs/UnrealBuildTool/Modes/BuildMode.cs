@@ -85,8 +85,6 @@ namespace UnrealBuildTool
 			Arguments.TryGetValue("-RemoteIni=", out RemoteIniPath);
 			UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
 
-			Timeline.AddEvent("Basic UBT initialization");
-
 			// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
 			if (!BuildConfiguration.bIgnoreJunk)
 			{
@@ -106,8 +104,6 @@ namespace UnrealBuildTool
 			{
 				// action graph implies using the dependency resolve cache
 				bool GeneratingActionGraph = Arguments.HasOption("-Graph");
-
-				Timeline.AddEvent("RunUBT() initialization complete");
 
 				bool bSkipRulesCompile = Arguments.Any(x => x.Equals("-skiprulescompile", StringComparison.InvariantCultureIgnoreCase));
 
@@ -198,7 +194,11 @@ namespace UnrealBuildTool
 						if(Makefile == null)
 						{
 							// Create the target
-							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+							UEBuildTarget Target;
+							using(Timeline.ScopeEvent("UEBuildTarget.CreateTarget"))
+							{
+								Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+							}
 
 							// Create the header cache for this target
 							FileReference DependencyCacheFile = DependencyCache.GetDependencyCachePathForTarget(Target.ProjectFile, Target.Platform, Target.TargetName);
@@ -220,7 +220,11 @@ namespace UnrealBuildTool
 							List<Action> Actions = new List<Action>();
 							BuildPrerequisites Prerequisites = new BuildPrerequisites();
 
-							ECompilationResult BuildResult = Target.Build(BuildConfiguration, Headers, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
+							ECompilationResult BuildResult;
+							using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
+							{
+								BuildResult = Target.Build(BuildConfiguration, Headers, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
+							}
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
 								return (int)BuildResult;
