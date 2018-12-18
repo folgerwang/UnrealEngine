@@ -368,7 +368,7 @@ void    init_system( void)
 /* Initialize static variables  */
 {
     if (sharp_filename)
-        free( sharp_filename);
+        xfree( sharp_filename);
     sharp_filename = NULL;
     incend = incdir = NULL;
     fnamelist = once_list = NULL;
@@ -1735,7 +1735,7 @@ static void def_a_macro(
         defp->nargs = DEF_NOARGS_STANDARD;
                                 /* Restore Standard-predefinedness  */
     }
-    free( definition);
+    xfree( definition);
     skip_nl();                      /* Clear the appended <newline> */
 }
 
@@ -2209,7 +2209,7 @@ static void parse_env(
         while (*save == ENV_SEP)
             ++save;
     }
-    free( save_start);
+    xfree( save_start);
 }
 
 static void set_sys_dirs(
@@ -2314,7 +2314,7 @@ static void set_a_dir(
             if (option_flags.v && ! (mcpp_debug & MACRO_CALL))
                 mcpp_fprintf( ERR, "Duplicate directory \"%s\" is ignored\n"
                         , norm_name);
-            free( norm_name);               /* Already registered   */
+            xfree( norm_name);               /* Already registered   */
             return;
         }
     }
@@ -2403,7 +2403,7 @@ static char *   norm_dir(
     }
 #if COMPILER == GNUC
     if (sysroot && sys_dirp)
-        free( dirname);
+        xfree( dirname);
 #endif
 
     return  norm_name;
@@ -2472,7 +2472,7 @@ static char *   norm_path(
         slbuf1[ --len] = EOS;
     }
 	if (fname && mfexists(fname))
-		return strdup(fname);
+		return xstrdup(fname);
     if (fname)
         strcat( slbuf1, fname);
     if (stat( slbuf1, & st_buf) != 0        /* Non-existent         */
@@ -2558,14 +2558,14 @@ static char *   norm_path(
             cp1 = xmalloc( strlen( cygdrive) + strlen( root_dir));
             strcpy( cp1, cygdrive);
             strcat( cp1, root_dir + 1);
-            free( root_dir);
+            xfree( root_dir);
             root_dir = cp1;
             root_dir_len = strlen( root_dir);
         }
         cp1 = xmalloc( root_dir_len + len + 1);
         strcpy( cp1, root_dir);
         strcat( cp1, norm_name);        /* Convert to absolute path */
-        free( norm_name);
+        xfree( norm_name);
         norm_name = start = cp1;
         len += root_dir_len;
     }
@@ -2587,7 +2587,7 @@ static char *   norm_path(
         cp1 = xmalloc( mingw_dir_len + len + 1);
         strcpy( cp1, mingw_dir);
         strcat( cp1, norm_name + 6);    /* Convert to absolute path */
-        free( norm_name);
+        xfree( norm_name);
         norm_name = start = cp1;
         len += mingw_dir_len;
     } else if (memcmp( cp1, "/usr", 4) == 0) {
@@ -2603,7 +2603,7 @@ static char *   norm_path(
         cp1 = xmalloc( root_dir_len + len + 1);
         strcpy( cp1, root_dir);
         strcat( cp1, norm_name);        /* Convert to absolute path */
-        free( norm_name);
+        xfree( norm_name);
         norm_name = start = cp1;
         len += root_dir_len;
     }
@@ -2624,7 +2624,7 @@ static char *   norm_path(
         abs_path = xmalloc( len + strlen( cur_work_dir) + 1);
         cp1 = stpcpy( abs_path, cur_work_dir);
         strcpy( cp1, start);
-        free( norm_name);
+        xfree( norm_name);
         norm_name = abs_path;
         start = cp1 = norm_name + start_pos;
     }
@@ -2743,7 +2743,7 @@ static void init_gcc_macro( void)
     sprintf( tmp, "%s/mcpp-gcc-%s", INC_DIR, arch);
 #endif
     include_dir = norm_path( tmp, NULL, TRUE, FALSE);
-    free( tmp);
+    xfree( tmp);
 
     for (i = 0; i <= 1; i++) {
         int         nargs;
@@ -2776,7 +2776,7 @@ static void init_gcc_macro( void)
             skip_nl();
         }
     }
-    free( include_dir);
+    xfree( include_dir);
 
 undef_special:
     if (look_id( "__OPTIMIZE__"))       /* -O option is specified   */
@@ -2892,8 +2892,8 @@ void    put_depend(
     if (fp == NULL) {   /* Main source file.  Have to initialize.   */
 #if MCPP_LIB
         if (output != NULL) {
-            free( output);
-            free( pos);
+            xfree( output);
+            xfree( pos);
         }
 #endif
         output = xmalloc( mkdep_len = MKDEP_INITLEN);
@@ -3176,14 +3176,14 @@ found_name:
     }
 #endif
     if (open_include( filename, (delim == '"'), next)) {
-        /* 'fname' should not be free()ed, it is used as file->         */
+        /* 'fname' should not be xfree()ed, it is used as file->         */
         /*      real_fname and has been registered into fnamelist[]     */
         return  TRUE;
     }
 
     cerror( "Can't open include file \"%s\"", filename, 0L, NULL);  /* _E_  */
 error:
-    free( fname);
+    xfree( fname);
     return  FALSE;
 
 not_header:
@@ -3522,7 +3522,7 @@ search:
 true:
     return  TRUE;
 false:
-    free( fullname);
+    xfree( fullname);
     return  FALSE;
 }
 
@@ -3647,7 +3647,7 @@ static char *   search_header_map(
         }
         i = ++i & mask;
     }
-    free( contents);
+    xfree( contents);
     return  key_offs ? pathlist : NULL;
 }
 
@@ -3935,7 +3935,7 @@ static void cur_file(
     }
     if (sharp_filename == NULL || ! str_eq( name, sharp_filename)) {
         if (sharp_filename != NULL)
-            free( sharp_filename);
+            xfree( sharp_filename);
         sharp_filename = save_string( name);
     }
     mcpp_fprintf( OUT, " \"%s\"", name);
@@ -4087,7 +4087,7 @@ void    do_pragma( void)
             token_type = scan_token( c = get_ch(), (bp = tp, &tp), mp_end);
         } while (c != '\n');
         unget_string( mp, NULL);                    /* To re-read   */
-        free( mp);
+        xfree( mp);
         c = skip_ws();
         bp = infile->bptr - 1;
         token_type = scan_token( c, (tp = work_buf, &tp), work_end);
@@ -4341,7 +4341,7 @@ static void push_or_pop(
                     } else {
                         *prevp = defp->link;
                                 /* Link the previous and the next   */
-                        free( defp);
+                        xfree( defp);
                             /* Delete the definition to enable popped def   */
                     }
                 }   /* Else no current definition exists    */
@@ -4913,13 +4913,13 @@ void    clear_filelist( void)
     INC_LIST *  namep;
 
     for (incp = incdir; incp < incend; incp++)
-        free( (void *) *incp);
-    free( (void *) incdir);
+        xfree( (void *) *incp);
+    xfree( (void *) incdir);
     for (namep = fnamelist; namep < fname_end; namep++)
-        free( (void *) namep->name);
-    free( (void *) fnamelist);
+        xfree( (void *) namep->name);
+    xfree( (void *) fnamelist);
     if (standard)
-        free( (void *) once_list);
+        xfree( (void *) once_list);
 }
 #endif
 
@@ -4967,7 +4967,7 @@ MFILE* mfopen(const char* filename)
 
 	if (contents || fp)
 	{
-		mf = (MFILE*)malloc(sizeof(MFILE));
+		mf = (MFILE*)xmalloc(sizeof(MFILE));
 		mf->fp = fp;
 		mf->start = contents;
 		mf->end = contents_end;
@@ -4984,7 +4984,7 @@ void mfclose(MFILE* mf)
 		{
 			fclose(mf->fp);
 		}
-		free(mf);
+		xfree(mf);
 	}
 }
 
