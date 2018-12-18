@@ -505,6 +505,13 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// If we're just compiling a single file, set the target items to be all the derived items
+			if(BuildConfiguration.SingleFileToCompile != null)
+			{
+				FileItem FileToCompile = FileItem.GetItemByFileReference(BuildConfiguration.SingleFileToCompile);
+				TargetOutputItems = Makefile.Actions.Where(x => x.PrerequisiteItems.Contains(FileToCompile)).SelectMany(x => x.ProducedItems).ToList();
+			}
+
 			// Get the root prerequisite actions
 			List<Action> PrerequisiteActions = ActionGraph.GatherPrerequisiteActions(Makefile.Actions, new HashSet<FileItem>(TargetOutputItems));
 
@@ -587,8 +594,16 @@ namespace UnrealBuildTool
 			}
 
 			// Plan the actions to execute for the build.
-			HashSet<Action> TargetActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, Makefile.Actions, PrerequisiteActions, CppDependencies, History);
-
+			HashSet<Action> TargetActionsToExecute;
+			if (BuildConfiguration.SingleFileToCompile == null)
+			{
+				TargetActionsToExecute = ActionGraph.GetActionsToExecute(Makefile.Actions, PrerequisiteActions, CppDependencies, History, BuildConfiguration.bIgnoreOutdatedImportLibraries);
+			}
+			else
+			{
+				TargetActionsToExecute = new HashSet<Action>(PrerequisiteActions);
+			}
+			
 			// Patch action history for hot reload when running in assembler mode.  In assembler mode, the suffix on the output file will be
 			// the same for every invocation on that makefile, but we need a new suffix each time.
 			if (HotReloadMode != HotReloadMode.Disabled)
@@ -648,7 +663,7 @@ namespace UnrealBuildTool
 				HotReload.PatchActionGraph(PrerequisiteActions, OldLocationToNewLocation);
 
 				// Get a new list of actions to execute now that the graph has been modified
-				TargetActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, Makefile.Actions, PrerequisiteActions, CppDependencies, History);
+				TargetActionsToExecute = ActionGraph.GetActionsToExecute(Makefile.Actions, PrerequisiteActions, CppDependencies, History, BuildConfiguration.bIgnoreOutdatedImportLibraries);
 
 				// Build a mapping of all file items to their original
 				Dictionary<FileReference, FileReference> HotReloadFileToOriginalFile = new Dictionary<FileReference, FileReference>();

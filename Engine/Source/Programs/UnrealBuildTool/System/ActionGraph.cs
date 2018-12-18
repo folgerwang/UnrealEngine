@@ -107,7 +107,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds a list of actions that need to be executed to produce the specified output items.
 		/// </summary>
-		public static HashSet<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, List<Action> Actions, List<Action> PrerequisiteActions, CppDependencyCache CppDependencies, ActionHistory History)
+		public static HashSet<Action> GetActionsToExecute(List<Action> Actions, List<Action> PrerequisiteActions, CppDependencyCache CppDependencies, ActionHistory History, bool bIgnoreOutdatedImportLibraries)
 		{
 			ITimelineEvent GetActionsToExecuteTimer = Timeline.ScopeEvent("ActionGraph.GetActionsToExecute()");
 
@@ -120,22 +120,7 @@ namespace UnrealBuildTool
 
 			// For all targets, build a set of all actions that are outdated.
 			Dictionary<Action, bool> OutdatedActionDictionary = new Dictionary<Action, bool>();
-			GatherAllOutdatedActions(Actions, History, OutdatedActionDictionary, CppDependencies, BuildConfiguration.bIgnoreOutdatedImportLibraries);
-
-			// If we're only compiling a single file, we should always compile and should never link.
-			if (BuildConfiguration.SingleFileToCompile != null)
-			{
-				// Never do anything but compile the target file
-				Actions.RemoveAll(x => x.ActionType != ActionType.Compile);
-
-				// Check all of the leftover compilation actions for the one we want... that one is always outdated.
-				FileItem SingleFileToCompile = FileItem.GetItemByFileReference(BuildConfiguration.SingleFileToCompile);
-				foreach (Action Action in Actions)
-				{
-					bool bIsSingleFileAction = Action.PrerequisiteItems.Contains(SingleFileToCompile);
-					OutdatedActionDictionary[Action] = bIsSingleFileAction;
-				}
-			}
+			GatherAllOutdatedActions(Actions, History, OutdatedActionDictionary, CppDependencies, bIgnoreOutdatedImportLibraries);
 
 			// Build a list of actions that are both needed for this target and outdated.
 			HashSet<Action> ActionsToExecute = new HashSet<Action>(Actions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]));
