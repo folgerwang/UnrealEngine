@@ -2109,6 +2109,13 @@ struct FRelevancePacket
 
 					if(ViewRelevance.bDrawRelevance && (StaticMeshRelevance.bUseForMaterial || StaticMeshRelevance.bUseAsOccluder) && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth) && !bHiddenByHLODFade)
 					{
+						// If the static mesh is an occluder, check whether it covers enough of the screen to be used as an occluder.
+						if (StaticMeshRelevance.bUseAsOccluder && bDrawDepthOnly)
+						{
+							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
+							MarkMask |= EMarkMaskBits::StaticMeshOccluderMapMask;
+						}
+
 						// Mark static mesh as visible for rendering
 						if (StaticMeshRelevance.bUseForMaterial)
 						{
@@ -2154,12 +2161,6 @@ struct FRelevancePacket
 							++NumVisibleStaticMeshElements;
 						}
 
-						// If the static mesh is an occluder, check whether it covers enough of the screen to be used as an occluder.
-						if (StaticMeshRelevance.bUseAsOccluder && bDrawDepthOnly)
-						{
-							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
-							MarkMask |= EMarkMaskBits::StaticMeshOccluderMapMask;
-						}
 						bNeedsBatchVisibility = true;
 					}
 
