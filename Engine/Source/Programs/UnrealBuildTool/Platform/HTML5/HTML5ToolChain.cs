@@ -339,7 +339,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 
@@ -375,7 +375,7 @@ namespace UnrealBuildTool
 
 			foreach (FileItem SourceFile in InputFiles)
 			{
-				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				Action CompileAction = new Action(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
 				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 //				CompileAction.bPrintDebugInfo = true;
@@ -432,24 +432,26 @@ namespace UnrealBuildTool
 				CompileAction.bCanExecuteRemotely =
 					CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 					CompileEnvironment.bAllowRemotelyCompiledPCHs;
+
+				Actions.Add(CompileAction);
 			}
 
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, List<Action> Actions)
 		{
 			CPPOutput Result = new CPPOutput();
 
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			FileItem OutputFile;
 
 			// Make the final javascript file
-			Action LinkAction = ActionGraph.Add(ActionType.Link);
+			Action LinkAction = new Action(ActionType.Link);
 			LinkAction.CommandDescription = "Link";
 //			LinkAction.bPrintDebugInfo = true;
 
@@ -535,6 +537,7 @@ namespace UnrealBuildTool
 
 			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFileName);
 			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
+			Actions.Add(LinkAction);
 
 			return OutputFile;
 		}

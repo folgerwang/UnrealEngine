@@ -1097,7 +1097,7 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 			string PCHArguments = "";
@@ -1161,7 +1161,7 @@ namespace UnrealBuildTool
 			CPPOutput Result = new CPPOutput();
 			foreach (FileItem SourceFile in InputFiles)
 			{
-				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				Action CompileAction = new Action(ActionType.Compile);
 				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 				string FileArguments = "";
@@ -1266,6 +1266,8 @@ namespace UnrealBuildTool
 				CompileAction.bCanExecuteRemotely =
 					CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 					CompileEnvironment.bAllowRemotelyCompiledPCHs;
+
+				Actions.Add(CompileAction);
 			}
 
 			return Result;
@@ -1279,10 +1281,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates an action to archive all the .o files into single .a file
 		/// </summary>
-		public FileItem CreateArchiveAndIndex(LinkEnvironment LinkEnvironment, ActionGraph ActionGraph)
+		public FileItem CreateArchiveAndIndex(LinkEnvironment LinkEnvironment, List<Action> Actions)
 		{
 			// Create an archive action
-			Action ArchiveAction = ActionGraph.Add(ActionType.Link);
+			Action ArchiveAction = new Action(ActionType.Link);
 			ArchiveAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 			bool bUsingSh = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64 && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win32;
 			if (bUsingSh)
@@ -1345,11 +1347,12 @@ namespace UnrealBuildTool
 
 			// Only execute linking on the local PC.
 			ArchiveAction.bCanExecuteRemotely = false;
+			Actions.Add(ArchiveAction);
 
 			return OutputFile;
 		}
 
-		public FileItem FixDependencies(LinkEnvironment LinkEnvironment, FileItem Executable, ActionGraph ActionGraph)
+		public FileItem FixDependencies(LinkEnvironment LinkEnvironment, FileItem Executable, List<Action> Actions)
 		{
 			if (bUseFixdeps)
 			{
@@ -1367,7 +1370,7 @@ namespace UnrealBuildTool
 
 				FileItem FixDepsScript = FileItem.GetItemByFileReference(FileReference.Combine(LinkEnvironment.LocalShadowDirectory, ScriptName));
 
-				Action PostLinkAction = ActionGraph.Add(ActionType.Link);
+				Action PostLinkAction = new Action(ActionType.Link);
 				PostLinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				PostLinkAction.CommandPath = ShellBinary;
 				PostLinkAction.StatusDescription = string.Format("{0}", Path.GetFileName(Executable.AbsolutePath));
@@ -1398,6 +1401,7 @@ namespace UnrealBuildTool
 				System.Console.WriteLine("{0} {1}", PostLinkAction.CommandPath, PostLinkAction.CommandArguments);
 
 				PostLinkAction.ProducedItems.Add(OutputFile);
+				Actions.Add(PostLinkAction);
 				return OutputFile;
 			}
 			else
@@ -1413,7 +1417,7 @@ namespace UnrealBuildTool
 		}
 
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			Debug.Assert(!bBuildImportLibraryOnly);
 
@@ -1426,11 +1430,11 @@ namespace UnrealBuildTool
 
 			if (LinkEnvironment.bIsBuildingLibrary || bBuildImportLibraryOnly)
 			{
-				return CreateArchiveAndIndex(LinkEnvironment, ActionGraph);
+				return CreateArchiveAndIndex(LinkEnvironment, Actions);
 			}
 
 			// Create an action that invokes the linker.
-			Action LinkAction = ActionGraph.Add(ActionType.Link);
+			Action LinkAction = new Action(ActionType.Link);
 			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 
 			string LinkCommandString;
@@ -1718,6 +1722,7 @@ namespace UnrealBuildTool
 
 			// Only execute linking on the local PC.
 			LinkAction.bCanExecuteRemotely = false;
+			Actions.Add(LinkAction);
 
 			// Prepare a script that will run later, once all shared libraries and the executable
 			// are created. This script will be called by action created in FixDependencies()
@@ -1786,7 +1791,7 @@ namespace UnrealBuildTool
 				else
 				{
 					// Create the action to relink the library. This actions does not overwrite the source file so it can be executed in parallel
-					Action RelinkAction = ActionGraph.Add(ActionType.Link);
+					Action RelinkAction = new Action(ActionType.Link);
 					RelinkAction.WorkingDirectory = LinkAction.WorkingDirectory;
 					RelinkAction.StatusDescription = LinkAction.StatusDescription;
 					RelinkAction.CommandDescription = "Relink";
@@ -1872,6 +1877,7 @@ namespace UnrealBuildTool
 
 					RelinkAction.CommandPath = ShellBinary;
 					RelinkAction.CommandArguments = ExecuteSwitch + " \"" + RelinkScriptFullPath + "\"";
+					Actions.Add(RelinkAction);
 				}
 			}
 			return OutputFile;
@@ -1888,9 +1894,9 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
+		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, List<Action> Actions)
 		{
-			ICollection<FileItem> OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
+			ICollection<FileItem> OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, Actions);
 
 			if (bUseFixdeps)
 			{
@@ -1899,7 +1905,7 @@ namespace UnrealBuildTool
 					return OutputFiles;
 				}
 
-				FileItem FixDepsOutputFile = FixDependencies(BinaryLinkEnvironment, Executable, ActionGraph);
+				FileItem FixDepsOutputFile = FixDependencies(BinaryLinkEnvironment, Executable, Actions);
 				if (FixDepsOutputFile != null)
 				{
 					OutputFiles.Add(FixDepsOutputFile);

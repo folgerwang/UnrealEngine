@@ -1186,7 +1186,7 @@ namespace UnrealBuildTool
 
 		static private bool bHasPrintedApiLevel = false;
 		static private bool bHasHandledLaunchModule = false;
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			if (Arches.Count == 0)
 			{
@@ -1321,7 +1321,7 @@ namespace UnrealBuildTool
 
 					foreach (FileItem SourceFile in InputFiles)
 					{
-						Action CompileAction = ActionGraph.Add(ActionType.Compile);
+						Action CompileAction = new Action(ActionType.Compile);
 						CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 						string FileArguments = "";
@@ -1481,6 +1481,8 @@ namespace UnrealBuildTool
 						CompileAction.bCanExecuteRemotely =
 							CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 							CompileEnvironment.bAllowRemotelyCompiledPCHs;
+
+						Actions.Add(CompileAction);
 					}
 				}
 			}
@@ -1488,7 +1490,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			return null;
 		}
@@ -1518,7 +1520,7 @@ namespace UnrealBuildTool
 			return Pathname;
 		}
 
-		public override FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			List<FileItem> Outputs = new List<FileItem>();
 
@@ -1545,7 +1547,7 @@ namespace UnrealBuildTool
 					}
 
 					// Create an action that invokes the linker.
-					Action LinkAction = ActionGraph.Add(ActionType.Link);
+					Action LinkAction = new Action(ActionType.Link);
 					LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 
 					if (LinkEnvironment.bIsBuildingLibrary)
@@ -1698,6 +1700,7 @@ namespace UnrealBuildTool
 							LinkAction.CommandDescription = "Link";
 						}
 					}
+					Actions.Add(LinkAction);
 
 					// Windows can run into an issue with too long of a commandline when clang tries to call ld to link.
 					// To work around this we call clang to just get the command it would execute and generate a

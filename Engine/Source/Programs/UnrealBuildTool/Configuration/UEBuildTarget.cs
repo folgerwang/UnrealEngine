@@ -1084,7 +1084,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds the target, appending list of output files and returns building result.
 		/// </summary>
-		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
+		public ECompilationResult Build(BuildConfiguration BuildConfiguration, CPPHeaders Headers, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, List<Action> Actions, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
 		{
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
@@ -1301,7 +1301,7 @@ namespace UnrealBuildTool
 
 						WindowsPlatform.SetupResourceCompileEnvironment(DefaultResourceCompileEnvironment, Rules);
 
-						CPPOutput DefaultResourceOutput = TargetToolChain.CompileRCFiles(DefaultResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, EngineIntermediateDirectory, ActionGraph);
+						CPPOutput DefaultResourceOutput = TargetToolChain.CompileRCFiles(DefaultResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, EngineIntermediateDirectory, Actions);
 						GlobalLinkEnvironment.DefaultResourceFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}
@@ -1315,7 +1315,7 @@ namespace UnrealBuildTool
 			}
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Prerequisites, ExeDir, ActionGraph);
+				List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, Prerequisites, ExeDir, Actions);
 				if(!bCompileMonolithic)
 				{
 					ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
@@ -1334,7 +1334,7 @@ namespace UnrealBuildTool
 			{
 				if(!UnrealBuildTool.IsFileInstalled(Pair.Key))
 				{
-					OutputItems.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
+					OutputItems.Add(CreateCopyAction(Pair.Value, Pair.Key, Actions));
 				}
 			}
 
@@ -1345,7 +1345,7 @@ namespace UnrealBuildTool
 			}
 
 			// Allow the toolchain to modify the final output items
-			TargetToolChain.FinalizeOutput(Rules, OutputItems, ActionGraph);
+			TargetToolChain.FinalizeOutput(Rules, OutputItems, Actions);
 
 			// Get all the regular build products
 			List<KeyValuePair<FileReference, BuildProductType>> BuildProducts = new List<KeyValuePair<FileReference, BuildProductType>>();
@@ -1420,19 +1420,20 @@ namespace UnrealBuildTool
 				BinaryFormatterUtils.Save(MetadataTargetFile, MetadataTargetInfo);
 
 				StringBuilder WriteMetadataArguments = new StringBuilder();
-				WriteMetadataArguments.AppendFormat("-Mode=WriteMetadata -Input={0}", Utils.MakePathSafeToUseWithCommandLine(MetadataTargetFile));
+				WriteMetadataArguments.AppendFormat("-Input={0}", Utils.MakePathSafeToUseWithCommandLine(MetadataTargetFile));
 				if(Rules.bNoManifestChanges)
 				{
 					WriteMetadataArguments.Append(" -NoManifestChanges");
 				}
 
-				Action WriteMetadataAction = ActionGraph.AddRecursiveCall(ActionType.WriteMetadata, WriteMetadataArguments.ToString());
+				Action WriteMetadataAction = Action.CreateRecursiveAction<WriteMetadataMode>(ActionType.WriteMetadata, WriteMetadataArguments.ToString());
 				WriteMetadataAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				WriteMetadataAction.StatusDescription = ReceiptFileName.GetFileName();
 				WriteMetadataAction.bCanExecuteRemotely = false;
 				WriteMetadataAction.PrerequisiteItems.AddRange(OutputItems);
 				WriteMetadataAction.PrerequisiteItems.Add(FileItem.GetItemByPath(Assembly.GetExecutingAssembly().Location));
 				WriteMetadataAction.ProducedItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
+				Actions.Add(WriteMetadataAction);
 
 				OutputItems.AddRange(WriteMetadataAction.ProducedItems);
 
@@ -1441,7 +1442,7 @@ namespace UnrealBuildTool
 				{
 					FileReference OutputFile = new FileReference(PostBuildStepScript.FullName + ".ran");
 
-					Action PostBuildStepAction = ActionGraph.Add(ActionType.PostBuildStep);
+					Action PostBuildStepAction = new Action(ActionType.PostBuildStep);
 					if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 					{
 						PostBuildStepAction.CommandPath = "cmd.exe";
@@ -1457,6 +1458,7 @@ namespace UnrealBuildTool
 					PostBuildStepAction.bCanExecuteRemotely = false;
 					PostBuildStepAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
 					PostBuildStepAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
+					Actions.Add(PostBuildStepAction);
 
 					OutputItems.AddRange(PostBuildStepAction.ProducedItems);
 				}
@@ -1524,14 +1526,14 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="SourceFile">The source file location</param>
 		/// <param name="TargetFile">The target file location</param>
-		/// <param name="ActionGraph">The action graph</param>
+		/// <param name="Actions">List of actions to be executed. Additional actions will be added to this list.</param>
 		/// <returns>File item for the output file</returns>
-		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, ActionGraph ActionGraph)
+		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, List<Action> Actions)
 		{
 			FileItem SourceFileItem = FileItem.GetItemByFileReference(SourceFile);
 			FileItem TargetFileItem = FileItem.GetItemByFileReference(TargetFile);
 
-			Action CopyAction = ActionGraph.Add(ActionType.BuildProject);
+			Action CopyAction = new Action(ActionType.BuildProject);
 			CopyAction.CommandDescription = "Copy";
 			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 			{
@@ -1549,6 +1551,7 @@ namespace UnrealBuildTool
 			CopyAction.DeleteItems.Add(TargetFileItem);
 			CopyAction.StatusDescription = TargetFileItem.Location.GetFileName();
 			CopyAction.bCanExecuteRemotely = false;
+			Actions.Add(CopyAction);
 
 			return TargetFileItem;
 		}

@@ -191,7 +191,7 @@ namespace UnrealBuildTool
 			return Path.GetFullPath(ActionThread.ExpandEnvironmentVariables(IncludePath));
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			// Get the MSVC arguments required to compile all files in this batch
 			List<string> SharedArguments = new List<string>();
@@ -244,7 +244,7 @@ namespace UnrealBuildTool
 				// Preprocess the source file
 				FileItem PreprocessedFileItem = FileItem.GetItemByFileReference(PreprocessedFileLocation);
 
-				Action PreprocessAction = ActionGraph.Add(ActionType.Compile);
+				Action PreprocessAction = new Action(ActionType.Compile);
 				PreprocessAction.CommandPath = EnvVars.CompilerPath.FullName;
 				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				PreprocessAction.CommandArguments = " @\"" + ResponseFileItem.AbsolutePath + "\"";
@@ -253,6 +253,7 @@ namespace UnrealBuildTool
 				PreprocessAction.PrerequisiteItems.Add(ResponseFileItem);
 				PreprocessAction.ProducedItems.Add(PreprocessedFileItem);
 				PreprocessAction.bShouldOutputStatusDescription = false;
+				Actions.Add(PreprocessAction);
 
 				// Write the PVS studio config file
 				StringBuilder ConfigFileContents = new StringBuilder();
@@ -301,7 +302,7 @@ namespace UnrealBuildTool
 				FileReference OutputFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".pvslog");
 				FileItem OutputFileItem = FileItem.GetItemByFileReference(OutputFileLocation);
 
-				Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
+				Action AnalyzeAction = new Action(ActionType.Compile);
 				AnalyzeAction.CommandDescription = "Analyzing";
 				AnalyzeAction.StatusDescription = BaseFileName;
 				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -316,18 +317,19 @@ namespace UnrealBuildTool
 				AnalyzeAction.PrerequisiteItems.Add(PreprocessedFileItem);
 				AnalyzeAction.ProducedItems.Add(OutputFileItem);
 				AnalyzeAction.DeleteItems.Add(OutputFileItem); // PVS Studio will append by default, so need to delete produced items
+				Actions.Add(AnalyzeAction);
 
 				Result.ObjectFiles.AddRange(AnalyzeAction.ProducedItems);
 			}
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			throw new BuildException("Unable to link with PVS toolchain.");
 		}
 
-		public override void FinalizeOutput(ReadOnlyTargetRules Target, List<FileItem> OutputItems, ActionGraph ActionGraph)
+		public override void FinalizeOutput(ReadOnlyTargetRules Target, List<FileItem> OutputItems, List<Action> Actions)
 		{
 			FileReference OutputFile;
 			if (Target.ProjectFile == null)
@@ -343,7 +345,7 @@ namespace UnrealBuildTool
 
 			FileItem InputFileListItem = FileItem.CreateIntermediateTextFile(OutputFile.ChangeExtension(".input"), InputFiles.Select(x => x.FullName));
 
-			Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
+			Action AnalyzeAction = new Action(ActionType.Compile);
 			AnalyzeAction.CommandPath = UnrealBuildTool.GetUBTPath();
 			AnalyzeAction.CommandArguments = String.Format("-Mode=PVSGather -Input=\"{0}\" -Output=\"{1}\"", InputFileListItem.Location, OutputFile);
 			AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -351,6 +353,7 @@ namespace UnrealBuildTool
 			AnalyzeAction.PrerequisiteItems.AddRange(OutputItems);
 			AnalyzeAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
 			AnalyzeAction.DeleteItems.AddRange(AnalyzeAction.ProducedItems);
+			Actions.Add(AnalyzeAction);
 
 			OutputItems.AddRange(AnalyzeAction.ProducedItems);
 		}

@@ -217,10 +217,10 @@ namespace UnrealBuildTool
 							List<FileItem> OutputItems = new List<FileItem>();
 							Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>();
 							List<UHTModuleInfo> UObjectModules = new List<UHTModuleInfo>();
-							ActionGraph ActionGraph = new ActionGraph();
+							List<Action> Actions = new List<Action>();
 							BuildPrerequisites Prerequisites = new BuildPrerequisites();
 
-							ECompilationResult BuildResult = Target.Build(BuildConfiguration, Headers, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, ActionGraph, Prerequisites, bIsAssemblingBuild);
+							ECompilationResult BuildResult = Target.Build(BuildConfiguration, Headers, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
 							if (BuildResult != ECompilationResult.Succeeded)
 							{
 								return (int)BuildResult;
@@ -229,7 +229,7 @@ namespace UnrealBuildTool
 							// Create the makefile
 							Makefile = new TargetMakefile(Target.TargetType);
 							Makefile.ReceiptFile = Target.ReceiptFileName;
-							Makefile.Actions = ActionGraph.Actions;
+							Makefile.Actions = Actions;
 							Makefile.OutputItems = OutputItems;
 							Makefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
 							Makefile.UObjectModules = UObjectModules;

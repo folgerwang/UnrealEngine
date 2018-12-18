@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
@@ -210,6 +211,26 @@ namespace UnrealBuildTool
 			Writer.WriteList(ProducedItems, Item => Writer.WriteFileItem(Item));
 			Writer.WriteList(DeleteItems, Item => Writer.WriteFileItem(Item));
 			Writer.WriteFileItem(DependencyListFile);
+		}
+
+		/// <summary>
+		/// Creates an action which calls UBT recursively
+		/// </summary>
+		/// <param name="Type">Type of the action</param>
+		/// <param name="Arguments">Arguments for the action</param>
+		/// <returns>New action instance</returns>
+		public static Action CreateRecursiveAction<T>(ActionType Type, string Arguments) where T : ToolMode
+		{
+			ToolModeAttribute Attribute = typeof(T).GetCustomAttribute<ToolModeAttribute>();
+			if(Attribute == null)
+			{
+				throw new BuildException("Missing ToolModeAttribute on {0}", typeof(T).Name);
+			}
+
+			Action NewAction = new Action(Type);
+			NewAction.CommandPath = UnrealBuildTool.GetUBTPath();
+			NewAction.CommandArguments = String.Format("-Mode={0} {1}", Attribute.Name, Arguments);
+			return NewAction;
 		}
 
 		/// <summary>

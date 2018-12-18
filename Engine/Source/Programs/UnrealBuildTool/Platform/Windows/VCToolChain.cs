@@ -841,7 +841,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			List<string> SharedArguments = new List<string>();
 			AppendCLArguments_Global(CompileEnvironment, SharedArguments);
@@ -886,7 +886,7 @@ namespace UnrealBuildTool
 			CPPOutput Result = new CPPOutput();
 			foreach (FileItem SourceFile in InputFiles)
 			{
-				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				Action CompileAction = new Action(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
 
 				// ensure compiler timings are captured when we execute the action.
@@ -1105,17 +1105,19 @@ namespace UnrealBuildTool
 				{
 					CompileAction.bCanExecuteRemotelyWithSNDBS = false;
 				}
+
+				Actions.Add(CompileAction);
 			}
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, List<Action> Actions)
 		{
 			CPPOutput Result = new CPPOutput();
 
 			foreach (FileItem RCFile in InputFiles)
 			{
-				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				Action CompileAction = new Action(ActionType.Compile);
 				CompileAction.CommandDescription = "Resource";
 				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				CompileAction.CommandPath = EnvVars.ResourceCompilerPath.FullName;
@@ -1183,12 +1185,14 @@ namespace UnrealBuildTool
 
 				// Add the C++ source file and its included files to the prerequisite item list.
 				CompileAction.PrerequisiteItems.Add(RCFile);
+
+				Actions.Add(CompileAction);
 			}
 
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			if (LinkEnvironment.bIsBuildingDotNetAssembly)
 			{
@@ -1406,7 +1410,7 @@ namespace UnrealBuildTool
 			}
 
 			// Create an action that invokes the linker.
-			Action LinkAction = ActionGraph.Add(ActionType.Link);
+			Action LinkAction = new Action(ActionType.Link);
 			LinkAction.CommandDescription = "Link";
 			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 			LinkAction.CommandPath = bIsBuildingLibraryOrImportLibrary ? EnvVars.LibraryManagerPath.FullName : EnvVars.LinkerPath.FullName;
@@ -1439,6 +1443,7 @@ namespace UnrealBuildTool
 
 			// Allow remote linking.  Especially in modular builds with many small DLL files, this is almost always very efficient
 			LinkAction.bCanExecuteRemotely = true;
+			Actions.Add(LinkAction);
 
 			Log.TraceVerbose("     Linking: " + LinkAction.StatusDescription);
 			Log.TraceVerbose("     Command: " + LinkAction.CommandArguments);

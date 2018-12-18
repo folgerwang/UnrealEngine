@@ -12,32 +12,8 @@ using System.Threading.Tasks;
 
 namespace UnrealBuildTool
 {
-	class ActionGraph
+	static class ActionGraph
 	{
-		/// <summary>
-		/// List of all the actions
-		/// </summary>
-		public List<Action> Actions = new List<Action>();
-
-		public ActionGraph()
-		{
-		}
-
-		public Action Add(ActionType Type)
-		{
-			Action NewAction = new Action(Type);
-			Actions.Add(NewAction);
-			return NewAction;
-		}
-
-		public Action AddRecursiveCall(ActionType Type, string Arguments)
-		{
-			Action NewAction = Add(Type);
-			NewAction.CommandPath = UnrealBuildTool.GetUBTPath();
-			NewAction.CommandArguments = Arguments;
-			return NewAction;
-		}
-
 		/// <summary>
 		/// Links the actions together and sets up their dependencies
 		/// </summary>
