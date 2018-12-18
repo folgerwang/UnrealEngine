@@ -33,6 +33,7 @@ LandscapeRender.cpp: New terrain rendering
 #include "DrawDebugHelpers.h"
 #include "PrimitiveSceneInfo.h"
 #include "SceneView.h"
+#include "Runtime/Renderer/Private/SceneCore.h"
 #include "LandscapeProxy.h"
 #include "MeshMaterialShader.h"
 
@@ -2263,8 +2264,8 @@ bool FLandscapeComponentSceneProxy::IsUsingCustomWholeSceneShadowLODRules() cons
 
 bool FLandscapeComponentSceneProxy::CanUseMeshBatchForShadowCascade(int8 InLODIndex, float InShadowMapTextureResolution, float InShadowMapCascadeSize) const
 {
-	const FMeshBatch* MeshBatch = nullptr;
-	const TIndirectArray<FMeshBatch>& PrimitiveStaticMeshes = (const TIndirectArray<FMeshBatch>&)GetPrimitiveSceneInfo()->StaticMeshes;
+	const FStaticMesh* MeshBatch = nullptr;
+	const TArray<FStaticMesh>& PrimitiveStaticMeshes = (const TArray<FStaticMesh>&)GetPrimitiveSceneInfo()->StaticMeshes;
 
 	check(PrimitiveStaticMeshes.IsValidIndex(InLODIndex));
 	check(PrimitiveStaticMeshes[InLODIndex].CastShadow);
