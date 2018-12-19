@@ -319,7 +319,11 @@ static void DenoiseShadowPenumbra(
 		PassParameters->SignalOutput0Mip1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 1));
 		PassParameters->SignalOutput0Mip2 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 2));
 		PassParameters->SignalOutput0Mip3 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 3));
-		PassParameters->TileClassificationOutput = GraphBuilder.CreateUAV(CommonParameters.TileClassificationTexture);
+
+		{
+			FRDGTextureRef TileClassificationTexture = CommonParameters.TileClassificationTexture;
+			PassParameters->TileClassificationOutput = GraphBuilder.CreateUAV(TileClassificationTexture);
+		}
 
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugReduce")));
 
@@ -572,6 +576,8 @@ public:
 	{
 		FShadowPenumbraOutputs Outputs;
 
+		//temp workaround for compilation errors with android compiler
+#if !PLATFORM_ANDROID
 		if (IsSupportedLightType(ELightComponentType(LightSceneInfo.Proxy->GetLightType())))
 		{
 			::DenoiseShadowPenumbra(
@@ -583,6 +589,7 @@ public:
 				&Outputs.DiffusePenumbra);
 		}
 		else
+#endif
 		{
 			Outputs.DiffusePenumbra = ShadowInputs.Penumbra;
 		}

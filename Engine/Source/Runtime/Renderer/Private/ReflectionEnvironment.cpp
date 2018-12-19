@@ -728,6 +728,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 		TRefCountPtr<IPooledRenderTarget> ReflectionsColor = GSystemTextures.BlackDummy;
 		if (bRayTracedReflections)
 		{
+#if RHI_RAYTRACING
 			//SCOPED_DRAW_EVENT(RHICmdList, RayTracedReflections);
 
 			FRDGBuilder GraphBuilder(RHICmdList); // TODO: convert the entire reflections to render graph.
@@ -735,9 +736,11 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			FSceneViewFamilyBlackboard SceneBlackboard;
 			SetupSceneViewFamilyBlackboard(GraphBuilder, &SceneBlackboard);
 
+
 			// Ray trace the reflection.
 			IScreenSpaceDenoiser::FReflectionInputs DenoiserInputs;
 			RayTraceReflections(GraphBuilder, View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance);
+
 
 			// Denoise the reflections.
 			if (int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread())
@@ -765,6 +768,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			}
 
 			GraphBuilder.Execute();
+#endif
 		}
 		else if (bScreenSpaceReflections)
 		{
