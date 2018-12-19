@@ -102,12 +102,12 @@ struct FRayTracingGeometrySegment
 struct FRayTracingGeometryInitializer
 {
 	FRayTracingGeometryInitializer()
-		: BaseVertexIndex(0)
+		: VertexBufferByteOffset(0)
 		, VertexBufferStride(0)
-		, VertexBufferByteOffset(0)
-		, TotalPrimitiveCount(0)
 		, VertexBufferElementType(VET_Float3)
+		, BaseVertexIndex(0)
 		, PrimitiveType(PT_TriangleList)
+		, TotalPrimitiveCount(0)
 		, bFastBuild(false)
 		, bAllowUpdate(false)
 	{}

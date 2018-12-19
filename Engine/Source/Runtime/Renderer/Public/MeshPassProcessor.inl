@@ -180,7 +180,10 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 	check(VertexFactory && VertexFactory->IsInitialized());
 	VertexFactory->GetStreams(FeatureLevel, SharedMeshDrawCommand.VertexStreams);
 
+#if RHI_RAYTRACING
 	SharedMeshDrawCommand.SetRayTracingShaders(PassShaders.GetUntypedShaders());
+#endif
+
 	SharedMeshDrawCommand.SetDebugData(PrimitiveSceneProxy, &MaterialResource, &MaterialRenderProxy, PassShaders.GetUntypedShaders());
 
 	if (PassShaders.RayHitGroupShader)
