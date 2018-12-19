@@ -1512,21 +1512,29 @@ void FDepthPassMeshProcessor::Process(
 
 void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
-	bool bDraw = MeshBatch.bUseAsOccluder;
+	bool bDraw = MeshBatch.bUseForDepthPass;
 
-	if (bRespectUseAsOccluderFlag && EarlyZPassMode < DDM_AllOpaque && PrimitiveSceneProxy)
+	// Filter by occluder flags and settings if required.
+	if (bDraw && bRespectUseAsOccluderFlag && !MeshBatch.bUseAsOccluder && EarlyZPassMode < DDM_AllOpaque)
 	{
-		// Only render primitives marked as occluders.
-		bDraw = bDraw && PrimitiveSceneProxy->ShouldUseAsOccluder()
-			// Only render static objects unless movable are requested.
-			&& (!PrimitiveSceneProxy->IsMovable() || bEarlyZPassMovable);
-
-		// Filter dynamic mesh commands by screen size.
-		if (ViewIfDynamicMeshCommand)
+		if (PrimitiveSceneProxy)
 		{
-			extern float GMinScreenRadiusForDepthPrepass;
-			const float LODFactorDistanceSquared = (PrimitiveSceneProxy->GetBounds().Origin - ViewIfDynamicMeshCommand->ViewMatrices.GetViewOrigin()).SizeSquared() * FMath::Square(ViewIfDynamicMeshCommand->LODDistanceFactor);
-			bDraw = bDraw && FMath::Square(PrimitiveSceneProxy->GetBounds().SphereRadius) > GMinScreenRadiusForDepthPrepass * GMinScreenRadiusForDepthPrepass * LODFactorDistanceSquared;
+			// Only render primitives marked as occluders.
+			bDraw = PrimitiveSceneProxy->ShouldUseAsOccluder()
+				// Only render static objects unless movable are requested.
+				&& (!PrimitiveSceneProxy->IsMovable() || bEarlyZPassMovable);
+
+			// Filter dynamic mesh commands by screen size.
+			if (ViewIfDynamicMeshCommand)
+			{
+				extern float GMinScreenRadiusForDepthPrepass;
+				const float LODFactorDistanceSquared = (PrimitiveSceneProxy->GetBounds().Origin - ViewIfDynamicMeshCommand->ViewMatrices.GetViewOrigin()).SizeSquared() * FMath::Square(ViewIfDynamicMeshCommand->LODDistanceFactor);
+				bDraw = bDraw && FMath::Square(PrimitiveSceneProxy->GetBounds().SphereRadius) > GMinScreenRadiusForDepthPrepass * GMinScreenRadiusForDepthPrepass * LODFactorDistanceSquared;
+			}
+		}
+		else
+		{
+			bDraw = false;
 		}
 	}
 

@@ -397,8 +397,9 @@ bool FStaticMeshSceneProxy::GetShadowMeshElement(int32 LODIndex, int32 BatchInde
 	}
 
 	// By default this will be a shadow only mesh.
-	OutMeshBatch.bUseAsOccluder = false;
 	OutMeshBatch.bUseForMaterial = false;
+	OutMeshBatch.bUseForDepthPass = false;
+	OutMeshBatch.bUseAsOccluder = false;
 
 	return true;
 }
@@ -890,6 +891,7 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 									bUseUnifiedMeshForShadow = bAllSectionsCastShadow;
 
 									MeshBatch.CastShadow = bUseUnifiedMeshForShadow;
+									MeshBatch.bUseForDepthPass = bUseUnifiedMeshForDepth;
 									MeshBatch.bUseAsOccluder = bUseUnifiedMeshForDepth;
 									MeshBatch.bUseForMaterial = false;
 
@@ -926,6 +928,7 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 							// If we have submitted an optimized shadow-only mesh, remaining mesh elements must not cast shadows.
 							MeshBatch.CastShadow &= !bUseUnifiedMeshForShadow;
 							MeshBatch.bUseAsOccluder &= !bUseUnifiedMeshForDepth;
+							MeshBatch.bUseForDepthPass &= !bUseUnifiedMeshForDepth;
 
 							PDI->DrawMesh(MeshBatch, ScreenSize);
 						}

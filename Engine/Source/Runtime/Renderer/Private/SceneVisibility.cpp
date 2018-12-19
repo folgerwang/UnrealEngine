@@ -2109,8 +2109,7 @@ struct FRelevancePacket
 
 					if(ViewRelevance.bDrawRelevance && (StaticMeshRelevance.bUseForMaterial || StaticMeshRelevance.bUseAsOccluder) && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth) && !bHiddenByHLODFade)
 					{
-						// If the static mesh is an occluder, check whether it covers enough of the screen to be used as an occluder.
-						if (StaticMeshRelevance.bUseAsOccluder && bDrawDepthOnly)
+						if (StaticMeshRelevance.bUseForDepthPass && bDrawDepthOnly)
 						{
 							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
 							MarkMask |= EMarkMaskBits::StaticMeshOccluderMapMask;

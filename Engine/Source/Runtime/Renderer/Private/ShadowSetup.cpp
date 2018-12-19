@@ -915,7 +915,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 				const FStaticMeshRelevance& StaticMeshRelevance = InPrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
 				const FStaticMesh& StaticMesh = InPrimitiveSceneInfo->StaticMeshes[MeshIndex];
 
-				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
+				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseForDepthPass)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
 					if (UseMeshDrawCommandPipeline())
 					{
@@ -956,7 +956,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 				const FStaticMeshRelevance& StaticMeshRelevance = InPrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
 				const FStaticMesh& StaticMesh = InPrimitiveSceneInfo->StaticMeshes[MeshIndex];
 
-				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseAsOccluder)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
+				if ((StaticMeshRelevance.CastShadow || (bSelfShadowOnly && StaticMeshRelevance.bUseForDepthPass)) && ShadowLODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
 					if (UseMeshDrawCommandPipeline())
 					{

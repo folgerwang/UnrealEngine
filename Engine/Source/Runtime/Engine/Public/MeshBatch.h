@@ -153,10 +153,11 @@ struct FMeshBatch
 	 * Pass feature relevance flags.  Allows a proxy to submit fast representations for passes which can take advantage of it, 
 	 * for example separate index buffer for depth-only rendering since vertices can be merged based on position and ignore UV differences.
 	 */
-	uint32 CastShadow : 1;			// Wheter it can be used in shadow renderpasses.
-	uint32 bUseForMaterial : 1;		// Whether it can be used in renderpasses requiring material outputs.
-	uint32 bUseAsOccluder : 1;		// Whether it can be used in renderpasses only depending on the raw geometry (i.e. Depth Prepass).
-	uint32 bWireframe : 1;
+	uint32 CastShadow		: 1;	// Whether it can be used in shadow renderpasses.
+	uint32 bUseForMaterial	: 1;	// Whether it can be used in renderpasses requiring material outputs.
+	uint32 bUseForDepthPass : 1;	// Whether it can be used in depth pass.
+	uint32 bUseAsOccluder	: 1;	// Hint whether this mesh is a good occluder.
+	uint32 bWireframe		: 1;
 	// e.g. PT_TriangleList(default), PT_LineList, ..
 	uint32 Type : PT_NumBits;
 	// e.g. SDPG_World (default), SDPG_Foreground
@@ -269,6 +270,7 @@ struct FMeshBatch
 	,	bDisableBackfaceCulling(false)
 	,	CastShadow(true)
 	,   bUseForMaterial(true)
+	,	bUseForDepthPass(true)
 	,	bUseAsOccluder(true)
 	,	bWireframe(false)
 	,	Type(PT_TriangleList)

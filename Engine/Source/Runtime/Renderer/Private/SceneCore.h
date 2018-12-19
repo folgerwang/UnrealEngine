@@ -209,6 +209,7 @@ public:
 		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
 		, CastShadow(StaticMesh.CastShadow)
 		, bUseForMaterial(StaticMesh.bUseForMaterial)
+		, bUseForDepthPass(StaticMesh.bUseForDepthPass)
 		, bUseAsOccluder(StaticMesh.bUseAsOccluder)
 		, bSupportsCachingMeshDrawCommands(InbSupportsCachingMeshDrawCommands)
 	{
@@ -229,9 +230,10 @@ public:
 	/** Whether the mesh batch needs VertexFactory->GetStaticBatchElementVisibility to be called each frame to determine which elements of the batch are visible. */
 	uint32 bRequiresPerElementVisibility : 1;
 
-	uint32 CastShadow : 1;			// Whether it can be used in shadow renderpasses.
-	uint32 bUseForMaterial : 1;		// Whether it can be used in renderpasses requiring material outputs.
-	uint32 bUseAsOccluder : 1;		// Whether it can be used in renderpasses only depending on the raw geometry (i.e. Depth Prepass).
+	uint32 CastShadow		: 1; // Whether it can be used in shadow renderpasses.
+	uint32 bUseForMaterial	: 1; // Whether it can be used in renderpasses requiring material outputs.
+	uint32 bUseForDepthPass	: 1; // Whether it can be used in depth pass.
+	uint32 bUseAsOccluder	: 1; // User hint whether it's a good occluder.
 
 	/** Cached from vertex factory to avoid dereferencing VF in InitViews. */
 	uint32 bSupportsCachingMeshDrawCommands : 1;
