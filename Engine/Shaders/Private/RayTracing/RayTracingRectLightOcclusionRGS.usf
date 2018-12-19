@@ -161,7 +161,7 @@ bool GenerateRectLightImportanceSampledRay(
 }
 
 [shader("raygeneration")]
-void RectLightOcclusionRG()
+void RectLightOcclusionRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

@@ -242,7 +242,7 @@ uint ReverseNBits(uint Bitfield, const uint BitCount) // TODO: where to put that
 
 
 [shader("raygeneration")]
-void RayTracingReflectionsRG()
+void RayTracingReflectionsRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

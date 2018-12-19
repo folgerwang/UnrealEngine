@@ -36,10 +36,10 @@ static TAutoConsoleVariable<int32> CVarShadowUseDenoiser(
 	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin.\n"),
 	ECVF_RenderThreadSafe);
 
-class FOcclusionRG : public FGlobalShader
+class FOcclusionRGS : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FOcclusionRG)
-	SHADER_USE_ROOT_PARAMETER_STRUCT(FOcclusionRG, FGlobalShader)
+	DECLARE_GLOBAL_SHADER(FOcclusionRGS)
+	SHADER_USE_ROOT_PARAMETER_STRUCT(FOcclusionRGS, FGlobalShader)
 
 	class FLightTypeDim : SHADER_PERMUTATION_INT("LIGHT_TYPE", LightType_MAX);
 
@@ -63,7 +63,7 @@ class FOcclusionRG : public FGlobalShader
 	END_SHADER_PARAMETER_STRUCT()
 };
 
-IMPLEMENT_GLOBAL_SHADER(FOcclusionRG, "/Engine/Private/RayTracing/RayTracingOcclusionRG.usf", "OcclusionRG", SF_RayGen);
+IMPLEMENT_GLOBAL_SHADER(FOcclusionRGS, "/Engine/Private/RayTracing/RayTracingOcclusionRGS.usf", "OcclusionRGS", SF_RayGen);
 
 void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 	FRHICommandListImmediate& RHICmdList,
@@ -105,7 +105,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 		FSceneTexturesUniformParameters SceneTextures;
 		SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, ESceneTextureSetupMode::All, SceneTextures);
 
-		FOcclusionRG::FParameters* PassParameters = GraphBuilder.AllocParameters<FOcclusionRG::FParameters>();
+		FOcclusionRGS::FParameters* PassParameters = GraphBuilder.AllocParameters<FOcclusionRGS::FParameters>();
 		PassParameters->RWOcclusionMaskUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ScreenShadowMaskTexture));
 		PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(RayDistanceTexture));
 		PassParameters->SamplesPerPixel = GRayTracingOcclusionSamplesPerPixel;
@@ -114,10 +114,10 @@ void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
 		PassParameters->SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleDraw);
 
-		FOcclusionRG::FPermutationDomain PermutationVector;
-		PermutationVector.Set<FOcclusionRG::FLightTypeDim>(LightSceneProxy->GetLightType());
+		FOcclusionRGS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FOcclusionRGS::FLightTypeDim>(LightSceneProxy->GetLightType());
 
-		TShaderMapRef<FOcclusionRG> RayGenerationShader(GetGlobalShaderMap(FeatureLevel), PermutationVector);
+		TShaderMapRef<FOcclusionRGS> RayGenerationShader(GetGlobalShaderMap(FeatureLevel), PermutationVector);
 
 		FRayGenShaderUtils::AddRayTraceDispatchPass(
 			GraphBuilder,

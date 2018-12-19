@@ -82,9 +82,9 @@ DECLARE_GPU_STAT_NAMED(BuildRectLightMipTree, TEXT("Build RectLight Mip Tree"));
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRectLightData, "RectLight");
 
 template <int CalcDirectLighting, int EncodeVisibility>
-class FRectLightOcclusionRG : public FGlobalShader
+class FRectLightOcclusionRGS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FRectLightOcclusionRG, Global)
+	DECLARE_SHADER_TYPE(FRectLightOcclusionRGS, Global)
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
@@ -98,10 +98,10 @@ public:
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
 	}
 
-	FRectLightOcclusionRG() {}
-	virtual ~FRectLightOcclusionRG() {}
+	FRectLightOcclusionRGS() {}
+	virtual ~FRectLightOcclusionRGS() {}
 
-	FRectLightOcclusionRG(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FRectLightOcclusionRGS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		ViewParameter.Bind(Initializer.ParameterMap, TEXT("View"));
@@ -165,8 +165,8 @@ private:
 };
 
 #define IMPLEMENT_RECT_LIGHT_OCCLUSION_TYPE(CalcDirectLightingType, EncodeVisbilityType) \
-	typedef FRectLightOcclusionRG<CalcDirectLightingType, EncodeVisbilityType> FRectLightOcclusionRG##CalcDirectLightingType##EncodeVisbilityType; \
-	IMPLEMENT_SHADER_TYPE(template<>, FRectLightOcclusionRG##CalcDirectLightingType##EncodeVisbilityType, TEXT("/Engine/Private/RayTracing/RayTracingRectLightOcclusionRG.usf"), TEXT("RectLightOcclusionRG"), SF_RayGen);
+	typedef FRectLightOcclusionRGS<CalcDirectLightingType, EncodeVisbilityType> FRectLightOcclusionRGS##CalcDirectLightingType##EncodeVisbilityType; \
+	IMPLEMENT_SHADER_TYPE(template<>, FRectLightOcclusionRGS##CalcDirectLightingType##EncodeVisbilityType, TEXT("/Engine/Private/RayTracing/RayTracingRectLightOcclusionRGS.usf"), TEXT("RectLightOcclusionRGS"), SF_RayGen);
 
 IMPLEMENT_RECT_LIGHT_OCCLUSION_TYPE(0, 0);
 IMPLEMENT_RECT_LIGHT_OCCLUSION_TYPE(0, 1);
@@ -523,7 +523,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingRectLightInternal(
 		FViewInfo& View = Views[ViewIndex];
 		FIntPoint ViewSize = View.ViewRect.Size();
 
-		TShaderMapRef<FRectLightOcclusionRG<CalcDirectLighting, EncodeVisibility>> RectLightOcclusionRayGenerationShader(GetGlobalShaderMap(FeatureLevel));
+		TShaderMapRef<FRectLightOcclusionRGS<CalcDirectLighting, EncodeVisibility>> RectLightOcclusionRayGenerationShader(GetGlobalShaderMap(FeatureLevel));
 
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		FSceneTexturesUniformParameters SceneTextures;

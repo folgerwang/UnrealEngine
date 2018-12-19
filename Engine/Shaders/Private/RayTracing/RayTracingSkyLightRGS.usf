@@ -372,7 +372,7 @@ bool GenerateLambertOcclusionRay(
 }
 
 [shader("raygeneration")]
-void SkyLightRG()
+void SkyLightRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

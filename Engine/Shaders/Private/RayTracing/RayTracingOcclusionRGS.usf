@@ -174,7 +174,7 @@ uint ReverseNBits(uint Bitfield, const uint BitCount)
 }
 
 [shader("raygeneration")]
-void OcclusionRG()
+void OcclusionRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

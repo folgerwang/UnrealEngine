@@ -9,10 +9,10 @@
 #include "SceneRenderTargets.h"
 #include "RenderGraphBuilder.h"
 
-class FRayTracingBarycentricsRG : public FGlobalShader
+class FRayTracingBarycentricsRGS : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FRayTracingBarycentricsRG)
-	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingBarycentricsRG, FGlobalShader)
+	DECLARE_GLOBAL_SHADER(FRayTracingBarycentricsRGS)
+	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingBarycentricsRGS, FGlobalShader)
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
@@ -25,7 +25,7 @@ class FRayTracingBarycentricsRG : public FGlobalShader
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
 	}
 };
-IMPLEMENT_GLOBAL_SHADER(FRayTracingBarycentricsRG, "/Engine/Private/RayTracing/RayTracingBarycentrics.usf", "RayTracingBarycentricsMainRG", SF_RayGen);
+IMPLEMENT_GLOBAL_SHADER(FRayTracingBarycentricsRGS, "/Engine/Private/RayTracing/RayTracingBarycentrics.usf", "RayTracingBarycentricsMainRGS", SF_RayGen);
 
 // Example ray miss shader
 class FRayTracingBarycentricsMS : public FGlobalShader
@@ -79,7 +79,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracedBarycentrics(FRHICommandListI
 
 	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
 
-	auto RayGenShader = ShaderMap->GetShader<FRayTracingBarycentricsRG>();
+	auto RayGenShader = ShaderMap->GetShader<FRayTracingBarycentricsRGS>();
 	auto ClosestHitShader = ShaderMap->GetShader<FRayTracingBarycentricsCHS>();
 	auto MissShader = ShaderMap->GetShader<FRayTracingBarycentricsMS>();
 
@@ -92,7 +92,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracedBarycentrics(FRHICommandListI
 
 	FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
 
-	FRayTracingBarycentricsRG::FParameters* RayGenParameters = GraphBuilder.AllocParameters<FRayTracingBarycentricsRG::FParameters>();
+	FRayTracingBarycentricsRGS::FParameters* RayGenParameters = GraphBuilder.AllocParameters<FRayTracingBarycentricsRGS::FParameters>();
 
 	RayGenParameters->TLAS = RHIGetAccelerationStructureShaderResourceView(RayTracingSceneRHI);
 	RayGenParameters->ViewUniformBuffer = View.ViewUniformBuffer;

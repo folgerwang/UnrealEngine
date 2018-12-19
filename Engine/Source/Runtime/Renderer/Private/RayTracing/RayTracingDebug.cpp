@@ -15,10 +15,10 @@
 
 DECLARE_GPU_STAT(RayTracingDebug);
 
-class FRayTracingDebugRG : public FGlobalShader
+class FRayTracingDebugRGS : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FRayTracingDebugRG)
-	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingDebugRG, FGlobalShader)
+	DECLARE_GLOBAL_SHADER(FRayTracingDebugRGS)
+	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingDebugRGS, FGlobalShader)
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(uint32, VisualizationMode)
@@ -32,7 +32,7 @@ class FRayTracingDebugRG : public FGlobalShader
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
 	}
 };
-IMPLEMENT_GLOBAL_SHADER(FRayTracingDebugRG, "/Engine/Private/RayTracing/RayTracingDebug.usf", "RayTracingDebugMainRG", SF_RayGen);
+IMPLEMENT_GLOBAL_SHADER(FRayTracingDebugRGS, "/Engine/Private/RayTracing/RayTracingDebug.usf", "RayTracingDebugMainRGS", SF_RayGen);
 
 class FRayTracingDebugMS : public FGlobalShader
 {
@@ -112,7 +112,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracedDebug(FRHICommandListImmediat
 
 	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);	
 
-	auto RayGenShader = ShaderMap->GetShader<FRayTracingDebugRG>();
+	auto RayGenShader = ShaderMap->GetShader<FRayTracingDebugRGS>();
 	auto ClosestHitShader = ShaderMap->GetShader<FRayTracingDebugCHS>();
 	auto MissShader = ShaderMap->GetShader<FRayTracingDebugMS>();
 
@@ -123,7 +123,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracedDebug(FRHICommandListImmediat
 
 	FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
 
-	FRayTracingDebugRG::FParameters* RayGenParameters = GraphBuilder.AllocParameters<FRayTracingDebugRG::FParameters>();
+	FRayTracingDebugRGS::FParameters* RayGenParameters = GraphBuilder.AllocParameters<FRayTracingDebugRGS::FParameters>();
 
 	RayGenParameters->VisualizationMode = DebugVisualizationMode;
 	RayGenParameters->TLAS = RHIGetAccelerationStructureShaderResourceView(RayTracingSceneRHI);

@@ -51,7 +51,7 @@ void GenerateCosineNormalRay(
 }
 
 [shader("raygeneration")]
-void AmbientOcclusionRG()
+void AmbientOcclusionRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

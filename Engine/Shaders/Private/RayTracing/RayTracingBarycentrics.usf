@@ -23,7 +23,7 @@ struct FBarycentricsPayload
 
 
 [shader("raygeneration")]
-void RayTracingBarycentricsMainRG()
+void RayTracingBarycentricsMainRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

@@ -20,7 +20,7 @@ float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
 }
 
 [shader("raygeneration")]
-void RayTracingDebugMainRG()
+void RayTracingDebugMainRGS()
 {
 	uint2 PixelCoord = DispatchRaysIndex().xy;
 

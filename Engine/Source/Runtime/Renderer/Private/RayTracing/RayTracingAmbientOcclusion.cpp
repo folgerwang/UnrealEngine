@@ -51,9 +51,9 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FAmbientOcclusionData, "AmbientOcclusio
 DECLARE_GPU_STAT_NAMED(RayTracingAmbientOcclusion, TEXT("RTAO"));
 DECLARE_GPU_STAT_NAMED(CompositeRayTracingAmbientOcclusion, TEXT("Denoising: RTAO"));
 
-class FAmbientOcclusionRG : public FGlobalShader
+class FAmbientOcclusionRGS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FAmbientOcclusionRG, Global)
+	DECLARE_SHADER_TYPE(FAmbientOcclusionRGS, Global)
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
@@ -65,10 +65,10 @@ public:
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
 	}
 
-	FAmbientOcclusionRG() {}
-	virtual ~FAmbientOcclusionRG() {}
+	FAmbientOcclusionRGS() {}
+	virtual ~FAmbientOcclusionRGS() {}
 
-	FAmbientOcclusionRG(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FAmbientOcclusionRGS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		ViewParameter.Bind(Initializer.ParameterMap, TEXT("View"));
@@ -131,7 +131,7 @@ private:
 	FShaderResourceParameter RayDistanceUAVParameter;
 };
 
-IMPLEMENT_SHADER_TYPE(, FAmbientOcclusionRG, TEXT("/Engine/Private/RayTracing/RayTracingAmbientOcclusionRG.usf"), TEXT("AmbientOcclusionRG"), SF_RayGen)
+IMPLEMENT_SHADER_TYPE(, FAmbientOcclusionRGS, TEXT("/Engine/Private/RayTracing/RayTracingAmbientOcclusionRGS.usf"), TEXT("AmbientOcclusionRGS"), SF_RayGen)
 
 void FDeferredShadingSceneRenderer::RenderRayTracingAmbientOcclusion(
 	FRHICommandListImmediate& RHICmdList,
@@ -167,7 +167,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingAmbientOcclusion(
 		FViewInfo& View = Views[ViewIndex];
 		FIntPoint ViewSize = View.ViewRect.Size();
 
-		TShaderMapRef<FAmbientOcclusionRG> AmbientOcclusionRayGenerationShader(GetGlobalShaderMap(FeatureLevel));
+		TShaderMapRef<FAmbientOcclusionRGS> AmbientOcclusionRayGenerationShader(GetGlobalShaderMap(FeatureLevel));
 		FSceneTexturesUniformParameters SceneTextures;
 		SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, ESceneTextureSetupMode::All, SceneTextures);
 		FUniformBufferRHIRef SceneTexturesUniformBuffer = RHICreateUniformBuffer(&SceneTextures, FSceneTexturesUniformParameters::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);

@@ -80,7 +80,7 @@ class FSkylightRG : public FGlobalShader
 	END_SHADER_PARAMETER_STRUCT()
 };
 
-IMPLEMENT_GLOBAL_SHADER(FSkylightRG, "/Engine/Private/Raytracing/RaytracingSkylightRG.usf", "SkyLightRG", SF_RayGen);
+IMPLEMENT_GLOBAL_SHADER(FSkylightRG, "/Engine/Private/Raytracing/RaytracingSkylightRGS.usf", "SkyLightRGS", SF_RayGen);
 
 void FDeferredShadingSceneRenderer::RenderRayTracingSkyLight(
 	FRHICommandListImmediate& RHICmdList,
@@ -248,7 +248,7 @@ private:
 	FShaderResourceParameter RayDistanceUAVParameter;
 };
 
-IMPLEMENT_SHADER_TYPE(, FSkylightRG, TEXT("/Engine/Private/Raytracing/RaytracingSkylightRG.usf"), TEXT("SkyLightRG"), SF_RayGen);
+IMPLEMENT_SHADER_TYPE(, FSkylightRG, TEXT("/Engine/Private/Raytracing/RaytracingSkylightRGS.usf"), TEXT("SkyLightRGS"), SF_RayGen);
 
 class FBuildMipTreeCS : public FGlobalShader
 {
