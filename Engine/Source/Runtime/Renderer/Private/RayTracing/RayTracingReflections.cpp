@@ -37,6 +37,13 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionsDirectLighting(
 	TEXT("Enables ray tracing reflections direct lighting (default = 1)")
 );
 
+static int32 GRayTracingReflectionsShadows = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsShadows(
+	TEXT("r.RayTracing.Reflections.Shadows"),
+	GRayTracingReflectionsShadows,
+	TEXT("Enables shadows in ray tracing reflections (default = 1)")
+);
+
 static float GRayTracingReflectionsMaxRayDistance = 1.0e27;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxRayDistance(
 	TEXT("r.RayTracing.Reflections.MaxRayDistance"),
@@ -120,6 +127,7 @@ class FRayTracingReflectionsRG : public FGlobalShader
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(int32, SamplesPerPixel)
 		SHADER_PARAMETER(int32, ShouldDoDirectLighting)
+		SHADER_PARAMETER(int32, ShouldDoReflectedShadows)
 		SHADER_PARAMETER(int32, ShouldDoEmissiveAndIndirectLighting)
 		SHADER_PARAMETER(float, ReflectionMaxRayDistance)
 
@@ -196,6 +204,7 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 
 	PassParameters->SamplesPerPixel = GRayTracingReflectionsSamplesPerPixel;
 	PassParameters->ShouldDoDirectLighting = GRayTracingReflectionsDirectLighting;
+	PassParameters->ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
 	PassParameters->ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;
 	PassParameters->ReflectionMaxRayDistance = GRayTracingReflectionsMaxRayDistance;
 	PassParameters->LTCMatTexture = GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture;

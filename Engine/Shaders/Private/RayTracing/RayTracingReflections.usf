@@ -30,6 +30,7 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 
 uint SamplesPerPixel;
 uint ShouldDoDirectLighting;
+uint ShouldDoReflectedShadows;
 uint ShouldDoEmissiveAndIndirectLighting;
 float ReflectionMaxRayDistance;
 
@@ -120,7 +121,33 @@ float4 BlendWithEnvironment(inout float3 BRDFThroughput, const in FMaterialClose
 }
 #endif
 
-float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload)
+float TraceShadowRay(
+	float3 Origin,
+	float3 Direction,
+	float TMax)
+{
+	RayDesc Ray;
+	Ray.Origin = Origin;
+	Ray.Direction = Direction;
+	Ray.TMin = 1e-4f;
+	Ray.TMax = TMax;
+
+	uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+	FMaterialClosestHitPayload Payload = TraceRayInternal(
+		TLAS,      // AccelerationStructure
+		RayFlags,
+		0xFF,      // InstanceInclusionMask
+		0,         // RayContributionToHitGroupIndex
+		1,         // MultiplierForGeometryContributionToShaderIndex
+		0,         // MissShaderIndex
+		Ray        // RayDesc
+	);
+
+	return Payload.HitT;
+}
+
+float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload, bool bReflectedShadows)
 {
 	float3 DirectLighting = float3(0.0, 0.0, 0.0);
 
@@ -193,6 +220,27 @@ float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload)
 		float4 LightAttenuation = 1.0f;
 		float LightProfileMultiplier = 1.0;//#dxr_todo
 
+		//#dxr_todo: check perf improvements forcing TMin == TMax when bReflectedShadows = false, to avoid tracing rays inside if statements
+		if (bReflectedShadows)
+		{
+			//#dxr_todo: add early outs if backfacing or if light energy is not sufficient, we are inside a light volume, etc
+			//#dxr_todo: add support for sampling area lights (and perhaps add CVar to enable stocastic shadows?)
+
+			float3 ShadowRayDirection;
+			
+			if (LightType == LIGHT_TYPE_DIRECTIONAL)
+			{
+				ShadowRayDirection = LightData.Direction;
+			}
+			else
+			{
+				ShadowRayDirection = normalize(LightData.Position - WorldPosition);
+			}
+
+			float HitT = TraceShadowRay(WorldPosition + Payload.WorldNormal*0.001, ShadowRayDirection, ReflectionMaxRayDistance);
+			AmbientOcclusion = HitT < 0.0f;
+		}
+
 		float3 LightContribution = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, AmbientOcclusion, GBufferData.ShadingModelID, LightData, LightAttenuation, 0.5, uint2(0, 0), LightSourceTexture).xyz;
 		DirectLighting += LightContribution * LightProfileMultiplier;
 	}
@@ -222,7 +270,7 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 
 	if (ShouldDoDirectLighting)
 	{
-		float3 DirectLighting = ComputeDirectLighting(Ray, Payload);
+		float3 DirectLighting = ComputeDirectLighting(Ray, Payload, ShouldDoReflectedShadows > 0);
 
 		// Transform NaNs to black, transform negative colors to black.
 		DirectLighting = -min(-DirectLighting, 0.0);
