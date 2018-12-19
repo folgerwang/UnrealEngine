@@ -30,6 +30,7 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 
 uint SamplesPerPixel;
 uint ShouldDoDirectLighting;
+uint ShouldDoEmissiveAndIndirectLighting;
 float ReflectionMaxRayDistance;
 
 RaytracingAccelerationStructure TLAS;
@@ -227,6 +228,12 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 		DirectLighting = -min(-DirectLighting, 0.0);
 		Radiance += DirectLighting;
 	}
+    
+	if (ShouldDoEmissiveAndIndirectLighting)
+	{
+	    // Emissive & indirect contribution
+	    Radiance += Payload.Radiance;
+    }
 
 	return Payload;
 }

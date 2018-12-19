@@ -1,12 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#pragma one
+#pragma once
 
-#define NEEDS_LIGHTMAP_COORDINATE		(HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP)
+#define ENABLE_SKY_LIGHT 1
+#define NEEDS_LIGHTMAP_COORDINATE (HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP)
 #ifdef USING_TESSELLATION
-#undef USING_TESSELLATION
-// Needed for VertexFactoryInterpolate
-#define USING_TESSELLATION 1
+	#undef USING_TESSELLATION
+	// Needed for VertexFactoryInterpolate
+	#define USING_TESSELLATION 1
 #endif
 
 // #dxr_todo: Temporarily hacking clip() away to prevent driver crash. Should be integrated into MaterialTemplate.ush in the future.
@@ -22,13 +23,8 @@
 #include "/Engine/Generated/VertexFactory.ush"
 
 #include "/Engine/Private/SHCommon.ush"
+#include "/Engine/Private/ReflectionEnvironmentShared.ush"
 #include "/Engine/Private/LightmapCommon.ush"
-
-#if SIMPLE_FORWARD_SHADING
-	#define GetEffectiveSkySHDiffuse GetSkySHDiffuseSimple
-#else
-	#define GetEffectiveSkySHDiffuse GetSkySHDiffuse
-#endif
 
 /** Computes sky diffuse lighting, including precomputed shadowing. */
 void GetSkyLighting(FMaterialPixelParameters MaterialParameters, float3 WorldNormal, float2 LightmapUV, float3 SkyOcclusionUV3D, out float3 OutDiffuseLighting, out float3 OutSubsurfaceLighting)
@@ -90,13 +86,13 @@ void GetSkyLighting(FMaterialPixelParameters MaterialParameters, float3 WorldNor
 	#endif
 			
 	// Compute the preconvolved incoming lighting with the bent normal direction
-	float3 DiffuseLookup = GetEffectiveSkySHDiffuse(SkyLightingNormal) * ResolvedView.SkyLightColor.rgb;
+	float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * ResolvedView.SkyLightColor.rgb;
 
 	// Apply AO to the sky diffuse
 	OutDiffuseLighting += DiffuseLookup * (SkyVisibility * GeometryTerm);
 
 	#if MATERIAL_SHADINGMODEL_TWOSIDED_FOLIAGE
-		float3 BackfaceDiffuseLookup = GetEffectiveSkySHDiffuse(-WorldNormal) * ResolvedView.SkyLightColor.rgb;
+		float3 BackfaceDiffuseLookup = GetSkySHDiffuse(-WorldNormal) * ResolvedView.SkyLightColor.rgb;
 		OutSubsurfaceLighting += BackfaceDiffuseLookup * SkyVisibility;
 	#endif
 
@@ -305,6 +301,8 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	
 	Payload.DiffuseColor = BaseColor - BaseColor * Metallic;
 	Payload.SpecularColor = lerp(0.08 * Specular.xxx, BaseColor, Metallic);
+	
+	Payload.Radiance += Payload.DiffuseColor * DiffuseIndirectLighting; // Contains both lightmap & skylight
 
 	PackedPayload = PackRayTracingPayload(Payload);
 }
