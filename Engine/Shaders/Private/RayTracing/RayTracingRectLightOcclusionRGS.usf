@@ -205,9 +205,13 @@ void RectLightOcclusionRGS()
 		float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
 		float RayPdf = 0.0;
 
+#if TEXTURE_IMPORTANCE_SAMPLING
 		bool bIsValid = RectLight.bIsTextureImportanceSampling ?
 			GenerateRectLightImportanceSampledRay(WorldPosition, WorldNormal, LightPosition, LightNormal, LightdPdu, LightdPdv, LightWidth, LightHeight, RandSequence, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax, RayPdf) :
 			GenerateRectLightOcclusionRay(WorldPosition, WorldNormal, LightPosition, LightNormal, LightdPdu, LightdPdv, LightWidth, LightHeight, RandSample, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax, RayPdf);
+#else
+		bool bIsValid = GenerateRectLightOcclusionRay(WorldPosition, WorldNormal, LightPosition, LightNormal, LightdPdu, LightdPdv, LightWidth, LightHeight, RandSample, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax, RayPdf);
+#endif
 		if (!bIsValid)
 		{
 			continue;
