@@ -323,7 +323,12 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		#else
 			FDirectLighting Lighting;
 
-			if( LightData.bRectLight )
+			//temp workaround for HLSLCC bug with propagating SourceTexture parameter down
+			#if COMPILER_HLSLCC
+			if (false)
+			#else
+			if (LightData.bRectLight)
+			#endif
 			{
 				FRect Rect = GetRect( ToLight, LightData );
 
