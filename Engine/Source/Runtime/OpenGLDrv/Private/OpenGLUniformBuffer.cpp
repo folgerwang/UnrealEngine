@@ -739,10 +739,13 @@ void FOpenGLDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 		{
 			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
+#if 0
 			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 				*Layout.GetDebugName().ToString(),
 				ResourceIndex,
 				Layout.Resources[ResourceIndex].MemberType);
+#endif
+			check(Resource);
 
 			UniformBuffer->ResourceTable[ResourceIndex] = Resource;
 		}

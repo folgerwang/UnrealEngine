@@ -115,5 +115,4 @@ void FDeferredShadingSceneRenderer::RenderRayTracedBarycentrics(FRHICommandListI
 
 	GraphBuilder.Execute();
 }
-
-#endif RHI_RAYTRACING
+#endif

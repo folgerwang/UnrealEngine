@@ -40,6 +40,9 @@ public:
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SpecularPenumbra)
 	END_SHADER_PARAMETER_STRUCT()
 
+
+	virtual ~IScreenSpaceDenoiser() {};
+
 	/** Debug name of the denoiser for draw event. */
 	virtual const TCHAR* GetDebugName() const = 0;
 

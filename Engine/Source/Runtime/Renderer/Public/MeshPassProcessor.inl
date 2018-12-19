@@ -186,11 +186,13 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 
 	SharedMeshDrawCommand.SetDebugData(PrimitiveSceneProxy, &MaterialResource, &MaterialRenderProxy, PassShaders.GetUntypedShaders());
 
+#if RHI_RAYTRACING
 	if (PassShaders.RayHitGroupShader)
 	{
 		FMeshDrawSingleShaderBindings ShaderBindings = SharedMeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
 		PassShaders.RayHitGroupShader->GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, MaterialResource, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer(), ShaderElementData, ShaderBindings);
 	}
+#endif
 
 	const int32 NumElements = MeshBatch.Elements.Num();
 
@@ -201,11 +203,13 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
 			FMeshDrawCommand& MeshDrawCommand = DrawListContext.AddCommand(SharedMeshDrawCommand);
 
+#if RHI_RAYTRACING
 			if (PassShaders.RayHitGroupShader)
 			{
 				FMeshDrawSingleShaderBindings RayHitGroupShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
 				PassShaders.RayHitGroupShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, RayHitGroupShaderBindings, MeshDrawCommand.VertexStreams);
 			}
+#endif
 
 			SetDrawCommandEvent(PrimitiveSceneProxy, MaterialResource, MeshDrawCommand);
 

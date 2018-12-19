@@ -151,5 +151,4 @@ void FDeferredShadingSceneRenderer::RenderRayTracedDebug(FRHICommandListImmediat
 }
 
 #undef LOCTEXT_NAMESPACE
-
-#endif RHI_RAYTRACING
+#endif

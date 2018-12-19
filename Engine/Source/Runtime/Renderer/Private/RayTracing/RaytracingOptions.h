@@ -4,9 +4,10 @@
 	RaytracingOptions.h declares ray tracing options for use in rendering
 =============================================================================*/
 
+extern bool IsRayTracingSkyLightSelected();
+
 #if RHI_RAYTRACING
 
-extern bool IsRayTracingSkyLightSelected();
 extern bool IsRayTracingRectLightSelected();
 
 extern bool ShouldRenderRayTracingStaticOrStationaryRectLight(const FLightSceneInfo& LightSceneInfo);

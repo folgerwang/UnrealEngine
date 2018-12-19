@@ -119,9 +119,8 @@ public:
 		FacingMode(0),
 		FloatDataOffset(0),
 		FloatDataStride(0),
-		SortedIndicesOffset(0),
-		LooseParameterUniformBuffer(nullptr)
-
+		LooseParameterUniformBuffer(nullptr),
+		SortedIndicesOffset(0)
 	{}
 
 	FNiagaraSpriteVertexFactory()

@@ -669,5 +669,4 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 	ResolveSceneColor(RHICmdList);
 
 }
-
-#endif RHI_RAYTRACING
+#endif
