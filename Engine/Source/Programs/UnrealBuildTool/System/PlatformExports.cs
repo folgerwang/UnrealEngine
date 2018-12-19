@@ -85,7 +85,7 @@ namespace UnrealBuildTool
 		public static string[] GetIncludedFolderNames(UnrealTargetPlatform Platform)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
-			return BuildPlatform.GetIncludedFolderNames();
+			return BuildPlatform.GetIncludedFolderNames().ToArray();
 		}
 
 		/// <summary>
@@ -96,7 +96,7 @@ namespace UnrealBuildTool
 		public static string[] GetExcludedFolderNames(UnrealTargetPlatform Platform)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
-			return BuildPlatform.GetExcludedFolderNames();
+			return BuildPlatform.GetExcludedFolderNames().ToArray();
 		}
 
 		/// <summary>
