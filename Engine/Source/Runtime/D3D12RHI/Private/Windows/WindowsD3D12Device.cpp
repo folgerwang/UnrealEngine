@@ -669,9 +669,12 @@ void FD3D12DynamicRHI::Init()
 
 void FD3D12DynamicRHI::PostInit()
 {
-	for (FD3D12Adapter*& Adapter : ChosenAdapters)
+	if (IsRayTracingSupportedForThisProject())
 	{
-		Adapter->InitializeRayTracing();
+		for (FD3D12Adapter*& Adapter : ChosenAdapters)
+		{
+			Adapter->InitializeRayTracing();
+		}
 	}
 
 	if (GRHISupportsRHIThread)
