@@ -9,7 +9,7 @@
 #include "SceneRenderTargets.h"
 #include "RenderGraphBuilder.h"
 #include "SceneUtils.h"
-#include "RaytracingDebugDefinitions.ush"
+#include "RayTracingDebugDefinitions.ush"
 
 #define LOCTEXT_NAMESPACE "RayTracingDebugVisualizationMenuCommands"
 
