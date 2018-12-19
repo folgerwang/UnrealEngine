@@ -37,10 +37,6 @@ void SampleMaterial(
 	out float3 OutThroughput,
 	out float OutPdf)
 {
-	//#dxr_todo: force lambert material until other BRDF types are finished
-	Lambert_SampleMaterial(Payload, RandSample, OutDirection, OutThroughput, OutPdf);
-	return;
-
 	if (IsPureSpecularReflection(Payload))
 	{
 		SpecularReflection_SampleMaterial(RayDirection, Payload, OutDirection, OutThroughput, OutPdf);

@@ -48,7 +48,9 @@ bool IsPureSpecularTransmission(FMaterialClosestHitPayload HitInfo)
 
 bool IsLambert(FMaterialClosestHitPayload HitInfo)
 {
-	return GetRoughness(HitInfo) > GLOSSY_MAX_ROUGHNESS;
+	//#dxr_todo: force lambert material until other BRDF types are finished
+	return true;
+	//return GetRoughness(HitInfo) > GLOSSY_MAX_ROUGHNESS;
 }
 
 bool BSDF_Refract(float3 V_Local, float3 N_Local, float IorV, float IorL, out float3 L_Local)

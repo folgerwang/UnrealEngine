@@ -5,19 +5,6 @@ PathTracingSpecularReflection.usf: Lambertian BRDF sampling functions
 ===============================================================================================*/
 #pragma once
 
-//// Fixed version of GetTangentBasis that follows UE axis conventions
-//float3x3 GetTangentBasis_NEW(float3 TangentZ)
-//{
-//	const float Sign = TangentZ.z >= 0 ? 1 : -1;
-//	const float a = -rcp(Sign + TangentZ.z);
-//	const float b = TangentZ.x * TangentZ.y * a;
-//
-//	float3 TangentY = { -1*(1 + Sign * a * Pow2(TangentZ.x)), -Sign * b, Sign * TangentZ.x };
-//	float3 TangentX = { b,  Sign + a * Pow2(TangentZ.y), -TangentZ.y };
-//
-//	return float3x3(TangentX, TangentY, TangentZ);
-//}
-
 void SpecularReflection_SampleMaterial(
 	float3 RayDirection,
 	FMaterialClosestHitPayload Payload,
