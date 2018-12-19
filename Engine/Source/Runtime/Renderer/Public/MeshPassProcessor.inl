@@ -61,6 +61,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 
 	SharedMeshDrawCommand.PrimitiveIdStreamIndex = VertexFactory->GetPrimitiveIdStreamIndex(bPositionOnly);
 
+	if (PassShaders.VertexShader)
 	{
 		FMeshDrawSingleShaderBindings ShaderBindings = SharedMeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_Vertex);
 		PassShaders.VertexShader->GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, MaterialResource, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer(), ShaderElementData, ShaderBindings);
@@ -101,8 +102,11 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
 			FMeshDrawCommand& MeshDrawCommand = DrawListContext.AddCommand(SharedMeshDrawCommand);
 
-			FMeshDrawSingleShaderBindings VertexShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_Vertex);
-			PassShaders.VertexShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, bPositionOnly, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, VertexShaderBindings, MeshDrawCommand.VertexStreams);
+			if (PassShaders.VertexShader)
+			{
+				FMeshDrawSingleShaderBindings VertexShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_Vertex);
+				PassShaders.VertexShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, bPositionOnly, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, VertexShaderBindings, MeshDrawCommand.VertexStreams);
+			}
 
 			if (PassShaders.HullShader && PassShaders.DomainShader)
 			{
@@ -118,6 +122,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 				PassShaders.PixelShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, PixelShaderBindings, MeshDrawCommand.VertexStreams);
 			}
 
+
 			if (PassShaders.GeometryShader)
 			{
 				FMeshDrawSingleShaderBindings GeometryShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_Geometry);
@@ -128,7 +133,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 
 			const int32 DrawPrimitiveId = GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement);
 
-			DrawListContext.FinalizeCommand(MeshBatch, BatchElement, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand);
+			DrawListContext.FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, true);
 		}
 	}
 }
@@ -142,9 +147,68 @@ void DrawDynamicMeshPass(const FSceneView& View, FRHICommandList& RHICmdList, co
 {
 	FDynamicMeshDrawCommandStorage DynamicMeshDrawCommandStorage;
 	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
+
 	FDynamicPassMeshDrawListContext DynamicMeshPassContext(DynamicMeshDrawCommandStorage, VisibleMeshDrawCommands);
 
 	BuildPassProcessorLambda(DynamicMeshPassContext);
 
 	DrawDynamicMeshPassPrivate(View, RHICmdList, VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage);
+}
+
+template<typename PassShadersType, typename ShaderElementDataType>
+void FMeshPassProcessor::BuildRayTracingDrawCommands(
+	const FMeshBatch& RESTRICT MeshBatch,
+	uint64 BatchElementMask,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	const FDrawingPolicyRenderState& RESTRICT DrawRenderState,
+	PassShadersType PassShaders,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode,
+	int32 InstanceFactor,
+	FMeshDrawCommandSortKey SortKey,
+	EMeshPassFeatures MeshPassFeatures,
+	const ShaderElementDataType& ShaderElementData)
+{
+	const FVertexFactory* RESTRICT VertexFactory = MeshBatch.VertexFactory;
+
+	checkf(MaterialRenderProxy.ImmutableSamplerState.ImmutableSamplers[0] == nullptr, TEXT("Immutable samplers not yet supported in Mesh Draw Command pipeline"));
+
+	FMeshDrawCommand SharedMeshDrawCommand;
+
+	check(VertexFactory && VertexFactory->IsInitialized());
+	VertexFactory->GetStreams(FeatureLevel, SharedMeshDrawCommand.VertexStreams);
+
+	SharedMeshDrawCommand.SetRayTracingShaders(PassShaders.GetUntypedShaders());
+	SharedMeshDrawCommand.SetDebugData(PrimitiveSceneProxy, &MaterialResource, &MaterialRenderProxy, PassShaders.GetUntypedShaders());
+
+	if (PassShaders.RayHitGroupShader)
+	{
+		FMeshDrawSingleShaderBindings ShaderBindings = SharedMeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
+		PassShaders.RayHitGroupShader->GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, MaterialResource, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer(), ShaderElementData, ShaderBindings);
+	}
+
+	const int32 NumElements = MeshBatch.Elements.Num();
+
+	for (int32 BatchElementIndex = 0; BatchElementIndex < NumElements; BatchElementIndex++)
+	{
+		if ((1ull << BatchElementIndex) & BatchElementMask)
+		{
+			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
+			FMeshDrawCommand& MeshDrawCommand = DrawListContext.AddCommand(SharedMeshDrawCommand);
+
+			if (PassShaders.RayHitGroupShader)
+			{
+				FMeshDrawSingleShaderBindings RayHitGroupShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
+				PassShaders.RayHitGroupShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, RayHitGroupShaderBindings, MeshDrawCommand.VertexStreams);
+			}
+
+			SetDrawCommandEvent(PrimitiveSceneProxy, MaterialResource, MeshDrawCommand);
+
+			const int32 DrawPrimitiveId = 0;
+			const int32 ScenePrimitiveId = 0;
+			DrawListContext.FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, false);
+		}
+	}
 }

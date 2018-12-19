@@ -385,6 +385,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 // We expose these variables to everyone as we need to access them in other files via an extern
 ENGINE_API float GAverageFPS = 0.0f;
 ENGINE_API float GAverageMS = 0.0f;
+ENGINE_API float GAveragePathTracedMRays = 0.0f;
 ENGINE_API double GLastMemoryWarningTime = 0.f;
 
 static FCachedSystemScalabilityCVars GCachedScalabilityCVars;
@@ -14211,6 +14212,31 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 		FPSColor
 	);
 	Y += RowHeight;
+
+#if RHI_RAYTRACING
+	if (GAveragePathTracedMRays > 0.0)
+	{
+		// Draw the MRays/frame counter.
+		Canvas->DrawShadowedString(
+			X,
+			Y,
+			*FString::Printf(TEXT("%5.2f MRays/fr"), GAveragePathTracedMRays),
+			Font,
+			FPSColor
+		);
+		Y += RowHeight;
+
+		// Draw the MRays/s counter.
+		Canvas->DrawShadowedString(
+			X,
+			Y,
+			*FString::Printf(TEXT("%5.2f MRays/s"), GAveragePathTracedMRays*GAverageFPS),
+			Font,
+			FPSColor
+		);
+		Y += RowHeight;
+	}
+#endif
 	return Y;
 }
 

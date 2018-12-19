@@ -31,7 +31,7 @@ D3D12_RESOURCE_DESC CreateIndexBufferResourceDesc(uint32 Size, uint32 InUsage)
 
 FD3D12IndexBuffer::~FD3D12IndexBuffer()
 {
-	UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_INDEX);
+	UpdateBufferStats<FD3D12IndexBuffer>(&ResourceLocation, false);
 }
 
 void FD3D12IndexBuffer::Rename(FD3D12ResourceLocation& NewLocation)
@@ -71,8 +71,6 @@ FIndexBufferRHIRef FD3D12DynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 
 		Buffer->SetCommitted(false);
 	}
 
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
-
 	return Buffer;
 }
 
@@ -97,8 +95,6 @@ FIndexBufferRHIRef FD3D12DynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 		// TODO: this should ideally be set in platform-independent code, since this tracking is for the high level
 		Buffer->SetCommitted(false);
 	}
-
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
 
 	return Buffer;
 }
@@ -130,8 +126,6 @@ FIndexBufferRHIRef FD3D12DynamicRHI::CreateAndLockIndexBuffer_RenderThread(class
 	}
 
 	OutDataBuffer = LockIndexBuffer_RenderThread(RHICmdList, Buffer, 0, Size, RLM_WriteOnly);
-
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
 
 	return Buffer;
 }

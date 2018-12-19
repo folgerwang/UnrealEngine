@@ -26,7 +26,11 @@ DEFINE_STAT(STAT_GPUSkinCache_NumSetVertexStreams);
 DEFINE_STAT(STAT_GPUSkinCache_NumPreGDME);
 DEFINE_LOG_CATEGORY_STATIC(LogSkinCache, Log, All);
 
+#if RHI_RAYTRACING
+static int32 GEnableGPUSkinCacheShaders = 1;
+#else
 static int32 GEnableGPUSkinCacheShaders = 0;
+#endif
 static FAutoConsoleVariableRef CVarEnableGPUSkinCacheShaders(
 	TEXT("r.SkinCache.CompileShaders"),
 	GEnableGPUSkinCacheShaders,
@@ -583,6 +587,17 @@ void FGPUSkinCache::TransitionAllToReadable(FRHICommandList& RHICmdList)
 		BuffersToTransition.SetNum(0, false);
 	}
 }
+
+#if RHI_RAYTRACING
+void FGPUSkinCache::CommitRayTracingGeometryUpdates(FRHICommandList& RHICmdList)
+{
+	if (RayTracingGeometriesToUpdate.Num())
+	{
+		RHICmdList.UpdateAccelerationStructures(RayTracingGeometriesToUpdate);
+		RayTracingGeometriesToUpdate.Reset();
+	}
+}
+#endif // RHI_RAYTRACING
 
 #if 0
 void FGPUSkinCache::TransitionToWriteable(FRHICommandList& RHICmdList)
@@ -1306,6 +1321,17 @@ void FGPUSkinCache::ReleaseSkinCacheEntry(FGPUSkinCacheEntry* SkinCacheEntry)
 
 	SkinCache->Entries.RemoveSingleSwap(SkinCacheEntry, false);
 	delete SkinCacheEntry;
+}
+
+FRWBuffer* FGPUSkinCache::GetUnderlyingPositionBuffer(FGPUSkinCacheEntry* Entry)
+{
+	FGPUSkinCacheEntry::FSectionDispatchData& DispatchData = Entry->DispatchData[0];
+	
+	// #dxr: we rely on the assumption that all sections share the same underlying vertex buffer
+	for (int i = 0; i < Entry->DispatchData.Num(); i++)
+		ensure(Entry->DispatchData[i].PositionBuffer == nullptr || Entry->DispatchData[i].PositionBuffer == Entry->DispatchData[0].PositionBuffer);
+
+	return DispatchData.PositionBuffer;
 }
 
 bool FGPUSkinCache::IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section)

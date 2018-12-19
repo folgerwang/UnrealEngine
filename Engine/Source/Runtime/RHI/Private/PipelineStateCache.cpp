@@ -41,6 +41,17 @@ static inline uint32 GetTypeHash(const FGraphicsPipelineStateInitializer& Initia
 		^ Initializer.RenderTargetsEnabled ^ GetTypeHash(Initializer.RasterizerState) ^ GetTypeHash(Initializer.DepthStencilState);
 }
 
+#if RHI_RAYTRACING
+static inline uint32 GetTypeHash(const FRayTracingPipelineStateInitializer& Initializer)
+{
+	return GetTypeHash(Initializer.MaxPayloadSizeInBytes) ^
+		GetTypeHash(Initializer.RayGenShaderRHI) ^
+		GetTypeHash(Initializer.MissShaderRHI) ^
+		GetTypeHash(Initializer.DefaultClosestHitShaderRHI) ^ 
+		GetTypeHash(Initializer.GetHitGroupHash());
+}
+#endif
+
 static TAutoConsoleVariable<int32> GCVarAsyncPipelineCompile(
 	TEXT("r.AsyncPipelineCompile"),
 	1,
@@ -221,6 +232,28 @@ public:
 	FThreadSafeCounter InUseCount;
 #endif
 };
+
+#if RHI_RAYTRACING
+/* State for ray tracing */
+class FRayTracingPipelineState : public FPipelineState
+{
+public:
+	FRayTracingPipelineState()
+	{
+	}
+
+	virtual bool IsCompute() const
+	{
+		return false;
+	}
+
+	FRayTracingPipelineStateRHIRef RHIPipeline;
+#if PIPELINESTATECACHE_VERIFYTHREADSAFE
+	FThreadSafeCounter InUseCount;
+#endif
+};
+
+#endif // RHI_RAYTRACING
 
 void SetGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& Initializer, EApplyRendertargetOption ApplyFlags)
 {
@@ -558,6 +591,64 @@ FAutoConsoleTaskPriority CPrio_FCompilePipelineStateTask(
 	ENamedThreads::HighTaskPriority,		// if we don't have hi pri threads, then use normal priority threads at high task priority instead
 	EPowerSavingEligibility::NotEligible	// Not eligible for downgrade when power saving is requested.
 );
+#if RHI_RAYTRACING
+
+// Simple thread-safe pipeline state cache that's designed for low-frequency pipeline creation operations.
+// The expected use case is a very infrequent (i.e. startup / load / streaming time) creation of ray tracing PSOs.
+// This cache uses a single internal lock and therefore is not designed for highly concurrent operations.
+class FRayTracingPipelineCache
+{
+	// #dxr_todo: This needs to support fully asynchronous, non-blocking pipeline creation with explicit completion query mechanism.
+	// #dxr_todo: Could move this to a separate cpp file.
+	// #dxr_todo: Should support eviction of stale pipelines.
+	// #dxr_todo: we will likely also need an explicit ray tracing pipeline sub-object cache to hold closest hit shaders
+
+public:
+	FRayTracingPipelineCache()
+	{}
+
+	~FRayTracingPipelineCache()
+	{}
+
+	bool Find(const FRayTracingPipelineStateInitializer& Initializer, FRayTracingPipelineState*& OutCachedState) const
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+
+		FRayTracingPipelineState* const* FoundState = Cache.Find(Initializer);
+		if (FoundState)
+		{
+			OutCachedState = *FoundState;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	void Add(const FRayTracingPipelineStateInitializer& Initializer, FRayTracingPipelineState* State)
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+		Cache.Add(Initializer, State);
+	}
+
+	void Shutdown()
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+		for (auto& It : Cache)
+		{
+			delete It.Value;
+		}
+	}
+
+private:
+
+	mutable FCriticalSection CriticalSection;
+	TMap<FRayTracingPipelineStateInitializer, FRayTracingPipelineState*> Cache;
+};
+
+FRayTracingPipelineCache GRayTracingPipelineCache;
+#endif
 
 /**
  *  Compile task
@@ -655,6 +746,7 @@ void PipelineStateCache::FlushResources()
 
 	GGraphicsPipelineCache.ConsolidateThreadedCaches();
 	GGraphicsPipelineCache.ProcessDelayedCleanup();
+
 
 	static double LastEvictionTime = FPlatformTime::Seconds();
 	double CurrentTime = FPlatformTime::Seconds();
@@ -806,6 +898,41 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 	// return the state pointer
 	return OutCachedState;
 }
+
+#if RHI_RAYTRACING
+FRHIRayTracingPipelineState* PipelineStateCache::GetAndOrCreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer)
+{
+	LLM_SCOPE(ELLMTag::PSO);
+	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
+
+	check(IsInRenderingThread() || IsInParallelRenderingThread());
+
+	FRayTracingPipelineState* OutCachedState = nullptr;
+
+	bool bWasFound = GRayTracingPipelineCache.Find(Initializer, OutCachedState);
+
+	if (bWasFound == false)
+	{
+		// #dxr_todo: RT PSO disk caching
+		// #dxr_todo: asynchronous PSO creation
+
+		OutCachedState = new FRayTracingPipelineState();
+
+		OutCachedState->RHIPipeline = RHICreateRayTracingPipelineState(Initializer);
+
+		GRayTracingPipelineCache.Add(Initializer, OutCachedState);
+	}
+	else
+	{
+#if PSO_TRACK_CACHE_STATS
+		OutCachedState->AddHit();
+#endif
+	}
+
+	// return the state pointer
+	return OutCachedState->RHIPipeline;
+}
+#endif // RHI_RAYTRACING
 
 FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* ComputePipelineState)
 {
@@ -1011,6 +1138,10 @@ void DumpPipelineCacheStats()
 
 void PipelineStateCache::Shutdown()
 {
+#if RHI_RAYTRACING
+	GRayTracingPipelineCache.Shutdown();
+#endif
+
 	// call discard twice to clear both the backing and main caches
 	for (int i = 0; i < 2; i++)
 	{

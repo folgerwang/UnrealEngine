@@ -7,6 +7,7 @@
 #include "Common.ush"
 #include "PostProcessCommon.ush"
 #include "PaniniProjection.ush"
+#include "TextureSampling.ush"
 
 // only for MainPS
 float UpscaleSoftness;

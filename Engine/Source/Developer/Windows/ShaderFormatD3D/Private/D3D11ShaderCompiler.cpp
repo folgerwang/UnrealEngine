@@ -8,6 +8,7 @@
 #include "Misc/FileHelper.h"
 #include "HAL/FileManager.h"
 #include "Serialization/MemoryWriter.h"
+#include "RayTracingDefinitions.ush"
 
 DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 
@@ -31,6 +32,15 @@ DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 #undef DrawText
 
 #pragma warning(pop)
+
+#if RHI_RAYTRACING
+MSVC_PRAGMA(warning(push))
+MSVC_PRAGMA(warning(disable : 4191)) // warning C4191: 'type cast': unsafe conversion from 'FARPROC' to 'DxcCreateInstanceProc'
+#include <dxc/dxcapi.h>
+#include <dxc/Support/dxcapi.use.h>
+#include <d3d12shader.h>
+MSVC_PRAGMA(warning(pop))
+#endif // RHI_RAYTRACING
 
 static int32 GD3DAllowRemoveUnused = 0;
 
@@ -104,21 +114,52 @@ static void D3D11FilterShaderCompileWarnings(const FString& CompileWarnings, TAr
 	}
 }
 
+static bool IsRayTracingShader(const FShaderTarget& Target)
+{
+#if RHI_RAYTRACING
+	switch(Target.Frequency)
+	{
+	case SF_RayGen:
+	case SF_RayMiss:
+	case SF_RayHitGroup:
+		return true;
+	default:
+		return false;
+	}
+#else // RHI_RAYTRACING
+	return false;
+#endif // RHI_RAYTRACING
+}
+
+static uint32 GetAutoBindingSpace(const FShaderTarget& Target)
+{
+#if RHI_RAYTRACING
+	switch (Target.Frequency)
+	{
+	case SF_RayGen:
+	case SF_RayMiss:
+		return RAY_TRACING_REGISTER_SPACE_GLOBAL;
+	case SF_RayHitGroup:
+		return RAY_TRACING_REGISTER_SPACE_LOCAL;
+	default:
+		return 0;
+	}
+#else // RHI_RAYTRACING
+	return 0;
+#endif // RHI_RAYTRACING
+}
+
 // @return 0 if not recognized
 static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 {
 	if(Target.Platform == SP_PCD3D_SM5)
 	{
-		checkSlow(Target.Frequency == SF_Vertex ||
-			Target.Frequency == SF_Pixel ||
-			Target.Frequency == SF_Hull ||
-			Target.Frequency == SF_Domain ||
-			Target.Frequency == SF_Compute ||
-			Target.Frequency == SF_Geometry);
-
 		//set defines and profiles for the appropriate shader paths
 		switch(Target.Frequency)
 		{
+		default:
+			checkfSlow(false, TEXT("Unexpected shader frequency"));
+			return nullptr;
 		case SF_Pixel:
 			return TEXT("ps_5_0");
 		case SF_Vertex:
@@ -131,6 +172,12 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("gs_5_0");
 		case SF_Compute:
 			return TEXT("cs_5_0");
+#if RHI_RAYTRACING
+		case SF_RayGen:
+		case SF_RayMiss:
+		case SF_RayHitGroup:
+			return TEXT("lib_6_3");
+#endif // RHI_RAYTRACING
 		}
 	}
 	else if(Target.Platform == SP_PCD3D_SM4)
@@ -448,10 +495,423 @@ static HRESULT D3DCompileWrapper(
 // Utility variable so we can place a breakpoint while debugging
 static int32 GBreakpoint = 0;
 
+#if RHI_RAYTRACING
+
+#define VERIFYHRESULT(expr) { HRESULT HR##__LINE__ = expr; if (FAILED(HR##__LINE__)) { UE_LOG(LogD3D11ShaderCompiler, Fatal, TEXT(#expr " failed: Result=%08x"), HR##__LINE__); } }
+
+static dxc::DxcDllSupport& GetDxcDllHelper()
+{
+	static dxc::DxcDllSupport DxcDllSupport;
+	static bool DxcDllInitialized = false;
+	if (!DxcDllInitialized)
+	{
+		VERIFYHRESULT(DxcDllSupport.Initialize());
+		DxcDllInitialized = true;
+	}
+	return DxcDllSupport;
+}
+
+static HRESULT D3DCompileToDxil(const char* SourceText, LPCWSTR EntryPoint, LPCWSTR TargetProfile, LPCWSTR* Arguments, uint32 NumArguments,
+	TRefCountPtr<ID3DBlob>& OutDxilBlob, TRefCountPtr<IDxcBlobEncoding>& OutErrorBlob)
+{
+	dxc::DxcDllSupport& DxcDllHelper = GetDxcDllHelper();
+
+	TRefCountPtr<IDxcCompiler> Compiler;
+	VERIFYHRESULT(DxcDllHelper.CreateInstance(CLSID_DxcCompiler, Compiler.GetInitReference()));
+
+	TRefCountPtr<IDxcLibrary> Library;
+	VERIFYHRESULT(DxcDllHelper.CreateInstance(CLSID_DxcLibrary, Library.GetInitReference()));
+
+	TRefCountPtr<IDxcBlobEncoding> TextBlob;
+	VERIFYHRESULT(Library->CreateBlobWithEncodingFromPinned((LPBYTE)SourceText, FCStringAnsi::Strlen(SourceText), CP_UTF8, TextBlob.GetInitReference()));
+
+	TRefCountPtr<IDxcOperationResult> CompileResult;
+
+	VERIFYHRESULT(Compiler->Compile(
+		TextBlob,							// source text to compile
+		nullptr,							// optional file name for pSource. Used in errors and include handlers.
+		EntryPoint,							// entry point name
+		TargetProfile,						// shader profile to compile
+		Arguments,							// array of pointers to arguments
+		NumArguments,						// number of arguments
+		nullptr,							// array of defines
+		0,									// number of defines
+		nullptr,							// user-provided interface to handle #include directives (optional)
+		CompileResult.GetInitReference()	// compiler output status, buffer, and errors
+	));
+
+	HRESULT CompileResultCode;
+	CompileResult->GetStatus(&CompileResultCode);
+
+	if (SUCCEEDED(CompileResultCode))
+	{
+		// NOTE: IDxcBlob is an alias of ID3D10Blob and ID3DBlob.
+		VERIFYHRESULT(CompileResult->GetResult((IDxcBlob**)OutDxilBlob.GetInitReference()));
+	}
+
+	CompileResult->GetErrorBuffer(OutErrorBlob.GetInitReference());
+
+	return CompileResultCode;
+}
+
+static void D3DCreateDXCArguments(TArray<const WCHAR*>& OutArgs, const WCHAR* Exports, uint32 CompileFlags, uint32 AutoBindingSpace = ~0u)
+{
+	// Static digit strings are used here as they are returned in OutArgs
+	static const WCHAR* DigitStrings[] = 
+	{
+		L"0", L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8", L"9"
+	};
+
+	if (AutoBindingSpace < ARRAY_COUNT(DigitStrings))
+	{
+		OutArgs.Add(L"/auto-binding-space");
+		OutArgs.Add(DigitStrings[AutoBindingSpace]);
+	}
+	else if (AutoBindingSpace != ~0u)
+	{
+		UE_LOG(LogD3D11ShaderCompiler, Fatal, TEXT("Unsupported register binding space %d"), AutoBindingSpace);
+	}
+
+	// Ensure that only the requested functions exists in the output DXIL.
+	// All other functions and their used resources must be eliminated.
+	OutArgs.Add(L"/exports");
+	OutArgs.Add(Exports);
+
+	if (CompileFlags & D3D10_SHADER_PREFER_FLOW_CONTROL)
+	{
+		CompileFlags &= ~D3D10_SHADER_PREFER_FLOW_CONTROL;
+		OutArgs.Add(L"/Gfp");
+	}
+
+	if (CompileFlags & D3D10_SHADER_DEBUG)
+	{
+		CompileFlags &= ~D3D10_SHADER_DEBUG;
+		OutArgs.Add(L"/Zi");
+	}
+
+	if (CompileFlags & D3D10_SHADER_SKIP_OPTIMIZATION)
+	{
+		CompileFlags &= ~D3D10_SHADER_SKIP_OPTIMIZATION;
+		OutArgs.Add(L"/Od");
+	}
+
+	if (CompileFlags & D3D10_SHADER_SKIP_VALIDATION)
+	{
+		CompileFlags &= ~D3D10_SHADER_SKIP_VALIDATION;
+		OutArgs.Add(L"/Vd");
+	}
+
+	if (CompileFlags & D3D10_SHADER_AVOID_FLOW_CONTROL)
+	{
+		CompileFlags &= ~D3D10_SHADER_AVOID_FLOW_CONTROL;
+		OutArgs.Add(L"/Gfa");
+	}
+
+	if (CompileFlags & D3D10_SHADER_PACK_MATRIX_ROW_MAJOR)
+	{
+		CompileFlags &= ~D3D10_SHADER_PACK_MATRIX_ROW_MAJOR;
+		OutArgs.Add(L"/Zpr");
+	}
+
+	if (CompileFlags & D3D10_SHADER_ENABLE_BACKWARDS_COMPATIBILITY)
+	{
+		CompileFlags &= ~D3D10_SHADER_ENABLE_BACKWARDS_COMPATIBILITY;
+		OutArgs.Add(L"/Gec");
+	}
+
+	if ((CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL2) == D3D10_SHADER_OPTIMIZATION_LEVEL2)
+	{
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL2;
+		OutArgs.Add(L"/O2");
+	}
+	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL3)
+	{
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL3;
+		OutArgs.Add(L"/O3");
+	}
+	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL1)
+	{
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL1;
+		OutArgs.Add(L"/O1");
+	}
+
+	checkf(CompileFlags == 0, TEXT("Unhandled shader compiler flag!"));
+}
+
+#ifndef DXIL_FOURCC
+#define DXIL_FOURCC(ch0, ch1, ch2, ch3) (                            \
+  (uint32_t)(uint8_t)(ch0)        | (uint32_t)(uint8_t)(ch1) << 8  | \
+  (uint32_t)(uint8_t)(ch2) << 16  | (uint32_t)(uint8_t)(ch3) << 24   \
+  )
+#endif
+
+static HRESULT D3DCreateLibraryReflectionFromBlob(ID3DBlob* DxilBlob, TRefCountPtr<ID3D12LibraryReflection>& OutReflection)
+{
+	dxc::DxcDllSupport& DxcDllHelper = GetDxcDllHelper();
+
+	TRefCountPtr<IDxcContainerReflection> ContainerReflection;
+	VERIFYHRESULT(DxcDllHelper.CreateInstance(CLSID_DxcContainerReflection, ContainerReflection.GetInitReference()));
+	VERIFYHRESULT(ContainerReflection->Load((IDxcBlob *)DxilBlob));
+
+	const uint32 DxilPartKind = DXIL_FOURCC('D', 'X', 'I', 'L');
+	uint32 DxilPartIndex = ~0u;
+	VERIFYHRESULT(ContainerReflection->FindFirstPartKind(DxilPartKind, &DxilPartIndex));
+
+	HRESULT Result = ContainerReflection->GetPartReflection(DxilPartIndex, IID_PPV_ARGS(OutReflection.GetInitReference()));
+
+	return Result;
+}
+
+#undef VERIFYHRESULT
+
+inline bool IsCompatibleBinding(const D3D12_SHADER_INPUT_BIND_DESC& BindDesc, uint32 BindingSpace)
+{
+	return BindDesc.Space == BindingSpace;
+}
+
+#endif // RHI_RAYTRACING
+
+inline bool IsCompatibleBinding(const D3D11_SHADER_INPUT_BIND_DESC& BindDesc, uint32 BindingSpace)
+{
+	return true;
+}
+
+template <typename ID3D1xShaderReflection, typename D3D1x_SHADER_DESC, typename D3D1x_SHADER_INPUT_BIND_DESC,
+	typename ID3D1xShaderReflectionConstantBuffer, typename D3D1x_SHADER_BUFFER_DESC,
+	typename ID3D1xShaderReflectionVariable, typename D3D1x_SHADER_VARIABLE_DESC>
+static void ExtractParameterMapFromD3DShader(
+	uint32 TargetPlatform, uint32 BindingSpace, const FString& VirtualSourceFilePath, ID3D1xShaderReflection* Reflector, const D3D1x_SHADER_DESC& ShaderDesc,
+	bool& bGlobalUniformBufferUsed, uint32& NumSamplers, uint32& NumSRVs, uint32& NumCBs, uint32& NumUAVs,
+	FShaderCompilerOutput& Output, TArray<FString>& UniformBufferNames, TBitArray<>& UsedUniformBufferSlots
+)
+{
+	// Add parameters for shader resources (constant buffers, textures, samplers, etc. */
+	for (uint32 ResourceIndex = 0; ResourceIndex < ShaderDesc.BoundResources; ResourceIndex++)
+	{
+		D3D1x_SHADER_INPUT_BIND_DESC BindDesc;
+		Reflector->GetResourceBindingDesc(ResourceIndex, &BindDesc);
+
+		if (!IsCompatibleBinding(BindDesc, BindingSpace))
+		{
+			continue;
+		}
+
+		if (BindDesc.Type == D3D10_SIT_CBUFFER || BindDesc.Type == D3D10_SIT_TBUFFER)
+		{
+			const uint32 CBIndex = BindDesc.BindPoint;
+			ID3D1xShaderReflectionConstantBuffer* ConstantBuffer = Reflector->GetConstantBufferByName(BindDesc.Name);
+			D3D1x_SHADER_BUFFER_DESC CBDesc;
+			ConstantBuffer->GetDesc(&CBDesc);
+			bool bGlobalCB = (FCStringAnsi::Strcmp(CBDesc.Name, "$Globals") == 0);
+
+			if (bGlobalCB)
+			{
+				// Track all of the variables in this constant buffer.
+				for (uint32 ConstantIndex = 0; ConstantIndex < CBDesc.Variables; ConstantIndex++)
+				{
+					ID3D1xShaderReflectionVariable* Variable = ConstantBuffer->GetVariableByIndex(ConstantIndex);
+					D3D1x_SHADER_VARIABLE_DESC VariableDesc;
+					Variable->GetDesc(&VariableDesc);
+					if (VariableDesc.uFlags & D3D10_SVF_USED)
+					{
+						bGlobalUniformBufferUsed = true;
+
+						Output.ParameterMap.AddParameterAllocation(
+							ANSI_TO_TCHAR(VariableDesc.Name),
+							CBIndex,
+							VariableDesc.StartOffset,
+							VariableDesc.Size,
+							EShaderParameterType::LooseData
+						);
+						UsedUniformBufferSlots[CBIndex] = true;
+					}
+				}
+			}
+			else
+			{
+				// Track just the constant buffer itself.
+				Output.ParameterMap.AddParameterAllocation(
+					ANSI_TO_TCHAR(CBDesc.Name),
+					CBIndex,
+					0,
+					0,
+					EShaderParameterType::UniformBuffer
+				);
+				UsedUniformBufferSlots[CBIndex] = true;
+
+				if (UniformBufferNames.Num() <= (int32)CBIndex)
+				{
+					UniformBufferNames.AddDefaulted(CBIndex - UniformBufferNames.Num() + 1);
+				}
+				UniformBufferNames[CBIndex] = CBDesc.Name;
+			}
+
+			NumCBs = FMath::Max(NumCBs, BindDesc.BindPoint + BindDesc.BindCount);
+		}
+		else if (BindDesc.Type == D3D10_SIT_TEXTURE || BindDesc.Type == D3D10_SIT_SAMPLER)
+		{
+			TCHAR OfficialName[1024];
+			uint32 BindCount = BindDesc.BindCount;
+			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
+
+			if (TargetPlatform == SP_PCD3D_SM5)
+			{
+				// Assign the name and optionally strip any "[#]" suffixes
+				TCHAR *BracketLocation = FCString::Strchr(OfficialName, TEXT('['));
+				if (BracketLocation)
+				{
+					BindCount = 1;
+
+					// This needs to include the first [ character otherwise it will include non array textures with matching starting characters.
+					// e.g. "LightMapTexturesTest" which is not part of "LightMapTextures[#]" would be included as the last index of "LightMapTextures"
+					const int32 NumCharactersToCompare = BracketLocation - OfficialName + 1;
+
+					// In SM5, for some reason, array suffixes are included in Name, i.e. "LightMapTextures[0]", rather than "LightMapTextures"
+					// Additionally elements in an array are listed as SEPERATE bound resources.
+					// However, they are always contiguous in resource index, so iterate over the samplers and textures of the initial association
+					// and count them, identifying the bindpoint and bindcounts
+
+					while (ResourceIndex + 1 < ShaderDesc.BoundResources)
+					{
+						D3D1x_SHADER_INPUT_BIND_DESC BindDesc2;
+						Reflector->GetResourceBindingDesc(ResourceIndex + 1, &BindDesc2);
+
+						if (BindDesc2.Type == BindDesc.Type && FCStringAnsi::Strncmp(BindDesc2.Name, BindDesc.Name, NumCharactersToCompare) == 0)
+						{
+							BindCount++;
+							// Skip over this resource since it is part of an array
+							ResourceIndex++;
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					// Array loop is complete, now the array suffix can be removed.
+					*BracketLocation = 0;
+				}
+			}
+
+			EShaderParameterType ParameterType = EShaderParameterType::Num;
+			if (BindDesc.Type == D3D10_SIT_SAMPLER)
+			{
+				ParameterType = EShaderParameterType::Sampler;
+				NumSamplers = FMath::Max(NumSamplers, BindDesc.BindPoint + BindCount);
+			}
+			else if (BindDesc.Type == D3D10_SIT_TEXTURE)
+			{
+				ParameterType = EShaderParameterType::SRV;
+				NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindCount);
+			}
+
+			// Add a parameter for the texture only, the sampler index will be invalid
+			Output.ParameterMap.AddParameterAllocation(
+				OfficialName,
+				0,
+				BindDesc.BindPoint,
+				BindCount,
+				ParameterType
+			);
+		}
+		else if (BindDesc.Type == D3D11_SIT_UAV_RWTYPED || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED ||
+			BindDesc.Type == D3D11_SIT_UAV_RWBYTEADDRESS || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED_WITH_COUNTER ||
+			BindDesc.Type == D3D11_SIT_UAV_APPEND_STRUCTURED)
+		{
+			TCHAR OfficialName[1024];
+			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
+
+			Output.ParameterMap.AddParameterAllocation(
+				OfficialName,
+				0,
+				BindDesc.BindPoint,
+				1,
+				EShaderParameterType::UAV
+			);
+
+			NumUAVs = FMath::Max(NumUAVs, BindDesc.BindPoint + BindDesc.BindCount);
+		}
+		else if (BindDesc.Type == D3D11_SIT_STRUCTURED || BindDesc.Type == D3D11_SIT_BYTEADDRESS)
+		{
+			TCHAR OfficialName[1024];
+			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
+
+			Output.ParameterMap.AddParameterAllocation(
+				OfficialName,
+				0,
+				BindDesc.BindPoint,
+				1,
+				EShaderParameterType::SRV
+			);
+
+			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);
+		}
+#if RHI_RAYTRACING
+		// #dxr_todo: D3D_SIT_RTACCELERATIONSTRUCTURE is declared in latest version of dxcapi.h. Update this code after upgrading DXC.
+		else if (BindDesc.Type == 12 /*D3D_SIT_RTACCELERATIONSTRUCTURE*/)
+		{
+			// Acceleration structure resources are treated as SRVs.
+
+			TCHAR OfficialName[1024];
+			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
+
+			Output.ParameterMap.AddParameterAllocation(
+				OfficialName,
+				0,
+				BindDesc.BindPoint,
+				1,
+				EShaderParameterType::SRV
+			);
+
+			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);
+		}
+#endif
+	}
+}
+
+#if RHI_RAYTRACING
+// Parses ray tracing shader entry point specification string in one of the following formats:
+// 1) Verbatim single entry point name, e.g. "MainRGS"
+// 2) Complex entry point for ray tracing hit group shaders:
+//      a) "closesthit=MainCHS"
+//      b) "closesthit=MainCHS anyhit=MainAHS"
+//      c) "closesthit=MainCHS anyhit=MainAHS intersection=MainIS"
+//      d) "closesthit=MainCHS intersection=MainIS"
+//    NOTE: closesthit attribute must always be provided for complex hit group entry points
+static void ParseRayTracingEntryPoint(const FString& Input, FString& OutMain, FString& OutAnyHit, FString& OutIntersection)
+{
+	auto ParseEntry = [&Input](const TCHAR* Marker)
+	{
+		FString Result;
+		int32 BeginIndex = Input.Find(Marker, ESearchCase::IgnoreCase, ESearchDir::FromStart);
+		if (BeginIndex != INDEX_NONE)
+		{
+			int32 EndIndex = Input.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, BeginIndex);
+			if (EndIndex == INDEX_NONE) EndIndex = Input.Len() + 1;
+			int32 MarkerLen = FCString::Strlen(Marker);
+			int32 Count = EndIndex - BeginIndex;
+			Result = Input.Mid(BeginIndex + MarkerLen, Count - MarkerLen);
+		}
+		return Result;
+	};
+
+	OutMain = ParseEntry(TEXT("closesthit="));
+	OutAnyHit = ParseEntry(TEXT("anyhit="));
+	OutIntersection = ParseEntry(TEXT("intersection="));
+
+	// If complex hit group entry is not specified, assume a single verbatim entry point
+	if (OutMain.IsEmpty() && OutAnyHit.IsEmpty() && OutIntersection.IsEmpty())
+	{
+		OutMain = Input;
+	}
+}
+#endif // RHI_RAYTRACING
+
 // Generate the dumped usf file; call the D3D compiler, gather reflection information and generate the output data
 static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const FString& CompilerPath,
 	uint32 CompileFlags, const FShaderCompilerInput& Input, FString& EntryPointName,
-	const TCHAR* ShaderProfile, bool bProcessingSecondTime, TArray<FString>& FilteredErrors, FShaderCompilerOutput& Output)
+	const TCHAR* ShaderProfile, bool bProcessingSecondTime,
+	TArray<FString>& FilteredErrors, FShaderCompilerOutput& Output)
 {
 	auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShaderSource);
 
@@ -492,78 +952,147 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 	}
 
 	TRefCountPtr<ID3DBlob> Shader;
-	TRefCountPtr<ID3DBlob> Errors;
 
-	HRESULT Result;
-	pD3DCompile D3DCompileFunc;
-	pD3DReflect D3DReflectFunc;
-	pD3DDisassemble D3DDisassembleFunc;
-	pD3DStripShader D3DStripShaderFunc;
-	const bool bCompilerPathFunctionsUsed = GetD3DCompilerFuncs(CompilerPath, &D3DCompileFunc, &D3DReflectFunc, &D3DDisassembleFunc, &D3DStripShaderFunc);
+	HRESULT Result = S_OK;
+	pD3DCompile D3DCompileFunc = nullptr;
+	pD3DReflect D3DReflectFunc = nullptr;
+	pD3DDisassemble D3DDisassembleFunc = nullptr;
+	pD3DStripShader D3DStripShaderFunc = nullptr;
+	bool bCompilerPathFunctionsUsed = false;
 
-	if (D3DCompileFunc)
+	// #dxr_todo: could split this function into DX11, DX12/DXR and shared common parts
+
+	const bool bIsRayTracingShader = IsRayTracingShader(Input.Target);
+	const uint32 AutoBindingSpace = GetAutoBindingSpace(Input.Target);
+
+#if RHI_RAYTRACING
+	FString RayEntryPoint; // Primary entry point for all ray tracing shaders
+	FString RayAnyHitEntryPoint; // Optional for hit group shaders
+	FString RayIntersectionEntryPoint; // Optional for hit group shaders
+	if (bIsRayTracingShader)
 	{
-		bool bException = false;
+		ParseRayTracingEntryPoint(Input.EntryPointName, RayEntryPoint, RayAnyHitEntryPoint, RayIntersectionEntryPoint);
+	}
+#endif // RHI_RAYTRACING
 
-		Result = D3DCompileWrapper(
-			D3DCompileFunc,
-			bException,
-			AnsiSourceFile.Get(),
-			AnsiSourceFile.Length(),
-			TCHAR_TO_ANSI(*Input.VirtualSourceFilePath),
-			/*pDefines=*/ NULL,
-			/*pInclude=*/ NULL,
-			TCHAR_TO_ANSI(*EntryPointName),
-			TCHAR_TO_ANSI(ShaderProfile),
-			CompileFlags,
-			0,
-			Shader.GetInitReference(),
-			Errors.GetInitReference()
-			);
+	if (bIsRayTracingShader)
+	{
+#if RHI_RAYTRACING
 
-		if (bException)
+		TArray<const WCHAR*> Args;
+		
+		FString Exports = RayEntryPoint;
+
+		if (!RayAnyHitEntryPoint.IsEmpty())
 		{
-			FilteredErrors.Add(TEXT("D3DCompile exception"));
+			Exports += TEXT(";");
+			Exports += RayAnyHitEntryPoint;
 		}
+
+		if (!RayIntersectionEntryPoint.IsEmpty())
+		{
+			Exports += TEXT(";");
+			Exports += RayIntersectionEntryPoint;
+		}
+
+		// Ignore backwards compatibility flag (/Gec) as it is deprecated.
+		// #dxr_todo: this flag should not be even passed into this function from the higher level.
+		const uint32 DXCFlags = CompileFlags & (~D3D10_SHADER_ENABLE_BACKWARDS_COMPATIBILITY);
+		D3DCreateDXCArguments(Args, *Exports, DXCFlags, AutoBindingSpace);
+
+		TRefCountPtr<IDxcBlobEncoding> DxcErrorBlob;
+
+		Result = D3DCompileToDxil(AnsiSourceFile.Get(),
+			L"", // dummy entry point for ray tracing shaders
+			TCHAR_TO_WCHAR(ShaderProfile),
+			Args.GetData(), Args.Num(),
+			Shader, DxcErrorBlob);
+
+		if (DxcErrorBlob && DxcErrorBlob->GetBufferSize())
+		{
+			void* ErrorBuffer = DxcErrorBlob->GetBufferPointer();
+			D3D11FilterShaderCompileWarnings(ANSI_TO_TCHAR(ErrorBuffer), FilteredErrors);
+		}
+
+		if (!SUCCEEDED(Result))
+		{
+			FilteredErrors.Add(TEXT("D3DCompileToDxil failed"));
+		}
+#else
+		FilteredErrors.Add(TEXT("Attempted to compile a ray tracing shader, but ray tracing support is not enabled in this binary."));
+		Result = E_FAIL;
+		checkNoEntry();
+#endif
 	}
 	else
 	{
-		FilteredErrors.Add(FString::Printf(TEXT("Couldn't find shader compiler: %s"), *CompilerPath));
-		Result = E_FAIL;
-	}
+		bCompilerPathFunctionsUsed = GetD3DCompilerFuncs(CompilerPath, &D3DCompileFunc, &D3DReflectFunc, &D3DDisassembleFunc, &D3DStripShaderFunc);
+		TRefCountPtr<ID3DBlob> Errors;
 
-	// Filter any errors.
-	void* ErrorBuffer = Errors ? Errors->GetBufferPointer() : NULL;
-	if (ErrorBuffer)
-	{
-		D3D11FilterShaderCompileWarnings(ANSI_TO_TCHAR(ErrorBuffer), FilteredErrors);
-	}
-
-	// Fail the compilation if double operations are being used, since those are not supported on all D3D11 cards
-	if (SUCCEEDED(Result))
-	{
-		if (D3DDisassembleFunc && (GD3DCheckForDoubles || GD3DDumpD3DAsmFile))
+		if (D3DCompileFunc)
 		{
-			TRefCountPtr<ID3DBlob> Dissasembly;
-			if (SUCCEEDED(D3DDisassembleFunc(Shader->GetBufferPointer(), Shader->GetBufferSize(), 0, "", Dissasembly.GetInitReference())))
-			{
-				ANSICHAR* DissasemblyString = new ANSICHAR[Dissasembly->GetBufferSize() + 1];
-				FMemory::Memcpy(DissasemblyString, Dissasembly->GetBufferPointer(), Dissasembly->GetBufferSize());
-				DissasemblyString[Dissasembly->GetBufferSize()] = 0;
-				FString DissasemblyStringW(DissasemblyString);
-				delete[] DissasemblyString;
+			bool bException = false;
 
-				if (GD3DDumpD3DAsmFile)
+			Result = D3DCompileWrapper(
+				D3DCompileFunc,
+				bException,
+				AnsiSourceFile.Get(),
+				AnsiSourceFile.Length(),
+				TCHAR_TO_ANSI(*Input.VirtualSourceFilePath),
+				/*pDefines=*/ NULL,
+				/*pInclude=*/ NULL,
+				TCHAR_TO_ANSI(*EntryPointName),
+				TCHAR_TO_ANSI(ShaderProfile),
+				CompileFlags,
+				0,
+				Shader.GetInitReference(),
+				Errors.GetInitReference()
+			);
+
+			if (bException)
+			{
+				FilteredErrors.Add(TEXT("D3DCompile exception"));
+			}
+		}
+		else
+		{
+			FilteredErrors.Add(FString::Printf(TEXT("Couldn't find shader compiler: %s"), *CompilerPath));
+			Result = E_FAIL;
+		}
+
+		// Filter any errors.
+		void* ErrorBuffer = Errors ? Errors->GetBufferPointer() : NULL;
+		if (ErrorBuffer)
+		{
+			D3D11FilterShaderCompileWarnings(ANSI_TO_TCHAR(ErrorBuffer), FilteredErrors);
+		}
+
+		// Fail the compilation if double operations are being used, since those are not supported on all D3D11 cards
+		if (SUCCEEDED(Result))
+		{
+			if (D3DDisassembleFunc && (GD3DCheckForDoubles || GD3DDumpD3DAsmFile))
+			{
+				TRefCountPtr<ID3DBlob> Dissasembly;
+				if (SUCCEEDED(D3DDisassembleFunc(Shader->GetBufferPointer(), Shader->GetBufferSize(), 0, "", Dissasembly.GetInitReference())))
 				{
-					FFileHelper::SaveStringToFile(DissasemblyStringW, *(Input.DumpDebugInfoPath / TEXT("Output.d3dasm")));
-				}
-				else if (GD3DCheckForDoubles)
-				{
-					// dcl_globalFlags will contain enableDoublePrecisionFloatOps when the shader uses doubles, even though the docs on dcl_globalFlags don't say anything about this
-					if (DissasemblyStringW.Contains(TEXT("enableDoublePrecisionFloatOps")))
+					ANSICHAR* DissasemblyString = new ANSICHAR[Dissasembly->GetBufferSize() + 1];
+					FMemory::Memcpy(DissasemblyString, Dissasembly->GetBufferPointer(), Dissasembly->GetBufferSize());
+					DissasemblyString[Dissasembly->GetBufferSize()] = 0;
+					FString DissasemblyStringW(DissasemblyString);
+					delete[] DissasemblyString;
+
+					if (GD3DDumpD3DAsmFile)
 					{
-						FilteredErrors.Add(TEXT("Shader uses double precision floats, which are not supported on all D3D11 hardware!"));
-						return false;
+						FFileHelper::SaveStringToFile(DissasemblyStringW, *(Input.DumpDebugInfoPath / TEXT("Output.d3dasm")));
+					}
+					else if (GD3DCheckForDoubles)
+					{
+						// dcl_globalFlags will contain enableDoublePrecisionFloatOps when the shader uses doubles, even though the docs on dcl_globalFlags don't say anything about this
+						if (DissasemblyStringW.Contains(TEXT("enableDoublePrecisionFloatOps")))
+						{
+							FilteredErrors.Add(TEXT("Shader uses double precision floats, which are not supported on all D3D11 hardware!"));
+							return false;
+						}
 					}
 				}
 			}
@@ -574,8 +1103,124 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 	int32 NumInterpolants = 0;
 	TIndirectArray<FString> InterpolantNames;
 	TArray<FString> ShaderInputs;
+
 	if (SUCCEEDED(Result))
 	{
+		bool bGlobalUniformBufferUsed = false;
+		uint32 NumInstructions = 0;
+		uint32 NumSamplers = 0;
+		uint32 NumSRVs = 0;
+		uint32 NumCBs = 0;
+		uint32 NumUAVs = 0;
+		TArray<FString> UniformBufferNames;
+		TArray<FString> ShaderOutputs;
+
+		TBitArray<> UsedUniformBufferSlots;
+		UsedUniformBufferSlots.Init(false, 32);
+
+#if RHI_RAYTRACING
+		if (bIsRayTracingShader)
+		{
+			TRefCountPtr<ID3D12LibraryReflection> LibraryReflection;
+
+			Result = D3DCreateLibraryReflectionFromBlob(Shader, LibraryReflection);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogD3D11ShaderCompiler, Fatal, TEXT("D3DReflectDxil failed: Result=%08x"), Result);
+			}
+
+			D3D12_LIBRARY_DESC LibraryDesc = {};
+			LibraryReflection->GetDesc(&LibraryDesc);
+
+			ID3D12FunctionReflection* FunctionReflection = nullptr;
+			D3D12_FUNCTION_DESC FunctionDesc = {};
+
+			// MangledEntryPoints contains partial mangled entry point signatures in a the following form:
+			// ?QualifiedName@ (as described here: https://en.wikipedia.org/wiki/Name_mangling)
+			// Entry point parameters are currently not included in the partial mangling.
+			TArray<FString, TInlineAllocator<3>> MangledEntryPoints;
+			if (!RayEntryPoint.IsEmpty())
+			{
+				MangledEntryPoints.Add(FString::Printf(TEXT("?%s@"), *RayEntryPoint));
+			}
+			if (!RayAnyHitEntryPoint.IsEmpty())
+			{
+				MangledEntryPoints.Add(FString::Printf(TEXT("?%s@"), *RayAnyHitEntryPoint));
+			}
+			if (!RayIntersectionEntryPoint.IsEmpty())
+			{
+				MangledEntryPoints.Add(FString::Printf(TEXT("?%s@"), *RayIntersectionEntryPoint));
+			}
+
+			uint32 NumFoundEntryPoints = 0;
+
+			for (uint32 FunctionIndex = 0; FunctionIndex < LibraryDesc.FunctionCount; ++FunctionIndex)
+			{
+				FunctionReflection = LibraryReflection->GetFunctionByIndex(FunctionIndex);
+				FunctionReflection->GetDesc(&FunctionDesc);
+
+				for (const FString& MangledEntryPoint : MangledEntryPoints)
+				{
+					// Entry point parameters are currently not included in the partial mangling, therefore partial substring match is used here.
+					if (FCStringAnsi::Strstr(FunctionDesc.Name, TCHAR_TO_ANSI(*MangledEntryPoint)))
+					{
+						// Note: calling ExtractParameterMapFromD3DShader multiple times merges the reflection data for multiple functions
+						ExtractParameterMapFromD3DShader<ID3D12FunctionReflection, D3D12_FUNCTION_DESC, D3D12_SHADER_INPUT_BIND_DESC,
+							ID3D12ShaderReflectionConstantBuffer, D3D12_SHADER_BUFFER_DESC,
+							ID3D12ShaderReflectionVariable, D3D12_SHADER_VARIABLE_DESC>(
+								Input.Target.Platform, AutoBindingSpace, Input.VirtualSourceFilePath, FunctionReflection, FunctionDesc, bGlobalUniformBufferUsed, NumSamplers, NumSRVs, NumCBs, NumUAVs,
+								Output, UniformBufferNames, UsedUniformBufferSlots);
+
+						NumFoundEntryPoints++;
+					}
+				}
+			}
+
+			if (NumFoundEntryPoints == MangledEntryPoints.Num())
+			{
+				Output.bSucceeded = true;
+
+				if (bGlobalUniformBufferUsed)
+				{
+					FString ErrorString = TEXT("Global constant buffer cannot be used in a ray tracing shader.");
+
+					uint32 NumLooseParameters = 0;
+					for (const auto& It : Output.ParameterMap.ParameterMap)
+					{
+						if (It.Value.Type == EShaderParameterType::LooseData)
+						{
+							NumLooseParameters++;
+						}
+					}
+
+					if (NumLooseParameters)
+					{
+						ErrorString += TEXT(" Global parameters: ");
+						uint32 ParameterIndex = 0;
+						for (const auto& It : Output.ParameterMap.ParameterMap)
+						{
+							if (It.Value.Type == EShaderParameterType::LooseData)
+							{
+								--NumLooseParameters;
+								ErrorString += FString::Printf(TEXT("%s%s"), *It.Key, NumLooseParameters ? TEXT(", ") : TEXT("."));
+							}
+						}
+					}
+
+					FilteredErrors.Add(ErrorString);
+					Result = E_FAIL;
+					Output.bSucceeded = false;
+				}
+			}
+			else
+			{
+				UE_LOG(LogD3D11ShaderCompiler, Fatal, TEXT("Failed to find required points in the shader library."));
+				Output.bSucceeded = false;
+			}
+		}
+		else
+#endif // RHI_RAYTRACING
 		if (D3DReflectFunc)
 		{
 			Output.bSucceeded = true;
@@ -593,17 +1238,6 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			// Read the constant table description.
 			D3D11_SHADER_DESC ShaderDesc;
 			Reflector->GetDesc(&ShaderDesc);
-
-			bool bGlobalUniformBufferUsed = false;
-			uint32 NumSamplers = 0;
-			uint32 NumSRVs = 0;
-			uint32 NumCBs = 0;
-			uint32 NumUAVs = 0;
-			TArray<FString> UniformBufferNames;
-			TArray<FString> ShaderOutputs;
-
-			TBitArray<> UsedUniformBufferSlots;
-			UsedUniformBufferSlots.Init(false, 32);
 
 			if (Input.Target.Frequency == SF_Vertex)
 			{
@@ -691,168 +1325,44 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 				}
 			}
 
-			// Add parameters for shader resources (constant buffers, textures, samplers, etc. */
-			for (uint32 ResourceIndex = 0; ResourceIndex < ShaderDesc.BoundResources; ResourceIndex++)
-			{
-				D3D11_SHADER_INPUT_BIND_DESC BindDesc;
-				Reflector->GetResourceBindingDesc(ResourceIndex, &BindDesc);
+			const uint32 BindingSpace = 0; // Default binding space for D3D11 shaders
+			ExtractParameterMapFromD3DShader<
+				ID3D11ShaderReflection, D3D11_SHADER_DESC, D3D11_SHADER_INPUT_BIND_DESC,
+				ID3D11ShaderReflectionConstantBuffer, D3D11_SHADER_BUFFER_DESC,
+				ID3D11ShaderReflectionVariable, D3D11_SHADER_VARIABLE_DESC>
+				(Input.Target.Platform, BindingSpace, Input.VirtualSourceFilePath, Reflector, ShaderDesc,
+					bGlobalUniformBufferUsed, NumSamplers, NumSRVs, NumCBs, NumUAVs,
+					Output, UniformBufferNames, UsedUniformBufferSlots);
 
-				if (BindDesc.Type == D3D10_SIT_CBUFFER || BindDesc.Type == D3D10_SIT_TBUFFER)
-				{
-					const uint32 CBIndex = BindDesc.BindPoint;
-					ID3D11ShaderReflectionConstantBuffer* ConstantBuffer = Reflector->GetConstantBufferByName(BindDesc.Name);
-					D3D11_SHADER_BUFFER_DESC CBDesc;
-					ConstantBuffer->GetDesc(&CBDesc);
-					bool bGlobalCB = (FCStringAnsi::Strcmp(CBDesc.Name, "$Globals") == 0);
+			NumInstructions = ShaderDesc.InstructionCount;
 
-					if (bGlobalCB)
-					{
-						// Track all of the variables in this constant buffer.
-						for (uint32 ConstantIndex = 0; ConstantIndex < CBDesc.Variables; ConstantIndex++)
-						{
-							ID3D11ShaderReflectionVariable* Variable = ConstantBuffer->GetVariableByIndex(ConstantIndex);
-							D3D11_SHADER_VARIABLE_DESC VariableDesc;
-							Variable->GetDesc(&VariableDesc);
-							if (VariableDesc.uFlags & D3D10_SVF_USED)
-							{
-								bGlobalUniformBufferUsed = true;
+			// Reflector is a com interface, so it needs to be released.
+			Reflector->Release();
+		}
+		else
+		{
+			FilteredErrors.Add(FString::Printf(TEXT("Couldn't find shader reflection function in %s"), *CompilerPath));
+			Result = E_FAIL;
+			Output.bSucceeded = false;
+		}
 
-								Output.ParameterMap.AddParameterAllocation(
-									ANSI_TO_TCHAR(VariableDesc.Name),
-									CBIndex,
-									VariableDesc.StartOffset,
-									VariableDesc.Size,
-									EShaderParameterType::LooseData
-									);
-								UsedUniformBufferSlots[CBIndex] = true;
-							}
-						}
-					}
-					else
-					{
-						// Track just the constant buffer itself.
-						Output.ParameterMap.AddParameterAllocation(
-							ANSI_TO_TCHAR(CBDesc.Name),
-							CBIndex,
-							0,
-							0,
-							EShaderParameterType::UniformBuffer
-							);
-						UsedUniformBufferSlots[CBIndex] = true;
+		// Save results if compilation and reflection succeeded
 
-						if (UniformBufferNames.Num() <= (int32)CBIndex)
-						{
-							UniformBufferNames.AddDefaulted(CBIndex - UniformBufferNames.Num() + 1);
-						}
-						UniformBufferNames[CBIndex] = CBDesc.Name;
-					}
 
-					NumCBs = FMath::Max(NumCBs, BindDesc.BindPoint + BindDesc.BindCount);
-				}
-				else if (BindDesc.Type == D3D10_SIT_TEXTURE || BindDesc.Type == D3D10_SIT_SAMPLER)
-				{
-					TCHAR OfficialName[1024];
-					uint32 BindCount = BindDesc.BindCount;
-					FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
-
-					if (Input.Target.Platform == SP_PCD3D_SM5)
-					{
-						// Assign the name and optionally strip any "[#]" suffixes
-						TCHAR *BracketLocation = FCString::Strchr(OfficialName, TEXT('['));
-						if (BracketLocation)
-						{
-							BindCount = 1;
-
-							// This needs to include the first [ character otherwise it will include non array textures with matching starting characters.
-							// e.g. "LightMapTexturesTest" which is not part of "LightMapTextures[#]" would be included as the last index of "LightMapTextures"
-							const int32 NumCharactersToCompare = BracketLocation - OfficialName + 1;
-
-							// In SM5, for some reason, array suffixes are included in Name, i.e. "LightMapTextures[0]", rather than "LightMapTextures"
-							// Additionally elements in an array are listed as SEPERATE bound resources.
-							// However, they are always contiguous in resource index, so iterate over the samplers and textures of the initial association
-							// and count them, identifying the bindpoint and bindcounts
-
-							while (ResourceIndex + 1 < ShaderDesc.BoundResources)
-							{
-								D3D11_SHADER_INPUT_BIND_DESC BindDesc2;
-								Reflector->GetResourceBindingDesc(ResourceIndex + 1, &BindDesc2);
-
-								if (BindDesc2.Type == BindDesc.Type && FCStringAnsi::Strncmp(BindDesc2.Name, BindDesc.Name, NumCharactersToCompare) == 0)
-								{
-									BindCount++;
-									// Skip over this resource since it is part of an array
-									ResourceIndex++;
-								}
-								else
-								{
-									break;
-								}
-							}
-
-							// Array loop is complete, now the array suffix can be removed.
-							*BracketLocation = 0;
-						}
-					}
-
-					EShaderParameterType ParameterType = EShaderParameterType::Num;
-					if (BindDesc.Type == D3D10_SIT_SAMPLER)
-					{
-						ParameterType = EShaderParameterType::Sampler;
-						NumSamplers = FMath::Max(NumSamplers, BindDesc.BindPoint + BindCount);
-					}
-					else if (BindDesc.Type == D3D10_SIT_TEXTURE)
-					{
-						ParameterType = EShaderParameterType::SRV;
-						NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindCount);
-					}
-
-					// Add a parameter for the texture only, the sampler index will be invalid
-					Output.ParameterMap.AddParameterAllocation(
-						OfficialName,
-						0,
-						BindDesc.BindPoint,
-						BindCount,
-						ParameterType
-					);
-				}
-				else if (BindDesc.Type == D3D11_SIT_UAV_RWTYPED || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED ||
-					BindDesc.Type == D3D11_SIT_UAV_RWBYTEADDRESS || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED_WITH_COUNTER ||
-					BindDesc.Type == D3D11_SIT_UAV_APPEND_STRUCTURED)
-				{
-					TCHAR OfficialName[1024];
-					FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
-
-					Output.ParameterMap.AddParameterAllocation(
-						OfficialName,
-						0,
-						BindDesc.BindPoint,
-						1,
-						EShaderParameterType::UAV
-						);
-
-					NumUAVs = FMath::Max(NumUAVs, BindDesc.BindPoint + BindDesc.BindCount);
-				}
-				else if (BindDesc.Type == D3D11_SIT_STRUCTURED || BindDesc.Type == D3D11_SIT_BYTEADDRESS)
-				{
-					TCHAR OfficialName[1024];
-					FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
-
-					Output.ParameterMap.AddParameterAllocation(
-						OfficialName,
-						0,
-						BindDesc.BindPoint,
-						1,
-						EShaderParameterType::SRV
-						);
-
-					NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);
-				}
-			}
-
+		if (Output.bSucceeded)
+		{
 			TRefCountPtr<ID3DBlob> CompressedData;
 
 			if (Input.Environment.CompilerFlags.Contains(CFLAG_KeepDebugInfo))
 			{
+				CompressedData = Shader;
+			}
+			else if (bIsRayTracingShader)
+			{
+				// Handy place for a breakpoint for debugging...
+				++GBreakpoint;
+
+				// #dxr_todo: strip DXIL debug and reflection data
 				CompressedData = Shader;
 			}
 			else if (D3DStripShaderFunc)
@@ -930,6 +1440,16 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			// Generate the final Output
 			FMemoryWriter Ar(Output.ShaderCode.GetWriteAccess(), true);
 			Ar << SRT;
+
+#if RHI_RAYTRACING
+			if (bIsRayTracingShader)
+			{
+				Ar << RayEntryPoint;
+				Ar << RayAnyHitEntryPoint;
+				Ar << RayIntersectionEntryPoint;
+			}
+#endif // RHI_RAYTRACING
+
 			Ar.Serialize(CompressedData->GetBufferPointer(), CompressedData->GetBufferSize());
 
 			// append data that is generate from the shader code and assist the usage, mostly needed for DX12 
@@ -946,21 +1466,12 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			//Output.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*Input.GenerateShaderName()));
 
 			// Set the number of instructions.
-			Output.NumInstructions = ShaderDesc.InstructionCount;
+			Output.NumInstructions = NumInstructions;
 
 			Output.NumTextureSamplers = NumSamplers;
 
-			// Reflector is a com interface, so it needs to be released.
-			Reflector->Release();
-
 			// Pass the target through to the output.
 			Output.Target = Input.Target;
-		}
-		else
-		{
-			FilteredErrors.Add(FString::Printf(TEXT("Couldn't find shader reflection function in %s"), *CompilerPath));
-			Result = E_FAIL;
-			Output.bSucceeded = false;
 		}
 	}
 

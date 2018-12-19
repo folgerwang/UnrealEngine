@@ -45,8 +45,10 @@ public:
 	static D3D12_VERSIONED_ROOT_SIGNATURE_DESC& GetStaticGraphicsRootSignatureDesc();
 	static D3D12_VERSIONED_ROOT_SIGNATURE_DESC& GetStaticComputeRootSignatureDesc();
 
+	static constexpr uint32 MaxRootParameters = 32;	// Arbitrary max, increase as needed.
+
 private:
-	static const uint32 MaxRootParameters = 32;	// Arbitrary max, increase as needed.
+
 	uint32 RootParametersSize;	// The size of all root parameters in the root signature. Size in DWORDs, the limit is 64.
 	CD3DX12_ROOT_PARAMETER1 TableSlots[MaxRootParameters];
 	CD3DX12_DESCRIPTOR_RANGE1 DescriptorRanges[MaxRootParameters];
@@ -87,20 +89,20 @@ public:
 	{
 		Init(InQBSS);
 	}
-	explicit FD3D12RootSignature(FD3D12Adapter* InParent, const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc)
+	explicit FD3D12RootSignature(FD3D12Adapter* InParent, const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc, uint32 BindingSpace = 0)
 		: FD3D12AdapterChild(InParent)
 	{
-		Init(InDesc);
+		Init(InDesc, BindingSpace);
 	}
-	explicit FD3D12RootSignature(FD3D12Adapter* InParent, ID3DBlob* const InBlob)
+	explicit FD3D12RootSignature(FD3D12Adapter* InParent, ID3DBlob* const InBlob, uint32 BindingSpace = 0)
 		: FD3D12AdapterChild(InParent)
 	{
-		Init(InBlob);
+		Init(InBlob, BindingSpace);
 	}
 
 	void Init(const FD3D12QuantizedBoundShaderState& InQBSS);
-	void Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc);
-	void Init(ID3DBlob* const InBlob);
+	void Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc, uint32 BindingSpace = 0);
+	void Init(ID3DBlob* const InBlob, uint32 BindingSpace = 0);
 
 	ID3D12RootSignature* GetRootSignature() const { return RootSignature.GetReference(); }
 	ID3DBlob* GetRootSignatureBlob() const { return RootSignatureBlob.GetReference(); }
@@ -199,11 +201,14 @@ public:
 	inline uint32 MaxUAVCount(uint32 ShaderStage) const { check(ShaderStage != SF_NumFrequencies); return Stage[ShaderStage].MaxUAVCount; }
 	inline CBVSlotMask CBVRegisterMask(uint32 ShaderStage) const { check(ShaderStage != SF_NumFrequencies); return Stage[ShaderStage].CBVRegisterMask; }
 
+	uint32 GetBindSlotOffsetInBytes(uint8 BindSlotIndex) const { check(BindSlotIndex < ARRAY_COUNT(BindSlotOffsetsInDWORDs)); return 4 * BindSlotOffsetsInDWORDs[BindSlotIndex]; }
+	uint32 GetTotalRootSignatureSizeInBytes() const { return 4 * TotalRootSignatureSizeInDWORDs; }
+
 private:
-	void AnalyzeSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& Desc);
+	void AnalyzeSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& Desc, uint32 BindingSpace);
 
 	template<typename RootSignatureDescType>
-	void InternalAnalyzeSignature(const RootSignatureDescType& Desc);
+	void InternalAnalyzeSignature(const RootSignatureDescType& Desc, uint32 BindingSpace);
 
 	inline bool HasVisibility(const D3D12_SHADER_VISIBILITY& ParameterVisibility, const D3D12_SHADER_VISIBILITY& Visibility) const
 	{
@@ -443,6 +448,9 @@ private:
 	bool bHasRDCBVs;
 	bool bHasSamplers;
 	TRefCountPtr<ID3DBlob> RootSignatureBlob;
+
+	uint8 BindSlotOffsetsInDWORDs[FD3D12RootSignatureDesc::MaxRootParameters] = {};
+	uint8 TotalRootSignatureSizeInDWORDs = 0;
 };
 
 class FD3D12RootSignatureManager : public FD3D12AdapterChild

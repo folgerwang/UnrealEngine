@@ -29,8 +29,11 @@
 #include "LightPropagationVolumeSettings.h"
 #include "PipelineStateCache.h"
 #include "DistanceFieldAmbientOcclusion.h"
+#include "SceneViewFamilyBlackboard.h"
+#include "ScreenSpaceDenoise.h"
 
 DECLARE_GPU_STAT_NAMED(ReflectionEnvironment, TEXT("Reflection Environment"));
+DECLARE_GPU_STAT_NAMED(RayTracedReflections, TEXT("Ray Traced Reflections"));
 DECLARE_GPU_STAT(SkyLightDiffuse);
 
 extern TAutoConsoleVariable<int32> CVarLPVMixing;
@@ -97,6 +100,24 @@ static TAutoConsoleVariable<float> CVarSkySpecularOcclusionStrength(
 	1,
 	TEXT("Strength of skylight specular occlusion from DFAO (default is 1.0)"),
 	ECVF_RenderThreadSafe);
+
+static int32 GRayTracingReflections = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionss(
+	TEXT("r.RayTracing.Reflections"),
+	GRayTracingReflections,
+	TEXT("0: use traditional rasterized SSR\n")
+	TEXT("1: use ray traced reflections (default when ray tracing is enabled)\n")
+);
+
+static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
+	TEXT("r.Reflection.Denoiser"),
+	0, // TODO: change default to 2.
+	TEXT("Choose the denoising algorithm.\n")
+	TEXT(" 0: Disabled (default);\n")
+	TEXT(" 1: Forces the default denoiser of the renderer;\n")
+	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin.\n"),
+	ECVF_RenderThreadSafe);
+
 
 // to avoid having direct access from many places
 static int GetReflectionEnvironmentCVar()
@@ -667,6 +688,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 		bReflectionCapture = bReflectionCapture || View.bIsReflectionCapture;
 	}
 
+	bool bRayTracedReflections = IsRayTracingSupportedForThisProject() && GRayTracingReflections == 1;
+
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
 		&& !Scene->SkyLight->bHasStaticLighting;
@@ -700,17 +723,61 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 	{
 		FViewInfo& View = Views[ViewIndex];
 
-		const uint32 bSSR = ShouldRenderScreenSpaceReflections(Views[ViewIndex]);
+		const bool bScreenSpaceReflections = !bRayTracedReflections && ShouldRenderScreenSpaceReflections(Views[ViewIndex]);
 
-		TRefCountPtr<IPooledRenderTarget> SSROutput = GSystemTextures.BlackDummy;
-		if (bSSR)
+		TRefCountPtr<IPooledRenderTarget> ReflectionsColor = GSystemTextures.BlackDummy;
+		if (bRayTracedReflections)
 		{
-			RenderScreenSpaceReflections(RHICmdList, View, SSROutput, VelocityRT);
+			//SCOPED_DRAW_EVENT(RHICmdList, RayTracedReflections);
+
+			FRDGBuilder GraphBuilder(RHICmdList); // TODO: convert the entire reflections to render graph.
+
+			FSceneViewFamilyBlackboard SceneBlackboard;
+			SetupSceneViewFamilyBlackboard(GraphBuilder, &SceneBlackboard);
+
+			// Ray trace the reflection.
+			IScreenSpaceDenoiser::FReflectionInputs DenoiserInputs;
+			RayTraceReflections(GraphBuilder, View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance);
+
+			// Denoise the reflections.
+			if (int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread())
+			{
+				const IScreenSpaceDenoiser* DefaultDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
+				const IScreenSpaceDenoiser* DenoiserToUse = DenoiserMode == 1 ? DefaultDenoiser : GScreenSpaceDenoiser;
+
+				// Standard event scope for denoiser to have all profiling information not matter what, and with explicit detection of third party.
+				RDG_EVENT_SCOPE(GraphBuilder, "%s%s(Reflections) %dx%d",
+					DenoiserToUse != DefaultDenoiser ? TEXT("ThirdParty ") : TEXT(""),
+					DenoiserToUse->GetDebugName(),
+					View.ViewRect.Width(), View.ViewRect.Height());
+
+				IScreenSpaceDenoiser::FReflectionOutputs DenoiserOutputs = DenoiserToUse->DenoiseReflections(
+					GraphBuilder,
+					View,
+					SceneBlackboard,
+					DenoiserInputs);
+
+				GraphBuilder.QueueTextureExtraction(DenoiserOutputs.Color, &ReflectionsColor);
+			}
+			else
+			{
+				GraphBuilder.QueueTextureExtraction(DenoiserInputs.Color, &ReflectionsColor);
+			}
+
+			GraphBuilder.Execute();
+		}
+		else if (bScreenSpaceReflections)
+		{
+			RenderScreenSpaceReflections(RHICmdList, View, ReflectionsColor, VelocityRT);
 		}
 
-		const bool bPlanarReflections = RenderDeferredPlanarReflections(RHICmdList, View, false, SSROutput);
+		bool bPlanarReflections = false;
+		if (!bRayTracedReflections)
+		{
+			bPlanarReflections = RenderDeferredPlanarReflections(RHICmdList, View, false, ReflectionsColor);
+		}
 
-		bool bRequiresApply = bSkyLight || bDynamicSkyLight || bReflectionEnv || bSSR || bPlanarReflections;
+		bool bRequiresApply = bSkyLight || bDynamicSkyLight || bReflectionEnv || bScreenSpaceReflections || bPlanarReflections || bRayTracedReflections;
 
 		if (bRequiresApply)
 		{
@@ -770,7 +837,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 
-			PixelShader->SetParameters(RHICmdList, View, SSROutput->GetRenderTargetItem().ShaderResourceTexture, DynamicBentNormalAO);
+			PixelShader->SetParameters(RHICmdList, View, ReflectionsColor->GetRenderTargetItem().ShaderResourceTexture, DynamicBentNormalAO);
 
 			if (bReflectionCapture)
 			{

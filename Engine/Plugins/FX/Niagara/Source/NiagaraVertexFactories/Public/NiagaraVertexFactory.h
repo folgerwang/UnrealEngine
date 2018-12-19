@@ -41,7 +41,7 @@ public:
 
 	FShaderResourceViewRHIRef VertexBufferSRV;
 };
-extern TGlobalResource<FNiagaraNullSortedIndicesVertexBuffer> GFNiagaraNullSortedIndicesVertexBuffer;
+extern NIAGARAVERTEXFACTORIES_API TGlobalResource<FNiagaraNullSortedIndicesVertexBuffer> GFNiagaraNullSortedIndicesVertexBuffer;
 
 /**
 * Enum identifying the type of a particle vertex factory.

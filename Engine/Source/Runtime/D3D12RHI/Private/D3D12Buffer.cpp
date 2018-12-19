@@ -105,7 +105,7 @@ void FD3D12Adapter::AllocateBuffer(FD3D12Device* Device,
 	}
 	else
 	{
-		VERIFYD3D12RESULT(Device->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, ResourceLocation, Alignment));
+		VERIFYD3D12RESULT(Device->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, InUsage, ResourceLocation, Alignment));
 		check(ResourceLocation.GetSize() == Size);
 	}
 }
@@ -236,6 +236,8 @@ BufferType* FD3D12Adapter::CreateRHIBuffer(FRHICommandListImmediate* RHICmdList,
 		// Discard the resource array's contents.
 		CreateInfo.ResourceArray->Discard();
 	}
+
+	UpdateBufferStats<BufferType>(&BufferOut->ResourceLocation, true);
 
 	return BufferOut;
 }

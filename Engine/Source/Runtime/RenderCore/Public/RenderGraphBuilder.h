@@ -7,8 +7,13 @@
 #include "RendererInterface.h"
 
 
+/** Whether visualize texture tool is supported. */
+#define SUPPORTS_VISUALIZE_TEXTURE (WITH_ENGINE && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+
+
 /** Whether render graph debugging is compiled. */
-#define RENDER_GRAPH_DEBUGGING (DO_CHECK)
+#define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING)
+
 
 /** Whether render graph should support draw events or not.
  * RENDER_GRAPH_DRAW_EVENTS == 0 means there is no string processing at all.
@@ -331,8 +336,11 @@ public:
 		return OutParameterPtr;
 	}
 
-	/** 
-	 * Adds a lambda pass to the graph.
+	/** Adds a lambda pass to the graph.
+	 *
+	 * Caution: The pass parameter will be validated, and should not longer be modified after this call, since the pass may be executed
+	 * right away with the immediate debugging mode.
+	 * TODO(RDG): Verify with hashing.
 	 */
 	template<typename ParameterStructType, typename ExecuteLambdaType>
 	void AddPass(
@@ -346,16 +354,19 @@ public:
 			checkf(!bHasExecuted, TEXT("Render graph pass %s needs to be added before the builder execution."), Name.GetTCHAR());
 		}
 		#endif
+
 		auto NewPass = new(FMemStack::Get()) TLambdaRenderPass<ParameterStructType, ExecuteLambdaType>(
 			static_cast<FRDGEventName&&>(Name), CurrentScope,
 			{ ParameterStruct, &ParameterStructType::FTypeInfo::GetStructMetadata()->GetLayout() },
 			Flags,
 			static_cast<ExecuteLambdaType&&>(ExecuteLambda) );
 		Passes.Emplace(NewPass);
-		if (DO_CHECK)
+
+		#if RENDER_GRAPH_DEBUGGING || SUPPORTS_VISUALIZE_TEXTURE
 		{
 			DebugPass(NewPass);
 		}
+		#endif
 	}
 
 	/** Queue a texture extraction. This will set *OutTexturePtr with the internal pooled render target at the Execute().
@@ -462,6 +473,10 @@ private:
 	void DestructPasses();
 
 	friend class FStackRDGEventScopeRef;
+
+	/** To allow greater flexibility in the user code, the RHI can dereferenced RDG resource when creating uniform buffer. */
+	// TODO(RDG): Make this a little more explicit in RHI code.
+	static_assert(STRUCT_OFFSET(FRDGResource, CachedRHI) == 0, "FRDGResource::CachedRHI requires to be at offset 0 so the RHI can dereferenced them.");
 }; // class FRDGBuilder
 
 

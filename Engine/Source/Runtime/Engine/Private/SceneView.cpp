@@ -1098,8 +1098,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -1148,8 +1148,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -2422,6 +2422,29 @@ FSceneViewFamilyContext::~FSceneViewFamilyContext()
 		delete Views[ViewIndex];
 	}
 }
+
+#if RHI_RAYTRACING
+void FSceneView::SetupRayTracedRendering()
+{
+	RayTracingRenderMode = ERayTracingRenderMode::Disabled;
+
+	if (!IsRayTracingSupportedForThisProject())
+	{
+		return;
+	}
+
+	const FEngineShowFlags& ShowFlags = Family->EngineShowFlags;
+
+	if (ShowFlags.PathTracing)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::PathTracing;
+	}	
+	else if (ShowFlags.RayTracingDebug)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::RayTracingDebug;
+	}
+}
+#endif // RHI_RAYTRACING
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

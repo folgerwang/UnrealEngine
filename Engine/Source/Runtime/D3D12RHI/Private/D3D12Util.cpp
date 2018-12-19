@@ -378,20 +378,58 @@ void QuantizeBoundShaderState(
 	if (GeometryShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, GeometryShader->ResourceCounts, QBSS.RegisterCounts[SV_Geometry]);
 }
 
-void QuantizeBoundShaderState(
-	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
-	const FD3D12ComputeShader* const ComputeShader,
-	FD3D12QuantizedBoundShaderState &QBSS
-	)
+static void QuantizeBoundShaderStateCommon(
+	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier,
+	const FShaderCodePackedResourceCounts& ResourceCounts,
+	EShaderVisibility ShaderVisibility,
+	bool bAllowUAVs,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+)
 {
 	// BSS quantizer. There is a 1:1 mapping of quantized bound shader state objects to root signatures.
 	// The objective is to allow a single root signature to represent many bound shader state objects.
 	// The bigger the quantization step sizes, the fewer the root signatures.
-	FMemory::Memzero(&QBSS, sizeof(QBSS));
-	check(QBSS.bAllowIAInputLayout == false);	// No access to vertex buffers needed
-	check(ComputeShader);
-	FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, ComputeShader->ResourceCounts, QBSS.RegisterCounts[SV_All], true);
+	FMemory::Memzero(&OutQBSS, sizeof(OutQBSS));
+	FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, ResourceCounts, OutQBSS.RegisterCounts[ShaderVisibility], bAllowUAVs);
 }
+
+void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12ComputeShader* const ComputeShader,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+	)
+{
+	check(ComputeShader);
+	const bool bAllosUAVs = true;
+	QuantizeBoundShaderStateCommon(ResourceBindingTier, ComputeShader->ResourceCounts, SV_All, bAllosUAVs, OutQBSS);
+	check(OutQBSS.bAllowIAInputLayout == false); // No access to vertex buffers needed
+}
+
+#if D3D12_RHI_RAYTRACING
+void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12RayTracingShader* const RayTracingShader,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+)
+{
+	check(RayTracingShader);
+
+	const FShaderCodePackedResourceCounts& Counts = RayTracingShader->ResourceCounts;
+
+	FMemory::Memzero(&OutQBSS, sizeof(OutQBSS));
+	FShaderRegisterCounts& QBSSRegisterCounts = OutQBSS.RegisterCounts[SV_All];
+
+	QBSSRegisterCounts.SamplerCount = Counts.NumSamplers;
+	QBSSRegisterCounts.ShaderResourceCount = Counts.NumSRVs;
+	QBSSRegisterCounts.ConstantBufferCount = Counts.NumCBs;
+	QBSSRegisterCounts.UnorderedAccessCount = Counts.NumUAVs;
+
+	check(QBSSRegisterCounts.SamplerCount < MAX_SAMPLERS);
+	check(QBSSRegisterCounts.ShaderResourceCount < MAX_SRVS);
+	check(QBSSRegisterCounts.ConstantBufferCount < MAX_CBS);
+	check(QBSSRegisterCounts.UnorderedAccessCount < MAX_UAVS);
+}
+#endif // D3D12_RHI_RAYTRACING
 
 FD3D12BoundRenderTargets::FD3D12BoundRenderTargets(FD3D12RenderTargetView** RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView)
 {

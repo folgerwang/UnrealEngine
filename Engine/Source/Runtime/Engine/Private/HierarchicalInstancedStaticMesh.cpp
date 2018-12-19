@@ -920,6 +920,13 @@ public:
 		return Result;
 	}
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingStaticRelevant() const override
+	{
+		return false;
+	}
+#endif
+
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 	virtual const TArray<FBoxSphereBounds>* GetOcclusionQueries(const FSceneView* View) const override;

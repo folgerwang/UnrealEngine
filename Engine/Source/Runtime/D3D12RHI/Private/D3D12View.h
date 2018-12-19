@@ -109,6 +109,11 @@ public:
 			m_BeginPlane = GetPlaneSliceFromViewFormat(ResourceFormat, Desc.Format);
 			m_EndPlane = m_BeginPlane + 1;
 			break;
+#if D3D12_RHI_RAYTRACING
+		case (D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE):
+			// Nothing here
+			break;
+#endif // D3D12_RHI_RAYTRACING
 		}
 	}
 	inline explicit CSubresourceSubset(const D3D12_UNORDERED_ACCESS_VIEW_DESC& Desc) :
@@ -649,6 +654,14 @@ public:
 
 	void CreateView(const TDesc& Desc, ID3D12Resource* Resource)
 	{
+#if D3D12_RHI_RAYTRACING
+		// NOTE (from D3D Debug runtime): When ViewDimension is D3D12_SRV_DIMENSION_RAYTRACING_ACCELLERATION_STRUCTURE, pResource must be NULL, since the resource location comes from a GPUVA in pDesc
+		if (Desc.ViewDimension == D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			Resource = nullptr;
+		}
+#endif // D3D12_RHI_RAYTRACING
+
 		(GetParentDevice()->GetDevice()->*TCreateViewMap<TDesc>::GetCreate()) (Resource, &Desc, Handle);
 	}
 

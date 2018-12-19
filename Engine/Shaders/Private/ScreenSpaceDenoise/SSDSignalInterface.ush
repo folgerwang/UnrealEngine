@@ -1,0 +1,27 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SSDSignalInterface.ush: Selects the required signal API.
+=============================================================================*/
+
+#pragma once
+
+#if !defined(CONFIG_SIGNAL_PROCESSING)
+	#error Missing CONFIG_SIGNAL_PROCESSING
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_COLORAA
+	#error Signal processing for color AA not implemented.
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_DOF
+	#error Signal processing for DOF not implemented.
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#include "SSDPenumbraSignal.ush"
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_DIFUSE_GI
+	#error Signal processing for diffuse GI not implemented.
+
+#else
+	#error Unknown CONFIG_SIGNAL_PROCESSING
+
+#endif

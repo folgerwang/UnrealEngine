@@ -222,6 +222,22 @@ public:
 #endif
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
+
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const override final { return true; }
+	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
+	{
+		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.SkeletalMeshes && IsShown(View);
+	}
+
+	virtual bool IsRayTracingStaticRelevant() const override
+	{
+		return bRenderStatic;
+	}
+
+	FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const override;
+#endif // RHI_RAYTRACING
+
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	virtual bool IsUsingDistanceCullFade() const override;

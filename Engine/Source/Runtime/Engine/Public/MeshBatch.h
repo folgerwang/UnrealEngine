@@ -136,6 +136,7 @@ struct FMeshBatch
 
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
+	uint8 SegmentIndex;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Conceptual LOD index used for the LOD Coloration visualization. */
@@ -259,6 +260,7 @@ struct FMeshBatch
 	FMeshBatch()
 	:	MeshIdInPrimitive(0)
 	,	LODIndex(INDEX_NONE)
+	,	SegmentIndex(0xFF)
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	,	VisualizeLODIndex(INDEX_NONE)
 #endif

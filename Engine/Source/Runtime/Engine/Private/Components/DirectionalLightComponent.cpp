@@ -163,26 +163,22 @@ public:
 	}
 
 	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FLightParameters& LightParameters) const override
+	virtual void GetLightShaderParameters(FLightShaderParameters& LightParameters) const override
 	{
-		LightParameters.LightPositionAndInvRadius = FVector4(0, 0, 0, 0);
+		LightParameters.Position = FVector::ZeroVector;
+		LightParameters.InvRadius = 0.0f;
+		LightParameters.Color = FVector(GetColor());
+		LightParameters.FalloffExponent = 0.0f;
 
-		LightParameters.LightColorAndFalloffExponent = FVector4(
-			GetColor().R,
-			GetColor().G,
-			GetColor().B,
-			0);
-
-		LightParameters.NormalizedLightDirection = -GetDirection();
-
-		LightParameters.NormalizedLightTangent = -GetDirection();
+		LightParameters.Direction = -GetDirection();
+		LightParameters.Tangent = -GetDirection();
 
 		LightParameters.SpotAngles = FVector2D(0, 0);
 		LightParameters.SpecularScale = SpecularScale;
-		LightParameters.LightSourceRadius = FMath::Sin( 0.5f * FMath::DegreesToRadians( LightSourceAngle ) );
-		LightParameters.LightSoftSourceRadius = FMath::Sin( 0.5f * FMath::DegreesToRadians( LightSourceSoftAngle ) );
-		LightParameters.LightSourceLength = 0.0f;
-		LightParameters.SourceTexture = GWhiteTexture;
+		LightParameters.SourceRadius = FMath::Sin( 0.5f * FMath::DegreesToRadians( LightSourceAngle ) );
+		LightParameters.SoftSourceRadius = FMath::Sin( 0.5f * FMath::DegreesToRadians( LightSourceSoftAngle ) );
+		LightParameters.SourceLength = 0.0f;
+		LightParameters.SourceTexture = GWhiteTexture->TextureRHI;
 	}
 
 	virtual float GetLightSourceAngle() const override
@@ -345,9 +341,9 @@ public:
 	virtual bool ShouldCreateRayTracedCascade(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid, int32 MaxNearCascades) const override
 	{
 		const uint32 NumCascades = GetNumShadowMappedCascades(MaxNearCascades, bPrecomputedLightingIsValid);
-		const float RaytracedShadowDistance = GetDistanceFieldShadowDistance();
-		const bool bCreateWithCSM = NumCascades > 0 && RaytracedShadowDistance > GetCSMMaxDistance(bPrecomputedLightingIsValid, MaxNearCascades);
-		const bool bCreateWithoutCSM = NumCascades == 0 && RaytracedShadowDistance > 0;
+		const float RayTracedShadowDistance = GetDistanceFieldShadowDistance();
+		const bool bCreateWithCSM = NumCascades > 0 && RayTracedShadowDistance > GetCSMMaxDistance(bPrecomputedLightingIsValid, MaxNearCascades);
+		const bool bCreateWithoutCSM = NumCascades == 0 && RayTracedShadowDistance > 0;
 		return DoesPlatformSupportDistanceFieldShadowing(GShaderPlatformForFeatureLevel[InFeatureLevel]) && (bCreateWithCSM || bCreateWithoutCSM);
 	}
 

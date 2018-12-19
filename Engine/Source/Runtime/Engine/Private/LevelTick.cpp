@@ -60,6 +60,7 @@
 #include "InGamePerformanceTracker.h"
 #include "Streaming/TextureStreamingHelpers.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "GPUSkinCache.h"
 
 #if WITH_EDITOR
 	#include "Editor.h"
@@ -909,40 +910,50 @@ bool UWorld::HasEndOfFrameUpdates() const
 	return ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Num() > 0 || ComponentsThatNeedEndOfFrameUpdate.Num() > 0 || bMaterialParameterCollectionInstanceNeedsDeferredUpdate;
 }
 
-TDrawEvent<FRHICommandList>* BeginSendEndOfFrameUpdatesDrawEvent()
+struct FSendAllEndOfFrameUpdates
 {
-	TDrawEvent<FRHICommandList>* DrawEvent = nullptr;
+	FGPUSkinCache* GPUSkinCache;
+#if WANTS_DRAW_MESH_EVENTS
+	TDrawEvent<FRHICommandList> DrawEvent;
+#endif
+};
+
+FSendAllEndOfFrameUpdates* BeginSendEndOfFrameUpdatesDrawEvent(FGPUSkinCache* GPUSkinCache)
+{
+	FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates = new FSendAllEndOfFrameUpdates;
+	SendAllEndOfFrameUpdates->GPUSkinCache = GPUSkinCache;
 
 #if WANTS_DRAW_MESH_EVENTS
-	DrawEvent = new TDrawEvent<FRHICommandList>();
-
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 		BeginDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,DrawEvent,DrawEvent,
+		FSendAllEndOfFrameUpdates*, SendAllEndOfFrameUpdates, SendAllEndOfFrameUpdates,
 	{
 		BEGIN_DRAW_EVENTF(
 			RHICmdList, 
 			SendAllEndOfFrameUpdates, 
-			(*DrawEvent),
+			SendAllEndOfFrameUpdates->DrawEvent,
 			TEXT("SendAllEndOfFrameUpdates"));
 	});
-
 #endif
 
-	return DrawEvent;
+	return SendAllEndOfFrameUpdates;
 }
 
-void EndSendEndOfFrameUpdatesDrawEvent(TDrawEvent<FRHICommandList>* DrawEvent)
+void EndSendEndOfFrameUpdatesDrawEvent(FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates)
 {
-#if WANTS_DRAW_MESH_EVENTS
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 		EndDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,DrawEvent,DrawEvent,
+		FSendAllEndOfFrameUpdates*, SendAllEndOfFrameUpdates, SendAllEndOfFrameUpdates,
 	{
-		STOP_DRAW_EVENT((*DrawEvent));
-		delete DrawEvent;
+	PREPROCESSOR_IF(RHI_RAYTRACING, 
+		if (SendAllEndOfFrameUpdates->GPUSkinCache)
+		{
+			SendAllEndOfFrameUpdates->GPUSkinCache->CommitRayTracingGeometryUpdates(RHICmdList);
+		}
+	, PREPROCESSOR_NOTHING);
+			
+		delete SendAllEndOfFrameUpdates;
 	});
-#endif
 }
 
 /**
@@ -959,7 +970,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 	}
 
 	// Issue a GPU event to wrap GPU work done during SendAllEndOfFrameUpdates, like skin cache updates
-	TDrawEvent<FRHICommandList>* DrawEvent = BeginSendEndOfFrameUpdatesDrawEvent();
+	FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates = BeginSendEndOfFrameUpdatesDrawEvent(Scene ? Scene->GetGPUSkinCache() : nullptr);
 
 	// update all dirty components. 
 	FGuardValue_Bitfield(bPostTickComponentUpdate, true); 
@@ -1035,7 +1046,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 			
 	LocalComponentsThatNeedEndOfFrameUpdate.Reset();
 
-	EndSendEndOfFrameUpdatesDrawEvent(DrawEvent);
+	EndSendEndOfFrameUpdatesDrawEvent(SendAllEndOfFrameUpdates);
 }
 
 

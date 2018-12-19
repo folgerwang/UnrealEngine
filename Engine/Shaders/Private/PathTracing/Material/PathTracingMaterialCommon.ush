@@ -1,0 +1,69 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PathTracingMaterialCommon.usf: Brdf utility functions
+===============================================================================================*/
+
+#pragma once
+
+#include "../PathTracingCommon.ush"
+#include "/Engine/Private/BRDF.ush"
+
+float3 GetDiffuseColor(FMaterialClosestHitPayload HitInfo)
+{
+	return HitInfo.BaseColor;
+}
+
+float3 GetSpecularColor(FMaterialClosestHitPayload HitInfo)
+{
+	return HitInfo.SpecularColor;
+}
+
+float GetRoughness(FMaterialClosestHitPayload HitInfo)
+{
+	return HitInfo.Roughness;
+}
+
+float3 GetWorldNormal(FMaterialClosestHitPayload HitInfo)
+{
+	return HitInfo.WorldNormal;
+}
+
+bool IsPureSpecular(FMaterialClosestHitPayload HitInfo)
+{
+	return GetRoughness(HitInfo) < GLOSSY_MIN_ROUGHNESS;
+}
+
+bool IsPureSpecularReflection(FMaterialClosestHitPayload HitInfo)
+{
+	return IsPureSpecular(HitInfo) && HitInfo.BlendingMode == 0;
+}
+
+bool IsPureSpecularTransmission(FMaterialClosestHitPayload HitInfo)
+{
+	//#dxr_todo: check if Roughness is properly defined when BlendingMode > 0
+	////return IsPureSpecular(HitInfo) && HitInfo.BlendingMode == 1;
+	return false;
+}
+
+bool IsLambert(FMaterialClosestHitPayload HitInfo)
+{
+	return GetRoughness(HitInfo) > GLOSSY_MAX_ROUGHNESS;
+}
+
+bool BSDF_Refract(float3 V_Local, float3 N_Local, float IorV, float IorL, out float3 L_Local)
+{
+	float NoV = dot(V_Local, N_Local);
+	float IorRatio = IorV / IorL;
+	float d = 1.0 - IorRatio * IorRatio * (1.0 - NoV * NoV);
+
+	if (d > 0.0)
+	{
+		L_Local = N_Local * (IorRatio*NoV - sqrt(d)) - V_Local * IorRatio;
+		return true;
+	}
+
+	// TIR, force to reflect
+	L_Local = N_Local * (NoV + NoV) - V_Local;
+	return false;
+}

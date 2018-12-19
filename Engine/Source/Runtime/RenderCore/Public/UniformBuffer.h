@@ -17,9 +17,9 @@ template<typename TBufferStruct> class TShaderUniformBufferParameter;
 /** Creates a
 uniform buffer with the given value, and returns a structured reference to it. */
 template<typename TBufferStruct>
-TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage)
+TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 {
-	return TUniformBufferRef<TBufferStruct>::CreateUniformBufferImmediate(Value, Usage);
+	return TUniformBufferRef<TBufferStruct>::CreateUniformBufferImmediate(Value, Usage, Validation);
 }
 
 

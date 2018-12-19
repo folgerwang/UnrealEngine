@@ -854,7 +854,11 @@ float GetPerInstanceFadeAmount(FMaterialVertexParameters Parameters)
  
 MaterialFloat GetDistanceCullFade()
 {
+#if PIXELSHADER
 	return saturate(ResolvedView.RealTime * PrimitiveFade.FadeTimeScaleBias.x + PrimitiveFade.FadeTimeScaleBias.y);
+#else
+    return 1.0f;
+#endif
 }
 
 /** Rotates Position about the given axis by the given angle, in radians, and returns the offset to Position. */
@@ -2086,7 +2090,10 @@ void CalcMaterialParametersEx(
 	Parameters.TwoSidedSign = 1.0f;
 
 #if MATERIAL_TWOSIDED && HAS_PRIMITIVE_UNIFORM_BUFFER
-	Parameters.TwoSidedSign *= ResolvedView.CullingSign * GetPrimitiveData(Parameters.PrimitiveId).InvNonUniformScaleAndDeterminantSign.w;
+    // #dxr: DirectX Raytracing's HitKind() intrinsic already accounts for negative scaling
+    #if PIXELSHADER
+	    Parameters.TwoSidedSign *= ResolvedView.CullingSign * GetPrimitiveData(Parameters.PrimitiveId).InvNonUniformScaleAndDeterminantSign.w;
+    #endif
 
 	#if !MATERIAL_TWOSIDED_SEPARATE_PASS
 		Parameters.TwoSidedSign *= GetFloatFacingSign(bIsFrontFace);

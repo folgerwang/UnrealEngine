@@ -13,8 +13,8 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 
 	for (int32 ResourceIndex = 0, Num = ParametersMetadata->GetLayout().Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		EUniformBufferBaseType Type = EUniformBufferBaseType(ParametersMetadata->GetLayout().Resources[ResourceIndex]);
-		uint16 ByteOffset = ParametersMetadata->GetLayout().ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberType;
+		uint16 ByteOffset = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberOffset;
 
 		if (Type == UBMT_GRAPH_TRACKED_TEXTURE)
 		{
@@ -49,3 +49,22 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 		*ResourcePointerAddress = nullptr;
 	}
 }
+
+
+FRDGTextureRef RegisterExternalTextureWithFallback(
+	FRDGBuilder& GraphBuilder,
+	const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture,
+	const TRefCountPtr<IPooledRenderTarget>& FallbackPooledTexture,
+	const TCHAR* ExternalPooledTextureName)
+{
+	ensureMsgf(FallbackPooledTexture.IsValid(), TEXT("RegisterExternalTextureWithDummyFallback() requires a valid fallback pooled texture."));
+	if (ExternalPooledTexture.IsValid())
+	{
+		return GraphBuilder.RegisterExternalTexture(ExternalPooledTexture, ExternalPooledTextureName);
+	}
+	else
+	{
+		return GraphBuilder.RegisterExternalTexture(FallbackPooledTexture);
+	}
+}
+

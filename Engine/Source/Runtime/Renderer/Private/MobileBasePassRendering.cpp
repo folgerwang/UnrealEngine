@@ -119,12 +119,11 @@ FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const
 			FLightSceneProxy* LightProxy = LPI->GetLight()->Proxy;
 			if (LightProxy->GetLightType() == LightType_Point && LightProxy->IsMovable() && (LightProxy->GetLightingChannelMask() & InSceneProxy->GetLightingChannelMask()) != 0)
 			{
-				FLightParameters LightParameters;
+				FLightShaderParameters LightParameters;
+				LightProxy->GetLightShaderParameters(LightParameters);
 
-				LightProxy->GetParameters(LightParameters);
-
-				LightPositionAndInvRadius[NumMovablePointLights] = LightParameters.LightPositionAndInvRadius;
-				LightColorAndFalloffExponent[NumMovablePointLights] = LightParameters.LightColorAndFalloffExponent;
+				LightPositionAndInvRadius[NumMovablePointLights] = FVector4(LightParameters.Position, LightParameters.InvRadius);
+				LightColorAndFalloffExponent[NumMovablePointLights] = FVector4(LightParameters.Color, LightParameters.FalloffExponent);
 
 				if (LightProxy->IsInverseSquared())
 				{

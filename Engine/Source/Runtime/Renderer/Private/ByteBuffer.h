@@ -28,6 +28,8 @@ public:
 
 	void UploadTo(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer);
 
+	void UploadTo_Flush(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer);
+
 	void Add(uint32 Index, const FVector4* Data)
 	{
 		checkSlow(NumScatters < AllocatedNumScatters);

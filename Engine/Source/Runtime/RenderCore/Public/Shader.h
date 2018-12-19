@@ -331,6 +331,47 @@ public:
 		return (FRHIComputeShader*)Shader.GetReference();
 	}
 
+#if RHI_RAYTRACING
+	inline const FRayTracingShaderRHIParamRef GetRayTracingShader()
+	{
+		checkSlow(Target.Frequency == SF_RayGen
+			   || Target.Frequency == SF_RayMiss
+			   || Target.Frequency == SF_RayHitGroup);
+
+		if (!IsInitialized())
+		{
+			InitializeShaderRHI();
+		}
+		return RayTracingShader;
+	}
+
+	inline uint32 GetRayTracingMaterialLibraryIndex()
+	{
+		checkSlow(Target.Frequency == SF_RayGen
+			|| Target.Frequency == SF_RayMiss
+			|| Target.Frequency == SF_RayHitGroup);
+
+		if (!IsInitialized())
+		{
+			InitializeShaderRHI();
+		}
+		return RayTracingMaterialLibraryIndex;
+	}
+
+	RENDERCORE_API static void GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials);
+
+private:
+	RENDERCORE_API static uint32 AddToRayTracingLibrary(FRHIRayTracingShader* Shader);
+	RENDERCORE_API static void RemoveFromRayTracingLibrary(uint32 Index);
+
+	static uint32 GlobalMaxIndex;
+	static TArray<uint32> GlobalUnusedIndicies;
+	static TMap<uint32, FRHIRayTracingShader*> GlobalRayTracingMaterialLibrary;
+	static FCriticalSection GlobalRayTracingMaterialLibraryCS;
+
+public:
+#endif // RHI_RAYTRACING
+
 	RENDERCORE_API FShaderResourceId GetId() const;
 
 	uint32 GetSizeBytes() const
@@ -396,6 +437,11 @@ private:
 
 	/** Reference to the RHI shader. References the matching shader type of Target.Frequency. */
 	TRefCountPtr<FRHIShader> Shader;
+
+#if RHI_RAYTRACING
+	FRayTracingShaderRHIRef RayTracingShader;
+	uint32 RayTracingMaterialLibraryIndex = UINT_MAX;
+#endif // RHI_RAYTRACING
 
 #if WITH_EDITORONLY_DATA
 	/** Platform specific debug data output by the shader compiler. Discarded in cooked builds. */
@@ -844,6 +890,18 @@ public:
 	{
 		return Resource->GetComputeShader();
 	}
+
+#if RHI_RAYTRACING
+	inline const FRayTracingShaderRHIParamRef GetRayTracingShader() const
+	{
+		return Resource->GetRayTracingShader();
+	}
+
+	inline uint32 GetRayTracingMaterialLibraryIndex() const
+	{
+		return Resource->GetRayTracingMaterialLibraryIndex();
+	}
+#endif // RHI_RAYTRACING
 
 	// Accessors.
 	inline FShaderType* GetType() const { return Type; }

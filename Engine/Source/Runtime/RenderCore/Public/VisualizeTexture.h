@@ -25,7 +25,7 @@ public:
 	* @param PooledRenderTarget 0 is silently ignored
 	* Warning: this may change the active render target and other state
 	*/
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if SUPPORTS_VISUALIZE_TEXTURE
 	void SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget);
 #else
 	inline void SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget) {}

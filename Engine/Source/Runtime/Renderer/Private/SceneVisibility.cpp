@@ -2019,7 +2019,7 @@ struct FRelevancePacket
 			}
 			else
 			{
-				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshRelevances, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
+				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->Proxy->ScreenSizes, PrimitiveSceneInfo->StaticMeshes[0].bDitheredLODTransition, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
 			}
 
 			PrimitivesLODMask.AddPrim(FRelevancePacket::FPrimitiveLODMask(PrimitiveIndex, LODToRender));
@@ -2934,7 +2934,11 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 			{
 				bool bResetCamera = bFirstFrameOrTimeWasReset
 					|| View.bCameraCut
-					|| IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 45.0f, 10000.0f);
+					|| IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 45.0f, 10000.0f)
+#if RHI_RAYTRACING
+					|| (View.RayTracingRenderMode == ERayTracingRenderMode::PathTracing && IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 0.1f, 0.1f))
+#endif // RHI_RAYTRACING
+					;
 
 				if (bResetCamera)
 				{
@@ -2947,6 +2951,13 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 					//     the uber-postprocessing effect as the last effect in the chain.
 
 					View.bPrevTransformsReset = true;
+
+#if RHI_RAYTRACING
+					ViewState->PathTracingIrradianceRT.SafeRelease();
+					ViewState->PathTracingSampleCountRT.SafeRelease();
+					ViewState->VarianceMipTreeDimensions = FIntVector(0);
+					ViewState->TotalRayCount = 0;
+#endif // RHI_RAYTRACING
 				}
 				else
 				{
@@ -3618,15 +3629,15 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 
 				if( DistanceSqr < Radius * Radius )
 				{
-					FLightParameters LightParameters;
+					FLightShaderParameters LightParameters;
 
-					Proxy->GetParameters(LightParameters);
+					Proxy->GetLightShaderParameters(LightParameters);
 
 					// Force to be at least 0.75 pixels
 					float CubemapSize = (float)IConsoleManager::Get().FindTConsoleVariableDataInt( TEXT("r.ReflectionCaptureResolution") )->GetValueOnAnyThread();
 					float Distance = FMath::Sqrt( DistanceSqr );
 					float MinRadius = Distance * 0.75f / CubemapSize;
-					LightParameters.LightSourceRadius = FMath::Max( MinRadius, LightParameters.LightSourceRadius );
+					LightParameters.SourceRadius = FMath::Max( MinRadius, LightParameters.SourceRadius );
 
 					// Snap to cubemap pixel center to reduce aliasing
 					FVector Scale = ToLight.GetAbs();
@@ -3639,18 +3650,18 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					}
 					Origin = ToLight + View.ViewMatrices.GetViewOrigin();
 				
-					FLinearColor Color( LightParameters.LightColorAndFalloffExponent );
+					FLinearColor Color( LightParameters.Color.X, LightParameters.Color.Y, LightParameters.Color.Z, LightParameters.FalloffExponent );
 					if( !Proxy->IsRectLight() )
 					{
-						const float SphereArea = (4.0f * PI) * FMath::Square( LightParameters.LightSourceRadius );
-						const float CylinderArea = (2.0f * PI) * LightParameters.LightSourceRadius * LightParameters.LightSourceLength;
+						const float SphereArea = (4.0f * PI) * FMath::Square( LightParameters.SourceRadius );
+						const float CylinderArea = (2.0f * PI) * LightParameters.SourceRadius * LightParameters.SourceLength;
 						const float SurfaceArea = SphereArea + CylinderArea;
 						Color *= 4.0f / SurfaceArea;
 					}
 
 					if( Proxy->IsInverseSquared() )
 					{
-						float LightRadiusMask = FMath::Square( 1.0f - FMath::Square( DistanceSqr * FMath::Square( LightParameters.LightPositionAndInvRadius.W ) ) );
+						float LightRadiusMask = FMath::Square( 1.0f - FMath::Square( DistanceSqr * FMath::Square( LightParameters.InvRadius ) ) );
 						Color.A = LightRadiusMask;
 					}
 					else
@@ -3659,17 +3670,17 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 						Color *= DistanceSqr + 1.0f;
 
 						// Apply falloff
-						Color.A = FMath::Pow( 1.0f - DistanceSqr * FMath::Square(LightParameters.LightPositionAndInvRadius.W ), LightParameters.LightColorAndFalloffExponent.W );
+						Color.A = FMath::Pow( 1.0f - DistanceSqr * FMath::Square(LightParameters.InvRadius ), LightParameters.FalloffExponent );
 					}
 					
 					// Spot falloff
 					FVector L = ToLight.GetSafeNormal();
-					Color.A *= FMath::Square( FMath::Clamp( ( (L | LightParameters.NormalizedLightDirection) - LightParameters.SpotAngles.X ) * LightParameters.SpotAngles.Y, 0.0f, 1.0f ) );
+					Color.A *= FMath::Square( FMath::Clamp( ( (L | LightParameters.Direction) - LightParameters.SpotAngles.X ) * LightParameters.SpotAngles.Y, 0.0f, 1.0f ) );
 
 					Color.A *= LightParameters.SpecularScale;
 
 					// Rect is one sided
-					if( Proxy->IsRectLight() && (L | LightParameters.NormalizedLightDirection) < 0.0f )
+					if( Proxy->IsRectLight() && (L | LightParameters.Direction) < 0.0f )
 						continue;
 				
 					FMaterialRenderProxy* const ColoredMeshInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy( GEngine->DebugMeshMaterial->GetRenderProxy(), Color );
@@ -3681,17 +3692,17 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 
 					if( Proxy->IsRectLight() )
 					{
-						DrawBox( &LightPDI, LightToWorld, FVector( 0.0f, LightParameters.LightSourceRadius, LightParameters.LightSourceLength ), ColoredMeshInstance, SDPG_World );
+						DrawBox( &LightPDI, LightToWorld, FVector( 0.0f, LightParameters.SourceRadius, LightParameters.SourceLength ), ColoredMeshInstance, SDPG_World );
 					}
-					else if( LightParameters.LightSourceLength > 0.0f )
+					else if( LightParameters.SourceLength > 0.0f )
 					{
-						DrawSphere( &LightPDI, Origin + 0.5f * LightParameters.LightSourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
-						DrawSphere( &LightPDI, Origin - 0.5f * LightParameters.LightSourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
-						DrawCylinder( &LightPDI, Origin, LightToWorld.GetUnitAxis( EAxis::X ), LightToWorld.GetUnitAxis( EAxis::Y ), LightToWorld.GetUnitAxis( EAxis::Z ), LightParameters.LightSourceRadius, 0.5f * LightParameters.LightSourceLength, 36, ColoredMeshInstance, SDPG_World );
+						DrawSphere( &LightPDI, Origin + 0.5f * LightParameters.SourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.SourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+						DrawSphere( &LightPDI, Origin - 0.5f * LightParameters.SourceLength * LightToWorld.GetUnitAxis( EAxis::Z ), FRotator::ZeroRotator, LightParameters.SourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+						DrawCylinder( &LightPDI, Origin, LightToWorld.GetUnitAxis( EAxis::X ), LightToWorld.GetUnitAxis( EAxis::Y ), LightToWorld.GetUnitAxis( EAxis::Z ), LightParameters.SourceRadius, 0.5f * LightParameters.SourceLength, 36, ColoredMeshInstance, SDPG_World );
 					}
 					else
 					{
-						DrawSphere( &LightPDI, Origin, FRotator::ZeroRotator, LightParameters.LightSourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
+						DrawSphere( &LightPDI, Origin, FRotator::ZeroRotator, LightParameters.SourceRadius * FVector::OneVector, 36, 24, ColoredMeshInstance, SDPG_World );
 					}
 				}
 			}

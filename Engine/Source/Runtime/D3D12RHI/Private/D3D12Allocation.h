@@ -142,6 +142,7 @@ public:
 	}
 
 	inline uint32 GetTotalSizeUsed() const { return TotalSizeUsed; }
+	inline uint64 GetAllocationOffsetInBytes(const FD3D12BuddyAllocatorPrivateData& AllocatorPrivateData) const { return uint64(AllocatorPrivateData.Offset) * MinBlockSize; }
 
 	inline FD3D12Heap* GetBackingHeap() { check(AllocationStrategy == kPlacedResourceStrategy); return BackingHeap.GetReference(); }
 
@@ -186,7 +187,9 @@ private:
 
 	inline uint32 UnitSizeToOrder(uint32 size) const
 	{
-		return uint32(ceil(log2f(float(size))));
+		unsigned long Result;
+		_BitScanReverse(&Result, size + size - 1); // ceil(log2(size))
+		return Result;
 	}
 
 	inline uint32 GetBuddyOffset(const uint32 &offset, const uint32 &size)
@@ -227,6 +230,7 @@ public:
 		uint32 InAllocatorID,
 		uint32 InMaxBlockSize,
 		uint32 InMinBlockSize = MIN_PLACED_BUFFER_SIZE);
+	~FD3D12MultiBuddyAllocator();
 
 	bool TryAllocate(uint32 SizeInBytes, uint32 Alignment, FD3D12ResourceLocation& ResourceLocation);
 
@@ -243,6 +247,8 @@ public:
 	void ReleaseAllResources();
 
 	void Reset();
+
+	const eBuddyAllocationStrategy GetAllocationStrategy() const { return AllocationStrategy; }
 
 protected:
 	const eBuddyAllocationStrategy AllocationStrategy;
@@ -367,7 +373,7 @@ public:
 	~FD3D12DefaultBufferPool() { delete Allocator; }
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
-	void AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
+	void AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
 
 	void CleanUpAllocations();
 
@@ -383,14 +389,31 @@ public:
 	FD3D12DefaultBufferAllocator(FD3D12Device* InParent, FRHIGPUMask VisibleNodes);
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
-	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
+	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
 	void FreeDefaultBufferPools();
 	void CleanupFreeBlocks();
 
 private:
 
-	static const uint32 MAX_DEFAULT_POOLS = 16; // Should match the max D3D12_RESOURCE_FLAG_FLAG combinations.
-	FD3D12DefaultBufferPool* DefaultBufferPools[MAX_DEFAULT_POOLS];
+	enum class EBufferPool : uint32
+	{
+		None,
+		SRV,
+		UAV,
+
+		Count,
+	};
+	FD3D12DefaultBufferPool* DefaultBufferPools[EBufferPool::Count];
+
+	inline EBufferPool GetBufferPool(D3D12_RESOURCE_FLAGS Flags) const
+	{
+		if (Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+			return EBufferPool::UAV;
+		else if (Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)
+			return EBufferPool::None;
+		else
+			return EBufferPool::SRV;
+	}
 
 	bool BufferIsWriteable(const D3D12_RESOURCE_DESC& Desc)
 	{

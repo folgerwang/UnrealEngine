@@ -95,12 +95,12 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayo
 		ResourceTable.AddZeroed(NumResources);
 		for (uint32 Index = 0; Index < NumResources; Index++)
 		{
-			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.ResourceOffsets[Index]);
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.Resources[Index].MemberOffset);
 
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index] == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index].MemberType == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
 			{
-				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index]);
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index].MemberType);
 			}
 			ResourceTable[Index] = Resource;
 		}
@@ -113,12 +113,12 @@ void FVulkanUniformBuffer::UpdateResourceTable(const FRHIUniformBufferLayout& In
 
 	for (int32 ResourceIndex = 0; ResourceIndex < ResourceNum; ++ResourceIndex)
 	{
-		FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.ResourceOffsets[ResourceIndex]);
+		FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.Resources[ResourceIndex].MemberOffset);
 
 		checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 			*InLayout.GetDebugName().ToString(),
 			ResourceIndex,
-			InLayout.Resources[ResourceIndex]);
+			InLayout.Resources[ResourceIndex].MemberType);
 
 		ResourceTable[ResourceIndex] = Resource;
 	}
@@ -218,12 +218,12 @@ void FVulkanDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 
 			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
 			{
-				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[ResourceIndex]);
+				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 					*Layout.GetDebugName().ToString(),
 					ResourceIndex,
-					Layout.Resources[ResourceIndex]);
+					Layout.Resources[ResourceIndex].MemberType);
 
 				CmdListResources[ResourceIndex] = Resource;
 			}

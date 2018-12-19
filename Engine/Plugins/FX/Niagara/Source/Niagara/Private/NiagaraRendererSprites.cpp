@@ -67,12 +67,35 @@ void NiagaraRendererSprites::ReleaseRenderThreadResources()
 {
 	VertexFactory->ReleaseResource();
 	WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+
+#if RHI_RAYTRACING
+	RayTracingGeometry.ReleaseResource();
+	RayTracingDynamicVertexBuffer.Release();
+#endif
 }
 
 void NiagaraRendererSprites::CreateRenderThreadResources()
 {
 	VertexFactory->SetNumVertsInInstanceBuffer(4);
 	VertexFactory->InitResource();
+
+#if RHI_RAYTRACING
+	RayTracingDynamicVertexBuffer.Initialize(4, 256, PF_R32_FLOAT, BUF_UnorderedAccess | BUF_ShaderResource, TEXT("RayTracingDynamicVertexBuffer"));
+
+	FRayTracingGeometryInitializer Initializer;
+	Initializer.PositionVertexBuffer = nullptr;
+	Initializer.IndexBuffer = nullptr;
+	Initializer.BaseVertexIndex = 0;
+	Initializer.VertexBufferStride = 12;
+	Initializer.VertexBufferByteOffset = 0;
+	Initializer.TotalPrimitiveCount = 0;
+	Initializer.VertexBufferElementType = VET_Float3;
+	Initializer.PrimitiveType = PT_TriangleList;
+	Initializer.bFastBuild = true;
+	Initializer.bAllowUpdate = false;
+	RayTracingGeometry.SetInitializer(Initializer);
+	RayTracingGeometry.InitResource();
+#endif
 }
 
 void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const
@@ -257,6 +280,19 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				CollectorResources.VertexFactory.InitResource();
 				CollectorResources.VertexFactory.SetSpriteUniformBuffer(CollectorResources.UniformBuffer);
 
+				FNiagaraSpriteVFLooseParameters VFLooseParams;
+				VFLooseParams.NumCutoutVerticesPerFrame = CollectorResources.VertexFactory.GetNumCutoutVerticesPerFrame();
+				VFLooseParams.CutoutGeometry = CollectorResources.VertexFactory.GetCutoutGeometrySRV() ? CollectorResources.VertexFactory.GetCutoutGeometrySRV() : GFNiagaraNullSubUVCutoutVertexBuffer.VertexBufferSRV;
+				VFLooseParams.NiagaraParticleDataFloat = CollectorResources.VertexFactory.GetParticleDataFloatSRV();
+				VFLooseParams.NiagaraFloatDataOffset = CollectorResources.VertexFactory.GetFloatDataOffset();
+				VFLooseParams.NiagaraFloatDataStride = CollectorResources.VertexFactory.GetFloatDataStride();
+				VFLooseParams.ParticleAlignmentMode = CollectorResources.VertexFactory.GetAlignmentMode();
+				VFLooseParams.ParticleFacingMode = CollectorResources.VertexFactory.GetFacingMode();
+				VFLooseParams.SortedIndices = CollectorResources.VertexFactory.GetSortedIndicesSRV() ? CollectorResources.VertexFactory.GetSortedIndicesSRV() : GFNiagaraNullSortedIndicesVertexBuffer.VertexBufferSRV;
+				VFLooseParams.SortedIndicesOffset = CollectorResources.VertexFactory.GetSortedIndicesOffset();
+
+				CollectorResources.VertexFactory.LooseParameterUniformBuffer = FNiagaraSpriteVFLooseParametersRef::CreateUniformBufferImmediate(VFLooseParams, UniformBuffer_SingleFrame);
+
 				FMeshBatch& MeshBatch = Collector.AllocateMesh();
 				MeshBatch.VertexFactory = &CollectorResources.VertexFactory;
 				MeshBatch.CastShadow = SceneProxy->CastsDynamicShadow();
@@ -266,6 +302,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				MeshBatch.DepthPriorityGroup = SceneProxy->GetDepthPriorityGroup(View);
 				MeshBatch.bCanApplyViewModeOverrides = true;
 				MeshBatch.bUseWireframeSelectionColoring = SceneProxy->IsSelected();
+				MeshBatch.SegmentIndex = 0;
 
 				if (bIsWireframe)
 				{
@@ -296,6 +333,18 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 
 	CPUTimeMS += MeshElementsTimer.GetElapsedMilliseconds();
 }
+
+#if RHI_RAYTRACING
+void NiagaraRendererSprites::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
+{
+	FRayTracingGeometryInstanceCollection Collection;
+	Collection.Geometry = &RayTracingGeometry;
+	Collection.DynamicVertexPositionBuffer = &RayTracingDynamicVertexBuffer;
+	Collection.InstanceTransformMode = FRayTracingGeometryInstanceCollection::TransformMode::Identity;
+
+	OutInstanceCollections.Add(Collection);
+}
+#endif
 
 bool NiagaraRendererSprites::SetMaterialUsage()
 {

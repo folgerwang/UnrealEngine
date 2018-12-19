@@ -9,6 +9,11 @@
 #include "ShaderParameterMacros.h"
 
 
+/** An empty shader parameter structure ready to be used anywhere. */
+BEGIN_SHADER_PARAMETER_STRUCT(FEmptyShaderParameters, RENDERCORE_API)
+END_SHADER_PARAMETER_STRUCT()
+
+
 /** Useful parameter struct that only have render targets.
  *
  *	FRenderTargetParameters PassParameters;
@@ -24,7 +29,7 @@ END_SHADER_PARAMETER_STRUCT()
 extern RENDERCORE_API void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBindings, const FShaderParametersMetadata* ParametersMetadata, void* InoutParameters);
 
 template<typename TShaderClass>
-inline void ClearUnusedGraphResources(const TShaderClass* Shader, typename TShaderClass::FParameters* InoutParameters)
+FORCEINLINE_DEBUGGABLE void ClearUnusedGraphResources(const TShaderClass* Shader, typename TShaderClass::FParameters* InoutParameters)
 {
 	const FShaderParametersMetadata* ParametersMetadata = TShaderClass::FParameters::FTypeInfo::GetStructMetadata();
 
@@ -36,6 +41,14 @@ inline void ClearUnusedGraphResources(const TShaderClass* Shader, typename TShad
 	// Clear the resources the shader won't need.
 	return ClearUnusedGraphResourcesImpl(Shader->Bindings, ParametersMetadata, InoutParameters);
 }
+
+
+/** Register external texture with fallback if the resource is invalid. */
+RENDERCORE_API FRDGTextureRef RegisterExternalTextureWithFallback(
+	FRDGBuilder& GraphBuilder,
+	const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture,
+	const TRefCountPtr<IPooledRenderTarget>& FallbackPooledTexture,
+	const TCHAR* ExternalPooledTextureName = TEXT("External"));
 
 
 /** All utils for compute shaders.
@@ -64,7 +77,7 @@ struct RENDERCORE_API FComputeShaderUtils
 
 	/** Dispatch a compute shader to rhi command list with its parameters. */
 	template<typename TShaderClass>
-	static inline void Dispatch(FRHICommandList& RHICmdList, const TShaderClass* ComputeShader, const typename TShaderClass::FParameters& Parameters, FIntVector GroupCount)
+	static FORCEINLINE_DEBUGGABLE void Dispatch(FRHICommandList& RHICmdList, const TShaderClass* ComputeShader, const typename TShaderClass::FParameters& Parameters, FIntVector GroupCount)
 	{
 		FRHIComputeShader* ShaderRHI = ComputeShader->GetComputeShader();
 		RHICmdList.SetComputeShader(ShaderRHI);
@@ -75,7 +88,7 @@ struct RENDERCORE_API FComputeShaderUtils
 
 	/** Dispatch a compute shader to render graph builder with its parameters. */
 	template<typename TShaderClass>
-	static inline void AddPass(
+	static FORCEINLINE_DEBUGGABLE void AddPass(
 		FRDGBuilder& GraphBuilder,
 		FRDGEventName&& PassName,
 		const TShaderClass* ComputeShader,

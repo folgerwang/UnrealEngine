@@ -46,6 +46,10 @@ FD3D12Device::FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter) :
 
 FD3D12Device::~FD3D12Device()
 {
+#if D3D12_RHI_RAYTRACING
+	DestroyRayTracingDescriptorCache(); // #dxr_todo: unify RT descriptor cache with main FD3D12DescriptorCache
+#endif
+
 	// Cleanup the allocator near the end, as some resources may be returned to the allocator or references are shared by multiple GPUs
 	DefaultBufferAllocator.FreeDefaultBufferPools();
 
@@ -63,6 +67,13 @@ ID3D12Device* FD3D12Device::GetDevice()
 {
 	return GetParentAdapter()->GetD3DDevice();
 }
+
+#if D3D12_RHI_RAYTRACING
+ID3D12Device5* FD3D12Device::GetRayTracingDevice()
+{
+	return GetParentAdapter()->GetD3DRayTracingDevice();
+}
+#endif // D3D12_RHI_RAYTRACING
 
 FD3D12DynamicRHI* FD3D12Device::GetOwningRHI()
 { 

@@ -18,6 +18,7 @@
 #include "RendererModule.h"
 #include "PipelineStateCache.h"
 #include "VisualizeTexture.h"
+#include "Raytracing/RaytracingOptions.h"
 
 int32 GDistanceFieldAO = 1;
 FAutoConsoleVariableRef CVarDistanceFieldAO(
@@ -715,7 +716,7 @@ bool SupportsDistanceFieldAO(ERHIFeatureLevel::Type FeatureLevel, EShaderPlatfor
 		&& DoesPlatformSupportDistanceFieldAO(ShaderPlatform);
 }
 
-bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily)
+bool ShouldRenderDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily)
 {
 	return Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
@@ -723,8 +724,18 @@ bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFa
 		&& !Scene->SkyLight->bHasStaticLighting
 		&& ViewFamily.EngineShowFlags.SkyLighting
 		&& Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4
-		&& !IsAnyForwardShadingEnabled(Scene->GetShaderPlatform()) 
+		&& !IsAnyForwardShadingEnabled(Scene->GetShaderPlatform())
 		&& !ViewFamily.EngineShowFlags.VisualizeLightCulling;
+}
+
+bool ShouldRenderRayTracingDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily)
+{
+	return IsRayTracingSkyLightSelected() && ShouldRenderDynamicSkyLight(Scene, ViewFamily);
+}
+
+bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily)
+{
+	return !IsRayTracingSkyLightSelected() && ShouldRenderDynamicSkyLight(Scene, ViewFamily);
 }
 
 bool FDeferredShadingSceneRenderer::ShouldPrepareForDistanceFieldAO() const

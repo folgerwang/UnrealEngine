@@ -42,6 +42,7 @@
 #include "VolumeRendering.h"
 #include "SceneSoftwareOcclusion.h"
 #include "CommonRenderResources.h"
+#include "VisualizeTexture.h"
 #include "ByteBuffer.h"
 #include "LightMapDensityRendering.h"
 #include "VolumetricFogShared.h"
@@ -692,6 +693,12 @@ public:
 	FMatrix		PrevViewMatrixForOcclusionQuery;
 	FVector		PrevViewOriginForOcclusionQuery;
 
+#if RHI_RAYTRACING
+	/** Number of consecutive frames the camera is static */
+	uint32 NumCameraStaticFrames;
+	int32 RayTracingNumIterations;
+#endif
+
 	// A counter incremented once each time this view is rendered.
 	uint32 OcclusionFrameCounter;
 
@@ -812,7 +819,7 @@ private:
 	uint8 TemporalAASampleCount;
 
 	// counts up by one each frame, warped in 0..7 range, ResetViewState() puts it back to 0
-	uint32 FrameIndexMod8;
+	uint32 FrameIndex;
 
 	// counts up by one each frame, warped in 0..3 range, ResetViewState() puts it back to 0
 	int32 DistanceFieldTemporalSampleIndex;
@@ -891,6 +898,18 @@ public:
 	FSamplerStateRHIRef MaterialTextureBilinearWrapedSamplerCache;
 	FSamplerStateRHIRef MaterialTextureBilinearClampedSamplerCache;
 
+#if RHI_RAYTRACING
+	// Reference path tracing cached results
+	TRefCountPtr<IPooledRenderTarget> PathTracingIrradianceRT;
+	TRefCountPtr<IPooledRenderTarget> PathTracingSampleCountRT;
+	FRWBuffer* VarianceMipTree;
+	FIntVector VarianceMipTreeDimensions;
+
+	// Path tracer ray counter
+	uint32 TotalRayCount;
+	FRWBuffer* TotalRayCountBuffer;
+#endif
+
 	// cache for stencil reads to a avoid reallocations of the SRV, Key is to detect if the object has changed
 	FTextureRHIRef SelectionOutlineCacheKey;
 	TRefCountPtr<FRHIShaderResourceView> SelectionOutlineCacheValue;
@@ -956,16 +975,24 @@ public:
 		return TemporalAASampleCount;
 	}
 
-	virtual uint32 GetFrameIndexMod8() const
+	// Returns the index of the frame with a desired power of two modulus.
+	inline uint32 GetFrameIndex(uint32 Pow2Modulus) const
 	{
-		return FrameIndexMod8;
+		check(FMath::IsPowerOfTwo(Pow2Modulus));
+		return FrameIndex % (Pow2Modulus - 1);
+	}
+
+	// Returns 32bits frame index.
+	inline uint32 GetFrameIndex() const
+	{
+		return FrameIndex;
 	}
 
 	// to make rendering more deterministic
 	virtual void ResetViewState()
 	{
 		TemporalAASampleIndex = 0;
-		FrameIndexMod8 = 0;
+		FrameIndex = 0;
 		DistanceFieldTemporalSampleIndex = 0;
 		PreExposure = 1.f;
 
@@ -986,7 +1013,7 @@ public:
 		{
 			TemporalAASampleIndex++;
 
-			FrameIndexMod8 = (FrameIndexMod8 + 1) % 8;
+			FrameIndex++;
 		}
 
 		if(TemporalAASampleIndex >= TemporalAASampleCount)
@@ -1189,7 +1216,6 @@ public:
 		return ShaderResourceTexture;
 	}
 
-
 	// FRenderResource interface.
 	virtual void InitDynamicRHI() override
 	{
@@ -1257,6 +1283,12 @@ public:
 		ForwardLightingCullingResources.Release();
 		LightScatteringHistory.SafeRelease();
 		PrimitiveShaderDataBuffer.Release();
+#if RHI_RAYTRACING
+		PathTracingIrradianceRT.SafeRelease();
+		PathTracingSampleCountRT.SafeRelease();
+		VarianceMipTreeDimensions = FIntVector(0);
+		TotalRayCount = 0;
+#endif 
 	}
 
 	// FSceneViewStateInterface
@@ -2429,6 +2461,8 @@ public:
 
 	/** Packed array of primitives in the scene. */
 	TArray<FPrimitiveSceneInfo*> Primitives;
+	/** Packed array of all transforms in the scene. */
+	TArray<FMatrix> PrimitiveTransforms;
 	/** Packed array of primitive scene proxies in the scene. */
 	TArray<FPrimitiveSceneProxy*> PrimitiveSceneProxies;
 	/** Packed array of primitive bounds. */
@@ -2607,6 +2641,10 @@ public:
 	FPixelInspectorData PixelInspectorData;
 #endif //WITH_EDITOR
 
+#if RHI_RAYTRACING
+	class FRayTracingDynamicGeometryCollection* RayTracingDynamicGeometryCollection;
+#endif
+
 	/** Initialization constructor. */
 	FScene(UWorld* InWorld, bool bInRequiresHitProxies,bool bInIsEditorScene, bool bCreateFXSystem, ERHIFeatureLevel::Type InFeatureLevel);
 
@@ -2732,6 +2770,13 @@ public:
 	{
 		return GPUSkinCache;
 	}
+
+#if RHI_RAYTRACING
+	virtual FRayTracingDynamicGeometryCollection* GetRayTracingDynamicGeometryCollection() override
+	{
+		return RayTracingDynamicGeometryCollection;
+	}
+#endif
 
 	/**
 	 * Sets the FX system associated with the scene.

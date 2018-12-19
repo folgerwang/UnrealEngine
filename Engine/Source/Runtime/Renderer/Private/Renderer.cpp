@@ -30,6 +30,8 @@
 #include "MeshPassProcessor.inl"
 #include "DebugViewModeRendering.h"
 #include "EditorPrimitivesRendering.h"
+#include "VisualizeTexturePresent.h"
+#include "ScreenSpaceDenoise.h"
 
 DEFINE_LOG_CATEGORY(LogRenderer);
 
@@ -57,6 +59,17 @@ public:
 	}
 };
 static TGlobalResource< FDummyReflectionCaptureUniformBuffer > GDummyReflectionCaptureUniformBuffer;
+
+void FRendererModule::StartupModule()
+{
+	GScreenSpaceDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
+}
+
+void FRendererModule::ShutdownModule()
+{
+	// Free up the memory of the default denoiser. Responsibility of the plugin to free up theirs.
+	delete IScreenSpaceDenoiser::GetDefaultDenoiser();
+}
 
 void FRendererModule::ReallocateSceneRenderTargets()
 {

@@ -823,6 +823,14 @@ RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform)
 	return Platform == SP_PCD3D_SM5 || IsVulkanPlatform(Platform) || IsMetalSM5Platform(Platform) || Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
 }
 
+RHI_API bool RHISupportsRayTracing(const EShaderPlatform Platform)
+{
+	return (
+		Platform == SP_PCD3D_SM5 &&
+		IsRayTracingSupportedForThisProject()); // dxr_todo: so cooking depends whether you cook on a DXR compatible platform?
+}
+
+
 static ERHIFeatureLevel::Type GRHIMobilePreviewFeatureLevel = ERHIFeatureLevel::Num;
 RHI_API void RHISetMobilePreviewFeatureLevel(ERHIFeatureLevel::Type MobilePreviewFeatureLevel)
 {

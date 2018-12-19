@@ -5,6 +5,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
 #include "EditorViewportCommands.h"
+#include "RayTracingDebugVisualizationMenuCommands.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportViewMenu"
 
@@ -22,7 +23,6 @@ void SEditorViewportViewMenu::Construct( const FArguments& InArgs, TSharedRef<SE
 			.LabelIcon(this, &SEditorViewportViewMenu::GetViewMenuLabelIcon)
 			.OnGetMenuContent( this, &SEditorViewportViewMenu::GenerateViewMenuContent )
 	);
-		
 }
 
 FText SEditorViewportViewMenu::GetViewMenuLabel() const
@@ -48,6 +48,16 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 			case VMI_Lit:
 				Label = LOCTEXT("ViewMenuTitle_Lit", "Lit");
 				break;
+
+#if RHI_RAYTRACING
+			case VMI_PathTracing:
+				Label = LOCTEXT("ViewMenuTitle_PathTracing", "Path Tracing");
+				break;
+
+			case VMI_RayTracingDebug:
+				Label = LOCTEXT("ViewMenuTitle_RayTracingDebug", "Ray Tracing Debug");
+				break;
+#endif
 
 			case VMI_Lit_DetailLighting:
 				Label = LOCTEXT("ViewMenuTitle_DetailLighting", "Detail Lighting");
@@ -174,6 +184,16 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 				Icon = LitIcon;
 				break;
 
+#if RHI_RAYTRACING
+			// #dxr_todo: use special icons for ray tracing view modes
+			case VMI_RayTracingDebug:
+				Icon = LitIcon; 
+				break;
+
+			case VMI_PathTracing:
+				Icon = LitIcon; 
+				break;
+#endif
 			case VMI_Lit_DetailLighting:
 				Icon = DetailLightingIcon;
 				break;
@@ -279,6 +299,28 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.CollisionPawn, NAME_None, LOCTEXT("CollisionPawnViewModeDisplayName", "Player Collision"));
 				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.CollisionVisibility, NAME_None, LOCTEXT("CollisionVisibilityViewModeDisplayName", "Visibility Collision"));
 			}
+
+#if RHI_RAYTRACING
+			if (IsRayTracingSupportedForThisProject() > 0)
+			{
+				struct Local
+				{
+					static void BuildRayTracingMenu(FMenuBuilder& Menu, TWeakPtr< SViewportToolBar > InParentToolBar)
+					{
+						const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
+
+						Menu.BeginSection("RayTracingViewmodes", LOCTEXT("RayTracingSubMenuHeader", "Ray Tracing Viewmodes"));
+						Menu.AddMenuEntry(BaseViewportCommands.PathTracingMode, NAME_None, LOCTEXT("PathTracingViewModeDisplayName", "Path Tracing"));
+						Menu.EndSection();
+						
+						const FRayTracingDebugVisualizationMenuCommands& RtDebugCommands = FRayTracingDebugVisualizationMenuCommands::Get();
+						RtDebugCommands.BuildVisualisationSubMenu(Menu);
+					}
+				};
+
+				ViewMenuBuilder.AddSubMenu(LOCTEXT("RayTracingSubMenu", "Ray Tracing"), LOCTEXT("RayTracing_ToolTip", "Select ray tracing view modes"), FNewMenuDelegate::CreateStatic(&Local::BuildRayTracingMenu, ParentToolBar));
+			}
+#endif
 
 			// Optimization
 			{

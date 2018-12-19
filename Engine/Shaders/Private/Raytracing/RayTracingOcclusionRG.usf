@@ -1,0 +1,285 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../MonteCarlo.ush"
+#include "../DeferredShadingCommon.ush"
+#include "../LightShaderParameters.ush"
+#include "RayTracingCommon.ush"
+#include "RayTracingDirectionalLight.ush"
+#include "RayTracingRectLight.ush"
+
+/** Light types */
+#define LIGHT_TYPE_DIRECTIONAL 0
+#define LIGHT_TYPE_POINT 1
+#define LIGHT_TYPE_SPOT 2
+#define LIGHT_TYPE_RECT 3
+
+RaytracingAccelerationStructure TLAS;
+RWTexture2D<float4> RWOcclusionMaskUAV;
+RWTexture2D<float> RWRayDistanceUAV;
+
+uint SamplesPerPixel;
+
+float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
+{
+	return float2(SobolRand) * rcp(65536.0) + rcp(65536.0 * 2.0);
+}
+
+uint CalcLinearIndex(uint2 PixelCoord)
+{
+	return PixelCoord.y * View.BufferSizeAndInvSize.x + PixelCoord.x;
+}
+
+bool GeneratePointLightOcclusionRay(
+	FLightShaderParameters LightParameters,
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax
+)
+{
+	float3 LightDirection = LightParameters.Position - WorldPosition;
+	float RayLength = length(LightDirection);
+	LightDirection /= RayLength;
+
+	// Apply normal perturbation when defining ray
+	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayDirection = LightDirection;
+	RayTMin = 0.0;
+	RayTMax = RayLength;
+	return true;
+}
+
+bool GenerateSpotLightOcclusionRay(
+	FLightShaderParameters LightParameters,
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax
+)
+{
+	float3 LightDirection = LightParameters.Position - WorldPosition;
+	float RayLength = length(LightDirection);
+	LightDirection /= RayLength;
+
+	// Apply culling
+	float CosAngle = LightParameters.SpotAngles.x;
+	if (dot(-LightDirection, LightParameters.Direction) < CosAngle)
+	{
+		return false;
+	}
+
+	// Apply normal perturbation when defining ray
+	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayDirection = LightDirection;
+	RayTMin = 0.0;
+	RayTMax = RayLength;
+	return true;
+}
+
+bool GenerateOcclusionRay(
+	FLightShaderParameters LightParameters,
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax
+)
+{
+	#if LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+	{
+		// TODO: just passdown LightParameters to GenerateDirectionalLightOcclusionRay().
+		float3 LightDirection = LightParameters.Direction;
+		float LightRadius = LightParameters.SourceRadius;
+
+		GenerateDirectionalLightOcclusionRay(
+			WorldPosition, WorldNormal,
+			LightDirection, LightRadius,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax);
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_POINT
+	{
+		return GeneratePointLightOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax);
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_SPOT
+	{
+		return GenerateSpotLightOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax);
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_RECT
+	{
+		float3 Tangent;
+		float3 BiTangent;
+		GetRectLightTangents(LightParameters, /* out */ Tangent, /* out */ BiTangent);
+
+		float2 LightDimensions = GetRectLightDimensions(LightParameters);
+		float RayPdf = 0.0;
+
+		// TODO: just passdown LightParameters to GenerateRectLightOcclusionRay().
+		return GenerateRectLightOcclusionRay(
+			WorldPosition, WorldNormal,
+			LightParameters.Position,
+			-LightParameters.Direction,
+			Tangent,
+			BiTangent,
+			LightDimensions.x, LightDimensions.y,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax,
+			/* out */ RayPdf);
+	}
+	#else
+		#error Unknown light type.
+	#endif
+	return true;
+}
+
+uint ReverseNBits(uint Bitfield, const uint BitCount)
+{
+	uint Out = 0;
+	UNROLL
+	for (uint i = 0; i < BitCount; i++)
+	{
+		uint bIsSet = ((Bitfield & (0x1 << i)) >> i);
+		Out |= bIsSet << (BitCount - 1 - i);
+	}
+	return Out;
+}
+
+[shader("raygeneration")]
+void OcclusionRG()
+{
+	uint2 PixelCoord = DispatchRaysIndex().xy;
+
+	RandomSequence RandSequence;
+	uint LinearIndex = CalcLinearIndex(PixelCoord);
+	RandomSequence_Initialize(RandSequence, LinearIndex, View.FrameNumber);
+
+	FLightShaderParameters LightParameters = GetRootLightShaderParameters();
+
+	// Get G-Buffer surface data
+	float2 InvBufferSize = View.BufferSizeAndInvSize.zw;
+	float2 UV = (float2(PixelCoord) + 0.5) * InvBufferSize;
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	float Depth = ScreenSpaceData.GBuffer.Depth;
+	float3 WorldPosition = ReconstructWorldPositionFromDepth(UV, Depth);
+	float3 WorldNormal = ScreenSpaceData.GBuffer.WorldNormal;
+
+	float Visibility = 0.0;
+	float RayDistance = 0.0;
+	float HitCount = 0.0;
+	float RayCount = 0.0;
+	uint LocalSamplesPerPixel = SamplesPerPixel;
+
+	// Mask out depth values at or beyond far plane
+	if (Depth >= SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE)
+	{
+		LocalSamplesPerPixel = 0.0;
+	}
+
+	LOOP
+	for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
+	{
+		uint DummyVariable;
+		float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
+
+		BRANCH
+		if (LocalSamplesPerPixel == 1 && 1)
+		{
+			const uint TemporalBits = 10;
+			uint FrameIndexMod1024 = ReverseNBits(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+
+			uint2 SobolBase = SobolPixel(PixelCoord);
+			uint2 SobolFrame = SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);
+
+			RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
+		}
+
+		RayDesc Ray;
+		bool bIsValidRay = GenerateOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ Ray.Origin,
+			/* out */ Ray.Direction,
+			/* out */ Ray.TMin,
+			/* out */ Ray.TMax);
+
+		BRANCH
+		if (!bIsValidRay)
+		{
+			continue;
+		}
+		else if (dot(WorldNormal, Ray.Direction) <= 0.0)
+		{
+			continue;
+		}
+
+		uint RayFlags = 0
+			| RAY_FLAG_CULL_BACK_FACING_TRIANGLES
+			| RAY_FLAG_FORCE_OPAQUE; // #dxr_todo: generate a special shader permutation for occlusion ray tracing that includes any-hit shaders for masked geometry
+
+		FDefaultPayload Payload = (FDefaultPayload)0;
+
+		TraceRay(
+			TLAS,      // AccelerationStructure
+			RayFlags,
+			0xFF,      // InstanceInclusionMask
+			0,         // RayContributionToHitGroupIndex
+			1,         // MultiplierForGeometryContributionToShaderIndex
+			0,         // MissShaderIndex
+			Ray,       // RayDesc
+			Payload    // Payload
+		);
+
+		RayCount += 1.0;
+		Visibility += Payload.HitT < 0 ? 1.0 : 0.0;
+		if (Payload.HitT >= 0.0)
+		{
+			RayDistance += Payload.HitT;
+			HitCount += 1.0;
+		}
+	}
+
+	RWOcclusionMaskUAV[PixelCoord] = (LocalSamplesPerPixel > 0) ? Visibility / LocalSamplesPerPixel : Visibility;
+
+	if (HitCount > 0.0)
+	{
+		RWRayDistanceUAV[PixelCoord] = RayDistance / HitCount;
+	}
+	else if (RayCount > 0.0)
+	{
+		RWRayDistanceUAV[PixelCoord] = 1.0e27;
+	}
+	else
+	{
+		RWRayDistanceUAV[PixelCoord] = -1.0;
+	}
+}

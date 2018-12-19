@@ -393,11 +393,14 @@ void FStaticMesh::CacheMeshDrawCommands(FScene* Scene)
 			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
 			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, nullptr, CachedPassMeshDrawListContext);
 
-			check(!bRequiresPerElementVisibility);
-			uint64 BatchElementMask = ~0ull;
-			PassMeshProcessor->AddMeshBatch(*this, BatchElementMask, PrimitiveSceneInfo->Proxy);
-		
-			PassMeshProcessor->~FMeshPassProcessor();
+			if (PassMeshProcessor != nullptr)
+			{
+				check(!bRequiresPerElementVisibility);
+				uint64 BatchElementMask = ~0ull;
+				PassMeshProcessor->AddMeshBatch(*this, BatchElementMask, PrimitiveSceneInfo->Proxy);
+
+				PassMeshProcessor->~FMeshPassProcessor();
+			}
 		}
 	}
 }
@@ -442,14 +445,16 @@ void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
 			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
 			checkSlow(StateBucketId.IsValidId());
 			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
-
-			if (StateBucket.Num == 1)
+			if (CachedCommand.StateBucketId != -1)
 			{
-				Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
-			}
-			else
-			{
-				StateBucket.Num--;
+				if (StateBucket.Num == 1)
+				{
+					Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
+				}
+				else
+				{
+					StateBucket.Num--;
+				}
 			}
 		
 			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);

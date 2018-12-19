@@ -19,6 +19,13 @@ class FD3D12SegListAllocator;
 struct FD3D12GraphicsPipelineState;
 typedef FD3D12StateCacheBase FD3D12StateCache;
 
+#if D3D12_RHI_RAYTRACING
+class FD3D12RayTracingGeometry;
+class FD3D12RayTracingScene;
+class FD3D12RayTracingPipelineState;
+class FD3D12RayTracingShader;
+#endif // D3D12_RHI_RAYTRACING
+
 class FD3D12PendingResourceBarrier
 {
 public:
@@ -267,7 +274,20 @@ private:
 	void InitalizeResourceState(D3D12_RESOURCE_STATES InitialState)
 	{
 		SubresourceCount = GetMipLevels() * GetArraySize() * GetPlaneCount();
-		DetermineResourceStates();
+
+#if D3D12_RHI_RAYTRACING
+		if (InitialState == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			// Ray-tracing acceleration structure resources can never be transitioned out of their initial state.
+			bRequiresResourceStateTracking = false;
+			WritableState = InitialState;
+			ReadableState = InitialState;
+		}
+		else
+#endif // D3D12_RHI_RAYTRACING
+		{
+			DetermineResourceStates();
+		}
 
 		if (bRequiresResourceStateTracking)
 		{
@@ -544,7 +564,22 @@ private:
 
 class FD3D12DeferredDeletionQueue : public FD3D12AdapterChild
 {
-	typedef TPair<FD3D12Resource*, uint64> FencedObjectType;
+	enum class EObjectType
+	{
+		RHI,
+		D3D,
+	};
+
+	struct FencedObjectType
+	{
+		union
+		{
+			FD3D12Resource* RHIObject;
+			ID3D12Object*   D3DObject;
+		};
+		uint64 FenceValue;
+		EObjectType Type;
+	};
 	FThreadsafeQueue<FencedObjectType> DeferredReleaseQueue;
 
 public:
@@ -552,6 +587,7 @@ public:
 	inline const uint32 QueueSize() const { return DeferredReleaseQueue.GetSize(); }
 
 	void EnqueueResource(FD3D12Resource* pResource);
+	void EnqueueResource(ID3D12Object* pResource);
 
 	bool ReleaseResources(bool DeleteImmediately = false);
 
@@ -792,6 +828,33 @@ public:
 	FD3D12LockedResource LockedData;
 };
 
+template<class BufferType>
+inline void UpdateBufferStats(FD3D12ResourceLocation* ResourceLocation, bool bAllocating);
+
+template<>
+inline void UpdateBufferStats<FD3D12UniformBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_CONSTANT);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12VertexBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_VERTEX);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12IndexBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_INDEX);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12StructuredBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_STRUCTURED);
+}
+
 class FD3D12ResourceBarrierBatcher : public FNoncopyable
 {
 public:
@@ -979,3 +1042,26 @@ struct TD3D12ResourceTraits<FRHIStagingBuffer>
 	typedef FD3D12StagingBuffer TConcreteType;
 };
 
+
+#if D3D12_RHI_RAYTRACING
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingScene>
+{
+	typedef FD3D12RayTracingScene TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingGeometry>
+{
+	typedef FD3D12RayTracingGeometry TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingPipelineState>
+{
+	typedef FD3D12RayTracingPipelineState TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingShader>
+{
+	typedef FD3D12RayTracingShader TConcreteType;
+};
+#endif // D3D12_RHI_RAYTRACING

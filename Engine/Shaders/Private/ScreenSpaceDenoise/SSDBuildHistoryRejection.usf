@@ -1,0 +1,397 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+SSDReduce.usf:
+=============================================================================*/
+
+#include "../MonteCarlo.ush"
+#include "../TextureSampling.ush"
+#include "SSDSignalCore.ush"
+
+#define CONFIG_SIGNAL_PROCESSING SIGNAL_PROCESSING_PENUMBRA
+#include "SSDSignalInterface.ush"
+
+
+//------------------------------------------------------- CONFIGS
+
+#define TILE_PIXEL_SIZE 8
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_SIGNAL_RAW_INPUT_LAYOUT	SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT
+	#define CONFIG_SIGNAL_REDUCE_LAYOUT		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+	#define CONFIG_SIGNAL_OUTPUT_LAYOUT		SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
+
+#else
+	#error Unknown signal processing
+
+#endif 
+
+
+//------------------------------------------------------- PARAMETERS
+
+Texture2D RawSignalInput0;
+Texture2D RawSignalInput1;
+
+Texture2D ReducedSignal0;
+Texture2D ReducedSignal1;
+
+RWTexture2D<float4>	SignalOutput0;
+RWTexture2D<float4>	SignalOutput1;
+
+
+//------------------------------------------------------- LDS
+
+#define GROUP_SIZE ((TILE_PIXEL_SIZE) * (TILE_PIXEL_SIZE))
+
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+
+groupshared float4 SharedArray0[GROUP_SIZE];
+
+#endif // CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+
+
+//------------------------------------------------------- FUNCTIONS
+
+void SpatialAccumulation(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID,
+	uint2 GroupThreadId : SV_GroupThreadID,
+	uint GroupThreadIndex : SV_GroupIndex)
+{
+	// Find out scene buffer UV.
+	float2 SceneBufferUV = (DispatchThreadId + 0.5 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+	if (true)
+	{
+		SceneBufferUV = clamp(SceneBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+	}
+	float2 ViewportUV = BufferUVToViewportUV(SceneBufferUV);
+	float2 ScreenPosition = ViewportUVToScreenPos(ViewportUV);
+
+
+	// Read reference data.
+	FSSFSignalSample Accumulator = SampleInputSignal(ReducedSignal0, ReducedSignal1, GlobalPointClampedSampler, CONFIG_SIGNAL_REDUCE_LAYOUT, SceneBufferUV);
+	FSSFSampleSceneInfos CurrentSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
+
+	float CurrentWorldBluringRadius = ComputePixelWorldRadius(CurrentSceneMetadata);
+
+	float AccumulatorWeight = 1.0;
+
+	const int KernelRadius = 1;
+
+	// Apply the kernel
+	// TODO: per pixel stocastic important sampled one.
+	UNROLL
+	for (int x = -KernelRadius; x <= KernelRadius; x++)
+	UNROLL
+	for (int y = -KernelRadius; y <= KernelRadius; y++)
+	{
+		if (x == 0 && y == 0) continue;
+
+		// Compue sample coordinates
+		float2 NeighborBufferUV = SceneBufferUV + float2(x, y) * View.BufferSizeAndInvSize.zw;
+		if (1)
+		{
+			if (1 && any(NeighborBufferUV != clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
+			{
+				continue;
+			}
+
+			NeighborBufferUV = clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+		}
+		float2 SampleViewportUV = BufferUVToViewportUV(NeighborBufferUV);
+		float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
+
+		// Sample the neighborhood.
+		FSSFSignalSample NeighborSample = SampleInputSignal(ReducedSignal0, ReducedSignal1, GlobalPointClampedSampler, CONFIG_SIGNAL_REDUCE_LAYOUT, NeighborBufferUV);
+		FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, NeighborBufferUV);
+
+		float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborSceneMetadata);
+
+		// Compute the bilateral weight.
+		float BilateralWeight = ComputeBilateralWeight(
+			WorldBluringRadiusToBilateralWorldDistance(min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
+			CurrentSceneMetadata,
+			NeighborSceneMetadata);
+
+		// Compute the weight of the sample in the kernel.
+		float KernelWeight = 1;
+
+		// Compute the final weight of that sample.
+		float FinalWeight = BilateralWeight * KernelWeight;
+		
+		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
+	}
+
+	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
+
+	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Accumulator);
+}
+
+void BuildHistoryRejection(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID,
+	uint2 GroupThreadId : SV_GroupThreadID,
+	uint GroupThreadIndex : SV_GroupIndex,
+	FSSFTileInfos TileInfos,
+	bool bBruteForce)
+{
+	// Find out scene buffer UV.
+	float2 SceneBufferUV = (DispatchThreadId + 0.5 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+	if (true)
+	{
+		SceneBufferUV = clamp(SceneBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+	}
+	float2 ViewportUV = BufferUVToViewportUV(SceneBufferUV);
+	float2 ScreenPosition = ViewportUVToScreenPos(ViewportUV);
+
+	// Fetch input signal.
+	FSSFSignalSample InputSample;
+	FSSFSampleSceneInfos SceneMetadata;
+	{
+		InputSample = SampleInputSignal(
+			RawSignalInput0, RawSignalInput1,
+			GlobalPointClampedSampler,
+			CONFIG_SIGNAL_RAW_INPUT_LAYOUT,
+			SceneBufferUV);
+		SceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
+	}
+
+	float CurrentWorldBluringRadius = ComputePixelWorldRadius(SceneMetadata);
+
+	// Compute some derived information about the sample and store it to LDS.
+	{
+		float SignalWorldBlurRadius = GetSignalWorldBluringRadius(InputSample, SceneMetadata);
+		float SignalMipLevel = ComputeSignalMipLevel(SceneMetadata, SignalWorldBlurRadius);
+
+		SharedArray0[GroupThreadIndex] = float4(
+			SignalMipLevel,
+			SceneMetadata.WorldDepth,
+			0, 0);
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	float Shadow = 1.0;
+
+	UNROLL
+	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		//if (MipLevel != 0) continue;
+
+		const uint MipLevelPow2 = 1 << MipLevel;
+		
+		BRANCH
+		if (!TileInfos.bProcessMipLevel[MipLevel])
+		{
+			continue;
+		}
+
+		float ArrivingRayCount = 0;
+		float LeavingRayCount = 0;
+			
+		uint2 TopLeftGroupCoord = (GroupThreadId / MipLevelPow2) * MipLevelPow2;
+
+		// Sum all samples in the MipLevelPow2 subtile.
+		{
+			LOOP for (uint x = 0; x < MipLevelPow2; x++)
+			LOOP for (uint y = 0; y < MipLevelPow2; y++)
+			{
+				FSSFSampleSceneInfos NeighborMetadata;
+				float NeighborMipLevel;
+
+				{
+					uint2 SampleGroupPos = TopLeftGroupCoord + uint2(x, y);
+
+					float2 NeighborBufferUV = ((GroupId * TILE_PIXEL_SIZE + SampleGroupPos) + 0.5) * View.BufferSizeAndInvSize.zw;
+
+					float2 NeighborViewportUV = BufferUVToViewportUV(NeighborBufferUV);
+					float2 NeighborScreenPosition = ViewportUVToScreenPos(NeighborViewportUV);
+
+					// Access LDS.
+					{
+						uint LDSIndex = dot(SampleGroupPos, uint2(1, TILE_PIXEL_SIZE));
+
+						NeighborMipLevel = SharedArray0[LDSIndex].x;
+						float NeighborDepth = SharedArray0[LDSIndex].y;
+						float3 NeighborNormal = float3(0, 0, 1);
+
+						NeighborMetadata = InitSampleSceneInfos(
+							View.ScreenToTranslatedWorld,
+							NeighborScreenPosition, NeighborDepth, NeighborNormal);
+					}
+				}
+
+				float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborMetadata);
+
+				// Compute the bilateral weight.
+				float BilateralWeight = MipLevel == 0 ? 1 : ComputeBilateralWeight(
+					WorldBluringRadiusToBilateralWorldDistance(MipLevelPow2 * min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
+					SceneMetadata,
+					NeighborMetadata);
+
+				if (NeighborMipLevel != MIP_LEVEL_INVALID && BilateralWeight > 0)
+				{
+					const float AccumulatedSampleCount = 1;
+					float IsComingFromHigherMip = MipLevel == 0 ? 1.0 : saturate(NeighborMipLevel - (MipLevel - 1));
+					//float IsGoingToLowerMip = NeighborMipLevel == MIP_LEVEL_MISS ? 1 : 0;
+					float IsGoingToLowerMip = saturate(NeighborMipLevel - MipLevel);
+
+					ArrivingRayCount += AccumulatedSampleCount * IsComingFromHigherMip;
+					LeavingRayCount += AccumulatedSampleCount * IsComingFromHigherMip * IsGoingToLowerMip;
+				}
+			}
+		}
+
+		float FinalPenumbra = ArrivingRayCount > 0.0 ? LeavingRayCount / ArrivingRayCount : 1;
+
+		// Look neighbors.
+		if (MipLevel > 0 && 0)
+		{
+			// Determine on each axes whether the 2x2 kernel should be flipped.
+			bool FlipX;
+			bool FlipY;
+			if (MipLevel == 1)
+			{
+				FlipX = GroupThreadId.x & 0x1 == 0;
+				FlipY = GroupThreadId.y & 0x1 == 0;
+			}
+			else if (MipLevel == 2)
+			{
+				FlipX = GroupThreadId.x & 0x2 == 0;
+				FlipY = GroupThreadId.y & 0x2 == 0;
+			}
+			else // if (MipLevel == 3)
+			{
+				FlipX = GroupThreadId.x & 0x4 == 0;
+				FlipY = GroupThreadId.y & 0x4 == 0;
+			}
+
+			// Compute the center of the pixel coordinates of the output pixel and the top left pixel coordinate.
+			float2 TopLeftPixelCenterCoord = GroupId * TILE_PIXEL_SIZE + TopLeftGroupCoord + 0.5 * MipLevelPow2;
+			float2 PixelCenter = DispatchThreadId + 0.5;
+
+			// Compute the bilinear interpolator on the 2x2 kernel.
+			// TODO: could be simplified?
+			float2 BilinearInterp = abs(TopLeftPixelCenterCoord - PixelCenter) * rcp(MipLevelPow2);
+
+			float BilinearSampleWeights[4] = {
+				(1 - BilinearInterp.x) * (1 - BilinearInterp.y),
+				(BilinearInterp.x) * (1 - BilinearInterp.y),
+				(1 - BilinearInterp.x) * (BilinearInterp.y),
+				(BilinearInterp.x) * (BilinearInterp.y),
+			};
+
+			// The mip level of the subtile is necessarily in the kernel with a non zero weight.
+			float PenumbraSum = BilinearSampleWeights[0] * FinalPenumbra;
+			float PenumbraWeight = BilinearSampleWeights[0];
+
+			// Iterate over the 3 remainings samples.
+			UNROLL
+			for (uint SampleId = 1; SampleId < 4; SampleId++)
+			{
+				int2 TheoricOffset = MipLevelPow2 * BilinearSamplingOffsets2x2[SampleId];
+
+				int2 Offset = int2(
+					FlipX ? -TheoricOffset.x : TheoricOffset.x,
+					FlipY ? -TheoricOffset.y : TheoricOffset.y);
+
+				uint2 NeighborPixelPos = GroupId * TILE_PIXEL_SIZE + TopLeftGroupCoord + Offset;
+				uint2 NeighborGroupId = NeighborPixelPos / TILE_PIXEL_SIZE;
+
+				float2 NeighborBufferUV = (NeighborPixelPos + 0.5 * MipLevelPow2) * View.BufferSizeAndInvSize.zw;
+				float2 NeighborViewportUV = BufferUVToViewportUV(NeighborBufferUV);
+				float2 NeighborScreenPosition = ViewportUVToScreenPos(NeighborViewportUV);
+
+				// Loads the tile information related to the neighbor.
+				FSSFTileInfos NeighborTileInfos = LoadTileInfos(NeighborGroupId);
+
+				// Sample the neighborhood.
+				FSSFSignalSample NeighborSample = SampleInputSignal(
+					ReducedSignal0, ReducedSignal1,
+					GlobalPointClampedSampler,
+					CONFIG_SIGNAL_REDUCE_LAYOUT,
+					NeighborBufferUV, MipLevel);
+				FSSFSampleSceneInfos NeighborMetadata = FetchCurrentSceneInfos(NeighborScreenPosition, NeighborBufferUV);
+
+				float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborMetadata);
+
+				// Compute the bilateral weight of the sample.
+				float BilateralWeight = ComputeBilateralWeight(
+					WorldBluringRadiusToBilateralWorldDistance(MipLevelPow2 * min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
+					SceneMetadata,
+					NeighborMetadata);
+
+				// Compute the bilinear weight of the sample.
+				float BilinearWeight = BilinearSampleWeights[SampleId];
+
+				// Compute the final weight of the sample
+				float SampleWeight = (
+					BilateralWeight *
+					BilinearWeight *
+					(NeighborTileInfos.TileMode == TILE_MODE_FAST && NeighborTileInfos.bProcessMipLevel[MipLevel] ? 1 : 0));
+				
+				// Compute the penumbra of the sample.
+				float SamplePenumbra = GetSamplePenumbraSafe(NeighborSample);
+
+				// TODO: weight according to number of samples.				
+				//SampleWeight *= NeighborSample.AccumulatedSampleCount;
+
+				PenumbraSum += SampleWeight * SamplePenumbra;
+				PenumbraWeight += SampleWeight;
+			}
+
+			// PenumbraWeight is known to be > 0.
+			FinalPenumbra = PenumbraSum / PenumbraWeight;
+		} // if (MipLevel > 0)
+
+		Shadow *= FinalPenumbra;
+	} // for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+
+	FSSFSignalSample OutputSample = CreateSignalSample();
+	OutputSample.AccumulatedSampleCount = 1;
+	OutputSample.LeavingRayCount = Shadow * OutputSample.AccumulatedSampleCount;
+	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, OutputSample);
+}
+
+
+//------------------------------------------------------- ENTRY POINTS
+
+[numthreads(TILE_PIXEL_SIZE, TILE_PIXEL_SIZE, 1)]
+void MainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID,
+	uint2 GroupThreadId : SV_GroupThreadID,
+	uint GroupThreadIndex : SV_GroupIndex)
+{
+	FSSFTileInfos TileInfos = LoadTileInfos(GroupId);
+
+	BRANCH
+	if (TileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED ||
+		TileInfos.TileMode == TILE_MODE_FULLY_LIGHTED ||
+		TileInfos.TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		// TODO: DEBUG_WASTFUL_OUTPUT
+		// TODO: Not entirely right.
+		FSSFSignalSample Final = GetConstantSignalSample(TileInfos.TileMode);
+		OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Final);
+	}
+	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
+	{
+		BuildHistoryRejection(
+			DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex,
+			TileInfos,
+			/* bBruteForce = */ true);
+	}
+	else if (TileInfos.bProcessMipLevel[0]) // && TileInfos.TileMode == TILE_MODE_FAST)
+	{
+		SpatialAccumulation(
+			DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex);
+	}
+	else
+	{
+		// TODO: DEBUG_WASTFUL_OUTPUT
+		SpatialAccumulation(
+			DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex);
+	}
+}

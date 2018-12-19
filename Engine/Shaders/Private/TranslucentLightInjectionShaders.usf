@@ -133,8 +133,8 @@ void InjectMainPS(
 	#if RADIAL_ATTENUATION 
 	{
 		// cull voxels outside the light radius (value is < 0)
-		float3 LightVector = DeferredLightUniforms.LightPosition - WorldPosition;
-		clip(1.0f / (DeferredLightUniforms.LightInvRadius * DeferredLightUniforms.LightInvRadius) - dot(LightVector, LightVector));
+		float3 LightVector = DeferredLightUniforms.Position - WorldPosition;
+		clip(1.0f / (DeferredLightUniforms.InvRadius * DeferredLightUniforms.InvRadius) - dot(LightVector, LightVector));
 	}
 	#else
 	{
@@ -201,7 +201,7 @@ void InjectMainPS(
 		// Apply light function after edge fading, so that a light function which is modifying the light's brightness still works
 		ShadowFactor *= GetLightFunctionShadowFactor(WorldPositionForLighting);
 
-		float3 Lighting = DeferredLightUniforms.LightColor / PI * Attenuation * ShadowFactor;
+		float3 Lighting = DeferredLightUniforms.Color / PI * Attenuation * ShadowFactor;
 
 		FTwoBandSHVectorRGB SHLighting = MulSH(SHBasisFunction(NormalizedLightVector), Lighting);
 

@@ -147,6 +147,8 @@ void MemcpyBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& SrcBuf
 	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumFloat4s, FMemcpyBufferCS::ThreadGroupSize), 1, 1 );
 
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
+
+	RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, DstBuffer.UAV);
 }
 
 bool ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buffer, uint32 NumFloat4s)
@@ -266,7 +268,7 @@ void FScatterUploadBuilder::UploadTo(FRHICommandList& RHICmdList, FRWBufferStruc
 {
 	RHIUnlockVertexBuffer(ScatterBuffer.Buffer);
 	RHIUnlockVertexBuffer(UploadBuffer.Buffer);
-
+	
 	ScatterData = nullptr;
 	UploadData = nullptr;
 
@@ -283,6 +285,33 @@ void FScatterUploadBuilder::UploadTo(FRHICommandList& RHICmdList, FRWBufferStruc
 	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV);
 
 	RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(NumScatters, FScatterCopyCS::ThreadGroupSize), 1, 1);
+
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef());
+}
+
+void FScatterUploadBuilder::UploadTo_Flush(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer)
+{
+	RHIUnlockVertexBuffer(ScatterBuffer.Buffer);
+	RHIUnlockVertexBuffer(UploadBuffer.Buffer);
+
+	ScatterData = nullptr;
+	UploadData = nullptr;
+
+	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+
+	TShaderMapRef<FScatterCopyCS> ComputeShader(ShaderMap);
+
+	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
+	RHICmdList.SetComputeShader(ShaderRHI);
+
+	SetShaderValue(RHICmdList, ShaderRHI, ComputeShader->NumScatters, NumScatters);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->ScatterBuffer, ScatterBuffer.SRV);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->UploadBuffer, UploadBuffer.SRV);
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV);
+
+	RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(NumScatters, FScatterCopyCS::ThreadGroupSize), 1, 1);
+
+	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef());
 }

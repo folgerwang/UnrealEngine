@@ -22,6 +22,8 @@ class FRHIRenderTargetView;
 class FRHISetRenderTargetsInfo;
 struct FResolveParams;
 struct FViewportBounds;
+struct FRayTracingGeometryInstance;
+struct FRayTracingShaderBindings;
 enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
@@ -161,6 +163,12 @@ public:
 	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
 
 	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
+};
+
+struct FAccelerationStructureUpdateParams
+{
+	FRayTracingGeometryRHIParamRef Geometry;
+	FVertexBufferRHIParamRef VertexBuffer;
 };
 
 /** The interface RHI command context. Sometimes the RHI handles these. On platforms that can processes command lists in parallel, it is a separate object. */
@@ -646,6 +654,65 @@ public:
 				RHICopyToResolveTarget(SourceTexture, DestTexture, ResolveParams);
 			}
 		}
+	}
+
+	virtual void RHIBuildAccelerationStructure(FRayTracingGeometryRHIParamRef Geometry)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIUpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIBuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIBuildAccelerationStructure(FRayTracingSceneRHIParamRef Scene)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceOcclusion(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceIntersection(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+		const FRayTracingShaderBindings& GlobalResourceBindings,
+		uint32 Width, uint32 Height)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+		FRayTracingSceneRHIParamRef Scene, 
+		const FRayTracingShaderBindings& GlobalResourceBindings,
+		uint32 Width, uint32 Height)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHISetRayTracingHitGroup(
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
+		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
+		const FRayTracingShaderBindings& ResourceBindings)
+	{
+		checkNoEntry();
 	}
 
 	protected:

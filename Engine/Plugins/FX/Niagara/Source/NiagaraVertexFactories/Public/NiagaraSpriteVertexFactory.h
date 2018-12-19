@@ -57,6 +57,49 @@ END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 typedef TUniformBufferRef<FNiagaraSpriteUniformParameters> FNiagaraSpriteUniformBufferRef;
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraSpriteVFLooseParameters, NIAGARAVERTEXFACTORIES_API)
+	SHADER_PARAMETER(uint32, NumCutoutVerticesPerFrame)
+	SHADER_PARAMETER(uint32, NiagaraFloatDataOffset)
+	SHADER_PARAMETER(uint32, NiagaraFloatDataStride)
+	SHADER_PARAMETER(uint32, ParticleAlignmentMode)
+	SHADER_PARAMETER(uint32, ParticleFacingMode)
+	SHADER_PARAMETER(uint32, SortedIndicesOffset)
+	SHADER_PARAMETER_SRV(Buffer<float2>, CutoutGeometry)
+	SHADER_PARAMETER_SRV(Buffer<float>, NiagaraParticleDataFloat)
+	SHADER_PARAMETER_SRV(Buffer<int>, SortedIndices)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+typedef TUniformBufferRef<FNiagaraSpriteVFLooseParameters> FNiagaraSpriteVFLooseParametersRef;
+
+class FNiagaraNullSubUVCutoutVertexBuffer : public FVertexBuffer
+{
+public:
+	/**
+	 * Initialize the RHI for this rendering resource
+	 */
+	virtual void InitRHI() override
+	{
+		// create a static vertex buffer
+		FRHIResourceCreateInfo CreateInfo;
+		void* BufferData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(FVector2D) * 4, BUF_Static | BUF_ShaderResource, CreateInfo, BufferData);
+		FMemory::Memzero(BufferData, sizeof(FVector2D) * 4);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FVector2D), PF_G32R32F);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+	FShaderResourceViewRHIRef VertexBufferSRV;
+};
+
+extern NIAGARAVERTEXFACTORIES_API TGlobalResource<FNiagaraNullSubUVCutoutVertexBuffer> GFNiagaraNullSubUVCutoutVertexBuffer;
+
 /**
  * Vertex factory for rendering particle sprites.
  */
@@ -76,7 +119,9 @@ public:
 		FacingMode(0),
 		FloatDataOffset(0),
 		FloatDataStride(0),
-		SortedIndicesOffset(0)
+		SortedIndicesOffset(0),
+		LooseParameterUniformBuffer(nullptr)
+
 	{}
 
 	FNiagaraSpriteVertexFactory()
@@ -88,7 +133,8 @@ public:
 		FacingMode(0),
 		FloatDataOffset(0),
 		FloatDataStride(0),
-		SortedIndicesOffset(0)
+		SortedIndicesOffset(0),
+		LooseParameterUniformBuffer(nullptr)
 	{}
 
 	// FRenderResource interface.
@@ -200,6 +246,8 @@ public:
 	 * Construct shader parameters for this type of vertex factory.
 	 */
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
+
+	FUniformBufferRHIParamRef LooseParameterUniformBuffer;
 
 protected:
 	/** Initialize streams for this vertex factory. */

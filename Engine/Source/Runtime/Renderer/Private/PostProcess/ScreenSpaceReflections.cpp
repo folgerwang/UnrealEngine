@@ -132,7 +132,7 @@ FLinearColor ComputeSSRParams(const FRenderingCompositePassContext& Context, uin
 		else
 		{
 			// 8 aligns with the temporal smoothing, larger number will do more flickering (power of two for best performance)
-			FrameRandom = Context.ViewState->GetFrameIndexMod8() * 1551;
+			FrameRandom = Context.ViewState->GetFrameIndex(8) * 1551;
 		}
 	}
 

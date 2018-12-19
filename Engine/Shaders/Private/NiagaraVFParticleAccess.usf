@@ -8,6 +8,7 @@
 //uint NiagaraIntDataOffset;
 //uint NiagaraIntDataStride;
 
+#if !RAYHITGROUPSHADER && !COMPUTESHADER
 
 Buffer<float> NiagaraParticleDataFloat;
 uint NiagaraFloatDataOffset;
@@ -17,6 +18,15 @@ float GetFloat(int RegisterIdx, uint InstanceID)
 {
 	return NiagaraParticleDataFloat[NiagaraFloatDataOffset + (RegisterIdx * NiagaraFloatDataStride + InstanceID)];
 }
+
+#else
+
+float GetFloat(int RegisterIdx, uint InstanceID)
+{
+	return NiagaraSpriteVFLooseParameters.NiagaraParticleDataFloat[NiagaraSpriteVFLooseParameters.NiagaraFloatDataOffset + (RegisterIdx * NiagaraSpriteVFLooseParameters.NiagaraFloatDataStride + InstanceID)];
+}
+
+#endif
 
 float2 GetVec2(int RegisterIndex, uint InstanceID)
 {

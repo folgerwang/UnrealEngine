@@ -1,0 +1,19 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../DeferredShadingCommon.ush"
+
+Texture2D<float4> SkyLightTexture;
+Texture2D<float> HitDistanceTexture;
+
+SamplerState SkyLightTextureSampler;
+SamplerState HitDistanceTextureSampler;
+
+void CompositeSkyLightPS(
+	in noperspective float2 UV : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+)
+{
+	float4 SkyLight = SkyLightTexture.Sample(SkyLightTextureSampler, UV);
+	OutColor = float4(SkyLight.rgb, 1.0);
+}

@@ -1,0 +1,77 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+SSDOutput.usf: Output the denoising signal for external consumer
+=============================================================================*/
+
+#include "SSDSignalCore.ush"
+
+
+//------------------------------------------------------- CONFIGS
+
+#define TILE_PIXEL_SIZE 8
+
+
+//------------------------------------------------------- PARAMETERS
+
+Texture2D SignalInput0;
+Texture2D SignalInput1;
+
+RWTexture2D<float4>	DebugOutput0;
+RWTexture2D<float4>	DebugOutput1;
+
+
+//------------------------------------------------------- ENTRY POINTS
+
+[numthreads(TILE_PIXEL_SIZE, TILE_PIXEL_SIZE, 1)]
+void MainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID)
+{
+	// Find out scene buffer UV.
+	float2 SceneBufferUV = (DispatchThreadId + 0.5 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+
+	FSSFTileInfos TileInfos = LoadTileInfos(GroupId);
+
+	FSSFSignalSample Sample = SampleInputSignal(
+		SignalInput0, SignalInput1,
+		GlobalPointClampedSampler,
+		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL,
+		SceneBufferUV,
+		/* MipLevel = */ 0);
+
+	float4 TileMode = float4(0, 0, 0, 0);
+	BRANCH
+	if (TileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED)
+	{
+		TileMode = float4(1, 1, 0, 0); // yellow
+	}
+	else if (TileInfos.TileMode == TILE_MODE_FULLY_LIGHTED)
+	{
+		TileMode = float4(0, 1, 1, 0);
+	}
+	else if (TileInfos.TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		TileMode = float4(0, 1, 0, 0);
+	}
+	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
+	{
+		TileMode = float4(1, 0, 0, 0);
+	}
+	else
+	{
+		TileMode = float4(0, 0, 1, 0);
+	}
+
+	float4 LayerProcessing = float4(
+		TileInfos.bProcessMipLevel[0] ? 1 : 0,
+		TileInfos.bProcessMipLevel[1] ? 1 : 0,
+		TileInfos.bProcessMipLevel[2] ? 1 : 0,
+		TileInfos.bProcessMipLevel[3] ? 1 : 0);
+
+	if (all(DispatchThreadId < uint2(View.ViewSizeAndInvSize.xy)))
+	{
+		DebugOutput0[DispatchThreadId] = TileMode;
+		DebugOutput1[DispatchThreadId] = LayerProcessing;
+	}
+}

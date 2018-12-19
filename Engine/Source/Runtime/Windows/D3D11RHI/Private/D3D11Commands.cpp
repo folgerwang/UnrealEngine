@@ -1521,7 +1521,7 @@ void FD3D11DynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader)
 				FString ResourcesString;
 				for (int32 Index = 0; Index < BufferLayout.Resources.Num(); ++Index)
 				{
-					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index]);
+					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index].MemberType);
 				}
 				UE_LOG(LogD3D11RHI, Error, TEXT("Layout CB Size %d %d Resources: %s"), BufferLayout.ConstantBufferSize, BufferLayout.Resources.Num(), *ResourcesString);
 #else

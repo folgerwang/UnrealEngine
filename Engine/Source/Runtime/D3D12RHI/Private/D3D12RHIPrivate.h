@@ -25,6 +25,8 @@
 
 #define BATCH_COPYPAGEMAPPINGS 1
 
+#define D3D12_RHI_RAYTRACING (RHI_RAYTRACING)
+
 #ifndef WITH_DX_PERF
 #define WITH_DX_PERF 0
 #endif
@@ -85,6 +87,10 @@ typedef FD3D12StateCacheBase FD3D12StateCache;
   // allocations, so this is a good compromise (4KB reduced waste by 66% compared to 512KB)
   #define DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE (4 * 1024) 
   #define DEFAULT_BUFFER_POOL_SIZE (1 * 1024 * 1024)
+#elif D3D12_RHI_RAYTRACING
+  // #dxr_todo: Reevaluate these values. Currently optimized to reduce number of CreateCommitedResource() calls, at the expense of memory use.
+  #define DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE (8 * 1024 * 1024)
+  #define DEFAULT_BUFFER_POOL_SIZE (16 * 1024 * 1024)
 #else
   // On PC, buffers are 64KB aligned, so anything smaller should be sub-allocated
   #define DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE (64 * 1024)
@@ -211,6 +217,30 @@ public:
 		return static_cast<typename TD3D12ResourceTraits<TRHIType>::TConcreteType*>(Resource);
 	}
 
+	template<typename TRHIType>
+	static FORCEINLINE_DEBUGGABLE typename TD3D12ResourceTraits<TRHIType>::TConcreteType* ResourceCast(TRHIType* Resource, uint32 GPUIndex)
+	{
+#if !WITH_MGPU
+		return ResourceCast(Resource);
+#else
+		typename TD3D12ResourceTraits<TRHIType>::TConcreteType* Object = ResourceCast(Resource);
+		if (GNumExplicitGPUsForRendering > 1)
+		{
+			if (!Object)
+			{
+				return nullptr;
+			}
+
+			while (Object && Object->GetParentDevice()->GetGPUIndex() != GPUIndex)
+			{
+				Object = Object->GetNextObject();
+			}
+
+			check(Object);
+		}
+		return Object;
+#endif
+	}
 	
 	virtual FD3D12CommandContext* CreateCommandContext(FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool InIsDefaultContext, bool InIsAsyncComputeContext = false);
 	virtual ID3D12CommandQueue* CreateCommandQueue(FD3D12Device* Device, const D3D12_COMMAND_QUEUE_DESC& Desc);
@@ -426,6 +456,21 @@ public:
 	}
 
 	void RHICalibrateTimers() override;
+
+#if D3D12_RHI_RAYTRACING
+
+	virtual uint32 RHIGetRayTracingSupport() final override;
+
+	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer) final override;
+
+	virtual FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer) final override;
+
+	virtual FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure) final override;
+
+	virtual FRayTracingShaderRHIRef RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency) final override;
+	virtual FRayTracingPipelineStateRHIRef RHICreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer) final override;
+
+#endif //D3D12_RHI_RAYTRACING
 
 	bool IsQuadBufferStereoEnabled() const;
 	void DisableQuadBufferStereo();

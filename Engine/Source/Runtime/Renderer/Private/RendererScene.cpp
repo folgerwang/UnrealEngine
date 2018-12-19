@@ -54,6 +54,9 @@
 #include "GPUSkinCache.h"
 #include "DynamicShadowMapChannelBindingHelper.h"
 #include "GPUScene.h"
+#if RHI_RAYTRACING
+#include "RayTracing/RayTracingDynamicGeometryCollection.h"
+#endif
 
 // Enable this define to do slow checks for components being added to the wrong
 // world's scene, when using PIE. This can happen if a PIE component is reattached
@@ -129,7 +132,7 @@ FSceneViewState::FSceneViewState()
 	MIDUsedCount = 0;
 	TemporalAASampleIndex = 0;
 	TemporalAASampleCount = 1;
-	FrameIndexMod8 = 0;
+	FrameIndex = 0;
 	DistanceFieldTemporalSampleIndex = 0;
 	AOTileIntersectionResources = NULL;
 	AOScreenGridResources = NULL;
@@ -169,6 +172,21 @@ FSceneViewState::FSceneViewState()
 
 	PreExposure = 1.f;
 	bUpdateLastExposure = false;
+
+#if RHI_RAYTRACING
+	VarianceMipTreeDimensions = FIntVector(0);
+	VarianceMipTree = new FRWBuffer;
+
+	TotalRayCount = 0;
+	TotalRayCountBuffer = new FRWBuffer;
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		InitializeSceneViewStateRWBuffer,
+		FRWBuffer*, RWBufferPtr, TotalRayCountBuffer,
+		{
+			RWBufferPtr->Initialize(sizeof(uint32), 1, PF_R32_UINT);
+		}
+	);
+#endif
 }
 
 void DestroyRenderResource(FRenderResource* RenderResource)
@@ -186,6 +204,17 @@ void DestroyRenderResource(FRenderResource* RenderResource)
 	}
 }
 
+void DestroyRWBuffer(FRWBuffer* RWBuffer)
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		DestroyRWBuffer,
+		FRWBuffer*, RWBufferPtr, RWBuffer,
+		{
+			delete RWBufferPtr;
+		}
+	);
+}
+
 FSceneViewState::~FSceneViewState()
 {
 	CachedVisibilityChunk = NULL;
@@ -201,6 +230,11 @@ FSceneViewState::~FSceneViewState()
 	DestroyRenderResource(AOScreenGridResources);
 	AOScreenGridResources = NULL;
 	DestroyLightPropagationVolume();
+
+#if RHI_RAYTRACING
+	DestroyRWBuffer(VarianceMipTree);
+	DestroyRWBuffer(TotalRayCountBuffer);
+#endif // RHI_RAYTRACING
 }
 
 #if WITH_EDITOR
@@ -476,6 +510,7 @@ SIZE_T FScene::GetSizeBytes() const
 
 void FScene::CheckPrimitiveArrays()
 {
+	check(Primitives.Num() == PrimitiveTransforms.Num());
 	check(Primitives.Num() == PrimitiveSceneProxies.Num());
 	check(Primitives.Num() == PrimitiveBounds.Num());
 	check(Primitives.Num() == PrimitiveFlagsCompact.Num());
@@ -548,6 +583,7 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 	CheckPrimitiveArrays();
 
 	Primitives.Add(PrimitiveSceneInfo);
+	PrimitiveTransforms.Add(PrimitiveSceneInfo->Proxy->GetLocalToWorld());
 	PrimitiveSceneProxies.Add(PrimitiveSceneInfo->Proxy);
 	PrimitiveBounds.AddUninitialized();
 	PrimitiveFlagsCompact.AddUninitialized();
@@ -614,6 +650,7 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 				Primitives[SourceIndex]->PackedIndex = DestIndex;
 
 				TArraySwapElements(Primitives, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveTransforms, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveSceneProxies, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveBounds, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveFlagsCompact, DestIndex, SourceIndex);
@@ -690,19 +727,15 @@ FORCEINLINE static void VerifyProperPIEScene(UPrimitiveComponent* Component, UWo
 void FPersistentUniformBuffers::Initialize()
 {
 	FViewUniformShaderParameters ViewUniformBufferParameters;
-	DefaultInitializeUniformBufferResources(ViewUniformBufferParameters);
 	ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters DepthPassParameters;
-	DefaultInitializeUniformBufferResources(DepthPassParameters);
 	DepthPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(DepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FOpaqueBasePassUniformParameters BasePassParameters;
-	DefaultInitializeUniformBufferResources(BasePassParameters);
 	OpaqueBasePassUniformBuffer = TUniformBufferRef<FOpaqueBasePassUniformParameters>::CreateUniformBufferImmediate(BasePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FTranslucentBasePassUniformParameters TranslucentBasePassParameters;
-	DefaultInitializeUniformBufferResources(TranslucentBasePassParameters);
 	TranslucentBasePassUniformBuffer = TUniformBufferRef<FTranslucentBasePassUniformParameters>::CreateUniformBufferImmediate(TranslucentBasePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FReflectionCaptureShaderData ReflectionCaptureParameters;
@@ -711,64 +744,50 @@ void FPersistentUniformBuffers::Initialize()
 	CSMShadowDepthViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FShadowDepthPassUniformParameters CSMShadowDepthPassParameters;
-	DefaultInitializeUniformBufferResources(CSMShadowDepthPassParameters);
 	CSMShadowDepthPassUniformBuffer = TUniformBufferRef<FShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(CSMShadowDepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FDistortionPassUniformParameters DistortionPassParameters;
-	DefaultInitializeUniformBufferResources(DistortionPassParameters);
 	DistortionPassUniformBuffer = TUniformBufferRef<FDistortionPassUniformParameters>::CreateUniformBufferImmediate(DistortionPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters VelocityPassParameters;
-	DefaultInitializeUniformBufferResources(VelocityPassParameters);
 	VelocityPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(VelocityPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters HitProxyPassParameters;
-	DefaultInitializeUniformBufferResources(HitProxyPassParameters);
 	HitProxyPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(HitProxyPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters MeshDecalPassParameters;
-	DefaultInitializeUniformBufferResources(MeshDecalPassParameters);
 	MeshDecalPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(MeshDecalPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FLightmapDensityPassUniformParameters LightmapDensityPassParameters;
-	DefaultInitializeUniformBufferResources(LightmapDensityPassParameters);
 	LightmapDensityPassUniformBuffer = TUniformBufferRef<FLightmapDensityPassUniformParameters>::CreateUniformBufferImmediate(LightmapDensityPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FDebugViewModePassPassUniformParameters DebugViewModePassParameters;
-	DefaultInitializeUniformBufferResources(DebugViewModePassParameters);
 	DebugViewModePassUniformBuffer = TUniformBufferRef<FDebugViewModePassPassUniformParameters>::CreateUniformBufferImmediate(DebugViewModePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	VoxelizeVolumeViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FVoxelizeVolumePassUniformParameters VoxelizeVolumePassParameters;
-	DefaultInitializeUniformBufferResources(VoxelizeVolumePassParameters);
 	VoxelizeVolumePassUniformBuffer = TUniformBufferRef<FVoxelizeVolumePassUniformParameters>::CreateUniformBufferImmediate(VoxelizeVolumePassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters ConvertToUniformMeshPassParameters;
-	DefaultInitializeUniformBufferResources(ConvertToUniformMeshPassParameters);
 	ConvertToUniformMeshPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(ConvertToUniformMeshPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FSceneTexturesUniformParameters CustomDepthPassUniformBufferParameters;
-	DefaultInitializeUniformBufferResources(CustomDepthPassUniformBufferParameters);
 	CustomDepthPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(CustomDepthPassUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FMobileSceneTextureUniformParameters MobileCustomDepthPassUniformBufferParameters;
-	DefaultInitializeUniformBufferResources(MobileCustomDepthPassUniformBufferParameters);
 	MobileCustomDepthPassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(MobileCustomDepthPassUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	CustomDepthViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FMobileShadowDepthPassUniformParameters MobileCSMShadowDepthPassParameters;
-	DefaultInitializeUniformBufferResources(MobileCSMShadowDepthPassParameters);
 	MobileCSMShadowDepthPassUniformBuffer = TUniformBufferRef<FMobileShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(MobileCSMShadowDepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
 	FMobileBasePassUniformParameters MobileBasePassUniformParameters;
-	DefaultInitializeUniformBufferResources(MobileBasePassUniformParameters);
 	MobileOpaqueBasePassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(MobileBasePassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 	MobileTranslucentBasePassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(MobileBasePassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 	
 	FMobileDistortionPassUniformParameters MobileDistortionPassUniformParameters;
-	DefaultInitializeUniformBufferResources(MobileDistortionPassUniformParameters);
 	MobileDistortionPassUniformBuffer = TUniformBufferRef<FMobileDistortionPassUniformParameters>::CreateUniformBufferImmediate(MobileDistortionPassUniformParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 	
 	FMobileDirectionalLightShaderParameters MobileDirectionalLightShaderParameters = {};
@@ -780,7 +799,6 @@ void FPersistentUniformBuffers::Initialize()
 
 #if WITH_EDITOR
 	FSceneTexturesUniformParameters EditorSelectionPassParameters;
-	DefaultInitializeUniformBufferResources(EditorSelectionPassParameters);
 	EditorSelectionPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(EditorSelectionPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 #endif
 }
@@ -824,6 +842,9 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	NumMobileStaticAndCSMLights_RenderThread(0)
 ,	NumMobileMovableDirectionalLights_RenderThread(0)
 ,	GPUSkinCache(nullptr)
+#if RHI_RAYTRACING
+,	RayTracingDynamicGeometryCollection(nullptr)
+#endif
 ,	SceneLODHierarchy(this)
 ,	DefaultMaxDistanceFieldOcclusionDistance(InWorld->GetWorldSettings()->DefaultMaxDistanceFieldOcclusionDistance)
 ,	GlobalDistanceFieldViewDistance(InWorld->GetWorldSettings()->GlobalDistanceFieldViewDistance)
@@ -872,6 +893,13 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 		GPUSkinCache = new FGPUSkinCache(bRequiresMemoryLimit);
 	}
 
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		RayTracingDynamicGeometryCollection = new FRayTracingDynamicGeometryCollection();
+	}
+#endif
+
 	World->UpdateParameterCollectionInstances(false);
 
 	FPersistentUniformBuffers* PersistentUniformBuffers = &UniformBuffers;
@@ -910,6 +938,14 @@ FScene::~FScene()
 		delete GPUSkinCache;
 		GPUSkinCache = nullptr;
 	}
+
+#if RHI_RAYTRACING
+	if (RayTracingDynamicGeometryCollection)
+	{
+		delete RayTracingDynamicGeometryCollection;
+		RayTracingDynamicGeometryCollection = nullptr;
+	}
+#endif
 }
 
 void FScene::AddPrimitive(UPrimitiveComponent* Primitive)
@@ -1037,6 +1073,7 @@ void FScene::UpdatePrimitiveTransform_RenderThread(FRHICommandListImmediate& RHI
 	}
 	// Update the primitive transform.
 	PrimitiveSceneProxy->SetTransform(LocalToWorld, WorldBounds, LocalBounds, AttachmentRootPosition);
+	PrimitiveTransforms[PrimitiveSceneInfo->PackedIndex] = LocalToWorld;
 
 	if (!RHISupportsVolumeTextures(GetFeatureLevel())
 		&& (PrimitiveSceneProxy->IsMovable() || PrimitiveSceneProxy->NeedsUnbuiltPreviewLighting() || PrimitiveSceneProxy->GetLightmapType() == ELightmapType::ForceVolumetric))
@@ -1262,6 +1299,7 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 				Primitives[SourceIndex]->PackedIndex = DestIndex;
 
 				TArraySwapElements(Primitives, DestIndex, SourceIndex);
+				TArraySwapElements(PrimitiveTransforms, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveSceneProxies, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveBounds, DestIndex, SourceIndex);
 				TArraySwapElements(PrimitiveFlagsCompact, DestIndex, SourceIndex);
@@ -1291,6 +1329,7 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 		checkfSlow(Primitives[Primitives.Num() - 1] == PrimitiveSceneInfo, TEXT("Removed item should be at the end"));
 
 		Primitives.Pop();
+		PrimitiveTransforms.Pop();
 		PrimitiveSceneProxies.Pop();
 		PrimitiveBounds.Pop();
 		PrimitiveFlagsCompact.Pop();

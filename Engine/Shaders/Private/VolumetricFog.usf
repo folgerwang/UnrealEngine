@@ -203,11 +203,15 @@ void InjectShadowedLocalLightPS(
 	if (all(GridCoordinate < VolumetricFog.GridSizeInt))
 	{
 		FDeferredLightData LightData;
-		LightData.LightPositionAndInvRadius = float4(DeferredLightUniforms.LightPosition, DeferredLightUniforms.LightInvRadius);
-		LightData.LightColorAndFalloffExponent = float4(DeferredLightUniforms.LightColor, DeferredLightUniforms.LightFalloffExponent);
-		LightData.LightDirection = DeferredLightUniforms.NormalizedLightDirection;
-        LightData.LightTangent = DeferredLightUniforms.NormalizedLightTangent;
-		LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
+		LightData.Position = DeferredLightUniforms.Position;
+		LightData.InvRadius = DeferredLightUniforms.InvRadius;
+		LightData.Color = DeferredLightUniforms.Color;
+		LightData.FalloffExponent = DeferredLightUniforms.FalloffExponent;
+		LightData.Direction = DeferredLightUniforms.Direction;
+        LightData.Tangent = DeferredLightUniforms.Tangent;
+		LightData.SpotAngles = DeferredLightUniforms.SpotAngles;
+		LightData.SourceRadius = DeferredLightUniforms.SourceRadius;
+		LightData.SourceLength = DeferredLightUniforms.SourceLength;
         LightData.SoftSourceRadius = DeferredLightUniforms.SoftSourceRadius;
 		LightData.SpecularScale = DeferredLightUniforms.SpecularScale;
 		LightData.ContactShadowLength = abs(DeferredLightUniforms.ContactShadowLength);
@@ -218,7 +222,7 @@ void InjectShadowedLocalLightPS(
 
 		LightData.bInverseSquared = INVERSE_SQUARED_FALLOFF;
 		LightData.bRadialLight = true;
-		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
+		LightData.bSpotLight = LightData.SpotAngles.x > -2.0f;
 		LightData.bRectLight = false;
 
 		float VolumetricScatteringIntensity = DeferredLightUniforms.VolumetricScatteringIntensity;
@@ -256,22 +260,22 @@ void InjectShadowedLocalLightPS(
 			// Bias the inverse squared light falloff based on voxel size to prevent aliasing near the light source
 			float DistanceBias = max(CellRadius * InverseSquaredLightDistanceBiasScale, 1);
 
-			float3 LightColor = DeferredLightUniforms.LightColor;
+			float3 LightColor = DeferredLightUniforms.Color;
 			float LightMask = GetLocalLightAttenuation(WorldPosition, LightData, ToLight, L);
 
 			float Lighting;
 			if( LightData.bRectLight )
 			{
-				FRect Rect = GetRect( ToLight, LightData );
+				FRect Rect = GetRect(ToLight, LightData);
 
-				Lighting = IntegrateLight( Rect );
+				Lighting = IntegrateLight(Rect, DeferredLightUniforms.SourceTexture);
 			}
 			else
 			{
-				FCapsuleLight Capsule = GetCapsule( ToLight, LightData );
-				Capsule.DistBiasSqr = Pow2( DistanceBias );
+				FCapsuleLight Capsule = GetCapsule(ToLight, LightData);
+				Capsule.DistBiasSqr = Pow2(DistanceBias);
 
-				Lighting = IntegrateLight( Capsule, LightData.bInverseSquared );
+				Lighting = IntegrateLight(Capsule, LightData.bInverseSquared);
 			}
 
 			float CombinedAttenuation = Lighting * LightMask;
@@ -285,7 +289,7 @@ void InjectShadowedLocalLightPS(
 			OutScattering.rgb += LightColor * (PhaseFunction(PhaseG, dot(L, -CameraVector)) * CombinedAttenuation * ShadowFactor * VolumetricScatteringIntensity);
 				
 			// To debug culling
-			//OutScattering.rgb += DeferredLightUniforms.LightColor * .0000001f;
+			//OutScattering.rgb += DeferredLightUniforms.Color * .0000001f;
 		}
 
 		OutScattering.rgb /= (float)NumSuperSamples;
@@ -572,18 +576,21 @@ void LightScatteringCS(
 			if (VolumetricScatteringIntensity > 0)
 			{
 				FDeferredLightData LightData = (FDeferredLightData)0;
-				LightData.LightPositionAndInvRadius = LocalLight.LightPositionAndInvRadius;
-				LightData.LightColorAndFalloffExponent = LocalLight.LightColorAndFalloffExponent;
-				LightData.LightDirection = LocalLight.LightDirectionAndShadowMask.xyz;
-				float SourceLength = f16tof32(asuint(LocalLight.SpotAnglesAndSourceRadiusPacked.w));
-				LightData.SpotAnglesAndSourceRadius = float4(LocalLight.SpotAnglesAndSourceRadiusPacked.xyz, SourceLength);
-                LightData.LightTangent = LocalLight.LightTangentAndSoftSourceRadius.xyz;
+				LightData.Position = LocalLight.LightPositionAndInvRadius.xyz;
+				LightData.InvRadius = LocalLight.LightPositionAndInvRadius.w;
+				LightData.Color = LocalLight.LightColorAndFalloffExponent.xyz;
+				LightData.FalloffExponent = LocalLight.LightColorAndFalloffExponent.w;
+				LightData.Direction = LocalLight.LightDirectionAndShadowMask.xyz;
+				LightData.SpotAngles = LocalLight.SpotAnglesAndSourceRadiusPacked.xy;
+				LightData.SourceRadius = LocalLight.SpotAnglesAndSourceRadiusPacked.z;
+				LightData.SourceLength = f16tof32(asuint(LocalLight.SpotAnglesAndSourceRadiusPacked.w));
+                LightData.Tangent = LocalLight.LightTangentAndSoftSourceRadius.xyz;
                 LightData.SoftSourceRadius = LocalLight.LightTangentAndSoftSourceRadius.w;
-				LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+				LightData.bInverseSquared = LightData.FalloffExponent == 0;
 				LightData.bRadialLight = true;
-				LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
+				LightData.bSpotLight = LightData.SpotAngles.x > -2.0f;
 
-				float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
+				float3 LightColor = LightData.Color;
 
 				float3 L = 0;
 				float3 ToLight = 0;
@@ -594,14 +601,14 @@ void LightScatteringCS(
 				{
 					FRect Rect = GetRect( ToLight, LightData );
 
-					Lighting = IntegrateLight( Rect );
+					Lighting = IntegrateLight(Rect, DeferredLightUniforms.SourceTexture);
 				}
 				else
 				{
-					FCapsuleLight Capsule = GetCapsule( ToLight, LightData );
+					FCapsuleLight Capsule = GetCapsule(ToLight, LightData);
 					Capsule.DistBiasSqr = DistanceBiasSqr;
 
-					Lighting = IntegrateLight( Capsule, LightData.bInverseSquared );
+					Lighting = IntegrateLight(Capsule, LightData.bInverseSquared);
 				}
 
 				float CombinedAttenuation = Lighting * LightMask;

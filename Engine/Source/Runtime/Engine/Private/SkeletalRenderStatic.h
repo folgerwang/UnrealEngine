@@ -34,6 +34,7 @@ public:
 	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex, int32 ChunkIdx) const override;
 	virtual TArray<FTransform>* GetComponentSpaceTransforms() const override;
 	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
+
 	virtual int32 GetLOD() const override
 	{
 		return WorkingMinDesiredLODLevel;
@@ -69,6 +70,11 @@ private:
 		/** Color buffer to user, could be from asset or component override */
 		FColorVertexBuffer* ColorVertexBuffer;
 
+#if RHI_RAYTRACING
+		/** Geometry for ray tracing. */
+		FRayTracingGeometry RayTracingGeometry;
+#endif // RHI_RAYTRACING
+
 		/** true if resources for this LOD have already been initialized. */
 		bool bResourcesInitialized;
 
@@ -94,6 +100,11 @@ private:
  		{
 			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
  		}
+
+#if RHI_RAYTRACING
+		/** Builds ray tracing acceleration structures per LOD. */
+		void BuildRayTracingAccelerationStructure();
+#endif // RHI_RAYTRACING
 	};
 
 	/** Render data for each LOD */

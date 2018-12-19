@@ -522,6 +522,7 @@ private:
 extern void TrackGPUProgress(FRHICommandListImmediate& RHICmdList, uint32 DebugId);
 
 extern bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
+extern bool ShouldRenderRayTracingDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
 
 extern void CullObjectsToView(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, const FDistanceFieldAOParameters& Parameters, FDistanceFieldObjectBufferResource& CulledObjectBuffers);
 extern void BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);

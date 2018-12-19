@@ -219,8 +219,8 @@ void UpdateGPUScene(FRHICommandList& RHICmdList, FScene& Scene)
 			{
 				RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, Scene.GPUScene.PrimitiveBuffer.UAV);
 			}
-
-			PrimitivesUploadBuilder.UploadTo(RHICmdList, Scene.GPUScene.PrimitiveBuffer);
+			
+			PrimitivesUploadBuilder.UploadTo_Flush(RHICmdList, Scene.GPUScene.PrimitiveBuffer);
 
 			RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, Scene.GPUScene.PrimitiveBuffer.UAV);
 
@@ -317,7 +317,7 @@ void UploadDynamicPrimitiveShaderDataForView(FRHICommandList& RHICmdList, FScene
 
 		// Copy scene primitive data into view primitive data
 		MemcpyBuffer(RHICmdList, Scene.GPUScene.PrimitiveBuffer, ViewPrimitiveShaderDataBuffer, Scene.Primitives.Num() * FPrimitiveSceneShaderData::PrimitiveDataStrideInFloat4s);
-
+		
 		const int32 NumPrimitiveDataUploads = View.DynamicPrimitiveShaderData.Num();
 
 		// Append View.DynamicPrimitiveShaderData to the end of the view primitive data buffer

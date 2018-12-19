@@ -670,14 +670,14 @@ public:
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GAOCulledObjectBuffers.Buffers);
 		SurfelParameters.Set(RHICmdList, ShaderRHI, *Scene->DistanceFieldSceneData.SurfelBuffers, *Scene->DistanceFieldSceneData.InstancedSurfelBuffers);
 
-		FLightParameters LightParameters;
+		FLightShaderParameters LightParameters;
+		LightSceneProxy->GetLightShaderParameters(LightParameters);
 
-		LightSceneProxy->GetParameters(LightParameters);
-
-		SetShaderValue(RHICmdList, ShaderRHI, LightDirection, LightParameters.NormalizedLightDirection);
-		SetShaderValue(RHICmdList, ShaderRHI, LightPositionAndInvRadius, LightParameters.LightPositionAndInvRadius);
+		SetShaderValue(RHICmdList, ShaderRHI, LightDirection, LightParameters.Direction);
+		FVector4 LightPositionAndInvRadiusValue(LightParameters.Position, LightParameters.InvRadius);
+		SetShaderValue(RHICmdList, ShaderRHI, LightPositionAndInvRadius, LightPositionAndInvRadiusValue);
 		// Default light source radius of 0 gives poor results
-		SetShaderValue(RHICmdList, ShaderRHI, LightSourceRadius, LightParameters.LightSourceRadius == 0 ? 20 : FMath::Clamp(LightParameters.LightSourceRadius, .001f, 1.0f / (4 * LightParameters.LightPositionAndInvRadius.W)));
+		SetShaderValue(RHICmdList, ShaderRHI, LightSourceRadius, LightParameters.SourceRadius == 0 ? 20 : FMath::Clamp(LightParameters.SourceRadius, .001f, 1.0f / (4 * LightParameters.InvRadius)));
 
 		const float LightSourceAngle = FMath::Clamp(LightSceneProxy->GetLightSourceAngle(), 0.001f, 5.0f) * PI / 180.0f;
 		const FVector2D TanLightAngleAndNormalThresholdValue(FMath::Tan(LightSourceAngle), FMath::Cos(PI / 2 + LightSourceAngle));

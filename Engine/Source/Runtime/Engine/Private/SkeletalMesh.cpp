@@ -3694,6 +3694,8 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 			const FSceneView* View = Views[ViewIndex];
 
 			FMeshBatch& Mesh = Collector.AllocateMesh();
+			Mesh.SegmentIndex = SectionIndex;
+
 			FMeshBatchElement& BatchElement = Mesh.Elements[0];
 			Mesh.LCI = NULL;
 			Mesh.bWireframe |= bForceWireframe;
@@ -3809,6 +3811,24 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 		}
 	}
 }
+
+#if RHI_RAYTRACING
+FRayTracingGeometryRHIRef FSkeletalMeshSceneProxy::GetRayTracingGeometryInstance(int LodLevel) const
+{
+	if (MeshObject->GetRayTracingGeometry())
+	{
+		// #dxr: the only case where RayTracingGeometryRHI is invalid is the very first frame - if that's not the case we have a bug somewhere else
+		if (MeshObject->GetRayTracingGeometry()->RayTracingGeometryRHI.IsValid())
+		{
+			check(MeshObject->GetRayTracingGeometry()->Initializer.PositionVertexBuffer.IsValid());
+			check(MeshObject->GetRayTracingGeometry()->Initializer.IndexBuffer.IsValid());
+			return MeshObject->GetRayTracingGeometry()->RayTracingGeometryRHI;
+		}
+	}
+
+	return nullptr;
+}
+#endif // RHI_RAYTRACING
 
 SIZE_T FSkeletalMeshSceneProxy::GetTypeHash() const
 {

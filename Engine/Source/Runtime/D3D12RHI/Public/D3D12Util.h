@@ -91,6 +91,13 @@ enum EShaderVisibility
 	SV_ShaderVisibilityCount
 };
 
+enum ERTRootSignatureType
+{
+	RS_Raster,
+	RS_RayTracingGlobal,
+	RS_RayTracingLocal,
+};
+
 struct FShaderRegisterCounts
 {
 	uint8 SamplerCount;
@@ -102,6 +109,7 @@ struct FShaderRegisterCounts
 struct FD3D12QuantizedBoundShaderState
 {
 	FShaderRegisterCounts RegisterCounts[SV_ShaderVisibilityCount];
+	ERTRootSignatureType RootSignatureType = RS_Raster;
 	bool bAllowIAInputLayout;
 
 	inline bool operator==(const FD3D12QuantizedBoundShaderState& RHS) const
@@ -122,14 +130,21 @@ class FD3D12BoundShaderState;
 extern void QuantizeBoundShaderState(
 	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
 	const FD3D12BoundShaderState* const BSS,
-	FD3D12QuantizedBoundShaderState &QBSS
-	);
+	FD3D12QuantizedBoundShaderState &OutQBSS);
 
 class FD3D12ComputeShader;
 extern void QuantizeBoundShaderState(
 	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
 	const FD3D12ComputeShader* const ComputeShader,
-	FD3D12QuantizedBoundShaderState &QBSS);
+	FD3D12QuantizedBoundShaderState &OutQBSS);
+
+#if D3D12_RHI_RAYTRACING
+class FD3D12RayTracingShader;
+extern void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12RayTracingShader* const Shader,
+	FD3D12QuantizedBoundShaderState &OutQBSS);
+#endif
 
 /**
 * Convert from ECubeFace to D3DCUBEMAP_FACES type

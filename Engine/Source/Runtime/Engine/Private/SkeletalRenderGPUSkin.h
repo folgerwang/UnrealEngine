@@ -275,6 +275,13 @@ public:
 	virtual TArray<FTransform>* GetComponentSpaceTransforms() const override;
 	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
 
+#if RHI_RAYTRACING
+	/** Geometry for ray tracing. */
+	FRayTracingGeometry RayTracingGeometry;
+
+	virtual const FRayTracingGeometry* GetRayTracingGeometry() const { return &RayTracingGeometry; }
+#endif // RHI_RAYTRACING
+
 	virtual int32 GetLOD() const override
 	{
 		if(DynamicData)

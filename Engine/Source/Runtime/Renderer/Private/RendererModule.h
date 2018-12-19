@@ -33,6 +33,9 @@ public:
 	FRendererModule();
 	virtual bool SupportsDynamicReloading() override { return true; }
 
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+
 	virtual void BeginRenderingViewFamily(FCanvas* Canvas,FSceneViewFamily* ViewFamily) override;
 	virtual void CreateAndInitSingleView(FRHICommandListImmediate& RHICmdList, class FSceneViewFamily* ViewFamily, const struct FSceneViewInitOptions* ViewInitOptions) override;
 	virtual FSceneInterface* AllocateScene(UWorld* World, bool bInRequiresHitProxies, bool bCreateFXSystem, ERHIFeatureLevel::Type InFeatureLevel) override;

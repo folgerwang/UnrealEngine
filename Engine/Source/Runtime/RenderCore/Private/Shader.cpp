@@ -390,6 +390,57 @@ void FShaderType::Uninitialize()
 
 TMap<FShaderResourceId, FShaderResource*> FShaderResource::ShaderResourceIdMap;
 
+#if RHI_RAYTRACING
+uint32 FShaderResource::GlobalMaxIndex = 0;
+TArray<uint32> FShaderResource::GlobalUnusedIndicies;
+TMap<uint32, FRHIRayTracingShader*> FShaderResource::GlobalRayTracingMaterialLibrary;
+FCriticalSection FShaderResource::GlobalRayTracingMaterialLibraryCS;
+
+void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+	RayTracingMaterials.Reset();
+	RayTracingMaterials.AddUninitialized(GlobalMaxIndex);
+
+	for (const auto Entry : GlobalRayTracingMaterialLibrary)
+	{
+		RayTracingMaterials[Entry.Key] = FRayTracingHitGroupInitializer{ Entry.Value };
+	}
+
+	for (uint32 Index : GlobalUnusedIndicies)
+	{
+		RayTracingMaterials[Index] = FRayTracingHitGroupInitializer();
+	}
+}
+
+uint32 FShaderResource::AddToRayTracingLibrary(FRHIRayTracingShader* Shader)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+
+	if (GlobalUnusedIndicies.Num() != 0)
+	{
+		uint32 Index = GlobalUnusedIndicies.Pop(false);
+		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
+		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
+		return Index;
+	}
+	else
+	{
+		uint32 Index = GlobalMaxIndex++;
+		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
+		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
+		return Index;
+	}
+}
+
+void FShaderResource::RemoveFromRayTracingLibrary(uint32 Index)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+	GlobalUnusedIndicies.Push(Index);
+	GlobalRayTracingMaterialLibrary.Remove(Index);
+}
+#endif
+
 FShaderResource::FShaderResource()
 	: SpecificType(NULL)
 	, SpecificPermutationId(0)
@@ -881,6 +932,17 @@ void FShaderResource::InitRHI()
 		Shader = FShaderCodeLibrary::CreateComputeShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		UE_CLOG((bCodeInSharedLocation && !IsValidRef(Shader)), LogShaders, Fatal, TEXT("FShaderResource::SerializeShaderCode can't find shader code for: [%s]"), *LegacyShaderPlatformToShaderFormat((EShaderPlatform)Target.Platform).ToString());
 	}
+#if RHI_RAYTRACING
+	else if (Target.Frequency == SF_RayGen || Target.Frequency == SF_RayMiss || Target.Frequency == SF_RayHitGroup)
+	{
+		RayTracingShader = RHICreateRayTracingShader(UncompressedCode, Target.GetFrequency());
+		UE_CLOG((bCodeInSharedLocation && !IsValidRef(RayTracingShader)), LogShaders, Fatal, TEXT("FShaderResource::SerializeShaderCode can't find shader code for: [%s]"), *LegacyShaderPlatformToShaderFormat((EShaderPlatform)Target.Platform).ToString());
+	}
+#endif // RHI_RAYTRACING
+	else
+	{
+		checkNoEntry(); // Unexpected shader target frequency
+	}
 
 	if (Target.Frequency != SF_Geometry)
 	{
@@ -914,7 +976,19 @@ void FShaderResource::ReleaseRHI()
 {
 	DEC_DWORD_STAT_BY(STAT_Shaders_NumShadersUsedForRendering, 1);
 
+#if RHI_RAYTRACING
+	if (IsInitialized() && Target.Frequency == SF_RayHitGroup)
+	{
+		RemoveFromRayTracingLibrary(RayTracingMaterialLibraryIndex);
+		RayTracingMaterialLibraryIndex = UINT_MAX;
+	}
+#endif
+
 	Shader.SafeRelease();
+
+#if RHI_RAYTRACING
+	RayTracingShader.SafeRelease();
+#endif // RHI_RAYTRACING
 }
 
 void FShaderResource::InitializeShaderRHI() 
@@ -930,6 +1004,13 @@ void FShaderResource::InitializeShaderRHI()
 		}
 
 		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
+
+#if RHI_RAYTRACING
+		if (Target.Frequency == SF_RayHitGroup)
+		{
+			RayTracingMaterialLibraryIndex = AddToRayTracingLibrary(GetRayTracingShader());
+		}
+#endif
 	}
 
 	checkSlow(IsInitialized());

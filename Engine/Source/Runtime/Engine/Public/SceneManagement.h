@@ -26,6 +26,10 @@
 #include "MeshBatch.h"
 #include "SceneUtils.h"
 
+#ifndef ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND // RHI_RAYTRACING
+#define ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND	1
+#endif
+
 class FCanvas;
 class FLightMap;
 class FLightmapResourceCluster;
@@ -192,9 +196,6 @@ public:
 	virtual void SetSequencerState(const bool bIsPaused) = 0;
 
 	virtual bool GetSequencerState() = 0;
-
-	//
-	virtual uint32 GetFrameIndexMod8() const = 0;
 
 	/** Returns the current PreExposure value. PreExposure is a custom scale applied to the scene color to prevent buffer overflow. */
 	virtual float GetPreExposure() const = 0;
@@ -1020,21 +1021,74 @@ public:
 	float OcclusionExponent;
 	float MinOcclusion;
 	FLinearColor OcclusionTint;
+
+#if RHI_RAYTRACING
+	bool IsDirtyImportanceSamplingData;
+	bool ShouldRebuildCdf() const;
+
+	FRWBuffer RowCdf;
+	FRWBuffer ColumnCdf;
+	FRWBuffer CubeFaceCdf;
+
+	FRWBuffer SkyLightMipTreePosX;
+	FRWBuffer SkyLightMipTreeNegX;
+	FRWBuffer SkyLightMipTreePosY;
+	FRWBuffer SkyLightMipTreeNegY;
+	FRWBuffer SkyLightMipTreePosZ;
+	FRWBuffer SkyLightMipTreeNegZ;
+	FIntVector SkyLightMipDimensions;
+
+	FRWBuffer SkyLightMipTreePdfPosX;
+	FRWBuffer SkyLightMipTreePdfNegX;
+	FRWBuffer SkyLightMipTreePdfPosY;
+	FRWBuffer SkyLightMipTreePdfNegY;
+	FRWBuffer SkyLightMipTreePdfPosZ;
+	FRWBuffer SkyLightMipTreePdfNegZ;
+	FRWBuffer SolidAnglePdf;
+#endif
 };
 
-struct FLightParameters
-{
-	FVector4	LightPositionAndInvRadius;
-	FVector4	LightColorAndFalloffExponent;
-	FVector		NormalizedLightDirection;
-	FVector		NormalizedLightTangent;
-	FVector2D	SpotAngles;
-	float		SpecularScale;
-	float		LightSourceRadius;
-	float		LightSoftSourceRadius;
-	float		LightSourceLength;
-	FTexture*	SourceTexture;
-};
+
+/** Shader paraneter structure for rendering lights. */
+BEGIN_SHADER_PARAMETER_STRUCT(FLightShaderParameters, ENGINE_API)
+	// Position of the light in the world space.
+	SHADER_PARAMETER(FVector, Position)
+
+	// 1 / light's falloff radius from Position.
+	SHADER_PARAMETER(float, InvRadius)
+
+	// Color of the light.
+	SHADER_PARAMETER(FVector, Color)
+
+	// The exponent for the falloff of the light intensity from the distance.
+	SHADER_PARAMETER(float, FalloffExponent)
+
+	// Direction of the light if applies.
+	SHADER_PARAMETER(FVector, Direction)
+
+	// Factor to applies on the specular.
+	SHADER_PARAMETER(float, SpecularScale)
+
+	// One tangent of the light if applies.
+	// Note: BiTangent is on purpose not stored for memory optimisation purposes.
+	SHADER_PARAMETER(FVector, Tangent)
+
+	// Radius of the point light.
+	SHADER_PARAMETER(float, SourceRadius)
+
+	// Dimensions of the light, for spot light, but also
+	SHADER_PARAMETER(FVector2D, SpotAngles)
+
+	// Radius of the soft source.
+	SHADER_PARAMETER(float, SoftSourceRadius)
+
+	// Other dimensions of the light source for rect light specifically.
+	SHADER_PARAMETER(float, SourceLength)
+
+	// Texture of the rect light.
+	SHADER_PARAMETER_TEXTURE(Texture2D, SourceTexture)
+END_SHADER_PARAMETER_STRUCT()
+
 
 /** 
  * Encapsulates the data which is used to render a light by the rendering thread. 
@@ -1085,7 +1139,7 @@ public:
 	}
 
 	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FLightParameters& LightParameters) const {}
+	virtual void GetLightShaderParameters(FLightShaderParameters& PathTracingLightParameters) const {}
 
 	virtual FVector2D GetDirectionalLightDistanceFadeParameters(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid, int32 MaxNearCascades) const
 	{
@@ -2582,12 +2636,24 @@ struct FLODMask
 		return DitheredLODIndices[0] == LODIndex || DitheredLODIndices[1] == LODIndex;
 	}
 
+	//#dxr_todo  We should probably add both LoDs but mask them based on their 
+	//LodFace value within the BVH based on the LodFadeMask in the GBuffer
+	bool ContainsRayTracedLOD(int32 LODIndex) const
+	{
+		return DitheredLODIndices[0] == LODIndex;
+	}
+
+	int8 GetRayTracedLOD()
+	{
+		return DitheredLODIndices[0];
+	}
+
 	bool IsDithered() const
 	{
 		return DitheredLODIndices[0] != DitheredLODIndices[1];
 	}
 };
-FLODMask ENGINE_API ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale = 1.0f);
+FLODMask ENGINE_API ComputeLODForMeshes(const TArray<float>& ScreenSizes, bool bDitheredLODTransition, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale = 1.0f);
 
 class FSharedSamplerState : public FRenderResource
 {

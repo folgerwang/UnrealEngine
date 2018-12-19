@@ -418,6 +418,10 @@ public:
 	virtual uint32 GetFrameNumber() const { return 0; }
 	virtual void IncrementFrameNumber() {}
 
+#if RHI_RAYTRACING
+	virtual class FRayTracingDynamicGeometryCollection* GetRayTracingDynamicGeometryCollection() { return nullptr; }
+#endif
+
 protected:
 	virtual ~FSceneInterface() {}
 

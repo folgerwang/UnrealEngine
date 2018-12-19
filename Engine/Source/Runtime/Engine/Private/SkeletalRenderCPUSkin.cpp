@@ -332,6 +332,54 @@ void FSkeletalMeshObjectCPUSkin::FSkeletalMeshObjectLOD::InitResources(FSkelMesh
 			VertexFactoryPtr->InitResource();
 		});
 
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		check(SkelMeshRenderData);
+		check(SkelMeshRenderData->LODRenderData.IsValidIndex(LODIndex));
+		FSkeletalMeshLODRenderData& LODModel = SkelMeshRenderData->LODRenderData[LODIndex];
+		FVertexBufferRHIRef VertexBufferRHI = LODModel.StaticVertexBuffers.PositionVertexBuffer.VertexBufferRHI;
+		FIndexBufferRHIRef IndexBufferRHI = LODModel.MultiSizeIndexContainer.GetIndexBuffer()->IndexBufferRHI;
+		uint32 VertexBufferStride = LODModel.StaticVertexBuffers.PositionVertexBuffer.GetStride();
+
+		//#dxr_todo: do we need support for separate sections in FRayTracingGeometryData?
+		uint32 TrianglesCount = 0;
+		for (int32 SectionIndex = 0; SectionIndex < LODModel.RenderSections.Num(); SectionIndex++)
+		{
+			const FSkelMeshRenderSection& Section = LODModel.RenderSections[SectionIndex];
+			TrianglesCount += Section.NumTriangles;
+		}
+
+		TArray<FSkelMeshRenderSection>* RenderSections = &LODModel.RenderSections;
+		ENQUEUE_RENDER_COMMAND(InitSkeletalRenderCPUSkinRayTracingGeometry)(
+			[this, VertexBufferRHI, IndexBufferRHI, VertexBufferStride, TrianglesCount, RenderSections](FRHICommandListImmediate& RHICmdList)
+			{
+				FRayTracingGeometryInitializer Initializer;
+				Initializer.PositionVertexBuffer = VertexBufferRHI;
+				Initializer.IndexBuffer = IndexBufferRHI;
+				Initializer.BaseVertexIndex = 0;
+				Initializer.VertexBufferStride = VertexBufferStride;
+				Initializer.VertexBufferByteOffset = 0;
+				Initializer.TotalPrimitiveCount = TrianglesCount;
+				Initializer.VertexBufferElementType = VET_Float3;
+				Initializer.PrimitiveType = PT_TriangleList;
+				Initializer.bFastBuild = true;
+
+				TArray<FRayTracingGeometrySegment> GeometrySections;
+				GeometrySections.Reserve(RenderSections->Num());
+				for (const FSkelMeshRenderSection& Section : *RenderSections)
+				{
+					GeometrySections.Add(FRayTracingGeometrySegment{ Section.BaseIndex / 3, Section.NumTriangles });
+				}
+				Initializer.Segments = GeometrySections;
+
+				RayTracingGeometry.SetInitializer(Initializer);
+				RayTracingGeometry.InitResource();
+			}
+		);
+	}
+#endif // RHI_RAYTRACING
+
 	bResourcesInitialized = true;
 }
 
@@ -344,8 +392,28 @@ void FSkeletalMeshObjectCPUSkin::FSkeletalMeshObjectLOD::ReleaseResources()
 	BeginReleaseResource(&PositionVertexBuffer);
 	BeginReleaseResource(&StaticMeshVertexBuffer);
 
+#if RHI_RAYTRACING
+	BeginReleaseResource(&RayTracingGeometry);
+#endif // RHI_RAYTRACING
+
 	bResourcesInitialized = false;
 }
+
+#if RHI_RAYTRACING
+// #dxr_todo: this looks like dead code
+void FSkeletalMeshObjectCPUSkin::FSkeletalMeshObjectLOD::BuildRayTracingAccelerationStructure()
+{
+	if (RayTracingGeometry.Initializer.PositionVertexBuffer && RayTracingGeometry.Initializer.IndexBuffer)
+	{
+		ENQUEUE_RENDER_COMMAND(SkeletalRenderCPUSkinBuildRayTracingAccelerationStructure)(
+			[this](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.BuildAccelerationStructure(RayTracingGeometry.RayTracingGeometryRHI);
+		}
+		);
+	}
+}
+#endif // RHI_RAYTRACING
 
 TArray<FTransform>* FSkeletalMeshObjectCPUSkin::GetComponentSpaceTransforms() const
 {

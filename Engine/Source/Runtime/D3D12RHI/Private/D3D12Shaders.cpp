@@ -275,6 +275,61 @@ FComputeShaderRHIRef FD3D12DynamicRHI::RHICreateComputeShader(const TArray<uint8
 	return Shader;
 }
 
+#if D3D12_RHI_RAYTRACING
+
+FRayTracingShaderRHIRef FD3D12DynamicRHI::RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency)
+{
+	FShaderCodeReader ShaderCode(Code);
+	FD3D12RayTracingShader* Shader = new FD3D12RayTracingShader;
+
+	FMemoryReader Ar(Code, true);
+	Ar << Shader->ShaderResourceTable;
+	Ar << Shader->EntryPoint;
+	Ar << Shader->AnyHitEntryPoint;
+	Ar << Shader->IntersectionEntryPoint;
+
+	int32 Offset = Ar.Tell();
+	const uint8* CodePtr = Code.GetData() + Offset;
+	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
+
+	ReadShaderOptionalData(ShaderCode, *Shader);
+
+	Shader->Code = Code;
+
+	D3D12_SHADER_BYTECODE ShaderBytecode;
+	ShaderBytecode.pShaderBytecode = Shader->Code.GetData() + Offset;
+	ShaderBytecode.BytecodeLength = CodeSize;
+	Shader->ShaderBytecode.SetShaderBytecode(ShaderBytecode);
+
+	FD3D12Adapter& Adapter = GetAdapter();
+
+#if USE_STATIC_ROOT_SIGNATURE
+	Shader->pRootSignature = Adapter.GetStaticComputeRootSignature();
+#else // USE_STATIC_ROOT_SIGNATURE
+	const D3D12_RESOURCE_BINDING_TIER Tier = Adapter.GetResourceBindingTier();
+	FD3D12QuantizedBoundShaderState QBSS;
+	QuantizeBoundShaderState(Tier, Shader, QBSS);
+	switch (ShaderFrequency)
+	{
+	case SF_RayGen:
+	case SF_RayMiss:
+		QBSS.RootSignatureType = RS_RayTracingGlobal;
+		break;
+	case SF_RayHitGroup:
+		// Local root signature is used for hit group shaders
+		QBSS.RootSignatureType = RS_RayTracingLocal;
+		break;
+	default:
+		checkNoEntry(); // Unexpected shader target frequency
+	}
+	Shader->pRootSignature = Adapter.GetRootSignature(QBSS);
+#endif // USE_STATIC_ROOT_SIGNATURE
+
+	return Shader;
+}
+
+#endif // D3D12_RHI_RAYTRACING
+
 void FD3D12CommandContext::RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data)
 {
 	// Structures are chosen to be directly mappable

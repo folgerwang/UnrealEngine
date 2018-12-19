@@ -25,6 +25,11 @@ class FResourceBulkDataInterface;
 /** The alignment in bytes between elements of array shader parameters. */
 #define SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT 16
 
+// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
+// Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
+#define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
+static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
+
 
 /** RHI Logging. */
 RHI_API DECLARE_LOG_CATEGORY_EXTERN(LogRHI,Log,VeryVerbose);
@@ -188,6 +193,9 @@ inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
 {
 	return IsVulkanPlatform(InShaderPlatform) || IsVulkanMobilePlatform(InShaderPlatform);
 }
+
+// helper to check whether a shader platform supports ray tracing.
+RHI_API bool RHISupportsRayTracing(EShaderPlatform Platform);
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
@@ -1571,6 +1579,7 @@ extern RHI_API void RHIExit();
 #define GETSAFERHISHADER_DOMAIN(Shader) ((Shader) ? (Shader)->GetDomainShader() : (FDomainShaderRHIParamRef)FDomainShaderRHIRef())
 #define GETSAFERHISHADER_GEOMETRY(Shader) ((Shader) ? (Shader)->GetGeometryShader() : (FGeometryShaderRHIParamRef)FGeometryShaderRHIRef())
 #define GETSAFERHISHADER_COMPUTE(Shader) ((Shader) ? (Shader)->GetComputeShader() : (FComputeShaderRHIParamRef)FComputeShaderRHIRef())
+#define GETSAFERHISHADER_RAYTRACING(Shader) ((Shader) ? (Shader)->GetRayTracingShader() : (FRayTracingShaderRHIParamRef)FRayTracingShaderRHIRef())
 
 
 // Panic delegate is called when when a fatal condition is encountered within RHI function.

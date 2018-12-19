@@ -93,10 +93,7 @@ float3 SplineMeshY;
 #define MANUAL_VERTEX_FETCH 0
 #endif
 
-#if GPUSKIN_PASS_THROUGH
-#undef MANUAL_VERTEX_FETCH
-#define MANUAL_VERTEX_FETCH 0
-#endif
+
 
 #if MANUAL_VERTEX_FETCH
 	Buffer<float4> VertexFetch_InstanceOriginBuffer;
@@ -186,6 +183,21 @@ struct FVertexFactoryInput
 	uint VertexId : SV_VertexID;
 #endif
 };
+
+#if RAYHITGROUPSHADER
+FVertexFactoryInput LoadVertexFactoryInput(uint TriangleIndex, int VertexIndex)
+{
+	FTriangleBaseAttributes Triangle = LoadTriangleBaseAttributes(TriangleIndex);
+
+	FVertexFactoryInput Input;
+	Input.Position = float4(WorldRayOrigin() + WorldRayDirection() * RayTCurrent(), 0.0f);
+	Input.VertexId = Triangle.Indices[VertexIndex];
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	Input.PrimitiveId = GetInstanceUserData();
+#endif
+	return Input;
+}
+#endif
 
 /** 
  * Per-vertex inputs from bound vertex buffers.  Used by passes with a trimmed down position-only shader.
@@ -944,8 +956,12 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	{
 		FVertexFactoryInterpolantsVSToDS O;
 
+#if VF_USE_PRIMITIVE_SCENE_DATA
 		O.InterpolantsVSToPS.PrimitiveId = a.InterpolantsVSToPS.PrimitiveId;
-	
+    #if NEEDS_LIGHTMAP_COORDINATE
+        O.InterpolantsVSToPS.LightmapDataIndex = a.InterpolantsVSToPS.LightmapDataIndex;
+    #endif
+#endif	
 		// Do we really need to interpolate TangentToWorld2 here? It should be replaced by the
 		// interpolated normal from 'whatever' interpolation scheme we're using
 	

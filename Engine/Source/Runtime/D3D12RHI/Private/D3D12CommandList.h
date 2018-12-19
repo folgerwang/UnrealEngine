@@ -244,6 +244,9 @@ private:
 #if PLATFORM_WINDOWS
 		TRefCountPtr<ID3D12GraphicsCommandList1> CommandList1;
 #endif
+#if D3D12_RHI_RAYTRACING
+		TRefCountPtr<ID3D12GraphicsCommandList4> RayTracingCommandList;
+#endif // D3D12_RHI_RAYTRACING
 		FD3D12CommandAllocator*					CurrentCommandAllocator;	// Command allocator currently being used for recording the command list
 		uint64									CurrentGeneration;
 		uint64									LastCompleteGeneration;
@@ -398,6 +401,14 @@ public:
 		return CommandListData->CommandList1.GetReference();
 	}
 #endif
+
+#if D3D12_RHI_RAYTRACING
+	ID3D12GraphicsCommandList4* RayTracingCommandList() const
+	{
+		check(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
+		return CommandListData->RayTracingCommandList.GetReference();
+	}
+#endif // D3D12_RHI_RAYTRACING
 
 	uint64 CurrentGeneration() const
 	{

@@ -492,11 +492,3 @@ RENDERCORE_API FIndexBufferRHIRef& GetUnitCubeIndexBuffer();
 * be halved in size several times.
 */
 RENDERCORE_API void QuantizeSceneBufferSize(const FIntPoint& InBufferSize, FIntPoint& OutBufferSize);
-
-RENDERCORE_API void DefaultInitializeUniformBufferResources(const void* Contents, const FRHIUniformBufferLayout& Layout);
-
-template<typename TBufferStruct>
-void DefaultInitializeUniformBufferResources(const TBufferStruct& Value)
-{
-	DefaultInitializeUniformBufferResources(&Value, TBufferStruct::StaticStructMetadata.GetLayout());
-}

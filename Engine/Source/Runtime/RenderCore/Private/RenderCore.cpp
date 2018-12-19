@@ -12,6 +12,8 @@
 
 void UpdateShaderDevelopmentMode();
 
+void InitRenderGraph();
+
 class FRenderCoreModule : public FDefaultModuleImpl
 {
 public:
@@ -20,6 +22,8 @@ public:
 	{
 		// TODO(RDG): Why is this not getting called?!
 		IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&UpdateShaderDevelopmentMode));
+
+		InitRenderGraph();
 	}
 };
 
@@ -56,6 +60,8 @@ DEFINE_STAT(STAT_DynamicShadowSetupTime);
 DEFINE_STAT(STAT_RenderQueryResultTime);
 // Use 'stat initviews' to get more detail
 DEFINE_STAT(STAT_InitViewsTime);
+DEFINE_STAT(STAT_RayTracedMeshCommands);
+DEFINE_STAT(STAT_RayTracedBvhBuilding);
 DEFINE_STAT(STAT_InitViewsPossiblyAfterPrepass);
 // Measures the time spent in RenderViewFamily_RenderThread
 // Note that this is not the total rendering thread time, any other rendering commands will not be counted here
@@ -113,6 +119,7 @@ DEFINE_STAT(STAT_FrustumCull);
 DEFINE_STAT(STAT_DecompressPrecomputedOcclusion);
 DEFINE_STAT(STAT_ViewVisibilityTime);
 
+DEFINE_STAT(STAT_RayTracingInstances);
 DEFINE_STAT(STAT_ProcessedPrimitives);
 DEFINE_STAT(STAT_CulledPrimitives);
 DEFINE_STAT(STAT_StaticallyOccludedPrimitives);
@@ -125,6 +132,8 @@ DEFINE_STAT(STAT_PrecomputedLightingBufferUpdates);
 DEFINE_STAT(STAT_CSMSubjects);
 DEFINE_STAT(STAT_CSMStaticMeshReceivers);
 DEFINE_STAT(STAT_CSMStaticPrimitiveReceivers);
+
+DEFINE_STAT(STAT_BindRayTracingPipeline);
 
 // The ShadowRendering stats group shows what kind of shadows are taking a lot of rendering thread time to render
 // Shadow setup is tracked in the InitViews group

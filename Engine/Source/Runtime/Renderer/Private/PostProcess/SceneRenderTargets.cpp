@@ -227,7 +227,7 @@ FSceneRenderTargets::FSceneRenderTargets(const FViewInfo& View, const FSceneRend
 	, GBufferC(GRenderTargetPool.MakeSnapshot(SnapshotSource.GBufferC))
 	, GBufferD(GRenderTargetPool.MakeSnapshot(SnapshotSource.GBufferD))
 	, GBufferE(GRenderTargetPool.MakeSnapshot(SnapshotSource.GBufferE))
-	, GBufferVelocity(GRenderTargetPool.MakeSnapshot(SnapshotSource.GBufferVelocity))
+	, SceneVelocity(GRenderTargetPool.MakeSnapshot(SnapshotSource.SceneVelocity))
 	, DBufferA(GRenderTargetPool.MakeSnapshot(SnapshotSource.DBufferA))
 	, DBufferB(GRenderTargetPool.MakeSnapshot(SnapshotSource.DBufferB))
 	, DBufferC(GRenderTargetPool.MakeSnapshot(SnapshotSource.DBufferC))
@@ -692,7 +692,7 @@ int32 FSceneRenderTargets::FillGBufferRenderPassInfo(ERenderTargetLoadAction Col
 		check(OutVelocityRTIndex == 4); // As defined in BasePassPixelShader.usf
 
 		OutRenderPassInfo.ColorRenderTargets[MRTCount].Action = MakeRenderTargetActions(ColorLoadAction, ERenderTargetStoreAction::EStore);
-		OutRenderPassInfo.ColorRenderTargets[MRTCount].RenderTarget = GBufferVelocity->GetRenderTargetItem().TargetableTexture;
+		OutRenderPassInfo.ColorRenderTargets[MRTCount].RenderTarget = SceneVelocity->GetRenderTargetItem().TargetableTexture;
 		OutRenderPassInfo.ColorRenderTargets[MRTCount].ArraySlice = -1;
 		OutRenderPassInfo.ColorRenderTargets[MRTCount].MipIndex = 0;
 		MRTCount++;
@@ -736,7 +736,7 @@ int32 FSceneRenderTargets::GetGBufferRenderTargets(ERenderTargetLoadAction Color
 	{
 		OutVelocityRTIndex = MRTCount;
 		check(OutVelocityRTIndex == 4); // As defined in BasePassPixelShader.usf
-		OutRenderTargets[MRTCount++] = FRHIRenderTargetView(GBufferVelocity->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+		OutRenderTargets[MRTCount++] = FRHIRenderTargetView(SceneVelocity->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
 	}
 	else
 	{
@@ -1069,7 +1069,7 @@ void FSceneRenderTargets::ReleaseGBufferTargets()
 	GBufferC.SafeRelease();
 	GBufferD.SafeRelease();
 	GBufferE.SafeRelease();
-	GBufferVelocity.SafeRelease();
+	SceneVelocity.SafeRelease();
 }
 
 void FSceneRenderTargets::PreallocGBufferTargets()
@@ -1166,7 +1166,7 @@ void FSceneRenderTargets::AllocGBufferTargets(FRHICommandList& RHICmdList)
 		{
 			FPooledRenderTargetDesc VelocityRTDesc = FVelocityRendering::GetRenderTargetDesc();
 			VelocityRTDesc.Flags |= GFastVRamConfig.GBufferVelocity; 
-			GRenderTargetPool.FindFreeElement(RHICmdList, VelocityRTDesc, GBufferVelocity, TEXT("GBufferVelocity"));
+			GRenderTargetPool.FindFreeElement(RHICmdList, VelocityRTDesc, SceneVelocity, TEXT("GBufferVelocity"));
 		}
 
 		// otherwise we have a severe problem
@@ -2337,7 +2337,7 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 	{
 		FPooledRenderTargetDesc VelocityRTDesc = FVelocityRendering::GetRenderTargetDesc();
 		VelocityRTDesc.Flags |= GFastVRamConfig.GBufferVelocity;
-		GRenderTargetPool.FindFreeElement(RHICmdList, VelocityRTDesc, GBufferVelocity, TEXT("GBufferVelocity"));
+		GRenderTargetPool.FindFreeElement(RHICmdList, VelocityRTDesc, SceneVelocity, TEXT("GBufferVelocity"));
 	}
 }
 
@@ -2526,6 +2526,11 @@ void FSceneRenderTargets::ReleaseSceneColor()
 	{
 		SceneColor[i].SafeRelease();
 	}
+	// Releases what might be part of a temporal history.
+	{
+		SceneDepthZ.SafeRelease();
+		GBufferA.SafeRelease();
+	}
 	if (SceneMonoColor)
 	{
 		SceneMonoColor.SafeRelease();
@@ -2655,6 +2660,13 @@ const FTextureRHIRef& FSceneRenderTargets::GetSceneColorTexture() const
 	return (const FTextureRHIRef&)GetSceneColor()->GetRenderTargetItem().ShaderResourceTexture; 
 }
 
+const FUnorderedAccessViewRHIRef& FSceneRenderTargets::GetSceneColorTextureUAV() const
+{
+	check(GetSceneColorForCurrentShadingPath());
+
+	return (const FUnorderedAccessViewRHIRef&)GetSceneColor()->GetRenderTargetItem().UAV;
+}
+
 const FTexture2DRHIRef* FSceneRenderTargets::GetActualDepthTexture() const
 {
 	const FTexture2DRHIRef* DepthTexture = NULL;
@@ -2689,17 +2701,6 @@ const FTexture2DRHIRef* FSceneRenderTargets::GetActualDepthTexture() const
 	check(DepthTexture != NULL);
 
 	return DepthTexture;
-}
-
-
-IPooledRenderTarget* FSceneRenderTargets::GetGBufferVelocityRT()
-{
-	if (!bAllocateVelocityGBuffer)
-	{
-		return nullptr;
-	}
-	
-	return GBufferVelocity;
 }
 
 IPooledRenderTarget* FSceneRenderTargets::RequestCustomDepth(FRHICommandListImmediate& RHICmdList, bool bPrimitives)
@@ -2916,7 +2917,7 @@ void SetupSceneTextureUniformParameters(
 		const FSceneRenderTargetItem& GBufferCToUse = bCanReadGBufferUniforms && SceneContext.GBufferC ? SceneContext.GBufferC->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
 		const FSceneRenderTargetItem& GBufferDToUse = bCanReadGBufferUniforms && SceneContext.GBufferD ? SceneContext.GBufferD->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
 		const FSceneRenderTargetItem& GBufferEToUse = bCanReadGBufferUniforms && SceneContext.GBufferE ? SceneContext.GBufferE->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
-		const FSceneRenderTargetItem& GBufferVelocityToUse = bCanReadGBufferUniforms && SceneContext.GBufferVelocity ? SceneContext.GBufferVelocity->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferVelocityToUse = bCanReadGBufferUniforms && SceneContext.SceneVelocity ? SceneContext.SceneVelocity->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
 
 		SceneTextureParameters.GBufferATexture = GBufferAToUse.ShaderResourceTexture;
 		SceneTextureParameters.GBufferBTexture = GBufferBToUse.ShaderResourceTexture;

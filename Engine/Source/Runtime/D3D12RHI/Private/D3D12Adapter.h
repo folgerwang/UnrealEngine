@@ -84,6 +84,7 @@ public:
 
 	void Initialize(FD3D12DynamicRHI* RHI);
 	void InitializeDevices();
+	void InitializeRayTracing();
 
 	// Getters
 	FORCEINLINE const uint32 GetAdapterIndex() const { return Desc.AdapterIndex; }
@@ -93,6 +94,9 @@ public:
 #if PLATFORM_WINDOWS
 	FORCEINLINE ID3D12Device2* GetD3DDevice2() const { return RootDevice2.GetReference(); }
 #endif
+#if D3D12_RHI_RAYTRACING
+	FORCEINLINE ID3D12Device5* GetD3DRayTracingDevice() { return RootRayTracingDevice.GetReference(); }
+#endif // D3D12_RHI_RAYTRACING
 	FORCEINLINE void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
 	FORCEINLINE const bool IsDeviceRemoved() const { return bDeviceRemoved; }
 	FORCEINLINE FD3D12DynamicRHI* GetOwningRHI() { return OwningRHI; }
@@ -196,7 +200,16 @@ public:
 		FD3D12Resource** ppOutResource,
 		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
 
+	HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
+		FRHIGPUMask CreationNode,
+		FRHIGPUMask VisibleNodes,
+		D3D12_RESOURCE_STATES InitialState,
+		uint64 HeapSize,
+		FD3D12Resource** ppOutResource,
+		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
 	HRESULT CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps,
+		D3D12_RESOURCE_STATES InitialState,
 		uint64 HeapSize,
 		FD3D12Resource** ppOutResource,
 		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
@@ -297,6 +310,9 @@ protected:
 #if PLATFORM_WINDOWS
 	TRefCountPtr<ID3D12Device2> RootDevice2;
 #endif
+#if D3D12_RHI_RAYTRACING
+	TRefCountPtr<ID3D12Device5> RootRayTracingDevice;
+#endif // D3D12_RHI_RAYTRACING
 	D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
 	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
 	D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;

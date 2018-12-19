@@ -1,0 +1,50 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "../PathTracing/Utilities/PathTracingRandomSequence.ush"
+
+bool GenerateRectLightOcclusionRay(
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float3 LightPosition,
+	float3 LightNormal,
+	float3 LightdPdu,
+	float3 LightdPdv,
+	float LightWidth,
+	float LightHeight,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax,
+	out float RayPdf
+)
+{
+	// Draw random variable
+	RandSample -= 0.5;
+
+	// Map sample point to quad
+	LightPosition += LightdPdu * LightWidth * RandSample.x + LightdPdv * LightHeight * RandSample.y;
+	float3 LightDirection = normalize(LightPosition - WorldPosition);
+
+	// Light-normal culling
+	if (dot(-LightDirection, LightNormal) <= 0.0)
+	{
+		return false;
+	}
+
+	// Apply normal perturbation when defining ray
+	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayDirection = LightDirection;
+	RayTMin = 0.0;
+	RayTMax = length(LightPosition - WorldPosition);
+
+	// Convert PDF to solid angle measure
+	float Area = LightWidth * LightHeight;
+	float Distance2 = RayTMax * RayTMax;
+	float SolidAngle = Area * saturate(dot(-LightDirection, LightNormal)) / Distance2;
+	RayPdf = 1.0 / SolidAngle;
+
+	return true;
+}

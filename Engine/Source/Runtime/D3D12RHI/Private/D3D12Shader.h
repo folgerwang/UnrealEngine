@@ -205,6 +205,31 @@ public:
 	FORCEINLINE FD3D12GeometryShader*    GetGeometryShader()    const { return (FD3D12GeometryShader*)    CacheLink.GetGeometryShader();    }
 };
 
+#if D3D12_RHI_RAYTRACING
+
+class FD3D12RayTracingShader : public FRHIRayTracingShader
+{
+public:
+	/** The shader's bytecode. */
+	FD3D12ShaderBytecode ShaderBytecode;
+
+	FD3D12ShaderResourceTable ShaderResourceTable;
+
+	/** The shader's bytecode, with custom data in the last byte. */
+	TArray<uint8> Code;
+
+	/** The shader's DXIL entrypoint & base export name for DXR (required for RTPSO creation) */
+	FString EntryPoint; // Primary entry point for all ray tracing shaders. Assumed to be closest hit shader for SF_RayHitGroup.
+	FString AnyHitEntryPoint; // Optional any-hit shader entry point for SF_RayHitGroup.
+	FString IntersectionEntryPoint; // Optional intersection shader entry point for SF_RayHitGroup.
+
+	FShaderCodePackedResourceCounts ResourceCounts;
+
+	const FD3D12RootSignature* pRootSignature = nullptr;
+};
+
+#endif // D3D12_RHI_RAYTRACING
+
 template<>
 struct TD3D12ResourceTraits<FRHIVertexShader>
 {

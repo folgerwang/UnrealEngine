@@ -1,0 +1,67 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PathTracingSpecularTransmission.usf: Pure specular transmission BTDF sampling functions
+===============================================================================================*/
+
+#pragma once
+
+void SpecularRefraction_SampleMaterial(
+	float3 RayDirection,
+	FMaterialClosestHitPayload Payload,
+	out float3 OutDirection,
+	out float3 OutThroughput,
+	out float OutPdf)
+{
+	float3 N_World = GetWorldNormal(Payload);
+	float3 DiffuseColor = GetDiffuseColor(Payload);
+
+	//#dxr_todo: read IOR of each medium
+	float IorA = 1.0;
+	float IorB = Payload.Ior;
+
+	float3 V_World = normalize(-RayDirection);
+	float3 V_Local = WorldToTangent(V_World, N_World);
+	float3 L_Local;
+
+	float IorI = IorA;
+	float IorT = IorB;
+	if (V_Local.z < 0.0)
+	{
+		IorI = IorB;
+		IorT = IorA;
+	}
+
+	float3 nL = float3(0.0, 0.0, 1.0);
+	if (dot(V_Local, nL) < 0.0)
+	{
+		nL = -nL;
+	}
+
+
+	if (BSDF_Refract(V_Local, nL, IorI, IorT, L_Local))
+	{
+		float SqrRatio = (IorI * IorI) / (IorT * IorT);	// SqrRatio is 1 for light rays	
+		OutDirection = TangentToWorld(L_Local, N_World);
+		OutThroughput = SqrRatio * DiffuseColor * (float3(1.0f, 1.0f, 1.0f) - FresnelDielectric(L_Local.z, IorI, IorT)) / abs(L_Local.z);
+		float NoL = max(L_Local.z, 0.0);
+		OutThroughput *= NoL;
+	}
+	else
+	{
+		OutThroughput = float3(0.0, 0.0, 0.0);
+	}
+
+	OutPdf = 1.0;
+}
+
+float SpecularTransmission_Pdf()
+{
+	return 0.0;
+}
+
+void SpecularTransmission_EvalMaterial(out float3 OutThroughput, out float OutPdf)
+{
+	OutThroughput = float3(0.0, 0.0, 0.0);
+	OutPdf = SpecularTransmission_Pdf();
+}

@@ -976,6 +976,13 @@ enum EViewModeIndex
 	/** Compare the required texture resolution to the actual resolution. */
 	VMI_RequiredTextureResolution = 26,
 
+	// Ray tracing modes
+
+	/** Run path tracing pipeline */
+	VMI_PathTracing = 27,
+	/** Run ray tracing debug pipeline */
+	VMI_RayTracingDebug = 28,
+
 	VMI_Max UMETA(Hidden),
 
 	VMI_Unknown = 255 UMETA(Hidden),

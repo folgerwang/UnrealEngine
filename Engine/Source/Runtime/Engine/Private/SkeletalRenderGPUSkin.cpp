@@ -168,6 +168,10 @@ void FSkeletalMeshObjectGPUSkin::InitResources(USkinnedMeshComponent* InMeshComp
 			SkelLOD.InitResources(MeshLODInfo, CompLODInfo, FeatureLevel);
 		}
 	}
+
+#if RHI_RAYTRACING
+	BeginInitResource(&RayTracingGeometry);
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::ReleaseResources()
@@ -197,6 +201,10 @@ void FSkeletalMeshObjectGPUSkin::ReleaseResources()
 			*PtrSkinCacheEntry = nullptr;
 		}
 	);
+
+#if RHI_RAYTRACING
+	BeginReleaseResource(&RayTracingGeometry);
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::InitMorphResources(bool bInUsePerBoneMotionBlur, const TArray<float>& MorphTargetWeights)
@@ -293,6 +301,11 @@ void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* G
 		!DynamicData->ActiveMorphTargetsEqual(InDynamicData->ActiveMorphTargets, InDynamicData->MorphTargetWeights))
 		: true);
 
+#if RHI_RAYTRACING
+	bRequireRecreatingRayTracingGeometry = (DynamicData == nullptr && InDynamicData != nullptr || // Newly created
+		(DynamicData != nullptr && InDynamicData != nullptr && DynamicData->LODIndex != InDynamicData->LODIndex)); // LOD level changed
+#endif
+
 	WaitForRHIThreadFenceForDynamicData();
 	if (DynamicData)
 	{
@@ -311,6 +324,65 @@ void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* G
 	{
 		ProcessUpdatedDynamicData(GPUSkinCache, RHICmdList, FrameNumberToPrepare, RevisionNumber, bMorphNeedsUpdate);
 	}
+
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		if (GEnableGPUSkinCache && SkinCacheEntry)
+		{
+			if (bRequireRecreatingRayTracingGeometry)
+			{
+				// #dxr: Warning: this path invalidates all the instances referencing RayTracingGeometry
+				// which is expected to be detected inside USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
+				// and instance updates are sent there
+
+				check(FGPUSkinCache::GetUnderlyingPositionBuffer(SkinCacheEntry));
+
+				FSkeletalMeshLODRenderData& LODModel = this->SkeletalMeshRenderData->LODRenderData[DynamicData->LODIndex];
+				FVertexBufferRHIRef VertexBufferRHI = FGPUSkinCache::GetUnderlyingPositionBuffer(SkinCacheEntry)->Buffer;
+				FIndexBufferRHIRef IndexBufferRHI = LODModel.MultiSizeIndexContainer.GetIndexBuffer()->IndexBufferRHI;
+				uint32 VertexBufferStride = LODModel.StaticVertexBuffers.PositionVertexBuffer.GetStride();
+
+				//#dxr_todo: do we need support for separate sections in FRayTracingGeometryData?
+				uint32 TrianglesCount = 0;
+				for (int32 SectionIndex = 0; SectionIndex < LODModel.RenderSections.Num(); SectionIndex++)
+				{
+					const FSkelMeshRenderSection& Section = LODModel.RenderSections[SectionIndex];
+					TrianglesCount += Section.NumTriangles;
+				}
+
+				FRayTracingGeometryInitializer Initializer;
+				Initializer.PositionVertexBuffer = VertexBufferRHI;
+				Initializer.IndexBuffer = IndexBufferRHI;
+				Initializer.BaseVertexIndex = 0;
+				Initializer.VertexBufferStride = VertexBufferStride;
+				Initializer.VertexBufferByteOffset = 0;
+				Initializer.TotalPrimitiveCount = TrianglesCount;
+				Initializer.VertexBufferElementType = VET_Float3;
+				Initializer.PrimitiveType = PT_TriangleList;
+				Initializer.bFastBuild = true;
+				Initializer.bAllowUpdate = true;
+
+				TArray<FRayTracingGeometrySegment> GeometrySections;
+				GeometrySections.Reserve(LODModel.RenderSections.Num());
+				for (const FSkelMeshRenderSection& Section : LODModel.RenderSections)
+				{
+					GeometrySections.Add(FRayTracingGeometrySegment{ Section.BaseIndex / 3, Section.NumTriangles });
+				}
+				Initializer.Segments = GeometrySections;
+
+				RayTracingGeometry.SetInitializer(Initializer);
+				RayTracingGeometry.UpdateRHI();
+			}
+			else
+			{
+				// Refit BLAS with new vertex buffer data
+				RayTracingGeometry.Initializer.PositionVertexBuffer = FGPUSkinCache::GetUnderlyingPositionBuffer(SkinCacheEntry)->Buffer;
+				GPUSkinCache->AddRayTracingGeometryToUpdate(&RayTracingGeometry);
+			}
+		}
+	}
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::PreGDMECallback(FGPUSkinCache* GPUSkinCache, uint32 FrameNumber)
@@ -1115,6 +1187,16 @@ static VertexFactoryType* CreateVertexFactory(TArray<TUniquePtr<VertexFactoryTyp
 	return VertexFactory;
 }
 
+void FGPUSkinPassthroughVertexFactory::SetData(const FDataType& InData)
+{
+	FLocalVertexFactory::SetData(InData);
+	const int32 DefaultBaseVertexIndex = 0;
+	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+	{
+		UniformBuffer = CreateLocalVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex);
+	}
+}
+
 template<typename VertexFactoryType>
 static void CreatePassthroughVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, TArray<TUniquePtr<FGPUSkinPassthroughVertexFactory>>& PassthroughVertexFactories,
 	VertexFactoryType* SourceVertexFactory)
@@ -1445,7 +1527,6 @@ const TArray<FMatrix>& FSkeletalMeshObjectGPUSkin::GetReferenceToLocalMatrices()
 {
 	return DynamicData->ReferenceToLocal;
 }
-
 
 /*-----------------------------------------------------------------------------
 FDynamicSkelMeshObjectDataGPUSkin

@@ -52,11 +52,11 @@ float SpotAttenuation(float3 L, float3 SpotDirection, float2 SpotAngles)
 /** Calculates radial and spot attenuation. */
 float CalcLightAttenuation(float3 WorldPosition, out float3 WorldLightVector)
 {
-	WorldLightVector = DeferredLightUniforms.NormalizedLightDirection;
+	WorldLightVector = DeferredLightUniforms.Direction;
 	float DistanceAttenuation = 1;
 
 #if RADIAL_ATTENUATION
-	WorldLightVector = DeferredLightUniforms.LightPosition - WorldPosition;
+	WorldLightVector = DeferredLightUniforms.Position - WorldPosition;
 	float DistanceSqr = dot( WorldLightVector, WorldLightVector );
 
 	// TODO Line segment falloff
@@ -64,17 +64,17 @@ float CalcLightAttenuation(float3 WorldPosition, out float3 WorldLightVector)
 	// Sphere falloff (technically just 1/d2 but this avoids inf)
 	DistanceAttenuation = 1 / ( DistanceSqr + 1 );
 	
-	float LightRadiusMask = Square( saturate( 1 - Square( DistanceSqr * DeferredLightUniforms.LightInvRadius * DeferredLightUniforms.LightInvRadius ) ) );
+	float LightRadiusMask = Square( saturate( 1 - Square( DistanceSqr * DeferredLightUniforms.InvRadius * DeferredLightUniforms.InvRadius ) ) );
 	DistanceAttenuation *= LightRadiusMask;
 	
 #if !INVERSE_SQUARED_FALLOFF
-	DistanceAttenuation = RadialAttenuation(WorldLightVector * DeferredLightUniforms.LightInvRadius, DeferredLightUniforms.LightFalloffExponent);
+	DistanceAttenuation = RadialAttenuation(WorldLightVector * DeferredLightUniforms.InvRadius, DeferredLightUniforms.FalloffExponent);
 #endif
 #endif
 
 	float SpotFalloff = 1;
 	#if RADIAL_ATTENUATION
-		SpotFalloff = SpotAttenuation( normalize(WorldLightVector), -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.SpotAngles);
+		SpotFalloff = SpotAttenuation( normalize(WorldLightVector), -DeferredLightUniforms.Direction, DeferredLightUniforms.SpotAngles);
 	#endif
 
 	return SpotFalloff * DistanceAttenuation;
@@ -83,10 +83,10 @@ float CalcLightAttenuation(float3 WorldPosition, out float3 WorldLightVector)
 float3 GetNormalizedLightVector(float3 WorldPosition)
 {
 	// assumed to be normalized
-	float3 Ret = DeferredLightUniforms.NormalizedLightDirection;
+	float3 Ret = DeferredLightUniforms.Direction;
 
 	#if RADIAL_ATTENUATION
-		Ret = normalize(DeferredLightUniforms.LightPosition - WorldPosition);
+		Ret = normalize(DeferredLightUniforms.Position - WorldPosition);
 	#endif
 
 	return Ret;
@@ -97,24 +97,24 @@ float GetLightInfluenceMask(float3 WorldPosition)
 	float LightRadiusMask = 1;
 	float SpotFalloff = 1;
 
-	if (DeferredLightUniforms.LightInvRadius > 0)
+	if (DeferredLightUniforms.InvRadius > 0)
 	{
-		float3 ToLight = DeferredLightUniforms.LightPosition - WorldPosition;
+		float3 ToLight = DeferredLightUniforms.Position - WorldPosition;
 		float DistanceSqr = dot(ToLight, ToLight);
 		float3 L = ToLight * rsqrt(DistanceSqr);
 
-		if (DeferredLightUniforms.LightFalloffExponent == 0)
+		if (DeferredLightUniforms.FalloffExponent == 0)
 		{
-			LightRadiusMask = Square(saturate( 1 - Square(DistanceSqr * Square(DeferredLightUniforms.LightInvRadius))));
+			LightRadiusMask = Square(saturate( 1 - Square(DistanceSqr * Square(DeferredLightUniforms.InvRadius))));
 		}
 		else
 		{
-			LightRadiusMask = RadialAttenuation(ToLight * DeferredLightUniforms.LightInvRadius, DeferredLightUniforms.LightFalloffExponent);
+			LightRadiusMask = RadialAttenuation(ToLight * DeferredLightUniforms.InvRadius, DeferredLightUniforms.FalloffExponent);
 		}
 
 		if (DeferredLightUniforms.SpotAngles.x > -2.0f)
 		{
-			SpotFalloff = SpotAttenuation(L, -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.SpotAngles);
+			SpotFalloff = SpotAttenuation(L, -DeferredLightUniforms.Direction, DeferredLightUniforms.SpotAngles);
 		}
 	}
 

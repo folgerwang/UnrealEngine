@@ -61,11 +61,21 @@ DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader MapMemory"),STAT_Shaders_ShaderMapMemory
 
 inline TStatId GetMemoryStatType(EShaderFrequency ShaderFrequency)
 {
+#if RHI_RAYTRACING
+	static_assert(9 == SF_NumFrequencies, "EShaderFrequency has a bad size.");
+#else
 	static_assert(6 == SF_NumFrequencies, "EShaderFrequency has a bad size.");
+#endif
+
 	switch(ShaderFrequency)
 	{
-		case SF_Pixel:		return GET_STATID(STAT_PixelShaderMemory);
-		case SF_Compute:	return GET_STATID(STAT_PixelShaderMemory);
+		case SF_Pixel:				return GET_STATID(STAT_PixelShaderMemory);
+		case SF_Compute:			return GET_STATID(STAT_PixelShaderMemory);
+#if RHI_RAYTRACING
+		case SF_RayGen:				return GET_STATID(STAT_PixelShaderMemory);
+		case SF_RayMiss:			return GET_STATID(STAT_PixelShaderMemory);
+		case SF_RayHitGroup:		return GET_STATID(STAT_PixelShaderMemory);
+#endif // RHI_RAYTRACING
 	}
 	return GET_STATID(STAT_VertexShaderMemory);
 }
@@ -134,6 +144,8 @@ struct FShaderTarget
 		return ((Target.Frequency << SP_NumBits) | Target.Platform);
 	}
 };
+
+static_assert(sizeof(FShaderTarget) == sizeof(uint32), "FShaderTarget is expected to be bit-packed into a single uint32.");
 
 enum ECompilerFlags
 {

@@ -83,6 +83,10 @@ class NiagaraRenderer
 public:
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const = 0;
 
+#if RHI_RAYTRACING
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) {};
+#endif
+
 	virtual void SetDynamicData_RenderThread(FNiagaraDynamicDataBase* NewDynamicData) = 0;
 	virtual void CreateRenderThreadResources() = 0;
 	virtual void ReleaseRenderThreadResources() = 0;
@@ -172,6 +176,11 @@ protected:
 	struct FNiagaraDynamicDataBase *DynamicDataRender;
 
 	FVector BaseExtents;
+
+#if RHI_RAYTRACING
+	FRWBuffer RayTracingDynamicVertexBuffer;
+	FRayTracingGeometry RayTracingGeometry;
+#endif
 };
 
 
@@ -197,6 +206,9 @@ public:
 	virtual void CreateRenderThreadResources() override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
+#if RHI_RAYTRACING
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+#endif
 	virtual bool SetMaterialUsage() override;
 	virtual void TransformChanged() override;
 	/** Update render data buffer from attributes */

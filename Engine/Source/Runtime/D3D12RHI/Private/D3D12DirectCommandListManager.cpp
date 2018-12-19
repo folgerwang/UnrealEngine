@@ -445,7 +445,14 @@ uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPaylo
 		for (uint32 i = 0; i < Payload.NumCommandLists; i++)
 		{
 #if ENABLE_RESIDENCY_MANAGEMENT
-			VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, &Payload.CommandLists[i], &Payload.ResidencySets[i], 1));
+			if (GEnableResidencyManagement)
+			{
+				VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, &Payload.CommandLists[i], &Payload.ResidencySets[i], 1));
+			}
+			else
+			{
+				D3DCommandQueue->ExecuteCommandLists(1, &Payload.CommandLists[i]);
+			}
 #else
 			D3DCommandQueue->ExecuteCommandLists(1, &Payload.CommandLists[i]);
 #endif
@@ -459,7 +466,14 @@ uint64 FD3D12CommandListManager::ExecuteAndIncrementFence(FD3D12CommandListPaylo
 #endif
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, Payload.CommandLists, Payload.ResidencySets, Payload.NumCommandLists));
+		if (GEnableResidencyManagement)
+		{
+			VERIFYD3D12RESULT(GetParentDevice()->GetResidencyManager().ExecuteCommandLists(D3DCommandQueue, Payload.CommandLists, Payload.ResidencySets, Payload.NumCommandLists));
+		}
+		else
+		{
+			D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
+		}
 #else
 		D3DCommandQueue->ExecuteCommandLists(Payload.NumCommandLists, Payload.CommandLists);
 #endif

@@ -18,7 +18,7 @@ class FRDGBufferSRV;
 class FRDGBufferUAV;
 
 struct FPooledRDGBuffer;
-struct FRaytracingShaderBindingsWriter;
+struct FRayTracingShaderBindingsWriter;
 
 
 /** Defines the RDG resource references for user code not forgetting the const every time. */
@@ -35,10 +35,11 @@ using FRDGBufferUAVRef = const FRDGBufferUAV*;
 class RENDERCORE_API FRDGResource
 {
 private:
-	// RHI resource once allocated.
+	/** Pointer on the RHI resource once allocated, that the RHI can dereferenced according to IsUniformBufferResourceIndirectionType(). */
 	union
 	{
 		mutable FRHIResource* Resource;
+		mutable FTextureRHIParamRef Texture;
 		mutable FShaderResourceViewRHIParamRef SRV;
 		mutable FUnorderedAccessViewRHIParamRef UAV;
 	} CachedRHI;
@@ -79,6 +80,11 @@ private:
 
 	template<typename TRHICmdList, typename TShaderClass>
 	friend void SetShaderUAVs(TRHICmdList&, const TShaderClass*, FComputeShaderRHIParamRef, const typename TShaderClass::FParameters&);
+
+#if RHI_RAYTRACING
+	template<typename TShaderClass>
+	friend void SetShaderParameters(FRayTracingShaderBindingsWriter& RTBindingsWriter, const TShaderClass* Shader, const typename TShaderClass::FParameters& Parameters);
+#endif
 };
 
 /** Descriptor of a graph tracked texture. */
@@ -115,6 +121,11 @@ private:
 
 	template<typename TRHICmdList, typename TShaderClass, typename TShaderRHI>
 	friend void SetShaderParameters(TRHICmdList&, const TShaderClass*, TShaderRHI*, const typename TShaderClass::FParameters&);
+
+#if RHI_RAYTRACING
+	template<typename TShaderClass>
+	friend void SetShaderParameters(struct FRayTracingShaderBindingsWriter& RTBindingsWriter, const TShaderClass* Shader, const typename TShaderClass::FParameters& Parameters);
+#endif
 };
 
 /** Decsriptor for render graph tracked SRV. */

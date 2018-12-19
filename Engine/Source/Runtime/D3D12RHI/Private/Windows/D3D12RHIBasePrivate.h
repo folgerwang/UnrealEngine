@@ -24,7 +24,7 @@
 #define D3D_OVERLOADS 1
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include <d3d12.h>
-#include "d3dx12.h"
+#include <d3dx12.h>
 #include <d3d12sdklayers.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 

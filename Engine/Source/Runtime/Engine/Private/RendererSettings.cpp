@@ -64,6 +64,11 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	bSupportMaterialLayers = false;
 	GPUSimulationTextureSizeX = 1024;
 	GPUSimulationTextureSizeY = 1024;
+#if RHI_RAYTRACING
+	bEnableRayTracing = 1;
+#else
+	bEnableRayTracing = 0;
+#endif
 }
 
 void URendererSettings::PostInitProperties()
@@ -107,6 +112,22 @@ void URendererSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 			GEditor->BuildReflectionCaptures();
 		}
 	}
+}
+
+bool URendererSettings::CanEditChange(const UProperty* InProperty) const
+{
+	const bool ParentVal = Super::CanEditChange(InProperty);
+
+	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, bEnableRayTracing)))
+	{
+#if RHI_RAYTRACING
+		return ParentVal;
+#else // RHI_RAYTRACING
+		return false;
+#endif // RHI_RAYTRACING
+	}
+
+	return ParentVal;
 }
 #endif // #if WITH_EDITOR
 

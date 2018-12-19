@@ -747,6 +747,9 @@ public:
 
 	typedef FUniformLightMapPolicyShaderParametersType PixelParametersType;
 	typedef FUniformLightMapPolicyShaderParametersType VertexParametersType;
+#if RHI_RAYTRACING
+	typedef FUniformLightMapPolicyShaderParametersType RayHitGroupParametersType;
+#endif
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
@@ -782,6 +785,15 @@ public:
 		const ElementDataType& ShaderElementData,
 		const PixelParametersType* PixelShaderParameters,
 		FMeshDrawSingleShaderBindings& ShaderBindings);
+
+#if RHI_RAYTRACING
+	void GetRayHitGroupShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FLightCacheInterface* ElementData,
+		const RayHitGroupParametersType* RayHitGroupShaderParameters,
+		FMeshDrawSingleShaderBindings& RayHitGroupBindings
+	) const;
+#endif // RHI_RAYTRACING
 
 	friend bool operator==(const FUniformLightMapPolicy A,const FUniformLightMapPolicy B)
 	{

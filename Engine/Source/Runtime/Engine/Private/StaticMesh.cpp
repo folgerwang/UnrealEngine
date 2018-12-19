@@ -682,6 +682,38 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 		BeginInitResource(&AdjacencyIndexBuffer);
 	}
 
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		ENQUEUE_RENDER_COMMAND(InitStaticMeshRayTracingGeometry)(
+			[this](FRHICommandListImmediate& RHICmdList)
+			{
+				FRayTracingGeometryInitializer Initializer;
+				Initializer.PositionVertexBuffer = VertexBuffers.PositionVertexBuffer.VertexBufferRHI;
+				Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
+				Initializer.BaseVertexIndex = 0;
+				Initializer.VertexBufferStride = VertexBuffers.PositionVertexBuffer.GetStride();
+				Initializer.VertexBufferByteOffset = 0;
+				Initializer.TotalPrimitiveCount = IndexBuffer.GetNumIndices() / 3;
+				Initializer.VertexBufferElementType = VET_Float3;
+				Initializer.PrimitiveType = PT_TriangleList;
+				Initializer.bFastBuild = false;
+				
+				TArray<FRayTracingGeometrySegment> GeometrySections;
+				GeometrySections.Reserve(Sections.Num());
+				for (const FStaticMeshSection& Section : Sections)
+				{
+					GeometrySections.Add(FRayTracingGeometrySegment{ Section.FirstIndex / 3, Section.NumTriangles});
+				}
+				Initializer.Segments = GeometrySections;
+				
+				RayTracingGeometry.SetInitializer(Initializer);
+				RayTracingGeometry.InitResource();
+			}
+		);
+	}
+#endif // RHI_RAYTRACING
+
 	if (DistanceFieldData)
 	{
 		DistanceFieldData->VolumeTexture.Initialize(Parent);
@@ -728,6 +760,9 @@ void FStaticMeshLODResources::ReleaseResources()
 	BeginReleaseResource(&ReversedIndexBuffer);
 	BeginReleaseResource(&DepthOnlyIndexBuffer);
 	BeginReleaseResource(&ReversedDepthOnlyIndexBuffer);
+#if RHI_RAYTRACING
+	BeginReleaseResource(&RayTracingGeometry);
+#endif // RHI_RAYTRACING
 
 	if (DistanceFieldData)
 	{

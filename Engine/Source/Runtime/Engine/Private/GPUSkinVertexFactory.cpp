@@ -383,6 +383,7 @@ void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::CopyDataTypeForPassthroughFac
 	DestDataType.TextureCoordinatesSRV = Data.TextureCoordinatesSRV;
 	DestDataType.LightMapCoordinateIndex = Data.LightMapCoordinateIndex;
 	DestDataType.NumTexCoords = Data.NumTexCoords;
+	DestDataType.LODLightmapDataIndex = Data.LODLightmapDataIndex;
 	PassthroughVertexFactory->SetData(DestDataType);
 }
 
@@ -629,7 +630,7 @@ TGPUSkinVertexFactoryShaderParameters
 -----------------------------------------------------------------------------*/
 
 /** Shader parameters for use with TGPUSkinVertexFactory */
-class FGPUSkinVertexPassthroughFactoryShaderParameters : public FVertexFactoryShaderParameters
+class FGPUSkinVertexPassthroughFactoryShaderParameters : public FLocalVertexFactoryShaderParametersBase
 {
 public:
 	/**
@@ -638,6 +639,7 @@ public:
 	*/
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override
 	{
+		FLocalVertexFactoryShaderParametersBase::Bind(ParameterMap);
 		GPUSkinCachePreviousPositionBuffer.Bind(ParameterMap,TEXT("GPUSkinCachePreviousPositionBuffer"));
 	}
 	/**
@@ -646,6 +648,7 @@ public:
 	*/
 	virtual void Serialize(FArchive& Ar) override
 	{
+		FLocalVertexFactoryShaderParametersBase::Serialize(Ar);
 		Ar << GPUSkinCachePreviousPositionBuffer;
 	}
 	/**
@@ -653,6 +656,7 @@ public:
 	*/
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override
 	{
+		FLocalVertexFactoryShaderParametersBase::SetMesh(RHICmdList, Shader, VertexFactory, View, BatchElement, DataFlags);
 		check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
 		FGPUSkinBatchElementUserData* BatchUserData = (FGPUSkinBatchElementUserData*)BatchElement.VertexFactoryUserData;
 		check(BatchUserData);
@@ -671,6 +675,16 @@ public:
 		FVertexInputStreamArray& VertexStreams) const override
 	{
 		check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
+		// #dxr_todo do we need this call to the base?
+		FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(Scene, View, Shader, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
+
+		const auto* LocalVertexFactory = static_cast<const FGPUSkinPassthroughVertexFactory*>(VertexFactory);
+		if (LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
+		{
+			FUniformBufferRHIParamRef VertexFactoryUniformBuffer = LocalVertexFactory->GetUniformBuffer();
+			ShaderBindings.Add(Shader->GetUniformBufferParameter<FLocalVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
+		}
+
 		FGPUSkinBatchElementUserData* BatchUserData = (FGPUSkinBatchElementUserData*)BatchElement.VertexFactoryUserData;
 		check(BatchUserData);
 		FGPUSkinCache::GetShaderBindings(BatchUserData->Entry, BatchUserData->Section, Shader, (const FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousPositionBuffer, ShaderBindings, VertexStreams);
@@ -690,7 +704,7 @@ void FGPUSkinPassthroughVertexFactory::ModifyCompilationEnvironment( const FVert
 	const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
 	if (!ContainsManualVertexFetch)
 	{
-		OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 	}
 
 	Super::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
@@ -768,7 +782,11 @@ void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseS
 
 FVertexFactoryShaderParameters* FGPUSkinPassthroughVertexFactory::ConstructShaderParameters(EShaderFrequency ShaderFrequency)
 {
+#if RHI_RAYTRACING
+	return (ShaderFrequency == SF_Vertex || ShaderFrequency == SF_RayHitGroup) ? new FGPUSkinVertexPassthroughFactoryShaderParameters() : nullptr;
+#else // RHI_RAYTRACING
 	return (ShaderFrequency == SF_Vertex) ? new FGPUSkinVertexPassthroughFactoryShaderParameters() : nullptr;
+#endif // RHI_RAYTRACING
 }
 
 IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSkinPassthroughVertexFactory, "/Engine/Private/LocalVertexFactory.ush", true, false, true, false, false);

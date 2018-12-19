@@ -8,6 +8,7 @@
 #include "PostProcessCommon.ush"
 #include "Random.ush"
 #include "EyeAdaptationCommon.ush"
+#include "TextureSampling.ush"
 
 
 //------------------------------------------------------- COMPILER CONFIG

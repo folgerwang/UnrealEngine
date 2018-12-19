@@ -338,5 +338,12 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(MediaPlanes, SFG_Normal, NSLOCTEXT("UnrealEd", "Media
 SHOWFLAG_FIXED_IN_SHIPPING(0, VREditing, SFG_Hidden, NSLOCTEXT("UnrealEd", "VREditSF", "VR Editing"))
 /** Visualize Occlusion Query bounding meshes */
 SHOWFLAG_FIXED_IN_SHIPPING(0, OcclusionMeshes, SFG_Visualize, NSLOCTEXT("UnrealEd", "VisualizeOcclusionQueries", "Visualize Occlusion Queries"))
+
+// RHI_RAYTRACING begin
+SHOWFLAG_FIXED_IN_SHIPPING(0, PathTracing, SFG_Developer, NSLOCTEXT("UnrealEd", "PathTracing", "Path tracing"))
+SHOWFLAG_FIXED_IN_SHIPPING(0, RayTracingDebug, SFG_Developer, NSLOCTEXT("UnrealEd", "RayTracingDebug", "Ray tracing debug"))
+// RHI_RAYTRACING end
+
+
 #undef SHOWFLAG_ALWAYS_ACCESSIBLE
 #undef SHOWFLAG_FIXED_IN_SHIPPING

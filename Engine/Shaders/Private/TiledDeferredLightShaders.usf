@@ -253,26 +253,29 @@ void TiledDeferredLightingMain(
 			uint LightIndex = TileLightIndices[TileLightIndex];
 
 			FDeferredLightData LightData = (FDeferredLightData)0;
-			LightData.LightPositionAndInvRadius = TiledDeferred.LightPositionAndInvRadius[LightIndex];
-			LightData.LightColorAndFalloffExponent = TiledDeferred.LightColorAndFalloffExponent[LightIndex];
+			LightData.Position = TiledDeferred.LightPositionAndInvRadius[LightIndex].xyz;
+			LightData.InvRadius = TiledDeferred.LightPositionAndInvRadius[LightIndex].w;
+			LightData.Color = TiledDeferred.LightColorAndFalloffExponent[LightIndex].xyz;
+			LightData.FalloffExponent = TiledDeferred.LightColorAndFalloffExponent[LightIndex].w;
 			{
 				float4 Value = TiledDeferred2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex];
-				LightData.LightDirection = Value.xyz;
+				LightData.Direction = Value.xyz;
 				LightData.bSpotLight = Value.w > 0;
 				LightData.SpecularScale = abs(Value.w);
 			}
-
+			LightData.SpotAngles = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].xy;
+			LightData.SourceRadius = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].z;
 			// don't support lights with non-0 length in tiled-deferred path, so make sure it stays zero-initialized
-			LightData.SpotAnglesAndSourceRadius.xyz = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].xyz;
+			//LightData.SourceLength = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].w;
 			LightData.ShadowMapChannelMask = TiledDeferred2.ShadowMapChannelMask[LightIndex];
-			LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+			LightData.bInverseSquared = LightData.FalloffExponent == 0;
 			// Only radial lights supported with tiled deferred
 			LightData.bRadialLight = true;
 			// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
 			LightData.ShadowedBits = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
 	
 			// Lights requiring light attenuation are not supported tiled for now
-			CompositedLighting += GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, InGBufferData.ShadingModelID, LightData, float4(1, 1, 1, 1), 0.5, uint2(0,0));
+			CompositedLighting += GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, InGBufferData.ShadingModelID, LightData, float4(1, 1, 1, 1), 0.5, uint2(0,0), DeferredLightUniforms.SourceTexture);
 		}
 
 		// The simple shading model does not depend on ShadingModelID, so use it anytime the material is lit
@@ -282,9 +285,11 @@ void TiledDeferredLightingMain(
 			uint LightIndex = TileSimpleLightIndices[TileLightIndex];
 
 			FSimpleDeferredLightData LightData = (FSimpleDeferredLightData)0;
-			LightData.LightPositionAndInvRadius = TiledDeferred.LightPositionAndInvRadius[LightIndex];
-			LightData.LightColorAndFalloffExponent = TiledDeferred.LightColorAndFalloffExponent[LightIndex];
-			LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+			LightData.Position = TiledDeferred.LightPositionAndInvRadius[LightIndex].xyz;
+			LightData.InvRadius = TiledDeferred.LightPositionAndInvRadius[LightIndex].w;
+			LightData.Color = TiledDeferred.LightColorAndFalloffExponent[LightIndex].xyz;
+			LightData.FalloffExponent = TiledDeferred.LightColorAndFalloffExponent[LightIndex].w;
+			LightData.bInverseSquared = LightData.FalloffExponent == 0;
 						
 			// todo: doesn't support ScreenSpaceSubsurfaceScattering yet (not using alpha)
 			CompositedLighting.rgb += GetSimpleDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer.WorldNormal, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.DiffuseColor, ScreenSpaceData.GBuffer.SpecularColor, ScreenSpaceData.GBuffer.Roughness, LightData);

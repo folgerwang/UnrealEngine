@@ -386,6 +386,13 @@ FVertexFactoryShaderParameters* FLocalVertexFactory::ConstructShaderParameters(E
 		return new FLocalVertexFactoryShaderParameters();
 	}
 
+#if RHI_RAYTRACING
+	if (ShaderFrequency == SF_RayHitGroup)
+	{
+		return new FLocalVertexFactoryShaderParameters();
+	}
+#endif // RHI_RAYTRACING
+
 	return NULL;
 }
 

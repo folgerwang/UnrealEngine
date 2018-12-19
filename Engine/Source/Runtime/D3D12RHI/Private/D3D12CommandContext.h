@@ -26,6 +26,8 @@ THIRD_PARTY_INCLUDES_START
 #include "Windows/HideWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_END
 
+struct FRayTracingShaderBindings;
+
 // Base class used to define commands that are not device specific, or that broadcast to all devices.
 class FD3D12CommandContextBase : public IRHICommandContext, public FD3D12AdapterChild
 {
@@ -214,6 +216,7 @@ public:
 	void CommitComputeShaderConstants();
 
 	template <class ShaderType> void SetResourcesFromTables(const ShaderType* RESTRICT);
+
 	void CommitGraphicsResourceTables();
 	void CommitComputeResourceTables(FD3D12ComputeShader* ComputeShader);
 
@@ -349,6 +352,31 @@ public:
 	// This should be called right after the effect generates the resources which will be used in subsequent frame(s).
 	virtual void RHIBroadcastTemporalEffect(const FName& InEffectName, FTextureRHIParamRef* InTextures, int32 NumTextures) final AFR_API_OVERRIDE;
 
+#if D3D12_RHI_RAYTRACING
+	virtual void RHIBuildAccelerationStructure(FRayTracingGeometryRHIParamRef Geometry) final override;
+	virtual void RHIUpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params) final override;
+	virtual void RHIBuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params) final override;
+	virtual void RHIBuildAccelerationStructure(FRayTracingSceneRHIParamRef Scene) final override;
+	virtual void RHIRayTraceOcclusion(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays) final override;
+	virtual void RHIRayTraceIntersection(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays) final override;
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+		const FRayTracingShaderBindings& GlobalResourceBindings,
+		uint32 Width, uint32 Height) final override;
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+		FRayTracingSceneRHIParamRef Scene, // #dxr_todo: replace this with explicit shader table parameter
+		const FRayTracingShaderBindings& GlobalResourceBindings,
+		uint32 Width, uint32 Height) final override;
+	virtual void RHISetRayTracingHitGroup(
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
+		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
+		const FRayTracingShaderBindings& ResourceBindings) final override;
+#endif // D3D12_RHI_RAYTRACING
 
 	template<typename ObjectType, typename RHIType, typename Predicate>
 	static FORCEINLINE_DEBUGGABLE ObjectType* RetrieveObject(RHIType RHIObject, Predicate Func)

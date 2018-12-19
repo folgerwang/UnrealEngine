@@ -513,7 +513,7 @@ void MoveShaderParametersToRootConstantBuffer(const FShaderCompilerInput& Compil
 			if ((Char >= 'a' && Char <= 'z') ||
 				(Char >= 'A' && Char <= 'Z') ||
 				(Char >= '0' && Char <= '9') ||
-				Char == '<' || Char == '>')
+				Char == '<' || Char == '>' || Char == '_')
 			{
 				if (TypeStartPos == -1)
 				{
@@ -1171,7 +1171,12 @@ namespace CrossCompiler
 		TEXT("Domain"),
 		TEXT("Pixel"),
 		TEXT("Geometry"),
-		TEXT("Compute")
+		TEXT("Compute"),
+#if RHI_RAYTRACING
+		TEXT("RayGen"),
+		TEXT("RayMiss"),
+		TEXT("RayHitGroup"),
+#endif
 	};
 
 	/** Compile time check to verify that the GL mapping tables are up-to-date. */

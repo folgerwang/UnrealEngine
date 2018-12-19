@@ -187,6 +187,15 @@ public:
 	/** Gathers shadow shapes from this proxy. */
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const {}
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const { return false; }
+	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const { return false; }
+	virtual bool IsRayTracingStaticRelevant() const { return false; }
+	/** Gathers static ray tracing instances from this proxy. */
+	ENGINE_API virtual FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const { return nullptr; }
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) {}
+#endif // RHI_RAYTRACING
+
 	/** Collects occluder geometry for software occlusion culling */
 	virtual bool CollectOccluderElements(class FOccluderElementsCollector& Collector) const { return false; }
 
@@ -1014,6 +1023,17 @@ private:
 	TArray<UMaterialInterface*> UsedMaterialsForVerification;
 #endif
 
+public:
+	TArray<float> ScreenSizes;
+#if RHI_RAYTRACING
+	struct FStaticMeshOrCommandIndex
+	{
+		int32 StaticMeshIndex;
+		int32 CommandIndex;
+	};
+	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
+#endif
+private:
 	/**
 	 * Updates the primitive proxy's cached transforms, and calls OnUpdateTransform to notify it of the change.
 	 * Called in the thread that owns the proxy; game or rendering.

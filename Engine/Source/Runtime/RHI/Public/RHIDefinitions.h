@@ -11,6 +11,14 @@
 #include "PixelFormat.h"
 #include "HAL/IConsoleManager.h"
 
+#ifndef RHI_RAYTRACING
+#if (PLATFORM_WINDOWS && PLATFORM_64BITS)
+	#define RHI_RAYTRACING 1
+#else
+	#define RHI_RAYTRACING 0
+#endif
+#endif
+
 enum EShaderFrequency
 {
 	SF_Vertex			= 0,
@@ -20,9 +28,24 @@ enum EShaderFrequency
 	SF_Geometry			= 4,
 	SF_Compute			= 5,
 
-	SF_NumFrequencies	= 6,
+	SF_NumStandardFrequencies = 6,
 
+#if RHI_RAYTRACING
+
+	SF_RayGen			= 6,
+	SF_RayMiss			= 7,
+	SF_RayHitGroup		= 8,
+
+	SF_NumFrequencies	= 9,
+	SF_NumBits			= 4,
+
+#else // RHI_RAYTRACING
+
+	SF_NumFrequencies	= 6,
 	SF_NumBits			= 3,
+
+#endif // RHI_RAYTRACING
+
 };
 static_assert(SF_NumFrequencies <= (1 << SF_NumBits), "SF_NumFrequencies will not fit on SF_NumBits");
 
@@ -388,7 +411,7 @@ enum class EUniformBufferValidation
 };
 
 /** The base type of a value in a uniform buffer. */
-enum EUniformBufferBaseType
+enum EUniformBufferBaseType : uint8
 {
 	UBMT_INVALID,
 
@@ -631,6 +654,13 @@ enum EBufferUsageFlags
 
 	/** Buffer that should be accessed one byte at a time. */
 	BUF_UINT8             = 0x4000,
+
+	/**
+	 * Buffer contains opaque ray tracing acceleration structure data.
+	 * Resources with this flag can't be bound directly to any shader stage and only can be used with ray tracing APIs.
+	 * This flag is mutually exclusive with all other buffer flags except BUF_Static.
+	*/
+	BUF_AccelerationStructure = 0x8000,
 
 	// Helper bit-masks
 	BUF_AnyDynamic = (BUF_Dynamic | BUF_Volatile),
@@ -1116,27 +1146,8 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 	return 0;
 }
 
-inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
-{
-	return
-		BaseType == UBMT_TEXTURE ||
-		BaseType == UBMT_SRV ||
-		BaseType == UBMT_SAMPLER ||
-		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
-		BaseType == UBMT_GRAPH_TRACKED_SRV ||
-		BaseType == UBMT_GRAPH_TRACKED_UAV ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
-		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
-}
-
-inline bool IsUniformBufferResourceTypeIgnoreByRHI(EUniformBufferBaseType BaseType)
-{
-	return BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
-}
-
-inline bool IsUniformBufferResourceIndirectionType(EUniformBufferBaseType BaseType)
+/** Returns whether the shader parameter type is a reference onto a RDG resource. */
+inline bool IsRDGResourceReferenceShaderParameterType(EUniformBufferBaseType BaseType)
 {
 	return
 		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
@@ -1145,6 +1156,32 @@ inline bool IsUniformBufferResourceIndirectionType(EUniformBufferBaseType BaseTy
 		BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
 		BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
 		BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV;
+}
+
+/** Returns whether the shader parameter type needs to be passdown to RHI through FRHIUniformBufferLayout when creating an uniform buffer. */
+inline bool IsShaderParameterTypeForUniformBufferLayout(EUniformBufferBaseType BaseType)
+{
+	return
+		// RHI resource referenced in shader parameter structures.
+		BaseType == UBMT_TEXTURE ||
+		BaseType == UBMT_SRV ||
+		BaseType == UBMT_SAMPLER ||
+
+		// RHI is able to dereference the RHI resource allocated in FRDGResource::CachedRHI to avoid pain in the high level to passdown.
+		IsRDGResourceReferenceShaderParameterType(BaseType) ||
+
+		// #yuriy_todo: RHI is able to dereference uniform buffer in root shader parameter structures
+		// BaseType == UBMT_REFERENCED_STRUCT ||
+
+		// Render graph uses FRHIUniformBufferLayout to walk pass' parameters.
+		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
+}
+
+/** Returns whether the shader parameter type in FRHIUniformBufferLayout is actually ignored by the RHI. */
+inline bool IsShaderParameterTypeIgnoredByRHI(EUniformBufferBaseType BaseType)
+{
+	// Render targets bindings slots needs to be in FRHIUniformBufferLayout for render graph, but the RHI does not actually need to know about it.
+	return BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
 }
 
 inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bIncludePrefix = true)
@@ -1157,7 +1194,14 @@ inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bI
 	case SF_Domain:			String = TEXT("SF_Domain"); break;
 	case SF_Geometry:		String = TEXT("SF_Geometry"); break;
 	case SF_Pixel:			String = TEXT("SF_Pixel"); break;
-	case SF_Compute:		String = TEXT("SF_Compute"); break;
+	case SF_Compute:		String = TEXT("SF_Compute"); break; 
+
+#if RHI_RAYTRACING
+	case SF_RayGen:			String = TEXT("SF_RayGen"); break;
+	case SF_RayMiss:		String = TEXT("SF_RayMiss"); break;
+	case SF_RayHitGroup:	String = TEXT("SF_RayHitGroup"); break;
+#endif // RHI_RAYTRACING
+
 	default:				
 		checkf(0, TEXT("Unknown ShaderFrequency %d"), (int32)Frequency);
 		break;

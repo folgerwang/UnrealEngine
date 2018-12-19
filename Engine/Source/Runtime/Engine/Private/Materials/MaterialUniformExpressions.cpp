@@ -250,6 +250,8 @@ void FUniformExpressionSet::CreateBufferStruct()
 		NextMemberOffset += ScalarArraySize;
 	}
 
+	check((NextMemberOffset % (2 * SHADER_PARAMETER_POINTER_ALIGNMENT)) == 0);
+
 	static FString Texture2DNames[128];
 	static FString Texture2DSamplerNames[128];
 	static FString TextureCubeNames[128];
@@ -281,45 +283,45 @@ void FUniformExpressionSet::CreateBufferStruct()
 
 	for (int32 i = 0; i < Uniform2DTextureExpressions.Num(); ++i)
 	{
-		check((NextMemberOffset & 0x7) == 0);
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
 		new(Members) FShaderParametersMetadata::FMember(*Texture2DNames[i],TEXT("Texture2D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 		new(Members) FShaderParametersMetadata::FMember(*Texture2DSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 	}
 
 	for (int32 i = 0; i < UniformCubeTextureExpressions.Num(); ++i)
 	{
-		check((NextMemberOffset & 0x7) == 0);
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
 		new(Members) FShaderParametersMetadata::FMember(*TextureCubeNames[i],TEXT("TextureCube"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 		new(Members) FShaderParametersMetadata::FMember(*TextureCubeSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 	}
 
 	for (int32 i = 0; i < UniformVolumeTextureExpressions.Num(); ++i)
 	{
-		check((NextMemberOffset & 0x7) == 0);
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
 		new(Members) FShaderParametersMetadata::FMember(*VolumeTextureNames[i],TEXT("Texture3D"),NextMemberOffset,UBMT_TEXTURE,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 		new(Members) FShaderParametersMetadata::FMember(*VolumeTextureSamplerNames[i],TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 	}
 
 	for (int32 i = 0; i < UniformExternalTextureExpressions.Num(); ++i)
 	{
-		check((NextMemberOffset & 0x7) == 0);
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
 		new(Members) FShaderParametersMetadata::FMember(*ExternalTextureNames[i], TEXT("TextureExternal"), NextMemberOffset, UBMT_TEXTURE, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 		new(Members) FShaderParametersMetadata::FMember(*MediaTextureSamplerNames[i], TEXT("SamplerState"), NextMemberOffset, UBMT_SAMPLER, EShaderPrecisionModifier::Float, 1, 1, 1, NULL);
-		NextMemberOffset += 8;
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 	}
 
 	new(Members) FShaderParametersMetadata::FMember(TEXT("Wrap_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
-	NextMemberOffset += 8;
+	NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 
 	new(Members) FShaderParametersMetadata::FMember(TEXT("Clamp_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,1,NULL);
-	NextMemberOffset += 8;
+	NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 
 	const uint32 StructSize = Align(NextMemberOffset, SHADER_PARAMETER_STRUCT_ALIGNMENT);
 	UniformBufferStruct.Emplace(
@@ -345,25 +347,37 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FUniformExpressionSet_FillUniformBuffer);
 
-		FLinearColor* TempVectorBuffer = (FLinearColor*)TempBuffer;
+		void* BufferCursor = TempBuffer;
+
+		// Dump vector expression into the buffer.
 		for(int32 VectorIndex = 0;VectorIndex < UniformVectorExpressions.Num();++VectorIndex)
 		{
-			TempVectorBuffer[VectorIndex] = FLinearColor(0,0,0,0);
-			UniformVectorExpressions[VectorIndex]->GetNumberValue(MaterialRenderContext,TempVectorBuffer[VectorIndex]);
+			FLinearColor VectorValue(0, 0, 0, 0);
+			UniformVectorExpressions[VectorIndex]->GetNumberValue(MaterialRenderContext, VectorValue);
+
+			FLinearColor* DestAddress = (FLinearColor*)BufferCursor;
+			*DestAddress = VectorValue;
+			BufferCursor = DestAddress + 1;
 		}
 
-		float* TempScalarBuffer = (float*)(TempVectorBuffer + UniformVectorExpressions.Num());
+		// Dump scalar expression into the buffer.
 		for(int32 ScalarIndex = 0;ScalarIndex < UniformScalarExpressions.Num();++ScalarIndex)
 		{
 			FLinearColor VectorValue(0,0,0,0);
 			UniformScalarExpressions[ScalarIndex]->GetNumberValue(MaterialRenderContext,VectorValue);
-			TempScalarBuffer[ScalarIndex] = VectorValue.R;
+
+			float* DestAddress = (float*)BufferCursor;
+			*DestAddress = VectorValue.R;
+			BufferCursor = DestAddress + 1;
 		}
 
-		const TArray<uint16>& ResourceTableOffsets = UniformBufferStruct->GetLayout().ResourceOffsets;
-		int32 ResourceIndex = 0;
-
-		check(UniformBufferStruct->GetLayout().Resources.Num() == Uniform2DTextureExpressions.Num() * 2 + UniformCubeTextureExpressions.Num() * 2 + UniformVolumeTextureExpressions.Num() * 2 + UniformExternalTextureExpressions.Num() * 2 + 2);
+		// Offsets the cursor to next first resource.
+		BufferCursor = ((float*)BufferCursor) + ((4 - UniformScalarExpressions.Num() % 4) % 4);
+		
+		{
+			const TArray<FRHIUniformBufferLayout::FResourceParameter>& ResourceParameters = UniformBufferStruct->GetLayout().Resources;
+			check(UniformBufferStruct->GetLayout().Resources.Num() == Uniform2DTextureExpressions.Num() * 2 + UniformCubeTextureExpressions.Num() * 2 + UniformVolumeTextureExpressions.Num() * 2 + UniformExternalTextureExpressions.Num() * 2 + 2);
+		}
 
 		// Cache 2D texture uniform expressions.
 		for(int32 ExpressionIndex = 0;ExpressionIndex < Uniform2DTextureExpressions.Num();ExpressionIndex++)
@@ -397,8 +411,9 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 				}
 			}
 
-			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
-			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+			void** ResourceTableTexturePtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
 
 			if (Value && Value->Resource)
 			{
@@ -435,8 +450,6 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 				check(GWhiteTexture->SamplerStateRHI);
 				*ResourceTableSamplerPtr = GWhiteTexture->SamplerStateRHI;
 			}
-
-			ResourceIndex += 2;
 		}
 
 		// Cache cube texture uniform expressions.
@@ -446,8 +459,9 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 			ESamplerSourceMode SourceMode;
 			UniformCubeTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
 
-			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
-			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+			void** ResourceTableTexturePtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
 
 			if(Value && Value->Resource)
 			{
@@ -474,8 +488,6 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 				check(GWhiteTextureCube->SamplerStateRHI);
 				*ResourceTableSamplerPtr = GWhiteTextureCube->SamplerStateRHI;
 			}
-
-			ResourceIndex += 2;
 		}
 
 		// Cache volume texture uniform expressions.
@@ -485,8 +497,9 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 			ESamplerSourceMode SourceMode;
 			UniformVolumeTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
 
-			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
-			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+			void** ResourceTableTexturePtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
 
 			if(Value && Value->Resource)
 			{
@@ -513,8 +526,6 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 				check(GBlackVolumeTexture->SamplerStateRHI);
 				*ResourceTableSamplerPtr = GBlackVolumeTexture->SamplerStateRHI;
 			}
-
-			ResourceIndex += 2;
 		}
 
 		// Cache external texture uniform expressions.
@@ -526,8 +537,9 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 			FTextureRHIRef TextureRHI;
 			FSamplerStateRHIRef SamplerStateRHI;
 
-			void** ResourceTableTexturePtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
-			void** ResourceTableSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex + 1]);
+			void** ResourceTableTexturePtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			void** ResourceTableSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
 
 			if (UniformExternalTextureExpressions[ExpressionIndex]->GetExternalTexture(MaterialRenderContext, TextureRHI, SamplerStateRHI))
 			{
@@ -546,22 +558,18 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 				check(GWhiteTexture->SamplerStateRHI);
 				*ResourceTableSamplerPtr = GWhiteTexture->SamplerStateRHI;
 			}
-
-			ResourceIndex += 2;
 		}
 
 		{
-			void** Wrap_WorldGroupSettingsSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** Wrap_WorldGroupSettingsSamplerPtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
 			check(Wrap_WorldGroupSettings->SamplerStateRHI);
 			*Wrap_WorldGroupSettingsSamplerPtr = Wrap_WorldGroupSettings->SamplerStateRHI;
-			ResourceIndex++;
 		}
 
 		{
-			void** Clamp_WorldGroupSettingsSamplerPtr = (void**)((uint8*)TempBuffer + ResourceTableOffsets[ResourceIndex]);
+			void** Clamp_WorldGroupSettingsSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
 			check(Clamp_WorldGroupSettings->SamplerStateRHI);
 			*Clamp_WorldGroupSettingsSamplerPtr = Clamp_WorldGroupSettings->SamplerStateRHI;
-			ResourceIndex++;
 		}
 	}
 }

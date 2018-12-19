@@ -827,7 +827,7 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 					CachedMeshDrawCommand.StateBucketId,
 					CachedMeshDrawCommand.MeshFillMode,
 					CachedMeshDrawCommand.MeshCullMode,
-					CachedMeshDrawCommand.SortKey);
+					FMeshDrawCommandSortKey::Default);
 
 				VisibleMeshCommands.Add(NewVisibleMeshDrawCommand);
 			}
@@ -861,7 +861,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 			else
 			{
 				const FBoxSphereBounds& Bounds = InPrimitiveSceneInfo->Proxy->GetBounds();
-				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->StaticMeshRelevances, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenSizeSquared, InCurrentView.LODDistanceFactor);
+				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->Proxy->ScreenSizes, InPrimitiveSceneInfo->StaticMeshes[0].bDitheredLODTransition, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenSizeSquared, InCurrentView.LODDistanceFactor);
 			}	
 
 			InCurrentView.PrimitivesLODMask[PrimitiveId] = ViewLODToRender;
@@ -1375,7 +1375,7 @@ void FProjectedShadowInfo::ApplyViewOverridesToMeshDrawCommands(const FViewInfo&
 			const ERasterizerCullMode LocalCullMode = View.bRenderSceneTwoSided ? CM_None : View.bReverseCulling ? FMeshDrawingPolicy::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
 			NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
 
-			NewMeshCommand.Finalize();
+			NewMeshCommand.Finalize(true);
 
 			FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
@@ -1448,14 +1448,12 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 	if (ShadingPath == EShadingPath::Deferred)
 	{
 		FShadowDepthPassUniformParameters ShadowDepthParameters;
-		DefaultInitializeUniformBufferResources(ShadowDepthParameters);
 		ShadowDepthPassUniformBuffer = TUniformBufferRef<FShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(ShadowDepthParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 		PassUniformBuffer = ShadowDepthPassUniformBuffer;
 	}
 	else if (ShadingPath == EShadingPath::Mobile)
 	{
 		FMobileShadowDepthPassUniformParameters ShadowDepthParameters;
-		DefaultInitializeUniformBufferResources(ShadowDepthParameters);
 		MobileShadowDepthPassUniformBuffer = TUniformBufferRef<FMobileShadowDepthPassUniformParameters>::CreateUniformBufferImmediate(ShadowDepthParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 		PassUniformBuffer = MobileShadowDepthPassUniformBuffer;
 	}
@@ -3372,7 +3370,7 @@ void FSceneRenderer::AddViewDependentWholeSceneShadowsForView(
 
 				int32 LocalIndex = Index;
 
-				// Indexing like this puts the raytraced shadow cascade last (might not be needed)
+				// Indexing like this puts the ray traced shadow cascade last (might not be needed)
 				if(bExtraDistanceFieldCascade && LocalIndex + 1 == ProjectionCount)
 				{
 					LocalIndex = INDEX_NONE;

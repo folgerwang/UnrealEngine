@@ -184,6 +184,10 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	bool bAnySectionCastsShadows = false;
 	LODs.Empty(RenderData->LODResources.Num());
 	const bool bLODsShareStaticLighting = RenderData->bLODsShareStaticLighting || bForceLODsShareStaticLighting;
+
+#if RHI_RAYTRACING
+	RayTracingGeometries.AddDefaulted(RenderData->LODResources.Num());
+#endif
 	for(int32 LODIndex = 0;LODIndex < RenderData->LODResources.Num();LODIndex++)
 	{
 		FLODInfo* NewLODInfo = new(LODs) FLODInfo(InComponent, RenderData->LODVertexFactories, LODIndex, ClampedMinLOD, bLODsShareStaticLighting);
@@ -191,6 +195,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 		// Under certain error conditions an LOD's material will be set to 
 		// DefaultMaterial. Ensure our material view relevance is set properly.
 		const int32 NumSections = NewLODInfo->Sections.Num();
+		bool bHasNonUnlitSections = false;
 		for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
 		{
 			const FLODInfo::FSectionInfo& SectionInfo = NewLODInfo->Sections[SectionIndex];
@@ -199,7 +204,20 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 			{
 				MaterialRelevance |= UMaterial::GetDefaultMaterial(MD_Surface)->GetRelevance(FeatureLevel);
 			}
+
+			// #dxr_todo: also consider materials that are both Unlit and Translucent - however translucency requires anyhit shaders, so omit them currently
+			if (SectionInfo.Material->GetShadingModel() != MSM_Unlit)
+			{
+				bHasNonUnlitSections = true;
+			}
 		}
+
+#if RHI_RAYTRACING
+		if (bHasNonUnlitSections)
+		{
+			RayTracingGeometries[LODIndex] = RenderData->LODResources[LODIndex].RayTracingGeometry.RayTracingGeometryRHI;
+		}
+#endif
 	}
 
 	// WPO is typically used for ambient animations, so don't include in cached shadowmaps
@@ -395,6 +413,8 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 	bool bAllowPreCulledIndices, 
 	FMeshBatch& OutMeshBatch) const
 {
+	OutMeshBatch.SegmentIndex = SectionIndex;
+
 	const ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
 	const FStaticMeshLODResources& LOD = RenderData->LODResources[LODIndex];
 	const FStaticMeshVertexFactories& VFs = RenderData->LODVertexFactories[LODIndex];
@@ -1290,6 +1310,13 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	}
 #endif // STATICMESH_ENABLE_DEBUG_RENDERING
 }
+
+#if RHI_RAYTRACING
+FRayTracingGeometryRHIRef FStaticMeshSceneProxy::GetRayTracingGeometryInstance(int LodLevel) const
+{
+	return RayTracingGeometries[LodLevel];
+}
+#endif // RHI_RAYTRACING
 
 void FStaticMeshSceneProxy::GetLCIs(FLCIArray& LCIs)
 {

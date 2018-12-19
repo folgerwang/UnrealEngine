@@ -49,6 +49,15 @@ static const bool GD3D12SkipStateCaching = false;
 
 extern int32 GGlobalViewHeapSize;
 
+
+enum ED3D12PipelineType
+{
+	D3D12PT_Graphics,
+	D3D12PT_Compute,
+	D3D12PT_RayTracing,
+};
+
+
 #define MAX_VBS			D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT
 
 typedef uint32 VBSlotMask;
@@ -117,6 +126,7 @@ struct FD3D12ResourceCache
 	// Mark a specific shader stage as dirty.
 	inline void Dirty(EShaderFrequency ShaderFrequency, const ResourceSlotMask& SlotMask = -1)
 	{
+		checkSlow(ShaderFrequency < ARRAY_COUNT(DirtySlotMask));
 		DirtySlotMask[ShaderFrequency] |= SlotMask;
 	}
 
@@ -143,7 +153,7 @@ struct FD3D12ResourceCache
 		DirtyCompute(SlotMask);
 	}
 
-	ResourceSlotMask DirtySlotMask[SF_NumFrequencies];
+	ResourceSlotMask DirtySlotMask[SF_NumStandardFrequencies];
 };
 
 struct FD3D12ConstantBufferCache : public FD3D12ResourceCache<CBVSlotMask>
@@ -165,10 +175,10 @@ struct FD3D12ConstantBufferCache : public FD3D12ResourceCache<CBVSlotMask>
 	}
 
 #if USE_STATIC_ROOT_SIGNATURE
-	D3D12_CPU_DESCRIPTOR_HANDLE CBHandles[SF_NumFrequencies][MAX_CBS];
+	D3D12_CPU_DESCRIPTOR_HANDLE CBHandles[SF_NumStandardFrequencies][MAX_CBS];
 #endif
-	D3D12_GPU_VIRTUAL_ADDRESS CurrentGPUVirtualAddress[SF_NumFrequencies][MAX_CBS];
-	FD3D12ResidencyHandle* ResidencyHandles[SF_NumFrequencies][MAX_CBS];
+	D3D12_GPU_VIRTUAL_ADDRESS CurrentGPUVirtualAddress[SF_NumStandardFrequencies][MAX_CBS];
+	FD3D12ResidencyHandle* ResidencyHandles[SF_NumStandardFrequencies][MAX_CBS];
 };
 
 struct FD3D12ShaderResourceViewCache : public FD3D12ResourceCache<SRVSlotMask>
@@ -190,7 +200,7 @@ struct FD3D12ShaderResourceViewCache : public FD3D12ResourceCache<SRVSlotMask>
 			Index = INDEX_NONE;
 		}
 
-		for (int32 FrequencyIdx = 0; FrequencyIdx < SF_NumFrequencies; ++FrequencyIdx)
+		for (int32 FrequencyIdx = 0; FrequencyIdx < SF_NumStandardFrequencies; ++FrequencyIdx)
 		{
 			for (int32 SRVIdx = 0; SRVIdx < MAX_SRVS; ++SRVIdx)
 			{
@@ -199,11 +209,11 @@ struct FD3D12ShaderResourceViewCache : public FD3D12ResourceCache<SRVSlotMask>
 		}
 	}
 
-	TRefCountPtr<FD3D12ShaderResourceView> Views[SF_NumFrequencies][MAX_SRVS];
-	FD3D12ResidencyHandle* ResidencyHandles[SF_NumFrequencies][MAX_SRVS];
+	TRefCountPtr<FD3D12ShaderResourceView> Views[SF_NumStandardFrequencies][MAX_SRVS];
+	FD3D12ResidencyHandle* ResidencyHandles[SF_NumStandardFrequencies][MAX_SRVS];
 
-	SRVSlotMask BoundMask[SF_NumFrequencies];
-	int32 MaxBoundIndex[SF_NumFrequencies];
+	SRVSlotMask BoundMask[SF_NumStandardFrequencies];
+	int32 MaxBoundIndex[SF_NumStandardFrequencies];
 };
 
 struct FD3D12UnorderedAccessViewCache : public FD3D12ResourceCache<UAVSlotMask>
@@ -226,9 +236,9 @@ struct FD3D12UnorderedAccessViewCache : public FD3D12ResourceCache<UAVSlotMask>
 		}
 	}
 
-	FD3D12UnorderedAccessView* Views[SF_NumFrequencies][MAX_UAVS];
-	FD3D12ResidencyHandle* ResidencyHandles[SF_NumFrequencies][MAX_UAVS];
-	uint32 StartSlot[SF_NumFrequencies];
+	FD3D12UnorderedAccessView* Views[SF_NumStandardFrequencies][MAX_UAVS];
+	FD3D12ResidencyHandle* ResidencyHandles[SF_NumStandardFrequencies][MAX_UAVS];
+	uint32 StartSlot[SF_NumStandardFrequencies];
 };
 
 struct FD3D12SamplerStateCache : public FD3D12ResourceCache<SamplerSlotMask>
@@ -245,7 +255,7 @@ struct FD3D12SamplerStateCache : public FD3D12ResourceCache<SamplerSlotMask>
 		FMemory::Memzero(States);
 	}
 
-	FD3D12SamplerState* States[SF_NumFrequencies][MAX_SAMPLERS];
+	FD3D12SamplerState* States[SF_NumStandardFrequencies][MAX_SAMPLERS];
 };
 
 //-----------------------------------------------------------------------------
@@ -347,10 +357,10 @@ protected:
 			ID3D12PipelineState* CurrentPipelineStateObject;
 			bool bNeedSetPSO;
 
-			uint32 CurrentShaderSamplerCounts[SF_NumFrequencies];
-			uint32 CurrentShaderSRVCounts[SF_NumFrequencies];
-			uint32 CurrentShaderCBCounts[SF_NumFrequencies];
-			uint32 CurrentShaderUAVCounts[SF_NumFrequencies];
+			uint32 CurrentShaderSamplerCounts[SF_NumStandardFrequencies];
+			uint32 CurrentShaderSRVCounts[SF_NumStandardFrequencies];
+			uint32 CurrentShaderCBCounts[SF_NumStandardFrequencies];
+			uint32 CurrentShaderUAVCounts[SF_NumStandardFrequencies];
 		} Common;
 	} PipelineState;
 
@@ -397,15 +407,21 @@ protected:
 		*Shader = StateCacheShaderTraits<TShader>::GetShader(GetGraphicsPipelineState());
 	}
 
-	template <bool IsCompute = false>
+	template <ED3D12PipelineType PipelineType>
 	D3D12_STATE_CACHE_INLINE void InternalSetPipelineState()
 	{
+		static_assert(PipelineType != D3D12PT_RayTracing, "FD3D12StateCacheBase is not expected to be used with ray tracing.");
+
 		// See if we need to set our PSO:
 		// In D3D11, you could Set dispatch arguments, then set Draw arguments, then call Draw/Dispatch/Draw/Dispatch without setting arguments again.
 		// In D3D12, we need to understand when the app switches between Draw/Dispatch and make sure the correct PSO is set.
+
 		bool bNeedSetPSO = PipelineState.Common.bNeedSetPSO;
 		ID3D12PipelineState*& CurrentPSO = PipelineState.Common.CurrentPipelineStateObject;
-		ID3D12PipelineState* const RequiredPSO = IsCompute ? PipelineState.Compute.CurrentPipelineStateObject->PipelineState->GetPipelineState() : PipelineState.Graphics.CurrentPipelineStateObject->PipelineState->GetPipelineState();
+		ID3D12PipelineState* const RequiredPSO = (PipelineType == D3D12PT_Compute) 
+			? PipelineState.Compute.CurrentPipelineStateObject->PipelineState->GetPipelineState() 
+			: PipelineState.Graphics.CurrentPipelineStateObject->PipelineState->GetPipelineState();
+
 		if (CurrentPSO != RequiredPSO)
 		{
 			CurrentPSO = RequiredPSO;
@@ -687,7 +703,7 @@ public:
 			PipelineState.Graphics.PrimitiveType = GraphicsPipelineState->PipelineStateInitializer.PrimitiveType;
 
 			// Set the PSO
-			InternalSetPipelineState<false>();
+			InternalSetPipelineState<D3D12PT_Graphics>();
 		}
 	}
 
@@ -701,7 +717,7 @@ public:
 			PipelineState.Compute.CurrentPipelineStateObject = ComputePipelineState;
 
 			// Set the PSO
-			InternalSetPipelineState<true>();
+			InternalSetPipelineState<D3D12PT_Compute>();
 		}
 	}
 
@@ -730,7 +746,7 @@ public:
 
 	D3D12_STATE_CACHE_INLINE bool IsShaderResource(const FD3D12ResourceLocation* VertexBufferLocation) const
 	{
-		for (int i = 0; i < SF_NumFrequencies; i++)
+		for (int i = 0; i < SF_NumStandardFrequencies; i++)
 		{
 			if (PipelineState.Common.SRVCache.MaxBoundIndex[i] < 0)
 			{
@@ -792,14 +808,28 @@ public:
 	{
 	}
 
-	template <bool IsCompute = false> 
+#if D3D12_RHI_RAYTRACING
+	// When transitioning between RayGen and Compute, it is necessary to clear the state cache
+	void TransitionComputeState(ED3D12PipelineType PipelineType)
+	{
+		if (LastComputePipelineType != PipelineType)
+		{
+			ClearState();
+			LastComputePipelineType = PipelineType;
+		}
+	}
+
+	ED3D12PipelineType LastComputePipelineType = D3D12PT_Compute;
+#endif // D3D12_RHI_RAYTRACING
+
+	template <ED3D12PipelineType PipelineType> 
 	void ApplyState();
 	void ApplySamplers(const FD3D12RootSignature* const pRootSignature, uint32 StartStage, uint32 EndStage);
 	void DirtyStateForNewCommandList();
 	void DirtyState();
 	void DirtyViewDescriptorTables();
 	void DirtySamplerDescriptorTables();
-	bool AssertResourceStates(const bool IsCompute);
+	bool AssertResourceStates(ED3D12PipelineType PipelineType);
 
 	void SetRenderTargets(uint32 NumSimultaneousRenderTargets, FD3D12RenderTargetView** RTArray, FD3D12DepthStencilView* DSTarget);
 	D3D12_STATE_CACHE_INLINE void GetRenderTargets(FD3D12RenderTargetView **RTArray, uint32* NumSimultaneousRTs, FD3D12DepthStencilView** DepthStencilTarget)

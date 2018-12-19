@@ -202,6 +202,11 @@ class FRHIHullShader : public FRHIShader {};
 class FRHIDomainShader : public FRHIShader {};
 class FRHIPixelShader : public FRHIShader {};
 class FRHIGeometryShader : public FRHIShader {};
+
+#if RHI_RAYTRACING
+class FRHIRayTracingShader : public FRHIShader {};
+#endif // RHI_RAYTRACING
+
 class RHI_API FRHIComputeShader : public FRHIShader
 {
 public:
@@ -220,6 +225,17 @@ private:
 
 class FRHIGraphicsPipelineState : public FRHIResource {};
 class FRHIComputePipelineState : public FRHIResource {};
+class FRHIRayTracingPipelineState : public FRHIResource {};
+
+//
+// Ray tracing resources
+//
+
+/** Bottom level ray tracing acceleration structure (contains triangles). */
+class FRHIRayTracingGeometry : public FRHIResource {};
+
+/** Top level ray tracing acceleration structure (contains instances of meshes). */
+class FRHIRayTracingScene : public FRHIResource {};
 
 //
 // Buffers
@@ -234,12 +250,21 @@ class FRHIComputePipelineState : public FRHIResource {};
 /** The layout of a uniform buffer in memory. */
 struct FRHIUniformBufferLayout
 {
+	/** Data structure to store information about resource parameter in a shader parameter structure. */
+	struct FResourceParameter
+	{
+		/** Byte offset to each resource in the uniform buffer memory. */
+		uint16 MemberOffset;
+
+		/** Type of the member that allow (). */
+		EUniformBufferBaseType MemberType;
+	};
+
 	/** The size of the constant buffer in bytes. */
 	uint32 ConstantBufferSize;
-	/** Byte offset to each resource in the uniform buffer memory. */
-	TArray<uint16> ResourceOffsets;
-	/** The type of each resource (EUniformBufferBaseType). */
-	TArray<uint8> Resources;
+
+	/** The list of all resource inlined into the shader parameter structure. */
+	TArray<FResourceParameter> Resources;
 
 #if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
 	mutable int32 NumUsesForDebugging = 0;
@@ -255,29 +280,29 @@ struct FRHIUniformBufferLayout
 	{
 		uint32 TmpHash = ConstantBufferSize << 16;
 			
-		for (int32 ResourceIndex = 0; ResourceIndex < ResourceOffsets.Num(); ResourceIndex++)
+		for (int32 ResourceIndex = 0; ResourceIndex < Resources.Num(); ResourceIndex++)
 		{
 			// Offset and therefore hash must be the same regardless of pointer size
-			checkSlow(ResourceOffsets[ResourceIndex] == Align(ResourceOffsets[ResourceIndex], 8));
-			TmpHash ^= ResourceOffsets[ResourceIndex];
+			checkSlow(Resources[ResourceIndex].MemberOffset == Align(Resources[ResourceIndex].MemberOffset, SHADER_PARAMETER_POINTER_ALIGNMENT));
+			TmpHash ^= Resources[ResourceIndex].MemberOffset;
 		}
 
 		uint32 N = Resources.Num();
 		while (N >= 4)
 		{
-			TmpHash ^= (Resources[--N] << 0);
-			TmpHash ^= (Resources[--N] << 8);
-			TmpHash ^= (Resources[--N] << 16);
-			TmpHash ^= (Resources[--N] << 24);
+			TmpHash ^= (Resources[--N].MemberType << 0);
+			TmpHash ^= (Resources[--N].MemberType << 8);
+			TmpHash ^= (Resources[--N].MemberType << 16);
+			TmpHash ^= (Resources[--N].MemberType << 24);
 		}
 		while (N >= 2)
 		{
-			TmpHash ^= Resources[--N] << 0;
-			TmpHash ^= Resources[--N] << 16;
+			TmpHash ^= Resources[--N].MemberType << 0;
+			TmpHash ^= Resources[--N].MemberType << 16;
 		}
 		while (N > 0)
 		{
-			TmpHash ^= Resources[--N];
+			TmpHash ^= Resources[--N].MemberType;
 		}
 		Hash = TmpHash;
 	}
@@ -310,7 +335,6 @@ struct FRHIUniformBufferLayout
 	void CopyFrom(const FRHIUniformBufferLayout& Source)
 	{
 		ConstantBufferSize = Source.ConstantBufferSize;
-		ResourceOffsets = Source.ResourceOffsets;
 		Resources = Source.Resources;
 		Name = Source.Name;
 		Hash = Source.Hash;
@@ -330,10 +354,16 @@ private:
 };
 
 /** Compare two uniform buffer layouts. */
+inline bool operator==(const FRHIUniformBufferLayout::FResourceParameter& A, const FRHIUniformBufferLayout::FResourceParameter& B)
+{
+	return A.MemberOffset == B.MemberOffset
+		&& A.MemberType == B.MemberType;
+}
+
+/** Compare two uniform buffer layouts. */
 inline bool operator==(const FRHIUniformBufferLayout& A, const FRHIUniformBufferLayout& B)
 {
 	return A.ConstantBufferSize == B.ConstantBufferSize
-		&& A.ResourceOffsets == B.ResourceOffsets
 		&& A.Resources == B.Resources;
 }
 
@@ -1002,6 +1032,11 @@ typedef TRefCountPtr<FRHIGeometryShader> FGeometryShaderRHIRef;
 typedef FRHIComputeShader*              FComputeShaderRHIParamRef;
 typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
 
+#if RHI_RAYTRACING
+typedef FRHIRayTracingShader*                       FRayTracingShaderRHIParamRef;
+typedef TRefCountPtr<FRHIRayTracingShader>          FRayTracingShaderRHIRef;
+#endif // RHI_RAYTRACING
+
 typedef FRHIComputeFence*				FComputeFenceRHIParamRef;
 typedef TRefCountPtr<FRHIComputeFence>	FComputeFenceRHIRef;
 
@@ -1056,6 +1091,14 @@ typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
 typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRef;
 typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 
+typedef FRHIRayTracingGeometry*                  FRayTracingGeometryRHIParamRef;
+typedef TRefCountPtr<FRHIRayTracingGeometry>     FRayTracingGeometryRHIRef;
+
+typedef FRHIRayTracingScene*                     FRayTracingSceneRHIParamRef;
+typedef TRefCountPtr<FRHIRayTracingScene>        FRayTracingSceneRHIRef;
+
+typedef FRHIRayTracingPipelineState*              FRayTracingPipelineStateRHIParamRef;
+typedef TRefCountPtr<FRHIRayTracingPipelineState> FRayTracingPipelineStateRHIRef;
 
 /* Generic staging buffer class used by FRHIGPUMemoryReadback
 * RHI specific staging buffers derive from this
@@ -1565,30 +1608,16 @@ template<> struct TRHIShaderToEnum<FComputeShaderRHIRef>	{ enum { ShaderFrequenc
 
 struct FBoundShaderStateInput
 {
-	FVertexDeclarationRHIParamRef VertexDeclarationRHI;
-	FVertexShaderRHIParamRef VertexShaderRHI;
-	FHullShaderRHIParamRef HullShaderRHI;
-	FDomainShaderRHIParamRef DomainShaderRHI;
-	FPixelShaderRHIParamRef PixelShaderRHI;
-	FGeometryShaderRHIParamRef GeometryShaderRHI;
+	inline FBoundShaderStateInput() {}
 
-	FORCEINLINE FBoundShaderStateInput()
-		: VertexDeclarationRHI(nullptr)
-		, VertexShaderRHI(nullptr)
-		, HullShaderRHI(nullptr)
-		, DomainShaderRHI(nullptr)
-		, PixelShaderRHI(nullptr)
-		, GeometryShaderRHI(nullptr)
-	{
-	}
-
-	FORCEINLINE FBoundShaderStateInput(
-		FVertexDeclarationRHIParamRef InVertexDeclarationRHI,
-		FVertexShaderRHIParamRef InVertexShaderRHI,
-		FHullShaderRHIParamRef InHullShaderRHI,
-		FDomainShaderRHIParamRef InDomainShaderRHI,
-		FPixelShaderRHIParamRef InPixelShaderRHI,
-		FGeometryShaderRHIParamRef InGeometryShaderRHI
+	inline FBoundShaderStateInput
+	(
+		FVertexDeclarationRHIParamRef InVertexDeclarationRHI
+		, FVertexShaderRHIParamRef InVertexShaderRHI
+		, FHullShaderRHIParamRef InHullShaderRHI
+		, FDomainShaderRHIParamRef InDomainShaderRHI
+		, FPixelShaderRHIParamRef InPixelShaderRHI
+		, FGeometryShaderRHIParamRef InGeometryShaderRHI
 	)
 		: VertexDeclarationRHI(InVertexDeclarationRHI)
 		, VertexShaderRHI(InVertexShaderRHI)
@@ -1598,6 +1627,13 @@ struct FBoundShaderStateInput
 		, GeometryShaderRHI(InGeometryShaderRHI)
 	{
 	}
+
+	FVertexDeclarationRHIParamRef VertexDeclarationRHI = nullptr;
+	FVertexShaderRHIParamRef VertexShaderRHI = nullptr;
+	FHullShaderRHIParamRef HullShaderRHI = nullptr;
+	FDomainShaderRHIParamRef DomainShaderRHI = nullptr;
+	FPixelShaderRHIParamRef PixelShaderRHI = nullptr;
+	FGeometryShaderRHIParamRef GeometryShaderRHI = nullptr;
 };
 
 struct FImmutableSamplerState
@@ -1921,6 +1957,87 @@ public:
 
 	friend class FMeshDrawingPolicy;
 };
+
+#if RHI_RAYTRACING
+
+struct FRayTracingHitGroupInitializer
+{
+	FRayTracingShaderRHIParamRef ShaderRHI = nullptr;
+
+	bool operator==(const FRayTracingHitGroupInitializer& rhs) const
+	{
+		return ShaderRHI == rhs.ShaderRHI;
+	}
+
+	inline friend uint32 GetTypeHash(const FRayTracingHitGroupInitializer& Initializer)
+	{
+		return PointerHash(Initializer.ShaderRHI); // Only consider the shader when computing the hash (operator== performs full state test)
+	}
+};
+
+class FRayTracingPipelineStateInitializer
+{
+public:
+
+	FRayTracingPipelineStateInitializer() {}
+
+	// NOTE: GetTypeHash(const FRayTracingPipelineStateInitializer& Initializer) should also be updated when changing this function
+	bool operator==(const FRayTracingPipelineStateInitializer& rhs) const
+	{
+		return MaxPayloadSizeInBytes == rhs.MaxPayloadSizeInBytes
+			&& RayGenShaderRHI == rhs.RayGenShaderRHI
+			&& MissShaderRHI == rhs.MissShaderRHI
+			&& DefaultClosestHitShaderRHI == rhs.DefaultClosestHitShaderRHI
+			&& HitGroupHash == rhs.HitGroupHash;
+	}
+
+	uint32 MaxPayloadSizeInBytes = 32; // sizeof FDefaultPayload
+
+	FRayTracingShaderRHIParamRef RayGenShaderRHI = nullptr;
+
+	// Shader that will be invoked if a ray misses all geometry.
+	// If this is not provided, a default miss shader will be used that sets HitT member of FDefaultPayload to -1.
+	FRayTracingShaderRHIParamRef MissShaderRHI = nullptr;
+
+	// Closest hit shader that will be assigned to all geometry by default.
+	// If this is NULL, then built-in default shader will be used which assumes the following payload:
+	// 	struct FDefaultPayload
+	// 	{
+	// 		float2 Barycentrics;
+	// 		uint   InstanceID;
+	// 		uint   InstanceIndex;
+	// 		uint   PrimitiveIndex;
+	// 		float  HitT;
+	// 		float2 Padding;
+	// 	};
+	FRayTracingShaderRHIParamRef DefaultClosestHitShaderRHI = nullptr;
+
+
+	const TArrayView<const FRayTracingHitGroupInitializer>& GetHitGroups() const { return HitGroups; }
+
+	void SetHitGroups(const TArrayView<const FRayTracingHitGroupInitializer>& InHitGroups)
+	{
+		HitGroups = InHitGroups;
+
+		uint32 CombinedHash = 2085640061; // Large prime number
+		for (const FRayTracingHitGroupInitializer& HitGroup : HitGroups)
+		{
+			// #dxr_todo: some sort of session-unique ID should be used instead of pointers to ensure that unique hash is
+			// produced if the same memory happens to be re-used for a different shader (i.e. delete followed by new).
+			CombinedHash = PointerHash(HitGroup.ShaderRHI, CombinedHash);
+		}
+
+		HitGroupHash = CombinedHash;
+	}
+
+	uint32 GetHitGroupHash() const { return HitGroupHash; }
+
+private:
+
+	TArrayView<const FRayTracingHitGroupInitializer> HitGroups;
+	uint32 HitGroupHash = 0;
+};
+#endif // RHI_RAYTRACING
 
 // This PSO is used as a fallback for RHIs that dont support PSOs. It is used to set the graphics state using the legacy state setting APIs
 class FRHIGraphicsPipelineStateFallBack : public FRHIGraphicsPipelineState

@@ -63,28 +63,20 @@ public:
 	}
 
 	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FLightParameters& LightParameters) const override
+	virtual void GetLightShaderParameters(FLightShaderParameters& LightParameters) const override
 	{
-		LightParameters.LightPositionAndInvRadius = FVector4(
-			GetOrigin(),
-			InvRadius);
-
-		LightParameters.LightColorAndFalloffExponent = FVector4(
-			GetColor().R,
-			GetColor().G,
-			GetColor().B,
-			FalloffExponent);
-
-		const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
-
-		LightParameters.NormalizedLightDirection = -GetDirection();
-		LightParameters.NormalizedLightTangent = ZAxis;
+		LightParameters.Position = GetOrigin();
+		LightParameters.InvRadius = InvRadius;
+		LightParameters.Color = FVector(GetColor());
+		LightParameters.FalloffExponent = FalloffExponent;
+		LightParameters.Direction = -GetDirection();
+		LightParameters.Tangent = FVector(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
 		LightParameters.SpotAngles = FVector2D(CosOuterCone, InvCosConeDifference);
 		LightParameters.SpecularScale = SpecularScale;
-		LightParameters.LightSourceRadius = SourceRadius;
-		LightParameters.LightSoftSourceRadius = SoftSourceRadius;
-		LightParameters.LightSourceLength = SourceLength;
-		LightParameters.SourceTexture = GWhiteTexture;
+		LightParameters.SourceRadius = SourceRadius;
+		LightParameters.SoftSourceRadius = SoftSourceRadius;
+		LightParameters.SourceLength = SourceLength;
+		LightParameters.SourceTexture = GWhiteTexture->TextureRHI;
 	}
 
 	// FLightSceneInfo interface.

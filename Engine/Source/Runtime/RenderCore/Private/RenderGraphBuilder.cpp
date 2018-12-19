@@ -11,25 +11,43 @@
 
 static int32 GRenderGraphImmediateMode = 0;
 static FAutoConsoleVariableRef CVarImmediateMode(
-	TEXT("r.Graph.ImmediateMode"),
+	TEXT("r.RDG.ImmediateMode"),
 	GRenderGraphImmediateMode,
-	TEXT("Executes passes as they get created. Extremely useful to have a callstack of the wiring code when crashing in the pass' lambda."),
+	TEXT("Executes passes as they get created. Useful to have a callstack of the wiring code when crashing in the pass' lambda."),
+	ECVF_RenderThreadSafe);
+
+static int32 GRenderGraphEmitWarnings = 1;
+static FAutoConsoleVariableRef CVarEmitWarnings(
+	TEXT("r.RDG.EmitWarnings"),
+	GRenderGraphEmitWarnings,
+	TEXT("Allow to output warnings for inefficiencies found during wiring and execution of the passes."),
 	ECVF_RenderThreadSafe);
 
 #else
 
 static const int32 GRenderGraphImmediateMode = 0;
+static const int32 GRenderGraphEmitWarnings = 0;
 
 #endif
 
 
+void InitRenderGraph()
+{
+#if RENDER_GRAPH_DEBUGGING && WITH_ENGINE
+	if (FParse::Param(FCommandLine::Get(), TEXT("rdgimmediate")))
+	{
+		GRenderGraphImmediateMode = 1;
+	}
+#endif
+}
+
 
 static bool IsBoundAsReadable(const FRDGTexture* Texture, FShaderParameterStructRef ParameterStruct)
 {
-	for (int i = 0, Num = ParameterStruct.Layout->Resources.Num(); i < Num; i++)
+	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8  Type = ParameterStruct.Layout->Resources[i];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[i];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		switch (Type)
 		{
@@ -101,6 +119,7 @@ void FRDGBuilder::Execute()
 	}
 
 	// Pops remaining scopes
+	if ((RENDER_GRAPH_DRAW_EVENTS != 0) && GetEmitDrawEvents())
 	{
 		for (int32 i = 0; i < kMaxScopeCount; i++)
 		{
@@ -123,24 +142,31 @@ void FRDGBuilder::Execute()
 
 void FRDGBuilder::DebugPass(const FRenderGraphPass* Pass)
 {
+#if RENDER_GRAPH_DEBUGGING
+	// Verify all the settings of the pass make sense.
 	ValidatePass(Pass);
 
+	// Executes the pass immediatly as they get added mode, to have callstack of wiring code when crashing within the pass.
 	if (GRenderGraphImmediateMode)
 	{
 		ExecutePass(Pass);
 	}
+#endif
 
+#if WITH_ENGINE && SUPPORTS_VISUALIZE_TEXTURE
 	// If visualizing a texture, look for any output of the pass. This must be done after the
-	// GRenderGraphImmediateMode's ExecutePass() because this will actually increate a capturing
+	// GRenderGraphImmediateMode's ExecutePass() because this will actually create a capturing
 	// pass if needed that would have to be executed right away as well.
 	if (GVisualizeTexture.bEnabled)
 	{
 		CaptureAnyInterestingPassOutput(Pass);
 	}
+#endif
 }
 
 void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 {
+#if RENDER_GRAPH_DEBUGGING
 	FRenderTargetBindingSlots* RESTRICT RenderTargets = nullptr;
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
@@ -150,8 +176,8 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		switch (Type)
 		{
@@ -159,7 +185,7 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
 		{
 			FRDGResource* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGResource*>(Offset);
-			if (UAV && !bCanUseUAVs)
+			if (UAV && !bCanUseUAVs && GRenderGraphEmitWarnings)
 			{
 				UE_LOG(LogRendererCore, Warning, TEXT("UAV can only been bound to compute shaders, therefore UAV %s is certainly useless for passs %s."), UAV->Name, Pass->GetName());
 			}
@@ -167,13 +193,13 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 		break;
 		case UBMT_RENDER_TARGET_BINDING_SLOTS:
 		{
-			if (RenderTargets)
-			{
-				UE_LOG(LogRendererCore, Warning, TEXT("Pass %s have duplicated render target binding slots."), Pass->GetName());
-			}
-			else
+			if (!RenderTargets)
 			{
 				RenderTargets = ParameterStruct.GetMemberPtrAtOffset<FRenderTargetBindingSlots>(Offset);
+			}
+			else if (GRenderGraphEmitWarnings)
+			{
+				UE_LOG(LogRendererCore, Warning, TEXT("Pass %s have duplicated render target binding slots."), Pass->GetName());
 			}
 		}
 		break;
@@ -211,16 +237,17 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 	{
 		checkf(!bRequiresRenderTargetSlots, TEXT("Render pass %s requires render target binging slots"), Pass->GetName());
 	}
+#endif
 }
 
 void FRDGBuilder::CaptureAnyInterestingPassOutput(const FRenderGraphPass* Pass)
 {
-#if WITH_ENGINE
+#if SUPPORTS_VISUALIZE_TEXTURE
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		switch (Type)
 		{
@@ -262,7 +289,7 @@ void FRDGBuilder::CaptureAnyInterestingPassOutput(const FRenderGraphPass* Pass)
 			break;
 		}
 	}
-#endif // WITH_ENGINE
+#endif // SUPPORTS_VISUALIZE_TEXTURE
 }
 
 void FRDGBuilder::WalkGraphDependencies()
@@ -274,8 +301,8 @@ void FRDGBuilder::WalkGraphDependencies()
 		/** Increments all the FRDGResource::ReferenceCount. */
 		for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 		{
-			uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
-			uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+			EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+			uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 			switch (Type)
 			{
@@ -388,6 +415,7 @@ void FRDGBuilder::AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bC
 	GRenderTargetPool.FindFreeElement(RHICmdList, Texture->Desc, PooledRenderTarget, Texture->Name, /* bDoWritableBarrier = */ true);
 
 	Texture->PooledRenderTarget = PooledRenderTarget;
+	Texture->CachedRHI.Texture = PooledRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
 }
 
 void FRDGBuilder::AllocateRHITextureSRVIfNeeded(const FRDGTextureSRV* SRV, bool bComputePass)
@@ -687,8 +715,8 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 	const bool bGeneratingMips = (Pass->GetFlags() & ERenderGraphPassFlags::GenerateMips) == ERenderGraphPassFlags::GenerateMips;
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		switch (Type)
 		{
@@ -835,6 +863,11 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 // static 
 void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 {
+	if (!GRenderGraphEmitWarnings)
+	{
+		return;
+	}
+
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
 	int32 TrackedResourceCount = 0;
@@ -843,8 +876,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 	// First pass to count resources.
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
 			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
@@ -865,8 +898,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 
 		for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 		{
-			uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
-			uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+			EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+			uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 			if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
 				Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
@@ -885,8 +918,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 	// Last pass to clean the bIsActuallyUsedByPass flags.
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
 			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
@@ -933,8 +966,8 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 	// TODO(RDG): Investigate the cost of branch miss-prediction.
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
-		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
+		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
 		switch (Type)
 		{

@@ -11,35 +11,10 @@
 #include "MeshMaterialShader.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraSpriteUniformParameters,"NiagaraSpriteVF");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraSpriteVFLooseParameters, "NiagaraSpriteVFLooseParameters");
 
 TGlobalResource<FNullDynamicParameterVertexBuffer> GNullNiagaraDynamicParameterVertexBuffer;
 
-class FNiagaraNullSubUVCutoutVertexBuffer : public FVertexBuffer
-{
-public:
-	/**
-	 * Initialize the RHI for this rendering resource
-	 */
-	virtual void InitRHI() override
-	{
-		// create a static vertex buffer
-		FRHIResourceCreateInfo CreateInfo;
-		void* BufferData = nullptr;
-		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(FVector2D) * 4, BUF_Static | BUF_ShaderResource, CreateInfo, BufferData);
-		FMemory::Memzero(BufferData, sizeof(FVector2D) * 4);
-		RHIUnlockVertexBuffer(VertexBufferRHI);
-		
-		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FVector2D), PF_G32R32F);
-	}
-	
-	virtual void ReleaseRHI() override
-	{
-		VertexBufferSRV.SafeRelease();
-		FVertexBuffer::ReleaseRHI();
-	}
-	
-	FShaderResourceViewRHIRef VertexBufferSRV;
-};
 TGlobalResource<FNiagaraNullSubUVCutoutVertexBuffer> GFNiagaraNullSubUVCutoutVertexBuffer;
 
 /**
@@ -134,6 +109,8 @@ public:
 	{
 		FNiagaraSpriteVertexFactory* SpriteVF = (FNiagaraSpriteVertexFactory*)VertexFactory;
 		ShaderBindings.Add(Shader->GetUniformBufferParameter<FNiagaraSpriteUniformParameters>(), SpriteVF->GetSpriteUniformBuffer() );
+
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FNiagaraSpriteVFLooseParameters>(), SpriteVF->LooseParameterUniformBuffer);
 		
 		ShaderBindings.Add(NumCutoutVerticesPerFrame, SpriteVF->GetNumCutoutVerticesPerFrame());
 		FShaderResourceViewRHIParamRef NullSRV = GFNiagaraNullSubUVCutoutVertexBuffer.VertexBufferSRV;
@@ -322,6 +299,16 @@ FVertexFactoryShaderParameters* FNiagaraSpriteVertexFactory::ConstructShaderPara
 	{
 		return new FNiagaraSpriteVertexFactoryShaderParametersPS();
 	}
+#if RHI_RAYTRACING
+	else if (ShaderFrequency == SF_Compute)
+	{
+		return new FNiagaraSpriteVertexFactoryShaderParametersVS();
+	}
+	else if (ShaderFrequency == SF_RayHitGroup)
+	{
+		return new FNiagaraSpriteVertexFactoryShaderParametersVS();
+	}
+#endif
 	return NULL;
 }
 

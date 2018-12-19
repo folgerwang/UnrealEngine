@@ -133,6 +133,8 @@ public:
 		return nullptr;
 	}
 
+	static FRWBuffer* GetUnderlyingPositionBuffer(FGPUSkinCacheEntry* Entry);
+
 	static bool IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section);
 
 	inline uint64 GetExtraRequiredMemoryAndReset()
@@ -278,8 +280,22 @@ public:
 
 	ENGINE_API void TransitionAllToReadable(FRHICommandList& RHICmdList);
 
+#if RHI_RAYTRACING
+	void AddRayTracingGeometryToUpdate(FRayTracingGeometry* RayTracingGeometry)
+	{
+		FAccelerationStructureUpdateParams Params;
+		Params.Geometry     = RayTracingGeometry->RayTracingGeometryRHI;
+		Params.VertexBuffer = RayTracingGeometry->Initializer.PositionVertexBuffer;
+
+		RayTracingGeometriesToUpdate.Add(Params);
+	}
+
+	void CommitRayTracingGeometryUpdates(FRHICommandList& RHICmdList);
+#endif // RHI_RAYTRACING
+
 protected:
 	TArray<FUnorderedAccessViewRHIParamRef> BuffersToTransition;
+	TArray<FAccelerationStructureUpdateParams> RayTracingGeometriesToUpdate;
 
 	TArray<FRWBuffersAllocation*> Allocations;
 	TArray<FGPUSkinCacheEntry*> Entries;

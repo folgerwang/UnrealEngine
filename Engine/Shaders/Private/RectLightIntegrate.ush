@@ -43,7 +43,7 @@ bool RayHitRect( float3 L, FRect Rect )
 	return t >= 0 && InExtentX && InExtentY;
 }
 
-float IntegrateLight( FRect Rect )
+float IntegrateLight( FRect Rect, Texture2D SourceTexture )
 {
 	float NoL;
 	float Falloff;
@@ -60,12 +60,12 @@ float IntegrateLight( FRect Rect )
 	float3 L = RectIrradianceApproxDrobot( 0, Rect, Falloff, NoL );
 #endif
 
-	float3 FalloffColor = SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
+	float3 FalloffColor = SampleSourceTexture( L, Rect, SourceTexture);
 	
 	return Falloff;
 }
 
-FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow )
+FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, Texture2D SourceTexture )
 {
 	float NoL;
 	float Falloff;
@@ -82,7 +82,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	float3 L = RectIrradianceApproxDrobot( N, Rect, Falloff, NoL );
 #endif
 
-	float3 FalloffColor = SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
+	float3 FalloffColor = SampleSourceTexture( L, Rect, SourceTexture );
 
 #if CHEAP_RECT
 	float3 R = reflect( -V, N );
@@ -227,7 +227,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	AreaLight.LineCosSubtended = 1;
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = Rect;
-	AreaLight.Texture = DeferredLightUniforms.SourceTexture;
+	AreaLight.Texture = SourceTexture;
 	AreaLight.bIsRect = false;
 #else
 	FAreaLight AreaLight;
@@ -236,14 +236,14 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	AreaLight.LineCosSubtended = 1;
 	AreaLight.FalloffColor = FalloffColor;
 	AreaLight.Rect = Rect;
-	AreaLight.Texture = DeferredLightUniforms.SourceTexture;
+	AreaLight.Texture = SourceTexture;
 	AreaLight.bIsRect = true;
 #endif
 
 	return IntegrateBxDF( GBuffer, N, V, L, Falloff, NoL, AreaLight, Shadow );
 }
 
-FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, uint2 SVPos )
+FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, Texture2D SourceTexture, uint2 SVPos )
 {
 	FDirectLighting Lighting = (FDirectLighting)0;
 
@@ -328,7 +328,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 				PointInRect.y = dot( Rect.Axis[1], PointOnPlane - Rect.Origin );
 
 				float2 RectUV = PointInRect / Rect.Extent * float2( 0.5, -0.5 ) + 0.5;
-				float3 LightColor = DeferredLightUniforms.SourceTexture.SampleLevel( View.SharedBilinearClampedSampler, RectUV, 0 ).rgb;
+				float3 LightColor = SourceTexture.SampleLevel( View.SharedBilinearClampedSampler, RectUV, 0 ).rgb;
 
 				if( Set == 0 || Set == 1 )
 				{

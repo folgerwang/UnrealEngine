@@ -51,6 +51,7 @@ struct FSamplerStateInitializerRHI;
 struct FTextureMemoryStats;
 class FComputePipelineState;
 class FGraphicsPipelineState;
+class FRayTracingPipelineState;
 
 DECLARE_STATS_GROUP(TEXT("RHICmdList"), STATGROUP_RHICMDLIST, STATCAT_Advanced);
 
@@ -105,6 +106,36 @@ extern RHI_API bool GEnableAsyncCompute;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdWidth;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdFlushRenderThreadTasks;
 
+#if RHI_RAYTRACING
+// #dxr_todo: This is a placeholder. FMeshDrawSingleShaderBindings should be generalized and used instead.
+struct FRayTracingShaderBindings
+{
+	FTextureRHIParamRef Textures[32] = {};
+	FShaderResourceViewRHIParamRef SRVs[32] = {};
+	FUniformBufferRHIParamRef UniformBuffers[8] = {};
+	FSamplerStateRHIParamRef Samplers[8] = {};
+	FUnorderedAccessViewRHIParamRef UAVs[8] = {};
+};
+
+// C++ counter-part of FBasicRayData declared in RayTracingCommon.ush
+// #dxr_todo: ideally this should be shared with shaders by including a common header
+struct FBasicRayData
+{
+	float Origin[3];
+	float TFar;
+	float Direction[3];
+	uint32 Mask;
+};
+
+// C++ counter-part of FBasicRayIntersectionData declared in RayTracingCommon.ush
+// #dxr_todo: ideally this should be shared with shaders by including a common header
+struct FBasicRayIntersectionData
+{
+	float  Barycentrics[2];
+	uint32 InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	uint32 PrimitiveIndex; // 0xFFFFFFFF if no intersection if found
+};
+#endif // RHI_RAYTRACING
 
 struct RHI_API FLockTracker
 {
@@ -389,6 +420,13 @@ public:
 		return Alloc(sizeof(T), alignof(T));
 	}
 
+	template <typename T>
+	FORCEINLINE_DEBUGGABLE const TArrayView<T> AllocArray(const TArrayView<T> InArray)
+	{
+		void* NewArray = Alloc(InArray.Num() * sizeof(T), alignof(T));
+		FMemory::Memcpy(NewArray, InArray.GetData(), InArray.Num() * sizeof(T));
+		return TArrayView<T>((T*) NewArray, InArray.Num());
+	}
 
 	FORCEINLINE_DEBUGGABLE TCHAR* AllocString(const TCHAR* Name)
 	{
@@ -1764,6 +1802,137 @@ struct FRHICommandUpdateTextureReference final : public FRHICommand<FRHICommandU
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
+#if RHI_RAYTRACING
+struct FRHICommandBuildAccelerationStructure final : public FRHICommand<FRHICommandBuildAccelerationStructure>
+{
+	FRayTracingGeometryRHIParamRef Geometry;
+	FRayTracingSceneRHIParamRef Scene;
+
+	explicit FRHICommandBuildAccelerationStructure(FRayTracingGeometryRHIParamRef InGeometry)
+		: Geometry(InGeometry)
+		, Scene(nullptr)
+	{}
+
+	explicit FRHICommandBuildAccelerationStructure(FRayTracingSceneRHIParamRef InScene)
+		: Geometry(nullptr)
+		, Scene(InScene)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandUpdateAccelerationStructures final : public FRHICommand<FRHICommandUpdateAccelerationStructures>
+{
+	const TArrayView<const FAccelerationStructureUpdateParams> UpdateParams;
+
+	explicit FRHICommandUpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> InParams)
+		: UpdateParams(InParams)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandBuildAccelerationStructures final : public FRHICommand<FRHICommandBuildAccelerationStructures>
+{
+	const TArrayView<const FAccelerationStructureUpdateParams> UpdateParams;
+
+	explicit FRHICommandBuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> InParams)
+		: UpdateParams(InParams)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandRayTraceOcclusion final : public FRHICommand<FRHICommandRayTraceOcclusion>
+{
+	FRayTracingSceneRHIParamRef Scene;
+	FShaderResourceViewRHIParamRef Rays;
+	FUnorderedAccessViewRHIParamRef Output;
+	uint32 NumRays;
+
+	FRHICommandRayTraceOcclusion(FRayTracingSceneRHIParamRef InScene,
+		FShaderResourceViewRHIParamRef InRays,
+		FUnorderedAccessViewRHIParamRef InOutput,
+		uint32 InNumRays)
+		: Scene(InScene)
+		, Rays(InRays)
+		, Output(InOutput)
+		, NumRays(InNumRays)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandRayTraceIntersection final : public FRHICommand<FRHICommandRayTraceIntersection>
+{
+	FRayTracingSceneRHIParamRef Scene;
+	FShaderResourceViewRHIParamRef Rays;
+	FUnorderedAccessViewRHIParamRef Output;
+	uint32 NumRays;
+
+	FRHICommandRayTraceIntersection(FRayTracingSceneRHIParamRef InScene,
+		FShaderResourceViewRHIParamRef InRays,
+		FUnorderedAccessViewRHIParamRef InOutput,
+		uint32 InNumRays)
+		: Scene(InScene)
+		, Rays(InRays)
+		, Output(InOutput)
+		, NumRays(InNumRays)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandRayTraceDispatch final : public FRHICommand<FRHICommandRayTraceDispatch>
+{
+	FRayTracingPipelineStateRHIParamRef Pipeline;
+	FRayTracingSceneRHIParamRef Scene;
+	FRayTracingShaderBindings GlobalResourceBindings;
+	uint32 Width;
+	uint32 Height;
+
+	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
+		: Pipeline(InPipeline)
+		, Scene(nullptr)
+		, GlobalResourceBindings(InGlobalResourceBindings)
+		, Width(InWidth)
+		, Height(InHeight)
+	{}
+
+	
+
+	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, FRayTracingSceneRHIParamRef InScene, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
+		: Pipeline(InPipeline)
+		, Scene(InScene)
+		, GlobalResourceBindings(InGlobalResourceBindings)
+		, Width(InWidth)
+		, Height(InHeight)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandSetRayTracingHitGroup final : public FRHICommand<FRHICommandSetRayTracingHitGroup>
+{
+	FRayTracingSceneRHIParamRef Scene;
+	uint32 InstanceIndex;
+	uint32 SegmentIndex;
+	FRayTracingPipelineStateRHIParamRef Pipeline;
+	uint32 HitGroupIndex;
+	FRayTracingShaderBindings ResourceBindings;
+
+	FRHICommandSetRayTracingHitGroup(FRayTracingSceneRHIParamRef InScene, uint32 InInstanceIndex, uint32 InSegmentIndex, FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InHitGroupIndex, const FRayTracingShaderBindings& InResourceBindings)
+		: Scene(InScene)
+		, InstanceIndex(InInstanceIndex)
+		, SegmentIndex(InSegmentIndex)
+		, Pipeline(InPipeline)
+		, HitGroupIndex(InHitGroupIndex)
+		, ResourceBindings(InResourceBindings)
+	{}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+#endif // RHI_RAYTRACING
 
 #define CMD_CONTEXT(Method) GetContext().Method
 #define COMPUTE_CONTEXT(Method) GetComputeContext().Method
@@ -2741,6 +2910,137 @@ public:
 		ALLOC_COMMAND(FRHICommandDebugBreak)();
 #endif
 	}
+
+#if RHI_RAYTRACING
+	// Ray tracing API
+
+	FORCEINLINE_DEBUGGABLE void BuildAccelerationStructure(FRayTracingGeometryRHIParamRef Geometry)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIBuildAccelerationStructure)(Geometry);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandBuildAccelerationStructure)(Geometry);
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void UpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIUpdateAccelerationStructures)(Params);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandUpdateAccelerationStructures)(AllocArray(Params));
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void BuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIBuildAccelerationStructures)(Params);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandBuildAccelerationStructures)(AllocArray(Params));
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void BuildAccelerationStructure(FRayTracingSceneRHIParamRef Scene)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIBuildAccelerationStructure)(Scene);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandBuildAccelerationStructure)(Scene);
+		}
+	}
+
+	/**
+	 * Trace rays from an input buffer of FBasicRayData.
+	 * Binary intersection results are written to output buffer as R32_UINTs.
+	 * 0xFFFFFFFF is written if ray intersects any scene triangle, 0 otherwise.
+	 */
+	FORCEINLINE_DEBUGGABLE void RayTraceOcclusion(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIRayTraceOcclusion)(Scene, Rays, Output, NumRays);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandRayTraceOcclusion)(Scene, Rays, Output, NumRays);
+		}
+	}
+
+	/**
+	 * Trace rays from an input buffer of FBasicRayData.
+	 * Primitive intersection results are written to output buffer as FBasicRayIntersectionData.
+	 */
+	FORCEINLINE_DEBUGGABLE void RayTraceIntersection(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIRayTraceIntersection)(Scene, Rays, Output, NumRays);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandRayTraceIntersection)(Scene, Rays, Output, NumRays);
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIRayTraceDispatch)(Pipeline, GlobalResourceBindings, Width, Height);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, GlobalResourceBindings, Width, Height);
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, FRayTracingSceneRHIParamRef Scene, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIRayTraceDispatch)(Pipeline, Scene, GlobalResourceBindings, Width, Height);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, Scene, GlobalResourceBindings, Width, Height);
+		}
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetRayTracingHitGroup(
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
+		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
+		const FRayTracingShaderBindings& ResourceBindings)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHISetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+		}
+		else
+		{
+			ALLOC_COMMAND(FRHICommandSetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+		}
+	}
+
+#endif // RHI_RAYTRACING
 };
 
 class RHI_API FRHIAsyncComputeCommandList : public FRHICommandListBase

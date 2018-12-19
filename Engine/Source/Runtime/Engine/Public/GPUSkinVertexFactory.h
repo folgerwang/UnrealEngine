@@ -455,7 +455,7 @@ public:
 	FGPUSkinPassthroughVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 		: FLocalVertexFactory(InFeatureLevel, "FGPUSkinPassthroughVertexFactory"), PositionStreamIndex(-1), TangentStreamIndex(-1)
 	{
-		bSupportsManualVertexFetch = false;
+		bSupportsManualVertexFetch = true;
 	}
 
 	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
@@ -479,6 +479,8 @@ public:
 	{
 		return TangentStreamIndex;
 	}
+
+	void SetData(const FDataType& InData);
 
 	// FRenderResource interface.
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);

@@ -16,6 +16,7 @@ class FLastRenderTimeContainer;
 class FReadSurfaceDataFlags;
 class FRHICommandList;
 class FRHIComputeFence;
+class FRayTracingPipelineState;
 struct FDepthStencilStateInitializerRHI;
 struct FRasterizerStateInitializerRHI;
 struct FRHIResourceCreateInfo;
@@ -73,6 +74,65 @@ struct FRHIFlipDetails
 		, FlipTimeInSeconds(InFlipTimeInSeconds)
 		, VBlankTimeInSeconds(InVBlankTimeInSeconds)
 	{}
+};
+
+struct FRayTracingGeometryInstance
+{
+	const FRayTracingGeometryRHIParamRef GeometryRHI;
+	FMatrix Transform;
+	uint32 UserData;
+};
+
+struct FRayTracingGeometrySegment
+{
+	uint32 FirstPrimitive = 0;
+	uint32 NumPrimitives = 0;
+
+	// #dxr_todo: what should be the sensible default values of these flags?
+
+	// Indicates whether any-hit shader could be invoked when hitting this geometry segment.
+	// Setting this to `false` turns off any-hit shaders, making the section "opaque" and improving ray tracing performance.
+	bool bAllowAnyHitShader = true;
+
+	// Any-hit shader may be invoked multiple times for the same primitive during ray traversal.
+	// Setting this to `false` guarantees that only a single instance of any-hit shader will run per primitive, at some performance cost.
+	bool bAllowDuplicateAnyHitShaderInvocation = true;
+};
+
+struct FRayTracingGeometryInitializer
+{
+	FRayTracingGeometryInitializer()
+		: BaseVertexIndex(0)
+		, VertexBufferStride(0)
+		, VertexBufferByteOffset(0)
+		, TotalPrimitiveCount(0)
+		, VertexBufferElementType(VET_Float3)
+		, PrimitiveType(PT_TriangleList)
+		, bFastBuild(false)
+		, bAllowUpdate(false)
+	{}
+
+	FVertexBufferRHIRef PositionVertexBuffer;
+	FIndexBufferRHIRef IndexBuffer;
+	uint32 VertexBufferByteOffset = 0;
+	uint32 VertexBufferStride = 0;
+	EVertexElementType VertexBufferElementType = VET_Float3;
+	uint32 BaseVertexIndex = 0;
+	EPrimitiveType PrimitiveType = PT_TriangleList;
+	uint32 TotalPrimitiveCount = 0;
+	TArrayView<FRayTracingGeometrySegment> Segments;
+	bool bFastBuild = false;
+	bool bAllowUpdate = false;
+};
+
+struct FRayTracingSceneInitializer
+{
+	FRayTracingSceneInitializer()
+		: bIsDynamic(false)
+	{}
+
+	TArrayView<FRayTracingGeometryInstance> Instances;
+	bool bIsDynamic;
 };
 
 /** The interface which is implemented by the dynamically bound RHI. */
@@ -1057,6 +1117,49 @@ public:
 
 	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) { return true; }
 
+#if RHI_RAYTRACING
+	/**
+	 * Query RHI ray tracing support level.
+	 * @return Numeric value representing a set of ray tracing features supported by the RHI.
+	 *   0: Ray tracing is not supported.
+	 *   1: Basic support for acceleration structure construction and ray queries. Ray tracing shader types are not supported.
+	 *   2: Full ray tracing support, including ray tracing shader types, shader binding tables, etc.
+	 */
+	virtual uint32 RHIGetRayTracingSupport() { return 0; }
+
+	// #dxr_todo: reverted index buffer may be needed to support mirrored meshes
+	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer)
+	{
+		checkNoEntry();
+		return nullptr;
+	}
+
+	// This is a placeholder basic interface for the scene. We will likely need to revise this based on real use cases.
+	virtual FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer)
+	{
+		checkNoEntry();
+		return nullptr;
+	}
+
+	virtual FRayTracingShaderRHIRef RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency)
+	{
+		checkNoEntry();
+		return nullptr;
+	}
+
+	virtual FRayTracingPipelineStateRHIRef RHICreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer)
+	{
+		checkNoEntry();
+		return nullptr;
+	}
+
+	virtual FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure)
+	{
+		checkNoEntry();
+		return nullptr;
+	}
+#endif // RHI_RAYTRACING
+
 protected:
 	TArray<uint32> PixelFormatBlockBytes;
 };
@@ -1098,6 +1201,13 @@ FORCEINLINE TRefCountPtr<FRHIComputePipelineState> RHICreateComputePipelineState
 {
 	return GDynamicRHI->RHICreateComputePipelineState(ComputeShader);
 }
+
+#if RHI_RAYTRACING
+FORCEINLINE TRefCountPtr<FRHIRayTracingPipelineState> RHICreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer)
+{
+	return GDynamicRHI->RHICreateRayTracingPipelineState(Initializer);
+}
+#endif //RHI_RAYTRACING
 
 FORCEINLINE FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 {
@@ -1233,6 +1343,45 @@ FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer(int
 {
 	return GDynamicRHI->RHIGetCommandContextContainer(Index, Num, GPUMask);
 }
+
+FORCEINLINE uint32 IsRayTracingSupportedForThisProject()
+{
+#if RHI_RAYTRACING
+	// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
+	static const bool bRayTracingEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"))->GetInt() > 0;
+	return GDynamicRHI->RHIGetRayTracingSupport() && bRayTracingEnabled;
+#else
+	return false;
+#endif
+}
+
+#if RHI_RAYTRACING
+FORCEINLINE uint32 RHIGetRayTracingSupport()
+{
+	return GDynamicRHI->RHIGetRayTracingSupport();
+}
+
+FORCEINLINE FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer)
+{
+	return GDynamicRHI->RHICreateRayTracingGeometry(Initializer);
+}
+
+FORCEINLINE FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer)
+{
+	return GDynamicRHI->RHICreateRayTracingScene(Initializer);
+}
+
+FORCEINLINE FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure)
+{
+	return GDynamicRHI->RHIGetAccelerationStructureShaderResourceView(AccelerationStructure);
+}
+
+FORCEINLINE FRayTracingShaderRHIRef RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency)
+{
+	return GDynamicRHI->RHICreateRayTracingShader(Code, ShaderFrequency);
+}
+
+#endif // RHI_RAYTRACING
 
 /**
 * Defragment the texture pool.

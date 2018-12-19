@@ -236,3 +236,82 @@ public:
 		return Ar;
 	}
 };
+
+#if RHI_RAYTRACING
+struct FRayTracingShaderBindingsWriter : FRayTracingShaderBindings
+{
+	void Set(const FShaderResourceParameter& Param, FTextureRHIParamRef Value)
+	{
+		if (Param.IsBound())
+		{
+			checkf(Param.GetNumResources() == 1, TEXT("Resource array binding is not implemented"));
+			Textures[Param.GetBaseIndex()] = Value;
+		}
+	}
+
+	void Set(const FShaderResourceParameter& Param, FShaderResourceViewRHIParamRef Value)
+	{
+		if (Param.IsBound())
+		{
+			checkf(Param.GetNumResources() == 1, TEXT("Resource array binding is not implemented"));
+			SRVs[Param.GetBaseIndex()] = Value;
+		}
+	}
+
+	void Set(const FShaderUniformBufferParameter& Param, FUniformBufferRHIParamRef Value)
+	{
+		if (Param.IsBound())
+		{
+			UniformBuffers[Param.GetBaseIndex()] = Value;
+		}
+	}
+
+	void Set(const FShaderResourceParameter& Param, FUnorderedAccessViewRHIParamRef Value)
+	{
+		if (Param.IsBound())
+		{
+			checkf(Param.GetNumResources() == 1, TEXT("Resource array binding is not implemented"));
+			UAVs[Param.GetBaseIndex()] = Value;
+		}
+	}
+
+	void Set(const FShaderResourceParameter& Param, FSamplerStateRHIParamRef Value)
+	{
+		if (Param.IsBound())
+		{
+			checkf(Param.GetNumResources() == 1, TEXT("Resource array binding is not implemented"));
+			Samplers[Param.GetBaseIndex()] = Value;
+		}
+	}
+
+	void SetTexture(uint16 BaseIndex, FTextureRHIParamRef Value)
+	{
+		checkSlow(BaseIndex < ARRAY_COUNT(Textures));
+		Textures[BaseIndex] = Value;
+	}
+
+	void SetSRV(uint16 BaseIndex, FShaderResourceViewRHIParamRef Value)
+	{
+		checkSlow(BaseIndex < ARRAY_COUNT(SRVs));
+		SRVs[BaseIndex] = Value;
+	}
+
+	void SetSampler(uint16 BaseIndex, FSamplerStateRHIParamRef Value)
+	{
+		checkSlow(BaseIndex < ARRAY_COUNT(Samplers));
+		Samplers[BaseIndex] = Value;
+	}
+
+	void SetUAV(uint16 BaseIndex, FUnorderedAccessViewRHIParamRef Value)
+	{
+		checkSlow(BaseIndex < ARRAY_COUNT(UAVs));
+		UAVs[BaseIndex] = Value;
+	}
+
+	void SetUniformBuffer(uint16 BaseIndex, FUniformBufferRHIParamRef Value)
+	{
+		checkSlow(BaseIndex < ARRAY_COUNT(UniformBuffers));
+		UniformBuffers[BaseIndex] = Value;
+	}
+};
+#endif //RHI_RAYTRACING

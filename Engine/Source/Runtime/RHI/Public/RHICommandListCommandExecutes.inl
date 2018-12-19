@@ -64,6 +64,12 @@ struct FRHICommandSetViewport;
 struct FRHICommandTransitionTextures;
 struct FRHICommandTransitionTexturesArray;
 struct FRHICommandUpdateTextureReference;
+struct FRHICommandBuildAccelerationStructure;
+struct FRHICommandRayTraceOcclusion;
+struct FRHICommandRayTraceIntersection;
+struct FRHICommandRayTraceDispatch;
+struct FRHICommandSetRayTracingHitGroup;
+
 enum class ECmdList;
 template <typename TShaderRHIParamRef> struct FRHICommandSetLocalUniformBuffer;
 
@@ -539,6 +545,70 @@ void FRHICommandPollOcclusionQueries::Execute(FRHICommandListBase& CmdList)
 	RHISTAT(PollOcclusionQueries);
 	INTERNAL_DECORATOR(RHIPollOcclusionQueries)();
 }
+
+#if RHI_RAYTRACING
+
+void FRHICommandBuildAccelerationStructure::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(BuildAccelerationStructure);
+	if (Geometry)
+	{
+		INTERNAL_DECORATOR(RHIBuildAccelerationStructure)(Geometry);
+	}
+	else
+	{
+		INTERNAL_DECORATOR(RHIBuildAccelerationStructure)(Scene);
+	}
+}
+
+void FRHICommandUpdateAccelerationStructures::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(UpdateAccelerationStructure);
+	INTERNAL_DECORATOR(RHIUpdateAccelerationStructures)(UpdateParams);
+}
+
+void FRHICommandBuildAccelerationStructures::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(BuildAccelerationStructure);
+	INTERNAL_DECORATOR(RHIBuildAccelerationStructures)(UpdateParams);
+}
+
+void FRHICommandRayTraceOcclusion::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(RayTraceOcclusion);
+	INTERNAL_DECORATOR(RHIRayTraceOcclusion)(Scene, Rays, Output, NumRays);
+}
+
+void FRHICommandRayTraceIntersection::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(RayTraceIntersection);
+	INTERNAL_DECORATOR(RHIRayTraceIntersection)(Scene, Rays, Output, NumRays);
+}
+
+void FRHICommandRayTraceDispatch::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(RayTraceDispatch);
+
+	if (Scene)
+	{
+		// Dispatch rays using SBT associated with the given scene and pipeline.
+		INTERNAL_DECORATOR(RHIRayTraceDispatch)(Pipeline, Scene, GlobalResourceBindings, Width, Height);
+	}
+	else
+	{
+		// Dispatch rays with default shader binding table
+		// #dxr_todo: we should remove this code path entirely and always require an explicit SBT.
+		INTERNAL_DECORATOR(RHIRayTraceDispatch)(Pipeline, GlobalResourceBindings, Width, Height);
+	}
+}
+
+void FRHICommandSetRayTracingHitGroup::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetRayTracingHitGroup);
+	INTERNAL_DECORATOR(RHISetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+}
+
+#endif // RHI_RAYTRACING
 
 void FRHICommandUpdateTextureReference::Execute(FRHICommandListBase& CmdList)
 {

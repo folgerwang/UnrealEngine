@@ -1,0 +1,71 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+	RectLight.usf: Light sampling functions for Rect light implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+void RectLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	// Get rect parameters to determine 3D direction.
+	float2 DeltaP = float2(GetWidth(LightId), GetHeight(LightId)) * LightUV.xy;
+	float3 LightDir = GetPosition(LightId) + DeltaP.x * GetdPdu(LightId) + DeltaP.y * GetdPdv(LightId) - Ray.Origin;
+
+	OutLightRay.Direction = normalize(LightDir);
+	OutLightRay.TMax = length(LightDir);
+}
+
+void RectLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+	// TODO: Consider making RectLight a physical light. For now, it is analytical only.
+	OutPdf = 0.0;
+}
+
+void RectLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	float3 Color = GetColor(LightId);
+	float2 DeltaP = float2(GetWidth(LightId), GetHeight(LightId)) * LightUV.xy;
+	float3 LightDir = GetPosition(LightId) + DeltaP.x * GetdPdu(LightId) + DeltaP.y * GetdPdv(LightId) - Ray.Origin;
+	float CosTheta = saturate(dot(normalize(-LightDir), GetNormal(LightId)));
+
+	float DistanceSquared = dot(LightDir, LightDir);
+	float Area = GetWidth(LightId) * GetHeight(LightId);
+	//Color /= Area;
+	OutRadiance = Color * CosTheta / DistanceSquared;
+}
+
+void RectLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+	// Pick a random position on the light
+	float2 UV = RandSample.yz - 0.5;
+	float Area = GetWidth(LightId) * GetHeight(LightId);
+	OutLightUV = float3(UV, 0);
+	OutPdf = 1.0 / Area;
+}

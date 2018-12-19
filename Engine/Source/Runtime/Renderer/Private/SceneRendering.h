@@ -810,11 +810,41 @@ struct FTemporalAAHistory
 	}
 };
 
+// TODO: merge with FTemporalAAHistory?
+struct FScreenSpaceFilteringHistory
+{
+	// Number of history render target to store.
+	static constexpr int32 RTCount = 2;
+
+	// Render target specific to the history.
+	TRefCountPtr<IPooledRenderTarget> RT[RTCount];
+
+	// The texture for tile classification.
+	TRefCountPtr<IPooledRenderTarget> TileClassification;
+
+
+	void SafeRelease()
+	{
+		for (int32 i = 0; i < RTCount; i++)
+			RT[i].SafeRelease();
+		TileClassification.SafeRelease();
+	}
+
+	bool IsValid() const
+	{
+		return RT[0].IsValid();
+	}
+};
+
 // Structure that hold all information related to previous frame.
 struct FPreviousViewInfo
 {
 	// View matrices.
 	FViewMatrices ViewMatrices;
+
+	// Depth buffer and Normals of the previous frame generating this history entry for bilateral kernel rejection.
+	TRefCountPtr<IPooledRenderTarget> DepthBuffer;
+	TRefCountPtr<IPooledRenderTarget> GBufferA;
 
 	// Temporal AA result of last frame
 	FTemporalAAHistory TemporalAAHistory;
@@ -828,14 +858,24 @@ struct FPreviousViewInfo
 	// input post process material.
 	TRefCountPtr<IPooledRenderTarget> CustomSSRInput;
 
+	// History scene color
+	FScreenSpaceFilteringHistory RayTracedGIHistory;
+
+	// History for shadow denoising.
+	TMap<const FLightSceneInfo*, FScreenSpaceFilteringHistory> ShadowHistories;
+
 
 	void SafeRelease()
 	{
+		DepthBuffer.SafeRelease();
+		GBufferA.SafeRelease();
 		TemporalAAHistory.SafeRelease();
 		DOFPreGatherHistory.SafeRelease();
 		DOFPostGatherForegroundHistory.SafeRelease();
 		DOFPostGatherBackgroundHistory.SafeRelease();
 		CustomSSRInput.SafeRelease();
+		RayTracedGIHistory.SafeRelease();
+		ShadowHistories.Reset();
 	}
 };
 
@@ -960,6 +1000,9 @@ public:
 
 	/** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicMeshElements;
+
+	/** Gathered in UpdateRayTracingWorld from all the primitives with dynamic view relevance, used in each mesh pass. */
+	TArray<FMeshBatchAndRelevance, SceneRenderingAllocator> RayTracedDynamicMeshElements;
 
 	// [PrimitiveIndex] = end index index in DynamicMeshElements[], to support GetDynamicMeshElementRange()
 	TArray<uint32,SceneRenderingAllocator> DynamicMeshEndIndices;
@@ -1103,6 +1146,12 @@ public:
 	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> IndirectShadowPrimitives;
 
 	FShaderResourceViewRHIRef PrimitiveSceneDataOverrideSRV;
+
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryInstance, SceneRenderingAllocator> RayTracingGeometryInstances;
+
+	FRayTracingScene PerViewRayTracingScene;
+#endif // RHI_RAYTRACING
 
 	/** 
 	 * Initialization constructor. Passes all parameters to FSceneView constructor
@@ -1421,6 +1470,8 @@ public:
 	TArray<FViewInfo> Views;
 
 	FMeshElementCollector MeshCollector;
+
+	FMeshElementCollector RayTracingCollector;
 
 	/** Information about the visible lights. */
 	TArray<FVisibleLightInfo,SceneRenderingAllocator> VisibleLightInfos;

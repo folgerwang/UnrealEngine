@@ -1139,7 +1139,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 	ESplitScreenType::Type SplitScreenConfig = GetCurrentSplitscreenConfiguration();
 	ViewFamily.ViewMode = EViewModeIndex(ViewModeIndex);
-	EngineShowFlagOverride(ESFIM_Game, ViewFamily.ViewMode, ViewFamily.EngineShowFlags, NAME_None);
+	EngineShowFlagOverride(ESFIM_Game, ViewFamily.ViewMode, ViewFamily.EngineShowFlags, false);
 
 	if (ViewFamily.EngineShowFlags.VisualizeBuffer && AllowDebugViewmodes())
 	{
@@ -3018,6 +3018,23 @@ bool UGameViewportClient::HandleViewModeCommand( const TCHAR* Cmd, FOutputDevice
 		Ar.Logf(TEXT("Debug viewmodes not allowed on consoles by default.  See AllowDebugViewmodes()."));
 		ViewModeIndex = VMI_Lit;
 	}
+
+#if RHI_RAYTRACING
+	if (RHIGetRayTracingSupport() == 0)
+	{
+		if (ViewModeIndex == VMI_PathTracing)
+		{
+			Ar.Logf(TEXT("Path Tracing view mode requires ray tracing support. It is not supported on this system."));
+			ViewModeIndex = VMI_Lit;
+		}
+
+		if (ViewModeIndex == VMI_RayTracingDebug)
+		{
+			Ar.Logf(TEXT("Ray tracing view mode requires ray tracing support. It is not supported on this system."));
+			ViewModeIndex = VMI_Lit;
+		}
+	}
+#endif
 
 	ApplyViewMode((EViewModeIndex)ViewModeIndex, true, EngineShowFlags);
 

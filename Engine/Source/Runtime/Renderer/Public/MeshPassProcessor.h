@@ -8,6 +8,7 @@
 
 #include "MeshMaterialShader.h"
 #include "SceneUtils.h"
+#include "MeshBatch.h"
 
 #define MESH_DRAW_COMMAND_DEBUG_DATA ((!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || VALIDATE_MESH_COMMAND_BINDINGS)
 
@@ -31,6 +32,7 @@ namespace EMeshPass
 		CustomDepth,
 		MobileBasePassCSM,  /** Mobile base pass with CSM shading enabled */
 		MobileInverseOpacity,  /** Mobile specific scene capture, Non-cached */
+		RayTracing,
 
 #if WITH_EDITOR
 		EditorSelection,
@@ -59,6 +61,7 @@ inline const TCHAR* GetMeshPassName(EMeshPass::Type MeshPass)
 	case EMeshPass::CustomDepth: return TEXT("CustomDepth");
 	case EMeshPass::MobileBasePassCSM: return TEXT("MobileBasePassCSM");
 	case EMeshPass::MobileInverseOpacity: return TEXT("MobileInverseOpacity");
+	case EMeshPass::RayTracing: return TEXT("RayTracing");
 #if WITH_EDITOR
 	case EMeshPass::EditorSelection: return TEXT("EditorSelection");
 #endif
@@ -98,6 +101,10 @@ struct FMeshProcessorShaders
 	FMeshMaterialShader* DomainShader;
 	FMeshMaterialShader* PixelShader;
 	FMeshMaterialShader* GeometryShader;
+	FMeshMaterialShader* ComputeShader;
+#if RHI_RAYTRACING
+	FMeshMaterialShader* RayHitGroupShader;
+#endif
 
 	FMeshMaterialShader* GetShader(EShaderFrequency Frequency) const
 	{
@@ -121,6 +128,16 @@ struct FMeshProcessorShaders
 		{
 			return GeometryShader;
 		}
+		else if (Frequency == SF_Compute)
+		{
+			return ComputeShader;
+		}
+#if RHI_RAYTRACING
+		else if (Frequency == SF_RayHitGroup)
+		{
+			return RayHitGroupShader;
+		}
+#endif // RHI_RAYTRACING
 
 		checkf(0, TEXT("Unhandled shader frequency"));
 		return nullptr;
@@ -194,6 +211,12 @@ public:
 	/** Set shader bindings on the commandlist, filtered by state cache. */
 	void SetOnCommandList(FRHICommandList& RHICmdList, FBoundShaderStateInput Shaders, class FShaderBindingState* StateCacheShaderBindings) const;
 
+	void SetOnCommandListForCompute(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef Shader) const;
+
+#if RHI_RAYTRACING
+	void SetOnRayTracingStructure(FRHICommandList& RHICmdList, FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex) const;
+#endif // RHI_RAYTRACING
+
 	/** Returns whether this set of shader bindings can be merged into an instanced draw call with another. */
 	bool MatchesForDynamicInstancing(const FMeshDrawShaderBindings& Rhs) const;
 
@@ -249,6 +272,12 @@ private:
 		RHIShaderType Shader,
 		const class FReadOnlyMeshDrawSingleShaderBindings& RESTRICT SingleShaderBindings,
 		FShaderBindingState& RESTRICT ShaderBindingState);
+
+	template<class RHIShaderType>
+	static void SetShaderBindings(
+		FRHICommandList& RHICmdList,
+		RHIShaderType Shader,
+		const class FReadOnlyMeshDrawSingleShaderBindings& RESTRICT SingleShaderBindings);
 };
 
 /** 
@@ -274,20 +303,27 @@ public:
 	 */
 	FMeshDrawShaderBindings ShaderBindings;
 	FVertexInputStreamArray VertexStreams;
-	int8 PrimitiveIdStreamIndex;
-
-	/** Non-pipeline state */
-	uint8 StencilRef;
+	FIndexBufferRHIParamRef IndexBuffer;
 
 	/**
-	 * Draw command parameters
-	 */
-	FIndexBufferRHIParamRef IndexBuffer;
+	* Ray tracing specific
+	*/
+	uint32 RayTracingMaterialLibraryIndex = UINT_MAX;
+
+	/**
+	* Draw command parameters
+	*/
 	uint32 FirstIndex;
 	uint32 NumPrimitives;
 	uint32 NumInstances;
 	uint32 BaseVertexIndex;
 	uint32 NumVertices;
+	uint8 RayTracedSegmentIndex;
+
+	int8 PrimitiveIdStreamIndex;
+
+	/** Non-pipeline state */
+	uint8 StencilRef;
 
 #if WANTS_DRAW_MESH_EVENTS
 	FString DrawEventName;
@@ -312,7 +348,12 @@ public:
 	}
 
 	/** Sets shaders on the mesh draw command and allocates room for the shader bindings. */
-	RENDERER_API void SetShaders(FVertexDeclarationRHIParamRef VertexDeclaration, FMeshProcessorShaders Shaders);
+	RENDERER_API void SetShaders(FVertexDeclarationRHIParamRef VertexDeclaration, const FMeshProcessorShaders& Shaders);
+
+#if RHI_RAYTRACING
+	/** Sets ray hit group shaders on the mesh draw command and allocates room for the shader bindings. */
+	RENDERER_API void SetRayTracingShaders(const FMeshProcessorShaders& Shaders);
+#endif // RHI_RAYTRACING
 
 	inline void SetStencilRef(uint32 InStencilRef)
 	{
@@ -322,12 +363,17 @@ public:
 	}
 
 	/** Called when the mesh draw command is complete. */
-	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, const FMeshBatchElement& BatchElement, int32 InstanceFactor);
+	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 InstanceFactor, bool bDoSetupPsoStateForRasterization);
 
-	void Finalize()
+	void Finalize(bool bDoSetupPsoStateForRasterization)
 	{
-		CachedPipelineId.Setup(PipelineState);
+		if (bDoSetupPsoStateForRasterization)
+		{
+			CachedPipelineId.Setup(PipelineState);
+		}
+#if MESH_DRAW_COMMAND_DEBUG_DATA
 		ShaderBindings.Finalize(DebugData);	
+#endif
 	}
 
 	/** Submits commands to the RHI Commandlist to draw the MeshDrawCommand. */
@@ -354,8 +400,10 @@ public:
 	}
 
 
+#if MESH_DRAW_COMMAND_DEBUG_DATA
 private:
 	FMeshDrawCommandDebugData DebugData;
+#endif
 };
 
 
@@ -389,13 +437,14 @@ public:
 
 	virtual void FinalizeCommand(
 		const FMeshBatch& MeshBatch, 
-		const FMeshBatchElement& BatchElement, 
+		int32 BatchElementIndex,
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
 		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
-		FMeshDrawCommand& MeshDrawCommand) = 0;
+		FMeshDrawCommand& MeshDrawCommand,
+		bool bDoSetupPsoStateForRasterization) = 0;
 };
 
 /** Storage for Mesh Draw Commands built every frame. */
@@ -428,6 +477,7 @@ public:
 	}
 
 	// Mesh Draw Command stored separately to avoid fetching its data during sorting
+ 
 	const FMeshDrawCommand* MeshDrawCommand;
 
 	// Sort key for non state based sorting (e.g. sort translucent draws by depth).
@@ -444,6 +494,8 @@ public:
 	// Any commands with the same StateBucketId can be merged into one draw call with instancing.
 	// A value of -1 means the draw is not in any state bucket and should be sorted by other factors instead.
 	int32 StateBucketId;
+
+	uint32 RayTracedInstanceIndex;
 
 	// Needed for view overrides
 	ERasterizerFillMode MeshFillMode : ERasterizerFillMode_NumBits + 1;
@@ -464,7 +516,11 @@ typedef TMap<int32, FUniformBufferRHIRef, SceneRenderingSetAllocator> FTransluce
 class FDynamicPassMeshDrawListContext : public FMeshPassDrawListContext
 {
 public:
-	FDynamicPassMeshDrawListContext(FDynamicMeshDrawCommandStorage& InDrawListStorage, FMeshCommandOneFrameArray& InDrawList) :
+	FDynamicPassMeshDrawListContext
+	(
+		FDynamicMeshDrawCommandStorage& InDrawListStorage, 
+		FMeshCommandOneFrameArray& InDrawList
+	) :
 		DrawListStorage(InDrawListStorage),
 		DrawList(InDrawList)
 	{}
@@ -478,15 +534,16 @@ public:
 
 	virtual void FinalizeCommand(
 		const FMeshBatch& MeshBatch, 
-		const FMeshBatchElement& BatchElement,
+		int32 BatchElementIndex,
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
 		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
-		FMeshDrawCommand& MeshDrawCommand) override final
+		FMeshDrawCommand& MeshDrawCommand,
+		bool bDoSetupPsoStateForRasterization) override final
 	{
-		MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElement, InstanceFactor);
+		MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, InstanceFactor, bDoSetupPsoStateForRasterization);
 
 		FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 		//@todo MeshCommandPipeline - assign usable state ID for dynamic path draws
@@ -543,13 +600,14 @@ public:
 
 	virtual void FinalizeCommand(
 		const FMeshBatch& MeshBatch, 
-		const FMeshBatchElement& BatchElement, 
+		int32 BatchElementIndex,
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
 		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
-		FMeshDrawCommand& MeshDrawCommand) override final;
+		FMeshDrawCommand& MeshDrawCommand,
+		bool bDoSetupPsoStateForRasterization) override final;
 
 private:
 	FCachedMeshDrawCommandInfo& CommandInfo;
@@ -557,21 +615,20 @@ private:
 	FScene& Scene;
 };
 
-template<typename VertexType, typename HullType, typename DomainType, typename PixelType, typename GeometryType = FMeshMaterialShader>
+template<typename VertexType, typename HullType, typename DomainType, typename PixelType, typename GeometryType = FMeshMaterialShader, typename RayHitGroupType = FMeshMaterialShader, typename ComputeType = FMeshMaterialShader>
 struct TMeshProcessorShaders
 {
-	VertexType* VertexShader;
-	HullType* HullShader;
-	DomainType* DomainShader;
-	PixelType* PixelShader;
-	GeometryType* GeometryShader;
+	VertexType* VertexShader = nullptr;
+	HullType* HullShader = nullptr;
+	DomainType* DomainShader = nullptr;
+	PixelType* PixelShader = nullptr;
+	GeometryType* GeometryShader = nullptr;
+	ComputeType* ComputeShader = nullptr;
+#if RHI_RAYTRACING
+	RayHitGroupType* RayHitGroupShader = nullptr;
+#endif
 
-	TMeshProcessorShaders() :
-		HullShader(nullptr),
-		DomainShader(nullptr),
-		PixelShader(nullptr),
-		GeometryShader(nullptr)
-	{}
+	TMeshProcessorShaders() = default;
 
 	FMeshProcessorShaders GetUntypedShaders()
 	{
@@ -581,6 +638,10 @@ struct TMeshProcessorShaders
 		Shaders.DomainShader = DomainShader;
 		Shaders.PixelShader = PixelShader;
 		Shaders.GeometryShader = GeometryShader;
+		Shaders.ComputeShader = ComputeShader;
+#if RHI_RAYTRACING
+		Shaders.RayHitGroupShader = RayHitGroupShader;
+#endif
 		return Shaders;
 	}
 };
@@ -618,6 +679,17 @@ public:
 	) const
 	{
 	}
+
+#if RHI_RAYTRACING
+	void GetRayHitGroupShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		ElementDataType ElementData,
+		const FMeshMaterialShader* RayHitGroupShaderParameters,
+		FMeshDrawSingleShaderBindings& RayHitGroupBindings
+	) const
+	{
+	}
+#endif // RHI_RAYTRACING
 };
 
 class FDefaultSubPolicyEx
@@ -670,6 +742,21 @@ public:
 		EMeshPassFeatures MeshPassFeatures,
 		const ShaderElementDataType& ShaderElementData);
 
+	template<typename PassShadersType, typename ShaderElementDataType>
+	void BuildRayTracingDrawCommands(
+		const FMeshBatch& RESTRICT MeshBatch,
+		uint64 BatchElementMask,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		const FDrawingPolicyRenderState& RESTRICT DrawRenderState,
+		PassShadersType PassShaders,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode,
+		int32 InstanceFactor,
+		FMeshDrawCommandSortKey SortKey,
+		EMeshPassFeatures MeshPassFeatures,
+		const ShaderElementDataType& ShaderElementData);
 private:
 	RENDERER_API void SetDrawCommandEvent(const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMaterial& RESTRICT MaterialResource, FMeshDrawCommand& MeshDrawCommand) const;
 	RENDERER_API int32 GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const;

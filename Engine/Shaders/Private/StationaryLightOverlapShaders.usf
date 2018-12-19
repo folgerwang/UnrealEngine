@@ -51,18 +51,18 @@ void OverlapRadialPixelMain(
 	{
 		float3 WorldPosition = SvPositionToWorld(SvPosition);
 
-		float3 ToLight = DeferredLightUniforms.NormalizedLightDirection;
+		float3 ToLight = DeferredLightUniforms.Direction;
 
 		#if RADIAL_ATTENUATION
-			ToLight = DeferredLightUniforms.LightPosition - WorldPosition;
+			ToLight = DeferredLightUniforms.Position - WorldPosition;
 		#endif
 
 		float SpotFalloff = 1;
 		#if RADIAL_ATTENUATION
-			SpotFalloff = SpotAttenuation(normalize(ToLight), -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.SpotAngles);
+			SpotFalloff = SpotAttenuation(normalize(ToLight), -DeferredLightUniforms.Direction, DeferredLightUniforms.SpotAngles);
 		#endif
 
-		float RadialAttenuationRatio = length(WorldPosition - DeferredLightUniforms.LightPosition) * DeferredLightUniforms.LightInvRadius;
+		float RadialAttenuationRatio = length(WorldPosition - DeferredLightUniforms.Position) * DeferredLightUniforms.InvRadius;
 
 		if (RadialAttenuationRatio < 1 && SpotFalloff > .0001f)
 		{

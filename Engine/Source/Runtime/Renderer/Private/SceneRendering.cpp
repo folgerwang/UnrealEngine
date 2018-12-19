@@ -48,6 +48,7 @@
 #include "GPUScene.h"
 #include "TranslucentRendering.h"
 #include "VisualizeTexture.h"
+#include "VisualizeTexturePresent.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -495,7 +496,14 @@ public:
 			return;
 		}
 
-		uint32 FrameId = ViewFamily.Views[0]->State->GetFrameIndexMod8();
+		uint32 FrameId = 0;
+
+		const FSceneViewState* ViewState = static_cast<const FSceneViewState*>(ViewFamily.Views[0]->State);
+		if (ViewState)
+		{
+			FrameId = ViewState->GetFrameIndex(8);
+		}
+
 		float ResolutionFraction = FrameId == 0 ? 1.f : (FMath::Cos((FrameId + 0.25) * PI / 8) * 0.25f + 0.75f);
 
 		for (int32 i = 0; i < ViewFamily.Views.Num(); i++)
@@ -1259,7 +1267,7 @@ void FViewInfo::SetupUniformBufferParameters(
 		}
 	}
 
-	uint32 StateFrameIndexMod8 = 0;
+	uint32 FrameIndex = 0;
 
 	if(State)
 	{
@@ -1269,14 +1277,16 @@ void FViewInfo::SetupUniformBufferParameters(
 			TemporalJitterPixels.X,
 			TemporalJitterPixels.Y);
 
-		StateFrameIndexMod8 = ViewState->GetFrameIndexMod8();
+		FrameIndex = ViewState->GetFrameIndex();
 	}
 	else
 	{
 		ViewUniformShaderParameters.TemporalAAParams = FVector4(0, 1, 0, 0);
 	}
 
-	ViewUniformShaderParameters.StateFrameIndexMod8 = StateFrameIndexMod8;
+	// TODO(GA): kill StateFrameIndexMod8 because this is only a scalar bit mask with StateFrameIndex anyway.
+	ViewUniformShaderParameters.StateFrameIndexMod8 = FrameIndex % 8;
+	ViewUniformShaderParameters.StateFrameIndex = FrameIndex;
 
 	{
 		// If rendering in stereo, the other stereo passes uses the left eye's translucency lighting volume.
@@ -1785,6 +1795,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 :	Scene(InViewFamily->Scene ? InViewFamily->Scene->GetRenderScene() : NULL)
 ,	ViewFamily(*InViewFamily)
 ,	MeshCollector(InViewFamily->GetFeatureLevel())
+,	RayTracingCollector(InViewFamily->GetFeatureLevel())
 ,	bUsedPrecomputedVisibility(false)
 ,	InstancedStereoWidth(0)
 ,	RootMark(nullptr)
@@ -2691,7 +2702,7 @@ void FSceneRenderer::ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil
 							NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
 						}
 
-						NewMeshCommand.Finalize();
+						NewMeshCommand.Finalize(true);
 
 						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
@@ -3740,7 +3751,7 @@ static uint32 ComputeScalabilityCVarHash()
 	return Ret;
 }
 
-static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
+static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FViewInfo& InView)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	auto Family = InView.Family;
@@ -3748,7 +3759,7 @@ static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& I
 	if(Family->EngineShowFlags.OnScreenDebug && Family->DisplayInternalsData.IsValid())
 	{
 		// could be 0
-		auto State = InView.State;
+		auto State = InView.ViewState;
 
 		FCanvas Canvas((FRenderTarget*)Family->RenderTarget, NULL, Family->CurrentRealTime, Family->CurrentWorldTime, Family->DeltaWorldTime, InView.GetFeatureLevel());
 		Canvas.SetRenderTargetRect(FIntRect(0, 0, Family->RenderTarget->GetSizeXY().X, Family->RenderTarget->GetSizeXY().Y));
@@ -3817,7 +3828,7 @@ static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& I
 		{
 			CANVAS_HEADER(TEXT("State:"))
 			CANVAS_LINE(false, TEXT("  TemporalAASample: %u"), State->GetCurrentTemporalAASampleIndex())
-			CANVAS_LINE(false, TEXT("  FrameIndexMod8: %u"), State->GetFrameIndexMod8())
+			CANVAS_LINE(false, TEXT("  FrameIndexMod8: %u"), State->GetFrameIndex(8))
 			CANVAS_LINE(false, TEXT("  LODTransition: %.2f"), State->GetTemporalLODTransition())
 		}
 
@@ -3858,7 +3869,8 @@ TSharedRef<ISceneViewExtension, ESPMode::ThreadSafe> GetRendererViewExtension()
 		virtual int32 GetPriority() const { return 0; }
 		virtual void PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
 		{
-			DisplayInternals(RHICmdList, InView);
+			FViewInfo& View = static_cast<FViewInfo&>(InView);
+			DisplayInternals(RHICmdList, View);
 		}
 	};
 	TSharedRef<FRendererViewExtension, ESPMode::ThreadSafe> ref(new FRendererViewExtension);
@@ -4056,32 +4068,40 @@ void FSceneRenderer::GenerateDynamicMeshDrawCommands()
 
 			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
 			{
-				FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext(View.DynamicMeshDrawCommandStorage[PassType], View.VisibleMeshDrawCommands[PassType]);
+				FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
+				(
+					View.DynamicMeshDrawCommandStorage[PassType],
+					View.VisibleMeshDrawCommands[PassType]
+				);
+
 				PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
 				FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, DynamicPassMeshDrawListContext);
 
-				const int32 NumDynamicMeshBatches = View.DynamicMeshElements.Num();
-
-				for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
+				if (PassMeshProcessor != nullptr)
 				{
-					const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicMeshElements[MeshIndex];
-					check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
-					const uint64 BatchElementMask = ~0ull;
+					const int32 NumDynamicMeshBatches = View.DynamicMeshElements.Num();
 
-					PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+					for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
+					{
+						const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicMeshElements[MeshIndex];
+						check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+						const uint64 BatchElementMask = ~0ull;
+
+						PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+					}
+
+					const int32 NumStaticMeshBatches = View.DynamicMeshCommandBuildRequests[PassType].Num();
+
+					for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
+					{
+						const FStaticMesh* StaticMeshBatch = View.DynamicMeshCommandBuildRequests[PassType][MeshIndex];
+						const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
+
+						PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
+					}
+
+					PassMeshProcessor->~FMeshPassProcessor();
 				}
-
-				const int32 NumStaticMeshBatches = View.DynamicMeshCommandBuildRequests[PassType].Num();
-
-				for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
-				{
-					const FStaticMesh* StaticMeshBatch = View.DynamicMeshCommandBuildRequests[PassType][MeshIndex];
-					const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
-
-					PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
-				}
-
-				PassMeshProcessor->~FMeshPassProcessor();
 			}
 		}
 	}

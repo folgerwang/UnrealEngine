@@ -568,6 +568,15 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	float WireframeCullThreshold;
 
 	/**
+	"Ray Tracing settings."
+	*/
+	UPROPERTY(config, EditAnywhere, Category = RayTracing, meta = (
+		ConsoleVariable = "r.RayTracing", DisplayName = "Ray Tracing",
+		ToolTip = "Enable Ray Tracing capabilities.",
+		ConfigRestartRequired = true))
+		uint32 bEnableRayTracing : 1;
+
+	/**
 	"Stationary skylight requires permutations of the basepass shaders.  Disabling will reduce the number of shader permutations required per material. Changing this setting requires restarting the editor."
 	*/
 	UPROPERTY(config, EditAnywhere, Category = ShaderPermutationReduction, meta = (
@@ -681,6 +690,7 @@ public:
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif
 
 	//~ End UObject Interface

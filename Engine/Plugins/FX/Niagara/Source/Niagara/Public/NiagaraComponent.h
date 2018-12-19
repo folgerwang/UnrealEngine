@@ -406,6 +406,15 @@ public:
 	/** Sets whether or not this scene proxy should be rendered. */
 	void SetRenderingEnabled(bool bInRenderingEnabled);
 
+#if RHI_RAYTRACING
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+	virtual bool IsRayTracingRelevant() const override { return true; }
+	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
+	{
+		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.Particles && IsShown(View);
+	}
+#endif
+
 private:
 	void ReleaseRenderThreadResources();
 

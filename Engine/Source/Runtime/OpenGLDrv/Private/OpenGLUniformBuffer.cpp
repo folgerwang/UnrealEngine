@@ -446,10 +446,10 @@ static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* C
 		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
 		for (int32 i = 0; i < NumResources; ++i)
 		{
-			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[i].MemberOffset);
 
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i].MemberType == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
 			{
 				check(Resource);
 			}
@@ -737,12 +737,12 @@ void FOpenGLDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 
 		for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
 		{
-			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[ResourceIndex]);
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
 			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 				*Layout.GetDebugName().ToString(),
 				ResourceIndex,
-				Layout.Resources[ResourceIndex]);
+				Layout.Resources[ResourceIndex].MemberType);
 
 			UniformBuffer->ResourceTable[ResourceIndex] = Resource;
 		}
@@ -760,12 +760,12 @@ void FOpenGLDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 
 			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
 			{
-				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[ResourceIndex]);
+				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 					*Layout.GetDebugName().ToString(),
 					ResourceIndex,
-					Layout.Resources[ResourceIndex]);
+					Layout.Resources[ResourceIndex].MemberType);
 
 				CmdListResources[ResourceIndex] = Resource;
 			}

@@ -29,6 +29,8 @@
 #include "VT/VirtualTextureSystem.h"
 #include "VT/VirtualTextureFeedback.h"
 #include "GPUScene.h"
+#include "RayTracing/RayTracingMaterialHitShaders.h"
+#include "RayTracing/RayTracingDynamicGeometryCollection.h"
 
 TAutoConsoleVariable<int32> CVarEarlyZPass(
 	TEXT("r.EarlyZPass"),
@@ -106,7 +108,7 @@ static TAutoConsoleVariable<int32> CVarIrisNormal(
 static TAutoConsoleVariable<int32> CVarFXSystemPreRenderAfterPrepass(
 	TEXT("r.FXSystemPreRenderAfterPrepass"),
 	0,
-	TEXT("If > 0, then do the FX prerender after the prepass. This improves pipelining for greater performance. Experiemental option."),
+	TEXT("If > 0, then do the FX prerender after the prepass. This improves pipelining for greater performance. Experimental option."),
 	ECVF_RenderThreadSafe
 	);
 
@@ -138,6 +140,34 @@ static TAutoConsoleVariable<int32> CVarParallelBasePass(
 	TEXT("Toggles parallel base pass rendering. Parallel rendering must be enabled for this to have an effect."),
 	ECVF_RenderThreadSafe
 );
+
+#if RHI_RAYTRACING
+
+int32 GEnableRayTracingMaterials = 1;
+static FAutoConsoleVariableRef CVarEnableRayTracingMaterials(
+	TEXT("r.RayTracing.Materials"),
+	GEnableRayTracingMaterials,
+	TEXT(" 0: bind default material shader that outputs placeholder data\n")
+	TEXT(" 1: bind real material shaders\n"),
+	ECVF_RenderThreadSafe
+);
+
+static int32 GRayTracing = 1;
+
+#else // RHI_RAYTRACING
+
+static int32 GRayTracing = 0;
+
+#endif // RHI_RAYTRACING
+
+static TAutoConsoleVariable<int32> CVarRayTracing(
+	TEXT("r.RayTracing"),
+	GRayTracing,
+	TEXT("0 to disable ray tracing.\n")
+	TEXT(" 0: off\n")
+	TEXT(" 1: on"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
 
 DECLARE_CYCLE_STAT(TEXT("PostInitViews FlushDel"), STAT_PostInitViews_FlushDel, STATGROUP_InitViews);
 DECLARE_CYCLE_STAT(TEXT("InitViews Intentional Stall"), STAT_InitViews_Intentional_Stall, STATGROUP_InitViews);
@@ -471,7 +501,7 @@ bool FDeferredShadingSceneRenderer::RenderHzb(FRHICommandListImmediate& RHICmdLi
 	}
 
 	//async ssao only requires HZB and depth as inputs so get started ASAP
-	if (GCompositionLighting.CanProcessAsyncSSAO(Views))
+	if (CanOverlayRayTracingOutput() && GCompositionLighting.CanProcessAsyncSSAO(Views))
 	{
 		GCompositionLighting.ProcessAsyncSSAO(RHICmdList, Views);
 	}
@@ -551,6 +581,352 @@ void FDeferredShadingSceneRenderer::PrepareDistanceFieldScene(FRHICommandListImm
 	}
 }
 
+#if RHI_RAYTRACING
+
+bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandListImmediate& RHICmdList)
+{
+	if (!IsRayTracingSupportedForThisProject())
+	{
+		return false;
+	}
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_RayTracedMeshCommands);
+		RayTracingCollector.ClearViewMeshArrays();
+		TArray<int> DynamicMeshBatchStartOffset;
+		TArray<int> VisibleDrawCommandStartOffset;
+
+		TArray<FPrimitiveUniformShaderParameters> DummyDynamicPrimitiveShaderData;
+
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			FViewInfo& View = Views[ViewIndex];
+			DynamicMeshBatchStartOffset.Add(0);
+			VisibleDrawCommandStartOffset.Add(0);
+			View.RayTracingGeometryInstances.Reserve(Scene->Primitives.Num());
+
+			RayTracingCollector.AddViewMeshArrays(
+				&View,
+				&View.RayTracedDynamicMeshElements,
+				&View.SimpleElementCollector,
+				&DummyDynamicPrimitiveShaderData,
+				ViewFamily.GetFeatureLevel());
+
+			View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing].MeshDrawCommands.Reserve(Scene->Primitives.Num());
+			View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Reserve(Scene->Primitives.Num());
+		}
+
+
+		int32 BroadIndex = 0;
+		for (int PrimitiveIndex = 0; PrimitiveIndex < Scene->PrimitiveSceneProxies.Num(); PrimitiveIndex++)
+		{
+			while (PrimitiveIndex >= int(Scene->TypeOffsetTable[BroadIndex].Offset))
+			{
+				BroadIndex++;
+			}
+
+			FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
+			checkSlow(Scene->TypeOffsetTable[BroadIndex].PrimitiveSceneProxyType == SceneProxy->GetTypeHash());
+
+			if (!SceneProxy->IsRayTracingRelevant())
+			{
+				//skip over unsupported SceneProxies (warning don't make IsRayTracingRelevant data dependent other than the vtable)
+				PrimitiveIndex = Scene->TypeOffsetTable[BroadIndex].Offset - 1;
+				continue;
+			}
+
+			uint8 RayTracedMeshElementsMask = 0;
+			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+			{
+				FViewInfo& View = Views[ViewIndex];
+				if (!View.State)// || View.RayTracingRenderMode == ERayTracingRenderMode::Disabled)
+				{
+					continue;
+				}
+
+				if (View.bIsReflectionCapture && !SceneProxy->IsVisibleInReflectionCaptures())
+				{
+					continue;
+				}
+
+				if (SceneProxy->IsRayTracingDrawRelevant(&View))
+				{
+					if (SceneProxy->IsRayTracingStaticRelevant())
+					{
+						static const auto ICVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindConsoleVariable(TEXT("r.StaticMeshLODDistanceScale"));
+						float LODScale = ICVarStaticMeshLODDistanceScale->GetFloat() * View.LODDistanceFactor;
+
+						const FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[PrimitiveIndex];
+
+						FLODMask LODToRender;
+						float MeshScreenSizeSquared = 0;
+						int32 ForcedLODLevel = -1;
+						if (SceneProxy->IsUsingCustomLODRules())
+						{
+							LODToRender = SceneProxy->GetCustomLOD(View, View.LODDistanceFactor, ForcedLODLevel, MeshScreenSizeSquared);
+						}
+						else
+						{
+							LODToRender = ComputeLODForMeshes(SceneProxy->ScreenSizes, false, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ForcedLODLevel, MeshScreenSizeSquared, LODScale);
+						}
+
+						FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneProxy->GetRayTracingGeometryInstance(LODToRender.GetRayTracedLOD());
+						if (!RayTracingGeometryInstance.IsValid())
+						{
+							continue;
+						}
+
+						const auto& StaticMeshMdcIndices = SceneProxy->RayTracingLodIndexToMeshDrawCommandIndicies[LODToRender.GetRayTracedLOD()];
+						for (int StaticMeshIndex = 0; StaticMeshIndex < StaticMeshMdcIndices.Num(); StaticMeshIndex++)
+						{
+							FStaticMesh& StaticMesh = Scene->Primitives[PrimitiveIndex]->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+							const int32 CommandIndex = StaticMeshMdcIndices[StaticMeshIndex].CommandIndex;
+							if (CommandIndex >= 0)
+							{
+								const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[EMeshPass::RayTracing];
+								const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = StaticMesh.CachedMeshDrawCommands[EMeshPass::RayTracing];
+								FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+								NewVisibleMeshDrawCommand.Setup(
+									&SceneDrawList.MeshDrawCommands[CommandIndex],
+									PrimitiveIndex,
+									CachedMeshDrawCommand.StateBucketId,
+									CachedMeshDrawCommand.MeshFillMode,
+									CachedMeshDrawCommand.MeshCullMode,
+									FMeshDrawCommandSortKey::Default);
+
+								View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Add(NewVisibleMeshDrawCommand);
+							}
+							else
+							{
+								uint64 BatchVisibility = 1;
+								if (StaticMesh.bRequiresPerElementVisibility)
+								{
+									BatchVisibility = StaticMesh.VertexFactory->GetStaticBatchElementVisibility(View, &StaticMesh);
+								}
+
+								FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
+								(
+									View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+									View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+								);
+								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+								RayTracingMeshProcessor.AddMeshBatch(StaticMesh, BatchVisibility, SceneProxy);
+							}
+						}
+
+						const int GeometryInstance = View.RayTracingGeometryInstances.Num();
+						int DrawCmdIndexCopy = VisibleDrawCommandStartOffset[ViewIndex];
+						int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
+						while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+						{
+							// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
+							// therefore we patch the recently generated ones
+							// this might be better to be handles inside the MeshProcessor
+							View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
+						}
+
+						ensure(DrawCmdIndexCopy != DrawCmdIndex);
+						View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance{ RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
+					}
+					else
+					{
+						RayTracedMeshElementsMask |= 1 << ViewIndex;
+					}
+				}
+			}
+
+			if (RayTracedMeshElementsMask != 0)
+			{
+				{
+					FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneProxy->GetRayTracingGeometryInstance(0);
+					if (RayTracingGeometryInstance.IsValid())
+					{
+						RayTracingCollector.SetPrimitive(SceneProxy, FHitProxyId());
+						SceneProxy->GetDynamicMeshElements(ViewFamily.Views, ViewFamily, RayTracedMeshElementsMask, RayTracingCollector);
+
+						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+						{
+							FViewInfo& View = Views[ViewIndex];
+							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
+							(
+								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+								View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+							);
+							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+
+							const int GeometryInstance = View.RayTracingGeometryInstances.Num();
+							int DrawCmdIndexCopy = VisibleDrawCommandStartOffset[ViewIndex];
+
+							// quickly process only the recently added MeshBatches 
+							// (GetDynamicMeshElements just added new MeshBatches to RayTracingCollector.MeshBatches)
+							int& BatchIndex = DynamicMeshBatchStartOffset[ViewIndex];
+							while (BatchIndex < RayTracingCollector.MeshBatches[ViewIndex]->Num())
+							{
+								FMeshBatchAndRelevance& BatchAndRelevance = (*RayTracingCollector.MeshBatches[ViewIndex])[BatchIndex++];
+
+								RayTracingMeshProcessor.AddMeshBatch(*BatchAndRelevance.Mesh, 1, BatchAndRelevance.PrimitiveSceneProxy);
+
+								int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
+								while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+								{
+									// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
+									// therefore we patch the recently generated ones
+									// this might be better to be handles inside the MeshProcessor
+									View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
+								}
+							}
+
+							ensure(DrawCmdIndexCopy != DynamicMeshBatchStartOffset[ViewIndex]);
+							View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
+						}
+					}
+				}
+
+				{
+					TArray<FRayTracingGeometryInstanceCollection> InstanceCollections;
+					SceneProxy->GetRayTracingGeometryInstances(InstanceCollections);
+					if (InstanceCollections.Num() > 0)
+					{
+						RayTracingCollector.SetPrimitive(SceneProxy, FHitProxyId());
+						SceneProxy->GetDynamicMeshElements(ViewFamily.Views, ViewFamily, RayTracedMeshElementsMask, RayTracingCollector);
+
+						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+						{
+							FViewInfo& View = Views[ViewIndex];
+							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
+							(
+								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+								View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+							);
+							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+
+							int32 GeometryIndex = -1;
+							int32 SegmentPrefixSum = 0;
+
+							int GeometryInstance = View.RayTracingGeometryInstances.Num();
+							int DrawCmdIndexCopy = VisibleDrawCommandStartOffset[ViewIndex];
+
+							// quickly process only the recently added MeshBatches 
+							// (GetDynamicMeshElements just added new MeshBatches to RayTracingCollector.MeshBatches)
+							for (int& BatchIndex = DynamicMeshBatchStartOffset[ViewIndex]; BatchIndex < RayTracingCollector.MeshBatches[ViewIndex]->Num(); BatchIndex++)
+							{
+								FMeshBatchAndRelevance& BatchAndRelevance = (*RayTracingCollector.MeshBatches[ViewIndex])[BatchIndex];
+
+								if (BatchAndRelevance.Mesh->SegmentIndex == 0xFF) continue;
+
+								if (BatchIndex >= SegmentPrefixSum)
+								{
+									GeometryIndex++;
+									SegmentPrefixSum += InstanceCollections[GeometryIndex].Geometry->Initializer.Segments.Num() > 0 ? InstanceCollections[GeometryIndex].Geometry->Initializer.Segments.Num() : 1;
+
+									if (InstanceCollections[GeometryIndex].DynamicVertexPositionBuffer != nullptr)
+									{
+										checkf(InstanceCollections[GeometryIndex].Geometry->Initializer.Segments.Num() <= 1, TEXT("Multiple segments on dynamic updating geometry is not supported"));
+
+										if (ViewIndex == 0)
+										{
+											Scene->GetRayTracingDynamicGeometryCollection()->AddDynamicMeshBatchForGeometryUpdate(Scene, &View, SceneProxy, *BatchAndRelevance.Mesh, *InstanceCollections[GeometryIndex].Geometry, *InstanceCollections[GeometryIndex].DynamicVertexPositionBuffer);
+										}
+									}
+
+									if (InstanceCollections[GeometryIndex].InstanceTransformMode == FRayTracingGeometryInstanceCollection::TransformMode::InheritFromSceneProxy)
+									{
+										check(InstanceCollections[GeometryIndex].CustomTransforms.Num() == 0);
+										View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { InstanceCollections[GeometryIndex].Geometry->RayTracingGeometryRHI, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
+									}
+									else if (InstanceCollections[GeometryIndex].InstanceTransformMode == FRayTracingGeometryInstanceCollection::TransformMode::Identity)
+									{
+										check(InstanceCollections[GeometryIndex].CustomTransforms.Num() == 0);
+										View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { InstanceCollections[GeometryIndex].Geometry->RayTracingGeometryRHI, FMatrix::Identity, (uint32)PrimitiveIndex });
+									}
+									else
+									{
+										check(InstanceCollections[GeometryIndex].InstanceTransformMode == FRayTracingGeometryInstanceCollection::TransformMode::CustomInstances);
+										check(InstanceCollections[GeometryIndex].CustomTransforms.Num() > 0);
+										ensureMsgf(false, TEXT("Multiple instances per ray tracing geometry is not supported yet"));
+									}
+								}
+
+								RayTracingMeshProcessor.AddMeshBatch(*BatchAndRelevance.Mesh, 1, BatchAndRelevance.PrimitiveSceneProxy);
+
+								int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
+								while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+								{
+									// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
+									// therefore we patch the recently generated ones
+									// this might be better to be handles inside the MeshProcessor
+									View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance + GeometryIndex;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+bool FDeferredShadingSceneRenderer::DispatchRayTracingWorldUpdates(FRHICommandListImmediate& RHICmdList)
+{
+	if (!IsRayTracingSupportedForThisProject())
+	{
+		return false;
+	}
+
+	Scene->GetRayTracingDynamicGeometryCollection()->DispatchUpdates(RHICmdList);
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_RayTracedBvhBuilding);
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			FViewInfo& View = Views[ViewIndex];
+			SET_DWORD_STAT(STAT_RayTracingInstances, View.RayTracingGeometryInstances.Num());
+			FRayTracingSceneInitializer Initializer;
+			Initializer.Instances = View.RayTracingGeometryInstances;
+			View.PerViewRayTracingScene.RayTracingSceneRHI = RHICreateRayTracingScene(Initializer);
+			RHICmdList.BuildAccelerationStructure(View.PerViewRayTracingScene.RayTracingSceneRHI);
+
+			// #dxr_todo: RHIGetAccelerationStructureShaderResourceView should return a handle that's safe to use immediately (which is internally multi-buffered and fenced)  to avoid the need for flush after BuildAccelerationStructure.
+			// FlushRHIThread is required here to ensure that acceleration structure SRV is created by the RHI before it is referenced on RenderThread.
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+	}
+	return true;
+}
+
+FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader, FRayTracingShaderRHIParamRef MissShader, FRayTracingShaderRHIParamRef DefaultChsShader)
+{
+	SCOPE_CYCLE_COUNTER(STAT_BindRayTracingPipeline);
+
+	FRayTracingPipelineStateInitializer Initializer;
+	Initializer.RayGenShaderRHI = RayGenShader;
+	Initializer.DefaultClosestHitShaderRHI = DefaultChsShader;
+	Initializer.MissShaderRHI = MissShader;
+
+	TArray<FRayTracingHitGroupInitializer> RayTracingMaterialLibrary;
+	FShaderResource::GetRayTracingMaterialLibrary(RayTracingMaterialLibrary);
+	Initializer.SetHitGroups(RayTracingMaterialLibrary);
+	Initializer.MaxPayloadSizeInBytes = 136; // #dxr_todo: set Initializer.MaxPayloadSizeInBytes based on shader requirements (it's not obvious how to compute this right now)
+
+	FRHIRayTracingPipelineState* PipelineState = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer);
+
+	if (GEnableRayTracingMaterials)
+	{
+		for (const FVisibleMeshDrawCommand& VisibleMeshDrawCommand : View.VisibleMeshDrawCommands[EMeshPass::RayTracing])
+		{
+			const FMeshDrawCommand& MeshDrawCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
+			MeshDrawCommand.ShaderBindings.SetOnRayTracingStructure(RHICmdList, View.PerViewRayTracingScene.RayTracingSceneRHI, VisibleMeshDrawCommand.RayTracedInstanceIndex, MeshDrawCommand.RayTracedSegmentIndex, PipelineState, MeshDrawCommand.RayTracingMaterialLibraryIndex);
+		}
+	}
+
+	return PipelineState;
+}
+
+#endif // RHI_RAYTRACING
+
 extern bool IsLpvIndirectPassRequired(const FViewInfo& View);
 
 static TAutoConsoleVariable<float> CVarStallInitViews(
@@ -565,6 +941,17 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	PrepareViewRectsForRendering();
 
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_Render, FColor::Emerald);
+
+#if RHI_RAYTRACING
+	// Gather mesh instances, shaders, resources, parameters, etc. and build ray tracing acceleration structure
+	GatherRayTracingWorldInstances(RHICmdList);
+
+	if (Views[0].RayTracingRenderMode != ERayTracingRenderMode::PathTracing)
+	{
+		extern ENGINE_API float GAveragePathTracedMRays;
+		GAveragePathTracedMRays = 0.0f;
+	}
+#endif // RHI_RAYTRACING
 
 #if WITH_MGPU
 	const FRHIGPUMask RenderTargetGPUMask = (GNumExplicitGPUsForRendering > 1 && ViewFamily.RenderTarget) ? ViewFamily.RenderTarget->GetGPUMask(RHICmdList) : FRHIGPUMask::GPU0();
@@ -686,8 +1073,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	const bool bRenderDeferredLighting = ViewFamily.EngineShowFlags.Lighting
 		&& FeatureLevel >= ERHIFeatureLevel::SM4
 		&& ViewFamily.EngineShowFlags.DeferredLighting
-		&& bUseGBuffer;
+		&& bUseGBuffer
+#if RHI_RAYTRACING
+		&& (Views[0].RayTracingRenderMode != ERayTracingRenderMode::PathTracing) // #dxr_todo: what about multi-view case?
+		&& (Views[0].RayTracingRenderMode != ERayTracingRenderMode::RayTracingDebug)
+#endif
+		;
 
+	bool bCanOverlayRayTracingOutput = CanOverlayRayTracingOutput();
 	bool bComputeLightGrid = false;
 	// Simple forward shading doesn't support local lights. No need to compute light grid
 	if (!IsSimpleForwardShadingEnabled(ShaderPlatform))
@@ -865,6 +1258,11 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	check(bDidAfterTaskWork);
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_AfterPrePass));
 	ServiceLocalQueue();
+
+#if RHI_RAYTRACING
+	// Must be done after FGlobalDynamicVertexBuffer::Get().Commit() for dynamic geometries to be updated
+	DispatchRayTracingWorldUpdates(RHICmdList);
+#endif
 
 	// Z-Prepass End
 
@@ -1269,7 +1667,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	if (bBasePassCanOutputVelocity)
 	{
-		VelocityRT = SceneContext.GetGBufferVelocityRT();
+		VelocityRT = SceneContext.SceneVelocity;
 	}
 	
 	// If bBasePassCanOutputVelocity is set, basepass fully writes the velocity buffer unless bUseSelectiveBasePassOutputs is enabled.
@@ -1282,6 +1680,46 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
+	checkSlow(RHICmdList.IsOutsideRenderPass());
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			if (Views[ViewIndex].RayTracingRenderMode == ERayTracingRenderMode::PathTracing)
+			{
+				RenderPathTracing(RHICmdList, Views[ViewIndex]);
+			}
+			else if (Views[ViewIndex].RayTracingRenderMode == ERayTracingRenderMode::RayTracingDebug)
+			{
+				RenderRayTracedDebug(RHICmdList, Views[ViewIndex]);
+			}
+		}
+
+		if (bCanOverlayRayTracingOutput)
+		{
+			// SkyLight takes priority over ambient occlusion
+			if (ShouldRenderRayTracingDynamicSkyLight(Scene, ViewFamily))
+			{
+				TRefCountPtr<IPooledRenderTarget> SkyLightRT;
+				TRefCountPtr<IPooledRenderTarget> HitDistanceRT;
+				RenderRayTracingSkyLight(RHICmdList, SkyLightRT, HitDistanceRT);
+				// #dxr_todo: Denoise SkyLight
+				CompositeRayTracingSkyLight(RHICmdList, SkyLightRT, HitDistanceRT);
+			}
+			else if (ShouldRenderRayTracingAmbientOcclusion())
+			{
+				checkSlow(RHICmdList.IsOutsideRenderPass());
+				TRefCountPtr<IPooledRenderTarget> AmbientOcclusionRT;
+				RenderRayTracingAmbientOcclusion(RHICmdList, nullptr, AmbientOcclusionRT);
+				checkSlow(RHICmdList.IsOutsideRenderPass());
+				// #dxr_todo: Denoise AO
+				CompositeRayTracingAmbientOcclusion(RHICmdList, AmbientOcclusionRT);
+				checkSlow(RHICmdList.IsOutsideRenderPass());
+			}
+		}
+	}
+#endif // RHI_RAYTRACING
 	checkSlow(RHICmdList.IsOutsideRenderPass());
 
 	// Copy lighting channels out of stencil before deferred decals which overwrite those values
@@ -1438,7 +1876,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	checkSlow(RHICmdList.IsOutsideRenderPass());
 
 	// Draw atmosphere
-	if (ShouldRenderAtmosphere(ViewFamily))
+	if (bCanOverlayRayTracingOutput && ShouldRenderAtmosphere(ViewFamily))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_RenderAtmosphere);
 		if (Scene->AtmosphericFog)
@@ -1469,7 +1907,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	GRenderTargetPool.AddPhaseEvent(TEXT("Fog"));
 
 	// Draw fog.
-	if (ShouldRenderFog(ViewFamily))
+	if (bCanOverlayRayTracingOutput && ShouldRenderFog(ViewFamily))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_RenderFog);
 		RenderFog(RHICmdList, LightShaftOutput);
@@ -1503,7 +1941,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	GRenderTargetPool.AddPhaseEvent(TEXT("Translucency"));
 
 	// Draw translucency.
-	if (ViewFamily.EngineShowFlags.Translucency)
+	if (bCanOverlayRayTracingOutput && ViewFamily.EngineShowFlags.Translucency)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TranslucencyDrawTime);
 
@@ -1543,7 +1981,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	checkSlow(RHICmdList.IsOutsideRenderPass());
 
-	if (ViewFamily.EngineShowFlags.LightShafts)
+	if (bCanOverlayRayTracingOutput && ViewFamily.EngineShowFlags.LightShafts)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_RenderLightShaftBloom);
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_LightShaftBloom));
@@ -1632,10 +2070,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 #endif
 
 	//grab the new transform out of the proxies for next frame
-	if (VelocityRT)
-	{
-		VelocityRT.SafeRelease();
-	}
+	SceneContext.SceneVelocity.SafeRelease();
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_RenderFinish);
@@ -1898,4 +2333,15 @@ void FDeferredShadingSceneRenderer::CopyStencilToLightingChannelTexture(FRHIComm
 		RHICmdList.EndRenderPass();
 		RHICmdList.CopyToResolveTarget(SceneContext.LightingChannels->GetRenderTargetItem().TargetableTexture, SceneContext.LightingChannels->GetRenderTargetItem().TargetableTexture, FResolveParams());
 	}
+}
+
+bool FDeferredShadingSceneRenderer::CanOverlayRayTracingOutput(void) const
+{
+#if RHI_RAYTRACING
+	// #dxr_todo: what about multi-view case?
+	return  (Views[0].RayTracingRenderMode != ERayTracingRenderMode::PathTracing)
+		&& (Views[0].RayTracingRenderMode != ERayTracingRenderMode::RayTracingDebug);
+#else // RHI_RAYTRACING
+	return true;
+#endif // RHI_RAYTRACING
 }

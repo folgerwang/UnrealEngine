@@ -120,7 +120,7 @@ void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* 
 			FString ResourcesString;
 			for (int32 Index = 0; Index < Layout.Resources.Num(); ++Index)
 			{
-				ResourcesString += FString::Printf(TEXT("%d "), Layout.Resources[Index]);
+				ResourcesString += FString::Printf(TEXT("%d "), Layout.Resources[Index].MemberType);
 			}
 			UE_LOG(LogShaders, Warning, TEXT("Layout CB Size %d %d Resources: %s"), Layout.ConstantBufferSize, Layout.Resources.Num(), *ResourcesString);
 		};
@@ -454,9 +454,18 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 		Ar << LayoutName;
 		DebugUniformExpressionUBLayout = FRHIUniformBufferLayout(LayoutName);
 		Ar << DebugUniformExpressionUBLayout.ConstantBufferSize;
-		Ar << DebugUniformExpressionUBLayout.ResourceOffsets;
-		Ar << DebugUniformExpressionUBLayout.Resources;
+
+		TArray<uint16> ResourceOffsets;
+		TArray<uint8> ResourceTypes;
+		Ar << ResourceOffsets;
+		Ar << ResourceTypes;
+
 #if ALLOW_SHADERMAP_DEBUG_DATA
+		DebugUniformExpressionUBLayout.Resources.Reserve(ResourceOffsets.Num());
+		for (int32 i = 0; i < ResourceOffsets.Num(); i++)
+		{
+			DebugUniformExpressionUBLayout.Resources.Emplace(FRHIUniformBufferLayout::FResourceParameter{ ResourceOffsets[i], EUniformBufferBaseType(ResourceTypes[i]) });
+		}
 		DebugUniformExpressionUBLayout.ComputeHash();
 #endif
 	}
@@ -465,8 +474,20 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 		FName LayoutName = DebugUniformExpressionUBLayout.GetDebugName();
 		Ar << LayoutName;
 		Ar << DebugUniformExpressionUBLayout.ConstantBufferSize;
-		Ar << DebugUniformExpressionUBLayout.ResourceOffsets;
-		Ar << DebugUniformExpressionUBLayout.Resources;
+
+		TArray<uint16> ResourceOffsets;
+		TArray<uint8> ResourceTypes;
+
+		ResourceOffsets.Reserve(DebugUniformExpressionUBLayout.Resources.Num());
+		ResourceTypes.Reserve(DebugUniformExpressionUBLayout.Resources.Num());
+		for (int32 i = 0; i < DebugUniformExpressionUBLayout.Resources.Num(); i++)
+		{
+			ResourceOffsets.Emplace(DebugUniformExpressionUBLayout.Resources[i].MemberOffset);
+			ResourceTypes.Emplace(uint8(DebugUniformExpressionUBLayout.Resources[i].MemberType));
+		}
+
+		Ar << ResourceOffsets;
+		Ar << ResourceTypes;
 	}
 	Ar << DebugDescription;
 	Ar << VTFeedbackBuffer;

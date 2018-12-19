@@ -41,7 +41,7 @@ float ComputeVolumeShadowing(float3 WorldPositionForLighting, bool bPointLight, 
 		BRANCH
 		if (bUsePointLightShadowing)
 		{
-			float3 LightVector = WorldPositionForLighting - DeferredLightUniforms.LightPosition;
+			float3 LightVector = WorldPositionForLighting - DeferredLightUniforms.Position;
 			float DistanceToLight = length(LightVector);
 			float3 NormalizedLightVector = LightVector / DistanceToLight;
 
@@ -53,7 +53,7 @@ float ComputeVolumeShadowing(float3 WorldPositionForLighting, bool bPointLight, 
 			float2 UnwrappedUVs = float2(U, V);
 
 			float ShadowDepth = Texture2DSampleLevel(StaticShadowDepthTexture, StaticShadowDepthTextureSampler, UnwrappedUVs, 0).x;
-			ShadowFactor = DistanceToLight * DeferredLightUniforms.LightInvRadius < ShadowDepth;
+			ShadowFactor = DistanceToLight * DeferredLightUniforms.InvRadius < ShadowDepth;
 		}
 		else
 		{
@@ -94,7 +94,7 @@ float ComputeVolumeShadowing(float3 WorldPositionForLighting, bool bPointLight, 
 
 		if (bUseCubemapShadowing)
 		{
-			DynamicShadowFactor = CubemapHardwarePCF(WorldPositionForLighting, DeferredLightUniforms.LightPosition, DeferredLightUniforms.LightInvRadius, 0.03f * 512 * InvShadowmapResolution);
+			DynamicShadowFactor = CubemapHardwarePCF(WorldPositionForLighting, DeferredLightUniforms.Position, DeferredLightUniforms.InvRadius, 0.03f * 512 * InvShadowmapResolution);
 		}
 		else
 		{

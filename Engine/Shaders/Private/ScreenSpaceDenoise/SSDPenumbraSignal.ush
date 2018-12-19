@@ -1,0 +1,153 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SSDPenumbraSignal.ush: All the signal implementation for penumbra processing.
+=============================================================================*/
+
+#pragma once
+
+
+#include "SSDCommon.ush"
+#include "SSDSignalCore.ush"
+#include "../LightShaderParameters.ush"
+
+
+float HitDistanceToWorldBluringRadius;
+
+
+/** COmpute the weight of the bilateral filter to use between a reference sample and a neighbor. */
+float ComputeBilateralWeight(
+	float MaxWorldBluringDistance,
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos NeighborSceneMetadata)
+{
+	if (DEBUG_DISABLE_BILATERAL)
+	{
+		return 1;
+	}
+	
+	float WorldBilateralWeight;
+	{
+		const float WorldRadius = MaxWorldBluringDistance;
+
+		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
+
+		float RefAnisotropyInvFactor = ComputeAnisotropyInvFactor(RefSceneMetadata);
+
+		float3 CameraToRef = View.ViewForward;
+
+		float Z = dot(CameraToRef, V);
+		float XY = length2(V - CameraToRef * Z * (1 - RefAnisotropyInvFactor));
+
+		float DistSquare = XY;
+
+		float Multiplier = rcp(WorldRadius * WorldRadius);
+
+		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
+	}
+
+	return WorldBilateralWeight;
+}
+
+/** Return whether this signal is occluded or not. */
+bool IsMissSample(FSSFSignalSample Sample)
+{
+	return Sample.LeavingRayCount != 0; // TODO: use PenumbraClosestHit instead.
+}
+
+/** Return whether this signal is valid or not. */
+bool IsInvalidSample(FSSFSignalSample Sample)
+{
+	return Sample.PenumbraClosestHit == -1.0; // TODO: AccumulatedSampleCount == 0
+}
+
+float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
+{
+	if (IsInvalidSample(Sample))
+	{
+		return WORLD_RADIUS_INVALID;
+	}
+	else if (IsMissSample(Sample))
+	{
+		return WORLD_RADIUS_MISS;
+	}
+
+	// Compute the anysotropy.
+	float Anisotropy = ComputeAnisotropyInvFactor(SceneMetadata);
+
+	FLightShaderParameters LightParameters = GetRootLightShaderParameters();
+
+	#if !defined(DIM_LIGHT_TYPE)
+	{
+		return 0;
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+	{
+		return HitDistanceToWorldBluringRadius * Sample.PenumbraClosestHit * Anisotropy;
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_POINT
+	{
+		return 0; // TODO: point light soft shadows are not implemented.
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_SPOT
+	{
+		return 0; // TODO: spot light soft shadows are not implemented.
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_RECT
+	{
+		float3 PixelToLightWorldVector = (LightParameters.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
+		float DistanceFromLight = length(PixelToLightWorldVector);
+
+		float Scalar = abs(dot(normalize(PixelToLightWorldVector), LightParameters.Direction));
+
+		float2 LightDimensions = GetRectLightDimensions(LightParameters);
+
+		// TODO: area light anysotropy.
+		float SmallestLightDimension = min(LightDimensions.x, LightDimensions.y);
+
+		// TODO: Sample.PenumbraClosestHit depends on the direction of the ray, but does not DistanceFromLight, witch is bad for large area light.
+		return SmallestLightDimension * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
+	}
+	#endif
+}
+
+FSSFSignalSample GetConstantSignalSample(uint TileMode)
+{
+	FSSFSignalSample OutputSample = CreateSignalSample();
+	if (TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		OutputSample.AccumulatedSampleCount = 0.0;
+		OutputSample.LeavingRayCount = 0.0;
+	}
+	else if (TileMode == TILE_MODE_FULLY_LIGHTED)
+	{
+		OutputSample.AccumulatedSampleCount = 1.0;
+		OutputSample.LeavingRayCount = OutputSample.AccumulatedSampleCount;
+	}
+	else if (TileMode == TILE_MODE_FULLY_OCCLUDED)
+	{
+		OutputSample.AccumulatedSampleCount = 1.0;
+		OutputSample.LeavingRayCount = 0.0;
+	}
+	else if (TileMode == TILE_MODE_FULLY_UNSURE)
+	{
+		OutputSample.UncertainRayCount = 1.0;
+	}
+	return OutputSample;
+}
+
+// Returns the penumbra of this sample, or 1 if invalid.
+float GetSamplePenumbraSafe(FSSFSignalSample Sample)
+{
+	return (Sample.AccumulatedSampleCount > 0 ? Sample.LeavingRayCount / Sample.AccumulatedSampleCount : 1);
+}
+
+// Get penumbra, but be aware of NaN.
+float GetSamplePenumbra(FSSFSignalSample Sample)
+{
+	if (1) // TODO: For debugging purpose of division by 0.
+	{
+		return GetSamplePenumbraSafe(Sample);
+	}
+	return Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
+}

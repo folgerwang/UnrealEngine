@@ -439,7 +439,12 @@ GLenum GLFrequencyTable[] =
 	GL_FRAGMENT_SHADER, // SF_Pixel
 	GL_GEOMETRY_SHADER,	// SF_Geometry
 	GL_COMPUTE_SHADER,  // SF_Compute
-
+#if RHI_RAYTRACING
+	// Ray tracing shaders are not supported in OpenGL
+	GLenum(0), // SF_RayGen
+	GLenum(0), // SF_RayMiss
+	GLenum(0), // SF_RayHitGroup (closest hit, any hit, intersection)
+#endif // RHI_RAYTRACING
 };
 
 static_assert(ARRAY_COUNT(GLFrequencyTable) == SF_NumFrequencies, "Frequency table size mismatch.");

@@ -1,0 +1,214 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+SSDOutput.usf: Output the denoising signal for external consumer
+=============================================================================*/
+
+#include "SSDSignalCore.ush"
+#include "../TextureSampling.ush"
+
+
+//------------------------------------------------------- DEBUG CONFIG
+
+/** Uses a point sampler when reconstructing signal from different mip levels. */
+#define DEBUG_POINT_RECONSTRUCTION 0
+
+/** Outputs a specific mip level only. */
+#define DEBUG_OUTPUT_MIP -1
+
+
+//------------------------------------------------------- CONFIGS
+
+#define TILE_PIXEL_SIZE 8
+
+#define CONFIG_SIGNAL_PROCESSING SIGNAL_PROCESSING_PENUMBRA
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_SIGNAL_INPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+
+#else
+	#error Unknown signal processing
+
+#endif
+
+#include "SSDSignalInterface.ush"
+
+
+//------------------------------------------------------- PARAMETERS
+
+Texture2D SignalInput0;
+Texture2D SignalInput1;
+
+RWTexture2D<float4>	SignalOutput0;
+
+
+//------------------------------------------------------- FUNCTIONS
+
+/** Sample the nearest input sample. */
+FSSFSignalSample SampleNearestInputMipLevel(float2 BufferUV, const uint MipLevel)
+{
+	return SampleInputSignal(
+		SignalInput0, SignalInput1,
+		GlobalPointClampedSampler,
+		CONFIG_SIGNAL_INPUT_LAYOUT,
+		BufferUV,
+		MipLevel);
+}
+
+/** Sample all nearest input sample (for debugging purposes). */
+float SampleAllNearestInputMipLevel(FSSFTileInfos TileInfos, float2 BufferUV)
+{
+	float Shadow = 1;
+	UNROLL
+	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		if (DEBUG_OUTPUT_MIP != -1 && MipLevel != DEBUG_OUTPUT_MIP) continue;
+
+		FSSFSignalSample Sample = SampleNearestInputMipLevel(BufferUV, MipLevel);
+
+		BRANCH
+		if (TileInfos.bProcessMipLevel[MipLevel] && Sample.AccumulatedSampleCount > 0)
+		{
+			Shadow *= saturate(GetSamplePenumbra(Sample));
+		}
+	}
+	return Shadow;
+}
+
+/** Combine all the mip levels. */
+float SampleAllBilinearInputMipLevel(FSSFTileInfos TileInfos, float2 BufferUV)
+{
+	float Shadow = 1;
+
+	float2 ViewportUV = BufferUVToViewportUV(BufferUV);
+	float2 ScreenPosition = ViewportUVToScreenPos(ViewportUV);
+	FSSFSampleSceneInfos CurrentSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, BufferUV);
+
+	float CurrentWorldBluringRadius = ComputePixelWorldRadius(CurrentSceneMetadata);
+
+	UNROLL
+	for (uint MipLevel = 1; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		const float MipLevelPow = 1 << MipLevel;
+
+		if (DEBUG_OUTPUT_MIP != -1 && MipLevel != DEBUG_OUTPUT_MIP) continue;
+
+		BRANCH
+		if (TileInfos.bProcessMipLevel[MipLevel])
+		{
+			FBilinearSampleInfos BilinearInfos = GetBilinearSampleLevelInfos(
+				BufferUV,
+				View.BufferSizeAndInvSize.xy,
+				View.BufferSizeAndInvSize.zw,
+				MipLevel);
+
+			float MipShadow = 0;
+			float MipWeight = 0;
+			
+			FSSFSignalSample MipLevelSample = CreateSignalSample();
+
+			// TODO: ALU could be optimised.
+			UNROLL
+			for (uint i = 0; i < 4; i++)
+			{
+				uint2 PixelPos = GetSamplePixelCoord(BilinearInfos, i);
+
+				FSSFTileInfos SampleTileInfos = LoadTileInfos(PixelPos >> (MAX_MIP_LEVEL_COUNT - 1 - MipLevel));
+
+				float2 SampleUV = GetSampleUV(BilinearInfos, i);
+				FSSFSignalSample Sample = SampleNearestInputMipLevel(SampleUV, MipLevel);
+
+				float2 SampleViewportUV = BufferUVToViewportUV(SampleUV);
+				float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
+				FSSFSampleSceneInfos SampleSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleUV);
+
+				float NeighborWorldBluringRadius = ComputePixelWorldRadius(SampleSceneMetadata);
+
+				float BilateralWeight = ComputeBilateralWeight(
+					WorldBluringRadiusToBilateralWorldDistance(MipLevelPow * min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
+					CurrentSceneMetadata,
+					SampleSceneMetadata);
+
+				FLATTEN
+				if (SampleTileInfos.TileMode == TILE_MODE_FAST &&
+					SampleTileInfos.bProcessMipLevel[MipLevel])
+				{
+					// TODO: lobe projection.
+					float FinalSampleWeight = GetSampleWeight(BilinearInfos, i) * BilateralWeight;
+					MipLevelSample = Add(MipLevelSample, Mul(Sample, FinalSampleWeight));
+				}
+			}
+
+			float MipLevelPenumbra = GetSamplePenumbraSafe(MipLevelSample);
+
+			Shadow *= MipLevelPenumbra;
+		}
+	}
+
+	BRANCH
+	if (TileInfos.bProcessMipLevel[0] && (DEBUG_OUTPUT_MIP == -1 || DEBUG_OUTPUT_MIP == 0))
+	{
+		FSSFSignalSample Sample = SampleNearestInputMipLevel(BufferUV, 0);
+		Shadow *= GetSamplePenumbraSafe(Sample);
+	}
+
+	return Shadow;
+}
+
+
+
+
+//------------------------------------------------------- ENTRY POINTS
+
+[numthreads(TILE_PIXEL_SIZE, TILE_PIXEL_SIZE, 1)]
+void MainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID)
+{
+	// Find out scene buffer UV.
+	float2 SceneBufferUV = (DispatchThreadId + 0.5 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+
+	FSSFTileInfos TileInfos = LoadTileInfos(GroupId);
+
+	float Shadow = 1;
+	BRANCH
+	if (TileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED)
+	{
+		Shadow = 0;
+	}
+	else if (TileInfos.TileMode == TILE_MODE_FULLY_LIGHTED || TileInfos.TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		Shadow = 1;
+	}
+	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
+	{
+		FSSFSignalSample Sample = SampleNearestInputMipLevel(SceneBufferUV, /* MipLevel = */ 0);
+
+		Shadow = GetSamplePenumbraSafe(Sample);
+	}
+	else if (DEBUG_POINT_RECONSTRUCTION)
+	{
+		Shadow = SampleAllNearestInputMipLevel(TileInfos, SceneBufferUV);
+	}
+	else
+	{
+		Shadow = SampleAllBilinearInputMipLevel(TileInfos, SceneBufferUV);
+	}
+
+	const float ShadowFadeFraction = 1;
+	float SSSTransmission = Shadow;
+
+	// 0 is shadowed, 1 is unshadowed
+	// RETURN_COLOR not needed unless writing to SceneColor;
+	float FadedShadow = lerp(1.0f, Square(Shadow), ShadowFadeFraction);
+	float FadedSSSShadow = lerp(1.0f, Square(SSSTransmission), ShadowFadeFraction);
+
+	// the channel assignment is documented in ShadowRendering.cpp (look for Light Attenuation channel assignment)
+	float4 OutColor = EncodeLightAttenuation(half4(FadedShadow, FadedSSSShadow, FadedShadow, FadedSSSShadow));
+
+	if (all(DispatchThreadId < uint2(View.ViewSizeAndInvSize.xy)))
+	{
+		SignalOutput0[DispatchThreadId] = OutColor;
+		//SignalOutput0[DispatchThreadId] = float4(Shadow, Shadow, Shadow, Shadow);
+	}
+}

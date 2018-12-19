@@ -20,6 +20,14 @@
 #include "ShaderCompiler.h"
 #include "Components/BillboardComponent.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "Modules/ModuleManager.h"
+
+#if RHI_RAYTRACING
+#include "GlobalShader.h"
+#include "ShaderParameterUtils.h"
+#include "ScreenRendering.h"
+#include "PipelineStateCache.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "SkyLightComponent"
 
@@ -131,6 +139,10 @@ void FSkyLightSceneProxy::Initialize(
 		AverageBrightness = *InAverageBrightness;
 		BlendFraction = 0;
 	}
+
+#if RHI_RAYTRACING
+	IsDirtyImportanceSamplingData = true;
+#endif
 }
 
 FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightComponent)
@@ -151,6 +163,9 @@ FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightCompon
 	, OcclusionExponent(FMath::Clamp(InLightComponent->OcclusionExponent, .1f, 10.0f))
 	, MinOcclusion(FMath::Clamp(InLightComponent->MinOcclusion, 0.0f, 1.0f))
 	, OcclusionTint(InLightComponent->OcclusionTint)
+#if RHI_RAYTRACING
+	, IsDirtyImportanceSamplingData(true)
+#endif
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
 		FInitSkyProxy,
@@ -199,6 +214,13 @@ USkyLightComponent::USkyLightComponent(const FObjectInitializer& ObjectInitializ
 	BlendDestinationAverageBrightness = 1.0f;
 	bCastVolumetricShadow = true;
 }
+
+#if RHI_RAYTRACING
+bool FSkyLightSceneProxy::ShouldRebuildCdf() const
+{
+	return IsDirtyImportanceSamplingData;
+}
+#endif
 
 FSkyLightSceneProxy* USkyLightComponent::CreateSceneProxy() const
 {
@@ -514,6 +536,7 @@ public:
 	TRefCountPtr<FSkyTextureCubeResource> ProcessedSkyTexture;
 	FSHVectorRGB3 IrradianceEnvironmentMap;
 	float AverageBrightness;
+	// RHI_RAYTRACING #SkyLightIS @todo:
 };
 
 FActorComponentInstanceData* USkyLightComponent::GetComponentInstanceData() const
@@ -711,6 +734,17 @@ void USkyLightComponent::SetCubemap(UTextureCube* NewCubemap)
 		MarkRenderStateDirty();
 		// Note: this will cause the cubemap to be reprocessed including readback from the GPU
 		SetCaptureIsDirty();
+
+#if RHI_RAYTRACING
+		if (SceneProxy) {
+			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+				SetLightProxyDirty,
+				FSkyLightSceneProxy*, LightSceneProxy, SceneProxy,
+				{
+					LightSceneProxy->IsDirtyImportanceSamplingData = true;
+				});
+		}
+#endif
 	}
 }
 
@@ -900,5 +934,6 @@ void ASkyLight::OnRep_bEnabled()
 {
 	LightComponent->SetVisibility(bEnabled);
 }
+
 
 #undef LOCTEXT_NAMESPACE

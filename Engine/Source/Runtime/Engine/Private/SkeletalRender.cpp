@@ -42,6 +42,9 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 ,	bUsePerBoneMotionBlur(InMeshComponent->bPerBoneMotionBlur)
 ,	StatId(InMeshComponent->SkeletalMesh->GetStatID(true))
 ,	FeatureLevel(InFeatureLevel)
+#if RHI_RAYTRACING
+,	bRequireRecreatingRayTracingGeometry(false)
+#endif
 {
 	check(SkeletalMeshRenderData);
 

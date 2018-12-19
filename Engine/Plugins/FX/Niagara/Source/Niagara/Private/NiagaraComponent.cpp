@@ -276,7 +276,18 @@ void FNiagaraSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 	}
 }
 
-
+#if RHI_RAYTRACING
+void FNiagaraSceneProxy::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
+{
+	for (NiagaraRenderer* Renderer : EmitterRenderers)
+	{
+		if (Renderer)
+		{
+			Renderer->GetRayTracingGeometryInstances(OutInstanceCollections);
+		}
+	}
+}
+#endif
 
 void FNiagaraSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const
 {

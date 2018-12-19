@@ -258,6 +258,11 @@ struct FStaticMeshLODResources
 	/** Index buffer containing adjacency information required by tessellation. */
 	FRawStaticIndexBuffer AdjacencyIndexBuffer;
 
+#if RHI_RAYTRACING
+	/** Geometry for ray tracing. */
+	FRayTracingGeometry RayTracingGeometry;
+#endif // RHI_RAYTRACING
+
 	/** Sections for this LOD. */
 	TArray<FStaticMeshSection> Sections;
 
@@ -596,6 +601,22 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const override { return true; }
+	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
+	{
+		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.StaticMeshes && IsShown(View);
+	}
+
+	virtual bool IsRayTracingStaticRelevant() const override 
+	{ 
+		const bool bAllowStaticLighting = FReadOnlyCVARCache::Get().bAllowStaticLighting;
+		return IsStaticPathAvailable() && !HasViewDependentDPG() && !(bAllowStaticLighting && HasStaticLighting() && !HasValidSettingsForStaticLighting());
+	}
+
+	FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const override;
+#endif // RHI_RAYTRACING
+
 	virtual void GetLCIs(FLCIArray& LCIs) override;
 
 #if WITH_EDITORONLY_DATA
@@ -678,6 +699,9 @@ protected:
 	FStaticMeshOccluderData* OccluderData;
 
 	TIndirectArray<FLODInfo> LODs;
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
+#endif
 
 	const FDistanceFieldVolumeData* DistanceFieldData;	
 

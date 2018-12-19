@@ -133,6 +133,10 @@ void FD3D12CommandContext::RHISetRasterizerState(FRasterizerStateRHIParamRef New
 
 void FD3D12CommandContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
+#if D3D12_RHI_RAYTRACING
+	StateCache.TransitionComputeState(D3D12PT_Compute);
+#endif
+
 	// TODO: Eventually the high-level should just use RHISetComputePipelineState() directly similar to how graphics PSOs are handled.
 	FD3D12ComputePipelineState* const ComputePipelineState = FD3D12DynamicRHI::ResourceCast(RHICreateComputePipelineState(ComputeShaderRHI).GetReference());
 	RHISetComputePipelineState(ComputePipelineState);
@@ -168,7 +172,7 @@ void FD3D12CommandContext::RHIDispatchComputeShader(uint32 ThreadGroupCountX, ui
 		CommitComputeShaderConstants();
 	}
 	CommitComputeResourceTables(ComputeShader);
-	StateCache.ApplyState<true>();
+	StateCache.ApplyState<D3D12PT_Compute>();
 
 	numDispatches++;
 	CommandListHandle->Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
@@ -197,7 +201,7 @@ void FD3D12CommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIPara
 	FD3D12ResourceLocation& Location = ArgumentBuffer->ResourceLocation;
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, Location.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
-	StateCache.ApplyState<true>();
+	StateCache.ApplyState<D3D12PT_Compute>();
 
 	numDispatches++;
 	CommandListHandle->ExecuteIndirect(
@@ -1451,7 +1455,7 @@ void FD3D12CommandContext::RHIDrawPrimitive(uint32 BaseVertexIndex, uint32 NumPr
 
 	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(StateCache.GetGraphicsPipelinePrimitiveType(), bUsingTessellation));
 
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 	numDraws++;
 	CommandListHandle->DrawInstanced(VertexCount, FMath::Max<uint32>(1, NumInstances), BaseVertexIndex, 0);
 #if UE_BUILD_DEBUG	
@@ -1480,7 +1484,7 @@ void FD3D12CommandContext::RHIDrawPrimitiveIndirect(FVertexBufferRHIParamRef Arg
 	FD3D12ResourceLocation& Location = ArgumentBuffer->ResourceLocation;
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, Location.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 
 	numDraws++;
 	CommandListHandle->ExecuteIndirect(
@@ -1526,7 +1530,7 @@ void FD3D12CommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexB
 	FD3D12ResourceLocation& Location = ArgumentsBuffer->ResourceLocation;
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, Location.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 
 	numDraws++;
 	CommandListHandle->ExecuteIndirect(
@@ -1576,7 +1580,7 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef Index
 
 	StateCache.SetIndexBuffer(&IndexBuffer->ResourceLocation, Format, 0);
 	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(StateCache.GetGraphicsPipelinePrimitiveType(), bUsingTessellation));
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 
 	numDraws++;
 	CommandListHandle->DrawIndexedInstanced(IndexCount, FMath::Max<uint32>(1, NumInstances), StartIndex, BaseVertexIndex, FirstInstance);
@@ -1611,7 +1615,7 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamR
 	FD3D12ResourceLocation& Location = ArgumentBuffer->ResourceLocation;
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, Location.GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 
 	numDraws++;
 	CommandListHandle->ExecuteIndirect(
@@ -1674,7 +1678,7 @@ void FD3D12CommandContext::RHIEndDrawPrimitiveUP()
 	CommitNonComputeShaderConstants();
 	StateCache.SetStreamSource(BufferLocation, 0, PendingUP.VertexDataStride, VBOffset);
 	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(StateCache.GetGraphicsPipelinePrimitiveType(), bUsingTessellation));
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 	numDraws++;
 	CommandListHandle->DrawInstanced(PendingUP.NumVertices, 1, 0, 0);
 #if UE_BUILD_DEBUG	
@@ -1740,7 +1744,7 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	StateCache.SetStreamSource(VertexBufferLocation, 0, PendingUP.VertexDataStride, VBOffset);
 	StateCache.SetIndexBuffer(IndexBufferLocation, PendingUP.IndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
 	StateCache.SetPrimitiveTopology(GetD3D12PrimitiveType(StateCache.GetGraphicsPipelinePrimitiveType(), bUsingTessellation));
-	StateCache.ApplyState();
+	StateCache.ApplyState<D3D12PT_Graphics>();
 
 	numDraws++;
 	CommandListHandle->DrawIndexedInstanced(PendingUP.NumIndices, 1, 0, PendingUP.MinVertexIndex, 0);

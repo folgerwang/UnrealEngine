@@ -6,6 +6,10 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 #include "D3D12RHIPrivate.h"
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+bool GEnableResidencyManagement = true;
+#endif
+
 static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
 	TEXT("D3D12.TransientUniformBufferAllocatorSizeKB"),
 	2 * 1024,
@@ -133,7 +137,38 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		GetAdapter(),
 		GetFeatureLevel(),
 		IID_PPV_ARGS(RootDevice.GetInitReference())
-		));
+	));
+
+#if D3D12_RHI_RAYTRACING
+	bool bRayTracingSupported = false;
+
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS5 Features = {};
+		if (SUCCEEDED(RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &Features, sizeof(Features)))
+			&& Features.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0)
+		{
+			bRayTracingSupported = true;
+		}
+	}
+
+ 	if (bRayTracingSupported && FParse::Param(FCommandLine::Get(), TEXT("raytracing"))) // Preview DXR functionality requires an explicit opt-in via a command line switch
+	{
+		RootDevice->QueryInterface(IID_PPV_ARGS(RootRayTracingDevice.GetInitReference()));
+		if (RootRayTracingDevice)
+		{
+			UE_LOG(LogD3D12RHI, Log, TEXT("D3D12 ray tracing enabled."));
+#if ENABLE_RESIDENCY_MANAGEMENT
+			// #dxr_todo: implement resource residency management for ray tracing resources
+			UE_LOG(LogD3D12RHI, Log, TEXT("Ray tracing resource residency tracking is not implemented. Disabling D3D12 residency management."));
+			GEnableResidencyManagement = false;
+#endif // ENABLE_RESIDENCY_MANAGEMENT
+		}
+		else
+		{
+			bRayTracingSupported = false;
+		}
+	}
+#endif // D3D12_RHI_RAYTRACING
 
 #if UE_BUILD_DEBUG	&& PLATFORM_WINDOWS
 	//break on debug
@@ -167,7 +202,7 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 			NewFilter.DenyList.pSeverityList = &DenySeverity;
 
 			// Be sure to carefully comment the reason for any additions here!  Someone should be able to look at it later and get an idea of whether it is still necessary.
-			D3D12_MESSAGE_ID DenyIds[] = {
+			TArray<D3D12_MESSAGE_ID, TInlineAllocator<16>> DenyIds = {
 				// OMSETRENDERTARGETS_INVALIDVIEW - d3d will complain if depth and color targets don't have the exact same dimensions, but actually
 				//	if the color target is smaller then things are ok.  So turn off this error.  There is a manual check in FD3D12DynamicRHI::SetRenderTarget
 				//	that tests for depth smaller than color and MSAA settings to match.
@@ -218,12 +253,21 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 
 #if ENABLE_RESIDENCY_MANAGEMENT
 				// TODO: Remove this when the debug layers work for executions which are guarded by a fence
-				D3D12_MESSAGE_ID_INVALID_USE_OF_NON_RESIDENT_RESOURCE
+				D3D12_MESSAGE_ID_INVALID_USE_OF_NON_RESIDENT_RESOURCE,
 #endif
 			};
 
-			NewFilter.DenyList.NumIDs = sizeof(DenyIds) / sizeof(D3D12_MESSAGE_ID);
-			NewFilter.DenyList.pIDList = (D3D12_MESSAGE_ID*)&DenyIds;
+#if D3D12_RHI_RAYTRACING
+			if (bRayTracingSupported)
+			{
+				// When the debug layer is enabled and ray tracing is supported, this error is triggered after a CopyDescriptors
+				// call in the DescriptorCache even when ray tracing device is never used. This workaround is still required as of 2018-12-17.
+				DenyIds.Add(D3D12_MESSAGE_ID_COPY_DESCRIPTORS_INVALID_RANGES);
+			}
+#endif // D3D12_RHI_RAYTRACING
+
+			NewFilter.DenyList.NumIDs = DenyIds.Num();
+			NewFilter.DenyList.pIDList = DenyIds.GetData();
 
 			pd3dInfoQueue->PushStorageFilter(&NewFilter);
 
@@ -404,8 +448,22 @@ void FD3D12Adapter::InitializeDevices()
 		ID3D12RootSignature* StaticGraphicsRS = (GetStaticGraphicsRootSignature()) ? GetStaticGraphicsRootSignature()->GetRootSignature() : nullptr;
 		ID3D12RootSignature* StaticComputeRS = (GetStaticComputeRootSignature()) ? GetStaticComputeRootSignature()->GetRootSignature() : nullptr;
 
+		// #dxr_todo: verify that disk cache works correctly with DXR
 		PipelineStateCache.RebuildFromDiskCache(StaticGraphicsRS, StaticComputeRS);
 	}
+}
+
+void FD3D12Adapter::InitializeRayTracing()
+{
+#if D3D12_RHI_RAYTRACING
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		if (Devices[GPUIndex]->GetRayTracingDevice())
+		{
+			Devices[GPUIndex]->InitRayTracing();
+		}
+	}
+#endif // D3D12_RHI_RAYTRACING
 }
 
 void FD3D12Adapter::CreateSignatures()
@@ -437,11 +495,6 @@ void FD3D12Adapter::CreateSignatures()
 
 void FD3D12Adapter::Cleanup()
 {
-	// Execute
-	FlushRenderingCommands();
-	FRHICommandListExecutor::CheckNoOutstandingCmdLists();
-	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-
 	// Reset the RHI initialized flag.
 	GIsRHIInitialized = false;
 
@@ -450,6 +503,13 @@ void FD3D12Adapter::Cleanup()
 		Viewport->IssueFrameEvent();
 		Viewport->WaitForFrameEventCompletion();
 	}
+
+#if D3D12_RHI_RAYTRACING
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		Devices[GPUIndex]->CleanupRayTracing();
+	}
+#endif // D3D12_RHI_RAYTRACING
 
 	// Manually destroy the effects as we can't do it in their destructor.
 	for (auto& Effect : TemporalEffectMap)

@@ -171,6 +171,26 @@ void FUniformLightMapPolicy::GetPixelShaderBindings(
 	ShaderBindings.Add(PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
 }
 
+#if RHI_RAYTRACING
+void FUniformLightMapPolicy::GetRayHitGroupShaderBindings(
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+	const FLightCacheInterface* LCI,
+	const RayHitGroupParametersType* RayHitGroupShaderParameters,
+	FMeshDrawSingleShaderBindings& RayHitGroupBindings
+) const
+{
+	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
+	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
+	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
+
+	SetupLCIUniformBuffers(PrimitiveSceneProxy, LCI, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
+
+	RayHitGroupBindings.Add(RayHitGroupShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
+	RayHitGroupBindings.Add(RayHitGroupShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
+	RayHitGroupBindings.Add(RayHitGroupShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
+}
+#endif
+
 void InterpolateVolumetricLightmap(
 	FVector LookupPosition,
 	const FVolumetricLightmapSceneData& VolumetricLightmapSceneData,
