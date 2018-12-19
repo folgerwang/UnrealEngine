@@ -447,7 +447,7 @@ namespace UnrealBuildTool
 							bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 							if (bPrerequisiteItemIsNewerThanLastExecution)
 							{
-								Log.TraceLog("{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}", RootAction.StatusDescription, Path.GetFileName(PrerequisiteItem.AbsolutePath), PrerequisiteItem.LastWriteTimeUtc.LocalDateTime, LastExecutionTimeUtc.LocalDateTime);
+								Log.TraceLog("{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}", RootAction.StatusDescription, Path.GetFileName(PrerequisiteItem.AbsolutePath), PrerequisiteItem.LastWriteTimeUtc.ToLocalTime(), LastExecutionTimeUtc.LocalDateTime);
 								bIsOutdated = true;
 								break;
 							}
@@ -474,7 +474,7 @@ namespace UnrealBuildTool
 									"{0}: Dependency {1} is newer than the last execution of the action: {2} vs {3}",
 									RootAction.StatusDescription,
 									Path.GetFileName(DependencyFile.AbsolutePath),
-									DependencyFile.LastWriteTimeUtc.LocalDateTime,
+									DependencyFile.LastWriteTimeUtc.ToLocalTime(),
 									LastExecutionTimeUtc.LocalDateTime
 									);
 								bIsOutdated = true;

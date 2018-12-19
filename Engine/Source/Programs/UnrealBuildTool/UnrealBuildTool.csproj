@@ -192,6 +192,7 @@
     <Compile Include="System\CppIncludeParser.cs" />
     <Compile Include="System\SourceFileMetadataCache.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
+    <Compile Include="System\DirectoryItem.cs" />
     <Compile Include="System\EncryptionAndSigning.cs" />
     <Compile Include="System\HotReload.cs" />
     <Compile Include="System\NativeProjects.cs" />

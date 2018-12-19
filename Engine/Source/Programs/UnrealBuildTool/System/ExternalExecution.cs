@@ -355,7 +355,7 @@ namespace UnrealBuildTool
 		/// Generates a UHTModuleInfo for a particular named module under a directory.
 		/// </summary>
 		/// <returns></returns>
-		public static UHTModuleInfo CreateUHTModuleInfo(IEnumerable<FileReference> HeaderFilenames, string ModuleName, FileReference ModuleRulesFile, DirectoryReference ModuleDirectory, UHTModuleType ModuleType, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsReadOnly, SourceFileMetadataCache MetadataCache)
+		public static UHTModuleInfo CreateUHTModuleInfo(List<FileItem> HeaderFiles, string ModuleName, FileReference ModuleRulesFile, DirectoryReference ModuleDirectory, UHTModuleType ModuleType, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsReadOnly, SourceFileMetadataCache MetadataCache)
 		{
 			DirectoryReference ClassesFolder = DirectoryReference.Combine(ModuleDirectory, "Classes");
 			DirectoryReference PublicFolder = DirectoryReference.Combine(ModuleDirectory, "Public");
@@ -364,25 +364,23 @@ namespace UnrealBuildTool
 			List<FileItem> PublicUObjectHeaders = new List<FileItem>();
 			List<FileItem> PrivateUObjectHeaders = new List<FileItem>();
 
-			foreach (FileReference Header in HeaderFilenames)
+			foreach (FileItem HeaderFile in HeaderFiles)
 			{
 				// Check to see if we know anything about this file.  If we have up-to-date cached information about whether it has
 				// UObjects or not, we can skip doing a test here.
-				FileItem UObjectHeaderFileItem = FileItem.GetItemByFileReference(Header);
-
-				if (MetadataCache.ContainsReflectionMarkup(UObjectHeaderFileItem))
+				if (MetadataCache.ContainsReflectionMarkup(HeaderFile))
 				{
-					if (UObjectHeaderFileItem.Location.IsUnderDirectory(ClassesFolder))
+					if (HeaderFile.Location.IsUnderDirectory(ClassesFolder))
 					{
-						PublicClassesUObjectHeaders.Add(UObjectHeaderFileItem);
+						PublicClassesUObjectHeaders.Add(HeaderFile);
 					}
-					else if (UObjectHeaderFileItem.Location.IsUnderDirectory(PublicFolder))
+					else if (HeaderFile.Location.IsUnderDirectory(PublicFolder))
 					{
-						PublicUObjectHeaders.Add(UObjectHeaderFileItem);
+						PublicUObjectHeaders.Add(HeaderFile);
 					}
 					else
 					{
-						PrivateUObjectHeaders.Add(UObjectHeaderFileItem);
+						PrivateUObjectHeaders.Add(HeaderFile);
 					}
 				}
 			}
@@ -591,20 +589,23 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Find all the headers under the given base directory, excluding any other platform folders.
 		/// </summary>
-		/// <param name="BaseDir">Base directory to search</param>
+		/// <param name="BaseDirectory">Base directory to search</param>
 		/// <param name="ExcludeFolders">Array of folders to exclude</param>
 		/// <param name="Headers">Receives the list of headers that was found</param>
-		static void FindHeaders(DirectoryInfo BaseDir, string[] ExcludeFolders, List<FileReference> Headers)
+		static void FindHeaders(DirectoryItem BaseDirectory, HashSet<string> ExcludeFolders, List<FileItem> Headers)
 		{
-			if (!ExcludeFolders.Any(x => x.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
+			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
 			{
-				foreach (DirectoryInfo SubDir in BaseDir.EnumerateDirectories())
+				if(!ExcludeFolders.Contains(SubDirectory.Name))
 				{
-					FindHeaders(SubDir, ExcludeFolders, Headers);
+					FindHeaders(SubDirectory, ExcludeFolders, Headers);
 				}
-				foreach (FileInfo File in BaseDir.EnumerateFiles("*.h"))
+			}
+			foreach(FileItem File in BaseDirectory.EnumerateFiles())
+			{
+				if(File.HasExtension(".h"))
 				{
-					Headers.Add(new FileReference(File));
+					Headers.Add(File);
 				}
 			}
 		}
@@ -622,11 +623,13 @@ namespace UnrealBuildTool
 			List<UEBuildModuleCPP> ModulesSortedByType = ModulesToGenerateHeadersFor.OrderBy(c => ModuleToType[c]).ToList();
 			StableTopologicalSort(ModulesSortedByType);
 
-			string[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Platform, true).GetExcludedFolderNames();
+			HashSet<string> ExcludedFolders = new HashSet<string>(UEBuildPlatform.GetBuildPlatform(Platform, true).GetExcludedFolderNames(), StringComparer.OrdinalIgnoreCase);
 			foreach (UEBuildModuleCPP Module in ModulesSortedByType)
 			{
-				List<FileReference> HeaderFiles = new List<FileReference>();
-				FindHeaders(new DirectoryInfo(Module.ModuleDirectory.FullName), ExcludedFolders, HeaderFiles);
+				DirectoryItem ModuleDirectory = DirectoryItem.GetItemByDirectoryReference(Module.ModuleDirectory);
+
+				List<FileItem> HeaderFiles = new List<FileItem>();
+				FindHeaders(ModuleDirectory, ExcludedFolders, HeaderFiles);
 
 				UHTModuleInfo Info = ExternalExecution.CreateUHTModuleInfo(HeaderFiles, Module.Name, Module.RulesFile, Module.ModuleDirectory, ModuleToType[Module], GeneratedCodeVersion, Module.Rules.bUsePrecompiled, MetadataCache);
 				if (Info.PublicUObjectClassesHeaders.Count > 0 || Info.PrivateUObjectHeaders.Count > 0 || Info.PublicUObjectHeaders.Count > 0)
@@ -935,7 +938,7 @@ namespace UnrealBuildTool
 
 				foreach (FileItem HeaderFile in AllUObjectHeaders)
 				{
-					DateTime HeaderFileTimestamp = HeaderFile.Info.LastWriteTime;
+					DateTime HeaderFileTimestamp = HeaderFile.LastWriteTimeUtc;
 
 					// Has the source header changed since we last generated headers successfully?
 					if (HeaderFileTimestamp > SavedTimestamp)

@@ -245,14 +245,8 @@ namespace UnrealBuildTool
 			{
 				PublicIncludePaths.Add(PublicDirectory);
 
-				string[] ExcludedFolderNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
-				foreach (DirectoryReference PublicSubDirectory in DirectoryLookupCache.EnumerateDirectoriesRecursively(PublicDirectory))
-				{
-					if(!PublicSubDirectory.ContainsAnyNames(ExcludedFolderNames, PublicDirectory))
-					{
-						LegacyPublicIncludePaths.Add(PublicSubDirectory);
-					}
-				}
+				HashSet<string> ExcludeNames = new HashSet<string>(UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames(), StringComparer.OrdinalIgnoreCase);
+				EnumerateLegacyIncludePaths(DirectoryItem.GetItemByDirectoryReference(PublicDirectory), ExcludeNames, LegacyPublicIncludePaths);
 			}
 
 			// Add the base private directory for this module
@@ -260,6 +254,24 @@ namespace UnrealBuildTool
 			if(DirectoryLookupCache.DirectoryExists(PrivateDirectory))
 			{
 				PrivateIncludePaths.Add(PrivateDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Enumerates legacy include paths under a given base directory
+		/// </summary>
+		/// <param name="BaseDirectory">The directory to start from. This directory is not added to the output list.</param>
+		/// <param name="ExcludeNames">Set of folder names to exclude from the search.</param>
+		/// <param name="LegacyPublicIncludePaths">List populated with the discovered directories</param>
+		static void EnumerateLegacyIncludePaths(DirectoryItem BaseDirectory, HashSet<string> ExcludeNames, HashSet<DirectoryReference> LegacyPublicIncludePaths)
+		{
+			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
+			{
+				if(!ExcludeNames.Contains(SubDirectory.Name))
+				{
+					LegacyPublicIncludePaths.Add(SubDirectory.Location);
+					EnumerateLegacyIncludePaths(SubDirectory, ExcludeNames, LegacyPublicIncludePaths);
+				}
 			}
 		}
 

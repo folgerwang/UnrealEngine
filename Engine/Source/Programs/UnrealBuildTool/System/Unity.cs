@@ -45,7 +45,7 @@ namespace UnrealBuildTool
 			{
 				Files.Add(File);
 
-				long FileLength = File.Info.Length;
+				long FileLength = File.Length;
 				TotalLength += FileLength;
 				VirtualLength += FileLength;
 			}
@@ -105,7 +105,7 @@ namespace UnrealBuildTool
 			/// <param name="File">The file to add virtually.  Only the size of the file is tracked.</param>
 			public void AddVirtualFile(FileItem File)
 			{
-				CurrentCollection.AddVirtualFile(File.Info.Length);
+				CurrentCollection.AddVirtualFile(File.Length);
 				if (SplitLength != -1 && CurrentCollection.VirtualLength > SplitLength)
 				{
 					EndCurrentUnityFile();
@@ -171,7 +171,7 @@ namespace UnrealBuildTool
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Platform);
 
 			// Figure out size of all input files combined. We use this to determine whether to use larger unity threshold or not.
-			long TotalBytesInCPPFiles = CPPFiles.Sum(F => F.Info.Length);
+			long TotalBytesInCPPFiles = CPPFiles.Sum(F => F.Length);
 
 			// We have an increased threshold for unity file size if, and only if, all files fit into the same unity file. This
 			// is beneficial when dealing with PCH files. The default PCH creation limit is X unity files so if we generate < X 

@@ -26,7 +26,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The information about the file.
 		/// </summary>
-		public FileInfo Info;
+		FileInfo Info;
 
 		/// <summary>
 		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
@@ -42,6 +42,14 @@ namespace UnrealBuildTool
 		{
 			this.Location = Location;
 			this.Info = Info;
+		}
+
+		/// <summary>
+		/// Name of this file
+		/// </summary>
+		public string Name
+		{
+			get { return Info.Name; }
 		}
 
 		/// <summary>
@@ -71,9 +79,19 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The last write time of the file.
 		/// </summary>
-		public DateTimeOffset LastWriteTimeUtc
+		public DateTime LastWriteTimeUtc
 		{
 			get { return Info.LastWriteTimeUtc; }
+		}
+
+		/// <summary>
+		/// Determines if the file has the given extension
+		/// </summary>
+		/// <param name="Extension">The extension to check for</param>
+		/// <returns>True if the file has the given extension, false otherwise</returns>
+		public bool HasExtension(string Extension)
+		{
+			return Location.HasExtension(Extension);
 		}
 
 		/// <summary>
@@ -84,6 +102,31 @@ namespace UnrealBuildTool
 		public static FileItem GetItemByPath(string FilePath)
 		{
 			return GetItemByFileReference(new FileReference(FilePath));
+		}
+
+		/// <summary>
+		/// Gets a FileItem for a given path
+		/// </summary>
+		/// <param name="Info">Information about the file</param>
+		/// <returns>The FileItem that represents the given a full file path.</returns>
+		public static FileItem GetItemByFileInfo(FileInfo Info)
+		{
+			FileReference Location = new FileReference(Info);
+
+			FileItem Result;
+			if (!UniqueSourceFileMap.TryGetValue(Location, out Result))
+			{
+				FileItem NewFileItem = new FileItem(Location, Info);
+				if(UniqueSourceFileMap.TryAdd(Location, NewFileItem))
+				{
+					Result = NewFileItem;
+				}
+				else
+				{
+					Result = UniqueSourceFileMap[Location];
+				}
+			}
+			return Result;
 		}
 
 		/// <summary>
