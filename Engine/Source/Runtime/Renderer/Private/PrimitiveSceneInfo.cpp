@@ -169,7 +169,6 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 	check(StaticMeshRelevances.Num() == StaticMeshes.Num());
 
-	int MaxLOD = -1;
 	for(int32 MeshIndex = 0;MeshIndex < StaticMeshes.Num();MeshIndex++)
 	{
 		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
@@ -194,35 +193,41 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 			// Add the static mesh to the appropriate draw lists.
 			Mesh.AddToDrawLists(RHICmdList, Scene);
 		}
+	}
 
+#if RHI_RAYTRACING
+	int MaxLOD = -1;
+
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
+	{
+		FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 		MaxLOD = MaxLOD < Mesh.LODIndex ? Mesh.LODIndex : MaxLOD;
 	}
 
 	if (StaticMeshes.Num() > 0)
 	{
-#if RHI_RAYTRACING
+		Proxy->ScreenSizes.AddDefaulted(MaxLOD + 1);
 		Proxy->RayTracingLodIndexToMeshDrawCommandIndicies.AddDefaulted(MaxLOD + 1);
-#endif
 
 		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 		{
 			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 
-#if RHI_RAYTRACING
+			if (Proxy->ScreenSizes[Mesh.LODIndex] != 0.0f)
+			{
+				check(Proxy->ScreenSizes[Mesh.LODIndex] == MeshRelevance.ScreenSize);
+			}
+			else
+			{
+				check(MeshRelevance.ScreenSize != 0.0f);
+				Proxy->ScreenSizes[Mesh.LODIndex] = MeshRelevance.ScreenSize;
+			}
+
 			if (Mesh.Elements.Num() > 0)
 			{
-				//dxr_todo: review LOD indices and CommandIndex
-				const auto& StaticMeshMdcIndices = Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[MaxLOD];
-				int32 CommandIndex = -1;
-				
-				//if (StaticMeshMdcIndices.Num() > 0)
-				//{
-				//	CommandIndex = StaticMeshMdcIndices[MeshIndex].CommandIndex;
-				//}
-				const bool bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy);
-
-				if (bSupportsCachingMeshDrawCommands && CommandIndex != -1)
+				const int32 CommandIndex = Mesh.CachedMeshDrawCommands[EMeshPass::RayTracing].CommandIndex;
+				if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy) && CommandIndex != -1)
 				{
 					Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, CommandIndex });
 				}
@@ -231,8 +236,8 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 					Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, -1 });
 				}
 			}
-#endif
 		}
+#endif
 	}
 }
 
