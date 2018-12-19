@@ -50,6 +50,18 @@ UWidget* UPanelWidget::GetChildAt(int32 Index) const
 	return nullptr;
 }
 
+TArray<UWidget*> GetAllChildren() const
+{
+	TArray<UWidget*> Result;
+
+	for(UPanelSlot* ChildSlot : Slots)
+	{
+		Result.Add(ChildSlot->Content);
+	}
+
+	return Result;
+}
+
 int32 UPanelWidget::GetChildIndex(UWidget* Content) const
 {
 	const int32 ChildCount = GetChildrenCount();
