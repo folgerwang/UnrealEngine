@@ -29,6 +29,8 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 #include "RayTracingHitGroupCommon.ush"
 
 uint SamplesPerPixel;
+uint ShouldDoDirectLighting;
+float ReflectionMaxRayDistance;
 
 RaytracingAccelerationStructure TLAS;
 
@@ -217,13 +219,14 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 		Ray        // RayDesc
 	);
 
+	if (ShouldDoDirectLighting)
+	{
+		float3 DirectLighting = ComputeDirectLighting(Ray, Payload);
 
-	float3 DirectLighting = ComputeDirectLighting(Ray, Payload);
-
-	// Transform NaNs to black, transform negative colors to black.
-	DirectLighting = -min(-DirectLighting, 0.0);
-
-	Radiance += DirectLighting;
+		// Transform NaNs to black, transform negative colors to black.
+		DirectLighting = -min(-DirectLighting, 0.0);
+		Radiance += DirectLighting;
+	}
 
 	return Payload;
 }
@@ -287,7 +290,7 @@ void RayTracingReflectionsRGS()
 				RayDesc Ray;
 				Ray.Origin = WorldPosition + WorldNormal * 0.01;
 				Ray.TMin = 0.0;
-				Ray.TMax = 1e27f;
+				Ray.TMax = ReflectionMaxRayDistance;
 
 				uint DummyVariable;
 				float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
@@ -344,12 +347,11 @@ void RayTracingReflectionsRGS()
 		}
 	}
 
-	////uint NumLights = ForwardLightData.NumDirectionalLights;
-
 	if (SamplesPerPixel > 0)
 	{
 		ReflectedColor /= SamplesPerPixel;
 	}
+
 	ColorOutput[PixelCoord] = float4(ReflectedColor);
 }
 
