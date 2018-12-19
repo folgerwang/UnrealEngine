@@ -200,8 +200,6 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 	if (StaticMeshes.Num() > 0)
 	{
-		Proxy->ScreenSizes.AddDefaulted(MaxLOD + 1);
-
 #if RHI_RAYTRACING
 		Proxy->RayTracingLodIndexToMeshDrawCommandIndicies.AddDefaulted(MaxLOD + 1);
 #endif
@@ -210,15 +208,6 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 		{
 			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
-			if (Proxy->ScreenSizes[Mesh.LODIndex] != 0.0f)
-			{
-				check(Proxy->ScreenSizes[Mesh.LODIndex] == MeshRelevance.ScreenSize);
-			}
-			else
-			{
-				check(MeshRelevance.ScreenSize != 0.0f);
-				Proxy->ScreenSizes[Mesh.LODIndex] = MeshRelevance.ScreenSize;
-			}
 
 #if RHI_RAYTRACING
 			if (Mesh.Elements.Num() > 0)

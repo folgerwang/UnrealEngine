@@ -1024,7 +1024,6 @@ private:
 #endif
 
 public:
-	TArray<float> ScreenSizes;
 #if RHI_RAYTRACING
 	struct FStaticMeshOrCommandIndex
 	{
