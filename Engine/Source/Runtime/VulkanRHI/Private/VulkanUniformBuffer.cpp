@@ -100,7 +100,7 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayo
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
 			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index].MemberType == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
 			{
-				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index].MemberType);
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, (uint8)InLayout.Resources[Index].MemberType);
 			}
 			ResourceTable[Index] = Resource;
 		}
@@ -118,7 +118,7 @@ void FVulkanUniformBuffer::UpdateResourceTable(const FRHIUniformBufferLayout& In
 		checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 			*InLayout.GetDebugName().ToString(),
 			ResourceIndex,
-			InLayout.Resources[ResourceIndex].MemberType);
+			(uint8)InLayout.Resources[ResourceIndex].MemberType);
 
 		ResourceTable[ResourceIndex] = Resource;
 	}
@@ -223,7 +223,7 @@ void FVulkanDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 					*Layout.GetDebugName().ToString(),
 					ResourceIndex,
-					Layout.Resources[ResourceIndex].MemberType);
+					(uint8)Layout.Resources[ResourceIndex].MemberType);
 
 				CmdListResources[ResourceIndex] = Resource;
 			}

@@ -120,7 +120,7 @@ void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* 
 			FString ResourcesString;
 			for (int32 Index = 0; Index < Layout.Resources.Num(); ++Index)
 			{
-				ResourcesString += FString::Printf(TEXT("%d "), Layout.Resources[Index].MemberType);
+				ResourcesString += FString::Printf(TEXT("%d "), (uint8)Layout.Resources[Index].MemberType);
 			}
 			UE_LOG(LogShaders, Warning, TEXT("Layout CB Size %d %d Resources: %s"), Layout.ConstantBufferSize, Layout.Resources.Num(), *ResourcesString);
 		};

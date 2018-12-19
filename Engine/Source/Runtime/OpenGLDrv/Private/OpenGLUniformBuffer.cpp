@@ -768,7 +768,7 @@ void FOpenGLDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef Uniform
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 					*Layout.GetDebugName().ToString(),
 					ResourceIndex,
-					Layout.Resources[ResourceIndex].MemberType);
+					(uint8)Layout.Resources[ResourceIndex].MemberType);
 
 				CmdListResources[ResourceIndex] = Resource;
 			}

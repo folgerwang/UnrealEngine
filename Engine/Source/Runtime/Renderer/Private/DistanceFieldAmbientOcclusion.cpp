@@ -18,7 +18,7 @@
 #include "RendererModule.h"
 #include "PipelineStateCache.h"
 #include "VisualizeTexture.h"
-#include "Raytracing/RaytracingOptions.h"
+#include "RayTracing/RaytracingOptions.h"
 
 int32 GDistanceFieldAO = 1;
 FAutoConsoleVariableRef CVarDistanceFieldAO(
