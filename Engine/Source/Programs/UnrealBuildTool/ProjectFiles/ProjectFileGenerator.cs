@@ -1693,7 +1693,7 @@ namespace UnrealBuildTool
 						{
 							NewArguments.Add("-precompile");
 						}
-						if (CurTarget.TargetRules.Type == TargetType.Editor && CurTarget.TargetRules.BuildEnvironment == TargetBuildEnvironment.Default)
+						if (CurTarget.TargetRules.Type == TargetType.Editor && CurTarget.TargetRules.BuildEnvironment != TargetBuildEnvironment.Unique)
 						{
 							NewArguments.Add("-SharedBuildEnvironment"); // Force the shared build environment, even though we have -Monolithic
 						}
