@@ -572,7 +572,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	*/
 	UPROPERTY(config, EditAnywhere, Category = RayTracing, meta = (
 		ConsoleVariable = "r.RayTracing", DisplayName = "Ray Tracing",
-		ToolTip = "Enable Ray Tracing capabilities.",
+		ToolTip = "Enable Ray Tracing capabilities.  Requires 'Support Compute Skincache' before project is allowed to set this.",
 		ConfigRestartRequired = true))
 		uint32 bEnableRayTracing : 1;
 

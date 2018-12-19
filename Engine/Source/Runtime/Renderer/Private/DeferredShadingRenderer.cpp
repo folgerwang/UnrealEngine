@@ -152,13 +152,9 @@ static FAutoConsoleVariableRef CVarEnableRayTracingMaterials(
 	ECVF_RenderThreadSafe
 );
 
-static int32 GRayTracing = 1;
-
-#else // RHI_RAYTRACING
+#endif // RHI_RAYTRACING
 
 static int32 GRayTracing = 0;
-
-#endif // RHI_RAYTRACING
 
 static TAutoConsoleVariable<int32> CVarRayTracing(
 	TEXT("r.RayTracing"),

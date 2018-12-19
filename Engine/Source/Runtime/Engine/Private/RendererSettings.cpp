@@ -64,11 +64,7 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	bSupportMaterialLayers = false;
 	GPUSimulationTextureSizeX = 1024;
 	GPUSimulationTextureSizeY = 1024;
-#if RHI_RAYTRACING
-	bEnableRayTracing = 1;
-#else
 	bEnableRayTracing = 0;
-#endif
 }
 
 void URendererSettings::PostInitProperties()
@@ -83,6 +79,10 @@ void URendererSettings::PostInitProperties()
 		ImportConsoleVariableValues();
 	}
 #endif // #if WITH_EDITOR
+
+#if RHI_RAYTRACING
+	ensureMsgf(!bEnableRayTracing || (bEnableRayTracing && bSupportSkinCacheShaders), TEXT("Raytracing enabled, but skin cache is not.  Disable raytracing, or enable r.SkinCache.CompileShaders"));
+#endif
 }
 
 #if WITH_EDITOR
@@ -121,7 +121,8 @@ bool URendererSettings::CanEditChange(const UProperty* InProperty) const
 	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, bEnableRayTracing)))
 	{
 #if RHI_RAYTRACING
-		return ParentVal;
+		//only allow enabling raytracing if skin cache is on, but allow disable of raytracing no matter what.
+		return ParentVal && (bSupportSkinCacheShaders || bEnableRayTracing);
 #else // RHI_RAYTRACING
 		return false;
 #endif // RHI_RAYTRACING
