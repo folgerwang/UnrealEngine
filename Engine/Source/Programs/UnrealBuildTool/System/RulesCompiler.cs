@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 using Tools.DotNETCommon;
+using System.Collections.Concurrent;
 
 namespace UnrealBuildTool
 {
@@ -179,6 +180,48 @@ namespace UnrealBuildTool
             DirectoryLookupCache.InvalidateCachedDirectory(Directory);
         }
 
+		/// <summary>
+		/// Prefetch multiple directories in parallel
+		/// </summary>
+		/// <param name="Directories">The directories to cache</param>
+		private static void PrefetchRulesFiles(IEnumerable<DirectoryReference> Directories)
+		{
+			ThreadPoolWorkQueue Queue = null;
+			try
+			{
+				foreach(DirectoryReference Directory in Directories)
+				{
+					if(!RootFolderToRulesFileCache.ContainsKey(Directory))
+					{
+						RulesFileCache Cache = new RulesFileCache();
+						RootFolderToRulesFileCache[Directory] = Cache;
+
+						if(Queue == null)
+						{
+							Queue = new ThreadPoolWorkQueue();
+						}
+
+						DirectoryItem DirectoryItem = DirectoryItem.GetItemByDirectoryReference(Directory);
+						Queue.Enqueue(() => FindAllRulesFilesRecursively(DirectoryItem, Cache, Queue));
+					}
+				}
+			}
+			finally
+			{
+				if(Queue != null)
+				{
+					Queue.Dispose();
+					Queue = null;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Finds all the rules of the given type under a given directory
+		/// </summary>
+		/// <param name="Directory">Directory to search</param>
+		/// <param name="Type">Type of rules to return</param>
+		/// <returns>List of rules files of the given type</returns>
 		private static IReadOnlyList<FileReference> FindAllRulesFiles(DirectoryReference Directory, RulesFileType Type)
 		{
 			// Check to see if we've already cached source files for this folder
@@ -186,7 +229,11 @@ namespace UnrealBuildTool
 			if (!RootFolderToRulesFileCache.TryGetValue(Directory, out Cache))
 			{
 				Cache = new RulesFileCache();
-				FindAllRulesFilesRecursively(Directory, Cache);
+				using(ThreadPoolWorkQueue Queue = new ThreadPoolWorkQueue())
+				{
+					DirectoryItem BaseDirectory = DirectoryItem.GetItemByDirectoryReference(Directory);
+					Queue.Enqueue(() => FindAllRulesFilesRecursively(BaseDirectory, Cache, Queue));
+				}
 				RootFolderToRulesFileCache[Directory] = Cache;
 			}
 
@@ -209,24 +256,39 @@ namespace UnrealBuildTool
 			}
 		}
 
-		private static void FindAllRulesFilesRecursively(DirectoryReference Directory, RulesFileCache Cache)
+		/// <summary>
+		/// Search through a directory tree for any rules files
+		/// </summary>
+		/// <param name="Directory">The root directory to search from</param>
+		/// <param name="Cache">Receives all the discovered rules files</param>
+		/// <param name="Queue">Queue for adding additional tasks to</param>
+		private static void FindAllRulesFilesRecursively(DirectoryItem Directory, RulesFileCache Cache, ThreadPoolWorkQueue Queue)
 		{
 			// Scan all the files in this directory
 			bool bSearchSubFolders = true;
-			foreach (FileReference File in DirectoryLookupCache.EnumerateFiles(Directory))
+			foreach (FileItem File in Directory.EnumerateFiles())
 			{
 				if (File.HasExtension(".build.cs"))
 				{
-					Cache.ModuleRules.Add(File);
+					lock(Cache.ModuleRules)
+					{
+						Cache.ModuleRules.Add(File.Location);
+					}
 					bSearchSubFolders = false;
 				}
 				else if (File.HasExtension(".target.cs"))
 				{
-					Cache.TargetRules.Add(File);
+					lock(Cache.TargetRules)
+					{
+						Cache.TargetRules.Add(File.Location);
+					}
 				}
 				else if (File.HasExtension(".automation.csproj"))
 				{
-					Cache.AutomationModules.Add(File);
+					lock(Cache.AutomationModules)
+					{
+						Cache.AutomationModules.Add(File.Location);
+					}
 					bSearchSubFolders = false;
 				}
 			}
@@ -234,9 +296,9 @@ namespace UnrealBuildTool
 			// If we didn't find anything to stop the search, search all the subdirectories too
 			if (bSearchSubFolders)
 			{
-				foreach (DirectoryReference SubDirectory in DirectoryLookupCache.EnumerateDirectories(Directory))
+				foreach (DirectoryItem SubDirectory in Directory.EnumerateDirectories())
 				{
-					FindAllRulesFilesRecursively(SubDirectory, Cache);
+					Queue.Enqueue(() => FindAllRulesFilesRecursively(SubDirectory, Cache, Queue));
 				}
 			}
 		}
@@ -251,8 +313,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static RulesAssembly EnterpriseRulesAssembly;
 
+		/// <summary>
 		/// Map of assembly names we've already compiled and loaded to their Assembly and list of game folders.  This is used to prevent
 		/// trying to recompile the same assembly when ping-ponging between different types of targets
+		/// </summary>
 		private static Dictionary<FileReference, RulesAssembly> LoadedAssemblyMap = new Dictionary<FileReference, RulesAssembly>();
 
 		/// <summary>
@@ -304,25 +368,39 @@ namespace UnrealBuildTool
 
 			// Find the shared modules, excluding the programs directory. These are used to create an assembly with the bContainsEngineModules flag set to true.
 			List<FileReference> EngineModuleFiles = new List<FileReference>();
-			foreach (DirectoryReference SubDirectory in DirectoryLookupCache.EnumerateDirectories(SourceDirectory))
+			using(Timeline.ScopeEvent("Finding engine modules"))
 			{
-				if(SubDirectory != ProgramsDirectory)
+				foreach (DirectoryReference SubDirectory in DirectoryLookupCache.EnumerateDirectories(SourceDirectory))
 				{
-					EngineModuleFiles.AddRange(FindAllRulesFiles(SubDirectory, RulesFileType.Module));
+					if(SubDirectory != ProgramsDirectory)
+					{
+						EngineModuleFiles.AddRange(FindAllRulesFiles(SubDirectory, RulesFileType.Module));
+					}
 				}
 			}
 
 			// Add all the plugin modules too
 			Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo = new Dictionary<FileReference, PluginInfo>();
-			FindModuleRulesForPlugins(Plugins, EngineModuleFiles, ModuleFileToPluginInfo);
+			using(Timeline.ScopeEvent("Finding plugin modules"))
+			{
+				FindModuleRulesForPlugins(Plugins, EngineModuleFiles, ModuleFileToPluginInfo);
+			}
 
 			// Create the assembly
 			FileReference EngineAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "Rules" + FrameworkAssemblyExtension);
 			RulesAssembly EngineAssembly = new RulesAssembly(RootDirectory, Plugins, EngineModuleFiles, new List<FileReference>(), ModuleFileToPluginInfo, EngineAssemblyFileName, bContainsEngineModules: true, bUseBackwardsCompatibleDefaults: false, bReadOnly: bReadOnly, bSkipCompile: bSkipCompile, Parent: Parent);
 
 			// Find all the rules files
-			List<FileReference> ProgramModuleFiles = new List<FileReference>(FindAllRulesFiles(ProgramsDirectory, RulesFileType.Module));
-			List<FileReference> ProgramTargetFiles = new List<FileReference>(FindAllRulesFiles(SourceDirectory, RulesFileType.Target));
+			List<FileReference> ProgramModuleFiles;
+			using(Timeline.ScopeEvent("Finding program modules"))
+			{
+				ProgramModuleFiles = new List<FileReference>(FindAllRulesFiles(ProgramsDirectory, RulesFileType.Module));
+			}
+			List<FileReference> ProgramTargetFiles;
+			using(Timeline.ScopeEvent("Finding program targets"))
+			{
+				ProgramTargetFiles = new List<FileReference>(FindAllRulesFiles(SourceDirectory, RulesFileType.Target));
+			}
 
 			// Create a path to the assembly that we'll either load or compile
 			FileReference ProgramAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "ProgramRules" + FrameworkAssemblyExtension);
@@ -478,6 +556,8 @@ namespace UnrealBuildTool
 		/// <param name="ModuleFileToPluginInfo">Dictionary which is filled with mappings from the module file to its corresponding plugin file</param>
 		private static void FindModuleRulesForPlugins(IReadOnlyList<PluginInfo> Plugins, List<FileReference> ModuleFiles, Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo)
 		{
+			PrefetchRulesFiles(Plugins.Select(x => DirectoryReference.Combine(x.Directory, "Source")));
+
 			foreach (PluginInfo Plugin in Plugins)
 			{
 				IReadOnlyList<FileReference> PluginModuleFiles = FindAllRulesFiles(DirectoryReference.Combine(Plugin.Directory, "Source"), RulesFileType.Module);

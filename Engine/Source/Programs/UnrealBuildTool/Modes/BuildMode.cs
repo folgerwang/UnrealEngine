@@ -177,7 +177,7 @@ namespace UnrealBuildTool
 						TargetMakefile Makefile = null;
 						if(BuildConfiguration.bUseUBTMakefiles)
 						{
-							using(Timeline.ScopeEvent("UBTMakefile.LoadUBTMakefile"))
+							using(Timeline.ScopeEvent("TargetMakefile.Load()"))
 							{
 								string ReasonNotLoaded;
 								Makefile = TargetMakefile.Load(MakefileLocation, TargetDesc.ProjectFile, TargetDesc.Platform, WorkingSet, out ReasonNotLoaded);
@@ -193,9 +193,9 @@ namespace UnrealBuildTool
 						{
 							// Create the target
 							UEBuildTarget Target;
-							using(Timeline.ScopeEvent("UEBuildTarget.CreateTarget"))
+							using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
 							{
-								Target = UEBuildTarget.CreateTarget(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+								Target = UEBuildTarget.Create(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
 							}
 
 							// Build the target
@@ -239,9 +239,12 @@ namespace UnrealBuildTool
 							}
 
 							// Save the makefile for next time
-							using(Timeline.ScopeEvent("UBTMakefile.SaveUBTMakefile()"))
+							if(BuildConfiguration.bUseUBTMakefiles)
 							{
-								TargetMakefile.SaveUBTMakefile(TargetDesc, Makefile);
+								using(Timeline.ScopeEvent("TargetMakefile.Save()"))
+								{
+									Makefile.Save(MakefileLocation);
+								}
 							}
 						}
 						else

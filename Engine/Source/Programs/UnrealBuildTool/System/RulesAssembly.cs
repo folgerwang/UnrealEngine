@@ -98,9 +98,9 @@ namespace UnrealBuildTool
 			this.Parent = Parent;
 
 			// Find all the source files
-			List<FileReference> AssemblySourceFiles = new List<FileReference>();
-			AssemblySourceFiles.AddRange(ModuleFiles);
-			AssemblySourceFiles.AddRange(TargetFiles);
+			HashSet<FileReference> AssemblySourceFiles = new HashSet<FileReference>();
+			AssemblySourceFiles.UnionWith(ModuleFiles);
+			AssemblySourceFiles.UnionWith(TargetFiles);
 
 			// Compile the assembly
 			if (AssemblySourceFiles.Count > 0)

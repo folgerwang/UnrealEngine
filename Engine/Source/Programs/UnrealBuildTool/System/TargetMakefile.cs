@@ -150,29 +150,22 @@ namespace UnrealBuildTool
 
 
 		/// <summary>
-		/// Saves a UBTMakefile to disk
+		/// Saves a makefile to disk
 		/// </summary>
-		/// <param name="TargetDesc">Target being built</param>
-		/// <param name="UBTMakefile">The UBT makefile</param>
-		public static void SaveUBTMakefile(TargetDescriptor TargetDesc, TargetMakefile UBTMakefile)
+		/// <param name="Location">Path to save the makefile to</param>
+		public void Save(FileReference Location)
 		{
-			if (!UBTMakefile.IsValidMakefile())
+			if (!IsValidMakefile())
 			{
 				throw new BuildException("Can't save a makefile that has invalid contents.  See UBTMakefile.IsValidMakefile()");
 			}
 
-			FileItem UBTMakefileItem = FileItem.GetItemByFileReference(GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration));
-
-			// @todo ubtmake: Optimization: The UBTMakefile saved for game projects is upwards of 9 MB.  We should try to shrink its content if possible
-			// @todo ubtmake: Optimization: C# Serialization may be too slow for these big Makefiles.  Loading these files often shows up as the slower part of the assembling phase.
-
-			// Serialize the cache to disk.
 			try
 			{
-				Directory.CreateDirectory(Path.GetDirectoryName(UBTMakefileItem.AbsolutePath));
-				using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(UBTMakefileItem.Location))
+				DirectoryReference.CreateDirectory(Location.Directory);
+				using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Location))
 				{
-					UBTMakefile.Write(Writer);
+					Write(Writer);
 				}
 			}
 			catch (Exception Ex)

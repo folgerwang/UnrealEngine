@@ -261,28 +261,33 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates a target object for the specified target name.
 		/// </summary>
-		/// <param name="Desc">Information about the target</param>
+		/// <param name="Descriptor">Information about the target</param>
 		/// <param name="bSkipRulesCompile">Whether to skip compiling any rules assemblies</param>
 		/// <param name="bCompilingSingleFile">Whether we're compiling a single file</param>
 		/// <param name="bUsePrecompiled">Whether to use a precompiled engine/enterprise build</param>
 		/// <returns>The build target object for the specified build rules source file</returns>
-		public static UEBuildTarget CreateTarget(TargetDescriptor Desc, bool bSkipRulesCompile, bool bCompilingSingleFile, bool bUsePrecompiled)
+		public static UEBuildTarget Create(TargetDescriptor Descriptor, bool bSkipRulesCompile, bool bCompilingSingleFile, bool bUsePrecompiled)
 		{
-			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Desc.ProjectFile, Desc.Name, bSkipRulesCompile, bUsePrecompiled, Desc.ForeignPlugin);
-
-			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Desc.AdditionalArguments);
-			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !RulesObject.GetSupportedPlatforms().Contains(Desc.Platform))
+			RulesAssembly RulesAssembly;
+			using(Timeline.ScopeEvent("RulesCompiler.CreateTargetRulesAssembly()"))
 			{
-				throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
+				RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Descriptor.ProjectFile, Descriptor.Name, bSkipRulesCompile, bUsePrecompiled, Descriptor.ForeignPlugin);
 			}
-
-			// Now that we found the actual Editor target, make sure we're no longer using the old TargetName (which is the Game target)
-			Desc.Name = RulesObject.Name;
+	
+			TargetRules RulesObject;
+			using(Timeline.ScopeEvent("RulesAssembly.CreateTargetRules()"))
+			{
+				RulesObject = RulesAssembly.CreateTargetRules(Descriptor.Name, Descriptor.Platform, Descriptor.Configuration, Descriptor.Architecture, Descriptor.ProjectFile, Descriptor.AdditionalArguments);
+			}
+			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !RulesObject.GetSupportedPlatforms().Contains(Descriptor.Platform))
+			{
+				throw new BuildException("{0} does not support the {1} platform.", Descriptor.Name, Descriptor.Platform.ToString());
+			}
 
 			// If we're using the shared build environment, make sure all the settings are valid
 			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared)
 			{
-				ValidateSharedEnvironment(RulesAssembly, Desc.Name, RulesObject);
+				ValidateSharedEnvironment(RulesAssembly, Descriptor.Name, RulesObject);
 			}
 
 			// If we're precompiling, generate a list of all the files that we depend on
@@ -321,7 +326,7 @@ namespace UnrealBuildTool
 			}
 
 			// If we're compiling a plugin, and this target is monolithic, just create the object files
-			if(Desc.ForeignPlugin != null && RulesObject.LinkType == TargetLinkType.Monolithic)
+			if(Descriptor.ForeignPlugin != null && RulesObject.LinkType == TargetLinkType.Monolithic)
 			{
 				// Don't actually want an executable
 				RulesObject.bDisableLinking = true;
@@ -338,8 +343,16 @@ namespace UnrealBuildTool
 			}
 
 			// Generate a build target from this rules module
-			UEBuildTarget BuildTarget = new UEBuildTarget(Desc, new ReadOnlyTargetRules(RulesObject), RulesAssembly);
-			return BuildTarget;
+			UEBuildTarget Target;
+			using(Timeline.ScopeEvent("UEBuildTarget constructor"))
+			{
+				Target = new UEBuildTarget(Descriptor, new ReadOnlyTargetRules(RulesObject), RulesAssembly);
+			}
+			using(Timeline.ScopeEvent("UEBuildTarget.PreBuildSetup()"))
+			{
+				Target.PreBuildSetup();
+			}
+			return Target;
 		}
 
 		/// <summary>
@@ -597,22 +610,22 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor.
 		/// </summary>
-		/// <param name="InDesc">Target descriptor</param>
+		/// <param name="InDescriptor">Target descriptor</param>
 		/// <param name="InRules">The target rules, as created by RulesCompiler.</param>
 		/// <param name="InRulesAssembly">The chain of rules assemblies that this target was created with</param>
-		public UEBuildTarget(TargetDescriptor InDesc, ReadOnlyTargetRules InRules, RulesAssembly InRulesAssembly)
+		private UEBuildTarget(TargetDescriptor InDescriptor, ReadOnlyTargetRules InRules, RulesAssembly InRulesAssembly)
 		{
-			MetadataCache = SourceFileMetadataCache.CreateHierarchy(InDesc.ProjectFile);
-			ProjectFile = InDesc.ProjectFile;
-			AppName = InDesc.Name;
-			TargetName = InDesc.Name;
-			Platform = InDesc.Platform;
-			Configuration = InDesc.Configuration;
-			Architecture = InDesc.Architecture;
+			MetadataCache = SourceFileMetadataCache.CreateHierarchy(InDescriptor.ProjectFile);
+			ProjectFile = InDescriptor.ProjectFile;
+			AppName = InDescriptor.Name;
+			TargetName = InDescriptor.Name;
+			Platform = InDescriptor.Platform;
+			Configuration = InDescriptor.Configuration;
+			Architecture = InDescriptor.Architecture;
 			Rules = InRules;
 			RulesAssembly = InRulesAssembly;
 			TargetType = Rules.Type;
-			ForeignPlugin = InDesc.ForeignPlugin;
+			ForeignPlugin = InDescriptor.ForeignPlugin;
 			bDeployAfterCompile = InRules.bDeployAfterCompile && !InRules.bDisableLinking;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
@@ -682,9 +695,6 @@ namespace UnrealBuildTool
 			{
 				ProjectDescriptor = ProjectDescriptor.FromFile(ProjectFile);
 			}
-
-			// Create all the binaries and modules
-			PreBuildSetup();
 		}
 
 		/// <summary>
