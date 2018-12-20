@@ -688,6 +688,11 @@ public:
 	virtual void RemoveScene(FSceneInterface* Scene) = 0;
 
 	/**
+	* Updates all static draw lists for each allocated scene.
+	*/
+	virtual void UpdateStaticDrawLists() = 0;
+
+	/**
 	 * Updates static draw lists for the given set of materials for each allocated scene.
 	 */
 	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) = 0;

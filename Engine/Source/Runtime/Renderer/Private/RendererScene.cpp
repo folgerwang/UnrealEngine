@@ -2777,6 +2777,31 @@ void FScene::SetPrecomputedVisibility(const FPrecomputedVisibilityHandler* NewPr
 	});
 }
 
+void FScene::UpdateStaticDrawLists_RenderThread(FRHICommandListImmediate& RHICmdList)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Scene_UpdateStaticDrawLists_RT);
+
+	const int32 NumPrimitives = Primitives.Num();
+
+	for (int32 PrimitiveIndex = 0; PrimitiveIndex < NumPrimitives; ++PrimitiveIndex)
+	{
+		FPrimitiveSceneInfo* Primitive = Primitives[PrimitiveIndex];
+
+		Primitive->RemoveStaticMeshes();
+		Primitive->AddStaticMeshes(RHICmdList);
+	}
+}
+
+void FScene::UpdateStaticDrawLists()
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		FUpdateDrawLists,
+		FScene*, Scene, this,
+		{
+			Scene->UpdateStaticDrawLists_RenderThread(RHICmdList);
+		});
+}
+
 void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmediate& RHICmdList, const TArray<const FMaterial*>& Materials)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Scene_UpdateStaticDrawListsForMaterials_RT);
@@ -2812,7 +2837,7 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 void FScene::UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials)
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FUpdateDrawLists,
+		FUpdateDrawListsForMaterials,
 		FScene*,Scene,this,
 		TArray<const FMaterial*>,Materials,Materials,
 	{
@@ -3387,6 +3412,15 @@ void FRendererModule::RemoveScene(FSceneInterface* Scene)
 	AllocatedScenes.Remove(Scene);
 }
 
+void FRendererModule::UpdateStaticDrawLists()
+{
+	// Update all static meshes in order to recache cached mesh draw commands.
+	for (TSet<FSceneInterface*>::TConstIterator SceneIt(AllocatedScenes); SceneIt; ++SceneIt)
+	{
+		(*SceneIt)->UpdateStaticDrawLists();
+	}
+}
+
 void UpdateStaticMeshesForMaterials(const TArray<const FMaterial*>& MaterialResourcesToUpdate)
 {
 	TArray<UMaterialInterface*> UsedMaterials;
@@ -3446,7 +3480,7 @@ void FRendererModule::UpdateStaticDrawListsForMaterials(const TArray<const FMate
 		(*SceneIt)->UpdateStaticDrawListsForMaterials(Materials);
 	}
 
-	// Update static meshes in order to recache cached mesh draw commands.
+	// Update static meshes for a given set of materials in order to recache cached mesh draw commands.
 	UpdateStaticMeshesForMaterials(Materials);
 }
 

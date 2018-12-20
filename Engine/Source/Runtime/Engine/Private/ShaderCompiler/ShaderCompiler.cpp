@@ -3449,6 +3449,9 @@ public:
 
 			// fixup uniform expressions
 			UMaterialInterface::RecacheAllMaterialUniformExpressions();
+
+			// Need to recache all cached mesh draw commands, as they store pointers to material uniform buffers which we just invalidated.
+			GetRendererModule().UpdateStaticDrawLists();
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(

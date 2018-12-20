@@ -2727,6 +2727,9 @@ public:
 	/** Sets the precomputed visibility handler for the scene, or NULL to clear the current one. */
 	virtual void SetPrecomputedVisibility(const FPrecomputedVisibilityHandler* InPrecomputedVisibilityHandler) override;
 
+	/** Updates all static draw lists. */
+	virtual void UpdateStaticDrawLists() override;
+
 	/** Updates static draw lists for the given set of materials. */
 	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) override;
 
@@ -2936,6 +2939,9 @@ private:
 
 	/** Updates the contents of all reflection captures in the scene.  Must be called from the game thread. */
 	void UpdateAllReflectionCaptures(const TCHAR* CaptureReason, bool bVerifyOnlyCapturing);
+
+	/** Updates all static draw lists. */
+	void UpdateStaticDrawLists_RenderThread(FRHICommandListImmediate& RHICmdList);
 
 	/** Updates static draw lists for the given materials. */
 	void UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmediate& RHICmdList, const TArray<const FMaterial*>& Materials);
