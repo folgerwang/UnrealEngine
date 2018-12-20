@@ -187,7 +187,7 @@ namespace UnrealBuildTool
 			{
 				PublicIncludePaths.Add(PublicDirectory);
 
-				HashSet<string> ExcludeNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
+				ReadOnlyHashSet<string> ExcludeNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
 				EnumerateLegacyIncludePaths(DirectoryItem.GetItemByDirectoryReference(PublicDirectory), ExcludeNames, LegacyPublicIncludePaths);
 			}
 
@@ -205,7 +205,7 @@ namespace UnrealBuildTool
 		/// <param name="BaseDirectory">The directory to start from. This directory is not added to the output list.</param>
 		/// <param name="ExcludeNames">Set of folder names to exclude from the search.</param>
 		/// <param name="LegacyPublicIncludePaths">List populated with the discovered directories</param>
-		static void EnumerateLegacyIncludePaths(DirectoryItem BaseDirectory, HashSet<string> ExcludeNames, HashSet<DirectoryReference> LegacyPublicIncludePaths)
+		static void EnumerateLegacyIncludePaths(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludeNames, HashSet<DirectoryReference> LegacyPublicIncludePaths)
 		{
 			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
 			{
@@ -1104,7 +1104,7 @@ namespace UnrealBuildTool
 		/// <returns>Set of source files that should be built</returns>
 		SourceFileCollection FindSourceFiles(UnrealTargetPlatform Platform, HashSet<DirectoryReference> SearchedDirectories)
 		{
-			HashSet<string> ExcludedNames = UEBuildPlatform.GetBuildPlatform(Platform).GetExcludedFolderNames();
+			ReadOnlyHashSet<string> ExcludedNames = UEBuildPlatform.GetBuildPlatform(Platform).GetExcludedFolderNames();
 
 			SourceFileCollection SourceFilesToBuild = new SourceFileCollection();
 			DirectoryItem ModuleDirectoryItem = DirectoryItem.GetItemByDirectoryReference(ModuleDirectory);
@@ -1120,7 +1120,7 @@ namespace UnrealBuildTool
 		/// <param name="ExcludedNames">Set of excluded directory names (eg. other platforms)</param>
 		/// <param name="SearchedDirectories">Receives a set of directories that have been searched</param>
 		/// <param name="SourceFiles">Collection of source files, categorized by type</param>
-		static void FindSourceFilesRecursive(DirectoryItem BaseDirectory, HashSet<string> ExcludedNames, HashSet<DirectoryReference> SearchedDirectories, SourceFileCollection SourceFiles)
+		static void FindSourceFilesRecursive(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludedNames, HashSet<DirectoryReference> SearchedDirectories, SourceFileCollection SourceFiles)
 		{
 			SearchedDirectories.Add(BaseDirectory.Location);
 
