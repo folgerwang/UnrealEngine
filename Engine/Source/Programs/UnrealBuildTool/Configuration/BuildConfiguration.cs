@@ -149,13 +149,5 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-SkipRulesCompile")]
 		public bool bSkipRulesCompile = false;
-
-		/// <summary>
-		/// Default constructor. Reads settings from the XmlConfig files.
-		/// </summary>
-		public BuildConfiguration()
-		{
-			XmlConfig.ApplyTo(this);
-		}
 	}
 }
