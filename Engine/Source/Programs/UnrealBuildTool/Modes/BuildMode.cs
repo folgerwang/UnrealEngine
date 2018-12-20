@@ -82,10 +82,6 @@ namespace UnrealBuildTool
 			{
 				BuildConfiguration.bAllowXGE = true;
 			}
-			if(BuildConfiguration.SingleFileToCompile != null)
-			{
-				BuildConfiguration.bUseUBTMakefiles = false;
-			}
 
 			// Parse the remote INI setting
 			string RemoteIniPath;
@@ -199,11 +195,15 @@ namespace UnrealBuildTool
 				TargetDescriptor TargetDesc = TargetDescriptors[TargetIdx];
 
 				// Get the path to the makefile for this target
-				FileReference MakefileLocation = TargetMakefile.GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration);
+				FileReference MakefileLocation = null;
+				if(BuildConfiguration.bUseUBTMakefiles && TargetDesc.SingleFileToCompile == null)
+				{
+					MakefileLocation = TargetMakefile.GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration);
+				}
 
 				// Try to load an existing makefile
 				TargetMakefile Makefile = null;
-				if(BuildConfiguration.bUseUBTMakefiles)
+				if(MakefileLocation != null)
 				{
 					using(Timeline.ScopeEvent("TargetMakefile.Load()"))
 					{
@@ -223,7 +223,7 @@ namespace UnrealBuildTool
 					UEBuildTarget Target;
 					using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
 					{
-						Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+						Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.bUsePrecompiled);
 					}
 
 					// Build the target
@@ -267,7 +267,7 @@ namespace UnrealBuildTool
 					}
 
 					// Save the makefile for next time
-					if(BuildConfiguration.bUseUBTMakefiles)
+					if(MakefileLocation != null)
 					{
 						using(Timeline.ScopeEvent("TargetMakefile.Save()"))
 						{
@@ -399,8 +399,7 @@ namespace UnrealBuildTool
 				}
 
 				// Run the deployment steps
-				if (BuildConfiguration.SingleFileToCompile == null
-					&& !BuildConfiguration.bGenerateManifest
+				if (!BuildConfiguration.bGenerateManifest
 					&& !BuildConfiguration.bXGEExport)
 				{
 					foreach(TargetMakefile Makefile in Makefiles)
@@ -488,9 +487,9 @@ namespace UnrealBuildTool
 			}
 
 			// If we're just compiling a single file, set the target items to be all the derived items
-			if(BuildConfiguration.SingleFileToCompile != null)
+			if(TargetDescriptor.SingleFileToCompile != null)
 			{
-				FileItem FileToCompile = FileItem.GetItemByFileReference(BuildConfiguration.SingleFileToCompile);
+				FileItem FileToCompile = FileItem.GetItemByFileReference(TargetDescriptor.SingleFileToCompile);
 				TargetOutputItems = Makefile.Actions.Where(x => x.PrerequisiteItems.Contains(FileToCompile)).SelectMany(x => x.ProducedItems).ToList();
 			}
 
@@ -577,7 +576,7 @@ namespace UnrealBuildTool
 
 			// Plan the actions to execute for the build.
 			HashSet<Action> TargetActionsToExecute;
-			if (BuildConfiguration.SingleFileToCompile == null)
+			if (TargetDescriptor.SingleFileToCompile == null)
 			{
 				TargetActionsToExecute = ActionGraph.GetActionsToExecute(Makefile.Actions, PrerequisiteActions, CppDependencies, History, BuildConfiguration.bIgnoreOutdatedImportLibraries);
 			}

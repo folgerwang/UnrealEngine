@@ -105,12 +105,6 @@ namespace UnrealBuildTool
 		public bool bAllowParallelExecutor = true;
 
 		/// <summary>
-		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
-		/// </summary>
-		[CommandLine("-SingleFile=")]
-		public FileReference SingleFileToCompile = null;
-
-		/// <summary>
 		/// Whether to generate a manifest file that contains the files to add to Perforce
 		/// </summary>
 		[CommandLine("-GenerateManifest")]

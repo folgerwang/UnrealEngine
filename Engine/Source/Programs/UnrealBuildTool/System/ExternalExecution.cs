@@ -1187,7 +1187,7 @@ namespace UnrealBuildTool
 
 						// Create the target descriptor
 						List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
-						TargetDescriptors.Add(new TargetDescriptor(ScriptProjectFile, "UnrealHeaderTool", Platform, Configuration, Architecture, null, null));
+						TargetDescriptors.Add(new TargetDescriptor(ScriptProjectFile, "UnrealHeaderTool", Platform, Configuration, Architecture, null));
 
 						ECompilationResult Result;
 						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))

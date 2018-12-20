@@ -263,10 +263,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Descriptor">Information about the target</param>
 		/// <param name="bSkipRulesCompile">Whether to skip compiling any rules assemblies</param>
-		/// <param name="bCompilingSingleFile">Whether we're compiling a single file</param>
 		/// <param name="bUsePrecompiled">Whether to use a precompiled engine/enterprise build</param>
 		/// <returns>The build target object for the specified build rules source file</returns>
-		public static UEBuildTarget Create(TargetDescriptor Descriptor, bool bSkipRulesCompile, bool bCompilingSingleFile, bool bUsePrecompiled)
+		public static UEBuildTarget Create(TargetDescriptor Descriptor, bool bSkipRulesCompile, bool bUsePrecompiled)
 		{
 			RulesAssembly RulesAssembly;
 			using(Timeline.ScopeEvent("RulesCompiler.CreateTargetRulesAssembly()"))
@@ -317,7 +316,7 @@ namespace UnrealBuildTool
 			}
 
 			// If we're compiling just a single file, we need to prevent unity builds from running
-			if(bCompilingSingleFile)
+			if(Descriptor.SingleFileToCompile != null)
 			{
 				RulesObject.bUseUnityBuild = false;
 				RulesObject.bForceUnityBuild = false;
@@ -352,6 +351,18 @@ namespace UnrealBuildTool
 			{
 				Target.PreBuildSetup();
 			}
+
+			// If we're just compiling a single file, filter the list of binaries to only include the file we're interested in.
+			FileReference SingleFileToCompile = Descriptor.SingleFileToCompile;
+			if (SingleFileToCompile != null)
+			{
+				Target.Binaries.RemoveAll(x => !x.Modules.Any(y => SingleFileToCompile.IsUnderDirectory(y.ModuleDirectory)));
+				if(Target.Binaries.Count == 0)
+				{
+					throw new BuildException("Couldn't find any module containing {0} in {1}.", SingleFileToCompile, Target.TargetName);
+				}
+			}
+
 			return Target;
 		}
 
@@ -626,7 +637,7 @@ namespace UnrealBuildTool
 			RulesAssembly = InRulesAssembly;
 			TargetType = Rules.Type;
 			ForeignPlugin = InDescriptor.ForeignPlugin;
-			bDeployAfterCompile = InRules.bDeployAfterCompile && !InRules.bDisableLinking;
+			bDeployAfterCompile = InRules.bDeployAfterCompile && !InRules.bDisableLinking && InDescriptor.SingleFileToCompile == null;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
 			PlatformIntermediateFolder = GetPlatformIntermediateFolder(Platform, Architecture);
@@ -1138,16 +1149,6 @@ namespace UnrealBuildTool
 				if (Binaries.Count == 0)
 				{
 					throw new BuildException("No modules found to build. All requested binaries were already part of the installed data.");
-				}
-			}
-
-			// If we're just compiling a single file, filter the list of binaries to only include the file we're interested in.
-			if (BuildConfiguration.SingleFileToCompile != null)
-			{
-				Binaries.RemoveAll(x => !x.Modules.Any(y => BuildConfiguration.SingleFileToCompile.IsUnderDirectory(y.ModuleDirectory)));
-				if(Binaries.Count == 0)
-				{
-					throw new BuildException("Couldn't find any module containing {0} in {1}.", BuildConfiguration.SingleFileToCompile, TargetName);
 				}
 			}
 

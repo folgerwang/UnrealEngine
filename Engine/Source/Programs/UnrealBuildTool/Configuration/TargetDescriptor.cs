@@ -19,8 +19,19 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform Platform;
 		public UnrealTargetConfiguration Configuration;
 		public string Architecture;
-		public FileReference ForeignPlugin;
 		public CommandLineArguments AdditionalArguments;
+
+		/// <summary>
+		/// Foreign plugin to compile against this target
+		/// </summary>
+		[CommandLine("-Plugin=")]
+		public FileReference ForeignPlugin = null;
+
+		/// <summary>
+		/// Single file to compile
+		/// </summary>
+		[CommandLine("-SingleFile=")]
+		public FileReference SingleFileToCompile = null;
 
 		/// <summary>
 		/// Constructor
@@ -30,17 +41,32 @@ namespace UnrealBuildTool
 		/// <param name="Platform">Platform to build for</param>
 		/// <param name="Configuration">Configuration to build</param>
 		/// <param name="Architecture">Architecture to build for</param>
-		/// <param name="ForeignPlugin">Path to a plugin to be compiled against this target. Usually null.</param>
-		/// <param name="AdditionalArguments">Additional arguments for the target</param>
-		public TargetDescriptor(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ForeignPlugin, CommandLineArguments AdditionalArguments)
+		/// <param name="Arguments">Other command-line arguments for the target</param>
+		public TargetDescriptor(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, CommandLineArguments Arguments)
 		{
 			this.ProjectFile = ProjectFile;
 			this.Name = TargetName;
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
-			this.ForeignPlugin = ForeignPlugin;
-			this.AdditionalArguments = AdditionalArguments ?? new CommandLineArguments(new string[0]);
+
+			// If there are any additional command line arguments
+			List<string> AdditionalArguments = new List<string>();
+			if(Arguments != null)
+			{
+				// Apply the arguments to this object
+				Arguments.ApplyTo(this);
+
+				// Pull out all the arguments that haven't been used so far
+				for(int Idx = 0; Idx < Arguments.Count; Idx++)
+				{
+					if(!Arguments.HasBeenUsed(Idx))
+					{
+						AdditionalArguments.Add(Arguments[Idx]);
+					}
+				}
+			}
+			this.AdditionalArguments = new CommandLineArguments(AdditionalArguments.ToArray());
 		}
 
 		/// <summary>
@@ -188,8 +214,7 @@ namespace UnrealBuildTool
 				throw new BuildException("No configurations specified for target");
 			}
 
-			FileReference ForeignPlugin = Arguments.GetFileReferenceOrDefault("-Plugin=", null);
-
+			// Expand all the platforms, architectures and configurations
 			foreach(UnrealTargetPlatform Platform in Platforms)
 			{
 				// Parse the architecture parameter, or get the default for the platform
@@ -237,18 +262,8 @@ namespace UnrealBuildTool
 								Log.TraceVerbose("Found project file for {0} - {1}", TargetName, ProjectFile);
 							}
 
-							// Pull out all the arguments that haven't been used so far
-							List<string> AdditionalArguments = new List<string>();
-							for(int Idx = 0; Idx < Arguments.Count; Idx++)
-							{
-								if(!Arguments.HasBeenUsed(Idx))
-								{
-									AdditionalArguments.Add(Arguments[Idx]);
-								}
-							}
-
 							// Create the target descriptor
-							TargetDescriptors.Add(new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, ForeignPlugin, new CommandLineArguments(AdditionalArguments.ToArray())));
+							TargetDescriptors.Add(new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, Arguments));
 						}
 					}
 				}
