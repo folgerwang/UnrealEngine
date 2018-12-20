@@ -109,14 +109,15 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName)
+		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute)
 		{
-			bool Result = true;
-			ExecutorName = "";
-			if (ActionsToExecute.Count > 0)
+			bool bResult = true;
+			if(ActionsToExecute.Count == 0)
 			{
-				DateTime StartTime = DateTime.UtcNow;
-
+				Log.TraceInformation("Target is up to date");
+			}
+			else
+			{
 				ActionExecutor Executor;
 				if ((XGE.IsAvailable() && BuildConfiguration.bAllowXGE) || BuildConfiguration.bXGEExport)
 				{
@@ -139,8 +140,9 @@ namespace UnrealBuildTool
 					Executor = new LocalExecutor();
 				}
 
-				ExecutorName = Executor.Name;
-				Result = Executor.ExecuteActions(ActionsToExecute, BuildConfiguration.bLogDetailedActionStats);
+				Stopwatch Timer = Stopwatch.StartNew();
+				bResult = Executor.ExecuteActions(ActionsToExecute, BuildConfiguration.bLogDetailedActionStats);
+				Log.TraceInformation("Total time in {0} executor: {1:0.00} seconds", Executor.Name, Timer.Elapsed.TotalSeconds);
 
 				if (!BuildConfiguration.bXGEExport)
 				{
@@ -151,8 +153,8 @@ namespace UnrealBuildTool
 						{
 							foreach (FileItem Item in BuildAction.ProducedItems)
 							{
-								bool bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
-								if (!bExists)
+								Item.ResetFileInfo();
+								if(!Item.Exists)
 								{
 									throw new BuildException("UBT ERROR: Failed to produce item: " + Item.AbsolutePath);
 								}
@@ -161,13 +163,7 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			else
-			{
-				ExecutorName = "NoActionsToExecute";
-				Log.TraceInformation("Target is up to date");
-			}
-
-			return Result;
+			return bResult;
 		}
 
 		/// <summary>

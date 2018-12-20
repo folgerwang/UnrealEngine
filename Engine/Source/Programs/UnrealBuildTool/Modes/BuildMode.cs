@@ -92,12 +92,6 @@ namespace UnrealBuildTool
 			}
 
 			Stopwatch BuildTimer = Stopwatch.StartNew();
-
-			// Reset global configurations
-			string ExecutorName = "Unknown";
-
-			Stopwatch ExecutorTimer = new Stopwatch();
-
 			try
 			{
 				List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
@@ -159,232 +153,9 @@ namespace UnrealBuildTool
 				// Create the working set provider
 				using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 				{
-					// Create a makefile for each target
-					TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
-					for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
-					{
-						TargetDescriptor TargetDesc = TargetDescriptors[TargetIdx];
-
-						// Get the path to the makefile for this target
-						FileReference MakefileLocation = TargetMakefile.GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration);
-
-						// Try to load an existing makefile
-						TargetMakefile Makefile = null;
-						if(BuildConfiguration.bUseUBTMakefiles)
-						{
-							using(Timeline.ScopeEvent("TargetMakefile.Load()"))
-							{
-								string ReasonNotLoaded;
-								Makefile = TargetMakefile.Load(MakefileLocation, TargetDesc.ProjectFile, TargetDesc.Platform, WorkingSet, out ReasonNotLoaded);
-								if (Makefile == null)
-								{
-									Log.TraceInformation("Creating makefile for {0} ({1})", TargetDesc.Name, ReasonNotLoaded);
-								}
-							}
-						}
-
-						// If we couldn't load a makefile, create a new one
-						if(Makefile == null)
-						{
-							// Create the target
-							UEBuildTarget Target;
-							using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
-							{
-								Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
-							}
-
-							// Build the target
-							const bool bIsAssemblingBuild = true;
-
-							List<FileItem> OutputItems = new List<FileItem>();
-							Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>();
-							List<UHTModuleInfo> UObjectModules = new List<UHTModuleInfo>();
-							List<Action> Actions = new List<Action>();
-							BuildPrerequisites Prerequisites = new BuildPrerequisites();
-
-							ECompilationResult BuildResult;
-							using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
-							{
-								BuildResult = Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
-							}
-							if (BuildResult != ECompilationResult.Succeeded)
-							{
-								return (int)BuildResult;
-							}
-
-							// Create the makefile
-							Makefile = new TargetMakefile(Target.TargetType);
-							Makefile.ReceiptFile = Target.ReceiptFileName;
-							Makefile.Actions = Actions;
-							Makefile.OutputItems = OutputItems;
-							Makefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
-							Makefile.UObjectModules = UObjectModules;
-							Makefile.Prerequisites = Prerequisites;
-							Makefile.HotReloadModuleNames = Target.GetHotReloadModuleNames();
-							Makefile.Prerequisites = Prerequisites;
-							Makefile.ProjectIntermediateDirectory = Target.ProjectIntermediateDirectory;
-							Makefile.bDeployAfterCompile = Target.bDeployAfterCompile;
-							Makefile.bHasProjectScriptPlugin = Target.bHasProjectScriptPlugin;
-							Makefile.PreBuildScripts = Target.PreBuildStepScripts;
-
-							// Save the environment variables
-							foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
-							{
-								Makefile.EnvironmentVariables.Add(Tuple.Create((string)EnvironmentVariable.Key, (string)EnvironmentVariable.Value));
-							}
-
-							// Save the makefile for next time
-							if(BuildConfiguration.bUseUBTMakefiles)
-							{
-								using(Timeline.ScopeEvent("TargetMakefile.Save()"))
-								{
-									Makefile.Save(MakefileLocation);
-								}
-							}
-						}
-						else
-						{
-							// Restore the environment variables
-							foreach (Tuple<string, string> EnvironmentVariable in Makefile.EnvironmentVariables)
-							{
-								Environment.SetEnvironmentVariable(EnvironmentVariable.Item1, EnvironmentVariable.Item2);
-							}
-
-							// Execute all the pre-build steps
-							if (!BuildConfiguration.bXGEExport)
-							{
-								if (!Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts))
-								{
-									return (int)ECompilationResult.OtherCompilationError;
-								}
-							}
-
-							// If the target needs UHT to be run, we'll go ahead and do that now
-							if (Makefile.UObjectModules.Count > 0)
-							{
-								const bool bIsGatheringBuild = false;
-								const bool bIsAssemblingBuild = true;
-
-								FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDesc.Name + ".uhtmanifest");
-								ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild);
-								if(!UHTResult.Succeeded())
-								{
-									Log.TraceInformation("UnrealHeaderTool failed for target '" + TargetDesc.Name + "' (platform: " + TargetDesc.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
-									return (int)UHTResult;
-								}
-							}
-						}
-
-						// Add the makefile to the list to build
-						Makefiles[TargetIdx] = Makefile;
-					}
-
-					// Execute the build
-					if(!BuildConfiguration.bSkipBuild)
-					{
-						// Make sure that none of the actions conflict with any other (producing output files differently, etc...)
-						if(!ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions)))
-						{
-							Log.TraceInformation("Check log for additional details.");
-							return (int)ECompilationResult.OtherCompilationError;
-						}
-
-						// Find all the actions to be executed
-						HashSet<Action>[] ActionsToExecute = new HashSet<Action>[TargetDescriptors.Count];
-						for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
-						{
-							ActionsToExecute[TargetIdx] = GetActionsForTarget(BuildConfiguration, TargetDescriptors[TargetIdx], Makefiles[TargetIdx]);
-						}
-
-						// If there are multiple targets being built, make sure the actions for each one 
-						List<Action> MergedActionsToExecute = new List<Action>();
-						if(TargetDescriptors.Count == 1)
-						{
-							// Just take the actions from the first target
-							MergedActionsToExecute.AddRange(ActionsToExecute[0]);
-						}
-						else
-						{
-							// Set of all output items. Knowing that there are no conflicts in produced items, we use this to eliminate duplicate actions.
-							Dictionary<FileItem, Action> OutputItemToProducingAction = new Dictionary<FileItem, Action>();
-							for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
-							{
-								string GroupPrefix = String.Format("{0}-{1}-{2}", TargetDescriptors[TargetIdx].Name, TargetDescriptors[TargetIdx].Platform, TargetDescriptors[TargetIdx].Configuration);
-								foreach(Action Action in ActionsToExecute[TargetIdx])
-								{
-									Action ExistingAction;
-									if(!OutputItemToProducingAction.TryGetValue(Action.ProducedItems[0], out ExistingAction))
-									{
-										OutputItemToProducingAction[Action.ProducedItems[0]] = Action;
-										ExistingAction = Action;
-									}
-									ExistingAction.GroupNames.Add(GroupPrefix);
-								}
-							}
-							MergedActionsToExecute.AddRange(OutputItemToProducingAction.Values);
-						}
-
-						// Link all the actions together
-						ActionGraph.Link(MergedActionsToExecute);
-
-						// Make sure the appropriate executor is selected
-						foreach(TargetDescriptor TargetDescriptor in TargetDescriptors)
-						{
-							UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(TargetDescriptor.Platform);
-							BuildConfiguration.bAllowXGE &= BuildPlatform.CanUseXGE();
-							BuildConfiguration.bAllowDistcc &= BuildPlatform.CanUseDistcc();
-							BuildConfiguration.bAllowSNDBS &= BuildPlatform.CanUseSNDBS();
-						}
-
-						// Delete produced items that are outdated.
-						ActionGraph.DeleteOutdatedProducedItems(MergedActionsToExecute);
-
-						// Save all the action histories now that files have been removed. We have to do this after deleting produced items to ensure that any
-						// items created during the build don't have the wrong command line.
-						ActionHistory.SaveAll();
-
-						// Create directories for the outdated produced items.
-						ActionGraph.CreateDirectoriesForProducedItems(MergedActionsToExecute);
-
-						// Execute the actions.
-						ExecutorTimer.Start();
-						if (BuildConfiguration.bXGEExport)
-						{
-							using(Timeline.ScopeEvent("XGE.ExportActions()"))
-							{
-								XGE.ExportActions(MergedActionsToExecute);
-							}
-						}
-						else
-						{
-							using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
-							{
-								if(!ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute, out ExecutorName))
-								{
-									return (int)ECompilationResult.OtherCompilationError;
-								}
-							}
-						}
-						ExecutorTimer.Stop();
-
-						// Run the deployment steps
-						if (BuildConfiguration.SingleFileToCompile == null
-							&& !BuildConfiguration.bGenerateManifest
-							&& !BuildConfiguration.bXGEExport)
-						{
-							foreach(TargetMakefile Makefile in Makefiles)
-							{
-								if (Makefile.bDeployAfterCompile)
-								{
-									TargetReceipt Receipt = TargetReceipt.Read(Makefile.ReceiptFile);
-									Log.TraceInformation("Deploying {0} {1} {2}...", Receipt.TargetName, Receipt.Platform, Receipt.Configuration);
-									UEBuildPlatform.GetBuildPlatform(Receipt.Platform).Deploy(Receipt);
-								}
-							}
-						}
-					}
+					ECompilationResult Result = Build(TargetDescriptors, BuildConfiguration, WorkingSet);
+					return (int)Result;
 				}
-				return (int)ECompilationResult.Succeeded;
 			}
 			catch (Exception Ex)
 			{
@@ -398,11 +169,242 @@ namespace UnrealBuildTool
 				CppDependencyCache.SaveAll();
 
 				// Figure out how long we took to execute.
-				if (ExecutorName != "Unknown")
+				Log.TraceInformation("Total build time: {0:0.00} seconds", BuildTimer.Elapsed.TotalSeconds);
+			}
+		}
+
+		/// <summary>
+		/// Build a list of targets
+		/// </summary>
+		/// <param name="TargetDescriptors">Target descriptors</param>
+		/// <param name="BuildConfiguration">Current build configuration</param>
+		/// <param name="WorkingSet">The source file working set</param>
+		/// <returns>Result from the compilation</returns>
+		public static ECompilationResult Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
+		{
+			// Create a makefile for each target
+			TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
+			for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
+			{
+				TargetDescriptor TargetDesc = TargetDescriptors[TargetIdx];
+
+				// Get the path to the makefile for this target
+				FileReference MakefileLocation = TargetMakefile.GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration);
+
+				// Try to load an existing makefile
+				TargetMakefile Makefile = null;
+				if(BuildConfiguration.bUseUBTMakefiles)
 				{
-					Log.TraceInformation("Total build time: {0:0.00} seconds ({1} executor: {2:0.00} seconds)", BuildTimer.Elapsed.TotalSeconds, ExecutorName, ExecutorTimer.Elapsed.TotalSeconds);
+					using(Timeline.ScopeEvent("TargetMakefile.Load()"))
+					{
+						string ReasonNotLoaded;
+						Makefile = TargetMakefile.Load(MakefileLocation, TargetDesc.ProjectFile, TargetDesc.Platform, WorkingSet, out ReasonNotLoaded);
+						if (Makefile == null)
+						{
+							Log.TraceInformation("Creating makefile for {0} ({1})", TargetDesc.Name, ReasonNotLoaded);
+						}
+					}
+				}
+
+				// If we couldn't load a makefile, create a new one
+				if(Makefile == null)
+				{
+					// Create the target
+					UEBuildTarget Target;
+					using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
+					{
+						Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+					}
+
+					// Build the target
+					const bool bIsAssemblingBuild = true;
+
+					List<FileItem> OutputItems = new List<FileItem>();
+					Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>();
+					List<UHTModuleInfo> UObjectModules = new List<UHTModuleInfo>();
+					List<Action> Actions = new List<Action>();
+					BuildPrerequisites Prerequisites = new BuildPrerequisites();
+
+					ECompilationResult BuildResult;
+					using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
+					{
+						BuildResult = Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
+					}
+					if (BuildResult != ECompilationResult.Succeeded)
+					{
+						return BuildResult;
+					}
+
+					// Create the makefile
+					Makefile = new TargetMakefile(Target.TargetType);
+					Makefile.ReceiptFile = Target.ReceiptFileName;
+					Makefile.Actions = Actions;
+					Makefile.OutputItems = OutputItems;
+					Makefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
+					Makefile.UObjectModules = UObjectModules;
+					Makefile.Prerequisites = Prerequisites;
+					Makefile.HotReloadModuleNames = Target.GetHotReloadModuleNames();
+					Makefile.Prerequisites = Prerequisites;
+					Makefile.ProjectIntermediateDirectory = Target.ProjectIntermediateDirectory;
+					Makefile.bDeployAfterCompile = Target.bDeployAfterCompile;
+					Makefile.bHasProjectScriptPlugin = Target.bHasProjectScriptPlugin;
+					Makefile.PreBuildScripts = Target.PreBuildStepScripts;
+
+					// Save the environment variables
+					foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
+					{
+						Makefile.EnvironmentVariables.Add(Tuple.Create((string)EnvironmentVariable.Key, (string)EnvironmentVariable.Value));
+					}
+
+					// Save the makefile for next time
+					if(BuildConfiguration.bUseUBTMakefiles)
+					{
+						using(Timeline.ScopeEvent("TargetMakefile.Save()"))
+						{
+							Makefile.Save(MakefileLocation);
+						}
+					}
+				}
+				else
+				{
+					// Restore the environment variables
+					foreach (Tuple<string, string> EnvironmentVariable in Makefile.EnvironmentVariables)
+					{
+						Environment.SetEnvironmentVariable(EnvironmentVariable.Item1, EnvironmentVariable.Item2);
+					}
+
+					// Execute all the pre-build steps
+					if (!BuildConfiguration.bXGEExport)
+					{
+						if (!Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts))
+						{
+							return ECompilationResult.OtherCompilationError;
+						}
+					}
+
+					// If the target needs UHT to be run, we'll go ahead and do that now
+					if (Makefile.UObjectModules.Count > 0)
+					{
+						const bool bIsGatheringBuild = false;
+						const bool bIsAssemblingBuild = true;
+
+						FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDesc.Name + ".uhtmanifest");
+						ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
+						if(!UHTResult.Succeeded())
+						{
+							Log.TraceInformation("UnrealHeaderTool failed for target '" + TargetDesc.Name + "' (platform: " + TargetDesc.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
+							return UHTResult;
+						}
+					}
+				}
+
+				// Add the makefile to the list to build
+				Makefiles[TargetIdx] = Makefile;
+			}
+
+			// Execute the build
+			if(!BuildConfiguration.bSkipBuild)
+			{
+				// Make sure that none of the actions conflict with any other (producing output files differently, etc...)
+				if(!ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions)))
+				{
+					Log.TraceInformation("Check log for additional details.");
+					return ECompilationResult.OtherCompilationError;
+				}
+
+				// Find all the actions to be executed
+				HashSet<Action>[] ActionsToExecute = new HashSet<Action>[TargetDescriptors.Count];
+				for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
+				{
+					ActionsToExecute[TargetIdx] = GetActionsForTarget(BuildConfiguration, TargetDescriptors[TargetIdx], Makefiles[TargetIdx]);
+				}
+
+				// If there are multiple targets being built, make sure the actions for each one 
+				List<Action> MergedActionsToExecute = new List<Action>();
+				if(TargetDescriptors.Count == 1)
+				{
+					// Just take the actions from the first target
+					MergedActionsToExecute.AddRange(ActionsToExecute[0]);
+				}
+				else
+				{
+					// Set of all output items. Knowing that there are no conflicts in produced items, we use this to eliminate duplicate actions.
+					Dictionary<FileItem, Action> OutputItemToProducingAction = new Dictionary<FileItem, Action>();
+					for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
+					{
+						string GroupPrefix = String.Format("{0}-{1}-{2}", TargetDescriptors[TargetIdx].Name, TargetDescriptors[TargetIdx].Platform, TargetDescriptors[TargetIdx].Configuration);
+						foreach(Action Action in ActionsToExecute[TargetIdx])
+						{
+							Action ExistingAction;
+							if(!OutputItemToProducingAction.TryGetValue(Action.ProducedItems[0], out ExistingAction))
+							{
+								OutputItemToProducingAction[Action.ProducedItems[0]] = Action;
+								ExistingAction = Action;
+							}
+							ExistingAction.GroupNames.Add(GroupPrefix);
+						}
+					}
+					MergedActionsToExecute.AddRange(OutputItemToProducingAction.Values);
+				}
+
+				// Link all the actions together
+				ActionGraph.Link(MergedActionsToExecute);
+
+				// Make sure the appropriate executor is selected
+				foreach(TargetDescriptor TargetDescriptor in TargetDescriptors)
+				{
+					UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(TargetDescriptor.Platform);
+					BuildConfiguration.bAllowXGE &= BuildPlatform.CanUseXGE();
+					BuildConfiguration.bAllowDistcc &= BuildPlatform.CanUseDistcc();
+					BuildConfiguration.bAllowSNDBS &= BuildPlatform.CanUseSNDBS();
+				}
+
+				// Delete produced items that are outdated.
+				ActionGraph.DeleteOutdatedProducedItems(MergedActionsToExecute);
+
+				// Save all the action histories now that files have been removed. We have to do this after deleting produced items to ensure that any
+				// items created during the build don't have the wrong command line.
+				ActionHistory.SaveAll();
+
+				// Create directories for the outdated produced items.
+				ActionGraph.CreateDirectoriesForProducedItems(MergedActionsToExecute);
+
+				// Execute the actions.
+				if (BuildConfiguration.bXGEExport)
+				{
+					using(Timeline.ScopeEvent("XGE.ExportActions()"))
+					{
+						XGE.ExportActions(MergedActionsToExecute);
+					}
+				}
+				else
+				{
+					using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
+					{
+						if(!ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute))
+						{
+							return ECompilationResult.OtherCompilationError;
+						}
+					}
+				}
+
+				// Run the deployment steps
+				if (BuildConfiguration.SingleFileToCompile == null
+					&& !BuildConfiguration.bGenerateManifest
+					&& !BuildConfiguration.bXGEExport)
+				{
+					foreach(TargetMakefile Makefile in Makefiles)
+					{
+						if (Makefile.bDeployAfterCompile)
+						{
+							TargetReceipt Receipt = TargetReceipt.Read(Makefile.ReceiptFile);
+							Log.TraceInformation("Deploying {0} {1} {2}...", Receipt.TargetName, Receipt.Platform, Receipt.Configuration);
+							UEBuildPlatform.GetBuildPlatform(Receipt.Platform).Deploy(Receipt);
+						}
+					}
 				}
 			}
+			return ECompilationResult.Succeeded;
 		}
 
 		/// <summary>

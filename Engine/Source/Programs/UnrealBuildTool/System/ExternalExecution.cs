@@ -1108,7 +1108,7 @@ namespace UnrealBuildTool
 		/// Builds and runs the header tool and touches the header directories.
 		/// Performs any early outs if headers need no changes, given the UObject modules, tool path, game name, and configuration
 		/// </summary>
-		public static ECompilationResult ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild)
+		public static ECompilationResult ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild, ISourceFileWorkingSet WorkingSet)
 		{
 			if (ProgressWriter.bWriteMarkup)
 			{
@@ -1161,62 +1161,45 @@ namespace UnrealBuildTool
 						// If it is there and up to date, it will add 0.8 seconds to the build time.
 						Log.TraceInformation("Building UnrealHeaderTool...");
 
-						StringBuilder UBTArguments = new StringBuilder();
-
-						UBTArguments.Append("UnrealHeaderTool");
-
 						// Which desktop platform do we need to compile UHT for?
-						UBTArguments.Append(" " + BuildHostPlatform.Current.Platform.ToString());
+						UnrealTargetPlatform Platform = BuildHostPlatform.Current.Platform;
 
 						// NOTE: We force Development configuration for UHT so that it runs quickly, even when compiling debug, unless we say so explicitly
+						UnrealTargetConfiguration Configuration;
 						if (BuildConfiguration.bForceDebugUnrealHeaderTool)
 						{
-							UBTArguments.Append(" " + UnrealTargetConfiguration.Debug.ToString());
+							Configuration = UnrealTargetConfiguration.Debug;
 						}
 						else
 						{
-							UBTArguments.Append(" " + UnrealTargetConfiguration.Development.ToString());
+							Configuration = UnrealTargetConfiguration.Development;
 						}
 
-						// NOTE: We disable mutex when launching UBT from within UBT to compile UHT
-						UBTArguments.Append(" -NoMutex");
-
-						if (!BuildConfiguration.bAllowXGE)
-						{
-							UBTArguments.Append(" -noxge");
-						}
-
-						// Always ignore the junk manifest on recursive invocations; it will have been run by this process if necessary
-						UBTArguments.Append(" -ignorejunk");
+						// Get the default architecture
+						string Architecture = UEBuildPlatform.GetBuildPlatform(Platform).GetDefaultArchitecture(null);
 
 						// Add UHT plugins to UBT command line as external plugins
+						FileReference ScriptProjectFile = null;
 						if(bHasProjectScriptPlugin && ProjectFile != null)
 						{
-							UBTArguments.AppendFormat(" -project=\"{0}\"", ProjectFile);
+							ScriptProjectFile = ProjectFile;
 						}
 
-						// Add any global override for the compiler
-						if(!String.IsNullOrEmpty(BuildConfiguration.CompilerArgumentForUnrealHeaderTool))
-						{
-							UBTArguments.AppendFormat(" {0}", BuildConfiguration.CompilerArgumentForUnrealHeaderTool);
-						}
+						// Create the target descriptor
+						List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
+						TargetDescriptors.Add(new TargetDescriptor(ScriptProjectFile, "UnrealHeaderTool", Platform, Configuration, Architecture, null, null));
 
-						// Output the log next to the current log
-						if(Environment.CommandLine.IndexOf("-NoLog", StringComparison.OrdinalIgnoreCase) != -1)
-						{
-							UBTArguments.Append(" -nolog");
-						}
-						else
-						{
-							UBTArguments.Append(" -logsuffix=UHT");
-						}
-
-						int ExitCode;
+						ECompilationResult Result;
 						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))
 						{
-							ExitCode = RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString());
+							bool bPrevXGEExport = BuildConfiguration.bXGEExport;
+							BuildConfiguration.bXGEExport = false;
+
+							Result = BuildMode.Build(TargetDescriptors, BuildConfiguration, WorkingSet);
+
+							BuildConfiguration.bXGEExport = bPrevXGEExport;
 						}
-						if(ExitCode != 0)
+						if(Result != ECompilationResult.Succeeded)
 						{
 							return ECompilationResult.OtherCompilationError;
 						}

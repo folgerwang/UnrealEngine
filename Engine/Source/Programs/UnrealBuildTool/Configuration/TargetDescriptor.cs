@@ -40,7 +40,7 @@ namespace UnrealBuildTool
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
 			this.ForeignPlugin = ForeignPlugin;
-			this.AdditionalArguments = AdditionalArguments;
+			this.AdditionalArguments = AdditionalArguments ?? new CommandLineArguments(new string[0]);
 		}
 
 		/// <summary>

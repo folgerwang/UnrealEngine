@@ -33,12 +33,6 @@ namespace UnrealBuildTool
 		public bool bPrintDebugInfo = false;
 
 		/// <summary>
-		/// Prints performance diagnostics about include dependencies and other bits
-		/// </summary>
-		[XmlConfigFile]
-		public bool bPrintPerformanceInfo = false;
-
-		/// <summary>
 		/// Whether to log detailed action stats. This forces local execution.
 		/// </summary>
 		[XmlConfigFile]
@@ -165,13 +159,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-SkipRulesCompile")]
 		public bool bSkipRulesCompile = false;
-
-		/// <summary>
-		/// Compiler arguments to be forwarded to UnrealHeaderTool
-		/// </summary>
-		[CommandLine("-2015", Value = "-2015")]
-		[CommandLine("-2017", Value = "-2017")]
-		public string CompilerArgumentForUnrealHeaderTool = null;
 
 		/// <summary>
 		/// Default constructor. Reads settings from the XmlConfig files.
