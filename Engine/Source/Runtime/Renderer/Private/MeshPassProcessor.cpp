@@ -1024,7 +1024,7 @@ int32 FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* R
 	}
 	else
 	{
-		DrawPrimitiveId = PrimitiveSceneInfo ? PrimitiveSceneInfo->GetIndex() : Scene->Primitives.Num();
+		DrawPrimitiveId = PrimitiveSceneInfo ? PrimitiveSceneInfo->GetIndex() : INT32_MAX;
 	}
 
 	return DrawPrimitiveId;
