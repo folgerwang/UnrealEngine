@@ -404,7 +404,9 @@ void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupIni
 
 	for (const auto Entry : GlobalRayTracingMaterialLibrary)
 	{
-		RayTracingMaterials[Entry.Key] = FRayTracingHitGroupInitializer{ Entry.Value };
+		FRayTracingHitGroupInitializer HitGroupInitializer;
+		HitGroupInitializer.ShaderRHI = Entry.Value;
+		RayTracingMaterials[Entry.Key] = HitGroupInitializer;
 	}
 
 	for (uint32 Index : GlobalUnusedIndicies)
