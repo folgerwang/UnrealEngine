@@ -105,12 +105,6 @@ namespace UnrealBuildTool
 		public bool bAllowParallelExecutor = true;
 
 		/// <summary>
-		/// Whether to generate a manifest file that contains the files to add to Perforce
-		/// </summary>
-		[CommandLine("-GenerateManifest")]
-		public bool bGenerateManifest = false;
-
-		/// <summary>
 		/// If true, force header regeneration. Intended for the build machine
 		/// </summary>
 		[CommandLine("-ForceHeaderGeneration")]

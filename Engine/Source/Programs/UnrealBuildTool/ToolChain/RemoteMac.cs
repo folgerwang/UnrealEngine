@@ -526,19 +526,12 @@ namespace UnrealBuildTool
 			}
 
 			// Download the files from the remote
-			if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
-			}
-			else
-			{
-				Log.TraceInformation("[Remote] Downloading build products");
+			Log.TraceInformation("[Remote] Downloading build products");
 
-				List<FileReference> FilesToDownload = new List<FileReference>();
-				FilesToDownload.Add(RemoteLogFile);
-				FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
-				DownloadFiles(FilesToDownload);
-			}
+			List<FileReference> FilesToDownload = new List<FileReference>();
+			FilesToDownload.Add(RemoteLogFile);
+			FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
+			DownloadFiles(FilesToDownload);
 
 			// Write out all the local manifests
 			foreach(FileReference LocalManifestFile in LocalManifestFiles)

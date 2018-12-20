@@ -391,7 +391,7 @@ namespace UnrealBuildTool
 				}
 
 				// Run the deployment steps
-				if (!BuildConfiguration.bGenerateManifest && !BuildConfiguration.bXGEExport)
+				if (!BuildConfiguration.bXGEExport)
 				{
 					foreach(TargetMakefile Makefile in Makefiles)
 					{

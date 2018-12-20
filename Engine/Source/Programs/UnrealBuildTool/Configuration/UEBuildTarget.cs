@@ -881,23 +881,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Generates a public manifest file for writing out
 		/// </summary>
-		public void GenerateManifest(List<KeyValuePair<FileReference, BuildProductType>> BuildProducts)
-		{
-			FileReference ManifestPath;
-			if (UnrealBuildTool.IsEngineInstalled() && ProjectFile != null)
-			{
-				ManifestPath = FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", "Manifest.xml");
-			}
-			else
-			{
-				ManifestPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml");
-			}
-			GenerateManifest(ManifestPath, BuildProducts);
-		}
-
-		/// <summary>
-		/// Generates a public manifest file for writing out
-		/// </summary>
 		public void GenerateManifest(FileReference ManifestPath, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts)
 		{
 			BuildManifest Manifest = new BuildManifest();
@@ -1495,10 +1478,6 @@ namespace UnrealBuildTool
 			}
 
 			// If we're only generating the manifest, return now
-			if (BuildConfiguration.bGenerateManifest)
-			{
-				GenerateManifest(BuildProducts);
-			}
 			foreach(FileReference ManifestFileName in Rules.ManifestFileNames)
 			{
 				GenerateManifest(ManifestFileName, BuildProducts);
