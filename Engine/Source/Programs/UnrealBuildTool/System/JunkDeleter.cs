@@ -16,14 +16,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		static public void DeleteJunk()
 		{
-			if (UnrealBuildTool.IsEngineInstalled() == false)
-			{
-				using(Timeline.ScopeEvent("DeleteAllJunk()"))
-				{
-					List<string> JunkManifest = LoadJunkManifest();
-					DeleteAllJunk(JunkManifest);
-				}
-			}
+			List<string> JunkManifest = LoadJunkManifest();
+			DeleteAllJunk(JunkManifest);
 		}
 
 		/// <summary>

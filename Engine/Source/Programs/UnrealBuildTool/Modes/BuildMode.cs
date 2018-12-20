@@ -25,6 +25,13 @@ namespace UnrealBuildTool
 		public string BaseLogFileName = "../Programs/UnrealBuildTool/Log.txt";
 
 		/// <summary>
+		/// Whether to skip checking for files identified by the junk manifest
+		/// </summary>
+		[XmlConfigFile]
+		[CommandLine("-IgnoreJunk")]
+		public bool bIgnoreJunk = false;
+
+		/// <summary>
 		/// Main entry point
 		/// </summary>
 		/// <param name="Arguments">Command-line arguments</param>
@@ -86,9 +93,12 @@ namespace UnrealBuildTool
 			UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
 
 			// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
-			if (!BuildConfiguration.bIgnoreJunk)
+			if (!bIgnoreJunk && !UnrealBuildTool.IsEngineInstalled())
 			{
-				JunkDeleter.DeleteJunk();
+				using(Timeline.ScopeEvent("DeleteJunk()"))
+				{
+					JunkDeleter.DeleteJunk();
+				}
 			}
 
 			Stopwatch BuildTimer = Stopwatch.StartNew();

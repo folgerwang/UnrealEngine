@@ -9,6 +9,9 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Global settings for building. Should not contain any target-specific settings.
+	/// </summary>
 	class BuildConfiguration
 	{
 		/// <summary>
@@ -106,13 +109,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-SingleFile=")]
 		public FileReference SingleFileToCompile = null;
-
-		/// <summary>
-		/// Whether to skip checking for files identified by the junk manifest
-		/// </summary>
-		[XmlConfigFile]
-		[CommandLine("-IgnoreJunk")]
-		public bool bIgnoreJunk = false;
 
 		/// <summary>
 		/// Whether to generate a manifest file that contains the files to add to Perforce
