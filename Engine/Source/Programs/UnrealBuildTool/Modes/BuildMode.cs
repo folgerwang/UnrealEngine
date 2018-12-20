@@ -100,15 +100,10 @@ namespace UnrealBuildTool
 
 			try
 			{
-				// action graph implies using the dependency resolve cache
-				bool GeneratingActionGraph = Arguments.HasOption("-Graph");
-
-				bool bSkipRulesCompile = Arguments.Any(x => x.Equals("-skiprulescompile", StringComparison.InvariantCultureIgnoreCase));
-
 				List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
 				using(Timeline.ScopeEvent("TargetDescriptor.ParseCommandLine()"))
 				{
-					TargetDescriptors.AddRange(TargetDescriptor.ParseCommandLine(Arguments, BuildConfiguration.bUsePrecompiled, bSkipRulesCompile));
+					TargetDescriptors.AddRange(TargetDescriptor.ParseCommandLine(Arguments, BuildConfiguration.bUsePrecompiled, BuildConfiguration.bSkipRulesCompile));
 				}
 
 				// Handle remote builds
@@ -195,7 +190,7 @@ namespace UnrealBuildTool
 							UEBuildTarget Target;
 							using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
 							{
-								Target = UEBuildTarget.Create(TargetDesc, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
+								Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled);
 							}
 
 							// Build the target

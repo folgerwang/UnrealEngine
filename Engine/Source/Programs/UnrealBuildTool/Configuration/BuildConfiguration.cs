@@ -161,6 +161,12 @@ namespace UnrealBuildTool
 		public bool bForceDebugUnrealHeaderTool = false;
 
 		/// <summary>
+		/// Whether to skip compiling rules assemblies and just assume they are valid
+		/// </summary>
+		[CommandLine("-SkipRulesCompile")]
+		public bool bSkipRulesCompile = false;
+
+		/// <summary>
 		/// Compiler arguments to be forwarded to UnrealHeaderTool
 		/// </summary>
 		[CommandLine("-2015", Value = "-2015")]
