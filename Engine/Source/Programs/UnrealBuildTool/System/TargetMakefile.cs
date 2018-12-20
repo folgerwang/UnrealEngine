@@ -64,11 +64,6 @@ namespace UnrealBuildTool
 		public readonly List<Tuple<string, string>> EnvironmentVariables = new List<Tuple<string, string>>();
 
 		/// <summary>
-		/// Maps each target to a list of UObject module info structures
-		/// </summary>
-		public List<UHTModuleInfo> UObjectModules;
-
-		/// <summary>
 		/// The final output items for all target
 		/// </summary>
 		public List<FileItem> OutputItems;
@@ -84,23 +79,68 @@ namespace UnrealBuildTool
 		public HashSet<string> HotReloadModuleNames;
 
 		/// <summary>
-		/// List of predicates for the action graph to be valid.
+		/// Set of all source directories. Any files being added or removed from these directories will invalidate the makefile.
 		/// </summary>
-		public BuildPrerequisites Prerequisites;
+		public HashSet<DirectoryReference> SourceDirectories = new HashSet<DirectoryReference>();
 
-		public TargetMakefile(TargetType TargetType)
+		/// <summary>
+		/// The set of source files that UnrealBuildTool determined to be part of the programmer's "working set". Used for adaptive non-unity builds.
+		/// </summary>
+		public HashSet<FileItem> WorkingSet = new HashSet<FileItem>();
+
+		/// <summary>
+		/// Set of files which are currently not part of the working set, but could be.
+		/// </summary>
+		public HashSet<FileItem> CandidatesForWorkingSet = new HashSet<FileItem>();
+
+		/// <summary>
+		/// Maps each target to a list of UObject module info structures
+		/// </summary>
+		public List<UHTModuleInfo> UObjectModules;
+
+		/// <summary>
+		/// Used to map names of modules to their .Build.cs filename
+		/// </summary>
+		public List<UHTModuleHeaderInfo> UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
+
+		/// <summary>
+		/// Additional files which are required 
+		/// </summary>
+		public HashSet<FileItem> AdditionalDependencies = new HashSet<FileItem>(); 
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="ReceiptFile">Path to the receipt file</param>
+		/// <param name="ProjectIntermediateDirectory">Path to the project intermediate directory</param>
+		/// <param name="TargetType">The type of target</param>
+		/// <param name="bDeployAfterCompile">Whether to deploy the target after compiling</param>
+		/// <param name="bHasProjectScriptPlugin">Whether the target has a project script plugin</param>
+		public TargetMakefile(FileReference ReceiptFile, DirectoryReference ProjectIntermediateDirectory, TargetType TargetType, bool bDeployAfterCompile, bool bHasProjectScriptPlugin)
 		{
+			this.ReceiptFile = ReceiptFile;
+			this.ProjectIntermediateDirectory = ProjectIntermediateDirectory;
 			this.TargetType = TargetType;
+			this.bDeployAfterCompile = bDeployAfterCompile;
+			this.bHasProjectScriptPlugin = bHasProjectScriptPlugin;
+			this.Actions = new List<Action>();
+			this.OutputItems = new List<FileItem>();
+			this.ModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
+			this.HotReloadModuleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			this.SourceDirectories = new HashSet<DirectoryReference>();
+			this.WorkingSet = new HashSet<FileItem>();
+			this.CandidatesForWorkingSet = new HashSet<FileItem>();
+			this.UObjectModules = new List<UHTModuleInfo>();
+			this.UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
+			this.AdditionalDependencies = new HashSet<FileItem>();
 		}
 
+		/// <summary>
+		/// Constructor. Reads a makefile from disk.
+		/// </summary>
+		/// <param name="Reader">The archive to read from</param>
 		public TargetMakefile(BinaryArchiveReader Reader)
 		{
-			int Version = Reader.ReadInt();
-			if(Version != CurrentVersion)
-			{
-				throw new Exception(string.Format("Makefile version does not match - found {0}, expected: {1}", Version, CurrentVersion));
-			}
-
 			ReceiptFile = Reader.ReadFileReference();
 			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
 			TargetType = (TargetType)Reader.ReadInt();
@@ -109,17 +149,23 @@ namespace UnrealBuildTool
 			PreBuildScripts = Reader.ReadArray(() => Reader.ReadFileReference());
 			Actions = Reader.ReadList(() => new Action(Reader));
 			EnvironmentVariables = Reader.ReadList(() => Tuple.Create(Reader.ReadString(), Reader.ReadString()));
-			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
 			OutputItems = Reader.ReadList(() => Reader.ReadFileItem());
-			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem()));
-			HotReloadModuleNames = Reader.ReadHashSet(() => Reader.ReadString());
-			Prerequisites = new BuildPrerequisites(Reader);
+			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem()), StringComparer.OrdinalIgnoreCase);
+			HotReloadModuleNames = Reader.ReadHashSet(() => Reader.ReadString(), StringComparer.OrdinalIgnoreCase);
+			SourceDirectories = Reader.ReadHashSet(() => Reader.ReadDirectoryReference());
+			WorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
+			CandidatesForWorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
+			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
+			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader));
+			AdditionalDependencies = Reader.ReadHashSet(() => Reader.ReadFileItem());
 		}
 
+		/// <summary>
+		/// Write the makefile to the given archive
+		/// </summary>
+		/// <param name="Writer">The archive to write to</param>
 		public void Write(BinaryArchiveWriter Writer)
 		{
-			Writer.WriteInt(CurrentVersion);
-
 			Writer.WriteFileReference(ReceiptFile);
 			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
 			Writer.WriteInt((int)TargetType);
@@ -132,22 +178,12 @@ namespace UnrealBuildTool
 			Writer.WriteList(OutputItems, Item => Writer.WriteFileItem(Item));
 			Writer.WriteDictionary(ModuleNameToOutputItems, k => Writer.WriteString(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
 			Writer.WriteHashSet(HotReloadModuleNames, x => Writer.WriteString(x));
-            Prerequisites.Write(Writer);
+			Writer.WriteHashSet(SourceDirectories, x => Writer.WriteDirectoryReference(x));
+			Writer.WriteHashSet(WorkingSet, x => Writer.WriteFileItem(x));
+			Writer.WriteHashSet(CandidatesForWorkingSet, x => Writer.WriteFileItem(x));
+			Writer.WriteHashSet(AdditionalDependencies, x => Writer.WriteFileItem(x));
+			Writer.WriteList(UObjectModuleHeaders, x => x.Write(Writer));
 		}
-
-		/// <returns> True if this makefile's contents look valid.  Called after loading the file to make sure it is legit.</returns>
-		public bool IsValidMakefile()
-		{
-			return
-				Actions != null && Actions.Count > 0 &&
-				EnvironmentVariables != null &&
-				UObjectModules != null && 
-				OutputItems != null && 
-				ModuleNameToOutputItems != null && 
-				HotReloadModuleNames != null &&
-				Prerequisites != null;
-		}
-
 
 		/// <summary>
 		/// Saves a makefile to disk
@@ -155,25 +191,13 @@ namespace UnrealBuildTool
 		/// <param name="Location">Path to save the makefile to</param>
 		public void Save(FileReference Location)
 		{
-			if (!IsValidMakefile())
+			DirectoryReference.CreateDirectory(Location.Directory);
+			using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Location))
 			{
-				throw new BuildException("Can't save a makefile that has invalid contents.  See UBTMakefile.IsValidMakefile()");
-			}
-
-			try
-			{
-				DirectoryReference.CreateDirectory(Location.Directory);
-				using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Location))
-				{
-					Write(Writer);
-				}
-			}
-			catch (Exception Ex)
-			{
-				Log.TraceError("Failed to write makefile: {0}", Ex.Message);
+				Writer.WriteInt(CurrentVersion);
+				Write(Writer);
 			}
 		}
-
 
 		/// <summary>
 		/// Loads a UBTMakefile from disk
@@ -283,6 +307,12 @@ namespace UnrealBuildTool
 				{
 					using(BinaryArchiveReader Reader = new BinaryArchiveReader(new FileReference(UBTMakefileInfo)))
 					{
+						int Version = Reader.ReadInt();
+						if(Version != CurrentVersion)
+						{
+							ReasonNotLoaded = "makefile version does not match";
+							return null;
+						}
 						LoadedUBTMakefile = new TargetMakefile(Reader);
 					}
 				}
@@ -297,13 +327,6 @@ namespace UnrealBuildTool
 
 			using(Timeline.ScopeEvent("Checking makefile validity"))
 			{
-				if (!LoadedUBTMakefile.IsValidMakefile())
-				{
-					Log.TraceWarning("Loaded makefile appears to have invalid contents, ignoring it ({0})", UBTMakefileInfo.FullName);
-					ReasonNotLoaded = "existing makefile appears to be invalid";
-					return null;
-				}
-
 				// Check if ini files are newer. Ini files contain build settings too.
 				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
 				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
@@ -320,9 +343,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				BuildPrerequisites Prerequisites = LoadedUBTMakefile.Prerequisites;
-
-				foreach(DirectoryReference SourceDirectory in Prerequisites.SourceDirectories)
+				foreach(DirectoryReference SourceDirectory in LoadedUBTMakefile.SourceDirectories)
 				{
 					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
 					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
@@ -333,7 +354,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach(FileItem AdditionalDependency in Prerequisites.AdditionalDependencies)
+				foreach(FileItem AdditionalDependency in LoadedUBTMakefile.AdditionalDependencies)
 				{
 					if (!AdditionalDependency.Exists)
 					{
@@ -356,14 +377,14 @@ namespace UnrealBuildTool
 				// Get all H files in processed modules newer than the makefile itself
 				HashSet<FileReference> HFilesNewerThanMakefile =
 					new HashSet<FileReference>(
-						Prerequisites.UObjectModuleHeaders
+						LoadedUBTMakefile.UObjectModuleHeaders
 						.SelectMany(x => x.SourceFolder != null ? DirectoryReference.EnumerateFiles(x.SourceFolder, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<FileReference>())
 						.Where(y => FileReference.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
 						.OrderBy(z => z).Distinct()
 					);
 
 				// Get all H files in all modules processed in the last makefile build
-				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(Prerequisites.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
+				HashSet<FileReference> AllUHTHeaders = new HashSet<FileReference>(LoadedUBTMakefile.UObjectModuleHeaders.SelectMany(x => x.HeaderFiles).Select(x => x.Location));
 
 				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
 				// and the file has been moved to a different module, we may include stale generated headers.
@@ -400,7 +421,7 @@ namespace UnrealBuildTool
 				// iteration times.)
 
 				// Check if any source files in the working set no longer belong in it
-				foreach (FileItem SourceFile in Prerequisites.WorkingSet)
+				foreach (FileItem SourceFile in LoadedUBTMakefile.WorkingSet)
 				{
 					if (!WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 					{
@@ -411,7 +432,7 @@ namespace UnrealBuildTool
 				}
 
 				// Check if any source files that are eligible for being in the working set have been modified
-				foreach (FileItem SourceFile in Prerequisites.CandidatesForWorkingSet)
+				foreach (FileItem SourceFile in LoadedUBTMakefile.CandidatesForWorkingSet)
 				{
 					if (WorkingSet.Contains(SourceFile.Location) && File.GetLastWriteTimeUtc(SourceFile.AbsolutePath) > UBTMakefileInfo.LastWriteTimeUtc)
 					{

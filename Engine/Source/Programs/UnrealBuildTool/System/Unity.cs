@@ -152,18 +152,18 @@ namespace UnrealBuildTool
 		/// <param name="CPPFiles">The C++ files to #include.</param>
 		/// <param name="CompileEnvironment">The environment that is used to compile the C++ files.</param>
 		/// <param name="WorkingSet">Interface to query files which belong to the working set</param>
-		/// <param name="Prerequisites">Dependencies for this target</param>
 		/// <param name="BaseName">Base name to use for the Unity files</param>
 		/// <param name="IntermediateDirectory">Intermediate directory for unity cpp files</param>
+		/// <param name="Makefile">The makefile being built</param>
 		/// <returns>The "unity" C++ files.</returns>
 		public static List<FileItem> GenerateUnityCPPs(
 			ReadOnlyTargetRules Target,
 			List<FileItem> CPPFiles,
 			CppCompileEnvironment CompileEnvironment,
 			ISourceFileWorkingSet WorkingSet,
-			BuildPrerequisites Prerequisites,
 			string BaseName,
-			DirectoryReference IntermediateDirectory
+			DirectoryReference IntermediateDirectory,
+			TargetMakefile Makefile
 			)
 		{
 			List<FileItem> NewCPPFiles = new List<FileItem>();
@@ -218,7 +218,7 @@ namespace UnrealBuildTool
 							// Mark this file as part of the working set.  This will be saved into the UBT Makefile so that
 							// the assembler can automatically invalidate the Makefile when the working set changes (allowing this
 							// code to run again, to build up new unity blobs.)
-							Prerequisites.WorkingSet.Add(CPPFile);
+							Makefile.WorkingSet.Add(CPPFile);
 						}
 					}
 
@@ -240,7 +240,7 @@ namespace UnrealBuildTool
 					}
 
 					// When adaptive unity is enabled, go ahead and exclude any source files that we're actively working with
-					if (bUseAdaptiveUnityBuild && Prerequisites.WorkingSet.Contains(CPPFile))
+					if (bUseAdaptiveUnityBuild && Makefile.WorkingSet.Contains(CPPFile))
 					{
 						// Just compile this file normally, not as part of the unity blob
 						NewCPPFiles.Add(CPPFile);
@@ -266,7 +266,7 @@ namespace UnrealBuildTool
 						// If adaptive unity build is enabled for this module, add this source file to the set that will invalidate the makefile
 						if(bUseAdaptiveUnityBuild)
 						{
-							Prerequisites.CandidatesForWorkingSet.Add(CPPFile);
+							Makefile.CandidatesForWorkingSet.Add(CPPFile);
 						}
 
 						// Compile this file as part of the unity blob

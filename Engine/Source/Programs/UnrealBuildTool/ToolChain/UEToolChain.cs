@@ -66,7 +66,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public virtual void FinalizeOutput(ReadOnlyTargetRules Target, List<FileItem> OutputItems, List<Action> Actions)
+		public virtual void FinalizeOutput(ReadOnlyTargetRules Target, TargetMakefile Makefile)
 		{
 		}
 

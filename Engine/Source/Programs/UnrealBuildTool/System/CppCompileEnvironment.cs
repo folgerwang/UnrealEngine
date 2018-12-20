@@ -96,6 +96,11 @@ namespace UnrealBuildTool
 		public readonly SourceFileMetadataCache MetadataCache;
 
 		/// <summary>
+		/// Templates for shared precompiled headers
+		/// </summary>
+		public readonly List<PrecompiledHeaderTemplate> SharedPCHs;
+
+		/// <summary>
 		/// The name of the header file which is precompiled.
 		/// </summary>
 		public FileReference PrecompiledHeaderIncludeFilename = null;
@@ -341,6 +346,7 @@ namespace UnrealBuildTool
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
 			this.MetadataCache = MetadataCache;
+			this.SharedPCHs = new List<PrecompiledHeaderTemplate>();
 			this.UserIncludePaths = new HashSet<DirectoryReference>();
 			this.SystemIncludePaths = new HashSet<DirectoryReference>();
 		}
@@ -355,6 +361,7 @@ namespace UnrealBuildTool
 			Configuration = Other.Configuration;
 			Architecture = Other.Architecture;
 			MetadataCache = Other.MetadataCache;
+			SharedPCHs = Other.SharedPCHs;
 			PrecompiledHeaderIncludeFilename = Other.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = Other.PrecompiledHeaderAction;
 			bUseSharedBuildEnvironment = Other.bUseSharedBuildEnvironment;

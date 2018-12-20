@@ -175,111 +175,7 @@ namespace UnrealBuildTool
 			TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
 			for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
 			{
-				TargetDescriptor TargetDesc = TargetDescriptors[TargetIdx];
-
-				// Get the path to the makefile for this target
-				FileReference MakefileLocation = null;
-				if(BuildConfiguration.bUseUBTMakefiles && TargetDesc.SingleFileToCompile == null)
-				{
-					MakefileLocation = TargetMakefile.GetLocation(TargetDesc.ProjectFile, TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration);
-				}
-
-				// Try to load an existing makefile
-				TargetMakefile Makefile = null;
-				if(MakefileLocation != null)
-				{
-					using(Timeline.ScopeEvent("TargetMakefile.Load()"))
-					{
-						string ReasonNotLoaded;
-						Makefile = TargetMakefile.Load(MakefileLocation, TargetDesc.ProjectFile, TargetDesc.Platform, WorkingSet, out ReasonNotLoaded);
-						if (Makefile == null)
-						{
-							Log.TraceInformation("Creating makefile for {0} ({1})", TargetDesc.Name, ReasonNotLoaded);
-						}
-					}
-				}
-
-				// If we couldn't load a makefile, create a new one
-				if(Makefile == null)
-				{
-					// Create the target
-					UEBuildTarget Target;
-					using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
-					{
-						Target = UEBuildTarget.Create(TargetDesc, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.bUsePrecompiled);
-					}
-
-					// Build the target
-					const bool bIsAssemblingBuild = true;
-
-					List<FileItem> OutputItems = new List<FileItem>();
-					Dictionary<string, FileItem[]> ModuleNameToOutputItems = new Dictionary<string, FileItem[]>();
-					List<UHTModuleInfo> UObjectModules = new List<UHTModuleInfo>();
-					List<Action> Actions = new List<Action>();
-					BuildPrerequisites Prerequisites = new BuildPrerequisites();
-
-					using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
-					{
-						Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
-					}
-
-					// Create the makefile
-					Makefile = new TargetMakefile(Target.TargetType);
-					Makefile.ReceiptFile = Target.ReceiptFileName;
-					Makefile.Actions = Actions;
-					Makefile.OutputItems = OutputItems;
-					Makefile.ModuleNameToOutputItems = ModuleNameToOutputItems;
-					Makefile.UObjectModules = UObjectModules;
-					Makefile.Prerequisites = Prerequisites;
-					Makefile.HotReloadModuleNames = Target.GetHotReloadModuleNames();
-					Makefile.Prerequisites = Prerequisites;
-					Makefile.ProjectIntermediateDirectory = Target.ProjectIntermediateDirectory;
-					Makefile.bDeployAfterCompile = Target.bDeployAfterCompile;
-					Makefile.bHasProjectScriptPlugin = Target.bHasProjectScriptPlugin;
-					Makefile.PreBuildScripts = Target.PreBuildStepScripts;
-
-					// Save the environment variables
-					foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
-					{
-						Makefile.EnvironmentVariables.Add(Tuple.Create((string)EnvironmentVariable.Key, (string)EnvironmentVariable.Value));
-					}
-
-					// Save the makefile for next time
-					if(MakefileLocation != null)
-					{
-						using(Timeline.ScopeEvent("TargetMakefile.Save()"))
-						{
-							Makefile.Save(MakefileLocation);
-						}
-					}
-				}
-				else
-				{
-					// Restore the environment variables
-					foreach (Tuple<string, string> EnvironmentVariable in Makefile.EnvironmentVariables)
-					{
-						Environment.SetEnvironmentVariable(EnvironmentVariable.Item1, EnvironmentVariable.Item2);
-					}
-
-					// Execute all the pre-build steps
-					if (!BuildConfiguration.bXGEExport)
-					{
-						Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
-					}
-
-					// If the target needs UHT to be run, we'll go ahead and do that now
-					if (Makefile.UObjectModules.Count > 0)
-					{
-						const bool bIsGatheringBuild = false;
-						const bool bIsAssemblingBuild = true;
-
-						FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDesc.Name + ".uhtmanifest");
-						ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
-					}
-				}
-
-				// Add the makefile to the list to build
-				Makefiles[TargetIdx] = Makefile;
+				Makefiles[TargetIdx] = CreateMakefile(BuildConfiguration, TargetDescriptors[TargetIdx], WorkingSet);
 			}
 
 			// Execute the build
@@ -378,10 +274,101 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Creates the makefile for a target. If an existing, valid makefile already exists on disk, loads that instead.
+		/// </summary>
+		/// <param name="BuildConfiguration">The build configuration</param>
+		/// <param name="TargetDescriptor">Target being built</param>
+		/// <param name="WorkingSet">Set of source files which are part of the working set</param>
+		/// <returns>Makefile for the given target</returns>
+		static TargetMakefile CreateMakefile(BuildConfiguration BuildConfiguration, TargetDescriptor TargetDescriptor, ISourceFileWorkingSet WorkingSet)
+		{
+			// Get the path to the makefile for this target
+			FileReference MakefileLocation = null;
+			if(BuildConfiguration.bUseUBTMakefiles && TargetDescriptor.SingleFileToCompile == null)
+			{
+				MakefileLocation = TargetMakefile.GetLocation(TargetDescriptor.ProjectFile, TargetDescriptor.Name, TargetDescriptor.Platform, TargetDescriptor.Configuration);
+			}
+
+			// Try to load an existing makefile
+			TargetMakefile Makefile = null;
+			if(MakefileLocation != null)
+			{
+				using(Timeline.ScopeEvent("TargetMakefile.Load()"))
+				{
+					string ReasonNotLoaded;
+					Makefile = TargetMakefile.Load(MakefileLocation, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, WorkingSet, out ReasonNotLoaded);
+					if (Makefile == null)
+					{
+						Log.TraceInformation("Creating makefile for {0} ({1})", TargetDescriptor.Name, ReasonNotLoaded);
+					}
+				}
+			}
+
+			// If we couldn't load a makefile, create a new one
+			if(Makefile == null)
+			{
+				// Create the target
+				UEBuildTarget Target;
+				using(Timeline.ScopeEvent("UEBuildTarget.Create()"))
+				{
+					Target = UEBuildTarget.Create(TargetDescriptor, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.bUsePrecompiled);
+				}
+
+				// Build the target
+				const bool bIsAssemblingBuild = true;
+
+				using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
+				{
+					Makefile = Target.Build(BuildConfiguration, WorkingSet, bIsAssemblingBuild);
+				}
+
+				// Save the environment variables
+				foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())
+				{
+					Makefile.EnvironmentVariables.Add(Tuple.Create((string)EnvironmentVariable.Key, (string)EnvironmentVariable.Value));
+				}
+
+				// Save the makefile for next time
+				if(MakefileLocation != null)
+				{
+					using(Timeline.ScopeEvent("TargetMakefile.Save()"))
+					{
+						Makefile.Save(MakefileLocation);
+					}
+				}
+			}
+			else
+			{
+				// Restore the environment variables
+				foreach (Tuple<string, string> EnvironmentVariable in Makefile.EnvironmentVariables)
+				{
+					Environment.SetEnvironmentVariable(EnvironmentVariable.Item1, EnvironmentVariable.Item2);
+				}
+
+				// Execute all the pre-build steps
+				if (!BuildConfiguration.bXGEExport)
+				{
+					Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
+				}
+
+				// If the target needs UHT to be run, we'll go ahead and do that now
+				if (Makefile.UObjectModules.Count > 0)
+				{
+					const bool bIsGatheringBuild = false;
+					const bool bIsAssemblingBuild = true;
+
+					FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDescriptor.Name + ".uhtmanifest");
+					ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDescriptor.ProjectFile, TargetDescriptor.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
+				}
+			}
+			return Makefile;
+		}
+
+		/// <summary>
 		/// Determine what needs to be built for a target
 		/// </summary>
 		/// <param name="BuildConfiguration">The build configuration</param>
-		/// <param name="TargetDescriptor">Target being build</param>
+		/// <param name="TargetDescriptor">Target being built</param>
 		/// <param name="Makefile">Makefile generated for this target</param>
 		/// <returns>Set of actions to execute</returns>
 		static HashSet<Action> GetActionsForTarget(BuildConfiguration BuildConfiguration, TargetDescriptor TargetDescriptor, TargetMakefile Makefile)
