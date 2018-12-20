@@ -399,6 +399,12 @@ namespace UnrealBuildTool
 				ToolMode Mode = (ToolMode)Activator.CreateInstance(ModeType);
 				return Mode.Execute(Arguments);
 			}
+			catch (CompilationResultException Ex)
+			{
+				// Used to return a propagate a specific exit code after an error has occurred. Does not log any message.
+				Log.TraceLog(ExceptionUtils.FormatExceptionDetails(Ex));
+				return (int)Ex.Result;
+			}
 			catch (BuildException Ex)
 			{
 				// BuildExceptions should have nicely formatted messages. We can log these directly.

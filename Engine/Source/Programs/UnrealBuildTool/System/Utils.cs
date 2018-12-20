@@ -1051,7 +1051,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ScriptFiles">List of script files to execute</param>
 		/// <returns>True if the steps succeeded, false otherwise</returns>
-		public static bool ExecuteCustomBuildSteps(FileReference[] ScriptFiles)
+		public static void ExecuteCustomBuildSteps(FileReference[] ScriptFiles)
 		{
 			UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
 			foreach(FileReference ScriptFile in ScriptFiles)
@@ -1071,11 +1071,9 @@ namespace UnrealBuildTool
 				int ReturnCode = Utils.RunLocalProcessAndLogOutput(StartInfo);
 				if(ReturnCode != 0)
 				{
-					Log.TraceError("Custom build step terminated with exit code {0}", ReturnCode);
-					return false;
+					throw new BuildException("Custom build step terminated with exit code {0}", ReturnCode);
 				}
 			}
-			return true;
 		}
 	}
 }

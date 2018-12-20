@@ -69,6 +69,17 @@ namespace UnrealBuildTool
 		}
 	}
 
+	class CompilationResultException : BuildException
+	{
+		public readonly CompilationResult Result;
+
+		public CompilationResultException(CompilationResult Result)
+			: base("Error: {0}", Result)
+		{
+			this.Result = Result;
+		}
+	}
+
 	/// <summary>
 	/// Type of module. Mirrored in UHT as EBuildModuleType.
 	/// This should be sorted by the order in which we expect modules to be built.
@@ -1109,7 +1120,7 @@ namespace UnrealBuildTool
 		/// Builds and runs the header tool and touches the header directories.
 		/// Performs any early outs if headers need no changes, given the UObject modules, tool path, game name, and configuration
 		/// </summary>
-		public static CompilationResult ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild, ISourceFileWorkingSet WorkingSet)
+		public static void ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild, ISourceFileWorkingSet WorkingSet)
 		{
 			if (ProgressWriter.bWriteMarkup)
 			{
@@ -1190,19 +1201,14 @@ namespace UnrealBuildTool
 						List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
 						TargetDescriptors.Add(new TargetDescriptor(ScriptProjectFile, "UnrealHeaderTool", Platform, Configuration, Architecture, null));
 
-						CompilationResult Result;
 						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))
 						{
 							bool bPrevXGEExport = BuildConfiguration.bXGEExport;
 							BuildConfiguration.bXGEExport = false;
 
-							Result = BuildMode.Build(TargetDescriptors, BuildConfiguration, WorkingSet);
+							BuildMode.Build(TargetDescriptors, BuildConfiguration, WorkingSet);
 
 							BuildConfiguration.bXGEExport = bPrevXGEExport;
-						}
-						if(Result != CompilationResult.Succeeded)
-						{
-							return CompilationResult.OtherCompilationError;
 						}
 					}
 
@@ -1258,9 +1264,10 @@ namespace UnrealBuildTool
 							BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) && 
 							(int)(UHTResult) < 0)
 						{
-							Log.TraceInformation(String.Format("UnrealHeaderTool failed with exit code 0x{0:X} - check that UE4 prerequisites are installed.", (int)UHTResult));
+							Log.TraceError(String.Format("UnrealHeaderTool failed with exit code 0x{0:X} - check that UE4 prerequisites are installed.", (int)UHTResult));
 						}
-						return UHTResult;
+
+						throw new CompilationResultException(UHTResult);
 					}
 
 					Log.TraceInformation("Reflection code generated for {0} in {1} seconds", ActualTargetName, s.Elapsed.TotalSeconds);
@@ -1288,7 +1295,6 @@ namespace UnrealBuildTool
 			{
 				Log.WriteLine(LogEventType.Console, "@progress pop");
 			}
-			return CompilationResult.Succeeded;
 		}
 	}
 }

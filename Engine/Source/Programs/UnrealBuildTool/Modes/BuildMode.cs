@@ -146,18 +146,9 @@ namespace UnrealBuildTool
 					// Create the working set provider
 					using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 					{
-						CompilationResult Result = Build(TargetDescriptors, BuildConfiguration, WorkingSet);
-						if(Result != CompilationResult.Succeeded)
-						{
-							return (int)Result;
-						}
+						Build(TargetDescriptors, BuildConfiguration, WorkingSet);
 					}
 				}
-			}
-			catch (Exception Ex)
-			{
-				Log.WriteException(Ex, (LogFile == null) ? null : LogFile.FullName);
-				return (int)CompilationResult.OtherCompilationError;
 			}
 			finally
 			{
@@ -178,7 +169,7 @@ namespace UnrealBuildTool
 		/// <param name="BuildConfiguration">Current build configuration</param>
 		/// <param name="WorkingSet">The source file working set</param>
 		/// <returns>Result from the compilation</returns>
-		public static CompilationResult Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
+		public static void Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
 		{
 			// Create a makefile for each target
 			TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
@@ -227,14 +218,9 @@ namespace UnrealBuildTool
 					List<Action> Actions = new List<Action>();
 					BuildPrerequisites Prerequisites = new BuildPrerequisites();
 
-					CompilationResult BuildResult;
 					using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
 					{
-						BuildResult = Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
-					}
-					if (BuildResult != CompilationResult.Succeeded)
-					{
-						return BuildResult;
+						Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
 					}
 
 					// Create the makefile
@@ -278,10 +264,7 @@ namespace UnrealBuildTool
 					// Execute all the pre-build steps
 					if (!BuildConfiguration.bXGEExport)
 					{
-						if (!Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts))
-						{
-							return CompilationResult.OtherCompilationError;
-						}
+						Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
 					}
 
 					// If the target needs UHT to be run, we'll go ahead and do that now
@@ -291,12 +274,7 @@ namespace UnrealBuildTool
 						const bool bIsAssemblingBuild = true;
 
 						FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDesc.Name + ".uhtmanifest");
-						CompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
-						if(!UHTResult.Succeeded())
-						{
-							Log.TraceInformation("UnrealHeaderTool failed for target '" + TargetDesc.Name + "' (platform: " + TargetDesc.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
-							return UHTResult;
-						}
+						ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
 					}
 				}
 
@@ -308,12 +286,8 @@ namespace UnrealBuildTool
 			if(!BuildConfiguration.bSkipBuild)
 			{
 				// Make sure that none of the actions conflict with any other (producing output files differently, etc...)
-				if(!ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions)))
-				{
-					Log.TraceInformation("Check log for additional details.");
-					return CompilationResult.OtherCompilationError;
-				}
-
+				ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions));
+				
 				// Find all the actions to be executed
 				HashSet<Action>[] ActionsToExecute = new HashSet<Action>[TargetDescriptors.Count];
 				for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
@@ -371,7 +345,7 @@ namespace UnrealBuildTool
 				// Create directories for the outdated produced items.
 				ActionGraph.CreateDirectoriesForProducedItems(MergedActionsToExecute);
 
-				// Execute the actions.
+				// Execute the actions
 				if (BuildConfiguration.bXGEExport)
 				{
 					using(Timeline.ScopeEvent("XGE.ExportActions()"))
@@ -383,10 +357,7 @@ namespace UnrealBuildTool
 				{
 					using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
 					{
-						if(!ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute))
-						{
-							return CompilationResult.OtherCompilationError;
-						}
+						ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute);
 					}
 				}
 
@@ -404,7 +375,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			return CompilationResult.Succeeded;
 		}
 
 		/// <summary>

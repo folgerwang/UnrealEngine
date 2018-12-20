@@ -1096,7 +1096,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds the target, appending list of output files and returns building result.
 		/// </summary>
-		public CompilationResult Build(BuildConfiguration BuildConfiguration, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, List<Action> Actions, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
+		public void Build(BuildConfiguration BuildConfiguration, List<FileItem> OutputItems, Dictionary<string, FileItem[]> ModuleNameToOutputItems, List<UHTModuleInfo> UObjectModules, ISourceFileWorkingSet WorkingSet, List<Action> Actions, BuildPrerequisites Prerequisites, bool bIsAssemblingBuild)
 		{
 			CppPlatform CppPlatform = UEBuildPlatform.GetBuildPlatform(Platform).DefaultCppPlatform;
 			CppConfiguration CppConfiguration = GetCppConfiguration(Configuration);
@@ -1207,10 +1207,7 @@ namespace UnrealBuildTool
 			}
 
 			// Execute the pre-build steps
-			if(!ExecuteCustomPreBuildSteps())
-			{
-				return CompilationResult.OtherCompilationError;
-			}
+			Utils.ExecuteCustomBuildSteps(PreBuildStepScripts);
 
 			// If we're compiling monolithic, make sure the executable knows about all referenced modules
 			if (ShouldCompileMonolithic())
@@ -1275,14 +1272,7 @@ namespace UnrealBuildTool
 			if (UObjectModules.Count > 0)
 			{
 				FileReference ModuleInfoFileName = FileReference.Combine(ProjectIntermediateDirectory, TargetName + ".uhtmanifest");
-
-				// Execute the header tool
-				CompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, ProjectFile, TargetName, TargetType, bHasProjectScriptPlugin, UObjectModules, ModuleInfoFileName, true, bIsAssemblingBuild, WorkingSet);
-				if(!UHTResult.Succeeded())
-				{
-					Log.TraceInformation(String.Format("Error: UnrealHeaderTool failed for target '{0}' (platform: {1}, module info: {2}, exit code: {3} ({4})).", TargetName, Platform.ToString(), ModuleInfoFileName, UHTResult.ToString(), (int)UHTResult));
-					return UHTResult;
-				}
+				ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, ProjectFile, TargetName, TargetType, bHasProjectScriptPlugin, UObjectModules, ModuleInfoFileName, true, bIsAssemblingBuild, WorkingSet);
 			}
 
 			// Find all the shared PCHs.
@@ -1376,10 +1366,8 @@ namespace UnrealBuildTool
 			{
 				foreach (string InvalidIncludeDirectiveMessage in InvalidIncludeDirectiveMessages)
 				{
-					Log.WriteLine(0, LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}", InvalidIncludeDirectiveMessage);
+					Log.WriteLine(0, LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}", InvalidIncludeDirectiveMessage);
 				}
-				Log.TraceError("Build canceled.");
-				return CompilationResult.Canceled;
 			}
 
 			// Finalize and generate metadata for this target
@@ -1521,7 +1509,6 @@ namespace UnrealBuildTool
 
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
 			CleanStaleModules();
-			return CompilationResult.Succeeded;
 		}
 
 		/// <summary>
@@ -1971,22 +1958,6 @@ namespace UnrealBuildTool
 				ScriptFiles.Add(ScriptFile);
 			}
 			return ScriptFiles.ToArray();
-		}
-
-		/// <summary>
-		/// Executes the custom pre-build steps
-		/// </summary>
-		public bool ExecuteCustomPreBuildSteps()
-		{
-			return Utils.ExecuteCustomBuildSteps(PreBuildStepScripts);
-		}
-
-		/// <summary>
-		/// Executes the custom post-build steps
-		/// </summary>
-		public bool ExecuteCustomPostBuildSteps()
-		{
-			return Utils.ExecuteCustomBuildSteps(PostBuildStepScripts);
 		}
 
 		private static FileReference AddModuleFilenameSuffix(string ModuleName, FileReference FilePath, string Suffix)

@@ -55,8 +55,7 @@ namespace UnrealBuildTool
 		/// Checks a set of actions for conflicts (ie. different actions producing the same output items)
 		/// </summary>
 		/// <param name="Actions">The set of actions to check</param>
-		/// <returns>True if the actions are ok, false if there are conflicts</returns>
-		public static bool CheckForConflicts(IEnumerable<Action> Actions)
+		public static void CheckForConflicts(IEnumerable<Action> Actions)
 		{
 			bool bResult = true;
 
@@ -77,7 +76,10 @@ namespace UnrealBuildTool
 				}
 			}
 
-			return bResult;
+			if(!bResult)
+			{
+				throw new BuildException("Action graph is invalid; unable to continue. See log for additional details.");
+			}
 		}
 
 		/// <summary>
@@ -109,17 +111,17 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute)
+		public static void ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute)
 		{
-			bool bResult = true;
 			if(ActionsToExecute.Count == 0)
 			{
 				Log.TraceInformation("Target is up to date");
 			}
 			else
 			{
+				// Figure out which executor to use
 				ActionExecutor Executor;
-				if ((XGE.IsAvailable() && BuildConfiguration.bAllowXGE) || BuildConfiguration.bXGEExport)
+				if (BuildConfiguration.bAllowXGE && XGE.IsAvailable())
 				{
 					Executor = new XGE();
 				}
@@ -127,11 +129,11 @@ namespace UnrealBuildTool
 				{
 					Executor = new Distcc();
 				}
-				else if(SNDBS.IsAvailable() && BuildConfiguration.bAllowSNDBS)
+				else if(BuildConfiguration.bAllowSNDBS && SNDBS.IsAvailable())
 				{
 					Executor = new SNDBS();
 				}
-				else if(ParallelExecutor.IsAvailable() && BuildConfiguration.bAllowParallelExecutor)
+				else if(BuildConfiguration.bAllowParallelExecutor && ParallelExecutor.IsAvailable())
 				{
 					Executor = new ParallelExecutor();
 				}
@@ -140,30 +142,30 @@ namespace UnrealBuildTool
 					Executor = new LocalExecutor();
 				}
 
+				// Execute the build
 				Stopwatch Timer = Stopwatch.StartNew();
-				bResult = Executor.ExecuteActions(ActionsToExecute, BuildConfiguration.bLogDetailedActionStats);
+				if(!Executor.ExecuteActions(ActionsToExecute, BuildConfiguration.bLogDetailedActionStats))
+				{
+					throw new CompilationResultException(CompilationResult.OtherCompilationError);
+				}
 				Log.TraceInformation("Total time in {0} executor: {1:0.00} seconds", Executor.Name, Timer.Elapsed.TotalSeconds);
 
-				if (!BuildConfiguration.bXGEExport)
+				// Verify the link outputs were created (seems to happen with Win64 compiles)
+				foreach (Action BuildAction in ActionsToExecute)
 				{
-					// Verify the link outputs were created (seems to happen with Win64 compiles)
-					foreach (Action BuildAction in ActionsToExecute)
+					if (BuildAction.ActionType == ActionType.Link)
 					{
-						if (BuildAction.ActionType == ActionType.Link)
+						foreach (FileItem Item in BuildAction.ProducedItems)
 						{
-							foreach (FileItem Item in BuildAction.ProducedItems)
+							Item.ResetFileInfo();
+							if(!Item.Exists)
 							{
-								Item.ResetFileInfo();
-								if(!Item.Exists)
-								{
-									throw new BuildException("UBT ERROR: Failed to produce item: " + Item.AbsolutePath);
-								}
+								throw new BuildException("Failed to produce item: {0}", Item.AbsolutePath);
 							}
 						}
 					}
 				}
 			}
-			return bResult;
 		}
 
 		/// <summary>
