@@ -81,7 +81,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Set of all source directories. Any files being added or removed from these directories will invalidate the makefile.
 		/// </summary>
-		public HashSet<DirectoryReference> SourceDirectories = new HashSet<DirectoryReference>();
+		public Dictionary<DirectoryItem, FileItem[]> DirectoryToSourceFiles;
 
 		/// <summary>
 		/// The set of source files that UnrealBuildTool determined to be part of the programmer's "working set". Used for adaptive non-unity builds.
@@ -127,7 +127,7 @@ namespace UnrealBuildTool
 			this.OutputItems = new List<FileItem>();
 			this.ModuleNameToOutputItems = new Dictionary<string, FileItem[]>(StringComparer.OrdinalIgnoreCase);
 			this.HotReloadModuleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			this.SourceDirectories = new HashSet<DirectoryReference>();
+			this.DirectoryToSourceFiles = new Dictionary<DirectoryItem, FileItem[]>();
 			this.WorkingSet = new HashSet<FileItem>();
 			this.CandidatesForWorkingSet = new HashSet<FileItem>();
 			this.UObjectModules = new List<UHTModuleInfo>();
@@ -152,7 +152,7 @@ namespace UnrealBuildTool
 			OutputItems = Reader.ReadList(() => Reader.ReadFileItem());
 			ModuleNameToOutputItems = Reader.ReadDictionary(() => Reader.ReadString(), () => Reader.ReadArray(() => Reader.ReadFileItem()), StringComparer.OrdinalIgnoreCase);
 			HotReloadModuleNames = Reader.ReadHashSet(() => Reader.ReadString(), StringComparer.OrdinalIgnoreCase);
-			SourceDirectories = Reader.ReadHashSet(() => Reader.ReadDirectoryReference());
+			DirectoryToSourceFiles = Reader.ReadDictionary(() => Reader.ReadDirectoryItem(), () => Reader.ReadArray(() => Reader.ReadFileItem()));
 			WorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
 			CandidatesForWorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
 			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
@@ -174,15 +174,15 @@ namespace UnrealBuildTool
 			Writer.WriteArray(PreBuildScripts, Item => Writer.WriteFileReference(Item));
 			Writer.WriteList(Actions, Action => Action.Write(Writer));
 			Writer.WriteList(EnvironmentVariables, x => { Writer.WriteString(x.Item1); Writer.WriteString(x.Item2); });
-			Writer.WriteList(UObjectModules, e => e.Write(Writer));
 			Writer.WriteList(OutputItems, Item => Writer.WriteFileItem(Item));
 			Writer.WriteDictionary(ModuleNameToOutputItems, k => Writer.WriteString(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
 			Writer.WriteHashSet(HotReloadModuleNames, x => Writer.WriteString(x));
-			Writer.WriteHashSet(SourceDirectories, x => Writer.WriteDirectoryReference(x));
+			Writer.WriteDictionary(DirectoryToSourceFiles, k => Writer.WriteDirectoryItem(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
 			Writer.WriteHashSet(WorkingSet, x => Writer.WriteFileItem(x));
 			Writer.WriteHashSet(CandidatesForWorkingSet, x => Writer.WriteFileItem(x));
-			Writer.WriteHashSet(AdditionalDependencies, x => Writer.WriteFileItem(x));
+			Writer.WriteList(UObjectModules, e => e.Write(Writer));
 			Writer.WriteList(UObjectModuleHeaders, x => x.Write(Writer));
+			Writer.WriteHashSet(AdditionalDependencies, x => Writer.WriteFileItem(x));
 		}
 
 		/// <summary>
@@ -343,14 +343,27 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach(DirectoryReference SourceDirectory in LoadedUBTMakefile.SourceDirectories)
+				foreach(KeyValuePair<DirectoryItem, FileItem[]> Pair in LoadedUBTMakefile.DirectoryToSourceFiles)
 				{
-					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
-					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
+					DirectoryItem InputDirectory = Pair.Key;
+					if(!InputDirectory.Exists || InputDirectory.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
 					{
-						Log.TraceLog("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
-						ReasonNotLoaded = "source directory changed";
-						return null;
+						FileItem[] SourceFiles = UEBuildModuleCPP.GetSourceFiles(InputDirectory);
+						if(SourceFiles.Length < Pair.Value.Length)
+						{
+							ReasonNotLoaded = "source file removed";
+							return null;
+						}
+						else if(SourceFiles.Length > Pair.Value.Length)
+						{
+							ReasonNotLoaded = "source file added";
+							return null;
+						}
+						else if(SourceFiles.Intersect(Pair.Value).Count() != SourceFiles.Length)
+						{
+							ReasonNotLoaded = "source file modified";
+							return null;
+						}
 					}
 				}
 

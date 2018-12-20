@@ -595,16 +595,6 @@ namespace UnrealBuildTool
 		readonly FileReference TargetRulesFile;
 
 		/// <summary>
-		/// List of scripts to run before building
-		/// </summary>
-		public FileReference[] PreBuildStepScripts;
-
-		/// <summary>
-		/// List of scripts to run after building
-		/// </summary>
-		FileReference[] PostBuildStepScripts;
-
-		/// <summary>
 		/// Whether to deploy this target after compilation
 		/// </summary>
 		public bool bDeployAfterCompile;
@@ -1206,8 +1196,12 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Create the makefile
+			TargetMakefile Makefile = new TargetMakefile(ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
+
 			// Execute the pre-build steps
-			Utils.ExecuteCustomBuildSteps(PreBuildStepScripts);
+			Makefile.PreBuildScripts = CreatePreBuildScripts();
+			Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
 
 			// If we're compiling monolithic, make sure the executable knows about all referenced modules
 			if (ShouldCompileMonolithic())
@@ -1259,9 +1253,6 @@ namespace UnrealBuildTool
 
 			// On Mac and Linux we have actions that should be executed after all the binaries are created
 			TargetToolChain.SetupBundleDependencies(Binaries, TargetName);
-
-			// Create the makefile
-			TargetMakefile Makefile = new TargetMakefile(ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
 
 			// Generate headers
 			HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.ToList());
@@ -1435,23 +1426,24 @@ namespace UnrealBuildTool
 				Makefile.OutputItems.AddRange(WriteMetadataAction.ProducedItems);
 
 				// Create actions to run the post build steps
-				foreach(FileReference PostBuildStepScript in PostBuildStepScripts)
+				FileReference[] PostBuildScripts = CreatePostBuildScripts();
+				foreach(FileReference PostBuildScript in PostBuildScripts)
 				{
-					FileReference OutputFile = new FileReference(PostBuildStepScript.FullName + ".ran");
+					FileReference OutputFile = new FileReference(PostBuildScript.FullName + ".ran");
 
 					Action PostBuildStepAction = new Action(ActionType.PostBuildStep);
 					if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 					{
 						PostBuildStepAction.CommandPath = "cmd.exe";
-						PostBuildStepAction.CommandArguments = String.Format("/C \"call \"{0}\" && type NUL >\"{1}\"\"", PostBuildStepScript, OutputFile);
+						PostBuildStepAction.CommandArguments = String.Format("/C \"call \"{0}\" && type NUL >\"{1}\"\"", PostBuildScript, OutputFile);
 					}
 					else
 					{
 						PostBuildStepAction.CommandPath = "/bin/sh";
-						PostBuildStepAction.CommandArguments = String.Format("\"{0}\" && touch \"{1}\"", PostBuildStepScript, OutputFile);
+						PostBuildStepAction.CommandArguments = String.Format("\"{0}\" && touch \"{1}\"", PostBuildScript, OutputFile);
 					}
 					PostBuildStepAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-					PostBuildStepAction.StatusDescription = String.Format("Executing post build script ({0})", PostBuildStepScript.GetFileName());
+					PostBuildStepAction.StatusDescription = String.Format("Executing post build script ({0})", PostBuildScript.GetFileName());
 					PostBuildStepAction.bCanExecuteRemotely = false;
 					PostBuildStepAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
 					PostBuildStepAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
@@ -1754,9 +1746,6 @@ namespace UnrealBuildTool
 			// Setup the target's plugins
 			SetupPlugins();
 
-			// Setup the custom build steps for this target
-			SetupCustomBuildSteps();
-
 			// Add the plugin binaries to the build
 			foreach (UEBuildPlugin Plugin in BuildPlugins)
 			{
@@ -1837,13 +1826,10 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Writes scripts for all the custom build steps
+		/// Creates scripts for executing the pre-build scripts
 		/// </summary>
-		private void SetupCustomBuildSteps()
+		private FileReference[] CreatePreBuildScripts()
 		{
-			// Make sure the intermediate directory exists
-			DirectoryReference ScriptDirectory = ProjectIntermediateDirectory;
-
 			// Find all the pre-build steps
 			List<Tuple<string[], UEBuildPlugin>> PreBuildCommandBatches = new List<Tuple<string[], UEBuildPlugin>>();
 			if(ProjectDescriptor != null && ProjectDescriptor.PreBuildSteps != null)
@@ -1858,8 +1844,15 @@ namespace UnrealBuildTool
 			{
 				AddCustomBuildSteps(BuildPlugin.Descriptor.PreBuildSteps, BuildPlugin, PreBuildCommandBatches);
 			}
-			PreBuildStepScripts = WriteCustomBuildStepScripts(BuildHostPlatform.Current.Platform, ScriptDirectory, "PreBuild", PreBuildCommandBatches);
+			return WriteCustomBuildStepScripts(BuildHostPlatform.Current.Platform, ProjectIntermediateDirectory, "PreBuild", PreBuildCommandBatches);
+		}
 
+		/// <summary>
+		/// Creates scripts for executing post-build steps
+		/// </summary>
+		/// <returns>Array of post-build scripts</returns>
+		private FileReference[] CreatePostBuildScripts()
+		{
 			// Find all the post-build steps
 			List<Tuple<string[], UEBuildPlugin>> PostBuildCommandBatches = new List<Tuple<string[], UEBuildPlugin>>();
 			if(!Rules.bDisableLinking)
@@ -1877,7 +1870,7 @@ namespace UnrealBuildTool
 					AddCustomBuildSteps(BuildPlugin.Descriptor.PostBuildSteps, BuildPlugin, PostBuildCommandBatches);
 				}
 			}
-			PostBuildStepScripts = WriteCustomBuildStepScripts(BuildHostPlatform.Current.Platform, ScriptDirectory, "PostBuild", PostBuildCommandBatches);
+			return WriteCustomBuildStepScripts(BuildHostPlatform.Current.Platform, ProjectIntermediateDirectory, "PostBuild", PostBuildCommandBatches);
 		}
 
 		/// <summary>

@@ -19,19 +19,15 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Stores a list of all source files, of different types
 		/// </summary>
-		class SourceFileCollection
+		class InputFileCollection
 		{
-			public readonly List<FileItem> HFiles = new List<FileItem>();
+			public readonly List<FileItem> HeaderFiles = new List<FileItem>();
+
 			public readonly List<FileItem> CPPFiles = new List<FileItem>();
 			public readonly List<FileItem> CFiles = new List<FileItem>();
 			public readonly List<FileItem> CCFiles = new List<FileItem>();
 			public readonly List<FileItem> MMFiles = new List<FileItem>();
 			public readonly List<FileItem> RCFiles = new List<FileItem>();
-
-			public IEnumerable<FileItem> AllFiles
-			{
-				get { return CPPFiles.Concat(CFiles).Concat(CCFiles).Concat(MMFiles).Concat(RCFiles); }
-			}
 		}
 
 		/// <summary>
@@ -272,12 +268,11 @@ namespace UnrealBuildTool
 				return LinkInputFiles;
 			}
 
-			SourceFileCollection SourceFilesToBuild = FindSourceFiles(Target.Platform, Makefile.SourceDirectories);
-
-			SourceDirectories = new HashSet<DirectoryReference>(SourceFilesToBuild.AllFiles.Select(x => x.Location.Directory));
+			// Find all the input files
+			InputFileCollection InputFiles = FindInputFiles(Target.Platform, Makefile);
 
 			// Process all of the header file dependencies for this module
-			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, SourceFilesToBuild.HFiles, SourceFilesToBuild.CPPFiles);
+			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, InputFiles.HeaderFiles, InputFiles.CPPFiles);
 
 			// Should we force a precompiled header to be generated for this module?  Usually, we only bother with a
 			// precompiled header if there are at least several source files in the module (after combining them for unity
@@ -325,7 +320,7 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("Module '{0}' not using unity build mode (bFasterWithoutUnity enabled for this module)", this.Name);
 					bModuleUsesUnityBuild = false;
 				}
-				else if (SourceFilesToBuild.CPPFiles.Count < MinSourceFilesForUnityBuild)
+				else if (InputFiles.CPPFiles.Count < MinSourceFilesForUnityBuild)
 				{
 					Log.TraceVerbose("Module '{0}' not using unity build mode (module with fewer than {1} source files)", this.Name, MinSourceFilesForUnityBuild);
 					bModuleUsesUnityBuild = false;
@@ -410,7 +405,7 @@ namespace UnrealBuildTool
 			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, null);
 
 			// Compile CPP files
-			List<FileItem> CPPFilesToCompile = SourceFilesToBuild.CPPFiles;
+			List<FileItem> CPPFilesToCompile = InputFiles.CPPFiles;
 			if (bModuleUsesUnityBuild)
 			{
 				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory, Makefile);
@@ -471,31 +466,31 @@ namespace UnrealBuildTool
 			}
 
 			// Compile C files directly. Do not use a PCH here, because a C++ PCH is not compatible with C source files.
-			if(SourceFilesToBuild.CFiles.Count > 0)
+			if(InputFiles.CFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, SourceFilesToBuild.CFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, InputFiles.CFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile CC files directly.
-			if(SourceFilesToBuild.CCFiles.Count > 0)
+			if(InputFiles.CCFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.CCFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, InputFiles.CCFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile MM files directly.
-			if(SourceFilesToBuild.MMFiles.Count > 0)
+			if(InputFiles.MMFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.MMFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, InputFiles.MMFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile RC files. The resource compiler does not work with response files, and using the regular compile environment can easily result in the 
 			// command line length exceeding the OS limit. Use the binary compile environment to keep the size down, and require that all include paths
 			// must be specified relative to the resource file itself or Engine/Source.
-			if(SourceFilesToBuild.RCFiles.Count > 0)
+			if(InputFiles.RCFiles.Count > 0)
 			{
 				CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
 				WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
-				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, SourceFilesToBuild.RCFiles, IntermediateDirectory, Makefile.Actions).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, InputFiles.RCFiles, IntermediateDirectory, Makefile.Actions).ObjectFiles);
 			}
 
 			// Write the compiled manifest
@@ -1100,17 +1095,19 @@ namespace UnrealBuildTool
 		/// Finds all the source files that should be built for this module
 		/// </summary>
 		/// <param name="Platform">The platform the module is being built for</param>
-		/// <param name="SearchedDirectories">Receives a set of directories that have been searched</param>
+		/// <param name="Makefile">Makefile for the target being built</param>
 		/// <returns>Set of source files that should be built</returns>
-		SourceFileCollection FindSourceFiles(UnrealTargetPlatform Platform, HashSet<DirectoryReference> SearchedDirectories)
+		InputFileCollection FindInputFiles(UnrealTargetPlatform Platform, TargetMakefile Makefile)
 		{
 			ReadOnlyHashSet<string> ExcludedNames = UEBuildPlatform.GetBuildPlatform(Platform).GetExcludedFolderNames();
 
-			SourceFileCollection SourceFilesToBuild = new SourceFileCollection();
+			InputFileCollection InputFiles = new InputFileCollection();
 			DirectoryItem ModuleDirectoryItem = DirectoryItem.GetItemByDirectoryReference(ModuleDirectory);
-			FindSourceFilesRecursive(ModuleDirectoryItem, ExcludedNames, SearchedDirectories, SourceFilesToBuild);
 
-			return SourceFilesToBuild;
+			SourceDirectories = new HashSet<DirectoryReference>();
+			FindInputFilesFromDirectoryRecursive(ModuleDirectoryItem, ExcludedNames, SourceDirectories, Makefile.DirectoryToSourceFiles, InputFiles);
+
+			return InputFiles;
 		}
 
 		/// <summary>
@@ -1118,47 +1115,79 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="BaseDirectory">Directory to search from</param>
 		/// <param name="ExcludedNames">Set of excluded directory names (eg. other platforms)</param>
-		/// <param name="SearchedDirectories">Receives a set of directories that have been searched</param>
-		/// <param name="SourceFiles">Collection of source files, categorized by type</param>
-		static void FindSourceFilesRecursive(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludedNames, HashSet<DirectoryReference> SearchedDirectories, SourceFileCollection SourceFiles)
+		/// <param name="SourceDirectories">Set of all non-empty source directories.</param>
+		/// <param name="DirectoryToSourceFiles">Map from directory to source files inside it</param>
+		/// <param name="InputFiles">Collection of source files, categorized by type</param>
+		static void FindInputFilesFromDirectoryRecursive(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludedNames, HashSet<DirectoryReference> SourceDirectories, Dictionary<DirectoryItem, FileItem[]> DirectoryToSourceFiles, InputFileCollection InputFiles)
 		{
-			SearchedDirectories.Add(BaseDirectory.Location);
-
 			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
 			{
 				if(!ExcludedNames.Contains(SubDirectory.Name))
 				{
-					FindSourceFilesRecursive(SubDirectory, ExcludedNames, SearchedDirectories, SourceFiles);
+					FindInputFilesFromDirectoryRecursive(SubDirectory, ExcludedNames, SourceDirectories, DirectoryToSourceFiles, InputFiles);
 				}
 			}
 
-			foreach(FileItem SourceFile in BaseDirectory.EnumerateFiles())
+			FileItem[] SourceFiles = FindInputFilesFromDirectory(BaseDirectory, InputFiles);
+			if(SourceFiles.Length > 0)
 			{
-				if (SourceFile.HasExtension(".h"))
+				SourceDirectories.Add(BaseDirectory.Location);
+			}
+			DirectoryToSourceFiles.Add(BaseDirectory, SourceFiles);
+		}
+
+		/// <summary>
+		/// Finds the input files that should be built for this module, from a given directory
+		/// </summary>
+		/// <param name="BaseDirectory"></param>
+		/// <param name="InputFiles"></param>
+		/// <returns>Array of source files</returns>
+		static FileItem[] FindInputFilesFromDirectory(DirectoryItem BaseDirectory, InputFileCollection InputFiles)
+		{
+			List<FileItem> SourceFiles = new List<FileItem>();
+			foreach(FileItem InputFile in BaseDirectory.EnumerateFiles())
+			{
+				if (InputFile.HasExtension(".h"))
 				{
-					SourceFiles.HFiles.Add(SourceFile);
+					InputFiles.HeaderFiles.Add(InputFile);
 				}
-				if (SourceFile.HasExtension(".cpp"))
+				if (InputFile.HasExtension(".cpp"))
 				{
-					SourceFiles.CPPFiles.Add(SourceFile);
+					SourceFiles.Add(InputFile);
+					InputFiles.CPPFiles.Add(InputFile);
 				}
-				else if (SourceFile.HasExtension(".c"))
+				else if (InputFile.HasExtension(".c"))
 				{
-					SourceFiles.CFiles.Add(SourceFile);
+					SourceFiles.Add(InputFile);
+					InputFiles.CFiles.Add(InputFile);
 				}
-				else if (SourceFile.HasExtension(".cc"))
+				else if (InputFile.HasExtension(".cc"))
 				{
-					SourceFiles.CCFiles.Add(SourceFile);
+					SourceFiles.Add(InputFile);
+					InputFiles.CCFiles.Add(InputFile);
 				}
-				else if (SourceFile.HasExtension(".m") || SourceFile.HasExtension(".mm"))
+				else if (InputFile.HasExtension(".m") || InputFile.HasExtension(".mm"))
 				{
-					SourceFiles.MMFiles.Add(SourceFile);
+					SourceFiles.Add(InputFile);
+					InputFiles.MMFiles.Add(InputFile);
 				}
-				else if (SourceFile.HasExtension(".rc"))
+				else if (InputFile.HasExtension(".rc"))
 				{
-					SourceFiles.RCFiles.Add(SourceFile);
+					SourceFiles.Add(InputFile);
+					InputFiles.RCFiles.Add(InputFile);
 				}
 			}
+			return SourceFiles.ToArray();
+		}
+
+		/// <summary>
+		/// Gets a set of source files for the given directory. Used to detect when the makefile is out of date.
+		/// </summary>
+		/// <param name="Directory"></param>
+		/// <returns>Array of source files</returns>
+		public static FileItem[] GetSourceFiles(DirectoryItem Directory)
+		{
+			return FindInputFilesFromDirectory(Directory, new InputFileCollection());
 		}
 	}
 }

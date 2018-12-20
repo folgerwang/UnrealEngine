@@ -222,4 +222,30 @@ namespace UnrealBuildTool
 			return Location.FullName;
 		}
 	}
+
+	/// <summary>
+	/// Helper functions for serialization
+	/// </summary>
+	static class DirectoryItemExtensionMethods
+	{
+		/// <summary>
+		/// Read a directory item from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>Instance of the serialized directory item</returns>
+		public static DirectoryItem ReadDirectoryItem(this BinaryArchiveReader Reader)
+		{
+			return Reader.ReadObjectReference<DirectoryItem>(() => DirectoryItem.GetItemByDirectoryReference(Reader.ReadDirectoryReference()));
+		}
+
+		/// <summary>
+		/// Write a directory item to a binary archive
+		/// </summary>
+		/// <param name="Writer">Writer to serialize data to</param>
+		/// <param name="DirectoryItem">Directory item to write</param>
+		public static void WriteDirectoryItem(this BinaryArchiveWriter Writer, DirectoryItem DirectoryItem)
+		{
+			Writer.WriteObjectReference<DirectoryItem>(DirectoryItem, () => Writer.WriteDirectoryReference(DirectoryItem.Location));
+		}
+	}
 }
