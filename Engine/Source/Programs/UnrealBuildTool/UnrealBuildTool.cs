@@ -404,14 +404,14 @@ namespace UnrealBuildTool
 				// BuildExceptions should have nicely formatted messages. We can log these directly.
 				Log.TraceError(Ex.Message.ToString());
 				Log.TraceLog(ExceptionUtils.FormatExceptionDetails(Ex));
-				return (int)ECompilationResult.OtherCompilationError;
+				return (int)CompilationResult.OtherCompilationError;
 			}
 			catch (Exception Ex)
 			{
 				// Unhandled exception. 
 				Log.TraceError("Unhandled exception: {0}", Ex);
 				Log.TraceLog(ExceptionUtils.FormatExceptionDetails(Ex));
-				return (int)ECompilationResult.OtherCompilationError;
+				return (int)CompilationResult.OtherCompilationError;
 			}
 			finally
 			{

@@ -18,7 +18,7 @@ namespace UnrealBuildTool
 	// UE4\Engine\Source\Runtime\Core\Public\Misc\ComplilationResult.h 
 	// to keep communication between UHT, UBT and Editor compiling
 	// processes valid.
-	enum ECompilationResult
+	enum CompilationResult
 	{
 		/// <summary>
 		/// Compilation succeeded
@@ -60,11 +60,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		Unknown
 	}
+
 	static class CompilationResultExtensions
 	{
-		public static bool Succeeded(this ECompilationResult Result)
+		public static bool Succeeded(this CompilationResult Result)
 		{
-			return Result == ECompilationResult.Succeeded || Result == ECompilationResult.UpToDate;
+			return Result == CompilationResult.Succeeded || Result == CompilationResult.UpToDate;
 		}
 	}
 
@@ -1108,7 +1109,7 @@ namespace UnrealBuildTool
 		/// Builds and runs the header tool and touches the header directories.
 		/// Performs any early outs if headers need no changes, given the UObject modules, tool path, game name, and configuration
 		/// </summary>
-		public static ECompilationResult ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild, ISourceFileWorkingSet WorkingSet)
+		public static CompilationResult ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, FileReference ProjectFile, string TargetName, TargetType TargetType, bool bHasProjectScriptPlugin, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, bool bIsGatheringBuild, bool bIsAssemblingBuild, ISourceFileWorkingSet WorkingSet)
 		{
 			if (ProgressWriter.bWriteMarkup)
 			{
@@ -1189,7 +1190,7 @@ namespace UnrealBuildTool
 						List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
 						TargetDescriptors.Add(new TargetDescriptor(ScriptProjectFile, "UnrealHeaderTool", Platform, Configuration, Architecture, null));
 
-						ECompilationResult Result;
+						CompilationResult Result;
 						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))
 						{
 							bool bPrevXGEExport = BuildConfiguration.bXGEExport;
@@ -1199,9 +1200,9 @@ namespace UnrealBuildTool
 
 							BuildConfiguration.bXGEExport = bPrevXGEExport;
 						}
-						if(Result != ECompilationResult.Succeeded)
+						if(Result != CompilationResult.Succeeded)
 						{
-							return ECompilationResult.OtherCompilationError;
+							return CompilationResult.OtherCompilationError;
 						}
 					}
 
@@ -1237,11 +1238,11 @@ namespace UnrealBuildTool
 					Stopwatch s = new Stopwatch();
 					s.Start();
 					ITimelineEvent Timer = Timeline.ScopeEvent("Executing UnrealHeaderTool");
-					ECompilationResult UHTResult = (ECompilationResult)RunExternalNativeExecutable(ExternalExecution.GetHeaderToolPath(HeaderToolReceipt), CmdLine);
+					CompilationResult UHTResult = (CompilationResult)RunExternalNativeExecutable(ExternalExecution.GetHeaderToolPath(HeaderToolReceipt), CmdLine);
 					Timer.Finish();
 					s.Stop();
 
-					if (UHTResult != ECompilationResult.Succeeded)
+					if (UHTResult != CompilationResult.Succeeded)
 					{
 						// On Linux and Mac, the shell will return 128+signal number exit codes if UHT gets a signal (e.g. crashes or is interrupted)
 						if ((BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux ||
@@ -1250,7 +1251,7 @@ namespace UnrealBuildTool
 							)
 						{
 							// SIGINT is 2, so 128 + SIGINT is 130
-							UHTResult = ((int)(UHTResult) == 130) ? ECompilationResult.Canceled : ECompilationResult.CrashOrAssert;
+							UHTResult = ((int)(UHTResult) == 130) ? CompilationResult.Canceled : CompilationResult.CrashOrAssert;
 						}
 
 						if ((BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32 || 
@@ -1287,7 +1288,7 @@ namespace UnrealBuildTool
 			{
 				Log.WriteLine(LogEventType.Console, "@progress pop");
 			}
-			return ECompilationResult.Succeeded;
+			return CompilationResult.Succeeded;
 		}
 	}
 }

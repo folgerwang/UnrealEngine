@@ -160,10 +160,10 @@ namespace UnrealBuildTool
 			{
 				if (!Generator.GenerateProjectFiles(PlatformProjectGenerators, Arguments.GetRawArray()))
 				{
-					return (int)ECompilationResult.OtherCompilationError;
+					return (int)CompilationResult.OtherCompilationError;
 				}
 			}
-			return (int)ECompilationResult.Succeeded;
+			return (int)CompilationResult.Succeeded;
 		}
 
 		/// <summary>

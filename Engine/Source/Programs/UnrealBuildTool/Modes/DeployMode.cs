@@ -37,7 +37,7 @@ namespace UnrealBuildTool
 			Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", Receipt.TargetName, Receipt.Platform, Receipt.Configuration);
 			UEBuildPlatform.GetBuildPlatform(Receipt.Platform).Deploy(Receipt);
 
-			return (int)ECompilationResult.Succeeded;
+			return (int)CompilationResult.Succeeded;
 		}
 	}
 }

@@ -123,7 +123,7 @@ namespace UnrealBuildTool
 						RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
 						if(!RemoteMac.Build(TargetDesc, LogFile))
 						{
-							return (int)ECompilationResult.Unknown;
+							return (int)CompilationResult.Unknown;
 						}
 
 						TargetDescriptors.RemoveAt(Idx--);
@@ -146,8 +146,8 @@ namespace UnrealBuildTool
 					// Create the working set provider
 					using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 					{
-						ECompilationResult Result = Build(TargetDescriptors, BuildConfiguration, WorkingSet);
-						if(Result != ECompilationResult.Succeeded)
+						CompilationResult Result = Build(TargetDescriptors, BuildConfiguration, WorkingSet);
+						if(Result != CompilationResult.Succeeded)
 						{
 							return (int)Result;
 						}
@@ -157,7 +157,7 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				Log.WriteException(Ex, (LogFile == null) ? null : LogFile.FullName);
-				return (int)ECompilationResult.OtherCompilationError;
+				return (int)CompilationResult.OtherCompilationError;
 			}
 			finally
 			{
@@ -178,7 +178,7 @@ namespace UnrealBuildTool
 		/// <param name="BuildConfiguration">Current build configuration</param>
 		/// <param name="WorkingSet">The source file working set</param>
 		/// <returns>Result from the compilation</returns>
-		public static ECompilationResult Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
+		public static CompilationResult Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
 		{
 			// Create a makefile for each target
 			TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
@@ -227,12 +227,12 @@ namespace UnrealBuildTool
 					List<Action> Actions = new List<Action>();
 					BuildPrerequisites Prerequisites = new BuildPrerequisites();
 
-					ECompilationResult BuildResult;
+					CompilationResult BuildResult;
 					using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
 					{
 						BuildResult = Target.Build(BuildConfiguration, OutputItems, ModuleNameToOutputItems, UObjectModules, WorkingSet, Actions, Prerequisites, bIsAssemblingBuild);
 					}
-					if (BuildResult != ECompilationResult.Succeeded)
+					if (BuildResult != CompilationResult.Succeeded)
 					{
 						return BuildResult;
 					}
@@ -280,7 +280,7 @@ namespace UnrealBuildTool
 					{
 						if (!Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts))
 						{
-							return ECompilationResult.OtherCompilationError;
+							return CompilationResult.OtherCompilationError;
 						}
 					}
 
@@ -291,7 +291,7 @@ namespace UnrealBuildTool
 						const bool bIsAssemblingBuild = true;
 
 						FileReference ModuleInfoFileName = FileReference.Combine(Makefile.ProjectIntermediateDirectory, TargetDesc.Name + ".uhtmanifest");
-						ECompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
+						CompilationResult UHTResult = ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDesc.ProjectFile, TargetDesc.Name, Makefile.TargetType, Makefile.bHasProjectScriptPlugin, UObjectModules: Makefile.UObjectModules, ModuleInfoFileName: ModuleInfoFileName, bIsGatheringBuild: bIsGatheringBuild, bIsAssemblingBuild: bIsAssemblingBuild, WorkingSet: WorkingSet);
 						if(!UHTResult.Succeeded())
 						{
 							Log.TraceInformation("UnrealHeaderTool failed for target '" + TargetDesc.Name + "' (platform: " + TargetDesc.Platform.ToString() + ", module info: " + ModuleInfoFileName + ").");
@@ -311,7 +311,7 @@ namespace UnrealBuildTool
 				if(!ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions)))
 				{
 					Log.TraceInformation("Check log for additional details.");
-					return ECompilationResult.OtherCompilationError;
+					return CompilationResult.OtherCompilationError;
 				}
 
 				// Find all the actions to be executed
@@ -385,7 +385,7 @@ namespace UnrealBuildTool
 					{
 						if(!ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute))
 						{
-							return ECompilationResult.OtherCompilationError;
+							return CompilationResult.OtherCompilationError;
 						}
 					}
 				}
@@ -404,7 +404,7 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			return ECompilationResult.Succeeded;
+			return CompilationResult.Succeeded;
 		}
 
 		/// <summary>
