@@ -28,10 +28,28 @@ namespace UnrealBuildTool
 		public FileReference ForeignPlugin = null;
 
 		/// <summary>
+		/// Set of module names to compile.
+		/// </summary>
+		[CommandLine("-Module=")]
+		public HashSet<string> OnlyModuleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+		/// <summary>
 		/// Single file to compile
 		/// </summary>
 		[CommandLine("-SingleFile=")]
 		public FileReference SingleFileToCompile = null;
+
+		/// <summary>
+		/// Whether to perform hot reload for this target
+		/// </summary>
+		[CommandLine("-NoHotReload", Value = nameof(HotReloadMode.Disabled))]
+		[CommandLine("-ForceHotReload", Value = nameof(HotReloadMode.FromIDE))]
+		public HotReloadMode HotReloadMode = HotReloadMode.Default;
+
+		/// <summary>
+		/// Map of module name to suffix for hot reloading from the editor
+		/// </summary>
+		public Dictionary<string, int> HotReloadModuleNameToSuffix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>
 		/// Constructor
@@ -49,6 +67,26 @@ namespace UnrealBuildTool
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
+
+			// Parse the list of hot-reload module names
+			foreach(string ModuleWithSuffix in Arguments.GetValues("-ModuleWithSuffix="))
+			{
+				int SuffixIdx = ModuleWithSuffix.LastIndexOf(',');
+				if(SuffixIdx == -1)
+				{
+					throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
+				}
+
+				string ModuleName = ModuleWithSuffix.Substring(0, SuffixIdx);
+
+				int Suffix;
+				if(!Int32.TryParse(ModuleWithSuffix.Substring(SuffixIdx + 1), out Suffix))
+				{
+					throw new BuildException("Suffix for modules must be an integer");
+				}
+
+				HotReloadModuleNameToSuffix[ModuleName] = Suffix;
+			}
 
 			// If there are any additional command line arguments
 			List<string> AdditionalArguments = new List<string>();

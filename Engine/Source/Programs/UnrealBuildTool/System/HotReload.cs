@@ -16,6 +16,7 @@ namespace UnrealBuildTool
 	/// </summary>
 	enum HotReloadMode
 	{
+		Default,
 		Disabled,
 		FromIDE,
 		FromEditor

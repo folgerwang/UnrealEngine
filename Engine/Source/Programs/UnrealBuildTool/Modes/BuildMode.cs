@@ -227,6 +227,7 @@ namespace UnrealBuildTool
 				// Execute the actions
 				if (BuildConfiguration.bXGEExport)
 				{
+					// Just export to an XML file
 					using(Timeline.ScopeEvent("XGE.ExportActions()"))
 					{
 						XGE.ExportActions(MergedActionsToExecute);
@@ -234,15 +235,13 @@ namespace UnrealBuildTool
 				}
 				else
 				{
+					// Execute the actions
 					using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
 					{
 						ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute);
 					}
-				}
 
-				// Run the deployment steps
-				if (!BuildConfiguration.bXGEExport)
-				{
+					// Run the deployment steps
 					foreach(TargetMakefile Makefile in Makefiles)
 					{
 						if (Makefile.bDeployAfterCompile)
@@ -359,42 +358,21 @@ namespace UnrealBuildTool
 			// Create the action graph
 			ActionGraph.Link(Makefile.Actions);
 
-			// Parse the list of hot-reload module names
-			Dictionary<string, int> HotReloadModuleNameToSuffix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-			foreach(string ModuleWithSuffix in TargetDescriptor.AdditionalArguments.GetValues("-ModuleWithSuffix="))
-			{
-				int SuffixIdx = ModuleWithSuffix.LastIndexOf(',');
-				if(SuffixIdx == -1)
-				{
-					throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
-				}
-
-				string ModuleName = ModuleWithSuffix.Substring(0, SuffixIdx);
-
-				int Suffix;
-				if(!Int32.TryParse(ModuleWithSuffix.Substring(SuffixIdx + 1), out Suffix))
-				{
-					throw new BuildException("Suffix for modules must be an integer");
-				}
-
-				HotReloadModuleNameToSuffix[ModuleName] = Suffix;
-			}
-
 			// Get the hot-reload mode
-			HotReloadMode HotReloadMode = HotReloadMode.Disabled;
-			if(TargetDescriptor.AdditionalArguments.Any(x => x.Equals("-ForceHotReload", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				HotReloadMode = HotReloadMode.FromIDE;
-			}
-			else if (!TargetDescriptor.AdditionalArguments.Any(x => x.Equals("-NoHotReload", StringComparison.InvariantCultureIgnoreCase)))
+			HotReloadMode HotReloadMode = TargetDescriptor.HotReloadMode;
+			if(HotReloadMode == HotReloadMode.Default)
 			{
 				if (BuildConfiguration.bAllowHotReloadFromIDE && HotReload.ShouldDoHotReloadFromIDE(BuildConfiguration, TargetDescriptor))
 				{
 					HotReloadMode = HotReloadMode.FromIDE;
 				}
-				else if (HotReloadModuleNameToSuffix.Count > 0 && TargetDescriptor.ForeignPlugin == null)
+				else if (TargetDescriptor.HotReloadModuleNameToSuffix.Count > 0 && TargetDescriptor.ForeignPlugin == null)
 				{
 					HotReloadMode = HotReloadMode.FromEditor;
+				}
+				else
+				{
+					HotReloadMode = HotReloadMode.Disabled;
 				}
 			}
 
@@ -402,11 +380,10 @@ namespace UnrealBuildTool
 			List<FileItem> TargetOutputItems = Makefile.OutputItems;
 
 			// Parse the list of modules to build
-			HashSet<string> OnlyModuleNames = new HashSet<string>(TargetDescriptor.AdditionalArguments.GetValues("-Module="));
-			if (OnlyModuleNames.Count > 0)
+			if (TargetDescriptor.OnlyModuleNames.Count > 0)
 			{
 				TargetOutputItems = new List<FileItem>();
-				foreach(string OnlyModuleName in OnlyModuleNames)
+				foreach(string OnlyModuleName in TargetDescriptor.OnlyModuleNames)
 				{
 					FileItem[] OutputItemsForModule;
 					if(!Makefile.ModuleNameToOutputItems.TryGetValue(OnlyModuleName, out OutputItemsForModule))
@@ -467,13 +444,13 @@ namespace UnrealBuildTool
 				}
 
 				// If we want a specific suffix on any modules, apply that now. We'll track the outputs later, but the suffix has to be forced  (and is always out of date if it doesn't exist).
-				if(HotReloadModuleNameToSuffix.Count > 0)
+				if(TargetDescriptor.HotReloadModuleNameToSuffix.Count > 0)
 				{
 					Dictionary<FileReference, FileReference> OldLocationToNewLocation = new Dictionary<FileReference, FileReference>();
 					foreach(string HotReloadModuleName in Makefile.HotReloadModuleNames)
 					{
 						int ModuleSuffix;
-						if(HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix))
+						if(TargetDescriptor.HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix))
 						{
 							FileItem[] ModuleOutputItems = Makefile.ModuleNameToOutputItems[HotReloadModuleName];
 							foreach(FileItem ModuleOutputItem in ModuleOutputItems)
@@ -526,7 +503,7 @@ namespace UnrealBuildTool
 				foreach(string HotReloadModuleName in Makefile.HotReloadModuleNames)
 				{
 					int ModuleSuffix;
-					if(!HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix) || ModuleSuffix == -1)
+					if(!TargetDescriptor.HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix) || ModuleSuffix == -1)
 					{
 						FileItem[] ModuleOutputItems;
 						if(Makefile.ModuleNameToOutputItems.TryGetValue(HotReloadModuleName, out ModuleOutputItems))
