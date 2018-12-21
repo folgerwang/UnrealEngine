@@ -737,7 +737,7 @@ namespace UnrealGameSync
 			List<PerforceFileRecord> FileRecords;
 			if(RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreNoSuchFilesError | CommandOptions.IgnoreFilesNotInClientViewError | CommandOptions.IgnoreProtectedNamespaceError, Log))
 			{
-				bExists = (FileRecords.Count > 0);
+				bExists = (FileRecords.Exists(x => x.Action == null || !x.Action.Contains("delete")));
 				return true;
 			}
 			else
