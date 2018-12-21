@@ -577,7 +577,7 @@ public:
 		FShadowPenumbraOutputs Outputs;
 
 		//temp workaround for compilation errors with android compiler
-#if !PLATFORM_ANDROID
+#if RHI_RAYTRACING
 		if (IsSupportedLightType(ELightComponentType(LightSceneInfo.Proxy->GetLightType())))
 		{
 			::DenoiseShadowPenumbra(
