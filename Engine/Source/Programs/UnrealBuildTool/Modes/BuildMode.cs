@@ -426,43 +426,11 @@ namespace UnrealBuildTool
 					HotReloadState = new HotReloadState();
 				}
 
-				// Update the action graph to produce these new files
-				HotReload.PatchActionGraph(PrerequisiteActions, HotReloadState.OriginalFileToHotReloadFile);
+				// Apply the old state to the makefile
+				HotReload.ApplyState(HotReloadState, Makefile);
 
-				// Update the module to output file mapping
-				foreach(string HotReloadModuleName in Makefile.HotReloadModuleNames)
-				{
-					FileItem[] ModuleOutputItems = Makefile.ModuleNameToOutputItems[HotReloadModuleName];
-					for(int Idx = 0; Idx < ModuleOutputItems.Length; Idx++)
-					{
-						FileReference NewLocation;
-						if(HotReloadState.OriginalFileToHotReloadFile.TryGetValue(ModuleOutputItems[Idx].Location, out NewLocation))
-						{
-							ModuleOutputItems[Idx] = FileItem.GetItemByFileReference(NewLocation);
-						}
-					}
-				}
-
-				// If we want a specific suffix on any modules, apply that now. We'll track the outputs later, but the suffix has to be forced  (and is always out of date if it doesn't exist).
-				if(TargetDescriptor.HotReloadModuleNameToSuffix.Count > 0)
-				{
-					Dictionary<FileReference, FileReference> OldLocationToNewLocation = new Dictionary<FileReference, FileReference>();
-					foreach(string HotReloadModuleName in Makefile.HotReloadModuleNames)
-					{
-						int ModuleSuffix;
-						if(TargetDescriptor.HotReloadModuleNameToSuffix.TryGetValue(HotReloadModuleName, out ModuleSuffix))
-						{
-							FileItem[] ModuleOutputItems = Makefile.ModuleNameToOutputItems[HotReloadModuleName];
-							foreach(FileItem ModuleOutputItem in ModuleOutputItems)
-							{
-								FileReference OldLocation = ModuleOutputItem.Location;
-								FileReference NewLocation = HotReload.ReplaceSuffix(OldLocation, ModuleSuffix);
-								OldLocationToNewLocation[OldLocation] = NewLocation;
-							}
-						}
-					}
-					HotReload.PatchActionGraph(PrerequisiteActions, OldLocationToNewLocation);
-				}
+				// If we want a specific suffix on any modules, apply that now. We'll track the outputs later, but the suffix has to be forced (and is always out of date if it doesn't exist).
+				HotReload.PatchActionGraphWithNames(PrerequisiteActions, TargetDescriptor.HotReloadModuleNameToSuffix, Makefile);
 
 				// Re-link the action graph
 				ActionGraph.Link(PrerequisiteActions);
