@@ -85,8 +85,18 @@ struct FRayTracingGeometryInstance
 
 struct FRayTracingGeometrySegment
 {
-	uint32 FirstPrimitive = 0;
-	uint32 NumPrimitives = 0;
+	FRayTracingGeometrySegment()
+		: FirstPrimitive(0)
+		, NumPrimitives(0)
+	{}
+
+	FRayTracingGeometrySegment(uint32 InFirstPrimitive, uint32 InNumPrimitives)
+		: FirstPrimitive(InFirstPrimitive)
+		, NumPrimitives(InNumPrimitives)
+	{}
+
+	uint32 FirstPrimitive;
+	uint32 NumPrimitives;
 
 	// #dxr_todo: what should be the sensible default values of these flags?
 

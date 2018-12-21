@@ -703,7 +703,7 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 				GeometrySections.Reserve(Sections.Num());
 				for (const FStaticMeshSection& Section : Sections)
 				{
-					GeometrySections.Add(FRayTracingGeometrySegment{ Section.FirstIndex / 3, Section.NumTriangles});
+					GeometrySections.Add(FRayTracingGeometrySegment( (uint32)(Section.FirstIndex / 3), (uint32)(Section.NumTriangles)));
 				}
 				Initializer.Segments = GeometrySections;
 				

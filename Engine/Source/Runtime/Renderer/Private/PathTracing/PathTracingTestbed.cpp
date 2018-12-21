@@ -542,7 +542,7 @@ void TestPDFsIntegrateToOne(void)
 			}
 
 			float IntegralRes = PdfAccum / NSamples;
-			bool bPdfOK = abs(IntegralRes - 1.0f) < ValidPdfThreshold;
+			bool bPdfOK = fabsf(IntegralRes - 1.0f) < ValidPdfThreshold;
 			if (!bPdfOK)
 			{
 				Nfails++;
@@ -701,7 +701,7 @@ void TestBRDFandPDFConsistency(void)
 
 				if (ExpectedPercent > 0)
 				{
-					uint32 diff = abs(SampledPercent - ExpectedPercent);
+					uint32 diff = fabsf(SampledPercent - ExpectedPercent);
 					float Err = (float)diff;
 					if (Err > 20.0) //#dxr_todo: adjust threshold
 					{

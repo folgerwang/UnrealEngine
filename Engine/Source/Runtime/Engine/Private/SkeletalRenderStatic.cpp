@@ -158,7 +158,7 @@ void FSkeletalMeshObjectStatic::FSkeletalMeshObjectLOD::InitResources(FSkelMeshC
 				GeometrySections.Reserve(RenderSections->Num());
 				for (const FSkelMeshRenderSection& Section : *RenderSections)
 				{
-					GeometrySections.Add(FRayTracingGeometrySegment{ Section.BaseIndex / 3, Section.NumTriangles });
+					GeometrySections.Add(FRayTracingGeometrySegment( (uint32)(Section.BaseIndex / 3), (uint32)Section.NumTriangles ));
 				}
 				Initializer.Segments = GeometrySections;
 
