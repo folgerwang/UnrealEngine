@@ -15,7 +15,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Builds a target
 	/// </summary>
-	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance)]
+	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance | ToolModeOptions.StartPrefetchingEngine)]
 	class BuildMode : ToolMode
 	{
 		/// <summary>
@@ -102,10 +102,10 @@ namespace UnrealBuildTool
 			try
 			{
 				// Parse all the target descriptors
-				List<TargetDescriptor> TargetDescriptors = new List<TargetDescriptor>();
+				List<TargetDescriptor> TargetDescriptors;
 				using(Timeline.ScopeEvent("TargetDescriptor.ParseCommandLine()"))
 				{
-					TargetDescriptors.AddRange(TargetDescriptor.ParseCommandLine(Arguments, BuildConfiguration.bUsePrecompiled, BuildConfiguration.bSkipRulesCompile));
+					TargetDescriptors = TargetDescriptor.ParseCommandLine(Arguments, BuildConfiguration.bUsePrecompiled, BuildConfiguration.bSkipRulesCompile);
 				}
 
 				// Handle remote builds
@@ -133,13 +133,15 @@ namespace UnrealBuildTool
 				// Handle local builds
 				if(TargetDescriptors.Count > 0)
 				{
-					// Get a set of all the project directories.
+					// Get a set of all the project directories
 					HashSet<DirectoryReference> ProjectDirs = new HashSet<DirectoryReference>();
 					foreach(TargetDescriptor TargetDesc in TargetDescriptors)
 					{
 						if(TargetDesc.ProjectFile != null)
 						{
-							ProjectDirs.Add(TargetDesc.ProjectFile.Directory);
+							DirectoryReference ProjectDirectory = TargetDesc.ProjectFile.Directory;
+							FileMetadataPrefetch.QueueProjectDirectory(ProjectDirectory);
+							ProjectDirs.Add(ProjectDirectory);
 						}
 					}
 

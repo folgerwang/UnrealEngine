@@ -21,24 +21,29 @@ namespace UnrealBuildTool
 		None = 0,
 
 		/// <summary>
+		/// Start prefetching metadata for the engine folder as early as possible
+		/// </summary>
+		StartPrefetchingEngine = 1,
+
+		/// <summary>
 		/// Initializes the XmlConfig system
 		/// </summary>
-		XmlConfig = 1,
+		XmlConfig = 2,
 
 		/// <summary>
 		/// Registers build platforms
 		/// </summary>
-		BuildPlatforms = 2,
+		BuildPlatforms = 4,
 
 		/// <summary>
 		/// Registers build platforms for validation
 		/// </summary>
-		BuildPlatformsForValidation = 4,
+		BuildPlatformsForValidation = 8,
 
 		/// <summary>
 		/// Only allow a single instance running in the branch at once
 		/// </summary>
-		SingleInstance = 8,
+		SingleInstance = 16,
 	}
 
 	/// <summary>

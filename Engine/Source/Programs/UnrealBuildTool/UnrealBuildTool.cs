@@ -282,7 +282,7 @@ namespace UnrealBuildTool
 			[CommandLine("-VSCode", Value="GenerateProjectFiles")]
 			[CommandLine("-VSMac", Value="GenerateProjectFiles")]
 			[CommandLine("-CLion", Value="GenerateProjectFiles")]
-			public string Mode = "Build";
+			public string Mode = null;
 
 			/// <summary>
 			/// Initialize the options with the given commnad line arguments
@@ -327,21 +327,6 @@ namespace UnrealBuildTool
 					Log.AddFileWriter("LogTraceListener", Options.LogFileName);
 				}
 
-				// Find all the valid modes
-				Dictionary<string, Type> ModeNameToType = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-				foreach(Type Type in Assembly.GetExecutingAssembly().GetTypes())
-				{
-					if(Type.IsClass && !Type.IsAbstract && Type.IsSubclassOf(typeof(ToolMode)))
-					{
-						ToolModeAttribute Attribute = Type.GetCustomAttribute<ToolModeAttribute>();
-						if(Attribute == null)
-						{
-							throw new BuildException("Class '{0}' should have a ToolModeAttribute", Type.Name);
-						}
-						ModeNameToType.Add(Attribute.Name, Type);
-					}
-				}
-
 				// Ensure we can resolve any external assemblies that are not in the same folder as our assembly.
 				AssemblyUtils.InstallAssemblyResolver(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()));
 
@@ -349,16 +334,44 @@ namespace UnrealBuildTool
 				// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
 				DirectoryReference.SetCurrentDirectory(UnrealBuildTool.EngineSourceDirectory);
 
-				// Try to get the correct mode
-				Type ModeType;
-				if(!ModeNameToType.TryGetValue(Options.Mode, out ModeType))
+				// Get the type of the mode to execute, using a fast-path for the build mode.
+				Type ModeType = typeof(BuildMode);
+				if(Options.Mode != null)
 				{
-					Log.TraceError("No mode named '{0}'. Available modes are:\n  {1}", Options.Mode, String.Join("\n  ", ModeNameToType.Keys));
-					return 1;
+					// Find all the valid modes
+					Dictionary<string, Type> ModeNameToType = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+					foreach(Type Type in Assembly.GetExecutingAssembly().GetTypes())
+					{
+						if(Type.IsClass && !Type.IsAbstract && Type.IsSubclassOf(typeof(ToolMode)))
+						{
+							ToolModeAttribute Attribute = Type.GetCustomAttribute<ToolModeAttribute>();
+							if(Attribute == null)
+							{
+								throw new BuildException("Class '{0}' should have a ToolModeAttribute", Type.Name);
+							}
+							ModeNameToType.Add(Attribute.Name, Type);
+						}
+					}
+
+					// Try to get the correct mode
+					if(!ModeNameToType.TryGetValue(Options.Mode, out ModeType))
+					{
+						Log.TraceError("No mode named '{0}'. Available modes are:\n  {1}", Options.Mode, String.Join("\n  ", ModeNameToType.Keys));
+						return 1;
+					}
 				}
 
 				// Get the options for which systems have to be initialized for this mode
 				ToolModeOptions ModeOptions = ModeType.GetCustomAttribute<ToolModeAttribute>().Options;
+
+				// Start prefetching the contents of the engine folder
+				if((ModeOptions & ToolModeOptions.StartPrefetchingEngine) != 0)
+				{
+					using(Timeline.ScopeEvent("FileMetadataPrefetch.QueueEngineDirectory()"))
+					{
+						FileMetadataPrefetch.QueueEngineDirectory();
+					}
+				}
 
 				// Read the XML configuration files
 				if((ModeOptions & ToolModeOptions.XmlConfig) != 0)
@@ -425,6 +438,12 @@ namespace UnrealBuildTool
 				if(Mutex != null)
 				{
 					Mutex.Dispose();
+				}
+
+				// Cancel the prefetcher
+				using(Timeline.ScopeEvent("FileMetadataPrefetch.Stop()"))
+				{
+					FileMetadataPrefetch.Stop();
 				}
 
 				// Print out all the performance info
