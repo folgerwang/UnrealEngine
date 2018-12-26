@@ -39,8 +39,11 @@ struct FVelocityRendering
 	/** Returns true the velocity is output in the BasePass. */
 	static bool VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatform ShaderPlatform, bool bVertexFactorySupportsStaticLighting);
 
-	/** Determines whether this primitive has motionblur velocity to render. */
-	static bool PrimitiveHasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
+	/** Returns true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA). */
+	static bool PrimitiveHasVelocity(ERHIFeatureLevel::Type FeatureLevel, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
+
+	/** Returns true if the object needs to be rendered in the velocity pass for a given view. */
+	static bool PrimitiveHasVelocityForView(const FViewInfo& View, const FBoxSphereBounds& Bounds, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
 };
 
 

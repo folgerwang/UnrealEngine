@@ -276,6 +276,9 @@ namespace
 			}
 			
 			MaterialRelevance.SetPrimitiveViewRelevance(Result);
+
+			Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
+
 			return Result;
 		}
 		virtual bool CanBeOccluded() const override { return !MaterialRelevance.bDisableDepthTest; }

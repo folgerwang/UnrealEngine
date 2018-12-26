@@ -207,6 +207,7 @@ public:
 		, LODIndex(StaticMesh.LODIndex)
 		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
 		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
+		, bSelectable(StaticMesh.bSelectable)
 		, CastShadow(StaticMesh.CastShadow)
 		, bUseForMaterial(StaticMesh.bUseForMaterial)
 		, bUseForDepthPass(StaticMesh.bUseForDepthPass)
@@ -229,6 +230,9 @@ public:
 
 	/** Whether the mesh batch needs VertexFactory->GetStaticBatchElementVisibility to be called each frame to determine which elements of the batch are visible. */
 	uint32 bRequiresPerElementVisibility : 1;
+
+	/** Whether the mesh batch can be selected through editor selection, aka hit proxies. */
+	uint32 bSelectable : 1;
 
 	uint32 CastShadow		: 1; // Whether it can be used in shadow renderpasses.
 	uint32 bUseForMaterial	: 1; // Whether it can be used in renderpasses requiring material outputs.

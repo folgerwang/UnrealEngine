@@ -681,60 +681,6 @@ uint32 FPrimitiveSceneInfo::GetMemoryFootprint()
 	return( sizeof( *this ) + HitProxies.GetAllocatedSize() + StaticMeshes.GetAllocatedSize() + StaticMeshRelevances.GetAllocatedSize() );
 }
 
-bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility) const
-{
-	int32 PrimitiveId = GetIndex();
-	if (bCheckVisibility)
-	{
-		const bool bVisible = View.PrimitiveVisibilityMap[PrimitiveId];
-
-		// Only render if visible.
-		if (!bVisible)
-		{
-			return false;
-		}
-	}
-
-	const FPrimitiveViewRelevance& PrimitiveViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
-
-	if (!Proxy->IsMovable())
-	{
-		return false;
-	}
-
-	// !Skip translucent objects as they don't support velocities and in the case of particles have a significant CPU overhead.
-	if (!PrimitiveViewRelevance.bOpaqueRelevance || !PrimitiveViewRelevance.bRenderInMainPass)
-	{
-		return false;
-	}
-
-	const float LODFactorDistanceSquared = (Proxy->GetBounds().Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared() * FMath::Square(View.LODDistanceFactor);
-
-	// The minimum projected screen radius for a primitive to be drawn in the velocity pass, as a fraction of half the horizontal screen width (likely to be 0.08f)
-	float MinScreenRadiusForVelocityPass = View.FinalPostProcessSettings.MotionBlurPerObjectSize * (2.0f / 100.0f);
-	float MinScreenRadiusForVelocityPassSquared = FMath::Square(MinScreenRadiusForVelocityPass);
-
-	// Skip primitives that only cover a small amount of screenspace, motion blur on them won't be noticeable.
-	if (FMath::Square(Proxy->GetBounds().SphereRadius) <= MinScreenRadiusForVelocityPassSquared * LODFactorDistanceSquared)
-	{
-		return false;
-	}
-
-	// Only render primitives with velocity.
-	if (!FVelocityRendering::PrimitiveHasVelocity(View, this))
-	{
-		return false;
-	}
-
-	// If the base pass is allowed to render velocity in the GBuffer, only mesh with static lighting need the velocity pass.
-	if (FVelocityRendering::BasePassCanOutputVelocity(Scene->GetFeatureLevel()) && !(UseSelectiveBasePassOutputs() && Proxy->HasStaticLighting()))
-	{
-		return false;
-	}
-
-	return true;
-}
-
 void FPrimitiveSceneInfo::ApplyWorldOffset(FVector InOffset)
 {
 	Proxy->ApplyWorldOffset(InOffset);

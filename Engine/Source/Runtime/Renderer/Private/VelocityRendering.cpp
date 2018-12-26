@@ -567,13 +567,41 @@ bool FVelocityRendering::VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatf
 	return BasePassCanOutputVelocity(ShaderPlatform) && !(UseSelectiveBasePassOutputs() && bVertexFactorySupportsStaticLighting);;
 }
 
-bool FVelocityRendering::PrimitiveHasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
+bool FVelocityRendering::PrimitiveHasVelocity(ERHIFeatureLevel::Type FeatureLevel, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
-	checkSlow(IsInParallelRenderingThread());
-	check(PrimitiveSceneInfo->Proxy);
+	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case).
+	if (!GPixelFormats[PF_G16R16].Supported || !PrimitiveSceneInfo->Proxy->IsMovable())
+	{
+		return false;
+	}
 
-	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case)
-	if (View.bCameraCut || !PrimitiveSceneInfo->Proxy->IsMovable())
+	// If the base pass is allowed to render velocity in the GBuffer, only mesh with static lighting need the velocity pass.
+	const bool bVelocityInGBuffer = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel) 
+		&& !(UseSelectiveBasePassOutputs() && (PrimitiveSceneInfo->Proxy->HasStaticLighting()));
+
+	if (bVelocityInGBuffer)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool FVelocityRendering::PrimitiveHasVelocityForView(const FViewInfo& View, const FBoxSphereBounds& Bounds, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
+{
+	if (View.bCameraCut)
+	{
+		return false;
+	}
+
+	const float LODFactorDistanceSquared = (Bounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared() * FMath::Square(View.LODDistanceFactor);
+
+	// The minimum projected screen radius for a primitive to be drawn in the velocity pass, as a fraction of half the horizontal screen width (likely to be 0.08f)
+	float MinScreenRadiusForVelocityPass = View.FinalPostProcessSettings.MotionBlurPerObjectSize * (2.0f / 100.0f);
+	float MinScreenRadiusForVelocityPassSquared = FMath::Square(MinScreenRadiusForVelocityPass);
+
+	// Skip primitives that only cover a small amount of screenspace, motion blur on them won't be noticeable.
+	if (FMath::Square(Bounds.SphereRadius) <= MinScreenRadiusForVelocityPassSquared * LODFactorDistanceSquared)
 	{
 		return false;
 	}
@@ -604,26 +632,19 @@ bool FVelocityRendering::PrimitiveHasVelocity(const FViewInfo& View, const FPrim
 
 void FVelocityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
-	// Velocity only needs to be directly rendered for movable meshes
 	bool bRequiresSeparateVelocity = false;
-	if (PrimitiveSceneProxy)
-	{
-		// When selective outputs are enable, only primitive with no static lighting output velocity in GBuffer.
-		const bool bVelocityInGBuffer = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel) && (!UseSelectiveBasePassOutputs() || !(PrimitiveSceneProxy->HasStaticLighting()));
 
-		bRequiresSeparateVelocity = GPixelFormats[PF_G16R16].Supported && PrimitiveSceneProxy->IsMovable() && !bVelocityInGBuffer;		
+	if (FVelocityRendering::PrimitiveHasVelocity(FeatureLevel, PrimitiveSceneProxy->GetPrimitiveSceneInfo()))
+	{
+		bRequiresSeparateVelocity = true;
 
 		// Cached mesh commands have identical check inside MarkRelevant.
-		if (bRequiresSeparateVelocity && ViewIfDynamicMeshCommand)
+		if (ViewIfDynamicMeshCommand)
 		{
 			checkSlow(ViewIfDynamicMeshCommand->bIsViewInfo);
-
 			FViewInfo* ViewInfo = (FViewInfo*)ViewIfDynamicMeshCommand;
 
-			if (!PrimitiveSceneProxy->GetPrimitiveSceneInfo()->ShouldRenderVelocity(*ViewInfo, false))
-			{
-				bRequiresSeparateVelocity = false;
-			}
+			bRequiresSeparateVelocity = FVelocityRendering::PrimitiveHasVelocityForView(*ViewInfo, PrimitiveSceneProxy->GetBounds(), PrimitiveSceneProxy->GetPrimitiveSceneInfo());
 		}
 	}
 
