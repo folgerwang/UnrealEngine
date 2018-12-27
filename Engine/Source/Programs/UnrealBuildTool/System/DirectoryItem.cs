@@ -185,6 +185,29 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Attempts to get a sub-directory by name
+		/// </summary>
+		/// <param name="Name">Name of the directory</param>
+		/// <param name="OutDirectory">If successful receives the matching directory item with this name</param>
+		/// <returns>True if the file exists, false otherwise</returns>
+		public bool TryGetDirectory(string Name, out DirectoryItem OutDirectory)
+		{
+			CacheFiles();
+
+			foreach(DirectoryItem Directory in Directories)
+			{
+				if(String.Equals(Directory.Name, Name, DirectoryReference.Comparison))
+				{
+					OutDirectory = Directory;
+					return true;
+				}
+			}
+
+			OutDirectory = null;
+			return false;
+		}
+
+		/// <summary>
 		/// Caches the files in this directory
 		/// </summary>
 		public void CacheFiles()
@@ -211,6 +234,30 @@ namespace UnrealBuildTool
 		{
 			CacheFiles();
 			return Files;
+		}
+
+		/// <summary>
+		/// Attempts to get a file from this directory by name. Unlike creating a file item and checking whether it exists, this does not
+		/// cause any I/O to check whether it exists, nor does it create a permanent FileItem object.
+		/// </summary>
+		/// <param name="Name">Name of the file</param>
+		/// <param name="OutFile">If successful receives the matching file item with this name</param>
+		/// <returns>True if the file exists, false otherwise</returns>
+		public bool TryGetFile(string Name, out FileItem OutFile)
+		{
+			CacheFiles();
+
+			foreach(FileItem File in Files)
+			{
+				if(String.Equals(File.Name, Name, FileReference.Comparison))
+				{
+					OutFile = File;
+					return true;
+				}
+			}
+
+			OutFile = null;
+			return false;
 		}
 
 		/// <summary>
