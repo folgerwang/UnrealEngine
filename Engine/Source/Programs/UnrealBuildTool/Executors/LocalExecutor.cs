@@ -37,24 +37,6 @@ namespace UnrealBuildTool
 		int TotalJobs;
 
 		/// <summary>
-		/// Regex that matches environment variables in $(Variable) format.
-		/// </summary>
-		static Regex EnvironmentVariableRegex = new Regex("\\$\\(([\\d\\w]+)\\)");
-
-		/// <summary>
-		/// Replaces the environment variables references in a string with their values.
-		/// </summary>
-		public static string ExpandEnvironmentVariables(string Text)
-		{
-			foreach (Match EnvironmentVariableMatch in EnvironmentVariableRegex.Matches(Text))
-			{
-				string VariableValue = Environment.GetEnvironmentVariable(EnvironmentVariableMatch.Groups[1].Value);
-				Text = Text.Replace(EnvironmentVariableMatch.Value, VariableValue);
-			}
-			return Text;
-		}
-
-		/// <summary>
 		/// Constructor, takes the action to process
 		/// </summary>
 		public ActionThread(Action InAction, int InJobNumber, int InTotalJobs)
@@ -92,23 +74,20 @@ namespace UnrealBuildTool
 			// Create the action's process.
 			ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
 			ActionStartInfo.WorkingDirectory = Action.WorkingDirectory.FullName;
-
-			string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath.FullName);
-			ActionStartInfo.FileName = ExpandedCommandPath;
-			ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
-
+			ActionStartInfo.FileName = Action.CommandPath.FullName;
+			ActionStartInfo.Arguments = Action.CommandArguments;
 			ActionStartInfo.UseShellExecute = false;
 			ActionStartInfo.RedirectStandardInput = false;
 			ActionStartInfo.RedirectStandardOutput = false;
 			ActionStartInfo.RedirectStandardError = false;
 
 			// Log command-line used to execute task if debug info printing is enabled.
-			Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
+			Log.TraceVerbose("Executing: {0} {1}", ActionStartInfo.FileName, ActionStartInfo.Arguments);
 
 			// Log summary if wanted.
 			if (Action.bShouldOutputStatusDescription)
 			{
-				string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ExpandedCommandPath);
+				string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ActionStartInfo.FileName);
 				if (string.IsNullOrEmpty(CommandDescription))
 				{
 					Log.TraceInformation(Action.StatusDescription);

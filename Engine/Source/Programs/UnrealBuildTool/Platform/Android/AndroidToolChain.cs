@@ -1433,7 +1433,7 @@ namespace UnrealBuildTool
 							AllArguments = AllArguments.Replace("-fvisibility=hidden -fvisibility-inlines-hidden", "");
 						}
 
-						AllArguments = ActionThread.ExpandEnvironmentVariables(AllArguments);
+						AllArguments = Utils.ExpandVariables(AllArguments);
 						AllArguments = AllArguments.Replace("\\", "/");
 
 						// Remove shadow warning for this file if requested
@@ -1622,7 +1622,7 @@ namespace UnrealBuildTool
 						foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 						{
 							// LinkerPaths could be relative or absolute
-							string AbsoluteLibraryPath = ActionThread.ExpandEnvironmentVariables(LibraryPath.FullName);
+							string AbsoluteLibraryPath = Utils.ExpandVariables(LibraryPath.FullName);
 							if (IsDirectoryForArch(AbsoluteLibraryPath, Arch))
 							{
 								// environment variables aren't expanded when using the $( style

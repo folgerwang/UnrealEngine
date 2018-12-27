@@ -236,7 +236,7 @@ namespace UnrealBuildTool
 						{
 							// Add to script for execution by SN-DBS
 							string NewCommandArguments = "\"" + Action.CommandPath + "\"" + " " + Action.CommandArguments;
-							ScriptFile.WriteLine(ActionThread.ExpandEnvironmentVariables(NewCommandArguments));
+							ScriptFile.WriteLine(NewCommandArguments);
 							InActionThreadDictionary.Add(Action, DummyActionThread);
 							Action.StartTime = Action.EndTime = DateTimeOffset.Now;
 							Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, InActions.Count, Action.CommandDescription, Action.StatusDescription);

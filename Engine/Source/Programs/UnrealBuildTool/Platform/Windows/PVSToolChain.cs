@@ -188,7 +188,7 @@ namespace UnrealBuildTool
 
 		static string GetFullIncludePath(string IncludePath)
 		{
-			return Path.GetFullPath(ActionThread.ExpandEnvironmentVariables(IncludePath));
+			return Path.GetFullPath(Utils.ExpandVariables(IncludePath));
 		}
 
 		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
