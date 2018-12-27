@@ -63,6 +63,7 @@
     <Compile Include="CommandLineArguments.cs" />
     <Compile Include="CommandLineAttribute.cs" />
     <Compile Include="CsProjectInfo.cs" />
+    <Compile Include="ContentHash.cs" />
     <Compile Include="DirectoryReference.cs" />
     <Compile Include="ExceptionUtils.cs" />
     <Compile Include="FastJSON\Formatter.cs" />
