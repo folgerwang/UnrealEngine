@@ -1455,13 +1455,13 @@ namespace UnrealBuildTool
 						if(bExecuteCompilerThroughShell)
 						{
 							CompileAction.CommandPath = BuildHostPlatform.Current.Shell;
-							if (BuildHostPlatform.Current.ShellType == ShellType.Sh)
+							if (BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 							{
-								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", Utils.MakePathSafeToUseWithCommandLine(ClangPath), ResponseArgument);
 							}
 							else
 							{
-								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", ClangPath, ResponseArgument);
+								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", Utils.MakePathSafeToUseWithCommandLine(ClangPath), ResponseArgument);
 							}
 							CompileAction.CommandDescription = "Compile";
 						}
