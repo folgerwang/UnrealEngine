@@ -3553,9 +3553,9 @@ namespace UnrealBuildTool
 
 					// Use ant to build the .apk file
 					string AntOptions = AntBuildType + " -Djava.source=1.7 -Djava.target=1.7";
-					string ShellExecutable = Utils.IsRunningOnMono ? "/bin/sh" : "cmd.exe";
-					string ShellParametersBegin = Utils.IsRunningOnMono ? "-c '" : "/c ";
-					string ShellParametersEnd = Utils.IsRunningOnMono ? "'" : "";
+					string ShellExecutable = BuildHostPlatform.Current.Shell;
+					string ShellParametersBegin = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "-c '" : "/c ";
+					string ShellParametersEnd = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "'" : "";
 					switch (AntVerbosity.ToLower())
 					{
 						default:
@@ -3907,9 +3907,9 @@ namespace UnrealBuildTool
 						Directory.CreateDirectory(Path.GetDirectoryName(DestApkName));
 
 						// Use gradle to build the .apk file
-						string ShellExecutable = Utils.IsRunningOnMono ? "/bin/sh" : "cmd.exe";
-						string ShellParametersBegin = Utils.IsRunningOnMono ? "-c '" : "/c ";
-						string ShellParametersEnd = Utils.IsRunningOnMono ? "'" : "";
+						string ShellExecutable = BuildHostPlatform.Current.Shell;
+						string ShellParametersBegin = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "-c '" : "/c ";
+						string ShellParametersEnd = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "'" : "";
 						RunCommandLineProgramWithExceptionAndFiltering(UE4BuildGradlePath, ShellExecutable, ShellParametersBegin + "\"" + GradleScriptPath + "\" " + GradleOptions + ShellParametersEnd, "Making .apk with Gradle...");
 
 						// For build machine run a clean afterward to clean up intermediate files (does not remove final APK)

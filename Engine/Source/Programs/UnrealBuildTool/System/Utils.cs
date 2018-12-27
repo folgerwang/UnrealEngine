@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -1057,14 +1057,14 @@ namespace UnrealBuildTool
 			foreach(FileReference ScriptFile in ScriptFiles)
 			{
 				ProcessStartInfo StartInfo = new ProcessStartInfo();
-				if(HostPlatform == UnrealTargetPlatform.Win64)
+				StartInfo.FileName = BuildHostPlatform.Current.Shell;
+
+				if(BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 				{
-					StartInfo.FileName = "cmd.exe";
 					StartInfo.Arguments = String.Format("/C \"{0}\"", ScriptFile.FullName);
 				}
 				else
 				{
-					StartInfo.FileName = "/bin/sh";
 					StartInfo.Arguments = String.Format("\"{0}\"", ScriptFile.FullName);
 				}
 

@@ -1454,17 +1454,16 @@ namespace UnrealBuildTool
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 						if(bExecuteCompilerThroughShell)
 						{
-							if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+							CompileAction.CommandPath = BuildHostPlatform.Current.Shell;
+							if (BuildHostPlatform.Current.ShellType == ShellType.Sh)
 							{
-								CompileAction.CommandPath = "cmd.exe";
 								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
 							}
 							else
 							{
-								CompileAction.CommandPath = "/bin/sh";
 								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", ClangPath, ResponseArgument);
-								CompileAction.CommandDescription = "Compile";
 							}
+							CompileAction.CommandDescription = "Compile";
 						}
 						else
 						{
@@ -1688,17 +1687,16 @@ namespace UnrealBuildTool
 
 					if(bExecuteCompilerThroughShell)
 					{
-						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
+						if (BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 						{
 							LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
-							LinkAction.CommandPath = "cmd.exe";
 						}
 						else
 						{
 							LinkAction.CommandArguments = String.Format("-c \'{0} {1}\'", LinkAction.CommandPath, LinkAction.CommandArguments);
-							LinkAction.CommandPath = "/bin/sh";
-							LinkAction.CommandDescription = "Link";
 						}
+						LinkAction.CommandDescription = "Link";
 					}
 					Actions.Add(LinkAction);
 

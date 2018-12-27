@@ -1286,15 +1286,14 @@ namespace UnrealBuildTool
 			// Create an archive action
 			Action ArchiveAction = new Action(ActionType.Link);
 			ArchiveAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-			bool bUsingSh = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64 && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win32;
-			if (bUsingSh)
+			ArchiveAction.CommandPath = BuildHostPlatform.Current.Shell;
+
+			if (BuildHostPlatform.Current.ShellType == ShellType.Sh)
 			{
-				ArchiveAction.CommandPath = "/bin/sh";
 				ArchiveAction.CommandArguments = "-c '";
 			}
 			else
 			{
-				ArchiveAction.CommandPath = "cmd.exe";
 				ArchiveAction.CommandArguments = "/c \"";
 			}
 
@@ -1336,7 +1335,7 @@ namespace UnrealBuildTool
 			ArchiveAction.CommandArguments += LinkEnvironment.AdditionalArguments;
 			ArchiveAction.CommandArguments = ArchiveAction.CommandArguments.Replace("\\", "/");
 
-			if (bUsingSh)
+			if (BuildHostPlatform.Current.ShellType == ShellType.Sh)
 			{
 				ArchiveAction.CommandArguments += "'";
 			}
@@ -1363,8 +1362,8 @@ namespace UnrealBuildTool
 
 				Log.TraceVerbose("Adding postlink step");
 
-				bool bUseCmdExe = BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32;
-				string ShellBinary = bUseCmdExe ? "cmd.exe" : "/bin/sh";
+				bool bUseCmdExe = BuildHostPlatform.Current.ShellType == ShellType.Cmd;
+				string ShellBinary = BuildHostPlatform.Current.Shell;
 				string ExecuteSwitch = bUseCmdExe ? " /C" : ""; // avoid -c so scripts don't need +x
 				string ScriptName = bUseCmdExe ? "FixDependencies.bat" : "FixDependencies.sh";
 

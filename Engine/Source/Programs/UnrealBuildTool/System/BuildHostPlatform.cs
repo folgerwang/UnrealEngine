@@ -12,6 +12,22 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
+	/// The type of shell supported by this platform. Used to configure command line arguments.
+	/// </summary>
+	public enum ShellType
+	{
+		/// <summary>
+		/// The Bourne shell
+		/// </summary>
+		Sh,
+
+		/// <summary>
+		/// Windows command interpreter
+		/// </summary>
+		Cmd,
+	}
+
+	/// <summary>
 	/// Host platform abstraction
 	/// </summary>
 	public abstract class BuildHostPlatform
@@ -68,6 +84,16 @@ namespace UnrealBuildTool
 		/// Gets the current host platform type.
 		/// </summary>
 		abstract public UnrealTargetPlatform Platform { get; }
+
+		/// <summary>
+		/// Gets the path to the shell for this platform
+		/// </summary>
+		abstract public string Shell { get; }
+
+		/// <summary>
+		/// The type of shell returned by the Shell parameter
+		/// </summary>
+		abstract public ShellType ShellType { get; }
 
 		/// <summary>
 		/// Class that holds information about a running process
@@ -220,6 +246,16 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Win64; }
 		}
 
+		public override string Shell
+		{
+			get { return Environment.GetEnvironmentVariable("COMSPEC"); }
+		}
+
+		public override ShellType ShellType
+		{
+			get { return ShellType.Cmd; }
+		}
+			
 		internal override IEnumerable<ProjectFileFormat> GetDefaultProjectFileFormats()
 		{
 			yield return ProjectFileFormat.VisualStudio;
@@ -231,6 +267,16 @@ namespace UnrealBuildTool
 		public override UnrealTargetPlatform Platform
 		{
 			get { return UnrealTargetPlatform.Mac; }
+		}
+
+		public override string Shell
+		{
+			get { return "/bin/sh"; }
+		}
+
+		public override ShellType ShellType
+		{
+			get { return ShellType.Sh; }
 		}
 
 		/// <summary>
@@ -345,6 +391,16 @@ namespace UnrealBuildTool
 		public override UnrealTargetPlatform Platform
 		{
 			get { return UnrealTargetPlatform.Linux; }
+		}
+
+		public override string Shell
+		{
+			get { return "/bin/sh"; }
+		}
+
+		public override ShellType ShellType
+		{
+			get { return ShellType.Sh; }
 		}
 
 		/// <summary>

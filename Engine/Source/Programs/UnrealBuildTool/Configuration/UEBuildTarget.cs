@@ -1432,14 +1432,13 @@ namespace UnrealBuildTool
 					FileReference OutputFile = new FileReference(PostBuildScript.FullName + ".ran");
 
 					Action PostBuildStepAction = new Action(ActionType.PostBuildStep);
-					if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+					PostBuildStepAction.CommandPath = BuildHostPlatform.Current.Shell;
+					if(BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 					{
-						PostBuildStepAction.CommandPath = "cmd.exe";
 						PostBuildStepAction.CommandArguments = String.Format("/C \"call \"{0}\" && type NUL >\"{1}\"\"", PostBuildScript, OutputFile);
 					}
 					else
 					{
-						PostBuildStepAction.CommandPath = "/bin/sh";
 						PostBuildStepAction.CommandArguments = String.Format("\"{0}\" && touch \"{1}\"", PostBuildScript, OutputFile);
 					}
 					PostBuildStepAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -1521,14 +1520,13 @@ namespace UnrealBuildTool
 
 			Action CopyAction = new Action(ActionType.BuildProject);
 			CopyAction.CommandDescription = "Copy";
-			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			CopyAction.CommandPath = BuildHostPlatform.Current.Shell;
+			if(BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 			{
-				CopyAction.CommandPath = "cmd.exe";
 				CopyAction.CommandArguments = String.Format("/C \"copy /Y \"{0}\" \"{1}\" 1>nul\"", SourceFile, TargetFile);
 			}
 			else
 			{
-				CopyAction.CommandPath = "/bin/sh";
 				CopyAction.CommandArguments = String.Format("-c 'cp -f {0} {1}'", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
 			}
 			CopyAction.WorkingDirectory = Environment.CurrentDirectory;

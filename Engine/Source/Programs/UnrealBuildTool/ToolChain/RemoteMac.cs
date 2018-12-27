@@ -209,7 +209,7 @@ namespace UnrealBuildTool
 				CommandLine.AppendFormat(" \"{0}\"", UnrealBuildTool.EngineDirectory);
 				CommandLine.Append("\"");
 
-				using(Process ChildProcess = Process.Start("C:\\Windows\\System32\\Cmd.exe", CommandLine.ToString()))
+				using(Process ChildProcess = Process.Start(BuildHostPlatform.Current.Shell, CommandLine.ToString()))
 				{
 					ChildProcess.WaitForExit();
 				}
