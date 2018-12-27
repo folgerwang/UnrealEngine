@@ -1687,7 +1687,6 @@ namespace UnrealBuildTool
 
 					if(bExecuteCompilerThroughShell)
 					{
-						LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
 						if (BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 						{
 							LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
@@ -1696,6 +1695,7 @@ namespace UnrealBuildTool
 						{
 							LinkAction.CommandArguments = String.Format("-c \'{0} {1}\'", LinkAction.CommandPath, LinkAction.CommandArguments);
 						}
+						LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
 						LinkAction.CommandDescription = "Link";
 					}
 					Actions.Add(LinkAction);
