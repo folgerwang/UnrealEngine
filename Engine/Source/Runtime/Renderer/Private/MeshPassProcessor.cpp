@@ -945,12 +945,16 @@ void SubmitMeshDrawCommandsForView(
 	FParallelCommandListSet* ParallelCommandListSet,
 	FRHICommandList& RHICmdList)
 {
-	FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel()) ? View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexBuffer->VertexBufferRHI : nullptr;
-	const int32 BasePrimitiveIdsOffset = View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexOffset;
-	const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
 	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands = View.VisibleMeshDrawCommands[PassType];
 
-	SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, ParallelCommandListSet, RHICmdList);
+	if (VisibleMeshDrawCommands.Num() > 0)
+	{
+		FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel()) ? View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexBuffer->VertexBufferRHI : nullptr;
+		const int32 BasePrimitiveIdsOffset = View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexOffset;
+		const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
+
+		SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, ParallelCommandListSet, RHICmdList);
+	}
 }
 
 FMeshPassProcessor::FMeshPassProcessor(const FScene* InScene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext) 

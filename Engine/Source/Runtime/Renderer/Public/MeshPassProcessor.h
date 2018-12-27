@@ -477,7 +477,6 @@ public:
 	}
 
 	// Mesh Draw Command stored separately to avoid fetching its data during sorting
- 
 	const FMeshDrawCommand* MeshDrawCommand;
 
 	// Sort key for non state based sorting (e.g. sort translucent draws by depth).
