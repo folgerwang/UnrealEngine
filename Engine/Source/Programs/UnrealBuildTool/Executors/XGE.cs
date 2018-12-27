@@ -344,33 +344,8 @@ namespace UnrealBuildTool
 					ToolElement.SetAttribute("GroupPrefix", String.Format("** For {0}", String.Join(" + ", Action.GroupNames)));
 				}
 
-				// When running on Windows, differentiate between .exe and batch files.
-				// Those (.bat, .cmd) need to be run via cmd /c or shellexecute, 
-				// the latter which we can't use because we want to redirect input/output
-
-				bool bLaunchViaCmdExe = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) && (!Path.GetExtension(Action.CommandPath).ToLower().EndsWith(".exe"));
-
-				string CommandPath = "";
-				string CommandArguments = "";
-
-				if (bLaunchViaCmdExe)
-				{
-					CommandPath = "cmd.exe";
-					CommandArguments = string.Format
-					(
-						"/c \"\"{0}\" {1}\"",
-						(Action.CommandPath),
-						(Action.CommandArguments)
-					);
-				}
-				else
-				{
-					CommandPath = Action.CommandPath;
-					CommandArguments = Action.CommandArguments;
-				}
-
-				ToolElement.SetAttribute("Params", CommandArguments);
-				ToolElement.SetAttribute("Path", CommandPath);
+				ToolElement.SetAttribute("Params", Action.CommandArguments);
+				ToolElement.SetAttribute("Path", Action.CommandPath);
 				ToolElement.SetAttribute("SkipIfProjectFailed", "true");
 				if (Action.bIsGCCCompiler)
 				{

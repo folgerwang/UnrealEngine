@@ -89,31 +89,13 @@ namespace UnrealBuildTool
 			// thread start time
 			Action.StartTime = DateTimeOffset.Now;
 
-			// batch files (.bat, .cmd) need to be run via or cmd /c or shellexecute, 
-			// the latter which we can't use because we want to redirect input/output
-			bool bLaunchViaCmdExe = !Utils.IsRunningOnMono && !Path.GetExtension(Action.CommandPath).ToLower().EndsWith("exe");
-
 			// Create the action's process.
 			ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
 			ActionStartInfo.WorkingDirectory = ExpandEnvironmentVariables(Action.WorkingDirectory);
 
-
 			string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath);
-			if (bLaunchViaCmdExe)
-			{
-				ActionStartInfo.FileName = "cmd.exe";
-				ActionStartInfo.Arguments = string.Format
-				(
-					"/c \"{0} {1}\"",
-					ExpandEnvironmentVariables(ExpandedCommandPath),
-					ExpandEnvironmentVariables(Action.CommandArguments)
-				);
-			}
-			else
-			{
-				ActionStartInfo.FileName = ExpandedCommandPath;
-				ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
-			}
+			ActionStartInfo.FileName = ExpandedCommandPath;
+			ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
 
 			ActionStartInfo.UseShellExecute = false;
 			ActionStartInfo.RedirectStandardInput = false;
