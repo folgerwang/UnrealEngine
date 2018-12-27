@@ -3553,7 +3553,7 @@ namespace UnrealBuildTool
 
 					// Use ant to build the .apk file
 					string AntOptions = AntBuildType + " -Djava.source=1.7 -Djava.target=1.7";
-					string ShellExecutable = BuildHostPlatform.Current.Shell;
+					string ShellExecutable = BuildHostPlatform.Current.Shell.FullName;
 					string ShellParametersBegin = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "-c '" : "/c ";
 					string ShellParametersEnd = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "'" : "";
 					switch (AntVerbosity.ToLower())
@@ -3907,7 +3907,7 @@ namespace UnrealBuildTool
 						Directory.CreateDirectory(Path.GetDirectoryName(DestApkName));
 
 						// Use gradle to build the .apk file
-						string ShellExecutable = BuildHostPlatform.Current.Shell;
+						string ShellExecutable = BuildHostPlatform.Current.Shell.FullName;
 						string ShellParametersBegin = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "-c '" : "/c ";
 						string ShellParametersEnd = (BuildHostPlatform.Current.ShellType == ShellType.Sh) ? "'" : "";
 						RunCommandLineProgramWithExceptionAndFiltering(UE4BuildGradlePath, ShellExecutable, ShellParametersBegin + "\"" + GradleScriptPath + "\" " + GradleOptions + ShellParametersEnd, "Making .apk with Gradle...");

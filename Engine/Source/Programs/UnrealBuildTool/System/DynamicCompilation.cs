@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 			// recently than the dynamically-compiled assembly, then we'll always recompile it.  This is
 			// because Unreal Build Tool's code may have changed in such a way that invalidate these
 			// previously-compiled assembly files.
-			FileItem ExecutableItem = FileItem.GetItemByPath(UnrealBuildTool.GetUBTPath());
+			FileItem ExecutableItem = FileItem.GetItemByFileReference(UnrealBuildTool.GetUBTPath());
 			if (ExecutableItem.LastWriteTimeUtc > OutputAssemblyInfo.LastWriteTimeUtc)
 			{
 				Log.TraceLog("Compiling {0}: {1} is newer", OutputAssemblyPath, ExecutableItem.Name);

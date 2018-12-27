@@ -1238,14 +1238,14 @@ namespace UnrealBuildTool
 					CompileAction.ProducedItems.Add(DependencyListFile);
 				}
 
-				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				if (!UsingClang())
 				{
-					CompileAction.CommandPath = GCCPath;
+					CompileAction.CommandPath = new FileReference(GCCPath);
 				}
 				else
 				{
-					CompileAction.CommandPath = ClangPath;
+					CompileAction.CommandPath = new FileReference(ClangPath);
 				}
 
 				string AllArguments = (Arguments + FileArguments + CompileEnvironment.AdditionalArguments);
@@ -1285,7 +1285,7 @@ namespace UnrealBuildTool
 		{
 			// Create an archive action
 			Action ArchiveAction = new Action(ActionType.Link);
-			ArchiveAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+			ArchiveAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 			ArchiveAction.CommandPath = BuildHostPlatform.Current.Shell;
 
 			if (BuildHostPlatform.Current.ShellType == ShellType.Sh)
@@ -1363,14 +1363,14 @@ namespace UnrealBuildTool
 				Log.TraceVerbose("Adding postlink step");
 
 				bool bUseCmdExe = BuildHostPlatform.Current.ShellType == ShellType.Cmd;
-				string ShellBinary = BuildHostPlatform.Current.Shell;
+				FileReference ShellBinary = BuildHostPlatform.Current.Shell;
 				string ExecuteSwitch = bUseCmdExe ? " /C" : ""; // avoid -c so scripts don't need +x
 				string ScriptName = bUseCmdExe ? "FixDependencies.bat" : "FixDependencies.sh";
 
 				FileItem FixDepsScript = FileItem.GetItemByFileReference(FileReference.Combine(LinkEnvironment.LocalShadowDirectory, ScriptName));
 
 				Action PostLinkAction = new Action(ActionType.Link);
-				PostLinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				PostLinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				PostLinkAction.CommandPath = ShellBinary;
 				PostLinkAction.StatusDescription = string.Format("{0}", Path.GetFileName(Executable.AbsolutePath));
 				PostLinkAction.CommandDescription = "FixDeps";
@@ -1434,7 +1434,7 @@ namespace UnrealBuildTool
 
 			// Create an action that invokes the linker.
 			Action LinkAction = new Action(ActionType.Link);
-			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 
 			string LinkCommandString;
 			if (String.IsNullOrEmpty(ClangPath))
@@ -1654,8 +1654,8 @@ namespace UnrealBuildTool
 			LinkCommandString = LinkCommandString.Replace("\\\\", "/");
 			LinkCommandString = LinkCommandString.Replace("\\", "/");
 
-			bool bUseCmdExe = BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32;
-			string ShellBinary = bUseCmdExe ? "cmd.exe" : "/bin/sh";
+			bool bUseCmdExe = BuildHostPlatform.Current.ShellType == ShellType.Cmd;
+			FileReference ShellBinary = BuildHostPlatform.Current.Shell;
 			string ExecuteSwitch = bUseCmdExe ? " /C" : ""; // avoid -c so scripts don't need +x
 
 			// Linux has issues with scripts and parameter expansion from curely brakets

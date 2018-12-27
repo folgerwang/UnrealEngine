@@ -245,8 +245,8 @@ namespace UnrealBuildTool
 				FileItem PreprocessedFileItem = FileItem.GetItemByFileReference(PreprocessedFileLocation);
 
 				Action PreprocessAction = new Action(ActionType.Compile);
-				PreprocessAction.CommandPath = EnvVars.CompilerPath.FullName;
-				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				PreprocessAction.CommandPath = EnvVars.CompilerPath;
+				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				PreprocessAction.CommandArguments = " @\"" + ResponseFileItem.AbsolutePath + "\"";
 				PreprocessAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 				PreprocessAction.PrerequisiteItems.Add(SourceFile);
@@ -305,8 +305,8 @@ namespace UnrealBuildTool
 				Action AnalyzeAction = new Action(ActionType.Compile);
 				AnalyzeAction.CommandDescription = "Analyzing";
 				AnalyzeAction.StatusDescription = BaseFileName;
-				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-				AnalyzeAction.CommandPath = AnalyzerFile.FullName;
+				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+				AnalyzeAction.CommandPath = AnalyzerFile;
 				AnalyzeAction.CommandArguments = String.Format("--cl-params \"{0}\" --source-file \"{1}\" --output-file \"{2}\" --cfg \"{3}\" --analysis-mode 4", PreprocessAction.CommandArguments, SourceFile.AbsolutePath, OutputFileLocation, ConfigFileItem.AbsolutePath);
 				if (LicenseFile != null)
 				{
@@ -348,7 +348,7 @@ namespace UnrealBuildTool
 			Action AnalyzeAction = new Action(ActionType.Compile);
 			AnalyzeAction.CommandPath = UnrealBuildTool.GetUBTPath();
 			AnalyzeAction.CommandArguments = String.Format("-Mode=PVSGather -Input=\"{0}\" -Output=\"{1}\"", InputFileListItem.Location, OutputFile);
-			AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+			AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 			AnalyzeAction.PrerequisiteItems.Add(InputFileListItem);
 			AnalyzeAction.PrerequisiteItems.AddRange(Makefile.OutputItems);
 			AnalyzeAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));

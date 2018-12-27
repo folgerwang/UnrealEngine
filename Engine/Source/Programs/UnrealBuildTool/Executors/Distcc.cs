@@ -205,8 +205,8 @@ namespace UnrealBuildTool
 					Environment.SetEnvironmentVariable("DISTCC_VERBOSE", "1");
 				}
 
-				string DistccExecutable = DistccExecutablesPath + "/distcc";
-				string GetHostExecutable = DistccExecutablesPath + "/gethost";
+				FileReference DistccExecutable = new FileReference(DistccExecutablesPath + "/distcc");
+				FileReference GetHostExecutable = new FileReference(DistccExecutablesPath + "/gethost");
 
 				Log.TraceInformation("Performing {0} actions ({1} in parallel)", Actions.Count, MaxActionsToExecuteInParallel, DistccExecutable, GetHostExecutable);
 
@@ -361,7 +361,7 @@ namespace UnrealBuildTool
 						"^{0}^{1:0.00}^{2}^{3}^{4}",
 						Action.ActionType.ToString(),
 						ThreadSeconds,
-						Path.GetFileName(Action.CommandPath),
+						Action.CommandPath.GetFileName(),
 						Action.StatusDescription,
 						Action.bIsUsingPCH);
 

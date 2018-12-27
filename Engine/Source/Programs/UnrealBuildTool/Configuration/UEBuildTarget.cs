@@ -1415,7 +1415,7 @@ namespace UnrealBuildTool
 				}
 
 				Action WriteMetadataAction = Action.CreateRecursiveAction<WriteMetadataMode>(ActionType.WriteMetadata, WriteMetadataArguments.ToString());
-				WriteMetadataAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				WriteMetadataAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				WriteMetadataAction.StatusDescription = ReceiptFileName.GetFileName();
 				WriteMetadataAction.bCanExecuteRemotely = false;
 				WriteMetadataAction.PrerequisiteItems.AddRange(Makefile.OutputItems);
@@ -1441,7 +1441,7 @@ namespace UnrealBuildTool
 					{
 						PostBuildStepAction.CommandArguments = String.Format("\"{0}\" && touch \"{1}\"", PostBuildScript, OutputFile);
 					}
-					PostBuildStepAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+					PostBuildStepAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 					PostBuildStepAction.StatusDescription = String.Format("Executing post build script ({0})", PostBuildScript.GetFileName());
 					PostBuildStepAction.bCanExecuteRemotely = false;
 					PostBuildStepAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
@@ -1529,7 +1529,7 @@ namespace UnrealBuildTool
 			{
 				CopyAction.CommandArguments = String.Format("-c 'cp -f {0} {1}'", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
 			}
-			CopyAction.WorkingDirectory = Environment.CurrentDirectory;
+			CopyAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 			CopyAction.PrerequisiteItems.Add(SourceFileItem);
 			CopyAction.ProducedItems.Add(TargetFileItem);
 			CopyAction.DeleteItems.Add(TargetFileItem);

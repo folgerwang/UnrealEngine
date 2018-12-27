@@ -1057,7 +1057,7 @@ namespace UnrealBuildTool
 			foreach(FileReference ScriptFile in ScriptFiles)
 			{
 				ProcessStartInfo StartInfo = new ProcessStartInfo();
-				StartInfo.FileName = BuildHostPlatform.Current.Shell;
+				StartInfo.FileName = BuildHostPlatform.Current.Shell.FullName;
 
 				if(BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 				{

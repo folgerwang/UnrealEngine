@@ -195,9 +195,9 @@ namespace UnrealBuildTool
 		/// Gets the absolute path to the UBT assembly.
 		/// </summary>
 		/// <returns>A string containing the path to the UBT assembly.</returns>
-		static public string GetUBTPath()
+		static public FileReference GetUBTPath()
 		{
-			string UnrealBuildToolPath = Assembly.GetExecutingAssembly().GetOriginalLocation();
+			FileReference UnrealBuildToolPath = new FileReference(Assembly.GetExecutingAssembly().GetOriginalLocation());
 			return UnrealBuildToolPath;
 		}
 

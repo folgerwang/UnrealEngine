@@ -411,7 +411,7 @@ namespace UnrealBuildTool
 					CompileAction.ProducedItems.Add(DependencyListFile);
 				}
 
-				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				CompileAction.CommandPath = HTML5SDKInfo.Python();
 
 				CompileAction.CommandArguments = HTML5SDKInfo.EmscriptenCompiler() + " " + Arguments + FileArguments + CompileEnvironment.AdditionalArguments;
@@ -459,7 +459,7 @@ namespace UnrealBuildTool
 			List<string> ReponseLines = new List<string>();
 
 			LinkAction.bCanExecuteRemotely = false;
-			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 			LinkAction.CommandPath = HTML5SDKInfo.Python();
 			LinkAction.CommandArguments = HTML5SDKInfo.EmscriptenCompiler();
 //			bool bIsBuildingLibrary = LinkEnvironment.bIsBuildingLibrary || bBuildImportLibraryOnly;

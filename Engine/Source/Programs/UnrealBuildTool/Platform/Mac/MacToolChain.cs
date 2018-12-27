@@ -520,7 +520,7 @@ namespace UnrealBuildTool
 				}
 
 				CompileAction.WorkingDirectory = GetMacDevSrcRoot();
-				CompileAction.CommandPath = CompilerPath;
+				CompileAction.CommandPath = new FileReference(CompilerPath);
 				CompileAction.CommandArguments = AllArgs;
 				CompileAction.CommandDescription = "Compile";
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
@@ -640,7 +640,7 @@ namespace UnrealBuildTool
 			Action LinkAction = new Action(ActionType.Link);
 
 			LinkAction.WorkingDirectory = GetMacDevSrcRoot();
-			LinkAction.CommandPath = "/bin/sh";
+			LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
 			LinkAction.CommandDescription = "Link";
 
 			string EngineAPIVersion = LoadEngineAPIVersion();
@@ -1041,8 +1041,8 @@ namespace UnrealBuildTool
 		FileItem FixDylibDependencies(LinkEnvironment LinkEnvironment, FileItem Executable, List<Action> Actions)
 		{
 			Action LinkAction = new Action(ActionType.Link);
-			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-			LinkAction.CommandPath = "/bin/sh";
+			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+			LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
 			LinkAction.CommandDescription = "";
 
 			// Call the FixDylibDependencies.sh script which will link the dylibs and the main executable, this time proper ones, as it's called
@@ -1108,7 +1108,7 @@ namespace UnrealBuildTool
 			// Make the compile action
 			Action GenDebugAction = new Action(ActionType.GenerateDebugInfo);
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
-			GenDebugAction.CommandPath = "sh";
+			GenDebugAction.CommandPath = BuildHostPlatform.Current.Shell;
 
 			// Deletes ay existing file on the building machine. Also, waits 30 seconds, if needed, for the input file to be created in an attempt to work around
 			// a problem where dsymutil would exit with an error saying the input file did not exist.
@@ -1147,7 +1147,7 @@ namespace UnrealBuildTool
 			// Make the compile action
 			Action FinalizeAppBundleAction = new Action(ActionType.CreateAppBundle);
 			FinalizeAppBundleAction.WorkingDirectory = GetMacDevSrcRoot(); // Path.GetFullPath(".");
-			FinalizeAppBundleAction.CommandPath = "/bin/sh";
+			FinalizeAppBundleAction.CommandPath = BuildHostPlatform.Current.Shell;
 			FinalizeAppBundleAction.CommandDescription = "";
 
 			// make path to the script
@@ -1167,7 +1167,7 @@ namespace UnrealBuildTool
 		{
 			Action CopyAction = new Action(ActionType.CreateAppBundle);
 			CopyAction.WorkingDirectory = GetMacDevSrcRoot(); // Path.GetFullPath(".");
-			CopyAction.CommandPath = "/bin/sh";
+			CopyAction.CommandPath = BuildHostPlatform.Current.Shell;
 			CopyAction.CommandDescription = "";
 
 			string BundlePath = BundleDirectory.FullName;

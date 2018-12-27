@@ -367,7 +367,7 @@ namespace UnrealBuildTool
 				{
 					// Check if the command-line of the action previously used to produce the item is outdated.
 					string OldProducingCommandLine = "";
-					string NewProducingCommandLine = RootAction.CommandPath + " " + RootAction.CommandArguments;
+					string NewProducingCommandLine = RootAction.CommandPath.FullName + " " + RootAction.CommandArguments;
 					if (!ActionHistory.TryGetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
 					|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.InvariantCultureIgnoreCase))
 					{

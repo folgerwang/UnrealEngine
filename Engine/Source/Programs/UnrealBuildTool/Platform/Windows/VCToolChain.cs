@@ -1051,8 +1051,8 @@ namespace UnrealBuildTool
 					AppendCLArguments_CPP(CompileEnvironment, FileArguments);
 				}
 
-				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-				CompileAction.CommandPath = EnvVars.CompilerPath.FullName;
+				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+				CompileAction.CommandPath = EnvVars.CompilerPath;
 				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 				string[] AdditionalArguments = String.IsNullOrEmpty(CompileEnvironment.AdditionalArguments)? new string[0] : new string[] { CompileEnvironment.AdditionalArguments };
@@ -1076,7 +1076,7 @@ namespace UnrealBuildTool
 				{
 					CompileAction.DependencyListFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, SourceFile.Location.GetFileName() + ".txt"));
 					CompileAction.CommandArguments = String.Format("{0} -- {1} {2} /showIncludes", Utils.MakePathSafeToUseWithCommandLine(CompileAction.DependencyListFile.Location), Utils.MakePathSafeToUseWithCommandLine(CompileAction.CommandPath), CompileAction.CommandArguments);
-					CompileAction.CommandPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "cl-filter", "cl-filter.exe").FullName;
+					CompileAction.CommandPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "cl-filter", "cl-filter.exe");
 					CompileAction.ProducedItems.Add(CompileAction.DependencyListFile);
 				}
 
@@ -1119,8 +1119,8 @@ namespace UnrealBuildTool
 			{
 				Action CompileAction = new Action(ActionType.Compile);
 				CompileAction.CommandDescription = "Resource";
-				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-				CompileAction.CommandPath = EnvVars.ResourceCompilerPath.FullName;
+				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+				CompileAction.CommandPath = EnvVars.ResourceCompilerPath;
 				CompileAction.StatusDescription = Path.GetFileName(RCFile.AbsolutePath);
 				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
@@ -1412,8 +1412,8 @@ namespace UnrealBuildTool
 			// Create an action that invokes the linker.
 			Action LinkAction = new Action(ActionType.Link);
 			LinkAction.CommandDescription = "Link";
-			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-			LinkAction.CommandPath = bIsBuildingLibraryOrImportLibrary ? EnvVars.LibraryManagerPath.FullName : EnvVars.LinkerPath.FullName;
+			LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+			LinkAction.CommandPath = bIsBuildingLibraryOrImportLibrary ? EnvVars.LibraryManagerPath : EnvVars.LinkerPath;
 			LinkAction.CommandArguments = String.Format("@\"{0}\"", ResponseFileName);
 			LinkAction.ProducedItems.AddRange(ProducedItems);
 			LinkAction.PrerequisiteItems.AddRange(PrerequisiteItems);

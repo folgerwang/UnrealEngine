@@ -88,7 +88,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets the path to the shell for this platform
 		/// </summary>
-		abstract public string Shell { get; }
+		abstract public FileReference Shell { get; }
 
 		/// <summary>
 		/// The type of shell returned by the Shell parameter
@@ -246,9 +246,9 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Win64; }
 		}
 
-		public override string Shell
+		public override FileReference Shell
 		{
-			get { return Environment.GetEnvironmentVariable("COMSPEC"); }
+			get { return new FileReference(Environment.GetEnvironmentVariable("COMSPEC")); }
 		}
 
 		public override ShellType ShellType
@@ -269,9 +269,9 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Mac; }
 		}
 
-		public override string Shell
+		public override FileReference Shell
 		{
-			get { return "/bin/sh"; }
+			get { return new FileReference("/bin/sh"); }
 		}
 
 		public override ShellType ShellType
@@ -393,9 +393,9 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Linux; }
 		}
 
-		public override string Shell
+		public override FileReference Shell
 		{
-			get { return "/bin/sh"; }
+			get { return new FileReference("/bin/sh"); }
 		}
 
 		public override ShellType ShellType

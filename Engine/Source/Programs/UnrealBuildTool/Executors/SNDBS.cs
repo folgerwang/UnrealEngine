@@ -409,7 +409,7 @@ namespace UnrealBuildTool
 						"^{0}^{1:0.00}^{2}^{3}^{4}",
 						Action.ActionType.ToString(),
 						ThreadSeconds,
-						Path.GetFileName(Action.CommandPath),
+						Action.CommandPath.GetFileName(),
 						Action.StatusDescription,
 						Action.bIsUsingPCH);
 

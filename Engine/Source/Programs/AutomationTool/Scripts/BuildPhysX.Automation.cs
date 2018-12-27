@@ -861,7 +861,7 @@ class BuildPhysX : BuildCommand
 					Environment.GetEnvironmentVariable("EMSCRIPTEN") + ";" +
 					Environment.GetEnvironmentVariable("NODEPATH") + ";" +
 					Environment.GetEnvironmentVariable("LLVM") + ";" +
-					Path.GetDirectoryName(HTML5SDKInfo.Python()) + ";" +
+					Path.GetDirectoryName(HTML5SDKInfo.Python().FullName) + ";" +
 					Environment.GetEnvironmentVariable("PATH"));
 			//Log("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
 		}

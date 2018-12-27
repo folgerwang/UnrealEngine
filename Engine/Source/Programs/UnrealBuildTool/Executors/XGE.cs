@@ -345,7 +345,7 @@ namespace UnrealBuildTool
 				}
 
 				ToolElement.SetAttribute("Params", Action.CommandArguments);
-				ToolElement.SetAttribute("Path", Action.CommandPath);
+				ToolElement.SetAttribute("Path", Action.CommandPath.FullName);
 				ToolElement.SetAttribute("SkipIfProjectFailed", "true");
 				if (Action.bIsGCCCompiler)
 				{
@@ -391,7 +391,7 @@ namespace UnrealBuildTool
 				}
 				TaskElement.SetAttribute("Name", string.Format("Action{0}", ActionIndex));
 				TaskElement.SetAttribute("Tool", string.Format("Tool{0}", ActionIndex));
-				TaskElement.SetAttribute("WorkingDir", Action.WorkingDirectory);
+				TaskElement.SetAttribute("WorkingDir", Action.WorkingDirectory.FullName);
 				TaskElement.SetAttribute("SkipIfProjectFailed", "true");
 
 				// Create a semi-colon separated list of the other tasks this task depends on the results of.

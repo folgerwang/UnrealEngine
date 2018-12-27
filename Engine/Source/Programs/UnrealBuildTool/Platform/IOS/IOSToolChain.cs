@@ -697,7 +697,7 @@ namespace UnrealBuildTool
 
 				// RPC utility parameters are in terms of the Mac side
 				CompileAction.WorkingDirectory = GetMacDevSrcRoot();
-				CompileAction.CommandPath = CompilerPath;
+				CompileAction.CommandPath = new FileReference(CompilerPath);
 				CompileAction.CommandArguments = AllArgs; // Arguments + FileArguments + CompileEnvironment.AdditionalArguments;
 				CompileAction.CommandDescription = "Compile";
 				CompileAction.StatusDescription = string.Format("{0}", Path.GetFileName(SourceFile.AbsolutePath));
@@ -824,7 +824,7 @@ namespace UnrealBuildTool
 
 			LinkAction.StatusDescription = string.Format("{0}", OutputFile.AbsolutePath);
 
-			LinkAction.CommandPath = "sh";
+			LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
 			if(LinkEnvironment.Configuration == CppConfiguration.Shipping && Path.GetExtension(OutputFile.AbsolutePath) != ".a")
 			{
 				// When building a shipping package, symbols are stripped from the exe as the last build step. This is a problem
@@ -928,7 +928,7 @@ namespace UnrealBuildTool
             Action GenDebugAction = new Action(ActionType.GenerateDebugInfo);
 
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
-			GenDebugAction.CommandPath = "sh";
+			GenDebugAction.CommandPath = BuildHostPlatform.Current.Shell;
 			string DsymutilPath = GetDsymutilPath();
 			if(ProjectSettings.bGeneratedSYMBundle)
 			{
@@ -976,10 +976,10 @@ namespace UnrealBuildTool
 
             // Make the compile action
             Action GenDebugAction = new Action(ActionType.GenerateDebugInfo);
-            GenDebugAction.WorkingDirectory = GetMacDevEngineRoot() + "/Binaries/Mac/";
+            GenDebugAction.WorkingDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Binaries", "Mac");
 
-            GenDebugAction.CommandPath = "sh";
-            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
+            GenDebugAction.CommandPath = BuildHostPlatform.Current.Shell;
+			GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
                     DWARFFile.AbsolutePath,
                     OutputFile.AbsolutePath,
                     Path.GetDirectoryName(OutputFile.AbsolutePath),
@@ -1129,9 +1129,9 @@ namespace UnrealBuildTool
 				FileItem ExtractScriptFileItem = FileItem.CreateIntermediateTextFile(new FileReference(Framework.OutputDirectory.FullName + ".sh"), ExtractScript.ToString());
 
 				Action UnzipAction = new Action(ActionType.BuildProject);
-				UnzipAction.CommandPath = "/bin/sh";
+				UnzipAction.CommandPath = new FileReference("/bin/sh");
 				UnzipAction.CommandArguments = Utils.EscapeShellArgument(ExtractScriptFileItem.AbsolutePath);
-				UnzipAction.WorkingDirectory = UnrealBuildTool.EngineDirectory.FullName;
+				UnzipAction.WorkingDirectory = UnrealBuildTool.EngineDirectory;
 				UnzipAction.PrerequisiteItems.Add(InputFile);
 				UnzipAction.PrerequisiteItems.Add(ExtractScriptFileItem);
 				UnzipAction.ProducedItems.Add(Framework.ExtractedTokenFile);
@@ -1314,7 +1314,7 @@ namespace UnrealBuildTool
 
 				Action StripAction = new Action(ActionType.CreateAppBundle);
 				StripAction.WorkingDirectory = GetMacDevSrcRoot();
-				StripAction.CommandPath = "sh";
+				StripAction.CommandPath = BuildHostPlatform.Current.Shell;
 				StripAction.CommandArguments = String.Format("-c '\"{0}strip\" \"{1}\" && touch \"{2}\"'", Settings.Value.ToolchainDir, Executable.Location, StripCompleteFile);
 				StripAction.PrerequisiteItems.Add(Executable);
 				StripAction.PrerequisiteItems.AddRange(OutputFiles);
@@ -1338,7 +1338,7 @@ namespace UnrealBuildTool
 				// Make the compile action
 				Action CompileAssetAction = new Action(ActionType.CreateAppBundle);
 				CompileAssetAction.WorkingDirectory = GetMacDevSrcRoot();
-				CompileAssetAction.CommandPath = "/usr/bin/xcrun";
+				CompileAssetAction.CommandPath = new FileReference("/usr/bin/xcrun");
 				CompileAssetAction.CommandArguments = GetAssetCatalogArgs(CppPlatform, ResourcesDir.FullName, Path.GetDirectoryName(AssetCatalogFile.AbsolutePath));
 				CompileAssetAction.PrerequisiteItems.Add(Executable);
 				CompileAssetAction.ProducedItems.Add(AssetCatalogFile);
@@ -1378,7 +1378,7 @@ namespace UnrealBuildTool
 				string PostBuildSyncArguments = String.Format("-Input=\"{0}\" -XmlConfigCache=\"{1}\"", PostBuildSyncFile, XmlConfig.CacheFile);
 
 				Action PostBuildSyncAction = Action.CreateRecursiveAction<IOSPostBuildSyncMode>(ActionType.CreateAppBundle, PostBuildSyncArguments);
-				PostBuildSyncAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				PostBuildSyncAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				PostBuildSyncAction.PrerequisiteItems.Add(Executable);
 				PostBuildSyncAction.PrerequisiteItems.AddRange(OutputFiles);
 				PostBuildSyncAction.ProducedItems.Add(FileItem.GetItemByFileReference(GetStagedExecutablePath(Executable.Location, Target.Name)));

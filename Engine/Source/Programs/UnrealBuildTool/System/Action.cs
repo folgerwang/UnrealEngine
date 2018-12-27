@@ -73,7 +73,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Directory from which to execute the program to create produced items
 		/// </summary>
-		public string WorkingDirectory = null;
+		public DirectoryReference WorkingDirectory = null;
 
 		/// <summary>
 		/// True if we should log extra information when we run a program to create produced items
@@ -83,7 +83,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The command to run to create produced items
 		/// </summary>
-		public string CommandPath = null;
+		public FileReference CommandPath = null;
 
 		/// <summary>
 		/// Command-line parameters to pass to the program
@@ -171,9 +171,9 @@ namespace UnrealBuildTool
 		public Action(BinaryArchiveReader Reader)
 		{
 			ActionType = (ActionType)Reader.ReadByte();
-			WorkingDirectory = Reader.ReadString();
+			WorkingDirectory = Reader.ReadDirectoryReference();
 			bPrintDebugInfo = Reader.ReadBool();
-			CommandPath = Reader.ReadString();
+			CommandPath = Reader.ReadFileReference();
 			CommandArguments = Reader.ReadString();
 			CommandDescription = Reader.ReadString();
 			StatusDescription = Reader.ReadString();
@@ -195,9 +195,9 @@ namespace UnrealBuildTool
 		public void Write(BinaryArchiveWriter Writer)
 		{
 			Writer.WriteByte((byte)ActionType);
-			Writer.WriteString(WorkingDirectory);
+			Writer.WriteDirectoryReference(WorkingDirectory);
 			Writer.WriteBool(bPrintDebugInfo);
-			Writer.WriteString(CommandPath);
+			Writer.WriteFileReference(CommandPath);
 			Writer.WriteString(CommandArguments);
 			Writer.WriteString(CommandDescription);
 			Writer.WriteString(StatusDescription);
@@ -263,12 +263,12 @@ namespace UnrealBuildTool
 			}
 			if(WorkingDirectory != Other.WorkingDirectory)
 			{
-				LogConflict("working directory is different", WorkingDirectory, Other.WorkingDirectory);
+				LogConflict("working directory is different", WorkingDirectory.FullName, Other.WorkingDirectory.FullName);
 				bResult = false;
 			}
 			if(CommandPath != Other.CommandPath)
 			{
-				LogConflict("command path is different", CommandPath, Other.CommandPath);
+				LogConflict("command path is different", CommandPath.FullName, Other.CommandPath.FullName);
 				bResult = false;
 			}
 			if(CommandArguments != Other.CommandArguments)

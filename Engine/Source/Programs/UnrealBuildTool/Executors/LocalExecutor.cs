@@ -91,9 +91,9 @@ namespace UnrealBuildTool
 
 			// Create the action's process.
 			ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
-			ActionStartInfo.WorkingDirectory = ExpandEnvironmentVariables(Action.WorkingDirectory);
+			ActionStartInfo.WorkingDirectory = Action.WorkingDirectory.FullName;
 
-			string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath);
+			string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath.FullName);
 			ActionStartInfo.FileName = ExpandedCommandPath;
 			ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
 
@@ -458,7 +458,7 @@ namespace UnrealBuildTool
 					"^{0}^{1:0.00}^{2}^{3}^{4}",
 					Action.ActionType.ToString(),
 					ThreadSeconds,
-					Path.GetFileName(Action.CommandPath),
+					Action.CommandPath.GetFileName(),
 					  Action.StatusDescription,
 					Action.bIsUsingPCH);
 

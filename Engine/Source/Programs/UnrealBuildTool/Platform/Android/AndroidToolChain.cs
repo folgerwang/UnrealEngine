@@ -1451,7 +1451,7 @@ namespace UnrealBuildTool
 						FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, new List<string> { AllArguments });
 						string ResponseArgument = string.Format("@\"{0}\"", ResponseFileName);
 
-						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 						if(bExecuteCompilerThroughShell)
 						{
 							CompileAction.CommandPath = BuildHostPlatform.Current.Shell;
@@ -1467,7 +1467,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							CompileAction.CommandPath = ClangPath;
+							CompileAction.CommandPath = new FileReference(ClangPath);
 							CompileAction.CommandArguments = ResponseArgument;
 						}
 						CompileAction.PrerequisiteItems.Add(ResponseFileItem);
@@ -1547,27 +1547,27 @@ namespace UnrealBuildTool
 
 					// Create an action that invokes the linker.
 					Action LinkAction = new Action(ActionType.Link);
-					LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+					LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 
 					if (LinkEnvironment.bIsBuildingLibrary)
 					{
 						switch (Arch)
 						{
-							case "-armv7": LinkAction.CommandPath = ArPathArm; break;
-							case "-arm64": LinkAction.CommandPath = ArPathArm64; break;
-							case "-x86": LinkAction.CommandPath = ArPathx86; ; break;
-							case "-x64": LinkAction.CommandPath = ArPathx64; ; break;
-							default: LinkAction.CommandPath = ArPathArm; ; break;
+							case "-armv7": LinkAction.CommandPath = new FileReference(ArPathArm); break;
+							case "-arm64": LinkAction.CommandPath = new FileReference(ArPathArm64); break;
+							case "-x86": LinkAction.CommandPath = new FileReference(ArPathx86); ; break;
+							case "-x64": LinkAction.CommandPath = new FileReference(ArPathx64); ; break;
+							default: LinkAction.CommandPath = new FileReference(ArPathArm); ; break;
 						}
 					}
 					else
 					{
-						LinkAction.CommandPath = ClangPath;
+						LinkAction.CommandPath = new FileReference(ClangPath);
 					}
 
-					string LinkerPath = LinkAction.WorkingDirectory;
+					DirectoryReference LinkerPath = LinkAction.WorkingDirectory;
 
-					LinkAction.WorkingDirectory = LinkEnvironment.IntermediateDirectory.FullName;
+					LinkAction.WorkingDirectory = LinkEnvironment.IntermediateDirectory;
 
 					// Get link arguments.
 					LinkAction.CommandArguments = LinkEnvironment.bIsBuildingLibrary ? GetArArguments(LinkEnvironment) : GetLinkArguments(LinkEnvironment, Arch);
@@ -1628,7 +1628,7 @@ namespace UnrealBuildTool
 								// environment variables aren't expanded when using the $( style
 								if (Path.IsPathRooted(AbsoluteLibraryPath) == false)
 								{
-									AbsoluteLibraryPath = Path.Combine(LinkerPath, AbsoluteLibraryPath);
+									AbsoluteLibraryPath = Path.Combine(LinkerPath.FullName, AbsoluteLibraryPath);
 								}
 								LinkResponseArguments += string.Format(" -L\"{0}\"", Utils.CollapseRelativeDirectories(AbsoluteLibraryPath));
 							}
