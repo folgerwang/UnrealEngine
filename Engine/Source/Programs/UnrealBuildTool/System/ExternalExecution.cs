@@ -710,15 +710,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets the latest write time of any of the UnrealHeaderTool binaries (including DLLs and Plugins) or DateTime.MaxValue if UnrealHeaderTool does not exist
 		/// </summary>
-		/// <returns>
-		/// Latest timestamp of UHT binaries or DateTime.MaxValue if UnrealHeaderTool is out of date and needs to be rebuilt.
-		/// </returns>
+		/// <returns>Latest timestamp of UHT binaries or DateTime.MaxValue if UnrealHeaderTool is out of date and needs to be rebuilt.</returns>
 		static bool GetHeaderToolTimestamp(FileReference ReceiptPath, out DateTime Timestamp)
 		{
 			using (ScopedTimer TimestampTimer = new ScopedTimer("GetHeaderToolTimestamp"))
 			{
 				// Try to read the receipt for UHT.
-				if (!FileReference.Exists(ReceiptPath))
+				FileItem ReceiptFile = FileItem.GetItemByFileReference(ReceiptPath);
+				if (!ReceiptFile.Exists)
 				{
 					Timestamp = DateTime.MaxValue;
 					return false;
@@ -731,95 +730,21 @@ namespace UnrealBuildTool
 					return false;
 				}
 
-				// Check all the binaries exist, and that all the DLLs are built against the right version
-				if (!CheckBinariesExist(Receipt) || !CheckDynamicLibaryVersionsMatch(Receipt))
+				// Make sure all the build products exist, and that the receipt is newer
+				foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
 				{
-					Timestamp = DateTime.MaxValue;
-					return false;
+					FileItem BuildProductItem = FileItem.GetItemByFileReference(BuildProduct.Path);
+					if(!BuildProductItem.Exists || BuildProductItem.LastWriteTimeUtc > ReceiptFile.LastWriteTimeUtc)
+					{
+						Timestamp = DateTime.MaxValue;
+						return false;
+					}
 				}
 
 				// Return the timestamp for all the binaries
-				Timestamp = GetTimestampFromBinaries(Receipt);
+				Timestamp = ReceiptFile.LastWriteTimeUtc;
 				return true;
 			}
-		}
-
-		/// <summary>
-		/// Checks if all the files in a receipt are present and that all the DLLs are at the same version
-		/// </summary>
-		/// <returns>
-		/// True if all the files are valid.
-		/// </returns>
-		static bool CheckBinariesExist(TargetReceipt Receipt)
-		{
-			bool bExist = true;
-			foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
-			{
-				if (BuildProduct.Type == BuildProductType.Executable || BuildProduct.Type == BuildProductType.DynamicLibrary)
-				{
-					if (!FileReference.Exists(BuildProduct.Path))
-					{
-						Log.TraceWarning("Missing binary: {0}", BuildProduct.Path);
-						bExist = false;
-					}
-				}
-			}
-			return bExist;
-		}
-
-		/// <summary>
-		/// Checks if all the files in a receipt have the same version
-		/// </summary>
-		/// <returns>
-		/// True if all the files are valid.
-		/// </returns>
-		static bool CheckDynamicLibaryVersionsMatch(TargetReceipt Receipt)
-		{
-			List<Tuple<FileReference, int>> BinaryVersions = new List<Tuple<FileReference, int>>();
-			foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
-			{
-				if (BuildProduct.Type == BuildProductType.DynamicLibrary)
-				{
-					int Version = BuildHostPlatform.Current.GetDllApiVersion(BuildProduct.Path.FullName);
-					BinaryVersions.Add(new Tuple<FileReference, int>(BuildProduct.Path, Version));
-				}
-			}
-
-			bool bMatch = true;
-			if (BinaryVersions.Count > 0 && !BinaryVersions.All(x => x.Item2 == BinaryVersions[0].Item2))
-			{
-				Log.TraceWarning("Detected mismatch in binary versions:");
-				foreach (Tuple<FileReference, int> BinaryVersion in BinaryVersions)
-				{
-					Log.TraceWarning("  {0} has API version {1}", BinaryVersion.Item1, BinaryVersion.Item2);
-					FileReference.Delete(BinaryVersion.Item1);
-				}
-				bMatch = false;
-			}
-			return bMatch;
-		}
-
-		/// <summary>
-		/// Checks if all the files in a receipt are present and that all the DLLs are at the same version
-		/// </summary>
-		/// <returns>
-		/// True if all the files are valid.
-		/// </returns>
-		static DateTime GetTimestampFromBinaries(TargetReceipt Receipt)
-		{
-			DateTime LatestWriteTime = DateTime.MinValue;
-			foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
-			{
-				if (BuildProduct.Type == BuildProductType.Executable || BuildProduct.Type == BuildProductType.DynamicLibrary)
-				{
-					DateTime WriteTime = FileReference.GetLastWriteTime(BuildProduct.Path);
-					if (WriteTime > LatestWriteTime)
-					{
-						LatestWriteTime = WriteTime;
-					}
-				}
-			}
-			return LatestWriteTime;
 		}
 
 		/// <summary>

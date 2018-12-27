@@ -68,32 +68,32 @@ namespace UnrealBuildTool
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
 
-			// Parse the list of hot-reload module names
-			foreach(string ModuleWithSuffix in Arguments.GetValues("-ModuleWithSuffix="))
-			{
-				int SuffixIdx = ModuleWithSuffix.LastIndexOf(',');
-				if(SuffixIdx == -1)
-				{
-					throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
-				}
-
-				string ModuleName = ModuleWithSuffix.Substring(0, SuffixIdx);
-
-				int Suffix;
-				if(!Int32.TryParse(ModuleWithSuffix.Substring(SuffixIdx + 1), out Suffix))
-				{
-					throw new BuildException("Suffix for modules must be an integer");
-				}
-
-				HotReloadModuleNameToSuffix[ModuleName] = Suffix;
-			}
-
 			// If there are any additional command line arguments
 			List<string> AdditionalArguments = new List<string>();
 			if(Arguments != null)
 			{
 				// Apply the arguments to this object
 				Arguments.ApplyTo(this);
+
+				// Parse all the hot-reload module names
+				foreach(string ModuleWithSuffix in Arguments.GetValues("-ModuleWithSuffix="))
+				{
+					int SuffixIdx = ModuleWithSuffix.LastIndexOf(',');
+					if(SuffixIdx == -1)
+					{
+						throw new BuildException("Missing suffix argument from -ModuleWithSuffix=Name,Suffix");
+					}
+
+					string ModuleName = ModuleWithSuffix.Substring(0, SuffixIdx);
+
+					int Suffix;
+					if(!Int32.TryParse(ModuleWithSuffix.Substring(SuffixIdx + 1), out Suffix))
+					{
+						throw new BuildException("Suffix for modules must be an integer");
+					}
+
+					HotReloadModuleNameToSuffix[ModuleName] = Suffix;
+				}
 
 				// Pull out all the arguments that haven't been used so far
 				for(int Idx = 0; Idx < Arguments.Count; Idx++)
