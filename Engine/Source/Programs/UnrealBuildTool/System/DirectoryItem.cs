@@ -92,6 +92,16 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Location">Path to the directory</param>
 		/// <returns>The directory item for this location</returns>
+		public static DirectoryItem GetItemByPath(string Location)
+		{
+			return GetItemByDirectoryReference(new DirectoryReference(Location));
+		}
+
+		/// <summary>
+		/// Finds or creates a directory item from its location
+		/// </summary>
+		/// <param name="Location">Path to the directory</param>
+		/// <returns>The directory item for this location</returns>
 		public static DirectoryItem GetItemByDirectoryReference(DirectoryReference Location)
 		{
 			DirectoryItem Result;
@@ -192,7 +202,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the file exists, false otherwise</returns>
 		public bool TryGetDirectory(string Name, out DirectoryItem OutDirectory)
 		{
-			CacheFiles();
+			CacheDirectories();
 
 			foreach(DirectoryItem Directory in Directories)
 			{
