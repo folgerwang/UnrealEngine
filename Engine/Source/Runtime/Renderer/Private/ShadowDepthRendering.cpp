@@ -1974,7 +1974,7 @@ void FProjectedShadowInfo::ModifyViewForShadow(FRHICommandList& RHICmdList, FVie
 		TVC_MAX,
 		*FoundView->CachedViewUniformShaderParameters);
 
-	if (GetShadowDepthType() == CSMShadowDepthType)
+	if (IsWholeSceneDirectionalShadow())
 	{
 		FScene* Scene = (FScene*)FoundView->Family->Scene;
 		FoundView->ViewUniformBuffer = Scene->UniformBuffers.CSMShadowDepthViewUniformBuffer;
