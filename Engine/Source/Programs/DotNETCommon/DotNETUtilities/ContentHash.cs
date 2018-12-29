@@ -76,9 +76,9 @@ namespace Tools.DotNETCommon
 		/// <returns>True if the objects are equal, false otherwise</returns>
 		public static bool operator==(ContentHash A, ContentHash B)
 		{
-			if(A == null)
+			if((object)A == null)
 			{
-				return (B == null);
+				return ((object)B == null);
 			}
 			else
 			{
