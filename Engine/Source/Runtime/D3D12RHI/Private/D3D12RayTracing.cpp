@@ -664,7 +664,9 @@ public:
 		FD3D12Device* Device = GetParentDevice();
 
 		checkf(Data.Num(), TEXT("Shader table is expected to be initialized before copying to GPU."));
+#if DO_CHECK && DO_GUARD_SLOW
 		checkfSlow(NumValidHitGroupRecords == NumHitGroups, TEXT("Hit group shader table is expected to be fully populated before copying to GPU. Ensure that all shader records have been fille using WriteShaderIdentifier()."));
+#endif
 
 		FD3D12Adapter* Adapter = Device->GetParentAdapter();
 
