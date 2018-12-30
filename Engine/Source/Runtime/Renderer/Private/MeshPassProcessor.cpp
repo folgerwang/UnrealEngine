@@ -83,9 +83,6 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 	const FReadOnlyMeshDrawSingleShaderBindings& RESTRICT SingleShaderBindings,
 	FShaderBindingState& RESTRICT ShaderBindingState)
 {
-#pragma warning(push)
-#pragma warning(disable : 6386) // Suppress MSVC static analysis warning that Parameter.BaseIndex can index arrays out of bounds.
-
 	const FUniformBufferRHIParamRef* RESTRICT UniformBufferBindings = SingleShaderBindings.GetUniformBufferStart();
 	const FShaderParameterInfo* RESTRICT UniformBufferParameters = SingleShaderBindings.ParameterMapInfo.UniformBuffers.GetData();
 	const int32 NumUniformBuffers = SingleShaderBindings.ParameterMapInfo.UniformBuffers.Num();
@@ -173,8 +170,6 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 			LooseDataStart += Parameter.Size;
 		}
 	}
-
-#pragma warning(pop)
 }
 
 template<class RHIShaderType>
@@ -183,9 +178,6 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 	RHIShaderType Shader,
 	const FReadOnlyMeshDrawSingleShaderBindings& RESTRICT SingleShaderBindings)
 {
-#pragma warning(push)
-#pragma warning(disable : 6386) // Suppress MSVC static analysis warning that Parameter.BaseIndex can index arrays out of bounds.
-
 	const FUniformBufferRHIParamRef* RESTRICT UniformBufferBindings = SingleShaderBindings.GetUniformBufferStart();
 	const FShaderParameterInfo* RESTRICT UniformBufferParameters = SingleShaderBindings.ParameterMapInfo.UniformBuffers.GetData();
 	const int32 NumUniformBuffers = SingleShaderBindings.ParameterMapInfo.UniformBuffers.Num();
@@ -258,8 +250,6 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 			LooseDataStart += Parameter.Size;
 		}
 	}
-
-#pragma warning(pop)
 }
 
 #if RHI_RAYTRACING

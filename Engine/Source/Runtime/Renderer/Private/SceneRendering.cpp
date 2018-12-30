@@ -2780,7 +2780,6 @@ void SortPassMeshDrawCommands(
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_SortVisibleMeshDrawCommands);
 
-		//@todo MeshCommandPipeline - sort in parallel during visibility or bucket in parallel
 		VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
 	}
 
