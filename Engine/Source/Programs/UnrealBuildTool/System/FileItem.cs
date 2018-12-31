@@ -95,6 +95,15 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the directory containing this file
+		/// </summary>
+		/// <returns>DirectoryItem for the directory containing this file</returns>
+		public DirectoryItem GetDirectoryItem()
+		{
+			return DirectoryItem.GetItemByDirectoryInfo(Info.Directory);
+		}
+
+		/// <summary>
 		/// Gets a FileItem corresponding to the given path
 		/// </summary>
 		/// <param name="FilePath">Path for the FileItem</param>

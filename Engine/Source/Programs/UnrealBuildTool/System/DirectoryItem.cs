@@ -77,6 +77,21 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the parent directory item
+		/// </summary>
+		public DirectoryItem GetParentDirectoryItem()
+		{
+			if(Info.Parent == null)
+			{
+				return null;
+			}
+			else
+			{
+				return GetItemByDirectoryInfo(Info.Parent);
+			}
+		}
+
+		/// <summary>
 		/// Gets a new directory item by combining the existing directory item with the given path fragments
 		/// </summary>
 		/// <param name="BaseDirectory">Base directory to append path fragments to</param>
@@ -202,6 +217,18 @@ namespace UnrealBuildTool
 		/// <returns>True if the file exists, false otherwise</returns>
 		public bool TryGetDirectory(string Name, out DirectoryItem OutDirectory)
 		{
+			if(Name.Equals(".", StringComparison.Ordinal))
+			{
+				OutDirectory = this;
+				return true;
+			}
+
+			if(Name.Equals("..", StringComparison.Ordinal))
+			{
+				OutDirectory = GetParentDirectoryItem();
+				return OutDirectory != null;
+			}
+
 			CacheDirectories();
 
 			foreach(DirectoryItem Directory in Directories)
