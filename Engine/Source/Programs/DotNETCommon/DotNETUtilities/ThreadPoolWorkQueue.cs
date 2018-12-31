@@ -73,7 +73,11 @@ namespace Tools.DotNETCommon
 				NumOutstandingJobs++;
 			}
 
+#if SINGLE_THREAD
+			Execute(ActionToExecute);
+#else
 			ThreadPool.QueueUserWorkItem(Execute, ActionToExecute);
+#endif
 		}
 
 		/// <summary>
