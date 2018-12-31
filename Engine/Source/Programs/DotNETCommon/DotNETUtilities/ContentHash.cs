@@ -50,7 +50,7 @@ namespace Tools.DotNETCommon
 		/// <returns>True if the hashes are equal, false otherwise</returns>
 		public bool Equals(ContentHash Other)
 		{
-			if(Other == null)
+			if((object)Other == null)
 			{
 				return false;
 			}
