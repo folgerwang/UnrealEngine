@@ -391,6 +391,41 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Reads a nullable object from the archive
+		/// </summary>
+		/// <typeparam name="T">The nullable type</typeparam>
+		/// <param name="ReadValue">Delegate used to read a value</param>
+		public Nullable<T> ReadNullable<T>(Func<T> ReadValue) where T : struct
+		{
+			if(ReadBool())
+			{
+				return new Nullable<T>(ReadValue());
+			}
+			else
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Reads an object, which may be null, from the archive. Does not handle de-duplicating object references. 
+		/// </summary>
+		/// <typeparam name="T">Type of the object to read</typeparam>
+		/// <param name="Read">Delegate used to read the object</param>
+		/// <returns>The object instance</returns>
+		public T ReadOptionalObject<T>(Func<T> Read) where T : class
+		{
+			if(ReadBool())
+			{
+				return Read();
+			}
+			else
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Reads an object reference from the stream. Each referenced object will only be serialized once using the supplied delegates. Reading an object instance is
 		/// done in two phases; first the object is created and its reference stored in the unique object list, then the object contents are read. This allows the object to 
 		/// serialize a reference to itself.

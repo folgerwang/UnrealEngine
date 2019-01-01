@@ -406,6 +406,44 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Writes a nullable object to the archive
+		/// </summary>
+		/// <typeparam name="T">The nullable type</typeparam>
+		/// <param name="Item">Item to write</param>
+		/// <param name="WriteValue">Delegate used to write a value</param>
+		public void WriteNullable<T>(Nullable<T> Item, Action<T> WriteValue) where T : struct
+		{
+			if(Item.HasValue)
+			{
+				WriteBool(true);
+				WriteValue(Item.Value);
+			}
+			else
+			{
+				WriteBool(false);
+			}
+		}
+
+		/// <summary>
+		/// Writes an object to the output, checking whether it is null or not. Does not preserve object references; each object written is duplicated.
+		/// </summary>
+		/// <typeparam name="T">Type of the object to serialize</typeparam>
+		/// <param name="Object">Reference to check for null before serializing</param>
+		/// <param name="WriteObject">Delegate used to write the object</param>
+		public void WriteOptionalObject<T>(T Object, Action WriteObject) where T : class
+		{
+			if(Object == null)
+			{
+				WriteBool(false);
+			}
+			else
+			{
+				WriteBool(true);
+				WriteObject();
+			}
+		}
+
+		/// <summary>
 		/// Writes an object to the output. If the specific instance has already been written, preserves the reference to that.
 		/// </summary>
 		/// <typeparam name="T">Type of the object to serialize</typeparam>
