@@ -7475,12 +7475,16 @@ void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
 	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
 }
 
-void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
 #if RHI_RAYTRACING
 	if (IsRayTracingSupportedForThisProject())
 	{
-		ensure(PreviewFeatureLevel == ERHIFeatureLevel::SM5);
+		if (PreviewFeatureLevel != ERHIFeatureLevel::SM5)
+		{
+			UE_LOG(LogEditor, Warning, TEXT("Preview feature level is incompatible with ray tracing, defaulting to Shader Model 5"));
+			PreviewFeatureLevel = ERHIFeatureLevel::SM5;
+		}
 	}
 #endif
 	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
