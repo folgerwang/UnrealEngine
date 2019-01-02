@@ -187,13 +187,13 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				DrawDynamicMeshPass(View, RHICmdList,
 					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
 					{
-						FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
+						FBasePassMeshProcessor PassMeshProcessor(
 							nullptr,
 							View.GetFeatureLevel(),
 							&View,
 							DrawRenderState,
-							true,
-							DynamicMeshPassContext);
+							DynamicMeshPassContext,
+							ETranslucencyPass::TPT_AllTranslucency);
 
 						const uint64 DefaultBatchElementMask = ~0ull;
 						PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
@@ -243,12 +243,11 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 					DrawDynamicMeshPass(View, RHICmdList,
 						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
 						{
-							FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
+							FBasePassMeshProcessor PassMeshProcessor(
 								nullptr,
 								View.GetFeatureLevel(),
 								&View,
 								DrawRenderState,
-								false,
 								DynamicMeshPassContext);
 
 							const uint64 DefaultBatchElementMask = ~0ull;

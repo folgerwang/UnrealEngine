@@ -11,12 +11,13 @@
 class FMeshRenderInfo : public FLightCacheInterface
 {
 public:
-	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer)
+	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer, const FLightmapResourceCluster* InLightmapResourceCluster)
 		: FLightCacheInterface()
 	{
 		SetLightMap(InLightMap);
 		SetShadowMap(InShadowMap);
 		SetPrecomputedLightingBuffer(Buffer);
+		SetResourceCluster(InLightmapResourceCluster);
 	}
 
 	virtual FLightInteraction GetInteraction(const class FLightSceneProxy* LightSceneProxy) const override
