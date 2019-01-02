@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GeometryCollection.cpp: FGeometryCollection methods.
@@ -888,7 +888,7 @@ void FGeometryCollection::WriteDataToHeaderFile(const FString &Name, const FStri
 
 	ofstream DataFile;
 	DataFile.open(string(TCHAR_TO_UTF8(*FullPath)));
-	DataFile << "// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved." << endl << endl;
+	DataFile << "// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved." << endl << endl;
 	DataFile << "#pragma once" << endl << endl;
 	DataFile << "class " << TCHAR_TO_UTF8(*Name) << endl;
 	DataFile << "{" << endl;

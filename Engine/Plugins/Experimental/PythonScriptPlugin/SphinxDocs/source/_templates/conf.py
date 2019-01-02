@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath(r'..\modules'))
 # -- Project information -----------------------------------------------------
 
 project = u'Unreal Python'
-copyright = u'© 2004-2018, Epic Games, Inc. All rights reserved. Unreal and its logo are Epic’s trademarks or registered trademarks in the US and elsewhere'
+copyright = u'© 2004-2019, Epic Games, Inc. All rights reserved. Unreal and its logo are Epic’s trademarks or registered trademarks in the US and elsewhere'
 author = u'Epic Games Inc.'
 
 # The short X.Y version
