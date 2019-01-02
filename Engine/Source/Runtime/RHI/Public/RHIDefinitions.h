@@ -973,6 +973,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	}
 }
 
+/* Returns true if the shader platform Platform is used to simulate a mobile feature level on a PC platform. */
 inline bool IsSimulatedPlatform(EShaderPlatform Platform)
 {
 	switch (Platform)
