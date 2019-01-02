@@ -16,6 +16,7 @@
 
 #include "ScopedTransaction.h"
 #include "SSettingsEditorCheckoutNotice.h"
+#include "IDetailGroup.h"
 
 #define LOCTEXT_NAMESPACE "AssetViewerSettingsCustomizations"
 
@@ -52,6 +53,8 @@ void FAssetViewerSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& D
 	checkf(ProfileHandle->IsValidHandle(), TEXT("Invalid indexing into profiles child properties"));	
 	uint32 PropertyCount = 0;
 	ProfilePropertyHandle->GetNumChildren(PropertyCount);
+
+	TMap<FName, IDetailGroup*> SubcategoryToGroupMap;
 
 	FName NamePropertyName = GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, ProfileName);
 	FName SharedProfilePropertyName = GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bSharedProfile);
@@ -93,7 +96,16 @@ void FAssetViewerSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& D
 		}
 		else
 		{
-			IDetailPropertyRow& Row = CategoryBuilder.AddProperty(ProfileProperty);
+			FName DefaultCategoryName = ProfileProperty->GetDefaultCategoryName();
+
+			IDetailGroup*& Group = SubcategoryToGroupMap.FindOrAdd(DefaultCategoryName);
+
+			if (!Group)
+			{
+				Group = &CategoryBuilder.AddGroup(DefaultCategoryName, ProfileProperty->GetDefaultCategoryText());
+			}
+
+			Group->AddPropertyRow(ProfileProperty.ToSharedRef());
 		}
 	}
 }

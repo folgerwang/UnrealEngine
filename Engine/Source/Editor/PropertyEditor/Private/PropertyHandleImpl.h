@@ -180,7 +180,7 @@ public:
 	 * Get the value of a property as a formatted string, possibly using an alternate form more suitable for display in the UI
 	 *
 	 * @param OutValue	The formatted string value to set
-	 * @param PortFlags	Determines how the property's value is accessed. Defaults to PPF_PropertyWindow
+	 * @param PortFlags	Determines how the property's value is accessed. 
 	 * @return The result of attempting to get the value
 	 */
 	FPropertyAccess::Result GetValueAsDisplayString( FString& OutString, EPropertyPortFlags PortFlags ) const;
@@ -499,6 +499,8 @@ public:
 	virtual TArray<TSharedPtr<IPropertyHandle>> AddChildStructure( TSharedRef<FStructOnScope> ChildStructure ) override;
 	virtual bool CanResetToDefault() const override;
 	virtual void ExecuteCustomResetToDefault(const FResetToDefaultOverride& InOnCustomResetToDefault) override;
+	virtual FName GetDefaultCategoryName() const override;
+	virtual FText GetDefaultCategoryText() const override;
 
 	TSharedPtr<FPropertyNode> GetPropertyNode() const;
 	void OnCustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault);

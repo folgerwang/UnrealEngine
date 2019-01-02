@@ -63,6 +63,9 @@ public:
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual FReply OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+
+	/** Returns true if a widget is currently generated for a given asset */
+	bool HasWidgetForAsset(const FName& AssetPathName);
 };
 
 /** The list view mode of the asset view */
@@ -72,6 +75,9 @@ public:
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual FReply OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
+	/** Returns true if a widget is currently generated for a given asset */
+	bool HasWidgetForAsset(const FName& AssetPathName);
 };
 
 /** The columns view mode of the asset view */
@@ -165,9 +171,6 @@ public:
 
 	/** Get the name text to be displayed for this item */
 	FText GetNameText() const;
-
-	/** Delegate handling when an asset is loaded */
-	void HandleAssetLoaded(UObject* InAsset) const;
 
 protected:
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */

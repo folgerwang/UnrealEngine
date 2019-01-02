@@ -13,6 +13,7 @@
 #include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
 #include "EditorCategoryUtils.h"
+#include "Widgets/SGraphNodeCreateWidget.h"
 
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -125,7 +126,7 @@ void UK2Node_CreateWidget::ExpandNode(class FKismetCompilerContext& CompilerCont
 	}
 	else
 	{
-		// Copy blueprint literal onto 'UWidgetBlueprintLibrary::Create' call 
+		// Copy blueprint literal onto 'UWidgetBlueprintLibrary::Create' call
 		CallCreateWidgetTypePin->DefaultObject = SpawnClass;
 	}
 
@@ -153,6 +154,11 @@ void UK2Node_CreateWidget::ExpandNode(class FKismetCompilerContext& CompilerCont
 
 	// Break any links to the expanded node
 	CreateWidgetNode->BreakAllNodeLinks();
+}
+
+TSharedPtr<SGraphNode> UK2Node_CreateWidget::CreateVisualWidget()
+{
+	return SNew(SGraphNodeCreateWidget, this);
 }
 
 #undef LOCTEXT_NAMESPACE

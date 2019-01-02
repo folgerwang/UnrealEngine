@@ -220,6 +220,8 @@ LoadALSALibrary(void)
 
 #endif /* SDL_AUDIO_DRIVER_ALSA_DYNAMIC */
 
+/* EG BEGIN */
+#ifndef SDL_WITH_EPIC_EXTENSIONS
 static const char *
 get_audio_device(void *handle, const int channels)
 {
@@ -243,7 +245,8 @@ get_audio_device(void *handle, const int channels)
 
     return "default";
 }
-
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 /* This function waits until it is possible to write a full sound buffer */
 static void

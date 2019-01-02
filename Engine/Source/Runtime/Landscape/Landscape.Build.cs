@@ -45,7 +45,8 @@ public class Landscape : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"RawMesh"
+					"MeshDescription",
+                    "MeshUtilitiesCommon"
 				}
 			);
 		}

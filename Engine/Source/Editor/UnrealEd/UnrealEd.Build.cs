@@ -96,6 +96,7 @@ public class UnrealEd : ModuleRules
 				"UMG",
 				"NavigationSystem",
                 "MeshDescription",
+                "MeshDescriptionOperations",
                 "MeshBuilder",
                 "MaterialShaderQualitySettings"
             }

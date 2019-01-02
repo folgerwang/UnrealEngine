@@ -62,6 +62,7 @@ void FSkeletonNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 			.Font( DetailFontInfo )
 		]
 		.ValueContent()
+		.HAlign( HAlign_Fill )
 		[
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()

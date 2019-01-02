@@ -202,9 +202,9 @@ UEdGraphPin* UK2Node_Tunnel::CreatePinFromUserDefinition(const TSharedPtr<FUserP
 			TargetNode->CreatePin(UEdGraphPin::GetComplementaryDirection(Direction), NewPinInfo->PinType, NewPinInfo->PinName);
 		}
 	}
-	else if (UK2Node_Tunnel* TunnelNode = Cast<UK2Node_Tunnel>(TargetNode))
+	else if (UK2Node_Tunnel* TunnelNode = Cast<UK2Node_Tunnel>((Direction == EGPD_Input) ? InputSinkNode : OutputSourceNode))
 	{
-		TunnelNode->CreateUserDefinedPin(NewPinInfo->PinName, NewPinInfo->PinType, (Direction == EGPD_Input)? EGPD_Output : EGPD_Input);
+		TunnelNode->CreateUserDefinedPin(NewPinInfo->PinName, NewPinInfo->PinType, UEdGraphPin::GetComplementaryDirection(Direction));
 	}
 
 	//@TODO: Automatically update loaded macro instances when this node is changed too

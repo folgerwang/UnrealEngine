@@ -119,8 +119,8 @@ void SActorDetails::Construct(const FArguments& InArgs, const FName TabIdentifie
 
 	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateLambda(IsPropertyVisible));
 	DetailsView->SetIsPropertyReadOnlyDelegate(FIsPropertyReadOnly::CreateSP(this, &SActorDetails::IsPropertyReadOnly));
-
 	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SActorDetails::IsPropertyEditingEnabled));
+	DetailsView->SetOnObjectArrayChanged(FOnObjectArrayChanged::CreateSP(this, &SActorDetails::OnDetailsViewObjectArrayChanged));
 
 
 	// Set up a delegate to call to add generic details to the view
@@ -216,6 +216,15 @@ SActorDetails::~SActorDetails()
 	if (LevelEditor != nullptr)
 	{
 		LevelEditor->OnComponentsEdited().RemoveAll(this);
+	}
+}
+
+void SActorDetails::OnDetailsViewObjectArrayChanged(const FString& InTitle, const TArray<TWeakObjectPtr<UObject>>& InObjects)
+{
+	// The DetailsView will already check validity every tick and hide itself when invalid, so this piggy-backs on that code instead of needing a second tick function.
+	if (InObjects.Num() == 0 && !LockedActorSelection.IsValid())
+	{
+		ComponentsBox->SetVisibility(EVisibility::Collapsed);
 	}
 }
 

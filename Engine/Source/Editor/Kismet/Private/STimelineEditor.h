@@ -21,6 +21,7 @@ class STimelineEditor;
 class SWindow;
 class UTimelineTemplate;
 struct FTTTrackBase;
+struct FAssetData;
 
 //////////////////////////////////////////////////////////////////////////
 // FTimelineEdTrack
@@ -97,9 +98,6 @@ private:
 	/**	Pointer to the curve */
 	UCurveBase* CurveBasePtr;
 
-	/** String to display external curve name in the text box*/
-	FString ExternalCurveName;
-
 	/** String to display external curve path as tooltip*/
 	FString ExternalCurvePath;
 
@@ -127,11 +125,8 @@ private:
 	/** Creates default asset path*/
 	FString CreateUniqueCurveAssetPathName();
 
-	/** Get the current external curve name*/
-	FText GetExternalCurveName( ) const;
-
 	/** Get the current external curve path*/
-	FText GetExternalCurvePath( ) const;
+	FString GetExternalCurvePath( ) const;
 
 	/** Function to replace internal curve with an external curve*/
 	void SwitchToExternalCurve(UCurveBase* AssetCurvePtr);
@@ -142,14 +137,8 @@ private:
 	/** Function to convert external curve to an internal curve*/
 	void UseInternalCurve( );
 
-	/** Callback function to replace internal curve with an external curve*/
-	FReply OnClickUse();
-
 	/** Callback function to replace external curve with an internal curve*/
 	FReply OnClickClear();
-
-	/** Callback function to locate external curve asset in content browser */
-	FReply OnClickBrowse();
 
 	/**Function to reset external curve info*/
 	void ResetExternalCurveInfo( );
@@ -184,6 +173,8 @@ private:
 	void OnSetInputViewRange(float Min, float Max);
 	/** Callback to set the output view range for the curve editor. */
 	void OnSetOutputViewRange(float Min, float Max);
+	/** Callback when the user picks a curve from the asset picker for a track */
+	void OnChooseCurve(const FAssetData& InObject);
 
 public:
 	/** Inline block for changing name of track */
