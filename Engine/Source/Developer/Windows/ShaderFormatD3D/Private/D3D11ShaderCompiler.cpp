@@ -554,7 +554,7 @@ static HRESULT D3DCompileToDxil(const char* SourceText, LPCWSTR EntryPoint, LPCW
 	return CompileResultCode;
 }
 
-static void D3DCreateDXCArguments(TArray<const WCHAR*>& OutArgs, const WCHAR* Exports, uint32 CompileFlags, uint32 AutoBindingSpace = ~0u)
+static void D3DCreateDXCArguments(TArray<const WCHAR*>& OutArgs, const WCHAR* Exports, uint32 CompileFlags, FShaderCompilerOutput& Output, uint32 AutoBindingSpace = ~0u)
 {
 	// Static digit strings are used here as they are returned in OutArgs
 	static const WCHAR* DigitStrings[] = 
@@ -619,20 +619,31 @@ static void D3DCreateDXCArguments(TArray<const WCHAR*>& OutArgs, const WCHAR* Ex
 		OutArgs.Add(L"/Gec");
 	}
 
-	if ((CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL2) == D3D10_SHADER_OPTIMIZATION_LEVEL2)
+	switch (CompileFlags & SHADER_OPTIMIZATION_LEVEL_MASK)
 	{
-		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL2;
-		OutArgs.Add(L"/O2");
-	}
-	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL3)
-	{
-		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL3;
-		OutArgs.Add(L"/O3");
-	}
-	else if (CompileFlags & D3D10_SHADER_OPTIMIZATION_LEVEL1)
-	{
+	case D3D10_SHADER_OPTIMIZATION_LEVEL0:
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL0;
+		OutArgs.Add(L"/O0");
+		break;
+
+	case D3D10_SHADER_OPTIMIZATION_LEVEL1:
 		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL1;
 		OutArgs.Add(L"/O1");
+		break;
+
+	case D3D10_SHADER_OPTIMIZATION_LEVEL2:
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL2;
+		OutArgs.Add(L"/O2");
+		break;
+
+	case D3D10_SHADER_OPTIMIZATION_LEVEL3:
+		CompileFlags &= ~D3D10_SHADER_OPTIMIZATION_LEVEL3;
+		OutArgs.Add(L"/O3");
+		break;
+
+	default:
+		Output.Errors.Emplace(TEXT("Unknown optimization level flag"));
+		break;
 	}
 
 	checkf(CompileFlags == 0, TEXT("Unhandled shader compiler flag!"));
@@ -998,7 +1009,7 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 		// Ignore backwards compatibility flag (/Gec) as it is deprecated.
 		// #dxr_todo: this flag should not be even passed into this function from the higher level.
 		const uint32 DXCFlags = CompileFlags & (~D3D10_SHADER_ENABLE_BACKWARDS_COMPATIBILITY);
-		D3DCreateDXCArguments(Args, *Exports, DXCFlags, AutoBindingSpace);
+		D3DCreateDXCArguments(Args, *Exports, DXCFlags, Output, AutoBindingSpace);
 
 		TRefCountPtr<IDxcBlobEncoding> DxcErrorBlob;
 

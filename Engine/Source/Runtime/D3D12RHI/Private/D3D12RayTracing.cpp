@@ -2012,7 +2012,8 @@ static void SetRayTracingShaderResources(
 
 		for (uint32 i = 0; i < Shader->ResourceCounts.NumCBs; ++i)
 		{
-			D3D12_GPU_VIRTUAL_ADDRESS BufferAddress = LocalCBVs[i]->ResourceLocation.GetGPUVirtualAddress();
+			const uint64 SlotMask = (1ull << i);
+			D3D12_GPU_VIRTUAL_ADDRESS BufferAddress = (BoundCBVMask & SlotMask) ? LocalCBVs[i]->ResourceLocation.GetGPUVirtualAddress() : 0;
 			Binder.SetRootCBV(BindSlot, i, BufferAddress);
 		}
 	}

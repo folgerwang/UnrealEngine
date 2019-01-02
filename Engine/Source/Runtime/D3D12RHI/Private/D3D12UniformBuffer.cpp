@@ -67,6 +67,8 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		return NewUniformBuffer;
 	});
 
+	check(UniformBufferOut);
+
 	if (Layout.Resources.Num())
 	{
 		const int32 NumResources = Layout.Resources.Num();
@@ -111,7 +113,10 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		}
 	}
 
-	UpdateBufferStats<FD3D12UniformBuffer>(&UniformBufferOut->ResourceLocation, true);
+	if (UniformBufferOut)
+	{
+		UpdateBufferStats<FD3D12UniformBuffer>(&UniformBufferOut->ResourceLocation, true);
+	}
 
 	return UniformBufferOut;
 }

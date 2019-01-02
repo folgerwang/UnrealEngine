@@ -354,22 +354,12 @@ void FD3D12StateCacheBase::ApplyState()
 
 	FD3D12CommandListHandle& CommandList = CmdContext->CommandListHandle;
 	const FD3D12RootSignature* pRootSignature = nullptr;
-	switch (PipelineType)
-	{
-	case D3D12PT_Graphics:
-		pRootSignature = GetGraphicsRootSignature();
-		break;
-	case D3D12PT_Compute:
-		pRootSignature = PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature;
-		break;
-	default:
-		check(false);
-		break;
-	}
 
 	// PSO
 	if (PipelineType == D3D12PT_Compute)
 	{
+		pRootSignature = PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature;
+
 		// See if we need to set a compute root signature
 		if (PipelineState.Compute.bNeedSetRootSignature)
 		{
@@ -385,6 +375,8 @@ void FD3D12StateCacheBase::ApplyState()
 	}
 	else if (PipelineType == D3D12PT_Graphics)
 	{
+		pRootSignature = GetGraphicsRootSignature();
+
 		// See if we need to set a graphics root signature
 		if (PipelineState.Graphics.bNeedSetRootSignature)
 		{
