@@ -6,6 +6,7 @@
 #include "EditorStyleSet.h"
 #include "EditorViewportCommands.h"
 #include "RayTracingDebugVisualizationMenuCommands.h"
+#include "RenderResource.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportViewMenu"
 
