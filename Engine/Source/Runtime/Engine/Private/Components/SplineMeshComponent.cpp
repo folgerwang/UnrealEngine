@@ -546,14 +546,8 @@ void USplineMeshComponent::UpdateRenderStateAndCollision_Internal(bool bConcurre
 		float SplineMeshMinZ = 1.f;
 		CalculateScaleZAndMinZ(SplineMeshScaleZ, SplineMeshMinZ);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
-			UpdateSplineParamsRTCommand,
-			FSplineMeshSceneProxy*, SplineProxy, SplineProxy,
-			FSplineMeshParams, SplineParams, SplineParams,
-			TEnumAsByte<ESplineMeshAxis::Type>, ForwardAxis, ForwardAxis,
-			FVector, SplineUpDir, SplineUpDir,
-			float, SplineMeshScaleZ, SplineMeshScaleZ,
-			float, SplineMeshMinZ, SplineMeshMinZ,
+		ENQUEUE_RENDER_COMMAND(UpdateSplineParamsRTCommand)(
+			[SplineProxy, this, SplineMeshScaleZ, SplineMeshMinZ](FRHICommandList&)
 			{
 				SplineProxy->SplineParams = SplineParams;
 				SplineProxy->ForwardAxis = ForwardAxis;
