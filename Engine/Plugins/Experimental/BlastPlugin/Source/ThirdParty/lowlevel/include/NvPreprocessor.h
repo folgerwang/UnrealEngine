@@ -349,7 +349,9 @@ Inline macro
 */
 #define NV_INLINE inline
 #if NV_MICROSOFT_FAMILY
+#ifndef __clang__
 #pragma inline_depth(255)
+#endif
 #endif
 
 /**
