@@ -23,11 +23,8 @@ namespace AutomationTool
 		static ProcessManager.CtrlHandlerDelegate CtrlHandlerDelegateInstance = CtrlHandler;
 
 		[STAThread]
-		public static int Main()
+		public static int Main(string[] Arguments)
 		{
-			// Parse the command line
-			string[] Arguments = SharedUtils.ParseCommandLineAndRemoveExe(Environment.CommandLine);
-
             // Ensure UTF8Output flag is respected, since we are initializing logging early in the program.
             if (CommandUtils.ParseParam(Arguments, "-Utf8output"))
             {
