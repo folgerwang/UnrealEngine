@@ -180,7 +180,7 @@ namespace WindowsMixedReality
 
 		FlushRenderingCommands();
 
-		return std::move(D3D11DeviceLocal);
+		return D3D11DeviceLocal;
 	}
 
 	/** Helper function for acquiring the appropriate FSceneViewport */

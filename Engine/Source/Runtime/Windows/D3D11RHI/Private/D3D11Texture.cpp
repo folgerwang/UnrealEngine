@@ -1781,11 +1781,11 @@ void FD3D11DynamicRHI::RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTextu
 
 	D3D11_BOX SourceBoxAdjust =
 	{
-		SourceStartX,
-		SourceStartY,
+		static_cast<UINT>(SourceStartX),
+		static_cast<UINT>(SourceStartY),
 		0,
-		SourceEndX,
-		SourceEndY,
+		static_cast<UINT>(SourceEndX),
+		static_cast<UINT>(SourceEndY),
 		1
 	};
 

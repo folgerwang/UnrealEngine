@@ -426,7 +426,14 @@ namespace UnrealBuildTool
 				Arguments.Add("/bigobj");
 			}
 
-			if (Target.WindowsPlatform.Compiler != WindowsCompiler.Intel)
+			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Intel || Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
+			{
+				// FMath::Sqrt calls get inlined and when reciprical is taken, turned into an rsqrtss instruction,
+				// which is *too* imprecise for, e.g., TestVectorNormalize_Sqrt in UnrealMathTest.cpp
+				// TODO: Observed in clang 7.0, presumably the same in Intel C++ Compiler?
+				Arguments.Add("/fp:precise");
+			}
+			else
 			{
 				// Relaxes floating point precision semantics to allow more optimization.
 				Arguments.Add("/fp:fast");
@@ -535,8 +542,6 @@ namespace UnrealBuildTool
 			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Intel)
 			{
 				Arguments.Add("/Qstd=c++14");
-				Arguments.Add("/fp:precise");
-				Arguments.Add("/nologo");
 			}
 
 			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
@@ -546,6 +551,9 @@ namespace UnrealBuildTool
 
 				// @todo clang: Ideally we want as few warnings disabled as possible
 				// 
+
+				// Treat all warnings as errors by default
+				Arguments.Add("-Werror");
 
 				// Allow Microsoft-specific syntax to slide, even though it may be non-standard.  Needed for Windows headers.
 				Arguments.Add("-Wno-microsoft");
@@ -604,6 +612,8 @@ namespace UnrealBuildTool
 				Arguments.Add("-Wno-nonportable-include-path");
 				Arguments.Add("-Wno-invalid-token-paste");
 				Arguments.Add("-Wno-null-pointer-arithmetic");
+				Arguments.Add("-Wno-constant-logical-operand"); // Triggered by || of two template-derived values inside a static_assert
+
 			}
 		}
 

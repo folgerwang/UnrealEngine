@@ -37,10 +37,15 @@ public:
 		return true;
 	}
 
-	FORCEINLINE void ValidateAfterBind()
+	// Clang fails with a linker error when force-inlining this function. Not sure why.
+#if PLATFORM_WINDOWS && defined(__clang__)
+	void ValidateAfterBind();
+#else
+	void ValidateAfterBind()
 	{
 		checkfSlow(PassUniformBuffer.IsInitialized(), TEXT("FMeshMaterialShader must bind a pass uniform buffer, even if it is just FSceneTexturesUniformParameters: %s"), GetType()->GetName());
 	}
+#endif
 
 	template< typename ShaderRHIParamRef >
 	void SetPassUniformBuffer(
