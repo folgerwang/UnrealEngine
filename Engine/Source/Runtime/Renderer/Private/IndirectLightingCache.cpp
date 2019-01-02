@@ -678,6 +678,8 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			}
 		}
 
+		const FIndirectLightingCacheAllocation* OriginalCachedIndirectLightingCacheAllocation = PrimitiveSceneInfo->IndirectLightingCacheAllocation;
+
 		if (AttachmentParentAllocation)
 		{
 			// Reuse the attachment parent's lighting allocation if part of an attachment group
@@ -714,6 +716,12 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			{
 				PrimitiveSceneInfo->MarkIndirectLightingCacheBufferDirty();
 			}
+		}
+
+		if (OriginalCachedIndirectLightingCacheAllocation != PrimitiveSceneInfo->IndirectLightingCacheAllocation)
+		{
+			// Update cached mesh draw commands, so they can pick up new IndirectLightingCacheAllocation.
+			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 		}
 	}
 }

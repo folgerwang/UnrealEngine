@@ -448,6 +448,8 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 	if (bNeedsStaticMeshUpdate)
 	{
 		Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
+
+		bNeedsStaticMeshUpdate = false;
 	}
 
 	if (bUpdateStaticDrawLists)
@@ -498,10 +500,13 @@ void FPrimitiveSceneInfo::UpdateUniformBuffer(FRHICommandListImmediate& RHICmdLi
 
 void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshes()
 {
-	// Set a flag which causes InitViews to update the static meshes the next time the primitive is visible.
-	bNeedsStaticMeshUpdate = true;
+	if (!bNeedsStaticMeshUpdate)
+	{
+		// Set a flag which causes InitViews to update the static meshes the next time the primitive is visible.
+		bNeedsStaticMeshUpdate = true;
 
-	Scene->PrimitivesNeedingStaticMeshUpdate.Add(this);
+		Scene->PrimitivesNeedingStaticMeshUpdate.Add(this);
+	}
 }
 
 void FPrimitiveSceneInfo::LinkLODParentComponent()
