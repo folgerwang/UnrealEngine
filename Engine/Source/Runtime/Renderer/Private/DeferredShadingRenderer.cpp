@@ -773,7 +773,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								}
 							}
 
-							ensure(DrawCmdIndexCopy != DynamicMeshBatchStartOffset[ViewIndex]);
+							ensure(DrawCmdIndexCopy != VisibleDrawCommandStartOffset[ViewIndex]);
 							View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
 						}
 					}
