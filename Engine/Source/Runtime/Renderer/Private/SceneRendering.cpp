@@ -3104,7 +3104,7 @@ private:
 
 void FSceneRenderer::SortMeshDrawCommands()
 {
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_ProcessVisibleMeshDrawCommands);
+	SCOPE_CYCLE_COUNTER(STAT_ProcessVisibleMeshDrawCommands);
 
 	const EShadingPath ShadingPath = Scene->GetShadingPath();
 	const bool bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
