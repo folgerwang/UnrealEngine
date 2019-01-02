@@ -220,6 +220,26 @@ static inline uint32 CharCodeFromSDLKeySym(const SDL_Keycode KeySym)
 	return (uint32) KeySym;
 }
 
+namespace LinuxApplicationHelpers
+{
+	// This solution is specific to UE 4.21.2
+	FVector2D GetTouchEventLocation(SDL_HWindow NativeWindow, SDL_Event TouchEvent)
+	{
+		checkf(TouchEvent.type == SDL_FINGERDOWN || TouchEvent.type == SDL_FINGERUP || TouchEvent.type == SDL_FINGERMOTION, TEXT("Wrong touch event."));
+		int X, Y, Width, Height;
+		SDL_GetWindowPosition(NativeWindow, &X, &Y);
+		SDL_GetWindowSize(NativeWindow, &Width, &Height);
+
+		float LocationX = static_cast<float>(X);
+		float LocationY = static_cast<float>(Y);
+		float SizeX = static_cast<float>(Width);
+		float SizeY = static_cast<float>(Height);
+
+		// coordinates aren't necessarily normalized: e.g. if the input is grabbed and we're sliding outside of the window we can get x > 1
+		return FVector2D(LocationX + SizeX * TouchEvent.tfinger.x, LocationY + SizeY * TouchEvent.tfinger.y);
+	}
+}
+
 void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 {
 	// This function can be reentered when entering a modal tick loop.
@@ -978,7 +998,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 				FTouchContext NewTouch;
 				NewTouch.TouchIndex = Touches.Num();
-				NewTouch.Location = GetTouchEventLocation(Event) + Offset;
+				NewTouch.Location = LinuxApplicationHelpers::GetTouchEventLocation(NativeWindow, Event) + Offset;
 				NewTouch.DeviceId = Event.tfinger.touchId;
 				Touches.Add(FingerId, NewTouch);
 
@@ -1012,7 +1032,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				}
 				else
 				{
-					TouchContext->Location = GetTouchEventLocation(Event) + Offset;
+					TouchContext->Location = LinuxApplicationHelpers::GetTouchEventLocation(NativeWindow, Event) + Offset;
 					// check touch device?
 
 					UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchEnded at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
@@ -1048,14 +1068,14 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				else
 				{
 					// do not send moved event if position has not changed
-					FVector2D Location = GetTouchEventLocation(Event) + Offset;
+					FVector2D Location = LinuxApplicationHelpers::GetTouchEventLocation(NativeWindow, Event) + Offset;
 					if (LIKELY((Location - TouchContext->Location).IsNearlyZero() == false))
 					{
 						TouchContext->Location = Location;
 						UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchMoved at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
 						MessageHandler->OnTouchMoved(TouchContext->Location, 1.0f, TouchContext->TouchIndex, 0);// TouchContext->DeviceId);
-	}
-}
+					}
+				}
 			}
 			else
 			{
@@ -1282,6 +1302,8 @@ TSharedPtr< FLinuxWindow > FLinuxApplication::FindEventWindow(SDL_Event* Event, 
 			WindowID = Event->drop.windowID;
 			break;
 		case SDL_FINGERDOWN:
+		case SDL_FINGERUP:
+		case SDL_FINGERMOTION:
 			// SDL touch events are windowless, but Slate needs to associate touch down with a particular window.
 			// Assume that the current focus window is the one relevant for the touch and if there's none, assume the event windowless
 			if (CurrentFocusWindow.IsValid())
