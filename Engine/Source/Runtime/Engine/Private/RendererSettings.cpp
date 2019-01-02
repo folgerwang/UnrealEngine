@@ -122,6 +122,12 @@ bool URendererSettings::CanEditChange(const UProperty* InProperty) const
 		return ParentVal && (bSupportSkinCacheShaders || bEnableRayTracing);
 	}
 
+	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, bSupportSkinCacheShaders)))
+	{
+		//only allow DISABLE of skincache shaders if raytracing is also disabled as skincache is a dependency of raytracing.
+		return ParentVal && (!bSupportSkinCacheShaders || !bEnableRayTracing);
+	}
+
 	return ParentVal;
 }
 #endif // #if WITH_EDITOR

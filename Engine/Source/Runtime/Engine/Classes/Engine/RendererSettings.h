@@ -613,6 +613,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	*/
 	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
 		ConsoleVariable = "r.SkinCache.CompileShaders", DisplayName = "Support Compute Skincache",
+		ToolTip = "Cannot be disabled while Ray Tracing is enabled as it is then required.",
 		ConfigRestartRequired = true))
 		uint32 bSupportSkinCacheShaders : 1;
 
