@@ -67,6 +67,12 @@ namespace UnrealBuildTool
 	class WriteMetadataMode : ToolMode
 	{
 		/// <summary>
+		/// Version number for output files. This is not used directly, but can be appended to command-line invocations of the tool to ensure that actions to generate metadata are updated if the output format changes. 
+		/// The action graph is regenerated whenever UBT is rebuilt, so this should always match.
+		/// </summary>
+		public const int CurrentVersionNumber = 1;
+
+		/// <summary>
 		/// Execute the command
 		/// </summary>
 		/// <param name="Arguments">Command line arguments</param>
@@ -76,7 +82,14 @@ namespace UnrealBuildTool
 			// Read the target info
 			WriteMetadataTargetInfo TargetInfo = BinaryFormatterUtils.Load<WriteMetadataTargetInfo>(Arguments.GetFileReference("-Input="));
 			bool bNoManifestChanges = Arguments.HasOption("-NoManifestChanges");
+			int VersionNumber = Arguments.GetInteger("-Version=");
 			Arguments.CheckAllArgumentsUsed();
+
+			// Make sure the version number is correct
+			if(VersionNumber != CurrentVersionNumber)
+			{
+				throw new BuildException("Version number to WriteMetadataMode is incorrect (expected {0}, got {1})", CurrentVersionNumber, VersionNumber);
+			}
 
 			// Check if we need to set a build id
 			TargetReceipt Receipt = TargetInfo.Receipt;
