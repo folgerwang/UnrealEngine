@@ -32,21 +32,21 @@ public:
 	/** Delete existing resources */
 	ENGINE_API void CleanUp();
 
-	void ENGINE_API Init(uint32 NumVertices, bool bNeedsCPUAccess = true);
+	void ENGINE_API Init(uint32 NumVertices, bool bInNeedsCPUAccess = true);
 
 	/**
 	* Initializes the buffer with the given vertices, used to convert legacy layouts.
 	* @param InVertices - The vertices to initialize the buffer with.
 	*/
-	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bNeedsCPUAccess = true);
+	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bInNeedsCPUAccess = true);
 
 	/**
 	* Initializes this vertex buffer with the contents of the given vertex buffer.
 	* @param InVertexBuffer - The vertex buffer to initialize from.
 	*/
-	void Init(const FPositionVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess = true);
+	void Init(const FPositionVertexBuffer& InVertexBuffer, bool bInNeedsCPUAccess = true);
 
-	ENGINE_API void Init(const TArray<FVector>& InPositions, bool bNeedsCPUAccess = true);
+	ENGINE_API void Init(const TArray<FVector>& InPositions, bool bInNeedsCPUAccess = true);
 
 	/**
 	 * Appends the specified vertices to the end of the buffer
@@ -59,10 +59,10 @@ public:
 	/**
 	* Serializer
 	*
-	* @param	Ar				Archive to serialize with
-	* @param	bNeedsCPUAccess	Whether the elements need to be accessed by the CPU
+	* @param	Ar					Archive to serialize with
+	* @param	bInNeedsCPUAccess	Whether the elements need to be accessed by the CPU
 	*/
-	void Serialize(FArchive& Ar, bool bNeedsCPUAccess);
+	void Serialize(FArchive& Ar, bool bInNeedsCPUAccess);
 
 	/**
 	* Specialized assignment operator, only used when importing LOD's.
@@ -118,8 +118,8 @@ private:
 	/** The cached number of vertices. */
 	uint32 NumVertices;
 
-	bool NeedsCPUAccess = true;
+	bool bNeedsCPUAccess = true;
 
 	/** Allocates the vertex data storage type. */
-	void AllocateData(bool bNeedsCPUAccess = true);
+	void AllocateData(bool bInNeedsCPUAccess = true);
 };
