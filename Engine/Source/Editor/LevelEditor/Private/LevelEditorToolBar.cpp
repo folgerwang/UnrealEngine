@@ -1714,6 +1714,15 @@ static void MakeShaderModelPreviewMenu(FMenuBuilder& MenuBuilder)
 	{
 		for (int32 i = GMaxRHIFeatureLevel; i >= 0; --i)
 		{
+#if RHI_RAYTRACING
+			if (IsRayTracingSupportedForThisProject())
+			{
+				if (i != ERHIFeatureLevel::SM5)
+				{
+					continue;
+				}
+			}
+#endif
 			switch (i)
 			{
 				case ERHIFeatureLevel::ES2:

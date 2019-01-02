@@ -7477,6 +7477,12 @@ void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
 
 void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
+#if RHI_RAYTRACING
+	if (IsRayTracingSupportedForThisProject())
+	{
+		ensure(PreviewFeatureLevel == ERHIFeatureLevel::SM5);
+	}
+#endif
 	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
 	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
 
