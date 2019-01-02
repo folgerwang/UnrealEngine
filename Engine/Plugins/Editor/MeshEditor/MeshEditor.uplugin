@@ -10,7 +10,7 @@
 	"DocsURL" : "",
 	"MarketplaceURL" : "",
 	"SupportURL" : "",
-	"EnabledByDefault" : true,
+	"EnabledByDefault" : false,
 	"CanContainContent" : true,
 	"IsBetaVersion" : false,
 	"Installed" : false,
@@ -31,6 +31,14 @@
 		{
 			"Name": "EditableMesh",
 			"Enabled": true
-		}
+		},
+		{
+			"Name": "BlastPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "GeometryCollectionPlugin",
+			"Enabled":  true
+		}		
 	]
 }

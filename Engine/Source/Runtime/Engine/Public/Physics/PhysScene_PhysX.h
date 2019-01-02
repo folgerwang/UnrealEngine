@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,11 @@
 #include "PhysicsPublic.h"
 #include "PhysxUserData.h"
 #include "Physics/PhysicsInterfaceTypes.h"
+
+class ISQAccelerator;
+class FSQAccelerator;
+class FSQAcceleratorUnion;
+class FSQAcceleratorEntry;
 
 /** Buffers used as scratch space for PhysX to avoid allocations during simulation */
 struct FSimulationScratchBuffer
@@ -22,7 +27,7 @@ struct FSimulationScratchBuffer
 	int32 BufferSize;
 };
 
-#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !WITH_IMMEDIATE_PHYSX && !PHYSICS_INTERFACE_LLIMMEDIATE
 
 class FPhysicsReplication;
 class IPhysicsReplicationFactory;
@@ -53,7 +58,7 @@ namespace nvidia
 class ISimEventCallbackFactory
 {
 public:
-	virtual physx::PxSimulationEventCallback* Create(FPhysScene_PhysX* PhysScene, int32 SceneType) = 0;
+	virtual physx::PxSimulationEventCallback* Create(FPhysScene_PhysX* PhysScene) = 0;
 	virtual void Destroy(physx::PxSimulationEventCallback* Callback) = 0;
 };
 #endif // WITH PHYSX
@@ -62,7 +67,7 @@ public:
 class IContactModifyCallbackFactory
 {
 public:
-	virtual FContactModifyCallback* Create(FPhysScene_PhysX* PhysScene, int32 SceneType) = 0;
+	virtual FContactModifyCallback* Create(FPhysScene_PhysX* PhysScene) = 0;
 	virtual void Destroy(FContactModifyCallback* Callback) = 0;
 };
 
@@ -70,7 +75,7 @@ public:
 class ICCDContactModifyCallbackFactory
 {
 public:
-	virtual FCCDContactModifyCallback* Create(FPhysScene_PhysX* PhysScene, int32 SceneType) = 0;
+	virtual FCCDContactModifyCallback* Create(FPhysScene_PhysX* PhysScene) = 0;
 	virtual void Destroy(FCCDContactModifyCallback* Callback) = 0;
 };
 
@@ -88,7 +93,7 @@ public:
 	//// Actor creation/registration
 	//void ReleaseActor(FPhysicsActorReference& InActor);
 	void AddActorsToScene_AssumesLocked(const TArray<FPhysicsActorHandle>& InActors);
-	void AddAggregateToScene(const FPhysicsAggregateHandle& InAggregate, bool bUseAsyncScene); // #PHYS2 Remove bUseAsyncScene flag somehow
+	void AddAggregateToScene(const FPhysicsAggregateHandle& InAggregate);
 
 	//Owning world is made private so that any code which depends on setting an owning world can update
 	void SetOwningWorld(UWorld* InOwningWorld);
@@ -98,7 +103,7 @@ public:
 	FPhysicsReplication* GetPhysicsReplication() { return PhysicsReplication; }
 
 	/** Lets the scene update anything related to this BodyInstance as it's now being terminated */
-	void RemoveBodyInstanceFromPendingLists_AssumesLocked(FBodyInstance* BodyInstance, int32 SceneType);
+	void RemoveBodyInstanceFromPendingLists_AssumesLocked(FBodyInstance* BodyInstance);
 
 	/** Add a custom callback for next step that will be called on every substep */
 	void AddCustomPhysics_AssumesLocked(FBodyInstance* BodyInstance, FCalculateCustomPhysics& CalculateCustomPhysics);
@@ -141,12 +146,12 @@ public:
 	ENGINE_API void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID);
 
 	/** Pending constraint break events */
-	void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType);
+	void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance);
 	/** Pending wake/sleep events */
-	void AddPendingSleepingEvent(FBodyInstance* BI, ESleepEvent SleepEventType, int32 SceneType);
+	void AddPendingSleepingEvent(FBodyInstance* BI, ESleepEvent SleepEventType);
 
 	/** Gets the array of collision notifications, pending execution at the end of the physics engine run. */
-	TArray<FCollisionNotifyInfo>& GetPendingCollisionNotifies(int32 SceneType) { return PendingCollisionData[SceneType].PendingCollisionNotifies; }
+	TArray<FCollisionNotifyInfo>& GetPendingCollisionNotifies() { return PendingCollisionData.PendingCollisionNotifies; }
 
 	/** @return Whether physics scene supports scene origin shifting */
 	static bool SupportsOriginShifting() { return true; }
@@ -190,20 +195,18 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	// PhysScene_PhysX interface
 
-	/** Utility for looking up the PxScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
-	ENGINE_API physx::PxScene* GetPxScene(uint32 SceneType) const;
+	/** Get the PxScene */
+	ENGINE_API physx::PxScene* GetPxScene() const;
+
+	ENGINE_API ISQAccelerator* GetSQAccelerator() const;
+
+	ENGINE_API FSQAcceleratorUnion* GetSQAcceleratorUnion() const;
 
 #if WITH_APEX
-	/** Utility for looking up the ApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
-	ENGINE_API nvidia::apex::Scene*	GetApexScene(uint32 SceneType) const;
+	/** Get the ApexScene*/
+	ENGINE_API nvidia::apex::Scene*	GetApexScene() const { return PhysXScene; }
 #endif
-
-	/** Starts cloth Simulation*/
-	ENGINE_API void StartAsync();
-
-	/** Returns whether an async scene is setup and can be used. This depends on the console variable "p.EnableAsyncScene". */
-	ENGINE_API bool HasAsyncScene() const { return bAsyncSceneEnabled; }
-
+	
 	/** The number of frames it takes to rebuild the PhysX scene query AABB tree. The bigger the number, the smaller fetchResults takes per frame, but the more the tree deteriorates until a new tree is built */
 	void SetPhysXTreeRebuildRate(int32 RebuildRate);
 
@@ -222,28 +225,18 @@ public:
 
 	//////////////////////////////////////////////////////////////////////////
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysScenePreTick, FPhysScene_PhysX*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysScenePreTick, FPhysScene_PhysX*, float /*DeltaSeconds*/);
 	FOnPhysScenePreTick OnPhysScenePreTick;
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysSceneStep, FPhysScene_PhysX*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneStep, FPhysScene_PhysX*, float /*DeltaSeconds*/);
 	FOnPhysSceneStep OnPhysSceneStep;
 
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysScenePostTick, FPhysScene*, uint32 /*SceneType*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysScenePostTick, FPhysScene*);
 	FOnPhysScenePostTick OnPhysScenePostTick;
 
 private:
-	/** Indicates whether the async scene is enabled or not. */
-	bool							bAsyncSceneEnabled;
-
 	/** Indicates whether the scene is using substepping */
 	bool							bSubstepping;
-
-	/** Indicates whether the scene is using substepping */
-	bool							bSubsteppingAsync;
-
-	/** Stores the number of valid scenes we are working with. This will be PST_MAX or PST_Async,
-	depending on whether the async scene is enabled or not*/
-	uint32							NumPhysScenes;
 
 	/** World that owns this physics scene */
 	UWorld*							OwningWorld;
@@ -251,59 +244,67 @@ private:
 	/** Replication manager that updates physics bodies towards replicated physics state */
 	FPhysicsReplication*			PhysicsReplication;
 
+#if WITH_CUSTOM_SQ_STRUCTURE
+	TMap<physx::PxRigidActor*, FSQAcceleratorEntry*> RigidActorToSQEntries;
+#endif
+
 #if WITH_APEX
-	nvidia::apex::Scene* PhysXScenes[PST_MAX];
+	nvidia::apex::Scene* PhysXScene;
 #else // #if WITH_APEX
-	PxScene* PhysXScenes[PST_MAX];
+	PxScene* PhysXScene;
 #endif // #if WITH_APEX
 
 	/** Whether or not the given scene is between its execute and sync point. */
-	bool							bPhysXSceneExecuting[PST_MAX];
+	bool							bPhysXSceneExecuting;
 
 	/** Frame time, weighted with current frame time. */
-	float							AveragedFrameTime[PST_MAX];
+	float							AveragedFrameTime;
 
 	/**
 	* Weight for averaged frame time.  Value should be in the range [0.0f, 1.0f].
 	* Weight = 0.0f => no averaging; current frame time always used.
 	* Weight = 1.0f => current frame time ignored; initial value of AveragedFrameTime[i] is always used.
 	*/
-	float							FrameTimeSmoothingFactor[PST_MAX];
+	float							FrameTimeSmoothingFactor;
 
 	/** DeltaSeconds from UWorld. */
 	float										DeltaSeconds;
 	/** DeltaSeconds from the WorldSettings. */
 	float										MaxPhysicsDeltaTime;
-	/** DeltaSeconds used by the last synchronous scene tick.  This may be used for the async scene tick. */
-	float										SyncDeltaSeconds;
+
 	/** LineBatcher from UWorld. */
 	ULineBatchComponent*						LineBatcher;
 
 	/** Completion event (not tasks) for the physics scenes these are fired by the physics system when it is done; prerequisites for the below */
-	FGraphEventRef PhysicsSubsceneCompletion[PST_MAX];
+	FGraphEventRef PhysicsSubsceneCompletion;
 	/** Completion events (not tasks) for the frame lagged physics scenes these are fired by the physics system when it is done; prerequisites for the below */
-	FGraphEventRef FrameLaggedPhysicsSubsceneCompletion[PST_MAX];
+	FGraphEventRef FrameLaggedPhysicsSubsceneCompletion;
 	/** Completion events (task) for the physics scenes	(both apex and non-apex). This is a "join" of the above. */
 	FGraphEventRef PhysicsSceneCompletion;
 
 	// Data for scene scratch buffers, these will be allocated once on FPhysScene construction and used
 	// for the calls to PxScene::simulate to save it calling into the OS to allocate during simulation
-	FSimulationScratchBuffer SimScratchBuffers[PST_MAX];
+	FSimulationScratchBuffer SimScratchBuffer;
 
 	// Boundary value for PhysX scratch buffers (currently PhysX requires the buffer length be a multiple of 16K)
 	static const int32 SimScratchBufferBoundary = 16 * 1024;
 
+#if WITH_CUSTOM_SQ_STRUCTURE
+	class FSQAcceleratorUnion* SQAcceleratorUnion;
+	class FSQAccelerator* SQAccelerator;
+#endif
+
 #if WITH_PHYSX
 
-	bool bIsSceneSimulating[PST_MAX];
+	bool bIsSceneSimulating;
 
 	/** Dispatcher for CPU tasks */
-	class PxCpuDispatcher*			CPUDispatcher[PST_MAX];
+	class PxCpuDispatcher*			CPUDispatcher;
 	/** Simulation event callback object */
-	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
-	FContactModifyCallback*			ContactModifyCallback[PST_MAX];
-	FCCDContactModifyCallback*			CCDContactModifyCallback[PST_MAX];
-	FPhysXMbpBroadphaseCallback* MbpBroadphaseCallbacks[PST_MAX];
+	physx::PxSimulationEventCallback*			SimEventCallback;
+	FContactModifyCallback*			ContactModifyCallback;
+	FCCDContactModifyCallback*			CCDContactModifyCallback;
+	FPhysXMbpBroadphaseCallback* MbpBroadphaseCallback;
 
 	struct FPendingCollisionData
 	{
@@ -311,7 +312,7 @@ private:
 		TArray<FCollisionNotifyInfo>	PendingCollisionNotifies;
 	};
 
-	FPendingCollisionData PendingCollisionData[PST_MAX];
+	FPendingCollisionData PendingCollisionData;
 
 	struct FPendingConstraintData
 	{
@@ -319,44 +320,41 @@ private:
 		TArray<FConstraintBrokenDelegateData> PendingConstraintBroken;
 	};
 
-	FPendingConstraintData PendingConstraintData[PST_MAX];
+	FPendingConstraintData PendingConstraintData;
 
 #endif	// WITH_PHYSX
 
 	/** Start simulation on the physics scene of the given type */
-	ENGINE_API void TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletionEvent);
+	ENGINE_API void TickPhysScene(FGraphEventRef& InOutCompletionEvent);
 
 	/** Fetches results, fires events, and adds debug lines */
-	void ProcessPhysScene(uint32 SceneType);
+	void ProcessPhysScene();
 
 	/** Sync components in the scene to physics bodies that changed */
-	void SyncComponentsToBodies_AssumesLocked(uint32 SceneType);
+	void SyncComponentsToBodies_AssumesLocked();
 
 	/** Call after WaitPhysScene on the synchronous scene to make deferred OnRigidBodyCollision calls.  */
 	ENGINE_API void DispatchPhysNotifications_AssumesLocked();
 
 	/** Add any debug lines from the physics scene of the given type to the supplied line batcher. */
-	ENGINE_API void AddDebugLines(uint32 SceneType, class ULineBatchComponent* LineBatcherToUse);
+	ENGINE_API void AddDebugLines(class ULineBatchComponent* LineBatcherToUse);
 
-	void AddActorsToPhysXScene_AssumesLocked(int32 SceneType, const TArray<FPhysicsActorHandle>& InActors);
+	void AddActorsToPhysXScene_AssumesLocked(const TArray<FPhysicsActorHandle>& InActors);
 
 	/** @return Whether physics scene is using substepping */
-	bool IsSubstepping(uint32 SceneType) const;
+	bool IsSubstepping() const;
 
 	/** Initialize a scene of the given type.  Must only be called once for each scene type. */
-	void InitPhysScene(uint32 SceneType, const AWorldSettings* Settings = nullptr);
+	void InitPhysScene(const AWorldSettings* Settings = nullptr);
 
 	/** Terminate a scene of the given type.  Must only be called once for each scene type. */
-	void TermPhysScene(uint32 SceneType);
+	void TermPhysScene();
 
 	/** Called when all subscenes of a given scene are complete, calls  ProcessPhysScene*/
-	void SceneCompletionTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, EPhysicsSceneType SceneType);
-
-	/** Helper function for determining which scene a dyanmic body is in*/
-	EPhysicsSceneType SceneType_AssumesLocked(const FBodyInstance* BodyInstance) const;
-
+	void SceneCompletionTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	
 	/** Task created from TickPhysScene so we can substep without blocking */
-	bool SubstepSimulation(uint32 SceneType, FGraphEventRef& InOutCompletionEvent);
+	bool SubstepSimulation(FGraphEventRef& InOutCompletionEvent);
 
 	/** Set whether we're doing a static load and want to stall, or are during gameplay and want to distribute over many frames */
 	void SetIsStaticLoading(bool bStaticLoading);
@@ -370,7 +368,7 @@ private:
 
 #endif
 
-	class FPhysSubstepTask * PhysSubSteppers[PST_MAX];
+	class FPhysSubstepTask * PhysSubStepper;
 
 	struct FPendingCollisionDisableTable
 	{
@@ -381,9 +379,9 @@ private:
 	/** Updates CollisionDisableTableLookup with the deferred insertion and deletion */
 	void FlushDeferredCollisionDisableTableQueue();
 
-	bool ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar);
+	bool ExecPxVis(const TCHAR* Cmd, FOutputDevice* Ar);
 
-	bool ExecApexVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar);
+	bool ExecApexVis(const TCHAR* Cmd, FOutputDevice* Ar);
 
 
 	/** Queue of deferred collision table insertion and deletion */
@@ -393,7 +391,7 @@ private:
 	TMap< uint32, TMap<struct FRigidBodyIndexPair, bool>* >		CollisionDisableTableLookup;
 
 #if WITH_PHYSX
-	TMap<FBodyInstance*, ESleepEvent> PendingSleepEvents[PST_MAX];
+	TMap<FBodyInstance*, ESleepEvent> PendingSleepEvents;
 #endif
 
 	FDelegateHandle PreGarbageCollectDelegateHandle;

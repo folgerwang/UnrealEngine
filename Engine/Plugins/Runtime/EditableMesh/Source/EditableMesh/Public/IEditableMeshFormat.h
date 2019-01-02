@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,5 +18,9 @@ public:
 	// @todo mesheditor: Comments!
 	virtual void FillMeshObjectPtr( class UPrimitiveComponent& Component, struct FEditableMeshSubMeshAddress& SubMeshAddress ) = 0;
 	virtual class UEditableMesh* MakeEditableMesh( class UPrimitiveComponent& Component, const struct FEditableMeshSubMeshAddress& SubMeshAddress ) = 0;
+	virtual bool HandlesComponentType(class UPrimitiveComponent& Component) = 0;
+	virtual bool HandlesBones() = 0;
+	virtual void RefreshEditableMesh(UEditableMesh* EditableMesh, UPrimitiveComponent& Component) = 0;
+
 
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -95,6 +95,9 @@ enum class EEditableMeshElementType
 
 	/** A polygon with at least three 3D points.  It could be triangle, quad, or more complex shape */
 	Polygon,
+
+	/** Mesh Fracturing Mode */
+	Fracture,
 
 	/** Represents any element type */
 	Any,

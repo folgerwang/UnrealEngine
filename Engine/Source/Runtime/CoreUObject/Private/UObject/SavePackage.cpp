@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -3977,6 +3977,14 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				}
 #endif
 
+				if (!(Linker->Summary.PackageFlags & PKG_FilterEditorOnly))
+				{
+					// The Editor version is used as part of the check to see if a package is too old to use the gather cache, so we always have to add it if we have gathered loc for this asset
+					// We need to set the editor custom version before we copy the version container to the summary, otherwise we may end up with corrupt assets
+					// because we later do it on the Linker when actually gathering loc data
+					ExportTaggerArchive.UsingCustomVersion(FEditorObjectVersion::GUID);
+				}
+
 				// Use the custom versions we had previously gleaned from the export tag pass
 				Linker->Summary.SetCustomVersionContainer(ExportTaggerArchive.GetCustomVersions());
 
@@ -4568,6 +4576,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				if (!(Linker->Summary.PackageFlags & PKG_FilterEditorOnly))
 				{
 					// The Editor version is used as part of the check to see if a package is too old to use the gather cache, so we always have to add it if we have gathered loc for this asset
+					// Note that using custom version here only works because we already added it to the export tagger before the package summary was serialized
 					Linker->UsingCustomVersion(FEditorObjectVersion::GUID);
 
 					bool bCanCacheGatheredText = false;

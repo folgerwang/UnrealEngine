@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditableStaticMeshAdapter.h"
 #include "EditableMesh.h"
@@ -1885,3 +1885,57 @@ FPolygonGroupID UEditableStaticMeshAdapter::GetSectionForRenderingSectionIndex( 
 
 	return FPolygonGroupID::Invalid;
 }
+
+#if WITH_EDITOR
+void UEditableStaticMeshAdapter::GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams)
+{
+	// Shapes are in world space, but we need it in the local space of our component
+	const FVector ComponentSpaceLaserStart = InParams.ComponentToWorldMatrix.InverseTransformPosition(InParams.MeshEditorInteractorData.LaserStart);
+	const FVector ComponentSpaceLaserEnd = InParams.ComponentToWorldMatrix.InverseTransformPosition(InParams.MeshEditorInteractorData.LaserEnd);
+
+	const FSphere ComponentSpaceGrabberSphere(
+		InParams.ComponentToWorldMatrix.InverseTransformPosition(InParams.MeshEditorInteractorData.GrabberSphere.Center),
+		InParams.ComponentToWorldMatrix.InverseTransformVector(FVector(InParams.MeshEditorInteractorData.GrabberSphere.W)).X);
+
+	const FVector ComponentSpaceCameraLocation = InParams.ComponentToWorldMatrix.InverseTransformPosition(InParams.CameraToWorld.GetLocation());
+
+	EInteractorShape HitInteractorShape = EInteractorShape::Invalid;
+	FVector ComponentSpaceHitLocation = FVector::ZeroVector;
+	FEditableMeshElementAddress MeshElementAddress = FGeometryTests::QueryElement(
+		*InParams.EditableMesh,
+		InParams.InteractorShape,
+		ComponentSpaceGrabberSphere,
+		InParams.ComponentSpaceGrabberSphereFuzzyDistance,
+		ComponentSpaceLaserStart,
+		ComponentSpaceLaserEnd,
+		InParams.ComponentSpaceRayFuzzyDistance,
+		InParams.OnlyElementType,
+		ComponentSpaceCameraLocation,
+		InParams.bIsPerspectiveView,
+		InParams.ComponentSpaceFuzzyDistanceScaleFactor,
+		/* Out */ HitInteractorShape,
+		/* Out */ ComponentSpaceHitLocation);
+
+	if (MeshElementAddress.ElementType != EEditableMeshElementType::Invalid)
+	{
+		const FVector WorldSpaceHitLocation = InParams.ComponentToWorldMatrix.TransformPosition(ComponentSpaceHitLocation);
+
+		const float ClosestDistanceToGrabberSphere = (InParams.MeshEditorInteractorData.GrabberSphere.Center - OutParams.ClosestHoverLocation).Size();
+		const float DistanceToGrabberSphere = (InParams.MeshEditorInteractorData.GrabberSphere.Center - WorldSpaceHitLocation).Size();
+
+		const float ClosestDistanceOnRay = (InParams.MeshEditorInteractorData.LaserStart - OutParams.ClosestHoverLocation).Size();
+		const float DistanceOnRay = (InParams.MeshEditorInteractorData.LaserStart - WorldSpaceHitLocation).Size();
+
+		// NOTE: We're preferring any grabber sphere hit over laser hits
+		if (OutParams.ClosestComponent == nullptr ||
+			(HitInteractorShape == EInteractorShape::GrabberSphere && DistanceToGrabberSphere < ClosestDistanceToGrabberSphere) ||
+			(HitInteractorShape == EInteractorShape::Laser && DistanceOnRay < ClosestDistanceOnRay))
+		{
+			OutParams.ClosestComponent = InParams.HitComponent;
+			OutParams.ClosestElementAddress = MeshElementAddress;
+			OutParams.ClosestInteractorShape = HitInteractorShape;
+			OutParams.ClosestHoverLocation = WorldSpaceHitLocation;
+		}
+	}
+}
+#endif // WITH_EDITOR

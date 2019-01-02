@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SceneOutlinerGutter.h"
@@ -86,6 +86,17 @@ struct FSetVisibilityVisitor : IMutableTreeItemVisitor
 			// we're only editing temporary, transient values
 			SaveToTransactionBuffer(Actor, false);
 			Actor->SetIsTemporarilyHiddenInEditor( !bSetVisibility );
+
+			// Apply the same visibility to the actors children
+			for (auto& ChildPtr : ActorItem.GetChildren())
+			{
+				auto Child = ChildPtr.Pin();
+				if (Child.IsValid())
+				{
+					FSetVisibilityVisitor Visibility( bSetVisibility );
+					Child->Visit( Visibility );
+				}
+			}
 		}
 	}
 

@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #include "HAL/Allocators/PooledVirtualMemoryAllocator.h"
 #include "HAL/UnrealMemory.h"
 #include "Logging/LogMacros.h"

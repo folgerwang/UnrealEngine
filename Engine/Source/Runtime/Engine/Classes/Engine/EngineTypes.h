@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -743,19 +743,6 @@ enum ETraceTypeQuery
 
 	TraceTypeQuery_MAX	UMETA(Hidden)
 };
-
-
-/** Enum indicating which physics scene to use. */
-UENUM()
-enum EPhysicsSceneType
-{
-	/** The synchronous scene, which must finish before Unreal simulation code is run. */
-	PST_Sync,
-	/** The asynchronous scene, which may run while Unreal simulation code runs. */
-	PST_Async,
-	PST_MAX,
-};
-
 
 /** Enum indicating how each type should respond */
 UENUM(BlueprintType, meta=(ScriptName="CollisionResponseType"))

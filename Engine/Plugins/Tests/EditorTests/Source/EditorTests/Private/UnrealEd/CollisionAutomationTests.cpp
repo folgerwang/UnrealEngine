@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd/CollisionAutomationTests.h"
 #include "Misc/AutomationTest.h"
@@ -190,7 +190,6 @@ bool FComponentSweepMultiTest::RunTest(const FString& Parameters)
 			// Setup the query
 			FComponentQueryParams ShapeQueryParameters(SCENE_QUERY_STAT(TestTrace), nullptr);
 			ShapeQueryParameters.bTraceComplex = true;
-			ShapeQueryParameters.bTraceAsyncScene = true;
 
 			// Perform test
 			TArray<FHitResult> OutHits;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BodyInstanceCustomization.h"
 #include "Components/SceneComponent.h"
@@ -1330,20 +1330,6 @@ void FBodyInstanceCustomizationHelper::CustomizeDetails( IDetailLayoutBuilder& D
 
 		AddMaxAngularVelocity(PhysicsCategory, BodyInstanceHandler);
 
-		TSharedRef<IPropertyHandle> AsyncEnabled = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bUseAsyncScene)).ToSharedRef();
-		if(AsyncEnabled->IsCustomized() == false)	//outer customization already handles it so don't bother adding
-		{
-			if (bDisplayAsyncScene)
-			{
-				PhysicsCategory.AddProperty(AsyncEnabled).EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsUseAsyncEditable), NULL);
-			}
-			else
-			{
-				AsyncEnabled->MarkHiddenByCustomization();
-			}
-		}
-		
-
 		//Add the rest
 		uint32 NumChildren = 0;
 		BodyInstanceHandler->GetNumChildren(NumChildren);
@@ -1377,49 +1363,6 @@ bool FBodyInstanceCustomizationHelper::IsSimulatePhysicsEditable() const
 	}
 
 	return bEnableSimulatePhysics;
-}
-
-bool FBodyInstanceCustomizationHelper::IsUseAsyncEditable() const
-{
-	// Check whether to enable editing of bUseAsyncScene - this will happen if all objects are movable and the project uses an AsyncScene
-	if (!UPhysicsSettings::Get()->bEnableAsyncScene)
-	{
-		return false;
-	}
-
-	bool bEnableUseAsyncScene = ObjectsCustomized.Num() > 0;
-	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
-	{
-		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
-		{
-			TWeakObjectPtr<USceneComponent> SceneComponent = CastChecked<USceneComponent>(ObjectIt->Get());
-
-			if (SceneComponent.IsValid() && SceneComponent->Mobility != EComponentMobility::Movable)
-			{
-				bEnableUseAsyncScene = false;
-				break;
-			}
-
-			// Skeletal mesh uses a physics asset which will have multiple bodies - these bodies have their own bUseAsyncScene which is what we actually use - the flag on the skeletal mesh is not used
-			TWeakObjectPtr<USkeletalMeshComponent> SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ObjectIt->Get());
-			if (SkeletalMeshComponent.IsValid())
-			{
-				bEnableUseAsyncScene = false;
-				break;
-			}
-		}
-		else if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UBodySetup::StaticClass()))
-		{
-			continue;
-		}
-		else
-		{
-			bEnableUseAsyncScene = false;
-			break;
-		}
-	}
-
-	return bEnableUseAsyncScene;
 }
 
 

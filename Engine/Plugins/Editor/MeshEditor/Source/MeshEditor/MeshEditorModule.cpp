@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshEditorModule.h"
 #include "EditorModeRegistry.h"
@@ -24,7 +24,7 @@ class FMeshEditorModule : public IModuleInterface
 {
 public:
 	FMeshEditorModule() :
-		bIsEnabled( false ),
+		bIsEnabled( true ),
 		MeshEditorEnable( TEXT( "MeshEditor.Enable" ), TEXT( "Makes MeshEditor mode available" ), FConsoleCommandDelegate::CreateRaw( this, &FMeshEditorModule::Register ) ),
 		MeshEditorDisable( TEXT( "MeshEditor.Disable" ), TEXT( "Makes MeshEditor mode unavailable" ), FConsoleCommandDelegate::CreateRaw( this, &FMeshEditorModule::Unregister ) )
 	{
@@ -87,6 +87,7 @@ void FMeshEditorModule::StartupModule()
 
 void FMeshEditorModule::Register()
 {
+#if ENABLE_MESH_EDITOR
 	if( bIsEnabled )
 	{
 		return;
@@ -124,6 +125,7 @@ void FMeshEditorModule::Register()
 			nullptr, // No UI commands needed for switching modes.  They're all handled directly by callback
 			FMenuExtensionDelegate::CreateRaw( this, &FMeshEditorModule::FillVRRadialMenuModes ) );
 	}
+#endif
 }
 
 

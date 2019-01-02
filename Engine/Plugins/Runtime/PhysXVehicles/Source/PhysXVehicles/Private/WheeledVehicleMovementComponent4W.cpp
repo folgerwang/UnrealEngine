@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WheeledVehicleMovementComponent4W.h"
 #include "Components/PrimitiveComponent.h"
@@ -267,10 +267,10 @@ void UWheeledVehicleMovementComponent4W::SetupVehicleDrive(PxVehicleWheelsSimDat
 
 	FPhysicsCommand::ExecuteWrite(UpdatedPrimitive->GetBodyInstance()->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX
         PxRigidActor* PRigidActor = nullptr;
 #else
-		PxRigidActor* PRigidActor = Actor.SyncActor ? Actor.SyncActor : Actor.AsyncActor;
+		PxRigidActor* PRigidActor = Actor.SyncActor;
 #endif
 
 		if(PRigidActor)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditableMeshFormat.h"
 #include "EditableMesh.h"
@@ -6,6 +6,16 @@
 #include "Components/StaticMeshComponent.h"
 #include "StaticMeshResources.h"
 #include "EditableStaticMeshAdapter.h"
+
+bool FStaticMeshEditableMeshFormat::HandlesComponentType(class UPrimitiveComponent& Component)
+{
+	return (Cast<const UStaticMeshComponent>(&Component) != nullptr);
+}
+
+bool FStaticMeshEditableMeshFormat::HandlesBones()
+{
+	return false;
+}
 
 
 void FStaticMeshEditableMeshFormat::FillMeshObjectPtr( UPrimitiveComponent& Component, FEditableMeshSubMeshAddress& SubMeshAddress )
@@ -53,6 +63,7 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 
 	UEditableStaticMeshAdapter* EditableStaticMesh = NewObject<UEditableStaticMeshAdapter>( EditableMesh );
 	EditableMesh->Adapters.Add( EditableStaticMesh );
+	EditableMesh->PrimaryAdapter = EditableStaticMesh;
 
 	EditableStaticMesh->InitEditableStaticMesh( EditableMesh, Component, SubMeshAddress );
 

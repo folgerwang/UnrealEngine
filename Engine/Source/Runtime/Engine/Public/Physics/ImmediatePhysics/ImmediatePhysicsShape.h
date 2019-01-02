@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,18 +10,32 @@
 
 namespace ImmediatePhysics
 {
+	struct FMaterialHandle;
+}
+
+namespace ImmediatePhysics
+{
 /** Holds shape data*/
 struct FShape
 {
 #if WITH_PHYSX
-	const PxTransform LocalTM;
-	const FMaterial Material;
-	const PxGeometry* Geometry;
-	const PxVec3 BoundsOffset;
-	const float BoundsMagnitude;
+	PxTransform LocalTM;
+	FMaterial* Material;
+	PxGeometry* Geometry;
+	PxVec3 BoundsOffset;
+	float BoundsMagnitude;
 	void* UserData;
 
-	FShape(const PxTransform& InLocalTM, const PxVec3& InBoundsOffset, const float InBoundsMagnitude, const PxGeometry* InGeometry, const FMaterial& InMaterial)
+	FShape()
+		: LocalTM(PxTransform(PxIDENTITY::PxIdentity))
+		, Material(nullptr)
+		, Geometry(nullptr)
+		, BoundsOffset(PxVec3(PxIDENTITY::PxIdentity))
+		, BoundsMagnitude(0.0f)
+		, UserData(nullptr)
+	{}
+
+	FShape(const PxTransform& InLocalTM, const PxVec3& InBoundsOffset, const float InBoundsMagnitude, PxGeometry* InGeometry, FMaterial* InMaterial = nullptr)
 		: LocalTM(InLocalTM)
 		, Material(InMaterial)
 		, Geometry(InGeometry)
@@ -30,6 +44,7 @@ struct FShape
 		, UserData(nullptr)
 	{
 	}
+
 #endif
 };
 

@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneOutlinerDragDrop.h"
 #include "ITreeItem.h"
 #include "SceneOutlinerStandaloneTypes.h"
+#include "SubComponentTreeItem.h"
 
 #define LOCTEXT_NAMESPACE "SSceneOutliner"
 
@@ -23,6 +24,12 @@ namespace SceneOutliner
 		{
 			FolderOp = MakeShareable(new FFolderDragDropOp);
 			FolderOp->Init(DraggedObjects.Folders.GetValue());
+		}
+
+		if (DraggedObjects.SubComponents)
+		{
+			SubComponentOp = MakeShareable(new FSubComponentDragDropOp);
+			SubComponentOp->Init(DraggedObjects.SubComponents.GetValue());
 		}
 	}
 	
@@ -123,7 +130,12 @@ namespace SceneOutliner
 		{
 			return FActorDragDropGraphEdOp::New(DraggedObjects.Actors.GetValue());
 		}
-		
+		else if (DraggedObjects.SubComponents)
+		{
+			TSharedPtr<FSceneOutlinerDragDropOp> OutlinerOp = MakeShareable(new FSceneOutlinerDragDropOp(DraggedObjects));
+			OutlinerOp->Construct();
+			return OutlinerOp;
+		}
 		return nullptr;
 	}
 
@@ -147,6 +159,10 @@ namespace SceneOutliner
 			{
 				Actors = OutlinerOp.ActorOp->Actors;
 			}
+			if (OutlinerOp.SubComponentOp.IsValid())
+			{
+				SubComponents = OutlinerOp.SubComponentOp->Items;
+			}
 			bApplicable = true;
 		}
 		else if (Operation.IsOfType<FActorDragDropOp>())
@@ -159,9 +175,43 @@ namespace SceneOutliner
 			Folders = static_cast<const FFolderDragDropOp&>(Operation).Folders;
 			bApplicable = true;
 		}
-
+		else if (Operation.IsOfType<FSubComponentDragDropOp>())
+		{
+			SubComponents = static_cast<const FSubComponentDragDropOp&>(Operation).Items;
+			bApplicable = true;
+		}
 		return bApplicable;
 	}
+
+	void FSubComponentDragDropOp::Init(const FSubComponentItemArray& InItems)
+	{
+		for (int32 i = 0; i < InItems.Num(); i++)
+		{
+			if (InItems[i].IsValid())
+			{
+				Items.Add(InItems[i]);
+			}
+		}
+
+		// Set text and icon
+		UClass* CommonSelClass = NULL;
+		//CurrentIconBrush = FClassIconFinder::FindIconForActors(Items, CommonSelClass);
+		if (Items.Num() == 0)
+		{
+			CurrentHoverText = NSLOCTEXT("FSubComponentItemDragDropOp", "None", "None");
+		}
+		else if (Items.Num() == 1)
+		{
+			// Find icon for actor
+			auto TheItem = Items[0].Pin();
+			CurrentHoverText = FText::FromString(TheItem->GetDisplayString());
+		}
+		else
+		{
+			CurrentHoverText = FText::Format(NSLOCTEXT("FSubComponentItemDragDropOp", "FormatItems", "{0} Items"), FText::AsNumber(Items.Num()));
+		}
+	}
+
 }
 
 #undef LOCTEXT_NAMESPACE
