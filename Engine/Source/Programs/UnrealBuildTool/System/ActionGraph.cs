@@ -499,7 +499,7 @@ namespace UnrealBuildTool
 		{
 			if(PrerequisiteAction.bProducesImportLibrary)
 			{
-				return PrerequisiteAction.ProducedItems.Any(x => !x.Location.HasExtension(".lib") && RootAction.PrerequisiteItems.Contains(x));
+				return PrerequisiteAction.ProducedItems.All(x => x.Location.HasExtension(".lib") || !RootAction.PrerequisiteItems.Contains(x));
 			}
 			else
 			{
