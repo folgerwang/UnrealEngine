@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Protocols/VideoCaptureProtocol.h"
 #include "HAL/FileManager.h"
@@ -39,7 +39,6 @@ void UVideoCaptureProtocol::ConditionallyCreateWriter()
 	Options.OutputFilename = MoveTemp(VideoFilename);
 	Options.CaptureFramerateNumerator = CaptureHost->GetCaptureFrameRate().Numerator;
 	Options.CaptureFramerateDenominator = CaptureHost->GetCaptureFrameRate().Denominator;
-	Options.CodecName = VideoCodec;
 	Options.bSynchronizeFrames = CaptureHost->GetCaptureStrategy().ShouldSynchronizeFrames();
 	Options.Width = InitSettings->DesiredSize.X;
 	Options.Height = InitSettings->DesiredSize.Y;

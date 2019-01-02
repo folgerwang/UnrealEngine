@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRHI.h: Public Metal RHI definitions..
@@ -195,6 +195,12 @@ public:
 	virtual void* LockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI) final override;
 	virtual void UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer) final override;	
 	
+	virtual void RHIAcquireTransientResource_RenderThread(FTextureRHIParamRef Texture) final override;
+	virtual void RHIDiscardTransientResource_RenderThread(FTextureRHIParamRef Texture) final override;
+	virtual void RHIAcquireTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer) final override;
+	virtual void RHIDiscardTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer) final override;
+	virtual void RHIAcquireTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer) final override;
+	virtual void RHIDiscardTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer) final override;
 	virtual void RHISetResourceAliasability_RenderThread(class FRHICommandListImmediate& RHICmdList, EResourceAliasability AliasMode, FTextureRHIParamRef* InTextures, int32 NumTextures) final override;
 	
 	/* Copy the source box pixels in the destination box texture, return true if implemented for the current platform*/

@@ -1307,40 +1307,45 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 		RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
 		check(ResampleTexturePooledRenderTarget);
 		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
-		SetRenderTarget(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		RHICmdList.SetViewport(0, 0, 0.0f, ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y, 1.0f);
 
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("GoogleVRViewFamily"));
+		{
+			RHICmdList.SetViewport(0, 0, 0.0f, ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y, 1.0f);
 
-		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 
-		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(),
-			InViewFamily.RenderTarget->GetRenderTargetTexture());
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			0, 0,		// Dest X, Y
-			ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y,	// Dest Width, Height
-			0, 0,		// Source U, V
-			1, 1,		// Source USize, VSize
-			ReadbackTextureSizes[textureIndex],		// Target buffer size
-			FIntPoint(1, 1),		// Source texture size
-			*VertexShader,
-			EDRF_Default);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(),
+				InViewFamily.RenderTarget->GetRenderTargetTexture());
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,		// Dest X, Y
+				ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y,	// Dest Width, Height
+				0, 0,		// Source U, V
+				1, 1,		// Source USize, VSize
+				ReadbackTextureSizes[textureIndex],		// Target buffer size
+				FIntPoint(1, 1),		// Source texture size
+				*VertexShader,
+				EDRF_Default);
+		}
+		RHICmdList.EndRenderPass();
 		// Asynchronously copy delayed render target from GPU to CPU
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,

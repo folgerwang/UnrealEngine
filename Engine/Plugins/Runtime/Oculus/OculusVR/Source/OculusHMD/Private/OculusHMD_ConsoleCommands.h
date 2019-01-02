@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OculusHMDPrivate.h"
@@ -31,7 +31,6 @@ private:
 
 #if !UE_BUILD_SHIPPING
 	// Debug console commands
-	FAutoConsoleCommand EnforceHeadTrackingCommand;
 	FAutoConsoleCommand StatsCommand;
 	FAutoConsoleCommand CubemapCommand;
 	FAutoConsoleCommand ShowSettingsCommand;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,7 +21,7 @@ public:
 
 	/** Begin FCanvasBaseRenderItem overrides */
 	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) final;
-	virtual bool Render_GameThread(const FCanvas* Canvas) final;
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) final;
 	/** End FCanvasBaseRenderItem overrides */
 
 	/** Populate vertices and indices according to available mesh data and otherwise uses simple quad */

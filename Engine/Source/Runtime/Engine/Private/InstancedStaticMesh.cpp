@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InstancedStaticMesh.cpp: Static mesh rendering code.
@@ -2186,7 +2186,10 @@ void UInstancedStaticMeshComponent::OnComponentCreated()
 
 	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 	{
-		InitPerInstanceRenderData(false);
+		// if we are pasting/duplicating this component, it may be created with some instances already in place
+		// in this case, need to ensure that the instance render data is properly created
+		const bool InitializeFromCurrentData = PerInstanceSMData.Num() > 0;
+		InitPerInstanceRenderData(InitializeFromCurrentData);
 	}
 }
 

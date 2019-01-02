@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/KismetSystemLibrary.h"
 #include "HAL/IConsoleManager.h"
@@ -1131,7 +1131,6 @@ bool UKismetSystemLibrary::SphereOverlapComponents(UObject* WorldContextObject, 
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(SphereOverlapComponents), false);
 	Params.AddIgnoredActors(ActorsToIgnore);
-	Params.bTraceAsyncScene = true;
 	TArray<FOverlapResult> Overlaps;
 
 	FCollisionObjectQueryParams ObjectParams;
@@ -1184,7 +1183,6 @@ bool UKismetSystemLibrary::BoxOverlapComponents(UObject* WorldContextObject, con
 	OutComponents.Empty();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(BoxOverlapComponents), false);
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 
 	TArray<FOverlapResult> Overlaps;
@@ -1237,7 +1235,6 @@ bool UKismetSystemLibrary::CapsuleOverlapComponents(UObject* WorldContextObject,
 	OutComponents.Empty();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(CapsuleOverlapComponents), false);
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 
 	TArray<FOverlapResult> Overlaps;
@@ -1292,7 +1289,6 @@ bool UKismetSystemLibrary::ComponentOverlapComponents(UPrimitiveComponent* Compo
 	if(Component != nullptr)
 	{
 		FComponentQueryParams Params(SCENE_QUERY_STAT(ComponentOverlapComponents));
-		Params.bTraceAsyncScene = true;
 		Params.AddIgnoredActors(ActorsToIgnore);
 
 		TArray<FOverlapResult> Overlaps;

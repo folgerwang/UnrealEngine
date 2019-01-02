@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -128,7 +128,6 @@ public class UnrealEd : ModuleRules
 				"MeshUtilitiesCommon",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"Sockets",
 				"SourceControlWindows",
 				"StatsViewer",

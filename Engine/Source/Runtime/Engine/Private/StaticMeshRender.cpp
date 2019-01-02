@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshRender.cpp: Static mesh rendering code.
@@ -134,6 +134,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 #endif
 {
 	check(RenderData);
+	checkf(RenderData->IsInitialized(), TEXT("Uninitialized Renderdata for Mesh: %s"), *InComponent->GetStaticMesh()->GetFName().ToString());
 
 	const auto FeatureLevel = GetScene().GetFeatureLevel();
 

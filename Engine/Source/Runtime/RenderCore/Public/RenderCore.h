@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderCore.h: Render core module definitions.
@@ -235,13 +235,13 @@ struct FInputLatencyTimer
 		return FPlatformTime::ToSeconds(DeltaTime);
 	}
 
-	/** Weather GInputLatencyTimer is initialized or not. */
+	/** Whether GInputLatencyTimer is initialized or not. */
 	bool	bInitialized;
 
-	/** Weather a measurement has been triggered on the gamethread. */
+	/** Whether a measurement has been triggered on the gamethread. */
 	bool	GameThreadTrigger;
 
-	/** Weather a measurement has been triggered on the renderthread. */
+	/** Whether a measurement has been triggered on the renderthread. */
 	bool	RenderThreadTrigger;
 
 	/** Start time (in FPlatformTime::Cycles). */

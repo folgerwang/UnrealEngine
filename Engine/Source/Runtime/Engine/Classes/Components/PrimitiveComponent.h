@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -282,14 +282,6 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Collision)
 	uint8 bMultiBodyOverlap:1;
-
-	/**
-	 * If true, this component will look for collisions on both physic scenes during movement.
-	 * Only required if the asynchronous physics scene is enabled and has geometry in it, and you wish to test for collisions with objects in that scene.
-	 * @see MoveComponent()
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Collision)
-	uint8 bCheckAsyncSceneOnMove:1;
 
 	/**
 	 * If true, component sweeps with this component should trace against complex collision during movement (for example, each triangle of a mesh).
@@ -1932,7 +1924,7 @@ public:
 	void DispatchWakeEvents(ESleepEvent WakeEvent, FName BoneName);
 
 	/**
-	 * Set collision params on OutParams (such as CollisionResponse, bTraceAsyncScene) to match the settings on this PrimitiveComponent.
+	 * Set collision params on OutParams (such as CollisionResponse) to match the settings on this PrimitiveComponent.
 	 */
 	virtual void InitSweepCollisionParams(FCollisionQueryParams &OutParams, FCollisionResponseParams& OutResponseParam) const;
 

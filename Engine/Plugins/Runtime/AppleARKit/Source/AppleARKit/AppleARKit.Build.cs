@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -34,7 +34,6 @@ public class AppleARKit : ModuleRules
 				"RHI",
                 "Renderer",
                 "RenderCore",
-                "ShaderCore",
                 "HeadMountedDisplay",
                 "AugmentedReality",
                 "AppleImageUtils"

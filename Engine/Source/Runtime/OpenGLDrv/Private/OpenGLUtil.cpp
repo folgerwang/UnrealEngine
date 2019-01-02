@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLUtil.h: OpenGL RHI utility implementation.
@@ -142,7 +142,7 @@ void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc, bool bWaitForCompl
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(MoveTemp(GLFunc));
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)(MoveTemp(GLFunc));
 		if (bWaitForCompletion)
 		{
 			RHITHREAD_GLTRACE_BLOCKING;

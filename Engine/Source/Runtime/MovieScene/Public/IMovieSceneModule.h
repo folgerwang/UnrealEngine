@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,11 +14,6 @@ struct FMovieSceneEvaluationGroupParameters
 	}
 
 	FMovieSceneEvaluationGroupParameters(uint16 InPriority)
-		: EvaluationPriority(InPriority)
-	{}
-
-	UE_DEPRECATED(4.17, "Please remove bInRequiresImmediateFlush parameter")
-	FMovieSceneEvaluationGroupParameters(uint16 InPriority, bool bInRequiresImmediateFlush)
 		: EvaluationPriority(InPriority)
 	{}
 

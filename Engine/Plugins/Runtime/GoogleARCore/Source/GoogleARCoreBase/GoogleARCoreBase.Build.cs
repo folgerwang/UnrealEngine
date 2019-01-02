@@ -35,7 +35,6 @@ namespace UnrealBuildTool.Rules
 					"SlateCore",
 					"RHI",
 					"RenderCore",
-					"ShaderCore",
 					"AndroidPermission",
 					"GoogleARCoreRendering",
 					"GoogleARCoreSDK",

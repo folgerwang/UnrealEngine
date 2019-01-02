@@ -1,9 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowserAssetManager.h"
 
 #if WITH_EDITOR || PLATFORM_ANDROID || PLATFORM_IOS
-#include "Materials/Material.h"
 #include "WebBrowserTexture.h"
 #endif
 

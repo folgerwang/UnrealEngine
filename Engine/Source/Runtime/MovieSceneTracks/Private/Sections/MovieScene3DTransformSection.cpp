@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieScene3DTransformSection.h"
 #include "UObject/StructOnScope.h"
@@ -471,7 +471,7 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		return KeyStruct;
 	}
 
-	if (AnyLocationKeys > 1)
+	if (AnyLocationKeys)
 	{
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DLocationKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DLocationKeyStruct*)KeyStruct->GetStructMemory();

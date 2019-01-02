@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -190,6 +190,8 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 
 	// Apply the results of the async build
 	void ApplyBuildTreeAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder, double StartTime);
+
+	virtual void OnComponentCreated() override;
 
 public:
 

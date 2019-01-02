@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #include <Metal/MTLSampler.h>
@@ -305,6 +305,16 @@ namespace mtlpp
         [(MTLSamplerDescriptor*)m_ptr setLabel:(NSString*)label.GetPtr()];
 #endif
     }
+	
+	void SamplerDescriptor::SetSupportArgumentBuffers(bool flag)
+	{
+		Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->setsupportArgumentBuffers(m_ptr, flag);
+#else
+		[(MTLSamplerDescriptor*)m_ptr setSupportArgumentBuffers:flag];
+#endif
+	}
 
     ns::AutoReleased<ns::String> SamplerState::GetLabel() const
     {

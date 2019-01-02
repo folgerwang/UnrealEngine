@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneVectorSection.h"
 #include "UObject/StructOnScope.h"
@@ -48,7 +48,7 @@ struct FVectorSectionEditorData
 		}
 		else
 		{
-			return Bindings.GetCurrentValue<FVector>(InObject);
+			return Bindings.GetCurrentValue<FVector4>(InObject);
 		}
 	}
 

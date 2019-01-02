@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeRender.cpp: New terrain rendering
@@ -35,7 +35,7 @@ LandscapeRender.cpp: New terrain rendering
 #include "SceneView.h"
 #include "LandscapeProxy.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, TEXT("LandscapeParameters"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLandscapeUniformShaderParameters, "LandscapeParameters");
 
 int32 GLandscapeMeshLODBias = 0;
 FAutoConsoleVariableRef CVarLandscapeMeshLODBias(

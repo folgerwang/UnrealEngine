@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #import <Metal/MTLCommandBuffer.h>
 #include "MTICommandBuffer.hpp"
@@ -58,6 +58,10 @@ id<MTLRenderCommandEncoder> MTICommandBufferTrace::RenderCommandEncoderWithDescr
 id<MTLComputeCommandEncoder> MTICommandBufferTrace::ComputeCommandEncoderImpl(id Obj, SEL Cmd, Super::ComputeCommandEncoderType::DefinedIMP Original)
 {
 	return MTIComputeCommandEncoderTrace::Register(Original(Obj, Cmd));
+}
+id<MTLComputeCommandEncoder> MTICommandBufferTrace::ComputeCommandEncoderWithTypeImpl(id Obj, SEL Cmd, Super::ComputeCommandEncoderWithTypeType::DefinedIMP Original, MTLDispatchType Type)
+{
+	return MTIComputeCommandEncoderTrace::Register(Original(Obj, Cmd, Type));
 }
 id<MTLParallelRenderCommandEncoder> MTICommandBufferTrace::ParallelRenderCommandEncoderWithDescriptorImpl(id Obj, SEL Cmd, Super::ParallelRenderCommandEncoderWithDescriptorType::DefinedIMP Original, MTLRenderPassDescriptor* D)
 {

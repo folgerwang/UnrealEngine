@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanCommon.h: Common definitions used for both runtime and compiling shaders.
@@ -14,7 +14,7 @@
 
 // This defines controls shader generation (so will cause a format rebuild)
 // be careful wrt cooker/target platform not matching define-wise!!!
-#define VULKAN_ENABLE_SHADER_DEBUG_NAMES		0
+#define VULKAN_ENABLE_SHADER_DEBUG_NAMES		1
 
 namespace ShaderStage
 {

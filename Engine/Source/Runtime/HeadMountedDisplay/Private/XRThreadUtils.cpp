@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "XRThreadUtils.h"
 #include "RenderingThread.h"
@@ -92,7 +92,7 @@ namespace
 
 		if (GRHIThreadId && !IsInRHIThread() && !RHICmdList.Bypass())
 		{
-			new (RHICmdList.AllocCommand<FXRFunctionWrapperRHICommand<T>>()) FXRFunctionWrapperRHICommand<T>(Function);
+			ALLOC_COMMAND_CL(RHICmdList, FXRFunctionWrapperRHICommand<T>)(Function);
 			if (bFlush)
 			{
 				RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);

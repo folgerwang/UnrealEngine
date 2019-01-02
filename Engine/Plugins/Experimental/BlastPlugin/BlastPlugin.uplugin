@@ -1,0 +1,34 @@
+{
+  "FileVersion" : 3,
+  "Version" : 1,
+  "VersionName" : "0.1",
+  "FriendlyName" : "Blast Plugin (Experimental)",
+  "Description" : "A Plugin to expose Blast authoring functionality.",
+  "Category" : "Editor",
+  "CreatedBy" : "Epic Games, Inc.",
+  "CreatedByURL" : "http://epicgames.com",
+  "DocsURL" : "",
+  "MarketplaceURL" : "",
+  "SupportURL" : "",
+  "EnabledByDefault" : false,
+  "CanContainContent" : false,
+  "IsBetaVersion" : true,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "BlastAuthoring",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "EditableMesh",
+      "Enabled": true
+    },
+    {
+      "Name": "GeometryCollectionPlugin",
+      "Enabled": true
+    }
+	]
+}

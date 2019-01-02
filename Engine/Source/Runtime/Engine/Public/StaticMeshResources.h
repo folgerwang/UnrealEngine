@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMesh.h: Static mesh class definition.
@@ -369,6 +369,11 @@ public:
 	/** Bounds of the renderable mesh. */
 	FBoxSphereBounds Bounds;
 
+	bool IsInitialized()
+	{
+		return bIsInitialized;
+	}
+
 	/** True if LODs share static lighting data. */
 	bool bLODsShareStaticLighting;
 
@@ -427,6 +432,7 @@ private:
 	/** Allow the editor to explicitly update section information. */
 	friend class FLevelOfDetailSettingsLayout;
 #endif // #if WITH_EDITORONLY_DATA
+	bool bIsInitialized = false;
 };
 
 /**

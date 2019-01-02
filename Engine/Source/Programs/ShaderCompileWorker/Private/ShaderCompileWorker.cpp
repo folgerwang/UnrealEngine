@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 // ShaderCompileWorker.cpp : Defines the entry point for the console application.
@@ -16,7 +16,7 @@
 #define DEBUG_USING_CONSOLE	0
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 9;
+const int32 ShaderCompileWorkerInputVersion = 10;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 5;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)

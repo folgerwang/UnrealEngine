@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.cpp: Vulkan state implementation.
@@ -63,7 +63,7 @@ inline VkFilter TranslateMinFilterMode(ESamplerFilter InFilter)
 	return OutFilter;
 }
 
-inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode, const bool bSupportsMirrorClampToEdge)
+inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode)
 {
 	VkSamplerAddressMode OutAddressMode = VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
 
@@ -227,10 +227,9 @@ void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerR
 	OutSamplerInfo.magFilter = TranslateMagFilterMode(Initializer.Filter);
 	OutSamplerInfo.minFilter = TranslateMinFilterMode(Initializer.Filter);
 	OutSamplerInfo.mipmapMode = TranslateMipFilterMode(Initializer.Filter);
-	const bool bSupportsMirrorClampToEdge = InDevice.GetOptionalExtensions().HasMirrorClampToEdge;
-	OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU, bSupportsMirrorClampToEdge);
-	OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV, bSupportsMirrorClampToEdge);
-	OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW, bSupportsMirrorClampToEdge);
+	OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU);
+	OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV);
+	OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW);
 
 	OutSamplerInfo.mipLodBias = Initializer.MipBias;
 	OutSamplerInfo.maxAnisotropy = FMath::Clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy), 1.0f, InDevice.GetLimits().maxSamplerAnisotropy);

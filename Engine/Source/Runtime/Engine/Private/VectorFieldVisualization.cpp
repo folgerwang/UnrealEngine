@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	VectorFieldVisualization.cpp: Visualization of vector fields.
@@ -14,7 +14,7 @@
 #include "ShaderParameterUtils.h"
 #include "FXSystem.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FVectorFieldVisualizationParameters,TEXT("VectorFieldVis"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FVectorFieldVisualizationParameters,"VectorFieldVis");
 
 /*------------------------------------------------------------------------------
 	Vertex factory for visualizing vector fields.

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1011,7 +1011,9 @@ public:
 	 *	Find a socket object in this StaticMesh by name.
 	 *	Entering NAME_None will return NULL. If there are multiple sockets with the same name, will return the first one.
 	 */
-	ENGINE_API class UStaticMeshSocket* FindSocket(FName InSocketName);
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	ENGINE_API class UStaticMeshSocket* FindSocket(FName InSocketName) const;
+
 	/**
 	 * Returns vertex color data by position.
 	 * For matching to reimported meshes that may have changed or copying vertex paint data from mesh to mesh.

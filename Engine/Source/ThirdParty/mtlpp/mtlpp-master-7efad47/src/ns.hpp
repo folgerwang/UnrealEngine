@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #pragma once
@@ -17,19 +17,19 @@ namespace ns
 {
 #if __OBJC__
 	template<typename T>
-	struct Protocol
+	struct MTLPP_EXPORT Protocol
 	{
 		typedef T type;
 	};
 #else
 	template<typename t>
-	struct id
+	struct MTLPP_EXPORT id
 	{
 		typedef t* ptr;
 	};
 	
 	template<typename T>
-	struct Protocol
+	struct MTLPP_EXPORT Protocol
 	{
 		typedef typename T::ptr type;
 	};
@@ -191,6 +191,7 @@ namespace ns
     public:
         static NSUInteger GetSize(NSArray<id<NSObject>>* const handle);
         static void* GetItem(NSArray<id<NSObject>>* const handle, NSUInteger index);
+		static bool EqualToArray(NSArray<id<NSObject>>* const Left, NSArray<id<NSObject>>* const Right);
     };
 
     template<typename T>
@@ -226,7 +227,7 @@ namespace ns
 			return ArrayBase::GetSize((NSArray<id<NSObject>> *)this->m_ptr);
 		}
 		
-		class Iterator
+		class MTLPP_EXPORT Iterator
 		{
 		public:
 			Iterator(Array const& ptr, NSUInteger In): array(ptr), index(In) {}
@@ -254,6 +255,11 @@ namespace ns
 		Iterator end() const
 		{
 			return Iterator(*this, GetSize());
+		}
+		
+		bool operator==(Array const& Other) const
+		{
+			return (this->m_ptr == Other.m_ptr || ArrayBase::EqualToArray(this->m_ptr, Other.m_ptr));
 		}
     };
 

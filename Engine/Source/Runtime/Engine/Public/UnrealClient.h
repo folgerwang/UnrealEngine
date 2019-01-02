@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnrealClient.h: Interface definition for platform specific client code.
@@ -1129,7 +1129,7 @@ public:
 	virtual void BeginRenderFrame(FRHICommandListImmediate& RHICmdList) override
 	{
 		check( IsInRenderingThread() );
-		SetRenderTarget(RHICmdList,  RenderTargetTextureRHI,  FTexture2DRHIRef() );
+		//SetRenderTarget(RHICmdList,  RenderTargetTextureRHI,  FTexture2DRHIRef() );
 	};
 
 	virtual void EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPresent, bool bLockToVsync) override

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.h: Unreal canvas definition.
@@ -795,7 +795,7 @@ public:
 	* @param Canvas - canvas currently being rendered
 	* @return true if anything rendered
 	*/
-	virtual bool Render_GameThread(const FCanvas* Canvas) = 0;
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) = 0;
 	
 	/**
 	* FCanvasBatchedElementRenderItem instance accessor
@@ -875,7 +875,7 @@ public:
 	* @param Canvas - canvas currently being rendered
 	* @return true if anything rendered
 	*/
-	virtual bool Render_GameThread(const FCanvas* Canvas) override;
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) override;
 
 	/**
 	* Determine if this is a matching set by comparing texture,blendmode,elementype,transform. All must match
@@ -1003,7 +1003,7 @@ public:
 	* @param Canvas - canvas currently being rendered
 	* @return true if anything rendered
 	*/
-	virtual bool Render_GameThread(const FCanvas* Canvas) override;
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) override;
 
 	/**
 	* Determine if this is a matching set by comparing material,transform. All must match
@@ -1159,7 +1159,7 @@ public:
 	* @param Canvas - canvas currently being rendered
 	* @return true if anything rendered
 	*/
-	virtual bool Render_GameThread(const FCanvas* Canvas) override;
+	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) override;
 
 	/**
 	* Determine if this is a matching set by comparing material,transform. All must match

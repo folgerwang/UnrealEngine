@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FXSystem.h: Interface to the effects system.
@@ -202,7 +202,7 @@ public:
 	virtual void PostRenderOpaque(
 		FRHICommandListImmediate& RHICmdList, 
 		const FUniformBufferRHIParamRef ViewUniformBuffer, 
-		const class FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const class FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) = 0;
 
 	/**

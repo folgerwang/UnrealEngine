@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Texture2D.cpp: Implementation of UTexture2D.
@@ -1172,7 +1172,7 @@ FTexture2DResource::FTexture2DResource( UTexture2D* InOwner, int32 InitialMipCou
 	MipFadeSetting = (Owner->LODGroup == TEXTUREGROUP_Lightmap || Owner->LODGroup == TEXTUREGROUP_Shadowmap) ? MipFade_Slow : MipFade_Normal;
 
 	// HDR images are stored in linear but still require gamma correction to display correctly.
-	bIgnoreGammaConversions = !Owner->SRGB && Owner->CompressionSettings != TC_HDR;
+	bIgnoreGammaConversions = !Owner->SRGB && Owner->CompressionSettings != TC_HDR && Owner->CompressionSettings != TC_HDR_Compressed;
 	bSRGB = InOwner->SRGB;
 
 	check(InitialMipCount>0);

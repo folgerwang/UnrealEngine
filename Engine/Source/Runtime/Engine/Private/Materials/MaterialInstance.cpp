@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Materials/MaterialInstance.h"
 #include "Stats/StatsMisc.h"
@@ -4003,13 +4003,8 @@ USubsurfaceProfile* UMaterialInstance::GetSubsurfaceProfile_Internal() const
 /** Checks to see if an input property should be active, based on the state of the material */
 bool UMaterialInstance::IsPropertyActive(EMaterialProperty InProperty) const
 {
-	if(InProperty == MP_DiffuseColor || InProperty == MP_SpecularColor)
-	{
-		// to suppress some CompilePropertyEx calls
-		return false;
-	}
-
-	return true;
+	const UMaterial* Material = GetMaterial();
+	return Material ? Material->IsPropertyActiveInDerived(InProperty, this) : false;
 }
 
 #if WITH_EDITOR

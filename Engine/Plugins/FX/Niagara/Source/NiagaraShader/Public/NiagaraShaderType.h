@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NiagaraShaderType.h: Niagara shader type definition.
@@ -84,7 +84,7 @@ public:
 		ValidateCompiledResultType InValidateCompiledResultRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(EShaderTypeForDynamicCast::Niagara, InName, InSourceFilename, InFunctionName, SF_Compute, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef),
+		FShaderType(EShaderTypeForDynamicCast::Niagara, InName, InSourceFilename, InFunctionName, SF_Compute, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef, nullptr),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCompilePermutationRef(InShouldCompilePermutationRef),
 		ValidateCompiledResultRef(InValidateCompiledResultRef),

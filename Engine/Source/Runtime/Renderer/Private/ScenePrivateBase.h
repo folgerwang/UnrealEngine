@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScenePrivate.h: Private scene manager definitions.
@@ -8,21 +8,6 @@
 
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
-
-class SceneRenderingBitArrayAllocator
-	: public TInlineAllocator<4,SceneRenderingAllocator>
-{
-};
-
-class SceneRenderingSparseArrayAllocator
-	: public TSparseArrayAllocator<SceneRenderingAllocator,SceneRenderingBitArrayAllocator>
-{
-};
-
-class SceneRenderingSetAllocator
-	: public TSetAllocator<SceneRenderingSparseArrayAllocator,TInlineAllocator<1,SceneRenderingAllocator> >
-{
-};
 
 typedef TBitArray<SceneRenderingBitArrayAllocator> FSceneBitArray;
 typedef TConstSetBitIterator<SceneRenderingBitArrayAllocator> FSceneSetBitIterator;

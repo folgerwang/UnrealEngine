@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperRenderSceneProxy.h"
 #include "Containers/ResourceArray.h"
@@ -401,7 +401,7 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 {
 	const FEngineShowFlags& EngineShowFlags = View->Family->EngineShowFlags;
 
-	checkSlow(IsInRenderingThread());
+	checkSlow(IsInParallelRenderingThread());
 
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = IsShown(View) && EngineShowFlags.Paper2DSprites;

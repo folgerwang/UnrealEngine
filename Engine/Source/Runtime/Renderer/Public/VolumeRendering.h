@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VolumeRendering.h: Volume rendering definitions.
@@ -129,6 +129,7 @@ private:
 	FShaderParameter MinZ;
 };
 
+// This function assumes the PSO had a PrimitiveType of PT_TriangleStrip
 extern ENGINE_API void RasterizeToVolumeTexture(FRHICommandList& RHICmdList, FVolumeBounds VolumeBounds);
 
 /** Vertex buffer used for rendering into a volume texture. */

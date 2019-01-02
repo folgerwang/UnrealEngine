@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanCommandBuffer.h: Private Vulkan RHI definitions.
@@ -169,8 +169,14 @@ public:
 
 	bool AcquirePoolSetAndDescriptorsIfNeeded(const class FVulkanDescriptorSetsLayout& Layout, bool bNeedDescriptors, VkDescriptorSet* OutDescriptors);
 
+	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ PrepareTimestampQueryPool()
+	{
+		return TimestampQueryPool;
+	}
+
 private:
 	FVulkanDevice* Device;
+	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ TimestampQueryPool = nullptr;
 	VkCommandBuffer CommandBufferHandle;
 	double SubmittedTime = 0.0f;
 

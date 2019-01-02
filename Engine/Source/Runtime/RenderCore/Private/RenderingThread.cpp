@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderingThread.cpp: Rendering thread implementation.
@@ -966,7 +966,7 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 			{
 				if (GRHIThread_InternalUseOnly)
 				{
-					new (RHICmdList.AllocCommand<FRHISyncFrameCommand>()) FRHISyncFrameCommand(CompletionEvent, GTSyncType);
+					ALLOC_COMMAND_CL(RHICmdList, FRHISyncFrameCommand)(CompletionEvent, GTSyncType);
 					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 				}
 				else

@@ -26,7 +26,6 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"Renderer",
-					"ShaderCore",
 					"HeadMountedDisplay",
 					"InputCore"
 				}

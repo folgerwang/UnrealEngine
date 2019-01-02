@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusHMD.h"
 #include "OculusHMDPrivateRHI.h"
@@ -446,6 +446,37 @@ namespace OculusHMD
 	}
 
 
+	bool FOculusHMD::IsHeadTrackingEnforced() const
+	{
+		if (IsInGameThread())
+		{
+			return Settings.IsValid() && Settings->Flags.bHeadTrackingEnforced;
+		}
+		else
+		{
+			CheckInRenderThread();
+			return Settings_RenderThread.IsValid() && Settings_RenderThread->Flags.bHeadTrackingEnforced;
+		}
+	}
+
+	void FOculusHMD::SetHeadTrackingEnforced(bool bEnabled)
+	{
+		CheckInGameThread();
+		check(Settings.IsValid());
+
+		const bool bOldValue = Settings->Flags.bHeadTrackingEnforced;
+		Settings->Flags.bHeadTrackingEnforced = bEnabled;
+
+		if (!bEnabled)
+		{
+			ResetControlRotation();
+		}
+		else if (!bOldValue)
+		{
+			InitDevice();
+		}
+	}
+
 	bool FOculusHMD::IsHeadTrackingAllowed() const
 	{
 		CheckInGameThread();
@@ -455,16 +486,7 @@ namespace OculusHMD
 			return false;
 		}
 
-#if WITH_EDITOR
-		if (GIsEditor)
-		{
-			// @todo vreditor: We need to do a pass over VREditor code and make sure we are handling the VR modes correctly.  HeadTracking can be enabled without Stereo3D, for example
-			UEditorEngine* EdEngine = Cast<UEditorEngine>(GEngine);
-			return (!EdEngine || EdEngine->IsHMDTrackingAllowed()) && (Settings->Flags.bHeadTrackingEnforced || GEngine->IsStereoscopic3D());
-		}
-#endif//WITH_EDITOR
-
-		return Settings.IsValid() && (Settings->Flags.bHeadTrackingEnforced || Settings->IsStereoEnabled());
+		return FHeadMountedDisplayBase::IsHeadTrackingAllowed();
 	}
 
 
@@ -942,7 +964,7 @@ namespace OculusHMD
 		check(Mesh.IsValid());
 
 		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
-		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 
@@ -1131,7 +1153,7 @@ namespace OculusHMD
 	{
 		CheckInRenderThread();
 
-		check(IsStereoEnabled());
+		check(IsStereoEnabled() || IsHeadTrackingEnforced());
 
 		// Don't use GetStereoProjectionMatrix because it is game thread only on oculus, we also don't need the zplane adjustments for this.
 		const int32 ViewIndex = GetViewIndexForPass(StereoPassType);
@@ -1164,10 +1186,14 @@ namespace OculusHMD
 	{
 		if (bClearBlack)
 		{
-			SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-			const FIntRect ClearRect(0, 0, DstTexture->GetSizeX(), DstTexture->GetSizeY());
-			RHICmdList.SetViewport(ClearRect.Min.X, ClearRect.Min.Y, 0, ClearRect.Max.X, ClearRect.Max.Y, 1.0f);
-			DrawClearQuad(RHICmdList, FLinearColor::Black);
+			FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::DontLoad_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearToBlack"));
+			{
+				const FIntRect ClearRect(0, 0, DstTexture->GetSizeX(), DstTexture->GetSizeY());
+				RHICmdList.SetViewport(ClearRect.Min.X, ClearRect.Min.Y, 0, ClearRect.Max.X, ClearRect.Max.Y, 1.0f);
+				DrawClearQuad(RHICmdList, FLinearColor::Black);
+			}
+			RHICmdList.EndRenderPass();
 		}
 
 		check(CustomPresent);
@@ -1660,9 +1686,13 @@ namespace OculusHMD
 			const int32 GapMinY = ViewFamily.Views[0]->UnscaledViewRect.Min.Y;
 			const int32 GapMaxY = ViewFamily.Views[1]->UnscaledViewRect.Max.Y;
 
-			SetRenderTarget(RHICmdList, ViewFamily.RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
-			RHICmdList.SetViewport(GapMinX, GapMinY, 0, GapMaxX, GapMaxY, 1.0f);
-			DrawClearQuad(RHICmdList, FLinearColor::Black);
+			FRHIRenderPassInfo RPInfo(ViewFamily.RenderTarget->GetRenderTargetTexture(), ERenderTargetActions::DontLoad_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
+			{
+				RHICmdList.SetViewport(GapMinX, GapMinY, 0, GapMaxX, GapMaxY, 1.0f);
+				DrawClearQuad(RHICmdList, FLinearColor::Black);
+			}
+			RHICmdList.EndRenderPass();
 		}
 	#endif
 #else
@@ -3275,30 +3305,6 @@ namespace OculusHMD
 	}
 
 #if !UE_BUILD_SHIPPING
-	void FOculusHMD::EnforceHeadTrackingCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar)
-	{
-		CheckInGameThread();
-
-		bool bOldValue = Settings->Flags.bHeadTrackingEnforced;
-
-		if (Args.Num() > 0)
-		{
-			Settings->Flags.bHeadTrackingEnforced = Args[0].Equals(TEXT("toggle"), ESearchCase::IgnoreCase) ? !Settings->Flags.bHeadTrackingEnforced : FCString::ToBool(*Args[0]);
-			if (!Settings->Flags.bHeadTrackingEnforced)
-			{
-				ResetControlRotation();
-			}
-		}
-
-		Ar.Logf(TEXT("Enforced head tracking is %s"), Settings->Flags.bHeadTrackingEnforced ? TEXT("on") : TEXT("off"));
-
-		if (!bOldValue && Settings->Flags.bHeadTrackingEnforced)
-		{
-			InitDevice();
-		}
-	}
-
-
 	void FOculusHMD::StatsCommandHandler(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
 	{
 		CheckInGameThread();

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,12 +29,6 @@ public:
 			(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 				EMovieSceneCompletionMode::RestoreState : 
 				EMovieSceneCompletionMode::ProjectDefault);
-	}
-
-	UE_DEPRECATED(4.18, "Camera guid no longer supported, Use GetCameraBindingID.")
-	FGuid GetCameraGuid() const
-	{
-		return FGuid();
 	}
 
 	/** Sets the camera binding for this CameraCut section. Evaluates from the sequence binding ID */

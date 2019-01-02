@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,7 @@
 #include "Logging/LogMacros.h"
 #include "Materials/MaterialInterface.h"
 #include "GenericOctreePublic.h"	// For FOctreeElementId
+#include "GeometryHitTest.h"
 #include "EditableMesh.generated.h"
 
 class UEditableMeshAdapter;
@@ -438,6 +439,8 @@ public:
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void FindPolygonLoop( const FEdgeID EdgeID, TArray<FEdgeID>& OutEdgeLoopEdgeIDs, TArray<FEdgeID>& OutFlippedEdgeIDs, TArray<FEdgeID>& OutReversedEdgeIDPathToTake, TArray<FPolygonID>& OutPolygonIDsToSplit ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( const FVector LineSegmentStart, const FVector LineSegmentEnd, TArray<FPolygonID>& OutPolygons ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void SearchSpatialDatabaseForPolygonsInVolume( const TArray<FPlane>& Planes, TArray<FPolygonID>& OutPolygons ) const;
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void SearchSpatialDatabaseForPolygonsPotentiallyIntersectingPlane( const FPlane& InPlane, TArray<FPolygonID>& OutPolygons ) const;
+
 
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void SetSubdivisionCount( const int32 NewSubdivisionCount );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void MoveVertices( const TArray<FVertexToMove>& VerticesToMove );
@@ -486,6 +489,9 @@ public:
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void SetTextureCoordinateCount( const int32 NumTexCoords );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void QuadrangulateMesh( TArray<FPolygonID>& OutNewPolygonIDs );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>& PolygonIDs );
+	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void SplitPolygonalMesh( const FPlane& InPlane, TArray<FPolygonID>& PolygonIDs1, TArray<FPolygonID>& PolygonIDs2, TArray<FEdgeID>& BoundaryIDs);
+
+	void GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams);
 
 protected:
 
@@ -564,6 +570,8 @@ public:
 	/** Adapters registered with this editable mesh */
 	UPROPERTY()
 	TArray<UEditableMeshAdapter*> Adapters;
+
+	UEditableMeshAdapter* PrimaryAdapter;
 
 	/** The number of texture coordinates stored on the vertices of this mesh */
 	UPROPERTY( BlueprintReadOnly, Category="Editable Mesh" )
@@ -647,5 +655,6 @@ public:
 	TSet<FPolygonID> NewOctreePolygonIDs;
 
 	friend struct FEditableMeshOctreeSemantics;	// NOTE: Allows inline access to PolygonIDToOctreeElementIDMap
+
 
 };

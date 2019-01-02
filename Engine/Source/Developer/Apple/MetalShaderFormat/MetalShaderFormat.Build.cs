@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -18,7 +18,7 @@ public class MetalShaderFormat : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
-				"ShaderCore",
+				"RenderCore",
 				"ShaderCompilerCommon",
 				"ShaderPreprocessor"
 			}

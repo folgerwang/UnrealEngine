@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsSettings.h: Declares the PhysicsSettings class.
@@ -104,11 +104,7 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	/** Triangles from triangle meshes (BSP) with an area less than or equal to this value will be removed from physics collision data. Set to less than 0 to disable. */
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, meta = (ClampMin = "-1.0", UIMin = "-1.0", ClampMax = "10.0", UIMax = "10.0"), Category = Constants)
 	float TriangleMeshTriangleMinAreaThreshold;
-
-	/** Enables the use of an async scene */
-	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category=Simulation)
-	bool bEnableAsyncScene;
-
+	
 	/** Enables shape sharing between sync and async scene for static rigid actors */
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Simulation, meta = (editcondition="bEnableAsyncScene"))
 	bool bEnableShapeSharing;
@@ -243,10 +239,6 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	/** Physics delta time smoothing factor for sync scene. */
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "1.0", UIMax = "1.0"), Category = Framerate)
 	float SyncSceneSmoothingFactor;
-
-	/** Physics delta time smoothing factor for async scene. */
-	UPROPERTY(config, EditAnywhere, AdvancedDisplay, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "1.0", UIMax = "1.0"), Category = Framerate)
-	float AsyncSceneSmoothingFactor;
 
 	/** Physics delta time initial average. */
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, meta = (ClampMin = "0.0013", UIMin = "0.0013", ClampMax = "1.0", UIMax = "1.0"), Category = Framerate)

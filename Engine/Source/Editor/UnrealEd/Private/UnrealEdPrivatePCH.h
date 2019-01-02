@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -443,15 +443,13 @@
 #include "UniformBuffer.h"
 #include "PackedNormal.h"
 #include "RenderUtils.h"
-
-// From Messaging:
-#include "IMessageContext.h"
-
-// From ShaderCore:
 #include "ShaderParameters.h"
 #include "ShaderCore.h"
 #include "Shader.h"
 #include "VertexFactory.h"
+
+// From Messaging:
+#include "IMessageContext.h"
 
 // From AssetRegistry:
 #include "AssetData.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieScene3DConstraintSection.h"
 #include "MovieSceneObjectBindingID.h"
@@ -16,13 +16,6 @@ void UMovieScene3DConstraintSection::SetConstraintId(const FGuid& InConstraintId
 		SetConstraintBindingID(FMovieSceneObjectBindingID(InConstraintId, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local));
 	}
 }
-
-
-FGuid UMovieScene3DConstraintSection::GetConstraintId() const
-{
-	return FGuid();
-}
-
 
 void UMovieScene3DConstraintSection::OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap)
 {

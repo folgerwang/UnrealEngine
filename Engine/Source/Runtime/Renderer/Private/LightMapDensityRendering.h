@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMapDensityRendering.h: Definitions for rendering lightmap density.
@@ -53,7 +53,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		LightMapPolicyType::VertexParametersType::Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 	TLightMapDensityVS() {}
 
@@ -180,7 +180,7 @@ public:
 		VertexMappedColor.Bind(Initializer.ParameterMap,TEXT("VertexMappedColor"));
 		GridTexture.Bind(Initializer.ParameterMap,TEXT("GridTexture"));
 		GridTextureSampler.Bind(Initializer.ParameterMap,TEXT("GridTextureSampler"));
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 	TLightMapDensityPS() {}
 

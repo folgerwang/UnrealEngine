@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FXSystem.cpp: Implementation of the effects system.
@@ -373,7 +373,7 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
 void FFXSystem::PostRenderOpaque(
 	FRHICommandListImmediate& RHICmdList, 
 	const FUniformBufferRHIParamRef ViewUniformBuffer, 
-	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer)
 {
 	if (RHISupportsGPUParticles() && IsParticleCollisionModeSupported(GetShaderPlatform(), PCM_DepthBuffer))

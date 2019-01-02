@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WideCustomResolveShaders.h"
 #include "StaticBoundShaderState.h"
@@ -63,7 +63,7 @@ static void ResolveColorWideInternal2(
 	
 	PixelShader->SetParameters(RHICmdList, SrcTexture, FMaskTexture, SrcOrigin);
 
-	RHICmdList.DrawPrimitive(PT_TriangleList, 0, 1, 1);
+	RHICmdList.DrawPrimitive(0, 1, 1);
 }
 
 template <unsigned MSAA, bool UseFMask>

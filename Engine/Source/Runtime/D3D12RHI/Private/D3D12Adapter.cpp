@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Adapter.cpp:D3D12 Adapter implementation.
@@ -210,6 +210,11 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 				// RESOURCE_BARRIER_DUPLICATE_SUBRESOURCE_TRANSITIONS - This shows up a lot and is very noisy. It would require changes to the resource tracking system
 				// but will hopefully be resolved when the RHI switches to use the engine's resource tracking system.
 				(D3D12_MESSAGE_ID)1008,
+
+				// This error gets generated on the first run when you install a new driver. The code handles this error properly and resets the PipelineLibrary,
+				// so we can safely ignore this message. It could possibly be avoided by adding driver version to the PSO cache filename, but an average user is unlikely
+				// to be interested in keeping PSO caches associated with old drivers around on disk, so it's better to just reset.
+				D3D12_MESSAGE_ID_CREATEPIPELINELIBRARY_DRIVERVERSIONMISMATCH,
 
 #if ENABLE_RESIDENCY_MANAGEMENT
 				// TODO: Remove this when the debug layers work for executions which are guarded by a fence
@@ -517,6 +522,12 @@ void FD3D12Adapter::Cleanup()
 
 
 	PipelineStateCache.Close();
+	RootSignatureManager.Destroy();
+
+	DrawIndirectCommandSignature.SafeRelease();
+	DrawIndexedIndirectCommandSignature.SafeRelease();
+	DispatchIndirectCommandSignature.SafeRelease();
+
 	FenceCorePool.Destroy();
 }
 
@@ -545,7 +556,7 @@ void FD3D12Adapter::SignalFrameFence_RenderThread(FRHICommandListImmediate& RHIC
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandSignalFrameFence>()) FRHICommandSignalFrameFence(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandSignalFrameFence)(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
 	}
 }
 

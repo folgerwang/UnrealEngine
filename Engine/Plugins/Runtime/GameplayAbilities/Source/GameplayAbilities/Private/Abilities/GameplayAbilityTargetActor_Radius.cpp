@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Abilities/GameplayAbilityTargetActor_Radius.h"
 #include "GameFramework/Pawn.h"
@@ -53,7 +53,6 @@ TArray<TWeakObjectPtr<AActor> >	AGameplayAbilityTargetActor_Radius::PerformOverl
 	
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(RadiusTargetingOverlap), bTraceComplex);
 	Params.bReturnPhysicalMaterial = false;
-	Params.bTraceAsyncScene = false;
 
 	TArray<FOverlapResult> Overlaps;
 

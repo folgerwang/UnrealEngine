@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneMediaTemplate.h"
 
@@ -114,7 +114,7 @@ struct FMediaSectionExecutionToken
 				MediaPlayer->Seek(MediaTime);
 				MediaPlayer->SetRate(1.0f);
 			}
-			else if (Context.HasJumped())
+			else 
 			{
 				MediaPlayer->Seek(MediaTime);
 			}

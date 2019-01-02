@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,7 +110,7 @@ struct ENGINE_API FPhysicsGeometryCollection_ImmediatePhysX
         }
         if (Geometry->getType() == PxGeometryType::Enum::eCAPSULE)
         {
-            return ECollisionShapeType::Capsule;
+            return ECollisionShapeType::TCapsule;
         }
         if (Geometry->getType() == PxGeometryType::Enum::eCONVEXMESH)
         {

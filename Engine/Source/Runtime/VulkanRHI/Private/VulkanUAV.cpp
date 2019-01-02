@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VulkanRHIPrivate.h"
 #include "VulkanContext.h"
@@ -342,6 +342,20 @@ FComputeFenceRHIRef FVulkanDynamicRHI::RHICreateComputeFence(const FName& Name)
 {
 	return new FVulkanComputeFence(Device, Name);
 }
+
+/*
+FRenderQueryPoolRHIRef FVulkanDynamicRHI::RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries)
+{
+	if (QueryType == RQT_AbsoluteTime)
+	{
+		return new FVulkanTimestampQueryPool(Device, NumQueries);
+	}
+	else
+	{
+		return new FDefaultRHIRenderQueryPool(QueryType, this, NumQueries);
+	}
+}
+*/
 
 
 bool FVulkanGPUFence::Poll() const

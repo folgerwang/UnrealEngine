@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleBeamTrailVertexFactory.cpp: Particle vertex factory implementation.
@@ -8,7 +8,7 @@
 #include "ParticleHelper.h"
 #include "ShaderParameterUtils.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleBeamTrailUniformParameters,TEXT("BeamTrailVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleBeamTrailUniformParameters,"BeamTrailVF");
 
 /**
  * Shader parameters for the beam/trail vertex factory.

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Collision.h: Common collision code.
@@ -22,6 +22,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomSweepAny"),STAT_Collision_GeomSweepAny,STATG
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomSweepSingle"),STAT_Collision_GeomSweepSingle,STATGROUP_Collision, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomSweepMultiple"),STAT_Collision_GeomSweepMultiple,STATGROUP_Collision, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomOverlapMultiple"),STAT_Collision_GeomOverlapMultiple,STATGROUP_Collision, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomOverlapBlocking"), STAT_Collision_GeomOverlapBlocking, STATGROUP_Collision, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GeomOverlapAny"), STAT_Collision_GeomOverlapAny, STATGROUP_Collision, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("BodyInstanceOverlapMulti"), STAT_Collision_FBodyInstance_OverlapMulti, STATGROUP_Collision, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("BodyInstanceOverlapTest"), STAT_Collision_FBodyInstance_OverlapTest, STATGROUP_Collision, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("BodyInstanceLineTrace"), STAT_Collision_FBodyInstance_LineTrace, STATGROUP_Collision, );

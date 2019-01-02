@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InstancedStaticMesh.cpp: Static mesh rendering code.
@@ -2593,6 +2593,22 @@ void UHierarchicalInstancedStaticMeshComponent::ApplyBuildTreeAsync(ENamedThread
 
 	MarkRenderStateDirty();
 	PostBuildStats();
+}
+
+void UHierarchicalInstancedStaticMeshComponent::OnComponentCreated()
+{
+	Super::OnComponentCreated();
+
+	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	{
+		// if we are pasting/duplicating this component, it may be created with some instances already in place
+		// in this case, need to ensure that the tree is properly created
+		if (PerInstanceSMData.Num() > 0 && ClusterTreePtr->Num() == 0)
+		{
+			const bool bForceUpdate = true;
+			BuildTreeIfOutdated(false, bForceUpdate);
+		}
+	}
 }
 
 bool UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, bool ForceUpdate)

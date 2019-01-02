@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -26,7 +26,6 @@ namespace UnrealBuildTool.Rules
           "CoreUObject",
           "Engine",
           "RenderCore",
-          "ShaderCore",
           "RHI",
           "AnimGraphRuntime",
 					// ... add other public dependencies that you statically link with here ...

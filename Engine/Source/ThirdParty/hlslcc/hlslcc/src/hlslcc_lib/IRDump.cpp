@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -39,7 +39,10 @@
 #include "IRDump.h"
 #include "hlslcc_private.h"
 
-#define irdump_printf(...)  dprintf(__VA_ARGS__)
+#if !defined(_MSC_VER)
+#define dprintf(...) printf(__VA_ARGS__)
+#endif
+#define irdump_printf(...)  dprintf(0, __VA_ARGS__)
 
 static inline void irdump_flush()
 {

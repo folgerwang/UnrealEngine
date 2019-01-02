@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Device.cpp: D3D device RHI implementation.
@@ -49,7 +49,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	FeatureLevel(InFeatureLevel),
 	AmdAgsContext(NULL),
 	bCurrentDepthStencilStateIsReadOnly(false),
-	PSOPrimitiveType(PT_Num),
 	CurrentDepthTexture(NULL),
 	NumSimultaneousRenderTargets(0),
 	NumUAVs(0),
@@ -61,7 +60,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	bUsingTessellation(false),
 	PendingNumVertices(0),
 	PendingVertexDataStride(0),
-	PendingPrimitiveType(0),
 	PendingNumPrimitives(0),
 	PendingMinVertexIndex(0),
 	PendingNumIndices(0),

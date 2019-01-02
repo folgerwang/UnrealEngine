@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomatedLevelSequenceCapture.h"
 #include "MovieScene.h"
@@ -208,6 +208,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		Actor->PlaybackSettings.LoopCount.Value = 0;
 		Actor->SequencePlayer->SetTimeController(MakeShared<FMovieSceneTimeController_FrameStep>());
 		Actor->PlaybackSettings.bPauseAtEnd = true;
+		Actor->PlaybackSettings.bAutoPlay = false;
 
 		if (BurnInOptions)
 		{
@@ -231,7 +232,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			}
 			Actor->InitializePlayer();
 		}
-		Actor->bAutoPlay = false;
 
 		if (InitializeShots())
 		{

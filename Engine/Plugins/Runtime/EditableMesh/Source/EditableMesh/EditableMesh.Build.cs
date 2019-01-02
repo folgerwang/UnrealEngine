@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -12,7 +12,9 @@ namespace UnrealBuildTool.Rules
 				    "CoreUObject",
 				    "Engine",
                     "MeshDescription",
-					"RenderCore"	// @todo mesheditor: For FlushRenderingCommands()
+                    "GeometryCollectionCore",
+                    "GeometryCollectionEngine",
+                    "RenderCore"	// @todo mesheditor: For FlushRenderingCommands()
 				}
 			);
 

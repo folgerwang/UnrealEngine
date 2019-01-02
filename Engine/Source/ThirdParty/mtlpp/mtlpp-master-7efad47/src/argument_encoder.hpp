@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -32,7 +32,7 @@ namespace mtlpp
 	class Texture;
 	class SamplerState;
 	
-	class ArgumentEncoder : public ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>
+	class MTLPP_EXPORT ArgumentEncoder : public ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>
 	{
 	public:
 		ArgumentEncoder() { }

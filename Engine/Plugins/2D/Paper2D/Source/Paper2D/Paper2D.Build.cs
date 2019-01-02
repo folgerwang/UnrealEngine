@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -13,7 +13,6 @@ public class Paper2D : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
         		        "SlateCore",

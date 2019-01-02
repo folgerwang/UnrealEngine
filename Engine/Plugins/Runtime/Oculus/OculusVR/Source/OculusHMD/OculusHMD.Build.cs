@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -44,7 +44,6 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"Renderer",
-					"ShaderCore",
 					"HeadMountedDisplay",
 					"Slate",
 					"SlateCore",

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Slate/DebugCanvas.h"
 #include "RenderingThread.h"
@@ -206,6 +206,7 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, const void* InWindowBackBuffer)
 {
 	check( IsInRenderingThread() );
+	check(RHICmdList.IsOutsideRenderPass());
 
 	SCOPED_DRAW_EVENT(RHICmdList, DrawDebugCanvas);
 

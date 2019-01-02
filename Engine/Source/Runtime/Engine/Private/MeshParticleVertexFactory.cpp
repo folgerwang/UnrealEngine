@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshParticleVertexFactory.cpp: Mesh particle vertex factory implementation
@@ -338,4 +338,4 @@ FVertexFactoryShaderParameters* FMeshParticleVertexFactory::ConstructShaderParam
 
 IMPLEMENT_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactory,"/Engine/Private/MeshParticleVertexFactory.ush",true,false,true,false,false);
 IMPLEMENT_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactoryEmulatedInstancing,"/Engine/Private/MeshParticleVertexFactory.ush",true,false,true,false,false);
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMeshParticleUniformParameters,TEXT("MeshParticleVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMeshParticleUniformParameters,"MeshParticleVF");

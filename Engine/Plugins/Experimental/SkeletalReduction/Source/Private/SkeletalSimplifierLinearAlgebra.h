@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -247,7 +247,6 @@ namespace SkeletalSimplifier
 		public:
 			typedef ArrayBase<6, SymmetricMatrix>            MyBase;
 			typedef typename MyBase::ScalarType              ScalarType;
-
 
 			SymmetricMatrix() 
 			{
@@ -964,6 +963,9 @@ namespace SkeletalSimplifier
 
 			typedef ArrayBase<SIZE, TDenseVecD>           MyBase;
 			typedef typename MyBase::ScalarType           ScalarType;
+
+			using MyBase::Data;
+			using MyBase::Reset;
 
 			enum { Size = SIZE };
 

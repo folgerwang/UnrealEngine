@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Compilation/MovieSceneCompiler.h"
 
@@ -314,6 +314,7 @@ void FMovieSceneCompiler::CompileRange(TRange<FFrameNumber> InGlobalRange, UMovi
 		// next entry in the evaluation field iterator (which should be a populated range)
 		if (CompiledRange.GetUpperBound() == EmptySpaceRange.GetUpperBound())
 		{
+			IterFromBound = TRangeBound<FFrameNumber>::FlipInclusion(CompiledRange.GetUpperBound());
 			++ExistingEvaluationFieldIter;
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyWrapperMath.h"
 #include "PyWrapperTypeRegistry.h"
@@ -1540,7 +1540,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 				return nullptr;
 			}
 
-			FPyWrapperLinearColor::GetTypedStruct(InSelf) = FLinearColor::FGetHSV(H, S, V);
+			FPyWrapperLinearColor::GetTypedStruct(InSelf) = FLinearColor::MakeFromHSV8(H, S, V);
 			Py_RETURN_NONE;
 		}
 

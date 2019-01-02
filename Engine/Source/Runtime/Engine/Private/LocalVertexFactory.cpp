@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LocalVertexFactory.cpp: Local vertex factory implementation
@@ -41,7 +41,7 @@ void FLocalVertexFactoryShaderParameters::Serialize(FArchive& Ar)
 	Ar << LODParameter;
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters, TEXT("LocalVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLocalVertexFactoryUniformShaderParameters, "LocalVF");
 
 TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(const FLocalVertexFactory* LocalVertexFactory, FColorVertexBuffer* OverrideColorVertexBuffer)
 {

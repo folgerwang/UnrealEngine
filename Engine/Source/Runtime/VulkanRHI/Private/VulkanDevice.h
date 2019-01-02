@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanDevice.h: Private Vulkan RHI definitions.
@@ -21,7 +21,7 @@ struct FOptionalVulkanDeviceExtensions
 {
 	uint32 HasKHRMaintenance1 : 1;
 	uint32 HasKHRMaintenance2 : 1;
-	uint32 HasMirrorClampToEdge : 1;
+	//uint32 HasMirrorClampToEdge : 1;
 	uint32 HasKHRExternalMemoryCapabilities : 1;
 	uint32 HasKHRGetPhysicalDeviceProperties2 : 1;
 	uint32 HasKHRDedicatedAllocation : 1;

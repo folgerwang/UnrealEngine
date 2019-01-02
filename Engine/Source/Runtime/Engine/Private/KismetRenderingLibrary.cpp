@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/KismetRenderingLibrary.h"
 #include "HAL/FileManager.h"
@@ -51,8 +51,11 @@ void UKismetRenderingLibrary::ClearRenderTarget2D(UObject* WorldContextObject, U
 		ENQUEUE_RENDER_COMMAND(ClearRTCommand)(
 			[RenderTargetResource, ClearColor](FRHICommandList& RHICmdList)
 			{
-				SetRenderTarget(RHICmdList, RenderTargetResource->GetRenderTargetTexture(), FTextureRHIRef(), true);
+				FRHIRenderPassInfo RPInfo(RenderTargetResource->GetRenderTargetTexture(), ERenderTargetActions::DontLoad_Store);
+				TransitionRenderPassTargets(RHICmdList, RPInfo);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearRT"));
 				DrawClearQuad(RHICmdList, ClearColor);
+				RHICmdList.EndRenderPass();
 			});
 	}
 }

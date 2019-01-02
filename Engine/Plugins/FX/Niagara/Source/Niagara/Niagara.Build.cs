@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -12,9 +12,7 @@ public class Niagara : ModuleRules
                 "NiagaraShader",
                 "Core",
                 "Engine",
-                "RenderCore",
                 "UtilityShaders",
-                "ShaderCore",
                 "TimeManagement",
                 "Renderer",
             }
@@ -32,7 +30,7 @@ public class Niagara : ModuleRules
                 "RHI",
                 "UtilityShaders",
                 "NiagaraVertexFactories",
-                "ShaderCore"
+                "RenderCore"
             }
         );
 

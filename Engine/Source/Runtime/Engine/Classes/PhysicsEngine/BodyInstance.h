@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,7 @@ class UPrimitiveComponent;
 
 struct FShapeData;
 
-ENGINE_API int32 FillInlineShapeArray_AssumesLocked(PhysicsInterfaceTypes::FInlineShapeArray& Array, const FPhysicsActorHandle& Actor, EPhysicsSceneType InSceneType = PST_MAX);
+ENGINE_API int32 FillInlineShapeArray_AssumesLocked(PhysicsInterfaceTypes::FInlineShapeArray& Array, const FPhysicsActorHandle& Actor);
 
 UENUM(BlueprintType)
 namespace EDOFMode
@@ -118,19 +118,6 @@ enum class BodyInstanceSceneState : uint8
 	Added,
 	AwaitingRemove,
 	Removed
-};
-
-
-/** Whether to override the sync/async scene used by a dynamic actor*/
-UENUM(BlueprintType)
-enum class EDynamicActorScene : uint8
-{
-	//Use whatever the body instance wants
-	Default,	
-	//use sync scene
-	UseSyncScene,	
-	//use async scene
-	UseAsyncScene	
 };
 
 /** Container for a physics representation of an object */
@@ -264,13 +251,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (editcondition = "bSimulatePhysics", InlineEditConditionToggle))
 	uint8 bOverrideMaxAngularVelocity : 1;
 
-	/**
-	* If true, this body will be put into the asynchronous physics scene. If false, it will be put into the synchronous physics scene.
-	* If the body is static, it will be placed into both scenes regardless of the value of bUseAsyncScene.
-	*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
-	uint8 bUseAsyncScene : 1;
-
 
 	/** 
 	 * @HACK:
@@ -303,8 +283,6 @@ protected:
 
 	/** Whether we are pending a collision profile setup */
 	uint8 bPendingCollisionProfileSetup : 1;
-
-	uint8 bHasSharedShapes : 1;
 
 public:
 	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
@@ -444,6 +422,7 @@ public:
 
 public:
 
+	FPhysicsActorHandle& GetPhysicsActorHandle();
 	const FPhysicsActorHandle& GetPhysicsActorHandle() const;
 	const FPhysicsActorHandle& GetActorReferenceWithWelding() const;
 
@@ -480,9 +459,6 @@ public:
 
 		/** Whether to use the BodySetup's PhysicsType to override if the instance simulates*/
 		bool bPhysicsTypeDeterminesSimulation;
-
-		/** Whether to override the physics scene used for simulation */
-		EDynamicActorScene DynamicActorScene;
 
 		/** An aggregate to place the body into */
 		FPhysicsAggregateHandle Aggregate;
@@ -537,7 +513,6 @@ public:
 
 	/** 
 	 *	Utility to get all the shapes from a FBodyInstance 
-	 *	Shapes belonging to sync actor are first, then async. Number of shapes belonging to sync actor is returned.
 	 *	NOTE: This function is not thread safe. You must hold the physics scene lock while calling it and reading/writing from the shapes
 	 */
 	int32 GetAllShapes_AssumesLocked(TArray<FPhysicsShapeHandle>& OutShapes) const;
@@ -614,13 +589,6 @@ public:
 
 	/** Sets a custom slope override struct for this instance. Implicitly sets bOverrideWalkableSlopeOnInstance to true. */
 	void SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride);
-
-	bool UseAsyncScene(const FPhysScene* PhysScene) const;
-
-	bool HasSharedShapes() const{ return bHasSharedShapes; }
-
-	/** Indicates whether this body should use the async scene. Must be called before body is init'd, will assert otherwise. Will have no affect if there is no async scene. */
-	void SetUseAsyncScene(bool bNewUseAsyncScene);
 
 	/** Returns true if the body is not static */
 	bool IsDynamic() const;
@@ -826,9 +794,8 @@ public:
 	 *  @param  PShape					The shape we are applying the material to
 	 *  @param  SimplePhysMat			The material to use if a simple shape is provided (or complex materials are empty)
 	 *  @param  ComplexPhysMats			The array of materials to apply if a complex shape is provided
-	 *	@param	bSharedShape			If this is true it means you've already detached the shape from all actors that use it (attached shared shapes are not writable).
 	 */
-	static void ApplyMaterialToShape_AssumesLocked(const FPhysicsShapeHandle& InShape, UPhysicalMaterial* SimplePhysMat, const TArrayView<UPhysicalMaterial*>& ComplexPhysMats, const bool bSharedShape);
+	static void ApplyMaterialToShape_AssumesLocked(const FPhysicsShapeHandle& InShape, UPhysicalMaterial* SimplePhysMat, const TArrayView<UPhysicalMaterial*>& ComplexPhysMats);
 
 	/** Note: This function is not thread safe. Make sure you obtain the appropriate physics scene lock before calling it*/
 	void ApplyMaterialToInstanceShapes_AssumesLocked(UPhysicalMaterial* SimplePhysMat, TArray<UPhysicalMaterial*>& ComplexPhysMats);

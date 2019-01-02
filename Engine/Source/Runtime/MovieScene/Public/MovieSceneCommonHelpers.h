@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -242,17 +242,6 @@ public:
 	{
 		return PropertyName;
 	}
-
-	template<typename ValueType>
-	UE_DEPRECATED(4.15, "Please use GetCurrentValue(const UObject&)")
-	ValueType GetCurrentValue(const UObject* Object) { check(Object) return GetCurrentValue<ValueType>(*Object); }
-	template <typename ValueType>
-	UE_DEPRECATED(4.15, "Please use CallFunction(UObject&)")
-	void CallFunction( UObject* InRuntimeObject, ValueType* PropertyValue ) { CallFunction<ValueType>(*InRuntimeObject, *PropertyValue); }
-	UE_DEPRECATED(4.15, "UpdateBindings is no longer necessary")
-	void UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects ){}
-	UE_DEPRECATED(4.15, "UpdateBindings is no longer necessary")
-	void UpdateBinding( const TWeakObjectPtr<UObject>& InRuntimeObject ) {}
 
 private:
 

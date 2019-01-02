@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,6 +52,7 @@ enum class ECollisionQuery : uint8
 enum class ECollisionShapeType : uint8
 {
 	Sphere,
+	Plane,
 	Box,
 	Capsule,
 	Convex,
@@ -97,7 +98,6 @@ struct FActorCreationParams
 		, InitialTM(FTransform::Identity)
 		, bStatic(false)
 		, bQueryOnly(false)
-		, bUseAsyncScene(false)
 		, bEnableGravity(false)
 		, DebugName(nullptr)
 	{}
@@ -106,15 +106,12 @@ struct FActorCreationParams
 	FTransform InitialTM;
 	bool bStatic;
 	bool bQueryOnly;
-	bool bUseAsyncScene;
 	bool bEnableGravity;
 	char* DebugName;
 };
 
 struct FGeometryAddParams
 {
-	EPhysicsSceneType SceneType;
-	bool bSharedShapes;
 	bool bDoubleSided;
 	FBodyCollisionData CollisionData;
 	ECollisionTraceFlag CollisionTraceType;

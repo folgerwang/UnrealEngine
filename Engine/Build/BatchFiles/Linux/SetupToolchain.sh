@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 # put ourselves into Engine directory (two up from location of this script)
 pushd "`dirname "$0"`/../../.." > /dev/null

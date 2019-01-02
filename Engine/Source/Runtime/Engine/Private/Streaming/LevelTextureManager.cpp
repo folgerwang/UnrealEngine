@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LevelTextureManager.cpp: Implementation of content streaming classes.
@@ -33,7 +33,8 @@ void FLevelTextureManager::Remove(FRemovedTextureArray* RemovedTextures)
 		if (Component)
 		{
 			check(Component->IsValidLowLevelFast()); // Check that this component was not already destroyed.
-			check(Component->bAttachedToStreamingManagerAsStatic);  // Check that is correctly tracked
+			// Don't check as there can be duplicates in PendingComponents
+			// check(Component->bAttachedToStreamingManagerAsStatic);  
 
 			// A component can only be referenced in one level, so if it was here, we can clear the flag
 			Component->bAttachedToStreamingManagerAsStatic = false;

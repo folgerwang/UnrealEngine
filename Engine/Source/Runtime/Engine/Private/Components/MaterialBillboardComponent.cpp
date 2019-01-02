@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/MaterialBillboardComponent.h"
 #include "EngineGlobals.h"
@@ -223,7 +223,7 @@ public:
 							BatchElement.FirstIndex = 0;
 							BatchElement.MinVertexIndex = 0;
 							BatchElement.MaxVertexIndex = 3;
-							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
+							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer().GetUniformBufferRef();
 							BatchElement.NumPrimitives = 2;
 							BatchElement.BaseVertexIndex = WriteOffset;
 

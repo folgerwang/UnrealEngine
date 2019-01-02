@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #pragma once
@@ -108,6 +108,7 @@ namespace mtlpp
         void SetLodMaxClamp(float lodMaxClamp);
         void SetCompareFunction(CompareFunction compareFunction) MTLPP_AVAILABLE(10_11, 9_0);
         void SetLabel(const ns::String& label);
+		void SetSupportArgumentBuffers(bool flag) MTLPP_AVAILABLE(10_13, 11_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 

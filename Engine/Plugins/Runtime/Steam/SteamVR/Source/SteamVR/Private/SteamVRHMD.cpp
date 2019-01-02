@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SteamVRHMD.h"
 #include "SteamVRPrivate.h"
@@ -1295,6 +1295,9 @@ bool FSteamVRHMD::EnableStereo(bool bStereo)
 			}
 			else
 			{
+				//flush all commands that might call GetStereoProjectionMatrix or other functions that rely on bStereoEnabled 
+				FlushRenderingCommands();
+
 				// Note: Setting before resize to ensure we don't try to allocate a new vr rt.
 				bStereoEnabled = bStereoDesired;
 

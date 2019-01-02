@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanViewport.cpp: Vulkan viewport RHI implementation.
@@ -231,7 +231,7 @@ FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 		}
 		else
 		{
-			new (RHICmdList.AllocCommand<FRHICommandAcquireBackBuffer>()) FRHICommandAcquireBackBuffer(this, RenderingBackBuffer);
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandAcquireBackBuffer)(this, RenderingBackBuffer);
 		}
 	}
 
@@ -913,7 +913,7 @@ void FVulkanDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIPara
 		else
 		{
 			check(IsInRenderingThread());
-			new (RHICmdList.AllocCommand<FRHICommandProcessDeferredDeletionQueue>()) FRHICommandProcessDeferredDeletionQueue(Device);
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandProcessDeferredDeletionQueue)(Device);
 		}
 	}
 }

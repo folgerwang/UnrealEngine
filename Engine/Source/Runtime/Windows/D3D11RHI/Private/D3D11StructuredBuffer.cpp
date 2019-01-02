@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "D3D11RHIPrivate.h"
 
@@ -92,7 +92,7 @@ void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 	FD3D11StructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 	
 	// If this resource is bound to the device, unbind it
-	ConditionalClearShaderResource(StructuredBuffer);
+	ConditionalClearShaderResource(StructuredBuffer, true);
 
 	// Determine whether the Structured buffer is dynamic or not.
 	D3D11_BUFFER_DESC Desc;

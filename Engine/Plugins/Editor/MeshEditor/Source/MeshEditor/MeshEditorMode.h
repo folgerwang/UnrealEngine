@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,6 +19,7 @@
 #include "WireframeMeshComponent.h"
 #include "OverlayComponent.h"
 #include "UObject/ObjectKey.h"
+#include "MeshEditorInteractorData.h"
 #include "MeshEditorMode.generated.h"
 
 class UMeshEditorSelectionModifier;
@@ -44,61 +45,6 @@ class FMeshEditorMode : public FEdMode, protected IMeshEditorModeUIContract
 {
 public:
 
-	/**
-	 * The types of interactor shapes we support
-	 */
-	enum class EInteractorShape
-	{
-		/** Invalid shape (or none) */
-		Invalid,
-
-		/** Grabber sphere */
-		GrabberSphere,
-
-		/** Laser pointer shape */
-		Laser,
-	};
-
-	/**
-	 * Contains state for either a mouse cursor or a virtual hand (in VR), to be used to interact with a mesh
-	 */
-	struct FMeshEditorInteractorData
-	{
-		/** The viewport interactor that is this data's counterpart */
-		TWeakObjectPtr<const class UViewportInteractor> ViewportInteractor;
-
-		/** True if we have a valid interaction grabber sphere right now */
-		bool bGrabberSphereIsValid;
-
-		/** The sphere for radial interactions */
-		FSphere GrabberSphere;
-
-		/** True if we have a valid interaction ray right now */
-		bool bLaserIsValid;
-
-		/** World space start location of the interaction ray the last time we were ticked */
-		FVector LaserStart;
-
-		/** World space end location of the interaction ray */
-		FVector LaserEnd;
-
-		/** What shape of interactor are we using to hover? */
-		EInteractorShape HoverInteractorShape;
-
-		/** Information about a mesh we're hovering over or editing */
-		FMeshElement HoveredMeshElement;
-
-		/** The element we were hovering over last frame */
-		FMeshElement PreviouslyHoveredMeshElement;
-
-		/** The hover point.  With a ray, this could be the impact point along the ray.  With grabber sphere interaction, this 
-		    would be the point within the sphere radius where we've found a point on an object to interact with */
-		FVector HoverLocation;
-
-
-		/** Default constructor that initializes everything to safe values */
-		FMeshEditorInteractorData();
-	};
 
 
 public:
@@ -143,10 +89,12 @@ protected:
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const override { return VertexActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const override { return EdgeActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const override { return PolygonActions; }
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetFractureActions() const override { return FractureActions; }
 
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexSelectionModifiers() const override { return VertexSelectionModifiersActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeSelectionModifiers() const override { return EdgeSelectionModifiersActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonSelectionModifiers() const override { return PolygonSelectionModifiersActions; }
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetFractureSelectionModifiers() const override { return FractureSelectionModifiersActions; }
 
 	virtual bool IsEditingPerInstance() const override { return bPerInstanceEdits; }
 	virtual void SetEditingPerInstance( bool bPerInstance ) override { bPerInstanceEdits = bPerInstance; }
@@ -193,6 +141,8 @@ protected:
 	{
 		return ActiveActionInteractor;
 	}
+	/** Access fracture settings to/from UI detail views - deliberately not const as views can change settings */
+	virtual class UMeshFractureSettings* GetFractureSettings() override { return MeshFractureSettings; }
 
 
 	/** Gets the container of all the assets used in the mesh editor */
@@ -222,11 +172,11 @@ protected:
 	/** Applies a modification to the mesh that's currently hovered */
 	void UpdateActiveAction( const bool bIsActionFinishing );
 
-	/** Geometry tests */
-	FEditableMeshElementAddress QueryElement( const UEditableMesh& EditableMesh, const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const EEditableMeshElementType OnlyElementType, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& OutInteractorShape, FVector& OutHitLocation ) const;
-	static bool CheckVertex( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float FuzzyDistance, const FVector& VertexPosition, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitVertex );
-	static bool CheckEdge( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float FuzzyDistance, const FVector EdgeVertexPositions[ 2 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyEdge );
-	static bool CheckTriangle( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float FuzzyDistance, const FVector TriangleVertexPositions[ 3 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitTriangle );
+	/** Called when fracture UI exploded view slider interaction starts */
+	void OnFractureExpansionBegin();
+
+	/** Called when fracture UI exploded view slider interaction finishes */
+	void OnFractureExpansionEnd();
 
 	/** Returns the index of an element in the selection set, or INDEX_NONE if its not selected */
 	int32 GetSelectedMeshElementIndex( const FMeshElement& MeshElement ) const;
@@ -251,6 +201,7 @@ protected:
 	void RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
+	void RegisterFractureEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 
 	void RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction, const FCanExecuteAction CanExecuteAction = FCanExecuteAction() );
 	void RegisterAnyElementCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
@@ -310,6 +261,9 @@ protected:
 	/** Callback when PIE/SIE ends */
 	void OnEndPIE( bool bIsSimulating );
 
+	/** Callback when object is reloaded under the hood */
+	void OnAssetReload(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
+
 	/** Callback from the level editor when the map changes */
 	void OnMapChanged( UWorld* World, EMapChangeType MapChangeType );
 
@@ -357,6 +311,9 @@ protected:
 
 	/** Updates debug normals/tangents */
 	void UpdateDebugNormals();
+
+	/** Determine the selected Bone(s) within a single Editable Mesh */
+	void UpdateBoneSelection(FMeshElement &HoveredMeshElement, UViewportInteractor* ViewportInteractor);
 
 
 protected:
@@ -579,6 +536,9 @@ protected:
 	/** The next action that will be started when interacting with a selected polygon */
 	FName EquippedPolygonAction;
 
+	/** The next action that will be started when interacting with fractures */
+	FName EquippedFractureAction;
+
 	/** The interactive action currently being performed (and previewed).  These usually happen over multiple frames, and
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
 	FName ActiveAction;
@@ -620,6 +580,9 @@ protected:
 	/** Component containing debug normals/tangents */
 	UOverlayComponent* DebugNormalsComponent;
 
+	/** Component containing Fracture Tool Functionality */
+	class UFractureToolComponent* FractureToolComponent;
+
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	class UViewportInteractor* ActiveActionInteractor;
 
@@ -644,14 +607,19 @@ protected:
 	/** Command list for actions available when a polygon is selected */
 	TSharedPtr<FUICommandList> PolygonCommands;
 
+	/** Command list for fracturing */
+	TSharedPtr<FUICommandList> FractureCommands;
+
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> CommonActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> VertexActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> EdgeActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonActions;
+	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> FractureActions;
 
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> VertexSelectionModifiersActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> EdgeSelectionModifiersActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonSelectionModifiersActions;
+	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> FractureSelectionModifiersActions;
 
 	//
 	// DrawVertices
@@ -700,5 +668,9 @@ protected:
 
 	/** Holds all the assets for the mesh editor */
 	class UMeshEditorAssetContainer* AssetContainer;
+
+	/** Fracture settings from UI detail views */
+	class UMeshFractureSettings* MeshFractureSettings;
+
 };
 

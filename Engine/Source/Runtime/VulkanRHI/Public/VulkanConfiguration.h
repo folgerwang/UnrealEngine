@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanConfiguration.h: Control compilation of the runtime RHI.
@@ -79,10 +79,6 @@
 	#define VULKAN_COMMANDWRAPPERS_ENABLE						VULKAN_SHOULD_USE_COMMANDWRAPPERS
 #endif
 
-#ifndef VULKAN_USE_QUERY_WAIT
-	#define VULKAN_USE_QUERY_WAIT								0
-#endif
-
 #ifndef VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	#define VULKAN_USE_IMAGE_ACQUIRE_FENCES						1
 #endif
@@ -96,6 +92,10 @@
 #define VULKAN_ENABLE_AGGRESSIVE_STATS							0
 
 #define VULKAN_REUSE_FENCES										1
+
+#ifndef VULKAN_QUERY_CALLSTACK
+	#define VULKAN_QUERY_CALLSTACK								0
+#endif
 
 #ifndef VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	#define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT					0

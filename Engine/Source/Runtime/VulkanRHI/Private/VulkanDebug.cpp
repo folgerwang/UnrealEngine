@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanDebug.cpp: Vulkan device RHI implementation.
@@ -73,11 +73,6 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 			if (MsgCode == 3)
 			{
 				// Attachment N not written by fragment shader
-				return VK_FALSE;
-			}
-			else if (MsgCode == 5)
-			{
-				// SPIR-V module not valid: MemoryBarrier: Vulkan specification requires Memory Semantics to have one of the following bits set: Acquire, Release, AcquireRelease or SequentiallyConsistent
 				return VK_FALSE;
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Functionality for capturing the scene into reflection capture cubemaps, and prefiltering
@@ -66,6 +66,13 @@ static TAutoConsoleVariable<int32> CVarReflectionCaptureGPUArrayCopy(
 	TEXT(" 0 is off, 1 is on (default)"),
 	ECVF_ReadOnly);
 
+// Chaos addition
+static TAutoConsoleVariable<int32> CVarReflectionCaptureStaticSceneOnly(
+	TEXT("r.chaos.ReflectionCaptureStaticSceneOnly"),
+	1,
+	TEXT("")
+	TEXT(" 0 is off, 1 is on (default)"),
+	ECVF_ReadOnly);
 
 bool DoGPUArrayCopy()
 {
@@ -233,37 +240,41 @@ float ComputeSingleAverageBrightnessFromCubemap(FRHICommandListImmediate& RHICmd
 	GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ReflectionBrightnessTarget, TEXT("ReflectionBrightness"));
 
 	FTextureRHIRef& BrightnessTarget = ReflectionBrightnessTarget->GetRenderTargetItem().TargetableTexture;
-	SetRenderTarget(RHICmdList, BrightnessTarget, NULL, true);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+	FRHIRenderPassInfo RPInfo(BrightnessTarget, ERenderTargetActions::Load_Store);
+	TransitionRenderPassTargets(RHICmdList, RPInfo);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("ReflectionBrightness"));
+	{
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-	TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
-	TShaderMapRef<FComputeBrightnessPS> PixelShader(ShaderMap);
+		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
+		TShaderMapRef<FComputeBrightnessPS> PixelShader(ShaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	PixelShader->SetParameters(RHICmdList, TargetSize, Cubemap);
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	DrawRectangle( 
-		RHICmdList,
-		0, 0, 
-		1, 1,
-		0, 0, 
-		1, 1,
-		FIntPoint(1, 1),
-		FIntPoint(1, 1),
-		*VertexShader);
+		PixelShader->SetParameters(RHICmdList, TargetSize, Cubemap);
 
+		DrawRectangle(
+			RHICmdList,
+			0, 0,
+			1, 1,
+			0, 0,
+			1, 1,
+			FIntPoint(1, 1),
+			FIntPoint(1, 1),
+			*VertexShader);
+	}
+	RHICmdList.EndRenderPass();
 	RHICmdList.CopyToResolveTarget(BrightnessTarget, BrightnessTarget, FResolveParams());
 
 	FSceneRenderTargetItem& EffectiveRT = ReflectionBrightnessTarget->GetRenderTargetItem();
@@ -383,7 +394,7 @@ void FilterReflectionEnvironment(FRHICommandListImmediate& RHICmdList, ERHIFeatu
 
 			for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 			{
-				FRHIRenderPassInfo RPInfo(FilteredCube.TargetableTexture, ERenderTargetActions::DontLoad_Store, FilteredCube.ShaderResourceTexture, MipIndex, CubeFace);
+				FRHIRenderPassInfo RPInfo(FilteredCube.TargetableTexture, ERenderTargetActions::DontLoad_Store, nullptr, MipIndex, CubeFace);
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("FilterMips"));
 
 				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -434,6 +445,7 @@ void FilterReflectionEnvironment(FRHICommandListImmediate& RHICmdList, ERHIFeatu
 					*VertexShader);
 
 				RHICmdList.EndRenderPass();
+				RHICmdList.CopyToResolveTarget(FilteredCube.TargetableTexture, FilteredCube.ShaderResourceTexture, FResolveParams());
 			}
 		}
 
@@ -665,15 +677,16 @@ void ClearScratchCubemaps(FRHICommandList& RHICmdList, int32 TargetSize)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, ClearScratchCubemapsRT0);
 
-		TransitionSetRenderTargetsHelper(RHICmdList, RT0.TargetableTexture, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RT0.TargetableTexture);
 
 		for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 		{
 			for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 			{
-				FRHIRenderTargetView RtView = FRHIRenderTargetView(RT0.TargetableTexture, ERenderTargetLoadAction::EClear, MipIndex, CubeFace);
-				FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-				RHICmdList.SetRenderTargetsAndClear(Info);
+				FRHIRenderPassInfo RPInfo(RT0.TargetableTexture, ERenderTargetActions::Clear_Store, nullptr, MipIndex, CubeFace);
+
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearCubeFace"));
+				RHICmdList.EndRenderPass();
 			}
 		}
 	}
@@ -684,15 +697,16 @@ void ClearScratchCubemaps(FRHICommandList& RHICmdList, int32 TargetSize)
 		FSceneRenderTargetItem& RT1 = SceneContext.ReflectionColorScratchCubemap[1]->GetRenderTargetItem();
 		NumMips = (int32)RT1.TargetableTexture->GetNumMips();
 
-		TransitionSetRenderTargetsHelper(RHICmdList, RT1.TargetableTexture, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RT1.TargetableTexture);
 
 		for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 		{
 			for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 			{
-				FRHIRenderTargetView RtView = FRHIRenderTargetView(RT1.TargetableTexture, ERenderTargetLoadAction::EClear, MipIndex, CubeFace);
-				FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-				RHICmdList.SetRenderTargetsAndClear(Info);
+				FRHIRenderPassInfo RPInfo(RT1.TargetableTexture, ERenderTargetActions::Clear_Store, nullptr, MipIndex, CubeFace);
+
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearCubeFace"));
+				RHICmdList.EndRenderPass();
 			}
 		}
 	}
@@ -1389,6 +1403,8 @@ void CopyToSceneArray(FRHICommandListImmediate& RHICmdList, FScene* Scene, FRefl
 	}
 }
 
+
+
 /** 
  * Updates the contents of the given reflection capture by rendering the scene. 
  * This must be called on the game thread.
@@ -1460,7 +1476,8 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 			
 			if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::CapturedScene)
 			{
-				CaptureSceneIntoScratchCubemap(this, CaptureComponent->GetComponentLocation() + CaptureComponent->CaptureOffset, ReflectionCaptureSize, false, true, 0, false, false, FLinearColor());
+				bool const bCaptureStaticSceneOnly = CVarReflectionCaptureStaticSceneOnly.GetValueOnGameThread() != 0;
+				CaptureSceneIntoScratchCubemap(this, CaptureComponent->GetComponentLocation() + CaptureComponent->CaptureOffset, ReflectionCaptureSize, false, bCaptureStaticSceneOnly, 0, false, false, FLinearColor());
 			}
 			else if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::SpecifiedCubemap)
 			{

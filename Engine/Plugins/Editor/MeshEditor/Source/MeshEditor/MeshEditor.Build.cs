@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -22,25 +22,31 @@ namespace UnrealBuildTool.Rules
 					"ViewportInteraction",
                     "VREditor",
 					"Projects",
-                    "ShaderCore",
                     "RHI",
-                    "LevelEditor"
+					"LevelEditor",
+                    "MeshBuilder",
+                    "BlastAuthoring",
+                    "GeometryCollectionCore",
+                    "GeometryCollectionEngine",
                 }
             );
 
-			PrivateIncludePathModuleNames.AddRange(
+            PrivateIncludePathModuleNames.AddRange(
 				new string[] {
                     "ContentBrowser",
 					"LevelEditor",
-                    "MeshDescription"
-				}
-			);
+                    "MeshDescription",
+                }
+            );
 
-			DynamicallyLoadedModuleNames.AddRange(
+            DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
                     "ContentBrowser"
-				}
-			);
+                }
+            );
+
+            EnableMeshEditorSupport(Target);
+
         }
     }
 }

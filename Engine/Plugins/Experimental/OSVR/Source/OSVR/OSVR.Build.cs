@@ -27,7 +27,6 @@ public class OSVR : ModuleRules
 				"RHI",
 				"RenderCore",
 				"Renderer",
-				"ShaderCore",
 				"HeadMountedDisplay",
 				"Json"
 				// ... add private dependencies that you statically link with here ...

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,5 +17,8 @@ public:
 	// IEditableMeshFormat interface
 	virtual void FillMeshObjectPtr( class UPrimitiveComponent& Component, FEditableMeshSubMeshAddress& SubMeshAddress ) override;
 	virtual UEditableMesh* MakeEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress ) override;
+	virtual bool HandlesComponentType(class UPrimitiveComponent& Component) override;
+	virtual bool HandlesBones() override;
+	virtual void RefreshEditableMesh(UEditableMesh* EditableMesh, UPrimitiveComponent& Component) override {  /* NOP */}
 
 };

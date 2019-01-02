@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -10,8 +10,6 @@ public class NiagaraShader : ModuleRules
             new string[] {
                 "Core",
                 "Engine",
-				"RenderCore",
-                "ShaderCore",
                 "CoreUObject",
                 "NiagaraCore"
             }
@@ -21,7 +19,7 @@ public class NiagaraShader : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[] {
                 "Core",
-                "ShaderCore",
+                "RenderCore",
                 "VectorVM",
                 "RHI",
                 "NiagaraCore"

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderUtils.h"
 #include "Containers/ResourceArray.h"
@@ -465,7 +465,7 @@ public:
 	{
 		// Create the texture RHI.
 		FRHIResourceCreateInfo CreateInfo;
-		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, 0, CreateInfo);
+		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, TexCreate_ShaderResource, CreateInfo);
 		TextureRHI = TextureCube;
 
 		// Write the contents of the texture.

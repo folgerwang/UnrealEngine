@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VolumeTexture.cpp: UvolumeTexture implementation.
@@ -94,6 +94,63 @@ bool UVolumeTexture::UpdateSourceFromSourceTexture()
 
 	UpdateMipGenSettings();
 #endif // WITH_EDITOR
+
+	return bSourceValid;
+}
+
+ENGINE_API bool UVolumeTexture::UpdateSourceFromFunction(TFunction<void(const int32 x, const int32 y, const int32 z, FFloat16 *ret)> Func, const int32 SizeX, const int32 SizeY, const int32 SizeZ)
+{
+	bool bSourceValid = false;
+
+#if WITH_EDITOR
+	if (SizeX <= 0 || SizeY <= 0 || SizeZ <= 0) {
+		UE_LOG(LogTexture, Warning, TEXT("%s UpdateSourceFromFunction size in x,y, and z must be greater than zero"), *GetFullName());
+		return false;
+	}
+
+	// Note for now we are only supporting 16 bit rgba 3d textures
+	// @todo: expose this as a parameter
+	const FPixelFormatInfo& InitialFormat = GPixelFormats[PF_A16B16G16R16];
+	const int32 FormatDataSize = InitialFormat.BlockBytes;
+
+	// Allocate temp buffer used to fill texture
+	uint8* NewData = (uint8*)FMemory::Malloc(SizeX * SizeY * SizeZ * FormatDataSize);
+	uint8* CurPos = NewData;
+
+	// tmp array to store a single voxel value extracted from the lambda
+	FFloat16 *tmpVoxel = (FFloat16*)FMemory::Malloc(4 * sizeof(FFloat16));
+
+	// loop over all voxels and fill from our TFunction
+	for (int x = 0; x < SizeX; ++x) {
+		for (int y = 0; y < SizeY; ++y) {
+			for (int z = 0; z < SizeZ; ++z) {
+
+				Func(x, y, z, tmpVoxel);
+
+				FMemory::Memcpy(CurPos, (uint8*)tmpVoxel, FormatDataSize);
+
+				CurPos += FormatDataSize;
+			}
+		}
+	}
+
+	// Init the source data from the temp buffer
+	// @todo: expose texture type as a parameters
+	Source.Init(SizeX, SizeY, SizeZ, 1, TSF_RGBA16F, NewData);
+	
+	// Free temp buffers
+	FMemory::Free(NewData);
+	FMemory::Free(tmpVoxel);
+
+	SetLightingGuid(); // Because the content has changed, use a new GUID.
+
+	UpdateMipGenSettings();
+
+	// Make sure to update the texture resource so the results of filling the texture 
+	UpdateResource();
+
+	bSourceValid = true;
+#endif
 
 	return bSourceValid;
 }

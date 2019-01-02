@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -28,7 +28,6 @@ public class WorldBrowser : ModuleRules
                 "Core", 
                 "CoreUObject",
                 "RenderCore",
-                "ShaderCore",
                 "InputCore",
                 "Engine",
 				"Landscape",

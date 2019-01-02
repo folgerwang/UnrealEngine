@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -201,7 +201,7 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 
 	if( AreaLight.bIsRect )
 	{
-		Lighting.Specular = RectGGXApproxLTC( ClearCoatRoughness, F0, N, V, AreaLight.Rect, AreaLight.Texture );
+		Lighting.Specular = ClearCoat * RectGGXApproxLTC( ClearCoatRoughness, F0, N, V, AreaLight.Rect, AreaLight.Texture );
 	}
 	else
 	{

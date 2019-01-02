@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## Unreal Engine 4 Build script for SDL2
-## Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 pushd "`dirname "$0"`/"
 

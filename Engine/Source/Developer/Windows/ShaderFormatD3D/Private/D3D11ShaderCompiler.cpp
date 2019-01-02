@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderFormatD3D.h"
 #include "ShaderPreprocessor.h"
@@ -1073,6 +1073,10 @@ void CompileD3D11Shader(const FShaderCompilerInput& Input,FShaderCompilerOutput&
 		}
 	}
 
+	if (Input.RootParameterBindings.Num())
+	{
+		MoveShaderParametersToRootConstantBuffer(Input, PreprocessedShaderSource);
+	}
 	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShaderSource);
 
 	// Override default compiler path to newer dll

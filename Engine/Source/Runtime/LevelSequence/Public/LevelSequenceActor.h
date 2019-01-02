@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -74,8 +74,8 @@ public:
 
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Playback")
-	uint32 bAutoPlay : 1;
+	UPROPERTY()
+	bool bAutoPlay_DEPRECATED;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Playback", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FXSystemPrivate.h: Internal effects system interface.
@@ -152,7 +152,7 @@ public:
 	virtual void PostRenderOpaque(
 		FRHICommandListImmediate& RHICmdList, 
 		const FUniformBufferRHIParamRef ViewUniformBuffer, 
-		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) override;
 	// End FFXSystemInterface.
 
@@ -254,7 +254,7 @@ private:
 		EParticleSimulatePhase::Type Phase,
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		);
 

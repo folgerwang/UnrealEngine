@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicPrimitiveDrawing.inl: Dynamic primitive drawing implementation.
@@ -39,6 +39,7 @@ void DrawViewElementsInner(
 	int32 LastIndex
 	)
 {
+	check(RHICmdList.IsInsideRenderPass());
 	// Get the correct element list based on dpg index
 	const TIndirectArray<FMeshBatch>& ViewMeshElementList = ( DPGIndex == SDPG_Foreground ? View.TopViewMeshElements : View.ViewMeshElements );
 	// Draw the view's mesh elements.
@@ -117,7 +118,9 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		check(RHICmdList.IsInsideRenderPass());
 		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawRenderState, DrawingContext, DPGIndex, bPreFog, FirstIndex, LastIndex);
+		RHICmdList.EndRenderPass();
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };

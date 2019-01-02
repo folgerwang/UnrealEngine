@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshMaterialShader.h: Mesh material shader definitions.
@@ -76,7 +76,7 @@ public:
 		ValidateCompiledResultType InValidateCompiledResultRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(EShaderTypeForDynamicCast::MeshMaterial, InName,InSourceFilename,InFunctionName,InFrequency,InTotalPermutationCount,InConstructSerializedRef,InGetStreamOutElementsRef),
+		FShaderType(EShaderTypeForDynamicCast::MeshMaterial, InName,InSourceFilename,InFunctionName,InFrequency,InTotalPermutationCount,InConstructSerializedRef,InGetStreamOutElementsRef, nullptr),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCompilePermutationRef(InShouldCompilePermutationRef),
 		ValidateCompiledResultRef(InValidateCompiledResultRef),

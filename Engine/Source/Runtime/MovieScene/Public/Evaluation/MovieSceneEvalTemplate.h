@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -113,14 +113,6 @@ public:
 	 * @param ExecutionTokens	Stack of execution tokens that will be used to apply animated state to the environment at a later time.
 	*/
 	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
-	{
-		// Call deprecated one
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
-		EvaluateSwept(Operand, Context, PersistentData, ExecutionTokens);
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	}
-	UE_DEPRECATED(4.21, "Please override void EvaluateSwept(const FMovieSceneEvaluationOperand&, const FMovieSceneContext&, const TRange<FFrameNumber>&, const FPersistentEvaluationData&, FMovieSceneExecutionTokens&) instead.")
-	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 	{
 		ensureMsgf(false, TEXT("FMovieSceneEvalTemplate::EvaluateSwept has not been implemented. Verify that this template's evaluation track has correct evaluation method (usually set in UMovieSceneTrack::PostCompile), or implement this function."));
 	}
