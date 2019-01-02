@@ -90,7 +90,7 @@ public:
 		return IsSupportedVertexFactoryType(VertexFactoryType)
 			&& (Material->IsMasked() == UseAnyHitShader)
 			&& LightMapPolicyType::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
-			&& IsRayTracingSupportedForThisProject();
+			&& ShouldCompileRayTracingShadersForProject(Platform);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
@@ -127,7 +127,7 @@ IMPLEMENT_MATERIALCHS_TYPE(TUniformLightMapPolicy<LMP_DISTANCE_FIELD_SHADOWS_AND
 
 static FMeshPassProcessor* CreateRayTracingProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
 {
-	return IsRayTracingSupportedForThisProject() ? new(FMemStack::Get()) FRayTracingMeshProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext) : nullptr;
+	return IsRayTracingTierSupported(2) ? new(FMemStack::Get()) FRayTracingMeshProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext) : nullptr;
 }
 
 FRegisterPassProcessorCreateFunction RegisterRayTracing(&CreateRayTracingProcessor, EShadingPath::Deferred, EMeshPass::RayTracing, EMeshPassFlags::CachedMeshCommands);

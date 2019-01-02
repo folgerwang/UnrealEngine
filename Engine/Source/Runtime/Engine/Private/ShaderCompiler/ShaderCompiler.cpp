@@ -3893,7 +3893,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
 			!IsMetalPlatform(GMaxRHIShaderPlatform) && !IsSwitchPlatform(GMaxRHIShaderPlatform) &&
 #if RHI_RAYTRACING
-			!IsRayTracingSupportedForThisProject() && //This is here because DXR is caching its BuiltIn Tier1 Shaders in PostInit (see FD3D12Device::InitRayTracing)
+			!IsRayTracingTierSupported(2) && //This is here because DXR is caching its BuiltIn Tier1 Shaders in PostInit (see FD3D12Device::InitRayTracing)
 #endif // RHI_RAYTRACING
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 

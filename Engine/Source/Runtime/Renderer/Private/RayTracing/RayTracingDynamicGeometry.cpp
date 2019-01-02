@@ -30,7 +30,7 @@ public:
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
 	{
 		// #dxr_todo: this should also check if ray tracing is enabled for the target platform & project
-		return IsSupportedDynamicVertexFactoryType(VertexFactoryType) && IsRayTracingSupportedForThisProject();
+		return IsSupportedDynamicVertexFactoryType(VertexFactoryType) && ShouldCompileRayTracingShadersForProject(Platform);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override

@@ -10,7 +10,7 @@ static int32 GRayTracingSkyLight = 0;
 bool IsRayTracingSkyLightSelected()
 {
 #if RHI_RAYTRACING
-	return IsRayTracingSupportedForThisProject() && GRayTracingSkyLight > 0;
+	return IsRayTracingTierSupported(2) && GRayTracingSkyLight > 0;
 #else
 	return false;
 #endif
@@ -61,7 +61,7 @@ class FSkylightRG : public FGlobalShader
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
+		return IsRayTracingEnabledForThisProject(Parameters.Platform, false);
 	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
@@ -179,7 +179,7 @@ class FSkylightRG : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	FSkylightRG() {}

@@ -1128,15 +1128,6 @@ public:
 	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) { return true; }
 
 #if RHI_RAYTRACING
-	/**
-	 * Query RHI ray tracing support level.
-	 * @return Numeric value representing a set of ray tracing features supported by the RHI.
-	 *   0: Ray tracing is not supported.
-	 *   1: Basic support for acceleration structure construction and ray queries. Ray tracing shader types are not supported.
-	 *   2: Full ray tracing support, including ray tracing shader types, shader binding tables, etc.
-	 */
-	virtual uint32 RHIGetRayTracingSupport() { return 0; }
-
 	// #dxr_todo: reverted index buffer may be needed to support mirrored meshes
 	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer)
 	{
@@ -1354,22 +1345,7 @@ FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer(int
 	return GDynamicRHI->RHIGetCommandContextContainer(Index, Num, GPUMask);
 }
 
-FORCEINLINE uint32 IsRayTracingSupportedForThisProject()
-{
 #if RHI_RAYTRACING
-	// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
-	static const bool bRayTracingEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"))->GetInt() > 0;
-	return GDynamicRHI->RHIGetRayTracingSupport() && bRayTracingEnabled;
-#else
-	return false;
-#endif
-}
-
-#if RHI_RAYTRACING
-FORCEINLINE uint32 RHIGetRayTracingSupport()
-{
-	return GDynamicRHI->RHIGetRayTracingSupport();
-}
 
 FORCEINLINE FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer)
 {

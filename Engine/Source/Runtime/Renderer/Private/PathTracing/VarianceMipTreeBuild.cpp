@@ -19,7 +19,7 @@ class FBuildVarianceMipTreeCS : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return RHISupportsComputeShaders(Parameters.Platform) && IsRayTracingSupportedForThisProject();
+		return RHISupportsComputeShaders(Parameters.Platform) && ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	static uint32 GetGroupSize()

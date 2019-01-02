@@ -17,7 +17,7 @@ protected:
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	FBuiltInRayTracingShader() = default;

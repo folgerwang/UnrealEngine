@@ -2428,7 +2428,7 @@ void FSceneView::SetupRayTracedRendering()
 {
 	RayTracingRenderMode = ERayTracingRenderMode::Disabled;
 
-	if (!IsRayTracingSupportedForThisProject())
+	if (!IsRayTracingTierSupported(2))
 	{
 		return;
 	}

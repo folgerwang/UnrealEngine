@@ -688,7 +688,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 		bReflectionCapture = bReflectionCapture || View.bIsReflectionCapture;
 	}
 
-	bool bRayTracedReflections = IsRayTracingSupportedForThisProject() && GRayTracingReflections == 1;
+	bool bRayTracedReflections = IsRayTracingTierSupported(2) && GRayTracingReflections == 1;
 
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture

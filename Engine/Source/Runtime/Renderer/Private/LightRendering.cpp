@@ -764,7 +764,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 						RenderRayTracingOcclusionForRectLight(RHICmdList, LightSceneInfo, ScreenShadowMaskTexture);
 					}
 					// #dxr_todo: ShouldRenderRayTracingOcclusion()
-					else if (IsRayTracingSupportedForThisProject() && GRayTracingOcclusion == 1)
+					else if (IsRayTracingTierSupported(2) && GRayTracingOcclusion == 1)
 					{
 						RenderRayTracingOcclusion(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture);
 					}

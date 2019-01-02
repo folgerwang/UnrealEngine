@@ -39,7 +39,7 @@ static FAutoConsoleVariableRef CVarRayTracingRecLightIsTextureImportanceSampling
 
 bool IsRayTracingRectLightSelected()
 {
-	return IsRayTracingSupportedForThisProject() && GRayTracingRectLight == 1;
+	return IsRayTracingTierSupported(2) && GRayTracingRectLight == 1;
 }
 
 bool ShouldRenderRayTracingStaticOrStationaryRectLight(const FLightSceneInfo& LightSceneInfo)
@@ -96,7 +96,7 @@ class FRectLightOcclusionRGS : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	FRectLightOcclusionRGS() {}

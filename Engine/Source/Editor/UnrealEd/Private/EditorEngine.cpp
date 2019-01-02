@@ -7478,7 +7478,7 @@ void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
 void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
 #if RHI_RAYTRACING
-	if (IsRayTracingSupportedForThisProject())
+	if (IsRayTracingTierSupported(2))
 	{
 		if (PreviewFeatureLevel != ERHIFeatureLevel::SM5)
 		{

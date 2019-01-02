@@ -503,7 +503,29 @@ public:
 	virtual FString GetFriendlyName() const override { return TEXT("FIndexBuffer"); }
 };
 
+
+FORCEINLINE bool ShouldCompileRayTracingShadersForProject(EShaderPlatform ShaderPlatform)
+{
 #if RHI_RAYTRACING
+	if (RHISupportsRayTracingShaders(ShaderPlatform))
+	{
+		// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
+		static const bool bRayTracingEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"))->GetInt() > 0;
+		return bRayTracingEnabled;
+	}
+#endif
+	return false;
+}
+
+// This function is a runtime only function!
+FORCEINLINE bool IsRayTracingTierSupported(int32 RequiredTier)
+{
+	ensure(RequiredTier >= 0);
+	return GRHIRayTracingSupportTier > RequiredTier;
+}
+
+#if RHI_RAYTRACING
+
 /** A ray tracing geometry resource */
 class RENDERCORE_API FRayTracingGeometry : public FRenderResource
 {
@@ -533,7 +555,7 @@ public:
 
 	virtual void InitRHI() override
 	{
-		if (Initializer.IndexBuffer && Initializer.PositionVertexBuffer && IsRayTracingSupportedForThisProject())
+		if (Initializer.IndexBuffer && Initializer.PositionVertexBuffer && IsRayTracingTierSupported(2))
 		{
 			RayTracingGeometryRHI = RHICreateRayTracingGeometry(Initializer);
 			FRHICommandListExecutor::GetImmediateCommandList().BuildAccelerationStructure(RayTracingGeometryRHI);

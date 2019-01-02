@@ -683,7 +683,7 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 	}
 
 #if RHI_RAYTRACING
-	if (IsRayTracingSupportedForThisProject())
+	if (IsRayTracingTierSupported(2))
 	{
 		ENQUEUE_RENDER_COMMAND(InitStaticMeshRayTracingGeometry)(
 			[this](FRHICommandListImmediate& RHICmdList)

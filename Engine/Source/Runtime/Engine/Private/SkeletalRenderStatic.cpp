@@ -122,7 +122,7 @@ void FSkeletalMeshObjectStatic::FSkeletalMeshObjectLOD::InitResources(FSkelMeshC
 
 
 #if RHI_RAYTRACING
-	if (IsRayTracingSupportedForThisProject())
+	if (IsRayTracingTierSupported(2))
 	{
 		check(SkelMeshRenderData);
 		check(SkelMeshRenderData->LODRenderData.IsValidIndex(LODIndex));

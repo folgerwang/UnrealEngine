@@ -194,8 +194,13 @@ inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
 	return IsVulkanPlatform(InShaderPlatform) || IsVulkanMobilePlatform(InShaderPlatform);
 }
 
-// helper to check whether a shader platform supports ray tracing.
-RHI_API bool RHISupportsRayTracing(EShaderPlatform Platform);
+/** Can this platform compile ray tracing shaders (regardless of project settings).
+ *  To use at runtime, also check GRHIRayTracingSupportTier.
+ **/
+inline RHI_API bool RHISupportsRayTracingShaders(EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5;
+}
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
@@ -460,6 +465,13 @@ extern RHI_API bool GRHISupportsFirstInstance;
 
 /** Whether or not the RHI can handle dynamic resolution or not. */
 extern RHI_API bool GRHISupportsDynamicResolution;
+
+/** Ray tracing tier level:
+ *   0: Ray tracing is not supported.
+ *   1: Basic support for acceleration structure construction and ray queries. Ray tracing shader types are not supported.
+ *   2: Full ray tracing support, including ray tracing shader types, shader binding tables, etc.
+ **/
+extern RHI_API int32 GRHIRayTracingSupportTier;
 
 /** Whether or not the RHI supports an RHI thread.
 Requirements for RHI thread

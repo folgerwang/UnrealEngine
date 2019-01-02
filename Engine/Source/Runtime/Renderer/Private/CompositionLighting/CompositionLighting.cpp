@@ -125,7 +125,7 @@ bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View)
 
 	// #dxr_todo: hard-coded FindConsoleVariable is a bad hack. The current variable is hidden behind DeferredShadingRenderer
 	static IConsoleVariable* UseRayTracingAmbientOcclusionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing.AmbientOcclusion"));
-	bool bUseRayTracingAmbientOcclusion = IsRayTracingSupportedForThisProject() && UseRayTracingAmbientOcclusionCVar && UseRayTracingAmbientOcclusionCVar->GetInt() > 0;
+	bool bUseRayTracingAmbientOcclusion = IsRayTracingTierSupported(2) && UseRayTracingAmbientOcclusionCVar && UseRayTracingAmbientOcclusionCVar->GetInt() > 0;
 	return bEnabled && !bUseRayTracingAmbientOcclusion;
 }
 

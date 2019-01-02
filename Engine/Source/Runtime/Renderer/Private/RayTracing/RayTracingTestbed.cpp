@@ -10,7 +10,7 @@
 
 void TestBasicRayTracing(bool bValidateResults)
 {
-	if (RHIGetRayTracingSupport() == 0)
+	if (GRHIRayTracingSupportTier == 0)
 	{
 		return;
 	}
@@ -167,8 +167,7 @@ public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		// #dxr_todo: this should also check if ray tracing is enabled for the target platform & project
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && IsRayTracingSupportedForThisProject();
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	FTestRaygenShader() {}

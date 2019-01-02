@@ -148,7 +148,7 @@ class FRayTracingReflectionsRG : public FGlobalShader
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return RHISupportsRayTracing(Parameters.Platform);
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 };
 
@@ -159,7 +159,7 @@ class FRayTracingReflectionsCHS : public FGlobalShader
 		
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return RHISupportsRayTracing(Parameters.Platform);
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 	
 	using FParameters = FEmptyShaderParameters;
@@ -172,7 +172,7 @@ class FRayTracingReflectionsMS : public FGlobalShader
 		
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return RHISupportsRayTracing(Parameters.Platform);
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	using FParameters = FEmptyShaderParameters;

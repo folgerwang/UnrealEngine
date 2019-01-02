@@ -459,8 +459,6 @@ public:
 
 #if D3D12_RHI_RAYTRACING
 
-	virtual uint32 RHIGetRayTracingSupport() final override;
-
 	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer) final override;
 
 	virtual FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer) final override;
