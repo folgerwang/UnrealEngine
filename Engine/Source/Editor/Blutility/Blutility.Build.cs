@@ -28,8 +28,11 @@ public class Blutility : ModuleRules
 				"ClassViewer",
 				"CollectionManager",
                 "PropertyEditor",
-                "BlueprintGraph"
-			}
+                "BlueprintGraph",
+				"UMG",
+                "UMGEditor",
+                "KismetCompiler"
+            }
 			);
 	}
 }

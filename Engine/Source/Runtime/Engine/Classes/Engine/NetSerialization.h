@@ -179,7 +179,7 @@ struct TStructOpsTypeTraits< FExampleArray > : public TStructOpsTypeTraitsBase2<
  *
  *		Everything originates in UNetDriver::ServerReplicateActors.
  *		Actors are chosen to replicate, create actor channels, and UActorChannel::ReplicateActor is called.
- *		ReplicateActor is ultimately responsible for deciding what properties have changed, and constructing a FOutBUnch to send to clients.
+ *		ReplicateActor is ultimately responsible for deciding what properties have changed, and constructing an FOutBunch to send to clients.
  *
  *	The UActorChannel has 2 ways to decide what properties need to be sent.
  *		The traditional way, which is a flat TArray<uint8> buffer: UActorChannel::Recent. This represents a flat block of the actor properties.

@@ -598,7 +598,7 @@ void FCollectionManager::GetCollectionsContainingObjects(const TArray<FName>& Ob
 	}
 }
 
-FString FCollectionManager::GetCollectionsStringForObject(FName ObjectPath, ECollectionShareType::Type ShareType, ECollectionRecursionFlags::Flags RecursionMode) const
+FString FCollectionManager::GetCollectionsStringForObject(FName ObjectPath, ECollectionShareType::Type ShareType, ECollectionRecursionFlags::Flags RecursionMode, bool bFullPaths) const
 {
 	const FCollectionObjectsMap& CachedObjects = CollectionCache.GetCachedObjects();
 
@@ -619,10 +619,16 @@ FString FCollectionManager::GetCollectionsStringForObject(FName ObjectPath, ECol
 		{
 			if ((ShareType == ECollectionShareType::CST_All || ShareType == ObjectCollectionInfo.CollectionKey.Type) && (RecursionMode & ObjectCollectionInfo.Reason) != 0)
 			{
-				CollectionPathStrings.Reset();
-				CollectionCache.RecursionHelper_DoWork(ObjectCollectionInfo.CollectionKey, ECollectionRecursionFlags::SelfAndParents, GetCollectionsStringForObjectWorker);
-
-				CollectionNameStrings.Add(FString::Join(CollectionPathStrings, TEXT("/")));
+				if (bFullPaths)
+				{
+					CollectionPathStrings.Reset();
+					CollectionCache.RecursionHelper_DoWork(ObjectCollectionInfo.CollectionKey, ECollectionRecursionFlags::SelfAndParents, GetCollectionsStringForObjectWorker);
+					CollectionNameStrings.Add(FString::Join(CollectionPathStrings, TEXT("/")));
+				}
+				else
+				{
+					CollectionNameStrings.Add(ObjectCollectionInfo.CollectionKey.Name.ToString());
+				}
 			}
 		}
 

@@ -799,6 +799,10 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.Select2DLayerBelow,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::Select2DLayerDeltaAway_Clicked, 1)
 		);
+	ActionList.MapAction(
+		Commands.AlignBrushVerticesToGrid,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::AlignBrushVerticesToGrid_Execute)
+		);
 
 	bAlign = false;
 	bool bUseLineTrace = false;
@@ -1316,6 +1320,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.SeparatePolys,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("BRUSH SEPARATEPOLYS") ) )
 		);
+
 
 	ActionList.MapAction(
 		Commands.CreateBoundingBoxVolume,

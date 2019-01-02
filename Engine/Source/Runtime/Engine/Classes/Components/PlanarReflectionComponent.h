@@ -68,6 +68,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = PlanarReflection, meta = (UIMin = "0", UIMax = "90.0"))
 	float AngleFromPlaneFadeEnd;
 
+	UPROPERTY(EditAnywhere, Category = PlanarReflection)
+	bool bShowPreviewPlane;
+
 	/** 
 	 * Whether to render the scene as two-sided, which can be useful to hide artifacts where normal distortion would read 'under' an object that has been clipped by the reflection plane. 
 	 * With this setting enabled, the backfaces of a mesh would be displayed in the clipped region instead of the background which is potentially a bright sky.
@@ -87,6 +90,7 @@ public:
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
+	virtual void OnRegister() override;
 	//~ Begin UActorComponent Interface
 
 #if WITH_EDITOR
@@ -105,6 +109,13 @@ public:
 	{
 		return PlanarReflectionId;
 	}
+
+protected:
+#if WITH_EDITORONLY_DATA
+	/** The material to use on ProxyMeshComponent */
+	UPROPERTY(transient)
+	class UMaterial* CaptureMaterial;
+#endif
 
 private:
 

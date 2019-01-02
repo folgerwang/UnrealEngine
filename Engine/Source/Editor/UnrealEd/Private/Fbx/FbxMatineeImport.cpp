@@ -163,8 +163,6 @@ bool FFbxImporter::ImportMatineeSequence(AMatineeActor* InMatineeActor)
 	FbxAnimStack* AnimStack = Scene->GetMember<FbxAnimStack>(0);
 	if (!AnimStack) return false;
 		
-	MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(Scene->GetGlobalSettings().GetTimeMode()));
-
 	FbxAnimLayer* AnimLayer = AnimStack->GetMember<FbxAnimLayer>(0);
 	if (AnimLayer == NULL) return false;
 
@@ -561,8 +559,6 @@ float FFbxImporter::ImportMatineeActor(FbxNode* Node, UInterpGroupInst* MatineeG
 	// and three animated Euler rotation angles.
 	FbxAnimStack* AnimStack = Scene->GetMember<FbxAnimStack>(0);
 	if (!AnimStack) return -1.0f;
-
-	MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(Scene->GetGlobalSettings().GetTimeMode()));
 
 	FbxAnimLayer* AnimLayer = AnimStack->GetMember<FbxAnimLayer>(0);
 	if (AnimLayer == NULL) return -1.0f;

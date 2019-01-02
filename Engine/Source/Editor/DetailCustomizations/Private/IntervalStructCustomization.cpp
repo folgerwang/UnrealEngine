@@ -111,6 +111,7 @@ void FIntervalStructCustomization<NumericType>::CustomizeHeader(TSharedRef<IProp
 				.UndeterminedString(LOCTEXT("MultipleValues", "Multiple Values"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				.AllowSpin(true)
+				.IsEnabled(this, &FIntervalStructCustomization::IsPropertyEnabled, EIntervalField::Min)
 				.LabelVAlign(VAlign_Center)
 				.Label()
 				[
@@ -137,6 +138,7 @@ void FIntervalStructCustomization<NumericType>::CustomizeHeader(TSharedRef<IProp
 				.UndeterminedString(LOCTEXT("MultipleValues", "Multiple Values"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				.AllowSpin(true)
+				.IsEnabled(this, &FIntervalStructCustomization::IsPropertyEnabled, EIntervalField::Max)
 				.LabelVAlign(VAlign_Center)
 				.Label()
 				[
@@ -148,7 +150,6 @@ void FIntervalStructCustomization<NumericType>::CustomizeHeader(TSharedRef<IProp
 		]
 	];
 }
-
 
 template <typename NumericType>
 void FIntervalStructCustomization<NumericType>::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
@@ -294,6 +295,17 @@ template <typename NumericType>
 bool FIntervalStructCustomization<NumericType>::ShouldAllowSpin() const
 {
 	return true;
+}
+
+template <typename NumericType>
+bool FIntervalStructCustomization<NumericType>::IsPropertyEnabled(EIntervalField Field) const
+{
+	IPropertyHandle* Handle = (Field == EIntervalField::Min) ? MinValueHandle.Get() : MaxValueHandle.Get();
+	if (Handle == nullptr)
+	{
+		return false;
+	}
+	return !Handle->IsEditConst();
 }
 
 /* Only explicitly instantiate the types which are supported

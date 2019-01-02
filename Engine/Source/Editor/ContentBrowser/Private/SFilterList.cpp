@@ -164,12 +164,15 @@ public:
 	}
 
 	/** Sets whether or not this filter is applied to the combined filter */
-	void SetEnabled(bool InEnabled)
+	void SetEnabled(bool InEnabled, bool InExecuteOnFilterChanged = true)
 	{
 		if ( InEnabled != bEnabled)
 		{
 			bEnabled = InEnabled;
-			OnFilterChanged.ExecuteIfBound();
+			if (InExecuteOnFilterChanged)
+			{
+				OnFilterChanged.ExecuteIfBound();
+			}
 		}
 	}
 
@@ -414,6 +417,7 @@ void SFilterList::Construct( const FArguments& InArgs )
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_NotUsedInAnyLevel(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ArbitraryComparisonOperation(DefaultCategory)) );
 	AllFrontendFilters.Add(MakeShareable(new FFrontendFilter_Recent(DefaultCategory)));
+	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_NotSourceControlled(DefaultCategory)) );
 
 	// Add any global user-defined frontend filters
 	for (TObjectIterator<UContentBrowserFrontEndFilterExtension> ExtensionIt(RF_NoFlags); ExtensionIt; ++ExtensionIt)
@@ -563,25 +567,21 @@ void SFilterList::DisableAllFilters()
 {
 	for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
 	{
-		(*FilterIt)->SetEnabled(false);
+		(*FilterIt)->SetEnabled(false, false);
 	}
+
+	OnFilterChanged.ExecuteIfBound();
 }
 
 void SFilterList::RemoveAllFilters()
 {
 	if ( HasAnyFilters() )
 	{
-		bool bBackendFilterChanged = false;
-
 		for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
 		{
 			const TSharedRef<SFilter>& FilterToRemove = *FilterIt;
 
-			if ( FilterToRemove->GetAssetTypeActions().IsValid() )
-			{
-				bBackendFilterChanged = true;
-			}
-			else if (FilterToRemove->GetFrontendFilter().IsValid() )
+			if (FilterToRemove->GetFrontendFilter().IsValid() )
 			{
 				// Update the frontend filters collection
 				const TSharedRef<FFrontendFilter>& FrontendFilter = FilterToRemove->GetFrontendFilter().ToSharedRef();
@@ -592,11 +592,8 @@ void SFilterList::RemoveAllFilters()
 		FilterBox->ClearChildren();
 		Filters.Empty();
 
-		if ( bBackendFilterChanged )
-		{
-			// Notify that a backend filter changed
-			OnFilterChanged.ExecuteIfBound();
-		}
+		// Notify that a filter has changed
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 
@@ -617,6 +614,7 @@ void SFilterList::DisableFiltersThatHideAssets(const TArray<FAssetData>& AssetDa
 
 		// Iterate over all enabled filters and disable any frontend filters that would hide any of the supplied assets
 		// and disable all backend filters if it was determined that the combined backend filter hides any of the assets
+		bool ExecuteOnFilteChanged = false;
 		for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
 		{
 			const TSharedRef<SFilter>& Filter = *FilterIt;
@@ -630,7 +628,8 @@ void SFilterList::DisableFiltersThatHideAssets(const TArray<FAssetData>& AssetDa
 						if (!FrontendFilter->IsInverseFilter() && !FrontendFilter->PassesFilter(*AssetIt))
 						{
 							// This is a frontend filter and at least one asset did not pass.
-							Filter->SetEnabled(false);
+							Filter->SetEnabled(false, false);
+							ExecuteOnFilteChanged = true;
 						}
 					}
 				}
@@ -640,10 +639,16 @@ void SFilterList::DisableFiltersThatHideAssets(const TArray<FAssetData>& AssetDa
 					FARFilter BackendFilter = Filter->GetBackendFilter();
 					if ( !BackendFilter.IsEmpty() )
 					{
-						Filter->SetEnabled(false);
+						Filter->SetEnabled(false, false);
+						ExecuteOnFilteChanged = true;
 					}
 				}
 			}
+		}
+
+		if (ExecuteOnFilteChanged)
+		{
+			OnFilterChanged.ExecuteIfBound();
 		}
 	}
 }
@@ -743,7 +748,7 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 
 					if ( EnabledTypeFilterNames.Contains(ClassName) )
 					{
-						NewFilter->SetEnabled(true);
+						NewFilter->SetEnabled(true, false);
 					}
 				}
 			}
@@ -776,7 +781,8 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 
 					if ( EnabledFrontendFilterNames.Contains(FilterName) )
 					{
-						NewFilter->SetEnabled(true);
+						NewFilter->SetEnabled(true, false);
+						SetFrontendFilterActive(FrontendFilter, NewFilter->IsEnabled());
 					}
 				}
 			}
@@ -785,6 +791,8 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 			FrontendFilter->LoadSettings(IniFilename, IniSection, CustomSettingsString);
 		}
 	}
+
+	OnFilterChanged.ExecuteIfBound();
 }
 
 void SFilterList::SetFrontendFilterActive(const TSharedRef<FFrontendFilter>& Filter, bool bActive)
@@ -812,7 +820,7 @@ TSharedRef<SFilter> SFilterList::AddFilter(const TWeakPtr<IAssetTypeActions>& As
 		SNew(SFilter)
 		.AssetTypeActions(AssetTypeActions)
 		.OnFilterChanged(OnFilterChanged)
-		.OnRequestRemove(this, &SFilterList::RemoveFilter)
+		.OnRequestRemove(this, &SFilterList::RemoveFilterAndUpdate)
 		.OnRequestEnableOnly(this, &SFilterList::EnableOnlyThisFilter)
 		.OnRequestDisableAll(this, &SFilterList::DisableAllFilters)
 		.OnRequestRemoveAll(this, &SFilterList::RemoveAllFilters);
@@ -828,7 +836,7 @@ TSharedRef<SFilter> SFilterList::AddFilter(const TSharedRef<FFrontendFilter>& Fr
 		SNew(SFilter)
 		.FrontendFilter(FrontendFilter)
 		.OnFilterChanged( this, &SFilterList::FrontendFilterChanged, FrontendFilter )
-		.OnRequestRemove(this, &SFilterList::RemoveFilter)
+		.OnRequestRemove(this, &SFilterList::RemoveFilterAndUpdate)
 		.OnRequestDisableAll(this, &SFilterList::DisableAllFilters)
 		.OnRequestRemoveAll(this, &SFilterList::RemoveAllFilters);
 
@@ -848,7 +856,7 @@ void SFilterList::AddFilter(const TSharedRef<SFilter>& FilterToAdd)
 	];
 }
 
-void SFilterList::RemoveFilter(const TWeakPtr<IAssetTypeActions>& AssetTypeActions)
+void SFilterList::RemoveFilter(const TWeakPtr<IAssetTypeActions>& AssetTypeActions, bool ExecuteOnFilterChanged)
 {
 	TSharedPtr<SFilter> FilterToRemove;
 	for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
@@ -863,7 +871,14 @@ void SFilterList::RemoveFilter(const TWeakPtr<IAssetTypeActions>& AssetTypeActio
 
 	if ( FilterToRemove.IsValid() )
 	{
-		RemoveFilter(FilterToRemove.ToSharedRef());
+		if (ExecuteOnFilterChanged)
+		{
+			RemoveFilterAndUpdate(FilterToRemove.ToSharedRef());
+		}
+		else
+		{
+			RemoveFilter(FilterToRemove.ToSharedRef());
+		}
 	}
 }
 
@@ -872,11 +887,13 @@ void SFilterList::EnableOnlyThisFilter(const TSharedRef<SFilter>& FilterToEnable
 	for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
 	{
 		bool bEnable = *FilterIt == FilterToEnable;
-		(*FilterIt)->SetEnabled(bEnable);
+		(*FilterIt)->SetEnabled(bEnable, false);
 	}
+
+	OnFilterChanged.ExecuteIfBound();
 }
 
-void SFilterList::RemoveFilter(const TSharedRef<FFrontendFilter>& FrontendFilter)
+void SFilterList::RemoveFilter(const TSharedRef<FFrontendFilter>& FrontendFilter, bool ExecuteOnFilterChanged)
 {
 	TSharedPtr<SFilter> FilterToRemove;
 	for ( auto FilterIt = Filters.CreateConstIterator(); FilterIt; ++FilterIt )
@@ -891,7 +908,14 @@ void SFilterList::RemoveFilter(const TSharedRef<FFrontendFilter>& FrontendFilter
 
 	if ( FilterToRemove.IsValid() )
 	{
-		RemoveFilter(FilterToRemove.ToSharedRef());
+		if (ExecuteOnFilterChanged)
+		{
+			RemoveFilterAndUpdate(FilterToRemove.ToSharedRef());
+		}
+		else
+		{
+			RemoveFilter(FilterToRemove.ToSharedRef());
+		}
 	}
 }
 
@@ -900,18 +924,21 @@ void SFilterList::RemoveFilter(const TSharedRef<SFilter>& FilterToRemove)
 	FilterBox->RemoveSlot(FilterToRemove);
 	Filters.Remove(FilterToRemove);
 
-	if ( FilterToRemove->GetAssetTypeActions().IsValid() )
-	{
-		// Notify that a backend filter changed
-		OnFilterChanged.ExecuteIfBound();
-	}
-	else if (FilterToRemove->GetFrontendFilter().IsValid() )
+	if (FilterToRemove->GetFrontendFilter().IsValid() )
 	{
 		// Update the frontend filters collection
 		const TSharedRef<FFrontendFilter>& FrontendFilter = FilterToRemove->GetFrontendFilter().ToSharedRef();
 		SetFrontendFilterActive(FrontendFilter, false);
 		OnFilterChanged.ExecuteIfBound();
 	}
+}
+
+void SFilterList::RemoveFilterAndUpdate(const TSharedRef<SFilter>& FilterToRemove)
+{
+	RemoveFilter(FilterToRemove);
+
+	// Notify that a filter has changed
+	OnFilterChanged.ExecuteIfBound();
 }
 
 void SFilterList::FrontendFilterChanged(TSharedRef<FFrontendFilter> FrontendFilter)
@@ -930,6 +957,8 @@ void SFilterList::FrontendFilterChanged(TSharedRef<FFrontendFilter> FrontendFilt
 	if ( FilterToUpdate.IsValid() )
 	{
 		SetFrontendFilterActive(FrontendFilter, FilterToUpdate->IsEnabled());
+
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 
@@ -1243,6 +1272,7 @@ void SFilterList::FilterByTypeCategoryClicked(EAssetTypeCategories::Type Categor
 	GetTypeActionsForCategory(Category, TypeActionsList);
 
 	bool bFullCategoryInUse = IsAssetTypeCategoryInUse(Category);
+	bool ExecuteOnFilterChanged = false;
 	for ( auto TypeIt = TypeActionsList.CreateConstIterator(); TypeIt; ++TypeIt )
 	{
 		auto AssetTypeActions = (*TypeIt);
@@ -1251,13 +1281,20 @@ void SFilterList::FilterByTypeCategoryClicked(EAssetTypeCategories::Type Categor
 			if ( bFullCategoryInUse )
 			{
 				RemoveFilter(AssetTypeActions);
+				ExecuteOnFilterChanged = true;
 			}
 			else if ( !IsAssetTypeActionsInUse(AssetTypeActions) )
 			{
 				TSharedRef<SFilter> NewFilter = AddFilter(AssetTypeActions);
-				NewFilter->SetEnabled(true);
+				NewFilter->SetEnabled(true, false);
+				ExecuteOnFilterChanged = true;
 			}
 		}
+	}
+
+	if (ExecuteOnFilterChanged)
+	{
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 
@@ -1331,6 +1368,7 @@ bool SFilterList::IsFrontendFilterInUse(TSharedRef<FFrontendFilter> FrontendFilt
 void SFilterList::FrontendFilterCategoryClicked(TSharedPtr<FFrontendFilterCategory> MenuCategory)
 {
 	bool bFullCategoryInUse = IsFrontendFilterCategoryInUse(MenuCategory);
+	bool ExecuteOnFilterChanged = false;
 	for ( auto FrontendFilterIt = AllFrontendFilters.CreateConstIterator(); FrontendFilterIt; ++FrontendFilterIt )
 	{
 		const TSharedRef<FFrontendFilter>& FrontendFilter = *FrontendFilterIt;
@@ -1339,14 +1377,22 @@ void SFilterList::FrontendFilterCategoryClicked(TSharedPtr<FFrontendFilterCatego
 		{
 			if ( bFullCategoryInUse )
 			{
-				RemoveFilter( FrontendFilter );
+				RemoveFilter( FrontendFilter, false );
+				ExecuteOnFilterChanged = true;
 			}
 			else if ( !IsFrontendFilterInUse( FrontendFilter ) )
 			{
 				TSharedRef<SFilter> NewFilter = AddFilter( FrontendFilter );
-				NewFilter->SetEnabled(true);
+				NewFilter->SetEnabled(true, false);
+				SetFrontendFilterActive(FrontendFilter, NewFilter->IsEnabled());
+				ExecuteOnFilterChanged = true;
 			}
 		}
+	}
+
+	if (ExecuteOnFilterChanged)
+	{
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 

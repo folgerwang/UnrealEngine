@@ -480,7 +480,7 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 			//MeshDescription to RawMesh to MeshDescription
 			for(int32 LodIndex = 0; LodIndex < AssetMesh->SourceModels.Num(); ++LodIndex)
 			{
-				const FMeshDescription* ReferenceAssetMesh = AssetMesh->GetOriginalMeshDescription(LodIndex);
+				const FMeshDescription* ReferenceAssetMesh = AssetMesh->GetMeshDescription(LodIndex);
 				if (ReferenceAssetMesh == nullptr)
 				{
 					check(LodIndex != 0);
@@ -557,7 +557,7 @@ bool FMeshDescriptionTest::NTBTest(FAutomationTestExecutionInfo& ExecutionInfo)
 		}
 		//Dirty the build
 		AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-		FMeshDescription* OriginalMeshDescription = AssetMesh->GetOriginalMeshDescription(0);
+		FMeshDescription* OriginalMeshDescription = AssetMesh->GetMeshDescription(0);
 		check(OriginalMeshDescription);
 
 		// Take a copy, so changes made by the test don't make permanent changes to the mesh description

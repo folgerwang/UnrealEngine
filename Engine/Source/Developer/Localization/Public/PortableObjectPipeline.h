@@ -3,10 +3,10 @@
 #pragma once 
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
 #include "PortableObjectPipeline.generated.h"
 
 class FLocTextHelper;
+class FLocMetadataObject;
 
 UENUM()
 enum class ELocalizedTextCollapseMode : uint8
@@ -32,4 +32,28 @@ namespace PortableObjectPipeline
 
 	/** Use the given LocTextHelper to generate a new PO file using the translation data for all cultures */
 	LOCALIZATION_API bool ExportAll(FLocTextHelper& InLocTextHelper, const FString& InPOCultureRootPath, const FString& InPOFilename, const ELocalizedTextCollapseMode InTextCollapseMode, const bool bShouldPersistComments, const bool bUseCultureDirectory);
+
+	/** Given a namespace and key, condition this information so it can be written to the "msgctxt" field of a PO file */
+	LOCALIZATION_API FString ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData, const ELocalizedTextCollapseMode InTextCollapseMode);
+
+	/** Given the "msgctxt" field of a PO file, split it into the namespace and key */
+	LOCALIZATION_API void ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey);
+
+	/** Given a string, condition it so it can be written as a field of a PO file */
+	LOCALIZATION_API FString ConditionArchiveStrForPo(const FString& InStr);
+
+	/** Given the field of a PO file, condition it back to a clean string */
+	LOCALIZATION_API FString ConditionPoStringForArchive(const FString& InStr);
+
+	/** Given a source location string, clean it up for use in PO file fields */
+	LOCALIZATION_API FString ConvertSrcLocationToPORef(const FString& InSrcLocation);
+
+	/** Given a key string, condition it so it can be written as the extracted comment field of a PO file */
+	LOCALIZATION_API FString GetConditionedKeyForExtractedComment(const FString& Key);
+
+	/** Given a source location string, condition it so it can be written as the extracted comment field of a PO file */
+	LOCALIZATION_API FString GetConditionedReferenceForExtractedComment(const FString& PORefString);
+
+	/** Given a meta-data value string, condition it so it can be written as the extracted comment field of a PO file */
+	LOCALIZATION_API FString GetConditionedInfoMetaDataForExtractedComment(const FString& KeyName, const FString& ValueString);
 }

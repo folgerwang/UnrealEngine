@@ -28,6 +28,7 @@ public:
 	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.0f, bool bGamepad = false) override;
 	virtual void MouseMove(FViewport* Viewport, int32 X, int32 Y) override;
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override;
+	virtual void RedrawRequested(FViewport* Viewport) override;
 
 	/** Exec handler */
 	void Exec(const TCHAR* Cmd);
@@ -40,6 +41,10 @@ public:
 
 	/** FViewport interface */
 	virtual float UpdateViewportClientWindowDPIScale() const override;
+
+	bool GetNeedsRedraw() { return bNeedsRedraw; }
+	void SetNeedsRedraw(bool bInNeedsRedraw) { bNeedsRedraw = bInNeedsRedraw; }
+
 private:
 	/** Curve editor key movement axis locking */
 	enum ECurveEdMovementAxisLock
@@ -128,6 +133,7 @@ private:
 	ECurveEdMovementAxisLock MovementAxisLock;
 	bool bBoxSelecting;
 	bool bKeyAdded;
+	bool bNeedsRedraw;
 	int32 DistanceDragged;
 	int32 BoxStartX;
 	int32 BoxStartY;

@@ -75,7 +75,7 @@ void FSlateLoadingSynchronizationMechanism::DestroySlateThread()
 		{
 			FPlatformApplicationMisc::PumpMessages(false);
 
-			FPlatformProcess::Sleep(0.1f);
+			FPlatformProcess::Sleep(0.016f);
 		}
 
 		delete SlateLoadingThread;

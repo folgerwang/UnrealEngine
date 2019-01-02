@@ -28,6 +28,9 @@
 
 #define LOCTEXT_NAMESPACE "FbxImportUIDetails"
 
+#define MinimumLodNumberID 0
+#define LodNumberID 1
+
 //If the String is contain in the StringArray, it return the index. Otherwise return INDEX_NONE
 int FindString(const TArray<TSharedPtr<FString>> &StringArray, const FString &String) {
 	for (int i = 0; i < StringArray.Num(); i++)
@@ -239,13 +242,25 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	TSharedRef<IPropertyHandle> ImportAutoComputeLodDistancesProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bAutoComputeLodDistances));
 	ImportAutoComputeLodDistancesProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ImportAutoComputeLodDistancesChanged));
 
+	TSharedPtr<IPropertyHandle> ImportMeshLODsProp = StaticMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, bImportMeshLODs));
+	ImportMeshLODsProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::RefreshCustomDetail));
+
 	MeshCategory.GetDefaultProperties(CategoryDefaultProperties);
 
 	
 	switch(ImportUI->MeshTypeToImport)
 	{
 		case FBXIT_StaticMesh:
-			CollectChildPropertiesRecursive(StaticMeshDataProp, ExtraProperties);
+			{
+				//Validate static mesh input
+				TSharedRef<IPropertyHandle> MinimumLodNumberProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, MinimumLodNumber));
+				MinimumLodNumberProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ValidateLodSettingsChanged, MinimumLodNumberID));
+				//Validate static mesh input
+				TSharedRef<IPropertyHandle> LodNumberProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, LodNumber));
+				LodNumberProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ValidateLodSettingsChanged, LodNumberID));
+
+				CollectChildPropertiesRecursive(StaticMeshDataProp, ExtraProperties);
+			}
 			break;
 		case FBXIT_SkeletalMesh:
 			{
@@ -267,10 +282,19 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	EFBXImportType ImportType = ImportUI->MeshTypeToImport;
 
 	//Hide LodDistance property if we do not need them
-	if (ImportType == FBXIT_StaticMesh && ImportUI->bAutoComputeLodDistances)
+	if (ImportUI->bIsReimport || ImportType != FBXIT_StaticMesh || !ImportUI->StaticMeshImportData->bImportMeshLODs)
 	{
-		for (int32 LodIndex = 0; LodIndex < 8; ++LodIndex)
+		DetailBuilder.HideCategory(FName(TEXT("LodSettings")));
+	}
+	else
+	{
+		int32 ShowMaxLodIndex = (ImportUI->bAutoComputeLodDistances ? 0 : ImportUI->LodNumber > 0 ? ImportUI->LodNumber : MAX_STATIC_MESH_LODS) - 1;
+		for (int32 LodIndex = 0; LodIndex < MAX_STATIC_MESH_LODS; ++LodIndex)
 		{
+			if (LodIndex <= ShowMaxLodIndex)
+			{
+				continue;
+			}
 			TArray<FStringFormatArg> Args;
 			Args.Add(TEXT("LodDistance"));
 			Args.Add(FString::FromInt(LodIndex));
@@ -282,10 +306,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 				DetailBuilder.HideProperty(Handle);
 			}
 		}
-	}
-	else if (ImportType != FBXIT_StaticMesh)
-	{
-		DetailBuilder.HideCategory(FName(TEXT("LodSettings")));
 	}
 
 	if(ImportType != FBXIT_Animation)
@@ -391,6 +411,15 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetVertexOverrideColorEnabledState));
 					}
+
+					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexOverrideColor))
+					{
+						// Cache the VertexColorImportOption property
+						SkeletalMeshVertexColorImportOptionHandle = SkeletalMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexColorImportOption));
+
+						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState));
+					}
+					
 				}
 			}
 			//Add refresh callback
@@ -465,16 +494,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 	// Material Category
 	IDetailCategoryBuilder& MaterialCategory = DetailBuilder.EditCategory("Material");
-	if(ImportType == FBXIT_Animation || bImportRigOnly)
+	if(ImportUI->bIsReimport || ImportType == FBXIT_Animation || bImportRigOnly)
 	{
-		// In animation-only mode, hide the material display
-		CategoryDefaultProperties.Empty();
-		MaterialCategory.GetDefaultProperties(CategoryDefaultProperties);
-
-		for(TSharedRef<IPropertyHandle> Handle : CategoryDefaultProperties)
-		{
-			DetailBuilder.HideProperty(Handle);
-		}
+		// hide the material category
+		DetailBuilder.HideCategory("Material");
 	}
 	else
 	{
@@ -836,8 +859,18 @@ void FFbxImportUIDetails::OnLODGroupChanged(TSharedPtr<FString> NewValue, ESelec
 bool FFbxImportUIDetails::GetVertexOverrideColorEnabledState() const
 {
 	uint8 VertexColorImportOption;
-	check(VertexColorImportOptionHandle.IsValid())
+	check(VertexColorImportOptionHandle.IsValid());
 	ensure(VertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
+
+	return (VertexColorImportOption == EVertexColorImportOption::Override);
+}
+
+
+bool FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState() const
+{
+	uint8 VertexColorImportOption;
+	check(SkeletalMeshVertexColorImportOptionHandle.IsValid());
+	ensure(SkeletalMeshVertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
 
 	return (VertexColorImportOption == EVertexColorImportOption::Override);
 }
@@ -880,6 +913,34 @@ void FFbxImportUIDetails::ImportAutoComputeLodDistancesChanged()
 {
 	//We need to update the LOD distance UI
 	RefreshCustomDetail();
+}
+
+void FFbxImportUIDetails::ValidateLodSettingsChanged(int32 MemberID)
+{
+	//This feature is supported only for staticmesh
+	if (ImportUI->MeshTypeToImport != FBXIT_StaticMesh)
+	{
+		return;
+	}
+
+	if (ImportUI->MinimumLodNumber < 0 || ImportUI->MinimumLodNumber >= MAX_STATIC_MESH_LODS)
+	{
+		ImportUI->MinimumLodNumber = FMath::Clamp<int32>(ImportUI->MinimumLodNumber, 0, MAX_STATIC_MESH_LODS -1);
+	}
+	if (ImportUI->LodNumber < 0 || ImportUI->LodNumber >= MAX_STATIC_MESH_LODS)
+	{
+		ImportUI->LodNumber = FMath::Clamp<int32>(ImportUI->LodNumber, 0, MAX_STATIC_MESH_LODS);
+	}
+
+	if (ImportUI->LodNumber > 0 && ImportUI->MinimumLodNumber >= ImportUI->LodNumber)
+	{
+		ImportUI->MinimumLodNumber = FMath::Clamp<int32>(ImportUI->MinimumLodNumber, 0, ImportUI->LodNumber - 1);
+	}
+	
+	if (!ImportUI->bAutoComputeLodDistances && MemberID == LodNumberID)
+	{
+		RefreshCustomDetail();
+	}
 }
 
 void FFbxImportUIDetails::ImportMaterialsChanged()

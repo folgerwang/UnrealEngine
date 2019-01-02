@@ -158,7 +158,10 @@ void IMeshPainter::FinishPainting()
 	if (bArePainting)
 	{
 		bArePainting = false;
-		EndTransaction();
+		if (PaintTransaction)
+		{
+			EndTransaction();
+		}
 	}
 
 	CurrentViewportInteractor = nullptr;

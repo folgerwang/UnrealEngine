@@ -48,6 +48,10 @@ public:
 				{
 					ScreenLayer.Pin()->AddComponent(Component, UserWidget->TakeWidget());
 				}
+				else if (Component->GetSlateWidget().IsValid())
+				{
+					ScreenLayer.Pin()->AddComponent(Component, Component->GetSlateWidget().ToSharedRef());
+				}
 			}
 		}
 	}
@@ -83,6 +87,10 @@ public:
 				if ( UUserWidget* UserWidget = Component->GetUserWidgetObject() )
 				{
 					NewScreenLayer->AddComponent(Component, UserWidget->TakeWidget());
+				}
+				else if (Component->GetSlateWidget().IsValid())
+				{
+					NewScreenLayer->AddComponent(Component, Component->GetSlateWidget().ToSharedRef()); 
 				}
 			}
 		}
@@ -132,7 +140,7 @@ public:
 						{
 							if ( WidgetComponent->GetReceiveHardwareInput() )
 							{
-								if ( WidgetComponent->GetDrawSize().X != 0 && WidgetComponent->GetDrawSize().Y != 0 )
+								if ( WidgetComponent->GetCurrentDrawSize().X != 0 && WidgetComponent->GetCurrentDrawSize().Y != 0 )
 								{
 									// Get the "forward" vector based on the current rotation system.
 									const FVector ForwardVector = WidgetComponent->GetForwardVector();
@@ -163,7 +171,7 @@ public:
 			{
 				FGeometry WidgetGeom;
 
-				ArrangedChildren.AddWidget( FArrangedWidget( WidgetComponent->GetSlateWindow().ToSharedRef(), WidgetGeom.MakeChild( WidgetComponent->GetDrawSize(), FSlateLayoutTransform() ) ) );
+				ArrangedChildren.AddWidget( FArrangedWidget( WidgetComponent->GetSlateWindow().ToSharedRef(), WidgetGeom.MakeChild( WidgetComponent->GetCurrentDrawSize(), FSlateLayoutTransform() ) ) );
 			}
 		}
 	}
@@ -188,7 +196,7 @@ public:
 						{
 							if ( WidgetComponent->GetReceiveHardwareInput() )
 							{
-								if ( WidgetComponent->GetDrawSize().X != 0 && WidgetComponent->GetDrawSize().Y != 0 )
+								if ( WidgetComponent->GetCurrentDrawSize().X != 0 && WidgetComponent->GetCurrentDrawSize().Y != 0 )
 								{
 									if ( WidgetComponent == HitComponent )
 									{
@@ -621,14 +629,32 @@ void UWidgetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
+
+void UWidgetComponent::SetMaterial(int32 ElementIndex, UMaterialInterface* Material)
+{
+	Super::SetMaterial(ElementIndex, Material);
+
+	UpdateMaterialInstance();
+}
+
+void UWidgetComponent::UpdateMaterialInstance()
 {
 	// Always clear the material instance in case we're going from 3D to 2D.
-	if ( MaterialInstance )
+	MaterialInstance = nullptr;
+
+	if (Space == EWidgetSpace::Screen)
 	{
-		MaterialInstance = nullptr;
+		return;
 	}
 
+	UMaterialInterface* BaseMaterial = GetMaterial(0);
+	MaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+
+	UpdateMaterialInstanceParameters();
+}
+
+FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
+{
 	if (Space == EWidgetSpace::Screen)
 	{
 		return nullptr;
@@ -636,15 +662,6 @@ FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
 
 	if (WidgetRenderer && CurrentSlateWidget.IsValid())
 	{
-		// Create a new MID for the current base material
-		{
-			UMaterialInterface* BaseMaterial = GetMaterial(0);
-
-			MaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-
-			UpdateMaterialInstanceParameters();
-		}
-
 		RequestRedraw();
 		LastWidgetRenderTime = 0;
 
@@ -664,7 +681,7 @@ FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
 
 		FWidgetBoxProxy(const UWidgetComponent* InComponent)
 			: FPrimitiveSceneProxy(InComponent)
-			, BoxExtents(1.f, InComponent->GetDrawSize().X / 2.0f, InComponent->GetDrawSize().Y / 2.0f)
+			, BoxExtents(1.f, InComponent->GetCurrentDrawSize().X / 2.0f, InComponent->GetCurrentDrawSize().Y / 2.0f)
 		{
 			bWillEverBeLit = false;
 		}
@@ -721,12 +738,12 @@ FBoxSphereBounds UWidgetComponent::CalcBounds(const FTransform & LocalToWorld) c
 	if ( Space != EWidgetSpace::Screen )
 	{
 		const FVector Origin = FVector(.5f,
-			-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
-			-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
+			-( CurrentDrawSize.X * 0.5f ) + (CurrentDrawSize.X * Pivot.X ),
+			-( CurrentDrawSize.Y * 0.5f ) + ( CurrentDrawSize.Y * Pivot.Y ));
 
-		const FVector BoxExtent = FVector(1.f, DrawSize.X / 2.0f, DrawSize.Y / 2.0f);
+		const FVector BoxExtent = FVector(1.f, CurrentDrawSize.X / 2.0f, CurrentDrawSize.Y / 2.0f);
 
-		FBoxSphereBounds NewBounds(Origin, BoxExtent, DrawSize.Size() / 2.0f);
+		FBoxSphereBounds NewBounds(Origin, BoxExtent, CurrentDrawSize.Size() / 2.0f);
 		NewBounds = NewBounds.TransformBy(LocalToWorld);
 
 		NewBounds.BoxExtent *= BoundsScale;
@@ -750,7 +767,7 @@ FCollisionShape UWidgetComponent::GetCollisionShape(float Inflation) const
 {
 	if ( Space != EWidgetSpace::Screen )
 	{
-		FVector BoxHalfExtent = ( FVector(0.01f, DrawSize.X * 0.5f, DrawSize.Y * 0.5f) * GetComponentTransform().GetScale3D() ) + Inflation;
+		FVector BoxHalfExtent = ( FVector(0.01f, CurrentDrawSize.X * 0.5f, CurrentDrawSize.Y * 0.5f) * GetComponentTransform().GetScale3D() ) + Inflation;
 
 		if ( Inflation < 0.0f )
 		{
@@ -886,6 +903,12 @@ void UWidgetComponent::ReleaseResources()
 		Widget = nullptr;
 	}
 
+	if (SlateWidget.IsValid())
+	{
+		RemoveWidgetFromScreen();
+		SlateWidget.Reset();
+	}
+	
 	if (WidgetRenderer)
 	{
 		BeginCleanup(WidgetRenderer);
@@ -903,6 +926,23 @@ void UWidgetComponent::RegisterWindow()
 		{
 			FSlateApplication::Get().RegisterVirtualWindow(SlateWindow.ToSharedRef());
 		}
+
+#if SLATE_PARENT_POINTERS
+		if (Widget && !Widget->IsDesignTime())
+		{
+			if (UWorld* LocalWorld = GetWorld())
+			{
+				UGameInstance* GameInstance = LocalWorld->GetGameInstance();
+				check(GameInstance);
+
+				UGameViewportClient* GameViewportClient = GameInstance->GetGameViewportClient();
+				if (GameViewportClient)
+				{
+					SlateWindow->AssignParentWidget(GameViewportClient->GetGameViewportWidget());
+				}
+			}
+		}
+#endif
 	}
 }
 
@@ -982,7 +1022,11 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 								
 									bAddedToScreen = true;
 								
-									Widget->SetPlayerContext(PlayerContext);
+									if (Widget && Widget->IsValidLowLevel())
+									{
+										Widget->SetPlayerContext(PlayerContext);
+									}
+									
 									ScreenLayer->AddComponent(this);
 								}
 							}
@@ -1035,6 +1079,7 @@ void UWidgetComponent::DrawWidgetToRenderTarget(float DeltaTime)
 		return;
 	}
 
+	const FIntPoint PreviousDrawSize = CurrentDrawSize;
 	CurrentDrawSize = DrawSize;
 
 	const float DrawScale = 1.0f;
@@ -1055,9 +1100,8 @@ void UWidgetComponent::DrawWidgetToRenderTarget(float DeltaTime)
 		WidgetRenderer->SetIsPrepassNeeded(true);
 	}
 
-	if ( CurrentDrawSize != DrawSize )
+	if ( CurrentDrawSize != PreviousDrawSize )
 	{
-		DrawSize = CurrentDrawSize;
 		UpdateBodySetup(true);
 		RecreatePhysicsState();
 	}
@@ -1390,14 +1434,16 @@ void UWidgetComponent::UpdateWidget()
 			bool bNeededNewWindow = false;
 			if ( !SlateWindow.IsValid() )
 			{
-				SlateWindow = SNew(SVirtualWindow).Size(DrawSize);
+				UpdateMaterialInstance();
+
+				SlateWindow = SNew(SVirtualWindow).Size(CurrentDrawSize);
 				SlateWindow->SetIsFocusable(bWindowFocusable);
 				RegisterWindow();
 
 				bNeededNewWindow = true;
 			}
 
-			SlateWindow->Resize(DrawSize);
+			SlateWindow->Resize(CurrentDrawSize);
 
 			bool bWidgetChanged = false;
 			if ( NewSlateWidget.IsValid() )
@@ -1526,17 +1572,17 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 		FKBoxElem* BoxElem = BodySetup->AggGeom.BoxElems.GetData();
 
 		FVector Origin = FVector(.5f,
-			-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
-			-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
+			-( CurrentDrawSize.X * 0.5f ) + ( CurrentDrawSize.X * Pivot.X ),
+			-( CurrentDrawSize.Y * 0.5f ) + ( CurrentDrawSize.Y * Pivot.Y ));
 			const float Width = ComputeComponentWidth();
-			const float Height = DrawSize.Y;
+			const float Height = CurrentDrawSize.Y;
 			Origin = FVector(.5f,
 				-( Width * 0.5f ) + ( Width * Pivot.X ),
 				-( Height * 0.5f ) + ( Height * Pivot.Y ));
 			
 		BoxElem->X = 0.01f;
-		BoxElem->Y = DrawSize.X;
-		BoxElem->Z = DrawSize.Y;
+		BoxElem->Y = CurrentDrawSize.X;
+		BoxElem->Z = CurrentDrawSize.Y;
 
 		BoxElem->SetTransform(FTransform::Identity);
 		BoxElem->Center = Origin;
@@ -1605,7 +1651,7 @@ TTuple<FVector, FVector2D> UWidgetComponent::GetCylinderHitLocation(FVector Worl
 
 
 	const float ArcAngleRadians = FMath::DegreesToRadians(GetCylinderArcAngle());
-	const float Radius = GetDrawSize().X / ArcAngleRadians;
+	const float Radius = CurrentDrawSize.X / ArcAngleRadians;
 	const float Apothem = Radius * FMath::Cos(0.5f*ArcAngleRadians);
 	const float ChordLength = 2.0f * Radius * FMath::Sin(0.5f*ArcAngleRadians);
 
@@ -1745,6 +1791,11 @@ FVector2D UWidgetComponent::GetDrawSize() const
 	return DrawSize;
 }
 
+FVector2D UWidgetComponent::GetCurrentDrawSize() const
+{
+	return CurrentDrawSize;
+}
+
 void UWidgetComponent::SetDrawSize(FVector2D Size)
 {
 	FIntPoint NewDrawSize((int32)Size.X, (int32)Size.Y);
@@ -1753,8 +1804,6 @@ void UWidgetComponent::SetDrawSize(FVector2D Size)
 	{
 		DrawSize = NewDrawSize;
 		MarkRenderStateDirty();
-		UpdateBodySetup( true );
-		RecreatePhysicsState();
 	}
 }
 

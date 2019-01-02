@@ -106,6 +106,23 @@ bool FAssetTypeActions_SoundBase::IsSoundPlaying(USoundBase* Sound) const
 	return PreviewComp && PreviewComp->Sound == Sound && PreviewComp->IsPlaying();
 }
 
+bool FAssetTypeActions_SoundBase::IsSoundPlaying(const FAssetData& AssetData) const
+{
+	const UAudioComponent* PreviewComp = GEditor->GetPreviewAudioComponent();
+	if (PreviewComp && PreviewComp->Sound && PreviewComp->IsPlaying())
+	{
+		if (PreviewComp->Sound->GetFName() == AssetData.AssetName)
+		{
+			if (PreviewComp->Sound->GetOutermost()->GetFName() == AssetData.PackageName)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void FAssetTypeActions_SoundBase::ExecutePlaySound(TArray<TWeakObjectPtr<USoundBase>> Objects) const
 {
 	for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
@@ -129,14 +146,9 @@ TSharedPtr<SWidget> FAssetTypeActions_SoundBase::GetThumbnailOverlay(const FAsse
 {
 	auto OnGetDisplayBrushLambda = [this, AssetData]() -> const FSlateBrush*
 	{
-		UObject* Asset = AssetData.GetAsset();
-		if (Asset)
+		if (IsSoundPlaying(AssetData))
 		{
-			USoundBase* Sound = CastChecked<USoundBase>(Asset);
-			if (IsSoundPlaying(Sound))
-			{
-				return FEditorStyle::GetBrush("MediaAsset.AssetActions.Stop.Large");
-			}
+			return FEditorStyle::GetBrush("MediaAsset.AssetActions.Stop.Large");
 		}
 
 		return FEditorStyle::GetBrush("MediaAsset.AssetActions.Play.Large");
@@ -144,33 +156,23 @@ TSharedPtr<SWidget> FAssetTypeActions_SoundBase::GetThumbnailOverlay(const FAsse
 
 	auto OnClickedLambda = [this, AssetData]() -> FReply
 	{
-		UObject* Asset = AssetData.GetAsset();
-		if (Asset)
+		if (IsSoundPlaying(AssetData))
 		{
-			USoundBase* Sound = CastChecked<USoundBase>(Asset);
-
-			if (IsSoundPlaying(Sound))
-			{
-				StopSound();
-			}
-			else
-			{
-				PlaySound(Sound);
-			}
+			StopSound();
+		}
+		else
+		{
+			// Load and play sound
+			PlaySound(Cast<USoundBase>(AssetData.GetAsset()));
 		}
 		return FReply::Handled();
 	};
 
 	auto OnToolTipTextLambda = [this, AssetData]() -> FText
 	{
-		UObject* Asset = AssetData.GetAsset();
-		if (Asset)
+		if (IsSoundPlaying(AssetData))
 		{
-			USoundBase* Sound = CastChecked<USoundBase>(Asset);
-			if (IsSoundPlaying(Sound))
-			{
-				return LOCTEXT("Thumbnail_StopSoundToolTip", "Stop selected sound");
-			}
+			return LOCTEXT("Thumbnail_StopSoundToolTip", "Stop selected sound");
 		}
 
 		return LOCTEXT("Thumbnail_PlaySoundToolTip", "Play selected sound");
@@ -184,17 +186,9 @@ TSharedPtr<SWidget> FAssetTypeActions_SoundBase::GetThumbnailOverlay(const FAsse
 
 	auto OnGetVisibilityLambda = [this, Box, AssetData]() -> EVisibility
 	{
-		UObject* Asset = AssetData.GetAsset();
-		if (Asset)
+		if (Box.IsValid() && (Box->IsHovered() || IsSoundPlaying(AssetData)))
 		{
-			USoundBase* Sound = CastChecked<USoundBase>(Asset);
-			if (Box.IsValid())
-			{
-				if (Box->IsHovered() || IsSoundPlaying(Sound))
-				{
-					return EVisibility::Visible;
-				}
-			}
+			return EVisibility::Visible;
 		}
 
 		return EVisibility::Hidden;

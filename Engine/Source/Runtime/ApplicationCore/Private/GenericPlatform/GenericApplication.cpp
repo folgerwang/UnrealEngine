@@ -138,7 +138,7 @@ FPlatformRect FDisplayMetrics::GetMonitorWorkAreaFromPoint(const FVector2D& Poin
 	for (const FMonitorInfo& Info : MonitorInfo)
 	{
 		// The point may not actually be inside the work area (for example on Windows taskbar or Mac menu bar), so we use DisplayRect to find the monitor
-		if (Point.X >= Info.DisplayRect.Left && Point.X <= Info.DisplayRect.Right && Point.Y >= Info.DisplayRect.Top && Point.Y <= Info.DisplayRect.Bottom)
+		if (Point.X >= Info.DisplayRect.Left && Point.X < Info.DisplayRect.Right && Point.Y >= Info.DisplayRect.Top && Point.Y < Info.DisplayRect.Bottom)
 		{
 			return Info.WorkArea;
 		}

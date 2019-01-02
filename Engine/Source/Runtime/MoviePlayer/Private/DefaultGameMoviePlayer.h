@@ -108,6 +108,8 @@ public:
 
 	float GetViewportDPIScale() const;
 
+	void OnMainWindowClosed(const TSharedRef<SWindow>& Window);
+
 private:
 
 	/** Ticks the underlying MovieStreamer.  Must be done exactly once before each DrawWindows call. */
@@ -168,6 +170,9 @@ private:
 	/** User has called finish (needed if LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes is off) */
 	bool bUserCalledFinish;
 	
+	/** Main window has closed, stop movie playback */
+	TAtomic<bool> bMainWindowClosed;
+
 	/** Attributes of the loading screen we are currently displaying */
 	FLoadingScreenAttributes LoadingScreenAttributes;
 

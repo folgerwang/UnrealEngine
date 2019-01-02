@@ -1718,7 +1718,7 @@ static bool BlueprintActionFilterImpl::IsHiddenInNonEditorBlueprint(FBlueprintAc
 
 	if (Function)
 	{
-		const bool bIsEditorOnlyFunction = IsEditorOnlyObject(Function);
+		const bool bIsEditorOnlyFunction = IsEditorOnlyObject(Function) || Function->HasAnyFunctionFlags(FUNC_EditorOnly);
 		
 		if (bIsEditorOnlyFunction)
 		{

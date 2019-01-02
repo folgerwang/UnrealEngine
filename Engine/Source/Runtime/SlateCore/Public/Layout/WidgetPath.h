@@ -138,12 +138,13 @@ public:
 	 * Move focus either forward on backward in the path level specified by PathLevel.
 	 * That is, this movement of focus will modify the subtree under Widgets(PathLevel).
 	 *
-	 * @param PathLevel       The level in this WidgetPath whose focus to move.
-	 * @param MoveDirectin    Move focus forward or backward?
+	 * @param PathLevel					The level in this WidgetPath whose focus to move.
+	 * @param MoveDirectin				Move focus forward or backward?
+	 * @param bSearchFromPathWidget		if set false the search for the next will simply start at the beginning or end of the list of children dependant on the direction
 	 *
 	 * @return true if the focus moved successfully, false if we were unable to move focus
 	 */
-	bool MoveFocus(int32 PathLevel, EUINavigation NavigationType);
+	bool MoveFocus(int32 PathLevel, EUINavigation NavigationType, bool bSearchFromPathWidget = true);
 
 	/** Get the last (leaf-most) widget in this path; assumes path is valid */
 	TSharedRef< SWidget > GetLastWidget() const
