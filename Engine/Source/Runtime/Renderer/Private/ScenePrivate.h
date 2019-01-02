@@ -1918,6 +1918,7 @@ struct FILCUpdatePrimTaskData
 	FGraphEventRef TaskRef;
 	TMap<FIntVector, FBlockUpdateInfo> OutBlocksToUpdate;
 	TArray<FIndirectLightingCacheAllocation*> OutTransitionsOverTimeToUpdate;
+	TArray<FPrimitiveSceneInfo*> OutPrimitivesToUpdateStaticMeshes;
 };
 
 /** 
@@ -1964,13 +1965,13 @@ private:
 	/** Internal helper to determine if indirect lighting is enabled at all */
 	bool IndirectLightingAllowed(FScene* Scene, FSceneRenderer& Renderer) const;
 
-	void ProcessPrimitiveUpdate(FScene* Scene, FViewInfo& View, int32 PrimitiveIndex, bool bAllowUnbuiltPreview, bool bAllowVolumeSample, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate);
+	void ProcessPrimitiveUpdate(FScene* Scene, FViewInfo& View, int32 PrimitiveIndex, bool bAllowUnbuiltPreview, bool bAllowVolumeSample, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate, TArray<FPrimitiveSceneInfo*>& OutPrimitivesToUpdateStaticMeshes);
 
 	/** Internal helper to perform the work of updating the cache primitives.  Can be done on any thread as a task */
-	void UpdateCachePrimitivesInternal(FScene* Scene, FSceneRenderer& Renderer, bool bAllowUnbuiltPreview, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate);
+	void UpdateCachePrimitivesInternal(FScene* Scene, FSceneRenderer& Renderer, bool bAllowUnbuiltPreview, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate, TArray<FPrimitiveSceneInfo*>& OutPrimitivesToUpdateStaticMeshes);
 
 	/** Internal helper to perform blockupdates and transition updates on the results of UpdateCachePrimitivesInternal.  Must be on render thread. */
-	void FinalizeUpdateInternal_RenderThread(FScene* Scene, FSceneRenderer& Renderer, TMap<FIntVector, FBlockUpdateInfo>& BlocksToUpdate, const TArray<FIndirectLightingCacheAllocation*>& TransitionsOverTimeToUpdate);
+	void FinalizeUpdateInternal_RenderThread(FScene* Scene, FSceneRenderer& Renderer, TMap<FIntVector, FBlockUpdateInfo>& BlocksToUpdate, const TArray<FIndirectLightingCacheAllocation*>& TransitionsOverTimeToUpdate, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdateStaticMeshes);
 
 	/** Internal helper which adds an entry to the update lists for this allocation, if needed (due to movement, etc). Returns true if the allocation was updated or will be udpated */
 	bool UpdateCacheAllocation(
@@ -1992,7 +1993,8 @@ private:
 		bool bAllowUnbuiltPreview, 
 		bool bAllowVolumeSample, 
 		TMap<FIntVector, FBlockUpdateInfo>& BlocksToUpdate, 
-		TArray<FIndirectLightingCacheAllocation*>& TransitionsOverTimeToUpdate);	
+		TArray<FIndirectLightingCacheAllocation*>& TransitionsOverTimeToUpdate,
+		TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdateStaticMeshes);
 
 	/** Updates the contents of the volume texture blocks in BlocksToUpdate. */
 	void UpdateBlocks(FScene* Scene, FViewInfo* DebugDrawingView, TMap<FIntVector, FBlockUpdateInfo>& BlocksToUpdate);
