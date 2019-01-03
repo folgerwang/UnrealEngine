@@ -4170,7 +4170,7 @@ FText FLevelOfDetailSettingsLayout::GetCurrentLodTooltip() const
 {
 	if (StaticMeshEditor.GetStaticMeshComponent() != nullptr && StaticMeshEditor.GetStaticMeshComponent()->ForcedLodModel == 0)
 	{
-		return FText::FromString(TEXT("LOD0 is edit when selecting Auto LOD"));
+		return LOCTEXT("StaticMeshEditorLODPickerCurrentLODTooltip", "With Auto LOD selected, LOD0's properties are visible for editing");
 	}
 	return FText::GetEmpty();
 }

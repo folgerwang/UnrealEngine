@@ -2726,7 +2726,7 @@ FText FPersonaMeshDetails::GetCurrentLodTooltip() const
 {
 	if (GetPersonaToolkit()->GetPreviewMeshComponent() != nullptr && GetPersonaToolkit()->GetPreviewMeshComponent()->ForcedLodModel == 0)
 	{
-		return FText::FromString(TEXT("LOD0 is edit when selecting Auto LOD"));
+		return LOCTEXT("PersonaLODPickerCurrentLODTooltip", "With Auto LOD selected, LOD0's properties are visible for editing");
 	}
 	return FText::GetEmpty();
 }
