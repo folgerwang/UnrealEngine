@@ -80,36 +80,34 @@ void SetupReflectionsLightData(
 	const FViewInfo& View,
 	FReflectionsLightData* LightData)
 {
-	// Fill light buffer data
-	LightData->Count = FMath::Min(Lights.Num(), GReflectionLightCountMaximum);
+	LightData->Count = 0;
 
-	TSparseArray<FLightSceneInfoCompact>::TConstIterator LightItr = Lights.CreateConstIterator();
-	for (uint32 LightIndex = 0; LightIndex < LightData->Count; ++LightIndex, ++LightItr)
+	for (auto Light : Lights)
 	{
-		FLightSceneProxy* LightSceneProxy = LightItr->LightSceneInfo->Proxy;
+		if (Light.LightSceneInfo->Proxy->HasStaticLighting() && Light.LightSceneInfo->IsPrecomputedLightingValid()) continue;
+
 		FLightShaderParameters LightParameters;
-		LightSceneProxy->GetLightShaderParameters(LightParameters);
+		Light.LightSceneInfo->Proxy->GetLightShaderParameters(LightParameters);
 
-		if (LightSceneProxy->IsInverseSquared())
-		{
-			LightParameters.FalloffExponent = 0;
-		}
+		LightData->Type[LightData->Count] = Light.LightType;
+		LightData->LightPosition[LightData->Count] = LightParameters.Position;
+		LightData->LightInvRadius[LightData->Count] = LightParameters.InvRadius;
+		LightData->LightColor[LightData->Count] = LightParameters.Color;
+		LightData->LightFalloffExponent[LightData->Count] = LightParameters.FalloffExponent;
+		LightData->Direction[LightData->Count] = LightParameters.Direction;
+		LightData->Tangent[LightData->Count] = LightParameters.Tangent;
+		LightData->SpotAngles[LightData->Count] = LightParameters.SpotAngles;
+		LightData->SpecularScale[LightData->Count] = LightParameters.SpecularScale;
+		LightData->SourceRadius[LightData->Count] = LightParameters.SourceRadius;
+		LightData->SourceLength[LightData->Count] = LightParameters.SourceLength;
+		LightData->SoftSourceRadius[LightData->Count] = LightParameters.SoftSourceRadius;
 
-		LightData->Type[LightIndex] = LightItr->LightType;
-		LightData->LightPosition[LightIndex] = LightParameters.Position;
-		LightData->LightInvRadius[LightIndex] = LightParameters.InvRadius;
-		LightData->LightColor[LightIndex] = LightParameters.Color;
-		LightData->LightFalloffExponent[LightIndex] = LightParameters.FalloffExponent;
-		LightData->Direction[LightIndex] = LightParameters.Direction;
-		LightData->Tangent[LightIndex] = LightParameters.Tangent;
-		LightData->SpotAngles[LightIndex] = LightParameters.SpotAngles;
-		LightData->SpecularScale[LightIndex] = LightParameters.SpecularScale;
-		LightData->SourceRadius[LightIndex] = LightParameters.SourceRadius;
-		LightData->SourceLength[LightIndex] = LightParameters.SourceLength;
-		LightData->SoftSourceRadius[LightIndex] = LightParameters.SoftSourceRadius;
+		const FVector2D FadeParams = Light.LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), Light.LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
+		LightData->DistanceFadeMAD[LightData->Count] = FVector2D(FadeParams.Y, -FadeParams.X * FadeParams.Y);
 
-		const FVector2D FadeParams = LightSceneProxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightItr->LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
-		LightData->DistanceFadeMAD[LightIndex] = FVector2D(FadeParams.Y, -FadeParams.X * FadeParams.Y);
+		LightData->Count++;
+
+		if (LightData->Count >= GReflectionLightCountMaximum) break;
 	}
 
 	LightData->DummyRectLightTexture = GWhiteTexture->TextureRHI; //#dxr_todo: replace with valid textures per rect light

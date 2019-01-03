@@ -135,54 +135,58 @@ public:
 
 		// Lights
 		{
-			// Fill light buffer data
 			FPathTracingLightData LightData;
-			LightData.Count = FMath::Min(Lights.Num() + 1, GLightCountMaximum - 1);
+			LightData.Count = 0;
 
 			// Prepend SkyLight to light buffer
 			// WARNING: Until ray payload encodes Light data buffer, the execution depends on this ordering!
 			uint32 SkyLightIndex = 0;
 			LightData.Type[SkyLightIndex] = 0;
 			LightData.Color[SkyLightIndex] = FVector(SkyLightColorData);
+			LightData.Count++;
 
-			TSparseArray<FLightSceneInfoCompact>::TConstIterator LightItr = Lights.CreateConstIterator();
-			for (uint32 LightIndex = 1; LightIndex < LightData.Count; ++LightIndex, ++LightItr)
+			for (auto Light : Lights)
 			{
-				FLightSceneProxy* LightSceneProxy = LightItr->LightSceneInfo->Proxy;
+				if (LightData.Count >= GLightCountMaximum) break;
+
+				if (Light.LightSceneInfo->Proxy->HasStaticLighting() && Light.LightSceneInfo->IsPrecomputedLightingValid()) continue;
+
 				FLightShaderParameters LightParameters;
-				LightSceneProxy->GetLightShaderParameters(LightParameters);
-				
-				ELightComponentType LightComponentType = (ELightComponentType)LightSceneProxy->GetLightType();
+				Light.LightSceneInfo->Proxy->GetLightShaderParameters(LightParameters);
+
+				ELightComponentType LightComponentType = (ELightComponentType)Light.LightSceneInfo->Proxy->GetLightType();
 				switch (LightComponentType)
 				{
 					// TODO: LightType_Spot
 					case LightType_Directional:
 					{
-						LightData.Type[LightIndex] = 2;
-						LightData.Normal[LightIndex] = LightParameters.Direction;
-						LightData.Color[LightIndex] = LightParameters.Color;
+						LightData.Type[LightData.Count] = 2;
+						LightData.Normal[LightData.Count] = LightParameters.Direction;
+						LightData.Color[LightData.Count] = LightParameters.Color;
 						break;
 					}
 					case LightType_Rect:
 					{
-						LightData.Type[LightIndex] = 3;
-						LightData.Position[LightIndex] = LightParameters.Position;
-						LightData.Normal[LightIndex] = -LightParameters.Direction;
-						LightData.dPdu[LightIndex] = FVector::CrossProduct(LightParameters.Tangent, LightParameters.Direction);
-						LightData.dPdv[LightIndex] = LightParameters.Tangent;
-						LightData.Color[LightIndex] = LightParameters.Color * (2.0f * LightParameters.SourceRadius * LightParameters.SourceLength);
-						LightData.Dimensions[LightIndex] = FVector(2.0f * LightParameters.SourceRadius, 2.0f * LightParameters.SourceLength, 0.0f);
+						LightData.Type[LightData.Count] = 3;
+						LightData.Position[LightData.Count] = LightParameters.Position;
+						LightData.Normal[LightData.Count] = -LightParameters.Direction;
+						LightData.dPdu[LightData.Count] = FVector::CrossProduct(LightParameters.Tangent, LightParameters.Direction);
+						LightData.dPdv[LightData.Count] = LightParameters.Tangent;
+						LightData.Color[LightData.Count] = LightParameters.Color * (2.0f * LightParameters.SourceRadius * LightParameters.SourceLength);
+						LightData.Dimensions[LightData.Count] = FVector(2.0f * LightParameters.SourceRadius, 2.0f * LightParameters.SourceLength, 0.0f);
 						break;
 					}
 					case LightType_Point:
 					default:
 					{
-						LightData.Type[LightIndex] = 1;
-						LightData.Position[LightIndex] = LightParameters.Position;
-						LightData.Color[LightIndex] = LightParameters.Color;
+						LightData.Type[LightData.Count] = 1;
+						LightData.Position[LightData.Count] = LightParameters.Position;
+						LightData.Color[LightData.Count] = LightParameters.Color;
 						break;
 					}
 				};
+
+				LightData.Count++;
 			}
 
 			FUniformBufferRHIRef SceneLightsUniformBuffer = RHICreateUniformBuffer(&LightData, FPathTracingLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
