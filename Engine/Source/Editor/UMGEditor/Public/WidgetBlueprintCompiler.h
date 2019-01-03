@@ -21,7 +21,7 @@ public:
 
 	bool CanCompile(const UBlueprint* Blueprint) override;
 	void PreCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
-	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override;
+	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results) override;
 	void PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
 	bool GetBlueprintTypesForClass(UClass* ParentClass, UClass*& OutBlueprintClass, UClass*& OutBlueprintGeneratedClass) const override;
 
