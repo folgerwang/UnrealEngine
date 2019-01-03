@@ -1302,8 +1302,7 @@ void SGameplayTagWidget::OpenRenameGameplayTagDialog(TSharedPtr<FGameplayTagNode
 
 	RenameTagWindow->SetContent(RenameTagDialog);
 
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath );
+	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared() );
 
 	FSlateApplication::Get().AddModalWindow(RenameTagWindow, CurrentWindow);
 }

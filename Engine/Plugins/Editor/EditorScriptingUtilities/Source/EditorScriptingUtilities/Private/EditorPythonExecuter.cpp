@@ -109,8 +109,7 @@ namespace InternalEditorPythonRunner
 		/** Closes the dialog. */
 		void CloseDialog()
 		{
-			FWidgetPath WidgetPath;
-			TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+			TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 			if (Window.IsValid())
 			{

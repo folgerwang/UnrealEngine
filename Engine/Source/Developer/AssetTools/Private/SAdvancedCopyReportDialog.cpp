@@ -259,8 +259,7 @@ void SAdvancedCopyReportDialog::OpenPackageReportDialog(const FAdvancedCopyParam
 
 void SAdvancedCopyReportDialog::CloseDialog()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( Window.IsValid() )
 	{

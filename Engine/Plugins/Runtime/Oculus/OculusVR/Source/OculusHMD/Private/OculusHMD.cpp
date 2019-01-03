@@ -1325,8 +1325,7 @@ namespace OculusHMD
 
 		if (!Window.IsValid() || Widget != CurrentlyCachedWidget)
 		{
-			FWidgetPath WidgetPath;
-			Window = FSlateApplication::Get().FindWidgetWindow(Widget, WidgetPath);
+			Window = FSlateApplication::Get().FindWidgetWindow(Widget);
 
 			CachedViewportWidget = Widget;
 			CachedWindow = Window;

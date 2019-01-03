@@ -3098,8 +3098,25 @@ void FSlateApplication::GeneratePathToWidgetChecked( TSharedRef<const SWidget> I
 
 TSharedPtr<SWindow> FSlateApplication::FindWidgetWindow( TSharedRef<const SWidget> InWidget ) const
 {
-	FWidgetPath WidgetPath;
-	return FindWidgetWindow( InWidget, WidgetPath );
+#if SLATE_PARENT_POINTERS
+	TSharedPtr<SWidget> TestWidget = ConstCastSharedRef<SWidget>(InWidget);
+	while (TestWidget.IsValid())
+	{
+		if (TestWidget->Advanced_IsWindow())
+		{
+			return StaticCastSharedPtr<SWindow>(TestWidget);
+		}
+
+		TestWidget = TestWidget->GetParentWidget();
+	};
+
+	return nullptr;
+#else
+	FWidgetPath OutPath;
+	FindWidgetWindow(InWidget, OutPath);
+	return OutPath.TopLevelWindow;
+#endif
+
 }
 
 

@@ -335,18 +335,19 @@ void FLevelViewportLayout::MaximizeViewport( FName ViewportToMaximize, const boo
 		}
 
 		TSharedPtr<SWindow> OwnerWindow;
-		// NOTE: Careful, FindWidgetWindow can be reentrant in that it can call visibility delegates and such
-		FWidgetPath ViewportWidgetPath;
 		bIsQueryingLayoutMetrics = true;
+		FWidgetPath ViewportWidgetPath;
 		if( bIsMaximized || bIsImmersive )
 		{
 			// Use the replacement widget for metrics, as our viewport widget has been reparented to the overlay
-			OwnerWindow = FSlateApplication::Get().FindWidgetWindow( ViewportReplacementWidget.ToSharedRef(), ViewportWidgetPath );
+			FSlateApplication::Get().GeneratePathToWidgetUnchecked( ViewportReplacementWidget.ToSharedRef(), ViewportWidgetPath );
+			OwnerWindow = ViewportWidgetPath.TopLevelWindow;
 		}
 		else
 		{
 			// Viewport is still within the splitter, so use it for metrics directly
-			OwnerWindow = FSlateApplication::Get().FindWidgetWindow( Entity->AsWidget(), ViewportWidgetPath );
+			FSlateApplication::Get().GeneratePathToWidgetUnchecked( Entity->AsWidget(), ViewportWidgetPath );
+			OwnerWindow = ViewportWidgetPath.TopLevelWindow;
 		}
 		bIsQueryingLayoutMetrics = false;
 

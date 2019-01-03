@@ -1513,8 +1513,7 @@ void SNewProjectWizard::CloseWindowIfAppropriate( bool ForceClose )
 {
 	if ( ForceClose || FApp::HasProjectName() )
 	{
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath);
+		TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 		if ( ContainingWindow.IsValid() )
 		{
