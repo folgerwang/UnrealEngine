@@ -156,6 +156,134 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 FPrimitiveSceneInfo::~FPrimitiveSceneInfo()
 {
 	check(!OctreeId.IsValidId());
+
+	RemoveCachedMeshDrawCommands();
+}
+
+void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmdList)
+{
+	check(StaticMeshCommandInfos.Num() == 0);
+
+	// TEMP: optionally allow to switch off mesh command caching for cooked mobile
+	extern int32 MeshDrawCommandPipelineMobileCooked();
+	const int32 CacheMeshCommandsVal = MeshDrawCommandPipelineMobileCooked();
+	if (CacheMeshCommandsVal <= 0)
+	{
+		return;
+	}
+
+
+	int32 MeshWithCachedCommandsNum = 0;
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
+	{
+		const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+		if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy))
+		{
+			++MeshWithCachedCommandsNum;
+		}
+	}
+
+	if (MeshWithCachedCommandsNum > 0)
+	{
+		//@todo - only need material uniform buffers to be created since we are going to cache pointers to them
+		// Any updates (after initial creation) don't need to be forced here
+		FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
+
+		// Reserve based on assumption that we have on average 2 cached mesh draw commands per mesh.
+		StaticMeshCommandInfos.Reserve(MeshWithCachedCommandsNum * 2);
+
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_CacheMeshDrawCommands);
+		FMemMark Mark(FMemStack::Get());
+
+		const EShadingPath ShadingPath = Scene->GetShadingPath();
+
+		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
+		{
+			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+
+			check(MeshRelevance.CommandInfosMask == 0);
+			MeshRelevance.CommandInfosBase = StaticMeshCommandInfos.Num();
+
+			if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy))
+			{
+				for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+				{
+					EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+					if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands) != EMeshPassFlags::None)
+					{
+						FCachedMeshDrawCommandInfo CommandInfo;
+						CommandInfo.CommandIndex = -1;
+						CommandInfo.MeshPass = PassType;
+
+						FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
+						FCachedPassMeshDrawListContext CachedPassMeshDrawListContext(CommandInfo, SceneDrawList, *Scene);
+
+						PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
+						FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, nullptr, CachedPassMeshDrawListContext);
+
+						if (PassMeshProcessor != nullptr)
+						{
+							check(!Mesh.bRequiresPerElementVisibility);
+							uint64 BatchElementMask = ~0ull;
+							PassMeshProcessor->AddMeshBatch(Mesh, BatchElementMask, Proxy);
+
+							PassMeshProcessor->~FMeshPassProcessor();
+						}
+
+						if (CommandInfo.CommandIndex != -1)
+						{
+							static_assert(sizeof(MeshRelevance.CommandInfosMask) * 8 >= EMeshPass::Num, "CommandInfosMask is too small to contain all mesh passes.");
+
+							MeshRelevance.CommandInfosMask |= (1 << PassType);
+
+							StaticMeshCommandInfos.Add(CommandInfo);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
+{
+	for (int32 CommandIndex = 0; CommandIndex < StaticMeshCommandInfos.Num(); ++CommandIndex)
+	{
+		const FCachedMeshDrawCommandInfo& CachedCommand = StaticMeshCommandInfos[CommandIndex];
+		if (CachedCommand.CommandIndex != -1)
+		{
+			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[CachedCommand.MeshPass];
+
+			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
+			checkSlow(StateBucketId.IsValidId());
+			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
+			if (CachedCommand.StateBucketId != -1)
+			{
+				if (StateBucket.Num == 1)
+				{
+					Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
+				}
+				else
+				{
+					StateBucket.Num--;
+				}
+			}
+
+			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);
+		}
+	}
+
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
+	{
+		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+
+		MeshRelevance.CommandInfosBase = 0;
+		MeshRelevance.CommandInfosMask = 0;
+	}
+
+	StaticMeshCommandInfos.Empty();
 }
 
 void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, bool bAddToStaticDrawLists)
@@ -195,6 +323,8 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 		}
 	}
 
+	CacheMeshDrawCommands(RHICmdList);
+
 #if RHI_RAYTRACING
 	int MaxLOD = -1;
 
@@ -214,21 +344,23 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 
-			if (Proxy->ScreenSizes[Mesh.LODIndex] != 0.0f)
+			if (Proxy->ScreenSizes[MeshRelevance.LODIndex] != 0.0f)
 			{
-				check(Proxy->ScreenSizes[Mesh.LODIndex] == MeshRelevance.ScreenSize);
+				check(Proxy->ScreenSizes[MeshRelevance.LODIndex] == MeshRelevance.ScreenSize);
 			}
 			else
 			{
 				check(MeshRelevance.ScreenSize != 0.0f);
-				Proxy->ScreenSizes[Mesh.LODIndex] = MeshRelevance.ScreenSize;
+				Proxy->ScreenSizes[MeshRelevance.LODIndex] = MeshRelevance.ScreenSize;
 			}
 
 			if (Mesh.Elements.Num() > 0)
 			{
-				const int32 CommandIndex = Mesh.CachedMeshDrawCommands[EMeshPass::RayTracing].CommandIndex;
-				if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy) && CommandIndex != -1)
+				const int32 RayTracingStaticMeshCommandInfoIndex = MeshRelevance.GetStaticMeshCommandInfoIndex(EMeshPass::RayTracing);
+
+				if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy) && RayTracingStaticMeshCommandInfoIndex != -1)
 				{
+					const int32 CommandIndex = StaticMeshCommandInfos[RayTracingStaticMeshCommandInfoIndex].CommandIndex;
 					Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, CommandIndex });
 				}
 				else
@@ -412,6 +544,7 @@ void FPrimitiveSceneInfo::RemoveStaticMeshes()
 	// Remove static meshes from the scene.
 	StaticMeshes.Empty();
 	StaticMeshRelevances.Empty();
+	RemoveCachedMeshDrawCommands();
 }
 
 void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
@@ -488,6 +621,12 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 		{
 			StaticMeshes[MeshIndex].AddToDrawLists(RHICmdList, Scene);
 		}
+	}
+
+	RemoveCachedMeshDrawCommands();
+	if (bReAddToDrawLists)
+	{
+		CacheMeshDrawCommands(RHICmdList);
 	}
 }
 

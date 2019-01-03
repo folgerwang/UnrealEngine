@@ -38,7 +38,8 @@ namespace EMeshPass
 		EditorSelection,
 #endif
 
-		Num
+		Num,
+		NumBits = 5,
 	};
 }
 
@@ -567,6 +568,7 @@ public:
 		SortKey(FMeshDrawCommandSortKey::Default),
 		CommandIndex(-1),
 		StateBucketId(-1),
+		MeshPass(EMeshPass::Num),
 		MeshFillMode(ERasterizerFillMode_Num),
 		MeshCullMode(ERasterizerCullMode_Num)
 	{}
@@ -575,6 +577,9 @@ public:
 
 	int32 CommandIndex;
 	int32 StateBucketId;
+
+	// Needed for easier debugging and faster removal of cached mesh draw commands.
+	EMeshPass::Type MeshPass : EMeshPass::NumBits;
 
 	// Needed for view overrides
 	ERasterizerFillMode MeshFillMode : ERasterizerFillMode_NumBits;

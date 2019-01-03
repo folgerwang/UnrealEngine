@@ -149,9 +149,6 @@ public:
 	/** Index of the mesh into the scene's StaticMeshBatchVisibility array. */
 	int32 BatchVisibilityId;
 
-	/** Cached mesh draw commands for this FStaticMesh. */
-	FCachedMeshDrawCommandInfo CachedMeshDrawCommands[EMeshPass::Num];
-
 	// Constructor/destructor.
 	FStaticMesh(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
@@ -176,8 +173,6 @@ public:
 
 	/** Adds the static mesh to the appropriate draw lists in a scene. */
 	void AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene);
-
-	void CacheMeshDrawCommands(FScene* Scene);
 
 	/** Removes the static mesh from all draw lists. */
 	void RemoveFromDrawLists(bool bMeshIsBeingDestroyed = false);
@@ -204,6 +199,8 @@ public:
 	FStaticMeshRelevance(const FStaticMesh& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
 		: Id(StaticMesh.Id)
 		, ScreenSize(InScreenSize)
+		, CommandInfosMask(0)
+		, CommandInfosBase(0)
 		, LODIndex(StaticMesh.LODIndex)
 		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
 		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
@@ -221,6 +218,12 @@ public:
 
 	/** The screen space size to draw this primitive at */
 	float ScreenSize;
+
+	/** Starting offset into continuous array of command infos for this mesh in FPrimitiveSceneInfo::CachedMeshDrawCommandInfos. */
+	uint32 CommandInfosMask;
+
+	/* Every bit corresponds to one MeshPass. If bit is set, then FPrimitiveSceneInfo::CachedMeshDrawCommandInfos contains this mesh pass. */
+	uint16 CommandInfosBase;
 
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
@@ -241,6 +244,9 @@ public:
 
 	/** Cached from vertex factory to avoid dereferencing VF in InitViews. */
 	uint32 bSupportsCachingMeshDrawCommands : 1;
+
+	/** Computes index of cached mesh draw command in FPrimitiveSceneInfo::CachedMeshDrawCommandInfos, for a given mesh pass. */
+	int32 GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const;
 };
 
 /** The properties of a exponential height fog layer which are used for rendering. */

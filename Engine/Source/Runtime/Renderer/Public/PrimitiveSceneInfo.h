@@ -211,7 +211,10 @@ public:
 	 */
 	FPrimitiveComponentId LODParentComponentId;
 
-	/** The primitive's static mesh relevances. Must be in sync with StaticMeshes. */
+	/** The primitive's cached mesh draw commands infos for all static meshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
+	TArray<class FCachedMeshDrawCommandInfo> StaticMeshCommandInfos;
+
+	/** The primitive's static mesh relevances. Must be in sync with StaticMeshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
 	TArray<class FStaticMeshRelevance> StaticMeshRelevances;
 
 	/** The primitive's static meshes. */
@@ -456,6 +459,12 @@ private:
 		FVector VolumetricLightmapLookupPosition,
 		uint32 SceneFrameNumber,
 		class FVolumetricLightmapSceneData* VolumetricLightmapSceneData);
+
+	/** Creates cached mesh draw commands for all meshes. */
+	void CacheMeshDrawCommands(FRHICommandListImmediate& RHICmdList);
+
+	/** Removes cached mesh draw commands for all meshes. */
+	void RemoveCachedMeshDrawCommands();
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

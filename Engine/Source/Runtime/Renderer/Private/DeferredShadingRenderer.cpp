@@ -675,12 +675,15 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 						const auto& StaticMeshMdcIndices = SceneProxy->RayTracingLodIndexToMeshDrawCommandIndicies[LODToRender.GetRayTracedLOD()];
 						for (int StaticMeshIndex = 0; StaticMeshIndex < StaticMeshMdcIndices.Num(); StaticMeshIndex++)
 						{
-							FStaticMesh& StaticMesh = Scene->Primitives[PrimitiveIndex]->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+							const FPrimitiveSceneInfo* PrimitiveInfo = Scene->Primitives[PrimitiveIndex];
+							const FStaticMeshRelevance& StaticMeshRelevance = PrimitiveInfo->StaticMeshRelevances[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+
 							const int32 CommandIndex = StaticMeshMdcIndices[StaticMeshIndex].CommandIndex;
 							if (CommandIndex >= 0)
 							{
 								const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[EMeshPass::RayTracing];
-								const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = StaticMesh.CachedMeshDrawCommands[EMeshPass::RayTracing];
+								const int32 RayTracingStaticMeshCommandInfoIndex = StaticMeshRelevance.GetStaticMeshCommandInfoIndex(EMeshPass::RayTracing);
+								const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = Scene->Primitives[PrimitiveIndex]->StaticMeshCommandInfos[RayTracingStaticMeshCommandInfoIndex];
 								FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
 								NewVisibleMeshDrawCommand.Setup(
@@ -695,6 +698,8 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							}
 							else
 							{
+								const FStaticMesh& StaticMesh = PrimitiveInfo->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+
 								uint64 BatchVisibility = 1;
 								if (StaticMesh.bRequiresPerElementVisibility)
 								{

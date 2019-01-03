@@ -797,26 +797,28 @@ void FProjectedShadowInfo::SetupWholeSceneProjection(
 }
 
 void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
-	int32 PrimitiveIndex, 
+	int32 PrimitiveIndex,
+	const FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 	const FStaticMeshRelevance& RESTRICT StaticMeshRelevance,
-	const FStaticMesh& RESTRICT StaticMesh, 
-	const FScene* RESTRICT Scene, 
+	const FStaticMesh& StaticMesh,
+	const FScene* Scene,
 	EMeshPass::Type PassType,
-	FMeshCommandOneFrameArray& RESTRICT VisibleMeshCommands,
-	TArray<const FStaticMesh*, SceneRenderingAllocator>& RESTRICT MeshCommandBuildRequests)
+	FMeshCommandOneFrameArray& VisibleMeshCommands,
+	TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests)
 {
 	if (UseMeshDrawCommandPipeline())
 	{
-		EShadingPath ShadingPath = Scene->GetShadingPath();
+		const EShadingPath ShadingPath = Scene->GetShadingPath();
 		const bool bUseCachedMeshCommand = UseCachedMeshDrawCommands()
 			&& !!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
 			&& StaticMeshRelevance.bSupportsCachingMeshDrawCommands;
 
 		if (bUseCachedMeshCommand)
 		{
-			const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = StaticMesh.CachedMeshDrawCommands[PassType];
-			if (CachedMeshDrawCommand.CommandIndex != -1)
+			const int32 StaticMeshCommandInfoIndex = StaticMeshRelevance.GetStaticMeshCommandInfoIndex(PassType);
+			if (StaticMeshCommandInfoIndex >= 0)
 			{
+				const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = InPrimitiveSceneInfo->StaticMeshCommandInfos[StaticMeshCommandInfoIndex];
 				const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
 
 				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
@@ -923,6 +925,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 						{
 							AddCachedMeshDrawCommandsForPass(
 								PrimitiveId,
+								InPrimitiveSceneInfo,
 								StaticMeshRelevance,
 								StaticMesh,
 								InPrimitiveSceneInfo->Scene,

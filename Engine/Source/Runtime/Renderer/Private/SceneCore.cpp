@@ -315,6 +315,28 @@ void FLightPrimitiveInteraction::FlushCachedShadowMapData()
 	}
 }
 
+int32 FStaticMeshRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const
+{
+	static_assert(sizeof(CommandInfosMask) * 8 >= EMeshPass::Num, "CommandInfosMask is too small to contain all mesh passes.");
+
+	int32 CommandInfoIndex = CommandInfosBase;
+
+	if ((CommandInfosMask & (1 << MeshPass)) == 0)
+	{
+		return -1;
+	}
+
+	for (int32 MeshPassIndex = 0; MeshPassIndex < MeshPass; ++MeshPassIndex)
+	{
+		if (CommandInfosMask & (1 << MeshPassIndex))
+		{
+			++CommandInfoIndex;
+		}
+	}
+
+	return CommandInfoIndex;
+}
+
 /*-----------------------------------------------------------------------------
 	FStaticMesh
 -----------------------------------------------------------------------------*/
@@ -340,11 +362,6 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 	extern int32 MeshDrawCommandPipelineMobileCooked();
 	const int32 CacheMeshCommandsVal = MeshDrawCommandPipelineMobileCooked();
 
-	if (SupportsCachingMeshDrawCommands(VertexFactory, PrimitiveSceneInfo->Proxy) && CacheMeshCommandsVal > 0)
-	{
-		CacheMeshDrawCommands(Scene);
-	}
-
 	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass() || !ShouldIncludeDomainInMeshPass(MaterialRenderProxy->GetMaterial(FeatureLevel)->GetMaterialDomain()))
 	{
 		return;
@@ -366,41 +383,6 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 		{
 			// Add the static mesh to the DPG's base pass draw list.
 			FMobileBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-		}
-	}
-}
-
-void FStaticMesh::CacheMeshDrawCommands(FScene* Scene)
-{
-	//@todo - only need material uniform buffers to be created since we are going to cache pointers to them
-	// Any updates (after initial creation) don't need to be forced here
-	FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
-
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_CacheMeshDrawCommands);
-	FMemMark Mark(FMemStack::Get());
-
-	EShadingPath ShadingPath = Scene->GetShadingPath();
-
-	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
-	{
-		EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
-
-		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands) != EMeshPassFlags::None)
-		{
-			FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
-			FCachedPassMeshDrawListContext CachedPassMeshDrawListContext(CachedMeshDrawCommands[PassType], SceneDrawList, *Scene);
-
-			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
-			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, nullptr, CachedPassMeshDrawListContext);
-
-			if (PassMeshProcessor != nullptr)
-			{
-				check(!bRequiresPerElementVisibility);
-				uint64 BatchElementMask = ~0ull;
-				PassMeshProcessor->AddMeshBatch(*this, BatchElementMask, PrimitiveSceneInfo->Proxy);
-
-				PassMeshProcessor->~FMeshPassProcessor();
-			}
 		}
 	}
 }
@@ -431,36 +413,6 @@ void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
 				check(DrawListLinks[0] != Link);
 			}
 		}
-	}
-
-	FScene* Scene = PrimitiveSceneInfo->Scene;
-
-	for (int32 PassIndex = 0; PassIndex < ARRAY_COUNT(CachedMeshDrawCommands); PassIndex++)
-	{
-		const FCachedMeshDrawCommandInfo& CachedCommand = CachedMeshDrawCommands[PassIndex];
-		if (CachedCommand.CommandIndex != -1)
-		{
-			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[PassIndex];
-
-			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
-			checkSlow(StateBucketId.IsValidId());
-			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
-			if (CachedCommand.StateBucketId != -1)
-			{
-				if (StateBucket.Num == 1)
-				{
-					Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
-				}
-				else
-				{
-					StateBucket.Num--;
-				}
-			}
-		
-			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);
-		}
-
-		CachedMeshDrawCommands[PassIndex] = FCachedMeshDrawCommandInfo();
 	}
 }
 
