@@ -17,7 +17,8 @@ protected:
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
+		// Built-in ray tracing shaders are always compiled for RHIs that support them, regardless of whether RT is enabled for the project.
+		return RHISupportsRayTracingShaders(Parameters.Platform);
 	}
 
 	FBuiltInRayTracingShader() = default;
