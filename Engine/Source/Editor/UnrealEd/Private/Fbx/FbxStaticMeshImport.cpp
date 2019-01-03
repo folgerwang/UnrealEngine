@@ -2328,7 +2328,9 @@ bool UnFbx::FFbxImporter::FillCollisionModelList(FbxNode* Node)
 				{
 					Record = Models->GetValue();
 				}
-				Record->Add(Node);
+
+				//Unique add
+				Record->AddUnique(Node);
 			}
 		}
 
