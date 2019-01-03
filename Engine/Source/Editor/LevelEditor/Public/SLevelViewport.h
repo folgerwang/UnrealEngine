@@ -434,7 +434,7 @@ private:
 	/**
 	 * Called to create a cameraActor in the currently selected perspective viewport
 	 */
-	void OnCreateCameraActor();
+	void OnCreateCameraActor(UClass *InClass);
 
 	/**
 	 * Called to bring up the screenshot UI
