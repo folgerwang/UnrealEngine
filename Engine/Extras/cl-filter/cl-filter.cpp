@@ -79,9 +79,16 @@ int wmain(int ArgC, const wchar_t* ArgV[])
 	CloseHandle(StdOutWriteHandle);
 	CloseHandle(StdErrWriteHandle);
 
+	// Delete the output file
+	DeleteFileW(OutputFileName);
+
+	// Get the path to a temporary output filename
+	std::wstring TempOutputFileName(OutputFileName);
+	TempOutputFileName += L".tmp";
+
 	// Create a file to contain the dependency list
 	FILE* OutputFile;
-	if (_wfopen_s(&OutputFile, OutputFileName, L"wt") != 0)
+	if (_wfopen_s(&OutputFile, TempOutputFileName.c_str(), L"wt") != 0)
 	{
 		wprintf(L"ERROR: Unable to open %s for output", OutputFileName);
 		return -1;
@@ -198,6 +205,12 @@ int wmain(int ArgC, const wchar_t* ArgV[])
 	}
 
 	fclose(OutputFile);
+
+	if (ExitCode == 0 && !MoveFile(TempOutputFileName.c_str(), OutputFileName))
+	{
+		wprintf(L"ERROR: Unable to rename %s to %s\n", TempOutputFileName.c_str(), OutputFileName);
+		ExitCode = 1;
+	}
 
 	return ExitCode;
 }

@@ -113,7 +113,16 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			return TryGetDependenciesInternal(InputFile, out OutDependencyItems);
+			try
+			{
+				return TryGetDependenciesInternal(InputFile, out OutDependencyItems);
+			}
+			catch(Exception Ex)
+			{
+				Log.TraceLog("Unable to read {0}:\n{1}", InputFile, ExceptionUtils.FormatExceptionDetails(Ex));
+				OutDependencyItems = null;
+				return false;
+			}
 		}
 
 		/// <summary>
