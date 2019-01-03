@@ -353,7 +353,7 @@ IModuleInterface* FModuleManager::LoadModule( const FName InModuleName )
 	IModuleInterface* Result = LoadModuleWithFailureReason(InModuleName, FailureReason );
 
 	// This should return a valid pointer only if and only if the module is loaded
-	check((Result != nullptr) == IsModuleLoaded(InModuleName));
+	checkSlow((Result != nullptr) == IsModuleLoaded(InModuleName));
 
 	return Result;
 }

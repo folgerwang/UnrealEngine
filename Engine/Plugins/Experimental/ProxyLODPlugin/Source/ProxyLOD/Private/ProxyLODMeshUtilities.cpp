@@ -12,6 +12,12 @@
 
 #include <DirectXMeshCode/DirectXMesh/DirectXMesh.h>
 
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+
+#include "MeshDescriptionOperations.h"
+
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -21,22 +27,41 @@
 #ifndef  PROXYLOD_CLOCKWISE_TRIANGLES
 	#define PROXYLOD_CLOCKWISE_TRIANGLES  1
 #endif
-// Compute a tangent space for a FRawMesh 
+// Compute a tangent space for a FMeshDescription 
 
-void ProxyLOD::ComputeTangentSpace( FRawMesh& RawMesh, const bool bRecomputeNormals)
+void ProxyLOD::ComputeTangentSpace(FMeshDescription& RawMesh, const bool bRecomputeNormals)
 {
+	FVertexInstanceArray& VertexInstanceArray = RawMesh.VertexInstances();
+	TVertexInstanceAttributesRef<FVector> Normals = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> Tangents = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> BinormalSigns = RawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
 
-	// Used to compute the Mikk-Tangent space
-	IMeshUtilities& Utilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	// Static meshes always blend normals of overlapping corners.
+	uint32 TangentOptions = FMeshDescriptionOperations::ETangentOptions::BlendOverlappingNormals | FMeshDescriptionOperations::ETangentOptions::IgnoreDegenerateTriangles;
 
-	const bool bRecomputeTangents = true;
+	//Keep the original mesh description NTBs if we do not rebuild the normals or tangents.
+	bool bHasAllNormals = true;
+	bool bHasAllTangents = true;
+	for (const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs())
+	{
+		//Dump the tangents
+		BinormalSigns[VertexInstanceID] = 0.0f;
+		Tangents[VertexInstanceID] = FVector(0.0f);
 
-	FMeshBuildSettings BuildSettings;
-	BuildSettings.bUseMikkTSpace = true;
-	BuildSettings.bRemoveDegenerates = true; // this is really being used to help identify duplicate 'wedges' 
+		if (bRecomputeNormals)
+		{
+			//Dump the normals
+			Normals[VertexInstanceID] = FVector(0.0f);
+		}
+		bHasAllNormals &= !Normals[VertexInstanceID].IsNearlyZero();
+		bHasAllTangents &= !Tangents[VertexInstanceID].IsNearlyZero();
+	}
 
-	Utilities.RecomputeTangentsAndNormalsForRawMesh(bRecomputeTangents, bRecomputeNormals, BuildSettings, RawMesh);
-
+	if (!bHasAllNormals)
+	{
+		FMeshDescriptionOperations::CreateNormals(RawMesh, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, false);
+	}
+	FMeshDescriptionOperations::CreateMikktTangents(RawMesh, (FMeshDescriptionOperations::ETangentOptions)TangentOptions);
 }
 
 // Calls into the direxXMesh library to compute the per-vertex normal, by default this will weight by area.
@@ -1434,19 +1459,156 @@ void ProxyLOD::AddNormals(TAOSMesh<FPositionOnlyVertex>& InOutMesh)
 		return TestCount;
 	}
 
+/**
+* Attempt to correct the collapsed walls.
+* NB: The kDOP tree is already built, using the same mesh.
+*
+* @param Indices  - mesh conectivity
+* @param Positions - vertex locations: maybe changed by this function.
+* @param VoxelSize - length scale used in heuristic that determins how far to move vertices.
+*/
+int32 CorrectCollapsedWalls(const ProxyLOD::FkDOPTree& kDOPTree,
+	FMeshDescription& MeshDescription,
+	const float VoxelSize)
+{
+	typedef uint32 EdgeIdType;
+	typedef uint32 FaceIdType;
+	TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
-int32 ProxyLOD::CorrectCollapsedWalls( FRawMesh& InOutMesh, 
-	                                   const float VoxelSize )
+	ProxyLOD::FUnitTransformDataProvider kDOPDataProvider(kDOPTree);
+
+	// Number of triangle in our mesh
+	int32 NumTriangle = 0;
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		NumTriangle += MeshDescription.GetPolygonTriangles(PolygonID).Num();
+	}
+
+	// This will hold the intersecting faces for each edge.
+
+	std::unordered_map<FaceIdType, std::vector<FaceIdType>> IntersectionListMap;
+
+	//const auto* Indices = IndexArray.GetData();
+	//auto* Pos = PositionArray.GetData();
+
+	// loop over the polys and collect the names of the faces that intersect.
+	auto GetFace = [&MeshDescription, &VertexPositions](int32 FaceIdx, FVector(&Verts)[3])
+	{
+		const FVertexID Idx[3] = { MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx)),
+								MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx + 1)),
+								MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx + 2)) };
+
+		Verts[0] = VertexPositions[Idx[0]];
+		Verts[1] = VertexPositions[Idx[1]];
+		Verts[2] = VertexPositions[Idx[2]];
+	};
+
+	auto GetFaceNormal = [&GetFace](int32 FaceIdx)->FVector
+	{
+		FVector Verts[3];
+		GetFace(FaceIdx, Verts);
+
+		return ComputeNormal(Verts);
+	};
+
+	int32 TestCount = 0;
+	for (int32 FaceIdx = 0; FaceIdx < NumTriangle; ++FaceIdx)
+	{
+		FVector Verts[3];
+		GetFace(FaceIdx, Verts);
+
+		const FVector FaceNormal = ComputeNormal(Verts);
+
+		// loop over these three edges.
+		for (int32 j = 0; j < 3; ++j)
+		{
+			int32 sV = j;
+			int32 eV = (j + 1) % 3;
+
+			FkHitResult kDOPResult;
+
+			TkDOPLineCollisionCheck<const ProxyLOD::FUnitTransformDataProvider, uint32>  EdgeRay(Verts[sV], Verts[eV], true, kDOPDataProvider, &kDOPResult);
+
+			bool bHit = kDOPTree.LineCheck(EdgeRay);
+
+			if (bHit)
+			{
+				// Triangle we hit
+				int32 HitTriId = kDOPResult.Item;
+
+				// Don't count a hit against myself
+				if (HitTriId == FaceIdx)
+				{
+					continue;
+				}
+
+				// Make sure the hit wasn't just one of the verts.
+				if (kDOPResult.Time > 0.999 || kDOPResult.Time < 0.001)
+				{
+					continue;
+				}
+
+				// We only care about faces pointing in opposing directions
+				const FVector HitFaceNormal = GetFaceNormal(HitTriId);
+				if (FVector::DotProduct(FaceNormal, HitFaceNormal) > -0.94f) // not in 160 to 200 degrees
+				{
+					continue;
+				}
+
+				TestCount++;
+
+				auto Search = IntersectionListMap.find(FaceIdx);
+				if (Search != IntersectionListMap.end())
+				{
+					auto& FaceList = Search->second;
+					if (std::find(FaceList.begin(), FaceList.end(), HitTriId) == FaceList.end())
+					{
+						FaceList.push_back(HitTriId);
+					}
+				}
+				else
+				{
+					std::vector<FaceIdType> FaceList;
+					FaceList.push_back(HitTriId);
+					IntersectionListMap[FaceIdx] = FaceList;
+				}
+			}
+		}
+	}
+
+	//For each triangle that collides, push it a small fixed distance in the normal direction.
+	{
+		for (auto ListMapIter = IntersectionListMap.begin(); ListMapIter != IntersectionListMap.end(); ++ListMapIter)
+		{
+			int32 FaceIdx = ListMapIter->first;
+			const FVector TriNormal = GetFaceNormal(FaceIdx);
+
+			// Scale by a small amount
+
+			const FVector NormDisplacement = TriNormal * (VoxelSize / 7.f);
+
+			const FVertexID Idx[3] = {	MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx)),
+										MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx + 1)),
+										MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * FaceIdx + 2)) };
+
+			VertexPositions[Idx[0]] += NormDisplacement;
+			VertexPositions[Idx[1]] += NormDisplacement;
+			VertexPositions[Idx[2]] += NormDisplacement;
+		}
+
+	}
+	return TestCount;
+}
+
+int32 ProxyLOD::CorrectCollapsedWalls(FMeshDescription& InOutMeshDescription, const float VoxelSize)
 {
 	// Build an acceleration structure
 
 	FkDOPTree kDOPTree;
-	BuildkDOPTree(InOutMesh, kDOPTree);
+	BuildkDOPTree(InOutMeshDescription, kDOPTree);
 
-	return CorrectCollapsedWalls(kDOPTree, InOutMesh.WedgeIndices, InOutMesh.VertexPositions, VoxelSize);
-	
+	return CorrectCollapsedWalls(kDOPTree, InOutMeshDescription, VoxelSize);
 }
-
 
 int32 ProxyLOD::CorrectCollapsedWalls(FVertexDataMesh& InOutMesh,
 	const float VoxelSize)
@@ -1508,7 +1670,7 @@ void ProxyLOD::TestUniqueVertexes(const FAOSMesh& InMesh)
 }
 
 
-void ProxyLOD::ColorPartitions(FRawMesh& InOutRawMesh, const std::vector<uint32>& partitionResults)
+void ProxyLOD::ColorPartitions(FMeshDescription& InOutRawMesh, const std::vector<uint32>& partitionResults)
 {
 
 	// testing - coloring the simplified mesh by the partitions generated by uvatlas
@@ -1516,13 +1678,33 @@ void ProxyLOD::ColorPartitions(FRawMesh& InOutRawMesh, const std::vector<uint32>
 		FColor(153, 102, 0), FColor(249, 129, 162), FColor(29, 143, 177), FColor(118, 42, 145),
 		FColor(255, 121, 75), FColor(102, 204, 51), FColor(153, 153, 255), FColor(255, 255, 255) };
 
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = InOutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+
+	//Remap the vertex instance
+	int32 TriangleIndex = 0;
+	TMap<uint32, FVertexInstanceID> WedgeIndexToVertexInstanceID;
+	WedgeIndexToVertexInstanceID.Reserve(InOutRawMesh.VertexInstances().Num());
+	for (const FPolygonID& PolygonID : InOutRawMesh.Polygons().GetElementIDs())
+	{
+		const FMeshPolygon& Polygon = InOutRawMesh.GetPolygon(PolygonID);
+		for (const FMeshTriangle& Triangle : Polygon.Triangles)
+		{
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				WedgeIndexToVertexInstanceID.Add((TriangleIndex * 3) + Corner, Triangle.GetVertexInstanceID(Corner));
+			}
+			TriangleIndex++;
+		}
+	}
+
 	for (int i = 0; i < partitionResults.size(); ++i)
 	{
 		uint32 PId = partitionResults[i];
-		uint32 WedgeId = i * 3;
-		InOutRawMesh.WedgeColors[WedgeId + 0] = Range[PId % 13];
-		InOutRawMesh.WedgeColors[WedgeId + 1] = Range[PId % 13];
-		InOutRawMesh.WedgeColors[WedgeId + 2] = Range[PId % 13];
+		for (int32 Corner = 0; Corner < 3; ++Corner)
+		{
+			FVertexInstanceID VertexInstanceID = WedgeIndexToVertexInstanceID[(i * 3) + Corner];
+			VertexInstanceColors[VertexInstanceID] = FLinearColor(Range[PId % 13]);
+		}
 	}
 }
 
@@ -1548,27 +1730,30 @@ void ProxyLOD::ColorPartitions(FVertexDataMesh& InOutMesh, const std::vector<uin
 }
 
 
-void ProxyLOD::AddWedgeColors(FRawMesh& RawMesh)
+void ProxyLOD::AddWedgeColors(FMeshDescription& RawMesh)
 {
 
 	FColor ColorRange[13] = { FColor(255, 0, 0), FColor(0, 255, 0), FColor(0, 0, 255), FColor(255, 255, 0), FColor(0, 255, 255),
 		FColor(153, 102, 0), FColor(249, 129, 162), FColor(29, 143, 177), FColor(118, 42, 145),
 		FColor(255, 121, 75), FColor(102, 204, 51), FColor(153, 153, 255), FColor(255, 255, 255) };
 
-	int32 NumIndices = RawMesh.WedgeIndices.Num();
-	auto& WedgeColors = RawMesh.WedgeColors;
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
 
-	ResizeArray(WedgeColors, NumIndices);
-
-	ProxyLOD::Parallel_For(ProxyLOD::FIntRange(0, NumIndices),
-		[&ColorRange, &WedgeColors](const ProxyLOD::FIntRange& Range)
+	//Recolor the vertex instances
+	int32 TriangleIndex = 0;
+	for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
 	{
-		for (int32 i = Range.begin(), I = Range.end(); i < I; ++i)
+		const FMeshPolygon& Polygon = RawMesh.GetPolygon(PolygonID);
+		for (const FMeshTriangle& Triangle : Polygon.Triangles)
 		{
-			WedgeColors[i] = ColorRange[i % 13];
-		}
-	});
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
 
+				VertexInstanceColors[Triangle.GetVertexInstanceID(Corner)] = FLinearColor(ColorRange[((TriangleIndex*3) + Corner) % 13]);
+			}
+			TriangleIndex++;
+		}
+	}
 }
 
 
@@ -1657,7 +1842,7 @@ void ProxyLOD::AddNormals(FAOSMesh& InOutMesh)
 // Unused
 #if 0
 // Computes the face normals and assigns them to the wedges TangentZ
-static void ComputeRawMeshNormals(FRawMesh& InOutMesh)
+static void ComputeRawMeshNormals(FMeshDescription& InOutMesh)
 {
 	const int32 NumFaces = InOutMesh.WedgeIndices.Num() / 3;
 

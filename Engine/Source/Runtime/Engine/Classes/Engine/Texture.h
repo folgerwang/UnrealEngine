@@ -700,12 +700,12 @@ public:
 	/**
 	 * Begins caching platform data in the background.
 	 */
-	void BeginCachePlatformData();
+	ENGINE_API void BeginCachePlatformData();
 
 	/**
 	 * Returns true if all async caching has completed.
 	 */
-	bool IsAsyncCacheComplete();
+	ENGINE_API bool IsAsyncCacheComplete();
 
 	/**
 	 * Blocks on async cache tasks and prepares platform data for use.

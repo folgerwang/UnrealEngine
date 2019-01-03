@@ -64,7 +64,7 @@ namespace MeshDescriptionOperationNamespace
 //////////////////////////////////////////////////////////////////////////
 // Converters
 
-void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh)
+void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, TArray<uint32>& FaceSmoothingMasks)
 {
 	TMap<FPolygonID, uint32> PolygonSmoothGroup;
 	PolygonSmoothGroup.Reserve(SourceMeshDescription.Polygons().GetArraySize());
@@ -74,9 +74,10 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 	TMap < FPolygonID, uint32> PolygonAvoidances;
 
 	TEdgeAttributesConstRef<bool> EdgeHardnesses = SourceMeshDescription.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
-
+	int32 TriangleCount = 0;
 	for (const FPolygonID PolygonID : SourceMeshDescription.Polygons().GetElementIDs())
 	{
+		TriangleCount += SourceMeshDescription.GetPolygonTriangles(PolygonID).Num();
 		if (ConsumedPolygons[PolygonID.GetValue()])
 		{
 			continue;
@@ -174,7 +175,8 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 			ConsumedPolygons[CurrentPolygonID.GetValue()] = true;
 		}
 	}
-	//Now we have to put the data into the RawMesh
+	//Set the smooth group in the FaceSmoothingMasks parameter
+	check(FaceSmoothingMasks.Num() == TriangleCount);
 	int32 TriangleIndex = 0;
 	for (const FPolygonID PolygonID : SourceMeshDescription.Polygons().GetElementIDs())
 	{
@@ -182,7 +184,7 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 		const TArray<FMeshTriangle>& Triangles = SourceMeshDescription.GetPolygonTriangles(PolygonID);
 		for (const FMeshTriangle& MeshTriangle : Triangles)
 		{
-			DestinationRawMesh.FaceSmoothingMasks[TriangleIndex++] = PolygonSmoothValue;
+			FaceSmoothingMasks[TriangleIndex++] = PolygonSmoothValue;
 		}
 	}
 }
@@ -276,8 +278,13 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 	DestinationRawMesh.FaceMaterialIndices.AddZeroed(TriangleNumber);
 	DestinationRawMesh.FaceSmoothingMasks.AddZeroed(TriangleNumber);
 
+	bool bHasVertexColor = HasVertexColor(SourceMeshDescription);
+
 	int32 WedgeIndexNumber = TriangleNumber * 3;
-	DestinationRawMesh.WedgeColors.AddZeroed(WedgeIndexNumber);
+	if (bHasVertexColor)
+	{
+		DestinationRawMesh.WedgeColors.AddZeroed(WedgeIndexNumber);
+	}
 	DestinationRawMesh.WedgeIndices.AddZeroed(WedgeIndexNumber);
 	DestinationRawMesh.WedgeTangentX.AddZeroed(WedgeIndexNumber);
 	DestinationRawMesh.WedgeTangentY.AddZeroed(WedgeIndexNumber);
@@ -303,14 +310,17 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 			}
 			else
 			{
-				DestinationRawMesh.FaceMaterialIndices[TriangleIndex] = 0;
+				DestinationRawMesh.FaceMaterialIndices[TriangleIndex] = PolygonGroupID.GetValue();
 			}
 			DestinationRawMesh.FaceSmoothingMasks[TriangleIndex] = 0; //Conversion of soft/hard to smooth mask is done after the geometry is converted
 			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
 				const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
 
-				DestinationRawMesh.WedgeColors[WedgeIndex] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+				if (bHasVertexColor)
+				{
+					DestinationRawMesh.WedgeColors[WedgeIndex] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+				}
 				DestinationRawMesh.WedgeIndices[WedgeIndex] = RemapVerts[SourceMeshDescription.GetVertexInstanceVertex(VertexInstanceID).GetValue()];
 				DestinationRawMesh.WedgeTangentX[WedgeIndex] = VertexInstanceTangents[VertexInstanceID];
 				DestinationRawMesh.WedgeTangentY[WedgeIndex] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
@@ -325,7 +335,7 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 		}
 	}
 	//Convert the smoothgroup
-	ConvertHardEdgesToSmoothGroup(SourceMeshDescription, DestinationRawMesh);
+	ConvertHardEdgesToSmoothGroup(SourceMeshDescription, DestinationRawMesh.FaceSmoothingMasks);
 }
 
 //We want to fill the FMeshDescription vertex position mesh attribute with the FRawMesh vertex position
@@ -467,10 +477,13 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 		{
 			FPolygonGroupID PolygonGroupID(MaterialIndex);
 			DestinationMeshDescription.CreatePolygonGroupWithID(PolygonGroupID);
-			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex));
 			if (MaterialMap.Contains(MaterialIndex))
 			{
 				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = MaterialMap[MaterialIndex];
+			}
+			else
+			{
+				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex));
 			}
 			PolygonGroups.Add(PolygonGroupID);
 			MaterialIndexToPolygonGroup.Add(MaterialIndex, PolygonGroupID);
@@ -487,7 +500,7 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 		{
 			continue;
 		}
-		
+
 		//PolygonGroup
 		FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
 		FName PolygonGroupImportedMaterialSlotName = NAME_None;
@@ -508,7 +521,7 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 				}
 			}
 		}
-		
+
 		if (PolygonGroupID == FPolygonGroupID::Invalid)
 		{
 			PolygonGroupID = DestinationMeshDescription.CreatePolygonGroup();
@@ -571,7 +584,7 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 			NewTriangle.SetVertexInstanceID(Corner, VertexInstanceID);
 		}
 	}
-	
+
 	ConvertSmoothGroupToHardEdges(SourceRawMesh.FaceSmoothingMasks, DestinationMeshDescription);
 
 	//Create the missing normals and tangents, should we use Mikkt space for tangent???
@@ -591,16 +604,259 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 	}
 }
 
+void FMeshDescriptionOperations::AppendMeshDescription(const FMeshDescription& SourceMesh, FMeshDescription& TargetMesh, FAppendSettings& AppendSettings)
+{
+	//Vertex Attributes
+	TVertexAttributesConstRef<FVector> SourceVertexPositions = SourceMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesConstRef<float> SourceVertexCornerSharpness = SourceMesh.VertexAttributes().GetAttributesRef<float>(MeshAttribute::Vertex::CornerSharpness);
+
+	TVertexAttributesRef<FVector> TargetVertexPositions = TargetMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesRef<float> TargetVertexCornerSharpness = TargetMesh.VertexAttributes().GetAttributesRef<float>(MeshAttribute::Vertex::CornerSharpness);
+
+	//Edge Attributes
+	TEdgeAttributesConstRef<bool> SourceEdgeHardnesses = SourceMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesConstRef<float> SourceEdgeCreaseSharpnesses = SourceMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+
+	TEdgeAttributesRef<bool> TargetEdgeHardnesses = TargetMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> TargetEdgeCreaseSharpnesses = TargetMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+
+	//PolygonGroup Attributes
+	TPolygonGroupAttributesConstRef<FName> SourceImportedMaterialSlotNames = SourceMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+
+	TPolygonGroupAttributesRef<FName> TargetImportedMaterialSlotNames = TargetMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+
+	//VertexInstance Attributes
+	TVertexInstanceAttributesConstRef<FVector> SourceVertexInstanceNormals = SourceMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesConstRef<FVector> SourceVertexInstanceTangents = SourceMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesConstRef<float> SourceVertexInstanceBinormalSigns = SourceMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesConstRef<FVector4> SourceVertexInstanceColors = SourceMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesConstRef<FVector2D> SourceVertexInstanceUVs = SourceMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+	TVertexInstanceAttributesRef<FVector> TargetVertexInstanceNormals = TargetMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> TargetVertexInstanceTangents = TargetMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> TargetVertexInstanceBinormalSigns = TargetMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> TargetVertexInstanceColors = TargetMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> TargetVertexInstanceUVs = TargetMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+	//Copy into the target mesh
+	TargetMesh.ReserveNewVertices(SourceMesh.Vertices().Num());
+	TargetMesh.ReserveNewVertexInstances(SourceMesh.VertexInstances().Num());
+	TargetMesh.ReserveNewEdges(SourceMesh.Edges().Num());
+	TargetMesh.ReserveNewPolygons(SourceMesh.Polygons().Num());
+
+	if (SourceVertexInstanceUVs.GetNumIndices() > TargetVertexInstanceUVs.GetNumIndices())
+	{
+		TargetVertexInstanceUVs.SetNumIndices(SourceVertexInstanceUVs.GetNumIndices());
+	}
+
+	//PolygonGroups
+	PolygonGroupMap RemapPolygonGroup;
+	if (AppendSettings.PolygonGroupsDelegate.IsBound())
+	{
+		AppendSettings.PolygonGroupsDelegate.Execute(SourceMesh, TargetMesh, RemapPolygonGroup);
+	}
+	else
+	{
+		for (FPolygonGroupID SourcePolygonGroupID : SourceMesh.PolygonGroups().GetElementIDs())
+		{
+			FPolygonGroupID TargetMatchingID = FPolygonGroupID::Invalid;
+			for (FPolygonGroupID TargetPolygonGroupID : TargetMesh.PolygonGroups().GetElementIDs())
+			{
+				if (SourceImportedMaterialSlotNames[SourcePolygonGroupID] == TargetImportedMaterialSlotNames[TargetPolygonGroupID])
+				{
+					TargetMatchingID = TargetPolygonGroupID;
+					break;
+				}
+			}
+			if (TargetMatchingID == FPolygonGroupID::Invalid)
+			{
+				TargetMatchingID = TargetMesh.CreatePolygonGroup();
+				TargetImportedMaterialSlotNames[TargetMatchingID] = SourceImportedMaterialSlotNames[SourcePolygonGroupID];
+			}
+			RemapPolygonGroup.Add(SourcePolygonGroupID, TargetMatchingID);
+		}
+	}
+
+	//Vertices
+	TMap<FVertexID, FVertexID> SourceVertexIDRemap;
+	SourceVertexIDRemap.Reserve(SourceMesh.Vertices().Num());
+	for (FVertexID SourceVertexID : SourceMesh.Vertices().GetElementIDs())
+	{
+		FVertexID TargetVertexID = TargetMesh.CreateVertex();
+		TargetVertexPositions[TargetVertexID] = (SourceVertexPositions[SourceVertexID]-AppendSettings.MergedAssetPivot);
+		TargetVertexCornerSharpness[TargetVertexID] = SourceVertexCornerSharpness[SourceVertexID];
+		SourceVertexIDRemap.Add(SourceVertexID, TargetVertexID);
+	}
+
+	// Transform vertices properties
+	if (AppendSettings.MeshTransform)
+	{
+		const FTransform& Transform = AppendSettings.MeshTransform.GetValue();
+		for (const TPair<FVertexID, FVertexID>& VertexIDPair : SourceVertexIDRemap)
+		{
+			FVector& Position = TargetVertexPositions[VertexIDPair.Value];
+			Position = Transform.TransformPosition(Position);
+		}
+	}
+
+	//Edges
+	TMap<FEdgeID, FEdgeID> SourceEdgeIDRemap;
+	SourceEdgeIDRemap.Reserve(SourceMesh.Edges().Num());
+	for (const FEdgeID& SourceEdgeID : SourceMesh.Edges().GetElementIDs())
+	{
+		const FMeshEdge& SourceEdge = SourceMesh.GetEdge(SourceEdgeID);
+		FEdgeID TargetEdgeID = TargetMesh.CreateEdge(SourceVertexIDRemap[SourceEdge.VertexIDs[0]], SourceVertexIDRemap[SourceEdge.VertexIDs[1]]);
+		TargetEdgeHardnesses[TargetEdgeID] = SourceEdgeHardnesses[SourceEdgeID];
+		TargetEdgeCreaseSharpnesses[TargetEdgeID] = SourceEdgeCreaseSharpnesses[SourceEdgeID];
+		SourceEdgeIDRemap.Add(SourceEdgeID, TargetEdgeID);
+	}
+
+	//VertexInstances
+	TMap<FVertexInstanceID, FVertexInstanceID> SourceVertexInstanceIDRemap;
+	SourceVertexInstanceIDRemap.Reserve(SourceMesh.VertexInstances().Num());
+	for (const FVertexInstanceID& SourceVertexInstanceID : SourceMesh.VertexInstances().GetElementIDs())
+	{
+		FVertexInstanceID TargetVertexInstanceID = TargetMesh.CreateVertexInstance(SourceVertexIDRemap[SourceMesh.GetVertexInstanceVertex(SourceVertexInstanceID)]);
+		SourceVertexInstanceIDRemap.Add(SourceVertexInstanceID, TargetVertexInstanceID);
+
+		TargetVertexInstanceNormals[TargetVertexInstanceID] = SourceVertexInstanceNormals[SourceVertexInstanceID];
+		TargetVertexInstanceTangents[TargetVertexInstanceID] = SourceVertexInstanceTangents[SourceVertexInstanceID];
+		TargetVertexInstanceBinormalSigns[TargetVertexInstanceID] = SourceVertexInstanceBinormalSigns[SourceVertexInstanceID];
+
+		if (AppendSettings.bMergeVertexColor)
+		{
+			TargetVertexInstanceColors[TargetVertexInstanceID] = SourceVertexInstanceColors[SourceVertexInstanceID];
+		}
+
+		for (int32 UVChannelIndex = 0; UVChannelIndex < SourceVertexInstanceUVs.GetNumIndices(); ++UVChannelIndex)
+		{
+			TargetVertexInstanceUVs.Set(TargetVertexInstanceID, UVChannelIndex, SourceVertexInstanceUVs.Get(SourceVertexInstanceID, UVChannelIndex));
+		}
+	}
+
+	// Transform vertex instances properties
+	if (AppendSettings.MeshTransform)
+	{
+		const FTransform& Transform = AppendSettings.MeshTransform.GetValue();
+		bool bFlipBinormal = Transform.GetDeterminant() < 0;
+		float BinormalSignsFactor = bFlipBinormal ? -1.f : 1.f;
+		for (const TPair<FVertexInstanceID, FVertexInstanceID>& VertexInstanceIDPair : SourceVertexInstanceIDRemap)
+		{
+			FVertexInstanceID InstanceID = VertexInstanceIDPair.Value;
+
+			FVector& Normal = TargetVertexInstanceNormals[InstanceID];
+			Normal = Transform.TransformVectorNoScale(Normal);
+
+			FVector& Tangent = TargetVertexInstanceTangents[InstanceID];
+			Tangent = Transform.TransformVectorNoScale(Tangent);
+
+			TargetVertexInstanceBinormalSigns[InstanceID] *= BinormalSignsFactor;
+		}
+	}
+
+	//Polygons
+	for (const FPolygonID& SourcePolygonID : SourceMesh.Polygons().GetElementIDs())
+	{
+		const FMeshPolygon& SourcePolygon = SourceMesh.GetPolygon(SourcePolygonID);
+		//Find the polygonGroupID
+		FPolygonGroupID TargetPolygonGroupID = RemapPolygonGroup[SourcePolygon.PolygonGroupID];
+
+		int32 PolygonVertexCount = SourcePolygon.PerimeterContour.VertexInstanceIDs.Num();
+		//Create a contour
+		TArray<FMeshDescription::FContourPoint> Contours;
+		// Add the edges of this polygon
+		for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
+		{
+			int32 ContourPointIndex = Contours.AddDefaulted();
+			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+			//Find the matching edge ID
+			uint32 CornerIndices[2];
+			CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
+			CornerIndices[1] = (PolygonEdgeNumber + 1) % PolygonVertexCount;
+
+			FVertexID SourceVertexIDs[2];
+			SourceVertexIDs[0] = SourceMesh.GetVertexInstanceVertex(SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[0]]);
+			SourceVertexIDs[1] = SourceMesh.GetVertexInstanceVertex(SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[1]]);
+
+			FEdgeID SourceEdgeID = SourceMesh.GetVertexPairEdge(SourceVertexIDs[0], SourceVertexIDs[1]);
+			check(SourceEdgeID != FEdgeID::Invalid)
+			FEdgeID TargetEdgeID = SourceEdgeIDRemap[SourceEdgeID];
+			ContourPoint.EdgeID = TargetEdgeID;
+			ContourPoint.VertexInstanceID = SourceVertexInstanceIDRemap[SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[0]]];
+
+			TargetEdgeCreaseSharpnesses[TargetEdgeID] = SourceEdgeCreaseSharpnesses[SourceEdgeID];
+			TargetEdgeHardnesses[TargetEdgeID] = SourceEdgeHardnesses[SourceEdgeID];
+		}
+
+		// Insert a polygon into the mesh
+		const FPolygonID TargetPolygonID = TargetMesh.CreatePolygon(TargetPolygonGroupID, Contours);
+		//Triangulate the polygon
+		FMeshPolygon& Polygon = TargetMesh.GetPolygon(TargetPolygonID);
+		TargetMesh.ComputePolygonTriangulation(TargetPolygonID, Polygon.Triangles);
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Normals tangents and Bi-normals
+void FMeshDescriptionOperations::RecomputeNormalsAndTangentsIfNeeded(FMeshDescription& MeshDescription, ETangentOptions TangentOptions, bool bUseMikkTSpace, bool bForceRecomputeNormals, bool bForceRecomputeTangents)
+{
+	bool bRecomputeNormals = bForceRecomputeNormals;
+	bool bRecomputeTangents = bForceRecomputeTangents;
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	if (!bRecomputeNormals || !bRecomputeTangents)
+	{
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+		{
+			bRecomputeNormals |= (VertexInstanceNormals[VertexInstanceID].IsNearlyZero() || VertexInstanceNormals[VertexInstanceID].ContainsNaN());
+			bRecomputeTangents |= (VertexInstanceTangents[VertexInstanceID].IsNearlyZero() || VertexInstanceTangents[VertexInstanceID].ContainsNaN());
+			if (bRecomputeNormals && bRecomputeTangents)
+			{
+				break;
+			}
+		}
+	}
+
+	if (bRecomputeNormals || bRecomputeTangents)
+	{
+		//Zero out all value that need to be recompute
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+		{
+			if (bRecomputeNormals)
+			{
+				VertexInstanceNormals[VertexInstanceID] = FVector::ZeroVector;
+			}
+			if (bRecomputeTangents)
+			{
+				VertexInstanceTangents[VertexInstanceID] = FVector::ZeroVector;
+			}
+		}
+
+
+		if (bRecomputeNormals)
+		{
+			FMeshDescriptionOperations::CreateNormals(MeshDescription, TangentOptions, bUseMikkTSpace ? false : bRecomputeTangents);
+		}
+		if (bUseMikkTSpace && bRecomputeTangents)
+		{
+			FMeshDescriptionOperations::CreateMikktTangents(MeshDescription, TangentOptions);
+		}
+	}
+}
 
 void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescription, float ComparisonThreshold)
 {
-	const TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
-	TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Normal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Tangent, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Binormal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+	MeshDescription.PolygonAttributes().RegisterAttribute<FVector>(MeshAttribute::Polygon::Center, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient);
+
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesConstRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	TPolygonAttributesRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
 	TPolygonAttributesRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
 	TPolygonAttributesRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributesRef<FVector> PolygonCenters = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Center);
 
 	FVertexInstanceArray& VertexInstanceArray = MeshDescription.VertexInstances();
 	FVertexArray& VertexArray = MeshDescription.Vertices();
@@ -632,6 +888,7 @@ void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescript
 			}
 
 			const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+
 			//Check for degenerated polygons, avoid NAN
 			if (!Normal.IsNearlyZero(ComparisonThreshold))
 			{
@@ -678,8 +935,30 @@ void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescript
 		PolygonTangents[PolygonID] = TangentX;
 		PolygonBinormals[PolygonID] = TangentY;
 		PolygonNormals[PolygonID] = TangentZ;
+
+		// Calculate polygon center: just an average of all vertex positions.
+		FVector Center = FVector::ZeroVector;
+		const TArray<FVertexInstanceID>& VertexInstanceIDs = MeshDescription.GetPolygonPerimeterVertexInstances(PolygonID);
+		for (const FVertexInstanceID VertexInstanceID : VertexInstanceIDs)
+		{
+			Center += VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)];
+		}
+		Center /= float(VertexInstanceIDs.Num());
+		PolygonCenters[PolygonID] = Center;
 	}
 }
+
+struct FNTBGroupKeyFuncs : public TDefaultMapKeyFuncs<FVector2D, FVector, false>
+{
+	//We need to sanitize the key here to make sure -0.0f fall on the same hash then 0.0f
+	static FORCEINLINE_DEBUGGABLE uint32 GetKeyHash(KeyInitType Key)
+	{
+		FVector2D TmpKey;
+		TmpKey.X = FMath::IsNearlyZero(Key.X) ? 0.0f : Key.X;
+		TmpKey.Y = FMath::IsNearlyZero(Key.Y) ? 0.0f : Key.Y;
+		return FCrc::MemCrc32(&TmpKey, sizeof(TmpKey));
+	}
+};
 
 void FMeshDescriptionOperations::CreateNormals(FMeshDescription& MeshDescription, FMeshDescriptionOperations::ETangentOptions TangentOptions, bool bComputeTangent)
 {
@@ -688,27 +967,30 @@ void FMeshDescriptionOperations::CreateNormals(FMeshDescription& MeshDescription
 	//          \  ||  /
 	//       G  -- ** -- C
 	//          // |  \
-		//         F   E    D
-//
-// The double ** are the vertex, the double line are hard edges, the single line are soft edge.
-// A and F are hard, all other edges are soft. The goal is to compute two average normals one from
-// A to F and a second from F to A. Then we can set the vertex instance normals accordingly.
-// First normal(A to F) = Normalize(A+B+C+D+E+F)
-// Second normal(F to A) = Normalize(F+G+H+A)
-// We found the connected edge using the triangle that share edges
+	//         F   E    D
+	//
+	// The double ** are the vertex, the double line are hard edges, the single line are soft edge.
+	// A and F are hard, all other edges are soft. The goal is to compute two average normals one from
+	// A to F and a second from F to A. Then we can set the vertex instance normals accordingly.
+	// First normal(A to F) = Normalize(A+B+C+D+E+F)
+	// Second normal(F to A) = Normalize(F+G+H+A)
+	// We found the connected edge using the triangle that share edges
 
-// @todo: provide an option to weight each contributing polygon normal according to the size of
-// the angle it makes with the vertex being calculated. This means that triangulated faces whose
-// internal edge meets the vertex doesn't get undue extra weight.
+	// @todo: provide an option to weight each contributing polygon normal according to the size of
+	// the angle it makes with the vertex being calculated. This means that triangulated faces whose
+	// internal edge meets the vertex doesn't get undue extra weight.
 
-	const TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TVertexInstanceAttributesConstRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	TVertexInstanceAttributesRef<FVector> VertexNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
 	TVertexInstanceAttributesRef<FVector> VertexTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
 	TVertexInstanceAttributesRef<float> VertexBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
 
-	TPolygonAttributesRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
-	TPolygonAttributesRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
-	TPolygonAttributesRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributesConstRef<FVector> PolygonNormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Normal);
+	TPolygonAttributesConstRef<FVector> PolygonTangents = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Tangent);
+	TPolygonAttributesConstRef<FVector> PolygonBinormals = MeshDescription.PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Binormal);
+	check(PolygonNormals.IsValid());
+	check(PolygonTangents.IsValid());
+	check(PolygonBinormals.IsValid());
 
 	TMap<FPolygonID, FVertexInfo> VertexInfoMap;
 	VertexInfoMap.Reserve(20);
@@ -810,8 +1092,8 @@ void FMeshDescriptionOperations::CreateNormals(FMeshDescription& MeshDescription
 		for (const TArray<FPolygonID>& Group : Groups)
 		{
 			//Compute tangents data
-			TMap<FVector2D, FVector> GroupTangent;
-			TMap<FVector2D, FVector> GroupBiNormal;
+			TMap<FVector2D, FVector,FDefaultSetAllocator, FNTBGroupKeyFuncs> GroupTangent;
+			TMap<FVector2D, FVector, FDefaultSetAllocator, FNTBGroupKeyFuncs> GroupBiNormal;
 
 			TArray<FVertexInstanceID> VertexInstanceInGroup;
 			FVector GroupNormal(0.0f);
@@ -820,7 +1102,7 @@ void FMeshDescriptionOperations::CreateNormals(FMeshDescription& MeshDescription
 				FVector PolyNormal = PolygonNormals[PolygonID];
 				FVector PolyTangent = PolygonTangents[PolygonID];
 				FVector PolyBinormal = PolygonBinormals[PolygonID];
-				
+
 				ConsumedPolygon.Add(PolygonID);
 				VertexInstanceInGroup.Add(VertexInfoMap[PolygonID].VertexInstanceID);
 				if (!PolyNormal.IsNearlyZero(SMALL_NUMBER) && !PolyNormal.ContainsNaN())
@@ -1028,11 +1310,7 @@ void FMeshDescriptionOperations::FindOverlappingCorners(FOverlappingCorners& Out
 	int32 NumWedges = 0;
 	for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 	{
-		const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
-		for (const FMeshTriangle MeshTriangle : Triangles)
-		{
-			NumWedges += 3;
-		}
+		NumWedges += 3 * MeshDescription.GetPolygonTriangles(PolygonID).Num();
 	}
 
 	// Empty the old data and reserve space for new
@@ -1048,7 +1326,7 @@ void FMeshDescriptionOperations::FindOverlappingCorners(FOverlappingCorners& Out
 	for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 	{
 		const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
-		for (const FMeshTriangle MeshTriangle : Triangles)
+		for (const FMeshTriangle& MeshTriangle : Triangles)
 		{
 			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
@@ -1099,7 +1377,7 @@ struct FLayoutUVMeshDescriptionView final : FLayoutUV::IMeshView
 	TArray<int32> RemapVerts;
 	TArray<FVector2D> FlattenedTexCoords;
 
-	FLayoutUVMeshDescriptionView(FMeshDescription& InMeshDescription, uint32 InSrcChannel, uint32 InDstChannel) 
+	FLayoutUVMeshDescriptionView(FMeshDescription& InMeshDescription, uint32 InSrcChannel, uint32 InDstChannel)
 		: MeshDescription(InMeshDescription)
 		, Positions(InMeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position))
 		, Normals(InMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal))
@@ -1140,14 +1418,14 @@ struct FLayoutUVMeshDescriptionView final : FLayoutUV::IMeshView
 	uint32 GetNumIndices() const override { return NumIndices; }
 
 	FVector GetPosition(uint32 Index) const override
-	{ 
+	{
 		FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
 		FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
 		return Positions[VertexID];
 	}
 
 	FVector GetNormal(uint32 Index) const override
-	{ 
+	{
 		FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
 		return Normals[VertexInstanceID];
 	}
@@ -1194,10 +1472,112 @@ void FMeshDescriptionOperations::CreateLightMapUVLayout(FMeshDescription& MeshDe
 	}
 }
 
-bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords)
+bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords)
 {
 	// Create a copy of original mesh (only copy necessary data)
 	FMeshDescription DuplicateMeshDescription(MeshDescription);
+
+	TMap<FVertexInstanceID, FVertexInstanceID> RemapVertexInstance;
+	//Remove the identical material
+	if (bMergeIdenticalMaterials)
+	{
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = DuplicateMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TArray<FPolygonID> ToDeletePolygons;
+		RemapVertexInstance.Reserve(DuplicateMeshDescription.VertexInstances().Num());
+		TArray<FPolygonID> UniquePolygons;
+		for (FPolygonID RefPolygonID : DuplicateMeshDescription.Polygons().GetElementIDs())
+		{
+			FPolygonGroupID RefPolygonGroupID = DuplicateMeshDescription.GetPolygonPolygonGroup(RefPolygonID);
+			const TArray<FVertexInstanceID>& RefVertexInstances = DuplicateMeshDescription.GetPolygonPerimeterVertexInstances(RefPolygonID);
+			TArray<FVector2D> RefUVs;
+			for (FVertexInstanceID RefVertexInstanceID : RefVertexInstances)
+			{
+				RefUVs.Add(VertexInstanceUVs[RefVertexInstanceID]);
+			}
+			FPolygonID MatchPolygonID = FPolygonID::Invalid;
+			for (FPolygonID TestPolygonID : UniquePolygons)
+			{
+				FPolygonGroupID TestPolygonGroupID = DuplicateMeshDescription.GetPolygonPolygonGroup(TestPolygonID);
+				if (TestPolygonGroupID != RefPolygonGroupID)
+				{
+					continue;
+				}
+				const TArray<FVertexInstanceID>& TestVertexInstances = DuplicateMeshDescription.GetPolygonPerimeterVertexInstances(TestPolygonID);
+				if (TestVertexInstances.Num() != RefVertexInstances.Num())
+				{
+					continue;
+				}
+				bool bIdentical = true;
+				int32 UVIndex = 0;
+				for (FVertexInstanceID TestVertexInstanceID : TestVertexInstances)
+				{
+					if (VertexInstanceUVs[TestVertexInstanceID] != RefUVs[UVIndex])
+					{
+						bIdentical = false;
+						break;
+					}
+					UVIndex++;
+				}
+				if (bIdentical)
+				{
+					MatchPolygonID = TestPolygonID;
+					break;
+				}
+			}
+
+			if (MatchPolygonID == FPolygonID::Invalid)
+			{
+				UniquePolygons.Add(RefPolygonID);
+				for (FVertexInstanceID RefVertexInstanceID : RefVertexInstances)
+				{
+					RemapVertexInstance.Add(RefVertexInstanceID, RefVertexInstanceID);
+				}
+			}
+			else
+			{
+				const TArray<FVertexInstanceID>& TestVertexInstances = DuplicateMeshDescription.GetPolygonPerimeterVertexInstances(MatchPolygonID);
+				int32 VertexInstanceIndex = 0;
+				for (FVertexInstanceID RefVertexInstanceID : RefVertexInstances)
+				{
+					RemapVertexInstance.Add(RefVertexInstanceID, TestVertexInstances[VertexInstanceIndex]);
+					VertexInstanceIndex++;
+				}
+				ToDeletePolygons.Add(RefPolygonID);
+			}
+		}
+
+		//Delete polygons
+		if(ToDeletePolygons.Num() > 0)
+		{
+			TArray<FEdgeID> OrphanedEdges;
+			TArray<FVertexInstanceID> OrphanedVertexInstances;
+			TArray<FPolygonGroupID> OrphanedPolygonGroups;
+			TArray<FVertexID> OrphanedVertices;
+			for (FPolygonID PolygonID : ToDeletePolygons)
+			{
+				DuplicateMeshDescription.DeletePolygon(PolygonID, &OrphanedEdges, &OrphanedVertexInstances, &OrphanedPolygonGroups);
+			}
+			for (FPolygonGroupID PolygonGroupID : OrphanedPolygonGroups)
+			{
+				DuplicateMeshDescription.DeletePolygonGroup(PolygonGroupID);
+			}
+			for (FVertexInstanceID VertexInstanceID : OrphanedVertexInstances)
+			{
+				DuplicateMeshDescription.DeleteVertexInstance(VertexInstanceID, &OrphanedVertices);
+			}
+			for (FEdgeID EdgeID : OrphanedEdges)
+			{
+				DuplicateMeshDescription.DeleteEdge(EdgeID, &OrphanedVertices);
+			}
+			for (FVertexID VertexID : OrphanedVertices)
+			{
+				DuplicateMeshDescription.DeleteVertex(VertexID);
+			}
+			//Compact and Remap IDs so we have clean ID from 0 to n since we just erase some polygons
+			FElementIDRemappings RemappingInfos;
+			DuplicateMeshDescription.Compact(RemappingInfos);
+		}
+	}
 	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
 	// mesh will not merge these vertices.
 	FOverlappingCorners OverlappingCorners;
@@ -1212,14 +1592,18 @@ bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescr
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
-		TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = DuplicateMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TVertexInstanceAttributesConstRef<FVector2D> DupVertexInstanceUVs = DuplicateMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		// Save generated UVs
 		check(VertexInstanceUVs.GetNumIndices() > 1);
 		OutTexCoords.AddZeroed(VertexInstanceUVs.GetNumElements());
 		int32 TextureCoordIndex = 0;
-		for (const FVertexInstanceID& VertexInstanceID : DuplicateMeshDescription.VertexInstances().GetElementIDs())
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
 		{
-			OutTexCoords[TextureCoordIndex++] = VertexInstanceUVs.Get(VertexInstanceID, 1);	// UV1
+			FVertexInstanceID RemapID = bMergeIdenticalMaterials ? RemapVertexInstance[VertexInstanceID] : VertexInstanceID;
+			// Save generated UVs
+			OutTexCoords[TextureCoordIndex] = VertexInstanceUVs.Get(RemapID, 1);	// UV1
+			TextureCoordIndex++;
 		}
 	}
 
@@ -1456,6 +1840,156 @@ void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescr
 			float VCoord = FVector::DotProduct(Vertex, V) * Params.UVTile.Y;
 
 			OutTexCoords[VertexInstanceID.GetValue()] = FVector2D(UCoord, VCoord);
+		}
+	}
+}
+
+void FMeshDescriptionOperations::RemapPolygonGroups(FMeshDescription& MeshDescription, TMap<FPolygonGroupID, FPolygonGroupID>& Remap)
+{
+	TPolygonGroupAttributesRef<FName> PolygonGroupNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+
+	struct FOldPolygonGroupData
+	{
+		FName Name;
+		TArray<FPolygonID> Polygons;
+	};
+
+	TMap<FPolygonGroupID, FOldPolygonGroupData> OldData;
+	for (const FPolygonGroupID& PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
+	{
+		if (!Remap.Contains(PolygonGroupID) || PolygonGroupID == Remap[PolygonGroupID])
+		{
+			//No need to change this one
+			continue;
+		}
+		FOldPolygonGroupData& PolygonGroupData = OldData.FindOrAdd(PolygonGroupID);
+		PolygonGroupData.Name = PolygonGroupNames[PolygonGroupID];
+		FMeshPolygonGroup& PolygonGroup = MeshDescription.GetPolygonGroup(PolygonGroupID);
+		PolygonGroupData.Polygons = PolygonGroup.Polygons;
+		PolygonGroup.Polygons.Empty();
+		MeshDescription.DeletePolygonGroup(PolygonGroupID);
+	}
+	for (auto Kvp : OldData)
+	{
+		FPolygonGroupID GroupID = Kvp.Key;
+		FPolygonGroupID ToGroupID = Remap[GroupID];
+		if (!MeshDescription.PolygonGroups().IsValid(ToGroupID))
+		{
+			MeshDescription.CreatePolygonGroupWithID(ToGroupID);
+		}
+		TArray<FPolygonID>& Polygons = MeshDescription.GetPolygonGroup(ToGroupID).Polygons;
+		Polygons.Append(Kvp.Value.Polygons);
+		PolygonGroupNames[ToGroupID] = Kvp.Value.Name;
+		for (FPolygonID PolygonID : Polygons)
+		{
+			MeshDescription.GetPolygon(PolygonID).PolygonGroupID = ToGroupID;
+		}
+	}
+}
+
+void FMeshDescriptionOperations::SwapPolygonPolygonGroup(FMeshDescription& MeshDescription, int32 SectionIndex, int32 TriangleIndexStart, int32 TriangleIndexEnd, bool bRemoveEmptyPolygonGroup)
+{
+	int32 TriangleIndex = 0;
+	TPolygonGroupAttributesRef<FName> PolygonGroupNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+
+	FPolygonGroupID TargetPolygonGroupID(SectionIndex);
+	if (!bRemoveEmptyPolygonGroup)
+	{
+		while (!MeshDescription.PolygonGroups().IsValid(TargetPolygonGroupID))
+		{
+			TargetPolygonGroupID = MeshDescription.CreatePolygonGroup();
+			PolygonGroupNames[TargetPolygonGroupID] = FName(*(TEXT("SwapPolygonMaterialSlotName_") + FString::FromInt(TargetPolygonGroupID.GetValue())));
+			TargetPolygonGroupID = FPolygonGroupID(SectionIndex);
+		}
+	}
+	else
+	{
+		//This will not follow the SectionIndex value if the value is greater then the number of section (do not use this when merging meshes)
+		if (!MeshDescription.PolygonGroups().IsValid(TargetPolygonGroupID))
+		{
+			TargetPolygonGroupID = MeshDescription.CreatePolygonGroup();
+			PolygonGroupNames[TargetPolygonGroupID] = FName(*(TEXT("SwapPolygonMaterialSlotName_") + FString::FromInt(TargetPolygonGroupID.GetValue())));
+		}
+	}
+
+	for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		int32 TriangleCount = MeshDescription.GetPolygonTriangles(PolygonID).Num();
+		if (TriangleIndex >= TriangleIndexStart && TriangleIndex < TriangleIndexEnd)
+		{
+			check(TriangleIndex + (TriangleCount-1) < TriangleIndexEnd);
+			FMeshPolygon& Polygon = MeshDescription.GetPolygon(PolygonID);
+			FPolygonGroupID OldpolygonGroupID = Polygon.PolygonGroupID;
+			if (OldpolygonGroupID != TargetPolygonGroupID)
+			{
+				MeshDescription.SetPolygonPolygonGroup(PolygonID, TargetPolygonGroupID);
+				if (bRemoveEmptyPolygonGroup && MeshDescription.GetPolygonGroupPolygons(OldpolygonGroupID).Num() < 1)
+				{
+					MeshDescription.DeletePolygonGroup(OldpolygonGroupID);
+				}
+			}
+		}
+		TriangleIndex += TriangleCount;
+	}
+}
+
+bool FMeshDescriptionOperations::HasVertexColor(const FMeshDescription& MeshDescription)
+{
+	TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	bool bHasVertexColor = false;
+	FVector4 WhiteColor(FLinearColor::White);
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+	{
+		if (VertexInstanceColors[VertexInstanceID] != WhiteColor)
+		{
+			bHasVertexColor = true;
+			break;
+		}
+	}
+	return bHasVertexColor;
+}
+
+void FMeshDescriptionOperations::BuildWeldedVertexIDRemap(const FMeshDescription& MeshDescription, const float WeldingThreshold, TMap<FVertexID, FVertexID>& OutVertexIDRemap)
+{
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+	int32 NumVertex = MeshDescription.Vertices().Num();
+	OutVertexIDRemap.Reserve(NumVertex);
+
+	// Create a list of vertex Z/index pairs
+	TArray<MeshDescriptionOperationNamespace::FIndexAndZ> VertIndexAndZ;
+	VertIndexAndZ.Reserve(NumVertex);
+
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
+	{
+		new(VertIndexAndZ)MeshDescriptionOperationNamespace::FIndexAndZ(VertexID.GetValue(), VertexPositions[VertexID]);
+	}
+
+	// Sort the vertices by z value
+	VertIndexAndZ.Sort(MeshDescriptionOperationNamespace::FCompareIndexAndZ());
+
+	// Search for duplicates, quickly!
+	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
+	{
+		FVertexID Index_i = FVertexID(VertIndexAndZ[i].Index);
+		if (OutVertexIDRemap.Contains(Index_i))
+		{
+			continue;
+		}
+		OutVertexIDRemap.FindOrAdd(Index_i) = Index_i;
+		// only need to search forward, since we add pairs both ways
+		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+		{
+			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > WeldingThreshold)
+				break; // can't be any more dups
+
+			const FVector& PositionA = *(VertIndexAndZ[i].OriginalVector);
+			const FVector& PositionB = *(VertIndexAndZ[j].OriginalVector);
+
+			if (PositionA.Equals(PositionB, WeldingThreshold))
+			{
+				OutVertexIDRemap.FindOrAdd(FVertexID(VertIndexAndZ[j].Index)) = Index_i;
+			}
 		}
 	}
 }

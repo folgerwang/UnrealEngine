@@ -29,7 +29,8 @@ public class MaterialUtilities : ModuleRules
 
         PublicDependencyModuleNames.AddRange(
 			new string [] {
-				 "RawMesh",            
+                 "MeshDescription",
+                 "MeshDescriptionOperations",
 			}
 		);      
 

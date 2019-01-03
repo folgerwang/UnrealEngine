@@ -56,6 +56,11 @@ void UWrapBox::OnSlotRemoved(UPanelSlot* InSlot)
 
 UWrapBoxSlot* UWrapBox::AddChildWrapBox(UWidget* Content)
 {
+	return AddChildToWrapBox(Content);
+}
+
+UWrapBoxSlot* UWrapBox::AddChildToWrapBox(UWidget* Content)
+{
 	return Cast<UWrapBoxSlot>(Super::AddChild(Content));
 }
 

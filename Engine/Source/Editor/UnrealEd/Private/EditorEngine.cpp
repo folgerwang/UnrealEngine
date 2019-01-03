@@ -942,6 +942,18 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		// Always resume the dynamic resolution state to ensure it is same state as in game builds when starting PIE.
 		GEngine->ResumeDynamicResolution();
+
+		if (FSlateApplication::IsInitialized())
+		{
+			//Reset color deficiency settings in case they have been modified during PIE
+			const UEditorStyleSettings* EditorSettings = GetDefault<UEditorStyleSettings>();
+			const EColorVisionDeficiency DeficiencyType = EditorSettings->ColorVisionDeficiencyPreviewType;
+			const int32 Severity = EditorSettings->ColorVisionDeficiencySeverity;
+			const bool bCorrectDeficiency = EditorSettings->bColorVisionDeficiencyCorrection;
+			const bool bShowCorrectionWithDeficiency = EditorSettings->bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+			FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType, Severity, bCorrectDeficiency, bShowCorrectionWithDeficiency);
+		}
+
 	});
 
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
@@ -6746,13 +6758,14 @@ void UEditorEngine::UpdateAutoLoadProject()
 #if PLATFORM_MAC
 	if ( !GIsBuildMachine )
 	{
-		if(FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
+		if(FPlatformMisc::MacOSXVersionCompare(10,14,1) < 0)
 		{
 			if(FSlateApplication::IsInitialized())
 			{
-				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance and stability."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), TEXT("UpdateMacOSX"), GEditorSettingsIni );
+				FString SupressSettingName(FString(TEXT("UpdateMacOSX_")) + VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) + TEXT("_") + VERSION_STRINGIFY(ENGINE_MINOR_VERSION) + TEXT("_") + VERSION_STRINGIFY(ENGINE_PATCH_VERSION));
+				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance and stability."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), *SupressSettingName, GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSuppressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = false;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6834,8 +6847,8 @@ void UEditorEngine::UpdateAutoLoadProject()
 		const ECheckBoxState DontAskAgainCheckBoxState = Local::GetDontAskAgainCheckBoxState();
 		if (DontAskAgainCheckBoxState == ECheckBoxState::Unchecked)
 		{
-			const FText NoXcodeMessageText = LOCTEXT("XcodeNotInstalledWarningNotification", "Xcode is not installed on this Mac.\nMetal shader compilation will fall back to runtime compiled text shaders, which are slower.\nPlease install latest version of Xcode for best performance.");
-			const FText OldXcodeMessageText = LOCTEXT("OldXcodeVersionWarningNotification", "Xcode installed on this Mac is too old to be used for Metal shader compilation.\nFalling back to runtime compiled text shaders, which are slower.\nPlease update to latest version of Xcode for best performance.");
+			const FText NoXcodeMessageText = LOCTEXT("XcodeNotInstalledWarningNotification", "Xcode was not detected on this Mac.\nMetal shader compilation will fall back to runtime compiled text shaders, which are slower.\nPlease install latest version of Xcode for best performance\nand make sure it's set as default using xcode-select tool.");
+			const FText OldXcodeMessageText = LOCTEXT("OldXcodeVersionWarningNotification", "Xcode installed on this Mac is too old to be used for Metal shader compilation.\nFalling back to runtime compiled text shaders, which are slower.\nPlease update to latest version of Xcode for best performance\nand make sure it's set as default using xcode-select tool.");
 
 			FNotificationInfo Info(bIsXcodeInstalled ? OldXcodeMessageText : NoXcodeMessageText);
 			Info.bFireAndForget = false;

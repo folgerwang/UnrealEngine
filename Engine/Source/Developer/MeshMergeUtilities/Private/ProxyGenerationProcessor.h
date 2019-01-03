@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Containers/Ticker.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
 #include "MaterialUtilities.h"
 
 struct FMergeCompleteData;
@@ -20,7 +20,7 @@ public:
 
 	void AddProxyJob(FGuid InJobGuid, FMergeCompleteData* InCompleteData);
 	virtual bool Tick(float DeltaTime) override;
-	void ProxyGenerationComplete(FRawMesh& OutProxyMesh, struct FFlattenMaterial& OutMaterial, const FGuid OutJobGUID);
+	void ProxyGenerationComplete(FMeshDescription& OutProxyMesh, struct FFlattenMaterial& OutMaterial, const FGuid OutJobGUID);
 
 	//@third party BEGIN SIMPLYGON
 	void ProxyGenerationFailed(const FGuid OutJobGUID, const FString& ErrorMessage);
@@ -40,7 +40,7 @@ protected:
 	/** Structure storing the data required during processing */
 	struct FProxyGenerationData
 	{
-		FRawMesh RawMesh;
+		FMeshDescription RawMesh;
 		FFlattenMaterial Material;
 		FMergeCompleteData* MergeData;
 	};

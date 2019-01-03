@@ -198,7 +198,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		FComponentEditorUtils::FillComponentContextMenuOptions(MenuBuilder, SelectedComponents);
 	}
-	else
+	else if (GEditor->GetSelectedActorCount() > 0)
 	{
 		// Generate information about our selection
 		TArray<AActor*> SelectedActors;
@@ -440,6 +440,20 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		MenuBuilder.PopExtender();
 	}	
+	else if (ContextType == LevelEditorMenuContext::SceneOutliner)
+	{
+		TWeakPtr<ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+		if (SceneOutlinerPtr.IsValid())
+		{
+			MenuBuilder.BeginSection("SelectVisibilityLevels");
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("EditSubMenu", "Edit"),
+					FText::GetEmpty(),
+					FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillEditMenu, ContextType));
+			}
+		}
+	}
 
 	MenuBuilder.PopCommandList();
 }

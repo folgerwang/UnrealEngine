@@ -4,7 +4,7 @@
 
 #include "MaterialUtilities.h"
 
-#include "ProxyLODMeshTypes.h"   // FRawMeshArrayAdapter, FVertexDataMesh
+#include "ProxyLODMeshTypes.h"   // FMeshDescriptionArrayAdapter, FVertexDataMesh
 #include "ProxyLODGrid2d.h"
 #include "ProxyLODRasterizer.h" // FRasterGrid
 
@@ -45,7 +45,7 @@ namespace ProxyLOD
 	* Because some locations in the texture atlas for the Reduced Mesh will fall outside of all the charts (i.e. be dead space),
 	* there will be texels in the SrcDataGrid that correspond to this space and will be given .MaterialId =-1 for quick identification.
 	*/
-	FSrcDataGrid::Ptr CreateCorrespondence( const FRawMeshArrayAdapter& SrcMesh, 
+	FSrcDataGrid::Ptr CreateCorrespondence( const FMeshDescriptionArrayAdapter& SrcMesh,
 										    const FVertexDataMesh& ReducedMesh,
 		                                    const ProxyLOD::FRasterGrid& ReducedMeshUVGrid,
 		                                    const int32 TransferType, 
@@ -75,7 +75,7 @@ namespace ProxyLOD
 	* there will be texels in the SrcDataGrid that correspond to this space and will be given .MaterialId =-1 for quick identification.
 	*/
 	FSrcDataGrid::Ptr CreateCorrespondence( const openvdb::Int32Grid& ClosestSrcPolyGrid,
-		                                    const FRawMeshArrayAdapter& SrcMesh,
+		                                    const FMeshDescriptionArrayAdapter& SrcMesh,
 										    const FVertexDataMesh& ReducedMesh, 
 											const ProxyLOD::FRasterGrid& ReducedMeshUVGrid,
 											const int32 TransferType, 
@@ -100,8 +100,8 @@ namespace ProxyLOD
 	* Map Diffuse, Specular, Metallic, Roughness, Normal, Emissive, Opacity to the correct materials.
 	* NB: EFlattenMaterialProperties: SubSurface, OpacityMask and AmbientOcclusion are not included
 	*/
-	void MapFlattenMaterials( const FRawMesh& DstRawMesh, 
-		                      const FRawMeshArrayAdapter&   SrcMeshAdapter,
+	void MapFlattenMaterials( const FMeshDescription& DstRawMesh,
+		                      const FMeshDescriptionArrayAdapter&   SrcMeshAdapter,
 							  const ProxyLOD::FSrcDataGrid& SuperSampledCorrespondenceGrid,
 							  const ProxyLOD::FRasterGrid&  SuperSampledDstUVGrid,
 							  const ProxyLOD::FRasterGrid&  DstUVGrid,
@@ -115,7 +115,7 @@ namespace ProxyLOD
 	* mapping each triangle id to a color.
 	*/
 	void ColorMapFlattedMaterials( const FVertexDataMesh& VertexDataMesh, 
-		                           const FRawMeshArrayAdapter& MeshAdapter, 
+		                           const FMeshDescriptionArrayAdapter& MeshAdapter,
 		                           const ProxyLOD::FRasterGrid& UVGrid, 
 		                           const TArray<FFlattenMaterial>& InputMaterials, 
 		                           FFlattenMaterial& OutMaterial);

@@ -230,6 +230,10 @@ private:
 
 	/** true if this widget has been Ticked at least once */
 	bool bHasTicked;
+
+	/** True if we consumed a tab key in OnPreviewKeyDown, so we can ignore it in OnKeyCharHandler as well */
+	bool bConsumeTab;
+
 };
 
 /**

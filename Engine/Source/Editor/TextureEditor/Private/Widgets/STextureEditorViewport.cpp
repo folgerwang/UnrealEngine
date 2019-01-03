@@ -334,7 +334,6 @@ void STextureEditorViewport::Tick( const FGeometry& AllottedGeometry, const doub
 	if (bIsRenderingEnabled)
 	{
 		Viewport->Invalidate();
-		Viewport->InvalidateDisplay();
 	}
 }
 

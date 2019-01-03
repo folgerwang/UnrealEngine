@@ -257,9 +257,9 @@ bool RunCommand(const FString& InCommand, const TArray<FString>& InFiles, const 
 		while(FileCount < InFiles.Num())
 		{
 			TArray<FString> FilesInBatch;
-			for(int32 FileIndex = 0; FileIndex < InFiles.Num() && FileIndex < SubversionSourceControlConstants::MaxFilesPerBatch; FileIndex++, FileCount++)
+			for(int32 FileIndex = 0; FileCount < InFiles.Num() && FileIndex < SubversionSourceControlConstants::MaxFilesPerBatch; FileIndex++, FileCount++)
 			{
-				FilesInBatch.Add(InFiles[FileIndex]);
+				FilesInBatch.Add(InFiles[FileCount]);
 			}
 
 			FString Results;

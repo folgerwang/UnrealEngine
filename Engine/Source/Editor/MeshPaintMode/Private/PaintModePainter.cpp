@@ -855,8 +855,12 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 	if (HoveredComponents.Num() > 0)
 	{
 		if (bArePainting == false)
-		{
-			BeginTransaction(LOCTEXT("MeshPaintMode_VertexPaint_TransactionPaintStroke", "Vertex Paint"));
+		{ 
+			// Vertex painting is an ongoing transaction, while texture painting is handled separately later in a single transaction
+			if (PaintSettings->PaintMode == EPaintMode::Vertices)
+			{
+				BeginTransaction(LOCTEXT("MeshPaintMode_VertexPaint_TransactionPaintStroke", "Vertex Paint"));
+			}
 			bArePainting = true;
 			TimeSinceStartedPainting = 0.0f;
 		}

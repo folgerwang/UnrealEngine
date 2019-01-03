@@ -3257,8 +3257,18 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 							{
 								if (SomeWidgetPreviouslyUnderCursor != RequestedMouseCaptor)
 								{
-									// Note that the event's pointer position is not translated.
-									SomeWidgetPreviouslyUnderCursor->OnMouseLeave(*InMouseEvent);
+									// It's possible for mouse event to be null if we end up here from a keyboard event. If so, we should synthesize an event
+									if (InMouseEvent)
+									{
+										// Note that the event's pointer position is not translated.
+										SomeWidgetPreviouslyUnderCursor->OnMouseLeave(*InMouseEvent);
+									}
+									else
+									{
+										const FPointerEvent& SimulatedPointer = FPointerEvent();
+										SomeWidgetPreviouslyUnderCursor->OnMouseLeave(SimulatedPointer);
+									}
+									
 
 #if WITH_SLATE_DEBUGGING
 									FSlateDebugging::BroadcastInputEvent(ESlateDebuggingInputEvent::MouseLeave, SomeWidgetPreviouslyUnderCursor);
@@ -6196,6 +6206,12 @@ bool FSlateApplication::ProcessMouseWheelOrGestureEvent( const FPointerEvent& In
 	}
 
 	SetLastUserInteractionTime(this->GetCurrentTime());
+
+	// Input preprocessors get the first chance at the input
+	if (InputPreProcessors.HandleMouseWheelOrGestureEvent(*this, InWheelEvent, InGestureEvent))
+	{
+		return true;
+	}
 	
 	// NOTE: We intentionally don't reset LastUserInteractionTimeForThrottling here so that the UI can be responsive while scrolling
 
@@ -7531,6 +7547,19 @@ bool FSlateApplication::InputPreProcessorsHelper::HandleMouseButtonDoubleClickEv
 	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
 	{
 		if (InputPreProcessor->HandleMouseButtonDoubleClickEvent(SlateApp, MouseEvent))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FSlateApplication::InputPreProcessorsHelper::HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& WheelEvent, const FPointerEvent* GestureEvent)
+{
+	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
+	{
+		if (InputPreProcessor->HandleMouseWheelOrGestureEvent(SlateApp, WheelEvent, GestureEvent))
 		{
 			return true;
 		}

@@ -13,7 +13,7 @@
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Images/SImage.h"
 #include "EditorStyleSet.h"
-#include "Widgets/Input/SEditableLabel.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 struct FSequencerLabelTreeNode;
 
@@ -105,9 +105,9 @@ public:
 						.Padding(0.0f, 2.0f)
 						.VAlign(VAlign_Center)
 						[
-							SAssignNew(EditableLabel, SEditableLabel)
-								.CanEdit(this, &SSequencerLabelListRow::CanEnterRenameMode)
-								.OnTextChanged(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
+							SAssignNew(EditableLabel, SInlineEditableTextBlock)
+								.IsReadOnly(this, &SSequencerLabelListRow::IsReadOnly)
+								.OnTextCommitted(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
 								.Text(
 									Node->Label.IsEmpty()
 										? LOCTEXT("AllTracksLabel", "All Tracks")
@@ -122,13 +122,13 @@ public:
 	/** Change the label text to edit mode. */
 	void EnterRenameMode()
 	{
-		EditableLabel->EnterTextMode();
+		EditableLabel->EnterEditingMode();
 	}
 
 	/** Can this label be edited? */
-	bool CanEnterRenameMode() const
+	bool IsReadOnly() const
 	{
-		return !Node->Label.IsEmpty();
+		return Node->Label.IsEmpty();
 	}
 
 private:
@@ -156,7 +156,7 @@ private:
 		return FLinearColor::Gray;
 	}
 
-	void HandleFolderNameTextChanged(const FText& NewLabel)
+	void HandleFolderNameTextChanged(const FText& NewLabel, ETextCommit::Type TextCommitType)
 	{
 		FString NewLabelString = NewLabel.ToString();
 
@@ -169,7 +169,7 @@ private:
 private:
 
 	/** Holds the editable text label widget. */
-	TSharedPtr<SEditableLabel> EditableLabel;
+	TSharedPtr<SInlineEditableTextBlock> EditableLabel;
 
 	/** Holds the label node. */
 	TSharedPtr<FSequencerLabelTreeNode> Node;

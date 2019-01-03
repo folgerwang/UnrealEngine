@@ -26,11 +26,10 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "MeshAttributes.h"
 #include "MeshAttributeArray.h"
-#include "MeshDescription.h"
 #include "MeshDescriptionOperations.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UnrealEdGlobals.h"
@@ -131,8 +130,7 @@ namespace InternalEditorMeshLibrary
 			return false;
 		}
 
-		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
-		if (!MeshDescription)
+		if (!StaticMesh->IsMeshDescriptionValid(LODIndex))
 		{
 			UE_LOG(LogEditorScripting, Error, TEXT("No mesh description for LOD %d."), LODIndex);
 			return false;
@@ -275,11 +273,10 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 		DestinationLodIndex = DestinationStaticMesh->SourceModels.Num() - 1;
 	}
 
-	FRawMesh SourceRawMesh;
-	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
-
-	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].BuildSettings = SourceStaticMesh->SourceModels[ SourceLodIndex ].BuildSettings;
-	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+	const FMeshDescription& SourceRawMesh = *SourceStaticMesh->GetMeshDescription(SourceLodIndex);
+	FMeshDescription& DestRawMesh = *SourceStaticMesh->GetMeshDescription(DestinationLodIndex);
+	DestRawMesh = SourceRawMesh;
+	SourceStaticMesh->CommitMeshDescription(DestinationLodIndex);
 
 	// Assign materials for the destination LOD
 	{
@@ -840,7 +837,7 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		const FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		const FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LodIndex);
 		if (!MeshDescription->VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color))
 		{
 			continue;
@@ -904,7 +901,7 @@ bool UEditorStaticMeshLibrary::SetGenerateLightmapUVs(UStaticMesh* StaticMesh, b
 	{
 		FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 		//Make sure LOD is not a reduction before considering its BuildSettings
-		if (StaticMesh->GetOriginalMeshDescription(LodIndex) != nullptr)
+		if (StaticMesh->IsMeshDescriptionValid(LodIndex))
 		{
 			AnySettingsToChange = (SourceModel.BuildSettings.bGenerateLightmapUVs != bGenerateLightmapUVs);
 
@@ -1112,7 +1109,7 @@ bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, 
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling );
 
@@ -1136,7 +1133,7 @@ bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticM
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling);
 
@@ -1160,7 +1157,7 @@ bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), Size, FVector::OneVector, FVector2D::UnitVector);
 

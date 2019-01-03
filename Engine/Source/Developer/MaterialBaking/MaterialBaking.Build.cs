@@ -21,7 +21,7 @@ public class MaterialBaking : ModuleRules
                 "PropertyEditor",
                 "EditorStyle",
                 "Renderer",
-                "RawMesh",
+                "MeshDescription",
             }
 		);
     }

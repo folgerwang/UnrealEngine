@@ -24,7 +24,7 @@ class UTexture2D;
 class UTextureRenderTarget2D;
 class UMaterialOptions;
 struct FMaterialProxySettings;
-struct FRawMesh;
+struct FMeshDescription;
 class FSkeletalMeshLODRenderData;
 struct FBakeOutput;
 struct FMeshData;
@@ -140,7 +140,7 @@ struct FMaterialMergeData
 	/** Material that is being baked out */
 	class UMaterialInterface* Material;
 	/** Raw mesh data used to bake out the material with, optional */
-	const struct FRawMesh* Mesh;
+	const struct FMeshDescription* Mesh;
 	/** LODModel data used to bake out the material with, optional */
 	const FSkeletalMeshLODRenderData* LODData;
 	/** Material index to use when the material is baked out using mesh data (face material indices) */
@@ -160,7 +160,7 @@ struct FMaterialMergeData
 
 	FMaterialMergeData(
 		UMaterialInterface* InMaterial,
-		const FRawMesh* InMesh,
+		const FMeshDescription* InMesh,
 		const FSkeletalMeshLODRenderData* InLODData,
 		int32 InMaterialIndex,
 		FBox2D InTexcoordBounds,
@@ -287,23 +287,6 @@ public:
 
 	UE_DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterials(TArray<FMaterialMergeData*>& MergeData, TArray<FFlattenMaterial*>& OutFlattenMaterials);
-
-	/**
-	* Flattens specified material using mesh data	
-	*
-	* @param InMaterial			Target material
-	* @param InMesh				Mesh data to use for flattening
-	* @param InMaterialIndex	Material index
-	* @param InTexcoordBounds	Texture bounds 
-	* @param InTexCoords		Replacement non-overlapping texture coordinates
-	* @param OutFlattenMaterial Output flattened material
-	* @return					Whether operation was successful
-	*/
-	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
-
-	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
 	/**
 	 * Flattens specified landscape material
