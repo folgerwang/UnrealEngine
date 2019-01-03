@@ -124,6 +124,21 @@ int32 UTexture::GetCachedLODBias() const
 }
 
 #if WITH_EDITOR
+bool UTexture::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UTexture, AdjustVibrance))
+		{
+			return !HasHDRSource();
+		}
+	}
+
+	return true;
+}
+
 void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
