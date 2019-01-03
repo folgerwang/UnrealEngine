@@ -1952,4 +1952,4 @@ extern void SortPassMeshDrawCommands(
 	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer,
 	bool bDumpStats);
 
-extern void UpdateTranslucentMeshSortKeys(FScene* Scene, FViewInfo& View, ETranslucencyPass::Type TranslucencyPass, FMeshCommandOneFrameArray& VisibleMeshCommands);
+extern void UpdateTranslucentMeshSortKeys(const FScene* Scene, const FViewInfo& View, ETranslucencyPass::Type TranslucencyPass, FMeshCommandOneFrameArray& VisibleMeshCommands);
