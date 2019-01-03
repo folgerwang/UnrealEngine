@@ -208,18 +208,19 @@ FAudioVolumeProxy::FAudioVolumeProxy(const AAudioVolume* AudioVolume)
 
 void AAudioVolume::AddProxy() const
 {
-	UWorld* World = GetWorld();
-
-	if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+	if (UWorld* World = GetWorld())
 	{
-		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.AddAudioVolumeProxy"), STAT_AudioAddAudioVolumeProxy, STATGROUP_TaskGraphTasks);
-
-		FAudioVolumeProxy Proxy(this);
-
-		FAudioThread::RunCommandOnAudioThread([AudioDevice, Proxy]()
+		if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 		{
-			AudioDevice->AddAudioVolumeProxy(Proxy);
-		}, GET_STATID(STAT_AudioAddAudioVolumeProxy));
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.AddAudioVolumeProxy"), STAT_AudioAddAudioVolumeProxy, STATGROUP_TaskGraphTasks);
+
+			FAudioVolumeProxy Proxy(this);
+
+			FAudioThread::RunCommandOnAudioThread([AudioDevice, Proxy]()
+			{
+				AudioDevice->AddAudioVolumeProxy(Proxy);
+			}, GET_STATID(STAT_AudioAddAudioVolumeProxy));
+		}
 	}
 }
 
@@ -264,18 +265,19 @@ void FAudioDevice::RemoveAudioVolumeProxy(const uint32 AudioVolumeID)
 
 void AAudioVolume::UpdateProxy() const
 {
-	UWorld* World = GetWorld();
-
-	if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+	if (UWorld* World = GetWorld())
 	{
-		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.UpdateAudioVolumeProxy"), STAT_AudioUpdateAudioVolumeProxy, STATGROUP_TaskGraphTasks);
-
-		FAudioVolumeProxy Proxy(this);
-
-		FAudioThread::RunCommandOnAudioThread([AudioDevice, Proxy]()
+		if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 		{
-			AudioDevice->UpdateAudioVolumeProxy(Proxy);
-		}, GET_STATID(STAT_AudioUpdateAudioVolumeProxy));
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.UpdateAudioVolumeProxy"), STAT_AudioUpdateAudioVolumeProxy, STATGROUP_TaskGraphTasks);
+
+			FAudioVolumeProxy Proxy(this);
+
+			FAudioThread::RunCommandOnAudioThread([AudioDevice, Proxy]()
+			{
+				AudioDevice->UpdateAudioVolumeProxy(Proxy);
+			}, GET_STATID(STAT_AudioUpdateAudioVolumeProxy));
+		}
 	}
 }
 
@@ -365,10 +367,13 @@ void AAudioVolume::SetPriority(const float NewPriority)
 	if (NewPriority != Priority)
 	{
 		Priority = NewPriority;
-		GetWorld()->AudioVolumes.Sort([](const AAudioVolume& A, const AAudioVolume& B) { return (A.GetPriority() > B.GetPriority()); });
-		if (bEnabled)
+		if (UWorld* World = GetWorld())
 		{
-			UpdateProxy();
+			World->AudioVolumes.Sort([](const AAudioVolume& A, const AAudioVolume& B) { return (A.GetPriority() > B.GetPriority()); });
+			if (bEnabled)
+			{
+				UpdateProxy();
+			}
 		}
 	}
 }
@@ -411,7 +416,10 @@ void AAudioVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 
 	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(AAudioVolume, Priority))
 	{
-		GetWorld()->AudioVolumes.Sort([](const AAudioVolume& A, const AAudioVolume& B) { return (A.GetPriority() > B.GetPriority()); });
+		if (UWorld* World = GetWorld())
+		{
+			World->AudioVolumes.Sort([](const AAudioVolume& A, const AAudioVolume& B) { return (A.GetPriority() > B.GetPriority()); });
+		}
 	}
 
 	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(AAudioVolume, bEnabled))
