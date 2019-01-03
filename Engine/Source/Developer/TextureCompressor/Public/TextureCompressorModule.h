@@ -151,6 +151,7 @@ struct FTextureBuildSettings
 		, DiffuseConvolveMipLevel(0)
 		, SharpenMipKernelSize(2)
 		, MaxTextureResolution(TNumericLimits<uint32>::Max())
+		, bHDRSource(false)
 		, MipGenSettings(1 /*TMGS_SimpleAverage*/)
 		, bCubemap(false)
 		, bVolume(false)
@@ -181,7 +182,6 @@ struct FTextureBuildSettings
 		, ChromaKeyColor(FColorList::Magenta)
 		, ChromaKeyThreshold(1.0f / 255.0f)
 		, CompressionQuality(-1)
-		, bHDRSource(false)
 	{
 	}
 
