@@ -75,8 +75,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 	FLightSceneProxy* LightSceneProxy = LightSceneInfo->Proxy;
 	check(LightSceneProxy);
 
-	check(Views.Num() == 1);
-	const FViewInfo& View = Views[0];
+	const FViewInfo& View = Views[0]; // #dxr_todo: what about multi-view case?
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	FRDGBuilder GraphBuilder(RHICmdList);
