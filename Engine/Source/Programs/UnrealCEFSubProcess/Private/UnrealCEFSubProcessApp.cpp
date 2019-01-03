@@ -22,7 +22,7 @@ void FUnrealCEFSubProcessApp::OnContextReleased( CefRefPtr<CefBrowser> Browser, 
 bool FUnrealCEFSubProcessApp::OnProcessMessageReceived( CefRefPtr<CefBrowser> Browser, CefProcessId SourceProcess, CefRefPtr<CefProcessMessage> Message )
 {
 	bool Result = false;
-	FString MessageName = Message->GetName().ToWString().c_str();
+	FString MessageName = WCHAR_TO_TCHAR(Message->GetName().ToWString().c_str());
 	if (MessageName.StartsWith(TEXT("UE::")))
 	{
 		Result = RemoteScripting.OnProcessMessageReceived(Browser, SourceProcess, Message);

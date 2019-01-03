@@ -10,7 +10,7 @@ CefRefPtr<CefV8Value> FUnrealCEFSubProcessRemoteScripting::CefToV8(CefRefPtr<Cef
 	// Custom types are encoded inside dictionary values with a $type and a $value property
 	if ( Dictionary->GetType("$type") == VTYPE_STRING)
 	{
-		FString Type = Dictionary->GetString("$type").ToWString().c_str();
+		FString Type = WCHAR_TO_TCHAR(Dictionary->GetString("$type").ToWString().c_str());
 		if ( Type == "struct" &&  Dictionary->GetType("$value") == VTYPE_DICTIONARY)
 		{
 			return CefToPlainV8Object(Dictionary->GetDictionary("$value"));
@@ -18,7 +18,7 @@ CefRefPtr<CefV8Value> FUnrealCEFSubProcessRemoteScripting::CefToV8(CefRefPtr<Cef
 		if ( Type == "uobject" && Dictionary->GetType("$id") == VTYPE_STRING && Dictionary->GetType("$methods") == VTYPE_LIST)
 		{
 			FGuid Guid;
-			if (FGuid::Parse(Dictionary->GetString("$id").ToWString().c_str(), Guid))
+			if (FGuid::Parse(WCHAR_TO_TCHAR(Dictionary->GetString("$id").ToWString().c_str()), Guid))
 			{
 				CefRefPtr<CefListValue> Methods = Dictionary->GetList("$methods");
 				return CreateUObjectProxy(Guid, Methods);
@@ -45,7 +45,7 @@ CefRefPtr<CefV8Value> FUnrealCEFSubProcessRemoteScripting::CreateUObjectProxy(FG
 		CefRefPtr<CefV8Value> FunctionProxy = CefV8Value::CreateFunction(MethodName, new FUnrealCEFSubProcessRemoteMethodHandler(Remote, MethodName));
 		Result->SetValue(MethodName, FunctionProxy, static_cast<CefV8Value::PropertyAttribute>(V8_PROPERTY_ATTRIBUTE_DONTDELETE | V8_PROPERTY_ATTRIBUTE_READONLY ));
 	}
-	Result->SetValue("$id", CefV8Value::CreateString(*ObjectId.ToString(EGuidFormats::Digits)),  static_cast<CefV8Value::PropertyAttribute>(V8_PROPERTY_ATTRIBUTE_DONTDELETE | V8_PROPERTY_ATTRIBUTE_READONLY | V8_PROPERTY_ATTRIBUTE_DONTENUM));
+	Result->SetValue("$id", CefV8Value::CreateString(TCHAR_TO_WCHAR(*ObjectId.ToString(EGuidFormats::Digits))),  static_cast<CefV8Value::PropertyAttribute>(V8_PROPERTY_ATTRIBUTE_DONTDELETE | V8_PROPERTY_ATTRIBUTE_READONLY | V8_PROPERTY_ATTRIBUTE_DONTENUM));
 	return Result;
 }
 
@@ -128,7 +128,7 @@ CefRefPtr<CefDictionaryValue> FUnrealCEFSubProcessRemoteScripting::V8FunctionToC
 	CefRefPtr<CefDictionaryValue> Result = CefDictionaryValue::Create();
 	FGuid Guid = CallbackRegistry.FindOrAdd(CefV8Context::GetCurrentContext(), Object, Function);
 	Result->SetString("$type", "callback");
-	Result->SetString("$id", *Guid.ToString(EGuidFormats::Digits));
+	Result->SetString("$id", TCHAR_TO_WCHAR(*Guid.ToString(EGuidFormats::Digits)));
 	Result->SetString("$name", Function->GetFunctionName());
 	return Result;
 }
@@ -147,7 +147,7 @@ bool FUnrealCEFSubProcessRemoteScripting::HandleExecuteJSFunctionMessage(CefRefP
 		return false;
 	}
 
-	if (!FGuid::Parse(FString(MessageArguments->GetString(0).ToWString().c_str()), Guid))
+	if (!FGuid::Parse(FString(WCHAR_TO_TCHAR(MessageArguments->GetString(0).ToWString().c_str())), Guid))
 	{
 		// Invalid GUID
 		return false;
@@ -277,7 +277,7 @@ bool FUnrealCEFSubProcessRemoteScripting::HandleDeleteValueMessage(CefRefPtr<Cef
 		bool bPermanent = Argument->GetBool("permanent");
 
 		FGuid Guid;
-		if (!FGuid::Parse(Id.ToWString().c_str(), Guid))
+		if (!FGuid::Parse(WCHAR_TO_TCHAR(Id.ToWString().c_str()), Guid))
 		{
 			return false;
 		}
@@ -329,7 +329,7 @@ bool FUnrealCEFSubProcessRemoteScripting::OnProcessMessageReceived(CefRefPtr<Cef
     CefRefPtr<CefProcessMessage> Message)
 {
 	bool Result = false;
-	FString MessageName = Message->GetName().ToWString().c_str();
+	FString MessageName = WCHAR_TO_TCHAR(Message->GetName().ToWString().c_str());
 	if (MessageName == TEXT("UE::ExecuteJSFunction"))
 	{
 		Result = HandleExecuteJSFunctionMessage(Message->GetArgumentList());
