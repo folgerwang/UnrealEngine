@@ -3385,10 +3385,6 @@ void FEngineLoop::Exit()
 	MALLOC_PROFILER( GMalloc->Exec(nullptr, TEXT("MPROF STOP"), *GLog);	);
 #endif // !ANDROID
 
-#if WITH_PROFILEGPU
-	ClearLongGPUTaskQueries();
-#endif
-
 	// Stop the rendering thread.
 	StopRenderingThread();
 

@@ -8,4 +8,3 @@ class FRHICommandListImmediate;
 
 extern UTILITYSHADERS_API void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIteration = -1);
 extern UTILITYSHADERS_API void MeasureLongGPUTaskExecutionTime(FRHICommandListImmediate& RHICmdList);
-extern UTILITYSHADERS_API void ClearLongGPUTaskQueries();
