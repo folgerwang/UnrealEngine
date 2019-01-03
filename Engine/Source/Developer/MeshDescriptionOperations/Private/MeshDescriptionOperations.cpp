@@ -475,15 +475,14 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 	{
 		if (!MaterialIndexToPolygonGroup.Contains(MaterialIndex))
 		{
-			FPolygonGroupID PolygonGroupID(MaterialIndex);
-			DestinationMeshDescription.CreatePolygonGroupWithID(PolygonGroupID);
+			FPolygonGroupID PolygonGroupID = DestinationMeshDescription.CreatePolygonGroup();
 			if (MaterialMap.Contains(MaterialIndex))
 			{
 				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = MaterialMap[MaterialIndex];
 			}
 			else
 			{
-				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex));
+				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), PolygonGroupID.GetValue()));
 			}
 			PolygonGroups.Add(PolygonGroupID);
 			MaterialIndexToPolygonGroup.Add(MaterialIndex, PolygonGroupID);

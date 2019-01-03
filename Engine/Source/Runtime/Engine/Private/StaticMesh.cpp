@@ -3025,7 +3025,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("7B4DCBC8C34E4C6E97A9A84BA61CADCD")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("0386934AE700020EBBC4DD45C0AA3C49")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
