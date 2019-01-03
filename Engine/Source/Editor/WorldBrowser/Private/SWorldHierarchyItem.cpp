@@ -508,6 +508,7 @@ FReply SWorldHierarchyItem::OnMouseButtonDown(const FGeometry& MyGeometry, const
 		}
 
 		Reply.PreventThrottling();
+		return Reply;
 	}
 
 	return FReply::Handled();
