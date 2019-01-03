@@ -683,6 +683,25 @@ bool UConsole::ProcessControlKey(FKey Key, EInputEvent Event)
 	return false;
 }
 
+bool UConsole::ProcessShiftKey(FKey Key, EInputEvent Event)
+{
+	if (Key == EKeys::LeftShift || Key == EKeys::RightShift)
+	{
+		if (Event == IE_Released)
+		{
+			bShift = false;
+		}
+		else if (Event == IE_Pressed)
+		{
+			bShift = true;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 
 void UConsole::AppendInputText(const FString& Text)
 {
@@ -813,6 +832,10 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 		{
 			return true;
 		}
+		else if (ProcessShiftKey(Key, Event))
+		{
+			return true;
+		}
 		else if( bGamepad )
 		{
 			return false;
@@ -885,12 +908,18 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 			}
 			return false;
 		}
-		else if( Key == EKeys::Up )
+		else if( Key == EKeys::Up || (Key == EKeys::Tab && bShift))
 		{
 			if (!bCtrl)
 			{
 				if(AutoComplete.Num())
 				{
+
+					if (Key == EKeys::Tab)
+					{
+						bCaptureKeyInput = true;
+					}
+
 					if (ConsoleSettings->bOrderTopToBottom)
 					{
 						DecrementCursor();
@@ -907,7 +936,7 @@ bool UConsole::InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Eve
 				SetInputLineFromAutoComplete();
 			}
 		}
-		else if( Key == EKeys::Down || Key == EKeys::Tab )
+		else if( Key == EKeys::Down || (Key == EKeys::Tab && !bShift) )
 		{
 			if (!bCtrl)
 			{
@@ -1235,6 +1264,7 @@ void UConsole::BeginState_Open(FName PreviousStateName)
 
 	SBPos = 0;
 	bCtrl = false;
+	bShift = false;
 
 	if ( PreviousStateName == NAME_None )
 	{
@@ -1554,6 +1584,7 @@ void UConsole::FakeGotoState(FName NextStateName)
 		// to SetKeyboardFocus the console is still considered active
 		ConsoleState = NAME_None;
 		bCtrl = false;
+		bShift = false;
 
 		TSharedPtr<SWidget> WidgetToFocus;
 		if (PreviousFocusedWidget.IsValid())

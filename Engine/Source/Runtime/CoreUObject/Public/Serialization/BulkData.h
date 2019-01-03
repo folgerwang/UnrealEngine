@@ -377,6 +377,13 @@ public:
 	void StoreCompressedOnDisk( ECompressionFlags CompressionFlags );
 	void StoreCompressedOnDisk( FName CompressionFormat );
 
+	/**
+	 * Deallocates bulk data without detaching the archive, so that further bulk data accesses require a reload.
+	 * Only supported in editor builds.
+	 *
+	 * @return Whether the operation succeeded.
+	 */
+	bool UnloadBulkData();
 
 	/*-----------------------------------------------------------------------------
 		Serialization.

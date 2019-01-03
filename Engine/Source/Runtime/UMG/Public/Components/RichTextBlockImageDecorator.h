@@ -35,7 +35,7 @@ public:
  *
  * Understands the format <img id="NameOfBrushInTable"></>
  */
-UCLASS(Abstract)
+UCLASS(Abstract, Blueprintable)
 class UMG_API URichTextBlockImageDecorator : public URichTextBlockDecorator
 {
 	GENERATED_BODY()

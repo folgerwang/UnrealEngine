@@ -22,7 +22,7 @@ int32 FStaticMeshComponentAdapter::GetNumberOfLODs() const
 	return NumLODs;
 }
 
-void FStaticMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropogateMeshData) const
+void FStaticMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropogateMeshData) const
 {
 	FMeshMergeHelpers::RetrieveMesh(StaticMeshComponent, LODIndex, InOutRawMesh, bPropogateMeshData);
 }

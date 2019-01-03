@@ -9,6 +9,7 @@ UFbxSkeletalMeshImportData::UFbxSkeletalMeshImportData(const FObjectInitializer&
 {
 	bTransformVertexToAbsolute = true;
 	bBakePivotInVertex = false;
+	VertexColorImportOption = EVertexColorImportOption::Replace;
 }
 
 UFbxSkeletalMeshImportData* UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(USkeletalMesh* SkeletalMesh, UFbxSkeletalMeshImportData* TemplateForCreation)

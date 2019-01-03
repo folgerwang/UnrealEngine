@@ -34,6 +34,10 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	UWidget* GetChildAt(int32 Index) const;
+	
+	/** Gets all widgets in the container */
+	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
+	TArray<UWidget*> GetAllChildren() const;
 
 	/** Gets the index of a specific child widget */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")

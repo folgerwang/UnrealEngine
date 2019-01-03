@@ -33,6 +33,14 @@ public:
 	UPROPERTY(EditAnywhere, Transient, Category = Mesh, meta = (ImportType = "SkeletalMesh", DisplayName = "Import Content Type", OBJRestrict = "true"))
 	TEnumAsByte<enum EFBXImportContentType> ImportContentType;
 
+	/** Specify how vertex colors should be imported */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Mesh, meta = (OBJRestrict = "true", ImportType = "SkeletalMesh"))
+	TEnumAsByte<EVertexColorImportOption::Type> VertexColorImportOption;
+
+	/** Specify override color in the case that VertexColorImportOption is set to Override */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Mesh, meta = (OBJRestrict = "true", ImportType = "SkeletalMesh"))
+	FColor VertexOverrideColor;
+
 	/** Enable this option to update Skeleton (of the mesh)'s reference pose. Mesh's reference pose is always updated.  */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Mesh, meta=(ImportType="SkeletalMesh|RigOnly", ToolTip="If enabled, update the Skeleton (of the mesh being imported)'s reference pose."))
 	uint32 bUpdateSkeletonReferencePose:1;

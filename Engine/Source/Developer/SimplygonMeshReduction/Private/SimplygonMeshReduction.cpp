@@ -1,7 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
-#include "RawMesh.h"
 #include "IMeshReductionInterfaces.h"
 #include "MeshUtilities.h"
 #include "MaterialUtilities.h"
@@ -27,6 +26,11 @@
 
 #include "MeshMergeData.h"
 #include "Rendering/MultiSizeIndexContainer.h"
+
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
 
 // Standard Simplygon channels have some issues with extracting color data back from simplification, 
 // so we use this workaround with user channels
@@ -177,52 +181,6 @@ public:
 	virtual FString GetName() override 
 	{
 		return FString("SimplygonMeshReduction");
-	}
-
-	virtual void Reduce(
-		FRawMesh& OutReducedMesh,
-		float& OutMaxDeviation,
-		const FRawMesh& InMesh,
-		const FOverlappingCorners& InOverlappingCorners,
-		const FMeshReductionSettings& InSettings
-		) override
-	{
-		SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromRawMesh(InMesh);
-		check(GeometryData);
-
-		SimplygonSDK::spScene Scene = SDK->CreateScene();
-
-		SimplygonSDK::spSceneMesh Mesh = SDK->CreateSceneMesh();
-		Mesh->SetGeometry(GeometryData);
-		Mesh->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("UnrealMesh"))));
-		Scene->GetRootNode()->AddChild(Mesh);
-
-		SimplygonSDK::spReductionProcessor ReductionProcessor = SDK->CreateReductionProcessor();
-		ReductionProcessor->AddObserver(&EventHandler, SimplygonSDK::SG_EVENT_PROGRESS);
-		ReductionProcessor->SetScene(Scene);
-
-		SimplygonSDK::spRepairSettings RepairSettings = ReductionProcessor->GetRepairSettings();
-		RepairSettings->SetWeldDist(InSettings.WeldingThreshold);
-		RepairSettings->SetTjuncDist(InSettings.WeldingThreshold);
-
-		SimplygonSDK::spReductionSettings ReductionSettings = ReductionProcessor->GetReductionSettings();
-		SetReductionSettings(ReductionSettings, InSettings, GeometryData->GetTriangleCount());
-
-		//Set visibility settings
-		SimplygonSDK::spVisibilitySettings VisibilitySettings = ReductionProcessor->GetVisibilitySettings();
-		VisibilitySettings->SetCullOccludedGeometry(InSettings.bCullOccluded);
-		int32 TempAggressiveness = InSettings.VisibilityAggressiveness + 1; //+1 because there is an offset in aggressiveness options
-		VisibilitySettings->SetVisibilityWeightsPower(TempAggressiveness);
-		VisibilitySettings->SetUseVisibilityWeightsInReducer(InSettings.bVisibilityAided);
-
-		SimplygonSDK::spNormalCalculationSettings NormalSettings = ReductionProcessor->GetNormalCalculationSettings();
-		SetNormalSettings(NormalSettings, InSettings);
-
-		ReductionProcessor->RunProcessing();
-
-		SimplygonSDK::spSceneMesh ReducedMesh = SimplygonSDK::Cast<SimplygonSDK::ISceneMesh>(Scene->GetRootNode()->GetChild(0));
-		CreateRawMeshFromGeometry(OutReducedMesh, ReducedMesh->GetGeometry(), WINDING_Keep);
-		OutMaxDeviation = ReductionProcessor->GetResultDeviation();
 	}
 
 	bool ReduceLODModel(
@@ -578,9 +536,45 @@ public:
 		float& OutMaxDeviation,
 		const FMeshDescription& InMesh,
 		const FOverlappingCorners& InOverlappingCorners,
-		const struct FMeshReductionSettings& ReductionSettings
+		const struct FMeshReductionSettings& InSettings
 	) override
 	{
+		SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromRawMesh(InMesh);
+		check(GeometryData);
+
+		SimplygonSDK::spScene Scene = SDK->CreateScene();
+
+		SimplygonSDK::spSceneMesh Mesh = SDK->CreateSceneMesh();
+		Mesh->SetGeometry(GeometryData);
+		Mesh->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("UnrealMesh"))));
+		Scene->GetRootNode()->AddChild(Mesh);
+
+		SimplygonSDK::spReductionProcessor ReductionProcessor = SDK->CreateReductionProcessor();
+		ReductionProcessor->AddObserver(&EventHandler, SimplygonSDK::SG_EVENT_PROGRESS);
+		ReductionProcessor->SetScene(Scene);
+
+		SimplygonSDK::spRepairSettings RepairSettings = ReductionProcessor->GetRepairSettings();
+		RepairSettings->SetWeldDist(InSettings.WeldingThreshold);
+		RepairSettings->SetTjuncDist(InSettings.WeldingThreshold);
+
+		SimplygonSDK::spReductionSettings ReductionSettings = ReductionProcessor->GetReductionSettings();
+		SetReductionSettings(ReductionSettings, InSettings, GeometryData->GetTriangleCount());
+
+		//Set visibility settings
+		SimplygonSDK::spVisibilitySettings VisibilitySettings = ReductionProcessor->GetVisibilitySettings();
+		VisibilitySettings->SetCullOccludedGeometry(InSettings.bCullOccluded);
+		int32 TempAggressiveness = InSettings.VisibilityAggressiveness + 1; //+1 because there is an offset in aggressiveness options
+		VisibilitySettings->SetVisibilityWeightsPower(TempAggressiveness);
+		VisibilitySettings->SetUseVisibilityWeightsInReducer(InSettings.bVisibilityAided);
+
+		SimplygonSDK::spNormalCalculationSettings NormalSettings = ReductionProcessor->GetNormalCalculationSettings();
+		SetNormalSettings(NormalSettings, InSettings);
+
+		ReductionProcessor->RunProcessing();
+
+		SimplygonSDK::spSceneMesh ReducedMesh = SimplygonSDK::Cast<SimplygonSDK::ISceneMesh>(Scene->GetRootNode()->GetChild(0));
+		CreateRawMeshFromGeometry(OutReducedMesh, ReducedMesh->GetGeometry(), WINDING_Keep);
+		OutMaxDeviation = ReductionProcessor->GetResultDeviation();
 	}
 
 	virtual bool ReduceSkeletalMesh(
@@ -899,7 +893,7 @@ public:
 
 		virtual uint32 Run()
 		{
-			FRawMesh OutProxyMesh;
+			FMeshDescription OutProxyMesh;
 			FFlattenMaterial OutMaterial;
 
 			if (!Data.Num())
@@ -982,10 +976,11 @@ public:
 			Reduction->CreateRawMeshFromGeometry(OutProxyMesh, ProxyMesh->GetGeometry(), WINDING_Keep);
 
 			// Default smoothing
-			OutProxyMesh.FaceSmoothingMasks.SetNum(OutProxyMesh.FaceMaterialIndices.Num());
-			for (uint32& SmoothingMask : OutProxyMesh.FaceSmoothingMasks)
+			TEdgeAttributesRef<bool> EdgeHardnesses = OutProxyMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+
+			for (const FEdgeID& EdgeID : OutProxyMesh.Edges().GetElementIDs())
 			{
-				SmoothingMask = 1;
+				EdgeHardnesses[EdgeID] = false;
 			}
 
 			Delegate.ExecuteIfBound(OutProxyMesh, OutMaterial, JobGUID);
@@ -1030,7 +1025,8 @@ public:
 		FScopedSlowTask SlowTask(100.f, (LOCTEXT("SimplygonProxyLOD_ProxyLOD", "Generating Proxy Mesh using Simplygon")));
 		SlowTask.MakeDialog();
 
-		FRawMesh OutProxyMesh;
+		FMeshDescription OutProxyMesh;
+		UStaticMesh::RegisterMeshAttributes(OutProxyMesh);
 		FFlattenMaterial OutMaterial;
 
 		if (!InData.Num())
@@ -1165,17 +1161,17 @@ public:
 		CreateRawMeshFromGeometry(OutProxyMesh, ProxyMesh->GetGeometry(), WINDING_Keep);
 		
 		// Default smoothing
-		OutProxyMesh.FaceSmoothingMasks.SetNum(OutProxyMesh.FaceMaterialIndices.Num());
-		for (uint32& SmoothingMask : OutProxyMesh.FaceSmoothingMasks)
+		TEdgeAttributesRef<bool> EdgeHardnesses = OutProxyMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+
+		for (const FEdgeID& EdgeID : OutProxyMesh.Edges().GetElementIDs())
 		{
-			SmoothingMask = 1;
+			EdgeHardnesses[EdgeID] = false;
 		}
 
-		if (!OutProxyMesh.IsValid())
+		if (OutProxyMesh.Polygons().Num() == 0)
 		{
 			FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("Simplygon failed to generate a valid proxy mesh"));
-		}
-				
+		}				
 		CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InJobGUID);
 	}
 
@@ -1202,248 +1198,290 @@ private:
 		UE_LOG(LogSimplygon, Display, TEXT("Initialized with Simplygon %s"), *VersionString);
 	}
 
-	SimplygonSDK::spGeometryData CreateGeometryFromRawMesh(const FRawMesh& RawMesh)
+	SimplygonSDK::spGeometryData CreateGeometryFromRawMesh(const FMeshDescription& RawMesh)
 	{
-		int32 NumVertices = RawMesh.VertexPositions.Num();
-		int32 NumWedges = RawMesh.WedgeIndices.Num();
-		int32 NumTris = NumWedges / 3;
+		TVertexAttributesConstRef<FVector> VertexPositions = RawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+		TEdgeAttributesConstRef<bool> EdgeHardnesses = RawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+		TEdgeAttributesConstRef<float> EdgeCreaseSharpnesses = RawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+		TPolygonGroupAttributesConstRef<FName> PolygonGroupImportedMaterialSlotNames = RawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = RawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+		int32 NumVertices = RawMesh.Vertices().Num();
+		int32 NumWedges = RawMesh.VertexInstances().Num();
 
 		if (NumWedges == 0)
 		{
 			return NULL;
 		}
 
+		int32 NumTris = 0;
+		for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
+		{
+			NumTris += RawMesh.GetPolygon(PolygonID).Triangles.Num();
+		}
+
+		TArray<uint32> FaceSmoothingMasks;
+		FaceSmoothingMasks.AddZeroed(NumTris);
+		FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(RawMesh, FaceSmoothingMasks);
+
 		SimplygonSDK::spGeometryData GeometryData = SDK->CreateGeometryData();
 		GeometryData->SetVertexCount(NumVertices);
 		GeometryData->SetTriangleCount(NumTris);
 
+		TMap<FVertexID, int32> VertexIDToDstVertexIndex;
+		VertexIDToDstVertexIndex.Reserve(NumVertices);
+		int32 VertexCount = 0;
 		SimplygonSDK::spRealArray Positions = GeometryData->GetCoords();
-		for (int32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
+		for (const FVertexID& VertexID : RawMesh.Vertices().GetElementIDs())
 		{
-			FVector TempPos = RawMesh.VertexPositions[VertexIndex];
+			FVector TempPos = VertexPositions[VertexID];
 			TempPos = GetConversionMatrix().TransformPosition(TempPos);
-			Positions->SetTuple(VertexIndex, (float*)&TempPos);
+			Positions->SetTuple(VertexID.GetValue(), (float*)&TempPos);
+			VertexIDToDstVertexIndex.Add(VertexID, VertexCount);
+			VertexCount++;
 		}
+
+		//Prepare the tex coord
+		TArray<SimplygonSDK::spRealArray> TexCoordsArray;
+		for (int32 TexCoordIndex = 0; TexCoordIndex < VertexInstanceUVs.GetNumIndices(); ++TexCoordIndex)
+		{
+			GeometryData->AddTexCoords(TexCoordIndex);
+			SimplygonSDK::spRealArray TexCoords = GeometryData->GetTexCoords(TexCoordIndex);
+			check(TexCoords->GetTupleSize() == 2);
+			TexCoordsArray.Add(TexCoords);
+		}
+
+		//Prepare the vertex color
+		GeometryData->AddColors(0);
+		SimplygonSDK::spRealArray LinearColors = GeometryData->GetColors(0);
+		check(LinearColors);
+		check(LinearColors->GetTupleSize() == 4);
+
+		//Prepare the tangent space
+		GeometryData->AddTangents(0);
+		GeometryData->AddNormals();
+		SimplygonSDK::spRealArray Tangents = GeometryData->GetTangents(0);
+		SimplygonSDK::spRealArray Bitangents = GeometryData->GetBitangents(0);
+		SimplygonSDK::spRealArray Normals = GeometryData->GetNormals();
 
 		SimplygonSDK::spRidArray Indices = GeometryData->GetVertexIds();
-		for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-		{
-			Indices->SetItem(WedgeIndex, RawMesh.WedgeIndices[WedgeIndex]);
-		}
 
-		for(int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; ++TexCoordIndex)
-		{
-			if (RawMesh.WedgeTexCoords[TexCoordIndex].Num() == NumWedges)
-			{
-				GeometryData->AddTexCoords(TexCoordIndex);
-				SimplygonSDK::spRealArray TexCoords = GeometryData->GetTexCoords(TexCoordIndex);
-				check(TexCoords->GetTupleSize() == 2);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-				{
-					TexCoords->SetTuple(WedgeIndex, (float*)&RawMesh.WedgeTexCoords[TexCoordIndex][WedgeIndex]);
-				}
-			}
-		}
-
-		if (RawMesh.WedgeColors.Num() == NumWedges)
-		{
-			GeometryData->AddColors(0); 
-			SimplygonSDK::spRealArray LinearColors = GeometryData->GetColors(0);
-			check(LinearColors);
-			check(LinearColors->GetTupleSize() == 4);
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				FLinearColor LinearColor(RawMesh.WedgeColors[WedgeIndex]);
-				LinearColors->SetTuple(WedgeIndex, (float*)&LinearColor);
-			}
-		}
-
-		if (RawMesh.WedgeTangentZ.Num() == NumWedges)
-		{
-			if (RawMesh.WedgeTangentX.Num() == NumWedges && RawMesh.WedgeTangentY.Num() == NumWedges)
-			{
-				GeometryData->AddTangents(0);
-				SimplygonSDK::spRealArray Tangents = GeometryData->GetTangents(0);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-				{
-					FVector TempTangent = RawMesh.WedgeTangentX[WedgeIndex];
-					TempTangent = GetConversionMatrix().TransformVector(TempTangent);
-					Tangents->SetTuple(WedgeIndex, (float*)&TempTangent);
-				}
-
-				GeometryData->AddBitangents(0);
-				SimplygonSDK::spRealArray Bitangents = GeometryData->GetBitangents(0);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-				{
-					FVector TempBitangent = RawMesh.WedgeTangentY[WedgeIndex];
-					TempBitangent = GetConversionMatrix().TransformVector(TempBitangent);
-					Bitangents->SetTuple(WedgeIndex, (float*)&TempBitangent);
-				}
-			}
-			GeometryData->AddNormals();
-			SimplygonSDK::spRealArray Normals = GeometryData->GetNormals();
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				FVector TempNormal = RawMesh.WedgeTangentZ[WedgeIndex];
-				TempNormal = GetConversionMatrix().TransformVector(TempNormal);
-				Normals->SetTuple(WedgeIndex, (float*)&TempNormal);
-			}
-		}
-
-		// Per-triangle data.
 		GeometryData->AddMaterialIds();
 		SimplygonSDK::spRidArray MaterialIndices = GeometryData->GetMaterialIds();
-		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
-		{
-			MaterialIndices->SetItem(TriIndex, RawMesh.FaceMaterialIndices[TriIndex]);
-		}
 
-		GeometryData->AddGroupIds();
-		SimplygonSDK::spRidArray GroupIds = GeometryData->GetGroupIds();
-		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+		uint32 DstVertexIndex = 0;
+		uint32 DstTriangleIndex = 0;
+		for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
 		{
-			GroupIds->SetItem(TriIndex, RawMesh.FaceSmoothingMasks[TriIndex]);
+			for (const FMeshTriangle& Triangle : RawMesh.GetPolygon(PolygonID).Triangles)
+			{
+				for (int32 Corner = 0; Corner < 3; ++Corner)
+				{
+					const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID(Corner);
+					//Add all the per indice data
+					Indices->SetItem(DstVertexIndex, VertexIDToDstVertexIndex[RawMesh.GetVertexInstanceVertex(VertexInstanceID)]);
+
+					//UVs
+					for (int32 TexCoordIndex = 0; TexCoordIndex < VertexInstanceUVs.GetNumIndices(); ++TexCoordIndex)
+					{
+						FVector2D Vector2D = VertexInstanceUVs.Get(VertexInstanceID, TexCoordIndex);
+						TexCoordsArray[TexCoordIndex]->SetTuple(DstVertexIndex, (float*)&Vector2D);
+					}
+
+					//Colors
+					LinearColors->SetTuple(DstVertexIndex, (float*)&VertexInstanceColors[VertexInstanceID]);
+
+					//Tangents
+					FVector TempTangent = VertexInstanceTangents[VertexInstanceID];
+					TempTangent = GetConversionMatrix().TransformVector(TempTangent);
+					Tangents->SetTuple(DstVertexIndex, (float*)&TempTangent);
+
+					FVector TempBitangent = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
+					TempBitangent = GetConversionMatrix().TransformVector(TempBitangent);
+					Bitangents->SetTuple(DstVertexIndex, (float*)&TempBitangent);
+
+					FVector TempNormal = VertexInstanceNormals[VertexInstanceID];
+					TempNormal = GetConversionMatrix().TransformVector(TempNormal);
+					Normals->SetTuple(DstVertexIndex, (float*)&TempNormal);
+
+					//Increment the indice index
+					DstVertexIndex++;
+				}
+
+				// Per-triangle data.
+
+				//Materials
+				const FPolygonGroupID& PolygonGroupID = RawMesh.GetPolygonPolygonGroup(PolygonID);
+				MaterialIndices->SetItem(DstTriangleIndex, PolygonGroupID.GetValue());
+
+				//Smooth group
+				GeometryData->AddGroupIds();
+				SimplygonSDK::spRidArray GroupIds = GeometryData->GetGroupIds();
+				GroupIds->SetItem(DstTriangleIndex, FaceSmoothingMasks[DstTriangleIndex]);
+
+				DstTriangleIndex++;
+			}
 		}
 		
 		return GeometryData;
-
 	}
 
 	// This is a copy of CreateGeometryFromRawMesh with additional features for material LOD.
-	SimplygonSDK::spGeometryData CreateGeometryFromRawMesh(const FRawMesh& RawMesh, const TArray<FBox2D> & TextureBounds, const TArray<FVector2D>& InTexCoords)
+	SimplygonSDK::spGeometryData CreateGeometryFromRawMesh(const FMeshDescription& RawMesh, const TArray<FBox2D>& TextureBounds, const TArray<FVector2D>& InTexCoords)
 	{
-		int32 NumVertices = RawMesh.VertexPositions.Num();
-		int32 NumWedges = RawMesh.WedgeIndices.Num();
-		int32 NumTris = NumWedges / 3;
+		TVertexAttributesConstRef<FVector> VertexPositions = RawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+		TEdgeAttributesConstRef<bool> EdgeHardnesses = RawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+		TEdgeAttributesConstRef<float> EdgeCreaseSharpnesses = RawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+		TPolygonGroupAttributesConstRef<FName> PolygonGroupImportedMaterialSlotNames = RawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = RawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+		int32 NumVertices = RawMesh.Vertices().Num();
+		int32 NumWedges = RawMesh.VertexInstances().Num();
 
 		if (NumWedges == 0)
 		{
 			return NULL;
 		}
 
+		int32 NumTris = 0;
+		for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
+		{
+			NumTris += RawMesh.GetPolygon(PolygonID).Triangles.Num();
+		}
+
+		TArray<uint32> FaceSmoothingMasks;
+		FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(RawMesh, FaceSmoothingMasks);
+
 		SimplygonSDK::spGeometryData GeometryData = SDK->CreateGeometryData();
 		GeometryData->SetVertexCount(NumVertices);
 		GeometryData->SetTriangleCount(NumTris);
 
+		TMap<FVertexID, int32> VertexIDToDstVertexIndex;
+		VertexIDToDstVertexIndex.Reserve(NumVertices);
+		int32 VertexCount = 0;
 		SimplygonSDK::spRealArray Positions = GeometryData->GetCoords();
-		for (int32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
+		for (const FVertexID& VertexID : RawMesh.Vertices().GetElementIDs())
 		{
-			FVector TempPos = RawMesh.VertexPositions[VertexIndex];
+			FVector TempPos = VertexPositions[VertexID];
 			TempPos = GetConversionMatrix().TransformPosition(TempPos);
-			Positions->SetTuple(VertexIndex, (float*)&TempPos);
+			Positions->SetTuple(VertexID.GetValue(), (float*)&TempPos);
+			VertexIDToDstVertexIndex.Add(VertexID, VertexCount);
+			VertexCount++;
 		}
+
+		//Prepare the tex coord
+		TArray<SimplygonSDK::spRealArray> TexCoordsArray;
+		for (int32 TexCoordIndex = 0; TexCoordIndex < VertexInstanceUVs.GetNumIndices(); ++TexCoordIndex)
+		{
+			GeometryData->AddTexCoords(TexCoordIndex);
+			SimplygonSDK::spRealArray TexCoords = GeometryData->GetTexCoords(TexCoordIndex);
+			check(TexCoords->GetTupleSize() == 2);
+			TexCoordsArray.Add(TexCoords);
+		}
+
+		//Prepare the vertex color
+		GeometryData->AddColors(0);
+		SimplygonSDK::spRealArray LinearColors = GeometryData->GetColors(0);
+		check(LinearColors);
+		check(LinearColors->GetTupleSize() == 4);
+
+		//Prepare the tangent space
+		GeometryData->AddTangents(0);
+		GeometryData->AddNormals();
+		SimplygonSDK::spRealArray Tangents = GeometryData->GetTangents(0);
+		SimplygonSDK::spRealArray Bitangents = GeometryData->GetBitangents(0);
+		SimplygonSDK::spRealArray Normals = GeometryData->GetNormals();
 
 		SimplygonSDK::spRidArray Indices = GeometryData->GetVertexIds();
-		for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-		{
-			Indices->SetItem(WedgeIndex, RawMesh.WedgeIndices[WedgeIndex]);
-		}
 
-		for(int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; ++TexCoordIndex)
+		GeometryData->AddMaterialIds();
+		SimplygonSDK::spRidArray MaterialIndices = GeometryData->GetMaterialIds();
+
+		uint32 DstVertexIndex = 0;
+		uint32 DstTriangleIndex = 0;
+		for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
 		{
-			const TArray<FVector2D>& SrcTexCoords = (TexCoordIndex == 0 && InTexCoords.Num() == NumWedges) ? InTexCoords : RawMesh.WedgeTexCoords[TexCoordIndex];
-			if (SrcTexCoords.Num() == NumWedges)
+			for (const FMeshTriangle& Triangle : RawMesh.GetPolygon(PolygonID).Triangles)
 			{
-				GeometryData->AddTexCoords(TexCoordIndex);
-				SimplygonSDK::spRealArray TexCoords = GeometryData->GetTexCoords(TexCoordIndex);
-				check(TexCoords->GetTupleSize() == 2);
-				int32 WedgeIndex = 0;
-				for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+				//Materials
+				const FPolygonGroupID& PolygonGroupID = RawMesh.GetPolygonPolygonGroup(PolygonID);
+				MaterialIndices->SetItem(DstTriangleIndex, PolygonGroupID.GetValue());
+				int32 MaterialIndex = PolygonGroupID.GetValue();
+
+				for (int32 Corner = 0; Corner < 3; ++Corner)
 				{
-					int32 MaterialIndex = RawMesh.FaceMaterialIndices[TriIndex];
-					// Compute texture bounds for current material.
-					float MinU = 0, ScaleU = 1;
-					float MinV = 0, ScaleV = 1;
-					
-					if (TextureBounds.IsValidIndex(MaterialIndex) && TexCoordIndex == 0 && InTexCoords.Num() == 0)
+					const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID(Corner);
+					//Add all the per indice data
+					Indices->SetItem(DstVertexIndex, VertexIDToDstVertexIndex[RawMesh.GetVertexInstanceVertex(VertexInstanceID)]);
+
+					//UVs
+					for (int32 TexCoordIndex = 0; TexCoordIndex < VertexInstanceUVs.GetNumIndices(); ++TexCoordIndex)
 					{
-						const FBox2D& Bounds = TextureBounds[MaterialIndex];
-						if (Bounds.GetArea() > 0)
+						// Compute texture bounds for current material.
+						float MinU = 0, ScaleU = 1;
+						float MinV = 0, ScaleV = 1;
+
+						if (TextureBounds.IsValidIndex(MaterialIndex) && TexCoordIndex == 0 && InTexCoords.Num() == 0)
 						{
-							MinU = Bounds.Min.X;
-							MinV = Bounds.Min.Y;
-							ScaleU = 1.0f / (Bounds.Max.X - Bounds.Min.X);
-							ScaleV = 1.0f / (Bounds.Max.Y - Bounds.Min.Y);
+							const FBox2D& Bounds = TextureBounds[MaterialIndex];
+							if (Bounds.GetArea() > 0)
+							{
+								MinU = Bounds.Min.X;
+								MinV = Bounds.Min.Y;
+								ScaleU = 1.0f / (Bounds.Max.X - Bounds.Min.X);
+								ScaleV = 1.0f / (Bounds.Max.Y - Bounds.Min.Y);
+							}
 						}
-					}
-					for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex, ++WedgeIndex)
-					{
-						const FVector2D& TexCoord = SrcTexCoords[WedgeIndex];
+
+						const FVector2D& TexCoord = VertexInstanceUVs.Get(VertexInstanceID, TexCoordIndex);
 						float UV[2];
 						UV[0] = (TexCoord.X - MinU) * ScaleU;
 						UV[1] = (TexCoord.Y - MinV) * ScaleV;
-						TexCoords->SetTuple(WedgeIndex, UV);
+						TexCoordsArray[TexCoordIndex]->SetTuple(DstVertexIndex, UV);
 					}
-				}
-			}
-		}
 
-		if (RawMesh.WedgeColors.Num() == NumWedges)
-		{
-			GeometryData->AddColors(0); 
-			SimplygonSDK::spRealArray LinearColors = GeometryData->GetColors(0);
-			check(LinearColors);
-			check(LinearColors->GetTupleSize() == 4);
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				FLinearColor LinearColor(RawMesh.WedgeColors[WedgeIndex]);
-				LinearColors->SetTuple(WedgeIndex, (float*)&LinearColor);
-			}
-		}
+					//Colors
+					LinearColors->SetTuple(DstVertexIndex, (float*)&VertexInstanceColors[VertexInstanceID]);
 
-		if (RawMesh.WedgeTangentZ.Num() == NumWedges)
-		{
-			if (RawMesh.WedgeTangentX.Num() == NumWedges && RawMesh.WedgeTangentY.Num() == NumWedges)
-			{
-				GeometryData->AddTangents(0);
-				SimplygonSDK::spRealArray Tangents = GeometryData->GetTangents(0);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-				{
-					FVector TempTangent = RawMesh.WedgeTangentX[WedgeIndex];
+					//Tangents
+					FVector TempTangent = VertexInstanceTangents[VertexInstanceID];
 					TempTangent = GetConversionMatrix().TransformVector(TempTangent);
-					Tangents->SetTuple(WedgeIndex, (float*)&TempTangent);
-				}
+					Tangents->SetTuple(DstVertexIndex, (float*)&TempTangent);
 
-				GeometryData->AddBitangents(0);
-				SimplygonSDK::spRealArray Bitangents = GeometryData->GetBitangents(0);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-				{
-					FVector TempBitangent = RawMesh.WedgeTangentY[WedgeIndex];
+					FVector TempBitangent = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
 					TempBitangent = GetConversionMatrix().TransformVector(TempBitangent);
-					Bitangents->SetTuple(WedgeIndex, (float*)&TempBitangent);
+					Bitangents->SetTuple(DstVertexIndex, (float*)&TempBitangent);
+
+					FVector TempNormal = VertexInstanceNormals[VertexInstanceID];
+					TempNormal = GetConversionMatrix().TransformVector(TempNormal);
+					Normals->SetTuple(DstVertexIndex, (float*)&TempNormal);
+
+					//Increment the indice index
+					DstVertexIndex++;
 				}
-			}
-			GeometryData->AddNormals();
-			SimplygonSDK::spRealArray Normals = GeometryData->GetNormals();
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				FVector TempNormal = RawMesh.WedgeTangentZ[WedgeIndex];
-				TempNormal = GetConversionMatrix().TransformVector(TempNormal);
-				Normals->SetTuple(WedgeIndex, (float*)&TempNormal);
-			}
-		}
 
-		// Per-triangle data.
-		GeometryData->AddMaterialIds();
-		SimplygonSDK::spRidArray MaterialIndices = GeometryData->GetMaterialIds();
-		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
-		{
-			MaterialIndices->SetItem(TriIndex, RawMesh.FaceMaterialIndices[TriIndex]);
-		}
+				// Per-triangle data.
 
-		GeometryData->AddGroupIds();
-		SimplygonSDK::spRidArray GroupIds = GeometryData->GetGroupIds();
-		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
-		{
-			GroupIds->SetItem(TriIndex, RawMesh.FaceSmoothingMasks[TriIndex]);
+				//Smooth group
+				GeometryData->AddGroupIds();
+				SimplygonSDK::spRidArray GroupIds = GeometryData->GetGroupIds();
+				GroupIds->SetItem(DstTriangleIndex, FaceSmoothingMasks[DstTriangleIndex]);
+
+				DstTriangleIndex++;
+			}
 		}
-		
 		return GeometryData;
-
 	}
-	 
 
-	void CreateRawMeshFromGeometry(FRawMesh& OutRawMesh, const SimplygonSDK::spGeometryData& GeometryData, EWindingMode WindingMode)
+	void CreateRawMeshFromGeometry(FMeshDescription& OutRawMesh, const SimplygonSDK::spGeometryData& GeometryData, EWindingMode WindingMode)
 	{
 		check(GeometryData);
 
@@ -1459,125 +1497,179 @@ private:
 		check(Positions);
 		check(Indices);
 
-		FRawMesh& RawMesh = OutRawMesh;
+		FMeshDescription& RawMesh = OutRawMesh;
+
+		TVertexAttributesRef<FVector> VertexPositions = RawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+		TEdgeAttributesRef<bool> EdgeHardnesses = RawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+		TEdgeAttributesRef<float> EdgeCreaseSharpnesses = RawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+		TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = RawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = RawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+		TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
 		const bool bReverseWinding = (WindingMode == WINDING_Reverse);
 		int32 NumTris = GeometryData->GetTriangleCount();
 		int32 NumWedges = NumTris * 3;
 		int32 NumVertices = GeometryData->GetVertexCount();
 
-		RawMesh.VertexPositions.Empty(NumVertices);
-		RawMesh.VertexPositions.AddUninitialized(NumVertices);
+		RawMesh.Empty();
+		RawMesh.ReserveNewVertices(NumVertices);
+		RawMesh.ReserveNewPolygons(NumTris);
+		RawMesh.ReserveNewVertexInstances(NumWedges);
+		RawMesh.ReserveNewEdges(NumWedges);
+
+		TMap<int32, FVertexID> GeoToRawVertexID;
 		SimplygonSDK::spRealData sgTuple = SDK->CreateRealData();
 		for (int32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
 		{
-			//Positions->GetTuple(VertexIndex, (float*)&RawMesh.VertexPositions[VertexIndex]);
 			Positions->GetTuple(VertexIndex, sgTuple);
 			SimplygonSDK::real* vertexPos = sgTuple->GetData();
-			RawMesh.VertexPositions[VertexIndex] = GetConversionMatrix().TransformPosition(FVector(vertexPos[0], vertexPos[1], vertexPos[2]));
+			const FVertexID& VertexID = RawMesh.CreateVertex();
+			VertexPositions[VertexID] = GetConversionMatrix().TransformPosition(FVector(vertexPos[0], vertexPos[1], vertexPos[2]));
+			GeoToRawVertexID.Add(VertexIndex, VertexID);
 		}
 
-		RawMesh.WedgeIndices.Empty(NumWedges);
-		RawMesh.WedgeIndices.AddUninitialized(NumWedges);
-		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
-		{
-			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-			{
-				const uint32 DestIndex = bReverseWinding ? (2 - CornerIndex) : CornerIndex;
-				RawMesh.WedgeIndices[TriIndex * 3 + DestIndex] = Indices->GetItem(TriIndex * 3 + CornerIndex);
-			}
-		}
-
-		for(int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; ++TexCoordIndex)
+		//Prepare the tex coord
+		int32 TexCoordNum = 0;
+		TArray<SimplygonSDK::spRealArray> TexCoordsArray;
+		for (int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS_MD; ++TexCoordIndex, ++TexCoordNum)
 		{
 			SimplygonSDK::spRealArray TexCoords = GeometryData->GetTexCoords(TexCoordIndex);
-			if (TexCoords)
+			if (TexCoords == nullptr)
 			{
-				RawMesh.WedgeTexCoords[TexCoordIndex].Empty(NumWedges);
-				RawMesh.WedgeTexCoords[TexCoordIndex].AddUninitialized(NumWedges);
-				for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+				break;
+			}
+			check(TexCoords->GetTupleSize() == 2);
+			TexCoordsArray.Add(TexCoords);
+		}
+		VertexInstanceUVs.SetNumIndices(FMath::Max(TexCoordNum, 1));
+
+		//Prepare the polygongroup
+		TMap<int32, FPolygonGroupID> GeoToRawMaterial;
+		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+		{
+			int32 MaterialIndex = MaterialIndices != nullptr ? MaterialIndices->GetItem(TriIndex) : 0;
+			if (!GeoToRawMaterial.Contains(MaterialIndex))
+			{
+				const FPolygonGroupID PolygonGroupID(MaterialIndex);
+				RawMesh.CreatePolygonGroupWithID(PolygonGroupID);
+				PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString(TEXT("SimplygonMeshReduction_") + FString::FromInt(PolygonGroupID.GetValue())));
+				GeoToRawMaterial.Add(MaterialIndex, PolygonGroupID);
+			}
+		}
+
+		bool bHasZeroTangent = false;
+		bool bHasZeroNormal = false;
+		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
+		{
+			FVertexID VertexIndexes[3];
+			FVertexInstanceID VertexInstanceIDs[3];
+			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
+			{
+				const uint32 SrcIndex = (TriIndex * 3) + (bReverseWinding ? (2 - CornerIndex) : CornerIndex);
+				const FVertexID VertexID = GeoToRawVertexID[Indices->GetItem(SrcIndex)];
+				const FVertexInstanceID VertexInstanceID = RawMesh.CreateVertexInstance(VertexID);
+				VertexIndexes[CornerIndex] = VertexID;
+				VertexInstanceIDs[CornerIndex] = VertexInstanceID;
+				//Texture coordinnates
+				for (int32 TexCoordIndex = 0; TexCoordIndex < TexCoordNum; ++TexCoordIndex)
 				{
-					for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-					{
-						const uint32 DestIndex = bReverseWinding ? (2 - CornerIndex) : CornerIndex;
-						//TexCoords->GetTuple(TriIndex * 3 + CornerIndex, (float*)&RawMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestIndex]);
-						TexCoords->GetTuple(TriIndex * 3 + CornerIndex, sgTuple);
-
-						SimplygonSDK::real* sgTextCoors = sgTuple->GetData();
-						RawMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestIndex] = FVector2D(sgTextCoors[0], sgTextCoors[1]);
-
-					}
+					TexCoordsArray[TexCoordIndex]->GetTuple(SrcIndex, sgTuple);
+					SimplygonSDK::real* sgTextCoors = sgTuple->GetData();
+					VertexInstanceUVs.Set(VertexInstanceID, TexCoordIndex, FVector2D(sgTextCoors[0], sgTextCoors[1]));
 				}
-			}
-		}
 
-		RawMesh.WedgeColors.Empty(NumWedges);
-		RawMesh.WedgeColors.AddUninitialized(NumWedges);
-		if (LinearColors)
-		{
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				//LinearColors->GetTuple(WedgeIndex, (float*)&LinearColor);
-				LinearColors->GetTuple(WedgeIndex, sgTuple);
-				SimplygonSDK::real* sgVertexColor = sgTuple->GetData();
-				FLinearColor LinearColor(sgVertexColor[0], sgVertexColor[1], sgVertexColor[2], sgVertexColor[3]);
-				RawMesh.WedgeColors[WedgeIndex] = LinearColor.ToFColor(true);
-			}
-		}
-
-		if (Normals)
-		{
-			if (Tangents && Bitangents)
-			{
-				RawMesh.WedgeTangentX.Empty(NumWedges);
-				RawMesh.WedgeTangentX.AddUninitialized(NumWedges);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
+				//Vertex Color
+				if (LinearColors)
 				{
-					//Tangents->GetTuple(WedgeIndex, (float*)&RawMesh.WedgeTangentX[WedgeIndex]);
-					Tangents->GetTuple(WedgeIndex, sgTuple);
+					LinearColors->GetTuple(SrcIndex, sgTuple);
+					SimplygonSDK::real* sgVertexColor = sgTuple->GetData();
+					VertexInstanceColors[VertexInstanceID] = FVector4(sgVertexColor[0], sgVertexColor[1], sgVertexColor[2], sgVertexColor[3]);
+				}
+
+				//Vertex Tangents
+				FVector Tangent(0.0f);
+				FVector BiTangent(0.0f);
+				FVector Normal(0.0f);
+
+				if (Normals)
+				{
+					Normals->GetTuple(SrcIndex, sgTuple);
+					SimplygonSDK::real* sgNormal = sgTuple->GetData();
+					Normal = GetConversionMatrix().TransformVector(FVector(sgNormal[0], sgNormal[1], sgNormal[2]));
+				}
+				bHasZeroNormal |= Normal.IsNearlyZero();
+
+				if (Tangents && Bitangents)
+				{
+					Tangents->GetTuple(SrcIndex, sgTuple);
 					SimplygonSDK::real* sgTangents = sgTuple->GetData();
-					RawMesh.WedgeTangentX[WedgeIndex] = GetConversionMatrix().TransformVector( FVector(sgTangents[0], sgTangents[1], sgTangents[2]) );
-				}
+					Tangent = GetConversionMatrix().TransformVector(FVector(sgTangents[0], sgTangents[1], sgTangents[2]));
 
-				RawMesh.WedgeTangentY.Empty(NumWedges);
-				RawMesh.WedgeTangentY.AddUninitialized(NumWedges);
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
+					Bitangents->GetTuple(SrcIndex, sgTuple);
+					SimplygonSDK::real* sgBiTangents = sgTuple->GetData();
+					BiTangent = GetConversionMatrix().TransformVector(FVector(sgBiTangents[0], sgBiTangents[1], sgBiTangents[2]));
+				}
+				bHasZeroTangent |= Tangent.IsNearlyZero() || BiTangent.IsNearlyZero();
+
+				VertexInstanceTangents[VertexInstanceID] = Tangent;
+				VertexInstanceBinormalSigns[VertexInstanceID] = GetBasisDeterminantSign(Tangent.GetSafeNormal(), BiTangent.GetSafeNormal(), Normal.GetSafeNormal());
+				VertexInstanceNormals[VertexInstanceID] = Normal;
+			}
+			//Create a polygon from this triangle
+			TArray<FMeshDescription::FContourPoint> Contours;
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				int32 ContourPointIndex = Contours.AddDefaulted();
+				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+				//Find the matching edge ID
+				uint32 CornerIndices[2];
+				CornerIndices[0] = (Corner + 0) % 3;
+				CornerIndices[1] = (Corner + 1) % 3;
+
+				FVertexID EdgeVertexIDs[2];
+				EdgeVertexIDs[0] = VertexIndexes[CornerIndices[0]];
+				EdgeVertexIDs[1] = VertexIndexes[CornerIndices[1]];
+
+				FEdgeID MatchEdgeId = RawMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				if (MatchEdgeId == FEdgeID::Invalid)
 				{
-					//Bitangents->GetTuple(WedgeIndex, (float*)&RawMesh.WedgeTangentY[WedgeIndex]);
-					Bitangents->GetTuple(WedgeIndex, sgTuple);
-					SimplygonSDK::real* sgBitangents = sgTuple->GetData();
-					RawMesh.WedgeTangentY[WedgeIndex] = GetConversionMatrix().TransformVector(FVector(sgBitangents[0], sgBitangents[1], sgBitangents[2]));
+					MatchEdgeId = RawMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+					EdgeHardnesses[MatchEdgeId] = false;
+					EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
 				}
+				ContourPoint.EdgeID = MatchEdgeId;
+				ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
 			}
-
-			RawMesh.WedgeTangentZ.Empty(NumWedges);
-			RawMesh.WedgeTangentZ.AddUninitialized(NumWedges);
-			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
-			{
-				//Normals->GetTuple(WedgeIndex, (float*)&RawMesh.WedgeTangentZ[WedgeIndex]);
-				Normals->GetTuple(WedgeIndex, sgTuple);
-				SimplygonSDK::real* sgNormal = sgTuple->GetData();
-				RawMesh.WedgeTangentZ[WedgeIndex] = GetConversionMatrix().TransformVector(FVector(sgNormal[0], sgNormal[1], sgNormal[2]));
-			}
+			// Insert a polygon into the mesh
+			int32 MaterialIndex = MaterialIndices != nullptr ? MaterialIndices->GetItem(TriIndex) : 0;
+			const FPolygonID NewPolygonID = RawMesh.CreatePolygon(GeoToRawMaterial[MaterialIndex], Contours);
+			//Triangulate the polygon
+			FMeshPolygon& Polygon = RawMesh.GetPolygon(NewPolygonID);
+			RawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
 		}
 
-		RawMesh.FaceMaterialIndices.Empty(NumTris);
-		RawMesh.FaceMaterialIndices.AddZeroed(NumTris);
-		if (MaterialIndices)
-		{
-			for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
-			{
-				RawMesh.FaceMaterialIndices[TriIndex] = MaterialIndices->GetItem(TriIndex);
-			}
-		}
-
-		RawMesh.FaceSmoothingMasks.Empty(NumTris);
-		RawMesh.FaceSmoothingMasks.AddZeroed(NumTris);
+		TArray<uint32> FaceSmoothingMasks;
+		FaceSmoothingMasks.AddZeroed(NumTris);
 		if (GroupIds)
 		{
 			for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 			{
-				RawMesh.FaceSmoothingMasks[TriIndex] = GroupIds->GetItem(TriIndex);
+				FaceSmoothingMasks[TriIndex] = GroupIds->GetItem(TriIndex);
 			}
+		}
+		FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(FaceSmoothingMasks, RawMesh);
+
+		if (bHasZeroTangent | bHasZeroNormal)
+		{
+			FMeshDescriptionOperations::ETangentOptions TangentOption = (FMeshDescriptionOperations::ETangentOptions)(FMeshDescriptionOperations::ETangentOptions::BlendOverlappingNormals | FMeshDescriptionOperations::ETangentOptions::IgnoreDegenerateTriangles);
+			if (bHasZeroNormal)
+			{
+				FMeshDescriptionOperations::CreateNormals(RawMesh, TangentOption, false);
+			}
+			FMeshDescriptionOperations::CreateMikktTangents(RawMesh, TangentOption);
 		}
 	}
 

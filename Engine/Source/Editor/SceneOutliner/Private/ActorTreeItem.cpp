@@ -175,6 +175,8 @@ void FActorDropTarget::PerformAttachment(FName SocketName, TWeakObjectPtr<AActor
 			if (GEditor->CanParentActors(ParentActor, ChildActor))
 			{
 				GEditor->ParentActors(ParentActor, ChildActor, SocketName);
+
+				ChildActor->SetFolderPath_Recursively(ParentActor->GetFolderPath());
 			}
 		}
 	}

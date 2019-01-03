@@ -28,6 +28,11 @@ void URetainerBox::SetRenderingPhase(int PhaseToRenderOn, int32 TotalRenderingPh
 {
 	Phase = PhaseToRenderOn;
 	PhaseCount = TotalRenderingPhases;
+	
+	if ( PhaseCount < 1 )
+	{
+		PhaseCount = 1;
+	}
 
 	if (MyRetainerWidget.IsValid())
 	{

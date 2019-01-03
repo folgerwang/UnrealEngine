@@ -92,7 +92,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::RefreshOnRowChange(const FAssetDa
 	}
 }
 
-bool SMaterialLayersFunctionsInstanceTreeItem::GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+bool SMaterialLayersFunctionsInstanceTreeItem::GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData) const
 {
 	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
 	{
@@ -105,7 +105,7 @@ bool SMaterialLayersFunctionsInstanceTreeItem::GetFilterState(SMaterialLayersFun
 	return false;
 }
 
-void SMaterialLayersFunctionsInstanceTreeItem::FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData)
+void SMaterialLayersFunctionsInstanceTreeItem::FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData)
 {
 	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
 	{
@@ -117,7 +117,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::FilterClicked(const ECheckBoxStat
 	}
 }
 
-ECheckBoxState SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+ECheckBoxState SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData) const
 {
 	return GetFilterState(InTree, InStackData) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -203,8 +203,8 @@ FReply SMaterialLayersFunctionsInstanceTreeItem::OnLayerDrop(const FDragDropEven
 	{
 		return FReply::Unhandled();
 	}
-	TSharedPtr<FStackSortedData> SwappingPropertyData = LayerPtr->StackParameterData;
-	TSharedPtr<FStackSortedData> SwappablePropertyData = StackParameterData;
+	TSharedPtr<FSortedParamData> SwappingPropertyData = LayerPtr->StackParameterData;
+	TSharedPtr<FSortedParamData> SwappablePropertyData = StackParameterData;
 	if (SwappingPropertyData.IsValid() && SwappablePropertyData.IsValid())
 	{
 		if (SwappingPropertyData != SwappablePropertyData)
@@ -334,7 +334,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::Construct(const FArguments& InArg
 				];
 		}
 		const float ThumbnailSize = 24.0f;
-		TArray<TSharedPtr<FStackSortedData>> AssetChildren = StackParameterData->Children;
+		TArray<TSharedPtr<FSortedParamData>> AssetChildren = StackParameterData->Children;
 		if (AssetChildren.Num() > 0)
 		{
 			HeaderRowWidget->AddSlot()
@@ -346,7 +346,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::Construct(const FArguments& InArg
 					SNullWidget::NullWidget
 				];
 		}
-		for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
+		for (TSharedPtr<FSortedParamData> AssetChild : AssetChildren)
 		{
 			TSharedPtr<SBox> ThumbnailBox;
 			UObject* AssetObject;
@@ -950,7 +950,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::Construct(const FArguments& InArg
 	FOnTableRowDragLeave LayerDragLeaveDelegate = FOnTableRowDragLeave::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnLayerDragLeave);
 	FOnTableRowDrop LayerDropDelegate = FOnTableRowDrop::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnLayerDrop);
 
-	STableRow< TSharedPtr<FStackSortedData> >::ConstructInternal(
+	STableRow< TSharedPtr<FSortedParamData> >::ConstructInternal(
 		STableRow::FArguments()
 		.Style(FEditorStyle::Get(), "DetailsView.TreeView.TableRow")
 		.ShowSelection(false)
@@ -1005,7 +1005,7 @@ void SMaterialLayersFunctionsInstanceTree::Construct(const FArguments& InArgs)
 	}
 #endif
 
-	STreeView<TSharedPtr<FStackSortedData>>::Construct(
+	STreeView<TSharedPtr<FSortedParamData>>::Construct(
 		STreeView::FArguments()
 		.TreeItemsSource(&LayerProperties)
 		.SelectionMode(ESelectionMode::None)
@@ -1017,7 +1017,7 @@ void SMaterialLayersFunctionsInstanceTree::Construct(const FArguments& InArgs)
 	SetParentsExpansionState();
 }
 
-TSharedRef< ITableRow > SMaterialLayersFunctionsInstanceTree::OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> Item, const TSharedRef< STableViewBase >& OwnerTable)
+TSharedRef< ITableRow > SMaterialLayersFunctionsInstanceTree::OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> Item, const TSharedRef< STableViewBase >& OwnerTable)
 {
 	TSharedRef< SMaterialLayersFunctionsInstanceTreeItem > ReturnRow = SNew(SMaterialLayersFunctionsInstanceTreeItem, OwnerTable)
 		.StackParameterData(Item)
@@ -1026,13 +1026,13 @@ TSharedRef< ITableRow > SMaterialLayersFunctionsInstanceTree::OnGenerateRowMater
 	return ReturnRow;
 }
 
-void SMaterialLayersFunctionsInstanceTree::OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> InParent, TArray< TSharedPtr<FStackSortedData> >& OutChildren)
+void SMaterialLayersFunctionsInstanceTree::OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> InParent, TArray< TSharedPtr<FSortedParamData> >& OutChildren)
 {
 	OutChildren = InParent->Children;
 }
 
 
-void SMaterialLayersFunctionsInstanceTree::OnExpansionChanged(TSharedPtr<FStackSortedData> Item, bool bIsExpanded)
+void SMaterialLayersFunctionsInstanceTree::OnExpansionChanged(TSharedPtr<FSortedParamData> Item, bool bIsExpanded)
 {
 	bool* ExpansionValue = MaterialEditorInstance->SourceInstance->LayerParameterExpansion.Find(Item->NodeKey);
 	if (ExpansionValue == nullptr)
@@ -1079,7 +1079,7 @@ void SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange(const struct FAs
 	RequestTreeRefresh();
 }
 
-void SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData)
+void SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FSortedParamData> InData)
 {
 	FMaterialPropertyHelpers::ResetLayerAssetToDefault(FunctionInstanceHandle.ToSharedRef(), InData->Parameter, InData->ParameterInfo.Association, InData->ParameterInfo.Index, MaterialEditorInstance);
 	UpdateThumbnailMaterial(InData->ParameterInfo.Association, InData->ParameterInfo.Index, false);
@@ -1238,14 +1238,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 					MaterialEditorInstance->StoredBlendPreviews.AddDefaulted(BlendChildren);
 				}
 					
-				TSharedRef<FStackSortedData> StackProperty = MakeShared<FStackSortedData>();
+				TSharedRef<FSortedParamData> StackProperty = MakeShared<FSortedParamData>();
 				StackProperty->StackDataType = EStackDataType::Stack;
 				StackProperty->Parameter = Parameter;
 				StackProperty->ParameterInfo.Index = LayerChildren - 1;
 				StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 
 
-				TSharedRef<FStackSortedData> ChildProperty = MakeShared<FStackSortedData>();
+				TSharedRef<FSortedParamData> ChildProperty = MakeShared<FSortedParamData>();
 				ChildProperty->StackDataType = EStackDataType::Asset;
 				ChildProperty->Parameter = Parameter;
 				ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(LayerChildren - 1);
@@ -1276,7 +1276,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 				{
 					for (int32 Counter = BlendChildren - 1; Counter >= 0; Counter--)
 					{
-						ChildProperty = MakeShared<FStackSortedData>();
+						ChildProperty = MakeShared<FSortedParamData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = BlendHandle->AsArray()->GetElement(Counter);	
@@ -1299,14 +1299,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 						}
 						LayerProperties.Last()->Children.Add(ChildProperty);
 							
-						StackProperty = MakeShared<FStackSortedData>();
+						StackProperty = MakeShared<FSortedParamData>();
 						StackProperty->StackDataType = EStackDataType::Stack;
 						StackProperty->Parameter = Parameter;
 						StackProperty->ParameterInfo.Index = Counter;
 						StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 						LayerProperties.Add(StackProperty);
 
-						ChildProperty = MakeShared<FStackSortedData>();
+						ChildProperty = MakeShared<FSortedParamData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(Counter);
@@ -1333,7 +1333,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 			}
 			else
 			{
-				FLayerParameterUnsortedData NonLayerProperty;
+				FUnsortedParamData NonLayerProperty;
 				UDEditorScalarParameterValue* ScalarParam = Cast<UDEditorScalarParameterValue>(Parameter);
 
 				if (ScalarParam && ScalarParam->SliderMax > ScalarParam->SliderMin)
@@ -1388,7 +1388,7 @@ TSharedRef<SWidget> SMaterialLayersFunctionsInstanceTree::CreateThumbnailWidget(
 void SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial(TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 InIndex, bool bAlterBlendIndex)
 {
 	// Need to invert index b/c layer properties is generated in reverse order
-	TArray<TSharedPtr<FStackSortedData>> AssetChildren = LayerProperties[LayerProperties.Num() - 1 - InIndex]->Children;
+	TArray<TSharedPtr<FSortedParamData>> AssetChildren = LayerProperties[LayerProperties.Num() - 1 - InIndex]->Children;
 	UMaterialInstanceConstant* MaterialToUpdate = nullptr;
 	int32 ParameterIndex = InIndex;
 	if (InAssociation == EMaterialParameterAssociation::LayerParameter)
@@ -1405,9 +1405,9 @@ void SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial(TEnumAsByte<E
 	}
 
 	TArray<FEditorParameterGroup> ParameterGroups;
-	for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
+	for (TSharedPtr<FSortedParamData> AssetChild : AssetChildren)
 	{
-		for (TSharedPtr<FStackSortedData> Group : AssetChild->Children)
+		for (TSharedPtr<FSortedParamData> Group : AssetChild->Children)
 		{
 			if (Group->ParameterInfo.Association == InAssociation)
 			{
@@ -1454,15 +1454,15 @@ FReply SMaterialLayersFunctionsInstanceTree::OnThumbnailDoubleClick(const FGeome
 	return FReply::Unhandled();
 }
 
-void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter)
+void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FSortedParamData> ParentParameter)
 {
-	for (FLayerParameterUnsortedData Property : NonLayerProperties)
+	for (FUnsortedParamData Property : NonLayerProperties)
 	{
 		UDEditorParameterValue* Parameter = Property.Parameter;
 		if (Parameter->ParameterInfo.Index == ParentParameter->ParameterInfo.Index
 			&& Parameter->ParameterInfo.Association == ParentParameter->ParameterInfo.Association)
 		{
-			TSharedPtr<FStackSortedData> GroupProperty(new FStackSortedData());
+			TSharedPtr<FSortedParamData> GroupProperty(new FSortedParamData());
 			GroupProperty->StackDataType = EStackDataType::Group;
 			GroupProperty->ParameterInfo.Index = Parameter->ParameterInfo.Index;
 			GroupProperty->ParameterInfo.Association = Parameter->ParameterInfo.Association;
@@ -1470,7 +1470,7 @@ void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSo
 			GroupProperty->NodeKey = FString::FromInt(GroupProperty->ParameterInfo.Index) + FString::FromInt(GroupProperty->ParameterInfo.Association) + Property.ParameterGroup.GroupName.ToString();
 
 			bool bAddNewGroup = true;
-			for (TSharedPtr<struct FStackSortedData> GroupChild : ParentParameter->Children)
+			for (TSharedPtr<struct FSortedParamData> GroupChild : ParentParameter->Children)
 			{
 				if (GroupChild->NodeKey == GroupProperty->NodeKey)
 				{
@@ -1482,7 +1482,7 @@ void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSo
 				ParentParameter->Children.Add(GroupProperty);
 			}
 
-			TSharedPtr<FStackSortedData> ChildProperty(new FStackSortedData());
+			TSharedPtr<FSortedParamData> ChildProperty(new FSortedParamData());
 			ChildProperty->StackDataType = EStackDataType::Property;
 			ChildProperty->Parameter = Parameter;
 			ChildProperty->ParameterInfo.Index = Parameter->ParameterInfo.Index;
@@ -1499,7 +1499,7 @@ void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSo
 				Property.ParameterNode->GetChildren(ParamChildren);
 				for (int32 ParamChildIdx = 0; ParamChildIdx < ParamChildren.Num(); ParamChildIdx++)
 				{
-					TSharedPtr<FStackSortedData> ParamChildProperty(new FStackSortedData());
+					TSharedPtr<FSortedParamData> ParamChildProperty(new FSortedParamData());
 					ParamChildProperty->StackDataType = EStackDataType::PropertyChild;
 					ParamChildProperty->ParameterNode = ParamChildren[ParamChildIdx];
 					ParamChildProperty->ParameterHandle = ParamChildProperty->ParameterNode->CreatePropertyHandle();
@@ -1509,7 +1509,7 @@ void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSo
 					ChildProperty->Children.Add(ParamChildProperty);
 				}
 			}
-			for (TSharedPtr<struct FStackSortedData> GroupChild : ParentParameter->Children)
+			for (TSharedPtr<struct FSortedParamData> GroupChild : ParentParameter->Children)
 			{
 				if (GroupChild->Group.GroupName == Property.ParameterGroup.GroupName
 					&& GroupChild->ParameterInfo.Association == ChildProperty->ParameterInfo.Association
@@ -1675,7 +1675,7 @@ void SMaterialLayersFunctionsInstanceWrapper::SetEditorInstance(UMaterialEditorI
 /////////////// MATERIAL VERSION
 
 
-class SMaterialLayersFunctionsMaterialTreeItem : public STableRow< TSharedPtr<FStackSortedData> >
+class SMaterialLayersFunctionsMaterialTreeItem : public STableRow< TSharedPtr<FSortedParamData> >
 {
 public:
 
@@ -1685,7 +1685,7 @@ public:
 	{}
 
 	/** The item content. */
-	SLATE_ARGUMENT(TSharedPtr<FStackSortedData>, StackParameterData)
+	SLATE_ARGUMENT(TSharedPtr<FSortedParamData>, StackParameterData)
 	SLATE_ARGUMENT(UMaterialEditorPreviewParameters*, MaterialEditorInstance)
 	SLATE_ARGUMENT(SMaterialLayersFunctionsMaterialTree*, InTree)
 	SLATE_END_ARGS()
@@ -1730,7 +1730,7 @@ public:
 #endif
 			TSharedRef<SHorizontalBox> HeaderRowWidget = SNew(SHorizontalBox);
 			const float ThumbnailSize = 24.0f;
-			TArray<TSharedPtr<FStackSortedData>> AssetChildren = StackParameterData->Children;
+			TArray<TSharedPtr<FSortedParamData>> AssetChildren = StackParameterData->Children;
 			if (AssetChildren.Num() > 0)
 			{
 				HeaderRowWidget->AddSlot()
@@ -1742,7 +1742,7 @@ public:
 						SNullWidget::NullWidget
 					];
 			}
-			for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
+			for (TSharedPtr<FSortedParamData> AssetChild : AssetChildren)
 			{
 				TSharedPtr<SBox> ThumbnailBox;
 				UObject* AssetObject;
@@ -2134,7 +2134,7 @@ public:
 				WrapperWidget
 			];
 
-		STableRow< TSharedPtr<FStackSortedData> >::ConstructInternal(
+		STableRow< TSharedPtr<FSortedParamData> >::ConstructInternal(
 			STableRow::FArguments()
 			.Style(FEditorStyle::Get(), "DetailsView.TreeView.TableRow")
 			.ShowSelection(false),
@@ -2160,7 +2160,7 @@ public:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override { return FReply::Handled(); };
 
 	/** The node info to build the tree view row from. */
-	TSharedPtr<FStackSortedData> StackParameterData;
+	TSharedPtr<FSortedParamData> StackParameterData;
 
 	UMaterialEditorPreviewParameters* MaterialEditorInstance;
 };
@@ -2298,7 +2298,7 @@ void SMaterialLayersFunctionsMaterialTree::Construct(const FArguments& InArgs)
 
 	CreateGroupsWidget();
 
-	STreeView<TSharedPtr<FStackSortedData>>::Construct(
+	STreeView<TSharedPtr<FSortedParamData>>::Construct(
 		STreeView::FArguments()
 		.TreeItemsSource(&LayerProperties)
 		.SelectionMode(ESelectionMode::None)
@@ -2310,7 +2310,7 @@ void SMaterialLayersFunctionsMaterialTree::Construct(const FArguments& InArgs)
 	SetParentsExpansionState();
 }
 
-TSharedRef< ITableRow > SMaterialLayersFunctionsMaterialTree::OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> Item, const TSharedRef< STableViewBase >& OwnerTable)
+TSharedRef< ITableRow > SMaterialLayersFunctionsMaterialTree::OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> Item, const TSharedRef< STableViewBase >& OwnerTable)
 {
 	TSharedRef< SMaterialLayersFunctionsMaterialTreeItem > ReturnRow = SNew(SMaterialLayersFunctionsMaterialTreeItem, OwnerTable)
 		.StackParameterData(Item)
@@ -2319,12 +2319,12 @@ TSharedRef< ITableRow > SMaterialLayersFunctionsMaterialTree::OnGenerateRowMater
 	return ReturnRow;
 }
 
-void SMaterialLayersFunctionsMaterialTree::OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> InParent, TArray< TSharedPtr<FStackSortedData> >& OutChildren)
+void SMaterialLayersFunctionsMaterialTree::OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> InParent, TArray< TSharedPtr<FSortedParamData> >& OutChildren)
 {
 	OutChildren = InParent->Children;
 }
 
-void SMaterialLayersFunctionsMaterialTree::OnExpansionChanged(TSharedPtr<FStackSortedData> Item, bool bIsExpanded)
+void SMaterialLayersFunctionsMaterialTree::OnExpansionChanged(TSharedPtr<FSortedParamData> Item, bool bIsExpanded)
 {
 	bool* ExpansionValue = MaterialEditorInstance->OriginalMaterial->LayerParameterExpansion.Find(Item->NodeKey);
 	if (ExpansionValue == nullptr)
@@ -2443,14 +2443,14 @@ void SMaterialLayersFunctionsMaterialTree::CreateGroupsWidget()
 				uint32 BlendChildren;
 				BlendHandle->GetNumChildren(BlendChildren);
 
-				TSharedPtr<FStackSortedData> StackProperty(new FStackSortedData());
+				TSharedPtr<FSortedParamData> StackProperty(new FSortedParamData());
 				StackProperty->StackDataType = EStackDataType::Stack;
 				StackProperty->Parameter = Parameter;
 				StackProperty->ParameterInfo.Index = LayerChildren - 1;
 				StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 
 
-				TSharedPtr<FStackSortedData> ChildProperty(new FStackSortedData());
+				TSharedPtr<FSortedParamData> ChildProperty(new FSortedParamData());
 				ChildProperty->StackDataType = EStackDataType::Asset;
 				ChildProperty->Parameter = Parameter;
 				ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(LayerChildren - 1);
@@ -2466,7 +2466,7 @@ void SMaterialLayersFunctionsMaterialTree::CreateGroupsWidget()
 				{
 					for (int32 Counter = BlendChildren - 1; Counter >= 0; Counter--)
 					{
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShareable(new FSortedParamData());
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = BlendHandle->AsArray()->GetElement(Counter);
@@ -2476,14 +2476,14 @@ void SMaterialLayersFunctionsMaterialTree::CreateGroupsWidget()
 						ChildProperty->NodeKey = FString::FromInt(ChildProperty->ParameterInfo.Index) + FString::FromInt(ChildProperty->ParameterInfo.Association);
 						LayerProperties.Last()->Children.Add(ChildProperty);
 
-						StackProperty = MakeShareable(new FStackSortedData());
+						StackProperty = MakeShareable(new FSortedParamData());
 						StackProperty->StackDataType = EStackDataType::Stack;
 						StackProperty->Parameter = Parameter;
 						StackProperty->ParameterInfo.Index = Counter;
 						StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 						LayerProperties.Add(StackProperty);
 
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShareable(new FSortedParamData());
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(Counter);
@@ -2498,7 +2498,7 @@ void SMaterialLayersFunctionsMaterialTree::CreateGroupsWidget()
 			}
 			else
 			{
-				FLayerParameterUnsortedData NonLayerProperty;
+				FUnsortedParamData NonLayerProperty;
 				UDEditorScalarParameterValue* ScalarParam = Cast<UDEditorScalarParameterValue>(Parameter);
 
 				if (ScalarParam && ScalarParam->SliderMax > ScalarParam->SliderMin)
@@ -2528,15 +2528,15 @@ void SMaterialLayersFunctionsMaterialTree::CreateGroupsWidget()
 	SetParentsExpansionState();
 }
 
-void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter)
+void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FSortedParamData> ParentParameter)
 {
-	for (FLayerParameterUnsortedData Property : NonLayerProperties)
+	for (FUnsortedParamData Property : NonLayerProperties)
 	{
 		UDEditorParameterValue* Parameter = Property.Parameter;
 		if (Parameter->ParameterInfo.Index == ParentParameter->ParameterInfo.Index
 			&& Parameter->ParameterInfo.Association == ParentParameter->ParameterInfo.Association)
 		{
-			TSharedPtr<FStackSortedData> GroupProperty(new FStackSortedData());
+			TSharedPtr<FSortedParamData> GroupProperty(new FSortedParamData());
 			GroupProperty->StackDataType = EStackDataType::Group;
 			GroupProperty->ParameterInfo.Index = Parameter->ParameterInfo.Index;
 			GroupProperty->ParameterInfo.Association = Parameter->ParameterInfo.Association;
@@ -2544,7 +2544,7 @@ void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSo
 			GroupProperty->NodeKey = FString::FromInt(GroupProperty->ParameterInfo.Index) + FString::FromInt(GroupProperty->ParameterInfo.Association) + Property.ParameterGroup.GroupName.ToString();
 
 			bool bAddNewGroup = true;
-			for (TSharedPtr<struct FStackSortedData> GroupChild : ParentParameter->Children)
+			for (TSharedPtr<struct FSortedParamData> GroupChild : ParentParameter->Children)
 			{
 				if (GroupChild->NodeKey == GroupProperty->NodeKey)
 				{
@@ -2555,7 +2555,7 @@ void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSo
 			{
 				ParentParameter->Children.Add(GroupProperty);
 			}
-			TSharedPtr<FStackSortedData> ChildProperty(new FStackSortedData());
+			TSharedPtr<FSortedParamData> ChildProperty(new FSortedParamData());
 			ChildProperty->StackDataType = EStackDataType::Property;
 			ChildProperty->Parameter = Parameter;
 			ChildProperty->ParameterInfo.Index = Parameter->ParameterInfo.Index;
@@ -2572,7 +2572,7 @@ void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSo
 				Property.ParameterNode->GetChildren(ParamChildren);
 				for (int32 ParamChildIdx = 0; ParamChildIdx < ParamChildren.Num(); ParamChildIdx++)
 				{
-					TSharedPtr<FStackSortedData> ParamChildProperty(new FStackSortedData());
+					TSharedPtr<FSortedParamData> ParamChildProperty(new FSortedParamData());
 					ParamChildProperty->StackDataType = EStackDataType::PropertyChild;
 					ParamChildProperty->ParameterNode = ParamChildren[ParamChildIdx];
 					ParamChildProperty->ParameterHandle = ParamChildProperty->ParameterNode->CreatePropertyHandle();
@@ -2582,7 +2582,7 @@ void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSo
 				}
 			}
 
-			for (TSharedPtr<struct FStackSortedData> GroupChild : ParentParameter->Children)
+			for (TSharedPtr<struct FSortedParamData> GroupChild : ParentParameter->Children)
 			{
 				if (GroupChild->Group.GroupName == Property.ParameterGroup.GroupName
 					&& GroupChild->ParameterInfo.Association == ChildProperty->ParameterInfo.Association

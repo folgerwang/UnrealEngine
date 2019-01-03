@@ -9,10 +9,11 @@
 extern const FName UMGEditorAppIdentifier;
 
 class FUMGEditor;
+class FWidgetBlueprintCompiler;
 
 /** The public interface of the UMG editor module. */
 class IUMGEditorModule : public IModuleInterface, public IHasMenuExtensibility, public IHasToolBarExtensibility
 {
 public:
-
+	virtual FWidgetBlueprintCompiler* GetRegisteredCompiler() = 0;
 };

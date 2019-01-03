@@ -3033,13 +3033,18 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 	//
 	// get the first vertex color layer
 	//
+	
 	FbxLayerElementVertexColor* LayerElementVertexColor = BaseLayer->GetVertexColors();
 	FbxLayerElement::EReferenceMode VertexColorReferenceMode(FbxLayerElement::eDirect);
 	FbxLayerElement::EMappingMode VertexColorMappingMode(FbxLayerElement::eByControlPoint);
-	if (LayerElementVertexColor)
+	if (LayerElementVertexColor && ImportOptions->VertexColorImportOption == EVertexColorImportOption::Replace)
 	{
 		VertexColorReferenceMode = LayerElementVertexColor->GetReferenceMode();
 		VertexColorMappingMode = LayerElementVertexColor->GetMappingMode();
+		ImportData.bHasVertexColors = true;
+	}
+	else if(ImportOptions->VertexColorImportOption == EVertexColorImportOption::Override)
+	{
 		ImportData.bHasVertexColors = true;
 	}
 
@@ -3270,7 +3275,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 		}
 
 		// Read vertex colors if they exist.
-		if( LayerElementVertexColor )
+		if( LayerElementVertexColor && ImportOptions->VertexColorImportOption == EVertexColorImportOption::Replace)
 		{
 			switch(VertexColorMappingMode)
 			{
@@ -3308,6 +3313,14 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 					}
 				}
 				break;
+			}
+		}
+		else if (ImportOptions->VertexColorImportOption == EVertexColorImportOption::Override)
+		{
+			for (int32 VertexIndex = 0; VertexIndex < 3; VertexIndex++)
+			{
+				int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
+				TmpWedges[UnrealVertexIndex].Color = ImportOptions->VertexOverrideColor;
 			}
 		}
 		
@@ -3734,6 +3747,66 @@ bool UnFbx::FFbxImporter::ImportSkeletalMeshLOD(USkeletalMesh* InSkeletalMesh, U
 			Section.SoftVertices[i].TangentX = LODToBaseTransform.TransformVector(Section.SoftVertices[i].TangentX);
 			Section.SoftVertices[i].TangentY = LODToBaseTransform.TransformVector(Section.SoftVertices[i].TangentY);
 			Section.SoftVertices[i].TangentZ = LODToBaseTransform.TransformVector(Section.SoftVertices[i].TangentZ);
+		}
+	}
+
+	//Restore the LOD section data in case this LOD was reimport and some material match
+	if (DestImportedResource->LODModels.IsValidIndex(DesiredLOD) && ImportedResource->LODModels.IsValidIndex(0))
+	{
+		const TArray<FSkelMeshSection>& ExistingSections = DestImportedResource->LODModels[DesiredLOD].Sections;
+		const FSkeletalMeshLODInfo& ExistingInfo = *(BaseSkeletalMesh->GetLODInfo(DesiredLOD));
+
+		TArray<FSkelMeshSection>& ImportedSections = ImportedResource->LODModels[0].Sections;
+		const FSkeletalMeshLODInfo& ImportedInfo = *(InSkeletalMesh->GetLODInfo(0));
+		
+		auto GetImportMaterialSlotName = [](const USkeletalMesh* SkelMesh, const FSkelMeshSection& Section, const FSkeletalMeshLODInfo& Info, int32& OutMaterialIndex)->FName
+		{
+			check(SkelMesh->Materials.Num() > 0);
+			OutMaterialIndex = Section.MaterialIndex;
+			if (Info.LODMaterialMap.IsValidIndex(Section.MaterialIndex))
+			{
+				OutMaterialIndex = Info.LODMaterialMap[Section.MaterialIndex];
+			}
+			FName ImportedMaterialSlotName = NAME_None;
+			if (SkelMesh->Materials.IsValidIndex(OutMaterialIndex))
+			{
+				ImportedMaterialSlotName = SkelMesh->Materials[OutMaterialIndex].ImportedMaterialSlotName;
+			}
+			else
+			{
+				ImportedMaterialSlotName = SkelMesh->Materials[0].ImportedMaterialSlotName;
+				OutMaterialIndex = 0;
+			}
+			return ImportedMaterialSlotName;
+		};
+
+		for (const FSkelMeshSection& ExistingSection : ExistingSections)
+		{
+			int32 ExistingMaterialIndex = 0;
+			FName ExistingImportedMaterialSlotName = GetImportMaterialSlotName(BaseSkeletalMesh, ExistingSection, ExistingInfo, ExistingMaterialIndex);
+
+			for (FSkelMeshSection& ImportedSection : ImportedSections)
+			{
+				int32 ImportedMaterialIndex = 0;
+				FName ImportedImportedMaterialSlotName = GetImportMaterialSlotName(InSkeletalMesh, ImportedSection, ImportedInfo, ImportedMaterialIndex);
+				if (ExistingImportedMaterialSlotName != NAME_None)
+				{
+					if (ImportedImportedMaterialSlotName == ExistingImportedMaterialSlotName)
+					{
+						//Set the value and exit
+						ImportedSection.bCastShadow = ExistingSection.bCastShadow;
+						ImportedSection.bRecomputeTangent = ExistingSection.bRecomputeTangent;
+						break;
+					}
+				}
+				else if(InSkeletalMesh->Materials[ImportedMaterialIndex] == BaseSkeletalMesh->Materials[ExistingMaterialIndex]) //Use material slot compare to match in case the name is none
+				{
+					//Set the value and exit
+					ImportedSection.bCastShadow = ExistingSection.bCastShadow;
+					ImportedSection.bRecomputeTangent = ExistingSection.bRecomputeTangent;
+					break;
+				}
+			}
 		}
 	}
 

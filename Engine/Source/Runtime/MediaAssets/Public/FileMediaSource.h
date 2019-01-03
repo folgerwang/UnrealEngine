@@ -65,6 +65,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Media|FileMediaSource")
 	void SetFilePath(const FString& Path);
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 public:
 
 	//~ IMediaOptions interface

@@ -13,6 +13,8 @@
 #include <openvdb/tools/MeshToVolume.h> // for MeshToVolume
 #include <openvdb/tools/VolumeToMesh.h> // for VolumeToMesh
 
+#include "MeshDescription.h"
+
 typedef openvdb::math::Transform	OpenVDBTransform;
 
 class FProxyLODVolumeImpl : public IProxyLODVolume
@@ -32,7 +34,7 @@ public:
 
 	bool Initialize(const TArray<FMeshMergeData>& Geometry, float Accuracy)
 	{
-		FRawMeshArrayAdapter SrcGeometryAdapter(Geometry);
+		FMeshDescriptionArrayAdapter SrcGeometryAdapter(Geometry);
 		OpenVDBTransform::Ptr XForm = OpenVDBTransform::createLinearTransform(Accuracy);
 		SrcGeometryAdapter.SetTransform(XForm);
 
@@ -78,25 +80,22 @@ public:
 		return Sampler->wsSample(openvdb::Vec3R(Point.X, Point.Y, Point.Z));
 	}
 
-	virtual void ConvertToRawMesh(FRawMesh& OutRawMesh) const override
+	virtual void ConvertToRawMesh(FMeshDescription& OutRawMesh) const override
 	{
 		// Mesh types that will be shared by various stages.
 		FAOSMesh AOSMeshedVolume;
 		ProxyLOD::SDFVolumeToMesh(SDFVolume, 0.0, 0.0, AOSMeshedVolume);
-
-		FVertexDataMesh VertexDataMesh;
-		ProxyLOD::ConvertMesh(AOSMeshedVolume, VertexDataMesh);
-
-		ProxyLOD::ConvertMesh(VertexDataMesh, OutRawMesh);
+		ProxyLOD::ConvertMesh(AOSMeshedVolume, OutRawMesh);
 	}
 
-	void ExpandNarrowBand(float ExteriorWidth, float InteriorWidth)
+	void ExpandNarrowBand(float ExteriorWidth, float InteriorWidth) override
 	{
 		using namespace openvdb::tools;
 
-		FRawMesh RawMesh;
+		FMeshDescription RawMesh;
+		UStaticMesh::RegisterMeshAttributes(RawMesh);
 		ConvertToRawMesh(RawMesh);
-		FRawMeshAdapter MeshAdapter(RawMesh, SDFVolume->transform());
+		FMeshDescriptionAdapter MeshAdapter(RawMesh, SDFVolume->transform());
 
 		openvdb::FloatGrid::Ptr NewSDFVolume;
 		openvdb::Int32Grid::Ptr NewSrcPolyIndexGrid;

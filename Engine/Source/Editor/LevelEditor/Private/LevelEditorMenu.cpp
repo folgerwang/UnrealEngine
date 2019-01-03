@@ -75,13 +75,9 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 						static FText GetToggleFavoriteLabelText()
 						{
 							const FText LevelName = FText::FromString(FPackageName::GetShortName(GWorld->GetOutermost()->GetFName()));
-							if (FLevelEditorActionCallbacks::ToggleFavorite_CanExecute())
+							if (!FLevelEditorActionCallbacks::ToggleFavorite_IsChecked())
 							{
-
-								if (!FLevelEditorActionCallbacks::ToggleFavorite_IsChecked())
-								{
-									return FText::Format(LOCTEXT("ToggleFavorite_Add", "Add {0} to Favorites"), LevelName);
-								}
+								return FText::Format(LOCTEXT("ToggleFavorite_Add", "Add {0} to Favorites"), LevelName);
 							}
 							return FText::Format(LOCTEXT("ToggleFavorite_Remove", "Remove {0} from Favorites"), LevelName);
 						}
@@ -94,8 +90,6 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 						{
 							InMenuBuilder.BeginSection("LevelEditorToggleFavorite");
 							{
-								const FString LevelName = FPackageName::GetShortName(GWorld->GetOutermost()->GetFName());
-
 								TAttribute<FText> ToggleFavoriteLabel;
 								ToggleFavoriteLabel.BindStatic(&Local::GetToggleFavoriteLabelText);
 								InMenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().ToggleFavorite, NAME_None, ToggleFavoriteLabel);

@@ -8,7 +8,6 @@
 #include "Modules/ModuleInterface.h"
 
 struct FOverlappingCorners;
-struct FRawMesh;
 struct FMeshDescription;
 
 /**
@@ -18,21 +17,6 @@ class IMeshReduction
 {
 public:
 	virtual ~IMeshReduction() {}
-
-	/**
-	* Reduces the raw mesh using the provided reduction settings.
-	* @param OutReducedMesh - Upon return contains the reduced mesh.
-	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
-	* @param InMesh - The mesh to reduce.
-	* @param ReductionSettings - Setting with which to reduce the mesh.
-	*/
-	virtual void Reduce(
-		FRawMesh& OutReducedMesh,
-		float& OutMaxDeviation,
-		const struct FRawMesh& InMesh,
-		const FOverlappingCorners& InOverlappingCorners,
-		const struct FMeshReductionSettings& ReductionSettings
-	) = 0;
 
 	/**
 	* Reduces the raw mesh using the provided reduction settings.
@@ -69,7 +53,7 @@ public:
 	virtual bool IsSupported() const = 0;
 };
 
-DECLARE_DELEGATE_ThreeParams(FProxyCompleteDelegate, struct FRawMesh&, struct FFlattenMaterial&, const FGuid);
+DECLARE_DELEGATE_ThreeParams(FProxyCompleteDelegate, struct FMeshDescription&, struct FFlattenMaterial&, const FGuid);
 DECLARE_DELEGATE_TwoParams(FProxyFailedDelegate, const FGuid, const FString&);
 DECLARE_DELEGATE_TwoParams(FCreateProxyDelegate, const FGuid, TArray<UObject*>&);
 

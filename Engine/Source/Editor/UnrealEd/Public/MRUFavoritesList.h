@@ -59,7 +59,7 @@ public:
 	 *
 	 * @return	true if the provided item is in the favorite's list; false if it is not
 	 */
-	bool ContainsFavoritesItem( const FString& Item );
+	bool ContainsFavoritesItem( const FString& Item ) const;
 
 	/**
 	 * Return the favorites item specified by the provided index

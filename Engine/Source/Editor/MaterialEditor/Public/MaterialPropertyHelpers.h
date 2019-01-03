@@ -34,7 +34,7 @@ enum EStackDataType
 };
 
 USTRUCT()
-struct MATERIALEDITOR_API FStackSortedData
+struct MATERIALEDITOR_API FSortedParamData
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -53,12 +53,12 @@ public:
 
 	TSharedPtr<class IPropertyHandle> ParameterHandle;
 
-	TArray<TSharedPtr<struct FStackSortedData>> Children;
+	TArray<TSharedPtr<struct FSortedParamData>> Children;
 
 	FString NodeKey;
 };
 
-struct FLayerParameterUnsortedData
+struct FUnsortedParamData
 {
 	class UDEditorParameterValue* Parameter;
 	FEditorParameterGroup ParameterGroup;
@@ -164,7 +164,7 @@ public:
 	/** Specific resets for layer and blend asses */
 	static void ResetLayerAssetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* InParameter, TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 Index, UMaterialEditorInstanceConstant* MaterialEditorInstance);
 	/** If reset to default button should show for a layer or blend asset*/
-	static bool ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<struct FStackSortedData> InParameterData, UMaterialInterface* InMaterial);
+	static bool ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<struct FSortedParamData> InParameterData, UMaterialInterface* InMaterial);
 
 	static void OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction);
 
@@ -175,7 +175,7 @@ public:
 	static void CopyMaterialToInstance(class UMaterialInstanceConstant* ChildInstance, TArray<struct FEditorParameterGroup> &ParameterGroups);
 	static void TransitionAndCopyParameters(class UMaterialInstanceConstant* ChildInstance, TArray<struct FEditorParameterGroup> &ParameterGroups, bool bForceCopy = false);
 	static FReply OnClickedSaveNewFunctionInstance(class UMaterialFunctionInterface* Object, class UMaterialInterface* PreviewMaterial, UObject* EditorObject);
-	static FReply OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FStackSortedData> InSortedData);
+	static FReply OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FSortedParamData> InSortedData);
 
 	static void GetVectorChannelMaskComboBoxStrings(TArray<TSharedPtr<FString>>& OutComboBoxStrings, TArray<TSharedPtr<class SToolTip>>& OutToolTips, TArray<bool>& OutRestrictedItems);
 	static FString GetVectorChannelMaskValue(class UDEditorParameterValue* InParameter);

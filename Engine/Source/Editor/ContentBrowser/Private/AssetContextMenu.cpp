@@ -1394,14 +1394,14 @@ bool FAssetContextMenu::AddCollectionMenuOptions(FMenuBuilder& MenuBuilder)
 		static void OnCollectionClicked(TSharedRef<FCollectionAssetManagement> QuickAssetManagement, FCollectionNameType InCollectionKey)
 		{
 			// The UI actions don't give you the new check state, so we need to emulate the behavior of SCheckBox
-			// Basically, unchecked will transition to checked (adding items), and anything else will transition to unchecked (removing items)
-			if (GetCollectionCheckState(QuickAssetManagement, InCollectionKey) == ECheckBoxState::Unchecked)
+			// Basically, checked will transition to unchecked (removing items), and anything else will transition to checked (adding items)
+			if (GetCollectionCheckState(QuickAssetManagement, InCollectionKey) == ECheckBoxState::Checked)
 			{
-				QuickAssetManagement->AddCurrentAssetsToCollection(InCollectionKey);
+				QuickAssetManagement->RemoveCurrentAssetsFromCollection(InCollectionKey);
 			}
 			else
 			{
-				QuickAssetManagement->RemoveCurrentAssetsFromCollection(InCollectionKey);
+				QuickAssetManagement->AddCurrentAssetsToCollection(InCollectionKey);
 			}
 		}
 	};
@@ -2402,7 +2402,12 @@ void FAssetContextMenu::ExecuteSCCCheckIn()
 		GetSelectedPackageNames(PackageNames);
 
 		const bool bUseSourceControlStateCache = true;
-		FSourceControlWindows::PromptForCheckin(bUseSourceControlStateCache, PackageNames);
+		const bool bCheckinGood = FSourceControlWindows::PromptForCheckin(bUseSourceControlStateCache, PackageNames);
+
+		if (!bCheckinGood)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "SCC_Checkin_Failed", "Check-in failed as a result of save failure."));
+		}
 	}
 	else
 	{

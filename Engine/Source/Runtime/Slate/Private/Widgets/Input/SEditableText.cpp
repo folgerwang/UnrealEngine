@@ -443,7 +443,7 @@ void SEditableText::SynchronizeTextStyle()
 	if (bTextStyleChanged)
 	{
 		EditableTextLayout->SetTextStyle(NewTextStyle);
-		EditableTextLayout->Refresh();
+		EditableTextLayout->ForceRefreshTextLayout(EditableTextLayout->GetEditableText());
 	}
 }
 

@@ -739,7 +739,7 @@ bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 
 TSharedPtr<FKismetCompilerContext> UWidgetBlueprint::GetCompilerForWidgetBP(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
 {
-	return TSharedPtr<FKismetCompilerContext>(new FWidgetBlueprintCompiler(CastChecked<UWidgetBlueprint>(BP), InMessageLog, InCompileOptions));
+	return TSharedPtr<FKismetCompilerContext>(new FWidgetBlueprintCompilerContext(CastChecked<UWidgetBlueprint>(BP), InMessageLog, InCompileOptions));
 }
 
 void UWidgetBlueprint::GetReparentingRules(TSet< const UClass* >& AllowedChildrenOfClasses, TSet< const UClass* >& DisallowedChildrenOfClasses) const

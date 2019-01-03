@@ -40,6 +40,11 @@
 #include "MaterialBakingStructures.h"
 #include "MaterialOptions.h"
 
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
+
 #if WITH_EDITOR
 #include "DeviceProfiles/DeviceProfile.h"
 #include "Tests/AutomationEditorCommon.h"
@@ -908,32 +913,6 @@ bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, FFlatten
 	return true;
 }
 
-bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache)
-{
-	FMaterialMergeData MaterialData(InMaterial, InMesh, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
-
-	TArray<FMaterialMergeData*> MergeData{ &MaterialData };
-	TArray<FFlattenMaterial*> FlatMaterials{ &OutFlattenMaterial };
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	ExportMaterials(MergeData, FlatMaterials);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	return true;
-}
-
-bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache /*= NULL*/)
-{
-	FMaterialMergeData MaterialData(InMaterial, InMesh, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
-	MaterialData.LightMapIndex = 1;
-	MaterialData.LightMap = LightMap;
-	MaterialData.ShadowMap = ShadowMap;
-	MaterialData.Buffer = Buffer;
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	ExportMaterial(MaterialData, OutFlattenMaterial, ProxyCache);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-	return true;
-}
-
 bool FMaterialUtilities::ExportLandscapeMaterial(ALandscapeProxy* InLandscape, const TSet<FPrimitiveComponentId>& HiddenPrimitives, FFlattenMaterial& OutFlattenMaterial)
 {
 	check(InLandscape);
@@ -1714,9 +1693,11 @@ void FMaterialUtilities::RemapUniqueMaterialIndices(const TArray<FSectionInfo>& 
 	{
 		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
 		{
+			TVertexAttributesRef<FVector> VertexPositions = InMeshData[MeshIndex].MeshLODData[LODIndex].RawMesh->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
 			if (InMeshData[MeshIndex].bShouldExportLOD[LODIndex])
 			{
-				checkf(InMeshData[MeshIndex].MeshLODData[LODIndex].RawMesh->VertexPositions.Num(), TEXT("No vertex data found in mesh LOD"));
+				checkf(VertexPositions.GetNumElements(), TEXT("No vertex data found in mesh LOD"));
 				
 				const TArray<int32>& MeshMaterialMap = InMaterialMap[FMeshIdAndLOD(MeshIndex, LODIndex)];
 				int32 NumTexCoords = 0;
@@ -1762,9 +1743,11 @@ void FMaterialUtilities::RemapUniqueMaterialIndices(const TArray<FSectionInfo>& 
 	{
 		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
 		{
+			TVertexAttributesRef<FVector> VertexPositions = InMeshData[MeshIndex].MeshLODData[LODIndex].RawMesh->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
 			if (InMeshData[MeshIndex].bShouldExportLOD[LODIndex])
 			{
-				checkf(InMeshData[MeshIndex].MeshLODData[LODIndex].RawMesh->VertexPositions.Num(), TEXT("No vertex data found in mesh LOD"));
+				checkf(VertexPositions.GetNumElements(), TEXT("No vertex data found in mesh LOD"));
 		
 				const TArray<int32>& MeshMaterialMap = InMaterialMap[FMeshIdAndLOD(MeshIndex, LODIndex)];
 				TArray<int32>& NewMeshMaterialMap = OutMaterialMap.Add(FMeshIdAndLOD(MeshIndex, LODIndex));
@@ -2303,7 +2286,7 @@ bool FMaterialUtilities::ExportMaterials(TArray<FMaterialMergeData*>& MergeData,
 		FMaterialMergeData* CurrentMergeData = MergeData[MaterialIndex];
 
 		FMeshData* MeshSet = new FMeshData();
-		MeshSet->RawMesh = const_cast<FRawMesh*>(CurrentMergeData->Mesh);
+		MeshSet->RawMeshDescription = const_cast<FMeshDescription*>(CurrentMergeData->Mesh);
 		MeshSet->TextureCoordinateBox = CurrentMergeData->TexcoordBounds;
 		MeshSet->CustomTextureCoordinates = CurrentMergeData->TexCoords;
 		MeshSettings.Add(MeshSet);

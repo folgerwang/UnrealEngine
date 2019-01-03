@@ -10,8 +10,11 @@
 
 #endif
 
-#include "RawMesh.h"
 #include "MeshMergeData.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
 
 #include "ProxyLODThreadedWrappers.h"
 #include "ProxyLODVertexTypes.h"
@@ -22,15 +25,15 @@
 
 /**
 * Various stages in the ProxyLOD pipeline require different internal mesh formats, but
-* both input and output data for the ProxyLOD process use the native UE format, FRawMesh.
+* both input and output data for the ProxyLOD process use the native UE format, FMeshDescription.
 *
 *  
 *
-* FRawMeshAdapter:
-*	An adapter class to allow a FRawMesh to be voxelized without actually converting to a new mesh format.
+* FMeshDescriptionAdapter:
+*	An adapter class to allow a FMeshDescription to be voxelized without actually converting to a new mesh format.
 *
-* FRawMeshArrayAdapter:
-*	An adapter class to allow an array of FRawMesh items to be viewed as a single mesh.  Primarly to allow
+* FMeshDescriptionArrayAdapter:
+*	An adapter class to allow an array of FMeshDescription items to be viewed as a single mesh.  Primarly to allow
 *   multiple items of geometry to be voxelized into a single grid.
 * 
 * FMixedPolyMesh:
@@ -189,14 +192,14 @@ typedef TAOSMesh<FPositionOnlyVertex>    FPosSimplifierMesh;
 *  Mesh adapter class that implements the needed API for the methods in openvdb that convert
 *  polygonal mesh to a signed distance field.
 */
-class FRawMeshAdapter
+class FMeshDescriptionAdapter
 {
 public:
 	/**
 	* Constructor 
 	*/
-	FRawMeshAdapter(const FRawMesh& InRawMesh, const openvdb::math::Transform& InTransform);
-	FRawMeshAdapter(const FRawMeshAdapter& other);
+	FMeshDescriptionAdapter(const FMeshDescription& InRawMesh, const openvdb::math::Transform& InTransform);
+	FMeshDescriptionAdapter(const FMeshDescriptionAdapter& other);
 
 	// Total number of polygons
 	size_t polygonCount() const;
@@ -204,7 +207,7 @@ public:
 	// Total number of points (vertex locations)
 	size_t pointCount() const;
 	
-	// Vertex count for polygon n: currently FRawMesh is just triangles.
+	// Vertex count for polygon n: currently FMeshDescription is just triangles.
 	size_t vertexCount(size_t n) const { return 3; }
 
 	// Return position pos in local grid index space for polygon n and vertex v
@@ -221,7 +224,13 @@ public:
 private:
 
 	// Pointer to the raw mesh we are wrapping
-	const FRawMesh* RawMesh;
+	const FMeshDescription* RawMesh;
+
+	//////////////////////////////////////////////////////////////////////////
+	//Cache data
+	void InitializeCacheData();
+	uint32 TriangleCount;
+	TVertexAttributesConstRef<FVector> VertexPositions;
 
 	// Transform used to convert the mesh space into the index space used by voxelization
 	const openvdb::math::Transform* Transform;
@@ -239,18 +248,21 @@ namespace ProxyLOD
 * NB: This is only an adapter class that holds pointers to external objects.  It does not manage the lifetimes of those objects,
 *
 */
-class FRawMeshArrayAdapter
+class FMeshDescriptionArrayAdapter
 {
 public:
 
-	FRawMeshArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray, const openvdb::math::Transform::Ptr InTransform);
+	FMeshDescriptionArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray, const openvdb::math::Transform::Ptr InTransform);
 
-	FRawMeshArrayAdapter(const TArray<const FMeshMergeData*>& InMergeDataPtrArray);
+	FMeshDescriptionArrayAdapter(const TArray<const FMeshMergeData*>& InMergeDataPtrArray);
 	
-	FRawMeshArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray);
+	FMeshDescriptionArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray);
 
 	// copy constructor 
-	FRawMeshArrayAdapter(const FRawMeshArrayAdapter& other);
+	FMeshDescriptionArrayAdapter(const FMeshDescriptionArrayAdapter& other);
+
+	//Destructor
+	~FMeshDescriptionArrayAdapter();
 	
 	// Return position for polygon (face number) n and vertex (corner number) v
 	void getWorldSpacePoint(size_t FaceNumber, size_t CornerNumber, openvdb::Vec3d& pos) const;
@@ -262,12 +274,15 @@ public:
 
 	// Access to the FMeshMergeData data elements in the array.
 	const FMeshMergeData& GetMeshMergeData(uint32 Idx) const;
+
+	//Set the FMeshMergeData material into the FMeshDescription
+	void UpdateMaterialsID();
 	
 	/**
 	* Triangle class that contains the information associated with a single triangle
-	* in an FRawMesh.
+	* in an FMeshDescription.
 	*  
-	*  NB: The FRawMesh is a struct of arrays, this basically converts the data for a single 
+	*  NB: The FMeshDescription is a struct of arrays, this basically converts the data for a single 
 	*      poly into a struct.
 	*/
 	class FRawPoly
@@ -284,9 +299,39 @@ public:
 		FVector   WedgeTangentY[3];
 		FVector   WedgeTangentZ[3];
 
-		FVector2D WedgeTexCoords[MAX_MESH_TEXTURE_COORDS][3];
+		FVector2D WedgeTexCoords[MAX_MESH_TEXTURE_COORDS_MD][3];
 
 		FColor WedgeColors[3];
+	};
+
+	class FMeshDescriptionAttributesGetter
+	{
+	public:
+		FMeshDescriptionAttributesGetter(const FMeshDescription* MeshDescription)
+		{
+			VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+			VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+			VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+			VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+			VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+			VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+			TriangleCount = 0;
+			for (FPolygonID PolygonID : MeshDescription->Polygons().GetElementIDs())
+			{
+				TriangleCount += MeshDescription->GetPolygonTriangles(PolygonID).Num();
+			}
+			FaceSmoothingMasks.AddZeroed(TriangleCount);
+			FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(*MeshDescription, FaceSmoothingMasks);
+		}
+		TVertexAttributesConstRef<FVector> VertexPositions;
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals;
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents;
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns;
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors;
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs;
+		int32 TriangleCount;
+		TArray<uint32> FaceSmoothingMasks;
 	};
 
 	/**
@@ -298,7 +343,7 @@ public:
 	*
 	* @return  A copy of the raw mesh data associated with this poly.
 	*/
-	FRawMeshArrayAdapter::FRawPoly GetRawPoly(const size_t FaceNumber, int32& OutMeshIdx, int32& OutLocalFaceNumber) const;
+	FMeshDescriptionArrayAdapter::FRawPoly GetRawPoly(const size_t FaceNumber, int32& OutMeshIdx, int32& OutLocalFaceNumber) const;
 	
 	/**
 	* Returns a copy of the data associated with this poly in the form of a struct.
@@ -307,7 +352,7 @@ public:
 	*
 	* @return  A copy of the raw mesh data associated with this poly.
 	*/
-	FRawMeshArrayAdapter::FRawPoly GetRawPoly(const size_t FaceNumber) const;
+	FMeshDescriptionArrayAdapter::FRawPoly GetRawPoly(const size_t FaceNumber) const;
 
 	/**
 	* Total number of polygons managed by this class.
@@ -326,7 +371,7 @@ public:
 	}
 
 	/**
-	* Vertex count for polygon n: currently FRawMesh is just triangles.
+	* Vertex count for polygon n: currently FMeshDescription is just triangles.
 	*/
 	size_t vertexCount(size_t n) const 
 	{ 
@@ -355,7 +400,7 @@ public:
 
 protected:
 
-	const FRawMesh& GetRawMesh(const size_t FaceNumber, int32& MeshIdx, int32& LocalFaceNumber) const;
+	const FMeshDescription& GetRawMesh(const size_t FaceNumber, int32& MeshIdx, int32& LocalFaceNumber, const FMeshDescriptionAttributesGetter** OutAttributesGetter) const;
 	
 
 	void ComputeAABB(ProxyLOD::FBBox& InOutBBox);
@@ -370,14 +415,15 @@ protected:
 	ProxyLOD::FBBox   BBox;
 
 	std::vector<size_t>                 PolyOffsetArray;
-	std::vector<const FRawMesh*>        RawMeshArray;
+	std::vector<FMeshDescription*> RawMeshArray;
+	std::vector<FMeshDescriptionAttributesGetter> RawMeshArrayData;
 
 	std::vector<const FMeshMergeData*>  MergeDataArray;
 
 };
 
 /**
-* Class that associates reference geometry (in the form of a FRawMeshArrayAdapter) and a sparse index grid.
+* Class that associates reference geometry (in the form of a FMeshDescriptionArrayAdapter) and a sparse index grid.
 *
 * In standard use, the sparse index grid will hold the Id of the closest poly to the center of each voxel
 * in the voxel.
@@ -401,12 +447,12 @@ public:
 	typedef std::shared_ptr<FClosestPolyField>        Ptr;
 	typedef std::shared_ptr<const FClosestPolyField>  ConstPtr;
 
-	static ConstPtr create(const FRawMeshArrayAdapter& MeshArray, const openvdb::Int32Grid::Ptr SrcPolyIndexGrid)
+	static ConstPtr create(const FMeshDescriptionArrayAdapter& MeshArray, const openvdb::Int32Grid::Ptr SrcPolyIndexGrid)
 	{
 		return ConstPtr(new FClosestPolyField(MeshArray, SrcPolyIndexGrid));
 	}
 
-	FClosestPolyField(const FRawMeshArrayAdapter& MeshArray, const openvdb::Int32Grid::Ptr& SrcPolyIndexGrid); 
+	FClosestPolyField(const FMeshDescriptionArrayAdapter& MeshArray, const openvdb::Int32Grid::Ptr& SrcPolyIndexGrid);
 
 	FClosestPolyField(const FClosestPolyField& other);
 		
@@ -418,7 +464,7 @@ public:
 	class FPolyConstAccessor
 	{
 	public:
-		FPolyConstAccessor(const openvdb::Int32Grid* PolyIndexGrid, const FRawMeshArrayAdapter* MeshArrayAdapter); 
+		FPolyConstAccessor(const openvdb::Int32Grid* PolyIndexGrid, const FMeshDescriptionArrayAdapter* MeshArrayAdapter);
 
 		/** 
 		* Return the closest poly, also let us know if the query failed.
@@ -428,14 +474,14 @@ public:
 		*
 		* @return FRawyPoly  Stuct holding all the data associated with the closest poly in the reference geometry.
 		*/
-		FRawMeshArrayAdapter::FRawPoly  Get(const openvdb::Vec3d& WorldPos, bool& bSuccess) const;
-		FRawMeshArrayAdapter::FRawPoly  Get(const FVector& WorldPos, bool& bSuccess) const
+		FMeshDescriptionArrayAdapter::FRawPoly  Get(const openvdb::Vec3d& WorldPos, bool& bSuccess) const;
+		FMeshDescriptionArrayAdapter::FRawPoly  Get(const FVector& WorldPos, bool& bSuccess) const
 		{
 			return this->Get(openvdb::Vec3d(WorldPos.X, WorldPos.Y, WorldPos.Z), bSuccess);
 		}
 
 	private:
-		const FRawMeshArrayAdapter*       MeshArray;
+		const FMeshDescriptionArrayAdapter*       MeshArray;
 		openvdb::Int32Grid::ConstAccessor CAccessor;
 		const openvdb::math::Transform*   XForm;
 
@@ -457,11 +503,11 @@ public:
 	/**
 	* Access to the underlying reference geometry.
 	*/
-	const FRawMeshArrayAdapter& MeshAdapter() const { return *RawMeshArrayAdapter; }
+	const FMeshDescriptionArrayAdapter& MeshAdapter() const { return *RawMeshArrayAdapter; }
 
 private:
 
-	const FRawMeshArrayAdapter* RawMeshArrayAdapter;
+	const FMeshDescriptionArrayAdapter* RawMeshArrayAdapter;
 	openvdb::Int32Grid::ConstPtr   ClosestPolyGrid;
 };
 
