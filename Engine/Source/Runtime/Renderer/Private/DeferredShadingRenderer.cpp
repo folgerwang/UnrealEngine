@@ -778,8 +778,10 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								}
 							}
 
-							ensure(DrawCmdIndexCopy != VisibleDrawCommandStartOffset[ViewIndex]);
-							View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
+							if (DrawCmdIndexCopy != VisibleDrawCommandStartOffset[ViewIndex])
+							{
+								View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance { RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
+							}
 						}
 					}
 				}
