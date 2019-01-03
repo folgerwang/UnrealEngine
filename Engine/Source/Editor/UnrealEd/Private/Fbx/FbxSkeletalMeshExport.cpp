@@ -539,8 +539,7 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 {
 	if(AnimSeq)
 	{
-		return ExportAnimSequence(AnimSeq, SkelMesh, true, MeshName, ActorRootNode);
-
+		return ExportAnimSequence(AnimSeq, SkelMesh, GetExportOptions()->bExportPreviewMesh, MeshName, ActorRootNode);
 	}
 	else
 	{

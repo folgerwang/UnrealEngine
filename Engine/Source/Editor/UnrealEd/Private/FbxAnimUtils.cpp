@@ -7,10 +7,11 @@
 #include "Animation/AnimTypes.h"
 #include "Curves/RichCurve.h"
 #include "Engine/CurveTable.h"
+#include "Exporters/FbxExportOption.h"
 
 namespace FbxAnimUtils
 {
-	void ExportAnimFbx( const FString& ExportFilename, UAnimSequence* AnimSequence, USkeletalMesh* Mesh, bool bSaveSkeletalMesh, bool BatchMode, bool &OutExportAll, bool &OutCancelExport )
+	void ExportAnimFbx( const FString& ExportFilename, UAnimSequence* AnimSequence, USkeletalMesh* Mesh, bool BatchMode, bool &OutExportAll, bool &OutCancelExport )
 	{
 		if( !ExportFilename.IsEmpty() && AnimSequence && Mesh )
 		{
@@ -24,7 +25,7 @@ namespace FbxAnimUtils
 			{
 				Exporter->CreateDocument();
 
-				Exporter->ExportAnimSequence(AnimSequence, Mesh, bSaveSkeletalMesh);
+				Exporter->ExportAnimSequence(AnimSequence, Mesh, Exporter->GetExportOptions()->bExportPreviewMesh);
 
 				// Save to disk
 				Exporter->WriteToFile(*ExportFilename);

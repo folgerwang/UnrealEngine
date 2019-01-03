@@ -39,7 +39,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Exporter)
 	uint32 bForceFrontXAxis : 1;
 
-	/** If enable, export vertex color */
+	/** If enabled, export vertex color */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Mesh)
 	uint32 VertexColor : 1;
 
@@ -50,6 +50,10 @@ public:
 	/** If enabled, export collision */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = StaticMesh)
 	uint32 Collision : 1;
+
+	/** If enable, the preview mesh link to the exported animations will be also exported. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Animation)
+	uint32 bExportPreviewMesh : 1;
 
 	/** If enable, Map skeletal actor motion to the root bone of the skeleton. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Animation)
