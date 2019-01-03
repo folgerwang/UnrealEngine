@@ -247,7 +247,7 @@ public:
 	 */
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
 
-	FUniformBufferRHIParamRef LooseParameterUniformBuffer;
+	FUniformBufferRHIRef LooseParameterUniformBuffer;
 
 protected:
 	/** Initialize streams for this vertex factory. */
