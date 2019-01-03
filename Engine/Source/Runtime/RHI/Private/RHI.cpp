@@ -498,7 +498,7 @@ bool GRHISupportsBaseVertexIndex = true;
 TRHIGlobal<bool> GRHISupportsInstancing(true);
 bool GRHISupportsFirstInstance = false;
 bool GRHISupportsDynamicResolution = false;
-int32 GRHIRayTracingSupportTier = 0;
+bool GRHISupportsRayTracing = false;
 bool GRHISupportsRHIThread = false;
 bool GRHISupportsRHIOnTaskThread = false;
 bool GRHISupportsParallelRHIExecute = false;

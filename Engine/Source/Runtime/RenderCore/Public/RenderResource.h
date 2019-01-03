@@ -517,11 +517,20 @@ FORCEINLINE bool ShouldCompileRayTracingShadersForProject(EShaderPlatform Shader
 	return false;
 }
 
+// Returns `true` when running on RT-capable machine and RT support is enabled for the project.
 // This function is a runtime only function!
-FORCEINLINE bool IsRayTracingTierSupported(int32 RequiredTier)
+FORCEINLINE bool IsRayTracingEnabled()
 {
-	ensure(RequiredTier >= 1);
-	return GRHIRayTracingSupportTier >= RequiredTier;
+	if (GRHISupportsRayTracing)
+	{
+		// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
+		static const bool bRayTracingEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"))->GetInt() > 0;
+		return bRayTracingEnabled;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 #if RHI_RAYTRACING
@@ -555,7 +564,7 @@ public:
 
 	virtual void InitRHI() override
 	{
-		if (Initializer.IndexBuffer && Initializer.PositionVertexBuffer && IsRayTracingTierSupported(2))
+		if (Initializer.IndexBuffer && Initializer.PositionVertexBuffer && IsRayTracingEnabled())
 		{
 			RayTracingGeometryRHI = RHICreateRayTracingGeometry(Initializer);
 			FRHICommandListExecutor::GetImmediateCommandList().BuildAccelerationStructure(RayTracingGeometryRHI);

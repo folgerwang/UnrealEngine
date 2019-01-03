@@ -891,7 +891,7 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 	}
 
 #if RHI_RAYTRACING
-	if (IsRayTracingTierSupported(2))
+	if (IsRayTracingEnabled())
 	{
 		RayTracingDynamicGeometryCollection = new FRayTracingDynamicGeometryCollection();
 	}

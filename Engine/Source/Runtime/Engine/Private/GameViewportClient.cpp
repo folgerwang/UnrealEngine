@@ -3020,7 +3020,7 @@ bool UGameViewportClient::HandleViewModeCommand( const TCHAR* Cmd, FOutputDevice
 	}
 
 #if RHI_RAYTRACING
-	if (GRHIRayTracingSupportTier == 0)
+	if (!GRHISupportsRayTracing)
 	{
 		if (ViewModeIndex == VMI_PathTracing)
 		{

@@ -195,7 +195,7 @@ inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
 }
 
 /** Can this platform compile ray tracing shaders (regardless of project settings).
- *  To use at runtime, also check GRHIRayTracingSupportTier.
+ *  To use at runtime, also check GRHISupportsRayTracing and r.RayTracing CVar (see IsRayTracingEnabled() helper).
  **/
 inline RHI_API bool RHISupportsRayTracingShaders(EShaderPlatform Platform)
 {
@@ -466,12 +466,8 @@ extern RHI_API bool GRHISupportsFirstInstance;
 /** Whether or not the RHI can handle dynamic resolution or not. */
 extern RHI_API bool GRHISupportsDynamicResolution;
 
-/** Ray tracing tier level:
- *   0: Ray tracing is not supported.
- *   1: Basic support for acceleration structure construction and ray queries. Ray tracing shader types are not supported.
- *   2: Full ray tracing support, including ray tracing shader types, shader binding tables, etc.
- **/
-extern RHI_API int32 GRHIRayTracingSupportTier;
+/** Whether or not the RHI supports ray tracing on current hardware (acceleration structure building and new ray tracing-specific shader types). */
+extern RHI_API bool GRHISupportsRayTracing;
 
 /** Whether or not the RHI supports an RHI thread.
 Requirements for RHI thread

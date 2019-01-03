@@ -664,7 +664,7 @@ void FD3D12DynamicRHI::Init()
 	GRHIForceNoDeletionLatencyForStreamingTextures = !!PLATFORM_WINDOWS;
 
 #if D3D12_RHI_RAYTRACING
-	GRHIRayTracingSupportTier = GetAdapter().GetD3DRayTracingDevice() ? 2 : 0;
+	GRHISupportsRayTracing = GetAdapter().GetD3DRayTracingDevice() != nullptr;
 #endif
 
 	// Set the RHI initialized flag.
@@ -673,7 +673,7 @@ void FD3D12DynamicRHI::Init()
 
 void FD3D12DynamicRHI::PostInit()
 {
-	if (IsRayTracingTierSupported(2))
+	if (GRHISupportsRayTracing)
 	{
 		for (FD3D12Adapter*& Adapter : ChosenAdapters)
 		{

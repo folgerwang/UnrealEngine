@@ -10,7 +10,7 @@
 
 void TestBasicRayTracing(bool bValidateResults)
 {
-	if (GRHIRayTracingSupportTier == 0)
+	if (!GRHISupportsRayTracing)
 	{
 		return;
 	}

@@ -10,7 +10,7 @@ static int32 GRayTracingSkyLight = 0;
 bool IsRayTracingSkyLightSelected()
 {
 #if RHI_RAYTRACING
-	return IsRayTracingTierSupported(2) && GRayTracingSkyLight > 0;
+	return IsRayTracingEnabled() && GRayTracingSkyLight > 0;
 #else
 	return false;
 #endif

@@ -39,7 +39,7 @@ static FAutoConsoleVariableRef CVarRayTracingRecLightIsTextureImportanceSampling
 
 bool IsRayTracingRectLightSelected()
 {
-	return IsRayTracingTierSupported(2) && GRayTracingRectLight == 1;
+	return IsRayTracingEnabled() && GRayTracingRectLight == 1;
 }
 
 bool ShouldRenderRayTracingStaticOrStationaryRectLight(const FLightSceneInfo& LightSceneInfo)

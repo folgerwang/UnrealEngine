@@ -326,7 +326,7 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 	CacheMeshDrawCommands(RHICmdList);
 
 #if RHI_RAYTRACING
-	if (IsRayTracingTierSupported(1))
+	if (IsRayTracingEnabled())
 	{
 		int MaxLOD = -1;
 

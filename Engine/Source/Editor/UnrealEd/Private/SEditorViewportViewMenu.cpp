@@ -302,7 +302,7 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 			}
 
 #if RHI_RAYTRACING
-			if (IsRayTracingTierSupported(2))
+			if (IsRayTracingEnabled())
 			{
 				struct Local
 				{
