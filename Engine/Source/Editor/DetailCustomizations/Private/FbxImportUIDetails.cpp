@@ -342,6 +342,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 		{
 			DetailBuilder.HideProperty(Handle);
 		}
+		else if (ImportUI->bIsReimport && Handle->GetBoolMetaData(TEXT("ReimportRestrict")))
+		{
+			DetailBuilder.HideProperty(Handle);
+		}
 		else
 		{
 			SetupRefreshForHandle(Handle);
@@ -363,6 +367,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 		{
 			bSkip = true;
 		}
+
+		//Skip the variable that is ReimportRestrick when we are in reimport mode
+		bSkip |= ImportUI->bIsReimport && Handle->GetBoolMetaData(TEXT("ReimportRestrict"));
+		
 		if(!bSkip && IsImportTypeMetaDataValid(ImportType, ImportTypeMetaData))
 		{
 			// Decide on category

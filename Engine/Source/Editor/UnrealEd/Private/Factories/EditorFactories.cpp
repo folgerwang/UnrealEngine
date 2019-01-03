@@ -5343,7 +5343,14 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	{
 		ReimportUI->bIsReimport = true;
 		ReimportUI->ReimportMesh = Mesh;
+
+		//Make sure the outer is the ImportUI, because there is some logic in the meta data needing this outer
+		UObject* OriginalOuter = ImportData != nullptr ? ImportData->GetOuter() : nullptr;
 		ReimportUI->StaticMeshImportData = ImportData;
+		if (ReimportUI->StaticMeshImportData && OriginalOuter)
+		{
+			ReimportUI->StaticMeshImportData->Rename(nullptr, ReimportUI);
+		}
 		
 		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
 		bool bOldAutoGenerateCollision = ReimportUI->StaticMeshImportData->bAutoGenerateCollision;
@@ -5365,6 +5372,12 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		if (bOperationCanceled && Mesh->bCustomizedCollision)
 		{
 			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = bOldAutoGenerateCollision;
+		}
+
+		//Put back the original SM outer
+		if (ReimportUI->StaticMeshImportData && OriginalOuter)
+		{
+			ReimportUI->StaticMeshImportData->Rename(nullptr, OriginalOuter);
 		}
 	}
 	ImportOptions->bCanShowDialog = !IsUnattended;
