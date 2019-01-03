@@ -23,6 +23,7 @@ public:
 	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual uint32 GetOutputType(int32 OutputIndex) override {return MCT_StaticBool;}
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) override;
 #endif
 	//~ End UMaterialExpression Interface
 

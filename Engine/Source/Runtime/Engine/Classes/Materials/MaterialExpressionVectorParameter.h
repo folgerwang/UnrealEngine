@@ -31,8 +31,11 @@ class UMaterialExpressionVectorParameter : public UMaterialExpressionParameter
 	virtual bool SetParameterValue(FName InParameterName, FLinearColor InValue);
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;	
+	virtual void ValidateParameterName(const bool bAllowDuplicateName) override;
+	virtual bool HasClassAndNameCollision(UMaterialExpression* OtherExpression) const override;
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) override;
 #endif
 
-	virtual bool IsUsedAsChannelMask() {return false;}
+	virtual bool IsUsedAsChannelMask() const {return false;}
 };
 

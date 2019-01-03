@@ -48,6 +48,7 @@ class UMaterialExpressionFontSampleParameter : public UMaterialExpressionFontSam
 	virtual FName GetParameterName() const override { return ParameterName; }
 	virtual void SetParameterName(const FName& Name) override { ParameterName = Name; }
 	virtual void ValidateParameterName(const bool bAllowDuplicateName) override;
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) override;
 #endif
 	//~ End UMaterialExpression Interface
 	

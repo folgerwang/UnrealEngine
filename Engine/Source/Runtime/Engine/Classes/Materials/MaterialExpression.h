@@ -410,6 +410,8 @@ class ENGINE_API UMaterialExpression : public UObject
 	* but are not UMaterialExpressionParameter due to class hierarchy. */
 	virtual bool HasAParameterName() const { return false; }
 	virtual void ValidateParameterName(const bool bAllowDuplicateName = true);
+	virtual bool HasClassAndNameCollision(UMaterialExpression* OtherExpression) const;
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) {};
 
 	virtual FName GetParameterName() const { return NAME_None; }
 	virtual void SetParameterName(const FName& Name) {}
