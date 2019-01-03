@@ -39,6 +39,12 @@ namespace UnrealBuildTool
 		HashSet<ProjectFileFormat> ProjectFileFormats = new HashSet<ProjectFileFormat>();
 
 		/// <summary>
+		/// Platforms to disable native project file generators for. Platforms with native project file generators typically require IDE extensions to be installed.
+		/// </summary>
+		[XmlConfigFile(Category = "ProjectFileGenerator")]
+		string[] DisablePlatformProjectGenerators = null;
+
+		/// <summary>
 		/// Execute the tool mode
 		/// </summary>
 		/// <param name="Arguments">Command line arguments</param>
@@ -47,6 +53,9 @@ namespace UnrealBuildTool
 		{
 			// Apply any command line arguments to this class
 			Arguments.ApplyTo(this);
+
+			// Apply the XML config to this class
+			XmlConfig.ApplyTo(this);
 
 			// Parse rocket-specific arguments.
 			FileReference ProjectFile;
@@ -84,8 +93,11 @@ namespace UnrealBuildTool
 					PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType, Arguments);
 					foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
 					{
-						Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
-						PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
+						if(DisablePlatformProjectGenerators != null && !DisablePlatformProjectGenerators.Any(x => x.Equals(Platform.ToString(), StringComparison.OrdinalIgnoreCase)))
+						{
+							Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
+							PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
+						}
 					}
 				}
 			}

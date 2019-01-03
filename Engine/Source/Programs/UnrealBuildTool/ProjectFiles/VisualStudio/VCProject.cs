@@ -201,12 +201,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			PlatformProjectGenerator PlatformProjectGenerator = PlatformProjectGenerators.GetPlatformProjectGenerator(Platform, true);
-			if (PlatformProjectGenerator == null)
-			{
-				return false;
-			}
-
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
 			if (BuildPlatform == null)
 			{
@@ -385,7 +379,7 @@ namespace UnrealBuildTool
 			string ProjectConfigurationName = "Invalid";
 
 			// Get the default platform. If there were not valid platforms for this project, just use one that will always be available in VS.
-			string ProjectPlatformName = InvalidConfigPlatformNames[0];
+			string ProjectPlatformName = InvalidConfigPlatformNames.First();
 
 			// Whether the configuration should be built automatically as part of the solution
 			bool bBuildByDefault = false;
@@ -544,7 +538,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		List<string> InvalidConfigPlatformNames;
+		HashSet<string> InvalidConfigPlatformNames;
 		List<ProjectConfigAndTargetCombination> ProjectConfigAndTargetCombinations;
 
 		private void BuildProjectConfigAndTargetCombinations(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
@@ -604,14 +598,13 @@ namespace UnrealBuildTool
 				}
 
 				// Create a list of platforms for the "invalid" configuration. We always require at least one of these.
-				InvalidConfigPlatformNames = new List<string>();
 				if(ProjectConfigAndTargetCombinations.Count == 0)
 				{
-					InvalidConfigPlatformNames.Add(DefaultPlatformName);
+					InvalidConfigPlatformNames = new HashSet<string>{ DefaultPlatformName };
 				}
 				else
 				{
-					InvalidConfigPlatformNames.AddRange(ProjectConfigAndTargetCombinations.Select(x => x.ProjectPlatformName));
+					InvalidConfigPlatformNames = new HashSet<string>(ProjectConfigAndTargetCombinations.Select(x => x.ProjectPlatformName));
 				}
 			}
 		}
@@ -1223,10 +1216,6 @@ namespace UnrealBuildTool
 		private void WritePostDefaultPropsConfiguration(UnrealTargetPlatform TargetPlatform, UnrealTargetConfiguration TargetConfiguration, string ProjectPlatformName, string ProjectConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, StringBuilder VCProjectFileContent)
 		{
 			PlatformProjectGenerator ProjGenerator = PlatformProjectGenerators.GetPlatformProjectGenerator(TargetPlatform, true);
-			if (((ProjGenerator == null) && (TargetPlatform != UnrealTargetPlatform.Unknown)))
-			{
-				return;
-			}
 
 			string ProjectConfigurationAndPlatformName = ProjectConfigurationName + "|" + ProjectPlatformName;
 			string ConditionString = "Condition=\"'$(Configuration)|$(Platform)'=='" + ProjectConfigurationAndPlatformName + "'\"";
@@ -1255,10 +1244,6 @@ namespace UnrealBuildTool
 			UnrealTargetConfiguration Configuration = Combination.Configuration;
 
 			PlatformProjectGenerator ProjGenerator = PlatformProjectGenerators.GetPlatformProjectGenerator(Platform, true);
-			if (((ProjGenerator == null) && (Platform != UnrealTargetPlatform.Unknown)))
-			{
-				return;
-			}
 
 			string UProjectPath = "";
 			if (IsForeignProject)
@@ -1434,8 +1419,10 @@ namespace UnrealBuildTool
 
 					VCProjectFileContent.AppendLine("  </PropertyGroup>");
 
-					string LayoutDirString = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioLayoutDirSection(Platform, Configuration, ConditionString, Combination.ProjectTarget.TargetRules.Type, Combination.ProjectTarget.TargetFilePath, ProjectFilePath, NMakePath, ProjectFileFormat) : "";
-					VCProjectFileContent.Append(LayoutDirString);
+					if(ProjGenerator != null)
+					{
+						VCProjectFileContent.Append(ProjGenerator.GetVisualStudioLayoutDirSection(Platform, Configuration, ConditionString, Combination.ProjectTarget.TargetRules.Type, Combination.ProjectTarget.TargetFilePath, ProjectFilePath, NMakePath, ProjectFileFormat));
+					}
 				}
 
 				if (VCUserFileContent != null && Combination.ProjectTarget != null)
@@ -1465,8 +1452,10 @@ namespace UnrealBuildTool
 						VCUserFileContent.AppendLine("  </PropertyGroup>");
 					}
 
-					string PlatformUserFileStrings = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioUserFileStrings(Platform, Configuration, ConditionString, TargetRulesObject, Combination.ProjectTarget.TargetFilePath, ProjectFilePath) : "";
-					VCUserFileContent.Append(PlatformUserFileStrings);
+					if(ProjGenerator != null)
+					{
+						VCUserFileContent.Append(ProjGenerator.GetVisualStudioUserFileStrings(Platform, Configuration, ConditionString, TargetRulesObject, Combination.ProjectTarget.TargetFilePath, ProjectFilePath));
+					}
 				}
 			}
 		}
