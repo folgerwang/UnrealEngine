@@ -495,7 +495,9 @@ public:
 	// A value of -1 means the draw is not in any state bucket and should be sorted by other factors instead.
 	int32 StateBucketId;
 
+#if RHI_RAYTRACING
 	uint32 RayTracedInstanceIndex;
+#endif
 
 	// Needed for view overrides
 	ERasterizerFillMode MeshFillMode : ERasterizerFillMode_NumBits + 1;
