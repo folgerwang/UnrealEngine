@@ -1047,13 +1047,21 @@ bool FFbxImporter::OpenFile(FString Filename)
 
 void FFbxImporter::FixMaterialClashName()
 {
+	const bool bKeepNamespace = GetDefault<UEditorPerProjectUserSettings>()->bKeepFbxNamespace;
+
 	FbxArray<FbxSurfaceMaterial*> MaterialArray;
 	Scene->FillMaterialArray(MaterialArray);
 	TSet<FString> AllMaterialName;
 	for (int32 MaterialIndex = 0; MaterialIndex < MaterialArray.Size(); ++MaterialIndex)
 	{
 		FbxSurfaceMaterial *Material = MaterialArray[MaterialIndex];
-		FString MaterialName = UTF8_TO_TCHAR(Material->GetName());
+		FString MaterialName = UTF8_TO_TCHAR(MakeName(Material->GetName()));
+
+		if (!bKeepNamespace)
+		{
+			Material->SetName(TCHAR_TO_UTF8(*MaterialName));
+		}
+
 		if (AllMaterialName.Contains(MaterialName))
 		{
 			FString OriginalMaterialName = MaterialName;
