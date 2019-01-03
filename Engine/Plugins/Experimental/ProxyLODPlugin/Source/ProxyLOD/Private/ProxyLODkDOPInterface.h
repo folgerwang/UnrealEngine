@@ -7,7 +7,7 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
-class FMeshDescription;
+struct FMeshDescription;
 
 namespace ProxyLOD
 {
