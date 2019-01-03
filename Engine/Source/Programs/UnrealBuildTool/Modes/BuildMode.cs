@@ -280,7 +280,7 @@ namespace UnrealBuildTool
 				using(Timeline.ScopeEvent("TargetMakefile.Load()"))
 				{
 					string ReasonNotLoaded;
-					Makefile = TargetMakefile.Load(MakefileLocation, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, WorkingSet, out ReasonNotLoaded);
+					Makefile = TargetMakefile.Load(MakefileLocation, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, TargetDescriptor.AdditionalArguments.GetRawArray(), WorkingSet, out ReasonNotLoaded);
 					if (Makefile == null)
 					{
 						Log.TraceInformation("Creating makefile for {0} ({1})", TargetDescriptor.Name, ReasonNotLoaded);
@@ -305,6 +305,9 @@ namespace UnrealBuildTool
 				{
 					Makefile = Target.Build(BuildConfiguration, WorkingSet, bIsAssemblingBuild);
 				}
+
+				// Save the additional command line arguments
+				Makefile.AdditionalArguments = TargetDescriptor.AdditionalArguments.GetRawArray();
 
 				// Save the environment variables
 				foreach (System.Collections.DictionaryEntry EnvironmentVariable in Environment.GetEnvironmentVariables())

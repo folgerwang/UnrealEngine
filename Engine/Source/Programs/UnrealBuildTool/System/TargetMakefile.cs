@@ -48,6 +48,11 @@ namespace UnrealBuildTool
 		public bool bHasProjectScriptPlugin;
 
 		/// <summary>
+		/// The array of command-line arguments. The makefile will be invalidated whenever these change.
+		/// </summary>
+		public string[] AdditionalArguments;
+
+		/// <summary>
 		/// Scripts which should be run before building anything
 		/// </summary>
 		public FileReference[] PreBuildScripts;
@@ -146,6 +151,7 @@ namespace UnrealBuildTool
 			TargetType = (TargetType)Reader.ReadInt();
 			bDeployAfterCompile = Reader.ReadBool();
 			bHasProjectScriptPlugin = Reader.ReadBool();
+			AdditionalArguments = Reader.ReadArray(() => Reader.ReadString());
 			PreBuildScripts = Reader.ReadArray(() => Reader.ReadFileReference());
 			Actions = Reader.ReadList(() => new Action(Reader));
 			EnvironmentVariables = Reader.ReadList(() => Tuple.Create(Reader.ReadString(), Reader.ReadString()));
@@ -171,6 +177,7 @@ namespace UnrealBuildTool
 			Writer.WriteInt((int)TargetType);
 			Writer.WriteBool(bDeployAfterCompile);
 			Writer.WriteBool(bHasProjectScriptPlugin);
+			Writer.WriteArray(AdditionalArguments, Item => Writer.WriteString(Item));
 			Writer.WriteArray(PreBuildScripts, Item => Writer.WriteFileReference(Item));
 			Writer.WriteList(Actions, Action => Action.Write(Writer));
 			Writer.WriteList(EnvironmentVariables, x => { Writer.WriteString(x.Item1); Writer.WriteString(x.Item2); });
@@ -205,10 +212,11 @@ namespace UnrealBuildTool
 		/// <param name="MakefilePath">Path to the makefile to load</param>
 		/// <param name="ProjectFile">Path to the project file</param>
 		/// <param name="Platform">Platform for this makefile</param>
+		/// <param name="Arguments">Command line arguments for this target</param>
 		/// <param name="WorkingSet">Interface to query which source files are in the working set</param>
 		/// <param name="ReasonNotLoaded">If the function returns null, this string will contain the reason why</param>
 		/// <returns>The loaded makefile, or null if it failed for some reason.  On failure, the 'ReasonNotLoaded' variable will contain information about why</returns>
-		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, UnrealTargetPlatform Platform, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
+		public static TargetMakefile Load(FileReference MakefilePath, FileReference ProjectFile, UnrealTargetPlatform Platform, string[] Arguments, ISourceFileWorkingSet WorkingSet, out string ReasonNotLoaded)
 		{
 			// Check the directory timestamp on the project files directory.  If the user has generated project files more
 			// recently than the UBTMakefile, then we need to consider the file to be out of date
@@ -327,6 +335,13 @@ namespace UnrealBuildTool
 
 			using(Timeline.ScopeEvent("Checking makefile validity"))
 			{
+				// Check if the arguments are different
+				if(!Enumerable.SequenceEqual(LoadedUBTMakefile.AdditionalArguments, Arguments))
+				{
+					ReasonNotLoaded = "command line arguments changed";
+					return null;
+				}
+
 				// Check if ini files are newer. Ini files contain build settings too.
 				DirectoryReference ProjectDirectory = DirectoryReference.FromFile(ProjectFile);
 				foreach (ConfigHierarchyType IniType in (ConfigHierarchyType[])Enum.GetValues(typeof(ConfigHierarchyType)))
