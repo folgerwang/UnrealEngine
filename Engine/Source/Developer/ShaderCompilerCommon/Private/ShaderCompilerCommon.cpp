@@ -777,6 +777,11 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	case SF_Geometry:	Text += TEXT(" -gs"); break;
 	case SF_Pixel:		Text += TEXT(" -ps"); break;
 	case SF_Compute:	Text += TEXT(" -cs"); break;
+#if RHI_RAYTRACING
+	case SF_RayGen:			Text += TEXT(" -rgs"); break;
+	case SF_RayMiss:		Text += TEXT(" -rms"); break;
+	case SF_RayHitGroup:	Text += TEXT(" -rhs"); break;
+#endif // RHI_RAYTRACING
 	default: break;
 	}
 	if (Input.bCompilingForShaderPipeline)
