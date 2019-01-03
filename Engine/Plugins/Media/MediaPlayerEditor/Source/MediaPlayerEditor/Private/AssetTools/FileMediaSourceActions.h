@@ -31,7 +31,6 @@ public:
 	virtual bool CanFilter() override;
 	virtual FText GetName() const override;
 	virtual UClass* GetSupportedClass() const override;
-	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override;
 
 private:
 

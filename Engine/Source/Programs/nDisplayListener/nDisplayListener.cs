@@ -41,7 +41,7 @@ namespace nDisplay
 				server.Start();
 
 				//@note: I'm note sure is it allowed to use copyright strings in the code
-				//PrintColorText("Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.", ConsoleColor.Cyan);
+				//PrintColorText("Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.", ConsoleColor.Cyan);
 				PrintColorText(string.Format("Listening to port {0}", Port.ToString()), ConsoleColor.Cyan);
 				Console.WriteLine("---------------------------------------------------------");
 

@@ -111,6 +111,9 @@ protected:
 	 */
 	bool ShouldAllowSpin() const;
 
+	/* If the property is disable we must disable the editing */
+	bool IsPropertyEnabled(EIntervalField Field) const;
+
 	// Cached shared pointers to properties that we are managing
 	TSharedPtr<IPropertyHandle> MinValueHandle;
 	TSharedPtr<IPropertyHandle> MaxValueHandle;

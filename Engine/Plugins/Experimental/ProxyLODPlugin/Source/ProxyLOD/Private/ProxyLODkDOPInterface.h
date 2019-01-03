@@ -7,8 +7,7 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
-#include "RawMesh.h"
-
+class FMeshDescription;
 
 namespace ProxyLOD
 {
@@ -76,7 +75,7 @@ namespace ProxyLOD
 	* @param InMesh     Input triangle mesh
 	* @param kDOPTree   The resulting acceleration structure.
 	*/
-	void BuildkDOPTree( const FRawMesh& InMesh, FkDOPTree& kDOPTree);
+	void BuildkDOPTree( const FMeshDescription& MeshDescription, FkDOPTree& kDOPTree);
 	void BuildkDOPTree( const FVertexDataMesh& InMesh, FkDOPTree& kDOPTree );
-	void BuildkDOPTree( const FRawMeshArrayAdapter& InMesh, FkDOPTree& kDOPTree);
+	void BuildkDOPTree( const FMeshDescriptionArrayAdapter& InMesh, FkDOPTree& kDOPTree);
 }

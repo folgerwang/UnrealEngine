@@ -469,7 +469,7 @@ void FLinuxWindow::Hide()
 	}
 }
 
-static void _GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
+static void GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
 {
 	uint32 InitializedMode = false;
 	uint32 BestWidth = 0;
@@ -505,21 +505,26 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 {
 	// Some vulkan video drivers have issues with specific height ranges causing them to corrupt the texture rendered
 	// Moving these nearest values removes this corruption.
-	if (NewHeight >= 9 && NewHeight <= 10)
+	static bool bDisableVulkanWorkaround = FParse::Param(FCommandLine::Get(), TEXT("disablevulkanworkaround"));
+
+	if (!bDisableVulkanWorkaround)
 	{
-		NewHeight = 11;
-	}
-	else if (NewHeight >= 17 && NewHeight <= 21)
-	{
-		NewHeight = 22;
-	}
-	else if (NewHeight >= 33 && NewHeight <= 43)
-	{
-		NewHeight = 44;
-	}
-	else if (NewHeight >= 65 && NewHeight <= 85)
-	{
-		NewHeight = 86;
+		if (NewHeight >= 9 && NewHeight <= 10)
+		{
+			NewHeight = 11;
+		}
+		else if (NewHeight >= 17 && NewHeight <= 21)
+		{
+			NewHeight = 22;
+		}
+		else if (NewHeight >= 33 && NewHeight <= 43)
+		{
+			NewHeight = 44;
+		}
+		else if (NewHeight >= 65 && NewHeight <= 85)
+		{
+			NewHeight = 86;
+		}
 	}
 
 	// X11 will take until the next frame to send a SizeChanged event. This means the X11 window
@@ -676,7 +681,7 @@ void FLinuxWindow::AdjustCachedSize( FVector2D& Size ) const
 			SizeW = VirtualWidth ;
 			SizeH = VirtualHeight;
 
-			_GetBestFullscreenResolution( HWnd, &SizeW, &SizeH );
+			GetBestFullscreenResolution( HWnd, &SizeW, &SizeH );
 		}
 		*/
 

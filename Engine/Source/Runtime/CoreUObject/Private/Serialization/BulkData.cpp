@@ -600,6 +600,22 @@ void FUntypedBulkData::RemoveBulkData()
 	BulkData.Deallocate();
 }
 
+/**
+ * Deallocates bulk data without detaching the archive.
+ */
+bool FUntypedBulkData::UnloadBulkData()
+{
+#if WITH_EDITOR
+	if (LockStatus == LOCKSTATUS_Unlocked)
+	{
+		FlushAsyncLoading();
+		BulkData.Deallocate();
+		return true;
+	}
+#endif
+	return false;
+}
+
 // FutureState implementation that loads everything when created.
 struct FStateComplete : public TFutureState<bool>
 {

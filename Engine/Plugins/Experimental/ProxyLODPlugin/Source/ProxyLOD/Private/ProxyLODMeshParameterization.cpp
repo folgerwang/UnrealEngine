@@ -262,29 +262,42 @@ void ProxyLOD::GenerateAdjacency(const FVertexDataMesh& Mesh, std::vector<uint32
 	HRESULT hr = DirectX::GenerateAdjacencyAndPointReps(Mesh.Indices.GetData(), NumTris, (const DirectX::XMFLOAT3*)PosArray, NumPos, Eps, NULL /* optional point rep pointer*/, AdjacencyArray.data());
 
 }
-
-void ProxyLOD::GenerateAdjacency(const FRawMesh& RawMesh, std::vector<uint32>& AdjacencyArray)
+void ProxyLOD::GenerateAdjacency(const FMeshDescription& RawMesh, std::vector<uint32>& AdjacencyArray)
 {
-	const uint32 NumTris = RawMesh.WedgeIndices.Num() / 3;
-	const uint32 NumVerts = RawMesh.VertexPositions.Num();
-	const uint32 AdjacencySize = RawMesh.WedgeIndices.Num(); // = 3 for each face
+	uint32 NumTris = 0;
+	for (const FPolygonID& PolygonID : RawMesh.Polygons().GetElementIDs())
+	{
+		NumTris += RawMesh.GetPolygonTriangles(PolygonID).Num();
+	}
+	const uint32 NumVerts = RawMesh.Vertices().Num();
+	const uint32 AdjacencySize = RawMesh.VertexInstances().Num(); // 3 for each face
 
 															 // Allocate adjacency
 	AdjacencyArray.resize(AdjacencySize);
+
+	TVertexAttributesConstRef<FVector> VertexPositionsAttribute = RawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TArray<FVector> VertexPositions;
+	VertexPositions.AddZeroed(NumVerts);
+	for (const FVertexID VertexID : RawMesh.Vertices().GetElementIDs())
+	{
+		VertexPositions[VertexID.GetValue()] = VertexPositionsAttribute[VertexID];
+	}
+
+	TArray<uint32> Indices;
+	Indices.AddZeroed(AdjacencySize);
+
+	for (const FVertexInstanceID VertexInstanceID : RawMesh.VertexInstances().GetElementIDs())
+	{
+		Indices[VertexInstanceID.GetValue()] = RawMesh.GetVertexInstanceVertex(VertexInstanceID).GetValue();
+	}
 	// position comparison epsilon
 	const float Eps = 0.f;
-	HRESULT hr = DirectX::GenerateAdjacencyAndPointReps(RawMesh.WedgeIndices.GetData(), NumTris, (DirectX::XMFLOAT3*)RawMesh.VertexPositions.GetData(), NumVerts, Eps, NULL /* optional point rep pointer*/, AdjacencyArray.data());
+	HRESULT hr = DirectX::GenerateAdjacencyAndPointReps(Indices.GetData(), NumTris, (DirectX::XMFLOAT3*)VertexPositions.GetData(), NumVerts, Eps, NULL /* optional point rep pointer*/, AdjacencyArray.data());
 }
-
 
 bool ProxyLOD::GenerateAdjacenyAndCleanMesh(FVertexDataMesh& InOutMesh, std::vector<uint32>& Adjacency)
 {
-	
-
-
 	std::vector<uint32_t> dupVerts;
-
-	
 
 	uint32 CleanCount = 0;
 	while (CleanCount == 0 || (dupVerts.size() != 0 && CleanCount < 5))

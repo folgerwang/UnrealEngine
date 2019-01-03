@@ -58,7 +58,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 	// The tool can only been switch by restarting the editor
 	static bool bIsThirdPartyReductiontool = !UseNativeQuadraticReduction();
 
-	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
+	if (!StaticMesh->IsMeshDescriptionValid(0))
 	{
 		//Warn the user that there is no mesh description data
 		UE_LOG(LogStaticMeshBuilder, Error, TEXT("Cannot find a valid mesh description to build the asset."));
@@ -83,22 +83,18 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		const int32 BaseReduceLodIndex = 0;
 		float MaxDeviation = 0.0f;
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
-		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetMeshDescription(LodIndex);
 		FMeshDescriptionHelper MeshDescriptionHelper(&LODBuildSettings);
 
 		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];
 		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
 
+		//Make sure we do not reduce a non custom LOD by himself
+		const int32 BaseReduceLodIndex = FMath::Clamp<int32>(ReductionSettings.BaseLODModel, 0, OriginalMeshDescription == nullptr ? LodIndex - 1 : LodIndex);
 		// Use simplifier if a reduction in triangles or verts has been requested.
-
-		const bool bVertTermination = (!bIsThirdPartyReductiontool) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles);
-		const bool bTriTermination  = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices;
-		bool bUseReduction = ( bTriTermination && ReductionSettings.PercentTriangles < 1.0f )
-			              || ( bVertTermination && ReductionSettings.PercentVertices < 1.0f )
-			              || ( ReductionSettings.MaxDeviation > 0.0f );
+		bool bUseReduction = StaticMesh->IsReductionActive(LodIndex);
 
 		if (OriginalMeshDescription != nullptr)
 		{
@@ -150,23 +146,21 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		//Reduce LODs
 		if (bUseReduction)
 		{
-			const int32 BaseLodIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			FOverlappingCorners OverlappingCorners;
-			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseLodIndex], OverlappingThreshold);
+			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseReduceLodIndex], OverlappingThreshold);
 
-			//Create a reduced mesh from the base LOD
-			UStaticMesh::RegisterMeshAttributes(MeshDescriptions[LodIndex]);
-			
-			if (LodIndex == BaseLodIndex)
+			int32 OldSectionInfoMapCount = StaticMesh->SectionInfoMap.GetSectionNumber(LodIndex);
+
+			if (LodIndex == BaseReduceLodIndex)
 			{
 				//When using LOD 0, we use a copy of the mesh description since reduce do not support inline reducing
-				FMeshDescription BaseMeshDescription = MeshDescriptions[BaseLodIndex];
+				FMeshDescription BaseMeshDescription = MeshDescriptions[BaseReduceLodIndex];
 				MeshDescriptionHelper.ReduceLOD(BaseMeshDescription, MeshDescriptions[LodIndex], ReductionSettings, OverlappingCorners, MaxDeviation);
 			}
 			else
 			{
-				MeshDescriptionHelper.ReduceLOD(MeshDescriptions[BaseLodIndex], MeshDescriptions[LodIndex], ReductionSettings, OverlappingCorners, MaxDeviation);
+				MeshDescriptionHelper.ReduceLOD(MeshDescriptions[BaseReduceLodIndex], MeshDescriptions[LodIndex], ReductionSettings, OverlappingCorners, MaxDeviation);
 			}
 			
 
@@ -191,11 +185,15 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 				}
 				UniqueMaterialIndex.AddUnique(MaterialIndex);
 			}
+
+			//If the reduce did not output the same number of section use the base LOD sectionInfoMap
+			bool bIsOldMappingInvalid = OldSectionInfoMapCount != UniqueMaterialIndex.Num();
+
 			//All used material represent a different section
 			for (int32 SectionIndex = 0; SectionIndex < UniqueMaterialIndex.Num(); ++SectionIndex)
 			{
 				//Keep the old data
-				bool bHasValidLODInfoMap = LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
+				bool bHasValidLODInfoMap = !bIsOldMappingInvalid && LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
 				//Section material index have to be remap with the ReductionSettings.BaseLODModel SectionInfoMap to create
 				//a valid new section info map for the reduced LOD.
 
@@ -203,10 +201,10 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 				if (!bHasValidLODInfoMap)
 				{
 					bool bSectionInfoSet = false;
-					for (int32 BaseLodSectionIndex = 0; BaseLodSectionIndex < LODModelSectionInfoMap.GetSectionNumber(BaseLodIndex); ++BaseLodSectionIndex)
+					for (int32 BaseLodSectionIndex = 0; BaseLodSectionIndex < LODModelSectionInfoMap.GetSectionNumber(BaseReduceLodIndex); ++BaseLodSectionIndex)
 					{
 						FMeshSectionInfo SectionInfo = LODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, BaseLodSectionIndex);
-						if (SectionInfo.MaterialIndex == UniqueMaterialIndex[SectionIndex])
+						if (BaseLodSectionIndex == UniqueMaterialIndex[SectionIndex])
 						{
 							//Copy the BaseLODModel section info to the reduce LODIndex.
 							FMeshSectionInfo OriginalSectionInfo = LODModelOriginalSectionInfoMap.Get(ReductionSettings.BaseLODModel, BaseLodSectionIndex);
