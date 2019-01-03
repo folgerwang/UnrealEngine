@@ -51,6 +51,7 @@
 #include "Settings/EditorSettings.h"
 #include "AnalyticsEventAttribute.h"
 #include "Kismet2/DebuggerCommands.h"
+#include "GameMapsSettings.h"
 
 #define LOCTEXT_NAMESPACE "MainFrameActions"
 
@@ -459,6 +460,12 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("MissingPlatformFilesPackage", "Missing required files to package this platform."));
 		}
+		return;
+	}
+
+	if (UGameMapsSettings::GetGameDefaultMap().IsEmpty())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("MissingGameDefaultMap", "No Game Default Map specified in Project Settings > Maps & Modes."));
 		return;
 	}
 
