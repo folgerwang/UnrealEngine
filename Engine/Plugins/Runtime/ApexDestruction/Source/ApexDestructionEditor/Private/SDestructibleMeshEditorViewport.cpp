@@ -443,6 +443,38 @@ void FDestructibleMeshEditorViewportClient::ImportFBXChunks()
 			FlushRenderingCommands();
 
 			UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
+			
+			UnFbx::FBXImportOptions* ImportOptions = FFbxImporter->GetImportOptions();
+			ImportOptions->ImportType = FBXIT_StaticMesh;
+			ImportOptions->bImportScene = false;
+			ImportOptions->bAutoGenerateCollision = false;
+			ImportOptions->bBakePivotInVertex = false;
+			ImportOptions->bCanShowDialog = false;
+			ImportOptions->bCombineToSingle = false;
+			ImportOptions->bConvertScene = true;
+			ImportOptions->bConvertSceneUnit = true;
+			ImportOptions->bCreatePhysicsAsset = false;
+			ImportOptions->bForceFrontXAxis = false;
+			ImportOptions->bGenerateLightmapUVs = false;
+			ImportOptions->bImportLOD = false;
+			ImportOptions->BaseMaterial = nullptr;
+			ImportOptions->bImportRigidMesh = false;
+			ImportOptions->bImportStaticMeshLODs = false;
+			ImportOptions->bInvertNormalMap = false;
+			ImportOptions->bPreserveSmoothingGroups = true;
+			ImportOptions->bAutoComputeLodDistances = false;
+			ImportOptions->bBuildAdjacencyBuffer = true;
+			ImportOptions->bBuildReversedIndexBuffer = true;
+			ImportOptions->bTransformVertexToAbsolute = true;
+			ImportOptions->bUsedAsFullName = true;
+			ImportOptions->ImportRotation = FRotator(0.0f, 0.0f, 0.0f);
+			ImportOptions->ImportTranslation = FVector(0.0f, 0.0f, 0.0f);
+			ImportOptions->ImportUniformScale = 0.0f;
+			ImportOptions->StaticMeshLODGroup = NAME_None;
+			ImportOptions->VertexColorImportOption = EVertexColorImportOption::Replace;
+			ImportOptions->bImportMaterials = true;
+			ImportOptions->bImportTextures = true;
+
 			if (FFbxImporter->ImportFromFile( *ImportFilename, FPaths::GetExtension( ImportFilename ) ) )
 			{
 				TArray<FbxNode*> FbxMeshArray;
