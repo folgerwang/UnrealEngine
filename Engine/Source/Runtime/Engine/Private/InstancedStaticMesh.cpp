@@ -2395,32 +2395,32 @@ void UInstancedStaticMeshComponent::SelectInstance(bool bInSelected, int32 InIns
 			SelectedInstances.Init(false, PerInstanceSMData.Num());
 		}
 
-		check(SelectedInstances.IsValidIndex(InInstanceIndex));
-		check(SelectedInstances.IsValidIndex(InInstanceIndex + (InInstanceCount - 1)));
-
+		check(InInstanceIndex >= 0 && InInstanceCount > 0);
+		check(InInstanceIndex + InInstanceCount - 1 < SelectedInstances.Num());
+		
 		for (int32 InstanceIndex = InInstanceIndex; InstanceIndex < InInstanceIndex + InInstanceCount; InstanceIndex++)
 		{
-			SelectedInstances[InstanceIndex] = bInSelected;
-		}
-
-		if (PerInstanceRenderData.IsValid())
-		{
-			for (int32 InstanceIndex = InInstanceIndex; InstanceIndex < InInstanceIndex + InInstanceCount; InstanceIndex++)
+			if (SelectedInstances.IsValidIndex(InInstanceIndex))
 			{
-				// Record if the instance is selected
-				FColor HitProxyColor(ForceInit);
-				bool bSelected = SelectedInstances[InstanceIndex] != 0;
-				if (PerInstanceRenderData->HitProxies.IsValidIndex(InstanceIndex))
+				SelectedInstances[InstanceIndex] = bInSelected;
+
+				if (PerInstanceRenderData.IsValid())
 				{
-					HitProxyColor = PerInstanceRenderData->HitProxies[InstanceIndex]->Id.GetColor();
+					// Record if the instance is selected
+					FColor HitProxyColor(ForceInit);
+					bool bSelected = SelectedInstances[InstanceIndex] != 0;
+					if (PerInstanceRenderData->HitProxies.IsValidIndex(InstanceIndex))
+					{
+						HitProxyColor = PerInstanceRenderData->HitProxies[InstanceIndex]->Id.GetColor();
+					}
+
+					int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
+					if (RenderIndex != INDEX_NONE)
+					{
+						InstanceUpdateCmdBuffer.SetEditorData(RenderIndex, HitProxyColor, bSelected);
+					}
 				}
-				
-				int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
-				if (RenderIndex != INDEX_NONE)
-				{
-					InstanceUpdateCmdBuffer.SetEditorData(RenderIndex, HitProxyColor, bSelected);
-				}
-			}
+			}			
 		}
 		
 		MarkRenderStateDirty();
