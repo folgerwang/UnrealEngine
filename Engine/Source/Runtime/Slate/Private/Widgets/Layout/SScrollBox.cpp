@@ -491,6 +491,11 @@ EOrientation SScrollBox::GetOrientation()
 	return Orientation;
 }
 
+void SScrollBox::SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel)
+{
+	ConsumeMouseWheel = NewConsumeMouseWheel;
+}
+
 void SScrollBox::SetOrientation(EOrientation InOrientation)
 {
 	if (Orientation != InOrientation)

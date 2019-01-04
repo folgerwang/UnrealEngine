@@ -99,6 +99,7 @@ void UScrollBox::SynchronizeProperties()
 	MyScrollBox->SetScrollBarAlwaysVisible(AlwaysShowScrollbar);
 	MyScrollBox->SetAllowOverscroll(AllowOverscroll ? EAllowOverscroll::Yes : EAllowOverscroll::No);
 	MyScrollBox->SetScrollBarRightClickDragAllowed(bAllowRightClickDragScrolling);
+	MyScrollBox->SetConsumeMouseWheel(ConsumeMouseWheel);
 }
 
 float UScrollBox::GetScrollOffset() const
@@ -190,6 +191,16 @@ void UScrollBox::PostLoad()
 
 			BarStyle_DEPRECATED = nullptr;
 		}
+	}
+}
+
+void UScrollBox::SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel)
+{
+	ConsumeMouseWheel = NewConsumeMouseWheel;
+
+	if (MyScrollBox.IsValid())
+	{
+		MyScrollBox->SetConsumeMouseWheel(NewConsumeMouseWheel);
 	}
 }
 

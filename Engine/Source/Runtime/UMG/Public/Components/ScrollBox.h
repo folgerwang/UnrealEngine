@@ -75,6 +75,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scroll")
 	bool bAllowRightClickDragScrolling;
 
+
+	UFUNCTION(BlueprintCallable, Category = "Scroll")
+	void SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel);
+
 	UFUNCTION(BlueprintCallable, Category = "Scroll")
 	void SetOrientation(EOrientation NewOrientation);
 
