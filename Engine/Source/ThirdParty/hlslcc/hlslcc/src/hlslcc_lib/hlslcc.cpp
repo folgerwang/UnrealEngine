@@ -15,13 +15,11 @@
 #include "OptValueNumbering.h"
 #include "IRDump.h"
 
-#if WIN32
-#include <Windows.h>
-#endif
-
 extern int _mesa_hlsl_debug;
 
 static char* DebugBuffer = 0;
+#if WIN32
+#include <Windows.h>
 void dprintf(const char* Format, ...)
 {
 	const int BufSize = (1 << 20);
@@ -53,14 +51,14 @@ void dprintf(const char* Format, ...)
 		DebugBuffer[Count] = 0;
 	}
 
-#if WIN32
+//#if WIN32
 	OutputDebugStringA(DebugBuffer);
-#elif __APPLE__
-	syslog(LOG_DEBUG, "%s", DebugBuffer);
-#endif
+//#elif __APPLE__
+//	syslog(LOG_DEBUG, "%s", DebugBuffer);
+//#endif
 	fprintf(stdout, "%s", DebugBuffer);
 }
-
+#endif
 
 void dprintf_free()
 {

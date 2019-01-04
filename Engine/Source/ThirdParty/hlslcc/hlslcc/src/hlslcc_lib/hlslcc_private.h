@@ -54,6 +54,4 @@ inline long long GetTimeInMiliseconds()
 #endif	// WIN32
 #endif	// ENABLE_TIMING
 
-
-extern void dprintf(const char* Format, ...);
 extern void dprintf_free();
