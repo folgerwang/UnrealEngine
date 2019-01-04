@@ -191,7 +191,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							NewDirectories.Add(SubDirectoryInfo.Name, DirectoryItem.GetItemByDirectoryInfo(SubDirectoryInfo));
+							NewDirectories[SubDirectoryInfo.Name] = DirectoryItem.GetItemByDirectoryInfo(SubDirectoryInfo);
 						}
 					}
 				}
@@ -247,7 +247,7 @@ namespace UnrealBuildTool
 				{
 					foreach(FileInfo FileInfo in Info.EnumerateFiles())
 					{
-						NewFiles.Add(FileInfo.Name, FileItem.GetItemByFileInfo(FileInfo));
+						NewFiles[FileInfo.Name] = FileItem.GetItemByFileInfo(FileInfo);
 					}
 				}
 				Files = NewFiles;
