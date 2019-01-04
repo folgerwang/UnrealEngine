@@ -1196,6 +1196,7 @@ void FFoliageMeshInfo::RemoveInstances(AInstancedFoliageActor* InIFA, const TArr
 	Instances.Shrink();
 		
 	Component->bAutoRebuildTreeOnInstanceChanges = PreviousbAutoRebuildTreeOnInstanceChanges;
+	Component->InvalidateLightingCache();
 
 	if (RebuildFoliageTree)
 	{
