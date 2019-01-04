@@ -165,7 +165,6 @@ FMaterialClosestHitPayload TraceRayInternal(in RaytracingAccelerationStructure T
 											in RayDesc Ray)
 {
 	FPackedMaterialClosestHitPayload Payload = (FPackedMaterialClosestHitPayload)0;
-	Payload.HitT = -1.0f;
 
     TraceRay
 	(
