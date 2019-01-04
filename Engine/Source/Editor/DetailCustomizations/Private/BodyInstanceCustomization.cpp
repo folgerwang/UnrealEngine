@@ -1560,7 +1560,7 @@ void FBodyInstanceCustomizationHelper::AddMassInKg(IDetailCategoryBuilder& Physi
 			.Padding(0.f, 0.f, 10.f, 0.f)
 			[
 				SNew(SNumericEntryBox<float>)
-				.IsEnabled(&FBodyInstanceCustomizationHelper::IsBodyMassEnabled)
+				.IsEnabled(this, &FBodyInstanceCustomizationHelper::IsBodyMassEnabled)
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				.Value(this, &FBodyInstanceCustomizationHelper::OnGetBodyMass)
 				.OnValueCommitted(this, &FBodyInstanceCustomizationHelper::OnSetBodyMass)
