@@ -1026,6 +1026,13 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths = true;
 
 		/// <summary>
+		/// Which C++ stanard to use for compiling this target
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
+
+		/// <summary>
 		/// Do not allow manifest changes when building this target. Used to cause earlier errors when building multiple targets with a shared build environment.
 		/// </summary>
 		[CommandLine("-NoManifestChanges")]
@@ -2159,6 +2166,11 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths
 		{
 			get { return Inner.bLegacyPublicIncludePaths; }
+		}
+
+		public CppStandardVersion CppStandard
+		{
+			get { return Inner.CppStandard; }
 		}
 
 		internal bool bNoManifestChanges

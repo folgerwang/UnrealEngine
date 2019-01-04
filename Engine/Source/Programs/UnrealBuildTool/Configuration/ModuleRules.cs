@@ -694,6 +694,11 @@ namespace UnrealBuildTool
 		public bool? bLegacyPublicIncludePaths;
 
 		/// <summary>
+		/// Which stanard to use for compiling this module
+		/// </summary>
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
+
+		/// <summary>
 		/// The current engine directory
 		/// </summary>
 		public string EngineDirectory

@@ -974,6 +974,12 @@ namespace UnrealBuildTool
 			Result.bEnableShadowVariableWarnings = Rules.bEnableShadowVariableWarnings;
 			Result.bEnableUndefinedIdentifierWarnings = Rules.bEnableUndefinedIdentifierWarnings;
 
+			// If the module overrides the C++ language version, override it on the compile environment
+			if(Rules.CppStandard != CppStandardVersion.Default)
+			{
+				Result.CppStandard = Rules.CppStandard;
+			}
+
 			// Set the macro used to check whether monolithic headers can be used
 			if (Rules.bTreatAsEngineModule && (!Rules.bEnforceIWYU || !Target.bEnforceIWYU))
 			{

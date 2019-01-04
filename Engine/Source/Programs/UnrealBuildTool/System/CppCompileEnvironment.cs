@@ -42,6 +42,32 @@ namespace UnrealBuildTool
 	}
 
 	/// <summary>
+	/// Specifies which language standard to use. This enum should be kept in order, so that toolchains can check whether the requested setting is >= values that they support.
+	/// </summary>
+	public enum CppStandardVersion
+	{
+		/// <summary>
+		/// Use the default standard version
+		/// </summary>
+		Default,
+
+		/// <summary>
+		/// Supports C++14
+		/// </summary>
+		Cpp14,
+
+		/// <summary>
+		/// Supports C++17
+		/// </summary>
+		Cpp17,
+
+		/// <summary>
+		/// Latest standard supported by the compiler
+		/// </summary>
+		Latest,
+	}
+
+	/// <summary>
 	/// The optimization level that may be compilation targets for C# files.
 	/// </summary>
 	enum CSharpTargetConfiguration
@@ -338,6 +364,11 @@ namespace UnrealBuildTool
 		public bool bHideSymbolsByDefault;
 
 		/// <summary>
+		/// Which C++ standard to support. May not be compatible with all platforms.
+		/// </summary>
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
         public CppCompileEnvironment(CppPlatform Platform, CppConfiguration Configuration, string Architecture, SourceFileMetadataCache MetadataCache)
@@ -408,6 +439,7 @@ namespace UnrealBuildTool
 			PrecompiledHeaderFile = Other.PrecompiledHeaderFile;
 			bHackHeaderGenerator = Other.bHackHeaderGenerator;
 			bHideSymbolsByDefault = Other.bHideSymbolsByDefault;
+			CppStandard = Other.CppStandard;
 		}
 	}
 }

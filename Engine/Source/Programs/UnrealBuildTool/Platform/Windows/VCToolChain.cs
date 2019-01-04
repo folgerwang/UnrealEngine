@@ -543,6 +543,21 @@ namespace UnrealBuildTool
 			{
 				Arguments.Add("/Qstd=c++14");
 			}
+			else
+			{
+				if(CompileEnvironment.CppStandard >= CppStandardVersion.Latest)
+				{
+					Arguments.Add("/std:c++latest");
+				}
+				else if(CompileEnvironment.CppStandard >= CppStandardVersion.Cpp17)
+				{
+					Arguments.Add("/std:c++17");
+				}
+				else if(CompileEnvironment.CppStandard >= CppStandardVersion.Cpp14)
+				{
+					Arguments.Add("/std:c++14");
+				}
+			}
 
 			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
