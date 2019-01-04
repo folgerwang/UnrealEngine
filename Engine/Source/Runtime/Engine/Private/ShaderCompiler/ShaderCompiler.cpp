@@ -3763,7 +3763,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 	const bool bEmptyMap = GlobalShaderMap->IsEmpty();
 	if (bEmptyMap)
 	{
-		UE_LOG(LogShaders, Warning, TEXT("	Empty global shader map, recompiling all global shaders"));
+		UE_LOG(LogShaders, Log, TEXT("	Empty global shader map, recompiling all global shaders"));
 	}
 
 	bool bErrorOnMissing = bLoadedFromCacheFile;
@@ -3815,7 +3815,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 
 		if (!bEmptyMap && PermutationCountToCompile > 0)
 		{
-			UE_LOG(LogShaders, Warning, TEXT("	%s (%i out of %i)"),
+			UE_LOG(LogShaders, Log, TEXT("	%s (%i out of %i)"),
 				GlobalShaderType->GetName(), PermutationCountToCompile, GlobalShaderType->GetPermutationCount());
 		}
 	}
@@ -3852,7 +3852,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 
 					if (!bEmptyMap)
 					{
-						UE_LOG(LogShaders, Warning, TEXT("	%s"), Pipeline->GetName());
+						UE_LOG(LogShaders, Log, TEXT("	%s"), Pipeline->GetName());
 					}
 
 					if (Pipeline->ShouldOptimizeUnusedOutputs())
