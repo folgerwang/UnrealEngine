@@ -433,8 +433,10 @@ UObject* UFbxFactory::FactoryCreateFile
 								{
 									if (GroupLodIndex >= MAX_STATIC_MESH_LODS)
 									{
-										FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
-										continue;
+										FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(
+											LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reached the maximum number of LODs for a Static Mesh({0}) - discarding {1} LOD meshes."), FText::AsNumber(MAX_STATIC_MESH_LODS), FText::AsNumber(LODGroup->GetChildCount() - MAX_STATIC_MESH_LODS))
+										), FFbxErrors::Generic_Mesh_TooManyLODs);
+										break;
 									}
 									TArray<FbxNode*> AllNodeInLod;
 									FbxImporter->FindAllLODGroupNode(AllNodeInLod, LODGroup, GroupLodIndex);
@@ -504,6 +506,8 @@ UObject* UFbxFactory::FactoryCreateFile
 							{
 								FAssetRegistryModule::AssetCreated(Asset);
 								Asset->MarkPackageDirty();
+								//Make sure the build is up to date with the latest section info map
+								Asset->PostEditChange();
 							}
 						}
 
@@ -801,12 +805,15 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 		if (CreatedObject && bImportMeshLODs)
 		{
 			// import LOD meshes
+			
 			for (int32 LODIndex = 1; LODIndex < Node->GetChildCount(); LODIndex++)
 			{
 				if (LODIndex >= MAX_STATIC_MESH_LODS)
 				{
-					FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
-					continue;
+					FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(
+						LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reached the maximum number of LODs for a Static Mesh({0}) - discarding {1} LOD meshes."), FText::AsNumber(MAX_STATIC_MESH_LODS), FText::AsNumber(Node->GetChildCount() - MAX_STATIC_MESH_LODS))
+					), FFbxErrors::Generic_Mesh_TooManyLODs);
+					break;
 				}
 				AllNodeInLod.Empty();
 				FbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, LODIndex);
@@ -820,8 +827,9 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 						{
 							NewStaticMesh->AddSourceModel();
 						}
-						if (LODIndex - 1 > 0 && (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
+						if (LODIndex - 1 > 0 && NewStaticMesh->IsReductionActive(LODIndex-1))
 						{
+							//Do not add the LODGroup bias here, since the bias will be apply during the build
 							if (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f)
 							{
 								NewStaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles = NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles * 0.5f;
@@ -982,11 +990,11 @@ bool UFbxImportUI::CanEditChange( const UProperty* InProperty ) const
 	{
 		FName PropName = InProperty->GetFName();
 
-		if(PropName == TEXT("StartFrame") || PropName == TEXT("EndFrame"))
+		if(PropName == TEXT("FrameImportRange"))
 		{
 			bIsMutable = AnimSequenceImportData->AnimationLength == FBXALIT_SetRange && bImportAnimations;
 		}
-		else if(PropName == TEXT("bImportCustomAttribute") || PropName == TEXT("AnimationLength"))
+		else if(PropName == TEXT("bImportCustomAttribute") || PropName == TEXT("AnimationLength") || PropName == TEXT("CustomSampleRate") || PropName == TEXT("bUseDefaultSampleRate"))
 		{
 			bIsMutable = bImportAnimations;
 		}

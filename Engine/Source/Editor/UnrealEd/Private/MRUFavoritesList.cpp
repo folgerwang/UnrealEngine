@@ -102,7 +102,7 @@ void FMainMRUFavoritesList::MoveFavoritesItemToHead(const FString& Item)
  *
  * @return	true if the provided item is in the favorite's list; false if it is not
  */
-bool FMainMRUFavoritesList::ContainsFavoritesItem( const FString& Item )
+bool FMainMRUFavoritesList::ContainsFavoritesItem( const FString& Item ) const
 {
 	if (ensureMsgf(FPackageName::IsValidLongPackageName(Item), TEXT("Item is not a valid long package name: '%s'"), *Item))
 	{

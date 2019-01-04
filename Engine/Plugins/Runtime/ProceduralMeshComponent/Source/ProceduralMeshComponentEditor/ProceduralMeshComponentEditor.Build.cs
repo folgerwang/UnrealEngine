@@ -19,7 +19,8 @@ namespace UnrealBuildTool.Rules
                     "RenderCore",
                     "RHI",
                     "ProceduralMeshComponent",
-                    "RawMesh",
+                    "MeshDescription",
+                    "MeshDescriptionOperations",
                     "AssetTools",
                     "AssetRegistry"
                 }

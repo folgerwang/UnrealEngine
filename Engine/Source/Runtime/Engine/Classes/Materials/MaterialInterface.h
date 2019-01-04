@@ -207,7 +207,7 @@ struct FMaterialTextureInfo
 	ENGINE_API bool IsValid(bool bCheckTextureIndex = false) const; 
 };
 
-UCLASS(abstract, BlueprintType,MinimalAPI)
+UCLASS(abstract, BlueprintType, MinimalAPI, HideCategories = (Thumbnail))
 class UMaterialInterface : public UObject, public IBlendableInterface, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()
@@ -266,6 +266,9 @@ public:
 
 	UPROPERTY()
 	TMap<FString, bool> LayerParameterExpansion;
+
+	UPROPERTY()
+	TMap<FString, bool> ParameterOverviewExpansion;
 
 	/** Importing data and options used for this material */
 	UPROPERTY(EditAnywhere, Instanced, Category = ImportSettings)

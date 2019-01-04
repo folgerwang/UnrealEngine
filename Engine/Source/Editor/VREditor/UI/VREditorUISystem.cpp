@@ -2625,6 +2625,8 @@ void UVREditorUISystem::TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionT
 			TabManagerUI->GetWidgetComponent()->UpdateWidget();
 			ProxyTabManager->SetParentWindow(TabManagerUI->GetWidgetComponent()->GetSlateWindow().ToSharedRef());
 		}
+
+		TryToSpawnRadialMenu(GetUIInteractor(), true, false);
 	}
 }
 

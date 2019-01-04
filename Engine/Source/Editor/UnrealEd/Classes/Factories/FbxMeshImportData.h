@@ -28,6 +28,20 @@ namespace EFBXNormalGenerationMethod
 	};
 }
 
+UENUM()
+namespace EVertexColorImportOption
+{
+	enum Type
+	{
+		/** Import the static mesh using the vertex colors from the FBX file. */
+		Replace,
+		/** Ignore vertex colors from the FBX file, and keep the existing mesh vertex colors. */
+		Ignore,
+		/** Override all vertex colors with the specified color. */
+		Override
+	};
+}
+
 /** Action to add nodes to the graph based on selected objects*/
 USTRUCT()
 struct FImportMeshLodSectionsData

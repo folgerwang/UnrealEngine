@@ -4715,16 +4715,6 @@ void FLevelEditorViewportClient::RemoveReferenceToWorldContext(FWorldContext& Wo
 void FLevelEditorViewportClient::SetIsSimulateInEditorViewport( bool bInIsSimulateInEditorViewport )
 { 
 	bIsSimulateInEditorViewport = bInIsSimulateInEditorViewport; 
-
-	if (bInIsSimulateInEditorViewport)
-	{
-		TSharedRef<FPhysicsManipulationEdModeFactory> Factory = MakeShareable( new FPhysicsManipulationEdModeFactory );
-		FEditorModeRegistry::Get().RegisterMode( FBuiltinEditorModes::EM_Physics, Factory );
-	}
-	else
-	{
-		FEditorModeRegistry::Get().UnregisterMode( FBuiltinEditorModes::EM_Physics );
-	}
 }
 
 #undef LOCTEXT_NAMESPACE

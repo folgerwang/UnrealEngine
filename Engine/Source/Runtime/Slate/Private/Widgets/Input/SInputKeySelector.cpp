@@ -151,10 +151,17 @@ FReply SInputKeySelector::OnPreviewKeyDown( const FGeometry& MyGeometry, const F
 
 FReply SInputKeySelector::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (!bIsSelectingKey && SelectedKey.IsSet() && SelectedKey.Get().Key.IsValid() && (bAllowGamepadKeys && InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Left))
+	if (!bIsSelectingKey)
 	{
-		SelectedKey = FInputChord();
-		return FReply::Handled();
+		if (SelectedKey.IsSet() && SelectedKey.Get().Key.IsValid() && (bAllowGamepadKeys && InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Left))
+		{
+			SelectedKey = FInputChord();
+			return FReply::Handled();
+		}
+		else if (Button.IsValid())
+		{
+			return Button->OnKeyDown(MyGeometry, InKeyEvent);
+		}
 	}
 	return SCompoundWidget::OnKeyDown(MyGeometry, InKeyEvent);
 }
@@ -186,6 +193,10 @@ FReply SInputKeySelector::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent&
 			ModifierKey == EModifierKey::Alt,
 			ModifierKey == EModifierKey::Command);
 		return FReply::Handled();
+	}
+	else if (!bIsSelectingKey && Button.IsValid())
+	{
+		return Button->OnKeyUp(MyGeometry, InKeyEvent);
 	}
 
 	return SCompoundWidget::OnKeyUp( MyGeometry, InKeyEvent );

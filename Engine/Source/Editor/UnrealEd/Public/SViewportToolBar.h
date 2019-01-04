@@ -8,6 +8,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Animation/CurveSequence.h"
+#include "Editor/UnrealEdTypes.h"
 
 class SMenuAnchor;
 
@@ -58,6 +59,25 @@ private:
 	 * @param MouseEvent	The mouse event that triggered this function
 	 */
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
+
+protected:
+	/**
+	* Returns the label for the "Camera" tool bar menu based on based viewport type
+	*
+	* @param ViewportType	The Viewport type we want the label for
+	*
+	* @return	Label to use for this menu label
+	*/
+	virtual FText GetCameraMenuLabelFromViewportType(const ELevelViewportType ViewportType) const;
+
+	/**
+	* Returns the label icon for the "Camera" tool bar menu, which changes depending on the viewport type
+	*
+	* @param ViewportType	The Viewport type we want the icon for
+	*
+	* @return	Label icon to use for this menu label
+	*/
+	virtual const FSlateBrush* GetCameraMenuLabelIconFromViewportType(const ELevelViewportType ViewportType) const;
 
 private:
 	/** Curve sequence for fading out the toolbar */

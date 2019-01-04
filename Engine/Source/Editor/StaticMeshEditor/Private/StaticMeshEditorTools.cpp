@@ -26,6 +26,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxMeshUtils.h"
 #include "Widgets/Input/SVectorInputBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "SPerPlatformPropertiesWidget.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -1011,8 +1012,10 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 	OnDistanceFieldResolutionScaleChanged(NewValue);
 }
 
-FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
+FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself)
 	: ParentLODSettings( InParentLODSettings )
+	, CurrentLODIndex( InCurrentLODIndex )
+	, bCanReduceMyself(InCanReduceMyself)
 {
 
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
@@ -1319,6 +1322,32 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 		}
 	}
+
+	//Base LOD
+	{
+		int32 MaxBaseReduceIndex = bCanReduceMyself ? CurrentLODIndex : CurrentLODIndex - 1;
+		ChildrenBuilder.AddCustomRow( LOCTEXT("ReductionBaseLOD", "Base LOD") )
+			.NameContent()
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("ReductionBaseLOD", "Base LOD"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+			.ValueContent()
+			.HAlign(HAlign_Left)
+			[
+				SNew(SNumericEntryBox<int32>)
+				.AllowSpin(true)
+				.MinSliderValue(0)
+				.MaxSliderValue(MaxBaseReduceIndex)
+				.MinValue(0)
+				.MaxValue(MaxBaseReduceIndex)
+				.Value(this, &FMeshReductionSettingsLayout::GetBaseLODIndex)
+				.OnValueChanged(this, &FMeshReductionSettingsLayout::SetBaseLODIndex)
+			];
+	}
+
 	{
 		ChildrenBuilder.AddCustomRow( LOCTEXT("ApplyChanges", "Apply Changes") )
 			.ValueContent()
@@ -1551,6 +1580,19 @@ void FMeshReductionSettingsLayout::OnTerminationCriterionChanged(TSharedPtr<FStr
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("TerminationCriterion"), *NewValue.Get());
 		}
 		ReductionSettings.TerminationCriterion = TerminationCriterion;
+	}
+}
+
+TOptional<int32> FMeshReductionSettingsLayout::GetBaseLODIndex() const
+{
+	return ReductionSettings.BaseLODModel;
+}
+
+void FMeshReductionSettingsLayout::SetBaseLODIndex(int32 NewLODBaseIndex)
+{
+	if (NewLODBaseIndex <= CurrentLODIndex)
+	{
+		ReductionSettings.BaseLODModel = NewLODBaseIndex;
 	}
 }
 
@@ -3146,14 +3188,14 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			SNew(STextBlock)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.Text(this, &FLevelOfDetailSettingsLayout::GetLODCustomModeNameContent, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		]
 		.ValueContent()
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &FLevelOfDetailSettingsLayout::IsLODCustomModeCheck, (int32)INDEX_NONE)
 			.OnCheckStateChanged(this, &FLevelOfDetailSettingsLayout::SetLODCustomModeCheck, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		];
 		// Create information panel for each LOD level.
 		for(int32 LODIndex = 0; LODIndex < StaticMeshLODCount; ++LODIndex)
@@ -3179,7 +3221,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared() ) );
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex, StaticMesh->IsMeshDescriptionValid(LODIndex)));
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())
@@ -3190,7 +3232,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.ReductionSettings);
 				}
 
-				if (SrcModel.RawMeshBulkData->IsEmpty() == false || SrcModel.OriginalMeshDescription != nullptr)
+				if (StaticMesh->IsMeshDescriptionValid(LODIndex))
 				{
 					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
@@ -3219,7 +3261,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
-			bool bHasBeenSimplified = StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty() || StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation > 0.0f;
+			bool bHasBeenSimplified = !StaticMesh->IsMeshDescriptionValid(LODIndex) || StaticMesh->IsReductionActive(LODIndex);
 			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );
@@ -3298,7 +3340,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames, LODIndex)
 			];
 
-			if(LODIndex > 0 && StaticMesh->SourceModels.IsValidIndex(LODIndex) && !StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty())
+			if(LODIndex > 0 && StaticMesh->IsMeshDescriptionValid(LODIndex))
 			{
 				FString FileTypeFilter = TEXT("All files (*.*)|*.*");
 				LODCategory.AddCustomRow(( LOCTEXT("SourceImporFilenameRow", "SourceImportFilename")))
@@ -3706,7 +3748,18 @@ void FLevelOfDetailSettingsLayout::OnImportLOD(TSharedPtr<FString> NewValue, ESe
 	{
 		UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 		check(StaticMesh);
-		FbxMeshUtils::ImportMeshLODDialog(StaticMesh,LODIndex);
+
+		//Are we a new imported LOD, we want to set some value for new imported LOD.
+		//This boolean prevent changing the value when the LOD is reimport
+		bool bImportCustomLOD = (LODIndex >= StaticMesh->SourceModels.Num());
+		
+		bool bResult = FbxMeshUtils::ImportMeshLODDialog(StaticMesh,LODIndex);
+
+		if (bImportCustomLOD && bResult && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			//Custom LOD should reduce base on them self when they get imported.
+			StaticMesh->SourceModels[LODIndex].ReductionSettings.BaseLODModel = LODIndex;
+		}
 		StaticMesh->PostEditChange();
 		StaticMeshEditor.RefreshTool();
 	}
@@ -4066,7 +4119,7 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodMenuForLodPicker(
 
 	FText AutoLodText = FText::FromString((TEXT("LOD Auto")));
 	FUIAction AutoLodAction(FExecuteAction::CreateSP(this, &FLevelOfDetailSettingsLayout::OnSelectedLODChanged, 0));
-	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForLodPicker_Auto_ToolTip", "LOD0 is edit when selecting Auto LOD"), FSlateIcon(), AutoLodAction);
+	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForLodPicker_Auto_ToolTip", "With Auto LOD selected, LOD0's properties are visible for editing."), FSlateIcon(), AutoLodAction);
 	// Add a menu item for each texture.  Clicking on the texture will display it in the content browser
 	for (int32 AllLodIndex = 0; AllLodIndex < StaticMeshLODCount; ++AllLodIndex)
 	{

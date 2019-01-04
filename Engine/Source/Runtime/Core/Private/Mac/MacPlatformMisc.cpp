@@ -151,7 +151,8 @@ struct FMacApplicationInfo
 					}
 				}
 			}
-			else
+
+			if (XcodeVersion.majorVersion == 0)
 			{
 				XcodePath.Empty();
 			}

@@ -100,6 +100,8 @@
 #include "Kismet2/DebuggerCommands.h"
 #include "Misc/ScopeExit.h"
 #include "IVREditorModule.h"
+#include "EditorModeRegistry.h"
+#include "PhysicsManipulationMode.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayLevel, Log, All);
@@ -611,6 +613,10 @@ void UEditorEngine::TeardownPlaySession(FWorldContext& PieWorldContext)
 
 				// No longer simulating in the viewport
 				Viewport->GetLevelViewportClient().SetIsSimulateInEditorViewport( false );
+
+				
+				FEditorModeRegistry::Get().UnregisterMode(FBuiltinEditorModes::EM_Physics);
+				
 
 				// Clear out the hit proxies before GC'ing
 				Viewport->GetLevelViewportClient().Viewport->InvalidateHitProxy();
@@ -3493,6 +3499,9 @@ void UEditorEngine::ToggleBetweenPIEandSIE( bool bNewSession )
 			// No longer simulating
 			GameViewport->SetIsSimulateInEditorViewport(false);
 			EditorViewportClient.SetIsSimulateInEditorViewport(false);
+
+			FEditorModeRegistry::Get().UnregisterMode(FBuiltinEditorModes::EM_Physics);
+			
 			bIsSimulatingInEditor = false;
 		}
 		else
@@ -3503,6 +3512,11 @@ void UEditorEngine::ToggleBetweenPIEandSIE( bool bNewSession )
 			GameViewport->SetIsSimulateInEditorViewport(true);
 			GameViewport->GetGameViewport()->SetPlayInEditorIsSimulate(true);
 			EditorViewportClient.SetIsSimulateInEditorViewport(true);
+
+		
+			TSharedRef<FPhysicsManipulationEdModeFactory> Factory = MakeShareable(new FPhysicsManipulationEdModeFactory);
+			FEditorModeRegistry::Get().RegisterMode(FBuiltinEditorModes::EM_Physics, Factory);
+			
 			bIsSimulatingInEditor = true;
 
 			// Make sure the viewport is in real-time mode

@@ -28,7 +28,7 @@ namespace ProxyLOD
 	* @param InMesh   Mesh with a mixture of quads and triangles.
 	* @param OutMesh  Triangle Mesh.
 	*/
-	void MixedPolyMeshToRawMesh( const FMixedPolyMesh& InMesh, FRawMesh& OutMesh );
+	void MixedPolyMeshToRawMesh( const FMixedPolyMesh& InMesh, FMeshDescription& OutMesh );
 	
 	/**
 	* Convert a mixed triangle and quad mesh to a triangle mesh type by splitting quads.
@@ -49,33 +49,33 @@ namespace ProxyLOD
 	*
 	* The conversions will maintain geometry and connectivity, but different mesh types support
 	* different attribute types and possibly different frequenceies even when the same attribute types
-	* exist on both mesh types ( e.g. FRawMesh has per-wedge data while FVertexDataMesh has per-vertex attributes).
+	* exist on both mesh types ( e.g. FMeshDescription has per-wedge data while FVertexDataMesh has per-vertex attributes).
 	*
 	* @param InMesh   Source Mesh to convert.
 	* @param OutMesh  The result of the mesh conversion.  Any data already stored in OutMesh will be lost.
 	*
 	*/
-	void ConvertMesh(const FAOSMesh& InMesh, FRawMesh& OutMesh);
+	void ConvertMesh(const FAOSMesh& InMesh, FMeshDescription& OutMesh);
 	void ConvertMesh(const FAOSMesh& InMesh, FVertexDataMesh& OutMesh);
-	void ConvertMesh(const FVertexDataMesh& InMesh, FRawMesh& OutMesh);
-	void ConvertMesh(const FRawMesh& InMesh, FVertexDataMesh& OutMesh);
+	void ConvertMesh(const FVertexDataMesh& InMesh, FMeshDescription& OutMesh);
+	void ConvertMesh(const FMeshDescription& InMesh, FVertexDataMesh& OutMesh);
 
 	
 	/**
-	* Convert the simplifier-friendly array-of-structs mesh to a struct of arrays FRawMesh.
+	* Convert the simplifier-friendly array-of-structs mesh to a struct of arrays FMeshDescription.
 	*
-	* NB: This copies the AOSVertex normal to the wedge FRawMesh::Tangentz.
-	*     But additional FRawMesh attributes, including tangent/bitangent are given default values.
+	* NB: This copies the AOSVertex normal to the wedge FMeshDescription::Tangentz.
+	*     But additional FMeshDescription attributes, including tangent/bitangent are given default values.
 	*
 	* @param InMesh   Source Mesh to convert.
 	* @param OutMesh  The result of the mesh conversion.  Any data already stored in OutMesh will be lost.
 	*
 	*/
-	void AOSMeshToRawMesh( const FAOSMesh& InMesh, FRawMesh& OutMesh );
+	void AOSMeshToRawMesh( const FAOSMesh& InMesh, FMeshDescription& OutMesh );
 
 
 	/**
-	* Convert the uv-generation-friendly vertex data mesh to a struct of arrays FRawMesh.
+	* Convert the uv-generation-friendly vertex data mesh to a struct of arrays FMeshDescription.
 	* In addition to connectivity and vertex locations, this also transfers tangent space
 	* and UVs.
 	*
@@ -83,10 +83,10 @@ namespace ProxyLOD
 	* @param OutMesh  The result of the mesh conversion.  Any data already stored in OutMesh will be lost.
 	*
 	*/
-	void VertexDataMeshToRawMesh( const FVertexDataMesh& InMesh, FRawMesh& OutMesh );
+	void VertexDataMeshToRawMesh( const FVertexDataMesh& InMesh, FMeshDescription& OutMesh );
 
 	/**
-	* Converts a FRawMesh to a  uv-generation-friendly vertex data mesh.  This is potentially has some loss since the 
+	* Converts a FMeshDescription to a  uv-generation-friendly vertex data mesh.  This is potentially has some loss since the 
 	* raw mesh is nominally a per-index data structure and the vertex data mesh is a per-vertex structure.
 	* In addition, this only transfers the first texture coordinate and ignores material ids and vertex colors.
 	*
@@ -94,7 +94,7 @@ namespace ProxyLOD
 	* @param OutMesh  The result of the mesh conversion.  Any data already stored in OutMesh will be lost.
 	*
 	*/
-	void RawMeshToVertexDataMesh( const FRawMesh& InMesh, FVertexDataMesh& OutMesh );
+	void RawMeshToVertexDataMesh( const FMeshDescription& InMesh, FVertexDataMesh& OutMesh );
 
 }
 
@@ -223,7 +223,7 @@ void ProxyLOD::MixedPolyMeshToAOSMesh(const FMixedPolyMesh& MixedPolyMesh, TAOSM
 
 
 #if 0
-static void ComputeAABB(const FRawMeshArrayAdapter& MeshArray, ProxyLOD::FBBox& BBox)
+static void ComputeAABB(const FMeshDescriptionArrayAdapter& MeshArray, ProxyLOD::FBBox& BBox)
 {
 	uint32 NumTris = MeshArray.polygonCount();
 	BBox = ProxyLOD::Parallel_Reduce(ProxyLOD::FIntRange(0, NumTris), ProxyLOD::FBBox(), [&MeshArray](const ProxyLOD::FIntRange& Range,  ProxyLOD::FBBox BBox)->ProxyLOD::FBBox

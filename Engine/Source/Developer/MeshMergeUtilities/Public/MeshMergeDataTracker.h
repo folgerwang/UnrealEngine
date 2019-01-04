@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "RawMesh.h"
 #include "StaticMeshResources.h"
 #include "Materials/MaterialInstance.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
 
 typedef TPair<uint32, uint32> MeshLODPair;
 typedef TPair<uint32, uint32> SectionRemapPair;
@@ -103,8 +106,8 @@ struct MESHMERGEUTILITIES_API FMaterialKey
 };
 
 /** Typedefs to allow for some nicer looking loops */
-typedef TMap<FMeshLODKey, FRawMesh>::TConstIterator TConstRawMeshIterator;
-typedef TMap<FMeshLODKey, FRawMesh>::TIterator TRawMeshIterator;
+typedef TMap<FMeshLODKey, FMeshDescription>::TConstIterator TConstRawMeshIterator;
+typedef TMap<FMeshLODKey, FMeshDescription>::TIterator TRawMeshIterator;
 
 typedef TArray<int32>::TConstIterator TConstLODIndexIterator;
 
@@ -125,21 +128,21 @@ public:
 	void GetMappingsForMeshLOD(FMeshLODKey Key, TArray<SectionRemapPair>& InOutMappings);
 	
 	/** Adds or retrieves raw mesh data for the mesh and LOD index */
-	FRawMesh& AddAndRetrieveRawMesh(int32 MeshIndex, int32 LODIndex, UStaticMesh* InMesh);
+	FMeshDescription& AddAndRetrieveRawMesh(int32 MeshIndex, int32 LODIndex, UStaticMesh* InMesh);
 	/** Removes raw mesh entry for the given mesh and LOD index */
 	void RemoveRawMesh(int32 MeshIndex, int32 LODIndex);
 	/** Retrieves Raw Mesh ptr for the given mesh and LOD index */
-	FRawMesh* GetRawMeshPtr(int32 MeshIndex, int32 LODIndex);
+	FMeshDescription* GetRawMeshPtr(int32 MeshIndex, int32 LODIndex);
 	/** Retrieves Raw Mesh ptr for the given MeshLOD key */
-	FRawMesh* GetRawMeshPtr(FMeshLODKey Key);
-	/** Tries to retrieve a FRawMesh and returns the LOD index it found an entry for */
-	FRawMesh* FindRawMeshAndLODIndex(int32 MeshIndex, int32& OutLODIndex);
-	/** Tries to retrieve a FRawMesh for the given mesh and LOD index, if it can't it will try to find an entry for each LOD levle below InOutDesiredLODIndex */
-	FRawMesh* TryFindRawMeshForLOD(int32 MeshIndex, int32& InOutDesiredLODIndex);
+	FMeshDescription* GetRawMeshPtr(FMeshLODKey Key);
+	/** Tries to retrieve a FMeshDescription and returns the LOD index it found an entry for */
+	FMeshDescription* FindRawMeshAndLODIndex(int32 MeshIndex, int32& OutLODIndex);
+	/** Tries to retrieve a FMeshDescription for the given mesh and LOD index, if it can't it will try to find an entry for each LOD levle below InOutDesiredLODIndex */
+	FMeshDescription* TryFindRawMeshForLOD(int32 MeshIndex, int32& InOutDesiredLODIndex);
 
-	/** Returns a const key/value iterator for the FRawMesh entries */
+	/** Returns a const key/value iterator for the FMeshDescription entries */
 	TConstRawMeshIterator GetConstRawMeshIterator() const;
-	/** Returns a non-const key/value iterator for the FRawMesh entries */ 
+	/** Returns a non-const key/value iterator for the FMeshDescription entries */ 
 	TRawMeshIterator GetRawMeshIterator();
 
 	/** Adds a record of what channel lightmap data is stored at */
@@ -191,7 +194,7 @@ public:
 
 protected:
 	// Mesh / LOD index, RawMesh
-	TMap<FMeshLODKey, FRawMesh> RawMeshLODs;
+	TMap<FMeshLODKey, FMeshDescription> RawMeshLODs;
 
 	// Mesh / LOD index, lightmap channel
 	TMap<FMeshLODKey, int32> LightmapChannelLODs;
@@ -204,7 +207,7 @@ protected:
 	
 	/** Flags for UV and vertex color usage */
 	bool bWithVertexColors[MAX_STATIC_MESH_LODS];
-	bool bOcuppiedUVChannels[MAX_STATIC_MESH_LODS][MAX_MESH_TEXTURE_COORDS];
+	bool bOcuppiedUVChannels[MAX_STATIC_MESH_LODS][MAX_MESH_TEXTURE_COORDS_MD];
 	/** First available UV channel across all RawMesh entries */
 	int32 AvailableLightMapUVChannel;
 	int32 SummedLightMapPixels;

@@ -297,7 +297,6 @@ UBillboardComponent::UBillboardComponent(const FObjectInitializer& ObjectInitial
 	bUseEditorCompositing = true;
 
 #if WITH_EDITORONLY_DATA
-	Sprite = ConstructorStatics.SpriteTexture.Object;
 	SpriteInfo.Category = ConstructorStatics.ID_Misc;
 	SpriteInfo.DisplayName = ConstructorStatics.NAME_Misc;
 	bUseInEditorScaling = true;
