@@ -49,22 +49,10 @@ namespace UnrealBuildTool
 		public bool bAllowXGE = true;
 
 		/// <summary>
-		/// Whether we should just export the XGE XML and pretend it succeeded
-		/// </summary>
-		[CommandLine("-XGEExport")]
-		public bool bXGEExport = false;
-
-		/// <summary>
 		/// Whether SN-DBS may be used.
 		/// </summary>
 		[XmlConfigFile]
 		public bool bAllowSNDBS = true;
-
-		/// <summary>
-		/// Skip building; just do setup and terminate.
-		/// </summary>
-		[CommandLine("-SkipBuild")]
-		public bool bSkipBuild = false;
 
 		/// <summary>
 		/// Enables support for very fast iterative builds by caching target data.  Turning this on causes Unreal Build Tool to emit

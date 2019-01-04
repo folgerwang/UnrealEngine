@@ -341,7 +341,7 @@ namespace UnrealBuildTool
 				}
 				if(Action.GroupNames.Count > 0)
 				{
-					ToolElement.SetAttribute("GroupPrefix", String.Format("** For {0}", String.Join(" + ", Action.GroupNames)));
+					ToolElement.SetAttribute("GroupPrefix", String.Format("** For {0} **", String.Join(" + ", Action.GroupNames)));
 				}
 
 				ToolElement.SetAttribute("Params", Action.CommandArguments);
