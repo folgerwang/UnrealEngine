@@ -144,7 +144,11 @@ void DebugPrintVisitor::visit(ir_function_signature* ir)
 	{
 		ir_instruction *const inst = (ir_instruction *) iter.get();
 		Indent();
+
+		bool bPrevEOL = bIRVarEOL;
+		bIRVarEOL = true;
 		inst->accept(this);
+		bIRVarEOL = bPrevEOL;
 	}
 	Indentation--;
 	irdump_printf("}\n");
