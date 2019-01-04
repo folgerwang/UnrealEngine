@@ -85,20 +85,8 @@ struct FRayTracingGeometryInstance
 
 struct FRayTracingGeometrySegment
 {
-	FRayTracingGeometrySegment()
-		: FirstPrimitive(0)
-		, NumPrimitives(0)
-	{}
-
-	FRayTracingGeometrySegment(uint32 InFirstPrimitive, uint32 InNumPrimitives)
-		: FirstPrimitive(InFirstPrimitive)
-		, NumPrimitives(InNumPrimitives)
-	{}
-
-	uint32 FirstPrimitive;
-	uint32 NumPrimitives;
-
-	// #dxr_todo: what should be the sensible default values of these flags?
+	uint32 FirstPrimitive = 0;
+	uint32 NumPrimitives = 0;
 
 	// Indicates whether any-hit shader could be invoked when hitting this geometry segment.
 	// Setting this to `false` turns off any-hit shaders, making the section "opaque" and improving ray tracing performance.
@@ -111,19 +99,8 @@ struct FRayTracingGeometrySegment
 
 struct FRayTracingGeometryInitializer
 {
-	FRayTracingGeometryInitializer()
-		: VertexBufferByteOffset(0)
-		, VertexBufferStride(0)
-		, VertexBufferElementType(VET_Float3)
-		, BaseVertexIndex(0)
-		, PrimitiveType(PT_TriangleList)
-		, TotalPrimitiveCount(0)
-		, bFastBuild(false)
-		, bAllowUpdate(false)
-	{}
-
-	FVertexBufferRHIRef PositionVertexBuffer;
-	FIndexBufferRHIRef IndexBuffer;
+	FVertexBufferRHIRef PositionVertexBuffer = nullptr;
+	FIndexBufferRHIRef IndexBuffer = nullptr;
 	uint32 VertexBufferByteOffset = 0;
 	uint32 VertexBufferStride = 0;
 	EVertexElementType VertexBufferElementType = VET_Float3;
@@ -137,12 +114,8 @@ struct FRayTracingGeometryInitializer
 
 struct FRayTracingSceneInitializer
 {
-	FRayTracingSceneInitializer()
-		: bIsDynamic(false)
-	{}
-
 	TArrayView<FRayTracingGeometryInstance> Instances;
-	bool bIsDynamic;
+	bool bIsDynamic = false;
 };
 
 /** The interface which is implemented by the dynamically bound RHI. */

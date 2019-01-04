@@ -367,7 +367,10 @@ void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* G
 				GeometrySections.Reserve(LODModel.RenderSections.Num());
 				for (const FSkelMeshRenderSection& Section : LODModel.RenderSections)
 				{
-					GeometrySections.Add(FRayTracingGeometrySegment( (uint32)(Section.BaseIndex / 3), (uint32)(Section.NumTriangles) ));
+					FRayTracingGeometrySegment Segment;
+					Segment.FirstPrimitive = Section.BaseIndex / 3;
+					Segment.NumPrimitives = Section.NumTriangles;
+					GeometrySections.Add(Segment);
 				}
 				Initializer.Segments = GeometrySections;
 
