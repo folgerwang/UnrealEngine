@@ -98,6 +98,7 @@ private:
 
 	void HandleReimportMesh();
 	void HandleReimportAllMesh();
+	void HandleUpdateRefPose();
 
 	/** Callback for toggling UV drawing in the viewport */
 	void ToggleMeshSectionSelection();

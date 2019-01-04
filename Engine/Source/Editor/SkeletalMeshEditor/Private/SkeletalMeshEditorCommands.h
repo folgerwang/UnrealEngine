@@ -26,4 +26,7 @@ public:
 
 	// selecting mesh section using hit proxies
 	TSharedPtr<FUICommandInfo> MeshSectionSelection;
+
+	// update ref pose
+	TSharedPtr<FUICommandInfo> UpdateRefPose;
 };
