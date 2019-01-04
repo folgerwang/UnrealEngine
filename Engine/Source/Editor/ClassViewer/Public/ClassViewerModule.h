@@ -101,8 +101,11 @@ public:
 	/** The property this class viewer be working on. */
 	TSharedPtr<class IPropertyHandle> PropertyHandle;
 
-	/** true (the default) shows the view options at the bottom of the class picker*/
+	/** true (the default) shows the view options at the bottom of the class picker */
 	bool bAllowViewOptions;
+
+	/** true (the default) shows a background border behind the class viewer widget. */
+	bool bShowBackgroundBorder = true;
 public:
 
 	/** Constructor */
