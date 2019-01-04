@@ -47,115 +47,112 @@ private:
 	FIntPoint SizeXY;
 };
 
+
+/** An RHI Representation of a viewport with cached width and height for detecting resizes */
+struct FViewportInfo : public FRenderResource
+{
+	/** The projection matrix used in the viewport */
+	FMatrix ProjectionMatrix;
+	/** The viewport rendering handle */
+	FViewportRHIRef ViewportRHI;
+	/** The depth buffer texture if any */
+	FTexture2DRHIRef DepthStencil;
+
+	// Buffers used in HDR compositing
+	/** sRGB UI render target */
+	FTexture2DRHIRef UITargetRT;
+	/** HDR source data */
+	FTexture2DRHIRef HDRSourceRT;
+	/** sRGB UI render target */
+	FTexture2DRHIRef UITargetSRV;
+	/** HDR source data */
+	FTexture2DRHIRef HDRSourceSRV;
+
+	/** Color-space LUT for HDR UI composition. */
+	FTexture3DRHIRef ColorSpaceLUTRT;
+	FTexture3DRHIRef ColorSpaceLUTSRV;
+	int32 ColorSpaceLUTOutputDevice;
+	int32 ColorSpaceLUTOutputGamut;
+
+	//FTexture2DRHIRef RenderTargetTexture;
+	/** The OS Window handle (for recreating the viewport) */
+	void* OSWindow;
+	/** The actual width of the viewport */
+	uint32 Width;
+	/** The actual height of the viewport */
+	uint32 Height;
+	/** The desired width of the viewport */
+	uint32 DesiredWidth;
+	/** The desired height of the viewport */
+	uint32 DesiredHeight;
+	/** Whether or not the viewport requires a stencil test */
+	bool bRequiresStencilTest;
+	/** Whether or not the viewport is in fullscreen */
+	bool bFullscreen;
+	/** The desired pixel format for this viewport */
+	EPixelFormat PixelFormat;
+	/** The desired SDR pixel format for this viewport */
+	EPixelFormat SDRPixelFormat;
+	/** Color gamut for output to HDR display */
+	int32 HDRColorGamut;
+	/** Device format for output to HDR display */
+	int32 HDROutputDevice;
+
+	IViewportRenderTargetProvider* RTProvider;
+
+	/** FRenderResource interface */
+	virtual void InitRHI() override;
+	virtual void ReleaseRHI() override;
+
+	FViewportInfo()
+		: ColorSpaceLUTOutputDevice(0),
+		ColorSpaceLUTOutputGamut(0),
+		OSWindow(NULL),
+		Width(0),
+		Height(0),
+		DesiredWidth(0),
+		DesiredHeight(0),
+		bRequiresStencilTest(false),
+		bFullscreen(false),
+		PixelFormat(EPixelFormat::PF_Unknown),
+		SDRPixelFormat(EPixelFormat::PF_Unknown),
+		RTProvider(nullptr)
+	{
+
+	}
+
+	~FViewportInfo()
+	{
+		DepthStencil.SafeRelease();
+		UITargetRT.SafeRelease();
+		HDRSourceRT.SafeRelease();
+		UITargetSRV.SafeRelease();
+		HDRSourceSRV.SafeRelease();
+		ColorSpaceLUTRT.SafeRelease();
+		ColorSpaceLUTSRV.SafeRelease();
+	}
+
+	void ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest, uint32 Width, uint32 Height);
+	void RecreateDepthBuffer_RenderThread();
+
+	FTexture2DRHIRef GetRenderTargetTexture() const
+	{
+		if (RTProvider)
+		{
+			FSlateShaderResource* RenderTargetTexture = RTProvider->GetViewportRenderTargetTexture();
+			if (RenderTargetTexture)
+			{
+				FSlateRenderTargetRHI* RHITarget = (FSlateRenderTargetRHI*)RenderTargetTexture;
+				return RHITarget->GetTypedResource();
+			}
+		}
+		return nullptr;
+	}
+};
+
 /** A Slate rendering implementation for Unreal engine */
 class FSlateRHIRenderer : public FSlateRenderer
 {
-private:
-
-	/** An RHI Representation of a viewport with cached width and height for detecting resizes */
-	struct FViewportInfo : public FRenderResource
-	{
-		/** The projection matrix used in the viewport */
-		FMatrix ProjectionMatrix;	
-		/** The viewport rendering handle */
-		FViewportRHIRef ViewportRHI;
-		/** The depth buffer texture if any */
-		FTexture2DRHIRef DepthStencil;
-
-		// Buffers used in HDR compositing
-		/** sRGB UI render target */
-		FTexture2DRHIRef UITargetRT;
-		/** HDR source data */
-		FTexture2DRHIRef HDRSourceRT;
-		/** sRGB UI render target */
-		FTexture2DRHIRef UITargetSRV;
-		/** HDR source data */
-		FTexture2DRHIRef HDRSourceSRV;
-
-		/** Color-space LUT for HDR UI composition. */
-		FTexture3DRHIRef ColorSpaceLUTRT;
-		FTexture3DRHIRef ColorSpaceLUTSRV;
-		int32 ColorSpaceLUTOutputDevice;
-		int32 ColorSpaceLUTOutputGamut;
-		
-		//FTexture2DRHIRef RenderTargetTexture;
-		/** The OS Window handle (for recreating the viewport) */
-		void* OSWindow;
-		/** The actual width of the viewport */
-		uint32 Width;
-		/** The actual height of the viewport */
-		uint32 Height;
-		/** The desired width of the viewport */
-		uint32 DesiredWidth;
-		/** The desired height of the viewport */
-		uint32 DesiredHeight;
-		/** Whether or not the viewport requires a stencil test */
-		bool bRequiresStencilTest;
-		/** Whether or not the viewport is in fullscreen */
-		bool bFullscreen;
-		/** The desired pixel format for this viewport */
-		EPixelFormat PixelFormat;
-		/** The desired SDR pixel format for this viewport */
-		EPixelFormat SDRPixelFormat;
-		/** Color gamut for output to HDR display */
-		int32 HDRColorGamut;
-		/** Device format for output to HDR display */
-		int32 HDROutputDevice;
-
-		IViewportRenderTargetProvider* RTProvider;
-	
-		/** FRenderResource interface */
-		virtual void InitRHI() override;
-		virtual void ReleaseRHI() override;
-
-		FViewportInfo()
-			:	ColorSpaceLUTOutputDevice(0),
-				ColorSpaceLUTOutputGamut(0),
-				OSWindow(NULL), 
-				Width(0),
-				Height(0),
-				DesiredWidth(0),
-				DesiredHeight(0),
-				bRequiresStencilTest(false),
-				bFullscreen(false),
-				PixelFormat(EPixelFormat::PF_Unknown),
-				SDRPixelFormat(EPixelFormat::PF_Unknown),
-				RTProvider(nullptr)
-		{
-
-		}
-
-		~FViewportInfo()
-		{
-			DepthStencil.SafeRelease();
-			UITargetRT.SafeRelease();
-			HDRSourceRT.SafeRelease();
-			UITargetSRV.SafeRelease();
-			HDRSourceSRV.SafeRelease();
-			ColorSpaceLUTRT.SafeRelease();
-			ColorSpaceLUTSRV.SafeRelease();
-		}
-
-		void ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest, uint32 Width, uint32 Height);
-		void RecreateDepthBuffer_RenderThread();
-
-		FTexture2DRHIRef GetRenderTargetTexture() const
-		{
-			if (RTProvider)
-			{
-				FSlateShaderResource* RenderTargetTexture = RTProvider->GetViewportRenderTargetTexture();
-				if( RenderTargetTexture )
-				{
-					FSlateRenderTargetRHI* RHITarget = (FSlateRenderTargetRHI*)RenderTargetTexture;
-					return RHITarget->GetTypedResource();
-				}
-			}
-			return nullptr;
-		}
-
-	private:		
-	};
-
 public:
 	FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager );
 	~FSlateRHIRenderer();
@@ -206,7 +203,7 @@ public:
 	virtual void AddWidgetRendererUpdate(const struct FRenderThreadUpdateContext& Context, bool bDeferredRenderTargetUpdate) override;
 
 	/** Draws windows from a FSlateDrawBuffer on the render thread */
-	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FSlateRHIRenderer::FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
+	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, const struct FSlateDrawWindowCommandParams& DrawParams);
 
 	/**
 	 * Reloads texture resources from disk                   

@@ -77,20 +77,31 @@ TAutoConsoleVariable<int32> CVarShowSlateBatching(
 );
 #endif
 
-void FSlateRHIRenderer::FViewportInfo::InitRHI()
+struct FSlateDrawWindowCommandParams
+{
+	FSlateRHIRenderer* Renderer;
+	FSlateWindowElementList* WindowElementList;
+	float WorldTimeSeconds;
+	float DeltaTimeSeconds;
+	float RealTimeSeconds;
+	bool bLockToVsync;
+	bool bClear;
+};
+
+void FViewportInfo::InitRHI()
 {
 	// Viewport RHI is created on the game thread
 	// Create the depth-stencil surface if needed.
 	RecreateDepthBuffer_RenderThread();
 }
 
-void FSlateRHIRenderer::FViewportInfo::ReleaseRHI()
+void FViewportInfo::ReleaseRHI()
 {
 	DepthStencil.SafeRelease();
 	ViewportRHI.SafeRelease();
 }
 
-void FSlateRHIRenderer::FViewportInfo::ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest, uint32 InWidth, uint32 InHeight)
+void FViewportInfo::ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest, uint32 InWidth, uint32 InHeight)
 {
 	FViewportInfo* ViewportInfo = this;
 	ENQUEUE_RENDER_COMMAND(UpdateDepthBufferCommand)(
@@ -113,7 +124,7 @@ void FSlateRHIRenderer::FViewportInfo::ConditionallyUpdateDepthBuffer(bool bInRe
 	);
 }
 
-void FSlateRHIRenderer::FViewportInfo::RecreateDepthBuffer_RenderThread()
+void FViewportInfo::RecreateDepthBuffer_RenderThread()
 {
 	check(IsInRenderingThread());
 	DepthStencil.SafeRelease();
@@ -629,7 +640,7 @@ int32 SlateWireFrame = 0;
 static FAutoConsoleVariableRef CVarSlateWireframe(TEXT("Slate.ShowWireFrame"), SlateWireFrame, TEXT(""), ECVF_Default);
 
 /** Draws windows from a FSlateDrawBuffer on the render thread */
-void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear)
+void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, const struct FSlateDrawWindowCommandParams& DrawCommandParams)
 {
 	static uint32 LastTimestamp = FPlatformTime::Cycles();
 	{
@@ -729,6 +740,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 			FTexture2DRHIRef FinalBuffer = BackBuffer;
 
+			bool bClear = DrawCommandParams.bClear;
 			if (bCompositeUI)
 			{
 				FResolveParams ResolveParams;
@@ -788,8 +800,8 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 						FSlateBackBuffer BackBufferTarget(BackBuffer, FIntPoint(ViewportWidth, ViewportHeight));
 
-						FSlateRenderingOptions DrawOptions(ViewMatrix * ViewportInfo.ProjectionMatrix);
-						DrawOptions.bWireFrame = !!SlateWireFrame;
+						FSlateRenderingParams RenderParams(ViewMatrix * ViewportInfo.ProjectionMatrix, DrawCommandParams.WorldTimeSeconds, DrawCommandParams.DeltaTimeSeconds, DrawCommandParams.RealTimeSeconds);
+						RenderParams.bWireFrame = !!SlateWireFrame;
 
 						RenderingPolicy->DrawElements
 						(
@@ -798,7 +810,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 							BackBuffer,
 							ViewportInfo.DepthStencil,
 							BatchData.GetRenderBatches(),
-							DrawOptions
+							RenderParams
 						);
 					}
 				}
@@ -940,7 +952,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 	// Calculate renderthread time (excluding idle time).	
 	uint32 StartTime = FPlatformTime::Cycles();
 
-	RHICmdList.EndDrawingViewport(ViewportInfo.ViewportRHI, true, bLockToVsync);
+	RHICmdList.EndDrawingViewport(ViewportInfo.ViewportRHI, true, DrawCommandParams.bLockToVsync);
 
 	uint32 EndTime = FPlatformTime::Cycles();
 
@@ -1090,34 +1102,29 @@ void FSlateRHIRenderer::DrawWindows_Private(FSlateDrawBuffer& WindowDrawBuffer)
 
 				// Tell the rendering thread to draw the windows
 				{
-					struct FSlateDrawWindowCommandParams
-					{
-						FSlateRHIRenderer* Renderer;
-						FSlateRHIRenderer::FViewportInfo* ViewportInfo;
-						FSlateWindowElementList* WindowElementList;
-						SWindow* SlateWindow;
-						bool bLockToVsync;
-						bool bClear;
-					} Params;
+					FSlateDrawWindowCommandParams Params;
 
 					Params.Renderer = this;
-					Params.ViewportInfo = ViewInfo;
 					Params.WindowElementList = &ElementList;
 					Params.bLockToVsync = bLockToVsync;
 #if ALPHA_BLENDED_WINDOWS
 					Params.bClear = Window->GetTransparencySupport() == EWindowTransparency::PerPixel;
 #else
 					Params.bClear = false;
-#endif
+#endif	
+					Params.WorldTimeSeconds = FApp::GetCurrentTime() - GStartTime;
+					Params.DeltaTimeSeconds = FApp::GetDeltaTime();
+					Params.RealTimeSeconds = FPlatformTime::Seconds() - GStartTime;
+
 					// Skip the actual draw if we're in a headless execution environment
 					bool bLocalTakingAScreenShot = bTakingAScreenShot;
 					if (GIsClient && !IsRunningCommandlet() && !GUsingNullRHI)
 					{
 						ENQUEUE_RENDER_COMMAND(SlateDrawWindowsCommand)(
-							[Params](FRHICommandListImmediate& RHICmdList)
-						{
-							Params.Renderer->DrawWindow_RenderThread(RHICmdList, *Params.ViewportInfo, *Params.WindowElementList, Params.bLockToVsync, Params.bClear);
-						}
+							[Params, ViewInfo](FRHICommandListImmediate& RHICmdList)
+							{
+								Params.Renderer->DrawWindow_RenderThread(RHICmdList, *ViewInfo, *Params.WindowElementList, Params);
+							}
 						);
 					}
 
@@ -1151,10 +1158,9 @@ void FSlateRHIRenderer::DrawWindows_Private(FSlateDrawBuffer& WindowDrawBuffer)
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(DrawWidgetRendererImmediate,
 			FDeferredUpdateContextList, Contexts, DeferredUpdateContexts,
 			{
-
 				for (const FRenderThreadUpdateContext& Context : Contexts)
 				{
-					static_cast<ISlate3DRenderer*>(Context.Renderer)->DrawWindowToTarget_RenderThread(RHICmdList, static_cast<FTextureRenderTarget2DResource*>(Context.RenderTargetResource), *Context.DrawBuffer, Context.bClearTarget);
+					static_cast<ISlate3DRenderer*>(Context.Renderer)->DrawWindowToTarget_RenderThread(RHICmdList, Context);
 				}
 			}
 		);
@@ -1516,7 +1522,7 @@ void FSlateRHIRenderer::AddWidgetRendererUpdate(const struct FRenderThreadUpdate
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(DrawWidgetRendererImmediate,
 			FRenderThreadUpdateContext, InContext, Context,
 			{
-				static_cast<ISlate3DRenderer*>(InContext.Renderer)->DrawWindowToTarget_RenderThread(RHICmdList, static_cast<FTextureRenderTarget2DResource*>(InContext.RenderTargetResource), *InContext.DrawBuffer, InContext.bClearTarget);
+				static_cast<ISlate3DRenderer*>(InContext.Renderer)->DrawWindowToTarget_RenderThread(RHICmdList, InContext);
 			});
 	}
 }
