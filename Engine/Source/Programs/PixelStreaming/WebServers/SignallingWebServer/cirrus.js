@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //-- Server side logic. Serves pixel streaming WebRTC-based page, proxies data back to WebRTC proxy --//
 
