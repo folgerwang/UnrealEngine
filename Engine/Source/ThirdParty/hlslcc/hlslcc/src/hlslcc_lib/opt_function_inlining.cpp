@@ -64,11 +64,11 @@ public:
 		/* empty */
 	}
 
-	virtual ir_visitor_status visit_enter(ir_expression *);
-	virtual ir_visitor_status visit_enter(ir_call *);
-	virtual ir_visitor_status visit_enter(ir_return *);
-	virtual ir_visitor_status visit_enter(ir_texture *);
-	virtual ir_visitor_status visit_enter(ir_swizzle *);
+	virtual ir_visitor_status visit_enter(ir_expression*) override;
+	virtual ir_visitor_status visit_enter(ir_call*) override;
+	virtual ir_visitor_status visit_enter(ir_return*) override;
+	virtual ir_visitor_status visit_enter(ir_texture*) override;
+	virtual ir_visitor_status visit_enter(ir_swizzle*) override;
 
 	bool progress;
 };
@@ -319,11 +319,11 @@ public:
 	{
 	}
 
-	virtual ir_visitor_status visit_leave(ir_call *);
-	virtual ir_visitor_status visit_leave(ir_dereference_array *);
-	virtual ir_visitor_status visit_leave(ir_dereference_record *);
-	virtual ir_visitor_status visit_leave(ir_texture *);
-	virtual ir_visitor_status visit_leave(ir_dereference_image *);
+	virtual ir_visitor_status visit_leave(ir_call*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_array*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_record*) override;
+	virtual ir_visitor_status visit_leave(ir_texture*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_image*) override;
 
 	void replace_deref(ir_dereference **deref);
 	void replace_rvalue(ir_rvalue **rvalue);
@@ -413,10 +413,7 @@ ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_dereference_ima
 	return visit_continue;
 }
 
-static void
-do_sampler_replacement(exec_list *instructions,
-ir_variable *sampler,
-ir_dereference *deref)
+static void do_sampler_replacement(exec_list *instructions, ir_variable *sampler, ir_dereference *deref)
 {
 	ir_sampler_replacement_visitor v(sampler, deref);
 
@@ -442,10 +439,10 @@ public:
 	{
 	}
 
-	virtual ir_visitor_status visit_leave(ir_call *);
-	virtual ir_visitor_status visit_leave(ir_dereference_array *);
-	virtual ir_visitor_status visit_leave(ir_dereference_record *);
-	virtual ir_visitor_status visit_leave(ir_atomic *);
+	virtual ir_visitor_status visit_leave(ir_call*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_array*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_record*) override;
+	virtual ir_visitor_status visit_leave(ir_atomic*) override;
 
 	void replace_deref(ir_dereference **deref);
 	void replace_rvalue(ir_rvalue **rvalue);

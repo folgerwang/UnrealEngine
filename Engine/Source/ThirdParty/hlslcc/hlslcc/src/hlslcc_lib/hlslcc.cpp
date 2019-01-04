@@ -329,6 +329,8 @@ bool FHlslCrossCompilerContext::RunBackend(
 		return false;
 	}
 
+	ParseState->bInBackEnd = true;
+
 	if (!InShaderBackEnd->GenerateMain(ShaderFrequency, InEntryPoint, ir, ParseState))
 	{
 		return false;
