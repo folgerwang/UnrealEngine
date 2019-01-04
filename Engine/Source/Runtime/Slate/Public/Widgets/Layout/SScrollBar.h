@@ -31,6 +31,7 @@ public:
 		: _Style( &FCoreStyle::Get().GetWidgetStyle<FScrollBarStyle>("Scrollbar") )
 		, _OnUserScrolled()
 		, _AlwaysShowScrollbar(false)
+		, _AlwaysShowScrollbarTrack(true)
 #if PLATFORM_UI_HAS_MOBILE_SCROLLBARS
 		, _HideWhenNotInUse(true)
 #else
@@ -45,6 +46,7 @@ public:
 		SLATE_STYLE_ARGUMENT( FScrollBarStyle, Style )
 		SLATE_EVENT( FOnUserScrolled, OnUserScrolled )
 		SLATE_ARGUMENT( bool, AlwaysShowScrollbar )
+		SLATE_ARGUMENT( bool, AlwaysShowScrollbarTrack )
 		SLATE_ARGUMENT( bool, HideWhenNotInUse )
 		SLATE_ARGUMENT( EOrientation, Orientation )
 		SLATE_ARGUMENT( EFocusCause, DragFocusCause )
@@ -102,20 +104,23 @@ public:
 	/** @return the orientation in which the scrollbar is scrolling. */
 	EOrientation GetOrientation() const; 
 
-	/** See argument Style */
+	/** Set argument Style */
 	void SetStyle(const FScrollBarStyle* InStyle);
 
-	/** See UserVisibility attribute */
+	/** Set UserVisibility attribute */
 	void SetUserVisibility(TAttribute<EVisibility> InUserVisibility) { UserVisibility = InUserVisibility; }
 
-	/** See DragFocusCause attribute */
+	/** Set DragFocusCause attribute */
 	void SetDragFocusCause(EFocusCause InDragFocusCause);
 
-	/** See Thickness attribute */
+	/** Set Thickness attribute */
 	void SetThickness(TAttribute<FVector2D> InThickness);
 
-	/** See ScrollBarAlwaysVisible attribute */
+	/** Set ScrollBarAlwaysVisible attribute */
 	void SetScrollBarAlwaysVisible(bool InAlwaysVisible);
+
+	/** Set ScrollBarTrackAlwaysVisible attribute */
+	void SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible);
 
 	/** Returns True when the scrollbar should always be shown, else False */
 	bool AlwaysShowScrollbar() const;
@@ -153,6 +158,7 @@ protected:
 	float DragGrabOffset;
 	EOrientation Orientation;
 	bool bAlwaysShowScrollbar;
+	bool bAlwaysShowScrollbarTrack;
 	EFocusCause DragFocusCause;
 	bool bHideWhenNotInUse;
 	bool bIsScrolling;

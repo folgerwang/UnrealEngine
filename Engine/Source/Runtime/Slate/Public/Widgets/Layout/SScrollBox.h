@@ -193,6 +193,8 @@ public:
 	void SetScrollBarVisibility(EVisibility InVisibility);
 
 	void SetScrollBarAlwaysVisible(bool InAlwaysVisible);
+	
+	void SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible);
 
 	void SetScrollBarThickness(FVector2D InThickness);
 

@@ -527,6 +527,11 @@ void SScrollBox::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 	ScrollBar->SetScrollBarAlwaysVisible(InAlwaysVisible);
 }
 
+void SScrollBox::SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible)
+{
+	ScrollBar->SetScrollBarTrackAlwaysVisible(InAlwaysVisible);
+}
+
 void SScrollBox::SetScrollBarThickness(FVector2D InThickness)
 {
 	ScrollBar->SetThickness(InThickness);

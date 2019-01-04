@@ -56,6 +56,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
 	bool AlwaysShowScrollbar;
 
+	/**  */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scroll")
+	bool AlwaysShowScrollbarTrack;
+
 	/**  Disable to stop scrollbars from activating inertial overscrolling */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scroll")
 	bool AllowOverscroll;

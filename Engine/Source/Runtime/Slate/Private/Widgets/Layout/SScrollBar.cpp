@@ -82,6 +82,7 @@ void SScrollBar::Construct(const FArguments& InArgs)
 
 	this->EnabledState = TAttribute<bool>( Track.ToSharedRef(), &SScrollBarTrack::IsNeeded );
 	SetScrollBarAlwaysVisible(InArgs._AlwaysShowScrollbar);
+	bAlwaysShowScrollbarTrack = InArgs._AlwaysShowScrollbarTrack;
 }
 
 void SScrollBar::SetOnUserScrolled( const FOnUserScrolled& InHandler )
@@ -217,17 +218,17 @@ SScrollBar::SScrollBar()
 
 FSlateColor SScrollBar::GetTrackOpacity() const
 {
-	if (AlwaysShowScrollbar() && (Track->GetThumbSizeFraction() == 0.0f))
-	{
-		return FLinearColor(1, 1, 1, 0.5f);
-	}
-	else if (bDraggingThumb || IsHovered())
+	if (bDraggingThumb || IsHovered())
 	{
 		return FLinearColor(1,1,1,1);
 	}
+	else if ((bAlwaysShowScrollbarTrack  && Track->GetThumbSizeFraction() > KINDA_SMALL_NUMBER) || AlwaysShowScrollbar())
+	{
+		return FLinearColor(1, 1, 1, 0.5f);
+	}
 	else
 	{
-		return FLinearColor(1,1,1,0.0f);
+		return FLinearColor(1,1,1,0);
 	}
 }
 
@@ -363,6 +364,11 @@ void SScrollBar::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 		Visibility = TAttribute<EVisibility>(SharedThis(this), &SScrollBar::ShouldBeVisible);
 	}
 	Track->SetIsAlwaysVisible(InAlwaysVisible);
+}
+
+void SScrollBar::SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible)
+{
+	bAlwaysShowScrollbarTrack = InAlwaysVisible;
 }
 
 bool SScrollBar::AlwaysShowScrollbar() const
