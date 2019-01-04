@@ -53,7 +53,7 @@ struct FShaderParameterStructBindingContext
 				RenderTargetBindingSlotCppName = CppName;
 				continue;
 			}
-			else if (BaseType == UBMT_GRAPH_TRACKED_BUFFER)
+			else if (BaseType == UBMT_RDG_BUFFER)
 			{
 				continue;
 			}
@@ -127,11 +127,11 @@ struct FShaderParameterStructBindingContext
 				BaseType == UBMT_TEXTURE ||
 				BaseType == UBMT_SRV ||
 				BaseType == UBMT_SAMPLER ||
-				BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
-				BaseType == UBMT_GRAPH_TRACKED_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_UAV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+				BaseType == UBMT_RDG_TEXTURE ||
+				BaseType == UBMT_RDG_TEXTURE_SRV ||
+				BaseType == UBMT_RDG_TEXTURE_UAV ||
+				BaseType == UBMT_RDG_BUFFER_SRV ||
+				BaseType == UBMT_RDG_BUFFER_UAV)
 			{
 				FShaderParameterBindings::FResourceParameter Parameter;
 				Parameter.BaseIndex = BaseIndex;
@@ -146,11 +146,11 @@ struct FShaderParameterStructBindingContext
 					Bindings->SRVs.Add(Parameter);
 				else if (BaseType == UBMT_SAMPLER)
 					Bindings->Samplers.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_TEXTURE)
+				else if (BaseType == UBMT_RDG_TEXTURE)
 					Bindings->GraphTextures.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_SRV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV)
+				else if (BaseType == UBMT_RDG_TEXTURE_SRV || BaseType == UBMT_RDG_BUFFER_SRV)
 					Bindings->GraphSRVs.Add(Parameter);
-				else // if (BaseType == UBMT_GRAPH_TRACKED_UAV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+				else // if (BaseType == UBMT_RDG_TEXTURE_UAV || BaseType == UBMT_RDG_BUFFER_UAV)
 					Bindings->GraphUAVs.Add(Parameter);
 			}
 			else

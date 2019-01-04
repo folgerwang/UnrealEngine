@@ -2783,8 +2783,8 @@ static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, c
 			// RHI don't need to care about render target bindings slot anyway.
 		}
 		else if (
-			BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
-			BaseType == UBMT_GRAPH_TRACKED_UAV)
+			BaseType == UBMT_RDG_BUFFER_UAV ||
+			BaseType == UBMT_RDG_TEXTURE_UAV)
 		{
 			// UAV are ignored on purpose because not supported in uniform buffers.
 		}

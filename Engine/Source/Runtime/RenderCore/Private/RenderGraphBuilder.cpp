@@ -51,7 +51,7 @@ static bool IsBoundAsReadable(const FRDGTexture* Texture, FShaderParameterStruct
 
 		switch (Type)
 		{
-		case UBMT_GRAPH_TRACKED_TEXTURE:
+		case UBMT_RDG_TEXTURE:
 		{
 			const FRDGTexture* InputTexture = *ParameterStruct.GetMemberPtrAtOffset<const FRDGTexture*>(Offset);
 			if (Texture == InputTexture)
@@ -60,7 +60,7 @@ static bool IsBoundAsReadable(const FRDGTexture* Texture, FShaderParameterStruct
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_SRV:
+		case UBMT_RDG_TEXTURE_SRV:
 		{
 			const FRDGTextureSRV* InputSRV = *ParameterStruct.GetMemberPtrAtOffset<const FRDGTextureSRV*>(Offset);
 			if (InputSRV && Texture == InputSRV->Desc.Texture)
@@ -181,8 +181,8 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 
 		switch (Type)
 		{
-		case UBMT_GRAPH_TRACKED_UAV:
-		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+		case UBMT_RDG_TEXTURE_UAV:
+		case UBMT_RDG_BUFFER_UAV:
 		{
 			FRDGResource* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGResource*>(Offset);
 			if (UAV && !bCanUseUAVs && GRenderGraphEmitWarnings)
@@ -251,7 +251,7 @@ void FRDGBuilder::CaptureAnyInterestingPassOutput(const FRenderGraphPass* Pass)
 
 		switch (Type)
 		{
-		case UBMT_GRAPH_TRACKED_UAV:
+		case UBMT_RDG_TEXTURE_UAV:
 		{
 			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV && GVisualizeTexture.ShouldCapture(UAV->Desc.Texture->Name))
@@ -306,8 +306,8 @@ void FRDGBuilder::WalkGraphDependencies()
 
 			switch (Type)
 			{
-			case UBMT_GRAPH_TRACKED_TEXTURE:
-			case UBMT_GRAPH_TRACKED_BUFFER:
+			case UBMT_RDG_TEXTURE:
+			case UBMT_RDG_BUFFER:
 			{
 				FRDGResource* RESTRICT Resource = *ParameterStruct.GetMemberPtrAtOffset<FRDGResource*>(Offset);
 				if (Resource)
@@ -316,7 +316,7 @@ void FRDGBuilder::WalkGraphDependencies()
 				}
 			}
 			break;
-			case UBMT_GRAPH_TRACKED_SRV:
+			case UBMT_RDG_TEXTURE_SRV:
 			{
 				FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 				if (SRV)
@@ -325,7 +325,7 @@ void FRDGBuilder::WalkGraphDependencies()
 				}
 			}
 			break;
-			case UBMT_GRAPH_TRACKED_UAV:
+			case UBMT_RDG_TEXTURE_UAV:
 			{
 				FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 				if (UAV)
@@ -334,7 +334,7 @@ void FRDGBuilder::WalkGraphDependencies()
 				}
 			}
 			break;
-			case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+			case UBMT_RDG_BUFFER_SRV:
 			{
 				FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
 				if (SRV)
@@ -343,7 +343,7 @@ void FRDGBuilder::WalkGraphDependencies()
 				}
 			}
 			break;
-			case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+			case UBMT_RDG_BUFFER_UAV:
 			{
 				FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
 				if (UAV)
@@ -720,7 +720,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 
 		switch (Type)
 		{
-		case UBMT_GRAPH_TRACKED_TEXTURE:
+		case UBMT_RDG_TEXTURE:
 		{
 			FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
 			if (Texture)
@@ -730,7 +730,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_SRV:
+		case UBMT_RDG_TEXTURE_SRV:
 		{
 			FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 			if (SRV)
@@ -742,7 +742,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_UAV:
+		case UBMT_RDG_TEXTURE_UAV:
 		{
 			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV)
@@ -752,7 +752,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER:
+		case UBMT_RDG_BUFFER:
 		{
 			FRDGBuffer* RESTRICT Buffer = *ParameterStruct.GetMemberPtrAtOffset<FRDGBuffer*>(Offset);
 			if (Buffer)
@@ -766,7 +766,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+		case UBMT_RDG_BUFFER_SRV:
 		{
 			FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
 			if (SRV)
@@ -780,7 +780,7 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+		case UBMT_RDG_BUFFER_UAV:
 		{
 			FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
 			if (UAV)
@@ -879,8 +879,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
 		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
-		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
-			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
+		if (Type != UBMT_RDG_TEXTURE && Type != UBMT_RDG_TEXTURE_SRV && Type != UBMT_RDG_TEXTURE_UAV &&
+			Type != UBMT_RDG_BUFFER && Type != UBMT_RDG_BUFFER_SRV && Type != UBMT_RDG_BUFFER_UAV)
 			continue;
 
 		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -901,8 +901,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 			EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
 			uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
-			if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
-				Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
+			if (Type != UBMT_RDG_TEXTURE && Type != UBMT_RDG_TEXTURE_SRV && Type != UBMT_RDG_TEXTURE_UAV &&
+				Type != UBMT_RDG_BUFFER && Type != UBMT_RDG_BUFFER_SRV && Type != UBMT_RDG_BUFFER_UAV)
 				continue;
 
 			const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -921,8 +921,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 		EUniformBufferBaseType Type = ParameterStruct.Layout->Resources[ResourceIndex].MemberType;
 		uint16 Offset = ParameterStruct.Layout->Resources[ResourceIndex].MemberOffset;
 
-		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
-			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
+		if (Type != UBMT_RDG_TEXTURE && Type != UBMT_RDG_TEXTURE_SRV && Type != UBMT_RDG_TEXTURE_UAV &&
+			Type != UBMT_RDG_BUFFER && Type != UBMT_RDG_BUFFER_SRV && Type != UBMT_RDG_BUFFER_UAV)
 			continue;
 
 		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -971,7 +971,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 
 		switch (Type)
 		{
-		case UBMT_GRAPH_TRACKED_TEXTURE:
+		case UBMT_RDG_TEXTURE:
 		{
 			FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
 			if (Texture)
@@ -980,7 +980,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_SRV:
+		case UBMT_RDG_TEXTURE_SRV:
 		{
 			FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 			if (SRV)
@@ -989,7 +989,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_UAV:
+		case UBMT_RDG_TEXTURE_UAV:
 		{
 			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV)
@@ -998,7 +998,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER:
+		case UBMT_RDG_BUFFER:
 		{
 			FRDGBuffer* RESTRICT Buffer = *ParameterStruct.GetMemberPtrAtOffset<FRDGBuffer*>(Offset);
 			if (Buffer)
@@ -1007,7 +1007,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+		case UBMT_RDG_BUFFER_SRV:
 		{
 			FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
 			if (SRV)
@@ -1016,7 +1016,7 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			}
 		}
 		break;
-		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+		case UBMT_RDG_BUFFER_UAV:
 		{
 			FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
 			if (UAV)

@@ -247,8 +247,8 @@ void FMetalUniformBuffer::InitIAB()
 			
 			switch(GetLayout().Resources[i].MemberType)
 			{
-				case UBMT_GRAPH_TRACKED_SRV:
-				case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+				case UBMT_RDG_TEXTURE_SRV:
+				case UBMT_RDG_BUFFER_SRV:
 				case UBMT_SRV:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
@@ -311,8 +311,8 @@ void FMetalUniformBuffer::InitIAB()
 					}
 					break;
 				}
-				case UBMT_GRAPH_TRACKED_UAV:
-				case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+				case UBMT_RDG_TEXTURE_UAV:
+				case UBMT_RDG_BUFFER_UAV:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
 					Desc.SetIndex(Index);
@@ -390,7 +390,7 @@ void FMetalUniformBuffer::InitIAB()
 					NewIAB->IndirectArgumentResources.Add(Argument(Sampler->State));
 					break;
 				}
-				case UBMT_GRAPH_TRACKED_TEXTURE:
+				case UBMT_RDG_TEXTURE:
 				case UBMT_TEXTURE:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
@@ -534,8 +534,8 @@ void FMetalUniformBuffer::Update(const void* Contents, EUniformBufferValidation 
             {
                 switch(Layout.Resources[i].MemberType)
                 {
-                    case UBMT_GRAPH_TRACKED_SRV:
-                    case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+                    case UBMT_RDG_TEXTURE_SRV:
+                    case UBMT_RDG_BUFFER_SRV:
                     case UBMT_SRV:
                     {
                         FMetalShaderResourceView* SRV = (FMetalShaderResourceView*)Resource;
@@ -546,8 +546,8 @@ void FMetalUniformBuffer::Update(const void* Contents, EUniformBufferValidation 
                         }
                         break;
                     }
-                    case UBMT_GRAPH_TRACKED_UAV:
-                    case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+                    case UBMT_RDG_TEXTURE_UAV:
+                    case UBMT_RDG_BUFFER_UAV:
                     {
                         FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)Resource;
                         FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
@@ -557,7 +557,7 @@ void FMetalUniformBuffer::Update(const void* Contents, EUniformBufferValidation 
                         }
                         break;
                     }
-                    case UBMT_GRAPH_TRACKED_TEXTURE:
+                    case UBMT_RDG_TEXTURE:
                     case UBMT_TEXTURE:
                     {
                         FRHITexture* Texture = (FRHITexture*)Resource;

@@ -421,18 +421,18 @@ enum EUniformBufferBaseType : uint8
 	UBMT_UINT32,
 	UBMT_FLOAT32,
 
-	// Untracked resources.
+	// RHI resources not tracked by render graph.
 	UBMT_TEXTURE,
 	UBMT_SRV,
 	UBMT_SAMPLER,
 
-	// Render graph tracked resources.
-	UBMT_GRAPH_TRACKED_TEXTURE,
-	UBMT_GRAPH_TRACKED_SRV,
-	UBMT_GRAPH_TRACKED_UAV,
-	UBMT_GRAPH_TRACKED_BUFFER,
-	UBMT_GRAPH_TRACKED_BUFFER_SRV,
-	UBMT_GRAPH_TRACKED_BUFFER_UAV,
+	// Resources tracked by render graph.
+	UBMT_RDG_TEXTURE,
+	UBMT_RDG_TEXTURE_SRV,
+	UBMT_RDG_TEXTURE_UAV,
+	UBMT_RDG_BUFFER,
+	UBMT_RDG_BUFFER_SRV,
+	UBMT_RDG_BUFFER_UAV,
 
 	// Nested structure.
 	UBMT_NESTED_STRUCT,
@@ -1150,12 +1150,12 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 inline bool IsRDGResourceReferenceShaderParameterType(EUniformBufferBaseType BaseType)
 {
 	return
-		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
-		BaseType == UBMT_GRAPH_TRACKED_SRV ||
-		BaseType == UBMT_GRAPH_TRACKED_UAV ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
-		BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV;
+		BaseType == UBMT_RDG_TEXTURE ||
+		BaseType == UBMT_RDG_TEXTURE_SRV ||
+		BaseType == UBMT_RDG_TEXTURE_UAV ||
+		BaseType == UBMT_RDG_BUFFER ||
+		BaseType == UBMT_RDG_BUFFER_SRV ||
+		BaseType == UBMT_RDG_BUFFER_UAV;
 }
 
 /** Returns whether the shader parameter type needs to be passdown to RHI through FRHIUniformBufferLayout when creating an uniform buffer. */

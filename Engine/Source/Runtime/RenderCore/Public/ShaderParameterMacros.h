@@ -712,7 +712,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_TEXTURE, TShaderResourceParameterTypeInfo<FRDGTextureRef>, FRDGTextureRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE, TShaderResourceParameterTypeInfo<FRDGTextureRef>, FRDGTextureRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a shader resource view for a render graph tracked texture.
  *
@@ -720,7 +720,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D, MySRV)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE_SRV(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_SRV, TShaderResourceParameterTypeInfo<FRDGTextureSRVRef>, FRDGTextureSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE_SRV, TShaderResourceParameterTypeInfo<FRDGTextureSRVRef>, FRDGTextureSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a unordered access view for a render graph tracked texture.
  *
@@ -728,7 +728,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, MyUAV)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE_UAV(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_UAV, TShaderResourceParameterTypeInfo<FRDGTextureUAVRef>, FRDGTextureUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE_UAV, TShaderResourceParameterTypeInfo<FRDGTextureUAVRef>, FRDGTextureUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a render graph tracked buffer.
  *
@@ -736,7 +736,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_RDG_BUFFER(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER, TShaderResourceParameterTypeInfo<FRDGBufferRef>, FRDGBufferRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER, TShaderResourceParameterTypeInfo<FRDGBufferRef>, FRDGBufferRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a shader resource view for a render graph tracked buffer.
  *
@@ -744,7 +744,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<float4>, MySRV)
  */
 #define SHADER_PARAMETER_RDG_BUFFER_SRV(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_SRV, TShaderResourceParameterTypeInfo<FRDGBufferSRVRef>, FRDGBufferSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER_SRV, TShaderResourceParameterTypeInfo<FRDGBufferSRVRef>, FRDGBufferSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a unordered access view for a render graph tracked buffer.
  *
@@ -752,7 +752,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<float4>, MyUAV)
  */
 #define SHADER_PARAMETER_RDG_BUFFER_UAV(ShaderType,MemberName) \
-	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_UAV, TShaderResourceParameterTypeInfo<FRDGBufferUAVRef>, FRDGBufferUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER_UAV, TShaderResourceParameterTypeInfo<FRDGBufferUAVRef>, FRDGBufferUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Nests a shader parameter structure into another one, in C++ and shader code.
  *

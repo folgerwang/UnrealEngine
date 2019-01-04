@@ -212,7 +212,7 @@ FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Conten
 
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
 			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 
-				&& (Layout.Resources[i].MemberType == UBMT_SRV || Layout.Resources[i].MemberType == UBMT_GRAPH_TRACKED_SRV || Layout.Resources[i].MemberType == UBMT_GRAPH_TRACKED_BUFFER_SRV))
+				&& (Layout.Resources[i].MemberType == UBMT_SRV || Layout.Resources[i].MemberType == UBMT_RDG_TEXTURE_SRV || Layout.Resources[i].MemberType == UBMT_RDG_BUFFER_SRV))
 				&& Validation == EUniformBufferValidation::ValidateResources)
 			{
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *Layout.GetDebugName().ToString(), i, Layout.Resources[i].MemberType);

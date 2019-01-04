@@ -101,7 +101,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 				}
 
 				// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && (ResourceType == UBMT_SRV || ResourceType == UBMT_GRAPH_TRACKED_SRV)) && Validation == EUniformBufferValidation::ValidateResources)
+				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && (ResourceType == UBMT_SRV || ResourceType == UBMT_RDG_TEXTURE_SRV)) && Validation == EUniformBufferValidation::ValidateResources)
 				{
 					check(Resource);
 				}

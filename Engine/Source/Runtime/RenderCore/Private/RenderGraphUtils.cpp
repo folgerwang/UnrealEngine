@@ -16,7 +16,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 		EUniformBufferBaseType Type = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberType;
 		uint16 ByteOffset = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberOffset;
 
-		if (Type == UBMT_GRAPH_TRACKED_TEXTURE)
+		if (Type == UBMT_RDG_TEXTURE)
 		{
 			if (GraphTextureId < ShaderBindings.GraphTextures.Num() && ByteOffset == ShaderBindings.GraphTextures[GraphTextureId].ByteOffset)
 			{
@@ -24,7 +24,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_SRV || Type == UBMT_GRAPH_TRACKED_BUFFER_SRV)
+		else if (Type == UBMT_RDG_TEXTURE_SRV || Type == UBMT_RDG_BUFFER_SRV)
 		{
 			if (GraphSRVId < ShaderBindings.GraphSRVs.Num() && ByteOffset == ShaderBindings.GraphSRVs[GraphSRVId].ByteOffset)
 			{
@@ -32,7 +32,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_UAV || Type == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+		else if (Type == UBMT_RDG_TEXTURE_UAV || Type == UBMT_RDG_BUFFER_UAV)
 		{
 			if (GraphUAVId < ShaderBindings.GraphUAVs.Num() && ByteOffset == ShaderBindings.GraphUAVs[GraphUAVId].ByteOffset)
 			{
