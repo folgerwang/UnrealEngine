@@ -101,6 +101,11 @@ public:
 		return bCommitted;
 	}
 
+	bool IsValid() const
+	{
+		return !MarkedForDelete && NumRefs.GetValue() > 0;
+	}
+
 private:
 	mutable FThreadSafeCounter NumRefs;
 	mutable int32 MarkedForDelete;
@@ -245,6 +250,7 @@ class FRHIRayTracingScene : public FRHIResource {};
 #define VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME 0
 
 // Whether to assert when a uniform buffer is being deleted while still referenced by a mesh draw command
+// Enabling this requires -norhithread to work correctly since FRHIResource lifetime is managed by both the RT and RHIThread
 #define VALIDATE_UNIFORM_BUFFER_LIFETIME 0
 
 /** The layout of a uniform buffer in memory. */
@@ -390,16 +396,22 @@ public:
 
 	FORCEINLINE_DEBUGGABLE uint32 Release() const
 	{
+		const FRHIUniformBufferLayout* LocalLayout = Layout;
+
+#if VALIDATE_UNIFORM_BUFFER_LIFETIME
+		int32 LocalNumMeshCommandReferencesForDebugging = NumMeshCommandReferencesForDebugging;
+#endif
+
 		uint32 NewRefCount = FRHIResource::Release();
 
 		if (NewRefCount == 0)
 		{
 #if VALIDATE_UNIFORM_BUFFER_LAYOUT_LIFETIME
-			Layout->NumUsesForDebugging--;
-			check(Layout->NumUsesForDebugging >= 0);
+			LocalLayout->NumUsesForDebugging--;
+			check(LocalLayout->NumUsesForDebugging >= 0);
 #endif
 #if VALIDATE_UNIFORM_BUFFER_LIFETIME
-			check(NumMeshCommandReferencesForDebugging == 0 || GIsRequestingExit);
+			check(LocalNumMeshCommandReferencesForDebugging == 0 || GIsRequestingExit);
 #endif
 		}
 

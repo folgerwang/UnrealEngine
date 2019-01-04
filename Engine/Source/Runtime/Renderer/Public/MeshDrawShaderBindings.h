@@ -99,6 +99,7 @@ public:
 		if (Parameter.IsBound())
 		{
 			checkf(Value.GetReference(), TEXT("Attempted to set null uniform buffer for type %s on %s"), UniformBufferStructType::StaticStructMetadata.GetStructTypeName(), GetShaderFrequencyString(Frequency));
+			checkfSlow(Value.GetReference()->IsValid(), TEXT("Attempted to set already deleted uniform buffer for type %s on %s"), UniformBufferStructType::StaticStructMetadata.GetStructTypeName(), GetShaderFrequencyString(Frequency));
 			WriteBindingUniformBuffer(Value.GetReference(), Parameter.GetBaseIndex());
 		}
 	}
@@ -111,6 +112,7 @@ public:
 		if (Parameter.IsBound())
 		{
 			checkf(Value.GetUniformBufferRHI(), TEXT("Attempted to set null uniform buffer for type %s on %s"), UniformBufferStructType::StaticStructMetadata.GetStructTypeName(), GetShaderFrequencyString(Frequency));
+			checkfSlow(Value.GetUniformBufferRHI()->IsValid(), TEXT("Attempted to set already deleted uniform buffer for type %s on %s"), UniformBufferStructType::StaticStructMetadata.GetStructTypeName(), GetShaderFrequencyString(Frequency));
 			WriteBindingUniformBuffer(Value.GetUniformBufferRHI(), Parameter.GetBaseIndex());
 		}
 	}
@@ -122,6 +124,7 @@ public:
 		if (Parameter.IsBound())
 		{
 			checkf(Value, TEXT("Attempted to set null uniform buffer with unknown type on %s"), GetShaderFrequencyString(Frequency));
+			checkfSlow(Value->IsValid(), TEXT("Attempted to set already deleted uniform buffer of type %s on %s"), *Value->GetLayout().GetDebugName().ToString(), GetShaderFrequencyString(Frequency));
 			WriteBindingUniformBuffer(Value, Parameter.GetBaseIndex());
 		}
 	}
@@ -133,6 +136,7 @@ public:
 		if (Parameter.IsBound())
 		{
 			checkf(Value, TEXT("Attempted to set null SRV on slot %u of %s"), Parameter.GetBaseIndex(), GetShaderFrequencyString(Frequency));
+			checkfSlow(Value->IsValid(), TEXT("Attempted to set already deleted SRV on slot %u of %s"), Parameter.GetBaseIndex(), GetShaderFrequencyString(Frequency));
 			WriteBindingSRV(Value, Parameter.GetBaseIndex());
 		}
 	}
