@@ -70,7 +70,7 @@ bool GenerateSpotLightOcclusionRay(
 
 	// Apply culling
 	float CosAngle = LightParameters.SpotAngles.x;
-	if (dot(-LightDirection, LightParameters.Direction) < CosAngle)
+	if (dot(LightDirection, LightParameters.Direction) < CosAngle)
 	{
 		return false;
 	}
