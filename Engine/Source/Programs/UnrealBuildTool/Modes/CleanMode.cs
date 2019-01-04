@@ -79,6 +79,9 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Output the list of targets that we're cleaning
+			Log.TraceInformation("Cleaning {0} binaries...", StringUtils.FormatList(TargetDescriptors.Select(x => x.Name).Distinct()));
+
 			// Loop through all the targets, and clean them all
 			HashSet<FileReference> FilesToDelete = new HashSet<FileReference>();
 			HashSet<DirectoryReference> DirectoriesToDelete = new HashSet<DirectoryReference>();

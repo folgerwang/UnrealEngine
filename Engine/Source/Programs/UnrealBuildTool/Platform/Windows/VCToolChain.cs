@@ -30,6 +30,11 @@ namespace UnrealBuildTool
 			this.Target = Target;
 			this.EnvVars = Target.WindowsPlatform.Environment;
 
+			Log.TraceLog("Compiler: {0}", EnvVars.CompilerPath);
+			Log.TraceLog("Linker: {0}", EnvVars.LinkerPath);
+			Log.TraceLog("Library Manager: {0}", EnvVars.LibraryManagerPath);
+			Log.TraceLog("Resource Compiler: {0}", EnvVars.ResourceCompilerPath);
+
 			if (Target.WindowsPlatform.ObjSrcMapFile != null)
 			{
 				try
@@ -42,20 +47,20 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override void PrintVersionInfo()
+		/// <summary>
+		/// Returns the version info for the toolchain. This will be output before building.
+		/// </summary>
+		/// <returns>String describing the current toolchain</returns>
+		public override string GetVersionInfo()
 		{
 			if(EnvVars.Compiler == EnvVars.ToolChain)
 			{
-				Log.TraceInformation("Using {0} {1} toolchain ({2}) and Windows {3} SDK ({4}).", WindowsPlatform.GetCompilerName(EnvVars.Compiler), EnvVars.ToolChainVersion, EnvVars.ToolChainDir, EnvVars.WindowsSdkVersion, EnvVars.WindowsSdkDir);
+				return String.Format("Using {0} {1} toolchain ({2}) and Windows {3} SDK ({4}).", WindowsPlatform.GetCompilerName(EnvVars.Compiler), EnvVars.ToolChainVersion, EnvVars.ToolChainDir, EnvVars.WindowsSdkVersion, EnvVars.WindowsSdkDir);
 			}
 			else
 			{
-				Log.TraceInformation("Using {0} {1} compiler ({2}) with {3} {4} runtime ({5}) and Windows {6} SDK ({7}).", WindowsPlatform.GetCompilerName(EnvVars.Compiler), EnvVars.CompilerVersion, EnvVars.CompilerDir, WindowsPlatform.GetCompilerName(EnvVars.ToolChain), EnvVars.ToolChainVersion, EnvVars.ToolChainDir, EnvVars.WindowsSdkVersion, EnvVars.WindowsSdkDir);
+				return String.Format("Using {0} {1} compiler ({2}) with {3} {4} runtime ({5}) and Windows {6} SDK ({7}).", WindowsPlatform.GetCompilerName(EnvVars.Compiler), EnvVars.CompilerVersion, EnvVars.CompilerDir, WindowsPlatform.GetCompilerName(EnvVars.ToolChain), EnvVars.ToolChainVersion, EnvVars.ToolChainDir, EnvVars.WindowsSdkVersion, EnvVars.WindowsSdkDir);
 			}
-			Log.TraceLog("Compiler: {0}", EnvVars.CompilerPath);
-			Log.TraceLog("Linker: {0}", EnvVars.LinkerPath);
-			Log.TraceLog("Library Manager: {0}", EnvVars.LibraryManagerPath);
-			Log.TraceLog("Resource Compiler: {0}", EnvVars.ResourceCompilerPath);
 		}
 
 		static void AddDefinition(List<string> Arguments, string Definition)
@@ -71,7 +76,6 @@ namespace UnrealBuildTool
 				AddDefinition(Arguments, Definition.Substring(0, ValueIdx), Definition.Substring(ValueIdx + 1));
 			}
 		}
-
 
 		static void AddDefinition(List<string> Arguments, string Variable, string Value)
 		{

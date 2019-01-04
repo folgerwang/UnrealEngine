@@ -179,7 +179,7 @@ namespace UnrealBuildTool
 		/// <returns>The newly allocated project file object</returns>
 		protected override ProjectFile AllocateProjectFile(FileReference InitFilePath)
 		{
-			return new VCProjectFile(InitFilePath, OnlyGameProject, ProjectFileFormat, bAddFastPDBToProjects, bUsePerFileIntellisense, bUsePrecompiled, BuildToolOverride);
+			return new VCProjectFile(InitFilePath, OnlyGameProject, ProjectFileFormat, bAddFastPDBToProjects, bUsePerFileIntellisense, bUsePrecompiled, bEditorDependsOnShaderCompileWorker, BuildToolOverride);
 		}
 
 
@@ -461,34 +461,6 @@ namespace UnrealBuildTool
 				throw new BuildException("Unexpected ProjectFileFormat");
 			}
 
-			// Find the projects for ShaderCompileWorker and UnrealLightmass
-			ProjectFile ShaderCompileWorkerProject = null;
-			ProjectFile UnrealLightmassProject = null;
-			foreach (ProjectFile Project in AllProjectFiles)
-			{
-				if (Project.ProjectTargets.Count == 1)
-				{
-					FileReference TargetFilePath = Project.ProjectTargets[0].TargetFilePath;
-					if (TargetFilePath != null)
-					{
-						string TargetFileName = TargetFilePath.GetFileNameWithoutAnyExtensions();
-						if (TargetFileName.Equals("ShaderCompileWorker", StringComparison.InvariantCultureIgnoreCase))
-						{
-							ShaderCompileWorkerProject = Project;
-						}
-						else if (TargetFileName.Equals("UnrealLightmass", StringComparison.InvariantCultureIgnoreCase))
-						{
-							UnrealLightmassProject = Project;
-						}
-					}
-					if (ShaderCompileWorkerProject != null
-						&& UnrealLightmassProject != null)
-					{
-						break;
-					}
-				}
-			}
-
 			// Solution folders, files and project entries
 			{
 				// This the GUID that Visual Studio uses to identify a solution folder
@@ -554,10 +526,6 @@ namespace UnrealBuildTool
 						{
 							Dependencies.Add(UBTProject);
 							Dependencies.AddRange(UBTProject.DependsOnProjects);
-						}
-						if (bEditorDependsOnShaderCompileWorker && !bUsePrecompiled && CurProject.IsGeneratedProject && ShaderCompileWorkerProject != null && CurProject.ProjectTargets.Any(x => x.TargetRules != null && x.TargetRules.Type == TargetType.Editor))
-						{
-							Dependencies.Add(ShaderCompileWorkerProject);
 						}
 						Dependencies.AddRange(CurProject.DependsOnProjects);
 

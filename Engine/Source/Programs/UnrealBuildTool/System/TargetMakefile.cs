@@ -23,6 +23,11 @@ namespace UnrealBuildTool
 		public const int CurrentVersion = 9;
 
 		/// <summary>
+		/// Information about the toolchain used to build. This string will be output before building.
+		/// </summary>
+		public string ToolchainInfo;
+
+		/// <summary>
 		/// Path to the receipt file for this target
 		/// </summary>
 		public FileReference ReceiptFile;
@@ -116,13 +121,15 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
+		/// <param name="ToolchainInfo">String describing the toolchain used to build. This will be output before executing actions.</param>
 		/// <param name="ReceiptFile">Path to the receipt file</param>
 		/// <param name="ProjectIntermediateDirectory">Path to the project intermediate directory</param>
 		/// <param name="TargetType">The type of target</param>
 		/// <param name="bDeployAfterCompile">Whether to deploy the target after compiling</param>
 		/// <param name="bHasProjectScriptPlugin">Whether the target has a project script plugin</param>
-		public TargetMakefile(FileReference ReceiptFile, DirectoryReference ProjectIntermediateDirectory, TargetType TargetType, bool bDeployAfterCompile, bool bHasProjectScriptPlugin)
+		public TargetMakefile(string ToolchainInfo, FileReference ReceiptFile, DirectoryReference ProjectIntermediateDirectory, TargetType TargetType, bool bDeployAfterCompile, bool bHasProjectScriptPlugin)
 		{
+			this.ToolchainInfo = ToolchainInfo;
 			this.ReceiptFile = ReceiptFile;
 			this.ProjectIntermediateDirectory = ProjectIntermediateDirectory;
 			this.TargetType = TargetType;
@@ -146,6 +153,7 @@ namespace UnrealBuildTool
 		/// <param name="Reader">The archive to read from</param>
 		public TargetMakefile(BinaryArchiveReader Reader)
 		{
+			ToolchainInfo = Reader.ReadString();
 			ReceiptFile = Reader.ReadFileReference();
 			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
 			TargetType = (TargetType)Reader.ReadInt();
@@ -172,6 +180,7 @@ namespace UnrealBuildTool
 		/// <param name="Writer">The archive to write to</param>
 		public void Write(BinaryArchiveWriter Writer)
 		{
+			Writer.WriteString(ToolchainInfo);
 			Writer.WriteFileReference(ReceiptFile);
 			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
 			Writer.WriteInt((int)TargetType);

@@ -1114,7 +1114,6 @@ namespace UnrealBuildTool
 					{
 						// If it is out of date or not there it will be built.
 						// If it is there and up to date, it will add 0.8 seconds to the build time.
-						Log.TraceInformation("Building UnrealHeaderTool...");
 
 						// Which desktop platform do we need to compile UHT for?
 						UnrealTargetPlatform Platform = BuildHostPlatform.Current.Platform;
@@ -1146,12 +1145,7 @@ namespace UnrealBuildTool
 
 						using(Timeline.ScopeEvent("Buildng UnrealHeaderTool"))
 						{
-							bool bPrevXGEExport = BuildConfiguration.bXGEExport;
-							BuildConfiguration.bXGEExport = false;
-
-							BuildMode.Build(TargetDescriptors, BuildConfiguration, WorkingSet);
-
-							BuildConfiguration.bXGEExport = bPrevXGEExport;
+							BuildMode.Build(TargetDescriptors, BuildConfiguration, WorkingSet, BuildOptions.Quiet);
 						}
 					}
 

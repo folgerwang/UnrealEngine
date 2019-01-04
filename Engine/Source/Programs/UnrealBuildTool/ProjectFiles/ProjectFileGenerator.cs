@@ -2256,17 +2256,11 @@ namespace UnrealBuildTool
 							CreateRulesDelegate = (Platform, Configuration) => RulesAssembly.CreateTargetRules(TargetName, Platform, Configuration, "", CheckProjectFile, null)
                         };
 
-					if (TargetName == "ShaderCompileWorker")		// @todo projectfiles: Ideally, the target rules file should set this
-					{
-						ProjectTarget.ForceDevelopmentConfiguration = true;
-					}
-
 					ProjectFile.ProjectTargets.Add(ProjectTarget);
 
 					// Make sure the *.Target.cs file is in the project.
 					ProjectFile.AddFileToProject(TargetFilePath, BaseFolder);
 
-					// We special case ShaderCompileWorker.  It needs to always be compiled in Development mode.
 					Log.TraceVerbose("Generating target {0} for {1}", TargetRulesObject.Type.ToString(), ProjectFilePath);
 				}
 			}

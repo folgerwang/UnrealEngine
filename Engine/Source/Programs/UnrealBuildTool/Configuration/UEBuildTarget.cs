@@ -1097,8 +1097,6 @@ namespace UnrealBuildTool
 			LinkEnvironment GlobalLinkEnvironment = new LinkEnvironment(GlobalCompileEnvironment.Platform, GlobalCompileEnvironment.Configuration, GlobalCompileEnvironment.Architecture);
 
 			UEToolChain TargetToolChain = CreateToolchain(CppPlatform);
-			TargetToolChain.PrintVersionInfo();
-			
 			SetupGlobalEnvironment(TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment);
 
 			// Save off the original list of binaries. We'll use this to figure out which PCHs to create later, to avoid switching PCHs when compiling single modules.
@@ -1197,11 +1195,10 @@ namespace UnrealBuildTool
 			}
 
 			// Create the makefile
-			TargetMakefile Makefile = new TargetMakefile(ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
+			TargetMakefile Makefile = new TargetMakefile(TargetToolChain.GetVersionInfo(), ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
 
 			// Execute the pre-build steps
 			Makefile.PreBuildScripts = CreatePreBuildScripts();
-			Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
 
 			// If we're compiling monolithic, make sure the executable knows about all referenced modules
 			if (ShouldCompileMonolithic())

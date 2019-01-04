@@ -13,6 +13,33 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
+	/// Options controlling how a target is built
+	/// </summary>
+	[Flags]
+	enum BuildOptions
+	{
+		/// <summary>
+		/// Default options
+		/// </summary>
+		None = 0,
+
+		/// <summary>
+		/// Don't output any messages unless we're going to build something
+		/// </summary>
+		Quiet = 1,
+
+		/// <summary>
+		/// Don't build anything, just do target setup and terminate
+		/// </summary>
+		SkipBuild = 2,
+
+		/// <summary>
+		/// Just output a list of XGE actions; don't build anything
+		/// </summary>
+		XGEExport = 4,
+	}
+
+	/// <summary>
 	/// Builds a target
 	/// </summary>
 	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance | ToolModeOptions.StartPrefetchingEngine)]
@@ -30,6 +57,18 @@ namespace UnrealBuildTool
 		[XmlConfigFile]
 		[CommandLine("-IgnoreJunk")]
 		public bool bIgnoreJunk = false;
+
+		/// <summary>
+		/// Skip building; just do setup and terminate.
+		/// </summary>
+		[CommandLine("-SkipBuild")]
+		public bool bSkipBuild = false;
+
+		/// <summary>
+		/// Whether we should just export the XGE XML and pretend it succeeded
+		/// </summary>
+		[CommandLine("-XGEExport")]
+		public bool bXGEExport = false;
 
 		/// <summary>
 		/// Main entry point
@@ -77,12 +116,6 @@ namespace UnrealBuildTool
 			BuildConfiguration BuildConfiguration = new BuildConfiguration();
 			XmlConfig.ApplyTo(BuildConfiguration);
 			Arguments.ApplyTo(BuildConfiguration);
-
-			// Then let the command lines override any configs necessary.
-			if(BuildConfiguration.bXGEExport)
-			{
-				BuildConfiguration.bAllowXGE = true;
-			}
 
 			// Parse the remote INI setting
 			string RemoteIniPath;
@@ -145,10 +178,21 @@ namespace UnrealBuildTool
 						}
 					}
 
+					// Get all the build options
+					BuildOptions Options = BuildOptions.None;
+					if(bSkipBuild)
+					{
+						Options |= BuildOptions.SkipBuild;
+					}
+					if(bXGEExport)
+					{
+						Options |= BuildOptions.XGEExport;
+					}
+
 					// Create the working set provider
 					using (ISourceFileWorkingSet WorkingSet = SourceFileWorkingSet.Create(UnrealBuildTool.RootDirectory, ProjectDirs))
 					{
-						Build(TargetDescriptors, BuildConfiguration, WorkingSet);
+						Build(TargetDescriptors, BuildConfiguration, WorkingSet, Options);
 					}
 				}
 			}
@@ -170,8 +214,9 @@ namespace UnrealBuildTool
 		/// <param name="TargetDescriptors">Target descriptors</param>
 		/// <param name="BuildConfiguration">Current build configuration</param>
 		/// <param name="WorkingSet">The source file working set</param>
+		/// <param name="Options">Additional options for the build</param>
 		/// <returns>Result from the compilation</returns>
-		public static void Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet)
+		public static void Build(List<TargetDescriptor> TargetDescriptors, BuildConfiguration BuildConfiguration, ISourceFileWorkingSet WorkingSet, BuildOptions Options)
 		{
 			// Create a makefile for each target
 			TargetMakefile[] Makefiles = new TargetMakefile[TargetDescriptors.Count];
@@ -181,11 +226,17 @@ namespace UnrealBuildTool
 			}
 
 			// Execute the build
-			if(!BuildConfiguration.bSkipBuild)
+			if((Options & BuildOptions.SkipBuild) == 0)
 			{
+				// Execute all the pre-build steps
+				foreach(TargetMakefile Makefile in Makefiles)
+				{
+					Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
+				}
+
 				// Make sure that none of the actions conflict with any other (producing output files differently, etc...)
 				ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions));
-				
+
 				// Find all the actions to be executed
 				HashSet<Action>[] ActionsToExecute = new HashSet<Action>[TargetDescriptors.Count];
 				for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
@@ -227,7 +278,7 @@ namespace UnrealBuildTool
 				ActionGraph.CreateDirectoriesForProducedItems(MergedActionsToExecute);
 
 				// Execute the actions
-				if (BuildConfiguration.bXGEExport)
+				if ((Options & BuildOptions.XGEExport) != 0)
 				{
 					// Just export to an XML file
 					using(Timeline.ScopeEvent("XGE.ExportActions()"))
@@ -238,9 +289,26 @@ namespace UnrealBuildTool
 				else
 				{
 					// Execute the actions
-					using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
+					if(MergedActionsToExecute.Count == 0)
 					{
-						ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute);
+						if((Options & BuildOptions.Quiet) == 0)
+						{
+							Log.TraceInformation((TargetDescriptors.Count == 1)? "Target is up to date" : "Targets are up to date");
+						}
+					}
+					else
+					{
+						if((Options & BuildOptions.Quiet) != 0)
+						{
+							Log.TraceInformation("Building {0}...", StringUtils.FormatList(TargetDescriptors.Select(x => x.Name).Distinct()));
+						}
+
+						OutputToolchainInfo(TargetDescriptors, Makefiles);
+
+						using(Timeline.ScopeEvent("ActionGraph.ExecuteActions()"))
+						{
+							ActionGraph.ExecuteActions(BuildConfiguration, MergedActionsToExecute);
+						}
 					}
 
 					// Run the deployment steps
@@ -252,6 +320,30 @@ namespace UnrealBuildTool
 							Log.TraceInformation("Deploying {0} {1} {2}...", Receipt.TargetName, Receipt.Platform, Receipt.Configuration);
 							UEBuildPlatform.GetBuildPlatform(Receipt.Platform).Deploy(Receipt);
 						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Outputs the toolchain used to build each target
+		/// </summary>
+		/// <param name="TargetDescriptors">List of targets being built</param>
+		/// <param name="Makefiles">Matching array of makefiles for each target</param>
+		static void OutputToolchainInfo(List<TargetDescriptor> TargetDescriptors, TargetMakefile[] Makefiles)
+		{
+			List<string> UniqueStrings = new List<string>(Makefiles.Select(x => x.ToolchainInfo).Where(x => x != null).Distinct());
+			if(UniqueStrings.Count == 1)
+			{
+				Log.TraceInformation("{0}", UniqueStrings[0]);
+			}
+			else
+			{
+				for(int Idx = 0; Idx < TargetDescriptors.Count; Idx++)
+				{
+					if(Makefiles[Idx].ToolchainInfo != null)
+					{
+						Log.TraceInformation("For {0}: {1}", TargetDescriptors[Idx], Makefiles[Idx].ToolchainInfo);
 					}
 				}
 			}
@@ -330,12 +422,6 @@ namespace UnrealBuildTool
 				foreach (Tuple<string, string> EnvironmentVariable in Makefile.EnvironmentVariables)
 				{
 					Environment.SetEnvironmentVariable(EnvironmentVariable.Item1, EnvironmentVariable.Item2);
-				}
-
-				// Execute all the pre-build steps
-				if (!BuildConfiguration.bXGEExport)
-				{
-					Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
 				}
 
 				// If the target needs UHT to be run, we'll go ahead and do that now

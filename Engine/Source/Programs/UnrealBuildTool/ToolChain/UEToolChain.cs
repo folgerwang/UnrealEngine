@@ -22,8 +22,9 @@ namespace UnrealBuildTool
 			CppPlatform = InCppPlatform;
 		}
 
-		public virtual void PrintVersionInfo()
+		public virtual string GetVersionInfo()
 		{
+			return null;
 		}
 
 		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions);
