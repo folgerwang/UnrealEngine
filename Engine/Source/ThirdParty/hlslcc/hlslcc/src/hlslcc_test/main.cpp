@@ -7,40 +7,9 @@
 #include <Windows.h>
 #include "hlslcc.h"
 #include "glsl/ir_gen_glsl.h"
+#include "hlslcc_private.h"
+
 static bool Rebase = false;
-
-/** Debug output. */
-static void dprintf(const char* Format, ...)
-{
-	const int BufSize = (1 << 20);
-	static char* Buf = 0;
-	va_list Args;
-	int Count;
-
-	if (Buf == 0)
-	{
-		Buf = (char*)malloc(BufSize);
-	}
-
-	va_start(Args, Format);
-	Count = vsnprintf_s(Buf, BufSize, _TRUNCATE, Format, Args);
-	va_end(Args);
-
-	if (Count < -1)
-	{
-		// Overflow, add a line feed and null terminate the string.
-		Buf[sizeof(Buf) - 2] = '\n';
-		Buf[sizeof(Buf) - 1] = 0;
-	}
-	else
-	{
-		// Make sure the string is null terminated.
-		Buf[Count] = 0;
-	}
-
-	OutputDebugString(Buf);
-	fprintf(stdout, "%s", Buf);
-}
 
 /** Windows does not define the va_copy macro. */
 #ifndef va_copy

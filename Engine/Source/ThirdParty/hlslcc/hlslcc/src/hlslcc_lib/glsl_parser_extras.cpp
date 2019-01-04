@@ -38,6 +38,7 @@
 #include "loop_analysis.h"
 #include "IRDump.h"
 #include "LanguageSpec.h"
+#include "hlslcc_private.h"
 
 /* TODO: Move this in to _mesa_glsl_parse_state. */
 static unsigned int g_anon_struct_count = 0;
@@ -180,11 +181,19 @@ void _mesa_glsl_error_v(YYLTYPE *locp, _mesa_glsl_parse_state *state, const char
 	state->error = true;
 
 	check(state->info_log != NULL);
-	ralloc_asprintf_append(&state->info_log, "%s(%u): error: ",
+
+	void* Temp = (char*)ralloc_context(state);
+	char* Msg = ralloc_strdup(Temp, "");
+	ralloc_asprintf_append(&Msg, "%s(%u): error: ",
 		locp->source_file ? locp->source_file : state->base_source_file,
 		locp->first_line);
-	ralloc_vasprintf_append(&state->info_log, fmt, ap);
-	ralloc_strcat(&state->info_log, "\n");
+	ralloc_vasprintf_append(&Msg, fmt, ap);
+	ralloc_strcat(&Msg, "\n");
+#if defined(_WIN32) && defined(DEBUG)
+	dprintf(Msg);
+#endif
+	ralloc_strcat(&state->info_log, Msg);
+	ralloc_free(Temp);
 }
 
 
@@ -214,11 +223,19 @@ void _mesa_glsl_warning_v(const YYLTYPE *locp, _mesa_glsl_parse_state *state, co
 	locp = locp ? locp : &dummy_loc;
 
 	check(state->info_log != NULL);
-	ralloc_asprintf_append(&state->info_log, "%s(%u): warning: ",
+	void* Temp = (char*)ralloc_context(state);
+	char* Msg = ralloc_strdup(Temp, "");
+
+	ralloc_asprintf_append(&Msg, "%s(%u): warning: ",
 		locp->source_file ? locp->source_file : state->base_source_file,
 		locp->first_line);
-	ralloc_vasprintf_append(&state->info_log, fmt, ap);
-	ralloc_strcat(&state->info_log, "\n");
+	ralloc_vasprintf_append(&Msg, fmt, ap);
+	ralloc_strcat(&Msg, "\n");
+#if defined(_WIN32) && defined(DEBUG)
+	dprintf(Msg);
+#endif
+	ralloc_strcat(&state->info_log, Msg);
+	ralloc_free(Temp);
 }
 
 
