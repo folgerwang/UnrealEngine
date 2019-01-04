@@ -31,12 +31,12 @@ void UEnvQueryInstanceBlueprintWrapper::OnQueryFinished(TSharedPtr<FEnvQueryResu
 	}
 }
 
-float UEnvQueryInstanceBlueprintWrapper::GetItemScore(int32 ItemIndex)
+float UEnvQueryInstanceBlueprintWrapper::GetItemScore(int32 ItemIndex) const
 {
 	return QueryResult.IsValid() ? QueryResult->GetItemScore(ItemIndex) : -1.f;
 }
 
-TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors()
+TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors() const
 {
 	TArray<AActor*> Results;
 
@@ -55,7 +55,7 @@ TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors()
 	return Results;
 }
 
-TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations()
+TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations() const
 {
 	TArray<FVector> Results;
 
