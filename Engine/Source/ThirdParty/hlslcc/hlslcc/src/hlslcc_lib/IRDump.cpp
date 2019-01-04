@@ -393,8 +393,8 @@ void DebugPrintVisitor::visit(ir_swizzle* ir)
 
 void DebugPrintVisitor::visit(ir_dereference_variable* ir)
 {
-	PrintID(ir);
 	ir_variable *var = ir->variable_referenced();
+	PrintIDVar(ir, var);
 	irdump_printf("%s", GetVarName(var).c_str());
 }
 
@@ -684,6 +684,11 @@ void DebugPrintVisitor::visit(ir_atomic* ir)
 void DebugPrintVisitor::PrintID(ir_instruction * ir)
 {
 	irdump_printf("/*%d*/", ir ? ir->id : -1);
+}
+
+void DebugPrintVisitor::PrintIDVar(ir_instruction* ir, ir_variable* Var)
+{
+	irdump_printf("/*%d[%d]*/", ir ? ir->id : -1, Var ? Var->id : -1);
 }
 
 void DebugPrintVisitor::Indent()
