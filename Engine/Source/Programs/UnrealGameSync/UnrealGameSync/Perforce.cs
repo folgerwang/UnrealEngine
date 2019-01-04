@@ -689,9 +689,14 @@ namespace UnrealGameSync
 
 		public bool FindFiles(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			bool bResult = RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			if(bResult)
+			{
+                 FileRecords.RemoveAll(x => x.Action != null && x.Action.Contains("delete"));
+			}
+			return bResult;
 		}
-		
+
 		public bool Print(string DepotPath, out List<string> Lines, TextWriter Log)
 		{
 			string TempFileName = Path.GetTempFileName();
