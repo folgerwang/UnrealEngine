@@ -1485,6 +1485,13 @@ namespace UnrealBuildTool
 				CheckForEULAViolation();
 			}
 
+			// Add all the plugins to be tracked
+			foreach(FileReference PluginFile in global::UnrealBuildTool.Plugins.EnumeratePlugins(ProjectFile))
+			{
+				FileItem PluginFileItem = FileItem.GetItemByFileReference(PluginFile);
+				Makefile.PluginFiles.Add(PluginFileItem);
+			}
+
 			// Add all the input files to the predicate store
 			Makefile.AdditionalDependencies.Add(FileItem.GetItemByFileReference(TargetRulesFile));
 			foreach(UEBuildModule Module in Modules.Values)
@@ -1496,6 +1503,7 @@ namespace UnrealBuildTool
 					Makefile.AdditionalDependencies.Add(FileItem.GetItemByFileReference(Location));
 				}
 			}
+			Makefile.AdditionalDependencies.UnionWith(Makefile.PluginFiles);
 
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
 			CleanStaleModules();

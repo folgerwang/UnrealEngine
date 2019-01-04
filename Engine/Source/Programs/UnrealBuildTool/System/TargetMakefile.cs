@@ -114,6 +114,11 @@ namespace UnrealBuildTool
 		public List<UHTModuleHeaderInfo> UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
 
 		/// <summary>
+		/// List of all plugin names. The makefile will be considered invalid if any of these changes, or new plugins are added.
+		/// </summary>
+		public HashSet<FileItem> PluginFiles;
+
+		/// <summary>
 		/// Additional files which are required 
 		/// </summary>
 		public HashSet<FileItem> AdditionalDependencies = new HashSet<FileItem>(); 
@@ -144,6 +149,7 @@ namespace UnrealBuildTool
 			this.CandidatesForWorkingSet = new HashSet<FileItem>();
 			this.UObjectModules = new List<UHTModuleInfo>();
 			this.UObjectModuleHeaders = new List<UHTModuleHeaderInfo>();
+			this.PluginFiles = new HashSet<FileItem>();
 			this.AdditionalDependencies = new HashSet<FileItem>();
 		}
 
@@ -171,6 +177,7 @@ namespace UnrealBuildTool
 			CandidatesForWorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
 			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
 			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader));
+			PluginFiles = Reader.ReadHashSet(() => Reader.ReadFileItem());
 			AdditionalDependencies = Reader.ReadHashSet(() => Reader.ReadFileItem());
 		}
 
@@ -198,6 +205,7 @@ namespace UnrealBuildTool
 			Writer.WriteHashSet(CandidatesForWorkingSet, x => Writer.WriteFileItem(x));
 			Writer.WriteList(UObjectModules, e => e.Write(Writer));
 			Writer.WriteList(UObjectModuleHeaders, x => x.Write(Writer));
+			Writer.WriteHashSet(PluginFiles, x => Writer.WriteFileItem(x));
 			Writer.WriteHashSet(AdditionalDependencies, x => Writer.WriteFileItem(x));
 		}
 
@@ -390,6 +398,7 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Check if any of the additional dependencies has changed
 				foreach(FileItem AdditionalDependency in Makefile.AdditionalDependencies)
 				{
 					if (!AdditionalDependency.Exists)
@@ -402,6 +411,18 @@ namespace UnrealBuildTool
 					{
 						Log.TraceLog("{0} has been modified since makefile was built.", AdditionalDependency.Location);
 						ReasonNotLoaded = string.Format("{0} modified", AdditionalDependency.Location.GetFileName());
+						return null;
+					}
+				}
+
+				// Check that no new plugins have been added
+				foreach(FileReference PluginFile in Plugins.EnumeratePlugins(ProjectFile))
+				{
+					FileItem PluginFileItem = FileItem.GetItemByFileReference(PluginFile);
+					if(!Makefile.PluginFiles.Contains(PluginFileItem))
+					{
+						Log.TraceLog("{0} has been added", PluginFile.GetFileName());
+						ReasonNotLoaded = string.Format("{0} has been added", PluginFile.GetFileName());
 						return null;
 					}
 				}
