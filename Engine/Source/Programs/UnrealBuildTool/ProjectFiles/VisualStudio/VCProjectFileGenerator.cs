@@ -252,7 +252,7 @@ namespace UnrealBuildTool
 			// If we have a non-default setting for visual studio, check the compiler exists. If not, revert to the default.
 			if(ProjectFileFormat == VCProjectFileFormat.VisualStudio2015)
 			{
-				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015))
+				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015_DEPRECATED))
 				{
 					Log.TraceWarning("Visual Studio C++ 2015 installation not found - ignoring preferred project file format.");
 					ProjectFileFormat = VCProjectFileFormat.Default;
@@ -285,7 +285,7 @@ namespace UnrealBuildTool
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2017;
 				}
-				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2015))
+				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015_DEPRECATED) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2015_DEPRECATED))
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2015;
 				}

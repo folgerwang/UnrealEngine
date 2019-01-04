@@ -46,9 +46,6 @@
 	<!-- Generate full debug info for binary editor and packaged application builds -->
 	<Option Name="WithFullDebugInfo" Restrict="true|false" DefaultValue="false" Description="Generate full debug info for binary editor and packaged application builds"/>
 
-	<!-- Whether to force the VS2015 compiler for Windows target platofms. Object files built against the 2015 CRT are compatible with 2017, but not vice-versa. -->
-	<Option Name="ForceVS2015" Restrict="true|false" DefaultValue="false" Description="Whether to force use of the VS2015 compiler for Windows targets. Object files built against the VS2015 CRT are compatible with VS2017 CRT, but not vice versa."/>
-
 	<Do If="'$(HostPlatformOnly)' == true">
 		<!-- Activate correct Target Platforms for host -->
 		<Switch>
@@ -104,7 +101,6 @@
 
 	<!-- Compile flags for Windows targets -->
 	<Property Name="VSCompilerArg" Value=""/>
-	<Property Name="VSCompilerArg" Value="-2015" If="$(ForceVS2015)"/>
 	
 	<!-- Include the script that lists files and patterns used when creating an installed build -->
 	<Include Script="InstalledEngineFilters.xml"/>

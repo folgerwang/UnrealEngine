@@ -139,10 +139,7 @@ namespace UnrealBuildTool
 
 			// Suppress generation of object code for unreferenced inline functions. Enabling this option is more standards compliant, and causes a big reduction
 			// in object file sizes (and link times) due to the amount of stuff we inline.
-			if(Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015)
-			{
-				Arguments.Add("/Zc:inline");
-			}
+			Arguments.Add("/Zc:inline");
 
 			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
@@ -233,13 +230,13 @@ namespace UnrealBuildTool
 			// Previously %s meant "the current character set" and %S meant "the other one".
 			// Now %s means multibyte and %S means wide. %Ts means "natural width".
 			// Reverting this behaviour until the UE4 source catches up.
-			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015 || Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
+			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED || Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
 				AddDefinition(Arguments, "_CRT_STDIO_LEGACY_WIDE_SPECIFIERS=1");
 			}
 
 			// @todo UWP: Silence the hash_map deprecation errors for now. This should be replaced with unordered_map for the real fix.
-			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015 || Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
+			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED || Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
 				AddDefinition(Arguments, "_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
 			}
@@ -257,9 +254,10 @@ namespace UnrealBuildTool
 			}
 
             // Fix Incredibuild errors with helpers using heterogeneous character sets
-            if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015)
+            if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
             {
-                Arguments.Add("/source-charset:utf-8 /execution-charset:utf-8");
+                Arguments.Add("/source-charset:utf-8");
+				Arguments.Add("/execution-charset:utf-8");
             }
 
 			//
@@ -462,7 +460,7 @@ namespace UnrealBuildTool
 			}
 
 			//@todo: Disable warnings for VS2015. These should be reenabled as we clear the reasons for them out of the engine source and the VS2015 toolchain evolves.
-			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015)
+			if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
 			{
 				// Disable shadow variable warnings
 				if (CompileEnvironment.bEnableShadowVariableWarnings == false)
@@ -676,7 +674,7 @@ namespace UnrealBuildTool
 				Arguments.Add("/DEBUG");
 
 				// Allow partial PDBs for faster linking
-				if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015 && LinkEnvironment.bUseFastPDBLinking)
+				if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED && LinkEnvironment.bUseFastPDBLinking)
 				{
 					Arguments[Arguments.Count - 1] += ":FASTLINK";
 				}
@@ -893,7 +891,7 @@ namespace UnrealBuildTool
 
 			if (CompileEnvironment.bPrintTimingInfo)
 			{
-				if(Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 || Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
+				if(Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED || Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
 				{
 					SharedArguments.Add("/Bt+ /d2cgsummary");
 					if(EnvVars.ToolChainVersion >= VersionNumber.Parse("14.14.26316"))

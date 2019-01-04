@@ -34,15 +34,15 @@ namespace UnrealBuildTool
 		Intel,
 
 		/// <summary>
-		/// Visual Studio 2013 (Visual C++ 12.0)
+		/// Visual Studio 2015 (Visual C++ 14.0)
 		/// </summary>
-		[Obsolete("UE4 does not support building Visual Studio 2013 targets from the 4.16 release onwards.")]
-		VisualStudio2013,
+		VisualStudio2015_DEPRECATED,
 
 		/// <summary>
 		/// Visual Studio 2015 (Visual C++ 14.0)
 		/// </summary>
-		VisualStudio2015,
+		[Obsolete("UE4 does not support building Visual Studio 2015 targets from the 4.22 release onwards.")]
+		VisualStudio2015 = VisualStudio2015_DEPRECATED,
 
 		/// <summary>
 		/// Visual Studio 2017 (Visual C++ 15.0)
@@ -165,7 +165,7 @@ namespace UnrealBuildTool
 		/// Microsoft provides legacy_stdio_definitions library to enable building with VS2015 until they fix everything up.
 		public bool bNeedsLegacyStdioDefinitionsLib
 		{
-			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019 || Compiler == WindowsCompiler.Clang; }
+			get { return Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019 || Compiler == WindowsCompiler.Clang; }
 		}
 
 		/// <summary>
@@ -237,7 +237,7 @@ namespace UnrealBuildTool
 			{
 				case WindowsCompiler.Clang:
 				case WindowsCompiler.Intel:
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 				case WindowsCompiler.VisualStudio2017:
 				case WindowsCompiler.VisualStudio2019:
 					return "2015"; // VS2017 is backwards compatible with VS2015 compiler
@@ -584,10 +584,6 @@ namespace UnrealBuildTool
 					{
 						return WindowsCompiler.VisualStudio2017;
 					}
-					else if (Format == ProjectFileFormat.VisualStudio2015)
-					{
-						return WindowsCompiler.VisualStudio2015;
-					}
 				} 
 			}
 
@@ -604,10 +600,6 @@ namespace UnrealBuildTool
 				{
 					return WindowsCompiler.VisualStudio2017;
 				}
-				else if (ProjectFormat == VCProjectFileFormat.VisualStudio2015)
-				{
-					return WindowsCompiler.VisualStudio2015;
-				}
 			}
 
 			// Check the editor settings too
@@ -622,20 +614,12 @@ namespace UnrealBuildTool
 			    {
 				    return WindowsCompiler.VisualStudio2017;
 			    }
-				else if(PreferredAccessor == ProjectFileFormat.VisualStudio2015)
-				{
-					return WindowsCompiler.VisualStudio2015;
-				}
 			}
 
 			// Second, default based on what's installed, test for 2015 first
 			if (HasCompiler(WindowsCompiler.VisualStudio2017))
 			{
 				return WindowsCompiler.VisualStudio2017;
-			}
-			if (HasCompiler(WindowsCompiler.VisualStudio2015))
-			{
-				return WindowsCompiler.VisualStudio2015;
 			}
 			if (HasCompiler(WindowsCompiler.VisualStudio2019))
 			{
@@ -648,10 +632,6 @@ namespace UnrealBuildTool
 			{
 				Log.TraceWarning("Visual Studio 2017 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2017 toolset\" component is selected in the Visual Studio 2017 installation options.");
 			}
-			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2015, out VSInstallDir))
-			{
-				Log.TraceWarning("Visual Studio 2015 is installed, but is missing the C++ toolchain. Please verify that \"Common Tools for Visual C++ 2015\" are selected from the Visual Studio 2015 installation options.");
-			}
 			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2019, out VSInstallDir))
 			{
 				Log.TraceWarning("Visual Studio 2019 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2019 toolset\" component is selected in the Visual Studio 2019 installation options.");
@@ -661,8 +641,8 @@ namespace UnrealBuildTool
 				Log.TraceWarning("No Visual C++ installation was found. Please download and install Visual Studio 2015 with C++ components.");
 			}
 
-			// Finally, default to VS2015 anyway
-			return WindowsCompiler.VisualStudio2015;
+			// Finally, default to VS2017 anyway
+			return WindowsCompiler.VisualStudio2017;
 		}
 
 		/// <summary>
@@ -674,7 +654,7 @@ namespace UnrealBuildTool
 		{
 			switch (Compiler)
 			{
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 					return "Visual Studio 2015";
 				case WindowsCompiler.VisualStudio2017:
 					return "Visual Studio 2017";
@@ -727,7 +707,7 @@ namespace UnrealBuildTool
 				InstallDirs = new List<DirectoryReference>();
 			    if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
 			    {
-				    if(Compiler == WindowsCompiler.VisualStudio2015)
+				    if(Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED)
 				    {
 					    // VS2015 just installs one toolchain; use that.
 					    DirectoryReference InstallDir;
@@ -862,7 +842,7 @@ namespace UnrealBuildTool
 							}
 						}
 					}
-				    else if(Compiler == WindowsCompiler.VisualStudio2015)
+				    else if(Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED)
 				    {
 					    // VS2015 just installs one toolchain; use that.
 					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);

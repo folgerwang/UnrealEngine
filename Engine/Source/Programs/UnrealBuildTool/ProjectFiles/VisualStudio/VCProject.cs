@@ -537,7 +537,7 @@ namespace UnrealBuildTool
 				case VCProjectFileFormat.VisualStudio2017:
 					return WindowsCompiler.VisualStudio2017;
 				default:
-					return WindowsCompiler.VisualStudio2015;
+					return WindowsCompiler.VisualStudio2015_DEPRECATED;
 			}
 		}
 

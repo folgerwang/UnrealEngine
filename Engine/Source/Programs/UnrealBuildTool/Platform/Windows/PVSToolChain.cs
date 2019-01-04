@@ -200,7 +200,7 @@ namespace UnrealBuildTool
 			SharedArguments.Add("/C"); // Preserve comments when preprocessing
 			SharedArguments.Add("/D PVS_STUDIO");
 			SharedArguments.Add("/wd4005");
-			if (EnvVars.Compiler >= WindowsCompiler.VisualStudio2015)
+			if (EnvVars.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
 			{
 				SharedArguments.Add("/D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
 			}
