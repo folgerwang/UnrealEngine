@@ -142,9 +142,9 @@ private:
 	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
 
 	/** Determines which primitives are visible for each view. */
-	bool InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
+	bool InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents);
 
-	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
+	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents);
 
 	void SetupSceneReflectionCaptureBuffer(FRHICommandListImmediate& RHICmdList);
 
@@ -512,4 +512,3 @@ private:
 };
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("DeferredShadingSceneRenderer AsyncSortBasePassStaticData"), STAT_FDeferredShadingSceneRenderer_AsyncSortBasePassStaticData, STATGROUP_SceneRendering, );

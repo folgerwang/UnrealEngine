@@ -3736,9 +3736,9 @@ void FDeferredShadingSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmed
 
 /**
  * Initialize scene's views.
- * Check visibility, sort translucent items, etc.
+ * Check visibility, build visible mesh commands, etc.
  */
-bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents)
+bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents)
 {
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_InitViews, FColor::Emerald);
 	SCOPE_CYCLE_COUNTER(STAT_InitViewsTime);
@@ -3771,7 +3771,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 
 	if (!bDoInitViewAftersPrepass)
 	{
-		InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+		InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, UpdateViewCustomDataEvents);
 	}
 
 	if (!UseMeshDrawCommandPipeline())
@@ -3965,17 +3965,10 @@ void FDeferredShadingSceneRenderer::SetupSceneReflectionCaptureBuffer(FRHIComman
 	}
 }
 
-void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents)
+void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents)
 {
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_InitViewsPossiblyAfterPrepass, FColor::Emerald);
 	SCOPE_CYCLE_COUNTER(STAT_InitViewsPossiblyAfterPrepass);
-
-	// this cannot be moved later because of static mesh updates for stuff that is only visible in shadows
-	if (SortEvents.Num())
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_AsyncSortBasePassStaticData_Wait);
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(SortEvents, ENamedThreads::GetRenderThread());
-	}
 
 	if (ViewFamily.EngineShowFlags.DynamicShadows 
 		&& !IsSimpleForwardShadingEnabled(ShaderPlatform)

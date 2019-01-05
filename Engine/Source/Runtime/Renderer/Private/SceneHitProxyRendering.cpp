@@ -558,13 +558,12 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 	if (HitProxyRT)
 	{
 		// Find the visible primitives.
-		FGraphEventArray SortEvents;
 		FGraphEventArray UpdateViewCustomDataEvents;
 		FILCUpdatePrimTaskData ILCTaskData;
-		bool bDoInitViewAftersPrepass = InitViews(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+		bool bDoInitViewAftersPrepass = InitViews(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite, ILCTaskData, UpdateViewCustomDataEvents);
 		if (bDoInitViewAftersPrepass)
 		{
-			InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+			InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, UpdateViewCustomDataEvents);
 		}
 
 		UpdateGPUScene(RHICmdList, *Scene);
