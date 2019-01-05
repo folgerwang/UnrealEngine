@@ -33,6 +33,10 @@
 
 static FString DoNotOverrideString = FText(LOCTEXT("BaseColorPropertyDoNotOverride", "Do Not Override")).ToString();
 
+static FString CreateNewMaterialsString = FText(LOCTEXT("MaterialImportMethodCreateNewMaterials", "Create New Materials")).ToString();
+static FString CreateNewInstancedMaterialsString = FText(LOCTEXT("MaterialImportMethodCreateNewInstancedMaterials", "Create New Instanced Materials")).ToString();
+static FString DoNotCreateMaterialString = FText(LOCTEXT("MaterialImportMethodDoNotCreateMaterial", "Do Not Create Material")).ToString();
+
 //If the String is contain in the StringArray, it return the index. Otherwise return INDEX_NONE
 int FindString(const TArray<TSharedPtr<FString>> &StringArray, const FString &String) {
 	for (int i = 0; i < StringArray.Num(); i++)
@@ -511,25 +515,52 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	}
 	else
 	{
+		TSharedRef<IPropertyHandle> ImportMaterialPropHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMaterials));
+
 		TSharedRef<IPropertyHandle> TextureDataProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, TextureImportData));
 		DetailBuilder.HideProperty(TextureDataProp);
 
 		ExtraProperties.Empty();
 		CollectChildPropertiesRecursive(TextureDataProp, ExtraProperties);
+		
+
+		TSharedPtr<IPropertyHandle> MaterialLocationPropHandle;
+		for (TSharedPtr<IPropertyHandle> Handle : ExtraProperties)
+		{
+			// We ignore base import data for this window.
+			if (Handle->GetProperty()->GetOuter() == UFbxTextureImportData::StaticClass())
+			{
+				if (Handle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxTextureImportData, MaterialSearchLocation))
+				{
+					MaterialLocationPropHandle = Handle;
+				}
+			}
+		}
+
+		//The order is
+		// Search Location
+		// Import Materials
+		// [Base Material Name]
+		// [All Base Material Parameter]
+		// 
+		DetailBuilder.HideProperty(MaterialLocationPropHandle);
+		MaterialCategory.AddProperty(MaterialLocationPropHandle);
+		DetailBuilder.HideProperty(ImportMaterialPropHandle);
+		ConstructMaterialImportMethod(ImportMaterialPropHandle, MaterialCategory);
 
 		for(TSharedPtr<IPropertyHandle> Handle : ExtraProperties)
 		{
 			// We ignore base import data for this window.
 			if(Handle->GetProperty()->GetOuter() == UFbxTextureImportData::StaticClass())
 			{
-				if (Handle->GetPropertyDisplayName().ToString() == FString(TEXT("Base Material Name")))
+				if (Handle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxTextureImportData, BaseMaterialName))
 				{
-					if (ImportUI->bImportMaterials)
+					if (ImportUI->bImportMaterials && ImportUI->TextureImportData->bUseBaseMaterial)
 					{
 						ConstructBaseMaterialUI(Handle, MaterialCategory);
 					}
 				}
-				else
+				else if (Handle != MaterialLocationPropHandle)
 				{
 					MaterialCategory.AddProperty(Handle);
 				}
@@ -610,6 +641,49 @@ void FFbxImportUIDetails::AddSubCategory(IDetailLayoutBuilder& DetailBuilder, FN
 	}
 }
 
+void FFbxImportUIDetails::ConstructMaterialImportMethod(TSharedPtr<IPropertyHandle> ImportMaterialPropHandle, IDetailCategoryBuilder& MaterialCategory)
+{
+	//The import material is represent by a combobox with 3 choices
+	//1. Create New Materials
+	//2. Create New Instanced Materials (Using an existing base material)
+	//3. Do not Create Materials
+	ImportMethodNames.Reset();
+	ImportMethodNames.Add(MakeShareable(new FString(CreateNewMaterialsString)));
+	ImportMethodNames.Add(MakeShareable(new FString(CreateNewInstancedMaterialsString)));
+	ImportMethodNames.Add(MakeShareable(new FString(DoNotCreateMaterialString)));
+
+	if(ImportUI->TextureImportData->BaseMaterialName.IsValid())
+	{
+		//When we load the UI the first time we set this boolean to true in case the BaseMaterialName is valid.
+		ImportUI->TextureImportData->bUseBaseMaterial = true;
+	}
+
+	int32 InitialSelect = ImportUI->bImportMaterials ? (ImportUI->TextureImportData->bUseBaseMaterial ? 1 : 0) : 2;
+
+	MaterialCategory.AddCustomRow(LOCTEXT("MaterialImportMethod", "Material Import Method"))
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("MaterialImportMethod", "Material Import Method"))
+		.ToolTipText(LOCTEXT("MaterialImportMethodToolTip", "How materials are created when the importer cannot found it using the search location."))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			[
+				SNew(STextComboBox)
+				.OptionsSource(&ImportMethodNames)
+				.OnSelectionChanged(this, &FFbxImportUIDetails::OnMaterialImportMethodChanged)
+				.InitiallySelectedItem(ImportMethodNames[InitialSelect])
+			]
+		]
+	];
+}
 
 void FFbxImportUIDetails::ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Handle, IDetailCategoryBuilder& MaterialCategory)
 {
@@ -1066,6 +1140,31 @@ FReply FFbxImportUIDetails::MaterialBaseParamClearAllProperties()
 	//Need to refresh the custom detail since we do not have any pointer on the combo box
 	RefreshCustomDetail();
 	return FReply::Handled();
+}
+
+void FFbxImportUIDetails::OnMaterialImportMethodChanged(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	FString SelectName = *Selection.Get();
+	if (SelectName.Equals(CreateNewMaterialsString))
+	{
+		ImportUI->bImportMaterials = true;
+		//Reset the base material and the UseBaseMaterial flag to hide the base material name property
+		ImportUI->TextureImportData->bUseBaseMaterial = false;
+		ImportUI->TextureImportData->BaseMaterialName.Reset();
+	}
+	else if (SelectName.Equals(CreateNewInstancedMaterialsString))
+	{
+		ImportUI->bImportMaterials = true;
+		ImportUI->TextureImportData->bUseBaseMaterial = true;
+	}
+	else
+	{
+		ImportUI->bImportMaterials = false;
+		//Reset the base material and the UseBaseMaterial flag to hide the base material name property
+		ImportUI->TextureImportData->bUseBaseMaterial = false;
+		ImportUI->TextureImportData->BaseMaterialName.Reset();
+	}
+	RefreshCustomDetail();
 }
 
 FReply FFbxImportUIDetails::ShowConflictDialog(ConflictDialogType DialogType)
