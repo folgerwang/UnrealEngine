@@ -680,6 +680,7 @@ void FFbxImportUIDetails::ConstructMaterialImportMethod(TSharedPtr<IPropertyHand
 				.OptionsSource(&ImportMethodNames)
 				.OnSelectionChanged(this, &FFbxImportUIDetails::OnMaterialImportMethodChanged)
 				.InitiallySelectedItem(ImportMethodNames[InitialSelect])
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 		]
 	];
