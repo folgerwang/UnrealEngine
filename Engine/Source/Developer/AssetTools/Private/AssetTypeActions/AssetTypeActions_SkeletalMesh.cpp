@@ -568,7 +568,7 @@ void FAssetTypeActions_SkeletalMesh::GetLODMenu(class FMenuBuilder& MenuBuilder,
 	//Use the first object
 	USkeletalMesh* SkeletalMesh = Objects[0].Get();
 	int32 LODMax = SkeletalMesh->GetLODNum();
-	for(int32 LOD = 0; LOD < LODMax; ++LOD)
+	for(int32 LOD = 1; LOD <= LODMax; ++LOD)
 	{
 		const FText Description = FText::Format( LOCTEXT("LODLevel", "LOD {0}"), FText::AsNumber( LOD ) );
 		const FText ToolTip = ( LOD == LODMax ) ? LOCTEXT("NewImportTip", "Import new LOD") : LOCTEXT("ReimportTip", "Reimport over existing LOD");
