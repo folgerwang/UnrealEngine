@@ -164,7 +164,7 @@ public:
 									[
 										SNew(STextBlock)
 											.MinDesiredWidth(425.0f)
-											.Text(FText::FromString(SelectBuildInfo->SelectedEngineInstallationInfo->Description))
+											.Text(this, &SSelectBuildDialog::GetSelectedEngineInstallDescription)
 									]
 							]
 
@@ -225,6 +225,11 @@ private:
 	{
 		return SNew(STextBlock)
 					.Text(FText::FromString(Item->Description));
+	}
+
+	FText GetSelectedEngineInstallDescription() const
+	{
+		return FText::FromString(SelectBuildInfo->SelectedEngineInstallationInfo->Description);
 	}
 
 	void OnSelectionChanged(TSharedPtr<FEngineInstallationInfo> Item, ESelectInfo::Type SelectInfo)
