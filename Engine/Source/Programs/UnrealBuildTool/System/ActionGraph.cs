@@ -150,6 +150,15 @@ namespace UnrealBuildTool
 				}
 				Log.TraceInformation("Total time in {0} executor: {1:0.00} seconds", Executor.Name, Timer.Elapsed.TotalSeconds);
 
+				// Reset the file info for all the produced items
+				foreach (Action BuildAction in ActionsToExecute)
+				{
+					foreach(FileItem ProducedItem in BuildAction.ProducedItems)
+					{
+						ProducedItem.ResetCachedInfo();
+					}
+				}
+
 				// Verify the link outputs were created (seems to happen with Win64 compiles)
 				foreach (Action BuildAction in ActionsToExecute)
 				{
@@ -157,7 +166,6 @@ namespace UnrealBuildTool
 					{
 						foreach (FileItem Item in BuildAction.ProducedItems)
 						{
-							Item.ResetFileInfo();
 							if(!Item.Exists)
 							{
 								throw new BuildException("Failed to produce item: {0}", Item.AbsolutePath);

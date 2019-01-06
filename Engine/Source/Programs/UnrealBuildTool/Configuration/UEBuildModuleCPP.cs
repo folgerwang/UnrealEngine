@@ -830,7 +830,7 @@ namespace UnrealBuildTool
 			if (IncludedFile.LastWriteTimeUtc > WrapperFile.LastWriteTimeUtc)
 			{
 				File.SetLastWriteTimeUtc(WrapperFile.AbsolutePath, DateTime.UtcNow);
-				WrapperFile.ResetFileInfo();
+				WrapperFile.ResetCachedInfo();
 			}
 			return WrapperFile;
 		}

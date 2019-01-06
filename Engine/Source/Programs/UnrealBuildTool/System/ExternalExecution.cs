@@ -193,6 +193,11 @@ namespace UnrealBuildTool
 		public List<FileItem> PrivateUObjectHeaders;
 
 		/// <summary>
+		/// Directory containing generated code
+		/// </summary>
+		public DirectoryItem GeneratedCodeDirectory;
+
+		/// <summary>
 		/// Base (i.e. extensionless) path+filename of the .gen files
 		/// </summary>
 		public string GeneratedCPPFilenameBase;
@@ -207,7 +212,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public bool bIsReadOnly;
 
-		public UHTModuleInfo(string ModuleName, FileReference ModuleRulesFile, DirectoryReference ModuleDirectory, UHTModuleType ModuleType, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsReadOnly)
+		public UHTModuleInfo(string ModuleName, FileReference ModuleRulesFile, DirectoryReference ModuleDirectory, UHTModuleType ModuleType, DirectoryItem GeneratedCodeDirectory, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsReadOnly)
 		{
 			this.ModuleName = ModuleName;
 			this.ModuleRulesFile = ModuleRulesFile;
@@ -216,6 +221,7 @@ namespace UnrealBuildTool
 			this.PublicUObjectClassesHeaders = new List<FileItem>();
 			this.PublicUObjectHeaders = new List<FileItem>();
 			this.PrivateUObjectHeaders = new List<FileItem>();
+			this.GeneratedCodeDirectory = GeneratedCodeDirectory;
 			this.GeneratedCodeVersion = GeneratedCodeVersion;
 			this.bIsReadOnly = bIsReadOnly;
 		}
@@ -230,6 +236,7 @@ namespace UnrealBuildTool
 			PublicUObjectHeaders = Reader.ReadList(() => Reader.ReadFileItem());
 			PrivateUObjectHeaders = Reader.ReadList(() => Reader.ReadFileItem());
 			GeneratedCPPFilenameBase = Reader.ReadString();
+			GeneratedCodeDirectory = Reader.ReadDirectoryItem();
 			GeneratedCodeVersion = (EGeneratedCodeVersion)Reader.ReadInt();
 			bIsReadOnly = Reader.ReadBool();
 		}
@@ -244,6 +251,7 @@ namespace UnrealBuildTool
 			Writer.WriteList(PublicUObjectHeaders, Item => Writer.WriteFileItem(Item));
 			Writer.WriteList(PrivateUObjectHeaders, Item => Writer.WriteFileItem(Item));
 			Writer.WriteString(GeneratedCPPFilenameBase);
+			Writer.WriteDirectoryItem(GeneratedCodeDirectory);
 			Writer.WriteInt((int)GeneratedCodeVersion);
 			Writer.WriteBool(bIsReadOnly);
 		}
@@ -603,7 +611,7 @@ namespace UnrealBuildTool
 				{
 					UEBuildModuleCPP Module = ModulesSortedByType[Idx];
 
-					UHTModuleInfo Info = new UHTModuleInfo(Module.Name, Module.RulesFile, Module.ModuleDirectory, ModuleToType[Module], GeneratedCodeVersion, Module.Rules.bUsePrecompiled);
+					UHTModuleInfo Info = new UHTModuleInfo(Module.Name, Module.RulesFile, Module.ModuleDirectory, ModuleToType[Module], DirectoryItem.GetItemByDirectoryReference(Module.GeneratedCodeDirectory), GeneratedCodeVersion, Module.Rules.bUsePrecompiled);
 					ModuleInfoArray[Idx] = Info;
 
 					Queue.Enqueue(() => SetupUObjectModule(Info, ExcludedFolders, MetadataCache, Queue));
@@ -1218,10 +1226,10 @@ namespace UnrealBuildTool
 
 					// Now that UHT has successfully finished generating code, we need to update all cached FileItems in case their last write time has changed.
 					// Otherwise UBT might not detect changes UHT made.
-					DateTime StartTime = DateTime.UtcNow;
-					FileItem.ResetInfos();
-					double ResetDuration = (DateTime.UtcNow - StartTime).TotalSeconds;
-					Log.TraceVerbose("FileItem.ResetInfos() duration: {0}s", ResetDuration);
+					using(Timeline.ScopeEvent("ExternalExecution.ResetCachedHeaderInfo()"))
+					{
+						ResetCachedHeaderInfo(UObjectModules);
+					}
 				}
 				else
 				{
@@ -1238,6 +1246,14 @@ namespace UnrealBuildTool
 			if (ProgressWriter.bWriteMarkup)
 			{
 				Log.WriteLine(LogEventType.Console, "@progress pop");
+			}
+		}
+
+		static void ResetCachedHeaderInfo(List<UHTModuleInfo> UObjectModules)
+		{
+			foreach(UHTModuleInfo ModuleInfo in UObjectModules)
+			{
+				ModuleInfo.GeneratedCodeDirectory.ResetCachedInfo();
 			}
 		}
 	}

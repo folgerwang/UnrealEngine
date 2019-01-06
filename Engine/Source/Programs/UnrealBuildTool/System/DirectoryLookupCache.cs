@@ -32,7 +32,7 @@ namespace UnrealBuildTool
 
         static public void InvalidateCachedDirectory(DirectoryReference Directory)
         {
-			DirectoryItem.GetItemByDirectoryReference(Directory).Refresh();
+			DirectoryItem.GetItemByDirectoryReference(Directory).ResetCachedInfo();
         }
 	}
 }

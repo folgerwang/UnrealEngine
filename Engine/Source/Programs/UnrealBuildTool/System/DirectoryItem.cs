@@ -163,10 +163,27 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Reset the contents of the directory and allow them to be fetched again
 		/// </summary>
-		public void Refresh()
+		public void ResetCachedInfo()
 		{
-			Directories = null;
-			Files = null;
+			Dictionary<string, DirectoryItem> PrevDirectories = Directories;
+			if(PrevDirectories != null)
+			{
+				foreach(DirectoryItem SubDirectory in PrevDirectories.Values)
+				{
+					SubDirectory.ResetCachedInfo();
+				}
+				Directories = null;
+			}
+
+			Dictionary<string, FileItem> PrevFiles = Files;
+			if(PrevFiles != null)
+			{
+				foreach(FileItem File in PrevFiles.Values)
+				{
+					File.ResetCachedInfo();
+				}
+				Files = null;
+			}
 		}
 
 		/// <summary>

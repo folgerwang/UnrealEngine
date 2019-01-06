@@ -211,7 +211,7 @@ namespace UnrealBuildTool
 
 			// Reset the file info, in case it already knows about the old file
 			FileItem Item = GetItemByFileReference(Location);
-			Item.ResetFileInfo();
+			Item.ResetCachedInfo();
 			return Item;
 		}
 
@@ -277,20 +277,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Resets the cached file info
 		/// </summary>
-		public void ResetFileInfo()
+		public void ResetCachedInfo()
 		{
 			Info = Location.ToFileInfo();
-		}
-
-		/// <summary>
-		/// Reset file information on all cached FileItems.
-		/// </summary>
-		public static void ResetInfos()
-		{
-			foreach (KeyValuePair<FileReference, FileItem> Item in UniqueSourceFileMap)
-			{
-				Item.Value.ResetFileInfo();
-			}
 		}
 
 		/// <summary>
