@@ -291,9 +291,10 @@ namespace UnrealBuildTool
 		/// <param name="NewPreprocessorDefinitions">List of preprocessor definitons to add</param>
 		public void AddIntelliSensePreprocessorDefinitions(List<string> NewPreprocessorDefinitions)
 		{
-			foreach (string CurDef in NewPreprocessorDefinitions)
+			foreach (string NewPreprocessorDefinition in NewPreprocessorDefinitions)
 			{
 				// Don't add definitions and value combinations that have already been added for this project
+				string CurDef = NewPreprocessorDefinition;
 				if (KnownIntelliSensePreprocessorDefinitions.Add(CurDef))
 				{
 					// Go ahead and check to see if the definition already exists, but the value is different
@@ -301,6 +302,14 @@ namespace UnrealBuildTool
 
 					string Def, Value;
 					SplitDefinitionAndValue(CurDef, out Def, out Value);
+
+					// Ignore any API macros being import/export; we'll assume they're valid across the whole project
+					if(Def.EndsWith("_API", StringComparison.Ordinal))
+					{
+						CurDef = Def + "=";
+						Value = "";
+					}
+
 					for (int DefineIndex = 0; DefineIndex < IntelliSensePreprocessorDefinitions.Count; ++DefineIndex)
 					{
 						string ExistingDef, ExistingValue;
