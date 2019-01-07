@@ -982,6 +982,7 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 {
 	// Attachment replication gets filled in by GatherCurrentMovement(), but in the case of a detached root we need to trigger remote detachment.
 	AttachmentReplication.AttachParent = nullptr;
+	AttachmentReplication.AttachComponent = nullptr;
 
 	GatherCurrentMovement();
 
