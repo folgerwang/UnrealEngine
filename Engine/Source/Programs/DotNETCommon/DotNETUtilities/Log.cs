@@ -172,6 +172,14 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Path to the log file being written to. May be null.
+		/// </summary>
+		public static FileReference OutputFile
+		{
+			get; private set;
+		}
+
+		/// <summary>
 		/// Whether console output is redirected. This prevents writing status updates that rely on moving the cursor.
 		/// </summary>
 		private static bool AllowStatusUpdates
@@ -235,6 +243,7 @@ namespace Tools.DotNETCommon
 		{
 			try
 			{
+				Log.OutputFile = OutputFile;
 				DirectoryReference.CreateDirectory(OutputFile.Directory);
 				TextWriterTraceListener LogTraceListener = new TextWriterTraceListener(new StreamWriter(OutputFile.FullName), Name);
 				Trace.Listeners.Add(LogTraceListener);

@@ -380,6 +380,7 @@ namespace UnrealBuildTool
 			// Get the directory for working files
 			DirectoryReference TempDir = CreateTempDirectory(TargetDesc);
 
+			// Map the path containing the remote log file
 			bool bLogIsMapped = false;
 			foreach (RemoteMapping Mapping in Mappings)
 			{

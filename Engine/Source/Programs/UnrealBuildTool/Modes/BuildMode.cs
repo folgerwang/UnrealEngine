@@ -98,10 +98,9 @@ namespace UnrealBuildTool
 			XmlConfig.ApplyTo(this);
 
 			// Create the log file, and flush the startup listener to it
-			FileReference LogFile = null;
 			if(!Arguments.HasOption("-NoLog") && !Log.HasFileWriter())
 			{
-				LogFile = new FileReference(BaseLogFileName);
+				FileReference LogFile = new FileReference(BaseLogFileName);
 				foreach(string LogSuffix in Arguments.GetValues("-LogSuffix="))
 				{
 					LogFile = LogFile.ChangeExtension(null) + "_" + LogSuffix + LogFile.GetExtension();
@@ -147,14 +146,11 @@ namespace UnrealBuildTool
 					TargetDescriptor TargetDesc = TargetDescriptors[Idx];
 					if(RemoteMac.HandlesTargetPlatform(TargetDesc.Platform))
 					{
-						FileReference RemoteLogFile = null;
-						if(LogFile != null)
-						{
-							RemoteLogFile = FileReference.Combine(LogFile.Directory, LogFile.GetFileNameWithoutExtension() + "_Remote.txt");
-						}
+						FileReference BaseLogFile = Log.OutputFile ?? new FileReference(BaseLogFileName);
+						FileReference RemoteLogFile = FileReference.Combine(BaseLogFile.Directory, BaseLogFile.GetFileNameWithoutExtension() + "_Remote.txt");
 
 						RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
-						if(!RemoteMac.Build(TargetDesc, LogFile))
+						if(!RemoteMac.Build(TargetDesc, RemoteLogFile))
 						{
 							return (int)CompilationResult.Unknown;
 						}
