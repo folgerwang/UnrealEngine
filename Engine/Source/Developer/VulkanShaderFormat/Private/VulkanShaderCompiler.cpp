@@ -1908,7 +1908,8 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 
 	// Preprocess the shader.
 	FString PreprocessedShaderSource;
-	if (Input.bSkipPreprocessedCache)
+	const bool bDirectCompile = FParse::Param(FCommandLine::Get(), TEXT("directcompile"));
+	if (bDirectCompile)
 	{
 		if (!FFileHelper::LoadFileToString(PreprocessedShaderSource, *Input.VirtualSourceFilePath))
 		{
@@ -1965,6 +1966,12 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
 	CompilerInfo.CCFlags &= ~HLSLCC_NoPreprocess;
 
+	if (!bDirectCompile || UE_BUILD_DEBUG)
+	{
+		// Validation is expensive - only do it when compiling directly for debugging
+		CompilerInfo.CCFlags |= HLSLCC_NoValidation;
+	}
+
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (CompilerInfo.bDebugDump)
 	{
@@ -2006,14 +2013,14 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 			auto* SourceWithHeader = GeneratedGlslSource.GetData();
 			char* SourceNoHeader = strstr(SourceWithHeader, "#version");
 			bool bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output, bHasRealUBs);
-			if (Input.bSkipPreprocessedCache)
+			if (bDirectCompile)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Success: %d\n%s\n"), bSuccess, ANSI_TO_TCHAR(SourceWithHeader));
 			}
 		}
 	}
 	
-	if (Input.bSkipPreprocessedCache)
+	if (bDirectCompile)
 	{
 		for (const auto& Error : Output.Errors)
 		{
