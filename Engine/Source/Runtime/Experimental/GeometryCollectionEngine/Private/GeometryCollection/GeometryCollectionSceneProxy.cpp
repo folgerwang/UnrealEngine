@@ -283,7 +283,12 @@ void FGeometryCollectionSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					Mesh.bWireframe = bWireframe;
 					Mesh.VertexFactory = &VertexFactory;
 					Mesh.MaterialRenderProxy = MaterialProxies[SectionIndex];
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+                    
+                    // Collector owns the uniform buffer
+                    FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+                    DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+                    BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+                    
 					BatchElement.FirstIndex = Section.FirstIndex;
 					BatchElement.NumPrimitives = Section.NumTriangles;
 					BatchElement.MinVertexIndex = Section.MinVertexIndex;
@@ -311,7 +316,11 @@ void FGeometryCollectionSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					Mesh.bWireframe = bWireframe;
 					Mesh.VertexFactory = &VertexFactory;
 					Mesh.MaterialRenderProxy = MaterialRenderProxy;
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+                    
+                    FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+                    DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+                    BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+                    
 					BatchElement.FirstIndex = 0;
 					BatchElement.NumPrimitives = GetRequiredIndexCount() / 3;
 					BatchElement.MinVertexIndex = 0;

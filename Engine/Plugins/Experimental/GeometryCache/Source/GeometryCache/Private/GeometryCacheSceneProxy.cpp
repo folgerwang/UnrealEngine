@@ -691,7 +691,13 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 					Mesh.bWireframe = bWireframe;
 					Mesh.VertexFactory = &TrackProxy->VertexFactory;
 					Mesh.MaterialRenderProxy = MaterialProxy;
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(TrackProxy->WorldMatrix * GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+                    
+                    const FMatrix& LocalToWorldTransform = TrackProxy->WorldMatrix * GetLocalToWorld();
+                    
+                    FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+                    DynamicPrimitiveUniformBuffer.Set(LocalToWorldTransform, LocalToWorldTransform, GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+                    BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+                    
 					BatchElement.FirstIndex = BatchInfo.StartIndex;
 					BatchElement.NumPrimitives = BatchInfo.NumTriangles;
 					BatchElement.MinVertexIndex = 0;
