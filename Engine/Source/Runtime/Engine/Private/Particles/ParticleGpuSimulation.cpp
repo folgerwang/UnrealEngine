@@ -4775,9 +4775,12 @@ void FFXSystem::SimulateGPUParticles(
 	// One-time register delegate with Trim() so the data above can be freed on demand
 	static FDelegateHandle Clear = FCoreDelegates::GetMemoryTrimDelegate().AddLambda([]()
 	{
-		SimulationCommands.Empty();
-		TilesToClear.Empty();
-		NewParticles.Empty();
+		ENQUEUE_UNIQUE_RENDER_COMMAND(FlushCommand,
+		{
+			SimulationCommands.Empty();
+			TilesToClear.Empty();
+			NewParticles.Empty();
+		});
 	});
 
 	for (TSparseArray<FParticleSimulationGPU*>::TIterator It(GPUSimulations); It; ++It)
