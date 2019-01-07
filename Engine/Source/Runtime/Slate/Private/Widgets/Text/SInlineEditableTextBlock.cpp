@@ -264,9 +264,10 @@ void SInlineEditableTextBlock::OnTextBoxCommitted(const FText& InText, ETextComm
 {
 	if(InCommitType == ETextCommit::OnCleared)
 	{
+		FText SourceTextInEditMode = Text.Get();
 		CancelEditMode();
 		// Commit the name, certain actions might need to be taken by the bound function
-		OnTextCommittedDelegate.ExecuteIfBound(Text.Get(), InCommitType);
+		OnTextCommittedDelegate.ExecuteIfBound(SourceTextInEditMode, InCommitType);
 	}
 	else if(IsInEditMode())
 	{

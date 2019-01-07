@@ -97,7 +97,6 @@ void FMeshEditorModule::Register()
 
 	FMeshEditorStyle::Initialize();
 
-	FLevelEditorModesCommands::Unregister();
 	FEditorModeRegistry::Get().RegisterMode<FMeshEditorMode>(
 		GetEditorModeID(),
 		LOCTEXT( "ModeName", "Mesh Editor" ),
@@ -159,7 +158,6 @@ void FMeshEditorModule::Unregister()
 		SettingsModule->UnregisterSettings( "Editor", "ContentEditors", "MeshEditor" );
 	}
 
-	FLevelEditorModesCommands::Unregister();
 	FEditorModeRegistry::Get().UnregisterMode(GetEditorModeID());
 
 	FMeshEditorStyle::Shutdown();

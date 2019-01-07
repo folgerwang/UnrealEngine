@@ -61,21 +61,6 @@ public:
 	                                ) override ;
 
 
-
-	/**
-	* Reduces the raw mesh using the provided reduction settings.
-	* @param OutReducedMesh - Upon return contains the reduced mesh.
-	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
-	* @param InMesh - The mesh to reduce.
-	* @param ReductionSettings - Setting with which to reduce the mesh.
-	*/
-	virtual void Reduce( struct FRawMesh&,
-		                 float&,
-		                 const struct FRawMesh&,
-		                 const FOverlappingCorners&,
-		                 const struct FMeshReductionSettings&
-	                     ) override {};
-
 	/**
 	* Reduces the raw mesh using the provided reduction settings.
 	* @param OutReducedMesh - Upon return contains the reduced mesh.

@@ -89,6 +89,7 @@
 #include "EditorLevelUtils.h"
 #include "ActorGroupingUtils.h"
 #include "LevelUtils.h"
+#include "ISceneOutliner.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LevelEditorActions, Log, All);
 
@@ -358,10 +359,15 @@ void FLevelEditorActionCallbacks::RemoveFavorite( int32 FavoriteFileIndex )
 
 bool FLevelEditorActionCallbacks::ToggleFavorite_CanExecute()
 {
-	const FMainMRUFavoritesList& MRUFavorites = *FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame").GetMRUFavoritesList();
-	const int32 NumFavorites = MRUFavorites.GetNumFavorites();
-	// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
-	return LevelEditorActionsHelpers::IsPersistentWorld(GetWorld()) && NumFavorites <= FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num();
+	if (LevelEditorActionsHelpers::IsPersistentWorld(GetWorld()))
+	{
+		const FMainMRUFavoritesList& MRUFavorites = *FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame").GetMRUFavoritesList();
+		const int32 NumFavorites = MRUFavorites.GetNumFavorites();
+		// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
+		const FString PackageName = GetWorld()->GetOutermost()->GetName();
+		return (NumFavorites <= FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num() || MRUFavorites.ContainsFavoritesItem(PackageName));
+	}
+	return false;
 }
 
 
@@ -1421,6 +1427,19 @@ bool FLevelEditorActionCallbacks::Duplicate_CanExecute()
 		}
 	}
 
+	if (!bCanCopy)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCopy = SceneOutlinerPtr->Copy_CanExecute();
+			}
+		}
+	}
+
 	return bCanCopy;
 }
 
@@ -1461,6 +1480,19 @@ bool FLevelEditorActionCallbacks::Delete_CanExecute()
 		}
 	}
 
+	if (!bCanDelete)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanDelete = SceneOutlinerPtr->Delete_CanExecute();
+			}
+		}
+	}
+
 	return bCanDelete;
 }
 
@@ -1471,12 +1503,20 @@ void FLevelEditorActionCallbacks::Rename_Execute()
 	{
 		GEditor->BroadcastLevelComponentRequestRename(Component);
 	}
+	else if (AActor* Actor = Cast<AActor>(*GEditor->GetSelectedActorIterator()))
+	{
+		GEditor->BroadcastLevelActorRequestRename(Actor);
+	}
 	else
 	{
-		AActor* Actor = Cast<AActor>(*GEditor->GetSelectedActorIterator());
-		if (Actor)
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
 		{
-			GEditor->BroadcastLevelActorRequestRename(Actor);
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				SceneOutlinerPtr->Rename_Execute();
+			}
 		}
 	}
 }
@@ -1495,6 +1535,19 @@ bool FLevelEditorActionCallbacks::Rename_CanExecute()
 	else
 	{
 		bCanRename = GEditor->GetSelectedActorCount() == 1;
+	}
+
+	if (!bCanRename)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanRename = SceneOutlinerPtr->Rename_CanExecute();
+			}
+		}
 	}
 
 	return bCanRename;
@@ -1539,6 +1592,19 @@ bool FLevelEditorActionCallbacks::Cut_CanExecute()
 		}
 	}
 
+	if (!bCanCut)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCut = SceneOutlinerPtr->Cut_CanExecute();
+			}
+		}
+	}
+
 	return bCanCut;
 }
 
@@ -1579,6 +1645,19 @@ bool FLevelEditorActionCallbacks::Copy_CanExecute()
 		}
 	}
 
+	if (!bCanCopy)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanCopy = SceneOutlinerPtr->Copy_CanExecute();
+			}
+		}
+	}
+
 	return bCanCopy;
 }
 
@@ -1614,6 +1693,19 @@ bool FLevelEditorActionCallbacks::Paste_CanExecute()
 		if (World)
 		{
 			bCanPaste = GUnrealEd->CanPasteSelectedActorsFromClipboard(World);
+		}
+	}
+
+	if (!bCanPaste)
+	{
+		TWeakPtr<class SLevelEditor> LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor")).GetLevelEditorInstance();
+		if (LevelEditor.IsValid())
+		{
+			TSharedPtr<class ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+			if (SceneOutlinerPtr.IsValid())
+			{
+				bCanPaste = SceneOutlinerPtr->Paste_CanExecute();
+			}
 		}
 	}
 
@@ -2851,6 +2943,12 @@ void FLevelEditorActionCallbacks::SnapTo_Clicked( const bool InAlign, const bool
 	GEditor->RedrawLevelEditingViewports();
 }
 
+void FLevelEditorActionCallbacks::AlignBrushVerticesToGrid_Execute()
+{
+	UWorld* World = GUnrealEd->GetWorld();
+	GEditor->Exec(World, TEXT("ACTOR ALIGN VERTS"));
+}
+
 bool FLevelEditorActionCallbacks::ActorSelected_CanExecute()
 {
 	// Had to have something selected
@@ -3036,6 +3134,7 @@ void FLevelEditorCommands::RegisterCommands()
 
 	UI_COMMAND( MergePolys, "Merge", "Merges multiple polygons on a brush face into as few as possible", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( SeparatePolys, "Separate", "Reverses the effect of a previous merge", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignBrushVerticesToGrid, "Align Brush Verticies To Grid", "Align brush verticies to the grid", EUserInterfaceActionType::Button, FInputChord() );
 
 	// RegroupActors uses GroupActors for it's label and tooltip when simply grouping a selection of actors using overrides. This is to provide display of the chord which is the same for both.
 	UI_COMMAND( GroupActors, "Group", "Groups the selected actors", EUserInterfaceActionType::Button, FInputChord( /*EKeys::G, EModifierKey::Control*/ ) );

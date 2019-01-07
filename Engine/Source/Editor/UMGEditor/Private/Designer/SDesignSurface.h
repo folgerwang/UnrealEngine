@@ -102,7 +102,7 @@ protected:
 	bool bIsPanning;
 
 	/** Are we zooming the view with trackpad at the moment? */
-	bool bIsZoomingWithTrackpad;
+	bool bIsZooming;
 
 	/** Allow continuous zoom interpolation? */
 	TAttribute<bool> AllowContinousZoomInterpolation;
@@ -125,7 +125,7 @@ protected:
 	FVector2D ZoomToFitPadding;
 
 	/** The Y component of mouse drag (used when zooming) */
-	float TotalMouseDeltaY;
+	float TotalMouseDelta;
 
 	/** Offset in the panel the user started the LMB+RMB zoom from */
 	FVector2D ZoomStartOffset;

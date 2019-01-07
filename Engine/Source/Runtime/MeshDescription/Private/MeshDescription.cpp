@@ -2,6 +2,8 @@
 
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
+#include "Serialization/BulkDataReader.h"
+#include "Serialization/BulkDataWriter.h"
 
 
 void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
@@ -108,6 +110,16 @@ void FMeshDescription::Empty()
 	EdgeAttributesSet.Initialize( 0 );
 	PolygonAttributesSet.Initialize( 0 );
 	PolygonGroupAttributesSet.Initialize( 0 );
+}
+
+
+bool FMeshDescription::IsEmpty() const
+{
+	return VertexArray.GetArraySize() == 0 &&
+		   VertexInstanceArray.GetArraySize() == 0 &&
+		   EdgeArray.GetArraySize() == 0 &&
+		   PolygonArray.GetArraySize() == 0 &&
+		   PolygonGroupArray.GetArraySize() == 0;
 }
 
 
@@ -1180,3 +1192,70 @@ void FMeshDescription::ReverseAllPolygonFacing()
 		ReversePolygonFacing(PolygonID);
 	}
 }
+
+
+#if WITH_EDITORONLY_DATA
+
+void FMeshDescriptionBulkData::Serialize( FArchive& Ar, UObject* Owner )
+{
+	BulkData.Serialize( Ar, Owner );
+
+	if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionBulkDataGuid )
+	{
+		FPlatformMisc::CreateGuid( Guid );
+	}
+	else
+	{
+		Ar << Guid;
+	}
+}
+
+
+void FMeshDescriptionBulkData::SaveMeshDescription( FMeshDescription& MeshDescription )
+{
+	BulkData.RemoveBulkData();
+
+	if( !MeshDescription.IsEmpty() )
+	{
+		const bool bIsPersistent = true;
+		FBulkDataWriter Ar( BulkData, bIsPersistent );
+		Ar << MeshDescription;
+	}
+
+	FPlatformMisc::CreateGuid( Guid );
+}
+
+
+void FMeshDescriptionBulkData::LoadMeshDescription( FMeshDescription& MeshDescription )
+{
+	MeshDescription.Empty();
+
+	if( BulkData.GetElementCount() > 0 )
+	{
+		// Get a lock on the bulk data and read it into the mesh description
+		{
+			const bool bIsPersistent = true;
+			FBulkDataReader Ar( BulkData, bIsPersistent );
+			Ar << MeshDescription;
+		}
+		// Unlock bulk data when we leave scope
+
+		// Throw away the bulk data allocation as we don't need it now we have its contents as a FMeshDescription
+		// @todo: revisit this
+//		BulkData.UnloadBulkData();
+	}
+}
+
+
+void FMeshDescriptionBulkData::Empty()
+{
+	BulkData.RemoveBulkData();
+}
+
+
+FString FMeshDescriptionBulkData::GetIdString() const
+{
+	return Guid.ToString();
+}
+
+#endif // #if WITH_EDITORONLY_DATA

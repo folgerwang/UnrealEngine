@@ -13,11 +13,14 @@
 #include "Styling/SlateTypes.h"
 #include "Styling/CoreStyle.h"
 #include "Framework/SlateDelegates.h"
+#include "Misc/CoreMiscDefines.h"
 
 class SEditableText;
 class STextBlock;
 
-class SLATE_API SEditableLabel
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+class SLATE_API UE_DEPRECATED(4.21, "SEditableLabel is deprecated, please use SInlineEditableTextBlock instead") SEditableLabel
 	: public SCompoundWidget
 {
 public:
@@ -114,3 +117,5 @@ private:
 	TSharedPtr<STextBlock> TextBlock;
 	TSharedPtr<SEditableText> EditableText;
 };
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

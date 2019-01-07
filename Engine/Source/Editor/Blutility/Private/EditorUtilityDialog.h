@@ -14,7 +14,7 @@ class UGlobalEditorUtilityBase;
 //////////////////////////////////////////////////////////////////////////
 // FGlobalBlutilityDialog
 
-class FGlobalBlutilityDialog : public FAssetEditorToolkit, public FGCObject
+class FGlobalEditorUtilityDialog : public FAssetEditorToolkit, public FGCObject
 {
 public:
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
@@ -22,7 +22,7 @@ public:
 	TSharedRef<SDockTab> SpawnTab_DetailsPanel( const FSpawnTabArgs& SpawnTabArgs );
 
 	/**
-	 * Edits the specified sound class object
+	 * Edits the specified editor utility object
 	 *
 	 * @param	Mode					Asset editing mode for this editor (standalone or world-centric)
 	 * @param	InitToolkitHost			When Mode is WorldCentric, this is the level editor instance to spawn this editor within
@@ -35,7 +35,7 @@ public:
 	 */
 	void UpdatePropertyWindow( const TArray<UObject*>& SelectedObjects );
 
-	virtual ~FGlobalBlutilityDialog();
+	virtual ~FGlobalEditorUtilityDialog();
 
 	/** FGCObject interface */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;

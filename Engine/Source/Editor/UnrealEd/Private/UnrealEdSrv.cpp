@@ -1587,7 +1587,10 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 		}
 		else
 		{
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "Cut", "Cut"));
+			FEditorDelegates::OnEditCutActorsBegin.Broadcast();
 			CopySelectedActorsToClipboard(InWorld, true);
+			FEditorDelegates::OnEditCutActorsEnd.Broadcast();
 		}
 	}
 	else if( FParse::Command(&Str,TEXT("COPY")) )
@@ -1608,7 +1611,9 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 		}
 		else
 		{
+			FEditorDelegates::OnEditCopyActorsBegin.Broadcast();
 			CopySelectedActorsToClipboard(InWorld, false);
+			FEditorDelegates::OnEditCopyActorsEnd.Broadcast();
 		}
 	}
 	else if( FParse::Command(&Str,TEXT("PASTE")) )
@@ -1652,7 +1657,10 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 				}
 			}
 
+			const FScopedTransaction Transaction(TransDescription);
+			FEditorDelegates::OnEditPasteActorsBegin.Broadcast();
 			PasteSelectedActorsFromClipboard(InWorld, TransDescription, PasteTo);
+			FEditorDelegates::OnEditPasteActorsEnd.Broadcast();
 		}
 	}
 
@@ -2550,7 +2558,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if (!bHandled)
 		{
 			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DeleteComponents", "Delete Components") : NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
+			FEditorDelegates::OnDeleteActorsBegin.Broadcast();
 			edactDeleteSelected( InWorld );
+			FEditorDelegates::OnDeleteActorsEnd.Broadcast();
 		}
 		return true;
 	}
@@ -2734,6 +2744,8 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			//@todo locked levels - if all actor levels are locked, cancel the transaction
 			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DuplicateComponents", "Duplicate Components") : NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
+			FEditorDelegates::OnDuplicateActorsBegin.Broadcast();
+
 			// duplicate selected
 			ABrush::SetSuppressBSPRegeneration(true);
 			edactDuplicateSelected(InWorld->GetCurrentLevel(), GetDefault<ULevelEditorViewportSettings>()->GridEnabled);
@@ -2746,6 +2758,8 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			{
 				RebuildAlteredBSP(); // Update the Bsp of any levels containing a modified brush
 			}
+
+			FEditorDelegates::OnDuplicateActorsEnd.Broadcast();
 		}
 		RedrawLevelEditingViewports();
 		return true;

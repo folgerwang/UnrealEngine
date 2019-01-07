@@ -32,6 +32,7 @@ public:
 	virtual IDetailCategoryBuilder& EditCategory(FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default) override;
 	virtual IDetailPropertyRow& AddPropertyToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle) override;
 	virtual FDetailWidgetRow& AddCustomRowToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle, const FText& InCustomSearchString, bool bForAdvanced = false) override;
+	virtual IDetailPropertyRow* EditDefaultProperty(TSharedPtr<IPropertyHandle> InPropertyHandle) override;
 	virtual TSharedRef<IPropertyHandle> GetProperty(const FName PropertyPath, const UClass* ClassOutermost, FName InInstanceName) override;
 	virtual FName GetTopLevelProperty() override;
 	virtual void HideProperty(const TSharedPtr<IPropertyHandle> Property) override;
@@ -45,12 +46,15 @@ public:
 	virtual UClass* GetBaseClass() const override;
 	virtual const TArray<TWeakObjectPtr<UObject>>& GetSelectedObjects() const override;
 	virtual bool HasClassDefaultObject() const override;
+
 	/**
 	 * Creates a default category. The SDetails view will generate widgets in default categories
 	 *
 	 * @param CategoryName	The name of the category to create
 	 */
 	FDetailCategoryImpl& DefaultCategory(FName CategoryName);
+
+	TSharedPtr<FDetailCategoryImpl> GetSubCategoryImpl(FName CategoryName);
 
 	/**
 	* Return true if the category exist
@@ -224,6 +228,8 @@ private:
 	FCategoryMap CustomCategoryMap;
 	/** A mapping of category names to categories which have been not customized */
 	FCategoryMap DefaultCategoryMap;
+	/** Mapping of subcategory names to their subcategory builder */
+	FCategoryMap SubCategoryMap;
 	/** A mapping of classes to top level properties in that class */
 	FClassToPropertyMap& PropertyMap;
 	/** Force hidden categories set by the user */

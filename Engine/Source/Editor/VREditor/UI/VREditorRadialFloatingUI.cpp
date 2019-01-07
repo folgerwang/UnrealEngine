@@ -499,43 +499,44 @@ const void AVREditorRadialFloatingUI::HighlightSlot(const FVector2D& TrackpadPos
 		ArrowMeshComponent->SetVisibility(false);
 	}
 
+	const FPointerEvent& SimulatedPointer = FPointerEvent();
+	const FGeometry& ChildGeometry = FGeometry();
+	TSharedRef<SWidget> TestWidget = SNullWidget::NullWidget;
 	const int32 Index = (Angle / AnglePerItem);
-
-	TSharedRef<SWidget> CurrentChild = WidgetComponents[Index]->GetSlateWidget().ToSharedRef();
-	TSharedRef<SWidget> TestWidget = UVREditorUISystem::FindWidgetOfType(CurrentChild, ButtonTypeOverride);
-
+	// Make sure we are checking for a valid radial menu widget
+	if (WidgetComponents.IsValidIndex(Index) && WidgetComponents[Index]->GetSlateWidget())
+	{
+		TSharedRef<SWidget> CurrentChild = WidgetComponents[Index]->GetSlateWidget().ToSharedRef();
+		TestWidget = UVREditorUISystem::FindWidgetOfType(CurrentChild, ButtonTypeOverride);
+	}
 	if (TestWidget != SNullWidget::NullWidget)
 	{
 		CurrentlyHoveredButton = StaticCastSharedRef<SButton>(TestWidget);
 		CurrentlyHoveredWidget = WidgetComponents[Index];
-		const FPointerEvent& SimulatedPointer = FPointerEvent();
-		const FGeometry& ChildGeometry = FGeometry();
-
+	
 		// Simulate mouse entering event for the button if it was not previously hovered
 		if (!(CurrentlyHoveredButton->IsHovered()))
 		{
 			CurrentlyHoveredButton->OnMouseEnter(ChildGeometry, SimulatedPointer);
 			Owner->OnHoverBeginEffect(CurrentlyHoveredWidget);
 		}
-
-		// Simulate mouse leaving events for any buttons that were previously hovered
-		for (int32 ButtonCount = 0; ButtonCount < (NumberOfEntries); ButtonCount++)
-		{
-			if (ButtonCount != Index)
-			{
-				TSharedRef<SWidget> ChildWidget = WidgetComponents[ButtonCount]->GetSlateWidget().ToSharedRef();
-				TestWidget = UVREditorUISystem::FindWidgetOfType(ChildWidget, ButtonTypeOverride);
-				TSharedRef<SButton> TestButton = StaticCastSharedRef<SButton>(TestWidget);
-				if (TestButton->IsHovered())
-				{
-					TestButton->OnMouseLeave(SimulatedPointer);
-					Owner->OnHoverEndEffect(WidgetComponents[ButtonCount]);
-				}
-			}
-
-		}
 	}
+	// Simulate mouse leaving events for any buttons that were previously hovered
+	for (int32 ButtonCount = 0; ButtonCount < (NumberOfEntries); ButtonCount++)
+	{
+		if (ButtonCount != Index && WidgetComponents.IsValidIndex(ButtonCount) && WidgetComponents[ButtonCount]->GetSlateWidget())
+		{
+			TSharedRef<SWidget> ChildWidget = WidgetComponents[ButtonCount]->GetSlateWidget().ToSharedRef();
+			TestWidget = UVREditorUISystem::FindWidgetOfType(ChildWidget, ButtonTypeOverride);
+			TSharedRef<SButton> TestButton = StaticCastSharedRef<SButton>(TestWidget);
+			if (TestButton->IsHovered())
+			{
+				TestButton->OnMouseLeave(SimulatedPointer);
+				Owner->OnHoverEndEffect(WidgetComponents[ButtonCount]);
+			}
+		}
 
+	}
 }
 
 void AVREditorRadialFloatingUI::SimulateLeftClick()

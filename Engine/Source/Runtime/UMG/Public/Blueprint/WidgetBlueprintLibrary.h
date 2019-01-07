@@ -76,21 +76,23 @@ public:
 	 *
 	 * @param PositionA		Starting position of the line in local space.
 	 * @param PositionB		Ending position of the line in local space.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "4" ), Category="Painting" )
-	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "4"), Category = "Painting")
+	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws several line segments.
 	 *
 	 * @param Points		Line pairs, each line needs to be 2 separate points in the array.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "3" ), Category="Painting" )
-	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "3"), Category = "Painting")
+	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws text.
@@ -317,6 +319,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Safe Zone", meta=( WorldContext="WorldContextObject" ))
 	static void GetSafeZonePadding(UObject* WorldContextObject, FVector4& SafePadding, FVector2D& SafePaddingScale, FVector4& SpillOverPadding);
+
+	/**
+	* Apply color deficiency correction settings to the game window 
+	* @param Type The type of color deficiency correction to apply.
+	* @param Severity Intensity of the color deficiency correction effect, from 0 to 1.
+	* @param CorrectDeficiency Shifts the color spectrum to the visible range based on the current deficiency type.
+	* @param ShowCorrectionWithDeficiency If you're correcting the color deficiency, you can use this to visualize what the correction looks like with the deficiency.
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget|Accessibility", meta = (AdvancedDisplay = "3"))
+	static void SetColorVisionDeficiencyType(EColorVisionDeficiency Type, float Severity, bool CorrectDeficiency, bool ShowCorrectionWithDeficiency);
 
 	/**
 	 * Loads or sets a hardware cursor from the content directory in the game.

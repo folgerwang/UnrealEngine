@@ -51,6 +51,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/TextFilterUtils.h"
 #include "AssetRegistryState.h"
+#include "Materials/Material.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 #define MAX_THUMBNAIL_SIZE 4096
@@ -764,6 +765,13 @@ void SAssetView::CreateNewAsset(const FString& DefaultAssetName, const FString& 
 	
 	// we should only be creating one deferred asset per tick
 	check(!DeferredAssetToCreate.IsValid());
+
+	// Asset creation requires focus to give object a name, otherwise object will not be created
+	TSharedPtr<SWindow> OwnerWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	if (OwnerWindow.IsValid() && !OwnerWindow->HasAnyUserFocusOrFocusedDescendants())
+	{
+		FSlateApplication::Get().SetUserFocus(FSlateApplication::Get().GetUserIndexForKeyboard(), AsShared(), EFocusCause::SetDirectly);
+	}
 
 	// Make sure we are showing the location of the new asset (we may have created it in a folder)
 	OnPathSelected.Execute(PackagePath);
@@ -2896,10 +2904,44 @@ void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldO
 
 void SAssetView::OnAssetLoaded(UObject* Asset)
 {
-	if ( Asset != NULL )
+	if (Asset == nullptr)
 	{
-		RecentlyLoadedOrChangedAssets.Add( FName(*Asset->GetPathName()), Asset );
+		return;
 	}
+
+	FName AssetPathName = FName(*Asset->GetPathName());
+	RecentlyLoadedOrChangedAssets.Add( AssetPathName, Asset );
+
+	UTexture2D* Texture2D = Cast<UTexture2D>(Asset);
+	UMaterial* Material = Texture2D ? nullptr : Cast<UMaterial>(Asset);
+	if ((Texture2D && !Texture2D->bForceMiplevelsToBeResident) || Material)
+	{
+		bool bHasWidgetForAsset = false;
+		switch (GetCurrentViewType())
+		{
+		case EAssetViewType::List:
+			bHasWidgetForAsset = ListView->HasWidgetForAsset(AssetPathName);
+			break;
+		case EAssetViewType::Tile:
+			bHasWidgetForAsset = TileView->HasWidgetForAsset(AssetPathName);
+			break;
+		default:
+			bHasWidgetForAsset = false;
+			break;
+		}
+
+		if (bHasWidgetForAsset)
+		{
+			if (Texture2D)
+			{
+				Texture2D->bForceMiplevelsToBeResident = true;
+			}
+			else if (Material)
+			{
+				Material->SetForceMipLevelsToBeResident(true, true, -1.0f);
+			}
+		}
+	};
 }
 
 void SAssetView::OnObjectPropertyChanged(UObject* Object, FPropertyChangedEvent& PropertyChangedEvent)

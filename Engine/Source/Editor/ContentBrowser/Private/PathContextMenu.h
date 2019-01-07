@@ -38,6 +38,9 @@ public:
 	DECLARE_DELEGATE_OneParam(FOnFolderFavoriteToggled, const TArray<FString>& /*FoldersToToggle*/)
 	void SetOnFolderFavoriteToggled(const FOnFolderFavoriteToggled& InOnFolderFavoriteToggled);
 
+	/** Gets the currently selected paths */
+	const TArray<FString>& GetSelectedPaths() const;
+
 	/** Sets the currently selected paths */
 	void SetSelectedPaths(const TArray<FString>& InSelectedPaths);
 

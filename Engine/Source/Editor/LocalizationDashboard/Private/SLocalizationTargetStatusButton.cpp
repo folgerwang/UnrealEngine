@@ -17,7 +17,6 @@ void SLocalizationTargetStatusButton::Construct(const FArguments& InArgs, ULocal
 		SButton::FArguments()
 		.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
 		.OnClicked(this, &SLocalizationTargetStatusButton::OnClicked)
-		.ToolTipText(this, &SLocalizationTargetStatusButton::GetToolTipText)
 		);
 
 		ChildSlot
@@ -27,6 +26,7 @@ void SLocalizationTargetStatusButton::Construct(const FArguments& InArgs, ULocal
 				SNew(SImage)
 				.Image(this, &SLocalizationTargetStatusButton::GetImageBrush)
 				.ColorAndOpacity(this, &SLocalizationTargetStatusButton::GetColorAndOpacity)
+				.ToolTipText(this, &SLocalizationTargetStatusButton::GetToolTipText)
 			];
 }
 

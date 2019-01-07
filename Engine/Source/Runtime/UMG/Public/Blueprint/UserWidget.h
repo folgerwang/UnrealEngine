@@ -1131,7 +1131,7 @@ private:
 
 public:
 	/** The widget tree contained inside this user widget initialized by the blueprint */
-	UPROPERTY(Instanced)
+	UPROPERTY(Instanced, TextExportTransient)
 	UWidgetTree* WidgetTree;
 
 public:
@@ -1220,7 +1220,7 @@ protected:
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime);
 
-	UE_DEPRECATED(2.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
+	UE_DEPRECATED(4.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
 	virtual void NativePaint(FPaintContext& InContext) const { }
 
 	/**

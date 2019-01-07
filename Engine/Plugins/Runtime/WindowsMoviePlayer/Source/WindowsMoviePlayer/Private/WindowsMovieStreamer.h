@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MoviePlayer.h"
+#include "IMediaTextureSample.h"
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -52,6 +53,8 @@ private:
 	void CloseMovie();
 	/** Cleans up rendering resources once movies are done playing */
 	void CleanupRenderingResources();
+	/** Use shader to generate final image */
+	void ConvertSample();
 
 private:
 	/** A list of all the stored movie paths we have enqueued for playing */
@@ -74,12 +77,34 @@ private:
 	 */
 	TArray<TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe>> TextureFreeList;
 
+	/** Input texture for conversion shader */
+	TRefCountPtr<FRHITexture2D> InputTarget;
+
 	/** The video player and sample grabber for use of Media Foundation */
 	class FVideoPlayer* VideoPlayer;
     class FSampleGrabberCallback* SampleGrabberCallback;
+
+	/** Defaults to true, modified to false if video fails to play allowing a retry without sound */
+	bool bUseSound;
 };
 
+/** Video track details */
+struct FMovieTrackFormat
+{
+public:
+	FMovieTrackFormat() :
+		BufferDim(FIntPoint(0, 0)),
+		BufferStride(0),
+		OutputDim(FIntPoint(0, 0)),
+		SampleFormat(EMediaTextureSampleFormat::Undefined)
+	{
+	}
 
+	FIntPoint BufferDim;
+	uint32 BufferStride;
+	FIntPoint OutputDim;
+	EMediaTextureSampleFormat SampleFormat;
+};
 
 /** The video player is the class which handles all the loading and playing of videos */
 class FVideoPlayer : public IMFAsyncCallback
@@ -90,7 +115,11 @@ public:
 		, MediaSession(NULL)
 		, MediaSource(NULL)
 		, MovieIsFinished(0)
-		, CloseIsPosted(0) {}
+		, CloseIsPosted(0)
+		, bFailedToCreateMediaSink(false)
+	{
+	}
+
 	virtual ~FVideoPlayer()
 	{
 		check(MediaSession == NULL);
@@ -107,7 +136,7 @@ public:
 	STDMETHODIMP Invoke(IMFAsyncResult* AsyncResult);
 
 	/** Opens the specified file, and returns the video dimensions */
-	FIntPoint OpenFile(const FString& FilePath, class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint OpenFile(const FString& FilePath, class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 	/** Starts the video player playback */
 	void StartPlayback();
 	/** Shuts the video player down, destroying all threads with it */
@@ -116,11 +145,16 @@ public:
 	/** True if the movie is still playing and rendering frames */
 	bool MovieIsRunning() const {return MovieIsFinished.GetValue() == 0;}
 	
+	const FMovieTrackFormat& GetVideoTrackFormat() const { return VideoTrackFormat; }
+
+	/** True when there was an error related to creating a media sink (MESessionTopologySet event received with status MF_E_CANNOT_CREATE_SINK) */
+	bool FailedToCreateMediaSink() const { return bFailedToCreateMediaSink; }
+
 private:
 	/** Sets up the topology of all the nodes in the media session, returning the video dimensions */
-	FIntPoint SetPlaybackTopology(class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint SetPlaybackTopology(class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 	/** Adds a single audio or video stream to the passed in topology, returning video dimensions if applicable */
-	FIntPoint AddStreamToTopology(IMFTopology* Topology, IMFPresentationDescriptor* PresentationDesc, IMFStreamDescriptor* StreamDesc, class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint AddStreamToTopology(IMFTopology* Topology, IMFPresentationDescriptor* PresentationDesc, IMFStreamDescriptor* StreamDesc, class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 
 private:
 	/** Media Foundation boilerplate */
@@ -135,6 +169,12 @@ private:
 	FThreadSafeCounter MovieIsFinished;
 	/** This counter locks the ticking thread while all Media Foundation threads shutdown */
 	FThreadSafeCounter CloseIsPosted;
+
+	/* Format of video track */
+	FMovieTrackFormat VideoTrackFormat;
+
+	/** True when there was an error related to creating a media sink (MESessionTopologySet event received with status MF_E_CANNOT_CREATE_SINK) */
+	bool bFailedToCreateMediaSink;
 };
 
 

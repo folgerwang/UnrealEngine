@@ -29,6 +29,7 @@
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionViewProperty.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
+#include "Materials/MaterialExpressionTextureObjectParameter.h"
 
 #include "MaterialEditorUtilities.h"
 #include "MaterialEditorActions.h"
@@ -36,6 +37,7 @@
 #include "GraphEditorSettings.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
+
 
 
 #define LOCTEXT_NAMESPACE "MaterialGraphNode"
@@ -330,7 +332,7 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 				// Add a 'Convert To Texture' option for convertible types
 				Context.MenuBuilder->BeginSection("MaterialEditorMenu0");
 				{
-					if ( MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()))
+					if ( MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()) && !MaterialExpression->HasAParameterName())
 					{
 						Context.MenuBuilder->AddMenuEntry(FMaterialEditorCommands::Get().ConvertToTextureObjects);
 					}
@@ -347,7 +349,8 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 				|| MaterialExpression->IsA(UMaterialExpressionConstant2Vector::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionConstant3Vector::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionConstant4Vector::StaticClass())
-				|| MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass())
+				|| (MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()) && !MaterialExpression->HasAParameterName())
+				|| MaterialExpression->IsA(UMaterialExpressionTextureObject::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionComponentMask::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionMaterialFunctionCall::StaticClass()))
 			{
@@ -360,7 +363,8 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 
 			// Add a 'Convert To Constant' option for convertible types
 			if (MaterialExpression->IsA(UMaterialExpressionScalarParameter::StaticClass())
-				|| MaterialExpression->IsA(UMaterialExpressionVectorParameter::StaticClass()))
+				|| MaterialExpression->IsA(UMaterialExpressionVectorParameter::StaticClass())
+				|| MaterialExpression->IsA(UMaterialExpressionTextureObjectParameter::StaticClass()))
 			{
 				Context.MenuBuilder->BeginSection("MaterialEditorMenu1");
 				{
@@ -416,6 +420,24 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 			Context.MenuBuilder->AddMenuEntry(FMaterialEditorCommands::Get().SelectUpstreamNodes);
 		}
 		Context.MenuBuilder->EndSection();
+
+		Context.MenuBuilder->AddSubMenu(LOCTEXT("AlignmentHeader", "Alignment"), FText(), FNewMenuDelegate::CreateLambda([](FMenuBuilder& InMenuBuilder) {
+
+			InMenuBuilder.BeginSection("EdGraphSchemaAlignment", LOCTEXT("AlignHeader", "Align"));
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesTop);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesMiddle);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesBottom);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesLeft);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesCenter);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesRight);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().StraightenConnections);
+			InMenuBuilder.EndSection();
+
+			InMenuBuilder.BeginSection("EdGraphSchemaDistribution", LOCTEXT("DistributionHeader", "Distribution"));
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().DistributeNodesHorizontally);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().DistributeNodesVertically);
+			InMenuBuilder.EndSection();
+		}));
 
 		Context.MenuBuilder->BeginSection("MaterialEditorMenuDocumentation");
 		{
