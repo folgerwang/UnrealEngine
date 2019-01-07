@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -18,12 +18,14 @@ namespace UnrealGameSync
 		public string[] GlobalView;
 		public Guid[] GlobalExcludedCategories;
 		public bool bGlobalSyncAllProjects;
+		public bool bGlobalIncludeAllProjectsInSolution;
 		public string[] WorkspaceView;
 		public Guid[] WorkspaceIncludedCategories;
 		public Guid[] WorkspaceExcludedCategories;
 		public bool? bWorkspaceSyncAllProjects;
+		public bool? bWorkspaceIncludeAllProjectsInSolution;
 
-		public SyncFilter(Dictionary<Guid, WorkspaceSyncCategory> InUniqueIdToCategory, string[] InGlobalView, Guid[] InGlobalExcludedCategories, bool bInGlobalProjectOnly, string[] InWorkspaceView, Guid[] InWorkspaceIncludedCategories, Guid[] InWorkspaceExcludedCategories, bool? bInWorkspaceProjectOnly)
+		public SyncFilter(Dictionary<Guid, WorkspaceSyncCategory> InUniqueIdToCategory, string[] InGlobalView, Guid[] InGlobalExcludedCategories, bool bInGlobalProjectOnly, bool bInGlobalIncludeAllProjectsInSolution, string[] InWorkspaceView, Guid[] InWorkspaceIncludedCategories, Guid[] InWorkspaceExcludedCategories, bool? bInWorkspaceProjectOnly, bool? bInWorkspaceIncludeAllProjectsInSolution)
 		{
 			InitializeComponent();
 
@@ -31,21 +33,26 @@ namespace UnrealGameSync
 			GlobalExcludedCategories = InGlobalExcludedCategories;
 			GlobalView = InGlobalView;
 			bGlobalSyncAllProjects = bInGlobalProjectOnly;
+			bGlobalIncludeAllProjectsInSolution = bInGlobalIncludeAllProjectsInSolution;
 			WorkspaceIncludedCategories = InWorkspaceIncludedCategories;
 			WorkspaceExcludedCategories = InWorkspaceExcludedCategories;
 			WorkspaceView = InWorkspaceView;
-			bWorkspaceSyncAllProjects = bInWorkspaceProjectOnly ?? bGlobalSyncAllProjects;
+			bWorkspaceSyncAllProjects = bInWorkspaceProjectOnly;
+			bWorkspaceIncludeAllProjectsInSolution = bInWorkspaceIncludeAllProjectsInSolution;
 
 			GlobalControl.SetView(GlobalView);
 			SetExcludedCategories(GlobalControl.CategoriesCheckList, UniqueIdToCategory, GlobalExcludedCategories);
 			GlobalControl.SyncAllProjects.Checked = bGlobalSyncAllProjects;
+			GlobalControl.IncludeAllProjectsInSolution.Checked = bGlobalIncludeAllProjectsInSolution;
 
 			WorkspaceControl.SetView(WorkspaceView);
 			SetExcludedCategories(WorkspaceControl.CategoriesCheckList, UniqueIdToCategory, UserSettings.GetEffectiveExcludedCategories(GlobalExcludedCategories, WorkspaceIncludedCategories, WorkspaceExcludedCategories));
 			WorkspaceControl.SyncAllProjects.Checked = bWorkspaceSyncAllProjects ?? bGlobalSyncAllProjects;
+			WorkspaceControl.IncludeAllProjectsInSolution.Checked = bWorkspaceIncludeAllProjectsInSolution ?? bGlobalIncludeAllProjectsInSolution;
 
 			GlobalControl.CategoriesCheckList.ItemCheck += GlobalControl_CategoriesCheckList_ItemCheck;
 			GlobalControl.SyncAllProjects.CheckStateChanged += GlobalControl_SyncAllProjects_CheckStateChanged;
+			GlobalControl.IncludeAllProjectsInSolution.CheckStateChanged += GlobalControl_IncludeAllProjectsInSolution_CheckStateChanged;
 		}
 
 		private void GlobalControl_CategoriesCheckList_ItemCheck(object sender, ItemCheckEventArgs e)
@@ -56,6 +63,11 @@ namespace UnrealGameSync
 		private void GlobalControl_SyncAllProjects_CheckStateChanged(object sender, EventArgs e)
 		{
 			WorkspaceControl.SyncAllProjects.Checked = GlobalControl.SyncAllProjects.Checked;
+		}
+
+		private void GlobalControl_IncludeAllProjectsInSolution_CheckStateChanged(object sender, EventArgs e)
+		{
+			WorkspaceControl.IncludeAllProjectsInSolution.Checked = GlobalControl.IncludeAllProjectsInSolution.Checked;
 		}
 
 		private static void SetExcludedCategories(CheckedListBox ListBox, Dictionary<Guid, WorkspaceSyncCategory> UniqueIdToFilter, Guid[] ExcludedCategories)
@@ -124,9 +136,11 @@ namespace UnrealGameSync
 		
 			GlobalView = NewGlobalView;
 			bGlobalSyncAllProjects = GlobalControl.SyncAllProjects.Checked;
+			bGlobalIncludeAllProjectsInSolution = GlobalControl.IncludeAllProjectsInSolution.Checked;
 
 			WorkspaceView = NewWorkspaceView;
 			bWorkspaceSyncAllProjects = (WorkspaceControl.SyncAllProjects.Checked == bGlobalSyncAllProjects)? (bool?)null : WorkspaceControl.SyncAllProjects.Checked;
+			bWorkspaceIncludeAllProjectsInSolution = (WorkspaceControl.IncludeAllProjectsInSolution.Checked == bGlobalIncludeAllProjectsInSolution)? (bool?)null : WorkspaceControl.IncludeAllProjectsInSolution.Checked;
 
 			GetExcludedCategories(out GlobalExcludedCategories, out WorkspaceIncludedCategories, out WorkspaceExcludedCategories);
 

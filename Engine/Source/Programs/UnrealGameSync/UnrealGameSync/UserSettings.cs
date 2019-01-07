@@ -174,6 +174,7 @@ namespace UnrealGameSync
 		public Guid[] SyncIncludedCategories;
 		public Guid[] SyncExcludedCategories;
 		public bool? bSyncAllProjects;
+		public bool? bIncludeAllProjectsInSolution;
 	}
 
 	class UserProjectSettings
@@ -207,6 +208,7 @@ namespace UnrealGameSync
 		public string[] SyncView;
 		public Guid[] SyncExcludedCategories;
 		public bool bSyncAllProjects;
+		public bool bIncludeAllProjectsInSolution;
 		public LatestChangeType SyncType;
 		public BuildConfig CompiledEditorBuildConfig; // NB: This assumes not using precompiled editor. See CurrentBuildConfig.
 		public TabLabels TabLabels;
@@ -310,6 +312,7 @@ namespace UnrealGameSync
 			SyncView = ConfigFile.GetValues("General.SyncFilter", new string[0]);
 			SyncExcludedCategories = ConfigFile.GetGuidValues("General.SyncExcludedCategories", new Guid[0]);
 			bSyncAllProjects = ConfigFile.GetValue("General.SyncAllProjects", false);
+			bIncludeAllProjectsInSolution = ConfigFile.GetValue("General.IncludeAllProjectsInSolution", false);
 			if(!Enum.TryParse(ConfigFile.GetValue("General.SyncType", ""), out SyncType))
 			{
 				SyncType = LatestChangeType.Good;
@@ -477,6 +480,7 @@ namespace UnrealGameSync
 					CurrentWorkspace.SyncIncludedCategories = new Guid[0];
 					CurrentWorkspace.SyncExcludedCategories = new Guid[0];
 					CurrentWorkspace.bSyncAllProjects = null;
+					CurrentWorkspace.bIncludeAllProjectsInSolution = null;
 				}
 				else
 				{
@@ -511,6 +515,9 @@ namespace UnrealGameSync
 
 					int SyncAllProjects = WorkspaceSection.GetValue("SyncAllProjects", -1);
 					CurrentWorkspace.bSyncAllProjects = (SyncAllProjects == 0)? (bool?)false : (SyncAllProjects == 1)? (bool?)true : (bool?)null;
+
+					int IncludeAllProjectsInSolution = WorkspaceSection.GetValue("IncludeAllProjectsInSolution", -1);
+					CurrentWorkspace.bIncludeAllProjectsInSolution = (IncludeAllProjectsInSolution == 0)? (bool?)false : (IncludeAllProjectsInSolution == 1)? (bool?)true : (bool?)null;
 
 					string[] BisectEntries = WorkspaceSection.GetValues("Bisect", new string[0]);
 					foreach(string BisectEntry in BisectEntries)
@@ -578,6 +585,7 @@ namespace UnrealGameSync
 			GeneralSection.SetValues("SyncFilter", SyncView);
 			GeneralSection.SetValues("SyncExcludedCategories", SyncExcludedCategories);
 			GeneralSection.SetValue("SyncAllProjects", bSyncAllProjects);
+			GeneralSection.SetValue("IncludeAllProjectsInSolution", bIncludeAllProjectsInSolution);
 			GeneralSection.SetValue("SyncType", SyncType.ToString());
 
 			// Build configuration
@@ -648,6 +656,10 @@ namespace UnrealGameSync
 				if(CurrentWorkspace.bSyncAllProjects.HasValue)
 				{
 					WorkspaceSection.SetValue("SyncAllProjects", CurrentWorkspace.bSyncAllProjects.Value);
+				}
+				if(CurrentWorkspace.bIncludeAllProjectsInSolution.HasValue)
+				{
+					WorkspaceSection.SetValue("IncludeAllProjectsInSolution", CurrentWorkspace.bIncludeAllProjectsInSolution.Value);
 				}
 
 				List<ConfigObject> BisectEntryObjects = new List<ConfigObject>();

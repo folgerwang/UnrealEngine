@@ -761,14 +761,6 @@ namespace UnrealGameSync
 		void StartSync(int ChangeNumber, WorkspaceUpdateCallback Callback)
 		{
 			WorkspaceUpdateOptions Options = WorkspaceUpdateOptions.Sync | WorkspaceUpdateOptions.SyncArchives | WorkspaceUpdateOptions.GenerateProjectFiles;
-			if(Settings.bAutoResolveConflicts)
-			{
-				Options |= WorkspaceUpdateOptions.AutoResolveChanges;
-			}
-			if(Settings.bUseIncrementalBuilds)
-			{
-				Options |= WorkspaceUpdateOptions.UseIncrementalBuilds;
-			}
 			if(Settings.bBuildAfterSync)
 			{
 				Options |= WorkspaceUpdateOptions.Build;
@@ -780,10 +772,6 @@ namespace UnrealGameSync
 			if(Settings.bOpenSolutionAfterSync)
 			{
 				Options |= WorkspaceUpdateOptions.OpenSolutionAfterSync;
-			}
-			if(WorkspaceSettings.bSyncAllProjects ?? Settings.bSyncAllProjects)
-			{
-				Options |= WorkspaceUpdateOptions.SyncAllProjects;
 			}
 			StartWorkspaceUpdate(ChangeNumber, Options, Callback);
 		}
@@ -835,6 +823,23 @@ namespace UnrealGameSync
 
 		void StartWorkspaceUpdate(WorkspaceUpdateContext Context, WorkspaceUpdateCallback Callback)
 		{
+			if(Settings.bAutoResolveConflicts)
+			{
+				Context.Options |= WorkspaceUpdateOptions.AutoResolveChanges;
+			}
+			if(Settings.bUseIncrementalBuilds)
+			{
+				Context.Options |= WorkspaceUpdateOptions.UseIncrementalBuilds;
+			}
+			if(WorkspaceSettings.bSyncAllProjects ?? Settings.bSyncAllProjects)
+			{
+				Context.Options |= WorkspaceUpdateOptions.SyncAllProjects | WorkspaceUpdateOptions.IncludeAllProjectsInSolution;
+			}
+			if(WorkspaceSettings.bIncludeAllProjectsInSolution ?? Settings.bIncludeAllProjectsInSolution)
+			{
+				Context.Options |= WorkspaceUpdateOptions.IncludeAllProjectsInSolution;
+			}
+
 			UpdateCallback = Callback;
 
 			Context.StartTime = DateTime.UtcNow;
@@ -4254,16 +4259,18 @@ namespace UnrealGameSync
 
 		private void OptionsContextMenu_SyncFilter_Click(object sender, EventArgs e)
 		{
-			SyncFilter Filter = new SyncFilter(Workspace.GetSyncCategories(), Settings.SyncView, Settings.SyncExcludedCategories, Settings.bSyncAllProjects, WorkspaceSettings.SyncView, WorkspaceSettings.SyncIncludedCategories, WorkspaceSettings.SyncExcludedCategories, WorkspaceSettings.bSyncAllProjects);
+			SyncFilter Filter = new SyncFilter(Workspace.GetSyncCategories(), Settings.SyncView, Settings.SyncExcludedCategories, Settings.bSyncAllProjects, Settings.bIncludeAllProjectsInSolution, WorkspaceSettings.SyncView, WorkspaceSettings.SyncIncludedCategories, WorkspaceSettings.SyncExcludedCategories, WorkspaceSettings.bSyncAllProjects, WorkspaceSettings.bIncludeAllProjectsInSolution);
 			if(Filter.ShowDialog() == DialogResult.OK)
 			{
 				Settings.SyncExcludedCategories = Filter.GlobalExcludedCategories;
 				Settings.SyncView = Filter.GlobalView;
 				Settings.bSyncAllProjects = Filter.bGlobalSyncAllProjects;
+				Settings.bIncludeAllProjectsInSolution = Filter.bGlobalIncludeAllProjectsInSolution;
 				WorkspaceSettings.SyncIncludedCategories = Filter.WorkspaceIncludedCategories;
 				WorkspaceSettings.SyncExcludedCategories = Filter.WorkspaceExcludedCategories;
 				WorkspaceSettings.SyncView = Filter.WorkspaceView;
 				WorkspaceSettings.bSyncAllProjects = Filter.bWorkspaceSyncAllProjects;
+				WorkspaceSettings.bIncludeAllProjectsInSolution = Filter.bWorkspaceIncludeAllProjectsInSolution;
                 Settings.Save();
 			}
 		}
