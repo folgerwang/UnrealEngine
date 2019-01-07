@@ -1239,7 +1239,10 @@ namespace UnrealBuildTool
 				Progress.Write(2, 3);
 
 				// touch the directories
-				UpdateDirectoryTimestamps(UObjectModules);
+				using(Timeline.ScopeEvent("ExternalExecution.UpdateDirectoryTimestamps()"))
+				{
+					UpdateDirectoryTimestamps(UObjectModules);
+				}
 
 				Progress.Write(3, 3);
 			}
