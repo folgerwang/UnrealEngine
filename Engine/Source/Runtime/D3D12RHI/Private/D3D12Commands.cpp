@@ -124,13 +124,6 @@ void FD3D12DynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBu
 	CmdContext.StateCache.SetStreamOutTargets(NumTargets, D3DVertexBuffers, D3DOffsets);
 }
 
-// Rasterizer state.
-void FD3D12CommandContext::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
-{
-	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
-	unimplemented();
-}
-
 void FD3D12CommandContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
 #if D3D12_RHI_RAYTRACING
@@ -468,16 +461,6 @@ void FD3D12CommandContext::RHISetScissorRect(bool bEnable, uint32 MinX, uint32 M
 	}
 }
 
-/**
-* Set bound shader state. This will set the vertex decl/shader, and pixel shader
-* @param BoundShaderState - state resource
-*/
-void FD3D12CommandContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)
-{
-	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
-	unimplemented();
-}
-
 static inline D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(EPrimitiveType PrimitiveType, bool bUsingTessellation)
 {
 	if (bUsingTessellation)
@@ -571,7 +554,10 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 	// @TODO : really should only discard the constants if the shader state has actually changed.
 	bDiscardSharedConstants = true;
 
-	RHIEnableDepthBoundsTest(GraphicsPipelineState->PipelineStateInitializer.bDepthBounds);
+	if (!GraphicsPipelineState->PipelineStateInitializer.bDepthBounds)
+	{
+		StateCache.SetDepthBounds(0.0f, 1.0f);
+	}
 
 	StateCache.SetGraphicsPipelineState(GraphicsPipelineState);
 	StateCache.SetStencilRef(0);
@@ -909,21 +895,9 @@ void FD3D12CommandContext::ValidateExclusiveDepthStencilAccess(FExclusiveDepthSt
 	}
 }
 
-void FD3D12CommandContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
-{
-	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
-	unimplemented();
-}
-
 void FD3D12CommandContext::RHISetStencilRef(uint32 StencilRef)
 {
 	StateCache.SetStencilRef(StencilRef);
-}
-
-void FD3D12CommandContext::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
-{
-	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
-	unimplemented();
 }
 
 void FD3D12CommandContext::RHISetBlendFactor(const FLinearColor& BlendFactor)
@@ -1962,14 +1936,6 @@ void FD3D12DynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
 	check(0); // this path has gone stale and needs updated methods, starting at ERCT_SetScissorRect
 }
 
-
-void FD3D12CommandContext::RHIEnableDepthBoundsTest(bool bEnable)
-{
-	if (!bEnable)
-	{
-		StateCache.SetDepthBounds(0.0f, 1.0f);
-	}
-}
 
 void FD3D12CommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)
 {

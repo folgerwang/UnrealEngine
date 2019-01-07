@@ -223,12 +223,6 @@ void FRHICommandDrawIndexedPrimitive::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(RHIDrawIndexedPrimitive)(IndexBuffer, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
 }
 
-void FRHICommandSetBoundShaderState::Execute(FRHICommandListBase& CmdList)
-{
-	RHISTAT(SetBoundShaderState);
-	INTERNAL_DECORATOR(RHISetBoundShaderState)(BoundShaderState);
-}
-
 void FRHICommandSetBlendFactor::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetBlendFactor);

@@ -28,16 +28,6 @@ enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
 
-
-FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(
-	FVertexDeclarationRHIParamRef VertexDeclaration,
-	FVertexShaderRHIParamRef VertexShader,
-	FHullShaderRHIParamRef HullShader,
-	FDomainShaderRHIParamRef DomainShader,
-	FPixelShaderRHIParamRef PixelShader,
-	FGeometryShaderRHIParamRef GeometryShader
-);
-
 /** Context that is capable of doing Compute work.  Can be async or compute on the gfx pipe. */
 class IRHIComputeContext
 {
@@ -145,26 +135,6 @@ public:
 	}
 };
 
-// These states are now set by the Pipeline State Object and are now deprecated
-class IRHIDeprecatedContext
-{
-public:
-	/**
-	* Set bound shader state. This will set the vertex decl/shader, and pixel shader
-	* @param BoundShaderState - state resource
-	*/
-	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) = 0;
-
-	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) = 0;
-
-	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) = 0;
-
-	// Allows to set the blend state, parameter can be created with RHICreateBlendState()
-	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
-
-	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
-};
-
 struct FAccelerationStructureUpdateParams
 {
 	FRayTracingGeometryRHIParamRef Geometry;
@@ -172,7 +142,7 @@ struct FAccelerationStructureUpdateParams
 };
 
 /** The interface RHI command context. Sometimes the RHI handles these. On platforms that can processes command lists in parallel, it is a separate object. */
-class IRHICommandContext : public IRHIComputeContext, public IRHIDeprecatedContext
+class IRHICommandContext : public IRHIComputeContext
 {
 public:
 	virtual ~IRHICommandContext()
@@ -352,36 +322,7 @@ public:
 	// @param MaxY excluding like Win32 RECT
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) = 0;
 
-	/**
-	* This will set most relevant pipeline state. Legacy APIs are expected to set corresponding disjoint state as well.
-	* @param GraphicsShaderState - the graphics pipeline state
-	* This implementation is only in place while we transition/refactor.
-	*/
-	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
-	{
-		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
-
-		auto& PsoInit = FallbackGraphicsState->Initializer;
-
-		RHISetBoundShaderState(
-			RHICreateBoundShaderState(
-				PsoInit.BoundShaderState.VertexDeclarationRHI,
-				PsoInit.BoundShaderState.VertexShaderRHI,
-				PsoInit.BoundShaderState.HullShaderRHI,
-				PsoInit.BoundShaderState.DomainShaderRHI,
-				PsoInit.BoundShaderState.PixelShaderRHI,
-				PsoInit.BoundShaderState.GeometryShaderRHI
-			).GetReference()
-		);
-
-		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
-		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
-		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
-		if (GSupportsDepthBoundsTest)
-		{
-			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
-		}
-	}
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) = 0;
 
 	/** Set the shader resource view of a surface.  This is used for binding TextureMS parameter types that need a multi sampled view. */
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) = 0;
@@ -717,4 +658,64 @@ public:
 
 	protected:
 		FRHIRenderPassInfo RenderPassInfo;
+};
+
+
+
+FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(
+	FVertexDeclarationRHIParamRef VertexDeclaration,
+	FVertexShaderRHIParamRef VertexShader,
+	FHullShaderRHIParamRef HullShader,
+	FDomainShaderRHIParamRef DomainShader,
+	FPixelShaderRHIParamRef PixelShader,
+	FGeometryShaderRHIParamRef GeometryShader
+);
+
+
+// Command Context for RHIs that do not support real Graphics Pipelines.
+class IRHICommandContextPSOFallback : public IRHICommandContext
+{
+public:
+	/**
+	* Set bound shader state. This will set the vertex decl/shader, and pixel shader
+	* @param BoundShaderState - state resource
+	*/
+	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) = 0;
+
+	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) = 0;
+
+	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) = 0;
+
+	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
+
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
+
+	/**
+	* This will set most relevant pipeline state. Legacy APIs are expected to set corresponding disjoint state as well.
+	* @param GraphicsShaderState - the graphics pipeline state
+	*/
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) override
+	{
+		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
+		FGraphicsPipelineStateInitializer& PsoInit = FallbackGraphicsState->Initializer;
+
+		RHISetBoundShaderState(
+			RHICreateBoundShaderState(
+				PsoInit.BoundShaderState.VertexDeclarationRHI,
+				PsoInit.BoundShaderState.VertexShaderRHI,
+				PsoInit.BoundShaderState.HullShaderRHI,
+				PsoInit.BoundShaderState.DomainShaderRHI,
+				PsoInit.BoundShaderState.PixelShaderRHI,
+				PsoInit.BoundShaderState.GeometryShaderRHI
+			).GetReference()
+		);
+
+		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
+		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
+		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
+		if (GSupportsDepthBoundsTest)
+		{
+			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
+		}
+	}
 };

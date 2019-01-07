@@ -62,11 +62,6 @@ void FVulkanDynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexB
 	VULKAN_SIGNAL_UNIMPLEMENTED();
 }
 
-void FVulkanCommandListContext::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
-{
-	check(0);
-}
-
 void FVulkanCommandListContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
 	FVulkanComputeShader* ComputeShader = ResourceCast(ComputeShaderRHI);
@@ -160,12 +155,6 @@ void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRH
 	//#todo-rco: Temp workaround
 	VulkanRHI::/*Debug*/HeavyWeightBarrier(CmdBuffer/*, 2*/);
 }
-
-void FVulkanCommandListContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)
-{
-	check(0);
-}
-
 
 void FVulkanCommandListContext::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShaderRHI, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAVRHI)
 {
@@ -750,16 +739,6 @@ void FVulkanCommandListContext::RHISetShaderUniformBuffer(FComputeShaderRHIParam
 	}
 }
 
-void FVulkanCommandListContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
-{
-	check(0);
-}
-
-void FVulkanCommandListContext::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
-{
-	check(0);
-}
-
 void FVulkanCommandListContext::RHISetStencilRef(uint32 StencilRef)
 {
 	PendingGfxState->SetStencilRef(StencilRef);
@@ -1057,11 +1036,6 @@ void FVulkanCommandListContext::RHIFlushComputeShaderCache()
 void FVulkanDynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
 {
 	VULKAN_SIGNAL_UNIMPLEMENTED();
-}
-
-void FVulkanCommandListContext::RHIEnableDepthBoundsTest(bool bEnable)
-{
-	check(0);
 }
 
 void FVulkanCommandListContext::RHISetDepthBounds(float MinDepth, float MaxDepth)

@@ -879,16 +879,6 @@ struct FRHICommandDrawIndexedPrimitive final : public FRHICommand<FRHICommandDra
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
-struct FRHICommandSetBoundShaderState final : public FRHICommand<FRHICommandSetBoundShaderState>
-{
-	FBoundShaderStateRHIParamRef BoundShaderState;
-	FORCEINLINE_DEBUGGABLE FRHICommandSetBoundShaderState(FBoundShaderStateRHIParamRef InBoundShaderState)
-		: BoundShaderState(InBoundShaderState)
-	{
-	}
-	RHI_API void Execute(FRHICommandListBase& CmdList);
-};
-
 struct FRHICommandSetBlendFactor final : public FRHICommand<FRHICommandSetBlendFactor>
 {
 	FLinearColor BlendFactor;

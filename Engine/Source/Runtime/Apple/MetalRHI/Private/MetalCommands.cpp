@@ -106,11 +106,6 @@ void FMetalDynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBu
 
 }
 
-void FMetalRHICommandContext::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
-{
-	NOT_SUPPORTED("RHISetRasterizerState");
-}
-
 void FMetalRHICommandContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
 	@autoreleasepool {
@@ -232,11 +227,6 @@ void FMetalRHICommandContext::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 
 	}
 	Context->GetCurrentState().SetScissorRect(bEnable, Scissor);
 	}
-}
-
-void FMetalRHICommandContext::RHISetBoundShaderState( FBoundShaderStateRHIParamRef BoundShaderStateRHI)
-{
-	NOT_SUPPORTED("RHISetBoundShaderState");
 }
 
 void FMetalRHICommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
@@ -611,19 +601,9 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRe
 }
 
 
-void FMetalRHICommandContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
-{
-	NOT_SUPPORTED("RHISetDepthStencilState");
-}
-
 void FMetalRHICommandContext::RHISetStencilRef(uint32 StencilRef)
 {
 	Context->GetCurrentState().SetStencilRef(StencilRef);
-}
-
-void FMetalRHICommandContext::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
-{
-	NOT_SUPPORTED("RHISetBlendState");
 }
 
 void FMetalRHICommandContext::RHISetBlendFactor(const FLinearColor& BlendFactor)
@@ -1016,11 +996,6 @@ void FMetalRHICommandContext::RHIFlushComputeShaderCache()
 void FMetalDynamicRHI::RHIExecuteCommandList(FRHICommandList* RHICmdList)
 {
 	NOT_SUPPORTED("RHIExecuteCommandList");
-}
-
-void FMetalRHICommandContext::RHIEnableDepthBoundsTest(bool bEnable)
-{
-	// Nothing required here
 }
 
 void FMetalRHICommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)
