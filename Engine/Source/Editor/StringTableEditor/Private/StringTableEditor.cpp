@@ -13,12 +13,17 @@
 #include "Editor.h"
 #include "ScopedTransaction.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
  
 #define LOCTEXT_NAMESPACE "StringTableEditor"
 
@@ -50,9 +55,13 @@ public:
 		}
 		else if (ColumnName == FStringTableEditor::StringTableKeyColumnId)
 		{
-			Return = SNew(SEditableTextBox)
-				.IsReadOnly(true)
-				.Text(FText::FromString(CachedStringTableEntry->Key));
+			Return = SNew(SBox)
+				.Padding(4)
+				[
+					SNew(SInlineEditableTextBlock)
+					.IsReadOnly(true)
+					.Text(FText::FromString(CachedStringTableEntry->Key))
+				];
 		}
 		else if (ColumnName == FStringTableEditor::StringTableSourceStringColumnId)
 		{
@@ -120,10 +129,6 @@ void FStringTableEditor::UnregisterTabSpawners(const TSharedRef<class FTabManage
 	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
 	InTabManager->UnregisterTabSpawner(StringTableTabId);
-}
-
-FStringTableEditor::FStringTableEditor()
-{
 }
 
 FStringTableEditor::~FStringTableEditor()
@@ -228,6 +233,13 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 {
 	check(Args.GetTabId().TabType == StringTableTabId);
 
+	const FGenericCommands& GenericCommands = FGenericCommands::Get();
+	CommandList = MakeShareable(new FUICommandList);
+	CommandList->MapAction(
+		GenericCommands.Delete,
+		FExecuteAction::CreateSP(this, &FStringTableEditor::ExecuteDelete),
+		FCanExecuteAction::CreateSP(this, &FStringTableEditor::CanExecuteDelete));
+
 	UStringTable* StringTable = Cast<UStringTable>(GetEditingObject());
 
 	// Support undo/redo
@@ -236,19 +248,24 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 		StringTable->SetFlags(RF_Transactional);
 	}
 
+	EntryTextFilter = MakeShareable(new FEntryTextFilter(FEntryTextFilter::FItemToStringArray::CreateLambda([](const TSharedPtr<FCachedStringTableEntry>& InItem, OUT TArray< FString >& StringArray) {
+		StringArray.Add(InItem->Key);
+		StringArray.Add(InItem->SourceString);
+	})));
+
 	TSharedRef<SDockTab> StringTableTab = SNew(SDockTab)
 		.Icon(FEditorStyle::GetBrush("StringTableEditor.Tabs.Properties"))
 		.Label(LOCTEXT("StringTableTitle", "String Table"))
 		.TabColorScale(GetTabColorScale())
 		[
-			SNew(SBorder)
-			.Padding(2)
-			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-			[
-				SNew(SVerticalBox)
+			SNew(SVerticalBox)
 
-				+SVerticalBox::Slot()
-				.AutoHeight()
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.Padding(2)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				[
 					SNew(SHorizontalBox)
 
@@ -279,6 +296,9 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 						SNew(SButton)
 						.Text(LOCTEXT("ImportFromCSVLabel", "Import from CSV"))
 						.OnClicked(this, &FStringTableEditor::OnImportFromCSVClicked)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+						.ForegroundColor(FLinearColor::White)
+						.ContentPadding(FMargin(6, 2))
 					]
 
 					+SHorizontalBox::Slot()
@@ -289,15 +309,37 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 						SNew(SButton)
 						.Text(LOCTEXT("ExportToCSVLabel", "Export to CSV"))
 						.OnClicked(this, &FStringTableEditor::OnExportToCSVClicked)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+						.ForegroundColor(FLinearColor::White)
+						.ContentPadding(FMargin(6, 2))
 					]
 				]
+			]
 
-				+SVerticalBox::Slot()
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 4, 0, 4)
+			[
+				SNew(SBorder)
+				.Padding(2)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				[
+					SAssignNew(SearchBox, SSearchBox)
+					.OnTextChanged(this, &FStringTableEditor::OnFilterTextChanged)
+				]
+			]
+
+			+SVerticalBox::Slot()
+			[
+				SNew(SBorder)
+				.Padding(2)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				[
 					SAssignNew(StringTableEntriesListView, SListView<TSharedPtr<FCachedStringTableEntry>>)
 					.ListItemsSource(&CachedStringTableEntries)
 					.OnGenerateRow(this, &FStringTableEditor::OnGenerateStringTableEntryRow)
-					.SelectionMode(ESelectionMode::Single)
+					.SelectionMode(ESelectionMode::Multi)
+					.OnContextMenuOpening(this, &FStringTableEditor::OnConstructContextMenu)
 					.HeaderRow
 					(
 						SNew(SHeaderRow)
@@ -319,9 +361,15 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 						.FixedWidth(28)
 					)
 				]
+			]
 
-				+SVerticalBox::Slot()
-				.AutoHeight()
+			+SVerticalBox::Slot()
+			.Padding(0, 4, 0, 0)
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.Padding(2)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				[
 					SNew(SHorizontalBox)
 
@@ -369,6 +417,9 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 						SNew(SButton)
 						.Text(LOCTEXT("AddLabel", "Add"))
 						.OnClicked(this, &FStringTableEditor::OnAddClicked)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+						.ForegroundColor(FLinearColor::White)
+						.ContentPadding(FMargin(6, 2))
 					]
 				]
 			]
@@ -377,6 +428,20 @@ TSharedRef<SDockTab> FStringTableEditor::SpawnTab_StringTable(const FSpawnTabArg
 	RefreshCachedStringTable();
 
 	return StringTableTab;
+}
+
+TSharedPtr<SWidget> FStringTableEditor::OnConstructContextMenu()
+{
+	const bool bShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, CommandList);
+
+	MenuBuilder.BeginSection("EditOperations", LOCTEXT("StringTableEditOperationsLabel", "Edit"));
+	{
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete);
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
 }
 
 TSharedRef<ITableRow> FStringTableEditor::OnGenerateStringTableEntryRow(TSharedPtr<FCachedStringTableEntry> CachedStringTableEntry, const TSharedRef<STableViewBase>& Table)
@@ -396,7 +461,11 @@ void FStringTableEditor::RefreshCachedStringTable(const FString& InCachedSelecti
 		StringTable->GetStringTable()->EnumerateSourceStrings([&](const FString& InKey, const FString& InSourceString)
 		{
 			TSharedRef<FCachedStringTableEntry> NewStringTableEntry = MakeShared<FCachedStringTableEntry>(InKey, InSourceString);
-			CachedStringTableEntries.Add(NewStringTableEntry);
+
+			if (EntryTextFilter->PassesFilter(NewStringTableEntry))
+			{
+				CachedStringTableEntries.Add(NewStringTableEntry);
+			}
 
 			if (InCachedSelection.Equals(InKey, ESearchCase::CaseSensitive))
 			{
@@ -529,6 +598,30 @@ void FStringTableEditor::OnSourceStringCommitted(const FText& InText, ETextCommi
 	if (InCommitType == ETextCommit::OnEnter)
 	{
 		OnAddClicked();
+	}
+}
+
+void FStringTableEditor::OnFilterTextChanged(const FText& InNewText)
+{
+	EntryTextFilter->SetRawFilterText(InNewText);
+	SearchBox->SetError(EntryTextFilter->GetFilterErrorText());
+
+	RefreshCachedStringTable();
+
+	StringTableEntriesListView->RebuildList();
+}
+
+bool FStringTableEditor::CanExecuteDelete() const
+{
+	return StringTableEntriesListView->GetNumItemsSelected() > 0;
+}
+
+void FStringTableEditor::ExecuteDelete()
+{
+	const TArray<TSharedPtr<FCachedStringTableEntry>>& Items = StringTableEntriesListView->GetSelectedItems();
+	for (const auto& Item : Items)
+	{
+		DeleteEntry(Item->Key);
 	}
 }
 
