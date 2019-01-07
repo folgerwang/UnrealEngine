@@ -917,9 +917,6 @@ public:
 	virtual bool RHIEnqueueDecompress(uint8_t* SrcBuffer, uint8_t* DestBuffer, int CompressedSize, void* ErrorCodeBuffer) { return false; }
 	virtual bool RHIEnqueueCompress(uint8_t* SrcBuffer, uint8_t* DestBuffer, int UnCompressedSize, void* ErrorCodeBuffer) { return false; }
 
-	// FlushType: Flush Immediate
-	virtual void RHIRecreateRecursiveBoundShaderStates() {}
-
 	/**
 	*	Retrieve available screen resolutions.
 	*
