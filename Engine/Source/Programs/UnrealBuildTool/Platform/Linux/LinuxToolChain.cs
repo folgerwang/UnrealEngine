@@ -921,7 +921,7 @@ namespace UnrealBuildTool
 			Result += " -Wl,--build-id";
 			if (bSuppressPIE && !LinkEnvironment.bIsBuildingDLL)
 			{
-				Result += " -Wl,--no-pie";
+				Result += " -Wl,-nopie";
 			}
 
 			// whether we actually can do that is checked in CanUseLTO() earlier
