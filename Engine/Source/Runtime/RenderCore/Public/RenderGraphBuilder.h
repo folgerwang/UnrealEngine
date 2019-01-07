@@ -4,15 +4,10 @@
 
 #include "RenderGraphResources.h"
 #include "ShaderParameterMacros.h"
-#include "RendererInterface.h"
 
 
 /** Whether visualize texture tool is supported. */
 #define SUPPORTS_VISUALIZE_TEXTURE (WITH_ENGINE && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
-
-
-/** Whether render graph debugging is compiled. */
-#define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING)
 
 
 /** Whether render graph should support draw events or not.
@@ -222,7 +217,10 @@ public:
 		OutTexture->PooledRenderTarget = ExternalPooledTexture;
 		AllocatedTextures.Add(OutTexture, ExternalPooledTexture);
 		#if RENDER_GRAPH_DEBUGGING
+		{
+			OutTexture->bHasEverBeenProduced = true;
 			Resources.Add(OutTexture);
+		}
 		#endif
 		return OutTexture;
 	}
@@ -382,6 +380,10 @@ public:
 		{
 			checkf(!bHasExecuted,
 				TEXT("Accessing render graph internal texture %s with QueueTextureExtraction() needs to happen before the builder's execution."),
+				Texture->Name);
+
+			checkf(Texture->bHasEverBeenProduced,
+				TEXT("Unable to queue the extraction of the texture %s because it has not been produced by any pass."),
 				Texture->Name);
 		}
 		#endif

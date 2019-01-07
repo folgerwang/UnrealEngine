@@ -5,7 +5,10 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 #include "RendererInterface.h"
-#include "RendererInterface.h"
+
+
+/** Whether render graph debugging is compiled. */
+#define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING)
 
 
 class FRDGResource;
@@ -66,8 +69,13 @@ private:
 	mutable bool bWritable = false;
 	mutable bool bCompute = false;
 
-	/** Boolean to tracked whether a ressource is actually used by the lambda of a pass or not. */
+	/** Boolean to track at runtime whether a ressource is actually used by the lambda of a pass or not, to detect unnecessary resource dependencies on passes. */
 	mutable bool bIsActuallyUsedByPass = false;
+
+#if RENDER_GRAPH_DEBUGGING
+	/** Boolean to track at wiring time if a resource has ever been produced by a pass, to error out early if accessing a resource that has not been produced. */
+	mutable bool bHasEverBeenProduced = false;
+#endif
 
 	friend class FRDGBuilder;
 
