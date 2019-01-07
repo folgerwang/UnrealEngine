@@ -17,7 +17,10 @@ public:
 		SetLightMap(InLightMap);
 		SetShadowMap(InShadowMap);
 		SetPrecomputedLightingBuffer(Buffer);
-		SetResourceCluster(InLightmapResourceCluster);
+		if (InLightmapResourceCluster)
+		{
+			SetResourceCluster(InLightmapResourceCluster);
+		}
 	}
 
 	virtual FLightInteraction GetInteraction(const class FLightSceneProxy* LightSceneProxy) const override
