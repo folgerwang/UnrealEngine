@@ -281,7 +281,7 @@ int Main(const TArray<FString>& Arguments)
 	else if (Arguments.Num() == 2 && Arguments[0] == TEXT("-editor"))
 	{
 		// Open a project with the editor
-		bRes = LaunchEditor(Arguments[1], L"");
+		bRes = LaunchEditor(Arguments[1], "");
 	}
 	else if (Arguments[0] == TEXT("-projectlist"))
 	{
@@ -291,7 +291,7 @@ int Main(const TArray<FString>& Arguments)
 	else if (Arguments.Num() == 2 && Arguments[0] == TEXT("-game"))
 	{
 		// Play a game using the editor executable
-		bRes = LaunchEditor(Arguments[1], L"-game");
+		bRes = LaunchEditor(Arguments[1], "-game");
 	}
 	else if (Arguments.Num() == 2 && Arguments[0] == TEXT("-projectfiles"))
 	{
