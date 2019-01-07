@@ -468,7 +468,7 @@ namespace UnrealBuildTool
 		public List<FileReference> FindGameProjects()
 		{
 			List<FileReference> ProjectFiles = new List<FileReference>();
-			if(bGeneratingGameProjectFiles)
+			if(OnlyGameProject != null)
 			{
 				ProjectFiles.Add(OnlyGameProject);
 			}
