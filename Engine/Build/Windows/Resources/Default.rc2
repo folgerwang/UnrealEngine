@@ -2,9 +2,9 @@
 //
 // This file contains resources which are edited by hand, and cannot be loaded/saved by the Visual Studio resource editor.
 
-#include "../../Source/Runtime/Launch/Resources/Windows/resource.h"
-#include "../../Source/Runtime/Core/Public/Misc/CoreMiscDefines.h"
-#include "../../Source/Runtime/Launch/Resources/Version.h"
+#include "../../../Source/Runtime/Launch/Resources/Windows/resource.h"
+#include "../../../Source/Runtime/Core/Public/Misc/CoreMiscDefines.h"
+#include "../../../Source/Runtime/Launch/Resources/Version.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 #include <windows.h>
