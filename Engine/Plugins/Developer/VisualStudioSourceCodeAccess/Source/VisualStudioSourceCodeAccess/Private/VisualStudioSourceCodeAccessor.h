@@ -10,6 +10,7 @@ public:
 	struct VisualStudioLocation
 	{
 		int32 VersionNumber;
+		bool bPreviewRelease;
 		FString ExecutablePath;
 #if VSACCESSOR_HAS_DTE
 		FString ROTMoniker;
