@@ -4053,6 +4053,12 @@ namespace ThumbnailTools
 		FString PackageName = InPackageFileName;
 		if (FPackageName::TryConvertFilenameToLongPackageName(PackageName, PackageName))
 		{
+			if (PackageName == TEXT("None"))
+			{
+				UE_LOG(LogUObjectGlobals, Warning, TEXT("Attempted to FindCachedThumbnailInPackage named 'None' - PackageName: %s InPackageFileName: %s"), *PackageName, *InPackageFileName);
+				return nullptr;
+			}
+
 			// First check to see if the package is already in memory.  If it is, some or all of the thumbnails
 			// may already be loaded and ready.
 			UObject* PackageOuter = nullptr;

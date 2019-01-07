@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Internationalization/TextNamespaceUtil.h"
 
 namespace TextNamespaceUtil
 {

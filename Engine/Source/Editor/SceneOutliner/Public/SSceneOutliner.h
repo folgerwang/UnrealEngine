@@ -15,8 +15,9 @@
 #include "Widgets/Views/STableRow.h"
 #include "ISceneOutliner.h"
 #include "SceneOutlinerPublicTypes.h"
-#include "Editor/SceneOutliner/Public/SOutlinerTreeView.h"
-#include "Editor/SceneOutliner/Public/SceneOutlinerStandaloneTypes.h"
+#include "SOutlinerTreeView.h"
+#include "SceneOutlinerStandaloneTypes.h"
+#include "Framework/Commands/UICommandList.h"
 
 class FMenuBuilder;
 class ISceneOutlinerColumn;
@@ -143,6 +144,28 @@ namespace SceneOutliner
 				Refresh();
 			}
 		}
+
+		/** Returns true if edit delete can be executed */
+		virtual bool Delete_CanExecute();
+
+		/** Returns true if edit rename can be executed */
+		virtual bool Rename_CanExecute();
+
+		/** Executes rename. */
+		virtual void Rename_Execute();
+
+		/** Returns true if edit cut can be executed */
+		virtual bool Cut_CanExecute();
+
+		/** Returns true if edit copy can be executed */
+		virtual bool Copy_CanExecute();
+
+		/** Returns true if edit paste can be executed */
+		virtual bool Paste_CanExecute();
+
+		/** Returns true if clipboard contains folders only */
+		bool CanPasteFoldersOnlyFromClipboard();
+		
 	private:
 		/** Methods that implement structural modification logic for the tree */
 
@@ -228,9 +251,6 @@ namespace SceneOutliner
 		/** Scroll the specified item into view */
 		void ScrollItemIntoView(FTreeItemPtr Item);
 
-		/** Open a rename for the specified tree Item */
-		void InitiateRename(TSharedRef<ITreeItem> TrreeItem);
-
 	private:
 
 		/** Synchronize the current actor selection in the world, to the tree */
@@ -250,6 +270,9 @@ namespace SceneOutliner
 
 		/** Get an array of selected folders */
 		TArray<FFolderTreeItem*> GetSelectedFolders() const;
+
+		/** Get an array of selected folder names */
+		TArray<FName> GetSelectedFolderNames() const;
 
 		/** Checks to see if the actor is valid for displaying in the outliner */
 		bool IsActorDisplayable( const AActor* Actor ) const;
@@ -329,6 +352,86 @@ namespace SceneOutliner
 		/** Called when a folder is to be deleted */
 		void OnBroadcastFolderDelete(UWorld& InWorld, FName Path);
 
+		/** Called by engine when edit cut actors begins */
+		void OnEditCutActorsBegin();
+
+		/** Called by engine when edit cut actors ends */
+		void OnEditCutActorsEnd();
+
+		/** Called by engine when edit copy actors begins */
+		void OnEditCopyActorsBegin();
+
+		/** Called by engine when edit copy actors ends */
+		void OnEditCopyActorsEnd();
+
+		/** Called by engine when edit paste actors begins */
+		void OnEditPasteActorsBegin();
+
+		/** Called by engine when edit paste actors ends */
+		void OnEditPasteActorsEnd();
+
+		/** Called by engine when edit duplicate actors begins */
+		void OnDuplicateActorsBegin();
+
+		/** Called by engine when edit duplicate actors ends */
+		void OnDuplicateActorsEnd();
+
+		/** Called by engine when edit delete actors begins */
+		void OnDeleteActorsBegin();
+
+		/** Called by engine when edit delete actors ends */
+		void OnDeleteActorsEnd();
+
+		/** Copy specified folders to clipboard, keeping current clipboard contents if they differ from previous clipboard contents (meaning actors were copied) */
+		void CopyFoldersToClipboard(const TArray<FName>& InFolders, const FString& InPrevClipboardContents);
+
+		/** Called by copy and duplicate */
+		void CopyFoldersBegin();
+
+		/** Called by copy and duplicate */
+		void CopyFoldersEnd();
+
+		/** Called by paste and duplicate */
+		void PasteFoldersBegin(TArray<FFolderTreeItem*> InFolders);
+
+		/** Called by paste and duplicate */
+		void PasteFoldersBegin(TArray<FName> InFolders);
+
+		/** Paste folders end logic */
+		void PasteFoldersEnd();
+
+		/** Called by cut and delete */
+		void DeleteFoldersBegin();
+
+		/** Called by cute and delete */
+		void DeleteFoldersEnd();
+
+		/** Get an array of folders to paste */
+		TArray<FName> GetClipboardPasteFolders() const;
+
+		/** Construct folders export string to be used in clipboard */
+		FString ExportFolderList(TArray<FName> InFolders) const;
+			
+		/** Construct array of folders to be created based on input clipboard string */
+		TArray<FName> ImportFolderList(const FString& InStrBuffer) const;
+
+	public:
+		/** Duplicates current folder and all descendants */
+		void DuplicateFoldersHierarchy();
+	
+	private: 
+		/** Cache selected folders during edit delete */
+		TArray<FFolderTreeItem*> CacheFoldersDelete;
+
+		/** Cache folders for cut/copy/paste/duplicate */
+		TArray<FName> CacheFoldersEdit;
+
+		/** Cache clipboard contents for cut/copy */
+		FString CacheClipboardContents;
+
+		/** Maps pre-existing children during paste or duplicate */
+		TMap<FName, TArray<FTreeItemID>> CachePasteFolderExistingChildrenMap;
+
 	private:
 		/** Miscellaneous bindings required by the UI */
 
@@ -398,11 +501,8 @@ namespace SceneOutliner
 
 	private:
 
-		/** Select the immediate children of the currently selected folders */
-		void SelectFoldersImmediateChildren() const;
-
-		/** Called to select all the descendants of the currently selected folders */
-		void SelectFoldersDescendants() const;
+		/** Called to select descendants of the currently selected folders */
+		void SelectFoldersDescendants(bool bSelectImmediateChildrenOnly = false);
 
 		/** Move the selected items to the specified parent */
 		void MoveSelectionTo(FTreeItemRef NewParent);
@@ -484,6 +584,9 @@ namespace SceneOutliner
 
 		/** Pending tree items that are yet to be added the tree */
 		FTreeItemMap PendingTreeItemMap;
+
+		/** Folders pending selection */
+		TArray<FName> PendingFoldersSelect;
 
 		/** Root level tree items */
 		TArray<FTreeItemPtr> RootTreeItems;

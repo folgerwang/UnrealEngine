@@ -39,6 +39,8 @@ public class MeshUtilities : ModuleRules
                 "GraphColor",
                 "MeshBuilder",
                 "MeshUtilitiesCommon",
+                "MeshDescription",
+                "MeshDescriptionOperations"
             }
 		);
 

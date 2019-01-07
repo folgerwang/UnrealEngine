@@ -44,6 +44,18 @@ void UFileMediaSource::SetFilePath(const FString& Path)
 	}
 }
 
+#if WITH_EDITOR
+void UFileMediaSource::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UFileMediaSource, FilePath))
+	{
+		ClearResolvedFullPath();
+	}
+}
+#endif
+
 void UFileMediaSource::ClearResolvedFullPath() const
 {
 	ResolvedFullPath.Empty();

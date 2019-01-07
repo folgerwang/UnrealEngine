@@ -280,7 +280,7 @@ void FAnalogCursor::UpdateCursorPosition(FSlateApplication& SlateApp, TSharedRef
 
 		//create a new mouse event
 		FPointerEvent MouseEvent(
-			0,
+			SlateApp.CursorPointerIndex,
 			UpdatedPosition,
 			OldPosition,
 			SlateApp.GetPressedMouseButtons(),

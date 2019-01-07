@@ -173,6 +173,7 @@ private:
 	bool IsSourceTextReadOnly() const;
 	bool IsIdentityReadOnly() const;
 	FText GetToolTipText() const;
+	EVisibility GetLocalizableVisibility() const;
 
 	FText GetTextValue() const;
 	void OnTextChanged(const FText& NewText);

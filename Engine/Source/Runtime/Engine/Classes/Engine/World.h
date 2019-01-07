@@ -2095,6 +2095,8 @@ public:
 	 *
 	 * @return AWorldSettings actor associated with this world
 	 */
+	UFUNCTION(BlueprintCallable, Category="Utilities|World", meta=(DisplayName="GetWorldSettings", ScriptName="GetWorldSettings"))
+	AWorldSettings* K2_GetWorldSettings();
 	AWorldSettings* GetWorldSettings( bool bCheckStreamingPersistent = false, bool bChecked = true ) const;
 
 	/**

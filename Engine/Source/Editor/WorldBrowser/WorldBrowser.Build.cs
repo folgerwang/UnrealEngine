@@ -42,7 +42,7 @@ public class WorldBrowser : ModuleRules
                 "MainFrame",
                 "SourceControl",
 				"SourceControlWindows",
-                "RawMesh",
+                "MeshDescription",
                 "LandscapeEditor",
                 "FoliageEdit",
                 "ImageWrapper",

@@ -27,7 +27,7 @@ public class MeshPaint : ModuleRules
 				"SlateCore",
                 "EditorStyle",
                 "UnrealEd",
-                "RawMesh",
+                "MeshDescription",
                 "SourceControl",
                 "ViewportInteraction",
                 "VREditor",

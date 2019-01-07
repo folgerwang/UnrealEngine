@@ -23,8 +23,6 @@
 #include "Animation/WidgetMaterialTrackEditor.h"
 #include "Animation/MovieSceneSequenceEditor_WidgetAnimation.h"
 #include "IUMGModule.h"
-#include "ComponentReregisterContext.h"
-#include "Components/WidgetComponent.h"
 #include "Designer/DesignerCommands.h"
 
 #include "ClassIconFinder.h"
@@ -42,14 +40,12 @@
 
 const FName UMGEditorAppIdentifier = FName(TEXT("UMGEditorApp"));
 
-class FUMGEditorModule : public IUMGEditorModule, public IBlueprintCompiler, public FGCObject
+class FUMGEditorModule : public IUMGEditorModule, public FGCObject
 {
 public:
 	/** Constructor, set up console commands and variables **/
 	FUMGEditorModule()
-		: ReRegister(nullptr)
-		, CompileCount(0)
-		, Settings(nullptr)
+		: Settings(nullptr)
 	{
 	}
 
@@ -68,7 +64,7 @@ public:
 
 		// Register widget blueprint compiler we do this no matter what.
 		IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
-		KismetCompilerModule.GetCompilers().Add(this);
+		KismetCompilerModule.GetCompilers().Add(&WidgetBlueprintCompiler);
 
 		// Register asset types
 		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
@@ -96,6 +92,9 @@ public:
 	{
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
+
+		IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
+		KismetCompilerModule.GetCompilers().Remove(&WidgetBlueprintCompiler);
 
 		// Unregister all the asset types that we registered
 		if ( FModuleManager::Get().IsModuleLoaded("AssetTools") )
@@ -129,61 +128,6 @@ public:
 		//	SettingsModule->UnregisterSettings("Editor", "ContentEditors", "WidgetDesigner");
 		//	SettingsModule->UnregisterSettings("Project", "Editor", "UMGEditor");
 		//}
-	}
-
-	bool CanCompile(const UBlueprint* Blueprint) override
-	{
-		return Cast<UWidgetBlueprint>(Blueprint) != nullptr;
-	}
-
-	void PreCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override
-	{
-		if ( ReRegister == nullptr 
-			&& CanCompile(Blueprint) 
-			&& (CompileOptions.CompileType == EKismetCompileType::Full || CompileOptions.CompileType == EKismetCompileType::Cpp))
-		{
-			ReRegister = new TComponentReregisterContext<UWidgetComponent>();
-		}
-
-		CompileCount++;
-	}
-
-	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override
-	{
-		if ( UWidgetBlueprint* WidgetBlueprint = CastChecked<UWidgetBlueprint>(Blueprint) )
-		{
-			FWidgetBlueprintCompiler Compiler(WidgetBlueprint, Results, CompileOptions, ObjLoaded);
-			Compiler.Compile();
-			check(Compiler.NewClass);
-		}
-	}
-
-	void PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override
-	{
-		CompileCount--;
-
-		if ( CompileCount == 0 && ReRegister )
-		{
-			delete ReRegister;
-			ReRegister = nullptr;
-
-			if ( GIsEditor && GEditor )
-			{
-				GEditor->RedrawAllViewports(true);
-			}
-		}
-	}
-
-	bool GetBlueprintTypesForClass(UClass* ParentClass, UClass*& OutBlueprintClass, UClass*& OutBlueprintGeneratedClass) const override
-	{
-		if ( ParentClass == UUserWidget::StaticClass() || ParentClass->IsChildOf(UUserWidget::StaticClass()) )
-		{
-			OutBlueprintClass = UWidgetBlueprint::StaticClass();
-			OutBlueprintGeneratedClass = UWidgetBlueprintGeneratedClass::StaticClass();
-			return true;
-		}
-
-		return false;
 	}
 
 	/** Gets the extensibility managers for outside entities to extend gui page editor's menus and toolbars */
@@ -226,6 +170,11 @@ public:
 		}
 	}
 
+	virtual FWidgetBlueprintCompiler* GetRegisteredCompiler() override
+	{
+		return &WidgetBlueprintCompiler;
+	}
+
 private:
 	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)
 	{
@@ -245,16 +194,10 @@ private:
 	/** All created asset type actions.  Cached here so that we can unregister it during shutdown. */
 	TArray< TSharedPtr<IAssetTypeActions> > CreatedAssetTypeActions;
 
-	/** The temporary variable that captures and reinstances components after compiling finishes. */
-	TComponentReregisterContext<UWidgetComponent>* ReRegister;
-
-	/**
-	 * The current count on the number of compiles that have occurred.  We don't want to re-register components until all
-	 * compiling has stopped.
-	 */
-	int32 CompileCount;
-
 	USequencerSettings* Settings;
+
+	/** Compiler customization for Widgets */
+	FWidgetBlueprintCompiler WidgetBlueprintCompiler;
 };
 
 IMPLEMENT_MODULE(FUMGEditorModule, UMGEditor);

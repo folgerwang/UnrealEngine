@@ -684,6 +684,12 @@ private:
 	/** Check whether we should display the full toolbar or not */
 	bool ShouldShowFullToolbar() const { return bShowFullToolbar; }
 
+	/** Handle any level viewport changes on entering PIE or simulate */
+	void TransitionToPIE(bool bIsSimulating);
+
+	/** Handle any level viewport changes on leaving PIE or simulate */
+	void TransitionFromPIE(bool bIsSimulating);
+
 private:
 	/** Tab which this viewport is located in */
 	TWeakPtr<class FLevelViewportLayout> ParentLayout;

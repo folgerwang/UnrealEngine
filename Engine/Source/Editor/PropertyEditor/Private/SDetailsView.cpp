@@ -197,20 +197,21 @@ void SDetailsView::Construct(const FArguments& InArgs)
 		[
 			SNew(SOverlay)
 			+SOverlay::Slot()
-			.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
 			[
 				SNew(SImage)
 				.Image(FEditorStyle::GetBrush("Searching.SearchActiveTab"))
 				.Visibility_Lambda([&](){ return this->bHasActiveFilter ? EVisibility::Visible : EVisibility::Collapsed; })
 			]
 			+SOverlay::Slot()
-			.Padding(4.0f, 2.0f)
+			.Padding(2.f, 2.0f, 4.f, 2.f)
 			.VAlign( VAlign_Center )
 			[
 				// Create the search box
 				SAssignNew(SearchBox, SSearchBox)
 				.HintText(LOCTEXT("SearchDetailsHint", "Search Details"))
 				.OnTextChanged(this, &SDetailsView::OnFilterTextChanged)
+				.OnTextCommitted(this, &SDetailsView::OnFilterTextCommitted)
 				.AddMetaData<FTagMetaData>(TEXT("Details.Search"))
 			]
 		];
