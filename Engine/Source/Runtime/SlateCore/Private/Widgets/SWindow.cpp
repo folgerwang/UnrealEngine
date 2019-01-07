@@ -2026,6 +2026,14 @@ void SWindow::EndFullWindowOverlayTransition()
 	bShouldShowWindowContentDuringOverlay = false;
 }
 
+void SWindow::SetNativeWindowButtonsVisibility(bool bVisible)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetNativeWindowButtonsVisibility(bVisible);
+	}
+}
+
 EVisibility SWindow::GetWindowContentVisibility() const
 {
 	// The content of the window should be visible unless we have a full window overlay content

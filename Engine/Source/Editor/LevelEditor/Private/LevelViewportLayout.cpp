@@ -415,6 +415,7 @@ void FLevelViewportLayout::MaximizeViewport( FName ViewportToMaximize, const boo
 			if( bWasImmersive && !bIsImmersive )
 			{
 				OwnerWindow->BeginFullWindowOverlayTransition();
+				OwnerWindow->SetNativeWindowButtonsVisibility(true);
 			}
 		}
 		else
@@ -653,6 +654,7 @@ void FLevelViewportLayout::FinishMaximizeTransition()
 			TSharedPtr< SWindow > OwnerWindow( CachedOwnerWindow.Pin() );
 			if( OwnerWindow.IsValid() )
 			{
+				OwnerWindow->SetNativeWindowButtonsVisibility(false);
 				OwnerWindow->EndFullWindowOverlayTransition();
 			}
 

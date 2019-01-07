@@ -565,6 +565,9 @@ public:
 	 */
 	bool HasFullWindowOverlayContent() const;
 
+	/** Shows or hides native window buttons on platforms that use them */
+	void SetNativeWindowButtonsVisibility(bool bVisible);
+
 	/** @return should this window show up in the taskbar */
 	bool AppearsInTaskbar() const;
 

@@ -75,6 +75,8 @@ public:
 
 	virtual float GetDPIScaleFactor() const override;
 
+	virtual void SetNativeWindowButtonsVisibility(bool bVisible);
+
 	bool IsRegularWindow() const;
 
 	int32 PositionX;
