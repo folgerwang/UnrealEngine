@@ -150,8 +150,7 @@ public:
 						SNew(SHorizontalBox)
 
 						+SHorizontalBox::Slot()
-							.AutoWidth()
-							.MaxWidth(450.0f)
+							.FillWidth(1)
 							.HAlign(HAlign_Fill)
 							.VAlign(VAlign_Center)
 							.Padding(2.0f)
@@ -163,7 +162,6 @@ public:
 									.InitiallySelectedItem(SelectBuildInfo->SelectedEngineInstallationInfo)
 									[
 										SNew(STextBlock)
-											.MinDesiredWidth(425.0f)
 											.Text(this, &SSelectBuildDialog::GetSelectedEngineInstallDescription)
 									]
 							]
