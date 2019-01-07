@@ -333,7 +333,7 @@ public:
 	ENGINE_API const FReflectionCaptureMapBuildData* GetReflectionCaptureBuildData(FGuid CaptureId) const;
 	ENGINE_API FReflectionCaptureMapBuildData* GetReflectionCaptureBuildData(FGuid CaptureId);
 
-	ENGINE_API void InvalidateStaticLighting(UWorld* World, const TSet<FGuid>* ResourcesToKeep = nullptr);
+	ENGINE_API void InvalidateStaticLighting(UWorld* World, bool bRecreateRenderState = true, const TSet<FGuid>* ResourcesToKeep = nullptr);
 	ENGINE_API void InvalidateReflectionCaptures(const TSet<FGuid>* ResourcesToKeep = nullptr);
 
 	ENGINE_API bool IsLegacyBuildData() const;

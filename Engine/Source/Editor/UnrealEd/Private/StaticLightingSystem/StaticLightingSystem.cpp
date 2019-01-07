@@ -760,6 +760,7 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 void FStaticLightingSystem::InvalidateStaticLighting()
 {
 	FLightmassStatistics::FScopedGather InvalidationScopeStat(LightmassStatistics.InvalidationTime);
+	FGlobalComponentRecreateRenderStateContext Context;
 
 	for( int32 LevelIndex=0; LevelIndex<World->GetNumLevels(); LevelIndex++ )
 	{
@@ -781,7 +782,7 @@ void FStaticLightingSystem::InvalidateStaticLighting()
 
 				if (Level->MapBuildData)
 				{
-					Level->MapBuildData->InvalidateStaticLighting(World, &BuildDataResourcesToKeep);
+					Level->MapBuildData->InvalidateStaticLighting(World, false, &BuildDataResourcesToKeep);
 				}
 			}
 			if (Level == World->PersistentLevel)

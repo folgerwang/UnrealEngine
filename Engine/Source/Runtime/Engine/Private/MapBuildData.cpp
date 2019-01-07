@@ -610,12 +610,18 @@ FReflectionCaptureMapBuildData* UMapBuildDataRegistry::GetReflectionCaptureBuild
 	return ReflectionCaptureBuildData.Find(CaptureId);
 }
 
-void UMapBuildDataRegistry::InvalidateStaticLighting(UWorld* World, const TSet<FGuid>* ResourcesToKeep)
+void UMapBuildDataRegistry::InvalidateStaticLighting(UWorld* World, bool bRecreateRenderState, const TSet<FGuid>* ResourcesToKeep)
 {
+	TUniquePtr<FGlobalComponentRecreateRenderStateContext> RecreateContext;
+
+	if (bRecreateRenderState)
+	{
+		// Warning: if skipping this, caller is responsible for unregistering any components potentially referencing this UMapBuildDataRegistry before we change its contents!
+		RecreateContext = TUniquePtr<FGlobalComponentRecreateRenderStateContext>(new FGlobalComponentRecreateRenderStateContext);
+	}
+
 	if (MeshBuildData.Num() > 0 || LightBuildData.Num() > 0)
 	{
-		FGlobalComponentRecreateRenderStateContext Context;
-
 		if (!ResourcesToKeep || !ResourcesToKeep->Num())
 		{
 			MeshBuildData.Empty();
@@ -671,7 +677,7 @@ void UMapBuildDataRegistry::InvalidateReflectionCaptures(const TSet<FGuid>* Reso
 {
 	if (ReflectionCaptureBuildData.Num() > 0)
 	{
-		FGlobalComponentRecreateRenderStateContext Context;
+		// Warning: caller is responsible for unregistering any components potentially referencing this UMapBuildDataRegistry before we change its contents!
 
 		TMap<FGuid, FReflectionCaptureMapBuildData> PrevReflectionCapturedData;
 		FMemory::Memswap(&ReflectionCaptureBuildData , &PrevReflectionCapturedData, sizeof(ReflectionCaptureBuildData));

@@ -3950,19 +3950,23 @@ void UEditorEngine::BuildReflectionCaptures(UWorld* World)
 		}
 	}
 
-	for (ULevel* Level : World->GetLevels())
 	{
-		if (Level->bIsVisible)
-		{
-			if (Level->MapBuildData)
-			{
-				// Remove all existing reflection capture data from visible levels before the build
-				Level->MapBuildData->InvalidateReflectionCaptures(Level->bIsLightingScenario ? &ResourcesToKeep : nullptr);
-			}
+		FGlobalComponentRecreateRenderStateContext Context;
 
-			if (Level->bIsLightingScenario)
+		for (ULevel* Level : World->GetLevels())
+		{
+			if (Level->bIsVisible)
 			{
-				LightingScenarios.Add(Level);
+				if (Level->MapBuildData)
+				{
+					// Remove all existing reflection capture data from visible levels before the build
+					Level->MapBuildData->InvalidateReflectionCaptures(Level->bIsLightingScenario ? &ResourcesToKeep : nullptr);
+				}
+
+				if (Level->bIsLightingScenario)
+				{
+					LightingScenarios.Add(Level);
+				}
 			}
 		}
 	}
