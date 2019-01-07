@@ -20,17 +20,40 @@ PostProcessTemporalAA.usf: Temporal AA
 #define TILE_PIXEL_SIZE 8
 
 
-#define CONFIG_SIGNAL_INPUT_LAYOUT \
-	SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+#if DIM_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_SIGNAL_INPUT_LAYOUT \
+		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
 
-#define CONFIG_SIGNAL_OUTPUT_LAYOUT \
-	SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
+	#define CONFIG_SIGNAL_OUTPUT_LAYOUT \
+		SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
 
-#define CONFIG_SIGNAL_PROCESSING \
-	SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_SIGNAL_PROCESSING \
+		SIGNAL_PROCESSING_PENUMBRA
 
-#define CONFIG_SAMPLE_SET \
-	SAMPLE_SET_3X3
+	#define CONFIG_SAMPLE_SET \
+		SAMPLE_SET_3X3
+
+
+#elif DIM_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+	#define CONFIG_SIGNAL_INPUT_LAYOUT \
+		SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
+
+	#define CONFIG_SIGNAL_OUTPUT_LAYOUT \
+		SIGNAL_BUFFER_LAYOUT_REFLECTIONS_OUTPUT
+
+	#define CONFIG_SIGNAL_PROCESSING \
+		SIGNAL_PROCESSING_REFLECTIONS
+
+	#define CONFIG_SAMPLE_SET \
+		SAMPLE_SET_3X3
+
+
+#else
+	#error Unknown signal processing.
+#endif
+
+
+//------------------------------------------------------- CONFIGS
 
 #include "SSDSignalInterface.ush"
 
@@ -122,6 +145,9 @@ void MainCS(
 			CurrentSceneMetadata,
 			NeighborSceneMetadata);
 
+		// Multiple importance sampling weights.
+		float MISWeight = GetMultiImportanceSamplingWeight(CurrentSceneMetadata, NeighborSceneMetadata, NeighborSample);
+
 		// Compute the weight of the sample in the kernel.
 		#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3
 			float KernelWeight = 1;
@@ -137,7 +163,7 @@ void MainCS(
 		#endif
 
 		// Compute the final weight of that sample.
-		float FinalWeight = BilateralWeight * KernelWeight;
+		float FinalWeight = BilateralWeight * MISWeight * KernelWeight;
 		
 		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
 	}

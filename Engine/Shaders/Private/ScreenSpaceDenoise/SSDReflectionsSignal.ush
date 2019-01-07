@@ -1,0 +1,85 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+
+#include "SSDCommon.ush"
+#include "SSDSignalCore.ush"
+
+
+
+/** COmpute the weight of the bilateral filter to use between a reference sample and a neighbor. */
+float ComputeBilateralWeight(
+	float MaxWorldBluringDistance,
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos NeighborSceneMetadata)
+{
+	// TODO: duplicated code.
+	if (DEBUG_DISABLE_BILATERAL)
+	{
+		return 1;
+	}
+	
+	float WorldBilateralWeight;
+	{
+		const float WorldRadius = MaxWorldBluringDistance;
+
+		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
+
+		float RefAnisotropyInvFactor = ComputeAnisotropyInvFactor(RefSceneMetadata);
+
+		float3 CameraToRef = View.ViewForward;
+
+		float Z = dot(CameraToRef, V);
+		float XY = length2(V - CameraToRef * Z * (1 - RefAnisotropyInvFactor));
+
+		float DistSquare = XY;
+
+		float Multiplier = rcp(WorldRadius * WorldRadius);
+
+		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
+	}
+
+	return WorldBilateralWeight;
+}
+
+float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
+{
+	// Not implemented.
+	return WORLD_RADIUS_INVALID;
+}
+
+FSSFSignalSample GetConstantSignalSample(uint TileMode)
+{
+	FSSFSignalSample OutputSample = CreateSignalSample();
+	if (TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		OutputSample.AccumulatedSampleCount = 0.0;
+		OutputSample.LeavingRayCount = 0.0;
+	}
+	return OutputSample;
+}
+
+// Returns the penumbra of this sample, or 1 if invalid.
+float GetSamplePenumbraSafe(FSSFSignalSample Sample)
+{
+	return (Sample.AccumulatedSampleCount > 0 ? Sample.LeavingRayCount / Sample.AccumulatedSampleCount : 1);
+}
+
+// Get penumbra, but be aware of NaN.
+float GetSamplePenumbra(FSSFSignalSample Sample)
+{
+	if (1) // TODO: For debugging purpose of division by 0.
+	{
+		return GetSamplePenumbraSafe(Sample);
+	}
+	return Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
+}
+
+float GetMultiImportanceSamplingWeight(
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos SampleSceneMetadata,
+	FSSFSignalSample Sample)
+{
+	return 1.0;
+}

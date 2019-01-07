@@ -57,6 +57,20 @@ static bool IsSupportedLightType(ELightComponentType LightType)
 namespace
 {
 
+/** Different signals to denoise. */
+enum class ESignalProcessing
+{
+	Penumbra,
+	Reflections,
+
+	MAX,
+};
+
+
+class FSignalProcessingDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_SIGNAL_PROCESSING", ESignalProcessing);
+
+
+/** Base class for a screen space denoising shader. */
 class FScreenSpaceDenoisingShader : public FGlobalShader
 {
 public:
@@ -176,7 +190,23 @@ class FSSDTemporalAccumulationCS : public FScreenSpaceDenoisingShader
 
 	class FIsMip0Dim : SHADER_PERMUTATION_BOOL("DIM_IS_MIP_0");
 
-	using FPermutationDomain = TShaderPermutationDomain<FIsMip0Dim>;
+	using FPermutationDomain = TShaderPermutationDomain<
+		FIsMip0Dim,
+		FSignalProcessingDim>;
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		// Reflections are only processed at mip 0.
+		if (PermutationVector.Get<FSignalProcessingDim>() == ESignalProcessing::Reflections && 
+			!PermutationVector.Get<FIsMip0Dim>())
+		{
+			return false;
+		}
+
+		return FScreenSpaceDenoisingShader::ShouldCompilePermutation(Parameters);
+	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(uint32, iMipLevel)
@@ -443,6 +473,7 @@ static void DenoiseShadowPenumbra(
 		{
 			FSSDTemporalAccumulationCS::FPermutationDomain PermutationVector;
 			PermutationVector.Set<FSSDTemporalAccumulationCS::FIsMip0Dim>(MipLevel == 0);
+			PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Penumbra);
 
 			TShaderMapRef<FSSDTemporalAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 
@@ -536,7 +567,98 @@ static void DenoiseShadowPenumbra(
 	#endif // SSD_DEBUG_PASS
 
 	*OutPenumbraMask = OutputSignal;
-}
+} // DenoiseShadowPenumbra()
+
+
+IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
+	FRDGBuilder& GraphBuilder,
+	const FViewInfo& View,
+	const FSceneViewFamilyBlackboard& SceneBlackboard,
+	const IScreenSpaceDenoiser::FReflectionInputs& ReflectionInputs)
+{
+	const FIntPoint DenoiseResolution = View.ViewRect.Size();
+
+	// Descriptor to allocate internal denoising buffer.
+	FRDGTextureDesc SignalProcessingDesc = ReflectionInputs.Color->Desc;
+	SignalProcessingDesc.Format = PF_FloatRGBA;
+	SignalProcessingDesc.NumMips = 1;
+
+	// Setup common shader parameters.
+	FSSDCommonParameters CommonParameters;
+	{
+		CommonParameters.SceneBlackboard = SceneBlackboard;
+		CommonParameters.ViewUniformBuffer = View.ViewUniformBuffer;
+	}
+
+	FScreenSpaceFilteringHistory PrevFrameHistory;
+	if (!View.bCameraCut)
+	{
+		PrevFrameHistory = View.PrevViewInfo.ReflectionsHistory;
+	}
+
+	FRDGTextureRef SignalHistory0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
+	FRDGTextureRef SignalHistory1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
+
+	{
+		const int32 MipLevel = 0;
+
+		FSSDTemporalAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSSDTemporalAccumulationCS::FIsMip0Dim>(MipLevel == 0);
+		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
+
+		TShaderMapRef<FSSDTemporalAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
+
+		FSSDTemporalAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalAccumulationCS::FParameters>();
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->iMipLevel = MipLevel;
+		PassParameters->iMipLevelPow2 = (1 << MipLevel);
+		PassParameters->MipLevel = MipLevel;
+		PassParameters->MipLevelPow2 = (1 << MipLevel);
+		PassParameters->InvMipLevelPow2 = 1.0f / PassParameters->MipLevelPow2;
+		PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
+		PassParameters->SignalInput0 = ReflectionInputs.Color;
+		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
+
+		PassParameters->PrevScreenToTranslatedWorld = View.PrevViewInfo.ViewMatrices.GetInvTranslatedViewProjectionMatrix();
+		PassParameters->PrevHistory0 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[0], GSystemTextures.BlackDummy);
+		PassParameters->PrevHistory1 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[1], GSystemTextures.BlackDummy);
+		PassParameters->PrevTileClassificationTexture = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.TileClassification, GSystemTextures.BlackDummy);
+		PassParameters->PrevDepthBuffer = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.DepthBuffer, GSystemTextures.BlackDummy);
+		PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
+
+		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory0, MipLevel));
+		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory1, MipLevel));
+
+		FIntPoint Resolution = FIntPoint::DivideAndRoundUp(DenoiseResolution, 1 << MipLevel);
+
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD TemporalAccumulation(Mip=%d)", MipLevel),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(Resolution, FComputeShaderUtils::kGolden2DGroupSize));
+	}
+
+	if (View.ViewState)
+	{
+		// Keep depth buffer and GBufferA around for next frame.
+		{
+			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneDepthBuffer, &View.ViewState->PendingPrevFrameViewInfo.DepthBuffer);
+			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferA, &View.ViewState->PendingPrevFrameViewInfo.GBufferA);
+		}
+
+		// Saves history.
+		{
+			FScreenSpaceFilteringHistory& NewHistory = View.ViewState->PendingPrevFrameViewInfo.ReflectionsHistory;
+			GraphBuilder.QueueTextureExtraction(SignalHistory0, &NewHistory.RT[0]);
+			GraphBuilder.QueueTextureExtraction(SignalHistory1, &NewHistory.RT[1]);
+		}
+	}
+
+	IScreenSpaceDenoiser::FReflectionOutputs Outputs;
+	Outputs.Color = SignalHistory0; // TODO.
+	return Outputs;
+} // DenoiseReflections()
 
 
 /** The implementation of the default denoiser of the renderer. */
@@ -606,12 +728,10 @@ public:
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
 		const FReflectionInputs& ReflectionInputs) const override
 	{
-		FReflectionOutputs Outputs;
-		Outputs.Color = ReflectionInputs.Color; // TODO.
-		return Outputs;
+		return ::DenoiseReflections(GraphBuilder, View, SceneBlackboard, ReflectionInputs);
 	}
 
-}; // FDefaultScreenSpaceDenoiser
+}; // class FDefaultScreenSpaceDenoiser
 
 
 // static

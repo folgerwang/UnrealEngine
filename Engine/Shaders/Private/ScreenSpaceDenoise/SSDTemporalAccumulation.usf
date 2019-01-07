@@ -13,21 +13,60 @@
 
 #define TILE_PIXEL_SIZE 8
 
-// TODO: Do SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL that does not store certainty for the history.
-#define CONFIG_SIGNAL_INPUT_LAYOUT\
-	SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
-#define CONFIG_SIGNAL_HISTORY_LAYOUT \
-	SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
-#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT \
-	SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
 
-#define CONFIG_SIGNAL_PROCESSING \
-	SIGNAL_PROCESSING_PENUMBRA
+#define CONFIG_SIGNAL_PROCESSING DIM_SIGNAL_PROCESSING
+
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_INPUT_TILE_CLASSIFICATION 1
+	#define CONFIG_USE_TILE_CLASSIFICATION 1
+	#define CONFIG_USE_REJECTION_BUFFER (DIM_IS_MIP_0 == 1)
+
+	// Uses a larger kernel when brute forcing to increase the speed of convergence by bluring more spatially.
+	#define CONFIG_LARGE_HISTORY_KERNEL 1
+
+	// TODO: Do SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL that does not store certainty for the history.
+	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+
+	#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
+	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+
+	#define CONFIG_HISTORY_REJECTION 0
+
+#else
+	#error Unimplemented signal processing.
+#endif
 
 #include "SSDSignalInterface.ush"
 
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
+
+/** Whether this pass make use of a tile classification. */
+#ifndef CONFIG_USE_TILE_CLASSIFICATION
+	#define CONFIG_USE_TILE_CLASSIFICATION 0
+#endif
+
+/** Whether this pass uses custom rejection buffer. */
+#ifndef CONFIG_USE_REJECTION_BUFFER
+	#define CONFIG_USE_REJECTION_BUFFER 0
+	#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT CONFIG_SIGNAL_INPUT_LAYOUT
+#endif
+
+/** Whether this pass as a tile classified input. */
+#ifndef CONFIG_INPUT_TILE_CLASSIFICATION
+	#define CONFIG_INPUT_TILE_CLASSIFICATION 0
+#endif
+
+/** Uses a kernel that is larger to sample the history. */
+#ifndef CONFIG_LARGE_HISTORY_KERNEL
+	#define CONFIG_LARGE_HISTORY_KERNEL 0
+#endif
+
 
 //------------------------------------------------------- CONFIG ENABLED DEFAULTS
 
@@ -36,6 +75,10 @@
 	#define CONFIG_CERTAINTY_BASED_REJECTION 1
 #endif
 
+/** Whether should do history rejection. */
+#ifndef CONFIG_HISTORY_REJECTION
+	#define CONFIG_HISTORY_REJECTION 1
+#endif
 
 
 //------------------------------------------------------- MENDATORY CONFIG
@@ -171,7 +214,7 @@ void TemporallyAccumulate(
 				MipLevelPow2, rcp(MipLevelPow2));
 
 			// Number of sample to use.
-			const bool bUseLargerTAAKernel = bBruteForce && 1;
+			const bool bUseLargerTAAKernel = bBruteForce && (CONFIG_HISTORY_REJECTION != 0);
 			const uint SampleCount = bUseLargerTAAKernel ? 16 : 4;
 
 			// Disabled because it is useful to count the sample we add together when brute forcing,
@@ -235,6 +278,8 @@ void TemporallyAccumulate(
 
 				// Sample history.
 				FSSFSignalSample HistorySample = GetConstantSignalSample(TILE_MODE_FULLY_INVALID);
+
+				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
 				if (bBruteForce)
 				{
 					BRANCH
@@ -383,6 +428,16 @@ void TemporallyAccumulate(
 						HistorySample = Mul(GetConstantSignalSample(HistoryTileInfos.TileMode), MipLevelPow2 * MipLevelPow2);
 					}
 				} // if (!bBruteForce)
+				#else // CONFIG_SIGNAL_PROCESSING != SIGNAL_PROCESSING_PENUMBRA
+				{
+					HistorySample = SampleInputSignal(
+						PrevHistory0, PrevHistory1,
+						GlobalPointClampedSampler,
+						CONFIG_SIGNAL_HISTORY_LAYOUT,
+						SampleHistoryBufferUV,
+						/* MipLevel = */ 0);
+				}
+				#endif
 
 				if (HistorySample.AccumulatedSampleCount > 0)
 				{
@@ -436,28 +491,19 @@ void TemporallyAccumulate(
 
 	if (!bPostRejectionBlending)
 	{
-		// CurrentFrameWeight = 0 can be 0 in the case where no valid input was given, because shooting ray at grazing angles
-		// geometry, and may be discarded.
-		float CurrentFrameWeight = CurrentFrame.AccumulatedSampleCount;
-		float PreviousFrameWeight = min(HistorySample.AccumulatedSampleCount, TargetedSampleCount - CurrentFrameWeight);
+		float PreviousFrameWeight = min(HistorySample.AccumulatedSampleCount, TargetedSampleCount - CurrentFrame.AccumulatedSampleCount);
+		float PreviousFrameMultiplier = HistorySample.AccumulatedSampleCount > 0 ? PreviousFrameWeight / HistorySample.AccumulatedSampleCount : 0;
 
-		float FinalLerpFactor = CurrentFrameWeight / (CurrentFrameWeight + PreviousFrameWeight);
-
-		FSSFSignalSample Final = CreateSignalSample();
-		Final.AccumulatedSampleCount = CurrentFrameWeight + PreviousFrameWeight;
-		Final.LeavingRayCount = Final.AccumulatedSampleCount * lerp(
-			GetSamplePenumbraSafe(HistorySample),
-			GetSamplePenumbraSafe(CurrentFrame), FinalLerpFactor);
-
-		HistorySample = Final;
+		HistorySample = Add(Mul(PreviousFrame, PreviousFrameMultiplier), CurrentFrame);
 	}
 
 	// History rejection.
+	#if CONFIG_HISTORY_REJECTION
 	BRANCH
 	if (HistorySample.AccumulatedSampleCount > 0 && 1 || 1)
 	{
 		// Whether the history is rejected using rejection history signal.
-		const bool bUsesHistoryRejectionSignal = DIM_IS_MIP_0;
+		const bool bUsesHistoryRejectionSignal = CONFIG_USE_REJECTION_BUFFER;
 
 		// Compile time size of the neighborhood to look for.
 		int NeighborSize = 2; // TODO: based on anisotropy.
@@ -500,8 +546,13 @@ void TemporallyAccumulate(
 				}
 			}
 
-			// TODO: unless being lowest mip level, can reduce this to a gather4.
-			FSSFTileInfos SampleTileInfos = LoadTileInfos(uint2(floor(SampleBufferUV * View.BufferSizeAndInvSize.xy)) / 8);
+			FSSFTileInfos SampleTileInfos;
+			#if CONFIG_INPUT_TILE_CLASSIFICATION
+				// TODO: unless being lowest mip level, can reduce this to a gather4.
+				SampleTileInfos = LoadTileInfos(uint2(floor(SampleBufferUV * View.BufferSizeAndInvSize.xy)) / 8);
+			#else // !CONFIG_INPUT_TILE_CLASSIFICATION
+				SampleTileInfos = CreateTileInfos();
+			#endif
 
 			float NeighborPenumbra = -1;
 			float NeighborUncertainty = 1.0;
@@ -538,7 +589,7 @@ void TemporallyAccumulate(
 				}
 
 				FLATTEN
-				if (bUseSample)
+				if (bUseSample || !CONFIG_INPUT_TILE_CLASSIFICATION)
 				{
 					float2 SampleViewportUV = BufferUVToViewportUV(SampleBufferUV);
 					float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
@@ -601,24 +652,15 @@ void TemporallyAccumulate(
 		HistorySample.AccumulatedSampleCount -= RejectedSampleCount;
 		HistorySample.LeavingRayCount = HistorySample.AccumulatedSampleCount * NewHistoryPenumbra;
 	}
+	#endif // CONFIG_HISTORY_REJECTION
 	
 	// Evaluate the final sample to output.
 	if (bPostRejectionBlending)
 	{
-		// CurrentFrameWeight = 0 can be 0 in the case where no valid input was given, because shooting ray at grazing angles
-		// geometry, and may be discarded.
-		float CurrentFrameWeight = CurrentFrame.AccumulatedSampleCount;
-		float PreviousFrameWeight = min(HistorySample.AccumulatedSampleCount, TargetedSampleCount - CurrentFrameWeight);
+		float PreviousFrameWeight = min(HistorySample.AccumulatedSampleCount, TargetedSampleCount - CurrentFrame.AccumulatedSampleCount);
+		float PreviousFrameMultiplier = HistorySample.AccumulatedSampleCount > 0 ? PreviousFrameWeight / HistorySample.AccumulatedSampleCount : 0;
 
-		float FinalLerpFactor = CurrentFrameWeight / (CurrentFrameWeight + PreviousFrameWeight);
-
-		FSSFSignalSample Final = CreateSignalSample();
-		Final.AccumulatedSampleCount = CurrentFrameWeight + PreviousFrameWeight;
-		Final.LeavingRayCount = Final.AccumulatedSampleCount * lerp(
-			GetSamplePenumbraSafe(HistorySample),
-			GetSamplePenumbraSafe(CurrentFrame), FinalLerpFactor);
-
-		HistorySample = Final;
+		HistorySample = Add(Mul(PreviousFrame, PreviousFrameMultiplier), CurrentFrame);
 	}
 
 	if (all(DispatchThreadId < uint2(View.ViewSizeAndInvSize.xy)))
@@ -636,6 +678,7 @@ void MainCS(
 	uint2 GroupId : SV_GroupID,
 	uint2 GroupThreadId : SV_GroupThreadID,
 	uint GroupThreadIndex : SV_GroupIndex)
+#if CONFIG_USE_TILE_CLASSIFICATION
 {
 	// TODO: tile classification.
 	FSSFTileInfos TileInfos = LoadTileInfos((iMipLevelPow2 * DispatchThreadId) / TILE_PIXEL_SIZE);
@@ -684,3 +727,12 @@ void MainCS(
 		#endif
 	}
 }
+#else // !CONFIG_USE_TILE_CLASSIFICATION
+{
+	FSSFTileInfos TileInfos = CreateTileInfos();
+	TemporallyAccumulate(
+		DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex,
+		TileInfos,
+		/* bBruteForce = */ true);
+}
+#endif // !CONFIG_USE_TILE_CLASSIFICATION

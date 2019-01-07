@@ -858,8 +858,8 @@ struct FPreviousViewInfo
 	// input post process material.
 	TRefCountPtr<IPooledRenderTarget> CustomSSRInput;
 
-	// History scene color
-	FScreenSpaceFilteringHistory RayTracedGIHistory;
+	// History for the reflections
+	FScreenSpaceFilteringHistory ReflectionsHistory;
 
 	// History for shadow denoising.
 	TMap<const FLightSceneInfo*, FScreenSpaceFilteringHistory> ShadowHistories;
@@ -874,7 +874,7 @@ struct FPreviousViewInfo
 		DOFPostGatherForegroundHistory.SafeRelease();
 		DOFPostGatherBackgroundHistory.SafeRelease();
 		CustomSSRInput.SafeRelease();
-		RayTracedGIHistory.SafeRelease();
+		ReflectionsHistory.SafeRelease();
 		ShadowHistories.Reset();
 	}
 };

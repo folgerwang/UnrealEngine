@@ -151,3 +151,11 @@ float GetSamplePenumbra(FSSFSignalSample Sample)
 	}
 	return Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
 }
+
+float GetMultiImportanceSamplingWeight(
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos SampleSceneMetadata,
+	FSSFSignalSample Sample)
+{
+	return 1.0;
+}

@@ -21,22 +21,31 @@
 	/** Internal buffer layout used for history rejection for the shadow penumbra. */
 	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION 2
 
-	/** Buffer layout taken as input by */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT 3
+	/** Buffer layout taken as input by */ // TODO: unused, remove it.
+	// #define SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT 3
+
+	/** Buffer layout for the reflection given by the ray generation shader. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT 3
+
+	/** Buffer layout for the reflection output. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY 4
 
 
-/** Defines how the signal is being processed. */
+/** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
 	/** Scene color anti aliasing processing. */
-	#define SIGNAL_PROCESSING_COLORAA 0
+	//#define SIGNAL_PROCESSING_COLORAA 0
 
 	/** Depth of field stabilization processing. */
-	#define SIGNAL_PROCESSING_DOF 1
+	//#define SIGNAL_PROCESSING_DOF 1
 
 	/** Shadow penumbra denoising. */
-	#define SIGNAL_PROCESSING_PENUMBRA 2
+	#define SIGNAL_PROCESSING_PENUMBRA 0
 
 	/** Shadow penumbra denoising. */
-	#define SIGNAL_PROCESSING_DIFUSE_GI 3
+	//#define SIGNAL_PROCESSING_DIFUSE_GI 3
+
+	/** Reflection denoising. */
+	#define SIGNAL_PROCESSING_REFLECTIONS 1
 
 
 //------------------------------------------------------- STRUCTURE
@@ -47,11 +56,8 @@ struct FSSFSignalSample
 	// Number of sample accumulated.
 	float AccumulatedSampleCount;
 
-	// Scene color and alpha for anti aliasing.
+	// Scene color and alpha.
 	float4 SceneColor;
-
-	// The circle of confusion for depth of field.
-	float CocRadius;
 
 	// Shadow denoising specific.
 	float LeavingRayCount;
@@ -64,7 +70,6 @@ FSSFSignalSample CreateSignalSample()
 	FSSFSignalSample OutSample;
 	OutSample.AccumulatedSampleCount = 0;
 	OutSample.SceneColor = 0;
-	OutSample.CocRadius = 0;
 	OutSample.LeavingRayCount = 0;
 	OutSample.PenumbraClosestHit = 0;
 	OutSample.UncertainRayCount = 0;
@@ -108,6 +113,19 @@ FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 Samples
 			OutSample.AccumulatedSampleCount = 1;
 			OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * Samples[0].r; // *(255.0 / 254.0);
 		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
+	{
+		OutSample.AccumulatedSampleCount = 1;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
+		OutSample.SceneColor = Samples[0];
+		OutSample.PenumbraClosestHit = Samples[1].r;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
+	{
+		OutSample.AccumulatedSampleCount = Samples[1].r;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
+		OutSample.SceneColor = OutSample.AccumulatedSampleCount * Samples[0];
 	}
 
 	return OutSample;
@@ -155,9 +173,11 @@ void EncodeOutputSignal(const uint SignalBufferLayout, FSSFSignalSample Sample, 
 
 		OutSamples[0].r = Sample.AccumulatedSampleCount == 0 ? -1 : Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
 	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT)
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{
-		OutSamples[0] = float4(1, 1, 1, 1) * Sample.LeavingRayCount;
+		OutSamples[0] = Sample.SceneColor * (Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
+		OutSamples[1].r = Sample.AccumulatedSampleCount;
+		OutBufferCount = 2;
 	}
 }
 
@@ -190,7 +210,6 @@ FSSFSignalSample Mul(FSSFSignalSample Sample, float Scalar)
 {
 	FSSFSignalSample OutSample;
 	OutSample.SceneColor             = Sample.SceneColor * Scalar;
-	OutSample.CocRadius              = Sample.CocRadius * Scalar;
 	OutSample.AccumulatedSampleCount = Sample.AccumulatedSampleCount * Scalar;
 	OutSample.LeavingRayCount        = Sample.LeavingRayCount * Scalar;
 	OutSample.PenumbraClosestHit     = Sample.PenumbraClosestHit * Scalar;
@@ -201,7 +220,6 @@ FSSFSignalSample Mul(FSSFSignalSample Sample, float Scalar)
 FSSFSignalSample Add(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 {
 	SampleA.SceneColor             += SampleB.SceneColor;
-	SampleA.CocRadius              += SampleB.CocRadius;
 	SampleA.AccumulatedSampleCount += SampleB.AccumulatedSampleCount;
 	SampleA.LeavingRayCount        += SampleB.LeavingRayCount;
 	SampleA.PenumbraClosestHit     += SampleB.PenumbraClosestHit;
@@ -212,7 +230,6 @@ FSSFSignalSample Add(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 FSSFSignalSample Minus(FSSFSignalSample Sample)
 {
 	Sample.SceneColor             = -Sample.SceneColor;
-	Sample.CocRadius              = -Sample.CocRadius;
 	Sample.AccumulatedSampleCount = -Sample.AccumulatedSampleCount;
 	Sample.LeavingRayCount        = -Sample.LeavingRayCount;
 	Sample.PenumbraClosestHit     = -Sample.PenumbraClosestHit;
@@ -229,7 +246,6 @@ FSSFSignalSample Min(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 {
 	FSSFSignalSample OutSample;
 	OutSample.SceneColor = min(SampleA.SceneColor, SampleB.SceneColor);
-	OutSample.CocRadius = min(SampleA.CocRadius, SampleB.CocRadius);
 	OutSample.AccumulatedSampleCount = min(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
 	OutSample.LeavingRayCount = min(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
 	OutSample.PenumbraClosestHit = min(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
@@ -241,7 +257,6 @@ FSSFSignalSample Max(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 {
 	FSSFSignalSample OutSample;
 	OutSample.SceneColor = max(SampleA.SceneColor, SampleB.SceneColor);
-	OutSample.CocRadius = max(SampleA.CocRadius, SampleB.CocRadius);
 	OutSample.AccumulatedSampleCount = max(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
 	OutSample.LeavingRayCount = max(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
 	OutSample.PenumbraClosestHit = max(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
