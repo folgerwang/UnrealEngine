@@ -14,6 +14,7 @@
 
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"
+#include "RectLightSceneProxy.h"
 
 static int32 GRayTracingRectLight = 1;
 static FAutoConsoleVariableRef CVarRayTracingRectLight(
@@ -391,6 +392,7 @@ void FDeferredShadingSceneRenderer::VisualizeRectLightMipTree(
 
 	// PSO definition
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
+	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
 	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
@@ -497,21 +499,11 @@ void FDeferredShadingSceneRenderer::RenderRayTracingRectLightInternal(
 )
 {
 	check(RectLightSceneInfo.Proxy);
+	check(RectLightSceneInfo.Proxy->IsRectLight());
+	FRectLightSceneProxy* RectLightSceneProxy = (FRectLightSceneProxy*) RectLightSceneInfo.Proxy;
 
-	// #dxr_todo: Cache MIP tree build with RectLight
-	FRWBuffer RectLightMipTree;
-	FIntVector RectLightMipTreeDimensions;
- 	BuildRectLightMipTree(RHICmdList, RectLightSceneInfo, RectLightMipTree, RectLightMipTreeDimensions);
-	// Debug: Visualization
-#if 0
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-	{
-		FViewInfo& View = Views[ViewIndex];
-		VisualizeRectLightMipTree(RHICmdList, View, RectLightMipTree, RectLightMipTreeDimensions);
-	}
-#endif
 	FLightShaderParameters LightShaderParameters;
-	RectLightSceneInfo.Proxy->GetLightShaderParameters(LightShaderParameters);
+	RectLightSceneProxy->GetLightShaderParameters(LightShaderParameters);
 
 	FRectLightData RectLightData;
 	RectLightData.SamplesPerPixel = GRayTracingRectLightSamplesPerPixel;
@@ -524,17 +516,17 @@ void FDeferredShadingSceneRenderer::RenderRayTracingRectLightInternal(
 	RectLightData.Color = LightShaderParameters.Color / 2.0;
 
 	// #dxr_todo: Ray traced textured area lights are 1.5X brighter than those in lit mode.
-	if (RectLightSceneInfo.Proxy->HasSourceTexture())
+	if (RectLightSceneProxy->HasSourceTexture())
 	{
 		RectLightData.Color *= 2.0 / 3.0;
 	}
 
 	RectLightData.Width = 2.0f * LightShaderParameters.SourceRadius;
 	RectLightData.Height = 2.0f * LightShaderParameters.SourceLength;
-	RectLightData.MipTreeDimensions = RectLightMipTreeDimensions;
 	RectLightData.Texture = LightShaderParameters.SourceTexture;
 	RectLightData.TextureSampler = RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Border, AM_Border, AM_Border));
-	RectLightData.MipTree = RectLightMipTree.SRV;
+	RectLightData.MipTree = RectLightSceneProxy->RectLightMipTree.SRV;
+	RectLightData.MipTreeDimensions = RectLightSceneProxy->RectLightMipTreeDimensions;
 	FUniformBufferRHIRef RectLightUniformBuffer = RHICreateUniformBuffer(&RectLightData, FRectLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
