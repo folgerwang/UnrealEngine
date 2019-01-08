@@ -12,6 +12,9 @@
 
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h" 
+#include "SAnimationModifierContentBrowserWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "AnimationModifiersModule"
 
@@ -63,6 +66,33 @@ void FAnimationModifiersModule::ShutdownModule()
 	}
 
 	RegisteredApplicationModes.Empty();
+}
+
+void FAnimationModifiersModule::ShowAddAnimationModifierWindow(const TArray<UAnimSequence*>& InSequences)
+{
+	TSharedPtr<SAnimationModifierContentBrowserWindow> WindowContent;
+
+	TSharedRef<SWindow> Window = SNew(SWindow)
+		.Title(LOCTEXT("WindowTitle", "Add Animation Modifier(s)"))
+		.SizingRule(ESizingRule::UserSized)
+		.ClientSize(FVector2D(500, 500));
+
+	Window->SetContent
+	(
+		SAssignNew(WindowContent, SAnimationModifierContentBrowserWindow)
+		.WidgetWindow(Window)
+		.AnimSequences(InSequences)
+	);
+
+	TSharedPtr<SWindow> ParentWindow;
+
+	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+	{
+		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+		ParentWindow = MainFrame.GetParentWindow();
+	}
+
+	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
 }
 
 #undef LOCTEXT_NAMESPACE // "AnimationModifiersModule"
