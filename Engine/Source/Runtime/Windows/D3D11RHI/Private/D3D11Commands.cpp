@@ -1926,27 +1926,41 @@ void FD3D11DynamicRHI::EnableDepthBoundsTest(bool bEnable,float MinDepth,float M
 
 	if (IsRHIDeviceNVIDIA())
 	{
-		auto result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
-		if(result != NVAPI_OK)
+		auto Result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
+		if (Result != NVAPI_OK)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}
 	else if (IsRHIDeviceAMD())
 	{
-		auto result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
-		if(result != AGS_SUCCESS)
+		auto Result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
+		if(Result != AGS_SUCCESS)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("AGS is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}

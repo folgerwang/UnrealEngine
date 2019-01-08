@@ -836,6 +836,7 @@ protected:
 	uint32 HDRDetectedDisplayIndex;
 	uint32 HDRDetectedDisplayIHVIndex;
 
+	bool bRenderDoc = false;
 #if CHECK_SRV_TRANSITIONS
 	/*
 	 * Rendertargets must be explicitly 'resolved' to manage their transition to an SRV on some platforms and DX12

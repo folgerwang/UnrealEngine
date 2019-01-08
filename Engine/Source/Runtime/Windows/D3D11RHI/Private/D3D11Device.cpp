@@ -410,6 +410,8 @@ void FD3D11DynamicRHI::SetupAfterDeviceCreation()
 	{
 		if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
 		{
+			bRenderDoc = true;
+
 			// Running under RenderDoc, so enable capturing mode
 			GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 		}
