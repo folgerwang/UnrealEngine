@@ -434,7 +434,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 				VelocityRT);
 
 			// Draw velocities.
-			SubmitMeshDrawCommandsForView(View, EMeshPass::Velocity, &ParallelCommandListSet, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::Velocity].DispatchDraw(&ParallelCommandListSet, RHICmdList);
 		}
 	}
 }
@@ -461,7 +461,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 
 			SetVelocitiesState(RHICmdList, View, this, DrawRenderState, VelocityRT);
 
-			SubmitMeshDrawCommandsForView(View, EMeshPass::Velocity, nullptr, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::Velocity].DispatchDraw(nullptr, RHICmdList);
 		}
 	}
 }

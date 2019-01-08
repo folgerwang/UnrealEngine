@@ -113,29 +113,27 @@ TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirecti
 	return NullLightParams->UniformBufferRHI;
 }
 
-void FMobileSceneRenderer::SortMeshDrawCommands()
-{
-	// ignoring sort here, mobile needs to sort after shadow init is performed.
-	//SortMobileMeshDrawCommands();
-}
-
-void FMobileSceneRenderer::SortMobileMeshDrawCommands()
+void FMobileSceneRenderer::SortMobileBasePassAfterShadowInit(FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
 {
 	// Sort front to back on all platforms, even HSR benefits from it
 	//const bool bWantsFrontToBackSorting = (GHardwareHiddenSurfaceRemoval == false);
 
-	// compute keys for front to back sorting
+	// compute keys for front to back sorting and dispatch sort.
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
 		FViewInfo& View = Views[ViewIndex];
+		FMeshDrawCommandsPerPass& VisibleCommands = VisibleCommandsPerView[ViewIndex];
 		
-		FMeshCommandOneFrameArray& BasePassVisibleCommands = View.VisibleMeshDrawCommands[EMeshPass::BasePass];
+		FMeshCommandOneFrameArray& BasePassVisibleCommands = VisibleCommands[EMeshPass::BasePass];
 		MobileBasePass::ComputeBasePassSortKeys(*Scene, View, BasePassVisibleCommands);
 
-		UpdateTranslucentMeshSortKeys(Scene, View, ETranslucencyPass::TPT_StandardTranslucency, View.VisibleMeshDrawCommands[EMeshPass::MobileInverseOpacity]);
+		// Run sorting on BasePass, as it's ignored inside FSceneRenderer::SortMeshDrawCommands, so it can be done after shadow init on mobile.
+		if (VisibleCommands[EMeshPass::BasePass].Num() > 0)
+		{
+			FParallelMeshDrawCommandPass& Pass = View.ParallelMeshDrawCommandPasses[EMeshPass::BasePass];
+			Pass.DispatchSortAndMerge(View, Scene->PrimitiveBounds, EMeshPass::BasePass, VisibleCommands[EMeshPass::BasePass]);
+		}
 	}
-
-	FSceneRenderer::SortMeshDrawCommands();
 }
 
 /**
@@ -151,8 +149,11 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	SCOPE_CYCLE_COUNTER(STAT_InitViewsTime);
 
 	FILCUpdatePrimTaskData ILCTaskData;
+	FMeshDrawCommandsPerPassPerView VisibleCommandsPerView;
+	VisibleCommandsPerView.SetNum(Views.Num());
+
 	PreVisibilityFrameSetup(RHICmdList);
-	ComputeViewVisibility(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite);
+	ComputeViewVisibility(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite, VisibleCommandsPerView);
 	PostVisibilityFrameSetup(ILCTaskData);
 
 	const bool bDynamicShadows = ViewFamily.EngineShowFlags.DynamicShadows;
@@ -160,10 +161,10 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	if (bDynamicShadows && !IsSimpleForwardShadingEnabled(ShaderPlatform))
 	{
 		// Setup dynamic shadows.
-		InitDynamicShadows(RHICmdList);		
+		InitDynamicShadows(RHICmdList, VisibleCommandsPerView);
 	}
 
-	SortMobileMeshDrawCommands();
+	SortMobileBasePassAfterShadowInit(VisibleCommandsPerView);
 
 	// if we kicked off ILC update via task, wait and finalize.
 	if (ILCTaskData.TaskRef.IsValid())

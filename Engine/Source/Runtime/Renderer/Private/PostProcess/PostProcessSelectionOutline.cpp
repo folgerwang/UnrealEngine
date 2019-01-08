@@ -109,7 +109,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 			EditorView.ViewUniformBuffer = Scene->UniformBuffers.ViewUniformBuffer;
 
 			// Run selection pass on static elements
-			SubmitMeshDrawCommandsForView(View, EMeshPass::EditorSelection, nullptr, Context.RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::EditorSelection].DispatchDraw(nullptr, Context.RHICmdList);
 
 			// to get an outline around the objects if it's partly outside of the screen
 			{

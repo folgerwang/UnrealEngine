@@ -791,6 +791,16 @@ void FMeshDrawCommand::SubmitDraw(
 	}
 }
 
+void SubmitMeshDrawCommands(
+	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
+	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
+	int32 BasePrimitiveIdsOffset,
+	bool bDynamicInstancing,
+	FRHICommandList& RHICmdList)
+{
+	SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, 0, VisibleMeshDrawCommands.Num(), RHICmdList);
+}
+
 void SubmitMeshDrawCommandsRange(
 	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
@@ -822,7 +832,7 @@ void DrawDynamicMeshPassPrivate(
 		FGlobalDynamicVertexBuffer DynamicVertexBuffer;
 		FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBufferAllocation;
 
-		SortPassMeshDrawCommands(View.GetFeatureLevel(), VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, DynamicVertexBuffer, PrimitiveIdBufferAllocation, false);
+		SortPassMeshDrawCommands(View.GetFeatureLevel(), VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, DynamicVertexBuffer, PrimitiveIdBufferAllocation);
 
 		DynamicVertexBuffer.Commit();
 
@@ -830,110 +840,7 @@ void DrawDynamicMeshPassPrivate(
 		const int32 BasePrimitiveIdsOffset = PrimitiveIdBufferAllocation.VertexOffset;
 		const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
 
-		SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, nullptr, RHICmdList);
-	}
-}
-
-class FDrawVisibleMeshCommandsAnyThreadTask : public FRenderTask
-{
-	FRHICommandList& RHICmdList;
-	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands;
-	FVertexBufferRHIParamRef PrimitiveIdsBuffer;
-	int32 BasePrimitiveIdsOffset;
-	bool bDynamicInstancing;
-	int32 StartIndex;
-	int32 NumMeshDrawCommands;
-
-public:
-
-	FDrawVisibleMeshCommandsAnyThreadTask(
-		FRHICommandList& InRHICmdList,
-		const FMeshCommandOneFrameArray& InVisibleMeshDrawCommands,
-		FVertexBufferRHIParamRef InPrimitiveIdsBuffer,
-		int32 InBasePrimitiveIdsOffset,
-		bool bInDynamicInstancing,
-		int32 InStartIndex,
-		int32 InNumMeshDrawCommands
-		)
-		: RHICmdList(InRHICmdList)
-		, VisibleMeshDrawCommands(InVisibleMeshDrawCommands)
-		, PrimitiveIdsBuffer(InPrimitiveIdsBuffer)
-		, BasePrimitiveIdsOffset(InBasePrimitiveIdsOffset)
-		, bDynamicInstancing(bInDynamicInstancing)
-		, StartIndex(InStartIndex)
-		, NumMeshDrawCommands(InNumMeshDrawCommands)
-	{}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FDrawVisibleMeshCommandsAnyThreadTask, STATGROUP_TaskGraphTasks);
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		checkSlow(RHICmdList.IsInsideRenderPass());
-		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, StartIndex, NumMeshDrawCommands, RHICmdList);
-		RHICmdList.EndRenderPass();
-		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
-	}
-};
-
-void SubmitMeshDrawCommands(
-	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
-	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
-	int32 BasePrimitiveIdsOffset,
-	bool bDynamicInstancing,
-	FParallelCommandListSet* ParallelCommandListSet,
-	FRHICommandList& RHICmdList)
-{
-	if (ParallelCommandListSet)
-	{
-		ENamedThreads::Type RenderThread = ENamedThreads::GetRenderThread();
-		const int32 NumMeshDrawCommands = VisibleMeshDrawCommands.Num();
-
-		if (NumMeshDrawCommands > 0)
-		{
-			// Our work is uniform, distribute evenly to the available task graph workers
-			const int32 NumTasks = FMath::Min<int32>(FTaskGraphInterface::Get().GetNumWorkerThreads(), FMath::DivideAndRoundUp(NumMeshDrawCommands, ParallelCommandListSet->MinDrawsPerCommandList));
-			const int32 NumDrawsPerTask = FMath::DivideAndRoundUp(NumMeshDrawCommands, NumTasks);
-
-			for (int32 TaskIndex = 0; TaskIndex < NumTasks; TaskIndex++)
-			{
-				const int32 StartIndex = TaskIndex * NumDrawsPerTask;
-				const int32 NumDraws = FMath::Min(NumDrawsPerTask, NumMeshDrawCommands - StartIndex);
-				checkSlow(NumDraws > 0);
-
-				FRHICommandList* CmdList = ParallelCommandListSet->NewParallelCommandList();
-
-				FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleMeshCommandsAnyThreadTask>::CreateTask(ParallelCommandListSet->GetPrereqs(), RenderThread)
-					.ConstructAndDispatchWhenReady(*CmdList, VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, StartIndex, NumDraws);
-				ParallelCommandListSet->AddParallelCommandList(CmdList, AnyThreadCompletionEvent, NumDraws);
-			}
-		}
-	}
-	else
-	{
 		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, 0, VisibleMeshDrawCommands.Num(), RHICmdList);
-	}
-}
-
-void SubmitMeshDrawCommandsForView(
-	const FViewInfo& View,
-	EMeshPass::Type PassType,
-	FParallelCommandListSet* ParallelCommandListSet,
-	FRHICommandList& RHICmdList)
-{
-	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands = View.VisibleMeshDrawCommands[PassType];
-
-	if (VisibleMeshDrawCommands.Num() > 0)
-	{
-		FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel()) ? View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexBuffer->VertexBufferRHI : nullptr;
-		const int32 BasePrimitiveIdsOffset = View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassType].VertexOffset;
-		const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
-
-		SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, ParallelCommandListSet, RHICmdList);
 	}
 }
 

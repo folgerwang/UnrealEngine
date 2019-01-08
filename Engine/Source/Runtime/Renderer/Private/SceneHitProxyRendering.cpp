@@ -313,11 +313,11 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		// Adjust the visibility map for this view
 		if (!View.bAllowTranslucentPrimitivesInHitProxy)
 		{
-			SubmitMeshDrawCommandsForView(View, EMeshPass::HitProxyOpaqueOnly, nullptr, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::HitProxyOpaqueOnly].DispatchDraw(nullptr, RHICmdList);
 		}
 		else
 		{
-			SubmitMeshDrawCommandsForView(View, EMeshPass::HitProxy, nullptr, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::HitProxy].DispatchDraw(nullptr, RHICmdList);
 		}
 
 		DrawDynamicMeshPass(View, RHICmdList,

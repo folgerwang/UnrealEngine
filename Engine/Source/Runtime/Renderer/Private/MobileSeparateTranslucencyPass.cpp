@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-MobileSeparateTranslucencyPass.cpp - Mobile specific separate translucensy pass
+MobileSeparateTranslucencyPass.cpp - Mobile specific separate translucency pass
 =============================================================================*/
 
 #include "MobileSeparateTranslucencyPass.h"
@@ -12,7 +12,7 @@ bool IsMobileSeparateTranslucencyActive(const FViewInfo& View)
 {
 	if (UseMeshDrawCommandPipeline())
 	{
-		return View.VisibleMeshDrawCommands[EMeshPass::TranslucencyAfterDOF].Num() > 0;
+		return View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].HasAnyDraw();
 	}
 	else
 	{
@@ -39,7 +39,7 @@ void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Con
 
 		if (UseMeshDrawCommandPipeline())
 		{
-			SubmitMeshDrawCommandsForView(View, TranslucencyPassToMeshPass(ETranslucencyPass::TPT_TranslucencyAfterDOF), nullptr, Context.RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].DispatchDraw(nullptr, Context.RHICmdList);
 		}
 		else
 		{

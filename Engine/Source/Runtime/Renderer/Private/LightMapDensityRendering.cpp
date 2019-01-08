@@ -59,7 +59,8 @@ void SetupLightmapDensityPassUniformBuffer(FRHICommandListImmediate& RHICmdList,
 
 bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmediate& RHICmdList)
 {
-	bool bDirty=0;
+	bool bDirty = false;
+
 	if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, LightMapDensity);
@@ -84,7 +85,9 @@ bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmed
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true,CF_DepthNearOrEqual>::GetRHI());
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 
-			SubmitMeshDrawCommandsForView(View, EMeshPass::LightmapDensity, nullptr, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::LightmapDensity].DispatchDraw(nullptr, RHICmdList);
+
+			bDirty = bDirty && View.ParallelMeshDrawCommandPasses[EMeshPass::LightmapDensity].HasAnyDraw();
 		}
 	}
 

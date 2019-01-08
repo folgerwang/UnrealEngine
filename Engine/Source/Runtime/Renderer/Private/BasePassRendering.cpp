@@ -809,7 +809,7 @@ void FDeferredShadingSceneRenderer::RenderBasePassViewParallel(FViewInfo& View, 
 		BasePassDepthStencilAccess,
 		InDrawRenderState);
 
-	SubmitMeshDrawCommandsForView(View, EMeshPass::BasePass, &ParallelSet, ParentCmdList);
+	View.ParallelMeshDrawCommandPasses[EMeshPass::BasePass].DispatchDraw(&ParallelSet, ParentCmdList);
 }
 
 bool HasEditorPrimitivesForDPG(const FViewInfo& View, ESceneDepthPriorityGroup DepthPriorityGroup)
@@ -933,7 +933,7 @@ bool FDeferredShadingSceneRenderer::RenderBasePassView(FRHICommandListImmediate&
 	FDrawingPolicyRenderState DrawRenderState(InDrawRenderState);
 	SetupBasePassView(RHICmdList, View, this);
 
-	SubmitMeshDrawCommandsForView(View, EMeshPass::BasePass, nullptr, RHICmdList);
+	View.ParallelMeshDrawCommandPasses[EMeshPass::BasePass].DispatchDraw(nullptr, RHICmdList);
 
 	return bDirty;
 }

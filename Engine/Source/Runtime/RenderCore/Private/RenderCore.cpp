@@ -108,7 +108,7 @@ DEFINE_STAT(STAT_CreateWholeSceneProjectedShadow);
 DEFINE_STAT(STAT_AddViewDependentWholeSceneShadowsForView);
 DEFINE_STAT(STAT_SetupInteractionShadows);
 DEFINE_STAT(STAT_GetDynamicMeshElements);
-DEFINE_STAT(STAT_ProcessVisibleMeshDrawCommands);
+DEFINE_STAT(STAT_SortAndMergeMeshDrawCommands);
 DEFINE_STAT(STAT_UpdateStaticMeshesTime);
 DEFINE_STAT(STAT_StaticRelevance);
 DEFINE_STAT(STAT_ViewRelevance);

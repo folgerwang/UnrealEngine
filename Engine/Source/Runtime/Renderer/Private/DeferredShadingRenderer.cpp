@@ -608,7 +608,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 				ViewFamily.GetFeatureLevel());
 
 			View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing].MeshDrawCommands.Reserve(Scene->Primitives.Num());
-			View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Reserve(Scene->Primitives.Num());
+			View.RaytraycingVisibleMeshDrawCommands.Reserve(Scene->Primitives.Num());
 		}
 
 
@@ -693,7 +693,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 									CachedMeshDrawCommand.MeshCullMode,
 									FMeshDrawCommandSortKey::Default);
 
-								View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Add(NewVisibleMeshDrawCommand);
+								View.RaytraycingVisibleMeshDrawCommands.Add(NewVisibleMeshDrawCommand);
 							}
 							else
 							{
@@ -708,7 +708,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 								(
 									View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
-									View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+									View.RaytraycingVisibleMeshDrawCommands
 								);
 								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
 								RayTracingMeshProcessor.AddMeshBatch(StaticMesh, BatchVisibility, SceneProxy);
@@ -718,12 +718,12 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 						const int GeometryInstance = View.RayTracingGeometryInstances.Num();
 						int DrawCmdIndexCopy = VisibleDrawCommandStartOffset[ViewIndex];
 						int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
-						while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+						while (DrawCmdIndex < View.RaytraycingVisibleMeshDrawCommands.Num())
 						{
 							// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
 							// therefore we patch the recently generated ones
 							// this might be better to be handles inside the MeshProcessor
-							View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
+							View.RaytraycingVisibleMeshDrawCommands[DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
 						}
 
 						ensure(DrawCmdIndexCopy != DrawCmdIndex);
@@ -751,7 +751,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 							(
 								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
-								View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+								View.RaytraycingVisibleMeshDrawCommands
 							);
 							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
 
@@ -768,12 +768,12 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								RayTracingMeshProcessor.AddMeshBatch(*BatchAndRelevance.Mesh, 1, BatchAndRelevance.PrimitiveSceneProxy);
 
 								int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
-								while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+								while (DrawCmdIndex < View.RaytraycingVisibleMeshDrawCommands.Num())
 								{
 									// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
 									// therefore we patch the recently generated ones
 									// this might be better to be handles inside the MeshProcessor
-									View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
+									View.RaytraycingVisibleMeshDrawCommands[DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance;
 								}
 							}
 
@@ -799,7 +799,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 							(
 								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
-								View.VisibleMeshDrawCommands[EMeshPass::RayTracing]
+								View.RaytraycingVisibleMeshDrawCommands
 							);
 							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
 
@@ -853,12 +853,12 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								RayTracingMeshProcessor.AddMeshBatch(*BatchAndRelevance.Mesh, 1, BatchAndRelevance.PrimitiveSceneProxy);
 
 								int& DrawCmdIndex = VisibleDrawCommandStartOffset[ViewIndex];
-								while (DrawCmdIndex < View.VisibleMeshDrawCommands[EMeshPass::RayTracing].Num())
+								while (DrawCmdIndex < View.RaytraycingVisibleMeshDrawCommands.Num())
 								{
 									// #dxr_todo we have to remember which geometry instance we associate with the MDCs 
 									// therefore we patch the recently generated ones
 									// this might be better to be handles inside the MeshProcessor
-									View.VisibleMeshDrawCommands[EMeshPass::RayTracing][DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance + GeometryIndex;
+									View.RaytraycingVisibleMeshDrawCommands[DrawCmdIndex++].RayTracedInstanceIndex = GeometryInstance + GeometryIndex;
 								}
 							}
 						}
@@ -917,7 +917,7 @@ FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingPipeli
 
 	if (GEnableRayTracingMaterials)
 	{
-		for (const FVisibleMeshDrawCommand& VisibleMeshDrawCommand : View.VisibleMeshDrawCommands[EMeshPass::RayTracing])
+		for (const FVisibleMeshDrawCommand& VisibleMeshDrawCommand : View.RaytraycingVisibleMeshDrawCommands)
 		{
 			const FMeshDrawCommand& MeshDrawCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
 			MeshDrawCommand.ShaderBindings.SetOnRayTracingStructure(RHICmdList, View.PerViewRayTracingScene.RayTracingSceneRHI, VisibleMeshDrawCommand.RayTracedInstanceIndex, MeshDrawCommand.RayTracedSegmentIndex, PipelineState, MeshDrawCommand.RayTracingMaterialLibraryIndex);

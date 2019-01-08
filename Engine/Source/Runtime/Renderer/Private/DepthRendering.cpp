@@ -871,7 +871,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdLis
 
 	if (UseMeshDrawCommandPipeline())
 	{
-		SubmitMeshDrawCommandsForView(View, EMeshPass::DepthPass, nullptr, RHICmdList);
+		View.ParallelMeshDrawCommandPasses[EMeshPass::DepthPass].DispatchDraw(nullptr, RHICmdList);
 
 		return true;
 	}
@@ -990,7 +990,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& V
 
 		if (UseMeshDrawCommandPipeline())
 		{
-			SubmitMeshDrawCommandsForView(View, EMeshPass::DepthPass, &ParallelCommandListSet, ParentCmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::DepthPass].DispatchDraw(&ParallelCommandListSet, ParentCmdList);
 
 			if (bDoPrePre)
 			{

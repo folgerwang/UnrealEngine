@@ -264,7 +264,7 @@ bool FDeferredShadingSceneRenderer::RenderDebugViewMode(FRHICommandListImmediate
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, Dynamic);
 
-			SubmitMeshDrawCommandsForView(View, EMeshPass::DebugViewMode, nullptr, RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::DebugViewMode].DispatchDraw(nullptr, RHICmdList);
 		}
 	}
 

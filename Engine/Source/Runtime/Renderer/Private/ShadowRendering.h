@@ -733,7 +733,10 @@ private:
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectTranslucentMeshElements;
 
 	TArray<const FStaticMesh*, SceneRenderingAllocator> SubjectMeshCommandBuildRequests;
-	FShadowMeshDrawCommandPass ShadowDepthPass;
+
+	FMeshCommandOneFrameArray ShadowDepthPassVisibleCommands;
+	FParallelMeshDrawCommandPass ShadowDepthPass;
+
 	TArray<FShadowMeshDrawCommandPass, TInlineAllocator<2>> ProjectionStencilingPasses;
 
 	FDynamicMeshDrawCommandStorage DynamicMeshDrawCommandStorage;

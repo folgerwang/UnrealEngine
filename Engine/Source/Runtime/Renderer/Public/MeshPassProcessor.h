@@ -829,13 +829,15 @@ extern void SubmitMeshDrawCommands(
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
 	int32 BasePrimitiveIdsOffset,
 	bool bDynamicInstancing,
-	class FParallelCommandListSet* ParallelCommandListSet,
 	FRHICommandList& RHICmdList);
 
-extern void SubmitMeshDrawCommandsForView(
-	const FViewInfo& View,
-	EMeshPass::Type PassType,
-	class FParallelCommandListSet* ParallelCommandListSet,
+extern void SubmitMeshDrawCommandsRange(
+	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
+	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
+	int32 BasePrimitiveIdsOffset,
+	bool bDynamicInstancing,
+	int32 StartIndex,
+	int32 NumMeshDrawCommands,
 	FRHICommandList& RHICmdList);
 
 RENDERER_API extern void DrawDynamicMeshPassPrivate(

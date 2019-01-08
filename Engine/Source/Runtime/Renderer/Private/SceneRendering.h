@@ -32,16 +32,14 @@
 #include "RenderGraph.h"
 #include "MeshPassProcessor.h"
 
+// Forward declarations.
 class FScene;
 class FSceneViewState;
 class FViewInfo;
 struct FILCUpdatePrimTaskData;
-
-template<typename ShaderMetaType> class TShaderMap;
-
-// Forward declarations.
 class FPostprocessContext;
 struct FILCUpdatePrimTaskData;
+template<typename ShaderMetaType> class TShaderMap;
 
 DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
 
@@ -879,6 +877,92 @@ struct FPreviousViewInfo
 	}
 };
 
+typedef TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> FMeshDrawCommandsPerPass;
+typedef TArray<FMeshDrawCommandsPerPass, TInlineAllocator<4>> FMeshDrawCommandsPerPassPerView;
+
+/**
+ * Parallel mesh draw command processing and drawing context.
+ */
+class FVisibleMeshDrawCommandProcessTaskContext
+{
+public:
+	FVisibleMeshDrawCommandProcessTaskContext()
+		: bUseGPUScene(false)
+		, bDynamicInstancing(false)
+		, PrimitiveBounds(nullptr)
+		, VisibleMeshDrawCommandsNum(0)
+		, NewPassVisibleMeshDrawCommandsNum(0)
+		, MaxInstances(1)
+	{
+	}
+
+	bool bUseGPUScene;
+	bool bDynamicInstancing;
+
+	// Command storage.
+	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
+	FDynamicMeshDrawCommandStorage MeshDrawCommandStorage;
+
+	// Preallocated resources.
+	FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBuffer;
+	FMeshCommandOneFrameArray NewPassVisibleMeshDrawCommands;
+
+	// For UpdateTranslucentMeshSortKeys.
+	ETranslucencyPass::Type TranslucencyPass;
+	ETranslucentSortPolicy::Type TranslucentSortPolicy;
+	FVector TranslucentSortAxis;
+	FVector ViewOrigin;
+	FMatrix ViewMatrix;
+	const TArray<struct FPrimitiveBounds>* PrimitiveBounds;
+
+	// For logging instancing stats.
+	int32 VisibleMeshDrawCommandsNum;
+	int32 NewPassVisibleMeshDrawCommandsNum;
+	int32 MaxInstances;
+};
+
+/**
+ * Parallel mesh draw command processing and rendering.
+ * DispatchSort - dispatched mesh command processing task.
+ * DispatchDraw - dispatched mesh draw task depending on DispatchSort.
+ */
+class FParallelMeshDrawCommandPass
+{
+public:
+	FParallelMeshDrawCommandPass()
+		: MaxDrawNum(0)
+	{
+	}
+
+	~FParallelMeshDrawCommandPass();
+
+	/**
+	 * Dispatch visible mesh draw command sort and merge task.
+	 */
+	void DispatchSortAndMerge(const FViewInfo& View, const TArray<FPrimitiveBounds>& PrimitiveBounds, EMeshPass::Type MeshPass, FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands);
+
+	/**
+	 * Dispatch visible mesh draw command draw task.
+	 */
+	void DispatchDraw(FParallelCommandListSet* ParallelCommandListSet, FRHICommandList& RHICmdList) const;
+
+	void Empty();
+
+	void SetDumpInstancingStats(const FString& InPassName);
+
+	bool HasAnyDraw() const { return MaxDrawNum > 0; }
+
+
+private:
+	FVisibleMeshDrawCommandProcessTaskContext TaskContext;
+	FGraphEventArray TaskEventRefs;
+	int32 MaxDrawNum;
+	FString PassNameForStats;
+
+	void DumpInstancingStats() const;
+	void DispatchSortInternal(ERHIFeatureLevel::Type FeatureLevel, FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands);
+};
+
 /** A FSceneView with additional state used by the scene renderer. */
 class FViewInfo : public FSceneView
 {
@@ -1020,8 +1104,10 @@ public:
 	FRWBufferStructured OneFramePrimitiveShaderDataBuffer;
 	FReadBuffer OneFramePrimitiveIdBufferEmulation;
 
-	TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> VisibleMeshDrawCommands;
-	TStaticArray<FGlobalDynamicVertexBuffer::FAllocation, EMeshPass::Num> VisibleMeshDrawCommandPrimitiveIdBuffers;
+	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> ParallelMeshDrawCommandPasses;
+	
+	FMeshCommandOneFrameArray RaytraycingVisibleMeshDrawCommands;
+
 	TStaticArray<TArray<const FStaticMesh*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
 
 	// Used by mobile renderer to determine whether static meshes will be rendered with CSM shaders or not.
@@ -1584,11 +1670,12 @@ protected:
 
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
 
-	void GenerateDynamicMeshDrawCommands();
+	/** Converts each FMeshBatch into a set of FMeshDrawCommands for each relevant mesh pass. */
+	void GenerateDynamicMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
 
-	void ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
+	void ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
 
-	virtual void SortMeshDrawCommands();
+	void SortAndMergeMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
 
 	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading, bool bMobileModulatedProjections);
 
@@ -1684,7 +1771,7 @@ protected:
 	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
 
 	/** Computes which primitives are visible and relevant for each view. */
-	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess);
+	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
 
 	/** Performs once per frame setup after to visibility determination. */
 	void PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTaskData);
@@ -1759,7 +1846,7 @@ public:
 
 protected:
 	/** Finds the visible dynamic shadows for each view. */
-	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
+	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
 
 	/** Build visibility lists on CSM receivers and non-csm receivers. */
 	void BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo);
@@ -1799,7 +1886,7 @@ protected:
 	/** Creates uniform buffers with the mobile directional light parameters, for each lighting channel. Called by InitViews */
 	void CreateDirectionalLightUniformBuffers(FViewInfo& View);
 
-	/** Copy scene color from the mobile multi-view render targat array to side by side stereo scene color */
+	/** Copy scene color from the mobile multi-view render target array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
 	/** Render inverse opacity for the dynamic meshes. */
@@ -1808,9 +1895,7 @@ protected:
 	/** Will update the view custom data. */
 	void PostInitViewCustomData();
 
-	virtual void SortMeshDrawCommands() override;
-
-	void SortMobileMeshDrawCommands();
+	void SortMobileBasePassAfterShadowInit(FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
 
 	void UpdateOpaqueBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 	void UpdateTranslucentBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
@@ -1949,7 +2034,4 @@ extern void SortPassMeshDrawCommands(
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
 	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
-	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer,
-	bool bDumpStats);
-
-extern void UpdateTranslucentMeshSortKeys(const FScene* Scene, const FViewInfo& View, ETranslucencyPass::Type TranslucencyPass, FMeshCommandOneFrameArray& VisibleMeshCommands);
+	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer);

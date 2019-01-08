@@ -1847,14 +1847,7 @@ void FProjectedShadowInfo::RenderDepthInner(FRHICommandListImmediate& RHICmdList
 
 			if (UseMeshDrawCommandPipeline())
 			{
-				if (ShadowDepthPass.VisibleMeshDrawCommands.Num() > 0)
-				{
-					FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) ? ShadowDepthPass.PrimitiveIdBuffer.VertexBuffer->VertexBufferRHI : nullptr;
-					const int32 BasePrimitiveIdsOffset = ShadowDepthPass.PrimitiveIdBuffer.VertexOffset;
-					const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
-
-					SubmitMeshDrawCommands(ShadowDepthPass.VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, &ParallelCommandListSet, RHICmdList);
-				}
+				ShadowDepthPass.DispatchDraw(&ParallelCommandListSet, RHICmdList);
 			}
 			else
 			{
@@ -1905,14 +1898,7 @@ void FProjectedShadowInfo::RenderDepthInner(FRHICommandListImmediate& RHICmdList
 
 		if (UseMeshDrawCommandPipeline())
 		{
-			if (ShadowDepthPass.VisibleMeshDrawCommands.Num() > 0)
-			{
-				FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) ? ShadowDepthPass.PrimitiveIdBuffer.VertexBuffer->VertexBufferRHI : nullptr;
-				const int32 BasePrimitiveIdsOffset = ShadowDepthPass.PrimitiveIdBuffer.VertexOffset;
-				const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
-
-				SubmitMeshDrawCommands(ShadowDepthPass.VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, nullptr, RHICmdList);
-			}
+			ShadowDepthPass.DispatchDraw(nullptr, RHICmdList);
 		}
 		else
 		{

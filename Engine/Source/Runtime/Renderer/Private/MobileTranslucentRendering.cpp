@@ -370,7 +370,8 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 					UpdateDirectionalLightUniformBuffers(RHICmdList, View);
 				}
 		
-				SubmitMeshDrawCommandsForView(View, TranslucencyPassToMeshPass(TranslucencyPass), nullptr, RHICmdList);
+				const EMeshPass::Type MeshPass = TranslucencyPassToMeshPass(TranslucencyPass);
+				View.ParallelMeshDrawCommandPasses[MeshPass].DispatchDraw(nullptr, RHICmdList);
 			}
 			else
 			{
@@ -747,9 +748,9 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 					UpdateDirectionalLightUniformBuffers(RHICmdList, View);
 				}
 		
-				SubmitMeshDrawCommandsForView(View, EMeshPass::MobileInverseOpacity, nullptr, RHICmdList);
+				View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].DispatchDraw(nullptr, RHICmdList);
 				
-				bDirty |= View.VisibleMeshDrawCommands[EMeshPass::MobileInverseOpacity].Num() > 0;
+				bDirty |= View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].HasAnyDraw();
 			}
 			else
 			{

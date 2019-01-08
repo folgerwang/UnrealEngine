@@ -451,7 +451,8 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(RenderTranslucencyParallel_Start_FDrawSortedTransAnyThreadTask);
 
-		SubmitMeshDrawCommandsForView(View, TranslucencyPassToMeshPass(TranslucencyPass), ParallelCommandListSet, RHICmdList);
+		const EMeshPass::Type MeshPass = TranslucencyPassToMeshPass(TranslucencyPass);
+		View.ParallelMeshDrawCommandPasses[MeshPass].DispatchDraw(ParallelCommandListSet, RHICmdList);
 	}
 
 	if (IsMainTranslucencyPass(TranslucencyPass))

@@ -100,9 +100,9 @@ static TAutoConsoleVariable<int32> CVarMeshDrawCommandsDynamicInstancing(
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarMeshDrawCommandsParallelProcess(
-	TEXT("r.MeshDrawCommands.ParallelProcess"),
+	TEXT("r.MeshDrawCommands.ParallelSortAndMerge"),
 	1,
-	TEXT("Whether to process (sort and setup primitive id buffer for instancing) visible mesh draw commands in parallel."),
+	TEXT("Whether to sort and merge mesh visible mesh draw commands in parallel."),
 	ECVF_RenderThreadSafe);
 
 bool IsDynamicInstancingEnabled()
@@ -1567,6 +1567,9 @@ FViewInfo* FViewInfo::CreateSnapshot() const
 	FReadBuffer NullReadBuffer;
 	FMemory::Memcpy(Result->OneFramePrimitiveIdBufferEmulation, NullReadBuffer);
 
+	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> NullParallelMeshDrawCommandPasses;
+	FMemory::Memcpy(Result->ParallelMeshDrawCommandPasses, NullParallelMeshDrawCommandPasses);
+
 	Result->bIsSnapshot = true;
 	ViewInfoSnapshots.Add(Result);
 	return Result;
@@ -2671,70 +2674,64 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 	RHICmdList.EndScene();
 }
 
-void FSceneRenderer::ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+void FSceneRenderer::ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FSceneRenderer_ApplyViewOverridesToMeshDrawCommands);
 
 	EShadingPath ShadingPath = Scene->GetShadingPath();
 	FExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess = GetDefaultBasePassDepthStencilAccess(ShadingPath);
 
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
 	{
-		FViewInfo& View = Views[ViewIndex];
-		EDrawingPolicyOverrideFlags ViewOverrideFlags = EDrawingPolicyOverrideFlags::None;
+		EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
 
-		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
 		{
-			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
-
-			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+			if (View.bReverseCulling || View.bRenderSceneTwoSided || (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass))
 			{
-				if (View.bReverseCulling || View.bRenderSceneTwoSided || (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass))
+				const FMeshCommandOneFrameArray& PassVisibleMeshDrawCommands = VisibleCommands[PassIndex];
+
+				FMeshCommandOneFrameArray ViewOverriddenMeshCommands;
+				ViewOverriddenMeshCommands.Empty(PassVisibleMeshDrawCommands.Num());
+
+				FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage = View.DynamicMeshDrawCommandStorage[PassIndex];
+
+				for (int32 MeshCommandIndex = 0; MeshCommandIndex < PassVisibleMeshDrawCommands.Num(); MeshCommandIndex++)
 				{
-					const FMeshCommandOneFrameArray& PassVisibleMeshDrawCommands = View.VisibleMeshDrawCommands[PassIndex];
+					MeshDrawCommandStorage.MeshDrawCommands.Add(1);
+					FMeshDrawCommand& NewMeshCommand = MeshDrawCommandStorage.MeshDrawCommands[MeshDrawCommandStorage.MeshDrawCommands.Num() - 1];
 
-					FMeshCommandOneFrameArray ViewOverriddenMeshCommands;
-					ViewOverriddenMeshCommands.Empty(PassVisibleMeshDrawCommands.Num());
+					const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[MeshCommandIndex];
+					const FMeshDrawCommand& MeshCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
+					NewMeshCommand = MeshCommand;
 
-					FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage = View.DynamicMeshDrawCommandStorage[PassIndex];
+					const ERasterizerCullMode LocalCullMode = View.bRenderSceneTwoSided ? CM_None : View.bReverseCulling ? FMeshDrawingPolicy::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
+					NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
 
-					for (int32 MeshCommandIndex = 0; MeshCommandIndex < PassVisibleMeshDrawCommands.Num(); MeshCommandIndex++)
+					if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)
 					{
-						MeshDrawCommandStorage.MeshDrawCommands.Add(1);
-						FMeshDrawCommand& NewMeshCommand = MeshDrawCommandStorage.MeshDrawCommands[MeshDrawCommandStorage.MeshDrawCommands.Num() - 1];
-
-						const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[MeshCommandIndex];
-						const FMeshDrawCommand& MeshCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
-						NewMeshCommand = MeshCommand;
-
-						const ERasterizerCullMode LocalCullMode = View.bRenderSceneTwoSided ? CM_None : View.bReverseCulling ? FMeshDrawingPolicy::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
-						NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
-
-						if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)
-						{
-							FDrawingPolicyRenderState PassDrawRenderState;
-							SetupBasePassState(BasePassDepthStencilAccess, false, PassDrawRenderState);
-							NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
-						}
-
-						NewMeshCommand.Finalize(true);
-
-						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
-
-						NewVisibleMeshDrawCommand.Setup(
-							&NewMeshCommand,
-							VisibleMeshDrawCommand.DrawPrimitiveId,
-							VisibleMeshDrawCommand.StateBucketId,
-							VisibleMeshDrawCommand.MeshFillMode,
-							VisibleMeshDrawCommand.MeshCullMode,
-							VisibleMeshDrawCommand.SortKey);
-
-						ViewOverriddenMeshCommands.Add(NewVisibleMeshDrawCommand);
+						FDrawingPolicyRenderState PassDrawRenderState;
+						SetupBasePassState(BasePassDepthStencilAccess, false, PassDrawRenderState);
+						NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
 					}
 
-					// Replace VisibleMeshDrawCommands
-					FMemory::Memswap(&View.VisibleMeshDrawCommands[PassIndex], &ViewOverriddenMeshCommands, sizeof(ViewOverriddenMeshCommands));
+					NewMeshCommand.Finalize(true);
+
+					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+					NewVisibleMeshDrawCommand.Setup(
+						&NewMeshCommand,
+						VisibleMeshDrawCommand.DrawPrimitiveId,
+						VisibleMeshDrawCommand.StateBucketId,
+						VisibleMeshDrawCommand.MeshFillMode,
+						VisibleMeshDrawCommand.MeshCullMode,
+						VisibleMeshDrawCommand.SortKey);
+
+					ViewOverriddenMeshCommands.Add(NewVisibleMeshDrawCommand);
 				}
+
+				// Replace VisibleMeshDrawCommands
+				FMemory::Memswap(&VisibleCommands[PassIndex], &ViewOverriddenMeshCommands, sizeof(ViewOverriddenMeshCommands));
 			}
 		}
 	}
@@ -2778,35 +2775,45 @@ uint32 BitInvertIfNegativeFloat(uint32 f)
 /**
 * Update mesh sort keys with view dependent data.
 */
-void UpdateTranslucentMeshSortKeys(const FScene* Scene, const FViewInfo& View, ETranslucencyPass::Type TranslucencyPass, FMeshCommandOneFrameArray& VisibleMeshCommands)
+void UpdateTranslucentMeshSortKeys(
+	ETranslucentSortPolicy::Type TranslucentSortPolicy,
+	const FVector& TranslucentSortAxis,
+	const FVector& ViewOrigin,
+	const FMatrix& ViewMatrix,
+	const TArray<struct FPrimitiveBounds>& PrimitiveBounds,
+	ETranslucencyPass::Type TranslucencyPass, 
+	FMeshCommandOneFrameArray& VisibleMeshCommands
+	)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateTranslucentMeshSortKeys);
+
 	for (int32 CommandIndex = 0; CommandIndex < VisibleMeshCommands.Num(); ++CommandIndex)
 	{
 		FVisibleMeshDrawCommand& VisibleCommand = VisibleMeshCommands[CommandIndex];
 
 		FVector BoundsOrigin = FVector::ZeroVector;
-		if (VisibleCommand.DrawPrimitiveId < Scene->PrimitiveBounds.Num())
+		if (VisibleCommand.DrawPrimitiveId < PrimitiveBounds.Num())
 		{
-			BoundsOrigin = Scene->PrimitiveBounds[VisibleCommand.DrawPrimitiveId].BoxSphereBounds.Origin;
+			BoundsOrigin = PrimitiveBounds[VisibleCommand.DrawPrimitiveId].BoxSphereBounds.Origin;
 		}
 
 		float Distance = 0.0f;
-		if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByDistance)
+		if (TranslucentSortPolicy == ETranslucentSortPolicy::SortByDistance)
 		{
 			//sort based on distance to the view position, view rotation is not a factor
-			Distance = (BoundsOrigin - View.ViewMatrices.GetViewOrigin()).Size();
+			Distance = (BoundsOrigin - ViewOrigin).Size();
 		}
-		else if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortAlongAxis)
+		else if (TranslucentSortPolicy == ETranslucentSortPolicy::SortAlongAxis)
 		{
 			// Sort based on enforced orthogonal distance
-			const FVector CameraToObject = BoundsOrigin - View.ViewMatrices.GetViewOrigin();
-			Distance = FVector::DotProduct(CameraToObject, View.TranslucentSortAxis);
+			const FVector CameraToObject = BoundsOrigin - ViewOrigin;
+			Distance = FVector::DotProduct(CameraToObject, TranslucentSortAxis);
 		}
 		else
 		{
 			// Sort based on projected Z distance
-			check(View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByProjectedZ);
-			Distance = View.ViewMatrices.GetViewMatrix().TransformPosition(BoundsOrigin).Z;
+			check(TranslucentSortPolicy == ETranslucentSortPolicy::SortByProjectedZ);
+			Distance = ViewMatrix.TransformPosition(BoundsOrigin).Z;
 		}
 
 		// Patch distance inside translucent mesh sort key.
@@ -2818,197 +2825,195 @@ void UpdateTranslucentMeshSortKeys(const FScene* Scene, const FViewInfo& View, E
 }
 
 /**
- * Packet for parallel mesh draw command sorting and setting up primitive id buffer for instancing.
+ * Build mesh draw command primitive Id buffer for instancing.
+ * NewPassVisibleMeshDrawCommands must be presized for NewPassVisibleMeshDrawCommands.
  */
-class FVisibleMeshDrawCommandProcessPacket
+void BuildMeshDrawCommandPrimitiveIdBuffer(
+	bool bUseGPUScene, 
+	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
+	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
+	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer,
+	FMeshCommandOneFrameArray& NewPassVisibleMeshDrawCommands,
+	int32& MaxInstances,
+	int32& VisibleMeshDrawCommandsNum,
+	int32& NewPassVisibleMeshDrawCommandsNum
+	)
 {
-public:
-	FVisibleMeshDrawCommandProcessPacket(const FScene* InScene,
-		const FViewInfo* InView,
-		bool InbUseGPUScene, 
-		EMeshPass::Type InPassType,
-		ETranslucencyPass::Type InTranslucencyPass, 
-		FMeshCommandOneFrameArray& InVisibleMeshDrawCommands, 
-		FDynamicMeshDrawCommandStorage& InMeshDrawCommandStorage,
-		FGlobalDynamicVertexBuffer& InDynamicVertexBuffer,
-		FGlobalDynamicVertexBuffer::FAllocation& InPrimitiveIdBuffer)
-		: Scene(InScene)
-		, View(InView)
-		, bUseGPUScene(InbUseGPUScene)
-		, PassType(InPassType)
-		, TranslucencyPass(InTranslucencyPass)
-		, VisibleMeshDrawCommands(InVisibleMeshDrawCommands)
-		, MeshDrawCommandStorage(InMeshDrawCommandStorage)
-		, PrimitiveIdBuffer(InPrimitiveIdBuffer)
-		, VisibleMeshDrawCommandsNum(0)
-		, NewPassVisibleMeshDrawCommandsNum(0)
-		, MaxInstances(1)
+	if (!bUseGPUScene)
 	{
-		// Preallocate memory and resources on rendering thread.
-
-		const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
-
-		if (bUseGPUScene && NumDrawCommands > 0)
-		{
-			PrimitiveIdBuffer = InDynamicVertexBuffer.Allocate(NumDrawCommands * sizeof(int32));
-			int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdBuffer.Buffer;
-		}
-
-		if (IsDynamicInstancingEnabled())
-		{
-			NewPassVisibleMeshDrawCommands.Empty(NumDrawCommands);
-		}
+		return;
 	}
 
-	void Sort()
+
+	check(VisibleMeshDrawCommands.Num() <= NewPassVisibleMeshDrawCommands.Max())
+
+	const FVisibleMeshDrawCommand* RESTRICT PassVisibleMeshDrawCommands = VisibleMeshDrawCommands.GetData();
+	const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
+
+	int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdBuffer.Buffer;
+
+	if (IsDynamicInstancingEnabled())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_SortVisibleMeshDrawCommands);
-		VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
-	}
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_DynamicInstancingOfVisibleMeshDrawCommands);
 
-	void BuildPrimitiveIdBuffer()
-	{
-		if (!bUseGPUScene)
+		int32 CurrentStateBucketId = -1;
+		uint32* RESTRICT CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
+		MaxInstances = 1;
+
+		for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
 		{
-			return;
-		}
-		
-		const FVisibleMeshDrawCommand* RESTRICT PassVisibleMeshDrawCommands = VisibleMeshDrawCommands.GetData();
-		const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
+			const FVisibleMeshDrawCommand& RESTRICT VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[DrawCommandIndex];
 
-		int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdBuffer.Buffer;
-
-		if (IsDynamicInstancingEnabled())
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_DynamicInstancingOfVisibleMeshDrawCommands);
-
-			int32 CurrentStateBucketId = -1;
-			uint32* RESTRICT CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
-			MaxInstances = 1;
-
-			for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
+			if (VisibleMeshDrawCommand.StateBucketId == CurrentStateBucketId && VisibleMeshDrawCommand.StateBucketId != -1)
 			{
-				const FVisibleMeshDrawCommand& RESTRICT VisibleMeshDrawCommand = PassVisibleMeshDrawCommands[DrawCommandIndex];
-
-				if (VisibleMeshDrawCommand.StateBucketId == CurrentStateBucketId && VisibleMeshDrawCommand.StateBucketId != -1)
+				if (CurrentDynamicallyInstancedMeshCommandNumInstances)
 				{
-					if (CurrentDynamicallyInstancedMeshCommandNumInstances)
-					{
-						const int32 CurrentNumInstances = *CurrentDynamicallyInstancedMeshCommandNumInstances;
-						*CurrentDynamicallyInstancedMeshCommandNumInstances = CurrentNumInstances + 1;
-						MaxInstances = FMath::Max(MaxInstances, CurrentNumInstances + 1);
-					}
-					else
-					{
-						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
-						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
-						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
-					}
+					const int32 CurrentNumInstances = *CurrentDynamicallyInstancedMeshCommandNumInstances;
+					*CurrentDynamicallyInstancedMeshCommandNumInstances = CurrentNumInstances + 1;
+					MaxInstances = FMath::Max(MaxInstances, CurrentNumInstances + 1);
 				}
 				else
 				{
-					// First time state bucket setup
-					CurrentStateBucketId = VisibleMeshDrawCommand.StateBucketId;
-
-					if (VisibleMeshDrawCommand.MeshDrawCommand->PrimitiveIdStreamIndex >= 0
-						&& VisibleMeshDrawCommand.MeshDrawCommand->NumInstances == 1
-						// Don't create a new FMeshDrawCommand for the last command and make it safe for us to look at the next command
-						&& DrawCommandIndex + 1 < NumDrawCommands
-						// Only create a new FMeshDrawCommand if more than one draw in the state bucket
-						&& CurrentStateBucketId == PassVisibleMeshDrawCommands[DrawCommandIndex + 1].StateBucketId)
-					{
-						const int32 Index = MeshDrawCommandStorage.MeshDrawCommands.AddElement(*VisibleMeshDrawCommand.MeshDrawCommand);
-						FMeshDrawCommand& NewCommand = MeshDrawCommandStorage.MeshDrawCommands[Index];
-						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
-
-						NewVisibleMeshDrawCommand.Setup(
-							&NewCommand,
-							VisibleMeshDrawCommand.DrawPrimitiveId,
-							VisibleMeshDrawCommand.StateBucketId,
-							VisibleMeshDrawCommand.MeshFillMode,
-							VisibleMeshDrawCommand.MeshCullMode,
-							VisibleMeshDrawCommand.SortKey);
-
-						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
-						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
-
-						CurrentDynamicallyInstancedMeshCommandNumInstances = &NewCommand.NumInstances;
-					}
-					else
-					{
-						CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
-						FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
-						NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
-						NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
-					}
+					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
 				}
-
-				//@todo - refactor into memcpy
-				PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
 			}
-
-			// Setup instancing stats for logging.
-			VisibleMeshDrawCommandsNum = VisibleMeshDrawCommands.Num();
-			NewPassVisibleMeshDrawCommandsNum = NewPassVisibleMeshDrawCommands.Num();
-
-			// Replace VisibleMeshDrawCommands
-			FMemory::Memswap(&VisibleMeshDrawCommands, &NewPassVisibleMeshDrawCommands, sizeof(NewPassVisibleMeshDrawCommands));
-		}
-		else
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildVisibleMeshDrawCommandPrimitiveIdBuffers);
-
-			for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
+			else
 			{
-				const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
-				PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+				// First time state bucket setup
+				CurrentStateBucketId = VisibleMeshDrawCommand.StateBucketId;
+
+				if (VisibleMeshDrawCommand.MeshDrawCommand->PrimitiveIdStreamIndex >= 0
+					&& VisibleMeshDrawCommand.MeshDrawCommand->NumInstances == 1
+					// Don't create a new FMeshDrawCommand for the last command and make it safe for us to look at the next command
+					&& DrawCommandIndex + 1 < NumDrawCommands
+					// Only create a new FMeshDrawCommand if more than one draw in the state bucket
+					&& CurrentStateBucketId == PassVisibleMeshDrawCommands[DrawCommandIndex + 1].StateBucketId)
+				{
+					const int32 Index = MeshDrawCommandStorage.MeshDrawCommands.AddElement(*VisibleMeshDrawCommand.MeshDrawCommand);
+					FMeshDrawCommand& NewCommand = MeshDrawCommandStorage.MeshDrawCommands[Index];
+					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+
+					NewVisibleMeshDrawCommand.Setup(
+						&NewCommand,
+						VisibleMeshDrawCommand.DrawPrimitiveId,
+						VisibleMeshDrawCommand.StateBucketId,
+						VisibleMeshDrawCommand.MeshFillMode,
+						VisibleMeshDrawCommand.MeshCullMode,
+						VisibleMeshDrawCommand.SortKey);
+
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
+
+					CurrentDynamicallyInstancedMeshCommandNumInstances = &NewCommand.NumInstances;
+				}
+				else
+				{
+					CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
+					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewPassVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
+				}
 			}
+
+			//@todo - refactor into memcpy
+			PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
 		}
+
+		// Setup instancing stats for logging.
+		VisibleMeshDrawCommandsNum = VisibleMeshDrawCommands.Num();
+		NewPassVisibleMeshDrawCommandsNum = NewPassVisibleMeshDrawCommands.Num();
+
+		// Replace VisibleMeshDrawCommands
+		FMemory::Memswap(&VisibleMeshDrawCommands, &NewPassVisibleMeshDrawCommands, sizeof(NewPassVisibleMeshDrawCommands));
+	}
+	else
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildVisibleMeshDrawCommandPrimitiveIdBuffers);
+
+		for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
+		{
+			const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
+			PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+		}
+	}
+}
+
+FAutoConsoleTaskPriority CPrio_FVisibleMeshDrawCommandProcessTask(
+	TEXT("TaskGraph.TaskPriorities.VisibleMeshDrawCommandProcessTask"),
+	TEXT("Task and thread priority for FVisibleMeshDrawCommandProcessTask."),
+	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
+	ENamedThreads::NormalTaskPriority, // .. at normal task priority
+	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
+);
+
+/**
+ * Task for parallel sorting and building primitive id buffer for mesh draw commands.
+ */
+class FVisibleMeshDrawCommandProcessTask
+{
+public:
+	FVisibleMeshDrawCommandProcessTask(FVisibleMeshDrawCommandProcessTaskContext& InContext)
+		: Context(InContext)
+	{
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FSortFrontToBackTask, STATGROUP_TaskGraphTasks);
+	}
+
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return CPrio_FVisibleMeshDrawCommandProcessTask.Get();
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() 
+	{ 
+		return ESubsequentsMode::TrackSubsequents; 
 	}
 
 	void AnyThreadTask()
 	{
-		check(Scene && View);
-
-		if (TranslucencyPass != ETranslucencyPass::TPT_MAX)
+		if (Context.TranslucencyPass != ETranslucencyPass::TPT_MAX)
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateTranslucentMeshSortKeys);
-			UpdateTranslucentMeshSortKeys(Scene, *View, TranslucencyPass, VisibleMeshDrawCommands);
+			UpdateTranslucentMeshSortKeys(
+				Context.TranslucentSortPolicy,
+				Context.TranslucentSortAxis,
+				Context.ViewOrigin,
+				Context.ViewMatrix,
+				*Context.PrimitiveBounds,
+				Context.TranslucencyPass,
+				Context.VisibleMeshDrawCommands
+			);
 		}
 
-		Sort();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_SortVisibleMeshDrawCommands);
+			Context.VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
+		}
 
-		BuildPrimitiveIdBuffer();
+		BuildMeshDrawCommandPrimitiveIdBuffer(
+			Context.bUseGPUScene,
+			Context.VisibleMeshDrawCommands,
+			Context.MeshDrawCommandStorage,
+			Context.PrimitiveIdBuffer,
+			Context.NewPassVisibleMeshDrawCommands,
+			Context.MaxInstances,
+			Context.VisibleMeshDrawCommandsNum,
+			Context.NewPassVisibleMeshDrawCommandsNum
+		);
 	}
 
-	void DumpMeshDrawCommandInstancingStats()
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		if (PassType != EMeshPass::Num)
-		{
-			UE_LOG(LogRenderer, Log, TEXT("%s"), GetMeshPassName(PassType));
-		}
-
-		UE_LOG(LogRenderer, Log, TEXT("   %i Mesh Draw Commands in %i instancing state buckets"), VisibleMeshDrawCommandsNum, NewPassVisibleMeshDrawCommandsNum);
-		UE_LOG(LogRenderer, Log, TEXT("   Largest %i"), MaxInstances);
-		UE_LOG(LogRenderer, Log, TEXT("   %.1f Dynamic Instancing draw call reduction factor"), VisibleMeshDrawCommandsNum / (float)NewPassVisibleMeshDrawCommandsNum);
+		AnyThreadTask();
 	}
 
 
 private:
-	const FScene* Scene;
-	const FViewInfo* View;
-	const bool bUseGPUScene;
-	EMeshPass::Type PassType;
-	ETranslucencyPass::Type TranslucencyPass;
-	FMeshCommandOneFrameArray& VisibleMeshDrawCommands;
-	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage;
-	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer;
-	FMeshCommandOneFrameArray NewPassVisibleMeshDrawCommands;
-
-	// For logging instancing stats.
-	int32 VisibleMeshDrawCommandsNum;
-	int32 NewPassVisibleMeshDrawCommandsNum;
-	int32 MaxInstances;
+	FVisibleMeshDrawCommandProcessTaskContext& Context;
 };
 
 void SortPassMeshDrawCommands(
@@ -3016,97 +3021,270 @@ void SortPassMeshDrawCommands(
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
 	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
-	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer,
-	bool bDumpStats)
+	FGlobalDynamicVertexBuffer::FAllocation& PrimitiveIdBuffer)
 {
 	const bool bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 
 	const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
 	if (NumDrawCommands > 0)
 	{
-		FVisibleMeshDrawCommandProcessPacket Packet(
-			nullptr,
-			nullptr,
+		FMeshCommandOneFrameArray NewPassVisibleMeshDrawCommands;
+		int32 MaxInstances = 1;
+		int32 VisibleMeshDrawCommandsNum = 0;
+		int32 NewPassVisibleMeshDrawCommandsNum = 0;
+
+		// Preallocate context memory and resources.
+		if (bUseGPUScene && NumDrawCommands > 0)
+		{
+			PrimitiveIdBuffer = DynamicVertexBuffer.Allocate(NumDrawCommands * sizeof(int32));
+
+			if (IsDynamicInstancingEnabled())
+			{
+				NewPassVisibleMeshDrawCommands.Empty(NumDrawCommands);
+			}
+		}
+
+		VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
+
+		BuildMeshDrawCommandPrimitiveIdBuffer(
 			bUseGPUScene,
-			EMeshPass::Num,
-			ETranslucencyPass::TPT_MAX,
 			VisibleMeshDrawCommands,
 			MeshDrawCommandStorage,
-			DynamicVertexBuffer,
-			PrimitiveIdBuffer);
-
-		Packet.Sort();
-		Packet.BuildPrimitiveIdBuffer();
-
-		if (bDumpStats)
-		{
-			Packet.DumpMeshDrawCommandInstancingStats();
-		}
+			PrimitiveIdBuffer,
+			NewPassVisibleMeshDrawCommands,
+			MaxInstances,
+			VisibleMeshDrawCommandsNum,
+			NewPassVisibleMeshDrawCommandsNum
+		);
 	}
 }
 
-void FSceneRenderer::SortMeshDrawCommands()
+void FParallelMeshDrawCommandPass::DispatchSortAndMerge(const FViewInfo& View, const TArray<FPrimitiveBounds>& PrimitiveBounds, EMeshPass::Type MeshPass, FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands)
 {
-	SCOPE_CYCLE_COUNTER(STAT_ProcessVisibleMeshDrawCommands);
+	check(TaskEventRefs.Num() == 0);
+	check(InOutVisibleMeshDrawCommands.Num() > 0);
 
-	const EShadingPath ShadingPath = Scene->GetShadingPath();
-	const bool bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
+	MaxDrawNum = InOutVisibleMeshDrawCommands.Num();
+
+	// Setup translucency sort key update pass based on view.
+	TaskContext.TranslucencyPass = ETranslucencyPass::TPT_MAX;
+	TaskContext.TranslucentSortPolicy = View.TranslucentSortPolicy;
+	TaskContext.TranslucentSortAxis = View.TranslucentSortAxis;
+	TaskContext.ViewOrigin = View.ViewMatrices.GetViewOrigin();
+	TaskContext.ViewMatrix = View.ViewMatrices.GetViewMatrix();
+	TaskContext.PrimitiveBounds = &PrimitiveBounds;
+
+	switch (MeshPass)
+	{
+		case EMeshPass::TranslucencyStandard: TaskContext.TranslucencyPass = ETranslucencyPass::TPT_StandardTranslucency; break;
+		case EMeshPass::TranslucencyAfterDOF: TaskContext.TranslucencyPass = ETranslucencyPass::TPT_TranslucencyAfterDOF; break;
+		case EMeshPass::TranslucencyAll: TaskContext.TranslucencyPass = ETranslucencyPass::TPT_AllTranslucency; break;
+		case EMeshPass::MobileInverseOpacity: TaskContext.TranslucencyPass = ETranslucencyPass::TPT_StandardTranslucency; break;
+	}
+
+	TaskContext.bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
+	TaskContext.bDynamicInstancing = TaskContext.bUseGPUScene && IsDynamicInstancingEnabled();
+
+	FMemory::Memswap(&TaskContext.VisibleMeshDrawCommands, &InOutVisibleMeshDrawCommands, sizeof(InOutVisibleMeshDrawCommands));
+
 	const bool bExecuteInParallel = FApp::ShouldUseThreadingForPerformance() && CVarMeshDrawCommandsParallelProcess.GetValueOnRenderThread() > 0;
 
-	TArray<FVisibleMeshDrawCommandProcessPacket, SceneRenderingAllocator> Packets;
-	Packets.Reserve(Views.Num() * EMeshPass::Num);
-
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	// Preallocate context memory and resources on rendering thread.
+	if (TaskContext.bUseGPUScene && MaxDrawNum > 0)
 	{
-		FViewInfo& View = Views[ViewIndex];
+		TaskContext.PrimitiveIdBuffer = FGlobalDynamicVertexBuffer::Get().Allocate(MaxDrawNum * sizeof(int32));
 
-		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		if (TaskContext.bDynamicInstancing)
 		{
-			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
-
-			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
-			{
-				ETranslucencyPass::Type TranslucencyPass = ETranslucencyPass::TPT_MAX;
-				switch (PassType)
-				{
-					case EMeshPass::TranslucencyStandard:	TranslucencyPass = ETranslucencyPass::TPT_StandardTranslucency; break;
-					case EMeshPass::TranslucencyAfterDOF:	TranslucencyPass = ETranslucencyPass::TPT_TranslucencyAfterDOF; break;
-					case EMeshPass::TranslucencyAll:		TranslucencyPass = ETranslucencyPass::TPT_AllTranslucency;		break;
-				}
-
-				const int32 NumDrawCommands = View.VisibleMeshDrawCommands[PassIndex].Num();
-				if (NumDrawCommands > 0)
-				{
-					FVisibleMeshDrawCommandProcessPacket Packet(
-						Scene, 
-						&View, 
-						bUseGPUScene, 
-						PassType,
-						TranslucencyPass, 
-						View.VisibleMeshDrawCommands[PassIndex],
-						View.DynamicMeshDrawCommandStorage[PassIndex],
-						FGlobalDynamicVertexBuffer::Get(),
-						View.VisibleMeshDrawCommandPrimitiveIdBuffers[PassIndex]);
-
-					Packets.Emplace(MoveTemp(Packet));
-				}
-			}
+			TaskContext.NewPassVisibleMeshDrawCommands.Empty(MaxDrawNum);
 		}
 	}
 
-	ParallelFor(Packets.Num(),
-		[&Packets](int32 Index)
-		{
-			Packets[Index].AnyThreadTask();
-		},
-		!bExecuteInParallel
-	);
-
-	if (ShouldDumpMeshDrawCommandInstancingStats())
+	if (bExecuteInParallel)
 	{
-		for (int32 PacketIndex = 0; PacketIndex < Packets.Num(); ++PacketIndex)
+		TaskEventRefs.Add(TGraphTask<FVisibleMeshDrawCommandProcessTask>::CreateTask(
+			nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(TaskContext));
+	}
+	else
+	{
+		FVisibleMeshDrawCommandProcessTask Task(TaskContext);
+		Task.AnyThreadTask();
+	}
+}
+
+void FParallelMeshDrawCommandPass::Empty()
+{
+	// Need to wait in case if someone dispatched sort and draw merge task, but didn't draw it.
+	if (TaskEventRefs.Num() > 0)
+	{
+		FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskEventRefs);
+	}
+
+	DumpInstancingStats();
+
+	MaxDrawNum = 0;
+	PassNameForStats.Empty();
+	TaskEventRefs.Empty();
+	TaskContext.VisibleMeshDrawCommands.Empty();
+	TaskContext.NewPassVisibleMeshDrawCommands.Empty();
+	TaskContext.PrimitiveIdBuffer = FGlobalDynamicVertexBuffer::FAllocation();
+}
+
+FParallelMeshDrawCommandPass::~FParallelMeshDrawCommandPass()
+{
+	Empty();
+}
+
+class FDrawVisibleMeshCommandsAnyThreadTask : public FRenderTask
+{
+	FRHICommandList& RHICmdList;
+	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands;
+	FVertexBufferRHIParamRef PrimitiveIdsBuffer;
+	int32 BasePrimitiveIdsOffset;
+	bool bDynamicInstancing;
+	int32 TaskIndex;
+	int32 TaskNum;
+
+public:
+
+	FDrawVisibleMeshCommandsAnyThreadTask(
+		FRHICommandList& InRHICmdList,
+		const FMeshCommandOneFrameArray& InVisibleMeshDrawCommands,
+		FVertexBufferRHIParamRef InPrimitiveIdsBuffer,
+		int32 InBasePrimitiveIdsOffset,
+		bool bInDynamicInstancing,
+		int32 InTaskIndex,
+		int32 InTaskNum
+	)
+		: RHICmdList(InRHICmdList)
+		, VisibleMeshDrawCommands(InVisibleMeshDrawCommands)
+		, PrimitiveIdsBuffer(InPrimitiveIdsBuffer)
+		, BasePrimitiveIdsOffset(InBasePrimitiveIdsOffset)
+		, bDynamicInstancing(bInDynamicInstancing)
+		, TaskIndex(InTaskIndex)
+		, TaskNum(InTaskNum)
+	{}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FDrawVisibleMeshCommandsAnyThreadTask, STATGROUP_TaskGraphTasks);
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		checkSlow(RHICmdList.IsInsideRenderPass());
+
+		// Recompute draw range.
+		const int32 DrawNum = VisibleMeshDrawCommands.Num();
+		const int32 NumDrawsPerTask = FMath::DivideAndRoundUp(DrawNum, TaskNum);
+		const int32 StartIndex = TaskIndex * NumDrawsPerTask;
+		const int32 NumDraws = FMath::Min(NumDrawsPerTask, DrawNum - StartIndex);
+
+		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, StartIndex, NumDraws, RHICmdList);
+
+		RHICmdList.EndRenderPass();
+		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
+	}
+};
+
+void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* ParallelCommandListSet, FRHICommandList& RHICmdList) const
+{
+	if (!HasAnyDraw())
+	{
+		return;
+	}
+
+
+	FVertexBufferRHIParamRef PrimitiveIdsBuffer = TaskContext.bUseGPUScene ? TaskContext.PrimitiveIdBuffer.VertexBuffer->VertexBufferRHI : nullptr;
+	const int32 BasePrimitiveIdsOffset = TaskContext.PrimitiveIdBuffer.VertexOffset;
+
+	if (ParallelCommandListSet)
+	{
+		const ENamedThreads::Type RenderThread = ENamedThreads::GetRenderThread();
+
+		FGraphEventArray Prereqs = TaskEventRefs;
+		if (ParallelCommandListSet->GetPrereqs())
 		{
-			Packets[PacketIndex].DumpMeshDrawCommandInstancingStats();
+			Prereqs.Append(*ParallelCommandListSet->GetPrereqs());
+		}
+
+		// Distribute work evenly to the available task graph workers based on MaxDrawNum.
+		// Every task will then adjust it's working range based on FVisibleMeshDrawCommandProcessTask results.
+		const int32 NumThreads = FMath::Min<int32>(FTaskGraphInterface::Get().GetNumWorkerThreads(), ParallelCommandListSet->Width);
+		const int32 NumTasks = FMath::Min<int32>(NumThreads, FMath::DivideAndRoundUp(MaxDrawNum, ParallelCommandListSet->MinDrawsPerCommandList));
+		const int32 NumDrawsPerTask = FMath::DivideAndRoundUp(MaxDrawNum, NumTasks);
+
+		for (int32 TaskIndex = 0; TaskIndex < NumTasks; TaskIndex++)
+		{
+			const int32 StartIndex = TaskIndex * NumDrawsPerTask;
+			const int32 NumDraws = FMath::Min(NumDrawsPerTask, MaxDrawNum - StartIndex);
+			checkSlow(NumDraws > 0);
+
+			FRHICommandList* CmdList = ParallelCommandListSet->NewParallelCommandList();
+
+			FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleMeshCommandsAnyThreadTask>::CreateTask(&Prereqs, RenderThread)
+				.ConstructAndDispatchWhenReady(*CmdList, TaskContext.VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, TaskIndex, NumTasks);
+			ParallelCommandListSet->AddParallelCommandList(CmdList, AnyThreadCompletionEvent, NumDraws);
+		}
+	}
+	else
+	{
+		if (TaskEventRefs.Num() > 0)
+		{
+			FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskEventRefs, ENamedThreads::GetRenderThread());
+		}
+
+		SubmitMeshDrawCommandsRange(TaskContext.VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, 0, TaskContext.VisibleMeshDrawCommands.Num(), RHICmdList);
+	}
+}
+
+void FParallelMeshDrawCommandPass::DumpInstancingStats() const
+{
+	if (!PassNameForStats.IsEmpty())
+	{
+		UE_LOG(LogRenderer, Log, TEXT("Instancing stats for %s"), *PassNameForStats);
+		UE_LOG(LogRenderer, Log, TEXT("   %i Mesh Draw Commands in %i instancing state buckets"), TaskContext.VisibleMeshDrawCommandsNum, TaskContext.NewPassVisibleMeshDrawCommandsNum);
+		UE_LOG(LogRenderer, Log, TEXT("   Largest %i"), TaskContext.MaxInstances);
+		UE_LOG(LogRenderer, Log, TEXT("   %.1f Dynamic Instancing draw call reduction factor"), TaskContext.VisibleMeshDrawCommandsNum / (float)TaskContext.NewPassVisibleMeshDrawCommandsNum);
+	}
+}
+
+void FParallelMeshDrawCommandPass::SetDumpInstancingStats(const FString& InPassNameForStats)
+{
+	PassNameForStats = InPassNameForStats;
+}
+
+void FSceneRenderer::SortAndMergeMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands)
+{
+	SCOPE_CYCLE_COUNTER(STAT_SortAndMergeMeshDrawCommands);
+
+	const EShadingPath ShadingPath = Scene->GetShadingPath();
+
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+	{
+		const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+		{
+			// Mobile: BasePass and MobileBasePassCSM lists need to be merged and sorted after shadow pass.
+			if (ShadingPath == EShadingPath::Mobile && (PassType == EMeshPass::BasePass || PassType == EMeshPass::MobileBasePassCSM))
+			{
+				continue;
+			}
+
+			if (VisibleCommands[PassIndex].Num() > 0)
+			{
+				FParallelMeshDrawCommandPass& Pass = View.ParallelMeshDrawCommandPasses[PassIndex];
+
+				if (ShouldDumpMeshDrawCommandInstancingStats())
+				{
+					Pass.SetDumpInstancingStats(GetMeshPassName(PassType));
+				}
+
+				Pass.DispatchSortAndMerge(View, Scene->PrimitiveBounds, PassType, VisibleCommands[PassIndex]);
+			}
 		}
 	}
 }
@@ -3241,7 +3419,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 	
 				if (UseMeshDrawCommandPipeline())
 				{
-					SubmitMeshDrawCommandsForView(View, EMeshPass::CustomDepth, nullptr, RHICmdList);
+					View.ParallelMeshDrawCommandPasses[EMeshPass::CustomDepth].DispatchDraw(nullptr, RHICmdList);
 				}
 				else
 				{
@@ -4206,56 +4384,51 @@ FTextureRHIParamRef FSceneRenderer::GetMultiViewSceneColor(const FSceneRenderTar
 	}
 }
 
-void FSceneRenderer::GenerateDynamicMeshDrawCommands()
+void FSceneRenderer::GenerateDynamicMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateDynamicMeshDrawCommands);
 
 	EShadingPath ShadingPath = FSceneInterface::GetShadingPath(FeatureLevel);
 
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
 	{
-		FViewInfo& View = Views[ViewIndex];
+		EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
 
-		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
 		{
-			EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+			FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
+			(
+				View.DynamicMeshDrawCommandStorage[PassType],
+				VisibleCommands[PassType]
+			);
 
-			if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
+			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, DynamicPassMeshDrawListContext);
+
+			if (PassMeshProcessor != nullptr)
 			{
-				FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
-				(
-					View.DynamicMeshDrawCommandStorage[PassType],
-					View.VisibleMeshDrawCommands[PassType]
-				);
+				const int32 NumDynamicMeshBatches = View.DynamicMeshElements.Num();
 
-				PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
-				FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, DynamicPassMeshDrawListContext);
-
-				if (PassMeshProcessor != nullptr)
+				for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
 				{
-					const int32 NumDynamicMeshBatches = View.DynamicMeshElements.Num();
+					const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicMeshElements[MeshIndex];
+					check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+					const uint64 BatchElementMask = ~0ull;
 
-					for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
-					{
-						const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicMeshElements[MeshIndex];
-						check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
-						const uint64 BatchElementMask = ~0ull;
-
-						PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
-					}
-
-					const int32 NumStaticMeshBatches = View.DynamicMeshCommandBuildRequests[PassType].Num();
-
-					for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
-					{
-						const FStaticMesh* StaticMeshBatch = View.DynamicMeshCommandBuildRequests[PassType][MeshIndex];
-						const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
-
-						PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
-					}
-
-					PassMeshProcessor->~FMeshPassProcessor();
+					PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
 				}
+
+				const int32 NumStaticMeshBatches = View.DynamicMeshCommandBuildRequests[PassType].Num();
+
+				for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
+				{
+					const FStaticMesh* StaticMeshBatch = View.DynamicMeshCommandBuildRequests[PassType][MeshIndex];
+					const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
+
+					PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
+				}
+
+				PassMeshProcessor->~FMeshPassProcessor();
 			}
 		}
 	}

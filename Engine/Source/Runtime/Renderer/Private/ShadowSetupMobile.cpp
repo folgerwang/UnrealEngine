@@ -268,7 +268,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 	}
 }
 /** Finds the visible dynamic shadows for each view. */
-void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
+void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
 {
 	static auto* MyCVarMobileEnableStaticAndCSMShadowReceivers = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableStaticAndCSMShadowReceivers"));
 	const bool bMobileEnableStaticAndCSMShadowReceivers = MyCVarMobileEnableStaticAndCSMShadowReceivers->GetValueOnRenderThread() == 1;
@@ -338,14 +338,17 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 	}
 
 	// Where we've determined CSM is required we copy the MobileBasePassCSM mesh commands to the BasePass visible list:
-	for (auto& View : Views)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
+		FViewInfo& View = Views[ViewIndex];
+		FMeshDrawCommandsPerPass& VisibleCommands = VisibleCommandsPerView[ViewIndex];
+
 		FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
-		if(MobileCSMVisibilityInfo.bMobileDynamicCSMInUse)
+		if (MobileCSMVisibilityInfo.bMobileDynamicCSMInUse)
 		{
 			// determine per view CSM visibility
-			FMeshCommandOneFrameArray& MeshCommands = View.VisibleMeshDrawCommands[EMeshPass::BasePass];
-			FMeshCommandOneFrameArray& MeshCommandsCSM = View.VisibleMeshDrawCommands[EMeshPass::MobileBasePassCSM];
+			FMeshCommandOneFrameArray& MeshCommands = VisibleCommands[EMeshPass::BasePass];
+			FMeshCommandOneFrameArray& MeshCommandsCSM = VisibleCommands[EMeshPass::MobileBasePassCSM];
 			checkf(MeshCommands.Num() == MeshCommandsCSM.Num(), TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
 			for (int32 i = MeshCommands.Num() - 1; i >= 0; --i)
 			{

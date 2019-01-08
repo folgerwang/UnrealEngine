@@ -19,7 +19,7 @@ bool IsMobileDistortionActive(const FViewInfo& View)
 	const EMobileHDRMode HDRMode = GetMobileHDRMode();
 
 	const bool bVisiblePrims = UseMeshDrawCommandPipeline() ?
-		View.VisibleMeshDrawCommands[EMeshPass::Distortion].Num() > 0 : View.DistortionPrimSet.NumPrims() > 0;
+		View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].HasAnyDraw() : View.DistortionPrimSet.NumPrims() > 0;
 
 	return
 		HDRMode == EMobileHDRMode::EnabledFloat16 &&
@@ -52,7 +52,7 @@ void FRCDistortionAccumulatePassES2::Process(FRenderingCompositePassContext& Con
 				Scene->UniformBuffers.MobileDistortionPassUniformBuffer.UpdateUniformBufferImmediate(Parameters);
 			}
 
-			SubmitMeshDrawCommandsForView(View, EMeshPass::Distortion, nullptr, Context.RHICmdList);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].DispatchDraw(nullptr, Context.RHICmdList);
 		}
 		else
 		{

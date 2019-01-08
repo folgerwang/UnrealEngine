@@ -988,9 +988,9 @@ bool SubmitDistortionMeshDrawCommands(FRHICommandListImmediate& RHICmdList, cons
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FDistortionPrimSet_DrawAccumulatedOffsets_Prims);
 
-		SubmitMeshDrawCommandsForView(View, EMeshPass::Distortion, nullptr, RHICmdList);
+		View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].DispatchDraw(nullptr, RHICmdList);
 
-		bDirty |= View.VisibleMeshDrawCommands[EMeshPass::Distortion].Num() > 0;
+		bDirty |= View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].HasAnyDraw();
 	}
 
 	return bDirty;

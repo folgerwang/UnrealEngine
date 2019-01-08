@@ -1745,6 +1745,7 @@ struct FRelevancePacket
 	FRHICommandListImmediate& RHICmdList;
 	const FScene* Scene;
 	const FViewInfo& View;
+	const FMeshDrawCommandsPerPass& VisibleCommands;
 	const uint8 ViewBit;
 	const FMarkRelevantStaticMeshesForViewData& ViewData;
 	FPrimitiveViewMasks& OutHasDynamicMeshElementsMasks;
@@ -1816,6 +1817,7 @@ struct FRelevancePacket
 		FRHICommandListImmediate& InRHICmdList,
 		const FScene* InScene, 
 		const FViewInfo& InView, 
+		const FMeshDrawCommandsPerPass& InVisibleCommands,
 		uint8 InViewBit,
 		const FMarkRelevantStaticMeshesForViewData& InViewData,
 		FPrimitiveViewMasks& InOutHasDynamicMeshElementsMasks,
@@ -1829,6 +1831,7 @@ struct FRelevancePacket
 		, RHICmdList(InRHICmdList)
 		, Scene(InScene)
 		, View(InView)
+		, VisibleCommands(InVisibleCommands)
 		, ViewBit(InViewBit)
 		, ViewData(InViewData)
 		, OutHasDynamicMeshElementsMasks(InOutHasDynamicMeshElementsMasks)
@@ -2228,6 +2231,7 @@ struct FRelevancePacket
 	void RenderThreadFinalize()
 	{
 		FViewInfo& WriteView = const_cast<FViewInfo&>(View);
+		FMeshDrawCommandsPerPass& WriteVisibleCommands = const_cast<FMeshDrawCommandsPerPass&>(VisibleCommands);
 		
 		for (int32 Index = 0; Index < NotDrawRelevant.NumPrims; Index++)
 		{
@@ -2265,7 +2269,7 @@ struct FRelevancePacket
 
 		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
 		{
-			DrawCommandPacket.VisibleCachedDrawCommands[PassIndex].CopyToLinearArray(WriteView.VisibleMeshDrawCommands[PassIndex]);
+			DrawCommandPacket.VisibleCachedDrawCommands[PassIndex].CopyToLinearArray(WriteVisibleCommands[PassIndex]);
 			DrawCommandPacket.DynamicBuildRequests[PassIndex].CopyToLinearArray(WriteView.DynamicMeshCommandBuildRequests[PassIndex]);
 		}
 
@@ -2290,6 +2294,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 	FRHICommandListImmediate& RHICmdList,
 	const FScene* Scene,
 	FViewInfo& View,
+	FMeshDrawCommandsPerPass& VisibleCommands,
 	uint8 ViewBit,
 	FPrimitiveViewMasks& OutHasDynamicMeshElementsMasks,
 	FPrimitiveViewMasks& OutHasDynamicEditorMeshElementsMasks,
@@ -2328,6 +2333,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 				RHICmdList,
 				Scene, 
 				View, 
+				VisibleCommands,
 				ViewBit,
 				ViewData,
 				OutHasDynamicMeshElementsMasks,
@@ -2353,6 +2359,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 							RHICmdList,
 							Scene, 
 							View, 
+							VisibleCommands,
 							ViewBit,
 							ViewData,
 							OutHasDynamicMeshElementsMasks,
@@ -2390,7 +2397,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 				NumDynamicBuildRequests += Packet->DrawCommandPacket.DynamicBuildRequests[PassIndex].Num();
 			}
 
-			View.VisibleMeshDrawCommands[PassIndex].Reserve(NumVisibleCachedMeshDrawCommands);
+			VisibleCommands[PassIndex].Reserve(NumVisibleCachedMeshDrawCommands);
 			View.DynamicMeshCommandBuildRequests[PassIndex].Reserve(NumDynamicBuildRequests);
 		}
 
@@ -3140,7 +3147,7 @@ void UpdateReflectionSceneData(FScene* Scene)
 	}
 }
 
-void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime);
 	SCOPED_NAMED_EVENT(FSceneRenderer_ComputeViewVisibility, FColor::Magenta);
@@ -3410,7 +3417,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		if (!View.IsInstancedStereoPass())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ViewRelevance);
-			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
+			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, VisibleCommandsPerView[ViewIndex], ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -3459,12 +3466,14 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 	}
 
 	ViewBit = 0x1;
-	for (FViewInfo& View : Views)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
+		FViewInfo& View = Views[ViewIndex];
+		
 		if (View.IsInstancedStereoPass())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ViewRelevance);
-			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
+			ComputeAndMarkRelevanceForViewParallel(RHICmdList, Scene, View, VisibleCommandsPerView[ViewIndex], ViewBit, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks);
 		}
 		ViewBit <<= 1;
 	}
@@ -3474,12 +3483,17 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 
 	if (UseMeshDrawCommandPipeline())
 	{
-		// Convert each FMeshBatch into a set of FMeshDrawCommands for each relevant mesh pass
-		GenerateDynamicMeshDrawCommands();
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			FViewInfo& View = Views[ViewIndex];
+			FMeshDrawCommandsPerPass& VisibleCommands = VisibleCommandsPerView[ViewIndex];
 
-		ApplyViewOverridesToMeshDrawCommands(BasePassDepthStencilAccess);
+			GenerateDynamicMeshDrawCommands(View, VisibleCommands);
 
-		SortMeshDrawCommands();
+			ApplyViewOverridesToMeshDrawCommands(BasePassDepthStencilAccess, View, VisibleCommands);
+
+			SortAndMergeMeshDrawCommands(View, VisibleCommands);
+		}
 	}
 
 	INC_DWORD_STAT_BY(STAT_ProcessedPrimitives,NumProcessedPrimitives);
@@ -3748,7 +3762,10 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
-	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess);
+	FMeshDrawCommandsPerPassPerView VisibleCommandsPerView;
+	VisibleCommandsPerView.SetNum(Views.Num());
+
+	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, VisibleCommandsPerView);
 
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
