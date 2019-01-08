@@ -65,15 +65,20 @@ struct FSSFSignalSample
 	float UncertainRayCount;
 };
 
-FSSFSignalSample CreateSignalSample()
+FSSFSignalSample CreateSignalSampleFromScalarValue(float Scalar)
 {
 	FSSFSignalSample OutSample;
-	OutSample.AccumulatedSampleCount = 0;
-	OutSample.SceneColor = 0;
-	OutSample.LeavingRayCount = 0;
-	OutSample.PenumbraClosestHit = 0;
-	OutSample.UncertainRayCount = 0;
+	OutSample.SceneColor = Scalar;
+	OutSample.AccumulatedSampleCount = Scalar;
+	OutSample.LeavingRayCount = Scalar;
+	OutSample.PenumbraClosestHit = Scalar;
+	OutSample.UncertainRayCount = Scalar;
 	return OutSample;
+}
+
+FSSFSignalSample CreateSignalSample()
+{
+	return CreateSignalSampleFromScalarValue(0.0);
 }
 
 
@@ -237,6 +242,44 @@ FSSFSignalSample Minus(FSSFSignalSample Sample)
 	return Sample;
 }
 
+FSSFSignalSample Subtract(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
+{
+	return Add(SampleA, Minus(SampleB));
+}
+
+FSSFSignalSample Abs(FSSFSignalSample Sample)
+{
+	Sample.SceneColor             = abs(Sample.SceneColor);
+	Sample.AccumulatedSampleCount = abs(Sample.AccumulatedSampleCount);
+	Sample.LeavingRayCount        = abs(Sample.LeavingRayCount);
+	Sample.PenumbraClosestHit     = abs(Sample.PenumbraClosestHit);
+	Sample.UncertainRayCount      = abs(Sample.UncertainRayCount);
+	return Sample;
+}
+
+FSSFSignalSample Sqrt(FSSFSignalSample Sample)
+{
+	Sample.SceneColor             = sqrt(Sample.SceneColor);
+	Sample.AccumulatedSampleCount = sqrt(Sample.AccumulatedSampleCount);
+	Sample.LeavingRayCount        = sqrt(Sample.LeavingRayCount);
+	Sample.PenumbraClosestHit     = sqrt(Sample.PenumbraClosestHit);
+	Sample.UncertainRayCount      = sqrt(Sample.UncertainRayCount);
+	return Sample;
+}
+
+FSSFSignalSample Power(FSSFSignalSample Sample, float Exponent)
+{
+	Sample.SceneColor.r           = pow(Sample.SceneColor.r, Exponent);
+	Sample.SceneColor.g           = pow(Sample.SceneColor.g, Exponent);
+	Sample.SceneColor.b           = pow(Sample.SceneColor.b, Exponent);
+	Sample.SceneColor.a           = pow(Sample.SceneColor.a, Exponent);
+	Sample.AccumulatedSampleCount = pow(Sample.AccumulatedSampleCount, Exponent);
+	Sample.LeavingRayCount        = pow(Sample.LeavingRayCount, Exponent);
+	Sample.PenumbraClosestHit     = pow(Sample.PenumbraClosestHit, Exponent);
+	Sample.UncertainRayCount      = pow(Sample.UncertainRayCount, Exponent);
+	return Sample;
+}
+
 FSSFSignalSample Suctract(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 {
 	return Add(SampleA, Minus(SampleB));
@@ -277,8 +320,7 @@ FSSFSignalSample Lerp(FSSFSignalSample Sample0, FSSFSignalSample Sample1, float 
 /** Normalize the signal sample to one. */
 FSSFSignalSample NormalizeToOneSample(FSSFSignalSample Sample)
 {
-	float NormalizationFactor = -min(-rcp(Sample.AccumulatedSampleCount), 0);
-
-	FSSFSignalSample OutSample = Mul(Sample, NormalizationFactor);
+	FSSFSignalSample OutSample = Mul(Sample, Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
+	OutSample.AccumulatedSampleCount = 1;
 	return OutSample;
 }
