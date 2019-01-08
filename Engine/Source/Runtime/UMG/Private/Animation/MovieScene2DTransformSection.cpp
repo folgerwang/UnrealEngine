@@ -184,7 +184,7 @@ FMovieScene2DTransformMask UMovieScene2DTransformSection::GetMaskByName(const FN
 	{
 		return EMovieScene2DTransformChannel::TranslationY;
 	}
-	else if (InName == TEXT("Angle"))
+	else if (InName == TEXT("Angle") || InName == TEXT("Rotation"))
 	{
 		return EMovieScene2DTransformChannel::Rotation;
 	}
