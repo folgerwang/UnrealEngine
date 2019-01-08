@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -245,14 +245,20 @@ namespace iPhonePackager
 		{
 			if (DeployTimeInstance == null)
 			{
-				if (DeploymentServerProcess == null)
+				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
+				  typeof(DeploymentInterface),
+				  @"ipc://iPhonePackager/DeploymentServer_PID");
+				if (DeployTimeInstance == null)
 				{
-					DeploymentServerProcess = CreateDeploymentServerProcess();
+					if (DeploymentServerProcess == null)
+					{
+						DeploymentServerProcess = CreateDeploymentServerProcess();
+					}
 				}
 
 				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
 				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID" + Process.GetCurrentProcess().Id.ToString());
+				  @"ipc://iPhonePackager/DeploymentServer_PID");
 			}
 
 			if (DeployTimeInstance == null)
@@ -269,19 +275,22 @@ namespace iPhonePackager
 		static Process CreateDeploymentServerProcess()
 		{
 			Process NewProcess = new Process();
+
+			NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
+
 			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
 			{
-				NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
+				NewProcess.StartInfo.WorkingDirectory.TrimEnd('/');
 				NewProcess.StartInfo.FileName = "../../../Build/BatchFiles/Mac/RunMono.sh";
-				NewProcess.StartInfo.Arguments = "\"" + NewProcess.StartInfo.WorkingDirectory + "/DeploymentServer.exe\" -iphonepackager " + Process.GetCurrentProcess().Id.ToString();
+				NewProcess.StartInfo.Arguments = "\"" + NewProcess.StartInfo.WorkingDirectory + "/DeploymentServerLauncher.exe\"";
 			}
 			else
 			{
-				NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
-				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServer.exe";
-				NewProcess.StartInfo.Arguments = "-iphonepackager " + Process.GetCurrentProcess().Id.ToString();
+				NewProcess.StartInfo.WorkingDirectory.TrimEnd('\\');
+				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServerLauncher.exe";
 			}
-			NewProcess.StartInfo.UseShellExecute = false;
+			NewProcess.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+			NewProcess.StartInfo.UseShellExecute = true;
 
 			try
 			{

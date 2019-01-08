@@ -2,6 +2,7 @@
 
 #include "CoreTypes.h"
 #include "CoreFwd.h"
+#include "Logging/LogMacros.h"
 
 class FIOSDeviceOutputReaderRunnable;
 class FIOSTargetDevice;
@@ -20,9 +21,18 @@ inline bool FIOSDeviceOutputReaderRunnable::StartDSProcess(void)
 {
 	FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServer.exe"));
 	FString Params = FString::Printf(TEXT(" listentodevice -device %s"), *DeviceId.GetDeviceName());
+	FString WorkingFoder = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/"));
+
+#if PLATFORM_MAC
+	// On Mac we launch UBT with Mono
+	FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
+	Params = FString::Printf(TEXT("\"%s\" \"%s\" %s"), *ScriptPath, *DSFilename, *Params);
+	DSFilename = TEXT("/bin/sh");
+#endif
+
 	Output->Serialize(TEXT("Starting process ....."), ELogVerbosity::Log, NAME_None);
 	Output->Serialize(*DeviceId.GetDeviceName(), ELogVerbosity::Log, NAME_None);
-	DSProcHandle = FPlatformProcess::CreateProc(*DSFilename, *Params, true, false, false, NULL, 0, NULL, DSWritePipe);
+	DSProcHandle = FPlatformProcess::CreateProc(*DSFilename, *Params, true, false, false, NULL, 0, *WorkingFoder, DSWritePipe);
 	return DSProcHandle.IsValid();
 }
 
@@ -96,7 +106,10 @@ inline uint32 FIOSDeviceOutputReaderRunnable::Run(void)
 
 				for (int32 i = 0; i < OutputLines.Num(); ++i)
 				{
-					Output->Serialize(*OutputLines[i], ELogVerbosity::Log, NAME_None);
+					//if (OutputLines[i].Contains(TEXT("[UE4]"), ESearchCase::CaseSensitive))
+					{
+						Output->Serialize(*OutputLines[i], ELogVerbosity::Log, NAME_None);
+					}
 				}
 			}
 			

@@ -319,6 +319,8 @@ namespace Manzana
 		int StartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, ref IntPtr handle, IntPtr unknown);
 		int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle);
 		string ServiceConnectionReceive(IntPtr handle);
+		int SocketSend(IntPtr fd, IntPtr buf, int count);
+		int USBMuxConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle);
 		int RestoreRegisterForDeviceNotifications(
 			DeviceRestoreNotificationCallback dfu_connect,
 			DeviceRestoreNotificationCallback recovery_connect,
@@ -462,6 +464,14 @@ namespace Manzana
 		public string ServiceConnectionReceive(IntPtr handle)
 		{
 			return AMDeviceMethods.ServiceConnectionReceive(handle);
+		}
+
+		[DllImport("libMonoPosixHelper.dylib", SetLastError = true, EntryPoint = "Mono_Posix_Syscall_write")]
+		public static extern long write(IntPtr fd, IntPtr buf, ulong count);
+
+		public int SocketSend(IntPtr fd, IntPtr buf, int count)
+		{
+			return (int)write(fd, buf, (ulong)count);
 		}
 
 		public int RestoreRegisterForDeviceNotifications(
@@ -618,7 +628,12 @@ namespace Manzana
 			return AFC.RenamePath(conn, OldPath, NewPath);
 		}
 
-#region Application Methods
+		public int USBMuxConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+		{
+			return AFC.USBConnectByPort(DeviceID, iPort, ref outHandle);
+		}
+
+		#region Application Methods
 		public class AMDeviceMethods
 		{
 			// Need to have the path manipulation code in static MobileDevice() to run
@@ -1046,6 +1061,10 @@ namespace Manzana
 			{
 				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
+			public static int USBConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+			{
+				return USBMuxConnectByPort(DeviceID, iPort, ref outHandle);
+			}
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCConnectionClose(IntPtr/*AFCCommConnection*/ conn);
@@ -1114,6 +1133,9 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int USBMuxConnectByPort(int connectionID, short iPhone_port_network_byte_order, ref IntPtr outHandle);
 		}
 
 		#endregion
@@ -1255,6 +1277,13 @@ namespace Manzana
 		public string ServiceConnectionReceive(IntPtr handle)
 		{
 			return AMDeviceMethods.ServiceConnectionReceive(handle);
+		}
+
+		[DllImport("ws2_32.dll")]
+		public static extern int send(IntPtr Socket, IntPtr buff, int len, int flags);
+		public int SocketSend(IntPtr fd, IntPtr buf, int count)
+		{
+			return (int)send(fd, buf, count, 0);
 		}
 
 		public int RestoreRegisterForDeviceNotifications(
@@ -1409,6 +1438,11 @@ namespace Manzana
 		public int RenamePath(TypedPtr<AFCCommConnection> conn, string OldPath, string NewPath)
 		{
 			return AFC.RenamePath(conn, OldPath, NewPath);
+		}
+
+		public int USBMuxConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+		{
+			return AFC.USBConnectByPort(DeviceID, iPort, ref outHandle);
 		}
 
 		#region Application Methods
@@ -1840,6 +1874,11 @@ namespace Manzana
 				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
 
+			public static int USBConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+			{
+				return USBMuxConnectByPort(DeviceID, iPort, ref outHandle);
+			}
+
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCConnectionClose(IntPtr/*AFCCommConnection*/ conn);
 
@@ -1907,6 +1946,9 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int USBMuxConnectByPort(int connectionID, short iPhone_port_network_byte_order, ref IntPtr outHandle);
 		}
 
 		#endregion
@@ -2062,6 +2104,13 @@ namespace Manzana
 			return AMDeviceMethods.ServiceConnectionReceive(handle);
 		}
 
+		[DllImport("ws2_32.dll")]
+		public static extern int send(IntPtr Socket, IntPtr buff, int len, int flags);
+		public int SocketSend(IntPtr fd, IntPtr buf, int count)
+		{
+			return (int)send(fd, buf, count, 0);
+		}
+
 		public int RestoreRegisterForDeviceNotifications(
 			DeviceRestoreNotificationCallback dfu_connect,
 			DeviceRestoreNotificationCallback recovery_connect,
@@ -2214,6 +2263,11 @@ namespace Manzana
 		public int RenamePath(TypedPtr<AFCCommConnection> conn, string OldPath, string NewPath)
 		{
 			return AFC.RenamePath(conn, OldPath, NewPath);
+		}
+
+		public int USBMuxConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+		{
+			return AFC.USBConnectByPort(DeviceID, iPort, ref outHandle);
 		}
 
 		#region Application Methods
@@ -2645,6 +2699,11 @@ namespace Manzana
 				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
 
+			public static int USBConnectByPort(int DeviceID, short iPort, ref IntPtr outHandle)
+			{
+				return USBMuxConnectByPort(DeviceID, iPort, ref outHandle);
+			}
+
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCConnectionClose(IntPtr/*AFCCommConnection*/ conn);
 
@@ -2712,6 +2771,9 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int USBMuxConnectByPort(int connectionID, short iPhone_port_network_byte_order, ref IntPtr outHandle);
 		}
 
 		#endregion

@@ -38,6 +38,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Diagnostics;
 using MobileDeviceInterface;
+using System.Threading;
+using System.Net;
 
 namespace Manzana
 {
@@ -185,7 +187,8 @@ namespace Manzana
         internal TypedPtr<AFCCommConnection> AFCCommsHandle;
         internal IntPtr hService;
         internal IntPtr hSyslogService;
-        internal IntPtr hInstallService;
+		internal IntPtr hSysTCPService = new IntPtr();
+		internal IntPtr hInstallService;
         public bool connected;
         private string current_directory;
         #endregion	// Locals
@@ -1384,7 +1387,31 @@ namespace Manzana
 			
 			return true;
 		}
-		
+
+		public bool StartTCPRelayService()
+		{
+			Console.WriteLine("Connecting");
+			if (MobileDevice.DeviceImpl.Connect(iPhoneHandle) != 0)
+			{
+				Console.WriteLine("Connect: Failed to Connect");
+				return false;
+			}
+
+			Thread.Sleep(1000);
+			short IPhonePort = 8888;
+			int ConnectionID = MobileDevice.DeviceImpl.GetConnectionID(iPhoneHandle);
+			short NetPort = IPAddress.HostToNetworkOrder(IPhonePort);
+			//Console.WriteLine("USBMuxConnectByPort connecting to " + connectionID.ToString() + " port " + iPhonePort.ToString() + " htons " + NetPort.ToString());
+			int R = MobileDevice.DeviceImpl.USBMuxConnectByPort(ConnectionID, NetPort, ref hSysTCPService);
+			if (R != 0)
+			{
+				Console.WriteLine("Connect: Couldn't usb mux by port " + R.ToString());
+				return false;
+			}
+
+			return true;
+		}
+
 		public string GetSyslogData()
 		{
 			return MobileDevice.DeviceImpl.ServiceConnectionReceive(hSyslogService);
@@ -1395,9 +1422,27 @@ namespace Manzana
 			MobileDevice.DeviceImpl.StopSession(iPhoneHandle);
 			MobileDevice.DeviceImpl.Disconnect(iPhoneHandle);
 		}
-		
-        #region Private Methods
-        public bool ConnectToPhone()
+
+		public int TunnelData(String Buffer)
+		{
+			int Ret = 0;
+			try
+			{
+				int BufLength = Buffer.Length;
+				IntPtr intPtr_aux = Marshal.StringToHGlobalAnsi(Buffer);
+				//Console.WriteLine("sending data over tcp, len: " + BufLength.ToString());
+				Ret = MobileDevice.DeviceImpl.SocketSend(hSysTCPService, intPtr_aux, BufLength);
+				//Console.WriteLine("send returned: " + Ret.ToString());
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("Exception: {0}", e);
+			}
+			return Ret;
+		}
+
+		#region Private Methods
+		public bool ConnectToPhone()
         {
             SetLoggingLevel(7);
 

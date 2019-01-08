@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using Manzana;
 using System.Linq;
 using iPhonePackager;
+using System.Net.Sockets;
 
 namespace DeploymentServer
 {
@@ -360,7 +361,7 @@ namespace DeploymentServer
             });
         }
 
-		public void ListenToDevice(string inDeviceID)
+		public void ListenToDevice(string inDeviceID, TextWriter Writer)
 		{
 			MobileDeviceInstance	targetDevice = null;
 
@@ -383,8 +384,9 @@ namespace DeploymentServer
 					string	curLog = targetDevice.GetSyslogData();
 					if(curLog.Trim().Length > 0)
 					{
-						Console.Write(curLog);
+						Writer.Write(curLog);
 					}
+					System.Threading.Thread.Sleep(50);
 				}
 			}
 			else
@@ -393,10 +395,37 @@ namespace DeploymentServer
 			}
 		}
 
-        /// <summary>
-        /// Installs an IPA to all connected devices
-        /// </summary>
-        public bool InstallIPAOnDevice(string IPAPath)
+		public void TunnelToDevice(string inDeviceID, String Command)
+		{
+			MobileDeviceInstance targetDevice = null;
+			
+			PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
+			{
+				if (inDeviceID == Device.DeviceId)
+				{
+					targetDevice = Device;
+				}
+				return true;
+			});
+
+			if (targetDevice != null)
+			{
+				targetDevice.StartTCPRelayService();
+
+				int SentDat = targetDevice.TunnelData(Command);
+
+				targetDevice.StopSyslogService();
+			}
+			else
+			{
+				ReportIF.Error("Could not find device " + inDeviceID);
+			}
+		}
+
+		/// <summary>
+		/// Installs an IPA to all connected devices
+		/// </summary>
+		public bool InstallIPAOnDevice(string IPAPath)
         {
             if ((IPAPath == null) || (IPAPath.Length == 0))
             {
