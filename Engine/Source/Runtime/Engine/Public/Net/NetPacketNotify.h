@@ -124,7 +124,7 @@ public:
 
 	SequenceNumberT UpdateInAckSeqAck(SequenceNumberT::DifferenceT AckCount, SequenceNumberT AckedSeq)
 	{
-		check(AckCount <= AckRecord.Count());
+		check((SIZE_T)AckCount <= AckRecord.Count());
 
 		if (AckCount > 1)
 		{			

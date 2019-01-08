@@ -1360,7 +1360,7 @@ void UNetConnection::WritePacketInfo(FBitWriter& Writer) const
 
 bool UNetConnection::ReadPacketInfo(FBitReader& Reader)
 {
-	const bool bHasServerFrameTime = Reader.ReadBit();
+	const bool bHasServerFrameTime = Reader.ReadBit() == 1u;
 	double ServerFrameTime = 0;
 
 	if ( !Driver->IsServer() )
@@ -1541,7 +1541,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 		// For demo backwards compatibility, old replays still have this bit
 		if (InternalAck && EngineNetworkProtocolVersion < EEngineNetworkVersionHistory::HISTORY_ACKS_INCLUDED_IN_HEADER)
 		{
-			const bool IsAckDummy = Reader.ReadBit();
+			const bool IsAckDummy = Reader.ReadBit() == 1u;
 		}
 
 		// Parse the bunch.

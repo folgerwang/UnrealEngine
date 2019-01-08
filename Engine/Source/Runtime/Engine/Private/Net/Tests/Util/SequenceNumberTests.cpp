@@ -70,7 +70,6 @@ bool FNetSequenceNumberTest::RunTest(const FString& Parameters)
 
 		TestFalse("SequenceNumbers - operator> MaxSeq > Zero", MaxSeq > Zero);
 		TestTrue("SequenceNumbers - operator> Zero > MaxSeq", Zero > MaxSeq);
-		TestFalse("SequenceNumbers - operator> Zero > Zero", Zero > Zero);
 	}
 	
 	// Test diff sequence numbers

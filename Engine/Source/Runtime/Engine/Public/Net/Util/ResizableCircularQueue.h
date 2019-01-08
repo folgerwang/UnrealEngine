@@ -101,8 +101,8 @@ TResizableCircularQueue<T, AllocatorT>::TResizableCircularQueue(SIZE_T InitialCa
 , Tail(0u)
 , IndexMask(0u)
 {
-	// Capacity should be power of two, it will be rounded up but lets warn the user anyway debug builds.
-	checkSlow(InitialCapacity & (InitialCapacity - 1) = 0);
+	// Capacity should be power of two, it will be rounded up but lets warn the user anyway in debug builds.
+	checkSlow((InitialCapacity & (InitialCapacity - 1)) == 0);
 	if (InitialCapacity > 0)
 	{
 		SetCapacity(InitialCapacity);
