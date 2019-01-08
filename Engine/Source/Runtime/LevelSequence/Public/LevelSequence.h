@@ -10,6 +10,7 @@
 #include "LevelSequenceLegacyObjectReference.h"
 #include "LevelSequence.generated.h"
 
+class UBlueprint;
 class UMovieScene;
 class UBlueprintGeneratedClass;
 
@@ -57,30 +58,32 @@ public:
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
 	virtual void PostLoad() override;
-
-#if WITH_EDITORONLY_DATA
-
-	/** A pointer to the director blueprint that generates this sequence's DirectorClass. */
-	UPROPERTY()
-	UObject* DirectorBlueprint;
-
-#endif
-
-	/**
-	 * The class that is used to spawn this level sequence's director instance.
-	 * Director instances are allocated on-demand one per sequence during evaluation and are used by event tracks for triggering events.
-	 */
-	UPROPERTY()
-	UBlueprintGeneratedClass* DirectorClass;
-
-protected:
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
 #if WITH_EDITOR
+
+public:
+
+	/**
+	 * Assign a new director blueprint to this level sequence. The specified blueprint *must* be contained within this object.?	 */
+	void SetDirectorBlueprint(UBlueprint* NewDirectorBlueprint);
+
+	/**
+	 * Retrieve the currently assigned director blueprint for this level sequence
+	 */
+	UBlueprint* GetDirectorBlueprint() const;
+
+protected:
 
 	virtual FGuid CreatePossessable(UObject* ObjectToPossess) override;
 	virtual FGuid CreateSpawnable(UObject* ObjectToSpawn) override;
 
 	FGuid FindOrAddBinding(UObject* ObjectToPossess);
+
+	/**
+	 * Invoked when this level sequence's director blueprint has been recompiled
+	 */
+	void OnDirectorRecompiled(UBlueprint*);
 
 #endif // WITH_EDITOR
 
@@ -97,4 +100,19 @@ protected:
 	/** Deprecated property housing old possessed object bindings */
 	UPROPERTY()
 	TMap<FString, FLevelSequenceObject> PossessedObjects_DEPRECATED;
+
+#if WITH_EDITORONLY_DATA
+
+	/** A pointer to the director blueprint that generates this sequence's DirectorClass. */
+	UPROPERTY()
+	UBlueprint* DirectorBlueprint;
+
+#endif
+
+	/**
+	 * The class that is used to spawn this level sequence's director instance.
+	 * Director instances are allocated on-demand one per sequence during evaluation and are used by event tracks for triggering events.
+	 */
+	UPROPERTY()
+	UClass* DirectorClass;
 };

@@ -76,7 +76,7 @@ public:
 		{
 			virtual UBlueprint* RetrieveBlueprint(UObject* InObject) const override
 			{
-				return Cast<UBlueprint>(CastChecked<ULevelSequence>(InObject)->DirectorBlueprint);
+				return CastChecked<ULevelSequence>(InObject)->GetDirectorBlueprint();
 			}
 
 			virtual bool AssetContainsBlueprint(const FAssetData& InAssetData) const
