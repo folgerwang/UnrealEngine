@@ -204,7 +204,7 @@ class FCompositeAmbientOcclusionPS : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
+		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
 	FCompositeAmbientOcclusionPS() {}
