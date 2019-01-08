@@ -692,13 +692,7 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowOverlayMorphTargetVert),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingOverlayMorphTargetVerts));
-
-	CommandList.MapAction(
-		ViewportShowMenuCommands.ShowVertexColors,
-		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowVertexColorsChanged),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingVertexColors));
-
+	
 	CommandList.EndGroup();
 
 	// Show sockets
@@ -1668,38 +1662,6 @@ bool SAnimationEditorViewportTabBody::IsPreviewingRootMotion() const
 		return PreviewComponent->GetPreviewRootMotion();
 	}
 	return false;
-}
-
-bool SAnimationEditorViewportTabBody::IsShowingVertexColors() const
-{
-	return GetAnimationViewportClient()->EngineShowFlags.VertexColors;
-}
-
-void SAnimationEditorViewportTabBody::OnShowVertexColorsChanged()
-{
-	FEngineShowFlags& ShowFlags = GetAnimationViewportClient()->EngineShowFlags;
-
-	if(UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
-	{
-		if(!ShowFlags.VertexColors)
-		{
-			ShowFlags.SetVertexColors(true);
-			ShowFlags.SetLighting(false);
-			ShowFlags.SetIndirectLightingCache(false);
-			PreviewComponent->bDisplayVertexColors = true;
-		}
-		else
-		{
-			ShowFlags.SetVertexColors(false);
-			ShowFlags.SetLighting(true);
-			ShowFlags.SetIndirectLightingCache(true);
-			PreviewComponent->bDisplayVertexColors = false;
-		}
-
-		PreviewComponent->RecreateRenderState_Concurrent();
-	}
-
-	RefreshViewport();
 }
 
 #if WITH_APEX_CLOTHING

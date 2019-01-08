@@ -604,7 +604,6 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateCharacterMenu() const
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().UseFixedBounds);
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowPreviewMesh );
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowMorphTargets );
-						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowVertexColors );
 					}
 					SubMenuBuilder.EndSection();
 
@@ -842,6 +841,7 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
 		.IncludeFlag(FEngineShowFlags::SF_SeparateTranslucency)
 		.IncludeFlag(FEngineShowFlags::SF_TemporalAA)
 		.IncludeFlag(FEngineShowFlags::SF_Tessellation)
+		.IncludeFlag(FEngineShowFlags::SF_VertexColors)		
 		;
 
 	FShowFlagMenuCommands::Get().BuildShowFlagsMenu(InMenuBuilder, ShowFlagFilter);

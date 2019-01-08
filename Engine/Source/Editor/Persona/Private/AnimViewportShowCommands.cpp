@@ -32,8 +32,6 @@ void FAnimViewportShowCommands::RegisterCommands()
 	UI_COMMAND( ShowBoneWeight, "Selected Bone Weight", "Display color overlay of the weight from selected bone in the viewport", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( ShowMorphTargetVerts, "Selected Morph Target Vertices", "Display color overlay with the change of selected morph target in the viewport", EUserInterfaceActionType::RadioButton, FInputChord());
 
-	UI_COMMAND(ShowVertexColors, "Vertex Colors", "Display mesh vertex colors", EUserInterfaceActionType::ToggleButton, FInputChord());
-
 	UI_COMMAND( ShowRawAnimation, "Uncompressed Animation", "Display skeleton with uncompressed animation data", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( ShowNonRetargetedAnimation, "Non-Retargeted Animation", "Display Skeleton With non-retargeted animation data", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( ShowAdditiveBaseBones, "Additive Base", "Display skeleton in additive base pose", EUserInterfaceActionType::ToggleButton, FInputChord() );
