@@ -7,7 +7,6 @@
 FDirectoryWatchRequestLinux::FDirectoryWatchRequestLinux()
 :	bRunning(false)
 ,	bEndWatchRequestInvoked(false)
-,	bIncludeDirectoryChanges(false)
 ,	bWatchSubtree(false)
 {
 	NotifyFilter = IN_CREATE | IN_MOVE | IN_MODIFY | IN_DELETE;
