@@ -21,6 +21,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "MoviePlayer.h"
 #include "PreLoadScreenManager.h"
+#include "TcpConsoleListener.h"
+#include "Interfaces/IPv4/IPv4Address.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
@@ -275,6 +278,8 @@ void FAppEntry::PlatformInit()
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
+extern TcpConsoleListener *ConsoleListener;
+
 void FAppEntry::Init()
 {
 	FPlatformProcess::SetRealTimeMode();
@@ -319,6 +324,13 @@ void FAppEntry::Init()
 
 	// start up the engine
 	GEngineLoop.Init();
+#ifndef UE_BUILD_SHIPPING
+	if (ConsoleListener == nullptr)
+	{
+		FIPv4Endpoint ConsoleTCP(FIPv4Address::InternalLoopback, 8888); //TODO: @csulea read this from some .ini
+		ConsoleListener = new TcpConsoleListener(ConsoleTCP);
+	}
+#endif // UE_BUILD_SHIPPING
 }
 
 static FSuspendRenderingThread* SuspendThread = NULL;
@@ -348,6 +360,10 @@ void FAppEntry::SuspendTick()
 
 void FAppEntry::Shutdown()
 {
+	if (ConsoleListener)
+	{
+		delete ConsoleListener;
+	}
 	NSLog(@"%s", "Shutting down Game ULD Communications\n");
 	GCommandSystem.Shutdown();
     

@@ -101,7 +101,10 @@ FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FStrin
 	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType);
 	if (NewSocket)
 	{
-		NewSocket->SetIPv6Only(false);
+		if (ProtocolType != ESocketProtocolFamily::IPv4)
+		{
+			NewSocket->SetIPv6Only(false);
+		}
 
 		// disable the SIGPIPE exception 
 		int bAllow = 1;

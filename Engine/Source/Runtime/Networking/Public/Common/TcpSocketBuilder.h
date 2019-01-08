@@ -215,7 +215,7 @@ public:
 
 		if (SocketSubsystem != nullptr)
 		{
-			Socket = SocketSubsystem->CreateSocket(NAME_Stream, *Description, true);
+			Socket = SocketSubsystem->CreateSocket(NAME_Stream, *Description, ESocketProtocolFamily::IPv4);
 
 			if (Socket != nullptr)
 			{
@@ -225,7 +225,7 @@ public:
 
 				if (!Error)
 				{
-					Error = Bound && !Socket->Bind(*BoundEndpoint.ToInternetAddr());
+					Error = Bound && !Socket->Bind(*BoundEndpoint.ToInternetAddrIPV4());
 				}
 
 				if (!Error)
@@ -255,7 +255,7 @@ public:
 
 				if (Error)
 				{
-					GLog->Logf(TEXT("FTcpSocketBuilder: Failed to create the socket %s as configured"), *Description);
+					GLog->Logf(TEXT("FTcpSocketBuilder: Failed to create the socket %s as configured (%i)"), *Description, errno);
 
 					SocketSubsystem->DestroySocket(Socket);
 
