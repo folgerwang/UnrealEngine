@@ -247,6 +247,7 @@ namespace UnrealBuildTool
 			CommonRsyncArguments.Add("--delete"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--delete-excluded"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--times"); // Preserve modification times
+			CommonRsyncArguments.Add("--omit-dir-times"); // Ignore modification times for directories
 			CommonRsyncArguments.Add("--prune-empty-dirs"); // Remove empty directories from the file list
 
 			// Get the remote base directory
