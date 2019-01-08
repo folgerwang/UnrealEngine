@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #include "Misc/AutomationTest.h"
 #include "Net/NetPacketNotify.h"
 
@@ -8,19 +10,32 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNetPacketNotifyTest, "Network.PacketNotifyTest
 struct FNetPacketNotifyTestUtil
 {
 	FNetPacketNotify DefaultNotify;
-
 	FNetPacketNotifyTestUtil()
 	{
 		DefaultNotify.Init(FNetPacketNotify::SequenceNumberT(-1),  FNetPacketNotify::SequenceNumberT(0));
 	}
 
-	// Pretend to receive incoming packet to generate ackdata
+	// Helper to fill in SequenceHistory with expected result
+	template <typename T>
+	static void InitHistory(FNetPacketNotify::SequenceHistoryT& History, const T& DataToSet)
+	{
+		const SIZE_T Count = sizeof(T) / sizeof(DataToSet[0]);
+		static_assert(Count < FNetPacketNotify::SequenceHistoryT::WordCount, "DataToSet must be smaller than HistoryBuffer");
+
+		for (SIZE_T It=0; It < Count; ++It)
+		{
+			History.Data()[It] = DataToSet[It];
+		}
+	}
+
+	// Pretend to receive and acknowledge incoming packet to generate ackdata
 	static int32 PretendReceiveSeq(FNetPacketNotify& PacketNotify, FNetPacketNotify::SequenceNumberT Seq, bool Ack = true)
 	{
 		FNetPacketNotify::FNotificationHeader Data;
 		Data.Seq = Seq;
 		Data.AckedSeq = PacketNotify.GetOutAckSeq();
 		Data.History = FNetPacketNotify::SequenceHistoryT(0);
+		Data.HistoryWordCount = 1;
 		
 		FNetPacketNotify::SequenceNumberT::DifferenceT SeqDelta = PacketNotify.Update(Data, [](FNetPacketNotify::SequenceNumberT AckedSequence, bool delivered) {});
 		if (SeqDelta > 0)
@@ -32,38 +47,38 @@ struct FNetPacketNotifyTestUtil
 		return SeqDelta;
 	}
 
-	static bool VerifyNotificaitonState(const FNetPacketNotify& A, const FNetPacketNotify& B)
+	// Pretend to send packet
+	static void PretendSendSeq(FNetPacketNotify& PacketNotify, FNetPacketNotify::SequenceNumberT LastAckSeq)
 	{
-		bool bEquals = 
-			A.GetInSeq() == B.GetInSeq() &&
-			A.GetInSeqHistory() == B.GetInSeqHistory() &&
-			A.GetOutSeq() == B.GetOutSeq() &&
-			A.GetOutAckSeq() == B.GetOutAckSeq();
+		// set last InAcqSeq that we know that the remote end knows that we know (AckAck)
+		PacketNotify.WrittenHistoryWordCount = 1;
+		PacketNotify.WrittenInAckSeq = LastAckSeq;
 
-		return bEquals;
+		// Store data
+		PacketNotify.CommitAndIncrementOutSeq();
 	}
 
 	// pretend to ack array of sequence numbers
 	template<typename T>
 	static void PretendAckSequenceNumbers(FNetPacketNotify& PacketNotify, const T& InSequenceNumbers)
 	{
-		size_t SequenceNumberCount = sizeof(InSequenceNumbers) / sizeof(InSequenceNumbers[0]);
+		SIZE_T SequenceNumberCount = sizeof(InSequenceNumbers) / sizeof(InSequenceNumbers[0]);
 
-		for (size_t I=0; I<SequenceNumberCount; ++I)
+		for (SIZE_T I=0; I<SequenceNumberCount; ++I)
 		{
 			FNetPacketNotifyTestUtil::PretendReceiveSeq(PacketNotify, InSequenceNumbers[I]);
 		}
 	}
 	
-	// pretend to deliver notifications for incoming seq header
+	// Pretend that we received a packet
 	template<typename T>
-	static size_t PretendDeliverNotifications(FNetPacketNotify& PacketNotify, const FNetPacketNotify::FNotificationHeader Data, T& OutSequenceNumbers)
+	static SIZE_T PretendReceivedPacket(FNetPacketNotify& PacketNotify, const FNetPacketNotify::FNotificationHeader Data, T& OutSequenceNumbers)
 	{
-		size_t NotificationCount = 0;
+		SIZE_T NotificationCount = 0;
 
 		auto HandleAck = [&OutSequenceNumbers, &NotificationCount](FNetPacketNotify::SequenceNumberT Seq, bool delivered)
 		{
-			const size_t MaxSequenceNumberCount = sizeof(OutSequenceNumbers) / sizeof(OutSequenceNumbers[0]);
+			const SIZE_T MaxSequenceNumberCount = sizeof(OutSequenceNumbers) / sizeof(OutSequenceNumbers[0]);
 
 			if (delivered)
 			{
@@ -77,28 +92,46 @@ struct FNetPacketNotifyTestUtil
 		return PacketNotify.Update(Data, HandleAck);
 	}
 
+	// Test to fake sending and receiving an array of sequence numbers and test if we get the expected notifications back
 	template<typename T>
 	static bool TestNotificationSequence(const T& InSequenceNumbers, FNetPacketNotify::SequenceNumberT FirstSequence = 0)
 	{
 		T NotifiedSequenceNumbers = { 0 };
-		//FPlatformMemory::Memset(&NotifiedSequenceNumbers[0], 0, sizeof(NotifiedSequenceNumbers));
 
-		FNetPacketNotify Acked;
-		Acked.Init(FNetPacketNotify::SequenceNumberT(FirstSequence.Get() - 1), FirstSequence);
-		PretendAckSequenceNumbers(Acked, InSequenceNumbers);
+		// Sender, which we will also be the receiver of the acks
+		FNetPacketNotify Sender;
+		Sender.Init(FNetPacketNotify::SequenceNumberT(FirstSequence.Get() - 1), FirstSequence);
+	
+		// pretend that we have sent the InSequenceNumbers
+		SIZE_T Count = sizeof(T) / sizeof(InSequenceNumbers[0]);
+		for (SIZE_T It=0; It < Count; ++It)
+		{			
+			do
+			{
+				FNetPacketNotifyTestUtil::PretendSendSeq(Sender, 0);
+			}
+			while (InSequenceNumbers[It] >= Sender.GetOutSeq());
+		}
 
-		// In order to be able to accepts the acks we must pretend that we have sent a packet which we will get an ack for.
-		FNetPacketNotify Notified;
-		Notified.Init(FNetPacketNotify::SequenceNumberT(FirstSequence.Get() - 1), FirstSequence);
+		// Receiver which we fake have received the packets sent from sender
+		FNetPacketNotify Receiver;
+		Receiver.Init(FNetPacketNotify::SequenceNumberT(FirstSequence.Get() - 1), FirstSequence);
+		PretendAckSequenceNumbers(Receiver, InSequenceNumbers);
+
+		// Fake Header with acks sent from receiver back to sender
 		FNetPacketNotify::FNotificationHeader Data;
-		Acked.GetHeader(Data);
+		Data.Seq = Receiver.GetOutSeq();
+		Data.AckedSeq = Receiver.GetInAckSeq();
+		Data.HistoryWordCount = FNetPacketNotify::SequenceHistoryT::WordCount;
+		Data.History = Receiver.GetInSeqHistory();
 
-		PretendDeliverNotifications(Notified, Data, NotifiedSequenceNumbers);
+		// Process the received ack information
+		PretendReceivedPacket(Sender, Data, NotifiedSequenceNumbers);
 
+		// Check that it matches the expected result
 		return FPlatformMemory::Memcmp(&InSequenceNumbers[0], &NotifiedSequenceNumbers[0], sizeof(InSequenceNumbers)) == 0;
 	}
 };
-
 
 bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 {
@@ -106,7 +139,7 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 	// Test fill
 	{
 		FNetPacketNotify::SequenceNumberT ExpectedInSeq(31);
-		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0xffffffffu);
+		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0xffffffffu, 1);
 
 		FNetPacketNotify Acks = Util.DefaultNotify;
 				
@@ -122,7 +155,7 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 	// Test drop every other
 	{
 		FNetPacketNotify::SequenceNumberT ExpectedInSeq(30);
-		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0x55555555u);
+		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0x55555555u, 1);
 
 		FNetPacketNotify Acks = Util.DefaultNotify;
 				
@@ -138,7 +171,9 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 	// Test burst drop
 	{
 		FNetPacketNotify::SequenceNumberT ExpectedInSeq(128);
-		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0x1u);
+		FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory;
+		uint32 ExpectedArray[] = {0x1, 0, 0, 0x20000000 };
+		FNetPacketNotifyTestUtil::InitHistory(ExpectedInSeqHistory, ExpectedArray );
 
 		FNetPacketNotify Acks = Util.DefaultNotify;
 
@@ -183,7 +218,7 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 		const FNetPacketNotify::SequenceHistoryT ExpectedInSeqHistory(0x8853u);
 
 		const FNetPacketNotify::SequenceNumberT AckdPacketIds[] = {3, 7, 12, 14, 17, 18};
-		const size_t ExpectedCount = sizeof(AckdPacketIds)/sizeof((AckdPacketIds)[0]);		
+		const SIZE_T ExpectedCount = sizeof(AckdPacketIds)/sizeof((AckdPacketIds)[0]);		
 
 		FNetPacketNotify Acks = Util.DefaultNotify;
 		FNetPacketNotifyTestUtil::PretendAckSequenceNumbers(Acks, AckdPacketIds);
@@ -191,15 +226,14 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Create history - InSeq"), Acks.GetInSeq(), ExpectedInSeq);
 		TestEqual(TEXT("Create history - InSeqHistory"), Acks.GetInSeqHistory(), ExpectedInSeqHistory);
 	}
-
 	
 	// test notifications
 	{
 		static const FNetPacketNotify::SequenceNumberT ExpectedAckdPacketIds[] = {3, 7, 12, 14, 17, 18};
-		static const size_t ExpectedCount = sizeof(ExpectedAckdPacketIds)/sizeof((ExpectedAckdPacketIds)[0]);		
+		static const SIZE_T ExpectedCount = sizeof(ExpectedAckdPacketIds)/sizeof((ExpectedAckdPacketIds)[0]);		
 
 		FNetPacketNotify::SequenceNumberT RcvdAcks[ExpectedCount] = { 0 };
-		size_t RcvdCount = 0;
+		SIZE_T RcvdCount = 0;
 
 		// Create src data
 		FNetPacketNotify Acks = Util.DefaultNotify;
@@ -209,8 +243,15 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 		Data.Seq = FNetPacketNotify::SequenceNumberT(0);
 		Data.AckedSeq = FNetPacketNotify::SequenceNumberT(18);
 		Data.History = FNetPacketNotify::SequenceHistoryT(0x8853u);
+		Data.HistoryWordCount = 1;
 
-		size_t DeltaSeq = FNetPacketNotifyTestUtil::PretendDeliverNotifications(Acks, Data, RcvdAcks);
+		// Need to fake ack record as well.
+		for (SIZE_T It=0; It <= 18; ++It)
+		{
+			FNetPacketNotifyTestUtil::PretendSendSeq(Acks, 0);
+		}
+	
+		SIZE_T DeltaSeq = FNetPacketNotifyTestUtil::PretendReceivedPacket(Acks, Data, RcvdAcks);
 
 		TestEqual(TEXT("Notifications - Create sequence delta"), DeltaSeq, 1);
 		TestEqual(TEXT("Notifications - Create sequence"), FPlatformMemory::Memcmp(ExpectedAckdPacketIds, RcvdAcks, sizeof(ExpectedAckdPacketIds)), 0u);
@@ -230,12 +271,12 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("{2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs));
 	}
 	{
-		static const FNetPacketNotify::SequenceNumberT TestSeqs[] = {0, 31};	
-		TestTrue(TEXT("Test Seq {0, 31}"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs));
+		static const FNetPacketNotify::SequenceNumberT TestSeqs[] = {0, FNetPacketNotify::MaxSequenceHistoryLength - 1};	
+		TestTrue(TEXT("Test Seq {0, FNetPacketNotify::MaxSequenceHistoryLength - 1}"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs));
 	}
 	{
-		static const FNetPacketNotify::SequenceNumberT TestSeqs[] = {0, 32};	
-		TestFalse(TEXT("Test Seq {0, 32}"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs));
+		static const FNetPacketNotify::SequenceNumberT TestSeqs[] = {0, FNetPacketNotify::MaxSequenceHistoryLength};	
+		TestFalse(TEXT("Test Seq {0, FNetPacketNotify::MaxSequenceHistoryLength}"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs));
 	}
 	{
 		static const FNetPacketNotify::SequenceNumberT TestSeqs[] = {0, FNetPacketNotify::SequenceNumberT::SeqNumberHalf };
@@ -254,41 +295,7 @@ bool FNetPacketNotifyTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Test Seq {FNetPacketNotify::SequenceNumberT::SeqNumberMax, 0} From SeqNumberHalf + 1;"), FNetPacketNotifyTestUtil::TestNotificationSequence(TestSeqs, FNetPacketNotify::SequenceNumberT::SeqNumberHalf + 2));
 	}
 
-	// Test sequence numbers
-	{
-		// Valid sequence = 0-7, max distance between sequence number in order to determine order is half the sequence space (0-3)
-		typedef TSequenceNumber<3, uint16> FSequence3;
-
-		for (int32 I = 0; I < FSequence3::SeqNumberCount; ++I)
-		{
-			FSequence3 Seq(I);
-			FSequence3 Ref(I);
-			
-			for (int32 U = 0; U < FSequence3::SeqNumberCount; ++U)
-			{	
-				FSequence3::DifferenceT Diff = FSequence3::Diff(Seq, Ref);
-
-				if (U < FSequence3::SeqNumberHalf)
-				{
-					if (!(Diff == U))
-					{
-						TestTrue(TEXT("SequenceNumbers - Expected Diff "), Diff == U);
-					}
-				}
-				else
-				{
-					if (!(Diff == (U - FSequence3::SeqNumberCount)))
-					{
-						TestTrue(TEXT("SequenceNumbers - Expected Diff"), Diff == (U - FSequence3::SeqNumberCount));
-					}
-				}
-				++Seq;
-			}
-		}
-
-		check(!HasAnyErrors());
-
-	}
+	check(!HasAnyErrors());
 
 	return true;
 }
