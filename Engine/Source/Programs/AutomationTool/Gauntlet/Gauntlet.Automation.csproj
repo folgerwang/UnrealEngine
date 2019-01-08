@@ -253,6 +253,7 @@
       <ItemGroup>
         <Compile Include="Platform\Windows\Gauntlet.TargetDeviceWindows.cs" />
         <Compile Include="Platform\Windows\Gauntlet.WindowsBuildSources.cs" />
+        <Compile Include="Platform\Windows\Gauntlet.WindowsPGO.cs" />
         <Compile Include="Platform\Windows\Gauntlet.SelfTest.TestTargetDeviceWindows.cs" />
       </ItemGroup>
     </When>
