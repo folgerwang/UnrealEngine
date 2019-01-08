@@ -4,7 +4,7 @@
 #include "SlateOptMacros.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "SSequencerLabelListRow.h"
-
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SSequencerLabelBrowser"
 
@@ -147,6 +147,8 @@ void SSequencerLabelBrowser::ReloadLabelList(bool FullyReload)
 
 void SSequencerLabelBrowser::HandleLabelListRowLabelRenamed(TSharedPtr<FSequencerLabelTreeNode> Node, const FString& NewLabel)
 {
+	const FScopedTransaction Transaction(LOCTEXT("RenameLabel", "Rename Label"));
+
 	if (Sequencer.IsValid() && Sequencer.Pin()->GetLabelManager().RenameLabel(Node->Label, NewLabel))
 	{
 		ReloadLabelList(true);
@@ -244,6 +246,8 @@ void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 
 	if (Sequencer.IsValid() && LabelTreeView->GetSelectedItems(SelectedItems) > 0)
 	{
+		const FScopedTransaction Transaction(LOCTEXT("RemoveLabel", "Remove Label"));
+
 		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), SelectedItems[0]->Label);
 	}
 }
