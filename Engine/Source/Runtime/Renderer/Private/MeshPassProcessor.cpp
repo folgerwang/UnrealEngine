@@ -258,56 +258,33 @@ void FMeshDrawShaderBindings::SetOnRayTracingStructure(FRHICommandList& RHICmdLi
 	check(ShaderLayouts.Num() == 1);
 
 	FReadOnlyMeshDrawSingleShaderBindings SingleShaderBindings(ShaderLayouts[0], GetData());
-	FRayTracingShaderBindings RayTracingShaderBindings = {};
+
+	FUniformBufferRHIParamRef LocalUniformBuffers[MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE] = {};
 
 	const FUniformBufferRHIParamRef* RESTRICT UniformBufferBindings = SingleShaderBindings.GetUniformBufferStart();
 	const FShaderParameterInfo* RESTRICT UniformBufferParameters = SingleShaderBindings.ParameterMapInfo.UniformBuffers.GetData();
 	const int32 NumUniformBuffers = SingleShaderBindings.ParameterMapInfo.UniformBuffers.Num();
 
+	int32 MaxUniformBufferUsed = -1;
 	for (int32 UniformBufferIndex = 0; UniformBufferIndex < NumUniformBuffers; UniformBufferIndex++)
 	{
 		FShaderParameterInfo Parameter = UniformBufferParameters[UniformBufferIndex];
-		checkSlow(Parameter.BaseIndex <= ARRAY_COUNT(RayTracingShaderBindings.UniformBuffers));
+		checkSlow(Parameter.BaseIndex <= ARRAY_COUNT(LocalUniformBuffers));
 		FUniformBufferRHIParamRef UniformBuffer = UniformBufferBindings[UniformBufferIndex];
-		RayTracingShaderBindings.UniformBuffers[Parameter.BaseIndex] = UniformBuffer;
+		if (Parameter.BaseIndex <= ARRAY_COUNT(LocalUniformBuffers))
+		{
+			LocalUniformBuffers[Parameter.BaseIndex] = UniformBuffer;
+			MaxUniformBufferUsed = FMath::Max((int32)Parameter.BaseIndex, MaxUniformBufferUsed);
+		}
 	}
 
-	const FSamplerStateRHIParamRef* RESTRICT SamplerBindings = SingleShaderBindings.GetSamplerStart();
-	const FShaderParameterInfo* RESTRICT TextureSamplerParameters = SingleShaderBindings.ParameterMapInfo.TextureSamplers.GetData();
-	const int32 NumTextureSamplers = SingleShaderBindings.ParameterMapInfo.TextureSamplers.Num();
-
-	for (int32 SamplerIndex = 0; SamplerIndex < NumTextureSamplers; SamplerIndex++)
-	{
-		FShaderParameterInfo Parameter = TextureSamplerParameters[SamplerIndex];
-		checkSlow(Parameter.BaseIndex <= ARRAY_COUNT(RayTracingShaderBindings.Samplers));
-		FSamplerStateRHIParamRef Sampler = SamplerBindings[SamplerIndex];
-		RayTracingShaderBindings.Samplers[Parameter.BaseIndex] = Sampler;
-	}
-
-	const FShaderResourceViewRHIParamRef* RESTRICT SRVBindings = SingleShaderBindings.GetSRVStart();
-	const FShaderParameterInfo* RESTRICT SRVParameters = SingleShaderBindings.ParameterMapInfo.SRVs.GetData();
-	const int32 NumSRVs = SingleShaderBindings.ParameterMapInfo.SRVs.Num();
-
-	for (int32 SRVIndex = 0; SRVIndex < NumSRVs; SRVIndex++)
-	{
-		FShaderParameterInfo Parameter = SRVParameters[SRVIndex];
-		checkSlow(Parameter.BaseIndex <= ARRAY_COUNT(RayTracingShaderBindings.SRVs));
-		FShaderResourceViewRHIParamRef SRV = SRVBindings[SRVIndex];
-		RayTracingShaderBindings.SRVs[Parameter.BaseIndex] = SRV;
-	}
-
-	const FTextureRHIParamRef* RESTRICT TextureBindings = SingleShaderBindings.GetTextureStart();
-
-	for (int32 TextureIndex = 0; TextureIndex < NumSRVs; TextureIndex++)
-	{
-		FShaderParameterInfo Parameter = SRVParameters[TextureIndex];
-		checkSlow(Parameter.BaseIndex <= ARRAY_COUNT(RayTracingShaderBindings.Textures));
-		FTextureRHIParamRef Texture = TextureBindings[TextureIndex];
-		RayTracingShaderBindings.Textures[Parameter.BaseIndex] = Texture;
-	}
+	checkf(SingleShaderBindings.ParameterMapInfo.TextureSamplers.Num() == 0, TEXT("Texture sampler parameters are not supported for ray tracing. UniformBuffers must be used for all resource binding."));
+	checkf(SingleShaderBindings.ParameterMapInfo.SRVs.Num() == 0, TEXT("SRV parameters are not supported for ray tracing. UniformBuffers must be used for all resource binding."));
+	checkf(SingleShaderBindings.ParameterMapInfo.LooseParameterBuffers.Num() == 0, TEXT("Loose parameter buffers are not supported for ray tracing. UniformBuffers must be used for all resource binding."));
 
 	check(SegmentIndex < 0xFF);
-	RHICmdList.SetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, PipelineState, HitGroupIndex, RayTracingShaderBindings);
+	uint32 NumUniformBuffersToSet = MaxUniformBufferUsed + 1;
+	RHICmdList.SetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, PipelineState, HitGroupIndex, NumUniformBuffersToSet, LocalUniformBuffers);
 }
 #endif // RHI_RAYTRACING
 

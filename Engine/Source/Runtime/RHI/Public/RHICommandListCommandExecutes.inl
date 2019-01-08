@@ -599,7 +599,7 @@ void FRHICommandRayTraceDispatch::Execute(FRHICommandListBase& CmdList)
 void FRHICommandSetRayTracingHitGroup::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetRayTracingHitGroup);
-	INTERNAL_DECORATOR(RHISetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+	INTERNAL_DECORATOR(RHISetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, NumUniformBuffers, UniformBuffers);
 }
 
 #endif // RHI_RAYTRACING

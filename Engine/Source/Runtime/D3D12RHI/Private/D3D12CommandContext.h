@@ -370,7 +370,7 @@ public:
 	virtual void RHISetRayTracingHitGroup(
 		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
 		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
-		const FRayTracingShaderBindings& ResourceBindings) final override;
+		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers) final override;
 #endif // D3D12_RHI_RAYTRACING
 
 	template<typename ObjectType, typename RHIType, typename Predicate>

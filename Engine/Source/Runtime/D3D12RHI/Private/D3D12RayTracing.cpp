@@ -1799,7 +1799,11 @@ template <typename ResourceBinderType>
 static void SetRayTracingShaderResources(
 	FD3D12CommandContext& CommandContext,
 	const FD3D12RayTracingShader* Shader,
-	const FRayTracingShaderBindings& ResourceBindings,
+	uint32 InNumTextures, const FTextureRHIParamRef* Textures,
+	uint32 InNumSRVs, const FShaderResourceViewRHIParamRef* SRVs,
+	uint32 InNumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers,
+	uint32 InNumSamplers, const FSamplerStateRHIParamRef* Samplers,
+	uint32 InNumUAVs, const FUnorderedAccessViewRHIParamRef* UAVs,
 	FD3D12RayTracingDescriptorCache& DescriptorCache,
 	ResourceBinderType& Binder)
 {
@@ -1817,9 +1821,9 @@ static void SetRayTracingShaderResources(
 	uint64 BoundUAVMask = 0;
 	uint64 BoundSamplerMask = 0;
 
-	for (uint32 SRVIndex = 0; SRVIndex < ARRAY_COUNT(ResourceBindings.Textures); ++SRVIndex)
+	for (uint32 SRVIndex = 0; SRVIndex < InNumTextures; ++SRVIndex)
 	{
-		FTextureRHIParamRef Resource = ResourceBindings.Textures[SRVIndex];
+		FTextureRHIParamRef Resource = Textures[SRVIndex];
 		if (Resource)
 		{
 			LocalSRVs[SRVIndex] = CommandContext.RetrieveTextureBase(Resource)->GetShaderResourceView()->GetView();
@@ -1827,9 +1831,9 @@ static void SetRayTracingShaderResources(
 		}
 	}
 
-	for (uint32 SRVIndex = 0; SRVIndex < ARRAY_COUNT(ResourceBindings.SRVs); ++SRVIndex)
+	for (uint32 SRVIndex = 0; SRVIndex < InNumSRVs; ++SRVIndex)
 	{
-		FShaderResourceViewRHIParamRef Resource = ResourceBindings.SRVs[SRVIndex];
+		FShaderResourceViewRHIParamRef Resource = SRVs[SRVIndex];
 		if (Resource)
 		{
 			LocalSRVs[SRVIndex] = FD3D12DynamicRHI::ResourceCast(Resource)->GetView();
@@ -1837,9 +1841,9 @@ static void SetRayTracingShaderResources(
 		}
 	}
 
-	for (uint32 CBVIndex = 0; CBVIndex < ARRAY_COUNT(ResourceBindings.UniformBuffers); ++CBVIndex)
+	for (uint32 CBVIndex = 0; CBVIndex < InNumUniformBuffers; ++CBVIndex)
 	{
-		FUniformBufferRHIParamRef Resource = ResourceBindings.UniformBuffers[CBVIndex];
+		FUniformBufferRHIParamRef Resource = UniformBuffers[CBVIndex];
 		if (Resource)
 		{
 			LocalCBVs[CBVIndex] = FD3D12DynamicRHI::ResourceCast(Resource);
@@ -1847,9 +1851,9 @@ static void SetRayTracingShaderResources(
 		}
 	}
 
-	for (uint32 SamplerIndex = 0; SamplerIndex < ARRAY_COUNT(ResourceBindings.Samplers); ++SamplerIndex)
+	for (uint32 SamplerIndex = 0; SamplerIndex < InNumSamplers; ++SamplerIndex)
 	{
-		FSamplerStateRHIParamRef Resource = ResourceBindings.Samplers[SamplerIndex];
+		FSamplerStateRHIParamRef Resource = Samplers[SamplerIndex];
 		if (Resource)
 		{
 			LocalSamplers[SamplerIndex] = FD3D12DynamicRHI::ResourceCast(Resource)->Descriptor;
@@ -1857,9 +1861,9 @@ static void SetRayTracingShaderResources(
 		}
 	}
 
-	for (uint32 UAVIndex = 0; UAVIndex < ARRAY_COUNT(ResourceBindings.UAVs); ++UAVIndex)
+	for (uint32 UAVIndex = 0; UAVIndex < InNumUAVs; ++UAVIndex)
 	{
-		FUnorderedAccessViewRHIParamRef Resource = ResourceBindings.UAVs[UAVIndex];
+		FUnorderedAccessViewRHIParamRef Resource = UAVs[UAVIndex];
 		if (Resource)
 		{
 			LocalUAVs[UAVIndex] = FD3D12DynamicRHI::ResourceCast(Resource)->GetView();
@@ -1877,8 +1881,8 @@ static void SetRayTracingShaderResources(
 		const uint32 LowestBitMask = (DirtyBits)& (-(int32)DirtyBits);
 		const int32 BufferIndex = FMath::FloorLog2(LowestBitMask); // todo: This has a branch on zero, we know it could never be zero...
 		DirtyBits ^= LowestBitMask;
-		check(BufferIndex < ARRAY_COUNT(ResourceBindings.UniformBuffers));
-		FD3D12UniformBuffer* Buffer = FD3D12DynamicRHI::ResourceCast(ResourceBindings.UniformBuffers[BufferIndex]);
+		check(uint32(BufferIndex) < InNumUniformBuffers);
+		FD3D12UniformBuffer* Buffer = FD3D12DynamicRHI::ResourceCast(UniformBuffers[BufferIndex]);
 		check(Buffer);
 		check(BufferIndex < ShaderResourceTable.ResourceTableLayoutHashes.Num());
 		check(Buffer->GetLayout().GetHash() == ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
@@ -2026,6 +2030,23 @@ static void SetRayTracingShaderResources(
 		const D3D12_GPU_DESCRIPTOR_HANDLE ResourceDescriptorTableBaseGPU = DescriptorCache.SamplerHeap.GetDescriptorGPU(DescriptorTableBaseIndex);
 		Binder.SetRootDescriptorTable(BindSlot, ResourceDescriptorTableBaseGPU);
 	}
+}
+
+template <typename ResourceBinderType>
+static void SetRayTracingShaderResources(
+	FD3D12CommandContext& CommandContext,
+	const FD3D12RayTracingShader* Shader,
+	const FRayTracingShaderBindings& ResourceBindings,
+	FD3D12RayTracingDescriptorCache& DescriptorCache,
+	ResourceBinderType& Binder)
+{
+	SetRayTracingShaderResources(CommandContext, Shader,
+		ARRAY_COUNT(ResourceBindings.Textures), ResourceBindings.Textures,
+		ARRAY_COUNT(ResourceBindings.SRVs), ResourceBindings.SRVs,
+		ARRAY_COUNT(ResourceBindings.UniformBuffers), ResourceBindings.UniformBuffers,
+		ARRAY_COUNT(ResourceBindings.Samplers), ResourceBindings.Samplers,
+		ARRAY_COUNT(ResourceBindings.UAVs), ResourceBindings.UAVs,
+		DescriptorCache, Binder);
 }
 
 static void DispatchRays(FD3D12CommandContext& CommandContext,
@@ -2198,7 +2219,7 @@ void FD3D12CommandContext::RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamR
 void FD3D12CommandContext::RHISetRayTracingHitGroup(
 	FRayTracingSceneRHIParamRef InScene, uint32 InstanceIndex, uint32 SegmentIndex,
 	FRayTracingPipelineStateRHIParamRef InPipeline, uint32 HitGroupIndex,
-	const FRayTracingShaderBindings& ResourceBindings)
+	uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers)
 {
 	FD3D12RayTracingScene* Scene = FD3D12DynamicRHI::ResourceCast(InScene);
 	FD3D12RayTracingPipelineState* Pipeline = FD3D12DynamicRHI::ResourceCast(InPipeline);
@@ -2211,7 +2232,13 @@ void FD3D12CommandContext::RHISetRayTracingHitGroup(
 	const FD3D12RayTracingShader* Shader = Pipeline->HitGroupShaders[HitGroupIndex];
 
 	FD3D12RayTracingLocalResourceBinder ResourceBinder(*this, ShaderTable, Shader->pRootSignature, RecordIndex);
-	SetRayTracingShaderResources(*this, Shader, ResourceBindings, ShaderTable->DescriptorCache, ResourceBinder);
+	SetRayTracingShaderResources(*this, Shader,
+		0, nullptr, // Textures
+		0, nullptr, // SRVs
+		NumUniformBuffers, UniformBuffers, 
+		0, nullptr, // Samplers
+		0, nullptr, // UAVs
+		ShaderTable->DescriptorCache, ResourceBinder);
 }
 
 #undef VERIFYHRESULT

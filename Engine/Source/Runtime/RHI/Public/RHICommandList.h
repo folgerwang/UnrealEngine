@@ -1909,16 +1909,19 @@ struct FRHICommandSetRayTracingHitGroup final : public FRHICommand<FRHICommandSe
 	uint32 SegmentIndex;
 	FRayTracingPipelineStateRHIParamRef Pipeline;
 	uint32 HitGroupIndex;
-	FRayTracingShaderBindings ResourceBindings;
+	uint32 NumUniformBuffers;
+	const FUniformBufferRHIParamRef* UniformBuffers; // Pointer to an array of uniform buffers, allocated inline with the command list
 
-	FRHICommandSetRayTracingHitGroup(FRayTracingSceneRHIParamRef InScene, uint32 InInstanceIndex, uint32 InSegmentIndex, FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InHitGroupIndex, const FRayTracingShaderBindings& InResourceBindings)
+	FRHICommandSetRayTracingHitGroup(FRayTracingSceneRHIParamRef InScene, uint32 InInstanceIndex, uint32 InSegmentIndex, FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InHitGroupIndex, uint32 InNumUniformBuffers, const FUniformBufferRHIParamRef* InUniformBuffers)
 		: Scene(InScene)
 		, InstanceIndex(InInstanceIndex)
 		, SegmentIndex(InSegmentIndex)
 		, Pipeline(InPipeline)
 		, HitGroupIndex(InHitGroupIndex)
-		, ResourceBindings(InResourceBindings)
-	{}
+		, NumUniformBuffers(InNumUniformBuffers)
+		, UniformBuffers(InUniformBuffers)
+	{
+	}
 
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
@@ -3015,15 +3018,25 @@ public:
 	FORCEINLINE_DEBUGGABLE void SetRayTracingHitGroup(
 		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
 		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
-		const FRayTracingShaderBindings& ResourceBindings)
+		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers)
 	{
 		if (Bypass())
 		{
-			GetContext().RHISetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+			GetContext().RHISetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, NumUniformBuffers, UniformBuffers);
 		}
 		else
 		{
-			ALLOC_COMMAND(FRHICommandSetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, ResourceBindings);
+			FUniformBufferRHIParamRef* InlineUniformBuffers = nullptr;
+			if (NumUniformBuffers)
+			{
+				InlineUniformBuffers = (FUniformBufferRHIParamRef*)Alloc(sizeof(FUniformBufferRHIParamRef) * NumUniformBuffers, alignof(FUniformBufferRHIParamRef));
+				for (uint32 Index = 0; Index < NumUniformBuffers; ++Index)
+				{
+					InlineUniformBuffers[Index] = UniformBuffers[Index];
+				}
+			}
+
+			ALLOC_COMMAND(FRHICommandSetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, NumUniformBuffers, InlineUniformBuffers);
 		}
 	}
 
