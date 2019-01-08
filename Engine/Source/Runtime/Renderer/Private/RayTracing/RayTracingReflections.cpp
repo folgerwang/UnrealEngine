@@ -89,6 +89,11 @@ void SetupReflectionsLightData(
 		FLightShaderParameters LightParameters;
 		Light.LightSceneInfo->Proxy->GetLightShaderParameters(LightParameters);
 
+		if (Light.LightSceneInfo->Proxy->IsInverseSquared())
+		{
+			LightParameters.FalloffExponent = 0;
+		}
+
 		LightData->Type[LightData->Count] = Light.LightType;
 		LightData->LightPosition[LightData->Count] = LightParameters.Position;
 		LightData->LightInvRadius[LightData->Count] = LightParameters.InvRadius;
