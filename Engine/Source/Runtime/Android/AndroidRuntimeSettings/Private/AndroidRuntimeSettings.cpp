@@ -22,6 +22,7 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, bEnableGooglePlaySupport(false)
 	, bUseGetAccounts(false)
 	, bSupportAdMob(true)
+	, bBlockAndroidKeysOnControllers(false)
 	, AudioSampleRate(44100)
 	, AudioCallbackBufferFrameSize(1024)
 	, AudioNumBuffersToEnqueue(4)

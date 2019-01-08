@@ -420,6 +420,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Allow Bluetooth controllers"))
 	bool bAllowControllers;
 
+	// If checked, controllers will not send Android_Back and Android_Menu events that might cause unnecce
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Block Android system keys being sent from controllers"))
+	bool bBlockAndroidKeysOnControllers;
+
 	/** Android encoding options. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Audio, meta = (DisplayName = "Encoding Format"))
 	TEnumAsByte<EAndroidAudio::Type> AndroidAudio;
