@@ -449,13 +449,13 @@ namespace UnrealBuildTool
 			HotReloadMode HotReloadMode = TargetDescriptor.HotReloadMode;
 			if(HotReloadMode == HotReloadMode.Default)
 			{
-				if (BuildConfiguration.bAllowHotReloadFromIDE && HotReload.ShouldDoHotReloadFromIDE(BuildConfiguration, TargetDescriptor))
-				{
-					HotReloadMode = HotReloadMode.FromIDE;
-				}
-				else if (TargetDescriptor.HotReloadModuleNameToSuffix.Count > 0 && TargetDescriptor.ForeignPlugin == null)
+				if (TargetDescriptor.HotReloadModuleNameToSuffix.Count > 0 && TargetDescriptor.ForeignPlugin == null)
 				{
 					HotReloadMode = HotReloadMode.FromEditor;
+				}
+				else if (BuildConfiguration.bAllowHotReloadFromIDE && HotReload.ShouldDoHotReloadFromIDE(BuildConfiguration, TargetDescriptor))
+				{
+					HotReloadMode = HotReloadMode.FromIDE;
 				}
 				else
 				{

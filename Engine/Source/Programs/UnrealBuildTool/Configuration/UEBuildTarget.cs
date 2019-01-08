@@ -1197,8 +1197,11 @@ namespace UnrealBuildTool
 			// Create the makefile
 			TargetMakefile Makefile = new TargetMakefile(TargetToolChain.GetVersionInfo(), ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
 
-			// Execute the pre-build steps
+			// Setup the pre-build steps
 			Makefile.PreBuildScripts = CreatePreBuildScripts();
+
+			// Setup the hot reload module list
+			Makefile.HotReloadModuleNames = GetHotReloadModuleNames();
 
 			// If we're compiling monolithic, make sure the executable knows about all referenced modules
 			if (ShouldCompileMonolithic())
