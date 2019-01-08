@@ -223,7 +223,7 @@ class FBuildRectLightMipTreeCS : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
+		return RHISupportsRayTracingShaders(Parameters.Platform);
 	}
 
 	static uint32 GetGroupSize()
