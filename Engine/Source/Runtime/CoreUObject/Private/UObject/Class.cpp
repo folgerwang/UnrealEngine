@@ -3938,7 +3938,7 @@ bool UClass::HasProperty(UProperty* InProperty) const
 {
 	if ( UClass* PropertiesClass = dynamic_cast<UClass*>(InProperty->GetOuter()) )
 	{
-		return PropertiesClass->FindNearestCommonBaseClass(this) != nullptr;
+		return IsChildOf(PropertiesClass);
 	}
 
 	return false;
