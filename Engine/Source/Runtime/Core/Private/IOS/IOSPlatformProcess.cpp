@@ -8,7 +8,9 @@ IOSPlatformProcess.cpp: iOS implementations of Process functions
 #include "Apple/ApplePlatformRunnableThread.h"
 #include "IOS/IOSAppDelegate.h"
 #include "Misc/CoreDelegates.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 // numbers recommended by Apple
 #define GAME_THREAD_PRIORITY 47

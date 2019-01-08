@@ -11,10 +11,12 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <mach/thread_act.h>
 #include <mach/thread_policy.h>
 #include <libproc.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {

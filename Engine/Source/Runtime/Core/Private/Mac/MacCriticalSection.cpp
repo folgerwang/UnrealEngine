@@ -7,8 +7,10 @@
 #include "Mac/MacCriticalSection.h"
 #include "Misc/App.h"
 #include "Misc/DateTime.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <libproc.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 FMacSystemWideCriticalSection::FMacSystemWideCriticalSection(const FString& InName, FTimespan InTimeout)
 {
