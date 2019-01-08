@@ -991,6 +991,7 @@ public:
 
 	/** Parameters for exponential height fog. */
 	FVector4 ExponentialFogParameters;
+	FVector4 ExponentialFogParameters2;
 	FVector ExponentialFogColor;
 	float FogMaxOpacity;
 	FVector4 ExponentialFogParameters3;
