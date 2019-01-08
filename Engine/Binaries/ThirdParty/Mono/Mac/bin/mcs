@@ -1,2 +1,4 @@
 #!/bin/sh
-exec "$UE_MONO_DIR/bin/mono" $MONO_OPTIONS "$UE_MONO_DIR/lib/mono/4.5/mcs.exe" "$@"
+export PATH=$PATH:/Library/Frameworks/Mono.framework/Versions/5.16.0/bin
+export PKG_CONFIG_PATH=/Library/Frameworks/Mono.framework/External/pkgconfig:/Library/Frameworks/Mono.framework/Versions/5.16.0/lib/pkgconfig:/Library/Frameworks/Mono.framework/Versions/5.16.0/share/pkgconfig:$PKG_CONFIG_PATH
+exec /Library/Frameworks/Mono.framework/Versions/5.16.0/bin/mono $MONO_OPTIONS /Library/Frameworks/Mono.framework/Versions/5.16.0/lib/mono/4.5/mcs.exe "$@"
