@@ -135,7 +135,8 @@ UAssetRegistryImpl::UAssetRegistryImpl(const FObjectInitializer& ObjectInitializ
 				if (IFileManager::Get().DirectoryExists(*ContentFolder))
 				{
 					FDelegateHandle NewHandle;
-					DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(ContentFolder, IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UAssetRegistryImpl::OnDirectoryChanged), NewHandle);
+					DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(ContentFolder, IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UAssetRegistryImpl::OnDirectoryChanged),
+																			  NewHandle, IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges);
 					OnDirectoryChangedDelegateHandles.Add(ContentFolder, NewHandle);
 				}
 			}
@@ -2436,6 +2437,32 @@ void UAssetRegistryImpl::OnDirectoryChanged(const TArray<FFileChangeData>& FileC
 				break;
 			}
 		}
+		else if (bIsValidPackageName)
+		{
+			// This could be a directory or possibly a file with no extension or a wrong extension.
+			// No guaranteed way to know at this point since it may have been deleted.
+			switch (FileChangesProcessed[FileIdx].Action)
+			{
+			case FFileChangeData::FCA_Added:
+			{
+				if (FPaths::DirectoryExists(File))
+				{
+					AddPath(LongPackageName);
+					UE_LOG(LogAssetRegistry, Verbose, TEXT("Directory was added to content directory: %s"), *File);
+					AddPathToSearch(LongPackageName);
+				}
+				break;
+			}
+			case FFileChangeData::FCA_Removed:
+			{
+				RemoveAssetPath(*LongPackageName);
+				UE_LOG(LogAssetRegistry, Verbose, TEXT("Directory was removed from content directory: %s"), *File);
+				break;
+			}
+			default:
+				break;
+			}
+		}
 	}
 
 	if (NewFiles.Num())
@@ -2612,7 +2639,8 @@ void UAssetRegistryImpl::OnContentPathMounted(const FString& InAssetPath, const 
 		{
 			// If the path doesn't exist on disk, make it so the watcher will work.
 			IFileManager::Get().MakeDirectory(*FileSystemPath);
-			DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(FileSystemPath, IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UAssetRegistryImpl::OnDirectoryChanged), OnContentPathMountedOnDirectoryChangedDelegateHandle);
+			DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(FileSystemPath, IDirectoryWatcher::FDirectoryChanged::CreateUObject(this, &UAssetRegistryImpl::OnDirectoryChanged), 
+																	  OnContentPathMountedOnDirectoryChangedDelegateHandle, IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges);
 		}
 	}
 #endif // WITH_EDITOR

@@ -13,7 +13,7 @@ FDirectoryWatcherWindows::~FDirectoryWatcherWindows()
 	if ( RequestMap.Num() != 0 )
 	{
 		// Delete any remaining requests here. These requests are likely from modules which are still loaded at the time that this module unloads.
-		for (TMap<FString, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
+		for (TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
 		{
 			if ( ensure(RequestIt.Value()) )
 			{
@@ -42,7 +42,8 @@ FDirectoryWatcherWindows::~FDirectoryWatcherWindows()
 
 bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& Handle, uint32 Flags )
 {
-	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
+	const FDirectoryWithFlags DirectoryKey(Directory, Flags);
+	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(DirectoryKey);
 	FDirectoryWatchRequestWindows* Request = NULL;
 	
 	if ( RequestPtr )
@@ -70,7 +71,7 @@ bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FS
 			return false;
 		}
 
-		RequestMap.Add(Directory, Request);
+		RequestMap.Add(DirectoryKey, Request);
 	}
 
 	Handle = Request->AddDelegate(InDelegate);
@@ -80,30 +81,28 @@ bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FS
 
 bool FDirectoryWatcherWindows::UnregisterDirectoryChangedCallback_Handle( const FString& Directory, FDelegateHandle InHandle )
 {
-	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
-	
-	if ( RequestPtr )
+	for (const auto& RequestPair : RequestMap)
 	{
-		// There should be no NULL entries in the map
-		check (*RequestPtr);
-
-		FDirectoryWatchRequestWindows* Request = *RequestPtr;
-
-		if ( Request->RemoveDelegate(InHandle) )
+		if (RequestPair.Key.Key == Directory)
 		{
-			if ( !Request->HasDelegates() )
+			// There should be no NULL entries in the map
+			check(RequestPair.Value);
+
+			if (RequestPair.Value->RemoveDelegate(InHandle))
 			{
-				// Remove from the active map and add to the pending delete list
-				RequestMap.Remove(Directory);
-				RequestsPendingDelete.AddUnique(Request);
+				if (!RequestPair.Value->HasDelegates())
+				{
+					// Remove from the active map and add to the pending delete list
+					RequestMap.Remove(RequestPair.Key);
+					RequestsPendingDelete.AddUnique(RequestPair.Value);
 
-				// Signal to end the watch which will mark this request for deletion
-				Request->EndWatchRequest();
+					// Signal to end the watch which will mark this request for deletion
+					RequestPair.Value->EndWatchRequest();
+				}
+
+				return true;
 			}
-
-			return true;
 		}
-		
 	}
 
 	return false;
@@ -112,10 +111,10 @@ bool FDirectoryWatcherWindows::UnregisterDirectoryChangedCallback_Handle( const 
 void FDirectoryWatcherWindows::Tick( float DeltaSeconds )
 {
 	TArray<HANDLE> DirectoryHandles;
-	TMap<FString, FDirectoryWatchRequestWindows*> InvalidRequestsToDelete;
+	TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*> InvalidRequestsToDelete;
 
 	// Find all handles to listen to and invalid requests to delete
-	for (TMap<FString, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
+	for (TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
 	{
 		if ( RequestIt.Value()->IsPendingDelete() )
 		{
@@ -128,7 +127,7 @@ void FDirectoryWatcherWindows::Tick( float DeltaSeconds )
 	}
 
 	// Remove all invalid requests from the request map and add them to the pending delete list so they will be deleted below
-	for (TMap<FString, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(InvalidRequestsToDelete); RequestIt; ++RequestIt)
+	for (TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(InvalidRequestsToDelete); RequestIt; ++RequestIt)
 	{
 		RequestMap.Remove(RequestIt.Key());
 		RequestsPendingDelete.AddUnique(RequestIt.Value());
@@ -155,7 +154,7 @@ void FDirectoryWatcherWindows::Tick( float DeltaSeconds )
 	}
 
 	// Finally, trigger any file change notification delegates
-	for (TMap<FString, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
+	for (TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*>::TConstIterator RequestIt(RequestMap); RequestIt; ++RequestIt)
 	{
 		RequestIt.Value()->ProcessPendingNotifications();
 	}

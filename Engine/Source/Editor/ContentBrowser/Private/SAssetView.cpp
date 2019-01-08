@@ -2773,18 +2773,19 @@ void SAssetView::OnAssetRegistryPathAdded(const FString& Path)
 		{
 			for (const FName& SourcePathName : SourcesData.PackagePaths)
 			{
-				const FString SourcePath = SourcePathName.ToString();
+				// Ensure that /Folder2 is not considered a subfolder of /Folder by appending /
+				FString SourcePath = SourcePathName.ToString() / TEXT("");
 				if(Path.StartsWith(SourcePath))
 				{
 					const FString SubPath = Path.RightChop(SourcePath.Len());
-					
+
 					TArray<FString> SubPathItemList;
 					SubPath.ParseIntoArray(SubPathItemList, TEXT("/"), /*InCullEmpty=*/true);
 
-					if(SubPathItemList.Num() > 0)
+					if (SubPathItemList.Num() > 0)
 					{
 						const FString NewSubFolder = SourcePath / SubPathItemList[0];
-						if(!Folders.Contains(NewSubFolder))
+						if (!Folders.Contains(NewSubFolder))
 						{
 							FilteredAssetItems.Add(MakeShareable(new FAssetViewFolder(NewSubFolder)));
 							RefreshList();
