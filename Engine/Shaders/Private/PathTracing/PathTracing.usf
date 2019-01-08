@@ -220,7 +220,7 @@ void PathTracingMainRG()
 
 						// Apply material Pdf for correct MIS weight
 						float MisWeight = 1.0;
-						if (IsUnidirectionalEnabled)
+						if (IsUnidirectionalEnabled && IsPhysicalLight(LightId))
 						{
 #if 0
 							// DEBUG: Validate Material PDF

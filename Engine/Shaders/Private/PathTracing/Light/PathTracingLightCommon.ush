@@ -31,6 +31,12 @@ bool IsRectLight(int LightId)
 	return SceneLightsData.Type[LightId] == 3;
 }
 
+// A light is a physical light if it can be intersected by a ray.
+bool IsPhysicalLight(int LightId)
+{
+	return IsEnvironmentLight(LightId);
+}
+
 float3 GetLightUV(int LightId, RayDesc Ray, FMaterialClosestHitPayload RayHitInfo)
 {
 	float3 LightUV = 0.0;
