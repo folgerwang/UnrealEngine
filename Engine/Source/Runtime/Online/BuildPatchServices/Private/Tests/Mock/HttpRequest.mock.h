@@ -84,6 +84,18 @@ namespace BuildPatchServices
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentAsString");
 		}
+        
+        virtual bool SetContentAsStreamedFile(const FString& Filename) override
+        {
+            MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentAsStreamedFile");
+			return false;
+        }
+
+		virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentFromStream");
+			return false;
+		}
 
 		virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override
 		{

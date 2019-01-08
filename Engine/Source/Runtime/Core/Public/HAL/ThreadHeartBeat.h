@@ -8,6 +8,10 @@
 #include "HAL/Runnable.h"
 #include "HAL/ThreadSafeBool.h"
 
+#if PLATFORM_UNIX
+#include "Unix/UnixSignalHeartBeat.h"
+#endif
+
 /**
  * Our own local clock.
  * Platforms that support suspend/resume have problems where a suspended title acts like
@@ -165,9 +169,9 @@ struct FSlowHeartBeatScope
 #define LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK 0
 #endif
 
-class CORE_API FGameThreadHitchHeartBeat : public FRunnable
+class CORE_API FGameThreadHitchHeartBeatThreaded : public FRunnable
 {
-	static FGameThreadHitchHeartBeat* Singleton;
+	static FGameThreadHitchHeartBeatThreaded* Singleton;
 
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
@@ -182,7 +186,6 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 
 	double FirstStartTime;
 	double FrameStartTime;
-	double LastReportTime;
 
 	int32 SuspendedCount;
 
@@ -198,8 +201,8 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 
 	void InitSettings();
 
-	FGameThreadHitchHeartBeat();
-	virtual ~FGameThreadHitchHeartBeat();
+	FGameThreadHitchHeartBeatThreaded();
+	virtual ~FGameThreadHitchHeartBeatThreaded();
 
 public:
 
@@ -210,8 +213,8 @@ public:
 	};
 
 	/** Gets the heartbeat singleton */
-	static FGameThreadHitchHeartBeat& Get();
-	static FGameThreadHitchHeartBeat* GetNoInit();
+	static FGameThreadHitchHeartBeatThreaded& Get();
+	static FGameThreadHitchHeartBeatThreaded* GetNoInit();
 
 	/**
 	* Called at the start of a frame to register the time we are looking to detect a hitch
@@ -231,12 +234,21 @@ public:
 	*/
 	void ResumeHeartBeat();
 
+	// No-op, used in FUnixSignalGameHitchHeartBeat
+	void Restart() {}
+
 	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
 	//~ End FRunnable Interface
 };
+
+#if PLATFORM_UNIX
+typedef FUnixSignalGameHitchHeartBeat FGameThreadHitchHeartBeat;
+#else
+typedef FGameThreadHitchHeartBeatThreaded FGameThreadHitchHeartBeat;
+#endif
 
 /** Suspends hitch detection in the current scope */
 struct FDisableHitchDetectorScope

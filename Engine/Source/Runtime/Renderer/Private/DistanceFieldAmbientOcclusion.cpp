@@ -626,6 +626,7 @@ void GenerateBestSpacedVectors()
 
 void ListDistanceFieldLightingMemory(const FViewInfo& View, FSceneRenderer& SceneRenderer)
 {
+#if !NO_LOGGING
 	const FScene* Scene = (const FScene*)View.Family->Scene;
 	UE_LOG(LogRenderer, Log, TEXT("Shared GPU memory (excluding render targets)"));
 
@@ -701,6 +702,7 @@ void ListDistanceFieldLightingMemory(const FViewInfo& View, FSceneRenderer& Scen
 
 	extern void ListDistanceFieldGIMemory(const FViewInfo& View);
 	ListDistanceFieldGIMemory(View);
+#endif // !NO_LOGGING
 }
 
 bool SupportsDistanceFieldAO(ERHIFeatureLevel::Type FeatureLevel, EShaderPlatform ShaderPlatform)

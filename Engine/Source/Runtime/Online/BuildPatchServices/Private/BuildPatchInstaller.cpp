@@ -39,6 +39,7 @@
 #include "Installer/Prerequisites.h"
 #include "Installer/MachineConfig.h"
 #include "Installer/MessagePump.h"
+#include "Installer/OptimisedDelta.h"
 #include "Installer/Statistics/MemoryChunkStoreStatistics.h"
 #include "Installer/Statistics/DiskChunkStoreStatistics.h"
 #include "Installer/Statistics/DownloadServiceStatistics.h"
@@ -51,6 +52,8 @@
 
 namespace ConfigHelpers
 {
+	using namespace BuildPatchServices;
+
 	int32 LoadNumFileMoveRetries()
 	{
 		int32 MoveRetries = 5;
@@ -89,10 +92,22 @@ namespace ConfigHelpers
 		static int32 InstallerRetries = LoadNumInstallerRetries();
 		return InstallerRetries;
 	}
+
+	FOptimisedDeltaConfiguration BuildOptimisedDeltaConfig(const FInstallerConfiguration& InstallerConfig)
+	{
+		FOptimisedDeltaConfiguration OptimisedDeltaConfiguration(StaticCastSharedRef<FBuildPatchAppManifest>(InstallerConfig.InstallManifest));
+		OptimisedDeltaConfiguration.SourceManifest = StaticCastSharedPtr<FBuildPatchAppManifest>(InstallerConfig.CurrentManifest);
+		OptimisedDeltaConfiguration.CloudDirectories = InstallerConfig.CloudDirectories;
+		OptimisedDeltaConfiguration.DeltaPolicy = InstallerConfig.DeltaPolicy;
+		OptimisedDeltaConfiguration.InstallerConfiguration = &InstallerConfig;
+		return OptimisedDeltaConfiguration;
+	}
 }
 
 namespace InstallerHelpers
 {
+	using namespace BuildPatchServices;
+
 	void LogBuildStatInfo(const FBuildInstallStats& BuildStats)
 	{
 		using namespace BuildPatchServices;
@@ -200,6 +215,7 @@ namespace InstallerHelpers
 
 		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: InstallMode: %s"), *EnumToString(InstallerConfiguration.InstallMode));
 		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: VerifyMode: %s"), *EnumToString(InstallerConfiguration.VerifyMode));
+		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: DeltaPolicy: %s"), *EnumToString(InstallerConfiguration.DeltaPolicy));
 		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: bIsRepair: %s"), (InstallerConfiguration.bIsRepair) ? TEXT("true") : TEXT("false"));
 		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: bRunRequiredPrereqs: %s"), (InstallerConfiguration.bRunRequiredPrereqs) ? TEXT("true") : TEXT("false"));
 		UE_LOG(LogBuildPatchServices, Log, TEXT("Build Config: bAllowConcurrentExecution: %s"), (InstallerConfiguration.bAllowConcurrentExecution) ? TEXT("true") : TEXT("false"));
@@ -257,6 +273,13 @@ namespace InstallerHelpers
 			FString Suffix = InstallerHelpers::GetVerifyErrorCode(VerifyResult);
 			UE_LOG(LogBuildPatchServices, Log, TEXT("Build verification error encountered: %s: %d"), *(Prefix + Suffix), Count);
 		}
+	}
+
+	FOptimisedDeltaDependencies BuildOptimisedDeltaDependencies(const TUniquePtr<IDownloadService>& DownloadService)
+	{
+		FOptimisedDeltaDependencies OptimisedDeltaDependencies;
+		OptimisedDeltaDependencies.DownloadService = DownloadService.Get();
+		return OptimisedDeltaDependencies;
 	}
 }
 
@@ -364,8 +387,8 @@ namespace BuildPatchServices
 		, Analytics(MoveTemp(InAnalytics))
 		, HttpTracker(MoveTemp(InHttpTracker))
 		, InstallerAnalytics(FInstallerAnalyticsFactory::Create(Analytics.Get(), HttpTracker.Get()))
-		, FileOperationTracker(FFileOperationTrackerFactory::Create(FTicker::GetCoreTicker(), &NewBuildManifest.Get()))
-		, MemoryChunkStoreAggregateStatistics(FMemoryChunkStoreAggregateStatisticsFactory::Create(InstallerHelpers::GetMultipleReferencedChunks(NewBuildManifest), FileOperationTracker.Get()))
+		, FileOperationTracker(FFileOperationTrackerFactory::Create(FTicker::GetCoreTicker()))
+		, MemoryChunkStoreStatistics(FMemoryChunkStoreStatisticsFactory::Create(FileOperationTracker.Get()))
 		, DiskChunkStoreStatistics(FDiskChunkStoreStatisticsFactory::Create(InstallerAnalytics.Get(), FileOperationTracker.Get()))
 		, DownloadSpeedRecorder(FSpeedRecorderFactory::Create())
 		, DiskReadSpeedRecorder(FSpeedRecorderFactory::Create())
@@ -379,6 +402,7 @@ namespace BuildPatchServices
 		, FileConstructorStatistics(FFileConstructorStatisticsFactory::Create(DiskReadSpeedRecorder.Get(), DiskWriteSpeedRecorder.Get(), &BuildProgress, FileOperationTracker.Get()))
 		, VerifierStatistics(FVerifierStatisticsFactory::Create(DiskReadSpeedRecorder.Get(), &BuildProgress, FileOperationTracker.Get()))
 		, DownloadService(FDownloadServiceFactory::Create(FTicker::GetCoreTicker(), HttpManager.Get(), FileSystem.Get(), DownloadServiceStatistics.Get(), InstallerAnalytics.Get()))
+		, OptimisedDelta(FOptimisedDeltaFactory::Create(ConfigHelpers::BuildOptimisedDeltaConfig(Configuration), InstallerHelpers::BuildOptimisedDeltaDependencies(DownloadService)))
 		, MessagePump(FMessagePumpFactory::Create())
 		, Controllables()
 	{
@@ -473,14 +497,9 @@ namespace BuildPatchServices
 		return VerifierStatistics.Get();
 	}
 
-	const IMemoryChunkStoreStatistics* FBuildPatchInstaller::GetCloudMemoryChunkStoreStatistics() const
+	const IMemoryChunkStoreStatistics* FBuildPatchInstaller::GetMemoryChunkStoreStatistics() const
 	{
-		return MemoryChunkStoreAggregateStatistics->Expose(static_cast<int32>(EMemoryStore::Cloud));
-	}
-
-	const IMemoryChunkStoreStatistics* FBuildPatchInstaller::GetInstallMemoryChunkStoreStatistics() const
-	{
-		return MemoryChunkStoreAggregateStatistics->Expose(static_cast<int32>(EMemoryStore::Install));
+		return MemoryChunkStoreStatistics.Get();
 	}
 
 	const IDiskChunkStoreStatistics* FBuildPatchInstaller::GetDiskChunkStoreStatistics() const
@@ -567,6 +586,21 @@ namespace BuildPatchServices
 			bInstallerInitSuccess = false;
 		}
 
+		// Grab the optimized chunk delta.
+		DestinationManifest = OptimisedDelta->GetDestinationManifest();
+		PreviousTotalDownloadRequired.Add(OptimisedDelta->GetMetaDownloadSize());
+		// The OptimiseDelta class handles policy, so if we get a nullptr back, that is a hard error.
+		if (!DestinationManifest.IsValid())
+		{
+			UE_LOG(LogBuildPatchServices, Error, TEXT("Installer setup: Destination manifest could not be obtained."));
+			InstallerError->SetError(EBuildPatchInstallError::DownloadError, DownloadErrorCodes::MissingDestinationManifest);
+			bInstallerInitSuccess = false;
+		}
+		else
+		{
+			MemoryChunkStoreStatistics->SetMultipleReferencedChunk(InstallerHelpers::GetMultipleReferencedChunks(DestinationManifest.ToSharedRef()));
+		}
+
 		// Init build statistics that are known.
 		{
 			FScopeLock Lock(&ThreadLock);
@@ -617,6 +651,9 @@ namespace BuildPatchServices
 			int32 InstallRetries = ConfigHelpers::NumInstallerRetries();
 			while (!bProcessSuccess && bCanRetry)
 			{
+				// Inform file operation tracker of the selected manifest.
+				FileOperationTracker->OnManifestSelection(*DestinationManifest.Get());
+
 				// No longer queued
 				BuildProgress.SetStateProgress(EBuildPatchState::Queued, 1.0f);
 
@@ -971,20 +1008,27 @@ namespace BuildPatchServices
 			}
 		}
 
-		// Default chunk store sizes to tie in with the default prefetch maxes for source configs.
-		// Cloud chunk source will share store with chunkdb source, since chunkdb is designed for standing in place of the need to download.
+		// Default chunk store size to tie in with the default prefetch maxes for source configs.
 		const int32 DefaultChunkDbMaxRead = FChunkDbSourceConfig({}).PreFetchMaximum;
 		const int32 DefaultInstallMaxRead = FInstallSourceConfig().BatchFetchMaximum;
 		const int32 DefaultCloudMaxRead = FCloudSourceConfig({}).PreFetchMaximum;
-		int32 CloudChunkStoreMemorySize = DefaultCloudMaxRead + DefaultChunkDbMaxRead;
-		int32 InstallChunkStoreMemorySize = DefaultInstallMaxRead;
-		// Load overridden sizes from config.
-		GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("CloudChunkStoreMemorySize"), CloudChunkStoreMemorySize, GEngineIni);
-		GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("InstallChunkStoreMemorySize"), InstallChunkStoreMemorySize, GEngineIni);
+		int32 ChunkStoreMemorySize = DefaultCloudMaxRead + DefaultChunkDbMaxRead + DefaultInstallMaxRead;
+		// Load overridden size from config.
+		if (!GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("ChunkStoreMemorySize"), ChunkStoreMemorySize, GEngineIni))
+		{
+			// If we didn't get the new value, check for legacy ones.
+			int32 CloudChunkStoreMemorySize = DefaultCloudMaxRead + DefaultChunkDbMaxRead;
+			int32 InstallChunkStoreMemorySize = DefaultInstallMaxRead;
+			const bool bLoadedCloudSize = GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("CloudChunkStoreMemorySize"), CloudChunkStoreMemorySize, GEngineIni);
+			const bool bLoadedInstallSize = GConfig->GetInt(TEXT("Portal.BuildPatch"), TEXT("InstallChunkStoreMemorySize"), InstallChunkStoreMemorySize, GEngineIni);
+			if (bLoadedCloudSize || bLoadedInstallSize)
+			{
+				ChunkStoreMemorySize = CloudChunkStoreMemorySize + InstallChunkStoreMemorySize;
+			}
+		}
 		// Clamp to sensible limits.
-		CloudChunkStoreMemorySize = FMath::Clamp<int32>(CloudChunkStoreMemorySize, 32, 2048);
-		InstallChunkStoreMemorySize = FMath::Clamp<int32>(InstallChunkStoreMemorySize, 32, 2048);
-		// Cache the last download requirement incase we are running a retry.
+		ChunkStoreMemorySize = FMath::Clamp<int32>(ChunkStoreMemorySize, 64, 2048);
+		// Cache the last download requirement in case we are running a retry.
 		PreviousTotalDownloadRequired.Add(CloudChunkSourceStatistics->GetRequiredDownloadSize());
 		// Reset so that we don't double count data.
 		CloudChunkSourceStatistics->OnRequiredDataUpdated(0);
@@ -992,10 +1036,11 @@ namespace BuildPatchServices
 
 		// Scoped systems composition and execution.
 		{
+			FBuildPatchAppManifestRef DestinationManifestRef = DestinationManifest.ToSharedRef();
 			TUniquePtr<IChunkDataSerialization> ChunkDataSerialization(FChunkDataSerializationFactory::Create(
 				FileSystem.Get()));
 			TUniquePtr<IChunkReferenceTracker> ChunkReferenceTracker(FChunkReferenceTrackerFactory::Create(
-				NewBuildManifest,
+				DestinationManifestRef,
 				FilesToConstruct));
 			TSet<FGuid> ReferencedChunks = ChunkReferenceTracker->GetReferencedChunks();
 			TUniquePtr<IChunkEvictionPolicy> MemoryEvictionPolicy(FChunkEvictionPolicyFactory::Create(
@@ -1005,16 +1050,11 @@ namespace BuildPatchServices
 				ChunkDataSerialization.Get(),
 				DiskChunkStoreStatistics.Get(),
 				FDiskChunkStoreConfig(DataStagingDir)));
-			TUniquePtr<IMemoryChunkStore> InstallChunkStore(FMemoryChunkStoreFactory::Create(
-				InstallChunkStoreMemorySize,
-				MemoryEvictionPolicy.Get(),
-				DiskOverflowStore.Get(),
-				MemoryChunkStoreAggregateStatistics->Expose(static_cast<int32>(EMemoryStore::Install))));
 			TUniquePtr<IMemoryChunkStore> CloudChunkStore(FMemoryChunkStoreFactory::Create(
-				CloudChunkStoreMemorySize,
+				ChunkStoreMemorySize,
 				MemoryEvictionPolicy.Get(),
 				DiskOverflowStore.Get(),
-				MemoryChunkStoreAggregateStatistics->Expose(static_cast<int32>(EMemoryStore::Cloud))));
+				MemoryChunkStoreStatistics.Get()));
 			TUniquePtr<IChunkDbChunkSource> ChunkDbChunkSource(FChunkDbChunkSourceFactory::Create(
 				BuildChunkDbSourceConfig(),
 				Platform.Get(),
@@ -1028,12 +1068,12 @@ namespace BuildPatchServices
 			TUniquePtr<IInstallChunkSource> InstallChunkSource(FInstallChunkSourceFactory::Create(
 				BuildInstallSourceConfig(ChunkDbChunkSource->GetAvailableChunks()),
 				FileSystem.Get(),
-				InstallChunkStore.Get(),
+				CloudChunkStore.Get(),
 				ChunkReferenceTracker.Get(),
 				InstallerError.Get(),
 				InstallChunkSourceStatistics.Get(),
 				InstallationInfo,
-				NewBuildManifest));
+				DestinationManifestRef));
 			const TSet<FGuid> InitialDownloadChunks = ReferencedChunks.Difference(InstallChunkSource->GetAvailableChunks()).Difference(ChunkDbChunkSource->GetAvailableChunks());
 			FileOperationTracker->OnDataStateUpdate(ReferencedChunks.Intersect(ChunkDbChunkSource->GetAvailableChunks()), EFileOperationState::PendingLocalChunkDbData);
 			FileOperationTracker->OnDataStateUpdate(ReferencedChunks.Intersect(InstallChunkSource->GetAvailableChunks()).Difference(ChunkDbChunkSource->GetAvailableChunks()), EFileOperationState::PendingLocalInstallData);
@@ -1048,7 +1088,7 @@ namespace BuildPatchServices
 				MessagePump.Get(),
 				InstallerError.Get(),
 				CloudChunkSourceStatistics.Get(),
-				NewBuildManifest,
+				DestinationManifestRef,
 				InitialDownloadChunks));
 			TArray<IChunkSource*> ChunkSources;
 			ChunkSources.Add(ChunkDbChunkSource.Get());
@@ -1058,7 +1098,7 @@ namespace BuildPatchServices
 				ChunkSources));
 			TUniquePtr<FBuildPatchFileConstructor> FileConstructor(new FBuildPatchFileConstructor(
 				FFileConstructorConfig({
-					NewBuildManifest,
+					DestinationManifestRef,
 					CurrentBuildManifest,
 					Configuration.InstallDirectory,
 					InstallStagingDir,
@@ -1083,7 +1123,6 @@ namespace BuildPatchServices
 				ChainedChunkSource->AddRepeatRequirement(LostChunk);
 			};
 			DiskOverflowStore->SetLostChunkCallback(LostChunkCallback);
-			InstallChunkStore->SetLostChunkCallback(LostChunkCallback);
 			CloudChunkStore->SetLostChunkCallback(LostChunkCallback);
 
 
@@ -1146,7 +1185,7 @@ namespace BuildPatchServices
 			BuildStats.NumChunksRecycled = InstallChunkSourceStatistics->GetNumSuccessfulChunkRecycles();
 			BuildStats.NumChunksReadFromChunkDbs = ChunkDbChunkSourceStatistics->GetNumSuccessfulLoads();
 			BuildStats.NumRecycleFailures = InstallChunkSourceStatistics->GetNumFailedChunkRecycles();
-			BuildStats.NumChunksStoreBooted = MemoryChunkStoreAggregateStatistics->GetTotalNumBooted();
+			BuildStats.NumChunksStoreBooted = MemoryChunkStoreStatistics->GetNumBooted();
 			BuildStats.NumDriveStoreChunkLoads = DiskChunkStoreStatistics->GetNumSuccessfulLoads();
 			BuildStats.NumDriveStoreLoadFailures = DiskChunkStoreStatistics->GetNumFailedLoads();
 			BuildStats.NumChunkDbChunksFailed = ChunkDbChunkSourceStatistics->GetNumFailedLoads();
@@ -1788,11 +1827,11 @@ namespace BuildPatchServices
 			BuildStats.TotalWrittenData = FileConstructorStatistics->GetBytesConstructed();
 			BuildStats.NumFilesConstructed = FileConstructorStatistics->GetFilesConstructed();
 			BuildStats.TheoreticalDownloadTime = BuildStats.AverageDownloadSpeed > 0 ? BuildStats.TotalDownloadedData / BuildStats.AverageDownloadSpeed : 0;
-			BuildStats.AverageMemoryStoreUse = MemoryChunkStoreAggregateStatistics->GetAverageStoreUse();
-			BuildStats.PeakMemoryStoreUse = MemoryChunkStoreAggregateStatistics->GetPeakStoreUse();
-			BuildStats.AverageMemoryStoreRetained = MemoryChunkStoreAggregateStatistics->GetAverageStoreRetained();
-			BuildStats.PeakMemoryStoreRetained = MemoryChunkStoreAggregateStatistics->GetPeakStoreRetained();
-			BuildStats.MemoryStoreSize = MemoryChunkStoreAggregateStatistics->GetTotalStoreSize();
+			BuildStats.AverageMemoryStoreUse = MemoryChunkStoreStatistics->GetAverageStoreUse();
+			BuildStats.PeakMemoryStoreUse = MemoryChunkStoreStatistics->GetPeakStoreUse();
+			BuildStats.AverageMemoryStoreRetained = MemoryChunkStoreStatistics->GetAverageStoreRetained();
+			BuildStats.PeakMemoryStoreRetained = MemoryChunkStoreStatistics->GetPeakStoreRetained();
+			BuildStats.MemoryStoreSize = MemoryChunkStoreStatistics->GetStoreSize();
 			InstallerHelpers::LogBuildStatInfo(BuildStats);
 		}
 		// Call the complete delegate.

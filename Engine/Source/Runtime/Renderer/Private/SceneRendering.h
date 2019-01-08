@@ -1744,6 +1744,9 @@ protected:
 
 	/** Will update the view custom data. */
 	void PostInitViewCustomData();
+
+	/** Whether GPU particle collisions simulation is allowed. */
+	bool IsGPUParticleCollisionEnabled(const FViewInfo& View);
 	
 private:
 	bool bModulatedShadowsInUse;

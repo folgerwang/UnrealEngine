@@ -1717,6 +1717,8 @@ private:
 		return OwnerIsNetAuthority;
 	}
 
+	void InternalExecutePeriodicGameplayEffect(FActiveGameplayEffect& ActiveEffect);
+
 	/** Called internally to actually remove a GameplayEffect or to reduce its StackCount. Returns true if we resized our internal GameplayEffect array. */
 	bool InternalRemoveActiveGameplayEffect(int32 Idx, int32 StacksToRemove, bool bPrematureRemoval);
 	

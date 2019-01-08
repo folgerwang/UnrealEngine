@@ -251,6 +251,17 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 				{
 					out_OSVersionLabel = TEXT("Windows Server Technical Preview");
 				}
+
+				// For Windows 10, get the release number and append that to the string too (eg. 1709 = Fall Creators Update). There doesn't seem to be any good way to get
+				// this other than grabbing an entry from the registry.
+				{
+					FString ReleaseId;
+					if(FWindowsPlatformMisc::QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"), TEXT("ReleaseId"), ReleaseId))
+					{
+						out_OSVersionLabel += FString::Printf(TEXT(" (Release %s)"), *ReleaseId);
+					}
+				}
+
 				break;
 			default:
 				ErrorCode |= (int32)ERROR_UNKNOWNVERSION;
@@ -722,171 +733,7 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 {
 	if ((!FPlatformMisc::IsDebuggerPresent() || GAlwaysReportCrash) && !FParse::Param(FCommandLine::Get(), TEXT("CrashForUAT")))
 	{
-		if (GUseCrashReportClient)
-		{
-			HardKillIfAutomatedTesting();
-			return;
-		}
-
-		const uint32 MAX_STRING_LEN = 256;
-
-		TCHAR ReportDumpVersion[] = TEXT("3");
-
-		FString ReportDumpPath;
-		{
-			const TCHAR ReportDumpFilename[] = TEXT("UnrealAutoReportDump");
-			ReportDumpPath = FPaths::CreateTempFilename( *FPaths::ProjectLogDir(), ReportDumpFilename, TEXT( ".txt" ) );
-		}
-
-		FArchive * AutoReportFile = IFileManager::Get().CreateFileWriter(*ReportDumpPath, FILEWRITE_EvenIfReadOnly);
-		if (AutoReportFile != NULL)
-		{
-			TCHAR CompName[MAX_STRING_LEN];
-			FCString::Strncpy(CompName, FPlatformProcess::ComputerName(), MAX_STRING_LEN);
-			TCHAR UserName[MAX_STRING_LEN];
-			FCString::Strncpy(UserName, FPlatformProcess::UserName(), MAX_STRING_LEN);
-			TCHAR GameName[MAX_STRING_LEN];
-			FCString::Strncpy(GameName, *FString::Printf(TEXT("%s %s"), *FApp::GetBranchName(), FApp::GetProjectName()), MAX_STRING_LEN);
-			TCHAR PlatformName[MAX_STRING_LEN];
-#if PLATFORM_64BITS
-			FCString::Strncpy(PlatformName, TEXT("PC 64-bit"), MAX_STRING_LEN);
-#else	//PLATFORM_64BITS
-			FCString::Strncpy(PlatformName, TEXT("PC 32-bit"), MAX_STRING_LEN);
-#endif	//PLATFORM_64BITS
-			TCHAR CultureName[MAX_STRING_LEN];
-			FCString::Strncpy(CultureName, *FInternationalization::Get().GetDefaultCulture()->GetName(), MAX_STRING_LEN);
-			TCHAR SystemTime[MAX_STRING_LEN];
-			FCString::Strncpy(SystemTime, *FDateTime::Now().ToString(), MAX_STRING_LEN);
-			TCHAR EngineVersionStr[MAX_STRING_LEN];
-			FCString::Strncpy(EngineVersionStr, *FEngineVersion::Current().ToString(), 256 );
-
-			TCHAR ChangelistVersionStr[MAX_STRING_LEN];
-			int32 ChangelistFromCommandLine = 0;
-			const bool bFoundAutomatedBenchMarkingChangelist = FParse::Value( FCommandLine::Get(), TEXT("-gABC="), ChangelistFromCommandLine );
-			if( bFoundAutomatedBenchMarkingChangelist == true )
-			{
-				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(ChangelistFromCommandLine), MAX_STRING_LEN);
-			}
-			// we are not passing in the changelist to use so use the one that was stored in the ObjectVersion
-			else
-			{
-				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(FEngineVersion::Current().GetChangelist()), MAX_STRING_LEN);
-			}
-
-			TCHAR CmdLine[2048];
-			FCString::Strncpy(CmdLine, FCommandLine::Get(),ARRAY_COUNT(CmdLine));
-			TCHAR BaseDir[260];
-			FCString::Strncpy(BaseDir, FPlatformProcess::BaseDir(), ARRAY_COUNT(BaseDir));
-			TCHAR separator = 0;
-
-			TCHAR EngineMode[MAX_STRING_LEN];
-			if( IsRunningCommandlet() )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Commandlet"), MAX_STRING_LEN);
-			}
-			else if( GIsEditor )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Editor"), MAX_STRING_LEN);
-			}
-			else if( IsRunningDedicatedServer() )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Server"), MAX_STRING_LEN);
-			}
-			else
-			{
-				FCString::Strncpy(EngineMode, TEXT("Game"), MAX_STRING_LEN);
-			}
-
-			//build the report dump file
-			AutoReportFile->Serialize(ReportDumpVersion, FCString::Strlen(ReportDumpVersion) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CompName, FCString::Strlen(CompName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(UserName, FCString::Strlen(UserName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(GameName, FCString::Strlen(GameName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(PlatformName, FCString::Strlen(PlatformName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CultureName, FCString::Strlen(CultureName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(SystemTime, FCString::Strlen(SystemTime) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(EngineVersionStr, FCString::Strlen(EngineVersionStr) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(ChangelistVersionStr, FCString::Strlen(ChangelistVersionStr) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CmdLine, FCString::Strlen(CmdLine) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(BaseDir, FCString::Strlen(BaseDir) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-
-			TCHAR* NonConstErrorHist = const_cast< TCHAR* >( InErrorHist );
-			AutoReportFile->Serialize(NonConstErrorHist, FCString::Strlen(NonConstErrorHist) * sizeof(TCHAR));
-
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(EngineMode, FCString::Strlen(EngineMode) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Close();
-			
-			if ( !GIsBuildMachine )
-			{
-				TCHAR AutoReportExe[] = TEXT("../../../Engine/Binaries/DotNET/AutoReporter.exe");
-
-				FString IniDumpPath;
-				if (!FApp::IsProjectNameEmpty())
-				{
-					const TCHAR IniDumpFilename[] = TEXT("UnrealAutoReportIniDump");
-					IniDumpPath = FPaths::CreateTempFilename(*FPaths::ProjectLogDir(), IniDumpFilename, TEXT(".txt"));
-					//build the ini dump
-					FOutputDeviceFile AutoReportIniFile(*IniDumpPath);
-					GConfig->Dump(AutoReportIniFile);
-					AutoReportIniFile.Flush();
-					AutoReportIniFile.TearDown();
-				}
-
-				FString CrashVideoPath = FPaths::ProjectLogDir() + TEXT("CrashVideo.avi");
-
-				//get the paths that the files will actually have been saved to
-				FString UserIniDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*IniDumpPath);
-				FString LogDirectory = FPlatformOutputDevices::GetAbsoluteLogFilename();
-				TCHAR CommandlineLogFile[MAX_SPRINTF]=TEXT("");
-				
-				FString UserLogFile = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*LogDirectory);
-				FString UserReportDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ReportDumpPath);
-				FString UserCrashVideoPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*CrashVideoPath);
-
-				//start up the auto reporting app, passing the report dump file path, the games' log file,
-				// the ini dump path, the minidump path, and the crashvideo path
-				//protect against spaces in paths breaking them up on the commandline
-				FString CallingCommandLine = FString::Printf(TEXT("%d \"%s\" \"%s\" \"%s\" \"%s\" \"%s\""),
-					(uint32)(GetCurrentProcessId()), *UserReportDumpPath, *UserLogFile, *UserIniDumpPath, 
-					MiniDumpFilenameW, *UserCrashVideoPath);
-
-				switch( InMode )
-				{
-				case EErrorReportMode::Unattended:
-					CallingCommandLine += TEXT( " -unattended" );
-					break;
-
-				case EErrorReportMode::Balloon:
-					CallingCommandLine += TEXT( " -balloon" );
-					break;
-
-				case EErrorReportMode::Interactive:
-					break;
-				}
-
-				if (!FPlatformProcess::CreateProc(AutoReportExe, *CallingCommandLine, true, false, false, NULL, 0, NULL, NULL).IsValid())
-				{
-					UE_LOG(LogWindows, Warning, TEXT("Couldn't start up the Auto Reporting process!"));
-					FPlatformMemory::DumpStats(*GWarn);
-					FMessageDialog::Open( EAppMsgType::Ok, FText::FromString( InErrorHist ) );
-				}
-			}
-
-			HardKillIfAutomatedTesting();
-		}
+		HardKillIfAutomatedTesting();
 	}
 }
 
@@ -894,6 +741,18 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 bool FWindowsPlatformMisc::IsDebuggerPresent()
 {
 	return !GIgnoreDebugger && !!::IsDebuggerPresent();
+}
+#endif //!UE_BUILD_SHIPPING
+
+#if STATS || ENABLE_STATNAMEDEVENTS
+void FWindowsPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+
+void FWindowsPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
 }
 
 void FWindowsPlatformMisc::BeginNamedEventFrame()
@@ -947,7 +806,7 @@ void FWindowsPlatformMisc::EndNamedEvent()
 	}
 #endif
 }
-#endif // UE_BUILD_SHIPPING
+#endif // STATS || ENABLE_STATNAMEDEVENTS
 
 bool FWindowsPlatformMisc::IsRemoteSession()
 {

@@ -17,8 +17,12 @@
 // AddFriend
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_AddFriend::GetDisplayName()
+FText FSocialInteraction_AddFriend::GetDisplayName(const USocialUser& User)
 {
+	if (User.IsFriend(ESocialSubsystem::Platform))
+	{
+		return LOCTEXT("AddEpicFriend", "Add Epic Friend");
+	}
 	return LOCTEXT("AddFriend", "Add Friend");
 }
 
@@ -27,29 +31,51 @@ FString FSocialInteraction_AddFriend::GetSlashCommandToken()
 	return TEXT("friend");
 }
 
-void FSocialInteraction_AddFriend::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_AddFriend::CanExecute(const USocialUser& User)
 {
-	if (!User.IsFriend(ESocialSubsystem::Primary))
-	{
-		if (User.GetFriendInviteStatus(ESocialSubsystem::Primary) != EInviteStatus::PendingInbound && !User.IsBlocked(ESocialSubsystem::Primary))
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-		}
-	}
-	//@todo DanH: Need to sort out display name differentiation between the same interaction on two subsystems. ViewProfile covers this nicely for now #future
-	/*if (!User.IsFriend(ESocialSubsystem::Platform) && User.HasSubsystemInfo(ESocialSubsystem::Platform))
-	{
-		const FName PlatformSubsystemName = USocialManager::GetSocialOssName(ESocialSubsystem::Platform);
-		if (PlatformSubsystemName == LIVE_SUBSYSTEM || PlatformSubsystemName == PS4_SUBSYSTEM)
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-		}
-	}*/
+	return User.CanSendFriendInvite(ESocialSubsystem::Primary);
 }
 
-void FSocialInteraction_AddFriend::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_AddFriend::ExecuteInteraction(USocialUser& User)
 {
-	User.SendFriendInvite(SocialSubsystem);
+	User.SendFriendInvite(ESocialSubsystem::Primary);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// AddPlatformFriend
+//////////////////////////////////////////////////////////////////////////
+
+FText FSocialInteraction_AddPlatformFriend::GetDisplayName(const USocialUser& User)
+{
+	const FName PlatformOssName = USocialManager::GetSocialOssName(ESocialSubsystem::Platform);
+	if (PlatformOssName == LIVE_SUBSYSTEM)
+	{
+		return LOCTEXT("AddPlatformFriend_Live", "Add Xbox Live Friend");
+	}
+	else if (PlatformOssName == PS4_SUBSYSTEM)
+	{
+		return LOCTEXT("AddPlatformFriend_PSN", "Add Playstation Network Friend");
+	}
+	else if (PlatformOssName == TENCENT_SUBSYSTEM)
+	{
+		return LOCTEXT("AddPlatformFriend_Tencent", "Add WeGame Friend");
+	}
+	return LOCTEXT("AddPlatformFriend_Unknown", "Add Platform Friend");
+}
+
+FString FSocialInteraction_AddPlatformFriend::GetSlashCommandToken()
+{
+	return TEXT("");
+}
+
+bool FSocialInteraction_AddPlatformFriend::CanExecute(const USocialUser& User)
+{
+	return User.CanSendFriendInvite(ESocialSubsystem::Platform);
+}
+
+void FSocialInteraction_AddPlatformFriend::ExecuteInteraction(USocialUser& User)
+{
+	User.SendFriendInvite(ESocialSubsystem::Platform);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -57,7 +83,7 @@ void FSocialInteraction_AddFriend::ExecuteAction(ESocialSubsystem SocialSubsyste
 //////////////////////////////////////////////////////////////////////////
 
 
-FText FSocialInteraction_RemoveFriend::GetDisplayName()
+FText FSocialInteraction_RemoveFriend::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("RemoveFriend", "Remove Friend");
 }
@@ -67,25 +93,22 @@ FString FSocialInteraction_RemoveFriend::GetSlashCommandToken()
 	return TEXT("unfriend");
 }
 
-void FSocialInteraction_RemoveFriend::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_RemoveFriend::CanExecute(const USocialUser& User)
 {
-	if (User.IsFriend(ESocialSubsystem::Primary))
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return User.IsFriend(ESocialSubsystem::Primary);
 }
 
-void FSocialInteraction_RemoveFriend::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_RemoveFriend::ExecuteInteraction(USocialUser& User)
 {
 	//@todo DanH SocialInteractions: Same issue as parties - there can be N different named friends lists. Whatever we do for different party types, do here too. #future
-	User.EndFriendship(SocialSubsystem);
+	User.EndFriendship(ESocialSubsystem::Primary);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // AcceptFriendInvite
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_AcceptFriendInvite::GetDisplayName()
+FText FSocialInteraction_AcceptFriendInvite::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("AcceptFriendInvite", "Accept");
 }
@@ -95,28 +118,21 @@ FString FSocialInteraction_AcceptFriendInvite::GetSlashCommandToken()
 	return TEXT("accept");
 }
 
-void FSocialInteraction_AcceptFriendInvite::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_AcceptFriendInvite::CanExecute(const USocialUser& User)
 {
-	if (User.GetFriendInviteStatus(ESocialSubsystem::Primary) == EInviteStatus::PendingInbound)
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
-	if (User.GetFriendInviteStatus(ESocialSubsystem::Platform) == EInviteStatus::PendingInbound)
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-	}
+	return User.GetFriendInviteStatus(ESocialSubsystem::Primary) == EInviteStatus::PendingInbound;
 }
 
-void FSocialInteraction_AcceptFriendInvite::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_AcceptFriendInvite::ExecuteInteraction(USocialUser& User)
 {
-	User.AcceptFriendInvite(SocialSubsystem);
+	User.AcceptFriendInvite(ESocialSubsystem::Primary);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // RejectFriendInvite
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_RejectFriendInvite::GetDisplayName()
+FText FSocialInteraction_RejectFriendInvite::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("RejectFriendInvite", "Reject");
 }
@@ -126,28 +142,21 @@ FString FSocialInteraction_RejectFriendInvite::GetSlashCommandToken()
 	return TEXT("reject");
 }
 
-void FSocialInteraction_RejectFriendInvite::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_RejectFriendInvite::CanExecute(const USocialUser& User)
 {
-	if (User.GetFriendInviteStatus(ESocialSubsystem::Primary) == EInviteStatus::PendingInbound)
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
-	if (User.GetFriendInviteStatus(ESocialSubsystem::Platform) == EInviteStatus::PendingInbound)
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-	}
+	return User.GetFriendInviteStatus(ESocialSubsystem::Primary) == EInviteStatus::PendingInbound;
 }
 
-void FSocialInteraction_RejectFriendInvite::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_RejectFriendInvite::ExecuteInteraction(USocialUser& User)
 {
-	User.RejectFriendInvite(SocialSubsystem);
+	User.RejectFriendInvite(ESocialSubsystem::Primary);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Block
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_Block::GetDisplayName()
+FText FSocialInteraction_Block::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("BlockUser", "Block");
 }
@@ -157,37 +166,21 @@ FString FSocialInteraction_Block::GetSlashCommandToken()
 	return TEXT("block");
 }
 
-void FSocialInteraction_Block::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_Block::CanExecute(const USocialUser& User)
 {
-	if (User.HasSubsystemInfo(ESocialSubsystem::Primary))
-	{
-		// If there is a primary subsystem, only bother with blocking there
-		if (!User.IsBlocked(ESocialSubsystem::Primary))
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-		}
-	}
-	else if (User.HasSubsystemInfo(ESocialSubsystem::Platform) && !User.IsBlocked(ESocialSubsystem::Platform))
-	{
-		// If the platform subsystem is the only one available, allow that instead (so long as it's xbox or ps4)
-		const FName PlatformSubsystemName = USocialManager::GetSocialOssName(ESocialSubsystem::Platform);
-		if (PlatformSubsystemName == LIVE_SUBSYSTEM || PlatformSubsystemName == PS4_SUBSYSTEM)
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-		}
-	}
+	return User.HasSubsystemInfo(ESocialSubsystem::Primary) && !User.IsBlocked(ESocialSubsystem::Primary);
 }
 
-void FSocialInteraction_Block::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_Block::ExecuteInteraction(USocialUser& User)
 {
-	User.BlockUser(SocialSubsystem);
+	User.BlockUser(ESocialSubsystem::Primary);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Unblock
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_Unblock::GetDisplayName()
+FText FSocialInteraction_Unblock::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("UnblockUser", "Unblock");
 }
@@ -197,30 +190,14 @@ FString FSocialInteraction_Unblock::GetSlashCommandToken()
 	return TEXT("unblock");
 }
 
-void FSocialInteraction_Unblock::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_Unblock::CanExecute(const USocialUser& User)
 {
-	if (User.HasSubsystemInfo(ESocialSubsystem::Primary))
-	{
-		// If there is a primary subsystem, only bother with blocking there
-		if (User.IsBlocked(ESocialSubsystem::Primary))
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-		}
-	}
-	else if (User.HasSubsystemInfo(ESocialSubsystem::Platform) && User.IsBlocked(ESocialSubsystem::Platform))
-	{
-		// If the platform subsystem is the only one available, allow that instead (so long as it's xbox or ps4)
-		const FName PlatformSubsystemName = USocialManager::GetSocialOssName(ESocialSubsystem::Platform);
-		if (PlatformSubsystemName == LIVE_SUBSYSTEM || PlatformSubsystemName == PS4_SUBSYSTEM)
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-		}
-	}
+	return User.HasSubsystemInfo(ESocialSubsystem::Primary) && User.IsBlocked(ESocialSubsystem::Primary);
 }
 
-void FSocialInteraction_Unblock::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_Unblock::ExecuteInteraction(USocialUser& User)
 {
-	User.UnblockUser(SocialSubsystem);
+	User.UnblockUser(ESocialSubsystem::Primary);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -228,7 +205,7 @@ void FSocialInteraction_Unblock::ExecuteAction(ESocialSubsystem SocialSubsystem,
 //////////////////////////////////////////////////////////////////////////
 
 
-FText FSocialInteraction_PrivateMessage::GetDisplayName()
+FText FSocialInteraction_PrivateMessage::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("SendPrivateMessage", "Whisper");
 }
@@ -238,24 +215,15 @@ FString FSocialInteraction_PrivateMessage::GetSlashCommandToken()
 	return TEXT("whisper");
 }
 
-void FSocialInteraction_PrivateMessage::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_PrivateMessage::CanExecute(const USocialUser& User)
 {
-	if (User.GetOwningToolkit().GetChatManager().IsChatRestricted())
-	{
-		return;
-	}
-
-	// Whispering only takes place on the primary subsystem, but is enabled for friends on both primary and platform subsystems
-	if (User.GetOnlineStatus() != EOnlinePresenceState::Offline)
-	{
-		if (User.IsFriend(ESocialSubsystem::Primary) || User.IsFriend(ESocialSubsystem::Platform))
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-		}
-	}
+	// Whispering only takes place on the primary subsystem, but is enabled for friends on any subsystem
+	return !User.GetOwningToolkit().GetChatManager().IsChatRestricted() &&
+		User.GetOnlineStatus() != EOnlinePresenceState::Offline &&
+		User.IsFriend();
 }
 
-void FSocialInteraction_PrivateMessage::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_PrivateMessage::ExecuteInteraction(USocialUser& User)
 {
 	USocialChatManager& ChatManager = User.GetOwningToolkit().GetChatManager();
 	ChatManager.CreateChatChannel(User);
@@ -266,7 +234,7 @@ void FSocialInteraction_PrivateMessage::ExecuteAction(ESocialSubsystem SocialSub
 // ShowPlatformProfile
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_ShowPlatformProfile::GetDisplayName()
+FText FSocialInteraction_ShowPlatformProfile::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("ShowPlatformProfile", "View Profile");
 }
@@ -276,15 +244,12 @@ FString FSocialInteraction_ShowPlatformProfile::GetSlashCommandToken()
 	return TEXT("profile");
 }
 
-void FSocialInteraction_ShowPlatformProfile::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_ShowPlatformProfile::CanExecute(const USocialUser& User)
 {
-	if (USocialManager::GetLocalUserPlatform().IsConsole() && User.GetUserId(ESocialSubsystem::Platform).IsValid())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Platform);
-	}
+	return USocialManager::GetLocalUserPlatform().IsConsole() && User.GetUserId(ESocialSubsystem::Platform).IsValid();
 }
 
-void FSocialInteraction_ShowPlatformProfile::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_ShowPlatformProfile::ExecuteInteraction(USocialUser& User)
 {
 	User.ShowPlatformProfile();
 }

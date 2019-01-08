@@ -197,20 +197,104 @@ bool FAssetContextMenu::AddImportedAssetMenuOptions(FMenuBuilder& MenuBuilder)
 	if (AreImportedAssetActionsVisible())
 	{
 		TArray<FString> ResolvedFilePaths;
-		GetSelectedAssetSourceFilePaths(ResolvedFilePaths);
+		TArray<FString> SourceFileLabels;
+		int32 ValidSelectedAssetCount = 0;
+		GetSelectedAssetSourceFilePaths(ResolvedFilePaths, SourceFileLabels, ValidSelectedAssetCount);
 
 		MenuBuilder.BeginSection("ImportedAssetActions", LOCTEXT("ImportedAssetActionsMenuHeading", "Imported Asset"));
 		{
-			// Reimport
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("Reimport", "Reimport"),
-				LOCTEXT("ReimportTooltip", "Reimport the selected asset(s) from the source file on disk."),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
-				FUIAction(
-					FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteReimport),
-					FCanExecuteAction()
+			auto CreateSubMenu = [this](FMenuBuilder& SubMenuBuilder, bool bReimportWithNewFile)
+			{
+				//Get the data, we cannot use the closure since the lambda will be call when the function scope will be gone
+				TArray<FString> ResolvedFilePaths;
+				TArray<FString> SourceFileLabels;
+				int32 ValidSelectedAssetCount = 0;
+				GetSelectedAssetSourceFilePaths(ResolvedFilePaths, SourceFileLabels, ValidSelectedAssetCount);
+				if (SourceFileLabels.Num() > 0 )
+				{
+					for (int32 SourceFileIndex = 0; SourceFileIndex < SourceFileLabels.Num(); ++SourceFileIndex)
+					{
+						FText ReimportLabel = FText::Format(LOCTEXT("ReimportNoLabel", "SourceFile {0}"), SourceFileIndex);
+						FText ReimportLabelTooltip;
+						if (ValidSelectedAssetCount == 1)
+						{
+							ReimportLabelTooltip = FText::Format(LOCTEXT("ReimportNoLabelTooltip", "Reimport File: {0}"), FText::FromString(ResolvedFilePaths[SourceFileIndex]));
+						}
+						if (SourceFileLabels[SourceFileIndex].Len() > 0)
+						{
+							ReimportLabel = FText::Format(LOCTEXT("ReimportLabel", "{0}"), FText::FromString(SourceFileLabels[SourceFileIndex]));
+							if (ValidSelectedAssetCount == 1)
+							{
+								ReimportLabelTooltip = FText::Format(LOCTEXT("ReimportLabelTooltip", "Reimport {0} File: {1}"), FText::FromString(SourceFileLabels[SourceFileIndex]), FText::FromString(ResolvedFilePaths[SourceFileIndex]));
+							}
+						}
+						if (bReimportWithNewFile)
+						{
+							SubMenuBuilder.AddMenuEntry(
+								ReimportLabel,
+								ReimportLabelTooltip,
+								FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
+								FUIAction(
+									FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteReimportWithNewFile, SourceFileIndex),
+									FCanExecuteAction()
+								)
+							);
+						}
+						else
+						{
+							SubMenuBuilder.AddMenuEntry(
+								ReimportLabel,
+								ReimportLabelTooltip,
+								FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
+								FUIAction(
+									FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteReimport, SourceFileIndex),
+									FCanExecuteAction()
+								)
+							);
+						}
+						
+					}
+				}
+			};
+
+			//Reimport Menu
+			if (ValidSelectedAssetCount == 1 && SourceFileLabels.Num() > 1)
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("Reimport", "Reimport"),
+					LOCTEXT("ReimportEmptyTooltip", ""),
+					FNewMenuDelegate::CreateLambda(CreateSubMenu, false) );
+				//With new file
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("ReimportWithNewFile", "Reimport With New File"),
+					LOCTEXT("ReimportEmptyTooltip", ""),
+					FNewMenuDelegate::CreateLambda(CreateSubMenu, true));
+			}
+			else
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("Reimport", "Reimport"),
+					LOCTEXT("ReimportTooltip", "Reimport the selected asset(s) from the source file on disk."),
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
+					FUIAction(
+						FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteReimport, (int32)INDEX_NONE),
+						FCanExecuteAction()
 					)
 				);
+				if (ValidSelectedAssetCount == 1)
+				{
+					//With new file
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("ReimportWithNewFile", "Reimport With New File"),
+						LOCTEXT("ReimportWithNewFileTooltip", "Reimport the selected asset from a new source file on disk."),
+						FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.ReimportAsset"),
+						FUIAction(
+							FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteReimportWithNewFile, (int32)INDEX_NONE),
+							FCanExecuteAction()
+						)
+					);
+				}
+			}
 
 			// Show Source In Explorer
 			MenuBuilder.AddMenuEntry(
@@ -1483,16 +1567,55 @@ bool FAssetContextMenu::CanExecuteImportedAssetActions(const TArray<FString> Res
 	return true;
 }
 
-void FAssetContextMenu::ExecuteReimport()
+void FAssetContextMenu::ExecuteReimport(int32 SourceFileIndex /*= INDEX_NONE*/)
 {
 	// Reimport all selected assets
 	TArray<UObject *> CopyOfSelectedAssets;
 	for (const FAssetData &SelectedAsset : SelectedAssets)
-		{
+	{
 		UObject *Asset = SelectedAsset.GetAsset();
 		CopyOfSelectedAssets.Add(Asset);
 	}
-	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(CopyOfSelectedAssets);
+	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(CopyOfSelectedAssets, true, SourceFileIndex, false);
+}
+
+void FAssetContextMenu::ExecuteReimportWithNewFile(int32 SourceFileIndex /*= INDEX_NONE*/)
+{
+	// Ask for a new files and reimport the selected asset
+	check(SelectedAssets.Num() == 1);
+
+	TArray<UObject *> CopyOfSelectedAssets;
+	for (const FAssetData &SelectedAsset : SelectedAssets)
+	{
+		UObject *Asset = SelectedAsset.GetAsset();
+		CopyOfSelectedAssets.Add(Asset);
+	}
+
+	TArray<FString> AssetSourcePaths;
+	UClass* ObjectClass = CopyOfSelectedAssets[0]->GetClass();
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	const auto AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(ObjectClass);
+	if (AssetTypeActions.IsValid())
+	{
+		AssetTypeActions.Pin()->GetResolvedSourceFilePaths(CopyOfSelectedAssets, AssetSourcePaths);
+	}
+
+	int32 SourceFileIndexToReplace = SourceFileIndex;
+	//Check if the data is valid
+	if (SourceFileIndex == INDEX_NONE)
+	{
+		check(AssetSourcePaths.Num() <= 1);
+		//Ask for a new file for the index 0
+		SourceFileIndexToReplace = 0;
+	}
+	else
+	{
+		check(AssetSourcePaths.IsValidIndex(SourceFileIndex));
+	}
+	check(SourceFileIndexToReplace >= 0);
+	
+
+	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(CopyOfSelectedAssets, true, SourceFileIndexToReplace, true);
 }
 
 void FAssetContextMenu::ExecuteFindSourceInExplorer(const TArray<FString> ResolvedFilePaths)
@@ -1530,14 +1653,14 @@ void FAssetContextMenu::GetSelectedAssetsByClass(TMap<UClass*, TArray<UObject*> 
 	}
 }
 
-void FAssetContextMenu::GetSelectedAssetSourceFilePaths(TArray<FString>& OutFilePaths) const
+void FAssetContextMenu::GetSelectedAssetSourceFilePaths(TArray<FString>& OutFilePaths, TArray<FString>& OutUniqueSourceFileLabels, int32 &OutValidSelectedAssetCount) const
 {
 	OutFilePaths.Empty();
-	
+	OutUniqueSourceFileLabels.Empty();
 	TMap<UClass*, TArray<UObject*> > SelectedAssetsByClass;
 	GetSelectedAssetsByClass(SelectedAssetsByClass);
 	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-
+	OutValidSelectedAssetCount = 0;
 	// Get the source file paths for the assets of each type
 	for (const auto& AssetsByClassPair : SelectedAssetsByClass)
 	{
@@ -1545,10 +1668,17 @@ void FAssetContextMenu::GetSelectedAssetSourceFilePaths(TArray<FString>& OutFile
 		if (AssetTypeActions.IsValid())
 		{
 			const auto& TypeAssets = AssetsByClassPair.Value;
+			OutValidSelectedAssetCount += TypeAssets.Num();
 			TArray<FString> AssetSourcePaths;
 			AssetTypeActions.Pin()->GetResolvedSourceFilePaths(TypeAssets, AssetSourcePaths);
-
 			OutFilePaths.Append(AssetSourcePaths);
+
+			TArray<FString> AssetSourceLabels;
+			AssetTypeActions.Pin()->GetSourceFileLabels(TypeAssets, AssetSourceLabels);
+			for (const FString& Label : AssetSourceLabels)
+			{
+				OutUniqueSourceFileLabels.AddUnique(Label);
+			}
 		}
 	}
 }

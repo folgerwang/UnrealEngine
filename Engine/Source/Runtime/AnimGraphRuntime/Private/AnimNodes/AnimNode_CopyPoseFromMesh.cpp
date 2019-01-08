@@ -101,30 +101,34 @@ void FAnimNode_CopyPoseFromMesh::Evaluate_AnyThread(FPoseContext& Output)
 	if (CurrentMeshComponent && CurrentMeshComponent->SkeletalMesh && CurrentMeshComponent->IsRegistered())
 	{
 		const FBoneContainer& RequiredBones = OutPose.GetBoneContainer();
-		const bool bUROInSync = CurrentMeshComponent->AnimUpdateRateParams != nullptr && CurrentMeshComponent->AnimUpdateRateParams == Output.AnimInstanceProxy->GetSkelMeshComponent()->AnimUpdateRateParams;
+		const bool bUROInSync = CurrentMeshComponent->ShouldUseUpdateRateOptimizations() && CurrentMeshComponent->AnimUpdateRateParams != nullptr && CurrentMeshComponent->AnimUpdateRateParams == Output.AnimInstanceProxy->GetSkelMeshComponent()->AnimUpdateRateParams;
 		const bool bUsingExternalInterpolation = CurrentMeshComponent->IsUsingExternalInterpolation();
-		const bool bArraySizesMatch = CurrentMeshComponent->CachedComponentSpaceTransforms.Num() == CurrentMeshComponent->GetComponentSpaceTransforms().Num();
-		const TArray<FTransform>& SourceMeshTransformArray =  (bUROInSync || bUsingExternalInterpolation) && bArraySizesMatch ? CurrentMeshComponent->CachedComponentSpaceTransforms : CurrentMeshComponent->GetComponentSpaceTransforms();
-		for(FCompactPoseBoneIndex PoseBoneIndex : OutPose.ForEachBoneIndex())
+		const TArray<FTransform>& CachedComponentSpaceTransforms = CurrentMeshComponent->GetCachedComponentSpaceTransforms();
+		const bool bArraySizesMatch = CachedComponentSpaceTransforms.Num() == CurrentMeshComponent->GetComponentSpaceTransforms().Num();
+		const TArray<FTransform>& SourceMeshTransformArray = (bUROInSync || bUsingExternalInterpolation) && bArraySizesMatch ? CachedComponentSpaceTransforms : CurrentMeshComponent->GetComponentSpaceTransforms();
+		if(SourceMeshTransformArray.Num() > 0)
 		{
-			const int32& SkeletonBoneIndex = RequiredBones.GetSkeletonIndex(PoseBoneIndex);
-			const int32& MeshBoneIndex = RequiredBones.GetSkeletonToPoseBoneIndexArray()[SkeletonBoneIndex];
-			const int32* Value = BoneMapToSource.Find(MeshBoneIndex);
-			if(Value && *Value!=INDEX_NONE)
+			for(FCompactPoseBoneIndex PoseBoneIndex : OutPose.ForEachBoneIndex())
 			{
-				const int32 SourceBoneIndex = *Value;
-				const int32 ParentIndex = CurrentMeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(SourceBoneIndex);
-				const FCompactPoseBoneIndex MyParentIndex = RequiredBones.GetParentBoneIndex(PoseBoneIndex);
-				// only apply if I also have parent, otherwise, it should apply the space bases
-				if (ParentIndex != INDEX_NONE && MyParentIndex != INDEX_NONE)
+				const int32& SkeletonBoneIndex = RequiredBones.GetSkeletonIndex(PoseBoneIndex);
+				const int32& MeshBoneIndex = RequiredBones.GetSkeletonToPoseBoneIndexArray()[SkeletonBoneIndex];
+				const int32* Value = BoneMapToSource.Find(MeshBoneIndex);
+				if(Value && SourceMeshTransformArray.IsValidIndex(*Value))
 				{
-					const FTransform& ParentTransform = SourceMeshTransformArray[ParentIndex];
-					const FTransform& ChildTransform = SourceMeshTransformArray[SourceBoneIndex];
-					OutPose[PoseBoneIndex] = ChildTransform.GetRelativeTransform(ParentTransform);
-				}
-				else
-				{
-					OutPose[PoseBoneIndex] = SourceMeshTransformArray[SourceBoneIndex];
+					const int32 SourceBoneIndex = *Value;
+					const int32 ParentIndex = CurrentMeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(SourceBoneIndex);
+					const FCompactPoseBoneIndex MyParentIndex = RequiredBones.GetParentBoneIndex(PoseBoneIndex);
+					// only apply if I also have parent, otherwise, it should apply the space bases
+					if (SourceMeshTransformArray.IsValidIndex(ParentIndex) && MyParentIndex != INDEX_NONE)
+					{
+						const FTransform& ParentTransform = SourceMeshTransformArray[ParentIndex];
+						const FTransform& ChildTransform = SourceMeshTransformArray[SourceBoneIndex];
+						OutPose[PoseBoneIndex] = ChildTransform.GetRelativeTransform(ParentTransform);
+					}
+					else
+					{
+						OutPose[PoseBoneIndex] = SourceMeshTransformArray[SourceBoneIndex];
+					}
 				}
 			}
 		}

@@ -8,6 +8,8 @@
 #include "LandscapeProxy.h"
 #include "Editor/LandscapeEditor/Private/LandscapeEdMode.h"
 #include "LandscapeFileFormatInterface.h"
+#include "LandscapeBPCustomBrush.h"
+
 #include "LandscapeEditorObject.generated.h"
 
 class ULandscapeMaterialInstanceConstant;
@@ -431,6 +433,11 @@ class ULandscapeEditorObject : public UObject
 	// Number of vertices either side of the mirror plane to smooth over
 	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Smoothing Width", ShowForTools="Mirror", ClampMin="0", UIMin="0", UIMax="20"))
 	int32 MirrorSmoothingWidth;
+
+	// BP Custom Tool
+
+	UPROPERTY(Category = "Tool Settings", EditAnywhere, Transient, meta = (DisplayName = "Blueprint Brush", ShowForTools = "BPCustom"))
+	TSubclassOf<ALandscapeBlueprintCustomBrush> BlueprintCustomBrush;
 
 	// Resize Landscape Tool
 

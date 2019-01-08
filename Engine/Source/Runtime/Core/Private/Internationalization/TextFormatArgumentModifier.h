@@ -24,6 +24,8 @@ class FTextFormatArgumentModifier_PluralForm : public ITextFormatArgumentModifie
 public:
 	static TSharedPtr<ITextFormatArgumentModifier> Create(const ETextPluralType InPluralType, const FTextFormatString& InArgsString);
 
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
+
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 
 	virtual void GetFormatArgumentNames(TArray<FString>& OutArgumentNames) const override;
@@ -49,6 +51,8 @@ class FTextFormatArgumentModifier_GenderForm : public ITextFormatArgumentModifie
 public:
 	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString);
 
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
+
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 
 	virtual void GetFormatArgumentNames(TArray<FString>& OutArgumentNames) const override;
@@ -73,6 +77,8 @@ class FTextFormatArgumentModifier_HangulPostPositions : public ITextFormatArgume
 {
 public:
 	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString);
+
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 

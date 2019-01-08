@@ -1158,7 +1158,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_RESUME"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_RESUME);
 
-        FPreLoadScreenManager::EnableEarlyRendering(true);
+        FPreLoadScreenManager::EnableRendering(true);
 
 		/*
 		* On the initial loading the restart method must be called immediately
@@ -1199,7 +1199,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 			GetMoviePlayer()->ForceCompletion();
         }
 
-        FPreLoadScreenManager::EnableEarlyRendering(false);
+        FPreLoadScreenManager::EnableRendering(false);
 
 		bNeedToSync = true;
 		break;

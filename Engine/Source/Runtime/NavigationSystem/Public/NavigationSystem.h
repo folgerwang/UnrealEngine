@@ -586,9 +586,11 @@ public:
 	FNavigationOctree* GetMutableNavOctree() { return NavOctree.Get(); }
 
 	// coppied from GetObjectOuterHash
-	FORCEINLINE static int32 HashObject(const UObject& Object)
+	FORCEINLINE static uint64 HashObject(const UObject& Object)
 	{
-		return ((Object.GetFName().GetComparisonIndex() ^ Object.GetFName().GetNumber()) ^ (PTRINT(Object.GetOuter()) >> 6));
+		//return ((Object.GetFName().GetComparisonIndex() ^ Object.GetFName().GetNumber()) ^ (PTRINT(Object.GetOuter()) >> 6));
+		// temp fix for FORT-129586, it seems like the above hashing function is not good enough.
+		return reinterpret_cast<uint64>(&Object);
 	}
 	FORCEINLINE void SetObjectsNavOctreeId(const UObject& Object, FOctreeElementId Id) { ObjectToOctreeId.Add(HashObject(Object), Id); }
 	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject& Object) const { return ObjectToOctreeId.Find(HashObject(Object)); }
@@ -811,7 +813,7 @@ protected:
 
 	TMap<FNavAgentProperties, TWeakObjectPtr<ANavigationData> > AgentToNavDataMap;
 	
-	TMap<int32, FOctreeElementId> ObjectToOctreeId;
+	TMap<uint64, FOctreeElementId> ObjectToOctreeId;
 
 	/** Map of all objects that are tied to indexed navigation parent */
 	TMultiMap<UObject*, FWeakObjectPtr> OctreeChildNodesMap;

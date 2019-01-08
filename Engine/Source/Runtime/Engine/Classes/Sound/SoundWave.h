@@ -527,9 +527,9 @@ public:
 #endif
 
 	/**
-	 * Checks whether sound has been categorised as streaming
+	 * Checks whether sound has been categorised as streaming.
 	 */
-	bool IsStreaming() const;
+	bool IsStreaming(const FPlatformAudioCookOverrides* Overrides = nullptr) const;
 
 	/**
 	 * Attempts to update the cached platform data after any changes that might affect it

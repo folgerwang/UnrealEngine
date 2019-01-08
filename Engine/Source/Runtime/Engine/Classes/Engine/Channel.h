@@ -102,7 +102,11 @@ public:
 	virtual void SetClosingFlag();
 
 	/** Close the base channel. Returns how many bits were written to the send buffer */
-	virtual int64 Close();
+	UE_DEPRECATED(4.22, "Use the Close that takes a reason instead")
+	virtual int64 Close() { return Close(EChannelCloseReason::Destroyed); }
+
+	/** Close the base channel. Returns how many bits were written to the send buffer */
+	virtual int64 Close(EChannelCloseReason Reason);
 
 	/** Describe the channel. */
 	virtual FString Describe();
@@ -148,7 +152,11 @@ public:
 	void AssertInSequenced();
 
 	/** cleans up channel if it hasn't already been */
-	void ConditionalCleanUp( const bool bForDestroy = false );
+	UE_DEPRECATED(4.22, "Please use ConditionalCleanUp that takes a close reason")
+	void ConditionalCleanUp(const bool bForDestroy = false) { ConditionalCleanUp(bForDestroy, EChannelCloseReason::Destroyed);  }
+
+	/** cleans up channel if it hasn't already been */
+	void ConditionalCleanUp(const bool bForDestroy, EChannelCloseReason CloseReason);
 
 	/** Returns true if channel is ready to go dormant (e.g., all outstanding property updates have been ACK'd) */
 	virtual bool ReadyForDormancy(bool suppressLogs=false) { return false; }
@@ -167,7 +175,11 @@ protected:
 	virtual void BecomeDormant() { }
 
 	/** cleans up channel structures and nulls references to the channel */
-	virtual bool CleanUp( const bool bForDestroy );
+	UE_DEPRECATED(4.22, "Please use Cleanup that takes a close reason")
+	virtual bool CleanUp( const bool bForDestroy ) { return CleanUp(bForDestroy, EChannelCloseReason::Destroyed); }
+
+	/** cleans up channel structures and nulls references to the channel */
+	virtual bool CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason );
 
 	/** Sets whether replication is currently paused on this channel or not */
 	virtual void SetReplicationPaused(bool InbIsReplicationPaused) { bIsReplicationPaused = InbIsReplicationPaused; }

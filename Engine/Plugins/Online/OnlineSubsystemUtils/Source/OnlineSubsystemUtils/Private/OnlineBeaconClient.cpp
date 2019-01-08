@@ -135,6 +135,8 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 				}
 #endif
 
+				SetConnectionState(EBeaconConnectionState::Pending);
+
 				// Kick off the connection handshake
 				bool bSentHandshake = false;
 
@@ -146,20 +148,32 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 					bSentHandshake = true;
 				}
 
-				SetConnectionState(EBeaconConnectionState::Pending);
-
-				NetDriver->SetWorld(World);
-				NetDriver->Notify = this;
-				NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
-				NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
-
-
-				if (!bSentHandshake)
+				if (NetDriver)
 				{
-					SendInitialJoin();
-				}
+					NetDriver->SetWorld(World);
+					NetDriver->Notify = this;
+					NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
+					NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
 
-				bSuccess = true;
+					if (!bSentHandshake)
+					{
+						SendInitialJoin();
+					}
+
+					bSuccess = true;
+				}
+				else
+				{
+					// an error must have occurred during BeginHandshaking
+					UE_LOG(LogBeacon, Warning, TEXT("AOnlineBeaconClient::InitClient BeginHandshaking failed"));
+
+					// if the connection is still pending, notify of failure
+					if (GetConnectionState() == EBeaconConnectionState::Pending)
+					{
+						SetConnectionState(EBeaconConnectionState::Invalid);
+						OnFailure();
+					}
+				}
 			}
 			else
 			{

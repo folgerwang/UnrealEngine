@@ -99,13 +99,13 @@ void FUObjectArray::CloseDisregardForGC()
 			UE_LOG(LogUObjectArray, Log, TEXT("%i objects are not in the root set, but can never be destroyed because they are in the DisregardForGC set."), NumAlwaysLoadedObjects - NumRootObjects);
 		}
 
-		// When disregard for GC pool is closed for the first time, make sure the first GC index is set after the last non-GC index.
-		// We do allow here for some slack if MaxObjectsNotConsideredByGC > (ObjLastNonGCIndex + 1) so that disregard for GC pool
-		// can be re-opened later.
-		ObjFirstGCIndex = FMath::Max(ObjFirstGCIndex, ObjLastNonGCIndex + 1);
-
 		GUObjectAllocator.BootMessage();
 	}
+
+	// When disregard for GC pool is closed, make sure the first GC index is set after the last non-GC index.
+	// We do allow here for some slack if MaxObjectsNotConsideredByGC > (ObjLastNonGCIndex + 1) so that disregard for GC pool
+	// can be re-opened later.
+	ObjFirstGCIndex = FMath::Max(ObjFirstGCIndex, ObjLastNonGCIndex + 1);
 
 	UE_LOG(LogUObjectArray, Log, TEXT("CloseDisregardForGC: %d/%d objects in disregard for GC pool"), ObjLastNonGCIndex + 1, MaxObjectsNotConsideredByGC);	
 

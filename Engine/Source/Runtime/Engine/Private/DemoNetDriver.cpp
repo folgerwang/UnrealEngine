@@ -75,6 +75,11 @@ static TAutoConsoleVariable<int32> CVarWithDemoTimeBurnIn(TEXT("demo.WithTimeBur
 static TAutoConsoleVariable<int32> CVarDemoForceFailure( TEXT( "demo.ForceFailure" ), 0, TEXT( "" ) );
 #endif
 
+static TAutoConsoleVariable<float> CVarDemoIncreaseRepPrioritizeThreshold(TEXT("demo.IncreaseRepPrioritizeThreshold"), 0.9, TEXT("The % of Replicated to Prioritized actors at which prioritize time will be decreased."));
+static TAutoConsoleVariable<float> CVarDemoDecreaseRepPrioritizeThreshold(TEXT("demo.DecreaseRepPrioritizeThreshold"), 0.7, TEXT("The % of Replicated to Prioritized actors at which prioritize time will be increased."));
+static TAutoConsoleVariable<float> CVarDemoMinimumRepPrioritizeTime(TEXT("demo.MinimumRepPrioritizePercent"), 0.3, TEXT("Minimum percent of time that must be spent prioritizing actors, regardless of throttling."));
+static TAutoConsoleVariable<float> CVarDemoMaximumRepPrioritizeTime(TEXT("demo.MaximumRepPrioritizePercent"), 0.8, TEXT("Maximum percent of time that may be spent prioritizing actors, regardless of throttling."));
+
 static const int32 MAX_DEMO_READ_WRITE_BUFFER = 1024 * 2;
 
 namespace ReplayTaskNames
@@ -113,6 +118,26 @@ static bool ShouldActorGoDormantForDemo(const AActor* Actor, const UActorChannel
 	}
 
 	return true;
+}
+
+namespace DemoNetDriverRecordingPrivate
+{
+	static constexpr float WarningTimeInterval = 1.f;
+	static double LastWarningTime = 0.f;
+
+	template<size_t N, typename... T>
+	FORCEINLINE static void LogDemoRecordTimeElapsed(TCHAR const (&Format)[N], T... Args)
+	{
+		if (UE_LOG_ACTIVE(LogDemo, Log))
+		{
+			const double Time = FPlatformTime::Seconds();
+			if ((Time - LastWarningTime) > WarningTimeInterval)
+			{
+				UE_LOG(LogDemo, Log, Format, Args...);
+				LastWarningTime = Time;
+			}
+		}
+	}
 }
 
 // Helps manage packets, and any associations with streaming levels or exported GUIDs / fields.
@@ -535,6 +560,8 @@ UDemoNetDriver::UDemoNetDriver(const FObjectInitializer& ObjectInitializer)
 	bIsWaitingForStream = false;
 
 	LevelIntervals.Reserve(512);
+
+	RecordBuildConsiderAndPrioritizeTimeSlice = CVarDemoMaximumRepPrioritizeTime.GetValueOnGameThread();
 }
 
 FString UDemoNetDriver::GetLevelPackageName(const ULevel& InLevel)
@@ -647,6 +674,7 @@ bool UDemoNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, con
 		bPauseRecording					= false;
 		PlaybackPacketIndex				= 0;
 		CheckpointSaveMaxMSPerFrame		= -1.0f;
+		RecordBuildConsiderAndPrioritizeTimeSlice = CVarDemoMaximumRepPrioritizeTime.GetValueOnAnyThread();
 
 		if ( RelevantTimeout == 0.0f )
 		{
@@ -1542,7 +1570,7 @@ bool UDemoNetDriver::DemoReplicateActor(AActor* Actor, UNetConnection* Connectio
 			{
 				if (!Connection->bResendAllDataSinceOpen)		// Don't close the channel if we're forcing them to re-open for checkpoints
 				{
-					Channel->Close();
+					Channel->Close(EChannelCloseReason::Destroyed);
 				}
 			}
 		}
@@ -1846,7 +1874,7 @@ void UDemoNetDriver::TickCheckpoint()
 
 						do
 						{
-							const PendingCheckPointActor Current = CheckpointSaveContext.PendingCheckpointActors.Pop();
+							const FPendingCheckPointActor Current = CheckpointSaveContext.PendingCheckpointActors.Pop();
 							AActor* Actor = Current.Actor.Get();
 
 							if (UseScopedPacketManager & (Current.LevelIndex != ProcessedLevelIndex))
@@ -2190,17 +2218,34 @@ public:
 	FVector		Location;
 };
 
-class FRepActorsParams
+class FRepActorsParams : public FNoncopyable
 {
 public:
 
-	bool bUseAdapativeNetFrequency;
-	float MinRecordHz;
-	float MaxRecordHz;
-	float ServerTickTime;
-	double ReplicationStartTimeSeconds;
-	bool bDoFindActorChannel;
-	bool bDoCheckDormancy;
+	FRepActorsParams(const bool bInUseAdaptiveNetFrequency, const bool bInDoFindActorChannel, const bool bInDoCheckDormancy,
+					const float InMinRecordHz, const float InMaxRecordHz, const float InServerTickTime,
+					const double InReplicationStartTimeSeconds, const double InTimeLimitSeconds):
+		bUseAdapativeNetFrequency(bInUseAdaptiveNetFrequency),
+		bDoFindActorChannel(bInDoFindActorChannel),
+		bDoCheckDormancy(bInDoCheckDormancy),
+		NumActorsReplicated(0),
+		MinRecordHz(InMinRecordHz),
+		MaxRecordHz(InMaxRecordHz),
+		ServerTickTime(InServerTickTime),
+		ReplicationStartTimeSeconds(InReplicationStartTimeSeconds),
+		TimeLimitSeconds(InTimeLimitSeconds)
+	{
+	}
+
+	const bool bUseAdapativeNetFrequency;
+	const bool bDoFindActorChannel;
+	const bool bDoCheckDormancy;
+	int32 NumActorsReplicated;
+	const float MinRecordHz;
+	const float MaxRecordHz;
+	const float ServerTickTime;
+	const double ReplicationStartTimeSeconds;
+	const double TimeLimitSeconds;
 };
 
 void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
@@ -2282,6 +2327,7 @@ void UDemoNetDriver::TickDemoRecordFrame( float DeltaSeconds )
 	}
 
 	const double RecordFrameStartTime = FPlatformTime::Seconds();
+	const double RecordTimeLimit = (MaxDesiredRecordTimeMS * 1000.f);
 
 	// Mark any new streaming levels, so that they are saved out this frame
 	if (!HasLevelStreamingFixes())
@@ -2323,7 +2369,11 @@ void UDemoNetDriver::TickDemoRecordFrame( float DeltaSeconds )
 	}
 
 	// Build priority list
-	PrioritizedActors.Reset( GetNetworkObjectList().GetActiveObjects().Num() );
+	FNetworkObjectList& NetObjectList = GetNetworkObjectList();
+	const FNetworkObjectList::FNetworkObjectSet& ActiveObjectSet = NetObjectList.GetActiveObjects();
+	const int32 NumActiveObjects = ActiveObjectSet.Num();
+
+	PrioritizedActors.Reset(NumActiveObjects);
 
 	// Set the location of the connection's viewtarget for prioritization.
 	FVector ViewLocation = FVector::ZeroVector;
@@ -2345,139 +2395,166 @@ void UDemoNetDriver::TickDemoRecordFrame( float DeltaSeconds )
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Replay prioritize time"), STAT_ReplayPrioritizeTime, STATGROUP_Net);
 
-		TArray< FReplayViewer, TInlineAllocator<16> > ReplayViewers;
-
-		const bool bUseNetRelevancy = CVarDemoUseNetRelevancy.GetValueOnAnyThread() > 0 && World->NetDriver != nullptr && World->NetDriver->IsServer();
-
-		// If we're using relevancy, consider all connections as possible viewing sources
-		if ( bUseNetRelevancy )
+		const double ConsiderTimeLimit = RecordTimeLimit * RecordBuildConsiderAndPrioritizeTimeSlice;
+		auto HasConsiderTimeBeenExhausted = [ConsiderTimeLimit, RecordFrameStartTime, RecordTimeLimit]()
 		{
-			for ( UNetConnection* Connection : World->NetDriver->ClientConnections )
-			{
-				FReplayViewer ReplayViewer( Connection );
-
-				if ( ReplayViewer.ViewTarget )
-				{
-					ReplayViewers.Add( FReplayViewer( Connection ) );
-				}
-			}
-		}
-
-		const float CullDistanceOverride	= CVarDemoCullDistanceOverride.GetValueOnAnyThread();
-		const float CullDistanceOverrideSq	= CullDistanceOverride > 0.0f ? FMath::Square( CullDistanceOverride ) : 0.0f;
-
-		const float RecordHzWhenNotRelevant		= CVarDemoRecordHzWhenNotRelevant.GetValueOnAnyThread();
-		const float UpdateDelayWhenNotRelevant	= RecordHzWhenNotRelevant > 0.0f ? 1.0f / RecordHzWhenNotRelevant : 0.5f;
-
-		TArray<AActor*, TInlineAllocator<128>> ActorsToRemove;
-
-		FDemoActorPriority DemoActorPriority;
-		FActorPriority& ActorPriority = DemoActorPriority.ActorPriority;
-
-		for ( const TSharedPtr<FNetworkObjectInfo>& ObjectInfo : GetNetworkObjectList().GetActiveObjects() )
-		{
-			FNetworkObjectInfo* ActorInfo = ObjectInfo.Get();
-
-			if ( DemoCurrentTime > ActorInfo->NextUpdateTime )
-			{
-				AActor* Actor = ActorInfo->Actor;
-
-				if ( Actor->IsPendingKill() )
-				{
-					ActorsToRemove.Add( Actor );
-					continue;
-				}
-
-				// During client recording, a torn-off actor will already have its remote role set to None, but
-				// we still need to replicate it one more time so that the recorded replay knows it's been torn-off as well.
-				if ( Actor->GetRemoteRole() == ROLE_None && !Actor->GetTearOff())
-				{
-					ActorsToRemove.Add( Actor );
-					continue;
-				}
-
-				if ( Actor->NetDormancy == DORM_Initial && Actor->IsNetStartupActor() )
-				{
-					ActorsToRemove.Add( Actor );
-					continue;
-				}
-
-				// We check ActorInfo->LastNetUpdateTime < KINDA_SMALL_NUMBER to force at least one update for each actor
-				const bool bWasRecentlyRelevant = (ActorInfo->LastNetUpdateTime < KINDA_SMALL_NUMBER) || ((Time - ActorInfo->LastNetUpdateTime) < RelevantTimeout);
-
-				bool bIsRelevant = !bUseNetRelevancy || Actor->bAlwaysRelevant || Actor == ClientConnection->PlayerController || ActorInfo->bForceRelevantNextUpdate;
-
-				ActorInfo->bForceRelevantNextUpdate = false;
-
-				if ( !bIsRelevant )
-				{
-					// Assume this actor is relevant as long as *any* viewer says so
-					for ( const FReplayViewer& ReplayViewer : ReplayViewers )
-					{
-						if (Actor->IsReplayRelevantFor(ReplayViewer.Viewer, ReplayViewer.ViewTarget, ReplayViewer.Location, CullDistanceOverrideSq))
-						{
-							bIsRelevant = true;
-							break;
-						}
-					}
-				}
-
-				if ( !bIsRelevant && !bWasRecentlyRelevant )
-				{
-					// Actor is not relevant (or previously relevant), so skip and set next update time based on demo.RecordHzWhenNotRelevant
-					ActorInfo->NextUpdateTime = DemoCurrentTime + UpdateDelayWhenNotRelevant;
-					continue;
-				}
-
-				UActorChannel* Channel = nullptr;
-				if (bDoFindActorChannelEarly)
-				{
-					Channel = ClientConnection->FindActorChannelRef(Actor);
-
-					// Check dormancy
-					if (bDoCheckDormancyEarly && Channel && ShouldActorGoDormantForDemo(Actor, Channel))
-					{
-						// Either shouldn't go dormant, or is already dormant
-						Channel->StartBecomingDormant();
-					}
-				}
-
-				ActorPriority.ActorInfo = ActorInfo;
-				ActorPriority.Channel = Channel;
-				DemoActorPriority.Level = Actor->GetOuter();
-			
-				if ( bDoPrioritizeActors ) // implies bDoFindActorChannelEarly is true
-				{
-					const float LastReplicationTime = Channel ? (Time - Channel->LastUpdateTime) : SpawnPrioritySeconds;
-					ActorPriority.Priority = FMath::RoundToInt(65536.0f * Actor->GetReplayPriority(ViewLocation, ViewDirection, Viewer, ViewTarget, Channel, LastReplicationTime));
-				}
-
-				PrioritizedActors.Add( DemoActorPriority );
-
-				if ( bIsRelevant )
-				{
-					ActorInfo->LastNetUpdateTime = Time;
-				}
-			}
-		}
+			return RecordTimeLimit > 0.f && (FPlatformTime::Seconds() - RecordFrameStartTime) > ConsiderTimeLimit;
+		};
 
 		{
-			SCOPED_NAMED_EVENT(UDemoNetDriver_PrioritizeRemovedActors, FColor::Green);
+			SCOPED_NAMED_EVENT(UDemoNetDriver_PrioritizeDestroyedOrDormantActors, FColor::Green);
 
-			// Also add destroyed actors that the client may not have a channel for
+			// Add destroyed actors that the client may not have a channel for
+			// We add these first so they get more of the prioritize time slice.
+			// This is because they are marked top priority anyway, and won't need to be prioritized
+			// which should decrease overall time spent next frame.
 			FDemoActorPriority DestroyedActorPriority;
 			DestroyedActorPriority.ActorPriority.Priority = 0x7FFFFFFF;
-			for ( auto It = ClientConnection->GetDestroyedStartupOrDormantActorGUIDs().CreateIterator(); It; ++It )
+			for (auto It = ClientConnection->GetDestroyedStartupOrDormantActorGUIDs().CreateIterator(); It; ++It)
 			{
-				TUniquePtr<FActorDestructionInfo>& DInfo = DestroyedStartupOrDormantActors.FindChecked( *It );
+				TUniquePtr<FActorDestructionInfo>& DInfo = DestroyedStartupOrDormantActors.FindChecked(*It);
 				DestroyedActorPriority.ActorPriority.DestructionInfo = DInfo.Get();
 				DestroyedActorPriority.Level = bHasLevelStreamingFixes ? DestroyedActorPriority.ActorPriority.DestructionInfo->Level.Get() : nullptr;
 				PrioritizedActors.Add(DestroyedActorPriority);
+
+				if (HasConsiderTimeBeenExhausted())
+				{
+					break;
+				}
+			}
+		}
+
+		if (!HasConsiderTimeBeenExhausted())
+		{
+			TArray< FReplayViewer, TInlineAllocator<16> > ReplayViewers;
+
+			const bool bUseNetRelevancy = CVarDemoUseNetRelevancy.GetValueOnAnyThread() > 0 && World->NetDriver != nullptr && World->NetDriver->IsServer();
+
+			// If we're using relevancy, consider all connections as possible viewing sources
+			if (bUseNetRelevancy)
+			{
+				for (UNetConnection* Connection : World->NetDriver->ClientConnections)
+				{
+					FReplayViewer ReplayViewer(Connection);
+
+					if (ReplayViewer.ViewTarget)
+					{
+						ReplayViewers.Add(FReplayViewer(Connection));
+					}
+				}
 			}
 
-			for ( AActor* Actor : ActorsToRemove )
+			const float CullDistanceOverride = CVarDemoCullDistanceOverride.GetValueOnAnyThread();
+			const float CullDistanceOverrideSq = CullDistanceOverride > 0.0f ? FMath::Square(CullDistanceOverride) : 0.0f;
+
+			const float RecordHzWhenNotRelevant = CVarDemoRecordHzWhenNotRelevant.GetValueOnAnyThread();
+			const float UpdateDelayWhenNotRelevant = RecordHzWhenNotRelevant > 0.0f ? 1.0f / RecordHzWhenNotRelevant : 0.5f;
+
+			TArray<AActor*, TInlineAllocator<128>> ActorsToRemove;
+
+			FDemoActorPriority DemoActorPriority;
+			FActorPriority& ActorPriority = DemoActorPriority.ActorPriority;
+
+			for (const TSharedPtr<FNetworkObjectInfo>& ObjectInfo : ActiveObjectSet)
 			{
-				RemoveNetworkActor( Actor );
+				FNetworkObjectInfo* ActorInfo = ObjectInfo.Get();
+
+				if (DemoCurrentTime > ActorInfo->NextUpdateTime)
+				{
+					AActor* Actor = ActorInfo->Actor;
+
+					if (Actor->IsPendingKill())
+					{
+						ActorsToRemove.Add(Actor);
+						continue;
+					}
+
+					// During client recording, a torn-off actor will already have its remote role set to None, but
+					// we still need to replicate it one more time so that the recorded replay knows it's been torn-off as well.
+					if (Actor->GetRemoteRole() == ROLE_None && !Actor->GetTearOff())
+					{
+						ActorsToRemove.Add(Actor);
+						continue;
+					}
+
+					if (Actor->NetDormancy == DORM_Initial && Actor->IsNetStartupActor())
+					{
+						ActorsToRemove.Add(Actor);
+						continue;
+					}
+
+					// We check ActorInfo->LastNetUpdateTime < KINDA_SMALL_NUMBER to force at least one update for each actor
+					const bool bWasRecentlyRelevant = (ActorInfo->LastNetUpdateTime < KINDA_SMALL_NUMBER) || ((Time - ActorInfo->LastNetUpdateTime) < RelevantTimeout);
+
+					bool bIsRelevant = !bUseNetRelevancy || Actor->bAlwaysRelevant || Actor == ClientConnection->PlayerController || ActorInfo->bForceRelevantNextUpdate;
+
+					ActorInfo->bForceRelevantNextUpdate = false;
+
+					if (!bIsRelevant)
+					{
+						// Assume this actor is relevant as long as *any* viewer says so
+						for (const FReplayViewer& ReplayViewer : ReplayViewers)
+						{
+							if (Actor->IsReplayRelevantFor(ReplayViewer.Viewer, ReplayViewer.ViewTarget, ReplayViewer.Location, CullDistanceOverrideSq))
+							{
+								bIsRelevant = true;
+								break;
+							}
+						}
+					}
+
+					if (!bIsRelevant && !bWasRecentlyRelevant)
+					{
+						// Actor is not relevant (or previously relevant), so skip and set next update time based on demo.RecordHzWhenNotRelevant
+						ActorInfo->NextUpdateTime = DemoCurrentTime + UpdateDelayWhenNotRelevant;
+						continue;
+					}
+
+					UActorChannel* Channel = nullptr;
+					if (bDoFindActorChannelEarly)
+					{
+						Channel = ClientConnection->FindActorChannelRef(Actor);
+
+						// Check dormancy
+						if (bDoCheckDormancyEarly && Channel && ShouldActorGoDormantForDemo(Actor, Channel))
+						{
+							// Either shouldn't go dormant, or is already dormant
+							Channel->StartBecomingDormant();
+						}
+					}
+
+					ActorPriority.ActorInfo = ActorInfo;
+					ActorPriority.Channel = Channel;
+					DemoActorPriority.Level = Actor->GetOuter();
+
+					if (bDoPrioritizeActors) // implies bDoFindActorChannelEarly is true
+					{
+						const float LastReplicationTime = Channel ? (Time - Channel->LastUpdateTime) : SpawnPrioritySeconds;
+						ActorPriority.Priority = FMath::RoundToInt(65536.0f * Actor->GetReplayPriority(ViewLocation, ViewDirection, Viewer, ViewTarget, Channel, LastReplicationTime));
+					}
+
+					PrioritizedActors.Add(DemoActorPriority);
+
+					if (bIsRelevant)
+					{
+						ActorInfo->LastNetUpdateTime = Time;
+					}
+				}
+
+				if (HasConsiderTimeBeenExhausted())
+				{
+					break;
+				}
+			}
+
+			{
+				SCOPED_NAMED_EVENT(UDemoNetDriver_PrioritizeRemoveActors, FColor::Green);
+
+				// Always remove necessary actors, don't time slice this.
+				for (AActor* Actor : ActorsToRemove)
+				{
+					RemoveNetworkActor(Actor);
+				}
 			}
 		}
 	}
@@ -2506,22 +2583,43 @@ void UDemoNetDriver::TickDemoRecordFrame( float DeltaSeconds )
 		PrioritizedActors.Sort([](const FDemoActorPriority& A, const FDemoActorPriority& B) { return B.ActorPriority.Priority < A.ActorPriority.Priority; });
 	}
 
-	FRepActorsParams Params
+	const double PrioritizeEndTime = FPlatformTime::Seconds();
+	const double TotalPrioritizeActorsTime = (PrioritizeEndTime - RecordFrameStartTime);
+	const float TotalPrioritizeActorsTimeMS = TotalPrioritizeActorsTime * 1000.f;
+	const int32 NumPrioritizedActors = PrioritizedActors.Num();
+
+	CSV_CUSTOM_STAT(Basic, DemoRecPrioritizeTime, TotalPrioritizeActorsTimeMS, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(Basic, DemoRecPriotizedActors, NumPrioritizedActors, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(Basic, DemoNumActiveObjects, NumActiveObjects, ECsvCustomStatOp::Set);
+
+	// Make sure we're under the desired recording time quota, if any.
+	// See ReplicatePriorizeActor.
+	if (TotalPrioritizeActorsTime > RecordTimeLimit)
 	{
+		DemoNetDriverRecordingPrivate::LogDemoRecordTimeElapsed(TEXT("Exceeded maximum desired recording time (during Prioritization).  Max: %.3fms, TimeSpent: %.3fms, Active Actors: %d, Prioritized Actors: %d"),
+			MaxDesiredRecordTimeMS, TotalPrioritizeActorsTimeMS, NumActiveObjects, NumPrioritizedActors);
+	}
+
+	float MinRecordHz = CVarDemoMinRecordHz.GetValueOnAnyThread();
+	float MaxRecordHz = CVarDemoRecordHz.GetValueOnAnyThread();
+
+	if (MaxRecordHz < MinRecordHz)
+	{
+		Swap(MinRecordHz, MaxRecordHz);
+	}
+
+	FRepActorsParams Params
+	(
 		CVarUseAdaptiveReplayUpdateFrequency.GetValueOnAnyThread() > 0,
-		CVarDemoMinRecordHz.GetValueOnAnyThread(),
-		CVarDemoRecordHz.GetValueOnAnyThread(),
-		ServerTickTime,
-		RecordFrameStartTime,
 		!bDoFindActorChannelEarly,
 		!bDoCheckDormancyEarly,
-	};
+		MinRecordHz,
+		MaxRecordHz,
+		ServerTickTime,
+		RecordFrameStartTime,
+		RecordTimeLimit
+	);
 
-	if (Params.MaxRecordHz < Params.MinRecordHz)
-	{
-		Swap(Params.MaxRecordHz, Params.MinRecordHz);
-	}
-	
 	if (HasLevelStreamingFixes())
 	{
 		const FDemoActorPriority* Priorities = PrioritizedActors.GetData();
@@ -2540,9 +2638,14 @@ void UDemoNetDriver::TickDemoRecordFrame( float DeltaSeconds )
 		ReplicatePrioritizedActors(PrioritizedActors.GetData(), PrioritizedActors.Num(), Params);
 	}
 
+	
+	CSV_CUSTOM_STAT(Basic, DemoNumReplicatedActors, Params.NumActorsReplicated, ECsvCustomStatOp::Set);
+
 	FlushNetChecked(*ClientConnection);
 
 	WriteDemoFrameFromQueuedDemoPackets(*FileAr, ClientConnection->QueuedDemoPackets, DemoCurrentTime);
+	
+	AdjustConsiderTime((float)Params.NumActorsReplicated / (float)NumPrioritizedActors);
 }
 
 bool UDemoNetDriver::ReplicatePrioritizedActor(const FActorPriority& ActorPriority, const class FRepActorsParams& Params)
@@ -2644,35 +2747,23 @@ bool UDemoNetDriver::ReplicatePrioritizedActor(const FActorPriority& ActorPriori
 		UE_LOG(LogDemo, Warning, TEXT("TickDemoRecord: prioritized actor entry should have either an actor or a destruction info"));
 	}
 
-	const double RecordEndTimeSeconds = FPlatformTime::Seconds();
-
 	// Make sure we're under the desired recording time quota, if any.
-	if (MaxDesiredRecordTimeMS > 0.0f)
+	if (Params.TimeLimitSeconds > 0.f)
 	{
-		const double RecordTimeMS = (RecordEndTimeSeconds - RecordStartTimeSeconds) * 1000.0;
+		const double RecordEndTimeSeconds = FPlatformTime::Seconds();
+		const double RecordTimeSeconds = RecordEndTimeSeconds - RecordStartTimeSeconds;
 
-		if ((ActorInfo && ActorInfo->Actor) && (RecordTimeMS > (MaxDesiredRecordTimeMS * 0.95f)))
+		if ((ActorInfo && ActorInfo->Actor) && (RecordTimeSeconds > (Params.TimeLimitSeconds * 0.95f)))
 		{
 			UE_LOG(LogDemo, Verbose, TEXT("Actor %s took more than 95%% of maximum desired recording time. Actor: %.3fms. Max: %.3fms."),
-				*ActorInfo->Actor->GetName(), RecordTimeMS, MaxDesiredRecordTimeMS);
+				*ActorInfo->Actor->GetName(), RecordTimeSeconds * 1000.f, MaxDesiredRecordTimeMS);
 		}
 
-		const double TotalRecordTimeMS = (RecordEndTimeSeconds - Params.ReplicationStartTimeSeconds) * 1000.0;
+		const double TotalRecordTimeSeconds = (RecordEndTimeSeconds - Params.ReplicationStartTimeSeconds);
 
-		if (TotalRecordTimeMS > MaxDesiredRecordTimeMS)
+		if (TotalRecordTimeSeconds > Params.TimeLimitSeconds)
 		{
-			if (UE_LOG_ACTIVE(LogDemo, Log))
-			{
-				static double LastWarningTime = 0.0f;
-				const double CurrentWarningTime = FPlatformTime::Seconds();
-
-				if ((CurrentWarningTime - LastWarningTime) > 1.0)
-				{
-					UE_LOG(LogDemo, Log, TEXT("Exceeded maximum desired recording time.  Max: %.3fms."), MaxDesiredRecordTimeMS);
-					LastWarningTime = CurrentWarningTime;
-				}
-			}
-
+			DemoNetDriverRecordingPrivate::LogDemoRecordTimeElapsed(TEXT("Exceeded maximum desired recording time (during Actor Replication).  Max: %.3fms."), MaxDesiredRecordTimeMS);
 			return false;
 		}
 	}
@@ -2680,21 +2771,22 @@ bool UDemoNetDriver::ReplicatePrioritizedActor(const FActorPriority& ActorPriori
 	return true;
 }
 
-bool UDemoNetDriver::ReplicatePrioritizedActors(const FDemoActorPriority* ActorsToReplicate, uint32 Count, class FRepActorsParams& Params)
+bool UDemoNetDriver::ReplicatePrioritizedActors(const FDemoActorPriority* ActorsToReplicate, uint32 Count, FRepActorsParams& Params)
 {
 	bool bTimeRemaining = true;
-
-	uint32 SortingWorks = 0;
-	for (uint32 It = 0; It < Count; ++It)
+	uint32 It = 0;
+	for (; It < Count; ++It)
 	{
 		const FActorPriority& ActorPriority = ActorsToReplicate[It].ActorPriority;
 		bTimeRemaining = ReplicatePrioritizedActor(ActorPriority, Params);
 		if (!bTimeRemaining)
 		{
+			++It;
 			break;
 		}
 	}
 
+	Params.NumActorsReplicated += It;
 	return bTimeRemaining;
 }
 
@@ -3427,7 +3519,7 @@ void UDemoNetDriver::AddUserToReplay( const FString& UserString )
 	}
 }
 
-#if CSV_PROFILER
+#if (CSV_PROFILER && (!UE_BUILD_SHIPPING))
 struct FCsvDemoSettings
 {
 	bool bCaptureCsv;
@@ -3450,7 +3542,7 @@ static FCsvDemoSettings GetCsvDemoSettings()
 
 	return Settings;
 }
-#endif // CSV_PROFILER
+#endif // (CSV_PROFILER && (!UE_BUILD_SHIPPING))
 
 void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 {
@@ -3460,7 +3552,7 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 		return;
 	}
 
-#if CSV_PROFILER
+#if (CSV_PROFILER && (!UE_BUILD_SHIPPING))
 	{
 		static FCsvDemoSettings CsvDemoSettings = GetCsvDemoSettings();
 		if (CsvDemoSettings.bCaptureCsv)
@@ -3482,7 +3574,7 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 			}
 		}
 	}
-#endif // CSV_PROFILER
+#endif // (CSV_PROFILER && (!UE_BUILD_SHIPPING))
 
 	if ( !IsPlaying() )
 	{
@@ -3658,7 +3750,10 @@ void UDemoNetDriver::FinalizeFastForward( const double StartTime )
 			const FObjectReplicator* const ActorReplicator = ActorChannel->ActorReplicator;
 			if (Actor->IsNetStartupActor() && ActorReplicator)
 			{
-				ActorReplicator->RepLayout->DiffProperties(&(ActorReplicator->RepState->RepNotifies), ActorReplicator->RepState->StaticBuffer.GetData(), Actor, EDiffPropertiesFlags::Sync);
+				FRepShadowDataBuffer ShadowData(ActorReplicator->RepState->StaticBuffer.GetData());
+				FConstRepObjectDataBuffer ActorData(Actor);
+
+				ActorReplicator->RepLayout->DiffProperties(&(ActorReplicator->RepState->RepNotifies), ShadowData, ActorData, EDiffPropertiesFlags::Sync);
 			}
 		}
 	}
@@ -3930,7 +4025,10 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 				{
 					const ENetRole SavedRole = Actor->Role;
 
-					RepLayout->DiffStableProperties(&RollbackActor.RepState->RepNotifies, nullptr, Actor, RollbackActor.RepState->StaticBuffer.GetData());
+					FRepObjectDataBuffer ActorData(Actor);
+					FConstRepShadowDataBuffer ShadowData(RollbackActor.RepState->StaticBuffer.GetData());
+
+					RepLayout->DiffStableProperties(&RollbackActor.RepState->RepNotifies, nullptr, ActorData, ShadowData);
 
 					Actor->Role = SavedRole;
 				}
@@ -3968,7 +4066,10 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 
 						if (SubObjLayout.IsValid() && RepState.IsValid() && bSanityCheckReferences)
 						{
-							SubObjLayout->DiffStableProperties(&RepState->RepNotifies, nullptr, ActorComp, RepState->StaticBuffer.GetData());
+							FRepObjectDataBuffer ActorCompData(ActorComp);
+							FConstRepShadowDataBuffer ShadowData(RepState->StaticBuffer.GetData());
+
+							SubObjLayout->DiffStableProperties(&RepState->RepNotifies, nullptr, ActorCompData, ShadowData);
 
 							if (RepState->RepNotifies.Num() > 0)
 							{
@@ -4350,7 +4451,10 @@ bool UDemoNetDriver::FastForwardLevels(const FGotoResult& GotoResult)
 			ChannelsToUpdate.Add(ActorChannel);
 			if (const FObjectReplicator* const ActorReplicator = ActorChannel->ActorReplicator)
 			{
-				ActorReplicator->RepLayout->DiffProperties(&(ActorReplicator->RepState->RepNotifies), ActorReplicator->RepState->StaticBuffer.GetData(), Actor, EDiffPropertiesFlags::Sync);
+				FRepShadowDataBuffer ShadowData(ActorReplicator->RepState->StaticBuffer.GetData());
+				FConstRepObjectDataBuffer ActorData(Actor);
+
+				ActorReplicator->RepLayout->DiffProperties(&(ActorReplicator->RepState->RepNotifies), ShadowData, ActorData, EDiffPropertiesFlags::Sync);
 			}
 		}
 
@@ -4909,17 +5013,20 @@ FDemoSavedPropertyState UDemoNetDriver::SavePropertyState() const
 			{
 				for (const auto& ReplicatorPair : Channel->ReplicationMap)
 				{
-					const UObject* const RepObject = ReplicatorPair.Key.Get();
-					if (RepObject)
+					TWeakObjectPtr<UObject> WeakObjectPtr = ReplicatorPair.Value->GetWeakObjectPtr();
+					if (const UObject* const RepObject = WeakObjectPtr.Get())
 					{
 						FDemoSavedRepObjectState& SavedObject = State.Emplace_GetRef();
-						SavedObject.Object = RepObject;
+						SavedObject.Object = WeakObjectPtr;
 						SavedObject.RepLayout = ReplicatorPair.Value->RepLayout;
 
 						SavedObject.RepLayout->InitShadowData(SavedObject.PropertyData, RepObject->GetClass(), reinterpret_cast<const uint8* const>(RepObject));
 
 						// Store the properties in the new RepState
-						SavedObject.RepLayout->DiffProperties(nullptr, SavedObject.PropertyData.GetData(), RepObject, EDiffPropertiesFlags::Sync | EDiffPropertiesFlags::IncludeConditionalProperties);
+						FRepShadowDataBuffer ShadowData(SavedObject.PropertyData.GetData());
+						FConstRepObjectDataBuffer RepObjectData(RepObject);
+
+						SavedObject.RepLayout->DiffProperties(nullptr, ShadowData, RepObjectData, EDiffPropertiesFlags::Sync | EDiffPropertiesFlags::IncludeConditionalProperties);
 					}
 				}
 			}
@@ -4940,7 +5047,10 @@ bool UDemoNetDriver::ComparePropertyState(const FDemoSavedPropertyState& State) 
 			const UObject* const RepObject = ObjectState.Object.Get();
 			if (RepObject)
 			{
-				if (ObjectState.RepLayout->DiffProperties(nullptr, const_cast<UObject* const>(RepObject), ObjectState.PropertyData.GetData(), EDiffPropertiesFlags::IncludeConditionalProperties))
+				FRepObjectDataBuffer RepObjectData(const_cast<UObject* const>(RepObject));
+				FConstRepShadowDataBuffer ShadowData(ObjectState.PropertyData.GetData());
+
+				if (ObjectState.RepLayout->DiffProperties(nullptr, RepObjectData, ShadowData, EDiffPropertiesFlags::IncludeConditionalProperties))
 				{
 					bWasDifferent = true;
 				}
@@ -5122,7 +5232,10 @@ TSharedPtr<FObjectReplicator> UDemoNetConnection::CreateReplicatorForNewActorCha
 	// Now that the shadow state is initialized, copy the CDO state into the actor state.
 	if (bIsCheckpointStartupActor && NewReplicator->RepLayout.IsValid() && Object->GetClass())
 	{
-		NewReplicator->RepLayout->DiffProperties(nullptr, Object, Object->GetClass()->GetDefaultObject(), EDiffPropertiesFlags::Sync);
+		FRepObjectDataBuffer ObjectData(Object);
+		FConstRepObjectDataBuffer ShadowData(Object->GetClass()->GetDefaultObject());
+
+		NewReplicator->RepLayout->DiffProperties(nullptr, ObjectData, ShadowData, EDiffPropertiesFlags::Sync);
 
 		// Need to swap roles for the startup actor since in the CDO they aren't swapped, and the CDO just
 		// overwrote the actor state.
@@ -5334,7 +5447,7 @@ void UDemoNetDriver::NotifyActorLevelUnloaded(AActor* Actor)
 		{
 			ServerConnection->RemoveActorChannel(Actor);
 			ActorChannel->Actor = nullptr;
-			ActorChannel->ConditionalCleanUp();
+			ActorChannel->ConditionalCleanUp(false, EChannelCloseReason::LevelUnloaded);
 		}
 	}
 
@@ -5384,7 +5497,10 @@ void UDemoNetDriver::QueueNetStartupActorForRollbackViaDeletion( AActor* Actor )
 
 			if (NewReplicator->RepLayout.IsValid() && NewReplicator->RepState.IsValid())
 			{
-				if (NewReplicator->RepLayout->DiffStableProperties(nullptr, &RollbackActor.ObjReferences, NewReplicator->RepState->StaticBuffer.GetData(), Actor))
+				FRepShadowDataBuffer ShadowData(NewReplicator->RepState->StaticBuffer.GetData());
+				FConstRepObjectDataBuffer ActorData(Actor);
+
+				if (NewReplicator->RepLayout->DiffStableProperties(nullptr, &RollbackActor.ObjReferences, ShadowData, ActorData))
 				{
 					RollbackActor.RepState = MakeShareable(NewReplicator->RepState.Release());
 				}
@@ -5402,7 +5518,10 @@ void UDemoNetDriver::QueueNetStartupActorForRollbackViaDeletion( AActor* Actor )
 
 					if (SubObjReplicator->RepLayout.IsValid() && SubObjReplicator->RepState.IsValid())
 					{
-						if (SubObjReplicator->RepLayout->DiffStableProperties(nullptr, &RollbackActor.ObjReferences, SubObjReplicator->RepState->StaticBuffer.GetData(), ActorComp))
+						FRepShadowDataBuffer ShadowData(SubObjReplicator->RepState->StaticBuffer.GetData());
+						FConstRepObjectDataBuffer ActorCompData(ActorComp);
+
+						if (SubObjReplicator->RepLayout->DiffStableProperties(nullptr, &RollbackActor.ObjReferences, ShadowData, ActorCompData))
 						{
 							RollbackActor.SubObjRepState.Add(ActorComp->GetFullName(), MakeShareable(SubObjReplicator->RepState.Release()));
 						}
@@ -5515,6 +5634,56 @@ bool UDemoNetDriver::ShouldReplicateActor(AActor* Actor) const
 	return Super::ShouldReplicateActor(Actor) || (Actor && Actor->GetNetDriverName() == NAME_GameNetDriver);
 }
 
+/*
+* If a large number of Actors makes it onto the NetworkObjectList, and Demo Recording is limited,
+* then we can easily hit cases where building the Consider List and Sorting it can take up the
+* entire time slice. In that case, we'll have spent a lot of time setting up for replication,
+* but never actually doing it.
+* Further, if dormancy is used, dormant actors need to replicate once before they're removed from
+* the NetworkObjectList. That means in the worst case, we can have a large number of dormant actors
+* artificially driving up consider / sort times.
+*
+* To prevent that, we'll throttle the amount of time we spend prioritize next frame based
+* on how much time it took this frame.
+*
+* @param TimeSlicePercent	The current percent of time allocated to building consider lists / prioritizing.
+* @param ReplicatedPercet	The percent of actors that were replicated this last frame.
+*/
+void UDemoNetDriver::AdjustConsiderTime(const float ReplicatedPercent)
+{
+	if (MaxDesiredRecordTimeMS > 0.f)
+	{
+		auto ConditionallySwap = [](float& Less, float& More)
+		{
+			if (More < Less)
+			{
+				Swap(Less, More);
+			}
+		};
+
+		float DecreaseThreshold = CVarDemoDecreaseRepPrioritizeThreshold.GetValueOnAnyThread();
+		float IncreaseThreshold = CVarDemoIncreaseRepPrioritizeThreshold.GetValueOnAnyThread();
+		ConditionallySwap(DecreaseThreshold, IncreaseThreshold);
+
+		float MinRepTime = CVarDemoMinimumRepPrioritizeTime.GetValueOnAnyThread();
+		float MaxRepTime = CVarDemoMaximumRepPrioritizeTime.GetValueOnAnyThread();
+		ConditionallySwap(MinRepTime, MaxRepTime);
+		MinRepTime = FMath::Clamp<float>(MinRepTime, 0.1, 1.0);
+		MaxRepTime = FMath::Clamp<float>(MaxRepTime, 0.1, 1.0);
+
+		if (ReplicatedPercent > IncreaseThreshold)
+		{
+			RecordBuildConsiderAndPrioritizeTimeSlice += 0.1f;
+		}
+		else if (ReplicatedPercent < DecreaseThreshold)
+		{
+			RecordBuildConsiderAndPrioritizeTimeSlice *= (1.f - ReplicatedPercent) * 0.5f;
+		}
+
+		RecordBuildConsiderAndPrioritizeTimeSlice = FMath::Clamp<float>(RecordBuildConsiderAndPrioritizeTimeSlice, MinRepTime, MaxRepTime);
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	UDemoPendingNetGame.
 -----------------------------------------------------------------------------*/
@@ -5570,4 +5739,111 @@ void UDemoPendingNetGame::LoadMapCompleted(UEngine* Engine, FWorldContext& Conte
 	}
 	
 	DemoNetDriver->PendingNetGameLoadMapCompleted();
+}
+
+void UDemoNetDriver::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		// TODO: We don't currently track:
+		//		Replay Streamers
+		//		Dynamic Delegate Data
+		//		QueuedReplayTasks.
+		//		DemoURL
+
+		DeletedNetStartupActors.CountBytes(Ar);
+
+		for (FString& ActorString : DeletedNetStartupActors)
+		{
+			Ar << ActorString;
+		}
+
+		DeletedNetStartupActorGUIDs.CountBytes(Ar);
+
+		// The map for RollbackNetStartupActors may have already been serialized,
+		// However, that won't capture non-property members or properly count them.
+		for (const auto& RollbackNetStartupActorPair : RollbackNetStartupActors)
+		{
+			RollbackNetStartupActorPair.Value.CountBytes(Ar);
+		}
+
+
+		ExternalDataToObjectMap.CountBytes(Ar);
+
+		for (const auto& ExternalDataToObjectPair : ExternalDataToObjectMap)
+		{
+			ExternalDataToObjectPair.Value.CountBytes(Ar);
+		}
+
+		PlaybackPackets.CountBytes(Ar);
+
+		for (const FPlaybackPacket& Packet : PlaybackPackets)
+		{
+			Packet.CountBytes(Ar);
+		}
+
+		UniqueStreamingLevels.CountBytes(Ar);
+		NewStreamingLevelsThisFrame.CountBytes(Ar);
+		NonQueuedGUIDsForScrubbing.CountBytes(Ar);
+		QueuedReplayTasks.CountBytes(Ar);
+		
+		Ar << DemoSessionID;
+
+		PlaybackDemoHeader.CountBytes(Ar);
+
+		PrioritizedActors.CountBytes(Ar);
+
+		LevelNamesAndTimes.CountBytes(Ar);
+		for (const FLevelNameAndTime& LevelNameAndTime : LevelNamesAndTimes)
+		{
+			LevelNameAndTime.CountBytes(Ar);
+		}
+
+		LevelIntervals.CountBytes(Ar);
+		TrackedRewindActorsByGUID.CountBytes(Ar);
+		AllLevelStatuses.CountBytes(Ar);
+		for (const FLevelStatus& LevelStatus : AllLevelStatuses)
+		{
+			LevelStatus.CountBytes(Ar);
+		}
+
+		LevelStatusesByName.CountBytes(Ar);
+		for (const auto& LevelStatusNamePair : LevelStatusesByName)
+		{
+			Ar << const_cast<FString&>(LevelStatusNamePair.Key);
+		}
+
+		LevelStatusIndexByLevel.CountBytes(Ar);
+		SeenLevelStatuses.CountBytes(Ar);
+		LevelsPendingFastForward.CountBytes(Ar);
+		ObjectsWithExternalData.CountBytes(Ar);
+		CheckpointSaveContext.CountBytes(Ar);
+		QueuedPacketsBeforeTravel.CountBytes(Ar);
+		for (const FQueuedDemoPacket& QueuedPacket : QueuedPacketsBeforeTravel)
+		{
+			QueuedPacket.CountBytes(Ar);
+		}
+	}
+}
+
+void UDemoNetConnection::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		QueuedDemoPackets.CountBytes(Ar);
+		for (const FQueuedDemoPacket& QueuedPacket : QueuedDemoPackets)
+		{
+			QueuedPacket.CountBytes(Ar);
+		}
+
+		QueuedCheckpointPackets.CountBytes(Ar);
+		for (const FQueuedDemoPacket& QueuedPacket : QueuedCheckpointPackets)
+		{
+			QueuedPacket.CountBytes(Ar);
+		}
+	}
 }

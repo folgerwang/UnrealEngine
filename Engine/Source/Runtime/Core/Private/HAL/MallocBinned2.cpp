@@ -59,6 +59,11 @@ int64 AllocatedOSSmallPoolMemory = 0;
 
 int64 AllocatedLargePoolMemory = 0; // memory requests to the OS which don't fit in the small pool
 int64 AllocatedLargePoolMemoryWAlignment = 0; // when we allocate at OS level we need to align to a size
+
+int64 Binned2PoolInfoMemory = 0;
+int64 Binned2HashMemory = 0;
+int64 Binned2TLSMemory = 0;
+
 #endif
 
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
@@ -310,6 +315,9 @@ struct FMallocBinned2::Private
 			{
 				LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 				Result = FPlatformMemory::BinnedAllocFromOS(PoolArraySize);
+#if BINNED2_ALLOCATOR_STATS
+				Binned2PoolInfoMemory += PoolArraySize;
+#endif
 			}
 
 			if (!Result)
@@ -354,6 +362,9 @@ struct FMallocBinned2::Private
 			{
 				LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 				Allocator.HashBucketFreeList = (PoolHashBucket*)FPlatformMemory::BinnedAllocFromOS(FMallocBinned2::PageSize);
+#if BINNED2_ALLOCATOR_STATS
+				Binned2HashMemory += FMallocBinned2::PageSize;
+#endif
 			}
 
 			for (UPTRINT i = 0, n = PageSize / sizeof(PoolHashBucket); i < n; ++i)
@@ -686,6 +697,9 @@ FMallocBinned2::FMallocBinned2()
 	{
 		LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 		HashBuckets = (PoolHashBucket*)FPlatformMemory::BinnedAllocFromOS(Align(MaxHashBuckets * sizeof(PoolHashBucket), OsAllocationGranularity));
+#if BINNED2_ALLOCATOR_STATS
+		Binned2HashMemory += Align(MaxHashBuckets * sizeof(PoolHashBucket), OsAllocationGranularity);
+#endif
 	}
 
 	DefaultConstructItems<PoolHashBucket>(HashBuckets, MaxHashBuckets);
@@ -1157,6 +1171,9 @@ void FMallocBinned2::FPerThreadFreeBlockLists::SetTLS()
 	{
 		LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 		ThreadSingleton = new (FPlatformMemory::BinnedAllocFromOS(Align(sizeof(FPerThreadFreeBlockLists), FMallocBinned2::OsAllocationGranularity))) FPerThreadFreeBlockLists();
+#if BINNED2_ALLOCATOR_STATS
+		Binned2TLSMemory += Align(sizeof(FPerThreadFreeBlockLists), FMallocBinned2::OsAllocationGranularity);
+#endif
 		FPlatformTLS::SetTlsValue(FMallocBinned2::Binned2TlsSlot, ThreadSingleton);
 		FMallocBinned2::Private::RegisterThreadFreeBlockLists(ThreadSingleton);
 	}
@@ -1223,10 +1240,19 @@ void FMallocBinned2::DumpAllocatorStats(class FOutputDevice& Ar)
 	int64 TotalAllocatedSmallPoolMemory = GetTotalAllocatedSmallPoolMemory();
 
 	Ar.Logf(TEXT("FMallocBinned2 Mem report"));
+	Ar.Logf(TEXT("Constants.BinnedPageSize = %d"), int32(PageSize));
+	Ar.Logf(TEXT("Constants.BinnedAllocationGranularity = %d"), int32(OsAllocationGranularity));
 	Ar.Logf(TEXT("Small Pool Allocations: %fmb  (including block size padding)"), ((double)TotalAllocatedSmallPoolMemory) / (1024.0f * 1024.0f));
 	Ar.Logf(TEXT("Small Pool OS Allocated: %fmb"), ((double)AllocatedOSSmallPoolMemory) / (1024.0f * 1024.0f));
 	Ar.Logf(TEXT("Large Pool Requested Allocations: %fmb"), ((double)AllocatedLargePoolMemory) / (1024.0f * 1024.0f));
 	Ar.Logf(TEXT("Large Pool OS Allocated: %fmb"), ((double)AllocatedLargePoolMemoryWAlignment) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("PoolInfo: %fmb"), ((double)Binned2PoolInfoMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Hash: %fmb"), ((double)Binned2HashMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("TLS: %fmb"), ((double)Binned2TLSMemory) / (1024.0f * 1024.0f));
+	Ar.Logf(TEXT("Total allocated from OS: %fmb"),
+		((double)
+			AllocatedOSSmallPoolMemory + AllocatedLargePoolMemoryWAlignment + Binned2PoolInfoMemory + Binned2HashMemory + Binned2TLSMemory
+			) / (1024.0f * 1024.0f));
 
 	uint64 OSPageAllocatorCachedFreeSize = CachedOSPageAllocator.GetCachedFreeTotal();
 	Ar.Logf(TEXT("Cached free OS pages: %fmb"), ((double)OSPageAllocatorCachedFreeSize) / (1024.0f * 1024.0f));

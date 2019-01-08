@@ -7,6 +7,7 @@
 #include "Misc/ScopeLock.h"
 #include "Async/Async.h"
 #include "Async/Future.h"
+#include "Core/MeanValue.h"
 #include "Core/Platform.h"
 #include "Installer/ChunkReferenceTracker.h"
 #include "Installer/ChunkStore.h"
@@ -21,72 +22,6 @@ DEFINE_LOG_CATEGORY(LogCloudChunkSource);
 
 namespace BuildPatchServices
 {
-	/**
-	 * A class used to monitor the average chunk download time and standard deviation.
-	 */
-	class FMeanChunkTime
-	{
-	public:
-		FMeanChunkTime();
-
-		void Reset();
-		bool IsReliable() const;
-		void GetValues(double& Mean, double& Std) const;
-		void AddSample(double Sample);
-
-	private:
-		double GetMean() const;
-		double GetStd(double Mean) const;
-
-	private:
-		uint64 Count;
-		double Total;
-		double TotalSqs;
-	};
-
-	FMeanChunkTime::FMeanChunkTime()
-		: Count(0)
-		, Total(0)
-		, TotalSqs(0)
-	{
-	}
-
-	void FMeanChunkTime::Reset()
-	{
-		Count = 0;
-		Total = 0;
-		TotalSqs = 0;
-	}
-
-	bool FMeanChunkTime::IsReliable() const
-	{
-		return Count > 10;
-	}
-
-	void FMeanChunkTime::GetValues(double& Mean, double& Std) const
-	{
-		Mean = GetMean();
-		Std = GetStd(Mean);
-	}
-
-	void FMeanChunkTime::AddSample(double Sample)
-	{
-		Total += Sample;
-		TotalSqs += Sample * Sample;
-		++Count;
-	}
-
-	double FMeanChunkTime::GetMean() const
-	{
-		checkSlow(Count > 0);
-		return Total / Count;
-	}
-
-	double FMeanChunkTime::GetStd(double Mean) const
-	{
-		return FMath::Sqrt((TotalSqs / Count) - (Mean * Mean));
-	}
-
 	/**
 	 * A class used to monitor the download success rate.
 	 */
@@ -422,20 +357,15 @@ namespace BuildPatchServices
 			if (DownloadQueue.Num() == 0)
 			{
 				// Select the next X chunks that we initially instructed to download.
-				TFunction<bool(const FGuid&)> SelectPredicate = [&TotalRequiredChunks](const FGuid& ChunkId)
-				{
-					return TotalRequiredChunks.Contains(ChunkId);
-				};
-				// Clamp fetch count between min and max according to current space in the store.
-				int32 StoreSlack = ChunkStore->GetSlack();
-				int32 PreFetchCount = FMath::Clamp(StoreSlack, Configuration.PreFetchMinimum, Configuration.PreFetchMaximum);
-				DownloadQueue = ChunkReferenceTracker->GetNextReferences(PreFetchCount, SelectPredicate);
+				TFunction<bool(const FGuid&)> SelectPredicate = [&TotalRequiredChunks](const FGuid& ChunkId) { return TotalRequiredChunks.Contains(ChunkId); };
+				// Grab all the chunks relevant to this source to fill the store.
+				int32 SearchLength = FMath::Max(ChunkStore->GetSize(), Configuration.PreFetchMinimum);
+				DownloadQueue = ChunkReferenceTracker->SelectFromNextReferences(SearchLength, SelectPredicate);
 				// Remove already downloading or complete chunks.
-				TFunction<bool(const FGuid&)> RemovePredicate = [&TaskInfos, &FailedDownloads, &Stored](const FGuid& ChunkId)
-				{
-					return TaskInfos.Contains(ChunkId) || FailedDownloads.Contains(ChunkId) || Stored.Contains(ChunkId);
-				};
+				TFunction<bool(const FGuid&)> RemovePredicate = [&TaskInfos, &FailedDownloads, &Stored](const FGuid& ChunkId) { return TaskInfos.Contains(ChunkId) || FailedDownloads.Contains(ChunkId) || Stored.Contains(ChunkId); };
 				DownloadQueue.RemoveAll(RemovePredicate);
+				// Clamp to configured max.
+				DownloadQueue.SetNum(FMath::Min(DownloadQueue.Num(), Configuration.PreFetchMaximum), false);
 				// Reverse so the array is a stack for popping.
 				Algo::Reverse(DownloadQueue);
 			}
@@ -462,7 +392,7 @@ namespace BuildPatchServices
 		bool bIsChunkData = InstallManifest->IsFileDataManifest() == false;
 		bool bDownloadsStarted = Configuration.bBeginDownloadsOnFirstGet == false;
 		bool bTotalRequiredTrimmed = false;
-		FMeanChunkTime MeanChunkTime;
+		FMeanValue MeanChunkTime;
 		FChunkSuccessRate ChunkSuccessRate;
 		EBuildPatchDownloadHealth TrackedDownloadHealth = EBuildPatchDownloadHealth::Excellent;
 		int32 TrackedActiveRequestCount = 0;
@@ -595,7 +525,7 @@ namespace BuildPatchServices
 					FailedDownloads.Add(DownloadId);
 					if (Configuration.MaxRetryCount >= 0 && TaskInfo.RetryNum >= Configuration.MaxRetryCount)
 					{
-						InstallerError->SetError(EBuildPatchInstallError::DownloadError, DownloadErrorCodes::OutOfRetries);
+						InstallerError->SetError(EBuildPatchInstallError::DownloadError, DownloadErrorCodes::OutOfChunkRetries);
 						bShouldAbort = true;
 					}
 					++TaskInfo.RetryNum;

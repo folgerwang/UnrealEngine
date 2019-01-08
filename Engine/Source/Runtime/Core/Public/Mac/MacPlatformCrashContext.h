@@ -6,11 +6,9 @@
 
 struct CORE_API FMacCrashContext : public FApplePlatformCrashContext
 {
-	FMacCrashContext(bool bInIsEnsure = false)
-	{
-		bIsEnsure = bInIsEnsure;
-	}
-	
+	/** Constructor */
+	FMacCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage);
+
 	/** Copies the PLCrashReporter minidump */
 	void CopyMinidump(char const* OutputPath, char const* InputPath) const;
 

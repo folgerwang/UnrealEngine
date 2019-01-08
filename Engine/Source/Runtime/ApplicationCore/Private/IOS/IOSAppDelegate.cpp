@@ -20,6 +20,7 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
 #include "Algo/AllOf.h"
 #if USE_MUTE_SWITCH_DETECTION
 #include "SharkfoodMuteSwitchDetector.h"
@@ -259,7 +260,7 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 	}
 	self.savedOpenUrlParameters = nil; // clear after saved openurl delegate running
 
-	while( !GIsRequestingExit )
+    while( !GIsRequestingExit )
 	{
         if (self.bIsSuspended)
         {
@@ -496,7 +497,6 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 						AVAudioSessionCategoryOptions opts =
 							AVAudioSessionCategoryOptionAllowBluetoothA2DP |
 #if !PLATFORM_TVOS
-							AVAudioSessionCategoryOptionAllowBluetooth |
 							AVAudioSessionCategoryOptionDefaultToSpeaker |
 #endif
 							AVAudioSessionCategoryOptionMixWithOthers;
@@ -570,7 +570,6 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 					AVAudioSessionCategoryOptions opts =
 						AVAudioSessionCategoryOptionAllowBluetoothA2DP |
 #if !PLATFORM_TVOS
-						AVAudioSessionCategoryOptionAllowBluetooth |
 						AVAudioSessionCategoryOptionDefaultToSpeaker |
 #endif
 						AVAudioSessionCategoryOptionMixWithOthers;
@@ -617,8 +616,15 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 
 - (void)EnableVoiceChat:(bool)bEnable
 {
-    self.bVoiceChatEnabled = bEnable;
-	[self ToggleAudioSession:self.bAudioActive force:true];
+	self.bVoiceChatEnabled = false;
+	
+	if (FApp::IsUnattended())
+	{
+		return;
+	}
+	
+	self.bVoiceChatEnabled = bEnable;
+	[self ToggleAudioSession : self.bAudioActive force : true];
 }
 
 - (bool)IsVoiceChatEnabled
@@ -669,6 +675,15 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
     return self.bBatteryState;
 #endif
 }
+
+- (void)CheckForZoomAccessibility
+{
+#if !PLATFORM_TVOS
+    // warn about zoom conflicting
+    UIAccessibilityRegisterGestureConflictWithZoom();
+#endif
+}
+
 
 - (NSProcessInfoThermalState)GetThermalState
 {
@@ -1284,6 +1299,11 @@ extern double GCStartTime;
 #ifdef __IPHONE_8_0
 - (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
 {
+	if (FApp::IsUnattended())
+	{
+		return;
+	}
+	
 	[application registerForRemoteNotifications];
 	int32 types = (int32)[notificationSettings types];
     FFunctionGraphTask::CreateAndDispatchWhenReady([types]()

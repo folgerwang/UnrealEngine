@@ -240,7 +240,7 @@ protected:
 	uint32 TrueSampleCount;
 	/** How many samples we've currently read in the source file. */
 	uint32 CurrentSampleCount;
-	/** Number of channels (left/right) in th esource file. */
+	/** Number of channels (left/right) in the source file. */
 	uint8 NumChannels;
 	/** The maximum number of samples per decode frame. */
 	uint32 MaxFrameSizeSamples;
@@ -260,6 +260,8 @@ protected:
 	int32 CurrentChunkIndex;
 	/** Whether or not to print the chunk fail message. */
 	bool bPrintChunkFailMessage;
+	/** Number of bytes of padding used, overridden in some implementations. Defaults to 0. */
+	uint32 SrcBufferPadding;
 };
 
 

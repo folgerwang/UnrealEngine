@@ -140,6 +140,22 @@ public:
 	 * @param ContentString - payload to set.
 	 */
 	virtual void SetContentAsString(const FString& ContentString) = 0;
+    
+    /**
+     * Sets the content of the request to stream from a file.
+     *
+     * @param FileName - filename from which to stream the body.
+	 * @return True if the file is valid and will be used to stream the request. False otherwise.
+     */
+    virtual bool SetContentAsStreamedFile(const FString& Filename) = 0;
+
+	/**
+	 * Sets the content of the request to stream directly from an archive.
+	 *
+	 * @param Stream - archive from which the payload should be streamed.
+	 * @return True if the archive can be used to stream the request. False otherwise.
+	 */
+	virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) = 0;
 
 	/**
 	 * Sets optional header info.

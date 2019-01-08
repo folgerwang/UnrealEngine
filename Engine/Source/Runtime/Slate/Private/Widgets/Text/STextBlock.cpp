@@ -40,6 +40,7 @@ void STextBlock::Construct( const FArguments& InArgs )
 	MinDesiredWidth = InArgs._MinDesiredWidth;
 
 	Font = InArgs._Font;
+	StrikeBrush = InArgs._StrikeBrush;
 	ColorAndOpacity = InArgs._ColorAndOpacity;
 	ShadowOffset = InArgs._ShadowOffset;
 	ShadowColorAndOpacity = InArgs._ShadowColorAndOpacity;
@@ -63,6 +64,11 @@ void STextBlock::Construct( const FArguments& InArgs )
 FSlateFontInfo STextBlock::GetFont() const
 {
 	return Font.IsSet() ? Font.Get() : TextStyle.Font;
+}
+
+const FSlateBrush* STextBlock::GetStrikeBrush() const
+{
+	return StrikeBrush.IsSet() ? StrikeBrush.Get() : &TextStyle.StrikeBrush;
 }
 
 FSlateColor STextBlock::GetColorAndOpacity() const
@@ -305,6 +311,15 @@ void STextBlock::SetFont(const TAttribute< FSlateFontInfo >& InFont)
 	}
 }
 
+void STextBlock::SetStrikeBrush(const TAttribute<const FSlateBrush*>& InStrikeBrush)
+{
+	if (!StrikeBrush.IsSet() || !StrikeBrush.IdenticalTo(InStrikeBrush))
+	{
+		StrikeBrush = InStrikeBrush;
+		InvalidateText(EInvalidateWidget::LayoutAndVolatility);
+	}
+}
+
 void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity)
 {
 	if ( !ColorAndOpacity.IsSet() || !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
@@ -434,6 +449,14 @@ FTextBlockStyle STextBlock::GetComputedTextStyle() const
 {
 	FTextBlockStyle ComputedStyle = TextStyle;
 	ComputedStyle.SetFont( GetFont() );
+	if (StrikeBrush.IsSet())
+	{
+		const FSlateBrush* const ComputedStrikeBrush = StrikeBrush.Get();
+		if (ComputedStrikeBrush)
+		{
+			ComputedStyle.SetStrikeBrush(*ComputedStrikeBrush);
+		}
+	}
 	ComputedStyle.SetColorAndOpacity( GetColorAndOpacity() );
 	ComputedStyle.SetShadowOffset( GetShadowOffset() );
 	ComputedStyle.SetShadowColorAndOpacity( GetShadowColorAndOpacity() );

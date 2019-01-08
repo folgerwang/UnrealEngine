@@ -150,19 +150,6 @@ void UUserWidget::TemplateInitInner()
 
 	if ( ensure(WidgetTree) )
 	{
-		for (UWidgetAnimation* Animation : WidgetClass->Animations)
-		{
-			if (Animation->GetMovieScene())
-			{
-				// Find property with the same name as the template and assign the new widget to it.
-				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetClass, Animation->GetMovieScene()->GetFName());
-				if (Prop)
-				{
-					Prop->SetObjectPropertyValue_InContainer(this, Animation);
-				}
-			}
-		}
-
 		WidgetTree->ForEachWidget([this, WidgetClass] (UWidget* Widget) {
 
 			Widget->WidgetGeneratedByClass = WidgetClass;
@@ -655,7 +642,7 @@ void UUserWidget::Invalidate(EInvalidateWidget InvalidateReason)
 	}
 }
 
-UUMGSequencePlayer* UUserWidget::PlayAnimationAtTime(UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
+UUMGSequencePlayer* UUserWidget::PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
 	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimation", FColor::Emerald);
 
@@ -674,9 +661,9 @@ UUMGSequencePlayer* UUserWidget::PlayAnimationAtTime(UWidgetAnimation* InAnimati
 	return Player;
 }
 
-UUMGSequencePlayer* UUserWidget::PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
+UUMGSequencePlayer* UUserWidget::PlayAnimationTimeRange(UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
-	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimationTo", FColor::Emerald);
+	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimationTimeRange", FColor::Emerald);
 
 	UUMGSequencePlayer* Player = GetOrAddSequencePlayer(InAnimation);
 	if (Player)
@@ -708,7 +695,7 @@ UUMGSequencePlayer* UUserWidget::PlayAnimationForward(UWidgetAnimation* InAnimat
 		return Player;
 	}
 
-	return PlayAnimationAtTime(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Forward, PlaybackSpeed);
+	return PlayAnimation(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Forward, PlaybackSpeed);
 }
 
 UUMGSequencePlayer* UUserWidget::PlayAnimationReverse(UWidgetAnimation* InAnimation, float PlaybackSpeed)
@@ -726,7 +713,7 @@ UUMGSequencePlayer* UUserWidget::PlayAnimationReverse(UWidgetAnimation* InAnimat
 		return Player;
 	}
 
-	return PlayAnimationAtTime(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Reverse, PlaybackSpeed);
+	return PlayAnimation(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Reverse, PlaybackSpeed);
 }
 
 void UUserWidget::StopAnimation(const UWidgetAnimation* InAnimation)

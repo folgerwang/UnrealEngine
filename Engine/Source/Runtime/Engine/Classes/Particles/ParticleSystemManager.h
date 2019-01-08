@@ -54,6 +54,7 @@ struct FParticleSystemWorldManagerTickFunction : public FTickFunction
 	//~ FTickFunction Interface
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	ENGINE_API virtual FString DiagnosticMessage() override;
+	ENGINE_API virtual FName DiagnosticContext(bool bDetailed)  override;
 	//~ FTickFunction Interface
 
 	FParticleSystemWorldManager* Owner;
@@ -157,6 +158,8 @@ private:
 	void RemovePSC(int32 PSCIndex);
 
 	void HandleManagerEnabled();
+
+	void ClearPendingUnregister();
 
 	UWorld* World;
 

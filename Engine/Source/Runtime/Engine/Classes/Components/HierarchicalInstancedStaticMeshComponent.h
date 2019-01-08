@@ -20,18 +20,18 @@ struct FClusterNode_DEPRECATED
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FVector BoundMin;
 	UPROPERTY()
-		int32 FirstChild;
+	FVector BoundMin;
 	UPROPERTY()
-		FVector BoundMax;
+	int32 FirstChild;
 	UPROPERTY()
-		int32 LastChild;
+	FVector BoundMax;
 	UPROPERTY()
-		int32 FirstInstance;
+	int32 LastChild;
 	UPROPERTY()
-		int32 LastInstance;
+	int32 FirstInstance;
+	UPROPERTY()
+	int32 LastInstance;
 
 	FClusterNode_DEPRECATED()
 		: BoundMin(MAX_flt, MAX_flt, MAX_flt)

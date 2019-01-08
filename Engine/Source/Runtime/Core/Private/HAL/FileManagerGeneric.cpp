@@ -122,7 +122,7 @@ FArchive* FFileManagerGeneric::CreateFileWriterInternal( const TCHAR* Filename, 
 		}
 		return NULL;
 	}
-	return new FArchiveFileWriterGeneric( Handle, Filename, Handle->Tell(), BufferSize );
+	return new FArchiveFileWriterGeneric(Handle, Filename, Handle->Tell(), BufferSize, Flags);
 }
 
 
@@ -766,8 +766,9 @@ void FArchiveFileReaderGeneric::Serialize( void* V, int64 Length )
 	}
 }
 
-FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize )
+FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize, uint32 InFlags )
 	: Filename( InFilename )
+	, Flags( InFlags )
 	, Pos( InPos )
 	, BufferCount( 0 )
 	, Handle( InHandle )
@@ -886,7 +887,7 @@ void FArchiveFileWriterGeneric::Flush()
 void FArchiveFileWriterGeneric::LogWriteError(const TCHAR* Message)
 {
 	// Prevent re-entry if logging causes another log error leading to a stack overflow
-	if (!bLoggingError)
+	if (!bLoggingError && !IsSilent())
 	{
 		bLoggingError = true;
 		TCHAR ErrorBuffer[1024];

@@ -1102,6 +1102,60 @@ FString FGenericPlatformMisc::GetTimeZoneId()
 	return FString();
 }
 
+#if DO_CHECK
+namespace GenericPlatformMisc
+{
+	/** Chances for handling an ensure (0.0 - never, 1.0 - always). */
+	float GEnsureChance = 1.0f;
+
+	/** Checks if we ever updated ensure settings. */
+	bool GEnsureSettingsEverUpdated = false;
+}
+
+bool FGenericPlatformMisc::IsEnsureAllowed()
+{
+	// not all targets call FEngineLoop::Tick() or we might be here early
+	if (!GenericPlatformMisc::GEnsureSettingsEverUpdated)
+	{
+		FPlatformMisc::UpdateHotfixableEnsureSettings();
+	}
+
+	// using random makes it less deterministic between runs and multiple processes
+	return FMath::FRand() < GenericPlatformMisc::GEnsureChance;
+}
+
+void FGenericPlatformMisc::UpdateHotfixableEnsureSettings()
+{
+	// config (which is hotfixable) makes priority over the commandline
+	float HandleEnsurePercentInConfig = 100.0f;
+	if (GConfig && GConfig->GetFloat(TEXT("Core.System"), TEXT("HandleEnsurePercent"), HandleEnsurePercentInConfig, GEngineIni))
+	{
+		GenericPlatformMisc::GEnsureChance = HandleEnsurePercentInConfig / 100.0;
+	}
+	else
+	{
+		float HandleEnsurePercentOnCmdLine = 100.0f;
+		if (FParse::Value(FCommandLine::Get(), TEXT("handleensurepercent="), HandleEnsurePercentOnCmdLine))
+		{
+			GenericPlatformMisc::GEnsureChance = HandleEnsurePercentOnCmdLine / 100.0;
+		}
+	}
+
+	// to compensate for FRand() being able to return 1.0 (argh!), extra check for 100 
+	if (GenericPlatformMisc::GEnsureChance >= 1.00f)
+	{
+		GenericPlatformMisc::GEnsureChance = 1.01f;
+	}
+
+	GenericPlatformMisc::GEnsureSettingsEverUpdated = true;
+}
+#endif // !DO_CHECK
+
+void FGenericPlatformMisc::TickHotfixables()
+{
+	UpdateHotfixableEnsureSettings();
+}
+
 FText FGenericPlatformMisc::GetFileManagerName()
 {
 	return NSLOCTEXT("GenericPlatform", "FileManagerName", "File Manager");

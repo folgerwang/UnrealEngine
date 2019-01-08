@@ -6,6 +6,7 @@
 #include "Engine/NetConnection.h"
 
 class AActor;
+class FArchive;
 
 /**
  * Struct to store an actor pointer and any internal metadata for that actor used
@@ -47,9 +48,6 @@ struct FNetworkObjectInfo
 	/** Force this object to be considered relevant for at least one update */
 	uint8 bForceRelevantNextUpdate : 1;
 
-	/** Force a swap of the role and remote role of this actor when calling ReplicateActor() */
-	uint8 bSwapRoles : 1;
-
 	FNetworkObjectInfo()
 		: Actor(nullptr)
 		, NextUpdateTime(0.0)
@@ -57,8 +55,7 @@ struct FNetworkObjectInfo
 		, OptimalNetUpdateDelta(0.0f)
 		, LastNetUpdateTime(0.0f)
 		, bPendingNetUpdate(false)
-		, bForceRelevantNextUpdate(false)
-		, bSwapRoles(false) {}
+		, bForceRelevantNextUpdate(false) {}
 
 	FNetworkObjectInfo(AActor* InActor)
 		: Actor(InActor)
@@ -68,8 +65,9 @@ struct FNetworkObjectInfo
 		, OptimalNetUpdateDelta(0.0f) 
 		, LastNetUpdateTime(0.0f)
 		, bPendingNetUpdate(false)
-		, bForceRelevantNextUpdate(false)
-		, bSwapRoles(false) {}
+		, bForceRelevantNextUpdate(false) {}
+
+	void CountBytes(FArchive& Ar) const;
 };
 
 /**
@@ -216,6 +214,8 @@ public:
 	void ForceActorRelevantNextUpdate(AActor* const Actor, UNetDriver* NetDriver);
 		
 	void Reset();
+
+	void CountBytes(FArchive& Ar) const;
 
 private:
 	FNetworkObjectSet AllNetworkObjects;

@@ -746,7 +746,7 @@ void FFrontendFilter_CheckedOut::SourceControlOperationComplete(const FSourceCon
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 
 	TArray<FSourceControlStateRef> CheckedOutFiles = SourceControlProvider.GetCachedStateByPredicate(
-		[](const FSourceControlStateRef& State) { return State->IsCheckedOut(); }
+		[](const FSourceControlStateRef& State) { return State->IsCheckedOut() || State->IsAdded(); }
 	);
 	
 	FString PathPart;
@@ -833,7 +833,7 @@ void FFrontendFilter_NotSourceControlled::RequestStatus()
 
 		// Request the state of files at filter construction time to make sure files have the correct state for the filter
 		TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> UpdateStatusOperation = ISourceControlOperation::Create<FUpdateStatus>();
-			
+
 		TArray<FString> Filenames;
 		Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()));
 		Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir()));

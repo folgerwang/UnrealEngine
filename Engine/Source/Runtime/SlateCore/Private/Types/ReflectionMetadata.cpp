@@ -34,7 +34,7 @@ FString FReflectionMetaData::GetWidgetDebugInfo(const SWidget* InWidget)
 		}
 	}
 
-	return InWidget->GetReadableLocation();
+	return InWidget->ToString();
 }
 
 TSharedPtr<FReflectionMetaData> FReflectionMetaData::GetWidgetOrParentMetaData(const SWidget* InWidget)

@@ -290,7 +290,7 @@ public:
 	
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
+		return RHISupportsComputeShaders(Parameters.Platform);
 	}
 	
 	//protected:

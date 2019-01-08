@@ -268,36 +268,6 @@ void FMemoryChunkStoreSpec::Define()
 				});
 			});
 		});
-
-		Describe("GetSlack", [this]()
-		{
-			Describe("when no chunks were previously Put", [this]()
-			{
-				It("should return StoreSize.", [this]()
-				{
-					TEST_EQUAL(MemoryChunkStore->GetSlack(), StoreSize);
-				});
-			});
-
-			Describe("when some chunks were previously Put", [this]()
-			{
-				BeforeEach([this]()
-				{
-					for (const FGuid& Chunk : SomeChunks)
-					{
-						MemoryChunkStore->Put(Chunk, TUniquePtr<IChunkDataAccess>(new FFakeChunkDataAccess()));
-					}
-				});
-
-				Describe("when no chunks were instructed to boot", [this]()
-				{
-					It("should return StoreSize minus number of Put chunks.", [this]()
-					{
-						TEST_EQUAL(MemoryChunkStore->GetSlack(), StoreSize - SomeChunks.Num());
-					});
-				});
-			});
-		});
 	});
 
 	AfterEach([this]()

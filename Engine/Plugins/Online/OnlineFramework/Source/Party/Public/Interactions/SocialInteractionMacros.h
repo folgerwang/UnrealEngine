@@ -2,30 +2,83 @@
 
 #pragma once
 
-#include "SocialInteractionHandle.h"
+#include "../SocialTypes.h"
+
+DECLARE_DELEGATE_RetVal_OneParam(bool, FOnCustomIsInteractionAvailable, const USocialUser&);
+
+/**
+ * Link between the class-polymorphism-based interaction handle and the static template-polymorphism-based interactions.
+ * Implementation detail, automatically set up and utilized in the DECLARE_SOCIAL_INTERACTION macros above
+ */
+class ISocialInteractionWrapper
+{
+public:
+	virtual ~ISocialInteractionWrapper() {}
+
+	virtual FName GetInteractionName() const = 0;
+	virtual FText GetDisplayName(const USocialUser& User) const = 0;
+	virtual FString GetSlashCommandToken() const = 0;
+
+	virtual bool IsAvailable(const USocialUser& User) const = 0;
+	virtual void ExecuteInteraction(USocialUser& User) const = 0;
+};
+
+template <typename InteractionT>
+class TSocialInteractionWrapper : public ISocialInteractionWrapper
+{
+public:
+	virtual FName GetInteractionName() const override final { return InteractionT::GetInteractionName(); }
+	virtual FText GetDisplayName(const USocialUser& User) const override final { return InteractionT::GetDisplayName(User); }
+	virtual FString GetSlashCommandToken() const override final { return InteractionT::GetSlashCommandToken(); }
+
+	virtual bool IsAvailable(const USocialUser& User) const override final { return InteractionT::IsAvailable(User); }
+	virtual void ExecuteInteraction(USocialUser& User) const override final { InteractionT::ExecuteInteraction(User); }
+
+private:
+	friend InteractionT;
+	TSocialInteractionWrapper() {}
+
+	FSocialInteractionHandle GetHandle() const { return FSocialInteractionHandle(*this); }
+};
 
 // Helper macros for declaring a social interaction class
-// Not required to create one, but all static functions provided by the macro must be defined in order for a class to qualify as an interaction
+// Establishes boilerplate behavior and declares all functions the user is required to provide
 
 #define DECLARE_SOCIAL_INTERACTION_EXPORT(APIMacro, InteractionName)	\
 class APIMacro FSocialInteraction_##InteractionName	\
 {	\
 public:	\
-	static const ISocialInteractionHandleRef GetHandle()	\
+	static FSocialInteractionHandle GetHandle()	\
 	{	\
-		ISocialInteractionHandleRef MyHandle = MakeShareable(new TSocialInteractionHandle<FSocialInteraction_##InteractionName>);	\
-		return MyHandle;	\
+		static const TSocialInteractionWrapper<FSocialInteraction_##InteractionName> InteractionWrapper;	\
+		return InteractionWrapper.GetHandle();	\
 	}	\
-	static FString GetInteractionName()  \
+	static FName GetInteractionName()  \
 	{ \
 		return #InteractionName; \
 	} \
 	\
-	static FText GetDisplayName();	\
+	static FText GetDisplayName(const USocialUser& User);	\
 	static FString GetSlashCommandToken();	\
 	\
-	static void GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems);	\
-	static void ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User);	\
+	static bool IsAvailable(const USocialUser& User)	\
+	{	\
+		if (CanExecute(User))	\
+		{	\
+			return OnCustomIsInteractionAvailable().IsBound() ? OnCustomIsInteractionAvailable().Execute(User) : true;	\
+		}	\
+		return false;	\
+	}	\
+	\
+	static void ExecuteInteraction(USocialUser& User);	\
+	\
+	static FOnCustomIsInteractionAvailable& OnCustomIsInteractionAvailable()	\
+	{	\
+		static FOnCustomIsInteractionAvailable CustomAvailabilityCheckDelegate;	\
+		return CustomAvailabilityCheckDelegate;	\
+	}	\
+private: \
+	static bool CanExecute(const USocialUser& User); \
 }
 
 #define DECLARE_SOCIAL_INTERACTION(InteractionName) DECLARE_SOCIAL_INTERACTION_EXPORT(, InteractionName)

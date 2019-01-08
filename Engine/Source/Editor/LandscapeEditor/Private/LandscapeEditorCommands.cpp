@@ -54,6 +54,9 @@ void FLandscapeEditorCommands::RegisterCommands()
 	UI_COMMAND(VisibilityTool, "Tool - Visibility", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_Visibility", VisibilityTool);
 
+	UI_COMMAND(BPCustomTool, "Tool - BP Custom", "", EUserInterfaceActionType::RadioButton, FInputChord());
+	NameToCommandMap.Add("Tool_BPCustom", BPCustomTool);
+
 	UI_COMMAND(SelectComponentTool, "Tool - Component Selection", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_Select", SelectComponentTool);
 	UI_COMMAND(AddComponentTool, "Tool - Add Components", "", EUserInterfaceActionType::RadioButton, FInputChord());

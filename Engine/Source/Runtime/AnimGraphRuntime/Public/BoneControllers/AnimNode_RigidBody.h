@@ -110,6 +110,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = Settings)
 	ESimulationSpace SimulationSpace;
 
+	/** Whether to allow collisions between two bodies joined by a constraint  */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	bool bForceDisableCollisionBetweenConstraintBodies;
+
+
 private:
 	ETeleportType ResetSimulatedTeleportType;
 
@@ -134,6 +139,13 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, Category = Settings)
 	uint8 bFreezeIncomingPoseOnStart : 1;
+
+	/**
+		Correct for linear tearing on bodies with all axes Locked.
+		This only works if all axes linear translation are locked
+	*/
+	UPROPERTY(EditAnywhere, Category = Settings)
+	uint8 bClampLinearTranslationLimitToRefPose : 1;
 
 private:
 	uint8 bSimulationStarted : 1;
@@ -185,14 +197,30 @@ private:
 		FBodyAnimData()
 			: TransferedBoneAngularVelocity(ForceInit)
 			, TransferedBoneLinearVelocity(ForceInitToZero)
+			, LinearXMotion(ELinearConstraintMotion::LCM_Locked)
+			, LinearYMotion(ELinearConstraintMotion::LCM_Locked)
+			, LinearZMotion(ELinearConstraintMotion::LCM_Locked)
+			, LinearLimit(0.0f)
+			, RefPoseLength (0.f)
 			, bIsSimulated(false)
 			, bBodyTransformInitialized(false)
 		{}
 
 		FQuat TransferedBoneAngularVelocity;
 		FVector TransferedBoneLinearVelocity;
-		bool bIsSimulated;
-		bool bBodyTransformInitialized;
+
+		ELinearConstraintMotion LinearXMotion;
+		ELinearConstraintMotion LinearYMotion;
+		ELinearConstraintMotion LinearZMotion;
+		float LinearLimit;
+		// we don't use linear limit but use default length to limit the bodies
+		// linear limits are defined per constraint - it can be any two joints that can limit
+		// this is just default length of the local space from parent, and we use that info to limit
+		// the translation
+		float RefPoseLength;
+
+		bool bIsSimulated : 1;
+		bool bBodyTransformInitialized : 1;
 	};
 
 	TArray<FOutputBoneData> OutputBoneData;

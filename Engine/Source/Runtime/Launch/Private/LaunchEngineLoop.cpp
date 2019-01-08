@@ -1003,8 +1003,8 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	{
 		SCOPED_BOOT_TIMING("LLM Init");
 		LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
-		LLM_SCOPE(ELLMTag::EnginePreInitMemory);
 	}
+	LLM_SCOPE(ELLMTag::EnginePreInitMemory);
 
 	{
 		SCOPED_BOOT_TIMING("InitTaggedStorage");
@@ -2044,6 +2044,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				Commandline.Contains(TEXT("run=cook")) == false )
 		// if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")) == false)
 		{
+			LLM_SCOPE(ELLMTag::Shaders);
 			SCOPED_BOOT_TIMING("CompileGlobalShaderMap");
 			CompileGlobalShaderMap(false);
 			if (GIsRequestingExit)
@@ -2253,6 +2254,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		if (FPlatformProperties::RequiresCookedData())
 		{
+			LLM_SCOPE(ELLMTag::Shaders);
 			SCOPED_BOOT_TIMING("FShaderCodeLibrary::OpenLibrary");
 
 			// Open the game library which contains the material shaders.
@@ -3680,6 +3682,7 @@ void FEngineLoop::Tick()
 	// Send a heartbeat for the diagnostics thread
 	FThreadHeartBeat::Get().HeartBeat(true);
 	FGameThreadHitchHeartBeat::Get().FrameStart();
+	FPlatformMisc::TickHotfixables();
 
 	// Make sure something is ticking the rendering tickables in -onethread mode to avoid leaks/bugs.
 	if (!GUseThreadedRendering && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
@@ -4512,9 +4515,9 @@ bool FEngineLoop::AppInit( )
 	}
 
 	// Register the callback that allows the text localization manager to load data for plugins
-	FCoreDelegates::GatherAdditionalLocResPathsCallback.AddLambda([&PluginManager](TArray<FString>& OutLocResPaths)
+	FCoreDelegates::GatherAdditionalLocResPathsCallback.AddLambda([](TArray<FString>& OutLocResPaths)
 	{
-		PluginManager.GetLocalizationPathsForEnabledPlugins(OutLocResPaths);
+		IPluginManager::Get().GetLocalizationPathsForEnabledPlugins(OutLocResPaths);
 	});
 
 	PreInitHMDDevice();

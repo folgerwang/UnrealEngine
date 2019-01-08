@@ -59,7 +59,7 @@ struct FGenericPlatformMemoryConstants
 	/** The size of a "page" in Binned2 malloc terms, in bytes. Should be at least 64KB. BinnedMalloc expects memory returned from BinnedAllocFromOS() to be aligned on BinnedPageSize boundary. */
 	SIZE_T BinnedPageSize;
 
-	/** This is the "allocation granularity" in Binned malloc terms, i.e. BinnedMalloc will allocate the memory in increments of this value. If non-zero, should be at least 16KB. If zero, Binned will use BinnedPageSize for this value. */
+	/** This is the "allocation granularity" in Binned malloc terms, i.e. BinnedMalloc will allocate the memory in increments of this value. If zero, Binned will use BinnedPageSize for this value. */
 	SIZE_T BinnedAllocationGranularity;
 
 	// AddressLimit - Second parameter is estimate of the range of addresses expected to be returns by BinnedAllocFromOS(). Binned
@@ -190,6 +190,7 @@ struct CORE_API FGenericPlatformMemory
 		Jemalloc, // Linux/FreeBSD malloc
 		Binned, // Older binned malloc
 		Binned2, // Newer binned malloc
+		Binned3, // Newer VM-based binned malloc, 64 bit only
 		Platform, // Custom platform specific allocator
 	};
 

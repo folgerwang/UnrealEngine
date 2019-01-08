@@ -444,8 +444,9 @@ private:
 
 	/** If true, it means the ASync work is done and the finalize is not */
 	uint8 bNeedsFinalize:1;
-	/** If true, it means the Async work is in process and not yet completed */
-	uint8 bAsyncWorkOutstanding:1;
+	
+	/** If true, it means the Async work is in process and not yet completed. */
+	volatile bool bAsyncWorkOutstanding;
 	
 	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
 	void CancelAutoAttachment(bool bDetachFromParent);
@@ -734,6 +735,8 @@ public:
 	
 	/** True if this component can be considered invisible and potentially culled. */
 	bool CanConsiderInvisible()const;
+
+	bool CanSkipTickDueToVisibility();
 
 	/** true if this component can be occluded. */
 	bool CanBeOccluded()const;

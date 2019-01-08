@@ -68,6 +68,8 @@ public:
 		return Ar;
 	}
 
+	void CountBytes(FArchive& Ar) const;
+
 	bool			bExported;
 	uint32			Handle;
 	uint32			CompatibleChecksum;
@@ -121,6 +123,8 @@ public:
 
 		return -1;
 	}
+
+	void CountBytes(FArchive& Ar) const;
 };
 
 /** Stores an object with path associated with FNetworkGUID */
@@ -198,7 +202,9 @@ public:
 	void			AsyncPackageCallback(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
 
 	void			ResetCacheForDemo();
-	
+
+	void			CountBytes(FArchive& Ar) const;
+
 	TMap< FNetworkGUID, FNetGuidCacheObject >		ObjectLookup;
 	TMap< TWeakObjectPtr< UObject >, FNetworkGUID >	NetGUIDLookup;
 	int32											UniqueNetIDs[2];
@@ -252,6 +258,8 @@ public:
 		NetFieldExportGroupPathAcked.Empty();
 		NetFieldExportAcked.Empty();
 	}
+
+	void CountBytes(FArchive& Ar) const;
 };
 
 UCLASS(transient)
@@ -343,6 +351,8 @@ public:
 	{
 		return MakeUnique<TGuardValue<bool>>(bIgnoreReceivedExportGUIDs, true);
 	}
+
+	virtual void Serialize(FArchive& Ar) override;
 
 protected:
 

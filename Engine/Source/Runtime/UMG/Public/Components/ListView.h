@@ -126,7 +126,7 @@ protected:
 	template <template<typename> class ListViewT = SListView>
 	TSharedRef<ListViewT<UObject*>> ConstructListView()
 	{
-		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, bIsFocusable, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel);
+		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, bIsFocusable, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel, bReturnFocusToSelection);
 		return StaticCastSharedRef<ListViewT<UObject*>>(MyListView.ToSharedRef());
 	}
 
@@ -145,6 +145,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = ListEntries, meta = (ClampMin = 0))
 	float EntrySpacing = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
+	bool bReturnFocusToSelection = false;
 
 	UPROPERTY(Transient)
 	TArray<UObject*> ListItems;

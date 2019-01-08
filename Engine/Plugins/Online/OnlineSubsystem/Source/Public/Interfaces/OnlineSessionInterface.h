@@ -529,6 +529,23 @@ public:
 	virtual bool FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegate) = 0;
 
 	/**
+	* Find a single advertised session by session id (with userdata)
+	*
+	* @param SearchingUserId user initiating the request
+	* @param Platform platform the session is on
+	* @param SessionId session id to search for
+	* @param FriendId optional id of user to verify in session
+	* @param UserData optional data that may be required by search
+	* @param CompletionDelegate delegate to call on completion
+	*
+	* @return true on success, false otherwise
+	*/
+	virtual bool FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FString& UserData, const FOnSingleSessionResultCompleteDelegate& CompletionDelegate)
+	{
+		return FindSessionById(SearchingUserId, SessionId, FriendId, CompletionDelegate);
+	}
+
+	/**
 	 * Cancels the current search in progress if possible for that search type
 	 *
 	 * @return true if successful searching for sessions, false otherwise

@@ -343,6 +343,101 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static int32 Abs_Int(int32 A);
 
 	//
+	// Integer64 functions.
+	//
+	
+	/** Multiplication (A * B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 * integer64", CompactNodeTitle = "*", Keywords = "* multiply", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 Multiply_Int64Int64(int64 A, int64 B);
+
+	/** Division (A / B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 / integer64", CompactNodeTitle = "/", Keywords = "/ divide division"), Category="Math|Integer")
+	static int64 Divide_Int64Int64(int64 A, int64 B = 1);
+	
+	/** Addition (A + B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 + integer64", CompactNodeTitle = "+", Keywords = "+ add plus", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 Add_Int64Int64(int64 A, int64 B = 1);
+
+	/** Subtraction (A - B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 - integer64", CompactNodeTitle = "-", Keywords = "- subtract minus"), Category="Math|Integer64")
+	static int64 Subtract_Int64Int64(int64 A, int64 B = 1);
+
+	/** Returns true if A is less than B (A < B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 < integer64", CompactNodeTitle = "<", Keywords = "< less"), Category="Math|Integer64")
+	static bool Less_Int64Int64(int64 A, int64 B);
+
+	/** Returns true if A is greater than B (A > B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 > integer64", CompactNodeTitle = ">", Keywords = "> greater"), Category="Math|Integer64")
+	static bool Greater_Int64Int64(int64 A, int64 B);
+
+	/** Returns true if A is less than or equal to B (A <= B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 <= integer64", CompactNodeTitle = "<=", Keywords = "<= less"), Category="Math|Integer64")
+	static bool LessEqual_Int64Int64(int64 A, int64 B);
+
+	/** Returns true if A is greater than or equal to B (A >= B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "integer64 >= integer64", CompactNodeTitle = ">=", Keywords = ">= greater"), Category="Math|Integer64")
+	static bool GreaterEqual_Int64Int64(int64 A, int64 B);
+
+	/** Returns true if A is equal to B (A == B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (integer64)", CompactNodeTitle = "==", Keywords = "== equal"), Category="Math|Integer64")
+	static bool EqualEqual_Int64Int64(int64 A, int64 B);
+
+	/** Returns true if A is not equal to B (A != B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "NotEqual (integer64)", CompactNodeTitle = "!=", Keywords = "!= not equal"), Category="Math|Integer64")
+	static bool NotEqual_Int64Int64(int64 A, int64 B);
+	
+	/** Returns true if value is between Min and Max (V >= Min && V <= Max)
+	 * If InclusiveMin is true, value needs to be equal or larger than Min, else it needs to be larger
+	 * If InclusiveMax is true, value needs to be smaller or equal than Max, else it needs to be smaller
+	 */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "InRange (integer64)", Min = "0", Max = "10"), Category = "Math|Integer64")
+	static bool InRange_Int64Int64(int64 Value, int64 Min, int64 Max, bool InclusiveMin = true, bool InclusiveMax = true);
+
+	/** Bitwise AND (A & B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Bitwise AND", CompactNodeTitle = "&", Keywords = "& and", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 And_Int64Int64(int64 A, int64 B);
+
+	/** Bitwise XOR (A ^ B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Bitwise XOR", CompactNodeTitle = "^", Keywords = "^ xor"), Category="Math|Integer64")
+	static int64 Xor_Int64Int64(int64 A, int64 B);
+
+	/** Bitwise OR (A | B) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Bitwise OR", CompactNodeTitle = "|", Keywords = "| or", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 Or_Int64Int64(int64 A, int64 B);
+
+	/** Bitwise NOT (~A) */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Bitwise NOT", CompactNodeTitle = "~", Keywords = "~ not"), Category = "Math|Integer64")
+	static int64 Not_Int64(int64 A);
+
+	/** Sign (integer64, returns -1 if A < 0, 0 if A is zero, and +1 if A > 0) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Sign (integer64)"), Category="Math|Integer64")
+	static int64 SignOfInteger64(int64 A);
+
+	/** Returns a uniformly distributed random number between 0 and Max - 1 */
+	UFUNCTION(BlueprintPure, Category="Math|Random", meta=(NotBlueprintThreadSafe))
+	static int64 RandomInteger64(int64 Max);
+
+	/** Return a random integer64 between Min and Max (>= Min and <= Max) */
+	UFUNCTION(BlueprintPure, Category="Math|Random", meta = (NotBlueprintThreadSafe))
+	static int64 RandomInteger64InRange(int64 Min, int64 Max);
+
+	/** Returns the minimum value of A and B */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Min (integer64)", CompactNodeTitle = "MIN", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 MinInt64(int64 A, int64 B);
+
+	/** Returns the maximum value of A and B */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Max (integer64)", CompactNodeTitle = "MAX", CommutativeAssociativeBinaryOperator = "true"), Category="Math|Integer64")
+	static int64 MaxInt64(int64 A, int64 B);
+
+	/** Returns Value clamped to be between A and B (inclusive) */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Clamp (integer64)"), Category="Math|Integer64")
+	static int64 ClampInt64(int64 Value, int64 Min, int64 Max);
+
+	/** Returns the absolute (positive) value of A */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Absolute (integer64)", CompactNodeTitle = "ABS"), Category="Math|Integer64")
+	static int64 Abs_Int64(int64 A);
+
+	//
 	// Float functions.
 	//
 
@@ -637,7 +732,23 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	/** Rounds A to an integer with truncation towards zero.  (e.g. -1.7 truncated to -1, 2.8 truncated to 2) */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Truncate", BlueprintAutocast), Category="Math|Float")
 	static int32 FTrunc(float A);
-	
+
+	/** Rounds A to the nearest 32 bit integer then upconverts to 64 bit integer */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Round to Int64"), Category = "Math|Float")
+	static int64 Round64(float A);
+
+	/** Rounds A to the largest previous 32 bit integer then upconverts to 64 bit integer */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Floor to Int64"), Category = "Math|Float")
+	static int64 FFloor64(float A);
+
+	/** Rounds A to an 32 bit integer with truncation towards zero then upconverts to 64 bit integer.  (e.g. -1.7 truncated to -1, 2.8 truncated to 2) */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Truncate to Int64", BlueprintAutocast), Category = "Math|Float")
+	static int64 FTrunc64(float A);
+
+	/** Rounds A to the smallest following 32 bit integer then upconverts to 64 bit integer */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Floor to Int64"), Category = "Math|Float")
+	static int64 FCeil64(float A);
+
 	/** Rounds A to an integer with truncation towards zero for each element in a vector.  (e.g. -1.7 truncated to -1, 2.8 truncated to 2) */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Truncate Vector", BlueprintAutocast), Category = "Math|Float")
 	static FIntVector FTruncVector(const FVector& InVector);
@@ -1451,6 +1562,10 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToFloat (integer)", CompactNodeTitle = "->", Keywords="cast convert", BlueprintAutocast), Category="Math|Conversions")
 	static float Conv_IntToFloat(int32 InInt);
 
+	/** Converts an integer to a 64 bit integer */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToInt64 (integer)", CompactNodeTitle = "->", Keywords = "cast convert", BlueprintAutocast), Category = "Math|Conversions")
+	static int64 Conv_IntToInt64(int32 InInt);
+
 	/** Converts an integer to a byte (if the integer is too large, returns the low 8 bits) */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToByte (integer)", CompactNodeTitle = "->", Keywords="cast convert", BlueprintAutocast), Category="Math|Conversions")
 	static uint8 Conv_IntToByte(int32 InInt);
@@ -1637,11 +1752,11 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 
 	/** Makes a SRand-based random number generator */
 	UFUNCTION(BlueprintPure, meta = (Keywords = "construct build", NativeMakeFunc), Category = "Math|Random")
-		static FRandomStream MakeRandomStream(int32 InitialSeed);
+	static FRandomStream MakeRandomStream(int32 InitialSeed);
 
 	/** Breaks apart a random number generator */
 	UFUNCTION(BlueprintPure, Category = "Math|Random", meta = (NativeBreakFunc))
-		static void BreakRandomStream(const FRandomStream& InRandomStream, int32& InitialSeed);
+	static void BreakRandomStream(const FRandomStream& InRandomStream, int32& InitialSeed);
 
 	/** Make a color from individual color components (RGB space) */
 	UFUNCTION(BlueprintPure, Category="Math|Color", meta=(Keywords="construct build"))
@@ -2251,6 +2366,7 @@ private:
 	static void ReportError_Divide_ByteByte();
 	static void ReportError_Percent_ByteByte();
 	static void ReportError_Divide_IntInt();
+	static void ReportError_Divide_Int64Int64();
 	static void ReportError_Percent_IntInt();
 	static void ReportError_Sqrt();
 	static void ReportError_Divide_VectorFloat();

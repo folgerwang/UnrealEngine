@@ -1028,7 +1028,7 @@ void UNiagaraScript::CacheResourceShadersForRendering(bool bRegenerateId, bool b
 		if (Source)
 		{
 			FNiagaraShaderScript* ResourceToCache;
-			ERHIFeatureLevel::Type CacheFeatureLevel = ERHIFeatureLevel::SM5;
+			ERHIFeatureLevel::Type CacheFeatureLevel = GMaxRHIFeatureLevel;
 			ScriptResource.SetScript(this, FeatureLevel, CachedScriptVMId.CompilerVersionID, CachedScriptVMId.BaseScriptID, CachedScriptVMId.ReferencedDependencyIds, GetName());
 
 			//if (ScriptResourcesByFeatureLevel[FeatureLevel])

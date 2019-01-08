@@ -758,7 +758,12 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			{
 				for (const auto& File : ImportInfo->SourceFiles)
 				{
-					AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipSourceFile", "Source File"), FText::FromString(File.RelativeFilename), false );
+					FText SourceLabel = LOCTEXT("TileViewTooltipSourceFile", "Source File");
+					if (File.DisplayLabelName.Len() > 0)
+					{
+						SourceLabel = FText::FromString(FText(LOCTEXT("TileViewTooltipSourceFile", "Source File")).ToString() + TEXT(" (") + File.DisplayLabelName + TEXT(")"));
+					}
+					AddToToolTipInfoBox( InfoBox, SourceLabel, FText::FromString(File.RelativeFilename), false );
 				}
 			}
 

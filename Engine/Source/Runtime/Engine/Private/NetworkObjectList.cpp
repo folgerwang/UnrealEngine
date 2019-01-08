@@ -4,6 +4,7 @@
 #include "Engine/Engine.h"
 #include "Engine/Level.h"
 #include "EngineUtils.h"
+#include "Serialization/Archive.h"
 
 void FNetworkObjectList::AddInitialObjects(UWorld* const World, const FName NetDriverName)
 {
@@ -337,4 +338,35 @@ void FNetworkObjectList::Reset()
 	ActiveNetworkObjects.Empty();
 	ObjectsDormantOnAllConnections.Empty();
 	NumDormantObjectsPerConnection.Empty();
+}
+
+void FNetworkObjectInfo::CountBytes(FArchive& Ar) const
+{
+	DormantConnections.CountBytes(Ar);
+	RecentlyDormantConnections.CountBytes(Ar);
+}
+
+static void CountBytesForNetworkObjectSet(const FNetworkObjectList::FNetworkObjectSet& Set, FArchive& Ar)
+{
+	
+}
+
+void FNetworkObjectList::CountBytes(FArchive& Ar) const
+{
+	AllNetworkObjects.CountBytes(Ar);
+	ActiveNetworkObjects.CountBytes(Ar);
+	ObjectsDormantOnAllConnections.CountBytes(Ar);
+	NumDormantObjectsPerConnection.CountBytes(Ar);
+ 
+	// ObjectsDormantOnAllConnections and ActiveNetworkObjects are both sub sets of AllNetworkObjects
+	// and only have pointers back to the data there.
+	// So, to avoid double (or triple) counting, only explicit count the elements from AllNetworkObjects.
+	for (const TSharedPtr<FNetworkObjectInfo>& SharedInfo : AllNetworkObjects)
+	{
+		if (FNetworkObjectInfo const * const Info = SharedInfo.Get())
+		{
+			Ar.CountBytes(sizeof(FNetworkObjectInfo), sizeof(FNetworkObjectInfo));
+			Info->CountBytes(Ar);
+		}
+	}
 }

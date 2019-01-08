@@ -845,6 +845,10 @@ namespace EpicGames.MCP.Automation
 			/// Leaving this variable null will include data for all files.
 			/// </summary>
 			public List<HashSet<string>> TagSetSplit;
+			/// <summary>
+			/// Specifies the desired output FeatureLevel of BuildPatchTool, if this is not provided BPT will default to before optimised deltas.
+			/// </summary>
+			public string FeatureLevel;
 		}
 
 		public class PackageChunksOutput
@@ -861,6 +865,18 @@ namespace EpicGames.MCP.Automation
 			/// TagSetLookupTable[2] = [ n+1, n+2, ..., n+m ]
 			/// </summary>
 			public List<List<int>> TagSetLookupTable;
+		}
+
+		public class ChunkDeltaOptimiseOptions
+		{
+			/// <summary>
+			/// The file path to the base manifest.
+			/// </summary>
+			public string SourceManifest;
+			/// <summary>
+			/// The file path to the update manifest. New data will be added to the cloud directory that this manifest is in.
+			/// </summary>
+			public string DestinationManifest;
 		}
 
 		static BuildPatchToolBase Handler = null;
@@ -893,7 +909,7 @@ namespace EpicGames.MCP.Automation
 		/// <summary>
 		/// Runs the Build Patch Tool executable to generate patch data using the supplied parameters.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool generation process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool generation process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		/// <param name="bAllowManifestClobbering">If set to true, will allow an existing manifest file to be overwritten with this execution. Default is false.</param>
 		public abstract void Execute(PatchGenerationOptions Opts, ToolVersion Version = ToolVersion.Live, bool bAllowManifestClobbering = false);
@@ -901,28 +917,28 @@ namespace EpicGames.MCP.Automation
 		/// <summary>
 		/// Runs the Build Patch Tool executable to compactify a cloud directory using the supplied parameters.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool compactify process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool compactify process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(CompactifyOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to enumerate patch data files referenced by a manifest using the supplied parameters.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool enumeration process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool enumeration process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(DataEnumerationOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to merge two manifest files producing a hotfix manifest.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool manifest merge process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool manifest merge process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(ManifestMergeOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to diff two manifest files logging out details.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool manifest diff process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool manifest diff process.</param>
 		/// <param name="Output">Will receive the data back for the diff.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(ManifestDiffOptions Opts, out ManifestDiffOutput Output, ToolVersion Version = ToolVersion.Live);
@@ -930,17 +946,24 @@ namespace EpicGames.MCP.Automation
 		/// <summary>
 		/// Runs the Build Patch Tool executable to evaluate built in automation testing.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool automation tests process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool automation tests process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(AutomationTestsOptions Opts, ToolVersion Version = ToolVersion.Live);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to create ChunkDB file(s) consisting of multiple chunks to allow installing / patching to a specific build.
 		/// </summary>
-		/// <param name="Opts">Parameters which will be passed to the patch tool package chunks process.</param>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool package chunks process.</param>
 		/// <param name="Output">Will receive the data back for the packaging.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(PackageChunksOptions Opts, out PackageChunksOutput Output, ToolVersion Version = ToolVersion.Live);
+
+		/// <summary>
+		/// Runs the Build Patch Tool executable to create optimised delta files which reduce download size for patching between two specific builds.
+		/// </summary>
+		/// <param name="Opts">Parameters which will be passed to the Build Patch Tool chunk delta optimise process.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(ChunkDeltaOptimiseOptions Opts, ToolVersion Version = ToolVersion.Live);
 	}
 
 
@@ -1285,10 +1308,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
         /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		public PostFileResult PostFile(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
+		public PostFileResult PostFile(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null)
 		{
-			return PostFileAsync(Container, Identifier, Contents, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
+			return PostFileAsync(Container, Identifier, Contents, ContentType, bOverwrite, bMakePublic, bQuiet, Metadata).Result;
 		}
 
 		/// <summary>
@@ -1301,8 +1325,9 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
         /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
+		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, byte[] Contents, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null);
 
 		/// <summary>
 		/// Posts a file to the cloud storage provider.
@@ -1314,10 +1339,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
         /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		public PostFileResult PostFile(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
+		public PostFileResult PostFile(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null)
 		{
-			return PostFileAsync(Container, Identifier, SourceFilePath, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
+			return PostFileAsync(Container, Identifier, SourceFilePath, ContentType, bOverwrite, bMakePublic, bQuiet, Metadata).Result;
 		}
 
 		/// <summary>
@@ -1330,8 +1356,9 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file.  If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
         /// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
+		abstract public Task<PostFileResult> PostFileAsync(string Container, string Identifier, string SourceFilePath, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null);
 
 		/// <summary>
 		/// Posts a file to the cloud storage provider using multiple connections.
@@ -1345,10 +1372,11 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file. If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
 		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		public PostFileResult PostMultipartFile(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false)
+		public PostFileResult PostMultipartFile(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null)
 		{
-			return PostMultipartFileAsync(Container, Identifier, SourceFilePath, NumConcurrentConnections, PartSizeMegabytes, ContentType, bOverwrite, bMakePublic, bQuiet).Result;
+			return PostMultipartFileAsync(Container, Identifier, SourceFilePath, NumConcurrentConnections, PartSizeMegabytes, ContentType, bOverwrite, bMakePublic, bQuiet, Metadata).Result;
 		}
 
 		/// <summary>
@@ -1363,9 +1391,10 @@ namespace EpicGames.MCP.Automation
 		/// <param name="bOverwrite">If true, will overwrite an existing file. If false, will throw an exception if the file exists.</param>
 		/// <param name="bMakePublic">Specifies whether the file should be made publicly readable.</param>
 		/// <param name="bQuiet">If set to true, all log output for the operation is supressed.</param>
+		/// <param name="Metadata">If not null, key-value pairs of metadata to be applied to the object.</param>
 		/// <returns>A PostFileResult indicating whether the call was successful, and the URL to the uploaded file.</returns>
-		abstract public Task<PostFileResult> PostMultipartFileAsync(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false);
-
+		abstract public Task<PostFileResult> PostMultipartFileAsync(string Container, string Identifier, string SourceFilePath, int NumConcurrentConnections, decimal PartSizeMegabytes = 5.0m, string ContentType = null, bool bOverwrite = true, bool bMakePublic = false, bool bQuiet = false, IDictionary<string, object> Metadata = null);
+
 		/// <summary>
 		/// Deletes a file from cloud storage
 		/// </summary>

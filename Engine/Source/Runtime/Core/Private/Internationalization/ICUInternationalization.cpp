@@ -94,49 +94,47 @@ bool FICUInternationalization::Initialize()
 	LoadDLLs();
 #endif /*IS_PROGRAM || !IS_MONOLITHIC*/
 
-	u_setMemoryFunctions(NULL, &(FICUOverrides::Malloc), &(FICUOverrides::Realloc), &(FICUOverrides::Free), &(ICUStatus));
+	u_setMemoryFunctions(nullptr, &FICUOverrides::Malloc, &FICUOverrides::Realloc, &FICUOverrides::Free, &ICUStatus);
 
-	const FString DataDirectoryRelativeToContent = FString(TEXT("Internationalization"));
-	IFileManager& FileManager = IFileManager::Get();
-
-	const FString PotentialDataDirectories[] = 
+	const FString DataDirectoryRelativeToContent = TEXT("Internationalization");
+	const FString PotentialDataDirectories[] =
 	{
 		FPaths::ProjectContentDir() / DataDirectoryRelativeToContent, // Try game content directory.
 		FPaths::EngineContentDir() / DataDirectoryRelativeToContent, // Try engine content directory.
 	};
 
-	bool HasFoundDataDirectory = false;
-	for(const auto& DataDirectoryString : PotentialDataDirectories)
+	ICUDataDirectory.Reset();
+	for (const FString& PotentialDataDirectory : PotentialDataDirectories)
 	{
-		if( FileManager.DirectoryExists( *DataDirectoryString ) )
+		if (FPaths::DirectoryExists(PotentialDataDirectory))
 		{
-			u_setDataDirectory( StringCast<char>( *DataDirectoryString ).Get() );
-			HasFoundDataDirectory = true;
+			u_setDataDirectory(StringCast<char>(*PotentialDataDirectory).Get());
+			ICUDataDirectory = PotentialDataDirectory / TEXT("icudt53l") / TEXT(""); // We include the sub-folder here as it prevents ICU I/O requests outside of this folder
 			break;
 		}
 	}
 
-	auto GetPrioritizedDataDirectoriesString = [&]() -> FString
+	if (ICUDataDirectory.IsEmpty())
 	{
-		FString Result;
-		for(const auto& DataDirectoryString : PotentialDataDirectories)
+		auto GetPrioritizedDataDirectoriesString = [&]() -> FString
 		{
-			if(!Result.IsEmpty())
+			FString Result;
+			for (const auto& DataDirectoryString : PotentialDataDirectories)
 			{
-				Result += TEXT("\n");
+				if (!Result.IsEmpty())
+				{
+					Result += TEXT("\n");
+				}
+				Result += DataDirectoryString;
 			}
-			Result += DataDirectoryString;
-		}
-		return Result;
-	};
+			return Result;
+		};
 
-	if (!HasFoundDataDirectory)
-	{
-		UE_LOG(LogICUInternationalization, Fatal, TEXT("ICU data directory was not discovered:\n%s"), *(GetPrioritizedDataDirectoriesString()));
+		UE_LOG(LogICUInternationalization, Fatal, TEXT("ICU data directory was not discovered:\n%s"), *GetPrioritizedDataDirectoriesString());
 	}
 
-	u_setDataFileFunctions(nullptr, &FICUInternationalization::OpenDataFile, &FICUInternationalization::CloseDataFile, &(ICUStatus));
-	u_init(&(ICUStatus));
+	u_setDataFileFunctions(this, &FICUInternationalization::OpenDataFile, &FICUInternationalization::CloseDataFile, &ICUStatus);
+	u_init(&ICUStatus);
 	checkf(U_SUCCESS(ICUStatus), TEXT("Failed to open ICUInternationalization data file, missing or corrupt?"));
 
 	FICURegexManager::Create();
@@ -150,10 +148,10 @@ bool FICUInternationalization::Initialize()
 	bHasInitializedAllowedCultures = false;
 	ConditionalInitializeAllowedCultures();
 
-	I18N->InvariantCulture = FindOrMakeCulture(TEXT("en-US-POSIX"), EAllowDefaultCultureFallback::No);
+	I18N->InvariantCulture = FindOrMakeCanonizedCulture(TEXT("en-US-POSIX"), EAllowDefaultCultureFallback::No);
 	if (!I18N->InvariantCulture.IsValid())
 	{
-		I18N->InvariantCulture = FindOrMakeCulture(FString(), EAllowDefaultCultureFallback::Yes);
+		I18N->InvariantCulture = FindOrMakeCanonizedCulture(FString(), EAllowDefaultCultureFallback::Yes);
 	}
 	I18N->DefaultLanguage = FindOrMakeCulture(FPlatformMisc::GetDefaultLanguage(), EAllowDefaultCultureFallback::Yes);
 	I18N->DefaultLocale = FindOrMakeCulture(FPlatformMisc::GetDefaultLocale(), EAllowDefaultCultureFallback::Yes);
@@ -281,46 +279,35 @@ void FICUInternationalization::LoadAllCultureData()
 {
 	for (const FICUCultureData& CultureData : AllAvailableCultures)
 	{
-		FindOrMakeCulture(CultureData.Name, EAllowDefaultCultureFallback::No);
+		FindOrMakeCanonizedCulture(CultureData.Name, EAllowDefaultCultureFallback::No);
 	}
 }
 
 void FICUInternationalization::InitializeAvailableCultures()
 {
 	// Build up the data about all available locales
-	int32_t LocaleCount;
+	int32_t LocaleCount = 0;
 	const icu::Locale* const AvailableLocales = icu::Locale::getAvailableLocales(LocaleCount);
 
 	AllAvailableCultures.Reserve(LocaleCount);
 	AllAvailableCulturesMap.Reserve(LocaleCount);
+	AllAvailableLanguagesToSubCulturesMap.Reserve(LocaleCount / 2);
 
-	auto AppendCultureData = [&](const FString& InLanguageCode, const FString& InScriptCode, const FString& InCountryCode)
+	auto AppendCultureData = [&](const FString& InCultureName, const FString& InLanguageCode, const FString& InScriptCode, const FString& InCountryCode)
 	{
-		FString CultureName = InLanguageCode;
-		if (!InScriptCode.IsEmpty())
-		{
-			CultureName.AppendChar(TEXT('-'));
-			CultureName.Append(InScriptCode);
-		}
-		if (!InCountryCode.IsEmpty())
-		{
-			CultureName.AppendChar(TEXT('-'));
-			CultureName.Append(InCountryCode);
-		}
-
-		if (AllAvailableCulturesMap.Contains(CultureName))
+		if (AllAvailableCulturesMap.Contains(InCultureName))
 		{
 			return;
 		}
 
-		const int32 CultureDataIndex = AllAvailableCultures.AddDefaulted();
-		AllAvailableCulturesMap.Add(CultureName, CultureDataIndex);
+		const int32 CultureDataIndex = AllAvailableCultures.Num();
+		AllAvailableCulturesMap.Add(InCultureName, CultureDataIndex);
 
 		TArray<int32>& CulturesForLanguage = AllAvailableLanguagesToSubCulturesMap.FindOrAdd(InLanguageCode);
 		CulturesForLanguage.Add(CultureDataIndex);
 
-		FICUCultureData& CultureData = AllAvailableCultures[CultureDataIndex];
-		CultureData.Name = CultureName;
+		FICUCultureData& CultureData = AllAvailableCultures.AddDefaulted_GetRef();
+		CultureData.Name = InCultureName;
 		CultureData.LanguageCode = InLanguageCode;
 		CultureData.ScriptCode = InScriptCode;
 		CultureData.CountryCode = InCountryCode;
@@ -336,18 +323,18 @@ void FICUInternationalization::InitializeAvailableCultures()
 
 		// AvailableLocales doesn't always contain all variations of a culture, so we try and add them all here
 		// This allows the culture script look-up in GetPrioritizedCultureNames to work without having to load up culture data most of the time
-		AppendCultureData(LanguageCode, FString(), FString());
+		AppendCultureData(LanguageCode, LanguageCode, FString(), FString());
 		if (!CountryCode.IsEmpty())
 		{
-			AppendCultureData(LanguageCode, FString(), CountryCode);
+			AppendCultureData(FCulture::CreateCultureName(LanguageCode, FString(), CountryCode), LanguageCode, FString(), CountryCode);
 		}
 		if (!ScriptCode.IsEmpty())
 		{
-			AppendCultureData(LanguageCode, ScriptCode, FString());
+			AppendCultureData(FCulture::CreateCultureName(LanguageCode, ScriptCode, FString()), LanguageCode, ScriptCode, FString());
 		}
 		if (!ScriptCode.IsEmpty() && !CountryCode.IsEmpty())
 		{
-			AppendCultureData(LanguageCode, ScriptCode, CountryCode);
+			AppendCultureData(FCulture::CreateCultureName(LanguageCode, ScriptCode, CountryCode), LanguageCode, ScriptCode, CountryCode);
 		}
 	}
 
@@ -355,21 +342,23 @@ void FICUInternationalization::InitializeAvailableCultures()
 	// Note: getISOLanguages returns the start of an array of const char* null-terminated strings, with a null string signifying the end of the array
 	for (const char* const* AvailableLanguages = icu::Locale::getISOLanguages(); *AvailableLanguages; ++AvailableLanguages)
 	{
-		FString LanguageCode = UTF8_TO_TCHAR(*AvailableLanguages);
-		LanguageCode.ToLowerInline();
-
 		// Only care about 2-letter codes
-		if (LanguageCode.Len() == 2)
+		const char* AvailableLanguage = *AvailableLanguages;
+		if (AvailableLanguage[2] == 0)
 		{
-			AppendCultureData(LanguageCode, FString(), FString());
+			FString LanguageCode = AvailableLanguage;
+			LanguageCode.ToLowerInline();
+
+			AppendCultureData(LanguageCode, LanguageCode, FString(), FString());
 		}
 	}
 
 	// Also add our invariant culture if it wasn't found when processing the ICU locales
-	if (!AllAvailableCulturesMap.Contains(TEXT("en-US-POSIX")))
-	{
-		AppendCultureData(TEXT("en"), FString(), TEXT("US-POSIX"));
-	}
+	AppendCultureData(TEXT("en-US-POSIX"), TEXT("en"), FString(), TEXT("US-POSIX"));
+
+	AllAvailableCultures.Shrink();
+	AllAvailableCulturesMap.Shrink();
+	AllAvailableLanguagesToSubCulturesMap.Shrink();
 }
 
 TArray<FString> LoadInternationalizationConfigArray(const TCHAR* InKey)
@@ -569,7 +558,7 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 		}
 		
 		// Failing that, try and find the culture directly (this will cause its resource data to be loaded)
-		FCulturePtr Culture = FindOrMakeCulture(InCultureName, EAllowDefaultCultureFallback::No);
+		FCulturePtr Culture = FindOrMakeCanonizedCulture(InCultureName, EAllowDefaultCultureFallback::No);
 		if (Culture.IsValid())
 		{
 			OutCultureData.Name = Culture->GetName();
@@ -583,11 +572,8 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 	};
 
 	// Apply any culture remapping
-	FString GivenCulture;
-	if (!IsCultureRemapped(Name, &GivenCulture))
-	{
-		GivenCulture = Name;
-	}
+	FString GivenCulture = FCulture::GetCanonicalName(Name);
+	IsCultureRemapped(Name, &GivenCulture);
 
 	TArray<FString> PrioritizedCultureNames;
 
@@ -647,15 +633,13 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 		PrioritizedCultureNames.Reserve(PrioritizedCultureData.Num());
 		for (const FICUCultureData& CultureData : PrioritizedCultureData)
 		{
-			PrioritizedCultureNames.Add(CultureData.Name);
+			// Remove any cultures that are explicitly disallowed
+			if (IsCultureAllowed(CultureData.Name))
+			{
+				PrioritizedCultureNames.Add(CultureData.Name);
+			}
 		}
 	}
-
-	// Remove any cultures that are explicitly disallowed
-	PrioritizedCultureNames.RemoveAll([&](const FString& InPrioritizedCultureName) -> bool
-	{
-		return !IsCultureAllowed(InPrioritizedCultureName);
-	});
 
 	// If we have no cultures, fallback to using English
 	if (PrioritizedCultureNames.Num() == 0)
@@ -673,12 +657,15 @@ FCulturePtr FICUInternationalization::GetCulture(const FString& Name)
 
 FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, const EAllowDefaultCultureFallback AllowDefaultFallback)
 {
-	const FString CanonicalName = FCulture::GetCanonicalName(Name);
+	return FindOrMakeCanonizedCulture(FCulture::GetCanonicalName(Name), AllowDefaultFallback);
+}
 
+FCulturePtr FICUInternationalization::FindOrMakeCanonizedCulture(const FString& Name, const EAllowDefaultCultureFallback AllowDefaultFallback)
+{
 	// Find the cached culture.
 	{
 		FScopeLock Lock(&CachedCulturesCS);
-		FCultureRef* FoundCulture = CachedCultures.Find(CanonicalName);
+		FCultureRef* FoundCulture = CachedCultures.Find(Name);
 		if (FoundCulture)
 		{
 			return *FoundCulture;
@@ -689,19 +676,19 @@ FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, con
 	FCulturePtr NewCulture;
 
 	// Is this in our list of available cultures?
-	if (AllAvailableCulturesMap.Contains(CanonicalName))
+	if (AllAvailableCulturesMap.Contains(Name))
 	{
-		NewCulture = FCulture::Create(CanonicalName);
+		NewCulture = FCulture::Create(Name);
 	}
 	else
 	{
 		// We need to use a resource load in order to get the correct culture
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		if (UResourceBundle* ICUResourceBundle = ures_open(nullptr, StringCast<char>(*CanonicalName).Get(), &ICUStatus))
+		if (UResourceBundle* ICUResourceBundle = ures_open(nullptr, StringCast<char>(*Name).Get(), &ICUStatus))
 		{
 			if (ICUStatus != U_USING_DEFAULT_WARNING || AllowDefaultFallback == EAllowDefaultCultureFallback::Yes)
 			{
-				NewCulture = FCulture::Create(CanonicalName);
+				NewCulture = FCulture::Create(Name);
 			}
 			ures_close(ICUResourceBundle);
 		}
@@ -710,7 +697,7 @@ FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, con
 	if (NewCulture.IsValid())
 	{
 		FScopeLock Lock(&CachedCulturesCS);
-		CachedCultures.Add(CanonicalName, NewCulture.ToSharedRef());
+		CachedCultures.Add(Name, NewCulture.ToSharedRef());
 	}
 
 	return NewCulture;
@@ -757,80 +744,93 @@ UDate FICUInternationalization::UEDateTimeToICUDate(const FDateTime& DateTime)
 	}
 }
 
-UBool FICUInternationalization::OpenDataFile(const void* context, void** fileContext, void** contents, const char* path)
+UBool FICUInternationalization::OpenDataFile(const void* InContext, void** OutFileContext, void** OutContents, const char* InPath)
 {
-	const FString PathStr = StringCast<TCHAR>(path).Get();
-	auto& PathToCachedFileDataMap = FInternationalization::Get().Implementation->PathToCachedFileDataMap;
+	FICUInternationalization* This = (FICUInternationalization*)InContext;
+	check(This);
 
-	// Try to find existing buffer
-	FICUInternationalization::FICUCachedFileData* CachedFileData = PathToCachedFileDataMap.Find(PathStr);
+	FString PathStr = StringCast<TCHAR>(InPath).Get();
+	FPaths::NormalizeFilename(PathStr);
 
-	// If there's no file context, we might have to load the file.
-	if (!CachedFileData)
+	FICUCachedFileData* CachedFileData = nullptr;
+
+	// Skip requests for anything outside the ICU data directory
+	const bool bIsWithinDataDirectory = PathStr.StartsWith(This->ICUDataDirectory);
+	if (bIsWithinDataDirectory)
 	{
-#if !UE_BUILD_SHIPPING
-		FScopedLoadingState ScopedLoadingState(*PathStr);
-#endif
+		CachedFileData = This->PathToCachedFileDataMap.Find(PathStr);
 
-		// Attempt to load the file.
-		FArchive* FileAr = IFileManager::Get().CreateFileReader(*PathStr);
-		if (FileAr)
+		// If there's no file context, we might have to load the file.
+		if (!CachedFileData)
 		{
-			const int64 FileSize = FileAr->TotalSize();
-
-			// Create file data.
-			CachedFileData = &(PathToCachedFileDataMap.Emplace(PathStr, FICUInternationalization::FICUCachedFileData(FileSize)));
-
-			// Load file into buffer.
-			FileAr->Serialize(CachedFileData->Buffer, FileSize); 
-			delete FileAr;
-
-			// Stat tracking.
-#if STATS
-			DataFileBytesInUseCount += FMemory::GetAllocSize(CachedFileData->Buffer);
-			if (FThreadStats::IsThreadingReady() && CachedDataFileBytesInUseCount != DataFileBytesInUseCount)
-			{
-				SET_MEMORY_STAT(STAT_MemoryICUDataFileAllocationSize, DataFileBytesInUseCount);
-				CachedDataFileBytesInUseCount = DataFileBytesInUseCount;
-			}
+#if !UE_BUILD_SHIPPING
+			FScopedLoadingState ScopedLoadingState(*PathStr);
 #endif
+
+			// Attempt to load the file.
+			FArchive* FileAr = IFileManager::Get().CreateFileReader(*PathStr);
+			if (FileAr)
+			{
+				const int64 FileSize = FileAr->TotalSize();
+
+				// Create file data.
+				CachedFileData = &This->PathToCachedFileDataMap.Emplace(PathStr, FICUCachedFileData(FileSize));
+
+				// Load file into buffer.
+				FileAr->Serialize(CachedFileData->Buffer, FileSize);
+				delete FileAr;
+
+				// Stat tracking.
+#if STATS
+				DataFileBytesInUseCount += FMemory::GetAllocSize(CachedFileData->Buffer);
+				if (FThreadStats::IsThreadingReady() && CachedDataFileBytesInUseCount != DataFileBytesInUseCount)
+				{
+					SET_MEMORY_STAT(STAT_MemoryICUDataFileAllocationSize, DataFileBytesInUseCount);
+					CachedDataFileBytesInUseCount = DataFileBytesInUseCount;
+				}
+#endif
+			}
 		}
 	}
 
-	// Add a reference, either the initial one or an additional one.
 	if (CachedFileData)
 	{
-		++(CachedFileData->ReferenceCount);
+		// Add a reference, either the initial one or an additional one.
+		++CachedFileData->ReferenceCount;
+
+		// Use the file path as the context, so we can look up the cached file data later and decrement its reference count.
+		*OutFileContext = new FString(PathStr);
+
+		// Use the buffer from the cached file data.
+		*OutContents = CachedFileData->Buffer;
+
+		return true;
 	}
 
-	// Use the file path as the context, so we can look up the cached file data later and decrement its reference count.
-	*fileContext = CachedFileData ? new FString(PathStr) : nullptr;
-
-	// Use the buffer from the cached file data.
-	*contents = CachedFileData ? CachedFileData->Buffer : nullptr;
-
-	// If we have cached file data, we must have loaded new data or found existing data, so we've successfully "opened" and "read" the file into "contents".
-	return CachedFileData != nullptr;
+	*OutFileContext = nullptr;
+	*OutContents = nullptr;
+	return false;
 }
 
-void FICUInternationalization::CloseDataFile(const void* context, void* const fileContext, void* const contents)
+void FICUInternationalization::CloseDataFile(const void* InContext, void* const InFileContext, void* const InContents)
 {
+	FICUInternationalization* This = (FICUInternationalization*)InContext;
+	check(This);
+
 	// Early out on null context.
-	if (fileContext == nullptr)
+	if (!InFileContext)
 	{
 		return;
 	}
 
-	auto& PathToCachedFileDataMap = FInternationalization::Get().Implementation->PathToCachedFileDataMap;
-
 	// The file context is the path to the file.
-	FString* const Path = reinterpret_cast<FString*>(fileContext);
+	FString* const Path = reinterpret_cast<FString*>(InFileContext);
 	check(Path);
 
 	// Look up the cached file data so we can maintain references.
-	FICUInternationalization::FICUCachedFileData* const CachedFileData = PathToCachedFileDataMap.Find(*Path);
+	FICUCachedFileData* const CachedFileData = This->PathToCachedFileDataMap.Find(*Path);
 	check(CachedFileData);
-	check(CachedFileData->Buffer == contents);
+	check(CachedFileData->Buffer == InContents);
 
 	// Remove a reference.
 	--(CachedFileData->ReferenceCount);
@@ -849,7 +849,7 @@ void FICUInternationalization::CloseDataFile(const void* context, void* const fi
 #endif
 
 		// Delete the cached file data.
-		PathToCachedFileDataMap.Remove(*Path);
+		This->PathToCachedFileDataMap.Remove(*Path);
 	}
 
 	// The path string we allocated for tracking is no longer necessary.

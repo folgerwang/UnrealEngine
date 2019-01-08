@@ -43,7 +43,9 @@ public:
 
 	// Mesh toolbar Commands
 	TSharedPtr< FUICommandInfo > ReimportMesh;
+	TSharedPtr< FUICommandInfo > ReimportMeshWithNewFile;
 	TSharedPtr< FUICommandInfo > ReimportAllMesh;
+	TSharedPtr< FUICommandInfo > ReimportAllMeshWithNewFile;
 
 	// View Menu Commands
 	TSharedPtr< FUICommandInfo > SetShowNormals;

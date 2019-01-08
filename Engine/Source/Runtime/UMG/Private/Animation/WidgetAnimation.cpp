@@ -84,7 +84,7 @@ float UWidgetAnimation::GetEndTime() const
 
 void UWidgetAnimation::BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->BindToAnimationStarted(this, Delegate);
 	}
@@ -92,7 +92,7 @@ void UWidgetAnimation::BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimat
 
 void UWidgetAnimation::UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->UnbindFromAnimationStarted(this, Delegate);
 	}
@@ -100,7 +100,7 @@ void UWidgetAnimation::UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAn
 
 void UWidgetAnimation::UnbindAllFromAnimationStarted(UUserWidget* Widget)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->UnbindAllFromAnimationStarted(this);
 	}
@@ -108,7 +108,7 @@ void UWidgetAnimation::UnbindAllFromAnimationStarted(UUserWidget* Widget)
 
 void UWidgetAnimation::BindToAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->BindToAnimationFinished(this, Delegate);
 	}
@@ -116,7 +116,7 @@ void UWidgetAnimation::BindToAnimationFinished(UUserWidget* Widget, FWidgetAnima
 
 void UWidgetAnimation::UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->UnbindFromAnimationFinished(this, Delegate);
 	}
@@ -124,7 +124,7 @@ void UWidgetAnimation::UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetA
 
 void UWidgetAnimation::UnbindAllFromAnimationFinished(UUserWidget* Widget)
 {
-	if (Widget)
+	if (ensure(Widget))
 	{
 		Widget->UnbindAllFromAnimationFinished(this);
 	}

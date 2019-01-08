@@ -47,6 +47,7 @@ public:
 	 */
 	void Init();
 
+	void Release();
 	/**
 	 * Returns the most appropriate texture aligner based on the type passed in.
 	 */
@@ -58,6 +59,11 @@ private:
 	 **/
 	void OnEditorFitTextureToSurface(UWorld* InWorld);
 
+	bool bIsInit;
+
 };
 
+//This structure is using a static multicast delegate, so creating a static instance is dangerous because
+//there is nothing to control the destruction order. If the multicast is destroy first we will have dangling pointer.
+//The solution to this is to call release in the shutdown of the editor (see FUnrealEdMisc::OnExit) which happen before any static destructor.
 extern UNREALED_API FTexAlignTools GTexAlignTools;

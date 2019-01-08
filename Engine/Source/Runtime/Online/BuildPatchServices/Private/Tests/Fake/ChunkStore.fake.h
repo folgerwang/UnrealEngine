@@ -43,11 +43,11 @@ namespace BuildPatchServices
 			return ReturnValue;
 		}
 
-		virtual int32 GetSlack() const
+		virtual int32 GetSize() const override
 		{
 			FScopeLock ScopeLock(&ThreadLock);
 			int32 Result = StoreMax - Store.Num();
-			RxGetSlack.Emplace(FStatsCollector::GetSeconds(), Result);
+			RxGetSize.Emplace(FStatsCollector::GetSeconds(), Result);
 			return Result;
 		}
 

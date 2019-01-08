@@ -61,6 +61,10 @@ void FScriptBlueprintCompiler::CreateClassVariablesFromBlueprint()
 			{
 				PinCategory = UEdGraphSchema_K2::PC_Int;
 			}
+			else if (Field.Class->IsChildOf(UInt64Property::StaticClass()))
+			{
+				PinCategory = UEdGraphSchema_K2::PC_Int64;
+			}
 			else if (Field.Class->IsChildOf(UBoolProperty::StaticClass()))
 			{
 				PinCategory = UEdGraphSchema_K2::PC_Boolean;

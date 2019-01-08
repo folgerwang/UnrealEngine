@@ -177,20 +177,10 @@ static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 	if (FPlatformMisc::MacOSXVersionCompare(10,13,6) < 0)
 	{
 		const FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : TEXT("");
-		if (BaseName == TEXT("FortniteGame"))
-		{
-			// this message can be suppressed with r.WarnOfBadDrivers=0
-			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
-										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_FNS7_Body", "Please update to macOS version 10.13.6 or newer. Older versions will no longer be supported starting December 6, 2018.").ToString(),
-										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
-		}
-		else
-		{
-			// this message can be suppressed with r.WarnOfBadDrivers=0
-			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
-										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
-										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
-		}
+		// this message can be suppressed with r.WarnOfBadDrivers=0
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
+									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
 	}
 }
 #endif // PLATFORM_WINDOWS

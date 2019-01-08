@@ -11,10 +11,13 @@
 #include "Sound/SoundNodeModulator.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "AudioDeviceManager.h"
+#include "AudioDevice.h"
+#include "AudioEditorModule.h"
 #include "Editor.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/FeedbackContext.h"
 #include "EditorFramework/AssetImportData.h"
+
 
 static bool bSoundFactorySuppressImportOverwriteDialog = false;
 
@@ -111,7 +114,7 @@ UObject* USoundFactory::FactoryCreateBinary
 	UObject*			Context,
 	const TCHAR*		FileType,
 	const uint8*&		Buffer,
-	const uint8*			BufferEnd,
+	const uint8*		BufferEnd,
 	FFeedbackContext*	Warn
 	)
 {
@@ -155,6 +158,28 @@ UObject* USoundFactory::FactoryCreateBinary
 		{
 			// Will block internally on audio thread completing outstanding commands
 			AudioDeviceManager->StopSoundsUsingResource(ExistingSound, &ComponentsToRestart);
+
+			// Resource data is required to exist, if it hasn't been loaded yet,
+			// to properly flush compressed data.  This allows the new version
+			// to be auditioned in the editor properly.
+			if (!ExistingSound->ResourceData)
+			{
+				FAudioDevice* AudioDevice = AudioDeviceManager->GetActiveAudioDevice();
+				check(AudioDevice);
+
+				FName RuntimeFormat = AudioDevice->GetRuntimeFormat(ExistingSound);
+				ExistingSound->InitAudioResource(RuntimeFormat);
+			}
+
+			UE_LOG(LogAudioEditor, Log, TEXT("Stopping Sound Resources of Existing Sound"));
+			if (ComponentsToRestart.Num() > 0)
+			{
+				for (UAudioComponent* AudioComponent : ComponentsToRestart)
+				{
+					UE_LOG(LogAudioEditor, Log, TEXT("Component '%s' Stopped"), *AudioComponent->GetName());
+					AudioComponent->Stop();
+				}
+			}
 		}
 
 		bool bUseExistingSettings = bSoundFactorySuppressImportOverwriteDialog;

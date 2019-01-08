@@ -16,6 +16,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
 /** Defined in C++ file */
 struct FPrimaryAssetTypeData;
 struct FPrimaryAssetData;
+struct FPrimaryAssetRulesCustomOverride;
 
 /** Delegate called when acquiring resources/chunks for assets, parameter will be true if all resources were acquired, false if any failed */
 DECLARE_DELEGATE_OneParam(FAssetManagerAcquireResourceDelegate, bool);
@@ -385,6 +386,9 @@ public:
 	/** Return settings object */
 	const class UAssetManagerSettings& GetSettings() const;
 
+	/** Returns a timer manager that is safe to use for asset loading actions. This will either be the editor or game instance one, or null during very early startup */
+	class FTimerManager* GetTimerManager() const;
+
 	// Overrides
 	virtual void PostInitProperties() override;
 
@@ -485,7 +489,7 @@ public:
 	/**
 	  * Gathers information about which assets the game wishes to encrypt into named groups
 	  */
-	virtual void GetEncryptedAssetSet(TEncryptedAssetSet& OutEncryptedAssets, TSet<FName>& OutReleasedAssets) {}
+	virtual void GetEncryptedAssetSet(TEncryptedAssetSet& OutEncryptedAssets, TSet<FGuid>& OutReleasedAssets) {}
 
 #endif
 
@@ -519,6 +523,15 @@ protected:
 
 	/** Scans all asset types specified in DefaultGame */
 	virtual void ScanPrimaryAssetTypesFromConfig();
+
+	/** Called to apply the primary asset rule overrides from config */
+	virtual void ScanPrimaryAssetRulesFromConfig();
+
+	/** Apply a single custom primary asset rule, calls function below */
+	virtual void ApplyCustomPrimaryAssetRulesOverride(const FPrimaryAssetRulesCustomOverride& CustomOverride);
+
+	/** Sees if a specific primary asset passes the custom override filter, subclass this to handle FilterString */
+	virtual bool DoesPrimaryAssetMatchCustomOverride(FPrimaryAssetId PrimaryAssetId, const FPrimaryAssetRulesCustomOverride& CustomOverride) const;
 
 	/** Called after scanning is complete, either from FinishInitialLoading or after the AssetRegistry finishes */
 	virtual void PostInitialAssetScan();

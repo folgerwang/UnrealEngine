@@ -495,6 +495,10 @@ private:
 	bool HandleAudioMixerDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSoundClassFixup(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleAudioDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleResetAllDynamicSoundVolumesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleResetDynamicSoundVolumeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleGetDynamicSoundVolumeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSetDynamicSoundCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/**
 	* Lists a summary of loaded sound collated by class

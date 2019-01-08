@@ -564,6 +564,22 @@ void SAssetAuditBrowser::AddAssetsToList(const TArray<FAssetData>& AssetsToView,
 	AddAssetsToList(AssetNames, bReplaceExisting);
 }
 
+void SAssetAuditBrowser::AddAssetsToList(const TArray<FAssetIdentifier>& AssetsToView, bool bReplaceExisting)
+{
+	TArray<FName> AssetNames;
+
+	for (const FAssetIdentifier& AssetToView : AssetsToView)
+	{
+		FName PackageName = AssetToView.PackageName;
+		if (!PackageName.IsNone())
+		{
+			AssetNames.AddUnique(PackageName);
+		}
+	}
+
+	AddAssetsToList(AssetNames, bReplaceExisting);
+}
+
 void SAssetAuditBrowser::AddAssetsToList(const TArray<FName>& PackageNamesToView, bool bReplaceExisting)
 {
 	AssetHistory.Insert(TSet<FName>(), ++CurrentAssetHistoryIndex);

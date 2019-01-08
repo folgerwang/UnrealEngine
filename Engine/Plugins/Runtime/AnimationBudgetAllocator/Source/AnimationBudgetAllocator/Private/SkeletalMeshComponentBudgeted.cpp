@@ -3,6 +3,9 @@
 #include "SkeletalMeshComponentBudgeted.h"
 #include "AnimationBudgetAllocator.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "ProfilingDebugging/CsvProfiler.h"
+
+CSV_DECLARE_CATEGORY_EXTERN(AnimationBudget);
 
 FOnCalculateSignificance USkeletalMeshComponentBudgeted::OnCalculateSignificanceDelegate;
 
@@ -39,6 +42,8 @@ void USkeletalMeshComponentBudgeted::EndPlay(const EEndPlayReason::Type EndPlayR
 
 void USkeletalMeshComponentBudgeted::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	CSV_SCOPED_TIMING_STAT(AnimationBudget, BudgetedAnimation);
+
 	if(AnimationBudgetAllocator)
 	{
 		uint64 StartTime = FPlatformTime::Cycles64();
@@ -55,6 +60,8 @@ void USkeletalMeshComponentBudgeted::TickComponent(float DeltaTime, enum ELevelT
 
 void USkeletalMeshComponentBudgeted::CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation)
 {
+	CSV_SCOPED_TIMING_STAT(AnimationBudget, BudgetedAnimation);
+
 	if(AnimationBudgetAllocator)
 	{
 		uint64 StartTime = FPlatformTime::Cycles64();

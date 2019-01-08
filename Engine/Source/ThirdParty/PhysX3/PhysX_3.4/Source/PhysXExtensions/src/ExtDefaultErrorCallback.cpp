@@ -77,6 +77,9 @@ void PxDefaultErrorCallback::reportError(PxErrorCode::Enum e, const char* messag
 	case PxErrorCode::eINTERNAL_ERROR:
 		errorCode = "internal error";
 		break;
+	case PxErrorCode::eLOGGING_INFO:
+		errorCode = "logging info";
+		break;
 	case PxErrorCode::eMASK_ALL:
 		errorCode = "unknown error";
 		break;

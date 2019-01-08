@@ -330,6 +330,16 @@ FString FCharacterMovementComponentPostPhysicsTickFunction::DiagnosticMessage()
 	return Target->GetFullName() + TEXT("[UCharacterMovementComponent::PreClothTick]");
 }
 
+FName FCharacterMovementComponentPostPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	if (bDetailed)
+	{
+		return FName(*FString::Printf(TEXT("SkeletalMeshComponentClothTick/%s"), *GetFullNameSafe(Target)));
+	}
+
+	return FName(TEXT("SkeletalMeshComponentClothTick"));
+}
+
 UCharacterMovementComponent::UCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -2088,7 +2098,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		CurrentRootMotion.LastPreAdditiveVelocity += Adjustment;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			if (!Adjustment.IsNearlyZero())
 			{
@@ -2122,7 +2132,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			CurrentRootMotion.CleanUpInvalidRootMotion(DeltaSeconds, *CharacterOwner, *this);
 
 #if ROOT_MOTION_DEBUG
-			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 			{
 				if (Velocity != VelocityBeforeCleanup)
 				{
@@ -2153,7 +2163,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		ClearAccumulatedForces();
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			if (OldVelocity != Velocity)
 			{
@@ -2172,7 +2182,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			CurrentRootMotion.LastPreAdditiveVelocity += Adjustment;
 
 #if ROOT_MOTION_DEBUG
-			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 			{
 				if (!Adjustment.IsNearlyZero())
 				{
@@ -2259,7 +2269,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 					Velocity = NewVelocity;
 
 #if ROOT_MOTION_DEBUG
-					if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+					if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 					{
 						if (VelocityBeforeOverride != Velocity)
 						{
@@ -2274,7 +2284,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		}
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("PerformMovement Velocity(%s) OldVelocity(%s)"),
 				*Velocity.ToCompactString(), *OldVelocity.ToCompactString());
@@ -3689,7 +3699,7 @@ void UCharacterMovementComponent::RestorePreAdditiveRootMotionVelocity()
 	if( CurrentRootMotion.bIsAdditiveVelocityApplied )
 	{
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("RestorePreAdditiveRootMotionVelocity Velocity(%s) LastPreAdditiveVelocity(%s)"), 
 				*Velocity.ToCompactString(), *CurrentRootMotion.LastPreAdditiveVelocity.ToCompactString());
@@ -3724,7 +3734,7 @@ void UCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 		bAppliedRootMotion = true;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasOverrideVelocity Velocity(%s)"),
 				*Velocity.ToCompactString());
@@ -3742,7 +3752,7 @@ void UCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 		bAppliedRootMotion = true;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasAdditiveVelocity Velocity(%s) LastPreAdditiveVelocity(%s)"),
 				*Velocity.ToCompactString(), *CurrentRootMotion.LastPreAdditiveVelocity.ToCompactString());
@@ -6995,7 +7005,11 @@ void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation, c
 
 		// Don't let the client fall too far behind or run ahead of new server time.
 		const double ServerDeltaTime = ClientData->SmoothingServerTimeStamp - OldServerTimeStamp;
-		const double MaxDelta = FMath::Clamp(ServerDeltaTime * 1.25, 0.0, double(ClientData->MaxClientSmoothingDeltaTime));
+		const double MaxOffset = ClientData->MaxClientSmoothingDeltaTime;
+		const double MinOffset = FMath::Min(double(ClientData->SmoothNetUpdateTime), MaxOffset);
+		
+		// MaxDelta is the farthest behind we're allowed to be after receiving a new server time.
+		const double MaxDelta = FMath::Clamp(ServerDeltaTime * 1.25, MinOffset, MaxOffset);
 		ClientData->SmoothingClientTimeStamp = FMath::Clamp(ClientData->SmoothingClientTimeStamp, ClientData->SmoothingServerTimeStamp - MaxDelta, ClientData->SmoothingServerTimeStamp);
 
 		// Compute actual delta between new server timestamp and client simulation.
@@ -7657,8 +7671,11 @@ bool UCharacterMovementComponent::ForcePositionUpdate(float DeltaTime)
 	const double SavedServerTimestamp = ServerData->ServerAccumulatedClientTimeStamp;
 	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
 
+#if !(UE_BUILD_SHIPPING)
+	UE_LOG(LogNetPlayerMovement, Warning, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+#endif
+
 	// Force movement update.
-	UE_LOG(LogNetPlayerMovement, Log, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
 	PerformMovement(DeltaTime);
 
 	// TODO: smooth correction on listen server?
@@ -8207,7 +8224,7 @@ void UCharacterMovementComponent::ProcessClientTimeStampForTimeDiscrepancy(float
 	if (GameNetworkManager != nullptr && GameNetworkManager->bMovementTimeDiscrepancyDetection && bServerMoveHasOccurred)
 	{
 		const float WorldTimeSeconds = GetWorld()->GetTimeSeconds();
-		const float ServerDelta = (WorldTimeSeconds - ServerData.ServerTimeStampLastServerMove) * CharacterOwner->CustomTimeDilation;
+		const float ServerDelta = (WorldTimeSeconds - ServerData.ServerTimeStamp) * CharacterOwner->CustomTimeDilation;
 		const float ClientDelta = ClientTimeStamp - ServerData.CurrentClientTimeStamp;
 		const float ClientError = ClientDelta - ServerDelta; // Difference between how much time client has ticked since last move vs server
 
@@ -8676,7 +8693,7 @@ bool UCharacterMovementComponent::ServerCheckClientError(float ClientTimeStamp, 
 		const FVector LocDiff = UpdatedComponent->GetComponentLocation() - ClientWorldLocation;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ServerCheckClientError LocDiff(%.1f) ExceedsAllowablePositionError(%d) TimeStamp(%f)"),
 				LocDiff.Size(), GetDefault<AGameNetworkManager>()->ExceedsAllowablePositionError(LocDiff), ClientTimeStamp);
@@ -9118,7 +9135,7 @@ void UCharacterMovementComponent::OnClientCorrectionReceived(FNetworkPredictionD
 #endif //!UE_BUILD_SHIPPING
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		const FVector VelocityCorrection = NewVelocity - Velocity;
 		FString AdjustedDebugString = FString::Printf(TEXT("PerformMovement ClientAdjustPosition_Implementation Velocity(%s) OldVelocity(%s) Correction(%s) TimeStamp(%f)"),
@@ -9219,7 +9236,7 @@ void UCharacterMovementComponent::ClientAdjustRootMotionSourcePosition_Implement
 	}
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		FString AdjustedDebugString = FString::Printf(TEXT("ClientAdjustRootMotionSourcePosition_Implementation TimeStamp(%f)"),
 			TimeStamp);
@@ -9312,7 +9329,7 @@ void UCharacterMovementComponent::ClientAckGoodMove_Implementation(float TimeSta
 	check(ClientData);
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		FString AdjustedDebugString = FString::Printf(TEXT("ClientAckGoodMove_Implementation TimeStamp(%f)"),
 			TimeStamp);

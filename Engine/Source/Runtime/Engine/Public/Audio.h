@@ -490,6 +490,9 @@ public:
 	/** Returns the distance attenuation of the source voice. */
 	float GetDistanceAttenuation() const;
 
+	/** Returns the dynamic volume of the sound */
+	float GetDynamicVolume() const;
+
 	/** Returns the volume of the wave instance (ignoring application muting) */
 	float GetVolume() const;
 

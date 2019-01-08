@@ -93,6 +93,23 @@ void FAnimNotifyEvent::SetTime(float NewTime, EAnimLinkMethod::Type ReferenceFra
 	SetDuration(Duration);
 }
 
+FName FAnimNotifyEvent::GetNotifyEventName() const
+{
+	if(NotifyName != NAME_None)
+	{
+		if(NotifyName != CachedNotifyEventBaseName)
+		{
+			const FString EventName = FString::Printf(TEXT("AnimNotify_%s"), *NotifyName.ToString());
+			CachedNotifyEventBaseName = NotifyName;
+			CachedNotifyEventName = FName(*EventName);
+		}
+
+		return CachedNotifyEventName;
+	}
+
+	return NAME_None;
+}
+
 ////////////////////////////
 //
 // FMarkerSyncData

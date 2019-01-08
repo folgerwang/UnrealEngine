@@ -936,20 +936,12 @@ void FAnimationEditor::FillExportAssetMenu(FMenuBuilder& MenuBuilder) const
 
 FRichCurve* FindOrAddCurve(UCurveTable* CurveTable, FName CurveName)
 {
-	FRichCurve* Curve = nullptr;
-
 	// Grab existing curve (if present)
-	FRichCurve** ExistingCurvePtr = CurveTable->RowMap.Find(CurveName);
-	if (ExistingCurvePtr)
+	FRichCurve* Curve = CurveTable->FindRichCurve(CurveName, FString());
+	if (Curve == nullptr)
 	{
-		check(*ExistingCurvePtr);
-		Curve = *ExistingCurvePtr;
-	}
-	// Or allocate new curve
-	else
-	{
-		Curve = new FRichCurve();
-		CurveTable->RowMap.Add(CurveName, Curve);
+		// Or allocate new curve
+		Curve = &CurveTable->AddRichCurve(CurveName);
 	}
 
 	return Curve;

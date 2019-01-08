@@ -164,8 +164,8 @@ namespace BuildPatchServices
 		}
 	}
 
-	FStatsCollectorRef FStatsCollectorFactory::Create()
+	FStatsCollector* FStatsCollectorFactory::Create()
 	{
-		return MakeShareable(new FStatsCollectorImpl());
+		return new FStatsCollectorImpl();
 	}
 }
