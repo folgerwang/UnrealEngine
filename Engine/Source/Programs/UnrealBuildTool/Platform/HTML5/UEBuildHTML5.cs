@@ -49,9 +49,7 @@ namespace UnrealBuildTool
 			Target.bCompileLeanAndMeanUE = true;
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
-			Target.bCompilePhysX = true;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
+			Target.bCompilePhysX = true;			
 			Target.bCompileForSize = true;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
 			Target.bUsePCHFiles = false;
 			Target.bDeployAfterCompile = true;

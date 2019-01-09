@@ -105,9 +105,7 @@ namespace UnrealBuildTool
 			Target.bCompileNvCloth = false;
 
 			Target.bBuildEditor = false;
-			Target.bBuildDeveloperTools = false;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
+			Target.bBuildDeveloperTools = false;			
 
 			Target.bCompileRecast = true;
 		}

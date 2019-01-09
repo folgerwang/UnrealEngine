@@ -232,18 +232,13 @@ namespace UnrealBuildTool
 		}
 
 		public override void ValidateTarget(TargetRules Target)
-		{
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
+		{			
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
 
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 
