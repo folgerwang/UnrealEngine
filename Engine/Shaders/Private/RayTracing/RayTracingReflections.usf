@@ -23,6 +23,7 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 
 #include "../DeferredShadingCommon.ush"
 #include "../DeferredLightingCommon.ush"
+#include "../ReflectionEnvironmentShared.ush"
 #include "../Montecarlo.ush"
 #include "../PathTracing/Utilities/PathTracingRandomSequence.ush" // #dxr-todo: move to a common folder
 #include "RayTracingCommon.ush"
@@ -375,18 +376,34 @@ void RayTracingReflectionsRGS()
 				float3 Radiance = float3(0, 0, 0);
 				FMaterialClosestHitPayload Payload = TraceRayAndAccumulateResults(Ray, Radiance);
 
-				float4 PathRadiance = float4(Radiance, Payload.HitT < 0 ? 0.0 : 1.0); 
-				if (BounceIndex == 0)
+				float4 PathRadiance;
+				if (Payload.HitT >= 0)
 				{
-					ReflectedColor += PathRadiance;
-					ReflectedWeight += 1.0;
+					PathRadiance = float4(Radiance, 1.0); 
+					if (BounceIndex == 0)
+					{
+						ReflectedColor += PathRadiance;
+						ReflectedWeight += 1.0;
+					}
+					else
+					{
+						float4 FinalReflectionColor = PathRadiance;
+						//float4 FinalReflectionColor = BlendWithEnvironment(BRDFThroughput, Payload, Ray.Origin, PathRadiance, Ray.Direction, Payload.WorldNormal);
+						ReflectedColor += FinalReflectionColor;
+						ReflectedWeight += 1.0;
+					}
 				}
 				else
 				{
-					float4 FinalReflectionColor = PathRadiance;
-					//float4 FinalReflectionColor = BlendWithEnvironment(BRDFThroughput, Payload, Ray.Origin, PathRadiance, Ray.Direction, Payload.WorldNormal);
-					ReflectedColor += FinalReflectionColor;
-					ReflectedWeight += 1.0;
+					if (ReflectionStruct.SkyLightParameters.y > 0)
+					{
+						float SkyAverageBrightness = 1.0f;
+
+						float3 SkyLighting = GetSkyLightReflection(Ray.Direction, Roughness, SkyAverageBrightness);
+
+						ReflectedColor += float4(SkyLighting, 1.0f);
+						ReflectedWeight += 1.0;
+					}
 				}
 
 				IncidentDirection = Ray.Direction;
