@@ -745,9 +745,7 @@ static bool IsAsyncCompilationAllowed(FRHICommandList& RHICmdList)
 }
 
 FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FRHICommandList& RHICmdList, FRHIComputeShader* ComputeShader)
-{
-	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
-	
+{	
 	bool DoAsyncCompile = IsAsyncCompilationAllowed(RHICmdList);
 
 	FComputePipelineState* OutCachedState = nullptr;
@@ -857,7 +855,6 @@ FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* 
 FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& OriginalInitializer, EApplyRendertargetOption ApplyFlags)
 {
 	LLM_SCOPE(ELLMTag::PSO);
-	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
 
 	// Workaround until we have a better way for storing shaders in PSO cache 
 	{
