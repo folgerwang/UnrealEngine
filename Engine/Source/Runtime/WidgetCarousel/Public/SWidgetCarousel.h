@@ -16,7 +16,6 @@
 #include "Widgets/SOverlay.h"
 #include "Animation/CurveSequence.h"
 #include "Widgets/Layout/SFxWidget.h"
-#include "Components/SlateWrapperTypes.h"
 
 /** The desired Carousel scroll direction */
 namespace EWidgetCarouselScrollDirection
