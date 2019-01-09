@@ -1407,16 +1407,10 @@ public:
 		bTerminatedByError(false)
 	{}
 
-	FStaticLightingThreadRunnable(FStaticLightingSystem* InSystem) :
-		Thread(NULL),
-		IdleTime(0),
-		ThreadIndex(0),
-		System(InSystem),
-		bTerminatedByError(false)
-	{}
-
 	/** Checks the thread's health, and passes on any errors that have occurred.  Called by the main thread. */
 	bool CheckHealth(bool bReportError = true) const;
+
+	void FixThreadGroupAffinity() const;
 
 protected:
 	FStaticLightingSystem* System;
@@ -1503,8 +1497,7 @@ public:
 		int32 InThreadIndex,
 		const FDirectPhotonEmittingInput& InInput)
 		:
-		FStaticLightingThreadRunnable(InSystem),
-		ThreadIndex(InThreadIndex),
+		FStaticLightingThreadRunnable(InSystem, InThreadIndex),
 		Input(InInput)
 	{}
 
@@ -1515,7 +1508,6 @@ public:
 	virtual uint32 Run(void);
 
 protected:
-	int32 ThreadIndex;
 	const FDirectPhotonEmittingInput& Input;
 };
 
@@ -1599,8 +1591,7 @@ public:
 		int32 InThreadIndex,
 		const FIndirectPhotonEmittingInput& InInput)
 		:
-		FStaticLightingThreadRunnable(InSystem),
-		ThreadIndex(InThreadIndex),
+		FStaticLightingThreadRunnable(InSystem, InThreadIndex),
 		Input(InInput)
 	{}
 
@@ -1611,7 +1602,6 @@ public:
 	virtual uint32 Run(void);
 
 protected:
-	int32 ThreadIndex;
 	const FIndirectPhotonEmittingInput& Input;
 };
 
@@ -1638,8 +1628,7 @@ public:
 
 	/** Initialization constructor. */
 	FIrradiancePhotonMarkingThreadRunnable(FStaticLightingSystem* InSystem, int32 InThreadIndex, TArray<TArray<FIrradiancePhoton>>& InIrradiancePhotons) :
-		FStaticLightingThreadRunnable(InSystem),
-		ThreadIndex(InThreadIndex),
+		FStaticLightingThreadRunnable(InSystem, InThreadIndex),
 		IrradiancePhotons(InIrradiancePhotons)
 	{}
 
@@ -1650,7 +1639,6 @@ public:
 	virtual uint32 Run(void);
 
 private:
-	const int32 ThreadIndex;
 	/** Irradiance photons to operate on */
 	TArray<TArray<FIrradiancePhoton>>& IrradiancePhotons;
 };
@@ -1681,8 +1669,7 @@ public:
 
 	/** Initialization constructor. */
 	FIrradiancePhotonCalculatingThreadRunnable(FStaticLightingSystem* InSystem, int32 InThreadIndex, TArray<TArray<FIrradiancePhoton>>& InIrradiancePhotons) :
-		FStaticLightingThreadRunnable(InSystem),
-		ThreadIndex(InThreadIndex),
+		FStaticLightingThreadRunnable(InSystem, InThreadIndex),
 		IrradiancePhotons(InIrradiancePhotons)
 	{}
 
@@ -1693,7 +1680,6 @@ public:
 	virtual uint32 Run(void);
 
 private:
-	const int32 ThreadIndex;
 	/** Irradiance photons to operate on */
 	TArray<TArray<FIrradiancePhoton>>& IrradiancePhotons;
 };

@@ -1358,9 +1358,33 @@ bool FStaticLightingThreadRunnable::CheckHealth(bool bReportError) const
 	return !bTerminatedByError;
 }
 
+void FStaticLightingThreadRunnable::FixThreadGroupAffinity() const
+{
+#if PLATFORM_WINDOWS
+	int NumProcessorGroups = GetActiveProcessorGroupCount();
+	int PrefixSum = 0;
+	for (int GroupIndex = 0; GroupIndex < NumProcessorGroups; GroupIndex++)
+	{
+		int NumProcessorsThisGroup = GetActiveProcessorCount(GroupIndex);
+		if (ThreadIndex < PrefixSum + NumProcessorsThisGroup)
+		{
+			GROUP_AFFINITY GroupAffinity = {};
+			GroupAffinity.Group = GroupIndex;
+			GroupAffinity.Mask = (1ull << NumProcessorsThisGroup) - 1;
+			check(SetThreadGroupAffinity(GetCurrentThread(), &GroupAffinity, NULL));
+
+			break;
+		}
+		PrefixSum += NumProcessorsThisGroup;
+	}
+#endif
+}
+
 uint32 FMappingProcessingThreadRunnable::Run()
 {
 	const double StartThreadTime = FPlatformTime::Seconds();
+
+	FixThreadGroupAffinity();
 #if PLATFORM_WINDOWS
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{

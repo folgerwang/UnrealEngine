@@ -101,6 +101,15 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 	bool bDumpTextures = false;
 	FGuid SceneGuid(0x0123, 0x4567, 0x89AB, 0xCDEF); // default scene guid if none specified
 	int32 NumThreads = FPlatformMisc::NumberOfCoresIncludingHyperthreads(); // default to the number of processors
+#if PLATFORM_WINDOWS
+	NumThreads = 0;
+	int NumProcessorGroups = GetActiveProcessorGroupCount();
+	for (int GroupIndex = 0; GroupIndex < NumProcessorGroups; GroupIndex++)
+	{
+		int NumProcessorsThisGroup = GetActiveProcessorCount(GroupIndex);
+		NumThreads += NumProcessorsThisGroup;
+	}
+#endif
 	bool bCompareFiles = false;
 	FString File1;
 	FString File2;
