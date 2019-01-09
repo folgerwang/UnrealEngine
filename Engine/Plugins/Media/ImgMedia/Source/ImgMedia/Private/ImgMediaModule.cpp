@@ -16,8 +16,70 @@ DEFINE_LOG_CATEGORY(LogImgMedia);
 
 
 #if USE_IMGMEDIA_DEALLOC_POOL
-	FQueuedThreadPool* GImgMediaThreadPoolSlow = nullptr;
-#endif
+struct FImgMediaThreadPool
+{
+public:
+
+	FImgMediaThreadPool() :
+		Pool(nullptr),
+		bHasInit(false)
+	{
+	}
+
+	~FImgMediaThreadPool()
+	{
+		Reset();
+	}
+
+	void Reset()
+	{
+		FScopeLock Lock(&CriticalSection);
+		if (Pool != nullptr)
+		{
+			Pool->Destroy();
+			Pool = nullptr;
+		}
+
+		bHasInit = false;
+	}
+
+	FQueuedThreadPool* GetThreadPool()
+	{
+		FScopeLock Lock(&CriticalSection);
+		if (bHasInit)
+		{
+			return Pool;
+		}
+
+		// initialize worker thread pools
+		if (FPlatformProcess::SupportsMultithreading())
+		{
+			// initialize dealloc thread pool
+			const int32 ThreadPoolSize = 1;
+			const uint32 StackSize = 128 * 1024;
+
+			Pool = FQueuedThreadPool::Allocate();
+			verify(Pool->Create(ThreadPoolSize, StackSize, TPri_Normal));
+		}
+
+		bHasInit = true;
+
+		return Pool;
+	}
+
+private:
+	FCriticalSection CriticalSection;
+	FQueuedThreadPool* Pool;
+	bool bHasInit;
+};
+
+FImgMediaThreadPool ImgMediaThreadPool;
+
+FQueuedThreadPool* GetImgMediaThreadPoolSlow()
+{
+	return ImgMediaThreadPool.GetThreadPool();
+}
+#endif // USE_IMGMEDIA_DEALLOC_POOL
 
 
 /**
@@ -37,6 +99,11 @@ public:
 
 	virtual TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe> CreatePlayer(IMediaEventSink& EventSink) override
 	{
+		if (!Scheduler.IsValid())
+		{
+			InitScheduler();
+		}
+
 		return MakeShared<FImgMediaPlayer, ESPMode::ThreadSafe>(EventSink, Scheduler.ToSharedRef());
 	}
 
@@ -45,6 +112,22 @@ public:
 	//~ IModuleInterface interface
 
 	virtual void StartupModule() override
+	{
+
+	}
+
+	virtual void ShutdownModule() override
+	{
+		Scheduler.Reset();
+
+#if USE_IMGMEDIA_DEALLOC_POOL
+		ImgMediaThreadPool.Reset();
+#endif
+	}
+
+private:
+
+	void InitScheduler()
 	{
 		// initialize scheduler
 		Scheduler = MakeShared<FImgMediaScheduler, ESPMode::ThreadSafe>();
@@ -56,35 +139,7 @@ public:
 		{
 			MediaModule->GetClock().AddSink(Scheduler.ToSharedRef());
 		}
-
-		// initialize worker thread pools
-		if (FPlatformProcess::SupportsMultithreading())
-		{
-#if USE_IMGMEDIA_DEALLOC_POOL
-			// initialize dealloc thread pool
-			const int32 ThreadPoolSize = FPlatformProperties::IsServerOnly() ? 1 : FPlatformMisc::NumberOfWorkerThreadsToSpawn();
-			const uint32 StackSize = 128 * 1024;
-
-			GImgMediaThreadPoolSlow = FQueuedThreadPool::Allocate();
-			verify(GImgMediaThreadPoolSlow->Create(ThreadPoolSize, StackSize, TPri_Normal));
-#endif
-		}
 	}
-
-	virtual void ShutdownModule() override
-	{
-		Scheduler.Reset();
-
-#if USE_IMGMEDIA_DEALLOC_POOL
-		if (GImgMediaThreadPoolSlow != nullptr)
-		{
-			GImgMediaThreadPoolSlow->Destroy();
-			GImgMediaThreadPoolSlow = nullptr;
-		}
-#endif
-	}
-
-private:
 
 	TSharedPtr<FImgMediaScheduler, ESPMode::ThreadSafe> Scheduler;
 };
