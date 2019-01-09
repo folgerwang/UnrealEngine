@@ -239,6 +239,19 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 	);
 }
 
+void SSequencerLabelBrowser::RemoveLabelItem(TSharedPtr<FSequencerLabelTreeNode> InItem)
+{
+	if (InItem.IsValid())
+	{
+		for (auto Child : InItem->Children)
+		{
+			RemoveLabelItem(Child);
+		}
+
+		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), InItem->Label);
+	}
+}
+
 
 void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 {
@@ -248,7 +261,7 @@ void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 	{
 		const FScopedTransaction Transaction(LOCTEXT("RemoveLabel", "Remove Label"));
 
-		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), SelectedItems[0]->Label);
+		RemoveLabelItem(SelectedItems[0]);
 	}
 }
 

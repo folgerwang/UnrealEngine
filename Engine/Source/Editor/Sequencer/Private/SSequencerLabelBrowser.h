@@ -89,6 +89,9 @@ private:
 	/** Callback for checking whether 'Rename' context menu entry can execute. */
 	bool HandleRenameLabelMenuEntryCanExecute() const;
 
+	/** Remove label item and its children */
+	void RemoveLabelItem(TSharedPtr<FSequencerLabelTreeNode> InItem);
+
 private:
 
 	/** Holds the collection of root labels to be displayed in the tree view. */
