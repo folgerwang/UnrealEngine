@@ -887,8 +887,13 @@ class FMeshDrawCommandSortAndMergeTaskContext
 {
 public:
 	FMeshDrawCommandSortAndMergeTaskContext()
-		: bUseGPUScene(false)
+		: ShadingPath(EShadingPath::Num)
+		, PassType(EMeshPass::Num)
+		, bUseGPUScene(false)
 		, bDynamicInstancing(false)
+		, bReverseCulling(false)
+		, bRenderSceneTwoSided(false)
+		, BasePassDepthStencilAccess(FExclusiveDepthStencil::DepthNop_StencilNop)
 		, PrimitiveBounds(nullptr)
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
@@ -896,16 +901,21 @@ public:
 	{
 	}
 
+	EShadingPath ShadingPath;
+	EMeshPass::Type PassType;
 	bool bUseGPUScene;
 	bool bDynamicInstancing;
+	bool bReverseCulling;
+	bool bRenderSceneTwoSided;
+	FExclusiveDepthStencil::Type BasePassDepthStencilAccess;
 
-	// Command storage.
+	// Commands.
 	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
 	FDynamicMeshDrawCommandStorage MeshDrawCommandStorage;
 
 	// Preallocated resources.
 	FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBuffer;
-	FMeshCommandOneFrameArray NewPassVisibleMeshDrawCommands;
+	FMeshCommandOneFrameArray TempVisibleMeshDrawCommands;
 
 	// For UpdateTranslucentMeshSortKeys.
 	ETranslucencyPass::Type TranslucencyPass;
@@ -939,7 +949,14 @@ public:
 	/**
 	 * Dispatch visible mesh draw command sort and merge task.
 	 */
-	void DispatchSortAndMerge(const FViewInfo& View, const TArray<FPrimitiveBounds>& PrimitiveBounds, EMeshPass::Type MeshPass, FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands);
+	void DispatchSortAndMerge(
+		const FViewInfo& View, 
+		EShadingPath ShadingPath,
+		const TArray<FPrimitiveBounds>& PrimitiveBounds, 
+		EMeshPass::Type PassType, 
+		FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
+		FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands
+	);
 
 	/**
 	 * Dispatch visible mesh draw command draw task.
@@ -1673,9 +1690,7 @@ protected:
 	/** Converts each FMeshBatch into a set of FMeshDrawCommands for each relevant mesh pass. */
 	void GenerateDynamicMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
 
-	void ApplyViewOverridesToMeshDrawCommands(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
-
-	void SortAndMergeMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
+	void SortAndMergeMeshDrawCommands(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPass& VisibleCommands);
 
 	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading, bool bMobileModulatedProjections);
 
@@ -1895,7 +1910,7 @@ protected:
 	/** Will update the view custom data. */
 	void PostInitViewCustomData();
 
-	void SortMobileBasePassAfterShadowInit(FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
+	void SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
 
 	void UpdateOpaqueBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 	void UpdateTranslucentBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);

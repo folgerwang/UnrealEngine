@@ -113,7 +113,7 @@ TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirecti
 	return NullLightParams->UniformBufferRHI;
 }
 
-void FMobileSceneRenderer::SortMobileBasePassAfterShadowInit(FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
+void FMobileSceneRenderer::SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
 {
 	// Sort front to back on all platforms, even HSR benefits from it
 	//const bool bWantsFrontToBackSorting = (GHardwareHiddenSurfaceRemoval == false);
@@ -131,7 +131,7 @@ void FMobileSceneRenderer::SortMobileBasePassAfterShadowInit(FMeshDrawCommandsPe
 		if (VisibleCommands[EMeshPass::BasePass].Num() > 0)
 		{
 			FParallelMeshDrawCommandPass& Pass = View.ParallelMeshDrawCommandPasses[EMeshPass::BasePass];
-			Pass.DispatchSortAndMerge(View, Scene->PrimitiveBounds, EMeshPass::BasePass, VisibleCommands[EMeshPass::BasePass]);
+			Pass.DispatchSortAndMerge(View, Scene->GetShadingPath(), Scene->PrimitiveBounds, EMeshPass::BasePass, BasePassDepthStencilAccess, VisibleCommands[EMeshPass::BasePass]);
 		}
 	}
 }
@@ -152,8 +152,10 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	FMeshDrawCommandsPerPassPerView VisibleCommandsPerView;
 	VisibleCommandsPerView.SetNum(Views.Num());
 
+	const FExclusiveDepthStencil::Type BasePassDepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite;
+
 	PreVisibilityFrameSetup(RHICmdList);
-	ComputeViewVisibility(RHICmdList, FExclusiveDepthStencil::DepthWrite_StencilWrite, VisibleCommandsPerView);
+	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, VisibleCommandsPerView);
 	PostVisibilityFrameSetup(ILCTaskData);
 
 	const bool bDynamicShadows = ViewFamily.EngineShowFlags.DynamicShadows;
@@ -164,7 +166,7 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 		InitDynamicShadows(RHICmdList, VisibleCommandsPerView);
 	}
 
-	SortMobileBasePassAfterShadowInit(VisibleCommandsPerView);
+	SortMobileBasePassAfterShadowInit(BasePassDepthStencilAccess, VisibleCommandsPerView);
 
 	// if we kicked off ILC update via task, wait and finalize.
 	if (ILCTaskData.TaskRef.IsValid())

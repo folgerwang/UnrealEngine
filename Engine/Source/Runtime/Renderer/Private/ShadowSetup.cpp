@@ -1240,7 +1240,7 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& R
 			ShadowDepthPass.SetDumpInstancingStats(TEXT("ShadowDepth ") + PassNameForStats);
 		}
 
-		ShadowDepthPass.DispatchSortAndMerge(*ShadowDepthView, Renderer.Scene->PrimitiveBounds, EMeshPass::Num, ShadowDepthPassVisibleCommands);
+		ShadowDepthPass.DispatchSortAndMerge(*ShadowDepthView, Renderer.Scene->GetShadingPath(), Renderer.Scene->PrimitiveBounds, EMeshPass::Num, FExclusiveDepthStencil::DepthNop_StencilNop, ShadowDepthPassVisibleCommands);
 	}
 }
 

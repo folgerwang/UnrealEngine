@@ -14,6 +14,7 @@
 #include "MeshPassProcessor.inl"
 
 TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::GlobalTable;
+FCriticalSection GlobalTableCriticalSection;
 
 const FMeshDrawCommandSortKey FMeshDrawCommandSortKey::Default = { 0 };
 
@@ -290,7 +291,8 @@ void FMeshDrawShaderBindings::SetOnRayTracingStructure(FRHICommandList& RHICmdLi
 
 void FGraphicsMinimalPipelineStateId::Setup(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
 {
-	checkSlow(IsInRenderingThread());
+	// Need to lock as this is called from multiple parallel tasks during mesh draw command generation or patching.
+	FScopeLock Lock(&GlobalTableCriticalSection);
 
 	FSetElementId TableId = GlobalTable.FindId(InPipelineState);
 

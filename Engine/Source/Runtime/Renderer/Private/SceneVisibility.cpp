@@ -3490,9 +3490,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 
 			GenerateDynamicMeshDrawCommands(View, VisibleCommands);
 
-			ApplyViewOverridesToMeshDrawCommands(BasePassDepthStencilAccess, View, VisibleCommands);
-
-			SortAndMergeMeshDrawCommands(View, VisibleCommands);
+			SortAndMergeMeshDrawCommands(View, BasePassDepthStencilAccess, VisibleCommands);
 		}
 	}
 
