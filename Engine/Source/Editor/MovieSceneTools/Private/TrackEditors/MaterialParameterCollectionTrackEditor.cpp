@@ -69,8 +69,11 @@ void FMaterialParameterCollectionTrackEditor::BuildTrackContextMenu(FMenuBuilder
 		{
 			FScopedTransaction Transaction(LOCTEXT("SetAssetTransaction", "Assign Material Parameter Collection"));
 			MPCTrack->Modify();
+			MPCTrack->SetDisplayName(FText::FromString(MPC->GetName()));
 			MPCTrack->MPC = MPC;
 		}
+
+		FSlateApplication::Get().DismissAllMenus();
 	};
 
 	auto AssignAssetEnterPressed = [AssignAsset](const TArray<FAssetData>& InAssetData)
