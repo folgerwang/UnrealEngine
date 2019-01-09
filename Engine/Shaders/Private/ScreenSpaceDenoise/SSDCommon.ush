@@ -8,6 +8,7 @@
 
 #include "../Common.ush"
 #include "../DataStructures/SceneViewFamilyBlackboard.ush"
+#include "../ColorSpace.ush"
 
 
 //------------------------------------------------------- DEBUG CONFIG
@@ -76,6 +77,15 @@
 	#define LIGHT_TYPE_SPOT 2
 	#define LIGHT_TYPE_RECT 3
 
+
+//------------------------------------------------------- SHARED FUNCTION
+
+float SafeRcp(float x)
+{
+	if (x > 0)
+		return rcp(x);
+	return 0;
+}
 
 //------------------------------------------------------- COMMON SCENE INFOS
 

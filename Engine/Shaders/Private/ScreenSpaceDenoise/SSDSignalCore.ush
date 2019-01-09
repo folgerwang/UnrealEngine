@@ -121,7 +121,7 @@ FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 Samples
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
 	{
-		OutSample.AccumulatedSampleCount = 1;
+		OutSample.AccumulatedSampleCount = Samples[0].a > 0 ? 1 : 0;
 		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
 		OutSample.SceneColor = Samples[0];
 		OutSample.PenumbraClosestHit = Samples[1].r;
@@ -309,7 +309,13 @@ FSSFSignalSample Max(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 
 FSSFSignalSample Clamp(FSSFSignalSample Sample, FSSFSignalSample SampleMin, FSSFSignalSample SampleMax)
 {
-	return Max(Min(Sample, SampleMax), SampleMin);
+	FSSFSignalSample OutSample;
+	OutSample.SceneColor = clamp(Sample.SceneColor, SampleMin.SceneColor, SampleMax.SceneColor);
+	OutSample.AccumulatedSampleCount = clamp(Sample.AccumulatedSampleCount, SampleMin.AccumulatedSampleCount, SampleMax.AccumulatedSampleCount);
+	OutSample.LeavingRayCount = clamp(Sample.LeavingRayCount, SampleMin.LeavingRayCount, SampleMax.LeavingRayCount);
+	OutSample.PenumbraClosestHit = clamp(Sample.PenumbraClosestHit, SampleMin.PenumbraClosestHit, SampleMax.PenumbraClosestHit);
+	OutSample.UncertainRayCount = clamp(Sample.UncertainRayCount, SampleMin.UncertainRayCount, SampleMax.UncertainRayCount);
+	return OutSample;
 }
 
 FSSFSignalSample Lerp(FSSFSignalSample Sample0, FSSFSignalSample Sample1, float Interp)
