@@ -44,11 +44,18 @@ public:
 
 	FORCEINLINE void RemoveLoaderFromObjectLoadersAndLoadersWithNewImports(FLinkerLoad* LinkerLoad)
 	{
+		{
 #if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
+			FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
 #endif
-		ObjectLoaders.Remove(LinkerLoad);
-		LoadersWithNewImports.Remove(LinkerLoad);
+			ObjectLoaders.Remove(LinkerLoad);
+		}
+		{
+#if THREADSAFE_UOBJECTS
+			FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
+#endif
+			LoadersWithNewImports.Remove(LinkerLoad);
+		}
 	}
 
 	FORCEINLINE void GetLoadersWithNewImportsAndEmpty(TSet<FLinkerLoad*>& OutLoaders)
