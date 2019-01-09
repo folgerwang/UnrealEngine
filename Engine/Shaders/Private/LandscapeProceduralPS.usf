@@ -4,7 +4,8 @@
 
 Texture2D ReadHeightmapTexture1;
 Texture2D ReadHeightmapTexture2;
-SamplerState ReadHeightmapTextureSampler;
+SamplerState ReadHeightmapTexture1Sampler;
+SamplerState ReadHeightmapTexture2Sampler;
 float2 LayerInfo; // x == weight, y == visibility
 float4 OutputConfig; // x == ApplyLayerModifiers, y == OutputAsDelta, z == Use ReadHeightmapTexture2 and out Delta with ReadHeightmapTexture1, w == Output Normals
 float2 HeightmapTextureSize; // x == source heightmap width, y == source heightmap height
@@ -15,7 +16,7 @@ float3 SampleTextureYNormal(float2 InTextureCoordinates, float2 InTexelSize, boo
 {
 	float2 SamplingUV = InTextureCoordinates;
 	SamplingUV.y = InUp ? SamplingUV.y - InTexelSize.y : SamplingUV.y + InTexelSize.y;
-	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SamplingUV, 0).rg;
+	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SamplingUV, 0).rg;
 	float PosHeight = float(((int)round(PosSample.r * 255.0) << 8) | (int)round(PosSample.g * 255.0)) - 32768.0;
 	return float3(SamplingUV * HeightmapTextureSize * LandscapeGridScale.xy, PosHeight * LandscapeGridScale.z * TERRAIN_ZSCALE);
 }
@@ -24,7 +25,7 @@ float3 SampleTextureXNormal(float2 InTextureCoordinates, float2 InTexelSize, boo
 {
 	float2 SamplingUV = InTextureCoordinates;
 	SamplingUV.x = InLeft ? SamplingUV.x - InTexelSize.x : SamplingUV.x + InTexelSize.x;
-	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SamplingUV, 0).rg;
+	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SamplingUV, 0).rg;
 	float PosHeight = float(((int)round(PosSample.r * 255.0) << 8) | (int)round(PosSample.g * 255.0)) - 32768.0;
 	return float3(SamplingUV * HeightmapTextureSize * LandscapeGridScale.xy, PosHeight * LandscapeGridScale.z * TERRAIN_ZSCALE);
 }
@@ -32,7 +33,7 @@ float3 SampleTextureXNormal(float2 InTextureCoordinates, float2 InTexelSize, boo
 void PSMain(float2 InTextureCoordinates : TEXCOORD0,
 			out float4 OutColor : SV_Target0)
 {
-	float4 SourceColor = ReadHeightmapTexture1.Sample(ReadHeightmapTextureSampler, InTextureCoordinates);
+	float4 SourceColor = ReadHeightmapTexture1.Sample(ReadHeightmapTexture1Sampler, InTextureCoordinates);
 	float Height = float(((int)round(SourceColor.r * 255.0) << 8) | (int)round(SourceColor.g * 255.0));
 
 	// Perform calculation 0 based
@@ -47,7 +48,7 @@ void PSMain(float2 InTextureCoordinates : TEXCOORD0,
 	// Output using 2nd heightmap
 	if (OutputConfig.z == 1.0)
 	{
-		float2 BaseColor = ReadHeightmapTexture2.Sample(ReadHeightmapTextureSampler, InTextureCoordinates).rg;
+		float2 BaseColor = ReadHeightmapTexture2.Sample(ReadHeightmapTexture2Sampler, InTextureCoordinates).rg;
 		float BaseHeight = float(((int)round(BaseColor.r * 255.0) << 8) | (int)round(BaseColor.g * 255.0));
 
 		Height = OutputConfig.y == 1 ? BaseHeight + (Height - BaseHeight) : BaseHeight + Height;
@@ -224,8 +225,8 @@ void PSMainMips(float2 InTextureCoordinates : TEXCOORD0,
 
 	if (IsMinBorderTexelX) // on left border
 	{
-		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV, 0);
-		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
+		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV, 0);
+		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
 		float SourceHeight = clamp(float(((int)round(SourceSample.r * 255.0) << 8) | (int)round(SourceSample.g * 255.0)), 0.0, 65536.0);
 		float DownHeight = clamp(float(((int)round(DownSample.r * 255.0) << 8) | (int)round(DownSample.g * 255.0)), 0.0, 65536.0);
 
@@ -249,8 +250,8 @@ void PSMainMips(float2 InTextureCoordinates : TEXCOORD0,
 	}
 	else if (IsMaxBorderTexelX) // on right border
 	{
-		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
-		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + ParentMipTexelSize, 0);
+		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
+		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + ParentMipTexelSize, 0);
 		float RightHeight = clamp(float(((int)round(RightSample.r * 255.0) << 8) | (int)round(RightSample.g * 255.0)), 0.0, 65536.0);
 		float DownRightHeight = clamp(float(((int)round(DownRightSample.r * 255.0) << 8) | (int)round(DownRightSample.g * 255.0)), 0.0, 65536.0);
 
@@ -274,10 +275,10 @@ void PSMainMips(float2 InTextureCoordinates : TEXCOORD0,
 	}
 	else // center texel
 	{
-		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV, 0);
-		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
-		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
-		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTextureSampler, SourceUV + ParentMipTexelSize, 0);
+		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV, 0);
+		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
+		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
+		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + ParentMipTexelSize, 0);
 
 		float SourceHeight = clamp(float(((int)round(SourceSample.r * 255.0) << 8) | (int)round(SourceSample.g * 255.0)), 0.0, 65536.0);
 		float DownHeight = clamp(float(((int)round(DownSample.r * 255.0) << 8) | (int)round(DownSample.g * 255.0)), 0.0, 65536.0);
