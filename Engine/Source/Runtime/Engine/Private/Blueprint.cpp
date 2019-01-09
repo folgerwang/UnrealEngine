@@ -379,8 +379,8 @@ void UBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 
 	if (!TargetPlatform || TargetPlatform->HasEditorOnlyData())
 	{
-		// Cache the BP for use
-		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this);
+		// Cache the BP for use (immediate, since we're about to save)
+		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this, true);
 	}
 }
 #endif // WITH_EDITORONLY_DATA
