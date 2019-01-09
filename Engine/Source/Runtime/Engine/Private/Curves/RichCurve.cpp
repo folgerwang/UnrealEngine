@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Curves/RichCurve.h"
-
+#include "Templates/Function.h"
 
 DECLARE_CYCLE_STAT(TEXT("RichCurve Eval"), STAT_RichCurve_Eval, STATGROUP_Engine);
 
@@ -458,6 +458,24 @@ float FRichCurve::GetKeyValue(FKeyHandle KeyHandle) const
 	return GetKey(KeyHandle).Value;
 }
 
+bool FRichCurve::IsConstant(float Tolerance) const
+{
+	if (Keys.Num() <= 1)
+	{
+		return true;
+	}
+
+	const FRichCurveKey& RefKey = Keys[0];
+	for (const FRichCurveKey& Key : Keys)
+	{
+		if (!FMath::IsNearlyEqual(Key.Value, RefKey.Value, Tolerance))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
 
 void FRichCurve::ShiftCurve(float DeltaTime)
 {
@@ -930,7 +948,7 @@ void FRichCurve::RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float 
 }
 
 /** Util to find float value on bezier defined by 4 control points */ 
-static float BezierInterp(float P0, float P1, float P2, float P3, float Alpha)
+FORCEINLINE_DEBUGGABLE static float BezierInterp(float P0, float P1, float P2, float P3, float Alpha)
 {
 	const float P01 = FMath::Lerp(P0, P1, Alpha);
 	const float P12 = FMath::Lerp(P1, P2, Alpha);
@@ -1272,4 +1290,773 @@ bool FRichCurve::operator==(const FRichCurve& Curve) const
 	}
 
 	return true;
+}
+
+static ERichCurveCompressionFormat FindRichCurveCompressionFormat(const FRichCurve& Curve)
+{
+	if (Curve.Keys.Num() == 0)
+	{
+		return RCCF_Empty;
+	}
+
+	if (Curve.IsConstant())
+	{
+		return RCCF_Constant;
+	}
+
+	const FRichCurveKey& RefKey = Curve.Keys[0];
+	for (const FRichCurveKey& Key : Curve.Keys)
+	{
+		if (Key.InterpMode != RefKey.InterpMode)
+		{
+			return RCCF_Mixed;
+		}
+	}
+
+	switch (RefKey.InterpMode)
+	{
+	case RCIM_Constant:
+	case RCIM_None:
+	default:
+		return RCCF_Constant;
+	case RCIM_Linear:
+		return RCCF_Linear;
+	case RCIM_Cubic:
+		return RCCF_Cubic;
+	}
+}
+
+static ERichCurveKeyTimeCompressionFormat FindRichCurveKeyFormat(const FRichCurve& Curve, float ErrorThreshold, float SampleRate, ERichCurveCompressionFormat CompressionFormat)
+{
+	const int32 NumKeys = Curve.Keys.Num();
+	if (NumKeys == 0 || CompressionFormat == RCCF_Constant || CompressionFormat == RCCF_Empty || ErrorThreshold <= 0.0f || SampleRate <= 0.0f)
+	{
+		return RCKTCF_float32;
+	}
+
+	auto EvalForTwoKeys = [](const FRichCurveKey& Key1, float KeyTime1, const FRichCurveKey& Key2, float KeyTime2, float InTime)
+	{
+		const float Diff = KeyTime2 - KeyTime1;
+
+		if (Diff > 0.f && Key1.InterpMode != RCIM_Constant)
+		{
+			const float Alpha = (InTime - KeyTime1) / Diff;
+			const float P0 = Key1.Value;
+			const float P3 = Key2.Value;
+
+			if (Key1.InterpMode == RCIM_Linear)
+			{
+				return FMath::Lerp(P0, P3, Alpha);
+			}
+			else
+			{
+				const float OneThird = 1.0f / 3.0f;
+				const float P1 = P0 + (Key1.LeaveTangent * Diff * OneThird);
+				const float P2 = P3 - (Key2.ArriveTangent * Diff * OneThird);
+
+				return BezierInterp(P0, P1, P2, P3, Alpha);
+			}
+		}
+		else
+		{
+			return Key1.Value;
+		}
+	};
+
+	auto DecayTime = [](const FRichCurveKey& Key, float MinTime, float DeltaTime, float InvDeltaTime, float QuantizationScale, float InvQuantizationScale)
+	{
+		// 0.0f -> 0, 1.0f -> 255 for 8 bits
+		const float NormalizedTime = FMath::Clamp((Key.Time - MinTime) * InvDeltaTime, 0.0f, 1.0f);
+		const float QuantizedTime = FMath::RoundHalfFromZero(NormalizedTime * QuantizationScale);
+		const float LossyNormalizedTime = QuantizedTime * InvQuantizationScale;
+		return (LossyNormalizedTime * DeltaTime) + MinTime;
+	};
+
+	const float MinTime = Curve.Keys[0].Time;
+	const float MaxTime = Curve.Keys.Last().Time;
+	const float DeltaTime = MaxTime - MinTime;
+	const float InvDeltaTime = 1.0f / DeltaTime;
+	const float SampleRateIncrement = 1.0f / SampleRate;
+
+	// This is only acceptable if the maximum error is within a reasonable value
+	bool bFitsOn16Bits = true;
+
+	int32 CurrentLossyKey = 0;
+	int32 CurrentRefKey = 0;
+	float CurrentTime = MinTime;
+	while (CurrentTime <= MaxTime && bFitsOn16Bits)
+	{
+		if (CurrentTime > Curve.Keys[CurrentRefKey + 1].Time)
+		{
+			CurrentRefKey++;
+
+			if (CurrentRefKey >= NumKeys)
+			{
+				break;
+			}
+		}
+
+		float LossyTime1_16;
+		float LossyTime2_16 = DecayTime(Curve.Keys[CurrentLossyKey + 1], MinTime, DeltaTime, InvDeltaTime, 65535.0f, 1.0f / 65535.0f);
+		if (CurrentTime > LossyTime2_16)
+		{
+			CurrentLossyKey++;
+
+			if (CurrentLossyKey >= NumKeys)
+			{
+				break;
+			}
+
+			LossyTime1_16 = LossyTime2_16;
+			LossyTime2_16 = DecayTime(Curve.Keys[CurrentLossyKey + 1], MinTime, DeltaTime, InvDeltaTime, 65535.0f, 1.0f / 65535.0f);
+		}
+		else
+		{
+			LossyTime1_16 = DecayTime(Curve.Keys[CurrentLossyKey], MinTime, DeltaTime, InvDeltaTime, 65535.0f, 1.0f / 65535.0f);
+		}
+
+		const float Result_16 = EvalForTwoKeys(Curve.Keys[CurrentLossyKey], LossyTime1_16, Curve.Keys[CurrentLossyKey + 1], LossyTime2_16, CurrentTime);
+		const float Result_Ref = ::EvalForTwoKeys(Curve.Keys[CurrentRefKey], Curve.Keys[CurrentRefKey + 1], CurrentTime);
+
+		const float Error_16 = FMath::Abs(Result_Ref - Result_16);
+
+		bFitsOn16Bits &= Error_16 <= ErrorThreshold;
+
+		CurrentTime += SampleRateIncrement;
+	}
+
+	// In order to normalize time values, we need to store the MinTime and the DeltaTime with full precision
+	// This means we need 8 bytes of overhead
+	// If the number of keys is too small, the overhead is larger or equal to the space we save and isn't
+	// worth it.
+
+	// For 8 bits, the formula is: 8 + (N * sizeof(uint8))
+	// With 8 bits, 2 keys need 8 bytes with full precision and 10 bytes packed. No savings, not worth using.
+	// With 8 bits, 3 keys need 12 bytes with full precision and 11 bytes packed. We save 1 byte, worth using.
+	// For 16 bits, the formula is: 8 + (N * sizeof(uint16))
+	// With 16 bits, 6 keys need 20 bytes with full precision and 20 bytes packed. No savings, not worth using.
+	// With 16 bits, 7 keys need 24 bytes with full precision and 22 bytes packed. We save 2 bytes, worth using.
+	// Alignment and padding must also be taken into account
+
+	// Note: Support for storing key time on 8 bits was attempted but it was rarely selected and wasn't worth the complexity
+
+	int32 SizeInterpMode = 0;
+	if (CompressionFormat == RCCF_Mixed)
+	{
+		SizeInterpMode += NumKeys * sizeof(uint8);
+	}
+
+	const int32 SizeUInt16 = Align(Align(SizeInterpMode, sizeof(uint16)) + (NumKeys * sizeof(uint16)), sizeof(float)) + (2 * sizeof(float));
+	const int32 SizeFloat32 = Align(SizeInterpMode, sizeof(float)) + NumKeys * sizeof(float);
+
+	if (bFitsOn16Bits && SizeUInt16 < SizeFloat32)
+	{
+		return RCKTCF_uint16;
+	}
+	else
+	{
+		return RCKTCF_float32;
+	}
+}
+
+void FRichCurve::CompressCurve(FCompressedRichCurve& OutCurve, float ErrorThreshold, float SampleRate) const
+{
+	ERichCurveCompressionFormat CompressionFormat = FindRichCurveCompressionFormat(*this);
+	OutCurve.CompressionFormat = CompressionFormat;
+
+	ERichCurveKeyTimeCompressionFormat KeyFormat = FindRichCurveKeyFormat(*this, ErrorThreshold, SampleRate, CompressionFormat);
+	OutCurve.KeyTimeCompressionFormat = KeyFormat;
+
+	OutCurve.PreInfinityExtrap = PreInfinityExtrap;
+	OutCurve.PostInfinityExtrap = PostInfinityExtrap;
+
+	if (CompressionFormat == RCCF_Empty)
+	{
+		OutCurve.ConstantValueNumKeys.ConstantValue = DefaultValue;
+		OutCurve.CompressedKeys.Empty();
+	}
+	else if (CompressionFormat == RCCF_Constant)
+	{
+		OutCurve.ConstantValueNumKeys.ConstantValue = Keys[0].Value;
+		OutCurve.CompressedKeys.Empty();
+	}
+	else
+	{
+		int32 PackedDataSize = 0;
+
+		// If we are mixed, we need to store the interp mode for every key, this data comes first following the header
+		// Next comes the quantized time values followed by the normalization range
+		// And the values/tangents follow last
+
+		if (CompressionFormat == RCCF_Mixed)
+		{
+			PackedDataSize += Keys.Num() * sizeof(uint8);
+		}
+
+		if (KeyFormat == RCKTCF_uint16)
+		{
+			PackedDataSize = Align(PackedDataSize, sizeof(uint16));
+			PackedDataSize += Keys.Num() * sizeof(uint16);
+			PackedDataSize = Align(PackedDataSize, sizeof(float));
+			PackedDataSize += 2 * sizeof(float);
+		}
+		else
+		{
+			check(KeyFormat == RCKTCF_float32);
+			PackedDataSize = Align(PackedDataSize, sizeof(float));
+			PackedDataSize += Keys.Num() * sizeof(float);
+		}
+
+		PackedDataSize += Keys.Num() * sizeof(float);	// Key values
+
+		// Key tangents
+		if (CompressionFormat == RCCF_Cubic)
+		{
+			PackedDataSize += Keys.Num() * 2 * sizeof(float);
+		}
+		else if (CompressionFormat == RCCF_Mixed)
+		{
+			for (const FRichCurveKey& Key : Keys)
+			{
+				if (Key.InterpMode == RCIM_Cubic)
+				{
+					PackedDataSize += 2 * sizeof(float);
+				}
+			}
+		}
+
+		OutCurve.CompressedKeys.Empty(PackedDataSize);
+		OutCurve.CompressedKeys.AddUninitialized(PackedDataSize);
+
+		int32 WriteOffset = 0;
+		uint8* BasePtr = OutCurve.CompressedKeys.GetData();
+
+		OutCurve.ConstantValueNumKeys.NumKeys = Keys.Num();
+
+		// Key interp modes
+		if (CompressionFormat == RCCF_Mixed)
+		{
+			uint8* InterpModes = BasePtr + WriteOffset;
+			WriteOffset += Keys.Num() * sizeof(uint8);
+
+			for (const FRichCurveKey& Key : Keys)
+			{
+				if (Key.InterpMode == RCIM_Linear)
+				{
+					*InterpModes++ = (uint8)RCCF_Linear;
+				}
+				else if (Key.InterpMode == RCIM_Cubic)
+				{
+					*InterpModes++ = (uint8)RCCF_Cubic;
+				}
+				else
+				{
+					*InterpModes++ = (uint8)RCCF_Constant;
+				}
+			}
+		}
+
+		// Key times
+		if (KeyFormat == RCKTCF_uint16)
+		{
+			const float MinTime = Keys[0].Time;
+			const float MaxTime = Keys.Last().Time;
+			const float DeltaTime = MaxTime - MinTime;
+			const float InvDeltaTime = 1.0f / DeltaTime;
+
+			const int32 KeySize = sizeof(uint16);
+
+			if (KeyFormat == RCKTCF_uint16)
+			{
+				WriteOffset = Align(WriteOffset, sizeof(uint16));
+			}
+
+			uint8* KeyTimes8 = BasePtr + WriteOffset;
+			uint16* KeyTimes16 = reinterpret_cast<uint16*>(KeyTimes8);
+			WriteOffset += Keys.Num() * KeySize;
+
+			for (const FRichCurveKey& Key : Keys)
+			{
+				const float NormalizedTime = FMath::Clamp((Key.Time - MinTime) * InvDeltaTime, 0.0f, 1.0f);
+				const uint16 QuantizedTime = (uint16)FMath::RoundHalfFromZero(NormalizedTime * 65535.0f);
+				*KeyTimes16++ = QuantizedTime;
+			}
+
+			WriteOffset = Align(WriteOffset, sizeof(float));
+			float* RangeData = reinterpret_cast<float*>(BasePtr + WriteOffset);
+			WriteOffset += 2 * sizeof(float);
+
+			RangeData[0] = MinTime;
+			RangeData[1] = DeltaTime;
+		}
+		else
+		{
+			WriteOffset = Align(WriteOffset, sizeof(float));
+			float* KeyTimes = reinterpret_cast<float*>(BasePtr + WriteOffset);
+			WriteOffset += Keys.Num() * sizeof(float);
+
+			for (const FRichCurveKey& Key : Keys)
+			{
+				*KeyTimes++ = Key.Time;
+			}
+		}
+
+		// Key values and tangents
+		float* KeyData = reinterpret_cast<float*>(BasePtr + WriteOffset);
+		for (const FRichCurveKey& Key : Keys)
+		{
+			*KeyData++ = Key.Value;
+
+			if (Key.InterpMode == RCIM_Cubic)
+			{
+				check(CompressionFormat == RCCF_Cubic || CompressionFormat == RCCF_Mixed);
+				*KeyData++ = Key.ArriveTangent;
+				*KeyData++ = Key.LeaveTangent;
+			}
+		}
+
+		check(((uint8*)KeyData - BasePtr) == PackedDataSize);
+	}
+}
+
+struct Quantized16BitKeyTimeAdapter
+{
+	static constexpr float QuantizationScale = 1.0f / 65535.0f;
+	static constexpr int32 KeySize = sizeof(uint16);
+	static constexpr int32 RangeDataSize = 2 * sizeof(float);
+
+	using KeyTimeType = uint16;
+
+	const uint16* KeyTimes;
+	float MinTime;
+	float DeltaTime;
+	int32 KeyDataOffset;
+
+	Quantized16BitKeyTimeAdapter(const uint8* BasePtr, int32 KeyTimesOffset, int32 NumKeys)
+	{
+		const int32 RangeDataOffset = Align(KeyTimesOffset + (NumKeys * sizeof(uint16)), sizeof(float));
+		KeyDataOffset = RangeDataOffset + RangeDataSize;
+		const float* RangeData = reinterpret_cast<const float*>(BasePtr + RangeDataOffset);
+
+		KeyTimes = reinterpret_cast<const uint16*>(BasePtr + KeyTimesOffset);
+		MinTime = RangeData[0];
+		DeltaTime = RangeData[1];
+	}
+
+	float GetTime(int32 KeyIndex) const
+	{
+		const float KeyNormalizedTime = KeyTimes[KeyIndex] * QuantizationScale;
+		return (KeyNormalizedTime * DeltaTime) + MinTime;
+	};
+};
+
+struct Float32BitKeyTimeAdapter
+{
+	static constexpr int32 KeySize = sizeof(float);
+	static constexpr int32 RangeDataSize = 0;
+
+	using KeyTimeType = float;
+
+	const float* KeyTimes;
+	int32 KeyDataOffset;
+
+	Float32BitKeyTimeAdapter(const uint8* BasePtr, int32 KeyTimesOffset, int32 NumKeys)
+	{
+		KeyTimes = reinterpret_cast<const float*>(BasePtr + KeyTimesOffset);
+		KeyDataOffset = Align(KeyTimesOffset + (NumKeys * sizeof(float)), sizeof(float));
+	}
+
+	constexpr float GetTime(int32 KeyIndex) const
+	{
+		return KeyTimes[KeyIndex];
+	};
+};
+
+using KeyDataHandle = int32;
+
+template<ERichCurveCompressionFormat Format>
+struct UniformKeyDataAdapter
+{
+	const float* KeyData;
+
+	template<typename KeyTimeAdapterType>
+	
+	constexpr UniformKeyDataAdapter(const uint8* BasePtr, const KeyTimeAdapterType& KeyTimeAdapter)
+    : KeyData(reinterpret_cast<const float*>(BasePtr + KeyTimeAdapter.KeyDataOffset))
+    {}
+
+	constexpr KeyDataHandle GetKeyDataHandle(int32 KeyIndexToQuery) const
+	{
+		return Format == RCCF_Cubic ? (KeyIndexToQuery * 3) : KeyIndexToQuery;
+	};
+
+	constexpr float GetKeyValue(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle];
+	}
+
+	constexpr float GetKeyArriveTangent(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle + 1];
+	}
+
+	constexpr float GetKeyLeaveTangent(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle + 2];
+	}
+
+	constexpr ERichCurveCompressionFormat GetKeyInterpMode(int32 KeyIndex) const
+	{
+		return Format;
+	}
+};
+
+struct MixedKeyDataAdapter
+{
+	const uint8* InterpModes;
+	const float* KeyData;
+
+	template<typename KeyTimeAdapterType>
+	MixedKeyDataAdapter(const uint8* BasePtr, int32 InterpModesOffset, const KeyTimeAdapterType& KeyTimeAdapter)
+	{
+		InterpModes = BasePtr + InterpModesOffset;
+		KeyData = reinterpret_cast<const float*>(BasePtr + KeyTimeAdapter.KeyDataOffset);
+	}
+
+	KeyDataHandle GetKeyDataHandle(int32 KeyIndexToQuery) const
+	{
+		int32 Offset = 0;
+		for (int32 KeyIndex = 0; KeyIndex < KeyIndexToQuery; ++KeyIndex)
+		{
+			Offset += InterpModes[KeyIndex] == RCCF_Cubic ? 3 : 1;
+		}
+
+		return Offset;
+	};
+
+	constexpr float GetKeyValue(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle];
+	}
+
+	constexpr float GetKeyArriveTangent(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle + 1];
+	}
+
+	constexpr float GetKeyLeaveTangent(KeyDataHandle Handle) const
+	{
+		return KeyData[Handle + 2];
+	}
+
+	constexpr ERichCurveCompressionFormat GetKeyInterpMode(int32 KeyIndex) const
+	{
+		return (ERichCurveCompressionFormat)InterpModes[KeyIndex];
+	}
+};
+
+template<typename KeyTimeAdapterType, typename KeyDataAdapterType>
+static float RemapTimeValue(float InTime, const KeyTimeAdapterType& KeyTimeAdapter, const KeyDataAdapterType& KeyDataAdapter, int32 NumKeys, ERichCurveExtrapolation InfinityExtrap, int32 KeyIndex0, int32 KeyIndex1, float& CycleValueOffset)
+{
+	// For Pre-infinity, key0 and key1 are the actual key 0 and key 1
+	// For Post-infinity, key0 and key1 are the last and second to last key
+	const float MinTime = KeyTimeAdapter.GetTime(0);
+	const float MaxTime = KeyTimeAdapter.GetTime(NumKeys - 1);
+
+	int CycleCount = 0;
+	CycleTime(MinTime, MaxTime, InTime, CycleCount);
+
+	if (InfinityExtrap == RCCE_CycleWithOffset)
+	{
+		const KeyDataHandle ValueHandle0 = KeyDataAdapter.GetKeyDataHandle(KeyIndex0);
+		const float KeyValue0 = KeyDataAdapter.GetKeyValue(ValueHandle0);
+		const KeyDataHandle ValueHandle1 = KeyDataAdapter.GetKeyDataHandle(KeyIndex1);
+		const float KeyValue1 = KeyDataAdapter.GetKeyValue(ValueHandle1);
+
+		const float DV = KeyValue0 - KeyValue1;
+		CycleValueOffset = DV * CycleCount;
+	}
+	else if (InfinityExtrap == RCCE_Oscillate)
+	{
+		if (CycleCount % 2 == 1)
+		{
+			InTime = MinTime + (MaxTime - InTime);
+		}
+	}
+
+	return InTime;
+}
+
+template<typename KeyTimeAdapterType, typename KeyDataAdapterType>
+static float InterpEvalExtrapolate(float InTime, const KeyTimeAdapterType& KeyTimeAdapter, const KeyDataAdapterType& KeyDataAdapter, ERichCurveExtrapolation InfinityExtrap, int32 KeyIndex0, int32 KeyIndex1, float KeyTime0)
+{
+	// For Pre-infinity, key0 and key1 are the actual key 0 and key 1
+	// For Post-infinity, key0 and key1 are the last and second to last key
+	const KeyDataHandle ValueHandle0 = KeyDataAdapter.GetKeyDataHandle(KeyIndex0);
+	const float KeyValue0 = KeyDataAdapter.GetKeyValue(ValueHandle0);
+
+	if (InfinityExtrap == RCCE_Linear)
+	{
+		const float KeyTime1 = KeyTimeAdapter.GetTime(KeyIndex1);
+		const float DT = KeyTime1 - KeyTime0;
+
+		if (FMath::IsNearlyZero(DT))
+		{
+			return KeyValue0;
+		}
+		else
+		{
+			const KeyDataHandle ValueHandle1 = KeyDataAdapter.GetKeyDataHandle(KeyIndex1);
+			const float KeyValue1 = KeyDataAdapter.GetKeyValue(ValueHandle1);
+			const float DV = KeyValue1 - KeyValue0;
+			const float Slope = DV / DT;
+
+			return Slope * (InTime - KeyTime0) + KeyValue0;
+		}
+	}
+	else
+	{
+		// Otherwise if constant or in a cycle or oscillate, always use the first key value
+		return KeyValue0;
+	}
+}
+
+// Each template permutation is only called from one place, force inline it to avoid issues
+template<typename KeyTimeAdapterType, typename KeyDataAdapterType>
+FORCEINLINE_DEBUGGABLE static float InterpEval(float InTime, const KeyTimeAdapterType& KeyTimeAdapter, const KeyDataAdapterType& KeyDataAdapter, int32 NumKeys, ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap)
+{
+	float CycleValueOffset = 0.0;
+
+	const float FirstKeyTime = KeyTimeAdapter.GetTime(0);
+	if (InTime <= FirstKeyTime)
+	{
+		if (PreInfinityExtrap != RCCE_Linear && PreInfinityExtrap != RCCE_Constant)
+		{
+			InTime = RemapTimeValue(InTime, KeyTimeAdapter, KeyDataAdapter, NumKeys, PreInfinityExtrap, 0, NumKeys - 1, CycleValueOffset);
+		}
+		else
+		{
+			return InterpEvalExtrapolate(InTime, KeyTimeAdapter, KeyDataAdapter, PreInfinityExtrap, 0, 1, FirstKeyTime);
+		}
+	}
+
+	const float LastKeyTime = KeyTimeAdapter.GetTime(NumKeys - 1);
+	if (InTime >= LastKeyTime)
+	{
+		if (PostInfinityExtrap != RCCE_Linear && PostInfinityExtrap != RCCE_Constant)
+		{
+			InTime = RemapTimeValue(InTime, KeyTimeAdapter, KeyDataAdapter, NumKeys, PostInfinityExtrap, NumKeys - 1, 0, CycleValueOffset);
+		}
+		else
+		{
+			return InterpEvalExtrapolate(InTime, KeyTimeAdapter, KeyDataAdapter, PostInfinityExtrap, NumKeys - 1, NumKeys - 2, LastKeyTime);
+		}
+	}
+
+	// perform a lower bound to get the second of the interpolation nodes
+	int32 First = 1;
+	int32 Last = NumKeys - 1;
+	int32 Count = Last - First;
+
+	while (Count > 0)
+	{
+		const int32 Step = Count / 2;
+		const int32 Middle = First + Step;
+
+		// TODO: Can we do the search with integers? In order to do so, we need to Floorf(..) the key times
+		const float KeyTime = KeyTimeAdapter.GetTime(Middle);
+		if (InTime >= KeyTime)
+		{
+			First = Middle + 1;
+			Count -= Step + 1;
+		}
+		else
+		{
+			Count = Step;
+		}
+	}
+
+	const float KeyTime0 = KeyTimeAdapter.GetTime(First - 1);
+	const float KeyTime1 = KeyTimeAdapter.GetTime(First);
+	const float Diff = KeyTime1 - KeyTime0;
+
+	const KeyDataHandle KeyValueHandle0 = KeyDataAdapter.GetKeyDataHandle(First - 1);
+	const float KeyValue0 = KeyDataAdapter.GetKeyValue(KeyValueHandle0);
+
+	// const value here allows the code to be stripped statically if the data is uniform
+	// which it is most of the time
+	const ERichCurveCompressionFormat KeyInterpMode0 = KeyDataAdapter.GetKeyInterpMode(First - 1);
+	float InterpolatedValue;
+	if (Diff > 0.0f && KeyInterpMode0 != RCCF_Constant)
+	{
+		const KeyDataHandle KeyValueHandle1 = KeyDataAdapter.GetKeyDataHandle(First);
+		const float KeyValue1 = KeyDataAdapter.GetKeyValue(KeyValueHandle1);
+
+		const float Alpha = (InTime - KeyTime0) / Diff;
+		const float P0 = KeyValue0;
+		const float P3 = KeyValue1;
+
+		if (KeyInterpMode0 == RCCF_Linear)
+		{
+			InterpolatedValue = FMath::Lerp(P0, P3, Alpha);
+		}
+		else
+		{
+			const float OneThird = 1.0f / 3.0f;
+			const float ScaledDiff = Diff * OneThird;
+			const float KeyLeaveTangent0 = KeyDataAdapter.GetKeyLeaveTangent(KeyValueHandle0);
+			const float KeyArriveTangent1 = KeyDataAdapter.GetKeyArriveTangent(KeyValueHandle1);
+			const float P1 = P0 + (KeyLeaveTangent0 * ScaledDiff);
+			const float P2 = P3 - (KeyArriveTangent1 * ScaledDiff);
+
+			InterpolatedValue = BezierInterp(P0, P1, P2, P3, Alpha);
+		}
+	}
+	else
+	{
+		InterpolatedValue = KeyValue0;
+	}
+
+	return InterpolatedValue + CycleValueOffset;
+}
+
+static TFunction<float(ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)> InterpEvalMap[5][2]
+{
+	// RCCF_Empty
+	{
+		// RCKTCF_uint16
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			return ConstantValueNumKeys.ConstantValue == MAX_flt ? InDefaultValue : ConstantValueNumKeys.ConstantValue;
+		},
+		// RCKTCF_float32
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			return ConstantValueNumKeys.ConstantValue == MAX_flt ? InDefaultValue : ConstantValueNumKeys.ConstantValue;
+		},
+	},
+	// RCCF_Constant
+	{
+		// RCKTCF_uint16
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue) { return ConstantValueNumKeys.ConstantValue; },
+		// RCKTCF_float32
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue) { return ConstantValueNumKeys.ConstantValue; },
+	},
+	// RCCF_Linear
+	{
+		// RCKTCF_uint16
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 KeyTimesOffset = 0;
+			Quantized16BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			UniformKeyDataAdapter<RCCF_Linear> KeyDataAdapter(CompressedKeys, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+		// RCKTCF_float32
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 KeyTimesOffset = 0;
+			Float32BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			UniformKeyDataAdapter<RCCF_Linear> KeyDataAdapter(CompressedKeys, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+	},
+	// RCCF_Cubic
+	{
+		// RCKTCF_uint16
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 KeyTimesOffset = 0;
+			Quantized16BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			UniformKeyDataAdapter<RCCF_Cubic> KeyDataAdapter(CompressedKeys, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+		// RCKTCF_float32
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 KeyTimesOffset = 0;
+			Float32BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			UniformKeyDataAdapter<RCCF_Cubic> KeyDataAdapter(CompressedKeys, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+	},
+	// RCCF_Mixed
+	{
+		// RCKTCF_uint16
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 InterpModesOffset = 0;
+			const int32 KeyTimesOffset = InterpModesOffset + Align(ConstantValueNumKeys.NumKeys * sizeof(uint8), sizeof(uint16));
+			Quantized16BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			MixedKeyDataAdapter KeyDataAdapter(CompressedKeys, InterpModesOffset, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+		// RCKTCF_float32
+		[](ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+		{
+			const int32 InterpModesOffset = 0;
+			const int32 KeyTimesOffset = InterpModesOffset + Align(ConstantValueNumKeys.NumKeys * sizeof(uint8), sizeof(float));
+			Float32BitKeyTimeAdapter KeyTimeAdapter(CompressedKeys, KeyTimesOffset, ConstantValueNumKeys.NumKeys);
+			MixedKeyDataAdapter KeyDataAdapter(CompressedKeys, InterpModesOffset, KeyTimeAdapter);
+			return InterpEval(InTime, KeyTimeAdapter, KeyDataAdapter, ConstantValueNumKeys.NumKeys, PreInfinityExtrap, PostInfinityExtrap);
+		},
+	},
+};
+
+float FCompressedRichCurve::Eval(float InTime, float InDefaultValue) const
+{
+	SCOPE_CYCLE_COUNTER(STAT_RichCurve_Eval);
+
+	// Dynamic dispatch into a template optimized code path
+	const float Value = InterpEvalMap[CompressionFormat][KeyTimeCompressionFormat](PreInfinityExtrap, PostInfinityExtrap, ConstantValueNumKeys, CompressedKeys.GetData(), InTime, InDefaultValue);
+	return Value;
+}
+
+float FCompressedRichCurve::StaticEval(ERichCurveCompressionFormat CompressionFormat, ERichCurveKeyTimeCompressionFormat KeyTimeCompressionFormat, ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, FCompressedRichCurve::TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue)
+{
+	SCOPE_CYCLE_COUNTER(STAT_RichCurve_Eval);
+
+	// Dynamic dispatch into a template optimized code path
+	const float Value = InterpEvalMap[CompressionFormat][KeyTimeCompressionFormat](PreInfinityExtrap, PostInfinityExtrap, ConstantValueNumKeys, CompressedKeys, InTime, InDefaultValue);
+	return Value;
+}
+
+bool FCompressedRichCurve::Serialize(FArchive& Ar)
+{
+	Ar << CompressionFormat;
+	Ar << KeyTimeCompressionFormat;
+	Ar << PreInfinityExtrap;
+	Ar << PostInfinityExtrap;
+
+	int32 NumKeysOrConstant = ConstantValueNumKeys.NumKeys;
+	Ar << NumKeysOrConstant;
+	ConstantValueNumKeys.NumKeys = NumKeysOrConstant;
+
+	if (Ar.IsLoading())
+	{
+		int32 NumBytes;
+		Ar << NumBytes;
+
+		CompressedKeys.Empty(NumBytes);
+		CompressedKeys.AddUninitialized(NumBytes);
+		Ar.Serialize(CompressedKeys.GetData(), NumBytes);
+	}
+	else
+	{
+		int32 NumBytes = CompressedKeys.Num();
+		Ar << NumBytes;
+		Ar.Serialize(CompressedKeys.GetData(), NumBytes);
+	}
+
+	return true;
+}
+
+bool FCompressedRichCurve::operator==(const FCompressedRichCurve& Other) const
+{
+	return CompressionFormat == Other.CompressionFormat
+		&& KeyTimeCompressionFormat == Other.KeyTimeCompressionFormat
+		&& PreInfinityExtrap == Other.PreInfinityExtrap
+		&& PostInfinityExtrap == Other.PostInfinityExtrap
+		&& ConstantValueNumKeys.NumKeys == Other.ConstantValueNumKeys.NumKeys
+		&& CompressedKeys == Other.CompressedKeys;
 }

@@ -3,7 +3,7 @@
 #include "Animation/AnimCurveTypes.h"
 #include "UObject/FrameworkObjectVersion.h"
 
-DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, STATGROUP_Anim);
+DECLARE_CYCLE_STAT(TEXT("EvalRawCurveData"), STAT_EvalRawCurveData, STATGROUP_Anim);
 
 /////////////////////////////////////////////////////
 // FFloatCurve
@@ -293,7 +293,7 @@ void FTransformCurve::Resize(float NewLength, bool bInsert/* whether insert or r
 
 void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTime ) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
+	SCOPE_CYCLE_COUNTER(STAT_EvalRawCurveData);
 	if (Curves.NumValidCurveCount > 0)
 	{
 		// evaluate the curve data at the CurrentTime and add to Instance
@@ -302,7 +302,8 @@ void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTim
 			const FFloatCurve& Curve = *CurveIter;
 			if (Curves.IsEnabled(Curve.Name.UID))
 			{
-				Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime));
+				float Value = Curve.Evaluate(CurrentTime);
+				Curves.Set(Curve.Name.UID, Value);
 			}
 		}
 	}

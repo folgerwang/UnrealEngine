@@ -725,6 +725,17 @@ void UAnimSequenceBase::EvaluateCurveData(FBlendedCurve& OutCurve, float Current
 	RawCurveData.EvaluateCurveData(OutCurve, CurrentTime);
 }
 
+float UAnimSequenceBase::EvaluateCurveData(SmartName::UID_Type CurveUID, float CurrentTime, bool bForceUseRawData) const
+{
+	const FFloatCurve* Curve = (const FFloatCurve*)RawCurveData.GetCurveData(CurveUID, ERawCurveTrackTypes::RCT_Float);
+	return Curve != nullptr ? Curve->Evaluate(CurrentTime) : 0.0f;
+}
+
+bool UAnimSequenceBase::HasCurveData(SmartName::UID_Type CurveUID, bool bForceUseRawData) const
+{
+	return RawCurveData.GetCurveData(CurveUID) != nullptr;
+}
+
 void UAnimSequenceBase::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);

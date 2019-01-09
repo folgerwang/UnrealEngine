@@ -625,6 +625,12 @@ struct FAnimKeyHelper
 		return (NumKeys > 1) ? Length / (float)(NumKeys - 1) : MINIMUM_ANIMATION_LENGTH;
 	}
 
+	// Returns the FPS for the given length and number of keys
+	float KeysPerSecond() const
+	{
+		return NumKeys > 0 ? (float(NumKeys - 1) / Length) : 0.0f;
+	}
+
 	int32 LastKey() const
 	{
 		return (NumKeys > 1) ? NumKeys - 1 : 0;

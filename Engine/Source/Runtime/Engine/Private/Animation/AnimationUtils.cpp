@@ -16,6 +16,7 @@
 #include "Animation/AnimCompress_Automatic.h"
 #include "Animation/AnimSet.h"
 #include "Animation/AnimationSettings.h"
+#include "Animation/AnimCurveCompressionSettings.h"
 #include "AnimationCompression.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "AnimEncoding.h"
@@ -2233,3 +2234,79 @@ void FAnimationUtils::TallyErrorsFromPerturbation(
 		TrackError.MaxErrorInScaleDueToScale = MaxErrorS_DueToR;
 	}
 }
+
+#if WITH_EDITOR
+static UAnimCurveCompressionSettings* DefaultCurveCompressionSettings = nullptr;
+
+UAnimCurveCompressionSettings* FAnimationUtils::GetDefaultAnimationCurveCompressionSettings()
+{
+	if (DefaultCurveCompressionSettings == nullptr)
+	{
+		FConfigSection* AnimDefaultObjectSettingsSection = GConfig->GetSectionPrivate(TEXT("Animation.DefaultObjectSettings"), false, true, GEngineIni);
+		const FConfigValue* Value = AnimDefaultObjectSettingsSection != nullptr ? AnimDefaultObjectSettingsSection->Find(TEXT("CurveCompressionSettings")) : nullptr;
+
+		if (Value != nullptr)
+		{
+			const FString& CurveCompressionSettingsName = Value->GetValue();
+			DefaultCurveCompressionSettings = LoadObject<UAnimCurveCompressionSettings>(nullptr, *CurveCompressionSettingsName);
+		}
+
+		if (DefaultCurveCompressionSettings == nullptr)
+		{
+			UE_LOG(LogAnimationCompression, Fatal, TEXT("Couldn't find default curve compression settings under '[Animation.DefaultObjectSettings]'"));
+		}
+
+		// Force load the default settings and all its dependencies just in case it hasn't happened yet
+		bool bLoadDependencies = false;
+		if (DefaultCurveCompressionSettings->HasAnyFlags(RF_NeedLoad))
+		{
+			DefaultCurveCompressionSettings->GetLinker()->Preload(DefaultCurveCompressionSettings);
+			bLoadDependencies = true;
+		}
+
+		if (DefaultCurveCompressionSettings->HasAnyFlags(RF_NeedPostLoad))
+		{
+			DefaultCurveCompressionSettings->ConditionalPostLoad();
+			bLoadDependencies = true;
+		}
+
+		if (bLoadDependencies)
+		{
+			TArray<UObject*> ObjectReferences;
+			FReferenceFinder(ObjectReferences, nullptr, false, true, false, true).FindReferences(DefaultCurveCompressionSettings);
+
+			for (UObject* Dependency : ObjectReferences)
+			{
+				if (Dependency->HasAnyFlags(RF_NeedLoad))
+				{
+					Dependency->GetLinker()->Preload(Dependency);
+				}
+
+				if (Dependency->HasAnyFlags(RF_NeedPostLoad))
+				{
+					Dependency->ConditionalPostLoad();
+				}
+			}
+		}
+
+		DefaultCurveCompressionSettings->AddToRoot();
+	}
+
+	return DefaultCurveCompressionSettings;
+}
+
+bool FAnimationUtils::CompressAnimCurves(UAnimSequence& AnimSeq)
+{
+	// Clear any previous data we might have even if we end up failing to compress
+	AnimSeq.CompressedCurveByteStream.Empty();
+	AnimSeq.CurveCompressionCodec = nullptr;
+
+	if (AnimSeq.CurveCompressionSettings == nullptr || !AnimSeq.CurveCompressionSettings->AreSettingsValid())
+	{
+		return false;
+	}
+
+	check(AnimSeq.CurveCompressionSettings->AreSettingsValid());
+	return AnimSeq.CurveCompressionSettings->Compress(AnimSeq);
+}
+#endif
