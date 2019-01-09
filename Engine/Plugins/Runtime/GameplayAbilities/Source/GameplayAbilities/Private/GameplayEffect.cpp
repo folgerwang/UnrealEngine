@@ -2547,10 +2547,12 @@ void FActiveGameplayEffectsContainer::InternalUpdateNumericalAttribute(FGameplay
 void FActiveGameplayEffectsContainer::SetAttributeBaseValue(FGameplayAttribute Attribute, float NewBaseValue)
 {
 	const UAttributeSet* Set = Owner->GetAttributeSubobject(Attribute.GetAttributeSetClass());
-	if (ensure(Set))
+	if (!ensureMsgf(Set, TEXT("FActiveGameplayEffectsContainer::SetAttributeBaseValue: Unable to get attribute set for attribute %s"), *Attribute.AttributeName))
 	{
-		Set->PreAttributeBaseChange(Attribute, NewBaseValue);
+		return;
 	}
+
+	Set->PreAttributeBaseChange(Attribute, NewBaseValue);
 
 	// if we're using the new attributes we should always update their base value
 	bool bIsGameplayAttributeDataProperty = FGameplayAttribute::IsGameplayAttributeDataProperty(Attribute.GetUProperty());
