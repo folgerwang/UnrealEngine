@@ -7711,7 +7711,7 @@ FORCEINLINE void FArchiveAsync2::SetPosAndUpdatePrecacheBuffer(int64 Pos)
 
 void FArchiveAsync2::Seek(int64 InPos)
 {
-	if (GEventDrivenLoaderEnabled && LoadPhase < ELoadPhase::ProcessingExports)
+	if ((GEventDrivenLoaderEnabled || bCookedForEDLInEditor) && LoadPhase < ELoadPhase::ProcessingExports)
 	{
 		check(!HeaderSizeWhenReadingExportsFromSplitFile && HeaderSize && TotalSize() == HeaderSize);
 		if (InPos >= HeaderSize)
