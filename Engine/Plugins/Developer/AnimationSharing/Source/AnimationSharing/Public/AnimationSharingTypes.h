@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ struct FAnimationSetup
 {
 	GENERATED_BODY()
 public:
-	FAnimationSetup() : AnimBlueprint(nullptr), AnimSequence(nullptr), NumRandomizedInstances(1), Enabled(true) {}
+	FAnimationSetup() : AnimSequence(nullptr), AnimBlueprint(nullptr), NumRandomizedInstances(1), Enabled(true) {}
 	
 	/** Animation Sequence to play for this particular setup */
 	UPROPERTY(EditAnywhere, Category = AnimationSharing)
