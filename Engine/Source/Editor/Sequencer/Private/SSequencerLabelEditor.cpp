@@ -159,8 +159,11 @@ FReply SSequencerLabelEditor::HandleFilterBoxKeyDown(const FGeometry& /*Geometry
 {
 	if (KeyEvent.GetKey() == EKeys::Enter)
 	{
-		CreateLabelFromFilterText();
-		return FReply::Handled();
+		if (HandleCreateNewLabelButtonIsEnabled())
+		{
+			CreateLabelFromFilterText();
+			return FReply::Handled();
+		}
 	}
 
 	return FReply::Unhandled();
