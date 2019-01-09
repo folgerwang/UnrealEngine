@@ -1114,7 +1114,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	else
 	{
 		// count meshes in lod groups if we dont care about importing LODs
-		bool bCountLODGroupMeshes = !bImportStaticMeshLODs;
+		bool bCountLODGroupMeshes = !bImportStaticMeshLODs && bCombineMeshes;
 		int32 NumLODGroups = 0;
 		GetFbxMeshCount(Scene->GetRootNode(), bCountLODGroupMeshes, NumLODGroups);
 		// if there were LODs in the file, do not combine meshes even if requested
