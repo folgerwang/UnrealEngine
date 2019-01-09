@@ -123,7 +123,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingSkyLight(
 	PassParameters->SkyLightColor = FVector(1.0);
 	//PassParameters->SkyLightTexture = Scene->SkyLight->ProcessedTexture->TextureRHI;
 	//PassParameters->SkyLightTextureSampler = Scene->SkyLight->ProcessedTexture->SamplerStateRHI;
-	PassParameters->TLAS = RHIGetAccelerationStructureShaderResourceView(View.PerViewRayTracingScene.RayTracingSceneRHI);
+	PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
 	PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
 	PassParameters->SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleDraw);
 
@@ -226,7 +226,7 @@ public:
 		FRHIRayTracingPipelineState* Pipeline = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer); // #dxr_todo: this should be done once at load-time and cached
 
 		FRayTracingShaderBindingsWriter GlobalResources;
-		GlobalResources.Set(TLASParameter, RHIGetAccelerationStructureShaderResourceView(RayTracingScene.RayTracingSceneRHI));
+		GlobalResources.Set(TLASParameter, RayTracingScene.RayTracingSceneRHI->GetShaderResourceView());
 		GlobalResources.Set(ViewParameter, ViewUniformBuffer);
 		GlobalResources.Set(SceneTexturesParameter, SceneTexturesUniformBuffer);
 		GlobalResources.Set(SkyLightParameter, SkyLightUniformBuffer);

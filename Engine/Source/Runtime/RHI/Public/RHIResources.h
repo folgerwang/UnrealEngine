@@ -233,16 +233,6 @@ class FRHIComputePipelineState : public FRHIResource {};
 class FRHIRayTracingPipelineState : public FRHIResource {};
 
 //
-// Ray tracing resources
-//
-
-/** Bottom level ray tracing acceleration structure (contains triangles). */
-class FRHIRayTracingGeometry : public FRHIResource {};
-
-/** Top level ray tracing acceleration structure (contains instances of meshes). */
-class FRHIRayTracingScene : public FRHIResource {};
-
-//
 // Buffers
 //
 
@@ -1010,7 +1000,6 @@ class FRHIUnorderedAccessView : public FRHIResource {};
 class FRHIShaderResourceView : public FRHIResource {};
 
 
-
 typedef FRHISamplerState*              FSamplerStateRHIParamRef;
 typedef TRefCountPtr<FRHISamplerState> FSamplerStateRHIRef;
 
@@ -1103,14 +1092,32 @@ typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
 typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRef;
 typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 
+typedef FRHIRayTracingPipelineState*              FRayTracingPipelineStateRHIParamRef;
+typedef TRefCountPtr<FRHIRayTracingPipelineState> FRayTracingPipelineStateRHIRef;
+
+
+//
+// Ray tracing resources
+//
+
+/** Bottom level ray tracing acceleration structure (contains triangles). */
+class FRHIRayTracingGeometry : public FRHIResource {};
+
 typedef FRHIRayTracingGeometry*                  FRayTracingGeometryRHIParamRef;
 typedef TRefCountPtr<FRHIRayTracingGeometry>     FRayTracingGeometryRHIRef;
+
+/** Top level ray tracing acceleration structure (contains instances of meshes). */
+class FRHIRayTracingScene : public FRHIResource
+{
+public:
+	FShaderResourceViewRHIParamRef GetShaderResourceView() { return ShaderResourceView; }
+protected:
+	FShaderResourceViewRHIRef ShaderResourceView;
+};
 
 typedef FRHIRayTracingScene*                     FRayTracingSceneRHIParamRef;
 typedef TRefCountPtr<FRHIRayTracingScene>        FRayTracingSceneRHIRef;
 
-typedef FRHIRayTracingPipelineState*              FRayTracingPipelineStateRHIParamRef;
-typedef TRefCountPtr<FRHIRayTracingPipelineState> FRayTracingPipelineStateRHIRef;
 
 /* Generic staging buffer class used by FRHIGPUMemoryReadback
 * RHI specific staging buffers derive from this

@@ -130,7 +130,7 @@ public:
 		FUnorderedAccessViewRHIParamRef RayCountPerPixelUAV)
 	{
 
-		GlobalResources.Set(TLASParameter, RHIGetAccelerationStructureShaderResourceView(RayTracingScene.RayTracingSceneRHI));
+		GlobalResources.Set(TLASParameter, RayTracingScene.RayTracingSceneRHI->GetShaderResourceView());
 		GlobalResources.Set(ViewParameter, ViewUniformBuffer);
 
 		// Lights

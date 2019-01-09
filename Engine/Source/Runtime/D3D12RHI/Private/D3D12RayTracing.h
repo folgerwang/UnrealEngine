@@ -47,7 +47,10 @@ public:
 
 	FD3D12RayTracingScene(FD3D12Device* Device) 
 		: FD3D12DeviceChild(Device)
-	{};
+		, AccelerationStructureView(new FD3D12ShaderResourceView(Device))
+	{
+		ShaderResourceView = AccelerationStructureView;
+	};
 
 	~FD3D12RayTracingScene();
 
@@ -56,6 +59,7 @@ public:
 	// #dxr_todo: only GPU resources should be managed as LinkedAdapterObjects
 	TRefCountPtr<FD3D12MemBuffer> AccelerationStructureBuffer;
 	TRefCountPtr<FD3D12ShaderResourceView> AccelerationStructureView;
+	bool bAccelerationStructureViewInitialized = false;
 
 	// #dxr_todo: add API to update geometries and instances
 	TArray<FRayTracingGeometryInstance> Instances;

@@ -109,7 +109,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 		PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(RayDistanceTexture));
 		PassParameters->SamplesPerPixel = GRayTracingOcclusionSamplesPerPixel;
 		LightSceneProxy->GetLightShaderParameters(PassParameters->Light);
-		PassParameters->TLAS = RHIGetAccelerationStructureShaderResourceView(View.PerViewRayTracingScene.RayTracingSceneRHI);
+		PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
 		PassParameters->SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleDraw);
 

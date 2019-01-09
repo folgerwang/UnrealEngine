@@ -890,10 +890,6 @@ bool FDeferredShadingSceneRenderer::DispatchRayTracingWorldUpdates(FRHICommandLi
 			Initializer.Instances = View.RayTracingGeometryInstances;
 			View.PerViewRayTracingScene.RayTracingSceneRHI = RHICreateRayTracingScene(Initializer);
 			RHICmdList.BuildAccelerationStructure(View.PerViewRayTracingScene.RayTracingSceneRHI);
-
-			// #dxr_todo: RHIGetAccelerationStructureShaderResourceView should return a handle that's safe to use immediately (which is internally multi-buffered and fenced)  to avoid the need for flush after BuildAccelerationStructure.
-			// FlushRHIThread is required here to ensure that acceleration structure SRV is created by the RHI before it is referenced on RenderThread.
-			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		}
 	}
 	return true;

@@ -1123,12 +1123,6 @@ public:
 		checkNoEntry();
 		return nullptr;
 	}
-
-	virtual FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure)
-	{
-		checkNoEntry();
-		return nullptr;
-	}
 #endif // RHI_RAYTRACING
 
 protected:
@@ -1325,11 +1319,6 @@ FORCEINLINE FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTrac
 FORCEINLINE FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer)
 {
 	return GDynamicRHI->RHICreateRayTracingScene(Initializer);
-}
-
-FORCEINLINE FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure)
-{
-	return GDynamicRHI->RHIGetAccelerationStructureShaderResourceView(AccelerationStructure);
 }
 
 FORCEINLINE FRayTracingShaderRHIRef RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency)

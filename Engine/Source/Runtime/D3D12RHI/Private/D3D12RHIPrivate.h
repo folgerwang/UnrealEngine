@@ -460,11 +460,7 @@ public:
 #if D3D12_RHI_RAYTRACING
 
 	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer) final override;
-
 	virtual FRayTracingSceneRHIRef RHICreateRayTracingScene(const FRayTracingSceneInitializer& Initializer) final override;
-
-	virtual FShaderResourceViewRHIParamRef RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef AccelerationStructure) final override;
-
 	virtual FRayTracingShaderRHIRef RHICreateRayTracingShader(const TArray<uint8>& Code, EShaderFrequency ShaderFrequency) final override;
 	virtual FRayTracingPipelineStateRHIRef RHICreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer) final override;
 

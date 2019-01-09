@@ -656,6 +656,8 @@ public:
 
 	void CopyToGPU()
 	{
+		check(IsInRHIThread() || !IsRunningRHIInSeparateThread());
+
 		FD3D12Device* Device = GetParentDevice();
 
 		checkf(Data.Num(), TEXT("Shader table is expected to be initialized before copying to GPU."));
@@ -681,6 +683,7 @@ public:
 
 	D3D12_GPU_VIRTUAL_ADDRESS GetShaderTableAddress() const
 	{
+		checkf(!bIsDirty, TEXT("Shader table update is pending, therefore GPU address is not available. Use CopyToGPU() to upload data and acquire a valid GPU buffer address."));
 		return Buffer->ResourceLocation.GetGPUVirtualAddress();
 	}
 
@@ -702,6 +705,12 @@ public:
 			Desc.HitGroupTable.StartAddress = ShaderTableAddress + HitGroupShaderTableOffset;
 			Desc.HitGroupTable.StrideInBytes = HitGroupRecordStride;
 			Desc.HitGroupTable.SizeInBytes = NumHitGroups * HitGroupRecordStride;
+		}
+		else
+		{
+			Desc.HitGroupTable.StartAddress = ShaderTableAddress + DefaultHitGroupShaderTableOffset;
+			Desc.HitGroupTable.StrideInBytes = 0; // Zero stride effectively disables SBT indexing
+			Desc.HitGroupTable.SizeInBytes = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT; // Minimal table with only one record
 		}
 
 		return Desc;
@@ -1059,15 +1068,6 @@ public:
 		DefaultShaderTable.SetRayGenIdentifier(0, RayGenShaderIdentifier);
 		DefaultShaderTable.SetMissIdentifier(0, MissShaderIdentifier);
 		DefaultShaderTable.SetDefaultHitGroupIdentifier(DefaultHitGroupIdentifier);
-
-		DefaultShaderTable.CopyToGPU();
-
-		DefaultDispatchDesc = DefaultShaderTable.GetDispatchRaysDesc();
-
-		// Default dispatch desc refers to exactly one hit shader
-		DefaultDispatchDesc.HitGroupTable.StartAddress = DefaultShaderTable.GetShaderTableAddress() + DefaultShaderTable.DefaultHitGroupShaderTableOffset;
-		DefaultDispatchDesc.HitGroupTable.StrideInBytes = 0; // Zero stride effectively disables SBT indexing
-		DefaultDispatchDesc.HitGroupTable.SizeInBytes = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT; // Minimal table with only one record
 	}
 
 	FD3D12ShaderIdentifier GetShaderIdentifier(LPCWSTR ExportName)
@@ -1111,7 +1111,6 @@ public:
 
 	TRefCountPtr<ID3D12StateObject> StateObject;
 	TRefCountPtr<ID3D12StateObjectProperties> PipelineProperties;
-	D3D12_DISPATCH_RAYS_DESC DefaultDispatchDesc = {};
 
 	static constexpr uint32 ShaderIdentifierSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
 	TArray<FD3D12ShaderIdentifier> HitGroupShaderIdentifiers;
@@ -1287,11 +1286,6 @@ FRayTracingSceneRHIRef FD3D12DynamicRHI::RHICreateRayTracingScene(const FRayTrac
 	});
 }
 
-FShaderResourceViewRHIParamRef FD3D12DynamicRHI::RHIGetAccelerationStructureShaderResourceView(FRayTracingSceneRHIParamRef InAccelerationStructure)
-{
-	return FD3D12DynamicRHI::ResourceCast(InAccelerationStructure)->AccelerationStructureView;
-}
-
 void FD3D12RayTracingGeometry::TransitionBuffers(FD3D12CommandContext& CommandContext)
 {
 	// Transition vertex and index resources..
@@ -1307,6 +1301,8 @@ void FD3D12RayTracingGeometry::TransitionBuffers(FD3D12CommandContext& CommandCo
 
 static void CreateAccelerationStructureBuffers(TRefCountPtr<FD3D12MemBuffer>& AccelerationStructureBuffer, TRefCountPtr<FD3D12MemBuffer>&  ScratchBuffer, FD3D12Adapter* Adapter, uint32 GPUIndex, const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO& PrebuildInfo)
 {
+	check(IsInRHIThread() || !IsRunningRHIInSeparateThread());
+
 	FRHIResourceCreateInfo CreateInfo;
 
 	D3D12_RESOURCE_DESC AccelerationStructureBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
@@ -1492,6 +1488,11 @@ void FD3D12RayTracingScene::BuildAccelerationStructure(FD3D12CommandContext& Com
 	// #dxr_todo: scratch buffers should be created in UAV state from the start
 	FD3D12DynamicRHI::TransitionResource(CommandContext.CommandListHandle, ScratchBuffer.GetReference()->GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, 0);
 
+	if (bAccelerationStructureViewInitialized)
+	{
+		AccelerationStructureView->Rename(AccelerationStructureBuffer->ResourceLocation);
+	}
+	else
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
 		SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -1499,9 +1500,9 @@ void FD3D12RayTracingScene::BuildAccelerationStructure(FD3D12CommandContext& Com
 		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		SRVDesc.RaytracingAccelerationStructure.Location = AccelerationStructureBuffer->ResourceLocation.GetGPUVirtualAddress();
 
-		AccelerationStructureView = new FD3D12ShaderResourceView(
-			AccelerationStructureBuffer->GetParentDevice(), 
-			SRVDesc, AccelerationStructureBuffer->ResourceLocation, 4);
+		AccelerationStructureView->Initialize(SRVDesc, AccelerationStructureBuffer->ResourceLocation, 4);
+
+		bAccelerationStructureViewInitialized = true;
 	}
 
 	// Create and fill instance buffer
@@ -2116,12 +2117,15 @@ void FD3D12CommandContext::RHIRayTraceOcclusion(FRayTracingSceneRHIParamRef InSc
 	FD3D12ShaderResourceView* Rays = FD3D12DynamicRHI::ResourceCast(InRays);
 	FD3D12UnorderedAccessView* Output = FD3D12DynamicRHI::ResourceCast(InOutput);
 
-	const FD3D12RayTracingPipelineState* Pipeline = GetParentDevice()->GetBasicRayTracingPipeline()->Occlusion;
-	const FD3D12RayTracingShaderTable& ShaderTable = Pipeline->DefaultShaderTable;
+	FD3D12RayTracingPipelineState* Pipeline = GetParentDevice()->GetBasicRayTracingPipeline()->Occlusion;
+	FD3D12RayTracingShaderTable& ShaderTable = Pipeline->DefaultShaderTable;
+
+	if (ShaderTable.bIsDirty)
+	{
+		ShaderTable.CopyToGPU();
+	}
 
 	ID3D12GraphicsCommandList4* RayTracingCommandList = CommandListHandle.RayTracingCommandList();
-
-	D3D12_GPU_VIRTUAL_ADDRESS ShaderTableAddress = ShaderTable.Buffer->ResourceLocation.GetGPUVirtualAddress();
 
 	D3D12_DISPATCH_RAYS_DESC DispatchDesc = ShaderTable.GetDispatchRaysDesc();
 
@@ -2148,18 +2152,17 @@ void FD3D12CommandContext::RHIRayTraceIntersection(FRayTracingSceneRHIParamRef I
 	FD3D12ShaderResourceView* Rays = FD3D12DynamicRHI::ResourceCast(InRays);
 	FD3D12UnorderedAccessView* Output = FD3D12DynamicRHI::ResourceCast(InOutput);
 
-	const FD3D12RayTracingPipelineState* Pipeline = GetParentDevice()->GetBasicRayTracingPipeline()->Intersection;
-	const FD3D12RayTracingShaderTable& ShaderTable = Pipeline->DefaultShaderTable;
+	FD3D12RayTracingPipelineState* Pipeline = GetParentDevice()->GetBasicRayTracingPipeline()->Intersection;
+	FD3D12RayTracingShaderTable& ShaderTable = Pipeline->DefaultShaderTable;
+
+	if (ShaderTable.bIsDirty)
+	{
+		ShaderTable.CopyToGPU();
+	}
 
 	ID3D12GraphicsCommandList4* RayTracingCommandList = CommandListHandle.RayTracingCommandList();
 
-	D3D12_GPU_VIRTUAL_ADDRESS ShaderTableAddress = ShaderTable.Buffer->ResourceLocation.GetGPUVirtualAddress();
-
 	D3D12_DISPATCH_RAYS_DESC DispatchDesc = ShaderTable.GetDispatchRaysDesc();
-
-	DispatchDesc.HitGroupTable.StartAddress = ShaderTableAddress + ShaderTable.DefaultHitGroupShaderTableOffset;
-	DispatchDesc.HitGroupTable.StrideInBytes = 0; // Zero stride effectively disables SBT indexing
-	DispatchDesc.HitGroupTable.SizeInBytes = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT; // Minimal table with only one record
 
 	DispatchDesc.Width = NumRays;
 	DispatchDesc.Height = 1;
@@ -2186,7 +2189,6 @@ void FD3D12CommandContext::RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamR
 
 	FD3D12RayTracingShaderTable* ShaderTable = Scene->FindOrCreateShaderTable(Pipeline);
 
-	// #dxr_todo: shader table update should be an explicit operation and this code should only perform validation.
 	if (ShaderTable->bIsDirty)
 	{
 		ShaderTable->CopyToGPU();
@@ -2205,9 +2207,15 @@ void FD3D12CommandContext::RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamR
 	const FRayTracingShaderBindings& GlobalResourceBindings,
 	uint32 Width, uint32 Height)
 {
-	const FD3D12RayTracingPipelineState* Pipeline = FD3D12DynamicRHI::ResourceCast(InRayTracingPipelineState);
+	FD3D12RayTracingPipelineState* Pipeline = FD3D12DynamicRHI::ResourceCast(InRayTracingPipelineState);
+	FD3D12RayTracingShaderTable& ShaderTable = Pipeline->DefaultShaderTable;
 
-	D3D12_DISPATCH_RAYS_DESC DispatchDesc = Pipeline->DefaultDispatchDesc;
+	if (ShaderTable.bIsDirty)
+	{
+		ShaderTable.CopyToGPU();
+	}
+
+	D3D12_DISPATCH_RAYS_DESC DispatchDesc = ShaderTable.GetDispatchRaysDesc();
 
 	DispatchDesc.Width = Width;
 	DispatchDesc.Height = Height;
