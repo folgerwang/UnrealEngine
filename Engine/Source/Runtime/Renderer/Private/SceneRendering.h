@@ -883,10 +883,10 @@ typedef TArray<FMeshDrawCommandsPerPass, TInlineAllocator<4>> FMeshDrawCommandsP
 /**
  * Parallel mesh draw command processing and drawing context.
  */
-class FVisibleMeshDrawCommandProcessTaskContext
+class FMeshDrawCommandSortAndMergeTaskContext
 {
 public:
-	FVisibleMeshDrawCommandProcessTaskContext()
+	FMeshDrawCommandSortAndMergeTaskContext()
 		: bUseGPUScene(false)
 		, bDynamicInstancing(false)
 		, PrimitiveBounds(nullptr)
@@ -954,7 +954,7 @@ public:
 
 
 private:
-	FVisibleMeshDrawCommandProcessTaskContext TaskContext;
+	FMeshDrawCommandSortAndMergeTaskContext TaskContext;
 	FGraphEventArray TaskEventRefs;
 	int32 MaxDrawNum;
 	FString PassNameForStats;
