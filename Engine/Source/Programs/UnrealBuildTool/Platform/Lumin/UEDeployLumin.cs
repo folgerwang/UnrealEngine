@@ -262,27 +262,21 @@ namespace UnrealBuildTool
 			return PluginExtras;
 		}
 
-		public void InitUPL(string ProjectName, DirectoryReference ProjectDirectory, UnrealTargetConfiguration Configuration)
+		public void InitUPL(TargetReceipt Receipt)
 		{
+			DirectoryReference ProjectDirectory = Receipt.ProjectDir ?? UnrealBuildTool.EngineDirectory;
+
 			string UE4BuildPath = Path.Combine(ProjectDirectory.FullName, "Intermediate/Lumin/Mabu");
 			string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
 			string RelativeProjectPath = ProjectDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());//.MakeRelativeTo(ProjectDirectory);
 
-			UnrealTargetPlatform Platform = UnrealTargetPlatform.Lumin;
-			string ConfigurationString = Configuration.ToString();
+			string ConfigurationString = Receipt.Configuration.ToString();
 
 			string Architecture = "arm64-v8a";
 			List<string> MLSDKArches = new List<string>();
 			MLSDKArches.Add(Architecture);
 
-			// get the receipt
-			FileReference ReceiptFilename = TargetReceipt.GetDefaultPath(ProjectDirectory, ProjectName, Platform, Configuration, "");
-			if (!File.Exists(ReceiptFilename.ToString()))
-			{
-				ReceiptFilename = TargetReceipt.GetDefaultPath(UnrealBuildTool.EngineDirectory, "UE4Game", Platform, Configuration, "");
-			}
-			Log.TraceInformation("Receipt Filename: {0}", ReceiptFilename);
-			SetLuminPluginData(MLSDKArches, CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename)));
+			SetLuminPluginData(MLSDKArches, CollectPluginDataPaths(Receipt));
 
 			//gather all of the xml
 			UPL.Init(MLSDKArches, true, RelativeEnginePath, UE4BuildPath, RelativeProjectPath, ConfigurationString);
