@@ -89,6 +89,15 @@ FAutoConsoleVariableRef CVarWaitForSoundWaveToLoad(
 	TEXT("0: Attempt to play back, 1: Wait for load."),
 	ECVF_Default);
 
+static int32 NumPrecacheFramesCvar = 0;
+FAutoConsoleVariableRef CVarNumPrecacheFrames(
+	TEXT("au.NumPrecacheFrames"),
+	NumPrecacheFramesCvar,
+	TEXT("When set to > 0, will use that value as the number of frames to precache audio buffers with.\n")
+	TEXT("0: Use default value for precache frames, >0: Number of frames to precache."),
+	ECVF_Default);
+
+
 /*-----------------------------------------------------------------------------
 FDynamicParameter implementation.
 -----------------------------------------------------------------------------*/
@@ -153,6 +162,7 @@ FAudioDevice::FAudioDevice()
 	, NumStoppingVoices(32)
 	, MaxWaveInstances(0)
 	, SampleRate(0)
+	, NumPrecacheFrames(MONO_PCM_BUFFER_SAMPLES)
 	, CommonAudioPoolSize(0)
 	, CommonAudioPool(nullptr)
 	, CommonAudioPoolFreeBytes(0)
@@ -259,6 +269,12 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 	{
 		// Convert dB to linear volume
 		PlatformAudioHeadroom = FMath::Pow(10.0f, Headroom / 20.0f);
+	}
+
+	int32 NumPrecacheFramesSettings = 0; 
+	if (GConfig->GetInt(TEXT("Audio"), TEXT("NumPrecacheFrames"), NumPrecacheFramesSettings, GEngineIni))
+	{
+		NumPrecacheFrames = FMath::Min(128, NumPrecacheFramesSettings);
 	}
 
 	bIsStoppingVoicesEnabled = !DisableStoppingVoicesCvar;
@@ -4927,6 +4943,7 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrackMemory, bool bForceFullDecompression)
 {
 	LLM_SCOPE(ELLMTag::Audio);
+	LLM_SCOPE(ELLMTag::AudioPrecache);
 
 	if (SoundWave == nullptr)
 	{
@@ -5063,14 +5080,14 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 			if (bSynchronous)
 			{
 				// Create a worker to decompress the vorbis data
-				FAsyncAudioDecompress TempDecompress(SoundWave);
+				FAsyncAudioDecompress TempDecompress(SoundWave, GetNumPrecacheFrames());
 				TempDecompress.StartSynchronousTask();
 			}
 			else
 			{
 				// This is the one case where precaching will not be done when this function exits
 				check(SoundWave->GetPrecacheState() == ESoundWavePrecacheState::InProgress);
-				SoundWave->AudioDecompressor = new FAsyncAudioDecompress(SoundWave);
+				SoundWave->AudioDecompressor = new FAsyncAudioDecompress(SoundWave, GetNumPrecacheFrames());
 				SoundWave->AudioDecompressor->StartBackgroundTask();
 				PrecachingSoundWaves.Add(SoundWave);
 			}
@@ -5534,4 +5551,15 @@ bool FAudioDevice::ShouldUseAttenuation(const UWorld* World) const
 	// - we are forcing the use of attenuation (e.g. for some editors)
 	const bool bIsInGameWorld = World ? World->IsGameWorld() : true;
 	return (bIsInGameWorld || bUseAttenuationForNonGameWorlds);
+}
+
+int32 FAudioDevice::GetNumPrecacheFrames() const
+{
+	// Check the cvar and use that if it's been set.
+	if (NumPrecacheFramesCvar > 0)
+	{
+		return NumPrecacheFramesCvar;
+	}
+	// Otherwise, use the default value or value set in ini file
+	return NumPrecacheFrames;
 }
