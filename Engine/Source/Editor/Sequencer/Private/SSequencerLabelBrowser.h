@@ -92,6 +92,9 @@ private:
 	/** Remove label item and its children */
 	void RemoveLabelItem(TSharedPtr<FSequencerLabelTreeNode> InItem);
 
+	/** Add node's label and its children to the new label */
+	void AddLabelNode(TSharedPtr<FSequencerLabelTreeNode> InItem, FString& NewLabel);
+
 private:
 
 	/** Holds the collection of root labels to be displayed in the tree view. */

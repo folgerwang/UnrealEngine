@@ -211,6 +211,26 @@ void SSequencerLabelBrowser::HandleLabelTreeViewGetChildren(TSharedPtr<FSequence
 	}
 }
 
+void SSequencerLabelBrowser::AddLabelNode(TSharedPtr<FSequencerLabelTreeNode> InItem, FString& NewLabel)
+{
+	if (InItem.IsValid())
+	{
+		if (!NewLabel.IsEmpty())
+		{
+			NewLabel += TEXT(" ");
+		}
+
+		if (!InItem->Label.IsEmpty())
+		{
+			NewLabel += FString(TEXT("label:")) + InItem->Label;
+		}
+
+		for (auto Child : InItem->Children)
+		{
+			AddLabelNode(Child, NewLabel);
+		}
+	}
+}
 
 void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSequencerLabelTreeNode> InItem, ESelectInfo::Type SelectInfo)
 {
@@ -220,15 +240,7 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 	LabelTreeView->GetSelectedItems(SelectedItems);
 	for (TSharedPtr<FSequencerLabelTreeNode> Item : SelectedItems)
 	{
-		if (!NewLabel.IsEmpty())
-		{
-			NewLabel += TEXT(" ");
-		}
-		
-		if (!Item->Label.IsEmpty())
-		{
-			NewLabel += FString(TEXT("label:")) + Item->Label;
-		}
+		AddLabelNode(Item, NewLabel);
 	}
 
 	OnSelectionChanged.ExecuteIfBound(
