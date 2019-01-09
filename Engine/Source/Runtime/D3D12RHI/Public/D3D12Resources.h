@@ -197,6 +197,8 @@ public:
 	}
 
 	inline bool ShouldDeferDelete() const { return bDeferDelete; }
+	void DeferDelete();
+
 	inline bool IsPlacedResource() const { return Heap.GetReference() != nullptr; }
 	inline FD3D12Heap* GetHeap() const { return Heap; };
 	inline bool IsDepthStencilResource() const { return bDepthStencil; }
@@ -949,9 +951,25 @@ class FD3D12StagingBuffer : public FRHIStagingBuffer
 public:
 	FD3D12StagingBuffer(FVertexBufferRHIRef InBuffer)
 		: FRHIStagingBuffer(InBuffer)
+		, StagedRead(nullptr)
 	{}
+	~FD3D12StagingBuffer()
+	{
+		if (StagedRead)
+		{
+			StagedRead->DeferDelete();
+		}
+	}
+	void SafeRelease()
+	{
+		if (StagedRead)
+		{
+			StagedRead->Release();
+			StagedRead = nullptr;
+		}
+	}
 
-	TRefCountPtr<FD3D12Resource> StagedRead;
+	FD3D12Resource* StagedRead;
 };
 
 class FD3D12GPUFence : public FRHIGPUFence

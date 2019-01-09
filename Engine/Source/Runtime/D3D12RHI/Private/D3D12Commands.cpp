@@ -402,14 +402,14 @@ void FD3D12CommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef Stagin
 
 	// Only get data from the first gpu for now.
 	FD3D12Device* StagingDevice = VertexBuffer->GetParentDevice();
-	StagingBuffer->StagedRead.SafeRelease();
-	VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), Offset + NumBytes, StagingBuffer->StagedRead.GetInitReference()));
+	StagingBuffer->SafeRelease();
+	VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), Offset + NumBytes, &StagingBuffer->StagedRead));
 	
 	{
 		FD3D12Resource* pSourceResource = VertexBuffer->ResourceLocation.GetResource();
 		D3D12_RESOURCE_DESC const& SourceBufferDesc = pSourceResource->GetDesc();
 
-		FD3D12Resource* pDestResource = StagingBuffer->StagedRead.GetReference();
+		FD3D12Resource* pDestResource = StagingBuffer->StagedRead;
 		D3D12_RESOURCE_DESC const& DestBufferDesc = pDestResource->GetDesc();
 
 		FD3D12DynamicRHI::TransitionResource(CommandListHandle, pSourceResource, D3D12_RESOURCE_STATE_COPY_SOURCE, 0);

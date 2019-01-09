@@ -252,6 +252,11 @@ void FD3D12Resource::UpdateResidency(FD3D12CommandListHandle& CommandList)
 #endif
 }
 
+void FD3D12Resource::DeferDelete()
+{
+	GetParentDevice()->GetParentAdapter()->GetDeferredDeletionQueue().EnqueueResource(this);
+}
+
 /////////////////////////////////////////////////////////////////////
 //	FD3D12 Heap
 /////////////////////////////////////////////////////////////////////
@@ -500,7 +505,7 @@ void FD3D12ResourceLocation::ReleaseResource()
 		
 		if (UnderlyingResource->ShouldDeferDelete())
 		{
-			GetParentDevice()->GetParentAdapter()->GetDeferredDeletionQueue().EnqueueResource(UnderlyingResource);
+			UnderlyingResource->DeferDelete();
 		}
 		else
 		{
@@ -529,7 +534,7 @@ void FD3D12ResourceLocation::ReleaseResource()
 	{
 		if (UnderlyingResource->ShouldDeferDelete() && UnderlyingResource->GetRefCount() == 1)
 		{
-			GetParentDevice()->GetParentAdapter()->GetDeferredDeletionQueue().EnqueueResource(UnderlyingResource);
+			UnderlyingResource->DeferDelete();
 		}
 		else
 		{
@@ -542,7 +547,7 @@ void FD3D12ResourceLocation::ReleaseResource()
 		check(UnderlyingResource->GetRefCount() == 1);
 		if (UnderlyingResource->ShouldDeferDelete())
 		{
-			GetParentDevice()->GetParentAdapter()->GetDeferredDeletionQueue().EnqueueResource(UnderlyingResource);
+			UnderlyingResource->DeferDelete();
 		}
 		else
 		{

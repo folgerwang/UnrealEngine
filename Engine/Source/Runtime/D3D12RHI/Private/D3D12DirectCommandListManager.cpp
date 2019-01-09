@@ -43,7 +43,7 @@ void* FD3D12DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBu
 	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
 	check(StagingBuffer);
 
-	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	FD3D12Resource* pResource = StagingBuffer->StagedRead;
 	if (pResource)
 	{
 		D3D12_RANGE ReadRange;
@@ -62,7 +62,7 @@ void FD3D12DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingB
 	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
 	check(StagingBuffer);
 
-	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	FD3D12Resource* pResource = StagingBuffer->StagedRead;
 	if (pResource)
 	{
 		pResource->Unmap();
