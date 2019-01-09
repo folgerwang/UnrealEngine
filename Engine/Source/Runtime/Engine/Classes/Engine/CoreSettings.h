@@ -181,11 +181,6 @@ protected:
 	uint32 CreateGCClusters : 1;
 
 	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
-		ConsoleVariable = "gc.MergeGCClusters", DisplayName = "Merge GC Clusters",
-		ToolTip = "If true, when creating clusters, the clusters referenced from another cluster will get merged into one big cluster."))
-	uint32 MergeGCClusters : 1;
-
-	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
 		ConsoleVariable = "gc.ActorClusteringEnabled", DisplayName = "Actor Clustering Enabled",
 		ToolTip = "Whether to allow levels to create actor clusters for GC."))
 	uint32 ActorClusteringEnabled : 1;
