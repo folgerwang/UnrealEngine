@@ -10466,6 +10466,12 @@ void FSavedMove_Character::PostUpdate(ACharacter* Character, FSavedMove_Characte
 		{
 			bForceNoCombine = true;
 		}
+
+		// Don't combine or delay moves where velocity changes to/from zero.
+		if (StartVelocity.IsZero() != SavedVelocity.IsZero())
+		{
+			bForceNoCombine = true;
+		}
 	}
 	else if (PostUpdateMode == PostUpdate_Replay)
 	{
@@ -10534,6 +10540,12 @@ bool UCharacterMovementComponent::CanDelaySendingMove(const FSavedMovePtr& NewMo
 
 	// Don't delay moves that change movement mode over the course of the move.
 	if (NewMove->StartPackedMovementMode != NewMove->EndPackedMovementMode)
+	{
+		return false;
+	}
+
+	// If we know we don't want to combine this move, reduce latency and avoid misprediction by flushing immediately.
+	if (NewMove->bForceNoCombine)
 	{
 		return false;
 	}
