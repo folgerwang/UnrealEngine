@@ -127,7 +127,7 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			TVOSProjectSettings ProjectSettings = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS)).ReadProjectSettings(Target.ProjectFile);
-			return new TVOSToolChain(Target.ProjectFile, ProjectSettings);
+			return new TVOSToolChain(Target, ProjectSettings);
 		}
 
 		public override void Deploy(TargetReceipt Receipt)

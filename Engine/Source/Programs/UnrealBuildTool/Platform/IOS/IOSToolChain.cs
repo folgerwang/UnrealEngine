@@ -76,14 +76,14 @@ namespace UnrealBuildTool
 		protected IOSProjectSettings ProjectSettings;
 
 		public IOSToolChain(ReadOnlyTargetRules Target, IOSProjectSettings InProjectSettings)
-			: this(CppPlatform.IOS, (Target == null)? null : Target.ProjectFile, InProjectSettings, () => new IOSToolChainSettings())
+			: this(CppPlatform.IOS, Target, InProjectSettings, () => new IOSToolChainSettings())
 		{
-			this.Target = Target;
 		}
 
-		protected IOSToolChain(CppPlatform TargetPlatform, FileReference InProjectFile, IOSProjectSettings InProjectSettings, Func<IOSToolChainSettings> InCreateSettings)
-			: base(TargetPlatform, InProjectFile)
+		protected IOSToolChain(CppPlatform TargetPlatform, ReadOnlyTargetRules Target, IOSProjectSettings InProjectSettings, Func<IOSToolChainSettings> InCreateSettings)
+			: base(TargetPlatform, (Target == null)? null : Target.ProjectFile)
 		{
+			this.Target = Target;
 			ProjectSettings = InProjectSettings;
 			Settings = new Lazy<IOSToolChainSettings>(InCreateSettings);
 		}
