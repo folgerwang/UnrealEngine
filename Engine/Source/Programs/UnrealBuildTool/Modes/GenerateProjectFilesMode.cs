@@ -93,7 +93,7 @@ namespace UnrealBuildTool
 					PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType, Arguments);
 					foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
 					{
-						if(DisablePlatformProjectGenerators != null && !DisablePlatformProjectGenerators.Any(x => x.Equals(Platform.ToString(), StringComparison.OrdinalIgnoreCase)))
+						if(DisablePlatformProjectGenerators == null || !DisablePlatformProjectGenerators.Any(x => x.Equals(Platform.ToString(), StringComparison.OrdinalIgnoreCase)))
 						{
 							Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
 							PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
