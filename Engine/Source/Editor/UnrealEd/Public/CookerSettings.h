@@ -121,6 +121,12 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "ASTC Compression Quality vs Size (0-4, 0 is smallest)"))
 	int32 DefaultASTCQualityBySize;
 
+	/** Allows opening cooked assets in the editor */
+	UPROPERTY(EditAnywhere, config, Category = Editor, meta = (
+		ConsoleVariable = "cook.AllowCookedDataInEditorBuilds", DisplayName = "Allow Cooked Content In The Editor",
+		ToolTip = "If true, the editor will be able to open cooked assets (limited to a subset of supported asset types)."))
+	uint32 bAllowCookedDataInEditorBuilds : 1;
+
 private:
 	/** Deprecated. Use BlueprintComponentDataCookingMethod instead. */
 	UPROPERTY(GlobalConfig)
