@@ -697,7 +697,7 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 				Initializer.BaseVertexIndex = 0;
 				Initializer.VertexBufferStride = VertexBuffers.PositionVertexBuffer.GetStride();
 				Initializer.VertexBufferByteOffset = 0;
-				Initializer.TotalPrimitiveCount = IndexBuffer.GetNumIndices() / 3;
+				Initializer.TotalPrimitiveCount = 0; // This is calculated below based on static mesh section data
 				Initializer.VertexBufferElementType = VET_Float3;
 				Initializer.PrimitiveType = PT_TriangleList;
 				Initializer.bFastBuild = false;
@@ -710,6 +710,7 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 					Segment.FirstPrimitive = Section.FirstIndex / 3;
 					Segment.NumPrimitives = Section.NumTriangles;
 					GeometrySections.Add(Segment);
+					Initializer.TotalPrimitiveCount += Section.NumTriangles;
 				}
 				Initializer.Segments = GeometrySections;
 				
