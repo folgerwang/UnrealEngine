@@ -4343,7 +4343,8 @@ void UStaticMesh::EnforceLightmapRestrictions()
 	// Legacy content may contain a lightmap resolution of 0, which was valid when vertex lightmaps were supported, but not anymore with only texture lightmaps
 	LightMapResolution = FMath::Max(LightMapResolution, 4);
 
-	int32 NumUVs = 16;
+	// Lightmass only supports 4 UVs
+	int32 NumUVs = 4;
 
 	if (RenderData)
 	{
