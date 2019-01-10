@@ -2056,12 +2056,7 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 
 	// Now replace any pointers to the old archetypes/instances with pointers to the new one
 	TArray<UObject*> SourceObjects;
-	TArray<UObject*> DstObjects;
-
 	OldToNewInstanceMap.GenerateKeyArray(SourceObjects);
-	OldToNewInstanceMap.GenerateValueArray(DstObjects); // Also look for references in new spawned objects.
-
-	SourceObjects.Append(DstObjects);
 	
 	if (InOriginalCDO)
 	{
