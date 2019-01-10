@@ -60,10 +60,10 @@ public:
 
 	/** Set to true if you want the global ambience value from the cameras to be used in post processing. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightingTracking|MagicLeap")
-		bool UseGlobalAmbience;
+	bool UseGlobalAmbience;
 	/** Set to true if you want the color temperature value from the cameras to be used in post processing. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightingTracking|MagicLeap")
-		bool UseColorTemp;
+	bool UseColorTemp;
 	/** Set to true if you want the ambient cube map to be dynamically updated from the cameras' data. */
 	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightingTracking|MagicLeap")
 	//bool UseDynamicAmbientCubeMap;

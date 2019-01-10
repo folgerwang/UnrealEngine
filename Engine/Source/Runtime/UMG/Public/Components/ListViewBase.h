@@ -212,7 +212,8 @@ protected:
 		bool bAllowFocus = true,
 		ESelectionMode::Type SelectionMode = ESelectionMode::Single,
 		bool bClearSelectionOnClick = false,
-		EConsumeMouseWheel ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible)
+		EConsumeMouseWheel ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible,
+		bool bReturnFocusToSelection = false)
 	{
 		static_assert(TIsDerivedFrom<ListViewT<ItemType>, SListView<ItemType>>::IsDerived, "ConstructListView can only construct instances of SListView classes");
 		return SNew(ListViewT<ItemType>)
@@ -222,6 +223,7 @@ protected:
 			.ClearSelectionOnClick(bClearSelectionOnClick)
 			.ConsumeMouseWheel(ConsumeMouseWheel)
 			.SelectionMode(SelectionMode)
+			.ReturnFocusToSelection(bReturnFocusToSelection)
 			.OnGenerateRow_UObject(Implementer, &UListViewBaseT::HandleGenerateRow)
 			.OnSelectionChanged_UObject(Implementer, &UListViewBaseT::HandleSelectionChanged)
 			.OnRowReleased_UObject(Implementer, &UListViewBaseT::HandleRowReleased)

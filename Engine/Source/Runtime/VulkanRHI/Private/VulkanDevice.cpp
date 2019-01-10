@@ -36,6 +36,30 @@ static TAutoConsoleVariable<int32> GCVarRobustBufferAccess(
 	ECVF_ReadOnly
 );
 
+EDelayAcquireImageType GVulkanDelayAcquireImage = EDelayAcquireImageType::DelayAcquire;
+
+TAutoConsoleVariable<int32> CVarDelayAcquireBackBuffer(
+	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
+	1,
+	TEXT("Whether to delay acquiring the back buffer \n")
+	TEXT(" 0: acquire next image on frame start \n")
+	TEXT(" 1: acquire next image just before presenting, rendering is done to intermediate image which is then copied to real backbuffer (default) \n")
+	TEXT(" 2: acquire next image immediately after presenting current"),
+	ECVF_ReadOnly
+);
+
+static EDelayAcquireImageType DelayAcquireBackBuffer()
+{
+	int32 DelayType = CVarDelayAcquireBackBuffer.GetValueOnAnyThread();
+	switch (DelayType)
+	{
+	case 1:
+		return EDelayAcquireImageType::DelayAcquire;
+	case 2:
+		return EDelayAcquireImageType::PreAcquire;
+	}
+	return EDelayAcquireImageType::None;
+}
 
 static void EnableDrawMarkers()
 {
@@ -123,7 +147,6 @@ FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 	, DeferredDeletionQueue(this)
 	, DefaultSampler(nullptr)
 	, DefaultImage(nullptr)
-	, DefaultImageView(VK_NULL_HANDLE)
 	, Gpu(InGpu)
 	, GfxQueue(nullptr)
 	, ComputeQueue(nullptr)
@@ -376,6 +399,8 @@ void FVulkanDevice::CreateDevice()
 #if VULKAN_ENABLE_DUMP_LAYER
 	EnableDrawMarkers();
 #endif
+	
+	GVulkanDelayAcquireImage = DelayAcquireBackBuffer();
 }
 
 void FVulkanDevice::SetupFormats()
@@ -790,8 +815,16 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	}
 #endif
 
-	DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
-	DescriptorPoolsManager->Init(this);
+	if (UseVulkanDescriptorCache())
+	{
+		DescriptorSetCache = new FVulkanDescriptorSetCache(this);
+	}
+	else
+	{
+		DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
+		DescriptorPoolsManager->Init(this);
+	}
+
 	PipelineStateCache = new FVulkanPipelineStateCacheManager(this);
 
 	TArray<FString> CacheFilenames;
@@ -848,7 +881,7 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 
 		FRHIResourceCreateInfo CreateInfo;
 		DefaultImage = new FVulkanSurface(*this, VK_IMAGE_VIEW_TYPE_2D, PF_B8G8R8A8, 1, 1, 1, false, 0, 1, 1, TexCreate_RenderTargetable | TexCreate_ShaderResource, CreateInfo);
-		DefaultImageView = FVulkanTextureView::StaticCreate(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
+		DefaultTextureView.Create(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
 	}
 }
 
@@ -870,9 +903,12 @@ void FVulkanDevice::Destroy()
 	}
 #endif
 
-	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultImageView, VULKAN_CPU_ALLOCATOR);
-	DefaultImageView = VK_NULL_HANDLE;
+	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultTextureView.View, VULKAN_CPU_ALLOCATOR);
+	DefaultTextureView = {};
 
+	delete DescriptorSetCache;
+	DescriptorSetCache = nullptr;
+	
 	delete DescriptorPoolsManager;
 	DescriptorPoolsManager = nullptr;
 

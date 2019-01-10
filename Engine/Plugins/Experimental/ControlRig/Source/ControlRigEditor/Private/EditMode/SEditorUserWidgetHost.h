@@ -2,8 +2,9 @@
 
 #pragma once
 
+#include "UObject/GCObject.h"
 #include "Widgets/SCompoundWidget.h"
-#include "ControlRigPickerWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 
 class SEditorUserWidgetHost : public SCompoundWidget, public FGCObject
 {
@@ -17,13 +18,7 @@ public:
 	/** FGCObject interface */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
-	/** Set a new user widget class */
-	void SetUserWidgetClass(TSubclassOf<UControlRigPickerWidget> InUserWidgetClass);
-
 private:
 	/** The world we create widgets with */
 	TWeakObjectPtr<UWorld> World;
-
-	/** The user widget we are hosting */
-	UControlRigPickerWidget* UserWidget;
 };

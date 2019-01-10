@@ -5704,7 +5704,7 @@ void FSequencer::AddActorsToBinding(FGuid InObjectBinding, const TArray<AActor*>
 	{
 		if (!ObjectsInCurrentSequence.Contains(ActorToAdd))
 		{
-			if (ActorClass == nullptr || ActorToAdd->GetClass() == ActorClass)
+			if (ActorClass == nullptr || UClass::FindCommonBase(ActorToAdd->GetClass(), ActorClass) != nullptr)
 			{
 				if (ActorClass == nullptr)
 				{

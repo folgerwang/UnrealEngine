@@ -82,6 +82,16 @@ struct FCrashStackFrame
 	}
 };
 
+enum class ECrashContextType
+{
+	Crash,
+	Assert,
+	Ensure,
+	GPUCrash,
+
+	Max
+};
+
 /**
  *	Contains a runtime crash's properties that are common for all platforms.
  *	This may change in the future.
@@ -135,7 +145,7 @@ public:
 	}
 
 	/** Default constructor. */
-	FGenericCrashContext();
+	FGenericCrashContext(ECrashContextType InType, const TCHAR* ErrorMessage);
 
 	virtual ~FGenericCrashContext() { }
 
@@ -160,11 +170,6 @@ public:
 	 */
 	const bool IsFullCrashDump() const;
 
-	/**
-	 * @return whether this crash is a full memory minidump if the crash context is for an ensure
-	 */
-	const bool IsFullCrashDumpOnEnsure() const;
-
 	/** Serializes crash's informations to the specified filename. Should be overridden for platforms where using FFileHelper is not safe, all POSIX platforms. */
 	virtual void SerializeAsXML( const TCHAR* Filename ) const;
 
@@ -185,7 +190,7 @@ public:
 	static FString UnescapeXMLString( const FString& Text );
 
 	/** Helper to get the standard string for the crash type based on crash event bool values. */
-	static const TCHAR* GetCrashTypeString(bool InIsEnsure, bool InIsAssert, bool bIsGPUCrashed);
+	static const TCHAR* GetCrashTypeString(ECrashContextType Type);
 
 	/** Get the Game Name of the crash */
 	static FString GetCrashGameName();
@@ -217,7 +222,7 @@ public:
 	/**
 	 * @return whether this crash is a non-crash event
 	 */
-	bool GetIsEnsure() const { return bIsEnsure; }
+	ECrashContextType GetType() const { return Type; }
 
 	/**
 	 * Set the current deployment name (ie. EpicApp)
@@ -225,7 +230,14 @@ public:
 	static void SetDeploymentName(const FString& EpicApp);
 
 protected:
-	bool bIsEnsure;
+	/**
+	 * @OutStr - a stream of Thread XML elements containing info (e.g. callstack) specific to an active thread
+	 * @return - whether the operation was successful
+	 */
+	virtual bool GetPlatformAllThreadContextsString(FString& OutStr) const { return false; }
+
+	ECrashContextType Type;
+	const TCHAR* ErrorMessage;
 	int NumMinidumpFramesToIgnore;
 	TArray<FCrashStackFrame> CallStack;
 

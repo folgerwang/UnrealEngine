@@ -40,7 +40,7 @@ typedef TMap<TWeakObjectPtr<AActor>, UActorChannel*, FDefaultSetAllocator, TWeak
 enum { RELIABLE_BUFFER = 256 }; // Power of 2 >= 1.
 enum { MAX_PACKETID = 16384 };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
 enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
-enum { MAX_BUNCH_HEADER_BITS = 64 };
+enum { MAX_BUNCH_HEADER_BITS = 256 };
 enum { MAX_PACKET_HEADER_BITS = 15 }; // = FMath::CeilLogTwo(MAX_PACKETID) + 1 (IsAck)
 enum { MAX_PACKET_TRAILER_BITS = 1 };
 
@@ -194,6 +194,11 @@ public:
 
 		Data.AddUninitialized(SizeBytes);
 		FMemory::Memcpy(Data.GetData(), InData, SizeBytes);
+	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
 	}
 };
 #endif
@@ -547,7 +552,7 @@ public:
 	TMap<FNetworkGUID, TArray<class UActorChannel*>> KeepProcessingActorChannelBunchesMap;
 
 	/** A list of replicators that belong to recently dormant actors/objects */
-	TMap< TWeakObjectPtr< UObject >, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
+	TMap< UObject*, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
 
 	
 
@@ -563,7 +568,7 @@ public:
 	TSet<FName> ClientVisibleLevelNames;
 
 	/** Called by PlayerController to tell connection about client level visiblity change */
-	void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
+	ENGINE_API void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
 
 #if DO_ENABLE_NET_TEST
 	// For development.
@@ -1138,5 +1143,8 @@ public:
 	void HandleClientPlayer( APlayerController* PC, UNetConnection* NetConnection ) override;
 	virtual FString LowLevelGetRemoteAddress(bool bAppendPort=false) override { return FString(); }
 	virtual bool ClientHasInitializedLevelFor(const AActor* TestActor) const { return true; }
+
+
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override { return TSharedPtr<FInternetAddr>(); }
 };
 

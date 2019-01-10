@@ -136,6 +136,7 @@ public:
 	virtual void UpdateComponentTickPrerequsites(USkeletalMeshComponentBudgeted* InComponent) override;
 	virtual void SetComponentSignificance(USkeletalMeshComponentBudgeted* Component, float Significance, bool bNeverSkip = false, bool bTickEvenIfNotRendered = false, bool bAllowReducedWork = true, bool bForceInterpolate = false) override;
 	virtual void SetComponentTickEnabled(USkeletalMeshComponentBudgeted* Component, bool bShouldTick) override;
+	virtual bool IsComponentTickEnabled(USkeletalMeshComponentBudgeted* Component) const override;
 	virtual void SetGameThreadLastTickTimeMs(int32 InManagerHandle, float InGameThreadLastTickTimeMs) override;
 	virtual void SetGameThreadLastCompletionTimeMs(int32 InManagerHandle, float InGameThreadLastCompletionTimeMs) override;
 	virtual void SetIsRunningReducedWork(USkeletalMeshComponentBudgeted* Component, bool bInReducedWork) override;
@@ -205,6 +206,12 @@ protected:
 
 	/** The number of work units queued for tick this frame, used to calculate target AverageWorkUnitTimeMs. Updated each tick */
 	float NumWorkUnitsForAverage;
+
+	/** Budget pressure value, smoothed to reduce noise in 'reduced work' calculations */
+	float SmoothedBudgetPressure;
+
+	/** Throttle counter for delaying reduced work */
+	int32 ReducedComponentWorkCounter;
 
 	/** Handle used to track garbage collection */
 	FDelegateHandle PostGarbageCollectHandle;

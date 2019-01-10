@@ -8,6 +8,7 @@
 #include "UObject/Class.h"
 #include "Policies/PrettyJsonPrintPolicy.h"
 #include "Curves/CurveOwnerInterface.h"
+#include "Curves/SimpleCurve.h"
 #include "CurveTable.generated.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogCurveTable, Log, All);
@@ -18,6 +19,17 @@ template <class CharType>
 struct TPrettyJsonPrintPolicy;
 template <class CharType, class PrintPolicy>
 class TJsonWriter;
+
+/**
+* Whether the curve table contains simple, rich, or no curves
+*/
+UENUM()
+enum class ECurveTableMode : uint8
+{
+	Empty,
+	SimpleCurves,
+	RichCurves
+};
 
 
 /**
@@ -32,12 +44,29 @@ class UCurveTable
 
 	DECLARE_MULTICAST_DELEGATE(FOnCurveTableChanged);
 
-	virtual const TMap<FName, FRichCurve*>& GetRowMap() const { return RowMap; }
-	virtual const TMap<FName, FRichCurve*>& GetRowMap() { return RowMap; }
+	const TMap<FName, FRealCurve*>& GetRowMap() const { return RowMap; }
+	const TMap<FName, FRealCurve*>& GetRowMap() { return RowMap; }
 
-	/** Map of name of row to row data structure. */
-	TMap<FName, FRichCurve*>	RowMap;
+	const TMap<FName, FRichCurve*>& GetRichCurveRowMap() const { check(CurveTableMode != ECurveTableMode::SimpleCurves); return *reinterpret_cast<const TMap<FName, FRichCurve*>*>(&RowMap); }
+	const TMap<FName, FRichCurve*>& GetRichCurveRowMap() { check(CurveTableMode != ECurveTableMode::SimpleCurves); return *reinterpret_cast<TMap<FName, FRichCurve*>*>(&RowMap); }
 
+	const TMap<FName, FSimpleCurve*>& GetSimpleCurveRowMap() const { check(CurveTableMode != ECurveTableMode::RichCurves); return *reinterpret_cast<const TMap<FName, FSimpleCurve*>*>(&RowMap); }
+	const TMap<FName, FSimpleCurve*>& GetSimpleCurveRowMap() { check(CurveTableMode != ECurveTableMode::RichCurves);  return *reinterpret_cast<TMap<FName, FSimpleCurve*>*>(&RowMap); }
+
+	ECurveTableMode GetCurveTableMode() const { return CurveTableMode; }
+
+	ENGINE_API FRichCurve& AddRichCurve(FName RowName);
+	ENGINE_API FSimpleCurve& AddSimpleCurve(FName RowName);
+
+protected:
+	/** 
+	 * Map of name of row to row data structure. 
+	 * If CurveTableMode is SimpleCurves the value type will be FSimpleCurve*
+	 * If ECurveTableMode is RichCurves the value type will be FRichCurve*
+	 */
+	TMap<FName, FRealCurve*>	RowMap;
+
+public:
 	//~ Begin UObject Interface.
 	virtual void FinishDestroy() override;
 	virtual void Serialize( FArchive& Ar ) override;
@@ -70,6 +99,10 @@ class UCurveTable
 	{
 		return RepointCurveOwnerAsset(InPackageReloadedEvent, this, OutNewCurveOwner);
 	}
+	virtual bool HasRichCurves() const override
+	{
+		return CurveTableMode != ECurveTableMode::SimpleCurves;
+	}
 	//~ End FCurveOwnerInterface Interface.
 
 	/** Gets a multicast delegate that is called any time the curve table changes. */
@@ -78,23 +111,45 @@ class UCurveTable
 	//~ Begin UCurveTable Interface
 
 	/** Function to find the row of a table given its name. */
-	FRichCurve* FindCurve(FName RowName, const FString& ContextString, bool WarnIfNotFound=true) const
+	FRealCurve* FindCurve(FName RowName, const FString& ContextString, bool bWarnIfNotFound = true) const
 	{
-		if(RowName == NAME_None)
+		if (RowName == NAME_None)
 		{
-			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : NAME_None is invalid row name for CurveTable '%s' (%s)."), *GetPathName(), *ContextString);
+			UE_CLOG(bWarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : NAME_None is invalid row name for CurveTable '%s' (%s)."), *GetPathName(), *ContextString);
 			return nullptr;
 		}
 
-		FRichCurve* const* FoundCurve = RowMap.Find(RowName);
+		FRealCurve* const* FoundCurve = RowMap.Find(RowName);
 
-		if(FoundCurve == nullptr)
+		if (FoundCurve == nullptr)
 		{
-			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : Row '%s' not found in CurveTable '%s' (%s)."), *RowName.ToString(), *GetPathName(), *ContextString);
+			UE_CLOG(bWarnIfNotFound, LogCurveTable, Warning, TEXT("UCurveTable::FindCurve : Row '%s' not found in CurveTable '%s' (%s)."), *RowName.ToString(), *GetPathName(), *ContextString);
 			return nullptr;
 		}
 
-		return (FRichCurve*)*FoundCurve;
+		return *FoundCurve;
+	}
+
+	FRichCurve* FindRichCurve(FName RowName, const FString& ContextString, bool bWarnIfNotFound = true) const
+	{
+		if (CurveTableMode == ECurveTableMode::SimpleCurves)
+		{
+			UE_LOG(LogCurveTable, Error, TEXT("UCurveTable::FindCurve : Using FindRichCurve on CurveTable '%s' (%s) that is storing simple curves."), *GetPathName(), *ContextString);
+			return nullptr;
+		}
+
+		return (FRichCurve*)FindCurve(RowName, ContextString, bWarnIfNotFound);
+	}
+
+	FSimpleCurve* FindSimpleCurve(FName RowName, const FString& ContextString, bool bWarnIfNotFound = true) const
+	{
+		if (CurveTableMode == ECurveTableMode::RichCurves)
+		{
+			UE_LOG(LogCurveTable, Error, TEXT("UCurveTable::FindCurve : Using FindSimpleCurve on CurveTable '%s' (%s) that is storing rich curves."), *GetPathName(), *ContextString);
+			return nullptr;
+		}
+
+		return (FSimpleCurve*)FindCurve(RowName, ContextString, bWarnIfNotFound);
 	}
 
 	/** Output entire contents of table as a string */
@@ -161,6 +216,9 @@ private:
 
 	/** A multicast delegate that is called any time the curve table changes. */
 	FOnCurveTableChanged OnCurveTableChangedDelegate;
+
+protected:
+	ECurveTableMode CurveTableMode;
 };
 
 
@@ -198,14 +256,25 @@ struct ENGINE_API FCurveTableRowHandle
 	}
 
 	/** Get the curve straight from the row handle */
-	FRichCurve* GetCurve(const FString& ContextString, bool WarnIfNotFound=true) const;
+	FRealCurve* GetCurve(const FString& ContextString, bool bWarnIfNotFound=true) const;
+
+	/** Get the rich curve straight from the row handle */
+	FRichCurve* GetRichCurve(const FString& ContextString, bool bWarnIfNotFound=true) const;
+
+	/** Get the simple curve straight from the row handle */
+	FSimpleCurve* GetSimpleCurve(const FString& ContextString, bool bWarnIfNotFound = true) const;
 
 	/** Evaluate the curve if it is valid
 	 * @param XValue The input X value to the curve
 	 * @param ContextString A string to provide context for where this operation is being carried out
 	 * @return The value of the curve if valid, 0 if not
 	 */
-	float Eval(float XValue,const FString& ContextString) const;
+	float Eval(float XValue,const FString& ContextString) const
+	{
+		float Result = 0.f;
+		Eval(XValue, &Result, ContextString);
+		return Result;
+	}
 
 	/** Evaluate the curve if it is valid
 	 * @param XValue The input X value to the curve

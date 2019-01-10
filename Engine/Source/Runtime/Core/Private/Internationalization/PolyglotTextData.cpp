@@ -157,6 +157,16 @@ void FPolyglotTextData::ClearLocalizedStrings()
 	LocalizedStrings.Reset();
 }
 
+void FPolyglotTextData::IsMinimalPatch(const bool InIsMinimalPatch)
+{
+	bIsMinimalPatch = InIsMinimalPatch;
+}
+
+bool FPolyglotTextData::IsMinimalPatch() const
+{
+	return bIsMinimalPatch;
+}
+
 FText FPolyglotTextData::GetText() const
 {
 	if (CachedText.IsEmpty())

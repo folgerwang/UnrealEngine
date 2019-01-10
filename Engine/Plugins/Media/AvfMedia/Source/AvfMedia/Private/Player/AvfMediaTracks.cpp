@@ -18,8 +18,6 @@
 
 #import <AudioToolbox/AudioToolbox.h>
 
-#define AUDIO_PLAYBACK_VIA_ENGINE (PLATFORM_MAC)
-
 NS_ASSUME_NONNULL_BEGIN
 
 /* FAVPlayerItemLegibleOutputPushDelegate
@@ -66,12 +64,14 @@ struct AudioTrackTapContextData
 	AudioStreamBasicDescription DestinationFormat;
 	FMediaSamples&				SampleQueue;
 	FAvfMediaAudioSamplePool*	AudioSamplePool;
-	bool						bActive;
+	bool						bActive;			// Init and shutdown flag
+	volatile bool&				bMuted;				// Muted usually with -ve playback rate
 	
-	AudioTrackTapContextData(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat)
+	AudioTrackTapContextData(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, volatile bool& bInBindMuted)
 	: SampleQueue(InSampleQueue)
 	, AudioSamplePool(InAudioSamplePool)
 	, bActive(false)
+	, bMuted(bInBindMuted)
 	{
 		FMemory::Memcpy(&DestinationFormat, &InDestinationFormat, sizeof(AudioStreamBasicDescription));
 	}
@@ -115,7 +115,7 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 		// in the public interface to AvfMediaTracks which seems wrong - plus we save the extra function call in time critical code!
 		check(Ctx);
 		
-		if(Ctx->bActive)
+		if(Ctx->bActive && !Ctx->bMuted)
 		{
 			// Compute required buffer size
 			uint32 BufferSize = (NumberFrames * ((Ctx->DestinationFormat.mBitsPerChannel / 8))) * Ctx->DestinationFormat.mChannelsPerFrame;
@@ -125,19 +125,19 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 			FTimespan Duration(((int64)NumberFrames * ETimespan::TicksPerSecond) / (int64)Ctx->DestinationFormat.mSampleRate);
 			
 			// If valid set time stamps give by the system
-			if((TimeRange.start.flags & kCMTimeFlags_Valid) != 0)
+			if((TimeRange.start.flags & kCMTimeFlags_Valid) == kCMTimeFlags_Valid)
 			{
 				StartTime = (TimeRange.start.value * ETimespan::TicksPerSecond) / TimeRange.start.timescale;
 			}
-			
+
 			// On pause the duration from system can be different from computed
-			if((TimeRange.duration.flags & kCMTimeFlags_Valid) != 0)
+			if((TimeRange.duration.flags & kCMTimeFlags_Valid) == kCMTimeFlags_Valid)
 			{
 				Duration = (TimeRange.duration.value * ETimespan::TicksPerSecond) / TimeRange.duration.timescale;
 			}
 			
 			// Don't add zero duration sample buffers to to the sink
-			if(Duration.GetTicks() != 0)
+			if(Duration.GetTicks() > 0)
 			{
 				// Get a media audio sample buffer from the pool
 				const TSharedRef<FAvfMediaAudioSample, ESPMode::ThreadSafe> AudioSample = Ctx->AudioSamplePool->AcquireShared();
@@ -193,6 +193,16 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 				}
 			}
 		}
+		else
+		{
+			// On mute or inactive make sure no audio 'leaks' through to the OS mixer - we can't rely on the outer AVPlayer when muted with this tap attached to be fast or clean about dealing with this
+			const uint32 BufferCount = BufferListInOut->mNumberBuffers;
+			for(uint32 b = 0;b < BufferCount;++b)
+			{
+				AudioBuffer& Buffer = BufferListInOut->mBuffers[b];
+				FMemory::Memset(Buffer.mData, 0, Buffer.mDataByteSize);
+			}
+		}
 	}
 }
 
@@ -233,7 +243,7 @@ static void AudioTrackTapShutdownCurrentAudioTrackProcessing(AVPlayerItem* Playe
 	}
 }
 
-static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, AVPlayerItem* PlayerItem, AVAssetTrack* AssetTrack)
+static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, AVPlayerItem* PlayerItem, AVAssetTrack* AssetTrack, volatile bool& bInBindMuted)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -247,7 +257,7 @@ static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, F
 		MTAudioProcessingTapCallbacks Callbacks;
 		
 		Callbacks.version = kMTAudioProcessingTapCallbacksVersion_0;
-		Callbacks.clientInfo = new AudioTrackTapContextData(InSampleQueue, InAudioSamplePool, InDestinationFormat);
+		Callbacks.clientInfo = new AudioTrackTapContextData(InSampleQueue, InAudioSamplePool, InDestinationFormat, bInBindMuted);
 		Callbacks.init = AudioTrackTapInit;
 		Callbacks.prepare = AudioTrackTapPrepare;
 		Callbacks.process = AudioTrackTapProcess;
@@ -642,7 +652,18 @@ void FAvfMediaTracks::Reset()
 	}
 	
 	PlayerItem = nil;
+	
+#if AUDIO_PLAYBACK_VIA_ENGINE
+	bMuted = false;
+#endif
 }
+
+#if AUDIO_PLAYBACK_VIA_ENGINE
+void FAvfMediaTracks::ApplyMuteState(bool bMute)
+{
+	bMuted = bMute;
+}
+#endif
 
 /* IMediaTracks interface
  *****************************************************************************/
@@ -889,7 +910,7 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 				TargetDesc.mBitsPerChannel = 32;
 				TargetDesc.mReserved = 0;
 				
-				AudioTrackTapInitializeForAudioTrack(Samples, AudioSamplePool, TargetDesc, PlayerItem, SelectedTrack.AssetTrack);
+				AudioTrackTapInitializeForAudioTrack(Samples, AudioSamplePool, TargetDesc, PlayerItem, SelectedTrack.AssetTrack, bMuted);
 #endif
 				
 				AVPlayerItemTrack* PlayerTrack = (AVPlayerItemTrack*)SelectedTrack.Output;

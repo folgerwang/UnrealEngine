@@ -916,6 +916,9 @@ public:
 	 * ubergraph is returned.  If there are no ubergraphs nullptr is returned.
 	 */
 	UEdGraph* GetLastEditedUberGraph() const;
+
+	/* Notify the blueprint when a graph is renamed to allow for additional fixups. */
+	virtual void NotifyGraphRenamed(class UEdGraph* Graph, FName OldName, FName NewName) { }
 #endif
 
 	/** Find a function given its name and optionally an object property name within this Blueprint */

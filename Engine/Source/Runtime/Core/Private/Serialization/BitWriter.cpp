@@ -65,6 +65,7 @@ void FBitWriter::Reset(void)
 
 	// This class is exclusively used by the netcode
 	ArIsNetArchive = true;
+	ArMaxSerializeSize = CVarMaxNetStringSize.GetValueOnAnyThread();
 }
 
 void FBitWriter::SerializeBits( void* Src, int64 LengthBits )

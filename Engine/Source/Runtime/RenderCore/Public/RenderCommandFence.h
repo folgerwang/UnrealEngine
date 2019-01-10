@@ -36,4 +36,6 @@ public:
 private:
 	/** Graph event that represents completion of this fence **/
 	mutable FGraphEventRef CompletionEvent;
+	/** Thread that will trigger the CompletionEvent **/
+	ENamedThreads::Type TriggerThreadIndex;
 };

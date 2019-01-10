@@ -1834,6 +1834,11 @@ public:
 	TSharedRef<class FTimerManager> GetTimerManager() { return TimerManager.ToSharedRef(); }
 
 	/**
+	 *  Returns true if the editors timer manager is valid (may not be during early startup);
+	 */
+	bool IsTimerManagerValid() { return TimerManager.IsValid(); }
+
+	/**
 	*  Returns the Editors world manager instance.
 	*/
 	UEditorWorldExtensionManager* GetEditorWorldExtensionsManager() { return EditorWorldExtensionsManager; }

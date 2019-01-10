@@ -63,7 +63,7 @@ class PROCEDURALMESHCOMPONENT_API UKismetProceduralMeshLibrary : public UBluepri
 	*	@param	GridSpacing		Size of each quad in world units
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
-		static void CreateGridMeshWelded(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, float GridSpacing = 16.0f);
+	static void CreateGridMeshWelded(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, float GridSpacing = 16.0f);
 
 	/**
 	*	Generate a vertex buffer, index buffer and UVs for a grid mesh where each quad is split, with standard 0-1 UVs on UV0 and point sampled texel center UVs for UV1.
@@ -76,7 +76,7 @@ class PROCEDURALMESHCOMPONENT_API UKismetProceduralMeshLibrary : public UBluepri
 	*	@param	GridSpacing		Size of each quad in world units
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")
-		static void CreateGridMeshSplit(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, TArray<FVector2D>& UV1s, float GridSpacing = 16.0f);
+	static void CreateGridMeshSplit(int32 NumX, int32 NumY, TArray<int32>& Triangles, TArray<FVector>& Vertices, TArray<FVector2D>& UVs, TArray<FVector2D>& UV1s, float GridSpacing = 16.0f);
 
 	/** Grab geometry data from a StaticMesh asset. */
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMesh")

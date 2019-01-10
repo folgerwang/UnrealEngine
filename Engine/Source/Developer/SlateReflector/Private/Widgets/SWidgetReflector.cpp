@@ -148,7 +148,9 @@ private:
 	TSharedRef<SDockTab> SpawnWidgetDetails(const FSpawnTabArgs& Args);
 #endif
 
+#if WITH_SLATE_DEBUGGING
 	TSharedRef<SDockTab> SpawnWidgetEvents(const FSpawnTabArgs& Args);
+#endif
 
 	void OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab);
 
@@ -523,8 +525,10 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	}
 #endif
 
+#if WITH_SLATE_DEBUGGING
 	RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetEvents, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetEvents))
 		.SetDisplayName(LOCTEXT("WidgetEventsTab", "Widget Events"));
+#endif
 
 	this->ChildSlot
 	[
@@ -949,6 +953,8 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetDetails(const FSpawnTabArgs& A
 
 #endif
 
+#if WITH_SLATE_DEBUGGING
+
 TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetEvents(const FSpawnTabArgs& Args)
 {
 	auto OnTabClosed = [this](TSharedRef<SDockTab>)
@@ -961,6 +967,8 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetEvents(const FSpawnTabArgs& Ar
 			SNew(SWidgetEventLog)
 		];
 }
+
+#endif
 
 void SWidgetReflector::OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab)
 {

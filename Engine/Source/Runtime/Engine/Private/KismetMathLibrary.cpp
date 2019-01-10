@@ -83,6 +83,11 @@ void UKismetMathLibrary::ReportError_Divide_IntInt()
 	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_IntInt"), ELogVerbosity::Warning, DivideByZeroWarning);
 }
 
+void UKismetMathLibrary::ReportError_Divide_Int64Int64()
+{
+	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_Int64Int64"), ELogVerbosity::Warning, DivideByZeroWarning);
+}
+
 void UKismetMathLibrary::ReportError_Percent_IntInt()
 {
 	FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning, DivideByZeroWarning);
@@ -867,6 +872,11 @@ int32 UKismetMathLibrary::RandomIntegerInRangeFromStream(int32 Min, int32 Max, c
 }
 
 bool UKismetMathLibrary::InRange_IntInt(int32 Value, int32 Min, int32 Max, bool InclusiveMin, bool InclusiveMax)
+{
+	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
+}
+
+bool UKismetMathLibrary::InRange_Int64Int64(int64 Value, int64 Min, int64 Max, bool InclusiveMin, bool InclusiveMax)
 {
 	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
 }

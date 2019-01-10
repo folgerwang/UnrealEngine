@@ -665,6 +665,14 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 		GetWorld()->Scene->UpdateSceneSettings(this);
 	}
 
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 

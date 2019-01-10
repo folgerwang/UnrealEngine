@@ -199,6 +199,11 @@ namespace UnrealBuildTool
 		public bool bCreateHotPatchableImage = false;
 
 		/// <summary>
+		/// Whether to put global symbols in their own sections (/Gw), allowing the linker to discard any that are unused.
+		/// </summary>
+		public bool bOptimizeGlobalData = true;
+
+		/// <summary>
 		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
 		/// </summary>
 		internal VCEnvironment Environment;
@@ -363,6 +368,11 @@ namespace UnrealBuildTool
 		public bool bCreateHotpatchableImage
 		{
 			get { return Inner.bCreateHotPatchableImage; }
+		}
+
+		public bool bOptimizeGlobalData
+		{
+			get { return Inner.bOptimizeGlobalData; }
 		}
 
 		public string GetVisualStudioCompilerVersionName()

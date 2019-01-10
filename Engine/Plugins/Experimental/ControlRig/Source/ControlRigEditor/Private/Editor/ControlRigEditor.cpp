@@ -9,7 +9,7 @@
 #include "SKismetInspector.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Editor.h"
-#include "ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphNode.h"
 #include "BlueprintActionDatabase.h"
 #include "ControlRigBlueprintCommands.h"
 #include "SControlRig.h"

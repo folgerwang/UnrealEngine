@@ -584,6 +584,8 @@ bool UPartyBeaconState::DoesReservationFit(const FPartyReservation& ReservationR
 	const bool bPartySizeOk = (IncomingPartySize > 0) && (IncomingPartySize <= NumPlayersPerTeam);
 	const bool bRoomForReservation = (NumConsumedReservations + IncomingPartySize ) <= MaxReservations;
 
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("UPartyBeaconState::DoesReservationFit: Incoming Party Size: %d Num Players Per Team: %d NumConsumedReservations: %d MaxReservations: %d"), IncomingPartySize, NumPlayersPerTeam, NumConsumedReservations, MaxReservations);
+
 	return bPartySizeOk && bRoomForReservation;
 }
 
@@ -954,6 +956,29 @@ int32 UPartyBeaconState::GetExistingReservationContainingMember(const FUniqueNet
 	}
 
 	return Result;
+}
+
+bool UPartyBeaconState::UpdateMemberPlatform(const FUniqueNetIdRepl& PartyMember, const FString& PlatformName)
+{
+	for (int32 ResIdx = 0; ResIdx < Reservations.Num(); ResIdx++)
+	{
+		FPartyReservation& ReservationEntry = Reservations[ResIdx];
+		for (FPlayerReservation& PlayerReservation : ReservationEntry.PartyMembers)
+		{
+			if (PlayerReservation.UniqueId == PartyMember)
+			{
+				if (!PlatformName.IsEmpty())
+				{
+					PlayerReservation.Platform = PlatformName;
+				}
+				// Return that member was updated
+				return true;
+			}
+		}
+	}
+
+	//Return that member was not updated
+	return false;
 }
 
 bool UPartyBeaconState::PlayerHasReservation(const FUniqueNetId& PlayerId) const

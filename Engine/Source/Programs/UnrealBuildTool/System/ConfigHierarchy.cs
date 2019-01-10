@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -184,6 +184,29 @@ namespace UnrealBuildTool
         public ConfigHierarchy(IEnumerable<ConfigFile> Files)
 		{
 			this.Files = Files.ToArray();
+		}
+
+		/// <summary>
+		/// Names of all sections in all config files
+		/// </summary>
+		/// <returns></returns>
+		public HashSet<string> SectionNames
+		{
+			get
+			{
+				HashSet<string> Result = new HashSet<string>();
+				foreach (ConfigFile File in Files)
+				{
+					foreach (string SectionName in File.SectionNames)
+					{
+						if ( !Result.Contains(SectionName) )
+						{
+							Result.Add(SectionName);
+						}
+					}
+				}
+				return Result;
+			}
 		}
 
 		/// <summary>

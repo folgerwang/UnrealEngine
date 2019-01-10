@@ -408,9 +408,9 @@ public:
 	{
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags MinPriority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(MinPriority);
 	}
 
 };

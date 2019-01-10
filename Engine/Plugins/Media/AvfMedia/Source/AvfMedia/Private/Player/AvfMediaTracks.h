@@ -12,6 +12,8 @@
 
 #import <AVFoundation/AVFoundation.h>
 
+#define AUDIO_PLAYBACK_VIA_ENGINE (PLATFORM_MAC)
+
 class FAvfMediaAudioSamplePool;
 class FAvfMediaVideoSamplePool;
 class FAvfMediaVideoSampler;
@@ -99,6 +101,16 @@ public:
 
 	/** Reset the stream collection. */
 	void Reset();
+	
+#if AUDIO_PLAYBACK_VIA_ENGINE
+	/**
+	 * Allow independant audio mute when producing audio buffers for play back through the engine
+	 * Muting will stop sending audio buffers to the media audio sink
+	 * e.g. Gives the option to have fast mute on reverse otherwise we can get a few bad buffers
+	 */
+	void ApplyMuteState(bool bMute);
+#endif
+
 public:
 
 	//~ IMediaTracks interface
@@ -136,6 +148,11 @@ private:
 
 	/** The player item containing the track information. */
 	AVPlayerItem* PlayerItem;
+	
+#if AUDIO_PLAYBACK_VIA_ENGINE
+	/** Current Mute State. */
+	volatile bool bMuted;
+#endif
 
 	/** The media sample queue. */
 	FMediaSamples& Samples;

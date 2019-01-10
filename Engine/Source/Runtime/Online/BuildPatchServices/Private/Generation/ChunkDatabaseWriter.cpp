@@ -187,7 +187,9 @@ namespace BuildPatchServices
 				}
 				if (!bSuccess)
 				{
-					UE_LOG(LogChunkDatabaseWriter, Log, TEXT("    Failed chunk %s"), *ChunkDataId.ToString());
+					UE_LOG(LogChunkDatabaseWriter, Error, TEXT("    Failed chunk %s"), *ChunkDataId.ToString());
+					// We set a catch all error here, which only applies if our own loop above, or the chunk source, did not already set its specific error condition.
+					InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::UnknownFail);
 				}
 			}
 			if (bSuccess)
@@ -273,9 +275,11 @@ namespace BuildPatchServices
 		// Delete any created files if we failed.
 		if (!bSuccess)
 		{
+			UE_LOG(LogChunkDatabaseWriter, Error, TEXT("Chunkdb generation failed. All created files will be deleted."));
 			for (const FString& FileToDelete : FilesCreated)
 			{
 				FileSystem->DeleteFile(*FileToDelete);
+				UE_LOG(LogChunkDatabaseWriter, Log, TEXT("Deleted %s"), *FileToDelete);
 			}
 		}
 

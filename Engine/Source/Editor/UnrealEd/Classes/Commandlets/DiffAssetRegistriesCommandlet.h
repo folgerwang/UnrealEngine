@@ -164,6 +164,12 @@ private:
 	// Warn when any class of assets has changed by this amount (0=disabled)
 	int32				WarnPercentage;
 
+	// Don't warn any class of assets with a total change size lower than this amount (0=disabled)
+	int32				WarnSizeMinMB;
+
+	// Warn when the total changes are greater than this amount (0=disabled)
+	int32				WarnTotalChangedSizeMB;
+
 	// Platform we're working on, only used for reporting clarity
 	FString				TargetPlatform;
 

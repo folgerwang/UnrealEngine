@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigVariableNodeSpawner.h"
-#include "ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphNode.h"
 #include "EdGraphSchema_K2.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Classes/EditorStyleSettings.h"

@@ -152,6 +152,11 @@ FString FStartPhysicsTickFunction::DiagnosticMessage()
 	return TEXT("FStartPhysicsTickFunction");
 }
 
+FName FStartPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("StartPhysicsTick"));
+}
+
 void FEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FEndPhysicsTickFunction_ExecuteTick);
@@ -199,6 +204,11 @@ void FEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickT
 FString FEndPhysicsTickFunction::DiagnosticMessage()
 {
 	return TEXT("FEndPhysicsTickFunction");
+}
+
+FName FEndPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("EndPhysicsTick"));
 }
 
 void PvdConnect(FString Host, bool bVisualization);

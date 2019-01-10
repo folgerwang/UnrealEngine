@@ -100,21 +100,62 @@ TArray<FString> FCulture::GetPrioritizedParentCultureNames() const
 TArray<FString> FCulture::GetPrioritizedParentCultureNames(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode)
 {
 	TArray<FString> LocaleTagCombinations;
+
 	if (!ScriptCode.IsEmpty() && !RegionCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + ScriptCode + TEXT("-") + RegionCode);
+		LocaleTagCombinations.Add(CreateCultureName(LanguageCode, ScriptCode, RegionCode));
 	}
+
 	if (!RegionCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + RegionCode);
+		LocaleTagCombinations.Add(CreateCultureName(LanguageCode, FString(), RegionCode));
 	}
+
 	if (!ScriptCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + ScriptCode);
+		LocaleTagCombinations.Add(CreateCultureName(LanguageCode, ScriptCode, FString()));
 	}
+
 	LocaleTagCombinations.Add(LanguageCode);
 
 	return LocaleTagCombinations;
+}
+
+FString FCulture::CreateCultureName(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode)
+{
+	if (!ScriptCode.IsEmpty() && !RegionCode.IsEmpty())
+	{
+		FString CultureName;
+		CultureName.Reserve(LanguageCode.Len() + ScriptCode.Len() + RegionCode.Len() + 2);
+		CultureName += LanguageCode;
+		CultureName += TEXT('-');
+		CultureName += ScriptCode;
+		CultureName += TEXT('-');
+		CultureName += RegionCode;
+		return CultureName;
+	}
+
+	if (!RegionCode.IsEmpty())
+	{
+		FString CultureName;
+		CultureName.Reserve(LanguageCode.Len() + RegionCode.Len() + 1);
+		CultureName += LanguageCode;
+		CultureName += TEXT('-');
+		CultureName += RegionCode;
+		return CultureName;
+	}
+
+	if (!ScriptCode.IsEmpty())
+	{
+		FString CultureName;
+		CultureName.Reserve(LanguageCode.Len() + ScriptCode.Len() + 1);
+		CultureName += LanguageCode;
+		CultureName += TEXT('-');
+		CultureName += ScriptCode;
+		return CultureName;
+	}
+
+	return LanguageCode;
 }
 
 FString FCulture::GetCanonicalName(const FString& Name)
@@ -221,6 +262,11 @@ ETextPluralForm FCulture::GetPluralForm(double Val, const ETextPluralType Plural
 		Val *= -1.0;
 	}
 	return Implementation->GetPluralForm(Val, PluralType);
+}
+
+const TArray<ETextPluralForm>& FCulture::GetValidPluralForms(const ETextPluralType PluralType) const
+{
+	return Implementation->GetValidPluralForms(PluralType);
 }
 
 void FCulture::HandleCultureChanged()

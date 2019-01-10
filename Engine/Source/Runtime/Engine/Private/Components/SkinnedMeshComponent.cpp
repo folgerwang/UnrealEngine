@@ -475,6 +475,15 @@ void USkinnedMeshComponent::OnRegister()
 
 	Super::OnRegister();
 
+	if(FSceneInterface* Scene = GetScene())
+	{
+		CachedSceneFeatureLevel = Scene->GetFeatureLevel();
+	}
+	else
+	{
+		CachedSceneFeatureLevel = ERHIFeatureLevel::Num;
+	}
+
 	UpdateLODStatus();
 	InvalidateCachedBounds();
 }
@@ -721,7 +730,7 @@ bool USkinnedMeshComponent::ShouldUpdateTransform(bool bLODHasChanged) const
 
 bool USkinnedMeshComponent::ShouldUseUpdateRateOptimizations() const
 {
-	return bEnableUpdateRateOptimizations && CVarEnableAnimRateOptimization.GetValueOnGameThread() > 0;
+	return bEnableUpdateRateOptimizations && CVarEnableAnimRateOptimization.GetValueOnAnyThread() > 0;
 }
 
 void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRootMotion)
@@ -740,7 +749,7 @@ void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRoot
 				FColor DrawColor = AnimUpdateRateParams->GetUpdateRateDebugColor();
 				DrawDebugBox(GetWorld(), Bounds.Origin, Bounds.BoxExtent, FQuat::Identity, DrawColor, false);
 
-				FString DebugString = FString::Printf(TEXT("%s UpdateRate(%d) EvaluationRate(%d) Interp(%d) AdditionalTime(%f)"),
+				FString DebugString = FString::Printf(TEXT("%s UpdateRate(%d) EvaluationRate(%d) ShouldInterpolateSkippedFrames(%d) ShouldSkipUpdate(%d) Interp(%d) AdditionalTime(%f)"),
 					*GetNameSafe(SkeletalMesh), AnimUpdateRateParams->UpdateRate, AnimUpdateRateParams->EvaluationRate, 
 					AnimUpdateRateParams->ShouldInterpolateSkippedFrames(), AnimUpdateRateParams->ShouldSkipUpdate(), AnimUpdateRateParams->AdditionalTime);
 
@@ -1664,26 +1673,27 @@ void USkinnedMeshComponent::UpdateMasterBoneMap()
 
 FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
 {
+	QUICK_SCOPE_CYCLE_COUNTER(USkinnedMeshComponent_GetSocketTransform);
+
 	FTransform OutSocketTransform = GetComponentTransform();
 
 	if (InSocketName != NAME_None)
 	{
-		USkeletalMeshSocket const* const Socket = GetSocketByName(InSocketName);
+		int32 SocketBoneIndex;
+		FTransform SocketLocalTransform;
+		USkeletalMeshSocket const* const Socket = GetSocketInfoByName(InSocketName, SocketLocalTransform, SocketBoneIndex);
 		// apply the socket transform first if we find a matching socket
 		if (Socket)
 		{
-			FTransform SocketLocalTransform = Socket->GetSocketLocalTransform();
-
 			if (TransformSpace == RTS_ParentBoneSpace)
 			{
 				//we are done just return now
 				return SocketLocalTransform;
 			}
 
-			int32 BoneIndex = GetBoneIndex(Socket->BoneName);
-			if (BoneIndex != INDEX_NONE)
+			if (SocketBoneIndex != INDEX_NONE)
 			{
-				FTransform BoneTransform = GetBoneTransform(BoneIndex);
+				FTransform BoneTransform = GetBoneTransform(SocketBoneIndex);
 				OutSocketTransform = SocketLocalTransform * BoneTransform;
 			}
 		}
@@ -1727,12 +1737,41 @@ FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelati
 	return OutSocketTransform;
 }
 
+class USkeletalMeshSocket const* USkinnedMeshComponent::GetSocketInfoByName(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex) const
+{
+	const FName* OverrideSocket = SocketOverrideLookup.Find(InSocketName);
+	const FName OverrideSocketName = OverrideSocket ? *OverrideSocket : InSocketName;
+
+	USkeletalMeshSocket const* Socket = nullptr;
+
+	if( SkeletalMesh )
+	{
+		int32 SocketIndex;
+		Socket = SkeletalMesh->FindSocketInfo(OverrideSocketName, OutTransform, OutBoneIndex, SocketIndex);
+	}
+	else
+	{
+		if (OverrideSocket)
+		{
+			UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s -> override To %s): No SkeletalMesh for Component(%s) Actor(%s)"),
+				*InSocketName.ToString(), *OverrideSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
+		}
+		else
+		{
+			UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s): No SkeletalMesh for Component(%s) Actor(%s)"),
+				*OverrideSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
+		}
+	}
+
+	return Socket;
+}
+
 class USkeletalMeshSocket const* USkinnedMeshComponent::GetSocketByName(FName InSocketName) const
 {
 	const FName* OverrideSocket = SocketOverrideLookup.Find(InSocketName);
 	const FName OverrideSocketName = OverrideSocket ? *OverrideSocket : InSocketName;
 
-	USkeletalMeshSocket const* Socket = NULL;
+	USkeletalMeshSocket const* Socket = nullptr;
 
 	if( SkeletalMesh )
 	{
@@ -2606,8 +2645,18 @@ void USkinnedMeshComponent::SetCapsuleIndirectShadowMinVisibility(float NewValue
 
 bool USkinnedMeshComponent::UpdateLODStatus()
 {
+	return UpdateLODStatus_Internal(INDEX_NONE);
+}
+
+bool USkinnedMeshComponent::UpdateLODStatus_Internal(int32 InMasterPoseComponentPredictedLODLevel)
+{
+	SCOPED_NAMED_EVENT(USkinnedMeshComponent_UpdateLODStatus, FColor::Red);
+
 	// Predict the best (min) LOD level we are going to need. Basically we use the Min (best) LOD the renderer desired last frame.
 	// Because we update bones based on this LOD level, we have to update bones to this LOD before we can allow rendering at it.
+
+	const int32 OldPredictedLODLevel = PredictedLODLevel;
+	int32 NewPredictedLODLevel = OldPredictedLODLevel;
 
 	if (SkeletalMesh != nullptr)
 	{
@@ -2618,16 +2667,7 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 #endif
 
 		int32 MinLodIndex = bOverrideMinLod ? MinLodModel : 0;
-		if(FSceneInterface* Scene = GetScene())
-		{
-			const ERHIFeatureLevel::Type SceneFeatureLevel = GetScene()->GetFeatureLevel();
-			MinLodIndex = FMath::Max(MinLodIndex, SkeletalMesh->MinLod.GetValueForFeatureLevel(SceneFeatureLevel));
-		}
-		else
-		{
-			// No scene, can't reliably get per-platform Min LOD, get default
-			MinLodIndex = FMath::Max(MinLodIndex, SkeletalMesh->MinLod.Default);
-		}
+		MinLodIndex = FMath::Max(MinLodIndex, SkeletalMesh->MinLod.GetValueForFeatureLevel(CachedSceneFeatureLevel));
 
 		int32 MaxLODIndex = 0;
 		if (MeshObject)
@@ -2635,32 +2675,34 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 			MaxLODIndex = MeshObject->GetSkeletalMeshRenderData().LODRenderData.Num() - 1;
 			// want to make sure MinLOD stays within the valid range
 			MinLodIndex = FMath::Clamp(MinLodIndex, 0, MaxLODIndex);
+
+			MaxDistanceFactor = MeshObject->MaxDistanceFactor;
 		}
 
 		// Support forcing to a particular LOD.
 		if (ForcedLodModel > 0)
 		{
-			PredictedLODLevel = FMath::Clamp(ForcedLodModel - 1, MinLodIndex, MaxLODIndex);
+			NewPredictedLODLevel = FMath::Clamp(ForcedLodModel - 1, MinLodIndex, MaxLODIndex);
 		}
 		else
 		{
-			// Match LOD of MasterPoseComponent if it exists.		
-			if (USkinnedMeshComponent* MasterPoseComponentPtr = (!bIgnoreMasterPoseComponentLOD ? MasterPoseComponent.Get() : nullptr))
+			// Match LOD of MasterPoseComponent if it exists.
+			if (InMasterPoseComponentPredictedLODLevel != INDEX_NONE && !bIgnoreMasterPoseComponentLOD)
 			{
-				PredictedLODLevel = FMath::Clamp(MasterPoseComponentPtr->PredictedLODLevel, 0, MaxLODIndex);
+				NewPredictedLODLevel = FMath::Clamp(InMasterPoseComponentPredictedLODLevel, 0, MaxLODIndex);
 			}
 			else if (bSyncAttachParentLOD && GetAttachParent() && GetAttachParent()->IsA(USkinnedMeshComponent::StaticClass()))
 			{
-				PredictedLODLevel = FMath::Clamp(CastChecked<USkinnedMeshComponent>(GetAttachParent())->PredictedLODLevel, 0, MaxLODIndex);
+				NewPredictedLODLevel = FMath::Clamp(CastChecked<USkinnedMeshComponent>(GetAttachParent())->PredictedLODLevel, 0, MaxLODIndex);
 			}
 			else if (MeshObject)
 			{
-				PredictedLODLevel = FMath::Clamp(MeshObject->MinDesiredLODLevel + LODBias, 0, MaxLODIndex);
+				NewPredictedLODLevel = FMath::Clamp(MeshObject->MinDesiredLODLevel + LODBias, 0, MaxLODIndex);
 			}
 			// If no MeshObject - just assume lowest LOD.
 			else
 			{
-				PredictedLODLevel = MaxLODIndex;
+				NewPredictedLODLevel = MaxLODIndex;
 			}
 
 			// now check to see if we have a MinLODLevel and apply it
@@ -2668,11 +2710,11 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 			{
 				if(MinLodIndex <= MaxLODIndex)
 				{
-					PredictedLODLevel = FMath::Clamp(PredictedLODLevel, MinLodIndex, MaxLODIndex);
+					NewPredictedLODLevel = FMath::Clamp(NewPredictedLODLevel, MinLodIndex, MaxLODIndex);
 				}
 				else
 				{
-					PredictedLODLevel = MaxLODIndex;
+					NewPredictedLODLevel = MaxLODIndex;
 				}
 			}
 		}
@@ -2712,18 +2754,12 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	}
 	else
 	{
-		PredictedLODLevel = 0;
+		NewPredictedLODLevel = 0;
 	}
 
 	// See if LOD has changed. 
-	bool bLODChanged = (PredictedLODLevel != OldPredictedLODLevel);
-	OldPredictedLODLevel = PredictedLODLevel;
-
-	// Read back MaxDistanceFactor from the render object.
-	if(MeshObject)
-	{
-		MaxDistanceFactor = MeshObject->MaxDistanceFactor;
-	}
+	bool bLODChanged = (NewPredictedLODLevel != OldPredictedLODLevel);
+	PredictedLODLevel = NewPredictedLODLevel;
 	
 	// also update slave component LOD status, as we may need to recalc required bones if this changes
 	// independently of our LOD
@@ -2731,7 +2767,7 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	{
 		if (USkinnedMeshComponent* SlaveComponentPtr = SlaveComponent.Get())
 		{
-			bLODChanged |= SlaveComponentPtr->UpdateLODStatus();
+			bLODChanged |= SlaveComponentPtr->UpdateLODStatus_Internal(NewPredictedLODLevel);
 		}
 	}
 
@@ -3261,6 +3297,36 @@ void USkinnedMeshComponent::SetRenderStatic(bool bNewValue)
 		MarkRenderStateDirty();
 	}
 }
+
+#if WITH_EDITOR
+void USkinnedMeshComponent::BindWorldDelegates()
+{
+	FWorldDelegates::OnPostWorldCreation.AddStatic(&HandlePostWorldCreation);
+}
+
+void USkinnedMeshComponent::HandlePostWorldCreation(UWorld* InWorld)
+{
+	TWeakObjectPtr<UWorld> WeakWorld = InWorld;
+	InWorld->AddOnFeatureLevelChangedHandler(FOnFeatureLevelChanged::FDelegate::CreateStatic(&HandleFeatureLevelChanged, WeakWorld));
+}
+
+void USkinnedMeshComponent::HandleFeatureLevelChanged(ERHIFeatureLevel::Type InFeatureLevel, TWeakObjectPtr<UWorld> InWorld)
+{
+	if(UWorld* World = InWorld.Get())
+	{
+		for(TObjectIterator<USkinnedMeshComponent> It; It; ++It)
+		{
+			if(USkinnedMeshComponent* Component = *It)
+			{
+				if(Component->GetWorld() == World)
+				{
+					Component->CachedSceneFeatureLevel = InFeatureLevel;
+				}
+			}
+		}
+	}
+}
+#endif // WITH_EDITORONLY_DATA
 
 void FAnimUpdateRateParameters::SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames)
 {

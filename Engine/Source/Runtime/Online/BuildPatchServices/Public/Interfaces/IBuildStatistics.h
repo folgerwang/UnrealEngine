@@ -126,44 +126,24 @@ namespace BuildPatchServices
 		virtual int64 GetBuildSize() const = 0;
 
 		/**
-		 * @return the size in chunks of the store for the install chunk source.
+		 * @return the size in chunks of the memory store.
 		 */
-		virtual int32 GetInstallMemoryChunkStoreSize() const = 0;
+		virtual int32 GetMemoryChunkStoreSize() const = 0;
 
 		/**
-		 * @return the number of chunks currently in the store for the install chunk source.
+		 * @return the number of chunks currently in the memory store.
 		 */
-		virtual int32 GetInstallMemoryChunksInStore() const = 0;
+		virtual int32 GetMemoryChunksInStore() const = 0;
 
 		/**
-		 * @return the number of chunks that have been booted from the store for the install chunk source.
+		 * @return the number of chunks that have been booted from the memory store.
 		 */
-		virtual int32 GetInstallMemoryChunksBooted() const = 0;
+		virtual int32 GetMemoryChunksBooted() const = 0;
 
 		/**
-		 * @return the number of chunks currently in the store for the install chunk source which are held due to multiple referencing.
+		 * @return the number of chunks currently in the memory store which are held due to multiple referencing.
 		 */
-		virtual int32 GetInstallMemoryChunksRetained() const = 0;
-
-		/**
-		 * @return the size in chunks of the store for the cloud chunk source.
-		 */
-		virtual int32 GetCloudMemoryChunkStoreSize() const = 0;
-
-		/**
-		 * @return the number of chunks currently in the store for the cloud chunk source.
-		 */
-		virtual int32 GetCloudMemoryChunksInStore() const = 0;
-
-		/**
-		 * @return the number of chunks that have been booted from the store for the cloud chunk source.
-		 */
-		virtual int32 GetCloudMemoryChunksBooted() const = 0;
-
-		/**
-		 * @return the number of chunks currently in the store for the cloud chunk source which are held due to multiple referencing.
-		 */
-		virtual int32 GetCloudMemoryChunksRetained() const = 0;
+		virtual int32 GetMemoryChunksRetained() const = 0;
 
 		/**
 		 * @return the filename of the file currently being worked on.
@@ -234,6 +214,23 @@ namespace BuildPatchServices
 		 * @return the verify errors experienced during this installation.
 		 */
 		virtual TMap<EVerifyError, int32> GetVerifyErrorCounts() const = 0;
+
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunkStoreSize instead.")
+		virtual int32 GetInstallMemoryChunkStoreSize() const { return GetMemoryChunkStoreSize(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksInStore instead.")
+		virtual int32 GetInstallMemoryChunksInStore() const { return GetMemoryChunksInStore(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksBooted instead.")
+		virtual int32 GetInstallMemoryChunksBooted() const { return GetMemoryChunksBooted(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksRetained instead.")
+		virtual int32 GetInstallMemoryChunksRetained() const { return GetMemoryChunksRetained(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunkStoreSize instead.")
+		virtual int32 GetCloudMemoryChunkStoreSize() const { return GetMemoryChunkStoreSize(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksInStore instead.")
+		virtual int32 GetCloudMemoryChunksInStore() const { return GetMemoryChunksInStore(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksBooted instead.")
+		virtual int32 GetCloudMemoryChunksBooted() const { return GetMemoryChunksBooted(); }
+		UE_DEPRECATED(4.21, "Please use GetMemoryChunksRetained instead.")
+		virtual int32 GetCloudMemoryChunksRetained() const { return GetMemoryChunksRetained(); }
 	};
 
 	typedef TSharedPtr<IBuildStatistics> IBuildStatisticsPtr;

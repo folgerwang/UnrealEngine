@@ -51,43 +51,66 @@ void UMaterialInstanceConstant::PostEditChangeProperty(FPropertyChangedEvent& Pr
 
 void UMaterialInstanceConstant::SetParentEditorOnly(UMaterialInterface* NewParent)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetParentInternal(NewParent, true);
+}
+
+void UMaterialInstanceConstant::CopyMaterialUniformParametersEditorOnly(UMaterialInterface* Source, bool bIncludeStaticParams)
+{
+	CopyMaterialUniformParametersInternal(Source);
+
+	if (bIncludeStaticParams && (Source != nullptr) && (Source != this))
+	{
+		if (UMaterialInstance* SourceMatInst = Cast<UMaterialInstance>(Source))
+		{
+			FStaticParameterSet SourceParamSet;
+			SourceMatInst->GetStaticParameterValues(SourceParamSet);
+
+			FStaticParameterSet MyParamSet;
+			GetStaticParameterValues(MyParamSet);
+
+			MyParamSet.StaticSwitchParameters = SourceParamSet.StaticSwitchParameters;
+
+			UpdateStaticPermutation(MyParamSet);
+
+			InitResources();
+		}
+	}
 }
 
 void UMaterialInstanceConstant::SetVectorParameterValueEditorOnly(const FMaterialParameterInfo& ParameterInfo, FLinearColor Value)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetVectorParameterValueInternal(ParameterInfo,Value);
 }
 
 void UMaterialInstanceConstant::SetScalarParameterValueEditorOnly(const FMaterialParameterInfo& ParameterInfo, float Value)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetScalarParameterValueInternal(ParameterInfo,Value);
 }
 
 void UMaterialInstanceConstant::SetScalarParameterAtlasEditorOnly(const FMaterialParameterInfo& ParameterInfo, FScalarParameterAtlasInstanceData AtlasData)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetScalarParameterAtlasInternal(ParameterInfo, AtlasData);
 }
 
 void UMaterialInstanceConstant::SetTextureParameterValueEditorOnly(const FMaterialParameterInfo& ParameterInfo, UTexture* Value)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetTextureParameterValueInternal(ParameterInfo,Value);
 }
 
 void UMaterialInstanceConstant::SetFontParameterValueEditorOnly(const FMaterialParameterInfo& ParameterInfo,class UFont* FontValue,int32 FontPage)
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	SetFontParameterValueInternal(ParameterInfo,FontValue,FontPage);
 }
 
 void UMaterialInstanceConstant::ClearParameterValuesEditorOnly()
 {
-	check(GIsEditor);
+	check(GIsEditor || IsRunningCommandlet());
 	ClearParameterValuesInternal();
 }
 #endif // #if WITH_EDITOR

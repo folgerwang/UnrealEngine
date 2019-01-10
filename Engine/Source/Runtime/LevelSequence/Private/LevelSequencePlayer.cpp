@@ -20,6 +20,7 @@
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "LevelSequenceActor.h"
+#include "Modules/ModuleManager.h"
 
 
 /* ULevelSequencePlayer structors
@@ -27,9 +28,7 @@
 
 ULevelSequencePlayer::ULevelSequencePlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{
-	SpawnRegister = MakeShareable(new FLevelSequenceSpawnRegister);
-}
+{}
 
 
 /* ULevelSequencePlayer interface
@@ -76,6 +75,7 @@ ULevelSequencePlayer* ULevelSequencePlayer::CreateLevelSequencePlayer(UObject* W
 void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* InWorld, const FMovieSceneSequencePlaybackSettings& Settings)
 {
 	World = InWorld;
+	SpawnRegister = MakeShareable(new FLevelSequenceSpawnRegister);
 	UMovieSceneSequencePlayer::Initialize(InLevelSequence, Settings);
 }
 

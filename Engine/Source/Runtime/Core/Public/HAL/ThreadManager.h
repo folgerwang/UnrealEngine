@@ -40,6 +40,17 @@ public:
 	/** Returns the name of a thread given its TLS id */
 	const FString& GetThreadName(uint32 ThreadId);
 
+#if PLATFORM_WINDOWS
+	struct FThreadStackBackTrace
+	{
+		uint32 ThreadId;
+		FString ThreadName;
+		TArray<uint64, TInlineAllocator<100>> ProgramCounters;
+	};
+
+	void GetAllThreadStackBackTraces(TArray<FThreadStackBackTrace>& StackTraces);
+#endif
+
 	/**
 	 * Access to the singleton object.
 	 *

@@ -122,15 +122,7 @@ public class CEF3 : ModuleRules
 				string RuntimeLibCEFPath = Path.Combine(RuntimePath, "libcef.so");
 				PublicAdditionalLibraries.Add(RuntimeLibCEFPath);
 
-				string Configuration;
-				if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
-				{
-					Configuration = "build_debug";
-				}
-				else
-				{
-					Configuration = "build_release";
-				}
+				string Configuration = "build_release";
 				string WrapperLibraryPath =  Path.Combine(PlatformPath, Configuration, "libcef_dll");
 
 				PublicAdditionalLibraries.Add(Path.Combine(WrapperLibraryPath, "libcef_dll_wrapper.a"));

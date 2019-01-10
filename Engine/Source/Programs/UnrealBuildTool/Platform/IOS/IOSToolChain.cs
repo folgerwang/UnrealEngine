@@ -1453,7 +1453,7 @@ namespace UnrealBuildTool
 		private static void GenerateCrashlyticsData(string ExecutableDirectory, string ExecutableName, string ProjectDir, string ProjectName)
         {
 			Log.TraceInformation("Generating and uploading Crashlytics Data");
-            string FabricPath = UnrealBuildTool.EngineDirectory + "/Intermediate/UnzippedFrameworks/ThirdPartyFrameworks/Fabric.embeddedframework";
+            string FabricPath = UnrealBuildTool.EngineDirectory + "/Intermediate/ThirdPartyFrameworks/Fabric.embeddedframework";
             if (Directory.Exists(FabricPath) && Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
             {
 				string PlistFile = ProjectDir + "/Intermediate/IOS/" + ProjectName + "-Info.plist";

@@ -59,7 +59,6 @@ FIOSPlatformTextField::~FIOSPlatformTextField()
 #if !PLATFORM_TVOS
             [LocalTextField hide];
 #endif
-			[LocalTextField release];
 		});
 	}
 }
@@ -108,8 +107,7 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
                     if (LocalTextField != nullptr)
                     {
                         [LocalTextField hide];
-                        [LocalTextField release];
-                    }
+                     }
                 });
 			}
         }

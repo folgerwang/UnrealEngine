@@ -401,7 +401,9 @@ struct FGlobalActorReplicationInfo;
 
 struct FFastSharedReplicationInfo
 {
-	uint32 LastBuiltFrameNum = 0;
+	// LastBuiltFrameNum = 0;
+	uint32 LastAttemptBuildFrameNum = 0; // the last frame we called FastSharedReplicationFunc on
+	uint32 LastBunchBuildFrameNum = 0;	// the last frame a new bunch was actually created
 	FOutBunch Bunch;
 };
 
@@ -1264,7 +1266,7 @@ private:
 		FTrackedData(FString Suffix)
 		{
 #if REPGRAPH_CSV_TRACKER
-			StatName = FName(*(FString(CSV_STAT_NAME_PREFIX) + Suffix));
+			StatName = FName(*Suffix);
 #endif
 		}
 

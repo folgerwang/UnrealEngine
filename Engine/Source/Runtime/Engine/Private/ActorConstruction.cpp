@@ -1064,7 +1064,8 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 				TemplateData = BPGC->CookedComponentInstancingData.Find(TemplateName);
 			}
 			
-			if (!TemplateData || !TemplateData->bIsValid)
+			if (!TemplateData || !TemplateData->bIsValid
+				|| !ensureMsgf(TemplateData->ComponentTemplateClass != nullptr, TEXT("AddComponent fast path (%s.%s): Cooked data is valid, but runtime support data is not initialized. Using the slow path instead."), *BPGC->GetName(), *TemplateName.ToString()))
 			{
 				Template = BPGC->FindComponentTemplateByName(TemplateName);
 			}

@@ -84,6 +84,7 @@
     <Compile Include="Framework\Gauntlet.Params.cs" />
     <Compile Include="Framework\Gauntlet.TestGroup.cs" />
     <Compile Include="Framework\Utils\Gauntlet.MarkdownBuilder.cs" />
+    <Compile Include="Framework\Utils\Gauntlet.HtmlBuilder.cs" />
     <Compile Include="Platform\Null\Gauntlet.TargetDeviceNull.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBuildParsing.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -122,6 +123,7 @@
     <Compile Include="Unreal\Base\Gauntlet.UnrealTestConfiguration.cs" />
     <Compile Include="Unreal\Base\Gauntlet.UnrealTestContext.cs" />
     <Compile Include="Unreal\Base\Gauntlet.UnrealTestNode.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealPGONode.cs" />
     <Compile Include="Unreal\Game\EpicGame.TestConfig.cs" />
     <Compile Include="Unreal\Game\UE4Game.DefaultNode.cs" />
     <Compile Include="Unreal\RunUnreal.cs" />
@@ -209,6 +211,14 @@
     </When>
   </Choose>
   <Choose>
+    <When Condition="Exists('Platform\IOS\Gauntlet.TargetDeviceIOS.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\IOS\Gauntlet.TargetDeviceIOS.cs" />
+        <Compile Include="Platform\IOS\Gauntlet.IOSBuildSource.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
     <When Condition="Exists('Platform\Mac\Gauntlet.TargetDeviceMac.cs')">
       <ItemGroup>
         <Compile Include="Platform\Mac\Gauntlet.TargetDeviceMac.cs" />
@@ -225,6 +235,8 @@
         <Compile Include="Platform\PS4\Gauntlet.PS4BuildSources.cs" />
         <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestUnrealInstallAndRunPS4.cs" />
         <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestTargetDevicePS4.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.PS4PGO.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.PS4Utils.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -233,6 +245,7 @@
       <ItemGroup>
         <Compile Include="Platform\Switch\Gauntlet.TargetDeviceSwitch.cs" />
         <Compile Include="Platform\Switch\Gauntlet.SwitchBuildSource.cs" />
+        <Compile Include="Platform\Switch\Gauntlet.SwitchPGO.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -241,6 +254,7 @@
       <ItemGroup>
         <Compile Include="Platform\Windows\Gauntlet.TargetDeviceWindows.cs" />
         <Compile Include="Platform\Windows\Gauntlet.WindowsBuildSources.cs" />
+        <Compile Include="Platform\Windows\Gauntlet.WindowsPGO.cs" />
         <Compile Include="Platform\Windows\Gauntlet.SelfTest.TestTargetDeviceWindows.cs" />
       </ItemGroup>
     </When>
@@ -252,6 +266,7 @@
         <Compile Include="Platform\XboxOne\Gauntlet.XboxOneBuildSource.cs" />
         <Compile Include="Platform\XboxOne\Gauntlet.SelfTest.TestUnrealInstallAndRunXboxOne.cs" />
         <Compile Include="Platform\XboxOne\Gauntlet.SelfTest.TestTargetDeviceXboxOne.cs" />
+        <Compile Include="Platform\XboxOne\Gauntlet.XboxOnePGO.cs" />
       </ItemGroup>
     </When>
   </Choose>

@@ -286,6 +286,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	IDetailCategoryBuilder& AppManifestCategory = DetailLayout.EditCategory(TEXT("Info.plist"));
 	IDetailCategoryBuilder& BundleCategory = DetailLayout.EditCategory(TEXT("BundleInformation"));
 	IDetailCategoryBuilder& OrientationCategory = DetailLayout.EditCategory(TEXT("Orientation"));
+	IDetailCategoryBuilder& FileSystemCategory = DetailLayout.EditCategory(TEXT("FileSystem"));
 	IDetailCategoryBuilder& RenderCategory = DetailLayout.EditCategory(TEXT("Rendering"));
 	IDetailCategoryBuilder& OSInfoCategory = DetailLayout.EditCategory(TEXT("OS Info"));
 	IDetailCategoryBuilder& DeviceCategory = DetailLayout.EditCategory(TEXT("Devices"));
@@ -807,6 +808,8 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	SETUP_PLIST_PROP(bSupportsLandscapeLeftOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(bSupportsLandscapeRightOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(PreferredLandscapeOrientation, OrientationCategory);
+	
+	SETUP_PLIST_PROP(bSupportsITunesFileSharing, FileSystemCategory);
 	
 	SETUP_PLIST_PROP(bSupportsMetal, RenderCategory);
 	

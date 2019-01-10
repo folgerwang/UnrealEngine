@@ -1128,6 +1128,7 @@ public:
 
 	/** Get multicast delegate broadcast after mesh building */
 	FOnPostMeshBuild& OnPostMeshBuild() { return PostMeshBuild; }
+	
 
 	/* Return true if the reduction settings are setup to reduce a LOD*/
 	ENGINE_API bool IsReductionActive(int32 LODIndex) const;

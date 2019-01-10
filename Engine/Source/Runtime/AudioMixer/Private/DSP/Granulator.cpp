@@ -774,7 +774,7 @@ namespace Audio
 
 	float FGranularSynth::GetSampleDuration() const
 	{
-		return SampleBuffer.SampleDuration;
+		return SampleBuffer.GetSampleDuration();
 	}
 
 	void FGranularSynth::Generate(float* OutAudiobuffer, const int32 NumFrames)

@@ -58,13 +58,13 @@ struct FNiagaraModuleDependency
 public:
 	/** Specifies the provided id of the required dependent module (e.g. 'ProvidesNormalizedAge') */
 	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
-		FName Id;
+	FName Id;
 	/** Whether the dependency belongs before or after this module */
 	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
-		ENiagaraModuleDependencyType Type; // e.g. PreDependency,
+	ENiagaraModuleDependencyType Type; // e.g. PreDependency,
 										   /** Detailed description of the dependency */
 	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script, meta = (MultiLine = true))
-		FText Description;
+	FText Description;
 };
 
 struct FNiagaraScriptDebuggerInfo

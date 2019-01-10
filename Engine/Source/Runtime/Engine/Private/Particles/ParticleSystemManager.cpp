@@ -272,6 +272,18 @@ void FParticleSystemWorldManager::Cleanup()
 {
 	FCoreUObjectDelegates::GetPostGarbageCollect().Remove(PostGarbageCollectHandle);
 
+	// Clear out pending particle system components.
+	for (UParticleSystemComponent* PendingRegisterPSC : PendingRegisterPSCs)
+	{
+		if (PendingRegisterPSC != nullptr)
+		{
+			PendingRegisterPSC->SetManagerHandle(INDEX_NONE);
+			PendingRegisterPSC->SetPendingManagerAdd(false);
+		}
+	}
+	PendingRegisterPSCs.Reset();
+
+	// Clear out actively managed particle system components.
 	for (int32 PSCIndex = ManagedPSCs.Num() - 1; PSCIndex >= 0; --PSCIndex)
 	{
 		RemovePSC(PSCIndex);
@@ -523,6 +535,11 @@ void FParticleSystemWorldManager::ProcessTickList(float DeltaTime, ELevelTick Ti
 			{
 				//UE_LOG(LogParticles, Warning, TEXT("| Ticking %d | PSC: %p "), PSCIndex, PSC);
 
+				if (PSC->CanSkipTickDueToVisibility())
+				{
+					continue;
+				}
+
 				//TODO: Replace call to TickComponent with new call that allows us to pull duplicated work up to share across all ticks.
 				if (bAsync)
 				{
@@ -571,17 +588,23 @@ void FParticleSystemWorldManager::ProcessTickList(float DeltaTime, ELevelTick Ti
 	}
 }
 
+void FParticleSystemWorldManager::ClearPendingUnregister()
+{
+	// Remove any PSC that have been unregistered.
+	for (int32 PSCIndex = ManagedPSCs.Num() - 1; PSCIndex >= 0; --PSCIndex)
+	{
+		FPSCTickData& TickData = PSCTickData[PSCIndex];
+		if (TickData.bPendingUnregister)
+		{
+			RemovePSC(PSCIndex);
+		}
+	}
+}
+
 void FParticleSystemWorldManager::Tick(ETickingGroup TickGroup, float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	//UE_LOG(LogParticles, Warning, TEXT("| ---- PSC World Manager Tick ----- | TG %s | World: %p - %s |"), *TickGroupEnum->GetNameByValue(TickGroup).ToString(), World, *World->GetFullName());
-
-	HandleManagerEnabled();
-
-	if (!bCachedParticleWorldManagerEnabled)
-	{
-		return;
-	}
-
+	
 	SCOPE_CYCLE_COUNTER(STAT_PSCMan_Tick);
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Effects);
 	
@@ -589,16 +612,16 @@ void FParticleSystemWorldManager::Tick(ETickingGroup TickGroup, float DeltaTime,
 	int32 BuildListStart = ManagedPSCs.Num();
 	if (TickGroup == TG_PrePhysics)
 	{
-		// Remove any PSC that have been unregistered.
-		for (int32 PSCIndex = ManagedPSCs.Num() - 1; PSCIndex >= 0; --PSCIndex)
-		{
-			FPSCTickData& TickData = PSCTickData[PSCIndex];
-			if (TickData.bPendingUnregister)
-			{
-				RemovePSC(PSCIndex);
-			}
-		}
+		HandleManagerEnabled();
+		ClearPendingUnregister();
 		BuildListStart = 0;
+	}
+
+	if (!bCachedParticleWorldManagerEnabled)
+	{
+		check(ManagedPSCs.Num() == 0);
+		check(PSCTickData.Num() == 0);
+		return;
 	}
 
 	//Add any pending PSCs to the main arrays.
@@ -624,11 +647,18 @@ void FParticleSystemWorldManager::Tick(ETickingGroup TickGroup, float DeltaTime,
 	bool bAllowTickConcurrent = !FXConsoleVariables::bFreezeParticleSimulation && FXConsoleVariables::bAllowAsyncTick && FApp::ShouldUseThreadingForPerformance() && GDistributionType != 0;
 	if (bAllowTickConcurrent)
 	{
-		//If the final TG completion handle is not valid then we must make the current tick function to wait on any spawned tasks.
-		//This should only happen when we flip the manager on/off at runtime.
-		const FGraphEventRef&  CompletionHandle = TickFunctions.Last().IsCompletionHandleValid() ? TickFunctions.Last().GetCompletionHandle() : MyCompletionGraphEvent;
-
-		ProcessTickList<true>(DeltaTime, TickType, TickGroup, TickLists_Concurrent, CompletionHandle);
+		//Have the final tick group wait for completion until all our async work is complete.
+		//This is required for safety as afaik there is no other mechanism that would prevent our async tasks running past the GT portion of the frame and overlapping with the EOF updates.
+		//If this is an incorrect assumption then this can be discarded.
+		if (TickFunctions.Last().IsCompletionHandleValid())
+		{
+			ProcessTickList<true>(DeltaTime, TickType, TickGroup, TickLists_Concurrent, TickFunctions.Last().GetCompletionHandle());
+		}
+		else
+		{
+			UE_LOG(LogParticles, Warning, TEXT("PSC Manager final tick function did not have a valid completion handle. Waiting on this tick group."));
+			ProcessTickList<true>(DeltaTime, TickType, TickGroup, TickLists_Concurrent, MyCompletionGraphEvent);
+		}
 	}
 	else
 	{
@@ -670,28 +700,6 @@ void FParticleSystemWorldManager::HandleManagerEnabled()
 		else
 		{
 			//UE_LOG(LogParticles, Warning, TEXT("| Disabling Particle System World Manager |"));
-
-			for (int32 PSCIndex = ManagedPSCs.Num() - 1; PSCIndex >= 0; --PSCIndex)
-			{
-				FPSCTickData& TickData = PSCTickData[PSCIndex];
-				//Everything should be ending unregister now.
-				check(TickData.bPendingUnregister);
-				RemovePSC(PSCIndex);
-			}
-
-			check(ManagedPSCs.Num() == 0);
-			check(PSCTickData.Num() == 0);
-
-
-			for (FTickList& TickList : TickLists_Concurrent)
-			{
-				TickList.Reset();
-			}
-
-			for (FTickList& TickList : TickLists_GT)
-			{
-				TickList.Reset();
-			}
 
 			//Disable all but leave pre physics in tact to poll the cvar for changes. TODO: Remove this for shipping? Don't allow changing at RT in Shipped?
 			for (FParticleSystemWorldManagerTickFunction& TickFunc : TickFunctions)
@@ -762,6 +770,11 @@ FString FParticleSystemWorldManagerTickFunction::DiagnosticMessage()
 	static const UEnum* EnumType = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ETickingGroup"));
 
 	return TEXT("FParticleSystemManager::Tick(") + EnumType->GetNameStringByIndex(static_cast<uint32>(TickGroup)) + TEXT(")");
+}
+
+FName FParticleSystemWorldManagerTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("ParticleSystemManager"));
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -39,6 +39,8 @@ enum ECompressionFlags
 /** mask out compression type */
 #define COMPRESSION_FLAGS_OPTIONS_MASK	0xF0
 
+#define COMPRESSION_FLAGS_BIAS_MASK (COMPRESS_BiasMemory | COMPRESS_BiasSpeed)
+
 /** Default compressor bit window for Zlib */
 #define DEFAULT_ZLIB_BIT_WINDOW		15
 

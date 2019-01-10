@@ -26,6 +26,7 @@ IStreamedCompressedInfo::IStreamedCompressedInfo()
 	, StreamingSoundWave(nullptr)
 	, CurrentChunkIndex(0)
 	, bPrintChunkFailMessage(true)
+	, SrcBufferPadding(0)
 {
 }
 
@@ -222,8 +223,8 @@ bool IStreamedCompressedInfo::StreamCompressedData(uint8* Destination, bool bLoo
 
 			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
 
-			// Have we reached the end of buffer
-			if (SrcBufferOffset >= SrcBufferDataSize)
+			// Have we reached the end of buffer?
+			if (SrcBufferOffset >= SrcBufferDataSize - SrcBufferPadding)
 			{
 				// Special case for the last chunk of audio
 				if (CurrentChunkIndex == StreamingSoundWave->RunningPlatformData->NumChunks - 1)
@@ -592,10 +593,12 @@ namespace ADPCM
 /**
  * Worker for decompression on a separate thread
  */
-FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave)
+FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave, int32 InPrecacheBufferNumFrames)
 	: Wave(InWave)
-	, AudioInfo(NULL)
+	, AudioInfo(nullptr)
+	, NumPrecacheFrames(InPrecacheBufferNumFrames)
 {
+	check(NumPrecacheFrames > 0);
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
 		AudioInfo = GEngine->GetMainAudioDevice()->CreateCompressedAudioInfo(Wave);
@@ -605,6 +608,7 @@ FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave)
 void FAsyncAudioDecompressWorker::DoWork()
 {
 	LLM_SCOPE(ELLMTag::Audio);
+	LLM_SCOPE(ELLMTag::AudioDecompress);
 
 	if (AudioInfo)
 	{
@@ -638,8 +642,10 @@ void FAsyncAudioDecompressWorker::DoWork()
 
 			if (Wave->DecompressionType == DTYPE_RealTime)
 			{
+				LLM_SCOPE(ELLMTag::AudioRealtimePrecache);
 #if PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS > 0
-				const uint32 PCMBufferSize = MONO_PCM_BUFFER_SIZE * Wave->NumChannels * PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS;
+				const uint32 PCMBufferSize = NumPrecacheFrames * sizeof(int16) * Wave->NumChannels * PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS;
+				Wave->NumPrecacheFrames = NumPrecacheFrames;
 				if (Wave->CachedRealtimeFirstBuffer == nullptr)
 				{
 					Wave->CachedRealtimeFirstBuffer = (uint8*)FMemory::Malloc(PCMBufferSize);
@@ -653,6 +659,7 @@ void FAsyncAudioDecompressWorker::DoWork()
 			}
 			else
 			{
+				LLM_SCOPE(ELLMTag::AudioFullDecompress);
 				check(Wave->DecompressionType == DTYPE_Native || Wave->DecompressionType == DTYPE_Procedural);
 
 				Wave->RawPCMDataSize = QualityInfo.SampleDataSize;

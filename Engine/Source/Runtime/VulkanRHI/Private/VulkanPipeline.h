@@ -582,6 +582,7 @@ private:
 
 	//@@
 	TMap<FVulkanDescriptorSetsLayoutInfo, FVulkanLayout*> LayoutMap;
+	FVulkanDescriptorSetLayoutMap DSetLayoutMap;
 	FCriticalSection LayoutMapCS;
 
 	FVulkanRHIGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, FGfxPSIKey& PSIKey, TGfxPipelineEntrySharedPtr& OutGfxEntry, FGfxEntryKey& OutGfxEntryKey);

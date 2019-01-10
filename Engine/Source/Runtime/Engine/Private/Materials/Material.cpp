@@ -71,6 +71,7 @@
 #include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveLinearColorAtlas.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #define LOCTEXT_NAMESPACE "Material"
 
@@ -2760,7 +2761,7 @@ bool UMaterial::GetFontParameterValue(const FMaterialParameterInfo& ParameterInf
 }
 
 
-bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2828,7 +2829,7 @@ bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& Para
 }
 
 
-bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2904,7 +2905,7 @@ bool UMaterial::GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo
 	return bSuccess;
 }
 
-bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const
+bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid, bool bCheckParent /*= true*/) const
 {
 	UMaterialExpressionStaticComponentMaskParameter* Parameter = nullptr;	
 
@@ -3118,7 +3119,7 @@ void UMaterial::CacheResourceShadersForRendering(bool bRegenerateId)
 			if (MaterialResource && !MaterialResource->GetGameThreadShaderMap())
 			{
 				FMaterialResource Tmp;
-				if (ReloadMaterialResource(&Tmp, GetOutermost()->GetPathName(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
+				if (ReloadMaterialResource(&Tmp, GetOutermost()->FileName.ToString(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
 				{
 					MaterialResource->SetInlineShaderMap(Tmp.GetGameThreadShaderMap());
 				}
@@ -5716,6 +5717,7 @@ void UMaterial::AllMaterialsCacheResourceShadersForRendering()
 	for (UMaterial* Material : Materials)
 	{
 		Material->CacheResourceShadersForRendering(false);
+		FThreadHeartBeat::Get().HeartBeat();
 	}
 #else
 	for (TObjectIterator<UMaterial> It; It; ++It)

@@ -1824,7 +1824,8 @@ static bool CallHlslcc(const FString& PreprocessedShader, FVulkanBindingTable& B
 
 void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output, const class FString& WorkingDirectory, EVulkanShaderVersion Version)
 {
-	check(IsVulkanPlatform((EShaderPlatform)Input.Target.Platform));
+	const EShaderPlatform ShaderPlatform = (EShaderPlatform)Input.Target.Platform;
+	check(IsVulkanPlatform(ShaderPlatform));
 
 	//if (GUseExternalShaderCompiler)
 	//{
@@ -1844,7 +1845,7 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 		bIsSM5 ? HSF_DomainShader : HSF_InvalidFrequency,
 		HSF_PixelShader,
 		(bIsSM4 || bIsSM5) ? HSF_GeometryShader : HSF_InvalidFrequency,
-		bIsSM5 ? HSF_ComputeShader : HSF_InvalidFrequency
+		RHISupportsComputeShaders(ShaderPlatform) ? HSF_ComputeShader : HSF_InvalidFrequency
 	};
 
 	const EHlslShaderFrequency Frequency = FrequencyTable[Input.Target.Frequency];

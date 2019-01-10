@@ -24,6 +24,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Templates/UniquePtr.h"
 #include "Misc/OutputDeviceArchiveWrapper.h"
+#include "HAL/ThreadManager.h"
 
 #include <strsafe.h>
 #include <dbghelp.h>
@@ -37,52 +38,77 @@
 #pragma comment( lib, "version.lib" )
 #pragma comment( lib, "Shlwapi.lib" )
 
-void FWindowsPlatformCrashContext::SetPortableCallStack(const uint64* StackTrace, int32 StackTraceDepth)
+/**
+ * Code for an assert exception
+ */
+const uint32 AssertExceptionCode = 0x4000;
+
+/**
+ * Stores information about an assert that can be unpacked in the exception handler.
+ */
+struct FAssertInfo
+{
+	const TCHAR* ErrorMessage;
+	int32 NumStackFramesToIgnore;
+
+	FAssertInfo(const TCHAR* InErrorMessage, int32 InNumStackFramesToIgnore)
+		: ErrorMessage(InErrorMessage)
+		, NumStackFramesToIgnore(InNumStackFramesToIgnore)
+	{
+	}
+};
+
+void FWindowsPlatformCrashContext::GetProcModuleHandles(FModuleHandleArray& OutHandles)
 {
 	// Get all the module handles for the current process. Each module handle is its base address.
-	TArray<HMODULE, TInlineAllocator<128>> ProcessModuleHandles;
 	for (;;)
 	{
-		DWORD BufferSize = ProcessModuleHandles.Num() * sizeof(HMODULE);
+		DWORD BufferSize = OutHandles.Num() * sizeof(HMODULE);
 		DWORD RequiredBufferSize = 0;
-		if (!EnumProcessModules(GetCurrentProcess(), ProcessModuleHandles.GetData(), BufferSize, &RequiredBufferSize))
+		if (!EnumProcessModules(GetCurrentProcess(), (HMODULE*)OutHandles.GetData(), BufferSize, &RequiredBufferSize))
 		{
 			return;
 		}
-		if(RequiredBufferSize <= BufferSize)
+		if (RequiredBufferSize <= BufferSize)
 		{
 			break;
 		}
-		ProcessModuleHandles.SetNum(RequiredBufferSize / sizeof(HMODULE));
+		OutHandles.SetNum(RequiredBufferSize / sizeof(HMODULE));
 	}
-
 	// Sort the handles by address. This allows us to do a binary search for the module containing an address.
-	Algo::Sort(ProcessModuleHandles);
+	Algo::Sort(OutHandles);
+}
 
+void FWindowsPlatformCrashContext::ConvertProgramCountersToStackFrames(
+	const FModuleHandleArray& SortedModuleHandles,
+	const uint64* ProgramCounters,
+	int32 NumPCs,
+	TArray<FCrashStackFrame>& OutStackFrames)
+{
 	// Prepare the callstack buffer
-	CallStack.Reset(StackTraceDepth);
+	OutStackFrames.Reset(NumPCs);
 
 	// Create the crash context
-	for (int Idx = 0; Idx < StackTraceDepth; Idx++)
+	for (int32 Idx = 0; Idx < NumPCs; ++Idx)
 	{
-		int ModuleIdx = Algo::UpperBound(ProcessModuleHandles, (HMODULE)StackTrace[Idx]) - 1;
-		if (ModuleIdx < 0 || ModuleIdx >= ProcessModuleHandles.Num())
+		int32 ModuleIdx = Algo::UpperBound(SortedModuleHandles, (void*)ProgramCounters[Idx]) - 1;
+		if (ModuleIdx < 0 || ModuleIdx >= SortedModuleHandles.Num())
 		{
-			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, StackTrace[Idx]));
+			OutStackFrames.Add(FCrashStackFrame(TEXT("Unknown"), 0, ProgramCounters[Idx]));
 		}
 		else
 		{
 			TCHAR ModuleName[MAX_PATH];
-			if (GetModuleFileNameW(ProcessModuleHandles[ModuleIdx], ModuleName, ARRAY_COUNT(ModuleName)) != 0)
+			if (GetModuleFileNameW((HMODULE)SortedModuleHandles[ModuleIdx], ModuleName, MAX_PATH) != 0)
 			{
 				TCHAR* ModuleNameEnd = FCString::Strrchr(ModuleName, '\\');
-				if(ModuleNameEnd != nullptr)
+				if (ModuleNameEnd != nullptr)
 				{
 					FMemory::Memmove(ModuleName, ModuleNameEnd + 1, (FCString::Strlen(ModuleNameEnd + 1) + 1) * sizeof(TCHAR));
 				}
 
 				TCHAR* ModuleNameExt = FCString::Strrchr(ModuleName, '.');
-				if(ModuleNameExt != nullptr)
+				if (ModuleNameExt != nullptr)
 				{
 					*ModuleNameExt = 0;
 				}
@@ -92,11 +118,18 @@ void FWindowsPlatformCrashContext::SetPortableCallStack(const uint64* StackTrace
 				FCString::Strcpy(ModuleName, TEXT("Unknown"));
 			}
 
-			uint64 BaseAddress = (uint64)ProcessModuleHandles[ModuleIdx];
-			uint64 Offset = StackTrace[Idx] - BaseAddress;
-			CallStack.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
+			uint64 BaseAddress = (uint64)SortedModuleHandles[ModuleIdx];
+			uint64 Offset = ProgramCounters[Idx] - BaseAddress;
+			OutStackFrames.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
 		}
 	}
+}
+
+void FWindowsPlatformCrashContext::SetPortableCallStack(const uint64* StackTrace, int32 StackTraceDepth)
+{
+	FModuleHandleArray ProcessModuleHandles;
+	GetProcModuleHandles(ProcessModuleHandles);
+	ConvertProgramCountersToStackFrames(ProcessModuleHandles, StackTrace, StackTraceDepth, CallStack);
 }
 
 void FWindowsPlatformCrashContext::AddPlatformSpecificProperties() const
@@ -104,6 +137,90 @@ void FWindowsPlatformCrashContext::AddPlatformSpecificProperties() const
 	AddCrashProperty(TEXT("PlatformIsRunningWindows"), 1);
 	// On windows track the crash type
 	AddCrashProperty(TEXT("PlatformCallbackResult"), GetCrashType());
+}
+
+bool FWindowsPlatformCrashContext::GetPlatformAllThreadContextsString(FString& OutStr) const
+{
+	OutStr = AllThreadContexts;
+	return !OutStr.IsEmpty();
+}
+
+void FWindowsPlatformCrashContext::AddIsCrashed(bool bIsCrashed, FString& OutStr)
+{
+	OutStr += FString::Printf(TEXT("<IsCrashed>%s</IsCrashed>"), bIsCrashed ? TEXT("true") : TEXT("false"));
+	OutStr += LINE_TERMINATOR;
+}
+
+void FWindowsPlatformCrashContext::AddThreadId(uint32 ThreadId, FString& OutStr)
+{
+	OutStr += FString::Printf(TEXT("<ThreadID>%d</ThreadID>"), ThreadId);
+	OutStr += LINE_TERMINATOR;
+}
+
+void FWindowsPlatformCrashContext::AddThreadName(const TCHAR* ThreadName, FString& OutStr)
+{
+	OutStr += FString::Printf(TEXT("<ThreadName>%s</ThreadName>"), ThreadName);
+	OutStr += LINE_TERMINATOR;
+}
+
+void FWindowsPlatformCrashContext::AddThreadContext(
+	const FModuleHandleArray& ProcModuleHandles,
+	uint32 CrashedThreadId,
+	uint32 ThreadId,
+	const FString& ThreadName,
+	const uint64* StackTrace,
+	int32 Depth,
+	FString& OutStr)
+{
+	OutStr += TEXT("<Thread>");
+	{
+		OutStr += TEXT("<CallStack>");
+
+		TArray<FCrashStackFrame> CrashStackFrames;
+		ConvertProgramCountersToStackFrames(ProcModuleHandles, StackTrace, Depth, CrashStackFrames);
+
+		int32 MaxModuleNameLen = 0;
+		for (const FCrashStackFrame& StFrame : CrashStackFrames)
+		{
+			MaxModuleNameLen = FMath::Max(MaxModuleNameLen, StFrame.ModuleName.Len());
+		}
+
+		FString CallstackStr;
+		for (const FCrashStackFrame& StFrame : CrashStackFrames)
+		{
+			CallstackStr += FString::Printf(TEXT("%-*s 0x%016x + %-8x"), MaxModuleNameLen + 1, *StFrame.ModuleName, StFrame.BaseAddress, StFrame.Offset);
+			CallstackStr += LINE_TERMINATOR;
+		}
+		AppendEscapedXMLString(OutStr, *CallstackStr);
+		OutStr += TEXT("</CallStack>");
+		OutStr += LINE_TERMINATOR;
+	}
+	AddIsCrashed(ThreadId == CrashedThreadId, OutStr);
+	// TODO: do we need thread register states?
+	OutStr += TEXT("<Registers></Registers>");
+	OutStr += LINE_TERMINATOR;
+	AddThreadId(ThreadId, OutStr);
+	AddThreadName(*ThreadName, OutStr);
+	OutStr += TEXT("</Thread>");
+	OutStr += LINE_TERMINATOR;
+}
+
+void FWindowsPlatformCrashContext::AddAllThreadContexts(uint32 CrashedThreadId, FString& OutStr)
+{
+	TArray<typename FThreadManager::FThreadStackBackTrace> StackTraces;
+	FThreadManager::Get().GetAllThreadStackBackTraces(StackTraces);
+
+	FModuleHandleArray ProcModuleHandles;
+	GetProcModuleHandles(ProcModuleHandles);
+
+	for (int32 Idx = 0; Idx < StackTraces.Num(); ++Idx)
+	{
+		const auto& ThreadStTrace = StackTraces[Idx];
+		const uint32 ThreadId = ThreadStTrace.ThreadId;
+		const FString& ThreadName = ThreadStTrace.ThreadName;
+		const auto& ThreadPCs = ThreadStTrace.ProgramCounters;
+		AddThreadContext(ProcModuleHandles, CrashedThreadId, ThreadId, ThreadName, ThreadPCs.GetData(), ThreadPCs.Num(), OutStr);
+	}
 }
 
 /** Platform specific constants. */
@@ -125,7 +242,7 @@ static int32 ReportCrashCallCount = 0;
  */
 
 // #CrashReport: 2014-10-08 Move to FWindowsPlatformCrashContext
-bool WriteMinidump(FWindowsPlatformCrashContext& InContext, const TCHAR* Path, LPEXCEPTION_POINTERS ExceptionInfo, bool bIsEnsure )
+bool WriteMinidump(FWindowsPlatformCrashContext& InContext, const TCHAR* Path, LPEXCEPTION_POINTERS ExceptionInfo)
 {
 	// Try to create file for minidump.
 	HANDLE FileHandle = CreateFileW(Path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -156,7 +273,7 @@ bool WriteMinidump(FWindowsPlatformCrashContext& InContext, const TCHAR* Path, L
 
 	// For ensures by default we use minidump to avoid severe hitches when writing 3GB+ files.
 	// However the crash dump mode will remain the same.
-	bool bShouldBeFullCrashDump = bIsEnsure ? InContext.IsFullCrashDumpOnEnsure() : InContext.IsFullCrashDump();
+	bool bShouldBeFullCrashDump = InContext.IsFullCrashDump();
 	if (bShouldBeFullCrashDump)
 	{
 		MinidumpType = (MINIDUMP_TYPE)(MiniDumpWithFullMemory|MiniDumpWithFullMemoryInfo|MiniDumpWithHandleData|MiniDumpWithThreadInfo|MiniDumpWithUnloadedModules);
@@ -184,7 +301,7 @@ enum class EErrorReportUI
  * Create a crash report, add the user log and video, and save them a unique the crash folder
  * Launch CrashReportClient.exe to read the report and upload to our CR pipeline
  */
-int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext, EXCEPTION_POINTERS* ExceptionInfo, const TCHAR* ErrorMessage, EErrorReportUI ReportUI, bool bIsEnsure)
+int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext, EXCEPTION_POINTERS* ExceptionInfo, EErrorReportUI ReportUI)
 {
 	// Prevent CrashReportClient from spawning another CrashReportClient.
 	const TCHAR* ExecutableName = FPlatformProcess::ExecutableName();
@@ -211,8 +328,11 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 			InContext.SerializeAsXML(*CrashContextXMLPath);
 
 			// Save mindump
-			const FString MinidumpFileName = FPaths::Combine(*CrashFolderAbsolute, *FGenericCrashContext::UE4MinidumpName);
-			WriteMinidump(InContext, *MinidumpFileName, ExceptionInfo, bIsEnsure);
+			if (ExceptionInfo != nullptr)
+			{
+				const FString MinidumpFileName = FPaths::Combine(*CrashFolderAbsolute, *FGenericCrashContext::UE4MinidumpName);
+				WriteMinidump(InContext, *MinidumpFileName, ExceptionInfo);
+			}
 
 			// Copy log
 			const FString LogSrcAbsolute = FPlatformOutputDevices::GetAbsoluteLogFilename();
@@ -351,7 +471,7 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 		}
 	}
 
-	// Let the system take back over (return value only used by NewReportEnsure)
+	// Let the system take back over (return value only used by ReportEnsure)
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
@@ -364,29 +484,31 @@ static bool bReentranceGuard = false;
 /**
  * A wrapper for ReportCrashUsingCrashReportClient that creates a new ensure crash context
  */
-int32 ReportEnsureUsingCrashReportClient(HANDLE Thread, EXCEPTION_POINTERS* ExceptionInfo, int32 IgnoreCount, const TCHAR* ErrorMessage, EErrorReportUI ReportUI)
+int32 ReportEnsureUsingCrashReportClient(HANDLE Thread, EXCEPTION_POINTERS* ExceptionInfo, int IgnoreCount, const TCHAR* ErrorMessage, EErrorReportUI ReportUI)
 {
-	const bool bIsEnsure = true;
-	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+	FWindowsPlatformCrashContext CrashContext(ECrashContextType::Ensure, ErrorMessage);
 
 	void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, Thread);
 	CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
 
-	return ReportCrashUsingCrashReportClient(CrashContext, ExceptionInfo, ErrorMessage, ReportUI, bIsEnsure);
+	return ReportCrashUsingCrashReportClient(CrashContext, ExceptionInfo, ReportUI);
 }
 #endif
 
-void NewReportEnsure_Inner( const TCHAR* ErrorMessage )
+FORCENOINLINE void ReportEnsureInner( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
-	// Three additional frames are skipped inside FWindowsPlatformStackWalk::GetStack() and FPlatformStackWalk::GetStack()
-	const int NumStackFramesToIgnore = 2;
+	// Skip this frame and the ::RaiseException call itself
+	NumStackFramesToIgnore += 2;
+
+	/** This is the last place to gather memory stats before exception. */
+	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
 
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
 	__try
 #endif
 	{
-		FPlatformMisc::RaiseException(1);
+		::RaiseException(1, 0, 0, nullptr);
 	}
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
 	__except(ReportEnsureUsingCrashReportClient(GetCurrentThread(), GetExceptionInformation(), NumStackFramesToIgnore, ErrorMessage, IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode))
@@ -397,22 +519,40 @@ void NewReportEnsure_Inner( const TCHAR* ErrorMessage )
 #endif	// WINVER
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames)
+FORCENOINLINE void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
-	const bool bIsEnsure = true;
+	/** This is the last place to gather memory stats before exception. */
+	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
 
-	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+	FAssertInfo Info(ErrorMessage, NumStackFramesToIgnore + 2); // +2 for this function and RaiseException()
+
+	ULONG_PTR Arguments[] = { (ULONG_PTR)&Info };
+	::RaiseException( AssertExceptionCode, 0, ARRAY_COUNT(Arguments), Arguments );
+}
+
+void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId)
+{
+	if (ReportCrashCallCount > 0 || FDebug::HasAsserted())
+	{
+		// Don't report ensures after we've crashed/asserted, they simply may be a result of the crash as
+		// the engine is already in a bad state.
+		return;
+	}
+
+	FWindowsPlatformCrashContext CrashContext(ECrashContextType::Ensure, ErrorMessage);
 	CrashContext.SetPortableCallStack(StackFrames, NumStackFrames);
+	CrashContext.SetCrashedThreadId(HungThreadId);
+	CrashContext.CaptureAllThreadContexts();
 
 	EErrorReportUI ReportUI = IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode;
-	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ErrorMessage, ReportUI, bIsEnsure);
+	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ReportUI);
 }
 
 // #CrashReport: 2015-05-28 This should be named EngineEnsureHandler
 /** 
  * Report an ensure to the crash reporting system
  */
-FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
+FORCENOINLINE void ReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	if (ReportCrashCallCount > 0 || FDebug::HasAsserted())
 	{
@@ -438,7 +578,7 @@ FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFrame
 
 	bReentranceGuard = true;
 
-	NewReportEnsure_Inner(ErrorMessage);
+	ReportEnsureInner(ErrorMessage, NumStackFramesToIgnore + 1);
 
 	bReentranceGuard = false;
 	EnsureLock.Unlock();
@@ -517,6 +657,7 @@ class FCrashReportingThread
 	HANDLE CrashEvent;
 	/** Exception information */
 	LPEXCEPTION_POINTERS ExceptionInfo;
+	DWORD CrashingThreadId;
 	HANDLE CrashingThreadHandle;
 	/** Event that signals the crash reporting thread has finished processing the crash */
 	HANDLE CrashHandledEvent;
@@ -594,6 +735,7 @@ public:
 	FORCEINLINE void OnCrashed(LPEXCEPTION_POINTERS InExceptionInfo)
 	{
 		ExceptionInfo = InExceptionInfo;
+		CrashingThreadId = GetCurrentThreadId();
 		CrashingThreadHandle = GetCurrentThread();
 		SetEvent(CrashEvent);
 	}
@@ -615,22 +757,29 @@ private:
 
 		GLog->PanicFlushThreadedLogs();
 
+		// Get the default settings for the crash context
+		ECrashContextType Type = ECrashContextType::Crash;
+		const TCHAR* ErrorMessage = TEXT("Unhandled exception");
+		int NumStackFramesToIgnore = 0;
+
+		// If it was an assert, allow overriding the info from the exception parameters
+		if (ExceptionInfo->ExceptionRecord->ExceptionCode == AssertExceptionCode && ExceptionInfo->ExceptionRecord->NumberParameters == 1)
+		{
+			const FAssertInfo& Info = *(const FAssertInfo*)ExceptionInfo->ExceptionRecord->ExceptionInformation[0];
+			Type = ECrashContextType::Assert;
+			ErrorMessage = Info.ErrorMessage;
+			NumStackFramesToIgnore = Info.NumStackFramesToIgnore;
+		}
+
 		// Not super safe due to dynamic memory allocations, but at least enables new functionality.
 		// Introduces a new runtime crash context. Will replace all Windows related crash reporting.
-		const bool bIsEnsure = false;
-		FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+		FWindowsPlatformCrashContext CrashContext(Type, ErrorMessage);
 
 		// Thread context wrapper for stack operations
 		void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
-
-		// Generate the portable callstack. For asserts, we ignore the following frames:
-		//     FDebug::AssertFailed()
-		//   [ FOutputDevice::Logf() ] - force-inlined; ignored
-		//     FOutputDevice::LogfImpl()
-		//     FWindowsErrorOutputDevice::Serialize()
-		//     RaiseException()
-		const int32 IgnoreCount = FDebug::HasAsserted() ? 4 : 0;
-		CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
+		CrashContext.CapturePortableCallStack(NumStackFramesToIgnore, ContextWrapper);
+		CrashContext.SetCrashedThreadId(CrashingThreadId);
+		CrashContext.CaptureAllThreadContexts();
 
 		// Also mark the same number of frames to be ignored if we symbolicate from the minidump
 		CrashContext.SetNumMinidumpFramesToIgnore(IgnoreCount);
@@ -639,18 +788,13 @@ private:
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 		if (GUseCrashReportClient)
 		{
-			ReportCrashUsingCrashReportClient(CrashContext, ExceptionInfo, GErrorMessage, EErrorReportUI::ShowDialog, bIsEnsure);
+			ReportCrashUsingCrashReportClient(CrashContext, ExceptionInfo, EErrorReportUI::ShowDialog);
 		}
 		else
 #endif		// WINVER
 		{
 			CrashContext.SerializeContentToBuffer();
-			WriteMinidump(CrashContext, MiniDumpFilenameW, ExceptionInfo, bIsEnsure);
-
-#if UE_BUILD_SHIPPING && WITH_EDITOR
-			uint32 dwOpt = 0;
-			EFaultRepRetVal repret = ReportFault(ExceptionInfo, dwOpt);
-#endif
+			WriteMinidump(CrashContext, MiniDumpFilenameW, ExceptionInfo);
 		}
 
 		// Then try run time crash processing and broadcast information about a crash.
@@ -675,7 +819,7 @@ private:
 			
 			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWrapper);
 			
-			if (ExceptionInfo->ExceptionRecord->ExceptionCode != 1)
+			if (ExceptionInfo->ExceptionRecord->ExceptionCode != 1 && ExceptionInfo->ExceptionRecord->ExceptionCode != AssertExceptionCode)
 			{
 				CreateExceptionInfoString(ExceptionInfo->ExceptionRecord);
 				FCString::Strncat(GErrorHist, GErrorExceptionDescription, ARRAY_COUNT(GErrorHist));

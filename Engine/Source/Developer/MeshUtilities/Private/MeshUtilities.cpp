@@ -4406,8 +4406,8 @@ void TangentFailSafe(const FVector &TriangleTangentX, const FVector &TriangleTan
 		else
 		{
 			//TangentX and Y are invalid, use the triangle data, can cause a hard edge
-			TangentX = TriangleTangentX;
-			TangentY = TriangleTangentY;
+			TangentX = TriangleTangentX.GetSafeNormal();
+			TangentY = TriangleTangentY.GetSafeNormal();
 		}
 	}
 	else if (!bTangentXZero)
@@ -4420,43 +4420,68 @@ void TangentFailSafe(const FVector &TriangleTangentX, const FVector &TriangleTan
 		else
 		{
 			//TangentY and Z are invalid, use the triangle data, can cause a hard edge
-			TangentZ = TriangleTangentZ;
-			TangentY = TriangleTangentY;
+			TangentZ = TriangleTangentZ.GetSafeNormal();
+			TangentY = TriangleTangentY.GetSafeNormal();
 		}
 	}
 	else if (!bTangentYZero)
 	{
 		//TangentX and Z are invalid, use the triangle data, can cause a hard edge
-		TangentX = TriangleTangentX;
-		TangentZ = TriangleTangentZ;
+		TangentX = TriangleTangentX.GetSafeNormal();
+		TangentZ = TriangleTangentZ.GetSafeNormal();
 	}
 	else
 	{
 		//Everything is zero, use all triangle data, can cause a hard edge
-		TangentX = TriangleTangentX;
-		TangentY = TriangleTangentY;
-		TangentZ = TriangleTangentZ;
+		TangentX = TriangleTangentX.GetSafeNormal();
+		TangentY = TriangleTangentY.GetSafeNormal();
+		TangentZ = TriangleTangentZ.GetSafeNormal();
 	}
 
-	//Ortho normalize the result
-	TangentY -= TangentX * (TangentX | TangentY);
-	TangentY.Normalize();
-
-	TangentX -= TangentZ * (TangentZ | TangentX);
-	TangentY -= TangentZ * (TangentZ | TangentY);
-
-	TangentX.Normalize();
-	TangentY.Normalize();
-
-	//If we still have some zero data (i.e. triangle data is degenerated)
-	if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN()
-		|| TangentX.IsNearlyZero() || TangentX.ContainsNaN()
-		|| TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+	bool bParaXY = FVector::Parallel(TangentX, TangentY);
+	bool bParaYZ = FVector::Parallel(TangentY, TangentZ);
+	bool bParaZX = FVector::Parallel(TangentZ, TangentX);
+	if (bParaXY || bParaYZ || bParaZX)
 	{
-		//Since the triangle is degenerate this case can cause a hardedge, but will probably have no other impact since the triangle is degenerate (no visible surface)
-		TangentX = FVector(1.0f, 0.0f, 0.0f);
-		TangentY = FVector(0.0f, 1.0f, 0.0f);
-		TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		//In case XY are parallel, use the Z(normal) if valid and not parallel to both X and Y to find the missing component
+		if (bParaXY && !bParaZX)
+		{
+			TangentY = FVector::CrossProduct(TangentZ, TangentX).GetSafeNormal();
+		}
+		else if (bParaXY && !bParaYZ)
+		{
+			TangentX = FVector::CrossProduct(TangentY, TangentZ).GetSafeNormal();
+		}
+		else
+		{
+			//Degenerated value put something valid
+			TangentX = FVector(1.0f, 0.0f, 0.0f);
+			TangentY = FVector(0.0f, 1.0f, 0.0f);
+			TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		}
+	}
+	else
+	{
+		//Ortho normalize the result
+		TangentY -= TangentX * (TangentX | TangentY);
+		TangentY.Normalize();
+
+		TangentX -= TangentZ * (TangentZ | TangentX);
+		TangentY -= TangentZ * (TangentZ | TangentY);
+
+		TangentX.Normalize();
+		TangentY.Normalize();
+
+		//If we still have some zero data (i.e. triangle data is degenerated)
+		if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN()
+			|| TangentX.IsNearlyZero() || TangentX.ContainsNaN()
+			|| TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+		{
+			//Since the triangle is degenerate this case can cause a hardedge, but will probably have no other impact since the triangle is degenerate (no visible surface)
+			TangentX = FVector(1.0f, 0.0f, 0.0f);
+			TangentY = FVector(0.0f, 1.0f, 0.0f);
+			TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		}
 	}
 }
 

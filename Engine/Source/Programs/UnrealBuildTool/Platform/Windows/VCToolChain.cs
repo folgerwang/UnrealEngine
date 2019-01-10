@@ -191,7 +191,10 @@ namespace UnrealBuildTool
 			Arguments.Add("/c");
 
 			// Put symbols into different sections so the linker can remove them.
-			Arguments.Add("/Gw");
+			if(Target.WindowsPlatform.bOptimizeGlobalData)
+			{
+				Arguments.Add("/Gw");
+			}
 
 			// Separate functions for linker.
 			Arguments.Add("/Gy");
@@ -1300,7 +1303,7 @@ namespace UnrealBuildTool
 			}
 
 			// Enable function level hot-patching
-			if(!bBuildImportLibraryOnly)
+			if(!bBuildImportLibraryOnly && Target.WindowsPlatform.bCreateHotpatchableImage)
 			{
 				Arguments.Add("/FUNCTIONPADMIN");
 			}

@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/Crc.h"
 #include "Containers/UnrealString.h"
+#include "Internationalization/CulturePointer.h"
 
 class FFormatArgumentValue;
 struct FPrivateTextFormatArguments;
@@ -166,6 +167,9 @@ class ITextFormatArgumentModifier
 public:
 	/** Virtual destructor */
 	virtual ~ITextFormatArgumentModifier() {}
+
+	/** Validate the argument modifier is valid based on the rules of the given culture */
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const = 0;
 
 	/** Given the argument, evaluate the result and append it to OutResult */
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const = 0;

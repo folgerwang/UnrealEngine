@@ -124,13 +124,13 @@ public:
 /**
  * The different types of invalidation that are possible for a widget.
  */
-enum class EInvalidateWidget : uint8
+enum class EInvalidateWidgetReason : uint8
 {
 	/** Not actually used, but defining it. */
 	None = 0,
 
 	/**
-	 * Use Layout invalidation sizing.
+	 * Use Layout invalidation if your widget needs to change desired size.  This is an expensive invalidation so do not use if all you need to do is redraw a widget
 	 */
 	Layout = 1 << 0,
 
@@ -165,10 +165,13 @@ enum class EInvalidateWidget : uint8
 	/**
 	 * Do not use this ever unless you know what you are doing
 	 */
-	All = 0xff
+	All UE_DEPRECATED(4.22, "EInvalidateWidget::All has been deprecated.  You probably wanted EInvalidateWidget::Layout but if you need more than that then use bitwise or to combine them") = 0xff
 };
 
-ENUM_CLASS_FLAGS(EInvalidateWidget)
+ENUM_CLASS_FLAGS(EInvalidateWidgetReason)
+
+// This typedefed because EInvalidateWidget will be deprecated soon
+typedef EInvalidateWidgetReason EInvalidateWidget;
 
 /**
  * An ILayoutCache implementor is responsible for caching a the hierarchy of widgets it is drawing.
@@ -704,7 +707,6 @@ public:
 	/** @return the DesiredSize that was computed the last time CacheDesiredSize() was called. */
 	FVector2D GetDesiredSize() const;
 
-#if SLATE_PARENT_POINTERS
 public:
 	void AssignParentWidget(TSharedPtr<SWidget> InParent);
 	bool ConditionallyDetatchParentWidget(SWidget* InExpectedParent);
@@ -713,7 +715,6 @@ public:
 
 	FORCEINLINE bool IsParentValid() const { return ParentWidgetPtr.IsValid(); }
 	FORCEINLINE TSharedPtr<SWidget> GetParentWidget() const { return ParentWidgetPtr.Pin(); }
-#endif
 
 	/**
 	* Calculates what if any clipping state changes need to happen when drawing this widget.
@@ -1547,9 +1548,8 @@ private:
 	/** The current layout cache that may need to invalidated by changes to this widget. */
 	mutable TWeakPtr<ILayoutCache> LayoutCache;
 
-#if SLATE_PARENT_POINTERS
+	/** Pointer to this widgets parent widget.  If it is null this is a root widget or it is not in the widget tree */
 	TWeakPtr<SWidget> ParentWidgetPtr;
-#endif
 
 private:
 	// Events

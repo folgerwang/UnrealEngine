@@ -227,6 +227,12 @@ namespace Gauntlet
 		private static DevicePool _Instance;
 
 		/// <summary>
+		/// The maximum number of problem devices to report to device backend
+		/// This mitigates issues on builders, such as hung local processes, incorrectly reporting problem devices
+		/// </summary>
+		private int MaxDeviceErrorReports = 3;
+
+		/// <summary>
 		/// Protected constructor - code should use DevicePool.Instance
 		/// </summary>
 		protected DevicePool()
@@ -430,6 +436,14 @@ namespace Gauntlet
 		/// </summary>
 		private void ReportDeviceError(string ServiceDeviceName, string ErrorMessage)
 		{
+			if (MaxDeviceErrorReports == 0)
+			{
+				Log.Warning("Maximum device errors reported to backend, {0} : {1} ignored", ServiceDeviceName, ErrorMessage);
+				return;
+			}
+
+			MaxDeviceErrorReports--;
+
 			Reservation.ReportDeviceError(DeviceURL, ServiceDeviceName, ErrorMessage);
 		}
 

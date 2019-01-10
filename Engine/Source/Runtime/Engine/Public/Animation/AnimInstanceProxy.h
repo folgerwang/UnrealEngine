@@ -690,6 +690,25 @@ protected:
 	/** Allow nodes to register log messages to be processed on the game thread */
 	void LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage);
 
+	/** Get the current value of all animation curves **/
+	TMap<FName, float>& GetAnimationCurves(EAnimCurveType InCurveType) { return AnimationCurves[(uint8)InCurveType]; }
+	const TMap<FName, float>& GetAnimationCurves(EAnimCurveType InCurveType) const { return AnimationCurves[(uint8)InCurveType]; }
+
+	/** Reset Animation Curves */
+	void ResetAnimationCurves();
+
+	/** Pushes blended heap curve to output curves in the proxy using required bones cached data */
+	void UpdateCurvesToEvaluationContext(const FAnimationEvaluationContext& InContext);
+
+	/** Update curves once evaluation has taken place. Mostly pushes curves to materials/morphs */
+	void UpdateCurvesPostEvaluation(USkeletalMeshComponent* SkelMeshComp);
+
+	/** Check whether we have any active curves */
+	bool HasActiveCurves() const;
+
+	/** Add a curve value */
+	void AddCurveValue(const FSmartNameMapping& Mapping, const FName& CurveName, float Value);
+
 private:
 	/** The component to world transform of the component we are running on */
 	FTransform ComponentTransform;
@@ -770,6 +789,12 @@ private:
 	// Read/write buffers Tracker map for slot name->weights/relevancy
 	TMap<FName, int32> SlotNameToTrackerIndex;
 	TArray<FMontageActiveSlotTracker> SlotWeightTracker[2];
+
+	/** Curves in an easily looked-up form **/
+	TMap<FName, float> AnimationCurves[(uint8)EAnimCurveType::MaxAnimCurveType];
+
+	/** Material parameters that we had been changing and now need to clear */
+	TArray<FName> MaterialParametersToClear;
 
 protected:
 	// Counters for synchronization

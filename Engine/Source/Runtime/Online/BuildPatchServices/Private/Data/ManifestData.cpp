@@ -10,6 +10,7 @@
 #include "Algo/Transform.h"
 #include "Data/ManifestUObject.h"
 #include "BuildPatchManifest.h"
+#include "BuildPatchUtil.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogManifestData, Log, All);
 DEFINE_LOG_CATEGORY(LogManifestData);
@@ -25,7 +26,7 @@ namespace BuildPatchServices
 		{
 			return FeatureLevel < EFeatureLevel::DataFileRenames ? TEXT("Chunks")
 				: FeatureLevel < EFeatureLevel::ChunkCompressionSupport ? TEXT("ChunksV2")
-				: FeatureLevel < EFeatureLevel::VariableSizeChunks ? TEXT("ChunksV3")
+				: FeatureLevel < EFeatureLevel::VariableSizeChunksWithoutWindowSizeChunkInfo ? TEXT("ChunksV3")
 				: TEXT("ChunksV4");
 		}
 
@@ -70,10 +71,10 @@ namespace BuildPatchServices
 		// This remained the same all up to including EFeatureLevel::StoresPrerequisiteIds.
 		37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37,
 		// EFeatureLevel::StoredAsBinaryData is 41B, (296b Original, 32b Version).
-		// This remained the same all up to including EFeatureLevel::VariableSizeChunks.
-		41, 41
+		// This remained the same all up to including EFeatureLevel::StoresUniqueBuildId.
+		41, 41, 41, 41
 	};
-	static_assert((int32)EFeatureLevel::Latest == 15, "Please adjust ManifestHeaderVersionSizes values accordingly.");
+	static_assert((int32)EFeatureLevel::Latest == 17, "Please adjust ManifestHeaderVersionSizes values accordingly.");
 
 	FManifestHeader::FManifestHeader()
 		: Version(EFeatureLevel::Latest)
@@ -160,6 +161,9 @@ namespace BuildPatchServices
 	enum class ManifestMetaVersion : uint8
 	{
 		Original = 0,
+		/* Due to some specific EpicGamesLauncher functionality, we're going to not start saving the build ID until a client is released that can save it properly.
+		   It does not cause a serialisation issue, it just means we can't use optimised deltas immediately unless we forgo this field until later.
+		StoresBuildId,*/
 
 		// Always after the latest version, signifies the latest version plus 1 to allow initialization simplicity.
 		LatestPlusOne,
@@ -170,6 +174,7 @@ namespace BuildPatchServices
 		: FeatureLevel(BuildPatchServices::EFeatureLevel::Invalid)
 		, bIsFileData(false)
 		, AppID(INDEX_NONE)
+		, BuildId(FBuildPatchUtils::GenerateNewBuildId())
 	{
 	}
 
@@ -211,10 +216,30 @@ namespace BuildPatchServices
 			Meta.bIsFileData = IsFileDataInt == 1;
 		}
 
+		/* Due to some specific EpicGamesLauncher functionality, we're going to not start saving the build ID until a client is released that can save it properly.
+		 * It does not cause a serialisation issue, it just means we can't use optimised deltas immediately unless we forgo this field until later.
+		// Serialise the BuildId.
+		if (!Ar.IsError())
+		{
+			if (DataVersion >= ManifestMetaVersion::StoresBuildId)
+			{
+				Ar << Meta.BuildId;
+			}
+			// Otherwise, initialise with backwards compat default when loading
+			else if (Ar.IsLoading())
+			{
+				Meta.BuildId = FBuildPatchUtils::GetBackwardsCompatibleBuildId(Meta);
+			}
+		}*/
+		if (!Ar.IsError() && Ar.IsLoading())
+		{
+			Meta.BuildId = FBuildPatchUtils::GetBackwardsCompatibleBuildId(Meta);
+		}
+
 		//// Here we would check for later data versions to serialise additional values.
 		//if (!Ar.IsError() && DataVersion >= ManifestMetaVersion::SomeShinyNewVersion)
 		//{
-		//	*Ar << Meta.SomeShinyNewVariable;
+		//	Ar << Meta.SomeShinyNewVariable;
 		//}
 
 		// If saving, we need to go back and set the data size.
@@ -276,7 +301,7 @@ namespace BuildPatchServices
 		checkf(ElementCount == ChunkDataList.ChunkList.Num(), TEXT("Programmer error with count and array initialisation sync up."));
 
 		// For a struct list type of data, we serialise every variable as it's own flat list.
-		// This makes it very simple to handle and/or skip, extra variables added to the struct later.
+		// This makes it very simple to handle or skip, extra variables added to the struct later.
 
 		// Serialise the ManifestMetaVersion::Original version variables.
 		if (!Ar.IsError() && DataVersion >= EChunkDataListVersion::Original)
@@ -340,17 +365,11 @@ namespace BuildPatchServices
 
 	void FFileManifestList::OnPostLoad()
 	{
-		Algo::SortBy(FileList, [](const FFileManifest& FileManifest)
-		{
-			return FileManifest.Filename;
-		}, TLess<FString>());
+		Algo::SortBy(FileList, [](const FFileManifest& FileManifest){ return FileManifest.Filename; }, TLess<FString>());
 
 		for (FFileManifest& FileManifest : FileList)
 		{
-			FileManifest.FileSize = Algo::Accumulate<int64>(FileManifest.ChunkParts, 0, [](int64 Count, const FChunkPart& ChunkPart)
-			{
-				return Count + ChunkPart.Size;
-			});
+			FileManifest.FileSize = Algo::Accumulate<int64>(FileManifest.ChunkParts, 0, [](int64 Count, const FChunkPart& ChunkPart){ return Count + ChunkPart.Size; });
 		}
 	}
 

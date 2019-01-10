@@ -3,6 +3,7 @@
 #include "ExtensionLibraries/MovieSceneSequenceExtensions.h"
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
+#include "MovieSceneFolder.h"
 #include "Algo/Find.h"
 
 TArray<UMovieSceneTrack*> UMovieSceneSequenceExtensions::FilterTracks(TArrayView<UMovieSceneTrack* const> InTracks, UClass* DesiredClass, bool bExactMatch)
@@ -270,5 +271,39 @@ TArray<UObject*> UMovieSceneSequenceExtensions::LocateBoundObjects(UMovieSceneSe
 	}
 
 	return Result;
+}
+
+TArray<UMovieSceneFolder*> UMovieSceneSequenceExtensions::GetRootFoldersInSequence(UMovieSceneSequence* Sequence)
+{
+	TArray<UMovieSceneFolder*> Result;
+
+	if (Sequence)
+	{
+		UMovieScene* Scene = Sequence->GetMovieScene();
+		if (Scene)
+		{
+			Result = Scene->GetRootFolders();
+		}
+	}
+
+	return Result;
+}
+
+UMovieSceneFolder* UMovieSceneSequenceExtensions::AddRootFolderToSequence(UMovieSceneSequence* Sequence, FString NewFolderName)
+{
+	UMovieSceneFolder* NewFolder = nullptr;
+	
+	if (Sequence)
+	{
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		if (MovieScene)
+		{
+			NewFolder = NewObject<UMovieSceneFolder>(MovieScene);
+			NewFolder->SetFolderName(FName(*NewFolderName));
+			MovieScene->GetRootFolders().Add(NewFolder);
+		}
+	}
+
+	return NewFolder;
 }
 

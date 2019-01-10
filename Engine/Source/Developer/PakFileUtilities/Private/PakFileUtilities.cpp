@@ -42,6 +42,8 @@ struct FPakCommandLineParameters
 		, FileSystemBlockSize(0)
 		, PatchFilePadAlign(0)
 		, GeneratePatch(false)
+		, PatchSeekOptMaxGapSize(0)
+		, PatchSeekOptUseOrder(false)
 		, EncryptIndex(false)
 		, UseCustomCompressor(false)
 		, OverridePlatformCompressor(false)
@@ -54,6 +56,8 @@ struct FPakCommandLineParameters
 	bool   GeneratePatch;
 	FString SourcePatchPakFilename;
 	FString SourcePatchDiffDirectory;
+	int64 PatchSeekOptMaxGapSize;
+	bool PatchSeekOptUseOrder;
 	bool EncryptIndex;
 	bool UseCustomCompressor;
 	bool OverridePlatformCompressor;
@@ -145,6 +149,31 @@ struct FCompressedFileBuffer
 	int64				CompressedBufferSize;
 	TUniquePtr<uint8[]>		CompressedBuffer;
 };
+
+template <class T>
+bool ReadSizeParam(const TCHAR* CmdLine, const TCHAR* ParamStr, T& SizeOut)
+{
+	FString ParamValueStr;
+	if (FParse::Value(CmdLine, ParamStr, ParamValueStr) &&
+		FParse::Value(CmdLine, ParamStr, SizeOut))
+	{
+		if (ParamValueStr.EndsWith(TEXT("GB")))
+		{
+			SizeOut *= 1024 * 1024 * 1024;
+		}
+		else if (ParamValueStr.EndsWith(TEXT("MB")))
+		{
+			SizeOut *= 1024 * 1024;
+		}
+		else if (ParamValueStr.EndsWith(TEXT("KB")))
+		{
+			SizeOut *= 1024;
+		}
+		return true;
+	}
+	return false;
+}
+
 
 FString GetLongestPath(TArray<FPakInputPair>& FilesToAdd)
 {
@@ -382,7 +411,7 @@ void PrepareDeleteRecordForPak(const FString& InMountPoint, const FPakInputPair 
 	OutNewEntry.Info.SetDeleteRecord(true);
 }
 
-bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap)
+bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap, bool bSecondaryOrderFile = false, int32 OrderOffset = 0)
 {
 	// List of all items to add to pak file
 	FString Text;
@@ -421,7 +450,11 @@ bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap
 				OpenOrderNumber += (1 << 30);
 			}
 #endif
-			OrderMap.Add(Path, OpenOrderNumber);
+			if (bSecondaryOrderFile && OrderMap.Contains(Path) )
+			{
+				continue;
+			}
+			OrderMap.Add(Path, OpenOrderNumber + OrderOffset);
 		}
 		UE_LOG(LogPakFile, Display, TEXT("Finished loading pak order file %s."), ResponseFile);
 		return true;
@@ -482,7 +515,12 @@ void PreProcessCommandline(const TCHAR* CmdLine, FPakCommandLineParameters& CmdL
 			return;
 		}
 
-		IModularFeatures::Get().RegisterModularFeature(CUSTOM_COMPRESSOR_FEATURE_NAME, Compressor);
+		static FCriticalSection CritSec;
+
+		{
+			FScopeLock Lock(&CritSec);
+			IModularFeatures::Get().RegisterModularFeature(CUSTOM_COMPRESSOR_FEATURE_NAME, Compressor);
+		}
 		CmdLineParameters.UseCustomCompressor = true;
 	}
 
@@ -492,38 +530,11 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 {
 	// List of all items to add to pak file
 	FString ResponseFile;
-	FString ClusterSizeString;
-
-	if (FParse::Value(CmdLine, TEXT("-blocksize="), ClusterSizeString) && 
-		FParse::Value(CmdLine, TEXT("-blocksize="), CmdLineParameters.FileSystemBlockSize))
-	{
-		if (ClusterSizeString.EndsWith(TEXT("MB")))
-		{
-			CmdLineParameters.FileSystemBlockSize *= 1024*1024;
-		}
-		else if (ClusterSizeString.EndsWith(TEXT("KB")))
-		{
-			CmdLineParameters.FileSystemBlockSize *= 1024;
-		}
-	}
-	else
+	if (!ReadSizeParam(CmdLine, TEXT("-blocksize="), CmdLineParameters.FileSystemBlockSize))
 	{
 		CmdLineParameters.FileSystemBlockSize = 0;
 	}
-
-	FString CompBlockSizeString;
-	if (FParse::Value(CmdLine, TEXT("-compressionblocksize="), CompBlockSizeString) &&
-		FParse::Value(CmdLine, TEXT("-compressionblocksize="), CmdLineParameters.CompressionBlockSize))
-	{
-		if (CompBlockSizeString.EndsWith(TEXT("MB")))
-		{
-			CmdLineParameters.CompressionBlockSize *= 1024 * 1024;
-		}
-		else if (CompBlockSizeString.EndsWith(TEXT("KB")))
-		{
-			CmdLineParameters.CompressionBlockSize *= 1024;
-		}
-	}
+	ReadSizeParam(CmdLine, TEXT("-compressionblocksize="), CmdLineParameters.CompressionBlockSize);
 
 	if (!FParse::Value(CmdLine, TEXT("-bitwindow="), CmdLineParameters.CompressionBitWindow))
 	{
@@ -540,6 +551,12 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 		CmdLineParameters.EncryptIndex = true;
 	}
 
+	FString EncryptionKeyGuid;
+	if (FParse::Value(CmdLine, TEXT("EncryptionKeyOverrideGuid="), EncryptionKeyGuid))
+	{
+		FGuid::Parse(EncryptionKeyGuid, CmdLineParameters.EncryptionKeyGuid);
+	}
+
 	if (FParse::Param(CmdLine, TEXT("overrideplatformcompressor")))
 	{
 		CmdLineParameters.OverridePlatformCompressor = true;
@@ -550,6 +567,12 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 		TArray<FString> Lines;
 
 		CmdLineParameters.GeneratePatch = FParse::Value(CmdLine, TEXT("-generatepatch="), CmdLineParameters.SourcePatchPakFilename);
+
+		if (CmdLineParameters.GeneratePatch)
+		{
+			ReadSizeParam(CmdLine, TEXT("-patchSeekOptMaxGapSize="), CmdLineParameters.PatchSeekOptMaxGapSize);
+			CmdLineParameters.PatchSeekOptUseOrder = FParse::Param(CmdLine, TEXT("patchSeekOptUseOrder"));
+		}
 
 		bool bCompress = FParse::Param(CmdLine, TEXT("compress"));
 		bool bEncrypt = FParse::Param(CmdLine, TEXT("encrypt"));
@@ -661,6 +684,59 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 	UE_LOG(LogPakFile, Display, TEXT("Added %d entries to add to pak file."), Entries.Num());
 }
 
+FString RemapLocalizationPathIfNeeded(const FString& PathLower, FString& OutRegion)
+{
+	static const TCHAR* L10NPrefix = (const TCHAR*)TEXT("/content/l10n/");
+	static const int32 L10NPrefixLength = FCString::Strlen(L10NPrefix);
+	int32 FoundIndex = PathLower.Find(L10NPrefix, ESearchCase::CaseSensitive);
+	if (FoundIndex > 0)
+	{
+		// Validate the content index is the first one
+		int32 ContentIndex = PathLower.Find(TEXT("/content/"), ESearchCase::CaseSensitive);
+		if (ContentIndex == FoundIndex)
+		{
+			int32 EndL10NOffset = ContentIndex + L10NPrefixLength;
+			int32 NextSlashIndex = PathLower.Find(TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromStart, EndL10NOffset);
+			int32 RegionLength = NextSlashIndex - EndL10NOffset;
+			if (RegionLength >= 2)
+			{
+				FString NonLocalizedPath = PathLower.Mid(0, ContentIndex) + TEXT("/content") + PathLower.Mid(NextSlashIndex);
+				OutRegion = PathLower.Mid(EndL10NOffset, RegionLength);
+				return NonLocalizedPath;
+			}
+		}
+	}
+	return PathLower;
+}
+
+uint64 GetFileOrder(const FString Path, const TMap<FString, uint64>& OrderMap)
+{
+	FString RegionStr;
+	FString NewPath = RemapLocalizationPathIfNeeded(Path.ToLower(), RegionStr);
+	const uint64* FoundOrder = OrderMap.Find(NewPath);
+	if (FoundOrder == nullptr)
+	{
+		return MAX_uint64;
+	}
+
+	// Optionally offset based on region, so multiple files in different regions don't get the same order.
+	// I/O profiling suggests this is slightly worse, so leaving this disabled for now
+#if 0
+	if (RegionStr.Len() > 0)
+	{
+		uint64 RegionOffset = 0;
+		for (int i = 0; i < RegionStr.Len(); i++)
+		{
+			int8 Letter = (int8)(RegionStr[i] - TEXT('a'));
+			RegionOffset |= (uint64(Letter) << (i*5));
+		}
+		return *FoundOrder + (RegionOffset << 16);
+	}
+#endif
+	return *FoundOrder;
+}
+
+
 void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakInputPair>& InEntries, const TMap<FString, uint64>& OrderMap)
 {
 	UE_LOG(LogPakFile, Display, TEXT("Collecting files to add to pak file..."));
@@ -697,10 +773,11 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 				FileInput.Source = FoundFiles[FileIndex];
 				FPaths::MakeStandardFilename(FileInput.Source);
 				FileInput.Dest = FileInput.Source.Replace(*Directory, *Input.Dest, ESearchCase::IgnoreCase);
-				const uint64* FoundOrder = OrderMap.Find(FileInput.Dest.ToLower());
-				if(FoundOrder)
+				
+				uint64 FileOrder = GetFileOrder(FileInput.Dest, OrderMap);
+				if(FileOrder != MAX_uint64)
 				{
-					FileInput.SuggestedOrder = *FoundOrder;
+					FileInput.SuggestedOrder = FileOrder;
 				}
 				else
 				{
@@ -709,18 +786,18 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 					// if this is a cook order or an old order it will not have uexp files in it, so we put those in the same relative order after all of the normal files, but before any ubulk files
 					if (FileInput.Dest.EndsWith(TEXT("uexp")) || FileInput.Dest.EndsWith(TEXT("ubulk")))
 					{
-						FoundOrder = OrderMap.Find(FPaths::GetBaseFilename(FileInput.Dest.ToLower(), false) + TEXT(".uasset"));
-						if (!FoundOrder)
+						FileOrder = GetFileOrder(FPaths::GetBaseFilename(FileInput.Dest, false) + TEXT(".uasset"), OrderMap);
+						if (FileOrder == MAX_uint64)
 						{
-							FoundOrder = OrderMap.Find(FPaths::GetBaseFilename(FileInput.Dest.ToLower(), false) + TEXT(".umap"));
+							FileOrder = GetFileOrder(FPaths::GetBaseFilename(FileInput.Dest, false) + TEXT(".umap"), OrderMap);
 						}
 						if (FileInput.Dest.EndsWith(TEXT("uexp")))
 						{
-							FileInput.SuggestedOrder = (FoundOrder ? *FoundOrder : 0) + (1 << 29);
+							FileInput.SuggestedOrder = ((FileOrder != MAX_uint64) ? FileOrder : 0) + (1 << 29);
 						}
 						else
 						{
-							FileInput.SuggestedOrder = (FoundOrder ? *FoundOrder : 0) + (1 << 30);
+							FileInput.SuggestedOrder = ((FileOrder != MAX_uint64) ? FileOrder : 0) + (1 << 30);
 						}
 					}
 				}
@@ -748,10 +825,10 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 			FileInput.Source = Input.Source;
 			FPaths::MakeStandardFilename(FileInput.Source);
 			FileInput.Dest = FileInput.Source.Replace(*Directory, *Input.Dest, ESearchCase::IgnoreCase);
-			const uint64* FoundOrder = OrderMap.Find(FileInput.Dest.ToLower());
-			if (FoundOrder)
+			uint64 FileOrder = GetFileOrder(FileInput.Dest, OrderMap);
+			if (FileOrder != MAX_uint64)
 			{
-				FileInput.SuggestedOrder = *FoundOrder;
+				FileInput.SuggestedOrder = FileOrder;
 			}
 			FileInput.bNeedEncryption = bEncryption;
 			FileInput.bNeedsCompression = bCompression;
@@ -1684,17 +1761,21 @@ bool ListFilesInPak(const TCHAR * InPakFilename, int64 SizeFilter, bool bInclude
 			
 			TArray<FString> Lines;
 			Lines.Empty(Records.Num()+2);
-			Lines.Add(TEXT("Filename, Offset, Size, Hash, Deleted"));
+			Lines.Add(TEXT("Filename, Offset, Size, Hash, Deleted, Compressed, CompressionMethod"));
 			for (auto It : Records)
 			{
 				const FPakEntry& Entry = It.Info();
 
+				bool bWasCompressed = Entry.CompressionMethod != COMPRESS_None;
+
 				Lines.Add( FString::Printf(
-					TEXT("%s%s, %d, %d, %s, %s"),
+					TEXT("%s%s, %d, %d, %s, %s, %s, %d"),
 					*MountPoint, *It.Filename(),
 					Entry.Offset, Entry.Size,
 					*BytesToHex(Entry.Hash, sizeof(Entry.Hash)),
-					Entry.IsDeleteRecord() ? TEXT("true") : TEXT("false")) );
+					Entry.IsDeleteRecord() ? TEXT("true") : TEXT("false"),
+					bWasCompressed ? TEXT("true") : TEXT("false"),
+					Entry.CompressionMethod) );
 			}
 
 			if (FFileHelper::SaveStringArrayToFile(Lines, *CSVFilename) == false)
@@ -1836,7 +1917,7 @@ int32 GetPakChunkIndexFromFilename( const FString& PakFilePath )
 	return PakChunkIndex;
 }
 
-bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& CSVFilename, bool bSigned )
+bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& CSVFilename, bool bSigned, const TMap<FString, uint64>& OrderMap, bool bSortByOrdering )
 {
 	//collect all pak files
 	FString PakFileDirectory;
@@ -1867,6 +1948,7 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 	};
 	TMap<FString, FFilePakRevision> FileRevisions;
 	TMap<FString, FFilePakRevision> DeletedRevisions;
+	TMap<FString, FString> PakFilenameToPatchDotChunk;
 	int32 HighestPakPriority = -1;
 
 	//build lookup tables for the newest revision of all files and all deleted files
@@ -1907,6 +1989,17 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 					AppropriateRevisions[AssetName] = Revision;
 				}
 			}
+
+
+			//build "patch.chunk" string
+			FString PatchDotChunk;
+			PatchDotChunk += FString::Printf( TEXT("%d."), PakPriority+1 );
+			int32 ChunkIndex = GetPakChunkIndexFromFilename( PakFilename );
+			if( ChunkIndex != -1 )
+			{
+				PatchDotChunk += FString::Printf( TEXT("%d"), ChunkIndex );
+			}
+			PakFilenameToPatchDotChunk.Add( PakFileList[PakFileIndex], PatchDotChunk );
 		}
 		else
 		{
@@ -1914,6 +2007,8 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 			return false;
 		}
 	}
+
+	bool bHasOpenOrder = (OrderMap.Num() > 0);
 
 	//open CSV file, if requested
 	FArchive* CSVFileWriter = nullptr;
@@ -1940,22 +2035,90 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		}
 	};
 
-	//log every file, sorted alphabetically
-	FileRevisions.KeySort([]( const FString& A, const FString& B )
+	//cache open order for faster lookup
+	TMap<FString,uint64> CachedOpenOrder;
+	if( bHasOpenOrder )
 	{
-		return A.Compare(B, ESearchCase::IgnoreCase) < 0;
-	});
-	DeletedRevisions.KeySort([]( const FString& A, const FString& B )
-	{
-		return A.Compare(B, ESearchCase::IgnoreCase) < 0;
-	});
+		UE_LOG(LogPakFile, Display, TEXT("Checking open order data") );
+		for (auto Itr : FileRevisions)
+		{
+			const FString& AssetPath = Itr.Key;
+			FString OpenOrderAssetName = FString::Printf( TEXT("../../../%s"), *AssetPath );
+			FPaths::NormalizeFilename(OpenOrderAssetName);
+			OpenOrderAssetName.ToLowerInline();
 
-	WriteCSVLine( TEXT("AssetName,State,Pak,Prev.Pak,Rev,Prev.Rev,Size,AssetPath") );
+			if( const uint64* OrderIndexPtr = OrderMap.Find( OpenOrderAssetName ) )
+			{
+				CachedOpenOrder.Add( AssetPath, *OrderIndexPtr );
+			}
+		}
+	}
+
+	//helper lambda to look up cached open order
+	auto FindOpenOrder = [&]( const FString& AssetPath )
+	{
+		if( const uint64* OrderIndexPtr = CachedOpenOrder.Find( AssetPath ) )
+		{
+			return (*OrderIndexPtr);
+		}
+
+		return uint64(UINT64_MAX);
+	};
+
+	//log every file, sorted alphabetically
+	if( bSortByOrdering && bHasOpenOrder )
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Sorting pak audit data by open order") );
+		FileRevisions.KeySort([&]( const FString& A, const FString& B )
+		{
+			return FindOpenOrder(A) < FindOpenOrder(B);
+		});
+		DeletedRevisions.KeySort([&]( const FString& A, const FString& B )
+		{
+			return FindOpenOrder(A) < FindOpenOrder(B);
+		});
+	}
+	else
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Sorting pak audit data by name") );
+		FileRevisions.KeySort([]( const FString& A, const FString& B )
+		{
+			return A.Compare(B, ESearchCase::IgnoreCase) < 0;
+		});
+		DeletedRevisions.KeySort([]( const FString& A, const FString& B )
+		{
+			return A.Compare(B, ESearchCase::IgnoreCase) < 0;
+		});
+	}
+
+	FString PreviousPatchDotChunk;
+	int NumSeeks = 0;
+	int NumReads = 0;
+
+	UE_CLOG((CSVFileWriter!=nullptr),LogPakFile, Display, TEXT("Writing pak audit CSV file %s..."), *CSVFilename );
+	WriteCSVLine( TEXT("AssetName,State,Pak,Prev.Pak,Rev,Prev.Rev,Size,AssetPath,Patch.Chunk,OpenOrder" ) );
 	for (auto Itr : FileRevisions)
 	{
 		const FString& AssetPath = Itr.Key;
 		const FString AssetName = FPaths::GetCleanFilename(AssetPath);
 		const FFilePakRevision* DeletedRevision = DeletedRevisions.Find(AssetPath);
+
+		//look up the open order for this file
+		FString OpenOrderText = "";
+		uint64 OpenOrder = FindOpenOrder(AssetPath);
+		if( OpenOrder != UINT64_MAX )
+		{
+			OpenOrderText = FString::Printf( TEXT("%llu"), OpenOrder );
+		}
+
+		//lookup patch.chunk value
+		FString PatchDotChunk = "";
+		if( const FString* PatchDotChunkPtr = PakFilenameToPatchDotChunk.Find(Itr.Value.PakFilename) )
+		{
+			PatchDotChunk = *PatchDotChunkPtr;
+		}
+
+		bool bFileExists = true;
 		if (DeletedRevision == nullptr)
 		{
 			if (bOnlyDeleted)
@@ -1964,24 +2127,35 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 			}
 			else if (Itr.Value.PakPriority == HighestPakPriority)
 			{
-				WriteCSVLine( FString::Printf( TEXT("%s,Fresh,%s,,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+				WriteCSVLine( FString::Printf( TEXT("%s,Fresh,%s,,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 			}
 			else
 			{
-				WriteCSVLine( FString::Printf( TEXT("%s,Inherited,%s,,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+				WriteCSVLine( FString::Printf( TEXT("%s,Inherited,%s,,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText  ) );
 			}
 		}
 		else if (DeletedRevision->PakPriority == Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Moved,%s,%s,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Moved,%s,%s,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 		}
 		else if (DeletedRevision->PakPriority > Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,%s,%d,%d,,%s"), *AssetName, *DeletedRevision->PakFilename, *Itr.Value.PakFilename, DeletedRevision->PakPriority, Itr.Value.PakPriority, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,%s,%d,%d,,%s,%s,%s"), *AssetName, *DeletedRevision->PakFilename, *Itr.Value.PakFilename, DeletedRevision->PakPriority, Itr.Value.PakPriority, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
+			bFileExists = false;
 		}
 		else if (DeletedRevision->PakPriority < Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Restored,%s,%s,%d,%d,%d,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, DeletedRevision->PakPriority, Itr.Value.Size, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Restored,%s,%s,%d,%d,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, DeletedRevision->PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
+		}
+
+		if( bFileExists && bSortByOrdering && bHasOpenOrder )
+		{
+			NumReads++;
+			if( PreviousPatchDotChunk != PatchDotChunk )
+			{ 
+				PreviousPatchDotChunk = PatchDotChunk;
+				NumSeeks++;
+			}
 		}
 	}
 
@@ -1992,8 +2166,23 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		const FFilePakRevision* Revision = FileRevisions.Find(AssetPath);
 		if (Revision == nullptr)
 		{
+			//look up the open order for this file
+			FString OpenOrderText = "";
+			uint64 OpenOrder = FindOpenOrder(AssetPath);
+			if( OpenOrder != UINT64_MAX )
+			{
+				OpenOrderText = FString::Printf( TEXT("%llu"), OpenOrder );
+			}
+
+			//lookup patch.chunk value
+			FString PatchDotChunk = "";
+			if( const FString* PatchDotChunkPtr = PakFilenameToPatchDotChunk.Find(Itr.Value.PakFilename) )
+			{
+				PatchDotChunk = *PatchDotChunkPtr;
+			}
+
 			const FString AssetName = FPaths::GetCleanFilename(AssetPath);
-			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,Error,%d,,,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,Error,%d,,,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 		}
 	}
 
@@ -2003,6 +2192,13 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		CSVFileWriter->Close();
 		delete CSVFileWriter;
 		CSVFileWriter = NULL;
+	}
+
+
+	//write seek summary
+	if( bSortByOrdering && bHasOpenOrder && NumReads > 0 )
+	{
+		UE_LOG( LogPakFile, Display, TEXT("%d guaranteed seeks out of %d files read (%.2f%%) with the given open order"), NumSeeks, NumReads, (NumSeeks*100.0f)/NumReads );
 	}
 
 	return true;
@@ -2442,7 +2638,7 @@ bool GenerateHashForFile( FString Filename, FFileInfo& FileHash)
 
 bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFilename, TMap<FString, FFileInfo>& FileHashes, bool bUseMountPoint, const TKeyChain& InKeyChain, int32& OutLowestSourcePakVersion, const bool bSigned )
 {
-	OutLowestSourcePakVersion = FPakInfo::PakFile_Version_Initial-1;
+	OutLowestSourcePakVersion = FPakInfo::PakFile_Version_Invalid;
 
 	TArray<FString> FoundFiles;
 	IFileManager::Get().FindFiles(FoundFiles, InPakFilename, true, false);
@@ -2478,7 +2674,7 @@ bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFil
 			int32 FileCount = 0;
 
 			//remember the lowest pak version for any patch paks
-			if( PakChunkIndex != -1 )
+			if( PakPriority != -1 )
 			{
 				OutLowestSourcePakVersion = FMath::Min( OutLowestSourcePakVersion, PakFile.GetInfo().Version );
 			}
@@ -2578,10 +2774,15 @@ bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFil
 	return true;
 }
 
-bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* Hash)
+bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* Hash, int64* DestSizeOut = nullptr)
 {
 	int64 SourceTotalSize = Hash ? Hash->FileSize : IFileManager::Get().FileSize(*SourceFile);
 	int64 DestTotalSize = IFileManager::Get().FileSize(*DestFilename);
+
+	if (DestSizeOut != nullptr)
+	{
+		*DestSizeOut = DestTotalSize;
+	}
 
 	if (SourceTotalSize != DestTotalSize)
 	{
@@ -2627,7 +2828,23 @@ bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* 
 	return true;
 }
 
-void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& SourceDirectory, const TMap<FString, FFileInfo>& FileHashes )
+int32 CountBitToggles(const TBitArray<>& BitArray)
+{
+	int32 ChangeCount = 0;
+	bool bPrevBit = false;
+	for (int i = 0; i < BitArray.Num(); i++)
+	{
+		bool bCurrentBit = BitArray[i];
+		if (i == 0 || bCurrentBit != bPrevBit)
+		{
+			ChangeCount++;
+		}
+		bPrevBit = bCurrentBit;
+	}
+	return ChangeCount;
+}
+
+void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& SourceDirectory, const TMap<FString, FFileInfo>& FileHashes, int64 SeekOptMaxGapSizeBytes, bool bSeekOptUseOrder)
 {
 	FString HashFilename = SourceDirectory / TEXT("Hashes.txt");
 
@@ -2637,18 +2854,50 @@ void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& Sou
 		FFileHelper::LoadFileToString(EntireFile, *HashFilename);
 	}
 
-	TArray<FString> FilesToRemove;
+	TBitArray<> IncludeFilesMask;
+	IncludeFilesMask.Add(true, FilesToPak.Num());
 
-	for ( int I = FilesToPak.Num()-1; I >= 0; --I )
+	TMap<FString, int32> SourceFileToIndex;
+	for (int i = 0; i < FilesToPak.Num(); i++)
 	{
-		const auto& NewFile = FilesToPak[I]; 
+		SourceFileToIndex.Add(FilesToPak[i].Source, i);
+	}
+
+	// Generate the index mapping from UExp to corresponding UAsset (and vice versa)
+	TArray<int32> UAssetToUexpMapping;
+	UAssetToUexpMapping.Empty(FilesToPak.Num());
+	for (int i = 0; i<FilesToPak.Num(); i++)
+	{
+		UAssetToUexpMapping.Add(-1);
+	}
+	for (int i = 0; i<FilesToPak.Num(); i++)
+	{
+		const auto& NewFile = FilesToPak[i];
+		FString Ext(FPaths::GetExtension(FilesToPak[i].Source));
+		if (Ext.Equals("uasset", ESearchCase::IgnoreCase) || Ext.Equals("umap", ESearchCase::IgnoreCase))
+		{
+			FString UexpDestFilename = FPaths::ChangeExtension(NewFile.Source, "uexp");
+			int32 *UexpIndexPtr = SourceFileToIndex.Find(UexpDestFilename);
+			if (UexpIndexPtr)
+			{
+				UAssetToUexpMapping[*UexpIndexPtr] = i;
+				UAssetToUexpMapping[i] = *UexpIndexPtr;
+			}
+		}
+	}
+	TArray<int64> FileSizes;
+	FileSizes.AddDefaulted(FilesToPak.Num());
+
+    // Mark files to remove if they're unchanged
+	for (int i= 0; i<FilesToPak.Num(); i++)
+	{
+		const auto& NewFile = FilesToPak[i];
 		if( NewFile.bIsDeleteRecord )
 		{
 			continue;
 		}
-
 		FString SourceFileNoMountPoint =  NewFile.Dest.Replace(TEXT("../../../"), TEXT(""));
-		FString SourceFilename = SourceDirectory / NewFile.Dest.Replace(TEXT("../../../"), TEXT(""));
+		FString SourceFilename = SourceDirectory / SourceFileNoMountPoint;
 		
 		const FFileInfo* FoundFileHash = FileHashes.Find(SourceFileNoMountPoint);
 		if (!FoundFileHash)
@@ -2662,59 +2911,168 @@ void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& Sou
  		}
  
 		// uexp files are always handled with their corresponding uasset file
+		bool bForceInclude = false;
 		if (!FPaths::GetExtension(SourceFilename).Equals("uexp", ESearchCase::IgnoreCase))
 		{
-			bool bForceInclude = FoundFileHash && FoundFileHash->bForceInclude;
+			bForceInclude = FoundFileHash && FoundFileHash->bForceInclude;
+		}
 
 			FString DestFilename = NewFile.Source;
-			if (!bForceInclude && FileIsIdentical(SourceFilename, DestFilename, FoundFileHash))
+		if (!bForceInclude && FileIsIdentical(SourceFilename, DestFilename, FoundFileHash, &FileSizes[i]))
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Source file %s matches dest file %s and will not be included in patch"), *SourceFilename, *DestFilename);
+			// remove from the files to pak list
+			IncludeFilesMask[i] = false;
+		}
+	}
+
+	// Add corresponding UExp/UBulk files to the patch if one is included but not the other (uassets and uexp files must be in the same pak)
+	for (int i = 0; i < FilesToPak.Num(); i++)
+	{
+		int32 CounterpartFileIndex= UAssetToUexpMapping[i];
+		if (CounterpartFileIndex != -1)
+		{
+			if (IncludeFilesMask[i] != IncludeFilesMask[CounterpartFileIndex])
 			{
-				// Check for uexp files only for uasset files
-				FString Ext(FPaths::GetExtension(SourceFilename));
-				if (Ext.Equals("uasset", ESearchCase::IgnoreCase) || Ext.Equals("umap", ESearchCase::IgnoreCase))
-				{
-					FString UexpSourceFilename = FPaths::ChangeExtension(SourceFilename, "uexp");
-					FString UexpSourceFileNoMountPoint = FPaths::ChangeExtension(SourceFileNoMountPoint, "uexp");
-
-					const FFileInfo* UexpFoundFileHash = FileHashes.Find(UexpSourceFileNoMountPoint);
-					if (!UexpFoundFileHash)
-					{
-						UexpFoundFileHash = FileHashes.Find(FPaths::ChangeExtension(NewFile.Dest, "uexp"));
-					}
-
-					if (!UexpFoundFileHash)
-					{
-						UE_LOG(LogPakFile, Display, TEXT("Didn't find hash for %s No mount %s"), *UexpSourceFilename, *UexpSourceFileNoMountPoint);
-					}
-
-					if (UexpFoundFileHash || IFileManager::Get().FileExists(*UexpSourceFilename))
-					{
-
-						FString UexpDestFilename = FPaths::ChangeExtension(NewFile.Source, "uexp");
-						if (!FileIsIdentical(UexpSourceFilename, UexpDestFilename, UexpFoundFileHash))
-						{
-							UE_LOG(LogPakFile, Display, TEXT("%s not identical for %s. Including both files in patch."), *UexpSourceFilename, *SourceFilename);
-							continue;
-						}
-						// Add this file to the list to be removed from FilesToPak after we finish processing (since this file was found at random within 
-						// the list we cannot remove it or we'll mess up our containing for loop)
-						FilesToRemove.Add(UexpDestFilename);
-					}
-				}
-
-				UE_LOG(LogPakFile, Display, TEXT("Source file %s matches dest file %s and will not be included in patch"), *SourceFilename, *DestFilename);
-				// remove from the files to pak list
-				FilesToPak.RemoveAt(I);
+				UE_LOG(LogPakFile, Display, TEXT("One of %s and %s is different from source, so both will be included in patch"), *FilesToPak[i].Source, *FilesToPak[CounterpartFileIndex].Source);
+				IncludeFilesMask[i] = true;
+				IncludeFilesMask[CounterpartFileIndex] = true;
 			}
 		}
 	}
 
-	// Clean up uexp files that were marked for removal, assume files may only be listed one in FilesToPak
-	for (int FileIndexToRemove = 0; FileIndexToRemove < FilesToRemove.Num(); FileIndexToRemove++)
-	{
-		const FPakInputPair FileSourceToRemove(FilesToRemove[FileIndexToRemove], "");
-		FilesToPak.RemoveSingle(FileSourceToRemove);
+	if (SeekOptMaxGapSizeBytes > 0)
+				{
+		UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization - filling gaps up to %dKB"), SeekOptMaxGapSizeBytes/1024);
+
+		int32 PatchContiguousBlockCountOriginal = CountBitToggles(IncludeFilesMask);
+		int64 MaxGapSizeBytes = 0;
+		int64 OriginalPatchSize = 0;
+		int64 SizeIncrease = 0;
+		int64 CurrentOffset = 0;
+		int64 CurrentPatchOffset = 0;
+		int64 CurrentGapSize = 0;
+		bool bPrevKeepFile = false;
+		uint64 PrevOrder=MAX_uint64;
+		int32 OriginalKeepCount = 0;
+		int32 LastKeepIndex = -1;
+		bool bCurrentGapIsUnbroken = true;
+		int32 PatchFilesAddedCount = 0;
+		int32 OriginalPatchFileCount = 0;
+		for (int i = 0; i < FilesToPak.Num(); i++)
+					{
+			bool bKeepFile = IncludeFilesMask[i];
+			uint64 Order = FilesToPak[i].SuggestedOrder;
+			if (bKeepFile)
+			{
+				OriginalPatchFileCount++;
+				OriginalPatchSize += FileSizes[i];
+					}
+
+			if (Order == MAX_uint64)
+			{
+				// Skip unordered files
+				continue;
+			}
+			CurrentOffset += FileSizes[i];
+			if (bKeepFile)
+					{
+				OriginalKeepCount++;
+				CurrentPatchOffset = CurrentOffset;
+			}
+			else
+			{
+				if (OriginalKeepCount > 0)
+				{
+					CurrentGapSize = CurrentOffset - CurrentPatchOffset;
+				}
+					}
+
+			// Detect gaps in the file order. No point in removing those gaps because it won't affect seeks
+			if (bCurrentGapIsUnbroken && Order != PrevOrder + 1)
+					{
+				bCurrentGapIsUnbroken = false;
+			}
+
+			// If we're keeping this file but not the last one, check if the gap size is small enough to bring over unchanged assets
+			if (bKeepFile && !bPrevKeepFile && CurrentGapSize > 0 )
+			{
+				if ( CurrentGapSize <= SeekOptMaxGapSizeBytes)
+				{
+					if (bCurrentGapIsUnbroken || bSeekOptUseOrder==false)
+					{
+						// Mark the files in the gap to keep, even though they're unchanged
+						for (int j = LastKeepIndex + 1; j < i; j++)
+						{
+							IncludeFilesMask[j] = true;
+							SizeIncrease += FileSizes[j];
+							PatchFilesAddedCount++;
+						}
+					}
+				}
+				bCurrentGapIsUnbroken = true;
+			}
+			bPrevKeepFile = bKeepFile;
+			if (bKeepFile)
+			{
+				LastKeepIndex = i;
+			}
+			PrevOrder = Order;
+		}
+
+		// Add corresponding UExp/UBulk files to the patch if either is included but not the other
+		for (int i = 0; i < FilesToPak.Num(); i++)
+		{
+			int32 CounterpartFileIndex = UAssetToUexpMapping[i];
+			if (CounterpartFileIndex != -1)
+			{
+				if (IncludeFilesMask[i] != IncludeFilesMask[CounterpartFileIndex])
+				{
+					if ( !IncludeFilesMask[i] )
+					{
+						IncludeFilesMask[i] = true;
+						SizeIncrease += FileSizes[i];
+					}
+					else
+						{
+						IncludeFilesMask[CounterpartFileIndex] = true;
+						SizeIncrease += FileSizes[CounterpartFileIndex];
+					}
+					PatchFilesAddedCount++;
+						}
+					}
+				}
+
+		double OriginalSizeMB = double(OriginalPatchSize) / 1024.0 / 1024.0;
+		double SizeIncreaseMB = double(SizeIncrease) / 1024.0 / 1024.0;
+		double TotalSizeMB = OriginalSizeMB + SizeIncreaseMB;
+		double SizeIncreasePercent = 100.0 * SizeIncreaseMB / OriginalSizeMB;
+		if (PatchFilesAddedCount == 0)
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization did not modify patch pak size (no additional files added)"), OriginalSizeMB, TotalSizeMB, SizeIncreasePercent);
+			}
+		else
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization increased estimated patch pak size from %.2fMB to %.2fMB (+%.1f%%)"), OriginalSizeMB, TotalSizeMB, SizeIncreasePercent);
+			UE_LOG(LogPakFile, Display, TEXT("Total files added : %d (of %d)"), PatchFilesAddedCount, OriginalPatchFileCount + PatchFilesAddedCount);
+		}
+		UE_LOG(LogPakFile, Display, TEXT("Contiguous block count pre-optimization: %d"), PatchContiguousBlockCountOriginal);
+
+		int32 PatchContiguousBlockCountFinal = CountBitToggles(IncludeFilesMask);
+		UE_LOG(LogPakFile, Display, TEXT("Contiguous block count final: %d"), PatchContiguousBlockCountFinal);
 	}
+
+	// Compress the array while preserving the order, removing the files we marked to remove
+	int32 WriteIndex = 0;
+	for ( int ReadIndex=0; ReadIndex<IncludeFilesMask.Num(); ReadIndex++)
+	{
+		if (IncludeFilesMask[ReadIndex])
+	{
+			FilesToPak[WriteIndex++] = FilesToPak[ReadIndex];
+	}
+}
+	int NumToRemove = FilesToPak.Num() - WriteIndex;
+	FilesToPak.RemoveAt(WriteIndex, NumToRemove, true);
 }
 
 void ProcessLegacyFileMoves( TArray<FPakInputPair>& InDeleteRecords, TMap<FString, FFileInfo>& InExistingPackagedFileHashes, const FString& InInputPath, const TArray<FPakInputPair>& InFilesToPak, int32 CurrentPatchChunkIndex, bool bSigned )
@@ -3019,6 +3377,12 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			return false;
 		}
 
+		UE_LOG(LogPakFile, Display, TEXT("Running UnrealPak in batch mode with commands:"));
+		for (int i = 0; i < Commands.Num(); i++)
+		{
+			UE_LOG(LogPakFile, Display, TEXT("[%d] : %s"), i, *Commands[i]);
+		}
+
 		TAtomic<bool> Result(true);
 		ParallelFor(Commands.Num(), [&Commands, &Result](int32 Idx) { if (!ExecuteUnrealPak(*Commands[Idx])) { Result = false; } });
 		return Result;
@@ -3060,6 +3424,10 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 	if (FParse::Param(CmdLine, TEXT("List")))
 	{
+
+		FPakCommandLineParameters CmdLineParameters;
+		PreProcessCommandline(CmdLine, CmdLineParameters);
+
 		if (NonOptionArguments.Num() != 1)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -List <PakFile> [-SizeFilter=N] [-Signed]"));
@@ -3105,6 +3473,9 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 	if (FParse::Param(CmdLine, TEXT("Extract")))
 	{
+		FPakCommandLineParameters CmdLineParameters;
+		PreProcessCommandline(CmdLine, CmdLineParameters);
+	
 		if (NonOptionArguments.Num() != 2)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -Extract <PakFile> <OutputPath>"));
@@ -3118,7 +3489,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		FString Filter;
 		FString DestPath = NonOptionArguments[1];
 
-		bUseFilter = FParse::Value(FCommandLine::Get(), TEXT("Filter="), Filter);
+		bUseFilter = FParse::Value(CmdLine, TEXT("Filter="), Filter);
 		bool bExtractToMountPoint = FParse::Param(CmdLine, TEXT("ExtractToMountPoint"));
 		TMap<FString, FFileInfo> EmptyMap;
 		return ExtractFilesFromPak(*PakFilename, EmptyMap, *DestPath, bExtractToMountPoint, KeyChain, bSigned, bUseFilter ? &Filter : nullptr);
@@ -3128,19 +3499,33 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	{
 		if (NonOptionArguments.Num() != 1)
 		{
-			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -AuditFiles <PakFile> -CSV=<OutputPath> [-OnlyDeleted]"));
+			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -AuditFiles <PakFolder> -CSV=<OutputPath> [-OnlyDeleted] [-Order=<OrderingFile>] [-SortByOrdering]"));
 			return false;
 		}
 		
-		FString PakFilename = GetPakPath(*NonOptionArguments[0], false);
+		FString PakFilenames = *NonOptionArguments[0];
+		FPaths::MakeStandardFilename(PakFilenames);
 		
 		FString CSVFilename;
 		FParse::Value( CmdLine, TEXT("CSV="), CSVFilename );
 
 		bool bOnlyDeleted = FParse::Param( CmdLine, TEXT("OnlyDeleted") );
 		bool bSigned = FParse::Param(CmdLine, TEXT("signed"));
+		bool bSortByOrdering = FParse::Param(CmdLine, TEXT("SortByOrdering"));
 
-		return AuditPakFiles(*PakFilename, bOnlyDeleted, CSVFilename, bSigned);
+		TMap<FString, uint64> OrderMap;
+		FString ResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-order="), ResponseFile) && !ProcessOrderFile(*ResponseFile, OrderMap))
+		{
+			return false;
+		}
+		FString SecondaryResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-secondaryOrder="), SecondaryResponseFile) && !ProcessOrderFile(*SecondaryResponseFile, OrderMap, true, OrderMap.Num()))
+		{
+			return false;
+		}
+
+		return AuditPakFiles(*PakFilenames, bOnlyDeleted, CSVFilename, bSigned, OrderMap, bSortByOrdering );
 	}
 	
 	if (FParse::Param(CmdLine, TEXT("WhatsAtOffset")))
@@ -3167,7 +3552,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		return ListFilesAtOffset( *PakFilename, Offsets, bSigned );
 	}
 	
-	if (FParse::Param(FCommandLine::Get(), TEXT("GeneratePIXMappingFile")))
+	if (FParse::Param(CmdLine, TEXT("GeneratePIXMappingFile")))
 	{
 		if (NonOptionArguments.Num() != 1)
 		{
@@ -3190,7 +3575,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		}
 
 		FString OutputPath;
-		FParse::Value(FCommandLine::Get(), TEXT("OutputPath="), OutputPath);
+		FParse::Value(CmdLine, TEXT("OutputPath="), OutputPath);
 		return GeneratePIXMappingFile(PakFileList, OutputPath);
 	}
 
@@ -3275,11 +3660,18 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		// List of all items to add to pak file
 		TArray<FPakInputPair> Entries;
 		FPakCommandLineParameters CmdLineParameters;
+		PreProcessCommandline(CmdLine, CmdLineParameters);
 		ProcessCommandLine(CmdLine, NonOptionArguments, Entries, CmdLineParameters);
 
 		TMap<FString, uint64> OrderMap;
 		FString ResponseFile;
 		if (FParse::Value(CmdLine, TEXT("-order="), ResponseFile) && !ProcessOrderFile(*ResponseFile, OrderMap))
+		{
+			return false;
+		}
+
+		FString SecondaryResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-secondaryOrder="), SecondaryResponseFile) && !ProcessOrderFile(*SecondaryResponseFile, OrderMap, true, OrderMap.Num()))
 		{
 			return false;
 		}
@@ -3356,7 +3748,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			FilesToAdd.Append(DeleteRecords);
 
 			// if we are generating a patch here we remove files which are already shipped...
-			RemoveIdenticalFiles(FilesToAdd, CmdLineParameters.SourcePatchDiffDirectory, SourceFileHashes);
+			RemoveIdenticalFiles(FilesToAdd, CmdLineParameters.SourcePatchDiffDirectory, SourceFileHashes, CmdLineParameters.PatchSeekOptMaxGapSize, CmdLineParameters.PatchSeekOptUseOrder);
 		}
 
 
@@ -3383,7 +3775,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GenerateKeys=<KeyFilename>"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GeneratePrimeTable=<KeyFilename> [-TableMax=<N>]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename1> <PakFilename2> -diff"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -AuditFiles [-OnlyDeleted] [-CSV=<filename>]"));
+	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -AuditFiles [-OnlyDeleted] [-CSV=<filename>] [-order=<OrderingFile>] [-SortByOrdering]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -WhatsAtOffset [offset1] [offset2] [offset3] [...]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -GeneratePIXMappingFile -OutputPath=<Path>"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak -TestEncryption"));

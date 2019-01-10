@@ -256,6 +256,10 @@ namespace UnrealBuildTool
 				SupportedOrientations += bSupportsLandscapeLeft? "\t\t<string>UIInterfaceOrientationLandscapeLeft</string>\n" : "";
 			}
 
+			// ITunes file sharing
+			bool bSupportsITunesFileSharing = false;
+			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsITunesFileSharing", out bSupportsITunesFileSharing);
+
 			// bundle display name
 			string BundleDisplayName;
 			Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "BundleDisplayName", out BundleDisplayName);
@@ -342,6 +346,10 @@ namespace UnrealBuildTool
 			// Get Facebook Support details
 			bool bEnableFacebookSupport = true;
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableFacebookSupport", out bEnableFacebookSupport);
+			bool bEnableAutomaticLogging = true;
+			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableAutomaticLogging", out bEnableAutomaticLogging);
+			bool bEnableAdvertisingId = true;
+			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableAdvertisingId", out bEnableAdvertisingId);
 
 			// Write the Facebook App ID if we need it.
 			string FacebookAppID = "";
@@ -427,6 +435,8 @@ namespace UnrealBuildTool
 			Text.AppendLine("\t<true/>");
 			Text.AppendLine("\t<key>UIStatusBarHidden</key>");
 			Text.AppendLine("\t<true/>");
+			Text.AppendLine("\t<key>UIFileSharingEnabled</key>");
+			Text.AppendLine(string.Format("\t<{0}/>", bSupportsITunesFileSharing ? "true" : "false"));
 			Text.AppendLine("\t<key>UIRequiresFullScreen</key>");
 			Text.AppendLine("\t<true/>");
 			Text.AppendLine("\t<key>UIViewControllerBasedStatusBarAppearance</key>");
@@ -572,8 +582,6 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t<array>");
 				for (int ConfigIndex = 0; ConfigIndex < IPhoneConfigs.Length; ConfigIndex += 4)
 				{
-					if ((bSupportsPortrait && IPhoneConfigs[ConfigIndex + 1] == "Portrait") ||
-						(bSupportsLandscape && (IPhoneConfigs[ConfigIndex + 1] == "Landscape") || ConfigIndex > 12))
 					{
 						Text.AppendLine("\t\t<dict>");
 						Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
@@ -609,8 +617,6 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t<array>");
 				for (int ConfigIndex = 0; ConfigIndex < IPadConfigs.Length; ConfigIndex += 4)
 				{
-					if ((bSupportsPortrait && IPhoneConfigs[ConfigIndex + 1] == "Portrait") ||
-						(bSupportsLandscape && IPhoneConfigs[ConfigIndex + 1] == "Landscape"))
 					{
 						Text.AppendLine("\t\t<dict>");
 						Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
@@ -656,6 +662,16 @@ namespace UnrealBuildTool
 				Text.AppendLine(string.Format("\t<string>{0}</string>", FacebookAppID));
 				Text.AppendLine("\t<key>FacebookDisplayName</key>");
 				Text.AppendLine(string.Format("\t<string>{0}</string>", FacebookDisplayName));
+				
+				if (!bEnableAutomaticLogging)
+				{
+					Text.AppendLine("<key>FacebookAutoLogAppEventsEnabled</key><false/>");
+				}
+				
+				if (!bEnableAdvertisingId)
+				{
+					Text.AppendLine("<key>FacebookAdvertiserIDCollectionEnabled</key><false/>");
+				}
 
 				Text.AppendLine("\t<key>LSApplicationQueriesSchemes</key>");
 				Text.AppendLine("\t<array>");

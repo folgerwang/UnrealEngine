@@ -50,7 +50,9 @@ void FEnginePackageLocalizationCache::FindLocalizedPackages(const FString& InSou
 #endif // WITH_EDITOR
 
 	TArray<FAssetData> LocalizedAssetDataArray;
-	AssetRegistry.GetAssetsByPath(*InLocalizedRoot, LocalizedAssetDataArray, /*bRecursive*/true);
+	bool bIncludeOnlyOnDiskAssets = !GIsEditor;
+	bool bRecursive = true;
+	AssetRegistry.GetAssetsByPath(*InLocalizedRoot, LocalizedAssetDataArray, bRecursive, bIncludeOnlyOnDiskAssets);
 
 	for (const FAssetData& LocalizedAssetData : LocalizedAssetDataArray)
 	{

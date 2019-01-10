@@ -356,9 +356,6 @@ public:
 	 */
 	int32 PredictedLODLevel;
 
-	/** LOD level from previous frame, so we can detect changes in LOD to recalc required bones. */
-	int32 OldPredictedLODLevel;
-
 	/**	High (best) DistanceFactor that was desired for rendering this USkeletalMesh last frame. Represents how big this mesh was in screen space   */
 	float MaxDistanceFactor;
 
@@ -386,6 +383,9 @@ public:
 protected:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
 	TArray<uint8> BoneVisibilityStates[2];
+
+	/** Cache the scene feature level */
+	ERHIFeatureLevel::Type CachedSceneFeatureLevel;
 
 public:
 	/*
@@ -888,6 +888,9 @@ protected:
 	 */
 	virtual void DispatchParallelTickPose(FActorComponentTickFunction* TickFunction) {}
 
+	/** Helper function for UpdateLODStatus, called with a valid index for InMasterPoseComponentPredictedLODLevel when updating LOD status for slave components */
+	bool UpdateLODStatus_Internal(int32 InMasterPoseComponentPredictedLODLevel);
+
 public:
 	/**
 	 * Tick Pose, this function ticks and do whatever it needs to do in this frame, should be called before RefreshBoneTransforms
@@ -941,7 +944,7 @@ public:
 
 	/** Get Access to the current editable space bases */
 	TArray<FTransform>& GetEditableComponentSpaceTransforms() 
-	{ 
+	{
 		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
 	}
 	const TArray<FTransform>& GetEditableComponentSpaceTransforms() const
@@ -949,6 +952,7 @@ public:
 		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
 	}
 
+public:
 	/** Get current number of component space transorms */
 	int32 GetNumComponentSpaceTransforms() const 
 	{ 
@@ -1070,6 +1074,15 @@ public:
 	void UpdateMasterBoneMap();
 
 	/**
+	 * @param InSocketName	The name of the socket to find
+	 * @param OutBoneIndex	The socket bone index in this skeletal mesh, or INDEX_NONE if the socket is not found or not a bone-relative socket
+	 * @param OutTransform	The socket local transform, or identity if the socket is not found.
+	 * @return SkeletalMeshSocket of named socket on the skeletal mesh component, or NULL if not found.
+	 */
+	class USkeletalMeshSocket const* GetSocketInfoByName(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex) const;
+
+	/**
+	 * @param InSocketName	The name of the socket to find
 	 * @return SkeletalMeshSocket of named socket on the skeletal mesh component, or NULL if not found.
 	 */
 	class USkeletalMeshSocket const* GetSocketByName( FName InSocketName ) const;
@@ -1326,6 +1339,13 @@ public:
 
 	/** Release any rendering resources owned by this component */
 	void ReleaseResources();
+
+#if WITH_EDITOR
+	/** Helpers allowing us to cache feature level */
+	static void BindWorldDelegates();
+	static void HandlePostWorldCreation(UWorld* InWorld);
+	static void HandleFeatureLevelChanged(ERHIFeatureLevel::Type InFeatureLevel, TWeakObjectPtr<UWorld> InWorld);
+#endif
 
 	friend class FRenderStateRecreator;
 };

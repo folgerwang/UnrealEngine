@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerSourceVoice.h"
 #include "AudioMixerSource.h"
@@ -279,7 +279,9 @@ namespace Audio
 	{
 		AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
-		for (uint32 i = 0; i < OutMixerSourceBuffer->Samples; ++i)
+		check(OutMixerSourceBuffer->AudioData.Num() > 0);
+
+		for (int32 i = 0; i < OutMixerSourceBuffer->AudioData.Num(); ++i)
 		{
 			OutMixerSourceBuffer->AudioData[i] = 0.0f;
 		}

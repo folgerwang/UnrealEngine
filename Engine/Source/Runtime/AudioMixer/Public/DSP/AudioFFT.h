@@ -61,13 +61,13 @@ namespace Audio
 		int32 NumSamples;
 	};
 
-	struct FFTInputParams
+	struct FFTTimeDomainData
 	{
-		float* InBuffer; // Pointer to a single channel of floats.
+		float* Buffer; // Pointer to a single channel of floats.
 		int32 NumSamples; // Number of samples in InBuffer divided by the number of channels. must be a power of 2.
 	};
 
-	struct FFTOutputParams
+	struct FFTFreqDomainData
 	{
 		// arrays in which real and imaginary values will be populated.
 		float* OutReal; // Should point to an already allocated array of floats that is FFTInputParams::NumSamples long.
@@ -77,6 +77,6 @@ namespace Audio
 	// Performs a one-time FFT on a float buffer. Does not support complex signals.
 	// This function assumes that, if you desire a window for your FFT, that window was already
 	// applied to FFTInputParams.InBuffer.
-	AUDIOMIXER_API void PerformFFT(const FFTInputParams& InputParams, FFTOutputParams& OutputParams);
-
+	AUDIOMIXER_API void PerformFFT(const FFTTimeDomainData& InputParams, FFTFreqDomainData& OutputParams);
+	AUDIOMIXER_API void PerformIFFT(FFTFreqDomainData& InputParams, FFTTimeDomainData& OutputParams);
 }

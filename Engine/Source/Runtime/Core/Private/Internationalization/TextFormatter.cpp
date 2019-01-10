@@ -342,8 +342,6 @@ TOptional<FExpressionError> ParseLiteral(FExpressionTokenConsumer& Consumer)
 
 } // namespace TextFormatTokens
 
-#undef USE_LEGACY_ESCAPE_TOKEN_RULES
-
 DEFINE_EXPRESSION_NODE_TYPE(TextFormatTokens::FStringLiteral, 0x595A123B, 0x9418491F, 0xB416E9DB, 0xD2127828)
 DEFINE_EXPRESSION_NODE_TYPE(TextFormatTokens::FArgumentTokenSpecifier, 0x5FD9EF1A, 0x9D484D65, 0x92065566, 0xD3542547)
 DEFINE_EXPRESSION_NODE_TYPE(TextFormatTokens::FArgumentModifierTokenSpecifier, 0x960EEAD8, 0x34D44D08, 0xBC1118D9, 0x5BDF8D43)
@@ -390,6 +388,16 @@ public:
 	{
 		FScopeLock Lock(&CompiledDataCS);
 		return IsValid_NoLock();
+	}
+
+	/**
+	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
+	 * @return true if the pattern is valid, or false if not (false may also fill in OutValidationErrors).
+	 */
+	FORCEINLINE bool ValidatePattern(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors)
+	{
+		FScopeLock Lock(&CompiledDataCS);
+		return ValidatePattern_NoLock(InCulture, OutValidationErrors);
 	}
 
 	/**
@@ -457,6 +465,12 @@ private:
 	void ConditionalCompile_NoLock();
 
 	/**
+	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
+	 * Internal version that doesn't lock, so the calling code must handle that!
+	 */
+	bool ValidatePattern_NoLock(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors);
+
+	/**
 	 * Produce a formatted string using the given argument look-up.
 	 * Internal version that doesn't lock, so the calling code must handle that!
 	 */
@@ -517,6 +531,12 @@ private:
 	FTextFormat::EExpressionType CompiledExpressionType;
 
 	/**
+	 * Holds the last compilation error (if any, when CompiledExpressionType == Invalid).
+	 * Concurrent access protected by CompiledDataCS.
+	 */
+	FString LastCompileError;
+
+	/**
 	 * The base length of the string that will go into the formatted string (no including any argument substitutions.
 	 * Concurrent access protected by CompiledDataCS.
 	 */
@@ -531,12 +551,12 @@ private:
 
 
 FTextFormat::FTextFormat()
-	: TextFormatData(new FTextFormatData(FText(FText::GetEmpty())))
+	: TextFormatData(new FTextFormatData(FText()))
 {
 }
 
 FTextFormat::FTextFormat(const FText& InText)
-	: TextFormatData(new FTextFormatData(FText(InText)))
+	: TextFormatData(new FTextFormatData(CopyTemp(InText)))
 {
 }
 
@@ -547,7 +567,7 @@ FTextFormat::FTextFormat(FString&& InString)
 
 FTextFormat FTextFormat::FromString(const FString& InString)
 {
-	return FTextFormat(FString(InString));
+	return FTextFormat(CopyTemp(InString));
 }
 
 FTextFormat FTextFormat::FromString(FString&& InString)
@@ -573,6 +593,11 @@ const FString& FTextFormat::GetSourceString() const
 FTextFormat::EExpressionType FTextFormat::GetExpressionType() const
 {
 	return TextFormatData->GetExpressionType();
+}
+
+bool FTextFormat::ValidatePattern(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors) const
+{
+	return TextFormatData->ValidatePattern(InCulture, OutValidationErrors);
 }
 
 void FTextFormat::GetFormatArgumentNames(TArray<FString>& OutArgumentNames) const
@@ -671,7 +696,7 @@ void FTextFormatData::Compile_NoLock()
 	{
 		LexedExpression.Reset();
 		CompiledExpressionType = FTextFormat::EExpressionType::Invalid;
-		UE_LOG(LogTextFormatter, Warning, TEXT("Failed to compile text format string '%s': %s"), *SourceExpression, *Result.GetError().Text.ToString());
+		LastCompileError = Result.GetError().Text.ToString();
 	}
 }
 
@@ -698,6 +723,37 @@ void FTextFormatData::ConditionalCompile_NoLock()
 	{
 		Compile_NoLock();
 	}
+}
+
+bool FTextFormatData::ValidatePattern_NoLock(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors)
+{
+	ConditionalCompile_NoLock();
+
+	if (CompiledExpressionType == FTextFormat::EExpressionType::Invalid)
+	{
+		if (!LastCompileError.IsEmpty())
+		{
+			OutValidationErrors.Add(LastCompileError);
+		}
+		return false;
+	}
+
+	if (CompiledExpressionType != FTextFormat::EExpressionType::Complex)
+	{
+		return true;
+	}
+
+	const FCultureRef ResolvedCulture = InCulture ? InCulture.ToSharedRef() : FInternationalization::Get().GetCurrentLanguage();
+
+	bool bIsValidPattern = true;
+	for (const FExpressionToken& Token : LexedExpression)
+	{
+		if (const auto* ArgumentModifierToken = Token.Node.Cast<TextFormatTokens::FArgumentModifierTokenSpecifier>())
+		{
+			bIsValidPattern &= ArgumentModifierToken->TextFormatArgumentModifier->Validate(ResolvedCulture, OutValidationErrors);
+		}
+	}
+	return bIsValidPattern;
 }
 
 FString FTextFormatData::Format_NoLock(const FPrivateTextFormatArguments& InFormatArgs)

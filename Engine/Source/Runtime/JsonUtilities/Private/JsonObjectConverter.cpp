@@ -455,6 +455,11 @@ namespace
 
 				FScriptMapHelper Helper(MapProperty, OutValue);
 
+				check(ObjectValue);
+
+				int32 MapSize = ObjectValue->Values.Num();
+				Helper.EmptyValues(MapSize);
+
 				// set the property values
 				for (const auto& Entry : ObjectValue->Values)
 				{
