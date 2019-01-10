@@ -6337,7 +6337,7 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 					IgnorePackageNames.Add(UncookedEditorOnlyPackage);
 				}
 				{
-					Generator.PreSave();
+					Generator.PreSave(CookedPackageNames);
 				}
 				{
 					SCOPE_TIMER(BuildChunkManifest);
