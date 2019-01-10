@@ -65,6 +65,10 @@ struct FMovieSceneSequenceReplProperties
 {
 	GENERATED_BODY()
 
+	FMovieSceneSequenceReplProperties()
+		: LastKnownNumLoops(0)
+	{}
+
 	/** The last known position of the sequence on the server */
 	UPROPERTY()
 	FFrameTime LastKnownPosition;
@@ -72,6 +76,10 @@ struct FMovieSceneSequenceReplProperties
 	/** The last known playback status of the sequence on the server */
 	UPROPERTY()
 	TEnumAsByte<EMovieScenePlayerStatus::Type> LastKnownStatus;
+
+	/** The last known number of loops of the sequence on the server */
+	UPROPERTY()
+	int32 LastKnownNumLoops;
 };
 
 
@@ -606,7 +614,7 @@ protected:
 	TArray<FLatentAction> LatentActions;
 
 	/** Specific playback settings for the animation. */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
 	/** The root template instance we're evaluating */
