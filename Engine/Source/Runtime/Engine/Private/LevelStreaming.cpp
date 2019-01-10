@@ -1627,7 +1627,7 @@ void ULevelStreamingDynamic::PostLoad()
 	// Initialize startup state of the streaming level
 	if ( GetWorld()->IsGameWorld() )
 	{
-		bShouldBeLoaded = bInitiallyLoaded;
+		SetShouldBeLoaded(bInitiallyLoaded);
 		SetShouldBeVisible(bInitiallyVisible);
 	}
 }
