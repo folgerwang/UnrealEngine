@@ -7,8 +7,8 @@
 
 struct FObjectPropertyExecToken : IMovieSceneExecutionToken
 {
-	FObjectPropertyExecToken(TSoftObjectPtr<>&& InValue)
-		: Value(MoveTemp(InValue))
+	FObjectPropertyExecToken(UObject* InValue)
+		: NewObjectValue(MoveTemp(InValue))
 	{}
 
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
@@ -19,9 +19,6 @@ struct FObjectPropertyExecToken : IMovieSceneExecutionToken
 		FTrackInstancePropertyBindings* PropertyBindings = PropertyTrackData.PropertyBindings.Get();
 
 		check(PropertyBindings);
-
-		UObject* NewObjectValue = Value.LoadSynchronous();
-
 		for (TWeakObjectPtr<> WeakObject : Player.FindBoundObjects(Operand))
 		{
 			UObject* ObjectPtr = WeakObject.Get();
@@ -63,7 +60,7 @@ struct FObjectPropertyExecToken : IMovieSceneExecutionToken
 		}
 	}
 
-	TSoftObjectPtr<> Value;
+	UObject* NewObjectValue;
 };
 
 
@@ -80,9 +77,9 @@ void FMovieSceneObjectPropertyTemplate::SetupOverrides()
 
 void FMovieSceneObjectPropertyTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	TSoftObjectPtr<> Ptr;
-	if (ObjectChannel.Evaluate(Context.GetTime(), Ptr))
+	UObject* Object = nullptr;
+	if (ObjectChannel.Evaluate(Context.GetTime(), Object))
 	{
-		ExecutionTokens.Add(FObjectPropertyExecToken(MoveTemp(Ptr)));
+		ExecutionTokens.Add(FObjectPropertyExecToken(Object));
 	}
 }

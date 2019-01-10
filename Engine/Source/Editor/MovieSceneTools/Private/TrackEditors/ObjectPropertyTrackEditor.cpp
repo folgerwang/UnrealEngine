@@ -20,7 +20,7 @@ TSharedRef<ISequencerTrackEditor> FObjectPropertyTrackEditor::CreateTrackEditor(
 
 void FObjectPropertyTrackEditor::GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys)
 {
-	TSoftObjectPtr<> Existing = PropertyChangedParams.GetPropertyValue<UObject*>();
+	UObject* Existing = PropertyChangedParams.GetPropertyValue<UObject*>();
 	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneObjectPathChannel>(0, Existing, true));
 }
 
