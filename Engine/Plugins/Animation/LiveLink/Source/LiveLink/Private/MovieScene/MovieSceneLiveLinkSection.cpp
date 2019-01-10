@@ -145,4 +145,12 @@ void UMovieSceneLiveLinkSection::Serialize(FArchive& Ar)
 		UpdateChannelProxy();
 	}
 }
+
+void UMovieSceneLiveLinkSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateChannelProxy();
+}
+
 #undef LOCTEXT_NAMESPACE // MovieSceneNiagaraEmitterTimedSection

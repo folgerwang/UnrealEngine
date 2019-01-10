@@ -34,6 +34,7 @@ public:
 protected:
 
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostEditImport() override;
 	void UpdateChannelProxy();
 
 };

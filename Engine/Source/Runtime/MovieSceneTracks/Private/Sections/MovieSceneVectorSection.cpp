@@ -111,6 +111,13 @@ void UMovieSceneVectorSection::Serialize(FArchive& Ar)
 	}
 }
 
+void UMovieSceneVectorSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	RecreateChannelProxy();
+}
+
 void UMovieSceneVectorSection::RecreateChannelProxy()
 {
 	FMovieSceneChannelProxyData Channels;
