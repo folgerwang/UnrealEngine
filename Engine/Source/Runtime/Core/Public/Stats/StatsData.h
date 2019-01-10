@@ -407,7 +407,7 @@ public:
 	}
 
 	/** Merges this stack with the other. */
-	void MergeAddAndMax( const FRawStatStackNode& Other );
+	void MergeAddAndMinMax( const FRawStatStackNode& Other );
 
 	/** Divides this stack by the specified value. */
 	void Divide(uint32 Div);
@@ -767,6 +767,20 @@ struct CORE_API FStatsUtils
 			Dest = FMath::Max<int64>(Dest,Other);
 		}
 	}
+	/** Finds a minimum for int64 based stat data. */
+	static void StatOpMinVal_Int64(const FStatNameAndInfo& DestNameAndInfo, int64& Dest, const int64& Other)
+	{
+		if (DestNameAndInfo.GetFlag(EStatMetaFlags::IsPackedCCAndDuration))
+		{
+			Dest = ToPackedCallCountDuration(
+				FMath::Min<uint32>(FromPackedCallCountDuration_CallCount(Dest), FromPackedCallCountDuration_CallCount(Other)),
+				FMath::Min<uint32>(FromPackedCallCountDuration_Duration(Dest), FromPackedCallCountDuration_Duration(Other)));
+		}
+		else
+		{
+			Dest = FMath::Min<int64>(Dest, Other);
+		}
+	}
 
 	/** Internal use, converts arbitrary string to and from an escaped notation for storage in an FName. **/
 	static FString ToEscapedFString(const TCHAR* Source);
@@ -804,13 +818,13 @@ struct CORE_API FStatsUtils
 struct FComplexStatUtils
 {
 	/** Accumulates a stat message into a complex stat message. */
-	static void AddAndMax( FComplexStatMessage& Dest, const FStatMessage& Item, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex );
+	static void AddAndMinMax( FComplexStatMessage& Dest, const FStatMessage& Item, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex, EComplexStatField::Type MinIndex);
 
 	/** Divides a complex stat message by the specified value. */
 	static void DivideStat( FComplexStatMessage& Dest, uint32 Div, EComplexStatField::Type SumIndex, EComplexStatField::Type DestIndex );
 
 	/** Merges two complex stat message arrays. */
-	static void MergeAddAndMaxArray( TArray<FComplexStatMessage>& Dest, const TArray<FStatMessage>& Source, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex );
+	static void MergeAddAndMinMaxArray( TArray<FComplexStatMessage>& Dest, const TArray<FStatMessage>& Source, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex, EComplexStatField::Type MinIndex);
 
 	/** Divides a complex stat array by the specified value. */
 	static void DiviveStatArray( TArray<FComplexStatMessage>& Dest, uint32 Div, EComplexStatField::Type SumIndex, EComplexStatField::Type DestIndex );

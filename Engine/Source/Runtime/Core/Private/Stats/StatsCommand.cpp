@@ -1383,17 +1383,17 @@ struct FHUDGroupManager
 				SCOPE_CYCLE_COUNTER(STAT_Accumulate);
 				const FHudFrame& Frame = FrameIt.Value();
 
-				AggregatedHierarchyHistory.MergeAddAndMax( Frame.HierarchyInclusive );
+				AggregatedHierarchyHistory.MergeAddAndMinMax( Frame.HierarchyInclusive );
 
-				FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistory, Frame.InclusiveAggregate, EComplexStatField::IncSum, EComplexStatField::IncMax );
+				FComplexStatUtils::MergeAddAndMinMaxArray( AggregatedFlatHistory, Frame.InclusiveAggregate, EComplexStatField::IncSum, EComplexStatField::IncMax, EComplexStatField::IncMin );
 
 				for (TMap<FName, TArray<FStatMessage>>::TConstIterator It(Frame.InclusiveAggregateThreadBreakdown); It; ++It)
 				{
-					FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistoryThreadBreakdown.FindChecked(It.Key()), It.Value(), EComplexStatField::IncSum, EComplexStatField::IncMax );
+					FComplexStatUtils::MergeAddAndMinMaxArray( AggregatedFlatHistoryThreadBreakdown.FindChecked(It.Key()), It.Value(), EComplexStatField::IncSum, EComplexStatField::IncMax, EComplexStatField::IncMin);
 				}
 
-				FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistory, Frame.ExclusiveAggregate, EComplexStatField::ExcSum, EComplexStatField::ExcMax );
-				FComplexStatUtils::MergeAddAndMaxArray( AggregatedNonStackStatsHistory, Frame.NonStackStats, EComplexStatField::IncSum, EComplexStatField::IncMax );
+				FComplexStatUtils::MergeAddAndMinMaxArray( AggregatedFlatHistory, Frame.ExclusiveAggregate, EComplexStatField::ExcSum, EComplexStatField::ExcMax, EComplexStatField::ExcMin);
+				FComplexStatUtils::MergeAddAndMinMaxArray( AggregatedNonStackStatsHistory, Frame.NonStackStats, EComplexStatField::IncSum, EComplexStatField::IncMax, EComplexStatField::IncMin);
 			}
 
 			// Divide stats to get average values.

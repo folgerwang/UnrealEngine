@@ -1072,12 +1072,17 @@ struct EComplexStatField
 		IncAve,
 		/** Maximum inclusive time. */
 		IncMax,
+		/** Minimum inclusive time. */
+		IncMin,
 		/** Summed exclusive time. */
 		ExcSum,
 		/** Average exclusive time. */
 		ExcAve,
 		/** Maximum exclusive time. */
 		ExcMax,
+		/** Minimum exclusive time. */
+		ExcMin,
+
 		/** Number of enumerates. */
 		Num,
 	};
