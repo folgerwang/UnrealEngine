@@ -414,7 +414,10 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 				check(Session->SessionSettings.bIsDedicated);
 				// Associate the dedicated server anonymous login as the owning user
 				Session->OwningUserId = SessionInt->GameServerSteamId;
-				Session->OwningUserName = Session->OwningUserId->ToString();
+
+				// Figure if we need to override the server name here
+				FString CustomDedicatedServerName = SessionInt->GetCustomDedicatedServerName();
+				Session->OwningUserName = (!CustomDedicatedServerName.IsEmpty()) ? CustomDedicatedServerName : Session->OwningUserId->ToString();
 			}
 
 			bool bShouldUseAdvertise = true;

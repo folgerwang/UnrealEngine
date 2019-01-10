@@ -229,7 +229,7 @@ bool FOnlineSessionSteam::CreateSession(int32 HostingPlayerNum, FName SessionNam
 
 		Session->HostingPlayerNum = HostingPlayerNum;
 		Session->OwningUserId = SteamUser() ? MakeShareable(new FUniqueNetIdSteam(SteamUser()->GetSteamID())) : nullptr;
-		Session->OwningUserName = SteamFriends() ? SteamFriends()->GetPersonaName() : FString(TEXT(""));
+		Session->OwningUserName = SteamFriends() ? SteamFriends()->GetPersonaName() : GetCustomDedicatedServerName();
 		
 		// Unique identifier of this build for compatibility
 		Session->SessionSettings.BuildUniqueId = GetBuildUniqueId();
@@ -1314,6 +1314,25 @@ bool FOnlineSessionSteam::GetResolvedConnectString(const FOnlineSessionSearchRes
 	}
 
 	return bSuccess;
+}
+
+FString FOnlineSessionSteam::GetCustomDedicatedServerName() const
+{
+	FString ServerName;
+
+	if (FParse::Value(FCommandLine::Get(), TEXT("-SteamServerName="), ServerName))
+	{
+		if (ServerName.Len() >= k_cbMaxGameServerName)
+		{
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("SteamServerName overflows the maximum amount of characters %d allowed, truncating."), k_cbMaxGameServerName);
+			// Must have space for the null terminator
+			ServerName = ServerName.Left(k_cbMaxGameServerName - 1);
+		}
+
+		return ServerName;
+	}
+	
+	return TEXT("");
 }
 
 FOnlineSessionSettings* FOnlineSessionSteam::GetSessionSettings(FName SessionName) 
