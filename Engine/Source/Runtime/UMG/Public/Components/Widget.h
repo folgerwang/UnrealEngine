@@ -804,8 +804,8 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 
-	/** Gets the visibility of the widget inside the designer. */
-	EVisibility GetVisibilityInDesigner() const;
+	/** Is the widget visible in the designer?  If this widget is 'hidden in the designer' or a parent is, this widget will also return false here. */
+	bool IsVisibleInDesigner() const;
 
 	// Begin Designer contextual events
 	void SelectByDesigner();
@@ -836,6 +836,12 @@ public:
 	static FString GetDefaultFontName();
 
 protected:
+#if WITH_EDITOR
+	// This is an implementation detail that allows us to show and hide the widget in the designer
+	// regardless of the actual visibility state set by the user.
+	EVisibility GetVisibilityInDesigner() const;
+#endif
+
 	virtual void OnBindingChanged(const FName& Property);
 
 protected:
