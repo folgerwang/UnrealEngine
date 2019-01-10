@@ -252,4 +252,7 @@ private:
 
 	/** Weak pointer to the level editor's scene outliner */
 	TWeakPtr<ISceneOutliner> SceneOutlinerPtr;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };

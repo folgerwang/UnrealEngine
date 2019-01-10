@@ -579,6 +579,8 @@ public:
 
 	TSharedPtr< FUICommandInfo > FeatureLevelPreview[ERHIFeatureLevel::Num];
 	
+	TSharedPtr< FUICommandInfo > ToggleFeatureLevelPreview;
+
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_DefaultES2;
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_AndroidGLES2;
 
@@ -797,6 +799,9 @@ public:
 	static void AttachToSocketSelection(FName SocketName, AActor* ParentActorPtr);
 	static void SetMaterialQualityLevel( EMaterialQualityLevel::Type NewQualityLevel );
 	static bool IsMaterialQualityLevelChecked( EMaterialQualityLevel::Type TestQualityLevel );
+	static void ToggleFeatureLevelPreview();
+	static bool IsFeatureLevelPreviewEnabled();
+	static bool IsFeatureLevelPreviewActive();
 	static void SetPreviewPlatform(FName MaterialQualityPlatform,ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static bool IsPreviewPlatformChecked(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static void SetFeatureLevelPreview(ERHIFeatureLevel::Type InFeatureLevel);

@@ -278,34 +278,12 @@ void SLevelViewport::ConstructViewportOverlayContent()
 					.ShadowOffset(FVector2D(1, 1))
 				]
 		]
+		// add feature level widget
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(2.0f, 1.0f, 2.0f, 1.0f)
 		[
-			SNew(SHorizontalBox)
-			.Visibility(this, &SLevelViewport::GetCurrentFeatureLevelPreviewTextVisibility)
-			// Current level label
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2.0f, 1.0f, 2.0f, 1.0f)
-			[
-				SNew(STextBlock)
-				.Text(this, &SLevelViewport::GetCurrentFeatureLevelPreviewText, true)
-				.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
-				.ShadowOffset(FVector2D(1, 1))
-			]
-
-			// Current level
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(4.0f, 1.0f, 2.0f, 1.0f)
-				[
-					SNew(STextBlock)
-					.Text(this, &SLevelViewport::GetCurrentFeatureLevelPreviewText, false)
-					.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
-					.ColorAndOpacity(FLinearColor(0.4f, 1.0f, 1.0f))
-					.ShadowOffset(FVector2D(1, 1))
-				]
+			BuildFeatureLevelWidget()
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -1044,6 +1022,8 @@ void SLevelViewport::OnMapChanged( UWorld* World, EMapChangeType MapChangeType )
 			LevelViewportClient->ResetViewForNewMap();
 		}
 		World->EditorViews[LevelViewportClient->ViewportType].CamUpdated = false;
+
+		World->ChangeFeatureLevel(GWorld->FeatureLevel);
 
 		RedrawViewport(true);
 	}
@@ -3324,38 +3304,6 @@ FText SLevelViewport::GetCurrentScreenPercentageText(bool bDrawOnlyLabel) const
 	return FText::FromString(FString::Printf(TEXT("%3d%%"), int32(GetLevelViewportClient().GetPreviewScreenPercentage())));
 }
 
-FText SLevelViewport::GetCurrentFeatureLevelPreviewText( bool bDrawOnlyLabel ) const
-{
-	FText LabelName;
-	FText FeatureLevelText;
-
-	if (bDrawOnlyLabel)
-	{
-		LabelName = LOCTEXT("FeatureLevelLabel", "Feature Level:");
-	}
-	else
-	{
-		auto* World = GetWorld();
-		if (World != nullptr)
-		{
-			const auto FeatureLevel = World->FeatureLevel;
-			if (FeatureLevel != GMaxRHIFeatureLevel)
-			{
-				FName FeatureLevelName;
-				GetFeatureLevelName(FeatureLevel, FeatureLevelName);
-				FeatureLevelText = FText::Format(LOCTEXT("FeatureLevel", "{0}"), FText::FromName(FeatureLevelName));
-			}
-		}
-	}
-	
-	if (bDrawOnlyLabel)
-	{
-		return LabelName;
-	}
-
-	return FeatureLevelText;
-}
-
 FText SLevelViewport::GetCurrentLevelText( bool bDrawOnlyLabel ) const
 {
 	// Display the current level and current level grid volume in the status bar
@@ -3406,18 +3354,6 @@ EVisibility SLevelViewport::GetCurrentLevelTextVisibility() const
 		ContentVisibility = EVisibility::SelfHitTestInvisible;
 	}
 	return (&GetLevelViewportClient() == GCurrentLevelEditingViewportClient) ? ContentVisibility : EVisibility::Collapsed;
-}
-
-EVisibility SLevelViewport::GetCurrentFeatureLevelPreviewTextVisibility() const
-{
-	if (GetWorld())
-	{
-		return (GetWorld()->FeatureLevel != GMaxRHIFeatureLevel) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
-	}
-	else
-	{
-		return EVisibility::Collapsed;
-	}
 }
 
 EVisibility SLevelViewport::GetCurrentScreenPercentageVisibility() const

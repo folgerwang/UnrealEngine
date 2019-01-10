@@ -579,9 +579,9 @@ public:
 	ENGINE_API virtual bool HasOverridenBaseProperties()const;
 
 	// For all materials instances, UMaterialInstance::CacheResourceShadersForRendering
-	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering();
+	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog = false);
 
-	/** 
+	/**
 	 * Determine whether this Material Instance is a child of another Material
 	 *
 	 * @param	Material	Material to check against
