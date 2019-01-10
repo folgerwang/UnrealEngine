@@ -25,6 +25,7 @@ public class WebBrowser : ModuleRules
 		);
 
 		if (Target.Platform == UnrealTargetPlatform.Android ||
+			Target.Platform == UnrealTargetPlatform.Lumin ||
 		    Target.Platform == UnrealTargetPlatform.IOS ||
 		    Target.Platform == UnrealTargetPlatform.TVOS)
 		{
