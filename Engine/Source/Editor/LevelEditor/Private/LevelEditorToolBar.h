@@ -48,6 +48,13 @@ protected:
 	static TSharedRef< SWidget > GenerateQuickSettingsMenu( TSharedRef<FUICommandList> InCommandList );
 
 	/**
+	 * Generates menu content for the preview mode combo button drop down menu
+	 *
+	 * @return	Menu content widget
+	 */
+	static TSharedRef< SWidget > GeneratePreviewModeMenu( TSharedRef<FUICommandList> InCommandList );
+
+	/**
 	 * Generates menu content for the source control combo button drop down menu
 	 *
 	 * @return	Menu content widget

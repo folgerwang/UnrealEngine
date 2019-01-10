@@ -346,6 +346,7 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	bIsEndingPlay = false;
 	NumOnlinePIEInstances = 0;
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
+	PreviewFeatureLevel = DefaultWorldFeatureLevel;
 
 	bNotifyUndoRedoSelectionChange = true;
 
@@ -7414,6 +7415,7 @@ void UEditorEngine::OnSceneMaterialsModified()
 void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel)
 {
 	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "UpdatingMaterialsMessage", "Updating Materials"), true);
+	SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
 	SlowTask.MakeDialog();
 
 	//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
@@ -7425,59 +7427,36 @@ void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeat
 	FGlobalComponentReregisterContext RecreateComponents;
 	FlushRenderingCommands();
 
-	SlowTask.EnterProgressFrame(5.0f);
+	// Clear all required global feature levels, we only require the preview feature level.
+	for (uint32 i = (uint32)ERHIFeatureLevel::ES2; i < (uint32)ERHIFeatureLevel::Num; i++)
+	{
+		UMaterialInterface::SetGlobalRequiredFeatureLevel((ERHIFeatureLevel::Type)i, false);
+	}
 
-	// Decrement refcount on old feature level
 	UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
 
-	SlowTask.EnterProgressFrame(50.0f);
-	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	SlowTask.EnterProgressFrame(35.0f);
+	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
 	
-	SlowTask.EnterProgressFrame(40.0f);
-	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+	SlowTask.EnterProgressFrame(35.0f);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
 
+	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskGlobalShaderMapMessage", "Compiling global shaders"));
 	CompileGlobalShaderMap(InFeatureLevel);
+
+	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskFinalizingMessage", "Finalizing"));
 	GShaderCompilingManager->ProcessAsyncResults(false, true);
-	SlowTask.EnterProgressFrame(5.0f);
 }
 
 void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
-	if (DefaultWorldFeatureLevel != InPreviewFeatureLevel)
+	if (PreviewFeatureLevel != InPreviewFeatureLevel)
 	{
 		// Record this feature level as we want to use it for all subsequent level creation and loading
-		DefaultWorldFeatureLevel = InPreviewFeatureLevel;
-
-		FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "ChangingPreviewRenderingLevelMessage", "Changing Preview Rendering Level"), true);
-		SlowTask.MakeDialog();
+		PreviewFeatureLevel = InPreviewFeatureLevel;
 
 		// first change the feature level for global/shared resources
 		SetMaterialsFeatureLevel(InPreviewFeatureLevel);
-
-		SlowTask.EnterProgressFrame(50.0f);
-
-		UWorld* MainWorld = GetEditorWorldContext().World();
-		if (MainWorld != nullptr)
-		{
-			MainWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
-		}
-
-		SlowTask.EnterProgressFrame(25.0f);
-
-		// Update any currently running PIE sessions.
-		for (TObjectIterator<UWorld> It; It; ++It)
-		{
-			UWorld* ItWorld = *It;
-			if (ItWorld->WorldType == EWorldType::PIE)
-			{
-				ItWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
-			}
-		}
-
-		SlowTask.EnterProgressFrame(25.0f);
-
-		GUnrealEd->OnSceneMaterialsModified();
-		GUnrealEd->RedrawAllViewports();
 	}
 }
 
@@ -7485,23 +7464,23 @@ void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
 {
 	FGlobalComponentRecreateRenderStateContext Recreate;
 	FlushRenderingCommands();
-	UMaterial::AllMaterialsCacheResourceShadersForRendering();
-	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
 }
 
-void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
 	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
-	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
+	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == InPreviewFeatureLevel);
 
 	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
 	const FName InitialPreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
 	MaterialShaderQualitySettings->SetPreviewPlatform(MaterialQualityPlatform);
 
-	if (DefaultWorldFeatureLevel != PreviewFeatureLevel)
+	if (PreviewFeatureLevel != InPreviewFeatureLevel)
 	{
 		// a new feature level will recompile the materials and apply the effect of any 'material quality platform'
-		SetFeatureLevelPreview(PreviewFeatureLevel);
+		SetFeatureLevelPreview(InPreviewFeatureLevel);
 	}
 	else if (InitialPreviewPlatform != MaterialQualityPlatform)
 	{
@@ -7509,10 +7488,32 @@ void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, cons
 		AllMaterialsCacheResourceShadersForRendering();
 	}
 
+	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
+
 	if (bSaveSettings)
 	{
 		SaveEditorFeatureLevel();
 	}
+}
+
+void UEditorEngine::ToggleFeatureLevelPreview()
+{
+	ERHIFeatureLevel::Type NewPreviewFeatureLevel = GWorld->FeatureLevel == GMaxRHIFeatureLevel ? PreviewFeatureLevel : GMaxRHIFeatureLevel;
+
+	PreviewFeatureLevelChanged.Broadcast(NewPreviewFeatureLevel);
+	
+	GEditor->OnSceneMaterialsModified();
+	GEditor->RedrawAllViewports();
+}
+
+bool UEditorEngine::IsFeatureLevelPreviewEnabled() const
+{
+	return PreviewFeatureLevel != GMaxRHIFeatureLevel;
+}
+
+bool UEditorEngine::IsFeatureLevelPreviewActive() const
+{
+	return GWorld->FeatureLevel != GMaxRHIFeatureLevel;
 }
 
 void UEditorEngine::LoadEditorFeatureLevel()
@@ -7524,8 +7525,9 @@ void UEditorEngine::LoadEditorFeatureLevel()
 	if (ShaderPlatform != SP_NumPlatforms)
 	{
 		const FName MaterialQualityPlatform = Settings->bIsMaterialQualityOverridePlatform ? Settings->PreviewShaderPlatformName : NAME_None;
-		const ERHIFeatureLevel::Type PreviewFeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
-		SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel, false);
+		const ERHIFeatureLevel::Type FeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
+
+		SetPreviewPlatform(MaterialQualityPlatform, FeatureLevel, false);
 	}
 }
 
@@ -7538,7 +7540,7 @@ void UEditorEngine::SaveEditorFeatureLevel()
 	{
 		Settings->bIsMaterialQualityOverridePlatform = false;
 
-		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(DefaultWorldFeatureLevel);
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(PreviewFeatureLevel);
 		Settings->PreviewShaderPlatformName = LegacyShaderPlatformToShaderFormat(ShaderPlatform);
 	}
 	else

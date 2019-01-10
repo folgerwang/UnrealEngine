@@ -637,6 +637,7 @@ void USocialToolkit::HandleReadFriendsListComplete(int32 LocalUserNum, bool bWas
 
 		//@todo DanH: This isn't actually quite correct - some of these could actually just be friend info for pending invites, not fully accepted friends. Should piece out the list into respective categories and process each separately (or make the associated event determination more complex)
 		ProcessUserList(FriendsList, SubsystemType, OnFriendshipEstablished());
+		OnQueryFriendsListSuccess(SubsystemType, FriendsList);
 	}
 	else
 	{
@@ -659,6 +660,7 @@ void USocialToolkit::HandleQueryBlockedPlayersComplete(const FUniqueNetId& UserI
 			TArray<TSharedRef<FOnlineBlockedPlayer>> BlockedPlayers;
 			FriendsInterface->GetBlockedPlayers(UserId, BlockedPlayers);
 			ProcessUserList(BlockedPlayers, SubsystemType, OnUserBlocked());
+			OnQueryBlockedPlayersSuccess(SubsystemType, BlockedPlayers);
 		}
 		else
 		{
@@ -681,6 +683,7 @@ void USocialToolkit::HandleQueryRecentPlayersComplete(const FUniqueNetId& UserId
 			TArray<TSharedRef<FOnlineRecentPlayer>> RecentPlayers;
 			FriendsInterface->GetRecentPlayers(UserId, Namespace, RecentPlayers);
 			ProcessUserList(RecentPlayers, SubsystemType, OnRecentPlayerAdded());
+			OnQueryRecentPlayersSuccess(SubsystemType, RecentPlayers);
 		}
 		else
 		{

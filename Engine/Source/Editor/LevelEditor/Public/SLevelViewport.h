@@ -289,14 +289,8 @@ public:
 	/** Called to get the screen percentage preview text */
 	FText GetCurrentScreenPercentageText(bool bDrawOnlyLabel) const;
 
-	/** Called to get the feature level preview text */
-	FText GetCurrentFeatureLevelPreviewText( bool bDrawOnlyLabel ) const;
-	
 	/** @return The visibility of the current level text display */
 	virtual EVisibility GetCurrentLevelTextVisibility() const;
-
-	/** @return The visibility of the current feature level preview text display */
-	EVisibility GetCurrentFeatureLevelPreviewTextVisibility() const;
 
 	/** @return The visibility of the current screen percentage text display */
 	EVisibility GetCurrentScreenPercentageVisibility() const;
