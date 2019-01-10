@@ -205,11 +205,14 @@ void UCompositionGraphCaptureProtocol::OnLoadConfigImpl(FMovieSceneCaptureSettin
 	// Add .{frame} if it doesn't already exist
 	FString OutputFormat = InSettings.OutputFormat;
 
-	if (!OutputFormat.Contains(TEXT("{frame}")))
+	// Ensure the format string tries to always export a uniquely named frame so the file doesn't overwrite itself if the user doesn't add it.
+	bool bHasFrameFormat = OutputFormat.Contains(TEXT("{frame}")) || OutputFormat.Contains(TEXT("{shot_frame}"));
+	if (!bHasFrameFormat)
 	{
 		OutputFormat.Append(TEXT(".{frame}"));
 
 		InSettings.OutputFormat = OutputFormat;
+		UE_LOG(LogTemp, Warning, TEXT("Automatically appended .{frame} to the format string as specified format string did not provide a way to differentiate between frames via {frame} or {shot_frame}!"));
 	}
 
 	// Add {material} if it doesn't already exist

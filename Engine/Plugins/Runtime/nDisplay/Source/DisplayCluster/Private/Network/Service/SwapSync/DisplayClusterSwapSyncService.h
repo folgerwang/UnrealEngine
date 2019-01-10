@@ -17,7 +17,7 @@ class FDisplayClusterSwapSyncService
 	, private IPDisplayClusterSwapSyncProtocol
 {
 public:
-	FDisplayClusterSwapSyncService(const FString& addr, const int32 port);
+	FDisplayClusterSwapSyncService(const FString& InAddr, const int32 InPort);
 	virtual ~FDisplayClusterSwapSyncService();
 
 public:
@@ -25,22 +25,24 @@ public:
 	virtual void Shutdown() override;
 
 protected:
+	virtual FDisplayClusterSessionBase* CreateSession(FSocket* InSocket, const FIPv4Endpoint& InEP) override;
+
+protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterSessionListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void NotifySessionOpen(FDisplayClusterSession* pSession) override;
-	virtual void NotifySessionClose(FDisplayClusterSession* pSession) override;
-	virtual FDisplayClusterMessage::Ptr ProcessMessage(FDisplayClusterMessage::Ptr msg) override;
+	virtual void NotifySessionOpen(FDisplayClusterSessionBase* InSession) override;
+	virtual void NotifySessionClose(FDisplayClusterSessionBase* InSession) override;
+	virtual TSharedPtr<FDisplayClusterMessage> ProcessMessage(const TSharedPtr<FDisplayClusterMessage>& Request) override;
 
 private:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterSwapSyncProtocol
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime) override;
+	virtual void WaitForSwapSync(double* ThreadWaitTime, double* BarrierWaitTime) override;
 
 
 private:
 	// Swap sync barrier
 	FDisplayClusterBarrier BarrierSwap;
 };
-

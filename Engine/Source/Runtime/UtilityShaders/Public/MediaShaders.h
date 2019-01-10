@@ -25,6 +25,9 @@ namespace MediaShaders
 
 	/** Color transform from YUV to sRGB (in Rec. 709 color space). */
 	UTILITYSHADERS_API extern const FMatrix YuvToRgbRec709;
+
+	/** Color transform from RGB to YUV (no gamma correction) */
+	UTILITYSHADERS_API extern const FMatrix RgbToYuvDefault;
 }
 
 
@@ -425,6 +428,40 @@ public:
 
 
 /**
+ * Pixel shader to convert YUV v210 to RGB
+ *
+ * This shader expects a single texture in PF_R32G32B32A32_UINT format.
+ */
+class FYUVv210ConvertPS
+	: public FGlobalShader
+{
+	DECLARE_EXPORTED_SHADER_TYPE(FYUVv210ConvertPS, Global, UTILITYSHADERS_API);
+
+public:
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2);
+	}
+
+	FYUVv210ConvertPS() { }
+
+	FYUVv210ConvertPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{ }
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		return bShaderHasOutdatedParameters;
+	}
+
+	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> YUVTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear);
+};
+
+
+
+/**
  * Pixel shader to convert a YUY2 frame to RGBA.
  *
  * This shader expects an YUY2 frame packed into a single texture in PF_B8G8R8A8
@@ -493,4 +530,70 @@ public:
 	}
 
 	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> YVYUTexture, const FMatrix& ColorTransform, bool SrgbToLinear);
+};
+
+
+/**
+ * Pixel shader to convert RGB 8 bits to UYVY 8 bits
+ *
+ * This shader expects a single texture in PF_B8G8R8A8 format.
+ */
+class FRGB8toUYVY8ConvertPS
+	: public FGlobalShader
+{
+	DECLARE_EXPORTED_SHADER_TYPE(FRGB8toUYVY8ConvertPS, Global, UTILITYSHADERS_API);
+
+public:
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2);
+	}
+
+	FRGB8toUYVY8ConvertPS() { }
+
+	FRGB8toUYVY8ConvertPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{ }
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		return bShaderHasOutdatedParameters;
+	}
+
+	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb);
+};
+
+
+/**
+ * Pixel shader to convert RGB 10 bits to YUV v210
+ *
+ * This shader expects a single texture in PF_A2B10G10R10 format.
+ */
+class FRGB10toYUVv210ConvertPS
+	: public FGlobalShader
+{
+	DECLARE_EXPORTED_SHADER_TYPE(FRGB10toYUVv210ConvertPS, Global, UTILITYSHADERS_API);
+
+public:
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2);
+	}
+
+	FRGB10toYUVv210ConvertPS() { }
+
+	FRGB10toYUVv210ConvertPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{ }
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		return bShaderHasOutdatedParameters;
+	}
+
+	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb);
 };

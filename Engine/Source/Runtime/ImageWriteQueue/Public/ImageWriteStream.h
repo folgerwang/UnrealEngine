@@ -16,6 +16,20 @@ struct FImageStreamEndpoint;
 struct IMAGEWRITEQUEUE_API FImagePixelPipe
 {
 	/**
+	 * Default constructor (an empty pipe)
+	 */
+	FImagePixelPipe()
+	{}
+
+	/**
+	 * Define a new pipe with a single initial endpoint
+	 */
+	FImagePixelPipe(const TFunction<void(TUniquePtr<FImagePixelData>&&)>& InEndpoint)
+	{
+		AddEndpoint(InEndpoint);
+	}
+
+	/**
 	 * Push the specified pixel data onto this pipe
 	 *
 	 * @param InImagePixelData         The data to push through this pipe

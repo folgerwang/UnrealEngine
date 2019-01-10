@@ -60,6 +60,8 @@ struct FCaptureState
 struct MOVIESCENECAPTUREDIALOG_API FMovieSceneCaptureBase : TSharedFromThis<FMovieSceneCaptureBase>
 {
 public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FCaptureStateStopped, bool);
+
 	virtual ~FMovieSceneCaptureBase() {}
 	virtual void OnCaptureStarted() {}
 	virtual void OnCaptureFinished(bool bSuccess);
@@ -70,6 +72,11 @@ public:
 	{
 		return FCaptureState();
 	}
+
+public:
+	/** Multicast Delegate for when capture is stopped. Returns true if the capture was completed successfully. */
+	FCaptureStateStopped CaptureStoppedDelegate;
+
 protected:
 	/** Pointer to the capture notification pop up. */
 	TSharedPtr<SNotificationItem> InProgressCaptureNotification;

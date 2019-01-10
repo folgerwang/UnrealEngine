@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterDeviceQuadBufferStereoOpenGL.h"
+#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoOpenGL.h"
 
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
@@ -19,46 +19,32 @@ FDisplayClusterDeviceQuadBufferStereoOpenGL::~FDisplayClusterDeviceQuadBufferSte
 {
 }
 
-void FDisplayClusterDeviceQuadBufferStereoOpenGL::SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy)
-{
-	FScopeLock lock(&InternalsSyncScope);
-	UE_LOG(LogDisplayClusterRender, Log, TEXT("Swap sync policy: %d"), (int)policy);
-
-	switch (policy)
-	{
-		// Policies below are supported by all child implementations
-		case EDisplayClusterSwapSyncPolicy::SoftSwapSync:
-		// falls through
-		case EDisplayClusterSwapSyncPolicy::NvSwapSync:
-		{
-			SwapSyncPolicy = policy;
-			break;
-		}
-
-		default:
-			// Forward the policy type to the upper level
-			FDisplayClusterDeviceBase::SetSwapSyncPolicy(policy);
-			break;
-	}
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Windows implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
 #if PLATFORM_WINDOWS
 bool FDisplayClusterDeviceQuadBufferStereoOpenGL::Present(int32& InOutSyncInterval)
 {
-	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("FDisplayClusterDeviceQuadBufferStereoOpenGL::Present"));
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterRender);
 
 	const int halfSizeX = BackBuffSize.X / 2;
-	const int dstX1 = 0;
-	const int dstX2 = halfSizeX;
 
-	// Convert to left bottom origin and flip Y
-	const int dstY1 = ViewportSize.Y;
+	const int srcLX1 = 0;
+	const int srcLY1 = 0;
+	const int srcLX2 = halfSizeX;
+	const int srcLY2 = BackBuffSize.Y;
+
+	const int srcRX1 = halfSizeX;
+	const int srcRY1 = 0;
+	const int srcRX2 = BackBuffSize.X;
+	const int srcRY2 = BackBuffSize.Y;
+
+	const int dstX1 = 0;
+	const int dstY1 = BackBuffSize.Y;
+	const int dstX2 = halfSizeX;
 	const int dstY2 = 0;
 
-	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(CurrentViewport->GetViewportRHI().GetReference());
+	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(MainViewport->GetViewportRHI().GetReference());
 	check(pOglViewport);
 	FPlatformOpenGLContext* const pContext = pOglViewport->GetGLContext();
 	check(pContext && pContext->DeviceContext);
@@ -68,16 +54,18 @@ bool FDisplayClusterDeviceQuadBufferStereoOpenGL::Present(int32& InOutSyncInterv
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, pContext->ViewportFramebuffer);
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("Blit framebuffer [L]: [%d,%d - %d,%d] -> [%d,%d - %d,%d]"), srcLX1, srcLY1, srcLX2, srcLY2, dstX1, dstY1, dstX2, dstY2);
 	glDrawBuffer(GL_BACK_LEFT);
 	glBlitFramebuffer(
-		0, 0, halfSizeX, BackBuffSize.Y,
+		srcLX1, srcLY1, srcLX2, srcLY2,
 		dstX1, dstY1, dstX2, dstY2,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST);
 
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("Blit framebuffer [R]: [%d,%d - %d,%d] -> [%d,%d - %d,%d]"), srcRX1, srcRY1, srcRX2, srcRY2, dstX1, dstY1, dstX2, dstY2);
 	glDrawBuffer(GL_BACK_RIGHT);
 	glBlitFramebuffer(
-		halfSizeX, 0, BackBuffSize.X, BackBuffSize.Y,
+		srcRX1, srcRY1, srcRX2, srcRY2,
 		dstX1, dstY1, dstX2, dstY2,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST);
@@ -291,13 +279,13 @@ bool FDisplayClusterDeviceQuadBufferStereoOpenGL::InitializeNvidiaSwapLock()
 		return false;
 	}
 
-	if (!CurrentViewport)
+	if (!MainViewport)
 	{
 		UE_LOG(LogDisplayClusterRender, Warning, TEXT("Viewport RHI hasn't been initialized yet"))
-			return false;
+		return false;
 	}
 
-	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(CurrentViewport->GetViewportRHI().GetReference());
+	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(MainViewport->GetViewportRHI().GetReference());
 	check(pOglViewport);
 	FPlatformOpenGLContext* const pContext = pOglViewport->GetGLContext();
 	check(pContext && pContext->DeviceContext);

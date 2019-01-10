@@ -17,7 +17,7 @@
 	"SupportedPrograms" : 
 	[
 		"UnrealFrontend",
-		"UnrealCollaborationServer",
+		"UnrealMultiUserServer",
 		"UnrealLightmass"
 	],
 	"Modules" :
@@ -30,10 +30,9 @@
 			[
 				"HTML5"
 			],
-			"WhitelistPrograms": 
-			[
+			"WhitelistPrograms": [
 				"UnrealFrontend",
-				"UnrealCollaborationServer",
+				"UnrealMultiUserServer",
 				"UnrealLightmass"
 			]
 		}

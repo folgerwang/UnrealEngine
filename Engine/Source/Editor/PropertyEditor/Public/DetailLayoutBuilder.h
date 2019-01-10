@@ -206,4 +206,12 @@ public:
 	 * @return True if an object in the builder is a class default object
 	 */
 	virtual bool HasClassDefaultObject() const = 0;
+
+	/**
+	 * Registers a custom detail layout delegate for a specific type in this layout only
+	 *
+	 * @param PropertyTypeName	The type the custom detail layout is for
+	 * @param DetailLayoutDelegate	The delegate to call when querying for custom detail layouts for the classes properties
+	 */
+	virtual void RegisterInstancedCustomPropertyTypeLayout(FName PropertyTypeName, FOnGetPropertyTypeCustomizationInstance PropertyTypeLayoutDelegate, TSharedPtr<IPropertyTypeIdentifier> Identifier = nullptr) = 0;
 };

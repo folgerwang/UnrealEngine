@@ -132,7 +132,7 @@ public:
 /**
  * Base class for movie scene sections
  */
-UCLASS(abstract, DefaultToInstanced, MinimalAPI)
+UCLASS(abstract, DefaultToInstanced, MinimalAPI, BlueprintType)
 class UMovieSceneSection
 	: public UMovieSceneSignedObject
 {
@@ -377,18 +377,22 @@ public:
 	}
 
 	/** Sets this section's new row index */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetRowIndex(int32 NewRowIndex) {RowIndex = NewRowIndex;}
 
 	/** Gets the row index for this section */
-	int32 GetRowIndex() const {return RowIndex;}
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
+	int32 GetRowIndex() const { return RowIndex; }
 	
 	/** Sets this section's priority over overlapping sections (higher wins) */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetOverlapPriority(int32 NewPriority)
 	{
 		OverlapPriority = NewPriority;
 	}
 
 	/** Gets this section's priority over overlapping sections (higher wins) */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	int32 GetOverlapPriority() const
 	{
 		return OverlapPriority;
@@ -426,19 +430,27 @@ public:
 	virtual MOVIESCENE_API void InitialPlacementOnRow(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 InDuration, int32 InRowIndex);
 
 	/** Whether or not this section is active. */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetIsActive(bool bInIsActive) { bIsActive = bInIsActive; }
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	bool IsActive() const { return bIsActive; }
 
 	/** Whether or not this section is locked. */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetIsLocked(bool bInIsLocked) { bIsLocked = bInIsLocked; }
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	bool IsLocked() const { return bIsLocked; }
 
 	/** Gets the number of frames to prepare this section for evaluation before it actually starts. */
-	void SetPreRollFrames(int32 InPreRollFrames) { if (TryModify()){ PreRollFrames = InPreRollFrames; } }
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
+	void SetPreRollFrames(int32 InPreRollFrames) { if (TryModify()) { PreRollFrames = InPreRollFrames; } }
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	int32 GetPreRollFrames() const { return PreRollFrames.Value; }
 
 	/** Gets/sets the number of frames to continue 'postrolling' this section for after evaluation has ended. */
-	void SetPostRollFrames(int32 InPostRollFrames) { if (TryModify()){ PostRollFrames = InPostRollFrames; } }
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
+	void SetPostRollFrames(int32 InPostRollFrames) { if (TryModify()) { PostRollFrames = InPostRollFrames; } }
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	int32 GetPostRollFrames() const { return PostRollFrames.Value; }
 
 	/** The optional offset time of this section */
@@ -449,6 +461,9 @@ public:
 	 *
 	 */
 	virtual void OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap) { }
+
+	/** Get the referenced bindings for this section */
+	MOVIESCENE_API virtual void GetReferencedBindings(TArray<FGuid>& OutBindings) {}
 
 	/**
 	 * Gets a list of all overlapping sections

@@ -1193,17 +1193,14 @@ void UUnrealEdEngine::UpdateVolumeActorVisibility( UClass* InVolumeActorClass, F
 		if( !InViewport )
 		{
 			// Update the visibility state of each actor for each viewport
-			for( int32 ViewportIdx = 0; ViewportIdx < LevelViewportClients.Num(); ++ViewportIdx )
+			for( FLevelEditorViewportClient* ViewClient : GetLevelViewportClients() )
 			{
-				FLevelEditorViewportClient& ViewClient = *LevelViewportClients[ViewportIdx];
+				// Only update the editor frame clients as those are the only viewports right now that show volumes.
+				InternalUpdateVolumeActorVisibility( ActorsToUpdate, *ViewClient, ActorsThatChanged );
+				if( ActorsThatChanged.Num() )
 				{
-					// Only update the editor frame clients as those are the only viewports right now that show volumes.
-					InternalUpdateVolumeActorVisibility( ActorsToUpdate, ViewClient, ActorsThatChanged );
-					if( ActorsThatChanged.Num() )
-					{
-						// If actor visibility changed in the viewport, it needs to be redrawn
-						ViewClient.Invalidate();
-					}
+					// If actor visibility changed in the viewport, it needs to be redrawn
+					ViewClient->Invalidate();
 				}
 			}
 		}

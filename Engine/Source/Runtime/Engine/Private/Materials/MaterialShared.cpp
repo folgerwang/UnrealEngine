@@ -462,6 +462,7 @@ void FMaterialCompilationOutput::Serialize(FArchive& Ar)
 	Ar << bUsesGlobalDistanceField;
 	Ar << bUsesPixelDepthOffset;
 	Ar << bUsesSceneDepthLookup;
+	Ar << bUsesVelocitySceneTexture;
 }
 
 void FMaterial::GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& OutId) const

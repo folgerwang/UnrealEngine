@@ -1,10 +1,11 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Config/DisplayClusterConfigTypes.h"
-#include "DisplayClusterStrings.h"
+
 #include "Misc/DisplayClusterHelpers.h"
 #include "Misc/DisplayClusterLog.h"
 
+#include "DisplayClusterStrings.h"
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,30 +13,63 @@
 //////////////////////////////////////////////////////////////////////////////////////////////
 FString FDisplayClusterConfigClusterNode::ToString() const
 {
-	return FString::Printf(TEXT("[%s + %s=%s, %s=%s, %s=%s, %s=%s, %s=%s, %s=%d, %s=%d, %s=%s, %s=%s]"),
+	return FString::Printf(TEXT("[%s + %s=%s, %s=%s, %s=%s, %s=%s, %s=%d, %s=%d, %s=%d, %s=%s, %s=%s]"),
 		*FDisplayClusterConfigBase::ToString(),
-		DisplayClusterStrings::cfg::data::Id, *Id, 
-		DisplayClusterStrings::cfg::data::cluster::Addr, *Addr, 
-		DisplayClusterStrings::cfg::data::cluster::Master, DisplayClusterHelpers::str::BoolToStr(IsMaster), 
-		DisplayClusterStrings::cfg::data::cluster::Screen, *ScreenId,
-		DisplayClusterStrings::cfg::data::cluster::Viewport, *ViewportId, 
-		DisplayClusterStrings::cfg::data::cluster::PortCS, Port_CS,
-		DisplayClusterStrings::cfg::data::cluster::PortSS, Port_SS,
-		DisplayClusterStrings::cfg::data::cluster::Sound, DisplayClusterHelpers::str::BoolToStr(SoundEnabled),
-		DisplayClusterStrings::cfg::data::cluster::EyeSwap, DisplayClusterHelpers::str::BoolToStr(EyeSwap));
+		DisplayClusterStrings::cfg::data::Id,               *Id,
+		DisplayClusterStrings::cfg::data::cluster::Window,  *WindowId,
+		DisplayClusterStrings::cfg::data::cluster::Addr,    *Addr,
+		DisplayClusterStrings::cfg::data::cluster::Master,  DisplayClusterHelpers::str::BoolToStr(IsMaster),
+		DisplayClusterStrings::cfg::data::cluster::PortCS,  Port_CS,
+		DisplayClusterStrings::cfg::data::cluster::PortSS,  Port_SS,
+		DisplayClusterStrings::cfg::data::cluster::PortCE,  Port_CE,
+		DisplayClusterStrings::cfg::data::cluster::Sound,   DisplayClusterHelpers::str::BoolToStr(SoundEnabled),
+		DisplayClusterStrings::cfg::data::cluster::EyeSwap, DisplayClusterHelpers::str::BoolToStr(EyeSwap)
+	);
 }
 
 bool FDisplayClusterConfigClusterNode::DeserializeFromString(const FString& line)
 {
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::Id),                Id);
-	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Screen),   ScreenId);
-	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Viewport), ViewportId);
-	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Master),   IsMaster);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Window),   WindowId);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Addr),     Addr);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Master),   IsMaster);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::PortCS),   Port_CS);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::PortSS),   Port_SS);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::PortCE),   Port_CE);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::Sound),    SoundEnabled);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::cluster::EyeSwap),  EyeSwap);
+
+	return FDisplayClusterConfigBase::DeserializeFromString(line);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// FDisplayClusterConfigWindow
+//////////////////////////////////////////////////////////////////////////////////////////////
+FString FDisplayClusterConfigWindow::ToString() const
+{
+	return FString::Printf(TEXT("[%s + %s=%s, %s=%s, %s=%s, %s=%d, %s=%d, %s=%d, %s=%d]"),
+		*FDisplayClusterConfigBase::ToString(),
+		DisplayClusterStrings::cfg::data::Id,                 *Id,
+		DisplayClusterStrings::cfg::data::window::Viewports,  *DisplayClusterHelpers::str::ArrayToStr(ViewportIds),
+		DisplayClusterStrings::cfg::data::window::Fullscreen, DisplayClusterHelpers::str::BoolToStr(IsFullscreen),
+		DisplayClusterStrings::cfg::data::window::WinX,       WinX,
+		DisplayClusterStrings::cfg::data::window::WinY,       WinY,
+		DisplayClusterStrings::cfg::data::window::ResX,       ResX,
+		DisplayClusterStrings::cfg::data::window::ResY,       ResY
+	);
+}
+
+bool FDisplayClusterConfigWindow::DeserializeFromString(const FString& line)
+{
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::Id),                 Id);
+	DisplayClusterHelpers::str::ExtractCommandLineArray(line, FString(DisplayClusterStrings::cfg::data::window::Viewports),  ViewportIds);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::window::Fullscreen), IsFullscreen);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::window::WinX),       WinX);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::window::WinY),       WinY);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::window::ResX),       ResX);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::window::ResY),       ResY);
+
 	return FDisplayClusterConfigBase::DeserializeFromString(line);
 }
 
@@ -45,21 +79,26 @@ bool FDisplayClusterConfigClusterNode::DeserializeFromString(const FString& line
 //////////////////////////////////////////////////////////////////////////////////////////////
 FString FDisplayClusterConfigViewport::ToString() const
 {
-	return FString::Printf(TEXT("[%s + %s=%s, %s=%s, %s=%d, %s=%d]"),
+	return FString::Printf(TEXT("[%s + %s=%s, %s=%s, %s=%d, %s=%d, %s=%d, %s=%d]"),
 		*FDisplayClusterConfigBase::ToString(),
-		DisplayClusterStrings::cfg::data::Id, *Id,
-		DisplayClusterStrings::cfg::data::Loc, *Loc.ToString(),
+		DisplayClusterStrings::cfg::data::Id,               *Id,
+		DisplayClusterStrings::cfg::data::viewport::Screen, *ScreenId,
+		DisplayClusterStrings::cfg::data::viewport::PosX,   Loc.X,
+		DisplayClusterStrings::cfg::data::viewport::PosY,   Loc.Y,
 		DisplayClusterStrings::cfg::data::viewport::Width,  Size.X,
-		DisplayClusterStrings::cfg::data::viewport::Height, Size.Y);
+		DisplayClusterStrings::cfg::data::viewport::Height, Size.Y
+	);
 }
 
 bool FDisplayClusterConfigViewport::DeserializeFromString(const FString& line)
 {
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::Id),               Id);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::viewport::Screen), ScreenId);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::viewport::PosX),   Loc.X);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::viewport::PosY),   Loc.Y);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::viewport::Width),  Size.X);
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::viewport::Height), Size.Y);
+
 	return FDisplayClusterConfigBase::DeserializeFromString(line);
 }
 
@@ -221,6 +260,30 @@ FString FDisplayClusterConfigStereo::ToString() const
 bool FDisplayClusterConfigStereo::DeserializeFromString(const FString& line)
 {
 	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::stereo::EyeDist), EyeDist);
+	return FDisplayClusterConfigBase::DeserializeFromString(line);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// FDisplayClusterConfigNetwork
+//////////////////////////////////////////////////////////////////////////////////////////////
+FString FDisplayClusterConfigNetwork::ToString() const
+{
+	return FString::Printf(TEXT("[%s + %s=%d, %s=%d, %s=%d, %s=%d]"),
+		*FDisplayClusterConfigBase::ToString(),
+		DisplayClusterStrings::cfg::data::network::ClientConnectTriesAmount, ClientConnectTriesAmount,
+		DisplayClusterStrings::cfg::data::network::ClientConnectRetryDelay, ClientConnectRetryDelay,
+		DisplayClusterStrings::cfg::data::network::BarrierGameStartWaitTimeout, BarrierGameStartWaitTimeout,
+		DisplayClusterStrings::cfg::data::network::BarrierWaitTimeout, BarrierWaitTimeout);
+}
+
+bool FDisplayClusterConfigNetwork::DeserializeFromString(const FString& line)
+{
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::network::ClientConnectTriesAmount), ClientConnectTriesAmount);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::network::ClientConnectRetryDelay), ClientConnectRetryDelay);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::network::BarrierGameStartWaitTimeout), BarrierGameStartWaitTimeout);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::network::BarrierWaitTimeout), BarrierWaitTimeout);
+
 	return FDisplayClusterConfigBase::DeserializeFromString(line);
 }
 

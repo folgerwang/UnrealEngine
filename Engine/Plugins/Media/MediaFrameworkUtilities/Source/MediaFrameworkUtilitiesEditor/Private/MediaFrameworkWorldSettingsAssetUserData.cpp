@@ -4,11 +4,26 @@
 #include "UObject/EnterpriseObjectVersion.h"
 
 
+FMediaFrameworkCaptureCurrentViewportOutputInfo::FMediaFrameworkCaptureCurrentViewportOutputInfo()
+	: MediaOutput(nullptr)
+	, ViewMode(VMI_Unknown)
+{
+}
+
+
 FMediaFrameworkCaptureCameraViewportCameraOutputInfo::FMediaFrameworkCaptureCameraViewportCameraOutputInfo()
 	: MediaOutput(nullptr)
 	, ViewMode(VMI_Unknown)
 {
 }
+
+
+FMediaFrameworkCaptureRenderTargetCameraOutputInfo::FMediaFrameworkCaptureRenderTargetCameraOutputInfo()
+	: RenderTarget(nullptr)
+	, MediaOutput(nullptr)
+{
+}
+
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void UMediaFrameworkWorldSettingsAssetUserData::Serialize(FArchive& Ar)

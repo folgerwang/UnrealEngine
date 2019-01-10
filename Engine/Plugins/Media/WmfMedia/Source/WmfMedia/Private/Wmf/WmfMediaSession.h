@@ -9,6 +9,7 @@
 #include "CoreTypes.h"
 #include "Containers/Queue.h"
 #include "HAL/CriticalSection.h"
+#include "HAL/Event.h"
 #include "IMediaControls.h"
 #include "IMediaEventSink.h"
 #include "Misc/Optional.h"
@@ -215,6 +216,9 @@ private:
 
 	/** The media session that handles all playback. */
 	TComPtr<IMFMediaSession> MediaSession;
+
+	/** MediaSession close event. */
+	FEvent* MediaSessionCloseEvent;
 
 	/** The last play head position before playback was stopped. */
 	FTimespan LastTime;

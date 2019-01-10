@@ -40,6 +40,9 @@ struct FMovieSceneMediaSectionParams
 
 	UPROPERTY()
 	bool bLooping;
+	
+	UPROPERTY()
+	FFrameNumber StartFrameOffset;
 
 	FMovieSceneMediaSectionParams()
 		: MediaSoundComponent(nullptr)

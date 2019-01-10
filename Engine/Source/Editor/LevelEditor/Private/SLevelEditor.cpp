@@ -1153,6 +1153,7 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 		(
 			FTabManager::NewPrimaryArea()
 			->SetOrientation( Orient_Horizontal )
+			->SetExtensionId( "TopLevelArea" )
 			->Split
 			(
 				FTabManager::NewSplitter()

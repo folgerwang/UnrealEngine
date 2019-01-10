@@ -349,6 +349,12 @@ public:
 	/** Invert the current selection */
 	TSharedPtr< FUICommandInfo > InvertSelection;
 
+	/** Selects all direct children of the current selection */
+	TSharedPtr< FUICommandInfo > SelectImmediateChildren;
+
+	/** Selects all descendants of the current selection */
+	TSharedPtr< FUICommandInfo > SelectAllDescendants;
+
 	/** Selects all actors of the same class as the current selection */
 	TSharedPtr< FUICommandInfo > SelectAllActorsOfSameClass;
 

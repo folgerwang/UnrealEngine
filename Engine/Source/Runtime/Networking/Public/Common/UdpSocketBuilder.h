@@ -29,6 +29,7 @@ public:
 		, Bound(false)
 		, BoundEndpoint(FIPv4Address::Any, 0)
 		, Description(InDescription)
+		, MulticastInterface(FIPv4Address::Any)
 		, MulticastLoopback(false)
 		, MulticastTtl(1)
 		, ReceiveBufferSize(0)
@@ -44,7 +45,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see AsNonBlocking, AsReusable
 	 */
-	FUdpSocketBuilder AsBlocking()
+	FUdpSocketBuilder& AsBlocking()
 	{
 		Blocking = true;
 
@@ -57,7 +58,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see AsBlocking, AsReusable
 	 */
-	FUdpSocketBuilder AsNonBlocking()
+	FUdpSocketBuilder& AsNonBlocking()
 	{
 		Blocking = false;
 
@@ -70,7 +71,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see AsBlocking, AsNonBlocking
 	 */
-	FUdpSocketBuilder AsReusable()
+	FUdpSocketBuilder& AsReusable()
 	{
 		Reusable = true;
 
@@ -87,7 +88,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToEndpoint, BoundToPort
 	 */
-	FUdpSocketBuilder BoundToAddress(const FIPv4Address& Address)
+	FUdpSocketBuilder& BoundToAddress(const FIPv4Address& Address)
 	{
 		BoundEndpoint = FIPv4Endpoint(Address, BoundEndpoint.Port);
 		Bound = true;
@@ -102,7 +103,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress, BoundToPort
 	 */
-	FUdpSocketBuilder BoundToEndpoint(const FIPv4Endpoint& Endpoint)
+	FUdpSocketBuilder& BoundToEndpoint(const FIPv4Endpoint& Endpoint)
 	{
 		BoundEndpoint = Endpoint;
 		Bound = true;
@@ -120,7 +121,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see BoundToAddress
 	 */
-	FUdpSocketBuilder BoundToPort(int32 Port)
+	FUdpSocketBuilder& BoundToPort(int32 Port)
 	{
 		BoundEndpoint = FIPv4Endpoint(BoundEndpoint.Address, Port);
 		Bound = true;
@@ -135,9 +136,22 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see WithMulticastLoopback, WithMulticastTtl
 	 */
-	FUdpSocketBuilder JoinedToGroup(const FIPv4Address& GroupAddress)
+	FUdpSocketBuilder& JoinedToGroup(const FIPv4Address& GroupAddress)
 	{
-		JoinedGroups.Add(GroupAddress);
+		return JoinedToGroup(GroupAddress, FIPv4Address::Any);
+	}
+
+	/**
+	 * Joins the socket to the specified multicast group.
+	 *
+	 * @param GroupAddress The IP address of the multicast group to join.
+	 * @param InterfaceAddress The IP address of the interface to join the multicast group on.
+	 * @return This instance (for method chaining).
+	 * @see WithMulticastLoopback, WithMulticastTtl
+	 */
+	FUdpSocketBuilder& JoinedToGroup(const FIPv4Address& GroupAddress, const FIPv4Address& InterfaceAddress)
+	{
+		JoinedGroups.Add({ GroupAddress, InterfaceAddress });
 
 		return *this;
 	}
@@ -147,7 +161,7 @@ public:
 	 *
 	 * @return This instance (for method chaining).
 	 */
-	FUdpSocketBuilder WithBroadcast()
+	FUdpSocketBuilder& WithBroadcast()
 	{
 		AllowBroadcast = true;
 
@@ -162,7 +176,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see JoinedToGroup, WithMulticastTtl
 	 */
-	FUdpSocketBuilder WithMulticastLoopback()
+	FUdpSocketBuilder& WithMulticastLoopback()
 	{
 		MulticastLoopback = true;
 
@@ -176,12 +190,27 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see JoinedToGroup, WithMulticastLoopback
 	 */
-	FUdpSocketBuilder WithMulticastTtl(uint8 TimeToLive)
+	FUdpSocketBuilder& WithMulticastTtl(uint8 TimeToLive)
 	{
 		MulticastTtl = TimeToLive;
 
 		return *this;
 	}
+
+	/**
+	 * Sets the multicast outgoing interface.
+	 *
+	 * @param InterfaceAddress The interface to use to send multicast datagrams.
+	 * @return This instance (for method chaining).
+	 * @see JoinedToGroup, WithMulticastLoopback
+	 */
+	FUdpSocketBuilder& WithMulticastInterface(const FIPv4Address& InterfaceAddress)
+	{
+		MulticastInterface = InterfaceAddress;
+
+		return *this;
+	}
+
 
 	/**
 	 * Specifies the desired size of the receive buffer in bytes (0 = default).
@@ -193,7 +222,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see WithSendBufferSize
 	 */
-	FUdpSocketBuilder WithReceiveBufferSize(int32 SizeInBytes)
+	FUdpSocketBuilder& WithReceiveBufferSize(int32 SizeInBytes)
 	{
 		ReceiveBufferSize = SizeInBytes;
 
@@ -210,7 +239,7 @@ public:
 	 * @return This instance (for method chaining).
 	 * @see WithReceiveBufferSize
 	 */
-	FUdpSocketBuilder WithSendBufferSize(int32 SizeInBytes)
+	FUdpSocketBuilder& WithSendBufferSize(int32 SizeInBytes)
 	{
 		SendBufferSize = SizeInBytes;
 
@@ -290,13 +319,23 @@ public:
 		{
 			for (const auto& Group : JoinedGroups)
 			{
-				if (!Socket->JoinMulticastGroup(*FIPv4Endpoint(Group, 0).ToInternetAddr()))
+				if (!Socket->JoinMulticastGroup(*FIPv4Endpoint(Group.GroupAddress, 0).ToInternetAddr(), *FIPv4Endpoint(Group.InterfaceAddress, 0).ToInternetAddr()))
 				{
-					GLog->Logf(TEXT("FUdpSocketBuilder: Failed to subscribe %s to multicast group %s"), *Description, *Group.ToString());
+					GLog->Logf(TEXT("FUdpSocketBuilder: Failed to subscribe %s to multicast group %s on interface %s"), *Description, *Group.GroupAddress.ToString(), *Group.InterfaceAddress.ToString());
 					Error = true;
 
 					break;
 				}
+			}
+		}
+
+		// set multicast outgoing interface
+		if (!Error && MulticastInterface != FIPv4Address::Any)
+		{
+			Error = !Socket->SetMulticastInterface(*FIPv4Endpoint(MulticastInterface, 0).ToInternetAddr());
+			if (Error)
+			{
+				GLog->Logf(TEXT("FUdpSocketBuilder: Failed to set multicast outgoing interface for %s to %s "), *Description, *MulticastInterface.ToString());
 			}
 		}
 
@@ -343,8 +382,16 @@ private:
 	/** Holds the socket's debug description text. */
 	FString Description;
 
+	/** Holds the IP address of the interface to use for outgoing multicast datagrams. */
+	FIPv4Address MulticastInterface;
+
 	/** Holds the list of joined multicast groups. */
-	TArray<FIPv4Address> JoinedGroups;
+	struct FMulticastGroup
+	{
+		FIPv4Address GroupAddress;
+		FIPv4Address InterfaceAddress;
+	};
+	TArray<FMulticastGroup> JoinedGroups;
 
 	/** Holds a flag indicating whether multicast loopback will be enabled. */
 	bool MulticastLoopback;

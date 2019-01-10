@@ -40,7 +40,8 @@ public:
 	virtual void BeginResizeSection() override;
 	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(double SlipTime) override;
+	virtual void SlipSection(FFrameNumber SlipTime) override;
+	virtual bool IsReadOnly() const override;
 
 	// FThumbnail interface
 	virtual void SetSingleTime(double GlobalTime) override;
@@ -64,7 +65,7 @@ private:
 	TWeakPtr<FCinematicShotTrackEditor> CinematicShotTrackEditor;
 
 	/** Cached start offset value valid only during resize */
-	int32 InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 
 	/** Cached start time valid only during resize */
 	FFrameNumber InitialStartTimeDuringResize;
@@ -79,7 +80,7 @@ private:
 		}
 
 		FFrameRate   InnerFrameRate;
-		int32        InnerFrameOffset;
+		FFrameNumber InnerFrameOffset;
 		FFrameNumber SectionStartFrame;
 		float        TimeScale;
 	};

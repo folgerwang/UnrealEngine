@@ -246,6 +246,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")
 	virtual void FindSoftReferencesToObject(FSoftObjectPath TargetObject, TArray<UObject*>& ReferencingObjects) const = 0;
 
+	/**
+	 * Function that renames all FSoftObjectPath object with the old asset path to the new one.
+	 *
+	 * @param PackagesToCheck Packages to check for referencing FSoftObjectPath.
+	 * @param AssetRedirectorMap Map from old asset path to new asset path
+	 */
+	virtual void RenameReferencingSoftObjectPaths(const TArray<UPackage *> PackagesToCheck, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap) const = 0;
+
 	/** Event issued at the end of the rename process */
 	virtual FAssetPostRenameEvent& OnAssetPostRename() = 0;
 
@@ -285,7 +293,6 @@ public:
 	* Imports assets using tasks specified.
 	*
 	* @param ImportTasks	Tasks that specify how to import each file
-	* @return list of successfully imported assets
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")
 	virtual void ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTasks) const = 0;

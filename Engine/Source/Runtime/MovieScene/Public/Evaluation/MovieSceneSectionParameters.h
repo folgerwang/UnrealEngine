@@ -7,7 +7,7 @@
 #include "Evaluation/MovieSceneSequenceTransform.h"
 #include "MovieSceneSectionParameters.generated.h"
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FMovieSceneSectionParameters
 {
 	GENERATED_BODY()
@@ -22,24 +22,17 @@ struct FMovieSceneSectionParameters
 		, PostrollTime_DEPRECATED(0.0f)
 	{}
 
-	/** StartFrameOffset is treated as a FFrameNumber for details customizations but we continue to expose the API publicly as it was before via int32. */
-	int32 GetStartFrameOffset() const { return StartFrameOffset.Value; }
-	void SetStartFrameOffset(int32 InOffset) { StartFrameOffset = FFrameNumber(InOffset); }
-
-private:
-
-	/** Number of frames to skip at the beginning of the sub-sequence. */
-	UPROPERTY(EditAnywhere, Category = "Clipping")
+public:
+	/** Number of frames (in display rate) to skip at the beginning of the sub-sequence. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Clipping")
 	FFrameNumber StartFrameOffset;
 
-public:
-
 	/** Playback time scaling factor. */
-	UPROPERTY(EditAnywhere, Category="Timing")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Timing")
 	float TimeScale;
 
 	/** Hierachical bias. Higher bias will take precedence. */
-	UPROPERTY(EditAnywhere, Category="Sequence")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Sequence")
 	int32 HierarchicalBias;
 	UPROPERTY()
 	float StartOffset_DEPRECATED;

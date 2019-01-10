@@ -130,19 +130,8 @@ protected:
 	void RegisterAssetTools()
 	{
 		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FLevelSequenceActions(FLevelSequenceEditorStyle::Get())));
-	}
-
-	/**
-	* Registers a single asset type action.
-	*
-	* @param AssetTools The asset tools object to register with.
-	* @param Action The asset type action to register.
-	*/
-	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)
-	{
-		AssetTools.RegisterAssetTypeActions(Action);
-		RegisteredAssetTypeActions.Add(Action);
+		LevelSequenceTypeActions = MakeShared<FLevelSequenceActions>(FLevelSequenceEditorStyle::Get());
+		AssetTools.RegisterAssetTypeActions(LevelSequenceTypeActions.ToSharedRef());
 	}
 
 	/** Registers level editor extensions. */
@@ -254,11 +243,7 @@ protected:
 		if (AssetToolsModule != nullptr)
 		{
 			IAssetTools& AssetTools = AssetToolsModule->Get();
-
-				for (auto Action : RegisteredAssetTypeActions)
-				{
-				AssetTools.UnregisterAssetTypeActions(Action);
-			}
+			AssetTools.UnregisterAssetTypeActions(LevelSequenceTypeActions.ToSharedRef());
 		}
 	}
 
@@ -379,6 +364,16 @@ protected:
 		return OnMasterSequenceCreatedEvent;
 	}
 
+	virtual void RegisterLevelSequenceActionExtender(TSharedRef<FLevelSequenceActionExtender> InExtender) override
+	{
+		LevelSequenceTypeActions->RegisterLevelSequenceActionExtender(InExtender);
+	}
+
+	virtual void UnregisterLevelSequenceActionExtender(TSharedRef<FLevelSequenceActionExtender> InExtender) override
+	{
+		LevelSequenceTypeActions->UnregisterLevelSequenceActionExtender(InExtender);
+	}
+
 	static TSharedRef<ISequencerEditorObjectBinding> OnCreateActorBinding(TSharedRef<ISequencer> InSequencer)
 	{
 		return MakeShareable(new FLevelSequenceEditorActorBinding(InSequencer));
@@ -395,8 +390,8 @@ protected:
 
 private:
 
-	/** The collection of registered asset type actions. */
-	TArray<TSharedRef<IAssetTypeActions>> RegisteredAssetTypeActions;
+	/** The type actions for interacting with level sequences. */
+	TSharedPtr<FLevelSequenceActions> LevelSequenceTypeActions;
 
 	/** Extender for the cinematics menu */
 	TSharedPtr<FExtender> CinematicsMenuExtender;

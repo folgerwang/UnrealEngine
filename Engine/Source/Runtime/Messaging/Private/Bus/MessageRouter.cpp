@@ -6,6 +6,7 @@
 #include "IMessageSubscription.h"
 #include "IMessageReceiver.h"
 #include "IMessageInterceptor.h"
+#include "IMessageBusListener.h"
 #include "Misc/ConfigCacheIni.h"
 
 /* FMessageRouter structors
@@ -14,7 +15,7 @@
 FMessageRouter::FMessageRouter()
 	: DelayedMessagesSequence(0)
 	, Stopping(false)
-	, Tracer(MakeShareable(new FMessageTracer()))
+	, Tracer(MakeShared<FMessageTracer, ESPMode::ThreadSafe>())
 	, bAllowDelayedMessaging(false)
 {
 	ActiveSubscriptions.FindOrAdd(NAME_All);
@@ -259,6 +260,7 @@ void FMessageRouter::HandleAddRecipient(FMessageAddress Address, TWeakPtr<IMessa
 	{
 		ActiveRecipients.FindOrAdd(Address) = Recipient;
 		Tracer->TraceAddedRecipient(Address, Recipient.ToSharedRef());
+		NotifyRegistration(Address, EMessageBusNotification::Registered);
 	}
 }
 
@@ -288,7 +290,6 @@ void FMessageRouter::HandleRemoveInterceptor(TSharedRef<IMessageInterceptor, ESP
 	Tracer->TraceRemovedInterceptor(Interceptor, MessageType);
 }
 
-
 void FMessageRouter::HandleRemoveRecipient(FMessageAddress Address)
 {
 	auto Recipient = ActiveRecipients.FindRef(Address).Pin();
@@ -296,9 +297,9 @@ void FMessageRouter::HandleRemoveRecipient(FMessageAddress Address)
 	if (Recipient.IsValid())
 	{
 		ActiveRecipients.Remove(Address);
+		Tracer->TraceRemovedRecipient(Address);
+		NotifyRegistration(Address, EMessageBusNotification::Unregistered);
 	}
-
-	Tracer->TraceRemovedRecipient(Address);
 }
 
 
@@ -361,5 +362,40 @@ void FMessageRouter::HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::Thr
 	else
 	{
 		DispatchMessage(Context);
+	}
+}
+
+void FMessageRouter::HandleAddListener(TWeakPtr<IBusListener, ESPMode::ThreadSafe> ListenerPtr)
+{
+	ActiveRegistrationListeners.AddUnique(ListenerPtr);
+}
+
+void FMessageRouter::HandleRemoveListener(TWeakPtr<IBusListener, ESPMode::ThreadSafe> ListenerPtr)
+{
+	ActiveRegistrationListeners.Remove(ListenerPtr);
+}
+
+void FMessageRouter::NotifyRegistration(const FMessageAddress& Address, EMessageBusNotification Notification)
+{
+	for (auto It = ActiveRegistrationListeners.CreateIterator(); It; ++It)
+	{
+		auto Listener = It->Pin();
+		if (Listener.IsValid())
+		{
+			ENamedThreads::Type ListenerThread = Listener->GetListenerThread();
+
+			if (ListenerThread == ENamedThreads::AnyThread)
+			{
+				Listener->NotifyRegistration(Address, Notification);
+			}
+			else
+			{
+				TGraphTask<FBusNotificationDispatchTask>::CreateTask().ConstructAndDispatchWhenReady(ListenerThread, Listener, Address, Notification);
+			}
+		}
+		else
+		{
+			It.RemoveCurrent();
+		}
 	}
 }

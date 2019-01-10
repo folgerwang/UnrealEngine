@@ -338,9 +338,9 @@ void FLevelSequenceEditorSpawnRegister::HandleConvertPossessableToSpawnable(UObj
 	if (OldActor)
 	{
 		OutTransformData.Emplace();
-		OutTransformData->Translation = OldActor->GetActorLocation();
-		OutTransformData->Rotation = OldActor->GetActorRotation();
-		OutTransformData->Scale = OldActor->GetActorScale();
+		OutTransformData->Translation = OldActor->GetRootComponent()->RelativeLocation;
+		OutTransformData->Rotation = OldActor->GetRootComponent()->RelativeRotation;
+		OutTransformData->Scale = OldActor->GetRootComponent()->RelativeScale3D;
 
 		GEditor->SelectActor(OldActor, false, true);
 		UWorld* World = Cast<UWorld>(Player.GetPlaybackContext());

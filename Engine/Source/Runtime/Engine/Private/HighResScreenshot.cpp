@@ -184,3 +184,13 @@ bool FHighResScreenshotConfig::SetResolution(uint32 ResolutionX, uint32 Resoluti
 
 	return true;
 }
+
+void FHighResScreenshotConfig::SetFilename(FString Filename)
+{
+	FilenameOverride = Filename;
+}
+
+void FHighResScreenshotConfig::SetMaskEnabled(bool bShouldMaskBeEnabled)
+{
+	bMaskEnabled = bShouldMaskBeEnabled;
+}

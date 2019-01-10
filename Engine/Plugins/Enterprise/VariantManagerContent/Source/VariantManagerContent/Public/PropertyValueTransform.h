@@ -15,6 +15,13 @@ class VARIANTMANAGERCONTENT_API UPropertyValueTransform : public UPropertyValue
 	GENERATED_UCLASS_BODY()
 
 public:
+	FVector GetLocation();
+	FQuat GetRotation();
+	FVector GetScale3D();
+
+	void SetLocation(FVector NewValue);
+	void SetRotation(FQuat NewValue);
+	void SetScale3D(FVector NewValue);
 
 	virtual void ApplyDataToResolvedObject() override;
 };

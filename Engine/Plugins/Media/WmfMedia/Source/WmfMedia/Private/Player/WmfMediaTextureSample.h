@@ -136,10 +136,7 @@ public:
 		return true;
 	}
 
-private:
-
-	/** The sample's data buffer. */
-	TArray<uint8> Buffer;
+protected:
 
 	/** Width and height of the texture sample. */
 	FIntPoint Dim;
@@ -153,11 +150,18 @@ private:
 	/** The sample format. */
 	EMediaTextureSampleFormat SampleFormat;
 
+	/** Presentation for which the sample was generated. */
+	FTimespan Time;
+
+
+private:
+
+	/** The sample's data buffer. */
+	TArray<uint8> Buffer;
+
 	/** Number of bytes per pixel row. */
 	uint32 Stride;
 
-	/** Presentation for which the sample was generated. */
-	FTimespan Time;
 };
 
 

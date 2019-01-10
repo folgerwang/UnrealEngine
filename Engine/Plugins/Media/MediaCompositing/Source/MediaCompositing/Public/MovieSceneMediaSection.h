@@ -33,6 +33,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
 	bool bLooping;
 
+	/** Offset into the source media. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media")
+	FFrameNumber StartFrameOffset;
+
 	/** The media texture that receives the track's video output. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media", meta = (EditCondition = "!bUseExternalMediaPlayer"))
 	UMediaTexture* MediaTexture;

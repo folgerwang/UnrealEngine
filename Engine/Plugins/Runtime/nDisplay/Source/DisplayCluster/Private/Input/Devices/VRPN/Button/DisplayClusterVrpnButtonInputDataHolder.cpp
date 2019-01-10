@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterVrpnButtonInputDataHolder.h"
+#include "Input/Devices/VRPN/Button/DisplayClusterVrpnButtonInputDataHolder.h"
 #include "Misc/DisplayClusterLog.h"
 
 

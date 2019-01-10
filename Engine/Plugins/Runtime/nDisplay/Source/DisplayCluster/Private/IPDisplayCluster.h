@@ -5,11 +5,11 @@
 #include "IDisplayCluster.h"
 #include "IPDisplayClusterManager.h"
 
-struct IPDisplayClusterRenderManager;
-struct IPDisplayClusterClusterManager;
-struct IPDisplayClusterInputManager;
-struct IPDisplayClusterConfigManager;
-struct IPDisplayClusterGameManager;
+class IPDisplayClusterRenderManager;
+class IPDisplayClusterClusterManager;
+class IPDisplayClusterInputManager;
+class IPDisplayClusterConfigManager;
+class IPDisplayClusterGameManager;
 
 class ADisplayClusterGameMode;
 class ADisplayClusterSettings;
@@ -18,10 +18,11 @@ class ADisplayClusterSettings;
 /**
  * Private module interface
  */
-struct IPDisplayCluster
+class IPDisplayCluster
 	: public IDisplayCluster
 	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayCluster() = 0
 	{ }
 

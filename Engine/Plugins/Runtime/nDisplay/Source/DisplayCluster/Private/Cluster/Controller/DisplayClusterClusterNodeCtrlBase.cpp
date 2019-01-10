@@ -1,15 +1,16 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterClusterNodeCtrlBase.h"
+#include "Cluster/Controller/DisplayClusterClusterNodeCtrlBase.h"
 #include "DisplayClusterGlobals.h"
 
 #include "Config/DisplayClusterConfigTypes.h"
+#include "Misc/DisplayClusterHelpers.h"
 #include "Misc/DisplayClusterLog.h"
 
-#include "IPDisplayCluster.h"
 #include "Config/IPDisplayClusterConfigManager.h"
+#include "Game/IPDisplayClusterGameManager.h"
 #include "Render/IPDisplayClusterRenderManager.h"
-#include "Render/IDisplayClusterStereoDevice.h"
+#include "Render/Devices/DisplayClusterViewportArea.h"
 
 
 
@@ -39,32 +40,41 @@ bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 		return false;
 	}
 
-	FDisplayClusterConfigViewport ViewportCfg;
-	if (!GDisplayCluster->GetPrivateConfigMgr()->GetLocalViewport(ViewportCfg))
+	IPDisplayClusterRenderManager* const RenderMgr = GDisplayCluster->GetPrivateRenderMgr();
+	if (RenderMgr)
 	{
-		UE_LOG(LogDisplayClusterRender, Error, TEXT("Viewport config not found"));
-		return false;
-	}
+		const IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+		if (!ConfigMgr)
+		{
+			return false;
+		}
 
-	//@todo: Move this logic to the render manager
-	IDisplayClusterStereoDevice* const StereoDevice = GDisplayCluster->GetPrivateRenderMgr()->GetStereoDevice();
-	if (StereoDevice)
-	{
-		FDisplayClusterConfigStereo  StereoCfg  = GDisplayCluster->GetPrivateConfigMgr()->GetConfigStereo();
-		FDisplayClusterConfigGeneral GeneralCfg = GDisplayCluster->GetPrivateConfigMgr()->GetConfigGeneral();
-		FDisplayClusterConfigClusterNode ClusterNodeCfg;
-		GDisplayCluster->GetPrivateConfigMgr()->GetLocalClusterNode(ClusterNodeCfg);
-		
+		FDisplayClusterConfigStereo  StereoCfg = ConfigMgr->GetConfigStereo();
+		FDisplayClusterConfigGeneral GeneralCfg = ConfigMgr->GetConfigGeneral();
+
+		FDisplayClusterConfigClusterNode LocalClusterNode;
+		DisplayClusterHelpers::config::GetLocalClusterNode(LocalClusterNode);
 
 		// Configure the device
-		StereoDevice->SetViewportArea(ViewportCfg.Loc, ViewportCfg.Size);
-		StereoDevice->SetEyesSwap(ClusterNodeCfg.EyeSwap);
-		StereoDevice->SetInterpupillaryDistance(StereoCfg.EyeDist);
-		StereoDevice->SetSwapSyncPolicy((EDisplayClusterSwapSyncPolicy)GeneralCfg.SwapSyncPolicy);
+		TArray<FDisplayClusterConfigViewport> LocalViewports = DisplayClusterHelpers::config::GetLocalViewports();
+		if (LocalViewports.Num() == 0)
+		{
+			UE_LOG(LogDisplayClusterRender, Error, TEXT("No viewports found for this current node"));
+			return false;
+		}
+
+		for (const FDisplayClusterConfigViewport& Viewport : LocalViewports)
+		{
+			RenderMgr->AddViewport(Viewport.Id, GDisplayCluster->GetPrivateGameMgr());
+		}
+
+		RenderMgr->SetEyesSwap(LocalClusterNode.EyeSwap);
+		RenderMgr->SetInterpupillaryDistance(StereoCfg.EyeDist);
+		RenderMgr->SetSwapSyncPolicy((EDisplayClusterSwapSyncPolicy)GeneralCfg.SwapSyncPolicy);
 	}
 	else
 	{
-		UE_LOG(LogDisplayClusterRender, Warning, TEXT("Stereo device not found. Stereo initialization skipped."));
+		UE_LOG(LogDisplayClusterRender, Warning, TEXT("Render manager not found. Stereo initialization skipped."));
 	}
 
 	return FDisplayClusterNodeCtrlBase::InitializeStereo();

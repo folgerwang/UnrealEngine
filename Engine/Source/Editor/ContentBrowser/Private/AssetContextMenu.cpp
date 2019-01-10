@@ -1215,7 +1215,7 @@ bool FAssetContextMenu::AddAssetTypeMenuOptions(FMenuBuilder& MenuBuilder)
 
 bool FAssetContextMenu::AddSourceControlMenuOptions(FMenuBuilder& MenuBuilder)
 {
-	MenuBuilder.AddMenuSeparator();
+	MenuBuilder.BeginSection("AssetContextSourceControl");
 	
 	if ( ISourceControlModule::Get().IsEnabled() )
 	{
@@ -1260,6 +1260,7 @@ bool FAssetContextMenu::AddSourceControlMenuOptions(FMenuBuilder& MenuBuilder)
 		);
 	}
 
+	MenuBuilder.EndSection();
 	return true;
 }
 

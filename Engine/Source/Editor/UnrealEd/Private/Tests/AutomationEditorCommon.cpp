@@ -482,9 +482,8 @@ void FAutomationEditorCommonUtils::GetLaunchOnDeviceID(FString& OutDeviceID, con
 
 bool FAutomationEditorCommonUtils::SetOrthoViewportView(const FVector& ViewLocation, const FRotator& ViewRotation)
 {
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if (!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation(ViewLocation);
@@ -836,15 +835,13 @@ bool FWaitForShadersToFinishCompiling::Update()
 bool FChangeViewportToFirstAvailableBookmarkCommand::Update()
 {
 	FEditorModeTools EditorModeTools;
-	FLevelEditorViewportClient* ViewportClient;
 	uint32 ViewportIndex = 0;
 
 	UE_LOG(LogEditorAutomationTests, Log, TEXT("Attempting to change the editor viewports view to the first set bookmark."));
 
 	//Move the perspective viewport view to show the test.
-	for ( int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++ )
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		ViewportClient = GEditor->LevelViewportClients[i];
 		const uint32 NumberOfBookmarks = EditorModeTools.GetMaxNumberOfBookmarks(ViewportClient);
 		for ( ViewportIndex = 0; ViewportIndex <= NumberOfBookmarks; ViewportIndex++ )
 		{

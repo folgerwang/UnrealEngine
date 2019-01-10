@@ -8,9 +8,10 @@
 /**
  * Synchronizable object interface
  */
-struct IDisplayClusterClusterSyncObject
+class IDisplayClusterClusterSyncObject
 	: public IDisplayClusterStringSerializable
 {
+public:
 	virtual ~IDisplayClusterClusterSyncObject()
 	{ }
 

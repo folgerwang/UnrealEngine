@@ -39,8 +39,8 @@ void IMeshPainter::RenderInteractors(const FSceneView* View, FViewport* Viewport
 	// Apply paint pressure and start painting (or if not currently painting, draw a preview of where paint will be applied)
 	for (const MeshPaintHelpers::FPaintRay& PaintRay : PaintRays)
 	{
-		const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(PaintRay.ViewportInteractor);
-		EMeshPaintAction RayPaintAction = VRInteractor ? (VRInteractor->IsModifierPressed() ? EMeshPaintAction::Erase : EMeshPaintAction::Paint)
+		const UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(PaintRay.ViewportInteractor);
+		EMeshPaintAction RayPaintAction = VREditorInteractor ? (VREditorInteractor->IsModifierPressed() ? EMeshPaintAction::Erase : EMeshPaintAction::Paint)
 			: (Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl)) ? EMeshPaintAction::Erase : EMeshPaintAction::Paint;
 
 		RenderInteractorWidget(PaintRay.CameraLocation, PaintRay.RayStart, PaintRay.RayDirection, PDI, RayPaintAction, bRenderVertices, DepthGroup);
@@ -112,16 +112,16 @@ bool IMeshPainter::Paint(FViewport* Viewport, const FVector& InCameraOrigin, con
 	return PaintInternal(InCameraOrigin, Rays, PaintAction, PaintStrength);
 }
 
-bool IMeshPainter::PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, UVREditorInteractor* VRInteractor)
+bool IMeshPainter::PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, UVREditorInteractor* VREditorInteractor)
 {
 	bool bPaintApplied = false;
 	// When painting using VR, allow the modifier button to activate Erase mode
-	if (VRInteractor)
+	if (VREditorInteractor)
 	{
 		// Determine custom paint strength from trigger
-		const float StrengthScale = VRInteractor->GetSelectAndMoveTriggerValue();
+		const float StrengthScale = VREditorInteractor->GetSelectAndMoveTriggerValue();
 		EMeshPaintAction PaintAction;
-		const bool bIsModifierPressed = VRInteractor->IsModifierPressed();
+		const bool bIsModifierPressed = VREditorInteractor->IsModifierPressed();
 		// Determine paint action according to whether or not modifier button is pressed
 		PaintAction = bIsModifierPressed ? EMeshPaintAction::Erase : EMeshPaintAction::Paint;
 
@@ -131,7 +131,7 @@ bool IMeshPainter::PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, c
 
 		if (bPaintApplied)
 		{
-			CurrentViewportInteractor = VRInteractor;
+			CurrentViewportInteractor = VREditorInteractor;
 		}
 	}
 

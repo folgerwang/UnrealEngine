@@ -927,6 +927,14 @@ void FPixelShaderInOut_MainPS(
 	#endif
 
 	float3 BentNormal = MaterialParameters.WorldNormal;
+			
+	// Clear Coat Bottom Normal
+	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT && CLEAR_COAT_BOTTOM_NORMAL)
+	{
+		const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+		BentNormal = OctahedronToUnitVector(oct1);			
+	}
+	
 	float DiffOcclusion = MaterialAO;
 	float SpecOcclusion = MaterialAO;
 	ApplyBentNormal( MaterialParameters, GBuffer.Roughness, BentNormal, DiffOcclusion, SpecOcclusion );

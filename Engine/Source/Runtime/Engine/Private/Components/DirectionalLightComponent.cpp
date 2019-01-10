@@ -584,36 +584,47 @@ private:
 		const FVector CameraDirection = ViewMatrix.GetColumn(2);
 		const FVector LightDirection = -GetDirection();
 
+		// Support asymmetric projection
 		// Get FOV and AspectRatio from the view's projection matrix.
 		float AspectRatio = ProjectionMatrix.M[1][1] / ProjectionMatrix.M[0][0];
-		float HalfFOV = View.ShadowViewMatrices.IsPerspectiveProjection() ? FMath::Atan(1.0f / ProjectionMatrix.M[0][0]) : PI/4.0f;
+		bool bIsPerspectiveProjection = View.ShadowViewMatrices.IsPerspectiveProjection();
 
 		// Build the camera frustum for this cascade
-		const float StartHorizontalLength = SplitNear * FMath::Tan(HalfFOV);
-		const FVector StartCameraRightOffset = ViewMatrix.GetColumn(0) * StartHorizontalLength;
-		const float StartVerticalLength = StartHorizontalLength / AspectRatio;
-		const FVector StartCameraUpOffset = ViewMatrix.GetColumn(1) * StartVerticalLength;
+		float HalfHorizontalFOV = bIsPerspectiveProjection ? FMath::Atan(1.0f / ProjectionMatrix.M[0][0]) : PI / 4.0f;
+		float HalfVerticalFOV = bIsPerspectiveProjection ? FMath::Atan(1.0f / ProjectionMatrix.M[1][1]) : FMath::Atan((FMath::Tan(PI / 4.0f) / AspectRatio));
+		float AsymmetricFOVScaleX = ProjectionMatrix.M[2][0];
+		float AsymmetricFOVScaleY = ProjectionMatrix.M[2][1];
 
-		const float EndHorizontalLength = SplitFar * FMath::Tan(HalfFOV);
-		const FVector EndCameraRightOffset = ViewMatrix.GetColumn(0) * EndHorizontalLength;
-		const float EndVerticalLength = EndHorizontalLength / AspectRatio;
-		const FVector EndCameraUpOffset = ViewMatrix.GetColumn(1) * EndVerticalLength;
+		// Near plane
+		const float StartHorizontalTotalLength = SplitNear * FMath::Tan(HalfHorizontalFOV);
+		const float StartVerticalTotalLength = SplitNear * FMath::Tan(HalfVerticalFOV);
+		const FVector StartCameraLeftOffset = ViewMatrix.GetColumn(0) * -StartHorizontalTotalLength * (1 + AsymmetricFOVScaleX);
+		const FVector StartCameraRightOffset = ViewMatrix.GetColumn(0) *  StartHorizontalTotalLength * (1 - AsymmetricFOVScaleX);
+		const FVector StartCameraBottomOffset = ViewMatrix.GetColumn(1) * -StartVerticalTotalLength * (1 + AsymmetricFOVScaleY);
+		const FVector StartCameraTopOffset = ViewMatrix.GetColumn(1) *  StartVerticalTotalLength * (1 - AsymmetricFOVScaleY);
+		// Far plane
+		const float EndHorizontalTotalLength = SplitFar * FMath::Tan(HalfHorizontalFOV);
+		const float EndVerticalTotalLength = SplitFar * FMath::Tan(HalfVerticalFOV);
+		const FVector EndCameraLeftOffset = ViewMatrix.GetColumn(0) * -EndHorizontalTotalLength * (1 + AsymmetricFOVScaleX);
+		const FVector EndCameraRightOffset = ViewMatrix.GetColumn(0) *  EndHorizontalTotalLength * (1 - AsymmetricFOVScaleX);
+		const FVector EndCameraBottomOffset = ViewMatrix.GetColumn(1) * -EndVerticalTotalLength * (1 + AsymmetricFOVScaleY);
+		const FVector EndCameraTopOffset = ViewMatrix.GetColumn(1) *  EndVerticalTotalLength * (1 - AsymmetricFOVScaleY);
 
 		// Get the 8 corners of the cascade's camera frustum, in world space
 		FVector CascadeFrustumVerts[8];
-		CascadeFrustumVerts[0] = ViewOrigin + CameraDirection * SplitNear + StartCameraRightOffset + StartCameraUpOffset; // 0 Near Top    Right
-		CascadeFrustumVerts[1] = ViewOrigin + CameraDirection * SplitNear + StartCameraRightOffset - StartCameraUpOffset; // 1 Near Bottom Right
-		CascadeFrustumVerts[2] = ViewOrigin + CameraDirection * SplitNear - StartCameraRightOffset + StartCameraUpOffset; // 2 Near Top    Left
-		CascadeFrustumVerts[3] = ViewOrigin + CameraDirection * SplitNear - StartCameraRightOffset - StartCameraUpOffset; // 3 Near Bottom Left
-		CascadeFrustumVerts[4] = ViewOrigin + CameraDirection * SplitFar  + EndCameraRightOffset   + EndCameraUpOffset;   // 4 Far  Top    Right
-		CascadeFrustumVerts[5] = ViewOrigin + CameraDirection * SplitFar  + EndCameraRightOffset   - EndCameraUpOffset;   // 5 Far  Bottom Right
-		CascadeFrustumVerts[6] = ViewOrigin + CameraDirection * SplitFar  - EndCameraRightOffset   + EndCameraUpOffset;   // 6 Far  Top    Left
-		CascadeFrustumVerts[7] = ViewOrigin + CameraDirection * SplitFar  - EndCameraRightOffset   - EndCameraUpOffset;   // 7 Far  Bottom Left
+		CascadeFrustumVerts[0] = ViewOrigin + CameraDirection * SplitNear + StartCameraRightOffset + StartCameraTopOffset;    // 0 Near Top    Right
+		CascadeFrustumVerts[1] = ViewOrigin + CameraDirection * SplitNear + StartCameraRightOffset + StartCameraBottomOffset; // 1 Near Bottom Right
+		CascadeFrustumVerts[2] = ViewOrigin + CameraDirection * SplitNear + StartCameraLeftOffset + StartCameraTopOffset;     // 2 Near Top    Left
+		CascadeFrustumVerts[3] = ViewOrigin + CameraDirection * SplitNear + StartCameraLeftOffset + StartCameraBottomOffset;  // 3 Near Bottom Left
+		CascadeFrustumVerts[4] = ViewOrigin + CameraDirection * SplitFar + EndCameraRightOffset + EndCameraTopOffset;       // 4 Far  Top    Right
+		CascadeFrustumVerts[5] = ViewOrigin + CameraDirection * SplitFar + EndCameraRightOffset + EndCameraBottomOffset;    // 5 Far  Bottom Right
+		CascadeFrustumVerts[6] = ViewOrigin + CameraDirection * SplitFar + EndCameraLeftOffset + EndCameraTopOffset;       // 6 Far  Top    Left
+		CascadeFrustumVerts[7] = ViewOrigin + CameraDirection * SplitFar + EndCameraLeftOffset + EndCameraBottomOffset;    // 7 Far  Bottom Left
 
 		// Fit a bounding sphere around the world space camera cascade frustum.
 		// Compute the sphere ideal centre point given the FOV and near/far.
-		float TanHalfFOVx = FMath::Tan(HalfFOV);
-		float TanHalfFOVy = TanHalfFOVx / AspectRatio;
+		float TanHalfFOVx = FMath::Tan(HalfHorizontalFOV);
+		float TanHalfFOVy = FMath::Tan(HalfVerticalFOV);
 		float FrustumLength = SplitFar - SplitNear;
 
 		float FarX = TanHalfFOVx * SplitFar;

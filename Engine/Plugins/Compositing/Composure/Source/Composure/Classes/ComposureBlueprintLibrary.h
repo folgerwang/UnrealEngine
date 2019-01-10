@@ -9,6 +9,8 @@
 #include "ComposureUVMap.h"
 #include "ComposureBlueprintLibrary.generated.h"
 
+class UCameraComponent;
+class USceneCaptureComponent2D;
 
 UCLASS(MinimalAPI, meta=(ScriptName="ComposureLibrary"))
 class UComposureBlueprintLibrary : public UBlueprintFunctionLibrary
@@ -63,4 +65,7 @@ class UComposureBlueprintLibrary : public UBlueprintFunctionLibrary
 	/** Returns display gamma of a given player camera manager, or 0 if no scene viewport attached. */
 	UFUNCTION(BlueprintPure, Category = "Composure")
 	static void GetPlayerDisplayGamma(const APlayerCameraManager* PlayerCameraManager, float& DisplayGamma);
+
+	UFUNCTION(BlueprintCallable, Category = "Composure")
+	static void CopyCameraSettingsToSceneCapture(UCameraComponent* SrcCamera, USceneCaptureComponent2D* DstCaptureComponent);
 };

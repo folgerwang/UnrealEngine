@@ -1,27 +1,28 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#include "GLTFImporterModule.h"
+
+#include "GLTFImporterContext.h"
+
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
-#include "IGLTFImporter.h"
-
-// #include "PropertyEditorModule.h"
-// #include "GLTFImportData.h"
 
 /**
  * glTF Importer module implementation (private)
  */
-class FGLTFImporterModule : public IGLTFImporter
+class FGLTFImporterModule : public IGLTFImporterModule
 {
+	FGLTFImporterContext ImporterContext;
+
 public:
-	virtual void StartupModule() override
+	virtual FGLTFImporterContext& GetImporterContext() override
 	{
-		// FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		// PropertyModule.RegisterCustomClassLayout(USpeedTreeImportData::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FSpeedTreeImportDataDetails::MakeInstance));
+		return ImporterContext;
 	}
 
-	virtual void ShutdownModule() override
-	{
-	}
+	virtual void StartupModule() override {}
+
+	virtual void ShutdownModule() override {}
 };
 
 IMPLEMENT_MODULE(FGLTFImporterModule, GLTFImporter);

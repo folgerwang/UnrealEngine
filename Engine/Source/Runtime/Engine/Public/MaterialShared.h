@@ -412,7 +412,8 @@ public:
 		bNeedsGBuffer(false),
 		bUsesGlobalDistanceField(false),
 		bUsesPixelDepthOffset(false),
-		bUsesSceneDepthLookup(false)
+		bUsesSceneDepthLookup(false),
+		bUsesVelocitySceneTexture(false)
 	{}
 
 	ENGINE_API void Serialize(FArchive& Ar);
@@ -455,6 +456,9 @@ public:
 
 	/** true if the material uses the SceneDepth lookup */
 	bool bUsesSceneDepthLookup;
+
+	/** true if the material uses the Velocity SceneTexture lookup */
+	bool bUsesVelocitySceneTexture;
 };
 
 /** 
@@ -867,6 +871,7 @@ public:
 	bool ModifiesMeshPosition() const { return MaterialCompilationOutput.bModifiesMeshPosition; }
 	bool UsesPixelDepthOffset() const { return MaterialCompilationOutput.bUsesPixelDepthOffset; }
 	bool UsesSceneDepthLookup() const { return MaterialCompilationOutput.bUsesSceneDepthLookup; }
+	bool UsesVelocitySceneTexture() const { return MaterialCompilationOutput.bUsesVelocitySceneTexture; }
 	uint32 GetNumUsedUVScalars() const { return MaterialCompilationOutput.NumUsedUVScalars; }
 	uint32 GetNumUsedCustomInterpolatorScalars() const { return MaterialCompilationOutput.NumUsedCustomInterpolatorScalars; }
 	void GetEstimatedNumTextureSamples(uint32& VSSamples, uint32& PSSamples) const { VSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesVS; PSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesPS; }

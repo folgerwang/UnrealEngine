@@ -6,9 +6,9 @@
 #include "Containers/Array.h"
 #include "Misc/Guid.h"
 #include "Serialization/Archive.h"
+#include "IMessageContext.h"
 
-// IMessageContext forward declaration
-enum class EMessageFlags : uint32;
+#include "Algo/Transform.h"
 
 /**
  * Enumerates message segment types.
@@ -140,13 +140,54 @@ namespace FUdpMessageSegment
 	 */
 	struct FAcknowledgeSegmentsChunk
 	{
+	private:
+		// Previous version serialization struct
+		struct FV10_11
+		{
+			int32 MessageId;
+			TArray<uint16> Segments;
+			FAcknowledgeSegmentsChunk& Chunk; // Reference for loading
+
+			FV10_11(FAcknowledgeSegmentsChunk& InChunk)
+				: MessageId(InChunk.MessageId)
+				, Chunk(InChunk)
+			{
+				Algo::Transform(Chunk.Segments, Segments, [](uint32 Value)
+				{
+					return (uint16)Value;
+				});
+			}
+
+			void Serialize(FArchive& Ar, uint8)
+			{
+				Ar	<< MessageId
+					<< Segments;
+				// Copy back if loading
+				if (Ar.IsLoading())
+				{
+					Chunk.MessageId = MessageId;
+					Algo::Transform(Segments, Chunk.Segments, [](uint16 Value)
+					{
+						return (uint32)Value;
+					});
+				}
+			}
+		};
+
+	public:
 		/** Holds the identifier of the message that received segments successfully. */
 		int32 MessageId;
 
 		/** List of Acknowledged segments */
-		TArray<uint16> Segments;
+		TArray<uint32> Segments;
 
 	public:
+		FAcknowledgeSegmentsChunk() = default;
+
+		FAcknowledgeSegmentsChunk(int32 InMessageId, TArray<uint32>&& InSegments)
+			: MessageId(InMessageId)
+			, Segments(MoveTemp(InSegments))
+		{}
 
 		/**
 		 * Serializes the given header from or to the specified archive for the specified version.
@@ -154,9 +195,20 @@ namespace FUdpMessageSegment
 		 * @param Ar The archive to serialize from or into.
 		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
+		void Serialize(FArchive& Ar, uint8 ProtocolVersion)
 		{
-			Ar << MessageId << Segments;
+			// version 12 and onward (current version)
+			if (ProtocolVersion > 11)
+			{
+				Ar	<< MessageId
+					<< Segments;
+			}
+			// if previous version 10 or 11
+			else
+			{
+				FV10_11 PreviousV10_11(*this);
+				PreviousV10_11.Serialize(Ar, ProtocolVersion);
+			}
 		}
 	};
 
@@ -166,26 +218,80 @@ namespace FUdpMessageSegment
 	 */
 	struct FDataChunk
 	{
+	private:
+		// Previous version serialization struct
+		struct FV10_11
+		{
+			int32 MessageId;
+			int32 MessageSize;
+			uint16 SegmentNumber;
+			uint32 SegmentOffset;
+			uint64 Sequence;
+			uint16 TotalSegments;
+			//TArray<uint8> Data;		// Taken from the actual chunk, listed here for reference
+			EMessageFlags MessageFlags;
+			FDataChunk& Chunk;			// Reference for loading
+
+
+			FV10_11(FDataChunk& InChunk)
+				: MessageId(InChunk.MessageId)
+				, MessageSize((int32)InChunk.MessageSize)
+				, SegmentNumber((uint16)InChunk.SegmentNumber)
+				, SegmentOffset((uint32)InChunk.SegmentOffset)
+				, Sequence(InChunk.Sequence)
+				, TotalSegments((uint16)InChunk.TotalSegments)
+				, MessageFlags(InChunk.MessageFlags)
+				, Chunk(InChunk)
+			{}
+
+			void Serialize(FArchive& Ar, uint8 ProtocolVersion)
+			{
+				Ar	<< MessageId
+					<< MessageSize
+					<< SegmentNumber
+					<< SegmentOffset
+					<< Sequence
+					<< TotalSegments
+					<< Chunk.Data;
+				if (ProtocolVersion > 10)
+				{
+					Ar << MessageFlags;
+				}
+				// Copy back to Chunk, Data is directly deserialized in the Chunk
+				if (Ar.IsLoading())
+				{
+					Chunk.MessageId = MessageId;
+					Chunk.MessageSize = MessageSize;
+					Chunk.MessageFlags = MessageFlags;
+					Chunk.SegmentNumber = SegmentNumber;
+					Chunk.SegmentOffset = SegmentOffset;
+					Chunk.TotalSegments = TotalSegments;
+					Chunk.Sequence = Sequence;
+				}
+			}
+		};
+
+	public:
 		/** Holds the identifier of the message that the data belongs to. */
 		int32 MessageId;
 
 		/** Holds the total size of the message. */
-		int32 MessageSize;
+		int64 MessageSize;
 
 		/** Holds the message flags. */
 		EMessageFlags MessageFlags;
 
 		/** Holds the sequence number of this segment. */
-		uint16 SegmentNumber;
+		uint32 SegmentNumber;
 
 		/** Holds the segment's offset within the message. */
-		uint32 SegmentOffset;
+		uint64 SegmentOffset;
+
+		/** Holds the total number of data segments being sent. */
+		uint32 TotalSegments;
 
 		/** Holds the message sequence number (0 = not sequential). */
 		uint64 Sequence;
-
-		/** Holds the total number of data segments being sent. */
-		uint16 TotalSegments;
 
 		/** Holds the segment data. */
 		TArray<uint8> Data;
@@ -201,17 +307,23 @@ namespace FUdpMessageSegment
 		 */
 		void Serialize(FArchive& Ar, uint8 ProtocolVersion)
 		{
-			Ar	<< MessageId
-				<< MessageSize
-				<< SegmentNumber
-				<< SegmentOffset
-				<< Sequence
-				<< TotalSegments
-				<< Data;
-			// if the protocol version is 11 onward
-			if (ProtocolVersion > 10)
+			// version 12 and onward (current version)
+			if (ProtocolVersion > 11)
 			{
-				Ar << MessageFlags;
+				Ar	<< MessageId
+					<< MessageSize
+					<< MessageFlags
+					<< SegmentNumber
+					<< SegmentOffset
+					<< TotalSegments
+					<< Sequence
+					<< Data;
+			}
+			// if previous version 10 or 11
+			else
+			{
+				FV10_11 PreviousV10_11(*this);
+				PreviousV10_11.Serialize(Ar, ProtocolVersion);
 			}
 		}
 	};

@@ -7,8 +7,11 @@
 #include "GameFramework/WorldSettings.h"
 #include "EditorViewportClient.h"
 #include "Engine/BookmarkBase.h"
+#include "ScopedTransaction.h"
 
 #include "Logging/LogMacros.h"
+
+#define LOCTEXT_NAMESPACE "Bookmarks"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBookmarks, Warning, Warning);
 
@@ -90,7 +93,7 @@ public:
 	{
 		if (const AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
-			const TArray<UBookmarkBase*> Bookmarks = WorldSettings->GetBookmarks();
+			const TArray<UBookmarkBase*>& Bookmarks = WorldSettings->GetBookmarks();
 			return Bookmarks.IsValidIndex(InIndex) && Bookmarks[InIndex] != nullptr;
 		}
 
@@ -105,19 +108,21 @@ public:
 	 */
 	virtual void CreateOrSetBookmark(const uint32 InIndex, FEditorViewportClient* InViewportClient) const override
 	{
+		FScopedTransaction ScopedTransaction(FText::Format(LOCTEXT("SetBookmark", "Set Bookmark {0}"), InIndex));
+
 		if (AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
-			const TSharedPtr<IBookmarkTypeActions> Actions = GetBookmarkTypeActions(*WorldSettings);
-			if (Actions.IsValid())
+			if (UBookmarkBase* Bookmark = WorldSettings->GetOrAddBookmark(InIndex, true))
 			{
-				if (UBookmarkBase* Bookmark = WorldSettings->GetOrAddBookmark(InIndex, true))
+				const TSharedPtr<IBookmarkTypeActions> Actions = GetBookmarkTypeActions(Bookmark->GetClass());
+				if (Actions.IsValid())
 				{
 					Actions->InitFromViewport(Bookmark, *InViewportClient);
 				}
-				else
-				{
-					UE_LOG(LogEditorBookmarks, Error, TEXT("FBookmarkTypeToolsImpl::CreateOrSetBookmark - Failed to create bookmark at Index %d"), InIndex);
-				}
+			}
+			else
+			{
+				UE_LOG(LogEditorBookmarks, Error, TEXT("FBookmarkTypeToolsImpl::CreateOrSetBookmark - Failed to create bookmark at Index %d"), InIndex);
 			}
 		}
 	}
@@ -130,6 +135,8 @@ public:
 	 */
 	virtual void CompactBookmarks(FEditorViewportClient* InViewportClient) const override
 	{
+		FScopedTransaction ScopedTransaction(LOCTEXT("CompactedBookmarks", "Compacted Bookmarks"));
+
 		if (AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
 			WorldSettings->CompactBookmarks();
@@ -147,25 +154,25 @@ public:
 	{
 		if (AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
-			const TSharedPtr<IBookmarkTypeActions> Actions = GetBookmarkTypeActions(*WorldSettings);
-			if (Actions.IsValid())
+			const TArray<UBookmarkBase*>& Bookmarks = WorldSettings->GetBookmarks();
+			if (Bookmarks.IsValidIndex(InIndex))
 			{
-				const TArray<UBookmarkBase*> Bookmarks = WorldSettings->GetBookmarks();
-				if (Bookmarks.IsValidIndex(InIndex))
+				if (UBookmarkBase* Bookmark = Bookmarks[InIndex])
 				{
-					if (UBookmarkBase* Bookmark = Bookmarks[InIndex])
+					const TSharedPtr<IBookmarkTypeActions> Actions = GetBookmarkTypeActions(Bookmark->GetClass());
+					if (Actions.IsValid())
 					{
 						Actions->JumpToBookmark(Bookmark, InSettings, *InViewportClient);
-					}
-					else
-					{
-						UE_LOG(LogEditorBookmarks, Warning, TEXT("FBookmarkTypeToolsImpl::JumpToBookmark - Null Bookmark at index %d"), InIndex);
 					}
 				}
 				else
 				{
-					UE_LOG(LogEditorBookmarks, Warning, TEXT("FBookmarkTypeToolsImpl::JumpToBookmark - Invalid bookmark index %d"), InIndex);
+					UE_LOG(LogEditorBookmarks, Warning, TEXT("FBookmarkTypeToolsImpl::JumpToBookmark - Null Bookmark at index %d"), InIndex);
 				}
+			}
+			else
+			{
+				UE_LOG(LogEditorBookmarks, Warning, TEXT("FBookmarkTypeToolsImpl::JumpToBookmark - Invalid bookmark index %d"), InIndex);
 			}
 		}
 	}
@@ -178,6 +185,8 @@ public:
 	 */
 	virtual void ClearBookmark(const uint32 InIndex, FEditorViewportClient* InViewportClient) const override
 	{
+		FScopedTransaction ScopedTransaction(FText::Format(LOCTEXT("ClearedBookmark", "Cleared Bookmark {0}"), InIndex));
+
 		if (AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
 			WorldSettings->ClearBookmark(InIndex);
@@ -191,6 +200,8 @@ public:
 	 */
 	virtual void ClearAllBookmarks(FEditorViewportClient* InViewportClient) const override
 	{
+		FScopedTransaction ScopedTransaction(LOCTEXT("ClearedAllBookmarks", "Cleared All Bookmarks"));
+
 		if (AWorldSettings* WorldSettings = GetWorldSettings(InViewportClient))
 		{
 			WorldSettings->ClearAllBookmarks();
@@ -309,3 +320,5 @@ IBookmarkTypeTools& IBookmarkTypeTools::Get()
 	static FBookmarkTypeToolsImpl Impl;
 	return Impl;
 }
+
+#undef LOCTEXT_NAMESPACE

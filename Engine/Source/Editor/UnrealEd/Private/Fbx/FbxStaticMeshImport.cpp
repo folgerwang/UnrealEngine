@@ -321,7 +321,19 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		{
 			FString MaterialFullName = GetMaterialFullName(*FbxMaterial);
 			FString BasePackageName = UPackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(StaticMesh->GetOutermost()->GetName()) / MaterialFullName);
-			UMaterialInterface* UnrealMaterialInterface = FindObject<UMaterialInterface>(NULL, *(BasePackageName + TEXT(".") + MaterialFullName));
+			FString MaterialPackagePath = BasePackageName + TEXT(".") + MaterialFullName;
+			UMaterialInterface* UnrealMaterialInterface = FindObject<UMaterialInterface>(NULL, *MaterialPackagePath);
+			if (UnrealMaterialInterface == nullptr)
+			{
+				// Try loading the object if its package exists on disk
+				FSoftObjectPath ObjectPath(MaterialPackagePath);
+
+				FString LongPackageName = ObjectPath.GetAssetName().IsEmpty() ? ObjectPath.ToString() : ObjectPath.GetLongPackageName();
+				if (FPackageName::DoesPackageExist(LongPackageName))
+				{
+					UnrealMaterialInterface = Cast<UMaterialInterface>(ObjectPath.TryLoad());
+				}
+			}
 			if (UnrealMaterialInterface == NULL)
 			{
 				//In case we do not found the material we can see if the material is in the material list of the static mesh material

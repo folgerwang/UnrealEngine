@@ -5,7 +5,10 @@
 #include "GameFramework/Actor.h"
 #include "Camera/CameraComponent.h"
 #include "KeyParams.h"
+#include "MovieScene.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneSequence.h"
+#include "Sections/MovieSceneSubSection.h"
 #include "Algo/Sort.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
@@ -122,6 +125,30 @@ void MovieSceneHelpers::FixupConsecutiveSections(TArray<UMovieSceneSection*>& Se
 	SortConsecutiveSections(Sections);
 }
 
+
+void MovieSceneHelpers::GetDescendantMovieScenes(UMovieSceneSequence* InSequence, TArray<UMovieScene*> & InMovieScenes)
+{
+	UMovieScene* InMovieScene = InSequence->GetMovieScene();
+	if (InMovieScene == nullptr || InMovieScenes.Contains(InMovieScene))
+	{
+		return;
+	}
+
+	InMovieScenes.Add(InMovieScene);
+
+	for (auto Section : InMovieScene->GetAllSections())
+	{
+		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+		if (SubSection != nullptr)
+		{
+			UMovieSceneSequence* SubSequence = SubSection->GetSequence();
+			if (SubSequence != nullptr)
+			{
+				GetDescendantMovieScenes(SubSequence, InMovieScenes);
+			}
+		}
+	}
+}
 
 
 USceneComponent* MovieSceneHelpers::SceneComponentFromRuntimeObject(UObject* Object)

@@ -357,7 +357,6 @@ void BuildVertexBuffer(
 	const FVertexInstanceArray& VertexInstances = MeshDescription.VertexInstances();
 	const FPolygonGroupArray& PolygonGroupArray = MeshDescription.PolygonGroups();
 	const FPolygonArray& PolygonArray = MeshDescription.Polygons();
-	
 	TArray<int32> RemapVertexInstanceID;
 	// set up vertex buffer elements
 	StaticMeshBuildVertices.Reserve(VertexInstances.GetArraySize());

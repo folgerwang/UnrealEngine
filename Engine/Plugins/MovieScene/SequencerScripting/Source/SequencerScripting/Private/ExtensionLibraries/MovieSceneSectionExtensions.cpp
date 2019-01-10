@@ -23,6 +23,58 @@ FSequencerScriptingRange UMovieSceneSectionExtensions::GetRange(UMovieSceneSecti
 	return FSequencerScriptingRange::FromNative(Section->GetRange(), MovieScene->GetTickResolution());
 }
 
+int32 UMovieSceneSectionExtensions::GetStartFrame(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return ConvertFrameTime(MovieScene::DiscreteInclusiveLower(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate).FloorToFrame().Value;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+float UMovieSceneSectionExtensions::GetStartFrameSeconds(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return DisplayRate.AsSeconds(ConvertFrameTime(MovieScene::DiscreteInclusiveLower(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate));
+	}
+
+	return -1.f;
+}
+
+int32 UMovieSceneSectionExtensions::GetEndFrame(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return ConvertFrameTime(MovieScene::DiscreteExclusiveUpper(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate).FloorToFrame().Value;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+float UMovieSceneSectionExtensions::GetEndFrameSeconds(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return DisplayRate.AsSeconds(ConvertFrameTime(MovieScene::DiscreteExclusiveUpper(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate));
+	}
+
+	return -1.f;
+}
+
 void UMovieSceneSectionExtensions::SetRange(UMovieSceneSection* Section, const FSequencerScriptingRange& InRange)
 {
 	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
@@ -35,6 +87,46 @@ void UMovieSceneSectionExtensions::SetRange(UMovieSceneSection* Section, const F
 	else
 	{
 		UE_LOG(LogMovieScene, Error, TEXT("Invalid range specified"));
+	}
+}
+
+void UMovieSceneSectionExtensions::SetStartFrame(UMovieSceneSection* Section, int32 StartFrame)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		Section->SetStartFrame(ConvertFrameTime(StartFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber);
+	}
+}
+
+void UMovieSceneSectionExtensions::SetStartFrameSeconds(UMovieSceneSection* Section, float StartTime)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		Section->SetStartFrame((StartTime * MovieScene->GetTickResolution()).RoundToFrame());
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrame(UMovieSceneSection* Section, int32 EndFrame)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		Section->SetEndFrame(ConvertFrameTime(EndFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber);
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrameSeconds(UMovieSceneSection* Section, float EndTime)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		Section->SetEndFrame((EndTime * MovieScene->GetTickResolution()).RoundToFrame());
 	}
 }
 

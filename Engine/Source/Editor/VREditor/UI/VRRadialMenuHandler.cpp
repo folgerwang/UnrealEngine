@@ -37,7 +37,6 @@
 #include "IHeadMountedDisplay.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
-#include "VREditorMotionControllerInteractor.h"
 #include "IVREditorModule.h"
 #include "Settings/EditorExperimentalSettings.h"
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "MathStructCustomizations.h"
+#include "Customizations/MathStructCustomizations.h"
 #include "IDetailCustomNodeBuilder.h"
 #include "EditorUndoClient.h"
 #include "Widgets/Input/SNumericEntryBox.h"

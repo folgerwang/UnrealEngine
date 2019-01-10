@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Network/Protocol/IPDisplayClusterClusterEventsProtocol.h"
 #include "Network/Protocol/IPDisplayClusterClusterSyncProtocol.h"
 #include "Network/Protocol/IPDisplayClusterSwapSyncProtocol.h"
 
@@ -9,10 +10,12 @@
 /**
  * Node controller interface
  */
-struct IPDisplayClusterNodeController
-	: public IPDisplayClusterClusterSyncProtocol
+class IPDisplayClusterNodeController
+	: public IPDisplayClusterClusterEventsProtocol
+	, public IPDisplayClusterClusterSyncProtocol
 	, public IPDisplayClusterSwapSyncProtocol
 {
+public:
 	virtual ~IPDisplayClusterNodeController()
 	{ }
 

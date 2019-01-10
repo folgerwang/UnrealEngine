@@ -565,19 +565,22 @@ void FAssetRenameManager::LoadReferencingPackages(TArray<FAssetRenameDataWithRef
 			if (bCheckStatus)
 			{
 				FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Asset->GetOutermost(), EStateCacheUsage::ForceUpdate);
-				const bool bLocalFile = !SourceControlState.IsValid() || SourceControlState->IsAdded() || !SourceControlState->IsSourceControlled() || SourceControlState->IsIgnored();
+				const bool bLocalFile = !SourceControlState.IsValid() || SourceControlState->IsLocal();
 				if (!bLocalFile)
 				{
-					// If this asset is locked or not current, mark it failed to prevent it from being renamed
-					if (SourceControlState->IsCheckedOutOther())
+					if (SourceControlState->IsSourceControlled())
 					{
-						RenameData.bRenameFailed = true;
-						RenameData.FailureReason = LOCTEXT("RenameFailedCheckedOutByOther", "Checked out by another user.");
-					}
-					else if (!SourceControlState->IsCurrent())
-					{
-						RenameData.bRenameFailed = true;
-						RenameData.FailureReason = LOCTEXT("RenameFailedNotCurrent", "Out of date.");
+						// If this asset is locked or not current, mark it failed to prevent it from being renamed
+						if (SourceControlState->IsCheckedOutOther())
+						{
+							RenameData.bRenameFailed = true;
+							RenameData.FailureReason = LOCTEXT("RenameFailedCheckedOutByOther", "Checked out by another user.");
+						}
+						else if (!SourceControlState->IsCurrent())
+						{
+							RenameData.bRenameFailed = true;
+							RenameData.FailureReason = LOCTEXT("RenameFailedNotCurrent", "Out of date.");
+						}
 					}
 
 					// This asset is not local. It is not safe to rename it without leaving a redirector

@@ -76,7 +76,7 @@ namespace
 				if (StructVariableDesc.Category == TextCategory)
 				{
 					FText StructVariableValue;
-					if (FTextStringHelper::ReadFromString(*StructVariableDesc.DefaultValue, StructVariableValue))
+					if (FTextStringHelper::ReadFromBuffer(*StructVariableDesc.DefaultValue, StructVariableValue))
 					{
 						Ar << StructVariableValue;
 					}

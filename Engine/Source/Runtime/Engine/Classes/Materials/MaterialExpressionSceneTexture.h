@@ -69,6 +69,8 @@ enum ESceneTextureId
 	PPI_StoredBaseColor UMETA(DisplayName="BaseColor (as stored in GBuffer)"),
 	/** Material specular, single channel (GBuffer) */
 	PPI_StoredSpecular UMETA(DisplayName="Specular (as stored in GBuffer)"),
+	/** Scene Velocity */
+	PPI_Velocity UMETA(DisplayName="Velocity"),
 };
 
 UCLASS(collapsecategories, hidecategories=Object)

@@ -3,14 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPDisplayClusterInputManager.h"
-
-#include "CoreMinimal.h"
-
+#include "Input/IPDisplayClusterInputManager.h"
 #include "Devices/DisplayClusterInputDeviceTraits.h"
 #include "Network/DisplayClusterMessage.h"
 
-struct IDisplayClusterInputDevice;
+class IDisplayClusterInputDevice;
 struct FDisplayClusterVrpnAnalogChannelData;
 struct FDisplayClusterVrpnButtonChannelData;
 struct FDisplayClusterVrpnTrackerChannelData;

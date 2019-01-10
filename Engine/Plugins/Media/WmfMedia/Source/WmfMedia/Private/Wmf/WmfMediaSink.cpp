@@ -5,22 +5,33 @@
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
+#include "DXGI.h"
+
+#include "Misc/CString.h"
 #include "Misc/ScopeLock.h"
+
+#include "RHI.h"
 
 #include "WmfMediaStreamSink.h"
 #include "WmfMediaUtils.h"
 
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <d3d11.h>
 
 /* FWmfMediaStreamSink structors
  *****************************************************************************/
 
 FWmfMediaSink::FWmfMediaSink()
 	: RefCount(0)
+	, DXGIManager(nullptr)
+	, D3D11Device(nullptr)
+	, D3DImmediateContext(nullptr)
 { }
 
 
 FWmfMediaSink::~FWmfMediaSink()
 {
+	StreamSink.Reset();
 	check(RefCount == 0);
 }
 
@@ -28,20 +39,31 @@ FWmfMediaSink::~FWmfMediaSink()
 /* FWmfMediaStreamSink interface
  *****************************************************************************/
 
-bool FWmfMediaSink::Initialize(FWmfMediaStreamSink& InStreamSink)
+bool FWmfMediaSink::Initialize(TComPtr<FWmfMediaStreamSink> InStreamSink)
 {
 	FScopeLock Lock(&CriticalSection);
 
-	DWORD StreamId = 0;
-
-	if (!InStreamSink.Initialize(*this))
+	if (GDynamicRHI == nullptr)
 	{
 		return false;
 	}
 
-	StreamSink = &InStreamSink;
+	// Now only support for DX11
+	if (TCString<TCHAR>::Stricmp(GDynamicRHI->GetName(), TEXT("D3D11")) != 0)
+	{
+		return false;
+	}
 
-	return true;
+	DWORD StreamId = 0;
+
+	if (!InStreamSink->Initialize(*this))
+	{
+		return false;
+	}
+
+	StreamSink = InStreamSink;
+
+	return CreateDXGIManagerAndDevice();
 }
 
 
@@ -82,6 +104,8 @@ STDMETHODIMP FWmfMediaSink::OnClockSetRate(MFTIME hnsSystemTime, float flRate)
 	{
 		return MF_E_SHUTDOWN;
 	}
+
+	StreamSink->SetClockRate(flRate);
 
 	return S_OK;
 }
@@ -125,7 +149,25 @@ STDMETHODIMP FWmfMediaSink::GetService(__RPC__in REFGUID guidService, __RPC__in 
 	
 	if (guidService == MR_VIDEO_ACCELERATION_SERVICE)
 	{
-		// @todo gmp: implement WmfMedia video acceleration
+		HRESULT Result = S_OK;
+		if (riid == __uuidof(IMFDXGIDeviceManager))
+		{
+			if (nullptr != DXGIManager)
+			{
+				*ppvObject = (void*) static_cast<IUnknown*>(DXGIManager);
+				((IUnknown*)*ppvObject)->AddRef();
+			}
+			else
+			{
+				Result = E_NOINTERFACE;
+			}
+		}
+		else
+		{
+			Result = E_NOINTERFACE;
+		}
+
+		return Result;
 	}
 
 	return MF_E_UNSUPPORTED_SERVICE;
@@ -302,6 +344,8 @@ STDMETHODIMP FWmfMediaSink::SetPresentationClock(__RPC__in_opt IMFPresentationCl
 
 	PresentationClock = pPresentationClock;
 
+	StreamSink->SetPresentationClock(PresentationClock);
+
 	return S_OK;
 }
 
@@ -316,7 +360,11 @@ STDMETHODIMP FWmfMediaSink::Shutdown()
 		StreamSink.Reset();
 	}
 
-	PresentationClock.Reset();
+	if (PresentationClock.IsValid())
+	{
+		PresentationClock->RemoveClockStateSink(this);
+		PresentationClock.Reset();
+	}
 
 	return MF_E_SHUTDOWN;
 }
@@ -441,4 +489,107 @@ STDMETHODIMP_(ULONG) FWmfMediaSink::Release()
 }
 
 
+bool FWmfMediaSink::CreateDXGIManagerAndDevice()
+{
+	HRESULT Result = S_OK;
+
+	UINT resetToken = 0;
+
+	if (nullptr == DXGIManager)
+	{
+		Result = MFCreateDXGIDeviceManager(&resetToken, &DXGIManager);
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Unable to Create DXGI Device Manager: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
+
+		if (GDynamicRHI == nullptr)
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Invalid Dynamic RHI"));
+			return false;
+		}
+
+		if (TCString<TCHAR>::Stricmp(GDynamicRHI->GetName(), TEXT("D3D11")) != 0)
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Dynamic RHI is not D3D11"));
+			return false;
+		}
+
+		ID3D11Device* PreExistingD3D11Device = static_cast<ID3D11Device*>(GDynamicRHI->RHIGetNativeDevice());
+
+		TComPtr<IDXGIDevice> DXGIDevice;
+		PreExistingD3D11Device->QueryInterface(__uuidof(IDXGIDevice), (void**)&DXGIDevice);
+
+		TComPtr<IDXGIAdapter> DXGIAdapter(nullptr);
+		DXGIDevice->GetAdapter((IDXGIAdapter**)&DXGIAdapter);
+
+		// Create device from same adapter as already existing device
+		D3D_FEATURE_LEVEL FeatureLevel;
+
+		uint32 DeviceCreationFlags = 0;
+
+		if (FParse::Param(FCommandLine::Get(), TEXT("d3ddebug")))
+		{
+			DeviceCreationFlags |= D3D11_CREATE_DEVICE_DEBUG;
+		}
+
+
+		Result = D3D11CreateDevice(
+			DXGIAdapter,
+			D3D_DRIVER_TYPE_UNKNOWN,
+			nullptr,
+			DeviceCreationFlags,
+			nullptr,
+			0,
+			D3D11_SDK_VERSION,
+			&D3D11Device,
+			&FeatureLevel,
+			&D3DImmediateContext);
+
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Unable to Create D3D11 Device: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
+
+		if (FeatureLevel < D3D_FEATURE_LEVEL_9_3)
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Unable to Create D3D11 Device with feature level 9.3 or above"));
+			return false;
+		}
+
+		Result = DXGIManager->ResetDevice(D3D11Device, resetToken);
+		if (FAILED(Result))
+		{
+			UE_LOG(LogWmfMedia, Error, TEXT("Unable to Reset D3D11 Device: %s"), *WmfMedia::ResultToString(Result));
+			return false;
+		}
+
+		ID3D10Multithread* MultiThread = nullptr;
+
+		D3D11Device->QueryInterface(__uuidof(ID3D10Multithread), (void**)&MultiThread);
+		if (MultiThread)
+		{
+			MultiThread->SetMultithreadProtected(TRUE);
+			MultiThread->Release();
+		}
+		else
+		{
+			UE_LOG(LogWmfMedia, Log, TEXT("Unable to activate multi-threading on device: %p"), D3D11Device.Get());
+			return false;
+		}
+
+		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("D3D11 Device Created: %p"), D3D11Device.Get());
+		return true;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+#include "Windows/HideWindowsPlatformTypes.h"
+
 #endif
+

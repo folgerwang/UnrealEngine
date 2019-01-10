@@ -2,6 +2,13 @@
 
 #include "Misc/LevelSequenceEditorSettings.h"
 
+ULevelSequenceEditorSettings::ULevelSequenceEditorSettings(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bAutoBindToSimulate = true;
+	bAutoBindToPIE      = true;
+}
+
 ULevelSequenceMasterSequenceSettings::ULevelSequenceMasterSequenceSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, MasterSequenceName(TEXT("Sequence"))

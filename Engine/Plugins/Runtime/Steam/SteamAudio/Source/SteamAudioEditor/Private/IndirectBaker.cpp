@@ -58,7 +58,7 @@ namespace SteamAudio
 		GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 		GBakeTickable->CreateNotificationWithCancel(FSimpleDelegate::CreateStatic(CancelBake));
 
-		auto World = GEditor->LevelViewportClients[0]->GetWorld();
+		auto World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 		check(World);
 
 		GNumBakeTasks = BakeReverb ? PhononSourceComponents.Num() + 1 : PhononSourceComponents.Num();

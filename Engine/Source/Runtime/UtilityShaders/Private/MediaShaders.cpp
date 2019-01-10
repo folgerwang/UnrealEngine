@@ -47,6 +47,13 @@ namespace MediaShaders
 		FPlane(1.000000f, 2.127980f, 0.000000f, 0.000000f),
 		FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
 	);
+
+	const FMatrix RgbToYuvDefault = FMatrix(
+		FPlane(0.299900f, 0.584000f, 0.114000f, 0.000000f),
+		FPlane(-0.14700f, -0.289000f, 0.436000f, 0.500000f),
+		FPlane(0.615000f, -0.515000f, -0.100000f, 0.500000f),
+		FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
+	);
 }
 
 
@@ -319,6 +326,37 @@ void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRH
 }
 
 
+/* FYUVv210ConvertPS shader
+ *****************************************************************************/
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FYUVv210ConvertUB, )
+SHADER_PARAMETER(FMatrix, ColorTransform)
+SHADER_PARAMETER(uint32, SrgbToLinear)
+SHADER_PARAMETER(uint32, OutputDimX)
+SHADER_PARAMETER(uint32, OutputDimY)
+SHADER_PARAMETER_TEXTURE(Texture2D<uint4>, YUVTexture)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FYUVv210ConvertUB, "YUVv210ConvertUB");
+IMPLEMENT_SHADER_TYPE(, FYUVv210ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YUVv210ConvertPS"), SF_Pixel);
+
+
+void FYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YUVTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+{
+	FYUVv210ConvertUB UB;
+	{
+		UB.ColorTransform = ColorTransform;
+		UB.SrgbToLinear = SrgbToLinear;
+		UB.OutputDimX = OutputDimensions.X;
+		UB.OutputDimY = OutputDimensions.Y;
+		UB.YUVTexture = YUVTexture;
+	}
+
+	TUniformBufferRef<FYUVv210ConvertUB> Data = TUniformBufferRef<FYUVv210ConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
+	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FYUVv210ConvertUB>(), Data);
+}
+
+
 /* FYUY2ConvertPS shader
  *****************************************************************************/
 
@@ -385,3 +423,67 @@ void FYVYUConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FR
 	TUniformBufferRef<FYVYUConvertUB> Data = TUniformBufferRef<FYVYUConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
 	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FYVYUConvertUB>(), Data);
 }
+
+
+/* FRGB8toUYVY8ConvertPS shader
+ *****************************************************************************/
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB8toUYVY8ConvertUB, )
+SHADER_PARAMETER(FMatrix, ColorTransform)
+SHADER_PARAMETER(uint32, LinearToSrgb)
+SHADER_PARAMETER(float, OnePixelDeltaX)
+SHADER_PARAMETER_TEXTURE(Texture2D, Texture)
+SHADER_PARAMETER_SAMPLER(SamplerState, SamplerP)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB8toUYVY8ConvertUB, "RGB8toUYVY8ConvertUB");
+IMPLEMENT_SHADER_TYPE(, FRGB8toUYVY8ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("RGB8toUYVY8ConvertPS"), SF_Pixel);
+
+
+void FRGB8toUYVY8ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb)
+{
+	FRGB8toUYVY8ConvertUB UB;
+	{
+		UB.ColorTransform = ColorTransform;
+		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
+		UB.LinearToSrgb = LinearToSrgb;
+		UB.Texture = RGBATexture;
+		UB.OnePixelDeltaX = 1.0f / float(RGBATexture->GetSizeX());
+	}
+
+	TUniformBufferRef<FRGB8toUYVY8ConvertUB> Data = TUniformBufferRef<FRGB8toUYVY8ConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
+	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FRGB8toUYVY8ConvertUB>(), Data);
+}
+
+
+/* FRGB10toYUVv210ConvertPS shader
+ *****************************************************************************/
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB10toYUVv210ConvertUB, )
+SHADER_PARAMETER(FMatrix, ColorTransform)
+SHADER_PARAMETER(uint32, LinearToSrgb)
+SHADER_PARAMETER(float, OnePixelDeltaX)
+SHADER_PARAMETER_TEXTURE(Texture2D, Texture)
+SHADER_PARAMETER_SAMPLER(SamplerState, SamplerP)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB10toYUVv210ConvertUB, "RGB10toYUVv210ConvertUB");
+IMPLEMENT_SHADER_TYPE(, FRGB10toYUVv210ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("RGB10toYUVv210ConvertPS"), SF_Pixel);
+
+
+void FRGB10toYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb)
+{
+	FRGB10toYUVv210ConvertUB UB;
+	{
+		UB.ColorTransform = ColorTransform;
+		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
+		UB.LinearToSrgb = LinearToSrgb;
+		UB.Texture = RGBATexture;
+		UB.OnePixelDeltaX = 1.0f / float(RGBATexture->GetSizeX());
+	}
+
+	TUniformBufferRef<FRGB10toYUVv210ConvertUB> Data = TUniformBufferRef<FRGB10toYUVv210ConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
+	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FRGB10toYUVv210ConvertUB>(), Data);
+}
+
+

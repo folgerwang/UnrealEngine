@@ -201,6 +201,11 @@ public:
 	void SetFocusVisualization(bool bShowFocusVisualization);
 
 	/**
+	 * Is focus visualization tools activated on camera.
+	 */
+	bool IsFocusVisualizationActivated() const;
+
+	/**
 	 * Updates the camera view to have the desired film format view within the Virtual Camera UI area.
 	 */
 	void UpdateCameraView();

@@ -673,10 +673,37 @@ public:
 	TSharedPtr< class ILayers >				Layers;
 
 	/** List of all viewport clients */
-	TArray<class FEditorViewportClient*>	AllViewportClients;
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() { return AllViewportClients; }
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() const { return AllViewportClients; }
+
+	/** Called when the viewport clients list changed */
+	DECLARE_EVENT(UEditorEngine, FViewportClientListChangedEvent);
+	FViewportClientListChangedEvent& OnViewportClientListChanged() { return ViewportClientListChangedEvent; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddViewportClients(FEditorViewportClient* ViewportClient);
+
+	/** Remove a viewport client */
+	void RemoveViewportClients(FEditorViewportClient* ViewportClient);
 
 	/** List of level editor viewport clients for level specific actions */
-	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() { return LevelViewportClients; }
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() const { return LevelViewportClients; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Remove a level editor viewport client */
+	void RemoveLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Called when the level editor viewport clients list changed */
+	FViewportClientListChangedEvent& OnLevelViewportClientListChanged() { return LevelViewportClientListChangedEvent; }
 
 	/** Annotation to track which PIE/SIE (PlayWorld) UObjects have counterparts in the EditorWorld **/
 	class FUObjectAnnotationSparseBool ObjectsThatExistInEditorWorld;
@@ -2794,6 +2821,18 @@ private:
 	};
 	FTransactionDeltaContext CurrentUndoRedoContext;
 
+	/** List of all viewport clients */
+	TArray<class FEditorViewportClient*> AllViewportClients;
+
+	/** List of level editor viewport clients for level specific actions */
+	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+
+	/** Delegate broadcast when the viewport client list changed */
+	FViewportClientListChangedEvent ViewportClientListChangedEvent;
+
+	/** Delegate broadcast when the level editor viewport client list changed */
+	FViewportClientListChangedEvent LevelViewportClientListChangedEvent;
+
 	/** Delegate broadcast just before a blueprint is compiled */
 	FBlueprintPreCompileEvent BlueprintPreCompileEvent;
 
@@ -2957,9 +2996,6 @@ protected:
 
 	// Handle requests from slate application to open assets.
 	bool HandleOpenAsset(UObject* Asset);
-
-	// Handles a package being reloaded.
-	void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
 
 public:
 	UE_DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")

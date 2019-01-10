@@ -4,7 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+
 #include "DisplayClusterOperationMode.h"
+#include "Cluster/DisplayClusterClusterEvent.h"
+#include "Cluster/IDisplayClusterClusterEventListener.h"
+
 #include "IDisplayClusterBlueprintAPI.generated.h"
 
 
@@ -62,6 +66,18 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get nodes amount"), Category = "DisplayCluster|Cluster")
 	virtual int32 GetNodesAmount() = 0;
 
+	/** Returns amount of nodes in cluster. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add cluster event listener"), Category = "DisplayCluster|Cluster")
+	virtual void AddClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener) = 0;
+
+	/** Returns amount of nodes in cluster. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove cluster event listener"), Category = "DisplayCluster|Cluster")
+	virtual void RemoveClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener) = 0;
+
+	/** Returns amount of nodes in cluster. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Emits cluster event"), Category = "DisplayCluster|Cluster")
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event, bool MasterOnly) = 0;
+
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// Config API
@@ -79,8 +95,8 @@ public:
 
 	// Screens
 	/** Returns screen reference used for computing frustum output. */
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get active screen"), Category = "DisplayCluster|Game")
-	virtual UDisplayClusterScreenComponent* GetActiveScreen() = 0;
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get active screens"), Category = "DisplayCluster|Game")
+	virtual TArray<UDisplayClusterScreenComponent*> GetActiveScreens() = 0;
 
 	/** Returns screen reference by id name. */
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get screen by ID"), Category = "DisplayCluster|Game")

@@ -1,4 +1,4 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ComposureUtils.h"
 
@@ -21,6 +21,9 @@ void FComposureUtils::SetEngineShowFlagsForPostprocessingOnly(FEngineShowFlags& 
 	EngineShowFlags.MotionBlur = false;
 	EngineShowFlags.Bloom = false;
 	EngineShowFlags.EyeAdaptation = false;
+	EngineShowFlags.VolumetricFog = false;
+	EngineShowFlags.AtmosphericFog = false;
+	EngineShowFlags.Fog = false;
 
 #if !UE_BUILD_OPTIMIZED_SHOWFLAGS
 	// Development-only flags

@@ -52,11 +52,14 @@ enum class ETimecodeSynchronizationSyncMode
 UENUM()
 enum class ETimecodeSynchronizationTimecodeType
 {
+	/** Use the configured Engine Default Timecode provider. */
+	DefaultProvider,
+
 	/** Use an external Timecode Provider to provide the timecode to follow. */
 	TimecodeProvider,
 
 	/** Use one of the InputSource as the Timecode Provider. */
-	InputSource,
+	InputSource
 };
 
 /**
@@ -72,6 +75,9 @@ enum class ETimecodeSynchronizationEvent
 
 	/** The synchronization procedure succeeded. */
 	SynchronizationSucceeded,
+
+	/** Synchronization was stopped. Note, this won't be called if Synchronization failed. */
+	SynchronizationStopped,
 };
 
 /** Cached values to use during synchronization / while synchronized */
@@ -250,8 +256,8 @@ public:
 	virtual FTimecode GetTimecode() const override;
 	virtual FFrameRate GetFrameRate() const override;
 	virtual ETimecodeProviderSynchronizationState GetSynchronizationState() const override;
-	virtual bool Initialize(class UEngine* InEngine) override { return true; }
-	virtual void Shutdown(class UEngine* InEngine) override {}
+	virtual bool Initialize(class UEngine* InEngine) override;
+	virtual void Shutdown(class UEngine* InEngine) override;
 	//~ End TimecodeProvider Interface
 
 public:
@@ -291,6 +297,18 @@ public:
 	{
 		return SynchronizationEvent;
 	}
+
+	/**
+	 * Adds a "runtime" source to the synchronizer.
+	 * These sources can only be added from StartSynchronization callback, and will automatically
+	 * be removed once synchronization has stopped (or failed).
+	 *
+	 * While the synchronization process is active, it's guaranteed that the TimecodeSynchronizer
+	 * will keep a hard reference to the source.
+	 *
+	 * Sources added this way should be added every time the StartSynchronization event is fired.
+	 */
+	void AddRuntimeTimeSynchronizationSource(UTimeSynchronizationSource* Source);
 
 private:
 
@@ -434,10 +452,15 @@ public:
 
 public:
 
+	//! ONLY MODIFY THESE IN EDITOR
+	//! TODO: Deprecate this and make it private.
 	UPROPERTY(EditAnywhere, Instanced, Category="Input")
 	TArray<UTimeSynchronizationSource*> TimeSynchronizationInputSources;
 
 private:
+
+	UPROPERTY(Transient)
+	TArray<UTimeSynchronizationSource*> DynamicSources;
 
 	/** What mode will be used for synchronization. */
 	UPROPERTY(EditAnywhere, Category = "Synchronization", Meta=(EditCondition="IN_CPP"))
@@ -474,7 +497,7 @@ private:
 	UFixedFrameRateCustomTimeStep* RegisteredCustomTimeStep;
 
 	UPROPERTY(Transient)
-	const UTimecodeProvider* RegisteredTimecodeProvider;
+	const UTimecodeProvider* CachedTimecodeProvider;
 
 	UPROPERTY(Transient, DuplicateTransient, VisibleAnywhere, Category = "Synchronization")
 	int32 ActualFrameOffset;
@@ -507,4 +530,7 @@ private:
 	FOnTimecodeSynchronizationEvent SynchronizationEvent;
 
 	FTimecodeSynchronizerCachedSyncState CachedSyncState;
+
+	bool bFailGuard;
+	bool bAddSourcesGuard;
 };

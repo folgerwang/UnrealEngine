@@ -991,6 +991,11 @@ void UAssetToolsImpl::FindSoftReferencesToObject(FSoftObjectPath TargetObject, T
 	AssetRenameManager->FindSoftReferencesToObject(TargetObject, ReferencingObjects);
 }
 
+void UAssetToolsImpl::RenameReferencingSoftObjectPaths(const TArray<UPackage *> PackagesToCheck, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap) const
+{
+	AssetRenameManager->RenameReferencingSoftObjectPaths(PackagesToCheck, AssetRedirectorMap);
+}
+
 TArray<UObject*> UAssetToolsImpl::ImportAssets(const FString& DestinationPath)
 {
 	return ImportAssetsWithDialog(DestinationPath);
@@ -1600,6 +1605,8 @@ void UAssetToolsImpl::OnNewCreateRecord(UClass* AssetType, bool bDuplicated)
 
 TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Files, const FString& RootDestinationPath, TArray<TPair<FString, FString>> *FilesAndDestinationsPtr, const FAssetImportParams& Params) const
 {
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, GIsRunningUnattendedScript || Params.bAutomated);
+
 	UFactory* SpecifiedFactory = Params.SpecifiedFactory;
 	const bool bForceOverrideExisting = Params.bForceOverrideExisting;
 	const bool bSyncToBrowser = Params.bSyncToBrowser;

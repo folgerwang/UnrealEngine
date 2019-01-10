@@ -2249,26 +2249,34 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		}
 	};
 
-	auto ExportConstantValue = [&OutPythonScript](const TCHAR* InConstantName, const TCHAR* InConstantDocString, const TCHAR* InConstantValue)
+	auto ExportConstantValue = [&OutPythonScript, &PyTypeName](const TCHAR* InConstantName, const TCHAR* InConstantDocString, const FString& InConstantValue)
 	{
+		FString ConstantValue(InConstantValue);
+
+		// Ensure that constant type is not same type as host type
+		if (ConstantValue.StartsWith(PyTypeName, ESearchCase::CaseSensitive) && (ConstantValue[PyTypeName.Len()] == TEXT('(')))
+		{
+			ConstantValue = TEXT("None");
+		}
+
 		if (*InConstantDocString == 0)
 		{
 			// No docstring
-			OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, InConstantValue));
+			OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, *ConstantValue));
 		}
 		else
 		{
 			if (FCString::Strchr(InConstantDocString, TEXT('\n')))
 			{
 				// Multi-line docstring
-				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, InConstantValue));
+				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, *ConstantValue));
 				OutPythonScript.WriteDocString(InConstantDocString);
 				OutPythonScript.WriteNewLine();
 			}
 			else
 			{
 				// Single-line docstring
-				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s  #: %s"), InConstantName, InConstantValue, InConstantDocString));
+				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s  #: %s"), InConstantName, *ConstantValue, InConstantDocString));
 			}
 		}
 	};
@@ -2354,7 +2362,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		{
 			ConstantValueStr = TEXT("None");
 		}
-		ExportConstantValue(UTF8_TO_TCHAR(InTypeConstant.ConstantName.GetData()), UTF8_TO_TCHAR(InTypeConstant.ConstantDoc.GetData()), *ConstantValueStr);
+		ExportConstantValue(UTF8_TO_TCHAR(InTypeConstant.ConstantName.GetData()), UTF8_TO_TCHAR(InTypeConstant.ConstantDoc.GetData()), ConstantValueStr);
 	};
 
 	auto ExportGeneratedGetSet = [&ExportGetSet](const PyGenUtil::FGeneratedWrappedGetSet& InGetSet)
@@ -2701,7 +2709,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 						EntryDoc.InsertAt(0, *FString::Printf(TEXT("%s: "), *EntryValue));
 					}
 
-					ExportConstantValue(*EntryName, *EntryDoc, *FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
+					ExportConstantValue(*EntryName, *EntryDoc, FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
 				}
 			}
 		}
