@@ -32,6 +32,8 @@ void FSystemTextures::InitializeCommonTextures(FRHICommandListImmediate& RHICmdL
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("WhiteDummy"));
 			RHICmdList.EndRenderPass();
 			RHICmdList.CopyToResolveTarget(WhiteDummy->GetRenderTargetItem().TargetableTexture, WhiteDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+
+			WhiteDummySRV = RHICreateShaderResourceView((FRHITexture2D*)WhiteDummy->GetRenderTargetItem().ShaderResourceTexture.GetReference(), 0);
 		}
 
 		// Create a BlackDummy texture
@@ -558,6 +560,7 @@ void FSystemTextures::InitializeFeatureLevelDependentTextures(FRHICommandListImm
 
 void FSystemTextures::ReleaseDynamicRHI()
 {
+	WhiteDummySRV.SafeRelease();
 	WhiteDummy.SafeRelease();
 	BlackDummy.SafeRelease();
 	BlackAlphaOneDummy.SafeRelease();
