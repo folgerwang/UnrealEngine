@@ -7,6 +7,49 @@
 #include "SSDSignalCore.ush"
 
 
+FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)
+{
+	float a = Pow2( max( 0.02, Roughness ) );
+	float a2 = a*a;
+	
+	float NoV = saturate( abs( dot(N, V) ) + 1e-5 );
+	
+	float3 R = 2 * NoV * N - V;
+
+	FSphericalGaussian SpecularSG;
+	SpecularSG.Axis = R;
+	SpecularSG.Sharpness = 0.5 / ( a2 * max( NoV, 0.1 ) );
+	SpecularSG.Amplitude = rcp( PI * a2 );
+
+	return SpecularSG;
+}
+
+FSphericalGaussian RoughnessLobe(FSSFSampleSceneInfos RefSceneMetadata)
+{
+	float3 N = RefSceneMetadata.WorldNormal;
+	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+	float Roughness = RefSceneMetadata.Roughness;
+
+	return RoughnessLobe(Roughness, N, V);
+}
+
+// [ Tokoyashi 2015, "Specular Lobe-Aware Filtering and Upsampling for Interactive Indirect Illumination" ]
+float TokoyashiLobeBilateralWeight(FSSFSampleSceneInfos RefSceneMetadata, FSSFSampleSceneInfos NeighborSceneMetadata)
+{
+	FSphericalGaussian Ref = RoughnessLobe(RefSceneMetadata);
+	FSphericalGaussian Neighbor = RoughnessLobe(NeighborSceneMetadata);
+	
+#if 1
+	const float Beta = 5.05; // TODO: to be tunned with GGX.
+
+	float CombinedSharpness = sqrt(Ref.Sharpness * Neighbor.Sharpness) / (Ref.Sharpness + Neighbor.Sharpness);
+
+	return pow(2 * CombinedSharpness, Beta) * exp((Beta * CombinedSharpness) * (dot(Ref.Axis, Neighbor.Axis) - 1));
+#else
+	return Dot(Ref, Neighbor);
+#endif
+}
+
 
 /** COmpute the weight of the bilateral filter to use between a reference sample and a neighbor. */
 float ComputeBilateralWeight(
@@ -20,7 +63,8 @@ float ComputeBilateralWeight(
 		return 1;
 	}
 	
-	float WorldBilateralWeight;
+	float WorldBilateralWeight = 1;
+	if (1)
 	{
 		const float WorldRadius = MaxWorldBluringDistance;
 
@@ -40,7 +84,13 @@ float ComputeBilateralWeight(
 		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
 	}
 
-	return WorldBilateralWeight;
+	float LobeBilateralWeight = 1;
+	//if (View.GeneralPurposeTweak > 0.5)
+	{
+		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
+	}
+
+	return WorldBilateralWeight * LobeBilateralWeight;
 }
 
 float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)

@@ -9,6 +9,7 @@
 #include "../Common.ush"
 #include "../DataStructures/SceneViewFamilyBlackboard.ush"
 #include "../ColorSpace.ush"
+#include "../SphericalGaussian.ush"
 
 
 //------------------------------------------------------- DEBUG CONFIG
@@ -100,6 +101,9 @@ struct FSSFSampleSceneInfos
 
 	/** Pixel depth in world space. */
 	float WorldDepth;
+
+	/** Roughness of the pixel. */
+	float Roughness;
 };
 
 FSSFSampleSceneInfos CreateSampleSceneInfos()
@@ -108,12 +112,13 @@ FSSFSampleSceneInfos CreateSampleSceneInfos()
 	Infos.WorldNormal             = 0;
 	Infos.TranslatedWorldPosition = 0;
 	Infos.WorldDepth              = 0;
+	Infos.Roughness               = 0;
 	return Infos;
 }
 
 FSSFSampleSceneInfos InitSampleSceneInfos(
 	float4x4 ScreenToTranslatedWorld,
-	float2 ScreenPosition, float WorldDepth, float3 WorldNormal)
+	float2 ScreenPosition, float WorldDepth, float3 WorldNormal, float Roughness)
 {
 	FSSFSampleSceneInfos Infos;
 
@@ -121,6 +126,7 @@ FSSFSampleSceneInfos InitSampleSceneInfos(
 	Infos.TranslatedWorldPosition = mul(float4(ClipPosition, WorldDepth, 1), ScreenToTranslatedWorld).xyz;
 	Infos.WorldDepth = WorldDepth;
 	Infos.WorldNormal = WorldNormal;
+	Infos.Roughness = Roughness;
 	return Infos;
 }
 
@@ -129,7 +135,7 @@ FSSFSampleSceneInfos FetchCurrentSceneInfos(float2 ScreenPosition, float2 Buffer
 	FGBufferData GBufferData = GetGBufferDataFromSceneBlackboard(BufferUV);
 	return InitSampleSceneInfos(
 		View.ScreenToTranslatedWorld,
-		ScreenPosition, GBufferData.Depth, GBufferData.WorldNormal);
+		ScreenPosition, GBufferData.Depth, GBufferData.WorldNormal, GBufferData.Roughness);
 }
 
 float ProjectWorldDistanceToScreenDistance(FSSFSampleSceneInfos SceneMetadata, float WorldDistance)

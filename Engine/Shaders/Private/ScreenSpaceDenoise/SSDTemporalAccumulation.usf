@@ -47,7 +47,7 @@
 	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
 	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
-	#define CONFIG_HISTORY_REJECTION 1
+	#define CONFIG_HISTORY_REJECTION 2
 	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE 0
 
 #else
@@ -138,6 +138,7 @@ Texture2D PrevHistory1;
 Texture2D<uint> PrevTileClassificationTexture;
 Texture2D PrevDepthBuffer;
 Texture2D PrevGBufferA;
+Texture2D PrevGBufferB;
 
 Texture2D HistoryRejectionSignal0;
 Texture2D HistoryRejectionSignal1;
@@ -179,10 +180,11 @@ void PointSampleHistory(float2 ScreenPosition, float2 BufferUV, out FSSFSignalSa
 	// TODO: so what to do with mip level of these guys?
 	float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).r);
 	float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).rgb);
+	float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).b;
 
 	OutMetadata = InitSampleSceneInfos(
 		View.PrevScreenToTranslatedWorld,
-		ScreenPosition, WorldSceneDepth, WorldNormal);
+		ScreenPosition, WorldSceneDepth, WorldNormal, Roughness);
 
 	// TODO: PrevScreenToCurrentTranslatedWorld
 	OutMetadata.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
@@ -411,10 +413,11 @@ void TemporallyAccumulate(
 							{
 								float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).r);
 								float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).rgb);
+								float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).b;
 
 								HistoryMetadata2 = InitSampleSceneInfos(
 									View.PrevScreenToTranslatedWorld,
-									SampleScreenPosition2, WorldSceneDepth, WorldNormal);
+									SampleScreenPosition2, WorldSceneDepth, WorldNormal, Roughness);
 
 								// TODO: PrevScreenToCurrentTranslatedWorld
 								HistoryMetadata2.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
@@ -496,10 +499,11 @@ void TemporallyAccumulate(
 					{
 						float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).r);
 						float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).rgb);
+						float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).b;
 
 						HistoryMetadata = InitSampleSceneInfos(
 							View.PrevScreenToTranslatedWorld,
-							SampleScreenPosition, WorldSceneDepth, WorldNormal);
+							SampleScreenPosition, WorldSceneDepth, WorldNormal, Roughness);
 
 						// TODO: PrevScreenToCurrentTranslatedWorld
 						HistoryMetadata.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;

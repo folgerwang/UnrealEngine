@@ -15,11 +15,12 @@ void SetupSceneViewFamilyBlackboard(
 {
 	const FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
 
-	FRDGTextureRef BlackDummy = GraphBuilder.RegisterExternalTexture(GSystemTextures.BlackDummy);
-	FRDGTextureRef DefaultNormal8Bit = GraphBuilder.RegisterExternalTexture(GSystemTextures.DefaultNormal8Bit);
-
 	*OutBlackboard = FSceneViewFamilyBlackboard();
 	OutBlackboard->SceneDepthBuffer = GraphBuilder.RegisterExternalTexture(SceneContext.SceneDepthZ);
-	OutBlackboard->SceneVelocityBuffer = SceneContext.SceneVelocity ? GraphBuilder.RegisterExternalTexture(SceneContext.SceneVelocity) : BlackDummy;
-	OutBlackboard->SceneGBufferA = SceneContext.GBufferA ? GraphBuilder.RegisterExternalTexture(SceneContext.GBufferA) : DefaultNormal8Bit;
+	OutBlackboard->SceneVelocityBuffer = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.SceneVelocity, GSystemTextures.BlackDummy);
+	OutBlackboard->SceneGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferA, GSystemTextures.DefaultNormal8Bit, TEXT("GBufferA"));
+	OutBlackboard->SceneGBufferB = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferB, GSystemTextures.BlackDummy, TEXT("GBufferB"));
+	OutBlackboard->SceneGBufferC = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferC, GSystemTextures.BlackDummy, TEXT("GBufferC"));
+	OutBlackboard->SceneGBufferD = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferD, GSystemTextures.BlackDummy, TEXT("GBufferD"));
+	OutBlackboard->SceneGBufferE = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferE, GSystemTextures.BlackDummy, TEXT("GBufferE"));
 }

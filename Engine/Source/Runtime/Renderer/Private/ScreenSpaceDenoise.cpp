@@ -33,6 +33,13 @@ static TAutoConsoleVariable<int32> CVarDoDebugPass(
 	TEXT("Adds denoiser's the debug pass."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolution(
+	TEXT("r.Reflection.Denoise.HistoryConvolution"), 1,
+	TEXT("Mode to use for history convolution.\n")
+	TEXT(" 0: disabled;\n")
+	TEXT(" 1: Spatial convolution (default)."),
+	ECVF_RenderThreadSafe);
+
 
 /** The maximum number of mip level supported in the denoiser. */
 static const int32 kMaxMipLevel = 4;
@@ -171,6 +178,8 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 {
 	DECLARE_GLOBAL_SHADER(FSSDSpatialAccumulationCS);
 	SHADER_USE_PARAMETER_STRUCT(FSSDSpatialAccumulationCS, FScreenSpaceDenoisingShader);
+	
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim>;
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
@@ -227,6 +236,7 @@ class FSSDTemporalAccumulationCS : public FScreenSpaceDenoisingShader
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevTileClassificationTexture)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevDepthBuffer)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevGBufferA)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevGBufferB)
 
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal0)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal1)
@@ -401,7 +411,10 @@ static void DenoiseShadowPenumbra(
 		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput0, /* MipLevel = */ 0));
 		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput1, /* MipLevel = */ 0));
 
-		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap);
+		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Penumbra);
+
+		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
 			RDG_EVENT_NAME("SSD SpatialAccumulation(Mip=0)"),
@@ -599,6 +612,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 	FRDGTextureRef SignalHistory0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
 	FRDGTextureRef SignalHistory1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
 
+	// Temporal pass.
 	{
 		const int32 MipLevel = 0;
 
@@ -610,11 +624,6 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 
 		FSSDTemporalAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalAccumulationCS::FParameters>();
 		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->iMipLevel = MipLevel;
-		PassParameters->iMipLevelPow2 = (1 << MipLevel);
-		PassParameters->MipLevel = MipLevel;
-		PassParameters->MipLevelPow2 = (1 << MipLevel);
-		PassParameters->InvMipLevelPow2 = 1.0f / PassParameters->MipLevelPow2;
 		PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
 		PassParameters->SignalInput0 = ReflectionInputs.Color;
 		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
@@ -625,26 +634,54 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		PassParameters->PrevTileClassificationTexture = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.TileClassification, GSystemTextures.BlackDummy);
 		PassParameters->PrevDepthBuffer = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.DepthBuffer, GSystemTextures.BlackDummy);
 		PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
+		PassParameters->PrevGBufferB = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferB, GSystemTextures.BlackDummy);
 
 		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory0, MipLevel));
 		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory1, MipLevel));
 
-		FIntPoint Resolution = FIntPoint::DivideAndRoundUp(DenoiseResolution, 1 << MipLevel);
-
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD TemporalAccumulation(Mip=%d)", MipLevel),
+			RDG_EVENT_NAME("SSD TemporalAccumulation"),
 			*ComputeShader,
 			PassParameters,
-			FComputeShaderUtils::GetGroupCount(Resolution, FComputeShaderUtils::kGolden2DGroupSize));
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+	}
+	
+	// Spatial filter, to converge history faster.
+	if (CVarReflectionHistoryConvolution.GetValueOnRenderThread())
+	{
+		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
+		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
+
+		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->SignalInput0 = SignalHistory0;
+		PassParameters->SignalInput1 = SignalHistory1;
+		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
+		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
+
+		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
+
+		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD SpatialAccumulation"),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+
+		SignalHistory0 = SignalOutput0;
+		SignalHistory1 = SignalOutput1;
 	}
 
 	if (View.ViewState)
 	{
-		// Keep depth buffer and GBufferA around for next frame.
+		// Keep depth buffer and GBuffer around for next frame.
 		{
 			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneDepthBuffer, &View.ViewState->PendingPrevFrameViewInfo.DepthBuffer);
 			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferA, &View.ViewState->PendingPrevFrameViewInfo.GBufferA);
+			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferB, &View.ViewState->PendingPrevFrameViewInfo.GBufferB);
 		}
 
 		// Saves history.

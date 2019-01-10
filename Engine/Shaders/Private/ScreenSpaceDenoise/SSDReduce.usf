@@ -289,10 +289,11 @@ void MainCS(
 						NeighborMipLevel = SharedArray0[LDSIndex].x;
 						float NeighborDepth = SharedArray0[LDSIndex].y;
 						float3 NeighborNormal = float3(0, 0, 1);
+						float Roughness = 1;
 
 						NeighborMetadata = InitSampleSceneInfos(
 							View.ScreenToTranslatedWorld,
-							NeighborScreenPosition, NeighborDepth, NeighborNormal);
+							NeighborScreenPosition, NeighborDepth, NeighborNormal, Roughness);
 					}
 				}
 

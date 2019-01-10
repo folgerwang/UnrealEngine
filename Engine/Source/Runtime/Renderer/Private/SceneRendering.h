@@ -843,6 +843,7 @@ struct FPreviousViewInfo
 	// Depth buffer and Normals of the previous frame generating this history entry for bilateral kernel rejection.
 	TRefCountPtr<IPooledRenderTarget> DepthBuffer;
 	TRefCountPtr<IPooledRenderTarget> GBufferA;
+	TRefCountPtr<IPooledRenderTarget> GBufferB;
 
 	// Temporal AA result of last frame
 	FTemporalAAHistory TemporalAAHistory;
@@ -867,6 +868,7 @@ struct FPreviousViewInfo
 	{
 		DepthBuffer.SafeRelease();
 		GBufferA.SafeRelease();
+		GBufferB.SafeRelease();
 		TemporalAAHistory.SafeRelease();
 		DOFPreGatherHistory.SafeRelease();
 		DOFPostGatherForegroundHistory.SafeRelease();

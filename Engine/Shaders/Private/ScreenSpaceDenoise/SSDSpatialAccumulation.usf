@@ -19,43 +19,42 @@ PostProcessTemporalAA.usf: Temporal AA
 
 #define TILE_PIXEL_SIZE 8
 
-
-#if DIM_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-	#define CONFIG_SIGNAL_INPUT_LAYOUT \
-		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
-
-	#define CONFIG_SIGNAL_OUTPUT_LAYOUT \
-		SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
-
-	#define CONFIG_SIGNAL_PROCESSING \
-		SIGNAL_PROCESSING_PENUMBRA
-
-	#define CONFIG_SAMPLE_SET \
-		SAMPLE_SET_3X3
+#define CONFIG_SIGNAL_PROCESSING DIM_SIGNAL_PROCESSING
 
 
-#elif DIM_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
-	#define CONFIG_SIGNAL_INPUT_LAYOUT \
-		SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
+	#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
 
-	#define CONFIG_SIGNAL_OUTPUT_LAYOUT \
-		SIGNAL_BUFFER_LAYOUT_REFLECTIONS_OUTPUT
+	#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
 
-	#define CONFIG_SIGNAL_PROCESSING \
-		SIGNAL_PROCESSING_REFLECTIONS
 
-	#define CONFIG_SAMPLE_SET \
-		SAMPLE_SET_3X3
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+	#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+	#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
+	#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
+
+	#define CONFIG_WEIGHT_KERNEL_CENTER 1
 
 #else
 	#error Unknown signal processing.
 #endif
 
-
-//------------------------------------------------------- CONFIGS
-
 #include "SSDSignalInterface.ush"
+
+
+//------------------------------------------------------- CONFIG DISABLED DEFAULTS
+
+/** Whether the output signal should be normalized. */
+#ifndef CONFIG_NORMALIZE_OUTPUT
+	#define CONFIG_NORMALIZE_OUTPUT 0
+#endif
+
+/** Ensures the center of the kernel have a correct weight. */
+#ifndef CONFIG_WEIGHT_KERNEL_CENTER
+	#define CONFIG_WEIGHT_KERNEL_CENTER 0
+#endif
 
 
 //------------------------------------------------------- CONSTANTS
@@ -100,7 +99,13 @@ void MainCS(
 
 	float CurrentWorldBluringRadius = ComputePixelWorldRadius(CurrentSceneMetadata);
 
-	float AccumulatorWeight = 1.0;
+	float AccumulatorWeight = 1;
+	float BilateralWeightAdjustement = 1;
+	#if CONFIG_WEIGHT_KERNEL_CENTER
+	{
+		BilateralWeightAdjustement = rcp(ComputeBilateralWeight(100, CurrentSceneMetadata, CurrentSceneMetadata));
+	}
+	#endif
 
 	#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3
 		const int KernelRadius = 1;
@@ -140,7 +145,7 @@ void MainCS(
 		float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborSceneMetadata);
 
 		// Compute the bilateral weight.
-		float BilateralWeight = ComputeBilateralWeight(
+		float BilateralWeight = BilateralWeightAdjustement * ComputeBilateralWeight(
 			WorldBluringRadiusToBilateralWorldDistance(min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
 			CurrentSceneMetadata,
 			NeighborSceneMetadata);
@@ -167,6 +172,12 @@ void MainCS(
 		
 		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
 	}
+
+	#if CONFIG_NORMALIZE_OUTPUT
+	{
+		Accumulator = NormalizeToOneSample(Accumulator);
+	}
+	#endif
 
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
 
