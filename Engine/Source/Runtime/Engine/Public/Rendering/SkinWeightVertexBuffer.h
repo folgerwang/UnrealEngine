@@ -207,7 +207,7 @@ private:
 	uint32 NumVertices;
 
 	/** Allocates the vertex data storage type. */
-	void AllocateData();
+	ENGINE_API void AllocateData();
 
 #if WITH_EDITOR
 	/** Helper for concrete types */
