@@ -56,7 +56,7 @@
 #define LWS_WITHOUT_EXTENSIONS
 
 /* notice if client or server gone */
-#define LWS_WITHOUT_SERVER
+/* #undef LWS_WITHOUT_SERVER */
 /* #undef LWS_WITHOUT_CLIENT */
 
 #define LWS_WITH_POLL
@@ -86,7 +86,7 @@
 #define LWS_NO_DAEMONIZE
 
 /* Build without server support */
-#define LWS_NO_SERVER
+/* #undef LWS_NO_SERVER */
 
 /* Build without client support */
 /* #undef LWS_NO_CLIENT */
