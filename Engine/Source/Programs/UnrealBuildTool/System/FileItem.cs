@@ -283,6 +283,17 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Resets all cached file info. Significantly reduces performance; do not use unless strictly necessary.
+		/// </summary>
+		public static void ResetAllCachedInfo_SLOW()
+		{
+			foreach(FileItem Item in UniqueSourceFileMap.Values)
+			{
+				Item.ResetCachedInfo();
+			}
+		}
+
+		/// <summary>
 		/// Return the path to this FileItem to debugging
 		/// </summary>
 		/// <returns>Absolute path to this file item</returns>

@@ -224,12 +224,6 @@ namespace UnrealBuildTool
 			// Execute the build
 			if((Options & BuildOptions.SkipBuild) == 0)
 			{
-				// Execute all the pre-build steps
-				foreach(TargetMakefile Makefile in Makefiles)
-				{
-					Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
-				}
-
 				// Make sure that none of the actions conflict with any other (producing output files differently, etc...)
 				ActionGraph.CheckForConflicts(Makefiles.SelectMany(x => x.Actions));
 
@@ -368,11 +362,34 @@ namespace UnrealBuildTool
 				using(Timeline.ScopeEvent("TargetMakefile.Load()"))
 				{
 					string ReasonNotLoaded;
-					Makefile = TargetMakefile.Load(MakefileLocation, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, TargetDescriptor.AdditionalArguments.GetRawArray(), WorkingSet, out ReasonNotLoaded);
+					Makefile = TargetMakefile.Load(MakefileLocation, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, TargetDescriptor.AdditionalArguments.GetRawArray(), out ReasonNotLoaded);
 					if (Makefile == null)
 					{
 						Log.TraceInformation("Creating makefile for {0} ({1})", TargetDescriptor.Name, ReasonNotLoaded);
 					}
+				}
+			}
+
+			// If we have a makefile, execute the pre-build steps and check it's still valid
+			bool bHasRunPreBuildScripts = false;
+			if(Makefile != null)
+			{
+				// Execute the scripts. We have to invalidate all cached file info after doing so, because we don't know what may have changed.
+				if(Makefile.PreBuildScripts.Length > 0)
+				{
+					Utils.ExecuteCustomBuildSteps(Makefile.PreBuildScripts);
+					DirectoryItem.ResetAllCachedInfo_SLOW();
+				}
+
+				// Don't run the pre-build steps again, even if we invalidate the makefile.
+				bHasRunPreBuildScripts = true;
+
+				// Check that the makefile is still valid
+				string Reason;
+				if(!TargetMakefile.IsValidForSourceFiles(Makefile, TargetDescriptor.ProjectFile, WorkingSet, out Reason))
+				{
+					Log.TraceInformation("Invalidating makefile for {0} ({1})", TargetDescriptor.Name, Reason);
+					Makefile = null;
 				}
 			}
 
@@ -386,13 +403,25 @@ namespace UnrealBuildTool
 					Target = UEBuildTarget.Create(TargetDescriptor, BuildConfiguration.bSkipRulesCompile, BuildConfiguration.bUsePrecompiled);
 				}
 
-				// Build the target
-				const bool bIsAssemblingBuild = true;
+				// Create the pre-build scripts
+				FileReference[] PreBuildScripts = Target.CreatePreBuildScripts();
 
+				// Execute the pre-build scripts
+				if(!bHasRunPreBuildScripts)
+				{
+					Utils.ExecuteCustomBuildSteps(PreBuildScripts);
+					bHasRunPreBuildScripts = true;
+				}
+
+				// Build the target
 				using(Timeline.ScopeEvent("UEBuildTarget.Build()"))
 				{
+					const bool bIsAssemblingBuild = true;
 					Makefile = Target.Build(BuildConfiguration, WorkingSet, bIsAssemblingBuild);
 				}
+
+				// Save the pre-build scripts onto the makefile
+				Makefile.PreBuildScripts = PreBuildScripts;
 
 				// Save the additional command line arguments
 				Makefile.AdditionalArguments = TargetDescriptor.AdditionalArguments.GetRawArray();

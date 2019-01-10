@@ -1197,9 +1197,6 @@ namespace UnrealBuildTool
 			// Create the makefile
 			TargetMakefile Makefile = new TargetMakefile(TargetToolChain.GetVersionInfo(), ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
 
-			// Setup the pre-build steps
-			Makefile.PreBuildScripts = CreatePreBuildScripts();
-
 			// Setup the hot reload module list
 			Makefile.HotReloadModuleNames = GetHotReloadModuleNames();
 
@@ -1834,7 +1831,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates scripts for executing the pre-build scripts
 		/// </summary>
-		private FileReference[] CreatePreBuildScripts()
+		public FileReference[] CreatePreBuildScripts()
 		{
 			// Find all the pre-build steps
 			List<Tuple<string[], UEBuildPlugin>> PreBuildCommandBatches = new List<Tuple<string[], UEBuildPlugin>>();

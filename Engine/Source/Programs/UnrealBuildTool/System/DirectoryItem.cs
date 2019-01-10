@@ -165,6 +165,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void ResetCachedInfo()
 		{
+			Info = new DirectoryInfo(Info.FullName);
+
 			Dictionary<string, DirectoryItem> PrevDirectories = Directories;
 			if(PrevDirectories != null)
 			{
@@ -184,6 +186,20 @@ namespace UnrealBuildTool
 				}
 				Files = null;
 			}
+		}
+
+		/// <summary>
+		/// Resets all cached directory info. Significantly reduces performance; do not use unless strictly necessary.
+		/// </summary>
+		public static void ResetAllCachedInfo_SLOW()
+		{
+			foreach(DirectoryItem Item in LocationToItem.Values)
+			{
+				Item.Info = new DirectoryInfo(Item.Info.FullName);
+				Item.Directories = null;
+				Item.Files = null;
+			}
+			FileItem.ResetAllCachedInfo_SLOW();
 		}
 
 		/// <summary>
