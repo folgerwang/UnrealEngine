@@ -541,7 +541,13 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static FileReference GetAdditionalConsoleAppPath(FileReference BinaryPath)
 		{
-			return FileReference.Combine(BinaryPath.Directory, BinaryPath.GetFileNameWithoutExtension() + "-Cmd" + BinaryPath.GetExtension());
+			DirectoryReference Directory = BinaryPath.Directory;
+			if (Directory.FullName.EndsWith(".app/Contents/MacOS"))
+			{
+				Directory = Directory.ParentDirectory.ParentDirectory.ParentDirectory;
+			}
+
+			return FileReference.Combine(Directory, BinaryPath.GetFileNameWithoutExtension() + "-Cmd" + BinaryPath.GetExtension());
 		}
 
 		/// <summary>

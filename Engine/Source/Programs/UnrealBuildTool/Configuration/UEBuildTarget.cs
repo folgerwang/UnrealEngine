@@ -2769,7 +2769,7 @@ namespace UnrealBuildTool
 			Binary.AddModule(LaunchModule);
 
 			// Create an additional console app for the editor
-			if (Platform == UnrealTargetPlatform.Win64 && Configuration != UnrealTargetConfiguration.Shipping && TargetType == TargetType.Editor)
+			if ((Platform == UnrealTargetPlatform.Win64 || Platform == UnrealTargetPlatform.Mac) && Configuration != UnrealTargetConfiguration.Shipping && TargetType == TargetType.Editor)
 			{
 				Binary.bBuildAdditionalConsoleApp = true;
 			}
