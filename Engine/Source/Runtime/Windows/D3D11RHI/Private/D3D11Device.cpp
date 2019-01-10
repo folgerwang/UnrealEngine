@@ -31,6 +31,15 @@ bool D3D11RHI_ShouldAllowAsyncResourceCreation()
 
 IMPLEMENT_MODULE(FD3D11DynamicRHIModule, D3D11RHI);
 
+static TAutoConsoleVariable<int32> CVarD3D11UseD24(
+	TEXT("r.d3d11.Depth24Bit"),
+	0,
+	TEXT("0: Use 32bit float(default)\n1: Use 24bit fixed point"),
+	ECVF_ReadOnly
+);
+
+
+
 TAutoConsoleVariable<int32> CVarD3D11ZeroBufferSizeInMB(
 	TEXT("d3d11.ZeroBufferSizeInMB"),
 	4,
@@ -127,17 +136,20 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GPixelFormats[ PF_DXT5			].PlatformFormat	= DXGI_FORMAT_BC3_TYPELESS;
 	GPixelFormats[ PF_BC4			].PlatformFormat	= DXGI_FORMAT_BC4_UNORM;
 	GPixelFormats[ PF_UYVY			].PlatformFormat	= DXGI_FORMAT_UNKNOWN;		// TODO: Not supported in D3D11
-#if DEPTH_32_BIT_CONVERSION
-	GPixelFormats[ PF_DepthStencil	].PlatformFormat	= DXGI_FORMAT_R32G8X24_TYPELESS; 
-	GPixelFormats[ PF_DepthStencil	].BlockBytes		= 5;
-	GPixelFormats[ PF_X24_G8 ].PlatformFormat			= DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
-	GPixelFormats[ PF_X24_G8].BlockBytes				= 5;
-#else
-	GPixelFormats[ PF_DepthStencil	].PlatformFormat	= DXGI_FORMAT_R24G8_TYPELESS;
-	GPixelFormats[ PF_DepthStencil	].BlockBytes		= 4;
-	GPixelFormats[ PF_X24_G8 ].PlatformFormat			= DXGI_FORMAT_X24_TYPELESS_G8_UINT;
-	GPixelFormats[ PF_X24_G8].BlockBytes				= 4;
-#endif
+	if (CVarD3D11UseD24.GetValueOnAnyThread())
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 4;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 4;
+	}
+	else
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 5;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 5;
+	}
 	GPixelFormats[ PF_ShadowDepth	].PlatformFormat	= DXGI_FORMAT_R16_TYPELESS;
 	GPixelFormats[ PF_ShadowDepth	].BlockBytes		= 2;
 	GPixelFormats[ PF_R32_FLOAT		].PlatformFormat	= DXGI_FORMAT_R32_FLOAT;

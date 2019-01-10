@@ -1060,10 +1060,8 @@ inline DXGI_FORMAT FindShaderResourceDXGIFormat(DXGI_FORMAT InFormat,bool bSRGB)
 		case DXGI_FORMAT_R24G8_TYPELESS: return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 		case DXGI_FORMAT_R32_TYPELESS: return DXGI_FORMAT_R32_FLOAT;
 		case DXGI_FORMAT_R16_TYPELESS: return DXGI_FORMAT_R16_UNORM;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 		case DXGI_FORMAT_R32G8X24_TYPELESS: return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS; 
-#endif
 	}
 	return InFormat;
 }
@@ -1086,11 +1084,9 @@ inline DXGI_FORMAT FindDepthStencilDXGIFormat(DXGI_FORMAT InFormat)
 	{
 		case DXGI_FORMAT_R24G8_TYPELESS:
 			return DXGI_FORMAT_D24_UNORM_S8_UINT;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 		case DXGI_FORMAT_R32G8X24_TYPELESS:
 			return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-#endif
 		case DXGI_FORMAT_R32_TYPELESS:
 			return DXGI_FORMAT_D32_FLOAT;
 		case DXGI_FORMAT_R16_TYPELESS:
@@ -1109,11 +1105,9 @@ inline bool HasStencilBits(DXGI_FORMAT InFormat)
 	{
 	case DXGI_FORMAT_D24_UNORM_S8_UINT:
 		return true;
-#if  DEPTH_32_BIT_CONVERSION
 	// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 		return true;
-#endif
 	};
 	return false;
 }

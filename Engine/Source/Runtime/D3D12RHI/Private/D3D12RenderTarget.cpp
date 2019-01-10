@@ -675,12 +675,10 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 	case DXGI_FORMAT_R16G16B16A16_UNORM:
 		BytesPerPixel = 8;
 		break;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_R32G8X24_TYPELESS:
 	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 	case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
-#endif
 		BytesPerPixel = 5;
 		break;
 	case DXGI_FORMAT_R32G32B32A32_FLOAT:
@@ -1074,7 +1072,6 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 			}
 		}
 	}
-#if DEPTH_32_BIT_CONVERSION
 	// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	else if (Format == DXGI_FORMAT_R32G8X24_TYPELESS)
 	{
@@ -1097,7 +1094,6 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 			}
 		}
 	}
-#endif
 	else if (Format == DXGI_FORMAT_R16G16B16A16_UNORM)
 	{
 		// Read the data out of the buffer, converting it to FColor.
