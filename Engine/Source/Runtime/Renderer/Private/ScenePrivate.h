@@ -459,6 +459,7 @@ public:
 		CachedMaxOcclusionDistance = 0;
 		CachedGlobalDistanceFieldViewDistance = 0;
 		CacheMostlyStaticSeparately = 1;
+		LastUsedSceneDataForFullUpdate = nullptr;
 	}
 
 	FIntVector FullUpdateOrigin;
@@ -468,6 +469,9 @@ public:
 	uint32 CacheMostlyStaticSeparately;
 
 	FGlobalDistanceFieldCacheTypeState Cache[GDF_Num];
+
+	// Used to perform a full update of the clip map when the scene data changes
+	const class FDistanceFieldSceneData* LastUsedSceneDataForFullUpdate;
 };
 
 /** Maps a single primitive to it's per-view fading state data */
