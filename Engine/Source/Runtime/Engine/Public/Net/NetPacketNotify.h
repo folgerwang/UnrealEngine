@@ -122,32 +122,6 @@ public:
 	/** Get the current sequenceHistory length in bits */
 	SIZE_T GetCurrentSequenceHistoryLength() const;
 
-	SequenceNumberT UpdateInAckSeqAck(SequenceNumberT::DifferenceT AckCount, SequenceNumberT AckedSeq)
-	{
-		check((SIZE_T)AckCount <= AckRecord.Count());
-
-		if (AckCount > 1)
-		{			
-			AckRecord.PopNoCheck(AckCount - 1);
-		}
-		
-		FSentAckData AckData = AckRecord.PeekNoCheck();
-		AckRecord.PopNoCheck();
-
-		// verify that we have a matching sequence number
-		if (AckData.OutSeq == AckedSeq)
-		{
-			return AckData.InAckSeq;
-		}
-		else
-		{
-			UE_LOG_PACKET_NOTIFY_WARNING(TEXT("FNetPacketNotify::UpdateInAckSeqAck - Failed to find matching AckRecord for %u, (Found %u)"), AckedSeq.Get(), AckData.OutSeq.Get());
-
-			// Pessimistic view, should never occur
-			return SequenceNumberT(AckedSeq.Get() - MaxSequenceHistoryLength);
-		}
-	}
-
 private:
 	struct FSentAckData
 	{
@@ -171,6 +145,32 @@ private:
 	SequenceNumberT OutAckSeq;			// Last sequence number that we know that the remote side have received.
 
 private:
+	SequenceNumberT UpdateInAckSeqAck(SequenceNumberT::DifferenceT AckCount, SequenceNumberT AckedSeq)
+	{
+		check((SIZE_T)AckCount <= AckRecord.Count());
+
+		if (AckCount > 1)
+		{
+			AckRecord.PopNoCheck(AckCount - 1);
+		}
+		
+		FSentAckData AckData = AckRecord.PeekNoCheck();
+		AckRecord.PopNoCheck();
+
+		// verify that we have a matching sequence number
+		if (AckData.OutSeq == AckedSeq)
+		{
+			return AckData.InAckSeq;
+		}
+		else
+		{
+			UE_LOG_PACKET_NOTIFY_WARNING(TEXT("FNetPacketNotify::UpdateInAckSeqAck - Failed to find matching AckRecord for %u, (Found %u)"), AckedSeq.Get(), AckData.OutSeq.Get());
+
+			// Pessimistic view, should never occur
+			return SequenceNumberT(AckedSeq.Get() - MaxSequenceHistoryLength);
+		}
+	}
+
 	template<class Functor>
 	void ProcessReceivedAcks(const FNotificationHeader& NotificationData, Functor&& InFunc)
 	{
