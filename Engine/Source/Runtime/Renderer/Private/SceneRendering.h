@@ -1264,7 +1264,12 @@ public:
 
 	/** Custom Data Memstack functions.	*/
 	FORCEINLINE FMemStackBase& GetCustomDataGlobalMemStack() { return PrimitiveCustomDataMemStack[0]; }
-	FORCEINLINE FMemStackBase& AllocateCustomDataMemStack() { return *new(PrimitiveCustomDataMemStack) FMemStackBase(0); }
+	FORCEINLINE FMemStackBase& AllocateCustomDataMemStack() 
+	{ 
+		// Don't reallocate since we keep references in FRelevancePacket.
+		check(PrimitiveCustomDataMemStack.GetSlack() > 0); 
+		return *new(PrimitiveCustomDataMemStack) FMemStackBase(0);
+	}
 
 private:
 	// Cache of TEXTUREGROUP_World to create view's samplers on render thread.

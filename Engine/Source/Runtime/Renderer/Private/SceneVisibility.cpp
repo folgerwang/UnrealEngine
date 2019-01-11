@@ -2144,7 +2144,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 	if (WillExecuteInParallel)
 	{
 		// We must reserve to prevent realloc otherwise it will cause memory leak if WillExecuteInParallel == true
-		View.PrimitiveCustomDataMemStack.Reserve(View.PrimitiveCustomDataMemStack.Num() + FMath::TruncToInt((float)NumMesh / (float)FRelevancePrimSet<int32>::MaxInputPrims + 1.0f));
+		View.PrimitiveCustomDataMemStack.Reserve(View.PrimitiveCustomDataMemStack.Num() + FMath::CeilToInt(((float)View.PrimitiveVisibilityMap.Num() / (float)FRelevancePrimSet<int32>::MaxInputPrims)));
 	}
 
 	{
@@ -2865,6 +2865,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 
 		View.PrimitivesCustomData.Init(nullptr, Scene->Primitives.Num());
 		View.PrimitivesWithCustomData.Reserve(Scene->Primitives.Num());
+		View.PrimitiveCustomDataMemStack.Reserve(1);
 		View.AllocateCustomDataMemStack();
 
 		View.VisibleLightInfos.Empty(Scene->Lights.GetMaxIndex());
