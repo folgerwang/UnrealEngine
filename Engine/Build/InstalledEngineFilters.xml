@@ -200,6 +200,9 @@
 			Engine/Build/BatchFiles/RunUAT.bat
 			Engine/Build/BatchFiles/GetMSBuildPath.bat
 
+			<!-- Build utilities -->
+			Engine/Build/Windows/cl-filter/cl-filter.exe
+			
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 

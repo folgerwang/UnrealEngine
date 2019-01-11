@@ -1391,7 +1391,7 @@ namespace UnrealBuildTool
 					{
 						BuildArguments.Append(" -UsePrecompiled");
 					}
-					else if(TargetRulesObject.Type == TargetType.Editor && bEditorDependsOnShaderCompileWorker)
+					else if(TargetRulesObject.Type == TargetType.Editor && bEditorDependsOnShaderCompileWorker && !UnrealBuildTool.IsEngineInstalled())
 					{
 						BuildArguments.Replace("\"", "\\\"");
 						BuildArguments.Insert(0, "-Target=\"ShaderCompileWorker Win64 Development\" -Target=\"");

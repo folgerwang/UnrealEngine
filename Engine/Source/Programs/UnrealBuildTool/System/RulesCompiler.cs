@@ -542,14 +542,10 @@ namespace UnrealBuildTool
 			{
 				RulesAssembly = CreateEngineRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
 
-				if (RulesAssembly.GetTargetFileName(TargetName) == null)
+				if (RulesAssembly.GetTargetFileName(TargetName) == null && DirectoryReference.Exists(UnrealBuildTool.EnterpriseDirectory))
 				{
 					// Target isn't part of the engine assembly, try the enterprise assembly
-					RulesAssembly EnterpriseRulesAssembly = CreateEnterpriseRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
-					if (EnterpriseRulesAssembly != null)
-					{
-						RulesAssembly = EnterpriseRulesAssembly;
-					}
+					RulesAssembly = CreateEnterpriseRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
 				}
 			}
 			if (ForeignPlugin != null)
