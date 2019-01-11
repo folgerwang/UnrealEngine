@@ -270,7 +270,8 @@ public:
 	{
 		ReadHeightmapTexture1Param.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture1"));
 		ReadHeightmapTexture2Param.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture2"));
-		ReadHeightmapTextureSamplerParam.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTextureSampler"));
+		ReadHeightmapTexture1SamplerParam.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture1Sampler"));
+		ReadHeightmapTexture2SamplerParam.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture2Sampler"));
 		LayerInfoParam.Bind(Initializer.ParameterMap, TEXT("LayerInfo"));
 		OutputConfigParam.Bind(Initializer.ParameterMap, TEXT("OutputConfig"));
 		TextureSizeParam.Bind(Initializer.ParameterMap, TEXT("HeightmapTextureSize"));
@@ -283,11 +284,11 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FLandscapeHeightmapProceduralShaderParameters& InParams)
 	{
-		SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture1Param, ReadHeightmapTextureSamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap1->Resource->TextureRHI);
+		SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture1Param, ReadHeightmapTexture1SamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap1->Resource->TextureRHI);
 
 		if (InParams.ReadHeightmap2 != nullptr)
 		{
-			SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture2Param, ReadHeightmapTextureSamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap2->Resource->TextureRHI);
+			SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture2Param, ReadHeightmapTexture2SamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap2->Resource->TextureRHI);
 		}
 
 		FVector2D LayerInfo(InParams.LayerWeight, InParams.LayerVisible ? 1.0f : 0.0f);
@@ -306,7 +307,8 @@ public:
 		bool bShaderHasOutdatedParameters = FShader::Serialize(Ar);
 		Ar << ReadHeightmapTexture1Param;
 		Ar << ReadHeightmapTexture2Param;
-		Ar << ReadHeightmapTextureSamplerParam;
+		Ar << ReadHeightmapTexture1SamplerParam;
+		Ar << ReadHeightmapTexture2SamplerParam;
 		Ar << LayerInfoParam;
 		Ar << OutputConfigParam;
 		Ar << TextureSizeParam;
@@ -318,7 +320,8 @@ public:
 private:
 	FShaderResourceParameter ReadHeightmapTexture1Param;
 	FShaderResourceParameter ReadHeightmapTexture2Param;
-	FShaderResourceParameter ReadHeightmapTextureSamplerParam;
+	FShaderResourceParameter ReadHeightmapTexture1SamplerParam;
+	FShaderResourceParameter ReadHeightmapTexture2SamplerParam;
 	FShaderParameter LayerInfoParam;
 	FShaderParameter OutputConfigParam;
 	FShaderParameter TextureSizeParam;
@@ -346,7 +349,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		ReadHeightmapTexture1Param.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture1"));
-		ReadHeightmapTextureSamplerParam.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTextureSampler"));
+		ReadHeightmapTexture1SamplerParam.Bind(Initializer.ParameterMap, TEXT("ReadHeightmapTexture1Sampler"));
 		CurrentMipHeightmapSizeParam.Bind(Initializer.ParameterMap, TEXT("CurrentMipTextureSize"));
 		ParentMipHeightmapSizeParam.Bind(Initializer.ParameterMap, TEXT("ParentMipTextureSize"));
 		CurrentMipComponentVertexCountParam.Bind(Initializer.ParameterMap, TEXT("CurrentMipComponentVertexCount"));
@@ -357,7 +360,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FLandscapeHeightmapProceduralShaderParameters& InParams)
 	{
-		SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture1Param, ReadHeightmapTextureSamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap1->Resource->TextureRHI);
+		SetTextureParameter(RHICmdList, GetPixelShader(), ReadHeightmapTexture1Param, ReadHeightmapTexture1SamplerParam, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), InParams.ReadHeightmap1->Resource->TextureRHI);
 
 		SetShaderValue(RHICmdList, GetPixelShader(), CurrentMipHeightmapSizeParam, FVector2D(InParams.CurrentMipHeightmapSize.X, InParams.CurrentMipHeightmapSize.Y));
 		SetShaderValue(RHICmdList, GetPixelShader(), ParentMipHeightmapSizeParam, FVector2D(InParams.ParentMipHeightmapSize.X, InParams.ParentMipHeightmapSize.Y));
@@ -368,7 +371,7 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FShader::Serialize(Ar);
 		Ar << ReadHeightmapTexture1Param;
-		Ar << ReadHeightmapTextureSamplerParam;
+		Ar << ReadHeightmapTexture1SamplerParam;
 		Ar << CurrentMipHeightmapSizeParam;
 		Ar << ParentMipHeightmapSizeParam;
 		Ar << CurrentMipComponentVertexCountParam;
@@ -378,7 +381,7 @@ public:
 
 private:
 	FShaderResourceParameter ReadHeightmapTexture1Param;
-	FShaderResourceParameter ReadHeightmapTextureSamplerParam;
+	FShaderResourceParameter ReadHeightmapTexture1SamplerParam;
 	FShaderParameter CurrentMipHeightmapSizeParam;
 	FShaderParameter ParentMipHeightmapSizeParam;
 	FShaderParameter CurrentMipComponentVertexCountParam;
