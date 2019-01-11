@@ -185,7 +185,7 @@ float ComputeBilateralWeight(
 	}
 	
 	float WorldBilateralWeight = 1;
-	if (1) // TODO.
+	if (1)
 	{
 		const float WorldRadius = MaxWorldBluringDistance;
 
@@ -217,7 +217,14 @@ float ComputeBilateralWeight(
 }
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 {
-	return 1;
+	float LobeBilateralWeight = 1;
+	#if CONFIG_TOKOYASHI_BILATERAL
+	{
+		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
+	}
+	#endif
+
+	return LobeBilateralWeight;
 }
 #endif
 
@@ -327,6 +334,11 @@ float GetMultiImportanceSamplingWeight(
 #if CONFIG_SPECULAR_MIS
 // [ Stackowiak 2018, "Stochastic all the things: Raytracing in hybrid real-time rendering" ]
 {
+	// If invalid ray or geometric miss, just.
+	if (Sample.PenumbraClosestHit < 0.0)
+	{
+		return 1; 
+	}
 	float3 OriginalRayDirection;
 	float OriginalRayPDF;
 

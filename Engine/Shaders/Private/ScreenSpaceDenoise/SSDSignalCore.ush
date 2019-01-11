@@ -82,12 +82,12 @@ FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 Samples
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
 	{
-		OutSample.AccumulatedSampleCount = Samples[0].a > 0 ? 1 : 0;
+		OutSample.AccumulatedSampleCount = Samples[1].r == -2 ? 0 : 1;
 		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
 		OutSample.SceneColor = Samples[0];
 
 		// max() because ray hit distance is < 0 when miss / not ray has been shot.
-		OutSample.PenumbraClosestHit = max(Samples[1].r, 0);
+		OutSample.PenumbraClosestHit = Samples[1].r * OutSample.AccumulatedSampleCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{

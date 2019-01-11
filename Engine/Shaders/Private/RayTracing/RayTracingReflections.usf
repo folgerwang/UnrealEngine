@@ -323,7 +323,7 @@ void RayTracingReflectionsRGS()
 
 	float4 ReflectedColor = 0.0;
 	float ReflectedWeight = 0.0;
-	float HitDistance = -1.0;
+	float HitDistance = -2.0;
 
 	if (Roughness < RoughnessThreshold)
 	{
@@ -342,12 +342,7 @@ void RayTracingReflectionsRGS()
 
 				if (LocalSamplesPerPixel == 1)
 				{
-					const uint TemporalBits = 10;
-					uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
-
-					uint2 SobolBase = SobolPixel(PixelCoord);
 					uint2 SobolFrame = ComputePixelUniqueSobolRandSample(PixelCoord);
-
 					RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
 				}
 
