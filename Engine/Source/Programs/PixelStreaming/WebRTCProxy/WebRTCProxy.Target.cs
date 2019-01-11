@@ -16,7 +16,6 @@ public class WebRTCProxyTarget : TargetRules
 		bBuildDeveloperTools = false;
 		
         // No editor needed
-        bBuildEditor = false;
 		bBuildWithEditorOnlyData = false;
 
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
