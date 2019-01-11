@@ -3126,6 +3126,12 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 
 	for (auto It = This->ReplicationChangeListMap.CreateIterator(); It; ++It)
 	{
+		if (!It.Value().IsValid())
+		{
+			It.RemoveCurrent();
+		}
+	}
+
 	for (FObjectReplicator* Replicator : This->AllOwnedReplicators)
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
