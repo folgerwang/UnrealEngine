@@ -31,6 +31,7 @@ namespace UnrealGameSync
 			this.ProjectTreeView = new System.Windows.Forms.TreeView();
 			this.OkBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
+			this.ShowProjectDirsFiles = new System.Windows.Forms.CheckBox();
 			this.SuspendLayout();
 			// 
 			// ProjectTreeView
@@ -68,6 +69,17 @@ namespace UnrealGameSync
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			this.CancelBtn.Click += new System.EventHandler(this.CancelBtn_Click);
 			// 
+			// ShowProjectDirsFiles
+			// 
+			this.ShowProjectDirsFiles.AutoSize = true;
+			this.ShowProjectDirsFiles.Location = new System.Drawing.Point(12, 455);
+			this.ShowProjectDirsFiles.Name = "ShowProjectDirsFiles";
+			this.ShowProjectDirsFiles.Size = new System.Drawing.Size(153, 19);
+			this.ShowProjectDirsFiles.TabIndex = 3;
+			this.ShowProjectDirsFiles.Text = "Show *.uprojectdirs files";
+			this.ShowProjectDirsFiles.UseVisualStyleBackColor = true;
+			this.ShowProjectDirsFiles.CheckedChanged += new System.EventHandler(this.ShowProjectDirsFiles_CheckedChanged);
+			// 
 			// SelectProjectFromWorkspaceWindow
 			// 
 			this.AcceptButton = this.OkBtn;
@@ -75,6 +87,7 @@ namespace UnrealGameSync
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(619, 489);
+			this.Controls.Add(this.ShowProjectDirsFiles);
 			this.Controls.Add(this.CancelBtn);
 			this.Controls.Add(this.OkBtn);
 			this.Controls.Add(this.ProjectTreeView);
@@ -85,6 +98,7 @@ namespace UnrealGameSync
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Select Project";
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -93,5 +107,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.TreeView ProjectTreeView;
 		private System.Windows.Forms.Button OkBtn;
 		private System.Windows.Forms.Button CancelBtn;
+		private System.Windows.Forms.CheckBox ShowProjectDirsFiles;
 	}
 }
