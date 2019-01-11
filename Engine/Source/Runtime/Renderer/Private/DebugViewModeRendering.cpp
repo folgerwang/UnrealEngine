@@ -420,6 +420,13 @@ void InitDebugViewModeInterfaces()
 	FDebugViewModeInterface::SetInterface(DVSM_RequiredTextureResolution, new FRequiredTextureResolutionInterface());
 }
 
+#else // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+bool FDeferredShadingSceneRenderer::RenderDebugViewMode(FRHICommandListImmediate& RHICmdList)
+{
+	return false;
+}
+
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 
