@@ -1,4 +1,4 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FogRendering.h: 
@@ -13,6 +13,7 @@
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FFogUniformParameters,)
 	SHADER_PARAMETER(FVector4, ExponentialFogParameters)
+	SHADER_PARAMETER(FVector4, ExponentialFogParameters2)
 	SHADER_PARAMETER(FVector4, ExponentialFogColorParameter)
 	SHADER_PARAMETER(FVector4, ExponentialFogParameters3)
 	SHADER_PARAMETER(FVector4, InscatteringLightDirection) // non negative DirectionalInscatteringStartDistance in .W
