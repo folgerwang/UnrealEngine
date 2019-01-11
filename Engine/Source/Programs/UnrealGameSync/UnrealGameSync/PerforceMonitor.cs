@@ -29,6 +29,8 @@ namespace UnrealGameSync
 			}
 		}
 
+		public int InitialMaxChangesValue = 100;
+
 		PerforceConnection Perforce;
 		readonly string BranchClientPath;
 		readonly string SelectedClientFileName;
@@ -63,7 +65,7 @@ namespace UnrealGameSync
 			BranchClientPath = InBranchClientPath;
 			SelectedClientFileName = InSelectedClientFileName;
 			SelectedProjectIdentifier = InSelectedProjectIdentifier;
-			PendingMaxChangesValue = 100;
+			PendingMaxChangesValue = InitialMaxChangesValue;
 			LastChangeByCurrentUser = -1;
 			LastCodeChangeByCurrentUser = -1;
 			bIsEnterpriseProject = bInIsEnterpriseProject;
@@ -361,6 +363,12 @@ namespace UnrealGameSync
 			foreach(int QueryChangeNumber in QueryChangeNumbers)
 			{
 				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".inl", ".usf", ".ush", ".uproject", ".uplugin" };
+
+				// Skip this stuff if the user wants us to query for more changes
+				if(PendingMaxChanges > CurrentMaxChanges)
+				{
+					break;
+				}
 
 				// If there's something to check for, find all the content changes after this changelist
 				PerforceDescribeRecord DescribeRecord;
