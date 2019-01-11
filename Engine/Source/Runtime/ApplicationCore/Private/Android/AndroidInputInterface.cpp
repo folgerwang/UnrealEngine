@@ -21,6 +21,7 @@ bool FAndroidInputInterface::VibeIsOn;
 FForceFeedbackValues FAndroidInputInterface::VibeValues;
 
 bool FAndroidInputInterface::bAllowControllers = true;
+bool FAndroidInputInterface::bBlockAndroidKeysOnControllers = false;
 
 FAndroidControllerData FAndroidInputInterface::OldControllerData[MAX_NUM_CONTROLLERS];
 FAndroidControllerData FAndroidInputInterface::NewControllerData[MAX_NUM_CONTROLLERS];
@@ -66,6 +67,7 @@ FAndroidInputInterface::FAndroidInputInterface(const TSharedRef< FGenericApplica
 	, Cursor(InCursor)
 {
 	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bAllowControllers"), bAllowControllers, GEngineIni);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBlockAndroidKeysOnControllers"), bBlockAndroidKeysOnControllers, GEngineIni);
 
 	ButtonMapping[0] = FGamepadKeyNames::FaceButtonBottom;
 	ButtonMapping[1] = FGamepadKeyNames::FaceButtonRight;
@@ -1324,9 +1326,17 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 											 }
 											 break;
 				case AKEYCODE_BUTTON_START:
-				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break;
+				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break;
+											 }
 				case AKEYCODE_BUTTON_SELECT:
-				case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break;
+				case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break;
+											 }
 				case AKEYCODE_BUTTON_THUMBL: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break;
 				case AKEYCODE_BUTTON_THUMBR: NewControllerData[deviceId].ButtonStates[9] = buttonDown; break;
 				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[10] = buttonDown; break;
@@ -1347,8 +1357,18 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 				case AKEYCODE_BUTTON_X:      NewControllerData[deviceId].ButtonStates[3] = buttonDown; break; // Y
 				case AKEYCODE_BUTTON_Y:      NewControllerData[deviceId].ButtonStates[4] = buttonDown; break; // L1
 				case AKEYCODE_BUTTON_Z:      NewControllerData[deviceId].ButtonStates[5] = buttonDown; break; // R1
-				case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break; // Menu
-				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break; // View
+				case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[17] = buttonDown; // Menu
+											 }
+											 break;
+				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown; // View
+											 }
+											 break;
 				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[8] = buttonDown; break; // ThumbL
 				case AKEYCODE_BUTTON_R2:     NewControllerData[deviceId].ButtonStates[9] = buttonDown; break; // ThumbR
 			}
@@ -1363,8 +1383,18 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 				case AKEYCODE_BUTTON_X:      NewControllerData[deviceId].ButtonStates[3] = buttonDown; break; // Triangle
 				case AKEYCODE_BUTTON_Y:      NewControllerData[deviceId].ButtonStates[4] = buttonDown; break; // L1
 				case AKEYCODE_BUTTON_Z:      NewControllerData[deviceId].ButtonStates[5] = buttonDown; break; // R1
-				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break; // Options
-				case AKEYCODE_MENU:     NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break; // Share
+				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+											 	NewControllerData[deviceId].ButtonStates[17] = buttonDown; // Options
+											 }
+											 break;
+				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown; // Touchpad
+											 }
+											 break;
 				case AKEYCODE_BUTTON_SELECT: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break; // ThumbL
 				case AKEYCODE_BUTTON_START:  NewControllerData[deviceId].ButtonStates[9] = buttonDown; break; // ThumbR
 				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[10] = buttonDown; break; // L2

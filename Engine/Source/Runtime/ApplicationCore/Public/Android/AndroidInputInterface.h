@@ -313,6 +313,9 @@ private:
 	// should we allow controllers to send input
 	static bool bAllowControllers;
 
+	// should we allow controllers to send Android_Back and Android_Menu events
+	static bool bBlockAndroidKeysOnControllers;
+
 	static FAndroidGamepadDeviceMapping DeviceMapping[MAX_NUM_CONTROLLERS];
 
 	static FAndroidControllerData OldControllerData[MAX_NUM_CONTROLLERS];
