@@ -30,10 +30,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FName WidgetToFocus;
 
-	UPROPERTY(Transient)
+	UPROPERTY()
 	TWeakObjectPtr<UWidget> Widget;
 
-	UPROPERTY(Transient)
+	UPROPERTY()
 	FCustomWidgetNavigationDelegate CustomDelegate;
 
 	void Resolve(class UUserWidget* Outer, class UWidgetTree* WidgetTree);
