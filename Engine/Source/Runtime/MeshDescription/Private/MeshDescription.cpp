@@ -23,6 +23,7 @@ void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
 FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 {
 	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
+	Ar.UsingCustomVersion( FEditorObjectVersion::GUID );
 
 	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
 	{

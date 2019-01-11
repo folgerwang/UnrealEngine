@@ -183,7 +183,7 @@ struct FMeshPolygon
 	friend FArchive& operator<<( FArchive& Ar, FMeshPolygon& Polygon )
 	{
 		Ar << Polygon.PerimeterContour;
-		if (Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) < FEditorObjectVersion::MeshDescriptionRemovedHoles)
+		if (Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionRemovedHoles)
 		{
 			TArray<FMeshPolygonContour> Empty;
 			Ar << Empty;
