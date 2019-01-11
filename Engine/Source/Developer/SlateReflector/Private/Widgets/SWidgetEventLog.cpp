@@ -1,6 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SWidgetEventLog.h"
+
+#if WITH_SLATE_DEBUGGING
+
 #include "Debugging/SlateDebugging.h"
 #include "Widgets/SBoxPanel.h"
 #include "MessageLogModule.h"
@@ -32,20 +35,16 @@ SWidgetEventLog::~SWidgetEventLog()
 
 void SWidgetEventLog::RemoveListeners()
 {
-#if WITH_SLATE_DEBUGGING
 	FSlateDebugging::InputEvent.RemoveAll(this);
 	FSlateDebugging::FocusEvent.RemoveAll(this);
-#endif
 }
 
 void SWidgetEventLog::UpdateListeners()
 {
 	RemoveListeners();
 
-#if WITH_SLATE_DEBUGGING
 	FSlateDebugging::InputEvent.AddSP(this, &SWidgetEventLog::OnInputEvent);
 	FSlateDebugging::FocusEvent.AddSP(this, &SWidgetEventLog::OnFocusEvent);
-#endif
 }
 
 void SWidgetEventLog::OnInputEvent(const FSlateDebuggingInputEventArgs& EventArgs)
@@ -114,3 +113,5 @@ void SWidgetEventLog::OnFocusEvent(const FSlateDebuggingFocusEventArgs& EventArg
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // WITH_SLATE_DEBUGGING

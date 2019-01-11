@@ -2630,6 +2630,25 @@ float FPImplRecastNavMesh::GetTotalDataSize() const
 	return TotalBytes / 1024;
 }
 
+#if !UE_BUILD_SHIPPING
+int32 FPImplRecastNavMesh::GetCompressedTileCacheSize()
+{
+	int32 CompressedTileCacheSize = 0;
+
+	for (TPair<FIntPoint, TArray<FNavMeshTileData>>& TilePairIter : CompressedTileCacheLayers)
+	{
+		TArray<FNavMeshTileData>& NavMeshTileDataArray = TilePairIter.Value;
+
+		for (FNavMeshTileData& NavMeshTileDataIter : NavMeshTileDataArray)
+		{
+			CompressedTileCacheSize += NavMeshTileDataIter.DataSize;
+		}
+	}
+
+	return CompressedTileCacheSize;
+}
+#endif
+
 void FPImplRecastNavMesh::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
 	if (DetourNavMesh != NULL)
@@ -2639,7 +2658,6 @@ void FPImplRecastNavMesh::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 		// apply offset
 		DetourNavMesh->applyWorldOffset(&OffsetRC.X);
 	}
-
 }
 
 uint16 FPImplRecastNavMesh::GetFilterForbiddenFlags(const FRecastQueryFilter* Filter)

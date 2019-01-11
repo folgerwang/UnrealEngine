@@ -125,6 +125,17 @@ public:
 	{
 	}
 
+	virtual void GetSourceFileLabels(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFileLabels) const override
+	{
+		TArray<FString> SourceFilePaths;
+		OutSourceFileLabels.Reset();
+		GetResolvedSourceFilePaths(TypeAssets, SourceFilePaths);
+		if (SourceFilePaths.Num() > 0)
+		{
+			OutSourceFileLabels.AddDefaulted(SourceFilePaths.Num());
+		}
+	}
+
 	virtual void BuildBackendFilter(FARFilter& InFilter) override
 	{
 		// Add the supported class for this type to a filter

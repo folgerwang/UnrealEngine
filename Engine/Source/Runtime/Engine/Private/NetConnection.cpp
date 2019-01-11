@@ -463,6 +463,7 @@ bool UNetConnection::IsEncryptionEnabled() const
 void UNetConnection::Serialize( FArchive& Ar )
 {
 	UObject::Serialize( Ar );
+	
 	Ar << PackageMap;
 	for (UChannel* Channel : Channels)
 	{
@@ -471,11 +472,64 @@ void UNetConnection::Serialize( FArchive& Ar )
 
 	if (Ar.IsCountingMemory())
 	{
-		Children.CountBytes(Ar);
-		ClientVisibleLevelNames.CountBytes(Ar);
-		OpenChannels.CountBytes(Ar);
-		SentTemporaries.CountBytes(Ar);
+		// TODO: We don't currently track:
+		//		StatelessConnectComponents
+		//		PacketHandlers
+		//		AnalyticsVars
+		//		AnalyticsData
+		//		Histogram data.
+		// These are probably insignificant, though.
+
+		Ar << Challenge;
+		Ar << ClientResponse;
+		Ar << RequestURL;
+		Ar << CDKeyHash;
+		Ar << CDKeyResponse;
+
+		SendBuffer.CountMemory(Ar);
+
+		Channels.CountBytes(Ar);
+		OutReliable.CountBytes(Ar);
+		InReliable.CountBytes(Ar);
+		PendingOutRec.CountBytes(Ar);
 		ActorChannels.CountBytes(Ar);
+		DestroyedStartupOrDormantActorGUIDs.CountBytes(Ar);
+		KeepProcessingActorChannelBunchesMap.CountBytes(Ar);
+
+		for (const auto& KeepProcessingActorChannelBunchesPair : KeepProcessingActorChannelBunchesMap)
+		{
+			KeepProcessingActorChannelBunchesPair.Value.CountBytes(Ar);
+		}
+
+		DormantReplicatorMap.CountBytes(Ar);
+		for (auto& DormantReplicatorPair : DormantReplicatorMap)
+		{
+			DormantReplicatorPair.Value->Serialize(Ar);
+		}
+
+		ClientVisibleLevelNames.CountBytes(Ar);
+		ClientVisibileActorOuters.CountBytes(Ar);
+		ActorsStarvedByClassTimeMap.CountBytes(Ar);
+
+		for (auto& ActorsStarvedByClassTimePair : ActorsStarvedByClassTimeMap)
+		{
+			Ar << ActorsStarvedByClassTimePair.Key;
+			ActorsStarvedByClassTimePair.Value.CountBytes(Ar);
+		}
+
+		IgnoringChannels.CountBytes(Ar);
+		OutgoingBunches.CountBytes(Ar);
+		ChannelsWaitingForInternalAck.CountBytes(Ar);
+		LastOut.CountMemory(Ar);
+		SendBunchHeader.CountMemory(Ar);
+
+#if DO_ENABLE_NET_TEST
+		Delayed.CountBytes(Ar);
+		for (const DelayedPacket& Packet : Delayed)
+		{
+			Packet.CountBytes(Ar);
+		}
+#endif
 	}
 }
 
@@ -488,7 +542,7 @@ void UNetConnection::Close()
 
 		if (Channels[0] != nullptr)
 		{
-			Channels[0]->Close();
+			Channels[0]->Close(EChannelCloseReason::Destroyed);
 		}
 		State = USOCK_Closed;
 
@@ -564,7 +618,7 @@ void UNetConnection::CleanUp()
 		UChannel* OpenChannel = OpenChannels[i];
 		if (OpenChannel != NULL)
 		{
-			OpenChannel->ConditionalCleanUp(true);
+			OpenChannel->ConditionalCleanUp(true, EChannelCloseReason::Destroyed);
 		}
 	}
 
@@ -573,7 +627,7 @@ void UNetConnection::CleanUp()
 	{
 		for (UActorChannel* CurChannel : MapKeyValuePair.Value)
 		{
-			CurChannel->ConditionalCleanUp(true);
+			CurChannel->ConditionalCleanUp(true, EChannelCloseReason::Destroyed);
 		}
 	}
 
@@ -870,7 +924,7 @@ void UNetConnection::UpdateLevelVisibility(const FName& PackageName, bool bIsVis
 
 			if ( Channel->Actor && Channel->Actor->GetLevel()->GetOutermost()->GetFName() == PackageName )
 			{
-				Channel->Close();
+				Channel->Close(EChannelCloseReason::LevelUnloaded);
 			}
 		}
 	}
@@ -1556,7 +1610,20 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			Bunch.PacketId				= InPacketId;
 			Bunch.bOpen					= bControl ? Reader.ReadBit() : 0;
 			Bunch.bClose				= bControl ? Reader.ReadBit() : 0;
-			Bunch.bDormant				= Bunch.bClose ? Reader.ReadBit() : 0;
+			
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+			if (Bunch.EngineNetVer() < HISTORY_CHANNEL_CLOSE_REASON)
+			{
+				Bunch.bDormant = Bunch.bClose ? Reader.ReadBit() : 0;
+				Bunch.CloseReason = Bunch.bDormant ? EChannelCloseReason::Dormancy : EChannelCloseReason::Destroyed;
+			}
+			else
+			{
+				Bunch.CloseReason = Bunch.bClose ? (EChannelCloseReason)Reader.ReadInt((uint32)EChannelCloseReason::MAX) : EChannelCloseReason::Destroyed;
+				Bunch.bDormant = (Bunch.CloseReason == EChannelCloseReason::Dormancy);
+			}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 			Bunch.bIsReplicationPaused  = Reader.ReadBit();
 			Bunch.bReliable				= Reader.ReadBit();
 
@@ -1883,13 +1950,13 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 
 					RejectedChans.AddUnique(Bunch.ChIndex);
 
-					FOutBunch CloseBunch( Channel, 1 );
+					FOutBunch CloseBunch( Channel, true );
 					check(!CloseBunch.IsError());
 					check(CloseBunch.bClose);
 					CloseBunch.bReliable = 1;
-					Channel->SendBunch( &CloseBunch, 0 );
+					Channel->SendBunch( &CloseBunch, false );
 					FlushNet();
-					Channel->ConditionalCleanUp();
+					Channel->ConditionalCleanUp(false, EChannelCloseReason::Destroyed);
 					if( Bunch.ChIndex==0 )
 					{
 						UE_LOG(LogNetTraffic, Log, TEXT("Channel 0 create failed") );
@@ -2113,7 +2180,8 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 		SendBunchHeader.WriteBit( Bunch.bClose );
 		if( Bunch.bClose )
 		{
-			SendBunchHeader.WriteBit( Bunch.bDormant );
+			uint32 Value = (uint32)Bunch.CloseReason;
+			SendBunchHeader.SerializeInt( Value, (uint32)EChannelCloseReason::MAX );
 		}
 	}
 	SendBunchHeader.WriteBit( Bunch.bIsReplicationPaused );
@@ -2265,6 +2333,11 @@ UChannel* UNetConnection::CreateChannelByName( const FName& ChName, EChannelCrea
 UVoiceChannel* UNetConnection::GetVoiceChannel()
 {
 	check(Driver);
+	if (!Driver->IsKnownChannelName(NAME_Voice))
+	{
+		return nullptr;
+	}
+
 	int32 VoiceChannelIndex = Driver->ChannelDefinitionMap[NAME_Voice].StaticChannelIndex;
 	check(Channels.IsValidIndex(VoiceChannelIndex));
 
@@ -2510,7 +2583,7 @@ void UNetConnection::Tick()
 					if ( CurChannel->ProcessQueuedBunches() )
 					{
 						// Since we are done processing bunches, we can now actually clean this channel up
-						CurChannel->ConditionalCleanUp();
+						CurChannel->ConditionalCleanUp(false, CurChannel->QueuedCloseReason);
 
 						bRemoveChannel = true;
 						UE_LOG( LogNet, VeryVerbose, TEXT("UNetConnection::Tick: Removing from KeepProcessingActorChannelBunchesMap. Num: %i"), KeepProcessingActorChannelBunchesMap.Num() );
@@ -2850,8 +2923,8 @@ void UNetConnection::FlushDormancy(class AActor* Actor)
 	{
 		UE_LOG( LogNetDormancy, Verbose, TEXT( "    Found Channel[%d] '%s'. Reseting Dormancy. Ch->Closing: %d" ), Ch->ChIndex, *Ch->Describe(), Ch->Closing );
 
-		Ch->Dormant = 0;
-		Ch->bPendingDormancy = 0;
+		Ch->Dormant = false;
+		Ch->bPendingDormancy = false;
 	}
 
 }
@@ -3074,7 +3147,7 @@ void UNetConnection::CleanupStaleDormantReplicators()
 {
 	for (auto It = DormantReplicatorMap.CreateIterator(); It; ++It)
 	{
-		if (!It.Key().IsValid())
+		if (!It.Value()->GetWeakObjectPtr().IsValid())
 		{
 			It.RemoveCurrent();
 		}

@@ -222,6 +222,12 @@ namespace UnrealBuildTool
         public readonly bool bBackgroundFetchEnabled = false;
 
 		/// <summary>
+		/// true if iTunes file sharing support is enabled
+		/// </summary>
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsITunesFileSharing")]
+		public readonly bool bFileSharingEnabled = false;
+
+		/// <summary>
 		/// The bundle identifier
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "BundleIdentifier")]
@@ -926,6 +932,14 @@ namespace UnrealBuildTool
             {
                 CompileEnvironment.Definitions.Add("BACKGROUNDFETCH_ENABLED=0");
             }
+			if (ProjectSettings.bFileSharingEnabled)
+			{
+				CompileEnvironment.Definitions.Add("FILESHARING_ENABLED=1");
+			}
+			else
+			{
+				CompileEnvironment.Definitions.Add("FILESHARING_ENABLED=0");
+			}
 
 			CompileEnvironment.Definitions.Add("UE_DISABLE_FORCE_INLINE=" + (ProjectSettings.bDisableForceInline ? "1" : "0"));
 

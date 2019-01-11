@@ -26,10 +26,11 @@ public:
 	 *						Otherwise, it will use the current LOD and regenerate
 	 * @param bRegenerateEvenIfImported	If this is true, it only regenerate even if this LOD was imported before
 	 *									If false, it will regenerate for only previously auto generated ones
+	 * @param bGenerateBaseLOD If this is true and there is some reduction data, the base LOD will be reduce according to the settings
 	 * @return	true if succeed. If mesh reduction is not available this will return false.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | SkeletalMesh", meta = (ScriptMethod))
-	static bool RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount = 0, bool bRegenerateEvenIfImported = false);
+	static bool RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount = 0, bool bRegenerateEvenIfImported = false, bool bGenerateBaseLOD = false);
 
 	/** Get number of mesh vertices for an LOD of a Skeletal Mesh
 	 *

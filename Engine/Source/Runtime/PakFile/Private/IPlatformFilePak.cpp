@@ -24,11 +24,14 @@
 #if !(IS_PROGRAM || WITH_EDITOR)
 #include "Misc/ConfigCacheIni.h"
 #endif
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY(LogPakFile);
 
 DEFINE_STAT(STAT_PakFile_Read);
 DEFINE_STAT(STAT_PakFile_NumOpenHandles);
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, FileIO);
 
 #ifndef DISABLE_NONUFS_INI_WHEN_COOKED
 #define DISABLE_NONUFS_INI_WHEN_COOKED 0
@@ -163,6 +166,21 @@ FPakMasterSignatureTableCheckFailureHandler& FPakPlatformFile::GetPakMasterSigna
 	return Delegate;
 }
 
+void FPakPlatformFile::GetFilenamesInChunk(const FString& InPakFilename, const TArray<int32>& InChunkIDs, TArray<FString>& OutFileList)
+{
+	TArray<FPakListEntry> Paks;
+	GetMountedPaks(Paks);
+
+	for (const FPakListEntry& Pak : Paks)
+	{
+		if (Pak.PakFile && Pak.PakFile->GetFilename() == InPakFilename)
+		{
+			Pak.PakFile->GetFilenamesInChunk(InChunkIDs, OutFileList);
+			break;
+		}
+	}
+}
+
 #define USE_PAK_PRECACHE (!IS_PROGRAM && !WITH_EDITOR) // you can turn this off to use the async IO stuff without the precache
 
 /**
@@ -215,7 +233,7 @@ void DecryptData(uint8* InData, uint32 InDataSize, FGuid InEncryptionKeyGuid)
 #define PAK_CACHE_GRANULARITY (64*1024)
 static_assert((PAK_CACHE_GRANULARITY % FPakInfo::MaxChunkDataSize) == 0, "PAK_CACHE_GRANULARITY must be set to a multiple of FPakInfo::MaxChunkDataSize");
 #define PAK_CACHE_MAX_REQUESTS (8)
-#define PAK_CACHE_MAX_PRIORITY_DIFFERENCE_MERGE (AIOP_Normal - AIOP_Precache)
+#define PAK_CACHE_MAX_PRIORITY_DIFFERENCE_MERGE (AIOP_Normal - AIOP_MIN)
 #define PAK_EXTRA_CHECKS DO_CHECK
 
 DECLARE_MEMORY_STAT(TEXT("PakCache Current"), STAT_PakCacheMem, STATGROUP_Memory);
@@ -942,6 +960,7 @@ class FPakPrecacher
 	uint64 NextUniqueID;
 	int64 BlockMemory;
 	int64 BlockMemoryHighWater;
+	FThreadSafeCounter RequestCounter;
 
 	struct FCacheBlock
 	{
@@ -973,7 +992,7 @@ class FPakPrecacher
 		uint64 UniqueID;
 		TIntervalTreeIndex Index;
 		TIntervalTreeIndex Next;
-		EAsyncIOPriority Priority;
+		EAsyncIOPriorityAndFlags PriorityAndFlags;
 		EInRequestStatus Status;
 
 		FPakInRequest()
@@ -983,9 +1002,14 @@ class FPakPrecacher
 			, UniqueID(0)
 			, Index(IntervalTreeInvalidIndex)
 			, Next(IntervalTreeInvalidIndex)
-			, Priority(AIOP_MIN)
+			, PriorityAndFlags(AIOP_MIN)
 			, Status(EInRequestStatus::Waiting)
 		{
+		}
+
+		EAsyncIOPriorityAndFlags GetPriority() const
+		{
+			return PriorityAndFlags & AIOP_PRIORITY_MASK;
 		}
 	};
 
@@ -1095,8 +1119,8 @@ class FPakPrecacher
 	uint64 LoadSize;
 	FEncryptionKey EncryptionKey;
 	bool bSigned;
-	bool bAcceptPrecacheRequests;
-	FCriticalSection AcceptPrecacheRequestsScopeLock;
+	EAsyncIOPriorityAndFlags AsyncMinPriority;
+	FCriticalSection SetAsyncMinimumPriorityScopeLock;
 public:
 
 	static void Init(IPlatformFile* InLowerLevel, const FEncryptionKey& InEncryptionKey)
@@ -1151,7 +1175,7 @@ public:
 		, LoadSize(0)
 		, EncryptionKey(InEncryptionKey)
 		, bSigned(!InEncryptionKey.Exponent.IsZero() && !InEncryptionKey.Modulus.IsZero())
-		, bAcceptPrecacheRequests(true)
+		, AsyncMinPriority(AIOP_MIN)
 	{
 		check(LowerLevel && FPlatformProcess::SupportsMultithreading());
 		GPakCache_MaxRequestsToLowerLevel = FMath::Max(FMath::Min(FPlatformMisc::NumberOfIOWorkerThreadsToSpawn(), GPakCache_MaxRequestsToLowerLevel), 1);
@@ -1161,15 +1185,15 @@ public:
 	void StartSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Request, int32 IndexToFill);
 	void DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Request, int32 IndexToFill);
 
+	int32 GetRequestCount() const
+	{
+		return RequestCounter.GetValue();
+	}
+
 	IPlatformFile* GetLowerLevelHandle()
 	{
 		check(LowerLevel);
 		return LowerLevel;
-	}
-
-	bool HasEnoughRoomForPrecache()
-	{
-		return bAcceptPrecacheRequests;
 	}
 
 	uint16* RegisterPakFile(FName File, int64 PakFileSize)
@@ -1251,7 +1275,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		int64 Offset = GetRequestOffset(Request.OffsetAndPakIndex);
 		int64 Size = Request.Size;
 		FPakData& Pak = CachedPakData[PakIndex];
-		check(Offset + Request.Size <= Pak.TotalSize && Size > 0 && Request.Priority >= AIOP_MIN && Request.Priority <= AIOP_MAX && Request.Status != EInRequestStatus::Complete && Request.Owner);
+		check(Offset + Request.Size <= Pak.TotalSize && Size > 0 && Request.GetPriority() >= AIOP_MIN && Request.GetPriority() <= AIOP_MAX && Request.Status != EInRequestStatus::Complete && Request.Owner);
 		if (PakIndex != GetRequestPakIndex(ReadHead))
 		{
 			// this is in a different pak, so we ignore the read head position
@@ -1333,7 +1357,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		uint16 PakIndex = GetRequestPakIndex(Request.OffsetAndPakIndex);
 		int64 Offset = GetRequestOffset(Request.OffsetAndPakIndex);
 		FPakData& Pak = CachedPakData[PakIndex];
-		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.Priority >= AIOP_MIN && Request.Priority <= AIOP_MAX && Request.Status == EInRequestStatus::Waiting && Request.Owner);
+		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.GetPriority() >= AIOP_MIN && Request.GetPriority() <= AIOP_MAX && Request.Status == EInRequestStatus::Waiting && Request.Owner);
 
 		static TArray<uint64> InFlightOrDone;
 
@@ -1432,7 +1456,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		}
 		{
 			AddToIntervalTree<FPakInRequest>(
-				&Pak.InRequests[Request.Priority][(int32)Request.Status],
+				&Pak.InRequests[Request.GetPriority()][(int32)Request.Status],
 				InRequestAllocator,
 				NewIndex,
 				Pak.StartShift,
@@ -1481,10 +1505,11 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		DoneRequest.UniqueID = 0;
 		DoneRequest.Index = IntervalTreeInvalidIndex;
 		DoneRequest.Next = IntervalTreeInvalidIndex;
-		DoneRequest.Priority = AIOP_MIN;
+		DoneRequest.PriorityAndFlags = AIOP_MIN;
 		DoneRequest.Status = EInRequestStatus::Num;
 
 		verify(OutstandingRequests.Remove(Id) == 1);
+		RequestCounter.Decrement();
 		InRequestAllocator.Free(Index);
 	}
 	void TrimCache(bool bDiscardAll = false)
@@ -1536,9 +1561,9 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		int64 Offset = GetRequestOffset(Request.OffsetAndPakIndex);
 		int64 Size = Request.Size;
 		FPakData& Pak = CachedPakData[PakIndex];
-		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.Priority >= AIOP_MIN && Request.Priority <= AIOP_MAX && int32(Request.Status) >= 0 && int32(Request.Status) < int32(EInRequestStatus::Num));
+		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.GetPriority() >= AIOP_MIN && Request.GetPriority() <= AIOP_MAX && int32(Request.Status) >= 0 && int32(Request.Status) < int32(EInRequestStatus::Num));
 
-		if (RemoveFromIntervalTree<FPakInRequest>(&Pak.InRequests[Request.Priority][(int32)Request.Status], InRequestAllocator, Index, Pak.StartShift, Pak.MaxShift))
+		if (RemoveFromIntervalTree<FPakInRequest>(&Pak.InRequests[Request.GetPriority()][(int32)Request.Status], InRequestAllocator, Index, Pak.StartShift, Pak.MaxShift))
 		{
 
 			int64 OffsetOfLastByte = Offset + Size - 1;
@@ -1603,7 +1628,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		uint16 PakIndex = GetRequestPakIndex(Request.OffsetAndPakIndex);
 		int64 Offset = GetRequestOffset(Request.OffsetAndPakIndex);
 		FPakData& Pak = CachedPakData[PakIndex];
-		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.Priority >= AIOP_MIN && Request.Priority <= AIOP_MAX && Request.Status == EInRequestStatus::Complete);
+		check(Offset + Request.Size <= Pak.TotalSize && Request.Size > 0 && Request.GetPriority() >= AIOP_MIN && Request.GetPriority() <= AIOP_MAX && Request.Status == EInRequestStatus::Complete);
 
 		check(Request.Owner && Request.UniqueID);
 
@@ -1619,9 +1644,9 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		}
 	}
 
-	FJoinedOffsetAndPakIndex GetNextBlock(EAsyncIOPriority& OutPriority)
+	FJoinedOffsetAndPakIndex GetNextBlock(EAsyncIOPriorityAndFlags& OutPriority)
 	{
-		bool bAcceptingPrecacheRequests = HasEnoughRoomForPrecache();
+		EAsyncIOPriorityAndFlags AsyncMinPriorityLocal = AsyncMinPriority;
 
 		// CachedFilesScopeLock is locked
 		uint16 BestPakIndex = 0;
@@ -1629,9 +1654,9 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 
 		OutPriority = AIOP_MIN;
 		bool bAnyOutstanding = false;
-		for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+		for (int32 Priority = AIOP_MAX;; Priority--)
 		{
-			if (Priority == AIOP_Precache && !bAcceptingPrecacheRequests && bAnyOutstanding)
+			if (Priority < AsyncMinPriorityLocal && bAnyOutstanding)
 			{
 				break;
 			}
@@ -1691,7 +1716,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 
 			if (Priority == AIOP_MIN || BestNext != MAX_uint64)
 			{
-				OutPriority = Priority;
+				OutPriority = (EAsyncIOPriorityAndFlags)Priority;
 				break;
 			}
 		}
@@ -1701,8 +1726,9 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 	bool AddNewBlock()
 	{
 		// CachedFilesScopeLock is locked
-		EAsyncIOPriority RequestPriority;
+		EAsyncIOPriorityAndFlags RequestPriority;
 		FJoinedOffsetAndPakIndex BestNext = GetNextBlock(RequestPriority);
+		check(RequestPriority < AIOP_NUM);
 		if (BestNext == MAX_uint64)
 		{
 			return false;
@@ -1761,7 +1787,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		static TArray<uint64> Requested;
 		Requested.Reset();
 		Requested.AddZeroed(NumQWords);
-		for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+		for (int32 Priority = AIOP_MAX;; Priority--)
 		{
 			if (Priority + PAK_CACHE_MAX_PRIORITY_DIFFERENCE_MERGE < RequestPriority)
 			{
@@ -1827,7 +1853,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 
 		TArray<TIntervalTreeIndex> Inflights;
 
-		for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+		for (int32 Priority = AIOP_MAX;; Priority--)
 		{
 			if (Pak.InRequests[Priority][(int32)EInRequestStatus::Waiting] != IntervalTreeInvalidIndex)
 			{
@@ -1894,7 +1920,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		{
 			FPakInRequest& CompReq = InRequestAllocator.Get(Fli);
 			CompReq.Status = EInRequestStatus::InFlight;
-			AddToIntervalTree(&Pak.InRequests[CompReq.Priority][(int32)EInRequestStatus::InFlight], InRequestAllocator, Fli, Pak.StartShift, Pak.MaxShift);
+			AddToIntervalTree(&Pak.InRequests[CompReq.GetPriority()][(int32)EInRequestStatus::InFlight], InRequestAllocator, Fli, Pak.StartShift, Pak.MaxShift);
 		}
 
 		StartBlockTask(Block);
@@ -1922,7 +1948,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		for (uint16 PakIndex = 0; PakIndex < CachedPakData.Num(); PakIndex++)
 		{
 			FPakData& Pak = CachedPakData[PakIndex];
-			for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+			for (int32 Priority = AIOP_MAX;; Priority--)
 			{
 				if (Pak.InRequests[Priority][(int32)Status] != IntervalTreeInvalidIndex)
 				{
@@ -2004,7 +2030,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 			check(0);
 			return;
 		}
-		EAsyncIOPriority Priority = AIOP_Normal; // the lower level requests are not prioritized at the moment
+		EAsyncIOPriorityAndFlags Priority = AIOP_Normal; // the lower level requests are not prioritized at the moment
 		check(Block.Status == EBlockStatus::InFlight);
 		UE_LOG(LogPakFile, Verbose, TEXT("FPakReadRequest[%016llX, %016llX) StartBlockTask"), Block.OffsetAndPakIndex, Block.OffsetAndPakIndex + Block.Size);
 		uint16 PakIndex = GetRequestPakIndex(Block.OffsetAndPakIndex);
@@ -2104,7 +2130,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 				Pak.MaxShift
 				);
 			TArray<TIntervalTreeIndex> Completeds;
-			for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+			for (int32 Priority = AIOP_MAX;; Priority--)
 			{
 				if (Pak.InRequests[Priority][(int32)EInRequestStatus::InFlight] != IntervalTreeInvalidIndex)
 				{
@@ -2138,7 +2164,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 			{
 				FPakInRequest& CompReq = InRequestAllocator.Get(Comp);
 				CompReq.Status = EInRequestStatus::Complete;
-				AddToIntervalTree(&Pak.InRequests[CompReq.Priority][(int32)EInRequestStatus::Complete], InRequestAllocator, Comp, Pak.StartShift, Pak.MaxShift);
+				AddToIntervalTree(&Pak.InRequests[CompReq.GetPriority()][(int32)EInRequestStatus::Complete], InRequestAllocator, Comp, Pak.StartShift, Pak.MaxShift);
 				NotifyComplete(Comp); // potentially scary recursion here
 			}
 		}
@@ -2162,7 +2188,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		int64 Size = DoneRequest.Size;
 
 		FPakData& Pak = CachedPakData[PakIndex];
-		check(Offset + DoneRequest.Size <= Pak.TotalSize && DoneRequest.Size > 0 && DoneRequest.Priority >= AIOP_MIN && DoneRequest.Priority <= AIOP_MAX && DoneRequest.Status == EInRequestStatus::Complete);
+		check(Offset + DoneRequest.Size <= Pak.TotalSize && DoneRequest.Size > 0 && DoneRequest.GetPriority() >= AIOP_MIN && DoneRequest.GetPriority() <= AIOP_MAX && DoneRequest.Status == EInRequestStatus::Complete);
 
 		int64 BytesCopied = 0;
 
@@ -2197,7 +2223,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		}
 		);
 
-		if (!RemoveFromIntervalTree<FPakInRequest>(&Pak.InRequests[DoneRequest.Priority][(int32)EInRequestStatus::Complete], InRequestAllocator, DoneRequest.Index, Pak.StartShift, Pak.MaxShift))
+		if (!RemoveFromIntervalTree<FPakInRequest>(&Pak.InRequests[DoneRequest.GetPriority()][(int32)EInRequestStatus::Complete], InRequestAllocator, DoneRequest.Index, Pak.StartShift, Pak.MaxShift))
 		{
 			check(0); // not found
 		}
@@ -2239,6 +2265,7 @@ public:
 
 	void NewRequestsToLowerComplete(bool bWasCanceled, IAsyncReadRequest* Request, int32 Index)
 	{
+		LLM_SCOPE(ELLMTag::FileSystem);
 		FScopeLock Lock(&CachedFilesScopeLock);
 		RequestsToLower[Index].RequestHandle = Request;
 		ClearOldBlockTasks();
@@ -2255,9 +2282,10 @@ public:
 		NotifyRecursion--;
 	}
 
-	bool QueueRequest(IPakRequestor* Owner, FName File, int64 PakFileSize, int64 Offset, int64 Size, EAsyncIOPriority Priority)
+	bool QueueRequest(IPakRequestor* Owner, FName File, int64 PakFileSize, int64 Offset, int64 Size, EAsyncIOPriorityAndFlags PriorityAndFlags)
 	{
-		check(Owner && File != NAME_None && Size > 0 && Offset >= 0 && Offset < PakFileSize && Priority >= AIOP_MIN && Priority <= AIOP_MAX);
+		CSV_SCOPED_TIMING_STAT(FileIO, PakPrecacherQueueRequest);
+		check(Owner && File != NAME_None && Size > 0 && Offset >= 0 && Offset < PakFileSize && (PriorityAndFlags&AIOP_PRIORITY_MASK) >= AIOP_MIN && (PriorityAndFlags&AIOP_PRIORITY_MASK) <= AIOP_MAX);
 		FScopeLock Lock(&CachedFilesScopeLock);
 		uint16* PakIndexPtr = RegisterPakFile(File, PakFileSize);
 		if (PakIndexPtr == nullptr)
@@ -2273,7 +2301,7 @@ public:
 		FJoinedOffsetAndPakIndex RequestOffsetAndPakIndex = MakeJoinedRequest(PakIndex, Offset);
 		Request.OffsetAndPakIndex = RequestOffsetAndPakIndex;
 		Request.Size = Size;
-		Request.Priority = Priority;
+		Request.PriorityAndFlags = PriorityAndFlags;
 		Request.Status = EInRequestStatus::Waiting;
 		Request.Owner = Owner;
 		Request.UniqueID = NextUniqueID++;
@@ -2284,6 +2312,7 @@ public:
 		Owner->InRequestIndex = RequestIndex;
 		check(!OutstandingRequests.Contains(Request.UniqueID));
 		OutstandingRequests.Add(Request.UniqueID, RequestIndex);
+		RequestCounter.Increment();
 		if (AddRequest(RequestIndex))
 		{
 			UE_LOG(LogPakFile, Verbose, TEXT("FPakReadRequest[%016llX, %016llX) QueueRequest HOT"), RequestOffsetAndPakIndex, RequestOffsetAndPakIndex + Request.Size);
@@ -2296,18 +2325,18 @@ public:
 		return true;
 	}
 
-	void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+	void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags NewPriority)
 	{
 		bool bStartNewRequests = false;
 		{
-			FScopeLock Lock(&AcceptPrecacheRequestsScopeLock);
-			if (bAcceptPrecacheRequests != bEnablePrecacheRequests)
+			FScopeLock Lock(&SetAsyncMinimumPriorityScopeLock);
+			if (AsyncMinPriority != NewPriority)
 			{
-				bAcceptPrecacheRequests = bEnablePrecacheRequests;
-				if (bAcceptPrecacheRequests)
+				if (NewPriority < AsyncMinPriority)
 				{
 					bStartNewRequests = true;
 				}
+				AsyncMinPriority = NewPriority;
 			}
 		}
 
@@ -2404,7 +2433,7 @@ public:
 			return false;
 		}
 		);
-		for (EAsyncIOPriority Priority = AIOP_MAX;; Priority = EAsyncIOPriority(int32(Priority) - 1))
+		for (int32 Priority = AIOP_MAX;; Priority--)
 		{
 			OverlappingNodesInIntervalTree<FPakInRequest>(
 				Pak.InRequests[Priority][(int32)EInRequestStatus::InFlight],
@@ -2608,19 +2637,19 @@ protected:
 	int64 BytesToRead;
 	FEvent* WaitEvent;
 	FCachedAsyncBlock* BlockPtr;
-	EAsyncIOPriority Priority;
+	EAsyncIOPriorityAndFlags PriorityAndFlags;
 	bool bRequestOutstanding;
 	bool bNeedsRemoval;
 	bool bInternalRequest; // we are using this internally to deal with compressed, encrypted and signed, so we want the memory back from a precache request.
 
 public:
-	FPakReadRequestBase(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriority InPriority, uint8* UserSuppliedMemory, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
+	FPakReadRequestBase(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriorityAndFlags InPriorityAndFlags, uint8* UserSuppliedMemory, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
 		: IAsyncReadRequest(CompleteCallback, false, UserSuppliedMemory)
 		, Offset(InOffset)
 		, BytesToRead(InBytesToRead)
 		, WaitEvent(nullptr)
 		, BlockPtr(InBlockPtr)
-		, Priority(InPriority)
+		, PriorityAndFlags(InPriorityAndFlags)
 		, bRequestOutstanding(true)
 		, bNeedsRemoval(true)
 		, bInternalRequest(bInInternalRequest)
@@ -2694,13 +2723,13 @@ class FPakReadRequest : public FPakReadRequestBase
 {
 public:
 
-	FPakReadRequest(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriority InPriority, uint8* UserSuppliedMemory, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
-		: FPakReadRequestBase(InPakFile, PakFileSize, CompleteCallback, InOffset, InBytesToRead, InPriority, UserSuppliedMemory, bInInternalRequest, InBlockPtr)
+	FPakReadRequest(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriorityAndFlags InPriorityAndFlags, uint8* UserSuppliedMemory, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
+		: FPakReadRequestBase(InPakFile, PakFileSize, CompleteCallback, InOffset, InBytesToRead, InPriorityAndFlags, UserSuppliedMemory, bInInternalRequest, InBlockPtr)
 	{
 		check(Offset >= 0 && BytesToRead > 0);
-		check(bInternalRequest || Priority > AIOP_Precache || !bUserSuppliedMemory); // you never get bits back from a precache request, so why supply memory?
+		check(bInternalRequest || ( InPriorityAndFlags & AIOP_FLAG_PRECACHE ) == 0 || !bUserSuppliedMemory); // you never get bits back from a precache request, so why supply memory?
 
-		if (!FPakPrecacher::Get().QueueRequest(this, InPakFile, PakFileSize, Offset, BytesToRead, Priority))
+		if (!FPakPrecacher::Get().QueueRequest(this, InPakFile, PakFileSize, Offset, BytesToRead, InPriorityAndFlags))
 		{
 			bRequestOutstanding = false;
 			SetComplete();
@@ -2710,7 +2739,7 @@ public:
 	virtual void RequestIsComplete() override
 	{
 		check(bRequestOutstanding);
-		if (!bCanceled && (bInternalRequest || Priority > AIOP_Precache))
+		if (!bCanceled && (bInternalRequest || (PriorityAndFlags & AIOP_FLAG_PRECACHE) == 0))
 		{
 			if (!bUserSuppliedMemory)
 			{
@@ -2749,8 +2778,8 @@ class FPakEncryptedReadRequest : public FPakReadRequestBase
 
 public:
 
-	FPakEncryptedReadRequest(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InPakFileStartOffset, int64 InFileOffset, int64 InBytesToRead, EAsyncIOPriority InPriority, uint8* UserSuppliedMemory, const FGuid& InEncryptionKeyGuid, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
-		: FPakReadRequestBase(InPakFile, PakFileSize, CompleteCallback, InPakFileStartOffset + InFileOffset, InBytesToRead, InPriority, UserSuppliedMemory, bInInternalRequest, InBlockPtr)
+	FPakEncryptedReadRequest(FName InPakFile, int64 PakFileSize, FAsyncFileCallBack* CompleteCallback, int64 InPakFileStartOffset, int64 InFileOffset, int64 InBytesToRead, EAsyncIOPriorityAndFlags InPriorityAndFlags, uint8* UserSuppliedMemory, const FGuid& InEncryptionKeyGuid, bool bInInternalRequest = false, FCachedAsyncBlock* InBlockPtr = nullptr)
+		: FPakReadRequestBase(InPakFile, PakFileSize, CompleteCallback, InPakFileStartOffset + InFileOffset, InBytesToRead, InPriorityAndFlags, UserSuppliedMemory, bInInternalRequest, InBlockPtr)
 		, OriginalOffset(InPakFileStartOffset + InFileOffset)
 		, OriginalSize(InBytesToRead)
 		, EncryptionKeyGuid(InEncryptionKeyGuid)
@@ -2758,7 +2787,7 @@ public:
 		Offset = InPakFileStartOffset + AlignDown(InFileOffset, FAES::AESBlockSize);
 		BytesToRead = Align(InFileOffset + InBytesToRead, FAES::AESBlockSize) - AlignDown(InFileOffset, FAES::AESBlockSize);
 
-		if (!FPakPrecacher::Get().QueueRequest(this, InPakFile, PakFileSize, Offset, BytesToRead, Priority))
+		if (!FPakPrecacher::Get().QueueRequest(this, InPakFile, PakFileSize, Offset, BytesToRead, InPriorityAndFlags))
 		{
 			bRequestOutstanding = false;
 			SetComplete();
@@ -2768,7 +2797,7 @@ public:
 	virtual void RequestIsComplete() override
 	{
 		check(bRequestOutstanding);
-		if (!bCanceled && (bInternalRequest || Priority > AIOP_Precache))
+		if (!bCanceled && (bInternalRequest || ( PriorityAndFlags & AIOP_FLAG_PRECACHE) == 0 ))
 		{
 			uint8* OversizedBuffer = nullptr;
 			if (OriginalOffset != Offset || OriginalSize != BytesToRead)
@@ -2863,7 +2892,7 @@ class FPakProcessedReadRequest : public IAsyncReadRequest
 	int64 BytesToRead;
 	FEvent* WaitEvent;
 	FThreadSafeCounter CompleteRace; // this is used to resolve races with natural completion and cancel; there can be only one.
-	EAsyncIOPriority Priority;
+	EAsyncIOPriorityAndFlags PriorityAndFlags;
 	bool bRequestOutstanding;
 	bool bHasCancelled;
 	bool bHasCompleted;
@@ -2871,19 +2900,19 @@ class FPakProcessedReadRequest : public IAsyncReadRequest
 	TSet<FCachedAsyncBlock*> MyCanceledBlocks;
 
 public:
-	FPakProcessedReadRequest(FPakAsyncReadFileHandle* InOwner, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriority InPriority, uint8* UserSuppliedMemory)
+	FPakProcessedReadRequest(FPakAsyncReadFileHandle* InOwner, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriorityAndFlags InPriorityAndFlags, uint8* UserSuppliedMemory)
 		: IAsyncReadRequest(CompleteCallback, false, UserSuppliedMemory)
 		, Owner(InOwner)
 		, Offset(InOffset)
 		, BytesToRead(InBytesToRead)
 		, WaitEvent(nullptr)
-		, Priority(InPriority)
+		, PriorityAndFlags(InPriorityAndFlags)
 		, bRequestOutstanding(true)
 		, bHasCancelled(false)
 		, bHasCompleted(false)
 	{
 		check(Offset >= 0 && BytesToRead > 0);
-		check(Priority > AIOP_Precache || !bUserSuppliedMemory); // you never get bits back from a precache request, so why supply memory?
+		check( ( PriorityAndFlags & AIOP_FLAG_PRECACHE ) == 0 || !bUserSuppliedMemory); // you never get bits back from a precache request, so why supply memory?
 	}
 
 	virtual ~FPakProcessedReadRequest()
@@ -2956,7 +2985,7 @@ public:
 		if (CompleteRace.Increment() == 1)
 		{
 			check(bRequestOutstanding);
-			if (!bCanceled && Priority > AIOP_Precache)
+			if (!bCanceled && ( PriorityAndFlags & AIOP_FLAG_PRECACHE) == 0 )
 			{
 				GatherResults();
 			}
@@ -3246,7 +3275,7 @@ public:
 	{
 		return new FPakSizeRequest(CompleteCallback, UncompressedFileSize);
 	}
-	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
 	{
 		if (BytesToRead == MAX_int64)
 		{
@@ -3260,11 +3289,11 @@ public:
 
 			if (FileEntry.IsEncrypted())
 			{
-				return new FPakEncryptedReadRequest(PakFile, PakFileSize, CompleteCallback, OffsetInPak, Offset, BytesToRead, Priority, UserSuppliedMemory, EncryptionKeyGuid);
+				return new FPakEncryptedReadRequest(PakFile, PakFileSize, CompleteCallback, OffsetInPak, Offset, BytesToRead, PriorityAndFlags, UserSuppliedMemory, EncryptionKeyGuid);
 			}
 			else
 			{
-				return new FPakReadRequest(PakFile, PakFileSize, CompleteCallback, OffsetInPak + Offset, BytesToRead, Priority, UserSuppliedMemory);
+				return new FPakReadRequest(PakFile, PakFileSize, CompleteCallback, OffsetInPak + Offset, BytesToRead, PriorityAndFlags, UserSuppliedMemory);
 			}
 		}
 		bool bAnyUnfinished = false;
@@ -3277,7 +3306,7 @@ public:
 
 			check(FirstBlock >= 0 && FirstBlock < Blocks.Num() && LastBlock >= 0 && LastBlock < Blocks.Num() && FirstBlock <= LastBlock);
 
-			Result = new FPakProcessedReadRequest(this, CompleteCallback, Offset, BytesToRead, Priority, UserSuppliedMemory);
+			Result = new FPakProcessedReadRequest(this, CompleteCallback, Offset, BytesToRead, PriorityAndFlags, UserSuppliedMemory);
 			for (int32 BlockIndex = FirstBlock; BlockIndex <= LastBlock; BlockIndex++)
 			{
 
@@ -3286,7 +3315,7 @@ public:
 				if (!Block.bInFlight)
 				{
 					check(Block.RefCount == 1);
-					StartBlock(BlockIndex, Priority);
+					StartBlock(BlockIndex, PriorityAndFlags);
 					bAnyUnfinished = true;
 				}
 				if (!Block.Processed)
@@ -3304,7 +3333,7 @@ public:
 		return Result;
 	}
 
-	void StartBlock(int32 BlockIndex, EAsyncIOPriority Priority)
+	void StartBlock(int32 BlockIndex, EAsyncIOPriorityAndFlags PriorityAndFlags)
 	{
 		FCachedAsyncBlock& Block = GetBlock(BlockIndex);
 		Block.bInFlight = true;
@@ -3316,7 +3345,7 @@ public:
 			Block.RawSize = Align(Block.RawSize, FAES::AESBlockSize);
 		}
 		NumLiveRawRequests++;
-		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry.CompressionBlocks[BlockIndex].CompressedStart + CompressedChunkOffset, Block.RawSize, Priority, nullptr, true, &Block);
+		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry.CompressionBlocks[BlockIndex].CompressedStart + CompressedChunkOffset, Block.RawSize, PriorityAndFlags, nullptr, true, &Block);
 	}
 	void RawReadCallback(bool bWasCancelled, IAsyncReadRequest* InRequest)
 	{
@@ -3662,6 +3691,7 @@ void FPakPlatformFile::TrackPak(const TCHAR* Filename, const FPakEntry* PakEntry
 
 IAsyncReadFileHandle* FPakPlatformFile::OpenAsyncRead(const TCHAR* Filename)
 {
+	CSV_SCOPED_TIMING_STAT(FileIO, PakOpenAsyncRead);
 	check(GConfig);
 #if USE_PAK_PRECACHE
 	if (FPlatformProcess::SupportsMultithreading() && GPakCache_Enable > 0)
@@ -3679,16 +3709,25 @@ IAsyncReadFileHandle* FPakPlatformFile::OpenAsyncRead(const TCHAR* Filename)
 		}
 	}
 #endif
-
 	return IPlatformFile::OpenAsyncRead(Filename);
 }
 
-void FPakPlatformFile::ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+void FPakPlatformFile::SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority)
 {
 #if USE_PAK_PRECACHE
 	if (FPlatformProcess::SupportsMultithreading() && GPakCache_Enable > 0)
 	{
-		FPakPrecacher::Get().ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		FPakPrecacher::Get().SetAsyncMinimumPriority(Priority);
+	}
+#endif
+}
+
+void FPakPlatformFile::Tick()
+{
+#if USE_PAK_PRECACHE && CSV_PROFILER
+	if (PakPrecacherSingleton != nullptr)
+	{
+		CSV_CUSTOM_STAT(FileIO, PakPrecacherRequests, FPakPrecacher::Get().GetRequestCount(), ECsvCustomStatOp::Set);
 	}
 #endif
 }
@@ -4715,6 +4754,55 @@ public:
 };
 #endif //DO_CHECK
 
+void FPakFile::GetFilenamesInChunk(const TArray<int32>& InChunkIDs, TArray<FString>& OutFileList)
+{
+	TSet<int32> OverlappingEntries;
+
+	for (int32 LocalChunkID : InChunkIDs)
+	{
+		int32 ChunkStart = LocalChunkID * FPakInfo::MaxChunkDataSize;
+		int32 ChunkEnd = ChunkStart + FPakInfo::MaxChunkDataSize;
+		int32 FileIndex = 0;
+
+		for (const FPakEntry& File : Files)
+		{
+			int32 FileStart = File.Offset;
+			int32 FileEnd = File.Offset + File.Size;
+
+			// If this file is past the end of the target chunk, we're done
+			if (FileStart > ChunkEnd)
+			{
+				break;
+			}
+
+
+			if (FileEnd > ChunkStart)
+			{
+				OverlappingEntries.Add(FileIndex);
+			}
+
+			FileIndex++;
+		}
+	}
+
+	int32 Remaining = OverlappingEntries.Num();
+	for (const TMap<FString, FPakDirectory>::ElementType& DirectoryElement : Index)
+	{
+		const  FPakDirectory& Directory = DirectoryElement.Value;
+		for (const FPakDirectory::ElementType& FileElement : Directory)
+		{
+			if (OverlappingEntries.Contains(FileElement.Value))
+			{
+				OutFileList.Add(DirectoryElement.Key / FileElement.Key);
+				if (--Remaining == 0)
+				{
+					break;
+				}
+			}
+		}
+	}
+}
+
 FArchive* FPakFile::GetSharedReader(IPlatformFile* LowerLevel)
 {
 	uint32 Thread = FPlatformTLS::GetCurrentThreadId();
@@ -4757,6 +4845,151 @@ FArchive* FPakFile::GetSharedReader(IPlatformFile* LowerLevel)
 	}
 	return PakReader;
 }
+
+FPakFile::EFindResult FPakFile::Find(const FString& Filename, FPakEntry* OutEntry) const
+{
+	QUICK_SCOPE_CYCLE_COUNTER(PakFileFind);
+	if (Filename.StartsWith(MountPoint))
+	{
+		FString Path(FPaths::GetPath(Filename));
+
+		// Handle the case where the user called FPakFile::UnloadFilenames() and the filenames
+		// were removed from memory.
+		if (bFilenamesRemoved)
+		{
+			// Derived from the following:
+			//     FString RelativeFilename(Filename.Mid(Path.Len() + 1));
+			//     Path = Path.Mid(MountPoint.Len()) / RelativeFilename;
+			// Hash the Path.
+			int AdjustedMountPointLen = Path.Len() < MountPoint.Len() ? Path.Len() : MountPoint.Len();
+			FString LowercaseFilename = Filename.ToLower();
+			const TCHAR* SplitStartPtr = *LowercaseFilename + AdjustedMountPointLen;
+			uint32 SplitLen = LowercaseFilename.Len() - AdjustedMountPointLen;
+			if (*SplitStartPtr == '/')
+			{
+				++SplitStartPtr;
+				--SplitLen;
+			}
+			uint32 PathHash = FCrc::MemCrc32(SplitStartPtr, SplitLen * sizeof(TCHAR), FilenameStartHash);
+
+			// Look it up in our sorted-by-filename-hash array.
+			uint32 PathHashMostSignificantBits = PathHash >> 24;
+			uint32 HashEntriesCount = FilenameHashesIndex[PathHashMostSignificantBits + 1] - FilenameHashesIndex[PathHashMostSignificantBits];
+			uint32* FoundHash = (uint32*)bsearch(&PathHash, FilenameHashes + FilenameHashesIndex[PathHashMostSignificantBits], HashEntriesCount, sizeof(uint32), CompareFilenameHashes);
+			if (FoundHash != NULL)
+			{
+				bool bDeleted = false;
+
+				int32 FoundEntryIndex = FilenameHashesIndices[FoundHash - FilenameHashes];
+
+				if (MiniPakEntries != NULL)
+				{
+					uint32 MemoryOffset = MiniPakEntriesOffsets[FoundEntryIndex];
+
+					bDeleted = (MemoryOffset == MAX_uint32); // deleted records have a magic number in the offset instead (not ideal, but there is no more space in the bit-encoded entry)
+
+					if (OutEntry != NULL)
+					{
+						if (!bDeleted)
+						{
+							// The FPakEntry structures are bit-encoded, so decode it.
+							DecodePakEntry(MiniPakEntries + MemoryOffset, OutEntry);
+						}
+						else
+						{
+							// entry was deleted and original data is inaccessible- build dummy entry
+							(*OutEntry) = FPakEntry();
+							OutEntry->SetDeleteRecord(true);
+							OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+						}
+					}
+				}
+				else
+				{
+					const FPakEntry* FoundEntry = &Files[FoundEntryIndex];
+
+					bDeleted = FoundEntry->IsDeleteRecord();
+
+					if (OutEntry != NULL)
+					{
+						OutEntry->Offset = FoundEntry->Offset;
+						OutEntry->Size = FoundEntry->Size;
+						OutEntry->UncompressedSize = FoundEntry->UncompressedSize;
+						OutEntry->CompressionMethod = FoundEntry->CompressionMethod;
+						// NEEDED? FMemory::Memcpy(OutEntry->Hash, FoundEntry->Hash, sizeof(OutEntry->Hash));
+						OutEntry->CompressionBlocks = FoundEntry->CompressionBlocks;
+						OutEntry->CompressionBlockSize = FoundEntry->CompressionBlockSize;
+						OutEntry->Flags = FoundEntry->Flags;
+						OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+					}
+				}
+
+				return bDeleted ? EFindResult::FoundDeleted : EFindResult::Found;
+			}
+		}
+		else
+		{
+			const FPakDirectory* PakDirectory = FindDirectory(*Path);
+			if (PakDirectory != NULL)
+			{
+				FString RelativeFilename(Filename.Mid(Path.Len() + 1));
+				int32 const* FoundEntryIndex = PakDirectory->Find(RelativeFilename);
+				if (FoundEntryIndex != NULL)
+				{
+					bool bDeleted = false;
+
+					if (MiniPakEntries != NULL)
+					{
+						// The FPakEntry structures are bit-encoded, so decode it.
+						uint32 MemoryOffset = MiniPakEntriesOffsets[*FoundEntryIndex];
+
+						bDeleted = (MemoryOffset == MAX_uint32); // deleted records have a magic number in the offset instead (not ideal, but there is no more space in the bit-encoded entry)
+
+						if (OutEntry != NULL)
+						{
+							if (!bDeleted)
+							{
+								// The FPakEntry structures are bit-encoded, so decode it.
+								uint8* FoundPtr = MiniPakEntries + MemoryOffset;
+								DecodePakEntry(FoundPtr, OutEntry);
+							}
+							else
+							{
+								// entry was deleted and original data is inaccessible- build dummy entry
+								(*OutEntry) = FPakEntry();
+								OutEntry->SetDeleteRecord(true);
+								OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+							}
+						}
+					}
+					else
+					{
+						const FPakEntry* FoundEntry = &Files[*FoundEntryIndex];
+						bDeleted = FoundEntry->IsDeleteRecord();
+
+						if (OutEntry != NULL)
+						{
+							//*OutEntry = **FoundEntry;
+							OutEntry->Offset = FoundEntry->Offset;
+							OutEntry->Size = FoundEntry->Size;
+							OutEntry->UncompressedSize = FoundEntry->UncompressedSize;
+							OutEntry->CompressionMethod = FoundEntry->CompressionMethod;
+							FMemory::Memcpy(OutEntry->Hash, FoundEntry->Hash, sizeof(OutEntry->Hash));
+							OutEntry->CompressionBlocks = FoundEntry->CompressionBlocks;
+							OutEntry->CompressionBlockSize = FoundEntry->CompressionBlockSize;
+							OutEntry->Flags = FoundEntry->Flags;
+							OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+						}
+					}
+
+					return bDeleted ? EFindResult::FoundDeleted : EFindResult::Found;
+				}
+			}
+		}
+	}
+	return EFindResult::NotFound;
+}
+
 
 #if !UE_BUILD_SHIPPING
 class FPakExec : private FSelfRegisteringExec
@@ -4963,6 +5196,7 @@ bool FPakPlatformFile::ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) 
 
 bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 {
+	LLM_SCOPE(ELLMTag::FileSystem);
 	SCOPED_BOOT_TIMING("FPakPlatformFile::Initialize");
 	// Inner is required.
 	check(Inner != NULL);
@@ -5519,9 +5753,21 @@ class FPakFileModule : public IPlatformFileModule
 public:
 	virtual IPlatformFile* GetPlatformFile() override
 	{
-		static TUniquePtr<IPlatformFile> AutoDestroySingleton = MakeUnique<FPakPlatformFile>();
-		return AutoDestroySingleton.Get();
+		check(Singleton.IsValid());
+		return Singleton.Get();
 	}
+
+	virtual void StartupModule() override
+	{
+		Singleton = MakeUnique<FPakPlatformFile>();
+	}
+
+	virtual void ShutdownModule() override
+	{
+		Singleton.Reset();
+	}
+
+	TUniquePtr<IPlatformFile> Singleton;
 };
 
 IMPLEMENT_MODULE(FPakFileModule, PakFile);

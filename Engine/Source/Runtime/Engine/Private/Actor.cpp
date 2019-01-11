@@ -65,6 +65,17 @@ FUObjectAnnotationSparseBool GSelectedActorAnnotation;
 FOnProcessEvent AActor::ProcessEventDelegate;
 #endif
 
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
+/** Count of total actors created */
+int32 CSVActorTotalCount = 0;
+/** Map of Actor class names to count */
+TMap<FName, int32> CSVActorClassNameToCountMap;
+/** Critical section to control access to map */
+FCriticalSection CSVActorClassNameToCountMapLock;
+
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
 uint32 AActor::BeginPlayCallDepth = 0;
 
 AActor::AActor()
@@ -77,6 +88,23 @@ AActor::AActor(const FObjectInitializer& ObjectInitializer)
 {
 	// Forward to default constructor (we don't use ObjectInitializer for anything, this is for compatibility with inherited classes that call Super( ObjectInitializer )
 	InitializeDefaults();
+
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+	// Increment actor class count
+	{
+		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
+
+			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
+			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
+			int32& CurrentCount = CSVActorClassNameToCountMap.FindOrAdd(NativeClassName);
+			CurrentCount++;
+			CSVActorTotalCount++;
+		}
+	}
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
 }
 
 void AActor::InitializeDefaults()
@@ -120,6 +148,7 @@ void AActor::InitializeDefaults()
 	bFindCameraComponentWhenViewTarget = true;
 	bAllowReceiveTickEventOnDedicatedServer = true;
 	bRelevantForNetworkReplays = true;
+	bRelevantForLevelBounds = true;
 	bGenerateOverlapEventsDuringLevelStreaming = false;
 	bHasDeferredComponentRegistration = false;
 #if WITH_EDITORONLY_DATA
@@ -541,6 +570,26 @@ void AActor::BeginDestroy()
 	{
 		OwnerLevel->Actors.RemoveSingleSwap(this, false);
 	}
+
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+	// Decrement actor class count
+	{
+		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
+
+			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
+			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
+			int32* CurrentCount = CSVActorClassNameToCountMap.Find(NativeClassName);
+			if (CurrentCount)
+			{
+				(*CurrentCount)--;
+			}
+			CSVActorTotalCount--;
+		}
+	}
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
 	Super::BeginDestroy();
 }
 
@@ -1910,7 +1959,12 @@ void AActor::SetNetDormancy(ENetDormancy NewDormancy)
 	{
 		return;
 	}
-	
+
+	if (IsPendingKillPending())
+	{
+		return;
+	}
+
 	UWorld* MyWorld = GetWorld();
 	UNetDriver* NetDriver = GEngine->FindNamedNetDriver(MyWorld, NetDriverName);
 	if (NetDriver)

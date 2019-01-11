@@ -205,6 +205,9 @@ FOutBunch* UMinimalClient::CreateChannelBunchByName(const FName& ChName, int32 C
 			check(UnitConn->Channels[ChIndex] == nullptr);
 		}
 
+		// Hack to force IsNetReady
+		UnitConn->QueuedBits = -(MAX_PACKET_SIZE * 8);
+
 		if (ControlChan != nullptr && ControlChan->IsNetReady(false))
 		{
 			int32 BunchSequence = ++UnitConn->OutReliable[ChIndex];
@@ -215,7 +218,9 @@ FOutBunch* UMinimalClient::CreateChannelBunchByName(const FName& ChName, int32 C
 			ReturnVal->Time = 0.0;
 			ReturnVal->ReceivedAck = false;
 			ReturnVal->PacketId = 0;
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			ReturnVal->bDormant = false;
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			ReturnVal->Channel = nullptr;
 			ReturnVal->ChIndex = ChIndex;
 			ReturnVal->ChName = ChName;
@@ -294,7 +299,10 @@ bool UMinimalClient::SendRawBunch(FOutBunch& Bunch, bool bAllowPartial/*=false*/
 				NewBunch->bReliable = Bunch.bReliable;
 				NewBunch->bOpen = Bunch.bOpen;
 				NewBunch->bClose = Bunch.bClose;
+				PRAGMA_DISABLE_DEPRECATION_WARNINGS
 				NewBunch->bDormant = Bunch.bDormant;
+				PRAGMA_ENABLE_DEPRECATION_WARNINGS
+				NewBunch->CloseReason = Bunch.CloseReason;
 				NewBunch->bIsReplicationPaused = Bunch.bIsReplicationPaused;
 				NewBunch->ChIndex = Bunch.ChIndex;
 				NewBunch->ChName = Bunch.ChName;

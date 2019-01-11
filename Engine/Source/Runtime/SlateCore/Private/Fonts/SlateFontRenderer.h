@@ -80,6 +80,14 @@ public:
 	void GetUnderlineMetrics(const FSlateFontInfo& InFontInfo, const float InScale, int16& OutUnderlinePos, int16& OutUnderlineThickness) const;
 
 	/**
+	 * Get the strike metrics used by any character in the default font
+	 *
+	 * @param OutStrikeLinePos		The offset from the baseline to the center of the strike bar
+	 * @param OutStrikeLineThickness The thickness of the strike bar
+	 */
+	void GetStrikeMetrics(const FSlateFontInfo& InFontInfo, const float InScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness) const;
+
+	/**
 	 * @param Whether or not the font has kerning
 	 */
 	bool HasKerning(const FFontData& InFontData) const;

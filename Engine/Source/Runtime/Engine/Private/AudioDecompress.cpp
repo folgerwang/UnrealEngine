@@ -25,6 +25,7 @@ IStreamedCompressedInfo::IStreamedCompressedInfo()
 	, StreamingSoundWave(nullptr)
 	, CurrentChunkIndex(0)
 	, bPrintChunkFailMessage(true)
+	, SrcBufferPadding(0)
 {
 }
 
@@ -221,8 +222,8 @@ bool IStreamedCompressedInfo::StreamCompressedData(uint8* Destination, bool bLoo
 
 			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
 
-			// Have we reached the end of buffer
-			if (SrcBufferOffset >= SrcBufferDataSize)
+			// Have we reached the end of buffer?
+			if (SrcBufferOffset >= SrcBufferDataSize - SrcBufferPadding)
 			{
 				// Special case for the last chunk of audio
 				if (CurrentChunkIndex == StreamingSoundWave->RunningPlatformData->NumChunks - 1)

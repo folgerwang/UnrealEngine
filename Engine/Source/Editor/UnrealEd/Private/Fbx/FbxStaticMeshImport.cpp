@@ -1485,6 +1485,11 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 		check(MeshDescription != nullptr);
 		StaticMesh->CommitMeshDescription(LODIndex);
+		//Make sure an imported mesh do not get reduce if there was no mesh data before reimport.
+		//In this case we have a generated LOD convert to a custom LOD
+		StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation = 0.0f;
+		StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles = 1.0f;
+		StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentVertices = 1.0f;
 	}
 	else if (InStaticMesh != NULL && LODIndex > 0)
 	{

@@ -13,6 +13,7 @@
 #include "Templates/UniquePtr.h"
 #include "Async/Future.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "Misc/EnumClassFlags.h"
 
 // Whether to allow the CSV profiler in shipping builds.
 // Enable in a .Target.cs file if required.
@@ -118,14 +119,24 @@ enum class ECsvCommandType : uint8
 
 struct FCsvCategory;
 
-#define CSV_STAT_NAME_PREFIX TEXT("")
-
 struct FCsvDeclaredStat
 {
-	FCsvDeclaredStat(TCHAR* NameString, uint32 InCategoryIndex) : Name(*(FString(CSV_STAT_NAME_PREFIX) + NameString)), CategoryIndex(InCategoryIndex) {}
+	FCsvDeclaredStat(TCHAR* InNameString, uint32 InCategoryIndex) 
+		: Name(InNameString)
+		, CategoryIndex(InCategoryIndex) 
+	{}
+
 	FName Name;
 	uint32 CategoryIndex;
 };
+
+enum class ECsvProfilerFlags
+{
+	None = 0,
+	WriteCompletionFile = 1,
+	CompressOutput = 2
+};
+ENUM_CLASS_FLAGS(ECsvProfilerFlags);
 
 struct FCsvCaptureCommand
 {
@@ -135,13 +146,13 @@ struct FCsvCaptureCommand
 		, Value(-1)
 	{}
 
-	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue, const FString& InDestinationFolder, const FString& InFilename, bool InbWriteCompletionFile)
+	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue, const FString& InDestinationFolder, const FString& InFilename, ECsvProfilerFlags InFlags)
 		: CommandType(InCommandType)
 		, FrameRequested(InFrameRequested)
 		, Value(InValue)
 		, DestinationFolder(InDestinationFolder)
 		, Filename(InFilename)
-		, bWriteCompletionFile(InbWriteCompletionFile)
+		, Flags(InFlags)
 	{}
 
 	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, TPromise<FString>* InCompletion, TSharedFuture<FString> InFuture)
@@ -156,7 +167,7 @@ struct FCsvCaptureCommand
 	uint32 Value;
 	FString DestinationFolder;
 	FString Filename;
-	bool bWriteCompletionFile;
+	ECsvProfilerFlags Flags;
 	TPromise<FString>* Completion;
 	TSharedFuture<FString> Future;
 };
@@ -218,10 +229,10 @@ public:
 	CORE_API void EndFrame();
 
 	/** Begin Capture */
-	CORE_API void BeginCapture( int InNumFramesToCapture = -1,
+	CORE_API void BeginCapture(int InNumFramesToCapture = -1,
 		const FString& InDestinationFolder = FString(),
 		const FString& InFilename = FString(),
-		bool bInWriteCompletionFile = false);
+		ECsvProfilerFlags InFlags = ECsvProfilerFlags::None);
 
 	/**
 	 * End Capture
@@ -229,9 +240,6 @@ public:
 	 * The returned TFuture can be waited on to retrieve the filename of the csv file that was written to disk.
 	 */
 	CORE_API TSharedFuture<FString> EndCapture(FGraphEventRef EventToSignal = nullptr);
-
-	/** Final cleanup */
-	void Release();
 
 	/** Renderthread begin/end frame */
 	CORE_API void BeginFrameRT();
@@ -247,17 +255,14 @@ private:
 	static CORE_API int32 RegisterCategory(const FString& Name, bool bEnableByDefault, bool bIsGlobal);
 	static int32 GetCategoryIndex(const FString& Name);
 
-	void GetProfilerThreadDataArray(TArray<FCsvProfilerThreadData*>& OutProfilerThreadDataArray);
-	void WriteCaptureToFile();
-	float ProcessStatData();
+	void FinalizeCsvFile();
 
-	const TArray<uint64>& GetTimestampsForThread(uint32 ThreadId) const;
+	float ProcessStatData();
 
 	int32 NumFramesToCapture;
 	int32 CaptureFrameNumber;
 
 	bool bInsertEndFrameAtFrameStart;
-	bool bWriteCompletionFile;
 
 	uint64 LastEndFrameTimestamp;
 	uint32 CaptureEndFrameCount;
@@ -274,6 +279,10 @@ private:
 
 	TMap<FString, FString> MetadataMap;
 	FCriticalSection MetadataCS;
+
+	class FCsvStreamWriter* CsvWriter;
+
+	ECsvProfilerFlags CurrentFlags;
 };
 
 class FScopedCsvStat

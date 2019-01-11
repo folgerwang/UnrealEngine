@@ -615,6 +615,42 @@ public:
 		return true;
 	}
 
+	/**
+	*	Returns true if mesh reduction is active. Active mean there will be a reduction of the vertices or triangle number
+	*/
+	virtual bool IsReductionActive(const FMeshReductionSettings &ReductionSettings) const
+	{
+		float Threshold_One = (1.0f - KINDA_SMALL_NUMBER);
+		float Threshold_Zero = (0.0f + KINDA_SMALL_NUMBER);
+		return ReductionSettings.PercentTriangles < Threshold_One || ReductionSettings.MaxDeviation > Threshold_Zero;
+	}
+
+	virtual bool IsReductionActive(const FSkeletalMeshOptimizationSettings &ReductionSettings) const
+	{
+		float Threshold_One = (1.0f - KINDA_SMALL_NUMBER);
+		float Threshold_Zero = (0.0f + KINDA_SMALL_NUMBER);
+		switch (ReductionSettings.ReductionMethod)
+		{
+			case SkeletalMeshOptimizationType::SMOT_NumOfTriangles:
+			{
+				return ReductionSettings.NumOfTrianglesPercentage < Threshold_One;
+			}
+			break;
+			case SkeletalMeshOptimizationType::SMOT_MaxDeviation:
+			{
+				return ReductionSettings.MaxDeviationPercentage > Threshold_Zero;
+			}
+			break;
+			case SkeletalMeshOptimizationType::SMOT_TriangleOrDeviation:
+			{
+				return ReductionSettings.NumOfTrianglesPercentage < Threshold_One || ReductionSettings.MaxDeviationPercentage > Threshold_Zero;
+			}
+			break;
+		}
+
+		return false;
+	}
+
 	static void Destroy()
 	{
 		if (GSimplygonSDKDLLHandle != nullptr)

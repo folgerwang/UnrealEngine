@@ -459,36 +459,29 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 				const uint32 SrcDepthPitch = Size.Y * SrcRowPitch;
 				const bool bRowByRowCopy = SrcRowPitch != UpdateData.RowPitch
 					|| SrcDepthPitch != UpdateData.DepthPitch;
+				const uint8* SrcData = Texture->VolumeData.CompressedDistanceFieldVolume.GetData();
+				uint32 SrcDataSize = Texture->VolumeData.CompressedDistanceFieldVolume.Num();
 
 				if (bDataIsCompressed)
 				{
-					// Decompress to upload buffer if possible
-					uint8* DstBuff = UpdateData.Data;
-					const int32 UncompressedSize = Size.X * Size.Y * Size.Z * FormatSize;
-					// Cannot decompress directly to upload buffer if row or depth
-					// pitches do not match between source and destination
-					if (bRowByRowCopy)
-					{
-						UncompressedData.Empty(UncompressedSize);
-						UncompressedData.AddUninitialized(UncompressedSize);
-						DstBuff = UncompressedData.GetData();
-					}
+					const int32 UncompressedSize = Size.Z * SrcDepthPitch;
+					UncompressedData.Empty(UncompressedSize);
+					UncompressedData.AddUninitialized(UncompressedSize);
 					verify(FCompression::UncompressMemory(
 						COMPRESS_ZLIB,
-						DstBuff,
+						UncompressedData.GetData(),
 						UncompressedSize,
-						Texture->VolumeData.CompressedDistanceFieldVolume.GetData(),
-						Texture->VolumeData.CompressedDistanceFieldVolume.Num()));
+						SrcData,
+						SrcDataSize));
+					SrcData = UncompressedData.GetData();
+					SrcDataSize = UncompressedSize;
 				}
 
 				if (bRowByRowCopy)
 				{
 					const uint32 NumRows = UpdateData.DepthPitch / UpdateData.RowPitch;
 					uint8* DstSliceData = UpdateData.Data;
-					const uint8* SrcSliceData =
-						bDataIsCompressed ?
-						UncompressedData.GetData() :
-						Texture->VolumeData.CompressedDistanceFieldVolume.GetData();
+					const uint8* SrcSliceData = SrcData;
 					for (uint32 SliceIdx = 0; SliceIdx < UpdateData.UpdateRegion.Depth; ++SliceIdx)
 					{
 						uint8* DstRowData = DstSliceData;
@@ -503,12 +496,9 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 						SrcSliceData += SrcDepthPitch;
 					}
 				}
-				else if (!bDataIsCompressed)
+				else
 				{
-					FMemory::Memcpy(
-						UpdateData.Data,
-						Texture->VolumeData.CompressedDistanceFieldVolume.GetData(),
-						Texture->VolumeData.CompressedDistanceFieldVolume.Num());
+					FMemory::Memcpy(UpdateData.Data, SrcData, SrcDataSize);
 				}
 			},
 				!GDistanceFieldParallelAtlasUpdate);

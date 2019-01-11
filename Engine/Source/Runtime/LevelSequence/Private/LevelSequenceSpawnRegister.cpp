@@ -10,7 +10,7 @@
 
 FLevelSequenceSpawnRegister::FLevelSequenceSpawnRegister()
 {
-	FLevelSequenceModule& LevelSequenceModule = FModuleManager::LoadModuleChecked<FLevelSequenceModule>("LevelSequence");
+	FLevelSequenceModule& LevelSequenceModule = FModuleManager::GetModuleChecked<FLevelSequenceModule>("LevelSequence");
 	LevelSequenceModule.GenerateObjectSpawners(MovieSceneObjectSpawners);
 }
 

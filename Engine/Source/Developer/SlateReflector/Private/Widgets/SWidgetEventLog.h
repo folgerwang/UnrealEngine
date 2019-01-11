@@ -10,6 +10,8 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Debugging/SlateDebugging.h"
 
+#if WITH_SLATE_DEBUGGING
+
 /**
  * 
  */
@@ -30,3 +32,5 @@ private:
 	void OnInputEvent(const FSlateDebuggingInputEventArgs& EventArgs);
 	void OnFocusEvent(const FSlateDebuggingFocusEventArgs& EventArgs);
 };
+
+#endif // WITH_SLATE_DEBUGGING

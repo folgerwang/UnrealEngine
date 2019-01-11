@@ -1,12 +1,16 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditorModule.h"
-#include "PropertyEditorModule.h"
-#include "ControlRigVariableDetailsCustomization.h"
+#include "BlueprintActionDatabaseRegistrar.h"
 #include "BlueprintEditorModule.h"
-#include "Kismet2/KismetEditorUtilities.h"
+#include "BlueprintNodeSpawner.h"
+#include "PropertyEditorModule.h"
 #include "ControlRig.h"
 #include "ControlRigComponent.h"
+#include "ControlRigConnectionDrawingPolicy.h"
+#include "ControlRigVariableDetailsCustomization.h"
+#include "GraphEditorActions.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "ISequencerModule.h"
 #include "ControlRigTrackEditor.h"
 #include "IAssetTools.h"
@@ -46,8 +50,11 @@
 #include "ControlRigBlueprintActions.h"
 #include "Graph/ControlRigGraphSchema.h"
 #include "Graph/ControlRigGraph.h"
+#include "Graph/NodeSpawners/ControlRigPropertyNodeSpawner.h"
+#include "Graph/NodeSpawners/ControlRigUnitNodeSpawner.h"
+#include "Graph/NodeSpawners/ControlRigVariableNodeSpawner.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphNode.h"
 #include "EdGraphUtilities.h"
 #include "ControlRigGraphPanelNodeFactory.h"
 #include "ControlRigGraphPanelPinFactory.h"
@@ -715,6 +722,175 @@ void FControlRigEditorModule::RegisterRigUnitEditorClass(FName RigUnitClassName,
 void FControlRigEditorModule::UnregisterRigUnitEditorClass(FName RigUnitClassName)
 {
 	RigUnitEditorClasses.Remove(RigUnitClassName);
+}
+
+void FControlRigEditorModule::GetTypeActions(const UControlRigBlueprint* CRB, FBlueprintActionDatabaseRegistrar& ActionRegistrar)
+{
+	// actions get registered under specific object-keys; the idea is that 
+	// actions might have to be updated (or deleted) if their object-key is  
+	// mutated (or removed)... here we use the class (so if the class 
+	// type disappears, then the action should go with it)
+	UClass* ActionKey = CRB->GetClass();
+	// to keep from needlessly instantiating a UBlueprintNodeSpawner, first   
+	// check to make sure that the registrar is looking for actions of this type
+	// (could be regenerating actions for a specific asset, and therefore the 
+	// registrar would only accept actions corresponding to that asset)
+	if (!ActionRegistrar.IsOpenForRegistration(ActionKey))
+	{
+		return;
+	}
+
+	// Add all rig units
+	FControlRigBlueprintUtils::ForAllRigUnits([&](UStruct* InStruct)
+	{
+		FText NodeCategory = FText::FromString(InStruct->GetMetaData(TEXT("Category")));
+		FText MenuDesc = FText::FromString(InStruct->GetMetaData(TEXT("DisplayName")));
+		FText ToolTip = InStruct->GetToolTipText();
+
+		UBlueprintNodeSpawner* NodeSpawner = UControlRigUnitNodeSpawner::CreateFromStruct(InStruct, MenuDesc, NodeCategory, ToolTip);
+		check(NodeSpawner != nullptr);
+		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
+	});
+
+	// Add 'new properties'
+	TArray<TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>> PinTypes;
+	GetDefault<UEdGraphSchema_K2>()->GetVariableTypeTree(PinTypes, ETypeTreeFilter::None);
+
+	struct Local
+	{
+		static void AddVariableActions_Recursive(UClass* InActionKey, FBlueprintActionDatabaseRegistrar& InActionRegistrar, const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& InPinTypeTreeItem, const FString& InCurrentCategory)
+		{
+			static const FString CategoryDelimiter(TEXT("|"));
+
+			if (InPinTypeTreeItem->Children.Num() == 0)
+			{
+				FText NodeCategory = FText::FromString(InCurrentCategory);
+				FText MenuDesc = InPinTypeTreeItem->GetDescription();
+				FText ToolTip = InPinTypeTreeItem->GetToolTip();
+
+				UBlueprintNodeSpawner* NodeSpawner = UControlRigVariableNodeSpawner::CreateFromPinType(InPinTypeTreeItem->GetPinType(false), MenuDesc, NodeCategory, ToolTip);
+				check(NodeSpawner != nullptr);
+				InActionRegistrar.AddBlueprintAction(InActionKey, NodeSpawner);
+			}
+			else
+			{
+				FString CurrentCategory = InCurrentCategory + CategoryDelimiter + InPinTypeTreeItem->FriendlyName.ToString();
+
+				for (const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& ChildTreeItem : InPinTypeTreeItem->Children)
+				{
+					AddVariableActions_Recursive(InActionKey, InActionRegistrar, ChildTreeItem, CurrentCategory);
+				}
+			}
+		}
+	};
+
+	FString CurrentCategory = LOCTEXT("NewVariable", "New Variable").ToString();
+	for (const TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& PinTypeTreeItem : PinTypes)
+	{
+		Local::AddVariableActions_Recursive(ActionKey, ActionRegistrar, PinTypeTreeItem, CurrentCategory);
+	}
+}
+
+void FControlRigEditorModule::GetInstanceActions(const UControlRigBlueprint* CRB, FBlueprintActionDatabaseRegistrar& ActionRegistrar)
+{
+	// actions get registered under specific object-keys; the idea is that 
+	// actions might have to be updated (or deleted) if their object-key is  
+	// mutated (or removed)... here we use the generated class (so if the class 
+	// type disappears, then the action should go with it)
+	UClass* ActionKey = CRB->GeneratedClass;
+	// to keep from needlessly instantiating a UBlueprintNodeSpawner, first   
+	// check to make sure that the registrar is looking for actions of this type
+	// (could be regenerating actions for a specific asset, and therefore the 
+	// registrar would only accept actions corresponding to that asset)
+	if (!ActionRegistrar.IsOpenForRegistration(ActionKey))
+	{
+		return;
+	}
+
+	for (TFieldIterator<UProperty> PropertyIt(ActionKey, EFieldIteratorFlags::ExcludeSuper); PropertyIt; ++PropertyIt)
+	{
+		UBlueprintNodeSpawner* NodeSpawner = UControlRigPropertyNodeSpawner::CreateFromProperty(UControlRigGraphNode::StaticClass(), *PropertyIt);
+		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
+	}
+}
+
+FConnectionDrawingPolicy* FControlRigEditorModule::CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj)
+{
+	return new FControlRigConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements, InGraphObj);
+}
+
+void FControlRigEditorModule::GetContextMenuActions(const UControlRigGraphNode* Node, const FGraphNodeContextMenuBuilder& Context )
+{
+	if(Context.MenuBuilder != nullptr)
+	{
+		if(Context.Pin != nullptr)
+		{
+			// Add array operations for array pins
+			if(Context.Pin->PinType.IsArray())
+			{
+				// End the section as this function is called with a section 'open'
+				Context.MenuBuilder->EndSection();
+
+				Context.MenuBuilder->BeginSection(TEXT("ArrayOperations"), LOCTEXT("ArrayOperations", "Array Operations"));
+
+				// Array operations
+				Context.MenuBuilder->AddMenuEntry(
+					LOCTEXT("ClearArray", "Clear"),
+					LOCTEXT("ClearArray_Tooltip", "Clear this array of all of its entries"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateUObject(Node, &UControlRigGraphNode::HandleClearArray, Context.Pin->PinName.ToString())));
+
+				Context.MenuBuilder->EndSection();
+			}
+			else if(Context.Pin->ParentPin != nullptr && Context.Pin->ParentPin->PinType.IsArray())
+			{
+				// End the section as this function is called with a section 'open'
+				Context.MenuBuilder->EndSection();
+
+				Context.MenuBuilder->BeginSection(TEXT("ArrayElementOperations"), LOCTEXT("ArrayElementOperations", "Array Element Operations"));
+
+				// Array element operations
+				Context.MenuBuilder->AddMenuEntry(
+					LOCTEXT("RemoveArrayElement", "Remove"),
+					LOCTEXT("RemoveArrayElement_Tooltip", "Remove this array element"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateUObject(Node, &UControlRigGraphNode::HandleRemoveArrayElement, Context.Pin->PinName.ToString())));
+
+				Context.MenuBuilder->AddMenuEntry(
+					LOCTEXT("InsertArrayElement", "Insert"),
+					LOCTEXT("InsertArrayElement_Tooltip", "Insert an array element after this one"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateUObject(Node, &UControlRigGraphNode::HandleInsertArrayElement, Context.Pin->PinName.ToString())));
+
+				Context.MenuBuilder->EndSection();
+			}
+		}
+	}
+}
+
+void FControlRigEditorModule::GetContextMenuActions(const UControlRigGraphSchema* Schema, const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, FMenuBuilder* MenuBuilder, bool bIsDebugging)
+{
+	if(MenuBuilder)
+	{
+		MenuBuilder->BeginSection("ContextMenu");
+
+		Schema->UEdGraphSchema::GetContextMenuActions(CurrentGraph, InGraphNode, InGraphPin, MenuBuilder, bIsDebugging);
+
+		MenuBuilder->EndSection();
+
+		if (InGraphPin != NULL)
+		{
+			MenuBuilder->BeginSection("EdGraphSchemaPinActions", LOCTEXT("PinActionsMenuHeader", "Pin Actions"));
+			{
+				// Break pin links
+				if (InGraphPin->LinkedTo.Num() > 0)
+				{
+					MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().BreakPinLinks );
+				}
+			}
+			MenuBuilder->EndSection();
+		}
+	}
 }
 
 // It's CDO of the class, so we don't want the object to be writable or even if you write, it won't be per instance

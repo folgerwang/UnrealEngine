@@ -1432,7 +1432,7 @@ void FPersonaMeshDetails::RegenerateOneLOD(int32 LODIndex)
 		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
 		if (LODIndex == CurrentLODInfo.ReductionSettings.BaseLOD
 			&& CurrentLODInfo.bHasBeenSimplified
-			&& !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+			&& !SkelMesh->IsReductionActive(LODIndex)
 			&& SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(LODIndex)
 			&& !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[LODIndex]->IsEmpty())
 		{
@@ -1487,7 +1487,8 @@ FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 	if (SkelMesh->IsValidLODIndex(LODIndex))
 	{
 		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
-		if (CurrentLODInfo.bHasBeenSimplified == false && (LODIndex > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
+		bool bIsReductionActive = SkelMesh->IsReductionActive(LODIndex);
+		if (CurrentLODInfo.bHasBeenSimplified == false && (LODIndex > 0 || bIsReductionActive))
 		{
 			if (LODIndex > 0)
 			{
@@ -1498,7 +1499,7 @@ FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 					return FReply::Handled();
 				}
 			}
-			else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+			else if (bIsReductionActive)
 			{
 				//Ask user a special permission when the base LOD can be reduce 
 				const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
@@ -1610,13 +1611,14 @@ void FPersonaMeshDetails::ApplyChanges()
 		for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
 		{
 			FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIdx));
-			if (CurrentLODInfo.bHasBeenSimplified == false && (LODIdx > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
+			bool bIsReductionActive = SkelMesh->IsReductionActive(LODIdx);
+			if (CurrentLODInfo.bHasBeenSimplified == false && (LODIdx > 0 || bIsReductionActive))
 			{
 				if (LODIdx > 0)
 				{
 					bImportedLODs = true;
 				}
-				else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+				else if (bIsReductionActive)
 				{
 					//Ask user a special permission when the base LOD can be reduce 
 					const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
@@ -1630,7 +1632,7 @@ void FPersonaMeshDetails::ApplyChanges()
 			}
 			else if(LODIdx == CurrentLODInfo.ReductionSettings.BaseLOD
 				    && CurrentLODInfo.bHasBeenSimplified
-				    && !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+				    && !bIsReductionActive
 				    && SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(0)
 				    && !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[0]->IsEmpty())
 			{

@@ -1,10 +1,14 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Generation/DataScanner.h"
+
 #include "HAL/ThreadSafeBool.h"
 #include "Async/Future.h"
 #include "Async/Async.h"
+
+#include "Core/ProcessTimer.h"
 #include "Data/ChunkData.h"
+#include "Generation/CloudEnumeration.h"
 #include "BuildPatchHash.h"
 
 namespace BuildPatchServices
@@ -13,12 +17,15 @@ namespace BuildPatchServices
 		: public IDataScanner
 	{
 	public:
-		FDataScanner(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector);
+		FDataScanner(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumeration* CloudEnumeration, FStatsCollector* StatsCollector);
 		virtual ~FDataScanner();
 
 		virtual bool IsComplete() override;
 		virtual TArray<FChunkMatch> GetResultWhenComplete() override;
 
+		virtual double GetTimeRunning() override;
+		virtual bool SupportsFork() override;
+		virtual FBlockRange Fork() override;
 	private:
 		uint32 ConsumeData(FRollingHash& RollingHash, const uint8* Data, uint32 DataLen);
 		bool FindChunkDataMatch(const TMap<uint64, TSet<FGuid>>& ChunkInventory, const TMap<FGuid, FSHAHash>& ChunkShaHashes, FRollingHash& RollingHash, FGuid& ChunkMatch, FSHAHash& ChunkSha);
@@ -26,14 +33,14 @@ namespace BuildPatchServices
 		TArray<FChunkMatch> ScanData();
 
 	private:
-		const bool bAllowSkipMatches;
 		const TArray<uint32>& ChunkWindowSizes;
 		const TArray<uint8>& Data;
-		ICloudEnumerationRef CloudEnumeration;
-		FStatsCollectorRef StatsCollector;
+		const ICloudEnumeration* CloudEnumeration;
+		FStatsCollector* StatsCollector;
 		FThreadSafeBool bIsComplete;
 		FThreadSafeBool bShouldAbort;
 		TFuture<TArray<FChunkMatch>> FutureResult;
+		FProcessTimer ScanTimer;
 		volatile FStatsCollector::FAtomicValue* StatCreatedScanners;
 		volatile FStatsCollector::FAtomicValue* StatRunningScanners;
 		volatile FStatsCollector::FAtomicValue* StatCompleteScanners;
@@ -49,9 +56,8 @@ namespace BuildPatchServices
 		static FThreadSafeCounter NumRunningScanners;
 	};
 
-	FDataScanner::FDataScanner(const TArray<uint32>& InChunkWindowSizes, const TArray<uint8>& InData, const ICloudEnumerationRef& InCloudEnumeration, const FStatsCollectorRef& InStatsCollector)
-		: bAllowSkipMatches(true)
-		, ChunkWindowSizes(InChunkWindowSizes)
+	FDataScanner::FDataScanner(const TArray<uint32>& InChunkWindowSizes, const TArray<uint8>& InData, const ICloudEnumeration* InCloudEnumeration, FStatsCollector* InStatsCollector)
+		: ChunkWindowSizes(InChunkWindowSizes)
 		, Data(InData)
 		, CloudEnumeration(InCloudEnumeration)
 		, StatsCollector(InStatsCollector)
@@ -97,6 +103,25 @@ namespace BuildPatchServices
 	TArray<FChunkMatch> FDataScanner::GetResultWhenComplete()
 	{
 		return FutureResult.Get();
+	}
+
+	double FDataScanner::GetTimeRunning()
+	{
+		return ScanTimer.GetSeconds();
+	}
+
+	bool FDataScanner::SupportsFork()
+	{
+		// Standard chunking fork is not yet implemented.
+		// Currently it's not simple to fork from multiple window size scenario.
+		// May need to reconsider having a scanner per window size instead of scanners doing all window sizes.
+		return false;
+	}
+
+	FBlockRange FDataScanner::Fork()
+	{
+		check(false);
+		return FBlockRange::FromFirstAndSize(0, 0);
 	}
 
 	uint32 FDataScanner::ConsumeData(FRollingHash& RollingHash, const uint8* DataPtr, uint32 DataLen)
@@ -157,7 +182,7 @@ namespace BuildPatchServices
 			// Can be inserted before?
 			if(DataFirst < ThisMatchFirst)
 			{
-				// Obv insert if we fit entirely before ThisMatch..
+				// We insert if we fit entirely before ThisMatch.
 				const bool bFitsInGap = DataLast < ThisMatchFirst;
 				if (bFitsInGap)
 				{
@@ -167,17 +192,17 @@ namespace BuildPatchServices
 				}
 				return SearchIdx;
 			}
-			// No shits given based on assumptions...
+			// We don't accept perfect overlaps.
 			else if (DataFirst == ThisMatchFirst)
 			{
 				return Idx;
 			}
-			// No shits given based on assumptions...
+			// If last is less or equal here the chunk is smaller.
 			else if (DataLast <= ThisMatchLast)
 			{
 				return Idx;
 			}
-			// Otherwise may go after..
+			// Otherwise continue search..
 		}
 
 		// If we did nothing in the loop, we add to end!
@@ -198,6 +223,7 @@ namespace BuildPatchServices
 		const TMap<uint64, TSet<FGuid>>& ChunkInventory = CloudEnumeration->GetChunkInventory();
 		const TMap<FGuid, FSHAHash>& ChunkShaHashes = CloudEnumeration->GetChunkShaHashes();
 
+		ScanTimer.Start();
 		for (const uint32 WindowSize : ChunkWindowSizes)
 		{
 			FRollingHash RollingHash(WindowSize);
@@ -229,7 +255,7 @@ namespace BuildPatchServices
 						TempMatchIdx = InsertMatch(DataScanResult, TempMatchIdx, DataStart, ChunkMatch, WindowSize);
 					}
 					// We can start skipping over the chunk that we matched if we have no overlap potential, i.e. we know this match will not be rejected.
-					if (bAllowSkipMatches && bFoundChunkMatch && !bChunkOverlap)
+					if (bFoundChunkMatch && !bChunkOverlap)
 					{
 						RollingHash.Clear();
 						const bool bHasEnoughData = (NextByte + WindowSize - 1) < static_cast<uint32>(Data.Num());
@@ -264,6 +290,7 @@ namespace BuildPatchServices
 				FStatsCollector::Set(StatProcessingSpeed, *StatTotalData / FStatsCollector::CyclesToSeconds(ParallelScopeTimer.GetCurrentTime()));
 			}
 		}
+		ScanTimer.Stop();
 
 		// Count running scanners.
 		NumRunningScanners.Decrement();
@@ -285,8 +312,28 @@ namespace BuildPatchServices
 		return FDataScanner::NumRunningScanners.GetValue();
 	}
 
-	IDataScannerRef FDataScannerFactory::Create(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
+	void FDataScannerCounter::IncrementIncomplete()
 	{
-		return MakeShareable(new FDataScanner(ChunkWindowSizes, Data, CloudEnumeration, StatsCollector));
+		FDataScanner::NumIncompleteScanners.Increment();
+	}
+
+	void FDataScannerCounter::DecrementIncomplete()
+	{
+		FDataScanner::NumIncompleteScanners.Decrement();
+	}
+
+	void FDataScannerCounter::IncrementRunning()
+	{
+		FDataScanner::NumRunningScanners.Increment();
+	}
+
+	void FDataScannerCounter::DecrementRunning()
+	{
+		FDataScanner::NumRunningScanners.Decrement();
+	}
+
+	IDataScanner* FDataScannerFactory::Create(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumeration* CloudEnumeration, FStatsCollector* StatsCollector)
+	{
+		return new FDataScanner(ChunkWindowSizes, Data, CloudEnumeration, StatsCollector);
 	}
 }

@@ -6,6 +6,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Mac/CocoaThread.h"
+#include "HAL/ExceptionHandling.h"
 
 FMacErrorOutputDevice::FMacErrorOutputDevice()
 :	ErrorPos(0)
@@ -46,7 +47,7 @@ void FMacErrorOutputDevice::Serialize( const TCHAR* Msg, ELogVerbosity::Type Ver
 #if PLATFORM_EXCEPTIONS_DISABLED
 		UE_DEBUG_BREAK();
 #endif
-		FPlatformMisc::RaiseException( 1 );
+		ReportAssert(Msg, 0);
 	}
 	else
 	{

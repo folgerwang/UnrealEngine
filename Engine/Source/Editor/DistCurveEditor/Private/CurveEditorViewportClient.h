@@ -72,7 +72,7 @@ private:
 
 	/** Helper methods */
 	FIntPoint CalcScreenPos(const FVector2D& Val);
-	FVector2D CalcValuePoint(const FIntPoint& Pos);
+	FVector2D CalcValuePoint(const FVector2D& Pos);
 	FColor GetLineColor(FCurveEdInterface* EdInterface, float InVal, bool bFloatingPointColor);
 	FVector2D CalcTangentDir(float Tangent);
 	float CalcTangent(const FVector2D& HandleDelta);

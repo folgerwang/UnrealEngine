@@ -228,6 +228,7 @@ public:
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+	static FString GetGamepadControllerName(int32 ControllerId);
 
 	static void JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue);
 	static void JoystickButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
@@ -249,7 +250,9 @@ public:
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
 	virtual void ResetLightColor(int32 ControllerId) override {}
 
+	void SetGamepadsAllowed(bool bAllowed) { bAllowControllers = bAllowed; }
 	virtual bool IsGamepadAttached() const;
+
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 

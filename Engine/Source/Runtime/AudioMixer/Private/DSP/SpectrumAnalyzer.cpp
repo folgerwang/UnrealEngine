@@ -283,11 +283,11 @@ namespace Audio
 			Window.ApplyToBuffer(TimeDomainBuffer);
 
 			// Perform FFT.
-			FFTInputParams InputParams;
-			InputParams.InBuffer = TimeDomainBuffer;
+			FFTTimeDomainData InputParams;
+			InputParams.Buffer = TimeDomainBuffer;
 			InputParams.NumSamples = FFTSize;
 
-			FFTOutputParams OutputParams;
+			FFTFreqDomainData OutputParams;
 			OutputParams.OutReal = OutputVector->RealFrequencies.GetData();
 			OutputParams.OutImag = OutputVector->ImagFrequencies.GetData();
 

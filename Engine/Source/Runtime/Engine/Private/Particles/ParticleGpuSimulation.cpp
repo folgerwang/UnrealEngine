@@ -74,8 +74,6 @@ FAutoConsoleVariableRef CVarParticleSimulationSizeY(
 	ECVF_ReadOnly
 );
 
-
-
 /** The tile size. Texture space is allocated in TileSize x TileSize units. */
 const int32 GParticleSimulationTileSize = 4;
 const int32 GParticlesPerTile = GParticleSimulationTileSize * GParticleSimulationTileSize;
@@ -1658,17 +1656,18 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
 		// Copy new particles in to the vertex buffer.
 		const int32 TilesThisDrawCall = FMath::Min<int32>( TileCount, MaxTilesPerDrawCall );
 		const uint32* TilesPtr = Tiles.GetData() + FirstTile;
-		VertexShader->SetParameters(RHICmdList, ShaderParam);
-		
+				
 		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 		{
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, TilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawParticleTiles(RHICmdList, BufferParam, TilesThisDrawCall);
 		}
 		else
 		{
 			const int32 AlignedTilesThisDrawCall = ComputeAlignedTileCount(TilesThisDrawCall);
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, AlignedTilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawAlignedParticleTiles(RHICmdList, AlignedTilesThisDrawCall);
 		}
 		
@@ -4775,26 +4774,38 @@ void FFXSystem::SimulateGPUParticles(
 	}
 
 	// Gather simulation commands from all active simulations.
-	static TArray<FSimulationCommandGPU> SimulationCommands;
-	static TArray<uint32> TilesToClear;
-	static TArray<FNewParticle> NewParticles;
+	TArray<FSimulationCommandGPU> SimulationCommands;
+	TArray<uint32> TilesToClear;
+	TArray<FNewParticle> NewParticles;
 
-	// One-time register delegate with Trim() so the data above can be freed on demand
-	static FDelegateHandle Clear = FCoreDelegates::GetMemoryTrimDelegate().AddLambda([]()
+	// Compute slack to prevent reallocation of potentially big arrays
 	{
-		SimulationCommands.Empty();
-		TilesToClear.Empty();
-		NewParticles.Empty();
-	});
+		int32 SimulationCommandsCount = 0;
+		int32 TitlestoClearCount = 0;
+		int32 NewParticlesCount = 0;
+		for (TSparseArray<FParticleSimulationGPU*>::TIterator It(GPUSimulations); It; ++It)
+		{
+			FParticleSimulationGPU* Simulation = *It;
+			check(Simulation);
+			if (Simulation->SimulationPhase == Phase && Simulation->TileVertexBuffer.TileCount > 0 && Simulation->bEnabled)
+			{
+				SimulationCommandsCount += 1;
+				TitlestoClearCount += Simulation->TilesToClear.Num();
+				NewParticlesCount += Simulation->NewParticles.Num();
+			}
+		}
+		SimulationCommands.Empty(SimulationCommandsCount);
+		TilesToClear.Empty(TitlestoClearCount);
+		NewParticles.Empty(NewParticlesCount);
+	}
 
 	for (TSparseArray<FParticleSimulationGPU*>::TIterator It(GPUSimulations); It; ++It)
 	{
 		//SCOPE_CYCLE_COUNTER(STAT_GPUParticleBuildSimCmdsTime);
 
 		FParticleSimulationGPU* Simulation = *It;
-		if (Simulation->SimulationPhase == Phase
-			&& Simulation->TileVertexBuffer.TileCount > 0
-			&& Simulation->bEnabled)
+		check(Simulation);
+		if (Simulation->SimulationPhase == Phase && Simulation->TileVertexBuffer.TileCount > 0 && Simulation->bEnabled)
 		{
 			FSimulationCommandGPU* SimulationCommand = new(SimulationCommands) FSimulationCommandGPU(
 				Simulation->TileVertexBuffer.GetShaderParam(),
@@ -5041,10 +5052,6 @@ void FFXSystem::SimulateGPUParticles(
 		}
 		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, VisualizeStateRHIs, 2);		
 	}
-
-	SimulationCommands.Reset();
-	TilesToClear.Reset();
-	NewParticles.Reset();
 
 	// Stats.
 	if (Phase == GetLastParticleSimulationPhase(GetShaderPlatform()))

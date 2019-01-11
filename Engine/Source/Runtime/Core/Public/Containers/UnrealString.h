@@ -1830,6 +1830,11 @@ public:
 
 		return Result;
 	}
+
+	FORCEINLINE void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
+	}
 };
 
 template<>

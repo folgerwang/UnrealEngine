@@ -197,6 +197,11 @@ public:
 		Data.AddUninitialized(SizeBytes);
 		FMemory::Memcpy(Data.GetData(), InData, SizeBytes);
 	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
+	}
 };
 #endif
 
@@ -547,7 +552,7 @@ public:
 	TMap<FNetworkGUID, TArray<class UActorChannel*>> KeepProcessingActorChannelBunchesMap;
 
 	/** A list of replicators that belong to recently dormant actors/objects */
-	TMap< TWeakObjectPtr< UObject >, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
+	TMap< UObject*, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
 
 	
 
@@ -563,7 +568,7 @@ public:
 	TSet<FName> ClientVisibleLevelNames;
 
 	/** Called by PlayerController to tell connection about client level visiblity change */
-	void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
+	ENGINE_API void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
 
 #if DO_ENABLE_NET_TEST
 	// For development.
@@ -1161,5 +1166,8 @@ public:
 	void HandleClientPlayer( APlayerController* PC, UNetConnection* NetConnection ) override;
 	virtual FString LowLevelGetRemoteAddress(bool bAppendPort=false) override { return FString(); }
 	virtual bool ClientHasInitializedLevelFor(const AActor* TestActor) const { return true; }
+
+
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override { return TSharedPtr<FInternetAddr>(); }
 };
 

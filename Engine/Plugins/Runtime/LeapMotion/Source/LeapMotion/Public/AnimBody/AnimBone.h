@@ -30,11 +30,11 @@ class UAnimBone : public UObject
 
 	//Optional vector of the next joint (outward)
 	UPROPERTY(BlueprintReadWrite, Category = "Anim Bone")
-		FVector NextJoint;
+	FVector NextJoint;
 
 	//Optional vector of the previous joint (inward)
 	UPROPERTY(BlueprintReadWrite, Category = "Anim Bone")
-		FVector PrevJoint;
+	FVector PrevJoint;
 
 	UFUNCTION(BlueprintCallable, Category = "Anim Bone")
 	bool Enabled();

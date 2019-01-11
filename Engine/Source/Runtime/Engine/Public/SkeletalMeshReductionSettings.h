@@ -53,10 +53,6 @@ struct FSkeletalMeshOptimizationSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-#if WITH_EDITOR
-	ENGINE_API bool IsReductionSettingActive();
-#endif
-
 	/** The method to use when optimizing the skeletal mesh LOD */
 	UPROPERTY(EditAnywhere, Category = ReductionMethod)
 	TEnumAsByte<enum SkeletalMeshTerminationCriterion> TerminationCriterion;

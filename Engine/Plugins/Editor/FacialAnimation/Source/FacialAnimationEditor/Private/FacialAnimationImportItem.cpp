@@ -4,7 +4,7 @@
 #include "FacialAnimationBulkImporterSettings.h"
 #include "Factories/SoundFactory.h"
 #include "Sound/SoundWave.h"
-#include "Curves/RichCurve.h"
+#include "Curves/SimpleCurve.h"
 #include "Engine/CurveTable.h"
 #include "FbxAnimUtils.h"
 #include "DesktopPlatformModule.h"
@@ -89,8 +89,8 @@ bool FFacialAnimationImportItem::ImportCurvesEmbeddedInSoundWave()
 		if (FbxAnimUtils::ImportCurveTableFromNode(FbxFile, GetDefault<UFacialAnimationBulkImporterSettings>()->CurveNodeName, NewCurveTable, PreRollTime))
 		{
 			// we will need to add a curve to tell us the time we want to start playing audio
-			FRichCurve* AudioCurve = NewCurveTable->RowMap.Add(TEXT("Audio"), new FRichCurve());
-			AudioCurve->AddKey(PreRollTime, 1.0f);
+			FSimpleCurve& AudioCurve = NewCurveTable->AddSimpleCurve(TEXT("Audio"));
+			AudioCurve.AddKey(PreRollTime, 1.0f);
 
 			return true;
 		}

@@ -9,8 +9,9 @@
 #include "Containers/StringConv.h"
 #include "CoreGlobals.h"
 
-FApplePlatformCrashContext::FApplePlatformCrashContext()
-:	Signal(0)
+FApplePlatformCrashContext::FApplePlatformCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+:	FGenericCrashContext(InType, InErrorMessage)
+,	Signal(0)
 ,	Info(NULL)
 ,	Context(NULL)
 ,	IgnoreDepth(6)

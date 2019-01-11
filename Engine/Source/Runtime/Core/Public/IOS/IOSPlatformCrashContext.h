@@ -6,6 +6,9 @@
 
 struct CORE_API FIOSCrashContext : public FApplePlatformCrashContext
 {
+	/** Constructor */
+	FIOSCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage);
+
 	/** Copies the PLCrashReporter minidump */
 	void CopyMinidump(char const* OutputPath, char const* InputPath) const;
 

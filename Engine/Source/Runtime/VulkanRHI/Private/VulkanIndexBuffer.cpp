@@ -111,6 +111,7 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 			}
 
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 
@@ -169,6 +170,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			Device->GetImmediateContext().GetTempFrameAllocationBuffer().Alloc(Size + Offset, 256, VolatileLockInfo);
 			Data = VolatileLockInfo.Data;
 			++VolatileLockInfo.LockCounter;
+			Current.BufferAllocation = VolatileLockInfo.GetBufferAllocation();
 			Current.Handle = VolatileLockInfo.GetHandle();
 			Current.Offset = VolatileLockInfo.GetBindOffset();
 		}
@@ -186,6 +188,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			check(LockMode == RLM_WriteOnly);
 			DynamicBufferIndex = (DynamicBufferIndex + 1) % NumBuffers;
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 
@@ -347,16 +350,10 @@ void* FVulkanDynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferR
 	return IndexBuffer->Lock(false, LockMode, Size, Offset);
 }
 
-#if 0
-FIndexBufferRHIRef FVulkanDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
-{
-	return new FVulkanIndexBuffer(Device, Stride, Size, InUsage, CreateInfo, &RHICmdList);
-}
-
+#if VULKAN_BUFFER_LOCK_THREADSAFE
 void* FVulkanDynamicRHI::LockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBufferRHI, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
 {
-	FVulkanIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	return IndexBuffer->Lock(true, LockMode, SizeRHI, Offset);
+	return this->RHILockIndexBuffer(IndexBufferRHI, Offset, SizeRHI, LockMode);
 }
 #endif
 
@@ -366,10 +363,9 @@ void FVulkanDynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer
 	IndexBuffer->Unlock(false);
 }
 
-#if 0
+#if VULKAN_BUFFER_LOCK_THREADSAFE
 void FVulkanDynamicRHI::UnlockIndexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBufferRHI)
 {
-	FVulkanIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	IndexBuffer->Unlock(true);
+	this->RHIUnlockIndexBuffer(IndexBufferRHI);
 }
 #endif

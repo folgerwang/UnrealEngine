@@ -2038,15 +2038,19 @@ void UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticle
 	}
 }
 
-bool UParticleModuleLocationBoneSocket::GetSocketInfoForSourceIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, int32 SourceIndex, USkeletalMeshSocket*& OutSocket, FVector& OutOffset)const
+bool UParticleModuleLocationBoneSocket::GetSocketInfoForSourceIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, int32 SourceIndex, USkeletalMeshSocket*& OutSocket, FVector& OutOffset) const
 {
-	check(SourceType == BONESOCKETSOURCE_Sockets);
-
+	if (!ensure(SourceType == BONESOCKETSOURCE_Sockets) ||
+		!ensure(SourceComponent && SourceComponent->SkeletalMesh))
+	{
+		return false;
+	}
+	
 	switch (SourceIndexMode)
 	{
 		case EBoneSocketSourceIndexMode::SourceLocations:
 		{
-			if (ensureMsgf(SourceIndex < SourceLocations.Num(), TEXT("Invalid index of %s for %s"), SourceIndex, *GetPathName()))
+			if (ensureMsgf(SourceLocations.IsValidIndex(SourceIndex), TEXT("Invalid index of %s for %s"), SourceIndex, *GetPathName()))
 			{
 				OutSocket = SourceComponent->SkeletalMesh->FindSocket(SourceLocations[SourceIndex].BoneSocketName);
 				OutOffset = SourceLocations[SourceIndex].Offset + UniversalOffset;
@@ -2059,8 +2063,17 @@ bool UParticleModuleLocationBoneSocket::GetSocketInfoForSourceIndex(FModuleLocat
 		break;
 		case EBoneSocketSourceIndexMode::PreSelectedIndices:
 		{
-			OutSocket = SourceComponent->SkeletalMesh->GetSocketByIndex(InstancePayload->PreSelectedBoneSocketIndices[SourceIndex]);
-			OutOffset = UniversalOffset;
+			if (ensureMsgf(InstancePayload, TEXT("Invalid instance payload parameter on GetSocketInfoForSourceIndex for %s"), SourceIndex, *GetPathName()) &&
+				ensureMsgf(SourceIndex >= 0 && SourceIndex < InstancePayload->PreSelectedBoneSocketIndices.Num(), TEXT("Invalid index of %s for %s"), SourceIndex, *GetPathName()))
+			{
+				OutSocket = SourceComponent->SkeletalMesh->GetSocketByIndex(InstancePayload->PreSelectedBoneSocketIndices[SourceIndex]);
+				OutOffset = UniversalOffset;
+			} 
+			else
+			{
+				return false;
+			}
+			
 		}
 		break;
 		case EBoneSocketSourceIndexMode::Direct:

@@ -276,7 +276,7 @@ class Localise : BuildCommand
 		{
 			EditorArguments += " -BuildMachine";
 		}
-		EditorArguments += " -Unattended";
+		EditorArguments += " -Unattended -LogLocalizationConflicts";
 
 		// Execute commandlet for each config in each project.
 		bool bLocCommandletFailed = false;

@@ -120,6 +120,11 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = AssetUserData)
 	TArray<UAssetUserData*> AssetUserData;
 
+private:
+	/** Used for fast removal of end of frame update */
+	int32 MarkedForEndOfFrameUpdateArrayIndex;
+
+protected:
 	/** 
 	 *  Indicates if this ActorComponent is currently registered with a scene. 
 	 */

@@ -38,7 +38,7 @@
 #define USE_SLERP 0
 #define LOCTEXT_NAMESPACE "AnimSequence"
 
-CSV_DEFINE_CATEGORY(Animation, true);
+CSV_DEFINE_CATEGORY(Animation, (!UE_BUILD_SHIPPING));
 
 DECLARE_CYCLE_STAT(TEXT("AnimSeq GetBonePose"), STAT_AnimSeq_GetBonePose, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("Build Anim Track Pairs"), STAT_BuildAnimTrackPairs, STATGROUP_Anim);
@@ -246,6 +246,7 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	ImportFileFramerate = 0.0f;
 	ImportResampleFramerate = 0;
+	bAllowFrameStripping = true;
 #endif
 }
 
@@ -2448,8 +2449,10 @@ void UAnimSequence::RequestAnimCompression(FRequestAnimCompressionParams Params)
 	}
 	else
 	{
+		const bool bPerformFrameStripping = Params.bPerformFrameStripping && bAllowFrameStripping;
+
 		TArray<uint8> OutData;
-		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, Params.CompressContext, bDoCompressionInPlace, Params.bPerformFrameStripping);
+		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, Params.CompressContext, bDoCompressionInPlace, bPerformFrameStripping);
 		// For debugging DDC/Compression issues		
 		const bool bSkipDDC = false;
 		if (bSkipDDC || (CompressCommandletVersion == INDEX_NONE))

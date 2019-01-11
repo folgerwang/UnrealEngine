@@ -93,6 +93,12 @@ namespace BuildPatchServices
 			return true;
 		}
 
+		virtual bool GetTimeStamp(const TCHAR* Path, FDateTime& TimeStamp) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::CopyFile");
+			return false;
+		}
+
 		virtual bool SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const override
 		{
 			RxSetReadOnly.Emplace(FStatsCollector::GetSeconds(), Filename, bIsReadOnly);
@@ -115,6 +121,18 @@ namespace BuildPatchServices
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::FileExists");
 			return true;
+		}
+
+		virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::FindFiles");
+			return;
+		}
+
+		virtual void FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::FindFilesRecursively");
+			return;
 		}
 
 	public:

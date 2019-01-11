@@ -42,4 +42,6 @@ void FMorphTargetVertexInfoBuffers::ReleaseRHI()
 	VertexIndicesSRV.SafeRelease();
 	MorphDeltasVB.SafeRelease();
 	MorphDeltasSRV.SafeRelease();
+	MorphPermutationsVB.SafeRelease();
+	MorphPermutationsSRV.SafeRelease();
 }

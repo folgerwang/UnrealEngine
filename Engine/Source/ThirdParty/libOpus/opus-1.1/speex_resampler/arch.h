@@ -76,7 +76,9 @@
 
 #endif
 
-#ifndef OUTSIDE_SPEEX
+#ifdef DEFINED_SPEEX_TYPES
+#include "speex_types.h"
+#elif !defined(OUTSIDE_SPEEX)
 #include "../include/speex/speex_types.h"
 #endif
 

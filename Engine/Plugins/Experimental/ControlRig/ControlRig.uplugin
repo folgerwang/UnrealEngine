@@ -22,6 +22,11 @@
 			"LoadingPhase" : "PreDefault"
 		},
 		{
+			"Name" : "ControlRigDeveloper",
+			"Type" : "Developer",
+			"LoadingPhase" : "PreDefault"
+		},
+		{
 			"Name" : "ControlRigEditor",
 			"Type" : "Editor",
 			"LoadingPhase" : "PostEngineInit"

@@ -137,9 +137,8 @@ public:
 	{
 	}
 
-	/** Fills out transient variables based on parsed ones */
-	ENGINE_API bool FillRuntimeData();
-
+	/** Fills out transient variables based on parsed ones. Sets status bools saying rather data is valid, and rather it had to synchronously load the base class */
+	ENGINE_API void FillRuntimeData(bool& bIsValid, bool& bBaseClassWasLoaded);
 };
 
 /** Information about a package chunk, computed by the asset manager or read out of the cooked asset registry */

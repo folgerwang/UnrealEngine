@@ -22,6 +22,8 @@ DECLARE_FLOAT_COUNTER_STAT(TEXT("Initial Tick (ms)"), STAT_AnimationBudgetAlloca
 DECLARE_DWORD_COUNTER_STAT(TEXT("Always Tick"), STAT_AnimationBudgetAllocator_AlwaysTick, STATGROUP_AnimationBudgetAllocator);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Throttled"), STAT_AnimationBudgetAllocator_Throttled, STATGROUP_AnimationBudgetAllocator);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Interpolated"), STAT_AnimationBudgetAllocator_Interpolated, STATGROUP_AnimationBudgetAllocator);
+DECLARE_FLOAT_COUNTER_STAT(TEXT("SmoothedBudgetPressure"), STAT_AnimationBudgetAllocator_SmoothedBudgetPressure, STATGROUP_AnimationBudgetAllocator);
+
 
 CSV_DEFINE_CATEGORY(AnimationBudget, true);
 
@@ -197,6 +199,58 @@ static FAutoConsoleVariableRef CVarSkelBatch_StateChangeThrottleInFrames(
 	}),
 	ECVF_Scalability);
 
+static float GBudgetFactorBeforeReducedWork = 1.5f;
+
+static FAutoConsoleVariableRef CVarSkelBatch_BudgetFactorBeforeReducedWork(
+	TEXT("a.Budget.BudgetFactorBeforeReducedWork"),
+	GBudgetFactorBeforeReducedWork,
+	TEXT("Range > 1, Default = 1.5\n")
+	TEXT("Reduced work will be delayed until budget pressure goes over this amount.\n"),
+	FConsoleVariableDelegate::CreateLambda([](IConsoleVariable* InVariable)
+	{
+		GBudgetFactorBeforeReducedWork = FMath::Max(GBudgetFactorBeforeReducedWork, 1.0f);
+	}),
+	ECVF_Scalability);
+
+static float GBudgetFactorBeforeReducedWorkEpsilon = 0.25f;
+
+static FAutoConsoleVariableRef CVarSkelBatch_BudgetFactorBeforeReducedWorkEpsilon(
+	TEXT("a.Budget.BudgetFactorBeforeReducedWorkEpsilon"),
+	GBudgetFactorBeforeReducedWorkEpsilon,
+	TEXT("Range > 0.0, Default = 0.25\n")
+	TEXT("Increased work will be delayed until budget pressure goes under a.Budget.BudgetFactorBeforeReducedWork minus this amount.\n"),
+	FConsoleVariableDelegate::CreateLambda([](IConsoleVariable* InVariable)
+	{
+		GBudgetFactorBeforeReducedWorkEpsilon = FMath::Max(GBudgetFactorBeforeReducedWorkEpsilon, 0.0f);
+	}),
+	ECVF_Scalability);
+
+static float GBudgetPressureSmoothingSpeed = 1.5f;
+
+static FAutoConsoleVariableRef CVarSkelBatch_BudgetPressureSmoothingSpeed(
+	TEXT("a.Budget.BudgetPressureSmoothingSpeed"),
+	GBudgetPressureSmoothingSpeed,
+	TEXT("Range > 0.0, Default = 1.5\n")
+	TEXT("How much to smooth the budget pressure value used to throttle reduced work.\n"),
+	FConsoleVariableDelegate::CreateLambda([](IConsoleVariable* InVariable)
+	{
+		GBudgetPressureSmoothingSpeed = FMath::Max(GBudgetPressureSmoothingSpeed, KINDA_SMALL_NUMBER);
+	}),
+	ECVF_Scalability);
+
+static int32 GReducedWorkThrottleInFrames = 20;
+
+static FAutoConsoleVariableRef CVarSkelBatch_ReducedWorkThrottleInFrames(
+	TEXT("a.Budget.ReducedWorkThrottleInFrames"),
+	GStateChangeThrottleInFrames,
+	TEXT("Range [1, 255], Default = 20\n")
+	TEXT("Prevents reduced work from changing too often due to system and load noise.\n"),
+	FConsoleVariableDelegate::CreateLambda([](IConsoleVariable* InVariable)
+	{
+		GReducedWorkThrottleInFrames = FMath::Clamp(GReducedWorkThrottleInFrames, 1, 255);
+	}),
+	ECVF_Scalability);
+
 FComponentData::FComponentData(USkeletalMeshComponentBudgeted* InComponent)
 	: Component(InComponent)
 	, RootPrerequisite(nullptr)
@@ -226,6 +280,8 @@ FAnimationBudgetAllocator::FAnimationBudgetAllocator(UWorld* InWorld)
 	, NumComponentsToNotSkip(0)
 	, TotalEstimatedTickTimeMs(0.0f)
 	, NumWorkUnitsForAverage(0.0f)
+	, SmoothedBudgetPressure(0.0f)
+	, ReducedComponentWorkCounter(0)
 	, CurrentFrameOffset(0)
 	, bEnabled(false)
 {
@@ -262,6 +318,26 @@ void FAnimationBudgetAllocator::SetComponentTickEnabled(USkeletalMeshComponentBu
 #endif
 	{
 		TickEnableHelper(Component, bShouldTick);
+	}
+}
+
+bool FAnimationBudgetAllocator::IsComponentTickEnabled(USkeletalMeshComponentBudgeted* Component) const
+{
+#if USE_SKEL_BATCHING
+	if (FAnimationBudgetAllocator::bCachedEnabled)
+	{
+		int32 Handle = Component->GetAnimationBudgetHandle();
+		if(Handle != INDEX_NONE)
+		{
+			return AllComponentData[Handle].bTickEnabled;
+		}
+
+		return Component->PrimaryComponentTick.IsTickFunctionEnabled();
+	}
+	else
+#endif
+	{
+		return Component->PrimaryComponentTick.IsTickFunctionEnabled();
 	}
 }
 
@@ -487,7 +563,7 @@ int32 FAnimationBudgetAllocator::CalculateWorkDistributionAndQueue(float InDelta
 			// Reset completion time as it may not always be run
 			InComponentData.GameThreadLastCompletionTimeMs = 0.0f;
 
-			InComponentData.Component->EnableExternalInterpolation(InComponentData.bInterpolate);
+			InComponentData.Component->EnableExternalInterpolation(InComponentData.TickRate > 1 && InComponentData.bInterpolate);
 			InComponentData.Component->EnableExternalUpdate(bTickThisFrame);
 			InComponentData.Component->EnableExternalEvaluationRateLimiting(InComponentData.TickRate > 1);
 			InComponentData.Component->SetExternalDeltaTime(InComponentData.AccumulatedDeltaTime);
@@ -528,7 +604,7 @@ int32 FAnimationBudgetAllocator::CalculateWorkDistributionAndQueue(float InDelta
 		AverageWorkUnitTimeMs = FMath::FInterpTo(AverageWorkUnitTimeMs, AverageTickTimeMs, InDeltaSeconds, GWorkUnitSmoothingSpeed);
 
 		SET_FLOAT_STAT(STAT_AnimationBudgetAllocator_AverageWorkUnitTime, AverageWorkUnitTimeMs);
-		BUDGET_CSV_STAT(AnimationBudget, AverageWorkUnitTimeMs, AverageWorkUnitTimeMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(AnimationBudget, AverageWorkUnitTimeMs, AverageTickTimeMs, ECsvCustomStatOp::Set);
 
 		// Want to map the remaining (non-fixed) work units so that we only execute N work units per frame.
 		// If we can go over budget to keep quality then we use that value
@@ -654,35 +730,49 @@ int32 FAnimationBudgetAllocator::CalculateWorkDistributionAndQueue(float InDelta
 			}
 		}
 
-		// If we have any components running reduced work when we have an excess, then move them out of the 'reduced' pool per tick
-		// + 2 to ensure we get some ceiling and avoid flip-flopping
-		if (ReducedWorkComponentData.Num() > 0 && TotalIdealWorkUnits + 2 < FMath::CeilToInt(WorkUnitBudget))
+		const float BudgetPressure = (float)TotalIdealWorkUnits / WorkUnitBudget;
+		SmoothedBudgetPressure = FMath::FInterpTo(SmoothedBudgetPressure, BudgetPressure, InDeltaSeconds, GBudgetPressureSmoothingSpeed);
+
+		SET_FLOAT_STAT(STAT_AnimationBudgetAllocator_SmoothedBudgetPressure, SmoothedBudgetPressure);
+
+		if(--ReducedComponentWorkCounter <= 0)
 		{
-			FComponentData& ComponentData = AllComponentData[ReducedWorkComponentData[0]];
-			if(ComponentData.bReducedWork && ComponentData.Component->OnReduceWork().IsBound())
+			// If we have any components running reduced work when we have an excess, then move them out of the 'reduced' pool per tick
+			if (ReducedWorkComponentData.Num() > 0 && SmoothedBudgetPressure < GBudgetFactorBeforeReducedWork - GBudgetFactorBeforeReducedWorkEpsilon)
 			{
-#if WITH_TICK_DEBUG
-				UE_LOG(LogTemp, Warning, TEXT("Increasing component work (mesh %s) (actor %llx)"), ComponentData.Component->SkeletalMesh ? *ComponentData.Component->SkeletalMesh->GetName() : TEXT("null"), (uint64)ComponentData.Component->GetOwner());
-#endif
-				ComponentData.Component->OnReduceWork().Execute(ComponentData.Component, false);
-				ComponentData.bReducedWork = false;
-			}
-		}
-		else
-		{
-			// Any work units that we interpolate or throttle should also be eligible for work reduction (which can involve disabling other ticks), so set them all now if needed
-			for (SortedComponentIndex = FullIndexEnd; SortedComponentIndex < TotalIdealWorkUnits; ++SortedComponentIndex)
-			{
-				FComponentData& ComponentData = AllComponentData[AllSortedComponentData[SortedComponentIndex]];
-				if(ComponentData.bAllowReducedWork && !ComponentData.bReducedWork && ComponentData.Component->OnReduceWork().IsBound())
+				for(int32 ReducedWorkComponentIndex : ReducedWorkComponentData)
 				{
+					FComponentData& ComponentData = AllComponentData[ReducedWorkComponentIndex];
+					if(ComponentData.bReducedWork && ComponentData.Component->OnReduceWork().IsBound())
+					{
 #if WITH_TICK_DEBUG
-					UE_LOG(LogTemp, Warning, TEXT("Reducing component work (mesh %s) (actor %llx)"), ComponentData.Component->SkeletalMesh ? *ComponentData.Component->SkeletalMesh->GetName() : TEXT("null"), (uint64)ComponentData.Component->GetOwner());
+						UE_LOG(LogTemp, Warning, TEXT("Increasing component work (mesh %s) (actor %llx)"), ComponentData.Component->SkeletalMesh ? *ComponentData.Component->SkeletalMesh->GetName() : TEXT("null"), (uint64)ComponentData.Component->GetOwner());
 #endif
-					ComponentData.Component->OnReduceWork().Execute(ComponentData.Component, true);
-					ComponentData.bReducedWork = true;
+						ComponentData.Component->OnReduceWork().Execute(ComponentData.Component, false);
+						ComponentData.bReducedWork = false;
+						break;
+					}
 				}
 			}
+			else if(SmoothedBudgetPressure > GBudgetFactorBeforeReducedWork)
+			{
+				// Any work units that we interpolate or throttle should also be eligible for work reduction (which can involve disabling other ticks), so set them all now if needed
+				for (SortedComponentIndex = TotalIdealWorkUnits - 1; SortedComponentIndex >= FullIndexEnd; --SortedComponentIndex)
+				{
+					FComponentData& ComponentData = AllComponentData[AllSortedComponentData[SortedComponentIndex]];
+					if(ComponentData.bAllowReducedWork && !ComponentData.bReducedWork && ComponentData.Component->OnReduceWork().IsBound())
+					{
+#if WITH_TICK_DEBUG
+						UE_LOG(LogTemp, Warning, TEXT("Reducing component work (mesh %s) (actor %llx)"), ComponentData.Component->SkeletalMesh ? *ComponentData.Component->SkeletalMesh->GetName() : TEXT("null"), (uint64)ComponentData.Component->GetOwner());
+#endif
+						ComponentData.Component->OnReduceWork().Execute(ComponentData.Component, true);
+						ComponentData.bReducedWork = true;
+						break;
+					}
+				}
+			}
+
+			ReducedComponentWorkCounter = GReducedWorkThrottleInFrames;
 		}
 	}
 
@@ -739,8 +829,8 @@ void FAnimationBudgetAllocator::Update(float DeltaSeconds)
 		SET_DWORD_STAT(STAT_AnimationBudgetAllocator_NumTickedComponents, NumTicked);
 		SET_DWORD_STAT(STAT_AnimationBudgetAllocator_NumRegisteredComponents, AllComponentData.Num());
 		BUDGET_CSV_STAT(AnimationBudget, NumTicked, NumTicked, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(AnimationBudget, AnimQuality, AllSortedComponentData.Num() > 0 ? (float)NumTicked / (float)AllSortedComponentData.Num() : 0.0f, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(AnimationBudget, AverageTickRate, AverageTickRate, ECsvCustomStatOp::Set);
+		BUDGET_CSV_STAT(AnimationBudget, AnimQuality, AllSortedComponentData.Num() > 0 ? (float)NumTicked / (float)AllSortedComponentData.Num() : 0.0f, ECsvCustomStatOp::Set);
+		BUDGET_CSV_STAT(AnimationBudget, AverageTickRate, AverageTickRate, ECsvCustomStatOp::Set);
 
 #if WITH_TICK_DEBUG
 		for (int32 ComponentDataIndex : AllSortedComponentData)

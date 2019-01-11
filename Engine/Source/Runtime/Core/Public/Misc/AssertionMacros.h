@@ -254,10 +254,10 @@ public:
 		#define UE_ENSURE_BREAK_ONCE() (UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && UE_ENSURE_BREAK())
 	#endif
 
-	#define ensure(           InExpression                ) (LIKELY(!!(InExpression)) || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, TEXT("")               ) || UE_ENSURE_BREAK_ONCE())
-	#define ensureMsgf(       InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || UE_ENSURE_BREAK_ONCE())
-	#define ensureAlways(     InExpression                ) (LIKELY(!!(InExpression)) || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               ) || UE_ENSURE_BREAK())
-	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || UE_ENSURE_BREAK())
+	#define ensure(           InExpression                ) (LIKELY(!!(InExpression)) || (FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && FPlatformMisc::IsEnsureAllowed(), #InExpression, __FILE__, __LINE__, TEXT("")               )) || UE_ENSURE_BREAK_ONCE())
+	#define ensureMsgf(       InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || (FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && FPlatformMisc::IsEnsureAllowed(), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__)) || UE_ENSURE_BREAK_ONCE())
+	#define ensureAlways(     InExpression                ) (LIKELY(!!(InExpression)) || (FPlatformMisc::IsEnsureAllowed() && FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               )) || UE_ENSURE_BREAK())
+	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || (FPlatformMisc::IsEnsureAllowed() && FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__)) || UE_ENSURE_BREAK())
 
 #else	// DO_CHECK
 

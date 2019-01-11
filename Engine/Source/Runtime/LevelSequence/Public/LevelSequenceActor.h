@@ -74,9 +74,6 @@ public:
 
 public:
 
-	UPROPERTY()
-	bool bAutoPlay_DEPRECATED;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Playback", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
@@ -96,8 +93,16 @@ public:
 	UPROPERTY(Instanced, BlueprintReadOnly, Category="General")
 	UMovieSceneBindingOverrides* BindingOverrides;
 
+	UPROPERTY()
+	uint8 bAutoPlay_DEPRECATED : 1;
+
+	/** Enable specification of dynamic instance data to be supplied to the sequence during playback */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="General")
-	bool bOverrideInstanceData;
+	uint8 bOverrideInstanceData : 1;
+
+	/** If true, playback of this level sequence on the server will be synchronized across other clients */
+	UPROPERTY(EditAnywhere, DisplayName="Replicate Playback", BlueprintReadWrite, BlueprintSetter=SetReplicatePlayback, Category=Replication)
+	uint8 bReplicatePlayback:1;
 
 	/** Instance data that can be used to dynamically control sequence evaluation at runtime */
 	UPROPERTY(Instanced, BlueprintReadWrite, Category="General")
@@ -139,6 +144,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void SetEventReceivers(TArray<AActor*> AdditionalReceivers) { AdditionalEventReceivers = AdditionalReceivers; }
+
+	/**
+	 * Set whether or not to replicate playback for this actor
+	 */
+	UFUNCTION(BlueprintSetter)
+	void SetReplicatePlayback(bool ReplicatePlayback);
 
 	/** Refresh this actor's burn in */
 	void RefreshBurnIn();
@@ -224,6 +235,7 @@ protected:
 
 	//~ Begin AActor interface
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	//~ End AActor interface
 

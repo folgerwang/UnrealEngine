@@ -235,18 +235,18 @@ public:
 	 * Starts an asynchronous delete of the specified user file from the network platform's file store
 	 *
 	 * @param UserId User owning the storage
-	 * @param FileToRead the name of the file to read
+	 * @param FileName the name of the file to delete
 	 * @param bShouldCloudDelete whether to delete the file from the cloud
 	 * @param bShouldLocallyDelete whether to delete the file locally
 	 *
-	 * @return true if the calls starts successfully, false otherwise
+	 * @return true if the call starts successfully, false otherwise
 	 */
 	virtual bool DeleteUserFile(const FUniqueNetId& UserId, const FString& FileName, bool bShouldCloudDelete, bool bShouldLocallyDelete) = 0;
 
 	/**
 	 * Delegate fired when a user file delete from the network platform's storage is complete
 	 *
-	 * @param bWasSuccessful whether the file read was successful or not
+	 * @param bWasSuccessful whether the file delete was successful or not
 	 * @param UserId User owning the storage
 	 * @param FileName the name of the file this was for
 	 */

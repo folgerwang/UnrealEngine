@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "../SocialTypes.h"
 #include "UObject/Object.h"
 #include "OnlineSessionSettings.h"
-#include "../SocialTypes.h"
-#include "../Party/PartyTypes.h"
+#include "Party/PartyTypes.h"
+#include "Interactions/SocialInteractionHandle.h"
 
 #include "SocialUser.generated.h"
 
@@ -42,9 +43,11 @@ public:
 	FUniqueNetIdRepl GetUserId(ESocialSubsystem SubsystemType) const;
 	FString GetDisplayName() const;
 	FString GetDisplayName(ESocialSubsystem SubsystemType) const;
+
 	EInviteStatus::Type GetFriendInviteStatus(ESocialSubsystem SubsystemType) const;
 	bool IsFriend() const;
 	bool IsFriend(ESocialSubsystem SubsystemType) const;
+	bool IsFriendshipPending(ESocialSubsystem SubsystemType) const;
 	const FOnlineUserPresence* GetFriendPresenceInfo(ESocialSubsystem SubsystemType) const;
 	FDateTime GetFriendshipCreationDate() const;
 	FText GetSocialName() const;
@@ -61,9 +64,11 @@ public:
 	bool SetUserLocalAttribute(ESocialSubsystem SubsystemType, const FString& AttrName, const FString& AttrValue);
 	bool GetUserAttribute(ESocialSubsystem SubsystemType, const FString& AttrName, FString& OutAttrValue) const;
 
-	void GetAllAvailableInteractions(TMap<ESocialSubsystem, TArray<ISocialInteractionHandleRef>>& OutInteractionsBySubsystem) const;
+	bool HasAnyInteractionsAvailable() const;
+	TArray<FSocialInteractionHandle> GetAllAvailableInteractions() const;
 
-	bool SendFriendInvite(ESocialSubsystem SubsystemType) const;
+	bool CanSendFriendInvite(ESocialSubsystem SubsystemType) const;
+	bool SendFriendInvite(ESocialSubsystem SubsystemType);
 	bool AcceptFriendInvite(ESocialSubsystem SocialSubsystem) const;
 	bool RejectFriendInvite(ESocialSubsystem SocialSubsystem) const;
 	bool EndFriendship(ESocialSubsystem SocialSubsystem) const;
@@ -72,10 +77,10 @@ public:
 
 	TSharedPtr<const IOnlinePartyJoinInfo> GetPartyJoinInfo(const FOnlinePartyTypeId& PartyTypeId) const;
 
-	bool HasSentPartyInvite() const;
-	virtual bool CanJoinParty(const FOnlinePartyTypeId& PartyTypeId, FJoinPartyResult& JoinResult) const;
+	bool HasSentPartyInvite(const FOnlinePartyTypeId& PartyTypeId) const;
+	FJoinPartyResult CheckPartyJoinability(const FOnlinePartyTypeId& PartyTypeId) const;
 	void JoinParty(const FOnlinePartyTypeId& PartyTypeId) const;
-	void RejectPartyInvite();
+	void RejectPartyInvite(const FOnlinePartyTypeId& PartyTypeId);
 
 	bool HasBeenInvitedToParty(const FOnlinePartyTypeId& PartyTypeId) const;
 	bool CanInviteToParty(const FOnlinePartyTypeId& PartyTypeId) const;
@@ -108,6 +113,7 @@ public:
 	FString ToDebugString() const;
 
 PARTY_SCOPE:
+	void InitLocalUser();
 	void Initialize(const FUniqueNetIdRepl& PrimaryId);
 
 	void NotifyPresenceChanged(ESocialSubsystem SubsystemType);

@@ -486,7 +486,7 @@ int32 UEnum::GetIndexByNameString(const FString& InSearchString, EGetByNameFlags
 	{
 		// None is passed in by blueprints at various points, isn't an error. Any other failed resolve should be fixed
 		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(ThreadContext.SerializedObject), *GetName(), *InSearchString);
+		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(ThreadContext.SerializedObject ? ThreadContext.SerializedObject : ThreadContext.ConstructedObject), *GetName(), *InSearchString);
 	}
 
 	return INDEX_NONE;

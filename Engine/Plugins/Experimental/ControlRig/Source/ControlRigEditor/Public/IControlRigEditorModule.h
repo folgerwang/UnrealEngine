@@ -13,11 +13,19 @@ DECLARE_LOG_CATEGORY_EXTERN(LogControlRigEditor, Log, All);
 
 class IToolkitHost;
 class UControlRigBlueprint;
+class UControlRigGraphNode;
+class UControlRigGraphSchema;
 class URigUnitEditor_Base;
+class FConnectionDrawingPolicy;
 
 class IControlRigEditorModule : public IModuleInterface, public IHasMenuExtensibility, public IHasToolBarExtensibility
 {
 public:
+	static FORCEINLINE IControlRigEditorModule& Get()
+	{
+		return FModuleManager::LoadModuleChecked< IControlRigEditorModule >(TEXT("ControlRigEditor"));
+	}
+
 	/**
 	 * Creates an instance of a Control Rig editor.
 	 *
@@ -35,4 +43,9 @@ public:
 
 	virtual void RegisterRigUnitEditorClass(FName RigUnitClassName, TSubclassOf<URigUnitEditor_Base> Class) = 0;
 	virtual void UnregisterRigUnitEditorClass(FName RigUnitClassName) = 0;
+	virtual void GetTypeActions(const UControlRigBlueprint* CRB, FBlueprintActionDatabaseRegistrar& ActionRegistrar) = 0;
+	virtual void GetInstanceActions(const UControlRigBlueprint* CRB, FBlueprintActionDatabaseRegistrar& ActionRegistrar) = 0;
+	virtual FConnectionDrawingPolicy* CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) = 0;
+	virtual void GetContextMenuActions(const UControlRigGraphNode* Node, const FGraphNodeContextMenuBuilder& Context ) = 0;
+	virtual void GetContextMenuActions(const UControlRigGraphSchema* Schema, const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, FMenuBuilder* MenuBuilder, bool bIsDebugging) = 0;
 };

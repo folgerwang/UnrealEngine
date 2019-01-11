@@ -4,6 +4,7 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "HAL/MallocBinned.h"
 #include "HAL/MallocBinned2.h"
+#include "HAL/MallocBinned3.h"
 #include "HAL/MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
@@ -280,6 +281,9 @@ EPlatformMemorySizeBucket FAndroidPlatformMemory::GetMemorySizeBucket()
 
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 PLATFORM_ANDROID_ARM64
+#if !defined(USE_MALLOC_BINNED3)
+	#define USE_MALLOC_BINNED3 (0)
+#endif
 
 FMalloc* FAndroidPlatformMemory::BaseAllocator()
 {
@@ -289,7 +293,9 @@ FMalloc* FAndroidPlatformMemory::BaseAllocator()
 	FLowLevelMemTracker::Get().SetProgramSize(Stats.UsedPhysical);
 #endif
 
-#if USE_MALLOC_BINNED2
+#if USE_MALLOC_BINNED3 && PLATFORM_ANDROID_ARM64
+	return new FMallocBinned3();
+#elif USE_MALLOC_BINNED2
 	return new FMallocBinned2();
 #else
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
@@ -391,6 +397,11 @@ void FAndroidPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Ptr, Size,
 			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
 	}
+}
+
+bool FAndroidPlatformMemory::MemoryRangeDecommit(void* Ptr, SIZE_T Size)
+{
+	return madvise(Ptr, Size, MADV_DONTNEED) == 0;
 }
 
 /**

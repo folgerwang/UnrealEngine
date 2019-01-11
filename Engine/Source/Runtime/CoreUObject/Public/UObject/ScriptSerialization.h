@@ -281,6 +281,7 @@
 			break;
 		}
 		case EX_CallMath:
+		case EX_LocalFinalFunction:
 		case EX_FinalFunction:
 		{
 			XFER_FUNC_POINTER;											// Stack node.
@@ -288,6 +289,7 @@
 			while( SerializeExpr( iCode, Ar ) != EX_EndFunctionParms ); // Parms.
 			break;
 		}
+		case EX_LocalVirtualFunction:
 		case EX_VirtualFunction:
 		{
 			XFER_FUNC_NAME;												// Virtual function name.

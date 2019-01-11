@@ -154,7 +154,7 @@ void UExpandableArea::SlateExpansionChanged(bool NewState)
 
 const FText UExpandableArea::GetPaletteCategory()
 {
-	return LOCTEXT("Extra", "Extra");
+	return LOCTEXT("Misc", "Misc");
 }
 
 void UExpandableArea::OnDescendantSelectedByDesigner(UWidget* DescendantWidget)

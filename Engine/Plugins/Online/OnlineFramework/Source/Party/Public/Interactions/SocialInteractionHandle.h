@@ -1,39 +1,35 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "../SocialTypes.h"
+#include "CoreMinimal.h"
+
+class USocialUser;
+class ISocialInteractionWrapper;
 
 /**
- * Represents a single discrete interaction between the local player and another user.
- * Only necessary when you'd like to create some tangible list of interactions to iterate through.
- * If, on the other hand, you're only interested in a few interactions, feel free to access their static APIs directly.
+ * Represents a single discrete interaction between a local player and another user.
+ * Useful for when you'd like to create some tangible list of interactions to compare/sort/classify/iterate.
+ * Not explicitly required if you have a particular known interaction in mind - feel free to access the static API of a given interaction directly.
  */
-class ISocialInteractionHandle : public TSharedFromThis<ISocialInteractionHandle>
+class PARTY_API FSocialInteractionHandle
 {
 public:
-	virtual ~ISocialInteractionHandle() {}
+	FSocialInteractionHandle() {}
 
-	virtual FString GetInteractionName() const = 0;
-	virtual FText GetDisplayName() const = 0;
-	virtual FString GetSlashCommandToken() const = 0;
+	bool IsValid() const;
+	bool operator==(const FSocialInteractionHandle& Other) const;
+	bool operator!=(const FSocialInteractionHandle& Other) const { return !operator==(Other); }
 
-	virtual void GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems) const = 0;
-	virtual void ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User) const = 0;
-};
+	FName GetInteractionName() const;
+	FText GetDisplayName(const USocialUser& User) const;
+	FString GetSlashCommandToken() const;
 
-/** Link between the class-polymorphism-based interaction handle and the static template-polymorphism-based interactions */
-template <typename InteractionT>
-class TSocialInteractionHandle : public ISocialInteractionHandle
-{
-public:
-	virtual FString GetInteractionName() const override final { return InteractionT::GetInteractionName(); }
-	virtual FText GetDisplayName() const override final { return InteractionT::GetDisplayName(); }
-	virtual FString GetSlashCommandToken() const override final { return InteractionT::GetSlashCommandToken(); }
-
-	virtual void GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems) const override final { return InteractionT::GetAvailability(User, OutAvailableSubsystems); }
-	virtual void ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User) const override final { return InteractionT::ExecuteAction(SocialSubsystem, User); }
+	bool IsAvailable(const USocialUser& User) const;
+	void ExecuteInteraction(USocialUser& User) const;
 
 private:
-	friend InteractionT;
-	TSocialInteractionHandle() {}
+	template <typename> friend class TSocialInteractionWrapper;
+	FSocialInteractionHandle(const ISocialInteractionWrapper& Wrapper);
+
+	const ISocialInteractionWrapper* InteractionWrapper = nullptr;
 };

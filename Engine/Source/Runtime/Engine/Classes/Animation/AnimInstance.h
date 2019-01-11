@@ -35,16 +35,6 @@ struct FBoneContainer;
 typedef TArray<FTransform> FTransformArrayA2;
 
 UENUM()
-enum class EAnimCurveType : uint8 
-{
-	AttributeCurve,
-	MaterialCurve, 
-	MorphTargetCurve, 
-	// make sure to update MaxCurve 
-	MaxAnimCurveType UMETA(Hidden)
-};
-
-UENUM()
 enum class EMontagePlayReturnType : uint8
 {
 	//Return value is the length of the montage (in seconds)
@@ -943,8 +933,17 @@ public:
 	virtual void ApplyAnimOverridesToCDO(FCompilerResultsLog& MessageLog) {}
 #endif // WITH_EDITORONLY_DATA
 
+	/** Called when skipping an animation update because of URO. */
 	virtual void OnUROSkipTickAnimation() {}
+
+	UE_DEPRECATED(4.22, "This function is deprecated, please use OnUROPreInterpolation_AnyThread")
 	virtual void OnUROPreInterpolation() {}
+
+	/** 
+	 * Called before URO interpolation is performed. Useful for modifying bone space transforms etc. before interpolation is performed.
+	 * Note that this can be called on a worker thread. 
+	 */
+	virtual void OnUROPreInterpolation_AnyThread(FAnimationEvaluationContext& InOutContext) {}
 
 	// Animation phase trigger
 	// start with initialize
@@ -1054,16 +1053,19 @@ public:
 	TArray<FAnimNotifyEvent> ActiveAnimNotifyState;
 
 private:
-	/** This is if you want to separate to another array**/
-	TMap<FName, float>	AnimationCurves[(uint8)EAnimCurveType::MaxAnimCurveType];
-
 	/** Reset Animation Curves */
 	void ResetAnimationCurves();
 
-	/** Material parameters that we had been changing and now need to clear */
-	TArray<FName> MaterialParamatersToClear;
-
 public: 
+	/** Pushes blended heap curve to output curves in the proxy using required bones cached data */
+	void UpdateCurvesToEvaluationContext(const FAnimationEvaluationContext& InOutContext);
+
+	/** Update curves once evaluation has taken place. Mostly pushes curves to materials/morphs */
+	void UpdateCurvesPostEvaluation();
+
+	/** Swap curves out for evaluation */
+	void SwapCurveWithEvaluationContext(FAnimationEvaluationContext& InOutContext);
+
 	/** Update all internal curves from Blended Curve */
 	void UpdateCurves(const FBlendedHeapCurve& InCurves);
 
@@ -1134,7 +1136,7 @@ public:
 	void AddCurveValue(const USkeleton::AnimCurveUID Uid, float Value);
 
 	/** Add curve float data using a curve Uid, the name of the curve will be resolved from the skeleton. This uses an already-resolved proxy and mapping table for efficency **/
-	void AddCurveValue(FAnimInstanceProxy& Proxy, const FSmartNameMapping& Mapping, const FName& CurveName, float Value);
+	void AddCurveValue(const FSmartNameMapping& Mapping, const FName& CurveName, float Value);
 
 	/** Given a machine index, record a state machine weight for this frame */
 	void RecordMachineWeight(const int32 InMachineClassIndex, const float InMachineWeight);

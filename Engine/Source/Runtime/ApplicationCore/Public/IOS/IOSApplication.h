@@ -33,6 +33,8 @@ public:
 
 	virtual IInputInterface* GetInputInterface() override { return (IInputInterface*)InputInterface.Get(); }
 
+	virtual bool IsGamepadAttached() const override;
+
 protected:
 	virtual void InitializeWindow( const TSharedRef< FGenericWindow >& Window, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately ) override;
 

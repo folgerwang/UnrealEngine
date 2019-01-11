@@ -460,7 +460,7 @@ void FMetalDeviceContext::ClearFreeList()
 			}
 			for ( FMetalTexture& Texture : Pair->UsedTextures )
 			{
-				if (!(Texture.GetBuffer() || Texture.GetParentTexture()))
+                if (!(Texture.GetBuffer() || Texture.GetParentTexture()) && (Texture.GetStorageMode() != mtlpp::StorageMode::Private))
 				{
 #if METAL_DEBUG_OPTIONS
 					if (GMetalResourcePurgeOnDelete && !Texture.GetHeap())
@@ -492,12 +492,12 @@ void FMetalDeviceContext::DrainHeap()
 
 void FMetalDeviceContext::EndFrame()
 {
-	Heap.Compact(false);
-	
 	FlushFreeList();
 	
 	ClearFreeList();
 	
+    Heap.Compact(false);
+    
 	// A 'frame' in this context is from the beginning of encoding on the CPU
 	// to the end of all rendering operations on the GPU. So the semaphore is
 	// signalled when the last command buffer finishes GPU execution.
@@ -690,6 +690,10 @@ void FMetalDeviceContext::ReleaseTexture(FMetalTexture& Texture)
 	{
 		check(Texture);
 		FreeListMutex.Lock();
+        if (Texture.GetStorageMode() == mtlpp::StorageMode::Private)
+        {
+            Heap.ReleaseTexture(nullptr, Texture);
+        }
 		if(!UsedTextures.Contains(Texture))
 		{
 			UsedTextures.Add(MoveTemp(Texture));

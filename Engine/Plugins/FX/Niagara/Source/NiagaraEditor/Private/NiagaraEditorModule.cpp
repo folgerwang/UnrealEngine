@@ -478,8 +478,11 @@ void FNiagaraEditorModule::StartupModule()
 		TEXT("Dumps the values of the rapid iteration parameters for the specified asset by path."),
 		FConsoleCommandWithArgsDelegate::CreateStatic(&DumpRapidIterationParamersForAsset));
 
-	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraEmitter::StaticClass(), UNiagaraEmitterThumbnailRenderer::StaticClass());
-	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraSystem::StaticClass(), UNiagaraSystemThumbnailRenderer::StaticClass());
+	if (GIsEditor)
+	{
+		UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraEmitter::StaticClass(), UNiagaraEmitterThumbnailRenderer::StaticClass());
+		UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraSystem::StaticClass(), UNiagaraSystemThumbnailRenderer::StaticClass());
+	}
 }
 
 
@@ -559,7 +562,7 @@ void FNiagaraEditorModule::ShutdownModule()
 		IConsoleManager::Get().UnregisterConsoleObject(DumpRapidIterationParametersForAsset);
 	}
 
-	if (UObjectInitialized())
+	if (UObjectInitialized() && GIsEditor)
 	{
 		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraEmitter::StaticClass());
 		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraSystem::StaticClass());

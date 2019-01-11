@@ -19,6 +19,7 @@ public:
 	virtual bool IsImmutable() const final override { return bIsImmutable; }
 
 	VkSampler Sampler;
+	uint32 SamplerId;
 
 	static void SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo);
 

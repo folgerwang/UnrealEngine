@@ -245,9 +245,15 @@ void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerR
 
 FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice, const bool bInIsImmutable)
 	: Sampler(VK_NULL_HANDLE)
+	, SamplerId(0)
 	, bIsImmutable(bInIsImmutable)
 {
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, VULKAN_CPU_ALLOCATOR, &Sampler));
+
+	if (UseVulkanDescriptorCache())
+	{
+		SamplerId = ++GVulkanSamplerHandleIdCounter;
+	}
 }
 
 FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& InInitializer)

@@ -184,7 +184,6 @@ static void InjectCurves(
 	check(IsInRenderingThread());
 
 	SCOPED_DRAW_EVENT(RHICmdList, InjectParticleCurves);
-	FVertexBufferRHIParamRef ScratchVertexBufferRHI = GParticleScratchVertexBuffer.VertexBufferRHI;
 
 	RHICmdList.BeginUpdateMultiFrameResource(CurveTextureTargetRHI);
 
@@ -235,7 +234,11 @@ static void InjectCurves(
 
 		// get a buffer for all curve textures at once, and copy curve data over
 		//
-		FColor* RESTRICT DestSamples = (FColor*)RHILockVertexBuffer(ScratchVertexBufferRHI, 0, TotalSamples * sizeof(FColor), RLM_WriteOnly);
+		FRHIResourceCreateInfo CreateInfo;
+		void* ScratchData = nullptr;
+		FVertexBufferRHIRef ScratchVertexBufferRHI = RHICreateAndLockVertexBuffer(TotalSamples * sizeof(FColor), BUF_Volatile , CreateInfo, ScratchData);
+		FColor* RESTRICT DestSamples = (FColor*)ScratchData;
+
 		int32 CurrOffset = 0;
 
 		for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)

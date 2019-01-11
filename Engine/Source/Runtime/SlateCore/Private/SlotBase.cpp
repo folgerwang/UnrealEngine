@@ -22,9 +22,7 @@ const TSharedPtr<SWidget> FSlotBase::DetachWidget()
 {
 	if (Widget != SNullWidget::NullWidget)
 	{
-#if SLATE_PARENT_POINTERS
 		Widget->ConditionallyDetatchParentWidget(RawParentPtr);
-#endif
 
 		// Invalidate Prepass?
 
@@ -41,12 +39,10 @@ const TSharedPtr<SWidget> FSlotBase::DetachWidget()
 
 void FSlotBase::DetatchParentFromContent()
 {
-#if SLATE_PARENT_POINTERS
 	if (Widget != SNullWidget::NullWidget)
 	{
 		Widget->ConditionallyDetatchParentWidget(RawParentPtr);
 	}
-#endif
 }
 
 void FSlotBase::AfterContentOrOwnerAssigned()
@@ -56,7 +52,6 @@ void FSlotBase::AfterContentOrOwnerAssigned()
 		RawParentPtr->InvalidatePrepass();
 	}
 
-#if SLATE_PARENT_POINTERS
 	if (RawParentPtr)
 	{
 		if (Widget != SNullWidget::NullWidget)
@@ -68,7 +63,6 @@ void FSlotBase::AfterContentOrOwnerAssigned()
 			Widget->AssignParentWidget(RawParentPtr->AsShared());
 		}
 	}
-#endif
 }
 
 FSlotBase::~FSlotBase()

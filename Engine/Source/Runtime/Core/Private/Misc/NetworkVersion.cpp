@@ -18,7 +18,13 @@ FString FNetworkVersion::ProjectVersion = TEXT("1.0.0");
 bool FNetworkVersion::bHasCachedNetworkChecksum			= false;
 uint32 FNetworkVersion::CachedNetworkChecksum			= 0;
 
+>>>> ORIGINAL //UE4/Main/Engine/Source/Runtime/Core/Private/Misc/NetworkVersion.cpp#19
+uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_CHANNEL_NAMES;
+==== THEIRS //UE4/Main/Engine/Source/Runtime/Core/Private/Misc/NetworkVersion.cpp#20
+uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_CHANNEL_CLOSE_REASON;
+==== YOURS //James.Hopkin_RDU-WD-2786_Dev-Networking/Engine/Source/Runtime/Core/Private/Misc/NetworkVersion.cpp
 uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_ACKS_INCLUDED_IN_HEADER;
+<<<<
 uint32 FNetworkVersion::GameNetworkProtocolVersion		= 0;
 
 uint32 FNetworkVersion::EngineCompatibleNetworkProtocolVersion		= HISTORY_REPLAY_BACKWARDS_COMPAT;

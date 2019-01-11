@@ -87,6 +87,9 @@ EReimportResult::Type UReimportSoundFactory::Reimport(UObject* Obj)
 		UE_LOG(LogAudioEditor, Log, TEXT("-- imported successfully"));
 
 		SoundWave->AssetImportData->Update(Filename);
+		SoundWave->InvalidateCompressedData();
+		SoundWave->FreeResources();
+		SoundWave->UpdatePlatformData();
 		SoundWave->MarkPackageDirty();
 		SoundWave->bNeedsThumbnailGeneration = true;
 	}

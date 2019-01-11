@@ -118,6 +118,8 @@ public:
 
 	virtual void NotifyAddDestructionInfo(FActorDestructionInfo* DestructInfo) PURE_VIRTUAL(UReplicationConnectionDriver::NotifyAddDestructionInfo, );
 
+	virtual void NotifyAddDormantDestructionInfo(AActor* Actor) PURE_VIRTUAL(UReplicationConnectionDriver::NotifyAddDormantDestructionInfo, );
+
 	virtual void NotifyRemoveDestructionInfo(FActorDestructionInfo* DestructInfo) PURE_VIRTUAL(UReplicationConnectionDriver::NotifyRemoveDestructionInfo, );
 
 	virtual void NotifyResetDestructionInfo() PURE_VIRTUAL(UReplicationConnectionDriver::NotifyResetDestructionInfo, );

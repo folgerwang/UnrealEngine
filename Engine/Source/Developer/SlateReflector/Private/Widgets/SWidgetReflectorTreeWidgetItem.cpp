@@ -29,6 +29,7 @@ void SReflectorTreeWidgetItem::Construct(const FArguments& InArgs, const TShared
 
 	check(WidgetInfo.IsValid());
 	CachedWidgetType = WidgetInfo->GetWidgetType();
+	CachedWidgetTypeAndShortName = WidgetInfo->GetWidgetTypeAndShortName();
 	CachedWidgetVisibility = WidgetInfo->GetWidgetVisibilityText();
 	CachedWidgetClipping = WidgetInfo->GetWidgetClippingText();
 	bCachedWidgetFocusable = WidgetInfo->GetWidgetFocusable();
@@ -61,7 +62,7 @@ TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FNam
 		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.Text(this, &SReflectorTreeWidgetItem::GetWidgetType)
+			.Text(this, &SReflectorTreeWidgetItem::GetWidgetTypeAndShortName)
 			.ColorAndOpacity(this, &SReflectorTreeWidgetItem::GetTint)
 		];
 	}

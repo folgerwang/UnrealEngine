@@ -27,6 +27,12 @@ namespace SkeletalSimplifier
 
 			FEdgeQuadric(const Vec3d& Vert0Pos, const Vec3d& Vert1Pos, const Vec3d& FaceNormal, const double EdgeWeight);
 
+			FEdgeQuadric(const FEdgeQuadric& Other) :
+				CMatrix(Other.CMatrix),
+				D0Vector(Other.D0Vector),
+				CScalar(Other.CScalar)
+			{}
+
 			double Evaluate(const Vec3d& Pos) const;
 			
 
@@ -828,8 +834,9 @@ namespace SkeletalSimplifier
 			auto BasicAttrAccessor = Vert.GetBasicAttrAccessor();
 			ComputeAttrs(Gamma, B1Matrix, D1Vector, Pos, BasicWeights, BasicAttrAccessor);
 
-			// Clamp first UV channel.
-			UVBBox.ClampPoint(Vert.BasicAttributes.TexCoords[0]);
+			// Clamp first UV channel to a slightly padded version of the UV support. 
+			const float PaddingFactor = 0.2f;
+			UVBBox.ClampPoint(Vert.BasicAttributes.TexCoords[0], PaddingFactor);
 
 
 			// Update the Additional Attrs

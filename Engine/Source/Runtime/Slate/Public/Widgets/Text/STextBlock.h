@@ -45,6 +45,7 @@ public:
 		: _Text()
 		, _TextStyle( &FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "NormalText" ) )
 		, _Font()
+		, _StrikeBrush()
 		, _ColorAndOpacity()
 		, _ShadowOffset()
 		, _ShadowColorAndOpacity()
@@ -74,6 +75,9 @@ public:
 
 		/** Sets the font used to draw the text */
 		SLATE_ATTRIBUTE( FSlateFontInfo, Font )
+
+		/** Sets the brush used to strike through the text */
+		SLATE_ATTRIBUTE( const FSlateBrush*, StrikeBrush )
 
 		/** Text color and opacity */
 		SLATE_ATTRIBUTE( FSlateColor, ColorAndOpacity )
@@ -184,6 +188,9 @@ public:
 	 */
 	void SetFont(const TAttribute< FSlateFontInfo >& InFont);
 
+	/** Sets the brush used to strike through the text */
+	void SetStrikeBrush(const TAttribute<const FSlateBrush*>& InStrikeBrush);
+
 	/** See ColorAndOpacity attribute */
 	void SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity);
 
@@ -244,6 +251,9 @@ private:
 	/** Gets the current font */
 	FSlateFontInfo GetFont() const;
 
+	/** Gets the current strike brush */
+	const FSlateBrush* GetStrikeBrush() const;
+	
 	/** Gets the current shadow offset */
 	FVector2D GetShadowOffset() const;
 
@@ -271,6 +281,9 @@ private:
 
 	/** Sets the font used to draw the text */
 	TAttribute< FSlateFontInfo > Font;
+
+	/** Sets the brush used to strike through the text */
+	TAttribute< const FSlateBrush* > StrikeBrush;
 
 	/** Text color and opacity */
 	TAttribute<FSlateColor> ColorAndOpacity;

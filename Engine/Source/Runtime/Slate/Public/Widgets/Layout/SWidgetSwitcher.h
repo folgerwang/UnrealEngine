@@ -132,9 +132,7 @@ public:
 	 */
 	void SetActiveWidgetIndex( int32 Index );
 
-#if SLATE_PARENT_POINTERS
 	virtual bool ValidatePathToChild(SWidget* InChild) override;
-#endif
 
 public:
 

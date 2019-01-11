@@ -194,6 +194,13 @@ FDetailWidgetRow FDetailPropertyRow::GetWidgetRow()
 		MakeNameOrKeyWidget( Row, CustomPropertyWidget );
 		MakeValueWidget( Row, CustomPropertyWidget );
 
+		if (CustomPropertyWidget.IsValid())
+		{
+			Row.CopyMenuAction = CustomPropertyWidget->CopyMenuAction;
+			Row.PasteMenuAction = CustomPropertyWidget->PasteMenuAction;
+			Row.CustomMenuItems = CustomPropertyWidget->CustomMenuItems;
+		}
+		
 		return Row;
 	}
 	else

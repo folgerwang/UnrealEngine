@@ -24,6 +24,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Foliage, meta = (DisplayName = "Procedural Foliage"))
 	bool bProceduralFoliage;
 
+	/** Allows usage of the procedural landscape system*/
+	UPROPERTY(EditAnywhere, config, Category = Landscape, meta = (DisplayName = "Procedural Landscape"))
+	bool bProceduralLandscape;
+
 	/** Allows usage of the Localization Dashboard */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Localization Dashboard"))
 	bool bEnableLocalizationDashboard;

@@ -49,6 +49,40 @@ namespace MergeHelpers
 		}
 		return bSuccess;
 	}
+
+	bool ReinitialiseChunkInfoList(const TArray<BuildPatchServices::FFileManifest>& FileManifestList, const FBuildPatchAppManifestPtr& ManifestA, const FBuildPatchAppManifestPtr& ManifestB, TArray<BuildPatchServices::FChunkInfo>& ChunkList)
+	{
+		using namespace BuildPatchServices;
+		ChunkList.Reset();
+		TSet<FGuid> ReferencedChunks;
+		for (const FFileManifest& FileManifest : FileManifestList)
+		{
+			for (const FChunkPart& FileChunkPart : FileManifest.ChunkParts)
+			{
+				bool bAlreadyInSet = false;
+				ReferencedChunks.Add(FileChunkPart.Guid, &bAlreadyInSet);
+				if (bAlreadyInSet == false)
+				{
+					// Find the chunk info
+					const FChunkInfo* ChunkInfo = ManifestB->GetChunkInfo(FileChunkPart.Guid);
+					if (ChunkInfo == nullptr && ManifestA.IsValid())
+					{
+						ChunkInfo = ManifestA->GetChunkInfo(FileChunkPart.Guid);
+					}
+					if (ChunkInfo == nullptr)
+					{
+						UE_LOG(LogMergeManifests, Error, TEXT("Failed to copy chunk meta for %s used by %s. Possible damaged manifest file as input."), *FileChunkPart.Guid.ToString(), *FileManifest.Filename);
+						return false;
+					}
+					else
+					{
+						ChunkList.Add(*ChunkInfo);
+					}
+				}
+			}
+		}
+		return true;
+	}
 }
 
 bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath)
@@ -171,33 +205,7 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 	MergedManifest.FileManifestList.OnPostLoad();
 
 	// Fill out the chunk list in order of reference
-	TSet<FGuid> ReferencedChunks;
-	for (const FFileManifest& FileManifest : MergedManifest.FileManifestList.FileList)
-	{
-		for (const FChunkPart& FileChunkPart : FileManifest.ChunkParts)
-		{
-			if (ReferencedChunks.Contains(FileChunkPart.Guid) == false)
-			{
-				ReferencedChunks.Add(FileChunkPart.Guid);
-
-				// Find the chunk info
-				const FChunkInfo *const * ChunkInfo = ManifestB->ChunkInfoLookup.Find(FileChunkPart.Guid);
-				if (ChunkInfo == nullptr)
-				{
-					ChunkInfo = ManifestA->ChunkInfoLookup.Find(FileChunkPart.Guid);
-				}
-				if (ChunkInfo == nullptr)
-				{
-					UE_LOG(LogMergeManifests, Error, TEXT("Failed to copy chunk meta for %s used by %s. Possible damaged manifest file as input."), *FileChunkPart.Guid.ToString(), *FileManifest.Filename);
-					bSuccess = false;
-				}
-				else
-				{
-					MergedManifest.ChunkDataList.ChunkList.Add(**ChunkInfo);
-				}
-			}
-		}
-	}
+	bSuccess = MergeHelpers::ReinitialiseChunkInfoList(MergedManifest.FileManifestList.FileList, ManifestA, ManifestB, MergedManifest.ChunkDataList.ChunkList) && bSuccess;
 
 	// Save the new manifest out if we didn't register a failure
 	if (bSuccess)
@@ -215,4 +223,24 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 	}
 
 	return bSuccess;
+}
+
+FBuildPatchAppManifestPtr FBuildMergeManifests::MergeDeltaManifest(const FBuildPatchAppManifestRef& Manifest, const FBuildPatchAppManifestRef& Delta)
+{
+	using namespace BuildPatchServices;
+	FBuildPatchAppManifestRef MergedManifest = StaticCastSharedRef<FBuildPatchAppManifest>(Manifest->Duplicate());
+	for (FFileManifest& FileManifest : MergedManifest->FileManifestList.FileList)
+	{
+		const FFileManifest* DeltaFileManifest = Delta->GetFileManifest(FileManifest.Filename);
+		if (DeltaFileManifest != nullptr)
+		{
+			FileManifest.ChunkParts = DeltaFileManifest->ChunkParts;
+		}
+	}
+	if (MergeHelpers::ReinitialiseChunkInfoList(MergedManifest->FileManifestList.FileList, Delta, Manifest, MergedManifest->ChunkDataList.ChunkList))
+	{
+		MergedManifest->InitLookups();
+		return MergedManifest;
+	}
+	return nullptr;
 }
