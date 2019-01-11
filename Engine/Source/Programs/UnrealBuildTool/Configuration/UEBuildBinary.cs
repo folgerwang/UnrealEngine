@@ -211,7 +211,13 @@ namespace UnrealBuildTool
 				ConsoleAppLinkEvironment.OutputFilePaths = ConsoleAppLinkEvironment.OutputFilePaths.Select(Path => GetAdditionalConsoleAppPath(Path)).ToList();
 
 				// Link the console app executable
-				OutputFiles.AddRange(ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, Makefile.Actions));
+				FileItem[] ConsoleAppOutputFiles = ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, Makefile.Actions);
+				OutputFiles.AddRange(ConsoleAppOutputFiles);
+
+				foreach (FileItem Executable in ConsoleAppOutputFiles)
+				{
+					OutputFiles.AddRange(ToolChain.PostBuild(Executable, ConsoleAppLinkEvironment, Makefile.Actions));
+				}
 			}
 
 			foreach (FileItem Executable in Executables)

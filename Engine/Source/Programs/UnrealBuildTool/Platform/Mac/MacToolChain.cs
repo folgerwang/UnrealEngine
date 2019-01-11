@@ -1340,7 +1340,7 @@ namespace UnrealBuildTool
 				}
 			}
 
-			if (BinaryLinkEnvironment.bIsBuildingDLL)
+			if (BinaryLinkEnvironment.bIsBuildingDLL || (BinaryLinkEnvironment.bIsBuildingConsoleApplication && Executable.Name.Contains("/UE4Editor") && Executable.Name.EndsWith("-Cmd")))
 			{
 				return OutputFiles;
 			}
