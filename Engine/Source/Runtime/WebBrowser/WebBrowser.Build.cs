@@ -25,7 +25,6 @@ public class WebBrowser : ModuleRules
 		);
 
 		if (Target.Platform == UnrealTargetPlatform.Android ||
-			Target.Platform == UnrealTargetPlatform.Lumin ||
 		    Target.Platform == UnrealTargetPlatform.IOS ||
 		    Target.Platform == UnrealTargetPlatform.TVOS)
 		{
@@ -78,6 +77,11 @@ public class WebBrowser : ModuleRules
 			Target.bCompileAgainstEngine)
 		{
 			PrivateDependencyModuleNames.Add("Engine");
+		}
+
+		if(Target.Platform == UnrealTargetPlatform.Lumin)
+		{
+			PrecompileForTargets = ModuleRules.PrecompileTargetsType.None;
 		}
 
 		bEnableShadowVariableWarnings = false;
