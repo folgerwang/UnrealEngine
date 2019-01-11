@@ -2248,7 +2248,12 @@ FArchive& operator<<(FArchive& Ar, FSkeletalMaterial& Elem)
 		}
 		if (bSerializeImportedMaterialSlotName)
 		{
+#if WITH_EDITORONLY_DATA
 			Ar << Elem.ImportedMaterialSlotName;
+#else
+			FName UnusedImportedMaterialSlotName;
+			Ar << UnusedImportedMaterialSlotName;
+#endif
 		}
 	}
 #if WITH_EDITORONLY_DATA
