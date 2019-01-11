@@ -3999,7 +3999,7 @@ SDL_ShowSimpleMessageBox(Uint32 flags, const char *title, const char *message, S
     /* Web browsers don't (currently) have an API for a custom message box
        that can block, but for the most common case (SDL_ShowSimpleMessageBox),
        we can use the standard Javascript alert() function. */
-    EM_ASM_({
+    MAIN_THREAD_EM_ASM({
         alert(UTF8ToString($0) + "\n\n" + UTF8ToString($1));
     }, title, message);
     return 0;

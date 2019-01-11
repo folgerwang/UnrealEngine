@@ -15,14 +15,14 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class HTML5SDKInfo
 	{
-		static string SDKVersion = "1.37.19";
-		static string LLVM_VER = "e1.37.19_64bit";
-//		static string BINARYEN_VER = "e1.37.9_64bit";
-//		static string SDKVersion = "incoming";
+		static string NODE_VER = "8.9.1_64bit";
+		static string PYTHON_VER = "2.7.13.1_64bit"; // Only used on Windows; other platforms use built-in Python.
+
+		static string LLVM_VER = "e1.38.20_64bit";
+		static string SDKVersion = "1.38.20";
+
 //		static string LLVM_VER = "incoming";
-//		static string BINARYEN_VER = "incoming";
-		static string NODE_VER = "4.1.1_64bit";
-		static string PYTHON_VER = "2.7.5.3_64bit";
+//		static string SDKVersion = "incoming";
 
 		// --------------------------------------------------
 		// --------------------------------------------------
@@ -98,7 +98,7 @@ namespace UnrealBuildTool
 			string config = Environment.GetEnvironmentVariable("EM_CONFIG"); // This is either a string containing the config directly, or points to a file
 			if (config != null && File.Exists(config))
 			{
-				Log.TraceInformation( "NOTE[ReadEmscriptenConfigFile]: using EM_CONFIG" );
+				Log.TraceInformation( "NOTE [ReadEmscriptenConfigFile]: using EM_CONFIG=" + config );
 				config = File.ReadAllText(config);
 			}
 			return config;
@@ -211,7 +211,7 @@ namespace UnrealBuildTool
 				// If user has configured a custom Emscripten toolchain, use that automatically.
 				if (Environment.GetEnvironmentVariable("EMSDK") != null && Environment.GetEnvironmentVariable("EM_CONFIG") != null && File.Exists(Environment.GetEnvironmentVariable("EM_CONFIG")))
 				{
-					Log.TraceInformation( "NOTE[DOT_EMSCRIPTEN]: using EM_CONFIG" );
+					Log.TraceInformation( "NOTE [DOT_EMSCRIPTEN]: using EM_CONFIG=" + Environment.GetEnvironmentVariable("EM_CONFIG") );
 					return Environment.GetEnvironmentVariable("EM_CONFIG");
 				}
 
@@ -231,6 +231,9 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static string SetupEmscriptenTemp()
 		{
+			// Default to use the embedded temp path in this repository.
+			string TempPath = Path.Combine(HTML5Intermediatory, "EmscriptenTemp");
+
 			// If user has configured a custom Emscripten toolchain, use that automatically.
 			if (Environment.GetEnvironmentVariable("EMSDK") != null)
 			{
@@ -238,8 +241,7 @@ namespace UnrealBuildTool
 				if (emscripten_temp != null) return emscripten_temp;
 			}
 
-			// Otherwise, use the one embedded in this repository.
-			string TempPath = Path.Combine(HTML5Intermediatory, "EmscriptenTemp");
+			// ensure temp path exists
 			try
 			{
 				if (Directory.Exists(TempPath))
@@ -448,23 +450,25 @@ namespace UnrealBuildTool
 				Log.TraceInformation("PYTHON: " + PYTHON + ", exists: " + File.Exists(PYTHON).ToString());
 			}
 
+			// display any reason if SDK is not found
+			if (!Directory.Exists(EMSCRIPTEN_ROOT))
+			{
+				Log.TraceInformation("*** EMSCRIPTEN_ROOT directory NOT FOUND: " + EMSCRIPTEN_ROOT);
+			}
+			if (!File.Exists(NODE_JS))
+			{
+				Log.TraceInformation("*** NODE_JS NOT FOUND: " + NODE_JS);
+			}
+			if (!Directory.Exists(LLVM_ROOT))
+			{
+				Log.TraceInformation("*** LLVMROOT directory NOT FOUND: " + LLVM_ROOT);
+			}
+			if (!File.Exists(PYTHON))
+			{
+				Log.TraceInformation("*** PYTHON NOT FOUND: " + PYTHON);
+			}
+
 			return sdkInstalled;
-		}
-
-		/// <summary>
-		///
-		/// </summary>
-		/// <returns></returns>
-		public static int HeapSize(ConfigHierarchy ConfigCache, string BuildType)
-		{
-			// defaults for this script
-			int ConfigHeapSize = BuildType == "Development" ? 1024 : 512;
-
-			// values set by editor
-			bool bGotHeapSize = ConfigCache.GetInt32("/Script/HTML5PlatformEditor.HTML5TargetSettings", "HeapSize" + BuildType, out ConfigHeapSize);
-
-			Log.TraceInformation("Setting Heap size to {0} Mb ", ConfigHeapSize);
-			return ConfigHeapSize;
 		}
 
 		// this script is used at:

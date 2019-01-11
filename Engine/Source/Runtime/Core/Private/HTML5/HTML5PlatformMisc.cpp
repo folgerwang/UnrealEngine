@@ -16,7 +16,6 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 THIRD_PARTY_INCLUDES_START
-	#include <SDL.h>
 	#include <ctime>
 THIRD_PARTY_INCLUDES_END
 

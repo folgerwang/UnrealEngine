@@ -18,6 +18,25 @@
 #define UE_DEBUG_BREAK() (FHTML5Misc::DebugBreakInternal())
 #endif
 
+#ifdef __EMSCRIPTEN_PTHREADS__
+#include <emscripten/threading.h>
+#endif
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+// Set the following define to 1 to build UE4 with rendering on a separate thread enabled.
+// Currently this requires falling back to proxying all WebGL commands to the main browser
+// thread, so it likely reduces performance, so disabled by default. When this is *disabled*,
+// the OffscreenCanvas API is used instead.
+
+// XXX(kainino0x): Enabling this seems to cause UE to attempt to use multiple contexts
+// (CONTEXT_Shared and CONTEXT_Rendering). In WebGL, this is not possible (no resource sharing).
+#define HTML5_ENABLE_RENDERER_THREAD PLATFORM_RHITHREAD_DEFAULT_BYPASS
+										// 0 for renderer running in main thread (OFFSCREENCANVAS_SUPPORT)
+										// 1 for renderer proxied to main thread (OFFSCREEN_FRAMEBUFFER)
+#else
+#define HTML5_ENABLE_RENDERER_THREAD 0 // non-multi-threading builds
+#endif
+
 /**
  * HTML5 implementation of the misc OS functions
  */
@@ -41,7 +60,32 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 
 	FORCEINLINE static int32 NumberOfCores()
 	{
+#ifdef __EMSCRIPTEN_PTHREADS__
+		return 4;
+//		return emscripten_num_logical_cores();
+#else
 		return 1;
+#endif
+	}
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+	static int32 NumberOfWorkerThreadsToSpawn()
+	{
+		// XXX EMSCRIPTEN THREAD LIMIT - Limit number of threads at runtime. Besides, PTHREAD_POOL_SIZE preallocate before init.
+		// TODO: Remove this override function once Wasm threads consume much less memory.
+		return 1;
+	}
+#endif
+
+	static int32 NumberOfIOWorkerThreadsToSpawn()
+	{
+#ifdef __EMSCRIPTEN_PTHREADS__
+		// XXX EMSCRIPTEN THREAD LIMIT - Limit number of threads at runtime. Besides, PTHREAD_POOL_SIZE preallocate before init.
+		// TODO: Remove this override function once Wasm threads consume much less memory.
+		return 1;
+#else
+		return 4;
+#endif
 	}
 
 	static bool AllowThreadHeartBeat()
@@ -51,10 +95,11 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 
 	FORCEINLINE static void MemoryBarrier()
 	{
-		// Do nothing on x86; the spec requires load/store ordering even in the absence of a memory barrier.
-
-		// @todo HTML5: Will this be applicable for final?
+#ifdef __EMSCRIPTEN_PTHREADS__
+		emscripten_atomic_fence();
+#endif
 	}
+
 	/** Return true if a debugger is present */
 	FORCEINLINE static bool IsDebuggerPresent()
 	{
@@ -102,6 +147,24 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 #endif
 
 		return false;
+	}
+
+	static bool AllowRenderThread()
+	{
+#ifdef __EMSCRIPTEN_PTHREADS__
+		return !!HTML5_ENABLE_RENDERER_THREAD;
+#else
+		return false;
+#endif
+	}
+
+	static bool AllowAudioThread()
+	{
+#ifdef __EMSCRIPTEN_PTHREADS__
+		return true;
+#else
+		return false; // note to self: GenericPlatform is true -- meaning, used fake threads if multithreading is not supported...
+#endif
 	}
 
 	static void LocalPrint(const TCHAR* Str);

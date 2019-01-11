@@ -2,7 +2,9 @@
 
 #include "OpenGLDrvPrivate.h"
 THIRD_PARTY_INCLUDES_START
+#ifdef HTML5_USE_SDL2
 #include <SDL.h>
+#endif
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 THIRD_PARTY_INCLUDES_END
@@ -66,6 +68,7 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsInstancing = ExtensionsString.Contains(TEXT("ANGLE_instanced_arrays"));
 
 	// WebGL 1 extensions that were adopted to core WebGL 2 spec:
+	UE_LOG(LogTemp, Warning, TEXT("UE_BrowserWebGLVersion %d"), UE_BrowserWebGLVersion());
 	if (UE_BrowserWebGLVersion() == 2)
 	{
 		bSupportsStandardDerivativesExtension = bSupportsDrawBuffers = true;
@@ -150,7 +153,11 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 struct FPlatformOpenGLContext
 {
 	GLuint			ViewportFramebuffer;
+#ifdef HTML5_USE_SDL2
 	SDL_GLContext Context; /* Our opengl context handle */
+#else
+	EMSCRIPTEN_WEBGL_CONTEXT_HANDLE Context;
+#endif
 
 	FPlatformOpenGLContext()
 		:Context(NULL),
@@ -168,6 +175,10 @@ struct FPlatformOpenGLDevice
 	{
 		SharedContext = new FPlatformOpenGLContext;
 
+		int width, height;
+		emscripten_get_canvas_element_size(NULL, &width, &height);
+
+#ifdef HTML5_USE_SDL2
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_EGL, 1);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -180,17 +191,30 @@ struct FPlatformOpenGLDevice
 		SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-		int width, height, isFullscreen;
-		emscripten_get_canvas_size(&width, &height, &isFullscreen);
 		WindowHandle = SDL_CreateWindow("HTML5", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+#else
+		// Specifies the CSS ID of the <canvas> element on the page on which to create a context. ("#canvas" is special and means Module['canvas'])
+		WindowHandle = "#canvas";
+#ifdef __EMSCRIPTEN_PTHREADS__
+		thread = 0;
+#endif
+#endif
 		UE_GSystemResolution( GSystemResolution_ResX, GSystemResolution_ResY );
-		PlatformCreateOpenGLContext(this,WindowHandle);
+//		emscripten_set_canvas_element_size( GSystemResolution_ResX(), GSystemResolution_ResY() ); // XXX: this might need to go into HTML5JavaScript.js::UE_GSystemResolution()
+		PlatformCreateOpenGLContext(this,(void*)WindowHandle);
 	}
 
 	FPlatformOpenGLContext* SharedContext;
-	SDL_Window* WindowHandle; /* Our window handle */
 
+#ifdef HTML5_USE_SDL2
+	SDL_Window* WindowHandle; /* Our window handle */
+#else
+	const char *WindowHandle;
+#ifdef __EMSCRIPTEN_PTHREADS__
+	pthread_t thread;
+#endif
+#endif
 };
 
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
@@ -206,12 +230,25 @@ bool PlatformCanEnableGPUCapture()
 void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
 {
 	check (Device);
+EM_ASM({ console.log("!!! PlatformReleaseOpenGLContext 00"); });
 
 	glDeleteFramebuffers(1, &Device->SharedContext->ViewportFramebuffer);
 	Device->SharedContext->ViewportFramebuffer = 0;
 
+#ifdef HTML5_USE_SDL2
 	SDL_GL_DeleteContext(Device->SharedContext->Context);
 	SDL_DestroyWindow(Device->WindowHandle);
+#else
+	emscripten_webgl_make_context_current(0);
+	emscripten_webgl_destroy_context(Device->SharedContext->Context);
+#ifdef __EMSCRIPTEN_PTHREADS__
+	if ( Device->thread )
+	{
+		pthread_exit(0);
+		Device->thread = 0;
+	}
+#endif
+#endif
 	Device->SharedContext->Context = 0;
 }
 
@@ -225,9 +262,125 @@ FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice*
 	return Device->SharedContext;
 }
 
+void _HTML5CreateContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
+{
+	EM_ASM({console.log("kai _HTML5CreateContext Device[" + $0 + "] InWindowHandle[" + $1 + "] GUseThreadedRendering[" + $2 + "] FHTML5Misc::AllowRenderThread()[" + $3 + "]")}, Device, InWindowHandle, GUseThreadedRendering, FHTML5Misc::AllowRenderThread());
+	EmscriptenWebGLContextAttributes attr;
+	emscripten_webgl_init_context_attributes(&attr);
+	// Enabling alpha channel on the back buffer would allow web page to composit canvas on top of the elements behind it.
+	// Though UE4 engine pipeline always outputs alpha channel as all zeroes, so if alpha was enabled here, the canvas would
+	// be completely hidden, so disable it. (not used for anything currently, and might be tiny bit faster without it as well,
+	// especially on mobile)
+	attr.alpha = 0;
+	attr.depth = 1;
+	attr.stencil = 0;
+	attr.antialias = 0;
+	attr.majorVersion = 2; // TODO: Set to 2 if targeting WebGL 2
+	attr.enableExtensionsByDefault = 1;
+#ifdef __EMSCRIPTEN_PTHREADS__
+	if ( GUseThreadedRendering )
+	{
+		// New explicit swapping support is only available in multithreaded mode.
+		if (FHTML5Misc::AllowRenderThread())
+		{
+			attr.explicitSwapControl = 0;
+			UE_LOG(LogRHI, Log, TEXT("Multithreading enabled, targeting explicitSwapControl=0"));
+
+			// Rendering thread requires access to a WebGL context from multiple threads, in which case
+			// WebGL proxying will need to be used (no OffscreenCanvas)
+			attr.proxyContextToMainThread = EMSCRIPTEN_WEBGL_CONTEXT_PROXY_ALWAYS;
+			attr.renderViaOffscreenBackBuffer = EM_TRUE;
+		}
+		else
+		{
+			attr.explicitSwapControl = 1;
+			UE_LOG(LogRHI, Log, TEXT("Multithreading enabled, targeting explicitSwapControl=1"));
+		}
+	}
+	else
+#endif
+	{
+		attr.explicitSwapControl = 0;
+		UE_LOG(LogRHI, Log, TEXT("Multithreading not enabled, setting explicitSwapControl=0"));
+	}
+
+#ifdef HTML5_USE_SDL2
+	Device->SharedContext->Context = SDL_GL_CreateContext((SDL_Window*)InWindowHandle);
+#else
+	Device->SharedContext->Context = emscripten_webgl_create_context(0, &attr);
+#endif
+
+	if (!Device->SharedContext->Context && attr.majorVersion == 2)
+	{
+		// If WebGL 2 context creation failed, try WebGL 1 as a fallback.
+		attr.majorVersion = 1;
+#ifdef HTML5_USE_SDL2
+		Device->SharedContext->Context = SDL_GL_CreateContext((SDL_Window*)InWindowHandle);
+#else
+		Device->SharedContext->Context = emscripten_webgl_create_context(0, &attr);
+#endif
+	}
+
+	if (!Device->SharedContext->Context)
+	{
+		UE_LOG(LogRHI, Fatal, TEXT("Failed to create WebGL context!"));
+	}
+
+#ifndef HTML5_USE_SDL2
+	EMSCRIPTEN_RESULT r = emscripten_webgl_make_context_current(Device->SharedContext->Context);
+	if (r != EMSCRIPTEN_RESULT_SUCCESS)
+	{
+		UE_LOG(LogRHI, Fatal, TEXT("Failed to activate WebGL context!"));
+	}
+#endif
+}
+
+//#if HTML5_ENABLE_RENDERER_THREAD
+//void *_HTML5CreateContextThread(void *arg)
+//{
+////...// XXX: attempt 1
+////...//	_HTML5CreateContext((FPlatformOpenGLDevice*)arg /*Device*/);
+////...//	FHTML5PlatformProcess::SleepInfinite();
+//
+//// XXX: attempt 2
+//	do {
+//		FHTML5PlatformProcess::SleepNoStats(1.0f);
+////	} while (PlatformOpenGLContextValid()); // XXX: attempt 3
+//	} while (true);
+//
+//	return NULL;
+//}
+//#endif
+
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 {
+#ifdef HTML5_USE_SDL2
 	Device->SharedContext->Context = SDL_GL_CreateContext((SDL_Window*)InWindowHandle);
+#else
+#ifdef __EMSCRIPTEN_PTHREADS__
+	if ( GUseThreadedRendering )
+	{
+		if (!FHTML5Misc::AllowRenderThread())
+		{
+			pthread_attr_t pt_attr;
+			pthread_attr_init(&pt_attr);
+EM_ASM({ console.log("CANVAS BEFORE"); });
+EM_ASM({ console.log( Module['canvas'] ); });
+			emscripten_pthread_attr_settransferredcanvases(&pt_attr, Device->WindowHandle); // #canvas
+EM_ASM({ console.log("CANVAS AFTER"); });
+EM_ASM({ console.log( Module['canvas'] ); });
+//			int rc = pthread_create(&Device->thread, &pt_attr, _HTML5CreateContextThread, NULL);
+//			if (rc == ENOSYS)
+//			{
+//				UE_LOG(LogRHI, Fatal, TEXT("OffscreenCanvas is not supported!"));
+//			}
+			pthread_attr_destroy(&pt_attr);
+		}
+	}
+#endif
+	_HTML5CreateContext(Device, InWindowHandle);
+
+#endif
 	return Device->SharedContext;
 }
 
@@ -245,16 +398,71 @@ void* PlatformGetWindow(FPlatformOpenGLContext* Context, void** AddParam)
 
 bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewport& Viewport, uint32 BackbufferSizeX, uint32 BackbufferSizeY, bool bPresent,bool bLockToVsync, int32 SyncInterval )
 {
+#ifdef HTML5_USE_SDL2
 	SDL_GL_SwapWindow(Device->WindowHandle);
+#else
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+	if ( GUseThreadedRendering )
+	{
+		if (!FHTML5Misc::AllowRenderThread())
+		{
+			// In multithreaded builds, we always use Emscripten's explicit swap mode, where we present on demand.
+			// In singlethreaded builds, this does not exist, and we rely on WebGL's "implicit" swap behavior where exiting the animation tick handler() always swaps.
+			emscripten_webgl_commit_frame();
+		}
+	}
+#endif
+
+#endif
 	return true;
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
 {
+#ifndef HTML5_USE_SDL2
+	// Function name says "Rendering Context", but WebGL doesn't support resource
+	// sharing, so this actually just does Shared Context setup.
+	EM_ASM({console.log("kai PlatformRenderingContextSetup " + $0)}, Device->SharedContext->Context);
+
+	check( Device && Device->WindowHandle && Device->SharedContext && Device->SharedContext->Context );
+
+	EM_ASM({console.log("kai PlatformRenderingContextSetup: AllowRenderThread ->", $0)}, FHTML5Misc::AllowRenderThread());
+	if (FHTML5Misc::AllowRenderThread())
+	{
+		EMSCRIPTEN_RESULT r = emscripten_webgl_make_context_current(Device->SharedContext->Context);
+		EM_ASM({console.log("kai PlatformRenderingContextSetup: emscripten_webgl_make_context_current ->", $0)}, r);
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+		// Hack: We may be on another thread than the one that initially created the context. Create a new context to this thread.
+		if (r != EMSCRIPTEN_RESULT_SUCCESS)
+		{
+			UE_LOG(LogRHI, Warning, TEXT("Failed to activate WebGL context!"));
+
+			PlatformCreateOpenGLContext(Device, (void*)"HTML5OpenGL.cpp");
+
+			if (!Device->SharedContext->Context)
+			{
+				UE_LOG(LogRHI, Fatal, TEXT("Failed to create WebGL context on thread!"));
+			}
+
+			r = emscripten_webgl_make_context_current(Device->SharedContext->Context);
+		}
+#endif
+
+		if (r != EMSCRIPTEN_RESULT_SUCCESS)
+		{
+			UE_LOG(LogRHI, Fatal, TEXT("Failed to activate WebGL context after creation!"));
+		}
+	}
+#else
+	// TODO: get Kai's SDL2 solution
+#endif
 }
 
 void PlatformFlushIfNeeded()
 {
+EM_ASM({ console.log("XXX XXX PlatformFlushIfNeeded -- PlatformFlushIfNeeded -- PlatformFlushIfNeeded "); });
 }
 
 void PlatformRebindResources(FPlatformOpenGLDevice* Device)
@@ -263,21 +471,28 @@ void PlatformRebindResources(FPlatformOpenGLDevice* Device)
 
 void PlatformSharedContextSetup(FPlatformOpenGLDevice* Device)
 {
+	EM_ASM({console.log("kai PlatformSharedContextSetup " + $0)}, Device->SharedContext->Context);
+	PlatformRenderingContextSetup(Device);
 }
 
 void PlatformNULLContextSetup()
 {
-	// ?
+#ifndef HTML5_USE_SDL2
+	emscripten_webgl_make_context_current(0);
+#else
+	// PlatformReleaseOpenGLContext?
+#endif
 }
 
 EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device)
 {
+	check(PlatformContextIsCurrent((uint64) Device->SharedContext->Context));
 	return CONTEXT_Shared;
 }
 
 void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
 {
-	return Device->SharedContext->Context;
+	return(void*) Device->SharedContext->Context;
 }
 
 void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context, uint32 SizeX, uint32 SizeY, bool bFullscreen, bool bWasFullscreen, GLenum BackBufferTarget, GLuint BackBufferResource)
@@ -285,16 +500,20 @@ void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLCont
 	check(Context);
 	VERIFY_GL_SCOPE();
 
-	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("SDL_SetWindowSize(%d,%d)"), SizeX, SizeY);
+	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("PlatformResizeGLContext(%d,%d)"), SizeX, SizeY);
+
+#ifdef HTML5_USE_SDL2
 	SDL_SetWindowSize(Device->WindowHandle,SizeX,SizeY);
+#else
+	emscripten_set_canvas_element_size(Device->WindowHandle, SizeX, SizeY);
+#endif
 
 	glViewport(0, 0, SizeX, SizeY);
 }
 
 void PlatformGetSupportedResolution(uint32 &Width, uint32 &Height)
 {
-	int isFullscreen;
-	emscripten_get_canvas_size((int*)&Width, (int*)&Height, &isFullscreen);
+	emscripten_get_canvas_element_size(NULL, (int*)&Width, (int*)&Height);
 }
 
 bool PlatformGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate)
@@ -302,18 +521,15 @@ bool PlatformGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool b
 	return true;
 }
 
-
 bool PlatformInitOpenGL()
 {
+	UE_LOG(LogTemp, Warning, TEXT("PlatformInitOpenGL"));
 	return true;
 }
 
 bool PlatformOpenGLContextValid()
 {
-	// Get Current Context.
-	// @todo-HTML5
-	// to do get current context.
-	return true;
+	return emscripten_webgl_get_current_context() != 0;
 }
 
 int32 PlatformGlGetError()
@@ -323,12 +539,16 @@ int32 PlatformGlGetError()
 
 void PlatformGetBackbufferDimensions( uint32& OutWidth, uint32& OutHeight )
 {
+#ifdef HTML5_USE_SDL2
 	SDL_Window* WindowHandle= SDL_GL_GetCurrentWindow();
 	check(WindowHandle);
 	SDL_Surface *Surface= SDL_GetWindowSurface(WindowHandle);
 	check(Surface);
 	OutWidth  = Surface->w;
 	OutHeight = Surface->h;
+#else
+	emscripten_get_canvas_element_size("#canvas", (int*)&OutWidth, (int*)&OutHeight);
+#endif
 	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("PlatformGetBackbufferDimensions(%d, %d)"), OutWidth, OutHeight);
 }
 
@@ -336,7 +556,19 @@ void PlatformGetBackbufferDimensions( uint32& OutWidth, uint32& OutHeight )
 
 bool PlatformContextIsCurrent( uint64 QueryContext )
 {
+#ifdef HTML5_USE_SDL2
 	return true;
+#else
+#if defined(__EMSCRIPTEN_PTHREADS__) && ! HTML5_ENABLE_RENDERER_THREAD
+	if ( emscripten_webgl_get_current_context() != (EMSCRIPTEN_WEBGL_CONTEXT_HANDLE)QueryContext ) {
+		EM_ASM({
+			console.log("!!! XXX !!! thread["+_pthread_self()+"] PlatformContextIsCurrent curctx["+$0+"] qctx["+$1+"]");
+		}, emscripten_webgl_get_current_context(), (uint32)QueryContext );
+		return true;
+	}
+#endif
+	return emscripten_webgl_get_current_context() == (EMSCRIPTEN_WEBGL_CONTEXT_HANDLE)QueryContext;
+#endif
 }
 
 FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint32 SizeX, uint32 SizeY)
@@ -366,7 +598,7 @@ void PlatformReleaseRenderQuery( GLuint Query, uint64 QueryContext )
 
 void PlatformRestoreDesktopDisplayMode()
 {
-	EM_ASM( Module['canvas'].UE_canvas.bIsFullScreen = 0; );
+	MAIN_THREAD_EM_ASM( Module['canvas'].UE_canvas.bIsFullScreen = 0; );
 }
 
 #include "UnrealEngine.h" // GSystemResolution

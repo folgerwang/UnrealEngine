@@ -98,7 +98,12 @@ var UE_JavascriptLibrary = {
 
   UE_GetCurrentCultureName: function (address, outsize) {
     var culture_name = navigator.language || navigator.browserLanguage;
-    if (culture_name.lenght >= outsize)
+    // TODO(kainino0x): on a pthread, navigator.language isn't available.
+    if (!culture_name) {
+      console.warn("UE_GetCurrentCultureName: navigator.language unavailable on pthread; falling back to 'en-US'");
+      culture_name = 'en-US';
+    }
+    if (culture_name.length >= outsize)
       return 0;
     Module.writeAsciiToMemory(culture_name, address);
     return 1;
@@ -377,6 +382,10 @@ var UE_JavascriptLibrary = {
   },
 
   UE_BrowserWebGLVersion: function() {
+    if ( ENVIRONMENT_IS_WORKER )
+    {	// worker threads do not have access to emscripten's Module object
+		return 2; // TODO: EMSCRITPEN_TOOLCHAIN_UPGRADE_CHECK - remove hard coded value...
+    }
     return Module['WEBGL_VERSION'];
   }
 };

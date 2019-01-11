@@ -7,7 +7,12 @@
 #pragma once
 
 #define GL_GLEXT_PROTOTYPES
+#ifdef HTML5_USE_SDL2
 #include <SDL_opengles2.h>
+#else
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#endif
 
 typedef char UGLsync;
 typedef long long  GLint64;
@@ -233,6 +238,8 @@ struct FHTML5OpenGL : public FOpenGLES2
 	}
 
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_FLOAT; }
+	static FORCEINLINE bool SupportsHDR32bppEncodeModeIntrinsic()		{ return bIsWebGL2; }
+
 protected:
 
 	/** http://www.khronos.org/registry/webgl/extensions/WEBGL_depth_texture/ or WebGL 2.0 */
