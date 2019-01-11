@@ -3374,7 +3374,7 @@ FPropertyAccess::Result FPropertyHandleFloat::SetValue( const float& NewValue, E
 	// Clamp the value from any meta data ranges stored on the property value
 	float FinalValue = ClampValueFromMetaData<float>( NewValue, *Implementation->GetPropertyNode() );
 
-	const FString ValueStr = FString::Printf( TEXT("%f"), FinalValue );
+	const FString ValueStr = FString::Printf( TEXT("%.8f"), FinalValue );
 	Res = Implementation->ImportText( ValueStr, Flags );
 
 	return Res;
