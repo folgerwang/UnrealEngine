@@ -197,12 +197,17 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 #if RHI_RAYTRACING
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
-	FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
-	Desc.Format = PF_FloatRGBA;
-	Desc.Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
 
-	*OutColorTexture = GraphBuilder.CreateTexture(Desc, TEXT("RayTracingReflections"));
-	*OutRayHitDistanceTexture = GraphBuilder.CreateTexture(Desc, TEXT("RayTracingReflections"));
+	{		
+		FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
+		Desc.Format = PF_FloatRGBA;
+		Desc.Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
+
+		*OutColorTexture = GraphBuilder.CreateTexture(Desc, TEXT("RayTracingReflections"));
+		
+		Desc.Format = PF_R16F;
+		*OutRayHitDistanceTexture = GraphBuilder.CreateTexture(Desc, TEXT("RayTracingReflectionsHitDistance"));
+	}
 
 	FRayTracingReflectionsRG::FParameters* PassParameters = GraphBuilder.AllocParameters<FRayTracingReflectionsRG::FParameters>();
 
