@@ -1337,10 +1337,24 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 
 									if (bIsOwnerClassTargetedForReplacement)
 									{
-										// Use the template's archetype for the delta serialization here; remaining properties will have already been set via native subobject instancing at runtime.
-										constexpr bool bUseTemplateArchetype = true;
-										FBlueprintEditorUtils::BuildComponentInstancingData(RecordIt->ComponentTemplate, RecordIt->CookedComponentInstancingData, bUseTemplateArchetype);
-										++NumCookedComponents;
+										// EDL is required, because we need to enforce a preload dependency on the CDO (see UBlueprintGeneratedClass::GetDefaultObjectPreloadDependencies). This is
+										// difficult to support in the non-EDL case, because we have to enforce the dependency at runtime, which can lead to unpredictable results in a cooked build.
+										if (IsEventDrivenLoaderEnabledInCookedBuilds())
+										{
+											// Use the template's archetype for the delta serialization here; remaining properties will have already been set via native subobject instancing at runtime.
+											constexpr bool bUseTemplateArchetype = true;
+											FBlueprintEditorUtils::BuildComponentInstancingData(RecordIt->ComponentTemplate, RecordIt->CookedComponentInstancingData, bUseTemplateArchetype);
+											++NumCookedComponents;
+										}
+										else
+										{
+											UE_LOG(LogBlueprint, Error, TEXT("%s overrides component \'%s\' inherited from %s, which will be converted to C++. This requires Event-Driven Loading (EDL) to be enabled; otherwise, %s must be excluded from Blueprint nativization."),
+												*GetName(),
+												*RecordIt->ComponentKey.GetSCSVariableName().ToString(),
+												*ComponentTemplateOwnerClass->GetName(),
+												*ComponentTemplateOwnerClass->GetName()
+											);
+										}
 									}
 								}
 							}
@@ -1373,6 +1387,20 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 			case EBlueprintComponentDataCookingMethod::Disabled:
 			default:
 				break;
+			}
+			
+			// EDL is required, because we need to enforce a preload dependency on the CDO (see UBlueprintGeneratedClass::GetDefaultObjectPreloadDependencies). This is
+			// difficult to support in the non-EDL case, because we have to enforce the dependency at runtime, which can lead to unpredictable results in a cooked build.
+			if(bResult && !IsEventDrivenLoaderEnabledInCookedBuilds())
+			{
+				bResult = false;
+
+				static bool bWarnOnEDLDisabled = true;
+				if (bWarnOnEDLDisabled)
+				{
+					UE_LOG(LogBlueprint, Warning, TEXT("Cannot cook Blueprint component data for faster instancing at runtime, because Event-Driven Loading (EDL) has been disabled. Re-enable EDL to support this feature, or disable the option to cook Blueprint component data."));
+					bWarnOnEDLDisabled = false;
+				}
 			}
 
 			return bResult;
