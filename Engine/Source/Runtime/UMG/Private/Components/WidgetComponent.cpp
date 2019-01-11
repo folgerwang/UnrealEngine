@@ -649,7 +649,10 @@ void UWidgetComponent::UpdateMaterialInstance()
 
 	UMaterialInterface* BaseMaterial = GetMaterial(0);
 	MaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-
+	if (MaterialInstance)
+	{
+			MaterialInstance->AddToCluster(this);
+	}
 	UpdateMaterialInstanceParameters();
 }
 
