@@ -5294,6 +5294,11 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 	SCOPE_CYCLE_COUNTER(STAT_NetProcessRemoteFunc);
 	SCOPE_CYCLE_UOBJECT(Function, Function);
 
+	{
+		UObject* TestObject = (SubObject == nullptr) ? Actor : SubObject;
+		ensureMsgf(TestObject->IsSupportedForNetworking() || TestObject->IsNameStableForNetworking(), TEXT("Attempted to call ProcessRemoteFunction with object that is not supported for networking. Object: %s Function: %s"), *TestObject->GetPathName(), *Function->GetName());
+	}
+
 	bool bBlockSendRPC = false;
 
 	SendRPCDel.ExecuteIfBound(Actor, Function, Parameters, OutParms, Stack, SubObject, bBlockSendRPC);
