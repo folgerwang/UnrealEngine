@@ -39,7 +39,7 @@
 #include "Interfaces/IProjectManager.h"
 
 #include "IViewportInteractionModule.h"
-#include "VREditorMotionControllerInteractor.h"
+#include "VREditorInteractor.h"
 
 #include "EditorWorldExtension.h"
 #include "SequencerSettings.h"
@@ -87,15 +87,13 @@ UVREditorMode::UVREditorMode() :
 	bIsFullyInitialized( false ),
 	AppTimeModeEntered( FTimespan::Zero() ),
 	AvatarActor( nullptr ),
-   	FlashlightComponent( nullptr ),
+	FlashlightComponent( nullptr ),
 	bIsFlashlightOn( false ),
 	MotionControllerID( 0 ),	// @todo vreditor minor: We only support a single controller, and we assume the first controller are the motion controls
 	UISystem( nullptr ),
 	TeleportActor( nullptr ),
 	AutoScalerSystem( nullptr ),
 	WorldInteraction( nullptr ),
-	LeftHandInteractor( nullptr ),
-	RightHandInteractor( nullptr ),
 	bFirstTick( true ),
 	SavedWorldToMetersScaleForPIE( 100.f ),
 	bStartedPlayFromVREditor( false ),
@@ -140,6 +138,8 @@ void UVREditorMode::Init()
 		check( WorldInteraction != nullptr );
 	}
 
+	GEditor->OnBlueprintReinstanced().AddUObject( this, &UVREditorMode::OnBlueprintReinstanced );
+
 	// Setup the asset container.
 	AssetContainer = &LoadAssetContainer();
 	check(AssetContainer != nullptr);
@@ -149,6 +149,114 @@ void UVREditorMode::Init()
 
 	bIsFullyInitialized = true;
 }
+
+// If we're recompiling Blueprints, we'll need to re-create and re-connect our interactors. 
+void UVREditorMode::OnBlueprintReinstanced()
+{
+	// Tear down
+	{
+		DestroyTransientActor( AvatarActor );
+		AvatarActor = nullptr;
+		FlashlightComponent = nullptr;
+	}
+
+	// Kill subsystems
+	if (UISystem != nullptr)
+	{
+		UISystem->Shutdown();
+		UISystem->MarkPendingKill();
+		UISystem = nullptr;
+	}
+
+	if (PlacementSystem != nullptr)
+	{
+		PlacementSystem->Shutdown();
+		PlacementSystem->MarkPendingKill();
+		PlacementSystem = nullptr;
+	}
+
+	if (TeleportActor != nullptr)
+	{
+		DestroyTransientActor( TeleportActor );
+		TeleportActor = nullptr;
+	}
+
+	if (AutoScalerSystem != nullptr)
+	{
+		AutoScalerSystem->Shutdown();
+		AutoScalerSystem->MarkPendingKill();
+		AutoScalerSystem = nullptr;
+	}
+
+	//	Rebuild
+	if (bActuallyUsingVR)
+	{
+		// Tell Slate to require a larger pixel distance threshold before the drag starts.  This is important for things
+		// like Content Browser drag and drop.
+		SavedEditorState.DragTriggerDistance = FSlateApplication::Get().GetDragTriggerDistance();
+		FSlateApplication::Get().SetDragTriggerDistance( VREd::SlateDragDistanceOverride->GetFloat() );
+
+		// When actually in VR, make sure the transform gizmo is big!
+		SavedEditorState.TransformGizmoScale = WorldInteraction->GetTransformGizmoScale();
+		WorldInteraction->SetTransformGizmoScale( GetDefault<UVRModeSettings>()->GizmoScale );
+		WorldInteraction->SetShouldSuppressExistingCursor( true );
+		WorldInteraction->SetInVR( true );
+	}
+
+	// Setup our avatar
+	if (AvatarActor == nullptr)
+	{
+		const bool bWithSceneComponent = true;
+		AvatarActor = SpawnTransientSceneActor<AVREditorAvatarActor>( TEXT( "AvatarActor" ), bWithSceneComponent );
+		AvatarActor->Init( this );
+
+		WorldInteraction->AddActorToExcludeFromHitTests( AvatarActor );
+	}
+
+		// Setup sub systems
+	{
+		// Setup world interaction
+		// We need input preprocessing for VR so that we can receive motion controller input without any viewports having 
+		// to be focused.  This is mainly because Slate UI injected into the 3D world can cause focus to be lost unexpectedly,
+		// but we need the user to still be able to interact with UI.
+		WorldInteraction->SetUseInputPreprocessor( true );
+
+		// Motion controllers
+//		LeftHandInteractor->SetControllerHandSide( FXRMotionControllerBase::LeftHandSourceId );
+
+//		RightHandInteractor->SetControllerHandSide( FXRMotionControllerBase::RightHandSourceId );
+
+		WorldInteraction->PairInteractors(GetHandInteractor(EControllerHand::Left), GetHandInteractor(EControllerHand::Right));
+
+		for (UVREditorInteractor* Interactor : Interactors)
+		{
+			Interactor->Init( this );
+			WorldInteraction->AddInteractor( Interactor );
+		}
+
+		// Setup the UI system
+		UISystem = NewObject<UVREditorUISystem>();
+		UISystem->Init( this );
+
+		PlacementSystem = NewObject<UVREditorPlacement>();
+		PlacementSystem->Init( this );
+
+		// Setup teleporter
+		TeleportActor = SpawnTransientSceneActor<AVREditorTeleporter>( TEXT( "Teleporter" ), true );
+		TeleportActor->Init( this );
+		WorldInteraction->AddActorToExcludeFromHitTests( TeleportActor );
+
+		// Setup autoscaler
+		AutoScalerSystem = NewObject<UVREditorAutoScaler>();
+		AutoScalerSystem->Init( this );
+	}
+
+	for (UVREditorInteractor* Interactor : Interactors)
+	{
+		Interactor->SetupComponent( AvatarActor );
+	}
+}
+
 
 /*
 * @EventName Editor.Usage.EnterVRMode
@@ -174,14 +282,55 @@ void UVREditorMode::Shutdown()
 	TeleportActor = nullptr;
 	AutoScalerSystem = nullptr;
 	WorldInteraction = nullptr;
-	LeftHandInteractor = nullptr;
-	RightHandInteractor = nullptr;
 	AssetContainer = nullptr;
 
 	// @todo vreditor urgent: Disable global editor hacks for VR Editor mode
 	GEnableVREditorHacks = false;
 
 	FEditorDelegates::EndPIE.RemoveAll(this);
+
+	GEditor->OnBlueprintReinstanced().RemoveAll( this );
+}
+
+void UVREditorMode::AllocateInteractors()
+{
+	const TSubclassOf<UVREditorInteractor> InteractorClass = GetDefault<UVRModeSettings>()->InteractorClass;
+
+	class UVREditorInteractor* LeftHandInteractor = nullptr;
+	class UVREditorInteractor* RightHandInteractor = nullptr;
+
+	if (InteractorClass)
+	{
+		LeftHandInteractor = NewObject<UVREditorInteractor>( GetTransientPackage(), InteractorClass );
+		RightHandInteractor = NewObject<UVREditorInteractor>( GetTransientPackage(), InteractorClass );
+	}
+
+	if (LeftHandInteractor == nullptr)
+	{
+		LeftHandInteractor = NewObject<UVREditorInteractor>();
+	}
+
+	if (RightHandInteractor == nullptr)
+	{
+		RightHandInteractor = NewObject<UVREditorInteractor>();
+	}
+
+	check( LeftHandInteractor );
+	check( RightHandInteractor );
+
+	Interactors.Add( LeftHandInteractor );
+	Interactors.Add( RightHandInteractor );
+
+	LeftHandInteractor->SetControllerHandSide( FXRMotionControllerBase::LeftHandSourceId );
+	RightHandInteractor->SetControllerHandSide( FXRMotionControllerBase::RightHandSourceId );
+
+	for (UVREditorInteractor* Interactor : Interactors)
+	{
+		Interactor->Init( this );
+		WorldInteraction->AddInteractor( Interactor );
+	}
+
+	WorldInteraction->PairInteractors( LeftHandInteractor, RightHandInteractor );
 }
 
 void UVREditorMode::Enter()
@@ -214,7 +363,7 @@ void UVREditorMode::Enter()
 			TSharedPtr<ILevelViewport> ActiveLevelViewport = LevelEditor->GetActiveViewportInterface();
 			if(ActiveLevelViewport.IsValid())
 			{
-				ExistingActiveLevelViewport = StaticCastSharedRef< SLevelViewport >(ActiveLevelViewport->AsWidget());				
+				ExistingActiveLevelViewport = StaticCastSharedRef< SLevelViewport >(ActiveLevelViewport->AsWidget());
 				ExistingActiveLevelViewport->RemoveAllPreviews(true);
 			}
 		}
@@ -223,7 +372,7 @@ void UVREditorMode::Enter()
 
 		if( bActuallyUsingVR )
 		{
-			// Tell Slate to require a larger pixel distance threshold before the drag starts.  This is important for things 
+			// Tell Slate to require a larger pixel distance threshold before the drag starts.  This is important for things
 			// like Content Browser drag and drop.
 			SavedEditorState.DragTriggerDistance = FSlateApplication::Get().GetDragTriggerDistance();
 			FSlateApplication::Get().SetDragTriggerDistance( VREd::SlateDragDistanceOverride->GetFloat() );
@@ -276,19 +425,7 @@ void UVREditorMode::Enter()
 		WorldInteraction->SetUseInputPreprocessor( true );
 
 		// Motion controllers
-		{
-			LeftHandInteractor = NewObject<UVREditorMotionControllerInteractor>();
-			LeftHandInteractor->SetControllerHandSide( FXRMotionControllerBase::LeftHandSourceId );
-			LeftHandInteractor->Init( this );
-			WorldInteraction->AddInteractor( LeftHandInteractor );
-
-			RightHandInteractor = NewObject<UVREditorMotionControllerInteractor>();
-			RightHandInteractor->SetControllerHandSide( FXRMotionControllerBase::RightHandSourceId );
-			RightHandInteractor->Init( this );
-			WorldInteraction->AddInteractor( RightHandInteractor );
-
-			WorldInteraction->PairInteractors( LeftHandInteractor, RightHandInteractor );
-		}
+		AllocateInteractors();
 
 		if( bActuallyUsingVR )
 		{
@@ -304,16 +441,30 @@ void UVREditorMode::Enter()
 		PlacementSystem->Init(this);
 
 		// Setup teleporter
-		TeleportActor = SpawnTransientSceneActor<AVREditorTeleporter>( TEXT("Teleporter"), true );
+		const TSubclassOf<AVREditorTeleporter> TeleporterClass = GetDefault<UVRModeSettings>()->TeleporterClass;
+
+		if (TeleporterClass)
+		{
+			TeleportActor = CastChecked<AVREditorTeleporter>( SpawnTransientSceneActor( TeleporterClass, TEXT( "Teleporter" ), true ) );
+		}
+
+		if( !TeleportActor )
+		{
+			TeleportActor = SpawnTransientSceneActor<AVREditorTeleporter>( TEXT( "Teleporter" ), true );
+		}
+
+		check( TeleportActor );
 		TeleportActor->Init( this );
-		WorldInteraction->AddActorToExcludeFromHitTests( TeleportActor );	
+		WorldInteraction->AddActorToExcludeFromHitTests( TeleportActor );
 
 		// Setup autoscaler
 		AutoScalerSystem = NewObject<UVREditorAutoScaler>();
 		AutoScalerSystem->Init( this );
 
-		LeftHandInteractor->SetupComponent( AvatarActor );
-		RightHandInteractor->SetupComponent( AvatarActor );
+		for (UVREditorInteractor* Interactor : Interactors)
+		{
+			Interactor->SetupComponent( AvatarActor );
+		}
 	}
 
 
@@ -409,13 +560,12 @@ void UVREditorMode::Exit(const bool bShouldDisableStereo)
 		WorldInteraction->OnPreWorldInteractionTick().RemoveAll( this );
 		WorldInteraction->OnPostWorldInteractionTick().RemoveAll( this );
 
-		WorldInteraction->RemoveInteractor( LeftHandInteractor );
-		LeftHandInteractor->MarkPendingKill();
-		LeftHandInteractor = nullptr;
-
-		WorldInteraction->RemoveInteractor( RightHandInteractor );
-		RightHandInteractor->MarkPendingKill();
-		RightHandInteractor = nullptr;
+		for (UVREditorInteractor* Interactor : Interactors)
+		{
+			WorldInteraction->RemoveInteractor( Interactor );
+			Interactor->MarkPendingKill();
+		}
+		Interactors.Empty();
 		
 		// Restore the mouse cursor if we removed it earlier
 		if( bActuallyUsingVR )
@@ -652,7 +802,7 @@ float UVREditorMode::GetWorldScaleFactor() const
 
 void UVREditorMode::ToggleFlashlight( UVREditorInteractor* Interactor )
 {
-	UVREditorMotionControllerInteractor* MotionControllerInteractor = Cast<UVREditorMotionControllerInteractor>( Interactor );
+	UVREditorInteractor* MotionControllerInteractor = Cast<UVREditorInteractor>( Interactor );
 	if ( MotionControllerInteractor )
 	{
 		if ( FlashlightComponent == nullptr )
@@ -681,7 +831,7 @@ void UVREditorMode::ToggleFlashlight( UVREditorInteractor* Interactor )
 void UVREditorMode::CycleTransformGizmoHandleType()
 {
 	EGizmoHandleTypes NewGizmoType = (EGizmoHandleTypes)( (uint8)WorldInteraction->GetCurrentGizmoType() + 1 );
-	
+
 	if( NewGizmoType > EGizmoHandleTypes::Scale )
 	{
 		NewGizmoType = EGizmoHandleTypes::All;
@@ -700,7 +850,7 @@ FLinearColor UVREditorMode::GetColor( const EColors Color ) const
 	return Colors[ (int32)Color ];
 }
 
-float UVREditorMode::GetDefaultVRNearClipPlane() const 
+float UVREditorMode::GetDefaultVRNearClipPlane() const
 {
 	return VREd::DefaultVRNearClipPlane->GetFloat();
 }
@@ -715,27 +865,27 @@ void UVREditorMode::RefreshVREditorSequencer(class ISequencer* InCurrentSequence
 	}
 }
 
-void UVREditorMode::RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget, int32 Index)
+void UVREditorMode::RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget, int32 Index, AActor *Actor)
 {
 	if (bActuallyUsingVR && UISystem != nullptr)
 	{
-		GetUISystem().UpdateActorPreviewUI(InWidget, Index);
+		GetUISystem().UpdateActorPreviewUI(InWidget, Index, Actor);
 	}
 }
 
-void UVREditorMode::UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name)
+void UVREditorMode::UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name, FVector2D InSize)
 {
 	if (bActuallyUsingVR && UISystem != nullptr)
 	{
-		GetUISystem().UpdateExternalUMGUI(InUMGClass, Name);
+		GetUISystem().UpdateExternalUMGUI(InUMGClass, Name, InSize);
 	}
 }
 
-void UVREditorMode::UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name)
+void UVREditorMode::UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name, FVector2D InSize)
 {
 	if (bActuallyUsingVR && UISystem != nullptr)
 	{
-		GetUISystem().UpdateExternalSlateUI(InWidget, Name);
+		GetUISystem().UpdateExternalSlateUI(InWidget, Name, InSize);
 	}
 }
 
@@ -807,8 +957,15 @@ bool UVREditorMode::IsHandAimingTowardsCapsule(UViewportInteractor* Interactor, 
 
 UVREditorInteractor* UVREditorMode::GetHandInteractor( const EControllerHand ControllerHand ) const 
 {
-	UVREditorInteractor* ResultInteractor = ControllerHand == EControllerHand::Left ? LeftHandInteractor : RightHandInteractor;
-	return ResultInteractor;
+	for (UVREditorInteractor* Interactor : Interactors)
+	{
+		if (Interactor->GetControllerSide() == ControllerHand)
+		{
+			return Interactor;
+		}
+	}
+
+	return nullptr;
 }
 
 void UVREditorMode::SnapSelectedActorsToGround()
@@ -1139,7 +1296,7 @@ void UVREditorMode::RestoreFromPIE()
 	WorldInteraction->SetUseInputPreprocessor(true);
 	WorldInteraction->SetActive(true);
 
-	UVREditorMotionControllerInteractor* UIInteractor = UISystem->GetUIInteractor();
+	UVREditorInteractor* UIInteractor = UISystem->GetUIInteractor();
 	if (UIInteractor != nullptr)
 	{
 		UIInteractor->ResetTrackpad();
@@ -1328,10 +1485,14 @@ void UVREditorMode::ToggleDebugMode()
 	}
 }
 
-
 bool UVREditorMode::IsDebugModeEnabled()
 {
 	return UVREditorMode::bDebugModeEnabled;
+}
+
+class AVREditorTeleporter* UVREditorMode::GetTeleportActor()
+{
+	return TeleportActor;
 }
 
 #undef LOCTEXT_NAMESPACE

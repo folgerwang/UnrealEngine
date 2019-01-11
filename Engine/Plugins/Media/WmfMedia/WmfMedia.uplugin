@@ -18,8 +18,8 @@
 	[
 		{
 			"Name" : "WmfMedia",
-			"Type" : "RuntimeNoCommandlet",
-			"LoadingPhase" : "PreLoadingScreen",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" : [ "Win32", "Win64" ]
 		},
 		{

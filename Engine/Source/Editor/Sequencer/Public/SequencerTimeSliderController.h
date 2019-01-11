@@ -13,6 +13,7 @@ class FSlateWindowElementList;
 struct FContextMenuSuppressor;
 struct FSlateBrush;
 class FSequencer;
+class IPropertyTypeCustomization;
 
 struct FPaintPlaybackRangeArgs
 {
@@ -53,7 +54,7 @@ struct FPaintSectionAreaViewArgs
  * A time slider controller for sequencer
  * Draws and manages time data for a Sequencer
  */
-class FSequencerTimeSliderController : public ITimeSliderController
+class FSequencerTimeSliderController : public ITimeSliderController, public TSharedFromThis<FSequencerTimeSliderController>
 {
 public:
 	FSequencerTimeSliderController( const FTimeSliderArgs& InArgs, TWeakPtr<FSequencer> InWeakSequencer );
@@ -231,11 +232,18 @@ private:
 	int32 DrawSubSequenceRange(const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
 
 	/**
-	 * Draw the marked frames. 
+	 * Draw the vertical frames.
 	 *
 	 * @return the new layer ID
 	 */
-	int32 DrawMarkedFrames( const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects ) const;
+	int32 DrawVerticalFrames(const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects) const;
+
+	/**
+	 * Draw the marked frames.
+	 *
+	 * @return the new layer ID
+	 */
+	int32 DrawMarkedFrames(const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects, bool bDrawLabels) const;
 
 private:
 
@@ -277,6 +285,8 @@ private:
 	FScrubberMetrics GetScrubPixelMetrics(const FQualifiedFrameTime& ScrubTime, const FScrubRangeToScreen& RangeToScreen, float DilationPixels = 0.f) const;
 
 	FScrubberMetrics GetHitTestScrubPixelMetrics(const FScrubRangeToScreen& RangeToScreen) const;
+
+	TSharedRef<IPropertyTypeCustomization> CreateFrameNumberCustomization();
 
 private:
 

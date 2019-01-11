@@ -22,6 +22,7 @@ FDatasmithImportBaseOptions::FDatasmithImportBaseOptions()
 	, bIncludeMaterial(true)
 	, bIncludeLight(true)
 	, bIncludeCamera(true)
+	, bIncludeAnimation(true)
 {
 }
 
@@ -99,6 +100,8 @@ void UDatasmithImportOptions::UpdateNotDisplayedConfig( bool bIsAReimport )
 	{
 		CameraImportPolicy = EDatasmithImportActorPolicy::Ignore;
 	}
+
+	OtherActorImportPolicy = DefaultImportActorPolicy;
 
 	MaterialQuality = EDatasmithImportMaterialQuality::UseRealFresnelCurves;
 

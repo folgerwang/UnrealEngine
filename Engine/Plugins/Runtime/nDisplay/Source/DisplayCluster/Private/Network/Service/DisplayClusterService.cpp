@@ -1,30 +1,30 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterService.h"
-#include "Network/DisplayClusterSession.h"
+#include "Network/Service/DisplayClusterService.h"
+#include "Network/Session/DisplayClusterSessionBase.h"
 
 #include "Config/IPDisplayClusterConfigManager.h"
 #include "Config/DisplayClusterConfigTypes.h"
 
 #include "Misc/DisplayClusterAppExit.h"
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
-FDisplayClusterService::FDisplayClusterService(const FString& name, const FString& addr, const int32 port) :
-	FDisplayClusterServer(name, addr, port)
+FDisplayClusterService::FDisplayClusterService(const FString& InName, const FString& InAddr, const int32 InPort) :
+	FDisplayClusterServer(InName, InAddr, InPort)
 {
 }
 
-bool FDisplayClusterService::IsClusterIP(const FIPv4Endpoint& ep)
+bool FDisplayClusterService::IsClusterIP(const FIPv4Endpoint& InEP)
 {
-	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+	if (ConfigMgr == nullptr)
 	{
 		return false;
 	}
 
-	TArray<FDisplayClusterConfigClusterNode> nodes = GDisplayCluster->GetPrivateConfigMgr()->GetClusterNodes();
-	const FString addr = ep.Address.ToString();
+	TArray<FDisplayClusterConfigClusterNode> nodes = ConfigMgr->GetClusterNodes();
+	const FString addr = InEP.Address.ToString();
 	
 	return nullptr != nodes.FindByPredicate([addr](const FDisplayClusterConfigClusterNode& node)
 	{
@@ -32,24 +32,22 @@ bool FDisplayClusterService::IsClusterIP(const FIPv4Endpoint& ep)
 	});
 }
 
-bool FDisplayClusterService::IsConnectionAllowed(FSocket* pSock, const FIPv4Endpoint& ep)
+bool FDisplayClusterService::IsConnectionAllowed(FSocket* InSocket, const FIPv4Endpoint& InEP)
 {
 	// By default any DisplayCluster service must be within a cluster
-	return FDisplayClusterService::IsClusterIP(ep);
+	return FDisplayClusterService::IsClusterIP(InEP);
 }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterSessionListener
 //////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterService::NotifySessionOpen(FDisplayClusterSession* pSession)
+void FDisplayClusterService::NotifySessionOpen(FDisplayClusterSessionBase* InSession)
 {
-	FDisplayClusterServer::NotifySessionOpen(pSession);
+	FDisplayClusterServer::NotifySessionOpen(InSession);
 }
 
-void FDisplayClusterService::NotifySessionClose(FDisplayClusterSession* pSession)
+void FDisplayClusterService::NotifySessionClose(FDisplayClusterSessionBase* InSession)
 {
-	FDisplayClusterAppExit::ExitApplication(FDisplayClusterAppExit::ExitType::NormalSoft, GetName() + FString(" - Connection interrupted. Application exit requested."));
-	FDisplayClusterServer::NotifySessionClose(pSession);
+	FDisplayClusterServer::NotifySessionClose(InSession);
 }
-

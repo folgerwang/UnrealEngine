@@ -21,9 +21,11 @@ namespace UnrealBuildTool.Rules
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{
-					"TimeManagement"
-				}
-			);
+					"TimeManagement",
+                    "SerializedRecorderInterface",
+
+                }
+            );
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
@@ -50,6 +52,7 @@ namespace UnrealBuildTool.Rules
                     "EditorWidgets",
                     "Kismet",
                     "LiveLinkInterface",
+                    "SerializedRecorderInterface",
                 }
                 );
 

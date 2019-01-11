@@ -23,14 +23,20 @@ namespace MediaIOCoreDefinitions
 	const TCHAR* DualStr = TEXT("dual");
 	const TCHAR* QuadSquareStr = TEXT("quadSQ");
 	const TCHAR* QuadTsiStr = TEXT("quadSI");
+	const TCHAR* HDMIStr = TEXT("HDMI");
 	
-	const TCHAR* GetTransportString(EMediaIOSDITransportType InLinkType, EMediaIOQuadLinkTransportType InQuadLinkType)
+	const TCHAR* GetTransportString(EMediaIOTransportType InLinkType, EMediaIOQuadLinkTransportType InQuadLinkType)
 	{
 		const TCHAR* Result = MediaIOCoreDefinitions::SingleStr;
 		switch (InLinkType)
 		{
-		case EMediaIOSDITransportType::DualLink: Result = MediaIOCoreDefinitions::DualStr; break;
-		case EMediaIOSDITransportType::QuadLink:
+		case EMediaIOTransportType::DualLink:
+			Result = MediaIOCoreDefinitions::DualStr;
+			break;
+		case EMediaIOTransportType::HDMI:
+			Result = MediaIOCoreDefinitions::HDMIStr;
+			break;
+		case EMediaIOTransportType::QuadLink:
 		{
 			Result = MediaIOCoreDefinitions::QuadSquareStr;
 			if (InQuadLinkType == EMediaIOQuadLinkTransportType::TwoSampleInterleave)
@@ -70,7 +76,7 @@ bool FMediaIODevice::IsValid() const
  */
 FMediaIOConnection::FMediaIOConnection()
 	: Protocol(MediaIOCoreDefinitions::NAME_Protocol)
-	, TransportType(EMediaIOSDITransportType::SingleLink)
+	, TransportType(EMediaIOTransportType::SingleLink)
 	, QuadTransportType(EMediaIOQuadLinkTransportType::SquareDivision)
 	, PortIdentifier(MediaIOCoreDefinitions::InvalidDevicePortIdentifier)
 {}
@@ -81,7 +87,7 @@ bool FMediaIOConnection::operator==(const FMediaIOConnection& Other) const
 	return Other.Device == Device
 		&& Other.TransportType == TransportType
 		&& Other.PortIdentifier == PortIdentifier
-		&& (Other.TransportType != EMediaIOSDITransportType::QuadLink || Other.QuadTransportType == QuadTransportType);
+		&& (Other.TransportType != EMediaIOTransportType::QuadLink || Other.QuadTransportType == QuadTransportType);
 }
 
 
@@ -127,14 +133,12 @@ FText FMediaIOMode::GetModeName() const
 {
 	if (IsValid())
 	{
-		int32 FieldPerFrame = 1;
 		FFrameRate FieldFrameRate = FrameRate;
 		if (Standard == EMediaIOStandardType::Interlaced)
 		{
-			FieldPerFrame = 2;
 			FieldFrameRate.Numerator /= 2;
 		}
-		return FMediaIOCommonDisplayModes::GetMediaIOCommonDisplayModeInfoName(Resolution.X, Resolution.Y, FieldFrameRate, FieldPerFrame);
+		return FMediaIOCommonDisplayModes::GetMediaIOCommonDisplayModeInfoName(Resolution.X, Resolution.Y, FieldFrameRate, Standard);
 	}
 	return LOCTEXT("Invalid", "<Invalid>");
 }
@@ -169,7 +173,51 @@ bool FMediaIOConfiguration::IsValid() const
 
 
 /**
- * FMediaIOConfiguration
+ * FMediaIOInputConfiguration
+ */
+FMediaIOInputConfiguration::FMediaIOInputConfiguration()
+	: InputType(EMediaIOInputType::Fill)
+	, KeyPortIdentifier(MediaIOCoreDefinitions::InvalidDevicePortIdentifier)
+{
+	MediaConfiguration.bIsInput = true;
+}
+
+
+bool FMediaIOInputConfiguration::operator== (const FMediaIOInputConfiguration& Other) const
+{
+	if (InputType == Other.InputType && MediaConfiguration == Other.MediaConfiguration)
+	{
+		if (InputType == EMediaIOInputType::FillAndKey)
+		{
+			if (KeyPortIdentifier != Other.KeyPortIdentifier)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+bool FMediaIOInputConfiguration::IsValid() const
+{
+	bool bResult = false;
+	if (MediaConfiguration.IsValid())
+	{
+		bResult = true;
+		if (InputType == EMediaIOInputType::FillAndKey)
+		{
+			if (KeyPortIdentifier == MediaIOCoreDefinitions::InvalidDevicePortIdentifier)
+			{
+				bResult = false;
+			}
+		}
+	}
+	return bResult;
+}
+
+/**
+ * FMediaIOOutputConfiguration
  */
 FMediaIOOutputConfiguration::FMediaIOOutputConfiguration()
 	: OutputType(EMediaIOOutputType::Fill)

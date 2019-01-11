@@ -6,8 +6,9 @@
 /**
  * Public input manager interface
  */
-struct IDisplayClusterInputManager
+class IDisplayClusterInputManager
 {
+public:
 	virtual ~IDisplayClusterInputManager()
 	{ }
 

@@ -7,6 +7,7 @@
 #include "Containers/BitArray.h"
 #include "Interfaces/IPv4/IPv4Endpoint.h"
 #include "Misc/DateTime.h"
+#include "UdpMessagingPrivate.h"
 
 // IMessageContext forward declaration
 enum class EMessageFlags : uint32;
@@ -31,7 +32,7 @@ public:
 	 * @param InSequence The message sequence number.
 	 * @param InSender The IPv4 endpoint of the sender.
 	 */
-	FUdpReassembledMessage(uint8 InProtocolVersion, EMessageFlags InFlags, int32 MessageSize, int32 SegmentCount, uint64 InSequence, const FIPv4Endpoint& InSender)
+	FUdpReassembledMessage(uint8 InProtocolVersion, EMessageFlags InFlags, int64 MessageSize, uint32 SegmentCount, uint64 InSequence, const FIPv4Endpoint& InSender)
 		: ProtocolVersion(InProtocolVersion)
 		, MessageFlags(InFlags)
 		, PendingSegments(true, SegmentCount)
@@ -115,7 +116,7 @@ public:
 	 *
 	 * @return Number of total segments.
 	 */
-	uint16 GetTotalSegmentsCount() const
+	uint32 GetTotalSegmentsCount() const
 	{
 		return PendingSegments.Num();
 	}
@@ -125,7 +126,7 @@ public:
 	 *
 	 * @return Number of pending segments.
 	 */
-	uint16 GetPendingSegmentsCount() const
+	uint32 GetPendingSegmentsCount() const
 	{
 		return PendingSegmentsCount;
 	}
@@ -171,14 +172,33 @@ public:
 	}
 
 	/**
-	 * Get the list of pending Acknowledgments and clear it
+	 * Checks whether this message has pending acknowledgments to send.
 	 *
-	 * @return The array of pending acknowledgments
+	 * @return true if the message has pending acknowledgments, false otherwise.
 	 */
-	TArray<uint16> GetPendingAcknowledgments() 
+	bool HasPendingAcknowledgements() const
 	{
-		TArray<uint16> Temp;
-		Swap(Temp, PendingAcknowledgments);
+		return PendingAcknowledgments.Num() > 0;
+	}
+
+	/**
+	 * Get the list of pending Acknowledgments up to the size of one segment size and clear them
+	 *
+	 * @return The array of pending acknowledgments removed
+	 */
+	TArray<uint32> GetPendingAcknowledgments() 
+	{
+		TArray<uint32> Temp;
+		const int32 MaxAckNum = (UDP_MESSAGING_SEGMENT_SIZE / sizeof(uint32));
+		if (PendingAcknowledgments.Num() < MaxAckNum)
+		{
+			Swap(Temp, PendingAcknowledgments);
+		}
+		else
+		{
+			Temp.Append(PendingAcknowledgments.GetData(), MaxAckNum);
+			PendingAcknowledgments.RemoveAt(0, MaxAckNum, false);
+		}
 		return Temp;
 	}
 
@@ -229,7 +249,7 @@ public:
 				ReceivedBytes += SegmentData.Num();
 			}
 		}
-		PendingAcknowledgments.Add(SegmentNumber);
+		PendingAcknowledgments.AddUnique(SegmentNumber);
 	}
 
 private:
@@ -249,10 +269,10 @@ private:
 	TBitArray<> PendingSegments;
 
 	/** Holds the number of segments that haven't been received yet. */
-	uint16 PendingSegmentsCount;
+	uint32 PendingSegmentsCount;
 
 	/** Acknowledgment yet to be sent about segments we received */
-	TArray<uint16> PendingAcknowledgments;
+	TArray<uint32> PendingAcknowledgments;
 
 	/** Holds the number of bytes received so far. */
 	int32 ReceivedBytes;

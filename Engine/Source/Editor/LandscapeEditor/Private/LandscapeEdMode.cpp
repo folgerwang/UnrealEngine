@@ -744,9 +744,9 @@ void FEdModeLandscape::OnVRHoverUpdate(UViewportInteractor* Interactor, FVector&
 		UVREditorMode* VREditorMode = Cast<UVREditorMode>( GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() )->FindExtension( UVREditorMode::StaticClass() ) );
 		if( VREditorMode != nullptr && VREditorMode->IsActive() && Interactor != nullptr && Interactor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing )
 		{
-			const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
+			const UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(Interactor);
 
-			if (VRInteractor != nullptr && !VRInteractor->IsHoveringOverPriorityType() && CurrentTool && (CurrentTool->GetSupportedTargetTypes() == ELandscapeToolTargetTypeMask::NA || CurrentToolTarget.TargetType != ELandscapeToolTargetType::Invalid))
+			if (VREditorInteractor != nullptr && !VREditorInteractor->IsHoveringOverPriorityType() && CurrentTool && (CurrentTool->GetSupportedTargetTypes() == ELandscapeToolTargetTypeMask::NA || CurrentToolTarget.TargetType != ELandscapeToolTargetType::Invalid))
 			{
 				FVector HitLocation;
 				FVector LaserPointerStart, LaserPointerEnd;
@@ -782,10 +782,10 @@ void FEdModeLandscape::OnVRAction(FEditorViewportClient& ViewportClient, UViewpo
 	{
 		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
 		{
-			const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
+			const UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(Interactor);
 
 			// Begin landscape brush
-			if (Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverUI() && !VRInteractor->IsHoveringOverPriorityType() && CurrentTool)
+			if (Action.Event == IE_Pressed && !VREditorInteractor->IsHoveringOverUI() && !VREditorInteractor->IsHoveringOverPriorityType() && CurrentTool)
 			{
 				if (ViewportClient.Viewport != nullptr && ViewportClient.Viewport == ToolActiveViewport)
 				{

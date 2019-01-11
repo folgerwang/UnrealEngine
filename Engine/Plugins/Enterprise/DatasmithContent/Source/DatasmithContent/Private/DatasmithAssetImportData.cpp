@@ -81,14 +81,18 @@ void UDatasmithStaticMeshCADImportData::SetResourcePath(const FString& FilePath)
 
 	ResourceFilename = FPaths::GetCleanFilename(FilePath);
 
-	TArray<FString> AuxililaryFilePaths;
-	IFileManager::Get().FindFiles(AuxililaryFilePaths, *(FilePath + TEXT(".*")), true, false);
+	static TArray<FString> AuxiliaryExtentions = {
+		TEXT(".ext"),
+	};
 
-	AuxiliaryFilenames.Empty(AuxililaryFilePaths.Num());
-
-	for (FString& AuxililaryFilePath : AuxililaryFilePaths)
+	AuxiliaryFilenames.Empty(AuxiliaryExtentions.Num());
+	for (const FString& Ext : AuxiliaryExtentions)
 	{
-		AuxiliaryFilenames.Add(FPaths::GetCleanFilename(AuxililaryFilePath));
+		FString AuxililaryFilePath = FilePath + Ext;
+		if (FPaths::FileExists(AuxililaryFilePath))
+		{
+			AuxiliaryFilenames.Add(FPaths::GetCleanFilename(AuxililaryFilePath));
+		}
 	}
 
 	// Set ResourcePath as absolute path because CoreTech expects an absolute path

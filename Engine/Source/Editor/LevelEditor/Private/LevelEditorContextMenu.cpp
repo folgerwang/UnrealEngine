@@ -661,6 +661,13 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllActorsOfSameClass, NAME_None, SelectAllActorStr );
 	}
 
+	MenuBuilder.BeginSection("SelectActorHierarchy", LOCTEXT("SelectHierarchyHeading", "Hierarchy") );
+	{
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectImmediateChildren );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllDescendants );
+	}
+	MenuBuilder.EndSection();
+
 	// Add brush commands when we have a brush or any surfaces selected
 	MenuBuilder.BeginSection("SelectBSP", LOCTEXT("SelectBSPHeading", "BSP") );
 	{

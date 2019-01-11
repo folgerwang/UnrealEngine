@@ -129,9 +129,15 @@ public:
 
 	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
 
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
+
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
+
 	virtual bool SetMulticastLoopback(bool bLoopback) override;
 
 	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) override;
 
 	virtual bool SetReuseAddr(bool bAllowReuse = true) override;
 

@@ -51,6 +51,8 @@ public:
 	virtual void Unregister(const FMessageAddress& Address) override;
 	virtual void Unsubscribe(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& MessageType) override;
 
+	virtual void AddNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener) override;
+	virtual void RemoveNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener) override;
 private:
 
 	/** Holds the message router. */

@@ -51,10 +51,10 @@ static FName Name_RelativeScale3D = GET_MEMBER_NAME_CHECKED(USceneComponent, Rel
 
 void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
-	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
+	UProperty* MemberPropertyThatChanged = PropertyChangedEvent.MemberProperty;
+	const FName MemberPropertyName = MemberPropertyThatChanged != NULL ? MemberPropertyThatChanged->GetFName() : NAME_None;
 	
-	const bool bTransformationChanged = (PropertyName == Name_RelativeLocation || PropertyName == Name_RelativeRotation || PropertyName == Name_RelativeScale3D);
+	const bool bTransformationChanged = (MemberPropertyName == Name_RelativeLocation || MemberPropertyName == Name_RelativeRotation || MemberPropertyName == Name_RelativeScale3D);
 
 	// During SIE, allow components to reregistered and reconstructed in PostEditChangeProperty.
 	// This is essential as construction is deferred during spawning / duplication when in SIE.

@@ -7,4 +7,5 @@ UWmfMediaSettings::UWmfMediaSettings()
 	: AllowNonStandardCodecs(false)
 	, LowLatency(false)
 	, NativeAudioOut(false)
+	, HardwareAcceleratedVideoDecoding(false)
 { }

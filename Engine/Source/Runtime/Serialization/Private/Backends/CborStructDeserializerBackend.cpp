@@ -159,7 +159,12 @@ bool FCborStructDeserializerBackend::ReadProperty(UProperty* Property, UProperty
 
 		if (UTextProperty* TextProperty = Cast<UTextProperty>(Property))
 		{
-			return StructDeserializerBackendUtilities::SetPropertyValue(TextProperty, Outer, Data, ArrayIndex, FText::FromString(StringValue));
+			FText TextValue;
+			if (!FTextStringHelper::ReadFromBuffer(*StringValue, TextValue))
+			{
+				TextValue = FText::FromString(StringValue);
+			}
+			return StructDeserializerBackendUtilities::SetPropertyValue(TextProperty, Outer, Data, ArrayIndex, TextValue);
 		}
 
 		if (UByteProperty* ByteProperty = Cast<UByteProperty>(Property))

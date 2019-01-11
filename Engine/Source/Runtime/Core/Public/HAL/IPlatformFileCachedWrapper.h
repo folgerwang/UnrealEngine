@@ -164,6 +164,24 @@ public:
 		return FileSize;
 	}
 
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		if (bWritable)
+		{
+			return FileHandle->Flush(bFullFlush);
+		}
+		return false;
+	}
+
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		if (bWritable)
+		{
+			return FileHandle->Truncate(NewSize);
+		}
+		return false;
+	}
+
 private:
 
 	static const uint32 BufferCacheSize = 64 * 1024; // Seems to be the magic number for best perf
@@ -236,6 +254,13 @@ public:
 		: LowerLevel(nullptr)
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
+
 	virtual bool Initialize(IPlatformFile* Inner, const TCHAR* CommandLineParam) override
 	{
 		// Inner is required.

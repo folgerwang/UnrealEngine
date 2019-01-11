@@ -1,11 +1,11 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterConfigParserDebugAuto.h"
+#include "Config/Parser/DisplayClusterConfigParserDebugAuto.h"
+#include "Config/DisplayClusterConfigTypes.h"
 
 #include "DisplayClusterBuildConfig.h"
 #include "DisplayClusterConstants.h"
 #include "DisplayClusterStrings.h"
-#include "Config/DisplayClusterConfigTypes.h"
 
 
 FDisplayClusterConfigParserDebugAuto::FDisplayClusterConfigParserDebugAuto(IDisplayClusterConfigParserListener* pListener) :
@@ -22,27 +22,36 @@ bool FDisplayClusterConfigParserDebugAuto::ParseFile(const FString& path)
 	ClusterNode.Addr       = TEXT("127.0.0.1");
 	ClusterNode.Port_CS    = 41001;
 	ClusterNode.Port_SS    = 41002;
-	ClusterNode.ScreenId   = TEXT("screen_stub");;
-	ClusterNode.ViewportId = TEXT("viewport_stub");
+	ClusterNode.WindowId   = TEXT("window_stub");
 	ClusterNode.SoundEnabled = true;
 	ClusterNode.EyeSwap    = false;
 	AddClusterNode(ClusterNode);
 
+	FDisplayClusterConfigWindow Window;
+	Window.Id = ClusterNode.WindowId;
+	Window.IsFullscreen = true;
+	Window.ViewportIds.Add(FString("viewport_stub"));
+	Window.WinX = 0;
+	Window.WinY = 0;
+	Window.ResX = 800;
+	Window.ResY = 600;
+
+	FDisplayClusterConfigViewport Viewport;
+	Viewport.Id        = Window.ViewportIds[0];
+	Viewport.ScreenId  = TEXT("screen_stub");
+	Viewport.Loc       = FIntPoint(0, 0);
+	Viewport.Size      = FIntPoint(DisplayClusterConstants::misc::DebugAutoResX, DisplayClusterConstants::misc::DebugAutoResY);
+	AddViewport(Viewport);
+
 	const float PixelDensity = 0.6f / 1920.f;
 
 	FDisplayClusterConfigScreen Screen;
-	Screen.Id   = ClusterNode.ScreenId;
+	Screen.Id   = Viewport.ScreenId;
 	Screen.Loc  = FVector(0.7f, 0.f, 0.f);
 	Screen.Rot  = FRotator::ZeroRotator;
 	Screen.Size = FVector2D(PixelDensity * DisplayClusterConstants::misc::DebugAutoResX, PixelDensity * DisplayClusterConstants::misc::DebugAutoResY);
 	AddScreen(Screen);
 
-	FDisplayClusterConfigViewport Viewport;
-	Viewport.Id   = ClusterNode.ViewportId;
-	Viewport.Loc  = FIntPoint(0, 0);
-	Viewport.Size = FIntPoint(DisplayClusterConstants::misc::DebugAutoResX, DisplayClusterConstants::misc::DebugAutoResY);
-	AddViewport(Viewport);
-	
 	FDisplayClusterConfigCamera Camera;
 	Camera.Id  = TEXT("camera_stub");
 	Camera.Loc = FVector::ZeroVector;

@@ -74,6 +74,12 @@ FAssetDataDiscovery::FAssetDataDiscovery(const TArray<FString>& InPaths, bool bI
 		DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path / TEXT("")));
 	}
 
+	if (!bIsSynchronous && !FPlatformProcess::SupportsMultithreading())
+	{
+		bIsSynchronous = true;
+		UE_LOG(LogAssetRegistry, Warning, TEXT("Requested asyncronous asset data discovery, but threading support is disabled. Performing a synchronous discovery instead!"));
+	}
+
 	if (bIsSynchronous)
 	{
 		Run();
@@ -81,6 +87,7 @@ FAssetDataDiscovery::FAssetDataDiscovery(const TArray<FString>& InPaths, bool bI
 	else
 	{
 		Thread = FRunnableThread::Create(this, TEXT("FAssetDataDiscovery"), 0, TPri_BelowNormal);
+		checkf(Thread, TEXT("Failed to create asset data discovery thread"));
 	}
 }
 
@@ -416,7 +423,13 @@ FAssetDataGatherer::FAssetDataGatherer(const TArray<FString>& InPaths, const TAr
 	// Add any specific files before doing search
 	AddFilesToSearch(InSpecificFiles);
 
-	if ( bIsSynchronous )
+	if (!bIsSynchronous && !FPlatformProcess::SupportsMultithreading())
+	{
+		bIsSynchronous = true;
+		UE_LOG(LogAssetRegistry, Warning, TEXT("Requested asyncronous asset data gather, but threading support is disabled. Performing a synchronous gather instead!"));
+	}
+
+	if (bIsSynchronous)
 	{
 		// Run the package file discovery synchronously
 		FAssetDataDiscovery PackageFileDiscovery(InPaths, bIsSynchronous);
@@ -428,6 +441,7 @@ FAssetDataGatherer::FAssetDataGatherer(const TArray<FString>& InPaths, const TAr
 	{
 		BackgroundPackageFileDiscovery = MakeShareable(new FAssetDataDiscovery(InPaths, bIsSynchronous));
 		Thread = FRunnableThread::Create(this, TEXT("FAssetDataGatherer"), 0, TPri_BelowNormal);
+		checkf(Thread, TEXT("Failed to create asset data gatherer thread"));
 	}
 }
 

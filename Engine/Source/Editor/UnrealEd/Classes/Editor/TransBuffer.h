@@ -150,6 +150,7 @@ public:
 	virtual bool CanUndo( FText* Text=NULL ) override;
 	virtual bool CanRedo( FText* Text=NULL ) override;
 	virtual int32 GetQueueLength( ) const override { return UndoBuffer.Num(); }
+	virtual int32 FindTransactionIndex(const FGuid& TransactionId) const override;
 	virtual const FTransaction* GetTransaction( int32 QueueIndex ) const override;
 	virtual FTransactionContext GetUndoContext( bool bCheckWhetherUndoPossible = true ) override;
 	virtual SIZE_T GetUndoSize() const override;

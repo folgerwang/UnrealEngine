@@ -9,10 +9,11 @@
 /**
  * Render manager interface
  */
-struct IPDisplayClusterRenderManager
+class IPDisplayClusterRenderManager
 	: public IDisplayClusterRenderManager
 	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterRenderManager()
 	{ }
 

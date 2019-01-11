@@ -16,5 +16,9 @@ class VARIANTMANAGERCONTENT_API UPropertyValueVisibility : public UPropertyValue
 
 public:
 
+	// Utility functions that set/read the recorded data
+	virtual void SetVisibility(bool bVisible);
+	virtual bool GetVisibility();
+
 	virtual void ApplyDataToResolvedObject() override;
 };

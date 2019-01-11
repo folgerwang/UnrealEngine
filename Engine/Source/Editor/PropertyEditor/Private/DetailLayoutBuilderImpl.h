@@ -46,6 +46,7 @@ public:
 	virtual UClass* GetBaseClass() const override;
 	virtual const TArray<TWeakObjectPtr<UObject>>& GetSelectedObjects() const override;
 	virtual bool HasClassDefaultObject() const override;
+	virtual void RegisterInstancedCustomPropertyTypeLayout(FName PropertyTypeName, FOnGetPropertyTypeCustomizationInstance PropertyTypeLayoutDelegate, TSharedPtr<IPropertyTypeIdentifier> Identifier = nullptr) override;
 
 	/**
 	 * Creates a default category. The SDetails view will generate widgets in default categories
@@ -203,6 +204,9 @@ public:
 	/** Gets internal utilities for generating property layouts. */
 	IPropertyGenerationUtilities& GetPropertyGenerationUtilities() const;
 
+	/** Combines the type layout map from our PropertyGenerationUtilities object, with the local InstancePropertyTypeExtensions map - which provides instance based customizations/overrides. */
+	FCustomPropertyTypeLayoutMap GetInstancedPropertyTypeLayoutMap() const;
+
 private:
 	/**
 	 * Finds a property node for the current property by searching in a fast lookup map or a path search if required
@@ -256,5 +260,8 @@ private:
 	bool bLayoutForExternalRoot;
 	/** A delegate which is called whenever a node owned by this layout builder has it's visibility forcibly changed. */
 	FSimpleMulticastDelegate OnNodeVisibilityChanged;
+
+	/** Local customizations for this detail layout only. Provides a way for IDetailCustomizations to override type customizations without polluting customizations for other instances. */
+	FCustomPropertyTypeLayoutMap InstancePropertyTypeExtensions;
 };
 

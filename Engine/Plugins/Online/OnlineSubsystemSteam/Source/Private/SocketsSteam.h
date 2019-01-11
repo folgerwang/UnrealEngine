@@ -215,13 +215,19 @@ public:
 	 */
 	virtual bool SetBroadcast(bool bAllowBroadcast = true) override;
 
-	virtual bool JoinMulticastGroup (const FInternetAddr& GroupAddress) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;
 
-	virtual bool LeaveMulticastGroup (const FInternetAddr& GroupAddress) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
 
-	virtual bool SetMulticastLoopback (bool bLoopback) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 
-	virtual bool SetMulticastTtl (uint8 TimeToLive) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
+
+	virtual bool SetMulticastLoopback(bool bLoopback) override;
+
+	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) override;
 
 	/**
 	 * Sets whether a socket can be bound to an address in use

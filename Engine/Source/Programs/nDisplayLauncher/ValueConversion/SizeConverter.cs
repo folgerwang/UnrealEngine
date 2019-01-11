@@ -6,7 +6,6 @@ using System.Windows.Data;
 
 namespace nDisplayLauncher.ValueConversion
 {
-
 	public class SizeConverter : IValueConverter
 	{
 		public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

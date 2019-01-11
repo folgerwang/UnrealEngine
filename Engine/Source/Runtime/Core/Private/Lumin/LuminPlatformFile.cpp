@@ -193,6 +193,32 @@ public:
 		return true;
 	}
 
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+#if MANAGE_FILE_HANDLES
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return bFullFlush
+			? fsync(FileHandle) == 0
+			: fdatasync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+#if MANAGE_FILE_HANDLES
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return ftruncate(FileHandle, NewSize) == 0;
+	}
+
 	virtual int64 Size() override
 	{
 		#if MANAGE_FILE_HANDLES

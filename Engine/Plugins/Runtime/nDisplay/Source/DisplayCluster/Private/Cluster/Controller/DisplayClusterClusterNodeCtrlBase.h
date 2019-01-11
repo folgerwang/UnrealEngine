@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DisplayClusterNodeCtrlBase.h"
+#include "Cluster/Controller/DisplayClusterNodeCtrlBase.h"
 
 
 /**

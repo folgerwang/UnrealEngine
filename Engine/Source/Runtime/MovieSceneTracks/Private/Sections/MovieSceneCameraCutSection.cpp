@@ -57,6 +57,11 @@ void UMovieSceneCameraCutSection::OnBindingsUpdated(const TMap<FGuid, FGuid>& Ol
 	}
 }
 
+void UMovieSceneCameraCutSection::GetReferencedBindings(TArray<FGuid>& OutBindings)
+{
+	OutBindings.Add(CameraBindingID.GetGuid());
+}
+
 void UMovieSceneCameraCutSection::PostLoad()
 {
 	Super::PostLoad();

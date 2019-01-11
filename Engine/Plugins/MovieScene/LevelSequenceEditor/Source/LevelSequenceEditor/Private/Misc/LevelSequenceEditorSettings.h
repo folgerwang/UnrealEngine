@@ -63,9 +63,19 @@ class ULevelSequenceEditorSettings
 
 public:
 
+	ULevelSequenceEditorSettings(const FObjectInitializer& ObjectInitializer);
+
 	/** Specifies class properties for which movie scene tracks will be created automatically. */
 	UPROPERTY(config, EditAnywhere, Category=Tracks)
 	TArray<FLevelSequenceTrackSettings> TrackSettings;
+
+	/** Specifies whether to automatically bind an active sequencer UI to PIE worlds. */
+	UPROPERTY(config, EditAnywhere, Category=Playback)
+	bool bAutoBindToPIE;
+
+	/** Specifies whether to automatically bind an active sequencer UI to simulate worlds. */
+	UPROPERTY(config, EditAnywhere, Category=Playback)
+	bool bAutoBindToSimulate;
 };
 
 /**

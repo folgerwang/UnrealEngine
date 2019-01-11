@@ -12,6 +12,7 @@
 
 #if WITH_ENGINE
 	class FRHITexture;
+	class IMediaTextureSampleConverter;
 #endif
 
 
@@ -61,7 +62,10 @@ enum class EMediaTextureSampleFormat
 	FloatRGB,
 
 	/** Four 16-bit floating point components (Red, Green, Blue, Alpha) per texel. */
-	FloatRGBA
+	FloatRGBA,
+
+	/** YUV v210 format which pack 6 pixel using 12 x 10bits components (128 bits block). */
+	YUVv210
 };
 
 namespace MediaTextureSampleFormat
@@ -153,6 +157,16 @@ public:
 	 * @see GetBuffer, GetDim, GetDuration, GetFormat, GetOutputDim, GetStride, GetTime
 	 */
 	virtual FRHITexture* GetTexture() const = 0;
+
+	/**
+	 * Get media texture sample converter if sample implements it
+	 *
+	 * @return texture sample converter
+	 */
+	virtual IMediaTextureSampleConverter* GetMediaTextureSampleConverter()
+	{ 
+		return nullptr; 
+	}
 
 #endif //WITH_ENGINE
 

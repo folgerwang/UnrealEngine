@@ -4,9 +4,6 @@ using Microsoft.Win32;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 
 namespace nDisplayLauncher.Settings
@@ -15,19 +12,39 @@ namespace nDisplayLauncher.Settings
 	{
 		const string RegistryPath = "SOFTWARE\\Epic Games\\nDisplay";
 
-		public const string RegAppList = "appList";
-		public const string RegConfigList = "configList";
-		public const string RegConfigName = "configName";
-		public const string RegParamsList = "parameters";
-		public const string RegIsStereoName = "isStereo";
-		public const string RegIsNoSoundName = "isNoSound";
-		public const string RegIsAllCoresName = "isAllCores";
-		public const string RegIsFixedSeedName = "isFixedSeed";
-		public const string RegIsNoTextureStreamingName = "isNoTextureStreaming";
-		public const string RegIsFullscreen = "isFullscreen";
-		public const string RegRenderApiName = "renderApi";
-		public const string RegRenderModeName = "renderMode";
-		public const string RegAdditionalParamsName = "additionalParams";
+		// Categories
+		public const string RegCategoryAppList              = "AppList";
+		public const string RegCategoryConfigList           = "ConfigList";
+		public const string RegCategoryParamsList           = "Parameters";
+		public const string RegCategoryLogParams            = "LogParams";
+		public const string RegCategoryClusterEvents        = "ClusterEvents";
+
+		// Parameters
+		public const string RegParamsIsStereoName           = "IsStereo";
+		public const string RegParamsIsNoSoundName          = "IsNoSound";
+		public const string RegParamsIsAllCoresName         = "IsAllCores";
+		public const string RegParamsIsFixedSeedName        = "IsFixedSeed";
+		public const string RegParamsIsNoTexStreamingName   = "IsNoTextureStreaming";
+		public const string RegParamsIsFullscreen           = "IsFullscreen";
+		public const string RegParamsRenderApiName          = "RenderApi";
+		public const string RegParamsRenderModeName         = "RenderMode";
+		public const string RegParamsAdditionalParamsName   = "AdditionalParams";
+		public const string RegParamsAdditionalExecCmds     = "AdditionalExecCmds";
+
+		// Log parameters
+		public const string RegLogParamsUseCustomLogs       = "UseCustomLogs";
+		public const string RegLogParamsVerbosityPlugin     = "VerbosityPlugin";
+		public const string RegLogParamsVerbosityEngine     = "VerbosityEngine";
+		public const string RegLogParamsVerbosityConfig     = "VerbosityConfig";
+		public const string RegLogParamsVerbosityCluster    = "VerbosityCluster";
+		public const string RegLogParamsVerbosityGame       = "VerbosityGame";
+		public const string RegLogParamsVerbosityGameMode   = "VerbosityGameMode";
+		public const string RegLogParamsVerbosityInput      = "VerbosityInput";
+		public const string RegLogParamsVerbosityInputVrpn  = "VerbosityInputVrpn";
+		public const string RegLogParamsVerbosityNetwork    = "VerbosityNetwork";
+		public const string RegLogParamsVerbosityNetworkMsg = "VerbosityNetworkMsg";
+		public const string RegLogParamsVerbosityBlueprint  = "VerbosityBlueprint";
+		public const string RegLogParamsVerbosityRender     = "VerbosityRender";
 
 
 

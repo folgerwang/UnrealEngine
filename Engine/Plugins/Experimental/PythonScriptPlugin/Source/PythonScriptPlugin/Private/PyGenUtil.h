@@ -75,7 +75,7 @@ namespace PyGenUtil
 		}
 		static FORCEINLINE uint32 GetKeyHash(const FString& Key)
 		{
-			return FLocKey::ProduceHash(Key);
+			return FCrc::StrCrc32<TCHAR>(*Key);
 		}
 	};
 
@@ -314,6 +314,7 @@ namespace PyGenUtil
 		InlineRightShift,	// >>=
 		LeftShift,			// <<
 		InlineLeftShift,	// <<=
+		Negated,			// -obj prefix operator
 		Num,
 	};
 

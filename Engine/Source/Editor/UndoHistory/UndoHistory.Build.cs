@@ -21,6 +21,7 @@ namespace UnrealBuildTool.Rules
 					"Slate",
 					"SlateCore",
 					"UnrealEd",
+					"ApplicationCore"
 				}
 			);
 
@@ -28,6 +29,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Editor/UndoHistory/Private",
 					"Editor/UndoHistory/Private/Widgets",
+					"Editor/UndoHistory/Private/Classes"
 				}
 			);
 		}

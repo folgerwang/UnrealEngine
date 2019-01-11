@@ -15,6 +15,9 @@
 class IMessageInterceptor;
 class IMessageReceiver;
 class IMessageSubscription;
+class IBusListener;
+
+enum class EMessageBusNotification : uint8;
 
 /**
  * Implements a topic-based message router.
@@ -118,6 +121,26 @@ public:
 	{
 		Tracer->TraceSentMessage(Context);
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRouteMessage, Context));
+	}
+
+	/**
+	 * Add a listener to the bus registration events
+	 * 
+	 * @param Listener The listener to as to the registration notifications
+	 */
+	FORCEINLINE void AddNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+	{
+		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddListener, TWeakPtr<IBusListener, ESPMode::ThreadSafe>(Listener)));
+	}
+
+	/**
+	 * Remove a listener to the bus registration events
+	 *
+	 * @param Listener The listener to remove from the registration notifications
+	 */
+	FORCEINLINE void RemoveNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+	{
+		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveListener, TWeakPtr<IBusListener, ESPMode::ThreadSafe>(Listener)));
 	}
 
 public:
@@ -255,6 +278,15 @@ private:
 	/** Handles the routing of messages. */
 	void HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context);
 
+	/** Handles the addition of a listener. */
+	void HandleAddListener(TWeakPtr<IBusListener, ESPMode::ThreadSafe> ListenerPtr);
+
+	/** Handles the removal of a listener. */
+	void HandleRemoveListener(TWeakPtr<IBusListener, ESPMode::ThreadSafe> ListenerPtr);
+
+	/** Notify listeners about registration */
+	void NotifyRegistration(const FMessageAddress& Address, EMessageBusNotification Notification);
+
 private:
 
 	/** Maps message types to interceptors. */
@@ -265,6 +297,9 @@ private:
 
 	/** Maps message types to subscriptions. */
 	TMap<FName, TArray<TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe>>> ActiveSubscriptions;
+
+	/** Array of active registration listeners. */
+	TArray<TWeakPtr<IBusListener, ESPMode::ThreadSafe>> ActiveRegistrationListeners;
 
 	/** Holds the router command queue. */
 	TQueue<CommandDelegate, EQueueMode::Mpsc> Commands;

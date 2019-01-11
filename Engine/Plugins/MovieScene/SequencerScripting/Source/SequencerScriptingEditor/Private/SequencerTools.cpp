@@ -11,7 +11,7 @@
 
 #define LOCTEXT_NAMESPACE "SequencerTools"
 
-bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSettings)
+bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSettings, FOnRenderMovieStopped OnFinishedCallback)
 {
 	IMovieSceneCaptureDialogModule& MovieSceneCaptureModule = FModuleManager::Get().LoadModuleChecked<IMovieSceneCaptureDialogModule>("MovieSceneCaptureDialog");
 	
@@ -68,7 +68,13 @@ bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSe
 		}
 	}
 
+	auto LocalCaptureStoppedCallback = [OnFinishedCallback](bool bSuccess)
+	{
+		OnFinishedCallback.ExecuteIfBound(bSuccess);
+	};
+
 	MovieSceneCaptureModule.StartCapture(InCaptureSettings);
+	MovieSceneCaptureModule.GetCurrentCapture()->CaptureStoppedDelegate.AddLambda(LocalCaptureStoppedCallback);
 	return true;
 }
 

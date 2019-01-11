@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DisplayClusterMessage.h"
-#include "DisplayClusterSocketOps.h"
+
+#include "Network/DisplayClusterMessage.h"
+#include "Network/DisplayClusterSocketOps.h"
 
 #include "DisplayClusterConstants.h"
 
@@ -16,19 +17,19 @@ class FDisplayClusterClient
 	: protected FDisplayClusterSocketOps
 {
 public:
-	FDisplayClusterClient(const FString& name);
+	FDisplayClusterClient(const FString& InName);
 	virtual ~FDisplayClusterClient();
 
 public:
 	// Connects to a server
-	bool Connect(const FString& addr, const int32 port, const int32 triesAmount = DisplayClusterConstants::net::ClientConnectTriesAmount, const float delay = DisplayClusterConstants::net::ClientConnectRetryDelay);
+	bool Connect(const FString& InAddr, const int32 InPort, const int32 TriesAmount, const float TryDelay);
 	// Terminates current connection
 	void Disconnect();
 
-	virtual bool SendMsg(const FDisplayClusterMessage::Ptr& msg) override final;
-	virtual FDisplayClusterMessage::Ptr RecvMsg() override final;
+	virtual bool SendMsg(const TSharedPtr<FDisplayClusterMessage>& msg) override final;
+	virtual TSharedPtr<FDisplayClusterMessage> RecvMsg() override final;
 
-	FDisplayClusterMessage::Ptr SendRecvMsg(const FDisplayClusterMessage::Ptr& msg);
+	TSharedPtr<FDisplayClusterMessage> SendRecvMsg(const TSharedPtr<FDisplayClusterMessage>& Msg);
 
 	virtual FString GetName() const override final
 	{ return Name; }
@@ -38,7 +39,7 @@ public:
 
 protected:
 	// Creates client socket
-	FSocket* CreateSocket(const FString& name, const int32 bufSize = DisplayClusterConstants::net::SocketBufferSize);
+	FSocket* CreateSocket(const FString& InName, const int32 BuffSize = DisplayClusterConstants::net::SocketBufferSize);
 
 private:
 	// Client name

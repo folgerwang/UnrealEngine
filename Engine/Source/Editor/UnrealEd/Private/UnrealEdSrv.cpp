@@ -1355,7 +1355,7 @@ bool UUnrealEdEngine::IsUserInteracting()
 {
 	// Check to see if the user is in the middle of a drag operation.
 	bool bUserIsInteracting = false;
-	for (const FEditorViewportClient* VC : AllViewportClients)
+	for (const FEditorViewportClient* VC : GetAllViewportClients())
 	{
 		// Check for tracking and capture.  If a viewport has mouse capture, it could be locking the mouse to the viewport, which means if we prompt with a dialog
 		// while the mouse is locked to a viewport, we wont be able to interact with the dialog.  
@@ -2439,6 +2439,18 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 
 				return true;
 			}
+			else if( FParse::Command(&Str, TEXT("CHILDREN")) ) // ACTOR SELECT ALL CHILDREN
+			{
+				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAllChildren", "Select All Children") );
+				edactSelectAllChildren( false );
+				return true;
+			}
+			else if( FParse::Command(&Str, TEXT("DESCENDANTS")) ) // ACTOR SELECT ALL DESCENDANTS
+			{
+				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAllDescendants", "Select All Descendants") );
+				edactSelectAllChildren( true );
+				return true;
+			}
 			else
 			{
 				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAll", "Select All") );
@@ -3034,11 +3046,11 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 	}
 
 	// Reset the roll on all viewport cameras
-	for(uint32 ViewportIndex = 0;ViewportIndex < (uint32)LevelViewportClients.Num();ViewportIndex++)
+	for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 	{
-		if(LevelViewportClients[ViewportIndex]->IsPerspective())
+		if(ViewportClient->IsPerspective())
 		{
-			LevelViewportClients[ViewportIndex]->RemoveCameraRoll();
+			ViewportClient->RemoveCameraRoll();
 		}
 	}
 

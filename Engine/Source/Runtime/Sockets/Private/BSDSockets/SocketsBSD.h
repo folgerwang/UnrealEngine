@@ -119,9 +119,12 @@ public:
 	virtual bool SetNonBlocking(bool bIsNonBlocking = true) override;
 	virtual bool SetBroadcast(bool bAllowBroadcast = true) override;
 	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 	virtual bool SetMulticastLoopback(bool bLoopback) override;
 	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) override;
 	virtual bool SetReuseAddr(bool bAllowReuse = true) override;
 	virtual bool SetLinger(bool bShouldLinger = true, int32 Timeout = 0) override;
 	virtual bool SetRecvErr(bool bUseErrorQueue = true) override;

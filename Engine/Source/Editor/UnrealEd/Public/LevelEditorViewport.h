@@ -189,6 +189,10 @@ public:
 		bEditorCameraCut = true;
 		bWasEditorCameraCut = false;
 	}
+	bool GetIsCameraCut() const
+	{
+		return bEditorCameraCut;
+	}
 
 	/** 
 	 * Initialize visibility flags
@@ -443,7 +447,7 @@ public:
 	 * Find a view component to use for the specified actor. Prioritizes selected 
 	 * components first, followed by camera components (then falls through to the first component that implements GetEditorPreviewInfo)
 	 */
-	static USceneComponent* FindViewComponentForActor(AActor const* Actor);
+	static UActorComponent* FindViewComponentForActor(AActor const* Actor);
 
 	/** 
 	 * Find the camera component that is driving this viewport, in the following order of preference:
@@ -577,14 +581,20 @@ protected:
 	void OnActorMoved(AActor* InActor);
 
 	/** FEditorViewportClient Interface*/
-	virtual void UpdateLinkedOrthoViewports( bool bInvalidate = false ) override;
+
+public:
+
+	virtual void UpdateLinkedOrthoViewports(bool bInvalidate = false) override;
 	virtual ELevelViewportType GetViewportType() const override;
-	virtual void SetViewportType( ELevelViewportType InViewportType ) override;
+	virtual void SetViewportType(ELevelViewportType InViewportType) override;
 	virtual void RotateViewportType() override;
-	virtual void OverridePostProcessSettings( FSceneView& View ) override;
-	virtual void PerspectiveCameraMoved() override;
+	virtual void OverridePostProcessSettings(FSceneView& View) override;
 	virtual bool ShouldLockPitch() const override;
-	virtual void CheckHoveredHitProxy( HHitProxy* HoveredHitProxy ) override;
+	virtual void CheckHoveredHitProxy(HHitProxy* HoveredHitProxy) override;
+
+protected:
+
+	virtual void PerspectiveCameraMoved() override;
 	virtual bool GetActiveSafeFrame(float& OutAspectRatio) const override;
 	virtual void RedrawAllViewportsIntoThisScene() override;
 
@@ -686,7 +696,7 @@ private:
 	void DrawBrushDetails(const FSceneView* View, FPrimitiveDrawInterface* PDI);
 
 	/** Internal function for public FindViewComponentForActor, which finds a view component to use for the specified actor. */
-	static USceneComponent* FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors);
+	static UActorComponent* FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors);
 
 public:
 	/** Static: List of objects we're hovering over */

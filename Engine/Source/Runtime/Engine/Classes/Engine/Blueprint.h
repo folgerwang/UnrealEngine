@@ -464,6 +464,10 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	UPROPERTY(EditAnywhere, Category = ClassOptions, AdvancedDisplay)
 	uint32 bGenerateAbstractClass : 1;
 
+	/** Overrides the BP's display name in the editor UI */
+	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
+	FString BlueprintDisplayName;
+
 	/** Shows up in the content browser when the blueprint is hovered, exported as Hidden in GetAssetRegistryTags */
 	UPROPERTY(EditAnywhere, Category=BlueprintOptions, meta=(MultiLine=true))
 	FString BlueprintDescription;

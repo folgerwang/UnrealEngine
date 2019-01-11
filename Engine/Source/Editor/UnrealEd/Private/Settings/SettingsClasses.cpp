@@ -387,8 +387,6 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
 
-	bBindSequencerToPIE = false;
-	bBindSequencerToSimulate = true;
 	EnablePIEEnterAndExitSounds = false;
 }
 

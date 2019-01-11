@@ -791,7 +791,7 @@ TSharedRef<ITableRow> SSequencerTreeView::OnGenerateRow(FDisplayNodeRef InDispla
 			TAttribute<TRange<double>> ViewRange = FAnimatedRange::WrapAttribute( TAttribute<FAnimatedRange>::Create(TAttribute<FAnimatedRange>::FGetter::CreateSP(&SequencerNodeTree->GetSequencer(), &FSequencer::GetViewRange)) );
 
 			TrackLane = SNew(SSequencerTrackLane, SectionAuthority.ToSharedRef(), SharedThis(this))
-			.IsEnabled(!InDisplayNode->GetSequencer().IsReadOnly())
+			//.IsEnabled(!InDisplayNode->GetSequencer().IsReadOnly())
 			[
 				SectionAuthority->GenerateWidgetForSectionArea(ViewRange)
 			];

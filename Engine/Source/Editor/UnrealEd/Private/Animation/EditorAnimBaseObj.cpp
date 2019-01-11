@@ -24,8 +24,10 @@ bool UEditorAnimBaseObj::ApplyChangesToMontage()
 	return false;
 }
 
-void UEditorAnimBaseObj::PreEditChange( class FEditPropertyChain& PropertyAboutToChange )
+void UEditorAnimBaseObj::PreEditChange(UProperty* PropertyThatWillChange)
 {
+	Super::PreEditChange(PropertyThatWillChange);
+
 	//Handle undo from the details panel
 	AnimObject->Modify();
 }

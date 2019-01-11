@@ -165,7 +165,7 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 	ID3D11Device* Device = static_cast<ID3D11Device*>(GDynamicRHI->RHIGetNativeDevice());
 	checkf(Device != nullptr, TEXT("Cannot initialize NvEnc with invalid device"));
 	checkf(Width > 0 && Height > 0, TEXT("Cannot initialize NvEnc with invalid width/height"));
-	bool Result = true;
+	_NVENCSTATUS Result;
 	bool bWebSocketStreaming = FParse::Param(FCommandLine::Get(), TEXT("WebSocketStreaming"));
 
 	// Load NvEnc dll and create an NvEncode API instance
@@ -186,8 +186,8 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 		NvEncodeAPI.Reset(new NV_ENCODE_API_FUNCTION_LIST);
 		FMemory::Memzero(NvEncodeAPI.Get(), sizeof(NV_ENCODE_API_FUNCTION_LIST));
 		NvEncodeAPI->version = NV_ENCODE_API_FUNCTION_LIST_VER;
-		Result = NV_RESULT(NvEncodeAPICreateInstanceFunc(NvEncodeAPI.Get()));
-		checkf(Result, TEXT("Unable to create NvEnc API function list"));
+		Result = NvEncodeAPICreateInstanceFunc(NvEncodeAPI.Get());
+		checkf(NV_RESULT(Result), TEXT("Unable to create NvEnc API function list (status: %d)"), Result);
 	}
 	// Open an encoding session
 	{
@@ -197,8 +197,8 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 		OpenEncodeSessionExParams.device = Device;
 		OpenEncodeSessionExParams.deviceType = NV_ENC_DEVICE_TYPE_DIRECTX;	// Currently only DX11 is supported
 		OpenEncodeSessionExParams.apiVersion = NVENCAPI_VERSION;
-		Result = NV_RESULT(NvEncodeAPI->nvEncOpenEncodeSessionEx(&OpenEncodeSessionExParams, &EncoderInterface));
-		checkf(Result, TEXT("Unable to open NvEnc encoding session"));
+		Result = NvEncodeAPI->nvEncOpenEncodeSessionEx(&OpenEncodeSessionExParams, &EncoderInterface);
+		checkf(NV_RESULT(Result), TEXT("Unable to open NvEnc encoding session (status: %d)"), Result);
 	}	
 	// Set initialization parameters
 	{
@@ -229,8 +229,8 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 		FMemory::Memzero(PresetConfig);
 		PresetConfig.version = NV_ENC_PRESET_CONFIG_VER;
 		PresetConfig.presetCfg.version = NV_ENC_CONFIG_VER;
-		Result = NV_RESULT(NvEncodeAPI->nvEncGetEncodePresetConfig(EncoderInterface, NvEncInitializeParams.encodeGUID, NvEncInitializeParams.presetGUID, &PresetConfig));
-		checkf(Result, TEXT("Failed to select NVEncoder preset config"));
+		Result = NvEncodeAPI->nvEncGetEncodePresetConfig(EncoderInterface, NvEncInitializeParams.encodeGUID, NvEncInitializeParams.presetGUID, &PresetConfig);
+		checkf(NV_RESULT(Result), TEXT("Failed to select NVEncoder preset config (status: %d)"), Result);
 		FMemory::Memcpy(&NvEncConfig, &PresetConfig.presetCfg, sizeof(NV_ENC_CONFIG));
 		
 		NvEncConfig.profileGUID = NV_ENC_H264_PROFILE_BASELINE_GUID;
@@ -293,13 +293,13 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 		CapsParam.version = NV_ENC_CAPS_PARAM_VER;
 		CapsParam.capsToQuery = NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT;
 		int32 AsyncMode = 0;
-		Result = NV_RESULT(NvEncodeAPI->nvEncGetEncodeCaps(EncoderInterface, NvEncInitializeParams.encodeGUID, &CapsParam, &AsyncMode));
-		checkf(Result, TEXT("Failed to get NVEncoder capability params"));
+		Result = NvEncodeAPI->nvEncGetEncodeCaps(EncoderInterface, NvEncInitializeParams.encodeGUID, &CapsParam, &AsyncMode);
+		checkf(NV_RESULT(Result), TEXT("Failed to get NVEncoder capability params (status: %d)"), Result);
 		NvEncInitializeParams.enableEncodeAsync = bEnableAsyncMode ? AsyncMode : 0;
 	}
 	
-	Result = NV_RESULT(NvEncodeAPI->nvEncInitializeEncoder(EncoderInterface, &NvEncInitializeParams));
-	checkf(Result, TEXT("Failed to initialize NVEncoder"));
+	Result = NvEncodeAPI->nvEncInitializeEncoder(EncoderInterface, &NvEncInitializeParams);
+	checkf(NV_RESULT(Result), TEXT("Failed to initialize NVEncoder (status: %d)"), Result);
 
 	UpdateSpsPpsHeader();
 
@@ -341,8 +341,8 @@ FNvVideoEncoder::FNvVideoEncoderImpl::~FNvVideoEncoderImpl()
 
 	if (EncoderInterface)
 	{
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncDestroyEncoder(EncoderInterface));
-		checkf(Result, TEXT("Failed to destroy NvEnc interface"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncDestroyEncoder(EncoderInterface);
+		checkf(NV_RESULT(Result), TEXT("Failed to destroy NvEnc interface (status: %d)"), Result);
 		EncoderInterface = nullptr;
 	}
 
@@ -361,8 +361,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::UpdateSpsPpsHeader()
 	SequenceParamPayload.spsppsBuffer = &SpsPpsBuffer;
 	SequenceParamPayload.outSPSPPSPayloadSize = &PayloadSize;
 
-	bool Result = NV_RESULT(NvEncodeAPI->nvEncGetSequenceParams(EncoderInterface, &SequenceParamPayload));
-	checkf(Result, TEXT("Unable to get NvEnc sequence params"));
+	_NVENCSTATUS Result = NvEncodeAPI->nvEncGetSequenceParams(EncoderInterface, &SequenceParamPayload);
+	checkf(NV_RESULT(Result), TEXT("Unable to get NvEnc sequence params (status: %d)"), Result);
 
 	SpsPpsHeader.SetNum(PayloadSize);
 	FMemory::Memcpy(SpsPpsHeader.GetData(), SpsPpsBuffer, PayloadSize);
@@ -406,8 +406,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::UpdateSettings(const FVideoEncoderSet
 		NvEncReconfigureParams.version = NV_ENC_RECONFIGURE_PARAMS_VER;
 		NvEncReconfigureParams.forceIDR = bResolutionChanged;
 
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncReconfigureEncoder(EncoderInterface, &NvEncReconfigureParams));
-		checkf(Result, TEXT("Failed to reconfigure encoder"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncReconfigureEncoder(EncoderInterface, &NvEncReconfigureParams);
+		checkf(NV_RESULT(Result), TEXT("Failed to reconfigure encoder (status: %d)"), Result);
 	}
 
 	if (bResolutionChanged)
@@ -587,8 +587,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::TransferRenderTargetToHWEncoder(FFram
 	bForceIdrFrame = false;
 
 	Frame.EncodeStartTimeStamp = NowMs();
-	bool Result = NV_RESULT(NvEncodeAPI->nvEncEncodePicture(EncoderInterface, &PicParams));
-	checkf(Result, TEXT("Failed to encode frame"));
+	_NVENCSTATUS Result = NvEncodeAPI->nvEncEncodePicture(EncoderInterface, &PicParams);
+	checkf(NV_RESULT(Result), TEXT("Failed to encode frame (status: %d)"), Result);
 
 	if (!NvEncInitializeParams.enableEncodeAsync)
 	{
@@ -625,14 +625,14 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::ProcessFrame(FFrame& Frame)
 		LockBitstream.outputBitstream = Frame.OutputFrame.BitstreamBuffer;
 		LockBitstream.doNotWait = NvEncInitializeParams.enableEncodeAsync;
 
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncLockBitstream(EncoderInterface, &LockBitstream));
-		checkf(Result, TEXT("Failed to lock bitstream"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncLockBitstream(EncoderInterface, &LockBitstream);
+		checkf(NV_RESULT(Result), TEXT("Failed to lock bitstream (status: %d)"), Result);
 
 		Frame.EncodedFrame.SetNum(LockBitstream.bitstreamSizeInBytes);
 		FMemory::Memcpy(Frame.EncodedFrame.GetData(), LockBitstream.bitstreamBufferPtr, LockBitstream.bitstreamSizeInBytes);
 
-		Result = NV_RESULT(NvEncodeAPI->nvEncUnlockBitstream(EncoderInterface, Frame.OutputFrame.BitstreamBuffer));
-		checkf(Result, TEXT("Failed to unlock bitstream"));
+		Result = NvEncodeAPI->nvEncUnlockBitstream(EncoderInterface, Frame.OutputFrame.BitstreamBuffer);
+		checkf(NV_RESULT(Result), TEXT("Failed to unlock bitstream (status: %d)"), Result);
 		Frame.bIdrFrame = LockBitstream.pictureType == NV_ENC_PIC_TYPE_IDR;
 	}
 
@@ -666,8 +666,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::InitFrameInputBuffer(const FTexture2D
 		RegisterResource.width = NvEncInitializeParams.encodeWidth;
 		RegisterResource.height = NvEncInitializeParams.encodeHeight;
 		RegisterResource.bufferFormat = NV_ENC_BUFFER_FORMAT_ABGR10;	// Make sure ResolvedBackBuffer is created with a compatible format
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncRegisterResource(EncoderInterface, &RegisterResource));
-		checkf(Result, TEXT("Failed to register input back buffer"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncRegisterResource(EncoderInterface, &RegisterResource);
+		checkf(NV_RESULT(Result), TEXT("Failed to register input back buffer (status: %d)"), Result);
 
 		Frame.InputFrame.RegisteredResource = RegisterResource.registeredResource;
 		Frame.InputFrame.BufferFormat = RegisterResource.bufferFormat;
@@ -678,8 +678,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::InitFrameInputBuffer(const FTexture2D
 		FMemory::Memzero(MapInputResource);
 		MapInputResource.version = NV_ENC_MAP_INPUT_RESOURCE_VER;
 		MapInputResource.registeredResource = Frame.InputFrame.RegisteredResource;
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncMapInputResource(EncoderInterface, &MapInputResource));
-		checkf(Result, TEXT("Failed to map NvEnc input resource"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncMapInputResource(EncoderInterface, &MapInputResource);
+		checkf(NV_RESULT(Result), TEXT("Failed to map NvEnc input resource (status: %d)"), Result);
 		Frame.InputFrame.MappedResource = MapInputResource.mappedResource;
 	}
 }
@@ -700,8 +700,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::InitializeResources(const FTexture2DR
 			CreateBitstreamBuffer.version = NV_ENC_CREATE_BITSTREAM_BUFFER_VER;
 			CreateBitstreamBuffer.size = BITSTREAM_SIZE;
 			CreateBitstreamBuffer.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
-			bool Result = NV_RESULT(NvEncodeAPI->nvEncCreateBitstreamBuffer(EncoderInterface, &CreateBitstreamBuffer));
-			checkf(Result, TEXT("Failed to create NvEnc bitstream buffer"));
+			_NVENCSTATUS Result = NvEncodeAPI->nvEncCreateBitstreamBuffer(EncoderInterface, &CreateBitstreamBuffer);
+			checkf(NV_RESULT(Result), TEXT("Failed to create NvEnc bitstream buffer (status: %d)"), Result);
 			Frame.OutputFrame.BitstreamBuffer = CreateBitstreamBuffer.bitstreamBuffer;
 		}
 		// Register event handles
@@ -714,12 +714,12 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::InitializeResources(const FTexture2DR
 
 void FNvVideoEncoder::FNvVideoEncoderImpl::ReleaseFrameInputBuffer(FFrame& Frame)
 {
-	bool Result = NV_RESULT(NvEncodeAPI->nvEncUnmapInputResource(EncoderInterface, Frame.InputFrame.MappedResource));
-	checkf(Result, TEXT("Failed to unmap input resource"));
+	_NVENCSTATUS Result = NvEncodeAPI->nvEncUnmapInputResource(EncoderInterface, Frame.InputFrame.MappedResource);
+	checkf(NV_RESULT(Result), TEXT("Failed to unmap input resource (status: %d)"), Result);
 	Frame.InputFrame.MappedResource = nullptr;
 
-	Result = NV_RESULT(NvEncodeAPI->nvEncUnregisterResource(EncoderInterface, Frame.InputFrame.RegisteredResource));
-	checkf(Result, TEXT("Failed to unregister input buffer resource"));
+	Result = NvEncodeAPI->nvEncUnregisterResource(EncoderInterface, Frame.InputFrame.RegisteredResource);
+	checkf(NV_RESULT(Result), TEXT("Failed to unregister input buffer resource (status: %d)"), Result);
 	Frame.InputFrame.RegisteredResource = nullptr;
 
 	Frame.ResolvedBackBuffer.SafeRelease();
@@ -733,8 +733,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::ReleaseResources()
 
 		ReleaseFrameInputBuffer(Frame);
 
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncDestroyBitstreamBuffer(EncoderInterface, Frame.OutputFrame.BitstreamBuffer));
-		checkf(Result, TEXT("Failed to destroy output buffer bitstream"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncDestroyBitstreamBuffer(EncoderInterface, Frame.OutputFrame.BitstreamBuffer);
+		checkf(NV_RESULT(Result), TEXT("Failed to destroy output buffer bitstream (status: %d)"), Result);
 		Frame.OutputFrame.BitstreamBuffer = nullptr;
 
 		if (Frame.OutputFrame.EventHandle)
@@ -754,8 +754,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::RegisterAsyncEvent(void** OutEvent)
 #if defined PLATFORM_WINDOWS
 	EventParams.completionEvent = CreateEvent(nullptr, false, false, nullptr);
 #endif
-	bool Result = NV_RESULT(NvEncodeAPI->nvEncRegisterAsyncEvent(EncoderInterface, &EventParams));
-	checkf(Result, TEXT("Failed to register async event"));
+	_NVENCSTATUS Result = NvEncodeAPI->nvEncRegisterAsyncEvent(EncoderInterface, &EventParams);
+	checkf(NV_RESULT(Result), TEXT("Failed to register async event (status: %d)"), Result);
 	*OutEvent = EventParams.completionEvent;
 }
 
@@ -767,8 +767,8 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::UnregisterAsyncEvent(void* Event)
 		FMemory::Memzero(EventParams);
 		EventParams.version = NV_ENC_EVENT_PARAMS_VER;
 		EventParams.completionEvent = Event;
-		bool Result = NV_RESULT(NvEncodeAPI->nvEncUnregisterAsyncEvent(EncoderInterface, &EventParams));
-		checkf(Result, TEXT("Failed to unregister async event"));
+		_NVENCSTATUS Result = NvEncodeAPI->nvEncUnregisterAsyncEvent(EncoderInterface, &EventParams);
+		checkf(NV_RESULT(Result), TEXT("Failed to unregister async event (status: %d)"), Result);
 	}
 }
 

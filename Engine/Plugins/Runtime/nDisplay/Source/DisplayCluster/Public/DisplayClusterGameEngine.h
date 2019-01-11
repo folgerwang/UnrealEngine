@@ -10,9 +10,9 @@
 #include "DisplayClusterGameEngine.generated.h"
 
 
-struct IPDisplayClusterClusterManager;
-struct IPDisplayClusterNodeController;
-struct IPDisplayClusterInputManager;
+class IPDisplayClusterClusterManager;
+class IPDisplayClusterNodeController;
+class IPDisplayClusterInputManager;
 
 
 /**

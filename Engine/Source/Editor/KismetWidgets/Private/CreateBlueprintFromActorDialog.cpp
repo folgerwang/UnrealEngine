@@ -88,17 +88,6 @@ void FCreateBlueprintFromActorDialog::OnCreateBlueprint(const FString& InAssetPa
 
 	if(Blueprint)
 	{
-		// Rename new instance based on the original actor label rather than the asset name
-		USelection* SelectedActors = GEditor->GetSelectedActors();
-		if( SelectedActors && SelectedActors->Num() == 1 )
-		{
-			AActor* Actor = Cast<AActor>(SelectedActors->GetSelectedObject(0));
-			if(Actor)
-			{
-				FActorLabelUtilities::SetActorLabelUnique(Actor, FPackageName::GetShortName(InAssetPath));
-			}
-		}
-
 		// Select the newly created blueprint in the content browser, but don't activate the browser
 		TArray<UObject*> Objects;
 		Objects.Add(Blueprint);

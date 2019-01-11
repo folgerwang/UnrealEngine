@@ -59,7 +59,7 @@ TSharedPtr<SWidget> FLevelVisibilityTrackEditor::BuildOutlinerEditWidget( const 
 	return FSequencerUtilities::MakeAddButton( 
 		LOCTEXT( "AddVisibilityTrigger", "Visibility Trigger" ),
 		FOnGetContent::CreateSP( this, &FLevelVisibilityTrackEditor::BuildAddVisibilityTriggerMenu, Track ),
-		Params.NodeIsHovered );
+		Params.NodeIsHovered, GetSequencer() );
 }
 
 

@@ -18,7 +18,15 @@ public:
 	UMovieSceneLiveLinkTrack(const FObjectInitializer& ObjectInitializer);
 
 	// UMovieSceneTrack interface
-
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
+	virtual void PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const override;
+
+#if WITH_EDITORONLY_DATA
+	virtual bool CanRename() const override { return true; }
+
+	virtual void SetDisplayName(const FText& NewDisplayName) override;
+
+#endif
 };

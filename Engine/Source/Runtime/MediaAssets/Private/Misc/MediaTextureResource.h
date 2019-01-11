@@ -141,6 +141,14 @@ protected:
 	 */
 	void UpdateTextureReference(FRHITexture2D* NewTexture);
 
+	/**
+	 * Create/update output render target as needed
+	 *
+	 * @param InSample Sample to query render target dimension and format from
+	 * @param InParams Parameters containing SrgbOutput and ClearColor
+	 */
+	void CreateOutputRenderTarget(const TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe>& InSample, const FRenderParams& InParams);
+
 private:
 
 	/** Whether the texture has been cleared. */

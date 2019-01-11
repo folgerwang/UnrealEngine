@@ -4,17 +4,17 @@
 
 #include "Config/IDisplayClusterConfigManager.h"
 #include "IPDisplayClusterManager.h"
-
 #include "DisplayClusterBuildConfig.h"
 
 
 /**
  * Config manager private interface
  */
-struct IPDisplayClusterConfigManager
+class IPDisplayClusterConfigManager
 	: public IDisplayClusterConfigManager
 	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterConfigManager()
 	{ }
 

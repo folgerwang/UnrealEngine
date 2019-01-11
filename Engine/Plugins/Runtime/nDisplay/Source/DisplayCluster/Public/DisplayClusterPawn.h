@@ -12,7 +12,7 @@ class USphereComponent;
 class UDisplayClusterSceneComponent;
 class UDisplayClusterSceneComponentSyncParent;
 
-struct IPDisplayClusterGameManager;
+class IPDisplayClusterGameManager;
 
 
 /**

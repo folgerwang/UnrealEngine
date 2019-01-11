@@ -410,6 +410,20 @@ bool FSocketBSDIPv6::LeaveMulticastGroup(const FInternetAddr& GroupAddress)
 }
 
 
+bool FSocketBSDIPv6::JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr&)
+{
+	// This implementation is to be deprecated, not implemented 
+	return JoinMulticastGroup(GroupAddress);
+}
+
+
+bool FSocketBSDIPv6::LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr&)
+{
+	// This implementation is to be deprecated, not implemented 
+	return LeaveMulticastGroup(GroupAddress);
+}
+
+
 bool FSocketBSDIPv6::SetMulticastLoopback(bool bLoopback)
 {
 	return (setsockopt(Socket, IPPROTO_IPV6, IP_MULTICAST_LOOP, (char*)&bLoopback, sizeof(bLoopback)) == 0);
@@ -419,6 +433,13 @@ bool FSocketBSDIPv6::SetMulticastLoopback(bool bLoopback)
 bool FSocketBSDIPv6::SetMulticastTtl(uint8 TimeToLive)
 {
 	return (setsockopt(Socket, IPPROTO_IPV6, IP_MULTICAST_TTL, (char*)&TimeToLive, sizeof(TimeToLive)) == 0);
+}
+
+
+bool FSocketBSDIPv6::SetMulticastInterface(const FInternetAddr& InterfaceAddress)
+{
+	// This implementation is to be deprecated, not implemented 
+	return false;
 }
 
 
