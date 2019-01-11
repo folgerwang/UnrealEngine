@@ -1267,9 +1267,34 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	{
 		FCoreDelegates::OnSyncLoadPackage.Broadcast(FileToLoad);
 	}
+	
+	// Set up a load context
+	TRefCountPtr<FUObjectSerializeContext> LoadContext;
+	if (InLoadContext)
+	{
+		// Use the privided context
+		LoadContext = InLoadContext;
+	}
+	else
+	{
+		// Try to get the context from the callstack
+		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+		if (ThreadContext.SerializeContext)
+		{
+			LoadContext = ThreadContext.SerializeContext;
+		}
+		else
+		{
+			// Create a new context
+			LoadContext = new FUObjectSerializeContext();
+			if (!IsInAsyncLoadingThread())
+			{
+				ThreadContext.SerializeContext = LoadContext;
+			}
+		}
+	}
 
 	// Try to load.
-	TRefCountPtr<FUObjectSerializeContext> LoadContext(InLoadContext ? InLoadContext : new FUObjectSerializeContext());
 	BeginLoad(LoadContext, InLongPackageNameOrFilename);
 
 	bool bFullyLoadSkipped = false;
@@ -1841,6 +1866,20 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 		FCoreUObjectDelegates::OnAssetLoaded.Broadcast(LoadedAsset);
 	}
 #endif	// WITH_EDITOR
+
+
+	if (LoadContext->GetBeginLoadCount() == 0)
+	{
+		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+		if (ThreadContext.SerializeContext == LoadContext)
+		{
+			ThreadContext.SerializeContext = nullptr;
+		}
+		else
+		{
+			check(!ThreadContext.SerializeContext);
+		}
+	}
 }
 
 /*-----------------------------------------------------------------------------

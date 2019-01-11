@@ -75,6 +75,8 @@ public:
 	UObject* ConstructedObject;
 	/** Async Package currently processing objects */
 	struct FAsyncPackage* AsyncPackage;
+	/** Current serialization context (only valid for non-async loads) */
+	FUObjectSerializeContext* SerializeContext;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Stack to ensure that PostInitProperties is routed through Super:: calls. **/

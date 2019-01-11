@@ -15,6 +15,7 @@ FUObjectThreadContext::FUObjectThreadContext()
 , IsInConstructor(0)
 , ConstructedObject(nullptr)
 , AsyncPackage(nullptr)
+, SerializeContext(nullptr)
 {}
 
 
