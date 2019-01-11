@@ -3773,9 +3773,8 @@ void FMatinee::LockCamToGroup(class UInterpGroup* InGroup, const bool bResetView
 		// Reset viewports (clear roll etc).  But not when recording
 		if (bResetViewports)
 		{
-			for(int32 i=0; i<GEditor->LevelViewportClients.Num(); i++)
+			for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 			{
-				FLevelEditorViewportClient* LevelVC =GEditor->LevelViewportClients[i];
 				if(LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
 				{
 					LevelVC->RemoveCameraRoll();
@@ -3858,9 +3857,8 @@ void FMatinee::UpdateCameraToGroup(const bool bInUpdateStandardViewports, bool b
 	if (bInUpdateStandardViewports)
 	{
 		// Move any perspective viewports to coincide with moved actor.
-		for(int32 i=0; i<GEditor->LevelViewportClients.Num(); i++)
+		for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 		{
-			FLevelEditorViewportClient* LevelVC =GEditor->LevelViewportClients[i];
 			if(LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
 			{
 				UpdateLevelViewport(DefaultViewedActor, LevelVC, FadeAmount, ColorScale, bEnableColorScaling, bUpdateViewportTransform );
@@ -3964,9 +3962,9 @@ void FMatinee::UpdateLevelViewport(AActor* InActor, FLevelEditorViewportClient* 
 /** Restores a viewports' settings that were overridden by UpdateLevelViewport, where necessary. */
 void FMatinee::SaveLevelViewports()
 {
-	for( int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ++ViewIndex )
+	for( int32 ViewIndex = 0; ViewIndex < GEditor->GetLevelViewportClients().Num(); ++ViewIndex )
 	{
-		FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[ ViewIndex ];
+		FLevelEditorViewportClient* LevelVC = GEditor->GetLevelViewportClients()[ ViewIndex ];
 		if( LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
 		{
 			FMatineeViewSaveData SaveData;
@@ -3985,9 +3983,9 @@ void FMatinee::RestoreLevelViewports()
 	for( int32 SaveIndex = 0; SaveIndex < SavedViewportData.Num(); ++SaveIndex )
 	{
 		const FMatineeViewSaveData& SavedData = SavedViewportData[ SaveIndex ];
-		if( SavedData.ViewIndex < GEditor->LevelViewportClients.Num() )
+		if( GEditor->GetLevelViewportClients().IsValidIndex( SavedData.ViewIndex ) )
 		{
-			FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[ SavedData.ViewIndex ];
+			FLevelEditorViewportClient* LevelVC = GEditor->GetLevelViewportClients()[ SavedData.ViewIndex ];
 			if ( LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
 			{
 				LevelVC->SetMatineeActorLock( nullptr );

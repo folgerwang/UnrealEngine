@@ -8,6 +8,7 @@
 #include "LevelSequenceObject.h"
 #include "LevelSequenceBindingReference.h"
 #include "LevelSequenceLegacyObjectReference.h"
+#include "Templates/SubclassOf.h"
 #include "LevelSequence.generated.h"
 
 class UMovieScene;
@@ -53,10 +54,12 @@ public:
 	virtual UObject* MakeSpawnableTemplateFromInstance(UObject& InSourceObject, FName ObjectName) override;
 	virtual bool CanAnimateObject(UObject& InObject) const override;
 	virtual UObject* CreateDirectorInstance(IMovieScenePlayer& Player) override;
+	virtual void PostLoad() override;
+
 #if WITH_EDITOR
+	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
-	virtual void PostLoad() override;
 
 #if WITH_EDITORONLY_DATA
 
@@ -97,4 +100,133 @@ protected:
 	/** Deprecated property housing old possessed object bindings */
 	UPROPERTY()
 	TMap<FString, FLevelSequenceObject> PossessedObjects_DEPRECATED;
+
+#if WITH_EDITOR
+public:
+	/**
+	* Find meta-data of a particular type for this level sequence instance.
+	* @param InClass - Class that you wish to find the metadata object for.
+	* @return An instance of this class if it already exists as metadata on this Level Sequence, otherwise null.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Level Sequence", meta=(DevelopmentOnly))
+	UObject* FindMetaDataByClass(TSubclassOf<UObject> InClass) const
+	{
+		UObject* const* Found = MetaDataObjects.FindByPredicate([InClass](UObject* In) { return In && In->GetClass() == InClass; });
+		return Found ? CastChecked<UObject>(*Found) : nullptr;
+	}
+
+	/**
+	* Find meta-data of a particular type for this level sequence instance, adding it if it doesn't already exist.
+	* @param InClass - Class that you wish to find or create the metadata object for.
+	* @return An instance of this class as metadata on this Level Sequence.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Level Sequence", meta=(DevelopmentOnly))
+	UObject* FindOrAddMetaDataByClass(TSubclassOf<UObject> InClass)
+	{
+		UObject* Found = FindMetaDataByClass(InClass);
+		if (!Found)
+		{
+			Found = NewObject<UObject>(this, InClass);
+			MetaDataObjects.Add(Found);
+		}
+
+		return Found;
+	}
+
+	/**
+	* Copy the specified meta data into this level sequence, overwriting any existing meta-data of the same type
+	* Meta-data may implement the ILevelSequenceMetaData interface in order to hook into default ULevelSequence functionality.
+	* @param InMetaData - Existing Metadata Object that you wish to copy into this Level Sequence.
+	* @return The newly copied instance of the Metadata that now exists on this sequence.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Level Sequence", meta=(DevelopmentOnly))
+	UObject* CopyMetaData(UObject* InMetaData)
+	{
+		if (!InMetaData)
+		{
+			return nullptr;
+		}
+
+		RemoveMetaDataByClass(InMetaData->GetClass());
+
+		UObject* NewMetaData = DuplicateObject(InMetaData, this);
+		MetaDataObjects.Add(NewMetaData);
+
+		return NewMetaData;
+	}
+
+	/**
+	* Remove meta-data of a particular type for this level sequence instance, if it exists
+	* @param InClass - The class type that you wish to remove the metadata for
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Level Sequence", meta=(DevelopmentOnly))
+	void RemoveMetaDataByClass(TSubclassOf<UObject> InClass)
+	{
+		MetaDataObjects.RemoveAll([InClass](UObject* In) { return In && In->GetClass() == InClass; });
+	}
+#endif // WITH_EDITOR
+
+#if WITH_EDITORONLY_DATA
+
+public:
+
+	/**
+	 * Find meta-data of a particular type for this level sequence instance
+	 */
+	template<typename MetaDataType>
+	MetaDataType* FindMetaData() const
+	{
+		UClass* PredicateClass = MetaDataType::StaticClass();
+		UObject* const* Found = MetaDataObjects.FindByPredicate([PredicateClass](UObject* In){ return In && In->GetClass() == PredicateClass; });
+		return Found ? CastChecked<MetaDataType>(*Found) : nullptr;
+	}
+
+	/**
+	 * Find meta-data of a particular type for this level sequence instance, adding one if it was not found.
+	 * Meta-data may implement the ILevelSequenceMetaData interface in order to hook into default ULevelSequence functionality.
+	 */
+	template<typename MetaDataType>
+	MetaDataType* FindOrAddMetaData()
+	{
+		MetaDataType* Found = FindMetaData<MetaDataType>();
+		if (!Found)
+		{
+			Found = NewObject<MetaDataType>(this);
+			MetaDataObjects.Add(Found);
+		}
+		return Found;
+	}
+
+	/**
+	 * Copy the specified meta data into this level sequence, overwriting any existing meta-data of the same type
+	 * Meta-data may implement the ILevelSequenceMetaData interface in order to hook into default ULevelSequence functionality.
+	 */
+	template<typename MetaDataType>
+	MetaDataType* CopyMetaData(MetaDataType* InMetaData)
+	{
+		RemoveMetaData<MetaDataType>();
+
+		MetaDataType* NewMetaData = DuplicateObject(InMetaData, this);
+		MetaDataObjects.Add(NewMetaData);
+
+		return NewMetaData;
+	}
+
+	/**
+	 * Remove meta-data of a particular type for this level sequence instance, if it exists
+	 */
+	template<typename MetaDataType>
+	void RemoveMetaData()
+	{
+		UClass* PredicateClass = MetaDataType::StaticClass();
+		MetaDataObjects.RemoveAll([PredicateClass](UObject* In){ return In && In->GetClass() == PredicateClass; });
+	}
+
+private:
+
+	/** Array of meta-data objects associated with this level sequence. Each pointer may implement the ILevelSequenceMetaData interface in order to hook into default ULevelSequence functionality. */
+	UPROPERTY()
+	TArray<UObject*> MetaDataObjects;
+
+#endif
 };

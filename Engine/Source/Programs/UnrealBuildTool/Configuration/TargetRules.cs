@@ -365,7 +365,7 @@ namespace UnrealBuildTool
 			get { return (Type == TargetType.Editor); }
 			set { Log.TraceWarning("Setting {0}.bBuildEditor is deprecated. Set {0}.Type instead.", GetType().Name); }
 		}
-			
+
 		/// <summary>
 		/// Whether to compile code related to building assets. Consoles generally cannot build assets. Desktop platforms generally can.
 		/// </summary>
@@ -448,6 +448,13 @@ namespace UnrealBuildTool
 		}
 
         /// <summary>
+		/// Whether we should compile SQLite using the custom "Unreal" platform (true), or using the native platform (false).
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileCustomSQLitePlatform")]
+		public bool bCompileCustomSQLitePlatform = true;
+
+		/// <summary>
 		/// Whether to compile lean and mean version of UE.
 		/// </summary>
 		[Obsolete("bCompileLeanAndMeanUE is deprecated. Set bBuildDeveloperTools to the opposite value instead.")]
@@ -481,13 +488,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
 		public bool bCompileAgainstApplicationCore = true;
-
-		/// <summary>
-		/// If true, include ADO database support in core.
-		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bIncludeADO")]
-		public bool bIncludeADO;
 
 		/// <summary>
 		/// Whether to compile Recast navmesh generation.
@@ -1746,6 +1746,11 @@ namespace UnrealBuildTool
 			get { return Inner.bCompileSimplygonSSF; }
 		}
 
+		public bool bCompileCustomSQLitePlatform
+		{
+			get { return Inner.bCompileCustomSQLitePlatform; }
+		}
+
 		[Obsolete("bCompileLeanAndMeanUE is deprecated. Use bBuildDeveloperTools instead.")]
 		public bool bCompileLeanAndMeanUE
 		{
@@ -1770,11 +1775,6 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstApplicationCore
 		{
 			get { return Inner.bCompileAgainstApplicationCore; }
-		}
-
-		public bool bIncludeADO
-		{
-			get { return Inner.bIncludeADO; }
 		}
 
 		public bool bCompileRecast

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPDisplayClusterRenderManager.h"
+#include "Render/IPDisplayClusterRenderManager.h"
 
 class FDisplayClusterDeviceBase;
 class FDisplayClusterNativePresentHandler;
@@ -30,9 +30,27 @@ public:
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IDisplayClusterStereoRendering
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void AddViewport(const FString& ViewportId, IDisplayClusterProjectionScreenDataProvider* DataProvider) override;
+	virtual void RemoveViewport(const FString& ViewportId) override;
+	virtual void RemoveAllViewports() override;
+	virtual void SetDesktopStereoParams(float FOV) override;
+	virtual void SetDesktopStereoParams(const FVector2D& screenSize, const FIntPoint& screenRes, float screenDist) override;
+	virtual void  SetInterpupillaryDistance(float dist) override;
+	virtual float GetInterpupillaryDistance() const override;
+	virtual void SetEyesSwap(bool swap) override;
+	virtual bool GetEyesSwap() const override;
+	virtual bool ToggleEyesSwap() override;
+	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy) override;
+	virtual EDisplayClusterSwapSyncPolicy GetSwapSyncPolicy() const override;
+	virtual void GetCullingDistance(float& NearDistance, float& FarDistance) const override;
+	virtual void SetCullingDistance(float NearDistance, float FarDistance) override;
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterRenderManager
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual IDisplayClusterStereoDevice* GetStereoDevice() const override;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,7 +69,7 @@ private:
 	FString ClusterNodeId;
 
 	// Interface pointer to eliminate type casting
-	IDisplayClusterStereoDevice* Device = nullptr;
+	IDisplayClusterStereoRendering* StereoDevice = nullptr;
 	FDisplayClusterNativePresentHandler* NativePresentHandler;
 	bool bWindowAdjusted = false;
 };

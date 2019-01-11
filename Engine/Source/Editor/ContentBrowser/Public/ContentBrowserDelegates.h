@@ -127,6 +127,9 @@ DECLARE_DELEGATE_RetVal_TwoParams(FText, FOnGetCustomAssetColumnDisplayText, FAs
 /** Called to add extra asset data to the asset view, to display virtual assets. These get treated similar to Class assets */
 DECLARE_DELEGATE_TwoParams(FOnGetCustomSourceAssets, const FARFilter& /*SourceFilter*/, TArray<FAssetData>& /*AddedAssets*/);
 
+/** Called to generate extra state information icons or tooltips on asset items. */
+DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SWidget>, FOnGenerateAssetViewExtraStateIndicators, const FAssetData& /*AssetData*/);
+
 /** Called when an asset item visualizes its tooltip */
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnVisualizeAssetToolTip, const TSharedPtr<SWidget>& /*ToolTipContent*/, FAssetData& /*AssetData*/);
 

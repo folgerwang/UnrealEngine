@@ -74,7 +74,6 @@ bool FSourceControlWindows::ChoosePackagesToCheckIn(const FSourceControlWindowsO
 
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 	FSourceControlOperationRef Operation = ISourceControlOperation::Create<FUpdateStatus>();
-	StaticCastSharedRef<FUpdateStatus>(Operation)->SetCheckingAllFiles(false);
 	SourceControlProvider.Execute(
 		Operation,
 		Filenames,

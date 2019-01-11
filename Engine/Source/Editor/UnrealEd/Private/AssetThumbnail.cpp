@@ -118,7 +118,7 @@ public:
 		// The generic representation of the thumbnail, for use before the rendered version, if it exists
 		OverlayWidget->AddSlot()
 		[
-			SNew(SBorder)
+			SAssignNew(AssetBackgroundWidget, SBorder)
 			.BorderImage(GetAssetBackgroundBrush())
 			.BorderBackgroundColor(AssetColor.CopyWithNewOpacity(0.3f))
 			.Padding(GenericThumbnailBorderPadding)
@@ -358,6 +358,7 @@ private:
 		if ( AssetTypeActions.IsValid() )
 		{
 			AssetColor = AssetTypeActions.Pin()->GetTypeColor();
+			AssetBackgroundWidget->SetBorderBackgroundColor(AssetColor.CopyWithNewOpacity(0.3f));
 			AssetColorStripWidget->SetBorderBackgroundColor(AssetColor);
 		}
 
@@ -670,6 +671,7 @@ private:
 	TSharedPtr<SImage> GenericThumbnailImage;
 	TSharedPtr<SBorder> ClassIconWidget;
 	TSharedPtr<SBorder> RenderedThumbnailWidget;
+	TSharedPtr<SBorder> AssetBackgroundWidget;
 	TSharedPtr<SBorder> AssetColorStripWidget;
 	TSharedPtr<FAssetThumbnail> AssetThumbnail;
 	FCurveSequence ViewportFadeAnimation;

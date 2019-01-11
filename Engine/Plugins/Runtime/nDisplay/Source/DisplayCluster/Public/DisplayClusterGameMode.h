@@ -10,7 +10,7 @@
 #include "DisplayClusterGameMode.generated.h"
 
 
-struct IPDisplayCluster;
+class IPDisplayCluster;
 
 /**
  * Extended game mode

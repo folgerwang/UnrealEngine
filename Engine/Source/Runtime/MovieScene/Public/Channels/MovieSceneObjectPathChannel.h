@@ -8,6 +8,66 @@
 #include "MovieSceneChannelTraits.h"
 #include "MovieSceneObjectPathChannel.generated.h"
 
+/**
+ * Key value type for object path channels that stores references to objects as both a hard and soft reference, to ensure compatability with both sub objects and async loading
+ */
+USTRUCT()
+struct MOVIESCENE_API FMovieSceneObjectPathChannelKeyValue
+{
+	GENERATED_BODY()
+
+	/** Default constructor */
+	FMovieSceneObjectPathChannelKeyValue()
+		: HardPtr(nullptr)
+	{}
+
+	/** Construction from an object pointer */
+	FMovieSceneObjectPathChannelKeyValue(UObject* InObject)
+		: SoftPtr(InObject)
+		, HardPtr(InObject)
+	{}
+
+	/**
+	 * Assignment from a raw object pointer
+	 */
+	FMovieSceneObjectPathChannelKeyValue& operator=(UObject* NewObject);
+
+public:
+
+	/**
+	 * Legacy conversion from a TSoftObjectPtr<>
+	 */
+	bool SerializeFromMismatchedTag(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
+	
+	/**
+	 * Access the soft object pointer that this key should load
+	 */
+	const TSoftObjectPtr<>& GetSoftPtr() const
+	{
+		return SoftPtr;
+	}
+
+	/**
+	 * Attempt to find this object either by returning the internally kept raw pointer, or by resolving (but not loading) the soft object path
+	 */
+	UObject* Get() const;
+
+private:
+
+	/** Persistent storage of the object by path (which allows us to support cross-level actor references, for instance) */
+	UPROPERTY()
+	TSoftObjectPtr<UObject> SoftPtr;
+
+	/** Hard reference to the loaded object - relevant for any asset type which also hints the async loader to efficiently load the asset in advance */
+	UPROPERTY()
+	mutable UObject* HardPtr;
+};
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneObjectPathChannelKeyValue> : public TStructOpsTypeTraitsBase2<FMovieSceneObjectPathChannelKeyValue>
+{
+	enum { WithStructuredSerializeFromMismatchedTag = true };
+};
 
 USTRUCT()
 struct MOVIESCENE_API FMovieSceneObjectPathChannel : public FMovieSceneChannel
@@ -34,9 +94,9 @@ struct MOVIESCENE_API FMovieSceneObjectPathChannel : public FMovieSceneChannel
 	 *
 	 * @return An object that is able to manipulate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannelData<TSoftObjectPtr<>> GetData()
+	FORCEINLINE TMovieSceneChannelData<FMovieSceneObjectPathChannelKeyValue> GetData()
 	{
-		return TMovieSceneChannelData<TSoftObjectPtr<>>(&Times, &Values, &KeyHandles);
+		return TMovieSceneChannelData<FMovieSceneObjectPathChannelKeyValue>(&Times, &Values, &KeyHandles);
 	}
 
 	/**
@@ -44,9 +104,9 @@ struct MOVIESCENE_API FMovieSceneObjectPathChannel : public FMovieSceneChannel
 	 *
 	 * @return An object that is able to interrogate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannelData<const TSoftObjectPtr<>> GetData() const
+	FORCEINLINE TMovieSceneChannelData<const FMovieSceneObjectPathChannelKeyValue> GetData() const
 	{
-		return TMovieSceneChannelData<const TSoftObjectPtr<>>(&Times, &Values);
+		return TMovieSceneChannelData<const FMovieSceneObjectPathChannelKeyValue>(&Times, &Values);
 	}
 
 	/**
@@ -56,7 +116,6 @@ struct MOVIESCENE_API FMovieSceneObjectPathChannel : public FMovieSceneChannel
 	 * @param OutValue   A value to receive the result
 	 * @return true if the channel was evaluated successfully, false otherwise
 	 */
-	bool Evaluate(FFrameTime InTime, TSoftObjectPtr<>& OutValue) const;
 	bool Evaluate(FFrameTime InTime, UObject*& OutValue) const;
 
 public:
@@ -82,7 +141,7 @@ public:
 	 *
 	 * @param InDefaultValue The desired default value
 	 */
-	FORCEINLINE void SetDefault(const TSoftObjectPtr<>& InDefaultValue)
+	FORCEINLINE void SetDefault(UObject* InDefaultValue)
 	{
 		DefaultValue = InDefaultValue;
 	}
@@ -92,7 +151,7 @@ public:
 	 *
 	 * @return (Optional) The channel's default value
 	 */
-	FORCEINLINE const TSoftObjectPtr<>& GetDefault() const
+	FORCEINLINE const FMovieSceneObjectPathChannelKeyValue& GetDefault() const
 	{
 		return DefaultValue;
 	}
@@ -102,7 +161,7 @@ public:
 	 */
 	FORCEINLINE void RemoveDefault()
 	{
-		DefaultValue.Reset();
+		DefaultValue = nullptr;
 	}
 
 private:
@@ -114,10 +173,10 @@ private:
 	TArray<FFrameNumber> Times;
 
 	UPROPERTY(meta=(KeyValues))
-	TArray<TSoftObjectPtr<UObject>> Values;
+	TArray<FMovieSceneObjectPathChannelKeyValue> Values;
 
 	UPROPERTY()
-	TSoftObjectPtr<UObject> DefaultValue;
+	FMovieSceneObjectPathChannelKeyValue DefaultValue;
 
 	FMovieSceneKeyHandleMap KeyHandles;
 };

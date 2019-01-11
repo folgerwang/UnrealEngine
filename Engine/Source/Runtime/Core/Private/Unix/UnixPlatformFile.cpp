@@ -208,6 +208,20 @@ public:
 		return true;
 	}
 
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+		return bFullFlush
+			? fsync(FileHandle) == 0
+			: fdatasync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+		return ftruncate(FileHandle, NewSize) == 0;
+	}
+
 	virtual int64 Size() override
 	{
 		if (!FileOpenAsWrite)

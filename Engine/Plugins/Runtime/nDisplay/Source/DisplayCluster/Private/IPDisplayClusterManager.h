@@ -13,8 +13,9 @@ class ADisplayClusterSettings;
 /**
  * Private manager interface
  */
-struct IPDisplayClusterManager
+class IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterManager() = 0
 	{ }
 

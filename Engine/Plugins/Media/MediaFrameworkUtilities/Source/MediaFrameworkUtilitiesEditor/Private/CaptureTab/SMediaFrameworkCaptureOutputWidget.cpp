@@ -3,28 +3,30 @@
 #include "CaptureTab/SMediaFrameworkCaptureOutputWidget.h"
 
 #include "EditorStyleSet.h"
+#include "EditorFontGlyphs.h"
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Layout/Visibility.h"
 #include "LevelEditorViewport.h"
 #include "Slate/SceneViewport.h"
 #include "SlateOptMacros.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Textures/SlateIcon.h"
 #include "UI/MediaFrameworkUtilitiesEditorStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Images/SImage.h"
-#include "Widgets/Images/SThrobber.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SGridPanel.h"
 #include "Widgets/Layout/SScaleBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
-#include "Widgets/Notifications/SProgressBar.h"
 #include "Widgets/SNullWidget.h"
 #include "Widgets/SViewport.h"
 #include "Widgets/Text/STextBlock.h"
 
 #include "Editor.h"
+#include "ILevelViewport.h"
+#include "LevelEditor.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "MediaCapture.h"
@@ -136,6 +138,7 @@ void SMediaFrameworkCaptureOutputWidget::Construct(const FArguments& InArgs)
 {
 	Owner = InArgs._Owner;
 	MediaOutput = InArgs._MediaOutput;
+	CaptureOptions = InArgs._CaptureOptions;
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -153,44 +156,34 @@ void SMediaFrameworkCaptureOutputWidget::StopOutput()
 	}
 }
 
-TSharedRef<SWidget> SMediaFrameworkCaptureOutputWidget::BuildBaseWidget(TSharedRef<SWidget> InnerWidget)
+TSharedRef<SWidget> SMediaFrameworkCaptureOutputWidget::BuildBaseWidget(TSharedRef<SWidget> InnerWidget, const FString& CaptureType)
 {
+	const FMargin SourceTextPadding(6.f, 2.f, 0.f, 2.f);
+
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
 		.Padding(0.0f, 0.0f)
 		.FillHeight(1.0f)
-		.VAlign(EVerticalAlignment::VAlign_Center)
+		.VAlign(EVerticalAlignment::VAlign_Top)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			[
-				SNew(SOverlay)
-				+ SOverlay::Slot()
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SThrobber)
-					.Animate(SThrobber::VerticalAndOpacity)
-					.NumPieces(1)
-					.Visibility(this, &SMediaFrameworkCaptureOutputWidget::HandleThrobberVisibility)
-				]
-				+ SOverlay::Slot()
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SImage)
-					.ColorAndOpacity(this, &SMediaFrameworkCaptureOutputWidget::HandleIconColorAndOpacity)
-					.Image(this, &SMediaFrameworkCaptureOutputWidget::HandleIconImage)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
+			.AutoWidth()
+			.HAlign(EHorizontalAlignment::HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromString(MediaOutput->GetName()))
-				.Justification(ETextJustify::Left)
-				.TextStyle(FEditorStyle::Get(), "LargeText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+				.Text(this, &SMediaFrameworkCaptureOutputWidget::HandleIconText)
+				.ColorAndOpacity(this, &SMediaFrameworkCaptureOutputWidget::HandleIconColorAndOpacity)
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.HAlign(EHorizontalAlignment::HAlign_Left)
+			.Padding(SourceTextPadding)
+			[
+				SNew(STextBlock)
+				.Font(FCoreStyle::Get().GetFontStyle(TEXT("NormalText")))
+				.Text(FText::FromString(CaptureType + TEXT(" - ") + MediaOutput->GetName()))
 			]
 		]
 		+ SVerticalBox::Slot()
@@ -214,7 +207,7 @@ TSharedRef<SWidget> SMediaFrameworkCaptureOutputWidget::BuildBaseWidget(TSharedR
 
 FSlateColor SMediaFrameworkCaptureOutputWidget::HandleIconColorAndOpacity() const
 {
-	FSlateColor Result = FSlateColor::UseForeground();
+	FSlateColor Result = FLinearColor::Red;
 	if (MediaCapture.IsValid())
 	{
 		EMediaCaptureState State = MediaCapture->GetState();
@@ -236,38 +229,32 @@ FSlateColor SMediaFrameworkCaptureOutputWidget::HandleIconColorAndOpacity() cons
 	return Result;
 }
 
-const FSlateBrush* SMediaFrameworkCaptureOutputWidget::HandleIconImage() const
+FText SMediaFrameworkCaptureOutputWidget::HandleIconText() const
 {
-	const FSlateBrush* Result = nullptr;
+	FText Result = FEditorFontGlyphs::Ban;
 	if (MediaCapture.IsValid())
 	{
+		static FText Video_Slash = FText::FromString(FString(TEXT("\xf4e2")));
+
 		EMediaCaptureState State = MediaCapture->GetState();
 		switch (State)
 		{
 		case EMediaCaptureState::Error:
 		case EMediaCaptureState::Stopped:
-			Result = FEditorStyle::GetBrush("Icons.Cross");
+			Result = Video_Slash;
+			break;
+		case EMediaCaptureState::StopRequested:
+			Result = FEditorFontGlyphs::Exclamation;
 			break;
 		case EMediaCaptureState::Capturing:
-			Result = FEditorStyle::GetBrush("Symbols.Check");
+			Result = FEditorFontGlyphs::Video_Camera;
+			break;
+		case EMediaCaptureState::Preparing:
+			Result = FEditorFontGlyphs::Hourglass_O;
 			break;
 		}
 	}
 	return Result;
-}
-
-EVisibility SMediaFrameworkCaptureOutputWidget::HandleThrobberVisibility() const
-{
-	if (MediaCapture.IsValid())
-	{
-		EMediaCaptureState State = MediaCapture->GetState();
-		if (State == EMediaCaptureState::Preparing || State == EMediaCaptureState::StopRequested)
-		{
-			return EVisibility::Visible;
-		}
-	}
-
-	return EVisibility::Hidden;
 }
 
 bool SMediaFrameworkCaptureOutputWidget::IsValid() const
@@ -281,9 +268,6 @@ bool SMediaFrameworkCaptureOutputWidget::IsValid() const
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InArgs)
 {
-	FEditorDelegates::PostPIEStarted.AddSP(this, &SMediaFrameworkCaptureCameraViewportWidget::OnPostPIEStarted);
-	FEditorDelegates::PrePIEEnded.AddSP(this, &SMediaFrameworkCaptureCameraViewportWidget::OnPrePIEEnded);
-
 	PreviewActors = InArgs._PreviewActors;
 	ViewMode = InArgs._ViewMode;
 	CurrentLockCameraIndex = 0;
@@ -291,6 +275,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InA
 	SMediaFrameworkCaptureOutputWidget::FArguments BaseArguments;
 	BaseArguments._Owner = InArgs._Owner;
 	BaseArguments._MediaOutput = InArgs._MediaOutput;
+	BaseArguments._CaptureOptions = InArgs._CaptureOptions;
 	SMediaFrameworkCaptureOutputWidget::Construct(BaseArguments);
 
 	LevelViewportClient = MakeShareable(new MediaFrameworkUtilities::FMediaFrameworkCaptureLevelEditorViewportClient(TSharedPtr<class SLevelViewport>(), ViewMode));
@@ -383,7 +368,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InA
 			.VAlign(EVerticalAlignment::VAlign_Center)
 			.AutoHeight()
 			[
-				BuildBaseWidget(ViewportWidget.ToSharedRef())
+				BuildBaseWidget(ViewportWidget.ToSharedRef(), TEXT("Viewport Capture"))
 			]
 		]
 	];
@@ -396,9 +381,6 @@ SMediaFrameworkCaptureCameraViewportWidget::~SMediaFrameworkCaptureCameraViewpor
 	{
 		LevelViewportClient->Viewport = nullptr;
 	}
-
-	FEditorDelegates::PostPIEStarted.RemoveAll(this);
-	FEditorDelegates::PrePIEEnded.RemoveAll(this);
 }
 
 void SMediaFrameworkCaptureCameraViewportWidget::StartOutput()
@@ -411,12 +393,12 @@ void SMediaFrameworkCaptureCameraViewportWidget::StartOutput()
 		{
 			FIntPoint TargetSize = MediaOutputPtr->GetRequestedSize();
 			SceneViewport->SetFixedViewportSize(TargetSize.X, TargetSize.Y);
-			MediaCapture->CaptureSceneViewport(SceneViewport);
+			MediaCapture->CaptureSceneViewport(SceneViewport, CaptureOptions);
 		}
 	}
 }
 
-void SMediaFrameworkCaptureCameraViewportWidget::OnPostPIEStarted(bool bWasSimulatingInEditor)
+void SMediaFrameworkCaptureCameraViewportWidget::OnPostPIEStarted()
 {
 	const bool bIsPIE = true;
 	if (LevelViewportClient.IsValid())
@@ -427,7 +409,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::OnPostPIEStarted(bool bWasSimul
 	UpdateActivePreviewList(bIsPIE);
 }
 
-void SMediaFrameworkCaptureCameraViewportWidget::OnPrePIEEnded(bool bWasSimulatingInEditor)
+void SMediaFrameworkCaptureCameraViewportWidget::OnPrePIEEnded()
 {
 	const bool bIsPIE = false;
 	UpdateActivePreviewList(bIsPIE);
@@ -458,8 +440,23 @@ void SMediaFrameworkCaptureCameraViewportWidget::UpdateActivePreviewList(bool bI
 		ActivePreviewActors.Empty();
 		for (TWeakObjectPtr<AActor> PreviewActor : PreviewActors)
 		{
-			AActor* CounterpartActor = EditorUtilities::GetSimWorldCounterpartActor(PreviewActor.Get());
-			ActivePreviewActors.Add(CounterpartActor);
+			AActor* PreviewActorPtr = PreviewActor.Get();
+			if (PreviewActorPtr != nullptr)
+			{
+				const bool bIsAlreadyPIEActor = PreviewActorPtr->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
+				if (!bIsAlreadyPIEActor)
+				{
+					AActor* CounterpartActor = EditorUtilities::GetSimWorldCounterpartActor(PreviewActorPtr);
+					if (CounterpartActor != nullptr)
+					{
+						ActivePreviewActors.Add(CounterpartActor);
+					}
+				}
+				else
+				{
+					ActivePreviewActors.Add(PreviewActor);
+				}
+			}
 		}
 	}
 	else
@@ -481,6 +478,7 @@ void SMediaFrameworkCaptureRenderTargetWidget::Construct(const FArguments& InArg
 	SMediaFrameworkCaptureOutputWidget::FArguments BaseArguments;
 	BaseArguments._Owner = InArgs._Owner;
 	BaseArguments._MediaOutput = InArgs._MediaOutput;
+	BaseArguments._CaptureOptions = InArgs._CaptureOptions;
 	SMediaFrameworkCaptureOutputWidget::Construct(BaseArguments);
 
 	// create material
@@ -525,7 +523,7 @@ void SMediaFrameworkCaptureRenderTargetWidget::Construct(const FArguments& InArg
 			.HAlign(EHorizontalAlignment::HAlign_Center)
 			.VAlign(EVerticalAlignment::VAlign_Center)
 			[
-				BuildBaseWidget(PictureBox)
+				BuildBaseWidget(PictureBox, TEXT("Render Target Capture"))
 			]
 		]
 	];
@@ -541,23 +539,197 @@ void SMediaFrameworkCaptureRenderTargetWidget::StartOutput()
 		MediaCapture.Reset(MediaOutputPtr->CreateMediaCapture());
 		if (MediaCapture.IsValid())
 		{
-			MediaCapture->CaptureTextureRenderTarget2D(RenderTargetPtr);
+			MediaCapture->CaptureTextureRenderTarget2D(RenderTargetPtr, CaptureOptions);
 		}
-	}
-}
-
-SMediaFrameworkCaptureRenderTargetWidget::~SMediaFrameworkCaptureRenderTargetWidget()
-{
-	if (MediaCapture.IsValid())
-	{
-		MediaCapture->StopCapture(false);
-		MediaCapture.Reset();
 	}
 }
 
 bool SMediaFrameworkCaptureRenderTargetWidget::IsValid() const
 {
 	return RenderTarget.IsValid();
+}
+
+/*
+ * SMediaFrameworkCaptureCurrentViewportWidget implementation
+ */
+SMediaFrameworkCaptureCurrentViewportWidget::FPreviousViewportClientFlags::FPreviousViewportClientFlags()
+	: bRealTime(false)
+	, bSetListenerPosition(false)
+	, bDrawAxes(false)
+	, bDisableInput(false)
+	, bAllowCinematicControl(false)
+	, EngineShowFlags(ESFIM_Editor)
+	, LastEngineShowFlags(ESFIM_Game)
+{
+}
+
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+void SMediaFrameworkCaptureCurrentViewportWidget::Construct(const FArguments& InArgs)
+{
+	ViewMode = InArgs._ViewMode;
+
+	SMediaFrameworkCaptureOutputWidget::FArguments BaseArguments;
+	BaseArguments._Owner = InArgs._Owner;
+	BaseArguments._MediaOutput = InArgs._MediaOutput;
+	BaseArguments._CaptureOptions = InArgs._CaptureOptions;
+	SMediaFrameworkCaptureOutputWidget::Construct(BaseArguments);
+
+	this->ChildSlot
+	[
+		SNew(SBorder)
+		.Padding(MediaFrameworkUtilities::Padding)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(EHorizontalAlignment::HAlign_Center)
+			.VAlign(EVerticalAlignment::VAlign_Center)
+			[
+				BuildBaseWidget(SNullWidget::NullWidget, TEXT("Current Viewport Capture"))
+			]
+		]
+	];
+}
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+SMediaFrameworkCaptureCurrentViewportWidget::~SMediaFrameworkCaptureCurrentViewportWidget()
+{
+	ShutdownViewport();
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
+{
+	ShutdownViewport();
+
+	UMediaOutput* MediaOutputPtr = MediaOutput.Get();
+	if (MediaOutputPtr)
+	{
+		MediaCapture.Reset(MediaOutputPtr->CreateMediaCapture());
+		if (MediaCapture.IsValid())
+		{
+			TSharedPtr<FSceneViewport> SceneViewport;
+
+			// Is it a "standalone" window
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				if (Context.WorldType == EWorldType::PIE)
+				{
+					UEditorEngine* EditorEngine = CastChecked<UEditorEngine>(GEngine);
+					FSlatePlayInEditorInfo& Info = EditorEngine->SlatePlayInEditorMap.FindChecked(Context.ContextHandle);
+					if (Info.SlatePlayInEditorWindowViewport.IsValid())
+					{
+						SceneViewport = Info.SlatePlayInEditorWindowViewport;
+					}
+				}
+			}
+
+			if (!SceneViewport.IsValid())
+			{
+				// Find a editor viewport
+				FLevelEditorModule& LevelEditorModule = FModuleManager::Get().GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+				TSharedPtr<ILevelViewport> LevelViewportInterface = LevelEditorModule.GetFirstActiveViewport();
+				if (LevelViewportInterface.IsValid())
+				{
+					LevelViewport = LevelViewportInterface;
+					SceneViewport = LevelViewportInterface->GetSharedActiveViewport();
+
+					FLevelEditorViewportClient& ViewportClient = LevelViewportInterface->GetLevelViewportClient();
+
+					// Save settings
+					ViewportClientFlags.bRealTime = ViewportClient.IsRealtime();
+					ViewportClientFlags.bSetListenerPosition = ViewportClient.bSetListenerPosition;
+					ViewportClientFlags.bDrawAxes = ViewportClient.bDrawAxes;
+					ViewportClientFlags.bDisableInput = ViewportClient.bDisableInput;
+					ViewportClientFlags.bAllowCinematicControl = ViewportClient.AllowsCinematicControl();
+					ViewportClientFlags.VisibilityDelegate = ViewportClient.VisibilityDelegate;
+
+					// Set settings for recording
+					ViewportClient.SetRealtime(true);
+					ViewportClient.bSetListenerPosition = false;
+					ViewportClient.bDrawAxes = false;
+					ViewportClient.bDisableInput = true;
+					ViewportClient.SetAllowCinematicControl(false);
+					ViewportClient.VisibilityDelegate.BindLambda([] { return true; });
+				}
+			}
+
+			if (SceneViewport.IsValid())
+			{
+				GEditor->OnLevelViewportClientListChanged().AddRaw(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged);
+				EditorSceneViewport = SceneViewport;
+				FIntPoint TargetSize = MediaOutputPtr->GetRequestedSize();
+				SceneViewport->SetFixedViewportSize(TargetSize.X, TargetSize.Y);
+				MediaCapture->CaptureSceneViewport(SceneViewport, CaptureOptions);
+			}
+		}
+	}
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged()
+{
+	bool bFound = false;
+	TSharedPtr<FSceneViewport> EditorSceneViewportPtr = EditorSceneViewport.Pin();
+	if (EditorSceneViewportPtr.IsValid())
+	{
+		for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
+		{
+			if (ViewportClient->Viewport == EditorSceneViewportPtr.Get())
+			{
+				bFound = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFound)
+	{
+		ShutdownViewport();
+	}
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::OnPrePIE()
+{
+	if (MediaCapture.IsValid())
+	{
+		MediaCapture->StopCapture(false);
+	}
+	ShutdownViewport();
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::OnPrePIEEnded()
+{
+	if (MediaCapture.IsValid())
+	{
+		MediaCapture->StopCapture(false);
+	}
+	ShutdownViewport();
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::ShutdownViewport()
+{
+	TSharedPtr<FSceneViewport> EditorSceneViewportPin = EditorSceneViewport.Pin();
+	if (EditorSceneViewportPin.IsValid())
+	{
+		EditorSceneViewportPin->SetFixedViewportSize(0, 0);
+	}
+
+	GEditor->OnLevelViewportClientListChanged().RemoveAll(this);
+
+	TSharedPtr<ILevelViewport> LevelViewportPin = LevelViewport.Pin();
+	if (LevelViewportPin.IsValid() && LevelViewportPin->GetSharedActiveViewport() == EditorSceneViewportPin)
+	{
+		FLevelEditorViewportClient& ViewportClient = LevelViewportPin->GetLevelViewportClient();
+
+		// Reset settings
+		ViewportClient.SetRealtime(ViewportClientFlags.bRealTime);
+		ViewportClient.bSetListenerPosition = ViewportClientFlags.bSetListenerPosition;
+		ViewportClient.bDrawAxes = ViewportClientFlags.bDrawAxes;
+		ViewportClient.bDisableInput = ViewportClientFlags.bDisableInput;
+		ViewportClient.SetAllowCinematicControl(ViewportClientFlags.bAllowCinematicControl);
+		ViewportClient.VisibilityDelegate = ViewportClientFlags.VisibilityDelegate;
+	}
+
+	LevelViewport.Reset();
+	EditorSceneViewport.Reset();
 }
 
 #undef LOCTEXT_NAMESPACE

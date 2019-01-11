@@ -17,12 +17,11 @@ class FDisplayClusterMessage
 	: IDisplayClusterSerializable
 {
 public:
-	typedef TSharedPtr<FDisplayClusterMessage> Ptr;
 	typedef TMap<FString, FString> DataType;
 
 public:
 	FDisplayClusterMessage();
-	FDisplayClusterMessage(const FString& name, const FString& type, const FString& protocol);
+	FDisplayClusterMessage(const FString& InName, const FString& InType, const FString& InProtocol);
 
 	FDisplayClusterMessage(const FDisplayClusterMessage&) = default;
 	FDisplayClusterMessage(FDisplayClusterMessage&&)      = default;
@@ -40,12 +39,12 @@ public:
 
 	// Sets arguments to a message
 	template <typename ValType>
-	bool GetArg(const FString& argName, ValType& argVal) const
+	bool GetArg(const FString& ArgName, ValType& ArgVal) const
 	{
-		if (Arguments.Contains(argName))
+		if (Arguments.Contains(ArgName))
 		{
-			FString strVal = Arguments[argName];
-			argVal = FDisplayClusterTypesConverter::FromString<ValType>(strVal);
+			FString StrVal = Arguments[ArgName];
+			ArgVal = FDisplayClusterTypesConverter::FromString<ValType>(StrVal);
 			return true;
 		}
 		return false;
@@ -53,21 +52,21 @@ public:
 
 	// Get arguments from a message
 	template <typename ValType>
-	void SetArg(const FString& argName, const ValType& argVal)
+	void SetArg(const FString& ArgName, const ValType& ArgVal)
 	{
-		Arguments.Add(argName, FDisplayClusterTypesConverter::ToString<ValType>(argVal));
+		Arguments.Add(ArgName, FDisplayClusterTypesConverter::ToString<ValType>(ArgVal));
 	}
 
 	// Get all arguments (be careful with the reference)
 	const DataType& GetArgs() const
 	{ return Arguments; }
 
-	void SetArgs(const DataType& data)
-	{ Arguments = data; }
+	void SetArgs(const DataType& Data)
+	{ Arguments = Data; }
 
 	// Serialization
-	virtual bool Serialize  (FMemoryWriter& ar) override;
-	virtual bool Deserialize(FMemoryReader& ar) override;
+	virtual bool Serialize  (FMemoryWriter& Arch) override;
+	virtual bool Deserialize(FMemoryReader& Arch) override;
 
 	FString ToString() const;
 

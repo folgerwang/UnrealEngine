@@ -102,7 +102,7 @@ public:
 		bool bWasCreated;
 	};
 	
-	FFindOrCreateHandleResult FindOrCreateHandleToObject( UObject* Object, bool bCreateHandleIfMissing = true );
+	FFindOrCreateHandleResult FindOrCreateHandleToObject( UObject* Object, bool bCreateHandleIfMissing = true, const FName& CreatedFolderName = NAME_None );
 
 	struct FFindOrCreateTrackResult
 	{

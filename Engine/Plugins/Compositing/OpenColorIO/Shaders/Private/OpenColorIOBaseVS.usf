@@ -1,0 +1,40 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+ OpenColorIOBaseVS.usf: Simple vertex shader for OpenColorIO
+ =============================================================================*/
+
+#include "/Engine/Private/Common.ush"
+
+
+/* Vertex shader
+=============================================================================*/
+
+
+
+static const float2 kSpriteVertices[6] = {
+	float2(-1.0, +1.0),  
+	float2(+1.0, +1.0),  
+	float2(+1.0, -1.0),
+	float2(-1.0, -1.0),
+	float2(+1.0, -1.0),
+	float2(-1.0, +1.0),
+};
+
+static const float2 kQuadUVs[6] = {
+	float2(0.0, 0.0),  
+	float2(1.0, 0.0),  
+	float2(1.0, 1.0),
+	float2(0.0, 1.0),
+	float2(1.0, 1.0),
+	float2(0.0, 0.0),
+};
+
+void MainVS(
+	in uint GlobalVertexId : SV_VertexID,
+	out float4 OutPosition : SV_POSITION,
+	out float2 OutUV : TEXCOORD0)
+{
+	OutPosition = float4(kSpriteVertices[Mod(GlobalVertexId, 6)], 0, 1);
+	OutUV = kQuadUVs[Mod(GlobalVertexId, 6)];
+}

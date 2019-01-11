@@ -397,7 +397,7 @@ namespace UnrealBuildTool
 					string Definition = PreProcessorDefinition.Replace("TEXT(\"", "").Replace("\")", "").Replace("()=", "=");
 					string AlternateDefinition = Definition.Contains("=0") ? Definition.Replace("=0", "=1") : Definition.Replace("=1", "=0");
 
-					if (Definition.Equals("WITH_EDITORONLY_DATA=0") || Definition.Equals("WITH_DATABASE_SUPPORT=1"))
+					if (Definition.Equals("WITH_EDITORONLY_DATA=0"))
 					{
 						Definition = AlternateDefinition;
 					}

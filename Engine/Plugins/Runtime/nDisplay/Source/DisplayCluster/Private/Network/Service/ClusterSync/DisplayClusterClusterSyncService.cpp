@@ -1,26 +1,29 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterClusterSyncService.h"
-#include "DisplayClusterClusterSyncMsg.h"
+#include "Network/Service/ClusterSync/DisplayClusterClusterSyncService.h"
+#include "Network/Service/ClusterSync/DisplayClusterClusterSyncMsg.h"
 
 #include "Cluster/IPDisplayClusterClusterManager.h"
+#include "Config/IPDisplayClusterConfigManager.h"
 #include "Input/IPDisplayClusterInputManager.h"
+
+#include "Network/Session/DisplayClusterSessionInternal.h"
 
 #include "Misc/DisplayClusterAppExit.h"
 #include "Misc/DisplayClusterLog.h"
 
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
-FDisplayClusterClusterSyncService::FDisplayClusterClusterSyncService(const FString& addr, const int32 port) :
-	FDisplayClusterService(FString("SRV_CS"), addr, port),
-	BarrierGameStart  (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("GameStart_barrier"),  DisplayClusterConstants::net::BarrierGameStartWaitTimeout),
-	BarrierFrameStart (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("FrameStart_barrier"), DisplayClusterConstants::net::BarrierWaitTimeout),
-	BarrierFrameEnd   (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("FrameEnd_barrier"),   DisplayClusterConstants::net::BarrierWaitTimeout),
-	BarrierTickEnd    (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("TickEnd_barrier"),    DisplayClusterConstants::net::BarrierWaitTimeout)
+FDisplayClusterClusterSyncService::FDisplayClusterClusterSyncService(const FString& InAddr, const int32 InPort) :
+	FDisplayClusterService(FString("SRV_CS"), InAddr, InPort),
+	BarrierGameStart  (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("GameStart_barrier"),  GDisplayCluster->GetConfigMgr()->GetConfigNetwork().BarrierGameStartWaitTimeout),
+	BarrierFrameStart (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("FrameStart_barrier"), GDisplayCluster->GetConfigMgr()->GetConfigNetwork().BarrierWaitTimeout),
+	BarrierFrameEnd   (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("FrameEnd_barrier"),   GDisplayCluster->GetConfigMgr()->GetConfigNetwork().BarrierWaitTimeout),
+	BarrierTickEnd    (GDisplayCluster->GetPrivateClusterMgr()->GetNodesAmount(), FString("TickEnd_barrier"),    GDisplayCluster->GetConfigMgr()->GetConfigNetwork().BarrierWaitTimeout)
 {
 }
+
 
 FDisplayClusterClusterSyncService::~FDisplayClusterClusterSyncService()
 {
@@ -48,15 +51,21 @@ void FDisplayClusterClusterSyncService::Shutdown()
 	return FDisplayClusterServer::Shutdown();
 }
 
+FDisplayClusterSessionBase* FDisplayClusterClusterSyncService::CreateSession(FSocket* InSocket, const FIPv4Endpoint& InEP)
+{
+	return new FDisplayClusterSessionInternal(InSocket, this, GetName() + FString("_session_") + InEP.ToString());
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterSessionListener
 //////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterClusterSyncService::NotifySessionOpen(FDisplayClusterSession* pSession)
+void FDisplayClusterClusterSyncService::NotifySessionOpen(FDisplayClusterSessionBase* InSession)
 {
-	FDisplayClusterService::NotifySessionOpen(pSession);
+	FDisplayClusterService::NotifySessionOpen(InSession);
 }
 
-void FDisplayClusterClusterSyncService::NotifySessionClose(FDisplayClusterSession* pSession)
+void FDisplayClusterClusterSyncService::NotifySessionClose(FDisplayClusterSessionBase* InSession)
 {
 	// Unblock waiting threads to allow current Tick() finish
 	BarrierGameStart.Deactivate();
@@ -64,87 +73,96 @@ void FDisplayClusterClusterSyncService::NotifySessionClose(FDisplayClusterSessio
 	BarrierFrameEnd.Deactivate();
 	BarrierTickEnd.Deactivate();
 
-	FDisplayClusterService::NotifySessionClose(pSession);
+	FDisplayClusterAppExit::ExitApplication(FDisplayClusterAppExit::ExitType::NormalSoft, GetName() + FString(" - Connection interrupted. Application exit requested."));
+	FDisplayClusterService::NotifySessionClose(InSession);
 }
 
-FDisplayClusterMessage::Ptr FDisplayClusterClusterSyncService::ProcessMessage(FDisplayClusterMessage::Ptr msg)
+TSharedPtr<FDisplayClusterMessage> FDisplayClusterClusterSyncService::ProcessMessage(const TSharedPtr<FDisplayClusterMessage>& Request)
 {
 	// Check the pointer
-	if (msg.IsValid() == false)
+	if (Request.IsValid() == false)
 	{
 		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("%s - Couldn't process the message"), *GetName());
 		return nullptr;
 	}
 
-	UE_LOG(LogDisplayClusterNetwork, Verbose, TEXT("%s - Processing message %s"), *GetName(), *msg->ToString());
+	UE_LOG(LogDisplayClusterNetwork, Verbose, TEXT("%s - Processing message %s"), *GetName(), *Request->ToString());
 
 	// Check protocol and type
-	if (msg->GetProtocol() != FDisplayClusterClusterSyncMsg::ProtocolName || msg->GetType() != FDisplayClusterClusterSyncMsg::TypeRequest)
+	if (Request->GetProtocol() != FDisplayClusterClusterSyncMsg::ProtocolName || Request->GetType() != FDisplayClusterClusterSyncMsg::TypeRequest)
 	{
-		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("%s - Unsupported message type: %s"), *GetName(), *msg->ToString());
+		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("%s - Unsupported message type: %s"), *GetName(), *Request->ToString());
 		return nullptr;
 	}
 
 	// Initialize response message
-	FDisplayClusterMessage::Ptr response = FDisplayClusterMessage::Ptr(new FDisplayClusterMessage(msg->GetName(), FDisplayClusterClusterSyncMsg::TypeResponse, msg->GetProtocol()));
+	TSharedPtr<FDisplayClusterMessage> Response = MakeShareable(new FDisplayClusterMessage(Request->GetName(), FDisplayClusterClusterSyncMsg::TypeResponse, Request->GetProtocol()));
 
 	// Dispatch the message
-	const FString msgName = msg->GetName();
-	if (msgName == FDisplayClusterClusterSyncMsg::WaitForGameStart::name)
+	const FString ReqName = Request->GetName();
+	if (ReqName == FDisplayClusterClusterSyncMsg::WaitForGameStart::name)
 	{
 		WaitForGameStart();
-		return response;
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::WaitForFrameStart::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::WaitForFrameStart::name)
 	{
 		WaitForFrameStart();
-		return response;
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::WaitForFrameEnd::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::WaitForFrameEnd::name)
 	{
 		WaitForFrameEnd();
-		return response;
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::WaitForTickEnd::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::WaitForTickEnd::name)
 	{
 		WaitForTickEnd();
-		return response;
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::GetDeltaTime::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::GetDeltaTime::name)
 	{
 		float deltaTime = 0.0f;
 		GetDeltaTime(deltaTime);
-		response->SetArg(FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime, deltaTime);
-		return response;
+		Response->SetArg(FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime, deltaTime);
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::GetTimecode::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::GetTimecode::name)
 	{
 		FTimecode timecode;
 		FFrameRate frameRate;
 		GetTimecode(timecode, frameRate);
-		response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode, timecode);
-		response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argFrameRate, frameRate);
-		return response;
+		Response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode, timecode);
+		Response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argFrameRate, frameRate);
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::GetSyncData::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::GetSyncData::name)
 	{
 		FDisplayClusterMessage::DataType data;
 		GetSyncData(data);
 
-		response->SetArgs(data);
-		return response;
+		Response->SetArgs(data);
+		return Response;
 	}
-	else if (msgName == FDisplayClusterClusterSyncMsg::GetInputData::name)
+	else if (ReqName == FDisplayClusterClusterSyncMsg::GetInputData::name)
 	{
 		FDisplayClusterMessage::DataType data;
 		GetInputData(data);
 
-		response->SetArgs(data);
-		return response;
+		Response->SetArgs(data);
+		return Response;
+	}
+	else if (ReqName == FDisplayClusterClusterSyncMsg::GetEventsData::name)
+	{
+		FDisplayClusterMessage::DataType data;
+		GetEventsData(data);
+
+		Response->SetArgs(data);
+		return Response;
 	}
 
 	// Being here means that we have no appropriate dispatch logic for this message
-	UE_LOG(LogDisplayClusterNetworkMsg, Warning, TEXT("%s - A dispatcher for this message hasn't been implemented yet <%s>"), *GetName(), *msg->ToString());
+	UE_LOG(LogDisplayClusterNetworkMsg, Warning, TEXT("%s - A dispatcher for this message hasn't been implemented yet <%s>"), *GetName(), *Request->ToString());
 	return nullptr;
 }
 
@@ -184,22 +202,27 @@ void FDisplayClusterClusterSyncService::WaitForTickEnd()
 	}
 }
 
-void FDisplayClusterClusterSyncService::GetDeltaTime(float& deltaTime)
+void FDisplayClusterClusterSyncService::GetDeltaTime(float& DeltaTime)
 {
-	deltaTime = GDisplayCluster->GetPrivateClusterMgr()->GetDeltaTime();
+	DeltaTime = GDisplayCluster->GetPrivateClusterMgr()->GetDeltaTime();
 }
 
-void FDisplayClusterClusterSyncService::GetTimecode(FTimecode& timecode, FFrameRate& frameRate)
+void FDisplayClusterClusterSyncService::GetTimecode(FTimecode& Timecode, FFrameRate& FrameRate)
 {
-	GDisplayCluster->GetPrivateClusterMgr()->GetTimecode(timecode, frameRate);
+	GDisplayCluster->GetPrivateClusterMgr()->GetTimecode(Timecode, FrameRate);
 }
 
-void FDisplayClusterClusterSyncService::GetSyncData(FDisplayClusterMessage::DataType& data)
+void FDisplayClusterClusterSyncService::GetSyncData(FDisplayClusterMessage::DataType& Data)
 {
-	GDisplayCluster->GetPrivateClusterMgr()->ExportSyncData(data);
+	GDisplayCluster->GetPrivateClusterMgr()->ExportSyncData(Data);
 }
 
-void FDisplayClusterClusterSyncService::GetInputData(FDisplayClusterMessage::DataType& data)
+void FDisplayClusterClusterSyncService::GetInputData(FDisplayClusterMessage::DataType& Data)
 {
-	GDisplayCluster->GetPrivateInputMgr()->ExportInputData(data);
+	GDisplayCluster->GetPrivateInputMgr()->ExportInputData(Data);
+}
+
+void FDisplayClusterClusterSyncService::GetEventsData(FDisplayClusterMessage::DataType& Data)
+{
+	GDisplayCluster->GetPrivateClusterMgr()->ExportEventsData(Data);
 }

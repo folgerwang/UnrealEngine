@@ -423,7 +423,7 @@ bool MovieSceneTranslatorEDL::ImportEDL(UMovieScene* InMovieScene, FFrameRate In
 			if (ShotSection)
 			{
 				ShotSection->Modify();
-				ShotSection->Parameters.SetStartFrameOffset(ShotData.SourceInFrame.Value);
+				ShotSection->Parameters.StartFrameOffset = ShotData.SourceInFrame;
 				ShotSection->SetRange(TRange<FFrameNumber>(ShotData.EditInFrame, ShotData.EditOutFrame));
 			}
 		}

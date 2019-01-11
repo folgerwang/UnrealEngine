@@ -44,6 +44,12 @@ public:
 		return false;
 	}
 
+	/** Returns true if this transformable should be 'carried' (moved and rotated) when dragged, if possible, instead of only translated */
+	virtual bool ShouldBeCarried() const
+	{
+		return false;
+	}
+
 	/** For physically simulated objects, sets the new velocity of the object */
 	virtual void SetLinearVelocity( const FVector& NewVelocity )
 	{

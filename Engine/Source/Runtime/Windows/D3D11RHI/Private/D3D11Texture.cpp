@@ -607,6 +607,11 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	TextureDesc.CPUAccessFlags = CPUAccessFlags;
 	TextureDesc.MiscFlags = bCubeTexture ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0;
 
+	if (Flags & TexCreate_DisableSRVCreation)
+	{
+		bCreateShaderResource = false;
+	}
+
 	if (Flags & TexCreate_Shared)
 	{
 		TextureDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;

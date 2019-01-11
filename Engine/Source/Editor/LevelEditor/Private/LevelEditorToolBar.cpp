@@ -2058,6 +2058,8 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateSourceControlMenu(TSharedRef<
 			);
 	}
 
+	MenuBuilder.AddMenuSeparator("SourceControlConnectionSeparator");
+
 	MenuBuilder.AddMenuEntry(
 		FLevelEditorCommands::Get().CheckOutModifiedFiles,
 		NAME_None,

@@ -1139,11 +1139,6 @@ namespace UnrealBuildTool
 				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderIncludeFilename.FullName.Replace('\\', '/'));
 			}
 
-			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
-			{
-				PCHArguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location.FullName.Replace('\\', '/'));
-			}
-
 			// Add include paths to the argument list.
 			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
@@ -1197,6 +1192,11 @@ namespace UnrealBuildTool
 
 					// only use PCH for .cpp files
 					FileArguments += PCHArguments;
+				}
+
+				foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+				{
+					FileArguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location.FullName.Replace('\\', '/'));
 				}
 
 				// Add the C++ source file and its included files to the prerequisite item list.

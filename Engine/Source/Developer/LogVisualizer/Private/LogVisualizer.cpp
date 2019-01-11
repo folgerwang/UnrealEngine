@@ -174,7 +174,7 @@ void FLogVisualizer::UpdateCameraPosition(FName RowName, int32 ItemIndes)
 	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
 	if (GIsEditor && EEngine != NULL)
 	{
-		for (auto ViewportClient : EEngine->AllViewportClients)
+		for (auto ViewportClient : EEngine->GetAllViewportClients())
 		{
 			ViewportClient->FocusViewportOnBox(FBox::BuildAABB(CurrentLocation, Extent));
 		}

@@ -8,6 +8,7 @@
 #include "Camera/CameraModifier.h"
 #include "ComposurePlayerCompositingCameraModifier.generated.h"
 
+class IComposurePlayerCompositingInterface;
 
 /**
  * Private camera manager for  UComposurePlayerCompositingTarget.
@@ -32,7 +33,8 @@ public:
 private:
 	// Current player camera manager the target is bind on.
 	UPROPERTY(Transient)
-	class UComposurePlayerCompositingTarget* Target;
-	
+ 	TScriptInterface<IComposurePlayerCompositingInterface> Target;
+
 	friend class UComposurePlayerCompositingTarget;
+	friend class UComposureCompositingTargetComponent;
 };

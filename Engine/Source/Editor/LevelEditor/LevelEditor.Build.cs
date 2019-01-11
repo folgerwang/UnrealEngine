@@ -24,6 +24,7 @@ public class LevelEditor : ModuleRules
 				"Settings",
 				"IntroTutorials",
 				"HeadMountedDisplay",
+				"UnrealEd",
 				"VREditor",
 				"CommonMenuExtensions"
 			}

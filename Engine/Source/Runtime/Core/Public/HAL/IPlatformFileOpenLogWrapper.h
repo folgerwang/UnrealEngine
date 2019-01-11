@@ -64,6 +64,12 @@ public:
 	{
 	}
 
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
+
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{
 		bool bResult = FParse::Param(CmdLine, TEXT("FileOpenLog"));

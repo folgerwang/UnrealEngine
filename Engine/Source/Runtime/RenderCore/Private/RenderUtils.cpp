@@ -138,6 +138,11 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 	{ TEXT("PLATFORM_HDR_0"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_0 },
 	{ TEXT("PLATFORM_HDR_1"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_1 },
 	{ TEXT("PLATFORM_HDR_2"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_2 },
+
+	// NV12 contains 2 textures: R8 luminance plane followed by R8G8 1/4 size chrominance plane.
+	// BlockSize/BlockBytes/NumComponents values don't make much sense for this format, so set them all to one.
+	{ TEXT("NV12"),				1,			1,			1,			1,			1,				0,				0,				PF_NV12 },
+
 };
 
 static struct FValidatePixelFormats

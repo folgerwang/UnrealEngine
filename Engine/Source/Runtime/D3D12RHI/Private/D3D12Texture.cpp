@@ -727,6 +727,11 @@ TD3D12Texture2D<BaseResourceType>* FD3D12DynamicRHI::CreateD3D12Texture2D(FRHICo
 		bCreateShaderResource = false;
 	}
 
+	if (Flags & TexCreate_DisableSRVCreation)
+	{
+		bCreateShaderResource = false;
+	}
+
 	// Describe the texture.
 	D3D12_RESOURCE_DESC TextureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
 		PlatformResourceFormat,

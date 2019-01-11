@@ -677,7 +677,7 @@ TSharedPtr<FMovieSceneImportCinematicSectionData> FMovieSceneImportData::CreateC
 	}
 	Section->Modify();
 	Section->SetRowIndex(InRow);
-	Section->Parameters.SetStartFrameOffset(StartOffsetFrame.Value);
+	Section->Parameters.StartFrameOffset = StartOffsetFrame.Value;
 	Section->SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
 
 	TSharedPtr<FMovieSceneImportCinematicSectionData> SectionData = ConstructCinematicSectionData(Section);
@@ -705,7 +705,7 @@ bool FMovieSceneImportData::SetCinematicSection(TSharedPtr<FMovieSceneImportCine
 	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, TickResolution).GetFrame();
 
 	InSection->CinematicSection->Modify();
-	InSection->CinematicSection->Parameters.SetStartFrameOffset(StartOffsetFrame.Value);
+	InSection->CinematicSection->Parameters.StartFrameOffset = StartOffsetFrame;
 	InSection->CinematicSection->SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
 	if (InRow != InSection->CinematicSection->GetRowIndex())
 	{

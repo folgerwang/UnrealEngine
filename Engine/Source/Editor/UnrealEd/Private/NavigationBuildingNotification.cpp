@@ -76,7 +76,7 @@ void FNavigationBuildingNotificationImpl::BuildFinished()
 		if (EEngine)
 		{
 			// request update for all viewports with disabled real time but with visible navmesh
-			for (auto Viewport : EEngine->AllViewportClients)
+			for(FEditorViewportClient* Viewport : EEngine->GetAllViewportClients())
 			{
 				if (Viewport && Viewport->IsRealtime() == false && Viewport->EngineShowFlags.Navigation)
 				{

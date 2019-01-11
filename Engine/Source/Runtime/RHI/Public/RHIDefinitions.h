@@ -697,6 +697,8 @@ enum ETextureCreateFlags
 	TexCreate_GenerateMipCapable	= 1<<12,
 	// The texture can be partially allocated in fastvram
 	TexCreate_FastVRAMPartialAlloc  = 1<<13,
+	// Do not create associated shader resource view, only applicable to D3D11 and D3D12
+	TexCreate_DisableSRVCreation = 1 << 14,
 	// UnorderedAccessView (DX11 only)
 	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 	// See: GCNPerformanceTweets.pdf Tip 37

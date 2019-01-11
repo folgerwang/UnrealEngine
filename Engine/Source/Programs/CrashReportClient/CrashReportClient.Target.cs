@@ -29,8 +29,6 @@ public class CrashReportClientTarget : TargetRules
 		bCompileAgainstCoreUObject = true;
 		bUseLoggingInShipping = true;
 
-		bIncludeADO = false;
-
 		// CrashReportClient.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.
 		bHasExports = false;

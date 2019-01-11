@@ -147,7 +147,7 @@ TSharedPtr<SWidget> FEventTrackEditor::BuildOutlinerEditWidget(const FGuid& Obje
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("AddSection", "Section"), FOnGetContent::CreateLambda(SubMenuCallback), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("AddSection", "Section"), FOnGetContent::CreateLambda(SubMenuCallback), Params.NodeIsHovered, GetSequencer())
 	];
 }
 

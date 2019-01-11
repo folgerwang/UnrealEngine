@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
-#include "MathStructCustomizations.h"
+#include "Customizations/MathStructCustomizations.h"
 
 /**
  * Customizes FVector structs.

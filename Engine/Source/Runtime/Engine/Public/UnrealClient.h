@@ -1123,10 +1123,10 @@ private:
  * Minimal viewport for assisting with taking screenshots (also used within a plugin)
  * @todo: This should be refactored
  */
-class FDummyViewport : public FViewport
+class ENGINE_API FDummyViewport : public FViewport
 {
 public:
-	ENGINE_API FDummyViewport(FViewportClient* InViewportClient);
+	FDummyViewport(FViewportClient* InViewportClient);
 
 	virtual ~FDummyViewport();
 

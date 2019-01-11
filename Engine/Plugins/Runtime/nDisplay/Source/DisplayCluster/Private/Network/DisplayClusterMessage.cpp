@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterMessage.h"
+#include "Network/DisplayClusterMessage.h"
 
 #include "Misc/DisplayClusterLog.h"
 
@@ -9,10 +9,10 @@ FDisplayClusterMessage::FDisplayClusterMessage()
 {
 }
 
-FDisplayClusterMessage::FDisplayClusterMessage(const FString& name, const FString& type, const FString& protocol) :
-	Name(name),
-	Type(type),
-	Protocol(protocol)
+FDisplayClusterMessage::FDisplayClusterMessage(const FString& InName, const FString& InType, const FString& InProtocol) :
+	Name(InName),
+	Type(InType),
+	Protocol(InProtocol)
 {
 }
 
@@ -21,53 +21,53 @@ FDisplayClusterMessage::~FDisplayClusterMessage()
 }
 
 
-bool FDisplayClusterMessage::Serialize(FMemoryWriter& ar)
+bool FDisplayClusterMessage::Serialize(FMemoryWriter& Arch)
 {
 	// Header
-	ar << Name;
-	ar << Type;
-	ar << Protocol;
+	Arch << Name;
+	Arch << Type;
+	Arch << Protocol;
 
 	TArray<FString> keys;
 	Arguments.GenerateKeyArray(keys);
 
 	// Arguments amount
 	FString strArgAmount = FString::FromInt(Arguments.Num());
-	ar << strArgAmount;
+	Arch << strArgAmount;
 
 	// Arguments
 	for (int i = 0; i < keys.Num(); ++i)
 	{
-		ar << keys[i];
-		ar << Arguments[keys[i]];
+		Arch << keys[i];
+		Arch << Arguments[keys[i]];
 	}
 
 	return true;
 }
 
-bool FDisplayClusterMessage::Deserialize(FMemoryReader& ar)
+bool FDisplayClusterMessage::Deserialize(FMemoryReader& Arch)
 {
 	// Header
-	ar << Name;
-	ar << Type;
-	ar << Protocol;
+	Arch << Name;
+	Arch << Type;
+	Arch << Protocol;
 
 	// Arguments amount
-	FString strArgsAmount;
-	ar << strArgsAmount;
-	const int32 amount = FCString::Atoi(*strArgsAmount);
-	check(amount >= 0);
+	FString StrArgsAmount;
+	Arch << StrArgsAmount;
+	const int32 Amount = FCString::Atoi(*StrArgsAmount);
+	check(Amount >= 0);
 	
 	// Arguments
-	for (int32 i = 0; i < amount; ++i)
+	for (int32 i = 0; i < Amount; ++i)
 	{
-		FString key;
-		FString val;
+		FString Key;
+		FString Val;
 
-		ar << key;
-		ar << val;
+		Arch << Key;
+		Arch << Val;
 
-		Arguments.Add(key, val);
+		Arguments.Add(Key, Val);
 	}
 
 	UE_LOG(LogDisplayClusterNetworkMsg, VeryVerbose, TEXT("Deserialized message: %s"), *ToString());
@@ -82,13 +82,13 @@ FString FDisplayClusterMessage::ToString() const
 
 FString FDisplayClusterMessage::ArgsToString() const
 {
-	FString str;
-	str.Reserve(512);
+	FString TmpStr;
+	TmpStr.Reserve(512);
 	
 	for (auto it = Arguments.CreateConstIterator(); it; ++it)
 	{
-		str += FString::Printf(TEXT("%s=%s "), *it->Key, *it->Value);
+		TmpStr += FString::Printf(TEXT("%s=%s "), *it->Key, *it->Value);
 	}
 
-	return str;
+	return TmpStr;
 }

@@ -413,6 +413,9 @@ private:
 	/** Handler for when an asset was renamed in the asset registry */
 	void OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath);
 
+	/** Handler for when an asset is updated in the asset registry */
+	void OnAssetUpdated(const FAssetData& AssetData);
+
 	/** Handler for when an asset was loaded */
 	void OnAssetLoaded(UObject* Asset);
 
@@ -432,6 +435,9 @@ private:
 	bool PassesCurrentFrontendFilter(const FAssetData& Item) const;
 
 	/** Returns true if the specified asset data item passes all applied backend (asset registry) filters */
+	bool PassesCurrentBackendFilter(const FAssetData& Item) const;
+
+	/** Removes asset data items from the given array that don't pass all applied backend (asset registry) filters */
 	void RunAssetsThroughBackendFilter(TArray<FAssetData>& InOutAssetDataList) const;
 
 	/** Returns true if the current filters deem that the asset view should be filtered recursively (overriding folder view) */
@@ -800,8 +806,8 @@ private:
 	/** The folder items being displayed in the view */
 	TSet<FString> Folders;
 
-	/** A map of object paths to assets that were loaded or changed since the last frame */
-	TMap< FName, TWeakObjectPtr<UObject> > RecentlyLoadedOrChangedAssets;
+	/** A set of assets that were loaded or changed since the last frame */
+	TSet<FAssetData> RecentlyLoadedOrChangedAssets;
 
 	/** A list of assets that were recently reported as added by the asset registry */
 	TArray<FAssetData> RecentlyAddedAssets;

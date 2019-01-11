@@ -27,8 +27,19 @@ public:
 	/** Global 2D zero vector constant (0,0) */
 	static CORE_API const FVector2D ZeroVector;
 
-	/** Global 2D unit vector constant (1,1) */
+	/**
+	* Global 2D one vector (poorly named) constant (1,1).
+	*
+	* @note Incorrectly named "unit" vector though its magnitude/length/size is not one. Would fix, though likely used all over the world. Use `Unit45Deg` below for an actual unit vector.
+	*/
 	static CORE_API const FVector2D UnitVector;
+
+	/**
+	* Global 2D unit vector constant along the 45 degree angle or symmetrical positive axes (sqrt(.5),sqrt(.5)) or (.707,.707). https://en.wikipedia.org/wiki/Unit_vector
+	*
+	* @note The `UnitVector` above is actually a value with axes of 1 rather than a magnitude of one.
+	*/
+	static CORE_API const FVector2D Unit45Deg;
 
 public:
 

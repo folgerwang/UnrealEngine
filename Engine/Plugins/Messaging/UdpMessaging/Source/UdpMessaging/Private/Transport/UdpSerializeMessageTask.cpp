@@ -45,11 +45,12 @@ void SerializeMessageV10(FArchive& Archive, const TSharedRef<IMessageContext, ES
 	}
 
 	// serialize message body
-	FJsonStructSerializerBackend Backend(Archive);
+	FJsonStructSerializerBackend Backend(Archive, EStructSerializerBackendFlags::Legacy);
 	FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
 }
 
-void SerializeMessageV11(FArchive& Archive, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& MessageContext)
+/** Serialization Routine for message using Protocol version 11 or 12 */
+void SerializeMessageV11_12(FArchive& Archive, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& MessageContext, const EStructSerializerBackendFlags StructSerializerBackendFlags)
 {
 	const FName& MessageType = MessageContext->GetMessageType();
 	Archive << const_cast<FName&>(MessageType);
@@ -86,7 +87,7 @@ void SerializeMessageV11(FArchive& Archive, const TSharedRef<IMessageContext, ES
 	Archive << MessageFormat;
 	
 	// serialize message body with cbor
-	FCborStructSerializerBackend Backend(Archive);
+	FCborStructSerializerBackend Backend(Archive, StructSerializerBackendFlags);
 	FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
 }
 
@@ -105,16 +106,24 @@ void FUdpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 		// check the values during deserialization. @see FUdpDeserializeMessage::Deserialize()
 
 		// serialize context depending on supported protocol version
+		int64 ProtocolMaxSegmentSize = UDP_MESSAGING_SEGMENT_SIZE * (int64)UINT16_MAX;
 		FArchive& Archive = SerializedMessage.Get();
 		bool Serialized = true;
 		switch (SerializedMessage->GetProtocolVersion())
 		{
 			case 10:
+				ProtocolMaxSegmentSize = UDP_MESSAGING_SEGMENT_SIZE * (int64)UINT16_MAX;
 				UdpSerializeMessageTaskDetails::SerializeMessageV10(Archive, MessageContext);
 				break;
 
 			case 11:
-				UdpSerializeMessageTaskDetails::SerializeMessageV11(Archive, MessageContext);
+				ProtocolMaxSegmentSize = UDP_MESSAGING_SEGMENT_SIZE * (int64)UINT16_MAX;
+				UdpSerializeMessageTaskDetails::SerializeMessageV11_12(Archive, MessageContext, EStructSerializerBackendFlags::Legacy);
+				break;
+
+			case 12:
+				ProtocolMaxSegmentSize = UDP_MESSAGING_SEGMENT_SIZE * (int64)INT32_MAX;
+				UdpSerializeMessageTaskDetails::SerializeMessageV11_12(Archive, MessageContext, EStructSerializerBackendFlags::Default);
 				break;
 
 			default:
@@ -130,9 +139,9 @@ void FUdpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 			SerializedMessage->UpdateState(EUdpSerializedMessageState::Invalid);
 		}
 		// Once serialized if the size of the message is bigger than the maximum allow mark it as invalid and log an error
-		else if (SerializedMessage->TotalSize() > UDP_MESSAGING_SEGMENT_SIZE * 65536)
+		else if (SerializedMessage->TotalSize() > ProtocolMaxSegmentSize)
 		{
-			UE_LOG(LogUdpMessaging, Error, TEXT("Serialized Message total size '%i' is over the allowed maximum '%i', discarding..."), SerializedMessage->TotalSize(), UDP_MESSAGING_SEGMENT_SIZE * 65536);
+			UE_LOG(LogUdpMessaging, Error, TEXT("Serialized Message total size '%i' is over the allowed maximum '%i', discarding..."), SerializedMessage->TotalSize(), ProtocolMaxSegmentSize);
 			SerializedMessage->UpdateState(EUdpSerializedMessageState::Invalid);
 		}
 		else

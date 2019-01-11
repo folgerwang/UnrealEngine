@@ -278,6 +278,17 @@ bool FSocketSteam::LeaveMulticastGroup(const FInternetAddr& GroupAddress)
 }
 
 
+bool FSocketSteam::JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress)
+{
+	return false;
+}
+
+
+bool FSocketSteam::LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress)
+{
+	return false;
+}
+
 bool FSocketSteam::SetMulticastLoopback(bool bLoopback)
 {
 	return false;
@@ -285,6 +296,11 @@ bool FSocketSteam::SetMulticastLoopback(bool bLoopback)
 
 
 bool FSocketSteam::SetMulticastTtl(uint8 TimeToLive)
+{
+	return false;
+}
+
+bool FSocketSteam::SetMulticastInterface(const FInternetAddr& InterfaceAddress)
 {
 	return false;
 }

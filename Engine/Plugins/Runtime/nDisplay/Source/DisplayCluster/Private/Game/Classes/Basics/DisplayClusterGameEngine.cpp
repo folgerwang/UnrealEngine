@@ -15,7 +15,6 @@
 #include "Misc/Parse.h"
 #include "DisplayClusterBuildConfig.h"
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 void UDisplayClusterGameEngine::Init(class IEngineLoop* InEngineLoop)
@@ -113,11 +112,11 @@ bool UDisplayClusterGameEngine::InitializeInternals()
 	ClusterMgr     = GDisplayCluster->GetPrivateClusterMgr();
 	NodeController = ClusterMgr->GetController();
 
-	FDisplayClusterConfigClusterNode nodeCfg;
-	if (GDisplayCluster->GetPrivateConfigMgr()->GetLocalClusterNode(nodeCfg))
+	FDisplayClusterConfigClusterNode LocalClusterNode;
+	if (DisplayClusterHelpers::config::GetLocalClusterNode(LocalClusterNode))
 	{
-		UE_LOG(LogDisplayClusterEngine, Log, TEXT("Configuring sound enabled: %s"), *FDisplayClusterTypesConverter::ToString(nodeCfg.SoundEnabled));
-		bUseSound = nodeCfg.SoundEnabled;
+		UE_LOG(LogDisplayClusterEngine, Log, TEXT("Configuring sound enabled: %s"), *FDisplayClusterTypesConverter::ToString(LocalClusterNode.SoundEnabled));
+		bUseSound = LocalClusterNode.SoundEnabled;
 	}
 
 	check(ClusterMgr);
@@ -201,6 +200,9 @@ void UDisplayClusterGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 		// Perform PreTick for DisplayCluster module
 		UE_LOG(LogDisplayClusterEngine, Verbose, TEXT("Perform PreTick()"));
 		GDisplayCluster->PreTick(DeltaSeconds);
+
+		// Sync cluster events
+		ClusterMgr->SyncEvents();
 
 		// Perform Tick() calls for scene actors
 		UE_LOG(LogDisplayClusterEngine, Verbose, TEXT("Perform Tick()"));

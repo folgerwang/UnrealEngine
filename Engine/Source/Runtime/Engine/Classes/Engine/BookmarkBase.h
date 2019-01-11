@@ -28,4 +28,12 @@ class ENGINE_API UBookmarkBase : public UObject
 
 public:
 
+	/**
+	 * Called when a bookmark is cleared.
+	 */
+	virtual void OnCleared()
+	{
+		Modify();
+		MarkPendingKill();
+	}
 };

@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "IPDisplayClusterClusterManager.h"
+#include "Cluster/IPDisplayClusterClusterManager.h"
+#include "Cluster/DisplayClusterClusterEvent.h"
 #include "Network/DisplayClusterMessage.h"
 #include "Misc/App.h"
 
 class ADisplayClusterGameMode;
 class ADisplayClusterSettings;
+class FJsonObject;
 
 
 /**
@@ -47,6 +49,14 @@ public:
 	virtual uint32 GetNodesAmount() const override
 	{ return NodesAmount; }
 
+	virtual void AddClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener>) override;
+	virtual void RemoveClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener>) override;
+
+	virtual void AddClusterEventListener(const FOnClusterEventListener& Listener) override;
+	virtual void RemoveClusterEventListener(const FOnClusterEventListener& Listener) override;
+
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event, bool MasterOnly) override;
+
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterClusterManager
@@ -71,8 +81,12 @@ public:
 	virtual void ExportSyncData(FDisplayClusterMessage::DataType& data) const override;
 	virtual void ImportSyncData(const FDisplayClusterMessage::DataType& data) override;
 
+	virtual void ExportEventsData(FDisplayClusterMessage::DataType& data) const override;
+	virtual void ImportEventsData(const FDisplayClusterMessage::DataType& data) override;
+
 	virtual void SyncObjects() override;
 	virtual void SyncInput()   override;
+	virtual void SyncEvents()  override;
 
 private:
 	bool GetResolvedNodeId(FString& id) const;
@@ -81,6 +95,8 @@ private:
 
 	// Factory method
 	TController CreateController() const;
+
+	void OnClusterEventHandler(const FDisplayClusterClusterEvent& Event);
 
 private:
 	// Controller implementation
@@ -100,10 +116,22 @@ private:
 	UWorld* CurrentWorld;
 
 	// Sync transforms
-	TSet<IDisplayClusterClusterSyncObject*>   ObjectsToSync;
-	mutable FDisplayClusterMessage::DataType  SyncObjectsCache;
-	mutable FCriticalSection                  ObjectsToSyncCritSec;
+	TSet<IDisplayClusterClusterSyncObject*>      ObjectsToSync;
+	mutable FDisplayClusterMessage::DataType     SyncObjectsCache;
+	mutable FCriticalSection                     ObjectsToSyncCritSec;
+
+	// Sync events - types
+	typedef TMap<FString, FDisplayClusterClusterEvent> FNamedEventMap;
+	typedef TMap<FString, FNamedEventMap>              FTypedEventMap;
+	typedef TMap<FString, FTypedEventMap>              FCategoricalMap;
+	typedef FCategoricalMap                            FClusterEventsContainer;
+	// Sync events - data
+	FClusterEventsContainer                      ClusterEventsPoolMain;
+	mutable FClusterEventsContainer              ClusterEventsPoolOut;
+	mutable FDisplayClusterMessage::DataType     ClusterEventsCacheOut;
+	mutable FCriticalSection                     ClusterEventsCritSec;
+	FOnClusterEvent                              OnClusterEvent;
+	TArray<TScriptInterface<IDisplayClusterClusterEventListener>> ClusterEventListeners;
 
 	mutable FCriticalSection InternalsSyncScope;
 };
-

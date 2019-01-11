@@ -279,6 +279,13 @@ public:
 	 */
 	void PopulateCurvePoints(double StartTimeSeconds, double EndTimeSeconds, double TimeThreshold, float ValueThreshold, FFrameRate TickResolution, TArray<TTuple<double, double>>& InOutPoints) const;	
 
+	/**
+	* Add keys with these times to channel. The number of elements in both arrays much match or nothing is added.
+	* Also assume that the times are greater than last time in the channel and are increasing. If not bad things can happen.
+	* @param InTimes Times to add
+	* @param InValues Values to add
+	*/
+	void AddKeys(const TArray<FFrameNumber>& InTimes, const TArray<FMovieSceneFloatValue>& InValues);
 public:
 
 	/** Pre-infinity extrapolation state */

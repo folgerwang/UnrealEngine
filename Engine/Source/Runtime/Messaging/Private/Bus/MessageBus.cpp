@@ -194,3 +194,13 @@ void FMessageBus::Unsubscribe(const TSharedRef<IMessageReceiver, ESPMode::Thread
 		}
 	}
 }
+
+void FMessageBus::AddNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+{
+	Router->AddNotificationListener(Listener);
+}
+
+void FMessageBus::RemoveNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+{
+	Router->RemoveNotificationListener(Listener);
+}

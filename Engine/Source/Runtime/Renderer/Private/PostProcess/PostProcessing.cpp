@@ -1050,7 +1050,8 @@ static FRenderingCompositeOutputRef AddPostProcessMaterialChain(
 	EBlendableLocation InLocation,
 	FRenderingCompositeOutputRef SeparateTranslucency = FRenderingCompositeOutputRef(),
 	FRenderingCompositeOutputRef PreTonemapHDRColor = FRenderingCompositeOutputRef(),
-	FRenderingCompositeOutputRef PostTonemapHDRColor = FRenderingCompositeOutputRef())
+	FRenderingCompositeOutputRef PostTonemapHDRColor = FRenderingCompositeOutputRef(),
+	FRenderingCompositeOutputRef PreFlattenVelocity = FRenderingCompositeOutputRef())
 {
 	if( !Context.View.Family->EngineShowFlags.PostProcessing ||
 		!Context.View.Family->EngineShowFlags.PostProcessMaterial ||
@@ -1132,6 +1133,11 @@ static FRenderingCompositeOutputRef AddPostProcessMaterialChain(
 			Node->SetInput(ePId_Input3, PostTonemapHDRColor);
 		}
 
+		if (Material->GetRenderingThreadShaderMap()->UsesVelocitySceneTexture() && !FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel))
+		{
+			Node->SetInput(ePId_Input4, PreFlattenVelocity);
+		}
+
 		LastestOutput = FRenderingCompositeOutputRef(Node);
 	}
 
@@ -1182,7 +1188,7 @@ static void AddHighResScreenshotMask(FPostprocessContext& Context, FRenderingCom
 	}
 }
 
-static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRenderingCompositeOutputRef& SeparateTranslucencyInput, FRenderingCompositeOutputRef& PreTonemapHDRColorInput, FRenderingCompositeOutputRef& PostTonemapHDRColorInput)
+static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRenderingCompositeOutputRef& SeparateTranslucencyInput, FRenderingCompositeOutputRef& PreTonemapHDRColorInput, FRenderingCompositeOutputRef& PostTonemapHDRColorInput, FRenderingCompositeOutputRef& PreFlattenVelocity)
 {
 	static const auto CVarDumpFrames = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.BufferVisualizationDumpFrames"));
 	static const auto CVarDumpFramesAsHDR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
@@ -1193,6 +1199,12 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 	bool bDumpFrames = Context.View.FinalPostProcessSettings.bBufferVisualizationDumpRequired && (CVarDumpFrames->GetValueOnRenderThread() || bHighResBufferVisualizationDumpRequried);
 	bool bCaptureAsHDR = CVarDumpFramesAsHDR->GetValueOnRenderThread() || GetHighResScreenshotConfig().bCaptureHDR;
 	FString BaseFilename;
+
+	if (!bDumpFrames)
+	{
+		// We always do this work if there are any buffer visualization pipes
+		bDumpFrames = Context.View.FinalPostProcessSettings.BufferVisualizationPipes.Num() > 0;
+	}
 
 	if (bDumpFrames)
 	{
@@ -1222,6 +1234,7 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 					MaterialPass->SetInput(ePId_Input1, FRenderingCompositeOutputRef(SeparateTranslucencyInput));
 					MaterialPass->SetInput(ePId_Input2, FRenderingCompositeOutputRef(PreTonemapHDRColorInput));
 					MaterialPass->SetInput(ePId_Input3, FRenderingCompositeOutputRef(PostTonemapHDRColorInput));
+					MaterialPass->SetInput(ePId_Input4, FRenderingCompositeOutputRef(PreFlattenVelocity));
 
 					auto Proxy = MaterialInterface->GetRenderProxy(false);
 					const FMaterial* Material = Proxy->GetMaterial(Context.View.GetFeatureLevel());
@@ -1231,18 +1244,26 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 						FSceneRenderTargets::Get(Context.RHICmdList).AdjustGBufferRefCount(Context.RHICmdList, 1);
 					}
 
+					FString VisualizationName = (*It)->GetName();
+
+					const TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe>* OutputPipe = Context.View.FinalPostProcessSettings.BufferVisualizationPipes.Find((*It)->GetFName());
+					if (OutputPipe && OutputPipe->IsValid())
+					{
+						MaterialPass->SetOutputDumpPipe(ePId_Output0, *OutputPipe);
+					}
+
 					if (BaseFilename.Len())
 					{
 						// First off, allow the user to specify the pass as a format arg (using {material})
 						TMap<FString, FStringFormatArg> FormatMappings;
-						FormatMappings.Add(TEXT("material"), (*It)->GetName());
+						FormatMappings.Add(TEXT("material"), VisualizationName);
 
 						FString MaterialFilename = FString::Format(*BaseFilename, FormatMappings);
 
 						// If the format made no change to the string, we add the name of the material to ensure uniqueness
 						if (MaterialFilename == BaseFilename)
 						{
-							MaterialFilename = BaseFilename + TEXT("_") + (*It)->GetName();
+							MaterialFilename = BaseFilename + TEXT("_") + VisualizationName;
 						}
 
 						MaterialFilename.Append(TEXT(".png"));
@@ -1261,7 +1282,7 @@ static void AddGBufferVisualizationOverview(FPostprocessContext& Context, FRende
 						QuarterSize->SetInput(ePId_Input0, FRenderingCompositeOutputRef(HalfSize));
 
 						// Mark the quarter size target as the dependency for the composite pass
-						((FRCPassPostProcessVisualizeBuffer*)CompositePass)->AddVisualizationBuffer(FRenderingCompositeOutputRef(QuarterSize), (*It)->GetName());
+						((FRCPassPostProcessVisualizeBuffer*)CompositePass)->AddVisualizationBuffer(FRenderingCompositeOutputRef(QuarterSize), VisualizationName);
 					}
 					else
 					{
@@ -1383,6 +1404,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 		FRenderingCompositeOutputRef Histogram;
 		FRenderingCompositeOutputRef PreTonemapHDRColor;
 		FRenderingCompositeOutputRef PostTonemapHDRColor;
+		FRenderingCompositeOutputRef PreFlattenVelocity;
 
 		class FAutoExposure
 		{
@@ -1454,6 +1476,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			if(VelocityRT)
 			{
 				VelocityInput = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(VelocityRT));
+				PreFlattenVelocity = VelocityInput;
 			}
 
 			Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_BeforeTranslucency, SeparateTranslucency);
@@ -1572,7 +1595,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 				Context.FinalOutput = FRenderingCompositeOutputRef(NodeRecombined);
 			}
 
-			Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_BeforeTonemapping, SeparateTranslucency);
+			Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_BeforeTonemapping, SeparateTranslucency, nullptr, nullptr, PreFlattenVelocity);
 
 			EAntiAliasingMethod AntiAliasingMethod = Context.View.AntiAliasingMethod;
 
@@ -2057,7 +2080,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 		}
 		
-		Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_AfterTonemapping, SeparateTranslucency, PreTonemapHDRColor, PostTonemapHDRColor);
+		Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_AfterTonemapping, SeparateTranslucency, PreTonemapHDRColor, PostTonemapHDRColor, PreFlattenVelocity);
 
 #if WITH_EDITOR
 		//Inspect the Final color, GBuffer and HDR
@@ -2091,7 +2114,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			Context.FinalOutput = FRenderingCompositeOutputRef(PassVisualize);
 		}
 
-		AddGBufferVisualizationOverview(Context, SeparateTranslucency, PreTonemapHDRColor, PostTonemapHDRColor);
+		AddGBufferVisualizationOverview(Context, SeparateTranslucency, PreTonemapHDRColor, PostTonemapHDRColor, PreFlattenVelocity);
 
 		RegisterHMDPostprocessPass(Context, View.Family->EngineShowFlags);
 

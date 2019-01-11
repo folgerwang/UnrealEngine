@@ -5,12 +5,37 @@
 #include "IMediaCache.h"
 #include "IMediaPlayer.h"
 #include "MediaBundle.h"
+#include "MediaAssets/ProxyMediaSource.h"
 #include "MediaFrameworkUtilitiesModule.h"
 #include "MediaPlayer.h"
 #include "MediaPlayerFacade.h"
 #include "MediaTexture.h"
 #include "TimeSynchronizableMediaSource.h"
 
+
+namespace TimeSynchronizationSource
+{
+	UTimeSynchronizableMediaSource* GetTimeSynchronizableMediaSource(UMediaBundle* InMediaBundle)
+	{
+		check(InMediaBundle);
+
+		UTimeSynchronizableMediaSource* Result = nullptr;
+
+		if (UMediaSource* MediaSource = InMediaBundle->GetMediaSource())
+		{
+			Result = Cast<UTimeSynchronizableMediaSource>(MediaSource);
+			if (!Result)
+			{
+				if (UProxyMediaSource* ProxyMediaSource = Cast<UProxyMediaSource>(MediaSource))
+				{
+					Result = Cast<UTimeSynchronizableMediaSource>(ProxyMediaSource->GetLeafMediaSource());
+				}
+			}
+		}
+
+		return Result;
+	}
+}
 
 #if WITH_EDITOR
 void UMediaBundleTimeSynchronizationSource::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -19,7 +44,7 @@ void UMediaBundleTimeSynchronizationSource::PostEditChangeProperty(FPropertyChan
 	{
 		if (bUseForSynchronization && MediaBundle && MediaBundle->GetMediaSource())
 		{
-			UTimeSynchronizableMediaSource* SynchronizableMediaSource = Cast<UTimeSynchronizableMediaSource>(MediaBundle->GetMediaSource());
+			UTimeSynchronizableMediaSource* SynchronizableMediaSource = TimeSynchronizationSource::GetTimeSynchronizableMediaSource(MediaBundle);
 			if (SynchronizableMediaSource == nullptr || SynchronizableMediaSource->bUseTimeSynchronization)
 			{
 				// Warn the user that the MediaSource he just added isn't set for using time synchronization
@@ -57,9 +82,13 @@ FFrameTime UMediaBundleTimeSynchronizationSource::GetNewestSampleTime() const
 				TRangeSet<FTimespan> SampleTimes;
 				if (Player->GetCache().QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
-					//Fetch the minimum sample time from all ranges queried from the player's cache
-					const FTimespan MinBound = SampleTimes.GetMaxBoundValue();
-					UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MinBound, UseTimespan.GetValue()) : MinBound;
+					//Fetch the maximun sample time from all ranges queried from the player's cache
+					TRangeBound<FTimespan> MaxRangeBound = SampleTimes.GetMaxBound();
+					if (MaxRangeBound.IsClosed())
+					{
+						const FTimespan MaxBound = MaxRangeBound.GetValue();
+						UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MaxBound, UseTimespan.GetValue()) : MaxBound;
+					}
 				}
 			}
 		}
@@ -89,8 +118,12 @@ FFrameTime UMediaBundleTimeSynchronizationSource::GetOldestSampleTime() const
 				if (Player->GetCache().QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
 					//Fetch the minimum sample time from all ranges queried from the player's cache
-					const FTimespan MinBound = SampleTimes.GetMinBoundValue();
-					UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
+					TRangeBound<FTimespan> MinRangeBound = SampleTimes.GetMinBound();
+					if (MinRangeBound.IsClosed())
+					{
+						const FTimespan MinBound = MinRangeBound.GetValue();
+						UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
+					}
 				}
 			}
 		}
@@ -136,7 +169,7 @@ bool UMediaBundleTimeSynchronizationSource::Open(const FTimeSynchronizationOpenD
 		UMediaPlayer* MediaPlayer = MediaBundle->GetMediaPlayer();
 		if (MediaPlayer)
 		{
-			UTimeSynchronizableMediaSource* SynchronizableMediaSource = Cast<UTimeSynchronizableMediaSource>(MediaBundle->GetMediaSource());
+			UTimeSynchronizableMediaSource* SynchronizableMediaSource = TimeSynchronizationSource::GetTimeSynchronizableMediaSource(MediaBundle);
 			if (bUseForSynchronization && (SynchronizableMediaSource == nullptr || !SynchronizableMediaSource->bUseTimeSynchronization))
 			{
 				UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("MediaBundle %s doesn't support timecode synchronization"), *MediaBundle->GetName());

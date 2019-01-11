@@ -1,15 +1,16 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterBlueprintAPIImpl.h"
+#include "Blueprints/DisplayClusterBlueprintAPIImpl.h"
 
 #include "IDisplayCluster.h"
 
+#include "Cluster/DisplayClusterClusterEvent.h"
 #include "Cluster/IDisplayClusterClusterManager.h"
 #include "Config/IDisplayClusterConfigManager.h"
 #include "Game/IDisplayClusterGameManager.h"
 #include "Input/IDisplayClusterInputManager.h"
+#include "Misc/DisplayClusterLog.h"
 #include "Render/IDisplayClusterRenderManager.h"
-#include "Render/IDisplayClusterStereoDevice.h"
 
 
 
@@ -19,11 +20,13 @@
 /** Return if the module has been initialized. */
 bool UDisplayClusterBlueprintAPIImpl::IsModuleInitialized()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
 	return IDisplayCluster::Get().IsModuleInitialized();
 }
 
 EDisplayClusterOperationMode UDisplayClusterBlueprintAPIImpl::GetOperationMode()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
 	return IDisplayCluster::Get().GetOperationMode();
 }
 
@@ -32,6 +35,8 @@ EDisplayClusterOperationMode UDisplayClusterBlueprintAPIImpl::GetOperationMode()
 //////////////////////////////////////////////////////////////////////////////////////////////
 bool UDisplayClusterBlueprintAPIImpl::IsMaster()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
 	if (Manager)
 	{
@@ -43,11 +48,15 @@ bool UDisplayClusterBlueprintAPIImpl::IsMaster()
 
 bool UDisplayClusterBlueprintAPIImpl::IsSlave()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	return !IsMaster();
 }
 
 bool UDisplayClusterBlueprintAPIImpl::IsCluster()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
 	if (Manager)
 	{
@@ -59,11 +68,15 @@ bool UDisplayClusterBlueprintAPIImpl::IsCluster()
 
 bool UDisplayClusterBlueprintAPIImpl::IsStandalone()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	return !IsCluster();
 }
 
 FString UDisplayClusterBlueprintAPIImpl::GetNodeId()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
 	if (Manager)
 	{
@@ -75,6 +88,8 @@ FString UDisplayClusterBlueprintAPIImpl::GetNodeId()
 
 int32 UDisplayClusterBlueprintAPIImpl::GetNodesAmount()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
 	if (Manager)
 	{
@@ -82,6 +97,39 @@ int32 UDisplayClusterBlueprintAPIImpl::GetNodesAmount()
 	}
 
 	return 0;
+}
+
+void UDisplayClusterBlueprintAPIImpl::AddClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener)
+{
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
+	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
+	if (Manager)
+	{
+		return Manager->AddClusterEventListener(Listener);
+	}
+}
+
+void UDisplayClusterBlueprintAPIImpl::RemoveClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener)
+{
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
+	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
+	if (Manager)
+	{
+		return Manager->RemoveClusterEventListener(Listener);
+	}
+}
+
+void UDisplayClusterBlueprintAPIImpl::EmitClusterEvent(const FDisplayClusterClusterEvent& Event, bool MasterOnly)
+{
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
+	IDisplayClusterClusterManager* const Manager = IDisplayCluster::Get().GetClusterMgr();
+	if (Manager)
+	{
+		return Manager->EmitClusterEvent(Event, MasterOnly);
+	}
 }
 
 
@@ -97,6 +145,8 @@ int32 UDisplayClusterBlueprintAPIImpl::GetNodesAmount()
 // Root
 ADisplayClusterPawn* UDisplayClusterBlueprintAPIImpl::GetRoot()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -107,19 +157,23 @@ ADisplayClusterPawn* UDisplayClusterBlueprintAPIImpl::GetRoot()
 }
 
 // Screens
-UDisplayClusterScreenComponent* UDisplayClusterBlueprintAPIImpl::GetActiveScreen()
+TArray<UDisplayClusterScreenComponent*> UDisplayClusterBlueprintAPIImpl::GetActiveScreens()
 {
-	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
-	if (Manager)
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
+	const IDisplayClusterGameManager* const GameManager = IDisplayCluster::Get().GetGameMgr();
+	if (GameManager)
 	{
-		return Manager->GetActiveScreen();
+		return GameManager->GetActiveScreens();
 	}
 
-	return nullptr;
+	return TArray<UDisplayClusterScreenComponent*>();
 }
 
 UDisplayClusterScreenComponent* UDisplayClusterBlueprintAPIImpl::GetScreenById(const FString& id)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -131,6 +185,8 @@ UDisplayClusterScreenComponent* UDisplayClusterBlueprintAPIImpl::GetScreenById(c
 
 TArray<UDisplayClusterScreenComponent*> UDisplayClusterBlueprintAPIImpl::GetAllScreens()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -142,6 +198,8 @@ TArray<UDisplayClusterScreenComponent*> UDisplayClusterBlueprintAPIImpl::GetAllS
 
 int32 UDisplayClusterBlueprintAPIImpl::GetScreensAmount()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -157,6 +215,8 @@ int32 UDisplayClusterBlueprintAPIImpl::GetScreensAmount()
 // Nodes
 UDisplayClusterSceneComponent* UDisplayClusterBlueprintAPIImpl::GetNodeById(const FString& id)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -168,6 +228,8 @@ UDisplayClusterSceneComponent* UDisplayClusterBlueprintAPIImpl::GetNodeById(cons
 
 TArray<UDisplayClusterSceneComponent*> UDisplayClusterBlueprintAPIImpl::GetAllNodes()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -180,6 +242,8 @@ TArray<UDisplayClusterSceneComponent*> UDisplayClusterBlueprintAPIImpl::GetAllNo
 // Navigation
 USceneComponent* UDisplayClusterBlueprintAPIImpl::GetTranslationDirectionComponent()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -191,6 +255,8 @@ USceneComponent* UDisplayClusterBlueprintAPIImpl::GetTranslationDirectionCompone
 
 void UDisplayClusterBlueprintAPIImpl::SetTranslationDirectionComponent(USceneComponent* const pComp)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -200,6 +266,8 @@ void UDisplayClusterBlueprintAPIImpl::SetTranslationDirectionComponent(USceneCom
 
 void UDisplayClusterBlueprintAPIImpl::SetTranslationDirectionComponentId(const FString& id)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -209,6 +277,8 @@ void UDisplayClusterBlueprintAPIImpl::SetTranslationDirectionComponentId(const F
 
 USceneComponent* UDisplayClusterBlueprintAPIImpl::GetRotateAroundComponent()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -220,6 +290,8 @@ USceneComponent* UDisplayClusterBlueprintAPIImpl::GetRotateAroundComponent()
 
 void UDisplayClusterBlueprintAPIImpl::SetRotateAroundComponent(USceneComponent* const pComp)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -229,6 +301,8 @@ void UDisplayClusterBlueprintAPIImpl::SetRotateAroundComponent(USceneComponent* 
 
 void UDisplayClusterBlueprintAPIImpl::SetRotateAroundComponentId(const FString& id)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterGameManager* const Manager = IDisplayCluster::Get().GetGameMgr();
 	if (Manager)
 	{
@@ -243,6 +317,8 @@ void UDisplayClusterBlueprintAPIImpl::SetRotateAroundComponentId(const FString& 
 // Device information
 int32 UDisplayClusterBlueprintAPIImpl::GetAxisDeviceAmount()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -254,6 +330,8 @@ int32 UDisplayClusterBlueprintAPIImpl::GetAxisDeviceAmount()
 
 int32 UDisplayClusterBlueprintAPIImpl::GetButtonDeviceAmount()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -265,6 +343,8 @@ int32 UDisplayClusterBlueprintAPIImpl::GetButtonDeviceAmount()
 
 int32 UDisplayClusterBlueprintAPIImpl::GetTrackerDeviceAmount()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -276,6 +356,8 @@ int32 UDisplayClusterBlueprintAPIImpl::GetTrackerDeviceAmount()
 
 bool UDisplayClusterBlueprintAPIImpl::GetAxisDeviceIds(TArray<FString>& IDs)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	TArray<FString> result;
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
@@ -288,6 +370,8 @@ bool UDisplayClusterBlueprintAPIImpl::GetAxisDeviceIds(TArray<FString>& IDs)
 
 bool UDisplayClusterBlueprintAPIImpl::GetButtonDeviceIds(TArray<FString>& IDs)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -299,6 +383,8 @@ bool UDisplayClusterBlueprintAPIImpl::GetButtonDeviceIds(TArray<FString>& IDs)
 
 bool UDisplayClusterBlueprintAPIImpl::GetTrackerDeviceIds(TArray<FString>& IDs)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -311,6 +397,8 @@ bool UDisplayClusterBlueprintAPIImpl::GetTrackerDeviceIds(TArray<FString>& IDs)
 // Buttons
 void UDisplayClusterBlueprintAPIImpl::GetButtonState(const FString& DeviceId, uint8 DeviceChannel, bool& CurState, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -320,6 +408,8 @@ void UDisplayClusterBlueprintAPIImpl::GetButtonState(const FString& DeviceId, ui
 
 void UDisplayClusterBlueprintAPIImpl::IsButtonPressed(const FString& DeviceId, uint8 DeviceChannel, bool& CurPressed, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -329,6 +419,8 @@ void UDisplayClusterBlueprintAPIImpl::IsButtonPressed(const FString& DeviceId, u
 
 void UDisplayClusterBlueprintAPIImpl::IsButtonReleased(const FString& DeviceId, uint8 DeviceChannel, bool& CurReleased, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -338,6 +430,8 @@ void UDisplayClusterBlueprintAPIImpl::IsButtonReleased(const FString& DeviceId, 
 
 void UDisplayClusterBlueprintAPIImpl::WasButtonPressed(const FString& DeviceId, uint8 DeviceChannel, bool& WasPressed, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -347,6 +441,8 @@ void UDisplayClusterBlueprintAPIImpl::WasButtonPressed(const FString& DeviceId, 
 
 void UDisplayClusterBlueprintAPIImpl::WasButtonReleased(const FString& DeviceId, uint8 DeviceChannel, bool& WasReleased, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -357,6 +453,8 @@ void UDisplayClusterBlueprintAPIImpl::WasButtonReleased(const FString& DeviceId,
 // Axes
 void UDisplayClusterBlueprintAPIImpl::GetAxis(const FString& DeviceId, uint8 DeviceChannel, float& Value, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -367,6 +465,8 @@ void UDisplayClusterBlueprintAPIImpl::GetAxis(const FString& DeviceId, uint8 Dev
 // Trackers
 void UDisplayClusterBlueprintAPIImpl::GetTrackerLocation(const FString& DeviceId, uint8 DeviceChannel, FVector& Location, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -376,6 +476,8 @@ void UDisplayClusterBlueprintAPIImpl::GetTrackerLocation(const FString& DeviceId
 
 void UDisplayClusterBlueprintAPIImpl::GetTrackerQuat(const FString& DeviceId, uint8 DeviceChannel, FQuat& Rotation, bool& IsChannelAvailable)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterInputManager* const Manager = IDisplayCluster::Get().GetInputMgr();
 	if (Manager)
 	{
@@ -389,10 +491,12 @@ void UDisplayClusterBlueprintAPIImpl::GetTrackerQuat(const FString& DeviceId, ui
 //////////////////////////////////////////////////////////////////////////////////////////////
 void  UDisplayClusterBlueprintAPIImpl::SetInterpupillaryDistance(float dist)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		return Manager->GetStereoDevice()->SetInterpupillaryDistance(dist);
+		return Manager->SetInterpupillaryDistance(dist);
 	}
 
 	return;
@@ -400,10 +504,12 @@ void  UDisplayClusterBlueprintAPIImpl::SetInterpupillaryDistance(float dist)
 
 float UDisplayClusterBlueprintAPIImpl::GetInterpupillaryDistance()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		return Manager->GetStereoDevice()->GetInterpupillaryDistance();
+		return Manager->GetInterpupillaryDistance();
 	}
 
 	return 0.f;
@@ -411,10 +517,12 @@ float UDisplayClusterBlueprintAPIImpl::GetInterpupillaryDistance()
 
 void UDisplayClusterBlueprintAPIImpl::SetEyesSwap(bool swap)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		return Manager->GetStereoDevice()->SetEyesSwap(swap);
+		return Manager->SetEyesSwap(swap);
 	}
 
 	return;
@@ -422,10 +530,12 @@ void UDisplayClusterBlueprintAPIImpl::SetEyesSwap(bool swap)
 
 bool UDisplayClusterBlueprintAPIImpl::GetEyesSwap()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		return Manager->GetStereoDevice()->GetEyesSwap();
+		return Manager->GetEyesSwap();
 	}
 
 	return false;
@@ -433,10 +543,12 @@ bool UDisplayClusterBlueprintAPIImpl::GetEyesSwap()
 
 bool UDisplayClusterBlueprintAPIImpl::ToggleEyesSwap()
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		return Manager->GetStereoDevice()->ToggleEyesSwap();
+		return Manager->ToggleEyesSwap();
 	}
 
 	return false;
@@ -444,14 +556,12 @@ bool UDisplayClusterBlueprintAPIImpl::ToggleEyesSwap()
 
 void UDisplayClusterBlueprintAPIImpl::GetCullingDistance(float& NearClipPlane, float& FarClipPlane)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		IDisplayClusterStereoDevice* pDev = Manager->GetStereoDevice();
-		if (pDev)
-		{
-			return pDev->GetCullingDistance(NearClipPlane, FarClipPlane);
-		}
+		return Manager->GetCullingDistance(NearClipPlane, FarClipPlane);
 	}
 
 	return;
@@ -459,14 +569,12 @@ void UDisplayClusterBlueprintAPIImpl::GetCullingDistance(float& NearClipPlane, f
 
 void UDisplayClusterBlueprintAPIImpl::SetCullingDistance(float NearClipPlane, float FarClipPlane)
 {
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterBlueprint);
+
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
 	if (Manager)
 	{
-		IDisplayClusterStereoDevice* pDev = Manager->GetStereoDevice();
-		if (pDev)
-		{
-			return pDev->SetCullingDistance(NearClipPlane, FarClipPlane);
-		}
+		return Manager->SetCullingDistance(NearClipPlane, FarClipPlane);
 	}
 
 	return;
