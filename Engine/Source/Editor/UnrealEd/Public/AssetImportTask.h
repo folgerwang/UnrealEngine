@@ -45,6 +45,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
 	bool bSave;
 
+	/** Optional factory to use */
+	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
+	UFactory* Factory;
+
 	/** Import options specific to the type of asset */
 	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
 	UObject* Options;

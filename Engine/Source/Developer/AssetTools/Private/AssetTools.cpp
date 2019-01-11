@@ -1104,6 +1104,7 @@ void UAssetToolsImpl::ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTa
 		Params.AssetImportTask = ImportTask;
 		Params.bForceOverrideExisting = ImportTask->bReplaceExisting;
 		Params.bAutomated = ImportTask->bAutomated;
+		Params.SpecifiedFactory = ImportTask->Factory;
 		Filenames[0] = ImportTask->Filename;
 		TArray<UObject*> ImportedObjects = ImportAssetsInternal(Filenames, ImportTask->DestinationPath, nullptr, Params);
 
