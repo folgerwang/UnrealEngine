@@ -2,34 +2,56 @@
 
 #include "Channels/MovieSceneObjectPathChannel.h"
 
+bool FMovieSceneObjectPathChannelKeyValue::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
+{
+	if (Tag.Type == NAME_SoftObjectProperty)
+	{
+		FSoftObjectPtr OldProperty;
+		Slot << OldProperty;
+
+		SoftPtr = OldProperty.ToSoftObjectPath();
+		if (OldProperty.ToSoftObjectPath().GetSubPathString().Len() == 0)
+		{
+			// Forcibly load the old property so we can store it as a hard reference, only if it was not referencing an actor or other sub object
+			HardPtr = OldProperty.LoadSynchronous();
+		}
+		return true;
+	}
+	return false;
+}
+
+FMovieSceneObjectPathChannelKeyValue& FMovieSceneObjectPathChannelKeyValue::operator=(UObject* NewObject)
+{
+	HardPtr = NewObject;
+	SoftPtr = NewObject;
+	return *this;
+}
+
+UObject* FMovieSceneObjectPathChannelKeyValue::Get() const
+{
+	if (!HardPtr && !SoftPtr.IsNull())
+	{
+		HardPtr = SoftPtr.Get();
+		if (!HardPtr)
+		{
+			HardPtr = SoftPtr.LoadSynchronous();
+		}
+	}
+
+	return HardPtr;
+}
+
 bool FMovieSceneObjectPathChannel::Evaluate(FFrameTime InTime, UObject*& OutValue) const
 {
 	if (Times.Num())
 	{
 		const int32 Index = FMath::Max(0, Algo::UpperBound(Times, InTime.FrameNumber)-1);
-		OutValue = Values[Index].LoadSynchronous();
+		OutValue = Values[Index].Get();
 		return true;
 	}
-	else if (!DefaultValue.IsNull())
+	else if (!DefaultValue.GetSoftPtr().IsNull())
 	{
-		OutValue = DefaultValue.LoadSynchronous();
-		return true;
-	}
-
-	return false;
-}
-
-bool FMovieSceneObjectPathChannel::Evaluate(FFrameTime InTime, TSoftObjectPtr<>& OutValue) const
-{
-	if (Times.Num())
-	{
-		const int32 Index = FMath::Max(0, Algo::UpperBound(Times, InTime.FrameNumber)-1);
-		OutValue = Values[Index];
-		return true;
-	}
-	else if (!DefaultValue.IsNull())
-	{
-		OutValue = DefaultValue;
+		OutValue = DefaultValue.Get();
 		return true;
 	}
 

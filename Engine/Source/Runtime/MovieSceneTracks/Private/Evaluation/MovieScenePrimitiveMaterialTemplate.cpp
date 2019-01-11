@@ -43,17 +43,15 @@ struct FSetMaterialTokenProducer : IMovieScenePreAnimatedTokenProducer
 struct FPrimitiveMaterialExecToken : IMovieSceneExecutionToken
 {
 	int32 MaterialIndex;
-	TSoftObjectPtr<> Value;
+	UMaterialInterface* NewMaterial;
 
-	FPrimitiveMaterialExecToken(int32 InMaterialIndex, TSoftObjectPtr<>&& InValue)
+	FPrimitiveMaterialExecToken(int32 InMaterialIndex, UMaterialInterface* InNewMaterial)
 		: MaterialIndex(InMaterialIndex)
-		, Value(MoveTemp(InValue))
+		, NewMaterial(InNewMaterial)
 	{}
 
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		UMaterialInterface* NewMaterial = Cast<UMaterialInterface>(Value.LoadSynchronous());
-
 		for (TWeakObjectPtr<> WeakObject : Player.FindBoundObjects(Operand))
 		{
 			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(WeakObject.Get());
@@ -79,9 +77,13 @@ FMovieScenePrimitiveMaterialTemplate::FMovieScenePrimitiveMaterialTemplate(const
 
 void FMovieScenePrimitiveMaterialTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	TSoftObjectPtr<> Ptr;
+	UObject* Ptr = nullptr;
 	if (MaterialChannel.Evaluate(Context.GetTime(), Ptr))
 	{
-		ExecutionTokens.Add(FPrimitiveMaterialExecToken(MaterialIndex, MoveTemp(Ptr)));
+		// If the channel has been successfully evaluated, only assign the object if it's null, or a valid material interface
+		if (Ptr == nullptr || Ptr->IsA<UMaterialInterface>())
+		{
+			ExecutionTokens.Add(FPrimitiveMaterialExecToken(MaterialIndex, Cast<UMaterialInterface>(Ptr)));
+		}
 	}
 }
