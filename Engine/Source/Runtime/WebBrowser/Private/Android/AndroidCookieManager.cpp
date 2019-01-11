@@ -2,15 +2,14 @@
 
 #include "AndroidCookieManager.h"
 
-#if PLATFORM_ANDROID
+#if USE_ANDROID_JNI
 
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
 
-#if USE_ANDROID_JNI
 #include <jni.h>
 #include "Async/TaskGraphInterfaces.h"
-#endif
+
 
 FAndroidCookieManager::FAndroidCookieManager()
 {
@@ -66,6 +65,38 @@ void FAndroidCookieManager::DeleteCookies(const FString& URL, const FString& Coo
 			Env->DeleteLocalRef(jUrl);
 		}
 	}
+
+	// send result
+	if (Completed)
+	{
+		Completed(bResult);
+	}
+}
+
+#else
+
+FAndroidCookieManager::FAndroidCookieManager()
+{
+}
+
+FAndroidCookieManager::~FAndroidCookieManager()
+{
+}
+
+void FAndroidCookieManager::SetCookie(const FString& URL, const FCookie& Cookie, TFunction<void(bool)> Completed)
+{
+	bool bResult = false;
+
+	// send result
+	if (Completed)
+	{
+		Completed(bResult);
+	}
+}
+
+void FAndroidCookieManager::DeleteCookies(const FString& URL, const FString& CookieName, TFunction<void(int)> Completed)
+{
+	bool bResult = false;
 
 	// send result
 	if (Completed)
