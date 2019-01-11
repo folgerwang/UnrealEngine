@@ -79,6 +79,22 @@ namespace UnrealBuildTool
 		/// <returns>Exit code</returns>
 		public override int Execute(CommandLineArguments Arguments)
 		{
+			// Acquire a different mutex to the regular UBT instance, since this mode will be called as part of a build. We need the mutex to ensure that building two modular configurations 
+			// in parallel don't clash over writing shared *.modules files (eg. DebugGame and Development editors).
+			string MutexName = SingleInstanceMutex.GetUniqueMutexForPath("UnrealBuildTool_WriteMetadata", UnrealBuildTool.RootDirectory.FullName);
+			using(new SingleInstanceMutex(MutexName, true))
+			{
+				return ExecuteInternal(Arguments);
+			}
+		}
+
+		/// <summary>
+		/// Execute the command, having obtained the appropriate mutex
+		/// </summary>
+		/// <param name="Arguments">Command line arguments</param>
+		/// <returns>Exit code</returns>
+		private int ExecuteInternal(CommandLineArguments Arguments)
+		{
 			// Read the target info
 			WriteMetadataTargetInfo TargetInfo = BinaryFormatterUtils.Load<WriteMetadataTargetInfo>(Arguments.GetFileReference("-Input="));
 			bool bNoManifestChanges = Arguments.HasOption("-NoManifestChanges");

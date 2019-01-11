@@ -266,6 +266,18 @@ namespace UnrealBuildTool
 			public bool bWriteProgressMarkup = false;
 
 			/// <summary>
+			/// Whether to ignore the mutex
+			/// </summary>
+			[CommandLine(Prefix = "-NoMutex")]
+			public bool bNoMutex = false;
+
+			/// <summary>
+			/// Whether to wait for the mutex rather than aborting immediately
+			/// </summary>
+			[CommandLine(Prefix = "-WaitMutex")]
+			public bool bWaitMutex = false;
+
+			/// <summary>
 			/// The mode to execute
 			/// </summary>
 			[CommandLine]
@@ -400,11 +412,12 @@ namespace UnrealBuildTool
 				}
 
 				// Acquire a lock for this branch
-				if((ModeOptions & ToolModeOptions.SingleInstance) != 0)
+				if((ModeOptions & ToolModeOptions.SingleInstance) != 0 && !Options.bNoMutex)
 				{
 					using(Timeline.ScopeEvent("SingleInstanceMutex.Acquire()"))
 					{
-						Mutex = SingleInstanceMutex.Acquire(SingleInstanceMutexType.PerBranch, Arguments);
+						string MutexName = SingleInstanceMutex.GetUniqueMutexForPath("UnrealBuildTool_Mutex", Assembly.GetExecutingAssembly().CodeBase);
+						Mutex = new SingleInstanceMutex(MutexName, Options.bWaitMutex);
 					}
 				}
 

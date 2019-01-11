@@ -12,22 +12,6 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// The type of mutex to aquire
-	/// </summary>
-	enum SingleInstanceMutexType
-	{
-		/// <summary>
-		/// Prevent any instance running in the system
-		/// </summary>
-		Global,
-
-		/// <summary>
-		/// Prevents any instance running in the current branch
-		/// </summary>
-		PerBranch,
-	}
-
-	/// <summary>
 	/// System-wide mutex allowing only one instance of the program to run at a time
 	/// </summary>
 	class SingleInstanceMutex : IDisposable
@@ -40,21 +24,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor. Attempts to acquire the global mutex
 		/// </summary>
-		/// <param name="Type">The type of mutex to acquire</param>
+		/// <param name="MutexName">Name of the mutex to acquire</param>
 		/// <param name="bWaitMutex"></param>
-		public SingleInstanceMutex(SingleInstanceMutexType Type, bool bWaitMutex)
+		public SingleInstanceMutex(string MutexName, bool bWaitMutex)
 		{
-			// Get the mutex name
-			string MutexName;
-			if (Type == SingleInstanceMutexType.Global)
-			{
-				MutexName = "Global\\UnrealBuildTool_Mutex_AutoSDKS";
-			}
-			else
-			{
-				MutexName = "Global\\UnrealBuildTool_Mutex_" + Assembly.GetExecutingAssembly().CodeBase.GetHashCode().ToString();
-			}
-
 			// Try to create the mutex, with it initially locked
 			bool bCreatedMutex;
 			GlobalMutex = new Mutex(true, MutexName, out bCreatedMutex);
@@ -72,33 +45,21 @@ namespace UnrealBuildTool
 					{
 					}
 				}
-				else if (Type == SingleInstanceMutexType.Global)
-				{
-					throw new BuildException("A conflicting instance of UnrealBuildTool is already running.");
-				}
 				else
 				{
-					throw new BuildException("A conflicting instance of UnrealBuildTool is already running at {0}.", Assembly.GetExecutingAssembly().CodeBase);
+					throw new BuildException("A conflicting instance of UnrealBuildTool is already running.");
 				}
 			}
 		}
 
 		/// <summary>
-		/// Attempt to aquire the single instance mutex, using settings determined from the command line
+		/// Gets the name of a mutex unique for the given path
 		/// </summary>
-		/// <param name="Type">The type of mutex to aquire</param>
-		/// <param name="Arguments">Command line arguments</param>
-		/// <returns>The single instance mutex, or null if the -NoMutex argument is specified on the command line</returns>
-		public static SingleInstanceMutex Acquire(SingleInstanceMutexType Type, CommandLineArguments Arguments)
+		/// <param name="Name">Base name of the mutex</param>
+		/// <param name="UniquePath">Path to identify a unique mutex</param>
+		public static string GetUniqueMutexForPath(string Name, string UniquePath)
 		{
-			if(Arguments.HasOption("-NoMutex"))
-			{
-				return null;
-			}
-			else
-			{
-				return new SingleInstanceMutex(Type, Arguments.HasOption("-WaitMutex"));
-			}
+			return String.Format("Global\\{0}_{1}", Name, UniquePath.GetHashCode());
 		}
 
 		/// <summary>
