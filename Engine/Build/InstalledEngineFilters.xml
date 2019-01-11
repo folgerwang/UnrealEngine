@@ -291,6 +291,9 @@
 
 	<!-- Win64 -->
 	<Property Name="CopyWin64Filter">
+		<!-- Default resource files -->
+		Engine/Build/Windows/Resources/...
+
 		<!-- App local dependencies -->
 		Engine/Binaries/ThirdParty/AppLocalDependencies/...
 	</Property>
