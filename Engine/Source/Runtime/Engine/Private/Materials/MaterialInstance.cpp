@@ -35,6 +35,7 @@
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveLinearColorAtlas.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "Misc/ScopedSlowTask.h"
 
 DECLARE_CYCLE_STAT(TEXT("MaterialInstance CopyMatInstParams"), STAT_MaterialInstance_CopyMatInstParams, STATGROUP_Shaders);
 DECLARE_CYCLE_STAT(TEXT("MaterialInstance Serialize"), STAT_MaterialInstance_Serialize, STATGROUP_Shaders);
@@ -3828,7 +3829,7 @@ FPostProcessMaterialNode* IteratePostProcessMaterialNodes(const FFinalPostProces
 	}
 }
 
-void UMaterialInstance::AllMaterialsCacheResourceShadersForRendering()
+void UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog)
 {
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 	TArray<UMaterialInstance*> MaterialInstances;
@@ -3843,13 +3844,33 @@ void UMaterialInstance::AllMaterialsCacheResourceShadersForRendering()
 		FThreadHeartBeat::Get().HeartBeat();
 	}
 #else
-	for (TObjectIterator<UMaterialInstance> It; It; ++It)
+#if WITH_EDITOR
+	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "CacheMaterialInstanceShadersMessage", "Caching material instance shaders"), true);
+	if (bUpdateProgressDialog)
 	{
-		UMaterialInstance* MaterialInstance = *It;
+		SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
+		SlowTask.MakeDialog();
+	}
+#endif // WITH_EDITOR
+
+	TArray<UObject*> MaterialInstanceArray;
+	GetObjectsOfClass(UMaterialInstance::StaticClass(), MaterialInstanceArray, true, RF_ClassDefaultObject, EInternalObjectFlags::None);
+	float TaskIncrement = (float)100.0f / MaterialInstanceArray.Num();
+
+	for (UObject* MaterialInstanceObj : MaterialInstanceArray)
+	{
+		UMaterialInstance* MaterialInstance = (UMaterialInstance*)MaterialInstanceObj;
 
 		MaterialInstance->CacheResourceShadersForRendering();
+
+#if WITH_EDITOR
+		if (bUpdateProgressDialog)
+		{
+			SlowTask.EnterProgressFrame(TaskIncrement);
+		}
+#endif // WITH_EDITOR
 	}
-#endif
+#endif // STORE_ONLY_ACTIVE_SHADERMAPS
 }
 
 
