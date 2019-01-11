@@ -277,7 +277,7 @@ protected:
 class FArchiveFileWriterGeneric : public FArchive
 {
 public:
-	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize = PLATFORM_FILE_WRITER_BUFFER_SIZE );
+	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize = PLATFORM_FILE_WRITER_BUFFER_SIZE, uint32 InFlags = FILEWRITE_None);
 	~FArchiveFileWriterGeneric();
 
 	virtual void Seek( int64 InPos ) final;
@@ -323,8 +323,15 @@ protected:
 	 */
 	void LogWriteError(const TCHAR* Message);
 
+	/** Returns true if the archive should suppress logging in case of error */
+	bool IsSilent() const
+	{
+		return !!(Flags & FILEWRITE_Silent);
+	}
+
 	/** Filename for debugging purposes */
 	FString Filename;
+	uint32 Flags;
 	int64 Pos;
 	int64 BufferCount;
 	TUniquePtr<IFileHandle> Handle;

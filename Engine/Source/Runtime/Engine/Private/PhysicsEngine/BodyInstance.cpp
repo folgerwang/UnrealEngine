@@ -723,7 +723,7 @@ ECollisionEnabled::Type FBodyInstance::GetCollisionEnabled_CheckOwner() const
 	else if(const USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(OwnerComponentInst))
 	{
 		// Check component override (skel mesh case)
-		return SkelMeshComp->BodyInstance.CollisionEnabled;
+		return (ECollisionEnabled::Type)FMath::Max(SkelMeshComp->BodyInstance.CollisionEnabled, CollisionEnabled);
 	}
 	else
 	{

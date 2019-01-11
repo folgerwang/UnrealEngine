@@ -18,7 +18,10 @@
 #include "HAL/MemoryMisc.h"
 #include "HAL/MallocBinned.h"
 #include "HAL/MallocBinned2.h"
+#include "HAL/MallocBinned3.h"
 #include "Windows/WindowsHWrapper.h"
+
+#pragma warning(disable:6250)
 
 #if ENABLE_WIN_ALLOC_TRACKING
 #include <crtdbg.h>
@@ -75,6 +78,9 @@ void FWindowsPlatformMemory::Init()
 
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 (1)
+#if !defined(USE_MALLOC_BINNED3)
+	#define USE_MALLOC_BINNED3 (0)
+#endif
 
 FMalloc* FWindowsPlatformMemory::BaseAllocator()
 {
@@ -93,6 +99,12 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::TBB;
 	}
+#if PLATFORM_64BITS
+	else if (USE_MALLOC_BINNED3)
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Binned3;
+	}
+#endif
 	else if (USE_MALLOC_BINNED2)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Binned2;
@@ -114,6 +126,12 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	else if (FCString::Stristr(CommandLine, TEXT("-tbbmalloc")))
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::TBB;
+	}
+#endif
+#if PLATFORM_64BITS
+	else if (FCString::Stristr(CommandLine, TEXT("-binnedmalloc3")))
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Binned3;
 	}
 #endif
 	else if (FCString::Stristr(CommandLine, TEXT("-binnedmalloc2")))
@@ -146,7 +164,10 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 #endif
 	case EMemoryAllocatorToUse::Binned2:
 		return new FMallocBinned2();
-		
+#if PLATFORM_64BITS
+	case EMemoryAllocatorToUse::Binned3:
+		return new FMallocBinned3();
+#endif
 	default:	// intentional fall-through
 	case EMemoryAllocatorToUse::Binned:
 		return new FMallocBinned((uint32)(GetConstants().BinnedPageSize&MAX_uint32), (uint64)MAX_uint32 + 1);
@@ -279,6 +300,37 @@ void FWindowsPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 	// Windows maintains the size of allocation internally, so Size is unused
 	verify(VirtualFree( Ptr, 0, MEM_RELEASE ) != 0);
 }
+
+void* FWindowsPlatformMemory::MemoryRangeReserve(SIZE_T Size, bool bCommit, int32 Node)
+{
+	if (bCommit)
+	{
+		return BinnedAllocFromOS(Size);
+	}
+	void* Ptr = VirtualAlloc(NULL, Size, MEM_RESERVE | MEM_TOP_DOWN, PAGE_NOACCESS);
+	// no LLM for uncommitted memory!
+	return Ptr;
+
+}
+
+void FWindowsPlatformMemory::MemoryRangeFree(void* Ptr, SIZE_T Size)
+{
+	// this is an iffy assumption, mallocbinned3 will never free decommitted memory, but we don't know that anyone else will
+	BinnedFreeToOS(Ptr, Size);
+}
+
+bool FWindowsPlatformMemory::MemoryRangeCommit(void* Ptr, SIZE_T Size)
+{
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size));
+	return VirtualAlloc(Ptr, Size, MEM_COMMIT, PAGE_READWRITE) == Ptr;
+}
+
+bool FWindowsPlatformMemory::MemoryRangeDecommit(void* Ptr, SIZE_T Size)
+{
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
+	return VirtualFree(Ptr, Size, MEM_DECOMMIT) != 0;
+}
+
 
 FPlatformMemory::FSharedMemoryRegion* FWindowsPlatformMemory::MapNamedSharedMemoryRegion(const FString& InName, bool bCreate, uint32 AccessMode, SIZE_T Size)
 {

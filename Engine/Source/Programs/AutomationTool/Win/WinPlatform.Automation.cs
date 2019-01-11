@@ -399,7 +399,7 @@ public abstract class BaseWinPlatform : Platform
 		}
 	}
 
-	public override bool PublishSymbols(DirectoryReference SymbolStoreDirectory, List<FileReference> Files, string Product)
+	public override bool PublishSymbols(DirectoryReference SymbolStoreDirectory, List<FileReference> Files, string Product, string BuildVersion = null)
     {
         // Get the SYMSTORE.EXE path, using the latest SDK version we can find.
         FileReference SymStoreExe;
@@ -420,7 +420,7 @@ public abstract class BaseWinPlatform : Platform
 			{
 				File.WriteAllLines(TempFileName, FilesToAdd.Select(x => x.FullName), Encoding.ASCII);
 
-				// copy everything to the temp symstore
+				// Copy everything to the temp symstore
 				ProcessStartInfo StartInfo = new ProcessStartInfo();
 				StartInfo.FileName = SymStoreExe.FullName;
 				StartInfo.Arguments = string.Format("add /f \"@{0}\" /s \"{1}\" /t \"{2}\" /compress", TempFileName, TempSymStoreDir, Product);
@@ -437,47 +437,71 @@ public abstract class BaseWinPlatform : Platform
 			}
 			DateTime CompressDone = DateTime.Now;
 			LogInformation("Took {0}s to compress the symbol files", (CompressDone - Start).TotalSeconds);
+
 			// Take each new compressed file made and try and copy it to the real symstore.  Exclude any symstore admin files
-			DirectoryReference.EnumerateFiles(TempSymStoreDir, "*.*", SearchOption.AllDirectories).Where(File => File.HasExtension(".dl_") || File.HasExtension(".ex_") || File.HasExtension(".pd_")).ToList().ForEach(File =>
+			foreach(FileReference File in DirectoryReference.EnumerateFiles(TempSymStoreDir, "*.*", SearchOption.AllDirectories).Where(File => File.HasExtension(".dl_") || File.HasExtension(".ex_") || File.HasExtension(".pd_")))
 			{
 				string RelativePath = File.MakeRelativeTo(DirectoryReference.Combine(TempSymStoreDir));
 				FileReference ActualDestinationFile = FileReference.Combine(SymbolStoreDirectory, RelativePath);
-				FileReference TempDestinationFile = new FileReference(ActualDestinationFile.FullName + Guid.NewGuid().ToString());
-				CommandUtils.CopyFile_NoExceptions(File.FullName, TempDestinationFile.FullName);
 
-				// don't bother copying the temp file if the destination file is there already.
-				if(FileReference.Exists(ActualDestinationFile))
+				// Try and add a version file.  Do this before checking to see if the symbol is there already in the case of exact matches (multiple builds could use the same pdb, for example)
+				if (!string.IsNullOrWhiteSpace(BuildVersion))
 				{
-					LogInformation("Destination file {0} already exists, skipping", ActualDestinationFile.FullName);
-					return;
+					FileReference BuildVersionFile = FileReference.Combine(ActualDestinationFile.Directory, string.Format("{0}.version", BuildVersion));
+					// Attempt to create the file. Just continue if it fails.
+					try
+					{
+						DirectoryReference.CreateDirectory(BuildVersionFile.Directory);
+						FileReference.WriteAllText(BuildVersionFile, string.Empty);
+					}
+					catch (Exception Ex)
+					{
+						LogWarning("Failed to write the version file, reason {0}", Ex.ToString());
+					}
 				}
 
-				// move the file in the temp store over.
+				// Don't bother copying the temp file if the destination file is there already.
+				if (FileReference.Exists(ActualDestinationFile))
+				{
+					LogInformation("Destination file {0} already exists, skipping", ActualDestinationFile.FullName);
+					continue;
+				}
+
+				FileReference TempDestinationFile = new FileReference(ActualDestinationFile.FullName + Guid.NewGuid().ToString());
+				try
+				{
+					CommandUtils.CopyFile(File.FullName, TempDestinationFile.FullName);
+				}
+				catch(Exception Ex)
+				{
+					throw new AutomationException("Couldn't copy the symbol file to the temp store! Reason: {0}", Ex.ToString());
+				}
+				// Move the file in the temp store over.
 				try
 				{
 					FileReference.Move(TempDestinationFile, ActualDestinationFile);
 				}
-				catch(Exception Ex)
+				catch (Exception Ex)
 				{
-					// if the file is there already, it was likely either copied elsewhere (and this is an ioexception) or it had a file handle open already.
-					// either way, we're fine to just continue on.
+					// If the file is there already, it was likely either copied elsewhere (and this is an ioexception) or it had a file handle open already.
+					// Either way, it's fine to just continue on.
 					if (FileReference.Exists(ActualDestinationFile))
 					{
 						LogInformation("Destination file {0} already exists or was in use, skipping.", ActualDestinationFile.FullName);
-						return;
+						continue;
 					}
-					// if it doesn't exist, we actually failed to copy it entirely.
+					// If it doesn't exist, we actually failed to copy it entirely.
 					else
 					{
 						LogWarning("Couldn't move temp file {0} to the symbol store at location {1}! Reason: {2}", TempDestinationFile.FullName, ActualDestinationFile.FullName, Ex.ToString());
 					}
 				}
-				// delete the temp one no matter what, don't want them hanging around in the symstore
+				// Delete the temp one no matter what, don't want them hanging around in the symstore
 				finally
 				{
 					FileReference.Delete(TempDestinationFile);
 				}
-			});
+			}
 			LogInformation("Took {0}s to copy the symbol files to the store", (DateTime.Now - CompressDone).TotalSeconds);
 		}
 			

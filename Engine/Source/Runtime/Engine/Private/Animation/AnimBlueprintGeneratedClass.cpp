@@ -338,7 +338,12 @@ void UAnimBlueprintGeneratedClass::PostLoadDefaultObject(UObject* Object)
 {
 	Super::PostLoadDefaultObject(Object);
 
-	FExposedValueHandler::Initialize(EvaluateGraphExposedInputs, Object);
+	UAnimBlueprintGeneratedClass* Iter = this;
+	while(Iter)
+	{
+		FExposedValueHandler::Initialize(Iter->EvaluateGraphExposedInputs, Object);
+		Iter = Cast<UAnimBlueprintGeneratedClass>(Iter->GetSuperClass());
+	}
 }
 
 #if WITH_EDITORONLY_DATA

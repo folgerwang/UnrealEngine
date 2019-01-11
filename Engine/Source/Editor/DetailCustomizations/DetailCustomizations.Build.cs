@@ -58,6 +58,7 @@ public class DetailCustomizations : ModuleRules
 				"AdvancedPreviewScene",
 				"AudioSettingsEditor",
 				"HeadMountedDisplay",
+                "DataTableEditor",
             }
 		);
 

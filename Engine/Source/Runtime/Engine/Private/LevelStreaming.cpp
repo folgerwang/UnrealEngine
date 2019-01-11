@@ -429,10 +429,6 @@ bool ULevelStreaming::DetermineTargetState()
 		{
 			bContinueToConsider = false;
 		}
-		else if (!GUseBackgroundLevelStreaming && ShouldBeLoaded())
-		{
-			TargetState = ETargetState::LoadedNotVisible;
-		}
 		else if (!World->IsGameWorld())
 		{
 			TargetState = ETargetState::LoadedNotVisible;
@@ -1432,6 +1428,22 @@ void ULevelStreaming::RenameForPIE(int32 PIEInstanceID)
 			FSoftObjectPath::AddPIEPackageName(LODPackageName);
 
 			NetDriverRenameStreamingLevelPackageForPIE(World, NonPrefixedLODPackageName);
+		}
+	}
+}
+
+void ULevelStreaming::SetPriority(const int32 NewPriority)
+{
+	if (NewPriority != StreamingPriority)
+	{
+		StreamingPriority = NewPriority;
+
+		if (CurrentState != ECurrentState::Removed && CurrentState != ECurrentState::FailedToLoad)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				World->UpdateStreamingLevelPriority(this);
+			}
 		}
 	}
 }

@@ -32,7 +32,7 @@ namespace BuildPatchServices
 		virtual void Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData) override;
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TUniquePtr<IChunkDataAccess> Remove(const FGuid& DataId) override;
-		virtual int32 GetSlack() const override;
+		virtual int32 GetSize() const override;
 		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) override;
 		// IChunkStore interface end.
 
@@ -177,7 +177,7 @@ namespace BuildPatchServices
 		return ReturnValue;
 	}
 
-	int32 FDiskChunkStore::GetSlack() const
+	int32 FDiskChunkStore::GetSize() const
 	{
 		// We are not configured with a max, so as per API spec, return max int32
 		return MAX_int32;

@@ -86,7 +86,7 @@ void UPartyMember::InitializePartyMember(const TSharedRef<FOnlinePartyMember>& I
 
 void UPartyMember::InitializeLocalMemberRepData()
 {
-	UE_LOG(LogParty, VeryVerbose, TEXT("Initializing rep data for local member [%s]"), *ToDebugString());
+	UE_LOG(LogParty, Verbose, TEXT("Initializing rep data for local member [%s]"), *ToDebugString());
 
 	MemberDataReplicator->SetPlatform(IOnlineSubsystem::GetLocalPlatformName());
 	MemberDataReplicator->SetPlatformUniqueId(SocialUser->GetUserId(ESocialSubsystem::Platform));
@@ -226,7 +226,7 @@ void UPartyMember::FinishInitializing()
 		InitializeLocalMemberRepData();
 	}
 
-	UE_LOG(LogParty, Verbose, TEXT("Member [%s] is now fully initialized."), *ToDebugString());
+	UE_LOG(LogParty, Verbose, TEXT("PartyMember [%s] is now fully initialized."), *ToDebugString());
 	OnInitializationComplete().Broadcast();
 	OnInitializationComplete().Clear();
 }
@@ -248,6 +248,7 @@ void UPartyMember::OnRemovedFromPartyInternal(EMemberExitedReason ExitReason)
 
 void UPartyMember::HandleSocialUserInitialized(USocialUser& InitializedUser)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("PartyMember [%s]'s underlying SocialUser has been initialized"), *ToDebugString());
 	if (bHasReceivedInitialData)
 	{
 		FinishInitializing();

@@ -868,6 +868,8 @@ void STableViewBase::RequestLayoutRefresh()
 	{
 		ItemsPanel->SetRefreshPending(true);
 	}
+
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STableViewBase::ScrollToTop()

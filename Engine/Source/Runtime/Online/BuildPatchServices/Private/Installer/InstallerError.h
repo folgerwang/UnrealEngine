@@ -43,7 +43,8 @@ namespace BuildPatchServices
 	 */
 	namespace DownloadErrorCodes
 	{
-		static const TCHAR* OutOfRetries = TEXT("01");
+		static const TCHAR* OutOfChunkRetries = TEXT("01");
+		static const TCHAR* MissingDestinationManifest = TEXT("02");
 	}
 
 	/**

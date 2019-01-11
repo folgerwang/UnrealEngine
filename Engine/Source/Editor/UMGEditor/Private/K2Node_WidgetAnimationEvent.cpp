@@ -28,7 +28,6 @@ void UK2Node_WidgetAnimationEvent::Initialize(const UWidgetBlueprint* InSourceBl
 
 	AnimationPropertyName = InAnimation->GetMovieScene()->GetFName();
 	Action = InAction;
-	DelegatePropertyDisplayName = InAnimation->GetDisplayName();
 
 	MarkDirty();
 }

@@ -42,6 +42,14 @@ FPropertyLocalizationDataGatherer::FPropertyLocalizationDataGatherer(TArray<FGat
 	{
 		GatherLocalizationDataFromObjectWithCallbacks(Object, EPropertyLocalizationGathererTextFlags::None);
 	}
+
+	// Iterate any bytecode containing objects
+	for (const FObjectAndGatherFlags& BytecodeToGather : BytecodePendingGather)
+	{
+		const UStruct* Struct = CastChecked<UStruct>(BytecodeToGather.Object);
+		GatherScriptBytecode(Struct->GetPathName(), Struct->Script, !!(BytecodeToGather.GatherTextFlags & EPropertyLocalizationGathererTextFlags::ForceEditorOnlyScriptData));
+	}
+	BytecodePendingGather.Reset();
 }
 
 bool FPropertyLocalizationDataGatherer::ShouldProcessObject(const UObject* Object, const EPropertyLocalizationGathererTextFlags GatherTextFlags) const
@@ -108,10 +116,9 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromObject(const U
 			ResultFlags |= EPropertyLocalizationGathererResultFlags::HasScript;
 		}
 
-		const UStruct* Struct = Cast<UStruct>(Object);
-		if (Struct)
+		if (Object->IsA<UStruct>())
 		{
-			GatherScriptBytecode(Path, Struct->Script, !!(GatherTextFlags & EPropertyLocalizationGathererTextFlags::ForceEditorOnlyScriptData));
+			BytecodePendingGather.Add(FObjectAndGatherFlags(Object, GatherTextFlags));
 		}
 	}
 
@@ -226,25 +233,26 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 		const void* const ElementValueAddress = reinterpret_cast<const uint8*>(ValueAddress) + Property->ElementSize * i;
 		const void* const DefaultElementValueAddress = DefaultValueAddress ? (reinterpret_cast<const uint8*>(DefaultValueAddress) + Property->ElementSize * i) : nullptr;
 
-		const bool bIsDefaultValue = DefaultElementValueAddress && Property->Identical(ElementValueAddress, DefaultElementValueAddress, PPF_None);
-		if (bIsDefaultValue)
-		{
-			// Skip any properties that have the default value, as those will be gathered from the default instance
-			continue;
-		}
-
 		// Property is a text property.
 		if (TextProperty)
 		{
 			const FText* const TextElementValueAddress = static_cast<const FText*>(ElementValueAddress);
 
-			UPackage* const PropertyPackage = TextProperty->GetOutermost();
-			if (FTextInspector::GetFlags(*TextElementValueAddress) & ETextFlag::ConvertedProperty)
+			const bool bIsDefaultValue = DefaultElementValueAddress && Property->Identical(ElementValueAddress, DefaultElementValueAddress, PPF_None);
+			if (bIsDefaultValue)
 			{
-				PropertyPackage->MarkPackageDirty();
+				MarkDefaultTextInstance(*TextElementValueAddress);
 			}
+			else
+			{
+				UPackage* const PropertyPackage = TextProperty->GetOutermost();
+				if (FTextInspector::GetFlags(*TextElementValueAddress) & ETextFlag::ConvertedProperty)
+				{
+					PropertyPackage->MarkPackageDirty();
+				}
 
-			GatherTextInstance(*TextElementValueAddress, PathToElement, !!(GatherTextFlags & EPropertyLocalizationGathererTextFlags::ForceEditorOnlyProperties) || TextProperty->HasAnyPropertyFlags(CPF_EditorOnly));
+				GatherTextInstance(*TextElementValueAddress, PathToElement, !!(GatherTextFlags & EPropertyLocalizationGathererTextFlags::ForceEditorOnlyProperties) || TextProperty->HasAnyPropertyFlags(CPF_EditorOnly));
+			}
 		}
 		// Property is a DYNAMIC array property.
 		else if (ArrayProperty)
@@ -285,11 +293,11 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 				const uint8* MapPairPtr = ScriptMapHelper.GetPairPtr(j);
 				if (CanGatherFromInnerProperty(MapProperty->KeyProp))
 				{
-				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Key)"), ElementIndex), MapProperty->KeyProp, MapPairPtr + MapProperty->MapLayout.KeyOffset, nullptr, ChildPropertyGatherTextFlags);
+					GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Key)"), ElementIndex), MapProperty->KeyProp, MapPairPtr + MapProperty->MapLayout.KeyOffset, nullptr, ChildPropertyGatherTextFlags);
 				}
 				if (CanGatherFromInnerProperty(MapProperty->ValueProp))
 				{
-				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Value)"), ElementIndex), MapProperty->ValueProp, MapPairPtr + MapProperty->MapLayout.ValueOffset, nullptr, ChildPropertyGatherTextFlags);
+					GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Value)"), ElementIndex), MapProperty->ValueProp, MapPairPtr + MapProperty->MapLayout.ValueOffset, nullptr, ChildPropertyGatherTextFlags);
 				}
 				++ElementIndex;
 			}
@@ -378,10 +386,7 @@ void FPropertyLocalizationDataGatherer::GatherTextInstance(const FText& Text, co
 
 	FString Namespace;
 	FString Key;
-	const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(Text);
-	const bool bFoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DisplayString, Namespace, Key);
-
-	if (!bFoundNamespaceAndKey || !Text.ShouldGatherForLocalization())
+	if (!ExtractTextIdentity(Text, Namespace, Key, /*bCleanNamespace*/false))
 	{
 		return;
 	}
@@ -525,8 +530,10 @@ private:
 				bIsParsingText = false;
 
 				const FText TextInstance = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *TextNamespace, *TextKey);
-
-				PropertyLocalizationDataGatherer.GatherTextInstance(TextInstance, FString::Printf(TEXT("%s [Script Bytecode]"), SourceDescription), bTreatAsEditorOnlyData);
+				if (!PropertyLocalizationDataGatherer.IsDefaultTextInstance(TextInstance))
+				{
+					PropertyLocalizationDataGatherer.GatherTextInstance(TextInstance, FString::Printf(TEXT("%s [Script Bytecode]"), SourceDescription), bTreatAsEditorOnlyData);
+				}
 			}
 			break;
 
@@ -571,6 +578,42 @@ void FPropertyLocalizationDataGatherer::GatherScriptBytecode(const FString& Path
 	}
 
 	FGatherTextFromScriptBytecode(*PathToScript, ScriptData, *this, bIsEditorOnly);
+}
+
+bool FPropertyLocalizationDataGatherer::IsDefaultTextInstance(const FText& Text) const
+{
+	FString Namespace;
+	FString Key;
+	if (ExtractTextIdentity(Text, Namespace, Key, /*bCleanNamespace*/true))
+	{
+		return DefaultTextInstances.Contains(FTextId(MoveTemp(Namespace), MoveTemp(Key)));
+	}
+	return false;
+}
+
+void FPropertyLocalizationDataGatherer::MarkDefaultTextInstance(const FText& Text)
+{
+	FString Namespace;
+	FString Key;
+	if (ExtractTextIdentity(Text, Namespace, Key, /*bCleanNamespace*/true))
+	{
+		DefaultTextInstances.Add(FTextId(MoveTemp(Namespace), MoveTemp(Key)));
+	}
+}
+
+bool FPropertyLocalizationDataGatherer::ExtractTextIdentity(const FText& Text, FString& OutNamespace, FString& OutKey, const bool bCleanNamespace)
+{
+	const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(Text);
+	const bool bFoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DisplayString, OutNamespace, OutKey);
+	if (bFoundNamespaceAndKey && Text.ShouldGatherForLocalization())
+	{
+		if (bCleanNamespace)
+		{
+			OutNamespace = TextNamespaceUtil::StripPackageNamespace(OutNamespace);
+		}
+		return true;
+	}
+	return false;
 }
 
 FPropertyLocalizationDataGatherer::FLocalizationDataGatheringCallbackMap& FPropertyLocalizationDataGatherer::GetTypeSpecificLocalizationDataGatheringCallbacks()

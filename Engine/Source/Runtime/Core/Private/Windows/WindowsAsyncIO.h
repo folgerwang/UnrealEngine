@@ -50,13 +50,13 @@ class FWindowsReadRequest : public IAsyncReadRequest
 	int64 BytesToRead;
 	int64 FileSize;
 	HANDLE FileHandle;
-	EAsyncIOPriority Priority;
+	EAsyncIOPriorityAndFlags PriorityAndFlags;
 	uint8* TempMemory;
 	int64 AlignedOffset;
 	int64 AlignedBytesToRead;
 	OVERLAPPED OverlappedIO;
 public:
-	FWindowsReadRequest(FWindowsAsyncReadFileHandle* InOwner, FAsyncFileCallBack* CompleteCallback, uint8* InUserSuppliedMemory, int64 InOffset, int64 InBytesToRead, int64 InFileSize, HANDLE InHandle, EAsyncIOPriority InPriority)
+	FWindowsReadRequest(FWindowsAsyncReadFileHandle* InOwner, FAsyncFileCallBack* CompleteCallback, uint8* InUserSuppliedMemory, int64 InOffset, int64 InBytesToRead, int64 InFileSize, HANDLE InHandle, EAsyncIOPriorityAndFlags InPriorityAndFlags)
 		: IAsyncReadRequest(CompleteCallback, false, InUserSuppliedMemory)
 		, Task(nullptr)
 		, Owner(InOwner)
@@ -64,7 +64,7 @@ public:
 		, BytesToRead(InBytesToRead)
 		, FileSize(InFileSize)
 		, FileHandle(InHandle)
-		, Priority(InPriority)
+		, PriorityAndFlags(InPriorityAndFlags)
 		, TempMemory(nullptr)
 	{
 		FMemory::Memzero(OverlappedIO);
@@ -408,12 +408,12 @@ public:
 	{
 		return new FWindowsSizeRequest(CompleteCallback, FileSize);
 	}
-	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
 	{
 		if (FileHandle != INVALID_HANDLE_VALUE)
 		{
-			FWindowsReadRequest* Result = new FWindowsReadRequest(this, CompleteCallback, UserSuppliedMemory, Offset, BytesToRead, FileSize, FileHandle, Priority);
-			if (Priority == AIOP_Precache) // only precache requests are tracked for possible reuse
+			FWindowsReadRequest* Result = new FWindowsReadRequest(this, CompleteCallback, UserSuppliedMemory, Offset, BytesToRead, FileSize, FileHandle, PriorityAndFlags);
+			if (PriorityAndFlags & AIOP_FLAG_PRECACHE) // only precache requests are tracked for possible reuse
 			{
 				FScopeLock Lock(&LiveRequestsCritical);
 				LiveRequests.Add(Result);
@@ -452,7 +452,7 @@ FWindowsReadRequest::~FWindowsReadRequest()
 		FMemory::Free(TempMemory);
 		TempMemory = nullptr;
 	}
-	if (Priority == AIOP_Precache) // only precache requests are tracked for possible reuse
+	if (PriorityAndFlags & AIOP_FLAG_PRECACHE) // only precache requests are tracked for possible reuse
 	{
 		Owner->RemoveRequest(this);
 	}
@@ -461,7 +461,7 @@ FWindowsReadRequest::~FWindowsReadRequest()
 
 bool FWindowsReadRequest::CheckForPrecache()
 {
-	if (Priority > AIOP_Precache)  // only requests at higher than precache priority check for existing blocks to copy from 
+	if ((PriorityAndFlags & AIOP_FLAG_PRECACHE) == 0)  // only non-precache requests check for existing blocks to copy from 
 	{
 		check(!Memory || bUserSuppliedMemory);
 		uint8* Result = Owner->GetPrecachedBlock(Memory, Offset, BytesToRead);

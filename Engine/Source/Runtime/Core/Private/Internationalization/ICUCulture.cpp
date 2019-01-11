@@ -113,6 +113,28 @@ ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag)
 	return ETextPluralForm::Other;
 }
 
+TArray<ETextPluralForm> ICUPluralRulesToUEValidPluralForms(const icu::PluralRules* InICUPluralRules)
+{
+	check(InICUPluralRules);
+
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	icu::StringEnumeration* ICUAvailablePluralForms = InICUPluralRules->getKeywords(ICUStatus);
+
+	TArray<ETextPluralForm> UEPluralForms;
+
+	if (ICUAvailablePluralForms)
+	{
+		while (const icu::UnicodeString* ICUTag = ICUAvailablePluralForms->snext(ICUStatus))
+		{
+			UEPluralForms.Add(ICUPluralFormToUE(*ICUTag));
+		}
+		delete ICUAvailablePluralForms;
+	}
+
+	UEPluralForms.Sort();
+	return UEPluralForms;
+}
+
 FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& LocaleName)
 	: ICULocale( TCHAR_TO_ANSI( *LocaleName ) )
 {
@@ -124,11 +146,13 @@ FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& Lo
 		UErrorCode ICUStatus = U_ZERO_ERROR;
 		ICUCardinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_CARDINAL, ICUStatus);
 		checkf(U_SUCCESS(ICUStatus) && ICUCardinalPluralRules, TEXT("Creating a cardinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableCardinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUCardinalPluralRules);
 	}
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		ICUOrdianalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
-		checkf(U_SUCCESS(ICUStatus) && ICUOrdianalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		ICUOrdinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
+		checkf(U_SUCCESS(ICUStatus) && ICUOrdinalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableOrdinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUOrdinalPluralRules);
 	}
 }
 
@@ -978,24 +1002,29 @@ const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetCur
 	}
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType) const
 {
 	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType) const
 {
 	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
+}
+
+const TArray<ETextPluralForm>& FCulture::FICUCultureImplementation::GetValidPluralForms(const ETextPluralType PluralType) const
+{
+	return (PluralType == ETextPluralType::Cardinal) ? UEAvailableCardinalPluralForms : UEAvailableOrdinalPluralForms;
 }
 
 #endif

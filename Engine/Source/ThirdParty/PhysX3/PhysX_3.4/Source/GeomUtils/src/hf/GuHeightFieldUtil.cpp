@@ -36,6 +36,7 @@
 #include "GuHeightField.h"
 #include "GuEntityReport.h"
 #include "PxMeshScale.h"
+#include "PsString.h"
 
 using namespace physx;
 
@@ -874,6 +875,8 @@ bool Gu::HeightFieldUtil::overlapAABBTriangles(const PxTransform& pose, const Px
 	const PxReal miny = localBounds.minimum.y;
 	const PxReal maxy = localBounds.maximum.y;
 
+	PxU32 bufferOverflowCount = 0;
+
 	for(PxU32 row=minRow; row<maxRow; row++)
 	{
 		for(PxU32 column=minColumn; column<maxColumn; column++)
@@ -887,10 +890,26 @@ bool Gu::HeightFieldUtil::overlapAABBTriangles(const PxTransform& pose, const Px
 				const PxU32 material0 = mHeightField->getMaterialIndex0(offset);
 				if(material0 != PxHeightFieldMaterial::eHOLE) 
 				{
-					if(indexBufferUsed >= bufferSize)
+					if (indexBufferUsed >= bufferSize)
 					{
 						callback->onEvent(indexBufferUsed, indexBuffer);
 						indexBufferUsed = 0;
+
+						PxU32 rowDiff = (maxRow - minRow);
+						PxU32 columnDiff = (maxColumn - minColumn);
+
+						char buffer[1024];
+						Ps::snprintf(buffer, 1024, "Hit Count - %u, Min row - %u, Max row - %u, Min column - %u, Max column - %u, Row Diff - %u, Column Diff - %u, Local Bounds Min - \
+							%f %f %f, Local Bounds Max - %f %f %f, One Over Row Scale - %f, One Over Height Scale - %f, One Over Column Scale - %f, Num Rows - %u, Num Columns - %u,\
+							Pose p - %f %f %f, Pose q - %f %f %f %f, Number of Triangles - %u, material - 0",
+							bufferOverflowCount, minRow, maxRow, minColumn, maxColumn, rowDiff, columnDiff, static_cast<double>(localBounds.minimum.x), static_cast<double>(localBounds.minimum.y),
+							static_cast<double>(localBounds.minimum.z), static_cast<double>(localBounds.maximum.x), static_cast<double>(localBounds.maximum.y), static_cast<double>(localBounds.maximum.z),
+							static_cast<double>(mOneOverRowScale), static_cast<double>(mOneOverHeightScale), static_cast<double>(mOneOverColumnScale), nbRows, nbColumns, static_cast<double>(pose.p.x),
+							static_cast<double>(pose.p.y), static_cast<double>(pose.p.z), static_cast<double>(pose.q.w), static_cast<double>(pose.q.x), static_cast<double>(pose.q.y), static_cast<double>(pose.q.z), nb);
+
+						Ps::getFoundation().error(PxErrorCode::eLOGGING_INFO, __FILE__, __LINE__, buffer);
+
+						bufferOverflowCount++;
 					}
 
 					indexBuffer[indexBufferUsed++] = offset << 1;
@@ -907,6 +926,22 @@ bool Gu::HeightFieldUtil::overlapAABBTriangles(const PxTransform& pose, const Px
 					{
 						callback->onEvent(indexBufferUsed, indexBuffer);
 						indexBufferUsed = 0;
+
+						PxU32 rowDiff = (maxRow - minRow);
+						PxU32 columnDiff = (maxColumn - minColumn);
+
+						char buffer[1024];
+						Ps::snprintf(buffer, 1024, "Hit Count - %u, Min row - %u, Max row - %u, Min column - %u, Max column - %u, Row Diff - %u, Column Diff - %u, Local Bounds Min - \
+							%f %f %f, Local Bounds Max - %f %f %f, One Over Row Scale - %f, One Over Height Scale - %f, One Over Column Scale - %f, Num Rows - %u, Num Columns - %u,\
+							Pose p - %f %f %f, Pose q - %f %f %f %f, Number of Triangles - %u, material - 1",
+							bufferOverflowCount, minRow, maxRow, minColumn, maxColumn, rowDiff, columnDiff, static_cast<double>(localBounds.minimum.x), static_cast<double>(localBounds.minimum.y),
+							static_cast<double>(localBounds.minimum.z), static_cast<double>(localBounds.maximum.x), static_cast<double>(localBounds.maximum.y), static_cast<double>(localBounds.maximum.z),
+							static_cast<double>(mOneOverRowScale), static_cast<double>(mOneOverHeightScale), static_cast<double>(mOneOverColumnScale), nbRows, nbColumns, static_cast<double>(pose.p.x),
+							static_cast<double>(pose.p.y), static_cast<double>(pose.p.z), static_cast<double>(pose.q.w), static_cast<double>(pose.q.x), static_cast<double>(pose.q.y), static_cast<double>(pose.q.z), nb);
+
+						Ps::getFoundation().error(PxErrorCode::eLOGGING_INFO, __FILE__, __LINE__, buffer);
+
+						bufferOverflowCount++;
 					}
 
 					indexBuffer[indexBufferUsed++] = (offset << 1) + 1;

@@ -56,5 +56,5 @@ struct FCurveTableEditorHandle : public FCurveOwnerInterface
 	}
 
 	/** Get the curve straight from the row handle */
-	FRichCurve* GetCurve() const;
+	FRealCurve* GetCurve() const;
 };

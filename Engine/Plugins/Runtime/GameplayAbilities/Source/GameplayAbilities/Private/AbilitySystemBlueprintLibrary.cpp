@@ -278,7 +278,7 @@ TArray<AActor*> UAbilitySystemBlueprintLibrary::GetActorsFromTargetData(const FG
 {
 	if (TargetData.Data.IsValidIndex(Index))
 	{
-		FGameplayAbilityTargetData* Data = TargetData.Data[Index].Get();
+		const FGameplayAbilityTargetData* Data = TargetData.Data[Index].Get();
 		TArray<AActor*>	ResolvedArray;
 		if (Data)
 		{
@@ -291,6 +291,27 @@ TArray<AActor*> UAbilitySystemBlueprintLibrary::GetActorsFromTargetData(const FG
 		return ResolvedArray;
 	}
 	return TArray<AActor*>();
+}
+
+TArray<AActor*> UAbilitySystemBlueprintLibrary::GetAllActorsFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData)
+{
+	TArray<AActor*>	Result;
+	for (int32 TargetDataIndex = 0; TargetDataIndex < TargetData.Data.Num(); ++TargetDataIndex)
+	{
+		if (TargetData.Data.IsValidIndex(TargetDataIndex))
+		{
+			const FGameplayAbilityTargetData* DataAtIndex = TargetData.Data[TargetDataIndex].Get();
+			if (DataAtIndex)
+			{
+				TArray<TWeakObjectPtr<AActor>> WeakArray = DataAtIndex->GetActors();
+				for (TWeakObjectPtr<AActor>& WeakPtr : WeakArray)
+				{
+					Result.Add(WeakPtr.Get());
+				}
+			}
+		}
+	}
+	return Result;
 }
 
 bool UAbilitySystemBlueprintLibrary::DoesTargetDataContainActor(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index, AActor* Actor)

@@ -6093,7 +6093,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 
 
 					FString Args(TEXT("build "));
+					Args += TEXT("\"");
 					Args += StablePCPath;
+					Args += TEXT("\"");
 
 					int32 NumMatched = 0;
 					for (int32 Index = 0; Index < SCLCSVPaths->Num(); Index++)
@@ -6104,7 +6106,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 						}
 						NumMatched++;
 						Args += TEXT(" ");
+						Args += TEXT("\"");
 						Args += (*SCLCSVPaths)[Index];
+						Args += TEXT("\"");
 					}
 					if (!NumMatched)
 					{
@@ -6117,7 +6121,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 					}
 
 					Args += TEXT(" ");
+					Args += TEXT("\"");
 					Args += PCPath;
+					Args += TEXT("\"");
 					UE_LOG(LogCook, Display, TEXT("  With Args: %s"), *Args);
 
 					int32 Result = UShaderPipelineCacheToolsCommandlet::StaticMain(Args);

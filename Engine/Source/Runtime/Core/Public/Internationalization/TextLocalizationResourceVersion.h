@@ -40,6 +40,8 @@ struct CORE_API FTextLocalizationResourceVersion
 		Legacy = 0,
 		/** Compact format file - strings are stored in a LUT to avoid duplication. */
 		Compact,
+		/** Optimized format file - namespaces/keys are pre-hashed, we know the number of elements up-front, and the number of references for each string in the LUT (to allow stealing). */
+		Optimized,
 
 		LatestPlusOne,
 		Latest = LatestPlusOne - 1

@@ -465,19 +465,19 @@ class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 	
 	/** @return the left most characters from the string chopping the given number of characters from the end */
 	UFUNCTION(BlueprintPure, Category = "Utilities|String")
-		static FString LeftChop(const FString& SourceString, int32 Count);
+	static FString LeftChop(const FString& SourceString, int32 Count);
 	
 	/** @return the string to the right of the specified location, counting back from the right (end of the word). */
 	UFUNCTION(BlueprintPure, Category = "Utilities|String")
-		static FString Right(const FString& SourceString, int32 Count);
+	static FString Right(const FString& SourceString, int32 Count);
 
 	/** @return the string to the right of the specified location, counting forward from the left (from the beginning of the word). */
 	UFUNCTION(BlueprintPure, Category = "Utilities|String")
-		static FString RightChop(const FString& SourceString, int32 Count);
+	static FString RightChop(const FString& SourceString, int32 Count);
 
 	/** @return the substring from Start position for Count characters. */
 	UFUNCTION(BlueprintPure, Category = "Utilities|String")
-		static FString Mid(const FString& SourceString, int32 Start, int32 Count);
+	static FString Mid(const FString& SourceString, int32 Start, int32 Count);
 
 	/** Convert a number of seconds into minutes:seconds.milliseconds format string */
 	UFUNCTION(BlueprintPure,  Category = "Utilities|String")

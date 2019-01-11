@@ -16,6 +16,8 @@
 #include "Internationalization/TextChronoFormatter.h"
 #include "Internationalization/TextTransformer.h"
 #include "Internationalization/TextNamespaceUtil.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/MemoryWriter.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTextHistory, Log, All);
 DEFINE_LOG_CATEGORY(LogTextHistory);
@@ -1336,4 +1338,97 @@ FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry(con
 	}
 
 	return StringTableEntryPin;
+}
+
+
+///////////////////////////////////////
+// FTextHistory_TextGenerator
+
+FTextHistory_TextGenerator::FTextHistory_TextGenerator(const TSharedRef<ITextGenerator>& InTextGenerator)
+	: TextGenerator(InTextGenerator)
+{
+}
+
+//~ Begin FTextHistory Interface
+FString FTextHistory_TextGenerator::BuildLocalizedDisplayString() const
+{
+	return TextGenerator
+		? TextGenerator->BuildLocalizedDisplayString()
+		: FString();
+}
+
+FString FTextHistory_TextGenerator::BuildInvariantDisplayString() const
+{
+	return TextGenerator
+		? TextGenerator->BuildInvariantDisplayString()
+		: FString();
+}
+
+void FTextHistory_TextGenerator::Serialize(FStructuredArchive::FRecord Record)
+{
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+	if (BaseArchive.IsSaving())
+	{
+		int8 HistoryType = (int8)ETextHistoryType::TextGenerator;
+		Record << NAMED_FIELD(HistoryType);
+	}
+
+	FName GeneratorTypeID = (BaseArchive.IsSaving() && TextGenerator)
+		? TextGenerator->GetTypeID()
+		: FName();
+	Record << NAMED_FIELD(GeneratorTypeID);
+
+	TArray<uint8> GeneratorContents;
+
+	if (BaseArchive.IsLoading())
+	{
+		TextGenerator.Reset();
+
+		// Look up and construct or skip
+		if (GeneratorTypeID != NAME_None)
+		{
+			FText::FCreateTextGeneratorDelegate FactoryFunction = FText::FindRegisteredTextGenerator(GeneratorTypeID);
+			Record << NAMED_FIELD(GeneratorContents);
+
+			if (ensureMsgf(FactoryFunction.IsBound(), TEXT("FTextHistory_TextGenerator::Serialize(): Unable to find registered text generator for \"%s\". Use FText::RegisterTextGenerator() to register a handler."),
+				*GeneratorTypeID.ToString()))
+			{
+				FMemoryReader ArReader(GeneratorContents);
+				FStructuredArchiveFromArchive ArStructuredReader(ArReader);
+
+				{
+					FStructuredArchive::FRecord ContentRecord = ArStructuredReader.GetSlot().EnterRecord();
+					TextGenerator = FactoryFunction.Execute(ContentRecord);
+					TextGenerator->Serialize(ContentRecord);
+				}
+
+				if (ArReader.IsError())
+				{
+					BaseArchive.SetError();
+				}
+			}
+		}
+	}
+	else if (BaseArchive.IsSaving())
+	{
+		if (ensureMsgf(GeneratorTypeID != NAME_None, TEXT("FTextHistory_TextGenerator::Serialize(): Attempting to serialize a generator type that is not serializable")))
+		{
+			ensureMsgf(
+				FText::FindRegisteredTextGenerator(GeneratorTypeID).IsBound(),
+				TEXT("FTextHistory_TextGenerator::Serialize(): No generator factory function is registered for type \"%s\". Deserialization will fail. Use FText::RegisterTextGenerator() to register a handler."),
+				*GeneratorTypeID.ToString()
+			);
+
+			FMemoryWriter ArWriter(GeneratorContents);
+			FStructuredArchiveFromArchive ArStructuredWriter(ArWriter);
+
+			TextGenerator->Serialize(ArStructuredWriter.GetSlot().EnterRecord());
+			Record << NAMED_FIELD(GeneratorContents);
+
+			if (ArWriter.IsError())
+			{
+				BaseArchive.SetError();
+			}
+		}
+	}
 }

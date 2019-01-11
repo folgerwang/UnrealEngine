@@ -42,6 +42,9 @@ namespace UnrealBuildTool.Rules
                         "PropertyEditor",
                     }
                 );
+
+                PrivateIncludePathModuleNames.Add("ControlRigEditor");
+                DynamicallyLoadedModuleNames.Add("ControlRigEditor");
             }
         }
     }

@@ -1220,7 +1220,14 @@ namespace VulkanRHI
 			DeviceMemoryAllocation->Map(BufferSize, 0);
 		}
 
-		FBufferAllocation* BufferAllocation = new FBufferAllocation(this, DeviceMemoryAllocation, MemoryTypeIndex, MemoryPropertyFlags, MemReqs.alignment, Buffer, BufferUsageFlags, PoolSize);
+		uint32 BufferId = 0;
+		if (UseVulkanDescriptorCache())
+		{
+			BufferId = ++GVulkanBufferHandleIdCounter;
+		}
+
+		FBufferAllocation* BufferAllocation = new FBufferAllocation(this, DeviceMemoryAllocation, MemoryTypeIndex,
+			MemoryPropertyFlags, MemReqs.alignment, Buffer, BufferId, BufferUsageFlags, PoolSize);
 		UsedBufferAllocations[PoolSize].Add(BufferAllocation);
 
 		return (FBufferSuballocation*)BufferAllocation->TryAllocateNoLocking(Size, Alignment, File, Line);
@@ -2057,7 +2064,7 @@ namespace VulkanRHI
 		VkPipelineStageFlags DestStages = (VkPipelineStageFlags)0;
 		SetImageBarrierInfo(Source, Dest, ImageBarrier, SourceStages, DestStages);
 
-		if (!DelayAcquireBackBuffer())
+		if (GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
 		{
 			// special handling for VK_IMAGE_LAYOUT_PRESENT_SRC_KHR (otherwise Mali devices flicker)
 			if (Source == EImageLayoutBarrier::Present)

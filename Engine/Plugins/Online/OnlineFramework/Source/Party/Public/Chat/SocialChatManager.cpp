@@ -160,6 +160,11 @@ void USocialChatManager::FocusChatChannel(USocialChatChannel& InChannel)
 	OnChannelFocusRequestedEvent.Broadcast(InChannel);
 }
 
+void USocialChatManager::DisplayChatChannel(USocialChatChannel& InChannel)
+{
+	OnChannelDisplayRequestedEvent.Broadcast(InChannel);
+}
+
 TSubclassOf<USocialChatRoom> USocialChatManager::GetClassForChatRoom(ESocialChannelType Type) const
 {
 	if (Type == ESocialChannelType::Party)

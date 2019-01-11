@@ -1383,25 +1383,28 @@ FArchive& operator<<( FArchive& Ar, FString& A )
 		bool LoadUCS2Char = SaveNum < 0;
 		if (LoadUCS2Char)
 		{
+			// If SaveNum cannot be negated due to integer overflow, Ar is corrupted.
+			if (SaveNum == MIN_int32)
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogCore, Error, TEXT("Archive is corrupted"));
+				return Ar;
+			}
+
 			SaveNum = -SaveNum;
 		}
 
-		// If SaveNum is still less than 0, they must have passed in MIN_INT. Archive is corrupted.
-		if (SaveNum < 0)
-		{
-			Ar.ArIsError = 1;
-			Ar.ArIsCriticalError = 1;
-			UE_LOG(LogNetSerialization, Error, TEXT("Archive is corrupted"));
-			return Ar;
-		}
+		int32 MaxSerializeSize = Ar.GetMaxSerializeSize();
 
-		auto MaxSerializeSize = Ar.GetMaxSerializeSize();
 		// Protect against network packets allocating too much memory
-		if ((MaxSerializeSize > 0) && (SaveNum > MaxSerializeSize))
+		if (MaxSerializeSize > 0 && SaveNum > MaxSerializeSize)
 		{
 			Ar.ArIsError         = 1;
 			Ar.ArIsCriticalError = 1;
-			UE_LOG( LogNetSerialization, Error, TEXT( "String is too large" ) );
+
+			UE_LOG(LogCore, Error, TEXT("String is too large (Size: %i, Max: %i)"), SaveNum, MaxSerializeSize);
+
 			return Ar;
 		}
 

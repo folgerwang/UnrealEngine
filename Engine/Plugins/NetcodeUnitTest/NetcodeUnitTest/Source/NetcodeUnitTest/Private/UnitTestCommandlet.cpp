@@ -63,9 +63,11 @@ UUnitTestCommandlet::UUnitTestCommandlet(const FObjectInitializer& ObjectInitial
 
 int32 UUnitTestCommandlet::Main(const FString& Params)
 {
-	// @todo #JohnBLowPri: Fix StandaloneRenderer support for static builds
+	// @todo #JohnBLowPri: Fix StandaloneRenderer support for static builds (this is very hard to do,
+	//						getting the game renderer going with commandlets, is very tricky)
 #if IS_MONOLITHIC
-	UE_LOG(LogUnitTest, Log, TEXT("NetcodeUnitTest commandlet not currently supported in static/monolithic builds"));
+	UE_LOG(LogUnitTest, Log, TEXT("NetcodeUnitTest commandlet not currently supported in static/monolithic builds. ")
+			TEXT("You must disable the externs in SlateOpenGLExtensions.cpp to hack-unblock monolithic builds."));
 
 #else
 	GIsRequestingExit = false;

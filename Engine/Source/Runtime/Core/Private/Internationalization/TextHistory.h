@@ -7,6 +7,7 @@
 #include "Templates/SharedPointer.h"
 #include "Misc/Optional.h"
 #include "Internationalization/Text.h"
+#include "Internationalization/ITextGenerator.h"
 #include "Internationalization/StringTableCoreFwd.h"
 #include "Misc/DateTime.h"
 
@@ -26,6 +27,7 @@ enum class ETextHistoryType
 	AsDateTime,
 	Transform,
 	StringTableEntry,
+	TextGenerator,
 
 	// Add new enum types at the end only! They are serialized by index.
 };
@@ -512,4 +514,31 @@ private:
 
 	/** Critical section preventing concurrent access when re-caching StringTableEntry */
 	mutable FCriticalSection StringTableEntryCS;
+};
+
+/** Handles history for FText::FromTextGenerator */
+class CORE_API FTextHistory_TextGenerator : public FTextHistory
+{
+public:
+	FTextHistory_TextGenerator() {}
+	FTextHistory_TextGenerator(const TSharedRef<ITextGenerator>& InTextGenerator);
+
+	/** Disallow copying */
+	FTextHistory_TextGenerator(const FTextHistory_TextGenerator&) = delete;
+	FTextHistory_TextGenerator& operator=(const FTextHistory_TextGenerator&) = delete;
+
+	/** Allow moving */
+	FTextHistory_TextGenerator(FTextHistory_TextGenerator&& Other) = default;
+	FTextHistory_TextGenerator& operator=(FTextHistory_TextGenerator&& Other) = default;
+
+	//~ Begin FTextHistory Interface
+	virtual ETextHistoryType GetType() const override { return ETextHistoryType::TextGenerator; }
+	virtual FString BuildLocalizedDisplayString() const override;
+	virtual FString BuildInvariantDisplayString() const override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
+	//~ End FTextHistory Interface
+
+private:
+	/** The object implementing the custom generation code */
+	TSharedPtr<ITextGenerator> TextGenerator;
 };

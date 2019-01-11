@@ -69,17 +69,16 @@ public:
 	void Add( const FKeyHandle& InHandle, int32 InIndex );
 	void Empty();
 	void Remove( const FKeyHandle& InHandle );
-	const int32* Find( const FKeyHandle& InHandle ) const;
+	const int32* Find(const FKeyHandle& InHandle) const { return KeyHandlesToIndices.Find(InHandle); }
 	const FKeyHandle* FindKey( int32 KeyIndex ) const;
-	int32 Num() const;
-	TMap<FKeyHandle, int32>::TConstIterator CreateConstIterator() const;
-	TMap<FKeyHandle, int32>::TIterator CreateIterator();
+	int32 Num() const { return KeyHandlesToIndices.Num(); }
+	TArray<FKeyHandle>::TConstIterator CreateConstIterator() const { return KeyHandles.CreateConstIterator(); }
 	const TMap<FKeyHandle, int32>& GetMap() const { return KeyHandlesToIndices; }
 
 	/** ICPPStructOps implementation */
 	bool Serialize(FArchive& Ar);
-	bool operator==(const FKeyHandleMap& Other) const;
-	bool operator!=(const FKeyHandleMap& Other) const;
+	bool operator==(const FKeyHandleMap& Other) const { return KeyHandles == Other.KeyHandles; }
+	bool operator!=(const FKeyHandleMap& Other) const { return !(*this==Other); }
 
 	friend FArchive& operator<<(FArchive& Ar,FKeyHandleMap& P)
 	{
@@ -96,6 +95,7 @@ public:
 private:
 
 	TMap<FKeyHandle, int32> KeyHandlesToIndices;
+	TArray<FKeyHandle> KeyHandles;
 };
 
 

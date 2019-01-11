@@ -329,6 +329,14 @@ public:
 	}
 
 	/**
+	 * @return the complete set of modifier keys
+	 */
+	const FModifierKeysState& GetModifierKeys() const
+	{
+		return ModifierKeys;
+	}
+
+	/**
 	* Returns the index of the user that generated this event.
 	*
 	* @return The index of the user that caused the event
@@ -840,6 +848,8 @@ public:
 	/** @return Is the gesture delta inverted */
 	bool IsDirectionInvertedFromDevice() const { return bIsDirectionInvertedFromDevice; }
 
+	/** @return the full set of pressed buttons */
+	const TSet<FKey>& GetPressedButtons() const { return PressedButtons; }
 
 	/** We override the assignment operator to allow generated code to compile with the const ref member. */
 	void operator=( const FPointerEvent& Other )

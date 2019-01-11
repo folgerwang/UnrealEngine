@@ -2,24 +2,6 @@
 
 #include "Curves/IntegralCurve.h"
 
-
-int32 FIntegralCurve::GetNumKeys() const
-{
-	return Keys.Num();
-}
-
-
-bool FIntegralCurve::IsKeyHandleValid(FKeyHandle KeyHandle) const
-{
-	bool bValid = false;
-	if (FIndexedCurve::IsKeyHandleValid(KeyHandle))
-	{
-		bValid = Keys.IsValidIndex(GetIndex(KeyHandle));
-	}
-	return bValid;
-}
-
-
 int32 FIntegralCurve::Evaluate(float Time, int32 InDefaultValue) const
 {
 	// If the default value hasn't been initialized, use the incoming default value
@@ -68,15 +50,6 @@ FKeyHandle FIntegralCurve::AddKey(float InTime, int32 InValue, FKeyHandle InKeyH
 	for (; Index < Keys.Num() && Keys[Index].Time < InTime; ++Index);
 	Keys.Insert(FIntegralKey(InTime, InValue), Index);
 
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index)
-		{
-			++KeyIndex;
-		}
-	}
-
 	KeyHandlesToIndices.Add(InKeyHandle, Index);
 
 	return GetKeyHandle(Index);
@@ -90,15 +63,6 @@ void FIntegralCurve::DeleteKey(FKeyHandle InKeyHandle)
 	Keys.RemoveAt(Index);
 
 	KeyHandlesToIndices.Remove(InKeyHandle);
-
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index)
-		{
-			--KeyIndex;
-		}
-	}
 }
 
 
@@ -127,23 +91,20 @@ FKeyHandle FIntegralCurve::UpdateOrAddKey(float InTime, int32 Value, float KeyTi
 }
 
 
-FKeyHandle FIntegralCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
+void FIntegralCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
 {
-	if (!IsKeyHandleValid(KeyHandle))
+	if (IsKeyHandleValid(KeyHandle))
 	{
-		return KeyHandle;
+		const FIntegralKey OldKey = GetKey(KeyHandle);
+
+		DeleteKey(KeyHandle);
+		AddKey(NewTime, OldKey.Value, KeyHandle);
+
+		// Copy all properties from old key, but then fix time to be the new time
+		FIntegralKey& NewKey = GetKey(KeyHandle);
+		NewKey = OldKey;
+		NewKey.Time = NewTime;
 	}
-
-	FIntegralKey OldKey = GetKey(KeyHandle);
-
-	DeleteKey(KeyHandle);
-	AddKey(NewTime, OldKey.Value, KeyHandle);
-
-	// Copy all properties from old key, but then fix time to be the new time
-	GetKey(KeyHandle) = OldKey;
-	GetKey(KeyHandle).Time = NewTime;
-
-	return KeyHandle;
 }
 
 
@@ -175,58 +136,6 @@ int32 FIntegralCurve::GetKeyValue(FKeyHandle KeyHandle) const
 	}
 
 	return GetKey(KeyHandle).Value;
-}
-
-
-void FIntegralCurve::ShiftCurve(float DeltaTime)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void FIntegralCurve::ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, GetKeyTime(KeyHandle) + DeltaTime);
-		}
-	}
-}
-
-
-void FIntegralCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ScaleCurve(ScaleOrigin, ScaleFactor, KeyHandles);
-}
-
-
-void FIntegralCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, (GetKeyTime(KeyHandle) - ScaleOrigin) * ScaleFactor + ScaleOrigin);
-		}
-	}
 }
 
 

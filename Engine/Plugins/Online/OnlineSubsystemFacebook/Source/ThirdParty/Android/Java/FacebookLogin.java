@@ -86,7 +86,7 @@ public class FacebookLogin
 	 * Hook into the various SDK features
      * https://developers.facebook.com/docs/reference/android/current/interface/FacebookCallback/
      */
-    public boolean init(String BuildConfiguration) 
+    public boolean init(String BuildConfiguration, boolean bEnableAppEvents, boolean bEnableAdId) 
 	{
 		boolean bShippingBuild = BuildConfiguration.equals("Shipping");
 
@@ -119,6 +119,9 @@ public class FacebookLogin
 			String AppId = FacebookSdk.getApplicationId();
 			FBLog.debug("Facebook SDK v" + SDKVersion);
 			FBLog.debug(" API: " + APIVersion + " AppId: " + AppId + " Enabled: " + bIsFacebookEnabled + " Debug: " + bIsDebugEnabled);
+
+			FacebookSdk.setAutoLogAppEventsEnabled(bEnableAppEvents);
+			FacebookSdk.setAdvertiserIDCollectionEnabled(bEnableAdId);
 
 			callbackManager = CallbackManager.Factory.create();
 			LoginManager.getInstance().registerCallback(callbackManager, GetLoginCallback());

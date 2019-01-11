@@ -43,6 +43,8 @@ enum class EPartyJoinDenialReason : uint8
 
 	/** No denial, matches success internally */
 	NoReason = 0,
+	/** The local player aborted the join attempt */
+	JoinAttemptAborted,
 	/** Party leader is busy or at inopportune time to allow joins - to be used as a fallback when there isn't a more specific reason (more specific reasons are preferred) */
 	Busy,
 	/** Either the necessary OSS itself or critical element thereof (PartyInterface, SessionInterface, etc.) is missing. */
@@ -71,6 +73,8 @@ enum class EPartyJoinDenialReason : uint8
 	TargetUserMissingPresence,
 	/** The target user's presence says the user is unjoinable */
 	TargetUserUnjoinable,
+	/** The target user is currently Away */
+	TargetUserAway,
 	/** We found ourself to be the leader of the friend's party according to the console session */
 	AlreadyLeaderInPlatformSession,
 	/** The target user is not playing the same game as us */
@@ -83,7 +87,7 @@ enum class EPartyJoinDenialReason : uint8
 	FailedToStartFindConsoleSession,
 	/** The party is of a type that the game does not support (it specified nullptr for the USocialParty class) */
 	MissingPartyClassForTypeId,
-	/**The target user is blocked by the local user on one or more of the active subsystems */
+	/** The target user is blocked by the local user on one or more of the active subsystems */
 	TargetUserBlocked,
 
 	/**
@@ -141,6 +145,9 @@ inline const TCHAR* ToString(EPartyJoinDenialReason Type)
 	{
 	case EPartyJoinDenialReason::NoReason:
 		return TEXT("NoReason");
+		break;
+	case EPartyJoinDenialReason::JoinAttemptAborted:
+		return TEXT("JoinAttemptAborted");
 		break;
 	case EPartyJoinDenialReason::Busy:
 		return TEXT("Busy");

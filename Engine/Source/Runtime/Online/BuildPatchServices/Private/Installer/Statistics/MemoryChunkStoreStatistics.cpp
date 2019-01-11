@@ -1,7 +1,10 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/Statistics/MemoryChunkStoreStatistics.h"
+
 #include "Misc/Guid.h"
+#include "Misc/ScopeLock.h"
+
 #include "Core/AsyncHelpers.h"
 #include "Installer/Statistics/FileOperationTracker.h"
 
@@ -76,7 +79,7 @@ namespace BuildPatchServices
 		: public IMemoryChunkStoreStatistics
 	{
 	public:
-		FMemoryChunkStoreStatistics(const TSet<FGuid>& MultipleReferencedChunks, IFileOperationTracker* FileOperationTracker, FMeanUseTracker* AggregateStoreUseTracker, FMeanUseTracker* AggregateStoreRetainTracker, FThreadSafeInt32* AggregateNumChunksBooted, FThreadSafeInt32* AggregateStoreSize);
+		FMemoryChunkStoreStatistics(IFileOperationTracker* FileOperationTracker);
 		~FMemoryChunkStoreStatistics();
 
 		// IMemoryChunkStoreStat interface begin.
@@ -92,28 +95,28 @@ namespace BuildPatchServices
 		virtual int32 GetStoreRetained() const override;
 		virtual int32 GetNumBooted() const override;
 		virtual int32 GetStoreSize() const override;
+		virtual float GetAverageStoreUse() const override;
+		virtual int32 GetPeakStoreUse() const override;
+		virtual float GetAverageStoreRetained() const override;
+		virtual int32 GetPeakStoreRetained() const override;
+		virtual void SetMultipleReferencedChunk(TSet<FGuid> MultipleReferencedChunks) override;
 		// IMemoryChunkStoreStatistics interface end.
 
 	private:
-		const TSet<FGuid>& MultipleReferencedChunks;
+		bool IsMultipleReferenced(const FGuid& ChunkId);
+
+	private:
 		IFileOperationTracker* const FileOperationTracker;
 		FMeanUseTracker StoreUseTracker;
 		FMeanUseTracker StoreRetainTracker;
 		FThreadSafeInt32 NumChunksBooted;
 		FThreadSafeInt32 StoreSize;
-		FMeanUseTracker* AggregateStoreUseTracker;
-		FMeanUseTracker* AggregateStoreRetainTracker;
-		FThreadSafeInt32* AggregateNumChunksBooted;
-		FThreadSafeInt32* AggregateStoreSize;
+		FCriticalSection MultipleReferencedChunksCS;
+		TSet<FGuid> MultipleReferencedChunks;
 	};
 
-	FMemoryChunkStoreStatistics::FMemoryChunkStoreStatistics(const TSet<FGuid>& InMultipleReferencedChunks, IFileOperationTracker* InFileOperationTracker, FMeanUseTracker* InStoreUseTracker, FMeanUseTracker* InStoreRetainTracker, FThreadSafeInt32* InNumChunksBooted, FThreadSafeInt32* InTotalStoreSize)
-		: MultipleReferencedChunks(InMultipleReferencedChunks)
-		, FileOperationTracker(InFileOperationTracker)
-		, AggregateStoreUseTracker(InStoreUseTracker)
-		, AggregateStoreRetainTracker(InStoreRetainTracker)
-		, AggregateNumChunksBooted(InNumChunksBooted)
-		, AggregateStoreSize(InTotalStoreSize)
+	FMemoryChunkStoreStatistics::FMemoryChunkStoreStatistics(IFileOperationTracker* InFileOperationTracker)
+		: FileOperationTracker(InFileOperationTracker)
 	{
 	}
 
@@ -124,40 +127,33 @@ namespace BuildPatchServices
 	void FMemoryChunkStoreStatistics::OnChunkStored(const FGuid& ChunkId)
 	{
 		StoreUseTracker.Increment();
-		AggregateStoreUseTracker->Increment();
 		FileOperationTracker->OnDataStateUpdate(ChunkId, EFileOperationState::DataInMemoryStore);
-		if (MultipleReferencedChunks.Contains(ChunkId))
+		if (IsMultipleReferenced(ChunkId))
 		{
 			StoreRetainTracker.Increment();
-			AggregateStoreRetainTracker->Increment();
 		}
 		else
 		{
 			StoreRetainTracker.CountSame();
-			AggregateStoreRetainTracker->CountSame();
 		}
 	}
 
 	void FMemoryChunkStoreStatistics::OnChunkReleased(const FGuid& ChunkId)
 	{
 		StoreUseTracker.Decrement();
-		AggregateStoreUseTracker->Decrement();
-		if (MultipleReferencedChunks.Contains(ChunkId))
+		if (IsMultipleReferenced(ChunkId))
 		{
 			StoreRetainTracker.Decrement();
-			AggregateStoreRetainTracker->Decrement();
 		}
 		else
 		{
 			StoreRetainTracker.CountSame();
-			AggregateStoreRetainTracker->CountSame();
 		}
 	}
 
 	void FMemoryChunkStoreStatistics::OnChunkBooted(const FGuid& ChunkId)
 	{
 		NumChunksBooted.Increment();
-		AggregateNumChunksBooted->Increment();
 		// We desire a release count too, as it tracks just numbers in the store.
 		OnChunkReleased(ChunkId);
 	}
@@ -168,15 +164,7 @@ namespace BuildPatchServices
 
 	void FMemoryChunkStoreStatistics::OnStoreSizeUpdated(int32 Size)
 	{
-		int32 Diff = Size - StoreSize.Set(Size);
-		if (Diff > 0)
-		{
-			AggregateStoreSize->Add(Diff);
-		}
-		else
-		{
-			AggregateStoreSize->Subtract(FMath::Abs(Diff));
-		}
+		StoreSize.Set(Size);
 	}
 
 	int32 FMemoryChunkStoreStatistics::GetStoreUse() const
@@ -199,93 +187,41 @@ namespace BuildPatchServices
 		return StoreSize.GetValue();
 	}
 
-	class FMemoryChunkStoreAggregateStatistics
-		: public IMemoryChunkStoreAggregateStatistics
+	float FMemoryChunkStoreStatistics::GetAverageStoreUse() const
 	{
-	public:
-		FMemoryChunkStoreAggregateStatistics(const TSet<FGuid>& MultipleReferencedChunks, IFileOperationTracker* FileOperationTracker);
-		~FMemoryChunkStoreAggregateStatistics();
-
-		// IMemoryChunkStoreStatistics interface begin.
-		virtual IMemoryChunkStoreStatistics* Expose(int32 Index) override;
-		virtual float GetAverageStoreUse() const override;
-		virtual int32 GetPeakStoreUse() const override;
-		virtual float GetAverageStoreRetained() const override;
-		virtual int32 GetPeakStoreRetained() const override;
-		virtual int32 GetTotalStoreSize() const override;
-		virtual int32 GetTotalNumBooted() const override;
-		// IMemoryChunkStoreStatistics interface end.
-
-	private:
-		const TSet<FGuid> MultipleReferencedChunks;
-		IFileOperationTracker* const FileOperationTracker;
-		FMeanUseTracker AggregateStoreUseTracker;
-		FMeanUseTracker AggregateStoreRetainTracker;
-		FThreadSafeInt32 AggregateNumChunksBooted;
-		FThreadSafeInt32 AggregateStoreSize;
-		TMap<int32, TUniquePtr<FMemoryChunkStoreStatistics>> MemoryChunkStoreStatistics;
-	};
-
-	FMemoryChunkStoreAggregateStatistics::FMemoryChunkStoreAggregateStatistics(const TSet<FGuid>& InMultipleReferencedChunks, IFileOperationTracker* InFileOperationTracker)
-		: MultipleReferencedChunks(InMultipleReferencedChunks)
-		, FileOperationTracker(InFileOperationTracker)
-		, AggregateNumChunksBooted(0)
-		, AggregateStoreSize(0)
-	{
+		return StoreUseTracker.GetMean();
 	}
 
-	FMemoryChunkStoreAggregateStatistics::~FMemoryChunkStoreAggregateStatistics()
+	int32 FMemoryChunkStoreStatistics::GetPeakStoreUse() const
 	{
+		return StoreUseTracker.GetPeak();
 	}
 
-	IMemoryChunkStoreStatistics* FMemoryChunkStoreAggregateStatistics::Expose(int32 Index)
+	float FMemoryChunkStoreStatistics::GetAverageStoreRetained() const
 	{
-		if (MemoryChunkStoreStatistics.Contains(Index) == false)
-		{
-			MemoryChunkStoreStatistics.Emplace(Index, new FMemoryChunkStoreStatistics(
-				MultipleReferencedChunks,
-				FileOperationTracker,
-				&AggregateStoreUseTracker,
-				&AggregateStoreRetainTracker,
-				&AggregateNumChunksBooted,
-				&AggregateStoreSize));
-		}
-		return MemoryChunkStoreStatistics[Index].Get();
+		return StoreRetainTracker.GetMean();
 	}
 
-	float FMemoryChunkStoreAggregateStatistics::GetAverageStoreUse() const
+	int32 FMemoryChunkStoreStatistics::GetPeakStoreRetained() const
 	{
-		return AggregateStoreUseTracker.GetMean();
+		return StoreRetainTracker.GetPeak();
 	}
 
-	int32 FMemoryChunkStoreAggregateStatistics::GetPeakStoreUse() const
+	void FMemoryChunkStoreStatistics::SetMultipleReferencedChunk(TSet<FGuid> InMultipleReferencedChunks)
 	{
-		return AggregateStoreUseTracker.GetPeak();
+		FScopeLock ScopeLock(&MultipleReferencedChunksCS);
+		MultipleReferencedChunks = MoveTemp(InMultipleReferencedChunks);
 	}
 
-	float FMemoryChunkStoreAggregateStatistics::GetAverageStoreRetained() const
+	bool FMemoryChunkStoreStatistics::IsMultipleReferenced(const FGuid& ChunkId)
 	{
-		return AggregateStoreRetainTracker.GetMean();
+		FScopeLock ScopeLock(&MultipleReferencedChunksCS);
+		return MultipleReferencedChunks.Contains(ChunkId);
 	}
 
-	int32 FMemoryChunkStoreAggregateStatistics::GetPeakStoreRetained() const
-	{
-		return AggregateStoreRetainTracker.GetPeak();
-	}
-
-	int32 FMemoryChunkStoreAggregateStatistics::GetTotalStoreSize() const
-	{
-		return AggregateStoreSize.GetValue();
-	}
-
-	int32 FMemoryChunkStoreAggregateStatistics::GetTotalNumBooted() const
-	{
-		return AggregateNumChunksBooted.GetValue();
-	}
-
-	IMemoryChunkStoreAggregateStatistics* FMemoryChunkStoreAggregateStatisticsFactory::Create(const TSet<FGuid>& MultipleReferencedChunks, IFileOperationTracker* FileOperationTracker)
+	IMemoryChunkStoreStatistics* FMemoryChunkStoreStatisticsFactory::Create(IFileOperationTracker* FileOperationTracker)
 	{
 		check(FileOperationTracker != nullptr);
-		return new FMemoryChunkStoreAggregateStatistics(MultipleReferencedChunks, FileOperationTracker);
+		return new FMemoryChunkStoreStatistics(FileOperationTracker);
 	}
 };

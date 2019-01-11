@@ -92,7 +92,7 @@ void FFloatCurve::GetKeys(TArray<float>& OutTimes, TArray<float>& OutValues)
 	OutValues.Empty(NumKeys);
 	for (auto It = FloatCurve.GetKeyHandleIterator(); It; ++It)
 	{
-		const FKeyHandle KeyHandle = It.Key();
+		const FKeyHandle KeyHandle = *It;
 		const float KeyTime = FloatCurve.GetKeyTime(KeyHandle);
 		const float Value = FloatCurve.Eval(KeyTime);
 
@@ -153,7 +153,7 @@ void FVectorCurve::GetKeys(TArray<float>& OutTimes, TArray<FVector>& OutValues)
 		OutValues.Empty(MaxNumKeys);
 		for (auto It = FloatCurves[UsedCurveIndex].GetKeyHandleIterator(); It; ++It)
 		{
-			const FKeyHandle KeyHandle = It.Key();
+			const FKeyHandle KeyHandle = *It;
 			const float KeyTime = FloatCurves[UsedCurveIndex].GetKeyTime(KeyHandle);
 			const FVector Value = Evaluate(KeyTime, 1.0f);
 
@@ -271,7 +271,7 @@ void FTransformCurve::GetKeys(TArray<float>& OutTimes, TArray<FTransform>& OutVa
 		OutValues.Empty(MaxNumKeys);
 		for (auto It = UsedCurve->FloatCurves[UsedChannelIndex].GetKeyHandleIterator(); It; ++It)
 		{
-			const FKeyHandle KeyHandle = It.Key();
+			const FKeyHandle KeyHandle = *It;
 			const float KeyTime = UsedCurve->FloatCurves[UsedChannelIndex].GetKeyTime(KeyHandle);
 			const FTransform Value = Evaluate(KeyTime, 1.0f);
 

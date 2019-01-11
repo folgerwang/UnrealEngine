@@ -10,6 +10,9 @@ namespace BuildPatchServices
 {
 	class IFileSystem;
 
+	// Constant for the legacy fixed chunk window size, which was 1MiB.
+	static const uint32 LegacyFixedChunkWindow = 1024 * 1024;
+
 	/**
 	 * Declares flags for chunk headers which specify storage types.
 	 */
@@ -138,12 +141,49 @@ namespace BuildPatchServices
 		FSHAHash SHAHash;
 	};
 
+	// Some helper constants for dealing with chunks that are full of one single byte, usually padding.
+	namespace PaddingChunk
+	{
+		// The A, B, and C components of a chunk Guid indicating that this is a padding chunk. D would be the actual byte padded with.
+		static const int32 ChunkIdA = 0x00000001;
+		static const int32 ChunkIdB = 0x00000000;
+		static const int32 ChunkIdC = 0x00000000;
+		// The size of the chunk we use to save out, which would allow a legacy client to actually use one.
+		static const uint32 ChunkSize = LegacyFixedChunkWindow;
+		/**
+		 * Get whether this chunk part refers to a special cased padding chunk.
+		 * @return true if this chunk is padding only.
+		 */
+		FORCEINLINE bool IsPadding(const FGuid& Guid)
+		{
+			return Guid.A == ChunkIdA && Guid.B == ChunkIdB && Guid.C == ChunkIdC && Guid.D >= 0 && Guid.D <= 255;
+		}
+		/**
+		 * For padding chunks, returns the byte that is padded with.
+		 * @return the byte used to pad data.
+		 */
+		FORCEINLINE uint8 GetPaddingByte(const FGuid& Guid)
+		{
+			check(IsPadding(Guid));
+			return Guid.D;
+		}
+		/**
+		 * For padding chunks, returns the byte that is padded with.
+		 * @return the byte used to pad data.
+		 */
+		FORCEINLINE FGuid MakePaddingGuid(uint8 Byte)
+		{
+			return FGuid(ChunkIdA, ChunkIdB, ChunkIdC, Byte);
+		}
+	}
+
 	/**
 	 * A data structure describing the part of a chunk used to construct a file
 	 */
 	struct FChunkPart
 	{
 		FChunkPart();
+		FChunkPart(const FGuid& Guid, const uint32 Offset, const uint32 Size);
 		/**
 		 * Serialization operator.
 		 * @param Ar        Archive to serialize to.
@@ -151,6 +191,22 @@ namespace BuildPatchServices
 		 * @return Passed in archive.
 		 */
 		friend FArchive& operator<<(FArchive& Ar, FChunkPart& ChunkPart);
+		/**
+		 * Get whether this chunk part refers to a special cased padding chunk.
+		 * @return true if this chunk is padding only.
+		 */
+		bool IsPadding() const
+		{
+			return PaddingChunk::IsPadding(Guid);
+		}
+		/**
+		 * For padding chunks, returns the byte that is padded with.
+		 * @return the byte used to pad data.
+		 */
+		uint8 GetPaddingByte() const
+		{
+			return PaddingChunk::GetPaddingByte(Guid);
+		}
 		// The GUID of the chunk containing this part.
 		FGuid Guid;
 		// The offset of the first byte into the chunk.

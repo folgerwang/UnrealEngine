@@ -1256,7 +1256,26 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 		// negative stringlen means it's a wide string
 		if (StringLen < 0)
 		{
+			// If StringLen cannot be negated due to integer overflow, Ar is corrupted.
+			if (StringLen == MIN_int32)
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("Archive is corrupted"));
+				return Ar;
+			}
+
 			StringLen = -StringLen;
+
+			int64 MaxSerializeSize = Ar.GetMaxSerializeSize();
+			// Protect against network packets allocating too much memory
+			if ((MaxSerializeSize > 0) && (StringLen > MaxSerializeSize))
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("String is too large"));
+				return Ar;
+			}
 
 			// mark the name will be wide
 			E.PreSetIsWideForSerialization(true);
@@ -1273,6 +1292,16 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 		}
 		else
 		{
+			int64 MaxSerializeSize = Ar.GetMaxSerializeSize();
+			// Protect against network packets allocating too much memory
+			if ((MaxSerializeSize > 0) && (StringLen > MaxSerializeSize))
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("String is too large"));
+				return Ar;
+			}
+
 			// mark the name will be ansi
 			E.PreSetIsWideForSerialization(false);
 

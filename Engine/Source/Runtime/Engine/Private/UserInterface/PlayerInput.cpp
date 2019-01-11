@@ -510,7 +510,10 @@ void UPlayerInput::InvertAxis(const FName AxisName)
 		{
 			for (int32 InvertIndex = InvertedAxis.Num() - 1; InvertIndex >= 0; --InvertIndex)
 			{
-				InvertedAxis.RemoveAtSwap(InvertIndex, 1, false);
+				if (InvertedAxis[InvertIndex] == AxisName)
+				{
+					InvertedAxis.RemoveAtSwap(InvertIndex, 1, false);
+				}
 			}
 		}
 	}

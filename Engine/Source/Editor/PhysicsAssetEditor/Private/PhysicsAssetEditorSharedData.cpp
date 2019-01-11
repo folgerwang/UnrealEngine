@@ -92,7 +92,7 @@ void FPhysicsAssetEditorSharedData::Initialize(const TSharedRef<IPersonaPreviewS
 	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
 		UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[i];
-		if (BodySetup->AggGeom.GetElementCount() == 0)
+		if (BodySetup && BodySetup->AggGeom.GetElementCount() == 0)
 		{
 			FKBoxElem BoxElem;
 			BoxElem.SetTransform(FTransform::Identity);
@@ -129,6 +129,10 @@ void FPhysicsAssetEditorSharedData::Initialize(const TSharedRef<IPersonaPreviewS
 		FString BoneNames;
 		for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 		{
+			if (!ensure(PhysicsAsset->SkeletalBodySetups[i]))
+			{
+				continue;
+			}
 			FName BoneName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
 			int32 BoneIndex = EditorSkelMesh->RefSkeleton.FindBoneIndex(BoneName);
 			if (BoneIndex == INDEX_NONE)
@@ -557,6 +561,10 @@ void FPhysicsAssetEditorSharedData::UpdateNoCollisionBodies()
 	// Query disable table with selected body and every other body.
 	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
+		if (!ensure(PhysicsAsset->SkeletalBodySetups[i]))
+		{
+			continue;
+		}
 		// Add any bodies with bNoCollision
 		if (PhysicsAsset->SkeletalBodySetups[i]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision)
 		{
@@ -564,6 +572,10 @@ void FPhysicsAssetEditorSharedData::UpdateNoCollisionBodies()
 		}
 		else if (GetSelectedBody() && i != GetSelectedBody()->Index)
 		{
+			if (!ensure(PhysicsAsset->SkeletalBodySetups[GetSelectedBody()->Index]))
+			{
+				continue;
+			}
 			// Add this body if it has disabled collision with selected.
 			FRigidBodyIndexPair Key(i, GetSelectedBody()->Index);
 
@@ -990,8 +1002,10 @@ void FPhysicsAssetEditorSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSe
 	// Find body that currently controls this bone.
 	int32 ParentBodyIndex = PhysicsAsset->FindControllingBodyIndex(EditorSkelMesh, NewBoneIndex);
 
+	const FPhysAssetCreateParams& NewBodyData = GetDefault<UPhysicsAssetGenerationSettings>()->CreateParams;
+
 	// Create the physics body.
-	NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(PhysicsAsset, NewBoneName);
+	NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(PhysicsAsset, NewBoneName, NewBodyData);
 	UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[ NewBodyIndex ];
 	check(BodySetup->BoneName == NewBoneName);
 	
@@ -999,7 +1013,6 @@ void FPhysicsAssetEditorSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSe
 
 	bool bCreatedBody = false;
 	// Create a new physics body for this bone.
-	const FPhysAssetCreateParams& NewBodyData = GetDefault<UPhysicsAssetGenerationSettings>()->CreateParams;
 	if (NewBodyData.VertWeight == EVW_DominantWeight)
 	{
 		bCreatedBody = FPhysicsAssetUtils::CreateCollisionFromBone(BodySetup, EditorSkelMesh, NewBoneIndex, NewBodyData, DominantWeightBoneInfos[NewBoneIndex]);

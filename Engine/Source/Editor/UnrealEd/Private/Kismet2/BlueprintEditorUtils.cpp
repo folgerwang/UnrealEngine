@@ -2728,6 +2728,9 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
+		// We should let the blueprint know we renamed a graph, some stuff may need to be fixed up.
+		Blueprint->NotifyGraphRenamed(Graph, OldGraphName, NewGraphName);
+
 		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);

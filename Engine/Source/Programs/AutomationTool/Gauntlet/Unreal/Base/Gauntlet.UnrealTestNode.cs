@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace Gauntlet
 {
@@ -83,7 +84,7 @@ namespace Gauntlet
 		/// </summary>
 		private TestResult UnrealTestResult;
 
-		private TConfigClass CachedConfig = null;
+		protected TConfigClass CachedConfig = null;
 
 		private string CachedArtifactPath = null;
 
@@ -350,7 +351,9 @@ namespace Gauntlet
 						SessionRole.RoleModifier = ERoleModifier.Null;
 					}
 
+					// copy over relevant settings from test role
                     SessionRole.FilesToCopy = TestRole.FilesToCopy;
+					SessionRole.ConfigureDevice = TestRole.ConfigureDevice;
 
 					SessionRoles.Add(SessionRole);
 				}
@@ -666,6 +669,55 @@ namespace Gauntlet
 		}
 
 		/// <summary>
+		/// Returns a hash that represents the results of a role. Should be 0 if no fatal errors or ensures
+		/// </summary>
+		/// <param name="InArtifacts"></param>
+		/// <returns></returns>
+		protected virtual string GetRoleResultHash(UnrealRoleArtifacts InArtifacts)
+		{
+			const int MaxCallstackLines = 10;			
+
+			UnrealLogParser.LogSummary LogSummary = InArtifacts.LogSummary;
+
+			string TotalString = "";
+
+			//Func<int, string> ComputeHash = (string Str) => { return Hasher.ComputeHash(Encoding.UTF8.GetBytes(Str)); };
+			
+			if (LogSummary.FatalError != null)
+			{				
+				TotalString += string.Join("\n", InArtifacts.LogSummary.FatalError.Callstack.Take(MaxCallstackLines));
+				TotalString += "\n";
+			}
+
+			foreach (var Ensure in LogSummary.Ensures)
+			{
+				TotalString += string.Join("\n", Ensure.Callstack.Take(MaxCallstackLines));
+				TotalString += "\n";
+			}
+
+			string Hash = Hasher.ComputeHash(TotalString);
+
+			return Hash;
+		}
+
+		/// <summary>
+		/// Returns a hash that represents the failure results of this test. If the test failed this should be an empty string
+		/// </summary>
+		/// <returns></returns>
+		protected virtual string GetTestResultHash()
+		{
+			IEnumerable<string> RoleHashes = SessionArtifacts.Select(A => GetRoleResultHash(A)).OrderBy(S => S);
+
+			RoleHashes = RoleHashes.Where(S => S.Length > 0 && S != "0");
+
+			string Combined = string.Join("\n", RoleHashes);
+
+			string CombinedHash = Hasher.ComputeHash(Combined);
+
+			return CombinedHash;
+		}
+
+		/// <summary>
 		/// Parses the output of an application to try and determine a failure cause (if one exists). Returns
 		/// 0 for graceful shutdown
 		/// </summary>
@@ -725,6 +777,8 @@ namespace Gauntlet
 
 			MB.Paragraph(string.Format("FatalErrors: {0}, Ensures: {1}, Errors: {2}, Warnings: {3}",
 				FatalErrors, LogSummary.Ensures.Count(), LogSummary.Errors.Count(), LogSummary.Warnings.Count()));
+
+			MB.Paragraph(string.Format("ResultHash: {0}", GetRoleResultHash(InArtifacts)));
 
 			if (GetConfiguration().ShowErrorsInSummary && InArtifacts.LogSummary.Errors.Count() > 0)
 			{
@@ -944,6 +998,7 @@ namespace Gauntlet
 			}
 			MB.Paragraph(string.Format("Context: {0}", Context.ToString()));
 			MB.Paragraph(string.Format("FatalErrors: {0}, Ensures: {1}, Errors: {2}, Warnings: {3}", FatalErrors, Ensures, Errors, Warnings));
+			MB.Paragraph(string.Format("ResultHash: {0}", GetTestResultHash()));
 			//MB.Paragraph(string.Format("Artifacts: {0}", CachedArtifactPath));
 			MB.Append("--------");
 			MB.Append(SB.ToString());

@@ -385,8 +385,8 @@ void UBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 
 	if (!TargetPlatform || TargetPlatform->HasEditorOnlyData())
 	{
-		// Cache the BP for use
-		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this);
+		// Cache the BP for use (immediate, since we're about to save)
+		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this, true);
 	}
 }
 #endif // WITH_EDITORONLY_DATA
@@ -1268,10 +1268,25 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 {
 	Super::BeginCacheForCookedPlatformData(TargetPlatform);
 
+	// Reset, in case data was previously cooked for another platform.
+	ClearAllCachedCookedPlatformData();
+
 	if (GeneratedClass && GeneratedClass->IsChildOf<AActor>())
 	{
 		int32 NumCookedComponents = 0;
 		const double StartTime = FPlatformTime::Seconds();
+
+		// Don't cook component data if the template won't be valid in the target context.
+		auto ShouldCookBlueprintComponentTemplate = [TargetPlatform](const UActorComponent* InComponentTemplate) -> bool
+		{
+			if (InComponentTemplate)
+			{
+				return (!TargetPlatform->IsClientOnly() || InComponentTemplate->NeedsLoadForClient())
+					&& (!TargetPlatform->IsServerOnly() || InComponentTemplate->NeedsLoadForServer());
+			}
+
+			return false;
+		};
 
 		// If nativization is enabled and this Blueprint class will NOT be nativized, we need to determine if any of its parent Blueprints will be nativized and flag it for the runtime code.
 		// Note: Currently, this flag is set on Actor-based Blueprint classes only. If it's ever needed for non-Actor-based Blueprint classes at runtime, then this needs to be updated to match.
@@ -1300,7 +1315,8 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 						{
 							for (auto RecordIt = TargetInheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
 							{
-								if (!RecordIt->CookedComponentInstancingData.bIsValid)
+								// Only generate cooked data if the target platform supports the template class type.
+								if (ShouldCookBlueprintComponentTemplate(RecordIt->ComponentTemplate))
 								{
 									// Get the original class that we're overriding a template from.
 									const UClass* ComponentTemplateOwnerClass = RecordIt->ComponentKey.GetComponentOwner();
@@ -1321,7 +1337,7 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 									if (bIsOwnerClassTargetedForReplacement)
 									{
 										// Use the template's archetype for the delta serialization here; remaining properties will have already been set via native subobject instancing at runtime.
-										const bool bUseTemplateArchetype = true;
+										constexpr bool bUseTemplateArchetype = true;
 										FBlueprintEditorUtils::BuildComponentInstancingData(RecordIt->ComponentTemplate, RecordIt->CookedComponentInstancingData, bUseTemplateArchetype);
 										++NumCookedComponents;
 									}
@@ -1371,7 +1387,8 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 				{
 					for (auto RecordIt = TargetInheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
 					{
-						if (!RecordIt->CookedComponentInstancingData.bIsValid)
+						// Only generate cooked data if the target platform supports the template class type. Cooked data may already have been generated if the component was inherited from a nativized parent class.
+						if (!RecordIt->CookedComponentInstancingData.bIsValid && ShouldCookBlueprintComponentTemplate(RecordIt->ComponentTemplate))
 						{
 							// Note: This will currently block until finished.
 							// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
@@ -1386,7 +1403,8 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 				{
 					for (auto Node : BPGClass->SimpleConstructionScript->GetAllNodes())
 					{
-						if (!Node->CookedComponentInstancingData.bIsValid)
+						// Only generate cooked data if the target platform supports the template class type.
+						if (ShouldCookBlueprintComponentTemplate(Node->ComponentTemplate))
 						{
 							// Note: This will currently block until finished.
 							// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
@@ -1399,9 +1417,11 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 				// Cook all UCS/AddComponent node templates that are owned by this class.
 				for (UActorComponent* ComponentTemplate : BPGClass->ComponentTemplates)
 				{
-					FBlueprintCookedComponentInstancingData& CookedComponentInstancingData = BPGClass->CookedComponentInstancingData.FindOrAdd(ComponentTemplate->GetFName());
-					if (!CookedComponentInstancingData.bIsValid)
+					// Only generate cooked data if the target platform supports the template class type.
+					if (ShouldCookBlueprintComponentTemplate(ComponentTemplate))
 					{
+						FBlueprintCookedComponentInstancingData& CookedComponentInstancingData = BPGClass->CookedComponentInstancingData.FindOrAdd(ComponentTemplate->GetFName());
+
 						// Note: This will currently block until finished.
 						// @TODO - Make this an async task so we can potentially cook instancing data for multiple components in parallel.
 						FBlueprintEditorUtils::BuildComponentInstancingData(ComponentTemplate, CookedComponentInstancingData);

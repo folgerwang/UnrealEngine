@@ -1215,6 +1215,11 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FLi
 		int32 Value = CustomValue.IsEmpty() ? 0 : FCString::Atoi(*CustomValue);
 		return FString::Printf(TEXT("%d"), Value);
 	}
+	else if (UEdGraphSchema_K2::PC_Int64 == Type.PinCategory)
+	{
+		int64 Value = CustomValue.IsEmpty() ? 0 : FCString::Atoi64(*CustomValue);
+		return FString::Printf(TEXT("%lld"), Value);
+	}
 	else if ((UEdGraphSchema_K2::PC_Byte == Type.PinCategory) || (UEdGraphSchema_K2::PC_Enum == Type.PinCategory))
 	{
 		UEnum* TypeEnum = Cast<UEnum>(Type.PinSubCategoryObject.Get());
@@ -1444,6 +1449,10 @@ FString FEmitHelper::PinTypeToNativeType(const FEdGraphPinType& Type)
 		else if (UEdGraphSchema_K2::PC_Int == InType.PinCategory)
 		{
 			return TEXT("int32");
+		}
+		else if (UEdGraphSchema_K2::PC_Int64 == InType.PinCategory)
+		{
+			return TEXT("int64");
 		}
 		else if (UEdGraphSchema_K2::PC_Float == InType.PinCategory)
 		{

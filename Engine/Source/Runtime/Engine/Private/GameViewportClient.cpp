@@ -319,9 +319,9 @@ const FSceneViewport* UGameViewportClient::GetGameViewport() const
 }
 
 
-TSharedPtr<class SViewport> UGameViewportClient::GetGameViewportWidget()
+TSharedPtr<class SViewport> UGameViewportClient::GetGameViewportWidget() const
 {
-	FSceneViewport* SceneViewport = GetGameViewport();
+	const FSceneViewport* SceneViewport = GetGameViewport();
 	if (SceneViewport != nullptr)
 	{
 		TWeakPtr<SViewport> WeakViewportWidget = SceneViewport->GetViewportWidget();
@@ -998,6 +998,17 @@ void UGameViewportClient::SetViewport( FViewport* InViewport )
 		// ensure that the player's Origin and Size members are initialized the moment we get a viewport
 		LayoutPlayers();
 	}
+}
+
+void UGameViewportClient::SetViewportOverlayWidget(TSharedPtr< SWindow > InWindow, TSharedRef<SOverlay> InViewportOverlayWidget)
+{
+	Window = InWindow;
+	ViewportOverlayWidget = InViewportOverlayWidget;
+}
+
+void UGameViewportClient::SetGameLayerManager(TSharedPtr< IGameLayerManager > LayerManager)
+{
+	GameLayerManagerPtr = LayerManager;
 }
 
 void UGameViewportClient::GetViewportSize( FVector2D& out_ViewportSize ) const

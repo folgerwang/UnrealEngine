@@ -59,6 +59,31 @@ void FOnlineStoreIOS::QueryOffersByFilter(const FUniqueNetId& UserId, const FOnl
 	Delegate.ExecuteIfBound(false, TArray<FUniqueOfferId>(), TEXT("No CatalogService"));
 }
 
+bool FOnlineStoreIOS::OffersNotAllowedInLocale(const FString& InLocale)
+{
+    UE_LOG_ONLINE_STOREV2(Log, TEXT("Locale: %s"), *InLocale);
+    // get the data from the config file
+    TArray<FString> BannedLocales;
+    GConfig->GetArray(TEXT("OnlineSubsystemIOS.Store"), TEXT("BannedLocales"), BannedLocales, GEngineIni);
+    if (BannedLocales.Num() == 0)
+    {
+        // no banned locales just let the offer proceed
+        return false;
+    }
+    
+    TArray<FString> LocaleData;
+    InLocale.ParseIntoArray(LocaleData, TEXT("-"));
+    FString Locale = LocaleData.Num() > 1 ? LocaleData[1] : LocaleData[0];
+    for (FString BannedLocale : BannedLocales)
+    {
+        if (BannedLocale == Locale)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void FOnlineStoreIOS::QueryOffersById(const FUniqueNetId& UserId, const TArray<FUniqueOfferId>& OfferIds, const FOnQueryOnlineStoreOffersComplete& Delegate)
 {
 	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreIOS::QueryOffersById"));
@@ -71,6 +96,11 @@ void FOnlineStoreIOS::QueryOffersById(const FUniqueNetId& UserId, const TArray<F
 	{
 		Delegate.ExecuteIfBound(false, OfferIds, TEXT("No offers to query for"));
 	}
+    else if (OffersNotAllowedInLocale(FPlatformMisc::GetDefaultLocale()))
+    {
+        TArray<FUniqueOfferId> OfferedIds;
+        Delegate.ExecuteIfBound(true, OfferedIds, TEXT(""));
+    }
 	else
 	{
 		// autoreleased NSSet to hold IDs

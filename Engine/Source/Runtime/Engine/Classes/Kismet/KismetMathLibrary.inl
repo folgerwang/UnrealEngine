@@ -277,6 +277,126 @@ int32 UKismetMathLibrary::Abs_Int(int32 A)
 }
 
 KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Multiply_Int64Int64(int64 A, int64 B)
+{
+	return A * B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Add_Int64Int64(int64 A, int64 B)
+{
+	return A + B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Subtract_Int64Int64(int64 A, int64 B)
+{
+	return A - B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::Less_Int64Int64(int64 A, int64 B)
+{
+	return A < B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::Greater_Int64Int64(int64 A, int64 B)
+{
+	return A > B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::LessEqual_Int64Int64(int64 A, int64 B)
+{
+	return A <= B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::GreaterEqual_Int64Int64(int64 A, int64 B)
+{
+	return A >= B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::EqualEqual_Int64Int64(int64 A, int64 B)
+{
+	return A == B;
+}
+
+KISMET_MATH_FORCEINLINE
+bool UKismetMathLibrary::NotEqual_Int64Int64(int64 A, int64 B)
+{
+	return A != B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::And_Int64Int64(int64 A, int64 B)
+{
+	return A & B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Xor_Int64Int64(int64 A, int64 B)
+{
+	return A ^ B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Or_Int64Int64(int64 A, int64 B)
+{
+	return A | B;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Not_Int64(int64 A)
+{
+	return ~A;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::SignOfInteger64(int64 A)
+{
+	return FMath::Sign<int64>(A);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::RandomInteger64(int64 A)
+{
+	return FMath::RandHelper(A);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::RandomInteger64InRange(int64 Min, int64 Max)
+{
+	return FMath::RandRange(Min, Max);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::MinInt64(int64 A, int64 B)
+{
+	return FMath::Min(A, B);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::MaxInt64(int64 A, int64 B)
+{
+	return FMath::Max(A, B);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::ClampInt64(int64 V, int64 A, int64 B)
+{
+	return FMath::Clamp(V, A, B);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Abs_Int64(int64 A)
+{
+	return FMath::Abs(A);
+}
+
+KISMET_MATH_FORCEINLINE
 float UKismetMathLibrary::MultiplyMultiply_FloatFloat(float Base, float Exp)
 {
 	return FMath::Pow(Base, Exp);
@@ -305,6 +425,19 @@ int32 UKismetMathLibrary::Divide_IntInt(int32 A, int32 B)
 
 	return (A / B);
 }
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Divide_Int64Int64(int64 A, int64 B)
+{
+	if (B == 0)
+	{
+		ReportError_Divide_Int64Int64();
+		return 0;
+	}
+
+	return (A / B);
+}
+
 
 KISMET_MATH_FORCEINLINE
 int32 UKismetMathLibrary::Percent_IntInt(int32 A, int32 B)
@@ -559,6 +692,30 @@ int32 UKismetMathLibrary::FTrunc(float A)
 {
 	return FMath::TruncToInt(A);
 }	
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Round64(float A)
+{
+	return (int64)FMath::RoundToInt(A);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::FFloor64(float A)
+{
+	return (int64)FMath::FloorToInt(A);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::FTrunc64(float A)
+{
+	return (int64)FMath::TruncToInt(A);
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::FCeil64(float A)
+{
+	return (int64)FMath::CeilToInt(A);
+}
 
 KISMET_MATH_FORCEINLINE
 FIntVector UKismetMathLibrary::FTruncVector(const FVector& InVector)
@@ -1553,6 +1710,12 @@ KISMET_MATH_FORCEINLINE
 float UKismetMathLibrary::Conv_IntToFloat(int32 InInt)
 {
 	return (float)InInt;
+}
+
+KISMET_MATH_FORCEINLINE
+int64 UKismetMathLibrary::Conv_IntToInt64(int32 InInt)
+{
+	return (int64)InInt;
 }
 
 KISMET_MATH_FORCEINLINE

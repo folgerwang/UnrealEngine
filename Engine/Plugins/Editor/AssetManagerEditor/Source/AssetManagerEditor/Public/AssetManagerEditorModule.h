@@ -186,6 +186,7 @@ public:
 
 	/** Opens asset management UI, with selected assets. Pass as value so it can be used in delegates */
 	virtual void OpenAssetAuditUI(TArray<FAssetData> SelectedAssets) = 0;
+	virtual void OpenAssetAuditUI(TArray<FAssetIdentifier> SelectedIdentifiers) = 0;
 	virtual void OpenAssetAuditUI(TArray<FName> SelectedPackages) = 0;
 
 	/** Spawns reference viewer, showing selected packages or identifiers */

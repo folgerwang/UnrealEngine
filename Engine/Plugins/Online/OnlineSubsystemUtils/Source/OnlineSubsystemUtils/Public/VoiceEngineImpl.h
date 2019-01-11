@@ -10,7 +10,6 @@
 #include "Net/VoiceDataCommon.h"
 #include "Interfaces/VoiceCapture.h"
 #include "Interfaces/VoiceCodec.h"
-#include "OnlineSubsystemBPCallHelper.h"
 #include "OnlineSubsystemUtilsPackage.h"
 #include "VoipListenerSynthComponent.h"
 #include "OnlineSubsystemUtilsPackage.h"
@@ -42,12 +41,13 @@ struct FLocalVoiceData
 /** 
  * Remote voice data playing on a single client
  */
-class FRemoteTalkerDataImpl
+class ONLINESUBSYSTEMUTILS_API FRemoteTalkerDataImpl
 {
 public:
 
 	FRemoteTalkerDataImpl();
 	/** Required for TMap FindOrAdd() */
+	FRemoteTalkerDataImpl(const FRemoteTalkerDataImpl& Other);
 	FRemoteTalkerDataImpl(FRemoteTalkerDataImpl&& Other);
 	~FRemoteTalkerDataImpl();
 
@@ -85,7 +85,7 @@ public:
 /**
  * Generic implementation of voice engine, using Voice module for capture/codec
  */
-class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
+class ONLINESUBSYSTEMUTILS_API FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 {
 	class FVoiceSerializeHelper : public FGCObject
 	{
@@ -195,18 +195,7 @@ class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 PACKAGE_SCOPE:
 
 	/** Constructor */
-	FVoiceEngineImpl() :
-		OnlineSubsystem(nullptr),
-		VoiceCapture(nullptr),
-		VoiceEncoder(nullptr),
-		OwningUserIndex(INVALID_INDEX),
-		UncompressedBytesAvailable(0),
-		CompressedBytesAvailable(0),
-		AvailableVoiceResult(EVoiceCaptureState::UnInitialized),
-		bPendingFinalCapture(false),
-		bIsCapturing(false),
-		SerializeHelper(nullptr)
-	{};
+	FVoiceEngineImpl();
 
 	// IVoiceEngine
 	virtual bool Init(int32 MaxLocalTalkers, int32 MaxRemoteTalkers) override;
@@ -232,27 +221,8 @@ public:
 		return ONLINE_SUCCESS;
 	}
 
-	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override
-	{
-		if (OwningUserIndex == INVALID_INDEX)
-		{
-			OwningUserIndex = LocalUserNum;
-			return ONLINE_SUCCESS;
-		}
-
-		return ONLINE_FAIL;
-	}
-
-	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override
-	{
-		if (IsOwningUser(LocalUserNum))
-		{
-			OwningUserIndex = INVALID_INDEX;
-			return ONLINE_SUCCESS;
-		}
-
-		return ONLINE_FAIL;
-	}
+	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override;
+	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override;
 
 	virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) override
 	{
@@ -300,6 +270,8 @@ public:
 	// FSelfRegisteringExec
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
+	virtual void GetVoiceSettingsOverride(const FUniqueNetIdWrapper& RemoteTalkerId, FVoiceSettings& VoiceSettings) {}
+
 private:
 
 	/**
@@ -316,6 +288,16 @@ private:
 	 * Delegate that fixes up remote audio components when the level changes
 	 */
 	void OnPostLoadMap(UWorld*);
+
+protected:
+	IOnlineSubsystem*          GetOnlineSubSystem()         { return OnlineSubsystem; }
+	TSharedPtr<IVoiceCapture>& GetVoiceCapture()            { return VoiceCapture; }
+	TSharedPtr<IVoiceEncoder>& GetVoiceEncoder()            { return VoiceEncoder; }
+	FRemoteTalkerData&         GetRemoteTalkerBuffers()     { return RemoteTalkerBuffers; }
+	TArray<uint8>&             GetCompressedVoiceBuffer()   { return CompressedVoiceBuffer; }
+	TArray<uint8>&             GetDecompressedVoiceBuffer() { return DecompressedVoiceBuffer; }
+	FLocalVoiceData*           GetLocalPlayerVoiceData()    { return PlayerVoiceData; }
+	int32                      GetMaxVoiceRemainderSize();
 };
 
 typedef TSharedPtr<FVoiceEngineImpl, ESPMode::ThreadSafe> FVoiceEngineImplPtr;

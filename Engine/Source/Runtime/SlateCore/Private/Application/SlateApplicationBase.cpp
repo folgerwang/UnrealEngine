@@ -101,7 +101,7 @@ void FSlateApplicationBase::RegisterActiveTimer( const TSharedRef<FActiveTimerHa
 void FSlateApplicationBase::UnRegisterActiveTimer( const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle )
 {
 	FScopeLock ActiveTimerLock(&ActiveTimerCS);
-	ActiveTimerHandles.Remove(ActiveTimerHandle);
+	ActiveTimerHandles.RemoveSingleSwap(ActiveTimerHandle);
 }
 
 bool FSlateApplicationBase::AnyActiveTimersArePending()

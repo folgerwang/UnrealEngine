@@ -17,7 +17,11 @@ void USocialChatChannel::NotifyUserJoinedChannel(USocialUser& User)
 {
 	static FText UserJoinedMessage = LOCTEXT("SocialChatRoom_MemberJoined", "{0} has joined.");
 
-	//AddSystemMessage(FText::Format(UserJoinedMessage, FText::FromString(User.GetDisplayName())).ToString());
+	if (ChannelType == ESocialChannelType::Party ||
+		ChannelType == ESocialChannelType::Team)
+	{
+		AddSystemMessage(FText::Format(UserJoinedMessage, FText::FromString(User.GetDisplayName())));
+	}
 
 	OnUserJoinedChannel().Broadcast(User);
 }
@@ -26,7 +30,11 @@ void USocialChatChannel::NotifyUserLeftChannel(USocialUser& User)
 {
 	static FText UserLeftMessage = LOCTEXT("SocialChatRoom_MemberExit", "{0} has left.");
 	
-	//AddSystemMessage(FText::Format(UserLeftMessage, FText::FromString(User.GetDisplayName())).ToString());
+	if (ChannelType == ESocialChannelType::Party ||
+		ChannelType == ESocialChannelType::Team)
+	{
+		AddSystemMessage(FText::Format(UserLeftMessage, FText::FromString(User.GetDisplayName())));
+	}
 
 	OnUserLeftChannel().Broadcast(User);
 }
@@ -61,9 +69,9 @@ void USocialChatChannel::SanitizeMessage(FString& RawMessage) const
 	RawMessage.ReplaceInline(TEXT("&gt;"), TEXT(">"));
 }
 
-void USocialChatChannel::AddSystemMessage(const FString& MessageBody)
+void USocialChatChannel::AddSystemMessage(const FText& MessageBody)
 {
-	AddMessageInternal(FSocialSystemChatMessage::Create(TEXT("System"), MessageBody, ChannelType, EChatSystemMessagePurpose::Info));
+	AddMessageInternal(FSocialSystemChatMessage::Create(TEXT("System"), MessageBody.ToString(), ChannelType, EChatSystemMessagePurpose::Info));
 }
 
 void USocialChatChannel::AddMessageInternal(FSocialChatMessageRef NewMessage)

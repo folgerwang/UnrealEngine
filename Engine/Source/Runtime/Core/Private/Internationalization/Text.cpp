@@ -16,6 +16,7 @@
 #include "Internationalization/TextTransformer.h"
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/FastDecimalFormat.h"
+#include "Internationalization/TextGeneratorRegistry.h"
 
 #include "Serialization/ArchiveFromStructuredArchive.h"
 
@@ -267,7 +268,7 @@ FText::FText( FString&& InSourceString, FTextDisplayStringRef InDisplayString )
 	TextData->SetTextHistory(FTextHistory_Base(MoveTemp(InSourceString)));
 }
 
-FText::FText( FString&& InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags )
+FText::FText( FString&& InSourceString, const FTextKey& InNamespace, const FTextKey& InKey, uint32 InFlags )
 	: TextData(new TLocalizedTextData<FTextHistory_Base>(FTextLocalizationManager::Get().GetDisplayString(InNamespace, InKey, &InSourceString)))
 	, Flags(InFlags)
 {
@@ -472,6 +473,33 @@ FText FText::FormatNamedImpl(FTextFormat&& Fmt, FFormatNamedArguments&& InArgume
 FText FText::FormatOrderedImpl(FTextFormat&& Fmt, FFormatOrderedArguments&& InArguments)
 {
 	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(InArguments), false, false);
+}
+
+FText FText::FromTextGenerator(const TSharedRef<ITextGenerator>& TextGenerator)
+{
+	FString ResultString = TextGenerator->BuildLocalizedDisplayString();
+
+	FText Result = FText(MakeShared<TGeneratedTextData<FTextHistory_TextGenerator>, ESPMode::ThreadSafe>(MoveTemp(ResultString), FTextHistory_TextGenerator(TextGenerator)));
+	if (!GIsEditor)
+	{
+		Result.Flags |= ETextFlag::Transient;
+	}
+	return Result;
+}
+
+FText::FCreateTextGeneratorDelegate FText::FindRegisteredTextGenerator( FName TypeID )
+{
+	return FTextGeneratorRegistry::Get().FindRegisteredTextGenerator(TypeID);
+}
+
+void FText::RegisterTextGenerator( FName TypeID, FCreateTextGeneratorDelegate FactoryFunction )
+{
+	FTextGeneratorRegistry::Get().RegisterTextGenerator(TypeID, MoveTemp(FactoryFunction));
+}
+
+void FText::UnregisterTextGenerator( FName TypeID )
+{
+	FTextGeneratorRegistry::Get().UnregisterTextGenerator(TypeID);
 }
 
 /**
@@ -725,7 +753,7 @@ FString FText::GetInvariantTimeZone()
 	return TEXT("Etc/Unknown");
 }
 
-bool FText::FindText( const FString& Namespace, const FString& Key, FText& OutText, const FString* const SourceString )
+bool FText::FindText(const FTextKey& Namespace, const FTextKey& Key, FText& OutText, const FString* const SourceString)
 {
 	FTextDisplayStringPtr FoundString = FTextLocalizationManager::Get().FindDisplayString( Namespace, Key, SourceString );
 
@@ -902,6 +930,11 @@ void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
 					Value.TextData = MakeShared<TIndirectTextData<FTextHistory_StringTableEntry>, ESPMode::ThreadSafe>();
 					break;
 				}
+			case ETextHistoryType::TextGenerator:
+				{
+					Value.TextData = MakeShared<TLocalizedTextData<FTextHistory_TextGenerator>, ESPMode::ThreadSafe>();
+					break;
+				}
 			default:
 				{
 					bSerializeHistory = false;
@@ -940,7 +973,7 @@ void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
 }
 
 #if WITH_EDITOR
-FText FText::ChangeKey( const FString& Namespace, const FString& Key, const FText& Text )
+FText FText::ChangeKey( const FTextKey& Namespace, const FTextKey& Key, const FText& Text )
 {
 	return FText(FString(*Text.TextData->GetTextHistory().GetSourceString()), Namespace, Key, 0);
 }

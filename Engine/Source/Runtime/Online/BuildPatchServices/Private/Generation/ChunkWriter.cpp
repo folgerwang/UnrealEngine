@@ -1,31 +1,21 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Generation/ChunkWriter.h"
+
 #include "Logging/LogMacros.h"
 #include "Containers/Queue.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Misc/Paths.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Async/Async.h"
-#include "Core/AsyncHelpers.h"
+
 #include "Common/FileSystem.h"
+#include "Common/StatsCollector.h"
+#include "Core/AsyncHelpers.h"
 #include "Data/ChunkData.h"
 #include "BuildPatchUtil.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogChunkWriter, Log, All);
-
-/** Here lies stats that should be reimplemented where possible
-
-StatFileCreateTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Create Time"), EStatFormat::Timer);
-StatCheckExistsTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Check Exist Time"), EStatFormat::Timer);
-StatCompressTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Compress Time"), EStatFormat::Timer);
-StatSerlialiseTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Serialize Time"), EStatFormat::Timer);
-StatChunksSaved = StatsCollector->CreateStat(TEXT("Chunk Writer: Num Saved"), EStatFormat::Value);
-StatDataWritten = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Size Written"), EStatFormat::DataSize);
-StatDataWriteSpeed = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Write Speed"), EStatFormat::DataSpeed);
-StatCompressionRatio = StatsCollector->CreateStat(TEXT("Chunk Writer: Compression Ratio"), EStatFormat::Percentage);
-
-*/
 
 namespace BuildPatchServices
 {
@@ -76,6 +66,12 @@ namespace BuildPatchServices
 			, bMoreDataIsExpected(true)
 			, bShouldAbort(false)
 		{
+			StatUncompressesData = 0;
+			StatSerlialiseTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Serialize Time"), EStatFormat::Timer);
+			StatChunksSaved = StatsCollector->CreateStat(TEXT("Chunk Writer: Num Saved"), EStatFormat::Value);
+			StatDataWritten = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Size Written"), EStatFormat::DataSize);
+			StatCompressionRatio = StatsCollector->CreateStat(TEXT("Chunk Writer: Compression Ratio"), EStatFormat::Percentage);
+			StatDataWriteSpeed = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Write Speed"), EStatFormat::DataSpeed);
 			FileSystem->MakeDirectory(*Config.ChunkDirectory);
 			if (!FileSystem->DirectoryExists(*Config.ChunkDirectory))
 			{
@@ -104,6 +100,9 @@ namespace BuildPatchServices
 		virtual void AddChunkData(TArray<uint8> ChunkData, const FGuid& ChunkGuid, const uint64& ChunkHash, const FSHAHash& ChunkSha) override
 		{
 			DebugCheckSingleProducer();
+			// Check for violations of feature level.
+			check(Config.FeatureLevel >= EFeatureLevel::VariableSizeChunksWithoutWindowSizeChunkInfo || ChunkData.Num() == LegacyFixedChunkWindow);
+			// Wait for queue space.
 			while (ChunkDataJobQueueCount.GetValue() >= Config.MaxQueueSize)
 			{
 				FPlatformProcess::Sleep(0);
@@ -119,6 +118,7 @@ namespace BuildPatchServices
 				Thread.Wait();
 			}
 			WriterThreads.Empty();
+			ParallelChunkWriterSummaries.FeatureLevel = Config.FeatureLevel;
 			FChunkOutputSize ChunkOutputSize;
 			while (ChunkOutputSizeQueue.Dequeue(ChunkOutputSize))
 			{
@@ -141,6 +141,7 @@ namespace BuildPatchServices
 	private:
 		void WriterThread()
 		{
+			uint64 ChunkWriteTime;
 			bool bReceivedJob;
 			FChunkDataJob ChunkDataJob;
 			while (!bShouldAbort && (bMoreDataIsExpected || ChunkDataJobQueueCount.GetValue() > 0))
@@ -165,12 +166,15 @@ namespace BuildPatchServices
 					ChunkHeader.SHAHash = ChunkSha;
 					TUniquePtr<FWriterChunkDataAccess> ChunkDataAccess(new FWriterChunkDataAccess(ChunkData, ChunkHeader));
 					const FString NewChunkFilename = FBuildPatchUtils::GetChunkNewFilename(Config.FeatureLevel, Config.ChunkDirectory, ChunkGuid, ChunkHash);
-					if (!FileSystem->FileExists(*NewChunkFilename))
+					int64 ExistingChunkFilesize = INDEX_NONE;
+					const bool bFileExists = FileSystem->GetFileSize(*NewChunkFilename, ExistingChunkFilesize);
+					if (!bFileExists)
 					{
 						bool bSaveSuccess = false;
 						int32 RetryCount = Config.SaveRetryCount;
 						while (!bShouldAbort && !bSaveSuccess && RetryCount-- >= 0)
 						{
+							FStatsCollector::AccumulateTimeBegin(ChunkWriteTime);
 							FileSystem->MakeDirectory(*FPaths::GetPath(NewChunkFilename));
 							TUniquePtr<FArchive> ChunkFileOut = FileSystem->CreateFileWriter(*NewChunkFilename);
 							if (!ChunkFileOut.IsValid())
@@ -180,7 +184,9 @@ namespace BuildPatchServices
 								continue;
 							}
 							EChunkSaveResult ChunkSaveResult = ChunkDataSerialization->SaveToArchive(*ChunkFileOut.Get(), ChunkDataAccess.Get());
-							ChunkOutputSizeQueue.Enqueue(FChunkOutputSize(ChunkGuid, ChunkFileOut->TotalSize()));
+							FStatsCollector::AccumulateTimeEnd(StatSerlialiseTime, ChunkWriteTime);
+							const int64 ChunkFileSize = ChunkFileOut->TotalSize();
+							ChunkOutputSizeQueue.Enqueue(FChunkOutputSize(ChunkGuid, ChunkFileSize));
 							ChunkOutputHashQueue.Enqueue(FChunkOutputHash(ChunkGuid, ChunkHash));
 							ChunkOutputShaQueue.Enqueue(FChunkOutputSha(ChunkGuid, ChunkSha));
 							if (ChunkFileOut->IsError() || ChunkSaveResult != EChunkSaveResult::Success)
@@ -190,6 +196,20 @@ namespace BuildPatchServices
 								continue;
 							}
 							bSaveSuccess = true;
+							FStatsCollector::Accumulate(StatChunksSaved, 1);
+							FStatsCollector::Accumulate(StatDataWritten, ChunkFileSize);
+							FStatsCollector::Accumulate(&StatUncompressesData, ChunkHeader.HeaderSize + ChunkHeader.DataSizeUncompressed);
+							const double DataWrittenD = *StatDataWritten;
+							const double UncompressesDataD = StatUncompressesData;
+							if (UncompressesDataD > 0)
+							{
+								FStatsCollector::SetAsPercentage(StatCompressionRatio, DataWrittenD / UncompressesDataD);
+							}
+							double SerlialiseTime = FStatsCollector::CyclesToSeconds(*StatSerlialiseTime);
+							if (SerlialiseTime > 0)
+							{
+								FStatsCollector::Set(StatDataWriteSpeed, *StatDataWritten / SerlialiseTime);
+							}
 						}
 						if (!bSaveSuccess)
 						{
@@ -198,7 +218,9 @@ namespace BuildPatchServices
 					}
 					else
 					{
-						UE_LOG(LogChunkWriter, Log, TEXT("Skipping already existing chunk file (%s)."), *NewChunkFilename);
+						ChunkOutputSizeQueue.Enqueue(FChunkOutputSize(ChunkGuid, ExistingChunkFilesize));
+						ChunkOutputHashQueue.Enqueue(FChunkOutputHash(ChunkGuid, ChunkHash));
+						ChunkOutputShaQueue.Enqueue(FChunkOutputSha(ChunkGuid, ChunkSha));
 					}
 				}
 				else
@@ -228,6 +250,13 @@ namespace BuildPatchServices
 		IFileSystem* const FileSystem;
 		IChunkDataSerialization* const ChunkDataSerialization;
 		FStatsCollector* const StatsCollector;
+
+		volatile int64 StatUncompressesData;
+		volatile int64* StatSerlialiseTime;
+		volatile int64* StatChunksSaved;
+		volatile int64* StatDataWritten;
+		volatile int64* StatDataWriteSpeed;
+		volatile int64* StatCompressionRatio;
 
 		TArray<TFuture<void>> WriterThreads;
 		FThreadSafeBool bMoreDataIsExpected;

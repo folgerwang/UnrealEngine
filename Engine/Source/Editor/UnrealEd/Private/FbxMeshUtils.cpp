@@ -117,6 +117,8 @@ namespace FbxMeshUtils
 
 			ImportOptions->bImportMaterials = false;
 			ImportOptions->bImportTextures = false;
+			//Make sure the LODGroup do not change when re-importing a mesh
+			ImportOptions->StaticMeshLODGroup = BaseStaticMesh->LODGroup;
 		}
 		ImportOptions->bAutoComputeLodDistances = true; //Setting auto compute distance to true will avoid changing the staticmesh flag
 		if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -331,7 +333,6 @@ namespace FbxMeshUtils
 			{
 				ImportOptions->bImportAnimations = false;
 				ImportOptions->bUpdateSkeletonReferencePose = false;
-				ImportOptions->bUseT0AsRefPose = false;
 			}
 
 			if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )

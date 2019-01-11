@@ -586,6 +586,38 @@ public:
 		return true;
 	}
 
+	/**
+	*	Returns true if mesh reduction is active. Active mean there will be a reduction of the vertices or triangle number
+	*/
+	virtual bool IsReductionActive(const struct FMeshReductionSettings &ReductionSettings) const
+	{
+		float Threshold_One = (1.0f - KINDA_SMALL_NUMBER);
+		switch (ReductionSettings.TerminationCriterion)
+		{
+			case EStaticMeshReductionTerimationCriterion::Triangles:
+			{
+				return ReductionSettings.PercentTriangles < Threshold_One;
+			}
+			break;
+			case EStaticMeshReductionTerimationCriterion::Vertices:
+			{
+				return ReductionSettings.PercentVertices < Threshold_One;
+			}
+			break;
+			case EStaticMeshReductionTerimationCriterion::Any:
+			{
+				return ReductionSettings.PercentTriangles < Threshold_One || ReductionSettings.PercentVertices < Threshold_One;
+			}
+			break;
+		}
+		return false;
+	}
+
+	virtual bool IsReductionActive(const FSkeletalMeshOptimizationSettings &ReductionSettings) const
+	{
+		return false;
+	}
+
 	virtual ~FQuadricSimplifierMeshReduction() {}
 
 	static FQuadricSimplifierMeshReduction* Create()

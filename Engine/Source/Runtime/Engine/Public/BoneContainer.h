@@ -14,6 +14,24 @@ class USkeletalMesh;
 class USkeleton;
 class USkeletalMesh;
 
+/** in the future if we need more bools, please convert to bitfield 
+ * These are not saved in asset but per skeleton. 
+ */
+USTRUCT()
+struct ENGINE_API FAnimCurveType
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bMaterial;
+	bool bMorphtarget;
+
+	FAnimCurveType(bool bInMorphtarget = false, bool bInMaterial = false)
+		: bMaterial(bInMaterial)
+		, bMorphtarget(bInMorphtarget)
+	{
+	}
+};
+
 /**
 * This is a native transient structure. Used to store virtual bone mappings for compact poses
 **/
@@ -130,6 +148,12 @@ private:
 
 	/** Look up table of UID to array index UIDToArrayIndexLUT[InUID] = ArrayIndex of order. If MAX_uint16, it is invalid.*/
 	TArray<uint16> UIDToArrayIndexLUT;
+
+	/** Look up table of UID to Name UIDToNameLUT[InUID] = Name of curve. If NAME_None, it is invalid.*/
+	TArray<FName> UIDToNameLUT;
+
+	/** Look up table of UID to FAnimCurveType UIDToNameLUT[InUID] = FAnimCurveType of curve. */
+	TArray<FAnimCurveType> UIDToCurveTypeLUT;
 
 	/** For debugging. */
 	/** Disable Retargeting. Extract animation, but do not retarget it. */
@@ -290,6 +314,18 @@ public:
 	TArray<uint16> const& GetUIDToArrayLookupTable() const
 	{
 		return UIDToArrayIndexLUT;
+	}
+
+	/** Get UID To Name look up table */
+	TArray<FName> const& GetUIDToNameLookupTable() const
+	{
+		return UIDToNameLUT;
+	}
+
+	/** Get UID To curve type look up table */
+	TArray<FAnimCurveType> const& GetUIDToCurveTypeLookupTable() const
+	{
+		return UIDToCurveTypeLUT;
 	}
 
 	/**

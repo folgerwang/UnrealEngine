@@ -539,7 +539,9 @@ bool InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBasePar
 		}
 		else
 		{
+#if !NO_LOGGING
 			FMsg::Logf_Internal(__FILE__, __LINE__, LogPython.GetCategoryName(), Verbosity, TEXT("%s"), ExceptionMessage);
+#endif
 		}
 	});
 

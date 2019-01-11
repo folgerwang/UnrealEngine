@@ -1149,6 +1149,7 @@ namespace
 			|| Property->IsA<UObjectProperty>()
 			|| Property->IsA<UFloatProperty>()
 			|| Property->IsA<UIntProperty>()
+			|| Property->IsA<UInt64Property>()
 			|| Property->IsA<UByteProperty>()
 			|| Property->IsA<UNameProperty>()
 			|| Property->IsA<UBoolProperty>()
@@ -8784,6 +8785,14 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			if( FDefaultValueHelper::ParseInt( CppForm, Value) )
 			{
 				OutForm = FString::FromInt(Value);
+			}
+		}
+		else if (Property->IsA(UInt64Property::StaticClass()))
+		{
+			int64 Value;
+			if (FDefaultValueHelper::ParseInt64(CppForm, Value))
+			{
+				OutForm = FString::Printf(TEXT("%lld"), Value);
 			}
 		}
 		else if( Property->IsA(UByteProperty::StaticClass()) )

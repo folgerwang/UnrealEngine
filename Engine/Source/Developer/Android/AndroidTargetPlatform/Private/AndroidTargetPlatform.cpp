@@ -637,6 +637,8 @@ namespace
 
 		GConfig->GetFloat(CategoryName, TEXT("CompressionQualityModifier"), OutOverrides.CompressionQualityModifier, GEngineIni);
 
+		GConfig->GetFloat(CategoryName, TEXT("AutoStreamingThreshold"), OutOverrides.AutoStreamingThreshold, GEngineIni);
+
 		//Cache sample rate map.
 		OutOverrides.PlatformSampleRates.Reset();
 

@@ -127,4 +127,24 @@ void USlateBlueprintLibrary::ScreenToViewport(UObject* WorldContextObject, FVect
 	USlateBlueprintLibrary::AbsoluteToViewport(WorldContextObject, AbsolutePosition, PixelPosition, ViewportPosition);
 }
 
+float USlateBlueprintLibrary::TransformScalarAbsoluteToLocal(const FGeometry& Geometry, float AbsoluteScalar)
+{
+	return Geometry.GetAccumulatedRenderTransform().TransformVector(FVector2D(AbsoluteScalar, 0)).Size();
+}
+
+float USlateBlueprintLibrary::TransformScalarLocalToAbsolute(const FGeometry& Geometry, float LocalScalar)
+{
+	return Inverse(Geometry.GetAccumulatedRenderTransform()).TransformVector(FVector2D(LocalScalar, 0)).Size();
+}
+
+FVector2D USlateBlueprintLibrary::TransformVectorAbsoluteToLocal(const FGeometry& Geometry, FVector2D AbsoluteVector)
+{
+	return Geometry.GetAccumulatedRenderTransform().TransformVector(AbsoluteVector);
+}
+
+FVector2D USlateBlueprintLibrary::TransformVectorLocalToAbsolute(const FGeometry& Geometry, FVector2D LocalVector)
+{
+	return Inverse(Geometry.GetAccumulatedRenderTransform()).TransformVector(LocalVector);
+}
+
 #undef LOCTEXT_NAMESPACE

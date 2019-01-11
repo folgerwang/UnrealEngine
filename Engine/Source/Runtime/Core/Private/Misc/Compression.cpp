@@ -58,20 +58,25 @@ static ICustomCompressor& GetCustomCompressor()
  * @param	BitWindow					Bit window to use in compression
  * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
  */
-static bool appCompressMemoryZLIB( void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize, int32 BitWindow )
+static bool appCompressMemoryZLIB(void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize, int32 BitWindow, int32 CompLevel)
 {
-	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "Compress Memory ZLIB" ), STAT_appCompressMemoryZLIB, STATGROUP_Compression );
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Compress Memory ZLIB"), STAT_appCompressMemoryZLIB, STATGROUP_Compression);
+
+	ensureMsgf(CompLevel >= Z_DEFAULT_COMPRESSION, TEXT("CompLevel must be >= Z_DEFAULT_COMPRESSION"));
+	ensureMsgf(CompLevel <= Z_BEST_COMPRESSION, TEXT("CompLevel must be <= Z_BEST_COMPRESSION"));
+
+	CompLevel = FMath::Clamp(CompLevel, Z_DEFAULT_COMPRESSION, Z_BEST_COMPRESSION);
 
 	// Zlib wants to use unsigned long.
-	unsigned long ZCompressedSize	= CompressedSize;
-	unsigned long ZUncompressedSize	= UncompressedSize;
+	unsigned long ZCompressedSize = CompressedSize;
+	unsigned long ZUncompressedSize = UncompressedSize;
 	bool bOperationSucceeded = false;
 
 	// Compress data
 	// If using the default Zlib bit window, use the zlib routines, otherwise go manual with deflate2
 	if (BitWindow == DEFAULT_ZLIB_BIT_WINDOW)
 	{
-		bOperationSucceeded = compress((uint8*)CompressedBuffer, &ZCompressedSize, (const uint8*)UncompressedBuffer, ZUncompressedSize) == Z_OK ? true : false;
+		bOperationSucceeded = compress2((uint8*)CompressedBuffer, &ZCompressedSize, (const uint8*)UncompressedBuffer, ZUncompressedSize, CompLevel) == Z_OK ? true : false;
 	}
 	else
 	{
@@ -84,8 +89,7 @@ static bool appCompressMemoryZLIB( void* CompressedBuffer, int32& CompressedSize
 		stream.zfree = &zfree;
 		stream.opaque = Z_NULL;
 
-		;
-		if (ensure(Z_OK == deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, BitWindow, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY)))
+		if (ensure(Z_OK == deflateInit2(&stream, CompLevel, Z_DEFLATED, BitWindow, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY)))
 		{
 			if (ensure(Z_STREAM_END == deflate(&stream, Z_FINISH)))
 			{
@@ -354,8 +358,26 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
 	switch(Flags & COMPRESSION_FLAGS_TYPE_MASK)
 	{
 		case COMPRESS_ZLIB:
-			bCompressSucceeded = appCompressMemoryZLIB(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, BitWindow);
-			break;
+		{
+			const int32 DefaultCompLevel = 6;//this can change its an internal library setting we have no control over
+			int32 CompLevel = Z_DEFAULT_COMPRESSION;
+
+			if (Flags & COMPRESSION_FLAGS_BIAS_MASK)
+			{
+				if (Flags & COMPRESS_BiasMemory)
+				{
+					//I'd like to increases this further but consider it somewhat of a risk given how frequently its used
+					CompLevel = FMath::Min(DefaultCompLevel + 1, Z_BEST_COMPRESSION);
+				}
+				else
+				{
+					CompLevel = FMath::Max(DefaultCompLevel - 3, Z_BEST_SPEED);
+				}
+			}
+
+			bCompressSucceeded = appCompressMemoryZLIB(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, BitWindow, CompLevel);
+		}
+		break;
 		case COMPRESS_GZIP:
 			bCompressSucceeded = appCompressMemoryGZIP(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
 			break;

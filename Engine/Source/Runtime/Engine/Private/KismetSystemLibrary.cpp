@@ -797,6 +797,18 @@ void UKismetSystemLibrary::SetIntPropertyByName(UObject* Object, FName PropertyN
 	}
 }
 
+void UKismetSystemLibrary::SetInt64PropertyByName(UObject* Object, FName PropertyName, int64 Value)
+{
+	if (Object != NULL)
+	{
+		UInt64Property* IntProp = FindField<UInt64Property>(Object->GetClass(), PropertyName);
+		if (IntProp != NULL)
+		{
+			IntProp->SetPropertyValue_InContainer(Object, Value);
+		}
+	}
+}
+
 void UKismetSystemLibrary::SetBytePropertyByName(UObject* Object, FName PropertyName, uint8 Value)
 {
 	if(Object != NULL)
@@ -2408,6 +2420,11 @@ void UKismetSystemLibrary::ResetGamepadAssignmentToController(int32 ControllerId
 bool UKismetSystemLibrary::IsControllerAssignedToGamepad(int32 ControllerId)
 {
 	return FPlatformApplicationMisc::IsControllerAssignedToGamepad(ControllerId);
+}
+
+FString UKismetSystemLibrary::GetGamepadControllerName(int32 ControllerId)
+{
+	return FPlatformApplicationMisc::GetGamepadControllerName(ControllerId);
 }
 
 void UKismetSystemLibrary::SetSuppressViewportTransitionMessage(UObject* WorldContextObject, bool bState)

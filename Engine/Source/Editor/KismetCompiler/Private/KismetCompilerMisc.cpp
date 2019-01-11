@@ -124,6 +124,11 @@ static bool IsTypeCompatibleWithProperty(UEdGraphPin* SourcePin, const FEdGraphP
 		UIntProperty* SpecificProperty = Cast<UIntProperty>(TestProperty);
 		bTypeMismatch = (SpecificProperty == nullptr);
 	}
+	else if (PinCategory == UEdGraphSchema_K2::PC_Int64)
+	{
+		UInt64Property* SpecificProperty = Cast<UInt64Property>(TestProperty);
+		bTypeMismatch = (SpecificProperty == nullptr);
+	}
 	else if (PinCategory == UEdGraphSchema_K2::PC_Name)
 	{
 		UNameProperty* SpecificProperty = Cast<UNameProperty>(TestProperty);
@@ -999,6 +1004,11 @@ UProperty* FKismetCompilerUtilities::CreatePrimitiveProperty(UObject* PropertySc
 	else if (PinCategory == UEdGraphSchema_K2::PC_Int)
 	{
 		NewProperty = NewObject<UIntProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty->SetPropertyFlags(CPF_HasGetValueTypeHash);
+	}
+	else if (PinCategory == UEdGraphSchema_K2::PC_Int64)
+	{
+		NewProperty = NewObject<UInt64Property>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 		NewProperty->SetPropertyFlags(CPF_HasGetValueTypeHash);
 	}
 	else if (PinCategory == UEdGraphSchema_K2::PC_Float)

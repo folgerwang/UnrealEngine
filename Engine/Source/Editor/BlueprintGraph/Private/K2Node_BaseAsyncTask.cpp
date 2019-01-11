@@ -114,6 +114,7 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 		{
 			UEdGraphPin* ExecPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, Property->GetFName());
 			ExecPin->PinToolTip = Property->GetToolTipText().ToString();
+			ExecPin->PinFriendlyName = Property->GetDisplayNameText();
 
 			if (!DelegateSignatureFunction)
 			{

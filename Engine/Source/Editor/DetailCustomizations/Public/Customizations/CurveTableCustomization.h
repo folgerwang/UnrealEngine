@@ -107,7 +107,7 @@ protected:
 			if ( CurveTable != NULL )
 			{
 				/** Extract all the row names from the RowMap */
-				for ( TMap<FName, FRichCurve*>::TConstIterator Iterator(CurveTable->RowMap); Iterator; ++Iterator )
+				for ( TMap<FName, FRealCurve*>::TConstIterator Iterator(CurveTable->GetRowMap()); Iterator; ++Iterator )
 				{
 					/** Create a simple array of the row names */
 					TSharedRef<FString> RowNameItem = MakeShareable(new FString(Iterator.Key().ToString()));
@@ -213,7 +213,7 @@ protected:
 		if( CurveTable != NULL )
 		{
 			/** Extract all the row names from the RowMap */
-			for( TMap<FName, FRichCurve*>::TConstIterator Iterator( CurveTable->RowMap ); Iterator; ++Iterator )
+			for( TMap<FName, FRealCurve*>::TConstIterator Iterator( CurveTable->GetRowMap() ); Iterator; ++Iterator )
 			{
 				/** Create a simple array of the row names */
 				FString RowString = Iterator.Key().ToString();

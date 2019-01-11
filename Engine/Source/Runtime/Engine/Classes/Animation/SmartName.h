@@ -12,24 +12,6 @@
 
 struct FSmartName;
 
-/** in the future if we need more bools, please convert to bitfield 
- * These are not saved in asset but per skeleton. 
- */
-USTRUCT()
-struct ENGINE_API FAnimCurveType
-{
-	GENERATED_USTRUCT_BODY()
-
-	bool bMaterial;
-	bool bMorphtarget;
-
-	FAnimCurveType(bool bInMorphtarget = false, bool bInMaterial = false)
-		: bMaterial(bInMaterial)
-		, bMorphtarget(bInMorphtarget)
-	{
-	}
-};
-
 /** Curve Meta Data for each name
  * Unfortunately this should be linked to FName, but no GUID because we don't have GUID in run-time
  * We only add this if anything changed, by default, it is attribute curve
@@ -98,6 +80,10 @@ struct ENGINE_API FSmartNameMapping
 	// Fill an array with all used names
 	// @param Array - Array to fill
 	void FillNameArray(TArray<FName>& Array) const;
+
+	// Fill an array with curve types for all used names
+	// @param Array - Array to fill
+	void FillCurveTypeArray(TArray<FAnimCurveType>& Array) const;
 
 #if WITH_EDITOR
 	// Change a name

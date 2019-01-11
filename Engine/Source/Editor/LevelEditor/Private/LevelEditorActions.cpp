@@ -567,15 +567,34 @@ bool FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked( EMaterialQualit
 	return TestQualityLevel == MaterialQualityLevel;
 }
 
+void FLevelEditorActionCallbacks::ToggleFeatureLevelPreview()
+{
+	GEditor->ToggleFeatureLevelPreview();
+}
+
+bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled()
+{
+	if (GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor)
+	{
+		return false;
+	}
+	return GEditor->IsFeatureLevelPreviewEnabled();
+}
+
+bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive()
+{
+	return GEditor->IsFeatureLevelPreviewEnabled() && GEditor->IsFeatureLevelPreviewActive();
+}
+
 void FLevelEditorActionCallbacks::SetPreviewPlatform(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
 {
 	GEditor->SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel);
 }
 
-bool FLevelEditorActionCallbacks::IsPreviewPlatformChecked(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
+bool FLevelEditorActionCallbacks::IsPreviewPlatformChecked(FName InMaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
 	const FName& PreviewPlatform = UMaterialShaderQualitySettings::Get()->GetPreviewPlatform();
-	return PreviewPlatform == MaterialQualityPlatform && PreviewFeatureLevel == GetWorld()->FeatureLevel;
+	return PreviewPlatform == InMaterialQualityPlatform && InPreviewFeatureLevel == GEditor->PreviewFeatureLevel;
 }
 
 void FLevelEditorActionCallbacks::SetFeatureLevelPreview(ERHIFeatureLevel::Type InPreviewFeatureLevel)
@@ -585,7 +604,7 @@ void FLevelEditorActionCallbacks::SetFeatureLevelPreview(ERHIFeatureLevel::Type 
 
 bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewChecked(ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
-	return InPreviewFeatureLevel == GetWorld()->FeatureLevel;
+	return GEditor->PreviewFeatureLevel == InPreviewFeatureLevel;
 }
 
 bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewAvailable(ERHIFeatureLevel::Type InPreviewFeatureLevel)
@@ -3277,13 +3296,15 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND(MaterialQualityLevel_Medium, "Medium", "Sets material quality in the scene to medium.", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(MaterialQualityLevel_High, "High", "Sets material quality in the scene to high.", EUserInterfaceActionType::RadioButton, FInputChord());
 
-	UI_COMMAND(PreviewPlatformOverride_DefaultES2, "Default Mobile / HTML5 Preview", "Use default mobile settings (no quality overrides).", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_AndroidGLES2, "Android Preview", "Mobile preview using Android's quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(ToggleFeatureLevelPreview, "Preview Platform", "Preview Platform", EUserInterfaceActionType::ToggleButton, FInputChord());
+
+	UI_COMMAND(PreviewPlatformOverride_AndroidGLES2, "Preview as Android ES2", "Mobile preview using Android's quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_DefaultES2, "Preview as HTML5", "HTML5 preview.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(PreviewPlatformOverride_DefaultES31, "Default High-End Mobile", "Use default mobile settings (no quality overrides).", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_AndroidGLES31, "Android GLES3.1 Preview", "Mobile preview using Android ES3.1 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_AndroidVulkanES31, "Android Vulkan Preview", "Mobile preview using Android Vulkan quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "iOS Preview", "Mobile preview using iOS material quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_AndroidGLES31, "Preview as Android ES31", "Mobile preview using Android ES3.1 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_AndroidVulkanES31, "Preview as Android Vulkan", "Mobile preview using Android Vulkan quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "Preview as iOS", "Mobile preview using iOS material quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 
 	UI_COMMAND( ConnectToSourceControl, "Connect to Source Control...", "Opens a dialog to connect to source control.", EUserInterfaceActionType::Button, FInputChord());
@@ -3299,8 +3320,8 @@ void FLevelEditorCommands::RegisterCommands()
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES2", "Mobile / HTML5"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES31", "High-End Mobile"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Shader Model 4"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "Shader Model 5"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Preview as SM4"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "No Preview Device. (View as SM5)"),
 	};
 
 	static const FText FeatureLevelToolTips[ERHIFeatureLevel::Num] = 

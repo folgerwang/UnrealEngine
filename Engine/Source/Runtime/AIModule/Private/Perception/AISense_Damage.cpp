@@ -80,10 +80,8 @@ float UAISense_Damage::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 
-	for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+	for (const FAIDamageEvent& Event : RegisteredEvents)
 	{
-		const FAIDamageEvent& Event = RegisteredEvents[EventIndex];
-
 		IAIPerceptionListenerInterface* PerceptionListener = Event.GetDamagedActorAsPerceptionListener();
 		if (PerceptionListener != nullptr)
 		{

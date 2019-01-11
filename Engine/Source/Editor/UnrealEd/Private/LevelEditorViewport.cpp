@@ -3262,10 +3262,16 @@ void FLevelEditorViewportClient::MoveCameraToLockedActor()
 
 USceneComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor const* Actor)
 {
+	TSet<AActor const*> CheckedActors;
+	return FindViewComponentForActor(Actor, CheckedActors);
+}
+
+USceneComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors)
+{
 	USceneComponent* PreviewComponent = nullptr;
-	if (Actor)
+	if (Actor && !CheckedActors.Contains(Actor))
 	{
-		
+		CheckedActors.Add(Actor);
 		// see if actor has a component with preview capabilities (prioritize camera components)
 		TArray<USceneComponent*> SceneComps;
 		Actor->GetComponents<USceneComponent>(SceneComps);
@@ -3301,14 +3307,13 @@ USceneComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor co
 
 		// now see if any actors are attached to us, directly or indirectly, that have an active camera component we might want to use
 		// we will just return the first one.
-		// #note: assumption here that attachment cannot be circular
 		if (PreviewComponent == nullptr)
 		{
 			TArray<AActor*> AttachedActors;
 			Actor->GetAttachedActors(AttachedActors);
 			for (AActor* AttachedActor : AttachedActors)
 			{
-				USceneComponent* const Comp = FindViewComponentForActor(AttachedActor);
+				USceneComponent* const Comp = FindViewComponentForActor(AttachedActor, CheckedActors);
 				if (Comp)
 				{
 					PreviewComponent = Comp;

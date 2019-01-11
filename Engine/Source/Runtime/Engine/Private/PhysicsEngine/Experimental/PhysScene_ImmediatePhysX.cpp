@@ -590,6 +590,16 @@ void FPhysScene_ImmediatePhysX::FlushDeferredCollisionDisableTableQueue()
     // @todo(mlentine): For new we ignore this as we probably want a different format for this going forward
 }
 
+void FPhysScene_ImmediatePhysX::MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning)
+{
+
+}
+
+void FPhysScene_ImmediatePhysX::ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp)
+{
+
+}
+
 /** Exposes ticking of physics-engine scene outside Engine. */
 void FPhysScene_ImmediatePhysX::KillVisualDebugger()
 {

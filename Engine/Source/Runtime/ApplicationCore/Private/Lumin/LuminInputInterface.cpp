@@ -53,6 +53,11 @@ bool FAndroidInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
 	return true;
 }
 
+FString FAndroidInputInterface::GetGamepadControllerName(int32 ControllerId)
+{
+	return FString(TEXT("Generic"));
+}
+
 void FAndroidInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
 {
 	for (TSharedPtr<IInputDevice>& InputDevice : LuminInputDevices)

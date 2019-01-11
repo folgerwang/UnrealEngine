@@ -743,7 +743,7 @@ namespace EDemoPlayFailure
 		switch (FailureType)
 		{
 		case Generic:
-			return TEXT("Gneric");
+			return TEXT("Generic");
 		case DemoNotFound:
 			return TEXT("DemoNotFound");
 		case Corrupt:

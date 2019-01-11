@@ -24,6 +24,7 @@ namespace BuildPatchServices
 
 	struct FParallelChunkWriterSummaries
 	{
+		EFeatureLevel FeatureLevel;
 		TMap<FGuid, int64> ChunkOutputSizes;
 		TMap<FGuid, uint64> ChunkOutputHashes;
 		TMap<FGuid, FSHAHash> ChunkOutputShas;

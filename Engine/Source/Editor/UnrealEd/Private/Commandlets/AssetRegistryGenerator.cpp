@@ -425,7 +425,7 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 
 		TMap<int32, FGuid> GuidCache;
 		TEncryptedAssetSet EncryptedAssetSet;
-		TSet<FName> ReleasedAssets;
+		TSet<FGuid> ReleasedAssets;
 		AssetManager.GetEncryptedAssetSet(EncryptedAssetSet, ReleasedAssets);
 
 		for (TEncryptedAssetSet::ElementType EncryptedAssetSetElement : EncryptedAssetSet)

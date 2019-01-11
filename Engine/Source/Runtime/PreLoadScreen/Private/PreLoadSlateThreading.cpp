@@ -199,7 +199,7 @@ void FPreLoadScreenSlateSynchMechanism::SlateThreadRunMainLoop()
             DeltaTime = CurrentTime - LastTime;
         }
 
-        if (FSlateApplication::IsInitialized() && !IsSlateDrawPassEnqueued())
+        if (FSlateApplication::IsInitialized() && !IsSlateDrawPassEnqueued() && FPreLoadScreenManager::ShouldRender())
         {
             FSlateRenderer* MainSlateRenderer = FSlateApplication::Get().GetRenderer();
             FScopeLock ScopeLock(MainSlateRenderer->GetResourceCriticalSection());
@@ -217,7 +217,7 @@ void FPreLoadScreenSlateSynchMechanism::SlateThreadRunMainLoop()
                 FPreLoadScreenSlateSynchMechanism*, SyncMech, this,
                 {
                     FPreLoadScreenManager* PreLoadManager = FPreLoadScreenManager::Get();
-                    if (PreLoadManager)
+                    if (PreLoadManager && FPreLoadScreenManager::ShouldRender())
                     {
                         FPreLoadScreenManager::Get()->RenderTick();
                     }
