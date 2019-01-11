@@ -207,6 +207,10 @@ public:
 	uint8 bHiddenInGame:1;
 
 private:
+	/** Whether or not we should be attached. */
+	UPROPERTY(Transient, Replicated)
+	uint8 bShouldBeAttached : 1;
+
 	/**
 	 * Whether or not the cached PhysicsVolume this component overlaps should be updated when the component is moved.
 	 * @see GetPhysicsVolume()
