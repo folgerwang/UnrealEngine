@@ -1315,19 +1315,8 @@ void FMeshMergeHelpers::AppendRawMesh(FMeshDescription& InTarget, const FMeshDes
 		TArray<FMeshDescription::FContourPoint> Contours;
 		CreateContour(SourceVertexInstanceIDs, Contours);
 
-		int32 HoleNumber = InSource.GetNumPolygonHoles(SourcePolygonID);
-		TArray<TArray<FMeshDescription::FContourPoint>> AllHoles;
-		AllHoles.AddDefaulted(HoleNumber);
-		for (int32 HoleIndex = 0; HoleIndex < HoleNumber; ++HoleIndex)
-		{
-			const FMeshPolygonContour& HoleContour = SourcePolygon.HoleContours[HoleIndex];
-			
-			TArray<FMeshDescription::FContourPoint>& Holes = AllHoles[HoleIndex];
-			CreateContour(HoleContour.VertexInstanceIDs, Holes);
-		}
-
 		// Insert a polygon into the mesh
-		const FPolygonID TargetPolygonID = InTarget.CreatePolygon(SourcePolygon.PolygonGroupID, Contours, AllHoles);
+		const FPolygonID TargetPolygonID = InTarget.CreatePolygon(SourcePolygon.PolygonGroupID, Contours);
 		//Triangulate the polygon
 		FMeshPolygon& Polygon = InTarget.GetPolygon(TargetPolygonID);
 		InTarget.ComputePolygonTriangulation(TargetPolygonID, Polygon.Triangles);

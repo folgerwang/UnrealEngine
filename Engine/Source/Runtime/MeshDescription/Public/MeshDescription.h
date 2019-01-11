@@ -173,12 +173,6 @@ struct FMeshPolygon
 	/** The outer boundary edges of this polygon */
 	FMeshPolygonContour PerimeterContour;
 
-	/** Optional inner contours of this polygon that define holes inside of the polygon.  For the geometry to
-	    be considered valid, the hole contours should reside within the boundary of the polygon perimeter contour, 
-		and must not overlap each other.  No "nesting" of polygons inside the holes is supported -- those are 
-		simply separate polygons */
-	TArray<FMeshPolygonContour> HoleContours;
-
 	/** List of triangles which make up this polygon */
 	TArray<FMeshTriangle> Triangles;
 
@@ -189,7 +183,11 @@ struct FMeshPolygon
 	friend FArchive& operator<<( FArchive& Ar, FMeshPolygon& Polygon )
 	{
 		Ar << Polygon.PerimeterContour;
-		Ar << Polygon.HoleContours;
+		if (Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) < FEditorObjectVersion::MeshDescriptionRemovedHoles)
+		{
+			TArray<FMeshPolygonContour> Empty;
+			Ar << Empty;
+		}
 		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
 		{
 			Ar << Polygon.Triangles;
@@ -527,15 +525,10 @@ private:
 		}
 	}
 
-	void CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter, const TArray<TArray<FContourPoint>>& Holes )
+	void CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
 	{
 		FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
 		CreatePolygonContour_Internal( PolygonID, Perimeter, Polygon.PerimeterContour );
-		for( const TArray<FContourPoint>& Hole : Holes )
-		{
-			Polygon.HoleContours.Emplace();
-			CreatePolygonContour_Internal( PolygonID, Hole, Polygon.HoleContours.Last() );
-		}
 
 		Polygon.PolygonGroupID = PolygonGroupID;
 		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
@@ -545,18 +538,18 @@ private:
 
 public:
 	/** Adds a new polygon to the mesh and returns its ID */
-	FPolygonID CreatePolygon( const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter, const TArray<TArray<FContourPoint>>& Holes = TArray<TArray<FContourPoint>>() )
+	FPolygonID CreatePolygon( const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
 	{
 		const FPolygonID PolygonID = PolygonArray.Add();
-		CreatePolygon_Internal( PolygonID, PolygonGroupID, Perimeter, Holes );
+		CreatePolygon_Internal( PolygonID, PolygonGroupID, Perimeter );
 		return PolygonID;
 	}
 
 	/** Adds a new polygon to the mesh with the given ID */
-	void CreatePolygonWithID( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter, const TArray<TArray<FContourPoint>>& Holes = TArray<TArray<FContourPoint>>() )
+	void CreatePolygonWithID( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
 	{
 		PolygonArray.Insert( PolygonID );
-		CreatePolygon_Internal( PolygonID, PolygonGroupID, Perimeter, Holes );
+		CreatePolygon_Internal( PolygonID, PolygonGroupID, Perimeter );
 	}
 
 private:
@@ -594,11 +587,6 @@ public:
 	{
 		FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
 		DeletePolygonContour_Internal( PolygonID, Polygon.PerimeterContour.VertexInstanceIDs, InOutOrphanedEdgesPtr, InOutOrphanedVertexInstancesPtr );
-
-		for( FMeshPolygonContour& HoleContour : Polygon.HoleContours )
-		{
-			DeletePolygonContour_Internal( PolygonID, HoleContour.VertexInstanceIDs, InOutOrphanedEdgesPtr, InOutOrphanedVertexInstancesPtr );
-		}
 
 		FMeshPolygonGroup& PolygonGroup = PolygonGroupArray[ Polygon.PolygonGroupID ];
 		verify( PolygonGroup.Polygons.Remove( PolygonID ) == 1 );
@@ -760,21 +748,6 @@ public:
 
 	/** Populates the passed array of VertexIDs with the vertices which form the polygon perimeter */
 	void GetPolygonPerimeterVertices( const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs ) const;
-
-	/** Returns the number of holes in this polygon */
-	int32 GetNumPolygonHoles( const FPolygonID PolygonID ) const
-	{
-		return PolygonArray[ PolygonID ].HoleContours.Num();
-	}
-
-	/** Populates the passed array of VertexIDs with the vertices which form the contour of the specified hole */
-	void GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const;
-
-	/** Returns reference to an array of VertexInstance IDs forming the contour of the given hole */
-	const TArray<FVertexInstanceID>& GetPolygonHoleVertexInstances( const FPolygonID PolygonID, const int32 HoleIndex ) const
-	{
-		return PolygonArray[ PolygonID ].HoleContours[ HoleIndex ].VertexInstanceIDs;
-	}
 
 	void GetPolygonEdges(const FPolygonID PolygonID, TArray<FEdgeID>& OutPolygonEdges) const
 	{

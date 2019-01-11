@@ -79,11 +79,6 @@ FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 
 			PopulatePolygonIDs( MeshDescription.GetPolygonPerimeterVertexInstances( PolygonID ) );
 
-			for( int32 HoleIndex = 0; HoleIndex < MeshDescription.GetNumPolygonHoles( PolygonID ); ++HoleIndex )
-			{
-				PopulatePolygonIDs( MeshDescription.GetPolygonHoleVertexInstances( PolygonID, HoleIndex ) );
-			}
-
 			const FPolygonGroupID PolygonGroupID = MeshDescription.PolygonArray[ PolygonID ].PolygonGroupID;
 			MeshDescription.PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
@@ -208,14 +203,6 @@ void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 			VertexInstanceID = Remappings.GetRemappedVertexInstanceID( VertexInstanceID );
 		}
 
-		for( FMeshPolygonContour& HoleContour : Polygon.HoleContours )
-		{
-			for( FVertexInstanceID& VertexInstanceID : HoleContour.VertexInstanceIDs )
-			{
-				VertexInstanceID = Remappings.GetRemappedVertexInstanceID( VertexInstanceID );
-			}
-		}
-
 		for( FMeshTriangle& Triangle : Polygon.Triangles )
 		{
 			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
@@ -276,22 +263,6 @@ void FMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, 
 	{
 		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
 		OutPolygonPerimeterVertexIDs[ Index ] = VertexInstance.VertexID;
-		Index++;
-	}
-}
-
-
-void FMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const
-{
-	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
-
-	OutPolygonHoleVertexIDs.SetNumUninitialized( Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs.Num(), false );
-
-	int32 Index = 0;
-	for( const FVertexInstanceID VertexInstanceID : Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs )
-	{
-		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
-		OutPolygonHoleVertexIDs[ Index ] = VertexInstance.VertexID;
 		Index++;
 	}
 }
@@ -399,7 +370,6 @@ void FMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, T
 
 	OutTriangles.Reset();
 
-	// @todo mesheditor holes: Does not support triangles with holes yet!
 	// @todo mesheditor: Perhaps should always attempt to triangulate by splitting polygons along the shortest edge, for better determinism.
 
 	//	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
@@ -800,19 +770,6 @@ float FMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonI
 	{
 		// Return the internal angle if found
 		return GetContourAngle(Polygon.PerimeterContour, ContourIndex);
-	}
-	else
-	{
-		// If not found, look in all the holes
-		for (const FMeshPolygonContour& HoleContour : Polygon.HoleContours)
-		{
-			ContourIndex = HoleContour.VertexInstanceIDs.IndexOfByPredicate(IsVertexInstancedFromThisVertex);
-			if (ContourIndex != INDEX_NONE)
-			{
-				// Hole vertex contribution is the part which ISN'T the internal angle of the contour, so subtract from 2*pi
-				return (2.0f * PI) - GetContourAngle(HoleContour, ContourIndex);
-			}
-		}
 	}
 
 	// Found nothing; return 0
