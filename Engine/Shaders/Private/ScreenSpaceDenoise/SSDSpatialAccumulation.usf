@@ -10,9 +10,15 @@ PostProcessTemporalAA.usf: Temporal AA
 
 //------------------------------------------------------- ENUM VALUES
 
+/** Different possible stage for spatial accumulation. Matches  */
+	#define STAGE_RECONSTRUCTION 0
+	#define STAGE_POST_FILTERING 1
+
 /** Sets of sample available for the spatial kernel. */
-	#define SAMPLE_SET_3X3 0
-	#define SAMPLE_SET_5X5_WAVELET 1
+	#define SAMPLE_SET_NONE 0
+	#define SAMPLE_SET_3X3 1
+	#define SAMPLE_SET_5X5_WAVELET 2
+	#define SAMPLE_SET_STACKOWIAK_4_SETS 3
 
 
 //------------------------------------------------------- CONFIGS
@@ -28,20 +34,40 @@ PostProcessTemporalAA.usf: Temporal AA
 
 	#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
 
+	#if DIM_STAGE == STAGE_POST_FILTERING
+	#else
+		#error Unexpected stage.
+	#endif
 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
-	#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
-	#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+	#if DIM_STAGE == STAGE_RECONSTRUCTION
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
-	#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
+		#define CONFIG_SAMPLE_SET SAMPLE_SET_STACKOWIAK_4_SETS
 
-	#define CONFIG_WEIGHT_KERNEL_CENTER 1
+		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
+		#define CONFIG_SPECULAR_MIS 1
+
+	#elif DIM_STAGE == STAGE_POST_FILTERING
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+
+		#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
+
+		// Post filtering can only be done using tokoyashi because have more than one sample at a time.
+		#define CONFIG_TOKOYASHI_BILATERAL 1
+
+		// TODO: Not sure of the math of Tokoyashi, weight of the center kernel might be != 1.
+		#define CONFIG_WEIGHT_KERNEL_CENTER 1
+
+	#else
+		#error Unexpected stage.
+	#endif
 
 #else
 	#error Unknown signal processing.
 #endif
-
-#include "SSDSignalInterface.ush"
 
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
@@ -57,12 +83,84 @@ PostProcessTemporalAA.usf: Temporal AA
 #endif
 
 
+//------------------------------------------------------- INCLUDES DEPENDINGS ON THE CONFIG
+
+#include "SSDSignalInterface.ush"
+
+
 //------------------------------------------------------- CONSTANTS
 
 static const float kWaveletFilterWeights5x5[] = { 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
 
 
+// [ Stackowiak 2015, "Stochastic Screen-Space Reflections" ]
+static const float2 kStackowiakSamples[56 * 4] =
+{
+	float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
+	float2(-1.5, +0.5), float2(-1.5, -0.5), float2(-0.5, +1.5), float2(+1.5, -0.5),
+	float2(+0.5, -1.5), float2(+2.5, -0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
+	float2(-1.5, -2.5), float2(-0.5, -2.5), float2(-1.5, -1.5), float2(-0.5, +2.5),
+	float2(-1.5, +1.5), float2(+1.5, -2.5), float2(-1.5, +2.5), float2(+1.5, +2.5),
+	float2(+0.5, -2.5), float2(-2.5, -0.5), float2(-2.5, -1.5), float2(-2.5, +0.5),
+	float2(+0.5, +1.5), float2(+0.5, +2.5), float2(-3.5, +0.5), float2(+0.5, +3.5),
+	float2(+1.5, -1.5), float2(+3.5, -0.5), float2(+2.5, +1.5), float2(+3.5, +0.5),
+	float2(+1.5, +1.5), float2(-2.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +1.5),
+	float2(-3.5, -0.5), float2(-1.5, -3.5), float2(-2.5, -2.5), float2(-2.5, +2.5),
+	float2(+2.5, +0.5), float2(+2.5, +2.5), float2(+1.5, +3.5), float2(+3.5, -1.5),
+	float2(-3.5, -2.5), float2(+3.5, -2.5), float2(+2.5, -1.5), float2(+0.5, -3.5),
+	float2(-0.5, +3.5), float2(-0.5, -4.5), float2(-4.5, +0.5), float2(+4.5, +0.5),
+	float2(-4.5, -1.5), float2(-3.5, +1.5), float2(-0.5, -3.5), float2(+1.5, -3.5),
+	float2(+0.5, -4.5), float2(-1.5, +3.5), float2(+0.5, +4.5), float2(-3.5, -1.5),
+	float2(-4.5, +1.5), float2(+2.5, -4.5), float2(+2.5, -2.5), float2(-1.5, +4.5),
+	float2(-2.5, -4.5), float2(+4.5, -2.5), float2(+2.5, +3.5), float2(-3.5, +3.5),
+	float2(-2.5, +3.5), float2(+0.5, -5.5), float2(-4.5, +3.5), float2(-2.5, -3.5),
+	float2(-4.5, +2.5), float2(+3.5, +3.5), float2(+2.5, -3.5), float2(+4.5, +3.5),
+	float2(+3.5, -3.5), float2(+4.5, +2.5), float2(-5.5, +1.5), float2(-4.5, -0.5),
+	float2(+3.5, +2.5), float2(-0.5, +4.5), float2(-1.5, +5.5), float2(+1.5, +5.5),
+	float2(+4.5, -0.5), float2(+5.5, +0.5), float2(+4.5, +1.5), float2(-1.5, -4.5),
+	float2(-1.5, -5.5), float2(-4.5, -2.5), float2(-2.5, +5.5), float2(+2.5, +5.5),
+	float2(+1.5, +4.5), float2(+5.5, +1.5), float2(+1.5, -4.5), float2(-3.5, -3.5),
+	float2(+3.5, -4.5), float2(-3.5, -4.5), float2(+4.5, -1.5), float2(+4.5, -3.5),
+	float2(-3.5, -5.5), float2(-2.5, -5.5), float2(-4.5, -3.5), float2(+4.5, +4.5),
+	float2(-3.5, +4.5), float2(-2.5, +4.5), float2(-5.5, -2.5), float2(-5.5, +0.5),
+	float2(+2.5, -5.5), float2(+3.5, +4.5), float2(-0.5, -5.5), float2(-0.5, +6.5),
+	float2(+2.5, +4.5), float2(-5.5, -0.5), float2(-6.5, -1.5), float2(+1.5, -5.5),
+	float2(-6.5, -0.5), float2(+0.5, +5.5), float2(+1.5, +6.5), float2(+6.5, +1.5),
+	float2(-0.5, +5.5), float2(+6.5, -0.5), float2(-4.5, -4.5), float2(-5.5, +2.5),
+	float2(+5.5, -0.5), float2(-5.5, -1.5), float2(-6.5, +3.5), float2(-1.5, +6.5),
+	float2(-6.5, +0.5), float2(+4.5, -5.5), float2(-3.5, +6.5), float2(+6.5, -1.5),
+	float2(+0.5, -6.5), float2(-5.5, -3.5), float2(+5.5, -2.5), float2(+4.5, -4.5),
+	float2(+5.5, -1.5), float2(+3.5, -6.5), float2(+5.5, +3.5), float2(+3.5, -5.5),
+	float2(-5.5, -4.5), float2(+6.5, -3.5), float2(-0.5, -6.5), float2(+3.5, +6.5),
+	float2(-5.5, +3.5), float2(+0.5, +6.5), float2(+6.5, +0.5), float2(+6.5, -2.5),
+	float2(-6.5, -3.5), float2(-4.5, +4.5), float2(-7.5, -0.5), float2(+7.5, +0.5),
+	float2(+5.5, +2.5), float2(-0.5, -7.5), float2(+0.5, +7.5), float2(-4.5, +5.5),
+	float2(+3.5, +5.5), float2(-3.5, +5.5), float2(-4.5, -5.5), float2(+4.5, +6.5),
+	float2(+5.5, -4.5), float2(+4.5, +5.5), float2(-4.5, +6.5), float2(+6.5, +4.5),
+	float2(-7.5, +1.5), float2(-6.5, +1.5), float2(+5.5, -3.5), float2(-6.5, +2.5),
+	float2(-2.5, +6.5), float2(-1.5, -7.5), float2(+5.5, +4.5), float2(-1.5, -6.5),
+	float2(-3.5, -7.5), float2(+2.5, -7.5), float2(-7.5, +2.5), float2(-6.5, -2.5),
+	float2(-5.5, +5.5), float2(+2.5, +6.5), float2(-2.5, -6.5), float2(-7.5, +0.5),
+	float2(-0.5, +7.5), float2(+7.5, -2.5), float2(-2.5, +7.5), float2(+0.5, -7.5),
+	float2(-4.5, -7.5), float2(+7.5, +1.5), float2(+1.5, -6.5), float2(-6.5, +4.5),
+	float2(-1.5, +7.5), float2(-5.5, -5.5), float2(+6.5, +2.5), float2(-3.5, -6.5),
+	float2(+3.5, -7.5), float2(-5.5, +4.5), float2(+2.5, -6.5), float2(+1.5, -7.5),
+	float2(+6.5, +3.5), float2(+5.5, -6.5), float2(-6.5, +5.5), float2(+7.5, +4.5),
+	float2(+7.5, -1.5), float2(-7.5, -1.5), float2(+3.5, +7.5), float2(-5.5, +6.5),
+	float2(+1.5, +7.5), float2(+7.5, +3.5), float2(+7.5, -0.5), float2(-7.5, -2.5),
+	float2(+5.5, +5.5), float2(+6.5, +5.5), float2(+5.5, -5.5), float2(-2.5, -7.5),
+	float2(+2.5, +7.5), float2(-7.5, -3.5), float2(-7.5, -4.5), float2(-6.5, -4.5),
+	float2(+7.5, -3.5), float2(+5.5, +6.5), float2(-5.5, -6.5), float2(-4.5, -6.5),
+	float2(+7.5, +2.5), float2(-7.5, +3.5), float2(+4.5, -6.5), float2(+7.5, -4.5),
+};
+
+static const uint kStackowiakSampleSetCount = 4;
+static const uint kStackowiakSampleCountPerSet = 56;
+
+
 //------------------------------------------------------- PARAMETERS
+
+uint MaxSampleCount;
 
 Texture2D SignalInput0;
 Texture2D SignalInput1;
@@ -89,43 +187,65 @@ void MainCS(
 	{
 		SceneBufferUV = clamp(SceneBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 	}
-	float2 ViewportUV = BufferUVToViewportUV(SceneBufferUV);
-	float2 ScreenPosition = ViewportUVToScreenPos(ViewportUV);
-
 
 	// Read reference data.
 	FSSFSignalSample Accumulator = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
-	FSSFSampleSceneInfos CurrentSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
-
-	float CurrentWorldBluringRadius = ComputePixelWorldRadius(CurrentSceneMetadata);
-
 	float AccumulatorWeight = 1;
+
+	// Read reference meta data.
+	float2 ScreenPosition = ViewportUVToScreenPos(BufferUVToViewportUV(SceneBufferUV));
+	FSSFSampleSceneInfos RefSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
+
+	float CurrentWorldBluringRadius = ComputePixelWorldRadius(RefSceneMetadata);
+
 	float BilateralWeightAdjustement = 1;
 	#if CONFIG_WEIGHT_KERNEL_CENTER
 	{
-		BilateralWeightAdjustement = rcp(ComputeBilateralWeight(100, CurrentSceneMetadata, CurrentSceneMetadata));
+		BilateralWeightAdjustement = rcp(ComputeBilateralWeight(100, RefSceneMetadata, RefSceneMetadata));
 	}
 	#endif
 
-	#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3
-		const int KernelRadius = 1;
-	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-		const int KernelRadius = 2;
+	float2 KernelCenterBufferUV = SceneBufferUV;
+
+	#if SAMPLE_SET_NONE
+		if (0)
+
+	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
+		const int KernelRadius = CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 ? 1 : 2;
+		
+		UNROLL for (int x = -KernelRadius; x <= KernelRadius; x++)
+		UNROLL for (int y = -KernelRadius; y <= KernelRadius; y++)
+
+	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
+		KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+
+		uint SampleCount = 16;
+
+		// Id of the pixel in the quad.
+		uint QuadSampleId = (DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1);
+
+		LOOP for (uint SampleId = 1; SampleId < clamp(SampleCount, 1, MaxSampleCount); SampleId++)
+
 	#else
-		#error Unknown set of samples.
+		#error Unknown sample set
 	#endif
-
-	// Apply the kernel
-	// TODO: per pixel stocastic important sampled one.
-	UNROLL
-	for (int x = -KernelRadius; x <= KernelRadius; x++)
-	UNROLL
-	for (int y = -KernelRadius; y <= KernelRadius; y++)
 	{
-		if (x == 0 && y == 0) continue;
+		float2 PixelOffset = 0;
 
-		// Compue sample coordinates
-		float2 NeighborBufferUV = SceneBufferUV + float2(x, y) * View.BufferSizeAndInvSize.zw;
+		#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
+			if (x == 0 && y == 0) continue;
+			PixelOffset = float2(x, y);
+			
+		#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
+			PixelOffset = kStackowiakSamples[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+
+		#elif CONFIG_SAMPLE_SET != SAMPLE_SET_NONE
+			#error Unknown sample set
+		#endif
+
+		// Compute sample coordinates
+		float2 NeighborBufferUV = KernelCenterBufferUV + PixelOffset * View.BufferSizeAndInvSize.zw;
 		if (1)
 		{
 			if (1 && any(NeighborBufferUV != clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
@@ -147,24 +267,22 @@ void MainCS(
 		// Compute the bilateral weight.
 		float BilateralWeight = BilateralWeightAdjustement * ComputeBilateralWeight(
 			WorldBluringRadiusToBilateralWorldDistance(min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
-			CurrentSceneMetadata,
+			RefSceneMetadata,
 			NeighborSceneMetadata);
 
 		// Multiple importance sampling weights.
-		float MISWeight = GetMultiImportanceSamplingWeight(CurrentSceneMetadata, NeighborSceneMetadata, NeighborSample);
+		float MISWeight = GetMultiImportanceSamplingWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample);
 
 		// Compute the weight of the sample in the kernel.
-		#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3
-			float KernelWeight = 1;
-
-		#elif CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-			float KernelWeight = 
-				kWaveletFilterWeights[abs(x)] *
-				kWaveletFilterWeights[abs(y)] *
+		#if CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
+			const float KernelWeight = 
+				kWaveletFilterWeights[abs(PixelOffset.x)] *
+				kWaveletFilterWeights[abs(PixelOffset.y)] *
 				rcp(kWaveletFilterWeights[0] * kWaveletFilterWeights[0]);
 
 		#else
-			#error Unknown set of samples.
+			const float KernelWeight = 1;
+
 		#endif
 
 		// Compute the final weight of that sample.
@@ -182,4 +300,4 @@ void MainCS(
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
 
 	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Accumulator);
-}
+} // MainCS

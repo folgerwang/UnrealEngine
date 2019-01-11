@@ -7,6 +7,19 @@
 #include "SSDSignalCore.ush"
 
 
+//------------------------------------------------------- CONFIG DISABLED DEFAULTS
+
+#ifndef CONFIG_TOKOYASHI_BILATERAL
+	#define CONFIG_TOKOYASHI_BILATERAL 0
+#endif
+
+#ifndef CONFIG_SPECULAR_MIS
+	#define CONFIG_SPECULAR_MIS 0
+#endif
+
+
+//------------------------------------------------------- FUNCTIONS
+
 FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)
 {
 	float a = Pow2( max( 0.02, Roughness ) );
@@ -64,7 +77,7 @@ float ComputeBilateralWeight(
 	}
 	
 	float WorldBilateralWeight = 1;
-	if (1)
+	if (0)
 	{
 		const float WorldRadius = MaxWorldBluringDistance;
 
@@ -85,10 +98,12 @@ float ComputeBilateralWeight(
 	}
 
 	float LobeBilateralWeight = 1;
+	#if CONFIG_TOKOYASHI_BILATERAL
 	//if (View.GeneralPurposeTweak > 0.5)
 	{
 		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
 	}
+	#endif
 
 	return WorldBilateralWeight * LobeBilateralWeight;
 }
@@ -130,6 +145,12 @@ float GetMultiImportanceSamplingWeight(
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos SampleSceneMetadata,
 	FSSFSignalSample Sample)
+#if CONFIG_SPECULAR_MIS
 {
 	return 1.0;
 }
+#else // CONFIG_MIS
+{
+	return 1.0;
+}
+#endif

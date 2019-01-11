@@ -54,8 +54,6 @@
 	#error Unimplemented signal processing.
 #endif
 
-#include "SSDSignalInterface.ush"
-
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
 
@@ -104,11 +102,9 @@
 #endif
 
 
-//------------------------------------------------------- MENDATORY CONFIG
+//------------------------------------------------------- INCLUDES DEPENDINGS ON THE CONFIG
 
-
-//------------------------------------------------------- DERIVES
-
+#include "SSDSignalInterface.ush"
 
 
 //------------------------------------------------------- PARAMETERS

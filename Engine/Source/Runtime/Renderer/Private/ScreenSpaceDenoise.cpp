@@ -33,6 +33,11 @@ static TAutoConsoleVariable<int32> CVarDoDebugPass(
 	TEXT("Adds denoiser's the debug pass."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarReflectionReconstructionSampleCount(
+	TEXT("r.Reflection.Denoise.ReconstructionSamples"), 16,
+	TEXT("Maximum number of samples for the reconstruction pass (default = 16)."),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolution(
 	TEXT("r.Reflection.Denoise.HistoryConvolution"), 1,
 	TEXT("Mode to use for history convolution.\n")
@@ -43,6 +48,9 @@ static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolution(
 
 /** The maximum number of mip level supported in the denoiser. */
 static const int32 kMaxMipLevel = 4;
+
+/** Maximum number of sample per pixel supported in the stackowiak sample set. */
+static const int32 kStackowiakMaxSampleCountPerSet = 56;
 
 
 // ---------------------------------------------------- Globals
@@ -179,9 +187,38 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 	DECLARE_GLOBAL_SHADER(FSSDSpatialAccumulationCS);
 	SHADER_USE_PARAMETER_STRUCT(FSSDSpatialAccumulationCS, FScreenSpaceDenoisingShader);
 	
-	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim>;
+	enum class EStage
+	{
+		// Spatial kernel used to process raw input for the temporal accumulation.
+		ReConstruction,
+
+		// Spatial kernel used to post filter the temporal accumulation.
+		PostFiltering,
+
+		MAX
+	};
+
+	class FStageDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_STAGE", EStage);
+
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FStageDim>;
+	
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+
+		// Only reflections have  reconstruction spatial accumulation.
+		if (PermutationVector.Get<FSignalProcessingDim>() != ESignalProcessing::Reflections && 
+			PermutationVector.Get<FStageDim>() == EStage::ReConstruction)
+		{
+			return false;
+		}
+
+		return FScreenSpaceDenoisingShader::ShouldCompilePermutation(Parameters);
+	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+		SHADER_PARAMETER(uint32, MaxSampleCount)
+
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
 
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
@@ -413,6 +450,7 @@ static void DenoiseShadowPenumbra(
 
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Penumbra);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PostFiltering);
 
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
@@ -609,11 +647,43 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		PrevFrameHistory = View.PrevViewInfo.ReflectionsHistory;
 	}
 
-	FRDGTextureRef SignalHistory0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
-	FRDGTextureRef SignalHistory1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
+	FRDGTextureRef SignalHistory0;
+	FRDGTextureRef SignalHistory1;
+	
+	// Spatial reconstruction with multiple important sampling to be more precise in the history rejection.
+	{
+		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction"));
+		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction"));
+
+		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
+		PassParameters->MaxSampleCount = FMath::Clamp(CVarReflectionReconstructionSampleCount.GetValueOnRenderThread(), 1, kStackowiakMaxSampleCountPerSet);
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->SignalInput0 = ReflectionInputs.Color;
+		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
+		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
+		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
+
+		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::ReConstruction);
+
+		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction Samples=%i)", PassParameters->MaxSampleCount),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+
+		SignalHistory0 = SignalOutput0;
+		SignalHistory1 = SignalOutput1;
+	}
 
 	// Temporal pass.
 	{
+		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
+		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
+
 		const int32 MipLevel = 0;
 
 		FSSDTemporalAccumulationCS::FPermutationDomain PermutationVector;
@@ -625,8 +695,8 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		FSSDTemporalAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalAccumulationCS::FParameters>();
 		PassParameters->CommonParameters = CommonParameters;
 		PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
-		PassParameters->SignalInput0 = ReflectionInputs.Color;
-		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
+		PassParameters->SignalInput0 = SignalHistory0;
+		PassParameters->SignalInput1 = SignalHistory1;
 
 		PassParameters->PrevScreenToTranslatedWorld = View.PrevViewInfo.ViewMatrices.GetInvTranslatedViewProjectionMatrix();
 		PassParameters->PrevHistory0 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[0], GSystemTextures.BlackDummy);
@@ -636,8 +706,8 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
 		PassParameters->PrevGBufferB = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferB, GSystemTextures.BlackDummy);
 
-		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory0, MipLevel));
-		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory1, MipLevel));
+		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput0, MipLevel));
+		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput1, MipLevel));
 
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
@@ -645,6 +715,9 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+
+		SignalHistory0 = SignalOutput0;
+		SignalHistory1 = SignalOutput1;
 	}
 	
 	// Spatial filter, to converge history faster.
@@ -662,11 +735,12 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PostFiltering);
 
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation"),
+			RDG_EVENT_NAME("SSD SpatialAccumulation(PostFiltering)"),
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
