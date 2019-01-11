@@ -143,6 +143,7 @@
     </When>
   </Choose>
   <ItemGroup>
+    <Compile Include="Executors\HybridExecutor.cs" />
     <Compile Include="Modes\BuildMode.cs" />
     <Compile Include="Modes\CleanMode.cs" />
     <Compile Include="Modes\DeployMode.cs" />
