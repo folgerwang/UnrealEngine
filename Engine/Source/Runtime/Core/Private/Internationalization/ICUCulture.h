@@ -198,9 +198,9 @@ class FCulture::FICUCultureImplementation
 
 	TSharedRef<const icu::BreakIterator> GetBreakIterator(const EBreakIteratorType Type);
 	TSharedRef<const icu::Collator, ESPMode::ThreadSafe> GetCollator(const ETextComparisonLevel::Type ComparisonLevel);
-	TSharedRef<const icu::DateFormat> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone);
-	TSharedRef<const icu::DateFormat> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
-	TSharedRef<const icu::DateFormat> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
 
 	const FDecimalNumberFormattingRules& GetDecimalNumberFormattingRules();
 	const FDecimalNumberFormattingRules& GetPercentFormattingRules();
@@ -219,9 +219,9 @@ class FCulture::FICUCultureImplementation
 	TSharedPtr<const icu::BreakIterator> ICUTitleBreakIterator;
 	TSharedPtr<const icu::Collator, ESPMode::ThreadSafe> ICUCollator;
 
-	TSharedPtr<const icu::DateFormat> ICUDateFormat;
-	TSharedPtr<const icu::DateFormat> ICUTimeFormat;
-	TSharedPtr<const icu::DateFormat> ICUDateTimeFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUTimeFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateTimeFormat;
 
 	const icu::PluralRules* ICUCardinalPluralRules;
 	const icu::PluralRules* ICUOrdinalPluralRules;

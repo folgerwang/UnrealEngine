@@ -17,7 +17,7 @@ struct FBlueprintActionInfo;
 *******************************************************************************/
 
 USTRUCT()
-struct FFavoritedBlueprintPaletteItem
+struct KISMET_API FFavoritedBlueprintPaletteItem
 {
 	GENERATED_USTRUCT_BODY()
 

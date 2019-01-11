@@ -890,7 +890,10 @@ public:
 	 */
 	void Remove( FDelegateHandle Handle )
 	{
-		RemoveDelegateInstance(Handle);
+		if (Handle.IsValid())
+		{
+			RemoveDelegateInstance(Handle);
+		}
 	}
 
 protected:

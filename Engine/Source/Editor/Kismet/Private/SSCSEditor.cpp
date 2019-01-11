@@ -4716,7 +4716,8 @@ void SSCSEditor::AddInstancedTreeNodesRecursive(USceneComponent* Component, FSCS
 {
 	if (Component != nullptr)
 	{
-		for (USceneComponent* ChildComponent : Component->GetAttachChildren())
+		TArray<USceneComponent*> Components = Component->GetAttachChildren();
+		for (USceneComponent* ChildComponent : Components)
 		{
 			if (ComponentsToAdd.Contains(ChildComponent)
 				&& ShouldAddInstancedActorComponent(ChildComponent, Component)

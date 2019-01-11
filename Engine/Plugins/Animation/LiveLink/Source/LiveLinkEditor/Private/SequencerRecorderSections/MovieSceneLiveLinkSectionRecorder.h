@@ -8,6 +8,9 @@
 #include "MovieScene.h"
 #include "IMovieSceneSectionRecorder.h"
 #include "IMovieSceneSectionRecorderFactory.h"
+#include "LiveLinkTypes.h"
+
+
 
 class UMovieSceneLiveLinkSection;
 class UMovieSceneLiveLinkTrack;
@@ -58,6 +61,9 @@ private:
 	/** Sections to record to, maps to SubjectNames */
 	TArray<TWeakObjectPtr<class UMovieSceneLiveLinkSection>> MovieSceneSections;
 
+	/** Frames to capture, we cache it to keep data*/
+	TArray<TArray<FLiveLinkFrame>> CachedFramesArray;
+
 	/** Movie scene we are recording to */
 	TWeakObjectPtr<class UMovieScene> MovieScene;
 
@@ -70,5 +76,8 @@ private:
 	/** Diff between Engine Time from when starting to record and Platform
 	Time which is used by Live Link. */
 	double SecondsDiff; 
+
+	/** Guid for getting data from Live Link*/
+	FGuid HandlerGuid;
 
 };

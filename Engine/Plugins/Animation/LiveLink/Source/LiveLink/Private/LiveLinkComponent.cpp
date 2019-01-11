@@ -85,6 +85,11 @@ void ULiveLinkComponent::GetSubjectData(const FName SubjectName, bool& bSuccess,
 
 void ULiveLinkComponent::GetSubjectDataAtWorldTime(const FName SubjectName, const float WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
 {
+	GetSubjectDataAtTime(SubjectName, (double)WorldTime, bSuccess, SubjectFrameHandle);
+}
+
+void ULiveLinkComponent::GetSubjectDataAtTime(const FName SubjectName, const double WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
+{
 	bSuccess = false;
 	if (HasLiveLinkClient())
 	{

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ILevelSequenceEditorToolkit.h"
 #include "Misc/Guid.h"
 #include "UObject/GCObject.h"
 #include "Framework/Commands/UICommandList.h"
@@ -15,11 +16,13 @@ struct FFrameNumber;
 
 class AActor;
 class FMenuBuilder;
+class FToolBarBuilder;
 class ILevelViewport;
 class ISequencer;
 class UActorComponent;
 class ULevelSequence;
 class UMovieSceneCinematicShotTrack;
+class FLevelSequencePlaybackContext;
 class UPrimitiveComponent;
 enum class EMapChangeType : uint8;
 
@@ -27,7 +30,7 @@ enum class EMapChangeType : uint8;
  * Implements an Editor toolkit for level sequences.
  */
 class FLevelSequenceEditorToolkit
-	: public FAssetEditorToolkit
+	: public ILevelSequenceEditorToolkit
 	, public FGCObject
 { 
 public:
@@ -72,7 +75,7 @@ public:
 	 *
 	 * @return Sequencer object.
 	 */
-	TSharedPtr<ISequencer> GetSequencer() const
+	virtual TSharedPtr<ISequencer> GetSequencer() const override
 	{
 		return Sequencer;
 	}
@@ -112,6 +115,8 @@ protected:
 	void OnSequencerReceivedFocus();
 
 private:
+
+	void ExtendSequencerToolbar(FToolBarBuilder& ToolbarBuilder);
 
 	/** Callback for executing the Add Component action. */
 	void HandleAddComponentActionExecute(UActorComponent* Component);
@@ -159,6 +164,8 @@ private:
 	/** Pointer to the style set to use for toolkits. */
 	TSharedRef<ISlateStyle> Style;
 
+	/** Instance of a class used for managing the playback context for a level sequence. */
+	TSharedPtr<FLevelSequencePlaybackContext> PlaybackContext;
 private:
 
 	/**	The tab ids for all the tabs used */

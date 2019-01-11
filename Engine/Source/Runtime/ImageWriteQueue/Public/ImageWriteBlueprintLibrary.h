@@ -34,7 +34,7 @@ struct FImageWriteOptions
 	EDesiredImageFormat Format;
 
 	/** A callback to invoke when the image has been written, or there was an error */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Image")
+	UPROPERTY(BlueprintReadWrite, Category="Image")
 	FOnImageWriteComplete OnComplete;
 
 	/** An image format specific compression setting. Either 0 (Default) or 1 (Uncompressed) for EXRs, or a value between 0 and 100. */

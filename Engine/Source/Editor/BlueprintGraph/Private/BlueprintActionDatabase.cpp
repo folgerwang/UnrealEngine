@@ -499,6 +499,11 @@ namespace BlueprintActionDatabaseImpl
 	static bool IsObjectValidForDatabase(UObject const* Object);
 
 	/**
+	 * Refreshes database after a module is loaded or unloaded.
+	 */
+	static void OnModulesChanged(FName InModuleName, EModuleChangeReason InModuleChangeReason);
+
+	/**
 	 * Refreshes database after project was hot-reloaded.
 	 */
 	static void OnProjectHotReloaded(bool bWasTriggeredAutomatically);
@@ -512,13 +517,24 @@ namespace BlueprintActionDatabaseImpl
 
 	/** */
 	bool bIsInitializing = false;
+
+	/** True if a RefreshAll has been requested for the next Tick */
+	bool bRefreshAllRequested = false;
+}
+
+//------------------------------------------------------------------------------
+static void BlueprintActionDatabaseImpl::OnModulesChanged(FName InModuleName, EModuleChangeReason InModuleChangeReason)
+{
+	if (InModuleChangeReason == EModuleChangeReason::ModuleLoaded || InModuleChangeReason == EModuleChangeReason::ModuleUnloaded)
+	{
+		BlueprintActionDatabaseImpl::bRefreshAllRequested = true;
+	}
 }
 
 //------------------------------------------------------------------------------
 static void BlueprintActionDatabaseImpl::OnProjectHotReloaded(bool bWasTriggeredAutomatically)
 {
-	FBlueprintActionDatabase& ActionDatabase = FBlueprintActionDatabase::Get();
-	ActionDatabase.RefreshAll();
+	BlueprintActionDatabaseImpl::bRefreshAllRequested = true;
 }
 
 //------------------------------------------------------------------------------
@@ -1048,6 +1064,8 @@ FBlueprintActionDatabase::FBlueprintActionDatabase()
 	GEngine->OnWorldDestroyed().AddStatic(&BlueprintActionDatabaseImpl::OnWorldDestroyed);
 	FWorldDelegates::RefreshLevelScriptActions.AddStatic(&BlueprintActionDatabaseImpl::OnRefreshLevelScripts);
 
+	FModuleManager::Get().OnModulesChanged().AddStatic(&BlueprintActionDatabaseImpl::OnModulesChanged);
+
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 	HotReloadSupport.OnHotReload().AddStatic(&BlueprintActionDatabaseImpl::OnProjectHotReloaded);
 }
@@ -1084,6 +1102,11 @@ void FBlueprintActionDatabase::AddReferencedObjects(FReferenceCollector& Collect
 void FBlueprintActionDatabase::Tick(float DeltaTime)
 {
 	const double DurationThreshold = FMath::Min(0.003, DeltaTime * 0.01);
+
+	if (BlueprintActionDatabaseImpl::bRefreshAllRequested)
+	{
+		RefreshAll();
+	}
 
 	// entries that were removed from the database, in preparation for a delete
 	// (but the user ended up not deleting the object)
@@ -1164,6 +1187,7 @@ void FBlueprintActionDatabase::DeferredRemoveEntry(FObjectKey const& InKey)
 void FBlueprintActionDatabase::RefreshAll()
 {
 	TGuardValue<bool> ScopedInitialization(BlueprintActionDatabaseImpl::bIsInitializing, true);
+	BlueprintActionDatabaseImpl::bRefreshAllRequested = false;
 
 	// Remove callbacks from blueprints
 	for (TObjectIterator<UBlueprint> BlueprintIt; BlueprintIt; ++BlueprintIt)

@@ -935,3 +935,15 @@ void Dilate(FMovieSceneFloatChannel* InChannel, FFrameNumber Origin, float Dilat
 	}
 	InChannel->AutoSetTangents();
 }
+
+void FMovieSceneFloatChannel::AddKeys(const TArray<FFrameNumber>& InTimes, const TArray<FMovieSceneFloatValue>& InValues)
+{
+	check(InTimes.Num() == InValues.Num());
+	int32 Index = Times.Num();
+	Times.Append(InTimes);
+	Values.Append(InValues);
+	for (; Index < Times.Num(); ++Index)
+	{
+		KeyHandles.AllocateHandle(Index);
+	}
+}

@@ -4430,7 +4430,7 @@ FPropertyAccess::Result FPropertyHandleText::GetValue(FText& OutValue) const
 FPropertyAccess::Result FPropertyHandleText::SetValue(const FText& NewValue, EPropertyValueSetFlags::Type Flags)
 {
 	FString StringValue;
-	FTextStringHelper::WriteToString(StringValue, NewValue);
+	FTextStringHelper::WriteToBuffer(StringValue, NewValue);
 	return Implementation->ImportText(StringValue, Flags);
 }
 

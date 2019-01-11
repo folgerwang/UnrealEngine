@@ -2922,7 +2922,8 @@ FString UEdGraphSchema_K2::IsPinDefaultValid(const UEdGraphPin* Pin, const FStri
 				}
 				else if( bIsReference )
 				{
-					FText MsgFormat = LOCTEXT("BadRefDefaultVal", "'{PinName}' must have an input wired into it (\"by ref\" params expect a valid input to operate on).");
+					FText MsgFormat = LOCTEXT("BadRefDefaultVal", "'{PinName}' in action '{ActionName}' must have an input wired into it (\"by ref\" params expect a valid input to operate on).");
+					MessageArgs.Add(TEXT("ActionName"), Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView));
 					return FText::Format(MsgFormat, MessageArgs).ToString();
 				}
 			}
@@ -4618,7 +4619,7 @@ void UEdGraphSchema_K2::GetPinDefaultValuesFromString(const FEdGraphPinType& Pin
 			PackageNamespace = TextNamespaceUtil::EnsurePackageNamespace(OwningObject);
 		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
-		if (!FTextStringHelper::ReadFromString(*NewDefaultValue, UseDefaultText, nullptr, *PackageNamespace))
+		if (!FTextStringHelper::ReadFromBuffer(*NewDefaultValue, UseDefaultText, nullptr, *PackageNamespace))
 		{
 			UseDefaultText = FText::FromString(NewDefaultValue);
 		}

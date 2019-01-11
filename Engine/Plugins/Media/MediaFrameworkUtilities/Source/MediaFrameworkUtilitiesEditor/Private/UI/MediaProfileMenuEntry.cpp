@@ -45,12 +45,6 @@ struct FMediaProfileMenuEntryImpl
 		}
 	}
 
-	FText GetMenuLabel()
-	{
-		UMediaProfile* Profile = GetCurrentProfile();
-		return Profile ? FText::FromName(Profile->GetFName()) : LOCTEXT("NoMediaProfile", "[No profile selected]");
-	}
-
 	UMediaProfile* GetCurrentProfile()
 	{
 		return IMediaProfileManager::Get().GetCurrentMediaProfile();
@@ -90,26 +84,12 @@ struct FMediaProfileMenuEntryImpl
 	{
 		ToolbarBuilder.BeginSection("Media Profile");
 		{
-			// Add a button to edit the current Profile
-			ToolbarBuilder.AddToolBarButton(
-				FUIAction(
-					FExecuteAction::CreateRaw(this, &FMediaProfileMenuEntryImpl::OpenCurrentProfile),
-					FCanExecuteAction::CreateLambda([this]() { return GetCurrentProfile() != nullptr; }),
-					FIsActionChecked::CreateLambda([this]() { return GetCurrentProfile() != nullptr; })
-				),
-				NAME_None,
-				MakeAttributeRaw(this, &FMediaProfileMenuEntryImpl::GetMenuLabel),
-				LOCTEXT("SelectedMenuTooltip", "Edit the selected Media Profile."),
-				FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), TEXT("ToolbarIcon.MediaProfile"))
-			);
-
 			ToolbarBuilder.AddComboButton(
 				FUIAction(),
 				FOnGetContent::CreateRaw(this, &FMediaProfileMenuEntryImpl::GenerateMenuContent),
-				LOCTEXT("MediaProfileComboLabel", "Media Profile Options"),
-				LOCTEXT("MediaProfileComboToolTip", "Media Profile options menu"),
-				FSlateIcon(),
-				true
+				LOCTEXT("MediaProfile_Label", "Media Profile"),
+				LOCTEXT("MediaProfile_ToolTip", "List of Media Profile available to the user for editing or creation."),
+				FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), TEXT("ToolbarIcon.MediaProfile"))
 			);
 		}
 		ToolbarBuilder.EndSection();
@@ -120,21 +100,33 @@ struct FMediaProfileMenuEntryImpl
 		const bool bShouldCloseWindowAfterMenuSelection = true;
 		FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, nullptr);
 
-		MenuBuilder.BeginSection("Profile", LOCTEXT("MediaProfileSection", "Profile"));
+		MenuBuilder.BeginSection("Profile", LOCTEXT("MediaProfileSection", "Media Profile"));
 		{
-			MenuBuilder.AddSubMenu(
-				LOCTEXT("SelectMenuLabel", "Select Profile"),
-				LOCTEXT("SelectMenuTooltip", "Select the current profile for this editor."),
-				FNewMenuDelegate::CreateRaw(this, &FMediaProfileMenuEntryImpl::AddObjectSubMenu)
-			);
-
 			MenuBuilder.AddMenuEntry(
-				LOCTEXT("CreateMenuLabel", "Create New Media Profile"),
+				LOCTEXT("CreateMenuLabel", "New Empty Media Profile"),
 				LOCTEXT("CreateMenuTooltip", "Create a new Media Profile asset."),
 				FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), TEXT("ClassIcon.MediaProfile")),
 				FUIAction(
 					FExecuteAction::CreateRaw(this, &FMediaProfileMenuEntryImpl::CreateNewProfile)
 				)
+			);
+
+			MenuBuilder.AddMenuSeparator();
+
+			UMediaProfile* Profile = GetCurrentProfile();
+			const bool bIsProfileValid = Profile != nullptr;
+
+			MenuBuilder.AddSubMenu(
+				bIsProfileValid ? FText::Format(LOCTEXT("EditMenuLabel", "Open '{0}'"), FText::FromName(Profile->GetFName()))  : LOCTEXT("SelectMenuLabel", "Select Profile"),
+				LOCTEXT("SelectMenuTooltip", "Select the current profile for this editor."),
+				FNewMenuDelegate::CreateRaw(this, &FMediaProfileMenuEntryImpl::AddObjectSubMenu),
+				FUIAction(
+					bIsProfileValid ? FExecuteAction::CreateRaw(this, &FMediaProfileMenuEntryImpl::OpenCurrentProfile) : FExecuteAction(),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([bIsProfileValid]{ return bIsProfileValid; })
+				),
+				NAME_None,
+				EUserInterfaceActionType::RadioButton
 			);
 		}
 		MenuBuilder.EndSection();
@@ -152,8 +144,8 @@ struct FMediaProfileMenuEntryImpl
 
 		MenuBuilder.AddWidget(
 			PropertyCustomizationHelpers::MakeAssetPickerWithMenu(
-				FAssetData(),
-				true,
+				CurrentAssetData,
+				CurrentMediaProfile != nullptr,
 				false,
 				ClassFilters,
 				TArray<UFactory*>(),

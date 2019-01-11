@@ -42,7 +42,7 @@ TSharedPtr<SWidget> FParticleParameterTrackEditor::BuildOutlinerEditWidget( cons
 	// Create a container edit box
 	return FSequencerUtilities::MakeAddButton(LOCTEXT("ParameterText", "Parameter"),
 		FOnGetContent::CreateSP(this, &FParticleParameterTrackEditor::OnGetAddParameterMenuContent, ObjectBinding, ParticleParameterTrack),
-		Params.NodeIsHovered);
+		Params.NodeIsHovered, GetSequencer());
 }
 
 

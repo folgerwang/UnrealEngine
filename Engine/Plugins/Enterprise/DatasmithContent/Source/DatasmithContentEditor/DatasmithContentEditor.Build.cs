@@ -13,7 +13,10 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"DatasmithContent",
-					"Engine"
+					"EditorStyle",
+					"Engine",
+					"Projects",
+					"UnrealEd",
 				}
 			);
 
@@ -22,7 +25,7 @@ namespace UnrealBuildTool.Rules
 				{
 					"PropertyEditor",
 					"SlateCore",
-					"Slate"
+					"Slate",
 				}
 			);
 		}

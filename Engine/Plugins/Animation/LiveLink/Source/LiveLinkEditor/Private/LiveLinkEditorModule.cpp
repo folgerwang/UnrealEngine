@@ -22,10 +22,13 @@
 #include "LiveLinkClient.h"
 #include "LiveLinkClientPanel.h"
 #include "LiveLinkClientCommands.h"
+#include "TakeRecorderSource/TakeRecorderLiveLinkSource.h"
 
 #include "ISequencerModule.h"
 #include "Sequencer/LiveLinkPropertyTrackEditor.h"
 #include "SequencerRecorderSections/MovieSceneLiveLinkSectionRecorder.h"
+
+#include "ITakeRecorderModule.h"
 
 /**
  * Implements the Messaging module.
@@ -35,6 +38,7 @@
 
 static const FName LiveLinkClientTabName(TEXT("LiveLink"));
 static const FName LevelEditorModuleName(TEXT("LevelEditor"));
+static const FName TakeRecorderModuleName(TEXT("TakeRecorder"));
 static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecorderFactory");
 
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush( InPluginContent( RelativePath, ".png" ), __VA_ARGS__ )
@@ -65,16 +69,20 @@ public:
 		{
 			RegisterTabSpawner();
 		}
-		else
+
+		if (FModuleManager::Get().IsModuleLoaded(TakeRecorderModuleName))
 		{
-			ModulesChangedHandle = FModuleManager::Get().OnModulesChanged().AddRaw(this, &FLiveLinkEditorModule::ModulesChangesCallback);
+			RegisterTakeRecorderSourceMenuExtender();
 		}
+
+		ModulesChangedHandle = FModuleManager::Get().OnModulesChanged().AddRaw(this, &FLiveLinkEditorModule::ModulesChangesCallback);
 
 		FLiveLinkClientCommands::Register();
 
 		const FVector2D Icon16x16(16.0f, 16.0f);
 		const FVector2D Icon20x20(20.0f, 20.0f);
 		const FVector2D Icon40x40(40.0f, 40.0f);
+		const FVector2D Icon64x64(64.0f, 64.0f);
 
 		StyleSet->SetContentRoot(FPaths::EngineContentDir() / TEXT("Editor/Slate"));
 		StyleSet->SetCoreContentRoot(FPaths::EngineContentDir() / TEXT("Slate"));
@@ -85,6 +93,9 @@ public:
 		StyleSet->Set("LiveLinkClient.Common.AddSource", new IMAGE_PLUGIN_BRUSH(TEXT("icon_AddSource_40x"), Icon40x40));
 		StyleSet->Set("LiveLinkClient.Common.RemoveSource", new IMAGE_PLUGIN_BRUSH(TEXT("icon_RemoveSource_40x"), Icon40x40));
 		StyleSet->Set("LiveLinkClient.Common.RemoveAllSources", new IMAGE_PLUGIN_BRUSH(TEXT("icon_RemoveSource_40x"), Icon40x40));
+
+		StyleSet->Set("ClassIcon.TakeRecorderLiveLinkSource", new IMAGE_PLUGIN_BRUSH(TEXT("TakeRecorderLiveLinkSource_16x"), Icon16x16));
+		StyleSet->Set("ClassThumbnail.TakeRecorderLiveLinkSource", new IMAGE_PLUGIN_BRUSH(TEXT("TakeRecorderLiveLinkSource_64x"), Icon64x64));
 
 		FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
 
@@ -101,11 +112,18 @@ public:
 		{
 			RegisterTabSpawner();
 		}
+
+		if (ReasonForChange == EModuleChangeReason::ModuleLoaded && ModuleName == TakeRecorderModuleName)
+		{
+			RegisterTakeRecorderSourceMenuExtender();
+		}
 	}
 
 	virtual void ShutdownModule() override
 	{
 		UnregisterTabSpawner();
+
+		UnregisterTakeRecorderSourceMenuExtender();
 
 		FModuleManager::Get().OnModulesChanged().Remove(ModulesChangedHandle);
 
@@ -172,9 +190,75 @@ private:
 		bHasRegisteredTabSpawners = false;
 	}
 
+	void RegisterTakeRecorderSourceMenuExtender()
+	{
+		if (FModuleManager::Get().IsModuleLoaded(TakeRecorderModuleName))
+		{
+			ITakeRecorderModule& TakeRecorderModule = FModuleManager::Get().LoadModuleChecked<ITakeRecorderModule>("TakeRecorder");
+			SourcesMenuExtension = TakeRecorderModule.RegisterSourcesMenuExtension(FOnExtendSourcesMenu::CreateStatic(ExtendSourcesMenu));
+		}
+	}
+
+	void UnregisterTakeRecorderSourceMenuExtender()
+	{
+		if (ITakeRecorderModule* TakeRecorderModule = FModuleManager::Get().GetModulePtr<ITakeRecorderModule>("TakeRecorder"))
+		{
+			TakeRecorderModule->UnregisterSourcesMenuExtension(SourcesMenuExtension);
+		}
+	}
+
+	static void ExtendSourcesMenu(TSharedRef<FExtender> Extender, UTakeRecorderSources* Sources)
+	{
+		Extender->AddMenuExtension("Sources", EExtensionHook::Before, nullptr, FMenuExtensionDelegate::CreateStatic(PopulateSourcesMenu, Sources));
+	}
+
+	static void PopulateSourcesMenu(FMenuBuilder& MenuBuilder, UTakeRecorderSources* Sources)
+	{
+		FName ExtensionName = "LiveLinkSourceSubMenu";
+
+		MenuBuilder.AddSubMenu(
+			NSLOCTEXT("TakeRecorderSources", "LiveLinkList_Label", "From LiveLink"),
+			NSLOCTEXT("TakeRecorderSources", "LiveLinkList_Tip", "Add a new recording source from a Live Link Subject"),
+			FNewMenuDelegate::CreateStatic(PopulateLiveLinkSubMenu, Sources),
+			FUIAction(),
+			ExtensionName,
+			EUserInterfaceActionType::Button
+		);
+	}
+
+	static void PopulateLiveLinkSubMenu(FMenuBuilder& MenuBuilder, UTakeRecorderSources* Sources)
+	{
+		IModularFeatures& ModularFeatures = IModularFeatures::Get();
+		if (ModularFeatures.IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
+		{
+			ILiveLinkClient* LiveLinkClient = &IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+			TArray<FName> SubjectNames;
+			LiveLinkClient->GetSubjectNames(SubjectNames);
+
+			for (FName SubjectName : SubjectNames)
+			{
+
+				MenuBuilder.AddMenuEntry(
+					FText::FromName(SubjectName),
+					FText(),
+					FSlateIcon(),
+					FExecuteAction::CreateLambda([Sources, SubjectName]{AddLiveLinkSource(Sources, SubjectName); })
+				);
+			}
+		}
+	}
+
+	static void AddLiveLinkSource(UTakeRecorderSources* Sources,  const FName& SubjectName)
+	{
+		UTakeRecorderLiveLinkSource* NewSource = Sources->AddSource<UTakeRecorderLiveLinkSource>();
+		NewSource->SubjectName = SubjectName;
+	}
+
+
 	FDelegateHandle LevelEditorTabManagerChangedHandle;
 	FDelegateHandle ModulesChangedHandle;
 	FDelegateHandle CreateLiveLinkPropertyTrackEditorHandle;
+	FDelegateHandle SourcesMenuExtension;
 	FMovieSceneLiveLinkSectionRecorderFactory MovieSceneLiveLinkRecorder;
 
 	// Track if we have registered

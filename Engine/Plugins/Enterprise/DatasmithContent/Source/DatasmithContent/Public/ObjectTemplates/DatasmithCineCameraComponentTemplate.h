@@ -63,8 +63,6 @@ struct DATASMITHCONTENT_API FDatasmithPostProcessSettingsTemplate
 	GENERATED_BODY()
 
 public:
-	FDatasmithPostProcessSettingsTemplate();
-
 	UPROPERTY()
 	uint32 bOverride_WhiteTemp:1;
 
@@ -84,6 +82,12 @@ public:
 	uint32 bOverride_CameraISO:1;
 
 	UPROPERTY()
+	uint32 bOverride_CameraShutterSpeed:1;
+
+	UPROPERTY()
+	uint8 bOverride_DepthOfFieldFstop:1;
+
+	UPROPERTY()
 	float WhiteTemp;
 
 	UPROPERTY()
@@ -100,6 +104,15 @@ public:
 
 	UPROPERTY()
 	float CameraISO;
+
+	UPROPERTY()
+	float CameraShutterSpeed;
+
+	UPROPERTY()
+	float DepthOfFieldFstop;
+
+public:
+	FDatasmithPostProcessSettingsTemplate();
 
 	void Apply( struct FPostProcessSettings* Destination, const FDatasmithPostProcessSettingsTemplate* PreviousTemplate );
 	void Load( const FPostProcessSettings& Source );

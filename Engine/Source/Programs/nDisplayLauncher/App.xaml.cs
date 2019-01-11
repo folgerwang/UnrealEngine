@@ -1,28 +1,21 @@
 ﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
+using nDisplayLauncher.Cluster;
+
+
 namespace nDisplayLauncher
 {
-	/// <summary>
-	/// Interaction logic for App.xaml
-	/// </summary>
 	public partial class App : Application
 	{
 		protected override void OnStartup(StartupEventArgs e)
 		{
-			EventManager.RegisterClassHandler(typeof(TextBox), UIElement.PreviewMouseLeftButtonDownEvent,
-				new MouseButtonEventHandler(SelectivelyHandleMouseButton), true);
-			EventManager.RegisterClassHandler(typeof(TextBox), UIElement.GotKeyboardFocusEvent,
-				new RoutedEventHandler(SelectAllText), true);
+			EventManager.RegisterClassHandler(typeof(TextBox), UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(SelectivelyHandleMouseButton), true);
+			EventManager.RegisterClassHandler(typeof(TextBox), UIElement.GotKeyboardFocusEvent, new RoutedEventHandler(SelectAllText), true);
 
 			ParseCommandLine(e.Args);
 
@@ -46,7 +39,9 @@ namespace nDisplayLauncher
 		{
 			var textBox = e.OriginalSource as TextBox;
 			if (textBox != null)
+			{
 				textBox.SelectAll();
+			}
 		}
 
 
@@ -56,9 +51,9 @@ namespace nDisplayLauncher
 			{
 				try
 				{
-					if (arg.StartsWith(Runner.ArgListenerPort, StringComparison.OrdinalIgnoreCase))
+					if (arg.StartsWith(Launcher.ArgListenerPort, StringComparison.OrdinalIgnoreCase))
 					{
-						Runner.DefaultListenerPort = int.Parse(arg.Substring(Runner.ArgListenerPort.Length));
+						Launcher.DefaultListenerPort = int.Parse(arg.Substring(Launcher.ArgListenerPort.Length));
 						return;
 					}
 				}

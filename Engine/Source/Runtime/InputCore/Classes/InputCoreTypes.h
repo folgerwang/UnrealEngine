@@ -37,7 +37,7 @@ enum class EControllerHand : uint8
 	ControllerHand_Count UMETA(Hidden, DisplayName = "<INVALID>"),
 };
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType,Blueprintable)
 struct INPUTCORE_API FKey
 {
 	GENERATED_USTRUCT_BODY()

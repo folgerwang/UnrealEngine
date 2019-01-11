@@ -2,16 +2,17 @@
 
 #pragma once
 
-#include "IDisplayClusterStereoDevice.h"
+#include "Render/IDisplayClusterStereoRendering.h"
 
 
 /**
  * Public render manager interface
  */
-struct IDisplayClusterRenderManager
+class IDisplayClusterRenderManager
+	: public IDisplayClusterStereoRendering
 {
+public:
 	virtual ~IDisplayClusterRenderManager()
 	{ }
 
-	virtual IDisplayClusterStereoDevice* GetStereoDevice() const = 0;
 };

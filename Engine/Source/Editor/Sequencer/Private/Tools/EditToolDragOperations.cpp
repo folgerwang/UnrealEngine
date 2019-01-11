@@ -364,7 +364,7 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 					NewTime = FMath::Max( NewTime, MinFrame );
 				    if (bIsSlipping)
 					{
-						SequencerSection->SlipSection( NewTime/TickResolution );
+						SequencerSection->SlipSection( NewTime );
 					}
 					else
 					{
@@ -381,7 +381,7 @@ void FResizeSection::OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMous
 
 					if (bIsSlipping)
 					{
-						SequencerSection->SlipSection( NewTime/TickResolution );
+						SequencerSection->SlipSection( NewTime );
 					}
 					else
 					{

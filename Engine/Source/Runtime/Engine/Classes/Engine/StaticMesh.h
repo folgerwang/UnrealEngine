@@ -949,7 +949,7 @@ public:
 	/**
 	 * Returns the number of LODs used by the mesh.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh", meta=(ScriptName="GetNumLods"))
 	ENGINE_API int32 GetNumLODs() const;
 
 	/**

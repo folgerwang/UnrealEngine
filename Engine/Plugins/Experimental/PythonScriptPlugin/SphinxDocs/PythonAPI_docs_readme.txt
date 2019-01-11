@@ -55,11 +55,11 @@ Run the PythonOnlineDocs commandlet
 
 The command-line arguments sent to the UE4 Editor to run the PythonOnlineDocs commandlet looks like this for the UE4 Editor with the standard Engine API documented:
 
--run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Myo,Oodle,RenderDocPlugin,TesnorflowPlugin"
+-run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Oodle,RenderDocPlugin,OculusAvatar"
 
 Enterprise version of command-line:
 
--run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -IncludeEnterprise -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Myo,Oodle,RenderDocPlugin,TesnorflowPlugin"
+-run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -IncludeEnterprise -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Oodle,RenderDocPlugin,OculusAvatar"
 
 
 The stubs for the Python API will be generated first and then all the files needed for Sphinx to generate HTML files. The HTML and associated files once generated will be about 200MB and will be placed in:
@@ -95,7 +95,7 @@ Unreal Python API HTML generation manually using Sphinx
 
 Use the same command-line as above with -NoHTML added:
 
--run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -NoHTML -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Myo,Oodle,RenderDocPlugin,TesnorflowPlugin"
+-run=PythonOnlineDocs -NoShaderCompile -IncludeEngine -NoHTML -EnableAllPlugins -ExceptPlugins="MixedRealityCaptureFramework,Oodle,RenderDocPlugin,OculusAvatar"
 
 
 Ensure Python is installed

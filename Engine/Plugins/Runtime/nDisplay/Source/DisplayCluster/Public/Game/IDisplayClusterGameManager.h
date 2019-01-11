@@ -10,15 +10,16 @@
 /**
  * Public game manager interface
  */
-struct IDisplayClusterGameManager
+class IDisplayClusterGameManager
 {
+public:
 	virtual ~IDisplayClusterGameManager()
 	{ }
 
 	virtual ADisplayClusterPawn*                    GetRoot() const = 0;
 
 	virtual TArray<UDisplayClusterScreenComponent*> GetAllScreens() const = 0;
-	virtual UDisplayClusterScreenComponent*         GetActiveScreen() const = 0;
+	virtual TArray<UDisplayClusterScreenComponent*> GetActiveScreens() const = 0;
 	virtual UDisplayClusterScreenComponent*         GetScreenById(const FString& id) const = 0;
 	virtual int32                                   GetScreensAmount() const = 0;
 

@@ -428,6 +428,21 @@ void FString::PathAppend(const TCHAR* Str, int32 StrLength)
 	}
 }
 
+void FString::ReplaceCharInlineCaseSensitive(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	for (TCHAR& Character : Data)
+	{
+		Character = Character == SearchChar ? ReplacementChar : Character;
+	}
+}
+
+void FString::ReplaceCharInlineIgnoreCase(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	TCHAR OtherCaseSearchChar = TChar<TCHAR>::IsUpper(SearchChar) ? TChar<TCHAR>::ToLower(SearchChar) : TChar<TCHAR>::ToUpper(SearchChar);
+	ReplaceCharInlineCaseSensitive(OtherCaseSearchChar, ReplacementChar);
+	ReplaceCharInlineCaseSensitive(SearchChar, ReplacementChar);
+}
+
 FString FString::Trim()
 {
 	int32 Pos = 0;

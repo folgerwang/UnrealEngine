@@ -37,6 +37,7 @@ const FName FBlueprintTags::NativeParentClassPath(TEXT("NativeParentClass"));
 const FName FBlueprintTags::ClassFlags(TEXT("ClassFlags"));
 const FName FBlueprintTags::BlueprintType(TEXT("BlueprintType"));
 const FName FBlueprintTags::BlueprintDescription(TEXT("BlueprintDescription"));
+const FName FBlueprintTags::BlueprintDisplayName(TEXT("BlueprintDisplayName"));
 const FName FBlueprintTags::IsDataOnly(TEXT("IsDataOnly"));
 const FName FBlueprintTags::ImplementedInterfaces(TEXT("ImplementedInterfaces"));
 const FName FBlueprintTags::FindInBlueprintsData(TEXT("FiBData"));

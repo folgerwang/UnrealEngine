@@ -8,6 +8,7 @@
 #include "Internationalization/StringTableCore.h"
 #include "Internationalization/StringTableRegistry.h"
 #include "Misc/Guid.h"
+#include "Misc/Parse.h"
 #include "Misc/ScopeLock.h"
 #include "UObject/PropertyPortFlags.h"
 
@@ -21,6 +22,614 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTextHistory, Log, All);
 DEFINE_LOG_CATEGORY(LogTextHistory);
+
+/** Utilities for stringifying text */
+namespace TextStringificationUtil
+{
+
+bool PeekMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen)
+{
+	return FCString::Strncmp(Buffer, InMarker, InMarkerLen) == 0;
+}
+
+bool PeekInsensitiveMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen)
+{
+	return FCString::Strnicmp(Buffer, InMarker, InMarkerLen) == 0;
+}
+
+const TCHAR* SkipMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen)
+{
+	if (!PeekMarker(Buffer, InMarker, InMarkerLen))
+	{
+		return nullptr;
+	}
+
+	Buffer += InMarkerLen;
+	return Buffer;
+}
+
+const TCHAR* SkipInsensitiveMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen)
+{
+	if (!PeekInsensitiveMarker(Buffer, InMarker, InMarkerLen))
+	{
+		return nullptr;
+	}
+
+	Buffer += InMarkerLen;
+	return Buffer;
+}
+
+const TCHAR* SkipWhitespace(const TCHAR* Buffer)
+{
+	while (*Buffer && (*Buffer == TCHAR(' ') || *Buffer == TCHAR('\t')) && *Buffer != TCHAR('\n') && *Buffer != TCHAR('\r'))
+	{
+		++Buffer;
+	}
+
+	return Buffer;
+}
+
+const TCHAR* SkipWhitespaceToCharacter(const TCHAR* Buffer, const TCHAR InChar)
+{
+	Buffer = SkipWhitespace(Buffer);
+
+	if (Buffer && *Buffer != InChar)
+	{
+		return nullptr;
+	}
+
+	return Buffer;
+}
+
+const TCHAR* SkipWhitespaceAndCharacter(const TCHAR* Buffer, const TCHAR InChar)
+{
+	Buffer = SkipWhitespaceToCharacter(Buffer, InChar);
+
+	if (Buffer)
+	{
+		++Buffer;
+	}
+
+	return Buffer;
+}
+
+const TCHAR* ReadNumberFromBuffer(const TCHAR* Buffer, FFormatArgumentValue& OutValue)
+{
+	static const TCHAR ValidNumericChars[] = TEXT("+-0123456789.ful");
+	static const TCHAR SuffixNumericChars[] = TEXT("ful");
+
+	FString NumericString;
+	while (*Buffer && FCString::Strchr(ValidNumericChars, *Buffer))
+	{
+		NumericString += *Buffer++;
+	}
+
+	FString SuffixString;
+	while (NumericString.Len() > 0 && FCString::Strchr(SuffixNumericChars, NumericString[NumericString.Len() - 1]))
+	{
+		SuffixString += NumericString[NumericString.Len() - 1];
+		NumericString.RemoveAt(NumericString.Len() - 1, 1, /*bAllowShrinking*/false);
+	}
+
+	if (!NumericString.IsNumeric())
+	{
+		return nullptr;
+	}
+
+	if (FCString::Strchr(*SuffixString, TEXT('f')))
+	{
+		// Probably a float
+		float LocalFloat = 0.0f;
+		LexFromString(LocalFloat, *NumericString);
+		OutValue = FFormatArgumentValue(LocalFloat);
+	}
+	else if (FCString::Strchr(*SuffixString, TEXT('u')))
+	{
+		// Probably unsigned
+		uint64 LocalUInt = 0;
+		LexFromString(LocalUInt, *NumericString);
+		OutValue = FFormatArgumentValue(LocalUInt);
+	}
+	else if (FCString::Strchr(*NumericString, TEXT('.')))
+	{
+		// Probably a double (or unmarked float)
+		double LocalDouble = 0.0;
+		LexFromString(LocalDouble, *NumericString);
+		OutValue = FFormatArgumentValue(LocalDouble);
+	}
+	else
+	{
+		// Probably an int (or unmarked unsigned)
+		int64 LocalInt = 0;
+		LexFromString(LocalInt, *NumericString);
+		OutValue = FFormatArgumentValue(LocalInt);
+	}
+
+	return Buffer;
+}
+
+const TCHAR* ReadAlnumFromBuffer(const TCHAR* Buffer, FString& OutValue)
+{
+	OutValue.Reset();
+	while (*Buffer && (FChar::IsAlnum(*Buffer) || *Buffer == TEXT('_')))
+	{
+		OutValue += *Buffer++;
+	}
+
+	if (OutValue.IsEmpty())
+	{
+		return nullptr;
+	}
+
+	return Buffer;
+}
+
+const TCHAR* ReadQuotedStringFromBuffer(const TCHAR* Buffer, FString& OutStr)
+{
+	// Might be wrapped in TEXT(...) if the string came from C++
+	const bool bIsMacroWrapped = TEXT_STRINGIFICATION_PEEK_MARKER(TextMarker);
+	if (bIsMacroWrapped)
+	{
+		// Skip the TEXT marker
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+	}
+
+	// Read the quoted string
+	{
+		int32 CharsRead = 0;
+		if (!FParse::QuotedString(Buffer, OutStr, &CharsRead))
+		{
+			return nullptr;
+		}
+		Buffer += CharsRead;
+	}
+
+	// Skip the end of the macro
+	if (bIsMacroWrapped)
+	{
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+	}
+
+	return Buffer;
+}
+
+template <typename T>
+void WriteNumberFormattingOptionToBuffer(FString& Buffer, const TCHAR* OptionFunctionName, const T& OptionValue, const T& DefaultOptionValue, TFunctionRef<void(FString&, const T&)> WriteOptionValue)
+{
+	if (OptionValue != DefaultOptionValue)
+	{
+		if (!Buffer.IsEmpty())
+		{
+			Buffer += TEXT('.');
+		}
+		Buffer += OptionFunctionName;
+		Buffer += TEXT('(');
+		WriteOptionValue(Buffer, OptionValue);
+		Buffer += TEXT(')');
+	}
+}
+
+void WriteNumberFormattingOptionsToBuffer(FString& Buffer, const FNumberFormattingOptions& Options)
+{
+	auto WriteBoolOption = [](FString& OutValueBuffer, const bool& InValue)
+	{
+		OutValueBuffer += LexToString(InValue);
+	};
+
+	auto WriteIntOption = [](FString& OutValueBuffer, const int32& InValue)
+	{
+		OutValueBuffer += LexToString(InValue);
+	};
+
+	auto WriteRoundingModeOption = [](FString& OutValueBuffer, const ERoundingMode& InValue)
+	{
+		WriteScopedEnumToBuffer(OutValueBuffer, TEXT("ERoundingMode::"), InValue);
+	};
+
+	static const FNumberFormattingOptions DefaultOptions;
+
+	#define WRITE_CUSTOM_OPTION(Option, WriteOptionValue) WriteNumberFormattingOptionToBuffer<decltype(Options.Option)>(Buffer, TEXT("Set"#Option), Options.Option, DefaultOptions.Option, WriteOptionValue)
+	WRITE_CUSTOM_OPTION(AlwaysSign, WriteBoolOption);
+	WRITE_CUSTOM_OPTION(UseGrouping, WriteBoolOption);
+	WRITE_CUSTOM_OPTION(RoundingMode, WriteRoundingModeOption);
+	WRITE_CUSTOM_OPTION(MinimumIntegralDigits, WriteIntOption);
+	WRITE_CUSTOM_OPTION(MaximumIntegralDigits, WriteIntOption);
+	WRITE_CUSTOM_OPTION(MinimumFractionalDigits, WriteIntOption);
+	WRITE_CUSTOM_OPTION(MaximumFractionalDigits, WriteIntOption);
+	#undef WRITE_CUSTOM_OPTION
+}
+
+template <typename T>
+const TCHAR* ReadNumberFormattingOptionFromBuffer(const TCHAR* Buffer, const FString& OptionFunctionName, T& OutOptionValue, TFunctionRef<const TCHAR*(const TCHAR*, T&)> ReadOptionValue)
+{
+	if (PeekMarker(Buffer, *OptionFunctionName, OptionFunctionName.Len()))
+	{
+		// Walk over the function name
+		Buffer += OptionFunctionName.Len();
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read the option value
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ReadOptionValue, OutOptionValue);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+	}
+
+	return Buffer;
+}
+
+const TCHAR* ReadNumberFormattingOptionsFromBuffer(const TCHAR* Buffer, FNumberFormattingOptions& OutOptions)
+{
+	auto ReadBoolOption = [](const TCHAR* InValueBuffer, bool& OutValue) -> const TCHAR*
+	{
+		#define READ_BOOL_OPTION(Value)															\
+			{																					\
+				static const FString ValueString = TEXT(#Value);								\
+				if (FCString::Strnicmp(InValueBuffer, *ValueString, ValueString.Len()) == 0)	\
+				{																				\
+					OutValue = Value;															\
+					InValueBuffer += ValueString.Len();											\
+					return InValueBuffer;														\
+				}																				\
+			}
+		READ_BOOL_OPTION(true);
+		READ_BOOL_OPTION(false);
+		#undef READ_BOOL_OPTION 
+
+		return nullptr;
+	};
+
+	auto ReadNumericOption = [](const TCHAR* InValueBuffer, int32& OutValue) -> const TCHAR*
+	{
+		FFormatArgumentValue ReadValue;
+		InValueBuffer = ReadNumberFromBuffer(InValueBuffer, ReadValue);
+		if (!InValueBuffer)
+		{
+			return nullptr;
+		}
+
+		switch (ReadValue.GetType())
+		{
+		case EFormatArgumentType::Int:
+			OutValue = (int32)ReadValue.GetIntValue();
+			break;
+		case EFormatArgumentType::UInt:
+			OutValue = (int32)ReadValue.GetUIntValue();
+			break;
+		case EFormatArgumentType::Float:
+			OutValue = (int32)ReadValue.GetFloatValue();
+			break;
+		case EFormatArgumentType::Double:
+			OutValue = (int32)ReadValue.GetDoubleValue();
+			break;
+		default:
+			return nullptr;
+		}
+
+		return InValueBuffer;
+	};
+
+	auto ReadRoundingModeOption = [](const TCHAR* InValueBuffer, ERoundingMode& OutValue) -> const TCHAR*
+	{
+		static const FString RoundingModeMarker = TEXT("ERoundingMode::");
+		return ReadScopedEnumFromBuffer(InValueBuffer, RoundingModeMarker, OutValue);
+	};
+
+	bool bDidReadOption = true;
+	while (bDidReadOption)
+	{
+		bDidReadOption = false;
+		#define READ_CUSTOM_OPTION(Option, ReadOptionValue)							\
+		{																			\
+			static const FString OptionMarker = TEXT("Set"#Option);					\
+			if (*Buffer == TEXT('.')) { ++Buffer; }									\
+			const TCHAR* const ValueStart = Buffer;									\
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ReadNumberFormattingOptionFromBuffer<decltype(OutOptions.Option)>, OptionMarker, OutOptions.Option, ReadOptionValue); \
+			if (Buffer != ValueStart) { bDidReadOption = true; }					\
+		}
+		READ_CUSTOM_OPTION(AlwaysSign, ReadBoolOption);
+		READ_CUSTOM_OPTION(UseGrouping, ReadBoolOption);
+		READ_CUSTOM_OPTION(RoundingMode, ReadRoundingModeOption);
+		READ_CUSTOM_OPTION(MinimumIntegralDigits, ReadNumericOption);
+		READ_CUSTOM_OPTION(MaximumIntegralDigits, ReadNumericOption);
+		READ_CUSTOM_OPTION(MinimumFractionalDigits, ReadNumericOption);
+		READ_CUSTOM_OPTION(MaximumFractionalDigits, ReadNumericOption);
+		#undef READ_CUSTOM_OPTION
+	}
+
+	return Buffer;
+}
+
+void WriteNumberOrPercentToBuffer(FString& Buffer, const TCHAR* TokenMarker, const FFormatArgumentValue& SourceValue, const TOptional<FNumberFormattingOptions>& FormatOptions, FCulturePtr TargetCulture)
+{
+	FString Suffix;
+	FString CustomOptions;
+	if (FormatOptions.IsSet())
+	{
+		if (FormatOptions->IsIdentical(FNumberFormattingOptions::DefaultWithGrouping()))
+		{
+			Suffix = GroupedSuffix;
+		}
+		else if (FormatOptions->IsIdentical(FNumberFormattingOptions::DefaultNoGrouping()))
+		{
+			Suffix = UngroupedSuffix;
+		}
+		else
+		{
+			WriteNumberFormattingOptionsToBuffer(CustomOptions, FormatOptions.GetValue());
+			if (!CustomOptions.IsEmpty())
+			{
+				Suffix = CustomSuffix;
+			}
+		}
+	}
+
+	// Produces LOCGEN_NUMBER/_GROUPED/_UNGROUPED(..., "...") or LOCGEN_NUMBER_CUSTOM(..., ..., "...")
+	// Produces LOCGEN_PERCENT/_GROUPED/_UNGROUPED(..., "...") or LOCGEN_PERCENT_CUSTOM(..., ..., "...")
+	Buffer += TokenMarker;
+	Buffer += Suffix;
+	Buffer += TEXT("(");
+	SourceValue.ToExportedString(Buffer);
+	if (Suffix == CustomSuffix)
+	{
+		Buffer += TEXT(", ");
+		Buffer += CustomOptions;
+	}
+	Buffer += TEXT(", \"");
+	if (TargetCulture)
+	{
+		Buffer += TargetCulture->GetName().ReplaceCharWithEscapedChar();
+	}
+	Buffer += TEXT("\")");
+}
+
+const TCHAR* ReadNumberOrPercentFromBuffer(const TCHAR* Buffer, const FString& TokenMarker, FFormatArgumentValue& OutSourceValue, TOptional<FNumberFormattingOptions>& OutFormatOptions, FCulturePtr& OutTargetCulture)
+{
+	if (PeekMarker(Buffer, *TokenMarker, TokenMarker.Len()))
+	{
+		// Parsing something of the form: LOCGEN_NUMBER/_GROUPED/_UNGROUPED(..., "...") or LOCGEN_NUMBER_CUSTOM(..., ..., "...")
+		// Parsing something of the form: LOCGEN_PERCENT/_GROUPED/_UNGROUPED(..., "...") or LOCGEN_PERCENT_CUSTOM(..., ..., "...")
+		Buffer += TokenMarker.Len();
+
+		const bool bIsCustom = TEXT_STRINGIFICATION_PEEK_MARKER(CustomSuffix);
+		if (bIsCustom)
+		{
+			TEXT_STRINGIFICATION_SKIP_MARKER_LEN(CustomSuffix);
+		}
+		else if (TEXT_STRINGIFICATION_PEEK_MARKER(GroupedSuffix))
+		{
+			TEXT_STRINGIFICATION_SKIP_MARKER_LEN(GroupedSuffix);
+			OutFormatOptions = FNumberFormattingOptions::DefaultWithGrouping();
+		}
+		else if (TEXT_STRINGIFICATION_PEEK_MARKER(UngroupedSuffix))
+		{
+			TEXT_STRINGIFICATION_SKIP_MARKER_LEN(UngroupedSuffix);
+			OutFormatOptions = FNumberFormattingOptions::DefaultNoGrouping();
+		}
+		else
+		{
+			OutFormatOptions.Reset();
+		}
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the number
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_NUMBER(OutSourceValue);
+
+		if (bIsCustom)
+		{
+			// Skip whitespace before the comma, and then step over it
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+			// Skip any whitespace before the value, and then read the custom format options
+			FNumberFormattingOptions LocalFormatOptions;
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ReadNumberFormattingOptionsFromBuffer, LocalFormatOptions);
+			OutFormatOptions = MoveTemp(LocalFormatOptions);
+		}
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted culture name
+		FString CultureNameString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(CultureNameString);
+		OutTargetCulture = (CultureNameString.IsEmpty()) ? nullptr : FInternationalization::Get().GetCulture(CultureNameString);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		return Buffer;
+	}
+
+	return nullptr;
+}
+
+void WriteDateTimeToBuffer(FString& Buffer, const TCHAR* TokenMarker, const FDateTime& DateTime, const EDateTimeStyle::Type* DateStylePtr, const EDateTimeStyle::Type* TimeStylePtr, const FString& TimeZone, FCulturePtr TargetCulture)
+{
+	auto WriteDateTimeStyle = [](FString& OutValueBuffer, const EDateTimeStyle::Type& InValue)
+	{
+		WriteScopedEnumToBuffer(OutValueBuffer, TEXT("EDateTimeStyle::"), InValue);
+	};
+
+	FString Suffix;
+	if (TimeZone == FText::GetInvariantTimeZone())
+	{
+		Suffix = LocalSuffix;
+	}
+	else
+	{
+		Suffix = UtcSuffix;
+	}
+
+	// Produces LOCGEN_DATE_UTC(..., ..., "...", "...") or LOCGEN_DATE_LOCAL(..., ..., "...")
+	// Produces LOCGEN_TIME_UTC(..., ..., "...", "...") or LOCGEN_TIME_LOCAL(..., ..., "...")
+	// Produces LOCGEN_DATETIME_UTC(..., ..., ..., "...", "...") or LOCGEN_DATETIME_LOCAL(..., ..., ..., "...")
+	Buffer += TokenMarker;
+	Buffer += Suffix;
+	Buffer += TEXT("(");
+	FFormatArgumentValue(DateTime.ToUnixTimestamp()).ToExportedString(Buffer);
+	if (DateStylePtr)
+	{
+		Buffer += TEXT(", ");
+		WriteDateTimeStyle(Buffer, *DateStylePtr);
+	}
+	if (TimeStylePtr)
+	{
+		Buffer += TEXT(", ");
+		WriteDateTimeStyle(Buffer, *TimeStylePtr);
+	}
+	if (Suffix == UtcSuffix)
+	{
+		Buffer += TEXT(", \"");
+		Buffer += TimeZone.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\"");
+	}
+	Buffer += TEXT(", \"");
+	if (TargetCulture)
+	{
+		Buffer += TargetCulture->GetName().ReplaceCharWithEscapedChar();
+	}
+	Buffer += TEXT("\")");
+}
+
+const TCHAR* ReadDateTimeFromBuffer(const TCHAR* Buffer, const FString& TokenMarker, FDateTime& OutDateTime, EDateTimeStyle::Type* OutDateStylePtr, EDateTimeStyle::Type* OutTimeStylePtr, FString& OutTimeZone, FCulturePtr& OutTargetCulture)
+{
+	auto ReadDateTimeStyle = [](const TCHAR* InValueBuffer, EDateTimeStyle::Type& OutValue) -> const TCHAR*
+	{
+		static const FString DateTimeStyleMarker = TEXT("EDateTimeStyle::");
+		return ReadScopedEnumFromBuffer(InValueBuffer, DateTimeStyleMarker, OutValue);
+	};
+
+	if (PeekMarker(Buffer, *TokenMarker, TokenMarker.Len()))
+	{
+		// Parsing something of the form: LOCGEN_DATE_UTC(..., ..., "...", "...") or LOCGEN_DATE_LOCAL(..., ..., "...")
+		// Parsing something of the form: LOCGEN_TIME_UTC(..., ..., "...", "...") or LOCGEN_TIME_LOCAL(..., ..., "...")
+		// Parsing something of the form: LOCGEN_DATETIME_UTC(..., ..., ..., "...", "...") or LOCGEN_DATETIME_LOCAL(..., ..., ..., "...")
+		Buffer += TokenMarker.Len();
+
+		if (TEXT_STRINGIFICATION_PEEK_MARKER(LocalSuffix))
+		{
+			TEXT_STRINGIFICATION_SKIP_MARKER_LEN(LocalSuffix);
+			OutTimeZone = FText::GetInvariantTimeZone();
+		}
+		else if (TEXT_STRINGIFICATION_PEEK_MARKER(UtcSuffix))
+		{
+			TEXT_STRINGIFICATION_SKIP_MARKER_LEN(UtcSuffix);
+			OutTimeZone.Reset();
+		}
+		else
+		{
+			return nullptr;
+		}
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the number
+		FFormatArgumentValue UnixTimestampValue;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_NUMBER(UnixTimestampValue);
+
+		switch (UnixTimestampValue.GetType())
+		{
+		case EFormatArgumentType::Int:
+			OutDateTime = FDateTime::FromUnixTimestamp(UnixTimestampValue.GetIntValue());
+			break;
+		case EFormatArgumentType::UInt:
+			OutDateTime = FDateTime::FromUnixTimestamp(UnixTimestampValue.GetUIntValue());
+			break;
+		case EFormatArgumentType::Float:
+			OutDateTime = FDateTime::FromUnixTimestamp(UnixTimestampValue.GetFloatValue());
+			break;
+		case EFormatArgumentType::Double:
+			OutDateTime = FDateTime::FromUnixTimestamp(UnixTimestampValue.GetDoubleValue());
+			break;
+		default:
+			return nullptr;
+		}
+
+		if (OutDateStylePtr)
+		{
+			// Skip whitespace before the comma, then step over it
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+			// Skip any whitespace before the value, and then read the date style
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ReadDateTimeStyle, *OutDateStylePtr);
+		}
+
+		if (OutTimeStylePtr)
+		{
+			// Skip whitespace before the comma, then step over it
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+			// Skip any whitespace before the value, and then read the time style
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ReadDateTimeStyle, *OutTimeStylePtr);
+		}
+
+		if (OutTimeZone.IsEmpty())
+		{
+			// Skip whitespace before the comma, and then step over it
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+			// Skip whitespace before the value, and then read out the quoted timezone name
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_READ_QUOTED_STRING(OutTimeZone);
+		}
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted culture name
+		FString CultureNameString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(CultureNameString);
+		OutTargetCulture = (CultureNameString.IsEmpty()) ? nullptr : FInternationalization::Get().GetCulture(CultureNameString);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		return Buffer;
+	}
+
+	return nullptr;
+}
+
+typedef TFunctionRef<void(const FString*, const FFormatArgumentValue&)> FTextFormatArgumentEnumeratorCallback;
+void WriteTextFormatToBuffer(FString& Buffer, const FString& TokenMarker, const FTextFormat& SourceFmt, TFunctionRef<void(FTextFormatArgumentEnumeratorCallback)> ArgumentEnumerator)
+{
+	// Produces LOCGEN_FORMAT_NAMED(..., [...]) or LOCGEN_FORMAT_ORDERED(..., [...])
+	Buffer += TokenMarker;
+	Buffer += TEXT("(");
+	FTextStringHelper::WriteToBuffer(Buffer, SourceFmt.GetSourceText(), true);
+	ArgumentEnumerator([&Buffer](const FString* InKey, const FFormatArgumentValue& InValue)
+	{
+		if (InKey)
+		{
+			Buffer += TEXT(", \"");
+			Buffer += *InKey;
+			Buffer += TEXT("\"");
+		}
+
+		Buffer += TEXT(", ");
+		InValue.ToExportedString(Buffer);
+	});
+	Buffer += TEXT(")");
+}
+
+}	// namespace TextStringificationUtil
 
 ///////////////////////////////////////
 // FTextHistory
@@ -69,14 +678,34 @@ void FTextHistory::SerializeForDisplayString(FStructuredArchive::FRecord Record,
 {
 	if(Record.GetUnderlyingArchive().IsLoading())
 	{
-		// We will definitely need to do a rebuild later
-		Revision = 0;
-
-		//When duplicating, the CDO is used as the template, then values for the instance are assigned.
-		//If we don't duplicate the string, the CDO and the instance are both pointing at the same thing.
-		//This would result in all subsequently duplicated objects stamping over formerly duplicated ones.
-		InOutDisplayString = MakeShared<FString, ESPMode::ThreadSafe>();
+		PrepareDisplayStringForRebuild(InOutDisplayString);
 	}
+}
+
+void FTextHistory::PrepareDisplayStringForRebuild(FTextDisplayStringPtr& OutDisplayString)
+{
+	// We will definitely need to do a rebuild later
+	Revision = 0;
+
+	//When duplicating, the CDO is used as the template, then values for the instance are assigned.
+	//If we don't duplicate the string, the CDO and the instance are both pointing at the same thing.
+	//This would result in all subsequently duplicated objects stamping over formerly duplicated ones.
+	OutDisplayString = MakeShared<FString, ESPMode::ThreadSafe>();
+}
+
+bool FTextHistory::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return false;
+}
+
+const TCHAR* FTextHistory::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	return nullptr;
+}
+
+bool FTextHistory::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	return false;
 }
 
 void FTextHistory::Rebuild(TSharedRef< FString, ESPMode::ThreadSafe > InDisplayString)
@@ -249,6 +878,162 @@ void FTextHistory_Base::SerializeForDisplayString(FStructuredArchive::FRecord Re
 	}
 }
 
+bool FTextHistory_Base::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::NsLocTextMarker)
+		|| TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocTextMarker);
+}
+
+const TCHAR* FTextHistory_Base::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+#define LOC_DEFINE_REGION
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::NsLocTextMarker))
+	{
+		// Parsing something of the form: NSLOCTEXT("...", "...", "...")
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::NsLocTextMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the quoted namespace
+		FString NamespaceString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(NamespaceString);
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted key
+		FString KeyString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(KeyString);
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted source string
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(SourceString);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		if (KeyString.IsEmpty())
+		{
+			KeyString = FGuid::NewGuid().ToString();
+		}
+
+#if USE_STABLE_LOCALIZATION_KEYS
+		if (GIsEditor && PackageNamespace && *PackageNamespace)
+		{
+			const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
+			if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
+			{
+				// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
+				// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
+				NamespaceString = FullNamespace;
+				KeyString = FGuid::NewGuid().ToString();
+			}
+		}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+		if (!GIsEditor)
+		{
+			// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
+			NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
+		}
+		OutDisplayString = FTextLocalizationManager::Get().GetDisplayString(NamespaceString, KeyString, &SourceString);
+
+		// We will definitely need to do a rebuild later
+		Revision = 0;
+
+		return Buffer;
+	}
+	
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocTextMarker))
+	{
+		// Parsing something of the form: LOCTEXT("...", "...")
+		// This only exists as people sometimes do this in config files. We assume an empty namespace should be used
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocTextMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the quoted key
+		FString KeyString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(KeyString);
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted source string
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(SourceString);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		if (KeyString.IsEmpty())
+		{
+			KeyString = FGuid::NewGuid().ToString();
+		}
+
+		FString NamespaceString = (TextNamespace) ? TextNamespace : FString();
+#if USE_STABLE_LOCALIZATION_KEYS
+		if (GIsEditor && PackageNamespace && *PackageNamespace)
+		{
+			const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
+			if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
+			{
+				// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
+				// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
+				NamespaceString = FullNamespace;
+				KeyString = FGuid::NewGuid().ToString();
+			}
+		}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+		if (!GIsEditor)
+		{
+			// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
+			NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
+		}
+		OutDisplayString = FTextLocalizationManager::Get().GetDisplayString(NamespaceString, KeyString, &SourceString);
+
+		// We will definitely need to do a rebuild later
+		Revision = 0;
+
+		return Buffer;
+	}
+#undef LOC_DEFINE_REGION
+
+	return nullptr;
+}
+
+bool FTextHistory_Base::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	FString Namespace;
+	FString Key;
+	const bool bFoundNamespaceAndKey = DisplayString.IsValid() && FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DisplayString.ToSharedRef(), Namespace, Key);
+
+	if (bFoundNamespaceAndKey)
+	{
+#define LOC_DEFINE_REGION
+		// Produces NSLOCTEXT("...", "...", "...")
+		Buffer += TEXT("NSLOCTEXT(\"");
+		Buffer += Namespace.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\", \"");
+		Buffer += Key.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\", \"");
+		Buffer += SourceString.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\")");
+#undef LOC_DEFINE_REGION
+
+		return true;
+	}
+
+	return false;
+}
+
 ///////////////////////////////////////
 // FTextHistory_NamedFormat
 
@@ -309,6 +1094,78 @@ void FTextHistory_NamedFormat::Serialize(FStructuredArchive::FRecord Record)
 	}
 
 	Record << NAMED_FIELD(Arguments);
+}
+
+bool FTextHistory_NamedFormat::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenFormatNamedMarker);
+}
+
+const TCHAR* FTextHistory_NamedFormat::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenFormatNamedMarker))
+	{
+		// Parsing something of the form: LOCGEN_FORMAT_NAMED(..., [...])
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocGenFormatNamedMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the text
+		FText FormatText;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(FTextStringHelper::ReadFromBuffer, FormatText, nullptr, nullptr, true);
+		SourceFmt = FTextFormat(FormatText);
+
+		// Read out arguments until we run out
+		Arguments.Reset();
+		for (;;)
+		{
+			// Skip whitespace and see if we've found a comma (for another argument)
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			if (*Buffer != TEXT(','))
+			{
+				// Finished parsing
+				break;
+			}
+
+			// Step over the comma
+			++Buffer;
+
+			// Skip whitespace before the value, and then read out the quoted argument name
+			FString ArgumentName;
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_READ_QUOTED_STRING(ArgumentName);
+
+			// Skip whitespace before the comma, then step over it
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+			// Skip whitespace before the value, and then read the new argument
+			FFormatArgumentValue& ArgumentValue = Arguments.Add(MoveTemp(ArgumentName));
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ArgumentValue.FromExportedString);
+		}
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		PrepareDisplayStringForRebuild(OutDisplayString);
+		return Buffer;
+	}
+
+	return nullptr;
+}
+
+bool FTextHistory_NamedFormat::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteTextFormatToBuffer(Buffer, TextStringificationUtil::LocGenFormatNamedMarker, SourceFmt, [this](TextStringificationUtil::FTextFormatArgumentEnumeratorCallback Callback)
+	{
+		for (const auto& ArgumentPair : Arguments)
+		{
+			Callback(&ArgumentPair.Key, ArgumentPair.Value);
+		}
+	});
+	return true;
 }
 
 void FTextHistory_NamedFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -390,6 +1247,70 @@ void FTextHistory_OrderedFormat::Serialize(FStructuredArchive::FRecord Record)
 	}
 
 	Record << NAMED_FIELD(Arguments);
+}
+
+bool FTextHistory_OrderedFormat::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenFormatOrderedMarker);
+}
+
+const TCHAR* FTextHistory_OrderedFormat::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenFormatOrderedMarker))
+	{
+		// Parsing something of the form: LOCGEN_FORMAT_ORDERED(..., [...])
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocGenFormatOrderedMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the text
+		FText FormatText;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(FTextStringHelper::ReadFromBuffer, FormatText, nullptr, nullptr, true);
+		SourceFmt = FTextFormat(FormatText);
+
+		// Read out arguments until we run out
+		Arguments.Reset();
+		for (;;)
+		{
+			// Skip whitespace and see if we've found a comma (for another argument)
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			if (*Buffer != TEXT(','))
+			{
+				// Finished parsing
+				break;
+			}
+
+			// Step over the comma
+			++Buffer;
+
+			// Skip whitespace before the value, and then read the new argument
+			FFormatArgumentValue& ArgumentValue = Arguments.AddDefaulted_GetRef();
+			TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(ArgumentValue.FromExportedString);
+		}
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		PrepareDisplayStringForRebuild(OutDisplayString);
+		return Buffer;
+	}
+
+	return nullptr;
+}
+
+bool FTextHistory_OrderedFormat::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteTextFormatToBuffer(Buffer, TextStringificationUtil::LocGenFormatOrderedMarker, SourceFmt, [this](TextStringificationUtil::FTextFormatArgumentEnumeratorCallback Callback)
+	{
+		for (const FFormatArgumentValue& ArgumentValue : Arguments)
+		{
+			Callback(nullptr, ArgumentValue);
+		}
+	});
+	return true;
 }
 
 void FTextHistory_OrderedFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -478,6 +1399,28 @@ void FTextHistory_ArgumentDataFormat::Serialize(FStructuredArchive::FRecord Reco
 	}
 
 	Record << NAMED_FIELD(Arguments);
+}
+
+bool FTextHistory_ArgumentDataFormat::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return false;
+}
+
+const TCHAR* FTextHistory_ArgumentDataFormat::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	return nullptr;
+}
+
+bool FTextHistory_ArgumentDataFormat::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteTextFormatToBuffer(Buffer, TextStringificationUtil::LocGenFormatNamedMarker, SourceFmt, [this](TextStringificationUtil::FTextFormatArgumentEnumeratorCallback Callback)
+	{
+		for (const FFormatArgumentData& Argument : Arguments)
+		{
+			Callback(&Argument.ArgumentName, Argument.ToArgumentValue());
+		}
+	});
+	return true;
 }
 
 void FTextHistory_ArgumentDataFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -672,6 +1615,25 @@ void FTextHistory_AsNumber::Serialize(FStructuredArchive::FRecord Record)
 	FTextHistory_FormatNumber::Serialize(Record);
 }
 
+bool FTextHistory_AsNumber::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenNumberMarker);
+}
+
+const TCHAR* FTextHistory_AsNumber::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	static const FString TokenMarker = TextStringificationUtil::LocGenNumberMarker;
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadNumberOrPercentFromBuffer, TokenMarker, SourceValue, FormatOptions, TargetCulture);
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_AsNumber::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteNumberOrPercentToBuffer(Buffer, TextStringificationUtil::LocGenNumberMarker, SourceValue, FormatOptions, TargetCulture);
+	return true;
+}
+
 bool FTextHistory_AsNumber::GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const
 {
 	OutHistoricNumericData = FHistoricTextNumericData(FHistoricTextNumericData::EType::AsNumber, SourceValue, FormatOptions);
@@ -728,6 +1690,25 @@ void FTextHistory_AsPercent::Serialize(FStructuredArchive::FRecord Record)
 	}
 
 	FTextHistory_FormatNumber::Serialize(Record);
+}
+
+bool FTextHistory_AsPercent::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenPercentMarker);
+}
+
+const TCHAR* FTextHistory_AsPercent::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	static const FString TokenMarker = TextStringificationUtil::LocGenPercentMarker;
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadNumberOrPercentFromBuffer, TokenMarker, SourceValue, FormatOptions, TargetCulture);
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_AsPercent::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteNumberOrPercentToBuffer(Buffer, TextStringificationUtil::LocGenPercentMarker, SourceValue, FormatOptions, TargetCulture);
+	return true;
 }
 
 bool FTextHistory_AsPercent::GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const
@@ -801,6 +1782,126 @@ void FTextHistory_AsCurrency::Serialize(FStructuredArchive::FRecord Record)
 	FTextHistory_FormatNumber::Serialize(Record);
 }
 
+bool FTextHistory_AsCurrency::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenCurrencyMarker);
+}
+
+const TCHAR* FTextHistory_AsCurrency::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	FInternationalization& I18N = FInternationalization::Get();
+	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	const FCulture& Culture = TargetCulture.IsValid() ? *TargetCulture : *I18N.GetCurrentLocale();
+
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenCurrencyMarker))
+	{
+		// Parsing something of the form: LOCGEN_CURRENCY(..., "...", "...")
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocGenCurrencyMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the number
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_NUMBER(SourceValue);
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted currency name
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(CurrencyCode);
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted culture name
+		FString CultureNameString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(CultureNameString);
+		TargetCulture = (CultureNameString.IsEmpty()) ? nullptr : FInternationalization::Get().GetCulture(CultureNameString);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		// Get the "base" value as a double
+		double BaseValue = 0.0;
+		switch (SourceValue.GetType())
+		{
+		case EFormatArgumentType::Int:
+			BaseValue = SourceValue.GetIntValue();
+			break;
+		case EFormatArgumentType::UInt:
+			BaseValue = SourceValue.GetUIntValue();
+			break;
+		case EFormatArgumentType::Float:
+			BaseValue = SourceValue.GetFloatValue();
+			break;
+		case EFormatArgumentType::Double:
+			BaseValue = SourceValue.GetDoubleValue();
+			break;
+		default:
+			return nullptr;
+		}
+
+		// We need to convert the "base" value back to its pre-divided version
+		const FDecimalNumberFormattingRules& FormattingRules = Culture.GetCurrencyFormattingRules(CurrencyCode);
+		const FNumberFormattingOptions& FormattingOptions = FormattingRules.CultureDefaultFormattingOptions;
+		SourceValue = BaseValue / FMath::Pow(10.0f, FormattingOptions.MaximumFractionalDigits);
+
+		PrepareDisplayStringForRebuild(OutDisplayString);
+		return Buffer;
+	}
+
+	return nullptr;
+}
+
+bool FTextHistory_AsCurrency::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	FInternationalization& I18N = FInternationalization::Get();
+	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
+	const FCulture& Culture = TargetCulture.IsValid() ? *TargetCulture : *I18N.GetCurrentLocale();
+
+	// Get the pre-divided value as a double
+	double DividedValue = 0.0;
+	switch (SourceValue.GetType())
+	{
+	case EFormatArgumentType::Int:
+		DividedValue = SourceValue.GetIntValue();
+		break;
+	case EFormatArgumentType::UInt:
+		DividedValue = SourceValue.GetUIntValue();
+		break;
+	case EFormatArgumentType::Float:
+		DividedValue = SourceValue.GetFloatValue();
+		break;
+	case EFormatArgumentType::Double:
+		DividedValue = SourceValue.GetDoubleValue();
+		break;
+	default:
+		break;
+	}
+
+	// We need to convert the value back to its "base" version
+	const FDecimalNumberFormattingRules& FormattingRules = Culture.GetCurrencyFormattingRules(CurrencyCode);
+	const FNumberFormattingOptions& FormattingOptions = FormattingRules.CultureDefaultFormattingOptions;
+	const int64 BaseVal = static_cast<int64>(DividedValue * FMath::Pow(10.0f, FormattingOptions.MaximumFractionalDigits));
+
+	// Produces LOCGEN_CURRENCY(..., "...", "...")
+	Buffer += TEXT("LOCGEN_CURRENCY(");
+	FFormatArgumentValue(BaseVal).ToExportedString(Buffer);
+	Buffer += TEXT(", \"");
+	Buffer += CurrencyCode.ReplaceCharWithEscapedChar();
+	Buffer += TEXT("\", \"");
+	if (TargetCulture)
+	{
+		Buffer += TargetCulture->GetName().ReplaceCharWithEscapedChar();
+	}
+	Buffer += TEXT("\")");
+
+	return true;
+}
+
 ///////////////////////////////////////
 // FTextHistory_AsDate
 
@@ -870,6 +1971,25 @@ void FTextHistory_AsDate::Serialize(FStructuredArchive::FRecord Record)
 			TargetCulture = FInternationalization::Get().GetCulture(CultureName);
 		}
 	}
+}
+
+bool FTextHistory_AsDate::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenDateMarker);
+}
+
+const TCHAR* FTextHistory_AsDate::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	static const FString TokenMarker = TextStringificationUtil::LocGenDateMarker;
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadDateTimeFromBuffer, TokenMarker, SourceDateTime, &DateStyle, nullptr, TimeZone, TargetCulture);
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_AsDate::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteDateTimeToBuffer(Buffer, TextStringificationUtil::LocGenDateMarker, SourceDateTime, &DateStyle, nullptr, TimeZone, TargetCulture);
+	return true;
 }
 
 FString FTextHistory_AsDate::BuildLocalizedDisplayString() const
@@ -956,6 +2076,25 @@ void FTextHistory_AsTime::Serialize(FStructuredArchive::FRecord Record)
 			TargetCulture = FInternationalization::Get().GetCulture(CultureName);
 		}
 	}
+}
+
+bool FTextHistory_AsTime::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenTimeMarker);
+}
+
+const TCHAR* FTextHistory_AsTime::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	static const FString TokenMarker = TextStringificationUtil::LocGenTimeMarker;
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadDateTimeFromBuffer, TokenMarker, SourceDateTime, nullptr, &TimeStyle, TimeZone, TargetCulture);
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_AsTime::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteDateTimeToBuffer(Buffer, TextStringificationUtil::LocGenTimeMarker, SourceDateTime, nullptr, &TimeStyle, TimeZone, TargetCulture);
+	return true;
 }
 
 FString FTextHistory_AsTime::BuildLocalizedDisplayString() const
@@ -1051,6 +2190,25 @@ void FTextHistory_AsDateTime::Serialize(FStructuredArchive::FRecord Record)
 	}
 }
 
+bool FTextHistory_AsDateTime::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenDateTimeMarker);
+}
+
+const TCHAR* FTextHistory_AsDateTime::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	static const FString TokenMarker = TextStringificationUtil::LocGenDateTimeMarker;
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadDateTimeFromBuffer, TokenMarker, SourceDateTime, &DateStyle, &TimeStyle, TimeZone, TargetCulture);
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_AsDateTime::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	TextStringificationUtil::WriteDateTimeToBuffer(Buffer, TextStringificationUtil::LocGenDateTimeMarker, SourceDateTime, &DateStyle, &TimeStyle, TimeZone, TargetCulture);
+	return true;
+}
+
 FString FTextHistory_AsDateTime::BuildLocalizedDisplayString() const
 {
 	FInternationalization& I18N = FInternationalization::Get();
@@ -1110,6 +2268,64 @@ void FTextHistory_Transform::Serialize(FStructuredArchive::FRecord Record)
 
 	uint8& TransformTypeRef = (uint8&)TransformType;
 	Record << NAMED_ITEM("TransformType", TransformTypeRef);
+}
+
+bool FTextHistory_Transform::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenToLowerMarker)
+		|| TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenToUpperMarker);
+}
+
+const TCHAR* FTextHistory_Transform::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+	// Parsing something of the form: LOCGEN_TOLOWER(...) or LOCGEN_TOUPPER
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenToLowerMarker))
+	{
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocGenToLowerMarker);
+		TransformType = ETransformType::ToLower;
+	}
+	else if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocGenToUpperMarker))
+	{
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocGenToUpperMarker);
+		TransformType = ETransformType::ToUpper;
+	}
+	else
+	{
+		return nullptr;
+	}
+
+	// Skip whitespace before the opening bracket, and then step over it
+	TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+	// Skip whitespace before the value, and then read out the text
+	TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(FTextStringHelper::ReadFromBuffer, SourceText, nullptr, nullptr, true);
+
+	// Skip whitespace before the closing bracket, and then step over it
+	TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+	PrepareDisplayStringForRebuild(OutDisplayString);
+	return Buffer;
+}
+
+bool FTextHistory_Transform::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	// Produces LOCGEN_TOLOWER(...) or LOCGEN_TOUPPER
+	switch (TransformType)
+	{
+	case ETransformType::ToLower:
+		Buffer += TEXT("LOCGEN_TOLOWER(");
+		break;
+	case ETransformType::ToUpper:
+		Buffer += TEXT("LOCGEN_TOUPPER(");
+		break;
+	default:
+		break;
+	}
+	FTextStringHelper::WriteToBuffer(Buffer, SourceText, true);
+	Buffer += TEXT(")");
+
+	return true;
 }
 
 FString FTextHistory_Transform::BuildLocalizedDisplayString() const
@@ -1287,6 +2503,86 @@ void FTextHistory_StringTableEntry::SerializeForDisplayString(FStructuredArchive
 	}
 }
 
+bool FTextHistory_StringTableEntry::StaticShouldReadFromBuffer(const TCHAR* Buffer)
+{
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocTableMarker);
+}
+
+const TCHAR* FTextHistory_StringTableEntry::ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString)
+{
+#define LOC_DEFINE_REGION
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::LocTableMarker))
+	{
+		// Parsing something of the form: LOCTABLE("...", "...")
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::LocTableMarker);
+
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
+
+		// Skip whitespace before the value, and then read out the quoted table ID
+		FString TableIdString;
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(TableIdString);
+		TableId = *TableIdString;
+
+		// Skip whitespace before the comma, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
+
+		// Skip whitespace before the value, and then read out the quoted key
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(Key);
+
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
+
+		// String Table assets should already have been created via dependency loading when using the EDL (although they may not be fully loaded yet)
+		const bool bIsAsset = IStringTableEngineBridge::IsStringTableFromAsset(TableId);
+		const EStringTableLoadingPolicy LoadingPolicy = (!bIsAsset || !IsInGameThread() || GEventDrivenLoaderEnabled) ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad;
+		FStringTableRedirects::RedirectTableIdAndKey(TableId, Key, LoadingPolicy);
+
+		// Re-cache the pointer
+		StringTableEntry.Reset();
+		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry(LoadingPolicy == EStringTableLoadingPolicy::Find);
+
+		// If we couldn't load a string table asset because this wasn't the game thread, defer the loading request until we're able to process it
+		bStringTableAssetPendingLoad = !StringTableEntryPin.IsValid() && bIsAsset && !IsInGameThread();
+
+		// We will definitely need to do a rebuild later
+		Revision = 0;
+
+		return Buffer;
+	}
+#undef LOC_DEFINE_REGION
+
+	return nullptr;
+}
+
+bool FTextHistory_StringTableEntry::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
+{
+	// Update the table ID and key on save to make sure they're up-to-date
+	FName TmpTableId = TableId;
+	FString TmpKey = Key;
+	{
+		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
+		if (StringTableEntryPin.IsValid())
+		{
+			FTextDisplayStringPtr ResolvedDisplayString = StringTableEntryPin->GetDisplayString();
+			FStringTableRegistry::Get().FindTableIdAndKey(ResolvedDisplayString.ToSharedRef(), TmpTableId, TmpKey);
+		}
+	}
+
+#define LOC_DEFINE_REGION
+	// Produces LOCTABLE("...", "...")
+	Buffer += TEXT("LOCTABLE(\"");
+	Buffer += TmpTableId.ToString().ReplaceCharWithEscapedChar();
+	Buffer += TEXT("\", \"");
+	Buffer += TmpKey.ReplaceCharWithEscapedChar();
+	Buffer += TEXT("\")");
+#undef LOC_DEFINE_REGION
+
+	return true;
+}
+
 FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry(const bool InSilent) const
 {
 	FStringTableEntryConstPtr StringTableEntryPin = StringTableEntry.Pin();
@@ -1303,10 +2599,6 @@ FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry(con
 		{
 			if (bStringTableAssetPendingLoad && IsInGameThread())
 			{
-				// This path should never be taken when EDL is enabled
-				// TODO: This assert is tripping in some cases (see UE-61107)
-				//check(!GEventDrivenLoaderEnabled);
-
 				// Attempt to load the string table asset now
 				FTextHistory_StringTableEntry* NonConstThis = const_cast<FTextHistory_StringTableEntry*>(this);
 				FStringTableRedirects::RedirectTableIdAndKey(NonConstThis->TableId, NonConstThis->Key, EStringTableLoadingPolicy::FindOrLoad);

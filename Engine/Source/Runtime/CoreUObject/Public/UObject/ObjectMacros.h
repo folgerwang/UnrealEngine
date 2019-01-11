@@ -1324,7 +1324,9 @@ namespace UM
 		/// The signature of the function depends on the operator type, and additional parameters may be passed as long as they're defaulted and the basic signature requirements are met.
 		/// - For the bool conversion operator (bool) the signature must be:
 		///		bool FuncName(const FMyStruct&); // FMyStruct may be passed by value rather than const-ref
-		/// - For comparion operators (==, !=, <, <=, >, >=) the signature must be:
+		/// - For the unary conversion operators (neg(-obj)) the signature must be:
+		///		FMyStruct FuncName(const FMyStruct&); // FMyStruct may be passed by value rather than const-ref
+		/// - For comparison operators (==, !=, <, <=, >, >=) the signature must be:
 		///		bool FuncName(const FMyStruct, OtherType); // OtherType can be any type, FMyStruct may be passed by value rather than const-ref
 		///	- For mathematical operators (+, -, *, /, %, &, |, ^, >>, <<) the signature must be:
 		///		ReturnType FuncName(const FMyStruct&, OtherType); // ReturnType and OtherType can be any type, FMyStruct may be passed by value rather than const-ref

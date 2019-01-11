@@ -39,13 +39,17 @@ namespace VRActionTypes
 	static const FName ConfirmRadialSelection( "ConfirmRadialSelection" );
 	static const FName TrackpadPositionX( "TrackpadPositionX" );
 	static const FName TrackpadPositionY( "TrackpadPositionY" );
+	static const FName TrackpadUp("TrackpadUp");
+	static const FName TrackpadDown("TrackpadDown");
+	static const FName TrackpadRight("TrackpadRight");
+	static const FName TrackpadLeft("TrackpadLeft");
 	static const FName TriggerAxis( "TriggerAxis" );
 }
 
 /**
  * VR Editor Mode. Extends editor viewports with functionality for VR controls and object manipulation
  */
-UCLASS()
+UCLASS( BlueprintType, Transient )
 class VREDITOR_API UVREditorMode : public UEditorWorldExtension
 {
 	GENERATED_BODY()
@@ -59,10 +63,13 @@ public:
 	virtual void Init() override;
 
 	/** Shutdown the VREditor */
-	virtual void Shutdown() override;	
-	
+	virtual void Shutdown() override;
+
 	/** When the user actually enters the VR Editor mode */
 	void Enter();
+
+	/** When Blueprints are reinstanced so we can re-connect our interactors. */
+	void OnBlueprintReinstanced();
 
 	/** When the user leaves the VR Editor mode */
 	void Exit( const bool bShouldDisableStereo );
@@ -80,7 +87,7 @@ public:
 	}
 
 	/** Returns true if we're actually using VR, or false if we're faking it */
-	bool IsActuallyUsingVR()
+	bool IsActuallyUsingVR() const
 	{
 		return bActuallyUsingVR;
 	}
@@ -91,9 +98,11 @@ public:
 		return bWantsToExitMode;
 	}
 
+	void AllocateInteractors();
+
 	/** Call this to start exiting VR mode */
 	void StartExitingVRMode();
-	
+
 	/** Gets the world space transform of the calibrated VR room origin.  When using a seated VR device, this will feel like the
 	camera's world transform (before any HMD positional or rotation adjustments are applied.) */
 	FTransform GetRoomTransform() const;
@@ -170,7 +179,7 @@ public:
 	bool IsShowingRadialMenu( const class UVREditorInteractor* Interactor ) const;
 
 	/** Gets the viewport that VR Mode is activated in.  Even though editor modes are available in all
-	    level viewports simultaneously, only one viewport is "possessed" by the HMD.  Generally try to avoid using
+		level viewports simultaneously, only one viewport is "possessed" by the HMD.  Generally try to avoid using
 		this function and instead use the ViewportClient that is passed around through various FEdMode overrides */
 	const class SLevelViewport& GetLevelViewportPossessedForVR() const;
 
@@ -178,6 +187,7 @@ public:
 	class SLevelViewport& GetLevelViewportPossessedForVR();
 
 	/** Gets the world scale factor, which can be multiplied by a scale vector to convert to room space */
+	UFUNCTION( BlueprintCallable, Category = "VREditorMode" )
 	float GetWorldScaleFactor() const;
 
 	/** Spawns a flashlight on the specified hand */
@@ -200,7 +210,7 @@ public:
 
 	/** Snaps the current selected actor to the ground */
 	void SnapSelectedActorsToGround();
-	
+
 	/** Saved information about the editor and viewport we possessed, so we can restore it after exiting VR mode */
 	struct FSavedEditorState
 	{
@@ -226,7 +236,7 @@ public:
 			: ViewportType(LVT_Perspective),
 			  ViewLocation(FVector::ZeroVector),
 			  ViewRotation(FRotator::ZeroRotator),
- 			  ShowFlags(ESFIM_Editor),
+			  ShowFlags(ESFIM_Editor),
 			  bLockedPitch(false),
 			  bGameView(false),
 			  bAlwaysShowModeWidgetAfterSelectionChanges(false),
@@ -280,10 +290,10 @@ public:
 
 	/** Returns true if we started the play in editor session from this VR Editor */
 	bool GetStartedPlayFromVREditor() const;
-	
+
 	/** Gets the container for all the assets of VREditor. */
 	const class UVREditorAssetContainer& GetAssetContainer() const;
-	
+
 	/** Loads and returns the container for all the assets of VREditor. */
 	static class UVREditorAssetContainer& LoadAssetContainer();
 
@@ -299,7 +309,7 @@ public:
 	FOnPlacePreviewActor& OnPlacePreviewActor() { return OnPlacePreviewActorEvent; };
 
 	/** Call this to force the 'Actions' radial menu to refresh.  This is useful if the menu generator that you've bound
-	    needs to be re-run (usually because it switches on something that has changed since the last time it ran.) */
+		needs to be re-run (usually because it switches on something that has changed since the last time it ran.) */
 	void RefreshRadialMenuActionsSubmenu();
 
 	/** Return true if currently aiming to teleport. */
@@ -312,12 +322,15 @@ public:
 	/** Returns if the VR Mode is in debug mode. */
 	static bool IsDebugModeEnabled();
 
+	/** Get Teleporter */
+	class AVREditorTeleporter* GetTeleportActor();
+
 	/** Delegate to be called when the debug mode is toggled. */
 	DECLARE_EVENT_OneParam(UVREditorMode, FOnToggleVRModeDebug, bool);
 	FOnToggleVRModeDebug& OnToggleDebugMode() { return OnToggleDebugModeEvent; };
 
 protected:
-	
+
 	virtual void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState) override;
 
 private:
@@ -337,7 +350,7 @@ private:
 
 	/** Start using the viewport passed */
 	void StartViewport( TSharedPtr<SLevelViewport> Viewport );
-	
+
 	/** Close the current viewport */
 	void CloseViewport( const bool bShouldDisableStereo );
 
@@ -373,7 +386,6 @@ protected:
 
 	/** App time that we entered this mode */
 	FTimespan AppTimeModeEntered;
-
 
 	//
 	// Avatar visuals
@@ -448,13 +460,8 @@ protected:
 	// Interactors
 	//
 
-	/** The right motion controller */
 	UPROPERTY()
-	class UVREditorMotionControllerInteractor* LeftHandInteractor; //@todo vreditor: Hardcoded interactors
-	
-	/** The right motion controller */
-	UPROPERTY()
-	class UVREditorMotionControllerInteractor* RightHandInteractor; 
+	TArray<UVREditorInteractor*> Interactors;
 
 	//
 	// Colors
@@ -484,13 +491,13 @@ public:
 	void RefreshVREditorSequencer(class ISequencer* InCurrentSequencer);
 
 	/** Refresh the current actor preview widget on an in-world UI panel */
-	void RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget, int32 Index);
+	void RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget, int32 Index, AActor *Actor);
 
 	/** General way to spawn an external UMG UI from a radial menu */
-	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name);
+	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name, FVector2D InSize);
 
 	/** General way to spawn an external Slate UI from a radial menu */
-	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name);
+	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name, FVector2D InSize);
 
 	/** Returns the currently active sequencer */
 	class ISequencer* GetCurrentSequencer();
@@ -513,11 +520,11 @@ private:
 	float SavedWorldToMetersScaleForPIE;
 
 	/** If we started play in editor from the VR Editor*/
-	bool bStartedPlayFromVREditor;	
+	bool bStartedPlayFromVREditor;
 
 	/** If we started play in editor from the VR Editor while in simulate. */
 	bool bStartedPlayFromVREditorSimulate;
-	
+
 	/** Container of assets */
 	UPROPERTY()
 	class UVREditorAssetContainer* AssetContainer;

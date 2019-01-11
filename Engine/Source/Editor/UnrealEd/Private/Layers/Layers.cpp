@@ -578,9 +578,9 @@ void FLayers::UpdatePerViewVisibility( FLevelEditorViewportClient* ViewportClien
 void FLayers::UpdateAllViewVisibility( const FName& LayerThatChanged )
 {
 	// update all views's hidden layers if they had this one
-	for ( int32 ViewIndex = 0; ViewIndex < Editor->LevelViewportClients.Num(); ++ViewIndex )
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		UpdatePerViewVisibility( Editor->LevelViewportClients[ViewIndex], LayerThatChanged );
+		UpdatePerViewVisibility( ViewportClient, LayerThatChanged );
 	}
 }
 
@@ -630,10 +630,10 @@ void FLayers::UpdateActorAllViewsVisibility( const TWeakObjectPtr< AActor >& Act
 {
 	uint64 OriginalHiddenViews = Actor->HiddenEditorViews;
 
-	for ( int32 ViewIndex = 0; ViewIndex < Editor->LevelViewportClients.Num(); ++ViewIndex )
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
 		// don't have this reattach, as we can do it once for all views
-		UpdateActorViewVisibility(Editor->LevelViewportClients[ViewIndex], Actor, false);
+		UpdateActorViewVisibility(ViewportClient, Actor, false);
 	}
 
 	// reregister if we changed the visibility bits, as the rendering thread needs them
@@ -645,10 +645,10 @@ void FLayers::UpdateActorAllViewsVisibility( const TWeakObjectPtr< AActor >& Act
 	Actor->MarkComponentsRenderStateDirty();
 
 	// redraw all viewports if the actor
-	for (int32 ViewIndex = 0; ViewIndex < Editor->LevelViewportClients.Num(); ViewIndex++)
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
 		// make sure we redraw all viewports
-		Editor->LevelViewportClients[ViewIndex]->Invalidate();
+		ViewportClient->Invalidate();
 	}
 }
 
@@ -1185,9 +1185,8 @@ bool FLayers::RenameLayer( const FName OriginalLayerName, const FName& NewLayerN
 	}
 
 	// update all views's hidden layers if they had this one
-	for ( int32 ViewIndex = 0; ViewIndex < Editor->LevelViewportClients.Num(); ViewIndex++ )
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = Editor->LevelViewportClients[ ViewIndex ];
 		if ( ViewportClient->ViewHiddenLayers.Remove( OriginalLayerName ) > 0 )
 		{
 			ViewportClient->ViewHiddenLayers.AddUnique( NewLayerName );

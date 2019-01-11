@@ -296,6 +296,7 @@ SAssetView::~SAssetView()
 		AssetRegistryModule.Get().OnAssetAdded().RemoveAll( this );
 		AssetRegistryModule.Get().OnAssetRemoved().RemoveAll( this );
 		AssetRegistryModule.Get().OnAssetRenamed().RemoveAll( this );
+		AssetRegistryModule.Get().OnAssetUpdated().RemoveAll( this );
 		AssetRegistryModule.Get().OnPathAdded().RemoveAll( this );
 		AssetRegistryModule.Get().OnPathRemoved().RemoveAll( this );
 	}
@@ -349,6 +350,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 	AssetRegistryModule.Get().OnAssetAdded().AddSP( this, &SAssetView::OnAssetAdded );
 	AssetRegistryModule.Get().OnAssetRemoved().AddSP( this, &SAssetView::OnAssetRemoved );
 	AssetRegistryModule.Get().OnAssetRenamed().AddSP( this, &SAssetView::OnAssetRenamed );
+	AssetRegistryModule.Get().OnAssetUpdated().AddSP( this, &SAssetView::OnAssetUpdated );
 	AssetRegistryModule.Get().OnPathAdded().AddSP( this, &SAssetView::OnAssetRegistryPathAdded );
 	AssetRegistryModule.Get().OnPathRemoved().AddSP( this, &SAssetView::OnAssetRegistryPathRemoved );
 
@@ -1094,72 +1096,62 @@ void SAssetView::AdjustActiveSelection(int32 SelectionDelta)
 
 void SAssetView::ProcessRecentlyLoadedOrChangedAssets()
 {
-	if ( RecentlyLoadedOrChangedAssets.Num() > 0 )
+	for (int32 AssetIdx = FilteredAssetItems.Num() - 1; AssetIdx >= 0 && RecentlyLoadedOrChangedAssets.Num() > 0; --AssetIdx)
 	{
-		TMap< FName, TWeakObjectPtr<UObject> > NextRecentlyLoadedOrChangedMap = RecentlyLoadedOrChangedAssets;
-
-		for (int32 AssetIdx = FilteredAssetItems.Num() - 1; AssetIdx >= 0; --AssetIdx)
+		if (FilteredAssetItems[AssetIdx]->GetType() != EAssetItemType::Folder)
 		{
-			if(FilteredAssetItems[AssetIdx]->GetType() != EAssetItemType::Folder)
+			const TSharedPtr<FAssetViewAsset>& ItemAsAsset = StaticCastSharedPtr<FAssetViewAsset>(FilteredAssetItems[AssetIdx]);
+				
+			// Find the updated version of the asset data from the set
+			// This is the version of the data we should use to update our view
+			FAssetData RecentlyLoadedOrChangedAsset;
+			if (const FAssetData* RecentlyLoadedOrChangedAssetPtr = RecentlyLoadedOrChangedAssets.Find(ItemAsAsset->Data))
 			{
-				const TSharedPtr<FAssetViewAsset>& ItemAsAsset = StaticCastSharedPtr<FAssetViewAsset>(FilteredAssetItems[AssetIdx]);
-				const FName ObjectPath = ItemAsAsset->Data.ObjectPath;
-				const TWeakObjectPtr<UObject>* WeakAssetPtr = RecentlyLoadedOrChangedAssets.Find( ObjectPath );
-				if ( WeakAssetPtr && (*WeakAssetPtr).IsValid() )
+				RecentlyLoadedOrChangedAsset = *RecentlyLoadedOrChangedAssetPtr;
+				RecentlyLoadedOrChangedAssets.Remove(ItemAsAsset->Data);
+			}
+
+			if (RecentlyLoadedOrChangedAsset.IsValid())
+			{
+				bool bShouldRemoveAsset = false;
+
+				if (!PassesCurrentBackendFilter(RecentlyLoadedOrChangedAsset))
 				{
-					NextRecentlyLoadedOrChangedMap.Remove(ObjectPath);
-
-					// Found the asset in the filtered items list, update it
-					const UObject* Asset = (*WeakAssetPtr).Get();
-					FAssetData AssetData(Asset);
-
-					bool bShouldRemoveAsset = false;
-					TArray<FAssetData> AssetDataThatPassesFilter;
-					AssetDataThatPassesFilter.Add(AssetData);
-					RunAssetsThroughBackendFilter(AssetDataThatPassesFilter);
-					if ( AssetDataThatPassesFilter.Num() == 0 )
-					{
-						bShouldRemoveAsset = true;
-					}
-
-					if ( !bShouldRemoveAsset && OnShouldFilterAsset.IsBound() && OnShouldFilterAsset.Execute(AssetData) )
-					{
-						bShouldRemoveAsset = true;
-					}
-
-					if ( !bShouldRemoveAsset && (IsFrontendFilterActive() && !PassesCurrentFrontendFilter(AssetData)) )
-					{
-						bShouldRemoveAsset = true;
-					}
-
-					if ( bShouldRemoveAsset )
-					{
-						FilteredAssetItems.RemoveAt(AssetIdx);
-					}
-					else
-					{
-						// Update the asset data on the item
-						ItemAsAsset->SetAssetData(AssetData);
-
-						// Update the custom column data
-						ItemAsAsset->CacheCustomColumns(CustomColumns, true, true, true);
-					}
-
-					RefreshList();
+					bShouldRemoveAsset = true;
 				}
+
+				if (!bShouldRemoveAsset && OnShouldFilterAsset.IsBound() && OnShouldFilterAsset.Execute(RecentlyLoadedOrChangedAsset))
+				{
+					bShouldRemoveAsset = true;
+				}
+
+				if (!bShouldRemoveAsset && (IsFrontendFilterActive() && !PassesCurrentFrontendFilter(RecentlyLoadedOrChangedAsset)))
+				{
+					bShouldRemoveAsset = true;
+				}
+
+				if (bShouldRemoveAsset)
+				{
+					FilteredAssetItems.RemoveAt(AssetIdx);
+				}
+				else
+				{
+					// Update the asset data on the item
+					ItemAsAsset->SetAssetData(RecentlyLoadedOrChangedAsset);
+
+					// Update the custom column data
+					ItemAsAsset->CacheCustomColumns(CustomColumns, true, true, true);
+				}
+
+				RefreshList();
 			}
 		}
+	}
 
-		if( FilteredRecentlyAddedAssets.Num() > 0 || RecentlyAddedAssets.Num() > 0 )
-		{
-			//Keep unprocessed items as we are still processing assets
-			RecentlyLoadedOrChangedAssets = NextRecentlyLoadedOrChangedMap;
-		}
-		else
-		{
-			//No more assets coming in so if we haven't found them now we aren't going to
-			RecentlyLoadedOrChangedAssets.Reset();
-		}
+	if (FilteredRecentlyAddedAssets.Num() == 0 && RecentlyAddedAssets.Num() == 0)
+	{
+		//No more assets coming in so if we haven't found them now we aren't going to
+		RecentlyLoadedOrChangedAssets.Reset();
 	}
 }
 
@@ -2902,6 +2894,11 @@ void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldO
 	RequestAddNewAssetsNextFrame();
 }
 
+void SAssetView::OnAssetUpdated(const FAssetData& AssetData)
+{
+	RecentlyLoadedOrChangedAssets.Add(AssetData);
+}
+
 void SAssetView::OnAssetLoaded(UObject* Asset)
 {
 	if (Asset == nullptr)
@@ -2910,7 +2907,7 @@ void SAssetView::OnAssetLoaded(UObject* Asset)
 	}
 
 	FName AssetPathName = FName(*Asset->GetPathName());
-	RecentlyLoadedOrChangedAssets.Add( AssetPathName, Asset );
+	RecentlyLoadedOrChangedAssets.Add( FAssetData(Asset) );
 
 	UTexture2D* Texture2D = Cast<UTexture2D>(Asset);
 	UMaterial* Material = Texture2D ? nullptr : Cast<UMaterial>(Asset);
@@ -2948,7 +2945,7 @@ void SAssetView::OnObjectPropertyChanged(UObject* Object, FPropertyChangedEvent&
 {
 	if (Object != nullptr && Object->IsAsset())
 	{
-		RecentlyLoadedOrChangedAssets.Add( FName(*Object->GetPathName()), Object);
+		RecentlyLoadedOrChangedAssets.Add(FAssetData(Object));
 	}
 }
 
@@ -2984,6 +2981,14 @@ bool SAssetView::PassesCurrentFrontendFilter(const FAssetData& Item) const
 	}
 
 	return true;
+}
+
+bool SAssetView::PassesCurrentBackendFilter(const FAssetData& Item) const
+{
+	TArray<FAssetData> AssetDataList;
+	AssetDataList.Add(Item);
+	RunAssetsThroughBackendFilter(AssetDataList);
+	return AssetDataList.Num() == 1;
 }
 
 void SAssetView::RunAssetsThroughBackendFilter(TArray<FAssetData>& InOutAssetDataList) const

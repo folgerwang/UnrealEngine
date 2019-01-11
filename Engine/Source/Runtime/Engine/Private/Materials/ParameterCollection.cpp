@@ -144,9 +144,9 @@ void SanitizeParameters(TArray<ParameterType>& Parameters)
 TArray<FCollectionScalarParameter> PreviousScalarParameters;
 TArray<FCollectionVectorParameter> PreviousVectorParameters;
 
-void UMaterialParameterCollection::PreEditChange(class FEditPropertyChain& PropertyAboutToChange)
+void UMaterialParameterCollection::PreEditChange(UProperty* PropertyThatWillChange)
 {
-	Super::PreEditChange(PropertyAboutToChange);
+	Super::PreEditChange(PropertyThatWillChange);
 
 	PreviousScalarParameters = ScalarParameters;
 	PreviousVectorParameters = VectorParameters;

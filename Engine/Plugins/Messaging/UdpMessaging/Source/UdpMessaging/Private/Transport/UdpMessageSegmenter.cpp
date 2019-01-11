@@ -33,7 +33,7 @@ int64 FUdpMessageSegmenter::GetMessageSize() const
 }
 
 
-bool FUdpMessageSegmenter::GetNextPendingSegment(TArray<uint8>& OutData, uint16& OutSegment) const
+bool FUdpMessageSegmenter::GetNextPendingSegment(TArray<uint8>& OutData, uint32& OutSegment) const
 {
 	if (MessageReader == nullptr)
 	{
@@ -44,8 +44,8 @@ bool FUdpMessageSegmenter::GetNextPendingSegment(TArray<uint8>& OutData, uint16&
 	{
 		OutSegment = It.GetIndex();
 
-		uint32 SegmentOffset = OutSegment * SegmentSize;
-		int32 ActualSegmentSize = MessageReader->TotalSize() - SegmentOffset;
+		uint64 SegmentOffset = OutSegment * SegmentSize;
+		uint64 ActualSegmentSize = MessageReader->TotalSize() - SegmentOffset;
 
 		if (ActualSegmentSize > SegmentSize)
 		{
@@ -67,17 +67,18 @@ bool FUdpMessageSegmenter::GetNextPendingSegment(TArray<uint8>& OutData, uint16&
 }
 
 
-bool FUdpMessageSegmenter::GetPendingSegment(uint16 InSegment, TArray<uint8>& OutData) const
+bool FUdpMessageSegmenter::GetPendingSegment(uint32 InSegment, TArray<uint8>& OutData) const
 {
 	if (MessageReader == nullptr)
 	{
 		return false;
 	}
 
-	if (InSegment < PendingSegments.Num() && PendingSegments[InSegment])
+	// Max segment number for protocol 12 is INT32_MAX, if increase, this will need changing
+	if ((int32)InSegment < PendingSegments.Num() && PendingSegments[InSegment])
 	{
-		uint32 SegmentOffset = InSegment * SegmentSize;
-		int32 ActualSegmentSize = MessageReader->TotalSize() - SegmentOffset;
+		uint64 SegmentOffset = InSegment * SegmentSize;
+		uint64 ActualSegmentSize = MessageReader->TotalSize() - SegmentOffset;
 
 		if (ActualSegmentSize > SegmentSize)
 		{
@@ -131,11 +132,11 @@ EMessageFlags FUdpMessageSegmenter::GetMessageFlags() const
 }
 
 
-void FUdpMessageSegmenter::MarkAsAcknowledged(const TArray<uint16>& Segments)
+void FUdpMessageSegmenter::MarkAsAcknowledged(const TArray<uint32>& Segments)
 {
 	for (const auto& Segment : Segments)
 	{
-		if (Segment < PendingSegments.Num())
+		if ((int32)Segment < PendingSegments.Num())
 		{
 			PendingSegments[Segment] = false;
 			--PendingSegmentsCount;

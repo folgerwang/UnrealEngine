@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceEditorToolkit.h"
+#include "Misc/LevelSequencePlaybackContext.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "UObject/UnrealType.h"
 #include "GameFramework/Actor.h"
@@ -73,75 +74,6 @@ const FName FLevelSequenceEditorToolkit::SequencerMainTabId(TEXT("Sequencer_Sequ
 namespace SequencerDefs
 {
 	static const FName SequencerAppIdentifier(TEXT("SequencerApp"));
-}
-
-// Defer to ULevelSequencePlayer's implementation for getting event contexts from the current world
-TArray<UObject*> GetLevelSequenceEditorEventContexts()
-{
-	TArray<UObject*> Contexts;
-
-	// Return PIE worlds if there are any
-	for (const FWorldContext& Context : GEngine->GetWorldContexts())
-	{
-		if (Context.WorldType == EWorldType::PIE)
-		{
-			ULevelSequencePlayer::GetEventContexts(*Context.World(), Contexts);
-		}
-	}
-
-	if (Contexts.Num())
-	{
-		return Contexts;
-	}
-
-	// Else just return the editor world
-	for (const FWorldContext& Context : GEngine->GetWorldContexts())
-	{
-		if (Context.WorldType == EWorldType::Editor)
-		{
-			ULevelSequencePlayer::GetEventContexts(*Context.World(), Contexts);
-			break;
-		}
-	}
-
-	return Contexts;
-}
-
-UObject* GetLevelSequenceEditorPlaybackContext()
-{
-	UWorld* PIEWorld = nullptr;
-	UWorld* EditorWorld = nullptr;
-
-	IMovieSceneCaptureDialogModule* CaptureDialogModule = FModuleManager::GetModulePtr<IMovieSceneCaptureDialogModule>("MovieSceneCaptureDialog");
-	UWorld* RecordingWorld = CaptureDialogModule ? CaptureDialogModule->GetCurrentlyRecordingWorld() : nullptr;
-
-	bool bIsSimulatingInEditor = GEditor && GEditor->bIsSimulatingInEditor;
-	bool bUsePIEWorld = (!bIsSimulatingInEditor && GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToPIE)
-					|| (bIsSimulatingInEditor && GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToSimulate);
-
-	// Return PIE worlds if there are any
-	for (const FWorldContext& Context : GEngine->GetWorldContexts())
-	{
-		if (Context.WorldType == EWorldType::PIE)
-		{
-			UWorld* ThisWorld = Context.World();
-			if (bUsePIEWorld && RecordingWorld != ThisWorld)
-			{
-				PIEWorld = ThisWorld;
-			}
-		}
-		else if (Context.WorldType == EWorldType::Editor)
-		{
-			// We can always animate PIE worlds
-			EditorWorld = Context.World();
-			if (!bUsePIEWorld)
-			{
-				return EditorWorld;
-			}
-		}
-	}
-
-	return PIEWorld ? PIEWorld : EditorWorld;
 }
 
 static TArray<FLevelSequenceEditorToolkit*> OpenToolkits;
@@ -227,6 +159,7 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		);
 
 	LevelSequence = InLevelSequence;
+	PlaybackContext = MakeShared<FLevelSequencePlaybackContext>();
 
 	const bool bCreateDefaultStandaloneMenu = true;
 	const bool bCreateDefaultToolbar = false;
@@ -243,12 +176,16 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		SequencerInitParams.ToolkitHost = InitToolkitHost;
 		SequencerInitParams.SpawnRegister = SpawnRegister;
 
-		SequencerInitParams.EventContexts.BindStatic(GetLevelSequenceEditorEventContexts);
-		SequencerInitParams.PlaybackContext.BindStatic(GetLevelSequenceEditorPlaybackContext);
+		SequencerInitParams.EventContexts.Bind(PlaybackContext.ToSharedRef(), &FLevelSequencePlaybackContext::GetEventContexts);
+		SequencerInitParams.PlaybackContext.Bind(PlaybackContext.ToSharedRef(), &FLevelSequencePlaybackContext::GetAsObject);
 
 		SequencerInitParams.ViewParams.UniqueName = "LevelSequenceEditor";
 		SequencerInitParams.ViewParams.ScrubberStyle = ESequencerScrubberStyle::FrameBlock;
 		SequencerInitParams.ViewParams.OnReceivedFocus.BindRaw(this, &FLevelSequenceEditorToolkit::OnSequencerReceivedFocus);
+
+		TSharedRef<FExtender> ToolbarExtender = MakeShared<FExtender>();
+		ToolbarExtender->AddToolBarExtension("Base Commands", EExtensionHook::Before, nullptr, FToolBarExtensionDelegate::CreateSP(this, &FLevelSequenceEditorToolkit::ExtendSequencerToolbar));
+		SequencerInitParams.ViewParams.ToolbarExtender = ToolbarExtender;
 	}
 
 	Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
@@ -286,7 +223,7 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 	FLevelSequenceEditorToolkit::OnOpened().Broadcast(*this);
 
 	{
-		UWorld* World = CastChecked<UWorld>( GetLevelSequenceEditorPlaybackContext() );
+		UWorld* World = PlaybackContext->Get();
 		UVREditorMode* VRMode = Cast<UVREditorMode>( GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( World )->FindExtension( UVREditorMode::StaticClass() ) );
 		if (VRMode != nullptr)
 		{
@@ -365,6 +302,11 @@ void FLevelSequenceEditorToolkit::UnregisterTabSpawners(const TSharedRef<class F
 
 /* FLevelSequenceEditorToolkit implementation
  *****************************************************************************/
+
+void FLevelSequenceEditorToolkit::ExtendSequencerToolbar(FToolBarBuilder& ToolbarBuilder)
+{
+	ToolbarBuilder.AddWidget(PlaybackContext->BuildWorldPickerCombo());
+}
 
 void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const FGuid Binding)
 {
@@ -648,7 +590,7 @@ void FLevelSequenceEditorToolkit::HandleActorAddedToSequencer(AActor* Actor, con
 
 void FLevelSequenceEditorToolkit::HandleVREditorModeExit()
 {
-	UWorld* World = Cast<UWorld>(GetLevelSequenceEditorPlaybackContext());
+	UWorld* World = PlaybackContext->Get();
 	UVREditorMode* VRMode = CastChecked<UVREditorMode>( GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( World )->FindExtension( UVREditorMode::StaticClass() ) );
 
 	// Reset sequencer settings
@@ -954,7 +896,7 @@ void FLevelSequenceEditorToolkit::BindAnimationInstance(USkeletalMeshComponent* 
 
 bool FLevelSequenceEditorToolkit::OnRequestClose()
 {
-	UWorld* World = CastChecked<UWorld>(GetLevelSequenceEditorPlaybackContext());
+	UWorld* World = PlaybackContext->Get();
 	UVREditorMode* VRMode = Cast<UVREditorMode>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(World)->FindExtension(UVREditorMode::StaticClass()));
 	if (VRMode != nullptr)
 	{

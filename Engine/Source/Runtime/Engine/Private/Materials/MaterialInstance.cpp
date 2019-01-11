@@ -3517,8 +3517,6 @@ void UMaterialInstance::ClearParameterValuesInternal(const bool bAllParameters)
 #if WITH_EDITOR
 void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialInstanceBasePropertyOverrides& NewBasePropertyOverrides, const bool bForceStaticPermutationUpdate /*= false*/)
 {
-	check(GIsEditor);
-
 	FStaticParameterSet CompareParameters = NewParameters;
 
 	TrimToOverriddenOnly(CompareParameters.StaticSwitchParameters);

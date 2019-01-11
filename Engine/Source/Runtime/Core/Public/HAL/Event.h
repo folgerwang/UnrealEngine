@@ -81,6 +81,7 @@ public:
 	 */
 	bool Wait( const FTimespan& WaitTime, const bool bIgnoreThreadIdleStats = false )
 	{
+		check(WaitTime.GetTicks() >= 0);
 		return Wait(WaitTime.GetTotalMilliseconds(), bIgnoreThreadIdleStats);
 	}
 

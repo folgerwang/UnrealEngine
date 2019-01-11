@@ -10,6 +10,7 @@
 #include "Components/SceneCaptureComponent.h"
 #include "SceneCaptureComponent2D.generated.h"
 
+class ISceneViewExtension;
 class FSceneInterface;
 
 /**
@@ -80,6 +81,12 @@ class ENGINE_API USceneCaptureComponent2D : public USceneCaptureComponent
 	UPROPERTY(Transient, BlueprintReadWrite, Category = SceneCapture)
 	uint32 bCameraCutThisFrame : 1;
 
+	/** Treat unrendered opaque pixels as fully translucent. This is important for effects such as exponential weight fog, so it does not get applied on unrendered opaque pixels. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
+	uint32 bConsiderUnrenderedOpaquePixelAsFullyTranslucent : 1;
+
+	/** Array of scene view extensions specifically to apply to this scene capture */
+	TArray< TWeakPtr<ISceneViewExtension, ESPMode::ThreadSafe> > SceneViewExtensions;
 
 	//~ Begin UActorComponent Interface
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;

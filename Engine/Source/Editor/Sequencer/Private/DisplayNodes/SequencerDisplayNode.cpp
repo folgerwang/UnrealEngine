@@ -581,6 +581,7 @@ TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TA
 	{
 		return SNew(SSequencerObjectTrack, SharedThis(this))
 			.ViewRange(ViewRange)
+			.IsEnabled(!GetSequencer().IsReadOnly())
 			.TickResolution(this, &FSequencerDisplayNode::GetTickResolution);
 	}
 
@@ -673,6 +674,40 @@ namespace
 				}),
 				InCanExecute,
 				FIsActionChecked::CreateLambda([=]{ return bIsChecked; })
+			),
+			NAME_None,
+			EUserInterfaceActionType::Check
+		);
+	}
+
+	void AddDisplayOptionsPropertyMenuItem(FMenuBuilder& MenuBuilder, FCanExecuteAction InCanExecute, const TArray<UMovieSceneTrack*>& AllTracks, const UBoolProperty* Property, TFunction<bool(UMovieSceneTrack*)> Validator = nullptr)
+	{
+		bool bIsChecked = AllTracks.ContainsByPredicate(
+			[=](UMovieSceneTrack* InTrack)
+		{
+			return (!Validator || Validator(InTrack)) && Property->GetPropertyValue(Property->ContainerPtrToValuePtr<void>(&InTrack->DisplayOptions));
+		});
+
+		MenuBuilder.AddMenuEntry(
+			Property->GetDisplayNameText(),
+			Property->GetToolTipText(),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateLambda([AllTracks, Property, Validator, bIsChecked] {
+			FScopedTransaction Transaction(FText::Format(NSLOCTEXT("Sequencer", "TrackNodeSetDisplayOption", "Set '{0}'"), Property->GetDisplayNameText()));
+			for (UMovieSceneTrack* Track : AllTracks)
+			{
+				if (Validator && !Validator(Track))
+				{
+					continue;
+				}
+				void* PropertyContainer = Property->ContainerPtrToValuePtr<void>(&Track->DisplayOptions);
+				Track->Modify();
+				Property->SetPropertyValue(PropertyContainer, !bIsChecked);
+			}
+		}),
+				InCanExecute,
+			FIsActionChecked::CreateLambda([=] { return bIsChecked; })
 			),
 			NAME_None,
 			EUserInterfaceActionType::Check
@@ -782,6 +817,18 @@ void FSequencerDisplayNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			if (PostrollProperty)
 			{
 				AddEvalOptionsPropertyMenuItem(MenuBuilder, CanExecute, AllTracks, PostrollProperty);
+			}
+		}
+		MenuBuilder.EndSection();
+
+		MenuBuilder.BeginSection("TrackDisplayOptions", NSLOCTEXT("Sequencer", "TrackNodeDisplayOptions", "Display Options"));
+		{
+			UStruct* DisplayOptionsStruct = FMovieSceneTrackDisplayOptions::StaticStruct();
+
+			const UBoolProperty* ShowVerticalFramesProperty = Cast<UBoolProperty>(DisplayOptionsStruct->FindPropertyByName(GET_MEMBER_NAME_CHECKED(FMovieSceneTrackDisplayOptions, bShowVerticalFrames)));
+			if (ShowVerticalFramesProperty)
+			{
+				AddDisplayOptionsPropertyMenuItem(MenuBuilder, CanExecute, AllTracks, ShowVerticalFramesProperty);
 			}
 		}
 		MenuBuilder.EndSection();

@@ -1017,24 +1017,7 @@ FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const TArray<FFormat
 		{
 			if (ArgumentToken.ArgumentNameLen == Arg.ArgumentName.Len() && FCString::Strncmp(ArgumentToken.ArgumentNameStartPos, *Arg.ArgumentName, ArgumentToken.ArgumentNameLen) == 0)
 			{
-				switch (Arg.ArgumentValueType)
-				{
-				case EFormatArgumentType::Int:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueInt);
-					break;
-				case EFormatArgumentType::Float:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueFloat);
-					break;
-				case EFormatArgumentType::Text:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValue);
-					break;
-				case EFormatArgumentType::Gender:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueGender);
-					break;
-				default:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue();
-					break;
-				}
+				(*TmpArgumentValuePtr) = Arg.ToArgumentValue();
 				return TmpArgumentValuePtr;
 			}
 		}

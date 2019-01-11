@@ -20,7 +20,6 @@
 #include "VREditorUISystem.h"
 #include "VREditorFloatingUI.h"
 #include "VREditorInteractor.h"
-#include "VREditorMotionControllerInteractor.h"
 
 // For actor placement
 #include "ObjectTools.h"
@@ -102,10 +101,10 @@ void UVREditorPlacement::StopDragging( UViewportInteractor* Interactor )
 	{
 		VRMode->OnPlacePreviewActor().Broadcast(false);
 		GEditor->NoteSelectionChange();
-		UVREditorMotionControllerInteractor* MotionController = Cast<UVREditorMotionControllerInteractor>(Interactor);
+		UVREditorInteractor* MotionController = Cast<UVREditorInteractor>(Interactor);
 		if (VRMode->GetUISystem().GetUIInteractor() == MotionController)
 		{
-			MotionController->SetControllerType(EControllerType::UI);
+			MotionController->TryOverrideControllerType(EControllerType::Unknown);
 		}
 	}
 }
@@ -140,7 +139,7 @@ void UVREditorPlacement::StartDraggingMaterialOrTexture( UViewportInteractor* In
 		InteractorData.bWasAssistingDrag = false;
 		InteractorData.DragRayLength = ( HitLocation - LaserPointerStart ).Size();
 		InteractorData.LastDragToLocation = HitLocation;
-		InteractorData.InteractorRotationAtDragStart = InteractorData.Transform.GetRotation();
+		InteractorData.InteractorTransformAtDragStart = InteractorData.Transform;
 		InteractorData.GrabberSphereLocationAtDragStart = FVector::ZeroVector;
 		InteractorData.ImpactLocationAtDragStart = HitLocation;
 		InteractorData.DragTranslationVelocity = FVector::ZeroVector;
@@ -180,13 +179,13 @@ void UVREditorPlacement::OnAssetDragStartedFromContentBrowser( const TArray<FAss
 		const TArray<UViewportInteractor*>& Interactors = ViewportWorldInteraction->GetInteractors();
 		for( UViewportInteractor* Interactor : Interactors )
 		{
-			UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>( Interactor );
+			UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( Interactor );
 			FViewportActionKeyInput* SelectAndMove_Action = Interactor->GetActionWithName( ViewportWorldActionTypes::SelectAndMove );
-			if( VRInteractor && SelectAndMove_Action != nullptr && SelectAndMove_Action->bIsInputCaptured )
+			if( VREditorInteractor && SelectAndMove_Action != nullptr && SelectAndMove_Action->bIsInputCaptured )
 			{
-				if( VRInteractor->IsClickingOnUI() && !VRInteractor->IsRightClickingOnUI() )
+				if( VREditorInteractor->IsClickingOnUI() && !VREditorInteractor->IsRightClickingOnUI() )
 				{
-					PlacingWithInteractor = VRInteractor;
+					PlacingWithInteractor = VREditorInteractor;
 					break;
 				}
 			}

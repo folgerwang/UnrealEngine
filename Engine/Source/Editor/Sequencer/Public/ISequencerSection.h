@@ -131,6 +131,11 @@ public:
 	virtual bool SectionIsResizable() const {return true;}
 
 	/**
+	 * @return Whether this section is read only.
+	 */
+	virtual bool IsReadOnly() const {return false;}
+
+	/**
 	 * Ticks the section during the Slate tick
 	 *
 	 * @param  AllottedGeometry The space allotted for this widget
@@ -179,7 +184,7 @@ public:
 	 * @param SlipTime The amount to slip this section by
 	 */
 	virtual void BeginSlipSection() {}
-	virtual void SlipSection(double SlipTime) {}
+	virtual void SlipSection(FFrameNumber SlipTime) {}
 };
 
 class FSequencerSection : public ISequencerSection
@@ -195,6 +200,8 @@ public:
 	{
 		return WeakSection.Get();
 	}
+
+	virtual bool IsReadOnly() const override { return WeakSection.IsValid() ? WeakSection.Get()->IsReadOnly() : false; }
 
 protected:
 	TWeakObjectPtr<UMovieSceneSection> WeakSection;

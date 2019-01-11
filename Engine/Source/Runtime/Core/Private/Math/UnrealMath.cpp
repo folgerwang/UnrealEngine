@@ -24,10 +24,14 @@ DECLARE_CYCLE_STAT( TEXT( "Convert Quat to Rotator" ), STAT_MathConvertQuatToRot
 CORE_API const FVector FVector::ZeroVector(0.0f, 0.0f, 0.0f);
 CORE_API const FVector FVector::OneVector(1.0f, 1.0f, 1.0f);
 CORE_API const FVector FVector::UpVector(0.0f, 0.0f, 1.0f);
+CORE_API const FVector FVector::DownVector(0.0f, 0.0f, -1.0f);
 CORE_API const FVector FVector::ForwardVector(1.0f, 0.0f, 0.0f);
+CORE_API const FVector FVector::BackwardVector(-1.0f, 0.0f, 0.0f);
 CORE_API const FVector FVector::RightVector(0.0f, 1.0f, 0.0f);
+CORE_API const FVector FVector::LeftVector(0.0f, -1.0f, 0.0f);
 CORE_API const FVector2D FVector2D::ZeroVector(0.0f, 0.0f);
 CORE_API const FVector2D FVector2D::UnitVector(1.0f, 1.0f);
+CORE_API const FVector2D FVector2D::Unit45Deg(UE_INV_SQRT_2, UE_INV_SQRT_2);
 CORE_API const FRotator FRotator::ZeroRotator(0.f,0.f,0.f);
 
 CORE_API const VectorRegister VECTOR_INV_255 = DECLARE_VECTOR_REGISTER(1.f/255.f, 1.f/255.f, 1.f/255.f, 1.f/255.f);
@@ -2711,7 +2715,9 @@ FVector FMath::RandPointInBox(const FBox& Box)
 
 FVector FMath::GetReflectionVector(const FVector& Direction, const FVector& SurfaceNormal)
 {
-	return Direction - 2 * (Direction | SurfaceNormal.GetSafeNormal()) * SurfaceNormal.GetSafeNormal();
+	FVector SafeNormal(SurfaceNormal.GetSafeNormal());
+
+	return Direction - 2 * (Direction | SafeNormal) * SafeNormal;
 }
 
 struct FClusterMovedHereToMakeCompile

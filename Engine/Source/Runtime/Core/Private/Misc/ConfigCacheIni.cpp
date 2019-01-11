@@ -1387,7 +1387,7 @@ bool FConfigFile::GetText( const TCHAR* Section, const TCHAR* Key, FText& Value 
 	{
 		return false;
 	}
-	return FTextStringHelper::ReadFromString( *PairString->GetValue(), Value, Section );
+	return FTextStringHelper::ReadFromBuffer( *PairString->GetValue(), Value, Section ) != nullptr;
 }
 
 bool FConfigFile::GetInt(const TCHAR* Section, const TCHAR* Key, int& Value) const
@@ -1482,7 +1482,7 @@ void FConfigFile::SetText( const TCHAR* Section, const TCHAR* Key, const FText& 
 	FConfigSection* Sec = FindOrAddSection( Section );
 
 	FString StrValue;
-	FTextStringHelper::WriteToString(StrValue, Value);
+	FTextStringHelper::WriteToBuffer(StrValue, Value);
 
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( ConfigValue == nullptr )
@@ -1958,7 +1958,7 @@ bool FConfigCacheIni::GetText( const TCHAR* Section, const TCHAR* Key, FText& Va
 	{
 		return false;
 	}
-	return FTextStringHelper::ReadFromString( *ConfigValue->GetValue(), Value, Section );
+	return FTextStringHelper::ReadFromBuffer( *ConfigValue->GetValue(), Value, Section ) != nullptr;
 }
 
 bool FConfigCacheIni::GetSection( const TCHAR* Section, TArray<FString>& Result, const FString& Filename )
@@ -2051,7 +2051,7 @@ void FConfigCacheIni::SetText( const TCHAR* Section, const TCHAR* Key, const FTe
 	FConfigSection* Sec = File->FindOrAddSection( Section );
 
 	FString StrValue;
-	FTextStringHelper::WriteToString(StrValue, Value);
+	FTextStringHelper::WriteToBuffer(StrValue, Value);
 
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( !ConfigValue )
