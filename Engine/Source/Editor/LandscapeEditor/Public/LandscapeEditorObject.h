@@ -28,6 +28,9 @@ enum class ELandscapeToolFlattenMode : int8
 
 	/** Flatten may only lower values, values below the clicked point will be left unchanged */
 	Lower = 2,
+
+	/** Flatten to specific terrace height intervals */
+	Terrace = 3
 };
 
 UENUM()
@@ -262,7 +265,7 @@ class ULandscapeEditorObject : public UObject
 
 	// Flatten Tool:
 
-	// Whether to flatten by lowering, raising, or both
+	// Whether to flatten by lowering, raising, both or terracing
 	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(ShowForTools="Flatten"))
 	ELandscapeToolFlattenMode FlattenMode;
 
@@ -285,6 +288,14 @@ class ULandscapeEditorObject : public UObject
 	// Whether to show the preview grid for the flatten target height
 	UPROPERTY(Category = "Tool Settings", EditAnywhere, NonTransactional, AdvancedDisplay, meta = (DisplayName = "Show Preview Grid", ShowForTools = "Flatten", ShowForTargetTypes = "Heightmap", EditCondition = "bUseFlattenTarget", HideEditConditionToggle, UIMin = "-32768", UIMax = "32768"))
 	bool bShowFlattenTargetPreview;
+
+	// Height of the terrace intervals in unreal units, for the terrace flatten mode 
+	UPROPERTY(Category = "Tool Settings", EditAnywhere, NonTransactional, AdvancedDisplay, meta = (DisplayName = "Terrace Interval", ShowForTools = "Flatten", ShowForTargetTypes = "Heightmap", UIMin = "1", UIMax = "32768"))
+	float TerraceInterval;
+
+	// Smoothing value for terrace flatten mode
+	UPROPERTY(Category = "Tool Settings", EditAnywhere, NonTransactional, AdvancedDisplay, meta = (DisplayName = "Terrace Smoothing", ShowForTools = "Flatten", ShowForTargetTypes = "Heightmap", UIMin = "0.0001", UIMax = "1.0"))
+	float TerraceSmooth;
 
 	// Whether the Eye Dropper mode is activated
 	UPROPERTY(NonTransactional, Transient)

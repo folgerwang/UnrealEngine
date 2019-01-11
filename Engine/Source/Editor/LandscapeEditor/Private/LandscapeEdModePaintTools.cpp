@@ -816,6 +816,36 @@ public:
 						int32 Delta = DataScanline[X] - FlattenHeight;
 						switch (UISettings->FlattenMode)
 						{
+						case ELandscapeToolFlattenMode::Terrace:
+							{
+								const FTransform& LocalToWorld = Target.LandscapeInfo->GetLandscapeProxy()->ActorToWorld();
+								float ScaleZ = LocalToWorld.GetScale3D().Z;
+								float TranslateZ = LocalToWorld.GetTranslation().Z;
+								float TerraceInterval = UISettings->TerraceInterval;
+								float Smoothness = UISettings->TerraceSmooth;								
+								float WorldHeight = LandscapeDataAccess::GetLocalHeight(DataScanline[X]);
+								
+								//move into world space
+								WorldHeight = (WorldHeight * ScaleZ) + TranslateZ;
+								float CurrentHeight = WorldHeight;
+
+								//smoothing part
+								float CurrentLevel = WorldHeight / TerraceInterval;								
+								Smoothness = 1.0f / FMath::Max(Smoothness, 0.0001f);
+								float CurrentPhase = FMath::Frac(CurrentLevel);
+								float Halfmask = FMath::Clamp(FMath::CeilToFloat(CurrentPhase - 0.5f), 0.0f, 1.0f);
+								CurrentLevel = FMath::FloorToFloat(WorldHeight / TerraceInterval);
+								float SCurve = FMath::Lerp(CurrentPhase, (1.0f - CurrentPhase), Halfmask) * 2.0f;
+								SCurve = FMath::Pow(SCurve, Smoothness) * 0.5f;
+								SCurve = FMath::Lerp(SCurve, 1.0f - SCurve, Halfmask) * TerraceInterval;
+								WorldHeight = (CurrentLevel * TerraceInterval)  + SCurve;
+								//end of smoothing part
+
+								float FinalHeight = FMath::Lerp(CurrentHeight, WorldHeight , Strength);
+								FinalHeight = (FinalHeight - TranslateZ) / ScaleZ;
+								DataScanline[X] = LandscapeDataAccess::GetTexHeight(FinalHeight);	
+							}
+							break;
 						case ELandscapeToolFlattenMode::Raise:
 							if (Delta < 0)
 							{
