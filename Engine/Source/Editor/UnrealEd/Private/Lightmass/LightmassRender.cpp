@@ -816,10 +816,19 @@ private:
 
 FMaterialExportDataEntry::~FMaterialExportDataEntry()
 {
-	delete DiffuseMaterialProxy;
-	delete EmissiveMaterialProxy;
-	delete OpacityMaterialProxy;
-	delete NormalMaterialProxy;
+	FLightmassMaterialProxy* DiffuseMaterialProxy_ = DiffuseMaterialProxy;
+	FLightmassMaterialProxy* EmissiveMaterialProxy_ = EmissiveMaterialProxy;
+	FLightmassMaterialProxy* OpacityMaterialProxy_ = OpacityMaterialProxy;
+	FLightmassMaterialProxy* NormalMaterialProxy_ = NormalMaterialProxy;
+	ENQUEUE_RENDER_COMMAND(FMaterialExportDataEntryDelete)(
+		[DiffuseMaterialProxy_, EmissiveMaterialProxy_, OpacityMaterialProxy_, NormalMaterialProxy_](FRHICommandListImmediate& RHICmdList)
+		{
+			delete DiffuseMaterialProxy_;
+			delete EmissiveMaterialProxy_;
+			delete OpacityMaterialProxy_;
+			delete NormalMaterialProxy_;
+		}
+	);
 }
 
 //
