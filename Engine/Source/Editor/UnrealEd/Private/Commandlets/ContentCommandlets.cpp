@@ -71,8 +71,6 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 #include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
 
-#pragma optimize("", off)
-
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
  *
