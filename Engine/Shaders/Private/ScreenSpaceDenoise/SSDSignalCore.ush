@@ -9,45 +9,6 @@
 #include "SSDCommon.ush"
 
 
-//------------------------------------------------------- ENUMS
-
-/** Layouts of the signal buffer. */
-	/** Buffer layout for the shadow penumbra given as input. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT 0
-
-	/** Internal buffer layout for the shadow penumbra. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL 1
-
-	/** Internal buffer layout used for history rejection for the shadow penumbra. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION 2
-
-	/** Buffer layout taken as input by */ // TODO: unused, remove it.
-	// #define SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT 3
-
-	/** Buffer layout for the reflection given by the ray generation shader. */
-	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT 3
-
-	/** Buffer layout for the reflection output. */
-	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY 4
-
-
-/** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
-	/** Scene color anti aliasing processing. */
-	//#define SIGNAL_PROCESSING_COLORAA 0
-
-	/** Depth of field stabilization processing. */
-	//#define SIGNAL_PROCESSING_DOF 1
-
-	/** Shadow penumbra denoising. */
-	#define SIGNAL_PROCESSING_PENUMBRA 0
-
-	/** Shadow penumbra denoising. */
-	//#define SIGNAL_PROCESSING_DIFUSE_GI 3
-
-	/** Reflection denoising. */
-	#define SIGNAL_PROCESSING_REFLECTIONS 1
-
-
 //------------------------------------------------------- STRUCTURE
 
 /** Generic data structure to manipulate any kind of signal. */
@@ -282,11 +243,6 @@ FSSFSignalSample Power(FSSFSignalSample Sample, float Exponent)
 	return Sample;
 }
 
-FSSFSignalSample Suctract(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
-{
-	return Add(SampleA, Minus(SampleB));
-}
-
 FSSFSignalSample Min(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
 {
 	FSSFSignalSample OutSample;
@@ -322,7 +278,7 @@ FSSFSignalSample Clamp(FSSFSignalSample Sample, FSSFSignalSample SampleMin, FSSF
 
 FSSFSignalSample Lerp(FSSFSignalSample Sample0, FSSFSignalSample Sample1, float Interp)
 {
-	return Add(Sample0, Mul(Suctract(Sample1, Sample0), Interp));
+	return Add(Sample0, Mul(Subtract(Sample1, Sample0), Interp));
 }
 
 /** Normalize the signal sample to one. */

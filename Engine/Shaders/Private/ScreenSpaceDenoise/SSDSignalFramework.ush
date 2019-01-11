@@ -1,0 +1,357 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+
+//------------------------------------------------------- CONFIG DISABLED DEFAULTS
+
+#ifndef CONFIG_TOKOYASHI_BILATERAL
+	#define CONFIG_TOKOYASHI_BILATERAL 0
+#endif
+
+#ifndef CONFIG_SPECULAR_MIS
+	#define CONFIG_SPECULAR_MIS 0
+#endif
+
+
+//------------------------------------------------------- INCLUDE
+
+#include "SSDCommon.ush"
+#include "SSDSignalCore.ush"
+
+#if !defined(CONFIG_SIGNAL_PROCESSING)
+	#error Missing CONFIG_SIGNAL_PROCESSING
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	#include "../LightShaderParameters.ush"
+	
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+	#include "../MonteCarlo.ush"
+	#include "../BRDF.ush"
+
+#else
+	#error Unknown CONFIG_SIGNAL_PROCESSING
+
+#endif
+
+
+//------------------------------------------------------- INTERNAL FOR PENUMBRA SIGNAL
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+
+float HitDistanceToWorldBluringRadius;
+
+#endif // CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+
+
+//------------------------------------------------------- INTERNAL FOR REFLECTION SIGNAL
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+
+/** Create a spherical gaussian lob for a given roughness. */
+FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)
+{
+	float a = Pow2( max( 0.02, Roughness ) );
+	float a2 = a*a;
+	
+	float NoV = saturate( abs( dot(N, V) ) + 1e-5 );
+	
+	float3 R = 2 * NoV * N - V;
+
+	FSphericalGaussian SpecularSG;
+	SpecularSG.Axis = R;
+	SpecularSG.Sharpness = 0.5 / ( a2 * max( NoV, 0.1 ) );
+	SpecularSG.Amplitude = rcp( PI * a2 );
+
+	return SpecularSG;
+}
+
+/** Create a spherical gaussian lob for a given scene metadata. */
+FSphericalGaussian RoughnessLobe(FSSFSampleSceneInfos RefSceneMetadata)
+{
+	float3 N = RefSceneMetadata.WorldNormal;
+	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+	float Roughness = RefSceneMetadata.Roughness;
+
+	return RoughnessLobe(Roughness, N, V);
+}
+
+// [ Tokoyashi 2015, "Specular Lobe-Aware Filtering and Upsampling for Interactive Indirect Illumination" ]
+float TokoyashiLobeBilateralWeight(FSSFSampleSceneInfos RefSceneMetadata, FSSFSampleSceneInfos NeighborSceneMetadata)
+{
+	FSphericalGaussian Ref = RoughnessLobe(RefSceneMetadata);
+	FSphericalGaussian Neighbor = RoughnessLobe(NeighborSceneMetadata);
+	
+#if 1
+	const float Beta = 5.05; // TODO: to be tunned with GGX.
+
+	float CombinedSharpness = sqrt(Ref.Sharpness * Neighbor.Sharpness) / (Ref.Sharpness + Neighbor.Sharpness);
+
+	return pow(2 * CombinedSharpness, Beta) * exp((Beta * CombinedSharpness) * (dot(Ref.Axis, Neighbor.Axis) - 1));
+#else
+	return Dot(Ref, Neighbor);
+#endif
+}
+
+// TODO: duplicated...
+float3 GenerateReflectedRayDirection(
+	float3 IncidentDirection,
+	float3 WorldNormal,
+	float Roughness,
+	float2 RandSample,
+	out float3 RayDirection,
+	out float PDF)
+{
+	if (Roughness < 0.05 ) //ReflectionSmoothClamp)
+	{
+		RayDirection = reflect(IncidentDirection, WorldNormal);
+		PDF = 1.0;
+	}
+	else
+	{
+		float NoV = saturate(dot(-IncidentDirection, WorldNormal));
+		float2 E = RandSample;
+		float4 Sample = ImportanceSampleGGX(E, Pow4(Roughness));
+		float3 H = TangentToWorld(Sample.xyz, WorldNormal);
+		RayDirection = reflect(IncidentDirection, H);
+
+		PDF = Sample.w;
+	}
+
+	return RayDirection;
+}
+
+// TODO: duplicated...
+float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
+{
+	return float2(SobolRand) * rcp(65536.0) + rcp(65536.0 * 2.0);
+}
+
+// TODO: duplicated...
+void GetInputRayDirectionPixel(
+	uint2 PixelCoord,
+	FSSFSampleSceneInfos SceneMetadata,
+	out float3 RayDirection,
+	out float PDF)
+{
+	float3 IncidentDirection = normalize(SceneMetadata.TranslatedWorldPosition - View.TranslatedWorldCameraOrigin);
+
+	float2 RandSample;
+	{
+		const uint TemporalBits = 10;
+		uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+
+		uint2 SobolBase = SobolPixel(PixelCoord);
+		uint2 SobolFrame = SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);
+
+		RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
+	}
+
+	GenerateReflectedRayDirection(
+		IncidentDirection,
+		SceneMetadata.WorldNormal,
+		SceneMetadata.Roughness,
+		RandSample,
+		/* out = */ RayDirection,
+		/* out = */ PDF);
+}
+
+
+#endif // CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+
+
+//------------------------------------------------------- MAIN FUNCTIONS TO IMPLEMENT FOR THE PASSES
+
+/** Return whether this signal is occluded or not. */
+bool IsMissSample(FSSFSignalSample Sample)
+{
+	return Sample.LeavingRayCount != 0; // TODO: use PenumbraClosestHit instead.
+}
+
+/** Return whether this signal is valid or not. */
+bool IsInvalidSample(FSSFSignalSample Sample)
+{
+	return Sample.PenumbraClosestHit == -1.0; // TODO: AccumulatedSampleCount == 0
+}
+
+/** COmpute the weight of the bilateral filter to use between a reference sample and a neighbor. */
+float ComputeBilateralWeight(
+	float MaxWorldBluringDistance,
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos NeighborSceneMetadata)
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+{
+	if (DEBUG_DISABLE_BILATERAL)
+	{
+		return 1;
+	}
+	
+	float WorldBilateralWeight = 1;
+	if (1) // TODO.
+	{
+		const float WorldRadius = MaxWorldBluringDistance;
+
+		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
+
+		float RefAnisotropyInvFactor = ComputeAnisotropyInvFactor(RefSceneMetadata);
+
+		float3 CameraToRef = View.ViewForward;
+
+		float Z = dot(CameraToRef, V);
+		float XY = length2(V - CameraToRef * Z * (1 - RefAnisotropyInvFactor));
+
+		float DistSquare = XY;
+
+		float Multiplier = rcp(WorldRadius * WorldRadius);
+
+		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
+	}
+	
+	float LobeBilateralWeight = 1;
+	#if CONFIG_TOKOYASHI_BILATERAL
+	//if (View.GeneralPurposeTweak > 0.5)
+	{
+		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
+	}
+	#endif
+
+	return WorldBilateralWeight;
+}
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+{
+	return 1;
+}
+#endif
+
+float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+{
+	if (IsInvalidSample(Sample))
+	{
+		return WORLD_RADIUS_INVALID;
+	}
+	else if (IsMissSample(Sample))
+	{
+		return WORLD_RADIUS_MISS;
+	}
+
+	// Compute the anysotropy.
+	float Anisotropy = ComputeAnisotropyInvFactor(SceneMetadata);
+
+	FLightShaderParameters LightParameters = GetRootLightShaderParameters();
+
+	#if !defined(DIM_LIGHT_TYPE)
+	{
+		return 0;
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+	{
+		return HitDistanceToWorldBluringRadius * Sample.PenumbraClosestHit * Anisotropy;
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_POINT
+	{
+		return 0; // TODO: point light soft shadows are not implemented.
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_SPOT
+	{
+		return 0; // TODO: spot light soft shadows are not implemented.
+	}
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_RECT
+	{
+		float3 PixelToLightWorldVector = (LightParameters.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
+		float DistanceFromLight = length(PixelToLightWorldVector);
+
+		float Scalar = abs(dot(normalize(PixelToLightWorldVector), LightParameters.Direction));
+
+		float2 LightDimensions = GetRectLightDimensions(LightParameters);
+
+		// TODO: area light anysotropy.
+		float SmallestLightDimension = min(LightDimensions.x, LightDimensions.y);
+
+		// TODO: Sample.PenumbraClosestHit depends on the direction of the ray, but does not DistanceFromLight, witch is bad for large area light.
+		return SmallestLightDimension * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
+	}
+	#endif
+}
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+{
+	return 1;
+}
+#endif
+
+FSSFSignalSample GetConstantSignalSample(uint TileMode)
+{
+	FSSFSignalSample OutputSample = CreateSignalSample();
+	if (TileMode == TILE_MODE_FULLY_INVALID)
+	{
+		OutputSample.AccumulatedSampleCount = 0.0;
+		OutputSample.LeavingRayCount = 0.0;
+	}
+	else if (TileMode == TILE_MODE_FULLY_LIGHTED)
+	{
+		OutputSample.AccumulatedSampleCount = 1.0;
+		OutputSample.LeavingRayCount = OutputSample.AccumulatedSampleCount;
+	}
+	else if (TileMode == TILE_MODE_FULLY_OCCLUDED)
+	{
+		OutputSample.AccumulatedSampleCount = 1.0;
+		OutputSample.LeavingRayCount = 0.0;
+	}
+	else if (TileMode == TILE_MODE_FULLY_UNSURE)
+	{
+		OutputSample.UncertainRayCount = 1.0;
+	}
+	return OutputSample;
+}
+
+// Returns the penumbra of this sample, or 1 if invalid.
+float GetSamplePenumbraSafe(FSSFSignalSample Sample)
+{
+	return (Sample.AccumulatedSampleCount > 0 ? Sample.LeavingRayCount / Sample.AccumulatedSampleCount : 1);
+}
+
+// Get penumbra, but be aware of NaN.
+float GetSamplePenumbra(FSSFSignalSample Sample)
+{
+	if (1) // TODO: For debugging purpose of division by 0.
+	{
+		return GetSamplePenumbraSafe(Sample);
+	}
+	return Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
+}
+
+/** Get the weight for multi importance sampling. */
+float GetMultiImportanceSamplingWeight(
+	FSSFSampleSceneInfos RefSceneMetadata,
+	FSSFSampleSceneInfos SampleSceneMetadata,
+	FSSFSignalSample Sample,
+	uint2 SamplePixelCoord)
+#if CONFIG_SPECULAR_MIS
+// [ Stackowiak 2018, "Stochastic all the things: Raytracing in hybrid real-time rendering" ]
+{
+	float3 OriginalRayDirection;
+	float OriginalRayPDF;
+
+	GetInputRayDirectionPixel(
+		SamplePixelCoord,
+		SampleSceneMetadata, 
+		/* out */ OriginalRayDirection,
+		/* out */ OriginalRayPDF);
+
+	float3 HitTranslatedWorldPosition = SampleSceneMetadata.TranslatedWorldPosition + OriginalRayDirection * Sample.PenumbraClosestHit;
+
+	float a2 = Pow4(RefSceneMetadata.Roughness);
+
+	float3 N = RefSceneMetadata.WorldNormal;
+	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+	float3 L = normalize(HitTranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition);
+	float3 H = normalize(L + V);
+
+	float NoH = abs(dot(N, H));
+	float D = D_GGX(a2, NoH);
+
+	return D / OriginalRayPDF;
+}
+#else // !CONFIG_SPECULAR_MIS
+{
+	return 1.0;
+}
+#endif // CONFIG_SPECULAR_MIS

@@ -1,12 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	PostProcessTemporalAA.usf: Temporal AA
-=============================================================================*/
-
-#include "SSDCommon.ush"
-#include "SSDSignalCore.ush"
-#include "../TextureSampling.ush"
+#include "SSDDefinitions.ush"
 
 
 //------------------------------------------------------- CONFIGS
@@ -102,9 +96,10 @@
 #endif
 
 
-//------------------------------------------------------- INCLUDES DEPENDINGS ON THE CONFIG
+//------------------------------------------------------- INCLUDES
 
-#include "SSDSignalInterface.ush"
+#include "SSDSignalFramework.ush"
+#include "../TextureSampling.ush"
 
 
 //------------------------------------------------------- PARAMETERS

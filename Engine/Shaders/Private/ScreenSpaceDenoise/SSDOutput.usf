@@ -1,11 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-SSDOutput.usf: Output the denoising signal for external consumer
-=============================================================================*/
-
-#include "SSDSignalCore.ush"
-#include "../TextureSampling.ush"
+#include "SSDDefinitions.ush"
 
 
 //------------------------------------------------------- DEBUG CONFIG
@@ -31,7 +26,11 @@ SSDOutput.usf: Output the denoising signal for external consumer
 
 #endif
 
-#include "SSDSignalInterface.ush"
+
+//------------------------------------------------------- INCLUDES
+
+#include "SSDSignalFramework.ush"
+#include "../TextureSampling.ush"
 
 
 //------------------------------------------------------- PARAMETERS

@@ -1,11 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-PostProcessTemporalAA.usf: Temporal AA
-=============================================================================*/
-
-#include "SSDCommon.ush"
-#include "SSDSignalCore.ush"
+#include "SSDDefinitions.ush"
 
 
 //------------------------------------------------------- ENUM VALUES
@@ -83,9 +78,9 @@ PostProcessTemporalAA.usf: Temporal AA
 #endif
 
 
-//------------------------------------------------------- INCLUDES DEPENDINGS ON THE CONFIG
+//------------------------------------------------------- INCLUDES
 
-#include "SSDSignalInterface.ush"
+#include "SSDSignalFramework.ush"
 
 
 //------------------------------------------------------- CONSTANTS

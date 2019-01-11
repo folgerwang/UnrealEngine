@@ -1,20 +1,13 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-SSDReduce.usf:
-=============================================================================*/
-
-#include "../MonteCarlo.ush"
-#include "../TextureSampling.ush"
-#include "SSDSignalCore.ush"
-
-#define CONFIG_SIGNAL_PROCESSING SIGNAL_PROCESSING_PENUMBRA
-#include "SSDSignalInterface.ush"
+#include "SSDDefinitions.ush"
 
 
 //------------------------------------------------------- CONFIGS
 
 #define TILE_PIXEL_SIZE 8
+
+#define CONFIG_SIGNAL_PROCESSING SIGNAL_PROCESSING_PENUMBRA
 
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
 	#define CONFIG_SIGNAL_RAW_INPUT_LAYOUT	SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT
@@ -24,7 +17,15 @@ SSDReduce.usf:
 #else
 	#error Unknown signal processing
 
-#endif 
+#endif
+
+
+//------------------------------------------------------- INCLUDES
+
+#include "SSDSignalFramework.ush"
+
+#include "../MonteCarlo.ush"
+#include "../TextureSampling.ush"
 
 
 //------------------------------------------------------- PARAMETERS
