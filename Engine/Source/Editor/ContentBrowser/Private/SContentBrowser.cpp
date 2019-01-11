@@ -95,6 +95,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	
 	bIsLocked = InArgs._InitiallyLocked;
 	bAlwaysShowCollections = Config != nullptr ? Config->bAlwaysShowCollections : false;
+	bCanSetAsPrimaryBrowser = Config != nullptr ? Config->bCanSetAsPrimaryBrowser : true;
 
 	HistoryManager.SetOnApplyHistoryData(FOnApplyHistoryData::CreateSP(this, &SContentBrowser::OnApplyHistoryData));
 	HistoryManager.SetOnUpdateHistoryData(FOnUpdateHistoryData::CreateSP(this, &SContentBrowser::OnUpdateHistoryData));
@@ -1069,6 +1070,11 @@ void SContentBrowser::SyncTo( const FContentBrowserSelection& ItemSelection, con
 
 void SContentBrowser::SetIsPrimaryContentBrowser(bool NewIsPrimary)
 {
+	if (!CanSetAsPrimaryContentBrowser()) 
+	{
+		return;
+	}
+
 	bIsPrimaryBrowser = NewIsPrimary;
 
 	if ( bIsPrimaryBrowser )
@@ -1083,6 +1089,11 @@ void SContentBrowser::SetIsPrimaryContentBrowser(bool NewIsPrimary)
 			EditorSelection->DeselectAll();
 		}
 	}
+}
+
+bool SContentBrowser::CanSetAsPrimaryContentBrowser() const
+{
+	return bCanSetAsPrimaryBrowser;
 }
 
 TSharedPtr<FTabManager> SContentBrowser::GetTabManager() const
@@ -2823,7 +2834,7 @@ void SContentBrowser::CreateNewFolder(FString FolderPath, FOnCreateNewFolder InO
 
 void SContentBrowser::OpenNewContentBrowser()
 {
-	FContentBrowserSingleton::Get().SyncBrowserToFolders(PathContextMenu->GetSelectedPaths(), false, true, true);
+	FContentBrowserSingleton::Get().SyncBrowserToFolders(PathContextMenu->GetSelectedPaths(), false, true, NAME_None, true);
 }
 
 #undef LOCTEXT_NAMESPACE

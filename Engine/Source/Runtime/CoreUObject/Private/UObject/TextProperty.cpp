@@ -127,7 +127,7 @@ void UTextProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 	}
 	else
 	{
-		FTextStringHelper::WriteToString(ValueStr, TextValue, !!(PortFlags & PPF_Delimited));
+		FTextStringHelper::WriteToBuffer(ValueStr, TextValue, !!(PortFlags & PPF_Delimited));
 	}
 }
 
@@ -169,14 +169,7 @@ const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 	}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
-	int32 NumCharsRead = 0;
-	if (FTextStringHelper::ReadFromString(Buffer, *TextPtr, *TextNamespace, *PackageNamespace, &NumCharsRead, !!(PortFlags & PPF_Delimited)))
-	{
-		Buffer += NumCharsRead;
-		return Buffer;
-	}
-	
-	return nullptr;
+	return FTextStringHelper::ReadFromBuffer(Buffer, *TextPtr, *TextNamespace, *PackageNamespace, !!(PortFlags & PPF_Delimited));
 }
 
 FString UTextProperty::GenerateCppCodeForTextValue(const FText& InValue, const FString& Indent)

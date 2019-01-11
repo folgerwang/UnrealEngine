@@ -336,6 +336,7 @@ TSharedRef<SDetailTree> SDetailsView::ConstructTreeView( TSharedRef<SScrollBar>&
 		.OnExpansionChanged(this, &SDetailsView::OnItemExpansionChanged)
 		.SelectionMode(ESelectionMode::None)
 		.HandleDirectionalNavigation(false)
+		.AllowOverscroll(DetailsViewArgs.bShowScrollBar ? EAllowOverscroll::Yes : EAllowOverscroll::No)
 		.ExternalScrollbar(ScrollBar);
 }
 

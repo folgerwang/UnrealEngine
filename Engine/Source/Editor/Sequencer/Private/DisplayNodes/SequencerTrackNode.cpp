@@ -203,7 +203,7 @@ TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 		Params.TrackInsertRowIndex = Track->GetMaxRowIndex()+1;
 	}
 
-	TSharedPtr<SWidget> CustomWidget = GetSequencer().IsReadOnly() ? SNullWidget::NullWidget : AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
+	TSharedPtr<SWidget> CustomWidget = AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
 
 	if (KeyEditorWidget.IsValid())
 	{

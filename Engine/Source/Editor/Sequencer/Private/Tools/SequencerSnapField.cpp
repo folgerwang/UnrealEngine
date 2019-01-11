@@ -91,10 +91,9 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	}
 
 	// Add in the marked frames
-	const TSet<FFrameNumber>& MarkedFrames = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().MarkedFrames;
-	for (FFrameNumber MarkedFrame : MarkedFrames)
+	for (const FMovieSceneMarkedFrame& MarkedFrame : InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetMarkedFrames())
 	{
-		Visitor.Snaps.Add( FSequencerSnapPoint{ FSequencerSnapPoint::Mark, MarkedFrame } );
+		Visitor.Snaps.Add( FSequencerSnapPoint{ FSequencerSnapPoint::Mark, MarkedFrame.FrameNumber } );
 	}
 
 	// Sort

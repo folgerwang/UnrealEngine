@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 
-#include "IPDisplayClusterGameManager.h"
-#include "DisplayClusterOperationMode.h"
+#include "Game/IPDisplayClusterGameManager.h"
 
+#include "DisplayClusterOperationMode.h"
 #include "DisplayClusterGameMode.h"
 #include "DisplayClusterPawn.h"
 #include "DisplayClusterSettings.h"
@@ -42,7 +42,7 @@ public:
 	virtual ADisplayClusterPawn*                    GetRoot() const override;
 
 	virtual TArray<UDisplayClusterScreenComponent*> GetAllScreens() const override;
-	virtual UDisplayClusterScreenComponent*         GetActiveScreen() const override;
+	virtual TArray<UDisplayClusterScreenComponent*> GetActiveScreens() const override;
 	virtual UDisplayClusterScreenComponent*         GetScreenById(const FString& id) const override;
 	virtual int32                        GetScreensAmount() const override;
 
@@ -83,6 +83,12 @@ public:
 	virtual ADisplayClusterSettings* GetDisplayClusterSceneSettings() const override
 	{ return CurrentSceneSettings; }
 
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IPDisplayClusterProjectionScreenDataProvider
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual bool GetProjectionScreenData(const FString& ScreenId, FDisplayClusterProjectionScreenData& OutProjectionScreenData) const override;
+
 private:
 	// Creates DisplayCluster actor and fulfills with components hierarchy
 	bool InitializeDisplayClusterActor();
@@ -102,8 +108,6 @@ private:
 private:
 	// DisplayCluster root actor
 	ADisplayClusterPawn* VRRootActor = nullptr;
-	// Currently active projection screen (for this cluster node)
-	UDisplayClusterScreenComponent* ActiveScreenComponent = nullptr;
 	// Currently active camera (joint component)
 	UDisplayClusterCameraComponent* ActiveCameraComponent = nullptr;
 
@@ -113,6 +117,8 @@ private:
 	TMap<FString, UDisplayClusterCameraComponent*> CameraComponents;
 	// All available DisplayCluster nodes in hierarchy
 	TMap<FString, UDisplayClusterSceneComponent*> SceneNodeComponents;
+	// Currently active projection screen (for this cluster node)
+	TMap<FString, UDisplayClusterScreenComponent*> ActiveScreenComponents;
 
 	EDisplayClusterOperationMode CurrentOperationMode;
 	FString ConfigPath;

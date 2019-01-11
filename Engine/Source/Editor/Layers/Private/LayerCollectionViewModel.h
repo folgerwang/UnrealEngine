@@ -94,6 +94,9 @@ public:
 	 */
 	void AddActorsToNewLayer( TArray< TWeakObjectPtr< AActor > > Actors );
 
+	/** Toggles the visibility of the given layer and those of the other layers selected with it */
+	void ToggleLayerVisibility( const TSharedPtr< FLayerViewModel >& InLayer );
+
 	/********************************************************************
 	 * EVENTS
 	 ********************************************************************/

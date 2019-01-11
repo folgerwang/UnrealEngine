@@ -127,14 +127,80 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FSequencerScriptingRange MakeRangeSeconds(UMovieSceneSequence* Sequence, float StartTime, float Duration);
 
-	/**
-	 * Get playback range of this sequence
-	 *
-	 * @param Sequence        The sequence within which to get the playback range
-	 * @return Playback range of this sequence
-	 */
-	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	UE_DEPRECATED(4.22, "Please use GetPlaybackStart and GetPlaybackEnd instead.")
 	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback start of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the playback start
+	 * @return Playback start of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 GetPlaybackStart(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback start of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to get the playback start
+	 * @return Playback start of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static float GetPlaybackStartSeconds(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback end of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the playback end
+	 * @return Playback end of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 GetPlaybackEnd(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback end of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to get the playback end
+	 * @return Playback end of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static float GetPlaybackEndSeconds(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Set playback start of this sequence
+	 *
+	 * @param Sequence        The sequence within which to set the playback start
+	 * @param StartFrame      The desired start frame for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackStart(UMovieSceneSequence* Sequence, int32 StartFrame);
+
+	/**
+	 * Set playback start of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to set the playback start
+	 * @param StartTime       The desired start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackStartSeconds(UMovieSceneSequence* Sequence, float StartTime);
+
+	/**
+	 * Set playback end of this sequence
+	 *
+	 * @param Sequence        The sequence within which to set the playback end
+	 * @param EndFrame        The desired end frame for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackEnd(UMovieSceneSequence* Sequence, int32 EndFrame);
+
+	/**
+	 * Set playback end of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to set the playback end
+	 * @param EndTime         The desired end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackEndSeconds(UMovieSceneSequence* Sequence, float EndTime);
 
 	/**
 	 * Get the timecode source of this sequence
@@ -253,4 +319,60 @@ public:
 	 * @return A filtered array of tracks
 	 */
 	static TArray<UMovieSceneTrack*> FilterTracks(TArrayView<UMovieSceneTrack* const> InTracks, UClass* DesiredClass, bool bExactMatch);
+
+public:
+
+	/*
+	 * @return Return the user marked frames
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static TArray<FMovieSceneMarkedFrame> GetMarkedFrames(UMovieSceneSequence* Sequence);
+
+	/*
+	 * Add a given user marked frame.
+	 * A unique label will be generated if the marked frame label is empty
+	 *
+	 * @InMarkedFrame The given user marked frame to add
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void AddMarkedFrame(UMovieSceneSequence* Sequence, const FMovieSceneMarkedFrame& InMarkedFrame);
+
+	/*
+	 * Remove the user marked frame by index.
+	 *
+	 * @RemoveIndex The index to the user marked frame to remove
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void RemoveMarkedFrame(UMovieSceneSequence* Sequence, int32 RemoveIndex);
+
+	/*
+	 * Clear all user marked frames
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void ClearMarkedFrames(UMovieSceneSequence* Sequence);
+
+	/*
+	 * Find the user marked frame by label
+	 *
+	 * @InLabel The label to the user marked frame to find
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindMarkedFrameByLabel(UMovieSceneSequence* Sequence, const FString& InLabel);
+
+	/*
+	 * Find the user marked frame by frame number
+	 *
+	 * @InFrameNumber The frame number of the user marked frame to find
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindMarkedFrameByFrameNumber(UMovieSceneSequence* Sequence, FFrameNumber InFrameNumber);
+
+	/*
+	 * Find the next/previous user marked frame from the given frame number
+	 *
+	 * @InFrameNumber The frame number to find the next/previous user marked frame from
+	 * @bForward Find forward from the given frame number.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindNextMarkedFrame(UMovieSceneSequence* Sequence, FFrameNumber InFrameNumber, bool bForward);
 };

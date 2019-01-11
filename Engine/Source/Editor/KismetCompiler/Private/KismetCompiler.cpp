@@ -2343,6 +2343,16 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 			Class->RemoveMetaData(NAME_Tooltip);
 		}
 
+		static const FName NAME_DisplayName(TEXT("DisplayName"));
+		if (!Blueprint->BlueprintDisplayName.IsEmpty())
+		{
+			Class->SetMetaData(FBlueprintMetadata::MD_DisplayName, *Blueprint->BlueprintDisplayName);
+		}
+		else
+		{
+			Class->RemoveMetaData(NAME_DisplayName);
+		}
+
 		// Copy the category info from the parent class
 #if WITH_EDITORONLY_DATA
 		

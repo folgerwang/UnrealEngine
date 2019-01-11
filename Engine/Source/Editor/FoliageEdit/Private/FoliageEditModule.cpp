@@ -174,26 +174,24 @@ public:
 		UUnrealEdEngine::GetSortedVolumeClasses(&VolumeClasses);
 
 		// Update the visibility state of each actor for each viewport
-		for (int32 ViewportIdx = 0; ViewportIdx < GUnrealEd->LevelViewportClients.Num(); ++ViewportIdx)
-		{
-			FLevelEditorViewportClient& ViewClient = *GUnrealEd->LevelViewportClients[ViewportIdx];
-			
+		for(FLevelEditorViewportClient* ViewClient : GUnrealEd->GetLevelViewportClients())
+		{			
 			// Backup previous values
 			TMap<UClass*, bool> PreviousVolumeClassVisibility;
 
-			for (int32 i = 0; i < ViewClient.VolumeActorVisibility.Num(); ++i)
+			for (int32 i = 0; i < ViewClient->VolumeActorVisibility.Num(); ++i)
 			{
-				PreviousVolumeClassVisibility.Add(PreviousVolumeClasses[i], ViewClient.VolumeActorVisibility[i]);
+				PreviousVolumeClassVisibility.Add(PreviousVolumeClasses[i], ViewClient->VolumeActorVisibility[i]);
 			}
 
 			// Resize the array to fix with the new values
-			ViewClient.VolumeActorVisibility.Init(true, VolumeClasses.Num());
+			ViewClient->VolumeActorVisibility.Init(true, VolumeClasses.Num());
 
 			// Reapply previous values
-			for (int32 i = 0; i < ViewClient.VolumeActorVisibility.Num(); ++i)
+			for (int32 i = 0; i < ViewClient->VolumeActorVisibility.Num(); ++i)
 			{
 				const bool* PreviousVisiblity = PreviousVolumeClassVisibility.Find(VolumeClasses[i]);
-				ViewClient.VolumeActorVisibility[i] = PreviousVisiblity != nullptr ? *PreviousVisiblity : true;
+				ViewClient->VolumeActorVisibility[i] = PreviousVisiblity != nullptr ? *PreviousVisiblity : true;
 			}
 		}
 

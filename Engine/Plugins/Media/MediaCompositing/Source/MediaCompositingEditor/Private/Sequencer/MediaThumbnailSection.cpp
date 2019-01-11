@@ -16,6 +16,7 @@
 #include "Rendering/DrawElements.h"
 #include "SequencerSectionPainter.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
+#include "CommonMovieSceneTools.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -196,6 +197,64 @@ void FMediaThumbnailSection::Tick(const FGeometry& AllottedGeometry, const FGeom
 	FThumbnailSection::Tick(AllottedGeometry, ClippedGeometry, InCurrentTime, InDeltaTime);
 }
 
+void FMediaThumbnailSection::BeginResizeSection()
+{
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+	InitialStartOffsetDuringResize = MediaSection->StartFrameOffset;
+	InitialStartTimeDuringResize = MediaSection->HasStartFrame() ? MediaSection->GetInclusiveStartFrame() : 0;
+}
+
+void FMediaThumbnailSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
+{
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+
+	if (ResizeMode == SSRM_LeadingEdge && MediaSection)
+	{
+		FFrameNumber StartOffset = ResizeTime - InitialStartTimeDuringResize;
+		StartOffset += InitialStartOffsetDuringResize;
+
+		// Ensure start offset is not less than 0
+		if (StartOffset < 0)
+		{
+			ResizeTime = ResizeTime - StartOffset;
+
+			StartOffset = FFrameNumber(0);
+		}
+
+		MediaSection->StartFrameOffset = StartOffset;
+	}
+
+	ISequencerSection::ResizeSection(ResizeMode, ResizeTime);
+}
+
+void FMediaThumbnailSection::BeginSlipSection()
+{
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+	InitialStartOffsetDuringResize = MediaSection->StartFrameOffset;
+	InitialStartTimeDuringResize = MediaSection->HasStartFrame() ? MediaSection->GetInclusiveStartFrame() : 0;
+}
+
+void FMediaThumbnailSection::SlipSection(FFrameNumber SlipTime)
+{
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+
+	const FFrameRate FrameRate = MediaSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	FFrameNumber StartOffset = SlipTime - InitialStartTimeDuringResize;
+	StartOffset += InitialStartOffsetDuringResize;
+
+	// Ensure start offset is not less than 0
+	if (StartOffset < 0)
+	{
+		SlipTime = SlipTime - StartOffset;
+
+		StartOffset = FFrameNumber(0);
+	}
+
+	MediaSection->StartFrameOffset = StartOffset;
+
+	ISequencerSection::SlipSection(SlipTime);
+}
 
 /* ICustomThumbnailClient interface
  *****************************************************************************/
@@ -308,12 +367,38 @@ void FMediaThumbnailSection::DrawFilmBorder(FSequencerSectionPainter& InPainter,
 
 void FMediaThumbnailSection::DrawLoopIndicators(FSequencerSectionPainter& InPainter, FTimespan MediaDuration, FVector2D SectionSize) const
 {
+	/*
 	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
 
 	FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / TickResolution;
 	const float MediaSizeX = MediaDuration.GetTotalSeconds() * SectionSize.X / SectionDuration;
 	float DrawOffset = 0.0f;
+
+	while (DrawOffset < SectionSize.X)
+	{
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId++,
+			InPainter.SectionGeometry.ToPaintGeometry(FVector2D(DrawOffset, 0.0f), FVector2D(1.0f, SectionSize.Y)),
+			GenericBrush,
+			ESlateDrawEffect::None,
+			FLinearColor::Gray
+		);
+
+		DrawOffset += MediaSizeX;
+	}
+	*/
+	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+
+	const FTimeToPixel& TimeToPixelConverter = InPainter.GetTimeConverter();
+
+	FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / TickResolution;
+	const float MediaSizeX = MediaDuration.GetTotalSeconds() * SectionSize.X / SectionDuration;
+	float DrawOffset = MediaSizeX - TimeToPixelConverter.SecondsToPixel(TickResolution.AsSeconds(MediaSection->StartFrameOffset));
 
 	while (DrawOffset < SectionSize.X)
 	{
@@ -335,6 +420,10 @@ void FMediaThumbnailSection::DrawSampleStates(FSequencerSectionPainter& InPainte
 {
 	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
 
+	UMovieSceneMediaSection* MediaSection = Cast<UMovieSceneMediaSection>(Section);
+
+	const FTimeToPixel& TimeToPixelConverter = InPainter.GetTimeConverter();
+
 	FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	double SectionDuration = FFrameTime(MovieScene::DiscreteSize(Section->GetRange())) / TickResolution;
 	const float MediaSizeX = MediaDuration.GetTotalSeconds() * SectionSize.X / SectionDuration;
@@ -344,7 +433,7 @@ void FMediaThumbnailSection::DrawSampleStates(FSequencerSectionPainter& InPainte
 
 	for (auto& Range : Ranges)
 	{
-		const float DrawOffset = FMath::RoundToNegativeInfinity(FTimespan::Ratio(Range.GetLowerBoundValue(), MediaDuration) * MediaSizeX);
+		const float DrawOffset = FMath::RoundToNegativeInfinity(FTimespan::Ratio(Range.GetLowerBoundValue(), MediaDuration) * MediaSizeX) - TimeToPixelConverter.SecondsToPixel(TickResolution.AsSeconds(MediaSection->StartFrameOffset));
 		const float DrawSize = FMath::RoundToPositiveInfinity(FTimespan::Ratio(Range.Size<FTimespan>(), MediaDuration) * MediaSizeX);
 		const float BarHeight = 4.0f;
 

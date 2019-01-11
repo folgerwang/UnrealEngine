@@ -360,7 +360,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
@@ -421,7 +420,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 

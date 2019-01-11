@@ -132,6 +132,12 @@ public:
 	/** Get whether this file is under source control */
 	virtual bool IsSourceControlled() const = 0;
 
+	/** Get whether this file is local to the current user (ie, has never been pushed to anyone else) */
+	virtual bool IsLocal() const
+	{
+		return IsAdded() || !IsSourceControlled() || IsIgnored();
+	}
+
 	/** Get whether this file is marked for add */
 	virtual bool IsAdded() const = 0;
 

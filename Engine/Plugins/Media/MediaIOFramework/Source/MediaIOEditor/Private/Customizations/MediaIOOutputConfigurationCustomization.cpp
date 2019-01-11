@@ -66,7 +66,7 @@ TSharedRef<SWidget> FMediaIOOutputConfigurationCustomization::HandleSourceComboB
 	{
 		if (UniquePermutationsForThisColumn.Num() > 0)
 		{
-			return UniquePermutationsForThisColumn[0].MediaConfiguration.MediaConnection.TransportType == EMediaIOSDITransportType::QuadLink;
+			return UniquePermutationsForThisColumn[0].MediaConfiguration.MediaConnection.TransportType == EMediaIOTransportType::QuadLink;
 		}
 		return false;
 	};
@@ -105,7 +105,7 @@ TSharedRef<SWidget> FMediaIOOutputConfigurationCustomization::HandleSourceComboB
 	{
 		Arguments
 			+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_TransportType)
-			.Label(LOCTEXT("SourceTypeLabel", "Source"))
+			.Label(LOCTEXT("DestinationTypeLabel", "Destination"))
 			+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_QuadType)
 			.Label(LOCTEXT("QuadTypeLabel", "Quad"))
 			.IsColumnVisible_Lambda(QuadTypeVisible);
@@ -117,10 +117,15 @@ TSharedRef<SWidget> FMediaIOOutputConfigurationCustomization::HandleSourceComboB
 		+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_Standard)
 		.Label(LOCTEXT("StandardLabel", "Standard"))
 		+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_FrameRate)
-		.Label(LOCTEXT("FrameRateLabel", "Frame Rate"))
-		+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_KeyPortSource)
-		.Label(LOCTEXT("KeySourceTypeLabel", "Key Source"))
-		.IsColumnVisible_Lambda(KeyVisible);
+		.Label(LOCTEXT("FrameRateLabel", "Frame Rate"));
+
+	if (DeviceProviderPtr->ShowOutputKeyInSelector())
+	{
+		Arguments
+			+ TSelection::Column(FMediaIOPermutationsSelectorBuilder::NAME_KeyPortSource)
+			.Label(LOCTEXT("KeyDestinationTypeLabel", "Key Destination"))
+			.IsColumnVisible_Lambda(KeyVisible);
+	}
 
 	if (DeviceProviderPtr->ShowReferenceInSelector())
 	{

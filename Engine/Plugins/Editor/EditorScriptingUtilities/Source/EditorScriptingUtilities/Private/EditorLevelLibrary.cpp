@@ -1142,8 +1142,11 @@ bool UEditorLevelLibrary::MergeStaticMeshActors(const TArray<AStaticMeshActor*>&
 	}
 
 	//Also notify the content browser that the new assets exists
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	ContentBrowserModule.Get().SyncBrowserToAssets(CreatedAssets, true);
+	if (!IsRunningCommandlet())
+	{
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		ContentBrowserModule.Get().SyncBrowserToAssets(CreatedAssets, true);
+	}
 
 	// Place new mesh in the world
 	if (MergeOptions.bSpawnMergedActor)
@@ -1209,7 +1212,7 @@ bool UEditorLevelLibrary::CreateProxyMeshActor(const TArray<class AStaticMeshAct
 
 	FCreateProxyDelegate ProxyDelegate;
 	TArray<UObject*> CreatedAssets;
-	ProxyDelegate.BindLambda([&CreatedAssets](const FGuid Guid, TArray<UObject*>& InAssetsToSync){CreatedAssets.Append(InAssetsToSync);});
+	ProxyDelegate.BindLambda([&CreatedAssets](const FGuid Guid, TArray<UObject*>& InAssetsToSync) {CreatedAssets.Append(InAssetsToSync); });
 
 	MeshUtilities.CreateProxyMesh(
 		AllActors,                      // List of Actors to merge
@@ -1237,8 +1240,11 @@ bool UEditorLevelLibrary::CreateProxyMeshActor(const TArray<class AStaticMeshAct
 	}
 
 	// Also notify the content browser that the new assets exists
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	ContentBrowserModule.Get().SyncBrowserToAssets(CreatedAssets, true);
+	if (!IsRunningCommandlet())
+	{
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		ContentBrowserModule.Get().SyncBrowserToAssets(CreatedAssets, true);
+	}
 
 	// Place new mesh in the world
 	UWorld* ActorWorld = AllActors[0]->GetWorld();

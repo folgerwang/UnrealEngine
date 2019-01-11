@@ -1,20 +1,21 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorTeleporter.h"
-#include "VREditorMode.h"
-#include "ViewportInteractionTypes.h"
-#include "ViewportWorldInteraction.h"
-#include "VREditorInteractor.h"
-#include "VREditorMotionControllerInteractor.h"
-#include "VREditorAssetContainer.h"
+
 #include "Components/StaticMeshComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "Engine/EngineTypes.h"
+#include "HAL/IConsoleManager.h"
 #include "HeadMountedDisplayTypes.h"
+#include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "HAL/IConsoleManager.h"
+#include "ViewportInteractionTypes.h"
+#include "ViewportWorldInteraction.h"
+#include "VREditorTeleporter.h"
+#include "VREditorMode.h"
+#include "VREditorAssetContainer.h"
+#include "VREditorInteractor.h"
 
 namespace VREd
 {
@@ -57,7 +58,7 @@ AVREditorTeleporter::AVREditorTeleporter():
 {
 }
 
-void AVREditorTeleporter::Init(UVREditorMode* InMode)
+void AVREditorTeleporter::Init_Implementation(class UVREditorMode* InMode)
 {
 	VRMode = InMode;
 
@@ -107,7 +108,7 @@ void AVREditorTeleporter::Init(UVREditorMode* InMode)
 	Show(false);
 }
 
-void AVREditorTeleporter::Shutdown()
+void AVREditorTeleporter::Shutdown_Implementation()
 {
 	VRMode->OnTickHandle().RemoveAll(this);
 	VRMode->GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll(this);
@@ -124,6 +125,10 @@ bool AVREditorTeleporter::IsTeleporting() const
 	return TeleportingState == EState::Teleporting;
 }
 
+class UVREditorMode* AVREditorTeleporter::GetVRMode() const
+{
+	return VRMode;
+}
 
 void AVREditorTeleporter::Tick(const float DeltaTime)
 {
@@ -131,17 +136,17 @@ void AVREditorTeleporter::Tick(const float DeltaTime)
 	if (TeleportingState == EState::Aiming && InteractorTryingTeleport != nullptr)
 	{
 		{
-			UVREditorMotionControllerInteractor* VREditorInteractor = Cast<UVREditorMotionControllerInteractor>(InteractorTryingTeleport);
-			if (VREditorInteractor != nullptr && (VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World ||
+			UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(InteractorTryingTeleport);
+			if ((VREditorInteractor != nullptr && (VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World ||
 				(VREditorInteractor->GetOtherInteractor() != nullptr && VREditorInteractor->GetOtherInteractor()->GetInteractorData().DraggingMode == EViewportInteractionDraggingMode::World &&
 					VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag)) &&
-				!FMath::IsNearlyZero(VREditorInteractor->GetSelectAndMoveTriggerValue(), KINDA_SMALL_NUMBER))
+				(!FMath::IsNearlyZero(VREditorInteractor->GetSelectAndMoveTriggerValue(), KINDA_SMALL_NUMBER) || (VREditorInteractor->GetControllerType() == EControllerType::Navigation))))
 			{
 				VREditorInteractor->SetForceShowLaser(true);
 			}
 		}
 
-		UpdateTeleportAim(DeltaTime); 
+		UpdateTeleportAim(DeltaTime);
 	}
 	else if (TeleportingState == EState::Teleporting)
 	{
@@ -154,12 +159,12 @@ void AVREditorTeleporter::Tick(const float DeltaTime)
 	}
 }
 
-void AVREditorTeleporter::StartTeleport(UViewportInteractor* Interactor)
+void AVREditorTeleporter::StartTeleport_Implementation()
 {
 
 	if (VREd::TeleportEnableChangeScale->GetInt() != 0 || VREd::TeleportAllowScaleBackToDefault->GetInt() != 0)
 	{
-		// Set the world to meters scale @todo vreditor: This causes some strange movement 
+		// Set the world to meters scale @todo vreditor: This causes some strange movement
 		VRMode->GetWorldInteraction().SetWorldToMetersScale(TeleportGoalScale * 100, true);
 	}
 
@@ -168,57 +173,120 @@ void AVREditorTeleporter::StartTeleport(UViewportInteractor* Interactor)
 
 	const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 	VRMode->PlaySound(AssetContainer.TeleportSound, TeleportGoalLocation);
-	Interactor->PlayHapticEffect(1.0f);
+	InteractorTryingTeleport->PlayHapticEffect(1.0f);
+}
+
+void AVREditorTeleporter::StartAiming( class UViewportInteractor* Interactor )
+{
+	if (!IsTeleporting() && Interactor != nullptr)
+	{
+		TeleportGoalScale = VRMode->GetWorldScaleFactor();
+
+		// Checking teleport
+		SetVisibility(true);
+		InteractorTryingTeleport = Interactor;
+
+		TeleportingState = EState::Aiming;
+		SetColor(VRMode->GetColor(UVREditorMode::EColors::WorldDraggingColor));
+		VRMode->GetWorldInteraction().AllowWorldMovement(false);
+	}
+}
+
+void AVREditorTeleporter::StopAiming( )
+{
+	if (!IsTeleporting())
+	{
+		bPushedFromEndOfLaser = false;
+		bInitialTeleportAim = true;
+		bShouldBeVisible = false;
+		SetVisibility(false);
+
+		if (InteractorTryingTeleport != nullptr)
+		{
+			UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( InteractorTryingTeleport );
+			VREditorInteractor->SetForceShowLaser(false);
+		}
+		InteractorTryingTeleport = nullptr;
+
+		TeleportingState = EState::None;
+
+	}
+}
+
+void AVREditorTeleporter::DoTeleport()
+{
+	if (!IsTeleporting())
+	{
+		UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( InteractorTryingTeleport );
+		if (VREditorInteractor && VREditorInteractor == InteractorTryingTeleport && !(VREditorInteractor->IsHoveringOverGizmo() || VREditorInteractor->IsHoveringOverUI()))
+		{
+			// Confirm teleport
+			StartTeleport( );
+		}
+	}
+}
+
+UViewportInteractor* AVREditorTeleporter::GetInteractorTryingTeleport() const
+{
+	return InteractorTryingTeleport;
 }
 
 void AVREditorTeleporter::OnPreviewInputAction(class FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, const struct FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled)
 {
-	UVREditorMotionControllerInteractor* VRMotionControllerInteractor = Cast<UVREditorMotionControllerInteractor>(Interactor);
-	if (VRMotionControllerInteractor != nullptr && VRMotionControllerInteractor->GetControllerType() == EControllerType::Laser)
+	// see if we're already teleporting with another interactor.  If so, bail
+	if (InteractorTryingTeleport != nullptr && InteractorTryingTeleport != Interactor)
 	{
-		const bool bDraggingWorldForTeleport =
-			Interactor->GetDraggingMode() == EViewportInteractionDraggingMode::World &&
-			(Interactor->GetOtherInteractor() == nullptr || Interactor->GetOtherInteractor()->GetDraggingMode() != EViewportInteractionDraggingMode::AssistingDrag);
-		if (bDraggingWorldForTeleport && 
-			Action.Event == IE_Pressed && 
-			Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
+		return;
+	}
+
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(Interactor);
+
+	if (VREditorInteractor != nullptr && VREditorInteractor->GetControllerType() == EControllerType::Laser)
+	{
 		{
-			if (InteractorTryingTeleport == nullptr && TeleportingState == EState::None)
+			const bool bDraggingWorldForTeleport =
+				(Interactor->GetDraggingMode () == EViewportInteractionDraggingMode::World &&
+				(Interactor->GetOtherInteractor () == nullptr || Interactor->GetOtherInteractor ()->GetDraggingMode () != EViewportInteractionDraggingMode::AssistingDrag)) ||
+					(VREditorInteractor->GetControllerType() == EControllerType::Navigation && (Action.ActionType == VRActionTypes::TrackpadDown));
+			if (bDraggingWorldForTeleport &&
+				Action.Event == IE_Pressed &&
+				Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
 			{
-				TeleportGoalScale = VRMode->GetWorldScaleFactor();
+				if (InteractorTryingTeleport == nullptr && TeleportingState == EState::None)
+				{
+					TeleportGoalScale = VRMode->GetWorldScaleFactor ();
 
-				// Checking teleport
-				SetVisibility(true);
-				InteractorTryingTeleport = Interactor;
+					// Checking teleport
+					SetVisibility ( true );
+					InteractorTryingTeleport = Interactor;
 
-				TeleportingState = EState::Aiming;
-				SetColor(VRMode->GetColor(UVREditorMode::EColors::WorldDraggingColor));
-				VRMode->GetWorldInteraction().AllowWorldMovement(false);
-			}
-
-			bWasHandled = true;
-		}
-
-		if (Action.Event == IE_Released && 
-			Action.ActionType == ViewportWorldActionTypes::SelectAndMove &&
-			InteractorTryingTeleport != nullptr && InteractorTryingTeleport == Interactor)
-		{
-			UVREditorMotionControllerInteractor* VREditorInteractor = Cast<UVREditorMotionControllerInteractor>(InteractorTryingTeleport);
-			if (VREditorInteractor && VREditorInteractor == InteractorTryingTeleport && !(VREditorInteractor->IsHoveringOverGizmo() || VREditorInteractor->IsHoveringOverUI()))
-			{
-				// Confirm teleport
-				StartTeleport(Interactor);
-
-				// Clean everything up
-				bPushedFromEndOfLaser = false;
-				bInitialTeleportAim = true;
-				bShouldBeVisible = false;
-				SetVisibility(false);
-
-				VREditorInteractor->SetForceShowLaser(false);
-				InteractorTryingTeleport = nullptr;
+					TeleportingState = EState::Aiming;
+					SetColor ( VRMode->GetColor ( UVREditorMode::EColors::WorldDraggingColor ) );
+					VRMode->GetWorldInteraction ().AllowWorldMovement ( false );
+				}
 
 				bWasHandled = true;
+			}
+
+			if (Action.Event == IE_Released &&
+				Action.ActionType == ViewportWorldActionTypes::SelectAndMove &&
+				InteractorTryingTeleport != nullptr && InteractorTryingTeleport == Interactor)
+			{
+				if (!(VREditorInteractor->IsHoveringOverGizmo () || VREditorInteractor->IsHoveringOverUI ()))
+				{
+					// Confirm teleport
+					StartTeleport ( );
+					// Clean everything up
+					bPushedFromEndOfLaser = false;
+					bInitialTeleportAim = true;
+					bShouldBeVisible = false;
+					SetVisibility ( false );
+
+					VREditorInteractor->SetForceShowLaser ( false );
+					InteractorTryingTeleport = nullptr;
+
+					bWasHandled = true;
+				}
 			}
 		}
 	}
@@ -230,16 +298,13 @@ void AVREditorTeleporter::Teleport(const float DeltaTime)
 	{
 		TeleportStartLocation = VRMode->GetRoomTransform().GetLocation();
 	}
-	
+
 	FTransform RoomTransform = VRMode->GetRoomTransform();
 	TeleportLerpAlpha += DeltaTime;
 	if (TeleportLerpAlpha > VREd::TeleportLerpTime->GetFloat())
 	{
 		// Teleporting is finished
-		TeleportLerpAlpha = VREd::TeleportLerpTime->GetFloat();
-		TeleportingState = EState::None;
-		VRMode->GetWorldInteraction().AllowWorldMovement(true);
-		TeleportTickDelay = 0;
+		TeleportDone();
 	}
 
 	// Calculate the new position of the roomspace
@@ -248,9 +313,28 @@ void AVREditorTeleporter::Teleport(const float DeltaTime)
 	VRMode->SetRoomTransform(RoomTransform);
 }
 
+void AVREditorTeleporter::TeleportDone_Implementation()
+{
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( InteractorTryingTeleport );
+
+	// if called from interactor navigation mode we might still be touching the trackpad and want to teleport again.
+	if (VREditorInteractor != nullptr && VREditorInteractor->IsTouchingTrackpad())
+	{
+		TeleportingState = EState::Aiming;
+	}
+	else
+	{
+		TeleportingState = EState::None;
+	}
+
+	TeleportLerpAlpha = VREd::TeleportLerpTime->GetFloat();
+	VRMode->GetWorldInteraction().AllowWorldMovement( true );
+	TeleportTickDelay = 0;
+}
+
 void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 {
-	UVREditorMotionControllerInteractor* VREditorInteractor = Cast<UVREditorMotionControllerInteractor>(InteractorTryingTeleport);
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(InteractorTryingTeleport);
 	if (VREditorInteractor)
 	{
 		Show(!(VREditorInteractor->IsHoveringOverGizmo() || VREditorInteractor->IsHoveringOverUI()));
@@ -265,7 +349,7 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 				const float SlideDelta = GetSlideDelta(VREditorInteractor, 0);
 				if (SlideDelta != 0.0f)
 				{
-					// Calculate the new goal scale with the trackpad delta X axis 
+					// Calculate the new goal scale with the trackpad delta X axis
 					TeleportGoalScale += SlideDelta * (TeleportGoalScale * VREd::TeleportScaleSensitivity->GetFloat());
 
 					const float MinScale = VRMode->GetWorldInteraction().GetMinScale() * 0.01f;
@@ -285,7 +369,7 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 				TeleportGoalScale = VRMode->GetWorldScaleFactor();
 			}
 
-			// If the laser is hitting something the teleport will go their with an appropriate offset. 
+			// If the laser is hitting something the teleport will go their with an appropriate offset.
 			FHitResult HitResult = VREditorInteractor->GetHitResultFromLaserPointer(nullptr, true, nullptr, false, VREd::TeleportLaserPointerLength->GetFloat());
 			if (HitResult.bBlockingHit && !bPushedFromEndOfLaser)
 			{
@@ -308,11 +392,11 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 			}
 
 			// The trackpad has been used while aiming for teleporting, so the teleporter won't go to the end of the laser after this
-			if (!bPushedFromEndOfLaser && bAllowPushPull &&  GetSlideDelta(VREditorInteractor, 1) != 0.0f)
+			if (VREditorInteractor->GetControllerType() != EControllerType::Navigation && !bPushedFromEndOfLaser && bAllowPushPull &&  GetSlideDelta(VREditorInteractor, 1) != 0.0f)
 			{
 				bPushedFromEndOfLaser = true;
-			} 
-				
+			}
+
 			// Smooth the final location
 			if (!bInitialTeleportAim)
 			{
@@ -329,7 +413,7 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 	}
 }
 
-FVector AVREditorTeleporter::UpdatePushPullTeleporter(UVREditorMotionControllerInteractor* VREditorInteractor, const FVector& LaserPointerStart, const FVector& LaserPointerEnd, const bool bEnablePushPull /* = true */)
+FVector AVREditorTeleporter::UpdatePushPullTeleporter(UVREditorInteractor* VREditorInteractor, const FVector& LaserPointerStart, const FVector& LaserPointerEnd, const bool bEnablePushPull /* = true */)
 {
 	if (bEnablePushPull && GetSlideDelta(VREditorInteractor, 1) != 0.0f)
 	{
@@ -402,7 +486,7 @@ void AVREditorTeleporter::UpdateVisuals(const FVector& NewLocation)
 		TeleportedMotionControllerToWorld.SetScale3D(AnimatedScale);
 
 		MotionControllerMeshComponent->SetWorldTransform(TeleportedMotionControllerToWorld);
-	}	
+	}
 }
 
 void AVREditorTeleporter::Show(const bool bShow)
@@ -451,11 +535,11 @@ float AVREditorTeleporter::CalculateAnimatedScaleFactor() const
 	return Scale * Scale;
 }
 
-float AVREditorTeleporter::GetSlideDelta(UVREditorMotionControllerInteractor* Interactor, const bool Axis)
+float AVREditorTeleporter::GetSlideDelta_Implementation(UVREditorInteractor* Interactor, const bool Axis)
 {
 	static const FName SteamVR(TEXT("SteamVR"));
 
-	FVector2D SlideDelta = FVector2D::ZeroVector; 
+	FVector2D SlideDelta = FVector2D::ZeroVector;
 	const bool bIsAbsolute = (VRMode->GetHMDDeviceType() == SteamVR);
 	if (bIsAbsolute)
 	{

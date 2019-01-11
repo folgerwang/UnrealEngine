@@ -25,7 +25,7 @@ public:
 	 *
 	 * @param NewName The name to set.
 	 */
-	MOVIESCENE_API void SetDisplayName(const FText& NewDisplayName);
+	MOVIESCENE_API virtual void SetDisplayName(const FText& NewDisplayName);
 
 	/**
 	 * Can rename this track.

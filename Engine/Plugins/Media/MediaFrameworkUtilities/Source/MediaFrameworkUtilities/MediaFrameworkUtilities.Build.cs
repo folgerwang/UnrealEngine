@@ -31,6 +31,8 @@ namespace UnrealBuildTool.Rules
 				PrivateDependencyModuleNames.AddRange(
 					new string[]
 					{
+						"Slate",
+						"SlateCore",
 						"Settings",
 						"UnrealEd"
 					});

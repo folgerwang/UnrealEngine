@@ -75,6 +75,12 @@ public:
 	static bool AreAutomatedTestsRunning();
 
 	/**
+	* take high res screenshot in editor.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Automation")
+	static bool TakeHighResScreenshot(int32 ResX, int32 ResY, FString Filename, ACameraActor* Camera = nullptr, bool bMaskEnabled = false, bool bCaptureHDR = false);
+
+	/**
 	 * 
 	 */
 	UFUNCTION(BlueprintPure, Category="Automation")

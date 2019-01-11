@@ -1,90 +1,37 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequencePlaybackController.h"
+
 #include "AssetRegistryModule.h"
+#include "IAssetRegistry.h"
 #include "HAL/FileManager.h"
+#include "LevelSequence.h"
 #include "Modules/ModuleManager.h"
-#include "TimerManager.h"
+#include "MovieSceneTimeHelpers.h"
 #include "UObject/UObjectBase.h"
 #include "UObject/UObjectIterator.h"
 
-#define TAKE_MINIMUM_DIGITS	3
+#if WITH_EDITOR
+#include "ILevelSequenceEditorToolkit.h"
+#include "Input/Reply.h"
+#include "Recorder/TakeRecorderBlueprintLibrary.h"
+#include "Templates/SharedPointer.h"
+#include "Toolkits/AssetEditorManager.h"
+#endif //WITH_EDITOR
+
 
 ULevelSequencePlaybackController::ULevelSequencePlaybackController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, ActiveLevelSequence(nullptr)
 {
-	bIsRecording = false;
-	TargetCamera = nullptr;
-	CameraToFollow = nullptr;
-	AssetRegistry = nullptr;
-	bIsReversed = false;	
-	NextTakeNumber = 0;
-	Sequence = nullptr;
-	CachedSequenceName = "";
 
-#if WITH_EDITOR
-	RecorderSettings = GetMutableDefault<USequenceRecorderSettings>();
-	OnFinished.AddDynamic(this, &ULevelSequencePlaybackController::StopRecording);
-#endif //WITH_EDITOR
-}
-
-void ULevelSequencePlaybackController::StartRecording()
-{
-#if WITH_EDITOR
-	if (!Recorder)
-	{
-		return;
-	}
-
-	// If there's a level sequence to be played, associate the recorded sequence with it; otherwise, use defaults for Sequence Recorder
-	if (Sequence)
-	{
-		// Reset player to start and begin playing
-		Pause();
-		JumpToFrame(StartTime);
-
-		// Find the camera that is bound in the sequence, if any
-		// ToDo: Need to find a better way to do this for shots with multiple camera cut sequences or master sequences
-		for (TObjectIterator<ACineCameraActor> Itr; Itr; ++Itr)
-		{
-			ACineCameraActor& CineCameraActor = **Itr;
-
-			if (Sequence->FindPossessableObjectId(CineCameraActor, GetWorld()).IsValid())
-			{
-				TargetCamera = &CineCameraActor;
-				break;
-			}
-		}
-
-		// Start the sequence after the countdown of 5 seconds
-		FTimerHandle SequenceStart;
-		GetWorld()->GetTimerManager().SetTimer(SequenceStart, this, &ULevelSequencePlaybackController::PlayToEnd, RecorderSettings->RecordingDelay, false);
-	}
-
-	SetupTargetCamera();
-
-	// Pass in an empty array to avoid crushing the existing actors in sequence recorder
-	bIsRecording = Recorder->StartRecording(TArray<AActor*>());
-#endif //WITH_EDITOR
-}
-
-void ULevelSequencePlaybackController::StopRecording()
-{
-#if WITH_EDITOR
-	if (Recorder && bIsRecording)
-	{
-		Recorder->StopRecording();
-		UpdateNextTakeNumber();
-		bIsRecording = false;
-	}
-#endif //WITH_EDITOR
 }
 
 void ULevelSequencePlaybackController::ResumeLevelSequencePlay()
 {
-	if (Sequence)
+	if (ActiveLevelSequence)
 	{
-		PlayLooping();
+		PlayLevelSequence();
 	}
 }
 
@@ -93,15 +40,20 @@ void ULevelSequencePlaybackController::GetLevelSequences(TArray<FLevelSequenceDa
 	OutLevelSequenceNames.Empty();
 
 	TArray<FAssetData> LevelSequences;
-
-	IFileManager& FileManager = IFileManager::Get();
 	LevelSequences.Empty();
 
-	if (!AssetRegistry || !AssetRegistry->GetAssetsByClass("LevelSequence", LevelSequences, false))
+	FAssetRegistryModule* AssetRegistryModule = FModuleManager::Get().GetModulePtr<FAssetRegistryModule>("AssetRegistry");
+	if (AssetRegistryModule)
 	{
-		return;
+		IAssetRegistry& AssetRegistry = AssetRegistryModule->Get();
+		if (!AssetRegistry.GetAssetsByClass("LevelSequence", LevelSequences, false))
+		{
+			UE_LOG(LogActor, Error, TEXT("VirtualCamera - No Asset Registry module found!"));
+			return;
+		}
 	}
 
+	IFileManager& FileManager = IFileManager::Get();
 	for (FAssetData LevelSequence : LevelSequences)
 	{
 		// Get the file system name of the package so we can get other data on it (i.e. timestamp)
@@ -128,221 +80,284 @@ void ULevelSequencePlaybackController::GetLevelSequences(TArray<FLevelSequenceDa
 
 FString ULevelSequencePlaybackController::GetActiveLevelSequenceName() const 
 {
-	if (Sequence)
+	if (ActiveLevelSequence)
 	{
-		return Sequence->GetName();
+		return ActiveLevelSequence->GetName();
 	}
 
 	return FString();
 }
 
-bool ULevelSequencePlaybackController::SetActiveLevelSequence(const FString& LevelSequencePath)
+FFrameRate ULevelSequencePlaybackController::GetCurrentSequenceFrameRate() const
 {
-	if (!AssetRegistry)
+	if (ActiveLevelSequence)
 	{
-		return false;
+		return ActiveLevelSequence->GetMovieScene()->GetDisplayRate();
 	}
 
-	FAssetData Asset = AssetRegistry->GetAssetByObjectPath(FName(*LevelSequencePath));
-	ULevelSequence* NewSequence = Cast<ULevelSequence>(Asset.GetAsset());
-	
-	if (!NewSequence)
+	return FFrameRate();
+}
+
+bool ULevelSequencePlaybackController::IsSequencerLockedToCameraCut() const
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
 	{
-		UE_LOG(LogActor, Warning, TEXT("VirtualCamera: Level Sequence could not be loaded"))
-		return false;
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			return Sequencer->IsPerspectiveViewportCameraCutEnabled();
+		}
 	}
-	
-	if (NewSequence->GetMovieScene()->GetCameraCutTrack())
+#endif //WITH_EDITOR
+
+	return false;
+}
+
+void ULevelSequencePlaybackController::SetSequencerLockedToCameraCut(bool bLockView)
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
 	{
-		PlaybackSettings.bDisableLookAtInput = true;
-		OnRecordEnabledStateChanged.ExecuteIfBound(false);
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			return Sequencer->SetPerspectiveViewportCameraCutEnabled(bLockView);
+		}
 	}
-	else
+#endif //WITH_EDITOR
+}
+
+FFrameNumber ULevelSequencePlaybackController::GetCurrentSequencePlaybackStart() const
+{
+	if (ActiveLevelSequence)
 	{
-		PlaybackSettings.bDisableMovementInput = false;
-		OnRecordEnabledStateChanged.ExecuteIfBound(true);
+		FFrameNumber Value = ActiveLevelSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
+		if (ActiveLevelSequence->GetMovieScene()->GetDisplayRate() != ActiveLevelSequence->GetMovieScene()->GetTickResolution())
+		{
+			const FFrameTime ConvertedTime = FFrameRate::TransformTime(FFrameTime(Value), ActiveLevelSequence->GetMovieScene()->GetTickResolution(), ActiveLevelSequence->GetMovieScene()->GetDisplayRate());
+			Value = ConvertedTime.FrameNumber;
+		}
+
+		return Value;
 	}
 
-	Initialize(NewSequence, GetWorld(), PlaybackSettings);
-	return true;
+	return FFrameNumber();
+}
+
+FFrameNumber ULevelSequencePlaybackController::GetCurrentSequencePlaybackEnd() const
+{
+	if (ActiveLevelSequence)
+	{
+		FFrameNumber Value = ActiveLevelSequence->GetMovieScene()->GetPlaybackRange().GetUpperBoundValue();
+		if (ActiveLevelSequence->GetMovieScene()->GetDisplayRate() != ActiveLevelSequence->GetMovieScene()->GetTickResolution())
+		{
+			const FFrameTime ConvertedTime = FFrameRate::TransformTime(FFrameTime(Value), ActiveLevelSequence->GetMovieScene()->GetTickResolution(), ActiveLevelSequence->GetMovieScene()->GetDisplayRate());
+			Value = ConvertedTime.FrameNumber;
+		}
+	
+		return Value;
+	}
+
+	return FFrameNumber();
+}
+
+FFrameNumber ULevelSequencePlaybackController::GetCurrentSequenceDuration() const
+{
+	if (ActiveLevelSequence)
+	{
+		FFrameNumber Value = MovieScene::DiscreteSize(ActiveLevelSequence->GetMovieScene()->GetPlaybackRange());
+		if (ActiveLevelSequence->GetMovieScene()->GetDisplayRate() != ActiveLevelSequence->GetMovieScene()->GetTickResolution())
+		{
+			const FFrameTime ConvertedTime = FFrameRate::TransformTime(FFrameTime(Value), ActiveLevelSequence->GetMovieScene()->GetTickResolution(), ActiveLevelSequence->GetMovieScene()->GetDisplayRate());
+			Value = ConvertedTime.FrameNumber;
+		}
+		
+		return Value;
+	}
+
+	return FFrameNumber();
+}
+
+FFrameTime ULevelSequencePlaybackController::GetCurrentSequencePlaybackPosition() const
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			return Sequencer->GetLocalTime().ConvertTo(Sequencer->GetFocusedDisplayRate());
+		}
+	}
+#endif //WITH_EDITOR
+
+	return FFrameTime();
+}
+
+FTimecode ULevelSequencePlaybackController::GetCurrentSequencePlaybackTimecode() const
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			const FFrameTime DisplayTime = Sequencer->GetLocalTime().ConvertTo(Sequencer->GetFocusedDisplayRate());
+			return FTimecode::FromFrameNumber(DisplayTime.FrameNumber, Sequencer->GetFocusedDisplayRate(), FTimecode::IsDropFormatTimecodeSupported(Sequencer->GetFocusedDisplayRate()));
+		}
+	}
+#endif //WITH_EDITOR
+
+	return FTimecode();
+}
+
+void ULevelSequencePlaybackController::JumpToPlaybackPosition(const FFrameNumber& InFrameNumber)
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			const FFrameTime NewTime = ConvertFrameTime(InFrameNumber, Sequencer->GetFocusedDisplayRate(), Sequencer->GetFocusedTickResolution());
+			Sequencer->SetLocalTime(NewTime, STM_None);
+		}
+	}
+#endif //WITH_EDITOR
+}
+
+bool ULevelSequencePlaybackController::IsSequencePlaybackActive() const 
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			return Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing && Sequencer->GetPlaybackSpeed() != 0.0f;
+		}
+	}
+#endif //WITH_EDITOR
+
+	return false;
+}
+
+void ULevelSequencePlaybackController::PauseLevelSequence()
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			Sequencer->Pause();
+		}
+	}
+#endif //WITH_EDITOR
+}
+
+void ULevelSequencePlaybackController::PlayLevelSequence()
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			Sequencer->SetPlaybackSpeed(1.0f);
+			Sequencer->OnPlay(false);
+		}
+	}
+#endif //WITH_EDITOR
+}
+
+void ULevelSequencePlaybackController::PlayLevelSequenceReverse()
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			Sequencer->SetPlaybackSpeed(-1.0f);
+			Sequencer->OnPlay(false);
+		}
+	}
+#endif //WITH_EDITOR
+}
+
+void ULevelSequencePlaybackController::StopLevelSequencePlay()
+{
+#if WITH_EDITOR
+	if (ActiveLevelSequence)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer)
+		{
+			Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+		}
+	}
+#endif //WITH_EDITOR
+}
+
+bool ULevelSequencePlaybackController::SetActiveLevelSequence(ULevelSequence* InNewLevelSequence)
+{
+#if WITH_EDITOR
+	if(InNewLevelSequence)
+	{
+		const bool bDoFocusOnEditor = false;
+		FAssetEditorManager::Get().OpenEditorForAsset(InNewLevelSequence);
+		IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(InNewLevelSequence, bDoFocusOnEditor);
+		ILevelSequenceEditorToolkit* LevelSequenceEditor = static_cast<ILevelSequenceEditorToolkit*>(AssetEditor);
+
+		WeakSequencer = LevelSequenceEditor ? LevelSequenceEditor->GetSequencer() : nullptr;
+		if (WeakSequencer.IsValid())
+		{
+			TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+			if (Sequencer)
+			{
+				const bool bSetCameraPerspective = InNewLevelSequence->GetMovieScene()->GetCameraCutTrack() != nullptr;
+
+				//If we're dealing with a sequence that already has a camera cut, don't enable recording and set camera perspective for review.
+				OnRecordEnabledStateChanged.ExecuteIfBound(!bSetCameraPerspective);
+				Sequencer->SetPerspectiveViewportCameraCutEnabled(bSetCameraPerspective);
+
+				ActiveLevelSequence = InNewLevelSequence;
+				return true;
+			}
+		}
+	}
+#endif //WITH_EDITOR
+
+	return false;
 }
 
 void ULevelSequencePlaybackController::ClearActiveLevelSequence()
 {
-	if (Sequence)
+	if (ActiveLevelSequence)
 	{
-		Stop();
-		Sequence = nullptr;
+		StopLevelSequencePlay();
+		ActiveLevelSequence = nullptr;
+#if WITH_EDITOR
+		WeakSequencer = nullptr;
+#endif
 	}
-}
-
-void ULevelSequencePlaybackController::PilotTargetedCamera(FCameraFilmbackSettings* FilmbackSettingsOverride)
-{
-	if (!TargetCamera)
-	{
-		return;
-	}
-
-	TargetCamera->SetActorLocationAndRotation(CameraToFollow->GetComponentLocation(), CameraToFollow->GetComponentRotation().Quaternion());
-	UCineCameraComponent* TargetComponent = TargetCamera->GetCineCameraComponent();
-
-	TargetComponent->FocusSettings = CameraToFollow->FocusSettings;
-	TargetComponent->CurrentFocalLength = CameraToFollow->CurrentFocalLength;
-	TargetComponent->LensSettings = CameraToFollow->LensSettings;
-	TargetComponent->FilmbackSettings = FilmbackSettingsOverride ? *FilmbackSettingsOverride : CameraToFollow->FilmbackSettings;
 }
 
 void ULevelSequencePlaybackController::PlayFromBeginning()
 {
-	if (Sequence)
+	if (ActiveLevelSequence)
 	{
-		JumpToFrame(StartTime);
-		PlayLooping();
-	}
-}
-
-void ULevelSequencePlaybackController::SetupSequenceRecorderSettings(const TArray<FName>& RequiredSettings)
-{
-#if WITH_EDITOR
-	Recorder = FModuleManager::Get().GetModulePtr<ISequenceRecorder>("SequenceRecorder");
-	if (!Recorder)
-	{
-		UE_LOG(LogActor, Error, TEXT("VirtualCamera - No Sequence Recorder module found!"))
-	}
-
-	FAssetRegistryModule* AssetRegistryModule = FModuleManager::Get().GetModulePtr<FAssetRegistryModule>("AssetRegistry");
-	if (AssetRegistryModule)
-	{
-		AssetRegistry = &AssetRegistryModule->Get();
-	}
-	
-	if (!AssetRegistry)
-	{
-		UE_LOG(LogActor, Error, TEXT("VirtualCamera - No Asset Registry module found!"))
-	}
-
-	UpdateNextTakeNumber();
-
-	// If the sequencer settings are still engine default, update them to add important camera settings
-	FPropertiesToRecordForClass* CineCameraSettings = RecorderSettings->ClassesAndPropertiesToRecord.FindByPredicate([](const FPropertiesToRecordForClass& InItem)
-	{
-		return InItem.Class == UCineCameraComponent::StaticClass();
-	});
-
-	if (!CineCameraSettings)
-	{
-		int32 Index = RecorderSettings->ClassesAndPropertiesToRecord.Add(FPropertiesToRecordForClass(UCineCameraComponent::StaticClass()));
-		CineCameraSettings = &RecorderSettings->ClassesAndPropertiesToRecord[Index];
-	} 
-
-	for (FName RequiredSetting : RequiredSettings)
-	{
-		CineCameraSettings->Properties.AddUnique(RequiredSetting);
-	}
-#endif //WITH_EDITOR
-}
-
-float ULevelSequencePlaybackController::GetCurrentRecordingFrameRate() const
-{
-#if WITH_EDITOR
-	if (RecorderSettings)
-	{
-		return RecorderSettings->DefaultAnimationSettings.SampleRate;
-	}
-#endif //WITH_EDITOR
-
-	return 0.0f;
-}
-
-float ULevelSequencePlaybackController::GetCurrentRecordingLength() const
-{
-#if WITH_EDITOR
-	if (Recorder)
-	{
-		return Recorder->GetCurrentRecordingLength().AsSeconds();
-	}
-#endif //WITH_EDITOR
-
-	return 0.0f;
-}
-
-FString ULevelSequencePlaybackController::GetCurrentRecordingSceneName()
-{
-#if WITH_EDITOR
-	if (Recorder)
-	{
-		// Check if we need to update the take number
-		FString ReturnString = Recorder->GetSequenceRecordingName();
-		if (ReturnString != CachedSequenceName)
-		{
-			CachedSequenceName = ReturnString;
-			SetupTargetCamera();
-		}
-
-		return ReturnString;
-	}
-#endif //WITH_EDITOR
-
-	return FString();
-}
-
-FString ULevelSequencePlaybackController::GetCurrentRecordingTakeName() const
-{
-	// If the take number is 0, don't give a number back
-	if (NextTakeNumber == 0)
-	{
-		return FString();
-	}
-
-	FNumberFormattingOptions LeadingZeroesFormatter = FNumberFormattingOptions();
-	LeadingZeroesFormatter.MinimumIntegralDigits = TAKE_MINIMUM_DIGITS;
-	return FText::AsNumber(NextTakeNumber, &LeadingZeroesFormatter).ToString();
-}
-
-void ULevelSequencePlaybackController::OnObjectSpawned(UObject * InObject, const FMovieSceneEvaluationOperand & Operand)
-{
-	Super::OnObjectSpawned(InObject, Operand);
-	
-	// Camera actors spawn with lock to hmd set to true by default. Unlock them here to prevent unwanted movement.
-	ACameraActor* CameraActor = Cast<ACameraActor>(InObject);
-	if (CameraActor && CameraActor->GetCameraComponent())
-	{
-		CameraActor->GetCameraComponent()->bLockToHmd = false;
+		JumpToPlaybackPosition(GetCurrentSequencePlaybackStart());
+		PlayLevelSequence();
 	}
 }
 
 void ULevelSequencePlaybackController::PlayToEnd()
 {
-	if (Sequence)
+	if (ActiveLevelSequence)
 	{
-		PlayLooping(0);
+		PlayLevelSequence();
 	}
-}
-
-void ULevelSequencePlaybackController::UpdateNextTakeNumber()
-{	
-#if	WITH_EDITOR
-	if (Recorder)
-	{
-		NextTakeNumber = Recorder->GetTakeNumberForActor(TargetCamera); 
-	}
-#endif //WITH_EDITOR
-}
-
-void ULevelSequencePlaybackController::SetupTargetCamera()
-{
-#if WITH_EDITOR
-	if (!TargetCamera)
-	{
-		TargetCamera = GetWorld()->SpawnActor<ACineCameraActor>();
-
-		// If spawn failed, exit early
-		if (!TargetCamera)
-		{
-			return;
-		}
-	}
-	Recorder->QueueActorToRecord(TargetCamera);
-	UpdateNextTakeNumber();
-#endif //WITH_EDITOR
 }

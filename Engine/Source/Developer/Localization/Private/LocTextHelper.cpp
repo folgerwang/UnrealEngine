@@ -1212,59 +1212,52 @@ bool FLocTextHelper::SaveWordCountReport(const FDateTime& InTimestamp, const FSt
 
 FString FLocTextHelper::SanitizeLogOutput(const FString& InString)
 {
-	if (InString.IsEmpty())
+	if (!GIsBuildMachine || InString.IsEmpty())
 	{
 		return InString;
 	}
 
+	static const FString ErrorStrs[] = {
+		TEXT("Error"),
+		TEXT("Failed"),
+		TEXT("[BEROR]"),
+		TEXT("Utility finished with exit code: -1"),
+		TEXT("is not recognized as an internal or external command"),
+		TEXT("Could not open solution: "),
+		TEXT("Parameter format not correct"),
+		TEXT("Another build is already started on this computer."),
+		TEXT("Sorry but the link was not completed because memory was exhausted."),
+		TEXT("simply rerunning the compiler might fix this problem"),
+		TEXT("No connection could be made because the target machine actively refused"),
+		TEXT("Internal Linker Exception:"),
+		TEXT(": warning LNK4019: corrupt string table"),
+		TEXT("Proxy could not update its cache"),
+		TEXT("You have not agreed to the Xcode license agreements"),
+		TEXT("Connection to build service terminated"),
+		TEXT("cannot execute binary file"),
+		TEXT("Invalid solution configuration"),
+		TEXT("is from a previous version of this application and must be converted in order to build"),
+		TEXT("This computer has not been authenticated for your account using Steam Guard"),
+		TEXT("invalid name for SPA section"),
+		TEXT(": Invalid file name, "),
+		TEXT("The specified PFX file do not exist. Aborting"),
+		TEXT("binary is not found. Aborting"),
+		TEXT("Input file not found: "),
+		TEXT("An exception occurred during merging:"),
+		TEXT("Install the 'Microsoft Windows SDK for Windows 7 and .NET Framework 3.5 SP1'"),
+		TEXT("is less than package's new version 0x"),
+		TEXT("current engine version is older than version the package was originally saved with"),
+		TEXT("exceeds maximum length"),
+		TEXT("can't edit exclusive file already opened"),
+	};
+
 	FString ResultStr = InString.ReplaceCharWithEscapedChar();
-	if (!GIsBuildMachine)
-	{
-		return ResultStr;
-	}
 
-	static TArray<FString> ErrorStrs;
-	if (ErrorStrs.Num() == 0)
+	for (const FString& ErrorStr : ErrorStrs)
 	{
-		ErrorStrs.Add(FString(TEXT("Error")));
-		ErrorStrs.Add(FString(TEXT("Failed")));
-		ErrorStrs.Add(FString(TEXT("[BEROR]")));
-		ErrorStrs.Add(FString(TEXT("Utility finished with exit code: -1")));
-		ErrorStrs.Add(FString(TEXT("is not recognized as an internal or external command")));
-		ErrorStrs.Add(FString(TEXT("Could not open solution: ")));
-		ErrorStrs.Add(FString(TEXT("Parameter format not correct")));
-		ErrorStrs.Add(FString(TEXT("Another build is already started on this computer.")));
-		ErrorStrs.Add(FString(TEXT("Sorry but the link was not completed because memory was exhausted.")));
-		ErrorStrs.Add(FString(TEXT("simply rerunning the compiler might fix this problem")));
-		ErrorStrs.Add(FString(TEXT("No connection could be made because the target machine actively refused")));
-		ErrorStrs.Add(FString(TEXT("Internal Linker Exception:")));
-		ErrorStrs.Add(FString(TEXT(": warning LNK4019: corrupt string table")));
-		ErrorStrs.Add(FString(TEXT("Proxy could not update its cache")));
-		ErrorStrs.Add(FString(TEXT("You have not agreed to the Xcode license agreements")));
-		ErrorStrs.Add(FString(TEXT("Connection to build service terminated")));
-		ErrorStrs.Add(FString(TEXT("cannot execute binary file")));
-		ErrorStrs.Add(FString(TEXT("Invalid solution configuration")));
-		ErrorStrs.Add(FString(TEXT("is from a previous version of this application and must be converted in order to build")));
-		ErrorStrs.Add(FString(TEXT("This computer has not been authenticated for your account using Steam Guard")));
-		ErrorStrs.Add(FString(TEXT("invalid name for SPA section")));
-		ErrorStrs.Add(FString(TEXT(": Invalid file name, ")));
-		ErrorStrs.Add(FString(TEXT("The specified PFX file do not exist. Aborting")));
-		ErrorStrs.Add(FString(TEXT("binary is not found. Aborting")));
-		ErrorStrs.Add(FString(TEXT("Input file not found: ")));
-		ErrorStrs.Add(FString(TEXT("An exception occurred during merging:")));
-		ErrorStrs.Add(FString(TEXT("Install the 'Microsoft Windows SDK for Windows 7 and .NET Framework 3.5 SP1'")));
-		ErrorStrs.Add(FString(TEXT("is less than package's new version 0x")));
-		ErrorStrs.Add(FString(TEXT("current engine version is older than version the package was originally saved with")));
-		ErrorStrs.Add(FString(TEXT("exceeds maximum length")));
-		ErrorStrs.Add(FString(TEXT("can't edit exclusive file already opened")));
-	}
+		FString ReplaceStr = FString::Printf(TEXT("%s %s"), *ErrorStr.Left(1), *ErrorStr.RightChop(1));
 
-	for (int32 ErrStrIdx = 0; ErrStrIdx < ErrorStrs.Num(); ErrStrIdx++)
-	{
-		FString& FindStr = ErrorStrs[ErrStrIdx];
-		FString ReplaceStr = FString::Printf(TEXT("%s %s"), *FindStr.Left(1), *FindStr.RightChop(1));
-
-		ResultStr.ReplaceInline(*FindStr, *ReplaceStr);
+		ResultStr.ReplaceInline(*ErrorStr, *ReplaceStr);
 	}
 
 	return ResultStr;

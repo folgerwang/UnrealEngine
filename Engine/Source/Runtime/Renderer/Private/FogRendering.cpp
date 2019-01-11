@@ -181,6 +181,7 @@ public:
 	{
 		OcclusionTexture.Bind(Initializer.ParameterMap, TEXT("OcclusionTexture"));
 		OcclusionSampler.Bind(Initializer.ParameterMap, TEXT("OcclusionSampler"));
+		bOnlyOnRenderedOpaque.Bind(Initializer.ParameterMap, TEXT("bOnlyOnRenderedOpaque"));
 		SceneTextureParameters.Bind(Initializer);
 	}
 
@@ -204,6 +205,9 @@ public:
 			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
 			TextureRHI
 			);
+
+		float bOnlyOnRenderedOpaqueValue = View.bFogOnlyOnRenderedOpaque ? 1.0f : 0.0f;
+		SetShaderValue(RHICmdList, GetPixelShader(), bOnlyOnRenderedOpaque, bOnlyOnRenderedOpaqueValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -212,6 +216,7 @@ public:
 		Ar << SceneTextureParameters;
 		Ar << OcclusionTexture;
 		Ar << OcclusionSampler;
+		Ar << bOnlyOnRenderedOpaque;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -219,6 +224,7 @@ private:
 	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter OcclusionTexture;
 	FShaderResourceParameter OcclusionSampler;
+	FShaderParameter bOnlyOnRenderedOpaque;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>,TExponentialHeightFogPS<EHeightFogFeature::HeightFog>,TEXT("/Engine/Private/HeightFogPixelShader.usf"), TEXT("ExponentialPixelMain"),SF_Pixel)

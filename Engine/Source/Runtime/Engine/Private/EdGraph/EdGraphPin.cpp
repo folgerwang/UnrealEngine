@@ -657,7 +657,7 @@ FString UEdGraphPin::GetDefaultAsString() const
 	else if(!DefaultTextValue.IsEmpty())
 	{
 		FString TextAsString;
-		FTextStringHelper::WriteToString(TextAsString, DefaultTextValue);
+		FTextStringHelper::WriteToBuffer(TextAsString, DefaultTextValue);
 		return TextAsString;
 	}
 	else

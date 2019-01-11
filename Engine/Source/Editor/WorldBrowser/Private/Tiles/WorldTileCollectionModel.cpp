@@ -648,7 +648,7 @@ bool FWorldTileCollectionModel::GetObserverView(FVector& Location, FRotator& Rot
 	// We are in the editor world
 	if (GEditor->PlayWorld == nullptr)
 	{
-		for (const FLevelEditorViewportClient* ViewportClient : GEditor->LevelViewportClients)
+		for (const FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 		{
 			if (ViewportClient && ViewportClient->IsPerspective())
 			{

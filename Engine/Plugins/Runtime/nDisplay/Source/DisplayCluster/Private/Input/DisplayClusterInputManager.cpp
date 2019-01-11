@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterInputManager.h"
+#include "Input/DisplayClusterInputManager.h"
 
 #include "Cluster/IPDisplayClusterClusterManager.h"
 #include "Config/IPDisplayClusterConfigManager.h"
@@ -12,7 +12,6 @@
 #include "Misc/DisplayClusterLog.h"
 #include "DisplayClusterGameMode.h"
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 FDisplayClusterInputManager::FDisplayClusterInputManager()
@@ -284,6 +283,8 @@ void FDisplayClusterInputManager::Update()
 void FDisplayClusterInputManager::ExportInputData(FDisplayClusterMessage::DataType& data) const
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterInput);
+
+	FScopeLock ScopeLock(&InternalsSyncScope);
 
 	// Get data from cache
 	data = PackedTransferData;

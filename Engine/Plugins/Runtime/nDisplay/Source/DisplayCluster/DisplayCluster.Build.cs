@@ -44,7 +44,9 @@ public class DisplayCluster : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"InputCore"
+				"InputCore",
+				"Json",
+				"JsonUtilities"
 			});
 
 		PrivateDependencyModuleNames.AddRange(

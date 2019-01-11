@@ -88,6 +88,14 @@ struct TMovieSceneInitialValueStore
 		return NewInitialValue;
 	}
 
+	/**
+	 * Access the object that this store's initial values relate to
+	 */
+	UObject* GetAnimatingObject() const
+	{
+		return AnimatingObject;
+	}
+
 private:
 	/** The actuator responsible for storing initial values. */
 	TMovieSceneBlendingActuator<DataType>& Actuator;

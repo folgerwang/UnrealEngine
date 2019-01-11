@@ -25,7 +25,7 @@ private:
 	UMediaOutput* DynamicProxy;
 
 	/** Media output proxy. */
-	UPROPERTY(EditAnywhere, Category = "Output")
+	UPROPERTY(EditAnywhere, Category = "Media Proxy")
 	UMediaOutput* Proxy;
 
 public:
@@ -45,6 +45,14 @@ public:
 	UMediaOutput* GetLeafMediaOutput() const;
 
 	/**
+	 * Is the media proxy has a valid proxy.
+	 *
+	 * @return true if the proxy is valid.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media Proxy")
+	bool IsProxyValid() const;
+
+	/**
 	 * Set the dynamic media output proxy.
 	 *
 	 * @param InProxy The proxy to use.
@@ -57,6 +65,7 @@ public:
 	virtual bool Validate(FString& OutFailureReason) const override;
 	virtual FIntPoint GetRequestedSize() const override;
 	virtual EPixelFormat GetRequestedPixelFormat() const override;
+	virtual EMediaCaptureConversionOperation GetConversionOperation() const override;
 
 protected:
 

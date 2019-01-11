@@ -30,6 +30,17 @@ void ULocalLightComponent::SetAttenuationRadius(float NewRadius)
 	}
 }
 
+void ULocalLightComponent::SetIntensityUnits(ELightUnits NewIntensityUnits)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& IntensityUnits != NewIntensityUnits)
+	{
+		IntensityUnits = NewIntensityUnits;
+
+		UpdateColorAndBrightness();
+	}
+}
+
 bool ULocalLightComponent::AffectsBounds(const FBoxSphereBounds& InBounds) const
 {
 	if((InBounds.Origin - GetComponentTransform().GetLocation()).SizeSquared() > FMath::Square(AttenuationRadius + InBounds.SphereRadius))

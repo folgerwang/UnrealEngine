@@ -231,16 +231,20 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 			Settings.OutputDirectory.Path = OutputPathOverride;
 			FPaths::NormalizeFilename(Settings.OutputDirectory.Path);
 
-			if (!IFileManager::Get().DirectoryExists(*Settings.OutputDirectory.Path))
+			// Only validate the directory if it doesn't contain any format specifiers
+			if (!Settings.OutputDirectory.Path.Contains(TEXT("{")))
 			{
-				if (!IFileManager::Get().MakeDirectory(*Settings.OutputDirectory.Path))
+				if (!IFileManager::Get().DirectoryExists(*Settings.OutputDirectory.Path))
 				{
-					UE_LOG(LogMovieSceneCapture, Error, TEXT("Invalid output directory: %s."), *Settings.OutputDirectory.Path);
+					if (!IFileManager::Get().MakeDirectory(*Settings.OutputDirectory.Path))
+					{
+						UE_LOG(LogMovieSceneCapture, Error, TEXT("Invalid output directory: %s."), *Settings.OutputDirectory.Path);
+					}
 				}
-			}
-			else if (IFileManager::Get().IsReadOnly(*Settings.OutputDirectory.Path))
-			{
-				UE_LOG(LogMovieSceneCapture, Error, TEXT("Read only output directory: %s."), *Settings.OutputDirectory.Path);
+				else if (IFileManager::Get().IsReadOnly(*Settings.OutputDirectory.Path))
+				{
+					UE_LOG(LogMovieSceneCapture, Error, TEXT("Read only output directory: %s."), *Settings.OutputDirectory.Path);
+				}
 			}
 		}
 

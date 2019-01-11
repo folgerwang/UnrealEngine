@@ -17,10 +17,14 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Core",
 					"CoreUObject",
-					"MediaUtils",
+					"D3D11RHI",
+                    "Engine",
+                    "MediaUtils",
+					"Projects",
 					"RenderCore",
-					"WmfMediaFactory",
-				});
+                    "RHI",
+                    "WmfMediaFactory",
+                });
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
@@ -32,7 +36,12 @@ namespace UnrealBuildTool.Rules
 					"WmfMedia/Private",
 					"WmfMedia/Private/Player",
 					"WmfMedia/Private/Wmf",
-				});
+                    "../../../../Source/Runtime/Windows/D3D11RHI/Private",
+                    "../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
+                });
+
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
 
 			if (Target.bCompileAgainstEngine)
 			{

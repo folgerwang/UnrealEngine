@@ -1218,7 +1218,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 					}
 				}
 
-				Parameters.Add(File);
+				Parameters.Add(MoveTemp(File));
 			}
 
 			// Initially successful
@@ -1297,7 +1297,16 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			FP4RecordSet Records;
 			// Query for open files different than the versions stored in Perforce
 			Parameters.Add(TEXT("-sa"));
-			Parameters.Append(InCommand.Files);
+			for (FString File : InCommand.Files)
+			{
+				if (IFileManager::Get().DirectoryExists(*File))
+				{
+					// If the file is a directory, do a recursive diff on the contents
+					File /= TEXT("...");
+				}
+
+				Parameters.Add(MoveTemp(File));
+			}
 			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("diff"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 
 			// Parse the results and store them in the command

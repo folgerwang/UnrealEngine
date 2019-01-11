@@ -388,6 +388,13 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats = false;
 
 		/// <summary>
+		/// Whether we should compile SQLite using the custom "Unreal" platform (true), or using the native platform (false).
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileCustomSQLitePlatform")]
+		public bool bCompileCustomSQLitePlatform = true;
+
+		/// <summary>
 		/// Whether to compile lean and mean version of UE.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -418,13 +425,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
 		public bool bCompileAgainstApplicationCore = true;
-
-		/// <summary>
-		/// If true, include ADO database support in core.
-		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bIncludeADO")]
-		public bool bIncludeADO;
 
 		/// <summary>
 		/// Whether to compile Recast navmesh generation.
@@ -1626,6 +1626,11 @@ namespace UnrealBuildTool
 			get { return Inner.bForceBuildShaderFormats; }
 		}
 
+		public bool bCompileCustomSQLitePlatform
+		{
+			get { return Inner.bCompileCustomSQLitePlatform; }
+		}
+
 		public bool bCompileLeanAndMeanUE
 		{
 			get { return Inner.bCompileLeanAndMeanUE; }
@@ -1649,11 +1654,6 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstApplicationCore
 		{
 			get { return Inner.bCompileAgainstApplicationCore; }
-		}
-
-		public bool bIncludeADO
-		{
-			get { return Inner.bIncludeADO; }
 		}
 
 		public bool bCompileRecast

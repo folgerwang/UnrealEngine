@@ -6,7 +6,6 @@
 #include "HAL/CriticalSection.h"
 #include "Tickable.h"
 #include "UObject/GCObject.h"
-
 #include "ILiveLinkClient.h"
 #include "ILiveLinkSource.h"
 #include "LiveLinkRefSkeleton.h"
@@ -16,6 +15,14 @@
 
 // Live Link Log Category
 DECLARE_LOG_CATEGORY_EXTERN(LogLiveLink, Log, All);
+
+
+struct FLiveLinkSavedRecentFrames
+{
+	// Subject data frames that we have received (transforms and curve values)
+	TArray<FLiveLinkFrame> Frames;
+	FGuid Guid;
+};
 
 struct FLiveLinkSubjectTimeSyncData
 {
@@ -48,7 +55,8 @@ struct FLiveLinkSubject
 	FGuid LastModifier;
 
 	FLiveLinkSubject(const FLiveLinkRefSkeleton& InRefSkeleton, FName InName)
-		: Name(InName)
+		: SubjectTimeOffset(0.0)
+		, Name(InName)
 		, RefSkeleton(InRefSkeleton)
 		, RefSkeletonGuid(FGuid::NewGuid())
 	{}
@@ -82,6 +90,11 @@ struct FLiveLinkSubject
 	void OnStartSynchronization(const struct FTimeSynchronizationOpenData& OpenData, const int32 FrameOffset);
 	void OnSynchronizationEstablished(const struct FTimeSynchronizationStartData& StartData);
 	void OnStopSynchronization();
+	
+	bool IsTimeSynchronized() { return (GetMode() == ELiveLinkSourceMode::TimeSynchronized  && TimeSyncData.IsSet()); }
+	void AddLiveLinkFrameAddedWatcher(const FGuid& InGuid);
+	void RemoveLiveLinkFrameAddedWatcher(const FGuid& InGuid);
+	void GetAndClearFramesForWatcher(const FGuid& InGuid, TArray<FLiveLinkFrame>& OutFrames);
 
 private:
 
@@ -150,7 +163,9 @@ private:
 	};
 
 	TOptional<FLiveLinkTimeSynchronizationData> TimeSyncData;
-	
+
+	// Cache out recent frames
+	TMap<FGuid, FLiveLinkSavedRecentFrames> RecentAddedFramesMap;
 };
 
 // Structure that identifies an individual subject
@@ -218,6 +233,13 @@ public:
 	virtual void ClearSubjectsFrames(FName SubjectName) override;
 	virtual void ClearAllSubjectsFrames() override;
 
+	virtual void AddSourceToSubjectWhiteList(FName SubjectName, FGuid SourceGuid) override;
+	virtual void RemoveSourceFromSubjectWhiteList(FName SubjectName, FGuid SourceGuid) override;
+	virtual void ClearSourceWhiteLists() override;
+
+	virtual FDelegateHandle RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged) override;
+	virtual void UnregisterSubjectsChangedHandle(FDelegateHandle Handle) override;
+
 	// Add a new virtual subject to the client
 	void AddVirtualSubject(FName NewVirtualSubjectName);
 
@@ -229,9 +251,16 @@ public:
 	const TArray<FGuid>& GetSourceEntries() const { return SourceGuids; }
 	const TArray<FLiveLinkFrame>*	GetSubjectRawFrames(FName SubjectName) override;
 
+	bool IsSubjectTimeSynchronized(FName SubjectName) override;
+
 	bool GetSaveFrames() const override;
 	bool SetSaveFrames(bool InSave) override;
-
+	
+	FGuid StartRecordingLiveLink(const TArray<FName>& SubjectNames) override;
+	FGuid StartRecordingLiveLink(const FName& SubjectName) override;
+	void StopRecordingLiveLinkData(const FGuid &InGuid, const TArray<FName>& SubjectNames) override;
+	void StopRecordingLiveLinkData(const FGuid &InGuid, const FName& SubjectName) override;
+	void GetAndFreeLastRecordedFrames(const FGuid& InHandlerGuid, FName SubjectName, TArray<FLiveLinkFrame> &OutFrames) override;
 	// End ILiveLinkClient Interface
 
 	// Get a list of currently active subjects
@@ -271,10 +300,6 @@ public:
 	// Functions for managing sources changed delegate
 	FDelegateHandle RegisterSourcesChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged);
 	void UnregisterSourcesChangedHandle(FDelegateHandle Handle);
-
-	// Functions for managing subjects changed delegate
-	FDelegateHandle RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged);
-	void UnregisterSubjectsChangedHandle(FDelegateHandle Handle);
 
 	/** Called when time synchronization is starting for a subject. */
 	void OnStartSynchronization(FName SubjectName, const struct FTimeSynchronizationOpenData& OpenData, const int32 FrameOffset);
@@ -341,7 +366,7 @@ private:
 	double LastValidationCheck;
 
 	// Lock to stop multiple threads accessing the subject data map at the same time
-	FCriticalSection SubjectDataAccessCriticalSection;
+	mutable FCriticalSection SubjectDataAccessCriticalSection;
 
 	// Delegate to notify interested parties when the client sources have changed
 	FSimpleMulticastDelegate OnLiveLinkSourcesChanged;
@@ -354,4 +379,7 @@ private:
 
 	//Whether or not we save the Frames , or just keep as set of minimal ones for resolution.
 	bool bSaveFrames;
+
+	// List of Sources for each subject that are only allowed to publish data, if empty all are valid.
+	TMap<FName, TSet<FGuid>> SourceWhiteList;
 };

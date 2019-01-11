@@ -5,7 +5,7 @@
 
 float FMovieSceneEvalTemplate::EvaluateEasing(FFrameTime CurrentTime) const
 {
-	return SourceSection ? SourceSection->EvaluateEasing(CurrentTime) : 1.f;
+	return SourceSectionPtr.IsValid() ? SourceSectionPtr->EvaluateEasing(CurrentTime) : 1.f;
 }
 
 bool FMovieSceneEvalTemplatePtr::Serialize(FArchive& Ar)

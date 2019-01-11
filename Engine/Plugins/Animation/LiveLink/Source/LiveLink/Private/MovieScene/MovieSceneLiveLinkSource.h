@@ -15,8 +15,8 @@ class FMovieSceneLiveLinkSource :
 public:
 	FMovieSceneLiveLinkSource();
 	virtual ~FMovieSceneLiveLinkSource() {}
-	static TSharedPtr<FMovieSceneLiveLinkSource> CreateLiveLinkSource();
-	static void RemoveLiveLinkSource(TSharedPtr<FMovieSceneLiveLinkSource> Source);
+	static TSharedPtr<FMovieSceneLiveLinkSource> CreateLiveLinkSource(const FName& SubjectName);
+	static void RemoveLiveLinkSource(TSharedPtr<FMovieSceneLiveLinkSource> Source, const FName& SubjectName);
 	void PublishLiveLinkFrameData(const FName &SubjectName, const TArray<FLiveLinkFrameData>  &LiveLinkFrameDataArray, const FLiveLinkRefSkeleton& RefSkeleton);
 
 

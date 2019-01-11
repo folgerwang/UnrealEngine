@@ -101,6 +101,9 @@ public:
 	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FAssetRenamedEvent, FAssetRenamedEvent);
 	virtual FAssetRenamedEvent& OnAssetRenamed() override { return AssetRenamedEvent; }
 
+	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FAssetUpdatedEvent, FAssetUpdatedEvent );
+	virtual FAssetUpdatedEvent& OnAssetUpdated() override { return AssetUpdatedEvent; }
+
 	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FInMemoryAssetCreatedEvent, FInMemoryAssetCreatedEvent );
 	virtual FInMemoryAssetCreatedEvent& OnInMemoryAssetCreated() override { return InMemoryAssetCreatedEvent; }
 
@@ -293,6 +296,9 @@ private:
 
 	/** The delegate to execute when an asset is renamed in the registry */
 	FAssetRenamedEvent AssetRenamedEvent;
+
+	/** The delegate to execute when an asset is updated in the registry */
+	FAssetUpdatedEvent AssetUpdatedEvent;
 
 	/** The delegate to execute when an in-memory asset was just created */
 	FInMemoryAssetCreatedEvent InMemoryAssetCreatedEvent;

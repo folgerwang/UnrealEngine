@@ -79,6 +79,9 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				// Cache this object's current update flag and animation mode
 				VisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 				AnimationMode = InComponent->GetAnimationMode();
+#if WITH_EDITOR
+				bUpdateAnimationInEditor = InComponent->GetUpdateAnimationInEditor();
+#endif
 			}
 
 			virtual void RestoreState(UObject& ObjectToRestore, IMovieScenePlayer& Player)
@@ -101,10 +104,16 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 					// if we're using same anim blueprint, we don't want to keep reinitializing it. 
 					Component->SetAnimationMode(AnimationMode);
 				}
+#if WITH_EDITOR
+				Component->SetUpdateAnimationInEditor(bUpdateAnimationInEditor);
+#endif
 			}
 
 			EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
 			EAnimationMode::Type AnimationMode;
+#if WITH_EDITOR
+			bool bUpdateAnimationInEditor;
+#endif
 		};
 
 		return FToken(CastChecked<USkeletalMeshComponent>(&Object));
@@ -379,7 +388,7 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 
 		const float Weight = ManualWeight * EvaluateEasing(Context.GetTime());
 
-		FOptionalMovieSceneBlendType BlendType = SourceSection->GetBlendType();
+		FOptionalMovieSceneBlendType BlendType = GetSourceSection()->GetBlendType();
 		check(BlendType.IsValid());
 
 		// Ensure the accumulator knows how to actually apply component transforms
@@ -405,17 +414,17 @@ float FMovieSceneSkeletalAnimationSectionTemplateParameters::MapTimeToAnimation(
 	const float SectionPlayRate = PlayRate;
 	const float AnimPlayRate = FMath::IsNearlyZero(SectionPlayRate) ? 1.0f : SectionPlayRate;
 
-	const float SeqLength = GetSequenceLength() - (StartOffset + EndOffset);
+	const float SeqLength = GetSequenceLength() - InFrameRate.AsSeconds(StartFrameOffset + EndFrameOffset);
 
 	float AnimPosition = FFrameTime::FromDecimal((InPosition - SectionStartTime).AsDecimal() * AnimPlayRate) / InFrameRate;
 	if (SeqLength > 0.f)
 	{
 		AnimPosition = FMath::Fmod(AnimPosition, SeqLength);
 	}
-	AnimPosition += StartOffset;
+	AnimPosition += InFrameRate.AsSeconds(StartFrameOffset);
 	if (bReverse)
 	{
-		AnimPosition = (SeqLength - (AnimPosition - StartOffset)) + StartOffset;
+		AnimPosition = (SeqLength - (AnimPosition - InFrameRate.AsSeconds(StartFrameOffset))) + InFrameRate.AsSeconds(StartFrameOffset);
 	}
 
 	return AnimPosition;

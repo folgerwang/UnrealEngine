@@ -200,7 +200,7 @@ bool FStaticMeshEditorTest::RunTest(const FString& Parameters)
 	}
 
 	//Grab the last opened Viewport (aka the asset manager)
-	AutomationParameters.ViewportClient = static_cast<FStaticMeshEditorViewportClient*>(GEditor->AllViewportClients[GEditor->AllViewportClients.Num() - 1]);
+	AutomationParameters.ViewportClient = static_cast<FStaticMeshEditorViewportClient*>(GEditor->GetAllViewportClients().Last());
 	AutomationParameters.CommandType = EditorViewButtonHelper::EStaticMeshFlag::Wireframe; //Start it off at Wireframe because that is the first button we are attempting to press
 
 	if (AutomationParameters.ViewportClient)

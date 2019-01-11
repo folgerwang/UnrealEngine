@@ -154,6 +154,12 @@ struct FCborContext
 		return Header.AdditionalValue();
 	}
 
+	/** @return true if this is a dummy context. */
+	bool IsDummy()
+	{
+		return Header.RawCode() == ECborCode::Dummy;
+	}
+
 	/** @return true if this context represents an error code. */
 	bool IsError() const
 	{

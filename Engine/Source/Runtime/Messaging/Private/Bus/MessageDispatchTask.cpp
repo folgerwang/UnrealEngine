@@ -47,8 +47,27 @@ void FMessageDispatchTask::DoTask(ENamedThreads::Type CurrentThread, const FGrap
 	}
 }
 
-
 TStatId FMessageDispatchTask::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FMessageDispatchTask, STATGROUP_TaskGraphTasks);
+}
+
+/* FBusNotificationDispatchTask interface
+ *****************************************************************************/
+
+void FBusNotificationDispatchTask::DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+{
+	TSharedPtr<IBusListener, ESPMode::ThreadSafe> Listener = ListenerPtr.Pin();
+
+	if (!Listener.IsValid())
+	{
+		return;
+	}
+
+	Listener->NotifyRegistration(Address, Notification);
+}
+
+TStatId FBusNotificationDispatchTask::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FBusNotificationDispatchTask, STATGROUP_TaskGraphTasks);
 }

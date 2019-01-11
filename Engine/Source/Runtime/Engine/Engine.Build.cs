@@ -78,7 +78,6 @@ public class Engine : ModuleRules
 				"EngineSettings",
 				"SynthBenchmark",
 				"GameplayTags",
-				"DatabaseSupport",
 				"PacketHandler",
 				"AudioPlatformConfiguration",
 				"MeshDescription",

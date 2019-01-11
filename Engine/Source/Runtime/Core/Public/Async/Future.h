@@ -159,7 +159,7 @@ public:
 	 * Gets the result (will block the calling thread until the result is available).
 	 *
 	 * @return The result value.
-	 * @see SetResult
+	 * @see EmplaceResult
 	 */
 	const InternalResultType& GetResult() const
 	{
@@ -177,25 +177,12 @@ public:
 	 * @param InResult The result to set.
 	 * @see GetResult
 	 */
-	void SetResult(const InternalResultType& InResult)
+	template<typename... ArgTypes>
+	void EmplaceResult(ArgTypes&&... Args)
 	{
 		check(!IsComplete());
 
-		Result = InResult;
-		MarkComplete();
-	}
-
-	/**
-	 * Sets the result and notifies any waiting threads (from rvalue).
-	 *
-	 * @param InResult The result to set.
-	 * @see GetResult
-	 */
-	void SetResult(InternalResultType&& InResult)
-	{
-		check(!IsComplete());
-
-		Result = InResult;
+		Result = InternalResultType(Forward<ArgTypes>(Args)...);
 		MarkComplete();
 	}
 
@@ -997,9 +984,9 @@ public:
 	 *
 	 * @param Result The result value to set.
 	 */
-	void SetValue(const ResultType& Result)
+	FORCEINLINE void SetValue(const ResultType& Result)
 	{
-		this->GetState()->SetResult(Result);
+		EmplaceValue(Result);
 	}
 
 	/**
@@ -1010,9 +997,23 @@ public:
 	 *
 	 * @param Result The result value to set.
 	 */
-	void SetValue(ResultType&& Result)
+	FORCEINLINE void SetValue(ResultType&& Result)
 	{
-		this->GetState()->SetResult(MoveTemp(Result));
+		EmplaceValue(MoveTemp(Result));
+	}
+
+	/**
+	 * Sets the promised result.
+	 *
+	 * The result must be set only once. An assertion will
+	 * be triggered if this method is called a second time.
+	 *
+	 * @param Result The result value to set.
+	 */
+	template<typename... ArgTypes>
+	void EmplaceValue(ArgTypes&&... Args)
+	{
+		this->GetState()->EmplaceResult(Forward<ArgTypes>(Args)...);
 	}
 
 private:
@@ -1097,9 +1098,22 @@ public:
 	 *
 	 * @param Result The result value to set.
 	 */
-	void SetValue(ResultType& Result)
+	FORCEINLINE void SetValue(ResultType& Result)
 	{
-		this->GetState()->SetResult(Result);
+		EmplaceValue(Result);
+	}
+
+	/**
+	 * Sets the promised result.
+	 *
+	 * The result must be set only once. An assertion will
+	 * be triggered if this method is called a second time.
+	 *
+	 * @param Result The result value to set.
+	 */
+	void EmplaceValue(ResultType& Result)
+	{
+		this->GetState()->EmplaceResult(&Result);
 	}
 
 private:
@@ -1182,9 +1196,22 @@ public:
 	 * The result must be set only once. An assertion will
 	 * be triggered if this method is called a second time.
 	 */
-	void SetValue()
+	FORCEINLINE void SetValue()
 	{
-		GetState()->SetResult(0);
+		EmplaceValue();
+	}
+
+	/**
+	 * Sets the promised result.
+	 *
+	 * The result must be set only once. An assertion will
+	 * be triggered if this method is called a second time.
+	 *
+	 * @param Result The result value to set.
+	 */
+	void EmplaceValue()
+	{
+		this->GetState()->EmplaceResult(0);
 	}
 
 private:
@@ -1244,4 +1271,13 @@ auto TFutureBase<InternalResultType>::Next(Func Continuation) //-> TFuture<declt
 	{
 		return Continuation(Self.Get());
 	});
+}
+
+/** Helper to create and immediately fulfill a promise */
+template<typename ResultType, typename... ArgTypes>
+TPromise<ResultType> MakeFulfilledPromise(ArgTypes&&... Args)
+{
+	TPromise<ResultType> Promise;
+	Promise.EmplaceValue(Forward<ArgTypes>(Args)...);
+	return Promise;
 }

@@ -2,6 +2,7 @@
 
 #include "DirectoryWatcherModule.h"
 #include "DirectoryWatcherPrivate.h"
+#include "DirectoryWatcherProxy.h"
 #include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE( FDirectoryWatcherModule, DirectoryWatcher );
@@ -9,7 +10,7 @@ DEFINE_LOG_CATEGORY(LogDirectoryWatcher);
 
 void FDirectoryWatcherModule::StartupModule()
 {
-	DirectoryWatcher = new FDirectoryWatcher();
+	DirectoryWatcher = new FDirectoryWatcherProxy();
 }
 
 
@@ -25,4 +26,9 @@ void FDirectoryWatcherModule::ShutdownModule()
 IDirectoryWatcher* FDirectoryWatcherModule::Get()
 {
 	return DirectoryWatcher;
+}
+
+void FDirectoryWatcherModule::RegisterExternalChanges(TArrayView<const FFileChangeData> FileChanges) const
+{
+	DirectoryWatcher->RegisterExternalChanges(FileChanges);
 }

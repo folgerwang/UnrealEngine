@@ -287,10 +287,10 @@ void GetBoundingVectorsForGroup(AGroupActor* GroupActor, FViewport* Viewport, FV
 		{
 			if(Viewport)
 			{
-				for(int32 ViewIndex=0; ViewIndex<GEditor->LevelViewportClients.Num(); ++ViewIndex)
+				for(int32 ViewIndex=0; ViewIndex<GEditor->GetLevelViewportClients().Num(); ++ViewIndex)
 				{
 					// If the current viewport is hiding this actor, don't draw brackets around it
-					if(Viewport->GetClient() == GEditor->LevelViewportClients[ViewIndex] && HiddenClients & ((uint64)1 << ViewIndex))
+					if(Viewport->GetClient() == GEditor->GetLevelViewportClients()[ViewIndex] && HiddenClients & ((uint64)1 << ViewIndex))
 					{
 						bActorHiddenForViewport = true;
 						break;

@@ -9,6 +9,7 @@
 #include "DetailMultiTopLevelObjectRootNode.h"
 #include "ObjectEditorUtils.h"
 #include "DetailPropertyRow.h"
+#include "IPropertyGenerationUtilities.h"
 
 FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef<IPropertyUtilities>& InPropertyUtilities, const TSharedRef<IPropertyGenerationUtilities>& InPropertyGenerationUtilities, const TSharedPtr< IDetailsViewPrivate >& InDetailsView, bool bIsExternal)
 	: RootNode( InRootNode )
@@ -29,7 +30,7 @@ IDetailCategoryBuilder& FDetailLayoutBuilderImpl::EditCategory( FName CategoryNa
 	if( CategoryName == NAME_None )
 	{
 		static const FText GeneralString = NSLOCTEXT("DetailLayoutBuilderImpl", "General", "General");
-		static const FName GeneralName = *GeneralString.ToString();
+		static const FName GeneralName = TEXT("General");
 
 		CategoryName = GeneralName;
 		LocalizedDisplayName = GeneralString;
@@ -579,6 +580,13 @@ IPropertyGenerationUtilities& FDetailLayoutBuilderImpl::GetPropertyGenerationUti
 	return *PropertyGenerationUtilitiesPinned.Get();
 }
 
+FCustomPropertyTypeLayoutMap FDetailLayoutBuilderImpl::GetInstancedPropertyTypeLayoutMap() const
+{
+	FCustomPropertyTypeLayoutMap TypeLayoutMap = GetPropertyGenerationUtilities().GetInstancedPropertyTypeLayoutMap();
+	TypeLayoutMap.Append(InstancePropertyTypeExtensions);
+	return TypeLayoutMap;
+}
+
 TSharedPtr<FAssetThumbnailPool> FDetailLayoutBuilderImpl::GetThumbnailPool() const
 {
 	return PropertyDetailsUtilities.Pin()->GetThumbnailPool();
@@ -757,4 +765,23 @@ void FDetailLayoutBuilderImpl::SaveExpansionState( const FString& NodePath, bool
 bool FDetailLayoutBuilderImpl::GetSavedExpansionState( const FString& NodePath ) const
 {
 	return DetailsView ? DetailsView->GetCustomSavedExpansionState(NodePath) : false;
+}
+
+void FDetailLayoutBuilderImpl::RegisterInstancedCustomPropertyTypeLayout(FName PropertyTypeName, FOnGetPropertyTypeCustomizationInstance PropertyTypeLayoutDelegate, TSharedPtr<IPropertyTypeIdentifier> Identifier)
+{
+	FPropertyTypeLayoutCallback Callback;
+	Callback.PropertyTypeLayoutDelegate = PropertyTypeLayoutDelegate;
+	Callback.PropertyTypeIdentifier = Identifier;
+
+	FPropertyTypeLayoutCallbackList* LayoutCallbacks = InstancePropertyTypeExtensions.Find(PropertyTypeName);
+	if (LayoutCallbacks)
+	{
+		LayoutCallbacks->Add(Callback);
+	}
+	else
+	{
+		FPropertyTypeLayoutCallbackList NewLayoutCallbacks;
+		NewLayoutCallbacks.Add(Callback);
+		InstancePropertyTypeExtensions.Add(PropertyTypeName, NewLayoutCallbacks);
+	}
 }

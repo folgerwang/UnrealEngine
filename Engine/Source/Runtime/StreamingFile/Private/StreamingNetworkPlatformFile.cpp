@@ -276,6 +276,16 @@ public:
 
 		return Result;
 	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		return false;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		return false;
+	}
 };
 
 

@@ -4,6 +4,7 @@
 #include "Modules/ModuleManager.h"
 #include "ISequencerModule.h"
 #include "Sequencer/ComposurePostMoveSettingsPropertyTrackEditor.h"
+#include "Sequencer/ComposureExportTrackEditor.h"
 
 DEFINE_LOG_CATEGORY(LogComposureEditor);
 
@@ -13,6 +14,7 @@ class FComposureEditorModule : public IModuleInterface
 	{
 		ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
 		CreatePostMoveSettingsPropertyTrackEditorHandle = SequencerModule.RegisterPropertyTrackEditor<FComposurePostMoveSettingsPropertyTrackEditor>();
+		ComposureExportTrackEditorHandle               = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateLambda([](TSharedRef<ISequencer> In){ return MakeShared<FComposureExportTrackEditor>(In); }));
 	}
 
 	virtual void ShutdownModule() override
@@ -21,12 +23,14 @@ class FComposureEditorModule : public IModuleInterface
 		if (SequencerModule != nullptr)
 		{
 			SequencerModule->UnRegisterTrackEditor(CreatePostMoveSettingsPropertyTrackEditorHandle);
+			SequencerModule->UnRegisterTrackEditor(ComposureExportTrackEditorHandle);
 		}
 	}
 
 private:
 
 	FDelegateHandle CreatePostMoveSettingsPropertyTrackEditorHandle;
+	FDelegateHandle ComposureExportTrackEditorHandle;
 };
 
 IMPLEMENT_MODULE(FComposureEditorModule, ComposureEditor )

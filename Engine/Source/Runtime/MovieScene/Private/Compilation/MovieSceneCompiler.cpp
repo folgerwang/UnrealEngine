@@ -42,6 +42,13 @@ struct FGatherParameters
 		SubParams.LocalCompileRange         = SubParams.RootCompileRange * SubData.RootToSequenceTransform;
 		SubParams.LocalClampRange           = SubParams.RootClampRange   * SubData.RootToSequenceTransform;
 
+		if (SubParams.LocalCompileRange.IsEmpty())
+		{
+			// Ensure that the compile range is not empty by extending the upper bound by one frame.
+			// This can happen when there is a scale < 1 on a sub section, and the root-space compile range is only 1 frame wide.
+			// We know that neither bound is Open by this point because such ranges would not be considered empty
+			SubParams.LocalCompileRange.SetUpperBoundValue(SubParams.LocalCompileRange.GetUpperBoundValue() + 1);
+		}
 		return SubParams;
 	}
 

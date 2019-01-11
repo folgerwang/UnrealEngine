@@ -158,9 +158,6 @@ protected:
 
 	/** Video frame rate in the last received sample. */
 	FFrameRate VideoFrameRate;
-	
-	/** Number of frames drop from the last tick. */
-	uint32 LastFrameDropCount;
 
 	/** The media sample cache. */
 	FMediaIOCoreSamples* Samples;

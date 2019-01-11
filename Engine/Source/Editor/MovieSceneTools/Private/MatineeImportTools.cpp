@@ -739,8 +739,8 @@ bool FMatineeImportTools::CopyInterpAnimControlTrack( UInterpTrackAnimControl* M
 
 		UMovieSceneSkeletalAnimationSection* NewSection = Cast<UMovieSceneSkeletalAnimationSection>( SkeletalAnimationTrack->CreateNewSection() );
 		NewSection->SetRange( TRange<FFrameNumber>((AnimSeq.StartTime * FrameRate).RoundToFrame(), (EndTime * FrameRate).RoundToFrame() + 1) );
-		NewSection->Params.StartOffset = AnimSeq.AnimStartOffset;
-		NewSection->Params.EndOffset = AnimSeq.AnimEndOffset;
+		NewSection->Params.StartFrameOffset = FrameRate.AsFrameNumber(AnimSeq.AnimStartOffset);
+		NewSection->Params.EndFrameOffset = FrameRate.AsFrameNumber(AnimSeq.AnimEndOffset);
 		NewSection->Params.PlayRate = AnimSeq.AnimPlayRate;
 		NewSection->Params.Animation = AnimSeq.AnimSeq;
 		NewSection->Params.SlotName = MatineeAnimControlTrack->SlotName;

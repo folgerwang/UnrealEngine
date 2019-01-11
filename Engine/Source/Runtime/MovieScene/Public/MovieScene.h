@@ -53,12 +53,44 @@ struct FMovieSceneTimecodeSource
 public:
 
 	/** The global timecode at which this target is based (ie. the timecode at the beginning of the movie scene section when it was recorded) */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Timecode")
 	FTimecode Timecode;
 
 	/** The delta from the original placement of this target */
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category="Timecode")
 	FFrameNumber DeltaFrame;
+};
+
+USTRUCT(BlueprintType)
+struct FMovieSceneMarkedFrame
+{
+	GENERATED_BODY()
+
+	FMovieSceneMarkedFrame()
+		: Label(FString())
+#if WITH_EDITORONLY_DATA
+		, Color(0.f, 1.f, 1.f, 0.4f)
+#endif
+	{}
+
+	FMovieSceneMarkedFrame(FFrameNumber InFrameNumber)
+		: FrameNumber(InFrameNumber)
+		, Label(FString())
+#if WITH_EDITORONLY_DATA
+		, Color(0.f, 1.f, 1.f, 0.4f)
+#endif
+	{}
+
+	UPROPERTY(EditAnywhere, Category = "Marked Frame")
+	FFrameNumber FrameNumber;
+
+	UPROPERTY(EditAnywhere, Category = "Marked Frame")
+	FString Label;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, Category = "Marked Frame")
+	FLinearColor Color;
+#endif
 };
 
 /**
@@ -102,10 +134,9 @@ struct FMovieSceneEditorData
 	UPROPERTY()
 	double WorkEnd;
 
-	/** The set of user-marked frames for display convenience */
+	/** Deprecated */
 	UPROPERTY()
-	TSet<FFrameNumber> MarkedFrames;
-
+	TSet<FFrameNumber> MarkedFrames_DEPRECATED;
 	UPROPERTY()
 	FFloatRange WorkingRange_DEPRECATED;
 	UPROPERTY()
@@ -455,6 +486,16 @@ public:
 	 */
 	void MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId);
 
+	/**
+	 * Tries to find an FMovieSceneBinding for the specified Guid.
+	 * 
+	 * @param ForGuid	The binding's Guid to look for.
+	 * @return			Pointer to the binding, otherwise nullptr.
+	 */
+	FMovieSceneBinding* FindBinding(const FGuid& ForGuid)
+	{
+		return ObjectBindings.FindByPredicate([ForGuid](const FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == ForGuid; });
+	}
 public:
 
 	// @todo sequencer: the following methods really shouldn't be here
@@ -702,6 +743,55 @@ public:
 
 #endif	// WITH_EDITORONLY_DATA
 
+public:
+
+	/*
+	 * @return Return the user marked frames
+	 */
+	const TArray<FMovieSceneMarkedFrame>& GetMarkedFrames() const { return MarkedFrames; }
+
+	/*
+	 * Add a given user marked frame.
+	 * A unique label will be generated if the marked frame label is empty
+	 *
+	 * @InMarkedFrame The given user marked frame to add
+	 */
+	void AddMarkedFrame(const FMovieSceneMarkedFrame& InMarkedFrame);
+
+	/*
+	 * Remove the user marked frame by index.
+	 *
+	 * @RemoveIndex The index to the user marked frame to remove
+	 */
+	void RemoveMarkedFrame(int32 RemoveIndex);
+
+	/*
+	 * Clear all user marked frames
+	 */
+	void ClearMarkedFrames();
+
+	/*
+	 * Find the user marked frame by label
+	 *
+	 * @InLabel The label to the user marked frame to find
+	 */
+	int32 FindMarkedFrameByLabel(const FString& InLabel) const;
+
+	/*
+	 * Find the user marked frame by frame number
+	 *
+	 * @InFrameNumber The frame number of the user marked frame to find
+	 */
+	int32 FindMarkedFrameByFrameNumber(FFrameNumber InFrameNumber) const;
+
+	/*
+	 * Find the next/previous user marked frame from the given frame number
+	 *
+	 * @InFrameNumber The frame number to find the next/previous user marked frame from
+	 * @bForward Find forward from the given frame number.
+	 */
+	int32 FindNextMarkedFrame(FFrameNumber InFrameNumber, bool bForward);
+
 protected:
 
 	/**
@@ -776,6 +866,10 @@ private:
 
 	UPROPERTY()
 	EUpdateClockSource ClockSource;
+
+	/** The set of user-marked frames */
+	UPROPERTY()
+	TArray<FMovieSceneMarkedFrame> MarkedFrames;
 
 #if WITH_EDITORONLY_DATA
 
