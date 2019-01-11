@@ -121,7 +121,11 @@ namespace UnrealBuildTool
 			{
 				// Figure out which executor to use
 				ActionExecutor Executor;
-				if (BuildConfiguration.bAllowXGE && XGE.IsAvailable())
+				if (BuildConfiguration.bAllowHybridExecutor && HybridExecutor.IsAvailable())
+				{
+					Executor = new HybridExecutor();
+				}
+				else if (BuildConfiguration.bAllowXGE && XGE.IsAvailable())
 				{
 					Executor = new XGE();
 				}

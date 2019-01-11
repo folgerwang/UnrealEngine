@@ -42,6 +42,12 @@ namespace UnrealBuildTool
 		public bool bLogDetailedActionStats = false;
 
 		/// <summary>
+		/// Whether the hybrid executor will be used (a remote executor and local executor)
+		/// </summary>
+		[XmlConfigFile]
+		public bool bAllowHybridExecutor = false;
+
+		/// <summary>
 		/// Whether XGE may be used.
 		/// </summary>
 		[XmlConfigFile]
