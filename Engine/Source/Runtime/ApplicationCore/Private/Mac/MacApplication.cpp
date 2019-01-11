@@ -2043,6 +2043,8 @@ void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 				Info.NativeHeight = Height;
 			}
 		}
+		
+		CFRelease(ArrDisplay);
 
 		if (!Info.NativeWidth || !Info.NativeHeight)
 		{
