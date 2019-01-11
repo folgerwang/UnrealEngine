@@ -20,6 +20,9 @@ namespace UnrealBuildTool.Rules
 				PrivateDefinitions.Add("SQLITE_THREADSAFE=0"); // No threading on HTML5
 			}
 
+			// Use the math.h version of isnan rather than the SQLite version to avoid a -ffast-math error
+			PrivateDefinitions.Add("SQLITE_HAVE_ISNAN=1");
+
 			// Enable SQLite debug checks?
 			//PrivateDefinitions.Add("SQLITE_DEBUG");
 
