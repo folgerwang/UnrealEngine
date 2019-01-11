@@ -317,27 +317,30 @@ private:
 public:	
 	/** Async worker that decompresses the audio data on a different thread */
 	typedef FAsyncTask< class FAsyncAudioDecompressWorker > FAsyncAudioDecompress;	// Forward declare typedef
-	FAsyncAudioDecompress*		AudioDecompressor;
+	FAsyncAudioDecompress* AudioDecompressor;
 
 	/** Pointer to 16 bit PCM data - used to avoid synchronous operation to obtain first block of the realtime decompressed buffer */
-	uint8*						CachedRealtimeFirstBuffer;
+	uint8* CachedRealtimeFirstBuffer;
+	
+	/** The number of frames which have been precached for this sound wave. */
+	int32 NumPrecacheFrames;
 
 	/** Pointer to 16 bit PCM data - used to decompress data to and preview sounds */
-	uint8*						RawPCMData;
+	uint8* RawPCMData;
 
 	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
-	int32						RawPCMDataSize;
+	int32 RawPCMDataSize;
 
 	/** Memory containing the data copied from the compressed bulk data */
-	uint8*						ResourceData;
+	uint8* ResourceData;
 
 	/** Uncompressed wav data 16 bit in mono or stereo - stereo not allowed for multichannel data */
-	FByteBulkData				RawData;
+	FByteBulkData RawData;
 
 	/** GUID used to uniquely identify this node so it can be found in the DDC */
-	FGuid						CompressedDataGuid;
+	FGuid CompressedDataGuid;
 
-	FFormatContainer			CompressedFormatData;
+	FFormatContainer CompressedFormatData;
 
 #if WITH_EDITORONLY_DATA
 	TMap<FName, uint32> AsyncLoadingDataFormats;

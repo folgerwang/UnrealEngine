@@ -561,7 +561,7 @@ public:
 	virtual bool ReadCompressedInfo(USoundWave* SoundWave) { return true; }
 
 	/** Reads the next compressed data chunk */
-	virtual bool ReadCompressedData(uint8* Destination, bool bLooping) { return true; }
+	virtual bool ReadCompressedData(uint8* Destination, int32 NumFramesToDecode, bool bLooping) { return true; }
 	
 	/** Seeks the buffer to the given seek time */
 	virtual void Seek(const float SeekTime) {}

@@ -83,7 +83,7 @@ public:
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
 	 * @return					Whether the sound looped or not
 	 */
-	virtual bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
+	virtual bool ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping ) override;
 	
 	
 	int32  RenderCallbackBufferSize;
