@@ -495,6 +495,10 @@ private:
 	bool HandleAudioMixerDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSoundClassFixup(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleAudioDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleResetAllDynamicSoundVolumesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleResetDynamicSoundVolumeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleGetDynamicSoundVolumeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSetDynamicSoundCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/**
 	* Lists a summary of loaded sound collated by class
@@ -1450,14 +1454,11 @@ private:
 	/** Stops oldest sound source. */
 	void StopOldestStoppingSource();
 
-	/** Processes any pending active sounds. */
-	void ProcessPendingNewActiveSounds();
-
-	/** Adds new active sound on the audio thread */
-	void AddNewActiveSoundInternal(FActiveSound* NewActiveSound);
-
 	/** Check whether we should use attenuation settings */
 	bool ShouldUseAttenuation(const UWorld* World) const;
+
+	/** Returns the number of frames to use per precache buffer. */
+	int32 GetNumPrecacheFrames() const;
 
 public:
 
@@ -1541,8 +1542,9 @@ public:
 	/** The platform specific audio settings. */
 	FAudioPlatformSettings PlatformSettings;
 
-	/** The length of output callback buffer */
-
+	/** The number of frames to precache. */
+	int32 NumPrecacheFrames;
+	
 	/** The amount of memory to reserve for always resident sounds */
 	int32 CommonAudioPoolSize;
 

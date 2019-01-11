@@ -59,18 +59,12 @@ namespace Audio
 					LoadingSoundWaveInfo.bIsLoading = false;
 					LoadingSoundWaveInfo.bIsLoaded = true;
 
-					TSampleBuffer<> SampleBuffer;
-
 					USoundWave* SoundWave = LoadingSoundWaveInfo.SoundWave;
 
-					SampleBuffer.RawPCMData.Reset(SoundWave->RawPCMDataSize);
-					SampleBuffer.RawPCMData.AddUninitialized(SoundWave->RawPCMDataSize);
-					FMemory::Memcpy(SampleBuffer.RawPCMData.GetData(), SoundWave->RawPCMData, SoundWave->RawPCMDataSize);
-					SampleBuffer.NumSamples = SoundWave->RawPCMDataSize / sizeof(int16);
-					SampleBuffer.NumChannels = SoundWave->NumChannels;
-					SampleBuffer.NumFrames = SampleBuffer.NumSamples / SoundWave->NumChannels;
-					SampleBuffer.SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
-					SampleBuffer.SampleDuration = (float)SampleBuffer.NumFrames / SampleBuffer.SampleRate;
+					const Audio::DefaultUSoundWaveSampleType* RawPCMData = reinterpret_cast<const Audio::DefaultUSoundWaveSampleType*>(SoundWave->RawPCMData);
+					const int32 NumSamples = SoundWave->RawPCMDataSize / sizeof(Audio::DefaultUSoundWaveSampleType);
+
+					TSampleBuffer<> SampleBuffer(RawPCMData, NumSamples, SoundWave->NumChannels, SoundWave->GetSampleRateForCurrentPlatform());
 
 					LoadingSoundWaveInfo.OnLoaded(SoundWave, SampleBuffer);
 

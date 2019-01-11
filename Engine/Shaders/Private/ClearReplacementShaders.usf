@@ -26,7 +26,7 @@ float4 ClearPS() : SV_Target0
 	return ClearColor;
 }
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+#if COMPUTESHADER
 RWTexture2D<Type> ClearTextureRW;
 uint4 TargetBounds; //xy upperleft, zw lowerright
 
@@ -75,4 +75,4 @@ void ClearVolumeCS(uint3 Position : SV_DispatchThreadID)
 	ClearVolumeRW[Position] = ClearColor;
 }
 
-#endif
+#endif // COMPUTESHADER

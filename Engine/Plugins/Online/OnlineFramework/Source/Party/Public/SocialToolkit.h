@@ -45,7 +45,7 @@ public:
 	FUniqueNetIdRepl GetLocalUserNetId(ESocialSubsystem SubsystemType) const;
 	int32 GetLocalUserNum() const;
 
-	EOnlinePresenceState::Type GetLocalUserOnlineState();
+	const FOnlineUserPresence* GetPresenceInfo(ESocialSubsystem SubsystemType) const;
 	void SetLocalUserOnlineState(EOnlinePresenceState::Type OnlineState);
 
 	USocialManager& GetSocialManager() const;
@@ -97,7 +97,7 @@ PARTY_SCOPE:
 	void NotifySubsystemIdEstablished(USocialUser& SocialUser, ESocialSubsystem SubsystemType, const FUniqueNetIdRepl& SubsystemId);
 	TSubclassOf<USocialChatManager> GetChatManagerClass() { return ChatManagerClass; }
 
-	bool TrySendFriendInvite(const USocialUser& SocialUser, ESocialSubsystem SubsystemType) const;
+	bool TrySendFriendInvite(USocialUser& SocialUser, ESocialSubsystem SubsystemType) const;
 
 #if PLATFORM_PS4
 	void NotifyPSNFriendsListRebuilt();
@@ -108,14 +108,17 @@ protected:
 
 	virtual void OnOwnerLoggedIn();
 	virtual void OnOwnerLoggedOut();
-	virtual void OnAllUsersInitialized() {}
-
-	virtual void NotifyFriendInviteFailed(const FUniqueNetId& InvitedUserId, const FString& ErrorStr) {}
+	
+	virtual void NotifyFriendInviteFailed(const FUniqueNetId& InvitedUserId, const FString& InvitedUserName, ESendFriendInviteFailureReason FailureReason, bool bCanShow = true) {}
 
 	void QueryFriendsLists();
 	void QueryBlockedPlayers();
 	void QueryRecentPlayers();
 
+	virtual void OnQueryFriendsListSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineFriend>>& FriendsList) {}
+	virtual void OnQueryBlockedPlayersSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineBlockedPlayer>>& BlockedPlayers) {}
+	virtual void OnQueryRecentPlayersSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineRecentPlayer>>& FriendsList) {}
+	
 	/** The type of SocialUser to create to represent known users */
 	TSubclassOf<USocialUser> SocialUserClass;
 
@@ -172,7 +175,7 @@ private:	// Handlers
 	void HandleFriendInviteReceived(const FUniqueNetId& LocalUserId, const FUniqueNetId& SenderId, ESocialSubsystem SubsystemType);
 	void HandleFriendInviteAccepted(const FUniqueNetId& LocalUserId, const FUniqueNetId& NewFriendId, ESocialSubsystem SubsystemType);
 	void HandleFriendInviteRejected(const FUniqueNetId& LocalUserId, const FUniqueNetId& RejecterId, ESocialSubsystem SubsystemType);
-	void HandleFriendInviteSent(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& InvitedUserId, const FString& ListName, const FString& ErrorStr, ESocialSubsystem SubsystemType);
+	void HandleFriendInviteSent(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& InvitedUserId, const FString& ListName, const FString& ErrorStr, ESocialSubsystem SubsystemType, FString DisplayName);
 	void HandleFriendRemoved(const FUniqueNetId& LocalUserId, const FUniqueNetId& FormerFriendId, ESocialSubsystem SubsystemType);
 
 	void HandleDeleteFriendComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueNetId& FormerFriendId, const FString& ListName, const FString& ErrorStr, ESocialSubsystem SubsystemType);
@@ -189,8 +192,6 @@ private:	// Handlers
 
 private:
 	static TMap<TWeakObjectPtr<ULocalPlayer>, TWeakObjectPtr<USocialToolkit>> AllToolkitsByOwningPlayer;
-
-	TMap<ESocialSubsystem, FUniqueNetIdRepl> OwnerIdsBySubsystem;
 
 	UPROPERTY()
 	USocialUser* LocalUser;
@@ -217,6 +218,5 @@ private:
 	mutable FOnRelationshipEstablished OnRecentPlayerAddedEvent;
 	
 	mutable FOnKnownUserInitialized OnKnownUserInitializedEvent;
-	mutable FBasicToolkitEvent OnFinishedStartupQueriesEvent;
 	mutable FBasicToolkitEvent OnToolkitResetEvent;
 };

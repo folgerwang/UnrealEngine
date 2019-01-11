@@ -255,8 +255,9 @@ void FGenericCrashContext::UpdateLocalizedStrings()
 #endif
 }
 
-FGenericCrashContext::FGenericCrashContext()
-	: bIsEnsure(false)
+FGenericCrashContext::FGenericCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+	: Type(InType)
+	, ErrorMessage(InErrorMessage)
 {
 	CommonBuffer.Reserve( 32768 );
 	CrashContextIndex = StaticCrashContextIndex++;
@@ -278,9 +279,9 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "IsInternalBuild" ), NCachedCrashContextProperties::bIsInternalBuild );
 	AddCrashProperty( TEXT( "IsPerforceBuild" ), NCachedCrashContextProperties::bIsPerforceBuild );
 	AddCrashProperty( TEXT( "IsSourceDistribution" ), NCachedCrashContextProperties::bIsSourceDistribution );
-	AddCrashProperty( TEXT( "IsEnsure" ), bIsEnsure );
-	AddCrashProperty( TEXT( "IsAssert" ), FDebug::HasAsserted() );
-	AddCrashProperty( TEXT( "CrashType" ), GetCrashTypeString(bIsEnsure, FDebug::HasAsserted(), GIsGPUCrashed) );
+	AddCrashProperty( TEXT( "IsEnsure" ), (Type == ECrashContextType::Ensure) );
+	AddCrashProperty( TEXT( "IsAssert" ), (Type == ECrashContextType::Assert) );
+	AddCrashProperty( TEXT( "CrashType" ), GetCrashTypeString(Type) );
 
 	AddCrashProperty( TEXT( "SecondsSinceStart" ), NCachedCrashContextProperties::SecondsSinceStart );
 
@@ -332,7 +333,7 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "SourceContext" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserDescription" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserActivityHint" ), *NCachedCrashContextProperties::UserActivityHint );
-	AddCrashProperty( TEXT( "ErrorMessage" ), (const TCHAR*)GErrorMessage ); // GErrorMessage may be broken.
+	AddCrashProperty( TEXT( "ErrorMessage" ), ErrorMessage );
 	AddCrashProperty( TEXT( "CrashDumpMode" ), NCachedCrashContextProperties::CrashDumpMode );
 	AddCrashProperty( TEXT( "CrashReporterMessage" ), *NCachedCrashContextProperties::CrashReportClientRichText );
 
@@ -379,6 +380,17 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationSize"), (uint64)FPlatformMemory::OOMAllocationSize );
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationAlignment"), (int32)FPlatformMemory::OOMAllocationAlignment );
 
+	{
+		FString AllThreadStacks;
+		if (GetPlatformAllThreadContextsString(AllThreadStacks))
+		{
+			CommonBuffer += TEXT("<Threads>");
+			CommonBuffer += AllThreadStacks;
+			CommonBuffer += TEXT("</Threads>");
+			CommonBuffer += LINE_TERMINATOR;
+		}
+	}
+
 	EndSection( *RuntimePropertiesTag );
 
 	// Add platform specific properties.
@@ -417,13 +429,15 @@ void FGenericCrashContext::GetUniqueCrashName(TCHAR* GUIDBuffer, int32 BufferSiz
 
 const bool FGenericCrashContext::IsFullCrashDump() const
 {
-	return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDump) ||
-		(NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
-}
-
-const bool FGenericCrashContext::IsFullCrashDumpOnEnsure() const
-{
-	return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	if(Type == ECrashContextType::Ensure)
+	{
+		return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	}
+	else
+	{
+		return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDump) ||
+			(NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	}
 }
 
 void FGenericCrashContext::SerializeAsXML( const TCHAR* Filename ) const
@@ -563,22 +577,19 @@ FString FGenericCrashContext::GetCrashGameName()
 	return NCachedCrashContextProperties::GameName;
 }
 
-const TCHAR* FGenericCrashContext::GetCrashTypeString(bool InIsEnsure, bool InIsAssert, bool bIsGPUCrashed)
+const TCHAR* FGenericCrashContext::GetCrashTypeString(ECrashContextType Type)
 {
-	if (bIsGPUCrashed)
+	switch (Type)
 	{
+	case ECrashContextType::GPUCrash:
 		return *CrashTypeGPU;
-	}
-	if (InIsEnsure)
-	{
+	case ECrashContextType::Ensure:
 		return *CrashTypeEnsure;
-	}
-	else if (InIsAssert)
-	{
+	case ECrashContextType::Assert:
 		return *CrashTypeAssert;
+	default:
+		return *CrashTypeCrash;
 	}
-
-	return *CrashTypeCrash;
 }
 
 const TCHAR* FGenericCrashContext::EngineModeExString()
@@ -647,10 +658,10 @@ FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStack
 
 	const int32 MaxDepth = 100;
 	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
-	return SetPortableCallStack(NumStackFramesToIgnore, Stack);
+	return SetPortableCallStack(Stack);
 }
 
-void FGenericCrashContext::SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack)
+void FGenericCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
 {
 	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 

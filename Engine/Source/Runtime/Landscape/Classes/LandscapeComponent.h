@@ -328,10 +328,6 @@ class ULandscapeComponent : public UPrimitiveComponent
 	UPROPERTY()
 	FVector4 HeightmapScaleBias;
 
-	/** Heightmap texture reference */
-	UPROPERTY(TextExportTransient)
-	UTexture2D* HeightmapTexture;
-
 	/** Cached local-space bounding box, created at heightmap update time */
 	UPROPERTY()
 	FBox CachedLocalBox;
@@ -346,7 +342,15 @@ private:
 	UPROPERTY()
 	FGuid LightingGuid;
 
+	/** Heightmap texture reference */
+	UPROPERTY(Transient, TextExportTransient)
+	UTexture2D* CurrentEditingHeightmapTexture;
 #endif // WITH_EDITORONLY_DATA
+
+	/** Heightmap texture reference */
+	UPROPERTY(TextExportTransient)
+	UTexture2D* HeightmapTexture;
+
 public:
 
 	/** Uniquely identifies this component's built map data. */
@@ -455,6 +459,9 @@ public:
 
 	/** Grass data for generation **/
 	TSharedRef<FLandscapeComponentGrassData, ESPMode::ThreadSafe> GrassData;
+	TArray<FBox> ActiveExcludedBoxes;
+	uint32 ChangeTag;
+
 
 	//~ Begin UObject Interface.	
 	virtual void PostInitProperties() override;	
@@ -492,6 +499,10 @@ public:
 	virtual ELightMapInteractionType GetStaticLightingType() const override { return LMIT_Texture;	}
 	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual bool IsPrecomputedLightingValid() const override;
+
+	LANDSCAPE_API UTexture2D* GetHeightmap(bool InReturnCurrentEditingHeightmap = false) const;
+	LANDSCAPE_API void SetHeightmap(UTexture2D* NewHeightmap);
+	LANDSCAPE_API void SetCurrentEditingHeightmap(UTexture2D* InNewHeightmap);
 
 #if WITH_EDITOR
 	virtual int32 GetNumMaterials() const override;

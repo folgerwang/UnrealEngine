@@ -229,10 +229,11 @@ public:
 
 		for (const FRichCurveEditInfo& CurveEditInfo : CurveOwner->GetCurves())
 		{
-			if (CurveEditInfo.CurveToEdit->GetNumKeys())
+			FRealCurve* Curve = CurveEditInfo.CurveToEdit;
+			if (Curve->GetNumKeys())
 			{
-				ViewMinInput = FMath::Min(ViewMinInput, CurveEditInfo.CurveToEdit->GetFirstKey().Time);
-				ViewMaxOutput = FMath::Max(ViewMaxOutput, CurveEditInfo.CurveToEdit->GetLastKey().Time);
+				ViewMinInput = FMath::Min(ViewMinInput, Curve->GetKeyTime(Curve->GetFirstKeyHandle()));
+				ViewMaxOutput = FMath::Max(ViewMaxOutput, Curve->GetKeyTime(Curve->GetLastKeyHandle()));
 			}
 		}
 

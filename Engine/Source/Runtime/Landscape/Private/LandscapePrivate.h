@@ -28,6 +28,12 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Processed Triangles"), STAT_LandscapeTri
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Render Passes"), STAT_LandscapeComponentRenderPasses, STATGROUP_Landscape, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("DrawCalls"), STAT_LandscapeDrawCalls, STATGROUP_Landscape, );
 
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Regenerate Procedural Heightmap (GameThread)"), STAT_LandscapeRegenerateProceduralHeightmaps, STATGROUP_Landscape, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Regenerate Procedural Heightmap (RenderThread)"), STAT_LandscapeRegenerateProceduralHeightmaps_RenderThread, STATGROUP_Landscape, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Resolve Procedural Heightmap"), STAT_LandscapeResolveProceduralHeightmap, STATGROUP_Landscape, );
+
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Regenerate Procedural Heightmap DrawCalls"), STAT_LandscapeRegenerateProceduralHeightmapsDrawCalls, STATGROUP_Landscape, );
+
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex Mem"), STAT_LandscapeVertexMem, STATGROUP_Landscape, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Occluder Mem"), STAT_LandscapeOccluderMem, STATGROUP_Landscape, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Component Mem"), STAT_LandscapeComponentMem, STATGROUP_Landscape, );

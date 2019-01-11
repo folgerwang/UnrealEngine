@@ -47,6 +47,8 @@ UWorld* UControlRig::GetWorld() const
 
 void UControlRig::Initialize()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_ControlRig_Initialize);
+
 	// initialize hierarchy refs
 	// @todo re-think
 	{

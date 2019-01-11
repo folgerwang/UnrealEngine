@@ -19,6 +19,8 @@ protected:
 	virtual FString NormalizeDirectory(const TCHAR* Directory);
 
 public:
+	FIOSPlatformFile();
+
 	//virtual bool Initialize(IPlatformFile* Inner, const TCHAR* CommandLineParam) override;
 
 	virtual bool FileExists(const TCHAR* Filename) override;
@@ -48,11 +50,16 @@ public:
 	virtual bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) override;
 	virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) override;
 
+	virtual bool DoesCreatePublicFiles() override;
+	virtual void SetCreatePublicFiles(bool bCreatePublicFilesIn) override;
+	
 private:
 	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor);
 
-	FString ConvertToIOSPath(const FString& Filename, bool bForWrite);
+	FString ConvertToIOSPath(const FString& Filename, bool bForWrite, bool bIsPublicWrite);
 
 	FString ReadDirectory;
 	FString WriteDirectory;
+	
+	bool bCreatePublicFiles;
 };

@@ -15,20 +15,29 @@
 class IAsyncReadFileHandle;
 
 /**
-* Enum for async IO priorities.
+* Enum for async IO priorities. 
 */
-enum EAsyncIOPriority
+enum EAsyncIOPriorityAndFlags 
 {
+	AIOP_PRIORITY_MASK = 0x000000ff,
+
+	// Flags - combine with priorities if needed
+	AIOP_FLAG_PRECACHE = 0x00000100,
+
+	// Priorities
 	AIOP_MIN = 0,
-	AIOP_Precache = AIOP_MIN, 
 	AIOP_Low,
 	AIOP_BelowNormal,
 	AIOP_Normal,
 	AIOP_High,
 	AIOP_CriticalPath,
 	AIOP_MAX = AIOP_CriticalPath,
-	AIOP_NUM
+	AIOP_NUM,
+
+	// Legacy (for back-compat). Better to specify priority and AIOP_FLAG_PRECACHE separately
+	AIOP_Precache = AIOP_MIN | AIOP_FLAG_PRECACHE,
 };
+ENUM_CLASS_FLAGS(EAsyncIOPriorityAndFlags);
 
 /**
  * Enum for platform file read flags
@@ -352,10 +361,11 @@ public:
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename);
 
 	/** Controls if the pak precacher should process precache requests.
-	* Without this throttle, quite a lot of memory can be consumed if the disk races ahead of the CPU.
-	* @param bEnablePrecacheRequests true or false depending on if precache requests should be allowed
+	* Requests below this threshold will not get precached. Without this throttle, quite a lot of memory
+	* can be consumed if the disk races ahead of the CPU.
+	* @param MinPriority the minimum priority at which requests will get precached
 	*/
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags MinPriority)
 	{
 	}
 
@@ -472,6 +482,25 @@ public:
 	{
 		// by default, IPlatformFile's can't talk to a server
 		return false;
+	}
+	
+	/**
+	 * Checks to see if this file system creates publicly accessible files
+	 *
+	 * @return			true if this file system creates publicly accessible files
+	 */
+	virtual bool DoesCreatePublicFiles()
+	{
+		return false;
+	}
+	
+	/**
+	 * Sets file system to create publicly accessible files or not
+	 *
+	 * @param bCreatePublicFiles			true to set the file system to create publicly accessible files
+	 */
+	virtual void SetCreatePublicFiles(bool bCreatePublicFiles)
+	{
 	}
 };
 

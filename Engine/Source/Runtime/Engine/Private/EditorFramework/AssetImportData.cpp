@@ -32,10 +32,11 @@ FString FAssetImportInfo::ToJson() const
 
 	for (int32 Index = 0; Index < SourceFiles.Num(); ++Index)
 	{
-		Json += FString::Printf(TEXT("{ \"RelativeFilename\" : \"%s\", \"Timestamp\" : \"%d\", \"FileMD5\" : \"%s\" }"),
+		Json += FString::Printf(TEXT("{ \"RelativeFilename\" : \"%s\", \"Timestamp\" : \"%d\", \"FileMD5\" : \"%s\", \"DisplayLabelName\" : \"%s\" }"),
 			*SourceFiles[Index].RelativeFilename,
 			SourceFiles[Index].Timestamp.ToUnixTimestamp(),
-			*LexToString(SourceFiles[Index].FileHash)
+			*LexToString(SourceFiles[Index].FileHash),
+			*SourceFiles[Index].DisplayLabelName
 			);
 
 		if (Index != SourceFiles.Num() - 1)
@@ -69,10 +70,11 @@ TOptional<FAssetImportInfo> FAssetImportInfo::FromJson(FString InJsonString)
 			continue;
 		}
 
-		FString RelativeFilename, TimestampString, MD5String;
+		FString RelativeFilename, TimestampString, MD5String, DisplayLabelName;
 		SourceFile->TryGetStringField("RelativeFilename", RelativeFilename);
 		SourceFile->TryGetStringField("Timestamp", TimestampString);
 		SourceFile->TryGetStringField("FileMD5", MD5String);
+		SourceFile->TryGetStringField("DisplayLabelName", DisplayLabelName);
 
 		if (RelativeFilename.IsEmpty())
 		{
@@ -85,7 +87,7 @@ TOptional<FAssetImportInfo> FAssetImportInfo::FromJson(FString InJsonString)
 		FMD5Hash FileHash;
 		LexFromString(FileHash, *MD5String);
 
-		Info.SourceFiles.Emplace(MoveTemp(RelativeFilename), FDateTime::FromUnixTimestamp(UnixTimestamp), FileHash);
+		Info.SourceFiles.Emplace(MoveTemp(RelativeFilename), FDateTime::FromUnixTimestamp(UnixTimestamp), FileHash, DisplayLabelName);
 	}
 
 	return Info;
@@ -111,19 +113,77 @@ void UAssetImportData::UpdateFilenameOnly(const FString& InPath, int32 Index)
 	{
 		SourceData.SourceFiles[Index].RelativeFilename = SanitizeImportFilename(InPath);
 	}
+	else if(Index == INDEX_NONE)
+	{
+		UpdateFilenameOnly(InPath);
+	}
 }
 
-void UAssetImportData::Update(const FString& InPath, FMD5Hash *Md5Hash/* = nullptr*/)
+void UAssetImportData::AddFileName(const FString& InPath, int32 Index, FString SourceFileLabel /*= FString()*/)
 {
 	FAssetImportInfo Old = SourceData;
 
 	// Reset our current data
 	SourceData.SourceFiles.Reset();
-	SourceData.SourceFiles.Emplace(
-		SanitizeImportFilename(InPath),
-		IFileManager::Get().GetTimeStamp(*InPath),
-		(Md5Hash != nullptr) ? *Md5Hash : FMD5Hash::HashFile(*InPath)
-		);
+
+	int32 SourceIndex = 0;
+	for (; SourceIndex < Old.SourceFiles.Num(); ++SourceIndex)
+	{
+		if (SourceIndex == Index)
+		{
+			SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+				IFileManager::Get().GetTimeStamp(*InPath),
+				FMD5Hash::HashFile(*InPath),
+				SourceFileLabel);
+		}
+		else
+		{
+			SourceData.SourceFiles.Add(Old.SourceFiles[SourceIndex]);
+		}
+	}
+	//If there is now more source file we need to add them
+	for (; SourceIndex <= Index; ++SourceIndex)
+	{
+		if (SourceIndex == Index)
+		{
+			SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+				IFileManager::Get().GetTimeStamp(*InPath),
+				FMD5Hash::HashFile(*InPath),
+				SourceFileLabel);
+		}
+		else
+		{
+			FString DefaultPath = FString();
+			SourceData.SourceFiles.Emplace(SanitizeImportFilename(DefaultPath));
+		}
+	}
+
+	OnImportDataChanged.Broadcast(Old, this);
+}
+
+void UAssetImportData::Update(const FString& InPath, FMD5Hash *Md5Hash/* = nullptr*/)
+{
+	FAssetImportInfo Old = SourceData;
+	SourceData.SourceFiles.Reset();
+	for (int32 SourceIndex = 0; SourceIndex < Old.SourceFiles.Num(); ++SourceIndex)
+	{
+		if (SourceIndex == 0)
+		{
+			SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+				IFileManager::Get().GetTimeStamp(*InPath),
+				(Md5Hash != nullptr) ? *Md5Hash : FMD5Hash::HashFile(*InPath));
+		}
+		else
+		{
+			SourceData.SourceFiles.Add(Old.SourceFiles[SourceIndex]);
+		}
+	}
+	if (SourceData.SourceFiles.Num() == 0)
+	{
+		SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+			IFileManager::Get().GetTimeStamp(*InPath),
+			(Md5Hash != nullptr) ? *Md5Hash : FMD5Hash::HashFile(*InPath));
+	}
 	
 	OnImportDataChanged.Broadcast(Old, this);
 }
@@ -132,14 +192,26 @@ void UAssetImportData::Update(const FString& InPath, FMD5Hash *Md5Hash/* = nullp
 void UAssetImportData::Update(const FString& InPath, const FMD5Hash InPreComputedHash)
 {
 	FAssetImportInfo Old = SourceData;
-
-	// Reset our current data
 	SourceData.SourceFiles.Reset();
-	SourceData.SourceFiles.Emplace(
-		SanitizeImportFilename(InPath),
-		IFileManager::Get().GetTimeStamp(*InPath),
-		InPreComputedHash
-	);
+	for (int32 SourceIndex = 0; SourceIndex < Old.SourceFiles.Num(); ++SourceIndex)
+	{
+		if (SourceIndex == 0)
+		{
+			SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+				IFileManager::Get().GetTimeStamp(*InPath),
+				InPreComputedHash);
+		}
+		else
+		{
+			SourceData.SourceFiles.Add(Old.SourceFiles[SourceIndex]);
+		}
+	}
+	if (SourceData.SourceFiles.Num() == 0)
+	{
+		SourceData.SourceFiles.Emplace(SanitizeImportFilename(InPath),
+			IFileManager::Get().GetTimeStamp(*InPath),
+			InPreComputedHash);
+	}
 
 	OnImportDataChanged.Broadcast(Old, this);
 }
@@ -177,6 +249,14 @@ TArray<FString> UAssetImportData::ExtractFilenames() const
 	TArray<FString> Temp;
 	ExtractFilenames(Temp);
 	return Temp;
+}
+
+void UAssetImportData::ExtractDisplayLabels(TArray<FString>& FileDisplayLabels) const
+{
+	for (const FAssetImportInfo::FSourceFile& SourceFile : SourceData.SourceFiles)
+	{
+		FileDisplayLabels.Add(SourceFile.DisplayLabelName);
+	}
 }
 
 FString UAssetImportData::SanitizeImportFilename(const FString& InPath) const

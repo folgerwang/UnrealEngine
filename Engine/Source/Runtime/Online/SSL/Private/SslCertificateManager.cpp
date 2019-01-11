@@ -47,6 +47,11 @@ void FSslCertificateManager::ClearAllPinnedPublicKeys()
 	PinnedPublicKeys.Empty();
 }
 
+bool FSslCertificateManager::HasPinnedPublicKeys() const
+{
+	return PinnedPublicKeys.Num() > 0;
+}
+
 // Compare function to order domains by exact matches, then from most specific to least specific subdomain matches
 // For example: { "a.b.c.d", ".b.c.d", ".c.d", ".d" }
 static bool DomainLessThan(const FString& DomainA, const FString& DomainB)
@@ -89,12 +94,20 @@ bool FSslCertificateManager::IsDomainPinned(const FString& Domain)
 {
 	bool bWasDomainFound = false;
 
+	FString DomainWithoutPort = Domain;
+	int PortStart = Domain.Find(TEXT(":"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	if (PortStart >= 0)
+	{
+		int PortLength = DomainWithoutPort.Len() - PortStart;
+		DomainWithoutPort.RemoveAt(PortStart, PortLength);
+	}
+
 	const TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>* PinnedKeys = nullptr;
 	for (const TPair<FString, TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>>& PinnedKeyPair : PinnedPublicKeys)
 	{
 		const FString& PinnedDomain = PinnedKeyPair.Key;
-		if ((PinnedDomain[0] == TEXT('.') && Domain.EndsWith(PinnedDomain))
-			|| Domain == PinnedDomain)
+		if ((PinnedDomain[0] == TEXT('.') && DomainWithoutPort.EndsWith(PinnedDomain))
+			|| DomainWithoutPort == PinnedDomain)
 		{
 			bWasDomainFound = true;
 			break;

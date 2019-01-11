@@ -126,12 +126,10 @@ void SWidgetSwitcher::SetActiveWidgetIndex( int32 Index )
 	}
 }
 
-#if SLATE_PARENT_POINTERS
 bool SWidgetSwitcher::ValidatePathToChild(SWidget* InChild)
 {
 	return InChild == GetActiveWidget().Get();
 }
-#endif
 
 void SWidgetSwitcher::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {

@@ -66,7 +66,7 @@ struct SYNTHESIS_API FModularSynthPreset : public FTableRowBase
 
 	// What type of oscillator to use for oscillator 2
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Synth|Preset")
-		ESynth1OscType Osc2Type;
+	ESynth1OscType Osc2Type;
 
 	// The linear gain of oscillator 2 [0.0, 1.0]
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Synth|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))

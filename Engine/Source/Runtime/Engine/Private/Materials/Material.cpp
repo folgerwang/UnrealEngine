@@ -71,6 +71,8 @@
 #include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveLinearColorAtlas.h"
+#include "HAL/ThreadHeartBeat.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "Material"
 
@@ -2760,7 +2762,7 @@ bool UMaterial::GetFontParameterValue(const FMaterialParameterInfo& ParameterInf
 }
 
 
-bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2828,7 +2830,7 @@ bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& Para
 }
 
 
-bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2904,7 +2906,7 @@ bool UMaterial::GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo
 	return bSuccess;
 }
 
-bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const
+bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid, bool bCheckParent /*= true*/) const
 {
 	UMaterialExpressionStaticComponentMaskParameter* Parameter = nullptr;	
 
@@ -3118,7 +3120,7 @@ void UMaterial::CacheResourceShadersForRendering(bool bRegenerateId)
 			if (MaterialResource && !MaterialResource->GetGameThreadShaderMap())
 			{
 				FMaterialResource Tmp;
-				if (ReloadMaterialResource(&Tmp, GetOutermost()->GetPathName(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
+				if (ReloadMaterialResource(&Tmp, GetOutermost()->FileName.ToString(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
 				{
 					MaterialResource->SetInlineShaderMap(Tmp.GetGameThreadShaderMap());
 				}
@@ -5704,7 +5706,7 @@ UMaterial::FMaterialCompilationFinished& UMaterial::OnMaterialCompilationFinishe
 }
 #endif // WITH_EDITOR
 
-void UMaterial::AllMaterialsCacheResourceShadersForRendering()
+void UMaterial::AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog)
 {
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 	TArray<UMaterial*> Materials;
@@ -5716,15 +5718,36 @@ void UMaterial::AllMaterialsCacheResourceShadersForRendering()
 	for (UMaterial* Material : Materials)
 	{
 		Material->CacheResourceShadersForRendering(false);
+		FThreadHeartBeat::Get().HeartBeat();
 	}
 #else
-	for (TObjectIterator<UMaterial> It; It; ++It)
+#if WITH_EDITOR
+	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "CacheMaterialShadersMessage", "Caching material shaders"), true);
+	if (bUpdateProgressDialog)
 	{
-		UMaterial* Material = *It;
+		SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
+		SlowTask.MakeDialog();
+	}
+#endif // WITH_EDITOR
+
+	TArray<UObject*> MaterialArray;
+	GetObjectsOfClass(UMaterial::StaticClass(), MaterialArray, true, RF_ClassDefaultObject, EInternalObjectFlags::None);
+	float TaskIncrement = (float)100.0f / MaterialArray.Num();
+
+	for (UObject* MaterialObj : MaterialArray)
+	{
+		UMaterial* Material = (UMaterial*)MaterialObj;
 
 		Material->CacheResourceShadersForRendering(false);
+
+#if WITH_EDITOR
+		if (bUpdateProgressDialog)
+		{
+			SlowTask.EnterProgressFrame(TaskIncrement);
+		}
+#endif // WITH_EDITOR
 	}
-#endif
+#endif // STORE_ONLY_ACTIVE_SHADERMAPS
 }
 
 /**

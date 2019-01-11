@@ -95,7 +95,7 @@ static const uint32 ValidGamepadKeyCodesList[] =
 	AKEYCODE_BUTTON_START,
 	AKEYCODE_MENU,
 	AKEYCODE_BUTTON_SELECT,
-//	AKEYCODE_BACK,
+	AKEYCODE_BACK,
 	AKEYCODE_BUTTON_THUMBL,
 	AKEYCODE_BUTTON_THUMBR,
 	AKEYCODE_BUTTON_L2,
@@ -956,17 +956,19 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received keycode: %d, softkey: %d"), keyCode, bSoftKey ? 1 : 0);
 
-		//Trap codes handled as possible gamepad events
-		if (ValidGamepadKeyCodes.Contains(keyCode))
+		//Only pass on the device id if really a gamepad, joystick or dpad (allows menu and back to be treated as gamepad events)
+		int32 device = -1;
+		if ((((EventSource & AINPUT_SOURCE_JOYSTICK) == AINPUT_SOURCE_JOYSTICK) && (GetAxes != NULL)) ||
+			((EventSource & AINPUT_SOURCE_GAMEPAD) == AINPUT_SOURCE_GAMEPAD) ||
+			((EventSource & AINPUT_SOURCE_DPAD) == AINPUT_SOURCE_DPAD))
 		{
-			//Only pass on the device id if really a gamepad, joystick or dpad (allows menu and back to be treated as gamepad events)
-			int32 device = 0;
-			if ( (((EventSource & AINPUT_SOURCE_JOYSTICK) == AINPUT_SOURCE_JOYSTICK) && (GetAxes != NULL)) ||
-				 ((EventSource & AINPUT_SOURCE_GAMEPAD) == AINPUT_SOURCE_GAMEPAD) ||
-				 ((EventSource & AINPUT_SOURCE_DPAD) == AINPUT_SOURCE_DPAD) )
-			{
-				device = AInputEvent_getDeviceId(event);
-			}
+			device = AInputEvent_getDeviceId(event);
+		}
+
+		//Trap codes handled as possible gamepad events
+		if (device >= 0 && ValidGamepadKeyCodes.Contains(keyCode))
+		{
+			
 			bool down = AKeyEvent_getAction(event) != AKEY_EVENT_ACTION_UP;
 			FAndroidInputInterface::JoystickButtonEvent(device, keyCode, down);
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received gamepad button: %d"), keyCode);
@@ -1158,7 +1160,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_RESUME"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_RESUME);
 
-        FPreLoadScreenManager::EnableEarlyRendering(true);
+        FPreLoadScreenManager::EnableRendering(true);
 
 		/*
 		* On the initial loading the restart method must be called immediately
@@ -1199,7 +1201,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 			GetMoviePlayer()->ForceCompletion();
         }
 
-        FPreLoadScreenManager::EnableEarlyRendering(false);
+        FPreLoadScreenManager::EnableRendering(false);
 
 		bNeedToSync = true;
 		break;

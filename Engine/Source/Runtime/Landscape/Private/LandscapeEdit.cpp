@@ -55,6 +55,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "Engine/TextureRenderTarget2D.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
+#include "Settings/EditorExperimentalSettings.h"
 #endif
 #include "Algo/Count.h"
 #include "Serialization/MemoryWriter.h"
@@ -836,8 +837,8 @@ void ULandscapeComponent::UpdateCollisionHeightData(const FColor* const Heightma
 		}
 	}
 
-	const int32 HeightmapSizeU = HeightmapTexture->Source.GetSizeX();
-	const int32 HeightmapSizeV = HeightmapTexture->Source.GetSizeY();
+	const int32 HeightmapSizeU = GetHeightmap()->Source.GetSizeX();
+	const int32 HeightmapSizeV = GetHeightmap()->Source.GetSizeY();
 	const int32 MipSizeU = HeightmapSizeU >> CollisionMipLevel;
 	const int32 MipSizeV = HeightmapSizeV >> CollisionMipLevel;
 
@@ -1087,10 +1088,10 @@ void ULandscapeComponent::UpdateCollisionData(bool bRebuild)
 	TArray<uint8> SimpleCollisionMipData;
 	TArray<uint8> XYOffsetMipData;
 
-	HeightmapTexture->Source.GetMipData(CollisionMipData, CollisionMipLevel);
+	GetHeightmap()->Source.GetMipData(CollisionMipData, CollisionMipLevel);
 	if (SimpleCollisionMipLevel > CollisionMipLevel)
 	{
-		HeightmapTexture->Source.GetMipData(SimpleCollisionMipData, SimpleCollisionMipLevel);
+		GetHeightmap()->Source.GetMipData(SimpleCollisionMipData, SimpleCollisionMipLevel);
 	}
 	if (XYOffsetmapTexture)
 	{
@@ -1418,8 +1419,8 @@ void ULandscapeComponent::GenerateHeightmapMips(TArray<FColor*>& HeightmapTextur
 		ComponentY2 = ComponentSizeQuads;
 	}
 
-	int32 HeightmapSizeU = HeightmapTexture->Source.GetSizeX();
-	int32 HeightmapSizeV = HeightmapTexture->Source.GetSizeY();
+	int32 HeightmapSizeU = GetHeightmap()->Source.GetSizeX();
+	int32 HeightmapSizeV = GetHeightmap()->Source.GetSizeY();
 
 	int32 HeightmapOffsetX = FMath::RoundToInt(HeightmapScaleBias.Z * (float)HeightmapSizeU);
 	int32 HeightmapOffsetY = FMath::RoundToInt(HeightmapScaleBias.W * (float)HeightmapSizeV);
@@ -2198,6 +2199,7 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 #define MAX_HEIGHTMAP_TEXTURE_SIZE 512
 	const int32 ComponentSizeVerts = NumSubsections * (SubsectionSizeQuads + 1);
 	const int32 ComponentsPerHeightmap = FMath::Min(MAX_HEIGHTMAP_TEXTURE_SIZE / ComponentSizeVerts, 1 << (UTexture2D::GetMinTextureResidentMipCount() - 2));
+	check(ComponentsPerHeightmap > 0);
 
 	// Count how many heightmaps we need and the X dimension of the final heightmap
 	int32 NumHeightmapsX = 1;
@@ -2448,7 +2450,7 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 			const int32 HeightmapOffsetX = (ComponentX - ComponentsPerHeightmap*HmX) * NumSubsections * (SubsectionSizeQuads + 1);
 
 			LandscapeComponent->HeightmapScaleBias = FVector4(1.0f / (float)HeightmapInfo.HeightmapSizeU, 1.0f / (float)HeightmapInfo.HeightmapSizeV, (float)((HeightmapOffsetX)) / (float)HeightmapInfo.HeightmapSizeU, ((float)(HeightmapOffsetY)) / (float)HeightmapInfo.HeightmapSizeV);
-			LandscapeComponent->HeightmapTexture = HeightmapInfo.HeightmapTexture;
+			LandscapeComponent->SetHeightmap(HeightmapInfo.HeightmapTexture);
 
 			// Weightmap is sized the same as the component
 			const int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
@@ -2710,6 +2712,14 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 
 	// Update MaterialInstances (must be done after textures are fully initialized)
 	UpdateAllComponentMaterialInstances();
+
+	if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		SetupProceduralLayers(NumComponentsX, NumComponentsY);
+		
+		FEditorDelegates::PreSaveWorld.AddUObject(GetLandscapeActor(), &ALandscape::OnPreSaveWorld);
+		FEditorDelegates::PostSaveWorld.AddUObject(GetLandscapeActor(), &ALandscape::OnPostSaveWorld);
+	}
 
 	if (GetLevel()->bIsVisible)
 	{
@@ -4753,7 +4763,7 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 	int32 HeightmapSizeV = (1 << FMath::CeilLogTwo(ComponentSizeVerts));
 
 	// Height map construction
-	HeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(HeightmapSizeU, HeightmapSizeV, TEXTUREGROUP_Terrain_Heightmap, TSF_BGRA8);
+	SetHeightmap(GetLandscapeProxy()->CreateLandscapeTexture(HeightmapSizeU, HeightmapSizeV, TEXTUREGROUP_Terrain_Heightmap, TSF_BGRA8));
 
 	int32 MipSubsectionSizeQuads = SubsectionSizeQuads;
 	int32 MipSizeU = HeightmapSizeU;
@@ -4764,7 +4774,7 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 	int32 Mip = 0;
 	while (MipSizeU > 1 && MipSizeV > 1 && MipSubsectionSizeQuads >= 1)
 	{
-		FColor* HeightmapTextureData = (FColor*)HeightmapTexture->Source.LockMip(Mip);
+		FColor* HeightmapTextureData = (FColor*)GetHeightmap()->Source.LockMip(Mip);
 		if (Mip == 0)
 		{
 			FMemory::Memcpy(HeightmapTextureData, Heights.GetData(), MipSizeU*MipSizeV*sizeof(FColor));
@@ -4792,9 +4802,9 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 
 	for (int32 i = 0; i < HeightmapTextureMipData.Num(); i++)
 	{
-		HeightmapTexture->Source.UnlockMip(i);
+		GetHeightmap()->Source.UnlockMip(i);
 	}
-	HeightmapTexture->PostEditChange();
+	GetHeightmap()->PostEditChange();
 }
 
 void ULandscapeComponent::InitWeightmapData(TArray<ULandscapeLayerInfoObject*>& LayerInfos, TArray<TArray<uint8> >& WeightmapData)
@@ -5382,8 +5392,8 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 	{
 		return;
 	}
-	check(HeightmapTexture);
-	check(HeightmapTexture->Source.GetFormat() == TSF_BGRA8);
+	check(GetHeightmap());
+	check(GetHeightmap()->Source.GetFormat() == TSF_BGRA8);
 
 	TArray<uint8> NewPlatformData;
 	FMemoryWriter PlatformAr(NewPlatformData);
@@ -5391,19 +5401,19 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 	int32 SubsectionSizeVerts = SubsectionSizeQuads + 1;
 	int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeVerts) - 1;
 
-	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeX();
-	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeY();
+	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)GetHeightmap()->Source.GetSizeX();
+	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)GetHeightmap()->Source.GetSizeY();
 	
 	// Get the required mip data
 	TArray<TArray<uint8>> HeightmapMipRawData;
 	TArray<FColor*> HeightmapMipData;
-	for (int32 MipIdx = 0; MipIdx < FMath::Min(LANDSCAPE_MAX_ES_LOD, HeightmapTexture->Source.GetNumMips()); MipIdx++)
+	for (int32 MipIdx = 0; MipIdx < FMath::Min(LANDSCAPE_MAX_ES_LOD, GetHeightmap()->Source.GetNumMips()); MipIdx++)
 	{
 		int32 MipSubsectionSizeVerts = (SubsectionSizeVerts) >> MipIdx;
 		if (MipSubsectionSizeVerts > 1)
 		{
 			new(HeightmapMipRawData) TArray<uint8>();
-			HeightmapTexture->Source.GetMipData(HeightmapMipRawData.Last(), MipIdx);
+			GetHeightmap()->Source.GetMipData(HeightmapMipRawData.Last(), MipIdx);
 			HeightmapMipData.Add((FColor*)HeightmapMipRawData.Last().GetData());
 		}
 	}
@@ -5482,8 +5492,8 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 
 		float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
 		float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
-		int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
-		int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+		int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)GetHeightmap()->Source.GetSizeX());
+		int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)GetHeightmap()->Source.GetSizeY());
 
 		DstVert->Position[0] = X;
 		DstVert->Position[1] = Y;
@@ -5497,7 +5507,7 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 
 		for (int32 Mip = 0; Mip < HeightmapMipData.Num(); ++Mip)
 		{
-			int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> Mip;
+			int32 MipSizeX = GetHeightmap()->Source.GetSizeX() >> Mip;
 
 			int32 CurrentMipOfsX = BaseMipOfsX >> Mip;
 			int32 CurrentMipOfsY = BaseMipOfsY >> Mip;
@@ -5551,14 +5561,14 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 			{
 				float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
 				float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
-				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
-				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)GetHeightmap()->Source.GetSizeX());
+				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)GetHeightmap()->Source.GetSizeY());
 
 				for (int32 y = 0; y <= LodSubsectionSizeQuads; y++)
 				{
 					for (int32 x = 0; x <= LodSubsectionSizeQuads; x++)
 					{
-						int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> OcclusionMeshMip;
+						int32 MipSizeX = GetHeightmap()->Source.GetSizeX() >> OcclusionMeshMip;
 
 						int32 CurrentMipOfsX = BaseMipOfsX >> OcclusionMeshMip;
 						int32 CurrentMipOfsY = BaseMipOfsY >> OcclusionMeshMip;
@@ -5812,19 +5822,19 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 
 	for (const ULandscapeComponent* Component : LandscapeComponentsToExport)
 	{
-		FTrianglePerMID* TrianglesPerMID = TrianglesPerHeightmap.Find(Component->HeightmapTexture);
+		FTrianglePerMID* TrianglesPerMID = TrianglesPerHeightmap.Find(Component->GetHeightmap());
 
 		if (TrianglesPerMID == nullptr)
 		{
 			FTrianglePerMID Data;
 			Data.HeightmapMID = UMaterialInstanceDynamic::Create(HeightmapRenderMaterial, this);
-			Data.HeightmapMID->SetTextureParameterValue(TEXT("Heightmap"), Component->HeightmapTexture);
+			Data.HeightmapMID->SetTextureParameterValue(TEXT("Heightmap"), Component->GetHeightmap());
 			Data.HeightmapMID->SetScalarParameterValue(TEXT("ExportHeightIntoRGChannel"), InExportHeightIntoRGChannel);
-			TrianglesPerMID = &TrianglesPerHeightmap.Add(Component->HeightmapTexture, Data);
+			TrianglesPerMID = &TrianglesPerHeightmap.Add(Component->GetHeightmap(), Data);
 		}
 
 		FIntPoint ComponentSectionBase = Component->GetSectionBase();
-		FIntPoint ComponentHeightmapTextureSize(Component->HeightmapTexture->Source.GetSizeX(), Component->HeightmapTexture->Source.GetSizeY());
+		FIntPoint ComponentHeightmapTextureSize(Component->GetHeightmap()->Source.GetSizeX(), Component->GetHeightmap()->Source.GetSizeY());
 		int32 SubsectionSizeVerts = Component->SubsectionSizeQuads + 1;
 		float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.X;
 		float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.Y;

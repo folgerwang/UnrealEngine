@@ -7,7 +7,7 @@
 #include "VoicePrivate.h"
 #include "VoicePackage.h"
 
-#if PLATFORM_SUPPORTS_VOICE_CAPTURE
+#if PLATFORM_SUPPORTS_OPUS_CODEC
 
 /** Number of entropy values to store in the encoder/decoder (similar to a CRC) */
 #define NUM_ENTROPY_VALUES 5
@@ -94,4 +94,4 @@ private:
 	uint8 LastGeneration;
 };
 
-#endif // PLATFORM_SUPPORTS_VOICE_CAPTURE
+#endif

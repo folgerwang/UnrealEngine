@@ -124,6 +124,9 @@ private:
 
 	/** Handle to the registered OnPropertyChangedHandle delegate. */
 	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };
 
 /**

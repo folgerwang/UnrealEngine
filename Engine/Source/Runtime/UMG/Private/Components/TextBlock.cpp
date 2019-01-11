@@ -7,6 +7,8 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/SInvalidationPanel.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -89,6 +91,15 @@ void UTextBlock::SetFont(FSlateFontInfo InFontInfo)
 	if (MyTextBlock.IsValid())
 	{
 		MyTextBlock->SetFont(Font);
+	}
+}
+
+void UTextBlock::SetStrikeBrush(FSlateBrush& InStrikeBrush)
+{
+	StrikeBrush = InStrikeBrush;
+	if (MyTextBlock.IsValid())
+	{
+		MyTextBlock->SetStrikeBrush(&StrikeBrush);
 	}
 }
 
@@ -179,8 +190,34 @@ TSharedRef<SWidget> UTextBlock::RebuildWidget()
 		MyTextBlock =
 			SNew(STextBlock)
 			.SimpleTextMode(bSimpleTextMode);
+
+		//if (IsDesignTime())
+		//{
+		//	return SNew(SOverlay)
+
+		//	+ SOverlay::Slot()
+		//	[
+		//		MyTextBlock.ToSharedRef()
+		//	]
+
+		//	+ SOverlay::Slot()
+		//	.VAlign(VAlign_Top)
+		//	.HAlign(HAlign_Right)
+		//	[
+		//		SNew(SImage)
+		//		.Image(FCoreStyle::Get().GetBrush("Icons.Warning"))
+		//		.Visibility_UObject(this, &ThisClass::GetTextWarningImageVisibility)
+		//		.ToolTipText(LOCTEXT("TextNotLocalizedWarningToolTip", "This text is marked as 'culture invariant' and won't be gathered for localization.\nYou can change this by editing the advanced text settings."))
+		//	];
+		//}
+		
 		return MyTextBlock.ToSharedRef();
 	}
+}
+
+EVisibility UTextBlock::GetTextWarningImageVisibility() const
+{
+	return Text.IsCultureInvariant() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void UTextBlock::OnBindingChanged(const FName& Property)
@@ -223,6 +260,7 @@ void UTextBlock::SynchronizeProperties()
 	{
 		MyTextBlock->SetText( TextBinding );
 		MyTextBlock->SetFont( Font );
+		MyTextBlock->SetStrikeBrush( &StrikeBrush );
 		MyTextBlock->SetColorAndOpacity( ColorAndOpacityBinding );
 		MyTextBlock->SetShadowOffset( ShadowOffset );
 		MyTextBlock->SetShadowColorAndOpacity( ShadowColorAndOpacityBinding );

@@ -62,6 +62,9 @@ class FOLIAGE_API UProceduralFoliageTile : public UObject
 	/** Removes all instances from the tile */
 	void RemoveInstances();
 
+	/** Empty arrays and sets */
+	void Empty();
+
 	/** Initializes the tile for simulation. Called automatically by Simulate, so only bother to call if the tile won't actually simulate. */
 	void InitSimulation(const UProceduralFoliageSpawner* InFoliageSpawner, const int32 InRandomSeed);
 
@@ -91,9 +94,6 @@ private:
 
 	/** Fills the InstancesArray by iterating through the contents of the InstancesSet */
 	void InstancesToArray();
-
-	/** Empty arrays and sets */
-	void Empty();
 
 	/** Run the simulation for the appropriate number of steps. 
 	 * @param bOnlyInShade Whether the simulation should run exclusively within existing shade from other instances

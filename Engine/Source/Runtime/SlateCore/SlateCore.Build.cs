@@ -32,8 +32,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Widgets",
 			});
 
-        PublicDefinitions.Add("SLATE_PARENT_POINTERS=1");
-
         if (Target.Type != TargetType.Server)
 		{
 			if (Target.bCompileFreeType)

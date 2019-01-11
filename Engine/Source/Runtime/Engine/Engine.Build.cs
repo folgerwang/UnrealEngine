@@ -183,6 +183,7 @@ public class Engine : ModuleRules
 				"MovieScene",
 				"MovieSceneCapture",
 				"MovieSceneTracks",
+				"LevelSequence",
 				"HeadMountedDisplay",
 				"MRMesh",
 				"StreamingPauseRendering",

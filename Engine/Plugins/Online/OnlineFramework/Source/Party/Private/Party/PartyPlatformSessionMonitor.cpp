@@ -28,12 +28,30 @@ static bool IsTencentPlatform()
 
 #if !UE_BUILD_SHIPPING
 
+static int32 ForcePlatformSessionFindFailure = 0;
+static FAutoConsoleVariableRef CVar_ForcePlatformSessionFindFailure(
+	TEXT("Party.PlatformSession.Find.ForceFail"),
+	ForcePlatformSessionFindFailure,
+	TEXT("Always fail to find platform sessions.\n")
+	TEXT("0: Do not force fail platform session finds (default).\n")
+	TEXT("1: Fail the find without attempting it.\n"),
+	ECVF_Cheat
+);
+
+static float PlatformSessionFindDelay = 0.f;
+static FAutoConsoleVariableRef CVar_PlatformSessionFindDelay(
+	TEXT("Party.PlatformSession.Find.Delay"),
+	PlatformSessionFindDelay,
+	TEXT("Simulated delay (in seconds) between beginning an attempt to find a platform session and actually making the call the OSS."),
+	ECVF_Cheat
+);
+
 static int32 ForcePlatformSessionCreationFailure = 0;
 static FAutoConsoleVariableRef CVar_ForcePlatformSessionCreationFailure(
 	TEXT("Party.PlatformSession.Create.ForceFail"),
 	ForcePlatformSessionCreationFailure,
-	TEXT("Always fail to create console sessions.\n")
-	TEXT("0: Do not force fail console session creates (default).\n")
+	TEXT("Always fail to create platform sessions.\n")
+	TEXT("0: Do not force fail platform session creates (default).\n")
 	TEXT("1: Fail the create without attempting it.\n"),
 	ECVF_Cheat
 );
@@ -50,10 +68,9 @@ static int32 ForcePlatformSessionJoinFailure = 0;
 static FAutoConsoleVariableRef CVar_ForcePlatformSessionJoinFailure(
 	TEXT("Party.PlatformSession.Join.ForceFail"),
 	ForcePlatformSessionJoinFailure,
-	TEXT("Always fail to join console sessions.\n")
-	TEXT("0: Do not force fail console session joins (default).\n")
-	TEXT("1: Use an invalid session id during the lookup step.\n")
-	TEXT("2: Simulate failing the join after the successful lookup.\n"),
+	TEXT("Always fail to join platform sessions.\n")
+	TEXT("0: Do not force fail platform session joins (default).\n")
+	TEXT("1: Force fail the join without attempting it.\n"),
 	ECVF_Cheat
 );
 
@@ -167,6 +184,33 @@ bool FPartyPlatformSessionManager::FindSessionInternal(const FSessionId& Session
 		const FUniqueNetIdRepl& LocalUserPlatformId = GetLocalUserPlatformId();
 		if (ensure(LocalUserPlatformId.IsValid()))
 		{
+#if !UE_BUILD_SHIPPING
+			float DelaySeconds = FMath::Max(0.f, PlatformSessionFindDelay);
+			if (DelaySeconds > 0.f || ForcePlatformSessionFindFailure != 0)
+			{
+				UE_LOG(LogParty, Warning, TEXT("PartyPlatformSessionMonitor adding artificial delay of %0.2fs to session find attempt"), DelaySeconds);
+
+				TWeakPtr<FPartyPlatformSessionManager> AsWeakPtr = SharedThis(this);
+				FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+					[AsWeakPtr, SessionId, SessionOwnerId, LocalUserPlatformId, OnAttemptComplete, this](float)
+					{
+						if (AsWeakPtr.IsValid())
+						{
+							if (ForcePlatformSessionFindFailure != 0)
+							{
+								UE_LOG(LogParty, Warning, TEXT("Forcing session find failure"));
+								ProcessCompletedSessionSearch(SocialManager.GetFirstLocalUserNum(), false, FOnlineSessionSearchResult(), SessionId, SessionOwnerId, OnAttemptComplete);
+							}
+							else
+							{
+								GetSessionInterface()->FindSessionById(*LocalUserPlatformId, FUniqueNetIdString(SessionId), *LocalUserPlatformId, FOnSingleSessionResultCompleteDelegate::CreateSP(this, &FPartyPlatformSessionManager::HandleFindSessionByIdComplete, SessionId, SessionOwnerId, OnAttemptComplete));
+							}
+						}
+						return false; // Don't retick
+					}), DelaySeconds);
+				return ForcePlatformSessionFindFailure != 0;
+			}
+#endif
 			// Always start by trying to find the session directly by ID
 			const IOnlineSessionPtr& SessionInterface = GetSessionInterface();
 			return SessionInterface->FindSessionById(*LocalUserPlatformId, FUniqueNetIdString(SessionId), *LocalUserPlatformId, FOnSingleSessionResultCompleteDelegate::CreateSP(this, &FPartyPlatformSessionManager::HandleFindSessionByIdComplete, SessionId, SessionOwnerId, OnAttemptComplete));
@@ -209,7 +253,7 @@ void FPartyPlatformSessionManager::HandleFindSessionByIdComplete(int32 LocalUser
 	}
 }
 
-void FPartyPlatformSessionManager::ProcessCompletedSessionSearch(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& FoundSession, const FSessionId& SessionId, const FUniqueNetIdRepl& SessionOwnerId, FOnFindSessionAttemptComplete& OnAttemptComplete)
+void FPartyPlatformSessionManager::ProcessCompletedSessionSearch(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& FoundSession, const FSessionId& SessionId, const FUniqueNetIdRepl& SessionOwnerId, const FOnFindSessionAttemptComplete& OnAttemptComplete)
 {
 #if PLATFORM_PS4
 	bHasAlreadyRequeriedPSNFriends = false;
@@ -673,15 +717,7 @@ void FPartyPlatformSessionMonitor::HandleCreateSessionComplete(FName SessionName
 
 	if (bWasSuccessful)
 	{
-#if PLATFORM_PS4
-		// Need to queue an immediate update of the newly created session to PUT the ChangeableSessionData
-		QueuePlatformSessionUpdate();
-#endif
-
 		SessionInitTracker.CompleteStep(Step_CreateSession);
-
-		const FUniqueNetIdRepl LocalUserPlatformId = SessionManager->GetLocalUserPlatformId();
-		SessionInterface->RegisterPlayer(SessionName, *LocalUserPlatformId, false);
 
 		if (MonitoredParty.IsValid())
 		{
@@ -691,6 +727,17 @@ void FPartyPlatformSessionMonitor::HandleCreateSessionComplete(FName SessionName
 			const FNamedOnlineSession* Session = SessionInterface->GetNamedSession(PartySessionName);
 			const FSessionId PlatformSessionId = ensure(Session) ? Session->GetSessionIdStr() : FSessionId();
 			MonitoredParty->GetOwningLocalMember().GetMutableRepData().SetPlatformSessionId(PlatformSessionId);
+
+#if PLATFORM_PS4
+			// Need to queue an immediate update of the newly created session to PUT the ChangeableSessionData
+			QueuePlatformSessionUpdate();
+#endif
+
+			const FUniqueNetIdRepl LocalUserPlatformId = SessionManager->GetLocalUserPlatformId();
+			if (LocalUserPlatformId.IsValid())
+			{
+				SessionInterface->RegisterPlayer(SessionName, *LocalUserPlatformId, false);
+			}
 		}
 		
 		OnSessionEstablished.ExecuteIfBound();
@@ -874,7 +921,6 @@ bool FPartyPlatformSessionMonitor::ConfigurePlatformSessionSettings(FOnlineSessi
 			// Xbox needs this false for privacy of session on dashboard
 			SessionSettings.bUsesPresence = false;
 #else
-			// Needed on PC for Tencent OSS, PS4 doesn't care about this setting at all
 			SessionSettings.bUsesPresence = true;
 #endif
 			SessionSettings.NumPublicConnections = 0;

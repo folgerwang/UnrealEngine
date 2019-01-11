@@ -29,7 +29,9 @@ public:
 	virtual void                          SetVerb(const FString& Verb) override                                    { HttpRequest->SetVerb(Verb); }
 	virtual void                          SetURL(const FString& URL) override                                      { HttpRequest->SetURL(URL); }
 	virtual void                          SetContent(const TArray<uint8>& ContentPayload) override                 { HttpRequest->SetContent(ContentPayload); }
-	virtual void                          SetContentAsString(const FString& ContentString) override                 { HttpRequest->SetContentAsString(ContentString); }
+	virtual void                          SetContentAsString(const FString& ContentString) override                { HttpRequest->SetContentAsString(ContentString); }
+    virtual bool                          SetContentAsStreamedFile(const FString& Filename) override               { return HttpRequest->SetContentAsStreamedFile(Filename); }
+	virtual bool                          SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override { return HttpRequest->SetContentFromStream(Stream); }
 	virtual void                          SetHeader(const FString& HeaderName, const FString& HeaderValue) override { HttpRequest->SetHeader(HeaderName, HeaderValue); }
 	virtual void                          AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override { HttpRequest->AppendToHeader(HeaderName, AdditionalHeaderValue); }
 	virtual const FHttpResponsePtr        GetResponse() const override                                             { return HttpRequest->GetResponse(); }

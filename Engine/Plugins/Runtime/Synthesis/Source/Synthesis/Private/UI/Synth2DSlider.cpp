@@ -150,7 +150,7 @@ void USynth2DSlider::SetSliderHandleColor(FLinearColor InValue)
 
 const FText USynth2DSlider::GetPaletteCategory()
 {
-	return LOCTEXT("Common", "Common");
+	return LOCTEXT("Synth", "Synth");
 }
 
 #endif

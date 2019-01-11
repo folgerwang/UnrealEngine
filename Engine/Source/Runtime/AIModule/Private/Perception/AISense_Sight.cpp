@@ -593,10 +593,11 @@ void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Liste
 	const uint32 ListenerId = Listener.GetListenerID();
 	bool bQueriesRemoved = false;
 	
-	const FAISightQuery* SightQuery = &SightQueryQueue[SightQueryQueue.Num() - 1];
-	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex, --SightQuery)
+	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex)
 	{
-		if (SightQuery->ObserverId == ListenerId)
+		const FAISightQuery& SightQuery = SightQueryQueue[QueryIndex];
+
+		if (SightQuery.ObserverId == ListenerId)
 		{
 			SightQueryQueue.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
 			bQueriesRemoved = true;
@@ -620,10 +621,11 @@ void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& T
 
 	bool bQueriesRemoved = false;
 
-	const FAISightQuery* SightQuery = &SightQueryQueue[SightQueryQueue.Num() - 1];
-	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex, --SightQuery)
+	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0; --QueryIndex)
 	{
-		if (SightQuery->TargetId == TargetId)
+		const FAISightQuery& SightQuery = SightQueryQueue[QueryIndex];
+
+		if (SightQuery.TargetId == TargetId)
 		{
 			SightQueryQueue.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
 			bQueriesRemoved = true;

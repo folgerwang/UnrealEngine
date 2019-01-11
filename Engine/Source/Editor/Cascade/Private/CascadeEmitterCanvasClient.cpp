@@ -1480,7 +1480,6 @@ void FCascadeEmitterCanvasClient::DrawDraggedModule(UParticleModule* Module, FVi
 	int32 TargetIndex = INDEX_NONE;
 	FindDesiredModulePosition(MousePos, TargetEmitter, TargetIndex);
 
-	MousePos += Origin2D;
 	// When dragging, draw the module under the mouse cursor.
 	FVector Translate = FVector(MousePos.X +MouseHoldOffset.X, MousePos.Y+ MouseHoldOffset.Y, 0)/GetDPIScale();
 

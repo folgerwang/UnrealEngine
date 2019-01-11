@@ -1165,7 +1165,7 @@ void UClientUnitTest::StartUnitTestServer()
 			ServerParameters += FString::Printf(TEXT(" -BeaconPort=%i -NUTMonitorBeacon"), ServerBeaconPort);
 		}
 
-		ServerHandle = StartUE4UnitTestProcess(ServerParameters);
+		ServerHandle = StartUE4UnitTestProcess(ServerParameters, true, EBuildTargets::Server);
 
 		if (ServerHandle.IsValid())
 		{

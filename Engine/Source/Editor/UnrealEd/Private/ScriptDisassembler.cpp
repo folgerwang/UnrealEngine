@@ -429,6 +429,27 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			DropIndent();
 			break;
 		}
+	case EX_LocalVirtualFunction:
+		{
+			FString FunctionName = ReadName(ScriptIndex);
+			Ar.Logf(TEXT("%s $%X: Local Virtual Script Function named %s"), *Indents, (int32)Opcode, *FunctionName);
+
+			while (SerializeExpr(ScriptIndex) != EX_EndFunctionParms)
+			{
+			}
+			break;
+		}
+	case EX_LocalFinalFunction:
+		{
+			UStruct* StackNode = ReadPointer<UStruct>(ScriptIndex);
+			Ar.Logf(TEXT("%s $%X: Local Final Script Function (stack node %s::%s)"), *Indents, (int32)Opcode, StackNode ? *StackNode->GetOuter()->GetName() : TEXT("(null)"), StackNode ? *StackNode->GetName() : TEXT("(null)"));
+
+			while (SerializeExpr( ScriptIndex ) != EX_EndFunctionParms)
+			{
+				// Params
+			}
+			break;
+		}
 	case EX_LetMulticastDelegate:
 		{
 			Ar.Logf(TEXT("%s $%X: LetMulticastDelegate (Variable = Expression)"), *Indents, (int32)Opcode);

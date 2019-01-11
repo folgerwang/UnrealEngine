@@ -135,16 +135,12 @@ public:
 		if (Owner) 
 		{ 
 			Owner->InvalidatePrepass();
-		}
-#if SLATE_PARENT_POINTERS
-		if (Owner)
-		{
+
 			if (InWidget.IsValid() && InWidget != SNullWidget::NullWidget)
 			{
 				InWidget->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
 	}
 
 	TSharedRef<SWidget> GetWidget() const
@@ -396,26 +392,24 @@ public:
 
 	int32 Add( const TSharedRef<ChildType>& Child )
 	{
-		if (Owner && bChangesInvalidatePrepass)
-		{ 
-			Owner->InvalidatePrepass(); 
-		}
-
-#if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
+			if(bChangesInvalidatePrepass)
+			{
+				Owner->InvalidatePrepass();
+			}
+
 			if (Child != SNullWidget::NullWidget)
 			{
 				Child->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
+
 		return TArray< TSharedRef<ChildType> >::Add(Child);
 	}
 
 	void Empty()
 	{
-#if SLATE_PARENT_POINTERS
 		for (int ChildIndex = 0; ChildIndex < TArray< TSharedRef<ChildType> >::Num(); ChildIndex++)
 		{
 			TSharedRef<SWidget> Child = GetChildAt(ChildIndex);
@@ -424,50 +418,46 @@ public:
 				Child->ConditionallyDetatchParentWidget(Owner);
 			}
 		}
-#endif
 
 		TArray< TSharedRef<ChildType> >::Empty();
 	}
 
 	void Insert(const TSharedRef<ChildType>& Child, int32 Index)
 	{
-		if (Owner && bChangesInvalidatePrepass) 
-		{ 
-			Owner->InvalidatePrepass();
-		}
-#if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
+			if(bChangesInvalidatePrepass)
+			{
+				Owner->InvalidatePrepass();
+			}
+		
 			if (Child != SNullWidget::NullWidget)
 			{
 				Child->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
+
 		TArray< TSharedRef<ChildType> >::Insert(Child, Index);
 	}
 
 	int32 Remove( const TSharedRef<ChildType>& Child )
 	{
-#if SLATE_PARENT_POINTERS
 		if (Child != SNullWidget::NullWidget)
 		{
 			Child->ConditionallyDetatchParentWidget(Owner);
 		}
-#endif
+
 		const int32 NumFoundAndRemoved = TArray< TSharedRef<ChildType> >::Remove( Child );
 		return NumFoundAndRemoved;
 	}
 
 	void RemoveAt( int32 Index )
 	{
-#if SLATE_PARENT_POINTERS
 		TSharedRef<SWidget> Child = GetChildAt(Index);
 		if (Child != SNullWidget::NullWidget)
 		{
 			Child->ConditionallyDetatchParentWidget(Owner);
 		}
-#endif
 
 		TArray< TSharedRef<ChildType> >::RemoveAt( Index );
 	}

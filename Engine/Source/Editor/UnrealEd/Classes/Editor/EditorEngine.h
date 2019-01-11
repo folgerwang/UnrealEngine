@@ -634,6 +634,13 @@ public:
 	/** The feature level we should use when loading or creating a new world */
 	ERHIFeatureLevel::Type DefaultWorldFeatureLevel;
 
+	/** The feature level we should use when loading or creating a new world */
+	ERHIFeatureLevel::Type PreviewFeatureLevel;
+
+	/** A delegate that is called when the preview feature level changes. Primarily used to switch a viewport's feature level. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPreviewFeatureLevelChanged, ERHIFeatureLevel::Type);
+	FPreviewFeatureLevelChanged PreviewFeatureLevelChanged;
+
 	/** Whether or not the editor is currently compiling */
 	bool bIsCompiling;
 
@@ -1834,6 +1841,11 @@ public:
 	TSharedRef<class FTimerManager> GetTimerManager() { return TimerManager.ToSharedRef(); }
 
 	/**
+	 *  Returns true if the editors timer manager is valid (may not be during early startup);
+	 */
+	bool IsTimerManagerValid() { return TimerManager.IsValid(); }
+
+	/**
 	*  Returns the Editors world manager instance.
 	*/
 	UEditorWorldExtensionManager* GetEditorWorldExtensionsManager() { return EditorWorldExtensionsManager; }
@@ -2988,7 +3000,19 @@ public:
 	void OnSceneMaterialsModified();
 
 	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
-	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings = true);
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings = true);
+
+	/** Toggle the feature level preview */
+	void ToggleFeatureLevelPreview();
+
+	/** Return whether the feature level preview is able to be enabled */
+	bool IsFeatureLevelPreviewEnabled() const;
+
+	/** Return whether the feature level preview is currently active */
+	bool IsFeatureLevelPreviewActive() const;
+
+	/** Return the delegate that is called when the preview feature level changes */
+	FPreviewFeatureLevelChanged& OnPreviewFeatureLevelChanged() { return PreviewFeatureLevelChanged; }
 
 protected:
 	/** Call this function to change the feature level of the editor and PIE worlds */

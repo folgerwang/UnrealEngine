@@ -31,6 +31,9 @@ UExponentialHeightFogComponent::UExponentialHeightFogComponent(const FObjectInit
 
 	FogDensity = 0.02f;
 	FogHeightFalloff = 0.2f;
+	// No influence from the second fog as default
+	SecondFogData.FogDensity = 0.0f;
+
 	FogMaxOpacity = 1.0f;
 	StartDistance = 0.0f;
 
@@ -46,7 +49,7 @@ UExponentialHeightFogComponent::UExponentialHeightFogComponent(const FObjectInit
 
 void UExponentialHeightFogComponent::AddFogIfNeeded()
 {
-	if (ShouldComponentAddToScene() && ShouldRender() && IsRegistered() && FogDensity * 1000 > DELTA && FogMaxOpacity > DELTA
+	if (ShouldComponentAddToScene() && ShouldRender() && IsRegistered() && ((FogDensity + SecondFogData.FogDensity) * 1000) > DELTA && FogMaxOpacity > DELTA
 		&& (GetOuter() == NULL || !GetOuter()->HasAnyFlags(RF_ClassDefaultObject)))
 	{
 		GetWorld()->Scene->AddExponentialHeightFog(this);
@@ -102,6 +105,7 @@ bool UExponentialHeightFogComponent::CanEditChange(const UProperty* InProperty) 
 
 void UExponentialHeightFogComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	SecondFogData.ClampToValidRanges();
 	FogDensity = FMath::Clamp(FogDensity, 0.0f, 10.0f);
 	FogHeightFalloff = FMath::Clamp(FogHeightFalloff, 0.0f, 2.0f);
 	FogMaxOpacity = FMath::Clamp(FogMaxOpacity, 0.0f, 1.0f);

@@ -125,6 +125,8 @@ int32 UDiffAssetRegistriesCommandlet::Main(const FString& FullCommandLine)
 	FParse::Value(*FullCommandLine, TEXT("MinChangeSize="), MinChangeSizeMB);
 	FParse::Value(*FullCommandLine, TEXT("ChunkID="), DiffChunkID);
 	FParse::Value(*FullCommandLine, TEXT("WarnPercentage="), WarnPercentage);
+	FParse::Value(*FullCommandLine, TEXT("WarnSizeMin="), WarnSizeMinMB);
+	FParse::Value(*FullCommandLine, TEXT("WarnTotalChangedSize="), WarnTotalChangedSizeMB);
 
 	FString OldPath;
 	FString NewPath;
@@ -1190,7 +1192,8 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 		
 		// Warn on a certain % of changes if that's enabled
 		if (Changes.Changes >= 10
-			&& WarnPercentage > 0
+			&& (WarnPercentage > 0 || WarnSizeMinMB > 0)
+			&& Changes.ChangedBytes * InvToMB >= WarnSizeMinMB
 			&& Changes.GetChangePercentage() * 100.0 > WarnPercentage)
 		{
 			UE_LOG(LogDiffAssets, Warning, TEXT("\t%s Assets for %s are %.02f%% changed. (%.02f MB of data)"),
@@ -1258,6 +1261,13 @@ void UDiffAssetRegistriesCommandlet::DiffAssetRegistries(const FString& OldPath,
 	UE_LOG(LogDiffAssets, Display, TEXT("Nondeterministic summary:"));
 	UE_LOG(LogDiffAssets, Display, TEXT("direct   %d total packages modified, %8.3f MB"), NondeterministicSummary.Changes, NondeterministicSummary.ChangedBytes * InvToMB);
 	UE_LOG(LogDiffAssets, Display, TEXT("indirect %d total packages modified, %8.3f MB"), IndirectNondeterministicSummary.Changes, IndirectNondeterministicSummary.ChangedBytes * InvToMB);
+
+	//Warn when meeting or exceeding a certain total changed size, if that's enabled
+	if (WarnTotalChangedSizeMB > 0
+		&& ChangeSummary.ChangedBytes * InvToMB >= WarnTotalChangedSizeMB)
+	{
+		UE_LOG(LogDiffAssets, Warning, TEXT("Total Changed Bytes exceeded %d MB! (%8.3f MB)"), WarnTotalChangedSizeMB, ChangeSummary.ChangedBytes * InvToMB);
+	}
 
 	if (CSVFile)
 	{

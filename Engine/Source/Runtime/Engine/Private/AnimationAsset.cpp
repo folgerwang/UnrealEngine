@@ -567,6 +567,22 @@ const TArray<UAssetUserData*>* UAnimationAsset::GetAssetUserDataArray() const
 {
 	return &AssetUserData;
 }
+
+#if WITH_EDITOR
+void UAnimationAsset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //
 // FBlendSampleData

@@ -13,6 +13,10 @@
 
 class FVulkanCommandBufferPool;
 
+// (AlwaysCompareData == true) because of CRC-32 hash collisions
+class FVulkanDSetKey : public TDataKey<FVulkanDSetKey, true> {};
+class FVulkanDSetsKey : public TDataKey<FVulkanDSetsKey, true> {};
+
 struct FUniformBufferGatherInfo
 {
 	FUniformBufferGatherInfo()
@@ -274,6 +278,43 @@ public:
 	struct FSetLayout
 	{
 		TArray<VkDescriptorSetLayoutBinding> LayoutBindings;
+		uint32 Hash;
+
+		inline void GenerateHash()
+		{
+			Hash = FCrc::MemCrc32(LayoutBindings.GetData(), sizeof(VkDescriptorSetLayoutBinding) * LayoutBindings.Num());
+		}
+
+		friend uint32 GetTypeHash(const FSetLayout& In)
+		{
+			return In.Hash;
+		}
+
+		inline bool operator == (const FSetLayout& In) const
+		{
+			if (In.Hash != Hash)
+			{
+				return false;
+			}
+
+			const int32 NumBindings = LayoutBindings.Num();
+			if (In.LayoutBindings.Num() != NumBindings)
+			{
+				return false;
+			}
+
+			if (NumBindings != 0 && FMemory::Memcmp(In.LayoutBindings.GetData(), LayoutBindings.GetData(), NumBindings * sizeof(VkDescriptorSetLayoutBinding)) != 0)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		inline bool operator != (const FSetLayout& In) const
+		{
+			return !(*this == In);
+		}
 	};
 
 	const TArray<FSetLayout>& GetLayouts() const
@@ -295,6 +336,11 @@ public:
 
 	inline bool operator == (const FVulkanDescriptorSetsLayoutInfo& In) const
 	{
+		if (In.Hash != Hash)
+		{
+			return false;
+		}
+
 		if (In.SetLayouts.Num() != SetLayouts.Num())
 		{
 			return false;
@@ -307,13 +353,7 @@ public:
 
 		for (int32 Index = 0; Index < In.SetLayouts.Num(); ++Index)
 		{
-			int32 NumBindings = SetLayouts[Index].LayoutBindings.Num();
-			if (In.SetLayouts[Index].LayoutBindings.Num() != NumBindings)
-			{
-				return false;
-			}
-
-			if (NumBindings != 0 && FMemory::Memcmp(In.SetLayouts[Index].LayoutBindings.GetData(), SetLayouts[Index].LayoutBindings.GetData(), NumBindings * sizeof(VkDescriptorSetLayoutBinding)) != 0)
+			if (In.SetLayouts[Index] != SetLayouts[Index])
 			{
 				return false;
 			}
@@ -366,12 +406,19 @@ protected:
 	FDescriptorSetRemappingInfo	RemappingInfo;
 
 	friend class FVulkanPipelineStateCacheManager;
-	friend class FVulkanGraphicsPipelineDescriptorState;
-	friend class FVulkanComputePipelineDescriptorState;
+	friend class FVulkanCommonPipelineDescriptorState;
 	friend class FVulkanGfxPipelineDescriptorInfo;
 	friend class FVulkanComputePipelineDescriptorInfo;
 	friend class FVulkanLayout;
 };
+
+struct FVulkanDescriptorSetLayoutEntry
+{
+	VkDescriptorSetLayout Handle = 0;
+	uint32 HandleId = 0;
+};
+
+using FVulkanDescriptorSetLayoutMap = TMap<FVulkanDescriptorSetsLayoutInfo::FSetLayout, FVulkanDescriptorSetLayoutEntry>;
 
 // The actual run-time descriptor set layouts
 class FVulkanDescriptorSetsLayout : public FVulkanDescriptorSetsLayoutInfo
@@ -381,11 +428,16 @@ public:
 	~FVulkanDescriptorSetsLayout();
 
 	// Can be called only once, the idea is that the Layout remains fixed.
-	void Compile();
+	void Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap);
 
 	inline const TArray<VkDescriptorSetLayout>& GetHandles() const
 	{
 		return LayoutHandles;
+	}
+
+	inline const TArray<uint32>& GetHandleIds() const
+	{
+		return LayoutHandleIds;
 	}
 
 	inline const VkDescriptorSetAllocateInfo& GetAllocateInfo() const
@@ -402,6 +454,7 @@ private:
 	FVulkanDevice* Device;
 	//uint32 Hash = 0;
 	TArray<VkDescriptorSetLayout> LayoutHandles;
+	TArray<uint32> LayoutHandleIds;
 	VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo;
 };
 
@@ -579,10 +632,39 @@ private:
 	TArray<FVulkanDescriptorPoolSetContainer*> PoolSets;
 };
 
+union FVulkanHashableDescriptorInfo
+{
+	struct
+	{
+		uint32 Max0;
+		uint32 Max1;
+		uint32 LayoutId;
+	} Layout;
+	struct
+	{
+		uint32 Id;
+		uint32 Offset;
+		uint32 Range;
+	} Buffer;
+	struct
+	{
+		uint32 SamplerId;
+		uint32 ImageViewId;
+		uint32 ImageLayout;
+	} Image;
+	struct
+	{
+		uint32 Id;
+		uint32 Zero1;
+		uint32 Zero2;
+	} BufferView;
+};
+
 // This container holds the actual VkWriteDescriptorSet structures; a Compute pipeline uses the arrays 'as-is', whereas a 
 // Gfx PSO will have one big array and chunk it depending on the stage (eg Vertex, Pixel).
 struct FVulkanDescriptorSetWriteContainer
 {
+	TArray<FVulkanHashableDescriptorInfo> HashableDescriptorInfo;
 	TArray<VkDescriptorImageInfo> DescriptorImageInfo;
 	TArray<VkDescriptorBufferInfo> DescriptorBufferInfo;
 	TArray<VkWriteDescriptorSet> DescriptorWrites;
@@ -778,7 +860,7 @@ protected:
 		DescriptorSetLayout.ProcessBindingsForStage(StageFlags, DescSet, CodeHeader, OutUBGatherInfo);
 	}
 
-	void Compile();
+	void Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap);
 
 	friend class FVulkanComputePipeline;
 	friend class FVulkanGfxPipeline;
@@ -841,106 +923,99 @@ public:
 		, BindingToDynamicOffsetMap(nullptr)
 		, DynamicOffsets(nullptr)
 		, NumWrites(0)
+		, HashableDescriptorInfos(nullptr)
+		, bIsKeyDirty(true)
 	{
 	}
 
-	bool WriteUniformBuffer(uint32 DescriptorIndex, VkBuffer Buffer, VkDeviceSize Offset, VkDeviceSize Range)
+	const FVulkanDSetKey& GetKey() const
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-		VkDescriptorBufferInfo* BufferInfo = const_cast<VkDescriptorBufferInfo*>(WriteDescriptors[DescriptorIndex].pBufferInfo);
-		check(BufferInfo);
-		bool bChanged = CopyAndReturnNotEqual(BufferInfo->buffer, Buffer);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->offset, Offset);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->range, Range);
-		return bChanged;
+		check(UseVulkanDescriptorCache());
+		if (bIsKeyDirty)
+		{
+			Key.GenerateFromData(HashableDescriptorInfos, sizeof(FVulkanHashableDescriptorInfo) * (NumWrites + 1)); // Add 1 for the Layout
+			bIsKeyDirty = false;
+		}
+		return Key;
 	}
 
-	bool WriteDynamicUniformBuffer(uint32 DescriptorIndex, VkBuffer Buffer, VkDeviceSize Offset, VkDeviceSize Range, uint32 DynamicOffset)
+	const VkWriteDescriptorSet* GetWriteDescriptors() const
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-		VkDescriptorBufferInfo* BufferInfo = const_cast<VkDescriptorBufferInfo*>(WriteDescriptors[DescriptorIndex].pBufferInfo);
-		check(BufferInfo);
-		bool bChanged = CopyAndReturnNotEqual(BufferInfo->buffer, Buffer);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->offset, Offset);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->range, Range);
-		const uint8 DynamicOffsetIndex = BindingToDynamicOffsetMap[DescriptorIndex];
-		DynamicOffsets[DynamicOffsetIndex] = DynamicOffset;
-		return bChanged;
+		return WriteDescriptors;
 	}
 
-	bool WriteSampler(uint32 DescriptorIndex, VkSampler Sampler)
+	const uint32 GetNumWrites() const
+	{
+		return NumWrites;
+	}
+
+	bool WriteUniformBuffer(uint32 DescriptorIndex, const FBufferAllocation& BufferAllocation, VkDeviceSize Offset, VkDeviceSize Range)
+	{
+		return WriteBuffer<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER>(DescriptorIndex, BufferAllocation, Offset, Range);
+	}
+
+	bool WriteDynamicUniformBuffer(uint32 DescriptorIndex, const FBufferAllocation& BufferAllocation, VkDeviceSize Offset, VkDeviceSize Range, uint32 DynamicOffset)
+	{
+		return WriteBuffer<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC>(DescriptorIndex, BufferAllocation, Offset, Range, DynamicOffset);
+	}
+
+	bool WriteSampler(uint32 DescriptorIndex, const FVulkanSamplerState& Sampler)
 	{
 		check(DescriptorIndex < NumWrites);
 		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		VkDescriptorImageInfo* ImageInfo = const_cast<VkDescriptorImageInfo*>(WriteDescriptors[DescriptorIndex].pImageInfo);
 		check(ImageInfo);
-		bool bChanged = CopyAndReturnNotEqual(ImageInfo->sampler, Sampler);
+		
+		bool bChanged = false;
+		if (UseVulkanDescriptorCache())
+		{
+			
+			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			check(Sampler.SamplerId > 0);
+			if (HeshableInfo.Image.SamplerId != Sampler.SamplerId)
+			{
+				HeshableInfo.Image.SamplerId = Sampler.SamplerId;
+				ImageInfo->sampler = Sampler.Sampler;
+				bChanged = true;
+			}
+			bIsKeyDirty |= bChanged;
+		}
+		else
+		{
+			bChanged = CopyAndReturnNotEqual(ImageInfo->sampler, Sampler.Sampler);
+		}
+
 		return bChanged;
 	}
 
-	bool WriteImage(uint32 DescriptorIndex, VkImageView ImageView, VkImageLayout Layout)
+	bool WriteImage(uint32 DescriptorIndex, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		VkDescriptorImageInfo* ImageInfo = const_cast<VkDescriptorImageInfo*>(WriteDescriptors[DescriptorIndex].pImageInfo);
-		check(ImageInfo);
-		bool bChanged = CopyAndReturnNotEqual(ImageInfo->imageView, ImageView);
-		bChanged |= CopyAndReturnNotEqual(ImageInfo->imageLayout, Layout);
-		return bChanged;
+		return WriteTextureView<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(DescriptorIndex, TextureView, Layout);
 	}
 
-	bool WriteInputAttachment(uint32 DescriptorIndex, VkImageView ImageView, VkImageLayout Layout)
+	bool WriteInputAttachment(uint32 DescriptorIndex, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
-		VkDescriptorImageInfo* ImageInfo = const_cast<VkDescriptorImageInfo*>(WriteDescriptors[DescriptorIndex].pImageInfo);
-		check(ImageInfo);
-		bool bChanged = CopyAndReturnNotEqual(ImageInfo->imageView, ImageView);
-		bChanged |= CopyAndReturnNotEqual(ImageInfo->imageLayout, Layout);
-		return bChanged;
+		return WriteTextureView<VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT>(DescriptorIndex, TextureView, Layout);
 	}
 
-	bool WriteStorageImage(uint32 DescriptorIndex, VkImageView ImageView, VkImageLayout Layout)
+	bool WriteStorageImage(uint32 DescriptorIndex, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		VkDescriptorImageInfo* ImageInfo = const_cast<VkDescriptorImageInfo*>(WriteDescriptors[DescriptorIndex].pImageInfo);
-		check(ImageInfo);
-		bool bChanged = CopyAndReturnNotEqual(ImageInfo->imageView, ImageView);
-		bChanged |= CopyAndReturnNotEqual(ImageInfo->imageLayout, Layout);
-		return bChanged;
+		return WriteTextureView<VK_DESCRIPTOR_TYPE_STORAGE_IMAGE>(DescriptorIndex, TextureView, Layout);
 	}
 
-	bool WriteStorageTexelBuffer(uint32 DescriptorIndex, FVulkanBufferView* View)
+	bool WriteStorageTexelBuffer(uint32 DescriptorIndex, const FVulkanBufferView* View)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
-		WriteDescriptors[DescriptorIndex].pTexelBufferView = &View->View;
-		BufferViewReferences[DescriptorIndex] = View;
-		return true;
+		return WriteBufferView<VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER>(DescriptorIndex, View);
 	}
 
-	bool WriteStorageBuffer(uint32 DescriptorIndex, VkBuffer Buffer, VkDeviceSize Offset, VkDeviceSize Range)
+	bool WriteStorageBuffer(uint32 DescriptorIndex, const FBufferAllocation& BufferAllocation, VkDeviceSize Offset, VkDeviceSize Range)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
-		VkDescriptorBufferInfo* BufferInfo = const_cast<VkDescriptorBufferInfo*>(WriteDescriptors[DescriptorIndex].pBufferInfo);
-		check(BufferInfo);
-		bool bChanged = CopyAndReturnNotEqual(BufferInfo->buffer, Buffer);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->offset, Offset);
-		bChanged |= CopyAndReturnNotEqual(BufferInfo->range, Range);
-		return bChanged;
+		return WriteBuffer<VK_DESCRIPTOR_TYPE_STORAGE_BUFFER>(DescriptorIndex, BufferAllocation, Offset, Range);
 	}
 
-	bool WriteUniformTexelBuffer(uint32 DescriptorIndex, FVulkanBufferView* View)
+	bool WriteUniformTexelBuffer(uint32 DescriptorIndex, const FVulkanBufferView* View)
 	{
-		check(DescriptorIndex < NumWrites);
-		check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
-		WriteDescriptors[DescriptorIndex].pTexelBufferView = &View->View;
-		BufferViewReferences[DescriptorIndex] = View;
-		return true;
+		return WriteBufferView<VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER>(DescriptorIndex, View);
 	}
 
 	void ClearBufferView(uint32 DescriptorIndex)
@@ -957,6 +1032,132 @@ public:
 	}
 
 protected:
+	template <VkDescriptorType DescriptorType>
+	bool WriteBuffer(uint32 DescriptorIndex, const FBufferAllocation& BufferAllocation, VkDeviceSize Offset, VkDeviceSize Range, uint32 DynamicOffset = 0)
+	{
+		check(DescriptorIndex < NumWrites);
+		if (DescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		{
+			check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
+		}
+		else
+		{
+			check(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType);
+		}
+		VkDescriptorBufferInfo* BufferInfo = const_cast<VkDescriptorBufferInfo*>(WriteDescriptors[DescriptorIndex].pBufferInfo);
+		check(BufferInfo);
+		
+		bool bChanged = false;
+		if (UseVulkanDescriptorCache())
+		{
+			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			check(BufferAllocation.GetHandleId() > 0);
+			if (HeshableInfo.Buffer.Id != BufferAllocation.GetHandleId())
+			{
+				HeshableInfo.Buffer.Id = BufferAllocation.GetHandleId();
+				BufferInfo->buffer = BufferAllocation.GetHandle();
+				bChanged = true;
+			}
+			if (HeshableInfo.Buffer.Offset != static_cast<uint32>(Offset))
+			{
+				HeshableInfo.Buffer.Offset = static_cast<uint32>(Offset);
+				BufferInfo->offset = Offset;
+				bChanged = true;
+			}
+			if (HeshableInfo.Buffer.Range != static_cast<uint32>(Range))
+			{
+				HeshableInfo.Buffer.Range = static_cast<uint32>(Range);
+				BufferInfo->range = Range;
+				bChanged = true;
+			}
+			bIsKeyDirty |= bChanged;
+		}
+		else
+		{
+			bChanged = CopyAndReturnNotEqual(BufferInfo->buffer, BufferAllocation.GetHandle());
+			bChanged |= CopyAndReturnNotEqual(BufferInfo->offset, Offset);
+			bChanged |= CopyAndReturnNotEqual(BufferInfo->range, Range);
+		}
+
+		if (DescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+		{
+			const uint8 DynamicOffsetIndex = BindingToDynamicOffsetMap[DescriptorIndex];
+			DynamicOffsets[DynamicOffsetIndex] = DynamicOffset;
+		}
+		return bChanged;
+	}
+
+	template <VkDescriptorType DescriptorType>
+	bool WriteTextureView(uint32 DescriptorIndex, const FVulkanTextureView& TextureView, VkImageLayout Layout)
+	{
+		check(DescriptorIndex < NumWrites);
+		if (DescriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		{
+			check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		}
+		else
+		{
+			check(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType);
+		}
+		VkDescriptorImageInfo* ImageInfo = const_cast<VkDescriptorImageInfo*>(WriteDescriptors[DescriptorIndex].pImageInfo);
+		check(ImageInfo);
+
+		bool bChanged = false;
+		if (UseVulkanDescriptorCache())
+		{
+			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			check(TextureView.ViewId > 0);
+			if (HeshableInfo.Image.ImageViewId != TextureView.ViewId)
+			{
+				HeshableInfo.Image.ImageViewId = TextureView.ViewId;
+				ImageInfo->imageView = TextureView.View;
+				bChanged = true;
+			}
+			if (HeshableInfo.Image.ImageLayout != static_cast<uint32>(Layout))
+			{
+				HeshableInfo.Image.ImageLayout = static_cast<uint32>(Layout);
+				ImageInfo->imageLayout = Layout;
+				bChanged = true;
+			}
+			bIsKeyDirty |= bChanged;
+		}
+		else
+		{
+			bChanged = CopyAndReturnNotEqual(ImageInfo->imageView, TextureView.View);
+			bChanged |= CopyAndReturnNotEqual(ImageInfo->imageLayout, Layout);
+		}
+
+		return bChanged;
+	}
+
+	template <VkDescriptorType DescriptorType>
+	bool WriteBufferView(uint32 DescriptorIndex, const FVulkanBufferView* View)
+	{
+		check(DescriptorIndex < NumWrites);
+		check(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType);
+		WriteDescriptors[DescriptorIndex].pTexelBufferView = &View->View;
+		BufferViewReferences[DescriptorIndex] = View;
+		
+		if (UseVulkanDescriptorCache())
+		{
+			bool bChanged = false;
+			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			check(View->ViewId > 0);
+			if (HeshableInfo.BufferView.Id != View->ViewId)
+			{
+				HeshableInfo.BufferView.Id = View->ViewId;
+				bChanged = true;
+			}
+			bIsKeyDirty |= bChanged;
+			return bChanged;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+protected:
 	// A view into someone else's descriptors
 	VkWriteDescriptorSet* WriteDescriptors;
 
@@ -967,11 +1168,112 @@ protected:
 	uint32* DynamicOffsets;
 
 	uint32 NumWrites;
-	TArray<TRefCountPtr<FVulkanBufferView>> BufferViewReferences;
+	TArray<TRefCountPtr<const FVulkanBufferView>> BufferViewReferences;
 
-	uint32 SetupDescriptorWrites(const TArray<VkDescriptorType>& Types, VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo,
-		VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap);
+	FVulkanHashableDescriptorInfo* HashableDescriptorInfos;
+	mutable FVulkanDSetKey Key;
+	mutable bool bIsKeyDirty;
 
-	friend class FVulkanComputePipelineDescriptorState;
-	friend class FVulkanGraphicsPipelineDescriptorState;
+	uint32 SetupDescriptorWrites(const TArray<VkDescriptorType>& Types,
+		FVulkanHashableDescriptorInfo* InHashableDescriptorInfos,
+		VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo,
+		VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap,
+		const FVulkanSamplerState& DefaultSampler, const FVulkanTextureView& DefaultImageView);
+
+	friend class FVulkanCommonPipelineDescriptorState;
 };
+
+class FVulkanGenericDescriptorPool : FNoncopyable
+{
+public:
+	FVulkanGenericDescriptorPool(FVulkanDevice* InDevice, uint32 InMaxDescriptorSets);
+	~FVulkanGenericDescriptorPool();
+
+	FVulkanDevice* GetDevice() const
+	{
+		return Device;
+	}
+
+	uint32 GetMaxDescriptorSets() const
+	{
+		return MaxDescriptorSets;
+	}
+
+	void Reset();
+	bool AllocateDescriptorSet(VkDescriptorSetLayout Layout, VkDescriptorSet& OutSet);
+
+private:
+	FVulkanDevice* const Device;
+	const uint32 MaxDescriptorSets;
+	VkDescriptorPool DescriptorPool;
+};
+
+class FVulkanDescriptorSetCache : FNoncopyable
+{
+public:
+	FVulkanDescriptorSetCache(FVulkanDevice* InDevice);
+	~FVulkanDescriptorSetCache();
+
+	void GetDescriptorSets(const FVulkanDSetsKey& DSetsKey, const FVulkanDescriptorSetsLayout& SetsLayout,
+		TArray<FVulkanDescriptorSetWriter>& DSWriters, VkDescriptorSet* OutSets);
+	void GC();
+
+private:
+	void UpdateAllocRatio();
+	void AddCachedPool();
+
+private:
+	struct FSetsEntry
+	{
+		TStaticArray<VkDescriptorSet, ShaderStage::MaxNumSets> Sets;
+		int32 NumSets;
+	};
+
+	class FCachedPool : FNoncopyable
+	{
+	public:
+		FCachedPool(FVulkanDevice* InDevice, uint32 InMaxDescriptorSets)
+			: SetCapacity(FMath::RoundToZero(InMaxDescriptorSets * MaxAllocRatio))
+			, Pool(InDevice, InMaxDescriptorSets)
+			, RecentFrame(0)
+		{
+		}
+
+		uint32 GetMaxDescriptorSets() const
+		{
+			return Pool.GetMaxDescriptorSets();
+		}
+
+		void Reset()
+		{
+			Pool.Reset();
+			SetsCache.Reset();
+			SetCache.Reset();
+		}
+
+		bool CanGC() const;
+		float CalcAllocRatio() const;
+
+		bool FindDescriptorSets(const FVulkanDSetsKey& DSetsKey, VkDescriptorSet* OutSets);
+		bool CreateDescriptorSets(const FVulkanDSetsKey& DSetsKey, const FVulkanDescriptorSetsLayout& SetsLayout,
+			TArray<FVulkanDescriptorSetWriter>& DSWriters, VkDescriptorSet* OutSets);
+
+	private:
+		static const float MinAllocRatio;
+		static const float MaxAllocRatio;
+
+	private:
+		const uint32 SetCapacity;
+		FVulkanGenericDescriptorPool Pool;
+		TMap<FVulkanDSetsKey, FSetsEntry> SetsCache;
+		TMap<FVulkanDSetKey, VkDescriptorSet> SetCache;
+		uint32 RecentFrame;
+	};
+
+private:
+	FVulkanDevice* const Device;
+	TArray<TUniquePtr<FCachedPool>> CachedPools;
+	TUniquePtr<FCachedPool> FreePool;
+	float PoolAllocRatio;
+};
+

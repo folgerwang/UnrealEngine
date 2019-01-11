@@ -38,7 +38,7 @@ public:
 	{
 		return ActualRequest->SizeRequest(CompleteCallback);
 	}
-	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override;
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override;
 };
 
 
@@ -269,13 +269,13 @@ public:
 	}
 };
 
-IAsyncReadRequest* FLoggingAsyncReadFileHandle::ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority, FAsyncFileCallBack* CompleteCallback, uint8* UserSuppliedMemory)
+IAsyncReadRequest* FLoggingAsyncReadFileHandle::ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags, FAsyncFileCallBack* CompleteCallback, uint8* UserSuppliedMemory)
 {
-	if (Priority != AIOP_Precache)
+	if ( ( PriorityAndFlags & AIOP_FLAG_PRECACHE ) == 0 )
 	{
 		Owner->AddToOpenLog(*Filename);
 	}
-	return ActualRequest->ReadRequest(Offset, BytesToRead, Priority, CompleteCallback, UserSuppliedMemory);
+	return ActualRequest->ReadRequest(Offset, BytesToRead, PriorityAndFlags, CompleteCallback, UserSuppliedMemory);
 }
 
 #endif // !UE_BUILD_SHIPPING

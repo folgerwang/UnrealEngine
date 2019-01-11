@@ -82,6 +82,7 @@ public:
 		void SetupGraphEditorStyles();
 		void SetupLevelEditorStyle();
 		void SetupPersonaStyle();
+		void SetupClassThumbnailOverlays();
 		void SetupClassIconsAndThumbnails();
 		void SetupContentBrowserStyle();
 		void SetupLandscapeEditorStyle();

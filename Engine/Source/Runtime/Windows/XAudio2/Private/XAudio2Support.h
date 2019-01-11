@@ -270,9 +270,10 @@ public:
 	 *
 	 * @param Destination		Memory to decompress to
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
+	 * @param DecodeSizeBytes	Number of bytes to decode
 	 * @return					Whether the sound looped or not
 	 */
-	bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
+	bool ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping) override;
 
 	/**
 	 * Sets the point in time within the buffer to the specified time

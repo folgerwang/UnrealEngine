@@ -64,10 +64,6 @@ private:
 	void Initialize(const UWidgetBlueprint* InSourceBlueprint, UWidgetAnimation* InAnimation, EWidgetAnimationEvent InAction);
 
 private:
-	/** Cached display name for the delegate property */
-	UPROPERTY()
-	FText DelegatePropertyDisplayName;
-
 	/** Constructing FText strings can be costly, so we cache the node's title/tooltip */
 	FNodeTextCache CachedTooltip;
 	FNodeTextCache CachedNodeTitle;

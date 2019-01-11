@@ -139,7 +139,7 @@ FString UAISenseConfig::GetSenseName() const
 #if WITH_GAMEPLAY_DEBUGGER
 static FString DescribeColorHelper(const FColor& Color)
 {
-	int32 MaxColors = GColorList.GetColorsNum();
+	const int32 MaxColors = GColorList.GetColorsNum();
 	for (int32 Idx = 0; Idx < MaxColors; Idx++)
 	{
 		if (Color == GColorList.GetFColorByIndex(Idx))

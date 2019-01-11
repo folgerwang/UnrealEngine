@@ -491,6 +491,13 @@ public:
 	UPROPERTY(Category=Compression, VisibleAnywhere)
 	class UAnimCompress* CompressionScheme;
 
+	/**
+	 * Allow frame stripping to be performed on this animation if the platform requests it
+	 * Can be disabled if animation has high frequency movements that are being lost.
+	 */
+	UPROPERTY(Category = Compression, EditAnywhere)
+	bool bAllowFrameStripping;
+
 	/** The curve compression settings used to compress curves in this sequence. */
 	UPROPERTY(Category=Compression, EditAnywhere)
 	class UAnimCurveCompressionSettings* CurveCompressionSettings;

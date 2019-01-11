@@ -444,6 +444,7 @@ struct FTickAnimationSharingFunction : public FTickFunction
 	// Begin FTickFunction overrides
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	virtual FString DiagnosticMessage() override;
+	virtual FName DiagnosticContext(bool bDetailed) override;
 	// End FTickFunction overrides
 	
 	class UAnimationSharingManager* Manager;

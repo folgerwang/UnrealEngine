@@ -148,8 +148,6 @@ inline ERoundingMode ICUToUE(const icu::DecimalFormat::ERoundingMode RoundingMod
 	return Value;
 }
 
-ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag);
-
 enum class EBreakIteratorType
 {
 	Grapheme,
@@ -208,8 +206,10 @@ class FCulture::FICUCultureImplementation
 	const FDecimalNumberFormattingRules& GetPercentFormattingRules();
 	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
 
-	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType);
-	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType) const;
+
+	const TArray<ETextPluralForm>& GetValidPluralForms(const ETextPluralType PluralType) const;
 
 	icu::Locale ICULocale;
 	TSharedPtr<const icu::BreakIterator> ICUGraphemeBreakIterator;
@@ -224,7 +224,10 @@ class FCulture::FICUCultureImplementation
 	TSharedPtr<const icu::DateFormat> ICUDateTimeFormat;
 
 	const icu::PluralRules* ICUCardinalPluralRules;
-	const icu::PluralRules* ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUOrdinalPluralRules;
+
+	TArray<ETextPluralForm> UEAvailableCardinalPluralForms;
+	TArray<ETextPluralForm> UEAvailableOrdinalPluralForms;
 
 	TSharedPtr<const FDecimalNumberFormattingRules, ESPMode::ThreadSafe> UEDecimalNumberFormattingRules;
 	FCriticalSection UEDecimalNumberFormattingRulesCS;

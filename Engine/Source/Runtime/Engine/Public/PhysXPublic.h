@@ -166,8 +166,6 @@ private:
 
 /** Convert Unreal FMatrix to PhysX PxTransform */
 ENGINE_API PxTransform UMatrix2PTransform(const FMatrix& UTM);
-/** Convert Unreal FTransform to PhysX PxTransform */
-ENGINE_API PxTransform U2PTransform(const FTransform& UTransform);
 /** Convert Unreal FVector to PhysX PxVec3 */
 ENGINE_API PxVec3 U2PVector(const FVector& UVec);
 ENGINE_API PxVec4 U2PVector(const FVector4& UVec);
@@ -274,6 +272,17 @@ inline PxGeometryType::Enum U2PGeometryType(ECollisionShapeType Type)
 	case ECollisionShapeType::Heightfield: return PxGeometryType::eHEIGHTFIELD;
 	default: return PxGeometryType::eINVALID;
 	}
+}
+
+/** Convert Unreal FTransform to PhysX PxTransform */
+ENGINE_API FORCEINLINE_DEBUGGABLE PxTransform U2PTransform(const FTransform& UTransform)
+{
+	PxQuat PQuat = U2PQuat(UTransform.GetRotation());
+	PxVec3 PPos = U2PVector(UTransform.GetLocation());
+
+	PxTransform Result(PPos, PQuat);
+
+	return Result;
 }
 
 /** Calculates correct impulse at the body's center of mass and adds the impulse to the body. */

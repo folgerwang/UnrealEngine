@@ -38,6 +38,7 @@ class UCompositeDataTable
 
 	//~ Begin UObject Interface.
 	ENGINE_API virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
+	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostLoad() override;
 #if WITH_EDITORONLY_DATA
 	ERowState GetRowState(FName RowName) const;
@@ -48,8 +49,6 @@ class UCompositeDataTable
 	ENGINE_API virtual void EmptyTable() override;
 	ENGINE_API virtual void RemoveRow(FName RowName) override;
 	ENGINE_API virtual void AddRow(FName RowName, const FTableRowBase& RowData) override;
-
-	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 
 #if WITH_EDITOR
 	ENGINE_API virtual void CleanBeforeStructChange() override;

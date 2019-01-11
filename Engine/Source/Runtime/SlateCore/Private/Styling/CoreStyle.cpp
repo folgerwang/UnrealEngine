@@ -136,10 +136,11 @@ TSharedRef<ISlateStyle> FCoreStyle::Create( const FName& InStyleSetName )
 	TSharedRef<FSlateCoreStyle> Style = MakeShareable(new FSlateCoreStyle(InStyleSetName));
 	Style->SetContentRoot(FPaths::EngineContentDir() / TEXT("Slate"));
 
-	const FString CanaryPath = Style->RootToContentDir(TEXT("Fonts/Roboto-Regular"), TEXT(".ttf"));
+	const FString CanaryPath = Style->RootToContentDir(TEXT("Checkerboard"), TEXT(".png"));
 
 	if (!FPaths::FileExists(CanaryPath))
 	{
+		// Checkerboard is the default brush so we check for that. No slate fonts are required as those will fall back properly
 		UE_LOG(LogSlate, Warning, TEXT("FCoreStyle assets not detected, skipping FCoreStyle initialization"));
 
 		return Style;

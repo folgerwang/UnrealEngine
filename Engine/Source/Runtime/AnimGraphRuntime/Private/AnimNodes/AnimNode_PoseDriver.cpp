@@ -202,6 +202,8 @@ void FAnimNode_PoseDriver::GetRBFTargets(TArray<FRBFTarget>& OutTargets) const
 
 void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_PoseDriver_Eval);
+
 	// Udpate DrivenIDs if needed
 	if (bCachedDrivenIDsAreDirty)
 	{

@@ -48,7 +48,7 @@ public:
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FNiagaraShaderScript*  Script)
 	{
 		//@todo - lit materials only 
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+		return RHISupportsComputeShaders(Platform);
 	}
 
 

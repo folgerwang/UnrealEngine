@@ -30,6 +30,8 @@ class UParticleSystemAuditCommandlet : public UCommandlet
 	TSet<FString> ParticleSystemsWithHighSpawnRateOrBurst;
 	/** All particle systems w/ a far LODDistance */
 	TSet<FString> ParticleSystemsWithFarLODDistance;
+	/** All particle systems w/ bone location sources that do not match between LODs */
+	TSet<FString> ParticleSystemsWithBoneLocationMismatches;
 
 	/** If a particle system has a spawn rate or burst count greater than this value, it will be reported */
 	UPROPERTY(config)

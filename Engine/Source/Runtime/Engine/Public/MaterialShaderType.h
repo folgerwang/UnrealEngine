@@ -28,10 +28,10 @@ class FUniformExpressionSet;
 class FVertexFactoryType;
 
 /** Converts an EMaterialShadingModel to a string description. */
-extern FString GetShadingModelString(EMaterialShadingModel ShadingModel);
+extern ENGINE_API FString GetShadingModelString(EMaterialShadingModel ShadingModel);
 
 /** Converts an EBlendMode to a string description. */
-extern FString GetBlendModeString(EBlendMode BlendMode);
+extern ENGINE_API FString GetBlendModeString(EBlendMode BlendMode);
 
 /** Called for every material shader to update the appropriate stats. */
 extern void UpdateMaterialShaderCompilingStats(const FMaterial* Material);

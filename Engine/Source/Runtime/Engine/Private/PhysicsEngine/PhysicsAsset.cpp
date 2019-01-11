@@ -36,8 +36,7 @@ void UPhysicsAsset::UpdateBoundsBodiesArray()
 
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		check(SkeletalBodySetups[i]);
-		if(SkeletalBodySetups[i]->bConsiderForBounds)
+		if(ensure(SkeletalBodySetups[i]) && SkeletalBodySetups[i]->bConsiderForBounds)
 		{
 			BoundsBodies.Add(i);
 		}
@@ -135,8 +134,10 @@ void UPhysicsAsset::UpdateBodySetupIndexMap()
 
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		check(SkeletalBodySetups[i]);
-		BodySetupIndexMap.Add(SkeletalBodySetups[i]->BoneName, i);
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			BodySetupIndexMap.Add(SkeletalBodySetups[i]->BoneName, i);
+		}
 	}
 }
 
@@ -491,6 +492,10 @@ void UPhysicsAsset::GetBodyIndicesBelow(TArray<int32>& OutBodyIndices, FName InB
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
 		UBodySetup* BS = SkeletalBodySetups[i];
+		if (!ensure(BS))
+		{
+			continue;
+		}
 		FName TestName = BS->BoneName;
 		int32 TestIndex = SkelMesh->RefSkeleton.FindBoneIndex(TestName);
 
@@ -520,6 +525,10 @@ void UPhysicsAsset::GetNearestBodyIndicesBelow(TArray<int32> & OutBodyIndices, F
 		if (Nearest[BodyIndex] == false) continue;
 
 		UBodySetup * Body = SkeletalBodySetups[BodyIndex];
+		if (!ensure(Body))
+		{
+			continue;
+		}
 		TArray<int32> BodiesBelowMe;
 		GetBodyIndicesBelow(BodiesBelowMe, Body->BoneName, InSkelMesh, false);
 		
@@ -543,7 +552,10 @@ void UPhysicsAsset::ClearAllPhysicsMeshes()
 {
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		SkeletalBodySetups[i]->ClearPhysicsMeshes();
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			SkeletalBodySetups[i]->ClearPhysicsMeshes();
+		}
 	}
 }
 
@@ -553,7 +565,10 @@ void UPhysicsAsset::InvalidateAllPhysicsMeshes()
 {
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		SkeletalBodySetups[i]->InvalidatePhysicsData();
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			SkeletalBodySetups[i]->InvalidatePhysicsData();
+		}
 	}
 }
 

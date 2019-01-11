@@ -12,6 +12,14 @@
 #include "LandscapeInfoMap.h"
 #include "Materials/MaterialInstance.h"
 
+#if WITH_EDITOR
+#include "Settings/EditorExperimentalSettings.h"
+#endif
+
+#include "LandscapeProxy.h"
+#include "Landscape.h"
+#include "Engine/Texture2D.h"
+
 // Register the custom version with core
 FCustomVersionRegistration GRegisterLandscapeCustomVersion(FLandscapeCustomVersion::GUID, FLandscapeCustomVersion::LatestVersion, TEXT("Landscape"));
 
@@ -104,6 +112,24 @@ void GetLandscapeTexturesAndMaterials(ULevel* Level, TArray<UObject*>& OutTextur
 		if (LandscapeComponent)
 		{
 			LandscapeComponent->GetGeneratedTexturesAndMaterialInstances(OutTexturesAndMaterials);
+		}
+
+		if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			ALandscapeProxy* Landscape = Cast<ALandscapeProxy>(ObjInLevel);
+
+			if (Landscape != nullptr)
+			{
+				for (auto& ItLayerDataPair : Landscape->ProceduralLayersData)
+				{
+					for (auto& ItHeightmapPair : ItLayerDataPair.Value.Heightmaps)
+					{
+						OutTexturesAndMaterials.AddUnique(ItHeightmapPair.Value);
+					}
+
+					// TODO: add support for weightmap
+				}
+			}
 		}
 	}
 }

@@ -282,6 +282,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FName PC_Class;    // SubCategoryObject is the MetaClass of the Class passed thru this pin, or SubCategory can be 'self'. The DefaultValue string should always be empty, use DefaultObject.
 	static const FName PC_SoftClass;
 	static const FName PC_Int;
+	static const FName PC_Int64;
 	static const FName PC_Float;
 	static const FName PC_Name;
 	static const FName PC_Delegate;    // SubCategoryObject is the UFunction of the delegate signature

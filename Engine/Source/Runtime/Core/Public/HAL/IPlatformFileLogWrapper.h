@@ -458,9 +458,9 @@ public:
 		//@todo no wrapped logging for async file handles (yet)
 		return Result;
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(Priority);
 	}
 
 };

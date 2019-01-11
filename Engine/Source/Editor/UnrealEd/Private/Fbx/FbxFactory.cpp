@@ -322,7 +322,6 @@ UObject* UFbxFactory::FactoryCreateFile
 			{
 				ImportOptions->bImportAnimations = false;
 				ImportOptions->bUpdateSkeletonReferencePose = false;
-				ImportOptions->bUseT0AsRefPose = false;
 			}
 		}
 		
@@ -827,7 +826,10 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 						{
 							NewStaticMesh->AddSourceModel();
 						}
-						if (LODIndex - 1 > 0 && NewStaticMesh->IsReductionActive(LODIndex-1))
+						
+						ImportANode(VoidFbxImporter, TmpVoidArray, InParent, InName, Flags, NodeIndex, Total, CreatedObject, LODIndex);
+
+						if (LODIndex - 1 > 0 && NewStaticMesh->IsReductionActive(LODIndex - 1))
 						{
 							//Do not add the LODGroup bias here, since the bias will be apply during the build
 							if (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f)
@@ -858,7 +860,7 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 							NewStaticMesh->SourceModels[LODIndex].bImportWithBaseMesh = true;
 						}
 					}
-					ImportANode(VoidFbxImporter, TmpVoidArray, InParent, InName, Flags, NodeIndex, Total, CreatedObject, LODIndex);
+					
 				}
 			}
 		}
@@ -1083,8 +1085,9 @@ namespace ImportCompareHelper
 		}
 	}
 
-	bool HasConflictRecursive(const FSkeletonTreeNode& ResultAssetRoot, const FSkeletonTreeNode& CurrentAssetRoot)
+	bool HasRemoveBoneRecursive(const FSkeletonTreeNode& ResultAssetRoot, const FSkeletonTreeNode& CurrentAssetRoot)
 	{
+		//Find the removed node
 		for (const FSkeletonTreeNode& CurrentNode : CurrentAssetRoot.Childrens)
 		{
 			bool bFoundMatch = false;
@@ -1092,7 +1095,29 @@ namespace ImportCompareHelper
 			{
 				if (ResultNode.JointName == CurrentNode.JointName)
 				{
-					bFoundMatch = !HasConflictRecursive(ResultNode, CurrentNode);
+					bFoundMatch = !HasRemoveBoneRecursive(ResultNode, CurrentNode);
+					break;
+				}
+			}
+			if (!bFoundMatch)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool HasAddedBoneRecursive(const FSkeletonTreeNode& ResultAssetRoot, const FSkeletonTreeNode& CurrentAssetRoot)
+	{
+		//Find the added node
+		for (const FSkeletonTreeNode& ResultNode : ResultAssetRoot.Childrens)
+		{
+			bool bFoundMatch = false;
+			for (const FSkeletonTreeNode& CurrentNode : CurrentAssetRoot.Childrens)
+			{
+				if (ResultNode.JointName == CurrentNode.JointName)
+				{
+					bFoundMatch = !HasAddedBoneRecursive(ResultNode, CurrentNode);
 					break;
 				}
 			}
@@ -1106,15 +1131,24 @@ namespace ImportCompareHelper
 
 	void SetHasConflict(FSkeletonCompareData& SkeletonCompareData)
 	{
-		SkeletonCompareData.bHasConflict = false;
+		//Clear the skeleton Result
+		SkeletonCompareData.CompareResult = ECompareResult::SCR_None;
+
 		if (SkeletonCompareData.ResultAssetRoot.JointName != SkeletonCompareData.CurrentAssetRoot.JointName)
 		{
-			SkeletonCompareData.bHasConflict = true;
+			SkeletonCompareData.CompareResult = ECompareResult::SCR_SkeletonBadRoot;
 			return;
 		}
 
-		//Recursively compare skeleton, return false if there is any unmatch joint. Unmatched joint mean the new skeleton has either joint rename or joint deleted.
-		SkeletonCompareData.bHasConflict = HasConflictRecursive(SkeletonCompareData.ResultAssetRoot, SkeletonCompareData.CurrentAssetRoot);
+		if (HasRemoveBoneRecursive(SkeletonCompareData.ResultAssetRoot, SkeletonCompareData.CurrentAssetRoot))
+		{
+			SkeletonCompareData.CompareResult |= ECompareResult::SCR_SkeletonMissingBone;
+		}
+
+		if (HasAddedBoneRecursive(SkeletonCompareData.ResultAssetRoot, SkeletonCompareData.CurrentAssetRoot))
+		{
+			SkeletonCompareData.CompareResult |= ECompareResult::SCR_SkeletonAddedBone;
+		}
 	}
 
 	void FillFbxMaterials(const TArray<FbxNode*>& MeshNodes, FMaterialCompareData& MaterialCompareData)
@@ -1449,15 +1483,15 @@ namespace ImportCompareHelper
 		if (!bImportGeoOnly)
 		{
 			//Fill the currrent asset data
-			if (ImportUI->Skeleton)
+			if (ImportUI->Skeleton && SkeletalMesh->Skeleton != ImportUI->Skeleton)
 			{
+				//In this case we can't use 
 				const FReferenceSkeleton& ReferenceSkeleton = ImportUI->Skeleton->GetReferenceSkeleton();
 				FillRecursivelySkeleton(ReferenceSkeleton, 0, ImportUI->SkeletonCompareData.CurrentAssetRoot);
 			}
-			else if (SkeletalMesh->Skeleton)
+			else
 			{
-				const FReferenceSkeleton& ReferenceSkeleton = SkeletalMesh->Skeleton->GetReferenceSkeleton();
-				FillRecursivelySkeleton(ReferenceSkeleton, 0, ImportUI->SkeletonCompareData.CurrentAssetRoot);
+				FillRecursivelySkeleton(SkeletalMesh->RefSkeleton, 0, ImportUI->SkeletonCompareData.CurrentAssetRoot);
 			}
 			
 			//Fill the result fbx data
@@ -1482,7 +1516,16 @@ void UFbxImportUI::UpdateCompareData(UnFbx::FFbxImporter* FbxImporter)
 	MaterialCompareData.Empty();
 	SkeletonCompareData.Empty();
 
-	const FString Filename = StaticMesh == nullptr ? SkeletalMeshImportData->GetFirstFilename() : StaticMeshImportData->GetFirstFilename();
+	FString Filename;
+	if (StaticMesh != nullptr)
+	{
+		Filename = StaticMeshImportData->GetFirstFilename();
+	}
+	else
+	{
+		FString FilenameLabel;
+		SkeletalMeshImportData->GetImportContentFilename(Filename, FilenameLabel);
+	}
 	
 	if (!FbxImporter->ImportFromFile(*Filename, FPaths::GetExtension(Filename), false))
 	{

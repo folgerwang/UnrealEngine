@@ -66,6 +66,14 @@ public:
 	void SetFont(FSlateFontInfo InFontInfo);
 
 	/**
+	 * Dynamically set the strike brush for this text block
+	 *
+	 * @param InStrikeBrush The new brush to use to strike through text
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetStrikeBrush(FSlateBrush& InStrikeBrush);
+
+	/**
 	 *  Set the text justification for this text block
 	 *
 	 *  @param InJustification new justification
@@ -117,6 +125,10 @@ public:
 	/** The font to render the text with */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateFontInfo Font;
+
+	/** The brush to strike through text with */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Appearance)
+	FSlateBrush StrikeBrush;
 
 	/** The direction the shadow is cast */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
@@ -197,6 +209,8 @@ protected:
 
 	/** Get the text that should be displayed in the internal Slate widget (allows flags to mutate the display text without modifying the persistent designer property data) */
 	virtual TAttribute<FText> GetDisplayText();
+
+	EVisibility GetTextWarningImageVisibility() const;
 
 protected:
 

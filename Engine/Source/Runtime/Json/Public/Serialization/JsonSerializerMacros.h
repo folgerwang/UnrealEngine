@@ -120,7 +120,7 @@
 				TSharedPtr<FJsonObject> JsonObj = Serializer.GetObject()->GetObjectField(JsonName); \
 				if (JsonObj.IsValid()) \
 				{ \
-					JsonSerializableObject.FromJson(JsonObj); \
+					(JsonSerializableObject).FromJson(JsonObj); \
 				} \
 			} \
 		} \
@@ -128,8 +128,21 @@
 		{ \
 			/* Write the value to the Name field */ \
 			Serializer.StartObject(JsonName); \
-			JsonSerializableObject.Serialize(Serializer, true); \
+			(JsonSerializableObject).Serialize(Serializer, true); \
 			Serializer.EndObject(); \
+		}
+
+#define JSON_SERIALIZE_DATETIME_UNIX_TIMESTAMP(JsonName, JsonDateTime) \
+		if (Serializer.IsLoading()) \
+		{ \
+			int64 UnixTimestampValue; \
+			Serializer.Serialize(TEXT(JsonName), UnixTimestampValue); \
+			JsonDateTime = FDateTime::FromUnixTimestamp(UnixTimestampValue); \
+		} \
+		else \
+		{ \
+			int64 UnixTimestampValue = JsonDateTime.ToUnixTimestamp(); \
+			Serializer.Serialize(TEXT(JsonName), UnixTimestampValue); \
 		}
 
 struct FJsonSerializerBase;

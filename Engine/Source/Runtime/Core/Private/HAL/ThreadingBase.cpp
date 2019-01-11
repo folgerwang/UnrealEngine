@@ -7,6 +7,7 @@
 #include "Misc/CoreStats.h"
 #include "Misc/EventPool.h"
 #include "Templates/Atomic.h"
+#include "HAL/PlatformStackWalk.h"
 
 DEFINE_STAT( STAT_EventWaitWithId );
 DEFINE_STAT( STAT_EventTriggerWithId );
@@ -205,6 +206,48 @@ const FString& FThreadManager::GetThreadName(uint32 ThreadId)
 	}
 	return NoThreadName;
 }
+
+#if PLATFORM_WINDOWS
+static void GetAllThreadStackBackTraces_ProcessSingle(
+	uint32 CurThreadId,
+	uint32 ThreadId,
+	const TCHAR* ThreadName,
+	typename FThreadManager::FThreadStackBackTrace& OutStackTrace)
+{
+	constexpr uint32 MaxDepth = 100;
+	OutStackTrace.ThreadId = ThreadId;
+	OutStackTrace.ThreadName = ThreadName;
+	auto& PCs = OutStackTrace.ProgramCounters;
+	PCs.AddZeroed(MaxDepth);
+	uint32 Depth;
+	if (CurThreadId != ThreadId)
+	{
+		Depth = FPlatformStackWalk::CaptureThreadStackBackTrace(ThreadId, PCs.GetData(), MaxDepth);
+	}
+	else
+	{
+		Depth = FPlatformStackWalk::CaptureStackBackTrace(PCs.GetData(), MaxDepth);
+	}
+	PCs.SetNum(Depth);
+}
+
+void FThreadManager::GetAllThreadStackBackTraces(TArray<FThreadStackBackTrace>& StackTraces)
+{
+	const uint32 CurThreadId = FPlatformTLS::GetCurrentThreadId();
+	FScopeLock Lock(&ThreadsCritical);
+	const int32 NumThreads = Threads.Num() + 1;
+
+	StackTraces.Empty(NumThreads);
+	GetAllThreadStackBackTraces_ProcessSingle(CurThreadId, GGameThreadId, TEXT("GameThread"), StackTraces.AddDefaulted_GetRef());
+
+	for (TMap<uint32, FRunnableThread*>::TConstIterator It(Threads); It; ++It)
+	{
+		const uint32 Id = It->Key;
+		const FString& Name = It->Value->GetThreadName();
+		GetAllThreadStackBackTraces_ProcessSingle(CurThreadId, Id, *Name, StackTraces.AddDefaulted_GetRef());
+	}
+}
+#endif
 
 FThreadManager& FThreadManager::Get()
 {

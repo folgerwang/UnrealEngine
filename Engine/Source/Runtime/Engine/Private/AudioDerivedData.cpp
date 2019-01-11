@@ -781,7 +781,7 @@ public:
 };
 
 /**
-* Function used for resampling a USoundWave's WaveData:
+* Function used for resampling a USoundWave's WaveData, which is assumed to be int16 here:
 */
 static void ResampleWaveData(TArray<uint8>& WaveData, size_t& NumBytes, int32 NumChannels, float SourceSampleRate, float DestinationSampleRate)
 {
@@ -826,6 +826,28 @@ static void ResampleWaveData(TArray<uint8>& WaveData, size_t& NumBytes, int32 Nu
 		int32 NumSamplesGenerated = ResamplerResults.OutputFramesGenerated * NumChannels;
 		WaveData.SetNum(NumSamplesGenerated * sizeof(int16));
 		InputData = (int16*) WaveData.GetData();
+
+		// Detect if the output will clip:
+		float MaxValue = 0.0f;
+		for (int32 Index = 0; Index < NumSamplesGenerated; Index++)
+		{
+			const float AbsSample = FMath::Abs(ResamplerOutputData[Index]);
+			if (AbsSample > MaxValue)
+			{
+				MaxValue = AbsSample;
+			}
+		}
+
+		// If the output will clip, normalize it.
+		if (MaxValue > 1.0f)
+		{
+			UE_LOG(LogAudioDerivedData, Display, TEXT("Audio clipped during resampling: This asset will be normalized by a factor of 1/%f. Consider attenuating the above asset."), MaxValue);
+
+			for (int32 Index = 0; Index < NumSamplesGenerated; Index++)
+			{
+				ResamplerOutputData[Index] /= MaxValue;
+			}
+		}
 
 		for (int32 Index = 0; Index < NumSamplesGenerated; Index++)
 		{

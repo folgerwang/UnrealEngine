@@ -227,9 +227,26 @@ void USoundWave::Serialize( FArchive& Ar )
 		Ar << DummyCompressionName;
 	}
 
+	bool bShouldStreamSound = false; 
+
 	if (Ar.IsSaving() || Ar.IsCooking())
 	{
 		bHasVirtualizeWhenSilent = bVirtualizeWhenSilent;
+
+#if WITH_ENGINE
+		// If there is an AutoStreamingThreshold set for the platform we're cooking to,
+		// we use it to determine whether this USoundWave should be streaming:
+		const ITargetPlatform* CookingTarget = Ar.CookingTarget();
+		if (CookingTarget != nullptr)
+		{
+			const FPlatformAudioCookOverrides* Overrides = CookingTarget->GetAudioCompressionSettings();
+			bShouldStreamSound = IsStreaming(Overrides);
+		}
+#endif
+	}
+	else
+	{
+		bShouldStreamSound = IsStreaming();
 	}
 
 	bool bSupportsStreaming = false;
@@ -245,7 +262,7 @@ void USoundWave::Serialize( FArchive& Ar )
 	if (bCooked)
 	{
 		// Only want to cook/load full data if we don't support streaming
-		if (!IsStreaming() || !bSupportsStreaming)
+		if (!bShouldStreamSound || !bSupportsStreaming)
 		{
 			if (Ar.IsCooking())
 			{
@@ -288,7 +305,7 @@ void USoundWave::Serialize( FArchive& Ar )
 
 	Ar << CompressedDataGuid;
 
-	if (IsStreaming())
+	if (bShouldStreamSound)
 	{
 		if (bCooked)
 		{
@@ -577,6 +594,9 @@ void USoundWave::PostLoad()
 		return;
 	}
 
+	// In case any code accesses bStreaming directly, we update it based on the current platform's cook overrides.
+	bStreaming = IsStreaming();
+
 	// Compress to whatever formats the active target platforms want
 	// static here as an optimization
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
@@ -716,26 +736,23 @@ void USoundWave::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	static FName CompressionQualityFName = FName( TEXT( "CompressionQuality" ) );
+	static const FName CompressionQualityFName = FName(TEXT("CompressionQuality"));
 	static FName StreamingFName = GET_MEMBER_NAME_CHECKED(USoundWave, bStreaming);
 
 	// Prevent constant re-compression of SoundWave while properties are being changed interactively
 	if (PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive)
 	{
-		UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 		// Regenerate on save any compressed sound formats
-		if ( PropertyThatChanged && PropertyThatChanged->GetFName() == CompressionQualityFName )
+		if (UProperty* PropertyThatChanged = PropertyChangedEvent.Property)
 		{
-			InvalidateCompressedData();
-			FreeResources();
-			UpdatePlatformData();
-			MarkPackageDirty();
-		}
-		else if (PropertyThatChanged && PropertyThatChanged->GetFName() == StreamingFName)
-		{
-			FreeResources();
-			UpdatePlatformData();
-			MarkPackageDirty();
+			const FName& Name = PropertyThatChanged->GetFName();
+			if (Name == CompressionQualityFName || Name == StreamingFName)
+			{
+				InvalidateCompressedData();
+				FreeResources();
+				UpdatePlatformData();
+				MarkPackageDirty();
+			}
 		}
 	}
 }
@@ -1154,10 +1171,18 @@ float USoundWave::GetDuration()
 	return (bLooping ? INDEFINITELY_LOOPING_DURATION : Duration);
 }
 
-bool USoundWave::IsStreaming() const
+bool USoundWave::IsStreaming(const FPlatformAudioCookOverrides* Overrides /* = nullptr */) const
 {
 	// TODO: add in check on whether it's part of a streaming SoundGroup
-	return bStreaming;
+	if (!Overrides)
+	{
+		Overrides = GetPlatformCompressionOverridesForCurrentPlatform();
+	}
+
+	return bStreaming
+		|| (Overrides != nullptr
+			&& Overrides->AutoStreamingThreshold > SMALL_NUMBER
+			&& Duration > Overrides->AutoStreamingThreshold);
 }
 
 void USoundWave::UpdatePlatformData()

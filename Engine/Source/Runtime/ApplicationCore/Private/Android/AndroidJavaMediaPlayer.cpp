@@ -24,6 +24,101 @@ static jfieldID FindField(JNIEnv* JEnv, jclass Class, const ANSICHAR* FieldName,
 	return Field;
 }
 
+/* MediaDataSource handling
+*****************************************************************************/
+
+FCriticalSection FJavaAndroidMediaPlayer::MediaDataSourcesCS;
+TMap<int64, TWeakPtr<FJavaAndroidMediaDataSource>> FJavaAndroidMediaPlayer::AllMediaDataSources;
+
+TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> FJavaAndroidMediaPlayer::GetMediaDataSourcePtr(int64 Identifier)
+{
+	FScopeLock ScopeLock(&MediaDataSourcesCS);
+
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GetMediaDataSourcePtr: %llu"), Identifier);
+
+	TWeakPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> MediaDataSource = AllMediaDataSources.FindRef(Identifier);
+	return (MediaDataSource.IsValid()) ? MediaDataSource.Pin() : TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe>();
+}
+
+void FJavaAndroidMediaPlayer::AddMediaDataSourcePtr(int64 Identifier, TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> MediaDataSource)
+{
+	FScopeLock ScopeLock(&MediaDataSourcesCS);
+
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AddMediaDataSourcePtr: %llu"), Identifier);
+
+	AllMediaDataSources.Add(Identifier, MediaDataSource);
+}
+
+JNI_METHOD int32 Java_com_epicgames_ue4_MediaPlayer14_nativeReadAt(JNIEnv* jenv, jobject thiz, jlong Identifier, jlong Position, jobject Buffer, jint Offset, jint Count)
+{
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("MediaPlayer14_ReadAt(%llu, %llu, , %d, %d)"), Identifier, Position, Offset, Count);
+
+	// look up the media data source and attempt to read
+	TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> MediaDataSource = FJavaAndroidMediaPlayer::GetMediaDataSourcePtr(Identifier);
+	if (MediaDataSource.IsValid())
+	{
+		uint8* OutBuffer = (uint8*)jenv->GetDirectBufferAddress(Buffer);
+		//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("MediaPlayer14_ReadAt buffer=%p"), OutBuffer);
+		return MediaDataSource->ReadAt((int64)Position, OutBuffer + (int32)Offset, (int32)Count);
+	}
+	return -1;
+}
+
+FJavaAndroidMediaDataSource::FJavaAndroidMediaDataSource(const TSharedRef<FArchive, ESPMode::ThreadSafe>& InArchive)
+	: Archive(InArchive)
+{ }
+
+FJavaAndroidMediaDataSource::~FJavaAndroidMediaDataSource()
+{ }
+
+int64 FJavaAndroidMediaDataSource::GetSize()
+{
+	FScopeLock ScopeLock(&CriticalSection);
+	return Archive->TotalSize();
+}
+
+int64 FJavaAndroidMediaDataSource::GetCurrentPosition()
+{
+	FScopeLock ScopeLock(&CriticalSection);
+	return Archive->Tell();
+}
+
+int32 FJavaAndroidMediaDataSource::ReadAt(int64 Position, uint8* Buffer, int32 Count)
+{
+	FScopeLock ScopeLock(&CriticalSection);
+
+	int64 Size = Archive->TotalSize();
+	if (Position >= Size)
+	{
+		// signal EOF
+		return -1;
+	}
+
+	// Seek if not already in proper location
+	int64 CurrentPosition = Archive->Tell();
+	if (CurrentPosition != Position)
+	{
+		Archive->Seek(Position);
+	}
+
+	int32 BytesToRead = Count;
+
+	if (Position + BytesToRead > Size)
+	{
+		BytesToRead = (int32)(Size - Position);
+	}
+
+	if (BytesToRead > 0)
+	{
+		Archive->Serialize(Buffer, BytesToRead);
+	}
+
+	return BytesToRead;
+}
+
+/* JavaAndroidMediaPlayer
+*****************************************************************************/
+
 FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkanRenderer)
 	: FJavaClassObject(GetClassName(), "(ZZ)V", swizzlePixels, vulkanRenderer)
 	, GetDurationMethod(GetClassMethod("getDuration", "()I"))
@@ -34,6 +129,7 @@ FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkan
 	, IsPlayingMethod(GetClassMethod("isPlaying", "()Z"))
 	, IsPreparedMethod(GetClassMethod("isPrepared", "()Z"))
 	, SetDataSourceURLMethod(GetClassMethod("setDataSourceURL", "(Ljava/lang/String;)Z"))
+	, SetDataSourceArchiveMethod(GetClassMethod("setDataSourceArchive", "(JJ)Z"))
 	, SetDataSourceFileMethod(GetClassMethod("setDataSource", "(Ljava/lang/String;JJ)Z"))
 	, SetDataSourceAssetMethod(GetClassMethod("setDataSource", "(Landroid/content/res/AssetManager;Ljava/lang/String;JJ)Z"))
 	, PrepareMethod(GetClassMethod("prepare", "()V"))
@@ -60,6 +156,7 @@ FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkan
 {
 	VideoTexture = nullptr;
 	bVideoTextureValid = false;
+	MediaDataSource = nullptr;
 
 	UScale = VScale = 1.0f;
 	UOffset = VOffset = 0.0f;
@@ -129,6 +226,14 @@ void FJavaAndroidMediaPlayer::Reset()
 	UScale = VScale = 1.0f;
 	UOffset = VOffset = 0.0f;
 	CallMethod<void>(ResetMethod);
+
+	// Release media data source if active
+	if (MediaDataSource.IsValid())
+	{
+		FScopeLock ScopeLock(&MediaDataSourcesCS);
+		AllMediaDataSources.Remove(reinterpret_cast<int64>(this));
+		MediaDataSource.Reset();
+	}
 }
 
 void FJavaAndroidMediaPlayer::Stop()
@@ -167,6 +272,17 @@ bool FJavaAndroidMediaPlayer::SetDataSource(const FString & Url)
 	UScale = VScale = 1.0f;
 	UOffset = VOffset = 0.0f;
 	return CallMethod<bool>(SetDataSourceURLMethod, GetJString(Url));
+}
+
+bool FJavaAndroidMediaPlayer::SetDataSource(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive)
+{
+	int64 FileSize = Archive->TotalSize();
+
+	MediaDataSource = MakeShared<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe>(Archive);
+	int64 Identifier = reinterpret_cast<int64>(this);
+	AddMediaDataSourcePtr(Identifier, MediaDataSource);
+
+	return CallMethod<bool>(SetDataSourceArchiveMethod, Identifier, FileSize);
 }
 
 bool FJavaAndroidMediaPlayer::SetDataSource(const FString& MoviePathOnDevice, int64 offset, int64 size)

@@ -88,6 +88,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, const FAnimationEditorViewportRequiredArgs& InRequiredArgs);
+	virtual ~SAnimationEditorViewport();
 
 	/** Get the viewport toolbar widget */
 	TSharedPtr<SAnimViewportToolBar> GetViewportToolbar() const { return ViewportToolbar; }
@@ -97,6 +98,7 @@ protected:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
 	virtual void OnFocusViewportToSelection() override;
+	virtual void PopulateViewportOverlays(TSharedRef<SOverlay> Overlay) override;
 	// End of SEditorViewport interface
 
 	/**  Handle undo/redo by refreshing the viewport */
@@ -114,6 +116,9 @@ protected:
 
 	// The preview scene that we are viewing
 	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
+
+	// Handle to the registered OnPreviewFeatureLevelChanged delegate.
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 
 	// The asset editor we are embedded in
 	TWeakPtr<class FAssetEditorToolkit> AssetEditorToolkitPtr;

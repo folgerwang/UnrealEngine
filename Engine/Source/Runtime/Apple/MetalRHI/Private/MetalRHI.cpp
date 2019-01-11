@@ -1134,10 +1134,10 @@ bool FMetalDynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 void FMetalDynamicRHI::RHIFlushResources()
 {
 	@autoreleasepool {
-		((FMetalDeviceContext*)ImmediateContext.Context)->DrainHeap();
 		((FMetalDeviceContext*)ImmediateContext.Context)->FlushFreeList(false);
 		ImmediateContext.Context->SubmitCommandBufferAndWait();
 		((FMetalDeviceContext*)ImmediateContext.Context)->ClearFreeList();
+        ((FMetalDeviceContext*)ImmediateContext.Context)->DrainHeap();
 		ImmediateContext.Context->GetCurrentState().Reset();
 	}
 }

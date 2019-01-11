@@ -296,6 +296,9 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 {
 	Super::Init(SampleRate);
 
+	// Initialize the settings for the spectrum analyzer
+	SpectrumAnalyzer.Init(SampleRate);
+
 	if (Channels == EMediaSoundChannels::Mono)
 	{
 		NumChannels = 1;
@@ -411,6 +414,34 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 		LastPlaySampleTime = OutTime;
 
+		if (bSpectralAnalysisEnabled)
+		{
+			// If we have stereo audio, sum to mono before sending to analyzer
+			if (NumChannels == 2)
+			{
+				int32 NumFrames = NumSamples / 2;
+
+				// Use the scratch buffer to sum the audio to mono
+				AudioScratchBuffer.Reset();
+				AudioScratchBuffer.AddUninitialized(NumFrames);
+				float* AudioScratchBufferPtr = AudioScratchBuffer.GetData();
+				int32 SampleIndex = 0;
+				for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex, SampleIndex += NumChannels)
+				{
+					AudioScratchBufferPtr[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
+				}
+
+				SpectrumAnalyzer.PushAudio(AudioScratchBufferPtr, NumFrames);
+			}
+			else
+			{
+				SpectrumAnalyzer.PushAudio(OutAudio, NumSamples);
+			}
+
+			// Launch an analysis task with this audio
+			(new FAutoDeleteAsyncTask<FMediaSoundComponentSpectrumAnalysisTask>(&SpectrumAnalyzer, &SpectrumAnalysisCounter))->StartBackgroundTask();
+		}
+
 		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSync, FMath::Abs((Time - OutTime).GetTotalMilliseconds()));
 		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSampleTime, OutTime.GetTotalMilliseconds());
 	}
@@ -429,6 +460,62 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 	return NumSamples;
 }
 
+void UMediaSoundComponent::SetEnableSpectralAnalysis(bool bInSpectralAnalysisEnabled)
+{
+	bSpectralAnalysisEnabled = bInSpectralAnalysisEnabled;
+}
+
+void UMediaSoundComponent::SetSpectralAnalysisSettings(TArray<float> InFrequenciesToAnalyze, EMediaSoundComponentFFTSize InFFTSize)
+{
+	Audio::SpectrumAnalyzerSettings::EFFTSize SpectrumAnalyzerSize;
+
+	switch (InFFTSize)
+	{
+		case EMediaSoundComponentFFTSize::Min_64: 
+			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Min_64; 
+			break;
+		
+		case EMediaSoundComponentFFTSize::Small_256: 
+			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Small_256; 
+			break;
+		
+		default:
+		case EMediaSoundComponentFFTSize::Medium_512:
+			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Medium_512; 
+			break;
+
+		case EMediaSoundComponentFFTSize::Large_1024: 
+			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Large_1024; 
+			break;
+	}
+
+	SpectrumAnalyzerSettings.FFTSize = SpectrumAnalyzerSize;
+	SpectrumAnalyzer.SetSettings(SpectrumAnalyzerSettings);
+
+	FrequenciesToAnalyze = InFrequenciesToAnalyze;
+}
+
+TArray<FMediaSoundComponentSpectralData> UMediaSoundComponent::GetSpectralData()
+{
+	if (bSpectralAnalysisEnabled)
+	{
+		TArray<FMediaSoundComponentSpectralData> SpectralData;
+		SpectrumAnalyzer.LockOutputBuffer();
+
+		for (float Frequency : FrequenciesToAnalyze)
+		{
+			FMediaSoundComponentSpectralData Data;
+			Data.FrequencyHz = Frequency;
+			Data.Magnitude = SpectrumAnalyzer.GetMagnitudeForFrequency(Frequency);
+			SpectralData.Add(Data);
+		}
+		SpectrumAnalyzer.UnlockOutputBuffer();
+
+		return SpectralData;
+	}
+	// Empty array if spectrum analysis is not implemented
+	return TArray<FMediaSoundComponentSpectralData>();
+}
 
 /* UMediaSoundComponent implementation
  *****************************************************************************/

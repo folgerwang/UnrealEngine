@@ -232,7 +232,12 @@ namespace UnrealBuildTool
 		}
 
 		public override void ValidateTarget(TargetRules Target)
-		{			
+		{
+			if (Target.bAllowLTCG && Target.LinkType != TargetLinkType.Monolithic)
+			{
+				throw new BuildException("LTO (LTCG) for modular builds is not supported (lld is not currently used for dynamic libraries).");
+			}
+
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
@@ -470,16 +475,10 @@ namespace UnrealBuildTool
 
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
 			{
-				Log.TraceWarning("Inconsistency between LTCG settings in Compile and Link environments: link one takes priority");
-				CompileEnvironment.bAllowLTCG = LinkEnvironment.bAllowLTCG;
-			}
-
-			// disable to LTO for modular builds
-			if (CompileEnvironment.bAllowLTCG && Target.LinkType != TargetLinkType.Monolithic)
-			{
-				Log.TraceWarning("LTO (LTCG) for modular builds is not supported, disabling it");
-				CompileEnvironment.bAllowLTCG = false;
-				LinkEnvironment.bAllowLTCG = false;
+				throw new BuildException("Inconsistency between LTCG settings in Compile ({0}) and Link ({1}) environments",
+					CompileEnvironment.bAllowLTCG,
+					LinkEnvironment.bAllowLTCG
+				);
 			}
 
 			// for now only hide by default monolithic builds.

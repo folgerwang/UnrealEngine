@@ -156,6 +156,10 @@ void UAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor*
 	}
 	
 	LocalAnimMontageInfo = FGameplayAbilityLocalAnimMontage();
+	if (IsOwnerActorAuthoritative())
+	{
+		RepAnimMontageInfo = FGameplayAbilityRepAnimMontage();
+	}
 
 	if (bPendingMontageRep)
 	{
@@ -331,6 +335,15 @@ void UAbilitySystemComponent::ClearAbility(const FGameplayAbilitySpecHandle& Han
 	check(IsOwnerActorAuthoritative()); // Should be called on authority
 
 	bIsNetDirty = true;
+	for (int Idx = 0; Idx < AbilityPendingAdds.Num(); ++Idx)
+	{
+		if (AbilityPendingAdds[Idx].Handle == Handle)
+		{
+			AbilityPendingAdds.RemoveAtSwap(Idx, 1, false);
+			return;
+		}
+	}
+
 	for (int Idx = 0; Idx < ActivatableAbilities.Items.Num(); ++Idx)
 	{
 		check(ActivatableAbilities.Items[Idx].Handle.IsValid());
@@ -423,6 +436,22 @@ void UAbilitySystemComponent::OnRemoveAbility(FGameplayAbilitySpec& Spec)
 	if (!Spec.Ability)
 	{
 		return;
+	}
+
+	for (const FAbilityTriggerData& TriggerData : Spec.Ability->AbilityTriggers)
+	{
+		FGameplayTag EventTag = TriggerData.TriggerTag;
+
+		auto& TriggeredAbilityMap = (TriggerData.TriggerSource == EGameplayAbilityTriggerSource::GameplayEvent) ? GameplayEventTriggeredAbilities : OwnedTagTriggeredAbilities;
+
+		if (TriggeredAbilityMap.Contains(EventTag))
+		{
+			TriggeredAbilityMap[EventTag].Remove(Spec.Handle);
+			if (TriggeredAbilityMap[EventTag].Num() == 0)
+			{
+				TriggeredAbilityMap.Remove(EventTag);
+			}
+		}
 	}
 
 	TArray<UGameplayAbility*> Instances = Spec.GetAbilityInstances();
@@ -1772,7 +1801,7 @@ void UAbilitySystemComponent::ClientActivateAbilitySucceedWithEventData_Implemen
 bool UAbilitySystemComponent::TriggerAbilityFromGameplayEvent(FGameplayAbilitySpecHandle Handle, FGameplayAbilityActorInfo* ActorInfo, FGameplayTag EventTag, const FGameplayEventData* Payload, UAbilitySystemComponent& Component)
 {
 	FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle);
-	if (!ensure(Spec))
+	if (!ensureMsgf(Spec, TEXT("Failed to find gameplay ability spec %s"), *EventTag.ToString()))
 	{
 		return false;
 	}
@@ -2356,6 +2385,12 @@ float UAbilitySystemComponent::PlayMontage(UGameplayAbility* InAnimatingAbility,
 
 				// Update parameters that change during Montage life time.
 				AnimMontage_UpdateReplicatedData();
+
+				// Force net update on our avatar actor
+				if (AbilityActorInfo->AvatarActor != nullptr)
+				{
+					AbilityActorInfo->AvatarActor->ForceNetUpdate();
+				}
 			}
 			else
 			{

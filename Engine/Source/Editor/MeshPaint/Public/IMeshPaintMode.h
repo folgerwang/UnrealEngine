@@ -36,7 +36,7 @@ public:
 	virtual bool UsesToolkits() const override { return true; }
 	virtual void Enter() override;
 	virtual void Exit() override;
-	virtual bool CapturedMouseMove( FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 InMouseX, int32 InMouseY ) override;
+	virtual bool ProcessCapturedMouseMoves(FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves) override;
 	virtual bool StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport) override { return true; }
 	virtual bool EndTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport) override;
 	virtual bool InputKey( FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent ) override;
@@ -83,6 +83,7 @@ private:
 	
 	/** Will store the state of selection locks on start of paint mode so that it can be restored on close */
 	bool bWasSelectionLockedOnStart;
+
 	/** Delegate handle for registered selection change lambda */
 	FDelegateHandle SelectionChangedHandle;
 protected:

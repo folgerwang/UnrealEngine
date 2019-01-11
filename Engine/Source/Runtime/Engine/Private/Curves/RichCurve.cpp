@@ -126,25 +126,6 @@ bool FRichCurveKey::operator!=(const FRichCurveKey& Other) const
 	return !(*this == Other);
 }
 
-
-FKeyHandle::FKeyHandle()
-{
-	static uint32 LastKeyHandleIndex = 1;
-	Index = ++LastKeyHandleIndex;
-
-	check(LastKeyHandleIndex != 0); // check in the unlikely event that this overflows
-}
-
-FKeyHandle::FKeyHandle(uint32 SpecificIndex)
-	: Index(SpecificIndex)
-{}
-
-FKeyHandle FKeyHandle::Invalid()
-{
-	return FKeyHandle(0);
-}
-
-
 /* FRichCurve interface
  *****************************************************************************/
 
@@ -206,54 +187,6 @@ FRichCurveKey* FRichCurve::GetFirstMatchingKey(const TArray<FKeyHandle>& KeyHand
 	return nullptr;
 }
 
-
-FKeyHandle FRichCurve::GetNextKey(FKeyHandle KeyHandle) const
-{
-	int32 KeyIndex = GetIndex(KeyHandle);
-	KeyIndex++;
-
-	if (Keys.IsValidIndex(KeyIndex))
-	{
-		return GetKeyHandle(KeyIndex);
-	}
-
-	return FKeyHandle();
-}
-
-
-FKeyHandle FRichCurve::GetPreviousKey(FKeyHandle KeyHandle) const
-{
-	int32 KeyIndex = GetIndex(KeyHandle);
-	KeyIndex--;
-
-	if (Keys.IsValidIndex(KeyIndex))
-	{
-		return GetKeyHandle(KeyIndex);
-	}
-
-	return FKeyHandle();
-}
-
-
-int32 FRichCurve::GetNumKeys() const
-{
-	return Keys.Num();
-}
-
-
-bool FRichCurve::IsKeyHandleValid(FKeyHandle KeyHandle) const
-{
-	bool bValid = false;
-
-	if (FIndexedCurve::IsKeyHandleValid(KeyHandle))
-	{
-		bValid = Keys.IsValidIndex( GetIndex(KeyHandle) );
-	}
-
-	return bValid;
-}
-
-
 FKeyHandle FRichCurve::AddKey( const float InTime, const float InValue, const bool bUnwindRotation, FKeyHandle NewHandle )
 {
 	int32 Index = 0;
@@ -280,17 +213,9 @@ FKeyHandle FRichCurve::AddKey( const float InTime, const float InValue, const bo
 		Keys[Index].Value = NewValue;
 	}
 	
-	for ( auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		int32& KeyIndex = It.Value();
-
-		if (KeyIndex >= Index) {++KeyIndex;}
-	}
-
 	KeyHandlesToIndices.Add(NewHandle, Index);
 
-	return GetKeyHandle(Index);
+	return NewHandle;
 }
 
 
@@ -316,17 +241,6 @@ void FRichCurve::DeleteKey(FKeyHandle InKeyHandle)
 	AutoSetTangents();
 
 	KeyHandlesToIndices.Remove(InKeyHandle);
-
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		int32& KeyIndex = It.Value();
-
-		if (KeyIndex >= Index)
-		{
-			--KeyIndex;
-		}
-	}
 }
 
 
@@ -357,23 +271,20 @@ FKeyHandle FRichCurve::UpdateOrAddKey(float InTime, float InValue, const bool bU
 }
 
 
-FKeyHandle FRichCurve::SetKeyTime( FKeyHandle KeyHandle, float NewTime )
+void FRichCurve::SetKeyTime( FKeyHandle KeyHandle, float NewTime )
 {
-	if (!IsKeyHandleValid(KeyHandle))
+	if (IsKeyHandleValid(KeyHandle))
 	{
-		return KeyHandle;
+		const FRichCurveKey OldKey = GetKey(KeyHandle);
+
+		DeleteKey(KeyHandle);
+		AddKey(NewTime, OldKey.Value, false, KeyHandle);
+
+		// Copy all properties from old key, but then fix time to be the new time
+		FRichCurveKey& NewKey = GetKey(KeyHandle);
+		NewKey = OldKey;
+		NewKey.Time = NewTime;
 	}
-
-	FRichCurveKey OldKey = GetKey(KeyHandle);
-	
-	DeleteKey(KeyHandle);
-	AddKey(NewTime, OldKey.Value, false, KeyHandle);
-
-	// Copy all properties from old key, but then fix time to be the new time
-	GetKey(KeyHandle) = OldKey;
-	GetKey(KeyHandle).Time = NewTime;
-
-	return KeyHandle;
 }
 
 
@@ -388,23 +299,7 @@ float FRichCurve::GetKeyTime(FKeyHandle KeyHandle) const
 }
 
 
-FKeyHandle FRichCurve::FindKey(float KeyTime, float KeyTimeTolerance) const
-{
-	int32 KeyPosition = FindKeyInternal(KeyTime, KeyTimeTolerance);
-	if (KeyPosition >= 0)
-	{
-		return GetKeyHandle(KeyPosition);
-	}
-
-	return FKeyHandle();
-}
-
-bool FRichCurve::KeyExistsAtTime(float KeyTime, float KeyTimeTolerance) const
-{
-	return FindKeyInternal(KeyTime, KeyTimeTolerance) >= 0;
-}
-
-int32 FRichCurve::FindKeyInternal(float KeyTime, float KeyTimeTolerance) const
+int32 FRichCurve::GetKeyIndex(float KeyTime, float KeyTimeTolerance) const
 {
 	int32 Start = 0;
 	int32 End = Keys.Num() - 1;
@@ -429,7 +324,7 @@ int32 FRichCurve::FindKeyInternal(float KeyTime, float KeyTimeTolerance) const
 		}
 	}
 
-	return -1;
+	return INDEX_NONE;
 }
 
 void FRichCurve::SetKeyValue(FKeyHandle KeyHandle, float NewValue, bool bAutoSetTangents)
@@ -477,55 +372,16 @@ bool FRichCurve::IsConstant(float Tolerance) const
 	return true;
 }
 
-void FRichCurve::ShiftCurve(float DeltaTime)
+TPair<float, float> FRichCurve::GetKeyTimeValuePair(FKeyHandle KeyHandle) const
 {
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = GetKeyHandleIterator(); It; ++It)
+	if (!IsKeyHandleValid(KeyHandle))
 	{
-		KeyHandles.Add(It.Key());
+		return TPair<float, float>(0.f, 0.f);
 	}
 
-	ShiftCurve(DeltaTime, KeyHandles);
+	const FRichCurveKey& Key = GetKey(KeyHandle);
+	return TPair<float, float>(Key.Time, Key.Value);
 }
-
-
-void FRichCurve::ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = GetKeyHandleIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, GetKeyTime(KeyHandle)+DeltaTime);
-		}
-	}
-}
-
-
-void FRichCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = GetKeyHandleIterator(); It; ++It)
-	{
-		KeyHandles.Add(It.Key());
-	}
-
-	ScaleCurve(ScaleOrigin, ScaleFactor, KeyHandles);
-}
-
-
-void FRichCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = GetKeyHandleIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, (GetKeyTime(KeyHandle) - ScaleOrigin) * ScaleFactor + ScaleOrigin);
-		}
-	}
-}
-
 
 void FRichCurve::SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode NewInterpMode)
 {
@@ -902,7 +758,7 @@ void FRichCurve::BakeCurve(float SampleRate, float FirstKeyTime, float LastKeyTi
 		Time += SampleRate;
 	}
 
-	for (auto NewKey : BakedKeys)
+	for (const TPair<float,float>& NewKey : BakedKeys)
 	{
 		UpdateOrAddKey(NewKey.Key, NewKey.Value);
 	}
@@ -958,20 +814,6 @@ FORCEINLINE_DEBUGGABLE static float BezierInterp(float P0, float P1, float P2, f
 	const float P0123 = FMath::Lerp(P012, P123, Alpha);
 
 	return P0123;
-}
-
-
-static float BezierInterp2(float P0, float Y1, float Y2, float P3, float mu)
-{
-	float P1 = (-5.f * P0 + 18.f * Y1 - 9.f * Y2 + 2.f * P3) / 6.f;
-	float P2 = (2.f * P0 -  9.f * Y1 + 18.f * Y2 - 5.f * P3) / 6.f;
-	float A = P3 - 3.0f * P2 + 3.0f * P1 - P0;
-	float B = 3.0f * P2 - 6.0f * P1 + 3.0f * P0;
-	float C = 3.0f * P1 - 3.0f * P0;
-	float D = P0;
-	float Result = A * (mu * mu * mu) + B * (mu * mu) + C * mu + D;
-
-	return Result;
 }
 
 float EvalForTwoKeys(const FRichCurveKey& Key1, const FRichCurveKey& Key2, const float InTime)
@@ -1030,7 +872,7 @@ void FRichCurve::RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepK
 		AllHandlesByIndex.AddZeroed(Keys.Num());
 		KeepHandles.Reserve(Keys.Num());
 
-		for (TPair<FKeyHandle, int32> HandleIndexPair : KeyHandlesToIndices.GetMap())
+		for (const TPair<FKeyHandle, int32>& HandleIndexPair : KeyHandlesToIndices.GetMap())
 		{
 			AllHandlesByIndex[HandleIndexPair.Value] = HandleIndexPair.Key;
 		}
@@ -1084,36 +926,6 @@ void FRichCurve::RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepK
 		KeyHandlesToIndices.Add(KeepHandles[KeyIndex], KeyIndex);
 	}
 }
-
-static void CycleTime(float MinTime, float MaxTime, float& InTime, int& CycleCount)
-{
-	float InitTime = InTime;
-	float Duration = MaxTime - MinTime;
-
-	if (InTime > MaxTime)
-	{
-		CycleCount = FMath::FloorToInt((MaxTime-InTime)/Duration);
-		InTime = InTime + Duration*CycleCount;
-	}
-	else if (InTime < MinTime)
-	{
-		CycleCount = FMath::FloorToInt((InTime-MinTime)/Duration);
-		InTime = InTime - Duration*CycleCount;
-	}
-
-	if (InTime == MaxTime && InitTime < MinTime)
-	{
-		InTime = MinTime;
-	}
-
-	if (InTime == MinTime && InitTime > MaxTime)
-	{
-		InTime = MaxTime;
-	}
-
-	CycleCount = FMath::Abs(CycleCount);
-}
-
 
 void FRichCurve::RemapTimeValue(float& InTime, float& CycleValueOffset) const
 {

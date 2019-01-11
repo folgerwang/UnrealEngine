@@ -686,6 +686,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	/** Set an int32 property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
 	static void SetIntPropertyByName(UObject* Object, FName PropertyName, int32 Value);
+	
+	/** Set an int64 property by name */
+	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
+	static void SetInt64PropertyByName(UObject* Object, FName PropertyName, int64 Value);
 
 	/** Set an uint8 or enum property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
@@ -1500,28 +1504,28 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param AdIdIndex The index of the ID to select for the ad to show
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static void LoadInterstitialAd(int32 AdIdIndex);
+	static void LoadInterstitialAd(int32 AdIdIndex);
 
 	/**
 	* Returns true if the requested interstitial ad is loaded and ready
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static bool IsInterstitialAdAvailable();
+	static bool IsInterstitialAdAvailable();
 
 	/**
 	* Returns true if the requested interstitial ad has been successfully requested (false if load request fails)
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static bool IsInterstitialAdRequested();
+	static bool IsInterstitialAdRequested();
 
 	/**
 	* Shows the loaded interstitial ad (loaded with LoadInterstitialAd)
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static void ShowInterstitialAd();
+	static void ShowInterstitialAd();
 
 	/**
 	 * Displays the built-in leaderboard GUI (iOS and Android only; this function may be renamed or moved in a future release)
@@ -1573,22 +1577,28 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static bool GetVolumeButtonsHandledBySystem();
 
 	/**
-	 * Resets the gamepad to player controller id assignments (Android only)
+	 * Resets the gamepad to player controller id assignments (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
 	static void ResetGamepadAssignments();
 
 	/*
-	 * Resets the gamepad assignment to player controller id (Android only)
+	 * Resets the gamepad assignment to player controller id (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 
 	/**
-	 * Returns true if controller id assigned to a gamepad (Android only)
+	 * Returns true if controller id assigned to a gamepad (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Platform")
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+
+	/**
+	* Returns name of controller if assigned to a gamepad (or None if not assigned) (Android and iOS only)
+	*/
+	UFUNCTION(BlueprintPure, Category = "Utilities|Platform")
+	static FString GetGamepadControllerName(int32 ControllerId);
 
 	/**
 	 * Sets the state of the transition message rendered by the viewport. (The blue text displayed when the game is paused and so forth.)

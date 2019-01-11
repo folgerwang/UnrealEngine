@@ -455,6 +455,8 @@ void UTexAlignerFit::AlignSurf( ETexAlign InTexAlignType, UModel* InModel, FBspS
 
 void FTexAlignTools::Init()
 {
+	//Never call Init more then once except if Release was call
+	check(!bIsInit);
 	// Create the list of aligners.
 	Aligners.Empty();
 	Aligners.Add(NewObject<UTexAlignerDefault>(GetTransientPackage(), NAME_None, RF_Public | RF_Standalone));
@@ -466,17 +468,32 @@ void FTexAlignTools::Init()
 		Aligner->AddToRoot();
 	}
 	FEditorDelegates::FitTextureToSurface.AddRaw(this, &FTexAlignTools::OnEditorFitTextureToSurface);
+	bIsInit = true;
 }
 
+void FTexAlignTools::Release()
+{
+	if (bIsInit)
+	{
+		for (UObject* Aligner : Aligners)
+		{
+			Aligner->RemoveFromRoot();
+		}
+		Aligners.Empty();
+		FEditorDelegates::FitTextureToSurface.RemoveAll(this);
+	}
+	bIsInit = false;
+}
 
 FTexAlignTools::FTexAlignTools()
 {
+	bIsInit = false;
 }
 
 
 FTexAlignTools::~FTexAlignTools()
 {
-	FEditorDelegates::FitTextureToSurface.RemoveAll(this);
+	Release();
 }
 
 // Returns the most appropriate texture aligner based on the type passed in.

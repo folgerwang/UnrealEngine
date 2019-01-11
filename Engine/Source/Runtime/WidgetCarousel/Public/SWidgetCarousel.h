@@ -54,6 +54,7 @@ struct FCarouselDisplayItem : public TSharedFromThis<FCarouselDisplayItem>
 		, PeakSpeed(.2f)
 		, PeakDistance(0.05f)
 		, FadeRate( 2.0f )
+		, Visibility(EVisibility::Visible)
 	{
 		// Create default widget
 		FXWidget = SNew(SFxWidget)
@@ -233,6 +234,12 @@ struct FCarouselDisplayItem : public TSharedFromThis<FCarouselDisplayItem>
 		FXWidget->SetColorAndOpacity( FLinearColor(1.f,1.f,1.f, OpacityValue ) );
 	}
 
+	void SetVisibility(EVisibility InVisibility)
+	{
+		Visibility = InVisibility;
+		FXWidget->SetVisibility(InVisibility);
+	}
+
 	/**
 	 * Set the slide position.
 	 * @param InSlide - the desired slide position.
@@ -383,6 +390,9 @@ protected:
 
 	// Holds the peak curve
 	FCurveSequence SlideInCurve;
+
+	// The current visibility of the display item
+	EVisibility Visibility;
 };
 
 /**
@@ -489,6 +499,17 @@ public:
 			LeftCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetLeftWidgetIndex(WidgetIndex)]));
 			CenterCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[WidgetIndex]));
 			RightCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetRightWidgetIndex(WidgetIndex)]));
+		}
+
+		if (ItemsSourceRef.Num() == 1)
+		{
+			LeftCarouselWidget->SetVisibility(EVisibility::Collapsed);
+			RightCarouselWidget->SetVisibility(EVisibility::Collapsed);
+		}
+		else
+		{
+			LeftCarouselWidget->SetVisibility(EVisibility::Visible);
+			RightCarouselWidget->SetVisibility(EVisibility::Visible);
 		}
 
 		SetSliderLimits();

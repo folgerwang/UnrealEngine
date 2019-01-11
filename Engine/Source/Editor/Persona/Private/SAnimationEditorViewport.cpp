@@ -65,6 +65,51 @@ void SAnimationEditorViewport::Construct(const FArguments& InArgs, const FAnimat
 		);
 
 	Client->VisibilityDelegate.BindSP(this, &SAnimationEditorViewport::IsVisible);
+
+	// restore last used feature level
+	auto ScenePtr = PreviewScenePtr.Pin();
+	if (ScenePtr.IsValid())
+	{
+		UWorld* World = ScenePtr->GetWorld();
+		if (World != nullptr)
+		{
+			World->ChangeFeatureLevel(GWorld->FeatureLevel);
+		}
+	}
+
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			auto ScenePtr = PreviewScenePtr.Pin();
+			if (ScenePtr.IsValid())
+			{
+				UWorld* World = ScenePtr->GetWorld();
+				if (World != nullptr)
+				{
+					World->ChangeFeatureLevel(NewFeatureLevel);
+				}
+			}
+		});
+}
+
+SAnimationEditorViewport::~SAnimationEditorViewport()
+{
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	Editor->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+}
+
+void SAnimationEditorViewport::PopulateViewportOverlays(TSharedRef<SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	// add the feature level display widget
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
 }
 
 TSharedRef<FEditorViewportClient> SAnimationEditorViewport::MakeEditorViewportClient()

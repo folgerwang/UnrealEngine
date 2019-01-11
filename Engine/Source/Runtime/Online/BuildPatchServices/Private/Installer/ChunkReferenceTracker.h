@@ -43,12 +43,20 @@ namespace BuildPatchServices
 		virtual void SortByUseOrder(TArray<FGuid>& ChunkList, ESortDirection Direction) const = 0;
 
 		/**
-		 * Retrieve the array of next chunk references, using a predicate to select whether each chunk is considered.
+		 * Find the next X chunk references that match the provided predicate.
 		 * @param Count             The number of chunk entries that are desired.
-		 * @param SelectPredicate   The predicate used to determine whether to count or ignore the given chunk.
+		 * @param SelectPredicate   The predicate used to select each chunk.
 		 * @return an array of unique chunk id entries, in the order in which they are required.
 		 */
 		virtual TArray<FGuid> GetNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const = 0;
+
+		/**
+		 * Select from the next X chunk references, entries that match the provided predicate.
+		 * @param Count             The number of chunk entries to search through.
+		 * @param SelectPredicate   The predicate used to select each chunk.
+		 * @return an array of unique chunk id entries, in the order in which they are required.
+		 */
+		virtual TArray<FGuid> SelectFromNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const = 0;
 
 		/**
 		 * Pop the top reference from the tracker, indicating that operation has been performed.
@@ -86,12 +94,12 @@ namespace BuildPatchServices
 
 
 	/**
-	 * Helpers for creating a custom chunk use stack for use with the equivalent FChunkReferenceTrackerFactory.
+	 * Helpers for creating a CustomChunkReferences array for use with the equivalent FChunkReferenceTrackerFactory.
 	 */
 	namespace CustomChunkReferencesHelpers
 	{
 		/**
-		 * This implementation takes the install manifest and generates the chunk use stack needed for a chunk reference tracker based
+		 * This implementation takes the install manifest and generates the CustomChunkReferences needed for a chunk reference tracker based
 		 * on caching data and so using each chunk once in the order that would be required to install the build.
 		 * @param InstallManifest   The install manifest to enumerate references from.
 		 * @return the chunk use references for FChunkReferenceTrackerFactory::Create.
@@ -123,7 +131,7 @@ namespace BuildPatchServices
 		}
 		
 		/**
-		 * This implementation takes a new install manifest and a current manifest. It generates the chunk use stack needed for a chunk reference tracker based
+		 * This implementation takes a new install manifest and a current manifest. It generates the CustomChunkReferences needed for a chunk reference tracker based
 		 * on caching data for a patch only, and so using the chunks in InstallManifest, which are not in CurrentManifest, once each in the order that they
 		 * would be required to patch the build.
 		 * @param InstallManifest   The install manifest to enumerate chunk references from.
@@ -163,7 +171,7 @@ namespace BuildPatchServices
 		}
 		
 		/**
-		 * This implementation takes the install manifest and a tagset. It generates the chunk use stack needed for a chunk reference tracker based
+		 * This implementation takes the install manifest and a tagset. It generates the CustomChunkReferences needed for a chunk reference tracker based
 		 * on caching data and so using each chunk once in the order that would be required to install the build when using the same tagset provided.
 		 * @param InstallManifest   The install manifest to enumerate references from.
 		 * @param TagSet            The tagset that would be used to install the build, which will filter down required file list and thus required chunk list.
@@ -196,7 +204,7 @@ namespace BuildPatchServices
 		}
 		
 		/**
-		 * This implementation takes a new install manifest, a current manifest, and a tagset. It generates the chunk use stack needed for a chunk reference tracker based
+		 * This implementation takes a new install manifest, a current manifest, and a tagset. It generates the CustomChunkReferences needed for a chunk reference tracker based
 		 * on caching data for a patch only, and so using the chunks in InstallManifest, which are not in CurrentManifest, once each in the order that would be required
          * to patch the build when using the same tagset provided.
 		 * @param InstallManifest   The install manifest to enumerate references from.

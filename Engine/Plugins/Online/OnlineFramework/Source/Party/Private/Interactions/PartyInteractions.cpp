@@ -14,7 +14,7 @@
 // InviteToParty
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_InviteToParty::GetDisplayName()
+FText FSocialInteraction_InviteToParty::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("InviteToParty", "Invite to Party");
 }
@@ -24,15 +24,12 @@ FString FSocialInteraction_InviteToParty::GetSlashCommandToken()
 	return TEXT("invite");
 }
 
-void FSocialInteraction_InviteToParty::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_InviteToParty::CanExecute(const USocialUser& User)
 {
-	if (User.CanInviteToParty(IOnlinePartySystem::GetPrimaryPartyTypeId()) && !User.IsBlocked())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return User.CanInviteToParty(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
 
-void FSocialInteraction_InviteToParty::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_InviteToParty::ExecuteInteraction(USocialUser& User)
 {
 	User.InviteToParty(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
@@ -41,7 +38,7 @@ void FSocialInteraction_InviteToParty::ExecuteAction(ESocialSubsystem SocialSubs
 // JoinParty
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_JoinParty::GetDisplayName()
+FText FSocialInteraction_JoinParty::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("JoinParty", "Join Party");
 }
@@ -51,16 +48,13 @@ FString FSocialInteraction_JoinParty::GetSlashCommandToken()
 	return TEXT("join");
 }
 
-void FSocialInteraction_JoinParty::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_JoinParty::CanExecute(const USocialUser& User)
 {
-	FJoinPartyResult Result;
-	if (User.CanJoinParty(IOnlinePartySystem::GetPrimaryPartyTypeId(), Result) && !User.HasSentPartyInvite())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	FJoinPartyResult MockJoinResult = User.CheckPartyJoinability(IOnlinePartySystem::GetPrimaryPartyTypeId());
+	return MockJoinResult.WasSuccessful();
 }
 
-void FSocialInteraction_JoinParty::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_JoinParty::ExecuteInteraction(USocialUser& User)
 {
 	User.JoinParty(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
@@ -69,7 +63,7 @@ void FSocialInteraction_JoinParty::ExecuteAction(ESocialSubsystem SocialSubsyste
 // AcceptPartyInvite
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_AcceptPartyInvite::GetDisplayName()
+FText FSocialInteraction_AcceptPartyInvite::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("AcceptPartyInvite", "Accept");
 }
@@ -79,15 +73,12 @@ FString FSocialInteraction_AcceptPartyInvite::GetSlashCommandToken()
 	return TEXT("acceptpartyinvite");
 }
 
-void FSocialInteraction_AcceptPartyInvite::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_AcceptPartyInvite::CanExecute(const USocialUser& User)
 {
-	if (User.HasSentPartyInvite())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return User.HasSentPartyInvite(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
 
-void FSocialInteraction_AcceptPartyInvite::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_AcceptPartyInvite::ExecuteInteraction(USocialUser& User)
 {
 	User.JoinParty(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
@@ -96,7 +87,7 @@ void FSocialInteraction_AcceptPartyInvite::ExecuteAction(ESocialSubsystem Social
 // RejectPartyInvite
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_RejectPartyInvite::GetDisplayName()
+FText FSocialInteraction_RejectPartyInvite::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("RejectPartyInvite", "Reject");
 }
@@ -106,24 +97,21 @@ FString FSocialInteraction_RejectPartyInvite::GetSlashCommandToken()
 	return TEXT("rejectpartyinvite");
 }
 
-void FSocialInteraction_RejectPartyInvite::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_RejectPartyInvite::CanExecute(const USocialUser& User)
 {
-	if (User.HasSentPartyInvite())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return User.HasSentPartyInvite(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
 
-void FSocialInteraction_RejectPartyInvite::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_RejectPartyInvite::ExecuteInteraction(USocialUser& User)
 {
-	User.RejectPartyInvite();
+	User.RejectPartyInvite(IOnlinePartySystem::GetPrimaryPartyTypeId());
 }
 
 //////////////////////////////////////////////////////////////////////////
 // LeaveParty
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_LeaveParty::GetDisplayName()
+FText FSocialInteraction_LeaveParty::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("LeaveParty", "Leave Party");
 }
@@ -133,19 +121,17 @@ FString FSocialInteraction_LeaveParty::GetSlashCommandToken()
 	return TEXT("leave");
 }
 
-void FSocialInteraction_LeaveParty::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_LeaveParty::CanExecute(const USocialUser& User)
 {
 	if (User.IsLocalUser())
 	{
 		const UPartyMember* LocalMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId());
-		if (LocalMember && LocalMember->GetParty().GetNumPartyMembers() > 1)
-		{
-			OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-		}
+		return LocalMember && LocalMember->GetParty().GetNumPartyMembers() > 1;
 	}
+	return false;
 }
 
-void FSocialInteraction_LeaveParty::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_LeaveParty::ExecuteInteraction(USocialUser& User)
 {
 	if (const UPartyMember* LocalMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId()))
 	{
@@ -157,7 +143,7 @@ void FSocialInteraction_LeaveParty::ExecuteAction(ESocialSubsystem SocialSubsyst
 // KickPartyMember
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_KickPartyMember::GetDisplayName()
+FText FSocialInteraction_KickPartyMember::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("KickPartyMember", "Kick");
 }
@@ -167,16 +153,13 @@ FString FSocialInteraction_KickPartyMember::GetSlashCommandToken()
 	return TEXT("kick");
 }
 
-void FSocialInteraction_KickPartyMember::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_KickPartyMember::CanExecute(const USocialUser& User)
 {
 	const UPartyMember* PartyMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId());
-	if (PartyMember && PartyMember->CanKickFromParty())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return PartyMember && PartyMember->CanKickFromParty();
 }
 
-void FSocialInteraction_KickPartyMember::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_KickPartyMember::ExecuteInteraction(USocialUser& User)
 {
 	if (UPartyMember* PartyMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId()))
 	{
@@ -188,7 +171,7 @@ void FSocialInteraction_KickPartyMember::ExecuteAction(ESocialSubsystem SocialSu
 // PromoteToPartyLeader
 //////////////////////////////////////////////////////////////////////////
 
-FText FSocialInteraction_PromoteToPartyLeader::GetDisplayName()
+FText FSocialInteraction_PromoteToPartyLeader::GetDisplayName(const USocialUser& User)
 {
 	return LOCTEXT("PromoteToPartyLeader", "Promote");
 }
@@ -198,16 +181,13 @@ FString FSocialInteraction_PromoteToPartyLeader::GetSlashCommandToken()
 	return TEXT("promote");
 }
 
-void FSocialInteraction_PromoteToPartyLeader::GetAvailability(const USocialUser& User, TArray<ESocialSubsystem>& OutAvailableSubsystems)
+bool FSocialInteraction_PromoteToPartyLeader::CanExecute(const USocialUser& User)
 {
 	const UPartyMember* PartyMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId());
-	if (PartyMember && PartyMember->CanPromoteToLeader())
-	{
-		OutAvailableSubsystems.Add(ESocialSubsystem::Primary);
-	}
+	return PartyMember && PartyMember->CanPromoteToLeader();
 }
 
-void FSocialInteraction_PromoteToPartyLeader::ExecuteAction(ESocialSubsystem SocialSubsystem, USocialUser& User)
+void FSocialInteraction_PromoteToPartyLeader::ExecuteInteraction(USocialUser& User)
 {
 	if (UPartyMember* PartyMember = User.GetPartyMember(IOnlinePartySystem::GetPrimaryPartyTypeId()))
 	{

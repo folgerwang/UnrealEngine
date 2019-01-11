@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorModeManager.h"
 #include "Engine/Selection.h"
@@ -739,6 +739,18 @@ bool FEditorModeTools::CapturedMouseMove( FEditorViewportClient* InViewportClien
 	{
 		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
 		bHandled |= Mode->CapturedMouseMove( InViewportClient, InViewport, InMouseX, InMouseY );
+	}
+	return bHandled;
+}
+
+/** Notifies all active modes of all captured mouse movement */	
+bool FEditorModeTools::ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves )
+{
+	bool bHandled = false;
+	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
+	{
+		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
+		bHandled |= Mode->ProcessCapturedMouseMoves( InViewportClient, InViewport, CapturedMouseMoves );
 	}
 	return bHandled;
 }

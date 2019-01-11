@@ -1069,7 +1069,20 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 		ExistingMeshDataPtr->UseMaterialNameSlotWorkflow = IsUsingMaterialSlotNameWorkflow(ExistingMesh->AssetImportData);
 
 		FMeshSectionInfoMap OldSectionInfoMap = ExistingMesh->SectionInfoMap;
-		
+
+		bool bIsReimportCustomLODOverGeneratedLOD = ExistingMesh->SourceModels.IsValidIndex(LodIndex) &&
+			(ExistingMesh->SourceModels[LodIndex].IsRawMeshEmpty() || !(ExistingMesh->IsReductionActive(LodIndex) && ExistingMesh->SourceModels[LodIndex].ReductionSettings.BaseLODModel != LodIndex));
+
+		//We need to reset some data in case we import a custom LOD over a generated LOD
+		if (bIsReimportCustomLODOverGeneratedLOD)
+		{
+			//Reset the section info map for this LOD
+			for (int32 SectionIndex = 0; SectionIndex < ExistingMesh->GetNumSections(LodIndex); ++SectionIndex)
+			{
+				OldSectionInfoMap.Remove(LodIndex, SectionIndex);
+			}
+		}
+
 		ExistingMeshDataPtr->ExistingMaterials.Empty();
 		if (bSaveMaterials)
 		{
@@ -1140,6 +1153,13 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
+			if (bIsReimportCustomLODOverGeneratedLOD && (i == LodIndex))
+			{
+				//Reset the reduction
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles = 1.0f;
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentVertices = 1.0f;
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation = 0.0f;
+			}
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
 
@@ -1251,7 +1271,6 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			}
 			FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(i);
 			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
-
 			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[i].ExistingReductionSettings);
 
 			if (!bSwapFromGeneratedToImported && bWasReduced)

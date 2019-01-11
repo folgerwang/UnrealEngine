@@ -27,3 +27,19 @@ FReply& FReply::ClearUserFocus(EFocusCause ReasonFocusIsChanging, bool bInAllUse
 	this->bAllUsers = bInAllUsers;
 	return Me();
 }
+
+FString FReply::ToString()
+{
+	FString HandledStr = IsEventHandled() ? TEXT("Handled") : TEXT("Unhandled");
+
+	if (bReleaseMouseCapture)
+	{
+		HandledStr += TEXT("+ReleaseMouseCapture");
+	}
+	if (bSetUserFocus)
+	{
+		HandledStr += TEXT("+SetUserFocus");
+	}
+
+	return HandledStr;
+}

@@ -163,6 +163,12 @@ FString FTickAnimationSharingFunction::DiagnosticMessage()
 	return TEXT("FTickAnimationSharingFunction");
 }
 
+FName FTickAnimationSharingFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("TickAnimationSharing"));
+}
+
+
 FTickAnimationSharingFunction& UAnimationSharingManager::GetTickFunction()
 {
 	return TickFunction;

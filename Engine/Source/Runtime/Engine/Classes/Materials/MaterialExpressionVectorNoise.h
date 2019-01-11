@@ -59,7 +59,7 @@ class UMaterialExpressionVectorNoise : public UMaterialExpression
 
 	/** Noise function, affects performance and look */
 	UPROPERTY(EditAnywhere, Category = MaterialExpressionVectorNoise, meta = (DisplayName = "Function"))
-		TEnumAsByte<enum EVectorNoiseFunction> NoiseFunction;
+	TEnumAsByte<enum EVectorNoiseFunction> NoiseFunction;
 
 	/** For noise functions where applicable, lower numbers are faster and lower quality, higher numbers are slower and higher quality */
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionVectorNoise, meta=(UIMin = "1", UIMax = "4"))
