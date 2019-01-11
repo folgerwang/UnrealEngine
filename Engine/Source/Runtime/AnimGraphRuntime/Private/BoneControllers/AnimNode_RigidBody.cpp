@@ -56,7 +56,7 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 	ComponentLinearAccScale = FVector::ZeroVector;
 	ComponentLinearVelScale = FVector::ZeroVector;
 	ComponentAppliedLinearAccClamp = FVector(10000,10000,10000);
-	bForceDisableCollisionBetweenConstraintBodies = true;
+	bForceDisableCollisionBetweenConstraintBodies = false;
 }
 
 FAnimNode_RigidBody::~FAnimNode_RigidBody()
