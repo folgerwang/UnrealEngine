@@ -1020,6 +1020,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 {
 	SCOPED_NAMED_EVENT(IncrementalPurgeGarbage, FColor::Red);
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("IncrementalPurgeGarbage"), STAT_IncrementalPurgeGarbage, STATGROUP_GC);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(GarbageCollection);
 
 	if (GExitPurge)
 	{
