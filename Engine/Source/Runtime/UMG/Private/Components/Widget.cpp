@@ -980,6 +980,27 @@ EVisibility UWidget::GetVisibilityInDesigner() const
 	return bHiddenInDesigner ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
+bool UWidget::IsVisibleInDesigner() const
+{
+	if (bHiddenInDesigner)
+	{
+		return false;
+	}
+
+	UWidget* Parent = GetParent();
+	while (Parent != nullptr)
+	{
+		if (Parent->bHiddenInDesigner)
+		{
+			return false;
+		}
+
+		Parent = Parent->GetParent();
+	}
+
+	return true;
+}
+
 void UWidget::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
