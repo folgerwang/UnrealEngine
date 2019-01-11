@@ -187,15 +187,17 @@ void MainCS(
 	{
 		SceneBufferUV = clamp(SceneBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 	}
-
-	// Read reference data.
-	FSSFSignalSample Accumulator = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
-	float AccumulatorWeight = 1;
-
+	
 	// Read reference meta data.
 	float2 ScreenPosition = ViewportUVToScreenPos(BufferUVToViewportUV(SceneBufferUV));
 	FSSFSampleSceneInfos RefSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
 
+	FSSFSignalSample RefSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
+
+	// Read reference data.
+	float AccumulatorWeight = 1; //GetMultiImportanceSamplingWeight(RefSceneMetadata, RefSceneMetadata, RefSample, DispatchThreadId);
+	FSSFSignalSample Accumulator = Mul(RefSample, AccumulatorWeight);
+	
 	float CurrentWorldBluringRadius = ComputePixelWorldRadius(RefSceneMetadata);
 
 	float BilateralWeightAdjustement = 1;
@@ -220,7 +222,7 @@ void MainCS(
 		KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
 		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 
-		uint SampleCount = 16;
+		uint SampleCount = kStackowiakSampleCountPerSet; // TODO
 
 		// Id of the pixel in the quad.
 		uint QuadSampleId = (DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1);
@@ -271,7 +273,8 @@ void MainCS(
 			NeighborSceneMetadata);
 
 		// Multiple importance sampling weights.
-		float MISWeight = GetMultiImportanceSamplingWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample);
+		uint2 NeighborPixelCoord = floor(NeighborBufferUV * View.BufferSizeAndInvSize.xy);
+		float MISWeight = GetMultiImportanceSamplingWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample, NeighborPixelCoord);
 
 		// Compute the weight of the sample in the kernel.
 		#if CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
@@ -286,7 +289,7 @@ void MainCS(
 		#endif
 
 		// Compute the final weight of that sample.
-		float FinalWeight = BilateralWeight * MISWeight * KernelWeight;
+		float FinalWeight = BilateralWeight * MISWeight * KernelWeight;// * (NeighborSample > 0.0 ? 1 : 0);
 		
 		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
 	}

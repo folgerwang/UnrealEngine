@@ -161,18 +161,6 @@ bool GenerateOcclusionRay(
 	return true;
 }
 
-uint ReverseNBits(uint Bitfield, const uint BitCount)
-{
-	uint Out = 0;
-	UNROLL
-	for (uint i = 0; i < BitCount; i++)
-	{
-		uint bIsSet = ((Bitfield & (0x1 << i)) >> i);
-		Out |= bIsSet << (BitCount - 1 - i);
-	}
-	return Out;
-}
-
 [shader("raygeneration")]
 void OcclusionRGS()
 {
@@ -214,7 +202,7 @@ void OcclusionRGS()
 		if (LocalSamplesPerPixel == 1 && 1)
 		{
 			const uint TemporalBits = 10;
-			uint FrameIndexMod1024 = ReverseNBits(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+			uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
 
 			uint2 SobolBase = SobolPixel(PixelCoord);
 			uint2 SobolFrame = SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);

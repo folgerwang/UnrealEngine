@@ -5,6 +5,8 @@
 
 #include "SSDCommon.ush"
 #include "SSDSignalCore.ush"
+#include "../MonteCarlo.ush"
+#include "../BRDF.ush"
 
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
@@ -141,16 +143,107 @@ float GetSamplePenumbra(FSSFSignalSample Sample)
 	return Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
 }
 
+// TODO: duplicated...
+float3 GenerateReflectedRayDirection(
+	float3 IncidentDirection,
+	float3 WorldNormal,
+	float Roughness,
+	float2 RandSample,
+	out float3 RayDirection,
+	out float PDF)
+{
+	if (Roughness < 0.05 ) //ReflectionSmoothClamp)
+	{
+		RayDirection = reflect(IncidentDirection, WorldNormal);
+		PDF = 1.0;
+	}
+	else
+	{
+		float NoV = saturate(dot(-IncidentDirection, WorldNormal));
+		float2 E = RandSample;
+		float4 Sample = ImportanceSampleGGX(E, Pow4(Roughness));
+		float3 H = TangentToWorld(Sample.xyz, WorldNormal);
+		RayDirection = reflect(IncidentDirection, H);
+
+		PDF = Sample.w;
+	}
+
+	return RayDirection;
+}
+
+// TODO: duplicated...
+float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
+{
+	return float2(SobolRand) * rcp(65536.0) + rcp(65536.0 * 2.0);
+}
+
+// TODO: duplicated...
+void GetInputRayDirectionPixel(
+	uint2 PixelCoord,
+	FSSFSampleSceneInfos SceneMetadata,
+	out float3 RayDirection,
+	out float PDF)
+{
+	float3 IncidentDirection = normalize(SceneMetadata.TranslatedWorldPosition - View.TranslatedWorldCameraOrigin);
+
+	float2 RandSample;
+	{
+		const uint TemporalBits = 10;
+		uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+
+		uint2 SobolBase = SobolPixel(PixelCoord);
+		uint2 SobolFrame = SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);
+
+		RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
+	}
+
+	GenerateReflectedRayDirection(
+		IncidentDirection,
+		SceneMetadata.WorldNormal,
+		SceneMetadata.Roughness,
+		RandSample,
+		/* out = */ RayDirection,
+		/* out = */ PDF);
+}
+
+// [ Stackowiak 2018, "Stochastic all the things: Raytracing in hybrid real-time rendering" ]
 float GetMultiImportanceSamplingWeight(
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos SampleSceneMetadata,
-	FSSFSignalSample Sample)
+	FSSFSignalSample Sample,
+	uint2 SamplePixelCoord)
 #if CONFIG_SPECULAR_MIS
 {
-	return 1.0;
+	if (View.GeneralPurposeTweak > 0.5)
+	{
+		return 1;
+	}
+
+	float3 OriginalRayDirection;
+	float OriginalRayPDF;
+
+	GetInputRayDirectionPixel(
+		SamplePixelCoord,
+		SampleSceneMetadata, 
+		/* out */ OriginalRayDirection,
+		/* out */ OriginalRayPDF);
+
+	float3 HitTranslatedWorldPosition = SampleSceneMetadata.TranslatedWorldPosition + OriginalRayDirection * Sample.PenumbraClosestHit;
+
+	float a2 = Pow4(RefSceneMetadata.Roughness);
+
+	float3 N = RefSceneMetadata.WorldNormal;
+	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+	float3 L = normalize(HitTranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition);
+	float3 H = normalize(L + V);
+
+	float NoH = abs(dot(N, H));
+	float D = D_GGX(a2, NoH);
+
+	return D / OriginalRayPDF;
 }
-#else // CONFIG_MIS
+#else // !CONFIG_SPECULAR_MIS
 {
 	return 1.0;
 }
-#endif
+#endif // CONFIG_SPECULAR_MIS

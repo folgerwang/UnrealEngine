@@ -155,7 +155,8 @@ float GetSamplePenumbra(FSSFSignalSample Sample)
 float GetMultiImportanceSamplingWeight(
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos SampleSceneMetadata,
-	FSSFSignalSample Sample)
+	FSSFSignalSample Sample,
+	uint2 SamplePixelCoord)
 {
 	return 1.0;
 }

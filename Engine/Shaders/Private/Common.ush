@@ -1647,6 +1647,7 @@ float DecodePackedHeight(float2 PackedHeight)
 	return DecodeHeightValue(DecodePackedTwoChannelValue(PackedHeight));
 }
 
+/** Reverses all the 32 bits. */
 uint ReverseBits32( uint bits )
 {
 #if SM5_PROFILE || COMPILER_METAL
@@ -1659,6 +1660,19 @@ uint ReverseBits32( uint bits )
 	bits = ( (bits & 0x55555555) << 1 ) | ( (bits & 0xaaaaaaaa) >> 1 );
 	return bits;
 #endif
+}
+
+/** Reverses all the <BitCount> lowest significant bits. */
+uint ReverseBitsN(uint Bitfield, const uint BitCount)
+{
+	uint Out = 0;
+	UNROLL
+	for (uint i = 0; i < BitCount; i++)
+	{
+		uint bIsSet = ((Bitfield & (0x1 << i)) >> i);
+		Out |= bIsSet << (BitCount - 1 - i);
+	}
+	return Out;
 }
 
 // see PixelShaderOutputCommon

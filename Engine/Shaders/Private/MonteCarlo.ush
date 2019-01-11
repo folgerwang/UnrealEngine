@@ -123,6 +123,16 @@ uint2 SobolIndex(uint2 Base, int Index, int Bits = 10)
 	return Result;
 }
 
+/** Returns an unique sobol sample for the frame. */
+uint2 ComputePixelUniqueSobolRandSample(uint2 PixelCoord)
+{
+	const uint TemporalBits = 10;
+	uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+
+	uint2 SobolBase = SobolPixel(PixelCoord);
+	return SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);
+}
+
 
 ///////
 
