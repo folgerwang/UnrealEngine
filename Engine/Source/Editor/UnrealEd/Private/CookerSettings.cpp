@@ -14,8 +14,8 @@ UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	, bIgnoreScriptPackagesOutOfDateForIteration(false)
 	, bCompileBlueprintsInDevelopmentMode(true)
 	, BlueprintComponentDataCookingMethod(EBlueprintComponentDataCookingMethod::EnabledBlueprintsOnly)
-	, bCookBlueprintComponentTemplateData(false)
 	, bAllowCookedDataInEditorBuilds(false)
+	, bCookBlueprintComponentTemplateData(false)
 {
 	SectionName = TEXT("Cooker");
 	DefaultPVRTCQuality = 1;
