@@ -22,7 +22,7 @@ struct FPrimaryAssetRulesCustomOverride;
 DECLARE_DELEGATE_OneParam(FAssetManagerAcquireResourceDelegate, bool);
 
 /** Type that maps a named group to a set of primary assets */
-typedef TMap <FName, TSet<FPrimaryAssetId>> TEncryptedAssetSet;
+typedef TMap <FName, TSet<FName>> TEncryptedAssetSet;
 
 /** 
  * A singleton UObject that is responsible for loading and unloading PrimaryAssets, and maintaining game-specific asset references
@@ -479,7 +479,7 @@ public:
 	/** 
 	  * Called immediately before saving the asset registry during cooking
 	  */
-	virtual void PreSaveAssetRegistry(const class ITargetPlatform* TargetPlatform) {}
+	virtual void PreSaveAssetRegistry(const class ITargetPlatform* TargetPlatform, const TSet<FName>& InCookedPackages) {}
 
 	/** 
 	  * Called immediately after saving the asset registry during cooking
