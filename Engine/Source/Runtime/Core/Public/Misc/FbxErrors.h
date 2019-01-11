@@ -67,6 +67,8 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_Mesh_NoReductionModuleAvailable;
 
+	static FName Generic_Mesh_TooMuchUVChannels;
+
 	/** Static Mesh **/
 	static FName StaticMesh_TooManyMaterials;
 

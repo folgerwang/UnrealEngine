@@ -89,7 +89,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMesh(UObject* InParent, FbxNode* N
 struct FFBXUVs
 {
 	// constructor
-	FFBXUVs(FbxMesh* Mesh)
+	FFBXUVs(UnFbx::FFbxImporter* FbxImporter, FbxMesh* Mesh)
 		: UniqueUVCount(0)
 	{
 		check(Mesh);
@@ -157,7 +157,7 @@ struct FFBXUVs
 		}
 	}
 
-	void Phase2(FbxMesh* Mesh)
+	void Phase2(UnFbx::FFbxImporter* FbxImporter, FbxMesh* Mesh)
 	{
 		//
 		//	store the UVs in arrays for fast access in the later looping of triangles 
@@ -202,6 +202,12 @@ struct FFBXUVs
 				}
 			}
 		}
+
+		if (UniqueUVCount > MAX_MESH_TEXTURE_COORDS_MD)
+		{
+			FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_TooMuchUVChannel", "Reached the maximum number of UV Channels for a Static Mesh({0}) - discarding {1} UV Channels"), FText::AsNumber(MAX_MESH_TEXTURE_COORDS_MD), FText::AsNumber(UniqueUVCount-MAX_MESH_TEXTURE_COORDS_MD))), FFbxErrors::Generic_Mesh_TooMuchUVChannels);
+		}
+
 		UniqueUVCount = FMath::Min<int32>(UniqueUVCount, MAX_MESH_TEXTURE_COORDS_MD);
 	}
 
@@ -280,7 +286,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		return false;
 	}
 
-	FFBXUVs FBXUVs(Mesh);
+	FFBXUVs FBXUVs(this, Mesh);
 	int32 FBXNamedLightMapCoordinateIndex = FBXUVs.FindLightUVIndex();
 	if (FBXNamedLightMapCoordinateIndex != INDEX_NONE)
 	{
@@ -399,7 +405,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		LayerElementMaterial->GetMappingMode() : FbxLayerElement::eByPolygon;
 
 	//	todo second phase UV, ok to put in first phase?
-	FBXUVs.Phase2(Mesh);
+	FBXUVs.Phase2(this, Mesh);
 
 	//
 	// get the smoothing group layer

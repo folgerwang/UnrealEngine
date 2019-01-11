@@ -55,6 +55,8 @@ FName FFbxErrors::Generic_Mesh_TangentsComputeError(TEXT("Generic_Mesh_TangentsC
 
 FName FFbxErrors::Generic_Mesh_NoReductionModuleAvailable(TEXT("Generic_Mesh_NoReductionModuleAvailable"));
 
+FName FFbxErrors::Generic_Mesh_TooMuchUVChannels(TEXT("Generic_Mesh_TooMuchUVChannels"));
+
 /** Static Mesh **/
 FName FFbxErrors::StaticMesh_TooManyMaterials(TEXT("StaticMesh_TooManyMaterials"));
 
