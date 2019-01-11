@@ -1418,6 +1418,8 @@ private:
 	/** Iterates over the active timer handles on the widget and executes them if their interval has elapsed. */
 	void ExecuteActiveTimers(double CurrentTime, float DeltaTime);
 
+	const FPointerEventHandler* GetPointerEvent(const FName EventName) const;
+	void SetPointerEvent(const FName EventName, FPointerEventHandler& InEvent);
 protected:
 	/** Dtor ensures that active timer handles are UnRegistered with the SlateApplication. */
 	virtual ~SWidget();
@@ -1553,7 +1555,7 @@ private:
 
 private:
 	// Events
-	TMap<FName, FPointerEventHandler> PointerEvents;
+	TArray<TPair<FName, FPointerEventHandler>> PointerEvents;
 
 	FNoReplyPointerEventHandler MouseEnterHandler;
 	FSimpleNoReplyPointerEventHandler MouseLeaveHandler;
