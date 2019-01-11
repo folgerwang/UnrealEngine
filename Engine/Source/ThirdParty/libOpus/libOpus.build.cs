@@ -45,12 +45,11 @@ public class libOpus : ModuleRules
 			PublicAdditionalLibraries.Add(OpusPath);
 			PublicAdditionalLibraries.Add(SpeexPath);
 		}
-		// Commenting this out until libs match up with game ios sdk version.
-        //else if (Target.Platform == UnrealTargetPlatform.IOS)
-        //{
-        //    string OpusPath = LibraryPath + "/IOS/libOpus.a";
-        //    PublicAdditionalLibraries.Add(OpusPath);
-        //}
+        else if (Target.Platform == UnrealTargetPlatform.IOS)
+        {
+            string OpusPath = LibraryPath + "/IOS/libOpus.a";
+            PublicAdditionalLibraries.Add(OpusPath);
+        }
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
             if (Target.LinkType == TargetLinkType.Monolithic)
