@@ -85,7 +85,6 @@
     <Compile Include="Framework\Utils\Gauntlet.MarkdownBuilder.cs" />
     <Compile Include="Framework\Utils\Gauntlet.HtmlBuilder.cs" />
     <Compile Include="Platform\Null\Gauntlet.TargetDeviceNull.cs" />
-    <Compile Include="Platform\PS4\Gauntlet.PS4Utils.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBuildParsing.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -236,6 +235,7 @@
         <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestUnrealInstallAndRunPS4.cs" />
         <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestTargetDevicePS4.cs" />
         <Compile Include="Platform\PS4\Gauntlet.PS4PGO.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.PS4Utils.cs" />
       </ItemGroup>
     </When>
   </Choose>
