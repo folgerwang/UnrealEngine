@@ -1,6 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ConsoleSlateDebugger.h"
+
+#if WITH_SLATE_DEBUGGING
+
 #include "Debugging/SlateDebugging.h"
 #include "Widgets/SBoxPanel.h"
 #include "Modules/ModuleManager.h"
@@ -16,9 +19,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogSlateDebugger, Log, All);
 
 #define LOCTEXT_NAMESPACE "ConsoleSlateDebugger"
 
-#if WITH_SLATE_DEBUGGING
 static FConsoleSlateDebugger SlateConsoleDebugger;
-#endif
 
 FConsoleSlateDebugger::FConsoleSlateDebugger()
 	: bCaptureStack(0)
@@ -303,3 +304,5 @@ void FConsoleSlateDebugger::OptionallyDumpCallStack()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // WITH_SLATE_DEBUGGING

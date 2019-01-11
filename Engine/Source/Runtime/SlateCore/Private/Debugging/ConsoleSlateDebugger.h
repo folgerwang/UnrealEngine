@@ -2,10 +2,14 @@
 
 #pragma once
 
+
+#include "Debugging/SlateDebugging.h"
+
+#if WITH_SLATE_DEBUGGING
+
 #include "CoreMinimal.h"
 #include "Delegates/Delegate.h"
 #include "Input/Reply.h"
-#include "Debugging/SlateDebugging.h"
 #include "HAL/IConsoleManager.h"
 
 /**
@@ -57,3 +61,5 @@ private:
 	FAutoConsoleVariableRef CaptureStackVariable;
 	FAutoConsoleCommand SetInputFilterCommand;
 };
+
+#endif //WITH_SLATE_DEBUGGING
