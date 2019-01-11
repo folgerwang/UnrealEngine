@@ -138,6 +138,13 @@
    typedef int opus_int32;
    typedef unsigned int opus_uint32;
 
+#elif defined(__NX__)
+	
+typedef signed short int opus_int16;
+typedef unsigned short int opus_uint16;
+typedef signed int opus_int32;
+typedef unsigned int opus_uint32;
+
 #else
 
    /* Give up, take a reasonable guess */
