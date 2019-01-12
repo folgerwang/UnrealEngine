@@ -1901,6 +1901,12 @@ void FAnimationViewportClient::SetupViewForRendering( FSceneViewFamily& ViewFami
 void FAnimationViewportClient::HandleToggleShowFlag(FEngineShowFlags::EShowFlag EngineShowFlagIndex)
 {
 	FEditorViewportClient::HandleToggleShowFlag(EngineShowFlagIndex);
+	
+	if (UDebugSkelMeshComponent* Component = GetAnimPreviewScene()->GetPreviewMeshComponent())
+	{
+		Component->bDisplayVertexColors = EngineShowFlags.VertexColors;
+		Component->MarkRenderStateDirty();
+	}
 
 	ConfigOption->SetShowGrid(EngineShowFlags.Grid);
 }

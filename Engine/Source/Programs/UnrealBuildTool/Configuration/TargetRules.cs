@@ -405,49 +405,6 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats = false;
 
 		/// <summary>
-		/// Cached value for whether Simplygon is available
-		/// </summary>
-		static Lazy<bool> HasSimplygon = new Lazy<bool>(() => FileReference.Exists(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "Simplygon", "Simplygon-latest", "Inc", "SimplygonSDK.h")), LazyThreadSafetyMode.PublicationOnly);
-
-		/// <summary>
-		/// Optional override for whether to use Simplygon. Allows the default value to be computed dynamically if unspecified.
-		/// </summary>
-		[CommandLine("-WithSimplygon")]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
-		bool? bOverrideCompileSimplygon;
-		
-		/// <summary>
-		/// Whether we should compile in support for Simplygon or not.
-		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		public bool bCompileSimplygon
-		{
-			set { bOverrideCompileSimplygon = value; }
-			get { return bOverrideCompileSimplygon ?? (Type == TargetType.Editor && (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64) && HasSimplygon.Value); }
-		}
-		
-		/// <summary>
-		/// Cached value for whether SimplygonSSF is available
-		/// </summary>
-		static Lazy<bool> HasSimplygonSSF = new Lazy<bool>(() => FileReference.Exists(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "SSF", "Public", "ssf.h")), LazyThreadSafetyMode.PublicationOnly);
-
-        /// <summary>
-        /// Manually specified value for bCompileSimplygonSSF. Allows the default to be determined based on the target type.
-        /// </summary>
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
-        bool? bOverrideCompileSimplygonSSF;
-
-        /// <summary>
-        /// Whether we should compile in support for Simplygon's SSF library or not.
-        /// </summary>
-		[RequiresUniqueBuildEnvironment]
-		public bool bCompileSimplygonSSF
-		{
-			set { bOverrideCompileSimplygonSSF = value; }
-			get { return bOverrideCompileSimplygonSSF ?? (Type == TargetType.Editor && (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64) && HasSimplygonSSF.Value); }
-		}
-
-        /// <summary>
 		/// Whether we should compile SQLite using the custom "Unreal" platform (true), or using the native platform (false).
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -1734,16 +1691,6 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats
 		{
 			get { return Inner.bForceBuildShaderFormats; }
-		}
-
-		public bool bCompileSimplygon
-		{
-			get { return Inner.bCompileSimplygon; }
-		}
-
-        public bool bCompileSimplygonSSF
-		{
-			get { return Inner.bCompileSimplygonSSF; }
 		}
 
 		public bool bCompileCustomSQLitePlatform

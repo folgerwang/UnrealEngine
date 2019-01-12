@@ -117,7 +117,7 @@ public:
 	/**
 	* Releases as much memory as possible. Must be called from the main thread.
 	*/
-	virtual void Trim()
+	virtual void Trim(bool bTrimThreadCaches)
 	{
 	}
 

@@ -1833,7 +1833,7 @@ FVector4 UKismetMathLibrary::MakeVector4(float X, float Y, float Z, float W)
 }
 
 KISMET_MATH_FORCEINLINE
-void UKismetMathLibrary::BreakVector4(FVector4 InVec, float& X, float& Y, float& Z, float& W)
+void UKismetMathLibrary::BreakVector4(const FVector4& InVec, float& X, float& Y, float& Z, float& W)
 {
 	X = InVec.X;
 	Y = InVec.Y;

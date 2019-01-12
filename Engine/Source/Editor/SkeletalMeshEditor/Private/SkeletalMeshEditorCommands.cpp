@@ -13,6 +13,8 @@ void FSkeletalMeshEditorCommands::RegisterCommands()
 	UI_COMMAND(ReimportAllMeshWithNewFile, "Reimport All Mesh With New File", "Reimport the current mesh using a new source file and all the custom LODs (No new source file for LODs).", EUserInterfaceActionType::Button, FInputChord());
 
 	UI_COMMAND(MeshSectionSelection, "Section Selection", "Enables selecting Mesh Sections in the viewport (disables selecting bones using their physics shape).", EUserInterfaceActionType::ToggleButton, FInputChord());
+
+	UI_COMMAND(UpdateRefPose, "Update Reference Pose", "Update Reference Pose with current pose", EUserInterfaceActionType::Button, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE

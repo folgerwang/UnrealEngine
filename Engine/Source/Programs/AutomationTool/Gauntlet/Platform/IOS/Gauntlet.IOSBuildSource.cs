@@ -141,8 +141,8 @@ namespace Gauntlet
 
 				string AbsPath = Fi.Directory.FullName;
 
-				// IOS builds are always packaged, and we can always replace the command line
-				BuildFlags Flags = BuildFlags.Packaged | BuildFlags.CanReplaceCommandLine;
+				// IOS builds are always packaged, and can always replace the command line and executable as we cache the unzip'd IPA
+				BuildFlags Flags = BuildFlags.Packaged | BuildFlags.CanReplaceCommandLine | BuildFlags.CanReplaceExecutable;
 
 				if (AbsPath.Contains("Bulk"))
 				{

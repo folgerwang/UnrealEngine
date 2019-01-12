@@ -122,9 +122,7 @@ namespace UnrealBuildTool
 		}
 
 		public override void ResetTarget(TargetRules Target)
-		{
-			Target.bCompileSimplygon = false;
-            Target.bCompileSimplygonSSF = false;
+		{			
 		}
 
 		public override void ValidateTarget(TargetRules Target)

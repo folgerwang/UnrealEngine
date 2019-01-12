@@ -54,7 +54,7 @@ FVector UPropertyValueTransform::GetScale3D()
 	}
 }
 
-void UPropertyValueTransform::SetLocation(FVector NewValue)
+void UPropertyValueTransform::SetLocation(const FVector& NewValue)
 {
 	if (PropCategory == EPropertyValueCategory::RelativeLocation)
 	{
@@ -62,7 +62,7 @@ void UPropertyValueTransform::SetLocation(FVector NewValue)
 	}
 }
 
-void UPropertyValueTransform::SetRotation(FQuat NewValue)
+void UPropertyValueTransform::SetRotation(const FQuat& NewValue)
 {
 	if (PropCategory == EPropertyValueCategory::RelativeRotation)
 	{
@@ -71,7 +71,7 @@ void UPropertyValueTransform::SetRotation(FQuat NewValue)
 	}
 }
 
-void UPropertyValueTransform::SetScale3D(FVector NewValue)
+void UPropertyValueTransform::SetScale3D(const FVector& NewValue)
 {
 	if (PropCategory == EPropertyValueCategory::RelativeScale3D)
 	{

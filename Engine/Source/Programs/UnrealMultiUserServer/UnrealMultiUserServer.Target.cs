@@ -17,8 +17,6 @@ public class UnrealMultiUserServerTarget : TargetRules
 
         // Lean and mean also override the build developer switch, so just set all the switch it sets manually since we want developer tools (i.e. concert plugins)
         //bCompileLeanAndMeanUE = true;
-        bCompileSimplygon = false;
-        bCompileSimplygonSSF = false;
         bCompileSpeedTree = false;
 
         // Editor-only data, however, is needed

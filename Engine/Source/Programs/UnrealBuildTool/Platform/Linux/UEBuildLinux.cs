@@ -245,11 +245,8 @@ namespace UnrealBuildTool
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
 
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 

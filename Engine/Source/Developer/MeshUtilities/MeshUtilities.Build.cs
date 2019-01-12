@@ -75,20 +75,6 @@ public class MeshUtilities : ModuleRules
             AddEngineThirdPartyPrivateStaticDependencies(Target, "DX9");
 		}
 
-		if (Target.bCompileSimplygon == true)
-		{
-            AddEngineThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");
-            
-            if (Target.bCompileSimplygonSSF == true)
-            {
-                DynamicallyLoadedModuleNames.AddRange(
-                    new string[] {
-                    "SimplygonSwarm"
-                }
-                );
-            }
-		}
-
         // EMBREE
         if (Target.Platform == UnrealTargetPlatform.Win64)
         {

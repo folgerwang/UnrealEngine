@@ -1574,6 +1574,7 @@ void USkinnedMeshComponent::RefreshSlaveComponents()
 			MeshCompPtr->UpdateChildTransforms(EUpdateTransformFlags::OnlyUpdateIfUsingSocket);
 
 			MeshCompPtr->MarkRenderDynamicDataDirty();
+			MeshCompPtr->MarkRenderTransformDirty();
 		}
 	}
 }

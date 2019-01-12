@@ -281,22 +281,24 @@ private:
 	{
 		if (PickingMode != InMode)
 		{
-			{
-				SInvalidationPanel::SetEnableWidgetCaching(true);
+			// Disable visual picking, and renable widget caching.
+			SInvalidationPanel::SetEnableWidgetCaching(true);
+			VisualCapture.Disable();
 
-				VisualCapture.Disable();
-			}
-
+			// Enable the picking mode.
 			PickingMode = InMode;
 
-			if (PickingMode == EWidgetPickingMode::Drawable || PickingMode == EWidgetPickingMode::HitTesting)
+			// If we're enabling hit test, reset the visual capture entirely, we don't want to use the visual tree.
+			if (PickingMode == EWidgetPickingMode::HitTesting)
 			{
+				VisualCapture.Reset();
 				SInvalidationPanel::SetEnableWidgetCaching(false);
 			}
-
-			if (PickingMode == EWidgetPickingMode::Drawable)
+			// If we're using the drawing picking mode enable it!
+			else if (PickingMode == EWidgetPickingMode::Drawable)
 			{
 				VisualCapture.Enable();
+				SInvalidationPanel::SetEnableWidgetCaching(false);
 			}
 		}
 	}

@@ -220,15 +220,6 @@ namespace UnrealBuildTool
 				Result += " -fno-exceptions";
 			}
 
-			if (CompileEnvironment.bEnableObjCExceptions)
-			{
-				Result += " -fobjc-exceptions";
-			}
-			else
-			{
-				Result += " -fno-objc-exceptions";
-			}
-
 			string SanitizerMode = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
 			if(SanitizerMode != null && SanitizerMode == "YES")
 			{
@@ -399,6 +390,23 @@ namespace UnrealBuildTool
 			else
 			{
 				Result = " -fno-rtti";
+			}
+
+			return Result;
+		}
+
+		// Conditionally enable (default disabled) Objective-C exceptions
+		static string GetObjCExceptionsFlag(CppCompileEnvironment CompileEnvironment)
+		{
+			string Result = "";
+
+			if (CompileEnvironment.bEnableObjCExceptions)
+			{
+				Result += " -fobjc-exceptions";
+			}
+			else
+			{
+				Result += " -fno-objc-exceptions";
 			}
 
 			return Result;
@@ -590,6 +598,7 @@ namespace UnrealBuildTool
 					// Compile the file as a C++ PCH.
 					FileArguments += GetCompileArguments_PCH();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else if (Extension == ".C")
 				{
@@ -601,17 +610,20 @@ namespace UnrealBuildTool
 					// Compile the file as Objective-C++ code.
 					FileArguments += GetCompileArguments_MM();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else if (Extension == ".M")
 				{
-					// Compile the file as Objective-C++ code.
+					// Compile the file as Objective-C code.
 					FileArguments += GetCompileArguments_M();
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else
 				{
 					// Compile the file as C++ code.
 					FileArguments += GetCompileArguments_CPP();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 
 					// only use PCH for .cpp files
 					FilePCHArguments = PCHArguments;
@@ -707,12 +719,12 @@ namespace UnrealBuildTool
 				CompileAction.bShouldOutputStatusDescription = true;
 
 				foreach(UEBuildFramework Framework in CompileEnvironment.AdditionalFrameworks)
-				{
+			{
 					if(Framework.ZipFile != null)
-					{
+				{
 						FileItem ExtractedTokenFile = ExtractFramework(Framework, Actions);
 						CompileAction.PrerequisiteItems.Add(ExtractedTokenFile);
-					}
+				}
 				}
 
 				Actions.Add(CompileAction);
@@ -979,7 +991,7 @@ namespace UnrealBuildTool
             GenDebugAction.WorkingDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Binaries", "Mac");
 
             GenDebugAction.CommandPath = BuildHostPlatform.Current.Shell;
-			GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
+            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
                     DWARFFile.AbsolutePath,
                     OutputFile.AbsolutePath,
                     Path.GetDirectoryName(OutputFile.AbsolutePath),
@@ -1114,7 +1126,7 @@ namespace UnrealBuildTool
 				throw new BuildException("Unable to extract framework '{0}' - no zip file specified", Framework.Name);
 			}
 			if(Framework.ExtractedTokenFile == null)
-			{
+				{
 				FileItem InputFile = FileItem.GetItemByFileReference(Framework.ZipFile);
 				Framework.ExtractedTokenFile = FileItem.GetItemByFileReference(new FileReference(Framework.OutputDirectory.FullName + ".extracted"));
 
@@ -1495,7 +1507,7 @@ namespace UnrealBuildTool
 			{
 				ProjectFileGenerator.bGenerateProjectFiles = false;
 			}
-		}
+			}
 
 		public static FileReference GetStagedExecutablePath(FileReference Executable, string TargetName)
 		{
@@ -1503,7 +1515,7 @@ namespace UnrealBuildTool
 		}
 
         public static void PostBuildSync(IOSPostBuildSyncTarget Target)
-		{
+			{
 			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProjectSettings(Target.ProjectFile);
 
 			string AppName = Target.TargetName;
@@ -1707,7 +1719,7 @@ namespace UnrealBuildTool
 				CleanIntermediateDirectory(LocalFrameworkAssets);
 
 				foreach (KeyValuePair<string, DirectoryReference> Pair in Target.FrameworkNameToSourceDir)
-				{
+					{
 					string UnpackedZipPath = Pair.Value.FullName;
 
 					// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it

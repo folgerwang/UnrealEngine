@@ -15,7 +15,8 @@
 #include "AssetTools.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-
+#include "IAnimationModifiersModule.h"
+#include "Algo/Transform.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -43,6 +44,13 @@ void FAssetTypeActions_AnimSequence::GetActions( const TArray<UObject*>& InObjec
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.ReimportAnim"),
 		FUIAction(FExecuteAction::CreateSP(this, &FAssetTypeActions_AnimSequence::ExecuteReimportWithNewSource, Sequences))
 		);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("AnimSequence_AddAnimationModifier", "Add Animation Modifier(s)"),
+		LOCTEXT("AnimSequence_AddAnimationModifierTooltip", "Apply new animation modifier(s)."),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.AnimationModifier"),
+		FUIAction(FExecuteAction::CreateSP(this, &FAssetTypeActions_AnimSequence::ExecuteAddNewAnimationModifier, Sequences))
+	);
 
 	FAssetTypeActions_AnimationAsset::GetActions(InObjects, MenuBuilder);
 }
@@ -135,6 +143,26 @@ void FAssetTypeActions_AnimSequence::ExecuteNewPoseAsset(TArray<TWeakObjectPtr<U
 	const FString DefaultSuffix = TEXT("_PoseAsset");
 	UPoseAssetFactory* Factory = NewObject<UPoseAssetFactory>();
 	CreateAnimationAssets(Objects, UPoseAsset::StaticClass(), Factory, DefaultSuffix, FOnConfigureFactory::CreateSP(this, &FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset));
+}
+
+void FAssetTypeActions_AnimSequence::ExecuteAddNewAnimationModifier(TArray<TWeakObjectPtr<UAnimSequence>> Objects)
+{
+	TArray<UAnimSequence*> AnimSequences;
+
+	Algo::TransformIf(Objects, AnimSequences, 
+	[](const TWeakObjectPtr<UAnimSequence>& WeakAnimSequence)
+	{
+		return WeakAnimSequence.Get() && WeakAnimSequence->IsA<UAnimSequence>();
+	},
+	[](const TWeakObjectPtr<UAnimSequence>& WeakAnimSequence)
+	{
+		return WeakAnimSequence.Get();
+	});
+
+	if (IAnimationModifiersModule* Module = FModuleManager::Get().LoadModulePtr<IAnimationModifiersModule>("AnimationModifiers"))
+	{
+		Module->ShowAddAnimationModifierWindow(AnimSequences);
+	}
 }
 
 bool FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
