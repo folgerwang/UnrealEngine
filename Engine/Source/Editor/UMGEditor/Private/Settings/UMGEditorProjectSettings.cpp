@@ -5,6 +5,7 @@
 #include "WidgetCompilerRule.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectIterator.h"
+#include "Components/CanvasPanel.h"
 
 UUMGEditorProjectSettings::UUMGEditorProjectSettings()
 {
@@ -12,6 +13,8 @@ UUMGEditorProjectSettings::UUMGEditorProjectSettings()
 	CurrentVersion = 1;
 	bShowWidgetsFromEngineContent = false;
 	bShowWidgetsFromDeveloperContent = true;
+
+	DefaultRootWidget = UCanvasPanel::StaticClass();
 
 	// Deprecated
 	bCookSlowConstructionWidgetTree_DEPRECATED = true;

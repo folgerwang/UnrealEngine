@@ -26,8 +26,8 @@ public:
 		, Duration(FTimespan::Zero())
 		, OutputDim(FIntPoint::ZeroValue)
 		, SampleFormat(EMediaTextureSampleFormat::Undefined)
-		, Stride(0)
 		, Time(FTimespan::Zero())
+		, Stride(0)
 	{ }
 
 	/** Virtual destructor. */
