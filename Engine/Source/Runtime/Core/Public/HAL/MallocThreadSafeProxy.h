@@ -116,10 +116,10 @@ public:
 		return UsedMalloc->GetDescriptiveName(); 
 	}
 
-	virtual void Trim() override
+	virtual void Trim(bool bTrimThreadCaches) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		check(UsedMalloc);
-		UsedMalloc->Trim();
+		UsedMalloc->Trim(bTrimThreadCaches);
 	}
 };

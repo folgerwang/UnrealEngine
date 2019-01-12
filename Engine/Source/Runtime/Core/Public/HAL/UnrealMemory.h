@@ -178,7 +178,7 @@ struct CORE_API FMemory
 	/**
 	* Releases as much memory as possible. Must be called from the main thread.
 	*/
-	static void Trim();
+	static void Trim(bool bTrimThreadCaches = true);
 
 	/**
 	* Set up TLS caches on the current thread. These are the threads that we can trim.
