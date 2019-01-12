@@ -88,6 +88,7 @@ FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 Samples
 
 		// max() because ray hit distance is < 0 when miss / not ray has been shot.
 		OutSample.PenumbraClosestHit = Samples[1].r * OutSample.AccumulatedSampleCount;
+		OutSample.PenumbraClosestHit = ((Samples[1].r == -1.0) ? 1.0e20 : Samples[1].r) * OutSample.AccumulatedSampleCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{

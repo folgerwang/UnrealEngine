@@ -182,10 +182,12 @@ void GetInputRayDirectionPixel(
 //------------------------------------------------------- MAIN FUNCTIONS TO IMPLEMENT FOR THE PASSES
 
 /** Return whether this signal is occluded or not. */
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
 bool IsMissSample(FSSFSignalSample Sample)
 {
 	return Sample.LeavingRayCount != 0; // TODO: use PenumbraClosestHit instead.
 }
+#endif
 
 /** Return whether this signal is valid or not. */
 bool IsInvalidSample(FSSFSignalSample Sample)
@@ -362,7 +364,7 @@ float GetMultiImportanceSamplingWeight(
 // [ Stackowiak 2018, "Stochastic all the things: Raytracing in hybrid real-time rendering" ]
 {
 	// If invalid ray or geometric miss, just.
-	if (IsInvalidSample(Sample))
+	if (IsInvalidSample(Sample) && 0)
 	{
 		return 0; 
 	}
@@ -376,13 +378,14 @@ float GetMultiImportanceSamplingWeight(
 		/* out */ OriginalRayDirection,
 		/* out */ OriginalRayPDF);
 
-	float3 HitTranslatedWorldPosition = SampleSceneMetadata.TranslatedWorldPosition + OriginalRayDirection * (IsMissSample(Sample) ? 1.0e27 : Sample.PenumbraClosestHit);
+	// min to avoid floating point underflow that causes artifact by D anormally high.
+	float PenumbraClosestHit = min(Sample.PenumbraClosestHit, 1000000);
 
 	float a2 = Pow4(RefSceneMetadata.Roughness);
 
 	float3 N = RefSceneMetadata.WorldNormal;
 	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
-	float3 L = normalize(HitTranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition);
+	float3 L = normalize((SampleSceneMetadata.TranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition) + OriginalRayDirection * PenumbraClosestHit);
 	float3 H = normalize(L + V);
 
 	float NoH = abs(dot(N, H));
