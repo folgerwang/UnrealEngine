@@ -43,6 +43,7 @@
 #include "ComponentReregisterContext.h"
 #include "EditorFramework/AssetImportData.h"
 #include "Factories/FbxSkeletalMeshImportData.h"
+#include "AnimPreviewInstance.h"
 
 const FName SkeletalMeshEditorAppIdentifier = FName(TEXT("SkeletalMeshEditorApp"));
 
@@ -176,6 +177,9 @@ void FSkeletalMeshEditor::BindCommands()
 
 	ToolkitCommands->MapAction(FPersonaCommonCommands::Get().TogglePlay,
 		FExecuteAction::CreateRaw(&GetPersonaToolkit()->GetPreviewScene().Get(), &IPersonaPreviewScene::TogglePlayback));
+
+	ToolkitCommands->MapAction(FSkeletalMeshEditorCommands::Get().UpdateRefPose,
+		FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::HandleUpdateRefPose));
 }
 
 void FSkeletalMeshEditor::ExtendToolbar()
@@ -812,6 +816,25 @@ void FSkeletalMeshEditor::ExtendMenu()
 {
 	MenuExtender = MakeShareable(new FExtender);
 
+	struct Local
+	{
+		static void AddAssetMenu(FMenuBuilder& MenuBuilder, FSkeletalMeshEditor* InSkeletalMeshEditor)
+		{
+			MenuBuilder.BeginSection("SkeletalMeshEditor", LOCTEXT("SkeletalMeshEditorAssetMenu_Animation", "SkeletalMesh"));
+			{
+				MenuBuilder.AddMenuEntry(FSkeletalMeshEditorCommands::Get().UpdateRefPose);
+			}
+			MenuBuilder.EndSection();
+		}
+	};
+
+	MenuExtender->AddMenuExtension(
+		"AssetEditorActions",
+		EExtensionHook::After,
+		GetToolkitCommands(),
+		FMenuExtensionDelegate::CreateStatic(&Local::AddAssetMenu, this)
+	);
+
 	AddMenuExtender(MenuExtender);
 
 	ISkeletalMeshEditorModule& SkeletalMeshEditorModule = FModuleManager::GetModuleChecked<ISkeletalMeshEditorModule>("SkeletalMeshEditor");
@@ -943,6 +966,56 @@ void ReimportAllCustomLODs(USkeletalMesh* SkeletalMesh, UDebugSkelMeshComponent*
 	}
 }
 
+void FSkeletalMeshEditor::HandleUpdateRefPose()
+{
+	UDebugSkelMeshComponent* Component = GetPersonaToolkit()->GetPreviewMeshComponent();
+
+	if (SkeletalMesh && Component)
+	{
+		FScopedTransaction Transaction(LOCTEXT("ModifyRefPose", "Update Reference Pose"));
+		SkeletalMesh->Modify();
+
+		// need to be in the scope so that it SkeletonModifier to update the transform of RefSkeleton
+		{
+			USkeleton* Skeleton = SkeletalMesh->Skeleton;
+			FReferenceSkeleton& CurrentRefSkeleton = SkeletalMesh->RefSkeleton;
+			FReferenceSkeletonModifier RefSkeletonModifier(CurrentRefSkeleton, Skeleton);
+			// get current preview mesh transform
+			TArray<FTransform> CurrentPose = Component->GetComponentSpaceTransforms();
+
+			// we want to only apply these to raw ref pose transform
+			const TArray<FTransform>& RefPose = CurrentRefSkeleton.GetRawRefBonePose();
+			// make sure ref pose count is smaller than current pose
+			check(RefPose.Num() <= CurrentPose.Num());
+
+			for (int32 Index = 0; Index < RefPose.Num(); ++Index)
+			{
+				FTransform LocalTransform;
+				if (Index == 0)
+				{
+					LocalTransform = CurrentPose[Index];
+				}
+				else
+				{
+					const int32 ParentIndex = CurrentRefSkeleton.GetParentIndex(Index);
+					LocalTransform = CurrentPose[Index].GetRelativeTransform(CurrentPose[ParentIndex]);
+				}
+
+				RefSkeletonModifier.UpdateRefPoseTransform(Index, LocalTransform);
+			}
+		}
+
+		// calculate inverse ref matrices
+		SkeletalMesh->CalculateInvRefMatrices();
+
+		// now clear any bone transform modified
+		if (Component && Component->PreviewInstance)
+		{
+			Component->PreviewInstance->ResetModifiedBone();
+		}
+	}
+}
+
 void FSkeletalMeshEditor::HandleReimportAllMesh(int32 SourceFileIndex /*= INDEX_NONE*/)
 {
 	// Reimport the asset
@@ -971,6 +1044,7 @@ void FSkeletalMeshEditor::HandleReimportAllMeshWithNewFile(int32 SourceFileIndex
 		}
 	}
 }
+
 
 void FSkeletalMeshEditor::ToggleMeshSectionSelection()
 {

@@ -388,21 +388,6 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats = false;
 
 		/// <summary>
-		/// Whether we should compile in support for Simplygon or not.
-		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-WithSimplygon")]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
-		public bool bCompileSimplygon = true;
-
-        /// <summary>
-        /// Whether we should compile in support for Simplygon's SSF library or not.
-        /// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
-        public bool bCompileSimplygonSSF = true;
-
-		/// <summary>
 		/// Whether we should compile SQLite using the custom "Unreal" platform (true), or using the native platform (false).
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -1154,25 +1139,7 @@ namespace UnrealBuildTool
 			{
 				UEBuildPlatform.GetBuildPlatform(Platform).ResetTarget(this);
 			}
-
-			// Check that the appropriate headers exist to enable Simplygon
-			if(bCompileSimplygon)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "Simplygon", "Simplygon-latest", "Inc", "SimplygonSDK.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygon = false;
-				}
-			}
-			if(bCompileSimplygonSSF)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "SSF", "Public", "ssf.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygonSSF = false;
-				}
-			}
-
+            
 			// If we've got a changelist set, set that we're making a formal build
 			bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild);
 
@@ -1657,16 +1624,6 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats
 		{
 			get { return Inner.bForceBuildShaderFormats; }
-		}
-
-		public bool bCompileSimplygon
-		{
-			get { return Inner.bCompileSimplygon; }
-		}
-
-        public bool bCompileSimplygonSSF
-		{
-			get { return Inner.bCompileSimplygonSSF; }
 		}
 
 		public bool bCompileCustomSQLitePlatform

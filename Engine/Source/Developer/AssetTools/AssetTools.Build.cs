@@ -59,6 +59,7 @@ public class AssetTools : ModuleRules
                 "SkeletalMeshEditor",
                 "AnimationEditor",
                 "AnimationBlueprintEditor",
+                "AnimationModifiers"
             }
 		);
 
@@ -83,6 +84,7 @@ public class AssetTools : ModuleRules
                 "SkeletalMeshEditor",
                 "AnimationEditor",
                 "AnimationBlueprintEditor",
+                "AnimationModifiers"
             }
 		);
 	}

@@ -37,6 +37,6 @@ protected:
 
 private:
 	IDetailCategoryBuilder* DetailCategory;
-	TWeakObjectPtr<class UK2Node_BreakStruct> BreakStructNode;
+	TWeakObjectPtr<class UK2Node> HideUnconnectedPinsNode;
 	TSharedPtr<class IPropertyHandleArray> ArrayProperty;
 };

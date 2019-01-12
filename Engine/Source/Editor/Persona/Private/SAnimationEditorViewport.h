@@ -461,13 +461,6 @@ private:
 	
 	/** Whether or not we are previewing root motion */
 	bool IsPreviewingRootMotion() const;
-
-	/** Callback when user checks the vertex colors box in the show menu */
-	void OnShowVertexColorsChanged();
-
-	/** Whether or not vertex color display is enabled */
-	bool IsShowingVertexColors() const;
-
 private:
 	/** Selected Turn Table speed  */
 	EAnimationPlaybackSpeeds::Type SelectedTurnTableSpeed;
