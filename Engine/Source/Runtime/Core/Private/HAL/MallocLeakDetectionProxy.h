@@ -104,9 +104,9 @@ public:
 		return UsedMalloc->QuantizeSize(Count, Alignment);
 	}
 
-	virtual void Trim() override
+	virtual void Trim(bool bTrimThreadCaches) override
 	{
-		return UsedMalloc->Trim();
+		return UsedMalloc->Trim(bTrimThreadCaches);
 	}
 	virtual void SetupTLSCachesOnCurrentThread() override
 	{
