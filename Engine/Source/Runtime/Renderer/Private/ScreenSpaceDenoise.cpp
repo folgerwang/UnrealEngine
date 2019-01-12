@@ -44,7 +44,7 @@ static TAutoConsoleVariable<int32> CVarReflectionTemporalAccumulation(
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolution(
-	TEXT("r.Reflection.Denoise.HistoryConvolution"), 1,
+	TEXT("r.Reflection.Denoise.HistoryConvolution"), 0, // TODO: enable by default
 	TEXT("Mode to use for history convolution.\n")
 	TEXT(" 0: disabled;\n")
 	TEXT(" 1: Spatial convolution (default)."),

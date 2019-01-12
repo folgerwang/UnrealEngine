@@ -111,11 +111,11 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionss(
 
 static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
 	TEXT("r.Reflection.Denoiser"),
-	0, // TODO: change default to 2.
+	2,
 	TEXT("Choose the denoising algorithm.\n")
-	TEXT(" 0: Disabled (default);\n")
+	TEXT(" 0: Disabled;\n")
 	TEXT(" 1: Forces the default denoiser of the renderer;\n")
-	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin.\n"),
+	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin (default).\n"),
 	ECVF_RenderThreadSafe);
 
 
