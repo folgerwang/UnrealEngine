@@ -285,6 +285,8 @@ class FSSDTemporalAccumulationCS : public FScreenSpaceDenoisingShader
 
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput0)
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput1)
+		
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -407,7 +409,7 @@ static void DenoiseShadowPenumbra(
 			PassParameters->TileClassificationOutput = GraphBuilder.CreateUAV(TileClassificationTexture);
 		}
 
-		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugReduce")));
+		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugPenumbraReduce")));
 
 		TShaderMapRef<FSSDReduceCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
@@ -555,6 +557,8 @@ static void DenoiseShadowPenumbra(
 
 			PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory0, MipLevel));
 			PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory1, MipLevel));
+			
+			PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugPenumbraTemporalAccumulation")));
 
 			FIntPoint Resolution = FIntPoint::DivideAndRoundUp(DenoiseResolution, 1 << MipLevel);
 
@@ -714,6 +718,8 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 
 		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput0, MipLevel));
 		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput1, MipLevel));
+		
+		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDDebugReflectionTemporalAccumulation")));
 
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,

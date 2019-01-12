@@ -28,6 +28,8 @@
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	#include "../MonteCarlo.ush"
 	#include "../BRDF.ush"
+	#include "../DeferredShadingCommon.ush"
+	#include "../CommonViewUniformBuffer.ush"
 
 #else
 	#error Unknown CONFIG_SIGNAL_PROCESSING
@@ -45,6 +47,25 @@ float HitDistanceToWorldBluringRadius;
 
 //------------------------------------------------------- INTERNAL FOR REFLECTION SIGNAL
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+
+/** Return the size of the bluring radius caused by the specular lobe in ViewportUV.x space. */
+float ComputeInfinityBluringRadius(FSSFSampleSceneInfos SceneMetadata)
+{
+	// TODO: this should depend on NoV? Try up with spherical gauassian framework.
+	float RoughnessLobeAngle = ComputeAngleFromRoughness(SceneMetadata.Roughness);
+
+	return tan(0.5 * RoughnessLobeAngle) * GetCotanHalfFieldOfView().x;
+}
+
+/** Return the size of bluring radius caused by specular lobe in view space. */
+float ComputeBluringRadiusOfNormalizedSample(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
+{
+	float DistanceCameraToPixel = length(View.TranslatedWorldCameraOrigin - SceneMetadata.TranslatedWorldPosition);
+
+	float InifinityRadius = ComputeInfinityBluringRadius(SceneMetadata);
+
+	return InifinityRadius * (1 - DistanceCameraToPixel / (DistanceCameraToPixel + Sample.PenumbraClosestHit));
+}
 
 /** Create a spherical gaussian lob for a given roughness. */
 FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)

@@ -137,6 +137,8 @@ Texture2D HistoryRejectionSignal1;
 RWTexture2D<float4>	SignalHistoryOutput0;
 RWTexture2D<float4>	SignalHistoryOutput1;
 
+RWTexture2D<float4>	DebugOutput;
+
 
 //------------------------------------------------------- FUNCTIONS
 
@@ -190,10 +192,6 @@ void TemporallyAccumulate(
 	FSSFTileInfos TileInfos,
 	const bool bBruteForce)
 {
-	// When brute forcing, reduce the number of samples trying to converge with to increase minimal histerisis and respond quicker to the heavy noise.
-	const float TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : (16 * MipLevelPow2 * MipLevelPow2);
-	//const float TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : TARGETED_SAMPLE_COUNT;
-
 	// Find out scene buffer UV.
 	float2 SceneBufferUV = ((DispatchThreadId + 0.5) * MipLevelPow2 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
 	if (true)
@@ -235,6 +233,27 @@ void TemporallyAccumulate(
 	// Use the diameter, because that is the distance between two pixel.
 	float PixelWorldBluringRadius = MipLevelPow2 * ComputePixelWorldRadius(CurrentSceneMetadata);
 	float WorldBluringRadius = WorldBluringRadiusToBilateralWorldDistance(PixelWorldBluringRadius);
+	
+	float TargetedSampleCount = TARGETED_SAMPLE_COUNT;
+	#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+	{
+		TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : (16 * MipLevelPow2 * MipLevelPow2);
+		//const float TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : TARGETED_SAMPLE_COUNT;
+	}
+	#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+	{
+		float SignalPixelBluringRadius = ComputeInfinityBluringRadius(CurrentSceneMetadata) * View.ViewSizeAndInvSize.x;
+
+		TargetedSampleCount = 2 + PI * SignalPixelBluringRadius * SignalPixelBluringRadius;
+
+		TargetedSampleCount = clamp(TargetedSampleCount, 1, TARGETED_SAMPLE_COUNT);
+
+		//DebugOutput[DispatchThreadId] = float4(
+		//	SignalPixelBluringRadius,
+		//	TargetedSampleCount,
+		//	0, 0);
+	}
+	#endif
 
 	// Sample the history buffer.
 	FSSFSignalSample PreviousFrame = CreateSignalSample();
