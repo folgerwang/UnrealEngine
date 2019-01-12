@@ -109,13 +109,20 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionss(
 	TEXT("1: use ray traced reflections (default when ray tracing is enabled)\n")
 );
 
+static int32 GRayTracingReflectionsSamplesPerPixel = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
+	TEXT("r.RayTracing.Reflections.SamplesPerPixel"),
+	GRayTracingReflectionsSamplesPerPixel,
+	TEXT("Sets the samples-per-pixel for reflections (default = 1)")
+);
+
 static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
 	TEXT("r.Reflection.Denoiser"),
 	2,
 	TEXT("Choose the denoising algorithm.\n")
 	TEXT(" 0: Disabled;\n")
 	TEXT(" 1: Forces the default denoiser of the renderer;\n")
-	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin (default).\n"),
+	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin (default)."),
 	ECVF_RenderThreadSafe);
 
 
@@ -740,11 +747,11 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			// Ray trace the reflection.
 			IScreenSpaceDenoiser::FReflectionInputs DenoiserInputs;
-			RayTraceReflections(GraphBuilder, View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance);
+			RayTraceReflections(GraphBuilder, View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance, GRayTracingReflectionsSamplesPerPixel);
 
 
 			// Denoise the reflections.
-			if (int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread())
+			if (int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread() && GRayTracingReflectionsSamplesPerPixel == 1)
 			{
 				const IScreenSpaceDenoiser* DefaultDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
 				const IScreenSpaceDenoiser* DenoiserToUse = DenoiserMode == 1 ? DefaultDenoiser : GScreenSpaceDenoiser;

@@ -16,13 +16,6 @@
 #include "LightRendering.h"
 #include "SystemTextures.h"
 
-static int32 GRayTracingReflectionsSamplesPerPixel = 1;
-static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
-	TEXT("r.RayTracing.Reflections.SamplesPerPixel"),
-	GRayTracingReflectionsSamplesPerPixel,
-	TEXT("Sets the samples-per-pixel for reflections (default = 1)")
-);
-
 static int32 GRayTracingReflectionsEmissiveAndIndirectLighting = 1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsEmissiveAndIndirectLighting(
 	TEXT("r.RayTracing.Reflections.EmissiveAndIndirectLighting"),
@@ -193,7 +186,8 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 	FRDGBuilder& GraphBuilder,
 	const FViewInfo& View,
 	FRDGTextureRef* OutColorTexture,
-	FRDGTextureRef* OutRayHitDistanceTexture)
+	FRDGTextureRef* OutRayHitDistanceTexture,
+	int32 SamplePerPixel)
 #if RHI_RAYTRACING
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
@@ -211,7 +205,7 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 
 	FRayTracingReflectionsRG::FParameters* PassParameters = GraphBuilder.AllocParameters<FRayTracingReflectionsRG::FParameters>();
 
-	PassParameters->SamplesPerPixel = GRayTracingReflectionsSamplesPerPixel;
+	PassParameters->SamplesPerPixel = SamplePerPixel;
 	PassParameters->ShouldDoDirectLighting = GRayTracingReflectionsDirectLighting;
 	PassParameters->ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
 	PassParameters->ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;

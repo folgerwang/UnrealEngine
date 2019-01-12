@@ -444,7 +444,8 @@ private:
 		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
 		FRDGTextureRef* OutColorTexture,
-		FRDGTextureRef* OutRayHitDistanceTexture);
+		FRDGTextureRef* OutRayHitDistanceTexture,
+		int32 SamplePerPixel);
 
 #if RHI_RAYTRACING
 	bool ShouldRenderRayTracingAmbientOcclusion() const;
