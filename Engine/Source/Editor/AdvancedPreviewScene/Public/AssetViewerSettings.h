@@ -23,6 +23,7 @@ struct FPreviewSceneProfile
 	FPreviewSceneProfile()
 	{		
 		bSharedProfile = false;
+		bUseSkyLighting = true;
 		bShowFloor = true;
 		bShowEnvironment = true;
 		bRotateLightingRig = false;
@@ -47,6 +48,10 @@ struct FPreviewSceneProfile
 	/** Whether or not this profile should be stored in the Project ini file */
 	UPROPERTY(EditAnywhere, config, Category = Profile)
 	bool bSharedProfile;
+
+	/** Whether or not image based lighting is enabled for the environment cube map */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Lighting)
+	bool bUseSkyLighting;
 
 	/** Manually set the directional light intensity (0.0 - 20.0) */
 	UPROPERTY(EditAnywhere, config, Category = Lighting, meta = (UIMin = "0.0", UIMax = "20.0"))

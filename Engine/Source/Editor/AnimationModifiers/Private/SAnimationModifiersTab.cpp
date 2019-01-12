@@ -25,23 +25,9 @@
 #include "ScopedTransaction.h"
 #include "Widgets/Input/SMenuAnchor.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "AnimationModifierHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SAnimationModifiersTab"
-
-/** ClassViewerFilter for Animation Modifier classes */
-class FModifierClassFilter : public IClassViewerFilter
-{
-public:
-	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
-	{
-		return InClass->IsChildOf(UAnimationModifier::StaticClass());
-	}
-
-	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
-	{
-		return InClass->IsChildOf(UAnimationModifier::StaticClass());
-	}
-};
 
 SAnimationModifiersTab::SAnimationModifiersTab()
 	: Skeleton(nullptr), AnimationSequence(nullptr), AssetUserData(nullptr), bDirty(false)
@@ -57,16 +43,6 @@ SAnimationModifiersTab::~SAnimationModifiersTab()
 
 	FAssetEditorManager::Get().OnAssetOpenedInEditor().RemoveAll(this);	
 }
-
-UAnimationModifier* SAnimationModifiersTab::CreateModifierInstance(UObject* Outer, UClass* InClass)
-{
-	checkf(Outer, TEXT("Invalid outer value for modifier instantiation"));
-	UAnimationModifier* ProcessorInstance = NewObject<UAnimationModifier>(Outer, InClass);
-	checkf(ProcessorInstance, TEXT("Unable to instantiate modifier class"));
-	ProcessorInstance->SetFlags(RF_Transactional);
-	return ProcessorInstance;
-}
-
 
 void SAnimationModifiersTab::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
@@ -97,6 +73,12 @@ void SAnimationModifiersTab::Construct(const FArguments& InArgs)
 	RetrieveModifierData();
 		
 	CreateInstanceDetailsView();
+
+	FOnGetContent GetContent = FOnGetContent::CreateLambda(
+		[this]()
+	{
+		return FAnimationModifierHelpers::GetModifierPicker(FOnClassPicked::CreateRaw(this, &SAnimationModifiersTab::OnModifierPicked));
+	});
 	
 	this->ChildSlot
 	[
@@ -117,7 +99,7 @@ void SAnimationModifiersTab::Construct(const FArguments& InArgs)
 					.AutoWidth()
 					[
 						SAssignNew(AddModifierCombobox, SComboButton)
-						.OnGetMenuContent(this, &SAnimationModifiersTab::GetModifierPicker)
+						.OnGetMenuContent(GetContent)
 						.ButtonContent()
 						[
 							SNew(STextBlock)
@@ -193,36 +175,12 @@ void SAnimationModifiersTab::Construct(const FArguments& InArgs)
 	FAssetEditorManager::Get().OnAssetOpenedInEditor().AddSP(this, &SAnimationModifiersTab::OnAssetOpened);
 }
 
-
-TSharedRef<SWidget> SAnimationModifiersTab::GetModifierPicker()
-{
-	FClassViewerInitializationOptions Options;
-	Options.bShowUnloadedBlueprints = true;
-	Options.bShowNoneOption = false;	
-	TSharedPtr<FModifierClassFilter> ClassFilter = MakeShareable(new FModifierClassFilter);
-	Options.ClassFilter = ClassFilter;
-
-	FOnClassPicked OnPicked(FOnClassPicked::CreateRaw(this, &SAnimationModifiersTab::OnModifierPicked));
-
-	return SNew(SBox)
-		.WidthOverride(280)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.MaxHeight(500)
-			[
-				FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, OnPicked)
-			]
-		];
-}
-
 void SAnimationModifiersTab::OnModifierPicked(UClass* PickedClass)
 {
 	FScopedTransaction Transaction(LOCTEXT("AddModifierTransaction", "Adding Animation Modifier"));
 	
 	UObject* Outer = AssetUserData;
-	UAnimationModifier* Processor = CreateModifierInstance(Outer, PickedClass);	
+	UAnimationModifier* Processor = FAnimationModifierHelpers::CreateModifierInstance(Outer, PickedClass);
 	AssetUserData->Modify();
 	AssetUserData->AddAnimationModifier(Processor);
 	
@@ -403,7 +361,7 @@ void SAnimationModifiersTab::OnOpenModifier(const TWeakObjectPtr<UAnimationModif
 		if (Blueprint)
 		{
 			FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
-		}		
+		}
 	}
 }
 
