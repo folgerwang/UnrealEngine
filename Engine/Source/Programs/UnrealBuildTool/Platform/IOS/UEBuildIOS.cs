@@ -644,8 +644,6 @@ namespace UnrealBuildTool
 
 			Target.bCompileAPEX = false;
             Target.bCompileNvCloth = false;
-            Target.bCompileSimplygon = false;
-            Target.bCompileSimplygonSSF = false;
 
 			Target.bDeployAfterCompile = true;
 		}

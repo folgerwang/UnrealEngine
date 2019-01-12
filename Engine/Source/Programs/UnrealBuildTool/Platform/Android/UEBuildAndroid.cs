@@ -95,9 +95,6 @@ namespace UnrealBuildTool
 			ValidateTarget(Target);
 
 			Target.bDeployAfterCompile = true;
-
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
