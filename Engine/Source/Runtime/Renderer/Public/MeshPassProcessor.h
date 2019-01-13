@@ -88,7 +88,6 @@ public:
 	void Reset() { Data = 0; }
 	bool IsEmpty() const { return Data == 0; }
 
-private:
 	uint32 Data;
 };
 
