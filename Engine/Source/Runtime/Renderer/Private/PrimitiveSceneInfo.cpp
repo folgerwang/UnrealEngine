@@ -202,7 +202,7 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 
-			check(MeshRelevance.CommandInfosMask == 0);
+			check(MeshRelevance.CommandInfosMask.IsEmpty());
 			MeshRelevance.CommandInfosBase = StaticMeshCommandInfos.Num();
 
 			if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy))
@@ -236,7 +236,7 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 						{
 							static_assert(sizeof(MeshRelevance.CommandInfosMask) * 8 >= EMeshPass::Num, "CommandInfosMask is too small to contain all mesh passes.");
 
-							MeshRelevance.CommandInfosMask |= (1 << PassType);
+							MeshRelevance.CommandInfosMask.Set(PassType);
 
 							StaticMeshCommandInfos.Add(CommandInfo);
 						}
@@ -280,7 +280,7 @@ void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 
 		MeshRelevance.CommandInfosBase = 0;
-		MeshRelevance.CommandInfosMask = 0;
+		MeshRelevance.CommandInfosMask.Reset();
 	}
 
 	StaticMeshCommandInfos.Empty();

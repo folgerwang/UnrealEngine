@@ -852,7 +852,8 @@ FMeshPassProcessor::FMeshPassProcessor(const FScene* InScene, ERHIFeatureLevel::
 	, ViewIfDynamicMeshCommand(InViewIfDynamicMeshCommand)
 	, DrawListContext(InDrawListContext)
 {
-	static_assert(EMeshPass::Num <= EMeshPass::NumBits * 8, "EMeshPass::NumBits is too small.");
+	static_assert(EMeshPass::Num <= EMeshPass::NumBits * 8, "EMeshPass::NumBits is too small to fit all mesh passes.");
+	static_assert(sizeof(FMeshPassMask::Data) * 8 >= EMeshPass::Num, "FMeshPassMask::Data is too small to fit all mesh passes.");
 }
 
 ERasterizerFillMode FMeshPassProcessor::ComputeMeshFillMode(const FMeshBatch& Mesh, const FMaterial& InMaterialResource) const

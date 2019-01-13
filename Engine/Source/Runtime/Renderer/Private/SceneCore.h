@@ -199,7 +199,6 @@ public:
 	FStaticMeshRelevance(const FStaticMesh& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
 		: Id(StaticMesh.Id)
 		, ScreenSize(InScreenSize)
-		, CommandInfosMask(0)
 		, CommandInfosBase(0)
 		, LODIndex(StaticMesh.LODIndex)
 		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
@@ -220,7 +219,7 @@ public:
 	float ScreenSize;
 
 	/** Starting offset into continuous array of command infos for this mesh in FPrimitiveSceneInfo::CachedMeshDrawCommandInfos. */
-	uint32 CommandInfosMask;
+	FMeshPassMask CommandInfosMask;
 
 	/* Every bit corresponds to one MeshPass. If bit is set, then FPrimitiveSceneInfo::CachedMeshDrawCommandInfos contains this mesh pass. */
 	uint16 CommandInfosBase;

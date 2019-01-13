@@ -72,6 +72,26 @@ inline const TCHAR* GetMeshPassName(EMeshPass::Type MeshPass)
 	return nullptr;
 }
 
+/** Mesh pass mask - stores one bit per mesh pass. */
+class FMeshPassMask
+{
+public:
+	FMeshPassMask()
+		: Data(0)
+	{
+	}
+
+	void Set(EMeshPass::Type Pass) { Data |= (1 << Pass); }
+	bool Get(EMeshPass::Type Pass) const { return Data & (1 << Pass); }
+
+	void AppendTo(FMeshPassMask& Mask) const { Mask.Data |= Data; }
+	void Reset() { Data = 0; }
+	bool IsEmpty() const { return Data == 0; }
+
+private:
+	uint32 Data;
+};
+
 /** Uniquely represents a FGraphicsMinimalPipelineStateInitializer for fast compares. */
 class FGraphicsMinimalPipelineStateId
 {

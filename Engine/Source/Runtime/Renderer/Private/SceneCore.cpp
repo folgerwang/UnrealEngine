@@ -317,18 +317,16 @@ void FLightPrimitiveInteraction::FlushCachedShadowMapData()
 
 int32 FStaticMeshRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const
 {
-	static_assert(sizeof(CommandInfosMask) * 8 >= EMeshPass::Num, "CommandInfosMask is too small to contain all mesh passes.");
-
 	int32 CommandInfoIndex = CommandInfosBase;
 
-	if ((CommandInfosMask & (1 << MeshPass)) == 0)
+	if (!CommandInfosMask.Get(MeshPass))
 	{
 		return -1;
 	}
 
 	for (int32 MeshPassIndex = 0; MeshPassIndex < MeshPass; ++MeshPassIndex)
 	{
-		if (CommandInfosMask & (1 << MeshPassIndex))
+		if (CommandInfosMask.Get((EMeshPass::Type) MeshPassIndex))
 		{
 			++CommandInfoIndex;
 		}
