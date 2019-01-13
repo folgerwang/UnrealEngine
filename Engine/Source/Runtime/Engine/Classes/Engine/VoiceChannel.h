@@ -43,7 +43,7 @@ protected:
 	/** 
 	 * Cleans up any voice data remaining in the queue 
 	 */
-	virtual bool CleanUp( const bool bForDestroy ) override;
+	virtual bool CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason ) override;
 
 	/**
 	 * Processes the in bound bunch to extract the voice data

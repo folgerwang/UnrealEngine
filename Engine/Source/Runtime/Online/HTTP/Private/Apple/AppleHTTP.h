@@ -18,14 +18,6 @@ class IHttpRequest;
  */
 class FAppleHttpRequest : public FHttpRequestImpl
 {
-private:
-	// This is the NSMutableURLRequest, all our Apple functionality will deal with this.
-	NSMutableURLRequest* Request;
-
-	// This is the connection our request is sent along.
-	NSURLConnection* Connection;
-
-
 public:
 	// implementation friends
 	friend class FAppleHttpResponse;
@@ -47,6 +39,8 @@ public:
 	virtual void SetURL(const FString& URL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
 	virtual void SetContentAsString(const FString& ContentString) override;
+    virtual bool SetContentAsStreamedFile(const FString& Filename) override;
+	virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override;
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
@@ -90,6 +84,18 @@ private:
 
 
 private:
+	/** This is the NSMutableURLRequest, all our Apple functionality will deal with this. */
+	NSMutableURLRequest* Request;
+
+	/** This is the connection our request is sent along. */
+	NSURLConnection* Connection;
+
+	/** Flag whether the request payload source is a file */
+	bool bIsPayloadFile;
+
+	/** The request payload length in bytes. This must be tracked separately for a file stream */
+	int32 RequestPayloadByteLength;
+
 	/** The response object which we will use to pair with this request */
 	TSharedPtr<class FAppleHttpResponse,ESPMode::ThreadSafe> Response;
 

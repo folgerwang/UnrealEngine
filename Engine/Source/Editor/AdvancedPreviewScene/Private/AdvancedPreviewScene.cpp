@@ -23,6 +23,7 @@
 #include "AdvancedPreviewSceneCommands.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
 
 FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFloorOffset)
 	: FPreviewScene(CVS)
@@ -91,6 +92,12 @@ FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFlo
 	bUseSkylight = true;
 
 	BindCommands();
+
+	// since advance preview scenes are used in conjunction with material/mesh editors we should match their feature level with the global one
+	if (GIsEditor && GEditor != nullptr)
+	{
+		PreviewWorld->ChangeFeatureLevel(GEditor->DefaultWorldFeatureLevel);
+	}
 }
 
 FAdvancedPreviewScene::~FAdvancedPreviewScene()

@@ -18,6 +18,7 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "HAL/ExceptionHandling.h"
 #include "Windows/WindowsHWrapper.h"
 
 FWindowsErrorOutputDevice::FWindowsErrorOutputDevice()
@@ -58,7 +59,13 @@ void FWindowsErrorOutputDevice::Serialize( const TCHAR* Msg, ELogVerbosity::Type
 #if PLATFORM_EXCEPTIONS_DISABLED
 		UE_DEBUG_BREAK();
 #endif
-		FPlatformMisc::RaiseException( 1 );
+		// Generate the portable callstack. For asserts, we ignore the following frames:
+		//     FDebug::AssertFailed()
+		//   [ FOutputDevice::Logf() ] - force-inlined; ignored
+		//     FOutputDevice::LogfImpl()
+		//     FWindowsErrorOutputDevice::Serialize()
+		const int32 NumStackFramesToIgnore = 3;
+		ReportAssert(Msg, NumStackFramesToIgnore);
 	}
 	else
 	{

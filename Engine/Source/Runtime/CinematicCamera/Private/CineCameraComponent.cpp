@@ -47,6 +47,20 @@ UCineCameraComponent::UCineCameraComponent()
 	PostProcessSettings.DepthOfFieldMethod = DOFM_CircleDOF;
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
+	// Certain default values are set by a config, so Use the archetype to set them in the constructor, so they can be overridden in the editor.
+	UCineCameraComponent* Template = Cast<UCineCameraComponent>(GetArchetype());
+	
+	// Null check here because CDO has no Archetype
+	if (Template)
+	{
+		// default filmback
+		SetFilmbackPresetByName(Template->DefaultFilmbackPresetName);
+		SetLensPresetByName(Template->DefaultLensPresetName);
+		// other lens defaults
+		CurrentAperture = Template->DefaultLensFStop;
+		CurrentFocalLength = Template->DefaultLensFocalLength;
+	}
+
 	RecalcDerivedData();
 
 #if WITH_EDITORONLY_DATA
@@ -68,14 +82,6 @@ UCineCameraComponent::UCineCameraComponent()
 void UCineCameraComponent::PostInitProperties()
 {
 	Super::PostInitProperties();
-
-	// default filmback
-	SetFilmbackPresetByName(DefaultFilmbackPresetName);
-	SetLensPresetByName(DefaultLensPresetName);
-
-	// other lens defaults
-	CurrentAperture = DefaultLensFStop;
-	CurrentFocalLength = DefaultLensFocalLength;
 
 	RecalcDerivedData();
 }
@@ -361,15 +367,23 @@ FText UCineCameraComponent::GetFilmbackText() const
 
 	if (Preset)
 	{
-		return FText::FromString(Preset->Name);
+		return FText::Format(
+			LOCTEXT("PresetFormat","FilmbackPreset: {0} | Zoom: {1}mm | Av: {2}"),
+			FText::FromString(Preset->Name),
+			FText::AsNumber(CurrentFocalLength),
+			FText::AsNumber(CurrentAperture)
+		);
 	}
 	else
 	{
 		FNumberFormattingOptions Opts = FNumberFormattingOptions().SetMaximumFractionalDigits(1);
 		return FText::Format(
-			LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm)"),
+			LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm) | Zoom: {1}mm | Av: {2}"),
 			FText::AsNumber(SensorWidth, &Opts),
-			FText::AsNumber(SensorHeight, &Opts)
+			FText::AsNumber(SensorHeight, &Opts),
+			FText::AsNumber(CurrentFocalLength),
+			FText::AsNumber(CurrentAperture)
+
 		);
 	}
 }

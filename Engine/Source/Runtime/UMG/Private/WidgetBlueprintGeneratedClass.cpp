@@ -310,19 +310,25 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 void UWidgetBlueprintGeneratedClass::BindAnimations(UUserWidget* Instance, const TArray< UWidgetAnimation* >& InAnimations)
 {
-	UClass* WidgetBlueprintClass = Instance->GetClass();
+	// Iterate all generated classes in the widget's class hierarchy and initialize each animation property with the animation in the class.
 
-	for (UWidgetAnimation* Animation : InAnimations)
+	// @todo: this will not work when nativizing widget blueprints if support for them is ever added - a more complete solution will be needed in that case
+	UClass* CurrentClass = Instance->GetClass();
+	while (UWidgetBlueprintGeneratedClass* WBPGC = Cast<UWidgetBlueprintGeneratedClass>(CurrentClass))
 	{
-		if (Animation->GetMovieScene())
+		for (UWidgetAnimation* Animation : WBPGC->Animations)
 		{
-			// Find property with the same name as the template and assign the new widget to it.
-			UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetBlueprintClass, Animation->GetMovieScene()->GetFName());
-			if (Prop)
+			if (Animation->GetMovieScene())
 			{
-				Prop->SetObjectPropertyValue_InContainer(Instance, Animation);
+				// Find property with the same name as the animation and assign the animation to it.
+				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WBPGC, Animation->GetMovieScene()->GetFName());
+				if (Prop)
+				{
+					Prop->SetObjectPropertyValue_InContainer(Instance, Animation);
+				}
 			}
 		}
+		CurrentClass = CurrentClass->GetSuperClass();
 	}
 }
 

@@ -12,7 +12,7 @@
 #include "Async/AsyncWork.h"
 #include "Engine/Texture.h"
 #include "PerPlatformProperties.h"
-
+#include "LandscapeBPCustomBrush.h"
 #include "LandscapeProxy.generated.h"
 
 class ALandscape;
@@ -267,12 +267,18 @@ struct FCachedLandscapeFoliage
 	{
 		FGrassCompKey Key;
 		TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> Foliage;
+		TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> PreviousFoliage;
+		TArray<FBox> ExcludedBoxes;
 		uint32 LastUsedFrameNumber;
+		uint32 ExclusionChangeTag;
 		double LastUsedTime;
 		bool Pending;
+		bool PendingRemovalRebuild;
 
 		FGrassComp()
-			: Pending(true)
+			: ExclusionChangeTag(0)
+			, Pending(true)
+			, PendingRemovalRebuild(false)
 		{
 			Touch();
 		}
@@ -338,6 +344,73 @@ struct FLandscapeProxyMaterialOverride
 
 	UPROPERTY(EditAnywhere, Category = Landscape)
 	UMaterialInterface* Material;
+};
+
+class FLandscapeProceduralTexture2DCPUReadBackResource : public FTextureResource
+{
+public:
+	FLandscapeProceduralTexture2DCPUReadBackResource(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, uint32 InNumMips)
+		: SizeX(InSizeX)
+		, SizeY(InSizeY)
+		, Format(InFormat)
+		, NumMips(InNumMips)
+	{}
+
+	virtual uint32 GetSizeX() const override
+	{
+		return SizeX;
+	}
+
+	virtual uint32 GetSizeY() const override
+	{
+		return SizeY;
+	}
+
+	/** Called when the resource is initialized. This is only called by the rendering thread. */
+	virtual void InitRHI() override
+	{
+		FTextureResource::InitRHI();
+
+		FRHIResourceCreateInfo CreateInfo;
+		TextureRHI = RHICreateTexture2D(SizeX, SizeY, Format, NumMips, 1, TexCreate_CPUReadback, CreateInfo);
+	}
+
+private:
+	uint32 SizeX;
+	uint32 SizeY;
+	EPixelFormat Format;
+	uint32 NumMips;
+};
+
+USTRUCT()
+struct FRenderDataPerHeightmap
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(Transient)
+	UTexture2D* OriginalHeightmap;
+
+	FLandscapeProceduralTexture2DCPUReadBackResource* HeightmapsCPUReadBack;
+
+	UPROPERTY(Transient)
+	TArray<ULandscapeComponent*> Components;
+
+	UPROPERTY(Transient)
+	FIntPoint TopLeftSectionBase;
+};
+
+USTRUCT()
+struct FProceduralLayerData
+{
+	GENERATED_USTRUCT_BODY()
+
+	FProceduralLayerData()
+	{}
+
+	UPROPERTY()
+	TMap<UTexture2D*, UTexture2D*> Heightmaps;
+
+	// TODO: add weightmap data
 };
 
 UCLASS(Abstract, MinimalAPI, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), hidecategories=(Mobility))
@@ -576,6 +649,17 @@ public:
 
 	UPROPERTY()
 	TArray<FLandscapeEditorLayerSettings> EditorLayerSettings;
+
+	UPROPERTY(TextExportTransient)
+	TMap<FName, FProceduralLayerData> ProceduralLayersData;
+
+	UPROPERTY()
+	bool HasProceduralContent;
+
+	UPROPERTY(Transient)
+	TMap<UTexture2D*, FRenderDataPerHeightmap> RenderDataPerHeightmap; // Mapping between Original heightmap and general render data
+
+	FRenderCommandFence ReleaseResourceFence;
 #endif
 
 	/** Data set at creation time */
@@ -705,12 +789,17 @@ public:
 	/** Flush the grass cache */
 	LANDSCAPE_API void FlushGrassComponents(const TSet<ULandscapeComponent*>* OnlyForComponents = nullptr, bool bFlushGrassMaps = true);
 
-	/** 
+	/**
 		Update Grass 
 		* @param Cameras to use for culling, if empty, then NO culling
 		* @param bForceSync if true, block and finish all work
 	*/
 	LANDSCAPE_API void UpdateGrass(const TArray<FVector>& Cameras, bool bForceSync = false);
+
+	LANDSCAPE_API static void AddExclusionBox(FWeakObjectPtr Owner, const FBox& BoxToRemove);
+	LANDSCAPE_API static void RemoveExclusionBox(FWeakObjectPtr Owner);
+	LANDSCAPE_API static void RemoveAllExclusionBoxes();
+
 
 	/* Get the list of grass types on this landscape */
 	TArray<ULandscapeGrassType*> GetGrassTypes() const;
@@ -745,6 +834,9 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
+	virtual bool IsReadyForFinishDestroy() override;
+	virtual void FinishDestroy() override;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -897,5 +989,7 @@ public:
 
 protected:
 	FLandscapeMaterialChangedDelegate LandscapeMaterialChangedDelegate;
+	
+	LANDSCAPE_API void SetupProceduralLayers(int32 InNumComponentsX = INDEX_NONE, int32 InNumComponentsY = INDEX_NONE);
 #endif
 };

@@ -1,5 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
 
 half3 LinearTo709Branchless(half3 lin) 
 {

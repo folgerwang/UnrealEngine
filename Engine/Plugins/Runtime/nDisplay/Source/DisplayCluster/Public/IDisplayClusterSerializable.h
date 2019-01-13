@@ -9,8 +9,9 @@
 /**
  * Memory serialization interface
  */
-struct IDisplayClusterSerializable
+class IDisplayClusterSerializable
 {
+public:
 	virtual ~IDisplayClusterSerializable() = 0
 	{ }
 

@@ -460,6 +460,65 @@ void UMovieSceneSequencePlayer::JumpToSeconds(float TimeInSeconds)
 	JumpToFrame(TimeInSeconds * PlayPosition.GetInputRate());
 }
 
+
+int32 UMovieSceneSequencePlayer::FindMarkedFrameByLabel(const FString& InLabel) const
+{
+	if (!Sequence)
+	{
+		return INDEX_NONE;
+	}
+
+	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
+
+	int32 MarkedIndex = MovieScene->FindMarkedFrameByLabel(InLabel);
+	return MarkedIndex;
+}
+
+bool UMovieSceneSequencePlayer::PlayToMarkedFrame(const FString& InLabel)
+{
+	int32 MarkedIndex = FindMarkedFrameByLabel(InLabel);
+
+	if (MarkedIndex != INDEX_NONE)
+	{
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		PlayToFrame(ConvertFrameTime(MovieScene->GetMarkedFrames()[MarkedIndex].FrameNumber, MovieScene->GetTickResolution(), MovieScene->GetDisplayRate()));
+
+		return true;
+	}
+
+	return false;
+}
+
+bool UMovieSceneSequencePlayer::ScrubToMarkedFrame(const FString& InLabel)
+{
+	int32 MarkedIndex = FindMarkedFrameByLabel(InLabel);
+
+	if (MarkedIndex != INDEX_NONE)
+	{
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		ScrubToFrame(ConvertFrameTime(MovieScene->GetMarkedFrames()[MarkedIndex].FrameNumber, MovieScene->GetTickResolution(), MovieScene->GetDisplayRate()));
+
+		return true;
+	}
+
+	return false;
+}
+
+bool UMovieSceneSequencePlayer::JumpToMarkedFrame(const FString& InLabel)
+{
+	int32 MarkedIndex = FindMarkedFrameByLabel(InLabel);
+
+	if (MarkedIndex != INDEX_NONE)
+	{
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		JumpToFrame(ConvertFrameTime(MovieScene->GetMarkedFrames()[MarkedIndex].FrameNumber, MovieScene->GetTickResolution(), MovieScene->GetDisplayRate()));
+
+		return true;
+	}
+
+	return false;
+}
+
 bool UMovieSceneSequencePlayer::IsPlaying() const
 {
 	return Status == EMovieScenePlayerStatus::Playing;
@@ -585,6 +644,7 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 		{
 		case EUpdateClockSource::Audio:    TimeController = MakeShared<FMovieSceneTimeController_AudioClock>();    break;
 		case EUpdateClockSource::Platform: TimeController = MakeShared<FMovieSceneTimeController_PlatformClock>(); break;
+		case EUpdateClockSource::Timecode: TimeController = MakeShared<FMovieSceneTimeController_TimecodeClock>(); break;
 		default:                           TimeController = MakeShared<FMovieSceneTimeController_Tick>();          break;
 		}
 	}
@@ -863,8 +923,7 @@ UWorld* UMovieSceneSequencePlayer::GetPlaybackWorld() const
 {
 	UObject* PlaybackContext = GetPlaybackContext();
 	return PlaybackContext ? PlaybackContext->GetWorld() : nullptr;
-}
-bool UMovieSceneSequencePlayer::HasAuthority() const
+}bool UMovieSceneSequencePlayer::HasAuthority() const
 {
 	AActor* Actor = GetTypedOuter<AActor>();
 	return Actor && Actor->HasAuthority() && !IsPendingKillOrUnreachable();

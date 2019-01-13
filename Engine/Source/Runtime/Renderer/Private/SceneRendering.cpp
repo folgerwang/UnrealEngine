@@ -783,8 +783,10 @@ void FViewInfo::Init()
 	bUsesLightingChannels = false;
 	bTranslucentSurfaceLighting = false;
 	bUsesSceneDepth = false;
+	bFogOnlyOnRenderedOpaque = false;
 
 	ExponentialFogParameters = FVector4(0,1,1,0);
+	ExponentialFogParameters2 = FVector4(0, 1, 0, 0);
 	ExponentialFogColor = FVector::ZeroVector;
 	FogMaxOpacity = 1;
 	ExponentialFogParameters3 = FVector4(0, 0, 0, 0);

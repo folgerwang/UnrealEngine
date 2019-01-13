@@ -2,6 +2,7 @@
 
 #include "EdGraphSchema_K2.h"
 #include "BlueprintCompilationManager.h"
+#include "Engine/Breakpoint.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/Interface.h"
 #include "UObject/UnrealType.h"
@@ -606,6 +607,7 @@ const FName UEdGraphSchema_K2::PC_Boolean(TEXT("bool"));
 const FName UEdGraphSchema_K2::PC_Byte(TEXT("byte"));
 const FName UEdGraphSchema_K2::PC_Class(TEXT("class"));
 const FName UEdGraphSchema_K2::PC_Int(TEXT("int"));
+const FName UEdGraphSchema_K2::PC_Int64(TEXT("int64"));
 const FName UEdGraphSchema_K2::PC_Float(TEXT("float"));
 const FName UEdGraphSchema_K2::PC_Name(TEXT("name"));
 const FName UEdGraphSchema_K2::PC_Delegate(TEXT("delegate"));
@@ -2868,7 +2870,8 @@ FString UEdGraphSchema_K2::IsPinDefaultValid(const UEdGraphPin* Pin, const FStri
 				}
 				else if( bIsReference )
 				{
-					FText MsgFormat = LOCTEXT("BadRefDefaultVal", "'{PinName}' must have an input wired into it (\"by ref\" params expect a valid input to operate on).");
+					FText MsgFormat = LOCTEXT("BadRefDefaultVal", "'{PinName}' in action '{ActionName}' must have an input wired into it (\"by ref\" params expect a valid input to operate on).");
+					MessageArgs.Add(TEXT("ActionName"), Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView));
 					return FText::Format(MsgFormat, MessageArgs).ToString();
 				}
 			}
@@ -2930,6 +2933,10 @@ FLinearColor UEdGraphSchema_K2::GetPinTypeColor(const FEdGraphPinType& PinType) 
 	else if (TypeName == PC_Int)
 	{
 		return Settings->IntPinTypeColor;
+	}
+	else if (TypeName == PC_Int64)
+	{
+		return Settings->Int64PinTypeColor;
 	}
 	else if (TypeName == PC_Struct)
 	{
@@ -3035,11 +3042,11 @@ FText UEdGraphSchema_K2::GetPinDisplayName(const UEdGraphPin* Pin) const
 			{
 				FName DisplayFName(*DisplayName.ToString(), FNAME_Find);
 				if ((DisplayFName == PN_Execute) || (DisplayFName == PN_Then))
-			{
-				DisplayName = FText::GetEmpty();
+				{
+					DisplayName = FText::GetEmpty();
+				}
 			}
 		}
-	}
 
 		if( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
 		{
@@ -3359,6 +3366,10 @@ bool UEdGraphSchema_K2::GetPropertyCategoryInfo(const UProperty* TestProperty, F
 	{
 		OutCategory = PC_Float;
 	}
+	else if (TestProperty->IsA<UInt64Property>())
+	{
+		OutCategory = PC_Int64;
+	}
 	else if (TestProperty->IsA<UIntProperty>())
 	{
 		OutCategory = PC_Int;
@@ -3619,7 +3630,8 @@ FText UEdGraphSchema_K2::GetCategoryText(const FName Category, const bool bForMe
 		CategoryDescriptions.Add(PC_Boolean, LOCTEXT("BoolCategory","Boolean"));
 		CategoryDescriptions.Add(PC_Byte, LOCTEXT("ByteCategory","Byte"));
 		CategoryDescriptions.Add(PC_Class, LOCTEXT("ClassCategory","Class Reference"));
-		CategoryDescriptions.Add(PC_Int, LOCTEXT("IntCategory","Integer"));
+		CategoryDescriptions.Add(PC_Int, LOCTEXT("IntCategory", "Integer"));
+		CategoryDescriptions.Add(PC_Int64, LOCTEXT("Int64Category", "Integer64"));
 		CategoryDescriptions.Add(PC_Float, LOCTEXT("FloatCategory","Float"));
 		CategoryDescriptions.Add(PC_Name, LOCTEXT("NameCategory","Name"));
 		CategoryDescriptions.Add(PC_Delegate, LOCTEXT("DelegateCategory","Delegate"));
@@ -3801,6 +3813,7 @@ void UEdGraphSchema_K2::GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo>
 	TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Boolean, true), PC_Boolean, this, LOCTEXT("BooleanType", "True or false value")) ) );
 	TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Byte, true), PC_Byte, this, LOCTEXT("ByteType", "8 bit number")) ) );
 	TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Int, true), PC_Int, this, LOCTEXT("IntegerType", "Integer number")) ) );
+	TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Int64, true), PC_Int64, this, LOCTEXT("Integer64Type", "64 bit Integer number")) ) );
 	if (!bIndexTypesOnly)
 	{
 		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Float, true), PC_Float, this, LOCTEXT("FloatType", "Floating point number"))));
@@ -4087,6 +4100,17 @@ bool UEdGraphSchema_K2::DefaultValueSimpleValidation(const FEdGraphPinType& PinT
 			if (!FDefaultValueHelper::IsStringValidInteger(NewDefaultValue))
 			{
 				DVSV_RETURN_MSG(TEXT("Expected a valid number for an integer property"));
+			}
+		}
+	}
+	else if (PinCategory == PC_Int64)
+	{
+		if (!NewDefaultValue.IsEmpty())
+		{
+			int64 ParsedInt64;
+			if (!FDefaultValueHelper::ParseInt64(NewDefaultValue, ParsedInt64))
+			{
+				DVSV_RETURN_MSG(TEXT("Expected a valid number for an integer64 property"));
 			}
 		}
 	}
@@ -4487,9 +4511,20 @@ void UEdGraphSchema_K2::HandleGraphBeingDeleted(UEdGraph& GraphBeingRemoved) con
 			NodeToDelete->Modify();
 			NodeToDelete->DestroyNode();
 		}
+		
+		// likely tagged as modified by caller, but make sure:
+		Blueprint->Modify();
 
 		// Remove from the list of recently edited documents
 		Blueprint->LastEditedDocuments.RemoveAll([&GraphBeingRemoved](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObjectPath.ResolveObject() == &GraphBeingRemoved; });
+
+		// Remove any BPs that reference a node in this graph:
+		Blueprint->Breakpoints.RemoveAll(
+			[&GraphBeingRemoved](UBreakpoint* Breakpoint)
+			{
+				return !Breakpoint || (Breakpoint->GetLocation() && Breakpoint->GetLocation()->IsIn(&GraphBeingRemoved));
+			}
+		);
 	}
 }
 
@@ -4532,7 +4567,7 @@ void UEdGraphSchema_K2::GetPinDefaultValuesFromString(const FEdGraphPinType& Pin
 			PackageNamespace = TextNamespaceUtil::EnsurePackageNamespace(OwningObject);
 		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
-		if (!FTextStringHelper::ReadFromString(*NewDefaultValue, UseDefaultText, nullptr, *PackageNamespace))
+		if (!FTextStringHelper::ReadFromBuffer(*NewDefaultValue, UseDefaultText, nullptr, *PackageNamespace))
 		{
 			UseDefaultText = FText::FromString(NewDefaultValue);
 		}
@@ -4716,6 +4751,13 @@ bool UEdGraphSchema_K2::DoesDefaultValueMatchAutogenerated(const UEdGraphPin& In
 					return true;
 				}
 			}
+			else if (InPin.PinType.PinCategory == PC_Int64)
+			{
+				if (FCString::Atoi64(*PinDefaultValue) == 0)
+				{
+					return true;
+				}
+			}
 			else if (InPin.PinType.PinCategory == PC_Name)
 			{
 				return (PinDefaultValue == TEXT("None"));
@@ -4851,6 +4893,10 @@ void UEdGraphSchema_K2::SetPinAutogeneratedDefaultValueBasedOnType(UEdGraphPin* 
 	{
 		NewValue = TEXT("0");
 	}
+	else if (Pin->PinType.PinCategory == PC_Int64)
+	{
+		NewValue = TEXT("0");
+	}
 	else if (Pin->PinType.PinCategory == PC_Byte)
 	{
 		UEnum* EnumPtr = Cast<UEnum>(Pin->PinType.PinSubCategoryObject.Get());
@@ -4975,6 +5021,7 @@ void UEdGraphSchema_K2::ValidateExistingConnections(UEdGraphPin* Pin)
 namespace FSetVariableByNameFunctionNames
 {
 	static const FName SetIntName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetIntPropertyByName));
+	static const FName SetInt64Name(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetInt64PropertyByName));
 	static const FName SetByteName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetBytePropertyByName));
 	static const FName SetFloatName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetFloatPropertyByName));
 	static const FName SetBoolName(GET_FUNCTION_NAME_CHECKED(UKismetSystemLibrary, SetBoolPropertyByName));
@@ -5030,6 +5077,10 @@ UFunction* UEdGraphSchema_K2::FindSetVariableByNameFunction(const FEdGraphPinTyp
 	else if(PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
 	{
 		SetFunctionName = FSetVariableByNameFunctionNames::SetIntName;
+	}
+	else if (PinType.PinCategory == UEdGraphSchema_K2::PC_Int64)
+	{
+		SetFunctionName = FSetVariableByNameFunctionNames::SetInt64Name;
 	}
 	else if(PinType.PinCategory == UEdGraphSchema_K2::PC_Byte)
 	{

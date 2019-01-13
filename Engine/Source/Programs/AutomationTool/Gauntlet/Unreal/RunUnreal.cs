@@ -79,8 +79,14 @@ namespace Gauntlet
 					Directory.CreateDirectory(ContextOptions.LogDir);
 				}
 
-				Gauntlet.Log.SaveToFile(Path.Combine(ContextOptions.LogDir, "GauntletLog.txt"));
+				// include test names and timestamp in log filename as multiple (parallel or sequential) Gauntlet tests may be outputting to same directory
+				string LogPath = Path.Combine(ContextOptions.LogDir, string.Format("GauntletLog{0}-{1}.txt", ContextOptions.TestList.Aggregate(new StringBuilder(), (SB, T) => SB.AppendFormat("-{0}", T.ToString())).ToString(), DateTime.Now.ToString(@"yyyy.MM.dd.HH.mm.ss")));
+				Gauntlet.Log.Verbose("Writing Gauntlet log to {0}", LogPath);
+				Gauntlet.Log.SaveToFile(LogPath);
 			}
+
+			// prune our temp folder
+			Utils.SystemHelpers.CleanupMarkedDirectories(ContextOptions.TempDir, 7);
 
 			if (string.IsNullOrEmpty(ContextOptions.Build))
 			{

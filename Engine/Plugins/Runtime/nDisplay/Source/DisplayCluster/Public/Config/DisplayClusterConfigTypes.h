@@ -34,13 +34,30 @@ struct FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
 {
 	FString Id;
 	FString Addr;
-	FString ScreenId;
-	FString ViewportId;
+	FString WindowId;
 	bool    IsMaster = false;
-	int32   Port_CS = -1;
-	int32   Port_SS = -1;
+	int32   Port_CS = 41001;
+	int32   Port_SS = 41002;
+	int32   Port_CE = 41003;
 	bool    SoundEnabled = false;
-	bool  EyeSwap = false;
+	bool    EyeSwap = false;
+
+	virtual FString ToString() const override;
+	virtual bool    DeserializeFromString(const FString& line) override;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Application window configuration
+//////////////////////////////////////////////////////////////////////////////////////////////
+struct FDisplayClusterConfigWindow : public FDisplayClusterConfigBase
+{
+	FString Id;
+	TArray<FString> ViewportIds;
+	bool IsFullscreen = false;
+	int32 WinX = 0;
+	int32 WinY = 0;
+	int32 ResX = 0;
+	int32 ResY = 0;
 
 	virtual FString ToString() const override;
 	virtual bool    DeserializeFromString(const FString& line) override;
@@ -51,7 +68,8 @@ struct FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 struct FDisplayClusterConfigViewport : public FDisplayClusterConfigBase
 {
-	FString   Id;
+	FString Id;
+	FString ScreenId;
 	FIntPoint Loc  = FIntPoint::ZeroValue;
 	FIntPoint Size = FIntPoint::ZeroValue;
 
@@ -137,6 +155,20 @@ struct FDisplayClusterConfigRender : public FDisplayClusterConfigBase
 struct FDisplayClusterConfigStereo : public FDisplayClusterConfigBase
 {
 	float EyeDist = 0.064f;
+
+	virtual FString ToString() const override;
+	virtual bool    DeserializeFromString(const FString& line) override;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Network configuration
+//////////////////////////////////////////////////////////////////////////////////////////////
+struct FDisplayClusterConfigNetwork : public FDisplayClusterConfigBase
+{
+	int32 ClientConnectTriesAmount    = 10;    // times
+	int32 ClientConnectRetryDelay     = 1000;  // ms
+	int32 BarrierGameStartWaitTimeout = 30000; // ms
+	int32 BarrierWaitTimeout          = 5000;  // ms
 
 	virtual FString ToString() const override;
 	virtual bool    DeserializeFromString(const FString& line) override;

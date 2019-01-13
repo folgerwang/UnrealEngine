@@ -521,6 +521,9 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 		case DXGI_FORMAT_R8_SINT:
 			BytesPerPixel = 1;
 			break;
+		case DXGI_FORMAT_R32G32B32A32_UINT:
+			BytesPerPixel = 16;
+			break;
 	}
 
 	// format not supported yet
@@ -579,7 +582,7 @@ TRefCountPtr<ID3D11Texture2D> FD3D11DynamicRHI::GetStagingTexture(FTextureRHIPar
 	StagingRectOUT.Max = FIntPoint(SizeX,SizeY);
 
 	// Copy the data to a staging resource.
-	uint32 Subresource = 0;
+	uint32 Subresource = InFlags.GetMip();
 	if( SourceDesc.MiscFlags == D3D11_RESOURCE_MISC_TEXTURECUBE )
 	{
 		uint32 D3DFace = GetD3D11CubeFace(InFlags.GetCubeFace());
@@ -600,6 +603,9 @@ TRefCountPtr<ID3D11Texture2D> FD3D11DynamicRHI::GetStagingTexture(FTextureRHIPar
 
 void FD3D11DynamicRHI::ReadSurfaceDataNoMSAARaw(FTextureRHIParamRef TextureRHI,FIntRect InRect,TArray<uint8>& OutData, FReadSurfaceDataFlags InFlags)
 {
+	checkf(InRect.Width() <= TextureRHI->GetSizeXYZ().X >> InFlags.GetMip(), TEXT("Provided rect width (%d), must be smaller or equal to the texture size requested Mip (%d)"), InRect.Width(), TextureRHI->GetSizeXYZ().X >> InFlags.GetMip());
+	checkf(InRect.Height() <= TextureRHI->GetSizeXYZ().Y >> InFlags.GetMip(), TEXT("Provided rect height (%d), must be smaller or equal to the texture size requested Mip (%d)"), InRect.Height(), TextureRHI->GetSizeXYZ().Y >> InFlags.GetMip());
+
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
 
 	const uint32 SizeX = InRect.Width();
@@ -615,12 +621,14 @@ void FD3D11DynamicRHI::ReadSurfaceDataNoMSAARaw(FTextureRHIParamRef TextureRHI,F
 	OutData.Empty();
 	OutData.AddUninitialized(SizeX * SizeY * BytesPerPixel);
 
+	bool bIsUsingTempStagingTexture = TextureDesc.Usage != D3D11_USAGE_STAGING;
 	FIntRect StagingRect;
 	TRefCountPtr<ID3D11Texture2D> TempTexture2D = GetStagingTexture(TextureRHI, InRect, StagingRect, InFlags);
 
 	// Lock the staging resource.
+	uint32 MappedSubresource = bIsUsingTempStagingTexture ? 0 : InFlags.GetMip();
 	D3D11_MAPPED_SUBRESOURCE LockedRect;
-	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(TempTexture2D,0,D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
+	VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(TempTexture2D, MappedSubresource, D3D11_MAP_READ,0,&LockedRect), Direct3DDevice);
 
 	uint32 BytesPerLine = BytesPerPixel * InRect.Width();
 	uint8* DestPtr = OutData.GetData();
@@ -632,7 +640,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataNoMSAARaw(FTextureRHIParamRef TextureRHI,F
 		SrcPtr += LockedRect.RowPitch;
 	}
 
-	Direct3DDeviceIMContext->Unmap(TempTexture2D,0);
+	Direct3DDeviceIMContext->Unmap(TempTexture2D, MappedSubresource);
 }
 
 
@@ -1059,7 +1067,7 @@ void FD3D11DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateTexture2D(&StagingDesc,NULL,StagingTexture2D.GetInitReference()), Direct3DDevice);
 
 	// Determine the subresource index for cubemaps.
-	uint32 Subresource = 0;
+	uint32 Subresource = InFlags.GetMip();
 	if( TextureDesc.MiscFlags == D3D11_RESOURCE_MISC_TEXTURECUBE )
 	{
 		uint32 D3DFace = GetD3D11CubeFace(InFlags.GetCubeFace());

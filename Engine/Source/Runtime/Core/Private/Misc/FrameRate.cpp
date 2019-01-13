@@ -163,7 +163,11 @@ FText FFrameRate::ToPrettyText() const
 	double FPS = AsDecimal();
 	if (FPS > 1)
 	{
-		return FText::Format(NSLOCTEXT("FFrameRate", "FPS_Format", "{0} fps"), FPS);
+		// The localization system will create "24,000" out of a framerate of 24000.00. This presents an issue when we
+		// try to consume the resulting format string as the localization system currently has grouping separators disabled.
+		// We'll format the text by hand (instead of falling back to default FText::Format) to omit the grouping separator
+		// which will allow the text to properly round trip through UI fields.
+		return FText::Format(NSLOCTEXT("FFrameRate", "FPS_Format", "{0} fps"), FText::AsNumber(FPS, &FNumberFormattingOptions::DefaultNoGrouping()));
 	}
 	else
 	{

@@ -10,7 +10,7 @@
 #include "Widgets/Layout/SSpacer.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SBox.h"
-#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Views/SExpanderArrow.h"
 #include "EditorStyleSet.h"
 #include "DisplayNodes/SequencerTrackNode.h"
@@ -22,68 +22,6 @@
 #include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "AnimationOutliner"
-
-class STrackColorPicker : public SCompoundWidget
-{
-public:
-	static void OnOpen()
-	{
-		if (!Transaction.IsValid())
-		{
-			Transaction.Reset(new FScopedTransaction(LOCTEXT("ChangeTrackColor", "Change Track Color")));
-		}
-	}
-
-	static void OnClose()
-	{
-		if (!Transaction.IsValid())
-		{
-			return;
-		}
-
-		if (!bMadeChanges)
-		{
-			Transaction->Cancel();
-		}
-		Transaction.Reset();
-	}
-
-	SLATE_BEGIN_ARGS(STrackColorPicker){}
-	SLATE_END_ARGS()
-
-	void Construct(const FArguments& InArgs, UMovieSceneTrack* InTrack)
-	{
-		bMadeChanges = false;
-		Track = InTrack;
-		ChildSlot
-		[
-			SNew(SColorPicker)
-			.DisplayInlineVersion(true)
-			.TargetColorAttribute(this, &STrackColorPicker::GetTrackColor)
-			.OnColorCommitted(this, &STrackColorPicker::SetTrackColor)
-		];
-	}
-
-	FLinearColor GetTrackColor() const
-	{
-		return Track->GetColorTint().ReinterpretAsLinear();
-	}
-
-	void SetTrackColor(FLinearColor NewColor)
-	{
-		bMadeChanges = true;
-		Track->Modify();
-		Track->SetColorTint(NewColor.ToFColor(false));
-	}
-
-private:
-	UMovieSceneTrack* Track;
-	static TUniquePtr<FScopedTransaction> Transaction;
-	static bool bMadeChanges;
-};
-
-TUniquePtr<FScopedTransaction> STrackColorPicker::Transaction;
-bool STrackColorPicker::bMadeChanges = false;
 
 SAnimationOutlinerTreeNode::~SAnimationOutlinerTreeNode()
 {
@@ -228,25 +166,14 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SComboButton)
+				SNew(SButton)
 				.ContentPadding(0)
 				.VAlign(VAlign_Fill)
-				.HasDownArrow(false)
 				.IsFocusable(true)
 				.IsEnabled(!DisplayNode->GetSequencer().IsReadOnly())
 				.ButtonStyle(FEditorStyle::Get(), "Sequencer.AnimationOutliner.ColorStrip")
-				.OnGetMenuContent(this, &SAnimationOutlinerTreeNode::OnGetColorPicker)
-				.OnMenuOpenChanged_Lambda([](bool bIsOpen){
-					if (bIsOpen)
-					{
-						STrackColorPicker::OnOpen();
-					}
-					else if (!bIsOpen)
-					{
-						STrackColorPicker::OnClose();
-					}
-				})
-				.ButtonContent()
+				.OnClicked(this, &SAnimationOutlinerTreeNode::OnSetTrackColor)
+				.Content()
 				[
 					SNew(SBox)
 					.WidthOverride(6.f)
@@ -265,6 +192,72 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 	];
 }
 
+// We store these for when the Color Picker is canceled so we can restore the old value.
+namespace AnimationOutlinerTreeNode
+{
+	FLinearColor InitialTrackColor;
+	bool bFolderPickerWasCancelled;
+}
+
+FReply SAnimationOutlinerTreeNode::OnSetTrackColor()
+{
+	AnimationOutlinerTreeNode::InitialTrackColor = GetTrackColorTint().GetSpecifiedColor();
+	AnimationOutlinerTreeNode::bFolderPickerWasCancelled = false;
+
+	FColorPickerArgs PickerArgs;
+	PickerArgs.bUseAlpha = false;
+	PickerArgs.DisplayGamma = TAttribute<float>::Create(TAttribute<float>::FGetter::CreateUObject(GEngine, &UEngine::GetDisplayGamma));
+	PickerArgs.InitialColorOverride = AnimationOutlinerTreeNode::InitialTrackColor;
+	PickerArgs.ParentWidget = GetParentWidget();
+	PickerArgs.OnColorCommitted = FOnLinearColorValueChanged::CreateSP(this, &SAnimationOutlinerTreeNode::OnColorPickerPicked);
+	PickerArgs.OnColorPickerWindowClosed = FOnWindowClosed::CreateSP(this, &SAnimationOutlinerTreeNode::OnColorPickerClosed);
+	PickerArgs.OnColorPickerCancelled = FOnColorPickerCancelled::CreateSP(this, &SAnimationOutlinerTreeNode::OnColorPickerCancelled);
+
+	OpenColorPicker(PickerArgs);
+	return FReply::Handled();
+}
+
+void SAnimationOutlinerTreeNode::OnColorPickerPicked(FLinearColor NewFolderColor)
+{
+	UMovieSceneTrack* Track = GetTrackFromNode();
+	if (Track)
+	{
+		// This is called every time the user adjusts the UI so we don't want to create a transaction for it, just directly
+		// modify the track so we can see the change immediately.
+		Track->SetColorTint(NewFolderColor.ToFColor(true));
+	}
+}
+
+void SAnimationOutlinerTreeNode::OnColorPickerClosed(const TSharedRef<SWindow>& Window)
+{
+	// Under Unreal UX terms, closing the Color Picker (via the UI) is the same as confirming it since we've been live updating
+	// the color. The track already has the latest color change so we undo the change before calling Modify so that Undo sets us
+	// to the original color. This is also called in the event of pressing cancel so we need to detect if it was canceled or not.
+	if (!AnimationOutlinerTreeNode::bFolderPickerWasCancelled)
+	{
+		UMovieSceneTrack* Track = GetTrackFromNode();
+		if(Track)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("SetTrackColor", "Set Track Color"));
+			FSlateColor CurrentColor = GetTrackColorTint();
+			Track->SetColorTint(AnimationOutlinerTreeNode::InitialTrackColor.ToFColor(true));
+			Track->Modify();
+			Track->SetColorTint(CurrentColor.GetSpecifiedColor().ToFColor(true));
+		}
+	}
+}
+
+void SAnimationOutlinerTreeNode::OnColorPickerCancelled(FLinearColor NewFolderColor)
+{
+	AnimationOutlinerTreeNode::bFolderPickerWasCancelled = true;
+
+	// Restore the original color of the track. No transaction will be created when the OnColorPickerClosed callback is called.
+	UMovieSceneTrack* Track = GetTrackFromNode();
+	if (Track)
+	{
+		Track->SetColorTint(AnimationOutlinerTreeNode::InitialTrackColor.ToFColor(true));
+	}
+}
 
 void SAnimationOutlinerTreeNode::EnterRenameMode()
 {
@@ -360,7 +353,7 @@ FSlateColor SAnimationOutlinerTreeNode::GetNodeInnerBackgroundTint() const
 	}
 }
 
-TSharedRef<SWidget> SAnimationOutlinerTreeNode::OnGetColorPicker() const
+UMovieSceneTrack* SAnimationOutlinerTreeNode::GetTrackFromNode() const
 {
 	UMovieSceneTrack* Track = nullptr;
 
@@ -378,28 +371,15 @@ TSharedRef<SWidget> SAnimationOutlinerTreeNode::OnGetColorPicker() const
 		Current = Current->GetParent().Get();
 	}
 
-	if (!Track)
-	{
-		return SNullWidget::NullWidget;
-	}
-
-	return SNew(STrackColorPicker, Track);
+	return Track;
 }
 
 FSlateColor SAnimationOutlinerTreeNode::GetTrackColorTint() const
 {
-	FSequencerDisplayNode* Current = DisplayNode.Get();
-	while (Current && Current->GetType() != ESequencerNode::Object)
+	UMovieSceneTrack* Track = GetTrackFromNode();
+	if (Track)
 	{
-		if (Current->GetType() == ESequencerNode::Track)
-		{
-			UMovieSceneTrack* Track = static_cast<FSequencerTrackNode*>(Current)->GetTrack();
-			if (Track)
-			{
-				return FSequencerSectionPainter::BlendColor(Track->GetColorTint());
-			}
-		}
-		Current = Current->GetParent().Get();
+		return FSequencerSectionPainter::BlendColor(Track->GetColorTint());
 	}
 
 	return FLinearColor::Transparent;

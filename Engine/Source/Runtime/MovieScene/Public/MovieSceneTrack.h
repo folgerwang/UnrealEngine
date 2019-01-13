@@ -92,10 +92,25 @@ enum class EMovieSceneCompileResult : uint8
 	Unimplemented
 };
 
+/** Generic display options for any track */
+USTRUCT()
+struct FMovieSceneTrackDisplayOptions
+{
+	GENERATED_BODY()
+
+	FMovieSceneTrackDisplayOptions()
+		: bShowVerticalFrames(false)
+	{}
+
+	/** Show bounds as vertical frames */
+	UPROPERTY(EditAnywhere, Category = "General")
+	uint32 bShowVerticalFrames : 1;
+};
+
 /**
  * Base class for a track in a Movie Scene
  */
-UCLASS(abstract, DefaultToInstanced, MinimalAPI)
+UCLASS(abstract, DefaultToInstanced, MinimalAPI, BlueprintType)
 class UMovieSceneTrack
 	: public UMovieSceneSignedObject
 {
@@ -108,8 +123,14 @@ public:
 public:
 
 	/** General evaluation options for a given track */
-	UPROPERTY(EditAnywhere, Category="General", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category = "General", meta = (ShowOnlyInnerProperties))
 	FMovieSceneTrackEvalOptions EvalOptions;
+
+#if WITH_EDITORONLY_DATA
+	/** General display options for a given track */
+	UPROPERTY(EditAnywhere, Category = "General", meta = (ShowOnlyInnerProperties))
+	FMovieSceneTrackDisplayOptions DisplayOptions;
+#endif
 
 	/**
 	 * Gets what kind of blending is supported by this section

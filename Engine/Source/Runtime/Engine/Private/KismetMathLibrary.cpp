@@ -83,6 +83,11 @@ void UKismetMathLibrary::ReportError_Divide_IntInt()
 	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_IntInt"), ELogVerbosity::Warning, DivideByZeroWarning);
 }
 
+void UKismetMathLibrary::ReportError_Divide_Int64Int64()
+{
+	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_Int64Int64"), ELogVerbosity::Warning, DivideByZeroWarning);
+}
+
 void UKismetMathLibrary::ReportError_Percent_IntInt()
 {
 	FFrame::KismetExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning, DivideByZeroWarning);
@@ -318,16 +323,6 @@ float UKismetMathLibrary::Ease(float A, float B, float Alpha, TEnumAsByte<EEasin
 	return Lerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
 }
 
-FVector  UKismetMathLibrary::RotateAngleAxis(FVector InVect, float AngleDeg, FVector Axis)
-{
-	return InVect.RotateAngleAxis(AngleDeg, Axis.GetSafeNormal());
-}
-
-FVector UKismetMathLibrary::VEase(FVector A, FVector B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
-{
-	return VLerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
-}
-
 float ComputeDamping(float Mass, float Stiffness, float CriticalDampingFactor)
 {
 	return 2 * FMath::Sqrt(Mass * Stiffness) * CriticalDampingFactor;
@@ -361,6 +356,16 @@ T GenericSpringInterp(T Current, T Target, T& PrevError, T& Velocity, float Stif
 float UKismetMathLibrary::FloatSpringInterp(float Current, float Target, FFloatSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
 {
 	return GenericSpringInterp(Current, Target, SpringState.PrevError, SpringState.Velocity, Stiffness, CriticalDamping, DeltaTime, Mass);
+}
+
+FVector  UKismetMathLibrary::RotateAngleAxis(FVector InVect, float AngleDeg, FVector Axis)
+{
+	return InVect.RotateAngleAxis(AngleDeg, Axis.GetSafeNormal());
+}
+
+FVector UKismetMathLibrary::VEase(FVector A, FVector B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
+{
+	return VLerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
 }
 
 FVector UKismetMathLibrary::VectorSpringInterp(FVector Current, FVector Target, FVectorSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
@@ -405,21 +410,11 @@ FRotator UKismetMathLibrary::RandomRotator(bool bRoll)
 	return RRot;
 }
 
-FVector UKismetMathLibrary::GetReflectionVector(FVector Direction, FVector SurfaceNormal)
-{
-	return FMath::GetReflectionVector(Direction, SurfaceNormal);
-}
-
 FVector UKismetMathLibrary::FindClosestPointOnLine(FVector Point, FVector LineOrigin, FVector LineDirection)
 {
 	const FVector SafeDir = LineDirection.GetSafeNormal();
 	const FVector ClosestPoint = LineOrigin + (SafeDir * ((Point-LineOrigin) | SafeDir));
 	return ClosestPoint;
-}
-
-FVector UKismetMathLibrary::ClampVectorSize(FVector A, float Min, float Max)
-{
-	return A.GetClampedToSize(Min, Max);
 }
 
 FVector UKismetMathLibrary::GetVectorArrayAverage(const TArray<FVector>& Vectors)
@@ -867,6 +862,11 @@ int32 UKismetMathLibrary::RandomIntegerInRangeFromStream(int32 Min, int32 Max, c
 }
 
 bool UKismetMathLibrary::InRange_IntInt(int32 Value, int32 Min, int32 Max, bool InclusiveMin, bool InclusiveMax)
+{
+	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
+}
+
+bool UKismetMathLibrary::InRange_Int64Int64(int64 Value, int64 Min, int64 Max, bool InclusiveMin, bool InclusiveMax)
 {
 	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
 }

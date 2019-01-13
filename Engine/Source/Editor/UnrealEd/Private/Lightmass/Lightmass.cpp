@@ -2507,11 +2507,11 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	InputData.MappingSizeX = GCurrentSelectedLightmapSample.MappingSizeX;
 	InputData.MappingSizeY = GCurrentSelectedLightmapSample.MappingSizeY;
 	FVector4 ViewPosition(0, 0, 0, 0);
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ViewIndex++)
+	for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		if (GEditor->LevelViewportClients[ViewIndex]->IsPerspective())
+		if (LevelVC->IsPerspective())
 		{
-			ViewPosition = GEditor->LevelViewportClients[ViewIndex]->GetViewLocation();
+			ViewPosition = LevelVC->GetViewLocation();
 		}
 	}
 	InputData.CameraPosition = ViewPosition;
@@ -2944,19 +2944,13 @@ bool FLightmassProcessor::BeginRun()
 	// Set up optional dependencies.  These might not exist in Launcher distributions, for example.
 	const TCHAR* OptionalDependencyPaths32[] =
 	{
-		TEXT("../Win32/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("../Win32/UnrealLightmass.pdb")
 	};
 	const int32 OptionalDependencyPaths32Count = ARRAY_COUNT(OptionalDependencyPaths32);
 
 	const TCHAR* OptionalDependencyPaths64[] =
 	{
-		TEXT("../Win64/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("../Win64/UnrealLightmass.pdb")
 	};
 	const int32 OptionalDependencyPaths64Count = ARRAY_COUNT(OptionalDependencyPaths64);
 

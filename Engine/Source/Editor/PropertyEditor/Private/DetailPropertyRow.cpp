@@ -27,6 +27,7 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 	, bShowPropertyButtons( true )
 	, bShowCustomPropertyChildren( true )
 	, bForceAutoExpansion( false )
+	, bCachedCustomTypeInterface(false)
 {
 	if( InPropertyNode.IsValid() )
 	{
@@ -60,8 +61,6 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 				MakePropertyEditor(PropertyNode->GetPropertyKeyNode().ToSharedRef(), Utilities, PropertyKeyEditor);
 			}
 		}
-
-		CustomTypeInterface = GetPropertyCustomization(PropertyNodeRef, InParentCategory);
 	}
 }
 
@@ -131,6 +130,8 @@ void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, 
 void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row, bool bAddWidgetDecoration )
 {
 	TSharedPtr<FDetailWidgetRow> CustomTypeRow;
+
+	TSharedPtr<IPropertyTypeCustomization>& CustomTypeInterface = GetTypeInterface();
 	if ( CustomTypeInterface.IsValid() ) 
 	{
 		CustomTypeRow = MakeShareable(new FDetailWidgetRow);
@@ -194,6 +195,13 @@ FDetailWidgetRow FDetailPropertyRow::GetWidgetRow()
 		MakeNameOrKeyWidget( Row, CustomPropertyWidget );
 		MakeValueWidget( Row, CustomPropertyWidget );
 
+		if (CustomPropertyWidget.IsValid())
+		{
+			Row.CopyMenuAction = CustomPropertyWidget->CopyMenuAction;
+			Row.PasteMenuAction = CustomPropertyWidget->PasteMenuAction;
+			Row.CustomMenuItems = CustomPropertyWidget->CustomMenuItems;
+		}
+		
 		return Row;
 	}
 	else
@@ -206,8 +214,9 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 {
 	IsParentEnabled = InIsParentEnabled;
 
+	TSharedPtr<IPropertyTypeCustomization>& CustomTypeInterface = GetTypeInterface();
 	// Don't customize the user already customized
-	if( !CustomPropertyWidget.IsValid() && CustomTypeInterface.IsValid() )
+	if (!CustomPropertyWidget.IsValid() && CustomTypeInterface.IsValid())
 	{
 		CustomPropertyWidget = MakeShareable(new FDetailWidgetRow);
 
@@ -217,7 +226,7 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 		if (CustomPropertyWidget->IsEnabledAttr.IsBound())
 		{
 			CustomIsEnabledAttrib = CustomPropertyWidget->IsEnabledAttr;
-		}
+		}		
 	}
 
 	if( bShowCustomPropertyChildren && CustomTypeInterface.IsValid() )
@@ -549,6 +558,20 @@ bool FDetailPropertyRow::GetEnabledState() const
 	return Result;
 }
 
+TSharedPtr<IPropertyTypeCustomization>& FDetailPropertyRow::GetTypeInterface()
+{
+	if (!bCachedCustomTypeInterface)
+	{
+		if (PropertyNode.IsValid() && ParentCategory.IsValid())
+		{
+			CachedCustomTypeInterface = GetPropertyCustomization(PropertyNode.ToSharedRef(), ParentCategory.Pin().ToSharedRef());
+		}
+		bCachedCustomTypeInterface = true;
+	}
+
+	return CachedCustomTypeInterface;
+}
+
 bool FDetailPropertyRow::GetForceAutoExpansion() const
 {
 	return bForceAutoExpansion;
@@ -560,7 +583,7 @@ void FDetailPropertyRow::MakeNameOrKeyWidget( FDetailWidgetRow& Row, const TShar
 	EHorizontalAlignment HorizontalAlignment = HAlign_Fill;
 
 	// We will only use key widgets for non-struct keys
-	const bool bHasKeyNode = PropertyKeyEditor.IsValid();
+	const bool bHasKeyNode =  PropertyKeyEditor.IsValid() && !PropertyHandle->HasMetaData(TEXT("ReadOnlyKeys"));
 
 	if( !bHasKeyNode && InCustomRow.IsValid() )
 	{

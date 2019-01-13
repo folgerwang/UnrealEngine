@@ -394,6 +394,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", DisplayName="Jump To (Seconds)")
 	void JumpToSeconds(float TimeInSeconds);
 
+
+	/**
+	 * Play the sequence from the current time, to the specified marked frame by label
+	 *
+	 * @param InLabel   The desired marked frame label to play to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool PlayToMarkedFrame(const FString& InLabel);
+
+	/**
+	 * Scrub the sequence from the current time, to the specified marked frame by label
+	 *
+	 * @param InLabel   The desired marked frame label to scrub to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool ScrubToMarkedFrame(const FString& InLabel);
+
+	/**
+	 * Jump to the specified marked frame by label, without evaluating the sequence in between the current and desired time (as if in a paused state)
+	 *
+	 * @param InLabel   The desired marked frame label to jump to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Cinematic")
+	bool JumpToMarkedFrame(const FString& InLabel);
+
 public:
 
 	/** Check whether the sequence is actively playing. */
@@ -501,6 +529,8 @@ protected:
 	UWorld* GetPlaybackWorld() const;
 
 	FFrameTime GetLastValidTime() const;
+
+	int32 FindMarkedFrameByLabel(const FString& InLabel) const;
 
 protected:
 

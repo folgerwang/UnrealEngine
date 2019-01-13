@@ -262,7 +262,7 @@ FWeakWidgetPath::EPathResolutionResult::Result FWeakWidgetPath::ToWidgetPath( FW
 {
 	SCOPE_CYCLE_COUNTER(STAT_WeakToStrong_WidgetPath);
 
-	if (SLATE_PARENT_POINTERS && GSlateFastWidgetPath)
+	if (GSlateFastWidgetPath)
 	{
 		TArray<FWidgetAndPointer> PathWithGeometries;
 		TArray< TSharedPtr<SWidget> > WidgetPtrs;

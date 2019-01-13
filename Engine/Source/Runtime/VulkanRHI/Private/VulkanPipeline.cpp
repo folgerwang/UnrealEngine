@@ -268,6 +268,10 @@ FVulkanPipelineStateCacheManager::~FVulkanPipelineStateCacheManager()
 	{
 		delete Pair.Value;
 	}
+	for (auto& Pair : DSetLayoutMap)
+	{
+		VulkanRHI::vkDestroyDescriptorSetLayout(Device->GetInstanceHandle(), Pair.Value.Handle, VULKAN_CPU_ALLOCATOR);
+	}
 
 	VulkanRHI::vkDestroyPipelineCache(Device->GetInstanceHandle(), PipelineCache, VULKAN_CPU_ALLOCATOR);
 	PipelineCache = VK_NULL_HANDLE;
@@ -1066,7 +1070,7 @@ FArchive& operator << (FArchive& Ar, FVulkanPipelineStateCacheManager::FPipeline
 FGfxEntryKey FVulkanPipelineStateCacheManager::FGfxPipelineEntry::CreateKey() const
 {
 	FGfxEntryKey Result;
-	Result.Generate([this](FArchive& Ar)
+	Result.GenerateFromArchive([this](FArchive& Ar)
 		{
 			Ar << const_cast<FGfxPipelineEntry&>(*this);
 		});
@@ -1079,7 +1083,7 @@ void FVulkanPipelineStateCacheManager::CreateGfxPipelineFromEntry(FGfxPipelineEn
 	{
 		GfxEntry->GetOrCreateShaderModules(Shaders);
 	}
-
+	
 	// Pipeline
 	VkGraphicsPipelineCreateInfo PipelineInfo;
 	ZeroVulkanStruct(PipelineInfo, VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
@@ -1357,9 +1361,9 @@ inline FVulkanLayout* FVulkanPipelineStateCacheManager::FindOrAddLayout(const FV
 	}
 	
 	Layout->DescriptorSetLayout.CopyFrom(DescriptorSetLayoutInfo);
-	Layout->Compile();
+	Layout->Compile(DSetLayoutMap);
 
-	LayoutMap.Add(Layout->DescriptorSetLayout, Layout);
+	LayoutMap.Add(DescriptorSetLayoutInfo, Layout);
 	return Layout;
 }
 
@@ -1535,7 +1539,7 @@ FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::FindInLoadedL
 
 FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, FGfxPSIKey& OutKey)
 {
-	OutKey.Generate([&Initializer](FArchive& Ar)
+	OutKey.GenerateFromArchive([&Initializer](FArchive& Ar)
 		{
 			FGraphicsPipelineStateInitializer& PSI = const_cast<FGraphicsPipelineStateInitializer&>(Initializer);
 
@@ -1951,12 +1955,8 @@ void GetVulkanShaders(const FBoundShaderStateInput& BSI, FVulkanShader* OutShade
 	}
 }
 
-extern void FVulkanShaderFactory_LookupShaders(FVulkanShaderFactory& ShaderFactory, const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages]);
-
 void GetVulkanShaders(FVulkanDevice* Device, const FVulkanRHIGraphicsPipelineState& GfxPipelineState, FVulkanShader* OutShaders[ShaderStage::NumStages])
 {
 	FMemory::Memzero(OutShaders, ShaderStage::NumStages * sizeof(*OutShaders));
-	
-	//Device->GetShaderFactory().LookupShaders(GfxPipelineState.ShaderKeys, OutShaders);
-	FVulkanShaderFactory_LookupShaders(Device->GetShaderFactory(), GfxPipelineState.ShaderKeys, OutShaders);
+	Device->GetShaderFactory().LookupShaders(GfxPipelineState.ShaderKeys, OutShaders);
 }

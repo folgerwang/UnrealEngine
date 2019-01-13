@@ -442,6 +442,18 @@ public:
 		check(0 && "This is an async reader only and doesn't support writing");
 		return false;
 	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		// Reader only, so don't need to support flushing
+		return false;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		// Reader only, so don't need to support truncation
+		return false;
+	}
 };
 
 /** 
@@ -510,7 +522,6 @@ public:
 	{
 		check(IsValid());
 		check(NewPosition >= 0);
-		check(NewPosition <= FileSize);
 
 		FilePos = NewPosition;
 		UpdateOverlappedPos();
@@ -577,6 +588,16 @@ public:
 		FileSize = FMath::Max(FilePos, FileSize);
 		return true;
 	}
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+		return FlushFileBuffers(FileHandle) != 0;
+	}
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+		return Seek(NewSize) && SetEndOfFile(FileHandle) != 0;
+	}
 };
 
 /**
@@ -606,6 +627,10 @@ protected:
 		return FPaths::ConvertRelativePathToFull(Result);
 	}
 public:
+	//~ For visibility of overloads we don't override
+	using IPhysicalPlatformFile::IterateDirectory;
+	using IPhysicalPlatformFile::IterateDirectoryStat;
+
 	virtual bool FileExists(const TCHAR* Filename) override
 	{
 		uint32 Result = GetFileAttributesW(*NormalizeFilename(Filename));
@@ -785,7 +810,7 @@ public:
 
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) override
 	{
-		uint32  Access    = GENERIC_WRITE;
+		uint32  Access    = GENERIC_WRITE | (bAllowRead ? GENERIC_READ : 0);
 		uint32  WinFlags  = bAllowRead ? FILE_SHARE_READ : 0;
 		uint32  Create    = bAppend ? OPEN_ALWAYS : CREATE_ALWAYS;
 		HANDLE Handle    = CreateFileW(*NormalizeFilename(Filename), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL, NULL);

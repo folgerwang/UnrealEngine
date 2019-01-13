@@ -238,6 +238,11 @@ void UVirtualCameraCineCameraComponent::SetFocusVisualization(bool bShowFocusVis
 	FocusSettings.bDrawDebugFocusPlane = bShowFocusVisualization;
 }
 
+bool UVirtualCameraCineCameraComponent::IsFocusVisualizationActivated() const
+{
+	return FocusSettings.FocusMethod != ECameraFocusMethod::None && FocusSettings.bDrawDebugFocusPlane;
+}
+
 int32 UVirtualCameraCineCameraComponent::FindClosestPresetIndex(const TArray<float>& ArrayToSearch, const float SearchValue) const
 {
 	float LowestDifference = 0.f;

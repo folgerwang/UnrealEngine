@@ -97,7 +97,7 @@ TSharedPtr<SWidget> FCinematicShotTrackEditor::BuildOutlinerEditWidget(const FGu
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("CinematicShotText", "Shot"), FOnGetContent::CreateSP(this, &FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonGetMenuContent), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("CinematicShotText", "Shot"), FOnGetContent::CreateSP(this, &FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonGetMenuContent), Params.NodeIsHovered, GetSequencer())
 	]
 
 	+ SHorizontalBox::Slot()
@@ -428,7 +428,7 @@ void FCinematicShotTrackEditor::DuplicateShot(UMovieSceneCinematicShotSection* S
 	{
 		NewShot->SetRange(Section->GetRange());
 		NewShot->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewShot));
-		NewShot->Parameters.SetStartFrameOffset(Section->Parameters.GetStartFrameOffset());
+		NewShot->Parameters.StartFrameOffset = Section->Parameters.StartFrameOffset;
 		NewShot->Parameters.TimeScale = Section->Parameters.TimeScale;
 		NewShot->SetPreRollFrames(Section->GetPreRollFrames());
 
@@ -474,7 +474,7 @@ void FCinematicShotTrackEditor::NewTake(UMovieSceneCinematicShotSection* Section
 		FString NewShotName = MovieSceneToolHelpers::ComposeShotName(ShotPrefix, ShotNumber, NewTakeNumber);
 
 		TRange<FFrameNumber> NewShotRange         = Section->GetRange();
-		int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+		FFrameNumber         NewShotStartOffset   = Section->Parameters.StartFrameOffset;
 		float                NewShotTimeScale     = Section->Parameters.TimeScale;
 		int32                NewShotPrerollFrames = Section->GetPreRollFrames();
 		int32                NewRowIndex          = Section->GetRowIndex();
@@ -488,7 +488,7 @@ void FCinematicShotTrackEditor::NewTake(UMovieSceneCinematicShotSection* Section
 			CinematicShotTrack->RemoveSection(*Section);
 
 			NewShot->SetRange(NewShotRange);
-			NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
+			NewShot->Parameters.StartFrameOffset = NewShotStartOffset;
 			NewShot->Parameters.TimeScale = NewShotTimeScale;
 			NewShot->SetPreRollFrames(NewShotPrerollFrames);
 			NewShot->SetRowIndex(NewRowIndex);
@@ -529,7 +529,7 @@ void FCinematicShotTrackEditor::SwitchTake(uint32 TakeNumber)
 			UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
 
 			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
-			int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+			FFrameNumber         NewShotStartOffset   = Section->Parameters.StartFrameOffset;
 			float                NewShotTimeScale     = Section->Parameters.TimeScale;
 			int32                NewShotPrerollFrames = Section->GetPreRollFrames();
 			int32                NewRowIndex          = Section->GetRowIndex();
@@ -544,7 +544,7 @@ void FCinematicShotTrackEditor::SwitchTake(uint32 TakeNumber)
 				CinematicShotTrack->RemoveSection(*Section);
 
 				NewShot->SetRange(NewShotRange);
-				NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
+				NewShot->Parameters.StartFrameOffset = NewShotStartOffset;
 				NewShot->Parameters.TimeScale = NewShotTimeScale;
 				NewShot->SetPreRollFrames(NewShotPrerollFrames);
 				NewShot->SetRowIndex(NewShotRowIndex);
@@ -732,10 +732,9 @@ void FCinematicShotTrackEditor::OnLockShotsClicked(ECheckBoxState CheckBoxState)
 {
 	if (CheckBoxState == ECheckBoxState::Checked)
 	{
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
-		{		
-			FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
-			if (LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() && LevelVC->GetViewMode() != VMI_Unknown)
+		for( FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients() )
+		{
+			if (LevelVC && LevelVC->AllowsCinematicControl() && LevelVC->GetViewMode() != VMI_Unknown)
 			{
 				LevelVC->SetActorLock(nullptr);
 				LevelVC->bLockedCameraView = false;

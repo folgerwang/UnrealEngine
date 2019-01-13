@@ -12,6 +12,8 @@
 #include "ComposurePlayerCompositingTarget.h"
 #include "ComposureUtils.h"
 
+#include "Camera/CameraComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
 
 
 UComposureBlueprintLibrary::UComposureBlueprintLibrary(const FObjectInitializer& ObjectInitializer)
@@ -67,4 +69,65 @@ void UComposureBlueprintLibrary::GetPlayerDisplayGamma(const APlayerCameraManage
 	FSceneViewport* SceneViewport = ViewportClient->GetGameViewport();
 
 	DisplayGamma = SceneViewport ? SceneViewport->GetDisplayGamma() : 0.0;
+}
+
+void UComposureBlueprintLibrary::CopyCameraSettingsToSceneCapture(UCameraComponent* Src, USceneCaptureComponent2D* Dst)
+{
+	if (Src && Dst)
+	{
+		Dst->SetWorldLocationAndRotation(Src->GetComponentLocation(), Src->GetComponentRotation());
+		Dst->FOVAngle = Src->FieldOfView;
+
+		FMinimalViewInfo CameraViewInfo;
+		Src->GetCameraView(/*DeltaTime =*/0.0f, CameraViewInfo);
+
+		const FPostProcessSettings& SrcPPSettings = CameraViewInfo.PostProcessSettings;
+		FPostProcessSettings& DstPPSettings = Dst->PostProcessSettings;
+
+#define COPY_PPSETTING(FieldName, ToggleName) \
+		DstPPSettings.FieldName  = SrcPPSettings.FieldName; \
+		DstPPSettings.ToggleName = true;
+
+		COPY_PPSETTING(WhiteTemp, bOverride_WhiteTemp);
+		
+		COPY_PPSETTING(ColorSaturation, bOverride_ColorSaturation);
+		COPY_PPSETTING(ColorContrast, bOverride_ColorContrast);
+		COPY_PPSETTING(ColorGamma, bOverride_ColorGamma);
+		COPY_PPSETTING(ColorGain, bOverride_ColorGain);
+		COPY_PPSETTING(ColorOffset, bOverride_ColorOffset);
+
+		COPY_PPSETTING(ColorSaturationShadows, bOverride_ColorSaturationShadows);
+		COPY_PPSETTING(ColorContrastShadows, bOverride_ColorContrastShadows);
+		COPY_PPSETTING(ColorGammaShadows, bOverride_ColorGammaShadows);
+		COPY_PPSETTING(ColorGainShadows, bOverride_ColorGainShadows);
+		COPY_PPSETTING(ColorOffsetShadows, bOverride_ColorOffsetShadows);
+
+		COPY_PPSETTING(ColorCorrectionShadowsMax, bOverride_ColorCorrectionShadowsMax);
+		
+		COPY_PPSETTING(ColorSaturationMidtones, bOverride_ColorSaturationMidtones);
+		COPY_PPSETTING(ColorContrastMidtones, bOverride_ColorContrastMidtones);
+		COPY_PPSETTING(ColorGammaMidtones, bOverride_ColorGammaMidtones);
+		COPY_PPSETTING(ColorGainMidtones, bOverride_ColorGainMidtones);
+		COPY_PPSETTING(ColorOffsetMidtones, bOverride_ColorOffsetMidtones);
+		
+		COPY_PPSETTING(ColorSaturationHighlights, bOverride_ColorSaturationHighlights);
+		COPY_PPSETTING(ColorContrastHighlights, bOverride_ColorContrastHighlights);
+		COPY_PPSETTING(ColorGammaHighlights, bOverride_ColorGammaHighlights);
+		COPY_PPSETTING(ColorGainHighlights, bOverride_ColorGainHighlights);
+		COPY_PPSETTING(ColorOffsetHighlights, bOverride_ColorOffsetHighlights);
+
+		COPY_PPSETTING(ColorCorrectionHighlightsMin, bOverride_ColorCorrectionHighlightsMin);
+			
+		COPY_PPSETTING(DepthOfFieldFstop, bOverride_DepthOfFieldFstop);
+		COPY_PPSETTING(DepthOfFieldMinFstop, bOverride_DepthOfFieldMinFstop);
+		COPY_PPSETTING(DepthOfFieldBladeCount, bOverride_DepthOfFieldBladeCount);
+		COPY_PPSETTING(AutoExposureBias, bOverride_AutoExposureBias);
+			
+		COPY_PPSETTING(DepthOfFieldSensorWidth, bOverride_DepthOfFieldSensorWidth);
+		COPY_PPSETTING(DepthOfFieldFocalDistance, bOverride_DepthOfFieldFocalDistance);
+		COPY_PPSETTING(DepthOfFieldDepthBlurAmount, bOverride_DepthOfFieldDepthBlurAmount);
+		COPY_PPSETTING(DepthOfFieldDepthBlurRadius, bOverride_DepthOfFieldDepthBlurRadius);
+
+#undef COPY_PPSETTING
+	}
 }

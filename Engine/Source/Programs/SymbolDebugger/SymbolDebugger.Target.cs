@@ -14,8 +14,6 @@ public class SymbolDebuggerTarget : TargetRules
 		LaunchModuleName = "SymbolDebugger";
         ExtraModuleNames.Add("EditorStyle");
 
-		GlobalDefinitions.Add("WITH_DATABASE_SUPPORT=1");
-
 		bCompileLeanAndMeanUE = true;
 
 		// Don't need editor
@@ -24,8 +22,6 @@ public class SymbolDebuggerTarget : TargetRules
 		// SymbolDebugger doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
-
-		bIncludeADO = true;
 
 		// SymbolDebugger.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.

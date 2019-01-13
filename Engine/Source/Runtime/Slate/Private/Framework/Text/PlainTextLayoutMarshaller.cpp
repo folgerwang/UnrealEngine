@@ -35,10 +35,17 @@ void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayou
 	LinesToAdd.Reserve(LineRanges.Num());
 
 	TArray<FTextLineHighlight> LineHighlightsToAdd;
+
 	TSharedPtr<FSlateTextUnderlineLineHighlighter> UnderlineLineHighlighter;
 	if (!DefaultTextStyle.UnderlineBrush.GetResourceName().IsNone())
 	{
 		UnderlineLineHighlighter = FSlateTextUnderlineLineHighlighter::Create(DefaultTextStyle.UnderlineBrush, DefaultTextStyle.Font, DefaultTextStyle.ColorAndOpacity, DefaultTextStyle.ShadowOffset, DefaultTextStyle.ShadowColorAndOpacity);
+	}
+
+	TSharedPtr<FSlateTextStrikeLineHighlighter> StrikeLineHighlighter;
+	if (!DefaultTextStyle.StrikeBrush.GetResourceName().IsNone())
+	{
+		StrikeLineHighlighter = FSlateTextStrikeLineHighlighter::Create(DefaultTextStyle.StrikeBrush, DefaultTextStyle.Font, DefaultTextStyle.ColorAndOpacity, DefaultTextStyle.ShadowOffset, DefaultTextStyle.ShadowColorAndOpacity);
 	}
 
 	const bool bUsePasswordRun = bIsPassword.Get(false);
@@ -60,6 +67,11 @@ void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayou
 		if (UnderlineLineHighlighter.IsValid())
 		{
 			LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, FTextRange(0, LineRange.Len()), FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+		}
+
+		if (StrikeLineHighlighter.IsValid())
+		{
+			LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, FTextRange(0, LineRange.Len()), FSlateTextStrikeLineHighlighter::DefaultZIndex, StrikeLineHighlighter.ToSharedRef()));
 		}
 
 		LinesToAdd.Emplace(MoveTemp(LineText), MoveTemp(Runs));

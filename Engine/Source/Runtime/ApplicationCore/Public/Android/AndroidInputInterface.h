@@ -228,6 +228,7 @@ public:
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+	static FString GetGamepadControllerName(int32 ControllerId);
 
 	static void JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue);
 	static void JoystickButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
@@ -249,7 +250,9 @@ public:
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
 	virtual void ResetLightColor(int32 ControllerId) override {}
 
+	void SetGamepadsAllowed(bool bAllowed) { bAllowControllers = bAllowed; }
 	virtual bool IsGamepadAttached() const;
+
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 
@@ -309,6 +312,9 @@ private:
 
 	// should we allow controllers to send input
 	static bool bAllowControllers;
+
+	// should we allow controllers to send Android_Back and Android_Menu events
+	static bool bBlockAndroidKeysOnControllers;
 
 	static FAndroidGamepadDeviceMapping DeviceMapping[MAX_NUM_CONTROLLERS];
 

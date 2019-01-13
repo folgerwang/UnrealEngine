@@ -1,0 +1,36 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.2",
+	"FriendlyName": "Multi-User Editing",
+	"Description": "Allow collaborative multi-users sessions in the Editor",
+	"Category": "Developer",
+	"CreatedBy": "Epic Games, Inc.",
+	"CreatedByURL": "http://epicgames.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": false,
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"SupportedPrograms": [ "UnrealFrontend" ],
+	"Modules": [
+		{
+			"Name": "ConcertFrontend",
+			"Type": "Developer",
+			"LoadingPhase": "Default",
+			"WhitelistPrograms": [ "UnrealFrontend" ]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ConcertMain",
+			"Enabled": true
+		},
+		{
+			"Name": "ConcertSyncClient",
+			"Enabled": true
+		}
+	]
+}

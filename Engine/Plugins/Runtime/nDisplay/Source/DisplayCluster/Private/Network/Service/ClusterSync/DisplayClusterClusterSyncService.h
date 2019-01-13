@@ -3,22 +3,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Misc/DisplayClusterBarrier.h"
-#include "Network/DisplayClusterMessage.h"
 #include "Network/Service/DisplayClusterService.h"
 #include "Network/Protocol/IPDisplayClusterClusterSyncProtocol.h"
-
+#include "Network/DisplayClusterMessage.h"
+#include "Misc/DisplayClusterBarrier.h"
 
 
 /**
- * Cluster synchronization server
+ * Cluster synchronization service
  */
 class FDisplayClusterClusterSyncService
 	: public  FDisplayClusterService
 	, private IPDisplayClusterClusterSyncProtocol
 {
 public:
-	FDisplayClusterClusterSyncService(const FString& addr, const int32 port);
+	FDisplayClusterClusterSyncService(const FString& InAddr, const int32 InPort);
 	virtual ~FDisplayClusterClusterSyncService();
 
 public:
@@ -26,12 +25,15 @@ public:
 	void Shutdown() override;
 
 protected:
+	virtual FDisplayClusterSessionBase* CreateSession(FSocket* InSocket, const FIPv4Endpoint& InEP) override;
+
+protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterSessionListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void NotifySessionOpen(FDisplayClusterSession* pSession) override;
-	virtual void NotifySessionClose(FDisplayClusterSession* pSession) override;
-	virtual FDisplayClusterMessage::Ptr ProcessMessage(FDisplayClusterMessage::Ptr msg) override;
+	virtual void NotifySessionOpen(FDisplayClusterSessionBase* InSession) override;
+	virtual void NotifySessionClose(FDisplayClusterSessionBase* InSession) override;
+	virtual TSharedPtr<FDisplayClusterMessage> ProcessMessage(const TSharedPtr<FDisplayClusterMessage>& Request) override;
 
 private:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,10 +43,11 @@ private:
 	virtual void WaitForFrameStart() override;
 	virtual void WaitForFrameEnd() override;
 	virtual void WaitForTickEnd() override;
-	virtual void GetDeltaTime(float& deltaTime) override;
-	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) override;
-	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)  override;
-	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
+	virtual void GetDeltaTime(float& DeltaTime) override;
+	virtual void GetTimecode(FTimecode& Timecode, FFrameRate& FrameRate) override;
+	virtual void GetSyncData(FDisplayClusterMessage::DataType& Data)  override;
+	virtual void GetInputData(FDisplayClusterMessage::DataType& Data) override;
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& Data) override;
 
 private:
 	// Game start sync barrier

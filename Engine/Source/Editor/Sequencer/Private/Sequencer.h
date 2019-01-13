@@ -263,8 +263,12 @@ public:
 	}
 
 public:
+
+	/** @return The set of vertical frames */
+	TSet<FFrameNumber> GetVerticalFrames() const;
+
 	/** @return The set of marked frames */
-	TSet<FFrameNumber> GetMarkedFrames() const;
+	TArray<FMovieSceneMarkedFrame> GetMarkedFrames() const;
 
 protected:
 
@@ -616,7 +620,7 @@ public:
 	/**
 	 * Update auto-scroll mechanics as a result of a new time position
 	 */
-	void UpdateAutoScroll(double NewTime);
+	void UpdateAutoScroll(double NewTime, float ThresholdPercentage = 0.025f);
 
 	/** Autoscrub to destination time */
 	void AutoScrubToTime(FFrameTime DestinationTime);
@@ -644,7 +648,7 @@ public:
 	virtual TSharedRef<SWidget> GetSequencerWidget() const override;
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const override { return ActiveTemplateIDs[0]; }
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const override { return ActiveTemplateIDs.Top(); }
-	virtual bool GetFocusedSequenceIsActive() const override { return ActiveTemplateStates.Top(); }
+	virtual UMovieSceneSubSection* FindSubSection(FMovieSceneSequenceID SequenceID) const override;
 	virtual UMovieSceneSequence* GetRootMovieSceneSequence() const override;
 	virtual UMovieSceneSequence* GetFocusedMovieSceneSequence() const override;
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { return RootTemplateInstance; }
@@ -676,7 +680,7 @@ public:
 	virtual void EnterSilentMode() override { ++SilentModeCount; }
 	virtual void ExitSilentMode() override { --SilentModeCount; ensure(SilentModeCount >= 0); }
 	virtual bool IsInSilentMode() const override { return SilentModeCount != 0; }
-	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true) override;
+	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true, const FName& CreatedFolderName = NAME_None) override;
 	virtual ISequencerObjectChangeListener& GetObjectChangeListener() override;
 protected:
 	virtual void NotifyMovieSceneDataChangedInternal() override;
@@ -731,7 +735,9 @@ public:
 	virtual void ExternalSelectionHasChanged() override { SynchronizeSequencerSelectionWithExternalSelection(); }
 	/** Access the user-supplied settings object */
 	virtual USequencerSettings* GetSequencerSettings() override { return Settings; }
+	virtual void SetSequencerSettings(USequencerSettings* InSettings) override { Settings = InSettings; }
 	virtual TSharedPtr<class ITimeSlider> GetTopTimeSliderWidget() const override;
+	virtual void ResetTimeController() override;
 
 public:
 
@@ -932,11 +938,17 @@ protected:
 	/** Handles adding a new folder to the outliner tree. */
 	void OnAddFolder();
 
+	/** Handles loading in previously recorded data. */
+	void OnLoadRecordedData();
+
 	/** Handles adding a newly created track to the outliner tree by assigning it into a folder and selecting it. */
 	void OnAddTrack(const TWeakObjectPtr<UMovieSceneTrack>& InTrack);
 
 	/** Determines the selected parent folders and returns the node path to the first folder. Also expands the first folder. */
 	void CalculateSelectedFolderAndPath(TArray<UMovieSceneFolder*>& OutSelectedParentFolders, FString& OutNewNodePath);
+
+	/** Returns the tail folder from the given Folder Path, creating each folder if needed. */
+	UMovieSceneFolder* CreateFoldersRecursively(const TArray<FString>& FolderPaths, int32 FolderPathIndex, UMovieScene* OwningMovieScene, UMovieSceneFolder* ParentFolder, const TArray<UMovieSceneFolder*>& FoldersToSearch);
 
 	/** Create set playback start transport control */
 	TSharedRef<SWidget> OnCreateTransportSetPlaybackStart();
@@ -982,8 +994,6 @@ protected:
 
 public:
 
-	/** Reset the timing manager to the clock source specified by the root movie scene */
-	void ResetTimeController();
 
 	/** Helper function which returns how many frames (in tick resolution) one display rate frame represents. */
 	double GetDisplayRateDeltaFrameCount() const;
@@ -1214,9 +1224,6 @@ private:
 	TUniquePtr<FSequencerKeyCollection> SelectedKeyCollection;
 
 	TSharedPtr<FCurveEditor> CurveEditorModel;
-
-	bool bCachedBindSequencerToPIE;
-	bool bCachedBindSequencerToSimulate;
 
 	/** A signature that will suppress auto evaluation when it is the only change dirtying the template. */
 	TOptional<TTuple<TWeakObjectPtr<UMovieSceneSequence>, FGuid>> SuppressAutoEvalSignature;

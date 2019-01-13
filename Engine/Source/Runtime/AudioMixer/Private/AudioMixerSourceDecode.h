@@ -42,6 +42,9 @@ namespace Audio
 		// A pointer to a buffer of audio which will be decoded to
 		float* AudioData;
 
+		// The number of frames which are precached
+		int32 NumPrecacheFrames;
+
 		// The number of frames to decode
 		int32 NumFramesToDecode;
 
@@ -54,6 +57,7 @@ namespace Audio
 		FDecodeAudioTaskData()
 			: MixerBuffer(nullptr)
 			, AudioData(nullptr)
+			, NumPrecacheFrames(0)
 			, NumFramesToDecode(0)
 			, bLoopingMode(false)
 			, bSkipFirstBuffer(false)

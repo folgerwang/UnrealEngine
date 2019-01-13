@@ -881,6 +881,11 @@ public:
 	virtual void CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY ) { }
 
 	/**
+	 * Called from slate when input is finished for this frame, and we should process any queued mouse moves.
+	 */
+	virtual void ProcessAccumulatedPointerInput(FViewport* InViewport) {};
+
+	/**
 	 * Retrieves the cursor that should be displayed by the OS
 	 *
 	 * @param	Viewport	the viewport that contains the cursor
@@ -1118,10 +1123,10 @@ private:
  * Minimal viewport for assisting with taking screenshots (also used within a plugin)
  * @todo: This should be refactored
  */
-class FDummyViewport : public FViewport
+class ENGINE_API FDummyViewport : public FViewport
 {
 public:
-	ENGINE_API FDummyViewport(FViewportClient* InViewportClient);
+	FDummyViewport(FViewportClient* InViewportClient);
 
 	virtual ~FDummyViewport();
 

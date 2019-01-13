@@ -207,7 +207,17 @@ void FJsonStructSerializerBackend::WriteProperty(const FStructSerializerState& S
 	}
 	else if (State.ValueType == UTextProperty::StaticClass())
 	{
-		WritePropertyValue(JsonWriter, State, CastChecked<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex).ToString());
+		const FText& TextValue = CastChecked<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex);
+		if (EnumHasAnyFlags(Flags, EStructSerializerBackendFlags::WriteTextAsComplexString))
+		{
+			FString TextValueString;
+			FTextStringHelper::WriteToBuffer(TextValueString, TextValue);
+			WritePropertyValue(JsonWriter, State, TextValueString);
+		}
+		else
+		{
+			WritePropertyValue(JsonWriter, State, TextValue.ToString());
+		}
 	}
 
 	// classes & objects

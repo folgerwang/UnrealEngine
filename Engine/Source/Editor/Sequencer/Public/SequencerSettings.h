@@ -279,11 +279,6 @@ public:
 	/** Set whether to show channel colors */
 	void SetShowChannelColors(bool bInShowChannelColors);
 
-	/** @return Whether to allow possession of PIE viewports */
-	bool ShouldAllowPossessionOfPIEViewports() const;
-	/** Toggle whether to allow possession of PIE viewports */
-	void SetAllowPossessionOfPIEViewports(bool bInAllowPossessionOfPIEViewports);
-
 	/** @return Whether to activate realtime viewports when in sequencer */
 	bool ShouldActivateRealtimeViewports() const;
 	/** Toggle whether to allow possession of PIE viewports */
@@ -475,10 +470,6 @@ protected:
 	/** Enable or disable displaying channel bar colors for vector properties. */
 	UPROPERTY( config, EditAnywhere, Category=Timeline )
 	bool bShowChannelColors;
-
-	/** When enabled, sequencer is able to possess viewports that represent PIE worlds */
-	UPROPERTY(config, EditAnywhere, Category=General)
-	bool bAllowPossessionOfPIEViewports;
 
 	/** When enabled, sequencer will activate 'Realtime' in viewports */
 	UPROPERTY(config, EditAnywhere, Category=General)

@@ -34,6 +34,7 @@ public class WebBrowser : ModuleRules
 				{
 					"WebBrowserTexture",
 					"Engine",
+					"Launch"
 				}
 			);
 

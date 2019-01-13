@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "Misc/FrameRate.h"
-#include "Misc/Timecode.h"
 #include "Network/DisplayClusterMessage.h"
+
+struct FTimecode;
+struct FFrameRate;
 
 
 /**
@@ -36,5 +37,8 @@ public:
 
 	// Sync input
 	virtual void GetInputData(FDisplayClusterMessage::DataType& data) = 0;
+
+	// Sync events
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& data) = 0;
 };
 

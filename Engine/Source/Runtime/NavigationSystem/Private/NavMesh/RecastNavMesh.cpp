@@ -923,6 +923,13 @@ TArray<FNavMeshTileData> ARecastNavMesh::GetTileCacheLayers(int32 TileX, int32 T
 	return TArray<FNavMeshTileData>();
 }
 
+#if !UE_BUILD_SHIPPING
+int32 ARecastNavMesh::GetCompressedTileCacheSize()
+{
+	return RecastNavMeshImpl ? RecastNavMeshImpl->GetCompressedTileCacheSize() : 0;
+}
+#endif
+
 bool ARecastNavMesh::IsResizable() const
 {
 	return !bFixedTilePoolSize;

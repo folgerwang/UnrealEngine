@@ -525,7 +525,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 			if( FunctionName.Len() > 0 )
 			{
 				if( FunctionName.Contains( TEXT( "FDebug::" ), ESearchCase::CaseSensitive )
-					|| FunctionName.Contains( TEXT( "NewReportEnsure" ), ESearchCase::CaseSensitive ) )
+					|| FunctionName.Contains( TEXT( "ReportEnsure" ), ESearchCase::CaseSensitive ) )
 				{
 					bFoundSourceFile = false;
 					AssertOrEnsureIndex = Exception.CallStackString.Num();

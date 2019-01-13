@@ -45,6 +45,7 @@ THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_ANDROID && USE_ANDROID_JNI
 #	include "Android/AndroidWebBrowserWindow.h"
+#	include <Android/AndroidCookieManager.h>
 #elif PLATFORM_IOS
 #	include <IOS/IOSPlatformWebBrowser.h>
 #	include <IOS/IOSCookieManager.h>
@@ -316,6 +317,8 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	DefaultCookieManager = FCefWebBrowserCookieManagerFactory::Create(CefCookieManager::GetGlobalManager(nullptr));
 #elif PLATFORM_IOS
 	DefaultCookieManager = MakeShareable(new FIOSCookieManager());
+#elif PLATFORM_ANDROID
+	DefaultCookieManager = MakeShareable(new FAndroidCookieManager());
 #endif
 }
 

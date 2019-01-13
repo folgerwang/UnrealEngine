@@ -133,7 +133,7 @@ TArray<FString> UCurveBase::CreateCurveFromCSVString(const FString& InString)
 
 		for (int32 CellIdx=1; CellIdx<NumCells && CellIdx<(NumCurves+1); CellIdx++)
 		{
-			FRichCurve* Curve = Curves[CellIdx-1].CurveToEdit;
+			FRealCurve* Curve = Curves[CellIdx-1].CurveToEdit;
 			if (Curve != NULL)
 			{
 				FKeyHandle KeyHandle = Curve->AddKey(Time, FCString::Atof(Cells[CellIdx]));

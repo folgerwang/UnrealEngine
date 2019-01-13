@@ -589,6 +589,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 	
 	static FORCEINLINE bool SupportsBlitFramebuffer() { return FOpenGLES2::SupportsBlitFramebuffer() || IsES31Usable(); }
 
+	static FORCEINLINE bool SupportsComputeShaders() { return bES31Support && RHISupportsComputeShaders(GetShaderPlatform()); }
+
 	enum class EImageExternalType : uint8
 	{
 		None,
@@ -603,7 +605,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat() { return bES31Support ? GL_HALF_FLOAT : GL_HALF_FLOAT_OES; }
 
 	static FORCEINLINE GLenum GetDepthFormat() { return GL_DEPTH_COMPONENT24; }
-	static FORCEINLINE GLenum GetShadowDepthFormat() { return GL_DEPTH_COMPONENT24; }
+	static FORCEINLINE GLenum GetShadowDepthFormat() { return GL_DEPTH_COMPONENT16; }
 
 	static FORCEINLINE GLint GetMaxMSAASamplesTileMem() { return MaxMSAASamplesTileMem; }
 

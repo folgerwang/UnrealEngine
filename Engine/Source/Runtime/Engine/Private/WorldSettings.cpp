@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/WorldSettings.h"
+#include "Algo/Partition.h"
 #include "Misc/MessageDialog.h"
 #include "UObject/ConstructorHelpers.h"
 #include "EngineDefines.h"
@@ -665,6 +666,14 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 		GetWorld()->Scene->UpdateSceneSettings(this);
 	}
 
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -687,59 +696,16 @@ void UHierarchicalLODSetup::PostEditChangeProperty(struct FPropertyChangedEvent&
 
 void AWorldSettings::CompactBookmarks()
 {
-	int32 LowIndex = 0;
-	int32 HighIndex = NumMappedBookmarks;
+	Modify();
+	BookmarkArray.RemoveAll([&](const UBookmarkBase* Base) { return Base == nullptr; });
 
-	while (true)
-	{
-		// Find the next available spot.
-		while (true)
-		{
-			if (BookmarkArray.IsValidIndex(LowIndex))
-			{
-				// Found an empty spot, so we can move on.
-				if (BookmarkArray[LowIndex] == nullptr)
-				{
-					break;
-				}
+	// See if we can shrink the overall size of the bookmark array.
+	const int32 DefaultMaxNumberOfBookmarks = Cast<AWorldSettings>(GetClass()->GetDefaultObject())->MaxNumberOfBookmarks;
+	const int32 IntMappedBookmarks = static_cast<int32>(NumMappedBookmarks);
 
-				++LowIndex;
-			}
-			else
-			{
-				// There's no more spots to check, so we're done.
-				return;
-			}
-		}
-
-		// Find the next filled spot.
-		HighIndex = FMath::Max(HighIndex, LowIndex + 1);
-		while (true)
-		{
-			if (BookmarkArray.IsValidIndex(HighIndex))
-			{
-				// Found a valid filled spot, so we can move on.
-				if (BookmarkArray[HighIndex] != nullptr)
-				{
-					break;
-				}
-
-				++HighIndex;
-			}
-			else
-			{
-				// There's no more spots to check, so we're done.
-				return;
-			}
-		}
-
-		// Swap the filled slot element into the empty slot.
-		BookmarkArray.Swap(LowIndex, HighIndex);
-		++LowIndex;
-		++HighIndex;
-	}
+	MaxNumberOfBookmarks = FMath::Max(DefaultMaxNumberOfBookmarks, FMath::Max(IntMappedBookmarks, BookmarkArray.Num()));
+	AdjustNumberOfBookmarks();
 }
-
 
 class UBookmarkBase* AWorldSettings::GetOrAddBookmark(const uint32 BookmarkIndex, const bool bRecreateOnClassMismatch)
 {
@@ -749,13 +715,72 @@ class UBookmarkBase* AWorldSettings::GetOrAddBookmark(const uint32 BookmarkIndex
 
 		if (Bookmark == nullptr || (bRecreateOnClassMismatch && Bookmark->GetClass() != GetDefaultBookmarkClass()))
 		{
-			Bookmark = NewObject<UBookmarkBase>(this, GetDefaultBookmarkClass());
+			Modify();
+			Bookmark = NewObject<UBookmarkBase>(this, GetDefaultBookmarkClass(), NAME_None, RF_Transactional);
 		}
 
 		return Bookmark;
 	}
 
 	return nullptr;
+}
+
+UBookmarkBase* AWorldSettings::AddBookmark(const TSubclassOf<UBookmarkBase> BookmarkClass, const bool bExpandIfNecessarry)
+{
+	UBookmarkBase* Result = nullptr;
+	
+	UClass* NewBookmarkClass = BookmarkClass.Get();
+	if (NewBookmarkClass == nullptr)
+	{
+		NewBookmarkClass = GetDefaultBookmarkClass();
+	}
+
+	if (NewBookmarkClass)
+	{
+		int32 UseIndex = INDEX_NONE;
+		if (!BookmarkArray.Find(nullptr, UseIndex) && bExpandIfNecessarry)
+		{
+			Modify();
+			BookmarkArray.AddZeroed();
+			UseIndex = MaxNumberOfBookmarks;
+			MaxNumberOfBookmarks = BookmarkArray.Num();
+		}
+
+		if (BookmarkArray.IsValidIndex(UseIndex))
+		{
+			Modify();
+			Result = NewObject<UBookmarkBase>(this, NewBookmarkClass, NAME_None, RF_Transactional);
+			BookmarkArray[UseIndex] = Result;
+		}
+	}
+
+	return Result;
+}
+
+void AWorldSettings::ClearBookmark(const uint32 BookmarkIndex)
+{
+	if (BookmarkArray.IsValidIndex(BookmarkIndex))
+	{
+		if (UBookmarkBase*& Bookmark = BookmarkArray[BookmarkIndex])
+		{
+			Modify();
+			Bookmark->OnCleared();
+			Bookmark = nullptr;
+		}
+	}
+}
+
+void AWorldSettings::ClearAllBookmarks()
+{
+	Modify();
+	for (UBookmarkBase*& Bookmark : BookmarkArray)
+	{
+		if (Bookmark)
+		{
+			Bookmark->OnCleared();
+			Bookmark = nullptr;
+		}
+	}
 }
 
 void AWorldSettings::AdjustNumberOfBookmarks()
@@ -771,7 +796,11 @@ void AWorldSettings::AdjustNumberOfBookmarks()
 		UE_LOG(LogWorldSettings, Warning, TEXT("%s: MaxNumberOfBookmarks set below current number of bookmarks. Clearing %d bookmarks."), *GetPathNameSafe(this), BookmarkArray.Num() - MaxNumberOfBookmarks);
 	}
 
-	BookmarkArray.SetNumZeroed(MaxNumberOfBookmarks);
+	if (MaxNumberOfBookmarks != BookmarkArray.Num())
+	{
+		Modify();
+		BookmarkArray.SetNumZeroed(MaxNumberOfBookmarks);
+	}
 }
 
 void AWorldSettings::UpdateNumberOfBookmarks()
@@ -793,12 +822,13 @@ void AWorldSettings::SanitizeBookmarkClasses()
 		bool bFoundInvalidBookmarks = false;
 		for (int32 i = 0; i < BookmarkArray.Num(); ++i)
 		{
-			if (UBookmarkBase* Bookmark = BookmarkArray[i])
+			if (UBookmarkBase*& Bookmark = BookmarkArray[i])
 			{
 				if (Bookmark->GetClass() != ExpectedClass)
 				{
-					// Just clear the reference, this bookmark should get cleaned up next GC cycle.
-					BookmarkArray[i] = nullptr;
+					Modify();
+					Bookmark->OnCleared();
+					Bookmark = nullptr;
 					bFoundInvalidBookmarks = true;
 				}
 			}

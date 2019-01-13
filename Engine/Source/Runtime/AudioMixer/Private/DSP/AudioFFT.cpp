@@ -2,6 +2,9 @@
 
 #include "DSP/AudioFFT.h"
 #include "HAL/IConsoleManager.h"
+#include "DSP/BufferVectorOperations.h"
+
+#define IFFT_PRESERVE_COMPLEX_COMPONENT 0
 
 static int32 FFTMethodCVar = 0;
 TAutoConsoleVariable<int32> CVarFFTMethod(
@@ -300,10 +303,10 @@ namespace Audio
 			}
 		}
 
-		void PerformIterativeFFT(const FFTInputParams& InputParams, FFTOutputParams& OutputParams)
+		void PerformIterativeFFT(const FFTTimeDomainData& InputParams, FFTFreqDomainData& OutputParams)
 		{
 			// Separate even and odd elements into real buffer:
-			SeparateIntoCopy(InputParams.InBuffer, OutputParams.OutReal, InputParams.NumSamples);
+			SeparateIntoCopy(InputParams.Buffer, OutputParams.OutReal, InputParams.NumSamples);
 
 			//Zero out imaginary buffer since the input signal is not complex:
 			FMemory::Memzero(OutputParams.OutImag, InputParams.NumSamples * sizeof(float));
@@ -312,9 +315,35 @@ namespace Audio
 			ComputeButterfliesInPlace(OutputParams.OutReal, OutputParams.OutImag, InputParams.NumSamples);
 		}
 
-		void PerformDFT(const FFTInputParams& InputParams, FFTOutputParams& OutputParams)
+		void PerformIterativeIFFT(FFTFreqDomainData& InputParams, FFTTimeDomainData& OutputParams)
 		{
-			const float* InputBuffer = InputParams.InBuffer;
+			SeperateInPlace(InputParams.OutReal, OutputParams.NumSamples);
+			SeperateInPlace(InputParams.OutImag, OutputParams.NumSamples);
+
+			// IFFT can be done by performing a forward FFT on the complex conjugate of a frequency domain signal:
+			MultiplyBufferByConstantInPlace(InputParams.OutImag, OutputParams.NumSamples, -1.0f);
+
+			// Iterate over and compute butterflies.
+			ComputeButterfliesInPlace(InputParams.OutReal, InputParams.OutImag, OutputParams.NumSamples);
+
+#if IFFT_PRESERVE_COMPLEX_COMPONENT
+			for (int32 Index = 0; Index < OutputParams.NumSamples; Index++)
+			{
+				const float Real = InputParams.OutReal[Index];
+				const float Imag = InputParams.OutImag[Index];
+				OutputParams.Buffer[Index] = FMath::Sqrt(Real * Real - Imag * Imag);
+			}
+#else
+			FMemory::Memcpy(OutputParams.Buffer, InputParams.OutReal, OutputParams.NumSamples * sizeof(float));
+			
+			// Personal note: This is a very important step in an inverse FFT.
+			Audio::MultiplyBufferByConstantInPlace(OutputParams.Buffer, OutputParams.NumSamples, 1.0f / OutputParams.NumSamples);
+#endif
+		}
+
+		void PerformDFT(const FFTTimeDomainData& InputParams, FFTFreqDomainData& OutputParams)
+		{
+			const float* InputBuffer = InputParams.Buffer;
 			float* OutReal = OutputParams.OutImag;
 			float* OutImag = OutputParams.OutImag;
 
@@ -336,9 +365,32 @@ namespace Audio
 				OutImag[FreqIndex] = ImagSum;
 			}
 		}
+
+		void PerformIDFT(const FFTFreqDomainData& InputParams, FFTTimeDomainData& OutputParams)
+		{
+			float* OutputBuffer = OutputParams.Buffer;
+			float* InReal = InputParams.OutImag;
+			float* InImag = InputParams.OutImag;
+
+			float N = OutputParams.NumSamples;
+
+			for (int32 TimeIndex = 0; TimeIndex < OutputParams.NumSamples; TimeIndex++)
+			{
+				float RealSum = 0.0f;
+				float ImagSum = 0.0f;
+
+				for (int32 FreqIndex = 0; FreqIndex < OutputParams.NumSamples; FreqIndex++)
+				{
+					const float Exponent = TimeIndex * FreqIndex * PI * 2 / N;
+					RealSum += InReal[FreqIndex] * FMath::Cos(Exponent) - InImag[FreqIndex] * FMath::Sin(Exponent);
+				}
+
+				OutputBuffer[TimeIndex] = RealSum;
+			}
+		}
 	}
 
-	void PerformFFT(const FFTInputParams& InputParams, FFTOutputParams& OutputParams)
+	void PerformFFT(const FFTTimeDomainData& InputParams, FFTFreqDomainData& OutputParams)
 	{
 		int32 FFTMethod = CVarFFTMethod.GetValueOnAnyThread();
 		if (FFTMethod)
@@ -348,6 +400,19 @@ namespace Audio
 		else
 		{
 			FFTIntrinsics::PerformIterativeFFT(InputParams, OutputParams);
+		}
+	}
+
+	void PerformIFFT(FFTFreqDomainData& InputParams, FFTTimeDomainData& OutputParams)
+	{
+		int32 FFTMethod = CVarFFTMethod.GetValueOnAnyThread();
+		if (FFTMethod)
+		{
+			FFTIntrinsics::PerformIDFT(InputParams, OutputParams);
+		}
+		else
+		{
+			FFTIntrinsics::PerformIterativeIFFT(InputParams, OutputParams);
 		}
 	}
 }

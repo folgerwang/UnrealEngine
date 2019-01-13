@@ -158,6 +158,11 @@ namespace DeploymentServer
 			bool bResult = true;
 			switch (Command)
 			{
+                case "backupdocuments":
+                case "backupdocs":
+                    bResult = Deployer.BackupDocumentsDirectory(Bundle, FileList.Count > 0 ? FileList[0] : ".");
+                    break;
+
 				case "backup":
 					bResult = Deployer.BackupFiles(Bundle, FileList.ToArray());
 					break;

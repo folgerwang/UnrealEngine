@@ -425,51 +425,46 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 
 		TMap<int32, FGuid> GuidCache;
 		TEncryptedAssetSet EncryptedAssetSet;
-		TSet<FName> ReleasedAssets;
+		TSet<FGuid> ReleasedAssets;
 		AssetManager.GetEncryptedAssetSet(EncryptedAssetSet, ReleasedAssets);
 
 		for (TEncryptedAssetSet::ElementType EncryptedAssetSetElement : EncryptedAssetSet)
 		{
 			FName SetName = EncryptedAssetSetElement.Key;
-			TSet<FPrimaryAssetId>& EncryptedPrimaryAssets = EncryptedAssetSetElement.Value;
+			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value;
 
-			for (FPrimaryAssetId EncryptedPrimaryAsset : EncryptedPrimaryAssets)
+			for (FName EncryptedRootPackageName : EncryptedRootAssets)
 			{
-				FAssetData PrimaryAssetData;
-				if (AssetManager.GetPrimaryAssetData(EncryptedPrimaryAsset, PrimaryAssetData))
+				FAssetData* AssetData = const_cast<FAssetData*>(TargetState.GetAssetByObjectPath(EncryptedRootPackageName));
+
+				if (AssetData)
 				{
-					FName EncryptedPrimaryAssetPackageName = PrimaryAssetData.PackageName;
-					FAssetData* AssetData = const_cast<FAssetData*>(TargetState.GetAssetByObjectPath(PrimaryAssetData.ObjectPath));
+					FString GuidString;
 
-					if (AssetData)
+					if (AssetData->ChunkIDs.Num() > 1)
 					{
-						FString GuidString;
+						UE_LOG(LogAssetRegistryGenerator, Error, TEXT("Encrypted primary asset '%s' exists in two chunks. Only secondary assets should be shared between chunks."));
+					}
+					else if (AssetData->ChunkIDs.Num() == 1)
+					{
+						int32 ChunkID = AssetData->ChunkIDs[0];
+						FGuid Guid;
 
-						if (AssetData->ChunkIDs.Num() > 1)
+						if (GuidCache.Contains(ChunkID))
 						{
-							UE_LOG(LogAssetRegistryGenerator, Error, TEXT("Encrypted primary asset '%s' exists in two chunks. Only secondary assets should be shared between chunks."));
+							Guid = GuidCache[ChunkID];
 						}
-						else if (AssetData->ChunkIDs.Num() == 1)
+						else
 						{
-							int32 ChunkID = AssetData->ChunkIDs[0];
-							FGuid Guid;
+							Guid = GuidCache.Add(ChunkID, AssetManager.GetChunkEncryptionKeyGuid(ChunkID));
+						}
 
-							if (GuidCache.Contains(ChunkID))
-							{
-								Guid = GuidCache[ChunkID];
-							}
-							else
-							{
-								Guid = GuidCache.Add(ChunkID, AssetManager.GetChunkEncryptionKeyGuid(ChunkID));
-							}
-
-							if (Guid.IsValid())
-							{
-								FAssetDataTagMap TagsAndValues = AssetData->TagsAndValues.GetMap();
-								TagsAndValues.Add(UAssetManager::GetEncryptionKeyAssetTagName(), Guid.ToString());
-								FAssetData NewAssetData = FAssetData(AssetData->PackageName, AssetData->PackagePath, AssetData->AssetName, AssetData->AssetClass, TagsAndValues, AssetData->ChunkIDs, AssetData->PackageFlags);
-								TargetState.UpdateAssetData(AssetData, NewAssetData);
-							}
+						if (Guid.IsValid())
+						{
+							FAssetDataTagMap TagsAndValues = AssetData->TagsAndValues.GetMap();
+							TagsAndValues.Add(UAssetManager::GetEncryptionKeyAssetTagName(), Guid.ToString());
+							FAssetData NewAssetData = FAssetData(AssetData->PackageName, AssetData->PackagePath, AssetData->AssetName, AssetData->AssetClass, TagsAndValues, AssetData->ChunkIDs, AssetData->PackageFlags);
+							TargetState.UpdateAssetData(AssetData, NewAssetData);
 						}
 					}
 				}
@@ -803,11 +798,11 @@ void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPack
 
 }
 
-void FAssetRegistryGenerator::PreSave()
+void FAssetRegistryGenerator::PreSave(const TSet<FName>& InCookedPackages)
 {
 	if (bUseAssetManager)
 	{
-		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform);
+		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform, InCookedPackages);
 	}
 }
 

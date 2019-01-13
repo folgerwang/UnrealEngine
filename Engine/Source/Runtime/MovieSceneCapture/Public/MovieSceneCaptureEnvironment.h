@@ -11,7 +11,7 @@
 class UMovieSceneCaptureProtocolBase;
 
 UCLASS()
-class UMovieSceneCaptureEnvironment : public UObject
+class MOVIESCENECAPTURE_API UMovieSceneCaptureEnvironment : public UObject
 {
 public:
 	GENERATED_BODY()

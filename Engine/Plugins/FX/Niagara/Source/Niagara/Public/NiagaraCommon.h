@@ -187,7 +187,7 @@ struct FNiagaraScriptDataUsageInfo
 
 	/** If true, this script reads attribute data. */
 	UPROPERTY()
-		bool bReadsAttributeData;
+	bool bReadsAttributeData;
 };
 
 

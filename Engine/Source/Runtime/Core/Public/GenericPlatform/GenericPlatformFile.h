@@ -8,6 +8,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Templates/Function.h"
 #include "Containers/UnrealString.h"
 #include "Misc/DateTime.h"
 #include "Misc/EnumClassFlags.h"
@@ -15,20 +16,29 @@
 class IAsyncReadFileHandle;
 
 /**
-* Enum for async IO priorities.
+* Enum for async IO priorities. 
 */
-enum EAsyncIOPriority
+enum EAsyncIOPriorityAndFlags 
 {
+	AIOP_PRIORITY_MASK = 0x000000ff,
+
+	// Flags - combine with priorities if needed
+	AIOP_FLAG_PRECACHE = 0x00000100,
+
+	// Priorities
 	AIOP_MIN = 0,
-	AIOP_Precache = AIOP_MIN, 
 	AIOP_Low,
 	AIOP_BelowNormal,
 	AIOP_Normal,
 	AIOP_High,
 	AIOP_CriticalPath,
 	AIOP_MAX = AIOP_CriticalPath,
-	AIOP_NUM
+	AIOP_NUM,
+
+	// Legacy (for back-compat). Better to specify priority and AIOP_FLAG_PRECACHE separately
+	AIOP_Precache = AIOP_MIN | AIOP_FLAG_PRECACHE,
 };
+ENUM_CLASS_FLAGS(EAsyncIOPriorityAndFlags);
 
 /**
  * Enum for platform file read flags
@@ -96,9 +106,19 @@ public:
 	virtual bool		Write(const uint8* Source, int64 BytesToWrite) = 0;
 
 	/**
-	 * Flushes file.
+	 * Flushes file handle to disk.
+	 * @param bFullFlush	true to flush everything about the file (including its meta-data) with a strong guarantee that it will be on disk by the time this function returns, 
+	 *						or false to let the operating/file system have more leeway about when the data actually gets written to disk
+	 * @return				true if operation completed successfully.
 	**/
-	virtual void		Flush() { };
+	virtual bool		Flush(const bool bFullFlush = false) = 0;
+
+	/** 
+	 * Truncate the file to the given size (in bytes).
+	 * @param NewSize		Truncated file size (in bytes).
+	 * @return				true if the operation completed successfully.
+	**/
+	virtual bool		Truncate(int64 NewSize) = 0;
 
 public:
 	/////////// Utility Functions. These have a default implementation that uses the pure virtual operations.
@@ -308,6 +328,9 @@ public:
 		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) = 0;
 	};
 
+	/** File and directory visitor function that takes only the name */
+	typedef TFunctionRef<bool(const TCHAR*, bool)> FDirectoryVisitorFunc;
+
 	/** Base class for file and directory visitors that take all the stat data. **/
 	class FDirectoryStatVisitor
 	{
@@ -321,6 +344,9 @@ public:
 		**/
 		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) = 0;
 	};
+
+	/** File and directory visitor function that takes all the stat data */
+	typedef TFunctionRef<bool(const TCHAR*, const FFileStatData&)> FDirectoryStatVisitorFunc;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
@@ -352,10 +378,11 @@ public:
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename);
 
 	/** Controls if the pak precacher should process precache requests.
-	* Without this throttle, quite a lot of memory can be consumed if the disk races ahead of the CPU.
-	* @param bEnablePrecacheRequests true or false depending on if precache requests should be allowed
+	* Requests below this threshold will not get precached. Without this throttle, quite a lot of memory
+	* can be consumed if the disk races ahead of the CPU.
+	* @param MinPriority the minimum priority at which requests will get precached
 	*/
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags MinPriority)
 	{
 	}
 
@@ -363,6 +390,22 @@ public:
 
 	/** Return the modification time of a file in the local time of the calling code (GetTimeStamp returns UTC). Returns FDateTime::MinValue() on failure **/
 	virtual FDateTime	GetTimeStampLocal(const TCHAR* Filename);
+
+	/**
+	 * Call the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
+	 * @param Directory		The directory to iterate the contents of.
+	 * @param Visitor		Visitor to call for each element of the directory (see FDirectoryVisitor::Visit for the signature)
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitorFunc Visitor);
+
+	/**
+	 * Call the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
+	 * @param Directory		The directory to iterate the contents of.
+	 * @param Visitor		Visitor to call for each element of the directory (see FDirectoryStatVisitor::Visit for the signature)
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor);
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
@@ -379,6 +422,22 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	virtual bool IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitor& Visitor);
+
+	/**
+	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
+	 * @param Directory		The directory to iterate the contents of, recursively.
+	 * @param Visitor		Visitor to call for each element of the directory and each element of all subdirectories (see FDirectoryVisitor::Visit for the signature).
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitorFunc Visitor);
+
+	/**
+	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
+	 * @param Directory		The directory to iterate the contents of, recursively.
+	 * @param Visitor		Visitor to call for each element of the directory and each element of all subdirectories (see FDirectoryStatVisitor::Visit for the signature).
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor);
 		
 	/**
 	 * Finds all the files within the given directory, with optional file extension filter
@@ -472,6 +531,25 @@ public:
 	{
 		// by default, IPlatformFile's can't talk to a server
 		return false;
+	}
+	
+	/**
+	 * Checks to see if this file system creates publicly accessible files
+	 *
+	 * @return			true if this file system creates publicly accessible files
+	 */
+	virtual bool DoesCreatePublicFiles()
+	{
+		return false;
+	}
+	
+	/**
+	 * Sets file system to create publicly accessible files or not
+	 *
+	 * @param bCreatePublicFiles			true to set the file system to create publicly accessible files
+	 */
+	virtual void SetCreatePublicFiles(bool bCreatePublicFiles)
+	{
 	}
 };
 

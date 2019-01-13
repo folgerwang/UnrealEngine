@@ -8,6 +8,8 @@
 #include "MovieSceneCaptureDialogModule.h"
 #include "SequencerTools.generated.h"
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnRenderMovieStopped, bool, bSuccess);
+
 /** 
  * This is a set of helper functions to access various parts of the Sequencer API via Python. Because Sequencer itself is not suitable for exposing, most functionality
  * gets wrapped by UObjects that have an easier API to work with. This UObject provides access to these wrapper UObjects where needed. 
@@ -24,7 +26,7 @@ public:
 	* if the state is not valid (ie: null or missing required parameters, capture in progress, etc.), true otherwise.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Sequencer Tools")
-	static bool RenderMovie(class UMovieSceneCapture* InCaptureSettings);
+	static bool RenderMovie(class UMovieSceneCapture* InCaptureSettings, FOnRenderMovieStopped OnFinishedCallback);
 
 	/** 
 	* Returns if Render to Movie is currently in progress.

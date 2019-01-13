@@ -949,7 +949,7 @@ public:
 	/**
 	 * Returns the number of LODs used by the mesh.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh", meta=(ScriptName="GetNumLods"))
 	ENGINE_API int32 GetNumLODs() const;
 
 	/**
@@ -1128,6 +1128,7 @@ public:
 
 	/** Get multicast delegate broadcast after mesh building */
 	FOnPostMeshBuild& OnPostMeshBuild() { return PostMeshBuild; }
+	
 
 	/* Return true if the reduction settings are setup to reduce a LOD*/
 	ENGINE_API bool IsReductionActive(int32 LODIndex) const;

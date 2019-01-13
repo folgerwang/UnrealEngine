@@ -339,6 +339,7 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		class SLATE_API FSplitter : public FLayoutNode
 		{
 				friend class FTabManager;
+				friend class FLayoutExtender;
 		
 			public:
 
@@ -400,6 +401,13 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 					return SharedThis(this);
 				}
 				
+				TSharedRef<FArea> SplitAt( int32 Index, TSharedRef<FLayoutNode> InNode )
+				{
+					check(Index >= 0);
+					ChildNodes.Insert(InNode, FMath::Min(Index, ChildNodes.Num()));
+					return SharedThis(this);
+				}
+
 				TSharedRef<FArea> SetOrientation( const EOrientation InOrientation )
 				{
 					Orientation = InOrientation;
@@ -412,6 +420,17 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 					UnscaledWindowPosition = InPosition;
 					bIsMaximized = IsMaximized;
 					return SharedThis(this);
+				}
+
+				TSharedRef<FArea> SetExtensionId( FName InExtensionId )
+				{
+					ExtensionId = InExtensionId;
+					return SharedThis(this);
+				}
+
+				FName GetExtensionId() const
+				{
+					return ExtensionId;
 				}
 
 				virtual TSharedPtr<FArea> AsArea() override
@@ -436,6 +455,7 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 				FVector2D UnscaledWindowPosition;
 				FVector2D UnscaledWindowSize;
 				bool bIsMaximized;
+				FName ExtensionId;
 		};
 
 

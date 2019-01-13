@@ -71,7 +71,7 @@ public:
 	* PreSave
 	* Notify generator that we are about to save the registry and chunk manifests
 	*/
-	void PreSave();
+	void PreSave(const TSet<FName>& InCookedPackages);
 
 	/**
 	* PostSave

@@ -11,7 +11,8 @@
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
 
-#define ENABLE_MEMPRO 0		// (note: MemPro.cpp/need to be added to the project for this to work)
+// uncomment this to use MemPro (note: MemPro.cpp/need to be added to the project for this to work)
+//#define ENABLE_MEMPRO
 
 // There is a little memory and cpu overhead in tracking peak memory but it is generally more useful than current memory.
 // Disable if you need a little more memory or speed
@@ -19,11 +20,14 @@
 
 #define ENABLE_CATCH_RUNAWAY_TAGS 1
 
-#if ENABLE_MEMPRO
+#ifdef ENABLE_MEMPRO
+namespace MemProProfiler
+{
+	ELLMTag TrackTag = ELLMTag::RHIMisc;		// GenericTagCount to track all allocs
+	bool bStart = true;
+}
 #include "MemPro.hpp"
-bool START_MEMPRO = true;
-ELLMTag MemProTrackTag = ELLMTag::TaskGraphTasksMisc;		// MaxUserAllocation to track all allocs
-#endif
+#endif //ENABLE_MEMPRO
 
 TAutoConsoleVariable<int32> CVarLLMWriteInterval(
 	TEXT("LLM.LLMWriteInterval"),
@@ -63,6 +67,10 @@ DECLARE_LLM_MEMORY_STAT(TEXT("Engine Misc"), STAT_EngineMiscLLM, STATGROUP_LLMFU
 DECLARE_LLM_MEMORY_STAT(TEXT("TaskGraph Misc Tasks"), STAT_TaskGraphTasksMiscLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Audio"), STAT_AudioLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("AudioMixer"), STAT_AudioMixerLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AudioPrecache"), STAT_AudioPrecacheLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AudioDecompress"), STAT_AudioDecompressLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AudioRealtimePrecache"), STAT_AudioRealtimePrecacheLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AudioFullDecompress"), STAT_AudioFullDecompressLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("FName"), STAT_FNameLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Networking"), STAT_NetworkingLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Meshes"), STAT_MeshesLLM, STATGROUP_LLMFULL);
@@ -98,6 +106,7 @@ DECLARE_LLM_MEMORY_STAT(TEXT("AssetRegistry"), STAT_AssetRegistryLLM, STATGROUP_
 DECLARE_LLM_MEMORY_STAT(TEXT("ConfigSystem"), STAT_ConfigSystemLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("InitUObject"), STAT_InitUObjectLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("VideoRecording"), STAT_VideoRecordingLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("CsvProfiler"), STAT_CsvProfilerLLM, STATGROUP_LLMFULL);
 
 /*
 * LLM Summary stats referenced by ELLMTagNames
@@ -550,9 +559,9 @@ void FLowLevelMemTracker::UpdateStatsPerFrame(const TCHAR* LogName)
 	}
 
 	// calculate FMalloc unused stat and set it in the Default tracker
-	int32 FMallocAmount = Trackers[(int32)ELLMTracker::Default]->GetAllocTypeAmount(ELLMAllocType::FMalloc);
-	int32 FMallocPlatformAmount = Trackers[(int32)ELLMTracker::Platform]->GetTagAmount(ELLMTag::FMalloc);
-	int32 FMallocUnused = FMallocPlatformAmount - FMallocAmount;
+	int64 FMallocAmount = Trackers[(int32)ELLMTracker::Default]->GetAllocTypeAmount(ELLMAllocType::FMalloc);
+	int64 FMallocPlatformAmount = Trackers[(int32)ELLMTracker::Platform]->GetTagAmount(ELLMTag::FMalloc);
+	int64 FMallocUnused = FMallocPlatformAmount - FMallocAmount;
 	Trackers[(int32)ELLMTracker::Default]->SetTagAmount(ELLMTag::FMallocUnused, FMallocUnused, true);
 
 	// update totals for all trackers
@@ -880,7 +889,7 @@ void FLLMScope::Init(int64 Tag, ELLMTagSet Set, ELLMTracker Tracker)
 {
 	TagSet = Set;
 	TrackerSet = Tracker;
-	Enabled = Tag != (int64)ELLMTag::Untagged;
+	Enabled = Tag != (int64)ELLMTag::Untagged && !GIsRequestingExit;
 
 	// early out if tracking is disabled (don't do the singleton call, this is called a lot!)
 	if (!Enabled)
@@ -1481,8 +1490,8 @@ void FLLMTracker::FLLMThreadState::TrackAllocation(const void* Ptr, uint64 Size,
 		FPlatformMemory::OnLowLevelMemory_Alloc(Ptr, Size, Tag);
 	}
 	
-#if ENABLE_MEMPRO
-	if (START_MEMPRO && Tracker == ELLMTracker::Default && (MemProTrackTag == ELLMTag::MaxUserAllocation || MemProTrackTag == (ELLMTag)Tag))
+#ifdef ENABLE_MEMPRO
+	if (MemProProfiler::bStart && Tracker == ELLMTracker::Default && (MemProProfiler::TrackTag == ELLMTag::GenericTagCount || MemProProfiler::TrackTag == (ELLMTag)Tag))
 	{
 		MEMPRO_TRACK_ALLOC((void*)Ptr, (size_t)Size);
 	}
@@ -1502,8 +1511,8 @@ void FLLMTracker::FLLMThreadState::TrackFree(const void* Ptr, int64 Tag, uint64 
 		FPlatformMemory::OnLowLevelMemory_Free(Ptr, Size, Tag);
 	}
 
-#if ENABLE_MEMPRO
-	if (START_MEMPRO && Tracker == ELLMTracker::Default && (MemProTrackTag == ELLMTag::MaxUserAllocation || MemProTrackTag == (ELLMTag)Tag))
+#ifdef ENABLE_MEMPRO
+	if (MemProProfiler::bStart && Tracker == ELLMTracker::Default && (MemProProfiler::TrackTag == ELLMTag::GenericTagCount || MemProProfiler::TrackTag == (ELLMTag)Tag))
 	{
 		MEMPRO_TRACK_FREE((void*)Ptr);
 	}

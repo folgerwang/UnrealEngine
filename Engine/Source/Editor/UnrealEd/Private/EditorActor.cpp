@@ -1880,6 +1880,62 @@ void UUnrealEdEngine::edactSelectInvert( UWorld* InWorld )
 	}
 }
 
+static void GetAttachedActors( AActor* Actor, bool bRecurseChildren, TSet< AActor* >& OutActors )
+{
+	TArray< AActor* > ChildrenActors;
+	Actor->GetAttachedActors( ChildrenActors );
+	for ( AActor* ChildActor : ChildrenActors )
+	{
+		OutActors.Add( ChildActor );
+
+		if ( bRecurseChildren )
+		{
+			GetAttachedActors( ChildActor, bRecurseChildren, OutActors );
+		}
+	}
+}
+
+void UUnrealEdEngine::edactSelectAllChildren( bool bRecurseChildren )
+{
+	USelection* CurrentSelection = GetSelectedActors();
+
+	TArray< AActor* > SelectedActors;
+	CurrentSelection->GetSelectedObjects< AActor >( SelectedActors );
+
+	CurrentSelection->BeginBatchSelectOperation();
+	CurrentSelection->Modify();
+
+	// Turn off Grouping during this process to avoid double toggling of selected actors via group selection
+	const bool bGroupingActiveSaved = UActorGroupingUtils::IsGroupingActive();
+	UActorGroupingUtils::SetGroupingActive( false );
+
+	// Iterate through all the selected actors and select their children if they are not currently selected
+	TSet< AActor* > ActorsToSelect;
+	for ( AActor* Actor : SelectedActors )
+	{
+		// Don't recurse through the same actor twice
+		if ( !bRecurseChildren || !ActorsToSelect.Contains( Actor ) )
+		{
+			GetAttachedActors( Actor, bRecurseChildren, ActorsToSelect );
+		}
+	}
+
+	for ( AActor* Actor : ActorsToSelect )
+	{
+		if ( !FActorEditorUtils::IsABuilderBrush( Actor ) && !Actor->IsSelected() )
+		{
+			// Select actor even if hidden
+			SelectActor( Actor, true, false, true );
+		}
+	}
+
+	// Restore bGroupingActive to its original value
+	UActorGroupingUtils::SetGroupingActive( bGroupingActiveSaved );
+
+	CurrentSelection->EndBatchSelectOperation();
+
+	NoteSelectionChange();
+}
 
 void UUnrealEdEngine::edactSelectOfClass( UWorld* InWorld, UClass* Class )
 {

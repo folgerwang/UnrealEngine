@@ -28,6 +28,8 @@ struct COREUOBJECT_API FBlueprintTags
 	static const FName BlueprintType;
 	/** String with user-entered description of blueprint */
 	static const FName BlueprintDescription;
+	/** String with user-entered display name for the blueprint class (used in editor along with the description to identify the Blueprint type) */
+	static const FName BlueprintDisplayName;
 	/** String set to True/False, set if this is a data only blueprint */
 	static const FName IsDataOnly;
 	/** List of implemented interfaces, must be converted to FBPInterfaceDescription */

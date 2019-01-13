@@ -8,6 +8,28 @@
 #include "RHI.h"
 #include "RHIResources.h"
 
+class FJavaAndroidMediaDataSource
+{
+public:
+	FJavaAndroidMediaDataSource(const TSharedRef<FArchive, ESPMode::ThreadSafe>& InArchive);
+
+	/** Virtual destructor. */
+	virtual ~FJavaAndroidMediaDataSource();
+
+public:
+	int64 GetSize();
+	int64 GetCurrentPosition();
+	int32 ReadAt(int64 Position, uint8* Buffer, int32 Count);
+
+private:
+	/** Holds the archive to stream from. */
+	TSharedRef<FArchive, ESPMode::ThreadSafe> Archive;
+
+	/** Critical section for locking access to this class. */
+	mutable FCriticalSection CriticalSection;
+};
+
+
 // Wrapper for com/epicgames/ue4/MediaPlayer*.java.
 class FJavaAndroidMediaPlayer : public FJavaClassObject
 {
@@ -55,6 +77,7 @@ public:
 	bool IsPrepared();
 	bool DidComplete();
 	bool SetDataSource(const FString & Url);
+	bool SetDataSource(const TSharedRef<FArchive, ESPMode::ThreadSafe>& InArchive);
 	bool SetDataSource(const FString& MoviePathOnDevice, int64 offset, int64 size);
 	bool SetDataSource(jobject AssetMgr, const FString& AssetPath, int64 offset, int64 size);
 	bool Prepare();
@@ -93,6 +116,7 @@ private:
 	FJavaClassMethod IsPreparedMethod;
 	FJavaClassMethod DidCompleteMethod;
 	FJavaClassMethod SetDataSourceURLMethod;
+	FJavaClassMethod SetDataSourceArchiveMethod;
 	FJavaClassMethod SetDataSourceFileMethod;
 	FJavaClassMethod SetDataSourceAssetMethod;
 	FJavaClassMethod PrepareMethod;
@@ -160,6 +184,9 @@ private:
 	float UScale, UOffset;
 	float VScale, VOffset;
 
+	/** Current media data source if using one. */
+	TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> MediaDataSource;
+
 public:
 	FTextureRHIRef GetVideoTexture()
 	{
@@ -186,6 +213,14 @@ public:
 
 	float GetVScale() { return VScale; }
 	float GetVOffset() { return VOffset; }
+
+protected:
+	static FCriticalSection MediaDataSourcesCS;
+	static TMap<int64, TWeakPtr<FJavaAndroidMediaDataSource>> AllMediaDataSources;
+
+public:
+	static TSharedPtr<FJavaAndroidMediaDataSource> GetMediaDataSourcePtr(int64 Identifier);
+	static void AddMediaDataSourcePtr(int64 Identifier, TSharedPtr<FJavaAndroidMediaDataSource, ESPMode::ThreadSafe> MediaDataSource);
 };
 
 #endif

@@ -82,6 +82,7 @@ void FIOSInputInterface::SetMessageHandler( const TSharedRef< FGenericApplicatio
 
 void FIOSInputInterface::Tick( float DeltaTime )
 {
+
 }
 
 void FIOSInputInterface::HandleConnection(GCController* Controller)
@@ -630,11 +631,21 @@ bool FIOSInputInterface::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& 
 
 	return bHandledCommand;
 }
-bool FIOSInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
+bool FIOSInputInterface::IsControllerAssignedToGamepad(int32 ControllerId) const
 {
 	return ControllerId < ARRAY_COUNT(Controllers) &&
 		(Controllers[ControllerId].bIsGamepadConnected ||
 		 Controllers[ControllerId].bIsRemoteConnected);
+}
+
+bool FIOSInputInterface::IsGamepadAttached() const
+{
+	bool bIsAttached = false;
+	for(int32 i = 0; i < ARRAY_COUNT(Controllers); ++i)
+	{
+		bIsAttached |= IsControllerAssignedToGamepad(i);
+	}
+	return bIsAttached && bAllowControllers;
 }
 
 void FIOSInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)

@@ -18,6 +18,10 @@ protected:
 	virtual FString NormalizeFilename(const TCHAR* Filename);
 	virtual FString NormalizeDirectory(const TCHAR* Directory);
 public:
+	//~ For visibility of overloads we don't override
+	using IPhysicalPlatformFile::IterateDirectory;
+	using IPhysicalPlatformFile::IterateDirectoryStat;
+
 	virtual bool FileExists(const TCHAR* Filename) override;
 	virtual int64 FileSize(const TCHAR* Filename) override;
 	virtual bool DeleteFile(const TCHAR* Filename) override;

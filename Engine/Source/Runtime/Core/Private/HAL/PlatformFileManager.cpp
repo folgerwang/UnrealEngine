@@ -32,7 +32,7 @@ IPlatformFile& FPlatformFileManager::GetPlatformFile()
 void FPlatformFileManager::SetPlatformFile(IPlatformFile& NewTopmostPlatformFile)
 {
 	TopmostPlatformFile = &NewTopmostPlatformFile;
-	TopmostPlatformFile->InitializeAfterSetActive();
+	NewTopmostPlatformFile.InitializeAfterSetActive();
 }
 
 IPlatformFile* FPlatformFileManager::FindPlatformFile(const TCHAR* Name)

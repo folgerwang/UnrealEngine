@@ -536,8 +536,10 @@ public:
 	uint8										bAlreadyUpdatedComponents:1;
 	/** Whether we already associated streamable resources.									*/
 	uint8										bAlreadyAssociatedStreamableResources:1;
-	/** Whether we already initialized network actors.											*/
+	/** Whether we already initialized network actors.										*/
 	uint8										bAlreadyInitializedNetworkActors:1;
+	/** Whether we already cleared AActor::bActorSeamlessTraveled.							*/
+	uint8										bAlreadyClearedActorsSeamlessTravelFlag:1;
 	/** Whether we already routed initialize on actors.										*/
 	uint8										bAlreadyRoutedActorInitialize:1;
 	/** Whether we already sorted the actor list.											*/
@@ -750,6 +752,8 @@ public:
 
 	/** Handles network initialization for actors in this level */
 	void InitializeNetworkActors();
+
+	void ClearActorsSeamlessTraveledFlag();
 
 	/** Initializes rendering resources for this level. */
 	ENGINE_API void InitializeRenderingResources();

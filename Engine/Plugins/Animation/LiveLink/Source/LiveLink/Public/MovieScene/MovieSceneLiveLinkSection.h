@@ -5,7 +5,9 @@
 #include "MovieSceneSection.h"
 #include "Channels/MovieSceneFloatChannel.h"
 #include "LiveLinkTypes.h"
+#include "Containers/Array.h"
 #include "MovieSceneLiveLinkSection.generated.h"
+
 
 /**
 * A movie scene section for animating FMovieSceneLiveLink Section properties.
@@ -14,12 +16,12 @@ UCLASS()
 class LIVELINK_API UMovieSceneLiveLinkSection
 	: public UMovieSceneSection
 {
-	GENERATED_UCLASS_BODY()
-
+	
+	GENERATED_BODY()
 public:
-
+	UMovieSceneLiveLinkSection(const FObjectInitializer& ObjectInitializer);
 	void SetSubjectName(const FName& InSubjectName);
-	int32 CreateChannelProxy(const FLiveLinkFrame &LiveLinkFrame, const FLiveLinkRefSkeleton& InRefSkeleton,const FLiveLinkCurveKey&  CurveKey);
+	int32 CreateChannelProxy(const FLiveLinkRefSkeleton& InRefSkeleton,const TArray<FName>& InCurveNames);
 	TArray <FMovieSceneFloatChannel> &GetFloatChannels() { return PropertyFloatChannels; }
 
 	UPROPERTY()
@@ -29,7 +31,19 @@ public:
 	UPROPERTY()
 	FLiveLinkRefSkeleton RefSkeleton;
 	UPROPERTY()
+	TArray<FName> CurveNames;	
+	UPROPERTY()
 	TArray <FMovieSceneFloatChannel> PropertyFloatChannels;
+	// Channels that we may not send to live link or they are sent but not priority (MattH to do).
+	UPROPERTY()
+	TArray<bool> ChannelMask; 
+	//If true we always send interpolated values, if false we send the raw stored key frames if possible.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Live Link Source")
+	bool bAlwaysSendInterpolated;
+
+public:
+	
+	void SetMask(const TArray<bool>& InChannelMask);
 
 protected:
 

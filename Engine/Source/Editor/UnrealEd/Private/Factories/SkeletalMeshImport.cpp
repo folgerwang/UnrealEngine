@@ -535,7 +535,10 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 
 void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMesh)
 {
+	check(SkeletalMesh != nullptr);
 	int32 TotalLOD = MeshData->ExistingLODModels.Num();
+	FSkeletalMeshModel* SkeletalMeshImportedModel = SkeletalMesh->GetImportedModel();
+
 	// see if mesh reduction util is available
 	IMeshReductionManagerModule& Module = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	static bool bAutoMeshReductionAvailable = Module.GetSkeletalMeshReductionInterface() != NULL;
@@ -554,8 +557,11 @@ void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMe
 			if (LODIndex >= SkeletalMesh->GetLODInfoArray().Num())
 			{
 				FSkeletalMeshLODInfo& ExistLODInfo = MeshData->ExistingLODInfo[Index];
+				FSkeletalMeshLODModel& ExistLODModel = MeshData->ExistingLODModels[Index];
 				// reset material maps, it won't work anyway. 
 				ExistLODInfo.LODMaterialMap.Empty();
+
+				FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(ExistLODModel);
 				// add LOD info back
 				SkeletalMesh->AddLODInfo(ExistLODInfo);
 				check(LODIndex < SkeletalMesh->GetLODInfoArray().Num());
@@ -849,20 +855,31 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 			auto ApplySkinning = [&SkeletalMesh, &SkeletalMeshImportedModel, &MeshData, &ApplySkinnings, &RestoreReductionSourceData]()
 			{
 				FSkeletalMeshLODModel& BaseLodModel = SkeletalMeshImportedModel->LODModels[0];
+				int32 OffsetLOD = SkeletalMesh->GetLODNum();
 				//Apply the new skinning on all existing LOD
 				for (int32 Index = 0; Index < MeshData->ExistingLODModels.Num(); ++Index)
 				{
+					int32 RealIndex = OffsetLOD + Index;
 					if (!ApplySkinnings[Index])
 					{
 						continue;
 					}
 					FSkeletalMeshLODModel& LODModel = MeshData->ExistingLODModels[Index];
 					FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
-					FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
-					// add LOD info back
-					SkeletalMesh->AddLODInfo(LODInfo);
 
-					RestoreReductionSourceData(Index, SkeletalMesh->GetLODNum() - 1);
+					FSkeletalMeshLODModel* NewLODModel = nullptr;
+					if (RealIndex >= SkeletalMesh->GetLODNum())
+					{
+						NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
+						// add LOD info back
+						SkeletalMesh->AddLODInfo(LODInfo);
+					}
+					else
+					{
+						NewLODModel = &(SkeletalMeshImportedModel->LODModels[RealIndex]);
+					}
+
+					RestoreReductionSourceData(Index, RealIndex);
 
 					//Apply the new skinning to the existing LOD geometry
 					SkeletalMeshHelper::ApplySkinning(SkeletalMesh, BaseLodModel, *NewLODModel);
@@ -981,6 +998,13 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 						if (bAutoMeshReductionAvailable && LODInfo.bHasBeenSimplified && LODInfo.ReductionSettings.BaseLOD == 0)
 						{
 							bRegenLODs = !bImportSkinningOnly;
+							if (bRegenLODs)
+							{
+								//We need to add LODInfo
+								FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
+								SkeletalMesh->AddLODInfo(LODInfo);
+								RestoreReductionSourceData(i, SkeletalMesh->GetLODNum() - 1);
+							}
 						}
 						else
 						{
@@ -1005,12 +1029,9 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 			{
 				TryRegenerateLODs(MeshData, SkeletalMesh);
 			}
-			else
+			else if (!bSkinningIsApply)
 			{
-				if (!bSkinningIsApply)
-				{
-					ApplySkinning();
-				}
+				ApplySkinning();
 			}
 		}
 

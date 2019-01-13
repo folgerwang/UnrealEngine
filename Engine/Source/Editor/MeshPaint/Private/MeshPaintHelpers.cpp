@@ -1573,7 +1573,7 @@ FColor MeshPaintHelpers::PickVertexColorFromTextureData(const uint8* MipData, co
 	return VertexColor;
 }
 
-bool MeshPaintHelpers::ApplyPerVertexPaintAction(FPerVertexPaintActionArgs& InArgs, FPerVertexPaintAction Action)
+bool MeshPaintHelpers::GetPerVertexPaintInfluencedVertices(FPerVertexPaintActionArgs& InArgs, TSet<int32>& InfluencedVertices)
 {
 	// Retrieve components world matrix
 	const FMatrix& ComponentToWorldMatrix = InArgs.Adapter->GetComponentToWorldMatrix();
@@ -1588,24 +1588,17 @@ bool MeshPaintHelpers::ApplyPerVertexPaintAction(FPerVertexPaintActionArgs& InAr
 	const float ComponentSpaceSquaredBrushRadius = ComponentSpaceBrushRadius * ComponentSpaceBrushRadius;
 
 	// Get a list of unique vertices indexed by the influenced triangles
-	TSet<int32> InfluencedVertices;
 	InArgs.Adapter->GetInfluencedVertexIndices(ComponentSpaceSquaredBrushRadius, ComponentSpaceBrushPosition, ComponentSpaceCameraPosition, InArgs.BrushSettings->bOnlyFrontFacingTriangles, InfluencedVertices);
 
+	return (InfluencedVertices.Num() > 0);
+}
 
-	const int32 NumParallelFors = 4;
-	const int32 NumPerFor = FMath::CeilToInt((float)InfluencedVertices.Num() / NumParallelFors);
-	
-	// Parallel applying
-	/*ParallelFor(NumParallelFors, [=](int32 Index)
-	{
-		const int32 Start = Index * NumPerFor;
-		const int32 End = FMath::Min(Start + NumPerFor, InfluencedVertices.Num());
-		
-		for (int32 VertexIndex = Start; VertexIndex < End; ++VertexIndex)
-		{
-			Action.ExecuteIfBound(Adapter, VertexIndex);
-		}
-	});*/
+bool MeshPaintHelpers::ApplyPerVertexPaintAction(FPerVertexPaintActionArgs& InArgs, FPerVertexPaintAction Action)
+{
+	// Get a list of unique vertices indexed by the influenced triangles
+	TSet<int32> InfluencedVertices;
+	GetPerVertexPaintInfluencedVertices(InArgs, InfluencedVertices);
+
 	if (InfluencedVertices.Num())
 	{
 		InArgs.Adapter->PreEdit();

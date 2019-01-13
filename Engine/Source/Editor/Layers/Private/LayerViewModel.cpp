@@ -90,8 +90,7 @@ void FLayerViewModel::ToggleVisibility()
 		return;
 	}
 
-	const FScopedTransaction Transaction( LOCTEXT("ToggleVisibility", "Toggle Layer Visibility") );
-	WorldLayers->ToggleLayerVisibility( Layer->LayerName );
+	VisibilityToggledEvent.Broadcast( AsShared() );
 }
 
 

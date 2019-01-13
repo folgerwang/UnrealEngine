@@ -55,6 +55,23 @@ namespace Audio
 #endif
 	}
 
+	void MultiplyBufferByConstantInPlace(AlignedFloatBuffer& InBuffer, float InGain)
+	{
+		MultiplyBufferByConstantInPlace(InBuffer.GetData(), InBuffer.Num(), InGain);
+	}
+
+	void MultiplyBufferByConstantInPlace(float* InBuffer, int32 NumSamples, float InGain)
+	{
+		const VectorRegister Gain = VectorLoadFloat1(&InGain);
+
+		for (int32 i = 0; i < NumSamples; i += 4)
+		{
+			VectorRegister Output = VectorLoadAligned(&InBuffer[i]);
+			Output = VectorMultiply(Output, Gain);
+			VectorStoreAligned(Output, &InBuffer[i]);
+		}
+	}
+
 	void FadeBufferFast(AlignedFloatBuffer& OutFloatBuffer, const float StartValue, const float EndValue)
 	{
 		FadeBufferFast(OutFloatBuffer.GetData(), OutFloatBuffer.Num(), StartValue, EndValue);
@@ -105,9 +122,6 @@ namespace Audio
 			}
 			else
 			{
-				// Only need to do a buffer multiply if start and end values are the same
-				const float DeltaValue = ((EndValue - StartValue) / NumIterations);
-
 				VectorRegister Gain = VectorLoadFloat1(&StartValue);
 
 				for (int32 i = 0; i < NumSamples; i += 4)

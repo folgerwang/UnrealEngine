@@ -65,6 +65,11 @@ namespace Gauntlet
 		public List<UnrealFileToCopy> FilesToCopy;
 
 		/// <summary>
+		/// Role device configuration 
+		/// </summary>
+		public ConfigureDeviceHandler ConfigureDevice;
+
+		/// <summary>
 		/// Properties we require our build to have
 		/// </summary>
 		public BuildFlags RequiredBuildFlags;
@@ -128,7 +133,7 @@ namespace Gauntlet
 				RequiredBuildFlags |= BuildFlags.CanReplaceExecutable;
 			}
 
-            if (Globals.Params.ParseParam("bulk") && InPlatform == UnrealTargetPlatform.Android)
+            if (Globals.Params.ParseParam("bulk") && (InPlatform == UnrealTargetPlatform.Android || InPlatform == UnrealTargetPlatform.IOS))
             {
                 RequiredBuildFlags |= BuildFlags.Bulk;
             }
@@ -794,12 +799,14 @@ namespace Gauntlet
 						InstallSuccess = false;
 						break;
 					}
-										
 
 					if (Globals.CancelSignalled)
 					{
 						break;
 					}
+
+					// Device has app installed, give role a chance to configure device
+					Role.ConfigureDevice?.Invoke(Device);
 
 					InstallsToRoles[Install] = Role;
 				}

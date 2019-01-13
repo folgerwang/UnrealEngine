@@ -222,7 +222,7 @@ private:
 		FStorageID Result;
 		Result.Fields.IsLocText = true;
 		FText TextValue;
-		if (!FTextStringHelper::ReadFromString(*Value, TextValue))
+		if (!FTextStringHelper::ReadFromBuffer(*Value, TextValue))
 		{
 			TextValue = FText::FromString(*Value);
 		}
@@ -343,7 +343,7 @@ public:
 			return ExportTextsNoNumbers[Id.Fields.Index].ToString();
 		}
 		FString LocResult;
-		verify(FTextStringHelper::WriteToString(LocResult, FTexts[Id.Fields.Index]));
+		FTextStringHelper::WriteToBuffer(LocResult, FTexts[Id.Fields.Index]);
 		return LocResult;
 	}
 

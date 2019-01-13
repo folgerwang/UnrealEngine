@@ -82,8 +82,11 @@ struct FLevelSequencePlayerSnapshot
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	UCameraComponent* CameraComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
 	FLevelSequenceSnapshotSettings Settings;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
+	ULevelSequence* ActiveShot;
 
 	UPROPERTY()
 	FMovieSceneSequenceID ShotID;

@@ -101,6 +101,24 @@ public:
 		FILE_LOG(LogPlatformFile, Verbose, TEXT("Size return %lld [%fms]"), Result, ThisTime);
 		return Result;
 	}
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		FILE_LOG(LogPlatformFile, Verbose, TEXT("Flush %s %s"), *Filename, (bFullFlush ? TEXT("full") : TEXT("partial")));
+		double StartTime = FPlatformTime::Seconds();
+		bool bResult = FileHandle->Flush(bFullFlush);
+		float ThisTime = (FPlatformTime::Seconds() - StartTime) / 1000.0;
+		FILE_LOG(LogPlatformFile, Verbose, TEXT("Flush return %d [%fms]"), int32(bResult), ThisTime);
+		return bResult;
+	}
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		FILE_LOG(LogPlatformFile, Verbose, TEXT("Truncate %s %lld"), *Filename, NewSize);
+		double StartTime = FPlatformTime::Seconds();
+		bool bResult = FileHandle->Truncate(NewSize);
+		float ThisTime = (FPlatformTime::Seconds() - StartTime) / 1000.0;
+		FILE_LOG(LogPlatformFile, Verbose, TEXT("Truncate return %d [%fms]"), int32(bResult), ThisTime);
+		return bResult;
+	}
 };
 
 class CORE_API FLoggedPlatformFile : public IPlatformFile
@@ -122,6 +140,12 @@ public:
 		: LowerLevel(nullptr)
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
 
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override;
 
@@ -458,9 +482,9 @@ public:
 		//@todo no wrapped logging for async file handles (yet)
 		return Result;
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(Priority);
 	}
 
 };

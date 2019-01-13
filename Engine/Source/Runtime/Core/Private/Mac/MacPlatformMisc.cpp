@@ -1474,13 +1474,30 @@ static void DefaultCrashHandler(FMacCrashContext const& Context)
 /** Number of stack entries to ignore in backtrace */
 static uint32 GMacStackIgnoreDepth = 6;
 
+/** Message for the assert triggered on this thread */
+thread_local const TCHAR* GAssertErrorMessage = nullptr;
+
 /** True system-specific crash handler that gets called first */
 static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 {
 	// Disable CoreSymbolication
 	FApplePlatformSymbolication::EnableCoreSymbolication( false );
+
+	ECrashContextType Type;
+	const TCHAR* ErrorMessage;
+
+	if (GAssertErrorMessage == nullptr)
+	{
+		Type = ECrashContextType::Crash;
+		ErrorMessage = TEXT("Caught signal");
+	}
+	else
+	{
+		Type = ECrashContextType::Assert;
+		ErrorMessage = GAssertErrorMessage;
+	}
 	
-	FMacCrashContext CrashContext;
+	FMacCrashContext CrashContext(Type, ErrorMessage);
 	CrashContext.IgnoreDepth = GMacStackIgnoreDepth;
 	CrashContext.InitFromSignal(Signal, Info, Context);
 	
@@ -1599,6 +1616,11 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 			sigaction(SIGABRT, &Action, NULL);
 		}
 	}
+}
+
+FMacCrashContext::FMacCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+	: FApplePlatformCrashContext(InType, InErrorMessage)
+{
 }
 
 void FMacCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
@@ -1846,10 +1868,16 @@ void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 	}
 }
 
+void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
+{
+	GAssertErrorMessage = ErrorMessage;
+	FPlatformMisc::RaiseException(1);
+}
+
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
+void ReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();
@@ -1869,7 +1897,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 		Signal.si_code = TRAP_TRACE;
 		Signal.si_addr = __builtin_return_address(0);
 		
-		FMacCrashContext EnsureContext(true);
+		FMacCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
 		EnsureContext.InitFromSignal(SIGTRAP, &Signal, nullptr);
 		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
 	}
@@ -1878,16 +1906,15 @@ void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 	EnsureLock.Unlock();
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack, uint32 HungThreadId)
 {
 	EnsureLock.Lock();
 	if (!bReentranceGuard && FMacApplicationInfo::CrashReporter != nil)
 	{
 		bReentranceGuard = true;
 
-		const bool bIsEnsure = true;
-		FMacCrashContext EnsureContext(bIsEnsure);
-		EnsureContext.SetPortableCallStack(0, Stack);
+		FMacCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
+		EnsureContext.SetPortableCallStack(Stack);
 		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
 
 		bReentranceGuard = false;

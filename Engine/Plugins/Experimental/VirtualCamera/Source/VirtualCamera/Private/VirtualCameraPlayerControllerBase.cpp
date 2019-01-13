@@ -1,6 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualCameraPlayerControllerBase.h"
+
+#include "CineCameraActor.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Features/IModularFeatures.h"
 #include "IXRTrackingSystem.h"
@@ -10,13 +13,32 @@
 #include "RemoteSession/Channels/RemoteSessionXRTrackingChannel.h"
 #include "SteamVRFunctionLibrary.h"
 
+#if WITH_EDITOR
+#include "Recorder/TakeRecorderBlueprintLibrary.h"
+#include "ScopedTransaction.h"
+#endif
+
+FVirtualCameraPlayerControllerMultiUserOptions::FVirtualCameraPlayerControllerMultiUserOptions()
+	: bUpdateTargetCameraProperties(true)
+	, bUpdateTargetCameraTransform(true)
+	, bUseTransactionActor(false)
+	, bCreateTransactionTargetCameraProperties(false)
+	, bCreateTransactionTargetCameraTransform(false)
+{
+
+}
+
+
 AVirtualCameraPlayerControllerBase::AVirtualCameraPlayerControllerBase(const FObjectInitializer& ObjectInitializer)
 {
 	// Default tracker input source
 	InputSource = ETrackerInputSource::ARKit;
 
-	IModularFeatures& ModularFeatures = IModularFeatures::Get();
+	TargetCameraActorClass = ACineCameraActor::StaticClass();
+	TargetCameraActor = nullptr;
 
+	LiveLinkClient = nullptr;
+	IModularFeatures& ModularFeatures = IModularFeatures::Get();
 	if (ModularFeatures.IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
 	{
 		LiveLinkClient = &IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
@@ -27,6 +49,7 @@ AVirtualCameraPlayerControllerBase::AVirtualCameraPlayerControllerBase(const FOb
 
 	// Default touch input values
 	TouchInputState = ETouchInputState::BlueprintDefined;
+	PreviousTouchInput = TouchInputState;
 	CurrentFocusMethod = EVirtualCameraFocusMethod::Manual;
 }
 
@@ -37,12 +60,14 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 
 	if (LevelSequencePlaybackController)
 	{
+		//Always spawn the target camera that the level sequence will use as a target
+		TargetCameraActor = GetWorld()->SpawnActor<ACineCameraActor>(TargetCameraActorClass);
+
+		// bLockToHmd is set to true by default. Remove it to prevent unwanted movement from XR system.
+		TargetCameraActor->GetCameraComponent()->bLockToHmd = false;
+
 		// Bind to record enabled state change delegate
 		LevelSequencePlaybackController->OnRecordEnabledStateChanged.BindUObject(this, &AVirtualCameraPlayerControllerBase::HandleRecordEnabledStateChange);
-
-		// Bind to stop delegate
-		OnStop.BindUFunction(this, FName("OnStopped"));
-		LevelSequencePlaybackController->OnStop.Add(OnStop);
 	}
 
 	if (IRemoteSessionModule* RemoteSession = FModuleManager::LoadModulePtr<IRemoteSessionModule>("RemoteSession"))
@@ -60,10 +85,6 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 	{
 		// Need to make sure we don't let ARKit control camera completely
 		CineCamera->bLockToHmd = false;
-		if (LevelSequencePlaybackController)
-		{
-			LevelSequencePlaybackController->SetCameraComponentToFollow(CineCamera);
-		}
 	}
 
 	if (UVirtualCameraMovementComponent* MovementComponent = GetVirtualCameraMovementComponent())
@@ -71,15 +92,19 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 		MovementComponent->OnOffsetReset.AddDynamic(this, &AVirtualCameraPlayerControllerBase::BroadcastOffsetReset);
 	}
 
-	// Setup Sequencer Recorder
-	if (LevelSequencePlaybackController)
-	{
-		LevelSequencePlaybackController->SetupSequenceRecorderSettings(RequiredSequencerRecorderCameraSettings);
-	}
-
 	// Initialize the view of the camera with offsets taken into account
 	UpdatePawnWithTrackerData();
 	ResetCameraOffsetsToTracker();
+	
+	Super::BeginPlay();
+
+	// To do a transition with Concert. Normally it should be done via the Component.
+	if (MultiUserOptions.bUseTransactionActor)
+	{
+		FActorSpawnParameters SpawnParam;
+		SpawnParam.bNoFail = true;
+		TransactionActor = GetWorld()->SpawnActor<AVirtualCameraPlayerControllerTransaction>(AVirtualCameraPlayerControllerTransaction::StaticClass(), SpawnParam);
+	}
 }
 
 void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
@@ -110,15 +135,7 @@ void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 
 	if (LevelSequencePlaybackController)
 	{
-		if (LevelSequencePlaybackController->bIsRecording)
-		{
-			LevelSequencePlaybackController->PilotTargetedCamera(VCCamera ? &VCCamera->DesiredFilmbackSettings : nullptr);
-		}
-
-		if (LevelSequencePlaybackController->GetSequence())
-		{
-			LevelSequencePlaybackController->Update(DeltaSeconds);
-		}
+		PilotTargetedCamera(VCCamera);
 	}
 }
 
@@ -140,6 +157,11 @@ void AVirtualCameraPlayerControllerBase::InitializeAutoFocusPoint()
 		AutoFocusScreenPosition.Y *= 0.5f;
 	}
 	UpdateFocusReticle(FVector(AutoFocusScreenPosition, 0.f));
+}
+
+ACineCameraActor* AVirtualCameraPlayerControllerBase::GetTargetCamera()
+{
+	return TargetCameraActor;
 }
 
 FString AVirtualCameraPlayerControllerBase::GetDistanceInDesiredUnits(const float InputDistance, const EUnit ConversionUnit) const
@@ -200,6 +222,8 @@ FString AVirtualCameraPlayerControllerBase::GetDistanceInDesiredUnits(const floa
 	return ReturnString;
 }
 
+static const FName RemoteSessionTrackingSystemName(TEXT("RemoteSessionXRTrackingProxy"));
+
 bool AVirtualCameraPlayerControllerBase::GetCurrentTrackerLocationAndRotation(FVector& OutTrackerLocation, FRotator& OutTrackerRotation)
 {
 	TArray<int32> TrackedDeviceIDs;
@@ -208,7 +232,7 @@ bool AVirtualCameraPlayerControllerBase::GetCurrentTrackerLocationAndRotation(FV
 	switch (InputSource)
 	{
 		case ETrackerInputSource::ARKit:
-			if (GEngine && GEngine->XRSystem.IsValid())
+			if (GEngine && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetSystemName() == RemoteSessionTrackingSystemName)
 			{
 				GEngine->XRSystem->GetCurrentPose(0, ARKitQuaternion, OutTrackerLocation);
 				OutTrackerRotation = ARKitQuaternion.Rotator();
@@ -297,7 +321,13 @@ void AVirtualCameraPlayerControllerBase::SetFocusDistanceToActor(const ETouchInd
 			TrackingPointOffset /= HitActor->GetActorScale(); // Adjust for non-standard scales when we rotate the vector
 
 			VCPawn->SetTrackedActorForFocus(HitActor, TrackingPointOffset);
-			if (!LevelSequencePlaybackController || !LevelSequencePlaybackController->bIsRecording)
+
+#if WITH_EDITOR
+			bool bIsRecording = UTakeRecorderBlueprintLibrary::IsRecording();
+#else
+			bool bIsRecording = false;
+#endif
+			if (!bIsRecording)
 			{	
 				VCPawn->TriggerFocusPlaneTimer();
 				VCPawn->HighlightTappedActor(HitActor);
@@ -362,6 +392,62 @@ UVirtualCameraMovementComponent* AVirtualCameraPlayerControllerBase::GetVirtualC
 	}
 
 	return nullptr;
+}
+
+void AVirtualCameraPlayerControllerBase::PilotTargetedCamera(UVirtualCameraCineCameraComponent* CameraToFollow)
+{
+	if (!TargetCameraActor || !CameraToFollow)
+	{
+		return;
+	}
+
+	if (MultiUserOptions.bUpdateTargetCameraTransform)
+	{
+#if WITH_EDITOR
+		FScopedTransaction Transaction(NSLOCTEXT("VirtualCamera", "SetVCamTransform", "Set VCam Transform"), MultiUserOptions.bCreateTransactionTargetCameraTransform);
+		TargetCameraActor->Modify();
+#endif //WITH_EDITOR
+
+		TargetCameraActor->SetActorLocationAndRotation(CameraToFollow->GetComponentLocation(), CameraToFollow->GetComponentRotation().Quaternion());
+	}
+
+	if (MultiUserOptions.bUpdateTargetCameraProperties)
+	{
+		if (UCineCameraComponent* TargetComponent = TargetCameraActor->GetCineCameraComponent())
+		{
+#if WITH_EDITOR
+			FScopedTransaction Transaction(NSLOCTEXT("VirtualCamera", "SetVCamSettings", "Set VCam Settings"), MultiUserOptions.bCreateTransactionTargetCameraProperties);
+			TargetComponent->Modify();
+			if (TransactionActor)
+			{
+				TransactionActor->Modify();
+			}
+#endif //WITH_EDITOR
+
+			TargetComponent->CurrentAperture = CameraToFollow->CurrentAperture;
+			TargetComponent->CurrentFocalLength = CameraToFollow->CurrentFocalLength;
+			TargetComponent->FocusSettings = CameraToFollow->FocusSettings;
+			TargetComponent->LensSettings = CameraToFollow->LensSettings;
+			TargetComponent->FilmbackSettings = CameraToFollow->DesiredFilmbackSettings;
+
+			if (TransactionActor)
+			{
+				TransactionActor->Aperture = CameraToFollow->CurrentAperture;
+				TransactionActor->FocalLength = CameraToFollow->CurrentFocalLength;
+				TransactionActor->FilmbackSettings = CameraToFollow->DesiredFilmbackSettings;
+				TransactionActor->FocusSettings = CameraToFollow->FocusSettings;
+				TransactionActor->LensSettings = CameraToFollow->LensSettings;
+			}
+		}
+	}
+	else if (TransactionActor)
+	{
+		CameraToFollow->CurrentAperture = TransactionActor->Aperture;
+		CameraToFollow->CurrentFocalLength = TransactionActor->FocalLength;
+		CameraToFollow->DesiredFilmbackSettings = TransactionActor->FilmbackSettings;
+		CameraToFollow->FocusSettings = TransactionActor->FocusSettings;
+		CameraToFollow->LensSettings = TransactionActor->LensSettings;
+	}
 }
 
 bool AVirtualCameraPlayerControllerBase::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D & TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
@@ -460,7 +546,12 @@ void AVirtualCameraPlayerControllerBase::ShowFocusPlaneFromTouch()
 		return;
 	}
 
-	if (!LevelSequencePlaybackController || !LevelSequencePlaybackController->bIsRecording)
+#if WITH_EDITOR
+	bool bIsRecording = UTakeRecorderBlueprintLibrary::IsRecording();
+#else
+	bool bIsRecording = false;
+#endif
+	if (!bIsRecording)
 	{
 		VCPawn->TriggerFocusPlaneTimer();
 	}
@@ -593,6 +684,16 @@ FString AVirtualCameraPlayerControllerBase::GetActiveLevelSequenceName()
 	return FString();
 }
 
+ULevelSequence* AVirtualCameraPlayerControllerBase::GetActiveLevelSequence()
+{
+	if (LevelSequencePlaybackController)
+	{
+		return LevelSequencePlaybackController->GetActiveLevelSequence();
+	}
+
+	return nullptr;
+}
+
 float AVirtualCameraPlayerControllerBase::GetAxisStabilizationScale(EVirtualCameraAxis AxisToRetrieve)
 {
 	if (UVirtualCameraMovementComponent* MovementComponent = GetVirtualCameraMovementComponent())
@@ -653,74 +754,53 @@ float AVirtualCameraPlayerControllerBase::GetCurrentFocusDistance()
 	return 0.0f;
 }
 
-float AVirtualCameraPlayerControllerBase::GetCurrentRecordingFrameRate()
+FFrameNumber AVirtualCameraPlayerControllerBase::GetCurrentSequencePlaybackEnd()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetCurrentRecordingFrameRate();
+		return LevelSequencePlaybackController->GetCurrentSequencePlaybackEnd();
 	}
 
-	return 0.0f;
+	return FFrameNumber();
 }
 
-float AVirtualCameraPlayerControllerBase::GetCurrentRecordingLength()
+FFrameNumber AVirtualCameraPlayerControllerBase::GetCurrentSequencePlaybackStart()
 {
+
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetCurrentRecordingLength();
+		return LevelSequencePlaybackController->GetCurrentSequencePlaybackStart();
 	}
 
-	return 0.0f;
+	return FFrameNumber();
 }
 
-FString AVirtualCameraPlayerControllerBase::GetCurrentRecordingSceneName()
+bool AVirtualCameraPlayerControllerBase::IsSequencerLockedToCameraCut()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetCurrentRecordingSceneName();
+		return LevelSequencePlaybackController->IsSequencerLockedToCameraCut();
 	}
 
-	return FString();
+	return false;
 }
 
-FString AVirtualCameraPlayerControllerBase::GetCurrentRecordingTakeName()
+void AVirtualCameraPlayerControllerBase::SetSequencerLockedToCameraCut(bool bLockView)
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetCurrentRecordingTakeName();
+		LevelSequencePlaybackController->SetSequencerLockedToCameraCut(bLockView);
 	}
-
-	return FString();
 }
 
-float AVirtualCameraPlayerControllerBase::GetCurrentSequencePlaybackEnd()
+FFrameRate AVirtualCameraPlayerControllerBase::GetCurrentSequenceFrameRate()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetEndTime().AsSeconds();
+		return LevelSequencePlaybackController->GetCurrentSequenceFrameRate();
 	}
 
-	return 0.0f;
-}
-
-float AVirtualCameraPlayerControllerBase::GetCurrentSequencePlaybackStart()
-{
-	if (LevelSequencePlaybackController)
-	{
-		return LevelSequencePlaybackController->GetStartTime().AsSeconds();
-	}
-
-	return 0.0f;
-}
-
-float AVirtualCameraPlayerControllerBase::GetCurrentSequenceFrameRate()
-{
-	if (LevelSequencePlaybackController)
-	{
-		return LevelSequencePlaybackController->GetFrameRate().AsDecimal();
-	}
-
-	return 0.0f;
+	return FFrameRate();
 }
 
 EUnit AVirtualCameraPlayerControllerBase::GetDesiredDistanceUnits()
@@ -754,14 +834,14 @@ bool AVirtualCameraPlayerControllerBase::GetFilmbackPresetOptions(TArray<FString
 	return false;
 }
 
-float AVirtualCameraPlayerControllerBase::GetLevelSequenceLength()
+FFrameNumber AVirtualCameraPlayerControllerBase::GetLevelSequenceLength()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetDuration().AsSeconds();
+		return LevelSequencePlaybackController->GetCurrentSequenceDuration();
 	}
 
-	return 0.0f;
+	return FFrameNumber();
 }
 
 void AVirtualCameraPlayerControllerBase::GetLevelSequences(TArray<FLevelSequenceData>& OutLevelSequenceNames)
@@ -799,14 +879,24 @@ void AVirtualCameraPlayerControllerBase::GetMatteValues(TArray<float>& OutMatteV
 	}
 }
 
-float AVirtualCameraPlayerControllerBase::GetPlaybackPosition()
+FFrameTime AVirtualCameraPlayerControllerBase::GetPlaybackPosition()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->GetCurrentTime().AsSeconds();
+		return LevelSequencePlaybackController->GetCurrentSequencePlaybackPosition();
 	}
 
-	return 0.0f;
+	return FFrameTime();
+}
+
+FTimecode AVirtualCameraPlayerControllerBase::GetPlaybackTimecode()
+{
+	if (LevelSequencePlaybackController)
+	{
+		return LevelSequencePlaybackController->GetCurrentSequencePlaybackTimecode();
+	}
+
+	return FTimecode();
 }
 
 void AVirtualCameraPlayerControllerBase::GetScreenshotInfo(FString ScreenshotName, FVirtualCameraScreenshot &OutScreenshotInfo)
@@ -882,7 +972,7 @@ bool AVirtualCameraPlayerControllerBase::IsPlaying()
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->IsPlaying();
+		return LevelSequencePlaybackController->IsSequencePlaybackActive();
 	}
 
 	return false;
@@ -900,10 +990,10 @@ bool AVirtualCameraPlayerControllerBase::IsUsingGlobalBoom()
 
 void AVirtualCameraPlayerControllerBase::JumpToLevelSequenceEnd()
 {
-	if (LevelSequencePlaybackController && LevelSequencePlaybackController->GetSequence())
+	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->ScrubToSeconds(LevelSequencePlaybackController->GetEndTime().AsSeconds());
-		LevelSequencePlaybackController->Pause();
+		LevelSequencePlaybackController->JumpToPlaybackPosition(LevelSequencePlaybackController->GetCurrentSequencePlaybackEnd());
+		LevelSequencePlaybackController->PauseLevelSequence();
 	}
 }
 
@@ -911,16 +1001,16 @@ void AVirtualCameraPlayerControllerBase::JumpToLevelSequenceStart()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->ScrubToSeconds(0.0f);
-		LevelSequencePlaybackController->Pause();
+		LevelSequencePlaybackController->JumpToPlaybackPosition(LevelSequencePlaybackController->GetCurrentSequencePlaybackStart());
+		LevelSequencePlaybackController->PauseLevelSequence();
 	}
 }
 
-void AVirtualCameraPlayerControllerBase::JumpToPlaybackPositionSeconds(float NewPlaybackPosition)
+void AVirtualCameraPlayerControllerBase::JumpToPlaybackPosition(const FFrameNumber& InFrameNumber)
 {
-	if (LevelSequencePlaybackController && LevelSequencePlaybackController->GetSequence())
+	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->JumpToSeconds(NewPlaybackPosition);
+		LevelSequencePlaybackController->JumpToPlaybackPosition(InFrameNumber);
 	}
 }
 
@@ -947,7 +1037,7 @@ void AVirtualCameraPlayerControllerBase::PauseLevelSequence()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->Pause();
+		LevelSequencePlaybackController->PauseLevelSequence();
 	}
 }
 
@@ -955,7 +1045,7 @@ void AVirtualCameraPlayerControllerBase::PlayLevelSequence()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->Play();
+		LevelSequencePlaybackController->PlayLevelSequence();
 	}
 }
 
@@ -963,7 +1053,7 @@ void AVirtualCameraPlayerControllerBase::PlayLevelSequenceInReverse()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->PlayReverse();
+		LevelSequencePlaybackController->PlayLevelSequenceReverse();
 	}
 }
 
@@ -979,7 +1069,7 @@ void AVirtualCameraPlayerControllerBase::ResumeLevelSequencePlay()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->ResumeLevelSequencePlay();
+		LevelSequencePlaybackController->PlayLevelSequence();
 	}
 }
 
@@ -1010,11 +1100,11 @@ FString AVirtualCameraPlayerControllerBase::SaveWaypoint()
 	return FString();
 }
 
-bool AVirtualCameraPlayerControllerBase::SetActiveLevelSequence(const FString & LevelSequenceName)
+bool AVirtualCameraPlayerControllerBase::SetActiveLevelSequence(ULevelSequence* InNewLevelSequence)
 {
 	if (LevelSequencePlaybackController)
 	{
-		return LevelSequencePlaybackController->SetActiveLevelSequence(LevelSequenceName);
+		return LevelSequencePlaybackController->SetActiveLevelSequence(InNewLevelSequence);
 	}
 
 	return false;
@@ -1106,6 +1196,15 @@ void AVirtualCameraPlayerControllerBase::SetFocusVisualization(bool bShowFocusVi
 	}
 }
 
+bool AVirtualCameraPlayerControllerBase::IsFocusVisualizationActivated() const
+{
+	if (GetVirtualCameraCineCameraComponent())
+	{
+		return GetVirtualCameraCineCameraComponent()->IsFocusVisualizationActivated();
+	}
+	return false;
+}
+
 bool AVirtualCameraPlayerControllerBase::SetMatteAspectRatio(const float NewMatteAspectRatio)
 {
 	if (UVirtualCameraCineCameraComponent* CineCamera = GetVirtualCameraCineCameraComponent())
@@ -1189,27 +1288,11 @@ bool AVirtualCameraPlayerControllerBase::ShouldSaveSettingsWhenClosing()
 	return false;
 }
 
-void AVirtualCameraPlayerControllerBase::StartRecording()
-{
-	if (LevelSequencePlaybackController)
-	{
-		LevelSequencePlaybackController->StartRecording();
-	}
-}
-
 void AVirtualCameraPlayerControllerBase::StopLevelSequencePlay()
 {
 	if (LevelSequencePlaybackController)
 	{
-		LevelSequencePlaybackController->Stop();
-	}
-}
-
-void AVirtualCameraPlayerControllerBase::StopRecording()
-{
-	if (LevelSequencePlaybackController)
-	{
-		LevelSequencePlaybackController->StopRecording();
+		LevelSequencePlaybackController->StopLevelSequencePlay();
 	}
 }
 

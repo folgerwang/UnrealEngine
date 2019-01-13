@@ -8,6 +8,7 @@
 #include "UObject/SequencerObjectVersion.h"
 #include "CommonFrameRates.h"
 
+#define LOCTEXT_NAMESPACE "MovieScene"
 
 TOptional<TRangeBound<FFrameNumber>> GetMaxUpperBound(const UMovieSceneTrack* Track)
 {
@@ -514,6 +515,12 @@ TArray<UMovieSceneSection*> UMovieScene::GetAllSections() const
 	{
 		OutSections.Append( MasterTracks[TrackIndex]->GetAllSections() );
 	}
+	
+	// Add all camera cut sections
+	if (CameraCutTrack != nullptr)
+	{
+		OutSections.Append(CameraCutTrack->GetAllSections());
+	}
 
 	// Add all object binding sections
 	for (const auto& Binding : ObjectBindings)
@@ -882,6 +889,15 @@ void UMovieScene::PostLoad()
 			FMovieSceneSpawnable::MarkSpawnableTemplate(*Template);
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	for (FFrameNumber MarkedFrame : EditorData.MarkedFrames_DEPRECATED)
+	{
+		MarkedFrames.Add(FMovieSceneMarkedFrame(MarkedFrame));
+	}
+	EditorData.MarkedFrames_DEPRECATED.Empty();
+#endif
+
 	Super::PostLoad();
 }
 
@@ -1016,3 +1032,116 @@ void UMovieScene::MoveBindingContents(const FGuid& SourceBindingId, const FGuid&
 		}
 	}
 }
+
+void UMovieScene::AddMarkedFrame(const FMovieSceneMarkedFrame &InMarkedFrame)
+{
+	FString NewLabel;
+
+	if (InMarkedFrame.Label.IsEmpty())
+	{
+		FText Characters = LOCTEXT("MarkedFrameCharacters", "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+
+		int32 NumCharacters = 1;
+		bool bFound = false;
+		while (!bFound)
+		{
+			int32 CharacterIndex = 0;
+			for (; CharacterIndex < Characters.ToString().Len() && !bFound; ++CharacterIndex)
+			{
+				NewLabel = FString::ChrN(NumCharacters, Characters.ToString()[CharacterIndex]);
+				bool bExists = false;
+				for (const FMovieSceneMarkedFrame& MarkedFrame : MarkedFrames)
+				{
+					if (MarkedFrame.Label == NewLabel)
+					{
+						bExists = true;
+						break;
+					}
+				}
+
+				if (!bExists)
+				{
+					bFound = true;
+				}
+			}
+			++NumCharacters;
+		}
+	}
+
+	int32 MarkedIndex = MarkedFrames.Add(InMarkedFrame);
+
+	if (!NewLabel.IsEmpty())
+	{
+		MarkedFrames[MarkedIndex].Label = NewLabel;
+	}
+}
+
+void UMovieScene::RemoveMarkedFrame(int32 RemoveIndex)
+{
+	MarkedFrames.RemoveAt(RemoveIndex);
+}
+
+void UMovieScene::ClearMarkedFrames()
+{
+	MarkedFrames.Empty();
+}
+
+int32 UMovieScene::FindMarkedFrameByLabel(const FString& InLabel) const
+{
+	for (int32 Index = 0; Index < MarkedFrames.Num(); ++Index)
+	{
+		if (MarkedFrames[Index].Label == InLabel)
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
+}
+
+int32 UMovieScene::FindMarkedFrameByFrameNumber(FFrameNumber InFrameNumber) const
+{
+	for (int32 Index = 0; Index < MarkedFrames.Num(); ++Index)
+	{
+		if (MarkedFrames[Index].FrameNumber == InFrameNumber)
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
+}
+
+int32 UMovieScene::FindNextMarkedFrame(FFrameNumber InFrameNumber, bool bForwards)
+{
+	if (MarkedFrames.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	MarkedFrames.Sort([&](const FMovieSceneMarkedFrame& A, const FMovieSceneMarkedFrame& B) { return A.FrameNumber < B.FrameNumber; });
+
+	if (bForwards)
+	{
+		for (int32 Index = MarkedFrames.Num() - 2; Index >= 0; --Index)
+		{
+			if (InFrameNumber >= MarkedFrames[Index].FrameNumber)
+			{
+				return Index + 1;
+			}
+		}
+		return 0;
+	}
+	else
+	{
+		for (int32 Index = 1; Index < MarkedFrames.Num(); ++Index)
+		{
+			if (InFrameNumber <= MarkedFrames[Index].FrameNumber)
+			{
+				return Index - 1;
+			}
+		}
+		return MarkedFrames.Num() - 1;
+	}
+	return INDEX_NONE;
+}
+
+#undef LOCTEXT_NAMESPACE

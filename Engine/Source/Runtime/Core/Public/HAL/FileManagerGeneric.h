@@ -124,6 +124,7 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
+	bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitorFunc Visitor) override;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
@@ -132,6 +133,7 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	bool IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
+	bool IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitorFunc Visitor) override;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
@@ -140,6 +142,7 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
+	bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitorFunc Visitor) override;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
@@ -148,6 +151,7 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	bool IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
+	bool IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitorFunc Visitor) override;
 
 	/**
 	 * Converts passed in filename to use a relative path.
@@ -274,10 +278,10 @@ protected:
 	FArchiveFileWriterGeneric
 -----------------------------------------------------------------------------*/
 
-class FArchiveFileWriterGeneric : public FArchive
+class CORE_API FArchiveFileWriterGeneric : public FArchive
 {
 public:
-	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize = PLATFORM_FILE_WRITER_BUFFER_SIZE );
+	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize = PLATFORM_FILE_WRITER_BUFFER_SIZE, uint32 InFlags = FILEWRITE_None);
 	~FArchiveFileWriterGeneric();
 
 	virtual void Seek( int64 InPos ) final;
@@ -295,6 +299,12 @@ public:
 	}
 
 protected:
+	/**
+	 * Write any internal buffer to the file handle
+	 * @note Doesn't flush the handle itself, so this data may be cached by the OS and not yet written to disk!
+	 * @return true if there was buffer data and it was written successfully, false if there was nothing to flush or the write failed
+	 */
+	bool FlushBuffer();
 	/** 
 	 * Platform specific seek
 	 * @param InPos - Offset from beginning of file to seek to
@@ -323,8 +333,15 @@ protected:
 	 */
 	void LogWriteError(const TCHAR* Message);
 
+	/** Returns true if the archive should suppress logging in case of error */
+	bool IsSilent() const
+	{
+		return !!(Flags & FILEWRITE_Silent);
+	}
+
 	/** Filename for debugging purposes */
 	FString Filename;
+	uint32 Flags;
 	int64 Pos;
 	int64 BufferCount;
 	TUniquePtr<IFileHandle> Handle;

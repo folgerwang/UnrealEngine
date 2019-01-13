@@ -18,5 +18,10 @@
 		TEXT(#MaterialType "'/Composure/Materials/" MaterialDirName MaterialFileName "." MaterialFileName "'")); \
 	DestMemberName = UMaterialInstanceDynamic::Create(G##DestMemberName##Material.Object, this, TEXT(#DestMemberName))
 
+#define COMPOSURE_GET_TEXTURE(TextureType,DestMemberName,TextureDirName,TextureFileName) \
+	static ConstructorHelpers::FObjectFinder<U##TextureType> G##DestMemberName##Texture( \
+		TEXT(#TextureType "'/Composure/Textures/" TextureDirName TextureFileName "." TextureFileName "'")); \
+	DestMemberName = G##DestMemberName##Texture.Object
+
 
 DECLARE_LOG_CATEGORY_EXTERN(Composure, Log, All);

@@ -15,12 +15,13 @@ FHeartbeatManager::FHeartbeatManager() :
 	Thread = FRunnableThread::Create(this, TEXT("MessageBusHeartbeatManager"));
 }
 
-FHeartbeatManager::	~FHeartbeatManager()
+FHeartbeatManager::~FHeartbeatManager()
 {
 	Stop();
 	if (Thread)
 	{
-		Thread->WaitForCompletion();
+		Thread->Kill(true);
+		Thread = nullptr;
 	}
 };
 

@@ -6,8 +6,8 @@
 #include "Cluster/IDisplayClusterClusterSyncObject.h"
 #include "DisplayClusterSceneComponentSync.generated.h"
 
-struct IPDisplayClusterGameManager;
-struct IPDisplayClusterClusterManager;
+class IPDisplayClusterGameManager;
+class IPDisplayClusterClusterManager;
 
 
 /**

@@ -1652,6 +1652,32 @@ public:
 	int32 ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementText, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
+	 * Replace all occurrences of a character with another.
+	 *
+	 * @param SearchChar      Character to remove from this FString
+	 * @param ReplacementChar Replacement character
+	 * @param SearchCase      Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
+	 * @note no dynamic allocation
+	 */
+	void ReplaceCharInline(const TCHAR SearchChar, const TCHAR ReplacementChar, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase)
+	{
+		if (SearchCase == ESearchCase::IgnoreCase && TChar<TCHAR>::IsAlpha(SearchChar))
+		{
+			ReplaceCharInlineIgnoreCase(SearchChar, ReplacementChar);
+		}
+		else
+		{
+			ReplaceCharInlineCaseSensitive(SearchChar, ReplacementChar);
+		}
+	}
+
+private:
+	void ReplaceCharInlineCaseSensitive(const TCHAR SearchChar, const TCHAR ReplacementChar);
+	void ReplaceCharInlineIgnoreCase(const TCHAR SearchChar, const TCHAR ReplacementChar);
+
+public:
+
+	/**
 	 * Returns a copy of this string with all quote marks escaped (unless the quote is already escaped)
 	 */
 	FString ReplaceQuotesWithEscapedQuotes() const;
@@ -1829,6 +1855,11 @@ public:
 		}
 
 		return Result;
+	}
+
+	FORCEINLINE void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
 	}
 };
 

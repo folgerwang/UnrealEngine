@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprints/DisplayClusterBlueprintLib.h"
-#include "DisplayClusterBlueprintAPIImpl.h"
+#include "Blueprints/DisplayClusterBlueprintAPIImpl.h"
 #include "UObject/Package.h"
 
 

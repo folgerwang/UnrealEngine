@@ -740,9 +740,9 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bCompileApex", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
-				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree",
+				"bCompileLeanAndMeanUE", "bCompileRecast", "bCompileSpeedTree",
 				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType",
-				"bCompileForSize", "bCompileCEF3"
+				"bCompileForSize", "bCompileCEF3", "bCompileCustomSQLitePlatform"
 			};
 
 			return DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/BuildSettings.BuildSettings",

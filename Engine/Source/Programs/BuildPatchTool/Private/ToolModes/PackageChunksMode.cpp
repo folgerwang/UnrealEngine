@@ -35,6 +35,7 @@ public:
 			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=PackageChunks  Must be specified to launch the tool in package chunks mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -FeatureLevel=Latest Specifies the client feature level to output data for. See BuildPatchServices::EFeatureLevel for possible values."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestFile=\"\"     Specifies in quotes the file path to the manifest to enumerate chunks from."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("  -OutputFile=\"\"       Specifies in quotes the file path the output package. Extension of .chunkdb will be added if not present."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
@@ -47,6 +48,7 @@ public:
 			UE_LOG(LogBuildPatchTool, Display, TEXT("  -TagSets=\"t1,t2\"     Specifies in quotes a comma seperated list of tags for filtering of data saved. Multiple sets can be provided to split the chunkdb files by tagsets."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If CloudDir is not specified, the manifest file location will be used as the cloud directory."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If an optimised delta was available, the file extension .delta.chunkdb will be used."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: MaxOutputFileSize is recommended to be as large as possible. The minimum individual chunkdb filesize is equal to one chunk plus chunkdb"));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("    header, and thus will not result in efficient behavior."));
 			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If MaxOutputFileSize is not specified, the one output file will be produced containing all required data."));
@@ -63,8 +65,23 @@ public:
 			return EReturnCode::OK;
 		}
 
+		// Setup and run.
+		BuildPatchServices::FPackageChunksConfiguration Configuration;
+		if (!BuildPatchServices::FeatureLevelFromString(*FeatureLevel, Configuration.FeatureLevel))
+		{
+			UE_LOG(LogBuildPatchTool, Error, TEXT("Provided FeatureLevel is not recognised. Invalid arg: -FeatureLevel=%s"), *FeatureLevel);
+			return EReturnCode::ArgumentProcessingError;
+		}
+		Configuration.ManifestFilePath = ManifestFile;
+		Configuration.PrevManifestFilePath = PrevManifestFile;
+		Configuration.TagSetArray = TagSetArray;
+		Configuration.OutputFile = OutputFile;
+		Configuration.CloudDir = CloudDir;
+		Configuration.MaxOutputFileSize = MaxOutputFileSize;
+		Configuration.ResultDataFilePath = ResultDataFile;
+
 		// Run the enumeration routine.
-		bool bSuccess = BpsInterface.PackageChunkData(ManifestFile, PrevManifestFile, TagSetArray, OutputFile, CloudDir, MaxOutputFileSize, ResultDataFile);
+		bool bSuccess = BpsInterface.PackageChunkData(Configuration);
 		return bSuccess ? EReturnCode::OK : EReturnCode::ToolFailure;
 	}
 
@@ -84,6 +101,15 @@ private:
 			return true;
 		}
 
+		// Grab the FeatureLevel. This is required param but safe to default, we can change this to a warning after first release, and then an error later, as part of a friendly roll out.
+		PARSE_SWITCH(FeatureLevel);
+		FeatureLevel.TrimStartAndEndInline();
+		if (FeatureLevel.IsEmpty())
+		{
+			UE_LOG(LogBuildPatchTool, Log, TEXT("FeatureLevel was not provided, defaulting to LatestJson. Please provide the FeatureLevel commandline argument which matches the existing client support."));
+			FeatureLevel = TEXT("LatestJson");
+		}
+
 		// Get all required parameters.
 		if (!(PARSE_SWITCH(ManifestFile)
 		   && PARSE_SWITCH(OutputFile)))
@@ -91,14 +117,14 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("ManifestFile and OutputFile are required parameters"));
 			return false;
 		}
-		FPaths::NormalizeFilename(ManifestFile);
-		FPaths::NormalizeFilename(OutputFile);
+		NormalizeUriFile(ManifestFile);
+		NormalizeUriFile(OutputFile);
 
 		// Get optional parameters.
 		PARSE_SWITCH(PrevManifestFile);
 		PARSE_SWITCH(ResultDataFile);
-		FPaths::NormalizeFilename(PrevManifestFile);
-		FPaths::NormalizeFilename(ResultDataFile);
+		NormalizeUriFile(PrevManifestFile);
+		NormalizeUriFile(ResultDataFile);
 		PARSE_SWITCHES(TagSets);
 
 		if (!PARSE_SWITCH(CloudDir))
@@ -106,7 +132,7 @@ private:
 			// If not provided we use the location of the manifest file.
 			CloudDir = FPaths::GetPath(ManifestFile);
 		}
-		FPaths::NormalizeDirectoryName(CloudDir);
+		NormalizeUriPath(CloudDir);
 
 		if (HAS_SWITCH(MaxOutputFileSize))
 		{
@@ -120,7 +146,7 @@ private:
 		else
 		{
 			// If not provided we don't limit the size, which is the equivalent of limiting to max uint64.
-			MaxOutputFileSize = MAX_uint64;
+			MaxOutputFileSize = TNumericLimits<uint64>::Max();
 		}
 
 		// Process the tagsets that we parsed.
@@ -153,6 +179,7 @@ private:
 private:
 	IBuildPatchServicesModule& BpsInterface;
 	bool bHelp;
+	FString FeatureLevel;
 	FString ManifestFile;
 	FString PrevManifestFile;
 	FString OutputFile;

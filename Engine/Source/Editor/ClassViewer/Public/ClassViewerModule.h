@@ -103,6 +103,10 @@ public:
 
 	/** true (the default) shows the view options at the bottom of the class picker*/
 	bool bAllowViewOptions;
+
+	/** Defines additional classes you want listed in the "Common Classes" section for the picker. */
+	TArray<UClass*> ExtraPickerCommonClasses;
+
 public:
 
 	/** Constructor */

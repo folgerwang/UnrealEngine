@@ -408,7 +408,7 @@ void FLevelEditorSequencerIntegration::OnSequencerEvaluated()
 	}
 
 	// Request a single real-time frame to be rendered to ensure that we tick the world and update the viewport
-	for (FEditorViewportClient* LevelVC : GEditor->AllViewportClients)
+	for (FEditorViewportClient* LevelVC : GEditor->GetAllViewportClients())
 	{
 		if (LevelVC && !LevelVC->IsRealtime())
 		{
@@ -568,22 +568,14 @@ void FLevelEditorSequencerIntegration::ActivateSequencerEditorMode()
 
 void FLevelEditorSequencerIntegration::OnPreBeginPIE(bool bIsSimulating)
 {
-	bool bReevaluate = (!bIsSimulating && GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToPIE) || (bIsSimulating && GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToSimulate);
-
 	IterateAllSequencers(
-		[=](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
+		[](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
 		{
 			if (Options.bRequiresLevelEvents)
 			{
 				In.GetEvaluationTemplate().ResetDirectorInstances();
 				In.RestorePreAnimatedState();
 				In.State.ClearObjectCaches(In);
-
-				if (bReevaluate)
-				{
-					// Notify data changed to enqueue an evaluate
-					In.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::Unknown);
-				}
 			}
 		}
 	);
@@ -922,9 +914,8 @@ void FLevelEditorSequencerIntegration::ActivateRealtimeViewports()
 		}
 	}
 
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
 		if (LevelVC)
 		{
 			// If there is a director group, set the perspective viewports to realtime automatically.
@@ -942,9 +933,8 @@ void FLevelEditorSequencerIntegration::ActivateRealtimeViewports()
 void FLevelEditorSequencerIntegration::RestoreRealtimeViewports()
 {
 	// Undo any weird settings to editor level viewports.
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* LevelVC =GEditor->LevelViewportClients[i];
 		if (LevelVC)
 		{
 			// Turn off realtime when exiting.

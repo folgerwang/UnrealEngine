@@ -44,8 +44,9 @@ public class Sequencer : ModuleRules
 				"BlueprintGraph",
 				"LevelSequence",
 				"GraphEditor",
-                "ViewportInteraction"
-			}
+                "ViewportInteraction",
+                "SerializedRecorderInterface"
+            }
 		);
 
 		CircularlyReferencedDependentModules.AddRange(
@@ -63,9 +64,10 @@ public class Sequencer : ModuleRules
 				"SequenceRecorder",
                 "LevelEditor",
 				"MainFrame",
-				"DesktopPlatform"
-			}
-		);
+				"DesktopPlatform",
+                "SerializedRecorderInterface"
+            }
+        );
 
 		PublicIncludePathModuleNames.AddRange(
 			new string[] {

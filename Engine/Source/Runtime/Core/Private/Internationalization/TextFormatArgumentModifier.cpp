@@ -199,6 +199,83 @@ TSharedPtr<ITextFormatArgumentModifier> FTextFormatArgumentModifier_PluralForm::
 	return nullptr;
 }
 
+bool FTextFormatArgumentModifier_PluralForm::Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const
+{
+	auto PluralTypeToString = [](const ETextPluralType InPluralType) -> const TCHAR*
+	{
+		return (InPluralType == ETextPluralType::Cardinal)
+			? TEXT("Cardinal")
+			: TEXT("Ordinal");
+	};
+
+	auto PluralFormToString = [](const ETextPluralForm InPluralForm) -> const TCHAR*
+	{
+		switch (InPluralForm)
+		{
+		case ETextPluralForm::Zero:
+			return TEXT("zero");
+		case ETextPluralForm::One:
+			return TEXT("one");
+		case ETextPluralForm::Two:
+			return TEXT("two");
+		case ETextPluralForm::Few:
+			return TEXT("few");
+		case ETextPluralForm::Many:
+			return TEXT("many");
+		default:
+			return TEXT("other");
+		}
+	};
+
+	bool bIsValid = true;
+
+	const TArray<ETextPluralForm> ValidPluralForms = InCulture->GetValidPluralForms(PluralType);
+	if (ValidPluralForms.Num() == 1)
+	{
+		bIsValid = false;
+		OutValidationErrors.Add(FString::Printf(TEXT("%s plural form argument modifier is redundant as this culture only has a single plural form"), PluralTypeToString(PluralType)));
+		if (CompiledPluralForms[(int32)ETextPluralForm::Other].GetSourceString().IsEmpty())
+		{
+			OutValidationErrors.Add(FString::Printf(TEXT("%s plural form argument modifier is missing a required plural form for '%s'"), PluralTypeToString(PluralType), PluralFormToString(ETextPluralForm::Other)));
+		}
+	}
+	else
+	{
+		for (int32 CompiledPluralFormIndex = 0; CompiledPluralFormIndex < (int32)ETextPluralForm::Count; ++CompiledPluralFormIndex)
+		{
+			const ETextPluralForm CompiledPluralFormType = (ETextPluralForm)CompiledPluralFormIndex;
+			const FTextFormat& CompiledPluralForm = CompiledPluralForms[CompiledPluralFormIndex];
+			const bool bPluralFormRequired = ValidPluralForms.Contains(CompiledPluralFormType);
+
+			if (CompiledPluralForm.GetSourceString().IsEmpty())
+			{
+				// Missing required plural form?
+				if (bPluralFormRequired)
+				{
+					bIsValid = false;
+					OutValidationErrors.Add(FString::Printf(TEXT("%s plural form argument modifier is missing a required plural form for '%s'"), PluralTypeToString(PluralType), PluralFormToString(CompiledPluralFormType)));
+				}
+			}
+			else
+			{
+				// Provided unused plural form?
+				if (!bPluralFormRequired)
+				{
+					bIsValid = false;
+					OutValidationErrors.Add(FString::Printf(TEXT("%s plural form argument modifier has an unused plural form for '%s'"), PluralTypeToString(PluralType), PluralFormToString(CompiledPluralFormType)));
+				}
+			}
+		}
+	}
+
+	for (const FTextFormat& CompiledPluralForm : CompiledPluralForms)
+	{
+		bIsValid &= CompiledPluralForm.ValidatePattern(InCulture, OutValidationErrors);
+	}
+
+	return bIsValid;
+}
+
 void FTextFormatArgumentModifier_PluralForm::Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const
 {
 	FInternationalization& I18N = FInternationalization::Get();
@@ -297,6 +374,17 @@ TSharedPtr<ITextFormatArgumentModifier> FTextFormatArgumentModifier_GenderForm::
 	return nullptr;
 }
 
+bool FTextFormatArgumentModifier_GenderForm::Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const
+{
+	bool bIsValid = true;
+
+	bIsValid &= MasculineForm.ValidatePattern(InCulture, OutValidationErrors);
+	bIsValid &= FeminineForm.ValidatePattern(InCulture, OutValidationErrors);
+	bIsValid &= NeuterForm.ValidatePattern(InCulture, OutValidationErrors);
+
+	return bIsValid;
+}
+
 void FTextFormatArgumentModifier_GenderForm::Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const
 {
 	if (InValue.GetType() == EFormatArgumentType::Gender)
@@ -350,6 +438,11 @@ TSharedPtr<ITextFormatArgumentModifier> FTextFormatArgumentModifier_HangulPostPo
 	}
 
 	return nullptr;
+}
+
+bool FTextFormatArgumentModifier_HangulPostPositions::Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const
+{
+	return true;
 }
 
 void FTextFormatArgumentModifier_HangulPostPositions::Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const

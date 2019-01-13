@@ -36,7 +36,7 @@ public:
 	// Intentionally not implemented here to catch errors at compile time
 	static FName GetQueryId();
 
-	void AddUserId(const QueryUserIdT& UserId, const FOnQueryComplete& QueryCompleteHandler)
+	virtual void AddUserId(const QueryUserIdT& UserId, const FOnQueryComplete& QueryCompleteHandler)
 	{
 		CompletionCallbacksByUserId.Add(UserId, QueryCompleteHandler);
 	}
@@ -88,12 +88,13 @@ public:
 
 	bool HandleExecuteQueries(float)
 	{
-		bool bTryAgain = false;
-
 		// Execute all pending queries
-		for (const auto& IdQueriesPair : CurrentQueriesById)
+		TArray<TArray<TSharedRef<FSocialQueryBase>>> AllQueries;
+		CurrentQueriesById.GenerateValueArray(AllQueries);
+		
+		for (const TArray<TSharedRef<FSocialQueryBase>>& Queries : AllQueries)
 		{
-			for (const TSharedRef<FSocialQueryBase>& Query : IdQueriesPair.Value)
+			for (const TSharedRef<FSocialQueryBase>& Query : Queries)
 			{
 				if (!Query->HasExecuted())
 				{
@@ -103,7 +104,7 @@ public:
 		}
 
 		TickExecuteHandle.Reset();
-		return bTryAgain;
+		return false;
 	}
 
 private:

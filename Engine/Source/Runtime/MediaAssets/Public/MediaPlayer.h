@@ -896,6 +896,12 @@ public:
 	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> GetPlayerFacade() const;
 
 	/**
+	 * Register player with media module to be ticked
+	 *
+	 */
+	void RegisterWithMediaModule();
+
+	/**
 	 * Get the current play list.
 	 *
 	 * @return The play list.

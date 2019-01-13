@@ -15,7 +15,6 @@
 
 #include "DisplayClusterSceneComponentSyncParent.h"
 
-#include "IPDisplayCluster.h"
 #include "Misc/DisplayClusterLog.h"
 #include "DisplayClusterSettings.h"
 #include "DisplayClusterGameMode.h"

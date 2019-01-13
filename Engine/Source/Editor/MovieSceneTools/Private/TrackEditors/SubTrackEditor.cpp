@@ -278,28 +278,71 @@ public:
 			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ AddTakesMenu(InMenuBuilder); }));
 	}
 
-	virtual void BeginSlipSection() override
+	void BeginResizeSection()
 	{
-		InitialStartOffsetDuringResize = SectionObject.Parameters.GetStartFrameOffset();
-		InitialStartTimeDuringResize   = ( SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0 ) / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+		InitialStartOffsetDuringResize = SectionObject.Parameters.StartFrameOffset;
+		InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
 	}
 
-	virtual void SlipSection(double SlipTime) override
+	void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
+	{
+		UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
+
+		// Adjust the start offset when resizing from the beginning
+		if (ResizeMode == SSRM_LeadingEdge && InnerSequence)
+		{
+			const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
+			const FFrameNumber  ResizeDifference = ResizeTime - InitialStartTimeDuringResize;
+			const FFrameTime    InnerFrameTime   = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+			FFrameNumber		NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber;
+
+			NewStartOffset += InitialStartOffsetDuringResize;
+
+			// Ensure start offset is not less than 0
+			if (NewStartOffset < 0)
+			{
+				FFrameTime OuterFrameTimeOver = ConvertFrameTime(FFrameTime::FromDecimal(NewStartOffset.Value/SectionObject.Parameters.TimeScale), InnerFrameRate, OuterFrameRate);
+				ResizeTime = ResizeTime - OuterFrameTimeOver.GetFrame(); 
+				NewStartOffset = 0;
+			}
+
+			SectionObject.Parameters.StartFrameOffset = FFrameNumber(NewStartOffset);
+		}
+
+		ISequencerSection::ResizeSection(ResizeMode, ResizeTime);
+	}
+
+	virtual void BeginSlipSection() override
+	{
+		InitialStartOffsetDuringResize = SectionObject.Parameters.StartFrameOffset;
+		InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
+	}
+
+	virtual void SlipSection(FFrameNumber SlipTime) override
 	{
 		UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
 
 		// Adjust the start offset when resizing from the beginning
 		if (InnerSequence)
 		{
+			const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
 			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
-			const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize;
-			const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
+			const FFrameNumber  ResizeDifference = SlipTime - InitialStartTimeDuringResize;
+			const FFrameTime    InnerFrameTime = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+			const int32         NewStartOffset = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
 
 			// Ensure start offset is not less than 0
-			SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
+			SectionObject.Parameters.StartFrameOffset = FFrameNumber(FMath::Max(NewStartOffset, 0));
 		}
 
 		ISequencerSection::SlipSection(SlipTime);
+	}
+
+	virtual bool IsReadOnly() const override
+	{
+		// Overridden to false regardless of movie scene section read only state so that we can double click into the sub section
+		return false;
 	}
 
 private:
@@ -336,10 +379,10 @@ private:
 	TWeakPtr<FSubTrackEditor> SubTrackEditor;
 
 	/** Cached start offset value valid only during resize */
-	int32 InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 
 	/** Cached start time valid only during resize */
-	double InitialStartTimeDuringResize;
+	FFrameNumber InitialStartTimeDuringResize;
 };
 
 
@@ -376,7 +419,7 @@ TSharedPtr<SWidget> FSubTrackEditor::BuildOutlinerEditWidget(const FGuid& Object
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, Track), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, Track), Params.NodeIsHovered, GetSequencer())
 	];
 }
 
@@ -793,7 +836,7 @@ void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 			UMovieSceneSubTrack* SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
 		
 			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
-			int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+			FFrameNumber		 NewShotStartOffset   = Section->Parameters.StartFrameOffset;
 			float                NewShotTimeScale     = Section->Parameters.TimeScale;
 			int32                NewShotPrerollFrames = Section->GetPreRollFrames();
 			int32                NewRowIndex          = Section->GetRowIndex();
@@ -808,7 +851,7 @@ void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 				SubTrack->RemoveSection(*Section);
 
 				NewShot->SetRange(NewShotRange);
-				NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
+				NewShot->Parameters.StartFrameOffset = NewShotStartOffset;
 				NewShot->Parameters.TimeScale = NewShotTimeScale;
 				NewShot->SetPreRollFrames(NewShotPrerollFrames);
 				NewShot->SetRowIndex(NewShotRowIndex);

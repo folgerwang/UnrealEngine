@@ -58,6 +58,9 @@ private:
 
 	FSlateColor GetForegroundBasedOnSelection() const;
 
+	/** Gets the track out of the underlying Node structure. Can return null. */
+	class UMovieSceneTrack* GetTrackFromNode() const;
+
 	/** Get the tint to apply to the color indicator based on this node's track */
 	FSlateColor GetTrackColorTint() const;
 
@@ -106,7 +109,10 @@ private:
 	void GetAllDescendantNodes(TSharedPtr<FSequencerDisplayNode> RootNode, TArray<TSharedRef<FSequencerDisplayNode> >& AllNodes);
 
 	/** Called when the user clicks the track color */
-	TSharedRef<SWidget> OnGetColorPicker() const;
+	FReply OnSetTrackColor();
+	void OnColorPickerPicked(FLinearColor NewFolderColor);
+	void OnColorPickerClosed(const TSharedRef<SWindow>& Window);
+	void OnColorPickerCancelled(FLinearColor NewFolderColor);
 
 private:
 

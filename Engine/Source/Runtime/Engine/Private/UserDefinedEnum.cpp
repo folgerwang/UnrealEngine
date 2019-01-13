@@ -119,7 +119,7 @@ void UUserDefinedEnum::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) 
 	Super::GetAssetRegistryTags(OutTags);
 
 	FString DescriptionString;
-	FTextStringHelper::WriteToString(/*out*/ DescriptionString, EnumDescription);
+	FTextStringHelper::WriteToBuffer(/*out*/ DescriptionString, EnumDescription);
 	OutTags.Emplace(GET_MEMBER_NAME_CHECKED(UUserDefinedEnum, EnumDescription), DescriptionString, FAssetRegistryTag::TT_Hidden);
 }
 

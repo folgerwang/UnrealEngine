@@ -64,8 +64,6 @@ protected:
 
 	FReply HandleGotoBindingClicked(TSharedRef<IPropertyHandle> PropertyHandle);
 
-	FReply AddOrViewEventBinding(TSharedPtr<FEdGraphSchemaAction> Action);
-
 private:
 
 	template <typename Predicate>

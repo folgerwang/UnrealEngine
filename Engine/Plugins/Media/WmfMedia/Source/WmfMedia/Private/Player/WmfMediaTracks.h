@@ -21,10 +21,12 @@
 class FWmfMediaAudioSamplePool;
 class FWmfMediaSampler;
 class FWmfMediaTextureSamplePool;
+class FWmfMediaHardwareVideoDecodingTextureSamplePool;
 class IMediaAudioSample;
 class IMediaBinarySample;
 class IMediaOverlaySample;
 class IMediaTextureSample;
+class FWmfMediaTextureSample;
 
 enum class EMediaTextureSampleFormat;
 enum class EMediaTrackType;
@@ -224,7 +226,7 @@ protected:
 	 * @return true on success, false otherwise.
 	 * @see AddStreamToTracks
 	 */
-	bool AddTrackToTopology(const FTrack& Track, IMFTopology& Topology) const;
+	bool AddTrackToTopology(const FTrack& Track, IMFTopology& Topology);
 
 private:
 
@@ -332,6 +334,7 @@ private:
 
 	/** Video sample object pool. */
 	FWmfMediaTextureSamplePool* VideoSamplePool;
+	FWmfMediaHardwareVideoDecodingTextureSamplePool* VideoHardwareVideoDecodingSamplePool;
 
 	/** Video sample queue. */
 	TMediaSampleQueue<IMediaTextureSample> VideoSampleQueue;

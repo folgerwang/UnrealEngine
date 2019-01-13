@@ -121,7 +121,9 @@ public:
 
 /**
  * This class provides common registration for gamethread tickable objects. It is an
- * abstract base class requiring you to implement the Tick() method.
+ * abstract base class requiring you to implement the Tick() and GetStatId() methods.
+ * Can optionally also be ticked in the Editor, allowing for an object that both ticks
+ * during edit time and at runtime.
  */
 class ENGINE_API FTickableGameObject : public FTickableObjectBase
 {
