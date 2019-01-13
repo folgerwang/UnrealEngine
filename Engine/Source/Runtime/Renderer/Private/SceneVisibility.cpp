@@ -2144,6 +2144,8 @@ struct FRelevancePacket
 								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, PrimitiveSceneInfo, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DebugViewMode);
 							}
 #endif
+
+#if WITH_EDITOR
 							if (StaticMeshRelevance.bSelectable)
 							{
 								if (View.bAllowTranslucentPrimitivesInHitProxy)
@@ -2155,6 +2157,7 @@ struct FRelevancePacket
 									DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, PrimitiveSceneInfo, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::HitProxyOpaqueOnly);
 								}
 							}
+#endif
 							 
 							if (ViewRelevance.bVelocityRelevance 
 								&& FVelocityRendering::PrimitiveHasVelocity(View.GetFeatureLevel(), PrimitiveSceneInfo)

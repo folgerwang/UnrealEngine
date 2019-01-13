@@ -22,8 +22,6 @@ namespace EMeshPass
 		CSMShadowDepth,
 		Distortion,
 		Velocity,
-		HitProxy,
-		HitProxyOpaqueOnly,
 		TranslucencyStandard,
 		TranslucencyAfterDOF,
 		TranslucencyAll, /** Drawing all translucency, regardless of separate or standard.  Used when drawing translucency outside of the main renderer, eg FRendererModule::DrawTile. */
@@ -35,6 +33,8 @@ namespace EMeshPass
 		RayTracing,
 
 #if WITH_EDITOR
+		HitProxy,
+		HitProxyOpaqueOnly,
 		EditorSelection,
 #endif
 
@@ -52,8 +52,6 @@ inline const TCHAR* GetMeshPassName(EMeshPass::Type MeshPass)
 	case EMeshPass::CSMShadowDepth: return TEXT("CSMShadowDepth");
 	case EMeshPass::Distortion: return TEXT("Distortion");
 	case EMeshPass::Velocity: return TEXT("Velocity");
-	case EMeshPass::HitProxy: return TEXT("HitProxy");
-	case EMeshPass::HitProxyOpaqueOnly: return TEXT("HitProxyOpaqueOnly");
 	case EMeshPass::TranslucencyStandard: return TEXT("TranslucencyStandard");
 	case EMeshPass::TranslucencyAfterDOF: return TEXT("TranslucencyAfterDOF");
 	case EMeshPass::TranslucencyAll: return TEXT("TranslucencyAll");
@@ -64,6 +62,8 @@ inline const TCHAR* GetMeshPassName(EMeshPass::Type MeshPass)
 	case EMeshPass::MobileInverseOpacity: return TEXT("MobileInverseOpacity");
 	case EMeshPass::RayTracing: return TEXT("RayTracing");
 #if WITH_EDITOR
+	case EMeshPass::HitProxy: return TEXT("HitProxy");
+	case EMeshPass::HitProxyOpaqueOnly: return TEXT("HitProxyOpaqueOnly");
 	case EMeshPass::EditorSelection: return TEXT("EditorSelection");
 #endif
 	}

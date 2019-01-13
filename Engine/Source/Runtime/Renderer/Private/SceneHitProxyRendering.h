@@ -16,6 +16,8 @@ class FPrimitiveSceneProxy;
 class FScene;
 class FStaticMesh;
 
+#if WITH_EDITOR
+
 class FHitProxyMeshProcessor : public FMeshPassProcessor
 {
 public:
@@ -41,8 +43,6 @@ private:
 	const bool bAllowTranslucentPrimitivesInHitProxy;
 };
 
-
-#if WITH_EDITOR
 
 class FEditorSelectionMeshProcessor : public FMeshPassProcessor
 {
