@@ -4425,7 +4425,7 @@ void FSceneRenderer::GenerateDynamicMeshDrawCommands(FViewInfo& View, FMeshDrawC
 			);
 
 			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
-			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, DynamicPassMeshDrawListContext);
+			FMeshPassProcessor* PassMeshProcessor = CreateFunction(Scene, &View, &DynamicPassMeshDrawListContext);
 
 			if (PassMeshProcessor != nullptr)
 			{

@@ -161,7 +161,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				);
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState, &DebugViewModePassUniformBuffer, &Mesh](FMeshPassDrawListContext& InDrawListContext)
+					[&View, &DrawRenderState, &DebugViewModePassUniformBuffer, &Mesh](FMeshPassDrawListContext* InDrawListContext)
 				{
 					FDebugViewModeMeshProcessor PassMeshProcessor(nullptr, View.GetFeatureLevel(), &View, DebugViewModePassUniformBuffer, false, InDrawListContext);
 					const uint64 DefaultBatchElementMask = ~0ull;
@@ -185,7 +185,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 					{
 						FBasePassMeshProcessor PassMeshProcessor(
 							nullptr,
@@ -219,7 +219,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				ensureMsgf(HitProxyId == Mesh.BatchHitProxyId, TEXT("Only Mesh.BatchHitProxyId is used for hit testing."));
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FHitProxyMeshProcessor PassMeshProcessor(
 						nullptr,
@@ -241,7 +241,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
 
 					DrawDynamicMeshPass(View, RHICmdList,
-						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 						{
 							FBasePassMeshProcessor PassMeshProcessor(
 								nullptr,

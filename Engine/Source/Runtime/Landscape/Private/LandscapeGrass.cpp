@@ -340,7 +340,7 @@ IMPLEMENT_MATERIAL_SHADER_TYPE(, FLandscapeGrassWeightPS, TEXT("/Engine/Private/
 class FLandscapeGrassWeightMeshProcessor : public FMeshPassProcessor
 {
 public:
-	FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext);
+	FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
 
 	void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
 		uint64 BatchElementMask,
@@ -369,7 +369,7 @@ private:
 	FDrawingPolicyRenderState PassDrawRenderState;
 };
 
-FLandscapeGrassWeightMeshProcessor::FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FLandscapeGrassWeightMeshProcessor::FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, InViewIfDynamicMeshCommand->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -519,7 +519,7 @@ public:
 		FMemMark Mark(FMemStack::Get());
 
 		DrawDynamicMeshPass(*View, RHICmdList,
-			[View, PassOffsetX = PassOffsetX, &ComponentInfos = ComponentInfos, NumPasses = NumPasses](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[View, PassOffsetX = PassOffsetX, &ComponentInfos = ComponentInfos, NumPasses = NumPasses](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 		{
 			FLandscapeGrassWeightMeshProcessor PassMeshProcessor(
 				nullptr,

@@ -2650,7 +2650,7 @@ FShadowDepthPassMeshProcessor::FShadowDepthPassMeshProcessor(
 	const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer,
 	FUniformBufferRHIParamRef InPassUniformBuffer,
 	FShadowDepthType InShadowDepthType,
-	FMeshPassDrawListContext& InDrawListContext)
+	FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDrawRenderState(FDrawingPolicyRenderState(InViewUniformBuffer, InPassUniformBuffer))
 	, ShadowDepthType(InShadowDepthType)
@@ -2660,7 +2660,7 @@ FShadowDepthPassMeshProcessor::FShadowDepthPassMeshProcessor(
 
 FShadowDepthType CSMShadowDepthType(true, false, false);
 
-FMeshPassProcessor* CreateCSMShadowDepthPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateCSMShadowDepthPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	FUniformBufferRHIParamRef PassUniformBuffer = nullptr;
 

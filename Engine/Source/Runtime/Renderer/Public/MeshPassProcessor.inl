@@ -100,7 +100,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 		if ((1ull << BatchElementIndex) & BatchElementMask)
 		{
 			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
-			FMeshDrawCommand& MeshDrawCommand = DrawListContext.AddCommand(SharedMeshDrawCommand);
+			FMeshDrawCommand& MeshDrawCommand = DrawListContext->AddCommand(SharedMeshDrawCommand);
 
 			if (PassShaders.VertexShader)
 			{
@@ -133,7 +133,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 
 			const int32 DrawPrimitiveId = GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement);
 
-			DrawListContext.FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, true);
+			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, true);
 		}
 	}
 }
@@ -150,7 +150,7 @@ void DrawDynamicMeshPass(const FSceneView& View, FRHICommandList& RHICmdList, co
 
 	FDynamicPassMeshDrawListContext DynamicMeshPassContext(DynamicMeshDrawCommandStorage, VisibleMeshDrawCommands);
 
-	BuildPassProcessorLambda(DynamicMeshPassContext);
+	BuildPassProcessorLambda(&DynamicMeshPassContext);
 
 	DrawDynamicMeshPassPrivate(View, RHICmdList, VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage);
 }
@@ -201,7 +201,7 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 		if ((1ull << BatchElementIndex) & BatchElementMask)
 		{
 			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
-			FMeshDrawCommand& MeshDrawCommand = DrawListContext.AddCommand(SharedMeshDrawCommand);
+			FMeshDrawCommand& MeshDrawCommand = DrawListContext->AddCommand(SharedMeshDrawCommand);
 
 #if RHI_RAYTRACING
 			if (PassShaders.RayHitGroupShader)
@@ -215,7 +215,7 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 
 			const int32 DrawPrimitiveId = 0;
 			const int32 ScenePrimitiveId = 0;
-			DrawListContext.FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, false);
+			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, false);
 		}
 	}
 }

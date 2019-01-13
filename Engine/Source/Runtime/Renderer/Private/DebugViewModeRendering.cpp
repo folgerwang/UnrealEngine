@@ -282,7 +282,7 @@ FDebugViewModeMeshProcessor::FDebugViewModeMeshProcessor(
 	const FSceneView* InViewIfDynamicMeshCommand, 
 	FUniformBufferRHIParamRef InPassUniformBuffer, 
 	bool bTranslucentBasePass,
-	FMeshPassDrawListContext& InDrawListContext
+	FMeshPassDrawListContext* InDrawListContext
 )
 	: FMeshPassProcessor(InScene, InFeatureLevel, InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassUniformBuffer(InPassUniformBuffer)
@@ -397,7 +397,7 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 		ShaderElementData);
 }
 
-FMeshPassProcessor* CreateDebugViewModePassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateDebugViewModePassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	const ERHIFeatureLevel::Type FeatureLevel = Scene ? Scene->GetFeatureLevel() : (InViewIfDynamicMeshCommand ? InViewIfDynamicMeshCommand->GetFeatureLevel() : GMaxRHIFeatureLevel);
 	return new(FMemStack::Get()) FDebugViewModeMeshProcessor(Scene, FeatureLevel, InViewIfDynamicMeshCommand, nullptr, false, InDrawListContext);

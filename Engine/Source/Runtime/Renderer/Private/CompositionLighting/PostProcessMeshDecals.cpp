@@ -212,7 +212,7 @@ public:
 		const FSceneView* InViewIfDynamicMeshCommand, 
 		EDecalRenderStage InPassDecalStage, 
 		FDecalRenderingCommon::ERenderTargetMode InRenderTargetMode,
-		FMeshPassDrawListContext& InDrawListContext);
+		FMeshPassDrawListContext* InDrawListContext);
 
 	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 
@@ -237,7 +237,7 @@ FMeshDecalMeshProcessor::FMeshDecalMeshProcessor(const FScene* Scene,
 	const FSceneView* InViewIfDynamicMeshCommand, 
 	EDecalRenderStage InPassDecalStage, 
 	FDecalRenderingCommon::ERenderTargetMode InRenderTargetMode,
-	FMeshPassDrawListContext& InDrawListContext)
+	FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDecalStage(InPassDecalStage)
 	, RenderTargetMode(InRenderTargetMode)
@@ -388,7 +388,7 @@ void DrawDecalMeshCommands(FRenderingCompositePassContext& Context, EDecalRender
 
 
 	DrawDynamicMeshPass(View, RHICmdList,
-		[&View, CurrentDecalStage, RenderTargetMode](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+		[&View, CurrentDecalStage, RenderTargetMode](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 	{
 		FMeshDecalMeshProcessor PassMeshProcessor(
 			View.Family->Scene->GetRenderScene(),

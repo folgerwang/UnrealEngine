@@ -937,7 +937,7 @@ public:
 		ERHIFeatureLevel::Type InFeatureLevel, 
 		const FSceneView* InViewIfDynamicMeshCommand, 
 		const FDrawingPolicyRenderState& InDrawRenderState, 
-		FMeshPassDrawListContext& InDrawListContext,
+		FMeshPassDrawListContext* InDrawListContext,
 		bool bInCanReceiveCSM,
 		ETranslucencyPass::Type InTranslucencyPassType = ETranslucencyPass::TPT_MAX);
 

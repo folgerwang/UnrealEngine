@@ -310,7 +310,7 @@ static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const F
 		0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)>::GetRHI());
 
 	DrawDynamicMeshPass(View, RHICmdList,
-		[&View, &DrawRenderState](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+		[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 	{
 		FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
 			View.Family->Scene->GetRenderScene(),
@@ -403,7 +403,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
 
 		DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 			{
 				FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
 					View.Family->Scene->GetRenderScene(),
@@ -432,7 +432,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
 
 		DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 			{
 				FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
 					View.Family->Scene->GetRenderScene(),

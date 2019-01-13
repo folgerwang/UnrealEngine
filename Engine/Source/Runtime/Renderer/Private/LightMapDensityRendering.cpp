@@ -331,7 +331,7 @@ void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT Mesh
 	}
 }
 
-FLightmapDensityMeshProcessor::FLightmapDensityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FLightmapDensityMeshProcessor::FLightmapDensityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	// Opaque blending, depth tests and writes.
@@ -342,7 +342,7 @@ FLightmapDensityMeshProcessor::FLightmapDensityMeshProcessor(const FScene* Scene
 	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.LightmapDensityPassUniformBuffer);
 }
 
-FMeshPassProcessor* CreateLightmapDensityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateLightmapDensityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	return new(FMemStack::Get()) FLightmapDensityMeshProcessor(Scene, InViewIfDynamicMeshCommand, InDrawListContext);
 }

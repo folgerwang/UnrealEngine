@@ -321,7 +321,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		}
 
 		DrawDynamicMeshPass(View, RHICmdList,
-			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 		{
 			FHitProxyMeshProcessor PassMeshProcessor(
 				LocalScene,
@@ -350,7 +350,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::All, SDPG_Foreground);
 
 		DrawDynamicMeshPass(View, RHICmdList,
-			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 		{
 			FHitProxyMeshProcessor PassMeshProcessor(
 				LocalScene,
@@ -369,7 +369,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		});
 
 		DrawDynamicMeshPass(View, RHICmdList,
-			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 		{
 			FHitProxyMeshProcessor PassMeshProcessor(
 				LocalScene,
@@ -397,7 +397,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
 		DrawDynamicMeshPass(View, RHICmdList,
-			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 			{
 				FHitProxyMeshProcessor PassMeshProcessor(
 					LocalScene,
@@ -420,7 +420,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 
 		DrawDynamicMeshPass(View, RHICmdList,
-			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+			[&View, &DrawRenderState, LocalScene](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 			{
 				FHitProxyMeshProcessor PassMeshProcessor(
 					LocalScene,
@@ -695,14 +695,14 @@ void FHitProxyMeshProcessor::Process(
 		ShaderElementData);
 }
 
-FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbAllowTranslucentPrimitivesInHitProxy, const FDrawingPolicyRenderState& InRenderState, FMeshPassDrawListContext& InDrawListContext)
+FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbAllowTranslucentPrimitivesInHitProxy, const FDrawingPolicyRenderState& InRenderState, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDrawRenderState(InRenderState)
 	, bAllowTranslucentPrimitivesInHitProxy(InbAllowTranslucentPrimitivesInHitProxy)
 {
 }
 
-FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
@@ -710,7 +710,7 @@ FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FScen
 	return new(FMemStack::Get()) FHitProxyMeshProcessor(Scene, InViewIfDynamicMeshCommand, true, PassDrawRenderState, InDrawListContext);
 }
 
-FMeshPassProcessor* CreateHitProxyOpaqueOnlyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateHitProxyOpaqueOnlyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
@@ -844,7 +844,7 @@ int32 FEditorSelectionMeshProcessor::GetStencilValue(const FSceneView* View, con
 TMap<const FPrimitiveSceneProxy*, int32> FEditorSelectionMeshProcessor::ProxyToStencilIndex;
 TMap<FName, int32> FEditorSelectionMeshProcessor::ActorNameToStencilIndex;
 
-FEditorSelectionMeshProcessor::FEditorSelectionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FEditorSelectionMeshProcessor::FEditorSelectionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	checkf(InViewIfDynamicMeshCommand, TEXT("Editor selection mesh process required dynamic mesh command mode."));
@@ -860,7 +860,7 @@ FEditorSelectionMeshProcessor::FEditorSelectionMeshProcessor(const FScene* Scene
 	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.EditorSelectionPassUniformBuffer);
 }
 
-FMeshPassProcessor* CreateEditorSelectionPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateEditorSelectionPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	return new(FMemStack::Get()) FEditorSelectionMeshProcessor(Scene, InViewIfDynamicMeshCommand, InDrawListContext);
 }

@@ -1191,7 +1191,7 @@ void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandLis
 		if (UseMeshDrawCommandPipeline())
 		{
 			DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState, LocalScene, &Context](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState, LocalScene, &Context](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FDepthPassMeshProcessor PassMeshProcessor(
 						LocalScene,
@@ -1223,7 +1223,7 @@ void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandLis
 		if (UseMeshDrawCommandPipeline())
 		{
 			DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState, LocalScene, &Context](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState, LocalScene, &Context](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FDepthPassMeshProcessor PassMeshProcessor(
 						LocalScene,
@@ -1593,7 +1593,7 @@ FDepthPassMeshProcessor::FDepthPassMeshProcessor(const FScene* Scene,
 	const bool InbRespectUseAsOccluderFlag,
 	const EDepthDrawingMode InEarlyZPassMode,
 	const bool InbEarlyZPassMovable,
-	FMeshPassDrawListContext& InDrawListContext)
+	FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, bRespectUseAsOccluderFlag(InbRespectUseAsOccluderFlag)
 	, EarlyZPassMode(InEarlyZPassMode)
@@ -1604,7 +1604,7 @@ FDepthPassMeshProcessor::FDepthPassMeshProcessor(const FScene* Scene,
 	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.DepthPassUniformBuffer);
 }
 
-FMeshPassProcessor* CreateDepthPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FMeshPassProcessor* CreateDepthPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
 	extern void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
 

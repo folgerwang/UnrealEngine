@@ -708,7 +708,7 @@ void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdL
 		if (UseMeshDrawCommandPipeline())
 		{
 			DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
 						View.Family->Scene->GetRenderScene(),
@@ -739,7 +739,7 @@ void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdL
 		if (UseMeshDrawCommandPipeline())
 		{
 			DrawDynamicMeshPass(View, RHICmdList,
-				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 			{
 				FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
 					View.Family->Scene->GetRenderScene(),

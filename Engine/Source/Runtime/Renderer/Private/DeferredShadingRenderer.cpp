@@ -710,7 +710,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 									View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
 									View.RaytraycingVisibleMeshDrawCommands
 								);
-								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
 								RayTracingMeshProcessor.AddMeshBatch(StaticMesh, BatchVisibility, SceneProxy);
 							}
 						}
@@ -753,7 +753,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
 								View.RaytraycingVisibleMeshDrawCommands
 							);
-							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
 
 							const int GeometryInstance = View.RayTracingGeometryInstances.Num();
 							int DrawCmdIndexCopy = VisibleDrawCommandStartOffset[ViewIndex];
@@ -801,7 +801,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
 								View.RaytraycingVisibleMeshDrawCommands
 							);
-							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, DynamicPassMeshDrawListContext);
+							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
 
 							int32 GeometryIndex = -1;
 							int32 SegmentPrefixSum = 0;

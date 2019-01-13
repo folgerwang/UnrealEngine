@@ -152,7 +152,7 @@ IMPLEMENT_MATERIAL_SHADER_TYPE(,FConvertToUniformMeshGS,TEXT("/Engine/Private/Co
 class FConvertToUniformMeshProcessor : public FMeshPassProcessor
 {
 public:
-	FConvertToUniformMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext);
+	FConvertToUniformMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
 
 	void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 
@@ -169,7 +169,7 @@ private:
 	FDrawingPolicyRenderState PassDrawRenderState;
 };
 
-FConvertToUniformMeshProcessor::FConvertToUniformMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext)
+FConvertToUniformMeshProcessor::FConvertToUniformMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -302,7 +302,7 @@ int32 FUniformMeshConverter::Convert(
 				OutPrimitiveUniformBuffer = Mesh.Elements.Num() > 0 ? Mesh.Elements[0].PrimitiveUniformBuffer : nullptr;
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &RHICmdList, &Mesh, &PrimitiveSceneProxy](FDynamicPassMeshDrawListContext& DynamicMeshPassContext)
+					[&View, &RHICmdList, &Mesh, &PrimitiveSceneProxy](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FConvertToUniformMeshProcessor PassMeshProcessor(
 						View.Family->Scene->GetRenderScene(),

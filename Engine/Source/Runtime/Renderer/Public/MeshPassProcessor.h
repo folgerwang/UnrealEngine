@@ -734,11 +734,16 @@ public:
 	const FScene* RESTRICT Scene;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const FSceneView* ViewIfDynamicMeshCommand;
-	FMeshPassDrawListContext& DrawListContext;
+	FMeshPassDrawListContext* DrawListContext;
 
-	RENDERER_API FMeshPassProcessor(const FScene* InScene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext);
+	RENDERER_API FMeshPassProcessor(const FScene* InScene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
 
 	virtual ~FMeshPassProcessor() {}
+
+	void SetDrawListContext(FMeshPassDrawListContext* InDrawListContext)
+	{
+		DrawListContext = InDrawListContext;
+	}
 
 	// FMeshPassProcessor interface
 	// Add a FMeshBatch to the pass
@@ -788,7 +793,7 @@ private:
 	RENDERER_API int32 GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const;
 };
 
-typedef FMeshPassProcessor* (*PassProcessorCreateFunction)(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext& InDrawListContext);
+typedef FMeshPassProcessor* (*PassProcessorCreateFunction)(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
 
 enum class EMeshPassFlags
 {

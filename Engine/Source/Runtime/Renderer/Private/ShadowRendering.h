@@ -304,7 +304,7 @@ public:
 		const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer,
 		FUniformBufferRHIParamRef InPassUniformBuffer,
 		FShadowDepthType InShadowDepthType,
-		FMeshPassDrawListContext& InDrawListContext);
+		FMeshPassDrawListContext* InDrawListContext);
 
 	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 

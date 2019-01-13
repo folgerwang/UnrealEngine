@@ -1208,7 +1208,7 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& R
 		ShadowDepthView->ViewUniformBuffer, 
 		PassUniformBuffer,
 		GetShadowDepthType(),
-		ShadowDepthContext);
+		&ShadowDepthContext);
 
 	const int32 NumDynamicMeshBatches = DynamicSubjectMeshElements.Num();
 
@@ -1300,7 +1300,7 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForProjectionStenciling(FSceneRe
 				false,
 				DDM_AllOccluders,
 				false,
-				ProjectionStencilingContext);
+				&ProjectionStencilingContext);
 
 			// Pre-shadows mask by receiver elements, self-shadow mask by subject elements.
 			// Note that self-shadow pre-shadows still mask by receiver elements.
