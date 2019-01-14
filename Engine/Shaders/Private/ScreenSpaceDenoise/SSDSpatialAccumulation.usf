@@ -39,7 +39,10 @@
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
+		// Use stackowiak sample set to keep noise in the signal to avoid flicker in history rejection,
+		// and adapt number of samples based on the sample.
 		#define CONFIG_SAMPLE_SET SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_SAMPLE_COUNT_POLICY 1
 
 		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
 		#define CONFIG_SPECULAR_MIS 1
@@ -75,6 +78,11 @@
 /** Ensures the center of the kernel have a correct weight. */
 #ifndef CONFIG_WEIGHT_KERNEL_CENTER
 	#define CONFIG_WEIGHT_KERNEL_CENTER 0
+#endif
+
+/** Config sample set. */
+#ifndef CONFIG_SAMPLE_COUNT_POLICY
+	#define CONFIG_SAMPLE_COUNT_POLICY 0
 #endif
 
 
@@ -163,6 +171,8 @@ Texture2D SignalInput1;
 RWTexture2D<float4>	SignalOutput0;
 RWTexture2D<float4>	SignalOutput1;
 
+RWTexture2D<float4>	DebugOutput;
+
 
 //------------------------------------------------------- FUNCTIONS
 
@@ -217,7 +227,20 @@ void MainCS(
 		KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
 		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 
-		uint SampleCount = kStackowiakSampleCountPerSet; // TODO
+		uint SampleCount = kStackowiakSampleCountPerSet;
+		#if CONFIG_SAMPLE_COUNT_POLICY == 1
+		{
+			float RefBluringRadius = ComputeBluringRadiusOfNormalizedSample(RefSample, RefSceneMetadata) * View.ViewSizeAndInvSize.x;
+			float TargetedSampleCount = PI * RefBluringRadius * RefBluringRadius * rcp(kStackowiakSampleSetCount);
+
+			const float MaximumRadius = 8;
+			const float MaximumSampleCount = kStackowiakSampleCountPerSet;
+
+			SampleCount = TargetedSampleCount;
+			
+			// DebugOutput[DispatchThreadId] = float4(RefBluringRadius, SampleCount, 0, 0);
+		}
+		#endif // CONFIG_SAMPLE_COUNT_POLICY == 1
 
 		// Id of the pixel in the quad.
 		uint QuadSampleId = (DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1);

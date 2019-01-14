@@ -231,6 +231,8 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0)
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1)
+
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -671,6 +673,8 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
 		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
 		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
+		
+		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDDebugReflectionReconstruction")));
 
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);

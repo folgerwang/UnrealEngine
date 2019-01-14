@@ -48,27 +48,8 @@ float HitDistanceToWorldBluringRadius;
 //------------------------------------------------------- INTERNAL FOR REFLECTION SIGNAL
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 
-/** Return the size of the bluring radius caused by the specular lobe in ViewportUV.x space. */
-float ComputeInfinityBluringRadius(FSSFSampleSceneInfos SceneMetadata)
-{
-	// TODO: this should depend on NoV? Try up with spherical gauassian framework.
-	float RoughnessLobeAngle = ComputeAngleFromRoughness(SceneMetadata.Roughness);
-
-	return tan(0.5 * RoughnessLobeAngle) * GetCotanHalfFieldOfView().x;
-}
-
-/** Return the size of bluring radius caused by specular lobe in view space. */
-float ComputeBluringRadiusOfNormalizedSample(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
-{
-	float DistanceCameraToPixel = length(View.TranslatedWorldCameraOrigin - SceneMetadata.TranslatedWorldPosition);
-
-	float InifinityRadius = ComputeInfinityBluringRadius(SceneMetadata);
-
-	return InifinityRadius * (1 - DistanceCameraToPixel / (DistanceCameraToPixel + Sample.PenumbraClosestHit));
-}
-
 /** Create a spherical gaussian lob for a given roughness. */
-FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)
+FSphericalGaussian ComputeRoughnessLobe(float Roughness, float3 N, float3 V)
 {
 	float a = Pow2( max( 0.02, Roughness ) );
 	float a2 = a*a;
@@ -86,20 +67,50 @@ FSphericalGaussian RoughnessLobe(float Roughness, float3 N, float3 V)
 }
 
 /** Create a spherical gaussian lob for a given scene metadata. */
-FSphericalGaussian RoughnessLobe(FSSFSampleSceneInfos RefSceneMetadata)
+FSphericalGaussian ComputeRoughnessLobe(FSSFSampleSceneInfos RefSceneMetadata)
 {
 	float3 N = RefSceneMetadata.WorldNormal;
 	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
 	float Roughness = RefSceneMetadata.Roughness;
 
-	return RoughnessLobe(Roughness, N, V);
+	return ComputeRoughnessLobe(Roughness, N, V);
+}
+
+/** Return the size of the bluring radius caused by the specular lobe in ViewportUV.x space. */
+float ComputeInfinityBluringRadius(FSSFSampleSceneInfos SceneMetadata)
+{
+	float RoughnessLobeAngle;
+	#if 1
+	// Compute the angle of the lobe using spherical gaussian framework.
+	{
+		FSphericalGaussian RoughnessLobe = ComputeRoughnessLobe(SceneMetadata);
+		RoughnessLobeAngle = GetConeAngle(RoughnessLobe);
+	}
+	#else
+	// Compute the roughness. Looks way to broken compared to roughness lobe.
+	{
+		RoughnessLobeAngle = ComputeAngleFromRoughness(SceneMetadata.Roughness);
+	}	
+	#endif
+
+	return tan(0.5 * RoughnessLobeAngle) * GetCotanHalfFieldOfView().x;
+}
+
+/** Return the size of bluring radius caused by specular lobe in view space. */
+float ComputeBluringRadiusOfNormalizedSample(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
+{
+	float DistanceCameraToPixel = length(View.TranslatedWorldCameraOrigin - SceneMetadata.TranslatedWorldPosition);
+
+	float InifinityRadius = ComputeInfinityBluringRadius(SceneMetadata);
+
+	return InifinityRadius * (1 - DistanceCameraToPixel / (DistanceCameraToPixel + Sample.PenumbraClosestHit));
 }
 
 // [ Tokoyashi 2015, "Specular Lobe-Aware Filtering and Upsampling for Interactive Indirect Illumination" ]
 float TokoyashiLobeBilateralWeight(FSSFSampleSceneInfos RefSceneMetadata, FSSFSampleSceneInfos NeighborSceneMetadata)
 {
-	FSphericalGaussian Ref = RoughnessLobe(RefSceneMetadata);
-	FSphericalGaussian Neighbor = RoughnessLobe(NeighborSceneMetadata);
+	FSphericalGaussian Ref = ComputeRoughnessLobe(RefSceneMetadata);
+	FSphericalGaussian Neighbor = ComputeRoughnessLobe(NeighborSceneMetadata);
 	
 #if 1
 	const float Beta = 5.05; // TODO: to be tunned with GGX.
