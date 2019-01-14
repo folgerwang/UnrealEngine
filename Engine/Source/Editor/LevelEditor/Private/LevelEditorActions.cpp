@@ -586,6 +586,16 @@ bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive()
 	return GEditor->IsFeatureLevelPreviewEnabled() && GEditor->IsFeatureLevelPreviewActive();
 }
 
+bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewDropdownEnabled()
+{
+	if (GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 void FLevelEditorActionCallbacks::SetPreviewPlatform(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
 {
 	GEditor->SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel);

@@ -700,6 +700,7 @@ public:
 	static FMallocBinned3* MallocBinned3;
 	static uint32 Binned3TlsSlot;
 	static uint32 OsAllocationGranularity;
+	static uint32 MaxAlignmentForMemoryRangeReserve;
 #if !BINNED3_USE_SEPARATE_VM_PER_POOL
 	static uint8* Binned3BaseVMPtr;
 #else
