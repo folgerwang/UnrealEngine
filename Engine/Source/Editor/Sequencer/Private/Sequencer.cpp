@@ -6183,7 +6183,7 @@ void FSequencer::ImportObjectBindingsFromText(const FString& TextToImport, /*out
 }
 
 
-void FSequencer::CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNode>>& ObjectNodes)
+void FSequencer::CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNode>>& ObjectNodes, FString& ExportedText)
 {
 	// Gather guids for the object nodes and any child object nodes
 	TSet<FGuid> GuidsToCopy;
@@ -6247,13 +6247,11 @@ void FSequencer::CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNo
 		}
 	}
 
-	FString ExportedText;
 	ExportObjectBindingsToText(CopyableBindings, /*out*/ ExportedText);
-	FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
 }
 
 
-void FSequencer::CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& TrackNodes)
+void FSequencer::CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& TrackNodes, FString& ExportedText)
 {
 	TArray<UObject*> TracksToCopy;
 	for (TSharedPtr<FSequencerTrackNode> TrackNode : TrackNodes)
@@ -6276,9 +6274,7 @@ void FSequencer::CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& Tra
 		}
 	}
 
-	FString ExportedText;
 	FSequencer::ExportObjectsToText(TracksToCopy, /*out*/ ExportedText);
-	FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
 }
 
 
@@ -6316,18 +6312,9 @@ void FSequencer::DoPaste()
 	FString TextToImport;
 	FPlatformApplicationMisc::ClipboardPaste(TextToImport);
 
-	if (PasteObjectBindings(TextToImport))
-	{
-		return;
-	}
-	else if (PasteTracks(TextToImport))
-	{
-		return;
-	}
-	else if (PasteSections(TextToImport))
-	{
-		return;
-	}
+	PasteObjectBindings(TextToImport);
+	PasteTracks(TextToImport);
+	PasteSections(TextToImport);
 }
 
 bool FSequencer::PasteObjectBindings(const FString& TextToImport)
@@ -8181,14 +8168,24 @@ void FSequencer::CopySelection()
 			GClipboardStack.Push(NullClipboard);
 		}
 
+		FString ObjectsExportedText;
+		FString TracksExportedText;
+
 		if (ObjectsToCopy.Num())
 		{
-			CopySelectedObjects(ObjectsToCopy);
+			CopySelectedObjects(ObjectsToCopy, ObjectsExportedText);
 		}
-		else
+
+		if (TracksToCopy.Num())
 		{
-			CopySelectedTracks(TracksToCopy);
+			CopySelectedTracks(TracksToCopy, TracksExportedText);
 		}
+
+		FString ExportedText;
+		ExportedText += ObjectsExportedText;
+		ExportedText += TracksExportedText;
+
+		FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
 	}
 }
 
