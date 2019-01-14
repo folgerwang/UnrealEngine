@@ -116,7 +116,9 @@ void UAnimationModifier::RevertFromAnimationSequence(class UAnimSequence* InAnim
 	OnRevert(CurrentAnimSequence);
 
 	// Apply transaction
+	Transaction.BeginOperation();
 	Transaction.Apply();
+	Transaction.EndOperation();
 
 	UpdateCompressedAnimationData();
 
