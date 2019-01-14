@@ -525,8 +525,8 @@ void FCinematicShotTrackEditor::SwitchTake(uint32 TakeNumber)
 		if (TakeObject && TakeObject->IsA(UMovieSceneSequence::StaticClass()))
 		{
 			UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
-
-			UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
+			
+			UMovieSceneCinematicShotTrack* CinematicShotTrack = CastChecked<UMovieSceneCinematicShotTrack>(Section->GetOuter());
 
 			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
 			FFrameNumber         NewShotStartOffset   = Section->Parameters.StartFrameOffset;

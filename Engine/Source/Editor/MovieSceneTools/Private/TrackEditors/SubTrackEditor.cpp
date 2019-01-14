@@ -833,8 +833,8 @@ void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 		{
 			UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
 
-			UMovieSceneSubTrack* SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
-		
+			UMovieSceneSubTrack* SubTrack = CastChecked<UMovieSceneSubTrack>(Section->GetOuter());
+
 			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
 			FFrameNumber		 NewShotStartOffset   = Section->Parameters.StartFrameOffset;
 			float                NewShotTimeScale     = Section->Parameters.TimeScale;
