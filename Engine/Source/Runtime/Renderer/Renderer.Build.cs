@@ -11,7 +11,7 @@ public class Renderer : ModuleRules
 				"Runtime/Renderer/Private",
 				"Runtime/Renderer/Private/CompositionLighting",
 				"Runtime/Renderer/Private/PostProcess",
-				"../Shaders/Private/Raytracing"
+				"../Shaders/Private/RayTracing"
     }
 		);
 
