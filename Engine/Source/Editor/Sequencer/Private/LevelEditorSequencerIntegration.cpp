@@ -252,6 +252,9 @@ void FLevelEditorSequencerIntegration::Initialize()
 			}
 		);
 	}
+
+	const bool bForceRefresh = true;
+	UpdateDetails(bForceRefresh);
 }
 
 void RenameSpawnableRecursive(FSequencer* Sequencer, FMovieSceneSequenceIDRef SequenceID, AActor* ChangedActor)
@@ -717,9 +720,6 @@ void FLevelEditorSequencerIntegration::ActivateDetailHandler()
 
 	AcquiredResources.Add(DetailHandlerName, DeactivateDetailKeyframeHandler);
 	AcquiredResources.Add(DetailHandlerRefreshName, RefreshDetailHandler);
-
-	const bool bForceRefresh = true;
-	UpdateDetails(bForceRefresh);
 }
 
 void FLevelEditorSequencerIntegration::OnPropertyEditorOpened()
