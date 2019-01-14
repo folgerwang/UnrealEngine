@@ -110,9 +110,18 @@ private:
 	bool ParseMetadata(const FString& InMetadata, const FString& InKey, FString& OutValue) const;
 	/** Get sequencer section id from section metadata. Format is "[UE4ShotSection=sectionobjectname]", whitespace ok. */
 	bool GetCinematicSectionPathNameFromMetadata(const FString& InMetadata, FString& OutSectionObjectName) const;
+	/** Get sequencer shot handle frames from section metadata. Format is "[UE4ShotHandleFrames=handleframes]", whitespace ok. */
+	bool GetCinematicSectionHandleFramesFromMetadata(const FString& InMetadata, int32& OutHandleFrames) const;
+	/** Get sequencer shot start offset frame from section metadata. Format is "[UE4ShotStartOffset=startoffset]", whitespace ok. */
+	bool GetCinematicSectionStartOffsetFromMetadata(const FString& InMetadata, int32& OutStartOffset) const;
 	/** Get sequencer sound wave id and audio section ids from metadata. Format is "[UE4SoundWave=trackobjectname][UE4AudioSectionTopLevel=toplevelobjectname][UE4AudioSection=audiosectionobjectname]", whitespace ok. */
 	bool GetAudioFromMetadata(const FString& InMetadata, TSharedPtr<FFCPXMLImportAudioMetadata>& OutAudioMetadata) const;
 	
+public:
+
+	int32 GetMaxVideoTrackRowIndex() const { return MaxVideoTrackRowIndex; }
+	int32 GetMaxAudioTrackRowIndex() const { return MaxAudioTrackRowIndex; }
+
 private:
 	TSharedRef<FMovieSceneImportData> ImportData;
 	TSharedRef<FMovieSceneTranslatorContext> ImportContext;
@@ -141,5 +150,8 @@ private:
 	TSharedPtr<FMovieSceneImportAudioMasterTrackData> CurrAudioMasterTrack;
 	int32 CurrAudioTrackRowIndex;
 	bool bCurrImportAudioTrackIsStereoChannel;
+
+	int32 MaxVideoTrackRowIndex;
+	int32 MaxAudioTrackRowIndex;
 };
 

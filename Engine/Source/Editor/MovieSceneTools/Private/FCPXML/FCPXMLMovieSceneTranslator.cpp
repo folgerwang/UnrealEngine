@@ -81,6 +81,38 @@ bool FFCPXMLImporter::Import(UMovieScene* InMovieScene, FFrameRate InFrameRate, 
 		// Import the loaded Xml structure into the Sequencer movie scene
 		FFCPXMLImportVisitor ImportVisitor(ImportData, InContext);
 		bSuccess = FCPXMLFile->Accept(ImportVisitor);
+
+		// Flip rows
+		if (ImportData->GetCinematicMasterTrackData(false).IsValid())
+		{
+			int32 MaxVideoTrackRowIndex = ImportVisitor.GetMaxVideoTrackRowIndex();
+			for (TSharedPtr<FMovieSceneImportCinematicSectionData> SectionData : ImportData->GetCinematicMasterTrackData(false)->CinematicSections)
+			{
+				if (SectionData.IsValid())
+				{
+					UMovieSceneCinematicShotSection* CinematicSection = SectionData.Get()->CinematicSection;
+					if (CinematicSection)
+					{
+						CinematicSection->SetRowIndex(MaxVideoTrackRowIndex - CinematicSection->GetRowIndex());
+					}
+				}
+			}
+		}
+		if (ImportData->GetAudioMasterTrackData().IsValid())
+		{
+			int32 MaxAudioTrackRowIndex = ImportVisitor.GetMaxAudioTrackRowIndex();
+			for (TSharedPtr<FMovieSceneImportAudioSectionData> SectionData : ImportData->GetAudioMasterTrackData()->AudioSections)
+			{
+				if (SectionData.IsValid())
+				{
+					UMovieSceneAudioSection* AudioSection = SectionData.Get()->AudioSection;
+					if (AudioSection)
+					{
+						AudioSection->SetRowIndex(MaxAudioTrackRowIndex - AudioSection->GetRowIndex());
+					}
+				}
+			}
+		}
 	}
 
 	// add error message if one does not exist in the context
@@ -144,7 +176,7 @@ FText FFCPXMLExporter::GetMessageLogLabel() const
 	return LOCTEXT("FCPXMLExportLogLabel", "FCP 7 XML Export Log");
 }
 
-bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FString InFilenameFormat, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext)
+bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FString InFilenameFormat, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext, FString InMovieExtension)
 {
 	// add warning message if filename format is not "{shot}"
 	FString AcceptedFormat = TEXT("{shot}");
@@ -160,7 +192,7 @@ bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FString InFilename
 	TSharedRef<FFCPXMLFile> FCPXMLFile = MakeShared<FFCPXMLFile>();
 	FCPXMLFile->ConstructFile(FPaths::GetBaseFilename(InSaveFilename, true));
 
-	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InResX, InResY, InHandleFrames, InSaveFilename, InContext);
+	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InResX, InResY, InHandleFrames, InSaveFilename, InContext, InMovieExtension);
 
 	// Export sequencer movie scene, merging with existing Xml structure.
 	FFCPXMLExportVisitor ExportVisitor(InSaveFilename, ExportData, InContext);

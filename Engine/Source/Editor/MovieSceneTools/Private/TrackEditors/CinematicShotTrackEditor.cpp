@@ -838,7 +838,7 @@ UAutomatedLevelSequenceCapture* GetMovieSceneCapture()
 	
 	if (!MovieSceneCapture)
 	{
-		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName, RF_Transient);
+		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UMovieSceneCapture::MovieSceneCaptureUIName, RF_Transient);
 		MovieSceneCapture->LoadFromConfig();
 	}
 
@@ -898,8 +898,9 @@ void FCinematicShotTrackEditor::ExportEDL()
 	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
 	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
 	int32 HandleFrames = Settings.HandleFrames;
+	FString MovieExtension = Settings.MovieExtension;
 
-	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames);
+	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames, MovieExtension);
 }
 
 
