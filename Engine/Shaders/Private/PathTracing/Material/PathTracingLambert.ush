@@ -36,6 +36,9 @@ void Lambert_EvalMaterial(
 	out float OutPdf
 )
 {
-	OutPdf = Lambert_Pdf(OutgoingDirection, Payload);
-	OutThroughput = GetDiffuseColor(Payload) * OutPdf;
+	float3 N_World = GetWorldNormal(Payload);
+	float NoL = max(dot(N_World, OutgoingDirection), 0.0);
+
+	OutPdf = NoL / PI;
+	OutThroughput = GetDiffuseColor(Payload) * NoL / PI;
 }

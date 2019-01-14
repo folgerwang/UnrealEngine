@@ -29,11 +29,6 @@ float GetHitT(FMaterialClosestHitPayload HitInfo)
 	return HitInfo.HitT;
 }
 
-float3 GetEmission(FMaterialClosestHitPayload HitInfo)
-{
-	return HitInfo.Radiance;    
-}
-
 bool IsHit(RayDesc Ray, FMaterialClosestHitPayload HitInfo)
 {
 	float t = HitInfo.HitT;
@@ -134,7 +129,7 @@ void PathTracingMainRG()
 			}
 
 			// Emissive geometry contribution
-			float3 Emission = GetEmission(Payload);
+			float3 Emission = GetMaterialEmission(Payload);
 			if (any(Emission) > 0.0)
 			{
 				if (IsUnidirectionalEnabled)

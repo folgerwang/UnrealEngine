@@ -9,9 +9,15 @@ PathTracingMaterialCommon.usf: Brdf utility functions
 #include "../PathTracingCommon.ush"
 #include "/Engine/Private/BRDF.ush"
 
+
+float3 GetMaterialEmission(FMaterialClosestHitPayload HitInfo)
+{
+	return HitInfo.Radiance;
+}
+
 float3 GetDiffuseColor(FMaterialClosestHitPayload HitInfo)
 {
-	return HitInfo.BaseColor;
+	return HitInfo.DiffuseColor;
 }
 
 float3 GetSpecularColor(FMaterialClosestHitPayload HitInfo)
@@ -48,9 +54,7 @@ bool IsPureSpecularTransmission(FMaterialClosestHitPayload HitInfo)
 
 bool IsLambert(FMaterialClosestHitPayload HitInfo)
 {
-	//#dxr_todo: force lambert material until other BRDF types are finished
-	return true;
-	//return GetRoughness(HitInfo) > GLOSSY_MAX_ROUGHNESS;
+	return GetRoughness(HitInfo) > GLOSSY_MAX_ROUGHNESS;
 }
 
 bool BSDF_Refract(float3 V_Local, float3 N_Local, float IorV, float IorL, out float3 L_Local)
