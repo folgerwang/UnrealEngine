@@ -602,7 +602,6 @@ void ULandscapeComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMater
 // FLandscapeComponentSceneProxy
 //
 TMap<uint32, FLandscapeSharedBuffers*>FLandscapeComponentSceneProxy::SharedBuffersMap;
-TMap<uint32, FLandscapeSharedAdjacencyIndexBuffer*>FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap;
 TMap<FLandscapeNeighborInfo::FLandscapeKey, TMap<FIntPoint, const FLandscapeNeighborInfo*> > FLandscapeNeighborInfo::SharedSceneProxyMap;
 
 const static FName NAME_LandscapeResourceNameForDebugging(TEXT("Landscape"));
@@ -904,9 +903,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 			}
 
 			SharedBuffers->AdjacencyIndexBuffers = new FLandscapeSharedAdjacencyIndexBuffer(SharedBuffers);
-			FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap.Add(SharedBuffersKey, SharedBuffers->AdjacencyIndexBuffers);
 		}
-		SharedBuffers->AdjacencyIndexBuffers->AddRef();
 
 		// Delayed Initialize for IndexBuffers
 		for (int32 i = 0; i < SharedBuffers->NumIndexBuffers; i++)
@@ -3259,15 +3256,7 @@ FLandscapeSharedBuffers::~FLandscapeSharedBuffers()
 	}
 #endif
 
-	if (AdjacencyIndexBuffers)
-	{
-		if (AdjacencyIndexBuffers->Release() == 0)
-		{
-			FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap.Remove(SharedBuffersKey);
-		}
-		AdjacencyIndexBuffers = nullptr;
-	}
-
+	delete AdjacencyIndexBuffers;
 	delete VertexFactory;
 
 	if (OccluderIndicesSP.IsValid())

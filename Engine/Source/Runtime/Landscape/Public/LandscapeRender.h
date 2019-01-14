@@ -272,7 +272,7 @@ public:
 //
 // FLandscapeSharedAdjacencyIndexBuffer
 //
-class FLandscapeSharedAdjacencyIndexBuffer : public FRefCountedObject
+class FLandscapeSharedAdjacencyIndexBuffer
 {
 public:
 	FLandscapeSharedAdjacencyIndexBuffer(class FLandscapeSharedBuffers* SharedBuffer);
@@ -603,7 +603,6 @@ protected:
 	// Reference counted vertex and index buffer shared among all landscape scene proxies of the same component size
 	// Key is the component size and number of subsections.
 	static TMap<uint32, FLandscapeSharedBuffers*> SharedBuffersMap;
-	static TMap<uint32, FLandscapeSharedAdjacencyIndexBuffer*> SharedAdjacencyIndexBufferMap;
 
 #if WITH_EDITORONLY_DATA
 	FLandscapeEditToolRenderData EditToolRenderData;
