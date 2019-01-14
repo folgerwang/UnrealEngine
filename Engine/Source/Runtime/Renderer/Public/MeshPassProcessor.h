@@ -82,7 +82,7 @@ public:
 	}
 
 	void Set(EMeshPass::Type Pass) { Data |= (1 << Pass); }
-	bool Get(EMeshPass::Type Pass) const { return Data & (1 << Pass); }
+	bool Get(EMeshPass::Type Pass) const { return !!(Data & (1 << Pass)); }
 
 	void AppendTo(FMeshPassMask& Mask) const { Mask.Data |= Data; }
 	void Reset() { Data = 0; }
