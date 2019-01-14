@@ -283,7 +283,8 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 	{
 	    // Emissive & indirect contribution
 	    Radiance += Payload.Radiance;
-    }
+		Radiance += Payload.IndirectIrradiance;
+	}
 
 	return Payload;
 }
