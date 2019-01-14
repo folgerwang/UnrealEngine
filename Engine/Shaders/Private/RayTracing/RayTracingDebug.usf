@@ -98,7 +98,7 @@ void RayTracingDebugMainRGS()
 			Result = float4(Payload.GBufferAO, Payload.GBufferAO, Payload.GBufferAO, 1.0f);
 			break;
 		case RAY_TRACING_DEBUG_VIZ_INDIRECT_IRRADIANCE:
-			Result = float4(Payload.IndirectIrradiance, Payload.IndirectIrradiance, Payload.IndirectIrradiance, 1.0f);
+			Result = float4(Payload.IndirectIrradiance, 1.0f);
 			break;
 		case RAY_TRACING_DEBUG_VIZ_WORLD_POSITION:
 			Result = float4(Payload.WorldPos, 1.0f);

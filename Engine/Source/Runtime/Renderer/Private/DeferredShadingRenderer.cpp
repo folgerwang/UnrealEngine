@@ -907,7 +907,7 @@ FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingPipeli
 	TArray<FRayTracingHitGroupInitializer> RayTracingMaterialLibrary;
 	FShaderResource::GetRayTracingMaterialLibrary(RayTracingMaterialLibrary);
 	Initializer.SetHitGroups(RayTracingMaterialLibrary);
-	Initializer.MaxPayloadSizeInBytes = 136; // #dxr_todo: set Initializer.MaxPayloadSizeInBytes based on shader requirements (it's not obvious how to compute this right now)
+	Initializer.MaxPayloadSizeInBytes = 144; // #dxr_todo: set Initializer.MaxPayloadSizeInBytes based on shader requirements (it's not obvious how to compute this right now)
 
 	FRHIRayTracingPipelineState* PipelineState = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer);
 

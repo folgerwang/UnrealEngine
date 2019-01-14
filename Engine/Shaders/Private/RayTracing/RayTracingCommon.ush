@@ -65,14 +65,14 @@ struct FMaterialClosestHitPayload
 	uint PrimitiveLightingChannelMask;	//96	0bytes	(removed)
 	float4 CustomData;					//112	0bytes	(removed)
 	float GBufferAO;					//116	0bytes	(removed)
-	float3 IndirectIrradiance;			//120	0bytes	48bits	
+	float3 IndirectIrradiance;			//128	0bytes	48bits	
 
 	// Quite some code assume FRayHitInfo has a WorldPos
 	// So keep it here and force to re-construct it in Unpack call using ray information.
 	// It is not packed in FRayHitInfoPacked
-	float3 WorldPos;					//132	0bytes	(derived)
+	float3 WorldPos;					//140	0bytes	(derived)
 
-	uint HitKind;						//136	0bytes 1bit	(packed)
+	uint HitKind;						//144	0bytes 1bit	(packed)
 };
 
 #define USE_PACKED_PAYLOAD 0
