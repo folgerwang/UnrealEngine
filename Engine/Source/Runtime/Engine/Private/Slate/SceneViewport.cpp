@@ -279,6 +279,8 @@ void FSceneViewport::ProcessAccumulatedPointerInput()
 
 	const bool bViewportHasCapture = ViewportWidget.IsValid() && ViewportWidget.Pin()->HasMouseCapture();
 
+	ViewportClient->ProcessAccumulatedPointerInput(this);
+
 	if (NumMouseSamplesX > 0 || NumMouseSamplesY > 0)
 	{
 		const float DeltaTime = FApp::GetDeltaTime();

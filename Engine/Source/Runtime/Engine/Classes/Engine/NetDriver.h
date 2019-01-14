@@ -221,13 +221,16 @@ struct FCompareFActorPriority
 
 struct FActorDestructionInfo
 {
+public:
+	FActorDestructionInfo() : Reason(EChannelCloseReason::Destroyed) {}
+
 	TWeakObjectPtr<ULevel>		Level;
 	TWeakObjectPtr<UObject>		ObjOuter;
 	FVector			DestroyedPosition;
 	FNetworkGUID	NetGUID;
 	FString			PathName;
-
 	FName			StreamingLevelName;
+	EChannelCloseReason Reason;
 };
 
 /** Used to specify properties of a channel type */
@@ -625,16 +628,59 @@ public:
 	 */
 	TMap<FName, FName>	RenamedStartupActors;
 
+	class FRepChangedPropertyTrackerWrapper
+	{
+	public:
+		FRepChangedPropertyTrackerWrapper(UObject* Obj, const TSharedPtr<FRepChangedPropertyTracker>& InRepChangedPropertyTracker) : RepChangedPropertyTracker(InRepChangedPropertyTracker), WeakObjectPtr(Obj) {}
+
+		const FRepChangedPropertyTracker* operator->() const { return RepChangedPropertyTracker.Get(); }
+		FRepChangedPropertyTracker* operator->() { return RepChangedPropertyTracker.Get(); }
+		
+		const FRepChangedPropertyTracker* Get() const { return RepChangedPropertyTracker.Get(); }
+		FRepChangedPropertyTracker* Get() { return RepChangedPropertyTracker.Get(); }
+
+		bool IsValid() const { return RepChangedPropertyTracker.IsValid(); }
+		bool IsObjectValid() const { return WeakObjectPtr.IsValid(); }
+
+		TWeakObjectPtr<UObject> GetWeakObjectPtr() const { return WeakObjectPtr; }
+
+		TSharedPtr<FRepChangedPropertyTracker> RepChangedPropertyTracker;
+
+		void CountBytes(FArchive& Ar) const;
+
+	private:
+		TWeakObjectPtr<UObject> WeakObjectPtr;
+	};
 	/** Maps FRepChangedPropertyTracker to active objects that are replicating properties */
-	TMap< TWeakObjectPtr< UObject >, TSharedPtr< FRepChangedPropertyTracker > >	RepChangedPropertyTrackerMap;
+	TMap<UObject*, FRepChangedPropertyTrackerWrapper>	RepChangedPropertyTrackerMap;
 	/** Used to invalidate properties marked "unchanged" in FRepChangedPropertyTracker's */
 	uint32																		ReplicationFrame;
 
 	/** Maps FRepLayout to the respective UClass */
 	TMap< TWeakObjectPtr< UObject >, TSharedPtr< FRepLayout > >					RepLayoutMap;
 
+	class FReplicationChangelistMgrWrapper
+	{
+	public:
+		FReplicationChangelistMgrWrapper(UObject* Obj, const TSharedPtr<FReplicationChangelistMgr>& InReplicationChangelistMgr) : ReplicationChangelistMgr(InReplicationChangelistMgr), WeakObjectPtr(Obj) {}
+
+		const FReplicationChangelistMgr* operator->() const { return ReplicationChangelistMgr.Get(); }
+		FReplicationChangelistMgr* operator->() { return ReplicationChangelistMgr.Get(); }
+
+		bool IsValid() const { return ReplicationChangelistMgr.IsValid(); }
+		bool IsObjectValid() const { return WeakObjectPtr.IsValid(); }
+
+		TWeakObjectPtr<UObject> GetWeakObjectPtr() const { return WeakObjectPtr; }
+
+		TSharedPtr<FReplicationChangelistMgr> ReplicationChangelistMgr;
+
+		void CountBytes(FArchive& Ar) const;
+
+	private:
+		TWeakObjectPtr<UObject> WeakObjectPtr;
+	};
 	/** Maps an object to the respective FReplicationChangelistMgr */
-	TMap< TWeakObjectPtr< UObject >, TSharedPtr< FReplicationChangelistMgr > >	ReplicationChangeListMap;
+	TMap< UObject*, FReplicationChangelistMgrWrapper >	ReplicationChangeListMap;
 
 	/** Creates if necessary, and returns a FRepLayout that maps to the passed in UClass */
 	TSharedPtr< FRepLayout >	GetObjectClassRepLayout( UClass * InClass );
@@ -645,7 +691,12 @@ public:
 	/** Creates if necessary, and returns a FRepLayout that maps to the passed in UStruct */
 	TSharedPtr<FRepLayout>		GetStructRepLayout( UStruct * Struct );
 
-	/** Returns the FReplicationChangelistMgr that is associated with the passed in object */
+	/**
+	 * Returns the FReplicationChangelistMgr that is associated with the passed in object,
+	 * creating one if none exist.
+	 *
+	 * This should **never** be called on client NetDrivers!
+	 */
 	TSharedPtr< FReplicationChangelistMgr > GetReplicationChangeListMgr( UObject* Object );
 
 	TMap< FNetworkGUID, TSet< FObjectReplicator* > >	GuidToReplicatorMap;
@@ -1098,6 +1149,9 @@ public:
 
 	/** Returns true if this network driver should execute this remote call locally. */
 	ENGINE_API virtual bool ShouldCallRemoteFunction(UObject* Object, UFunction* Function, const FReplicationFlags& RepFlags) const;
+
+	/** Returns true if clients should destroy the actor when the channel is closed. */
+	ENGINE_API virtual bool ShouldClientDestroyActor(AActor* Actor) const;
 
 	/** Called when an actor channel is remotely opened for an actor. */
 	ENGINE_API virtual void NotifyActorChannelOpen(UActorChannel* Channel, AActor* Actor) {}

@@ -120,28 +120,32 @@ bool SkipImportProperty(TSharedPtr<IPropertyHandle> Handle, const FString &MetaD
 bool FFbxImportUIDetails::ShowCompareResult()
 {
 	bool bHasMaterialConflict = false;
-	bool bHasSkeletonConflict = false;
+	ImportCompareHelper::ECompareResult SkeletonCompareResult = ImportCompareHelper::ECompareResult::SCR_None;
 	bool bShowCompareResult = ImportUI->bIsReimport && ImportUI->ReimportMesh != nullptr && ImportUI->OnUpdateCompareFbx.IsBound();
 	if (bShowCompareResult)
 	{
 		//Always update the compare data with the current option
 		ImportUI->OnUpdateCompareFbx.Execute();
 		bHasMaterialConflict = ImportUI->MaterialCompareData.HasConflict();
-		bHasSkeletonConflict = ImportUI->SkeletonCompareData.HasConflict();
-		if (bHasMaterialConflict || bHasSkeletonConflict)
+		SkeletonCompareResult = ImportUI->SkeletonCompareData.CompareResult;
+		if (bHasMaterialConflict || SkeletonCompareResult != ImportCompareHelper::ECompareResult::SCR_None)
 		{
 			FName ConflictCategoryName = TEXT("Conflicts");
 			IDetailCategoryBuilder& CategoryBuilder = CachedDetailBuilder->EditCategory(ConflictCategoryName, LOCTEXT("CategoryConflictsName", "Conflicts"), ECategoryPriority::Important);
-			auto BuildConflictRow = [this, &CategoryBuilder](const FText& CategoryName, const FText& Conflict_NameContent, const FText& Conflict_ButtonTooltip, const FText& Conflict_ButtonText, ConflictDialogType DialogType)
+			auto BuildConflictRow = [this, &CategoryBuilder](const FText& CategoryName, const FText& Conflict_NameContent, const FText& Conflict_ButtonTooltip, const FText& Conflict_ButtonText, ConflictDialogType DialogType, const FSlateBrush* Brush, const FText& Conflict_IconTooltip)
 			{
 				CategoryBuilder.AddCustomRow(CategoryName).WholeRowContent()
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
 					.AutoWidth()
+					.Padding(2.0f, 2.0f, 5.0f, 2.0f)
 					[
 						SNew(SImage)
-						.Image(FEditorStyle::GetBrush("Icons.Error"))
+						.ToolTipText(Conflict_IconTooltip)
+						.Image(Brush)
 					]
 					+ SHorizontalBox::Slot()
 					.FillWidth(1.0f)
@@ -174,16 +178,39 @@ bool FFbxImportUIDetails::ShowCompareResult()
 					LOCTEXT("MaterialConflict_NameContent", "Unmatched Materials"),
 					LOCTEXT("MaterialConflict_ButtonShowTooltip", "Show a detailed view of the materials conflict."),
 					LOCTEXT("MaterialConflict_ButtonShow", "Show Conflict"),
-					ConflictDialogType::Conflict_Material);
+					ConflictDialogType::Conflict_Material,
+					FEditorStyle::GetBrush("Icons.Error"),
+					LOCTEXT("MaterialConflict_IconTooltip", "There is one or more material(s) that do not match.")
+				);
 			}
 
-			if (bHasSkeletonConflict)
+			if (SkeletonCompareResult != ImportCompareHelper::ECompareResult::SCR_None)
 			{
+				FText IconTooltip;
+				if ((SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonBadRoot) > ImportCompareHelper::ECompareResult::SCR_None)
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Error) Root bone: The root bone of the incoming fbx do not match the root bone of the current skeletalmesh asset. Import will probably fail!"));
+				}
+				else if ((SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonMissingBone) > ImportCompareHelper::ECompareResult::SCR_None)
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Warning) Deleted bones: Some bones of the of the current skeletalmesh asset are not use by the incoming fbx."));
+				}
+				else
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Info) Added bones: Some bones in the incoming fbx do not exist in the current skeletalmesh asset."));
+				}
+				 
+				const FSlateBrush* Brush = (SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonBadRoot) > ImportCompareHelper::ECompareResult::SCR_None ? FEditorStyle::GetBrush("Icons.Error")
+					: (SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonMissingBone) > ImportCompareHelper::ECompareResult::SCR_None ? FEditorStyle::GetBrush("Icons.Warning")
+					: FEditorStyle::GetBrush("Icons.Info");
+
 				BuildConflictRow(LOCTEXT("SkeletonConflict_RowFilter", "Skeleton conflict"),
 					LOCTEXT("SkeletonConflict_NameContent", "Unmatched Skeleton joints"),
 					LOCTEXT("SkeletonConflict_ButtonShowTooltip", "Show a detailed view of the skeleton joints conflict."),
 					LOCTEXT("SkeletonConflict_ButtonShow", "Show Conflict"),
-					ConflictDialogType::Conflict_Skeleton);
+					ConflictDialogType::Conflict_Skeleton,
+					Brush,
+					IconTooltip);
 			}
 		}
 	}

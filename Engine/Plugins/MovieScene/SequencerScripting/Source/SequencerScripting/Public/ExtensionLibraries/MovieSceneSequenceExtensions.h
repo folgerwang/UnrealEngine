@@ -223,6 +223,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static TArray<UObject*> LocateBoundObjects(UMovieSceneSequence* Sequence, const FSequencerBindingProxy& InBinding, UObject* Context);
 
+	/**
+	 * Get the root folders in the provided sequence
+	 *
+	 * @param Sequence	The sequence to retrieve folders from
+	 * @return The folders contained within the given sequence
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Editor Scripting|Sequencer Tools|Folders", meta=(ScriptMethod))
+	static TArray<UMovieSceneFolder*> GetRootFoldersInSequence(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Add a root folder to the given sequence
+	 *
+	 * @param Sequence			The sequence to add a folder to
+	 * @param NewFolderName		The name to give the added folder
+	 * @return The newly created folder
+	 */
+	UFUNCTION(BlueprintCallable, Category="Editor Scripting|Sequencer Tools|Folders", meta=(ScriptMethod))
+	static UMovieSceneFolder* AddRootFolderToSequence(UMovieSceneSequence* Sequence, FString NewFolderName);
+
 public:
 
 	/**

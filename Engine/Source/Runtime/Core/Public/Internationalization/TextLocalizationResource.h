@@ -4,14 +4,21 @@
 
 #include "CoreTypes.h"
 #include "Containers/SortedMap.h"
-#include "Internationalization/LocKeyFuncs.h"
+#include "Internationalization/TextKey.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
-#include "Internationalization/TextLocalizationResourceId.h"
 
 /** Utility class for working with Localization MetaData Resource (LocMeta) files. */
 class CORE_API FTextLocalizationMetaDataResource
 {
 public:
+	FTextLocalizationMetaDataResource() = default;
+
+	FTextLocalizationMetaDataResource(const FTextLocalizationMetaDataResource&) = default;
+	FTextLocalizationMetaDataResource& operator=(const FTextLocalizationMetaDataResource&) = default;
+
+	FTextLocalizationMetaDataResource(FTextLocalizationMetaDataResource&&) = default;
+	FTextLocalizationMetaDataResource& operator=(FTextLocalizationMetaDataResource&&) = default;
+
 	FString NativeCulture;
 	FString NativeLocRes;
 
@@ -32,19 +39,25 @@ public:
 class CORE_API FTextLocalizationResource
 {
 public:
+	FTextLocalizationResource() = default;
+
+	FTextLocalizationResource(const FTextLocalizationResource&) = default;
+	FTextLocalizationResource& operator=(const FTextLocalizationResource&) = default;
+
+	FTextLocalizationResource(FTextLocalizationResource&&) = default;
+	FTextLocalizationResource& operator=(FTextLocalizationResource&&) = default;
+
 	/** Data struct for tracking a localization entry from a localization resource. */
 	struct FEntry
 	{
-		FTextLocalizationResourceId LocResID;
-		uint32 SourceStringHash;
 		FString LocalizedString;
+		FTextKey LocResID;
+		uint32 SourceStringHash = 0;
+		int32 Priority = 0; // Smaller numbers are higher priority
 	};
 
-	typedef TArray<FEntry> FEntryArray;
-	typedef TMap<FString, FEntryArray, FDefaultSetAllocator, FLocKeyMapFuncs<FEntryArray>> FKeysTable;
-	typedef TMap<FString, FKeysTable, FDefaultSetAllocator, FLocKeyMapFuncs<FKeysTable>> FNamespacesTable;
-
-	FNamespacesTable Namespaces;
+	typedef TMap<FTextId, FEntry> FEntriesTable;
+	FEntriesTable Entries;
 
 	/** Utility to produce a hash for a string (as used by SourceStringHash) */
 	static FORCEINLINE uint32 HashString(const TCHAR* InStr, const uint32 InBaseHash = 0)
@@ -59,53 +72,30 @@ public:
 	}
 
 	/** Add a single entry to this resource. */
-	void AddEntry(const FString& InNamespace, const FString& InKey, const FString& InSourceString, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID = FTextLocalizationResourceId());
-	void AddEntry(const FString& InNamespace, const FString& InKey, const uint32 InSourceStringHash, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID = FTextLocalizationResourceId());
+	void AddEntry(const FTextKey& InNamespace, const FTextKey& InKey, const FString& InSourceString, const FString& InLocalizedString, const int32 InPriority, const FTextKey& InLocResID = FTextKey());
+	void AddEntry(const FTextKey& InNamespace, const FTextKey& InKey, const uint32 InSourceStringHash, const FString& InLocalizedString, const int32 InPriority, const FTextKey& InLocResID = FTextKey());
 
 	/** Is this resource empty? */
 	bool IsEmpty() const;
 
 	/** Load all LocRes files in the specified directory into this resource. */
-	void LoadFromDirectory(const FString& DirectoryPath);
+	void LoadFromDirectory(const FString& DirectoryPath, const int32 Priority);
 
 	/** Load the given LocRes file into this resource. */
-	bool LoadFromFile(const FString& FilePath);
+	bool LoadFromFile(const FString& FilePath, const int32 Priority);
 
 	/** Load the given LocRes archive into this resource. */
-	bool LoadFromArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID);
+	bool LoadFromArchive(FArchive& Archive, const FTextKey& LocResID, const int32 Priority);
 
 	/** Save this resource to the given LocRes file. */
 	bool SaveToFile(const FString& FilePath);
 
 	/** Save this resource to the given LocRes archive. */
-	bool SaveToArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID);
-
-	/** Detect conflicts between loaded localization resources and log them as warnings. */
-	void DetectAndLogConflicts() const;
-};
-
-/** Utility class for working with set of Localization Resource (LocRes) files. */
-class CORE_API FTextLocalizationResources
-{
-public:
-	TSharedRef<FTextLocalizationResource> EnsureResource(const FString& InCulture)
-	{
-		TSharedPtr<FTextLocalizationResource> Resource = TextLocalizationResourceMap.FindRef(InCulture);
-		if (!Resource.IsValid())
-		{
-			Resource = MakeShared<FTextLocalizationResource>();
-			TextLocalizationResourceMap.Add(InCulture, Resource);
-		}
-		return Resource.ToSharedRef();
-	}
-
-	TSharedPtr<FTextLocalizationResource> FindResource(const FString& InCulture) const
-	{
-		return TextLocalizationResourceMap.FindRef(InCulture);
-	}
+	bool SaveToArchive(FArchive& Archive, const FTextKey& LocResID);
 
 private:
-	TSortedMap<FString, TSharedPtr<FTextLocalizationResource>> TextLocalizationResourceMap;
+	/** Test whether the new entry should replace the current entry, optionally logging a conflict */
+	static bool ShouldReplaceEntry(const FTextKey& Namespace, const FTextKey& Key, const FEntry& CurrentEntry, const FEntry& NewEntry);
 };
 
 namespace TextLocalizationResourceUtil
@@ -130,10 +120,20 @@ CORE_API FString GetNativeCultureName(const ELocalizedTextSourceCategory InCateg
 CORE_API FString GetNativeProjectCultureName(const bool bSkipCache = false);
 
 /**
+ * Clear the native culture for the current project so it will be re-cached on the text call to GetNativeProjectCultureName.
+ */
+CORE_API void ClearNativeProjectCultureName();
+
+/**
  * Get the native culture for the engine.
  * @return The native culture for the engine based on the data in the engine LocMeta files.
  */
 CORE_API FString GetNativeEngineCultureName(const bool bSkipCache = false);
+
+/**
+ * Clear the native culture for the engine so it will be re-cached on the text call to GetNativeEngineCultureName.
+ */
+CORE_API void ClearNativeEngineCultureName();
 
 #if WITH_EDITOR
 /**
@@ -141,6 +141,11 @@ CORE_API FString GetNativeEngineCultureName(const bool bSkipCache = false);
  * @return The native culture for the editor based on the data in the editor LocMeta files.
  */
 CORE_API FString GetNativeEditorCultureName(const bool bSkipCache = false);
+
+/**
+ * Clear the native culture for the editor so it will be re-cached on the text call to GetNativeEditorCultureName.
+ */
+CORE_API void ClearNativeEditorCultureName();
 #endif	// WITH_EDITOR
 
 /**

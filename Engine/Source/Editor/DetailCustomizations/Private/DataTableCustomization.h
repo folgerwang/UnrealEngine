@@ -64,6 +64,8 @@ private:
 
 	void HandleMenuOpen();
 
+	void OnSearchForReferences();
+
 	/** The comboButton objects */
 	TSharedPtr<SComboButton> RowNameComboButton;
 	TSharedPtr<class SSearchBox> SearchBox;

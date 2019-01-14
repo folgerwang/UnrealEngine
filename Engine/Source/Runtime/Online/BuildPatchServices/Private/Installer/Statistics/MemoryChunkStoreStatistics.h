@@ -34,67 +34,45 @@ namespace BuildPatchServices
 		 * @return the maximum number of chunks which can be held.
 		 */
 		virtual int32 GetStoreSize() const = 0;
-	};
-
-	/**
-	 * Interface to the statistics class which aggregates tracked values from multiple memory chunk store stats.
-	 */
-	class IMemoryChunkStoreAggregateStatistics
-	{
-	public:
-		virtual ~IMemoryChunkStoreAggregateStatistics() { }
 
 		/**
-		 * Exposes an IMemoryChunkStoreStatistics interface which can be given to a memory chunk store and used for individual stats.
-		 * @param Index     The index for the interface to get. Repeated calls with the same value will get the same instance.
-		 * @return the interface for the stat instance assigned to the given index.
-		 */
-		virtual IMemoryChunkStoreStatistics* Expose(int32 Index) = 0;
-
-		/**
-		 * @return the average number of chunks held in the memory stores.
+		 * @return the average number of chunks held.
 		 */
 		virtual float GetAverageStoreUse() const = 0;
 
 		/**
-		 * @return the peak number of chunks held in the memory stores.
+		 * @return the peak number of chunks held.
 		 */
 		virtual int32 GetPeakStoreUse() const = 0;
 
 		/**
-		 * @return the average number of chunks held in the memory stores which are retained due to multiple references.
+		 * @return the average number of chunks held which are retained due to multiple references.
 		 */
 		virtual float GetAverageStoreRetained() const = 0;
 
 		/**
-		 * @return the peak number of chunks held in the memory stores which are retained due to multiple references.
+		 * @return the peak number of chunks held which are retained due to multiple references.
 		 */
 		virtual int32 GetPeakStoreRetained() const = 0;
 
 		/**
-		 * @return the total number of chunks which can be held in memory stores.
+		 * Sets the chunks that are referenced multiple times in order to track retained.
+		 * @param MultipleReferencedChunks For retained stats, the set of chunks which have multiple references.
 		 */
-		virtual int32 GetTotalStoreSize() const = 0;
-
-		/**
-		 * @return the number of chunks which were booted from memory stores.
-		 */
-		virtual int32 GetTotalNumBooted() const = 0;
+		virtual void SetMultipleReferencedChunk(TSet<FGuid> MultipleReferencedChunks) = 0;
 	};
 
 	/**
-	 * A factory for creating an IMemoryChunkStoreAggregateStatistics instance.
+	 * A factory for creating an IMemoryChunkStoreStatistics instance.
 	 */
-	class FMemoryChunkStoreAggregateStatisticsFactory
+	class FMemoryChunkStoreStatisticsFactory
 	{
 	public:
 		/**
-		 * Creates a statistics interface which exposes individual memory chunk stores stat dependencies, and collates
-		 * calls received by these into additional aggregated information.
-		 * @param MultipleReferencedChunks      For retained stats, the set of chunks which have multiple references.
+		 * Creates a statistics interface for getting access to store usage stats, and also forwards information to update the file operation tracker.
 		 * @param FileOperationTracker          The file operation tracker which will be used to update data states.
-		 * @return the new IMemoryChunkStoreAggregateStatistics instance created.
+		 * @return the new IMemoryChunkStoreStatistics instance created.
 		 */
-		static IMemoryChunkStoreAggregateStatistics* Create(const TSet<FGuid>& MultipleReferencedChunks, IFileOperationTracker* FileOperationTracker);
+		static IMemoryChunkStoreStatistics* Create(IFileOperationTracker* FileOperationTracker);
 	};
 }

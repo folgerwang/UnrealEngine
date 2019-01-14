@@ -1596,7 +1596,7 @@ public:
 	FDragDropCheckingOverride OnDragDropCheckOverride;
 #endif
 
-	const TSet<FKey> GetPressedMouseButtons() const;
+	const TSet<FKey>& GetPressedMouseButtons() const;
 
 private:
 

@@ -13,10 +13,8 @@ float UAISense_Touch::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 
-	for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+	for (const FAITouchEvent& Event : RegisteredEvents)
 	{
-		const FAITouchEvent& Event = RegisteredEvents[EventIndex];
-
 		if (Event.TouchReceiver != NULL && Event.OtherActor != NULL)
 		{
 			IAIPerceptionListenerInterface* PerceptionListener = Cast<IAIPerceptionListenerInterface>(Event.TouchReceiver);

@@ -36,14 +36,10 @@ namespace BuildPatchServices
 		virtual const FInstallerConfiguration& GetConfiguration() const override;
 		virtual int64 GetDownloadSize() const override;
 		virtual int64 GetBuildSize() const override;
-		virtual int32 GetInstallMemoryChunkStoreSize() const override;
-		virtual int32 GetInstallMemoryChunksInStore() const override;
-		virtual int32 GetInstallMemoryChunksBooted() const override;
-		virtual int32 GetInstallMemoryChunksRetained() const override;
-		virtual int32 GetCloudMemoryChunkStoreSize() const override;
-		virtual int32 GetCloudMemoryChunksInStore() const override;
-		virtual int32 GetCloudMemoryChunksBooted() const override;
-		virtual int32 GetCloudMemoryChunksRetained() const override;
+		virtual int32 GetMemoryChunkStoreSize() const override;
+		virtual int32 GetMemoryChunksInStore() const override;
+		virtual int32 GetMemoryChunksBooted() const override;
+		virtual int32 GetMemoryChunksRetained() const override;
 		virtual FString GetCurrentWorkingFileName() const override;
 		virtual float GetCurrentWorkingFileProgress() const override;
 		virtual FGuid GetCurrentWorkingData() const override;
@@ -84,44 +80,24 @@ namespace BuildPatchServices
 		return Installer->GetFileConstructorStatistics()->GetRequiredConstructSize();
 	}
 
-	int32 FBuildStatistics::GetInstallMemoryChunkStoreSize() const
+	int32 FBuildStatistics::GetMemoryChunkStoreSize() const
 	{
-		return Installer->GetInstallMemoryChunkStoreStatistics()->GetStoreSize();
+		return Installer->GetMemoryChunkStoreStatistics()->GetStoreSize();
 	}
 
-	int32 FBuildStatistics::GetInstallMemoryChunksInStore() const
+	int32 FBuildStatistics::GetMemoryChunksInStore() const
 	{
-		return Installer->GetInstallMemoryChunkStoreStatistics()->GetStoreUse();
+		return Installer->GetMemoryChunkStoreStatistics()->GetStoreUse();
 	}
 
-	int32 FBuildStatistics::GetInstallMemoryChunksBooted() const
+	int32 FBuildStatistics::GetMemoryChunksBooted() const
 	{
-		return Installer->GetInstallMemoryChunkStoreStatistics()->GetNumBooted();
+		return Installer->GetMemoryChunkStoreStatistics()->GetNumBooted();
 	}
 
-	int32 FBuildStatistics::GetInstallMemoryChunksRetained() const
+	int32 FBuildStatistics::GetMemoryChunksRetained() const
 	{
-		return Installer->GetInstallMemoryChunkStoreStatistics()->GetStoreRetained();
-	}
-
-	int32 FBuildStatistics::GetCloudMemoryChunkStoreSize() const
-	{
-		return Installer->GetCloudMemoryChunkStoreStatistics()->GetStoreSize();
-	}
-
-	int32 FBuildStatistics::GetCloudMemoryChunksInStore() const
-	{
-		return Installer->GetCloudMemoryChunkStoreStatistics()->GetStoreUse();
-	}
-
-	int32 FBuildStatistics::GetCloudMemoryChunksBooted() const
-	{
-		return Installer->GetCloudMemoryChunkStoreStatistics()->GetNumBooted();
-	}
-
-	int32 FBuildStatistics::GetCloudMemoryChunksRetained() const
-	{
-		return Installer->GetCloudMemoryChunkStoreStatistics()->GetStoreRetained();
+		return Installer->GetMemoryChunkStoreStatistics()->GetStoreRetained();
 	}
 
 	FString FBuildStatistics::GetCurrentWorkingFileName() const

@@ -78,6 +78,14 @@ bool FAndroidApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 #endif
 }
 
+void FAndroidApplicationMisc::SetGamepadsAllowed(bool bAllowed)
+{
+	if (FAndroidInputInterface* InputInterface = (FAndroidInputInterface*)FAndroidApplication::Get()->GetInputInterface())
+	{
+		InputInterface->SetGamepadsAllowed(bAllowed);
+	}
+}
+
 void FAndroidApplicationMisc::ResetGamepadAssignments()
 {
 	FAndroidInputInterface::ResetGamepadAssignments();
@@ -91,6 +99,11 @@ void FAndroidApplicationMisc::ResetGamepadAssignmentToController(int32 Controlle
 bool FAndroidApplicationMisc::IsControllerAssignedToGamepad(int32 ControllerId)
 {
 	return FAndroidInputInterface::IsControllerAssignedToGamepad(ControllerId);
+}
+
+FString FAndroidApplicationMisc::GetGamepadControllerName(int32 ControllerId)
+{
+	return FAndroidInputInterface::GetGamepadControllerName(ControllerId);
 }
 
 extern void AndroidThunkCpp_ClipboardCopy(const FString& Str);

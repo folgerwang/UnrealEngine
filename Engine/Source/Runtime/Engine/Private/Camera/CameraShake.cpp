@@ -6,6 +6,8 @@
 #include "Engine/Engine.h"
 #include "IXRTrackingSystem.h" // for IsHeadTrackingAllowed()
 
+DECLARE_CYCLE_STAT(TEXT("CameraShakePlayShake"), STAT_PlayShake, STATGROUP_Game);
+
 //////////////////////////////////////////////////////////////////////////
 // FFOscillator
 
@@ -115,6 +117,8 @@ void UCameraShake::StopShake(bool bImmediately)
 
 void UCameraShake::PlayShake(APlayerCameraManager* Camera, float Scale, ECameraAnimPlaySpace::Type InPlaySpace, FRotator UserPlaySpaceRot)
 {
+	SCOPE_CYCLE_COUNTER(STAT_PlayShake);
+
 	ShakeScale = Scale;
 	CameraOwner = Camera;
 

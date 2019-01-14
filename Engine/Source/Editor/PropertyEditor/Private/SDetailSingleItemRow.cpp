@@ -532,15 +532,26 @@ bool SDetailSingleItemRow::OnContextMenuOpening(FMenuBuilder& MenuBuilder)
 		bAddedMenuEntry = true;
 	}
 
-	for(const FDetailWidgetRow::FCustomMenuData& CustomMenuData : Customization->GetWidgetRow().CustomMenuItems)
+	const TArray<FDetailWidgetRow::FCustomMenuData>& CustomMenuActions = Customization->GetWidgetRow().CustomMenuItems;
+	if (CustomMenuActions.Num() > 0)
 	{
-		//Add the menu entry
-		MenuBuilder.AddMenuEntry(
-			CustomMenuData.Name,
-			CustomMenuData.Tooltip,
-			CustomMenuData.SlateIcon,
-			CustomMenuData.Action);
-		bAddedMenuEntry = true;
+		// Hide separator line if it only contains the SearchWidget, making the next 2 elements the top of the list
+		if (MenuBuilder.GetMultiBox()->GetBlocks().Num() > 1)
+		{
+			MenuBuilder.AddMenuSeparator();
+		}
+
+		for (const FDetailWidgetRow::FCustomMenuData& CustomMenuData : CustomMenuActions)
+		{
+			//Add the menu entry
+			MenuBuilder.AddMenuEntry(
+				CustomMenuData.Name,
+				CustomMenuData.Tooltip,
+				CustomMenuData.SlateIcon,
+				CustomMenuData.Action);
+			bAddedMenuEntry = true;
+		}
+
 	}
 
 	return bAddedMenuEntry;

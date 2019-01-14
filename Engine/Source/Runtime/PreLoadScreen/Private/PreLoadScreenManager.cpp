@@ -22,8 +22,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogPreLoadScreenManager, Log, All);
 
 TSharedPtr<FPreLoadScreenManager> FPreLoadScreenManager::Instance;
 
-FCriticalSection FPreLoadScreenManager::EarlyRenderingEnabledCriticalSection;
-bool FPreLoadScreenManager::bEarlyRenderingEnabled = true;
+FCriticalSection FPreLoadScreenManager::RenderingEnabledCriticalSection;
+bool FPreLoadScreenManager::bRenderingEnabled = true;
 
 void FPreLoadScreenManager::Initialize(FSlateRenderer& InSlateRenderer)
 {
@@ -299,21 +299,21 @@ void FPreLoadScreenManager::GameLogicFrameTick()
     }
 }
 
-bool FPreLoadScreenManager::ShouldEarlyScreenRender()
+bool FPreLoadScreenManager::ShouldRender()
 {
-    FScopeLock ScopeLock(&EarlyRenderingEnabledCriticalSection);
-    return bEarlyRenderingEnabled;
+    FScopeLock ScopeLock(&RenderingEnabledCriticalSection);
+    return bRenderingEnabled;
 }
 
-void FPreLoadScreenManager::EnableEarlyRendering(bool bEnabled)
+void FPreLoadScreenManager::EnableRendering(bool bEnabled)
 {
-    FScopeLock ScopeLock(&EarlyRenderingEnabledCriticalSection);
-    bEarlyRenderingEnabled = bEnabled;
+    FScopeLock ScopeLock(&RenderingEnabledCriticalSection);
+    bRenderingEnabled = bEnabled;
 }
 
 void FPreLoadScreenManager::EarlyPlayRenderFrameTick()
 {
-    if (!ShouldEarlyScreenRender())
+    if (!ShouldRender())
     {
         return;
     }
@@ -330,7 +330,7 @@ void FPreLoadScreenManager::EarlyPlayRenderFrameTick()
             IPreLoadScreen*, ActivePreLoadScreen, ActivePreLoadScreen,
             float, SlateDeltaTime, SlateDeltaTime,
             {
-                if (FPreLoadScreenManager::ShouldEarlyScreenRender())
+                if (FPreLoadScreenManager::ShouldRender())
                 {
                     GFrameNumberRenderThread++;
                     GRHICommandList.GetImmediateCommandList().BeginFrame();
@@ -348,7 +348,7 @@ void FPreLoadScreenManager::EarlyPlayRenderFrameTick()
         ENQUEUE_RENDER_COMMAND(FinishPreLoadScreenFrame)(
             [](FRHICommandListImmediate& RHICmdList)
         {
-            if (FPreLoadScreenManager::ShouldEarlyScreenRender())
+            if (FPreLoadScreenManager::ShouldRender())
             {
                 GRHICommandList.GetImmediateCommandList().EndFrame();
                 GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);

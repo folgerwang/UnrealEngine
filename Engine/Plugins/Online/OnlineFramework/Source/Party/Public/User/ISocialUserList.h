@@ -42,7 +42,7 @@ class ISocialUserList
 public:
 	virtual ~ISocialUserList() {}
 	
-	DECLARE_EVENT_OneParam(ISocialUserList, FOnUserAdded, const USocialUser&)
+	DECLARE_EVENT_OneParam(ISocialUserList, FOnUserAdded, USocialUser&)
 	virtual FOnUserAdded& OnUserAdded() const = 0;
 
 	DECLARE_EVENT_OneParam(ISocialUserList, FOnUserRemoved, const USocialUser&)

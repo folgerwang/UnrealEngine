@@ -80,8 +80,8 @@ struct FInstancedStaticMeshInstanceData
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY(EditAnywhere, Category=Instances)
-		FMatrix Transform;
+	UPROPERTY(EditAnywhere, Category=Instances)
+	FMatrix Transform;
 
 	FInstancedStaticMeshInstanceData()
 		: Transform(FMatrix::Identity)

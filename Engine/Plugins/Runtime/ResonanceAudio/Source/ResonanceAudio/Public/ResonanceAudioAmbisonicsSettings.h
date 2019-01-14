@@ -24,5 +24,5 @@ class RESONANCEAUDIO_API UResonanceAudioAmbisonicsSettings : public UAmbisonicsS
 public:
 	//Which order of ambisonics to use for this submix.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Ambisonics)
-		EAmbisonicsOrder AmbisonicsOrder;
+	EAmbisonicsOrder AmbisonicsOrder;
 };

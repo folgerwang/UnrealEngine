@@ -6,8 +6,16 @@
 
 struct FBlockedQueryResult
 {
+	FBlockedQueryResult(bool InIsBlocked=false, bool InIsBlockedNonFriends=false, const FString& InUserId = FString())
+		: bIsBlocked(InIsBlocked)
+		, bIsBlockedNonFriends(InIsBlockedNonFriends)
+		, UserId(InUserId)
+	{}
+
 	/** Is this user blocked */
 	bool bIsBlocked;
+	/** Is this user blocked for non-friends */
+	bool bIsBlockedNonFriends;
 	/** Platform specific unique id */
 	FString UserId;
 };
@@ -31,9 +39,10 @@ public:
 	 *
 	 * @param LocalUserNum local user making the query
 	 * @param FromUserId platform specific user id of the remote user
+	 * @param FromPlatform platform for remote user
 	 * @param CompletionDelegate delegate to fire on completion
 	 */
-	virtual void QueryBlockedUser(int32 LocalUserNum, const FString& FromUserId, const FOnQueryUserBlockedResponse& CompletionDelegate) = 0;
+	virtual void QueryBlockedUser(int32 LocalUserNum, const FString& FromUserId, const FString& FromPlatform, const FOnQueryUserBlockedResponse& CompletionDelegate) = 0;
 
 	/** Invalidate all previously queried blocked users state */
 	virtual void ResetBlockedUserCache() = 0;

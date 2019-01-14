@@ -103,10 +103,16 @@ void FFbxExporter::GetSkeleton(FbxNode* RootNode, TArray<FbxNode*>& BoneNodes)
 /**
  * Adds an Fbx Mesh to the FBX scene based on the data in the given FSkeletalMeshLODModel
  */
-FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName)
+FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName, int32 LODIndex)
 {
 	const FSkeletalMeshModel* SkelMeshResource = SkelMesh->GetImportedModel();
-	const FSkeletalMeshLODModel& SourceModel = SkelMeshResource->LODModels[0];
+	if (!SkelMeshResource->LODModels.IsValidIndex(LODIndex))
+	{
+		//Return an empty node
+		return FbxNode::Create(Scene, TCHAR_TO_UTF8(MeshName));
+	}
+
+	const FSkeletalMeshLODModel& SourceModel = SkelMeshResource->LODModels[LODIndex];
 	const int32 VertexCount = SourceModel.GetNumNonClothingVertices();
 
 	// Verify the integrity of the mesh.
@@ -257,18 +263,26 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 		UMaterialInterface* MatInterface = SkelMesh->Materials[MaterialIndex].MaterialInterface;
 
 		FbxSurfaceMaterial* FbxMaterial = NULL;
-		if(MatInterface && !FbxMaterials.Find(MatInterface))
+		if (LODIndex == 0)
 		{
-			FbxMaterial = ExportMaterial(MatInterface);
+			if (MatInterface && !FbxMaterials.Find(MatInterface))
+			{
+				FbxMaterial = ExportMaterial(MatInterface);
+			}
 		}
-		else
+		else if(MatInterface)
+		{
+			FbxMaterial = *(FbxMaterials.Find(MatInterface));
+		}
+
+		if(!FbxMaterial)
 		{
 			// Note: The vertex data relies on there being a set number of Materials.  
 			// If you try to add the same material again it will not be added, so create a 
 			// default material with a unique name to ensure the proper number of materials
 
-			TCHAR NewMaterialName[MAX_SPRINTF]=TEXT("");
-			FCString::Sprintf( NewMaterialName, TEXT("Fbx Default Material %i"), MaterialIndex );
+			TCHAR NewMaterialName[MAX_SPRINTF] = TEXT("");
+			FCString::Sprintf(NewMaterialName, TEXT("Fbx Default Material %i"), MaterialIndex);
 
 			FbxMaterial = FbxSurfaceLambert::Create(Scene, TCHAR_TO_UTF8(NewMaterialName));
 			((FbxSurfaceLambert*)FbxMaterial)->Diffuse.Set(FbxDouble3(0.72, 0.72, 0.72));
@@ -287,10 +301,16 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 /**
  * Adds Fbx Clusters necessary to skin a skeletal mesh to the bones in the BoneNodes list
  */
-void FFbxExporter::BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes)
+void FFbxExporter::BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes, int32 LODIndex)
 {
 	const FSkeletalMeshModel* SkelMeshResource = SkelMesh->GetImportedModel();
-	const FSkeletalMeshLODModel& SourceModel = SkelMeshResource->LODModels[0];
+	if (!SkelMeshResource->LODModels.IsValidIndex(LODIndex))
+	{
+		//We cannot bind the LOD if its not valid
+		return;
+	}
+	const FSkeletalMeshLODModel& SourceModel = SkelMeshResource->LODModels[LODIndex];
+	const int32 VertexCount = SourceModel.NumVertices;
 
 	FbxAMatrix MeshMatrix;
 
@@ -535,11 +555,12 @@ void ExportObjectMetadataToBones(const UObject* ObjectToExport, const TArray<Fbx
 /**
  * Add the given skeletal mesh to the Fbx scene in preparation for exporting.  Makes all new nodes a child of the given node
  */
-FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, const UAnimSequence* AnimSeq, const TCHAR* MeshName, FbxNode* ActorRootNode)
+FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkeletalMesh, const UAnimSequence* AnimSeq, const TCHAR* MeshName, FbxNode* ActorRootNode)
 {
 	if(AnimSeq)
 	{
-		return ExportAnimSequence(AnimSeq, SkelMesh, GetExportOptions()->bExportPreviewMesh, MeshName, ActorRootNode);
+		return ExportAnimSequence(AnimSeq, SkeletalMesh, GetExportOptions()->bExportPreviewMesh, MeshName, ActorRootNode);
+
 	}
 	else
 	{
@@ -553,26 +574,62 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 		TArray<FbxNode*> BoneNodes;
 
 		// Add the skeleton to the scene
-		FbxNode* SkeletonRootNode = CreateSkeleton(SkelMesh, BoneNodes);
+		FbxNode* SkeletonRootNode = CreateSkeleton(SkeletalMesh, BoneNodes);
 		if(SkeletonRootNode)
 		{
 			TmpNodeNoTransform->AddChild(SkeletonRootNode);
 		}
 
-		// Add the mesh
-		FbxNode* MeshRootNode = CreateMesh(SkelMesh, MeshName);
-		if(MeshRootNode)
+		FbxNode* MeshRootNode = nullptr;
+		if (GetExportOptions()->LevelOfDetail && SkeletalMesh->GetLODNum() > 1)
 		{
+			FString LodGroup_MeshName = FString(MeshName) + TEXT("_LodGroup");
+			MeshRootNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
 			TmpNodeNoTransform->AddChild(MeshRootNode);
+			LodGroup_MeshName = FString(MeshName) + TEXT("_LodGroupAttribute");
+			FbxLODGroup *FbxLodGroupAttribute = FbxLODGroup::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
+			MeshRootNode->AddNodeAttribute(FbxLodGroupAttribute);
+
+			FbxLodGroupAttribute->ThresholdsUsedAsPercentage = true;
+			//Export an Fbx Mesh Node for every LOD and child them to the fbx node (LOD Group)
+			for (int CurrentLodIndex = 0; CurrentLodIndex < SkeletalMesh->GetLODNum(); ++CurrentLodIndex)
+			{
+				FString FbxLODNodeName = FString(MeshName) + TEXT("_LOD") + FString::FromInt(CurrentLodIndex);
+				if (CurrentLodIndex + 1 < SkeletalMesh->GetLODNum())
+				{
+					//Convert the screen size to a threshold, it is just to be sure that we set some threshold, there is no way to convert this precisely
+					double LodScreenSize = (double)(10.0f / SkeletalMesh->GetLODInfo(CurrentLodIndex)->ScreenSize.Default);
+					FbxLodGroupAttribute->AddThreshold(LodScreenSize);
+				}
+				FbxNode* FbxActorLOD = CreateMesh(SkeletalMesh, *FbxLODNodeName, CurrentLodIndex);
+				if (FbxActorLOD)
+				{
+					MeshRootNode->AddChild(FbxActorLOD);
+					if (SkeletonRootNode)
+					{
+						// Bind the mesh to the skeleton
+						BindMeshToSkeleton(SkeletalMesh, FbxActorLOD, BoneNodes, CurrentLodIndex);
+						// Add the bind pose
+						CreateBindPose(FbxActorLOD);
+					}
+				}
+			}
 		}
-
-		if(SkeletonRootNode && MeshRootNode)
+		else
 		{
-			// Bind the mesh to the skeleton
-			BindMeshToSkeleton(SkelMesh, MeshRootNode, BoneNodes);
+			MeshRootNode = CreateMesh(SkeletalMesh, MeshName, 0);
+			if (MeshRootNode)
+			{
+				TmpNodeNoTransform->AddChild(MeshRootNode);
+				if (SkeletonRootNode)
+				{
+					// Bind the mesh to the skeleton
+					BindMeshToSkeleton(SkeletalMesh, MeshRootNode, BoneNodes, 0);
 
-			// Add the bind pose
-			CreateBindPose(MeshRootNode);
+					// Add the bind pose
+					CreateBindPose(MeshRootNode);
+				}
+			}
 		}
 
 		if (SkeletonRootNode)
@@ -581,13 +638,13 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 			ActorRootNode->AddChild(SkeletonRootNode);
 		}
 
-		ExportObjectMetadataToBones(SkelMesh->Skeleton, BoneNodes);
+		ExportObjectMetadataToBones(SkeletalMesh->Skeleton, BoneNodes);
 
 		if (MeshRootNode)
 		{
 			TmpNodeNoTransform->RemoveChild(MeshRootNode);
 			ActorRootNode->AddChild(MeshRootNode);
-			ExportObjectMetadata(SkelMesh, MeshRootNode);
+			ExportObjectMetadata(SkeletalMesh, MeshRootNode);
 		}
 
 		Scene->GetRootNode()->RemoveChild(TmpNodeNoTransform);

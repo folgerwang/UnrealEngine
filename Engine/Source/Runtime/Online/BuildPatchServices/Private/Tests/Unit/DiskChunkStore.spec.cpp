@@ -334,19 +334,6 @@ void FDiskChunkStoreSpec::Define()
 				});
 			});
 		});
-
-		Describe("GetSlack", [this]()
-		{
-			It("should always return MAX_int32.", [this]()
-			{
-				FGuid ChunkId = FGuid::NewGuid();
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
-				DiskChunkStore->Put(ChunkId, TUniquePtr<IChunkDataAccess>(new FFakeChunkDataAccess()));
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
-				DiskChunkStore->Remove(ChunkId);
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
-			});
-		});
 	});
 
 	AfterEach([this]()

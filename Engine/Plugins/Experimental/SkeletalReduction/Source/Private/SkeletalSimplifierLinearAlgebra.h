@@ -1546,11 +1546,7 @@ namespace SkeletalSimplifier
 			/* default initialized puts the bbox in an invalid state*/
 			FAABBox2d()
 			{
-				MinMax[0] = FLT_MAX;
-				MinMax[1] = FLT_MAX;
-
-				MinMax[2] = -FLT_MAX;
-				MinMax[3] = -FLT_MAX;
+				Reset();
 			}
 
 			FAABBox2d(const FAABBox2d& Other)
@@ -1561,6 +1557,15 @@ namespace SkeletalSimplifier
 				MinMax[3] = Other.MinMax[3];
 			}
 
+			/* Set to a default empty state */
+			void Reset()
+			{
+				MinMax[0] = FLT_MAX;
+				MinMax[1] = FLT_MAX;
+
+				MinMax[2] = -FLT_MAX;
+				MinMax[3] = -FLT_MAX;
+			}
 			/**
 			* Expand this BBox to include the Other
 			* @param Other - another Axis Aligned bbox
@@ -1622,6 +1627,21 @@ namespace SkeletalSimplifier
 			{
 				Point.X = FMath::Clamp(Point.X, MinMax[0], MinMax[2]);
 				Point.Y = FMath::Clamp(Point.Y, MinMax[1], MinMax[3]);
+			}
+
+			/**
+			* Clamp values that exceed the bbox
+			* @Param Point - point to be clamped by a padded version of this bbox
+			* @Param Fraction - fraction of box width to use for padding.
+			*/
+			void ClampPoint(FVector2D& Point, const float Fraction) const
+			{
+				const float HalfFrac = Fraction * 0.5f;
+				const float XPad = HalfFrac * (MinMax[2] - MinMax[0]);
+				const float YPad = HalfFrac * (MinMax[3] - MinMax[1]);
+
+				Point.X = FMath::Clamp(Point.X, MinMax[0] - XPad, MinMax[2] + XPad);
+				Point.Y = FMath::Clamp(Point.Y, MinMax[1] - YPad, MinMax[3] + YPad);
 			}
 
 			/**

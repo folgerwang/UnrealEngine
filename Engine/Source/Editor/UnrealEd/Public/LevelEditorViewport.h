@@ -685,6 +685,9 @@ private:
 	/** Draw additional details for brushes in the world */
 	void DrawBrushDetails(const FSceneView* View, FPrimitiveDrawInterface* PDI);
 
+	/** Internal function for public FindViewComponentForActor, which finds a view component to use for the specified actor. */
+	static USceneComponent* FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors);
+
 public:
 	/** Static: List of objects we're hovering over */
 	static TSet< FViewportHoverTarget > HoveredObjects;

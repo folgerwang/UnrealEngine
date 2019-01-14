@@ -669,6 +669,9 @@ FORCEINLINE FString GetFullNameSafe(const UObjectBaseUtility *Object)
  */
 COREUOBJECT_API UClass* GetParentNativeClass(UClass* Class);
 
+#if !defined(USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION)
+#define USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION (1)
+#endif
 
 #if STATS
 struct FScopeCycleCounterUObject : public FCycleCounter
@@ -763,7 +766,30 @@ struct FScopeCycleCounterUObject
 
 #define SCOPE_CYCLE_UOBJECT(Name, Object) \
 	FScopeCycleCounterUObject ObjCycleCount_##Name(Object);
+#elif USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION && USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION
+extern CORE_API bool GHitchDetected;
 
+class FScopeCycleCounterUObject
+{
+	const UObject* StatObject;
+public:
+	FORCEINLINE  FScopeCycleCounterUObject(const UObject* InStatObject, TStatId OtherStat = TStatId())
+	{
+		StatObject = GHitchDetected ? nullptr : InStatObject;
+	}
+
+	FORCEINLINE ~FScopeCycleCounterUObject()
+	{
+		if (GHitchDetected &&  StatObject)
+		{
+			ReportHitch();
+		}
+	}
+
+	COREUOBJECT_API void ReportHitch();
+};
+#define SCOPE_CYCLE_UOBJECT(Name, Object) \
+	FScopeCycleCounterUObject ObjCycleCount_##Name(Object);
 #else
 struct FScopeCycleCounterUObject
 {

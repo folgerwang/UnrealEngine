@@ -258,6 +258,10 @@
 
 #include "Misc/App.h"
 
+#include "IDesktopPlatform.h"
+#include "DesktopPlatformModule.h"
+#include "Interfaces/IMainFrameModule.h"
+
 DEFINE_LOG_CATEGORY(LogEditorFactories);
 
 #define LOCTEXT_NAMESPACE "EditorFactories"
@@ -265,6 +269,56 @@ DEFINE_LOG_CATEGORY(LogEditorFactories);
 /*------------------------------------------------------------------------------
 	Shared - used by multiple factories
 ------------------------------------------------------------------------------*/
+
+void GetReimportPathFromUser(const FText& TitleLabel, TArray<FString>& InOutFilenames)
+{
+	FString FileTypes;
+	FString AllExtensions;
+	// Determine whether we will allow multi select and clear old filenames
+	bool bAllowMultiSelect = false;
+	InOutFilenames.Empty();
+
+	FileTypes = TEXT("FBX Files (*.fbx)|*.fbx");
+
+	FString DefaultFolder;
+	FString DefaultFile;
+
+	// Prompt the user for the filenames
+	TArray<FString> OpenFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpened = false;
+	if (DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString Title = FString::Printf(TEXT("%s %s"), *NSLOCTEXT("FBXReimport", "ImportContentTypeDialogTitle", "Add import source file for").ToString(), *TitleLabel.ToString());
+		bOpened = DesktopPlatform->OpenFileDialog(
+			ParentWindowWindowHandle,
+			Title,
+			*DefaultFolder,
+			*DefaultFile,
+			FileTypes,
+			bAllowMultiSelect ? EFileDialogFlags::Multiple : EFileDialogFlags::None,
+			OpenFilenames
+		);
+	}
+
+	if (bOpened)
+	{
+		for (int32 FileIndex = 0; FileIndex < OpenFilenames.Num(); ++FileIndex)
+		{
+			InOutFilenames.Add(OpenFilenames[FileIndex]);
+		}
+	}
+}
+
 
 class FAssetClassParentFilter : public IClassViewerFilter
 {
@@ -5266,6 +5320,7 @@ void UReimportFbxStaticMeshFactory::SetReimportPaths( UObject* Obj, const TArray
 	UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
 	if(Mesh && ensure(NewReimportPaths.Num() == 1))
 	{
+		Mesh->Modify();
 		UFbxStaticMeshImportData* ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
 
 		ImportData->UpdateFilenameOnly(NewReimportPaths[0]);
@@ -5386,6 +5441,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	ImportOptions->bAutoComputeLodDistances = true;
 	ImportOptions->LodNumber = 0;
 	ImportOptions->MinimumLodNumber = 0;
+	//Make sure the LODGroup do not change when re-importing a mesh
+	ImportOptions->StaticMeshLODGroup = Mesh->LODGroup;
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
@@ -5555,17 +5612,18 @@ bool UReimportFbxSkeletalMeshFactory::CanReimport( UObject* Obj, TArray<FString>
 	return false;
 }
 
-void UReimportFbxSkeletalMeshFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
+void UReimportFbxSkeletalMeshFactory::SetReimportPaths( UObject* Obj, const FString& NewReimportPath, const int32 SourceFileIndex )
 {	
 	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Obj);
-	if(SkeletalMesh && ensure(NewReimportPaths.Num() == 1))
+	if(SkeletalMesh)
 	{
+		SkeletalMesh->Modify();
 		UFbxSkeletalMeshImportData* ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
-		ImportData->UpdateFilenameOnly(NewReimportPaths[0]);
+		ImportData->UpdateFilenameOnly(NewReimportPath, SourceFileIndex);
 	}
 }
 
-EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
+EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj, int32 SourceFileIndex)
 {
 	// Only handle valid skeletal meshes
 	if( !Obj || !Obj->IsA( USkeletalMesh::StaticClass() ))
@@ -5617,31 +5675,142 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
 		SkeletalMesh->AssetImportData = ImportData;
 	}
+	check(ImportData != nullptr);
 
-	const FString Filename = ImportData->GetFirstFilename();
-	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-	// Ensure that the file provided by the path exists
-	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	auto GetSourceFileName = [](UFbxSkeletalMeshImportData* ImportDataPtr, FString& OutFilename, bool bUnattended)->bool
 	{
-		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
-		return EReimportResult::Failed;
-	}
-	CurrentFilename = Filename;
+		if (ImportDataPtr == nullptr)
+		{
+			return false;
+		}
+		EFBXImportContentType ContentType = ImportDataPtr->ImportContentType;
+		TArray<FString> AbsoluteFilenames;
+		ImportDataPtr->ExtractFilenames(AbsoluteFilenames);
+		
+		auto InternalGetSourceFileName = [&ImportDataPtr, &AbsoluteFilenames, &bUnattended, &OutFilename](const int32 SourceIndex, const FText& SourceLabel)->bool
+		{
+			if (AbsoluteFilenames.Num() > SourceIndex)
+			{
+				OutFilename = AbsoluteFilenames[SourceIndex];
+			}
+			else if (!bUnattended)
+			{
+				GetReimportPathFromUser(SourceLabel, AbsoluteFilenames);
+				if (AbsoluteFilenames.Num() < 1)
+				{
+					return false;
+				}
+				OutFilename = AbsoluteFilenames[0];
+			}
+			//Make sure the source file data is up to date
+			if (SourceIndex == 0)
+			{
+				//When we re-import the All content we just update the 
+				ImportDataPtr->AddFileName(OutFilename, SourceIndex, SourceLabel.ToString());
+			}
+			else
+			{
+				//Refresh the absolute filenames
+				AbsoluteFilenames.Reset();
+				ImportDataPtr->ExtractFilenames(AbsoluteFilenames);
+				//Set both geo and skinning filepath. Reuse existing file path if possible. Use the first filename(geo and skin) if it has to be create.
+				FString FilenameToAdd = SourceIndex == 1 ? OutFilename : AbsoluteFilenames.Num() > SourceIndex ? AbsoluteFilenames[1] : AbsoluteFilenames[0];
+				ImportDataPtr->AddFileName(FilenameToAdd, 1, NSSkeletalMeshSourceFileLabels::GeometryText().ToString());
+				FilenameToAdd = SourceIndex == 2 ? OutFilename : AbsoluteFilenames.Num() > SourceIndex ? AbsoluteFilenames[2] : AbsoluteFilenames[0];
+				ImportDataPtr->AddFileName(FilenameToAdd, 2, NSSkeletalMeshSourceFileLabels::SkinningText().ToString());
+			}
+			return true;
+		};
 
-	if( ImportData && !ShowImportDialogAtReimport)
+		switch (ContentType)
+		{
+			case FBXICT_All:
+			{
+				if (!InternalGetSourceFileName(0, NSSkeletalMeshSourceFileLabels::GeoAndSkinningText()))
+				{
+					return false;
+				}
+			}
+			break;
+			case FBXICT_Geometry:
+			{
+				if (!InternalGetSourceFileName(1, NSSkeletalMeshSourceFileLabels::GeometryText()))
+				{
+					return false;
+				}
+			}
+			break;
+			case FBXICT_SkinningWeights:
+			{
+				if (!InternalGetSourceFileName(2, NSSkeletalMeshSourceFileLabels::SkinningText()))
+				{
+					return false;
+				}
+			}
+			break;
+			default:
+			{
+				if (!InternalGetSourceFileName(0, NSSkeletalMeshSourceFileLabels::GeoAndSkinningText()))
+				{
+					return false;
+				}
+			}
+		}
+		return IFileManager::Get().FileSize(*OutFilename) != INDEX_NONE;
+	};
+
+	FString Filename = ImportData->GetFirstFilename();
+
+	ReimportUI->SkeletalMeshImportData = ImportData;
+	const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+
+	//Manage the content type from the source file index
+	ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
+	if (!ReimportUI->bAllowContentTypeImport)
+	{
+		//No content type allow reimport All (legacy)
+		ImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+	}
+	else if (SourceFileIndex != INDEX_NONE)
+	{
+		//Reimport a specific source file index
+		TArray<FString> SourceFilenames;
+		ImportData->ExtractFilenames(SourceFilenames);
+		if (SourceFilenames.IsValidIndex(SourceFileIndex))
+		{
+			ImportData->ImportContentType = SourceFileIndex == 0 ? EFBXImportContentType::FBXICT_All : SourceFileIndex == 1 ? EFBXImportContentType::FBXICT_Geometry : EFBXImportContentType::FBXICT_SkinningWeights;
+			Filename = SourceFilenames[SourceFileIndex];
+		}
+	}
+	else
+	{
+		//No source index is provided. Reimport the last imported content.
+		int32 LastSourceFileIndex = ImportData->LastImportContentType == EFBXImportContentType::FBXICT_All ? 0 : ImportData->LastImportContentType == EFBXImportContentType::FBXICT_Geometry ? 1 : 2;
+		TArray<FString> SourceFilenames;
+		ImportData->ExtractFilenames(SourceFilenames);
+		if (SourceFilenames.IsValidIndex(LastSourceFileIndex))
+		{
+			ImportData->ImportContentType = ImportData->LastImportContentType;
+			Filename = SourceFilenames[LastSourceFileIndex];
+		}
+		else
+		{
+			ImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
+	}
+
+
+	if( !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
-		ReimportUI->SkeletalMeshImportData = ImportData;
 		//Some options not supported with skeletal mesh
-		ReimportUI->SkeletalMeshImportData->bBakePivotInVertex = false;
-		ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
+		ImportData->bBakePivotInVertex = false;
+		ImportData->bTransformVertexToAbsolute = true;
 
-		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
-		if (!ReimportUI->bAllowContentTypeImport)
+		if (!GetSourceFileName(ImportData, Filename, true))
 		{
-			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+			return EReimportResult::Failed;
 		}
 
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
@@ -5650,14 +5819,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	{
 		ReimportUI->bIsReimport = true;
 		ReimportUI->ReimportMesh = Obj;
-		ReimportUI->SkeletalMeshImportData = ImportData;
-		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
 
-		if (!ReimportUI->bAllowContentTypeImport)
-		{
-			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
-		}
 		bool bImportOperationCanceled = false;
 		bool bShowOptionDialog = true;
 		bool bForceImportType = true;
@@ -5670,9 +5832,18 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
 		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh);
+
+		if (!GetSourceFileName(ImportData, Filename, false))
+		{
+			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+			return EReimportResult::Failed;
+		}
 	}
 
-	if( !bOperationCanceled && ensure(ImportData) )
+	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
+	CurrentFilename = Filename;
+
+	if( !bOperationCanceled )
 	{
 		ImportOptions->bCanShowDialog = !IsUnattended;
 
@@ -5689,7 +5860,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		{
 			ImportOptions->bImportAnimations = false;
 			ImportOptions->bUpdateSkeletonReferencePose = false;
-			ImportOptions->bUseT0AsRefPose = false;
 		}
 
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -5698,8 +5868,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 			{
 				UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
 
-				SkeletalMesh->AssetImportData->Update(Filename);
-				
 				// Try to find the outer package so we can dirty it up
 				if (SkeletalMesh->GetOuter())
 				{

@@ -5,6 +5,7 @@
 #include "UObject/UnrealType.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CoreDelegates.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #if WITH_EDITOR
 #include "IAndroidTargetPlatformModule.h"
@@ -21,6 +22,7 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, bEnableGooglePlaySupport(false)
 	, bUseGetAccounts(false)
 	, bSupportAdMob(true)
+	, bBlockAndroidKeysOnControllers(false)
 	, AudioSampleRate(44100)
 	, AudioCallbackBufferFrameSize(1024)
 	, AudioNumBuffersToEnqueue(4)
@@ -40,6 +42,17 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, TextureFormatPriority_ASTC(0.9f)
 {
 	bBuildForES2 = !bBuildForES2 && !bBuildForES31 && !bSupportsVulkan;
+}
+
+void UAndroidRuntimeSettings::PostReloadConfig(UProperty* PropertyThatWasLoaded)
+{
+	Super::PostReloadConfig(PropertyThatWasLoaded);
+
+#if PLATFORM_ANDROID
+
+	FPlatformApplicationMisc::SetGamepadsAllowed(bAllowControllers);
+
+#endif //PLATFORM_ANDROID
 }
 
 #if WITH_EDITOR

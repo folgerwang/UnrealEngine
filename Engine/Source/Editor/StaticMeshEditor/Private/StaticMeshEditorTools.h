@@ -215,7 +215,7 @@ private:
 class FMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshReductionSettingsLayout>
 {
 public:
-	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself);
+	FMeshReductionSettingsLayout(TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself);
 	virtual ~FMeshReductionSettingsLayout();
 
 	const FMeshReductionSettings& GetSettings() const;

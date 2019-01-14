@@ -42,6 +42,12 @@ public:
 		return false;
 	}
 
+	/** Whether the curves returned by GetCurves are rich or simple curves */
+	virtual bool HasRichCurves() const
+	{
+		return true;
+	}
+
 	/** Evaluate this color curve at the specified time */
 	virtual FLinearColor GetLinearColorValue(float InTime) const
 	{

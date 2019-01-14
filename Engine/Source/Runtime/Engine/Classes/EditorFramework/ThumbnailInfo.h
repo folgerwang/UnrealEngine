@@ -15,6 +15,8 @@ UCLASS(MinimalAPI)
 class UThumbnailInfo : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual bool IsEditorOnly() const { return true; }
 };
 
 

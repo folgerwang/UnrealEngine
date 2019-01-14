@@ -1216,6 +1216,8 @@ public:
 	// Function calls
 	DECLARE_FUNCTION(execVirtualFunction);
 	DECLARE_FUNCTION(execFinalFunction);
+	DECLARE_FUNCTION(execLocalVirtualFunction);
+	DECLARE_FUNCTION(execLocalFinalFunction);
 
 	// Struct comparison
 	DECLARE_FUNCTION(execStructCmpEq);

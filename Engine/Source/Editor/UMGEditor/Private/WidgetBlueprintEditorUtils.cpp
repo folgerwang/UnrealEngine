@@ -32,6 +32,8 @@
 #include "Utility/WidgetSlotPair.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Components/Widget.h"
+#include "Blueprint/WidgetNavigation.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -257,6 +259,16 @@ bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor
 				}
 			}
 		}
+
+		// Update any explicit widget bindings.
+		Blueprint->WidgetTree->ForEachWidget([OldObjectName, NewFName](UWidget* Widget) {
+			if (Widget->Navigation)
+			{
+				Widget->Navigation->SetFlags(RF_Transactional);
+				Widget->Navigation->Modify();
+				Widget->Navigation->TryToRenameBinding(OldObjectName, NewFName);
+			}
+		});
 
 		// Validate child blueprints and adjust variable names to avoid a potential name collision
 		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewFName);

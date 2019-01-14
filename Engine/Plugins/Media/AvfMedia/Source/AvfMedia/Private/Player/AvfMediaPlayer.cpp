@@ -19,6 +19,7 @@
 
 #include "AvfMediaTracks.h"
 #include "AvfMediaUtils.h"
+#include "IMediaAudioSample.h"
 
 
 /* FAVPlayerDelegate
@@ -93,6 +94,52 @@
 
 @end
 
+/* Sync Control Class for consumed samples  */
+class FAvfMediaSamples : public FMediaSamples
+{
+public:
+	FAvfMediaSamples()
+	: FMediaSamples()
+	, AudioSyncSampleTime(FTimespan::MinValue())
+	, VideoSyncSampleTime(FTimespan::MinValue())
+	{}
+	
+	virtual ~FAvfMediaSamples()
+	{}
+	
+	virtual bool FetchAudio(TRange<FTimespan> TimeRange, TSharedPtr<IMediaAudioSample, ESPMode::ThreadSafe>& OutSample) override
+	{
+		bool bResult = FMediaSamples::FetchAudio(TimeRange, OutSample);
+		
+		if(FTimespan::MinValue() == AudioSyncSampleTime && bResult && OutSample.IsValid())
+		{
+			AudioSyncSampleTime = OutSample->GetTime() + OutSample->GetDuration();
+		}
+
+		return bResult;
+	}
+	
+	virtual bool FetchVideo(TRange<FTimespan> TimeRange, TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe>& OutSample)
+	{
+		bool bResult = FMediaSamples::FetchVideo(TimeRange, OutSample);
+		
+		if(FTimespan::MinValue() == VideoSyncSampleTime && bResult && OutSample.IsValid())
+		{
+			VideoSyncSampleTime = OutSample->GetTime() + OutSample->GetDuration();
+		}
+
+		return bResult;
+	}
+	
+	void ClearSyncSampleTimes ()			 { AudioSyncSampleTime = VideoSyncSampleTime = FTimespan::MinValue(); }
+	FTimespan GetAudioSyncSampleTime() const { return AudioSyncSampleTime; }
+	FTimespan GetVideoSyncSampleTime() const { return VideoSyncSampleTime; }
+	
+private:
+
+	TAtomic<FTimespan> AudioSyncSampleTime;
+	TAtomic<FTimespan> VideoSyncSampleTime;
+};
 
 /* FAvfMediaPlayer structors
  *****************************************************************************/
@@ -113,8 +160,10 @@ FAvfMediaPlayer::FAvfMediaPlayer(IMediaEventSink& InEventSink)
 	PlayerItem = nil;
 		
 	bPrerolled = false;
+	bTimeSynced = false;
+	bSeeking = false;
 
-	Samples = new FMediaSamples;
+	Samples = new FAvfMediaSamples;
 	Tracks = new FAvfMediaTracks(*Samples);
 }
 
@@ -125,6 +174,37 @@ FAvfMediaPlayer::~FAvfMediaPlayer()
 
 	delete Samples;
 	Samples = nullptr;
+}
+
+/* FAvfMediaPlayer Sample Sync helpers
+ *****************************************************************************/
+void FAvfMediaPlayer::ClearTimeSync()
+{
+	bTimeSynced = false;
+	if(Samples != nullptr)
+	{
+		Samples->ClearSyncSampleTimes();
+	}
+}
+
+FTimespan FAvfMediaPlayer::GetAudioTimeSync() const
+{
+	FTimespan Sync = FTimespan::MinValue();
+	if(Samples != nullptr)
+	{
+		Sync = Samples->GetAudioSyncSampleTime();
+	}
+	return Sync;
+}
+
+FTimespan FAvfMediaPlayer::GetVideoTimeSync() const
+{
+	FTimespan Sync = FTimespan::MinValue();
+	if(Samples != nullptr)
+	{
+		Sync = Samples->GetVideoSyncSampleTime();
+	}
+	return Sync;
 }
 
 
@@ -228,7 +308,9 @@ void FAvfMediaPlayer::OnStatusNotification()
 			}
 			case AVPlayerItemStatusUnknown:
 			default:
+			{
 				break;
+			}
 		}
 	});
 }
@@ -268,7 +350,7 @@ void FAvfMediaPlayer::Close()
         WillDeactivateHandle.Reset();
     }
 
-	CurrentTime = 0;
+	CurrentTime = FTimespan::Zero();
 	MediaUrl = FString();
 	
 	if (PlayerItem != nil)
@@ -307,8 +389,11 @@ void FAvfMediaPlayer::Close()
 	EventSink.ReceiveMediaEvent(EMediaEvent::MediaClosed);
 		
 	bPrerolled = false;
+	bSeeking = false;
 
 	CurrentRate = 0.f;
+	
+	ClearTimeSync();
 }
 
 
@@ -525,14 +610,62 @@ void FAvfMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 
 void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
-	// Prevent deadlock - can't do this in TickAudio
 	if ((CurrentState > EMediaState::Error) && (Duration > FTimespan::Zero()))
 	{
-		if(MediaPlayer != nil)
+		switch(CurrentState)
 		{
-			CMTime Current = [MediaPlayer currentTime];
-			FTimespan DiplayTime = FTimespan::FromSeconds(CMTimeGetSeconds(Current));
-			CurrentTime = FMath::Min(DiplayTime, Duration);
+			case EMediaState::Playing:
+			{
+				if(bSeeking)
+				{
+					ClearTimeSync();
+				}
+				else
+				{
+					if(!bTimeSynced)
+					{
+						FTimespan SyncTime = FTimespan::MinValue();
+#if AUDIO_PLAYBACK_VIA_ENGINE
+						if(Tracks->GetSelectedTrack(EMediaTrackType::Audio) != INDEX_NONE)
+						{
+							SyncTime = GetAudioTimeSync();
+						}
+						else if(Tracks->GetSelectedTrack(EMediaTrackType::Video) != INDEX_NONE)
+						{
+							SyncTime = GetVideoTimeSync();
+						}
+						else /* Default Use AVPlayer time*/
+#endif
+						{
+							SyncTime = FTimespan::FromSeconds(CMTimeGetSeconds(MediaPlayer.currentTime));
+						}
+						
+						if(SyncTime != FTimespan::MinValue())
+						{
+							bTimeSynced = true;
+							CurrentTime = SyncTime;
+						}
+					}
+					else
+					{
+						CurrentTime += DeltaTime * CurrentRate;
+					}
+				}
+				break;
+			}
+			case EMediaState::Stopped:
+			case EMediaState::Closed:
+			case EMediaState::Error:
+			case EMediaState::Preparing:
+			{
+				CurrentTime = FTimespan::Zero();
+				break;
+			}
+			case EMediaState::Paused:
+			default:
+			{
+				break;
+			}
 		}
 	}
 	
@@ -621,13 +754,15 @@ bool FAvfMediaPlayer::IsLooping() const
 	return ShouldLoop;
 }
 
-
 bool FAvfMediaPlayer::Seek(const FTimespan& Time)
 {
-	CurrentTime = Time;
-	
 	if (bPrerolled)
 	{
+		bSeeking = true;
+		ClearTimeSync();
+
+		CurrentTime = Time;
+		
 		double TotalSeconds = Time.GetTotalSeconds();
 		CMTime CurrentTimeInSeconds = CMTimeMakeWithSeconds(TotalSeconds, 1000);
 		
@@ -638,6 +773,7 @@ bool FAvfMediaPlayer::Seek(const FTimespan& Time)
 			{
 				PlayerTasks.Enqueue([=]()
 				{
+					bSeeking = false;
 					EventSink.ReceiveMediaEvent(EMediaEvent::SeekCompleted);
 				});
 			}
@@ -673,16 +809,37 @@ bool FAvfMediaPlayer::SetRate(float Rate)
 	{
 		[MediaPlayer setRate : CurrentRate];
 		
-		if (FMath::IsNearlyZero(Rate))
+		if (FMath::IsNearlyZero(CurrentRate) && CurrentState != EMediaState::Paused)
 		{
 			CurrentState = EMediaState::Paused;
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackSuspended);
 		}
 		else
 		{
-			CurrentState = EMediaState::Playing;
-			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackResumed);
+			if(CurrentState != EMediaState::Playing)
+			{
+				ClearTimeSync();
+				
+				CurrentState = EMediaState::Playing;
+				EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackResumed);
+			}
 		}
+		
+		// Use AVPlayer Mute to control reverse playback audio playback
+		// Only needed if !AUDIO_PLAYBACK_VIA_ENGINE - however - keep all platforms the same
+		bool bMuteAudio = Rate < 0.f;
+		if(bMuteAudio)
+		{
+			MediaPlayer.muted = YES;
+		}
+		else
+		{
+			MediaPlayer.muted = NO;
+		}
+
+#if AUDIO_PLAYBACK_VIA_ENGINE
+		Tracks->ApplyMuteState(bMuteAudio);
+#endif
 	}
 
 	return true;

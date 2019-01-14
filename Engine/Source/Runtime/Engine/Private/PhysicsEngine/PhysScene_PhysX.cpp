@@ -344,6 +344,7 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 	virtual void submitTask(PxBaseTask& Task) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PhysXSingleThread);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
 
 		TaskStack.Push(&Task);
 		if (TaskStack.Num() > 1)
@@ -942,6 +943,85 @@ void GatherClothingStats(const UWorld* World)
 #endif // WITH_PHYSX
 }
 
+
+void FPhysScene_PhysX::MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning)
+{
+	// If null, or pending kill, do nothing
+	if (InSkelComp != nullptr && !InSkelComp->IsPendingKill())
+	{
+		// If we are already flagged, just need to update info
+		if (InSkelComp->bDeferredKinematicUpdate)
+		{
+			TPair<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>* FoundItem = DeferredKinematicUpdateSkelMeshes.FindByPredicate([InSkelComp](const TPair<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>& InItem) { return InSkelComp == InItem.Key; });
+			check(FoundItem != nullptr); // If the bool was set, we must be in the array!
+
+			FDeferredKinematicUpdateInfo& Info = FoundItem->Value;
+
+			// If we are currently not going to teleport physics, but this update wants to, we 'upgrade' it
+			if (Info.TeleportType == ETeleportType::None && InTeleport == ETeleportType::TeleportPhysics)
+			{
+				Info.TeleportType = ETeleportType::TeleportPhysics;
+			}
+
+			// If we need skinning, remember that
+			if (bNeedsSkinning)
+			{
+				Info.bNeedsSkinning = true;
+			}
+		}
+		// We are not flagged yet..
+		else
+		{
+			// Set info and add to map
+			FDeferredKinematicUpdateInfo Info;
+			Info.TeleportType = InTeleport;
+			Info.bNeedsSkinning = bNeedsSkinning;
+			DeferredKinematicUpdateSkelMeshes.Emplace(InSkelComp, Info);
+
+			// Set flag on component
+			InSkelComp->bDeferredKinematicUpdate = true;
+		}
+	}
+}
+
+void FPhysScene_PhysX::ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp)
+{
+	// If non-null, and flagged for deferred update..
+	if (InSkelComp != nullptr && InSkelComp->bDeferredKinematicUpdate)
+	{
+		// Remove from map
+		int32 NumRemoved = DeferredKinematicUpdateSkelMeshes.RemoveAll([InSkelComp](const TPair<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>& InItem) { return InSkelComp == InItem.Key; });
+
+		check(NumRemoved == 1); // Should be in array if flag was set!
+
+		// Clear flag
+		InSkelComp->bDeferredKinematicUpdate = false;
+	}
+}
+
+
+void FPhysScene_PhysX::UpdateKinematicsOnDeferredSkelMeshes()
+{
+	SCOPE_CYCLE_COUNTER(STAT_UpdateKinematicsOnDeferredSkelMeshes);
+
+	for (const TPair<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>& DeferredKinematicUpdate : DeferredKinematicUpdateSkelMeshes)
+	{
+		USkeletalMeshComponent* SkelComp = DeferredKinematicUpdate.Key;
+		const FDeferredKinematicUpdateInfo& Info = DeferredKinematicUpdate.Value;
+
+		check(SkelComp->bDeferredKinematicUpdate); // Should be true if in map!
+
+		// Perform kinematic updates
+		SkelComp->UpdateKinematicBonesToAnim(SkelComp->GetComponentSpaceTransforms(), Info.TeleportType, Info.bNeedsSkinning, EAllowKinematicDeferral::DisallowDeferral);
+
+		// Clear deferred flag
+		SkelComp->bDeferredKinematicUpdate = false;
+	}
+
+	// Empty map now all is done
+	DeferredKinematicUpdateSkelMeshes.Reset();
+}
+
 /** Exposes ticking of physics-engine scene outside Engine. */
 void FPhysScene_PhysX::TickPhysScene(FGraphEventRef& InOutCompletionEvent)
 {
@@ -991,6 +1071,9 @@ void FPhysScene_PhysX::TickPhysScene(FGraphEventRef& InOutCompletionEvent)
 	check(!InOutCompletionEvent.GetReference()); // these should be gone because nothing is outstanding
 	InOutCompletionEvent = FGraphEvent::CreateGraphEvent();
 	bool bTaskOutstanding = false;
+
+	// Update any skeletal meshes that need their bone transforms sent to physics sim
+	UpdateKinematicsOnDeferredSkelMeshes();
 
 #if !WITH_PHYSX
 	const bool bSimulateScene = false;
@@ -1149,6 +1232,7 @@ void FPhysScene_PhysX::ProcessPhysScene()
 	bSuccess = ApexScene->fetchResults(true, &OutErrorCode);
 #endif	//	#if !WITH_APEX
 
+	GPhysXHackCurrentLoopCounter = 0;
 	if (OutErrorCode != 0)
 	{
 		UE_LOG(LogPhysics, Log, TEXT("PHYSX FETCHRESULTS ERROR: %d"), OutErrorCode);

@@ -322,20 +322,56 @@ FbxNode* FFbxExporter::ExportAnimSequence( const UAnimSequence* AnimSeq, const U
 			SkelMesh->GetName(MeshNodeName);
 		}
 
-		// Add the mesh
-		FbxNode* MeshRootNode = CreateMesh(SkelMesh, *MeshNodeName);
-		if(MeshRootNode)
+		FbxNode* MeshRootNode = nullptr;
+		if (GetExportOptions()->LevelOfDetail && SkelMesh->GetLODNum() > 1)
 		{
+			FString LodGroup_MeshName = MeshNodeName + TEXT("_LodGroup");
+			MeshRootNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
 			TmpNodeNoTransform->AddChild(MeshRootNode);
+			LodGroup_MeshName = MeshNodeName + TEXT("_LodGroupAttribute");
+			FbxLODGroup *FbxLodGroupAttribute = FbxLODGroup::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
+			MeshRootNode->AddNodeAttribute(FbxLodGroupAttribute);
+
+			FbxLodGroupAttribute->ThresholdsUsedAsPercentage = true;
+			//Export an Fbx Mesh Node for every LOD and child them to the fbx node (LOD Group)
+			for (int CurrentLodIndex = 0; CurrentLodIndex < SkelMesh->GetLODNum(); ++CurrentLodIndex)
+			{
+				FString FbxLODNodeName = MeshNodeName + TEXT("_LOD") + FString::FromInt(CurrentLodIndex);
+				if (CurrentLodIndex + 1 < SkelMesh->GetLODNum())
+				{
+					//Convert the screen size to a threshold, it is just to be sure that we set some threshold, there is no way to convert this precisely
+					double LodScreenSize = (double)(10.0f / SkelMesh->GetLODInfo(CurrentLodIndex)->ScreenSize.Default);
+					FbxLodGroupAttribute->AddThreshold(LodScreenSize);
+				}
+				FbxNode* FbxActorLOD = CreateMesh(SkelMesh, *FbxLODNodeName, CurrentLodIndex);
+				if (FbxActorLOD)
+				{
+					MeshRootNode->AddChild(FbxActorLOD);
+					if (SkeletonRootNode)
+					{
+						// Bind the mesh to the skeleton
+						BindMeshToSkeleton(SkelMesh, FbxActorLOD, BoneNodes, CurrentLodIndex);
+						// Add the bind pose
+						CreateBindPose(FbxActorLOD);
+					}
+				}
+			}
 		}
-
-		if(SkeletonRootNode && MeshRootNode)
+		else
 		{
-			// Bind the mesh to the skeleton
-			BindMeshToSkeleton(SkelMesh, MeshRootNode, BoneNodes);
+			MeshRootNode = CreateMesh(SkelMesh, *MeshNodeName, 0);
+			if (MeshRootNode)
+			{
+				TmpNodeNoTransform->AddChild(MeshRootNode);
+				if (SkeletonRootNode)
+				{
+					// Bind the mesh to the skeleton
+					BindMeshToSkeleton(SkelMesh, MeshRootNode, BoneNodes, 0);
 
-			// Add the bind pose
-			CreateBindPose(MeshRootNode);
+					// Add the bind pose
+					CreateBindPose(MeshRootNode);
+				}
+			}
 		}
 
 		if (MeshRootNode)

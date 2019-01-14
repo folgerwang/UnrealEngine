@@ -51,6 +51,12 @@ public:
 	*	Returns true if mesh reduction is supported
 	*/
 	virtual bool IsSupported() const = 0;
+
+	/**
+	*	Returns true if mesh reduction is active. Active mean there will be a reduction of the vertices or triangle number
+	*/
+	virtual bool IsReductionActive(const struct FMeshReductionSettings &ReductionSettings) const = 0;
+	virtual bool IsReductionActive(const struct FSkeletalMeshOptimizationSettings &ReductionSettings) const = 0;
 };
 
 DECLARE_DELEGATE_ThreeParams(FProxyCompleteDelegate, struct FMeshDescription&, struct FFlattenMaterial&, const FGuid);

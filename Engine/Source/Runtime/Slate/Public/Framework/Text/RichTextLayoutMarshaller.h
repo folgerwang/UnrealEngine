@@ -11,6 +11,7 @@
 #endif
 
 class FSlateTextUnderlineLineHighlighter;
+class FSlateTextStrikeLineHighlighter;
 class IRichTextMarkupParser;
 class IRichTextMarkupWriter;
 class ISlateStyle;
@@ -59,7 +60,8 @@ protected:
 		FTextLayout& TargetTextLayout,
 		TArray<TSharedRef<IRun>>& Runs,
 		TArray<FTextLineHighlight>& LineHighlights,
-		TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters
+		TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters,
+		TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextStrikeLineHighlighter>>& CachedStrikeLineHighlighters
 		);
 
 	/** The parser used to resolve any markup used in the provided string. */

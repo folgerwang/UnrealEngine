@@ -332,7 +332,7 @@ FArchive& operator<<(FArchive& Ar, FSkelMeshSection& S)
 			Ar << S.BaseVertexIndex;
 		}
 
-		if (!StripFlags.IsEditorDataStripped())
+		if (!StripFlags.IsEditorDataStripped() && !(Ar.IsFilterEditorOnly() && Ar.IsCountingMemory()))
 		{
 			// For backwards compat, read rigid vert array into array
 			TArray<FLegacyRigidSkinVertex> LegacyRigidVertices;

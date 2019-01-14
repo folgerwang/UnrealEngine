@@ -187,6 +187,13 @@ public:
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
 
+	/** 
+	 * If true, this actor's component's bounds will be included in the level's
+	 * bounding box unless the Actor's class has overriden IsLevelBoundsRelevant 
+	 */
+	UPROPERTY(EditAnywhere, Category=Collision, AdvancedDisplay)
+	uint8 bRelevantForLevelBounds:1;
+
 	/**
 	 * If true, this actor will only be destroyed during scrubbing if the replay is set to a time before the actor existed.
 	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
@@ -1693,7 +1700,7 @@ public:
 	/** 
 	 * Indicates whether this actor should participate in level bounds calculations
 	 */
-	virtual bool IsLevelBoundsRelevant() const { return true; }
+	virtual bool IsLevelBoundsRelevant() const { return bRelevantForLevelBounds; }
 
 	/** Set LOD Parent Primitive*/
 	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);

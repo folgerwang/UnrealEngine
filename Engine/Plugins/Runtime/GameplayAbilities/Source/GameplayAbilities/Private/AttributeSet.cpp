@@ -594,9 +594,9 @@ void FAttributeSetInitterDiscreteLevels::PreloadAttributeSetData(const TArray<UC
 	 */
 	for (const UCurveTable* CurTable : CurveData)
 	{
-		for (auto It = CurTable->RowMap.CreateConstIterator(); It; ++It)
+		for (const TPair<FName, FRealCurve*>& CurveRow : CurTable->GetRowMap())
 		{
-			FString RowName = It.Key().ToString();
+			FString RowName = CurveRow.Key.ToString();
 			FString ClassName;
 			FString SetName;
 			FString AttributeName;
@@ -629,20 +629,21 @@ void FAttributeSetInitterDiscreteLevels::PreloadAttributeSetData(const TArray<UC
 				continue;
 			}
 
-			FRichCurve* Curve = It.Value();
+			FRealCurve* Curve = CurveRow.Value;
 			FName ClassFName = FName(*ClassName);
 			FAttributeSetDefaultsCollection& DefaultCollection = Defaults.FindOrAdd(ClassFName);
 
-			int32 LastLevel = Curve->GetLastKey().Time;
+			int32 LastLevel = Curve->GetKeyTime(Curve->GetLastKeyHandle());
 			DefaultCollection.LevelData.SetNum(FMath::Max(LastLevel, DefaultCollection.LevelData.Num()));
 
 			//At this point we know the Name of this "class"/"group", the AttributeSet, and the Property Name. Now loop through the values on the curve to get the attribute default value at each level.
-			for (auto KeyIter = Curve->GetKeyIterator(); KeyIter; ++KeyIter)
+			for (auto KeyIter = Curve->GetKeyHandleIterator(); KeyIter; ++KeyIter)
 			{
-				const FRichCurveKey& CurveKey = *KeyIter;
+				const FKeyHandle& KeyHandle = *KeyIter;
 
-				int32 Level = CurveKey.Time;
-				float Value = CurveKey.Value;
+				TPair<float, float> LevelValuePair = Curve->GetKeyTimeValuePair(KeyHandle);
+				int32 Level = LevelValuePair.Key;
+				float Value = LevelValuePair.Value;
 
 				FAttributeSetDefaults& SetDefaults = DefaultCollection.LevelData[Level-1];
 

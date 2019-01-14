@@ -356,12 +356,12 @@ private:
 	/**
 	 * Adds an Fbx Mesh to the FBX scene based on the data in the given FSkeletalMeshLODModel
 	 */
-	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName);
+	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName, int32 LODIndex);
 
 	/**
 	 * Adds Fbx Clusters necessary to skin a skeletal mesh to the bones in the BoneNodes list
 	 */
-	void BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes);
+	void BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes, int32 LODIndex);
 
 	/**
 	 * Add a bind pose to the scene based on the FbxMesh and skinning settings of the given node

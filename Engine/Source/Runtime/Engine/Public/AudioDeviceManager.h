@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#pragma once 
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Containers/Queue.h"
@@ -17,6 +17,13 @@ class USoundMix;
 class USoundSubmix;
 class USoundWave;
 struct FSourceEffectChainEntry;
+
+
+enum class ESoundType : uint8
+{
+	Cue,
+	Wave
+};
 
 /**
 * Class for managing multiple audio devices.
@@ -35,7 +42,7 @@ public:
 	*/
 	~FAudioDeviceManager();
 
-	/** 
+	/**
 	* Initialize the audio device manager.
 	* Return true if successfully initialized.
 	**/
@@ -87,7 +94,7 @@ public:
 	FAudioDevice* GetAudioDevice(uint32 Handle);
 
 	/**
-	* Returns a ptr to the active audio device. If there is no active 
+	* Returns a ptr to the active audio device. If there is no active
 	* device then it will return the main audio device.
 	*/
 	FAudioDevice* GetActiveAudioDevice();
@@ -194,11 +201,19 @@ public:
 	/** Gets the solo sound name used for debugging sound cues */
 	const FString& GetDebugSoloSoundCue() const;
 
-	/** Gets the audio mixer debug sound name. Returns emptry string if AUDIO_MIXER_ENABLE_DEBUG_MODE is not enabled. */
+	/** Gets the audio mixer debug sound name. Returns empty string if AUDIO_MIXER_ENABLE_DEBUG_MODE is not enabled. */
 	const FString& GetAudioMixerDebugSoundName() const;
 
 	/** Gets the debug sound string, returns true if one has been set. */
 	bool GetAudioDebugSound(FString& OutDebugSound);
+
+	/** Reset all sound cue trims */
+	void ResetAllDynamicSoundVolumes();
+
+	/** Get, reset, or set a sound cue trim */
+	float GetDynamicSoundVolume(ESoundType SoundType,  const FName& SoundName) const;
+	void ResetDynamicSoundVolume(ESoundType SoundType, const FName& SoundName);
+	void SetDynamicSoundVolume(ESoundType SoundType, const FName& SoundName, float Volume);
 
 public:
 
@@ -257,7 +272,7 @@ private:
 
 	/** Audio device module name. This is the "old" audio engine module name to use. E.g. XAudio2 */
 	FString AudioDeviceModuleName;
-	
+
 	/** The audio mixer module name. This is the audio mixer module name to use. E.g. AudioMixerXAudio2 */
 	FString AudioMixerModuleName;
 
@@ -294,6 +309,9 @@ private:
 	/** Instance of the debug names struct. */
 	FDebugNames DebugNames;
 
+	/** Dynamic volume map */
+	TMap<TTuple<ESoundType, FName>, float> DynamicSoundVolumes;
+
 	/** Whether we're currently using the audio mixer or not. Used to toggle between old/new audio engines. */
 	bool bUsingAudioMixer;
 
@@ -306,6 +324,3 @@ private:
 	/** Audio Fence to ensure that we don't allow the audio thread to drift never endingly behind. */
 	FAudioCommandFence SyncFence;
 };
-
-
-

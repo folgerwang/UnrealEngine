@@ -68,6 +68,11 @@ public:
 
 	FBitReader	Reader;
 	float		TimeSeconds;
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Reader.CountMemory(Ar);
+	}
 };
 
 // Using an indirect array here since FReplayExternalData stores an FBitReader, and it's not safe to store an FArchive directly in a TArray.
@@ -79,6 +84,11 @@ struct FPlaybackPacket
 	float				TimeSeconds;
 	int32				LevelIndex;
 	uint32				SeenLevelIndex;
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
+	}
 };
 
 enum ENetworkVersionHistory
@@ -136,6 +146,11 @@ struct FLevelNameAndTime
 		Ar << LevelNameAndTime.LevelName;
 		Ar << LevelNameAndTime.LevelChangeTimeInMS;
 		return Ar;
+	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Ar << const_cast<FString&>(LevelName);
 	}
 };
 
@@ -252,6 +267,21 @@ struct FNetworkDemoHeader
 
 		return Ar;
 	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		LevelNamesAndTimes.CountBytes(Ar);
+		for (const FLevelNameAndTime& LevelNameAndTime : LevelNamesAndTimes)
+		{
+			LevelNameAndTime.CountBytes(Ar);
+		}
+
+		GameSpecificData.CountBytes(Ar);
+		for (const FString& Datum : GameSpecificData)
+		{
+			Ar << const_cast<FString&>(Datum);
+		}
+	}
 };
 
 /** Information about net startup actors that need to be rolled back by being destroyed and re-created */
@@ -273,6 +303,29 @@ struct FRollbackNetStartupActorInfo
 
 	UPROPERTY()
 	TArray<UObject*> ObjReferences;
+
+	void CountBytes(FArchive& Ar) const
+	{
+		if (FRepState const * const LocalRepState = RepState.Get())
+		{
+			Ar.CountBytes(sizeof(FRepState), sizeof(FRepState));
+			LocalRepState->CountBytes(Ar);
+		}
+
+		SubObjRepState.CountBytes(Ar);
+		for (const auto& SubObjRepStatePair : SubObjRepState)
+		{
+			Ar << const_cast<FString&>(SubObjRepStatePair.Key);
+			
+			if (FRepState const * const LocalRepState = SubObjRepStatePair.Value.Get())
+			{
+				Ar.CountBytes(sizeof(FRepState), sizeof(FRepState));
+				LocalRepState->CountBytes(Ar);
+			}
+		}
+
+		ObjReferences.CountBytes(Ar);
+	}
 };
 
 struct FDemoSavedRepObjectState
@@ -280,6 +333,16 @@ struct FDemoSavedRepObjectState
 	TWeakObjectPtr<const UObject> Object;
 	TSharedPtr<FRepLayout> RepLayout;
 	FRepStateStaticBuffer PropertyData;
+
+	void CountBytes(FArchive& Ar) const
+	{
+		if (FRepLayout const * const LocalRepLayout = RepLayout.Get())
+		{
+			Ar.CountBytes(sizeof(FRepLayout), sizeof(FRepLayout));
+			LocalRepLayout->CountBytes(Ar);
+		}
+		PropertyData.CountBytes(Ar);
+	}
 };
 
 typedef TArray<struct FDemoSavedRepObjectState> FDemoSavedPropertyState;
@@ -368,6 +431,8 @@ private:
 	bool LoadCheckpoint(const FGotoResult& GotoResult);
 	
 public:	
+
+	virtual void Serialize(FArchive& Ar) override;
 
 	/** Returns true if we're in the process of saving a checkpoint. */
 	bool		IsSavingCheckpoint() const;
@@ -513,6 +578,9 @@ public:
 	virtual bool ShouldReplicateFunction(AActor* Actor, UFunction* Function) const override;
 	virtual bool ShouldReplicateActor(AActor* Actor) const override;
 	virtual void NotifyActorChannelOpen(UActorChannel* Channel, AActor* Actor) override;
+
+	virtual void ProcessLocalServerPackets() override {}
+	virtual void ProcessLocalClientPackets() override {}
 
 protected:
 	virtual UChannel* InternalCreateChannelByName(const FName& ChName) override;
@@ -783,6 +851,11 @@ private:
 
 		// Whether or not we've seen replicated data for the level. Only set during playback.
 		bool bHasBeenSeen;
+
+		void CountBytes(FArchive& Ar) const
+		{
+			Ar << const_cast<FString&>(LevelName);
+		}
 	};
 
 	// Tracks all available level statuses.
@@ -832,7 +905,7 @@ private:
 	TArray< FReplayExternalOutData > ObjectsWithExternalData;
 
 	/** When we save a checkpoint, we remember all of the actors that need a checkpoint saved out by adding them to this list */
-	struct PendingCheckPointActor
+	struct FPendingCheckPointActor
 	{
 		TWeakObjectPtr< AActor > Actor;
 		int32 LevelIndex;
@@ -854,13 +927,19 @@ private:
 	{
 		ECheckpointSaveState CheckpointSaveState;						// Current state of checkpoint SaveState
 		FPackageMapAckState CheckpointAckState;							// Current ack state of packagemap for the current checkpoint being saved
-		TArray< PendingCheckPointActor > PendingCheckpointActors;		// Actors to be serialized by pending checkpoint
+		TArray< FPendingCheckPointActor > PendingCheckpointActors;		// Actors to be serialized by pending checkpoint
 		double				TotalCheckpointSaveTimeSeconds;				// Total time it took to save checkpoint including the finaling part across all frames
 		double				TotalCheckpointReplicationTimeSeconds;		// Total time it took to write all replicated objects across all frames
 		bool				bWriteCheckpointOffset;
 		int32				TotalCheckpointSaveFrames;					// Total number of frames used to save a checkpoint
 		FArchivePos			CheckpointOffset;
 		uint32				GuidCacheSize;
+
+		void CountBytes(FArchive& Ar) const
+		{
+			CheckpointAckState.CountBytes(Ar);
+			PendingCheckpointActors.CountBytes(Ar);
+		}
 	};
 
 	FCheckpointSaveStateContext CheckpointSaveContext;
@@ -996,4 +1075,10 @@ protected:
 private:
 
 	FString ActiveReplayName;
+	
+	// Max percent of time to spend building consider lists / prioritizing actors
+	// for demo recording. Only used if MaxDesiredRecordTimeMS > 0.
+	float RecordBuildConsiderAndPrioritizeTimeSlice;
+
+	void AdjustConsiderTime(const float ReplicatedPercent);
 };

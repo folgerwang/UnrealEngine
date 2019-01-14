@@ -15,10 +15,8 @@ float UAISense_Prediction::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 
-	for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+	for (const FAIPredictionEvent& Event : RegisteredEvents)
 	{
-		const FAIPredictionEvent& Event = RegisteredEvents[EventIndex];
-
 		if (Event.Requestor != NULL && Event.PredictedActor != NULL)
 		{
 			IAIPerceptionListenerInterface* PerceptionListener = Cast<IAIPerceptionListenerInterface>(Event.Requestor);

@@ -109,7 +109,7 @@ public:
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
 	 * @return					Whether the sound looped or not
 	 */
-	bool ReadCompressedData( uint8* Destination, bool bLooping );
+	virtual bool ReadCompressedData(uint8* Destination, int32 NumFramesToDecode, bool bLooping) override;
 
 	/**
 	 * Sets the point in time within the buffer to the specified time

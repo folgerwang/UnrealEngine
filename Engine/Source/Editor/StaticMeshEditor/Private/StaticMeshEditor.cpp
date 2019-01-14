@@ -782,9 +782,7 @@ void FStaticMeshEditor::SetSelectedSocket(UStaticMeshSocket* InSelectedSocket)
 
 UStaticMeshSocket* FStaticMeshEditor::GetSelectedSocket() const
 {
-	check(SocketManager.IsValid());
-
-	return SocketManager->GetSelectedSocket();
+	return SocketManager.IsValid() ? SocketManager->GetSelectedSocket() : nullptr;
 }
 
 void FStaticMeshEditor::DuplicateSelectedSocket()
@@ -1375,9 +1373,8 @@ void FStaticMeshEditor::HandleReimportAllMesh()
 				{
 					continue;
 				}
-				
-				
-				bool bHasBeenSimplified = !StaticMesh->IsMeshDescriptionValid(LodIndex) || StaticMesh->IsReductionActive(LodIndex);
+
+				bool bHasBeenSimplified = StaticMesh->GetMeshDescription(LodIndex) == nullptr || StaticMesh->IsReductionActive(LodIndex);
 				if (!bHasBeenSimplified)
 				{
 					FbxMeshUtils::ImportMeshLODDialog(StaticMesh, LodIndex);

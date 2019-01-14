@@ -41,6 +41,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.zip.Inflater;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.lang.Runnable;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -75,6 +76,7 @@ import android.util.Log;
 
 import android.os.Vibrator;
 import android.os.SystemClock;
+import android.os.Looper;
 import android.os.Handler;
 import android.os.HandlerThread;
 
@@ -113,6 +115,8 @@ import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.content.pm.PackageInfo;
 
+import android.webkit.CookieManager;
+import android.webkit.CookieSyncManager;
 
 import android.media.AudioManager;
 import android.util.DisplayMetrics;
@@ -281,8 +285,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	static Bundle _bundle;
 	static Bundle _extrasBundle;
 
-	private Timer memoryTimer;
-	private TimerTask memoryTask;
+	private HandlerThread memoryHandlerThread;
+	private Handler memoryHandler;
+	private Runnable memoryRunnable;
 	public int UsedMemory;
 
 	public String InternalFilesDir;
@@ -2020,7 +2025,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		_activity = this;
 
 		// update memory stats every 10 seconds
-		memoryTask = new TimerTask() {
+		memoryRunnable = new Runnable() {
 			@Override
 			public void run()
 			{
@@ -2048,11 +2053,17 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				synchronized(_activity)
 				{
 					_activity.UsedMemory = ProcessMemory;
+					if (_activity.memoryHandler != null)
+					{
+						_activity.memoryHandler.postDelayed(this, 10000);
+					}
 				}
 			}
 		};
-		memoryTimer = new Timer();
-		memoryTimer.schedule(memoryTask, 0, 10000);
+		memoryHandlerThread = new HandlerThread("MemoryUsageThread", android.os.Process.THREAD_PRIORITY_LOWEST);
+		memoryHandlerThread.start();
+		memoryHandler = new Handler(memoryHandlerThread.getLooper());
+		memoryHandler.postDelayed(memoryRunnable, 1);
 
 		// layout required by popups, e.g ads, native controls
 		MarginLayoutParams params = new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
@@ -2828,6 +2839,17 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	{
 		super.onResume();
 
+		// start memory reporter timer (runs every 10 seconds)
+		synchronized(this)
+		{
+			if (memoryHandler == null && memoryRunnable != null)
+			{
+				Log.debug("onResume: start memory reporter runnable");
+				memoryHandler = new Handler(memoryHandlerThread.getLooper());
+				memoryHandler.postDelayed(memoryRunnable, 1000);
+			}
+		}
+
 		// only do this on KitKat and above
 		if (ShouldHideUI)
 		{ 
@@ -2949,7 +2971,16 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	@Override
 	protected void onPause()
 	{
-		super.onPause();
+		// stop memory reporter timer if running
+		synchronized(this)
+		{
+			if (memoryHandler != null)
+			{
+				Log.debug("onPause: stop memory reporter runnable");
+				memoryHandler.removeCallbacks(memoryRunnable);
+				memoryHandler = null;
+			}
+		}
 
 		if (bAllowIMU)
 		{
@@ -2988,6 +3019,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			});
 		}
 //$${gameActivityOnPauseAdditions}$$
+		super.onPause();
 		Log.debug("==============> GameActive.onPause complete!");
 	}
 	
@@ -3138,26 +3170,41 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	@Override
 	public void onStop()
 	{
-		super.onStop();
-
 		if (consoleCmdReceiver != null)
 		{
 			unregisterReceiver(consoleCmdReceiver);
 		}
 
 //$${gameActivityOnStopAdditions}$$
+		super.onStop();
 		Log.debug("==============> GameActive.onStop complete!");
 	}
 
 	@Override
 	public void onDestroy()
 	{
-		super.onDestroy();
+		synchronized(this)
+		{
+			if (memoryHandler != null)
+			{
+				Log.debug("onDestroy: destroy memoryHandler");
+				memoryHandler.removeCallbacks(memoryRunnable);
+				memoryHandler = null;
+			}
+			if (memoryHandlerThread != null)
+			{
+				Log.debug("onDestroy: destroy memoryHandlerThread");
+				memoryHandlerThread.quit();
+				memoryHandlerThread = null;
+			}
+		}
+
 		if( IapStoreHelper != null )
 		{
 			IapStoreHelper.onDestroy();
 		}
 //$${gameActivityOnDestroyAdditions}$$
+		super.onDestroy();
 		Log.debug("==============> GameActive.onDestroy complete!");
 	}
 
@@ -4458,7 +4505,10 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		new DeviceInfoData(0x045e, 0x028e, "Xbox Wired Controller"),
 		new DeviceInfoData(0x045e, 0x02e0, "Xbox Wireless Controller"),
 		new DeviceInfoData(0x0111, 0x1419, "SteelSeries Stratus XL"), 
-		new DeviceInfoData(0x054c, 0x05c4, "PS4 Wireless Controller")
+		new DeviceInfoData(0x054c, 0x05c4, "PS4 Wireless Controller"),
+		new DeviceInfoData(0x054c, 0x09cc, "PS4 Wireless Controller (v2)"),
+		new DeviceInfoData(0x05ac, 0x056a, "glap QXPGP001"),
+		new DeviceInfoData(0x0483, 0x5750, "STMicroelectronics Lenovo GamePad")
 	};
 
 	public class InputDeviceInfo {
@@ -5371,6 +5421,103 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			return item.getText().toString();
 		} 
 		return "";
+	}
+
+	@SuppressWarnings("deprecation")
+	public boolean AndroidThunkJava_CookieManager_SetCookie(String Url, String Value)
+	{
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP)
+		{
+			CookieManager cookieManager = CookieManager.getInstance();
+			if (cookieManager != null)
+			{
+				cookieManager.setAcceptCookie(true);
+				cookieManager.setCookie(Url, Value);  // could use callback for API 21+
+				cookieManager.flush();
+				return true;
+			}
+		}
+		else
+		{
+			Context context = getApplicationContext();
+			CookieSyncManager syncManager = CookieSyncManager.createInstance(context);
+			syncManager.sync();
+
+			CookieManager cookieManager = CookieManager.getInstance();
+			if (cookieManager != null)
+			{
+				cookieManager.setAcceptCookie(true);
+
+				cookieManager.setCookie(Url, Value);
+				syncManager.sync();
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	@SuppressWarnings("deprecation")
+	public String AndroidThunkJava_CookieManager_GetCookies(String Url)
+	{
+		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP)
+		{
+			Context context = getApplicationContext();
+			CookieSyncManager syncManager = CookieSyncManager.createInstance(context);
+			syncManager.sync();
+		}
+
+		CookieManager cookieManager = CookieManager.getInstance();
+		if (cookieManager != null)
+		{
+			cookieManager.setAcceptCookie(true);
+			return cookieManager.getCookie(Url);
+		}
+		return null;
+	}
+
+	@SuppressWarnings("deprecation")
+	public boolean AndroidThunkJava_CookieManager_RemoveCookies(String Url)
+	{
+		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP)
+		{
+			Context context = getApplicationContext();
+			CookieSyncManager syncManager = CookieSyncManager.createInstance(context);
+			syncManager.sync();
+
+			CookieManager cookieManager = CookieManager.getInstance();
+			if (cookieManager != null)
+			{
+				cookieManager.setAcceptCookie(true);
+				String cookies = cookieManager.getCookie(Url);
+				if (cookies == null)
+				{
+					return false;
+				}
+
+				cookieManager.setCookie(Url, "expires=Sat, 1 Jan 2000 00:00:01 UTC;");
+				cookieManager.removeExpiredCookie();
+				syncManager.sync();
+				return true;
+			}
+			return false;
+		}
+
+		CookieManager cookieManager = CookieManager.getInstance();
+		if (cookieManager != null)
+		{
+			cookieManager.setAcceptCookie(true);
+			String cookies = cookieManager.getCookie(Url);
+			if (cookies == null)
+			{
+				return false;
+			}
+
+			cookieManager.setCookie(Url, "expires=Sat, 1 Jan 2000 00:00:01 UTC;"); // could use callback for API 21+
+			cookieManager.flush();
+			return true;
+		}
+		return false;
 	}
 
 	public native int nativeGetCPUFamily();

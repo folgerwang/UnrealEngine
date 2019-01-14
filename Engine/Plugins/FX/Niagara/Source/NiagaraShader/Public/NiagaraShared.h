@@ -121,7 +121,7 @@ public:
 
 	FNiagaraShaderMapId()
 		: CompilerVersionID()
-		, FeatureLevel(ERHIFeatureLevel::SM5)
+		, FeatureLevel(GMaxRHIFeatureLevel) 
 		, BaseScriptID(0, 0, 0, 0)
 	{ }
 
@@ -466,7 +466,7 @@ public:
 	FNiagaraShaderScript() :
 		GameThreadShaderMap(NULL),
 		RenderingThreadShaderMap(NULL),
-		FeatureLevel(ERHIFeatureLevel::SM4),
+		FeatureLevel(GMaxRHIFeatureLevel),
 		bLoadedCookedShaderMapId(false)
 	{}
 

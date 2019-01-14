@@ -742,22 +742,34 @@ void UMediaPlayer::PostInitProperties()
 		// Set the player GUID - required for UMediaPlayers dynamically allocated at runtime
 		PlayerFacade->SetGuid(PlayerGuid);
 
-		IMediaModule* MediaModule = nullptr;
-		if (IsInGameThread())
-		{
-			// LoadModulePtr can't be used on a non-game thread (like the AsyncLoadingThread)
-			MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-		}
-		else
-		{
-			// By the time we get here we should've already called LoadModulePtr above on the game thread (when constructing CDO)
-			MediaModule = FModuleManager::GetModulePtr<IMediaModule>("Media");
-		}
-		if (MediaModule != nullptr)
-		{
-			MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
-			MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
-		}
+		RegisterWithMediaModule();
+	}
+}
+
+
+void UMediaPlayer::RegisterWithMediaModule()
+{
+	static const FName MediaModuleName("Media");
+	IMediaModule* MediaModule = nullptr;
+	if (IsInGameThread())
+	{
+		// LoadModulePtr can't be used on a non-game thread (like the AsyncLoadingThread)
+		MediaModule = FModuleManager::LoadModulePtr<IMediaModule>(MediaModuleName);
+	}
+	else
+	{
+		// By the time we get here we should've already called LoadModulePtr above on the game thread (when constructing CDO)
+		MediaModule = FModuleManager::GetModulePtr<IMediaModule>(MediaModuleName);
+	}
+
+	if (MediaModule != nullptr)
+	{
+		MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
+		MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
+	}
+	else
+	{
+		UE_LOG(LogMediaAssets, Warning, TEXT("Failed to register media player '%s' due to module 'Media' not being loaded yet."), *GetName());
 	}
 }
 

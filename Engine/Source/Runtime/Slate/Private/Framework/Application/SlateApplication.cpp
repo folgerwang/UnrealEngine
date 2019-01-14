@@ -2600,26 +2600,26 @@ bool FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>
 	{
 		if (FSlateUser* User = GetOrCreateUser(UserIndex))
 		{
-		FWidgetPath PathToWidget;
-		const bool bFound = FSlateWindowHelper::FindPathToWidget(SlateWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
-		if (bFound)
-		{
-				return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
-		}
-		else
-		{
-			const bool bFoundVirtual = FSlateWindowHelper::FindPathToWidget(SlateVirtualWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
-				if (bFoundVirtual)
+			FWidgetPath PathToWidget;
+			const bool bFound = FSlateWindowHelper::FindPathToWidget(SlateWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
+			if (bFound)
 			{
-					return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
+				return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
 			}
 			else
 			{
-				//ensureMsgf(bFound, TEXT("Attempting to focus a widget that isn't in the tree and visible: %s. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus->ToString());
+				const bool bFoundVirtual = FSlateWindowHelper::FindPathToWidget(SlateVirtualWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
+				if (bFoundVirtual)
+				{
+					return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
+				}
 			}
 		}
 	}
-	}
+
+#if WITH_SLATE_DEBUGGING
+	FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "SetUserFocusFailed", "Attempting to focus a widget that isn't in the tree and visible. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus);
+#endif
 
 	return false;
 }
@@ -2638,7 +2638,9 @@ void FSlateApplication::SetAllUserFocus(const TSharedPtr<SWidget>& WidgetToFocus
 		}
 		else
 		{
-			//ensureMsgf(bFound, TEXT("Attempting to focus a widget that isn't in the tree and visible: %s. If your intent is to clear focus use ClearAllUserFocus()"), WidgetToFocus->ToString());
+#if WITH_SLATE_DEBUGGING
+			FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "SetUserFocusFailedAll", "Attempting to focus a widget that isn't in the tree and visible. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus);
+#endif
 		}
 	}
 }
@@ -2774,7 +2776,7 @@ const void* FSlateApplication::FindBestParentWindowHandleForDialogs(const TShare
 	return ParentWindowWindowHandle;
 }
 
-const TSet<FKey> FSlateApplication::GetPressedMouseButtons() const
+const TSet<FKey>& FSlateApplication::GetPressedMouseButtons() const
 {
 	return PressedMouseButtons;
 }
@@ -3098,7 +3100,6 @@ void FSlateApplication::GeneratePathToWidgetChecked( TSharedRef<const SWidget> I
 
 TSharedPtr<SWindow> FSlateApplication::FindWidgetWindow( TSharedRef<const SWidget> InWidget ) const
 {
-#if SLATE_PARENT_POINTERS
 	TSharedPtr<SWidget> TestWidget = ConstCastSharedRef<SWidget>(InWidget);
 	while (TestWidget.IsValid())
 	{
@@ -3111,12 +3112,6 @@ TSharedPtr<SWindow> FSlateApplication::FindWidgetWindow( TSharedRef<const SWidge
 	};
 
 	return nullptr;
-#else
-	FWidgetPath OutPath;
-	FindWidgetWindow(InWidget, OutPath);
-	return OutPath.TopLevelWindow;
-#endif
-
 }
 
 
@@ -3279,6 +3274,10 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 		{
 			if ( MouseCaptor.SetMouseCaptor(UserIndex, PointerIndex, CurrentEventPath, RequestedMouseCaptor) )
 			{
+#if WITH_SLATE_DEBUGGING
+				FSlateDebugging::MouseCapture(RequestedMouseCaptor);
+#endif
+
 				if (WidgetsUnderMouse)
 				{
 					const FWeakWidgetPath& LastWidgetsUnderCursor = WidgetsUnderCursorLastEvent.FindRef(FUserAndPointer(UserIndex, PointerIndex));
@@ -3320,6 +3319,13 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 					}
 				}
 			}
+			else
+			{
+#if WITH_SLATE_DEBUGGING
+				FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "FailedToCaptureMouse", "Failed To Mouse Capture"), RequestedMouseCaptor);
+#endif
+			}
+
 			// When the cursor capture state changes we need to refresh cursor state.
 			bQueryCursorRequested = true;
 		}

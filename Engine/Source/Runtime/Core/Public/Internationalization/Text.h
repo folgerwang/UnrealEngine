@@ -10,6 +10,7 @@
 #include "Containers/Map.h"
 #include "Containers/EnumAsByte.h"
 #include "Templates/SharedPointer.h"
+#include "Internationalization/TextKey.h"
 #include "Internationalization/LocKeyFuncs.h"
 #include "Internationalization/CulturePointer.h"
 #include "Internationalization/TextLocalizationManager.h"
@@ -28,6 +29,7 @@ class FTextHistory;
 class FTextFormatData;
 class FHistoricTextFormatData;
 class FHistoricTextNumericData;
+class ITextGenerator;
 
 //DECLARE_CYCLE_STAT_EXTERN( TEXT("Format Text"), STAT_TextFormat, STATGROUP_Text, );
 
@@ -266,6 +268,12 @@ public:
 	EExpressionType GetExpressionType() const;
 
 	/**
+	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
+	 * @return true if the pattern is valid, or false if not (false may also fill in OutValidationErrors).
+	 */
+	bool ValidatePattern(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors) const;
+
+	/**
 	 * Append the names of any arguments to the given array.
 	 */
 	void GetFormatArgumentNames(TArray<FString>& OutArgumentNames) const;
@@ -377,7 +385,7 @@ public:
 	 * Attempts to find an existing FText using the representation found in the loc tables for the specified namespace and key
 	 * @return true if OutText was properly set; otherwise false and OutText will be untouched
 	 */
-	static bool FindText( const FString& Namespace, const FString& Key, FText& OutText, const FString* const SourceString = nullptr );
+	static bool FindText( const FTextKey& Namespace, const FTextKey& Key, FText& OutText, const FString* const SourceString = nullptr );
 
 	/**
 	 * Attempts to create an FText instance from a string table ID and key (this is the same as the LOCTABLE macro, except this can also work with non-literal string values).
@@ -521,6 +529,78 @@ public:
 	template < typename... TArguments >
 	static FText FormatOrdered( FTextFormat Fmt, TArguments&&... Args );
 
+	/**
+	 * Produces a custom-generated FText. Can be used for objects that produce text dependent on localized strings but
+	 * that do not fit the standard formats.
+	 *
+	 * @param TextGenerator the text generator object that will generate the text
+	 */
+	static FText FromTextGenerator( const TSharedRef<ITextGenerator>& TextGenerator );
+
+	DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<ITextGenerator>, FCreateTextGeneratorDelegate, FStructuredArchive::FRecord );
+	/**
+	 * Returns the text generator factory function registered under the specified name, if any.
+	 *
+	 * @param TypeID the name under which to look up the factory function
+	 */
+	static FCreateTextGeneratorDelegate FindRegisteredTextGenerator( FName TypeID );
+
+	/**
+	 * Registers a factory function to be used with serialization of text generators within FText.
+	 *
+	 * @param TypeID the name under which to register the factory function. Must match ITextGenerator::GetTypeID().
+	 * @param FactoryFunction the factory function to create the generator instance
+	 */
+	static void RegisterTextGenerator( FName TypeID, FCreateTextGeneratorDelegate FactoryFunction );
+
+	/**
+	 * Registers a standard text generator factory function.
+	 *
+	 * @tparam T the text generator class type
+	 *
+	 * @param TypeID the name under which to register the factor function
+	 */
+	template < typename T >
+	static void RegisterTextGenerator( FName TypeID )
+	{
+		RegisterTextGenerator(TypeID, FCreateTextGeneratorDelegate::CreateStatic( &CreateTextGenerator<T> ));
+	}
+
+	/**
+	 * Registers a standard text generator factory function.
+	 *
+	 * @tparam T the text generator class type
+	 *
+	 * This function can be used if the class has a public static FName member named "TypeID".
+	 */
+	template < typename T >
+	static void RegisterTextGenerator()
+	{
+		RegisterTextGenerator<T>( T::TypeID );
+	}
+
+	/**
+	 * Unregisters a factory function to be used with serialization of text generators within FText.
+	 *
+	 * @param TypeID the name to remove from registration
+	 *
+	 * @see RegisterTextGenerator
+	 */
+	static void UnregisterTextGenerator( FName TypeID );
+
+	/**
+	 * Unregisters a standard text generator factory function.
+	 *
+	 * This function can be used if the class has a public static FName member named "TypeID".
+	 *
+	 * @tparam T the text generator class type
+	 */
+	template < typename T >
+	static void UnregisterTextGenerator()
+	{
+		UnregisterTextGenerator( T::TypeID );
+	}
+
 	bool IsTransient() const;
 	bool IsCultureInvariant() const;
 	bool IsInitializedFromString() const;
@@ -532,11 +612,10 @@ public:
 	/**
 	 * Constructs a new FText with the SourceString of the specified text but with the specified namespace and key
 	 */
-	static FText ChangeKey( const FString& Namespace, const FString& Key, const FText& Text );
+	static FText ChangeKey( const FTextKey& Namespace, const FTextKey& Key, const FText& Text );
 #endif
 
 private:
-
 	/** Special constructor used to create StaticEmptyText without also allocating a history object */
 	enum class EInitToEmptyString : uint8 { Value };
 	explicit FText( EInitToEmptyString );
@@ -549,7 +628,7 @@ private:
 
 	FText( FString&& InSourceString, FTextDisplayStringRef InDisplayString );
 
-	FText( FString&& InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags=0 );
+	FText( FString&& InSourceString, const FTextKey& InNamespace, const FTextKey& InKey, uint32 InFlags=0 );
 
 	static void SerializeText(FArchive& Ar, FText& Value);
 	static void SerializeText(FStructuredArchive::FSlot Slot, FText& Value);
@@ -576,6 +655,10 @@ private:
 	static FText AsCurrencyTemplate(T1 Val, const FString& CurrencyCode, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture);
 	template<typename T1, typename T2>
 	static FText AsPercentTemplate(T1 Val, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture);
+
+private:
+	template < typename T >
+	static TSharedRef<ITextGenerator> CreateTextGenerator(FStructuredArchive::FRecord Record);
 
 private:
 	/** The internal shared data for this FText */
@@ -724,6 +807,12 @@ private:
 	};
 	TOptional<FText> TextValue;
 };
+
+template < typename T >
+inline TSharedRef<ITextGenerator> FText::CreateTextGenerator(FStructuredArchive::FRecord Record)
+{
+	return MakeShared<T>();
+}
 
 /**
  * Used to pass argument/value pairs into FText::Format via UKismetTextLibrary::Format.

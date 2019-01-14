@@ -933,6 +933,9 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 	}
 	else
 	{
+		// Render thread is a default trigger for the CompletionEvent
+		TriggerThreadIndex = ENamedThreads::ActualRenderingThread;
+				
 		if (BundledCompletionEvent.GetReference() && IsInGameThread())
 		{
 			CompletionEvent = BundledCompletionEvent;
@@ -956,6 +959,12 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 
 		if (bSyncToRHIAndGPU)
 		{
+			if (GRHIThread_InternalUseOnly)
+			{
+				// Change trigger thread to RHI
+				TriggerThreadIndex = ENamedThreads::RHIThread;
+			}
+			
 			// Create a task graph event which we can pass to the render or RHI threads.
 			CompletionEvent = FGraphEvent::CreateGraphEvent();
 
@@ -1028,7 +1037,7 @@ static FAutoConsoleVariableRef CVarTimeoutForBlockOnRenderFence(
 /**
  * Block the game thread waiting for a task to finish on the rendering thread.
  */
-static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThreadTasks = false)
+static void GameThreadWaitForTask(const FGraphEventRef& Task, ENamedThreads::Type TriggerThreadIndex = ENamedThreads::ActualRenderingThread, bool bEmptyGameThreadTasks = false)
 {
 	SCOPE_TIME_GUARD(TEXT("GameThreadWaitForTask"));
 
@@ -1061,7 +1070,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 			// Grab an event from the pool and fire off a task to trigger it.
 			FEvent* Event = FPlatformProcess::GetSynchEventFromPool();
 			check(GIsThreadedRendering);
-			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread, ENamedThreads::SetTaskPriority(ENamedThreads::ActualRenderingThread, ENamedThreads::HighTaskPriority));
+			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread, ENamedThreads::SetTaskPriority(TriggerThreadIndex, ENamedThreads::HighTaskPriority));
 
 			// Check rendering thread health needs to be called from time to
 			// time in order to pump messages, otherwise the RHI may block
@@ -1150,7 +1159,7 @@ void FRenderCommandFence::Wait(bool bProcessGameThreadTasks) const
 			FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompletionEvent, ENamedThreads::GameThread);
 		}
 #endif
-		GameThreadWaitForTask(CompletionEvent, bProcessGameThreadTasks);
+		GameThreadWaitForTask(CompletionEvent, TriggerThreadIndex, bProcessGameThreadTasks);
 	}
 }
 

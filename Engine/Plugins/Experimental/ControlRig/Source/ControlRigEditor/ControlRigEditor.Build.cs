@@ -25,6 +25,7 @@ namespace UnrealBuildTool.Rules
                     "KismetCompiler",
                     "BlueprintGraph",
                     "ControlRig",
+                    "ControlRigDeveloper",
                     "Kismet",
                     "EditorStyle",
                     "AnimationCore",

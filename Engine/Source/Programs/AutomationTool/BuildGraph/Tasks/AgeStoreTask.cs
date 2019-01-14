@@ -35,6 +35,12 @@ namespace Win.Automation
 		public int Days;
 
 		/// <summary>
+		/// The root of the build dir to check for existing buildversion named directories
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public string BuildDir;
+
+		/// <summary>
 		/// A substring to match in directory file names before deleting symbols. This allows the "age store" task
 		/// to avoid deleting symbols from other builds in the case where multiple builds share the same symbol server.
 		/// Specific use of the filter value is determined by the symbol server structure defined by the platform tool chain.
@@ -90,23 +96,60 @@ namespace Win.Automation
 			}
 		}
 
-		private void RecurseDirectory(DateTime ExpireTimeUtc, DirectoryInfo CurrentDirectory, string[] DirectoryStructure, int Level, string Filter, bool bDeleteIndividualFiles)
+		// Checks if an existing build has a version file, returns false to NOT delete if it exists
+		private static bool CheckCanDeleteFromVersionFile(HashSet<string> ExistingBuilds, DirectoryInfo Directory, FileInfo IndividualFile = null)
+		{
+			// check for any existing version files
+			foreach (FileInfo BuildVersionFile in Directory.EnumerateFiles("*.version"))
+			{
+				// If the buildversion matches one of the directories in build share provided, don't delete no matter the age.
+				string BuildVersion = Path.GetFileNameWithoutExtension(BuildVersionFile.Name);
+				if (ExistingBuilds.Contains(BuildVersion))
+				{
+					// if checking for an individual file, see if the filename matches what's in the .version file.
+					// these file names won't have extensions.
+					if (IndividualFile != null)
+					{
+						string IndividualFilePath = IndividualFile.FullName;
+						string FilePointerName = File.ReadAllText(BuildVersionFile.FullName).Trim();
+						if(FilePointerName == Path.GetFileNameWithoutExtension(IndividualFilePath))
+						{
+							CommandUtils.LogInformation("Found existing build {0} in the BuildDir with matching individual file {1} - skipping.", BuildVersion, IndividualFilePath);
+							return false;
+						}
+					}
+					// otherwise it's okay to just mark the entire folder for delete
+					else
+					{
+						CommandUtils.LogInformation("Found existing build {0} in the BuildDir - skipping.", BuildVersion);
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+
+		private void RecurseDirectory(DateTime ExpireTimeUtc, DirectoryInfo CurrentDirectory, string[] DirectoryStructure, int Level, string Filter, HashSet<string> ExistingBuilds, bool bDeleteIndividualFiles)
 		{
 			// Do a file search at the last level.
 			if (Level == DirectoryStructure.Length)
 			{
-				// If all files are out of date, delete the directory...
-				if (CurrentDirectory.EnumerateFiles().All(x => x.LastWriteTimeUtc < ExpireTimeUtc))
-				{
-					TryDelete(CurrentDirectory);
-				}
-				else if (bDeleteIndividualFiles)
+				if (bDeleteIndividualFiles)
 				{
 					// Delete any file in the directory that is out of date.
-					foreach (FileInfo OutdatedFile in CurrentDirectory.EnumerateFiles().Where(x => x.LastWriteTimeUtc < ExpireTimeUtc))
+					foreach (FileInfo OutdatedFile in CurrentDirectory.EnumerateFiles().Where(x => x.LastWriteTimeUtc < ExpireTimeUtc && x.Extension != ".version"))
 					{
-						TryDelete(OutdatedFile);
+						// check to make sure this file is valid to delete
+						if (CheckCanDeleteFromVersionFile(ExistingBuilds, CurrentDirectory, OutdatedFile))
+						{
+							TryDelete(OutdatedFile);
+						}
 					}
+				}
+				// If all files are out of date, delete the directory...
+				else if (CurrentDirectory.EnumerateFiles().Where(x => x.Extension != ".version").All(x => x.LastWriteTimeUtc < ExpireTimeUtc) && CheckCanDeleteFromVersionFile(ExistingBuilds, CurrentDirectory))
+				{
+					TryDelete(CurrentDirectory);
 				}
 			}
 			else
@@ -118,7 +161,7 @@ namespace Win.Automation
 
 					foreach (var ChildDirectory in CurrentDirectory.GetDirectories(ReplacedPattern, SearchOption.TopDirectoryOnly))
 					{
-						RecurseDirectory(ExpireTimeUtc, ChildDirectory, DirectoryStructure, Level + 1, Filter, bDeleteIndividualFiles);
+						RecurseDirectory(ExpireTimeUtc, ChildDirectory, DirectoryStructure, Level + 1, Filter, ExistingBuilds, bDeleteIndividualFiles);
 					}
 				}
 
@@ -148,6 +191,25 @@ namespace Win.Automation
 				? string.Empty
 				: Parameters.Filter.Trim();
 
+			// Eumerate the root directory of builds for buildversions to check against
+			// Folder names in the root directory should match the name of the .version files
+			HashSet<string> ExistingBuilds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			if(!string.IsNullOrWhiteSpace(Parameters.BuildDir))
+			{
+				DirectoryReference BuildDir = new DirectoryReference(Parameters.BuildDir);
+				if(DirectoryReference.Exists(BuildDir))
+				{
+					foreach (string BuildName in DirectoryReference.EnumerateDirectories(BuildDir).Select(Build => Build.GetDirectoryName()))
+					{
+						ExistingBuilds.Add(BuildName);
+					}
+				}
+				else
+				{
+					CommandUtils.LogWarning("BuildDir of {0} was provided but it doesn't exist! Will not check buildversions against it.", Parameters.BuildDir);
+				}
+			}
+
 			// Get the time at which to expire files
 			DateTime ExpireTimeUtc = DateTime.UtcNow - TimeSpan.FromDays(Parameters.Days);
             CommandUtils.LogInformation("Expiring all files before {0}...", ExpireTimeUtc);
@@ -156,7 +218,7 @@ namespace Win.Automation
 			DirectoryReference SymbolServerDirectory = ResolveDirectory(Parameters.StoreDir);
 			CommandUtils.OptionallyTakeLock(TargetPlatform.SymbolServerRequiresLock, SymbolServerDirectory, TimeSpan.FromMinutes(15), () =>
 			{
-				RecurseDirectory(ExpireTimeUtc, new DirectoryInfo(SymbolServerDirectory.FullName), DirectoryStructure, 0, Filter, TargetPlatform.SymbolServerDeleteIndividualFiles);
+				RecurseDirectory(ExpireTimeUtc, new DirectoryInfo(SymbolServerDirectory.FullName), DirectoryStructure, 0, Filter, ExistingBuilds, TargetPlatform.SymbolServerDeleteIndividualFiles);
 			});
 		}
 

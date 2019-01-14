@@ -58,9 +58,11 @@ class FCulture::FLegacyCultureImplementation
 
 	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
 
-	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType) const;
 
-	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType) const;
+
+	const TArray<ETextPluralForm>& GetValidPluralForms(const ETextPluralType PluralType) const;
 
 	// Full localized culture name
 	const FText DisplayName;

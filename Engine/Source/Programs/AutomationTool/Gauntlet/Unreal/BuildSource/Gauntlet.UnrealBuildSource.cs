@@ -454,8 +454,78 @@ namespace Gauntlet
             {
                 Config.FilesToCopy = Role.FilesToCopy;
             }
-
+			Config.CommandLine = GenerateProcessedCommandLine(Config.CommandLine);
 			return Config;
+		}
+
+		/// <summary>
+		/// Remove all duplicate flags and combine any execcmd strings that might be floating around in the commandline.
+		/// </summary>
+		/// <param name="InCommandLine"></param>
+		/// <returns></returns>
+		private string GenerateProcessedCommandLine(string InCommandLine)
+		{
+
+			// Break down Commandline into individual tokens 
+			Dictionary<string, string> CommandlineTokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			// turn Name(p1,etc) into a collection of Name|(p1,etc) groups
+			MatchCollection Matches = Regex.Matches(InCommandLine, "(?<option>-?[\\w\\d.:\\[\\]\\/\\\\]+)(=(?<value>(\"([^\"]*)\")|(\\S+)))?");
+
+			foreach (Match M in Matches)
+			{
+				if (M.Groups["option"] == null || string.IsNullOrWhiteSpace(M.Groups["option"].ToString()))
+				{
+					Log.Warning("Unable to parse option in commandline. Please check syntax/regex. This should never be hit.");
+					continue;
+				}
+
+				string Name = M.Groups["option"].ToString().Trim();
+
+				string Params = M.Groups["value"] != null ? M.Groups["value"].ToString() : string.Empty;
+
+				if (CommandlineTokens.ContainsKey(Name))
+				{
+
+					if (string.IsNullOrWhiteSpace(Params))
+					{
+						Log.Info(string.Format("Duplicate flag {0} found and ignored. Please fix this as it will increase in severity in 01/2019. ", Name));
+					}
+					else if (Name.ToLower() == "-execcmds")
+					{
+						// Special cased as execcmds is something that is totally able to be appended to. Requote everything when we're done.
+						CommandlineTokens[Name] = string.Format("\"{0}, {1}\"", CommandlineTokens[Name].Replace("\"", ""), Params.Replace("\"", ""));
+					}
+					else
+					{
+						if (CommandlineTokens[Name] == Params)
+						{
+							Log.Info(string.Format("Duplicate flag {0}={1} found and ignored. Please fix this as this log line will increase in severity in 01/2019. ", Name, Params));
+						}
+						else
+						{
+							Log.Warning(string.Format("Multiple values for flag {0} found: {1} and {2}. The former value will be discarded. ", Name, CommandlineTokens[Name], Params));
+							CommandlineTokens[Name] = Params.Trim();
+						}
+					}
+				}
+				else
+				{
+					CommandlineTokens.Add(Name, (Params.Contains(' ') && !Params.Contains('\"')) ? string.Format("\"{0}\"", Params) : Params);
+				}
+			}
+
+			string CommandlineToReturn = "";
+			foreach (string DictKey in CommandlineTokens.Keys)
+			{
+				CommandlineToReturn += string.Format("{0}{1} ",
+					DictKey,
+					string.IsNullOrWhiteSpace(CommandlineTokens[DictKey]) ? "" : string.Format("={0}", CommandlineTokens[DictKey])
+					);
+			}
+			Gauntlet.Log.Verbose(string.Format("Pre-formatting Commandline: {0}", InCommandLine));
+			Gauntlet.Log.Verbose(string.Format("Post-formatting Commandline: {0}", CommandlineToReturn));
+
+			return CommandlineToReturn;
 		}
 
 

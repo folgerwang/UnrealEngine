@@ -102,6 +102,14 @@ public:
 			DumpRPCsHandle = FProcessEventHook::Get().AddGlobalRPCHook(FOnProcessNetEvent::CreateStatic(&FNetcodeUnitTest::DumpRPC));
 		}
 
+		// Add earlier log trace opportunity (execcmds is sometimes too late)
+		FString TraceStr;
+
+		if (FParse::Value(FCommandLine::Get(), TEXT("LogTrace="), TraceStr) && TraceStr.Len() > 0)
+		{
+			GLogTraceManager->AddLogTrace(TraceStr);
+		}
+
 		// Hack-override the log category name
 #if !NO_LOGGING
 		class FLogOverride : public FLogCategoryBase

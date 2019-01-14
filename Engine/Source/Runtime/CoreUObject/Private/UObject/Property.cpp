@@ -373,10 +373,17 @@ const TCHAR* UPropertyHelpers::ReadToken( const TCHAR* Buffer, FString& String, 
 	}
 	else if( FChar::IsAlnum( *Buffer ) || (DottedNames && (*Buffer==TCHAR('/'))) || (*Buffer > 255) )
 	{
+		const TCHAR* StartIdentifier = Buffer;
 		// Get identifier.
 		while ((FChar::IsAlnum(*Buffer) || (*Buffer > 255) || *Buffer == TCHAR('_') || *Buffer == TCHAR('-') || *Buffer == TCHAR('+') || (DottedNames && (*Buffer == TCHAR('.') || *Buffer == TCHAR('/') || *Buffer == SUBOBJECT_DELIMITER_CHAR))))
 		{
-			String += *Buffer++;
+			Buffer++;
+		}
+
+		if (StartIdentifier != Buffer)
+		{
+			// Efficiently copy/allocate
+			String.AppendChars(StartIdentifier, Buffer - StartIdentifier);
 		}
 	}
 	else

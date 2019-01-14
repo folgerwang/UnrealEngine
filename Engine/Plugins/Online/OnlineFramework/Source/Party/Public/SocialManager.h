@@ -9,6 +9,7 @@
 
 #include "Party/PartyTypes.h"
 #include "Interfaces/OnlinePartyInterface.h"
+#include "Interactions/SocialInteractionHandle.h"
 
 #include "SocialManager.generated.h"
 
@@ -23,56 +24,6 @@ class FPartyPlatformSessionManager;
 
 enum ETravelType;
 
-/**
- * Holds the basic information needed to join a party
- */
-struct FPartyDetails : public TSharedFromThis<FPartyDetails>
-{
-	FPartyDetails(const TSharedRef<const IOnlinePartyJoinInfo>& InPartyJoinInfo, bool bInAcceptInvite = true)
-		: PartyJoinInfo(InPartyJoinInfo), bAcceptInvite(bInAcceptInvite)
-	{}
-
-	virtual ~FPartyDetails() {}
-
-	bool IsValid() const
-	{
-		return PartyJoinInfo->IsValid();
-	}
-
-	const TSharedRef<const FOnlinePartyId>& GetPartyId() const
-	{
-		return PartyJoinInfo->GetPartyId();
-	}
-
-	const FOnlinePartyTypeId GetPartyTypeId() const
-	{
-		return PartyJoinInfo->GetPartyTypeId();
-	}
-
-	const TSharedRef<const FUniqueNetId>& GetSourceUserId() const
-	{
-		return PartyJoinInfo->GetSourceUserId();
-	}
-
-	const FString& GetAppId() const
-	{
-		return PartyJoinInfo->GetAppId();
-	}
-
-	virtual FString ToString() const
-	{
-		return FString::Printf(
-			TEXT("PartyId: %s SourceUserId: %s App: %s"),
-			*GetPartyId()->ToDebugString(),
-			*GetSourceUserId()->ToDebugString(),
-			*GetAppId());
-	}
-
-	TSharedRef<const IOnlinePartyJoinInfo> PartyJoinInfo;
-	bool bAcceptInvite;
-};
-
-
 /** Singleton manager at the top of the social framework */
 UCLASS(Within = GameInstance, Config = Game)
 class PARTY_API USocialManager : public UObject
@@ -85,7 +36,7 @@ public:
 	static IOnlineSubsystem* GetSocialOss(UWorld* World, ESocialSubsystem SubsystemType);
 	static FUserPlatform GetLocalUserPlatform();
 	static const TArray<ESocialSubsystem>& GetDefaultSubsystems() { return DefaultSubsystems; }
-	static const TArray<ISocialInteractionHandleRef>& GetRegisteredInteractions() { return RegisteredInteractions; }
+	static const TArray<FSocialInteractionHandle>& GetRegisteredInteractions() { return RegisteredInteractions; }
 
 	USocialManager();
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
@@ -129,8 +80,6 @@ public:
 	{
 		return Cast<PartyT>(GetPartyInternal(PartyId));
 	}
-
-	int32 GetDefaultPartyMaxSize() const { return DefaultMaxPartySize; }
 
 	bool IsConnectedToPartyService() const { return bIsConnectedToPartyService; }
 
@@ -179,9 +128,6 @@ protected:
 		FSocialActionTimeTracker ActionTimeTracker;
 	};
 
-	void RegisterSubclassInteraction(ISocialInteractionHandleRef NewInteraction);
-
-	/** Register social interactions. */
 	virtual void RegisterSocialInteractions();
 
 	/** Validate that we are clear to try joining a party of the given type. If not, gives the reason why. */
@@ -199,7 +145,7 @@ protected:
 	//virtual void OnQueryJoinabilityComplete(const FOnlinePartyId& PartyId, EJoinPartyCompletionResult Result, int32 DeniedResultCode, FOnlinePartyTypeId PartyTypeId) {}
 
 	virtual void OnJoinPartyAttemptCompleteInternal(const FJoinPartyAttempt& JoinAttemptInfo, const FJoinPartyResult& Result);
-	virtual void OnPartyLeftInternal(USocialParty& LeftParty) {}
+	virtual void OnPartyLeftInternal(USocialParty& LeftParty, EMemberExitedReason Reason) {}
 	virtual void OnToolkitCreatedInternal(USocialToolkit& NewToolkit);
 
 	virtual bool CanCreateNewPartyObjects() const;
@@ -208,6 +154,12 @@ protected:
 	virtual ECrossplayPreference GetCrossplayPreference() const;
 
 	virtual bool ShouldTryRejoiningPersistentParty(const FRejoinableParty& InRejoinableParty) const;
+
+	template <typename InteractionT>
+	void RegisterInteraction()
+	{
+		RegisteredInteractions.Add(InteractionT::GetHandle());
+	}
 
 	void RefreshCanCreatePartyObjects();
 
@@ -222,9 +174,6 @@ protected:
 
 	/** The desired type of SocialToolkit to create for each local player */
 	TSubclassOf<USocialToolkit> ToolkitClass;
-
-	UPROPERTY(Config)
-	int32 DefaultMaxPartySize = 4;
 
 private:
 	UGameInstance& GetGameInstance() const;
@@ -264,7 +213,7 @@ private:	// Handlers
 
 private:
 	static TArray<ESocialSubsystem> DefaultSubsystems;
-	static TArray<ISocialInteractionHandleRef> RegisteredInteractions;
+	static TArray<FSocialInteractionHandle> RegisteredInteractions;
 	static TMap<TWeakObjectPtr<UGameInstance>, TWeakObjectPtr<USocialManager>> AllManagersByGameInstance;
 
 	UPROPERTY()

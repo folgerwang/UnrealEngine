@@ -111,4 +111,9 @@ public:
 	 * @return true if we are able to get proxy information from the current operating system, false if not
 	 */
 	static bool IsOperatingSystemProxyInformationSupported();
+
+	/**
+	 * Helper function for checking if a byte array is in URL encoded format.
+	 */
+	static bool IsURLEncoded(const TArray<uint8>& Payload);
 };

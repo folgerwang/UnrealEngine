@@ -152,6 +152,27 @@ void FSmartNameMapping::FillNameArray(TArray<FName>& Array) const
 #endif
 }
 
+void FSmartNameMapping::FillCurveTypeArray(TArray<FAnimCurveType>& Array) const
+{
+	Array.Reset(CurveNameList.Num());
+
+	for (const FName& Name : CurveNameList)
+	{
+		const FCurveMetaData* MetaData = CurveMetaDataMap.Find(Name);
+		FAnimCurveType AnimCurveType = MetaData ? MetaData->Type : FAnimCurveType();
+
+		//In editor names can be removed and so have to deal with empty slots
+#if WITH_EDITOR
+		if (Name != NAME_None)
+		{
+			Array.Add(AnimCurveType);
+		}
+#else
+		Array.Add(AnimCurveType);
+#endif
+	}
+}
+
 bool FSmartNameMapping::Exists(const SmartName::UID_Type& Uid) const
 {
 	return CurveNameList.IsValidIndex(Uid) && CurveNameList[Uid] != NAME_None;

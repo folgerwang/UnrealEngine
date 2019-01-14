@@ -923,9 +923,9 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 				for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 				{
-					FRichCurveKey &Key = Source.GetKey(SourceIt.Key());
+					FRichCurveKey &Key = Source.GetKey(*SourceIt);
 					float ArriveTangent = Key.ArriveTangent;
-					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(*SourceIt);
 					if (Source.IsKeyHandleValid(PrevKeyHandle))
 					{
 						FRichCurveKey &PrevKey = Source.GetKey(PrevKeyHandle);
@@ -933,7 +933,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 					}
 					float LeaveTangent = Key.LeaveTangent;
-					FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+					FKeyHandle NextKeyHandle = Source.GetNextKey(*SourceIt);
 					if (Source.IsKeyHandleValid(NextKeyHandle))
 					{
 						FRichCurveKey &NextKey = Source.GetKey(NextKeyHandle);
@@ -976,9 +976,9 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 	ChannelData.Reset();
 	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 	{
-		const FRichCurveKey Key = Source.GetKey(SourceIt.Key());
+		const FRichCurveKey Key = Source.GetKey(*SourceIt);
 		float ArriveTangent = Key.ArriveTangent;
-		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(*SourceIt);
 		if (Source.IsKeyHandleValid(PrevKeyHandle))
 		{
 			const FRichCurveKey PrevKey = Source.GetKey(PrevKeyHandle);
@@ -986,7 +986,7 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 
 		}
 		float LeaveTangent = Key.LeaveTangent;
-		FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+		FKeyHandle NextKeyHandle = Source.GetNextKey(*SourceIt);
 		if (Source.IsKeyHandleValid(NextKeyHandle))
 		{
 			const FRichCurveKey NextKey = Source.GetKey(NextKeyHandle);

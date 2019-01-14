@@ -459,7 +459,17 @@ public:
 			return NextNode;
 		}
 
+		const TDoubleLinkedListNode* GetNextNode() const
+		{
+			return NextNode;
+		}
+
 		TDoubleLinkedListNode* GetPrevNode()
+		{
+			return PrevNode;
+		}
+
+		const TDoubleLinkedListNode* GetPrevNode() const
 		{
 			return PrevNode;
 		}

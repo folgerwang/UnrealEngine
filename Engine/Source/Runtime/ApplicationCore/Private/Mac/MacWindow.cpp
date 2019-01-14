@@ -580,6 +580,9 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 	
 	SCOPED_AUTORELEASE_POOL;
 
+	// Wait if we're in a middle of fullscreen transition
+	WaitForFullScreenTransition();
+
 	bool bIsFullScreen = [WindowHandle windowMode] == EWindowMode::WindowedFullscreen || [WindowHandle windowMode] == EWindowMode::Fullscreen;
 	const bool bWantsFullScreen = WindowMode == EWindowMode::WindowedFullscreen || WindowMode == EWindowMode::Fullscreen;
 
@@ -696,10 +699,6 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 		SCOPED_AUTORELEASE_POOL;
 		if (bToggleFullScreen)
 		{
-			// Make sure we don't limit the window size for fullscreen toggle
-			[WindowHandle setMinSize:NSMakeSize(10.0f, 10.0f)];
-			[WindowHandle setMaxSize:NSMakeSize(10000.0f, 10000.0f)];
-
 			[WindowHandle toggleFullScreen:nil];
 		}
 		else
@@ -725,6 +724,14 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 
 	// If we toggle fullscreen, ensure that the window has transitioned BEFORE leaving this function.
 	// This prevents problems with failure to correctly update mouse locks and rendering contexts due to bad event ordering.
+	WaitForFullScreenTransition();
+
+	// Restore window size limits if needed
+	MacApplication->OnCursorLock();
+}
+
+void FMacWindow::WaitForFullScreenTransition()
+{
 	bool bModeChanged = false;
 	do
 	{
@@ -732,7 +739,4 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 		FPlatformApplicationMisc::PumpMessages(true);
 		bModeChanged = [WindowHandle windowMode] == WindowHandle.TargetWindowMode;
 	} while (!bModeChanged);
-
-	// Restore window size limits if needed
-	MacApplication->OnCursorLock();
 }

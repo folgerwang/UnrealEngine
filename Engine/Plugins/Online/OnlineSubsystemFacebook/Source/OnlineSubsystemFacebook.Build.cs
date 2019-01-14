@@ -53,7 +53,7 @@ public class OnlineSubsystemFacebook : ModuleRules
 				System.Console.WriteLine(Err);
 
 				PublicDefinitions.Add("WITH_FACEBOOK=1");
-				PublicDefinitions.Add("UE4_FACEBOOK_VER=4.19.0");
+				PublicDefinitions.Add("UE4_FACEBOOK_VER=4.39.0");
 
 				PrivateDependencyModuleNames.AddRange(
 				new string[] {

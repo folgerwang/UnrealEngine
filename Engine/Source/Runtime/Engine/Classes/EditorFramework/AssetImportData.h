@@ -26,10 +26,11 @@ struct ENGINE_API FAssetImportInfo
 
 	struct FSourceFile
 	{
-		FSourceFile(FString InRelativeFilename, const FDateTime& InTimestamp = 0, const FMD5Hash& InFileHash = FMD5Hash())
+		FSourceFile(FString InRelativeFilename, const FDateTime& InTimestamp = 0, const FMD5Hash& InFileHash = FMD5Hash(), const FString& InDisplayLabelName = FString())
 			: RelativeFilename(MoveTemp(InRelativeFilename))
 			, Timestamp(InTimestamp)
 			, FileHash(InFileHash)
+			, DisplayLabelName(InDisplayLabelName)
 		{}
 
 		/** The path to the file that this asset was imported from. Relative to either the asset's package, BaseDir(), or absolute */
@@ -40,6 +41,9 @@ struct ENGINE_API FAssetImportInfo
 
 		/** The MD5 hash of the file when it was imported. Invalid when unknown. */
 		FMD5Hash FileHash;
+
+		/** The Label use to display this source file in the property editor. */
+		FString DisplayLabelName;
 	};
 
 	/** Convert this import information to JSON */
@@ -102,8 +106,14 @@ public:
 	/** Update the filename at the specific specified index. Will not update the imported timestamp or MD5 (so we can update files when they move). */
 	void UpdateFilenameOnly(const FString& InPath, int32 Index);
 
-	/** Helper function to return the first filename stored in this data. The resulting filename will be absolute (ie, not relative to the asset).  */
+	/** Add a filename at the specific index. Will update the imported timespan and MD5. It will also add in between with empty filenames*/
+	void AddFileName(const FString& InPath, int32 Index, FString SourceFileLabel = FString());
+
 #if WITH_EDITOR
+	/** If your asset import data flavor need to add some asset registry tag, override this function. */
+	virtual void AppendAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags){}
+	
+	/** Helper function to return the first filename stored in this data. The resulting filename will be absolute (ie, not relative to the asset).  */
 	UFUNCTION(BlueprintCallable, meta=(DisplayName="GetFirstFilename", ScriptName="GetFirstFilename"), Category="AssetImportData")
 	FString K2_GetFirstFilename() const;
 #endif
@@ -119,6 +129,10 @@ public:
 #endif
 	TArray<FString> ExtractFilenames() const;
 	void ExtractFilenames(TArray<FString>& AbsoluteFilenames) const;
+	
+	void ExtractDisplayLabels(TArray<FString>& FileDisplayLabels) const;
+
+	int32 GetSourceFileCount() const { return SourceData.SourceFiles.Num(); }
 
 	/** Resolve a filename that is relative to either the specified package, BaseDir() or absolute */
 	static FString ResolveImportFilename(const FString& InRelativePath, const UPackage* Outermost);

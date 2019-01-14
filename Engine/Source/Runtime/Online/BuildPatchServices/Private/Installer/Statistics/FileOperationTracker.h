@@ -25,6 +25,13 @@ namespace BuildPatchServices
 		virtual const TArray<FFileOperation>& GetStates() const = 0;
 
 		/**
+		 * Called when manifest selection occurs. This will clear out internal states resetting them built from the provided manifest.
+		 * All subsequent state updates must refer to data from within the provided manifest.
+		 * @param Manifest  The manifest to be used to build up internal operation states.
+		 */
+		virtual void OnManifestSelection(const FBuildPatchAppManifest& Manifest) = 0;
+
+		/**
 		 * Called when state is updated for chunk data.
 		 * @param DataId    Chunk to update state of.
 		 * @param State     New state of the data.
@@ -87,6 +94,6 @@ namespace BuildPatchServices
 		 * @param   Manifest    The manifest for the build being installed.
 		 * @return the new IFileOperationTracker instance created.
 		 */
-		static IFileOperationTracker* Create(FTicker& Ticker, FBuildPatchAppManifest* Manifest);
+		static IFileOperationTracker* Create(FTicker& Ticker);
 	};
 }

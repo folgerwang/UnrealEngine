@@ -177,6 +177,14 @@ bool FIOSPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 	return true;
 }
 
+void FIOSPlatformApplicationMisc::SetGamepadsAllowed(bool bAllowed)
+{
+	if (FIOSInputInterface* InputInterface = (FIOSInputInterface*)CachedApplication->GetInputInterface())
+	{
+		InputInterface->SetGamepadsAllowed(bAllowed);
+	}
+}
+
 void FIOSPlatformApplicationMisc::ResetGamepadAssignments()
 {
 	UE_LOG(LogIOS, Warning, TEXT("Restting gamepad assignments is not allowed in IOS"))
