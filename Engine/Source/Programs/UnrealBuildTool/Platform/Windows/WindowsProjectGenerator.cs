@@ -12,18 +12,24 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class WindowsProjectGenerator : UEPlatformProjectGenerator
+	class WindowsProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Constructor
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public WindowsProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
 		{
-			// Register this project generator for Win32 and Win64
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win32.ToString());
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win64.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win32, this);
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win64, this);
+		}
+
+		/// <summary>
+		/// Enumerate all the platforms that this generator supports
+		/// </summary>
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
+		{
+			yield return UnrealTargetPlatform.Win32;
+			yield return UnrealTargetPlatform.Win64;
 		}
 
 		///

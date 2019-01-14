@@ -239,6 +239,8 @@ TD3D11Texture2D<BaseResourceType>::~TD3D11Texture2D()
 #endif
 }
 
+template TD3D11Texture2D<FD3D11BaseTexture2D>::~TD3D11Texture2D();
+
 FD3D11Texture3D::~FD3D11Texture3D()
 {
 	D3D11TextureDeleted( *this );
@@ -1786,11 +1788,11 @@ void FD3D11DynamicRHI::RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTextu
 
 	D3D11_BOX SourceBoxAdjust =
 	{
-		SourceStartX,
-		SourceStartY,
+		static_cast<UINT>(SourceStartX),
+		static_cast<UINT>(SourceStartY),
 		0,
-		SourceEndX,
-		SourceEndY,
+		static_cast<UINT>(SourceEndX),
+		static_cast<UINT>(SourceEndY),
 		1
 	};
 

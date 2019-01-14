@@ -174,7 +174,7 @@ static AudioTestInfo AudioTestInfoList[] =
 };
 static_assert(ARRAY_COUNT(AudioTestInfoList) == AUDIO_TESTS, "Mismatched info list and test enumeration");
 
-static void PrintUsage()
+void UAudioTestCommandlet::PrintUsage()
 {
 	UE_LOG(AudioTestCommandlet, Display, TEXT("AudioTestCommandlet Usage: {Editor}.exe UnrealEd.AudioTestCommandlet {testcategory} {test} {arglist}"));
 	UE_LOG(AudioTestCommandlet, Display, TEXT("Possible Tests:"));

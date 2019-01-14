@@ -69,6 +69,9 @@ namespace UnrealBuildTool.Rules
 					PrivateDependencyModuleNames.Add("UnrealEd");
 				}
 
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+
                 LoadMixedReality(Target);
 
                 PrivateIncludePaths.AddRange(

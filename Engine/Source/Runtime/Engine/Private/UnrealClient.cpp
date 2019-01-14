@@ -1193,24 +1193,24 @@ void FViewport::HighResScreenshot()
 	ViewportClient->GetEngineShowFlags()->SetMotionBlur(false);
 
 	// Forcing 128-bit rendering pipeline
-	static auto CVarSceneColorFormat = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SceneColorFormat"));
-	static auto CVarPostColorFormat = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessingColorFormat"));
-	static auto CVarForceLOD = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForceLOD"));
+	static IConsoleVariable* SceneColorFormatVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SceneColorFormat"));
+	static IConsoleVariable* PostColorFormatVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessingColorFormat"));
+	static IConsoleVariable* ForceLODVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForceLOD"));
 
-	check(CVarSceneColorFormat && CVarPostColorFormat);
-	const int32 OldSceneColorFormat = CVarSceneColorFormat->GetInt();
-	const int32 OldPostColorFormat = CVarPostColorFormat->GetInt();
-	const int32 OldForceLOD = CVarForceLOD ? CVarForceLOD->GetInt() : -1;
+	check(SceneColorFormatVar && PostColorFormatVar);
+	const int32 OldSceneColorFormat = SceneColorFormatVar->GetInt();
+	const int32 OldPostColorFormat = PostColorFormatVar->GetInt();
+	const int32 OldForceLOD = ForceLODVar ? ForceLODVar->GetInt() : -1;
 	if (GetHighResScreenshotConfig().bForce128BitRendering)
 	{
-		CVarSceneColorFormat->Set(5, ECVF_SetByCode);
-		CVarPostColorFormat->Set(1, ECVF_SetByCode);
+		SceneColorFormatVar->Set(5, ECVF_SetByCode);
+		PostColorFormatVar->Set(1, ECVF_SetByCode);
 	}
 
-	if (CVarForceLOD)
+	if (ForceLODVar)
 	{
 		// Force highest LOD
-		CVarForceLOD->Set(0, ECVF_SetByCode);
+		ForceLODVar->Set(0, ECVF_SetByCode);
 	}
 
 	// Render the requested number of frames (at least once)
@@ -1239,11 +1239,11 @@ void FViewport::HighResScreenshot()
 	ViewportClient->GetEngineShowFlags()->MotionBlur = MotionBlurShowFlagBackup;
 	ViewportClient->ProcessScreenShots(DummyViewport);
 
-	CVarSceneColorFormat->Set(OldSceneColorFormat, ECVF_SetByCode);
-	CVarPostColorFormat->Set(OldPostColorFormat, ECVF_SetByCode);
-	if (CVarForceLOD)
+	SceneColorFormatVar->Set(OldSceneColorFormat, ECVF_SetByCode);
+	PostColorFormatVar->Set(OldPostColorFormat, ECVF_SetByCode);
+	if (ForceLODVar)
 	{
-		CVarForceLOD->Set(OldForceLOD, ECVF_SetByCode);
+		ForceLODVar->Set(OldForceLOD, ECVF_SetByCode);
 	}
 
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(

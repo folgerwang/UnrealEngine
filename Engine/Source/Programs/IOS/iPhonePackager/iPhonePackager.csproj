@@ -140,6 +140,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="RPCCommandHelper.cs" />
     <Compile Include="SlowProgressDialog.cs">
       <SubType>Form</SubType>
     </Compile>

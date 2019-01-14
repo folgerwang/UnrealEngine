@@ -16,65 +16,19 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildModuleCPP : UEBuildModule
 	{
-		public class SourceFilesClass
+		/// <summary>
+		/// Stores a list of all source files, of different types
+		/// </summary>
+		class InputFileCollection
 		{
+			public readonly List<FileItem> HeaderFiles = new List<FileItem>();
+
 			public readonly List<FileItem> CPPFiles = new List<FileItem>();
 			public readonly List<FileItem> CFiles = new List<FileItem>();
 			public readonly List<FileItem> CCFiles = new List<FileItem>();
 			public readonly List<FileItem> MMFiles = new List<FileItem>();
 			public readonly List<FileItem> RCFiles = new List<FileItem>();
-
-			public int Count
-			{
-				get
-				{
-					return CPPFiles.Count +
-						   CFiles.Count +
-						   CCFiles.Count +
-						   MMFiles.Count +
-						   RCFiles.Count;
-				}
-			}
-
-			/// <summary>
-			/// Copy from list to list helper.
-			/// </summary>
-			/// <param name="From">Source list.</param>
-			/// <param name="To">Destination list.</param>
-			private static void CopyFromListToList(List<FileItem> From, List<FileItem> To)
-			{
-				To.Clear();
-				To.AddRange(From);
-			}
-
-			/// <summary>
-			/// Copies file lists from other SourceFilesClass to this.
-			/// </summary>
-			/// <param name="Other">Source object.</param>
-			public void CopyFrom(SourceFilesClass Other)
-			{
-				CopyFromListToList(Other.CPPFiles, CPPFiles);
-				CopyFromListToList(Other.CFiles, CFiles);
-				CopyFromListToList(Other.CCFiles, CCFiles);
-				CopyFromListToList(Other.MMFiles, MMFiles);
-				CopyFromListToList(Other.RCFiles, RCFiles);
-			}
 		}
-
-		/// <summary>
-		/// All the source files for this module
-		/// </summary>
-		public readonly List<FileItem> SourceFiles = new List<FileItem>();
-
-		/// <summary>
-		/// A list of the absolute paths of source files to be built in this module.
-		/// </summary>
-		public readonly SourceFilesClass SourceFilesToBuild = new SourceFilesClass();
-
-		/// <summary>
-		/// A list of the source files that were found for the module.
-		/// </summary>
-		public readonly SourceFilesClass SourceFilesFound = new SourceFilesClass();
 
 		/// <summary>
 		/// The directory for this module's object files
@@ -101,45 +55,21 @@ namespace UnrealBuildTool
 		/// </summary>
 		public List<string> InvalidIncludeDirectiveMessages;
 
+		/// <summary>
+		/// Set of source directories referenced during a build
+		/// </summary>
+		HashSet<DirectoryReference> SourceDirectories;
+
 		protected override void GetReferencedDirectories(HashSet<DirectoryReference> Directories)
 		{
 			base.GetReferencedDirectories(Directories);
 
-			foreach(FileItem SourceFile in SourceFiles)
+			if(SourceDirectories == null)
 			{
-				Directories.Add(SourceFile.Location.Directory);
+				throw new BuildException("GetReferencedDirectories() should not be called before building.");
 			}
-		}
 
-		/// <summary>
-		/// Categorizes source files into per-extension buckets
-		/// </summary>
-		private static void CategorizeSourceFiles(IEnumerable<FileItem> InSourceFiles, SourceFilesClass OutSourceFiles)
-		{
-			foreach (FileItem SourceFile in InSourceFiles)
-			{
-				string Extension = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant();
-				if (Extension == ".CPP")
-				{
-					OutSourceFiles.CPPFiles.Add(SourceFile);
-				}
-				else if (Extension == ".C")
-				{
-					OutSourceFiles.CFiles.Add(SourceFile);
-				}
-				else if (Extension == ".CC")
-				{
-					OutSourceFiles.CCFiles.Add(SourceFile);
-				}
-				else if (Extension == ".MM" || Extension == ".M")
-				{
-					OutSourceFiles.MMFiles.Add(SourceFile);
-				}
-				else if (Extension == ".RC")
-				{
-					OutSourceFiles.RCFiles.Add(SourceFile);
-				}
-			}
+			Directories.UnionWith(SourceDirectories);
 		}
 
 		/// <summary>
@@ -202,19 +132,11 @@ namespace UnrealBuildTool
         };
 
 
-		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory, IEnumerable<FileItem> SourceFiles, bool bBuildSourceFiles)
+		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory)
 			: base(Rules)
 		{
 			this.IntermediateDirectory = IntermediateDirectory;
 			this.GeneratedCodeDirectory = GeneratedCodeDirectory;
-
-			this.SourceFiles = SourceFiles.ToList();
-
-			CategorizeSourceFiles(SourceFiles, SourceFilesFound);
-			if (bBuildSourceFiles)
-			{
-				SourceFilesToBuild.CopyFrom(SourceFilesFound);
-			}
 
 			foreach (string Def in PublicDefinitions)
 			{
@@ -261,14 +183,8 @@ namespace UnrealBuildTool
 			{
 				PublicIncludePaths.Add(PublicDirectory);
 
-				string[] ExcludedFolderNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
-				foreach (DirectoryReference PublicSubDirectory in DirectoryLookupCache.EnumerateDirectoriesRecursively(PublicDirectory))
-				{
-					if(!PublicSubDirectory.ContainsAnyNames(ExcludedFolderNames, PublicDirectory))
-					{
-						LegacyPublicIncludePaths.Add(PublicSubDirectory);
-					}
-				}
+				ReadOnlyHashSet<string> ExcludeNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
+				EnumerateLegacyIncludePaths(DirectoryItem.GetItemByDirectoryReference(PublicDirectory), ExcludeNames, LegacyPublicIncludePaths);
 			}
 
 			// Add the base private directory for this module
@@ -280,25 +196,29 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Enumerates legacy include paths under a given base directory
+		/// </summary>
+		/// <param name="BaseDirectory">The directory to start from. This directory is not added to the output list.</param>
+		/// <param name="ExcludeNames">Set of folder names to exclude from the search.</param>
+		/// <param name="LegacyPublicIncludePaths">List populated with the discovered directories</param>
+		static void EnumerateLegacyIncludePaths(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludeNames, HashSet<DirectoryReference> LegacyPublicIncludePaths)
+		{
+			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
+			{
+				if(!ExcludeNames.Contains(SubDirectory.Name))
+				{
+					LegacyPublicIncludePaths.Add(SubDirectory.Location);
+					EnumerateLegacyIncludePaths(SubDirectory, ExcludeNames, LegacyPublicIncludePaths);
+				}
+			}
+		}
+
+		/// <summary>
 		/// Path to the precompiled manifest location
 		/// </summary>
 		public virtual FileReference PrecompiledManifestLocation
 		{
 			get { return FileReference.Combine(IntermediateDirectory, String.Format("{0}.precompiled", Name)); }
-		}
-
-		/// <summary>
-		/// Gathers intellisense data for the project file containing this module
-		/// </summary>
-		/// <param name="Target">The target being built</param>
-		/// <param name="BinaryCompileEnvironment">The inherited compile environment for this module</param>
-		/// <param name="ProjectFile">The project file containing this module</param>
-		public void GatherDataForProjectFile(ReadOnlyTargetRules Target, CppCompileEnvironment BinaryCompileEnvironment, ProjectFile ProjectFile)
-		{
-			CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
-			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
-			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
-			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
 		}
 
 		/// <summary>
@@ -324,7 +244,7 @@ namespace UnrealBuildTool
 		}
 
 		// UEBuildModule interface.
-		public override List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment BinaryCompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		public override List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment BinaryCompileEnvironment, ISourceFileWorkingSet WorkingSet, TargetMakefile Makefile)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(BinaryCompileEnvironment.Platform);
 
@@ -338,43 +258,21 @@ namespace UnrealBuildTool
 				PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
 				{
-					FileItem ObjectFile = FileItem.GetExistingItemByFileReference(OutputFile);
-					ToolChain.DoLocalToRemoteFileItem(ObjectFile);
+					FileItem ObjectFile = FileItem.GetItemByFileReference(OutputFile);
+					if(!ObjectFile.Exists)
+					{
+						throw new BuildException("Missing object file {0} listed in {1}", OutputFile, PrecompiledManifestLocation);
+					}
 					LinkInputFiles.Add(ObjectFile);
 				}
 				return LinkInputFiles;
 			}
 
-			// Store the module compile environment along with the source file.  This is so that we can use it later on when looking for header dependencies
-			foreach (FileItem CFile in SourceFilesFound.CFiles)
-			{
-				CFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem CCFile in SourceFilesFound.CCFiles)
-			{
-				CCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
-			{
-				CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-			foreach (FileItem MMFile in SourceFilesFound.MMFiles)
-			{
-				MMFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
+			// Find all the input files
+			InputFileCollection InputFiles = FindInputFiles(Target.Platform, Makefile);
 
 			// Process all of the header file dependencies for this module
-			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment);
-
-			// Make sure our RC files have cached includes.  
-			foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
-			{
-				// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
-				if(RCFile.CachedIncludePaths == null)
-				{
-					RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-				}
-			}
+			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment, InputFiles.HeaderFiles, InputFiles.CPPFiles);
 
 			// Should we force a precompiled header to be generated for this module?  Usually, we only bother with a
 			// precompiled header if there are at least several source files in the module (after combining them for unity
@@ -422,7 +320,7 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("Module '{0}' not using unity build mode (bFasterWithoutUnity enabled for this module)", this.Name);
 					bModuleUsesUnityBuild = false;
 				}
-				else if (SourceFilesToBuild.CPPFiles.Count < MinSourceFilesForUnityBuild)
+				else if (InputFiles.CPPFiles.Count < MinSourceFilesForUnityBuild)
 				{
 					Log.TraceVerbose("Module '{0}' not using unity build mode (module with fewer than {1} source files)", this.Name, MinSourceFilesForUnityBuild);
 					bModuleUsesUnityBuild = false;
@@ -445,7 +343,7 @@ namespace UnrealBuildTool
 				// If this module doesn't need a shared PCH, configure that
 				if(Rules.PrivatePCHHeaderFile != null && (Rules.PCHUsage == ModuleRules.PCHUsageMode.NoSharedPCHs || Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs))
 				{
-					PrecompiledHeaderInstance Instance = CreatePrivatePCH(ToolChain, FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)), CompileEnvironment, ActionGraph);
+					PrecompiledHeaderInstance Instance = CreatePrivatePCH(ToolChain, FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)), CompileEnvironment, Makefile.Actions);
 
 					CompileEnvironment = new CppCompileEnvironment(CompileEnvironment);
 					CompileEnvironment.Definitions.Clear();
@@ -457,17 +355,17 @@ namespace UnrealBuildTool
 				}
 
 				// Try to find a suitable shared PCH for this module
-				if (CompileEnvironment.PrecompiledHeaderFile == null && SharedPCHs.Count > 0 && !CompileEnvironment.bIsBuildingLibrary && Rules.PCHUsage != ModuleRules.PCHUsageMode.NoSharedPCHs)
+				if (CompileEnvironment.PrecompiledHeaderFile == null && CompileEnvironment.SharedPCHs.Count > 0 && !CompileEnvironment.bIsBuildingLibrary && Rules.PCHUsage != ModuleRules.PCHUsageMode.NoSharedPCHs)
 				{
 					// Find all the dependencies of this module
 					HashSet<UEBuildModule> ReferencedModules = new HashSet<UEBuildModule>();
 					GetAllDependencyModules(new List<UEBuildModule>(), ReferencedModules, bIncludeDynamicallyLoaded: false, bForceCircular: false, bOnlyDirectDependencies: true);
 
 					// Find the first shared PCH module we can use
-					PrecompiledHeaderTemplate Template = SharedPCHs.FirstOrDefault(x => ReferencedModules.Contains(x.Module));
+					PrecompiledHeaderTemplate Template = CompileEnvironment.SharedPCHs.FirstOrDefault(x => ReferencedModules.Contains(x.Module));
 					if(Template != null && Template.IsValidFor(CompileEnvironment))
 					{
-						PrecompiledHeaderInstance Instance = FindOrCreateSharedPCH(ToolChain, Template, ModuleCompileEnvironment.bOptimizeCode, ModuleCompileEnvironment.bUseRTTI, ModuleCompileEnvironment.bEnableExceptions, ActionGraph);
+						PrecompiledHeaderInstance Instance = FindOrCreateSharedPCH(ToolChain, Template, ModuleCompileEnvironment.bOptimizeCode, ModuleCompileEnvironment.bUseRTTI, ModuleCompileEnvironment.bEnableExceptions, Makefile.Actions);
 
 						FileReference PrivateDefinitionsFile = FileReference.Combine(IntermediateDirectory, String.Format("Definitions.{0}.h", Name));
 
@@ -507,15 +405,15 @@ namespace UnrealBuildTool
 			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, null);
 
 			// Compile CPP files
-			List<FileItem> CPPFilesToCompile = SourceFilesToBuild.CPPFiles;
+			List<FileItem> CPPFilesToCompile = InputFiles.CPPFiles;
 			if (bModuleUsesUnityBuild)
 			{
-				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory);
-				LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, CompileEnvironment, ModuleCompileEnvironment, CPPFilesToCompile, ActionGraph).ObjectFiles);
+				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory, Makefile);
+				LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, CompileEnvironment, ModuleCompileEnvironment, CPPFilesToCompile, Makefile.Actions).ObjectFiles);
 			}
 			else
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, CPPFilesToCompile, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, CPPFilesToCompile, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile all the generated CPP files
@@ -535,8 +433,14 @@ namespace UnrealBuildTool
 					// Always force include the PCH, even if PCHs are disabled, for generated code. Legacy code can rely on PCHs being included to compile correctly, and this used to be done by UHT manually including it.
 					if(GeneratedCPPCompileEnvironment.PrecompiledHeaderFile == null && Rules.PrivatePCHHeaderFile != null && Rules.PCHUsage != ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 					{
+						FileItem PrivatePchFileItem = FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile));
+						if(!PrivatePchFileItem.Exists)
+						{
+							throw new BuildException("Unable to find private PCH file '{0}', referenced by '{1}'", PrivatePchFileItem.Location, RulesFile);
+						}
+
 						GeneratedCPPCompileEnvironment = new CppCompileEnvironment(GeneratedCPPCompileEnvironment);
-						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)));
+						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(PrivatePchFileItem);
 					}
 
 					// Compile all the generated files
@@ -544,7 +448,6 @@ namespace UnrealBuildTool
 					foreach (string GeneratedFilename in GeneratedFiles)
 					{
 						FileItem GeneratedCppFileItem = FileItem.GetItemByPath(GeneratedFilename);
-						GeneratedCppFileItem.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 
 						// @todo ubtmake: Check for ALL other places where we might be injecting .cpp or .rc files for compiling without caching CachedCPPIncludeInfo first (anything platform specific?)
 						GeneratedFileItems.Add(GeneratedCppFileItem);
@@ -552,42 +455,42 @@ namespace UnrealBuildTool
 
 					if (bModuleUsesUnityBuild)
 					{
-						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory);
-						LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, GeneratedCPPCompileEnvironment, ModuleCompileEnvironment, GeneratedFileItems, ActionGraph).ObjectFiles);
+						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory, Makefile);
+						LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, GeneratedCPPCompileEnvironment, ModuleCompileEnvironment, GeneratedFileItems, Makefile.Actions).ObjectFiles);
 					}
 					else
 					{
-						LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(GeneratedCPPCompileEnvironment, GeneratedFileItems, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+						LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(GeneratedCPPCompileEnvironment, GeneratedFileItems, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 					}
 				}
 			}
 
 			// Compile C files directly. Do not use a PCH here, because a C++ PCH is not compatible with C source files.
-			if(SourceFilesToBuild.CFiles.Count > 0)
+			if(InputFiles.CFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, SourceFilesToBuild.CFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, InputFiles.CFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile CC files directly.
-			if(SourceFilesToBuild.CCFiles.Count > 0)
+			if(InputFiles.CCFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.CCFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, InputFiles.CCFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile MM files directly.
-			if(SourceFilesToBuild.MMFiles.Count > 0)
+			if(InputFiles.MMFiles.Count > 0)
 			{
-				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.MMFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, InputFiles.MMFiles, IntermediateDirectory, Name, Makefile.Actions).ObjectFiles);
 			}
 
 			// Compile RC files. The resource compiler does not work with response files, and using the regular compile environment can easily result in the 
 			// command line length exceeding the OS limit. Use the binary compile environment to keep the size down, and require that all include paths
 			// must be specified relative to the resource file itself or Engine/Source.
-			if(SourceFilesToBuild.RCFiles.Count > 0)
+			if(InputFiles.RCFiles.Count > 0)
 			{
 				CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-				WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, IntermediateDirectory, Target);
-				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, SourceFilesToBuild.RCFiles, IntermediateDirectory, ActionGraph).ObjectFiles);
+				WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
+				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, InputFiles.RCFiles, IntermediateDirectory, Makefile.Actions).ObjectFiles);
 			}
 
 			// Write the compiled manifest
@@ -613,7 +516,6 @@ namespace UnrealBuildTool
 		{
 			CppCompileEnvironment CompileEnvironment = CreateSharedPCHCompileEnvironment(Target, BaseCompileEnvironment);
 			FileItem HeaderFile = FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.SharedPCHHeaderFile));
-			HeaderFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 
 			DirectoryReference PrecompiledHeaderDir;
 			if(Rules.bUsePrecompiled)
@@ -634,16 +536,10 @@ namespace UnrealBuildTool
 		/// <param name="ToolChain">The toolchain to generate the PCH</param>
 		/// <param name="HeaderFile"></param>
 		/// <param name="ModuleCompileEnvironment"></param>
-		/// <param name="ActionGraph">Graph containing build actions</param>
+		/// <param name="Actions">List of actions to be executed. Additional actions will be added to this list.</param>
 		/// <returns>The created PCH instance.</returns>
-		private PrecompiledHeaderInstance CreatePrivatePCH(UEToolChain ToolChain, FileItem HeaderFile, CppCompileEnvironment ModuleCompileEnvironment, ActionGraph ActionGraph)
+		private PrecompiledHeaderInstance CreatePrivatePCH(UEToolChain ToolChain, FileItem HeaderFile, CppCompileEnvironment ModuleCompileEnvironment, List<Action> Actions)
 		{
-			// Cache the header file include paths. This file could have been a shared PCH too, so ignore if the include paths are already set.
-			if(HeaderFile.CachedIncludePaths == null)
-			{
-				HeaderFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-			}
-
 			// Create the wrapper file, which sets all the definitions needed to compile it
 			FileReference WrapperLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.{0}.h", Name));
 			FileItem WrapperFile = CreatePCHWrapperFile(WrapperLocation, ModuleCompileEnvironment.Definitions, HeaderFile);
@@ -656,7 +552,7 @@ namespace UnrealBuildTool
 			CompileEnvironment.bOptimizeCode = ModuleCompileEnvironment.bOptimizeCode;
 
 			// Create the action to compile the PCH file.
-			CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, IntermediateDirectory, Name, ActionGraph);
+			CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, IntermediateDirectory, Name, Actions);
 			return new PrecompiledHeaderInstance(WrapperFile, CompileEnvironment.bOptimizeCode, CompileEnvironment.bUseRTTI, CompileEnvironment.bEnableExceptions, Output);
 		}
 
@@ -668,9 +564,9 @@ namespace UnrealBuildTool
 		/// <param name="bOptimizeCode">Whether optimization should be enabled for this PCH</param>
 		/// <param name="bUseRTTI">Whether to enable RTTI for this PCH</param>
 		/// <param name="bEnableExceptions">Whether to enable exceptions for this PCH</param>
-		/// <param name="ActionGraph">Graph containing build actions</param>
+		/// <param name="Actions">List of actions to be executed. Additional actions will be added to this list.</param>
 		/// <returns>Instance of a PCH</returns>
-		public PrecompiledHeaderInstance FindOrCreateSharedPCH(UEToolChain ToolChain, PrecompiledHeaderTemplate Template, bool bOptimizeCode, bool bUseRTTI, bool bEnableExceptions, ActionGraph ActionGraph)
+		public PrecompiledHeaderInstance FindOrCreateSharedPCH(UEToolChain ToolChain, PrecompiledHeaderTemplate Template, bool bOptimizeCode, bool bUseRTTI, bool bEnableExceptions, List<Action> Actions)
 		{
 			PrecompiledHeaderInstance Instance = Template.Instances.Find(x => x.bOptimizeCode == bOptimizeCode && x.bUseRTTI == bUseRTTI && x.bEnableExceptions == bEnableExceptions);
 			if(Instance == null)
@@ -725,7 +621,7 @@ namespace UnrealBuildTool
 				CompileEnvironment.bEnableExceptions = bEnableExceptions;
 
 				// Create the PCH
-				CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, Template.OutputDir, "Shared", ActionGraph);
+				CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, Template.OutputDir, "Shared", Actions);
 				Instance = new PrecompiledHeaderInstance(WrapperFile, bOptimizeCode, bUseRTTI, bEnableExceptions, Output);
 				Template.Instances.Add(Instance);
 			}
@@ -735,7 +631,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Compiles the provided CPP unity files. Will
 		/// </summary>
-		private CPPOutput CompileUnityFilesWithToolChain(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, CppCompileEnvironment ModuleCompileEnvironment, List<FileItem> SourceFiles, ActionGraph ActionGraph)
+		private CPPOutput CompileUnityFilesWithToolChain(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, CppCompileEnvironment ModuleCompileEnvironment, List<FileItem> SourceFiles, List<Action> Actions)
 		{
 			List<FileItem> NormalFiles = new List<FileItem>();
 			List<FileItem> AdaptiveFiles = new List<FileItem>();
@@ -766,7 +662,7 @@ namespace UnrealBuildTool
 
 			if (NormalFiles.Count > 0)
 			{
-				OutputFiles = ToolChain.CompileCPPFiles(CompileEnvironment, NormalFiles, IntermediateDirectory, Name, ActionGraph);
+				OutputFiles = ToolChain.CompileCPPFiles(CompileEnvironment, NormalFiles, IntermediateDirectory, Name, Actions);
 			}
 
 			if (AdaptiveFiles.Count > 0)
@@ -786,15 +682,19 @@ namespace UnrealBuildTool
 				CPPOutput AdaptiveOutput;
 				if(Target.bAdaptiveUnityCreatesDedicatedPCH)
 				{
-					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithDedicatedPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithDedicatedPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, Actions);
 				}
 				else if(bAdaptiveUnityDisablesPCH)
 				{
-					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithoutPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithoutPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, Actions);
+				}
+				else if(AdaptiveUnityEnvironment.bOptimizeCode != CompileEnvironment.bOptimizeCode || AdaptiveUnityEnvironment.bSupportEditAndContinue != CompileEnvironment.bSupportEditAndContinue)
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFiles(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, Actions);
 				}
 				else
 				{
-					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+					AdaptiveOutput = CompileAdaptiveNonUnityFiles(ToolChain, CompileEnvironment, AdaptiveFiles, IntermediateDirectory, Name, Actions);
 				}
 
 				// Merge output
@@ -805,13 +705,13 @@ namespace UnrealBuildTool
 			return OutputFiles;
 		}
 
-		static CPPOutput CompileAdaptiveNonUnityFilesWithPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		static CPPOutput CompileAdaptiveNonUnityFiles(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, List<Action> Actions)
 		{
 			// Compile the files
-			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, Actions);
 		}
 
-		static CPPOutput CompileAdaptiveNonUnityFilesWithoutPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		static CPPOutput CompileAdaptiveNonUnityFilesWithoutPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, List<Action> Actions)
 		{
 			// Disable precompiled headers
 			CompileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
@@ -820,10 +720,10 @@ namespace UnrealBuildTool
 			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, "Adaptive");
 
 			// Compile the files
-			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, Actions);
 		}
 
-		static CPPOutput CompileAdaptiveNonUnityFilesWithDedicatedPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		static CPPOutput CompileAdaptiveNonUnityFilesWithDedicatedPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, List<Action> Actions)
 		{
 			CPPOutput Output = new CPPOutput();
 			foreach(FileItem File in Files)
@@ -845,17 +745,16 @@ namespace UnrealBuildTool
 				// Write the PCH header
 				FileReference DedicatedPchLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.Dedicated.{0}.h", File.Location.GetFileNameWithoutExtension()));
 				FileItem DedicatedPchFile = FileItem.CreateIntermediateTextFile(DedicatedPchLocation, WrapperContents.ToString());
-				DedicatedPchFile.CachedIncludePaths = File.CachedIncludePaths;
 
 				// Create a new C++ environment to compile the PCH
 				CppCompileEnvironment PchEnvironment = new CppCompileEnvironment(CompileEnvironment);
 				PchEnvironment.Definitions.Clear();
-				PchEnvironment.IncludePaths.UserIncludePaths.Add(File.Location.Directory); // Need to be able to include headers in the same directory as the source file
+				PchEnvironment.UserIncludePaths.Add(File.Location.Directory); // Need to be able to include headers in the same directory as the source file
 				PchEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Create;
 				PchEnvironment.PrecompiledHeaderIncludeFilename = DedicatedPchFile.Location;
 
 				// Create the action to compile the PCH file.
-				CPPOutput PchOutput = ToolChain.CompileCPPFiles(PchEnvironment, new List<FileItem>() { DedicatedPchFile }, IntermediateDirectory, ModuleName, ActionGraph);
+				CPPOutput PchOutput = ToolChain.CompileCPPFiles(PchEnvironment, new List<FileItem>() { DedicatedPchFile }, IntermediateDirectory, ModuleName, Actions);
 				Output.ObjectFiles.AddRange(PchOutput.ObjectFiles);
 
 				// Create a new C++ environment to compile the original file
@@ -866,7 +765,7 @@ namespace UnrealBuildTool
 				FileEnvironment.PrecompiledHeaderFile = PchOutput.PrecompiledHeaderFile;
 
 				// Create the action to compile the PCH file.
-				CPPOutput FileOutput = ToolChain.CompileCPPFiles(FileEnvironment, new List<FileItem>() { File }, IntermediateDirectory, ModuleName, ActionGraph);
+				CPPOutput FileOutput = ToolChain.CompileCPPFiles(FileEnvironment, new List<FileItem>() { File }, IntermediateDirectory, ModuleName, Actions);
 				Output.ObjectFiles.AddRange(FileOutput.ObjectFiles);
 			}
 			return Output;
@@ -926,13 +825,12 @@ namespace UnrealBuildTool
 
 			// Create the item
 			FileItem WrapperFile = FileItem.CreateIntermediateTextFile(OutputFile, WrapperContents.ToString());
-			WrapperFile.CachedIncludePaths = IncludedFile.CachedIncludePaths;
 
 			// Touch it if the included file is newer, to make sure our timestamp dependency checking is accurate.
-			if (IncludedFile.LastWriteTime > WrapperFile.LastWriteTime)
+			if (IncludedFile.LastWriteTimeUtc > WrapperFile.LastWriteTimeUtc)
 			{
 				File.SetLastWriteTimeUtc(WrapperFile.AbsolutePath, DateTime.UtcNow);
-				WrapperFile.ResetFileInfo();
+				WrapperFile.ResetCachedInfo();
 			}
 			return WrapperFile;
 		}
@@ -963,48 +861,38 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Target">The target being compiled</param>
 		/// <param name="ModuleCompileEnvironment">Compile environment for the module</param>
-		private void CheckFirstIncludeMatchesEachCppFile(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment)
+		/// <param name="HeaderFiles">All header files for this module</param>
+		/// <param name="CppFiles">List of C++ source files</param>
+		private void CheckFirstIncludeMatchesEachCppFile(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment, List<FileItem> HeaderFiles, List<FileItem> CppFiles)
 		{
 			if(Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 			{
 				if(InvalidIncludeDirectiveMessages == null)
 				{
-					// Find all the source files in this module
-					List<FileReference> ModuleFiles = SourceFileSearch.FindModuleSourceFiles(RulesFile);
-
 					// Find headers used by the source file.
 					Dictionary<string, FileReference> NameToHeaderFile = new Dictionary<string, FileReference>();
-					foreach(FileReference ModuleFile in ModuleFiles)
+					foreach(FileItem HeaderFile in HeaderFiles)
 					{
-						if(ModuleFile.HasExtension(".h"))
-						{
-							NameToHeaderFile[ModuleFile.GetFileNameWithoutExtension()] = ModuleFile;
-						}
-					}
-
-					// Store the module compile environment along with the .cpp file.  This is so that we can use it later on when looking for header dependencies
-					foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
-					{
-						CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
+						NameToHeaderFile[HeaderFile.Location.GetFileNameWithoutExtension()] = HeaderFile.Location;
 					}
 
 					// Find the directly included files for each source file, and make sure it includes the matching header if possible
 					InvalidIncludeDirectiveMessages = new List<string>();
 					if (Rules != null && Rules.bEnforceIWYU && Target.bEnforceIWYU)
 					{
-						foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)
+						foreach (FileItem CppFile in CppFiles)
 						{
-							List<DependencyInclude> DirectIncludeFilenames = ModuleCompileEnvironment.Headers.GetDirectIncludeDependencies(CPPFile, bOnlyCachedDependencies: false);
-							if (DirectIncludeFilenames.Count > 0)
+							string FirstInclude = ModuleCompileEnvironment.MetadataCache.GetFirstInclude(CppFile);
+							if(FirstInclude != null)
 							{
-								string IncludeName = Path.GetFileNameWithoutExtension(DirectIncludeFilenames[0].IncludeName);
-								string ExpectedName = CPPFile.Location.GetFileNameWithoutExtension();
-								if (String.Compare(IncludeName, ExpectedName, StringComparison.InvariantCultureIgnoreCase) != 0)
+								string IncludeName = Path.GetFileNameWithoutExtension(FirstInclude);
+								string ExpectedName = CppFile.Location.GetFileNameWithoutExtension();
+								if (String.Compare(IncludeName, ExpectedName, StringComparison.OrdinalIgnoreCase) != 0)
 								{
 									FileReference HeaderFile;
 									if (NameToHeaderFile.TryGetValue(ExpectedName, out HeaderFile) && !IgnoreMismatchedHeader(ExpectedName))
 									{
-										InvalidIncludeDirectiveMessages.Add(String.Format("{0}(1): error: Expected {1} to be first header included.", CPPFile.Location, HeaderFile.GetFileName()));
+										InvalidIncludeDirectiveMessages.Add(String.Format("{0}(1): error: Expected {1} to be first header included.", CppFile.Location, HeaderFile.GetFileName()));
 									}
 								}
 							}
@@ -1086,6 +974,12 @@ namespace UnrealBuildTool
 			Result.bEnableShadowVariableWarnings = Rules.bEnableShadowVariableWarnings;
 			Result.bEnableUndefinedIdentifierWarnings = Rules.bEnableUndefinedIdentifierWarnings;
 
+			// If the module overrides the C++ language version, override it on the compile environment
+			if(Rules.CppStandard != CppStandardVersion.Default)
+			{
+				Result.CppStandard = Rules.CppStandard;
+			}
+
 			// Set the macro used to check whether monolithic headers can be used
 			if (Rules.bTreatAsEngineModule && (!Rules.bEnforceIWYU || !Target.bEnforceIWYU))
 			{
@@ -1124,7 +1018,7 @@ namespace UnrealBuildTool
 			}
 
 			// Setup the compile environment for the module.
-			SetupPrivateCompileEnvironment(Result.IncludePaths.UserIncludePaths, Result.IncludePaths.SystemIncludePaths, Result.Definitions, Result.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
+			SetupPrivateCompileEnvironment(Result.UserIncludePaths, Result.SystemIncludePaths, Result.Definitions, Result.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
 
 			return Result;
 		}
@@ -1166,7 +1060,7 @@ namespace UnrealBuildTool
 			// Now set up the compile environment for the modules in the original order that we encountered them
 			foreach (UEBuildModule Module in ModuleToIncludePathsOnlyFlag.Keys)
 			{
-				Module.AddModuleToCompileEnvironment(null, CompileEnvironment.IncludePaths.UserIncludePaths, CompileEnvironment.IncludePaths.SystemIncludePaths, CompileEnvironment.Definitions, CompileEnvironment.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
+				Module.AddModuleToCompileEnvironment(null, CompileEnvironment.UserIncludePaths, CompileEnvironment.SystemIncludePaths, CompileEnvironment.Definitions, CompileEnvironment.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
 			}
 			return CompileEnvironment;
 		}
@@ -1203,33 +1097,103 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override void RecursivelyAddPrecompiledModules(List<UEBuildModule> Modules)
+		/// <summary>
+		/// Finds all the source files that should be built for this module
+		/// </summary>
+		/// <param name="Platform">The platform the module is being built for</param>
+		/// <param name="Makefile">Makefile for the target being built</param>
+		/// <returns>Set of source files that should be built</returns>
+		InputFileCollection FindInputFiles(UnrealTargetPlatform Platform, TargetMakefile Makefile)
 		{
-			if (!Modules.Contains(this))
+			ReadOnlyHashSet<string> ExcludedNames = UEBuildPlatform.GetBuildPlatform(Platform).GetExcludedFolderNames();
+
+			InputFileCollection InputFiles = new InputFileCollection();
+			DirectoryItem ModuleDirectoryItem = DirectoryItem.GetItemByDirectoryReference(ModuleDirectory);
+
+			SourceDirectories = new HashSet<DirectoryReference>();
+			FindInputFilesFromDirectoryRecursive(ModuleDirectoryItem, ExcludedNames, SourceDirectories, Makefile.DirectoryToSourceFiles, InputFiles);
+
+			return InputFiles;
+		}
+
+		/// <summary>
+		/// Finds all the source files that should be built for this module
+		/// </summary>
+		/// <param name="BaseDirectory">Directory to search from</param>
+		/// <param name="ExcludedNames">Set of excluded directory names (eg. other platforms)</param>
+		/// <param name="SourceDirectories">Set of all non-empty source directories.</param>
+		/// <param name="DirectoryToSourceFiles">Map from directory to source files inside it</param>
+		/// <param name="InputFiles">Collection of source files, categorized by type</param>
+		static void FindInputFilesFromDirectoryRecursive(DirectoryItem BaseDirectory, ReadOnlyHashSet<string> ExcludedNames, HashSet<DirectoryReference> SourceDirectories, Dictionary<DirectoryItem, FileItem[]> DirectoryToSourceFiles, InputFileCollection InputFiles)
+		{
+			foreach(DirectoryItem SubDirectory in BaseDirectory.EnumerateDirectories())
 			{
-				Modules.Add(this);
-
-				// Get the dependent modules
-				List<UEBuildModule> DependentModules = new List<UEBuildModule>();
-				if (PrivateDependencyModules != null)
+				if(!ExcludedNames.Contains(SubDirectory.Name))
 				{
-					DependentModules.AddRange(PrivateDependencyModules);
-				}
-				if (PublicDependencyModules != null)
-				{
-					DependentModules.AddRange(PublicDependencyModules);
-				}
-				if (DynamicallyLoadedModules != null)
-				{
-					DependentModules.AddRange(DynamicallyLoadedModules);
-				}
-
-				// Find modules for each of them, and add their dependencies too
-				foreach (UEBuildModule DependentModule in DependentModules)
-				{
-					DependentModule.RecursivelyAddPrecompiledModules(Modules);
+					FindInputFilesFromDirectoryRecursive(SubDirectory, ExcludedNames, SourceDirectories, DirectoryToSourceFiles, InputFiles);
 				}
 			}
+
+			FileItem[] SourceFiles = FindInputFilesFromDirectory(BaseDirectory, InputFiles);
+			if(SourceFiles.Length > 0)
+			{
+				SourceDirectories.Add(BaseDirectory.Location);
+			}
+			DirectoryToSourceFiles.Add(BaseDirectory, SourceFiles);
+		}
+
+		/// <summary>
+		/// Finds the input files that should be built for this module, from a given directory
+		/// </summary>
+		/// <param name="BaseDirectory"></param>
+		/// <param name="InputFiles"></param>
+		/// <returns>Array of source files</returns>
+		static FileItem[] FindInputFilesFromDirectory(DirectoryItem BaseDirectory, InputFileCollection InputFiles)
+		{
+			List<FileItem> SourceFiles = new List<FileItem>();
+			foreach(FileItem InputFile in BaseDirectory.EnumerateFiles())
+			{
+				if (InputFile.HasExtension(".h"))
+				{
+					InputFiles.HeaderFiles.Add(InputFile);
+				}
+				if (InputFile.HasExtension(".cpp"))
+				{
+					SourceFiles.Add(InputFile);
+					InputFiles.CPPFiles.Add(InputFile);
+				}
+				else if (InputFile.HasExtension(".c"))
+				{
+					SourceFiles.Add(InputFile);
+					InputFiles.CFiles.Add(InputFile);
+				}
+				else if (InputFile.HasExtension(".cc"))
+				{
+					SourceFiles.Add(InputFile);
+					InputFiles.CCFiles.Add(InputFile);
+				}
+				else if (InputFile.HasExtension(".m") || InputFile.HasExtension(".mm"))
+				{
+					SourceFiles.Add(InputFile);
+					InputFiles.MMFiles.Add(InputFile);
+				}
+				else if (InputFile.HasExtension(".rc"))
+				{
+					SourceFiles.Add(InputFile);
+					InputFiles.RCFiles.Add(InputFile);
+				}
+			}
+			return SourceFiles.ToArray();
+		}
+
+		/// <summary>
+		/// Gets a set of source files for the given directory. Used to detect when the makefile is out of date.
+		/// </summary>
+		/// <param name="Directory"></param>
+		/// <returns>Array of source files</returns>
+		public static FileItem[] GetSourceFiles(DirectoryItem Directory)
+		{
+			return FindInputFilesFromDirectory(Directory, new InputFileCollection());
 		}
 	}
 }

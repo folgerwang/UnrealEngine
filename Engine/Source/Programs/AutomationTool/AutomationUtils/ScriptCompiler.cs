@@ -125,7 +125,7 @@ namespace AutomationTool
 			List<DirectoryReference> AllGameFolders;
 			if(ScriptsForProjectFileName == null)
 			{
-				AllGameFolders = UProjectInfo.AllProjectFiles.Select(x => x.Directory).ToList();
+				AllGameFolders = NativeProjects.EnumerateProjectFiles().Select(x => x.Directory).ToList();
 			}
 			else
 			{
@@ -243,7 +243,7 @@ namespace AutomationTool
 				throw new AutomationException(String.Format("Unable to build Project {0}. Project file not found.", ProjectFile));
 			}
 
-			var CmdLine = String.Format("\"{0}\" /verbosity:quiet /nologo /target:Build /property:Configuration={1} /property:Platform=AnyCPU /p:TreatWarningsAsErrors=false /p:NoWarn=\"612,618,672\" /p:BuildProjectReferences=true",
+			string CmdLine = String.Format("\"{0}\" /verbosity:quiet /nologo /target:Build /property:Configuration={1} /property:Platform=AnyCPU /property:TargetFrameworkVersion=v4.5 /p:TreatWarningsAsErrors=false /p:NoWarn=\"612,618,672\" /p:BuildProjectReferences=true",
 				ProjectFile, BuildConfig);
 
 			// Compile the project

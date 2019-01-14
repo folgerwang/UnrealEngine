@@ -3,9 +3,6 @@
 #include "Physics/Experimental/PhysScene_LLImmediate.h"
 #include "Async/ParallelFor.h"
 
-
-using namespace ImmediatePhysics;
-
 FPhysScene_LLImmediate::FPhysScene_LLImmediate()
 	: Simulation(nullptr)
 	, SimulationTime(0)
@@ -31,7 +28,7 @@ void FPhysScene_LLImmediate::Init()
 	}
 
 	CurrentFrame = 0;
-	Simulation = new FSimulation();
+	Simulation = new ImmediatePhysics::FSimulation();
 
 	// #PHYS2 move to configuration somewhere
 	Simulation->SetPositionIterationCount(16);
