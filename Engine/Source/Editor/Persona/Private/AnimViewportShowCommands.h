@@ -98,9 +98,6 @@ public:
 	TSharedPtr< FUICommandInfo > ShowBoneWeight;
 	TSharedPtr< FUICommandInfo > ShowMorphTargetVerts;
 
-	/** Show mesh vertex colors */
-	TSharedPtr< FUICommandInfo > ShowVertexColors;
-
 	/** Show socket hit point diamonds */
 	TSharedPtr< FUICommandInfo > ShowSockets;
 

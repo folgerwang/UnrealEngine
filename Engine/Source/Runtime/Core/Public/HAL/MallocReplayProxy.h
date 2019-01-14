@@ -115,7 +115,7 @@ public:
 
 	virtual const TCHAR* GetDescriptiveName() override;
 
-	virtual void Trim() override;
+	virtual void Trim(bool bTrimThreadCaches) override;
 
 	virtual void SetupTLSCachesOnCurrentThread() override;
 

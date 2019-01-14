@@ -132,9 +132,9 @@ public:
 		return UsedMalloc->GetDescriptiveName(); 
 	}
 
-	virtual void Trim() override
+	virtual void Trim(bool bTrimThreadCaches) override
 	{
-		UsedMalloc->Trim();
+		UsedMalloc->Trim(bTrimThreadCaches);
 	}
 
 	virtual void SetupTLSCachesOnCurrentThread() override

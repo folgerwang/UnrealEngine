@@ -27,20 +27,6 @@ namespace UnrealBuildTool.Rules
             AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
 	        AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
-
-            if (Target.bCompileSimplygon == true)
-            {
-                AddEngineThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");
-
-                if (Target.bCompileSimplygonSSF == true)
-                {
-                    DynamicallyLoadedModuleNames.AddRange(
-                        new string[] {
-                    "SimplygonSwarm"
-                    }
-                    );
-                }
-            }
         }
 	}
 }

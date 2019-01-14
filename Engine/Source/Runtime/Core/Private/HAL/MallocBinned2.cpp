@@ -1056,11 +1056,11 @@ void FMallocBinned2::FlushCurrentThreadCache()
 
 #include "Async/TaskGraphInterfaces.h"
 
-void FMallocBinned2::Trim()
+void FMallocBinned2::Trim(bool bTrimThreadCaches)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMallocBinned2_Trim);
 
-	if (GMallocBinned2PerThreadCaches)
+	if (GMallocBinned2PerThreadCaches  &&  bTrimThreadCaches)
 	{
 		//double StartTime = FPlatformTime::Seconds();
 		TFunction<void(ENamedThreads::Type CurrentThread)> Broadcast =

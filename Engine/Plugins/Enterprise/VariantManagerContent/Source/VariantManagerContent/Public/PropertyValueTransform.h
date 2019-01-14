@@ -19,9 +19,9 @@ public:
 	FQuat GetRotation();
 	FVector GetScale3D();
 
-	void SetLocation(FVector NewValue);
-	void SetRotation(FQuat NewValue);
-	void SetScale3D(FVector NewValue);
+	void SetLocation(const FVector& NewValue);
+	void SetRotation(const FQuat& NewValue);
+	void SetScale3D(const FVector& NewValue);
 
 	virtual void ApplyDataToResolvedObject() override;
 };

@@ -164,7 +164,8 @@ public:
 		UpdateNameInternal(AnimSequenceBase.Get()->RawCurveData, RequestedNameUID, RequestedName);
 		if (UAnimSequence* Seq = AnimSequence.Get())
 		{
-			UpdateNameInternal(Seq->CompressedCurveData, RequestedNameUID, RequestedName);
+			FSmartName NewCurveName(RequestedName, RequestedNameUID);
+			Seq->UpdateCompressedCurveName(CurveUID, NewCurveName);
 		}
 		CurveUID = RequestedNameUID;
 	}
@@ -175,13 +176,6 @@ public:
 	void SetCurveTypeFlag(EAnimAssetCurveFlags InFlag, bool bValue)
 	{
 		AnimSequenceBase.Get()->RawCurveData.GetCurveData(CurveUID)->SetCurveTypeFlag(InFlag, bValue);
-		if (UAnimSequence* Seq = AnimSequence.Get())
-		{
-			if (FAnimCurveBase* CompressedCurve = Seq->CompressedCurveData.GetCurveData(CurveUID))
-			{
-				CompressedCurve->SetCurveTypeFlag(InFlag, bValue);
-			}
-		}
 	}
 
 	/**
@@ -190,13 +184,6 @@ public:
 	void ToggleCurveTypeFlag(EAnimAssetCurveFlags InFlag)
 	{
 		AnimSequenceBase.Get()->RawCurveData.GetCurveData(CurveUID)->ToggleCurveTypeFlag(InFlag);
-		if (UAnimSequence* Seq = AnimSequence.Get())
-		{
-			if (FAnimCurveBase* CompressedCurve = Seq->CompressedCurveData.GetCurveData(CurveUID))
-			{
-				CompressedCurve->ToggleCurveTypeFlag(InFlag);
-			}
-		}
 	}
 
 	/**

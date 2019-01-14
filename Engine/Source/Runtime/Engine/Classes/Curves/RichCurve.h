@@ -38,6 +38,37 @@ enum ERichCurveTangentWeightMode
 	RCTWM_WeightedBoth UMETA(DisplayName="Both")
 };
 
+/** Enumerates curve compression options. */
+UENUM()
+enum ERichCurveCompressionFormat
+{
+	/** No keys are present */
+	RCCF_Empty UMETA(DisplayName = "Empty"),
+
+	/** All keys use constant interpolation */
+	RCCF_Constant UMETA(DisplayName = "Constant"),
+
+	/** All keys use linear interpolation */
+	RCCF_Linear UMETA(DisplayName = "Linear"),
+
+	/** All keys use cubic interpolation */
+	RCCF_Cubic UMETA(DisplayName = "Cubic"),
+
+	/** Keys use mixed interpolation modes */
+	RCCF_Mixed UMETA(DisplayName = "Mixed"),
+};
+
+/** Enumerates key time compression options. */
+UENUM()
+enum ERichCurveKeyTimeCompressionFormat
+{
+	/** Key time is quantized to 16 bits */
+	RCKTCF_uint16 UMETA(DisplayName = "uint16"),
+
+	/** Key time uses full precision */
+	RCKTCF_float32 UMETA(DisplayName = "float32"),
+};
+
 /** One key in a rich, editable float curve */
 USTRUCT()
 struct ENGINE_API FRichCurveKey
@@ -225,6 +256,12 @@ public:
 	/** Returns a <Time, Value> pair for the specified key */
 	virtual TPair<float, float> GetKeyTimeValuePair(FKeyHandle KeyHandle) const final override;
 
+	/** Returns whether the curve is constant or not */
+	bool IsConstant(float Tolerance = SMALL_NUMBER) const;
+
+	/** Returns whether the curve is empty or not */
+	bool IsEmpty() const { return Keys.Num() == 0; }
+
 	/** Set the interp mode of the specified key */
 	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode NewInterpMode) final override;
 
@@ -272,6 +309,9 @@ public:
 	virtual void RemoveRedundantKeys(float Tolerance) final override;
 	virtual void RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime) final override;
 
+	/** Compresses a rich curve for efficient runtime storage and evaluation */
+	void CompressCurve(struct FCompressedRichCurve& OutCurve, float ErrorThreshold = 0.0001f, float SampleRate = 120.0f) const;
+
 private:
 	void RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepKey, int32 InEndKeepKey);
 	virtual int32 GetKeyIndex(float KeyTime, float KeyTimeTolerance) const override final;
@@ -289,6 +329,85 @@ public:
 	TArray<FRichCurveKey> Keys;
 };
 
+/**
+ * A runtime optimized representation of a FRichCurve. It consumes less memory and evaluates faster.
+ */
+USTRUCT()
+struct ENGINE_API FCompressedRichCurve
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Compression format used by CompressedKeys */
+	TEnumAsByte<ERichCurveCompressionFormat> CompressionFormat;
+
+	/** Compression format used to pack the key time */
+	TEnumAsByte<ERichCurveKeyTimeCompressionFormat> KeyTimeCompressionFormat;
+
+	/** Pre-infinity extrapolation state */
+	TEnumAsByte<ERichCurveExtrapolation> PreInfinityExtrap;
+
+	/** Post-infinity extrapolation state */
+	TEnumAsByte<ERichCurveExtrapolation> PostInfinityExtrap;
+
+	union TConstantValueNumKeys
+	{
+		float ConstantValue;
+		int32 NumKeys;
+
+		TConstantValueNumKeys() : NumKeys(0) {}
+	};
+
+	/**
+	* If the compression format is constant, this is the value returned
+	* Inline here to reduce the likelihood of accessing the compressed keys data for the common case of constant/zero/empty curves
+	* When a curve is linear/cubic/mixed, the constant float value isn't used and instead we use the number of keys
+	*/
+	TConstantValueNumKeys ConstantValueNumKeys;
+
+	/** Compressed keys, used only outside of the editor */
+	TArray<uint8> CompressedKeys;
+
+	FCompressedRichCurve()
+		: CompressionFormat(RCCF_Empty)
+		, KeyTimeCompressionFormat(RCKTCF_float32)
+		, PreInfinityExtrap(RCCE_None)
+		, PostInfinityExtrap(RCCE_None)
+		, ConstantValueNumKeys()
+		, CompressedKeys()
+	{}
+
+	/** Evaluate this rich curve at the specified time */
+	float Eval(float InTime, float InDefaultValue = 0.0f) const;
+
+	/** Evaluate this rich curve at the specified time */
+	static float StaticEval(ERichCurveCompressionFormat CompressionFormat, ERichCurveKeyTimeCompressionFormat KeyTimeCompressionFormat, ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue = 0.0f);
+
+	/** ICPPStructOps interface */
+	bool Serialize(FArchive& Ar);
+	bool operator==(const FCompressedRichCurve& Other) const;
+	bool operator!=(const FCompressedRichCurve& Other) const { return !(*this == Other); }
+
+	friend FArchive& operator<<(FArchive& Ar, FCompressedRichCurve& Curve)
+	{
+		Curve.Serialize(Ar);
+		return Ar;
+	}
+};
+
+/*
+ * Override serialization for compressed rich curves to handle the union
+ */
+template<>
+struct TStructOpsTypeTraits<FCompressedRichCurve>
+	: public TStructOpsTypeTraitsBase2<FCompressedRichCurve>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithCopy = false,
+		WithIdenticalViaEquality = true,
+	};
+};
 
 /**
  * Info about a curve to be edited.

@@ -88,8 +88,13 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 						SNew(SHeaderRow)
 
 						+ SHeaderRow::Column("ShouldImport")
-						.DefaultLabel(FText::FromString(TEXT("Include")))
 						.FillWidth(0.1f)
+						.DefaultLabel(FText::FromString(TEXT("Include")))
+						[
+							SNew(SCheckBox)
+							.HAlign(HAlign_Center)
+							.OnCheckStateChanged(this, &SAlembicImportOptions::OnToggleAllItems)
+						]
 
 						+ SHeaderRow::Column("TrackName")
 						.DefaultLabel(LOCTEXT("TrackNameHeader", "Track Name"))
@@ -157,11 +162,24 @@ bool SAlembicImportOptions::CanImport()  const
 	return true;
 }
 
-void SAlembicImportOptions::OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem)
+void SAlembicImportOptions::OnToggleAllItems(ECheckBoxState CheckType)
 {
+	/** Set all items to top level checkbox state */
 	for (FPolyMeshDataPtr& Item : PolyMeshData)
 	{
-		Item->PolyMesh->bShouldImport = (Item == ClickedItem);
+		Item->PolyMesh->bShouldImport = CheckType == ECheckBoxState::Checked;
+	}
+}
+
+void SAlembicImportOptions::OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem)
+{
+	/** Toggle state on / off for the selected list entry */
+	for (FPolyMeshDataPtr& Item : PolyMeshData)
+	{
+		if (Item == ClickedItem)
+		{
+			Item->PolyMesh->bShouldImport = !Item->PolyMesh->bShouldImport;
+		}
 	}
 }
 

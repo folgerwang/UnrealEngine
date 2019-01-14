@@ -120,6 +120,11 @@ void FVisualTreeCapture::Disable()
 #endif
 }
 
+void FVisualTreeCapture::Reset()
+{
+	VisualTrees.Reset();
+}
+
 TSharedPtr<FVisualTreeSnapshot> FVisualTreeCapture::GetVisualTreeForWindow(SWindow* InWindow)
 {
 	return VisualTrees.FindRef(InWindow);

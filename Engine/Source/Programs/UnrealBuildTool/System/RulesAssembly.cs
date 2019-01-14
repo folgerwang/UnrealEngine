@@ -479,9 +479,7 @@ namespace UnrealBuildTool
 			if (Rules.bCompileLeanAndMeanUE)
 			{
 				Rules.bBuildEditor = false;
-				Rules.bBuildDeveloperTools = Rules.bBuildDeveloperTools ?? false;
-				Rules.bCompileSimplygon = false;
-				Rules.bCompileSimplygonSSF = false;
+				Rules.bBuildDeveloperTools = Rules.bBuildDeveloperTools ?? false;				
 				Rules.bCompileSpeedTree = false;
 			}
 

@@ -5341,7 +5341,7 @@ bool UEngine::HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 			NumKeys = AnimSeq->GetRawNumberOfFrames();
 			SequenceLength = AnimSeq->GetPlayLength();
 			RateScale = AnimSeq->RateScale;
-			NumCurves = AnimSeq->CompressedCurveData.FloatCurves.Num();
+			NumCurves = AnimSeq->RawCurveData.FloatCurves.Num();
 
 			TranslationFormat = FAnimationUtils::GetAnimationCompressionFormatString(AnimSeq->TranslationCompressionFormat);
 			RotationFormat = FAnimationUtils::GetAnimationCompressionFormatString(AnimSeq->RotationCompressionFormat);

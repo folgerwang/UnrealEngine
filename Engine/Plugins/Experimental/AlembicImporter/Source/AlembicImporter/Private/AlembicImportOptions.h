@@ -86,6 +86,7 @@ private:
 	TSharedRef<ITableRow> OnGenerateWidgetForList(FPolyMeshDataPtr InItem, const TSharedRef<STableViewBase>& OwnerTable);
 	bool CanImport() const;
 
+	void OnToggleAllItems(ECheckBoxState CheckType);
 	void OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem);
 private:
 	UAbcImportSettings*	ImportSettings;
