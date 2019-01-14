@@ -302,7 +302,7 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	Payload.DiffuseColor = BaseColor - BaseColor * Metallic;
 	Payload.SpecularColor = lerp(0.08 * Specular.xxx, BaseColor, Metallic);
 	
-	Payload.Radiance += Payload.DiffuseColor * DiffuseIndirectLighting; // Contains both lightmap & skylight
+	Payload.IndirectIrradiance += Payload.DiffuseColor * DiffuseIndirectLighting; // Contains both lightmap & skylight
 
 	PackedPayload = PackRayTracingPayload(Payload);
 }
