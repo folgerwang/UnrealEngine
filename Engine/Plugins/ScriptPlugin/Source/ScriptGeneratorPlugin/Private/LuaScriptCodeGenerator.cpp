@@ -3,6 +3,7 @@
 #include "LuaScriptCodeGenerator.h"
 #include "ScriptGeneratorLog.h"
 #include "UObject/ErrorException.h"
+#include "UObject/Class.h"
 
 // Supported structs
 static FName Name_Vector2D("Vector2D");

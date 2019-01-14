@@ -35,6 +35,100 @@ namespace UnrealBuildTool
 		public string SerialNumber;
 	}
 
+	/// <summary>
+	/// Special mode for gathering all the messages into a single output file
+	/// </summary>
+	[ToolMode("PVSGather", ToolModeOptions.None)]
+	class PVSGatherMode : ToolMode
+	{
+		/// <summary>
+		/// Path to the input file list
+		/// </summary>
+		[CommandLine("-Input", Required = true)]
+		FileReference InputFileList = null;
+
+		/// <summary>
+		/// Output file to generate
+		/// </summary>
+		[CommandLine("-Output", Required = true)]
+		FileReference OutputFile = null;
+
+		/// <summary>
+		/// Execute the command
+		/// </summary>
+		/// <param name="Arguments">List of command line arguments</param>
+		/// <returns>Always zero, or throws an exception</returns>
+		public override int Execute(CommandLineArguments Arguments)
+		{
+			Arguments.ApplyTo(this);
+			Arguments.CheckAllArgumentsUsed();
+
+			Log.TraceInformation("{0}", OutputFile.GetFileName());
+
+			// Read the input files
+			string[] InputFileLines = FileReference.ReadAllLines(InputFileList);
+			FileReference[] InputFiles = InputFileLines.Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new FileReference(x)).ToArray();
+
+			// Create the combined output file, and print the diagnostics to the log
+			HashSet<string> UniqueItems = new HashSet<string>();
+			using (StreamWriter RawWriter = new StreamWriter(OutputFile.FullName))
+			{
+				foreach (FileReference InputFile in InputFiles)
+				{
+					string[] Lines = File.ReadAllLines(InputFile.FullName);
+					for(int LineIdx = 0; LineIdx < Lines.Length; LineIdx++)
+					{
+						string Line = Lines[LineIdx];
+						if (!String.IsNullOrWhiteSpace(Line) && UniqueItems.Add(Line))
+						{
+							bool bCanParse = false;
+
+							string[] Tokens = Line.Split(new string[] { "<#~>" }, StringSplitOptions.None);
+							if(Tokens.Length >= 9)
+							{
+								string Trial = Tokens[1];
+								string LineNumberStr = Tokens[2];
+								string FileName = Tokens[3];
+								string WarningCode = Tokens[5];
+								string WarningMessage = Tokens[6];
+								string FalseAlarmStr = Tokens[7];
+								string LevelStr = Tokens[8];
+
+								int LineNumber;
+								bool bFalseAlarm;
+								int Level;
+								if(int.TryParse(LineNumberStr, out LineNumber) && bool.TryParse(FalseAlarmStr, out bFalseAlarm) && int.TryParse(LevelStr, out Level))
+								{
+									bCanParse = true;
+
+									// Ignore anything in ThirdParty folders
+									if(FileName.Replace('/', '\\').IndexOf("\\ThirdParty\\", StringComparison.InvariantCultureIgnoreCase) == -1)
+									{
+										// Output the line to the raw output file
+										RawWriter.WriteLine(Line);
+
+										// Output the line to the log
+										if (!bFalseAlarm && Level == 1)
+										{
+											Log.WriteLine(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning {2}: {3}", FileName, LineNumber, WarningCode, WarningMessage);
+										}
+									}
+								}
+							}
+
+							if(!bCanParse)
+							{
+								Log.WriteLine(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: Unable to parse PVS output line '{2}' (tokens=|{3}|)", InputFile, LineIdx + 1, Line, String.Join("|", Tokens));
+							}
+						}
+					}
+				}
+			}
+			Log.TraceInformation("Written {0} {1} to {2}.", UniqueItems.Count, (UniqueItems.Count == 1)? "diagnostic" : "diagnostics", OutputFile.FullName);
+			return 0;
+		}
+	}
+
 	class PVSToolChain : UEToolChain
 	{
 		VCEnvironment EnvVars;
@@ -94,10 +188,10 @@ namespace UnrealBuildTool
 
 		static string GetFullIncludePath(string IncludePath)
 		{
-			return Path.GetFullPath(ActionThread.ExpandEnvironmentVariables(IncludePath));
+			return Path.GetFullPath(Utils.ExpandVariables(IncludePath));
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			// Get the MSVC arguments required to compile all files in this batch
 			List<string> SharedArguments = new List<string>();
@@ -106,15 +200,15 @@ namespace UnrealBuildTool
 			SharedArguments.Add("/C"); // Preserve comments when preprocessing
 			SharedArguments.Add("/D PVS_STUDIO");
 			SharedArguments.Add("/wd4005");
-			if (EnvVars.Compiler >= WindowsCompiler.VisualStudio2015)
+			if (EnvVars.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
 			{
 				SharedArguments.Add("/D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1");
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
-			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 			{
 				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
@@ -150,15 +244,16 @@ namespace UnrealBuildTool
 				// Preprocess the source file
 				FileItem PreprocessedFileItem = FileItem.GetItemByFileReference(PreprocessedFileLocation);
 
-				Action PreprocessAction = ActionGraph.Add(ActionType.Compile);
-				PreprocessAction.CommandPath = EnvVars.CompilerPath.FullName;
-				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				Action PreprocessAction = new Action(ActionType.Compile);
+				PreprocessAction.CommandPath = EnvVars.CompilerPath;
+				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 				PreprocessAction.CommandArguments = " @\"" + ResponseFileItem.AbsolutePath + "\"";
 				PreprocessAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 				PreprocessAction.PrerequisiteItems.Add(SourceFile);
 				PreprocessAction.PrerequisiteItems.Add(ResponseFileItem);
 				PreprocessAction.ProducedItems.Add(PreprocessedFileItem);
 				PreprocessAction.bShouldOutputStatusDescription = false;
+				Actions.Add(PreprocessAction);
 
 				// Write the PVS studio config file
 				StringBuilder ConfigFileContents = new StringBuilder();
@@ -207,11 +302,11 @@ namespace UnrealBuildTool
 				FileReference OutputFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".pvslog");
 				FileItem OutputFileItem = FileItem.GetItemByFileReference(OutputFileLocation);
 
-				Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
+				Action AnalyzeAction = new Action(ActionType.Compile);
 				AnalyzeAction.CommandDescription = "Analyzing";
 				AnalyzeAction.StatusDescription = BaseFileName;
-				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-				AnalyzeAction.CommandPath = AnalyzerFile.FullName;
+				AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+				AnalyzeAction.CommandPath = AnalyzerFile;
 				AnalyzeAction.CommandArguments = String.Format("--cl-params \"{0}\" --source-file \"{1}\" --output-file \"{2}\" --cfg \"{3}\" --analysis-mode 4", PreprocessAction.CommandArguments, SourceFile.AbsolutePath, OutputFileLocation, ConfigFileItem.AbsolutePath);
 				if (LicenseFile != null)
 				{
@@ -222,18 +317,19 @@ namespace UnrealBuildTool
 				AnalyzeAction.PrerequisiteItems.Add(PreprocessedFileItem);
 				AnalyzeAction.ProducedItems.Add(OutputFileItem);
 				AnalyzeAction.DeleteItems.Add(OutputFileItem); // PVS Studio will append by default, so need to delete produced items
+				Actions.Add(AnalyzeAction);
 
 				Result.ObjectFiles.AddRange(AnalyzeAction.ProducedItems);
 			}
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			throw new BuildException("Unable to link with PVS toolchain.");
 		}
 
-		public override void FinalizeOutput(ReadOnlyTargetRules Target, List<FileItem> OutputItems, ActionGraph ActionGraph)
+		public override void FinalizeOutput(ReadOnlyTargetRules Target, TargetMakefile Makefile)
 		{
 			FileReference OutputFile;
 			if (Target.ProjectFile == null)
@@ -245,86 +341,21 @@ namespace UnrealBuildTool
 				OutputFile = FileReference.Combine(Target.ProjectFile.Directory, "Saved", "PVS-Studio", String.Format("{0}.pvslog", Target.Name));
 			}
 
-			List<FileReference> InputFiles = OutputItems.Select(x => x.Location).Where(x => x.HasExtension(".pvslog")).ToList();
+			List<FileReference> InputFiles = Makefile.OutputItems.Select(x => x.Location).Where(x => x.HasExtension(".pvslog")).ToList();
 
-			Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
-			AnalyzeAction.CommandPath = "Dummy.exe";
-			AnalyzeAction.CommandArguments = "";
-			AnalyzeAction.CommandDescription = "Combining output from PVS-Studio";
-			AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
-			AnalyzeAction.PrerequisiteItems.AddRange(OutputItems);
+			FileItem InputFileListItem = FileItem.CreateIntermediateTextFile(OutputFile.ChangeExtension(".input"), InputFiles.Select(x => x.FullName));
+
+			Action AnalyzeAction = new Action(ActionType.Compile);
+			AnalyzeAction.CommandPath = UnrealBuildTool.GetUBTPath();
+			AnalyzeAction.CommandArguments = String.Format("-Mode=PVSGather -Input=\"{0}\" -Output=\"{1}\"", InputFileListItem.Location, OutputFile);
+			AnalyzeAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
+			AnalyzeAction.PrerequisiteItems.Add(InputFileListItem);
+			AnalyzeAction.PrerequisiteItems.AddRange(Makefile.OutputItems);
 			AnalyzeAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
-			AnalyzeAction.ActionHandler = (Action Action, out int ExitCode, out string Output) => WriteResults(OutputFile, InputFiles, out ExitCode, out Output);
 			AnalyzeAction.DeleteItems.AddRange(AnalyzeAction.ProducedItems);
+			Makefile.Actions.Add(AnalyzeAction);
 
-			OutputItems.AddRange(AnalyzeAction.ProducedItems);
-		}
-
-		void WriteResults(FileReference OutputFile, List<FileReference> InputFiles, out int ExitCode, out string Output)
-		{
-			StringBuilder OutputBuilder = new StringBuilder();
-			OutputBuilder.Append("Processing PVS-Studio output...\n");
-
-			// Create the combined output file, and print the diagnostics to the log
-			HashSet<string> UniqueItems = new HashSet<string>();
-			using (StreamWriter RawWriter = new StreamWriter(OutputFile.FullName))
-			{
-				foreach (FileReference InputFile in InputFiles)
-				{
-					string[] Lines = File.ReadAllLines(InputFile.FullName);
-					for(int LineIdx = 0; LineIdx < Lines.Length; LineIdx++)
-					{
-						string Line = Lines[LineIdx];
-						if (!String.IsNullOrWhiteSpace(Line) && UniqueItems.Add(Line))
-						{
-							bool bCanParse = false;
-
-							string[] Tokens = Line.Split(new string[] { "<#~>" }, StringSplitOptions.None);
-							if(Tokens.Length >= 9)
-							{
-								string Trial = Tokens[1];
-								string LineNumberStr = Tokens[2];
-								string FileName = Tokens[3];
-								string WarningCode = Tokens[5];
-								string WarningMessage = Tokens[6];
-								string FalseAlarmStr = Tokens[7];
-								string LevelStr = Tokens[8];
-
-								int LineNumber;
-								bool bFalseAlarm;
-								int Level;
-								if(int.TryParse(LineNumberStr, out LineNumber) && bool.TryParse(FalseAlarmStr, out bFalseAlarm) && int.TryParse(LevelStr, out Level))
-								{
-									bCanParse = true;
-
-									// Ignore anything in ThirdParty folders
-									if(FileName.Replace('/', '\\').IndexOf("\\ThirdParty\\", StringComparison.InvariantCultureIgnoreCase) == -1)
-									{
-										// Output the line to the raw output file
-										RawWriter.WriteLine(Line);
-
-										// Output the line to the log
-										if (!bFalseAlarm && Level == 1)
-										{
-											OutputBuilder.AppendFormat("{0}({1}): warning {2}: {3}\n", FileName, LineNumber, WarningCode, WarningMessage);
-										}
-									}
-								}
-							}
-
-							if(!bCanParse)
-							{
-								Log.WriteLine(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: Unable to parse PVS output line '{2}' (tokens=|{3}|)", InputFile, LineIdx + 1, Line, String.Join("|", Tokens));
-							}
-						}
-					}
-				}
-			}
-			OutputBuilder.AppendFormat("Written {0} {1} to {2}.", UniqueItems.Count, (UniqueItems.Count == 1)? "diagnostic" : "diagnostics", OutputFile.FullName);
-
-			// Return the text to be output. We don't have a custom output handler, so we can just return an empty string.
-			Output = OutputBuilder.ToString();
-			ExitCode = 0;
+			Makefile.OutputItems.AddRange(AnalyzeAction.ProducedItems);
 		}
 	}
 }

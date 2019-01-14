@@ -95,7 +95,7 @@ void FApp::SetDebugGame(bool bInIsDebugGame)
 
 FString FApp::GetBuildDate()
 {
-	return FString(ANSI_TO_TCHAR(__DATE__));
+	return FString(BuildSettings::GetBuildDate());
 }
 
 

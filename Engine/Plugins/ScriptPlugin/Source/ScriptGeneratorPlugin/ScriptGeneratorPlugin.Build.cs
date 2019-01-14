@@ -17,7 +17,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Developer/ScriptGeneratorPlugin/Private",
 					// ... add other private include paths required here ...
 				}
 				);

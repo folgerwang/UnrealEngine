@@ -481,7 +481,7 @@ isUlpsEqual(const double aLeft, const double aRight, const int64_t aUnitsInLastP
         longRight = INT64_C(0x8000000000000000) - longRight;
     }
 
-    int64_t difference = labs(longLeft - longRight);
+    int64_t difference = std::abs(longLeft - longRight);
     return (difference <= aUnitsInLastPlace);
 }
 

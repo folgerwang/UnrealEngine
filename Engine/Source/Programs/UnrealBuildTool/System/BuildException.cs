@@ -26,7 +26,7 @@ namespace UnrealBuildTool
 		/// <param name="InnerException">An inner exception to wrap</param>
 		/// <param name="Message">The error message to display.</param>
 		public BuildException(Exception InnerException, string Message)
-			: base(Message)
+			: base(Message, InnerException)
 		{
 		}
 

@@ -264,6 +264,110 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Stores information about a framework on IOS or MacOS
+		/// </summary>
+		public class Framework
+		{
+			/// <summary>
+			/// Name of the framework
+			/// </summary>
+			internal string Name;
+
+			/// <summary>
+			/// For non-system frameworks, specifies the path to a zip file that contains it.
+			/// </summary>
+			internal string ZipPath;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			internal string CopyBundledAssets = null;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public Framework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+			{
+				this.Name = Name;
+				this.ZipPath = ZipPath;
+				this.CopyBundledAssets = CopyBundledAssets;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for Framework.
+		/// </summary>
+		[Obsolete("The UEBuildFramework class has been deprecated in UE 4.22. Please use the Framework class instead.")]
+		public class UEBuildFramework : Framework
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public UEBuildFramework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+				: base(Name, ZipPath, CopyBundledAssets)
+			{
+			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		public class BundleResource
+		{
+			/// <summary>
+			/// 
+			/// </summary>
+			public string ResourcePath = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public string BundleContentsSubdir = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public bool bShouldLog = true;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="ResourcePath"></param>
+			/// <param name="BundleContentsSubdir"></param>
+			/// <param name="bShouldLog"></param>
+			public BundleResource(string ResourcePath, string BundleContentsSubdir = "Resources", bool bShouldLog = true)
+			{
+				this.ResourcePath = ResourcePath;
+				this.BundleContentsSubdir = BundleContentsSubdir;
+				this.bShouldLog = bShouldLog;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for BundleResource.
+		/// </summary>
+		[Obsolete("The UEBuildBundleResource class has been deprecated in UE 4.22. Please use the BundleResource class instead.")]
+		public class UEBuildBundleResource : BundleResource
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InResourcePath"></param>
+			/// <param name="InBundleContentsSubdir"></param>
+			/// <param name="bInShouldLog"></param>
+			public UEBuildBundleResource(string InResourcePath, string InBundleContentsSubdir = "Resources", bool bInShouldLog = true)
+				: base(InResourcePath, InBundleContentsSubdir, bInShouldLog)
+			{
+			}
+		}
+
+		/// <summary>
 		/// Name of this module
 		/// </summary>
 		public string Name
@@ -510,18 +614,19 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of addition frameworks - typically used for External (third party) modules on Mac and iOS
 		/// </summary>
-		public List<UEBuildFramework> PublicAdditionalFrameworks = new List<UEBuildFramework>();
+		public List<Framework> PublicAdditionalFrameworks = new List<Framework>();
 
 		/// <summary>
 		/// List of addition resources that should be copied to the app bundle for Mac or iOS
 		/// </summary>
-		public List<UEBuildBundleResource> AdditionalBundleResources = new List<UEBuildBundleResource>();
+		public List<BundleResource> AdditionalBundleResources = new List<BundleResource>();
 
 		/// <summary>
 		/// For builds that execute on a remote machine (e.g. iOS), this list contains additional files that
 		/// need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
 		/// automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
 		/// </summary>
+		[Obsolete("To specify files to be transferred to a remote Mac for compilation, create a [Project]/Build/Rsync/RsyncProject.txt file. See https://linux.die.net/man/1/rsync for more information about Rsync filter rules.")]
 		public List<string> PublicAdditionalShadowFiles = new List<string>();
 
 		/// <summary>
@@ -587,6 +692,11 @@ namespace UnrealBuildTool
 		/// of search paths that have to be passed to the compiler, improving performance and reducing the length of the compiler command line.
 		/// </summary>
 		public bool? bLegacyPublicIncludePaths;
+
+		/// <summary>
+		/// Which stanard to use for compiling this module
+		/// </summary>
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
 
 		/// <summary>
 		/// The current engine directory
@@ -851,7 +961,7 @@ namespace UnrealBuildTool
 					case ModuleRules.PrecompileTargetsType.None:
 						return false;
 					case ModuleRules.PrecompileTargetsType.Default:
-						return !RulesFile.IsUnderDirectory(UnrealBuildTool.EngineSourceDeveloperDirectory) || Target.Type == TargetType.Editor;
+						return (Target.Type == TargetType.Editor || !RulesFile.IsUnderDirectory(UnrealBuildTool.EngineSourceDeveloperDirectory) || Plugin != null);
 					case ModuleRules.PrecompileTargetsType.Game:
 						return (Target.Type == TargetType.Client || Target.Type == TargetType.Server || Target.Type == TargetType.Game);
 					case ModuleRules.PrecompileTargetsType.Editor:

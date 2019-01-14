@@ -25,10 +25,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="ProjectName"></param>
-		/// <param name="ProjectDirectory"></param>
-		/// <param name="Configuration"></param>
-		void InitUPL(string ProjectName, DirectoryReference ProjectDirectory, UnrealTargetConfiguration Configuration);
+		/// <param name="Receipt"></param>
+		void InitUPL(TargetReceipt Receipt);
 
 		/// <summary>
 		/// 

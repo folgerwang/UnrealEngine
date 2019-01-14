@@ -196,7 +196,6 @@ public class ICU : ModuleRules
 					{
 						string LibraryName = "libicu" + Stem + LibraryNamePostfix + "." + StaticLibraryExtension;
 						PublicAdditionalLibraries.Add(TargetSpecificPath + "lib/" + LibraryName);
-						PublicAdditionalShadowFiles.Add(TargetSpecificPath + "lib/" + LibraryName);
 					}
 					break;
 				case EICULinkType.Dynamic:
@@ -208,7 +207,6 @@ public class ICU : ModuleRules
 							string LibraryPath = Target.UEThirdPartyBinariesDirectory + "ICU/icu4c-53_1/Mac/" + LibraryName;
 
 							PublicDelayLoadDLLs.Add(LibraryPath);
-							PublicAdditionalShadowFiles.Add(LibraryPath);
 							RuntimeDependencies.Add(LibraryPath);
 						}
 					}

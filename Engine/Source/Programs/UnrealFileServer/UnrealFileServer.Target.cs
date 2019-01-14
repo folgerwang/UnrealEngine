@@ -11,15 +11,10 @@ public class UnrealFileServerTarget : TargetRules
 		LinkType = TargetLinkType.Modular;
 		LaunchModuleName = "UnrealFileServer";
 
-		// Lean and mean
-		bCompileLeanAndMeanUE = true;
-
 		// Never use malloc profiling in Unreal Header Tool.  We set this because often UHT is compiled right before the engine
 		// automatically by Unreal Build Tool, but if bUseMallocProfiler is defined, UHT can operate incorrectly.
 		bUseMallocProfiler = false;
 
-		// No editor needed
-		bBuildEditor = false;
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = true;
 

@@ -26,7 +26,7 @@ FString FBuildVersion::GetDefaultFileName()
 FString FBuildVersion::GetFileNameForCurrentExecutable()
 {
 	FString AppExecutableName = FPlatformProcess::ExecutableName();
-#if PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS || PLATFORM_MAC
 	if(AppExecutableName.EndsWith(TEXT("-Cmd")))
 	{
 		AppExecutableName = AppExecutableName.Left(AppExecutableName.Len() - 4);

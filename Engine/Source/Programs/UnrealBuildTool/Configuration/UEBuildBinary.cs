@@ -69,26 +69,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Original output filepath. This is the original binary name before hot-reload suffix has been appended to it.
-		/// </summary>
-		public List<FileReference> OriginalOutputFilePaths;
-
-		/// <summary>
-		/// Returns the OriginalOutputFilePath if there is only one entry in OriginalOutputFilePaths
-		/// </summary>
-		public FileReference OriginalOutputFilePath
-		{
-			get
-			{
-				if (OriginalOutputFilePaths.Count != 1)
-				{
-					throw new BuildException("Attempted to use UEBuildBinaryConfiguration.OriginalOutputFilePath property, but there are multiple (or no) OriginalOutputFilePaths. You need to handle multiple in the code that called this (size = {0})", OriginalOutputFilePaths.Count);
-				}
-				return OriginalOutputFilePaths[0];
-			}
-		}
-
-		/// <summary>
 		/// The intermediate directory for this binary. Modules should create separate intermediate directories below this. Must be set before a binary can be built using it.
 		/// </summary>
 		public DirectoryReference IntermediateDirectory;
@@ -176,12 +156,11 @@ namespace UnrealBuildTool
 		/// <param name="ToolChain">The toolchain which to use for building</param>
 		/// <param name="CompileEnvironment">The environment to compile the binary in</param>
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
-		/// <param name="SharedPCHs">List of templates for shared PCHs</param>
 		/// <param name="WorkingSet">The working set of source files</param>
 		/// <param name="ExeDir">Directory containing the output executable</param>
-		/// <param name="ActionGraph">Graph to add build actions to</param>
+		/// <param name="Makefile">The makefile to add actions to</param>
 		/// <returns>Set of built products</returns>
-		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
+		public List<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, TargetMakefile Makefile)
 		{
 			// Return nothing if we're using precompiled binaries. If we're not linking, we might want just one module to be compiled (eg. a foreign plugin), so allow any actions to run.
 			if (bUsePrecompiled && !Target.bDisableLinking)
@@ -190,7 +169,7 @@ namespace UnrealBuildTool
 			}
 
 			// Setup linking environment.
-			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph);
+			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, WorkingSet, ExeDir, Makefile);
 
 			// If we're generating projects, we only need include paths and definitions, there is no need to run the linking logic.
 			if (ProjectFileGenerator.bGenerateProjectFiles)
@@ -214,12 +193,12 @@ namespace UnrealBuildTool
 				if (BinaryLinkEnvironment.Platform != CppPlatform.Mac && BinaryLinkEnvironment.Platform != CppPlatform.Linux)
 				{
 					// Create the import library.
-					OutputFiles.AddRange(ToolChain.LinkAllFiles(BinaryLinkEnvironment, true, ActionGraph));
+					OutputFiles.AddRange(ToolChain.LinkAllFiles(BinaryLinkEnvironment, true, Makefile.Actions));
 				}
 			}
 
 			// Link the binary.
-			FileItem[] Executables = ToolChain.LinkAllFiles(BinaryLinkEnvironment, false, ActionGraph);
+			FileItem[] Executables = ToolChain.LinkAllFiles(BinaryLinkEnvironment, false, Makefile.Actions);
 			OutputFiles.AddRange(Executables);
 
 			// Produce additional console app if requested
@@ -232,12 +211,18 @@ namespace UnrealBuildTool
 				ConsoleAppLinkEvironment.OutputFilePaths = ConsoleAppLinkEvironment.OutputFilePaths.Select(Path => GetAdditionalConsoleAppPath(Path)).ToList();
 
 				// Link the console app executable
-				OutputFiles.AddRange(ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, ActionGraph));
+				FileItem[] ConsoleAppOutputFiles = ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, Makefile.Actions);
+				OutputFiles.AddRange(ConsoleAppOutputFiles);
+
+				foreach (FileItem Executable in ConsoleAppOutputFiles)
+				{
+					OutputFiles.AddRange(ToolChain.PostBuild(Executable, ConsoleAppLinkEvironment, Makefile.Actions));
+				}
 			}
 
 			foreach (FileItem Executable in Executables)
 			{
-				OutputFiles.AddRange(ToolChain.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph));
+				OutputFiles.AddRange(ToolChain.PostBuild(Executable, BinaryLinkEnvironment, Makefile.Actions));
 			}
 
 			return OutputFiles;
@@ -282,7 +267,8 @@ namespace UnrealBuildTool
 						}
 						catch(FilePatternException Ex)
 						{
-							throw new BuildException(Ex, "While creating runtime dependencies for module {0}", Module.Name);
+							ExceptionUtils.AddContext(Ex, "while creating runtime dependencies for module '{0}'", Module.Name);
+							throw;
 						}
 
 						// Add actions to copy everything
@@ -330,26 +316,6 @@ namespace UnrealBuildTool
 				}
 			}
 			DependentLinkEnvironment.AdditionalLibraries.AddRange(DependentLinkLibraries);
-		}
-
-		/// <summary>
-		/// Called to allow the binary to to determine if it matches the Only module "short module name".
-		/// </summary>
-		/// <param name="OnlyModules"></param>
-		/// <returns>The OnlyModule if found, null if not</returns>
-		public OnlyModule FindOnlyModule(List<OnlyModule> OnlyModules)
-		{
-			foreach (UEBuildModule Module in Modules)
-			{
-				foreach (OnlyModule OnlyModule in OnlyModules)
-				{
-					if (OnlyModule.OnlyModuleName.ToLower() == Module.Name.ToLower())
-					{
-						return OnlyModule;
-					}
-				}
-			}
-			return null;
 		}
 
 		/// <summary>
@@ -581,7 +547,13 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public static FileReference GetAdditionalConsoleAppPath(FileReference BinaryPath)
 		{
-			return FileReference.Combine(BinaryPath.Directory, BinaryPath.GetFileNameWithoutExtension() + "-Cmd" + BinaryPath.GetExtension());
+			DirectoryReference Directory = BinaryPath.Directory;
+			if (Directory.FullName.EndsWith(".app/Contents/MacOS"))
+			{
+				Directory = Directory.ParentDirectory.ParentDirectory.ParentDirectory;
+			}
+
+			return FileReference.Combine(Directory, BinaryPath.GetFileNameWithoutExtension() + "-Cmd" + BinaryPath.GetExtension());
 		}
 
 		/// <summary>
@@ -675,43 +647,32 @@ namespace UnrealBuildTool
 			return Type == UEBuildBinaryType.StaticLibrary;
 		}
 
-		public void GatherDataForProjectFiles(ReadOnlyTargetRules Target, CppCompileEnvironment GlobalCompileEnvironment)
-		{
-			CppCompileEnvironment BinaryCompileEnvironment = CreateBinaryCompileEnvironment(GlobalCompileEnvironment);
-			foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
-			{
-				ProjectFile ProjectFileForIDE;
-				if (ProjectFileGenerator.ModuleToProjectFileMap.TryGetValue(Module.Name, out ProjectFileForIDE))
-				{
-					Module.GatherDataForProjectFile(Target, BinaryCompileEnvironment, ProjectFileForIDE);
-				}
-			}
-		}
-
-		private CppCompileEnvironment CreateBinaryCompileEnvironment(CppCompileEnvironment GlobalCompileEnvironment)
+		public CppCompileEnvironment CreateBinaryCompileEnvironment(CppCompileEnvironment GlobalCompileEnvironment)
 		{
 			CppCompileEnvironment BinaryCompileEnvironment = new CppCompileEnvironment(GlobalCompileEnvironment);
 			BinaryCompileEnvironment.bIsBuildingDLL = IsBuildingDll(Type);
 			BinaryCompileEnvironment.bIsBuildingLibrary = IsBuildingLibrary(Type);
 
 			// @todo: This should be in some Windows code somewhere...
-			// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
-			string OriginalFilename = (OriginalOutputFilePaths != null) ?
-				OriginalOutputFilePaths[0].GetFileName() :
-				OutputFilePaths[0].GetFileName();
-			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
+			// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.
+			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 			return BinaryCompileEnvironment;
 		}
 
-		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
+		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, TargetMakefile Makefile)
 		{
 			LinkEnvironment BinaryLinkEnvironment = new LinkEnvironment(LinkEnvironment);
 			HashSet<UEBuildModule> LinkEnvironmentVisitedModules = new HashSet<UEBuildModule>();
 			List<UEBuildBinary> BinaryDependencies = new List<UEBuildBinary>();
 
 			CppCompileEnvironment BinaryCompileEnvironment = CreateBinaryCompileEnvironment(CompileEnvironment);
-			
+
+			if(BinaryCompileEnvironment.bUseSharedBuildEnvironment && Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			{
+				BinaryCompileEnvironment.bUseSharedBuildEnvironment = false;
+			}
+
 			foreach (UEBuildModule Module in Modules)
 			{
 				List<FileItem> LinkInputFiles;
@@ -719,7 +680,7 @@ namespace UnrealBuildTool
 				{
 					// Compile each module.
 					Log.TraceVerbose("Compile module: " + Module.Name);
-					LinkInputFiles = Module.Compile(Target, ToolChain, BinaryCompileEnvironment, SharedPCHs, WorkingSet, ActionGraph);
+					LinkInputFiles = Module.Compile(Target, ToolChain, BinaryCompileEnvironment, WorkingSet, Makefile);
 
 					// NOTE: Because of 'Shared PCHs', in monolithic builds the same PCH file may appear as a link input
 					// multiple times for a single binary.  We'll check for that here, and only add it once.  This avoids
@@ -748,12 +709,6 @@ namespace UnrealBuildTool
 				BinaryDependency.SetupDependentLinkEnvironment(BinaryLinkEnvironment);
 			}
 
-			// Remove the default resource file on Windows (PCLaunch.rc) if the user has specified their own
-			if (BinaryLinkEnvironment.InputFiles.Select(Item => Path.GetFileName(Item.AbsolutePath).ToLower()).Any(Name => Name.EndsWith(".res") && !Name.EndsWith(".inl.res") && Name != "pclaunch.rc.res"))
-			{
-				BinaryLinkEnvironment.InputFiles.RemoveAll(x => Path.GetFileName(x.AbsolutePath).ToLower() == "pclaunch.rc.res");
-			}
-
 			// Set the link output file.
 			BinaryLinkEnvironment.OutputFilePaths = OutputFilePaths.ToList();
 
@@ -773,7 +728,9 @@ namespace UnrealBuildTool
 			// If we don't have any resource file, use the default or compile a custom one for this module
 			if(BinaryLinkEnvironment.Platform == CppPlatform.Win32 || BinaryLinkEnvironment.Platform == CppPlatform.Win64)
 			{
-				if (!BinaryLinkEnvironment.InputFiles.Any(x => x.Location.HasExtension(".res")))
+				// Figure out if this binary has any custom resource files. Hacky check to ignore the resource file in the Launch module, since it contains dialogs that the engine needs and always needs to be included.
+				FileItem[] CustomResourceFiles = BinaryLinkEnvironment.InputFiles.Where(x => x.Location.HasExtension(".res") && !x.Location.FullName.EndsWith("\\Launch\\PCLaunch.rc.res", StringComparison.OrdinalIgnoreCase)).ToArray();
+				if(CustomResourceFiles.Length == 0)
 				{
 					if(BinaryLinkEnvironment.DefaultResourceFiles.Count > 0)
 					{
@@ -783,24 +740,23 @@ namespace UnrealBuildTool
 					else
 					{
 						// Get the intermediate directory
-						DirectoryReference ResourceIntermediateDirectory = ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory;
+						DirectoryReference ResourceIntermediateDirectory = BinaryLinkEnvironment.IntermediateDirectory;
 
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
+						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
 
 						// @todo: This should be in some Windows code somewhere...
-						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
-						string OriginalFilename = (OriginalOutputFilePaths != null) ? OriginalOutputFilePaths[0].GetFileName() : OutputFilePaths[0].GetFileName();
-						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OriginalFilename + "\"");
+						// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.
+						ResourceCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
 
 						// Set the other version fields
 						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILT_FROM_CHANGELIST={0}", Target.Version.Changelist));
 						ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_VERSION={0}", Target.BuildVersion));
 
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
-						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
-						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, ActionGraph);
+						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "Resources", "Default.rc2"));
+						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, Makefile.Actions);
 						BinaryLinkEnvironment.InputFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}

@@ -23,8 +23,8 @@ public class portmidi : ModuleRules
         else if (Target.Platform == UnrealTargetPlatform.Mac)
         {
             PublicAdditionalLibraries.Add(Target.UEThirdPartySourceDirectory + "portmidi/lib/Mac/libportmidi.a");
-			PublicAdditionalFrameworks.Add( new UEBuildFramework( "CoreAudio" ));
-			PublicAdditionalFrameworks.Add( new UEBuildFramework( "CoreMIDI" ));
+			PublicAdditionalFrameworks.Add( new Framework( "CoreAudio" ));
+			PublicAdditionalFrameworks.Add( new Framework( "CoreMIDI" ));
         }
 	}
 }

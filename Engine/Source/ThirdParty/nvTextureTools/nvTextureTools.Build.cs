@@ -38,10 +38,21 @@ public class nvTextureTools : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicAdditionalLibraries.Add(nvttPath + "lib/Mac/libnvcore.dylib");
-			PublicAdditionalLibraries.Add(nvttPath + "lib/Mac/libnvimage.dylib");
-			PublicAdditionalLibraries.Add(nvttPath + "lib/Mac/libnvmath.dylib");
-			PublicAdditionalLibraries.Add(nvttPath + "lib/Mac/libnvtt.dylib");
+			string NVCorePath = Target.UEThirdPartyBinariesDirectory + "nvTextureTools/Mac/libnvcore.dylib";
+			string NVImagePath = Target.UEThirdPartyBinariesDirectory + "nvTextureTools/Mac/libnvimage.dylib";
+			string NVMathPath = Target.UEThirdPartyBinariesDirectory + "nvTextureTools/Mac/libnvmath.dylib";
+			string NVTTPath = Target.UEThirdPartyBinariesDirectory + "nvTextureTools/Mac/libnvtt.dylib";
+
+			PublicDelayLoadDLLs.Add(NVCorePath);
+			PublicDelayLoadDLLs.Add(NVImagePath);
+			PublicDelayLoadDLLs.Add(NVMathPath);
+			PublicDelayLoadDLLs.Add(NVTTPath);
+
+			RuntimeDependencies.Add(NVCorePath);
+			RuntimeDependencies.Add(NVImagePath);
+			RuntimeDependencies.Add(NVMathPath);
+			RuntimeDependencies.Add(NVTTPath);
+
 			PublicAdditionalLibraries.Add(nvttPath + "lib/Mac/libsquish.a");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))

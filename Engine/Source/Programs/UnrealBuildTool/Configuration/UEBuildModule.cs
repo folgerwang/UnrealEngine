@@ -114,11 +114,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		protected readonly HashSet<string> PublicAdditionalShadowFiles;
-
-		/// <summary>
-		/// 
-		/// </summary>
 		protected readonly HashSet<UEBuildBundleResource> PublicAdditionalBundleResources;
 
 		/// <summary>
@@ -173,9 +168,26 @@ namespace UnrealBuildTool
 			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalLibraries);
 			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicFrameworks);
 			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicWeakFrameworks);
-			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks);
-			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
-			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources);
+
+			PublicAdditionalFrameworks = new HashSet<UEBuildFramework>();
+			if(Rules.PublicAdditionalFrameworks != null)
+			{
+				foreach(ModuleRules.Framework FrameworkRules in Rules.PublicAdditionalFrameworks)
+				{
+					UEBuildFramework Framework;
+					if(String.IsNullOrEmpty(FrameworkRules.ZipPath))
+					{
+						Framework = new UEBuildFramework(FrameworkRules.Name, FrameworkRules.CopyBundledAssets);
+					}
+					else
+					{
+						Framework = new UEBuildFramework(FrameworkRules.Name, FileReference.Combine(ModuleDirectory, FrameworkRules.ZipPath), DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "UnzippedFrameworks", Name, Path.GetFileNameWithoutExtension(FrameworkRules.ZipPath)), FrameworkRules.CopyBundledAssets);
+					}
+					PublicAdditionalFrameworks.Add(Framework);
+				}
+			}
+
+			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources.Select(x => new UEBuildBundleResource(x)));
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);
 			if(Rules.bUsePrecompiled)
 			{
@@ -256,9 +268,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Converts an optional string list parameter to a well-defined hash set.
 		/// </summary>
-		protected static HashSet<string> HashSetFromOptionalEnumerableStringParameter(IEnumerable<string> InEnumerableStrings)
+		protected HashSet<string> HashSetFromOptionalEnumerableStringParameter(IEnumerable<string> InEnumerableStrings)
 		{
-			return InEnumerableStrings == null ? new HashSet<string>() : new HashSet<string>(InEnumerableStrings);
+			return InEnumerableStrings == null ? new HashSet<string>() : new HashSet<string>(InEnumerableStrings.Select(x => ExpandPathVariables(x, null, null)));
 		}
 
 		/// <summary>
@@ -487,22 +499,6 @@ namespace UnrealBuildTool
 
 			// Add the additional frameworks so that the compiler can know about their #include paths
 			AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
-
-			// Remember the module so we can refer to it when needed
-			foreach (UEBuildFramework Framework in PublicAdditionalFrameworks)
-			{
-				Framework.OwningModule = this;
-			}
-		}
-
-		static Regex VCMacroRegex = new Regex(@"\$\([A-Za-z0-9_]+\)");
-
-		/// <summary>
-		/// Checks if path contains a VC macro
-		/// </summary>
-		protected bool DoesPathContainVCMacro(string Path)
-		{
-			return VCMacroRegex.IsMatch(Path);
 		}
 
 		/// <summary>
@@ -639,7 +635,6 @@ namespace UnrealBuildTool
 			List<string> Frameworks,
 			List<string> WeakFrameworks,
 			List<UEBuildFramework> AdditionalFrameworks,
-			List<string> AdditionalShadowFiles,
 			List<UEBuildBundleResource> AdditionalBundleResources,
 			List<string> DelayLoadDLLs,
 			List<UEBuildBinary> BinaryDependencies,
@@ -677,7 +672,7 @@ namespace UnrealBuildTool
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
 							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, RuntimeLibraryPaths, Frameworks, WeakFrameworks,
-								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+								AdditionalFrameworks, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 						}
 					}
 				}
@@ -689,13 +684,7 @@ namespace UnrealBuildTool
 				Frameworks.AddRange(PublicFrameworks);
 				WeakFrameworks.AddRange(PublicWeakFrameworks);
 				AdditionalBundleResources.AddRange(PublicAdditionalBundleResources);
-				// Remember the module so we can refer to it when needed
-				foreach (UEBuildFramework Framework in PublicAdditionalFrameworks)
-				{
-					Framework.OwningModule = this;
-				}
 				AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
-				AdditionalShadowFiles.AddRange(PublicAdditionalShadowFiles);
 				DelayLoadDLLs.AddRange(PublicDelayLoadDLLs);
 			}
 		}
@@ -716,7 +705,7 @@ namespace UnrealBuildTool
 
 			// Allow the module's public dependencies to add library paths and additional libraries to the link environment.
 			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 
 			// Also allow the module's public and private dependencies to modify the link environment.
 			List<UEBuildModule> AllDependencyModules = new List<UEBuildModule>();
@@ -726,14 +715,17 @@ namespace UnrealBuildTool
 			foreach (UEBuildModule DependencyModule in AllDependencyModules)
 			{
 				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
+					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 			}
+
+			// Add all the additional properties
+			LinkEnvironment.AdditionalProperties.AddRange(Rules.AdditionalPropertiesForReceipt.Inner);
 		}
 
 		/// <summary>
 		/// Compiles the module, and returns a list of files output by the compiler.
 		/// </summary>
-		public abstract List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHModules, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph);
+		public abstract List<FileItem> Compile(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, ISourceFileWorkingSet WorkingSet, TargetMakefile Makefile);
 
 		// Object interface.
 		public override string ToString()
@@ -762,14 +754,6 @@ namespace UnrealBuildTool
 		/// <param name="bForceCircular">True if circular dependencies should be processed</param>
 		/// <param name="bOnlyDirectDependencies">True to return only this module's direct dependencies</param>
 		public virtual void GetAllDependencyModules(List<UEBuildModule> ReferencedModules, HashSet<UEBuildModule> IgnoreReferencedModules, bool bIncludeDynamicallyLoaded, bool bForceCircular, bool bOnlyDirectDependencies)
-		{
-		}
-
-		/// <summary>
-		/// Gets all of the modules precompiled along with this module
-		/// </summary>
-		/// <param name="Modules">Set of all the precompiled modules</param>
-		public virtual void RecursivelyAddPrecompiledModules(List<UEBuildModule> Modules)
 		{
 		}
 

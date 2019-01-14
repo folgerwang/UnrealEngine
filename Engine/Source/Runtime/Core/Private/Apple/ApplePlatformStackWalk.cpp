@@ -7,10 +7,12 @@
 #include "Apple/ApplePlatformStackWalk.h"
 #include "Apple/ApplePlatformSymbolication.h"
 #include "Containers/StringConv.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <execinfo.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #include <cxxabi.h>
+#include "Apple/PostAppleSystemHeaders.h"
 #include "CoreGlobals.h"
 
 #if PLATFORM_MAC

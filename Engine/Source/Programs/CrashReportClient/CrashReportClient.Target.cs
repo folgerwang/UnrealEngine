@@ -22,10 +22,7 @@ public class CrashReportClientTarget : TargetRules
 
         bOutputPubliclyDistributable = true;
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// CrashReportClient doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

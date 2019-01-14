@@ -36,7 +36,7 @@ public class Facebook : ModuleRules
 			//);
 
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"Bolts",
 					"IOS/FacebookSDK/Bolts.embeddedframework.zip"
 				)
@@ -44,7 +44,7 @@ public class Facebook : ModuleRules
 
 			// Access to Facebook core
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"FBSDKCoreKit",
 					"IOS/FacebookSDK/FBSDKCoreKit.embeddedframework.zip",
 					"FBSDKCoreKit.framework/Resources/FacebookSDKStrings.bundle"
@@ -53,7 +53,7 @@ public class Facebook : ModuleRules
 
 			// Access to Facebook login
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"FBSDKLoginKit",
 					"IOS/FacebookSDK/FBSDKLoginKit.embeddedframework.zip"
 				)
@@ -78,7 +78,7 @@ public class Facebook : ModuleRules
 
 			// Access to Facebook sharing
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"FBSDKShareKit",
 					"IOS/FacebookSDK/FBSDKShareKit.embeddedframework.zip"
 				)
