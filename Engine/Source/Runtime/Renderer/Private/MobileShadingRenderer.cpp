@@ -139,7 +139,7 @@ void FMobileSceneRenderer::SetupMobileBasePassAfterShadowInit(FExclusiveDepthSte
 			BasePassDepthStencilAccess,
 			MeshPassProcessor,
 			View.DynamicMeshElements,
-			View.MaxNumVisibleDynamicMeshes[EMeshPass::BasePass],
+			View.NumVisibleDynamicMeshElements[EMeshPass::BasePass],
 			ViewCommands.DynamicMeshCommandBuildRequests[EMeshPass::BasePass],
 			ViewCommands.MeshCommands[EMeshPass::BasePass],
 			BasePassCSMMeshPassProcessor,

@@ -979,7 +979,7 @@ public:
 		FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 		FMeshPassProcessor* MeshPassProcessor,
 		const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
-		int32 MaxNumDynamicMeshesForThisPass,
+		int32 MaxNumDynamicMeshElementsForThisPass,
 		TArray<const FStaticMesh*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
 		FMeshCommandOneFrameArray& InOutMeshDrawCommands,
 		FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor = nullptr, // Required only for the mobile base pass.
@@ -1086,8 +1086,8 @@ public:
 	/** Marks used mesh passes by visible dynamic meshes. */
 	FMeshPassMask VisibleDynamicMeshesPassMask;
 
-	/** Max number of dynamic meshes per mesh pass. */
-	int32 MaxNumVisibleDynamicMeshes[EMeshPass::Num];
+	/** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
+	int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
 
 	/** The dynamic editor primitives visible in this view. */
 	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;

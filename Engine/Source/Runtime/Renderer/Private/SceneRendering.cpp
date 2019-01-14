@@ -922,7 +922,7 @@ void FViewInfo::Init()
 	DitherFadeOutUniformBuffer = nullptr;
 
 	VisibleDynamicMeshesPassMask.Reset();
-	FMemory::Memset(MaxNumVisibleDynamicMeshes, 0, sizeof(MaxNumVisibleDynamicMeshes));
+	FMemory::Memset(NumVisibleDynamicMeshElements, 0, sizeof(NumVisibleDynamicMeshElements));
 }
 
 FViewInfo::~FViewInfo()
@@ -3373,7 +3373,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 	FMeshPassProcessor* MeshPassProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
-	int32 MaxNumDynamicMeshesForThisPass,
+	int32 MaxNumDynamicMeshElementsForThisPass,
 	TArray<const FStaticMesh*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
 	FMeshCommandOneFrameArray& InOutMeshDrawCommands,
 	FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor,
@@ -3382,7 +3382,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 {
 	check(TaskEventRefs.Num() == 0 && MeshPassProcessor != nullptr);
 
-	MaxNumDraws = InOutMeshDrawCommands.Num() + InOutDynamicMeshCommandBuildRequests.Num() + MaxNumDynamicMeshesForThisPass;
+	MaxNumDraws = InOutMeshDrawCommands.Num() + InOutDynamicMeshCommandBuildRequests.Num() + MaxNumDynamicMeshElementsForThisPass;
 	if (MaxNumDraws <= 0)
 	{
 		return;
@@ -3637,7 +3637,7 @@ void FSceneRenderer::SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type
 				BasePassDepthStencilAccess,
 				MeshPassProcessor,
 				View.DynamicMeshElements,
-				View.MaxNumVisibleDynamicMeshes[PassType],
+				View.NumVisibleDynamicMeshElements[PassType],
 				ViewCommands.DynamicMeshCommandBuildRequests[PassType],
 				ViewCommands.MeshCommands[PassIndex]);
 		}

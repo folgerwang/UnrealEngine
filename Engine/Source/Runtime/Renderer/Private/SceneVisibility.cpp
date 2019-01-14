@@ -2689,16 +2689,23 @@ void FSceneRenderer::GatherDynamicMeshElements(
 	}
 	MeshCollector.ProcessTasks();
 
+	// Compute MaxNumVisibleDynamicMeshes.
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
 		FViewInfo& View = Views[ViewIndex];
 
+		int32 NumDynamicMeshElements = 0;
+		for (int32 DynamicElementIndex = 0; DynamicElementIndex < View.DynamicMeshElements.Num(); ++DynamicElementIndex)
+		{
+			NumDynamicMeshElements += View.DynamicMeshElements[DynamicElementIndex].Mesh->Elements.Num();
+		}
+
 		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
 		{
-			View.MaxNumVisibleDynamicMeshes[PassIndex] = 0;
+			View.NumVisibleDynamicMeshElements[PassIndex] = 0;
 			if (View.VisibleDynamicMeshesPassMask.Get((EMeshPass::Type) PassIndex))
 			{
-				View.MaxNumVisibleDynamicMeshes[PassIndex] = View.DynamicMeshElements.Num();
+				View.NumVisibleDynamicMeshElements[PassIndex] = NumDynamicMeshElements;
 			}
 		}
 	}
