@@ -2,6 +2,7 @@
 
 #include "OnlineAsyncTaskGooglePlayLogin.h"
 #include "OnlineSubsystemGooglePlay.h"
+#include "AndroidRuntimeSettings.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "gpg/builder.h"
@@ -31,7 +32,9 @@ void FOnlineAsyncTaskGooglePlayLogin::Start_OnTaskThread()
 		// Store the Subsystem pointer locally so that the OnAuthActionFinished lambda can capture it
 		FOnlineSubsystemGooglePlay* LocalSubsystem = Subsystem;
 
-		Subsystem->GameServicesPtr = gpg::GameServices::Builder()
+		auto DefaultSettings = GetDefault<UAndroidRuntimeSettings>();
+
+		gpg::GameServices::Builder builder = gpg::GameServices::Builder()
 			.SetDefaultOnLog(gpg::LogLevel::VERBOSE)
 			.SetOnAuthActionStarted([](gpg::AuthOperation Op) {
 				UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionStarted: %s"), *FString(DebugString(Op).c_str()));
@@ -41,10 +44,14 @@ void FOnlineAsyncTaskGooglePlayLogin::Start_OnTaskThread()
 					*FString(DebugString(Op).c_str()),
 					*FString(DebugString(LocalStatus).c_str()));
 				LocalSubsystem->OnAuthActionFinished(Op, LocalStatus);
-			})
-			.EnableSnapshots()
-			.AddOauthScope("https://www.googleapis.com/auth/plus.login")
-			.Create(Subsystem->PlatformConfiguration);
+			});
+			
+		if (DefaultSettings->bEnableSnapshots)
+		{
+			builder.EnableSnapshots();
+		}
+		
+		Subsystem->GameServicesPtr = builder.Create(Subsystem->PlatformConfiguration);
 	}
 	else if(Subsystem->GameServicesPtr->IsAuthorized())
 	{
