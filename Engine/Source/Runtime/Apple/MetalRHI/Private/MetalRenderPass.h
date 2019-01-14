@@ -148,14 +148,17 @@ private:
     void ConditionalSwitchToCompute(void);
 	void ConditionalSwitchToBlit(void);
 	void ConditionalSwitchToAsyncBlit(void);
+	void ConditionalSwitchToAsyncCompute(void);
 	
     void PrepareToRender(uint32 PrimType);
     void PrepareToTessellate(uint32 PrimType);
     void PrepareToDispatch(void);
+	void PrepareToAsyncDispatch(void);
 
     void CommitRenderResourceTables(void);
     void CommitTessellationResourceTables(void);
     void CommitDispatchResourceTables(void);
+	void CommitAsyncDispatchResourceTables(void);
     
     void ConditionalSubmit();
 private:

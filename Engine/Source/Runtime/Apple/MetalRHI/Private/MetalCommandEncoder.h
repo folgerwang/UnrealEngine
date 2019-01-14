@@ -133,6 +133,9 @@ public:
 	/** @returns The MTLFence for the current encoder or nil if there isn't one. */
 	FMetalFence* GetEncoderFence(void) const;
 	
+	/** @returns The number of encoded passes in the command buffer. */
+	uint32 NumEncodedPasses(void) const { return EncoderNum; }
+	
 #pragma mark - Public Command Encoder Mutators -
 
 	/**
