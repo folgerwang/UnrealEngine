@@ -463,7 +463,6 @@ bool UNetConnection::IsEncryptionEnabled() const
 void UNetConnection::Serialize( FArchive& Ar )
 {
 	UObject::Serialize( Ar );
-	
 	Ar << PackageMap;
 	for (UChannel* Channel : Channels)
 	{
