@@ -22,7 +22,7 @@
 
 static int32 GRayTracingOcclusionSamplesPerPixel = 1;
 static FAutoConsoleVariableRef CVarRayTracingOcclusionSamplesPerPixel(
-	TEXT("r.Shadow.RayTracing.SamplesPerPixel"),
+	TEXT("r.RayTracing.Shadow.SamplesPerPixel"),
 	GRayTracingOcclusionSamplesPerPixel,
 	TEXT("Sets the samples-per-pixel for directional light occlusion (default = 1)")
 );
