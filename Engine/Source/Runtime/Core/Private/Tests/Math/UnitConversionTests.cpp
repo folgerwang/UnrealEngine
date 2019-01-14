@@ -111,7 +111,7 @@ bool FParsingUnitTests::RunTest(const FString& Parameters)
 {
 	struct FTestCases
 	{
-		TCHAR*							Expression;
+		const TCHAR*					Expression;
 		double							ExpectedValue;
 		EUnit							UnderlyingUnit;
 		TOptional<FNumericUnit<double>>	ExistingValue;
