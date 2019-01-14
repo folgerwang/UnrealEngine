@@ -693,6 +693,21 @@ void FSkeletalMeshLODModel::Serialize(FArchive& Ar, UObject* Owner, int32 Idx)
 				{
 					FColorVertexBuffer DummyColorBuffer;
 					DummyColorBuffer.Serialize(Ar, false);
+					//Copy the data to the softVertices
+					int32 VertexColorCount = DummyColorBuffer.GetNumVertices();
+					check(NumVertices == VertexColorCount);
+					TArray<FColor> OutColors;
+					DummyColorBuffer.GetVertexColors(OutColors);
+					int32 DummyVertexColorIndex = 0;
+					for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
+					{
+						int32 SectionVertexCount = Sections[SectionIndex].GetNumVertices();
+						TArray<FSoftSkinVertex>& SoftVertices = Sections[SectionIndex].SoftVertices;
+						for (int32 SectionVertexIndex = 0; SectionVertexIndex < SectionVertexCount; ++SectionVertexIndex)
+						{
+							SoftVertices[SectionVertexIndex].Color = OutColors[DummyVertexColorIndex++];
+						}
+					}
 				}
 			}
 
