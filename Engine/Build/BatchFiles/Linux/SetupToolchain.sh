@@ -40,7 +40,7 @@ if [ ! -f $TOOLCHAIN_ARCHIVE ]; then
 		wget $TOOLCHAIN_URL -O $TOOLCHAIN_ARCHIVE
 	else 
 		echo "Please install curl or wget"
-		exit
+		exit 1
 	fi
 else
 	echo "Using cached toolchain."

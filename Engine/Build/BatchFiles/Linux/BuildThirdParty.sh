@@ -593,7 +593,7 @@ if [[ ${#BuildList[@]} -ne 0 &&  $ALL -eq 0 ]]; then
     exit
 elif [[ ${#BuildList[@]} -ne 0 ]] && [[ $ALL -eq 1 ]]; then
     echo "ERROR: Can not build all and individual packages at the same time"
-    exit
+    exit 1
 fi
 
 if [[ $ALL -eq 1 ]]; then
