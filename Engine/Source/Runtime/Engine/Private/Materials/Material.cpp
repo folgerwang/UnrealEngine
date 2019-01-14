@@ -283,7 +283,7 @@ public:
 
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
 	{
-		checkSlow(IsInRenderingThread());
+		checkSlow(IsInParallelRenderingThread());
 		return Material->GetMaterialResource(InFeatureLevel);
 	}
 

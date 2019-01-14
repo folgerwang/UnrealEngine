@@ -51,6 +51,9 @@ public:
 	/** true if there are any primitives affected by CSM subjects */
 	uint32 bMobileDynamicCSMInUse : 1;
 
+	// true if all draws should be forced to use CSM shaders.
+	uint32 bAlwaysUseCSM : 1;
+
 	/** Visibility lists for static meshes that will use expensive CSM shaders. */
 	FSceneBitArray MobilePrimitiveCSMReceiverVisibilityMap;
 	FSceneBitArray MobileCSMStaticMeshVisibilityMap;
@@ -61,7 +64,7 @@ public:
 	TArray<uint64, SceneRenderingAllocator> MobileNonCSMStaticBatchVisibility;
 
 	/** Initialization constructor. */
-	FMobileCSMVisibilityInfo() : bMobileDynamicCSMInUse(false)
+	FMobileCSMVisibilityInfo() : bMobileDynamicCSMInUse(false), bAlwaysUseCSM(false)
 	{}
 };
 
@@ -879,23 +882,32 @@ struct FPreviousViewInfo
 	}
 };
 
-typedef TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> FMeshDrawCommandsPerPass;
-typedef TArray<FMeshDrawCommandsPerPass, TInlineAllocator<4>> FMeshDrawCommandsPerPassPerView;
-
-/**
- * Parallel mesh draw command processing and drawing context.
- */
-class FMeshDrawCommandSortAndMergeTaskContext
+class FViewCommands
 {
 public:
-	FMeshDrawCommandSortAndMergeTaskContext()
-		: ShadingPath(EShadingPath::Num)
+	TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> MeshCommands;
+	TStaticArray<TArray<const FStaticMesh*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
+};
+
+typedef TArray<FViewCommands, TInlineAllocator<4>> FViewVisibleCommandsPerView;
+
+/**
+ * Parallel mesh draw command pass setup task context.
+ */
+class FMeshDrawCommandPassSetupTaskContext
+{
+public:
+	FMeshDrawCommandPassSetupTaskContext()
+		: View(nullptr)
+		, ShadingPath(EShadingPath::Num)
 		, PassType(EMeshPass::Num)
 		, bUseGPUScene(false)
 		, bDynamicInstancing(false)
 		, bReverseCulling(false)
 		, bRenderSceneTwoSided(false)
 		, BasePassDepthStencilAccess(FExclusiveDepthStencil::DepthNop_StencilNop)
+		, MeshPassProcessor(nullptr)
+		, DynamicMeshElements(nullptr)
 		, PrimitiveBounds(nullptr)
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
@@ -903,6 +915,7 @@ public:
 	{
 	}
 
+	const FViewInfo* View;
 	EShadingPath ShadingPath;
 	EMeshPass::Type PassType;
 	bool bUseGPUScene;
@@ -911,8 +924,16 @@ public:
 	bool bRenderSceneTwoSided;
 	FExclusiveDepthStencil::Type BasePassDepthStencilAccess;
 
+	// Mesh pass processor.
+	FMeshPassProcessor* MeshPassProcessor;
+	FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor;
+	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>* DynamicMeshElements;
+
 	// Commands.
-	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
+	FMeshCommandOneFrameArray MeshDrawCommands;
+	FMeshCommandOneFrameArray MobileBasePassCSMMeshDrawCommands;
+	TArray<const FStaticMesh*, SceneRenderingAllocator> DynamicMeshCommandBuildRequests;
+	TArray<const FStaticMesh*, SceneRenderingAllocator> MobileBasePassCSMDynamicMeshCommandBuildRequests;
 	FDynamicMeshDrawCommandStorage MeshDrawCommandStorage;
 
 	// Preallocated resources.
@@ -934,30 +955,35 @@ public:
 };
 
 /**
- * Parallel mesh draw command processing and rendering.
- * DispatchSort - dispatched mesh command processing task.
- * DispatchDraw - dispatched mesh draw task depending on DispatchSort.
+ * Parallel mesh draw command processing and rendering. 
+ * Encapsulates two parallel tasks - mesh command setup task and drawing task.
  */
 class FParallelMeshDrawCommandPass
 {
 public:
 	FParallelMeshDrawCommandPass()
-		: MaxDrawNum(0)
+		: MaxNumDraws(0)
 	{
 	}
 
 	~FParallelMeshDrawCommandPass();
 
 	/**
-	 * Dispatch visible mesh draw command sort and merge task.
+	 * Dispatch visible mesh draw command process task, which prepares this pass for drawing.
+	 * This includes generation of dynamic mesh draw commands, draw sorting and draw merging.
 	 */
-	void DispatchSortAndMerge(
+	void DispatchPassSetup(
+		FScene* Scene,
 		const FViewInfo& View, 
-		EShadingPath ShadingPath,
-		const TArray<FPrimitiveBounds>& PrimitiveBounds, 
 		EMeshPass::Type PassType, 
 		FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
-		FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands
+		FMeshPassProcessor* MeshPassProcessor,
+		const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+		int32 MaxNumDynamicMeshesForThisPass,
+		TArray<const FStaticMesh*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
+		FMeshCommandOneFrameArray& InOutMeshDrawCommands,
+		FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor = nullptr, // Required only for the mobile base pass.
+		FMeshCommandOneFrameArray* InOutMobileBasePassCSMMeshDrawCommands = nullptr // Required only for the mobile base pass.
 	);
 
 	/**
@@ -966,20 +992,21 @@ public:
 	void DispatchDraw(FParallelCommandListSet* ParallelCommandListSet, FRHICommandList& RHICmdList) const;
 
 	void Empty();
-
 	void SetDumpInstancingStats(const FString& InPassName);
-
-	bool HasAnyDraw() const { return MaxDrawNum > 0; }
+	bool HasAnyDraw() const { return MaxNumDraws > 0; }
 
 
 private:
-	FMeshDrawCommandSortAndMergeTaskContext TaskContext;
+	FMeshDrawCommandPassSetupTaskContext TaskContext;
 	FGraphEventArray TaskEventRefs;
-	int32 MaxDrawNum;
 	FString PassNameForStats;
 
+	// Maximum number of draws for this pass. Used to prealocate resources on rendering thread. 
+	// Has a guarantee that if there won't be any draws, then MaxNumDraws = 0;
+	int32 MaxNumDraws;
+
 	void DumpInstancingStats() const;
-	void DispatchSortInternal(ERHIFeatureLevel::Type FeatureLevel, FMeshCommandOneFrameArray& InOutVisibleMeshDrawCommands);
+	void WaitForMeshPassSetupTask() const;
 };
 
 /** A FSceneView with additional state used by the scene renderer. */
@@ -1054,7 +1081,13 @@ public:
 	TArray<uint64,SceneRenderingAllocator> StaticMeshBatchVisibility;
 
 	/** The dynamic primitives visible in this view. */
-	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleDynamicPrimitives;
+	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleDynamicPrimitives;
+
+	/** Marks used mesh passes by visible dynamic meshes. */
+	FMeshPassMask VisibleDynamicMeshesPassMask;
+
+	/** Max number of dynamic meshes per mesh pass. */
+	int32 MaxNumVisibleDynamicMeshes[EMeshPass::Num];
 
 	/** The dynamic editor primitives visible in this view. */
 	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;
@@ -1119,15 +1152,13 @@ public:
 	/** Tracks dynamic primitive data for upload to GPU Scene, when enabled. */
 	TArray<FPrimitiveUniformShaderParameters> DynamicPrimitiveShaderData;
 
-	TStaticArray<FDynamicMeshDrawCommandStorage, EMeshPass::Num> DynamicMeshDrawCommandStorage;
 	FRWBufferStructured OneFramePrimitiveShaderDataBuffer;
 	FReadBuffer OneFramePrimitiveIdBufferEmulation;
 
 	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> ParallelMeshDrawCommandPasses;
 	
 	FMeshCommandOneFrameArray RaytraycingVisibleMeshDrawCommands;
-
-	TStaticArray<TArray<const FStaticMesh*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
+	FDynamicMeshDrawCommandStorage RaytraycingDynamicMeshDrawCommandStorage;
 
 	// Used by mobile renderer to determine whether static meshes will be rendered with CSM shaders or not.
 	FMobileCSMVisibilityInfo MobileCSMVisibilityInfo;
@@ -1689,10 +1720,7 @@ protected:
 
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
 
-	/** Converts each FMeshBatch into a set of FMeshDrawCommands for each relevant mesh pass. */
-	void GenerateDynamicMeshDrawCommands(FViewInfo& View, FMeshDrawCommandsPerPass& VisibleCommands);
-
-	void SortAndMergeMeshDrawCommands(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPass& VisibleCommands);
+	void SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewCommands& ViewCommands);
 
 	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading, bool bMobileModulatedProjections);
 
@@ -1788,7 +1816,7 @@ protected:
 	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
 
 	/** Computes which primitives are visible and relevant for each view. */
-	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
+	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
 
 	/** Performs once per frame setup after to visibility determination. */
 	void PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTaskData);
@@ -1863,7 +1891,7 @@ public:
 
 protected:
 	/** Finds the visible dynamic shadows for each view. */
-	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
+	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
 
 	/** Build visibility lists on CSM receivers and non-csm receivers. */
 	void BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo);
@@ -1912,7 +1940,7 @@ protected:
 	/** Will update the view custom data. */
 	void PostInitViewCustomData();
 
-	void SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
+	void SetupMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
 
 	void UpdateOpaqueBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 	void UpdateTranslucentBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);

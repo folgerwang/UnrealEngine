@@ -1201,47 +1201,31 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& R
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_SetupMeshDrawCommandsForShadowDepth);
 
-	FDynamicPassMeshDrawListContext ShadowDepthContext(DynamicMeshDrawCommandStorage, ShadowDepthPassVisibleCommands);
-	FShadowDepthPassMeshProcessor ShadowDepthPassMeshProcessor(
-		Renderer.Scene, 
-		ShadowDepthView, 
-		ShadowDepthView->ViewUniformBuffer, 
+	FShadowDepthPassMeshProcessor* MeshPassProcessor = new(FMemStack::Get()) FShadowDepthPassMeshProcessor(
+		Renderer.Scene,
+		ShadowDepthView,
+		ShadowDepthView->ViewUniformBuffer,
 		PassUniformBuffer,
 		GetShadowDepthType(),
-		&ShadowDepthContext);
+		nullptr);
 
-	const int32 NumDynamicMeshBatches = DynamicSubjectMeshElements.Num();
-
-	for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
+	if (Renderer.ShouldDumpMeshDrawCommandInstancingStats())
 	{
-		const FMeshBatchAndRelevance& MeshAndRelevance = DynamicSubjectMeshElements[MeshIndex];
-		check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
-		const uint64 BatchElementMask = ~0ull;
-
-		ShadowDepthPassMeshProcessor.AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+		FString PassNameForStats;
+		GetShadowTypeNameForDrawEvent(PassNameForStats);
+		ShadowDepthPass.SetDumpInstancingStats(TEXT("ShadowDepth ") + PassNameForStats);
 	}
 
-	const int32 NumStaticMeshBatches = SubjectMeshCommandBuildRequests.Num();
-
-	for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
-	{
-		const FStaticMesh* StaticMeshBatch = SubjectMeshCommandBuildRequests[MeshIndex];
-		const uint64 BatchElementMask = StaticMeshBatch->bRequiresPerElementVisibility ? ShadowDepthView->StaticMeshBatchVisibility[StaticMeshBatch->BatchVisibilityId] : ~0ull;
-
-		ShadowDepthPassMeshProcessor.AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
-	}
-
-	if (ShadowDepthPassVisibleCommands.Num() > 0)
-	{
-		if (Renderer.ShouldDumpMeshDrawCommandInstancingStats())
-		{
-			FString PassNameForStats;
-			GetShadowTypeNameForDrawEvent(PassNameForStats);
-			ShadowDepthPass.SetDumpInstancingStats(TEXT("ShadowDepth ") + PassNameForStats);
-		}
-
-		ShadowDepthPass.DispatchSortAndMerge(*ShadowDepthView, Renderer.Scene->GetShadingPath(), Renderer.Scene->PrimitiveBounds, EMeshPass::Num, FExclusiveDepthStencil::DepthNop_StencilNop, ShadowDepthPassVisibleCommands);
-	}
+	ShadowDepthPass.DispatchPassSetup(
+		Renderer.Scene,
+		*ShadowDepthView,
+		EMeshPass::Num,
+		FExclusiveDepthStencil::DepthNop_StencilNop,
+		MeshPassProcessor,
+		DynamicSubjectMeshElements,
+		DynamicSubjectMeshElements.Num(),
+		SubjectMeshCommandBuildRequests,
+		ShadowDepthPassVisibleCommands);
 }
 
 void FProjectedShadowInfo::SetupMeshDrawCommandsForProjectionStenciling(FSceneRenderer& Renderer)

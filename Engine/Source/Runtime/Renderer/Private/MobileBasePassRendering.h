@@ -525,8 +525,6 @@ namespace MobileBasePass
 
 	void SetOpaqueRenderState(FDrawingPolicyRenderState& DrawRenderState, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMaterial& Material, bool bEnableReceiveDecalOutput);
 	void SetTranslucentRenderState(FDrawingPolicyRenderState& DrawRenderState, const FMaterial& Material);
-
-	void ComputeBasePassSortKeys(const FScene& Scene, const FViewInfo& View, FMeshCommandOneFrameArray& VisibleMeshCommands);
 };
 
 

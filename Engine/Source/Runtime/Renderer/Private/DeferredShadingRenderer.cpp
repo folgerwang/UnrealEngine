@@ -607,7 +607,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 				&DummyDynamicPrimitiveShaderData,
 				ViewFamily.GetFeatureLevel());
 
-			View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing].MeshDrawCommands.Reserve(Scene->Primitives.Num());
+			View.RaytraycingDynamicMeshDrawCommandStorage.MeshDrawCommands.Reserve(Scene->Primitives.Num());
 			View.RaytraycingVisibleMeshDrawCommands.Reserve(Scene->Primitives.Num());
 		}
 
@@ -707,7 +707,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 
 								FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 								(
-									View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+									View.RaytraycingDynamicMeshDrawCommandStorage,
 									View.RaytraycingVisibleMeshDrawCommands
 								);
 								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
@@ -750,7 +750,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							FViewInfo& View = Views[ViewIndex];
 							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 							(
-								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+								View.RaytraycingDynamicMeshDrawCommandStorage,
 								View.RaytraycingVisibleMeshDrawCommands
 							);
 							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
@@ -798,7 +798,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							FViewInfo& View = Views[ViewIndex];
 							FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext
 							(
-								View.DynamicMeshDrawCommandStorage[EMeshPass::RayTracing],
+								View.RaytraycingDynamicMeshDrawCommandStorage,
 								View.RaytraycingVisibleMeshDrawCommands
 							);
 							FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);

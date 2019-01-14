@@ -268,7 +268,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 	}
 }
 /** Finds the visible dynamic shadows for each view. */
-void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView)
+void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 {
 	static auto* MyCVarMobileEnableStaticAndCSMShadowReceivers = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableStaticAndCSMShadowReceivers"));
 	const bool bMobileEnableStaticAndCSMShadowReceivers = MyCVarMobileEnableStaticAndCSMShadowReceivers->GetValueOnRenderThread() == 1;
@@ -337,33 +337,10 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 		}
 	}
 
-	// Where we've determined CSM is required we copy the MobileBasePassCSM mesh commands to the BasePass visible list:
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+	for (auto& View : Views)
 	{
-		FViewInfo& View = Views[ViewIndex];
-		FMeshDrawCommandsPerPass& VisibleCommands = VisibleCommandsPerView[ViewIndex];
-
 		FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
-		if (MobileCSMVisibilityInfo.bMobileDynamicCSMInUse)
-		{
-			// determine per view CSM visibility
-			FMeshCommandOneFrameArray& MeshCommands = VisibleCommands[EMeshPass::BasePass];
-			FMeshCommandOneFrameArray& MeshCommandsCSM = VisibleCommands[EMeshPass::MobileBasePassCSM];
-			checkf(MeshCommands.Num() == MeshCommandsCSM.Num(), TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
-			for (int32 i = MeshCommands.Num() - 1; i >= 0; --i)
-			{
-				FVisibleMeshDrawCommand& MeshCommand = MeshCommands[i];
-				FVisibleMeshDrawCommand& MeshCommandCSM = MeshCommandsCSM[i];
-
-				if (bAlwaysUseCSM || (MeshCommand.DrawPrimitiveId < Scene->Primitives.Num() && MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[MeshCommand.DrawPrimitiveId]))
-				{
-					checkf(MeshCommand.DrawPrimitiveId == MeshCommandCSM.DrawPrimitiveId, TEXT("VisibleMeshDrawCommands of BasePass and MobileBasePassCSM are expected to match."));
-					// Use CSM's VisibleMeshDrawCommand.
-					MeshCommand = MeshCommandCSM;
-				}
-			}
-			MeshCommandsCSM.Reset();
-		}
+		MobileCSMVisibilityInfo.bAlwaysUseCSM = bAlwaysUseCSM;
 	}
 
 	{
