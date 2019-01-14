@@ -2398,18 +2398,14 @@ bool FSceneViewFamily::SupportsScreenPercentage() const
 
 bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 {
-	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessing.PropagateAlpha"));
-	const bool bPostProcessAlphaChannel = CVar ? (CVar->GetInt() != 0) : false;
-
 	static IConsoleVariable* CVarMobileMSAA = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileMSAA"));
 	const bool bMobileMSAA = CVarMobileMSAA ? (CVarMobileMSAA->GetInt() > 1) : false;
 
 	return CVarAllowTranslucencyAfterDOF.GetValueOnRenderThread() != 0
 		&& (GetFeatureLevel() > ERHIFeatureLevel::ES3_1 || (IsMobileHDR() && !bMobileMSAA)) // on <= ES3_1 separate translucency requires HDR on and MSAA off
-		&& EngineShowFlags.PostProcessing // Used for reflection captures.
-		&& !UseDebugViewPS()
-		&& EngineShowFlags.SeparateTranslucency
-		&& !bPostProcessAlphaChannel;
+	&& EngineShowFlags.PostProcessing // Used for reflection captures.
+	&& !UseDebugViewPS()
+	&& EngineShowFlags.SeparateTranslucency;
 	// If not, translucency after DOF will be rendered in standard translucency.
 }
 
