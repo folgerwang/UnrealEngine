@@ -8,8 +8,27 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/PackageName.h"
 
+/** FSubsystemModuleWatcher class to hide the implementation of keeping the DynamicSystemModuleMap up to date*/
+class FSubsystemModuleWatcher
+{
+public:
+	static void OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange);
 
-FDelegateHandle FSubsystemCollectionBase::ModulesChangedHandle;
+	/** Init / Deinit the Module watcher, this tracks module startup and shutdown to ensure only the appropriate dynamic subsystems are instantiated */
+	static void InitializeModuleWatcher();
+	static void DeinitializeModuleWatcher();
+
+private:
+	static void AddClassesForModule(const FName& InModuleName);
+	static void RemoveClassesForModule(const FName& InModuleName);
+
+	static FDelegateHandle ModulesChangedHandle;
+};
+
+FDelegateHandle FSubsystemModuleWatcher::ModulesChangedHandle;
+
+
+
 TArray<FSubsystemCollectionBase*> FSubsystemCollectionBase::SubsystemCollections;
 TMap<FName, TArray<TSubclassOf<UDynamicSubsystem>>> FSubsystemCollectionBase::DynamicSystemModuleMap;
 
@@ -70,61 +89,6 @@ const TArray<USubsystem*>& FSubsystemCollectionBase::GetSubsystemArrayInternal(T
 	return List;
 }
 
-class FSubsystemModuleWatcher
-{
-public :
-	static void OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange)
-	{
-
-		switch (ReasonForChange)
-		{
-		case EModuleChangeReason::ModuleLoaded:
-			FSubsystemCollectionBase::AddClassesForModule(ModuleThatChanged);
-			break;
-
-		case EModuleChangeReason::ModuleUnloaded:
-			FSubsystemCollectionBase::RemoveClassesForModule(ModuleThatChanged);
-			break;
-		}
-	}
-};
-
-void FSubsystemCollectionBase::InitializeModuleWatcher()
-{
-	check(!ModulesChangedHandle.IsValid());
-
-	// Add Loaded Modules
-	TArray<UClass*> SubsystemClasses;
-	GetDerivedClasses(UDynamicSubsystem::StaticClass(), SubsystemClasses, true);
-
-	for (UClass* SubsystemClass : SubsystemClasses)
-	{
-		if (!SubsystemClass->HasAllClassFlags(CLASS_Abstract))
-		{
-			UPackage* const ClassPackage = SubsystemClass->GetOuterUPackage();
-			if (ClassPackage)
-			{
-				const FName ModuleName = FPackageName::GetShortFName(ClassPackage->GetFName());
-				if (FModuleManager::Get().IsModuleLoaded(ModuleName))
-				{
-					TArray<TSubclassOf<UDynamicSubsystem>>& ModuleSubsystemClasses = DynamicSystemModuleMap.FindOrAdd(ModuleName);
-					ModuleSubsystemClasses.Add(SubsystemClass);
-				}
-			}
-		}
-	}
-
-	ModulesChangedHandle = FModuleManager::Get().OnModulesChanged().AddStatic(&FSubsystemModuleWatcher::OnModulesChanged);
-}
-
-void FSubsystemCollectionBase::DeinitializeModuleWatcher()
-{
-	if (ModulesChangedHandle.IsValid())
-	{
-		FModuleManager::Get().OnModulesChanged().Remove(ModulesChangedHandle);
-	}
-}
-
 void FSubsystemCollectionBase::Initialize()
 {
 	if (ensure(BaseType) && ensureMsgf(SubsystemMap.Num() == 0, TEXT("Currently don't support repopulation of Subsystem Collections.")))
@@ -134,7 +98,7 @@ void FSubsystemCollectionBase::Initialize()
 		
 		if (SubsystemCollections.Num() == 0)
 		{
-			InitializeModuleWatcher();
+			FSubsystemModuleWatcher::InitializeModuleWatcher();
 		}
 		
 		TGuardValue<bool> PopulatingGuard(bPopulating, true);
@@ -158,7 +122,7 @@ void FSubsystemCollectionBase::Deinitialize()
 	SubsystemCollections.Remove(this);
 	if (SubsystemCollections.Num() == 0)
 	{
-		DeinitializeModuleWatcher();
+		FSubsystemModuleWatcher::DeinitializeModuleWatcher();
 	}
 
 	// Deinit and clean up existing systems
@@ -227,47 +191,6 @@ void FSubsystemCollectionBase::RemoveAndDeinitializeSubsystem(USubsystem* Subsys
 	Subsystem->InternalOwningSubsystem = nullptr;
 }
 
-void FSubsystemCollectionBase::AddClassesForModule(const FName& InModuleName)
-{
-	check(!DynamicSystemModuleMap.Contains(InModuleName));
-
-	// Find the class package for this module
-	const UPackage* const ClassPackage = FindPackage(nullptr, *(FString("/Script/") + InModuleName.ToString()));
-	if (!ClassPackage)
-	{
-		return;
-	}
-
-	TArray<TSubclassOf<UDynamicSubsystem>> SubsystemClasses;
-	TArray<UObject*> PackageObjects;
-	GetObjectsWithOuter(ClassPackage, PackageObjects, false);
-	for (UObject* Object : PackageObjects)
-	{
-		UClass* const CurrentClass = Cast<UClass>(Object);
-		if (CurrentClass && !CurrentClass->HasAllClassFlags(CLASS_Abstract) && CurrentClass->IsChildOf(UDynamicSubsystem::StaticClass()))
-		{
-			SubsystemClasses.Add(CurrentClass);
-			FSubsystemCollectionBase::AddAllInstances(CurrentClass);
-		}
-	}
-	if (SubsystemClasses.Num() > 0)
-	{
-		DynamicSystemModuleMap.Add(InModuleName, MoveTemp(SubsystemClasses));
-	}
-}
-void FSubsystemCollectionBase::RemoveClassesForModule(const FName& InModuleName)
-{
-	TArray<TSubclassOf<UDynamicSubsystem>>* SubsystemClasses = DynamicSystemModuleMap.Find(InModuleName);
-	if (SubsystemClasses)
-	{
-		for (TSubclassOf<UDynamicSubsystem>& SubsystemClass : *SubsystemClasses)
-		{
-			FSubsystemCollectionBase::RemoveAllInstances(SubsystemClass);
-		}
-		DynamicSystemModuleMap.Remove(InModuleName);
-	}
-}
-
 void FSubsystemCollectionBase::AddAllInstances(UClass* SubsystemClass)
 {
 	for (FSubsystemCollectionBase* SubsystemCollection : SubsystemCollections)
@@ -290,4 +213,101 @@ void FSubsystemCollectionBase::RemoveAllInstances(UClass* SubsystemClass)
 			Subsystem->InternalOwningSubsystem->RemoveAndDeinitializeSubsystem(Subsystem);
 		}
 	});
+}
+
+
+
+
+/** FSubsystemModuleWatcher Implementations */
+void FSubsystemModuleWatcher::OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange)
+{
+
+	switch (ReasonForChange)
+	{
+	case EModuleChangeReason::ModuleLoaded:
+		AddClassesForModule(ModuleThatChanged);
+		break;
+
+	case EModuleChangeReason::ModuleUnloaded:
+		RemoveClassesForModule(ModuleThatChanged);
+		break;
+	}
+}
+
+
+void FSubsystemModuleWatcher::InitializeModuleWatcher()
+{
+	check(!ModulesChangedHandle.IsValid());
+
+	// Add Loaded Modules
+	TArray<UClass*> SubsystemClasses;
+	GetDerivedClasses(UDynamicSubsystem::StaticClass(), SubsystemClasses, true);
+
+	for (UClass* SubsystemClass : SubsystemClasses)
+	{
+		if (!SubsystemClass->HasAllClassFlags(CLASS_Abstract))
+		{
+			UPackage* const ClassPackage = SubsystemClass->GetOuterUPackage();
+			if (ClassPackage)
+			{
+				const FName ModuleName = FPackageName::GetShortFName(ClassPackage->GetFName());
+				if (FModuleManager::Get().IsModuleLoaded(ModuleName))
+				{
+					TArray<TSubclassOf<UDynamicSubsystem>>& ModuleSubsystemClasses = FSubsystemCollectionBase::DynamicSystemModuleMap.FindOrAdd(ModuleName);
+					ModuleSubsystemClasses.Add(SubsystemClass);
+				}
+			}
+		}
+	}
+
+	ModulesChangedHandle = FModuleManager::Get().OnModulesChanged().AddStatic(&FSubsystemModuleWatcher::OnModulesChanged);
+}
+
+void FSubsystemModuleWatcher::DeinitializeModuleWatcher()
+{
+	if (ModulesChangedHandle.IsValid())
+	{
+		FModuleManager::Get().OnModulesChanged().Remove(ModulesChangedHandle);
+	}
+}
+
+void FSubsystemModuleWatcher::AddClassesForModule(const FName& InModuleName)
+{
+	check(!FSubsystemCollectionBase::DynamicSystemModuleMap.Contains(InModuleName));
+
+	// Find the class package for this module
+	const UPackage* const ClassPackage = FindPackage(nullptr, *(FString("/Script/") + InModuleName.ToString()));
+	if (!ClassPackage)
+	{
+		return;
+	}
+
+	TArray<TSubclassOf<UDynamicSubsystem>> SubsystemClasses;
+	TArray<UObject*> PackageObjects;
+	GetObjectsWithOuter(ClassPackage, PackageObjects, false);
+	for (UObject* Object : PackageObjects)
+	{
+		UClass* const CurrentClass = Cast<UClass>(Object);
+		if (CurrentClass && !CurrentClass->HasAllClassFlags(CLASS_Abstract) && CurrentClass->IsChildOf(UDynamicSubsystem::StaticClass()))
+		{
+			SubsystemClasses.Add(CurrentClass);
+			FSubsystemCollectionBase::AddAllInstances(CurrentClass);
+		}
+	}
+	if (SubsystemClasses.Num() > 0)
+	{
+		FSubsystemCollectionBase::DynamicSystemModuleMap.Add(InModuleName, MoveTemp(SubsystemClasses));
+	}
+}
+void FSubsystemModuleWatcher::RemoveClassesForModule(const FName& InModuleName)
+{
+	TArray<TSubclassOf<UDynamicSubsystem>>* SubsystemClasses = FSubsystemCollectionBase::DynamicSystemModuleMap.Find(InModuleName);
+	if (SubsystemClasses)
+	{
+		for (TSubclassOf<UDynamicSubsystem>& SubsystemClass : *SubsystemClasses)
+		{
+			FSubsystemCollectionBase::RemoveAllInstances(SubsystemClass);
+		}
+		FSubsystemCollectionBase::DynamicSystemModuleMap.Remove(InModuleName);
+	}
 }

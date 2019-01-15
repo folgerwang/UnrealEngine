@@ -57,16 +57,8 @@ private:
 
 	bool bPopulating;
 
-public:
-	/** Init / Deinit the Module watcher, this tracks module startup and shutdown to ensure only the appropriate dynamic subsystems are instantiated */
-	static void InitializeModuleWatcher();
-	static void DeinitializeModuleWatcher();
-
 private:
 	friend class FSubsystemModuleWatcher;
-
-	static void AddClassesForModule(const FName& InModuleName);
-	static void RemoveClassesForModule(const FName& InModuleName);
 
 	/** Add Instances of the specified Subsystem class to all existing SubsystemCollections of the correct type */
 	static void AddAllInstances(UClass* SubsystemClass);
@@ -74,7 +66,6 @@ private:
 	/** Remove Instances of the specified Subsystem class from all existing SubsystemCollections of the correct type */
 	static void RemoveAllInstances(UClass* SubsystemClass);
 
-	static FDelegateHandle ModulesChangedHandle;
 	static TArray<FSubsystemCollectionBase*> SubsystemCollections;
 	static TMap<FName, TArray<TSubclassOf<UDynamicSubsystem>>> DynamicSystemModuleMap;
 };
