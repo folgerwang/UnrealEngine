@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../PathTracing/Utilities/PathTracingRandomSequence.ush"
+#include "../RectLight.ush"
 
 bool GenerateRectLightOcclusionRay(
 	float3 WorldPosition,
@@ -40,11 +41,15 @@ bool GenerateRectLightOcclusionRay(
 	RayTMin = 0.0;
 	RayTMax = length(LightPosition - WorldPosition);
 
-	// Convert PDF to solid angle measure
-	float Area = LightWidth * LightHeight;
-	float Distance2 = RayTMax * RayTMax;
-	float SolidAngle = Area * saturate(dot(-LightDirection, LightNormal)) / Distance2;
-	RayPdf = 1.0 / SolidAngle;
+	// Define rectangle
+	FRect Rect;
+	Rect.Origin = LightPosition - WorldPosition;
+	Rect.Axis[0] = LightdPdu;
+	Rect.Axis[1] = LightdPdv;
+	Rect.Axis[2] = cross(LightdPdu, LightdPdv);
+	Rect.Extent = float2(LightWidth, LightHeight);
+	FSphericalRect SphericalRect = BuildSphericalRect(Rect);
+	RayPdf = 1.0 / SphericalRect.SolidAngle;
 
 	return true;
 }
