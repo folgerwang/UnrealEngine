@@ -217,6 +217,9 @@ FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* V
 			Relevance |= Renderer->GetViewRelevance(View, this);
 		}
 	}
+
+	Relevance.bVelocityRelevance = IsMovable() && Relevance.bOpaqueRelevance && Relevance.bRenderInMainPass;
+
 	return Relevance;
 }
 
