@@ -734,6 +734,12 @@ private:
 
 	TArray<const FStaticMesh*, SceneRenderingAllocator> SubjectMeshCommandBuildRequests;
 
+	/** Number of elements of DynamicSubjectMeshElements meshes. */
+	int32 NumDynamicSubjectMeshElements;
+
+	/** Number of elements of SubjectMeshCommandBuildRequests meshes. */
+	int32 NumSubjectMeshCommandBuildRequestElements;
+
 	FMeshCommandOneFrameArray ShadowDepthPassVisibleCommands;
 	FParallelMeshDrawCommandPass ShadowDepthPass;
 
@@ -796,7 +802,8 @@ private:
 		FSceneRenderer& Renderer, 
 		const PrimitiveArrayType& PrimitiveArray, 
 		const TArray<const FSceneView*>& ReusedViewsArray,
-		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements);
+		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements,
+		int32& OutNumDynamicSubjectMeshElements);
 
 	void SetupFrustumForProjection(const FViewInfo* View, TArray<FVector4, TInlineAllocator<8>>& OutFrustumVertices, bool& bOutCameraInsideShadowFrustum) const;
 

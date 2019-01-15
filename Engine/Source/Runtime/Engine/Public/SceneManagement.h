@@ -1948,6 +1948,12 @@ public:
 		return MeshBatches[ViewIndex]->Num();
 	}
 
+	// @return Number of elemenets collected so far for a given view.
+	uint32 GetMeshElementCount(uint32 ViewIndex) const
+	{
+		return NumMeshBatchElementsPerView[ViewIndex];
+	}
+
 	/** 
 	 * Adds a mesh batch to the collector for the specified view so that it can be rendered.
 	 */
@@ -2033,6 +2039,7 @@ private:
 		SimpleElementCollectors.Empty();
 		MeshIdInPrimitivePerView.Empty();
 		DynamicPrimitiveShaderDataPerView.Empty();
+		NumMeshBatchElementsPerView.Empty();
 	}
 
 	void AddViewMeshArrays(
@@ -2045,6 +2052,7 @@ private:
 		Views.Add(InView);
 		MeshIdInPrimitivePerView.Add(0);
 		MeshBatches.Add(ViewMeshes);
+		NumMeshBatchElementsPerView.Add(0);
 		SimpleElementCollectors.Add(ViewSimpleElementCollector);
 		DynamicPrimitiveShaderDataPerView.Add(InDynamicPrimitiveShaderData);
 	}
@@ -2057,6 +2065,9 @@ private:
 
 	/** Meshes to render */
 	TArray<TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>*, TInlineAllocator<2> > MeshBatches;
+
+	/** Number of elements in gathered meshes per view. */
+	TArray<int32, TInlineAllocator<2> > NumMeshBatchElementsPerView;
 
 	/** PDIs */
 	TArray<FSimpleElementCollector*, TInlineAllocator<2> > SimpleElementCollectors;

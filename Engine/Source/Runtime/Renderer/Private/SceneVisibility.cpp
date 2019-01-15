@@ -1684,10 +1684,16 @@ struct FDrawCommandRelevancePacket
 	{
 		bUseMeshDrawCommandPipeline = UseMeshDrawCommandPipeline();
 		bUseCachedMeshDrawCommands = UseCachedMeshDrawCommands();
+
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+		{
+			NumDynamicBuildRequestElements[PassIndex] = 0;
+		}
 	}
 
 	FPassDrawCommandArray VisibleCachedDrawCommands[EMeshPass::Num];
 	FPassDrawCommandBuildRequestArray DynamicBuildRequests[EMeshPass::Num];
+	int32 NumDynamicBuildRequestElements[EMeshPass::Num];
 	bool bUseMeshDrawCommandPipeline;
 	bool bUseCachedMeshDrawCommands;
 
@@ -1731,6 +1737,7 @@ struct FDrawCommandRelevancePacket
 			}
 			else
 			{
+				NumDynamicBuildRequestElements[PassType] += StaticMeshRelevance.NumElements;
 				DynamicBuildRequests[PassType].AddElement(&StaticMesh);
 			}
 		}
@@ -2366,6 +2373,7 @@ struct FRelevancePacket
 		{
 			DrawCommandPacket.VisibleCachedDrawCommands[PassIndex].CopyToLinearArray(WriteViewCommands.MeshCommands[PassIndex]);
 			DrawCommandPacket.DynamicBuildRequests[PassIndex].CopyToLinearArray(WriteViewCommands.DynamicMeshCommandBuildRequests[PassIndex]);
+			WriteViewCommands.NumDynamicMeshCommandBuildRequestElements[PassIndex] += DrawCommandPacket.NumDynamicBuildRequestElements[PassIndex];
 		}
 
 		// Prepare translucent self shadow uniform buffers.
@@ -2625,7 +2633,7 @@ void FSceneRenderer::GatherDynamicMeshElements(
 		{
 			Collector.AddViewMeshArrays(
 				&InViews[ViewIndex], 
-				&InViews[ViewIndex].DynamicMeshElements, 
+				&InViews[ViewIndex].DynamicMeshElements,
 				&InViews[ViewIndex].SimpleElementCollector,
 				&InViews[ViewIndex].DynamicPrimitiveShaderData, 
 				InViewFamily.GetFeatureLevel());
@@ -2654,6 +2662,20 @@ void FSceneRenderer::GatherDynamicMeshElements(
 			for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
 			{
 				InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
+			}
+		}
+
+		// Compute MaxNumVisibleDynamicMeshes.
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			FViewInfo& View = Views[ViewIndex];
+
+			for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+			{
+				if (View.VisibleDynamicMeshesPassMask.Get((EMeshPass::Type) PassIndex))
+				{
+					View.NumVisibleDynamicMeshElements[PassIndex] = Collector.GetMeshElementCount(ViewIndex);
+				}
 			}
 		}
 	}
@@ -2688,27 +2710,6 @@ void FSceneRenderer::GatherDynamicMeshElements(
 		}
 	}
 	MeshCollector.ProcessTasks();
-
-	// Compute MaxNumVisibleDynamicMeshes.
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-	{
-		FViewInfo& View = Views[ViewIndex];
-
-		int32 NumDynamicMeshElements = 0;
-		for (int32 DynamicElementIndex = 0; DynamicElementIndex < View.DynamicMeshElements.Num(); ++DynamicElementIndex)
-		{
-			NumDynamicMeshElements += View.DynamicMeshElements[DynamicElementIndex].Mesh->Elements.Num();
-		}
-
-		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
-		{
-			View.NumVisibleDynamicMeshElements[PassIndex] = 0;
-			if (View.VisibleDynamicMeshesPassMask.Get((EMeshPass::Type) PassIndex))
-			{
-				View.NumVisibleDynamicMeshElements[PassIndex] = NumDynamicMeshElements;
-			}
-		}
-	}
 }
 
 /**

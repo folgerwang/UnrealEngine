@@ -515,6 +515,8 @@ FProjectedShadowInfo::FProjectedShadowInfo()
 	, bTransmission(false)
 	, LightSceneInfo(0)
 	, ParentSceneInfo(0)
+	, NumDynamicSubjectMeshElements(0)
+	, NumSubjectMeshCommandBuildRequestElements(0)
 	, ShaderDepthBias(0.0f)
 {
 }
@@ -935,6 +937,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 						}
 						else
 						{
+							NumSubjectMeshCommandBuildRequestElements += StaticMeshRelevance.NumElements;
 							SubjectMeshCommandBuildRequests.Add(&StaticMesh);
 						}
 					}
@@ -963,6 +966,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 				{
 					if (UseMeshDrawCommandPipeline())
 					{
+						NumSubjectMeshCommandBuildRequestElements += StaticMeshRelevance.NumElements;
 						SubjectMeshCommandBuildRequests.Add(&StaticMesh);
 					}
 					else if (StaticMeshRelevance.CastShadow)
@@ -1223,8 +1227,9 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& R
 		FExclusiveDepthStencil::DepthNop_StencilNop,
 		MeshPassProcessor,
 		DynamicSubjectMeshElements,
-		DynamicSubjectMeshElements.Num(),
+		NumDynamicSubjectMeshElements,
 		SubjectMeshCommandBuildRequests,
+		NumSubjectMeshCommandBuildRequestElements,
 		ShadowDepthPassVisibleCommands);
 }
 
@@ -1410,23 +1415,25 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 		{
 			ShadowDepthView->SetPreShadowTranslation(FVector(0, 0, 0));
 			ShadowDepthView->SetDynamicMeshElementsShadowCullFrustum(&CascadeSettings.ShadowBoundsAccurate);
-			GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, DynamicSubjectPrimitives, ReusedViewsArray, DynamicSubjectMeshElements);
+			GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, DynamicSubjectPrimitives, ReusedViewsArray, DynamicSubjectMeshElements, NumDynamicSubjectMeshElements);
 			ShadowDepthView->SetPreShadowTranslation(PreShadowTranslation);
 		}
 		else
 		{
 			ShadowDepthView->SetPreShadowTranslation(PreShadowTranslation);
 			ShadowDepthView->SetDynamicMeshElementsShadowCullFrustum(&CasterFrustum);
-			GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, DynamicSubjectPrimitives, ReusedViewsArray, DynamicSubjectMeshElements);
+			GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, DynamicSubjectPrimitives, ReusedViewsArray, DynamicSubjectMeshElements, NumDynamicSubjectMeshElements);
 		}
 
 		ShadowDepthView->DrawDynamicFlags = EDrawDynamicFlags::None;
 
+		int32 NumDynamicReceiverMeshElements = 0;
 		ShadowDepthView->SetDynamicMeshElementsShadowCullFrustum(&ReceiverFrustum);
-		GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, ReceiverPrimitives, ReusedViewsArray, DynamicReceiverMeshElements);
+		GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, ReceiverPrimitives, ReusedViewsArray, DynamicReceiverMeshElements, NumDynamicReceiverMeshElements);
 
+		int32 NumDynamicSubjectTranslucentMeshElements = 0;
 		ShadowDepthView->SetDynamicMeshElementsShadowCullFrustum(&CasterFrustum);
-		GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, SubjectTranslucentPrimitives, ReusedViewsArray, DynamicSubjectTranslucentMeshElements);
+		GatherDynamicMeshElementsArray(ShadowDepthView, Renderer, SubjectTranslucentPrimitives, ReusedViewsArray, DynamicSubjectTranslucentMeshElements, NumDynamicSubjectTranslucentMeshElements);
 
 		Renderer.MeshCollector.ProcessTasks();
     }
@@ -1460,7 +1467,8 @@ void FProjectedShadowInfo::GatherDynamicMeshElementsArray(
 	FSceneRenderer& Renderer, 
 	const PrimitiveArrayType& PrimitiveArray, 
 	const TArray<const FSceneView*>& ReusedViewsArray,
-	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements)
+	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements,
+	int32& OutNumDynamicSubjectMeshElements)
 {
 	// Simple elements not supported in shadow passes
 	FSimpleElementCollector DynamicSubjectSimpleElements;
@@ -1504,6 +1512,8 @@ void FProjectedShadowInfo::GatherDynamicMeshElementsArray(
 			PrimitiveSceneInfo->Proxy->GetDynamicMeshElements(ReusedViewsArray, Renderer.ViewFamily, 0x1, Renderer.MeshCollector);
 		}
 	}
+
+	OutNumDynamicSubjectMeshElements = Renderer.MeshCollector.GetMeshElementCount(0);
 }
 
 /** 
@@ -1530,6 +1540,9 @@ bool FProjectedShadowInfo::SubjectsVisible(const FViewInfo& View) const
  */
 void FProjectedShadowInfo::ClearTransientArrays()
 {
+	NumDynamicSubjectMeshElements = 0;
+	NumSubjectMeshCommandBuildRequestElements = 0;
+
 	SubjectTranslucentPrimitives.Empty();
 	DynamicSubjectPrimitives.Empty();
 	ReceiverPrimitives.Empty();

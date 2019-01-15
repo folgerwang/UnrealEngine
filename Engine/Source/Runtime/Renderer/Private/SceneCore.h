@@ -201,6 +201,7 @@ public:
 		, ScreenSize(InScreenSize)
 		, CommandInfosBase(0)
 		, LODIndex(StaticMesh.LODIndex)
+		, NumElements(StaticMesh.Elements.Num())
 		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
 		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
 		, bSelectable(StaticMesh.bSelectable)
@@ -226,6 +227,9 @@ public:
 
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
+
+	/** Number of elements in this mesh. */
+	uint16 NumElements;
 
 	/** Whether the mesh batch should apply dithered LOD. */
 	uint8 bDitheredLODTransition : 1;

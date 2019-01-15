@@ -905,7 +905,11 @@ void FViewInfo::Init()
 	DitherFadeOutUniformBuffer = nullptr;
 
 	VisibleDynamicMeshesPassMask.Reset();
-	FMemory::Memset(NumVisibleDynamicMeshElements, 0, sizeof(NumVisibleDynamicMeshElements));
+
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+	{
+		NumVisibleDynamicMeshElements[PassIndex] = 0;
+	}
 }
 
 FViewInfo::~FViewInfo()
@@ -2990,7 +2994,9 @@ void GenerateDynamicMeshDrawCommands(
 	EMeshPass::Type PassType,
 	FMeshPassProcessor* PassMeshProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+	int32 NumDynamicMeshElements,
 	const TArray<const FStaticMesh*, SceneRenderingAllocator>& DynamicMeshCommandBuildRequests,
+	int32 NumDynamicMeshCommandBuildRequestElements,
 	FMeshCommandOneFrameArray& VisibleCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage
 )
@@ -3004,6 +3010,7 @@ void GenerateDynamicMeshDrawCommands(
 	);
 	PassMeshProcessor->SetDrawListContext(&DynamicPassMeshDrawListContext);
 
+	const int32 NumVisibleCommandsBeforeDynamicBatches = VisibleCommands.Num();
 	const int32 NumDynamicMeshBatches = DynamicMeshElements.Num();
 
 	for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
@@ -3015,6 +3022,10 @@ void GenerateDynamicMeshDrawCommands(
 		PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
 	}
 
+	// Check if we didn't generate more mesh draw commands, than we assumed.
+	check(VisibleCommands.Num() - NumVisibleCommandsBeforeDynamicBatches <= NumDynamicMeshElements);
+
+	const int32 NumVisibleCommandsBeforeDynamicRequests = VisibleCommands.Num();
 	const int32 NumStaticMeshBatches = DynamicMeshCommandBuildRequests.Num();
 
 	for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
@@ -3024,6 +3035,9 @@ void GenerateDynamicMeshDrawCommands(
 
 		PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
 	}
+
+	// Check if we didn't generate more mesh draw commands, than we assumed.
+	check(VisibleCommands.Num() - NumVisibleCommandsBeforeDynamicRequests <= NumDynamicMeshCommandBuildRequestElements);
 }
 
 /**
@@ -3037,7 +3051,9 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 	FMeshPassProcessor* PassMeshProcessor,
 	FMeshPassProcessor* MobilePassCSMPassMeshProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+	int32 NumDynamicMeshElements,
 	const TArray<const FStaticMesh*, SceneRenderingAllocator>& DynamicMeshCommandBuildRequests,
+	int32 NumDynamicMeshCommandBuildRequestElements,
 	FMeshCommandOneFrameArray& VisibleCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage
 )
@@ -3054,6 +3070,7 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 
 	const FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
 	
+	const int32 NumVisibleCommandsBeforeDynamicBatches = VisibleCommands.Num();
 	const int32 NumDynamicMeshBatches = DynamicMeshElements.Num();
 
 	for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
@@ -3074,6 +3091,10 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 		}
 	}
 
+	// Check if we didn't generate more mesh draw commands, than we assumed.
+	check(VisibleCommands.Num() - NumVisibleCommandsBeforeDynamicBatches <= NumDynamicMeshElements);
+
+	const int32 NumVisibleCommandsBeforeDynamicRequests = VisibleCommands.Num();
 	const int32 NumStaticMeshBatches = DynamicMeshCommandBuildRequests.Num();
 
 	for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshBatches; MeshIndex++)
@@ -3092,6 +3113,9 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 			PassMeshProcessor->AddMeshBatch(*StaticMeshBatch, BatchElementMask, StaticMeshBatch->PrimitiveSceneInfo->Proxy, StaticMeshBatch->Id);
 		}
 	}
+
+	// Check if we didn't generate more mesh draw commands, than we assumed.
+	check(VisibleCommands.Num() - NumVisibleCommandsBeforeDynamicRequests <= NumDynamicMeshCommandBuildRequestElements);
 }
 
 /**
@@ -3214,7 +3238,9 @@ public:
 				Context.MeshPassProcessor,
 				Context.MobileBasePassCSMMeshPassProcessor,
 				*Context.DynamicMeshElements,
+				Context.NumDynamicMeshElements,
 				Context.DynamicMeshCommandBuildRequests,
+				Context.NumDynamicMeshCommandBuildRequestElements,
 				Context.MeshDrawCommands,
 				Context.MeshDrawCommandStorage
 			);
@@ -3227,14 +3253,13 @@ public:
 				Context.PassType,
 				Context.MeshPassProcessor,
 				*Context.DynamicMeshElements,
+				Context.NumDynamicMeshElements,
 				Context.DynamicMeshCommandBuildRequests,
+				Context.NumDynamicMeshCommandBuildRequestElements,
 				Context.MeshDrawCommands,
 				Context.MeshDrawCommandStorage
 			);
 		}
-
-		// Check if we didn't generate more mesh draw commands, than we assumed in FParallelMeshDrawCommandPass::MaxNumDraws.
-		check(Context.MeshDrawCommands.Num() <= Context.TempVisibleMeshDrawCommands.Max());
 
 		if (Context.MeshDrawCommands.Num() > 0)
 		{
@@ -3356,8 +3381,9 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 	FMeshPassProcessor* MeshPassProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
-	int32 MaxNumDynamicMeshElementsForThisPass,
+	int32 NumDynamicMeshElements,
 	TArray<const FStaticMesh*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
+	int32 NumDynamicMeshCommandBuildRequestElements,
 	FMeshCommandOneFrameArray& InOutMeshDrawCommands,
 	FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor,
 	FMeshCommandOneFrameArray* InOutMobileBasePassCSMMeshDrawCommands
@@ -3365,7 +3391,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 {
 	check(TaskEventRefs.Num() == 0 && MeshPassProcessor != nullptr);
 
-	MaxNumDraws = InOutMeshDrawCommands.Num() + InOutDynamicMeshCommandBuildRequests.Num() + MaxNumDynamicMeshElementsForThisPass;
+	MaxNumDraws = InOutMeshDrawCommands.Num() + NumDynamicMeshElements + NumDynamicMeshCommandBuildRequestElements;
 	if (MaxNumDraws <= 0)
 	{
 		return;
@@ -3383,6 +3409,8 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.bReverseCulling = View.bReverseCulling;
 	TaskContext.bRenderSceneTwoSided = View.bRenderSceneTwoSided;
 	TaskContext.BasePassDepthStencilAccess = BasePassDepthStencilAccess;
+	TaskContext.NumDynamicMeshElements = NumDynamicMeshElements;
+	TaskContext.NumDynamicMeshCommandBuildRequestElements = NumDynamicMeshCommandBuildRequestElements;
 
 	// Setup translucency sort key update pass based on view.
 	TaskContext.TranslucencyPass = ETranslucencyPass::TPT_MAX;
@@ -3622,6 +3650,7 @@ void FSceneRenderer::SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type
 				View.DynamicMeshElements,
 				View.NumVisibleDynamicMeshElements[PassType],
 				ViewCommands.DynamicMeshCommandBuildRequests[PassType],
+				ViewCommands.NumDynamicMeshCommandBuildRequestElements[PassType],
 				ViewCommands.MeshCommands[PassIndex]);
 		}
 	}

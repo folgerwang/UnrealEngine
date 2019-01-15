@@ -879,7 +879,16 @@ struct FPreviousViewInfo
 class FViewCommands
 {
 public:
+	FViewCommands()
+	{
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+		{
+			NumDynamicMeshCommandBuildRequestElements[PassIndex] = 0;
+		}
+	}
+
 	TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> MeshCommands;
+	TStaticArray<int32, EMeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
 	TStaticArray<TArray<const FStaticMesh*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
 };
 
@@ -901,7 +910,10 @@ public:
 		, bRenderSceneTwoSided(false)
 		, BasePassDepthStencilAccess(FExclusiveDepthStencil::DepthNop_StencilNop)
 		, MeshPassProcessor(nullptr)
+		, MobileBasePassCSMMeshPassProcessor(nullptr)
 		, DynamicMeshElements(nullptr)
+		, NumDynamicMeshElements(0)
+		, NumDynamicMeshCommandBuildRequestElements(0)
 		, PrimitiveBounds(nullptr)
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
@@ -924,6 +936,8 @@ public:
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>* DynamicMeshElements;
 
 	// Commands.
+	int32 NumDynamicMeshElements;
+	int32 NumDynamicMeshCommandBuildRequestElements;
 	FMeshCommandOneFrameArray MeshDrawCommands;
 	FMeshCommandOneFrameArray MobileBasePassCSMMeshDrawCommands;
 	TArray<const FStaticMesh*, SceneRenderingAllocator> DynamicMeshCommandBuildRequests;
@@ -973,8 +987,9 @@ public:
 		FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 		FMeshPassProcessor* MeshPassProcessor,
 		const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
-		int32 MaxNumDynamicMeshElementsForThisPass,
+		int32 NumDynamicMeshElements,
 		TArray<const FStaticMesh*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
+		int32 NumDynamicMeshCommandBuildRequestElements,
 		FMeshCommandOneFrameArray& InOutMeshDrawCommands,
 		FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor = nullptr, // Required only for the mobile base pass.
 		FMeshCommandOneFrameArray* InOutMobileBasePassCSMMeshDrawCommands = nullptr // Required only for the mobile base pass.
