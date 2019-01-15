@@ -3294,6 +3294,20 @@ public:
 		return Result;
 	}
 
+	/** Finds the associated pair from hash, rather than linearly searching */
+	uint8* FindMapPairPtrFromHash(const void* KeyPtr)
+	{
+		UProperty* LocalKeyPropForCapture = KeyProp;
+		int32 Index = Map->FindPairIndex(
+			KeyPtr,
+			MapLayout,
+			[LocalKeyPropForCapture](const void* ElementKey) { return LocalKeyPropForCapture->GetValueTypeHash(ElementKey); },
+			[LocalKeyPropForCapture](const void* A, const void* B) { return LocalKeyPropForCapture->Identical(A, B); }
+			);
+		uint8* Result = (Index >= 0) ? GetPairPtr(Index) : nullptr;
+		return Result;
+	}
+
 	/** Finds the associated value from hash, rather than linearly searching */
 	uint8* FindValueFromHash(const void* KeyPtr)
 	{
@@ -3828,6 +3842,14 @@ public:
 			[LocalElementPropForCapture](const void* Element) { return LocalElementPropForCapture->GetValueTypeHash(Element); },
 			[LocalElementPropForCapture](const void* A, const void* B) { return LocalElementPropForCapture->Identical(A, B); }
 		);
+	}
+
+	/** Finds element pointer from hash, rather than linearly searching */
+	FORCEINLINE uint8* FindElementPtrFromHash(const void* ElementToFind)
+	{
+		const int32 Index = FindElementIndexFromHash(ElementToFind);
+		uint8* Result = (Index >= 0 ? GetElementPtr(Index) : nullptr);
+		return Result;
 	}
 
 	/** Adds the element to the set, returning true if the element was added, or false if the element was already present */

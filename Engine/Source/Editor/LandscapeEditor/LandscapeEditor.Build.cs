@@ -66,7 +66,7 @@ public class LandscapeEditor : ModuleRules
 		}
 
 		// KissFFT is used by the smooth tool.
-		if (Target.bCompileLeanAndMeanUE == false &&
+		if (Target.bBuildDeveloperTools &&
 			(Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "Kiss_FFT");

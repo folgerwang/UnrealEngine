@@ -25,7 +25,6 @@ public class libWebSockets : ModuleRules
 
 		case UnrealTargetPlatform.Mac:
         case UnrealTargetPlatform.IOS:
-            PublicAdditionalShadowFiles.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), ConfigurationSubdir, "libwebsockets.a"));
             PublicAdditionalLibraries.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), ConfigurationSubdir, "libwebsockets.a"));
             break;
 

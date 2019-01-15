@@ -12,11 +12,8 @@ public class MinidumpDiagnosticsTarget : TargetRules
 		LinkType = TargetLinkType.Monolithic;
 		LaunchModuleName = "MinidumpDiagnostics";
 
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bCompileICU = false;
-
-		// Don't need editor
-		bBuildEditor = false;
 
 		// MinidumpDiagnostics doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

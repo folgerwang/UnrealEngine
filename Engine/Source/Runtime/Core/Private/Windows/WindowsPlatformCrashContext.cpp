@@ -125,19 +125,11 @@ void FWindowsPlatformCrashContext::ConvertProgramCountersToStackFrames(
 	}
 }
 
-void FWindowsPlatformCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
+void FWindowsPlatformCrashContext::SetPortableCallStack(const uint64* StackTrace, int32 StackTraceDepth)
 {
 	FModuleHandleArray ProcessModuleHandles;
 	GetProcModuleHandles(ProcessModuleHandles);
-
-	TArray<uint64, TInlineAllocator<100>> PCs;
-	PCs.Empty(Stack.Num());
-	for (const FProgramCounterSymbolInfo& SymbolInfo : Stack)
-	{
-		PCs.Add(SymbolInfo.ProgramCounter);
-	}
-
-	ConvertProgramCountersToStackFrames(ProcessModuleHandles, PCs.GetData(), PCs.Num(), CallStack);
+	ConvertProgramCountersToStackFrames(ProcessModuleHandles, StackTrace, StackTraceDepth, CallStack);
 }
 
 void FWindowsPlatformCrashContext::AddPlatformSpecificProperties() const
@@ -538,7 +530,7 @@ FORCENOINLINE void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToI
 	::RaiseException( AssertExceptionCode, 0, ARRAY_COUNT(Arguments), Arguments );
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack, uint32 HungThreadId)
+void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId)
 {
 	if (ReportCrashCallCount > 0 || FDebug::HasAsserted())
 	{
@@ -548,7 +540,7 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
 	}
 
 	FWindowsPlatformCrashContext CrashContext(ECrashContextType::Ensure, ErrorMessage);
-	CrashContext.SetPortableCallStack(Stack);
+	CrashContext.SetPortableCallStack(StackFrames, NumStackFrames);
 	CrashContext.SetCrashedThreadId(HungThreadId);
 	CrashContext.CaptureAllThreadContexts();
 
@@ -788,6 +780,9 @@ private:
 		CrashContext.CapturePortableCallStack(NumStackFramesToIgnore, ContextWrapper);
 		CrashContext.SetCrashedThreadId(CrashingThreadId);
 		CrashContext.CaptureAllThreadContexts();
+
+		// Also mark the same number of frames to be ignored if we symbolicate from the minidump
+		CrashContext.SetNumMinidumpFramesToIgnore(NumStackFramesToIgnore);
 
 		// First launch the crash reporter client.
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP

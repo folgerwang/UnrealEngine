@@ -257,6 +257,7 @@ MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) static uint8 Binned3UnusedAlignPadding[PLATFO
 uint16 FMallocBinned3::SmallBlockSizesReversedShifted[BINNED3_SMALL_POOL_COUNT] = { 0 };
 uint32 FMallocBinned3::Binned3TlsSlot = 0;
 uint32 FMallocBinned3::OsAllocationGranularity = 0;
+uint32 FMallocBinned3::MaxAlignmentForMemoryRangeReserve = 0;
 
 #if !BINNED3_USE_SEPARATE_VM_PER_POOL
 	uint8* FMallocBinned3::Binned3BaseVMPtr = nullptr;
@@ -1258,6 +1259,7 @@ FMallocBinned3::FMallocBinned3()
 
 	FGenericPlatformMemoryConstants Constants = FPlatformMemory::GetConstants();
 	OsAllocationGranularity = Constants.BinnedAllocationGranularity ? Constants.BinnedAllocationGranularity : Constants.PageSize;
+	MaxAlignmentForMemoryRangeReserve = Constants.OsAllocationGranularity;
 	NumLargePoolsPerPage = OsAllocationGranularity / sizeof(FPoolInfoLarge);
 	check(OsAllocationGranularity % sizeof(FPoolInfoLarge) == 0);  // these need to divide evenly!
 	PtrToPoolMapping.Init(OsAllocationGranularity, NumLargePoolsPerPage, Constants.AddressLimit);
@@ -1480,12 +1482,12 @@ void* FMallocBinned3::MallocExternal(SIZE_T Size, uint32 Alignment)
 	Size = Align(FMath::Max((SIZE_T)1, Size), Alignment);
 
 	check(FMath::IsPowerOfTwo(Alignment));
-	check(Alignment <= OsAllocationGranularity);
+	UE_CLOG(Alignment > MaxAlignmentForMemoryRangeReserve ,LogMemory, Fatal, TEXT("Requested alignment was too large for OS. Alignment=%dKB MaxAlignmentForMemoryRangeReserve=%dKB"), Alignment/1024, MaxAlignmentForMemoryRangeReserve/1024);
 
-	FScopeLock Lock(&Mutex);
+	FScopeLock Lock(&Mutex); 
 
 	// Use OS for non-pooled allocations.
-	UPTRINT AlignedSize = Align(Size, OsAllocationGranularity);
+	UPTRINT AlignedSize = Align(Size, FMath::Max(OsAllocationGranularity,Alignment));
 
 #if BINNED3_TIME_LARGE_BLOCKS
 	double StartTime = FPlatformTime::Seconds();
@@ -1756,11 +1758,11 @@ void FMallocBinned3::FlushCurrentThreadCache()
 
 #include "Async/TaskGraphInterfaces.h"
 
-void FMallocBinned3::Trim()
+void FMallocBinned3::Trim(bool bTrimThreadCaches)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMallocBinned3_Trim);
 
-	if (GMallocBinned3PerThreadCaches)
+	if (GMallocBinned3PerThreadCaches  &&  bTrimThreadCaches)
 	{
 		//double StartTime = FPlatformTime::Seconds();
 		TFunction<void(ENamedThreads::Type CurrentThread)> Broadcast =

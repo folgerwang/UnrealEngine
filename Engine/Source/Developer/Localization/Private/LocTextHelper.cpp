@@ -973,7 +973,7 @@ void FLocTextHelper::GetRuntimeText(const FString& InCulture, const FLocKey& InN
 	OutTranslation = InSource;
 
 	TSharedPtr<FArchiveEntry> ArchiveEntry = FindTranslationImpl(InCulture, InNamespace, InKey, InKeyMetadataObj);
-	if (ArchiveEntry.IsValid())
+	if (ArchiveEntry.IsValid() && !ArchiveEntry->Translation.Text.IsEmpty())
 	{
 		if (bSkipSourceCheck)
 		{

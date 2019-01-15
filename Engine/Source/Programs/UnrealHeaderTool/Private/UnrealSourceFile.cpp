@@ -46,7 +46,7 @@ FString FUnrealSourceFile::GetFileId() const
 		}
 	}
 
-	return Out;
+	return MoveTemp(Out);
 }
 
 FString FUnrealSourceFile::GetStrippedFilename() const

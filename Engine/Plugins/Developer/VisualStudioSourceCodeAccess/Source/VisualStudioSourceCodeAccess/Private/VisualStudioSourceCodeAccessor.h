@@ -10,6 +10,7 @@ public:
 	struct VisualStudioLocation
 	{
 		int32 VersionNumber;
+		bool bPreviewRelease;
 		FString ExecutablePath;
 #if VSACCESSOR_HAS_DTE
 		FString ROTMoniker;
@@ -99,6 +100,13 @@ private:
 	 * @param	bAllowExpress	true to also add the express version of Visual Studio to the list of locations
 	 */
 	void AddVisualStudioVersion(const int MajorVersion, const bool bAllowExpress = true);
+
+	/**
+	 * Add a new version of Visual Studio to the supported locations array using the Visual Studio Setup API
+	 *
+	 * @param	MajorVersion	The major version number of Visual Studio (eg, 16 for VS2019)
+	 */
+	void AddVisualStudioVersionUsingVisualStudioSetupAPI(const int MajorVersion);
 
 	/** 
 	 * Get the prioritized list of VS install locations based upon the version of the given solution

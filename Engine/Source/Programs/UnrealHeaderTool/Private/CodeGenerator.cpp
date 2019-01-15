@@ -2590,7 +2590,7 @@ static FString PrivatePropertiesOffsetGetters(const UStruct* Struct, const FStri
 		}
 	}
 
-	return Result;
+	return MoveTemp(Result);
 }
 
 void FNativeClassHeaderGenerator::ExportClassFromSourceFileInner(

@@ -1380,7 +1380,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 			);
 
 		FUIAction PreviewModeMenuCanExecute;
-		PreviewModeMenuCanExecute.CanExecuteAction = FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled);
+		PreviewModeMenuCanExecute.CanExecuteAction = FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewDropdownEnabled);
 
 		ToolbarBuilder.AddComboButton(
 			PreviewModeMenuCanExecute,

@@ -43,7 +43,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The current build version
 		/// </summary>
-		public readonly ReadOnlyBuildVersion Version;
+		public ReadOnlyBuildVersion Version
+		{
+			get { return ReadOnlyBuildVersion.Current; }
+		}
 
 		/// <summary>
 		/// Constructs a TargetInfo for passing to the TargetRules constructor.
@@ -53,15 +56,13 @@ namespace UnrealBuildTool
 		/// <param name="Configuration">The configuration being built</param>
 		/// <param name="Architecture">The architecture being built for</param>
 		/// <param name="ProjectFile">Path to the project file containing the target</param>
-		/// <param name="Version">The current build version</param>
-		public TargetInfo(string Name, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version)
+		public TargetInfo(string Name, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile)
 		{
 			this.Name = Name;
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
 			this.ProjectFile = ProjectFile;
-			this.Version = Version;
 		}
 	}
 }

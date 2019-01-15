@@ -1801,6 +1801,16 @@ FString FUnrealEdMisc::GetExecutableForCommandlets() const
 			ExecutableName = NewExeName;
 		}
 	}
+#elif PLATFORM_MAC
+	// turn UE4editor into UE4editor-cmd
+	if (!FPaths::GetBaseFilename(ExecutableName).EndsWith("-cmd", ESearchCase::IgnoreCase))
+	{
+		FString NewExeName = ExecutableName + "-Cmd";
+		if (FPaths::FileExists(NewExeName))
+		{
+			ExecutableName = NewExeName;
+		}
+	}
 #endif
 	return ExecutableName;
 }

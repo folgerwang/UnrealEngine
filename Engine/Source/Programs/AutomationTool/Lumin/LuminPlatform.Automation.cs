@@ -553,7 +553,7 @@ public class LuminPlatform : Platform
 			return;
 		}
 
-		Deploy.InitUPL(Params.ShortProjectName, SC.ProjectRoot, SC.StageTargets[0].Receipt.Configuration);
+		Deploy.InitUPL(SC.StageTargets[0].Receipt);
 
 		string MpkName = GetFinalMpkName(Params, SC);
 		string PackageName = GetPackageName(Params);

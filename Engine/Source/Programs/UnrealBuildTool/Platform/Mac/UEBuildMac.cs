@@ -122,9 +122,7 @@ namespace UnrealBuildTool
 		}
 
 		public override void ResetTarget(TargetRules Target)
-		{
-			Target.bCompileSimplygon = false;
-            Target.bCompileSimplygonSSF = false;
+		{			
 		}
 
 		public override void ValidateTarget(TargetRules Target)
@@ -151,12 +149,6 @@ namespace UnrealBuildTool
 			if(Target.MacPlatform.bEnableAddressSanitizer || (AddressSanitizer != null && AddressSanitizer == "YES"))
 			{
 				Target.GlobalDefinitions.Add("FORCE_ANSI_ALLOCATOR=1");
-			}
-
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// When generating project files we need intellisense generator to include info from all modules, including editor-only third party libs
-				Target.bCompileLeanAndMeanUE = false;
 			}
 
 			Target.bUsePDBFiles = !Target.bDisableDebugInfo && Target.Configuration != UnrealTargetConfiguration.Debug && Platform == UnrealTargetPlatform.Mac && Target.MacPlatform.bGenerateDsymFile;
@@ -234,14 +226,32 @@ namespace UnrealBuildTool
 
 		public override DirectoryReference GetBundleDirectory(ReadOnlyTargetRules Rules, List<FileReference> OutputFiles)
 		{
-			if(Rules.bIsBuildingConsoleApplication)
+			if (Rules.bIsBuildingConsoleApplication)
 			{
 				return null;
 			}
 			else
 			{
-				return new DirectoryReference(OutputFiles[0].FullName + ".app");
+				return OutputFiles[0].Directory.ParentDirectory.ParentDirectory;
 			}
+		}
+
+		/// <summary>
+		/// For platforms that need to output multiple files per binary (ie Android "fat" binaries)
+		/// this will emit multiple paths. By default, it simply makes an array from the input
+		/// </summary>
+		public override List<FileReference> FinalizeBinaryPaths(FileReference BinaryName, FileReference ProjectFile, ReadOnlyTargetRules Target)
+		{
+			List<FileReference> BinaryPaths = new List<FileReference>();
+			if (Target.bIsBuildingConsoleApplication || !String.IsNullOrEmpty(BinaryName.GetExtension()))
+			{
+				BinaryPaths.Add(BinaryName);
+			}
+			else
+			{
+				BinaryPaths.Add(new FileReference(BinaryName.FullName + ".app/Contents/MacOS/" + BinaryName.GetFileName()));
+			}
+			return BinaryPaths;
 		}
 
 		/// <summary>
@@ -344,10 +354,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployMac().PrepTargetForDeployment(Target);
+			new UEDeployMac().PrepTargetForDeployment(Receipt);
 		}
 	}
 
@@ -361,7 +371,7 @@ namespace UnrealBuildTool
 
 	class MacPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Mac; }
 		}
@@ -369,10 +379,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			MacPlatformSDK SDK = new MacPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Register this build platform for Mac
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Mac.ToString());

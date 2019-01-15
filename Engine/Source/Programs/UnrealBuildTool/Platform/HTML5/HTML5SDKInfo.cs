@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Text;
@@ -424,9 +424,9 @@ namespace UnrealBuildTool
 		///
 		/// </summary>
 		/// <returns></returns>
-		public static string Python()
+		public static FileReference Python()
 		{
-			return PYTHON;
+			return new FileReference(PYTHON);
 		}
 
 		/// <summary>

@@ -12,22 +12,31 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class AndroidProjectGenerator : UEPlatformProjectGenerator
+	class AndroidProjectGenerator : PlatformProjectGenerator
 	{
-		static bool CheckedForNsight = false;		// whether we have checked for a recent enough version of Nsight yet
-		static bool NsightInstalled = false;		// true if a recent enough version of Nsight is installed
-		static int NsightVersionCode = 0;           // version code matching detected Nsight
+		bool CheckedForNsight = false;		// whether we have checked for a recent enough version of Nsight yet
+		bool NsightInstalled = false;		// true if a recent enough version of Nsight is installed
+		int NsightVersionCode = 0;           // version code matching detected Nsight
 
-		public static bool VSDebugCommandLineOptionPresent = false;    //User must put -vsdebugandroid commandline option to build the debug projects
-		static bool VSDebuggingEnabled = false;      // When set to true, allows debugging with built in MS Cross Platform Android tools.  
+		bool VSDebugCommandLineOptionPresent = false;    //User must put -vsdebugandroid commandline option to build the debug projects
+		bool VSDebuggingEnabled = false;      // When set to true, allows debugging with built in MS Cross Platform Android tools.  
 													 //  It adds separate projects ending in .androidproj and a file VSAndroidUnreal.props for the engine and all game projects
 
-		static bool VSSupportChecked = false;       // Don't want to check multiple times
+		bool VSSupportChecked = false;       // Don't want to check multiple times
 
-		static bool VSPropsFileWritten = false;     // This is for the file VSAndroidUnreal.props which only needs to be written once
+		bool VSPropsFileWritten = false;     // This is for the file VSAndroidUnreal.props which only needs to be written once
 
-		static bool VSSandboxedSDK = false;         // Checks if VS has installed the sandboxed SDK version to support Unreal
+		bool VSSandboxedSDK = false;         // Checks if VS has installed the sandboxed SDK version to support Unreal
 													// If this sandboxed SDK is present change the config to consume it instead of the main VS Android SDK
+
+		public AndroidProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
+		{
+			if (Arguments.HasOption("-vsdebugandroid"))
+			{
+				VSDebugCommandLineOptionPresent = true;
+			}
+		}
 
 		bool IsVSAndroidSupportInstalled()
 		{
@@ -142,12 +151,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Android.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Android, this);
+			yield return UnrealTargetPlatform.Android;
 		}
 
 		/// <summary>
@@ -715,7 +723,15 @@ namespace UnrealBuildTool
 			get { return "{39E2626F-3545-4960-A6E8-258AD8476CE5}"; }
 		}
 
-		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform)
+		/// <summary>
+		/// The only valid configuration for these to be run in is Debug|ARM
+		/// </summary>
+		/// <param name="SolutionTarget">The solution target type</param>
+		/// <param name="SolutionConfiguration">The solution configuration</param>
+		/// <param name="SolutionPlatform">The solution platform</param>
+		/// <param name="PlatformProjectGenerators">Set of platform project generators</param>
+		/// <returns>Project context matching the given solution context</returns>
+		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return new MSBuildProjectContext("Debug", "ARM"){ bBuildByDefault = (SolutionPlatform == UnrealTargetPlatform.Android) };
 		}

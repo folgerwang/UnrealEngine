@@ -144,6 +144,11 @@ void FAnimPreviewInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float D
 {
 	FAnimSingleNodeInstanceProxy::PreUpdate(InAnimInstance, DeltaSeconds);
 
+	if (CopyPoseNode.SourceMeshComponent.IsValid())
+	{
+		CopyPoseNode.PreUpdate(InAnimInstance);
+	}
+
 	if (!bForceRetargetBasePose)
 	{
 		CurveSource.PreUpdate(InAnimInstance);

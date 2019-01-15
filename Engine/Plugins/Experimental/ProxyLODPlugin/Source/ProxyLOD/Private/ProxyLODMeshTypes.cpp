@@ -302,7 +302,7 @@ void FMeshDescriptionArrayAdapter::ComputeAABB(ProxyLOD::FBBox& InOutBBox)
 {
 	uint32 NumTris = this->polygonCount();
 	InOutBBox = ProxyLOD::Parallel_Reduce(ProxyLOD::FIntRange(0, NumTris), ProxyLOD::FBBox(),
-		[this](const ProxyLOD::FIntRange& Range, ProxyLOD::FBBox BBox)->ProxyLOD::FBBox
+		[this](const ProxyLOD::FIntRange& Range, ProxyLOD::FBBox TargetBBox)->ProxyLOD::FBBox
 	{
 		// loop over faces
 		for (int32 f = Range.begin(), F = Range.end(); f < F; ++f)
@@ -313,12 +313,12 @@ void FMeshDescriptionArrayAdapter::ComputeAABB(ProxyLOD::FBBox& InOutBBox)
 			{
 				this->getWorldSpacePoint(f, v, Pos);
 
-				BBox.expand(Pos);
+				TargetBBox.expand(Pos);
 			}
 
 		}
 
-		return BBox;
+		return TargetBBox;
 
 	}, [](const ProxyLOD::FBBox& BBoxA, const ProxyLOD::FBBox& BBoxB)->ProxyLOD::FBBox
 	{

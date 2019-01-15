@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Tools.DotNETCommon;
-using DotNETUtilities;
 
 namespace UnrealBuildTool
 {
@@ -44,6 +43,7 @@ namespace UnrealBuildTool
 		VisualStudio2013, // Unsupported
 		VisualStudio2015,
 		VisualStudio2017,
+		VisualStudio2019,
 	}
 
 	/// <summary>
@@ -92,8 +92,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InOnlyGameProject">The single project to generate project files for, or null</param>
 		/// <param name="InProjectFileFormat">Override the project file format to use</param>
-		/// <param name="InOverrideCompiler">Override the compiler version to use</param>
-		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, WindowsCompiler InOverrideCompiler)
+		/// <param name="InArguments">Additional command line arguments</param>
+		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, CommandLineArguments InArguments)
 			: base(InOnlyGameProject)
 		{
 			XmlConfig.ApplyTo(this);
@@ -103,13 +103,17 @@ namespace UnrealBuildTool
 				ProjectFileFormat = InProjectFileFormat;
 			}
 
-			if(InOverrideCompiler == WindowsCompiler.VisualStudio2015)
+			if(InArguments.HasOption("-2015"))
 			{
 				BuildToolOverride = "-2015";
 			}
-			else if(InOverrideCompiler == WindowsCompiler.VisualStudio2017)
+			else if(InArguments.HasOption("-2017"))
 			{
 				BuildToolOverride = "-2017";
+			}
+			else if(InArguments.HasOption("-2019"))
+			{
+				BuildToolOverride = "-2019";
 			}
 		}
 
@@ -175,7 +179,7 @@ namespace UnrealBuildTool
 		/// <returns>The newly allocated project file object</returns>
 		protected override ProjectFile AllocateProjectFile(FileReference InitFilePath)
 		{
-			return new VCProjectFile(InitFilePath, OnlyGameProject, ProjectFileFormat, bAddFastPDBToProjects, bUsePerFileIntellisense, BuildToolOverride);
+			return new VCProjectFile(InitFilePath, OnlyGameProject, ProjectFileFormat, bAddFastPDBToProjects, bUsePerFileIntellisense, bUsePrecompiled, bEditorDependsOnShaderCompileWorker, BuildToolOverride);
 		}
 
 
@@ -198,6 +202,8 @@ namespace UnrealBuildTool
 					return "14.0";
 				case VCProjectFileFormat.VisualStudio2017:
 					return "15.0";
+				case VCProjectFileFormat.VisualStudio2019:
+					return "15.0"; // Correct as of VS2019 Preview 1
 			}
 			return string.Empty;
 		}
@@ -215,6 +221,9 @@ namespace UnrealBuildTool
 					return "v140";
 				case VCProjectFileFormat.VisualStudio2017:
                     return "v141";
+				case VCProjectFileFormat.VisualStudio2019:
+					return "v141"; // Correct as of VS2019 Preview 1
+
             }
 			return string.Empty;
 		}
@@ -243,7 +252,7 @@ namespace UnrealBuildTool
 			// If we have a non-default setting for visual studio, check the compiler exists. If not, revert to the default.
 			if(ProjectFileFormat == VCProjectFileFormat.VisualStudio2015)
 			{
-				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015))
+				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015_DEPRECATED))
 				{
 					Log.TraceWarning("Visual Studio C++ 2015 installation not found - ignoring preferred project file format.");
 					ProjectFileFormat = VCProjectFileFormat.Default;
@@ -254,6 +263,14 @@ namespace UnrealBuildTool
 				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2017))
 				{
 					Log.TraceWarning("Visual Studio C++ 2017 installation not found - ignoring preferred project file format.");
+					ProjectFileFormat = VCProjectFileFormat.Default;
+				}
+			}
+			else if(ProjectFileFormat == VCProjectFileFormat.VisualStudio2019)
+			{
+				if (!WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2019))
+				{
+					Log.TraceWarning("Visual Studio C++ 2019 installation not found - ignoring preferred project file format.");
 					ProjectFileFormat = VCProjectFileFormat.Default;
 				}
 			}
@@ -268,9 +285,13 @@ namespace UnrealBuildTool
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2017;
 				}
-				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2015))
+				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015_DEPRECATED) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2015_DEPRECATED))
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2015;
+				}
+				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2019) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2019))
+				{
+					ProjectFileFormat = VCProjectFileFormat.VisualStudio2019;
 				}
 
 				// Allow the SDKs to override
@@ -355,9 +376,9 @@ namespace UnrealBuildTool
 		/// Writes the project files to disk
 		/// </summary>
 		/// <returns>True if successful</returns>
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
-			if(!base.WriteProjectFiles())
+			if(!base.WriteProjectFiles(PlatformProjectGenerators))
 			{
 				return false;
 			}
@@ -389,7 +410,7 @@ namespace UnrealBuildTool
 		}
 
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			bool bSuccess = true;
 
@@ -399,7 +420,15 @@ namespace UnrealBuildTool
 			StringBuilder VCSolutionFileContent = new StringBuilder();
 
 			// Solution file header. Note that a leading newline is required for file type detection to work correclty in the shell.
-			if (ProjectFileFormat == VCProjectFileFormat.VisualStudio2017)
+			if (ProjectFileFormat == VCProjectFileFormat.VisualStudio2019)
+			{
+				VCSolutionFileContent.AppendLine();
+				VCSolutionFileContent.AppendLine("Microsoft Visual Studio Solution File, Format Version 12.00");
+				VCSolutionFileContent.AppendLine("# Visual Studio Version 16");
+				VCSolutionFileContent.AppendLine("VisualStudioVersion = 16.0.28315.86");
+				VCSolutionFileContent.AppendLine("MinimumVisualStudioVersion = 10.0.40219.1");
+			}
+			else if (ProjectFileFormat == VCProjectFileFormat.VisualStudio2017)
 			{
 				VCSolutionFileContent.AppendLine();
 				VCSolutionFileContent.AppendLine("Microsoft Visual Studio Solution File, Format Version 12.00");
@@ -430,34 +459,6 @@ namespace UnrealBuildTool
 			else
 			{
 				throw new BuildException("Unexpected ProjectFileFormat");
-			}
-
-			// Find the projects for ShaderCompileWorker and UnrealLightmass
-			ProjectFile ShaderCompileWorkerProject = null;
-			ProjectFile UnrealLightmassProject = null;
-			foreach (ProjectFile Project in AllProjectFiles)
-			{
-				if (Project.ProjectTargets.Count == 1)
-				{
-					FileReference TargetFilePath = Project.ProjectTargets[0].TargetFilePath;
-					if (TargetFilePath != null)
-					{
-						string TargetFileName = TargetFilePath.GetFileNameWithoutAnyExtensions();
-						if (TargetFileName.Equals("ShaderCompileWorker", StringComparison.InvariantCultureIgnoreCase))
-						{
-							ShaderCompileWorkerProject = Project;
-						}
-						else if (TargetFileName.Equals("UnrealLightmass", StringComparison.InvariantCultureIgnoreCase))
-						{
-							UnrealLightmassProject = Project;
-						}
-					}
-					if (ShaderCompileWorkerProject != null
-						&& UnrealLightmassProject != null)
-					{
-						break;
-					}
-				}
 			}
 
 			// Solution folders, files and project entries
@@ -526,10 +527,6 @@ namespace UnrealBuildTool
 							Dependencies.Add(UBTProject);
 							Dependencies.AddRange(UBTProject.DependsOnProjects);
 						}
-						if (bEditorDependsOnShaderCompileWorker && !bUsePrecompiled && CurProject.IsGeneratedProject && ShaderCompileWorkerProject != null && CurProject.ProjectTargets.Any(x => x.TargetRules != null && x.TargetRules.Type == TargetType.Editor))
-						{
-							Dependencies.Add(ShaderCompileWorkerProject);
-						}
 						Dependencies.AddRange(CurProject.DependsOnProjects);
 
 						if (Dependencies.Count > 0)
@@ -596,7 +593,7 @@ namespace UnrealBuildTool
 												// Figure out the set of valid target configuration names
 												foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
 												{
-													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration))
+													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration, PlatformProjectGenerators))
 													{
 														PlatformsValidForProjects.Add(CurPlatform);
 
@@ -674,7 +671,7 @@ namespace UnrealBuildTool
 							foreach (VCSolutionConfigCombination SolutionConfigCombination in SolutionConfigCombinations)
 							{
 								// Get the context for the current solution context
-								MSBuildProjectContext ProjectContext = CurProject.GetMatchingProjectContext(SolutionConfigCombination.TargetConfigurationName, SolutionConfigCombination.Configuration, SolutionConfigCombination.Platform);
+								MSBuildProjectContext ProjectContext = CurProject.GetMatchingProjectContext(SolutionConfigCombination.TargetConfigurationName, SolutionConfigCombination.Configuration, SolutionConfigCombination.Platform, PlatformProjectGenerators);
 
 								// Write the solution mapping (e.g.  "{4232C52C-680F-4850-8855-DC39419B5E9B}.Debug|iOS.ActiveCfg = iOS_Debug|Win32")
 								string CurProjectGUID = CurProject.ProjectGUID.ToString("B").ToUpperInvariant();
@@ -773,6 +770,9 @@ namespace UnrealBuildTool
 					case VCProjectFileFormat.VisualStudio2017:
 						SolutionOptionsFileName = FileReference.Combine(MasterProjectPath, ".vs", Path.GetFileNameWithoutExtension(SolutionFileName), "v15", ".suo");
 						break;
+					case VCProjectFileFormat.VisualStudio2019:
+						SolutionOptionsFileName = FileReference.Combine(MasterProjectPath, ".vs", Path.GetFileNameWithoutExtension(SolutionFileName), "v16", ".suo");
+						break;
 					default:
 						throw new BuildException("Unsupported Visual Studio version");
 				}
@@ -820,13 +820,13 @@ namespace UnrealBuildTool
 			return bSuccess;
 		}
 
-		protected override void WriteDebugSolutionFiles( DirectoryReference IntermediateProjectFilesPath )
+		protected override void WriteDebugSolutionFiles( PlatformProjectGeneratorCollection PlatformProjectGenerators, DirectoryReference IntermediateProjectFilesPath )
 		{
 			//build and collect UnrealVS configuration
 			StringBuilder UnrealVSContent = new StringBuilder();
 			foreach (UnrealTargetPlatform SupportedPlatform in SupportedPlatforms)
 			{
-				UEPlatformProjectGenerator ProjGenerator = UEPlatformProjectGenerator.GetPlatformProjectGenerator(SupportedPlatform, true);
+				PlatformProjectGenerator ProjGenerator = PlatformProjectGenerators.GetPlatformProjectGenerator(SupportedPlatform, true);
 				if (ProjGenerator != null)
 				{
 					ProjGenerator.GetUnrealVSConfigurationEntries(UnrealVSContent);

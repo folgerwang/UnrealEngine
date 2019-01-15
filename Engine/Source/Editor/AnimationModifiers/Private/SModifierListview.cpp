@@ -138,22 +138,31 @@ TSharedPtr<SWidget> SModifierListView::OnContextMenuOpening()
 		
 		MenuBuilder.BeginSection(NAME_None);
 		{		
-			if (Listview->GetNumItemsSelected() == 1)
+			if (Listview->GetNumItemsSelected() == 1 && OnOpenModifierDelegate.IsBound())
 			{
 				MenuBuilder.AddMenuEntry(LOCTEXT("OpenModifierLabel", "Open Blueprint"), LOCTEXT("OpenModifierToolTip", "Open selected Modifier Blueprint"), FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Blueprint"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnOpenModifier)));
 			}
 
 			const FText ApplyLabel = FText::FormatOrdered(LOCTEXT("ApplyModifierLabel", "Apply {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
 			const FText ApplyTooltip = FText::FormatOrdered(LOCTEXT("ApplyModifierToolTip", "Apply selected {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
-			MenuBuilder.AddMenuEntry(ApplyLabel, ApplyTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "GenericCommands.Redo"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnApplyModifier)));	   
-
+			if (OnApplyModifierDelegate.IsBound())
+			{
+				MenuBuilder.AddMenuEntry(ApplyLabel, ApplyTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "GenericCommands.Redo"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnApplyModifier)));
+			}
+			
 			const FText RevertLabel = FText::FormatOrdered(LOCTEXT("ApplyRevertLabel", "Revert {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
 			const FText RevertTooltip = FText::FormatOrdered(LOCTEXT("ApplyRevertToolTip", "Revert selected {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
-			MenuBuilder.AddMenuEntry(RevertLabel, RevertTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "GenericCommands.Undo"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnRevertModifier)));
+			if (OnRevertModifierDelegate.IsBound())
+			{
+				MenuBuilder.AddMenuEntry(RevertLabel, RevertTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "GenericCommands.Undo"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnRevertModifier)));
+			}
 
 			const FText RemoveLabel = FText::FormatOrdered(LOCTEXT("RemoveModifierLabel", "Remove {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
 			const FText RemoveTooltip = FText::FormatOrdered(LOCTEXT("RemoveModifierToolTip", "Remove selected {0}|plural(one=Modifier,other=Modifiers)"), NumItems);
-			MenuBuilder.AddMenuEntry(RemoveLabel, RemoveTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnRemoveModifier)));
+			if (OnRemoveModifierDelegate.IsBound())
+			{
+				MenuBuilder.AddMenuEntry(RemoveLabel, RemoveTooltip, FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete"), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnRemoveModifier)));
+			}
 		}
 		MenuBuilder.EndSection();
 
@@ -161,9 +170,15 @@ TSharedPtr<SWidget> SModifierListView::OnContextMenuOpening()
 		{ 
 			MenuBuilder.BeginSection(NAME_None);
 			{
-				MenuBuilder.AddMenuEntry(LOCTEXT("MoveUpModifierLabel", "Move Up"), LOCTEXT("MoveUpModifierToolTip", "Move selected Modifier Up in list"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnMoveUpModifier), FCanExecuteAction::CreateSP( this, &SModifierListView::CanMoveSelectedItemUp)));
+				if (OnMoveUpModifierDelegate.IsBound())
+				{
+					MenuBuilder.AddMenuEntry(LOCTEXT("MoveUpModifierLabel", "Move Up"), LOCTEXT("MoveUpModifierToolTip", "Move selected Modifier Up in list"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnMoveUpModifier), FCanExecuteAction::CreateSP(this, &SModifierListView::CanMoveSelectedItemUp)));
+				}
 				
-				MenuBuilder.AddMenuEntry(LOCTEXT("MoveDownModifierLabel", "Move Down"), LOCTEXT("MoveDownModifierToolTip", "Move selected Modifier Down in list"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnMoveDownModifier), FCanExecuteAction::CreateSP(this, &SModifierListView::CanMoveSelectedItemDown)));
+				if (OnMoveDownModifierDelegate.IsBound())
+				{
+					MenuBuilder.AddMenuEntry(LOCTEXT("MoveDownModifierLabel", "Move Down"), LOCTEXT("MoveDownModifierToolTip", "Move selected Modifier Down in list"), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SModifierListView::OnMoveDownModifier), FCanExecuteAction::CreateSP(this, &SModifierListView::CanMoveSelectedItemDown)));
+				}
 			}
 			MenuBuilder.EndSection();
 		}

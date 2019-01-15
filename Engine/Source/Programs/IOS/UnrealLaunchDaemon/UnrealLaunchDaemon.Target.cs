@@ -17,8 +17,7 @@ public class UnrealLaunchDaemonTarget : TargetRules
 
 		LaunchModuleName = "UnrealLaunchDaemon";
 
-		bCompileLeanAndMeanUE = true;
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 		bCompileAgainstEngine = false;
 
 		bHasExports = false;

@@ -23,11 +23,8 @@ namespace AutomationTool
 		static ProcessManager.CtrlHandlerDelegate CtrlHandlerDelegateInstance = CtrlHandler;
 
 		[STAThread]
-		public static int Main()
+		public static int Main(string[] Arguments)
 		{
-			// Parse the command line
-			string[] Arguments = SharedUtils.ParseCommandLineAndRemoveExe(Environment.CommandLine);
-
             // Ensure UTF8Output flag is respected, since we are initializing logging early in the program.
             if (CommandUtils.ParseParam(Arguments, "-Utf8output"))
             {
@@ -35,31 +32,21 @@ namespace AutomationTool
             }
 
 			// Parse the log level argument
-			LogEventType LogLevel = LogEventType.Log;
 			if(CommandUtils.ParseParam(Arguments, "-Verbose"))
 			{
-				LogLevel = LogEventType.Verbose;
+				Log.OutputLevel = LogEventType.Verbose;
 			}
 			if(CommandUtils.ParseParam(Arguments, "-VeryVerbose"))
 			{
-				LogLevel = LogEventType.VeryVerbose;
+				Log.OutputLevel = LogEventType.VeryVerbose;
 			}
 
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
-			Log.InitLogging(
-                bLogTimestamps: CommandUtils.ParseParam(Arguments, "-Timestamps"),
-				InLogLevel: LogLevel,
-                bLogSeverity: true,
-				bLogProgramNameWithSeverity: false,
-                bLogSources: true,
-				bLogSourcesToConsole: false,
-                bColorConsoleOutput: true,
-                TraceListeners: new TraceListener[]
-                {
-					StartupListener
-				}
-			);
+			Trace.Listeners.Add(StartupListener);
+
+			// Configure log timestamps
+			Log.IncludeTimestamps = CommandUtils.ParseParam(Arguments, "-Timestamps");
 
 			// Enter the main program section
             ExitCode ReturnCode = ExitCode.Success;
