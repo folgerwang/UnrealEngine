@@ -458,7 +458,7 @@ private:
 		check(IsInRenderingThread());
 		// When bypassing the RHI command queuing, can allocate directly on render thread memory stack allocator, otherwise allocate
 		// on the RHI's stack allocator so RHICreateUniformBuffer() can dereference render graph resources.
-		if (RHICmdList.Bypass())
+		if (RHICmdList.Bypass() || 1) // TODO: UE-68018
 		{
 			return new (FMemStack::Get()) Type(Forward<ConstructorParameterTypes>(ConstructorParameters)...);
 		}
