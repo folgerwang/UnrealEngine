@@ -39,9 +39,9 @@ bool FUMGDragDropOp::AffectedByPointerEvent(const FPointerEvent& PointerEvent)
 
 void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
 {
-	if (AffectedByPointerEvent(MouseEvent))
+	if ( DragOperation )
 	{
-		if ( bDropWasHandled )
+		if ( bDropWasHandled && MouseEvent.GetPointerIndex() == PointerIndex )
 		{
 			DragOperation->Drop(MouseEvent);
 		}
