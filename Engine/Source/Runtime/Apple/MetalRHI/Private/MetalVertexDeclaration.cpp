@@ -7,6 +7,8 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 
+mtlpp::VertexFormat GMetalFColorVertexFormat = mtlpp::VertexFormat::UChar4Normalized;
+
 static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
 {
 	switch (Type)
@@ -18,7 +20,7 @@ static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type
 		case VET_PackedNormal:	return mtlpp::VertexFormat::Char4Normalized;
 		case VET_UByte4:		return mtlpp::VertexFormat::UChar4;
 		case VET_UByte4N:		return mtlpp::VertexFormat::UChar4Normalized;
-		case VET_Color:			return mtlpp::VertexFormat::UChar4Normalized;
+		case VET_Color:			return GMetalFColorVertexFormat;
 		case VET_Short2:		return mtlpp::VertexFormat::Short2;
 		case VET_Short4:		return mtlpp::VertexFormat::Short4;
 		case VET_Short2N:		return mtlpp::VertexFormat::Short2Normalized;

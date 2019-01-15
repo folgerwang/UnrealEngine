@@ -587,7 +587,6 @@ protected:
 	bool bInsertSideTable;
 
 	bool bRequiresWave;
-	bool bInsertUnknownFormat;
 	bool bNeedsDeviceIndex;
 	
     const char *shaderPrefix()
@@ -1437,7 +1436,7 @@ protected:
 		scope_depth++;
 		IsMain = sig->is_main;
 
-		if (sig->is_main && sig->is_early_depth_stencil && Frequency == fragment_shader && Backend.Version >= 2)
+		if (sig->is_main && sig->is_early_depth_stencil && Frequency == fragment_shader)
 		{
 			bExplicitEarlyFragTests = true;
 		}
@@ -2257,15 +2256,6 @@ protected:
 					tex->sampler->accept(this);
 					ralloc_asprintf_append(buffer, ", ");
 					tex->coordinate->accept(this);
-					if (FormatIndex >= 0)
-					{
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-					}
-					else
-					{
-						ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-						bInsertUnknownFormat = true;
-					}
 					if (bSideTable)
 					{
 						ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
@@ -2277,8 +2267,6 @@ protected:
 				}
 				else if (Backend.bBoundsChecks)
 				{
-					check(Index <= 30);
-					
 					if (!bIsAtomic && (!bIsStructuredBuffer || !Texture->type->inner_type->is_record()))
 					{
 						ralloc_asprintf_append(buffer, "buffer::load<");
@@ -2433,6 +2421,31 @@ protected:
 			{
 				ralloc_asprintf_append(buffer, ", ");
 				tex->offset->accept(this);
+			}
+			else if(tex->channel > ir_channel_none)
+			{
+				ralloc_asprintf_append(buffer, ", int2(0)");
+			}
+
+			// Emit channel selection for gather
+			check(tex->channel < ir_channel_unknown);
+			switch(tex->channel)
+			{
+				case ir_channel_red:
+					ralloc_asprintf_append(buffer, ", component::x");
+					break;
+				case ir_channel_green:
+					ralloc_asprintf_append(buffer, ", component::y");
+					break;
+				case ir_channel_blue:
+					ralloc_asprintf_append(buffer, ", component::z");
+					break;
+				case ir_channel_alpha:
+					ralloc_asprintf_append(buffer, ", component::w");
+					break;
+				case ir_channel_none:
+				default:
+					break;
 			}
 		}
 			break;
@@ -2636,19 +2649,8 @@ protected:
 			ralloc_asprintf_append(buffer, "[");
 		}
 		
-		bool bIsVectorArrayIndex = deref->array->type->is_vector() && (Backend.Version < 3 && Backend.bIsDesktop == EMetalGPUSemanticsImmediateDesktop);
-		if (bIsVectorArrayIndex)
-		{
-			ralloc_asprintf_append(buffer, "vector_array_deref(");
-		}
-
 		deref->array_index->accept(this);
 		should_print_uint_literals_as_ints = false;
-
-		if (bIsVectorArrayIndex)
-		{
-			ralloc_asprintf_append(buffer, ")");
-		}
 
 		if (enforceInt)
 		{
@@ -2743,15 +2745,6 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (FormatIndex >= 0)
-						{
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-						}
-						else
-						{
-							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-							bInsertUnknownFormat = true;
-						}
 						if (bSideTable)
 						{
 							ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
@@ -2941,15 +2934,6 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (FormatIndex >= 0)
-						{
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-						}
-						else
-						{
-							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-							bInsertUnknownFormat = true;
-						}
 						if (bSideTable)
 						{
 							ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
@@ -4620,10 +4604,9 @@ public:
 		, bUsePacked(false)
 		, bNeedsComputeInclude(false)
 		, bExplicitEarlyFragTests(false)
-		, bImplicitEarlyFragTests(InBackend.Version >= 2)
+		, bImplicitEarlyFragTests(true)
 		, bInsertSideTable(false)
 		, bRequiresWave(false)
-		, bInsertUnknownFormat(false)
 		, bNeedsDeviceIndex(false)
 	{
 		printable_names = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
@@ -4660,50 +4643,14 @@ public:
 		char* decl_buffer = ralloc_asprintf(mem_ctx, "");
 		buffer = &decl_buffer;
 		declare_structs(ParseState);
-        
-        if (Backend.TypedBuffers)
-        {
-            ralloc_asprintf_append(buffer, "\n");
-            for (uint32 i = 0; i < (uint32)Backend.TypedBufferFormats.Num(); i++)
-            {
-                if ((Backend.TypedBuffers & (1 << i)) != 0)
-                {
-                    if ((Backend.TypedUAVs & (1 << i)) != 0)
-                    {
-                        ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
-                        ralloc_asprintf_append(buffer, "#else\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#endif\n");
-                    }
-                    else
-                    {
-                        ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
-                        ralloc_asprintf_append(buffer, "#else\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#endif\n");
-                    }
-                }
-            }
-        }
 		
-        if ((bExplicitEarlyFragTests || bImplicitEarlyFragTests) && !Backend.bExplicitDepthWrites && Frequency == fragment_shader && Backend.Version >= 2)
+        if ((bExplicitEarlyFragTests || bImplicitEarlyFragTests) && !Backend.bExplicitDepthWrites && Frequency == fragment_shader)
 		{
 			ralloc_asprintf_append(buffer, "\n#define FUNC_ATTRIBS [[early_fragment_tests]]\n\n");
 		}
 		else
 		{
 			ralloc_asprintf_append(buffer, "\n#define FUNC_ATTRIBS \n\n");
-		}
-		
-		if (bInsertUnknownFormat)
-		{
-			ralloc_asprintf_append(buffer, "\nconstant uint GMetalUnknownFormat = ue4::Unknown;\n\n");
 		}
 
 		// These should work in fragment shaders but Apple are behind the curve on SM6.
@@ -4787,21 +4734,13 @@ public:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 0\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 0\n");
                 break;
-            case EMetalTypeBufferModeSRV:
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 1\n");
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 2\n");
-                break;
-            case EMetalTypeBufferModeUAV:
+            case EMetalTypeBufferMode2D:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 1\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 1\n");
                 break;
-            case EMetalTypeBufferModeTex:
+            case EMetalTypeBufferModeTB:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 3\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 3\n");
-                break;
-            case EMetalTypeBufferModeFun:
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 2\n");
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 2\n");
                 break;
             default:
                 break;
@@ -5065,12 +5004,6 @@ struct FMetalCheckComputeRestrictionsVisitor : public ir_rvalue_visitor
 			{
 				ImageRW[Var] |= EMetalAccessRead;
 			}
-
-			if (ImageRW[Var] == EMetalAccessReadWrite && Version < 2 && (!Var->type->sampler_buffer || TypeMode == EMetalTypeBufferModeUAV))
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow simultaneous read & write on RWTexture(s) %s%s%s", Var->name ? "(" : "", Var->name ? Var->name : "", Var->name ? ")" : "");
-				bErrors = true;
-			}
 		}
 	}
 
@@ -5110,19 +5043,6 @@ struct FMetalCheckNonComputeRestrictionsVisitor : public FMetalCheckComputeRestr
 	
 	virtual ir_visitor_status visit(ir_variable* IR) override
 	{
-		if (IR->type && IR->type->is_image() && (Version < 2))
-		{
-			if (IR->name)
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV '%s' on non-compute shader stage %d.", IR->name, (unsigned)ParseState->target);
-			}
-			else
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV on non-compute shader stage %d.", (unsigned)ParseState->target);
-			}
-			bErrors = true;
-			return visit_stop;
-		}
 		// @todo validate that GLSL_OUTPUTTOPOLOGY_POINT, GLSL_OUTPUTTOPOLOGY_LINE are not used
 		
 		return FMetalCheckComputeRestrictionsVisitor::visit(IR);
@@ -5496,6 +5416,9 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 		}
 		else if (Variable->semantic != NULL || Variable->type->is_record())
 		{
+			Qualifier.Fields.bCentroid = Variable->centroid;
+			Qualifier.Fields.InterpolationMode = Variable->interpolation;
+			
 			ir_dereference_variable* ArgVarDeref = NULL;
 			switch (Variable->mode)
 			{
@@ -5505,6 +5428,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 					ParseState,
 					Variable->name,
 					Variable->semantic,
+					Qualifier,
 					Variable->type,
 					&DeclInstructions,
 					&PreCallInstructions
@@ -5655,6 +5579,9 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 				const ir_variable* Variable = (ir_variable*)Iter.get();
 				if (Variable->semantic != NULL || Variable->type->is_record())
 				{
+					Qualifier.Fields.bCentroid = Variable->centroid;
+					Qualifier.Fields.InterpolationMode = Variable->interpolation;
+					
 					ir_dereference_variable* ArgVarDeref = NULL;
 					switch (Variable->mode)
 					{
@@ -5664,6 +5591,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 							ParseState,
 							Variable->name,
 							Variable->semantic,
+							Qualifier,
 							Variable->type,
 							&VertexDeclInstructions,
 							&VertexPreCallInstructions

@@ -241,7 +241,11 @@
 	// @todo metal: remove this and make sure all uses handle METAL_PROFILE
 	#undef ES3_1_PROFILE
 	#define ES3_1_PROFILE 1
+#if MAX_SHADER_LANGUAGE_VERSION >= 3
+	#define FCOLOR_COMPONENT_SWIZZLE .rgba
+#else
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+#endif
 	#define FMANUALFETCH_COLOR_COMPONENT_SWIZZLE .bgra
 	#define STENCIL_COMPONENT_SWIZZLE .x
 
@@ -250,25 +254,33 @@
 	// @todo metal: remove this and make sure all uses handle METAL_ES2_PROFILE
 	#undef ES2_PROFILE
 	#define ES2_PROFILE 1
+#if MAX_SHADER_LANGUAGE_VERSION >= 3
+	#define FCOLOR_COMPONENT_SWIZZLE .rgba
+#else
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+#endif
 	#define FMANUALFETCH_COLOR_COMPONENT_SWIZZLE .bgra
 	#define STENCIL_COMPONENT_SWIZZLE .x
 
 #elif METAL_MRT_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+#if MAX_SHADER_LANGUAGE_VERSION >= 3
+	#define FCOLOR_COMPONENT_SWIZZLE .rgba
+#else
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+#endif
 	#define FMANUALFETCH_COLOR_COMPONENT_SWIZZLE .bgra
 	#define STENCIL_COMPONENT_SWIZZLE .x
 
 #elif METAL_SM5_NOTESS_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
-	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define FCOLOR_COMPONENT_SWIZZLE .rgba
 	#define FMANUALFETCH_COLOR_COMPONENT_SWIZZLE .bgra
 	#define STENCIL_COMPONENT_SWIZZLE .x
 
 #elif METAL_SM5_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
-	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+	#define FCOLOR_COMPONENT_SWIZZLE .rgba
 	#define FMANUALFETCH_COLOR_COMPONENT_SWIZZLE .bgra
 	#define STENCIL_COMPONENT_SWIZZLE .x
 
@@ -532,7 +544,7 @@
 
 // ---------------------------------------------------- Compiler missing implementations
 
-#if COMPILER_GLSL_ES2 || (COMPILER_METAL && MAX_SHADER_LANGUAGE_VERSION < 2) || COMPILER_SWITCH
+#if COMPILER_GLSL_ES2 || COMPILER_SWITCH
 
 	float determinant(float3x3 M)
 	{

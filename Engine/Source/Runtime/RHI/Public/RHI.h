@@ -133,7 +133,7 @@ inline bool RHISupportsInstancedStereo(const EShaderPlatform Platform)
 inline bool RHISupportsMultiView(const EShaderPlatform Platform)
 {
 	// Only PS4 and Metal SM5 from 10.13 onward supports Multi-View
-	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS) && RHIGetShaderLanguageVersion(Platform) >= 3);
+	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS));
 }
 
 inline bool RHISupportsMSAA(EShaderPlatform Platform)
@@ -153,12 +153,7 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
 {
-#if PLATFORM_MAC || PLATFORM_IOS
-	// Fixed from Metal v.2.0 onward.
-	return !IsMetalPlatform(Platform) || RHIGetShaderLanguageVersion(Platform) >= 3;
-#else
 	return true;
-#endif
 }
 
 /** Whether the platform supports reading from volume textures (does not cover rendering to volume textures). */
@@ -183,7 +178,7 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 	Shader Platform must not use the mobile renderer, and for Metal, the shader language must be at least 2. */
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
-	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
+	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform);
 }
 
 /** 

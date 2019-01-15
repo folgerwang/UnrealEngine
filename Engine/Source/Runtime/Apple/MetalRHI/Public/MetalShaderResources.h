@@ -132,12 +132,10 @@ struct FMetalShaderBindings
 	TArray<TArray<CrossCompiler::FPackedArrayInfo>>	PackedUniformBuffers;
 	TArray<CrossCompiler::FPackedArrayInfo>			PackedGlobalArrays;
 	FMetalShaderResourceTable				ShaderResourceTable;
-	TArray<uint8> 							TypedBufferFormats;
 	TMap<uint8, TArray<uint8>>				ArgumentBufferMasks;
 
     uint32  LinearBuffer;
 	uint32	TypedBuffers;
-	uint32 	InvariantBuffers;
 	uint32 	ConstantBuffers;
 	uint32  ArgumentBuffers;
 	uint16	InOutMask;
@@ -149,7 +147,6 @@ struct FMetalShaderBindings
 	FMetalShaderBindings() :
 		LinearBuffer(0),
         TypedBuffers(0),
-		InvariantBuffers(0),
 		ConstantBuffers(0),
 		ArgumentBuffers(0),
 		InOutMask(0),
@@ -166,11 +163,9 @@ inline FArchive& operator<<(FArchive& Ar, FMetalShaderBindings& Bindings)
 	Ar << Bindings.PackedUniformBuffers;
 	Ar << Bindings.PackedGlobalArrays;
 	Ar << Bindings.ShaderResourceTable;
-	Ar << Bindings.TypedBufferFormats;
 	Ar << Bindings.ArgumentBufferMasks;
     Ar << Bindings.LinearBuffer;
     Ar << Bindings.TypedBuffers;
-	Ar << Bindings.InvariantBuffers;
 	Ar << Bindings.ConstantBuffers;
 	Ar << Bindings.ArgumentBuffers;
 	Ar << Bindings.InOutMask;

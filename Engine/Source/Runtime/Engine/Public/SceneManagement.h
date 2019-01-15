@@ -981,7 +981,7 @@ inline bool DoesPlatformSupportDistanceFieldShadowing(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
 	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4
-		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| IsMetalSM5Platform(Platform)
 		|| Platform == SP_XBOXONE_D3D12
 		|| IsVulkanSM5Platform(Platform);
 }

@@ -18,6 +18,7 @@
 
 #pragma mark - Private C++ Statics -
 uint64 FMetalCommandQueue::Features = 0;
+extern mtlpp::VertexFormat GMetalFColorVertexFormat;
 
 #pragma mark - Public C++ Boilerplate -
 
@@ -84,6 +85,8 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			{
 				Features |= EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation | EMetalFeaturesParallelRenderEncoders | EMetalFeaturesPipelineBufferMutability;
 				
+				GMetalFColorVertexFormat = mtlpp::VertexFormat::UChar4Normalized_BGRA;
+				
 				if (MaxShaderVersion >= 3)
 				{
 					Features |= EMetalFeaturesLinearTextureUAVs;
@@ -141,33 +144,35 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 				Features |= EMetalFeaturesDeferredStoreActions | EMetalFeaturesCombinedDepthStencil;
 			}
 			
-			// Turn on Linear Texture UAVs! Avoids the need to have function-constants which reduces initial runtime shader compile time
-			if (MaxShaderVersion >= 3 && Vers.majorVersion >= 11)
+			if(Vers.majorVersion >= 11)
 			{
-				Features |= EMetalFeaturesLinearTextureUAVs;
-			}
-			
-			// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
-			if (Vers.majorVersion >= 12)
-			{
-				Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
-				Features |= EMetalFeaturesFences;
-				Features |= EMetalFeaturesHeaps;
+				GMetalFColorVertexFormat = mtlpp::VertexFormat::UChar4Normalized_BGRA;
 				
-				if (MaxShaderVersion >= 4)
+				Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation | EMetalFeaturesParallelRenderEncoders | EMetalFeaturesPipelineBufferMutability;
+				
+				// Turn on Linear Texture UAVs! Avoids the need to have function-constants which reduces initial runtime shader compile time
+				if (MaxShaderVersion >= 3)
 				{
-					Features |= EMetalFeaturesTextureBuffers;
+					Features |= EMetalFeaturesLinearTextureUAVs;
 				}
-				if (Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily5_v1))
+				
+				// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
+				if (Vers.majorVersion >= 12)
 				{
-					Features |= EMetalFeaturesLayeredRendering;
+					Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+					Features |= EMetalFeaturesFences;
+					Features |= EMetalFeaturesHeaps;
+					
+					if (MaxShaderVersion >= 4)
+					{
+						Features |= EMetalFeaturesTextureBuffers;
+					}
+					if (Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily5_v1))
+					{
+						Features |= EMetalFeaturesLayeredRendering;
+					}
 				}
 			}
-        }
-		
-		if(Vers.majorVersion >= 11)
-		{
-			Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation | EMetalFeaturesParallelRenderEncoders | EMetalFeaturesPipelineBufferMutability;
         }
 #endif
 	}
@@ -206,6 +211,8 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 				Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			}
 		}
+		
+		GMetalFColorVertexFormat = mtlpp::VertexFormat::UChar4Normalized_BGRA;
 		
 		// On 10.13.5+ we can use MTLParallelRenderEncoder
 		if (FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)

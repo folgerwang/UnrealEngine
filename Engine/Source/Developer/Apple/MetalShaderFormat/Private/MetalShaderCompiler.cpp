@@ -818,7 +818,7 @@ static const int32 Str##PrefixLen = FCStringAnsi::Strlen(Str##Prefix)
 	}
 	
 	// Early out for non-tessellation...
-	if (Version < 2 || !bUsingTessellation)
+	if (!bUsingTessellation)
 	{
 		return true;
 	}
@@ -1083,11 +1083,8 @@ void BuildMetalShaderOutput(
 	Header.SourceCRC = SourceCRC;
     Header.Bindings.bDiscards = false;
 	Header.Bindings.ConstantBuffers = ConstantBuffers;
-	if (Version >= 2)
 	{
-		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);
 		Header.Bindings.TypedBuffers = TypedBuffers;
-		Header.Bindings.InvariantBuffers = InvariantBuffers;
 		for (uint32 i = 0; i < (uint32)TypedBufferFormats.Num(); i++)
 		{
 			if ((TypedBuffers & (1 << i)) != 0)
@@ -1095,21 +1092,13 @@ void BuildMetalShaderOutput(
 				check(TypedBufferFormats[i] > Unknown);
                 check(TypedBufferFormats[i] < Max);
                 if ((TypeMode > EMetalTypeBufferModeRaw)
-                && (TypeMode < EMetalTypeBufferModeFun)
+                && (TypeMode <= EMetalTypeBufferModeTB)
                 && (TypedBufferFormats[i] < RGB8Sint || TypedBufferFormats[i] > RGB32Float)
-                && (TypeMode == EMetalTypeBufferModeUAV || TypeMode == EMetalTypeBufferModeTex || !(TypedUAVs & (1 << i))))
+                && (TypeMode == EMetalTypeBufferMode2D || TypeMode == EMetalTypeBufferModeTB || !(TypedUAVs & (1 << i))))
                 {
                 	Header.Bindings.LinearBuffer |= (1 << i);
 	                Header.Bindings.TypedBuffers &= ~(1 << i);
                 }
-                else
-                {
-					Header.Bindings.TypedBufferFormats[i] = TypedBufferFormats[i];
-                }
-			}
-			else if ((InvariantBuffers & (1 << i)) != 0)
-			{
-				Header.Bindings.TypedBufferFormats[i] = TypedBufferFormats[i];
 			}
 		}
 		
@@ -1117,14 +1106,7 @@ void BuildMetalShaderOutput(
 		if (TypeMode == EMetalTypeBufferModeRaw)
 		{
 			Header.Bindings.TypedBuffers = 0;
-			Header.Bindings.InvariantBuffers = InvariantBuffers|TypedBuffers;
 		}
-	}
-	else // No typed buffers on Metal 1.0-1.1 - all are invariant
-	{
-		Header.Bindings.TypedBuffers = 0;
-		Header.Bindings.InvariantBuffers = InvariantBuffers|TypedBuffers;
-		Header.Bindings.TypedBufferFormats = TypedBufferFormats;
 	}
 	
 	FShaderParameterMap& ParameterMap = ShaderOutput.ParameterMap;
@@ -1684,7 +1666,6 @@ void BuildMetalShaderOutput(
 				
 #if (PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING)				
 				FString Defines = Header.bDeviceFunctionConstants ? TEXT("-D__METAL_DEVICE_CONSTANT_INDEX__=1") : TEXT("");
-				Defines += FString::Printf(TEXT(" -D__METAL_MANUAL_TEXTURE_METADATA__=%d"), !(bUsingTessellation && (Frequency == SF_Vertex || Frequency == SF_Hull)) && Version < 3);
 				Defines += FString::Printf(TEXT(" -D__METAL_USE_TEXTURE_CUBE_ARRAY__=%d"), !bIsMobile);
 				switch(TypeMode)
 				{
@@ -1692,21 +1673,13 @@ void BuildMetalShaderOutput(
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=0");
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=0");
 						break;
-					case EMetalTypeBufferModeSRV:
-						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
-						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=2");
-						break;
-					case EMetalTypeBufferModeUAV:
+					case EMetalTypeBufferMode2D:
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=1");
 						break;
-					case EMetalTypeBufferModeTex:
+					case EMetalTypeBufferModeTB:
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=3");
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=3");
-						break;
-					case EMetalTypeBufferModeFun:
-						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=2");
-						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=2");
 						break;
 					default:
 						break;
@@ -1999,14 +1972,15 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	bool bAppleTV = (Input.ShaderFormat == NAME_SF_METAL_TVOS || Input.ShaderFormat == NAME_SF_METAL_MRT_TVOS);
     if (Input.ShaderFormat == NAME_SF_METAL || Input.ShaderFormat == NAME_SF_METAL_TVOS)
 	{
-        VersionEnum = VersionEnum > 0 ? VersionEnum : 0;
+		UE_CLOG(VersionEnum < 2, LogShaders, Warning, TEXT("Metal shader version must be Metal v1.2 or higher for format %s!"), VersionEnum, *Input.ShaderFormat.ToString());
+        VersionEnum = VersionEnum >= 2 ? VersionEnum : 2;
         AdditionalDefines.SetDefine(TEXT("METAL_PROFILE"), 1);
 	}
 	else if (Input.ShaderFormat == NAME_SF_METAL_MRT || Input.ShaderFormat == NAME_SF_METAL_MRT_TVOS)
 	{
-        UE_CLOG(VersionEnum == 0, LogShaders, Warning, TEXT("Metal shader version should be Metal v1.2 or higher for format %s!"), VersionEnum, *Input.ShaderFormat.ToString());
+		UE_CLOG(VersionEnum < 2, LogShaders, Warning, TEXT("Metal shader version must be Metal v1.2 or higher for format %s!"), VersionEnum, *Input.ShaderFormat.ToString());
 		AdditionalDefines.SetDefine(TEXT("METAL_MRT_PROFILE"), 1);
-		VersionEnum = VersionEnum > 0 ? VersionEnum : 2;
+		VersionEnum = VersionEnum >= 2 ? VersionEnum : 2;
 		MetalCompilerTarget = HCT_FeatureLevelSM5;
 		Semantics = EMetalGPUSemanticsTBDRDesktop;
 	}
@@ -2066,7 +2040,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
     {
         case 5:
             // Enable full SM5 feature support so tessellation & fragment UAVs compile
-            TypeMode = EMetalTypeBufferModeTex;
+            TypeMode = EMetalTypeBufferModeTB;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
             StandardVersion = TEXT("2.1");
             if (bAppleTV)
@@ -2084,7 +2058,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
             break;
 		case 4:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
-			TypeMode = EMetalTypeBufferModeTex;
+			TypeMode = EMetalTypeBufferModeTB;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("2.1");
 			if (bAppleTV)
@@ -2102,7 +2076,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 			break;
 		case 3:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
-			TypeMode = EMetalTypeBufferModeUAV;
+			TypeMode = EMetalTypeBufferMode2D;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("2.0");
 			if (bAppleTV)
@@ -2120,7 +2094,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 			break;
 		case 2:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
-			TypeMode = EMetalTypeBufferModeSRV;
+			TypeMode = EMetalTypeBufferMode2D;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("1.2");
 			if (bAppleTV)

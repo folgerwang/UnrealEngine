@@ -25,15 +25,10 @@ public:
 	
 	uint32 GetClipDistanceCount() const { return ClipDistanceCount; }
 
-	virtual bool SupportsDeterminantIntrinsic() const override
-	{
-		return (Version >= 2);
-	}
+	virtual bool SupportsDeterminantIntrinsic() const override { return true; }
 
-	virtual bool SupportsTransposeIntrinsic() const override
-	{
-		return (Version >= 2);
-	}
+	virtual bool SupportsTransposeIntrinsic() const override { return true; }
+	
 	virtual bool SupportsIntegerModulo() const override { return true; }
 
 	virtual bool SupportsMatrixConversions() const override { return false; }
@@ -50,9 +45,9 @@ public:
 	
 	virtual bool SplitInputVariableStructs() const { return false; }
 	
-	virtual bool SupportsFusedMultiplyAdd() const { return (Version >= 2); }
+	virtual bool SupportsFusedMultiplyAdd() const { return true; }
 	
-	virtual bool SupportsSaturateIntrinsic() const { return (Version >= 2); }
+	virtual bool SupportsSaturateIntrinsic() const { return true; }
 
     virtual bool SupportsSinCosIntrinsic() const { return true; }
     
@@ -83,10 +78,8 @@ enum EMetalGPUSemantics
 enum EMetalTypeBufferMode
 {
 	EMetalTypeBufferModeRaw = 0, // No typed buffers
-    EMetalTypeBufferModeSRV = 1, // Buffer<> Typed via 2D textures, RWBuffer<> typed via function constants
-    EMetalTypeBufferModeUAV = 2, // Buffer<> SRVs & RWBuffer<> UAVs are typed via 2D textures
-    EMetalTypeBufferModeTex = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via texture-buffers
-    EMetalTypeBufferModeFun = 4, // Buffer<> SRVs & RWBuffer<> UAVs are typed via function constants
+    EMetalTypeBufferMode2D = 2, // Buffer<> SRVs & RWBuffer<> UAVs are typed via 2D textures
+    EMetalTypeBufferModeTB = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via texture-buffers
 };
 
 // Metal supports 16 across all HW

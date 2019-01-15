@@ -410,18 +410,23 @@ struct FBuffers
 
 const glsl_type* PromoteHalfToFloatType(_mesa_glsl_parse_state* state, const glsl_type* type);
 
-struct FSemanticQualifier
+union FSemanticQualifier
 {
 	struct
 	{
-		bool bIsPatchConstant = false;
-		bool bIsTessellationVSHS = false; // TODO FIXME UGLY UGLY HACK (this is not the right place to put this flag)
+		unsigned bCentroid : 1;
+		unsigned InterpolationMode : 2;
+		unsigned bIsPatchConstant : 1;
+		unsigned bIsTessellationVSHS : 1; // TODO FIXME UGLY UGLY HACK (this is not the right place to put this flag)
 	} Fields;
+	unsigned Packed;
+	
+	FSemanticQualifier() : Packed(0) {}
 };
 
 namespace MetalUtils
 {
-	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic,
+	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic, FSemanticQualifier Qualifier,
 		const glsl_type* InputType, exec_list* DeclInstructions, exec_list* PreCallInstructions);
 
 	ir_dereference_variable* GenerateOutput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* OutputSemantic,

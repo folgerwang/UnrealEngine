@@ -35,29 +35,26 @@ struct FMetalCompiledShaderKey
 	FMetalCompiledShaderKey(
 		uint32 InCodeSize,
 		uint32 InCodeCRC,
-		uint32 InConstants,
-		uint32 InBufferTypes
+		uint32 InConstants
 		)
 		: CodeSize(InCodeSize)
 		, CodeCRC(InCodeCRC)
 		, Constants(InConstants)
-		, BufferTypes(InBufferTypes)
 	{}
 
 	friend bool operator ==(const FMetalCompiledShaderKey& A, const FMetalCompiledShaderKey& B)
 	{
-		return A.CodeSize == B.CodeSize && A.CodeCRC == B.CodeCRC && A.Constants == B.Constants && A.BufferTypes == B.BufferTypes;
+		return A.CodeSize == B.CodeSize && A.CodeCRC == B.CodeCRC && A.Constants == B.Constants;
 	}
 
 	friend uint32 GetTypeHash(const FMetalCompiledShaderKey &Key)
 	{
-		return HashCombine(HashCombine(HashCombine(GetTypeHash(Key.CodeSize), GetTypeHash(Key.CodeCRC)), GetTypeHash(Key.Constants)), GetTypeHash(Key.BufferTypes));
+		return HashCombine(HashCombine(GetTypeHash(Key.CodeSize), GetTypeHash(Key.CodeCRC)), GetTypeHash(Key.Constants));
 	}
 
 	uint32 CodeSize;
 	uint32 CodeCRC;
 	uint32 Constants;
-	uint32 BufferTypes;
 };
 
 struct FMetalCompiledShaderCache
@@ -273,10 +270,6 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 	bHasFunctionConstants = (Header.bTessFunctionConstants || Header.bDeviceFunctionConstants || Header.Bindings.TypedBuffers);
 
 	ConstantValueHash = 0;
-	for (uint8 Constant : Header.Bindings.TypedBufferFormats)
-	{
-		BufferTypeHash ^= Constant;
-	}
 	
 	Library = InLibrary;
 	
@@ -286,12 +279,12 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 	{
 		// Find the existing compiled shader in the cache.
 		uint32 FunctionConstantHash = i ^ ConstantValueHash;
-		FMetalCompiledShaderKey Key(Header.SourceLen, Header.SourceCRC, FunctionConstantHash, 0);
+		FMetalCompiledShaderKey Key(Header.SourceLen, Header.SourceCRC, FunctionConstantHash);
 		
-		Function[i][EMetalBufferType_Dynamic] = GetMetalCompiledShaderCache().FindRef(Key);
-		if (!Library && Function[i][EMetalBufferType_Dynamic])
+		Function[i] = GetMetalCompiledShaderCache().FindRef(Key);
+		if (!Library && Function[i])
 		{
-			Library = GetMetalCompiledShaderCache().FindLibrary(Function[i][EMetalBufferType_Dynamic]);
+			Library = GetMetalCompiledShaderCache().FindLibrary(Function[i]);
 		}
 		else
 		{
@@ -462,7 +455,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		
         for (uint32 i = 0; i < Count; i++)
         {
-            GetCompiledFunction((EMetalIndexType)i, nullptr, 0, true);
+            GetCompiledFunction((EMetalIndexType)i, true);
         }
 	}
 	UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
@@ -477,38 +470,16 @@ TMetalBaseShader<BaseResourceType, ShaderType>::~TMetalBaseShader()
 }
 
 template<typename BaseResourceType, int32 ShaderType>
-uint32 TMetalBaseShader<BaseResourceType, ShaderType>::GetBufferBindingHash(EPixelFormat const* const BufferTypes) const
+mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction(EMetalIndexType IndexType, bool const bAsync)
 {
-	check(BufferTypes);
-	uint32 VHash = 0;
-	uint BoundBuffers = Bindings.TypedBuffers;
-    while(BoundBuffers)
-    {
-        uint32 Index = __builtin_ctz(BoundBuffers);
-        BoundBuffers &= ~(1 << Index);
-        
-        if (Index < ML_MaxBuffers)
-        {
-        	VHash ^= GMetalBufferFormats[BufferTypes[Index]].DataFormat;
-        }
-    }
-    
-    return VHash;
-}
-
-template<typename BaseResourceType, int32 ShaderType>
-mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 InBufferTypeHash, bool const bAsync)
-{
-	EMetalBufferType BT = (InBufferTypeHash == BufferTypeHash && BufferTypeHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
-	
-    mtlpp::Function Func = Function[IndexType][BT];
+	mtlpp::Function Func = Function[IndexType];
     
 	if (!Func)
 	{
 		// Find the existing compiled shader in the cache.
 		uint32 FunctionConstantHash = IndexType ^ ConstantValueHash;
-		FMetalCompiledShaderKey Key(SourceLen, SourceCRC, FunctionConstantHash, (InBufferTypeHash == BufferTypeHash) ? BufferTypeHash : 0);
-		Func = Function[IndexType][BT] = GetMetalCompiledShaderCache().FindRef(Key);
+		FMetalCompiledShaderKey Key(SourceLen, SourceCRC, FunctionConstantHash);
+		Func = Function[IndexType] = GetMetalCompiledShaderCache().FindRef(Key);
 		
 		if (!Func)
 		{
@@ -519,29 +490,6 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             if (bHasFunctionConstants)
             {
                 ConstantValues = mtlpp::FunctionConstantValues();
-				
-				uint32 BoundBuffers = Bindings.TypedBuffers;
-				while(BoundBuffers)
-				{
-					uint32 Index = __builtin_ctz(BoundBuffers);
-					BoundBuffers &= ~(1 << Index);
-					
-					if (Index < ML_MaxBuffers)
-					{
-						if(BT == EMetalBufferType_Static)
-						{
-							// It all matches what is in the shader, so bind the MAX value to force it to elide all the switch-case stuff and just load as directly as possible
-							uint32 v = EMetalBufferFormat::Max;
-							ConstantValues.SetConstantValues(&v, mtlpp::DataType::UInt, ns::Range(Index, 1));
-						}
-						else
-						{
-							// It doesn't match and we don't know what it will be, so load the type dynamically from the buffer meta-table - adds a lot of instructions and hurts performance
-							uint32 v = EMetalBufferFormat::Unknown;
-							ConstantValues.SetConstantValues(&v, mtlpp::DataType::UInt, ns::Range(Index, 1));
-						}
-					}
-				}
 				
                 if(bTessFunctionConstants)
                 {
@@ -560,21 +508,21 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
 				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunction: %s"), *FString(Name))));
                 if (!bHasFunctionConstants)
                 {
-                    Function[IndexType][BT] = Library.NewFunction(Name);
+                    Function[IndexType] = Library.NewFunction(Name);
                 }
                 else
                 {
 					ns::AutoReleasedError AError;
-					Function[IndexType][BT] = Library.NewFunction(Name, ConstantValues, &AError);
+					Function[IndexType] = Library.NewFunction(Name, ConstantValues, &AError);
 					ns::Error Error = AError;
-					UE_CLOG(Function[IndexType][BT] == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
-                    UE_CLOG(Function[IndexType][BT] == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
+					UE_CLOG(Function[IndexType] == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
+                    UE_CLOG(Function[IndexType] == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
                 }
                 
-                check(Function[IndexType][BT]);
-                GetMetalCompiledShaderCache().Add(Key, Library, Function[IndexType][BT]);
+                check(Function[IndexType]);
+                GetMetalCompiledShaderCache().Add(Key, Library, Function[IndexType]);
                 
-                Func = Function[IndexType][BT];
+                Func = Function[IndexType];
             }
             else
             {
@@ -613,7 +561,7 @@ FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Lib
 , NumThreadsY(0)
 , NumThreadsZ(0)
 {
-    Pipeline[0] = Pipeline[1] = nil;
+    Pipeline = nil;
 	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 	
@@ -624,29 +572,15 @@ FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Lib
 
 FMetalComputeShader::~FMetalComputeShader()
 {
-    for (uint32 i = 0; i < EMetalBufferType_Num; i++)
-    {
-        [Pipeline[i] release];
-        Pipeline[i] = nil;
-    }
-}
-	
-uint32 FMetalComputeShader::GetBindingHash(EPixelFormat const* const BufferTypes) const
-{
-	if (BufferTypes)
-	{
-		return GetBufferBindingHash(BufferTypes);
-	}
-	return 0;
+	[Pipeline release];
+	Pipeline = nil;
 }
 
-FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const BufferTypes, uint32 InBufferTypeHash)
+FMetalShaderPipeline* FMetalComputeShader::GetPipeline()
 {
-	EMetalBufferType BT = (InBufferTypeHash == BufferTypeHash && BufferTypeHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
-	
-	if (!Pipeline[BT])
+	if (!Pipeline)
 	{
-		mtlpp::Function Func = GetCompiledFunction(EMetalIndexType_None, BufferTypes, (InBufferTypeHash == BufferTypeHash) ? BufferTypeHash : 0);
+		mtlpp::Function Func = GetCompiledFunction(EMetalIndexType_None);
 		check(Func);
         
 		ns::Error Error;
@@ -710,21 +644,21 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
             UE_LOG(LogRHI, Fatal, TEXT("Failed to create compute kernel: %s"), *FString([Error description]));
         }
         
-        Pipeline[BT] = [FMetalShaderPipeline new];
-        Pipeline[BT]->ComputePipelineState = Kernel;
+        Pipeline = [FMetalShaderPipeline new];
+        Pipeline->ComputePipelineState = Kernel;
 #if METAL_DEBUG_OPTIONS
-        Pipeline[BT]->ComputePipelineReflection = Reflection;
-        Pipeline[BT]->ComputeSource = GetSourceCode();
+        Pipeline->ComputePipelineReflection = Reflection;
+        Pipeline->ComputeSource = GetSourceCode();
 		if (Reflection)
 		{
-			Pipeline[BT]->ComputeDesc = Descriptor;
+			Pipeline->ComputeDesc = Descriptor;
 		}
 #endif
-        METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline[BT]->ResourceMask, sizeof(Pipeline[BT]->ResourceMask)));
+        METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline->ResourceMask, sizeof(Pipeline->ResourceMask)));
 	}
-	check(Pipeline[BT]);
+	check(Pipeline);
 
-	return Pipeline[BT];
+	return Pipeline;
 }
 
 FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode)
@@ -764,19 +698,10 @@ FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Libra
 	TessellationMaxTessFactor = Header.TessellationMaxTessFactor;
 	TessellationPatchesPerThreadGroup = Header.TessellationPatchesPerThreadGroup;
 }
-	
-uint32 FMetalVertexShader::GetBindingHash(EPixelFormat const* const BufferTypes) const
-{
-	if (BufferTypes)
-	{
-		return GetBufferBindingHash(BufferTypes);
-	}
-	return 0;
-}
 
-mtlpp::Function FMetalVertexShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalVertexShader::GetFunction(EMetalIndexType IndexType)
 {
-	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
+	return GetCompiledFunction(IndexType);
 }
 
 FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode)
@@ -790,19 +715,10 @@ FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library
 	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 }
-	
-uint32 FMetalPixelShader::GetBindingHash(EPixelFormat const* const BufferTypes) const
-{
-	if (BufferTypes)
-	{
-		return GetBufferBindingHash(BufferTypes);
-	}
-	return 0;
-}
 
-mtlpp::Function FMetalPixelShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalPixelShader::GetFunction(EMetalIndexType IndexType)
 {
-	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
+	return GetCompiledFunction(IndexType);
 }
 
 FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode)
@@ -816,19 +732,10 @@ FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library I
 	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 }
-	
-uint32 FMetalHullShader::GetBindingHash(EPixelFormat const* const BufferTypes) const
-{
-	if (BufferTypes)
-	{
-		return GetBufferBindingHash(BufferTypes);
-	}
-	return 0;
-}
 
-mtlpp::Function FMetalHullShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalHullShader::GetFunction(EMetalIndexType IndexType)
 {
-	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
+	return GetCompiledFunction(IndexType);
 }
 
 FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode)
@@ -884,19 +791,10 @@ FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Libra
 		default: check(0);
 	}
 }
-	
-uint32 FMetalDomainShader::GetBindingHash(EPixelFormat const* const BufferTypes) const
-{
-	if (BufferTypes)
-	{
-		return GetBufferBindingHash(BufferTypes);
-	}
-	return 0;
-}
 
-mtlpp::Function FMetalDomainShader::GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash)
+mtlpp::Function FMetalDomainShader::GetFunction(EMetalIndexType IndexType)
 {
-	return GetCompiledFunction(IndexType, BufferTypes, BufferTypeHash);
+	return GetCompiledFunction(IndexType);
 }
 
 FVertexShaderRHIRef FMetalDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
@@ -1128,7 +1026,7 @@ FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
 	if (Code)
 	{
 		FMetalPixelShader* Shader = new FMetalPixelShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
+		if (Shader->GetFunction(EMetalIndexType_None))
 		{
 			return Shader;
 		}
@@ -1148,7 +1046,7 @@ FVertexShaderRHIRef FMetalShaderLibrary::CreateVertexShader(const FSHAHash& Hash
 	if (Code)
 	{
 		FMetalVertexShader* Shader = new FMetalVertexShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
+		if (Shader->GetFunction(EMetalIndexType_None))
 		{
 			return Shader;
 		}
@@ -1167,7 +1065,7 @@ FHullShaderRHIRef FMetalShaderLibrary::CreateHullShader(const FSHAHash& Hash)
 	if (Code)
 	{
 		FMetalHullShader* Shader = new FMetalHullShader(Code->Data, Library[Code->Index]);
-		if(Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
+		if(Shader->GetFunction(EMetalIndexType_None))
 		{
 			return Shader;
 		}
@@ -1186,7 +1084,7 @@ FDomainShaderRHIRef FMetalShaderLibrary::CreateDomainShader(const FSHAHash& Hash
 	if (Code)
 	{
 		FMetalDomainShader* Shader = new FMetalDomainShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
+		if (Shader->GetFunction(EMetalIndexType_None))
 		{
 			return Shader;
 		}
@@ -1217,7 +1115,7 @@ FComputeShaderRHIRef FMetalShaderLibrary::CreateComputeShader(const FSHAHash& Ha
 	if (Code)
 	{
 		FMetalComputeShader* Shader = new FMetalComputeShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetPipeline(nullptr, 0))
+		if (Shader->GetPipeline())
 		{
 			return Shader;
 		}

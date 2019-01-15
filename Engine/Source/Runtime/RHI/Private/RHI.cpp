@@ -777,8 +777,8 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 			static int32 MaxShaderVersion = -1;
 			if (MaxShaderVersion < 0)
 			{
-				MaxShaderVersion = 0;
-				int32 MinShaderVersion = 0;
+				MaxShaderVersion = 2;
+				int32 MinShaderVersion = 2;
 				if(!GConfig->GetInt(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
 				{
 					MaxShaderVersion = 0;
@@ -795,26 +795,16 @@ RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform)
 {
 	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
 	{
-		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (IsVulkanSM5Platform(Platform)*/;
-	}
-	// For Metal we can only support tessellation if we are willing to sacrifice backward compatibility with OS versions.
-	// As such it becomes an opt-in project setting.
-	else if (Platform == SP_METAL_SM5)
-	{
-		return (RHIGetShaderLanguageVersion(Platform) >= 2);
+		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT) || (Platform == SP_METAL_SM5) /* || (IsVulkanSM5Platform(Platform)*/;
 	}
 	return false;
 }
 
 RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 {
-	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
+	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5))
 	{
 		return true;
-	}
-	else if (IsMetalSM5Platform(Platform))
-	{
-		return (RHIGetShaderLanguageVersion(Platform) >= 2);
 	}
 	return false;
 }

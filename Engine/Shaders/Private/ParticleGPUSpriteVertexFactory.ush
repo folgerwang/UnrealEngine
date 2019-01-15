@@ -17,13 +17,7 @@
 #define USE_PARTICLE_SIZE (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_SIZE)
 
 /** Buffer containing particle indices. */
-#if COMPILER_METAL
-	// Metal does not have buffer SRVs, so data types have to match
-	#undef half2
-	Buffer<half2> ParticleIndices;
-#else
-	Buffer<float2> ParticleIndices;
-#endif
+Buffer<float2> ParticleIndices;
 
 /** Offset in to the particle indices buffer. */
 uint ParticleIndicesOffset;

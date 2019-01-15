@@ -2159,7 +2159,7 @@ half3x3 AssembleTangentToWorld( half3 TangentToWorld0, half4 TangentToWorld2 )
 	// Use conservative depth output so we still get Z Cull.  Note, this is a reversed Z depth surface.
 	#define DEPTH_WRITE_SEMANTIC SV_DepthLessEqual
 #elif COMPILER_METAL
-	#define INPUT_POSITION_QUALIFIERS linear centroid
+	#define INPUT_POSITION_QUALIFIERS 
 	#define DEPTH_WRITE_SEMANTIC SV_DepthLessEqual
 #elif PS4_PROFILE
 	#define INPUT_POSITION_QUALIFIERS
