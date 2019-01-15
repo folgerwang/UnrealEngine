@@ -87,7 +87,7 @@ UObject* UScriptFactory::FactoryCreateText(UClass* InClass, UObject* InParent, F
 		// Need to make sure we compile with the new source code
 		FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
 
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, NewBlueprint);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewBlueprint);
 	}
 	else
 	{

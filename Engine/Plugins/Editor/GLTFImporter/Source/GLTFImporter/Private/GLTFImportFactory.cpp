@@ -171,7 +171,7 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 {
 	UStaticMesh* StaticMesh = nullptr;
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Parms);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Parms);
 
 	Warn->Log(Filename);
 	const FString Extension = FPaths::GetExtension(Filename);
@@ -232,7 +232,7 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 	}
 
 	// Is this necessary? Should call for all new assets, not just the first StaticMesh?
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, StaticMesh);
 
 	return StaticMesh;
 }

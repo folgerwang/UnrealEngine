@@ -139,7 +139,7 @@ FStaticMeshEditor::~FStaticMeshEditor()
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
 
 	GEditor->UnregisterForUndo( this );
-	GEditor->OnObjectReimported().RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.RemoveAll(this);
 }
 
 void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UStaticMesh* ObjectToEdit )
@@ -155,7 +155,7 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 	FStaticMeshEditorCommands::Register();
 
 	// Register to be notified when an object is reimported.
-	GEditor->OnObjectReimported().AddSP(this, &FStaticMeshEditor::OnObjectReimported);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddSP(this, &FStaticMeshEditor::OnObjectReimported);
 
 	BindCommands();
 

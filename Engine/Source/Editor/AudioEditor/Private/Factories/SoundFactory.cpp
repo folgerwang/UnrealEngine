@@ -118,7 +118,7 @@ UObject* USoundFactory::FactoryCreateBinary
 	FFeedbackContext*	Warn
 	)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, FileType);
 
 	if (FCString::Stricmp(FileType, TEXT("WAV")) == 0)
 	{
@@ -141,7 +141,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			if (!bCuePathIsValid)
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_ImportFailed_f", "Import failed for {0}: {1}"), FText::FromString(CuePackageName), Reason));
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
 		}
@@ -209,7 +209,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			}
 			default:
 			{
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
 			}
@@ -241,7 +241,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			if ((bIsAmbiX || bIsFuMa) && (int32)*WaveInfo.pChannels != 4)
 			{
 				Warn->Logf(ELogVerbosity::Error, TEXT("Tried to import ambisonics format file but requires exactly 4 channels: '%s'"), *Name.ToString());
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
 
@@ -249,14 +249,14 @@ UObject* USoundFactory::FactoryCreateBinary
 			{
 				WaveInfo.ReportImportFailure();
 				Warn->Logf(ELogVerbosity::Error, TEXT("Currently, only 16 bit WAV files are supported (%s)."), *Name.ToString());
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
 		}
 		else
 		{
 			Warn->Logf(ELogVerbosity::Error, TEXT("Unable to read wave file '%s' - \"%s\""), *Name.ToString(), *ErrorMessage);
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 			return nullptr;
 		}
 
@@ -342,7 +342,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			else
 			{
 				Warn->Logf(ELogVerbosity::Error, TEXT("Wave file '%s' has unsupported number of channels %d"), *Name.ToString(), ChannelCount);
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
 
@@ -412,7 +412,7 @@ UObject* USoundFactory::FactoryCreateBinary
 		Sound->SetSampleRate(*WaveInfo.pSamplesPerSec);
 		Sound->NumChannels = ChannelCount;
 
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, Sound);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Sound);
 
 		if (ExistingSound && bUseExistingSettings)
 		{
@@ -439,7 +439,7 @@ UObject* USoundFactory::FactoryCreateBinary
 	{
 		// Unrecognized.
 		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound format '%s' in %s"), FileType, *Name.ToString());
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 		return nullptr;
 	}
 }

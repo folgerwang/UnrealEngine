@@ -1492,7 +1492,7 @@ FVertexInstanceID ProcessTriangleCorner(
 
 UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	TSharedPtr<SWindow> ParentWindow;
 	// Check if the main frame is loaded.  When using the old main frame it may not be.
@@ -2055,14 +2055,14 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 		bOutOperationCanceled = true;
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, StaticMesh);
 
 	return StaticMesh;
 }
 
 UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	TSharedPtr<SWindow> ParentWindow;
 	// Check if the main frame is loaded.  When using the old main frame it may not be.
@@ -2442,7 +2442,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, StaticMesh);
 
 	return StaticMesh;
 }

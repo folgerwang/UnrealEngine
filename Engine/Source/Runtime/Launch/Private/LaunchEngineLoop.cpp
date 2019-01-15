@@ -2944,6 +2944,7 @@ bool FEngineLoop::LoadStartupCoreModules()
 
 	SlowTask.EnterProgressFrame(10);
 #if WITH_EDITOR
+		FModuleManager::Get().LoadModuleChecked("UnrealEd");
 		FModuleManager::LoadModuleChecked<IEditorStyleModule>("EditorStyle");
 #endif //WITH_EDITOR
 

@@ -2,7 +2,15 @@
 
 #include "Subsystems/Subsystem.h"
 
+#include "Subsystems/SubsystemCollection.h"
+
 USubsystem::USubsystem()
+{
+
+}
+
+UDynamicSubsystem::UDynamicSubsystem()
+	: USubsystem()
 {
 
 }

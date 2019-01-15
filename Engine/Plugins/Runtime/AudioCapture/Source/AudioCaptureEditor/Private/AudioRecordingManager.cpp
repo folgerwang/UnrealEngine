@@ -431,7 +431,7 @@ void FAudioRecordingManager::StopRecording(TArray<USoundWave*>& OutSoundWaves)
 
 					if (bCreatedPackage)
 					{
-						//FEditorDelegates::OnAssetPostImport.Broadcast(this, NewSoundWave);
+						//GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewSoundWave);
 
 						FAssetRegistryModule::AssetCreated(NewSoundWave);
 						NewSoundWave->MarkPackageDirty();

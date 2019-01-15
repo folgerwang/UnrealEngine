@@ -257,6 +257,7 @@
 #include "Rendering/SkeletalMeshModel.h"
 
 #include "Misc/App.h"
+#include "Subsystems/ImportSubsystem.h"
 
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
@@ -673,7 +674,7 @@ UObject* ULevelFactory::FactoryCreateText
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	UWorld* World = GWorld;
 	//@todo locked levels - if lock state is persistent, do we need to check for whether the level is locked?
@@ -707,7 +708,7 @@ UObject* ULevelFactory::FactoryCreateText
 				else
 				{
 					Warn->Logf(ELogVerbosity::Warning, TEXT("The Root map package name : '%s', conflicts with the existing object : '%s'"), *RootMapPackage->GetFullName(), *MapName);
-					FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+					GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr );
 					return nullptr;
 				}
 				
@@ -921,7 +922,7 @@ UObject* ULevelFactory::FactoryCreateText
 				if ( FLevelUtils::IsLevelLocked(World->GetCurrentLevel()) )
 				{
 					UE_LOG(LogEditorFactories, Warning, TEXT("Import actor: The requested operation could not be completed because the level is locked."));
-					FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+					GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr );
 					return nullptr;
 				}
 				else if ( !(bShouldSkipImportSpecialActors && ActorIndex < 2) )
@@ -1298,7 +1299,7 @@ UObject* ULevelFactory::FactoryCreateText
 	GEditor->IsImportingT3D = 0;
 	GIsImportingT3D = false;
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, World );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World );
 
 	return World;
 }
@@ -1319,7 +1320,7 @@ UPackageFactory::UPackageFactory(const FObjectInitializer& ObjectInitializer)
 
 UObject* UPackageFactory::FactoryCreateText( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	bool bSavedImportingT3D = GIsImportingT3D;
 	// Mark us as importing a T3D.
@@ -1482,7 +1483,7 @@ UObject* UPackageFactory::FactoryCreateText( UClass* Class, UObject* InParent, F
 	GEditor->IsImportingT3D = bSavedImportingT3D;
 	GIsImportingT3D = bSavedImportingT3D;
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, TopLevelPackage );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, TopLevelPackage );
 
 	return TopLevelPackage;
 }
@@ -1517,7 +1518,7 @@ UObject* UPolysFactory::FactoryCreateText
 	FVector PointPool[4096];
 	int32 NumPoints = 0;
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	// Create polys.	
 	UPolys* Polys = Context ? CastChecked<UPolys>(Context) : NewObject<UPolys>(InParent, Name, Flags);
@@ -1758,7 +1759,7 @@ UObject* UPolysFactory::FactoryCreateText
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, Polys );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Polys );
 
 	// Success.
 	return Polys;
@@ -1789,7 +1790,7 @@ UObject* UModelFactory::FactoryCreateText
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	ABrush* TempOwner = (ABrush*)Context;
 	UModel* Model = NewObject<UModel>(InParent, Name, Flags);
@@ -1845,7 +1846,7 @@ UObject* UModelFactory::FactoryCreateText
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, Model );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Model );
 
 	return Model;
 }
@@ -3809,7 +3810,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 {
 	check(Type);
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	// if the texture already exists, remember the user settings
 	UTexture* ExistingTexture = FindObject<UTexture>( InParent, *Name.ToString() );
@@ -3869,7 +3870,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		case EAppReturnType::Cancel:
 		default:
 			{
-				FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 				return nullptr;
 			}
 		}
@@ -3930,7 +3931,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		}
 
 		Warn->Logf(ELogVerbosity::Error, TEXT("Texture import failed") );
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 		return nullptr;
 	}
 
@@ -4057,7 +4058,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		ApplyAutoImportSettings(Texture);
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Texture);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Texture);
 
 	// Invalidate any materials using the newly imported texture. (occurs if you import over an existing texture)
 	Texture->PostEditChange();
@@ -4765,7 +4766,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 		return nullptr;
 	}
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, InType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, InType);
 
 	// Create the font face
 	UFontFace* const FontFace = NewObject<UFontFace>(InParent, InClass, InName, InFlags);
@@ -4779,7 +4780,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 		FontFace->CacheSubFaces();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, FontFace);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, FontFace);
 	
 	// Create the font (if requested)
 	if (FontFace && bCreateFontAsset)
@@ -6535,7 +6536,7 @@ UCurveImportFactory::UCurveImportFactory(const FObjectInitializer& ObjectInitial
 // @note jf: for importing a curve from a text format.  this is experimental code for a prototype feature and not fully fleshed out
 UObject* UCurveImportFactory::FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	if(	FCString::Stricmp( Type, TEXT( "AS" ) ) == 0 )
 	{
@@ -6605,13 +6606,13 @@ UObject* UCurveImportFactory::FactoryCreateText( UClass* InClass, UObject* InPar
 				}
 			}
 
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, NewCurve);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewCurve);
 
 			return NewCurve;
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 	return nullptr;
 }
 

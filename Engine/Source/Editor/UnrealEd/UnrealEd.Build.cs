@@ -98,7 +98,8 @@ public class UnrealEd : ModuleRules
                 "MeshDescription",
                 "MeshDescriptionOperations",
                 "MeshBuilder",
-                "MaterialShaderQualitySettings"
+                "MaterialShaderQualitySettings",
+                "EditorSubsystem",
             }
 		);
 

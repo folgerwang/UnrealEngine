@@ -177,11 +177,11 @@ UObject* UFbxFactory::FactoryCreateFile
 	if( bOperationCanceled )
 	{
 		bOutOperationCanceled = true;
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, NULL);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NULL);
 		return NULL;
 	}
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	UObject* CreatedObject = NULL;
 	//Look if its a re-import, in that cazse we must call the re-import factory
@@ -224,7 +224,7 @@ UObject* UFbxFactory::FactoryCreateFile
 		if ( !DetectImportType(UFactory::CurrentFilename) )
 		{
 			// Failed to read the file info, fail the import
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, NULL);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NULL);
 			return NULL;
 		}
 	}
@@ -767,7 +767,7 @@ UObject* UFbxFactory::FactoryCreateFile
 		FbxImporter->ReleaseScene();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, CreatedObject);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, CreatedObject);
 
 	return CreatedObject;
 }

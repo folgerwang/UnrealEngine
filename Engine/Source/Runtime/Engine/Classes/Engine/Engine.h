@@ -14,6 +14,9 @@
 #include "Engine/World.h"
 #include "Misc/BufferedOutputDevice.h"
 #include "Misc/FrameRate.h"
+#include "Subsystems/SubsystemCollection.h"
+#include "Subsystems/EngineSubsystem.h"
+
 #include "Engine.generated.h"
 
 #define WITH_DYNAMIC_RESOLUTION (!UE_SERVER)
@@ -3169,6 +3172,38 @@ public:
 	virtual int32 EndTransaction() { return INDEX_NONE; }
 	virtual void CancelTransaction(int32 Index) { }
 #endif
+
+public:
+	/**
+	 * Get an Engine Subsystem of specified type
+	 */
+	UEngineSubsystem* GetEngineSubsystemBase(TSubclassOf<UEngineSubsystem> SubsystemClass) const
+	{
+		checkSlow(this != nullptr);
+		return EngineSubsystemCollection.GetSubsystem<UEngineSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get an Engine Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetEngineSubsystem() const
+	{
+		checkSlow(this != nullptr);
+		return EngineSubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get all Engine Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetEngineSubsystemArray() const
+	{
+		return EngineSubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+private:
+	FSubsystemCollection<UEngineSubsystem> EngineSubsystemCollection;
 
 public:
 	/**

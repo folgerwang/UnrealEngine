@@ -43,8 +43,6 @@ void FDestructibleMeshEditorCommands::RegisterCommands()
 FDestructibleMeshEditor::~FDestructibleMeshEditor()
 {
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-
-	GEditor->OnObjectReimported().RemoveAll(this);
 }
 
 void FDestructibleMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)

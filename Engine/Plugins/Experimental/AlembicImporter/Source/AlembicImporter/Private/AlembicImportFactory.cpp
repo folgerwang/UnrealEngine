@@ -63,7 +63,7 @@ UClass* UAlembicImportFactory::ResolveSupportedClass()
 
 UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, TEXT("ABC"));
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, TEXT("ABC"));
 
 	FAbcImporter Importer;
 	EAbcImportError ErrorCode = Importer.OpenAbcFileForImport(Filename);
@@ -72,7 +72,7 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 	if (ErrorCode != AbcImportError_NoError)
 	{
 		// Failed to read the file info, fail the import
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 		return nullptr;
 	}
 
@@ -96,7 +96,7 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 	TArray<UObject*> ResultAssets;
 	if (!bOutOperationCanceled)
 	{
-		FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, TEXT("ABC"));
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, TEXT("ABC"));
 
 			int32 NumThreads = 1;
 			if (FPlatformProcess::SupportsMultithreading())
@@ -110,7 +110,7 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 			if (ErrorCode != AbcImportError_NoError)
 			{
 				// Failed to read the file info, fail the import
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				FAbcImportLogger::OutputMessages(PageName);
 				return nullptr;
 			}
@@ -144,7 +144,7 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 		{
 			if (Object)
 			{
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, Object);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Object);
 				Object->MarkPackageDirty();
 				Object->PostEditChange();
 			}
@@ -229,7 +229,7 @@ UObject* UAlembicImportFactory::ImportGeometryCache(FAbcImporter& Importer, UObj
 	else
 	{
 		// Not able to import a static mesh
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 		return nullptr;
 	}
 }
@@ -298,7 +298,7 @@ UObject* UAlembicImportFactory::ImportSkeletalMesh(FAbcImporter& Importer, UObje
 	else
 	{
 		// Not able to import a static mesh
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 		return nullptr;
 	}
 }

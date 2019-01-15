@@ -46,6 +46,11 @@ public:
 
 	virtual void StartupModule() override
 	{
+		FCoreDelegates::OnPostEngineInit.AddRaw(this, &FGameplayTagsEditorModule::OnPostEngineInit);
+	}
+	
+	void OnPostEngineInit()
+	{
 		// Register the details customizer
 		{
 			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -84,7 +89,7 @@ public:
 		// Hook into notifications for object re-imports so that the gameplay tag tree can be reconstructed if the table changes
 		if (GIsEditor)
 		{
-			FEditorDelegates::OnAssetPostImport.AddRaw(this, &FGameplayTagsEditorModule::OnObjectReimported);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddRaw(this, &FGameplayTagsEditorModule::OnObjectReimported);
 			FEditorDelegates::OnEditAssetIdentifiers.AddRaw(this, &FGameplayTagsEditorModule::OnEditGameplayTag);
 			IGameplayTagsModule::OnTagSettingsChanged.AddRaw(this, &FGameplayTagsEditorModule::OnEditorSettingsChanged);
 			UPackage::PackageSavedEvent.AddRaw(this, &FGameplayTagsEditorModule::OnPackageSaved);
@@ -104,6 +109,8 @@ public:
 
 	virtual void ShutdownModule() override
 	{
+		FCoreDelegates::OnPostEngineInit.RemoveAll(this);
+
 		// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 		// we call this function before unloading the module.
 
@@ -113,7 +120,10 @@ public:
 			SettingsModule->UnregisterSettings("Project", "Project", "GameplayTags Developer");
 		}
 
-		FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+		if (GEditor)
+		{
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
+		}
 		FEditorDelegates::OnEditAssetIdentifiers.RemoveAll(this);
 		IGameplayTagsModule::OnTagSettingsChanged.RemoveAll(this);
 		UPackage::PackageSavedEvent.RemoveAll(this);

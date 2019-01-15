@@ -13,6 +13,8 @@
 #include "Editor/EditorEngine.h"
 #include "Engine/StaticMesh.h"
 
+#include "Subsystems/ImportSubsystem.h"
+
 
 
 #define CAMERA_ZOOM_DAMPEN			200.f
@@ -188,10 +190,13 @@ struct UNREALED_API FEditorDelegates
 	/** Called when finishing configuration of a new asset */
 	static FOnNewAssetCreation OnNewAssetCreated;
 	/** Called when new assets are being (re-)imported. */
+	UE_DEPRECATED(4.22, "Use the ImportSubsystem instead. GEditor->GetEditorSubsystem<UImportSubsystem>()")
 	static FOnAssetPreImport OnAssetPreImport;
 	/** Called when new assets have been (re-)imported. */
+	UE_DEPRECATED(4.22, "Use the ImportSubsystem instead. GEditor->GetEditorSubsystem<UImportSubsystem>()")
 	static FOnAssetPostImport OnAssetPostImport;
 	/** Called after an asset has been reimported */
+	UE_DEPRECATED(4.22, "Use the ImportSubsystem instead. GEditor->GetEditorSubsystem<UImportSubsystem>()")
 	static FOnAssetReimport OnAssetReimport;
 	/** Called when new actors are dropped on to the viewport */
 	static FOnNewActorsDropped OnNewActorsDropped;

@@ -123,6 +123,11 @@ private:
 public:
 	virtual void StartupModule() override
 	{
+		FCoreDelegates::OnPostEngineInit.AddRaw(this, &FPaper2DEditor::OnPostEngineInit);
+	}
+
+	void OnPostEngineInit()
+	{
 		SpriteEditor_MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 		SpriteEditor_ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 
@@ -176,7 +181,7 @@ public:
 		OnPropertyChangedDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FPaper2DEditor::OnPropertyChanged);
 
 		// Register to be notified when an asset is reimported
-		OnAssetReimportDelegateHandle = FEditorDelegates::OnAssetReimport.AddRaw(this, &FPaper2DEditor::OnObjectReimported);
+		OnAssetReimportDelegateHandle = GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddRaw(this, &FPaper2DEditor::OnObjectReimported);
 
 		// Register the thumbnail renderers
 		UThumbnailManager::Get().RegisterCustomRenderer(UPaperSprite::StaticClass(), UPaperSpriteThumbnailRenderer::StaticClass());
@@ -216,6 +221,8 @@ public:
 
 	virtual void ShutdownModule() override
 	{
+		FCoreDelegates::OnPostEngineInit.RemoveAll(this);
+
 		SpriteEditor_MenuExtensibilityManager.Reset();
 		SpriteEditor_ToolBarExtensibilityManager.Reset();
 
@@ -254,7 +261,7 @@ public:
 			FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedDelegateHandle);
 
 			// Unregister the asset reimport handler
-			FEditorDelegates::OnAssetReimport.Remove(OnAssetReimportDelegateHandle);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.Remove(OnAssetReimportDelegateHandle);
 		}
 
 		// Unregister the details customization

@@ -1022,7 +1022,7 @@ EReimportResult::Type UReimportFbxSceneFactory::ImportSkeletalMesh(void* VoidRoo
 {
 	UnFbx::FFbxImporter* FbxImporter = (UnFbx::FFbxImporter*)VoidFbxImporter;
 	FbxNode *RootNodeToImport = (FbxNode *)VoidRootNodeToImport;
-	//FEditorDelegates::OnAssetPreImport.Broadcast(this, UStaticMesh::StaticClass(), GWorld, FName(""), TEXT("fbx"));
+	//GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, UStaticMesh::StaticClass(), GWorld, FName(""), TEXT("fbx"));
 	FbxNode *GeometryParentNode = nullptr;
 	//Get the first parent geometry node
 	for (int idx = 0; idx < FbxImporter->Scene->GetGeometryCount(); ++idx)
@@ -1110,7 +1110,7 @@ EReimportResult::Type UReimportFbxSceneFactory::ImportSkeletalMesh(void* VoidRoo
 EReimportResult::Type UReimportFbxSceneFactory::ImportStaticMesh(void* VoidFbxImporter, TSharedPtr<FFbxMeshInfo> MeshInfo, TSharedPtr<FFbxSceneInfo> SceneInfoPtr)
 {
 	UnFbx::FFbxImporter* FbxImporter = (UnFbx::FFbxImporter*)VoidFbxImporter;
-	//FEditorDelegates::OnAssetPreImport.Broadcast(this, UStaticMesh::StaticClass(), GWorld, FName(""), TEXT("fbx"));
+	//GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, UStaticMesh::StaticClass(), GWorld, FName(""), TEXT("fbx"));
 	FbxNode *GeometryParentNode = nullptr;
 	//Get the first parent geometry node
 	for (int idx = 0; idx < FbxImporter->Scene->GetGeometryCount(); ++idx)
