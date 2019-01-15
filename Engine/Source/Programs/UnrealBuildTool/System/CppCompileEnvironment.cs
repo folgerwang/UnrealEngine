@@ -42,6 +42,32 @@ namespace UnrealBuildTool
 	}
 
 	/// <summary>
+	/// Specifies which language standard to use. This enum should be kept in order, so that toolchains can check whether the requested setting is >= values that they support.
+	/// </summary>
+	public enum CppStandardVersion
+	{
+		/// <summary>
+		/// Use the default standard version
+		/// </summary>
+		Default,
+
+		/// <summary>
+		/// Supports C++14
+		/// </summary>
+		Cpp14,
+
+		/// <summary>
+		/// Supports C++17
+		/// </summary>
+		Cpp17,
+
+		/// <summary>
+		/// Latest standard supported by the compiler
+		/// </summary>
+		Latest,
+	}
+
+	/// <summary>
 	/// The optimization level that may be compilation targets for C# files.
 	/// </summary>
 	enum CSharpTargetConfiguration
@@ -91,9 +117,14 @@ namespace UnrealBuildTool
 		public readonly string Architecture;
 
 		/// <summary>
-		/// The directory to shadow source files in for syncing to remote compile servers
+		/// Cache of source file metadata
 		/// </summary>
-		public DirectoryReference LocalShadowDirectory = null;
+		public readonly SourceFileMetadataCache MetadataCache;
+
+		/// <summary>
+		/// Templates for shared precompiled headers
+		/// </summary>
+		public readonly List<PrecompiledHeaderTemplate> SharedPCHs;
 
 		/// <summary>
 		/// The name of the header file which is precompiled.
@@ -104,6 +135,11 @@ namespace UnrealBuildTool
 		/// Whether the compilation should create, use, or do nothing with the precompiled header.
 		/// </summary>
 		public PrecompiledHeaderAction PrecompiledHeaderAction = PrecompiledHeaderAction.None;
+
+		/// <summary>
+		/// Whether artifacts from this compile are shared with other targets. If so, we should not apply any target-wide modifications to the compile environment.
+		/// </summary>
+		public bool bUseSharedBuildEnvironment;
 
 		/// <summary>
 		/// Use run time type information
@@ -267,14 +303,30 @@ namespace UnrealBuildTool
 		public bool bPrintTimingInfo;
 
 		/// <summary>
+		/// Whether to output a dependencies file along with the output build products
+		/// </summary>
+		public bool bGenerateDependenciesFile = true;
+
+		/// <summary>
 		/// When enabled, allows XGE to compile pre-compiled header files on remote machines.  Otherwise, PCHs are always generated locally.
 		/// </summary>
 		public bool bAllowRemotelyCompiledPCHs = false;
 
 		/// <summary>
-		/// The include paths to look for included files in.
+		/// Ordered list of include paths for the module
 		/// </summary>
-		public readonly CppIncludePaths IncludePaths = new CppIncludePaths();
+		public HashSet<DirectoryReference> UserIncludePaths;
+
+		/// <summary>
+		/// The include paths where changes to contained files won't cause dependent C++ source files to
+		/// be recompiled, unless BuildConfiguration.bCheckSystemHeadersForModification==true.
+		/// </summary>
+		public HashSet<DirectoryReference> SystemIncludePaths;
+
+		/// <summary>
+		/// Whether headers in system paths should be checked for modification when determining outdated actions.
+		/// </summary>
+		public bool bCheckSystemHeadersForModification;
 
 		/// <summary>
 		/// List of header files to force include
@@ -302,11 +354,6 @@ namespace UnrealBuildTool
 		public FileItem PrecompiledHeaderFile = null;
 
 		/// <summary>
-		/// Header file cache for this target
-		/// </summary>
-		public CPPHeaders Headers;
-
-		/// <summary>
 		/// Whether or not UHT is being built
 		/// </summary>
 		public bool bHackHeaderGenerator;
@@ -317,14 +364,22 @@ namespace UnrealBuildTool
 		public bool bHideSymbolsByDefault;
 
 		/// <summary>
+		/// Which C++ standard to support. May not be compatible with all platforms.
+		/// </summary>
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
-        public CppCompileEnvironment(CppPlatform Platform, CppConfiguration Configuration, string Architecture, CPPHeaders Headers)
+        public CppCompileEnvironment(CppPlatform Platform, CppConfiguration Configuration, string Architecture, SourceFileMetadataCache MetadataCache)
 		{
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
-			this.Headers = Headers;
+			this.MetadataCache = MetadataCache;
+			this.SharedPCHs = new List<PrecompiledHeaderTemplate>();
+			this.UserIncludePaths = new HashSet<DirectoryReference>();
+			this.SystemIncludePaths = new HashSet<DirectoryReference>();
 		}
 
 		/// <summary>
@@ -336,9 +391,11 @@ namespace UnrealBuildTool
 			Platform = Other.Platform;
 			Configuration = Other.Configuration;
 			Architecture = Other.Architecture;
-			LocalShadowDirectory = Other.LocalShadowDirectory;
+			MetadataCache = Other.MetadataCache;
+			SharedPCHs = Other.SharedPCHs;
 			PrecompiledHeaderIncludeFilename = Other.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = Other.PrecompiledHeaderAction;
+			bUseSharedBuildEnvironment = Other.bUseSharedBuildEnvironment;
 			bUseRTTI = Other.bUseRTTI;
 			bUseInlining = Other.bUseInlining;
 			bUseAVX = Other.bUseAVX;
@@ -370,16 +427,19 @@ namespace UnrealBuildTool
 			PGOFilenamePrefix = Other.PGOFilenamePrefix;
 			PGODirectory = Other.PGODirectory;
 			bPrintTimingInfo = Other.bPrintTimingInfo;
+			bGenerateDependenciesFile = Other.bGenerateDependenciesFile;
 			bAllowRemotelyCompiledPCHs = Other.bAllowRemotelyCompiledPCHs;
-			IncludePaths = new CppIncludePaths(Other.IncludePaths);
+			UserIncludePaths = new HashSet<DirectoryReference>(Other.UserIncludePaths);
+			SystemIncludePaths = new HashSet<DirectoryReference>(Other.SystemIncludePaths);
+			bCheckSystemHeadersForModification = Other.bCheckSystemHeadersForModification;
 			ForceIncludeFiles.AddRange(Other.ForceIncludeFiles);
 			Definitions.AddRange(Other.Definitions);
 			AdditionalArguments = Other.AdditionalArguments;
 			AdditionalFrameworks.AddRange(Other.AdditionalFrameworks);
 			PrecompiledHeaderFile = Other.PrecompiledHeaderFile;
-			Headers = Other.Headers;
 			bHackHeaderGenerator = Other.bHackHeaderGenerator;
 			bHideSymbolsByDefault = Other.bHideSymbolsByDefault;
+			CppStandard = Other.CppStandard;
 		}
 	}
 }

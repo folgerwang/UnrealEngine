@@ -21,14 +21,13 @@
 #include "Templates/IsConstructible.h"
 #include "Templates/AndOrNot.h"
 
-class FFormatArgumentValue;
-class FTextFormatData;
-
 class FText;
 class FTextHistory;
 class FTextFormatData;
+class FFormatArgumentValue;
 class FHistoricTextFormatData;
 class FHistoricTextNumericData;
+class FTextFormatPatternDefinition;
 class ITextGenerator;
 
 //DECLARE_CYCLE_STAT_EXTERN( TEXT("Format Text"), STAT_TextFormat, STATGROUP_Text, );
@@ -120,6 +119,11 @@ namespace EFormatArgumentType
 
 typedef TMap<FString, FFormatArgumentValue, FDefaultSetAllocator, FLocKeyMapFuncs<FFormatArgumentValue>> FFormatNamedArguments;
 typedef TArray<FFormatArgumentValue> FFormatOrderedArguments;
+
+typedef TSharedRef<FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionRef;
+typedef TSharedPtr<FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionPtr;
+typedef TSharedRef<const FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionConstRef;
+typedef TSharedPtr<const FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionConstPtr;
 
 /** Redeclared in KismetTextLibrary for meta-data extraction purposes, be sure to update there as well */
 enum ERoundingMode
@@ -248,11 +252,24 @@ public:
 	FTextFormat(const FText& InText);
 
 	/**
+	 * Construct an instance from an FText and custom format pattern definition.
+	 * The text will be immediately compiled.
+	 */
+	FTextFormat(const FText& InText, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
+
+	/**
 	 * Construct an instance from an FString.
 	 * The string will be immediately compiled.
 	 */
 	static FTextFormat FromString(const FString& InString);
 	static FTextFormat FromString(FString&& InString);
+
+	/**
+	 * Construct an instance from an FString and custom format pattern definition.
+	 * The string will be immediately compiled.
+	 */
+	static FTextFormat FromString(const FString& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
+	static FTextFormat FromString(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
 
 	/**
 	 * Test to see whether this instance contains valid compiled data.
@@ -277,6 +294,11 @@ public:
 	EExpressionType GetExpressionType() const;
 
 	/**
+	 * Get the format pattern definition being used.
+	 */
+	FTextFormatPatternDefinitionConstRef GetPatternDefinition() const;
+
+	/**
 	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
 	 * @return true if the pattern is valid, or false if not (false may also fill in OutValidationErrors).
 	 */
@@ -292,7 +314,7 @@ private:
 	 * Construct an instance from an FString.
 	 * The string will be immediately compiled.
 	 */
-	FTextFormat(FString&& InString);
+	FTextFormat(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
 
 	/** Cached compiled expression data */
 	TSharedRef<FTextFormatData, ESPMode::ThreadSafe> TextFormatData;

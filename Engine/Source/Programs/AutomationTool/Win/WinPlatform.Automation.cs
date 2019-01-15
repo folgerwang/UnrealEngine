@@ -26,9 +26,7 @@ public abstract class BaseWinPlatform : Platform
 			FileReference ReceiptFileName = TargetReceipt.GetDefaultPath(CommandUtils.EngineDirectory, "CrashReportClient", SC.StageTargetPlatform.PlatformType, UnrealTargetConfiguration.Shipping, null);
 			if(FileReference.Exists(ReceiptFileName))
 			{
-				DirectoryReference EngineDir = CommandUtils.EngineDirectory;
-				DirectoryReference ProjectDir = DirectoryReference.FromFile(Params.RawProjectPath);
-				TargetReceipt Receipt = TargetReceipt.Read(ReceiptFileName, EngineDir, ProjectDir);
+				TargetReceipt Receipt = TargetReceipt.Read(ReceiptFileName);
 				SC.StageBuildProductsFromReceipt(Receipt, true, false);
 			}
 		}

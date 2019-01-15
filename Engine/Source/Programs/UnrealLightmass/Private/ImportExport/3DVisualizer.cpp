@@ -228,7 +228,7 @@ void F3DVisualizer::Export( const TCHAR* Filename, bool bShow/*=false*/ )
 	MeshMaterial.pTextureFilename = NULL;
 
 	D3DXEFFECTINSTANCE EffectInstance;
-	EffectInstance.pEffectFilename = "D3DExport.fx";
+	EffectInstance.pEffectFilename = const_cast<char*>("D3DExport.fx");
 	EffectInstance.NumDefaults = 0;
 	EffectInstance.pDefaults = NULL;
 

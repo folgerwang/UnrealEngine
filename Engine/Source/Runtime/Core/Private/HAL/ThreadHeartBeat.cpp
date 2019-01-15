@@ -235,12 +235,7 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 		GLog->PanicFlushThreadedLogs();
 
 		// Skip macros and FDebug, we always want this to fire
-		TArray<FProgramCounterSymbolInfo> Stack;
-		for (int32 Idx = 0; Idx < NumStackFrames; Idx++)
-		{
-			FPlatformStackWalk::ProgramCounterToSymbolInfo(StackFrames[Idx], Stack.AddDefaulted_GetRef());
-		}
-		ReportHang(*ErrorMessage, Stack, ThreadThatHung);
+		ReportHang(*ErrorMessage, StackFrames, NumStackFrames, ThreadThatHung);
 #endif // PLATFORM_DESKTOP
 
 #endif // UE_ASSERT_ON_HANG == 0

@@ -67,6 +67,9 @@ public:
 	/** Destructor. */
 	virtual ~FCrashReportClient();
 
+	/** Stops processing work in the background. */
+	void StopBackgroundThread();
+
 	/** Closes the crash report client without sending any data. Except the startup analytics. */
 	FReply CloseWithoutSending();
 

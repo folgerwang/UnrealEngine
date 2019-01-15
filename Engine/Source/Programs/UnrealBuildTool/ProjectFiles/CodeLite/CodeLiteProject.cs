@@ -34,7 +34,7 @@ namespace UnrealBuildTool
 			return diff.ToString();
 		}
 
-		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			bool bSuccess = false;
 			string ProjectNameRaw = ProjectFilePath.GetFileNameWithoutExtension();
@@ -404,7 +404,7 @@ namespace UnrealBuildTool
 						// Add the working directory for the custom build commands.
 						//
 						XElement CustomBuildWorkingDirectory = new XElement("WorkingDirectory");
-						XText CustuomBuildWorkingDirectory = new XText(Path.GetDirectoryName(UnrealBuildTool.GetUBTPath()));
+						XText CustuomBuildWorkingDirectory = new XText(UnrealBuildTool.GetUBTPath().Directory.FullName);
 						CustomBuildWorkingDirectory.Add(CustuomBuildWorkingDirectory);
 						CodeLiteConfigurationCustomBuild.Add(CustomBuildWorkingDirectory);
 
@@ -420,7 +420,7 @@ namespace UnrealBuildTool
 						XElement CustomBuildCommand = new XElement("BuildCommand");
 						CodeLiteConfigurationCustomBuild.Add(CustomBuildCommand);
 
-						string BuildTarget = Path.GetFileName(UnrealBuildTool.GetUBTPath()) + " " + TargetName + " " + ProjectPlatformName + " " + CurConf.ToString();
+						string BuildTarget = UnrealBuildTool.GetUBTPath().GetFileName() + " " + TargetName + " " + ProjectPlatformName + " " + CurConf.ToString();
 						if( (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64) &&
 							(BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win32))
 						{

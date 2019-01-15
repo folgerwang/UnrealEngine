@@ -46,7 +46,6 @@ public class OpenVR : ModuleRules
 		{
 			string DylibPath = Target.UEThirdPartyBinariesDirectory + "OpenVR/OpenVR" + OpenVRVersion + "/osx32/libopenvr_api.dylib";
 			PublicDelayLoadDLLs.Add(DylibPath);
-			PublicAdditionalShadowFiles.Add(DylibPath);
 			RuntimeDependencies.Add(DylibPath);
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))

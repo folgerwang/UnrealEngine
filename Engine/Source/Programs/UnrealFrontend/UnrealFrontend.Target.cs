@@ -12,7 +12,6 @@ public class UnrealFrontendTarget : TargetRules
 		AdditionalPlugins.Add("UdpMessaging");
         LaunchModuleName = "UnrealFrontend";
 
-		bBuildEditor = false;
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
 		bForceBuildTargetPlatforms = true;

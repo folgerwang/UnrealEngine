@@ -464,21 +464,38 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
 		FMemory::Memzero(OutData, NumFrames * sizeof(AudioSampleType));
 		return -1;
 	}
-	
+
+    
+    
 	if(Channel == 0)
 	{
-		Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->DecompressionState->NumChannels;
-		
-		// Since StreamCompressedData returns interlaced samples we need to decompress all frames(samples) for all channels here so we don't end up decompressing multiple times
-		// Ensure we have enough memory to do this. If needed we could realloc here but that is bad practice inside the audio callback since it has a hard deadline
-		check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize)
-		
-		// Grab the interlaced channel data
-		Source->bChannel0Finished =
-			Source->IOSBuffer->ReadCompressedData(
+		// Grab the interleaved channel data
+		if (Source->IOSBuffer->bIsProcedural)
+		{
+            Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->NumChannels;
+            check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize);
+            
+            FMemory::Memzero(Source->IOSBuffer->SampleData, Source->IOSBuffer->RenderCallbackBufferSize);
+            
+			int32 DataSize = Source->WaveInstance->WaveData->GeneratePCMData(
+				(uint8*) Source->IOSBuffer->SampleData,
+				Source->IOSBuffer->RenderCallbackBufferSize / sizeof(int16));
+			Source->bChannel0Finished = DataSize <= 0;
+		}
+		else
+		{
+			Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->DecompressionState->NumChannels;
+
+			// Since StreamCompressedData returns interlaced samples we need to decompress all frames(samples) for all channels here so we don't end up decompressing multiple times
+			// Ensure we have enough memory to do this. If needed we could realloc here but that is bad practice inside the audio callback since it has a hard deadline
+			check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize);
+
+			Source->bChannel0Finished =
+				Source->IOSBuffer->ReadCompressedData(
 				(uint8*)Source->IOSBuffer->SampleData,
 				MONO_PCM_BUFFER_SAMPLES,
 				Source->WaveInstance->LoopingMode == LOOP_WithNotification || Source->WaveInstance->LoopingMode == LOOP_Forever);
+		}
 	}
     
     // If the channel count is higher than we've expected,

@@ -339,6 +339,8 @@ static int32 MacOSVersionCompare(const NSOperatingSystemVersion& VersionA, const
 
 @end
 
+extern bool GIsConsoleExecutable;
+
 INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 {
 	for (int32 Option = 1; Option < ArgC; Option++)
@@ -366,6 +368,8 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	// On Mac we always want games to save files to user dir instead of inside the app bundle
 	GSavedCommandLine += TEXT(" -installed");
 #endif
+
+	GIsConsoleExecutable = !FCString::Strstr(ArgV[0], TEXT(".app/Contents/MacOS/"));
 
 	// convert $'s to " because Xcode swallows the " and this will allow -execcmds= to be usable from xcode
 	GSavedCommandLine = GSavedCommandLine.Replace(TEXT("$"), TEXT("\""));

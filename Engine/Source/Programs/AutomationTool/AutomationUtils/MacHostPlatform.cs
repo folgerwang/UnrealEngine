@@ -27,7 +27,7 @@ namespace AutomationTool
 			int CmdExeIndex = UE4Exe.IndexOf("-Cmd.exe");
 			if (CmdExeIndex != -1)
 			{
-				UE4Exe = UE4Exe.Substring(0, CmdExeIndex);
+				UE4Exe = UE4Exe.Substring(0, CmdExeIndex + 4);
 			}
 			else
 			{
@@ -37,17 +37,15 @@ namespace AutomationTool
 					UE4Exe = UE4Exe.Substring(0, CmdExeIndex);
 				}
 			}
-			int AppNameIndex = CommandUtils.CmdEnv.LocalRoot.IndexOf("/" + UE4Exe + ".app/Contents/");
-			string EditorExe;
-			if (AppNameIndex != -1) // this is an app with the engine stored inside the app's bundle
+
+			if (UE4Exe.EndsWith("-Cmd", StringComparison.OrdinalIgnoreCase))
 			{
-				EditorExe = CommandUtils.CmdEnv.LocalRoot.Substring(0, AppNameIndex + UE4Exe.Length + 5) + "/Contents/MacOS/" + UE4Exe;
+				return CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RelativeBinariesFolder, UE4Exe);
 			}
 			else
 			{
-				EditorExe = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RelativeBinariesFolder, UE4Exe + ".app/Contents/MacOS", UE4Exe);
+				return CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RelativeBinariesFolder, UE4Exe + ".app/Contents/MacOS", UE4Exe);
 			}
-			return EditorExe;
 		}
 
 		public override string LocalBuildsLogFolder

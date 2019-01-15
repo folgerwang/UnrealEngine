@@ -21,8 +21,6 @@ public class Bolts : ModuleRules
 
             PublicLibraryPaths.Add(LibDir);
             PublicAdditionalLibraries.Add("Bolts");
-
-            PublicAdditionalShadowFiles.Add(LibDir + "/libBolts.a");
         }
     }
 }

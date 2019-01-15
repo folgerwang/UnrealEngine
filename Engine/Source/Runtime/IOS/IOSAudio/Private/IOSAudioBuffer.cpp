@@ -21,20 +21,31 @@
 	FIOSAudioSoundBuffer
  ------------------------------------------------------------------------------------*/
 
-FIOSAudioSoundBuffer::FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming):
+FIOSAudioSoundBuffer::FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming, bool InProcedural):
 	FSoundBuffer(InAudioDevice),
-	SampleData(NULL),
+	SampleData(nullptr),
 	BufferSize(0),
-	bStreaming(InStreaming)
+	DecompressionState(nullptr),
+	bStreaming(InStreaming),
+	bIsProcedural(InProcedural)
 {
-	DecompressionState = static_cast<FADPCMAudioInfo*>(InAudioDevice->CreateCompressedAudioInfo(InWave));
-
-	if (!ReadCompressedInfo(InWave))
+	if (!bIsProcedural)
 	{
-		return;
+		DecompressionState = static_cast<FADPCMAudioInfo*>(InAudioDevice->CreateCompressedAudioInfo(InWave));
+
+		if (!ReadCompressedInfo(InWave))
+		{
+			return;
+		}
+
+		SoundFormat = static_cast<ESoundFormat>(*DecompressionState->WaveInfo.pFormatTag);
 	}
+    else
+    {
+        SoundFormat = SoundFormat_LPCM;
+    }
 	
-	SoundFormat = static_cast<ESoundFormat>(*DecompressionState->WaveInfo.pFormatTag);
+	
 	SampleRate = InWave->GetSampleRateForCurrentPlatform();
 	NumChannels = InWave->NumChannels;
 	BufferSize = AudioCallbackFrameSize * sizeof(uint16) * NumChannels;
@@ -57,16 +68,16 @@ FIOSAudioSoundBuffer::~FIOSAudioSoundBuffer(void)
 		UE_LOG(LogIOSAudio, Fatal, TEXT("Can't free resource '%s' as it was allocated in permanent pool."), *ResourceName);
 	}
 	
-	if(SampleData != NULL)
+	if(SampleData != nullptr)
 	{
 		FMemory::Free(SampleData);
-		SampleData = NULL;
+		SampleData = nullptr;
 	}
 	
-	if(DecompressionState != NULL)
+	if(DecompressionState != nullptr)
 	{
 		delete DecompressionState;
-		DecompressionState = NULL;
+		DecompressionState = nullptr;
 	}
 }
 
@@ -87,7 +98,7 @@ int32 FIOSAudioSoundBuffer::GetSize(void)
 
 int32 FIOSAudioSoundBuffer::GetCurrentChunkIndex() const
 {
-	if(DecompressionState == NULL)
+	if(DecompressionState == nullptr)
 	{
 		return -1;
 	}
@@ -97,7 +108,7 @@ int32 FIOSAudioSoundBuffer::GetCurrentChunkIndex() const
 
 int32 FIOSAudioSoundBuffer::GetCurrentChunkOffset() const
 {
-	if(DecompressionState == NULL)
+	if(DecompressionState == nullptr)
 	{
 		return -1;
 	}
@@ -107,6 +118,8 @@ int32 FIOSAudioSoundBuffer::GetCurrentChunkOffset() const
 
 bool FIOSAudioSoundBuffer::ReadCompressedInfo(USoundWave* InWave)
 {
+	check(DecompressionState != nullptr)
+
 	FSoundQualityInfo QualityInfo = { 0 };
 	if(bStreaming)
 	{
@@ -129,7 +142,10 @@ bool FIOSAudioSoundBuffer::ReadCompressedData( uint8* Destination, int32 NumFram
 	{
 		return DecompressionState->StreamCompressedData(Destination, bLooping, RenderCallbackBufferSize);
 	}
-	return DecompressionState->ReadCompressedData(Destination, bLooping, RenderCallbackBufferSize);
+	else
+	{
+		return DecompressionState->ReadCompressedData(Destination, bLooping, RenderCallbackBufferSize);
+	}
 }
 
 FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::Init(FIOSAudioDevice* IOSAudioDevice, USoundWave* InWave)
@@ -160,13 +176,16 @@ FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::Init(FIOSAudioDevice* IOSAudioDevice
 						
 		case DTYPE_RealTime:
 			// Always create a new FIOSAudioSoundBuffer since positional information about the sound is kept track of in this object
-			Buffer = new FIOSAudioSoundBuffer(IOSAudioDevice, InWave, bIsStreaming);
+			Buffer = new FIOSAudioSoundBuffer(IOSAudioDevice, InWave, bIsStreaming, false);
 			break;
-			
+
+		case DTYPE_Procedural:
+			Buffer = new FIOSAudioSoundBuffer(IOSAudioDevice, InWave, bIsStreaming, true);
+			break;
+
 		case DTYPE_Native:
 		case DTYPE_Invalid:
 		case DTYPE_Preview:
-		case DTYPE_Procedural:
 		default:
 			// Invalid will be set if the wave cannot be played
 			UE_LOG( LogIOSAudio, Warning, TEXT("Init Buffer on unsupported sound type name = %s type = %d"), *InWave->GetName(), int32(InWave->DecompressionType));

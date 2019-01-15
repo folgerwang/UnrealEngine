@@ -29,7 +29,7 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 
 	const bool bReady = WindowsStackWalkExt.InitStackWalking();
 
-	bool bHasAtLeastThreeValidFunctions = false;
+	bool bResult = false;
 	if( bReady && WindowsStackWalkExt.OpenDumpFile( InCrashDumpFilename ) )
 	{
 		if (CrashInfo.BuiltFromCL != FCrashInfo::INVALID_CHANGELIST)
@@ -71,7 +71,7 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 				WindowsStackWalkExt.GetExceptionInfo();
 
 				// Get the callstacks for each thread
-				bHasAtLeastThreeValidFunctions = WindowsStackWalkExt.GetCallstacks(!bNoTrim) >= 3;
+				WindowsStackWalkExt.GetCallstacks();
 
 				// Sync the source file where the crash occurred
 				if (CrashInfo.SourceFile.Len() > 0)
@@ -97,6 +97,9 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 						SyncAndReadSourceFile(bSyncSymbols, bAnnotate, CrashInfo.BuiltFromCL);
 					}
 				}
+
+				// Set the result
+				bResult = true;
 			}
 			else
 			{
@@ -118,7 +121,7 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 		ShutdownSourceControl();
 	}
 
-	return bHasAtLeastThreeValidFunctions;
+	return bResult;
 }
 
 bool FCrashDebugHelperWindows::InitSymbols(FWindowsPlatformStackWalkExt& WindowsStackWalkExt, bool bSyncSymbols)

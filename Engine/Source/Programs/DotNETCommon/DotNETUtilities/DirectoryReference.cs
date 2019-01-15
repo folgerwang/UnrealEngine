@@ -231,7 +231,31 @@ namespace Tools.DotNETCommon
 		/// <returns>The directory containing the file  </returns>
 		public static DirectoryReference FromFile(FileReference File)
 		{
-			return (File == null)? null : File.Directory;
+			if(File == null)
+			{
+				return null;
+			}
+			else
+			{
+				return File.Directory;
+			}
+		}
+
+		/// <summary>
+		/// Create a DirectoryReference from a string. If the string is null, returns a null DirectoryReference.
+		/// </summary>
+		/// <param name="DirectoryName">Path for the new object</param>
+		/// <returns>Returns a FileReference representing the given string, or null.</returns>
+		public static DirectoryReference FromString(string DirectoryName)
+		{
+			if(String.IsNullOrEmpty(DirectoryName))
+			{
+				return null;
+			}
+			else
+			{
+				return new DirectoryReference(DirectoryName);
+			}
 		}
 
 		#region System.IO.Directory Wrapper Methods
@@ -403,6 +427,41 @@ namespace Tools.DotNETCommon
 		{
 			string FullName = Reader.ReadString();
 			return (FullName.Length == 0) ? null : new DirectoryReference(FullName, DirectoryReference.Sanitize.None);
+		}
+
+		/// <summary>
+		/// Writes a directory reference  to a binary archive
+		/// </summary>
+		/// <param name="Writer">The writer to output data to</param>
+		/// <param name="Directory">The item to write</param>
+		public static void WriteDirectoryReference(this BinaryArchiveWriter Writer, DirectoryReference Directory)
+		{
+			if(Directory == null)
+			{
+				Writer.WriteString(null);
+			}
+			else
+			{
+				Writer.WriteString(Directory.FullName);
+			}
+		}
+
+		/// <summary>
+		/// Reads a directory reference from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>New directory reference instance</returns>
+		public static DirectoryReference ReadDirectoryReference(this BinaryArchiveReader Reader)
+		{
+			string FullName = Reader.ReadString();
+			if(FullName == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new DirectoryReference(FullName, DirectoryReference.Sanitize.None);
+			}
 		}
 	}
 }

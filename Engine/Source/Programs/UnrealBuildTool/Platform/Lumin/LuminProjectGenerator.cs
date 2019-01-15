@@ -12,10 +12,19 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class LuminProjectGenerator : UEPlatformProjectGenerator
+	class LuminProjectGenerator : PlatformProjectGenerator
 	{
 		static bool VSSupportChecked = false;       // Don't want to check multiple times
 		static bool VSDebuggingEnabled = false;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public LuminProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
+		{
+		}
 
 		private bool IsVSLuminSupportInstalled(VCProjectFileFormat ProjectFileFormat)
 		{
@@ -29,12 +38,11 @@ namespace UnrealBuildTool
 		}
 		
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Lumin.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Lumin, this);
+			yield return UnrealTargetPlatform.Lumin;
 		}
 
 		/// <summary>

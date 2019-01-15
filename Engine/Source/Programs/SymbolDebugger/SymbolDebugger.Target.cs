@@ -14,10 +14,7 @@ public class SymbolDebuggerTarget : TargetRules
 		LaunchModuleName = "SymbolDebugger";
         ExtraModuleNames.Add("EditorStyle");
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// SymbolDebugger doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

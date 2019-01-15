@@ -115,7 +115,7 @@ namespace BuildGraph.Tasks
 
 			// Try to load it
 			TargetReceipt Receipt;
-			if(!TargetReceipt.TryRead(ReceiptFileName, SourceEngineDir, SourceProjectDir, out Receipt))
+			if(!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 			{
 				throw new AutomationException("Couldn't read receipt '{0}'", ReceiptFileName);
 			}

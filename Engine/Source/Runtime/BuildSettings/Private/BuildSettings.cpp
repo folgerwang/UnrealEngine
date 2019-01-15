@@ -23,6 +23,11 @@ namespace BuildSettings
 	{
 		return TEXT(BRANCH_NAME);
 	}
+	
+	const TCHAR* GetBuildDate()
+	{
+		return TEXT(__DATE__);
+	}
 
 	const TCHAR* GetBuildVersion()
 	{

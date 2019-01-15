@@ -19,9 +19,8 @@ public class BootstrapPackagedGameTarget : TargetRules
 		bUseMallocProfiler = false;
 
 		// Disable all parts of the editor.
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bCompileICU = false;
-		bBuildEditor = false;
 		bBuildWithEditorOnlyData = false;
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = false;
