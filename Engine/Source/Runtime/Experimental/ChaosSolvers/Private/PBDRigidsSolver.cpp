@@ -31,8 +31,8 @@ namespace Chaos
 			: MScene(Scene)
 			, MDeltaTime(DeltaTime)
 			, PrevLock(PrevFrameLock)
-			, PrevEvent(PrevFrameEvent)
 			, CurrentLock(CurrentFrameLock)
+			, PrevEvent(PrevFrameEvent)
 			, CurrentEvent(CurrentFrameEvent)
 		{
 			UE_LOG(LogPBDRigidsSolverSolver, Verbose, TEXT("AdvanceOneTimeStepTask::AdvanceOneTimeStepTask()"));
@@ -99,8 +99,8 @@ namespace Chaos
 		, bHasFloor(true)
 		, bIsFloorAnalytic(false)
 		, FloorHeight(0.f)
-		, MCurrentLock(nullptr)
 		, MCurrentEvent(nullptr)
+		, MCurrentLock(nullptr)
 		, MaxCollisionDataSize(1024)
 		, CollisionDataTimeWindow(0.1f)
 		, DoCollisionDataSpatialHash(true)
