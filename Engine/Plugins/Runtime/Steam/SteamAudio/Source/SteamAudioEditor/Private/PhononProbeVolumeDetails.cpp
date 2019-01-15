@@ -189,7 +189,7 @@ namespace SteamAudio
 		Async<void>(EAsyncExecution::Thread, [PhononProbeVolumeHandle]()
 		{
 			// Load the scene
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			IPLhandle PhononScene = nullptr;
 			FPhononSceneInfo PhononSceneInfo;
 

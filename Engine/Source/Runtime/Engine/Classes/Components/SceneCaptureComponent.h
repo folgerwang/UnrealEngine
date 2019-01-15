@@ -152,7 +152,7 @@ public:
 
 	/** Clears the Show Only list. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")
-	void ClearShowOnlyComponents(UPrimitiveComponent* InComponent);
+	void ClearShowOnlyComponents();
 
 	/** Clears the hidden list. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")

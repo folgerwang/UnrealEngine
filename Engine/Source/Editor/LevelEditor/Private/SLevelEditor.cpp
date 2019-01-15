@@ -160,6 +160,16 @@ void SLevelEditor::Construct( const SLevelEditor::FArguments& InArgs)
 	// @todo This is a hack to get this working for now. This won't work with multiple worlds
 	GEditor->GetEditorWorldContext(true).AddRef(World);
 
+	// Set the initial preview feature level.
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	World->ChangeFeatureLevel(Editor->PreviewFeatureLevel);
+
+	// Patch into the OnPreviewFeatureLevelChanged() delegate to swap out the current feature level with a user selection.
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			World->ChangeFeatureLevel(NewFeatureLevel);
+		});
+
 	FEditorDelegates::MapChange.AddRaw(this, &SLevelEditor::HandleEditorMapChange);
 	HandleEditorMapChange(MapChangeEventFlags::NewMap);
 }
@@ -278,6 +288,8 @@ SLevelEditor::~SLevelEditor()
 
 	FEditorDelegates::MapChange.RemoveAll(this);
 
+	CastChecked<UEditorEngine>(GEngine)->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+	
 	if (GEditor)
 	{
 		GEditor->GetEditorWorldContext(true).RemoveRef(World);
@@ -1141,6 +1153,7 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 		(
 			FTabManager::NewPrimaryArea()
 			->SetOrientation( Orient_Horizontal )
+			->SetExtensionId( "TopLevelArea" )
 			->Split
 			(
 				FTabManager::NewSplitter()

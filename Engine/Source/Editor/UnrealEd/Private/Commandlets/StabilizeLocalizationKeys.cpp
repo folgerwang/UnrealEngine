@@ -102,9 +102,9 @@ public:
 					if (StructVariableDesc.Category == TextCategory)
 					{
 						FText StructVariableValue;
-						if (FTextStringHelper::ReadFromString(*StructVariableDesc.DefaultValue, StructVariableValue) && KeyText(StructVariableValue))
+						if (FTextStringHelper::ReadFromBuffer(*StructVariableDesc.DefaultValue, StructVariableValue) && KeyText(StructVariableValue))
 						{
-							FTextStringHelper::WriteToString(StructVariableDesc.DefaultValue, StructVariableValue);
+							FTextStringHelper::WriteToBuffer(StructVariableDesc.DefaultValue, StructVariableValue);
 						}
 					}
 				}

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DisplayClusterVrpnButtonInputDataHolder.h"
+#include "Input/Devices/VRPN/Button/DisplayClusterVrpnButtonInputDataHolder.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"

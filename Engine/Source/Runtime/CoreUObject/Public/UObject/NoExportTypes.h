@@ -369,7 +369,7 @@ struct FVector4
 };
 
 /**
-* A point or direction FVector in 2d space.
+* A vector in 2-D space composed of components (X, Y) with floating point precision.
 * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector2D.h
 */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeVector2D", HasNativeBreak="Engine.KismetMathLibrary.BreakVector2D"))
@@ -534,7 +534,7 @@ struct FIntVector
 
 
 /**
- * A Color (BGRA).
+ * Stores a color with 8 bits of precision per channel. (BGRA).
  * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
@@ -556,7 +556,7 @@ struct FColor
 
 
 /**
- * A linear color.
+ * A linear, 32-bit/component floating point RGBA color.
  * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
  */
 USTRUCT(immutable, noexport, BlueprintType)

@@ -910,6 +910,7 @@ PyTypeObject InitializePyWrapperStructType()
 		DEFINE_BINARY_OPERATOR_FUNC(InlineRightShift)
 		DEFINE_BINARY_OPERATOR_FUNC(LeftShift)
 		DEFINE_BINARY_OPERATOR_FUNC(InlineLeftShift)
+		DEFINE_UNARY_OPERATOR_FUNC(Negated)
 	};
 #undef DEFINE_INQUIRY_OPERATOR_FUNC
 #undef DEFINE_UNARY_OPERATOR_FUNC
@@ -1168,6 +1169,7 @@ PyTypeObject InitializePyWrapperStructType()
 	PyNumber.nb_inplace_rshift = (binaryfunc)&FNumberFuncs::InlineRightShift;
 	PyNumber.nb_lshift = (binaryfunc)&FNumberFuncs::LeftShift;
 	PyNumber.nb_inplace_lshift = (binaryfunc)&FNumberFuncs::InlineLeftShift;
+	PyNumber.nb_negative = (unaryfunc)&FNumberFuncs::Negated;
 
 	PyType.tp_as_number = &PyNumber;
 

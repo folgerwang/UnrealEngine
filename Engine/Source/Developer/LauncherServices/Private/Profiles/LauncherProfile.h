@@ -1873,6 +1873,20 @@ public:
 					EditorExe.Empty();
 				}
 			}
+#elif PLATFORM_MAC
+			// turn UE4editor into UE4editor-cmd
+			if (!FPaths::GetBaseFilename(EditorExe).EndsWith("-cmd", ESearchCase::IgnoreCase))
+			{
+				FString NewExeName = EditorExe + "-Cmd";
+				if (FPaths::FileExists(NewExeName))
+				{
+					EditorExe = NewExeName;
+				}
+				else
+				{
+					EditorExe.Empty();
+				}
+			}
 #endif
 		}
 		else

@@ -238,17 +238,12 @@ namespace UnrealBuildTool
 				throw new BuildException("LTO (LTCG) for modular builds is not supported (lld is not currently used for dynamic libraries).");
 			}
 
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
 
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 
@@ -266,13 +261,6 @@ namespace UnrealBuildTool
 			if (Target.Architecture.StartsWith("aarch64") || Target.Architecture.StartsWith("i686"))
 			{
 				Target.bCompileICU = false;
-			}
-
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// When generating project files we need intellisense generator to include info from all modules,
-				// including editor-only third party libs
-				Target.bCompileLeanAndMeanUE = false;
 			}
 		}
 
@@ -404,14 +392,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		public override string ConvertPath(string OriginalPath)
-		{
-			return LinuxToolChain.ConvertPath(OriginalPath);
-		}
-
-		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>
@@ -469,13 +449,11 @@ namespace UnrealBuildTool
 		/// <param name="LinkEnvironment">The link environment for this target</param>
 		public override void SetUpEnvironment(ReadOnlyTargetRules Target, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
-
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
 			string BaseLinuxPath = SDK.GetBaseLinuxPathForArchitecture(Target.Architecture);
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux && String.IsNullOrEmpty(BaseLinuxPath))
 			{
-				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
+				CompileEnvironment.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
@@ -546,8 +524,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
 		}
 	}
@@ -783,7 +761,7 @@ namespace UnrealBuildTool
 
 	class LinuxPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Linux; }
 		}
@@ -791,10 +769,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			LinuxPlatformSDK SDK = new LinuxPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid))
 			{

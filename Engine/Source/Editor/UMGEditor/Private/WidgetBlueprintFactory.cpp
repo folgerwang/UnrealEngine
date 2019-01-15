@@ -8,10 +8,8 @@
 #include "WidgetBlueprint.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
-
-
-#include "Components/CanvasPanel.h"
 #include "Blueprint/WidgetTree.h"
+#include "UMGEditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "UWidgetBlueprintFactory"
 
@@ -53,19 +51,22 @@ UObject* UWidgetBlueprintFactory::FactoryCreateNew(UClass* Class, UObject* InPar
 	if ( ( ParentClass == NULL ) || !FKismetEditorUtilities::CanCreateBlueprintOfClass(ParentClass) || !ParentClass->IsChildOf(UUserWidget::StaticClass()) )
 	{
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("ClassName"), (ParentClass != NULL) ? FText::FromString( ParentClass->GetName() ) : LOCTEXT("Null", "(null)") );
+		Args.Add( TEXT("ClassName"), ParentClass ? FText::FromString( ParentClass->GetName() ) : LOCTEXT("Null", "(null)") );
 		FMessageDialog::Open( EAppMsgType::Ok, FText::Format( LOCTEXT("CannotCreateWidgetBlueprint", "Cannot create a Widget Blueprint based on the class '{ClassName}'."), Args ) );
-		return NULL;
+		return nullptr;
 	}
 	else
 	{
 		UWidgetBlueprint* NewBP = CastChecked<UWidgetBlueprint>(FKismetEditorUtilities::CreateBlueprint(ParentClass, InParent, Name, BlueprintType, UWidgetBlueprint::StaticClass(), UWidgetBlueprintGeneratedClass::StaticClass(), CallingContext));
 
-		// Create a CanvasPanel to use as the default root widget
+		// Create the desired root widget specified by the project
 		if ( NewBP->WidgetTree->RootWidget == nullptr )
 		{
-			UWidget* Root = NewBP->WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass());
-			NewBP->WidgetTree->RootWidget = Root;
+			if (TSubclassOf<UPanelWidget> RootWidgetClass = GetDefault<UUMGEditorProjectSettings>()->DefaultRootWidget)
+			{
+				UWidget* Root = NewBP->WidgetTree->ConstructWidget<UWidget>(RootWidgetClass);
+				NewBP->WidgetTree->RootWidget = Root;
+			}
 		}
 
 		return NewBP;

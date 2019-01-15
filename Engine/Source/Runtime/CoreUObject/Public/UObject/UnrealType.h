@@ -1953,6 +1953,14 @@ public:
 	// Returns the qualified export path for a given object, parent, and export root scope
 	static FString GetExportPath(const UObject* Object, const UObject* Parent, const UObject* ExportRootScope, const uint32 PortFlags);
 
+	virtual UObject* LoadObjectPropertyValue(const void* PropertyValueAddress) const
+	{
+		return GetObjectPropertyValue(PropertyValueAddress);
+	}
+	FORCEINLINE UObject* LoadObjectPropertyValue_InContainer(const void* PropertyValueAddress, int32 ArrayIndex = 0) const
+	{
+		return LoadObjectPropertyValue(ContainerPtrToValuePtr<void>(PropertyValueAddress, ArrayIndex));
+	}
 	virtual UObject* GetObjectPropertyValue(const void* PropertyValueAddress) const;
 	FORCEINLINE UObject* GetObjectPropertyValue_InContainer(const void* PropertyValueAddress, int32 ArrayIndex = 0) const
 	{
@@ -2176,6 +2184,7 @@ class COREUOBJECT_API USoftObjectProperty : public TUObjectPropertyBase<FSoftObj
 	// End of UProperty interface
 
 	// UObjectProperty interface
+	virtual UObject* LoadObjectPropertyValue(const void* PropertyValueAddress) const override;
 	virtual UObject* GetObjectPropertyValue(const void* PropertyValueAddress) const override;
 	virtual void SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const override;
 	virtual bool AllowCrossLevel() const override;
@@ -3284,6 +3293,20 @@ public:
 		return Result;
 	}
 
+	/** Finds the associated pair from hash, rather than linearly searching */
+	uint8* FindMapPairPtrFromHash(const void* KeyPtr)
+	{
+		UProperty* LocalKeyPropForCapture = KeyProp;
+		int32 Index = Map->FindPairIndex(
+			KeyPtr,
+			MapLayout,
+			[LocalKeyPropForCapture](const void* ElementKey) { return LocalKeyPropForCapture->GetValueTypeHash(ElementKey); },
+			[LocalKeyPropForCapture](const void* A, const void* B) { return LocalKeyPropForCapture->Identical(A, B); }
+			);
+		uint8* Result = (Index >= 0) ? GetPairPtr(Index) : nullptr;
+		return Result;
+	}
+
 	/** Finds the associated value from hash, rather than linearly searching */
 	uint8* FindValueFromHash(const void* KeyPtr)
 	{
@@ -3818,6 +3841,14 @@ public:
 			[LocalElementPropForCapture](const void* Element) { return LocalElementPropForCapture->GetValueTypeHash(Element); },
 			[LocalElementPropForCapture](const void* A, const void* B) { return LocalElementPropForCapture->Identical(A, B); }
 		);
+	}
+
+	/** Finds element pointer from hash, rather than linearly searching */
+	FORCEINLINE uint8* FindElementPtrFromHash(const void* ElementToFind)
+	{
+		const int32 Index = FindElementIndexFromHash(ElementToFind);
+		uint8* Result = (Index >= 0 ? GetElementPtr(Index) : nullptr);
+		return Result;
 	}
 
 	/** Adds the element to the set, returning true if the element was added, or false if the element was already present */

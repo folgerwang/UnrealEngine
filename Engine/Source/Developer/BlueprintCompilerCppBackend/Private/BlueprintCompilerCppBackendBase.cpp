@@ -1020,10 +1020,10 @@ void FBlueprintCompilerCppBackendBase::GenerateCodeFromEnum(UUserDefinedEnum* So
 	{
 		const FString ElemName = EnumItemName(Index);
 		FString DisplayNameStr;
-		FTextStringHelper::WriteToString(DisplayNameStr, SourceEnum->GetDisplayNameTextByIndex(Index));
+		FTextStringHelper::WriteToBuffer(DisplayNameStr, SourceEnum->GetDisplayNameTextByIndex(Index));
 		Body.AddLine(FString::Printf(TEXT("case %s::%s: FTextStringHelper::%s(TEXT(\"%s\"), Text); break;")
 			, *EnumCppName, *ElemName
-			, GET_FUNCTION_NAME_STRING_CHECKED(FTextStringHelper, ReadFromString)
+			, GET_FUNCTION_NAME_STRING_CHECKED(FTextStringHelper, ReadFromBuffer)
 			, *DisplayNameStr.ReplaceCharWithEscapedChar()));
 	}
 

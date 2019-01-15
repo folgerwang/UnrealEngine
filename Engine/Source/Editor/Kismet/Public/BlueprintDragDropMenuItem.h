@@ -27,7 +27,7 @@ class UEdGraph;
  * the proper FDragDropOperation.
  */
 USTRUCT()
-struct FBlueprintDragDropMenuItem : public FEdGraphSchemaAction
+struct KISMET_API FBlueprintDragDropMenuItem : public FEdGraphSchemaAction
 {
 	GENERATED_USTRUCT_BODY();
 	

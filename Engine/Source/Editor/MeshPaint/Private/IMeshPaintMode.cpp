@@ -358,9 +358,8 @@ void IMeshPaintEdMode::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNe
 void IMeshPaintEdMode::OnResetViewMode()
 {
 	// Reset viewport color mode for all active viewports
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->AllViewportClients.Num(); ++ViewIndex)
+	for(FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->AllViewportClients[ViewIndex];
 		if (!ViewportClient || ViewportClient->GetModeTools() != GetModeManager())
 		{
 			continue;
@@ -390,13 +389,13 @@ void IMeshPaintEdMode::Render( const FSceneView* View, FViewport* Viewport, FPri
 		/** If we are currently painting with a VR interactor, apply paint for the current vr interactor state/position */
 		if (PaintingWithInteractorInVR != nullptr)
 		{
-			UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(PaintingWithInteractorInVR);
+			UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(PaintingWithInteractorInVR);
 			FVector LaserPointerStart, LaserPointerEnd;
-			if (VRInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
+			if (VREditorInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
 			{
 				const FVector LaserPointerDirection = (LaserPointerEnd - LaserPointerStart).GetSafeNormal();
 				UVREditorMode* VREditorMode = Cast<UVREditorMode>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UVREditorMode::StaticClass()));
-				MeshPainter->PaintVR(Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VRInteractor);
+				MeshPainter->PaintVR(Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VREditorInteractor);
 			}
 		}
 		else if (MeshPainter->GetBrushSettings()->bEnableFlow)
@@ -465,18 +464,18 @@ void IMeshPaintEdMode::OnVRAction( class FEditorViewportClient& ViewportClient, 
 	const FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled )
 {
 	UVREditorMode* VREditorMode = Cast<UVREditorMode>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UVREditorMode::StaticClass()));
-	UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
-	if (VREditorMode != nullptr && VREditorMode->IsActive() && VRInteractor != nullptr && VRInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing)
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(Interactor);
+	if (VREditorMode != nullptr && VREditorMode->IsActive() && VREditorInteractor != nullptr && VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing)
 	{
 		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
 		{
-			if (!MeshPainter->IsPainting() && Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverPriorityType())
+			if (!MeshPainter->IsPainting() && Action.Event == IE_Pressed && !VREditorInteractor->IsHoveringOverPriorityType())
 			{
 				// Check to see that we're clicking on a selected object.  You can only paint on selected things.  Otherwise,
 				// we'll fall through to the normal interaction code which might cause the object to become selected.
 				bool bIsClickingOnSelectedObject = false;
 				{
-					FHitResult HitResult = VRInteractor->GetHitResultFromLaserPointer();
+					FHitResult HitResult = VREditorInteractor->GetHitResultFromLaserPointer();
 					if( HitResult.Actor.IsValid() )
 					{
 						UViewportWorldInteraction& WorldInteraction = VREditorMode->GetWorldInteraction();
@@ -513,10 +512,10 @@ void IMeshPaintEdMode::OnVRAction( class FEditorViewportClient& ViewportClient, 
 						const FVector LaserPointerDirection = ( LaserPointerEnd - LaserPointerStart ).GetSafeNormal();
 
 						/** Apply painting using the current state/position of the VR interactor */
-						const bool bAnyPaintableActorsUnderCursor = MeshPainter->PaintVR( ViewportClient.Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VRInteractor);
+						const bool bAnyPaintableActorsUnderCursor = MeshPainter->PaintVR( ViewportClient.Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VREditorInteractor);
 						if (bAnyPaintableActorsUnderCursor)
 						{
-							PaintingWithInteractorInVR = VRInteractor;
+							PaintingWithInteractorInVR = VREditorInteractor;
 							ViewportClient.bLockFlightCamera = true;
 						}
 					}

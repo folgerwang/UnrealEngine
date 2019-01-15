@@ -92,6 +92,9 @@ protected:
 	/** only process packages containing materials **/
 	bool bOnlyMaterials;
 
+	/** Only save packages with a changelist of zero **/
+	bool bOnlyUnversioned;
+
 	/** Ignore package version changelist **/
 	bool bIgnoreChangelist;
 

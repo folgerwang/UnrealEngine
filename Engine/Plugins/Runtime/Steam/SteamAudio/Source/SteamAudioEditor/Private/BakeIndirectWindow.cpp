@@ -125,7 +125,7 @@ namespace SteamAudio
 	 */
 	TSharedRef<ITableRow> FBakeIndirectWindow::OnGenerateBakedSourceRow(TSharedPtr<FBakedSource> Item, const TSharedRef<STableViewBase>& OwnerTable)
 	{
-		auto World = GEditor->LevelViewportClients[0]->GetWorld();
+		auto World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 
 		TArray<AActor*> PhononProbeVolumes;
 		UGameplayStatics::GetAllActorsOfClass(World, APhononProbeVolume::StaticClass(), PhononProbeVolumes);
@@ -204,7 +204,7 @@ namespace SteamAudio
 	 */
 	void FBakeIndirectWindow::RefreshBakedSources()
 	{
-		auto World = GEditor->LevelViewportClients[0]->GetWorld();
+		auto World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 
 		// Clear old data
 		BakedSources.Empty();

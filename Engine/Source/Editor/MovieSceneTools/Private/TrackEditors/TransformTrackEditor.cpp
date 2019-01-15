@@ -98,12 +98,8 @@ F3DTransformTrackEditor::F3DTransformTrackEditor( TSharedRef<ISequencer> InSeque
 	: FKeyframeTrackEditor<UMovieScene3DTransformTrack>( InSequencer ) 
 {
 	// Listen for actor/component movement
-	GEditor->OnBeginObjectMovement().AddRaw( this, &F3DTransformTrackEditor::OnPreTransformChanged );
-	GEditor->OnEndObjectMovement().AddRaw( this, &F3DTransformTrackEditor::OnTransformChanged );
-
-	// Listen for the viewport's viewed through camera starts and stops movement
-	GEditor->OnBeginCameraMovement().AddRaw( this, &F3DTransformTrackEditor::OnPreTransformChanged );
-	GEditor->OnEndCameraMovement().AddRaw( this, &F3DTransformTrackEditor::OnTransformChanged );
+	FCoreUObjectDelegates::OnPreObjectPropertyChanged.AddRaw(this, &F3DTransformTrackEditor::OnPrePropertyChanged);
+	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &F3DTransformTrackEditor::OnPostPropertyChanged);
 
 	F3DTransformTrackCommands::Register();
 }
@@ -113,14 +109,10 @@ F3DTransformTrackEditor::~F3DTransformTrackEditor()
 {
 }
 
-
 void F3DTransformTrackEditor::OnRelease()
 {
-	GEditor->OnBeginObjectMovement().RemoveAll( this );
-	GEditor->OnEndObjectMovement().RemoveAll( this );
-
-	GEditor->OnBeginCameraMovement().RemoveAll( this );
-	GEditor->OnEndCameraMovement().RemoveAll( this );
+	FCoreUObjectDelegates::OnPreObjectPropertyChanged.RemoveAll(this);
+	FCoreUObjectDelegates::OnObjectPropertyChanged.RemoveAll(this);
 
 	const F3DTransformTrackCommands& Commands = F3DTransformTrackCommands::Get();
 	Commands.BindingCount--;
@@ -130,7 +122,13 @@ void F3DTransformTrackEditor::OnRelease()
 		F3DTransformTrackCommands::Unregister();
 	}
 
-	ClearLockedCameras(nullptr);
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+	{
+		if (LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown)
+		{
+			LevelVC->ViewFOV = LevelVC->FOVAngle;
+		}
+	}
 }
 
 
@@ -290,7 +288,23 @@ void F3DTransformTrackEditor::OnPreTransformChanged( UObject& InObject )
 			if (!bObjectHasTransformTrack && !bComponentHasTransformTrack)
 			{
 				TOptional<FTransformData> LastTransform;
-				AddTransformKeys(bComponentHasTransformTrack ? SceneComponentThatChanged : &InObject, LastTransform, Transform, EMovieSceneTransformChannel::All, ESequencerKeyMode::AutoKey);
+
+				UObject* ObjectToKey = nullptr;
+				if (bComponentHasTransformTrack)
+				{
+					ObjectToKey = SceneComponentThatChanged;
+				}
+				// If the root component broadcasts a change, we want to key the actor instead
+				else if (ActorThatChanged && ActorThatChanged->GetRootComponent() == &InObject)
+				{
+					ObjectToKey = ActorThatChanged;
+				}
+				else
+				{
+					ObjectToKey = &InObject;
+				}
+
+				AddTransformKeys(ObjectToKey, LastTransform, Transform, EMovieSceneTransformChannel::All, ESequencerKeyMode::AutoKey);
 			}
 		}
 	}
@@ -327,18 +341,60 @@ void F3DTransformTrackEditor::OnTransformChanged( UObject& InObject )
 
 		bool bComponentHasTransformTrack = HasTransformTrack(*SceneComponentThatChanged);
 
-		AddTransformKeys(bComponentHasTransformTrack ? SceneComponentThatChanged : &InObject, ExistingTransform, NewTransformData, EMovieSceneTransformChannel::All, ESequencerKeyMode::AutoKey);
+		UObject* ObjectToKey = nullptr;
+		if (bComponentHasTransformTrack)
+		{
+			ObjectToKey = SceneComponentThatChanged;
+		}
+		// If the root component broadcasts a change, we want to key the actor instead
+		else if (Actor && Actor->GetRootComponent() == &InObject)
+		{
+			ObjectToKey = Actor;
+		}
+		else
+		{
+			ObjectToKey = &InObject;
+		}
+
+		AddTransformKeys(ObjectToKey, ExistingTransform, NewTransformData, EMovieSceneTransformChannel::All, ESequencerKeyMode::AutoKey);
 	}
 }
 
+void F3DTransformTrackEditor::OnPrePropertyChanged(UObject* InObject, const FEditPropertyChain& InPropertyChain)
+{
+	UProperty* PropertyAboutToChange = InPropertyChain.GetActiveMemberNode()->GetValue();
+	const FName MemberPropertyName = PropertyAboutToChange != nullptr ? PropertyAboutToChange->GetFName() : NAME_None;
+	const bool bTransformationToChange =
+		(MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation) ||
+		 MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation) ||
+		 MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D));
+
+	if (InObject && bTransformationToChange)
+	{
+		OnPreTransformChanged(*InObject);
+	}
+}
+
+void F3DTransformTrackEditor::OnPostPropertyChanged(UObject* InObject, FPropertyChangedEvent& InPropertyChangedEvent)
+{
+	const FName MemberPropertyName = InPropertyChangedEvent.MemberProperty != nullptr ? InPropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+	const bool bTransformationChanged =
+		(MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation) ||
+			MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation) ||
+			MemberPropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D));
+
+	if (InObject && bTransformationChanged)
+	{
+		OnTransformChanged(*InObject);
+	}
+}
 
 void F3DTransformTrackEditor::OnAddTransformKeysForSelectedObjects( EMovieSceneTransformChannel Channel )
 {
 	// WASD hotkeys to fly the viewport can conflict with hotkeys for setting keyframes (ie. s). 
 	// If the viewport is moving, disregard setting keyframes.
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
-	{		
-		FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+	{
 		if (LevelVC && LevelVC->IsMovingCamera())
 		{
 			return;
@@ -497,11 +553,9 @@ ECheckBoxState F3DTransformTrackEditor::IsCameraLocked(FGuid ObjectGuid) const
 		// First, check the active viewport
 		FViewport* ActiveViewport = GEditor->GetActiveViewport();
 
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
-		{		
-			FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
-
-			if (LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown)
+		for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+		{
+			if (LevelVC && LevelVC->GetViewMode() != VMI_Unknown)
 			{
 				if (LevelVC->Viewport == ActiveViewport)
 				{
@@ -518,11 +572,9 @@ ECheckBoxState F3DTransformTrackEditor::IsCameraLocked(FGuid ObjectGuid) const
 		}
 
 		// Otherwise check all other viewports
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
-		{		
-			FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
-
-			if (LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown && CameraActor.IsValid() && LevelVC->IsActorLocked(CameraActor.Get()))
+		for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+		{
+			if (LevelVC && LevelVC->GetViewMode() != VMI_Unknown && CameraActor.IsValid() && LevelVC->IsActorLocked(CameraActor.Get()))
 			{
 				return ECheckBoxState::Checked;
 			}
@@ -556,10 +608,9 @@ void F3DTransformTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState, 
 
 		FLevelEditorViewportClient* LevelVC = nullptr;
 
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
+		for(FLevelEditorViewportClient* Viewport : GEditor->GetLevelViewportClients())
 		{		
-			FLevelEditorViewportClient* Viewport = GEditor->LevelViewportClients[i];
-			if (Viewport && Viewport->IsPerspective() && Viewport->GetViewMode() != VMI_Unknown)
+			if (Viewport && Viewport->GetViewMode() != VMI_Unknown && Viewport->AllowsCinematicControl())
 			{
 				LevelVC = Viewport;
 
@@ -572,6 +623,16 @@ void F3DTransformTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState, 
 
 		if (LevelVC != nullptr && CameraActor.IsValid())
 		{
+			UCameraComponent* CameraComponent = MovieSceneHelpers::CameraComponentFromActor(CameraActor.Get());
+
+			if (CameraComponent && CameraComponent->ProjectionMode == ECameraProjectionMode::Type::Perspective)
+			{
+				if (LevelVC->GetViewportType() != LVT_Perspective)
+				{
+					LevelVC->SetViewportType(LVT_Perspective);
+				}
+			}
+
 			GetSequencer()->SetPerspectiveViewportCameraCutEnabled(false);
 			LevelVC->SetMatineeActorLock(nullptr);
 			LevelVC->SetActorLock(CameraActor.Get());
@@ -589,12 +650,11 @@ void F3DTransformTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState, 
 
 void F3DTransformTrackEditor::ClearLockedCameras(AActor* LockedActor)
 {
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
-	{		
-		FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
-		if (LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+	{
+		if (LevelVC && LevelVC->GetViewMode() != VMI_Unknown && LevelVC->AllowsCinematicControl())
 		{
-			if (LockedActor == nullptr || LevelVC->IsActorLocked(LockedActor))
+			if (LevelVC->IsActorLocked(LockedActor))
 			{
 				LevelVC->SetMatineeActorLock(nullptr);
 				LevelVC->SetActorLock(nullptr);

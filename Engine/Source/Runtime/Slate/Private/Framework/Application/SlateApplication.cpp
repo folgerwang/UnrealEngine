@@ -29,6 +29,7 @@
 #include "Framework/Application/IWidgetReflector.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Framework/Notifications/NotificationManager.h"
+#include "Framework/Notifications/SlateAsyncTaskNotificationImpl.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "GenericPlatform/ITextInputMethodSystem.h"
 #include "ToolboxModule.h"
@@ -919,6 +920,8 @@ TSharedRef<FSlateApplication> FSlateApplication::Create(const TSharedRef<class G
 		PlatformApplication->OnDisplayMetricsChanged().AddSP(CurrentApplication.ToSharedRef(), &FSlateApplication::OnVirtualDesktopSizeChanged);
 	}
 
+	FAsyncTaskNotificationFactory::Get().RegisterFactory(TEXT("Slate"), []() -> FAsyncTaskNotificationFactory::FImplPointerType { return new FSlateAsyncTaskNotificationImpl(); });
+
 	return CurrentApplication.ToSharedRef();
 }
 
@@ -926,6 +929,8 @@ void FSlateApplication::Shutdown(bool bShutdownPlatform)
 {
 	if (FSlateApplication::IsInitialized())
 	{
+		FAsyncTaskNotificationFactory::Get().UnregisterFactory(TEXT("Slate"));
+
 		CurrentApplication->OnShutdown();
 		CurrentApplication->DestroyRenderer();
 		CurrentApplication->Renderer.Reset();

@@ -10,6 +10,7 @@
 
 #include "Customizations/MediaIODeviceCustomization.h"
 #include "Customizations/MediaIOConfigurationCustomization.h"
+#include "Customizations/MediaIOInputConfigurationCustomization.h"
 #include "Customizations/MediaIOOutputConfigurationCustomization.h"
 
 
@@ -37,6 +38,7 @@ private:
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.RegisterCustomPropertyTypeLayout(FMediaIOConfiguration::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMediaIOConfigurationCustomization::MakeInstance));
 		PropertyModule.RegisterCustomPropertyTypeLayout(FMediaIODevice::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMediaIODeviceCustomization::MakeInstance));
+		PropertyModule.RegisterCustomPropertyTypeLayout(FMediaIOInputConfiguration::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMediaIOInputConfigurationCustomization::MakeInstance));
 		PropertyModule.RegisterCustomPropertyTypeLayout(FMediaIOOutputConfiguration::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMediaIOOutputConfigurationCustomization::MakeInstance));
 	}
 
@@ -44,9 +46,10 @@ private:
 	void UnregisterCustomizations()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOOutputConfiguration::StaticStruct()->GetFName());
+		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOInputConfiguration::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIODevice::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOConfiguration::StaticStruct()->GetFName());
-		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOOutputConfiguration::StaticStruct()->GetFName());
 	}
 };
 

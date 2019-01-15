@@ -11,7 +11,7 @@ public class UnrealVersionSelectorTarget : TargetRules
 		LinkType = TargetLinkType.Monolithic;
 		LaunchModuleName = "UnrealVersionSelector";
 		
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 
 		bool bUsingSlate = (Target.Platform == UnrealTargetPlatform.Linux);
@@ -21,9 +21,7 @@ public class UnrealVersionSelectorTarget : TargetRules
 			ExtraModuleNames.Add("EditorStyle");
 		}
 
-		// No editor needed
 		bCompileICU = false;
-		bBuildEditor = false;
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = bUsingSlate;
 

@@ -7,11 +7,12 @@
 /**
  * String serialization interface
  */
-struct IDisplayClusterStringSerializable
+class IDisplayClusterStringSerializable
 {
+public:
 	virtual ~IDisplayClusterStringSerializable() = 0
 	{ }
 
 	virtual FString SerializeToString() const = 0;
-	virtual bool    DeserializeFromString(const FString& ar) = 0;
+	virtual bool DeserializeFromString(const FString& ar) = 0;
 };

@@ -203,6 +203,12 @@ protected:
 	/** Gets the brush for the dirty indicator image */
 	const FSlateBrush* GetDirtyImage() const;
 
+	/** Generate a widget to inject extra external state indicator on the asset. */
+	TSharedRef<SWidget> GenerateExtraStateIconWidget(TAttribute<float> InMaxExtraStateIconWidth) const;
+
+	/** Generate a widget to inject extra external state indicator on the asset tooltip. */
+	TSharedRef<SWidget> GenerateExtraStateTooltipWidget() const;
+
 	/** Gets the visibility for the thumbnail edit mode UI */
 	EVisibility GetThumbnailEditModeUIVisibility() const;
 
@@ -448,11 +454,17 @@ public:
 	bool CanDisplayPrimitiveTools() const { return false; }
 
 private:
+	/** Get the expected width of an extra state icon. */
+	float GetExtraStateIconWidth() const;
+
+	/** Returns the max width size to be used by extra state icons. */
+	FOptionalSize GetExtraStateIconMaxWidth() const;
+
+	/** Returns the size of the state icon box widget (i.e dirty image, scc)*/
+	FOptionalSize GetStateIconImageSize() const;
+
 	/** Returns the size of the thumbnail widget */
 	FOptionalSize GetThumbnailBoxSize() const;
-
-	/** Returns the size of the source control state box widget */
-	FOptionalSize GetSCCImageSize() const;
 
 private:
 	/** The handle to the thumbnail that this item is rendering */
@@ -562,14 +574,20 @@ protected:
 	/** SAssetViewItem interface */
 	virtual float GetNameTextWrapWidth() const override { return LastGeometry.GetLocalSize().X - 2.f; }
 
-	/** Returns the size of the thumbnail box widget */
+	/** Get the expected width of an extra state icon. */
+	float GetExtraStateIconWidth() const;
+
+	/** Returns the max width size to be used by extra state icons. */
+	FOptionalSize GetExtraStateIconMaxWidth() const;
+
+	/** Returns the size of the state icon box widget (i.e dirty image, scc)*/
+	FOptionalSize GetStateIconImageSize() const;
+
+	/** Returns the size of the thumbnail widget */
 	FOptionalSize GetThumbnailBoxSize() const;
 
 	/** Returns the font to use for the thumbnail label */
 	FSlateFontInfo GetThumbnailFont() const;
-
-	/** Returns the size of the source control state box widget */
-	FOptionalSize GetSCCImageSize() const;
 
 private:
 	/** The handle to the thumbnail that this item is rendering */

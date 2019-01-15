@@ -167,13 +167,13 @@ public class UnrealEd : ModuleRules
 				"PIEPreviewDeviceProfileSelector",
 				"PakFileUtilities",
 				"TimeManagement",
-            }
+			}
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
-                "FontEditor",
+				"FontEditor",
 				"StaticMeshEditor",
 				"TextureEditor",
 				"Cascade",
@@ -265,8 +265,9 @@ public class UnrealEd : ModuleRules
 
         PublicIncludePaths.Add("Developer/Android/AndroidDeviceDetection/Public/Interfaces");
 
-        PublicIncludePathModuleNames.AddRange(
+		PublicIncludePathModuleNames.AddRange(
 			new string[] {
+				"AssetRegistry",
 				"CollectionManager",
 				"BlueprintGraph",
 				"AddContentDialog",
@@ -276,11 +277,13 @@ public class UnrealEd : ModuleRules
 				"NavigationSystem",
 				"GameplayTasks",
 				"AIModule",
-            }
+				"Engine",
+				"SourceControl",
+			}
 			);
 
 
-        if ((Target.Platform == UnrealTargetPlatform.Win64) ||
+		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			PublicDependencyModuleNames.Add("XAudio2");

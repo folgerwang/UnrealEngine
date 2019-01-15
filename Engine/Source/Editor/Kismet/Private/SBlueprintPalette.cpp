@@ -318,10 +318,6 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		{
 			ToolTipOut = NodeToolTipText;
 		}
-		else
-		{
-			ToolTipOut = ToolTipOut;
-		}
 
 		// Ask node for a palette icon
 		FLinearColor IconLinearColor = FLinearColor::White;

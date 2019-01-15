@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterConfigParserText.h"
+#include "Config/Parser/DisplayClusterConfigParserText.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/DisplayClusterLog.h"
@@ -51,6 +51,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	{
 		AddClusterNode(impl_parse<FDisplayClusterConfigClusterNode>(line));
 	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::window::Header)))
+	{
+		AddWindow(impl_parse<FDisplayClusterConfigWindow>(line));
+	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::screen::Header)))
 	{
 		AddScreen(impl_parse<FDisplayClusterConfigScreen>(line));
@@ -78,6 +82,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::stereo::Header)))
 	{
 		AddStereo(impl_parse<FDisplayClusterConfigStereo>(line));
+	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::network::Header)))
+	{
+		AddNetwork(impl_parse<FDisplayClusterConfigNetwork>(line));
 	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::debug::Header)))
 	{

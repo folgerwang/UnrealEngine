@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DisplayClusterConfigParser.h"
+#include "Config/Parser/DisplayClusterConfigParser.h"
 #include "Misc/DisplayClusterLog.h"
 
 

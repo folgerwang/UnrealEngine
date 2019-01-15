@@ -9,11 +9,6 @@
 #include "FrameNumberTimeEvaluator.h"
 #include "Misc/Timecode.h"
 
-
-DECLARE_DELEGATE_RetVal(EFrameNumberDisplayFormats, FOnGetDisplayFormat)
-DECLARE_DELEGATE_RetVal(uint8, FOnGetZeroPad)
-DECLARE_DELEGATE_RetVal(FFrameRate, FOnGetFrameRate)
-
 /**
 * A large portion of the Sequencer UI is built around using SpinBox and NumericBox because the framerate
 * used to be stored in (float) seconds. This creates a convenient UI as it allows the users to type in
@@ -31,22 +26,16 @@ DECLARE_DELEGATE_RetVal(FFrameRate, FOnGetFrameRate)
 */
 struct FFrameNumberInterface : public INumericTypeInterface<double>
 {
-	FFrameNumberInterface(FOnGetDisplayFormat InGetDisplayFormat, FOnGetZeroPad InOnGetZeroPadFrameNumber, FOnGetFrameRate InGetTickResolution, FOnGetFrameRate InGetPlayRate)
-		: GetDisplayFormat(InGetDisplayFormat)
-		, GetTickResolution(InGetTickResolution)
-		, GetPlayRate(InGetPlayRate)
-		, GetZeroPadFrames(InOnGetZeroPadFrameNumber)
+	FFrameNumberInterface(const TAttribute<EFrameNumberDisplayFormats>& InDisplayFormatAttr, const TAttribute<uint8>& InOnGetZeroPadFrameNumber, const TAttribute<FFrameRate>& InTickResolutionAttr, const TAttribute<FFrameRate>& InDisplayRateAttr)
+		: DisplayFormatAttr(InDisplayFormatAttr)
+		, TickResolutionAttr(InTickResolutionAttr)
+		, DisplayRateAttr(InDisplayRateAttr)
+		, ZeroPadFramesAttr(InOnGetZeroPadFrameNumber)
 	{
-		check(InGetDisplayFormat.IsBound());
-		check(InGetTickResolution.IsBound());
-		check(InGetPlayRate.IsBound());
+		check(InDisplayFormatAttr.IsSet());
+		check(InTickResolutionAttr.IsSet());
+		check(InDisplayRateAttr.IsSet());
 	}
-
-private:
-	FOnGetDisplayFormat GetDisplayFormat;
-	FOnGetFrameRate GetTickResolution;
-	FOnGetFrameRate GetPlayRate;
-	FOnGetZeroPad GetZeroPadFrames;
 
 	/** Check whether the typed character is valid */
 	virtual bool IsCharacterValid(TCHAR InChar) const override
@@ -65,9 +54,9 @@ private:
 
 	virtual FString ToString(const double& Value) const override
 	{
-		FFrameRate SourceFrameRate = GetTickResolution.Execute();
-		FFrameRate DestinationFrameRate = GetPlayRate.Execute();
-		EFrameNumberDisplayFormats Format = GetDisplayFormat.Execute();
+		FFrameRate SourceFrameRate = TickResolutionAttr.Get();
+		FFrameRate DestinationFrameRate = DisplayRateAttr.Get();
+		EFrameNumberDisplayFormats Format = DisplayFormatAttr.Get();
 
 		// If they want Drop Frame Timecode format but we're in an unsupported frame rate, we'll override it and say they want non drop frame.
 		bool bIsValidRateForDropFrame = FTimecode::IsDropFormatTimecodeSupported(DestinationFrameRate);
@@ -84,7 +73,7 @@ private:
 			FFrameTime DisplayTime = FFrameRate::TransformTime(FFrameTime::FromDecimal(Value), SourceFrameRate, DestinationFrameRate);
 			FString SubframeIndicator = FMath::IsNearlyZero(DisplayTime.GetSubFrame()) ? TEXT("") : TEXT("*");
 
-			return FString::Printf(TEXT("%0*d%s"), GetZeroPadFrames.Execute(), DisplayTime.GetFrame().Value, *SubframeIndicator);
+			return FString::Printf(TEXT("%0*d%s"), ZeroPadFramesAttr.Get(), DisplayTime.GetFrame().Value, *SubframeIndicator);
 		}
 		case EFrameNumberDisplayFormats::Seconds:
 		{
@@ -110,9 +99,9 @@ private:
 
 	virtual TOptional<double> FromString(const FString& InString, const double& InExistingValue) override
 	{
-		FFrameRate SourceFrameRate = GetPlayRate.Execute();
-		FFrameRate DestinationFrameRate = GetTickResolution.Execute();
-		EFrameNumberDisplayFormats FallbackFormat = GetDisplayFormat.Execute();
+		FFrameRate SourceFrameRate = DisplayRateAttr.Get();
+		FFrameRate DestinationFrameRate = TickResolutionAttr.Get();
+		EFrameNumberDisplayFormats FallbackFormat = DisplayFormatAttr.Get();
 
 		// We allow input in any format (time, frames or timecode) and we just convert it into into the internal sequence resolution.
 		// The user's input can be ambiguous though (does "5" mean 5 frames or 5 seconds?) so when we check each possible result we
@@ -169,4 +158,10 @@ private:
 		// We're not sure what they typed in
 		return TOptional<double>();
 	}
+
+private:
+	TAttribute<EFrameNumberDisplayFormats> DisplayFormatAttr;
+	TAttribute<FFrameRate> TickResolutionAttr;
+	TAttribute<FFrameRate> DisplayRateAttr;
+	TAttribute<uint8> ZeroPadFramesAttr;
 };

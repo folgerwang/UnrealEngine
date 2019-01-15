@@ -178,6 +178,11 @@ private:
 	/** Delegate for the media state changed event */
 	FOnMediaStateChanged MediaStateChangedDelegate;
 
+#if WITH_EDITORONLY_DATA
+	/** Last time the warning has been displayed.*/
+	double PreviousWarningTime;
+#endif // WITH_EDITOR
+
 private:
 	/**
 	 * Callback function to show the DefaultTexture

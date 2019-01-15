@@ -12,6 +12,8 @@ class AUSDLevelInfo : public AActor
 	GENERATED_UCLASS_BODY()
 
 public:
+	UFUNCTION(BlueprintCallable, Category = USD, meta = (CallInEditor = "true"))
+	void SaveUSD();
 
 	UPROPERTY(EditAnywhere, Category = USD)
 	FFilePath FilePath;

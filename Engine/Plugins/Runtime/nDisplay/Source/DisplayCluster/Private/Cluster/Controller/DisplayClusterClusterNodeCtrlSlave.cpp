@@ -1,14 +1,14 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterClusterNodeCtrlSlave.h"
+#include "Cluster/Controller/DisplayClusterClusterNodeCtrlSlave.h"
 
 #include "Config/IPDisplayClusterConfigManager.h"
 #include "Misc/DisplayClusterLog.h"
+#include "Network/Service/ClusterEvents/DisplayClusterClusterEventsClient.h"
 #include "Network/Service/ClusterSync/DisplayClusterClusterSyncClient.h"
 #include "Network/Service/SwapSync/DisplayClusterSwapSyncClient.h"
 
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 FDisplayClusterClusterNodeCtrlSlave::FDisplayClusterClusterNodeCtrlSlave(const FString& ctrlName, const FString& nodeName) :
@@ -69,6 +69,11 @@ void FDisplayClusterClusterNodeCtrlSlave::GetInputData(FDisplayClusterMessage::D
 	ClusterSyncClient->GetInputData(data);
 }
 
+void FDisplayClusterClusterNodeCtrlSlave::GetEventsData(FDisplayClusterMessage::DataType& data)
+{
+	ClusterSyncClient->GetEventsData(data);
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IPDisplayClusterSwapSyncProtocol
@@ -77,6 +82,15 @@ void FDisplayClusterClusterNodeCtrlSlave::WaitForSwapSync(double* pThreadWaitTim
 {
 	check(SwapSyncClient.IsValid());
 	SwapSyncClient->WaitForSwapSync(pThreadWaitTime, pBarrierWaitTime);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// IPDisplayClusterClusterEventsProtocol
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterClusterNodeCtrlSlave::EmitClusterEvent(const FDisplayClusterClusterEvent& Event)
+{
+	ClusterEventsClient->EmitClusterEvent(Event);
 }
 
 
@@ -129,9 +143,22 @@ bool FDisplayClusterClusterNodeCtrlSlave::InitializeClients()
 	// Instantiate local clients
 	ClusterSyncClient.Reset(new FDisplayClusterClusterSyncClient);
 	SwapSyncClient.Reset(new FDisplayClusterSwapSyncClient);
+	ClusterEventsClient.Reset(new FDisplayClusterClusterEventsClient);
 
-	return ClusterSyncClient.IsValid() && SwapSyncClient.IsValid();
+	return ClusterSyncClient.IsValid() && SwapSyncClient.IsValid() && ClusterEventsClient.IsValid();
 }
+
+
+#define START_CLIENT(CLN, ADDR, PORT, TRY_AMOUNT, TRY_DELAY, RESULT) \
+	if (CLN->Connect(ADDR, PORT, TRY_AMOUNT, TRY_DELAY)) \
+	{ \
+		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s connected to the server %s:%d"), *CLN->GetName(), *ADDR, PORT); \
+	} \
+	else \
+	{ \
+		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s couldn't connect to the server %s:%d"), *CLN->GetName(), *ADDR, PORT); \
+		RESULT = false; \
+	}
 
 bool FDisplayClusterClusterNodeCtrlSlave::StartClients()
 {
@@ -150,36 +177,24 @@ bool FDisplayClusterClusterNodeCtrlSlave::StartClients()
 		return false;
 	}
 
-	// CS client
-	if (ClusterSyncClient->Connect(MasterCfg.Addr, MasterCfg.Port_CS))
-	{
-		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s connected to the server %s:%d"), *ClusterSyncClient->GetName(), *MasterCfg.Addr, MasterCfg.Port_CS);
-	}
-	else
-	{
-		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s couldn't connect to the server %s:%d"), *ClusterSyncClient->GetName(), *MasterCfg.Addr, MasterCfg.Port_CS);
-		// No need to wait again for next client connection
-		return false;
-	}
+	const FDisplayClusterConfigNetwork CfgNetwork = GDisplayCluster->GetPrivateConfigMgr()->GetConfigNetwork();
 
-	// SS client
-	if (SwapSyncClient->Connect(MasterCfg.Addr, MasterCfg.Port_SS))
-	{
-		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s connected to the server %s:%d"), *SwapSyncClient->GetName(), *MasterCfg.Addr, MasterCfg.Port_SS);
-	}
-	else
-	{
-		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s couldn't connect to the server %s:%d"), *SwapSyncClient->GetName(), *MasterCfg.Addr, MasterCfg.Port_SS);
-		return false;
-	}
+	bool Result = true;
+	START_CLIENT(ClusterSyncClient, MasterCfg.Addr, MasterCfg.Port_CS, CfgNetwork.ClientConnectTriesAmount, CfgNetwork.ClientConnectRetryDelay, Result);
+	START_CLIENT(SwapSyncClient, MasterCfg.Addr, MasterCfg.Port_SS, CfgNetwork.ClientConnectTriesAmount, CfgNetwork.ClientConnectRetryDelay, Result);
+	START_CLIENT(ClusterEventsClient, MasterCfg.Addr, MasterCfg.Port_CE, CfgNetwork.ClientConnectTriesAmount, CfgNetwork.ClientConnectRetryDelay, Result);
 
-	return ClusterSyncClient->IsConnected() && SwapSyncClient->IsConnected();
+	return Result;
 }
+
+#undef START_CLIENT
+
 
 void FDisplayClusterClusterNodeCtrlSlave::StopClients()
 {
 	FDisplayClusterClusterNodeCtrlBase::StopClients();
 
+	ClusterEventsClient->Disconnect();
 	ClusterSyncClient->Disconnect();
 	SwapSyncClient->Disconnect();
 }

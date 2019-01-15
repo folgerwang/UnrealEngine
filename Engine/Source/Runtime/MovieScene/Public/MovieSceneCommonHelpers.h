@@ -11,7 +11,9 @@
 
 class AActor;
 class UCameraComponent;
+class UMovieScene;
 class UMovieSceneSection;
+class UMovieSceneSequence;
 class USceneComponent;
 class USoundBase;
 struct FRichCurve;
@@ -50,6 +52,11 @@ public:
  	 * Sort consecutive sections so that they are in order based on start time
  	 */
 	static void SortConsecutiveSections(TArray<UMovieSceneSection*>& Sections);
+
+	/*
+	 * Gather up descendant movie scenes from the incoming sequence
+	 */
+	static void GetDescendantMovieScenes(UMovieSceneSequence* InSequence, TArray<UMovieScene*> & InMovieScenes);
 
 	/**
 	 * Get the scene component from the runtime object

@@ -9,13 +9,14 @@
 
 namespace MediaIOPermutationsSelectorBuilder
 {
-	FText LinkTypeToPrettyText(EMediaIOSDITransportType InLinkType, int32 InChannel)
+	FText LinkTypeToPrettyText(EMediaIOTransportType InLinkType, int32 InChannel)
 	{
 		switch (InLinkType)
 		{
-		case EMediaIOSDITransportType::SingleLink: return FText::Format(LOCTEXT("SingleLinkLabel", "Single Link {0}"), FText::AsNumber(InChannel));
-		case EMediaIOSDITransportType::DualLink: return FText::Format(LOCTEXT("DualLinkLabel", "Dual Link {0}-{1}"), FText::AsNumber(InChannel), FText::AsNumber(InChannel + 1));
-		case EMediaIOSDITransportType::QuadLink: return FText::Format(LOCTEXT("QuadLinkLabel", "Quad Link {0}-{1}"), FText::AsNumber(InChannel), FText::AsNumber(InChannel + 3));
+		case EMediaIOTransportType::SingleLink: return FText::Format(LOCTEXT("SingleLinkLabel", "Single Link {0}"), FText::AsNumber(InChannel));
+		case EMediaIOTransportType::DualLink: return FText::Format(LOCTEXT("DualLinkLabel", "Dual Link {0}-{1}"), FText::AsNumber(InChannel), FText::AsNumber(InChannel + 1));
+		case EMediaIOTransportType::QuadLink: return FText::Format(LOCTEXT("QuadLinkLabel", "Quad Link {0}-{1}"), FText::AsNumber(InChannel), FText::AsNumber(InChannel + 3));
+		case EMediaIOTransportType::HDMI: return FText::Format(LOCTEXT("HDMILinkLabel", "HDMI {0}"), FText::AsNumber(InChannel));
 		}
 		return FText::GetEmpty();
 	}
@@ -52,6 +53,7 @@ const FName FMediaIOPermutationsSelectorBuilder::NAME_Resolution = "Resolution";
 const FName FMediaIOPermutationsSelectorBuilder::NAME_Standard = "Standard";
 const FName FMediaIOPermutationsSelectorBuilder::NAME_FrameRate = "FrameRate";
 
+const FName FMediaIOPermutationsSelectorBuilder::NAME_InputType = "InputType";
 const FName FMediaIOPermutationsSelectorBuilder::NAME_OutputType = "OutputType";
 const FName FMediaIOPermutationsSelectorBuilder::NAME_KeyPortSource = "KeyPortSource";
 const FName FMediaIOPermutationsSelectorBuilder::NAME_OutputReference = "OutputReference";
@@ -64,7 +66,7 @@ bool FMediaIOPermutationsSelectorBuilder::IdenticalProperty(FName ColumnName, co
 {
 	if (ColumnName == NAME_DeviceIdentifier) return Left.Device.DeviceIdentifier == Right.Device.DeviceIdentifier;
 	if (ColumnName == NAME_TransportType) return Left.TransportType == Right.TransportType && Left.PortIdentifier == Right.PortIdentifier;
-	if (ColumnName == NAME_QuadType) return Left.TransportType == EMediaIOSDITransportType::QuadLink ? Left.QuadTransportType == Right.QuadTransportType : true;
+	if (ColumnName == NAME_QuadType) return Left.TransportType == EMediaIOTransportType::QuadLink ? Left.QuadTransportType == Right.QuadTransportType : true;
 
 	return false;
 }
@@ -81,7 +83,7 @@ bool FMediaIOPermutationsSelectorBuilder::Less(FName ColumnName, const FMediaIOC
 		}
 		return (int32)Left.TransportType < (int32)Right.TransportType;
 	}
-	if (ColumnName == NAME_QuadType) return (Left.TransportType == EMediaIOSDITransportType::QuadLink) ? (int32)Left.QuadTransportType < (int32)Right.QuadTransportType : false;
+	if (ColumnName == NAME_QuadType) return (Left.TransportType == EMediaIOTransportType::QuadLink) ? (int32)Left.QuadTransportType < (int32)Right.QuadTransportType : false;
 
 	return false;
 }
@@ -196,6 +198,42 @@ FText FMediaIOPermutationsSelectorBuilder::GetTooltip(FName ColumnName, const FM
 		return GetTooltip(ColumnName, Item.MediaMode);
 	}
 	return GetTooltip(ColumnName, Item.MediaConnection);
+}
+
+
+bool FMediaIOPermutationsSelectorBuilder::IdenticalProperty(FName ColumnName, const FMediaIOInputConfiguration& Left, const FMediaIOInputConfiguration& Right)
+{
+	if (ColumnName == NAME_InputType) return Left.InputType == Right.InputType;
+	if (ColumnName == NAME_KeyPortSource) return Left.InputType == EMediaIOInputType::FillAndKey ? Left.KeyPortIdentifier == Right.KeyPortIdentifier : true;
+
+	return IdenticalProperty(ColumnName, Left.MediaConfiguration, Right.MediaConfiguration);
+}
+
+
+bool FMediaIOPermutationsSelectorBuilder::Less(FName ColumnName, const FMediaIOInputConfiguration& Left, const FMediaIOInputConfiguration& Right)
+{
+	if (ColumnName == NAME_InputType) return (int32)Left.InputType < (int32)Right.InputType;
+	if (ColumnName == NAME_KeyPortSource) return Left.KeyPortIdentifier < Right.KeyPortIdentifier;
+
+	return Less(ColumnName, Left.MediaConfiguration, Right.MediaConfiguration);
+}
+
+
+FText FMediaIOPermutationsSelectorBuilder::GetLabel(FName ColumnName, const FMediaIOInputConfiguration& Item)
+{
+	if (ColumnName == NAME_InputType) return Item.InputType == EMediaIOInputType::Fill ? LOCTEXT("Fill", "Fill") : LOCTEXT("FillAndKey", "Fill and Key");
+	if (ColumnName == NAME_KeyPortSource) return MediaIOPermutationsSelectorBuilder::LinkTypeToPrettyText(Item.MediaConfiguration.MediaConnection.TransportType, Item.KeyPortIdentifier);
+
+	return GetLabel(ColumnName, Item.MediaConfiguration);
+}
+
+
+FText FMediaIOPermutationsSelectorBuilder::GetTooltip(FName ColumnName, const FMediaIOInputConfiguration& Item)
+{
+	if (ColumnName == NAME_InputType) return LOCTEXT("InputTypeTooltip", "Whether to input the fill or the fill and key.");
+	if (ColumnName == NAME_KeyPortSource) return FText::GetEmpty();
+
+	return GetTooltip(ColumnName, Item.MediaConfiguration);
 }
 
 

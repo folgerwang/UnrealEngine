@@ -7,7 +7,7 @@
 #include "Widgets/SWidget.h"
 #include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
-#include "MathStructCustomizations.h"
+#include "Customizations/MathStructCustomizations.h"
 
 class FDetailWidgetRow;
 class IPropertyUtilities;

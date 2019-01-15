@@ -29,7 +29,11 @@ public class VirtualCamera : ModuleRules
 
         if (Target.bBuildEditor == true)
         {
-            PublicDependencyModuleNames.Add("SequenceRecorder");
+			PublicDependencyModuleNames.Add("LevelSequenceEditor");
+			PublicDependencyModuleNames.Add("Sequencer");
+			PublicDependencyModuleNames.Add("SlateCore");
+			PublicDependencyModuleNames.Add("TakeRecorder");
+			PrivateDependencyModuleNames.Add("UnrealEd");
         }
 	}
 }

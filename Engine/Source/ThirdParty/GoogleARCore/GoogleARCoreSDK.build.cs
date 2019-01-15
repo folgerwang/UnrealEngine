@@ -38,20 +38,20 @@ public class GoogleARCoreSDK : ModuleRules
 			PublicAdditionalLibraries.Add("sqlite3");
 			PublicAdditionalLibraries.Add("z");
 
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("ARKit"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("AVFoundation"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreGraphics"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreImage"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreMotion"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreVideo"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("Foundation"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("ImageIO"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("QuartzCore"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("Security"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("UIKit"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("VideoToolbox"));
+			PublicAdditionalFrameworks.Add(new Framework("ARKit"));
+			PublicAdditionalFrameworks.Add(new Framework("AVFoundation"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreGraphics"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreImage"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreMotion"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreVideo"));
+			PublicAdditionalFrameworks.Add(new Framework("Foundation"));
+			PublicAdditionalFrameworks.Add(new Framework("ImageIO"));
+			PublicAdditionalFrameworks.Add(new Framework("QuartzCore"));
+			PublicAdditionalFrameworks.Add(new Framework("Security"));
+			PublicAdditionalFrameworks.Add(new Framework("UIKit"));
+			PublicAdditionalFrameworks.Add(new Framework("VideoToolbox"));
 
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("ARCore", "lib/ios/ARCore.embeddedframework.zip", "ARCore.framework/Resources/ARCoreResources.bundle"));
+			PublicAdditionalFrameworks.Add(new Framework("ARCore", "lib/ios/ARCore.embeddedframework.zip", "ARCore.framework/Resources/ARCoreResources.bundle"));
 		}
 	}
 }

@@ -482,6 +482,46 @@ FDateTime IPlatformFile::GetTimeStampLocal(const TCHAR* Filename)
 	return FileTimeStamp;
 }
 
+class FDirectoryVisitorFuncWrapper : public IPlatformFile::FDirectoryVisitor
+{
+public:
+	IPlatformFile::FDirectoryVisitorFunc VisitorFunc;
+	FDirectoryVisitorFuncWrapper(IPlatformFile::FDirectoryVisitorFunc InVisitorFunc)
+		: VisitorFunc(InVisitorFunc)
+	{
+	}
+	virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
+	{
+		return VisitorFunc(FilenameOrDirectory, bIsDirectory);
+	}
+};
+
+class FDirectoryStatVisitorFuncWrapper : public IPlatformFile::FDirectoryStatVisitor
+{
+public:
+	IPlatformFile::FDirectoryStatVisitorFunc VisitorFunc;
+	FDirectoryStatVisitorFuncWrapper(IPlatformFile::FDirectoryStatVisitorFunc InVisitorFunc)
+		: VisitorFunc(InVisitorFunc)
+	{
+	}
+	virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+	{
+		return VisitorFunc(FilenameOrDirectory, StatData);
+	}
+};
+
+bool IPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitorFunc Visitor)
+{
+	FDirectoryVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectory(Directory, VisitorFuncWrapper);
+}
+
+bool IPlatformFile::IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor)
+{
+	FDirectoryStatVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryStat(Directory, VisitorFuncWrapper);
+}
+
 bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitor& Visitor)
 {
 	class FRecurse : public FDirectoryVisitor
@@ -532,6 +572,18 @@ bool IPlatformFile::IterateDirectoryStatRecursively(const TCHAR* Directory, FDir
 	};
 	FStatRecurse Recurse(*this, Visitor);
 	return IterateDirectoryStat(Directory, Recurse);
+}
+
+bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitorFunc Visitor)
+{
+	FDirectoryVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryRecursively(Directory, VisitorFuncWrapper);
+}
+
+bool IPlatformFile::IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor)
+{
+	FDirectoryStatVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryStatRecursively(Directory, VisitorFuncWrapper);
 }
 
 class FFindFilesVisitor : public IPlatformFile::FDirectoryVisitor

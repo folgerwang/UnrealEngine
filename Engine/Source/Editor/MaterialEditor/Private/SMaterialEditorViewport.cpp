@@ -235,6 +235,19 @@ void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 	MaterialEditorPtr = InArgs._MaterialEditor;
 	AdvancedPreviewScene = MakeShareable(new FAdvancedPreviewScene(FPreviewScene::ConstructionValues()));
 
+	// restore last used feature level
+	UWorld* PreviewWorld = AdvancedPreviewScene->GetWorld();
+	if (PreviewWorld != nullptr)
+	{
+		PreviewWorld->ChangeFeatureLevel(GWorld->FeatureLevel);
+	}	
+
+	UEditorEngine* Editor = CastChecked<UEditorEngine>(GEngine);
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			AdvancedPreviewScene->GetWorld()->ChangeFeatureLevel(NewFeatureLevel);
+		});
+
 	bShowGrid = false;
 
 	PreviewPrimType = TPT_None;
@@ -266,6 +279,8 @@ void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 
 SMaterialEditor3DPreviewViewport::~SMaterialEditor3DPreviewViewport()
 {
+	CastChecked<UEditorEngine>(GEngine)->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+	
 	UAssetViewerSettings::Get()->OnAssetViewerSettingsChanged().RemoveAll(this);
 	if (PreviewMeshComponent != nullptr)
 	{
@@ -378,6 +393,10 @@ bool SMaterialEditor3DPreviewViewport::SetPreviewAsset(UObject* InAsset)
 	// Add the new component to the scene
 	if (PreviewMeshComponent != nullptr)
 	{
+		if (GEditor->PreviewFeatureLevel <= ERHIFeatureLevel::ES3_1)
+		{
+			PreviewMeshComponent->SetMobility(EComponentMobility::Static);
+		}
 		AdvancedPreviewScene->AddComponent(PreviewMeshComponent, Transform);
 		AdvancedPreviewScene->SetFloorOffset(-PreviewMeshComponent->Bounds.Origin.Z + PreviewMeshComponent->Bounds.BoxExtent.Z);
 
@@ -706,6 +725,15 @@ void SMaterialEditor3DPreviewViewport::PopulateViewportOverlays(TSharedRef<class
 		.VAlign(VAlign_Bottom)
 		[
 			SNew(SMaterialEditorViewportPreviewShapeToolBar, SharedThis(this))
+		];
+
+	// add the feature level display widget
+	Overlay->AddSlot()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
 		];
 }
 

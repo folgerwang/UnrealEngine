@@ -48,8 +48,9 @@ public class FBX : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			string LibDir = FBXSDKDir + "lib/clang/release/";
-			PublicAdditionalLibraries.Add(LibDir + "libfbxsdk.dylib");
+			string FBxLibPath = FBXSDKDir + "lib/clang/release/";
+			PublicAdditionalLibraries.Add(FBxLibPath + "libfbxsdk.dylib");
+			RuntimeDependencies.Add("$(TargetOutputDir)/libfbxsdk.dylib", FBxLibPath + "libfbxsdk.dylib");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{

@@ -17,6 +17,7 @@ class IMediaEventSink;
 @class AVPlayer;
 @class AVPlayerItem;
 @class FAVPlayerDelegate;
+@class FAVMediaAssetResourceLoaderDelegate;
 
 
 /**
@@ -127,6 +128,9 @@ private:
 
 	/** Cocoa helper object we can use to keep track of ns property changes in our media items */
 	FAVPlayerDelegate* MediaHelper;
+	
+	/** Cocoa Media helper object for Pak file loading */
+	FAVMediaAssetResourceLoaderDelegate* MediaResourceLoader;
 	
 	/** The AVFoundation media player */
 	AVPlayer* MediaPlayer;

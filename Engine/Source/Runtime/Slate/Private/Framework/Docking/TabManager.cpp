@@ -392,14 +392,15 @@ TSharedRef<FJsonObject> FTabManager::FLayout::PersistToString_Helper(const TShar
 
 void FTabManager::FLayout::ProcessExtensions(const FLayoutExtender& Extender)
 {
+	// Extend areas first
+	for (TSharedRef<FTabManager::FArea>& Area : Areas)
+	{
+		Extender.ExtendAreaRecursive(Area);
+	}
+
 	struct FTabInformation
 	{
 		FTabInformation(FTabManager::FLayout& Layout)
-		{
-			Gather(Layout);
-		}
-
-		void Gather(FTabManager::FLayout& Layout)
 		{
 			for (TSharedRef<FTabManager::FArea>& Area : Layout.Areas)
 			{
@@ -885,8 +886,10 @@ void FTabManager::PopulateTabSpawnerMenu_Helper( FMenuBuilder& PopulateMe, FPopu
 
 				if ( Args.Level % 2 == 0 )
 				{
-					FName SectionName(*ChildItem->GetDisplayName().ToString().Replace(TEXT(" "), TEXT("")));
-					PopulateMe.BeginSection(SectionName, ChildItem->GetDisplayName());
+					FString SectionNameStr = ChildItem->GetDisplayName().BuildSourceString();
+					SectionNameStr.ReplaceInline(TEXT(" "), TEXT(""));
+
+					PopulateMe.BeginSection(*SectionNameStr, ChildItem->GetDisplayName());
 					{
 						PopulateTabSpawnerMenu_Helper(PopulateMe, Payload);
 					}

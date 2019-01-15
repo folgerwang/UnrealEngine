@@ -108,14 +108,17 @@ protected:
 
 	virtual void OnOwnerLoggedIn();
 	virtual void OnOwnerLoggedOut();
-	virtual void OnAllUsersInitialized() {}
-
+	
 	virtual void NotifyFriendInviteFailed(const FUniqueNetId& InvitedUserId, const FString& InvitedUserName, ESendFriendInviteFailureReason FailureReason, bool bCanShow = true) {}
 
 	void QueryFriendsLists();
 	void QueryBlockedPlayers();
 	void QueryRecentPlayers();
 
+	virtual void OnQueryFriendsListSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineFriend>>& FriendsList) {}
+	virtual void OnQueryBlockedPlayersSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineBlockedPlayer>>& BlockedPlayers) {}
+	virtual void OnQueryRecentPlayersSuccess(ESocialSubsystem SubsystemType, const TArray<TSharedRef<FOnlineRecentPlayer>>& FriendsList) {}
+	
 	/** The type of SocialUser to create to represent known users */
 	TSubclassOf<USocialUser> SocialUserClass;
 
@@ -215,6 +218,5 @@ private:
 	mutable FOnRelationshipEstablished OnRecentPlayerAddedEvent;
 	
 	mutable FOnKnownUserInitialized OnKnownUserInitializedEvent;
-	mutable FBasicToolkitEvent OnFinishedStartupQueriesEvent;
 	mutable FBasicToolkitEvent OnToolkitResetEvent;
 };

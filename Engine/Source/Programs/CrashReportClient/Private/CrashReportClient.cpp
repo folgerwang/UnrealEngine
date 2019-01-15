@@ -40,42 +40,48 @@ FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport
 {
 	if (FPrimaryCrashProperties::Get()->IsValid())
 	{
-	bool bUsePrimaryData = false;
-	if (FPrimaryCrashProperties::Get()->HasProcessedData())
-	{
-		bUsePrimaryData = true;
-	}
-	else
-	{
-		if (!ErrorReport.TryReadDiagnosticsFile() && !FParse::Param( FCommandLine::Get(), TEXT( "no-local-diagnosis" ) ))
-		{
-			DiagnoseReportTask = new FAsyncTask<FDiagnoseReportWorker>( this );
-			DiagnoseReportTask->StartBackgroundTask();
-		}
-		else
+		bool bUsePrimaryData = false;
+		if (FPrimaryCrashProperties::Get()->HasProcessedData())
 		{
 			bUsePrimaryData = true;
 		}
-	}
+		else
+		{
+			if (!ErrorReport.TryReadDiagnosticsFile() && !FParse::Param( FCommandLine::Get(), TEXT( "no-local-diagnosis" ) ))
+			{
+				DiagnoseReportTask = new FAsyncTask<FDiagnoseReportWorker>( this );
+				DiagnoseReportTask->StartBackgroundTask();
+			}
+			else
+			{
+				bUsePrimaryData = true;
+			}
+		}
 
-	if (bUsePrimaryData)
-	{
-		const FString CallstackString = FPrimaryCrashProperties::Get()->CallStack.AsString();
-		const FString ReportString = FString::Printf( TEXT( "%s\n\n%s" ), *FPrimaryCrashProperties::Get()->ErrorMessage.AsString(), *CallstackString );
-		DiagnosticText = FText::FromString( ReportString );
+		if (bUsePrimaryData)
+		{
+			const FString CallstackString = FPrimaryCrashProperties::Get()->CallStack.AsString();
+			const FString ReportString = FString::Printf( TEXT( "%s\n\n%s" ), *FPrimaryCrashProperties::Get()->ErrorMessage.AsString(), *CallstackString );
+			DiagnosticText = FText::FromString( ReportString );
 
-		FormattedDiagnosticText = FCrashReportUtil::FormatDiagnosticText( FText::FromString( ReportString ) );
-	}
+			FormattedDiagnosticText = FCrashReportUtil::FormatDiagnosticText( FText::FromString( ReportString ) );
+		}
 	}
 }
 
 
 FCrashReportClient::~FCrashReportClient()
 {
-	if( DiagnoseReportTask )
+	StopBackgroundThread();
+}
+
+void FCrashReportClient::StopBackgroundThread()
+{
+	if (DiagnoseReportTask)
 	{
 		DiagnoseReportTask->EnsureCompletion();
 		delete DiagnoseReportTask;
+		DiagnoseReportTask = nullptr;
 	}
 }
 

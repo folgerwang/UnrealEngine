@@ -6,7 +6,7 @@
 #include "Editor/UnrealEdEngine.h"
 #include "DisplayClusterEditorEngine.generated.h"
 
-struct IPDisplayCluster;
+class IPDisplayCluster;
 
 
 /**

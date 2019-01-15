@@ -67,7 +67,7 @@ public:
 	GENERATED_BODY()
 
 	/** Level of compression to apply to the image, between 1 (worst quality, best compression) and 100 (best quality, worst compression)*/
-	UPROPERTY(config, EditAnywhere, Category=ImageSettings, meta=(ClampMin=1, ClampMax=100))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=ImageSettings, meta=(ClampMin=1, ClampMax=100))
 	int32 CompressionQuality;
 
 	UCompressedImageSequenceProtocol(const FObjectInitializer& ObjInit)

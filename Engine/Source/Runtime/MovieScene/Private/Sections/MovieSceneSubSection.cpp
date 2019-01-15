@@ -38,7 +38,7 @@ FMovieSceneSequenceTransform UMovieSceneSubSection::OuterToInnerTransform() cons
 		return FMovieSceneSequenceTransform();
 	}
 
-	const FFrameNumber InnerStartTime = MovieScene::DiscreteInclusiveLower(MovieScenePtr->GetPlaybackRange()) + Parameters.GetStartFrameOffset();
+	const FFrameNumber InnerStartTime = MovieScene::DiscreteInclusiveLower(MovieScenePtr->GetPlaybackRange()) + Parameters.StartFrameOffset;
 	const FFrameNumber OuterStartTime = MovieScene::DiscreteInclusiveLower(SubRange);
 
 	const FFrameRate   InnerFrameRate = MovieScenePtr->GetTickResolution();
@@ -82,6 +82,8 @@ void UMovieSceneSubSection::PostLoad()
 	if (StartOffset_DEPRECATED != DeprecatedMagicNumber)
 	{
 		StartOffsetToUpgrade = StartOffset_DEPRECATED;
+
+		StartOffset_DEPRECATED = DeprecatedMagicNumber;
 	}
 	else if (Parameters.StartOffset_DEPRECATED != 0.f)
 	{
@@ -91,17 +93,21 @@ void UMovieSceneSubSection::PostLoad()
 	if (StartOffsetToUpgrade.IsSet())
 	{
 		FFrameNumber StartFrame = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, StartOffsetToUpgrade.GetValue());
-		Parameters.SetStartFrameOffset(StartFrame.Value);
+		Parameters.StartFrameOffset = StartFrame;
 	}
 
 	if (TimeScale_DEPRECATED != DeprecatedMagicNumber)
 	{
 		Parameters.TimeScale = TimeScale_DEPRECATED;
+
+		TimeScale_DEPRECATED = DeprecatedMagicNumber;
 	}
 
 	if (PrerollTime_DEPRECATED != DeprecatedMagicNumber)
 	{
 		Parameters.PrerollTime_DEPRECATED = PrerollTime_DEPRECATED;
+
+		PrerollTime_DEPRECATED = DeprecatedMagicNumber;
 	}
 
 	// Pre and post roll is now supported generically
@@ -211,7 +217,7 @@ UMovieSceneSection* UMovieSceneSubSection::SplitSection( FQualifiedFrameTime Spl
 		return nullptr;
 	}
 
-	FFrameNumber InitialStartOffset = Parameters.GetStartFrameOffset();
+	FFrameNumber InitialStartOffset = Parameters.StartFrameOffset;
 
 	UMovieSceneSubSection* NewSection = Cast<UMovieSceneSubSection>( UMovieSceneSection::SplitSection( SplitTime ) );
 	if ( NewSection )
@@ -236,12 +242,12 @@ UMovieSceneSection* UMovieSceneSubSection::SplitSection( FQualifiedFrameTime Spl
 
 			FFrameNumber LocalResolutionStartOffset = FFrameRate::TransformTime(SplitTime.Time.GetFrame() - MovieScene::DiscreteInclusiveLower(InitialRange), SplitTime.Rate, LocalTickResolution).FrameNumber;
 
-			FFrameNumber NewStartOffset = LocalResolutionStartOffset / Parameters.TimeScale;
+			FFrameNumber NewStartOffset = LocalResolutionStartOffset * Parameters.TimeScale;
 			NewStartOffset += InitialStartOffset;
 
 			if (NewStartOffset >= 0)
 			{
-				NewSection->Parameters.SetStartFrameOffset(NewStartOffset.Value);
+				NewSection->Parameters.StartFrameOffset = NewStartOffset.Value;
 			}
 		}
 
@@ -275,7 +281,7 @@ void UMovieSceneSubSection::TrimSection( FQualifiedFrameTime TrimTime, bool bTri
 		return;
 	}
 
-	FFrameNumber InitialStartOffset = Parameters.GetStartFrameOffset();
+	FFrameNumber InitialStartOffset = Parameters.StartFrameOffset;
 
 	UMovieSceneSection::TrimSection( TrimTime, bTrimLeft );
 
@@ -288,13 +294,13 @@ void UMovieSceneSubSection::TrimSection( FQualifiedFrameTime TrimTime, bool bTri
 		FFrameNumber LocalResolutionStartOffset = FFrameRate::TransformTime(TrimTime.Time.GetFrame() - MovieScene::DiscreteInclusiveLower(InitialRange), TrimTime.Rate, LocalTickResolution).FrameNumber;
 
 
-		FFrameNumber NewStartOffset = LocalResolutionStartOffset / Parameters.TimeScale;
+		FFrameNumber NewStartOffset = LocalResolutionStartOffset * Parameters.TimeScale;
 		NewStartOffset += InitialStartOffset;
 
 		// Ensure start offset is not less than 0
 		if (NewStartOffset >= 0)
 		{
-			Parameters.SetStartFrameOffset(NewStartOffset.Value);
+			Parameters.StartFrameOffset = NewStartOffset;
 		}
 	}
 }

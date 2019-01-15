@@ -28,6 +28,7 @@
 #include "Internationalization/Culture.h"
 #include "Modules/ModuleManager.h"
 
+#include "Apple/PreAppleSystemHeaders.h"
 #include <dlfcn.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/kext/KextManager.h>
@@ -41,6 +42,7 @@
 #include <libproc.h>
 #include <notify.h>
 #include <uuid/uuid.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 extern CORE_API bool GIsGPUCrashed;
 /*------------------------------------------------------------------------------
@@ -1906,7 +1908,7 @@ void ReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 	EnsureLock.Unlock();
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack, uint32 HungThreadId)
+void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId)
 {
 	EnsureLock.Lock();
 	if (!bReentranceGuard && FMacApplicationInfo::CrashReporter != nil)
@@ -1914,7 +1916,7 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
 		bReentranceGuard = true;
 
 		FMacCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
-		EnsureContext.SetPortableCallStack(Stack);
+		EnsureContext.SetPortableCallStack(StackFrames, NumStackFrames);
 		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
 
 		bReentranceGuard = false;

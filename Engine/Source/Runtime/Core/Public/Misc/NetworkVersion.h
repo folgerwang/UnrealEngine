@@ -39,6 +39,7 @@ enum EEngineNetworkVersionHistory
 	HISTORY_NEW_ACTOR_OVERRIDE_LEVEL = 5,			// Bump version since a level reference was added to the new actor information
 	HISTORY_CHANNEL_NAMES = 6,						// Bump version since channel type is now an fname
 	HISTORY_CHANNEL_CLOSE_REASON = 7,				// Bump version to serialize a channel close reason in bunches instead of bDormant
+	HISTORY_ACKS_INCLUDED_IN_HEADER = 8,			// Bump version since acks are now sent as part of the header
 };
 
 struct CORE_API FNetworkVersion

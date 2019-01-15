@@ -306,9 +306,9 @@ void UCanvasPanelSlot::SynchronizeProperties()
 
 #if WITH_EDITOR
 
-void UCanvasPanelSlot::PreEditChange(class FEditPropertyChain& PropertyAboutToChange)
+void UCanvasPanelSlot::PreEditChange(UProperty* PropertyThatWillChange)
 {
-	Super::PreEditChange(PropertyAboutToChange);
+	Super::PreEditChange(PropertyThatWillChange);
 
 	SaveBaseLayout();
 }

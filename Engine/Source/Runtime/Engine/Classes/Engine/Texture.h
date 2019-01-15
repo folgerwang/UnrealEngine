@@ -228,7 +228,7 @@ struct FTextureSource
 	FORCEINLINE void RemoveBulkData() { BulkData.RemoveBulkData(); }
 	
 	/** Sets the GUID to use, and whether that GUID is actually a hash of some data. */
-	void SetId(const FGuid& InId, bool bInGuidIsHash);
+	ENGINE_API void SetId(const FGuid& InId, bool bInGuidIsHash);
 #endif
 
 private:

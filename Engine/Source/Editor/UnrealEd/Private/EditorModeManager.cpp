@@ -916,9 +916,8 @@ bool FEditorModeTools::GetCursor(EMouseCursor::Type& OutCursor) const
 void FEditorModeTools::CycleWidgetMode (void)
 {
 	//make sure we're not currently tracking mouse movement.  If we are, changing modes could cause a crash due to referencing an axis/plane that is incompatible with the widget
-	for(int32 ViewportIndex = 0;ViewportIndex < GEditor->LevelViewportClients.Num();ViewportIndex++)
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ ViewportIndex ];
 		if (ViewportClient->IsTracking())
 		{
 			return;

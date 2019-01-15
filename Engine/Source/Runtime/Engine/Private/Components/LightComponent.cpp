@@ -951,6 +951,26 @@ void ULightComponent::SetIESTexture(UTextureLightProfile* NewValue)
 	}
 }
 
+void ULightComponent::SetUseIESBrightness(bool bNewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& bUseIESBrightness != bNewValue)
+	{
+		bUseIESBrightness = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponent::SetIESBrightnessScale(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& IESBrightnessScale != NewValue)
+	{
+		IESBrightnessScale = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
 void ULightComponent::SetShadowBias(float NewValue)
 {
 	if (AreDynamicDataChangesAllowed()

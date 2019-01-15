@@ -104,7 +104,7 @@ namespace AutomationTool.Tasks
 				{
 					if(!FileReference.Exists(FileList))
 					{
-						throw new BuildException("Specified file list '{0}' does not exist", FileList);
+						throw new AutomationException("Specified file list '{0}' does not exist", FileList);
 					}
 
 					string[] Lines = FileReference.ReadAllLines(FileList);

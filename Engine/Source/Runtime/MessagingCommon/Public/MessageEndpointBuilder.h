@@ -95,6 +95,12 @@ public:
 		return *this;
 	}
 
+	FMessageEndpointBuilder& NotificationHandling(FOnBusNotification&& InHandler)
+	{
+		OnNotification = MoveTemp(InHandler);
+		return *this;
+	}
+
 	/**
 	 * Configures the endpoint to receive messages on any thread.
 	 *
@@ -237,8 +243,13 @@ public:
 		
 		if (Bus.IsValid())
 		{
-			Endpoint = MakeShareable(new FMessageEndpoint(Name, Bus.ToSharedRef(), Handlers));
+			Endpoint = MakeShared<FMessageEndpoint, ESPMode::ThreadSafe>(Name, Bus.ToSharedRef(), Handlers, OnNotification);
 			Bus->Register(Endpoint->GetAddress(), Endpoint.ToSharedRef());
+
+			if (OnNotification.IsBound())
+			{
+				Bus->AddNotificationListener(Endpoint.ToSharedRef());
+			}
 
 			if (Disabled)
 			{
@@ -276,6 +287,9 @@ private:
 
 	/** Holds a flag indicating whether the endpoint should be disabled. */
 	bool Disabled;
+
+	/** Holds a delegate to invoke on disconnection event. */
+	FOnBusNotification OnNotification;
 
 	/** Holds the collection of message handlers to register. */
 	TArray<TSharedPtr<IMessageHandler, ESPMode::ThreadSafe>> Handlers;

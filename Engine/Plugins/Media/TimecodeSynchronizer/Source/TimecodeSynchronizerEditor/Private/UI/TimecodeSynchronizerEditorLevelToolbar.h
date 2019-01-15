@@ -28,7 +28,6 @@ private:
 
 	void AddObjectSubMenu(FMenuBuilder& MenuBuilder);
 	TSharedRef<SWidget> GenerateMenuContent();
-	FText GetMenuLabel();
 	void OpenCurrentTimecodeSynchronizer();
 	void CreateNewTimecodeSynchronizer();
 	void NewTimecodeSynchronizerSelected(const FAssetData& AssetData);

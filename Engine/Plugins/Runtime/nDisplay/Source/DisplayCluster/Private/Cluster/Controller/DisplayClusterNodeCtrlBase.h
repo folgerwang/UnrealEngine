@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPDisplayClusterNodeController.h"
+#include "Cluster/Controller/IPDisplayClusterNodeController.h"
 
 class FDisplayClusterClusterManager;
 

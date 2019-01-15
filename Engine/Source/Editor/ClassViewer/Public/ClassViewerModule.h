@@ -106,6 +106,9 @@ public:
 
 	/** true (the default) shows a background border behind the class viewer widget. */
 	bool bShowBackgroundBorder = true;
+
+	/** Defines additional classes you want listed in the "Common Classes" section for the picker. */
+	TArray<UClass*> ExtraPickerCommonClasses;
 public:
 
 	/** Constructor */

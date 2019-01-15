@@ -20,8 +20,11 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "MaterialShaderQualitySettings.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewport"
+
+#include "RHIShaderPlatformDefinitions.inl"
 
 SEditorViewport::SEditorViewport()
 	: LastTickTime(0)
@@ -682,5 +685,88 @@ EActiveTimerReturnType SEditorViewport::EnsureTick( double InCurrentTime, float 
 	bInvalidated = false;
 	return bShouldContinue ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// begin feature level control functions block
+///////////////////////////////////////////////////////////////////////////////
+EShaderPlatform SEditorViewport::GetShaderPlatformHelper(const ERHIFeatureLevel::Type FeatureLevel) const
+{
+	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
+	const FName& PreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
+
+	EShaderPlatform ShaderPlatform = ShaderFormatToLegacyShaderPlatform(PreviewPlatform);
+	if (ShaderPlatform == SP_NumPlatforms)
+	{
+		ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+	}
+
+	return ShaderPlatform;
+}
+
+TSharedRef<SWidget> SEditorViewport::BuildFeatureLevelWidget() const
+{
+	TSharedRef<SWidget> BoxWidget = SNew(SHorizontalBox)
+		.Visibility(this, &SEditorViewport::GetCurrentFeatureLevelPreviewTextVisibility)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 1.0f, 2.0f, 1.0f)
+		[
+			SNew(STextBlock)
+			.Text(this, &SEditorViewport::GetCurrentFeatureLevelPreviewText, true)
+		.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
+		.ShadowOffset(FVector2D(1, 1))
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(4.0f, 1.0f, 2.0f, 1.0f)
+		[
+			SNew(STextBlock)
+			.Text(this, &SEditorViewport::GetCurrentFeatureLevelPreviewText, false)
+			.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
+			.ColorAndOpacity(FLinearColor(0.4f, 1.0f, 1.0f))
+			.ShadowOffset(FVector2D(1, 1))
+		];
+
+	return BoxWidget;
+}
+
+EVisibility SEditorViewport::GetCurrentFeatureLevelPreviewTextVisibility() const
+{
+	if (GetWorld())
+	{
+		return (GetWorld()->FeatureLevel != GMaxRHIFeatureLevel) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
+}
+
+FText SEditorViewport::GetCurrentFeatureLevelPreviewText(bool bDrawOnlyLabel) const
+{
+	FText LabelName;
+
+	if (bDrawOnlyLabel)
+	{
+		LabelName = LOCTEXT("FeatureLevelLabel", "Feature Level:");
+	}
+	else
+	{
+		UWorld* World = GetWorld();
+		if (World != nullptr)
+		{
+			ERHIFeatureLevel::Type TargetFeatureLevel = World->FeatureLevel;
+			EShaderPlatform ShaderPlatform = GetShaderPlatformHelper(TargetFeatureLevel);
+			const FText& PlatformText = GetFriendlyShaderPlatformName(ShaderPlatform);
+			LabelName = FText::Format(LOCTEXT("WorldFeatureLevel", "{0}"), PlatformText);
+		}
+	}
+
+	return LabelName;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// end feature level control functions block
+///////////////////////////////////////////////////////////////////////////////
 
 #undef LOCTEXT_NAMESPACE

@@ -156,9 +156,9 @@ const TCHAR* FMallocReplayProxy::GetDescriptiveName()
 	return UsedMalloc->GetDescriptiveName();
 }
 
-void FMallocReplayProxy::Trim()
+void FMallocReplayProxy::Trim(bool bTrimThreadCaches)
 {
-	UsedMalloc->Trim();
+	UsedMalloc->Trim(bTrimThreadCaches);
 }
 
 void FMallocReplayProxy::SetupTLSCachesOnCurrentThread()

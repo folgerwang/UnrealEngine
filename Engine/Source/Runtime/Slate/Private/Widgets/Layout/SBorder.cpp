@@ -30,10 +30,26 @@ void SBorder::Construct( const SBorder::FArguments& InArgs )
 	BorderImage = InArgs._BorderImage;
 	BorderBackgroundColor = InArgs._BorderBackgroundColor;
 	ForegroundColor = InArgs._ForegroundColor;
-	SetOnMouseButtonDown(InArgs._OnMouseButtonDown);
-	SetOnMouseButtonUp(InArgs._OnMouseButtonUp);
-	SetOnMouseMove(InArgs._OnMouseMove);
-	SetOnMouseDoubleClick(InArgs._OnMouseDoubleClick);
+
+	if (InArgs._OnMouseButtonDown.IsBound())
+	{
+		SetOnMouseButtonDown(InArgs._OnMouseButtonDown);
+	}
+
+	if (InArgs._OnMouseButtonUp.IsBound())
+	{
+		SetOnMouseButtonUp(InArgs._OnMouseButtonUp);
+	}
+
+	if (InArgs._OnMouseMove.IsBound())
+	{
+		SetOnMouseMove(InArgs._OnMouseMove);
+	}
+
+	if (InArgs._OnMouseDoubleClick.IsBound())
+	{
+		SetOnMouseDoubleClick(InArgs._OnMouseDoubleClick);
+	}
 
 	ChildSlot
 	.HAlign(InArgs._HAlign)

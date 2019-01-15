@@ -295,7 +295,15 @@ namespace Audio
 		NewTaskData.bLoopingMode = LoopingMode != LOOP_Never;
 		NewTaskData.bSkipFirstBuffer = (BufferReadMode == EBufferReadMode::AsynchronousSkipFirstFrame);
 		NewTaskData.NumFramesToDecode = MONO_PCM_BUFFER_SAMPLES;
-		NewTaskData.NumPrecacheFrames = SoundWave->NumPrecacheFrames;
+
+		if (SoundWave)
+		{
+			NewTaskData.NumPrecacheFrames = SoundWave->NumPrecacheFrames;
+		}
+		else
+		{
+			NewTaskData.NumPrecacheFrames = MONO_PCM_BUFFER_SAMPLES;
+		}
 
 		check(!AsyncRealtimeAudioTask);
 		AsyncRealtimeAudioTask = CreateAudioTask(NewTaskData);

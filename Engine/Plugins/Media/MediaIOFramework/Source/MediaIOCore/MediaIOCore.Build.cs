@@ -12,6 +12,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
+					"ImageWriteQueue",
 					"Media",
 					"MediaAssets",
 					"MediaUtils",
@@ -26,6 +27,13 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
+				});
+				
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "RenderCore",
+                    "UtilityShaders",
 				});
 
 			if (Target.bBuildEditor == true)

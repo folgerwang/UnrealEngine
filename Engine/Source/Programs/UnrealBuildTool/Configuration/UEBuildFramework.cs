@@ -5,62 +5,64 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// 
+	/// Represents a Mac/IOS framework
 	/// </summary>
-	public class UEBuildFramework
+	class UEBuildFramework
 	{
 		/// <summary>
+		/// The name of this framework
+		/// </summary>
+		public readonly string Name;
+
+		/// <summary>
+		/// Path to a zip file containing the framework. May be null.
+		/// </summary>
+		public readonly FileReference ZipFile;
+
+		/// <summary>
+		/// Path to the extracted framework directory.
+		/// </summary>
+		public readonly DirectoryReference OutputDirectory;
+
+		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		public UEBuildFramework(string InFrameworkName)
+		public readonly string CopyBundledAssets;
+
+		/// <summary>
+		/// File created after the framework has been extracted. Used to add dependencies into the action graph.
+		/// </summary>
+		public FileItem ExtractedTokenFile;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Name">The framework name</param>
+		/// <param name="CopyBundledAssets"></param>
+		public UEBuildFramework(string Name, string CopyBundledAssets = null)
 		{
-			FrameworkName = InFrameworkName;
+			this.Name = Name;
+			this.CopyBundledAssets = CopyBundledAssets;
 		}
 
 		/// <summary>
-		/// 
+		/// Constructor
 		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		/// <param name="InFrameworkZipPath"></param>
-		public UEBuildFramework(string InFrameworkName, string InFrameworkZipPath)
+		/// <param name="Name">The framework name</param>
+		/// <param name="ZipFile">Path to the zip file for this framework</param>
+		/// <param name="OutputDirectory">Path for the extracted zip file</param>
+		/// <param name="CopyBundledAssets"></param>
+		public UEBuildFramework(string Name, FileReference ZipFile, DirectoryReference OutputDirectory, string CopyBundledAssets)
 		{
-			FrameworkName = InFrameworkName;
-			FrameworkZipPath = InFrameworkZipPath;
+			this.Name = Name;
+			this.ZipFile = ZipFile;
+			this.OutputDirectory = OutputDirectory;
+			this.CopyBundledAssets = CopyBundledAssets;
 		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		/// <param name="InFrameworkZipPath"></param>
-		/// <param name="InCopyBundledAssets"></param>
-		public UEBuildFramework(string InFrameworkName, string InFrameworkZipPath, string InCopyBundledAssets)
-		{
-			FrameworkName = InFrameworkName;
-			FrameworkZipPath = InFrameworkZipPath;
-			CopyBundledAssets = InCopyBundledAssets;
-		}
-
-		internal UEBuildModule OwningModule = null;
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string FrameworkName = null;
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string FrameworkZipPath = null;
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string CopyBundledAssets = null;
 	}
 }

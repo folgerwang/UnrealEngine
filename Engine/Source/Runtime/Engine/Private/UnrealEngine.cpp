@@ -244,8 +244,8 @@ void FEngineModule::StartupModule()
 	extern const FString GetMapNameStatic();
 	GGetMapNameDelegate.BindStatic(&GetMapNameStatic);
 
-	static auto CVarCacheWPOPrimitives = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.CacheWPOPrimitives"));
-	CVarCacheWPOPrimitives->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
+	static IConsoleVariable* CacheWPOPrimitivesVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.CacheWPOPrimitives"));
+	CacheWPOPrimitivesVar->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
 
 	SuspendTextureStreamingRenderTasks = &SuspendTextureStreamingRenderTasksInternal;
 	ResumeTextureStreamingRenderTasks = &ResumeTextureStreamingRenderTasksInternal;
@@ -5342,7 +5342,7 @@ bool UEngine::HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 			NumKeys = AnimSeq->GetRawNumberOfFrames();
 			SequenceLength = AnimSeq->GetPlayLength();
 			RateScale = AnimSeq->RateScale;
-			NumCurves = AnimSeq->CompressedCurveData.FloatCurves.Num();
+			NumCurves = AnimSeq->RawCurveData.FloatCurves.Num();
 
 			TranslationFormat = FAnimationUtils::GetAnimationCompressionFormatString(AnimSeq->TranslationCompressionFormat);
 			RotationFormat = FAnimationUtils::GetAnimationCompressionFormatString(AnimSeq->RotationCompressionFormat);

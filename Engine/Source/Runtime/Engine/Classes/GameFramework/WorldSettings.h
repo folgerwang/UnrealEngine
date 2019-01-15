@@ -870,23 +870,28 @@ public:
 	class UBookmarkBase* GetOrAddBookmark(const uint32 BookmarkIndex, const bool bRecreateOnClassMismatch);
 
 	/**
+	 * Creates and adds a new bookmark of a different class.
+	 *
+	 * When the bookmark's class is not of the same class as the default bookmark class, the bookmark
+	 * will be removed on the next update.
+	 * This will fail if we've overrun MaxNumberOfBookmarks.
+	 *
+	 * @param	BookmarkClass	Class of the new bookmark.
+	 * @param	bExpandIfNecessary	Will increase MaxNumberOfBookmarks if there's not enough add another.
+	 *
+	 * @return	The bookmark that was created.
+	 *			Will be nullptr on failure.
+	 */
+	class UBookmarkBase* AddBookmark(const TSubclassOf<UBookmarkBase> BookmarkClass, const bool bExpandIfNecessary);
+
+	/**
 	 * Clears the reference to the bookmark from the specified index.
 	 */
-	void ClearBookmark(const uint32 BookmarkIndex)
-	{
-		if (BookmarkArray.IsValidIndex(BookmarkIndex))
-		{
-			BookmarkArray[BookmarkIndex] = nullptr;
-		}
-	}
+	void ClearBookmark(const uint32 BookmarkIndex);
 
 	/**
 	 * Clears all references to current bookmarks.
 	 */
-	void ClearAllBookmarks()
-	{
-		BookmarkArray.Reset();
-		BookmarkArray.SetNumZeroed(MaxNumberOfBookmarks);
-	}
+	void ClearAllBookmarks();
 };
 

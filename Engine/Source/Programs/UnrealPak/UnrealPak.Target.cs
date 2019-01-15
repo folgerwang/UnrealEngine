@@ -11,12 +11,10 @@ public class UnrealPakTarget : TargetRules
 		LinkType = TargetLinkType.Modular;
 		LaunchModuleName = "UnrealPak";
 
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 		bCompileWithPluginSupport = true;
 
-		// No editor needed
-		bBuildEditor = false;
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = true;
 

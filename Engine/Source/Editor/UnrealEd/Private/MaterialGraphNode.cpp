@@ -590,6 +590,10 @@ void UMaterialGraphNode::CreateOutputPins()
 				{
 					PinSubCategory = UMaterialGraphSchema::PSC_Alpha;
 				}
+				else if (ExpressionOutput.MaskR && ExpressionOutput.MaskG && ExpressionOutput.MaskB &&  ExpressionOutput.MaskA)
+				{
+					PinSubCategory = UMaterialGraphSchema::PSC_RGBA;
+				}
 			}
 		}
 

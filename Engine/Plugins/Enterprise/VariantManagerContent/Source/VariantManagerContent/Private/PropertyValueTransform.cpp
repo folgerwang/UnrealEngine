@@ -10,9 +10,73 @@
 #define LOCTEXT_NAMESPACE "PropertyValueTransform"
 
 
-UPropertyValueTransform::UPropertyValueTransform(const FObjectInitializer& Init)
-	: Super(Init)
+UPropertyValueTransform::UPropertyValueTransform(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
+}
+
+FVector UPropertyValueTransform::GetLocation()
+{
+	if (HasRecordedData() && PropCategory == EPropertyValueCategory::RelativeLocation)
+	{
+		FVector Value = *(FVector*)ValueBytes.GetData();
+		return Value;
+	}
+	else
+	{
+		return FVector();
+	}
+}
+
+FQuat UPropertyValueTransform::GetRotation()
+{
+	if (HasRecordedData() && PropCategory == EPropertyValueCategory::RelativeRotation)
+	{
+		FRotator Value = *(FRotator*)(ValueBytes.GetData());
+		return Value.Quaternion();
+	}
+	else
+	{
+		return FQuat();
+	}
+}
+
+FVector UPropertyValueTransform::GetScale3D()
+{
+	if (HasRecordedData() && PropCategory == EPropertyValueCategory::RelativeScale3D)
+	{
+		FVector Value = *(FVector*)ValueBytes.GetData();
+		return Value;
+	}
+	else
+	{
+		return FVector();
+	}
+}
+
+void UPropertyValueTransform::SetLocation(const FVector& NewValue)
+{
+	if (PropCategory == EPropertyValueCategory::RelativeLocation)
+	{
+		SetRecordedData((uint8*)&NewValue, sizeof(FVector));
+	}
+}
+
+void UPropertyValueTransform::SetRotation(const FQuat& NewValue)
+{
+	if (PropCategory == EPropertyValueCategory::RelativeRotation)
+	{
+		FRotator Rot = NewValue.Rotator();
+		SetRecordedData((uint8*)&Rot, sizeof(FRotator));
+	}
+}
+
+void UPropertyValueTransform::SetScale3D(const FVector& NewValue)
+{
+	if (PropCategory == EPropertyValueCategory::RelativeScale3D)
+	{
+		SetRecordedData((uint8*)&NewValue, sizeof(FVector));
+	}
 }
 
 void UPropertyValueTransform::ApplyDataToResolvedObject()

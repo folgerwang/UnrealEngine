@@ -35,10 +35,12 @@
 	#include <psapi.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <cxxabi.h>
+#include "Apple/PostAppleSystemHeaders.h"
 #include "Apple/ApplePlatformSymbolication.h"
 #endif
 #include "Framework/Notifications/NotificationManager.h"

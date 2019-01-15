@@ -2316,6 +2316,8 @@ void UAssetRegistryImpl::UpdateAssetData(FAssetData* AssetData, const FAssetData
 	}
 
 	State.UpdateAssetData(AssetData, NewAssetData);
+	
+	AssetUpdatedEvent.Broadcast(*AssetData);
 }
 
 bool UAssetRegistryImpl::RemoveAssetData(FAssetData* AssetData)

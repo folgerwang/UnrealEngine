@@ -17,7 +17,6 @@
 #include "DisplayClusterPlayerController.h"
 #include "DisplayClusterHUD.h"
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 #if WITH_EDITOR

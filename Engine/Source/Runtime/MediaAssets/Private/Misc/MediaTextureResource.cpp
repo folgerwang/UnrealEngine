@@ -9,6 +9,7 @@
 #include "IMediaPlayer.h"
 #include "IMediaSamples.h"
 #include "IMediaTextureSample.h"
+#include "IMediaTextureSampleConverter.h"
 #include "MediaPlayerFacade.h"
 #include "MediaSampleSource.h"
 #include "MediaShaders.h"
@@ -70,6 +71,9 @@ namespace MediaTextureResource
 		case EMediaTextureSampleFormat::CharBGR10A2:
 			return PF_A2B10G10R10;
 
+		case EMediaTextureSampleFormat::YUVv210:
+			return PF_R32G32B32A32_UINT;
+
 		default:
 			return PF_Unknown;
 		}
@@ -81,6 +85,7 @@ namespace MediaTextureResource
 		switch (Sample->GetFormat())
 		{
 		case EMediaTextureSampleFormat::CharBGR10A2:
+		case EMediaTextureSampleFormat::YUVv210:
 			return PF_A2B10G10R10;
 
 		default:
@@ -225,6 +230,25 @@ void FMediaTextureResource::Render(const FRenderParams& Params)
 #endif
 
 				ClearTexture(FLinearColor::Red, Params.SrgbOutput); // mark corrupt sample
+			}
+			else if (Sample->GetMediaTextureSampleConverter())
+			{
+				
+				CreateOutputRenderTarget(Sample, Params);
+#if MEDIATEXTURERESOURCE_TRACE_RENDER
+				const bool bDecoded = Sample->GetMediaTextureSampleConverter()->Convert(RenderTargetTextureRHI);
+				if (bDecoded == false)
+				{
+					UE_LOG(LogMediaAssets, VeryVerbose, TEXT("TextureResource %p: Unable to decode video sample using hardware acceleration with time %s at time %s"),
+						this,
+						*Sample->GetTime().ToString(TEXT("%h:%m:%s.%t")),
+						*Params.Time.ToString(TEXT("%h:%m:%s.%t"))
+					);
+				}
+#else
+				Sample->GetMediaTextureSampleConverter()->Convert(RenderTargetTextureRHI);
+#endif
+
 			}
 			else if (MediaTextureResource::RequiresConversion(Sample, Params.SrgbOutput))
 			{
@@ -615,6 +639,15 @@ void FMediaTextureResource::ConvertSample(const TSharedPtr<IMediaTextureSample, 
 			}
 			break;
 
+			case EMediaTextureSampleFormat::YUVv210:
+			{
+				TShaderMapRef<FYUVv210ConvertPS> ConvertShader(ShaderMap);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
+				SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
+				ConvertShader->SetParameters(CommandList, InputTexture, OutputDim, MediaShaders::YuvToSrgbDefault, Sample->IsOutputSrgb());
+			}
+			break;
+
 			case EMediaTextureSampleFormat::CharBGR10A2:
 			{
 				TShaderMapRef<FRGBConvertPS> ConvertShader(ShaderMap);
@@ -755,3 +788,43 @@ void FMediaTextureResource::UpdateTextureReference(FRHITexture2D* NewTexture)
 		OwnerDim = FIntPoint::ZeroValue;
 	}
 }
+
+void FMediaTextureResource::CreateOutputRenderTarget(const TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe>& InSample, const FRenderParams& InParams)
+{
+	// create output render target if necessary
+	const uint32 OutputCreateFlags = TexCreate_Dynamic | (InParams.SrgbOutput ? TexCreate_SRGB : 0);
+	const FIntPoint OutputDim = InSample->GetOutputDim();
+	const EPixelFormat OutputPixelFormat = MediaTextureResource::GetConvertedPixelFormat(InSample);
+
+	if ((InParams.ClearColor != CurrentClearColor) || !OutputTarget.IsValid() || (OutputTarget->GetSizeXY() != OutputDim) || (OutputTarget->GetFormat() != OutputPixelFormat) || ((OutputTarget->GetFlags() & OutputCreateFlags) != OutputCreateFlags))
+	{
+		TRefCountPtr<FRHITexture2D> DummyTexture2DRHI;
+
+		FRHIResourceCreateInfo CreateInfo = {
+			FClearValueBinding(InParams.ClearColor)
+		};
+
+		RHICreateTargetableShaderResource2D(
+			OutputDim.X,
+			OutputDim.Y,
+			OutputPixelFormat,
+			1,
+			OutputCreateFlags,
+			TexCreate_RenderTargetable,
+			false,
+			CreateInfo,
+			OutputTarget,
+			DummyTexture2DRHI
+		);
+
+		CurrentClearColor = InParams.ClearColor;
+		UpdateResourceSize();
+	}
+
+	if (RenderTargetTextureRHI != OutputTarget)
+	{
+		UpdateTextureReference(OutputTarget);
+	}
+}
+
+
